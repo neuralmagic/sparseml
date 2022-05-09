@@ -183,6 +183,27 @@ class DataTrainingArguments:
         default=None,
         metadata={"help": "A csv or a json file containing the test data."},
     )
+    input_column_names: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": (
+                "name of column to read model input data from. May also be comma "
+                "separated list of two columns to use as inputs. Examples include "
+                "'sentence' for single column and 'sentence_1,sentence_2' for two. "
+                "Default behavior is to read columns based on task name or infer from "
+                "non 'label' columns if sentence_column_names and task name not"
+                "provided"
+            )
+        },
+    )
+    label_column_name: str = field(
+        default="label",
+        metadata={
+            "help": (
+                "column in dataset where input labels are located. Default is 'label'"
+            )
+        },
+    )
 
     def __post_init__(self):
         if self.task_name is not None:
@@ -395,23 +416,24 @@ def main():
     # https://huggingface.co/docs/datasets/loading_datasets.html.
 
     # Labels
+    label_column = data_args.label_column_name
     if data_args.task_name is not None:
         is_regression = data_args.task_name == "stsb"
         if not is_regression:
-            label_list = raw_datasets["train"].features["label"].names
+            label_list = raw_datasets["train"].features[label_column].names
             num_labels = len(label_list)
         else:
             num_labels = 1
     else:
         # Trying to have good defaults here, don't hesitate to tweak to your needs.
-        is_regression = raw_datasets["train"].features["label"].dtype in [
+        is_regression = raw_datasets["train"].features[label_column].dtype in [
             "float32",
             "float64",
         ]
         if is_regression:
             num_labels = 1
         else:
-            label_list = raw_datasets["train"].unique("label")
+            label_list = raw_datasets["train"].unique(label_column)
             label_list.sort()  # Let's sort it for determinism
             num_labels = len(label_list)
 
@@ -464,13 +486,27 @@ def main():
     )
 
     # Preprocessing the datasets
-    if data_args.task_name is not None:
+    if data_args.input_column_names is not None:
+        if "," in data_args.input_column_names:
+            # two input columns
+            columns = data_args.input_column_names.split(",")
+            if len(columns) != 2:
+                raise ValueError(
+                    "input_column_names may only specify up to two columns "
+                    f"{len(columns)} provided: {columns}"
+                )
+            sentence1_key, sentence2_key = columns
+        else:
+            # one input column
+            sentence1_key = data_args.input_column_names
+            sentence2_key = None
+    elif data_args.task_name is not None:
         sentence1_key, sentence2_key = _TASK_TO_KEYS[data_args.task_name]
     else:
         # Again, we try to have some nice defaults but don't hesitate to tweak to your
         # use case
         non_label_column_names = [
-            name for name in raw_datasets["train"].column_names if name != "label"
+            name for name in raw_datasets["train"].column_names if name != label_column
         ]
         if (
             "sentence1" in non_label_column_names
@@ -543,10 +579,10 @@ def main():
         )
 
         # Map labels to IDs (not necessary for GLUE tasks)
-        if label_to_id is not None and "label" in examples:
-            result["label"] = [
+        if label_to_id is not None and label_column in examples:
+            result[label_column] = [
                 (label_to_id[label] if label != -1 else -1)
-                for label in examples["label"]
+                for label in examples[label_column]
             ]
         return result
 
@@ -639,6 +675,7 @@ def main():
         recipe_args=data_args.recipe_args,
         teacher=teacher,
         args=training_args,
+        data_args=data_args,
         train_dataset=train_dataset if training_args.do_train else None,
         eval_dataset=eval_dataset if training_args.do_eval else None,
         tokenizer=tokenizer,
@@ -711,7 +748,7 @@ def main():
         for predict_dataset, task in zip(predict_datasets, tasks):
             # Removing the `label` columns because it contains -1 and Trainer will
             # not like that
-            predict_dataset = predict_dataset.remove_columns("label")
+            predict_dataset = predict_dataset.remove_columns(label_column)
             predictions = trainer.predict(
                 predict_dataset, metric_key_prefix="predict"
             ).predictions

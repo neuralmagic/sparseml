@@ -162,6 +162,18 @@ class BaseLogger(ABC):
         """
         return False
 
+    def save(
+        self,
+        file_path: str,
+        **kwargs,
+    ) -> bool:
+        """
+        :param file_path: path to a file to be saved
+        :param kwargs: additional arguments that a specific logger might use
+        :return: True if saved, False otherwise
+        """
+        return False
+
 
 class LambdaLogger(BaseLogger):
     """
@@ -369,7 +381,7 @@ class PythonLogger(LambdaLogger):
         :return: True if logged, False otherwise.
         """
         if not level:
-            level = self._log_level
+            level = LOGGING_LEVELS["debug"]
 
         if level > LOGGING_LEVELS["debug"]:
             format = "%s %s step %s: %s"
@@ -551,6 +563,16 @@ class WANDBLogger(LambdaLogger):
 
         wandb.log(params, step=step)
 
+        return True
+
+    def save(
+        self,
+        file_path: str,
+    ) -> bool:
+        """
+        :param file_path: path to a file to be saved
+        """
+        wandb.save(file_path)
         return True
 
 
@@ -890,3 +912,16 @@ class LoggerManager(ABC):
         for log in self._loggers:
             if log.enabled and (log_types == ALL_TOKEN or log.name in log_types):
                 log.log_hyperparams(params, level)
+
+    def save(
+        self,
+        file_path: str,
+        **kwargs,
+    ):
+        """
+        :param file_path: path to a file to be saved
+        :param kwargs: additional arguments that a specific logger might use
+        """
+        for log in self._loggers:
+            if log.enabled:
+                log.save(file_path, **kwargs)
