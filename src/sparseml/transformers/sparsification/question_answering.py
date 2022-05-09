@@ -182,6 +182,7 @@ class QuestionAnsweringTrainer(TrainerInterface, _QuestionAnsweringTrainer):
         learning rate or num epochs
     :param metadata_args A list of arguments to be extracted from training_args
         and passed as metadata for the final, saved recipe.
+    :param data_args: A list of arguments for dataset specification.
     :param teacher: teacher model for distillation. Set to 'self' to distill
         from the loaded model or 'disable' to turn of distillation
     :param kwargs: key word arguments passed to the parent class
@@ -194,6 +195,7 @@ class QuestionAnsweringTrainer(TrainerInterface, _QuestionAnsweringTrainer):
         recipe: str,
         recipe_args: Optional[Union[Dict[str, Any], str]] = None,
         metadata_args: Optional[List[str]] = None,
+        data_args: Optional[List[str]] = None,
         teacher: Optional[Module] = None,
         **kwargs,
     ):
@@ -203,6 +205,7 @@ class QuestionAnsweringTrainer(TrainerInterface, _QuestionAnsweringTrainer):
             recipe=recipe,
             recipe_args=recipe_args,
             metadata_args=metadata_args,
+            data_args=data_args,
             teacher=teacher,
             **kwargs,
         )
