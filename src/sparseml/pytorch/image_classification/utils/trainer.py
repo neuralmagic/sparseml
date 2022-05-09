@@ -77,10 +77,12 @@ class ImageClassificationTrainer(Trainer):
     :param loss_fn: A Callable loss function for training and validation
         losses.
     :param init_lr: The initial learning rate for the optimizer.Defaults to
-        1e-9
+        1e-9.
     :param optim_name: str representing the optimizer type to use.
         Defaults to `Adam`.
     :param optim_kwargs: dict of additional kwargs to pass to the optimizer.
+    :param recipe_args: json parsable dict of recipe variable names to values
+        to overwrite with.
     """
 
     def __init__(
@@ -88,6 +90,8 @@ class ImageClassificationTrainer(Trainer):
         model: torch.nn.Module,
         key: str,
         recipe_path: str,
+        metadata: Optional[Dict[str, Any]] = None,
+        checkpoint_path: Optional[str] = None,
         ddp: bool = False,
         device: str = default_device(),
         use_mixed_precision: bool = False,
@@ -99,11 +103,14 @@ class ImageClassificationTrainer(Trainer):
         init_lr=1e-9,
         optim_name="Adam",
         optim_kwargs: Optional[Dict[str, Any]] = None,
+        recipe_args: Optional[str] = None,
     ):
         """
         Initializes the module_trainer.
         """
         self.recipe_path = recipe_path
+        self.metadata = metadata
+        self.checkpoint_path = checkpoint_path
         self.ddp = ddp
         self.is_main_process = is_main_process
         self.optim_kwargs = optim_kwargs or {}
@@ -115,6 +122,7 @@ class ImageClassificationTrainer(Trainer):
         self.val_loader = val_loader
         self.train_loader = train_loader
         self.loggers = loggers
+        self.recipe_args = recipe_args
 
         self.val_loss = loss_fn()
         _LOGGER.info(f"created loss for validation: {self.val_loss}")
@@ -136,6 +144,10 @@ class ImageClassificationTrainer(Trainer):
             self.module_trainer = self._initialize_module_trainer()
         else:
             self.optim = self.manager = self.module_trainer = None
+
+        self.checkpoint_manager = (
+            self._setup_checkpoint_manager() if self.checkpoint_path else None
+        )
 
         if self.val_loader is not None:
             self.module_tester = self._initialize_module_tester()
@@ -218,6 +230,8 @@ class ImageClassificationTrainer(Trainer):
 
         manager = ScheduledModifierManager.from_yaml(
             file_path=self.recipe_path,
+            recipe_variables=self.recipe_args,
+            metadata=self.metadata,
         )
 
         optim = ScheduledOptimizer(
@@ -283,3 +297,11 @@ class ImageClassificationTrainer(Trainer):
             max_steps=max_steps,
             show_progress=self.is_main_process,
         )
+
+    def _setup_checkpoint_manager(self):
+        checkpoint_state = torch.load(self.checkpoint_path)
+        checkpoint_manager = None
+        checkpoint_recipe = checkpoint_state.get("recipe")
+        if checkpoint_recipe:
+            checkpoint_manager = ScheduledModifierManager.from_yaml(checkpoint_recipe)
+        return checkpoint_manager
