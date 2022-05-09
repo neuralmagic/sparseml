@@ -18,7 +18,7 @@ Callbacks and Utilities for CLI
 
 import json
 import os
-from typing import Dict, Tuple
+from typing import Any, Dict, Tuple
 
 import click
 
@@ -28,6 +28,7 @@ __all__ = [
     "create_dir_callback",
     "OptionEatAllArguments",
     "parse_into_tuple_of_ints",
+    "parameters_to_dict",
 ]
 
 
@@ -71,6 +72,19 @@ def parse_into_tuple_of_ints(ctx, params, value) -> Tuple[int, ...]:
     if not value:
         return ()
     return tuple(int(element) for element in eval(value))
+
+
+@click.pass_context
+def parameters_to_dict(ctx) -> Dict[str, Any]:
+    """
+    Grab all the click parameters as a dict
+    (where keys are parameter names and values are parameter values).
+
+    :param ctx: The click context
+    :return: Dictionary containing parameter names and values
+    """
+    parameters = ctx.params
+    return parameters
 
 
 class OptionEatAllArguments(click.Option):

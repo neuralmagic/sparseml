@@ -243,6 +243,7 @@ class ModuleExporter(object):
     def export_pytorch(
         self,
         optimizer: Optional[Optimizer] = None,
+        recipe: Optional[str] = None,
         epoch: Optional[int] = None,
         name: str = "model.pth",
         use_zipfile_serialization_if_available: bool = True,
@@ -255,6 +256,7 @@ class ModuleExporter(object):
         pytorch framework directory.
 
         :param optimizer: optional optimizer to export along with the module
+        :param recipe: the recipe used to obtain the model
         :param epoch: optional epoch to export along with the module
         :param name: name of the pytorch file to save
         :param use_zipfile_serialization_if_available: for torch >= 1.6.0 only
@@ -277,6 +279,7 @@ class ModuleExporter(object):
                 pth_path,
                 self._module,
                 optimizer,
+                recipe,
                 epoch,
                 use_zipfile_serialization_if_available=(
                     use_zipfile_serialization_if_available
