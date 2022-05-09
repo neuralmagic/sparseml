@@ -186,6 +186,14 @@ from sparseml.pytorch.utils import default_device, get_prunable_layers, tensor_s
 
 CURRENT_TASK = helpers.Tasks.TRAIN
 LOGGER = get_main_logger()
+METADATA_ARGS = [
+    "arch_key",
+    "dataset",
+    "device",
+    "pretrained",
+    "test_batch_size",
+    "train_batch_size",
+]
 
 
 @click.command()
@@ -558,12 +566,18 @@ def main(
         rank=rank,
     )
 
+    metadata = helpers.extract_metadata(
+        metadata_args=METADATA_ARGS, training_args_dict=cli_helpers.parameters_to_dict()
+    )
+
     LOGGER.info(f"running on device {device}")
 
     trainer = ImageClassificationTrainer(
         model=model,
         key=arch_key,
         recipe_path=recipe_path,
+        checkpoint_path=checkpoint_path,
+        metadata=metadata,
         ddp=ddp,
         device=device,
         use_mixed_precision=use_mixed_precision,
@@ -622,7 +636,6 @@ def train(
     )
 
     if not eval_mode:
-        helpers.save_recipe(recipe_manager=trainer.manager, save_dir=save_dir)
         LOGGER.info(f"Starting training from epoch {trainer.epoch}")
 
         val_metric = best_metric = val_res = None
@@ -653,6 +666,8 @@ def train(
                     helpers.save_model_training(
                         model=trainer.model,
                         optim=trainer.optim,
+                        manager=trainer.manager,
+                        checkpoint_manager=trainer.checkpoint_manager,
                         save_name="checkpoint-best",
                         save_dir=save_dir,
                         epoch=trainer.epoch,
@@ -675,6 +690,8 @@ def train(
                 helpers.save_model_training(
                     model=trainer.model,
                     optim=trainer.optim,
+                    manager=trainer.manager,
+                    checkpoint_manager=trainer.checkpoint_manager,
                     save_name=save_name,
                     save_dir=save_dir,
                     epoch=trainer.epoch,
@@ -691,6 +708,8 @@ def train(
             helpers.save_model_training(
                 model=trainer.model,
                 optim=trainer.optim,
+                manager=trainer.manager,
+                checkpoint_manager=trainer.checkpoint_manager,
                 save_name="model",
                 save_dir=save_dir,
                 epoch=trainer.epoch - 1,
