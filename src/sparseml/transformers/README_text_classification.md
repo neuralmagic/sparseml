@@ -7,7 +7,7 @@ The sparse model can be eventually deployed to Neural Magic's DeepSparse Engine.
 
 This integration enables spinning up one of the following end-to-end functionalities:
 - **Sparsification of Popular Transformer Models** - easily sparsify any of the popular Hugging Face transformer models. 
-- **Sparse Transfer Learning** - fine-tune a sparse backbone model (or use one of our [sparse pre-trained models](https://sparsezoo.neuralmagic.com/?page=1&domain=nlp&sub_domain=question_answering)) on your own, private dataset.
+- **Sparse Transfer Learning** - fine-tune a sparse backbone model (or use one of our [sparse pre-trained models](https://sparsezoo.neuralmagic.com/?domain=nlp&sub_domain=text_classification)) on your own, private dataset.
 
 ## Installation
 
