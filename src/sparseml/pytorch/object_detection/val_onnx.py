@@ -156,10 +156,11 @@ def get_stride(model_path, image_shape=(640, 640)) -> int:
         for index in range(1, len(model.graph.output))
     )
 
-    strides = [
-        image_shape[0] // grid_shape for grid_shape in grid_shapes
-    ]
-    return strides
+    strides = (
+        image_shape[0] // grid_shape
+        for grid_shape in grid_shapes
+    )
+    return max(strides)
 
 
 @torch.no_grad()
