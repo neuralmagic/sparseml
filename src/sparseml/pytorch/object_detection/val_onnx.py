@@ -35,7 +35,7 @@ try:
 except Exception as deepsparse_error:
     raise RuntimeError(
         "Unable to import Pipeline from deepsparse"
-        f"DeepSparse>=12.1 must be installed {deepsparse_error}"
+        f"DeepSparse>=13 must be installed {deepsparse_error}"
     )
 
 
