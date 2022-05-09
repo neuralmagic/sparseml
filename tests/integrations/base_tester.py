@@ -78,15 +78,12 @@ class BaseIntegrationTester:
     }
 
     @pytest.fixture(
-        scope="class",
-        # Iterate over configs with the matching cadence (default commit)
-        params=get_configs_with_cadence(
-            os.environ.get("NM_TEST_CADENCE", "commit"), os.path.dirname(__file__)
-        ),
+    scope="class",
+    autouse="true",
     )
     def setup(self, request):
+        self = request.cls
 
-        # A path to the current config file
         config_path = request.param
         with open(config_path) as f:
             raw_config = yaml.safe_load(f)
@@ -119,21 +116,22 @@ class BaseIntegrationTester:
         }
 
         # Combine pre-args, command stubs, and args into complete CLI commands
-        self.commands = self.compose_command_scripts(self.configs)
+        self.commands = self.compose_command_scripts(self.configs, self.command_stubs_final)
 
         # Capture any pre-run information that may be needed for post-run testing
-        self.capture_pre_run_state()
+        self.capture_pre_run_state(self)
 
         # All commands are run sequentially
-        self.run_commands()
+        self.run_commands(self)
 
-        yield  # all tests are run here
+        yield
 
         # Clean up environment after testing is complete
-        self.teardown()
+        self.teardown(self)
 
         # Check for successful teardown
-        self.teardown_check()
+        self.teardown_check(self)
+
 
     @classmethod
     def get_root_commands(cls, configs: Dict[str, Union[str, BaseModel]]):
@@ -147,7 +145,8 @@ class BaseIntegrationTester:
         """
         return cls.command_stubs
 
-    def compose_command_scripts(self, configs: Dict[str, BaseModel]):
+    @classmethod
+    def compose_command_scripts(cls, configs: Dict[str, BaseModel], command_stubs: Dict[str, str]):
         """
         For each command, create the full CLI command by combining the pre-args,
         command stub, and run args.
@@ -158,10 +157,10 @@ class BaseIntegrationTester:
         """
         commands = {}
         for _type, config in configs.items():
-            if _type not in self.command_stubs:
+            if _type not in cls.command_stubs:
                 raise ValueError(f"{_type} is not a valid command type")
-            commands[_type] = self.create_command_script(
-                config["pre_args"], self.command_stubs_final[_type], config["args"]
+            commands[_type] = cls.create_command_script(
+                config["pre_args"], command_stubs, config["args"]
             )
         return commands
 
@@ -205,6 +204,7 @@ class BaseIntegrationTester:
         pre_args = pre_args.split(" ") if pre_args else []
         return pre_args + [command_stub] + args_string_list
 
+    
     def capture_pre_run_state(self):
         """
         Store pre-run information which will be relevant for post-run testing
@@ -222,7 +222,7 @@ class BaseIntegrationTester:
             kwargs_dict = {key: {} for key in self.command_types}
         for _type in self.command_types:
             # Optionally, save intermediate state variables between stages
-            self.save_stage_information(_type)
+            self.save_stage_information(self, _type)
             try:
                 subprocess.check_output(self.commands[_type], **kwargs_dict[_type])
             except subprocess.CalledProcessError as e:
