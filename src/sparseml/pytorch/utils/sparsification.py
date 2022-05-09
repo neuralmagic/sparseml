@@ -17,7 +17,6 @@ Helper functions for retrieving information related to model sparsification
 """
 
 import json
-from contextlib import nullcontext
 from typing import Any, Callable, Dict, Generator, Iterable, Iterator, List, Tuple
 
 import torch
@@ -221,8 +220,8 @@ class GradSampler:
         """
         computed_grads = 0
         # if progress bar is turned off, use nullcontext which has no effect on loop
-        context = (
-            tqdm(total=num_grads, desc="Collecting gradients", disable = not progress_bar)
+        context = tqdm(
+            total=num_grads, desc="Collecting gradients", disable=not progress_bar
         )
 
         with context as pbar:
