@@ -346,7 +346,7 @@ METADATA_ARGS = [
     "--debug_steps",
     type=int,
     default=-1,
-    help="Amount of steps to run for training and testing for when in " "debug mode",
+    help="Amount of steps to run for training and testing for when in debug mode",
 )
 @click.option(
     "--pretrained",
@@ -479,6 +479,7 @@ def main(
     image_size: int,
     ffcv: bool,
     recipe_args: str,
+    max_train_steps: int,
 ):
     """
     PyTorch training integration with SparseML for image classification models
@@ -536,7 +537,7 @@ def main(
         model_kwargs=model_kwargs,
     )
 
-    model, arch_key = helpers.create_model(
+    model, arch_key, checkpoint_path = helpers.create_model(
         checkpoint_path=checkpoint_path,
         recipe_path=recipe_path,
         num_classes=num_classes,

@@ -263,7 +263,8 @@ def create_model(
         None
     :param local_rank: The local rank of the process. Defaults to -1
     :param model_kwargs: Additional keyword arguments to pass to the model
-    :returns: A tuple containing the model and the model's arch_key
+    :returns: A tuple containing the mode, the model's arch_key, and the
+        checkpoint path
     """
     with torch_distributed_zero_first(local_rank):
         # only download once locally
@@ -286,7 +287,7 @@ def create_model(
         else:
             model, arch_key = result
 
-        return model, arch_key
+        return model, arch_key, checkpoint_path
 
 
 def infer_num_classes(
