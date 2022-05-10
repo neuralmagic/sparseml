@@ -21,10 +21,15 @@ from yolov5.utils.general import ROOT
 
 
 class Yolov5TrainArgs(BaseModel):
-    weights: Union[str, Path] = Field(default= '""', description="initial weights path")
+    weights: Union[str, Path] = Field(default='""', description="initial weights path")
     cfg: Union[str, Path] = Field(default='""', description="model.yaml path")
-    data: Union[str, Path] = Field(default=ROOT / 'data/coco128.yaml', description="dataset.yaml path")
-    hyp: Union[str, Path] = Field(default=ROOT / 'data/hyps/hyp.scratch-low.yaml', description="hyperparameters path")
+    data: Union[str, Path] = Field(
+        default=ROOT / "data/coco128.yaml", description="dataset.yaml path"
+    )
+    hyp: Union[str, Path] = Field(
+        default=ROOT / "data/hyps/hyp.scratch-low.yaml",
+        description="hyperparameters path",
+    )
     epochs: int = Field(default=300)
     batch_size: int = Field(
         default=16, description="total batch size for all GPUs, -1 for autobatch"
@@ -45,7 +50,7 @@ class Yolov5TrainArgs(BaseModel):
     image_weights: bool = Field(
         default=False, description="use weighted image selection for training"
     )
-    device: str = Field(default='', description="cuda device, i.e. 0 or 0,1,2,3 or cpu")
+    device: str = Field(default="", description="cuda device, i.e. 0 or 0,1,2,3 or cpu")
     multi_scale: bool = Field(default=False, description="vary img-size +/- 50%%")
     single_cls: bool = Field(
         default=False, description="train multi-class data as single-class"
@@ -60,7 +65,7 @@ class Yolov5TrainArgs(BaseModel):
         default=8, description="max dataloader workers (per RANK in DDP mode)"
     )
     project: Union[str, Path] = Field(
-        default=ROOT / "runs/train", description="save to project/name"
+        default=ROOT / "test_runs/train", description="save to project/name"
     )
     name: str = Field(default="exp", description="save to project/name")
     exist_ok: bool = Field(
@@ -73,7 +78,7 @@ class Yolov5TrainArgs(BaseModel):
         default=100, description="EarlyStopping patience (epochs without improvement)"
     )
     freeze: str = Field(
-        default='0', description="Freeze layers: backbone=10, first3=0 1 2"
+        default="0", description="Freeze layers: backbone=10, first3=0 1 2"
     )
     save_period: int = Field(
         default=-1, description="Save checkpoint every x epochs (disabled if < 1)"
@@ -88,4 +93,33 @@ class Yolov5TrainArgs(BaseModel):
     )
     disable_ema: bool = Field(
         default=False, description="Disable EMA model updates (enabled by default)"
+    )
+
+
+class Yolov5ExportArgs(BaseModel):
+    weights: Union[str, Path] = Field(
+        default=ROOT / "yolov5s.pt", description="initial weights path"
+    )
+    imgsz: List[int] = Field(default=[640, 640], description="image (h, w)")
+    batch_size: int = Field(default=16, description="batch size")
+    device: str = Field(
+        default="cpu", description="cuda device, i.e. 0 or 0,1,2,3 or cpu"
+    )
+    half: bool = Field(default=False, description="FP16 half-precision export")
+    inplace: bool = Field(default=False, description="set YOLOv5 Detect() inplace=True")
+    train: bool = Field(default=False, description="model.train() mode")
+    optimize: bool = Field(
+        default=False, description="TorchScript: optimize for mobile"
+    )
+    int8: bool = Field(default=False, description="CoreML/TF INT8 quantization")
+    dynamic: bool = Field(default=False, description="ONNX/TF: dynamic axes")
+    simplify: bool = Field(default=False, description="ONNX: simplify model")
+    opset: int = Field(default=12, description="ONNX: opset version")
+    verbose: bool = Field(default=False, description="TensorRT: verbose log")
+    nms: bool = Field(default=False, description="TF: add NMS to model")
+    agnostic_nms: bool = Field(
+        default=False, description="TF: add agnostic NMS to model"
+    )
+    remove_grid: bool = Field(
+        default=False, description="remove export of Detect() layer grid"
     )
