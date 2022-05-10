@@ -14,23 +14,30 @@
 
 import os
 from collections import Counter
+from pathlib import Path
+import tempfile
 
 import onnx
 import pandas as pd
 import pytest
-from pathlib import Path
 
 from tests.integrations.base_tester import BaseIntegrationTester
 from tests.integrations.helpers import get_configs_with_cadence, skip_inactive_stage
-from tests.integrations.yolov5.yolov5_args import Yolov5TrainArgs
-from yolov5.export import create_checkpoint, load_checkpoint
+from tests.integrations.yolov5.yolov5_args import Yolov5ExportArgs, Yolov5TrainArgs
+from yolov5.utils.general import ROOT, increment_path
 from yolov5.val import run as val
-from yolov5.utils.general import increment_path
 
 
-@pytest.mark.parametrize("setup", get_configs_with_cadence(
-            os.environ.get("NM_TEST_CADENCE", "commit"), os.path.dirname(__file__)
-        ), indirect=True, scope = "class"
+METRIC_TO_INDEX = {"map0.5": 2}
+
+
+@pytest.mark.parametrize(
+    "setup",
+    get_configs_with_cadence(
+        os.environ.get("NM_TEST_CADENCE", "commit"), os.path.dirname(__file__)
+    ),
+    indirect=True,
+    scope="class",
 )
 # Iterate over configs with the matching cadence (default commit)
 class TestYolov5Integration(BaseIntegrationTester):
@@ -42,38 +49,39 @@ class TestYolov5Integration(BaseIntegrationTester):
     }
     command_args_classes = {
         "train": Yolov5TrainArgs,
-    }     
+        "export": Yolov5ExportArgs,
+    }
 
     def capture_pre_run_state(self):
-        args = self.configs["train"]['args']
-        self.save_dir = str(increment_path(Path(args.project) / args.name, exist_ok=args.exist_ok))
+        args = self.configs["train"]["args"]
+        self.save_dir = tempfile.TemporaryDirectory(dir=args.project)
+        args.project = self.save_dir.name
 
+        if "export" in self.command_types:
+            self.configs["export"]["args"].weights = os.path.join(
+                args.project, "exp", "weights", "last.pt"
+            )
 
-    @skip_inactive_stage
-    def test_train_checkpoint_load(self, setup):
-        model_file = os.path.join(self.save_dir, "weights", "last.pt")
-        assert os.path.isfile(model_file)
-        val(model_file)
+    def teardown(self):
+        #self.save_dir.cleanup()
+        pass
 
-    @skip_inactive_stage
-    def test_train_metrics(self, setup):
-        results_file = os.path.join(self.configs["train"].project, "results.csv")
-        assert os.path.isfile(results_file)
-        metrics_df = pd.read_csv(results_file)
-        assert metrics_df["epochs"][-1] == self.configs["train"].epochs
-        metrics_key = "metrics" + "/" + self.targets["train"]["metric_name"]
-        assert (
-            self.targets["train"]["target"] - self.metrics["std"]
-            <= metrics_df[metrics_key]
-            <= self.targets["train"]["target"] + self.metrics["std"]
-        )
+@skip_inactive_stage
+def test_train_val(self):
+    args = self.configs["train"]["args"]
+    model_file = os.path.join(self.save_dir.name, "exp", "weights", "last.pt")
+    assert os.path.isfile(model_file)
+    metrics, *_ = val(data=ROOT / "data/coco128.yaml", weights=model_file)
+    if "target_name" in self.test_args["train"]:
+        test_args = self.test_args["train"]
+        metric_idx = METRIC_TO_INDEX[test_args["target_name"]]
+        metric = metrics[metric_idx]
+        target_mean = test_args["target_mean"]
+        target_std = test_args["target_std"]
+        assert target_mean - target_std <= metric <= target_mean + target_std
 
-    @skip_inactive_stage
-    def test_export_onnx_graph(self, setup):
-        onnx_model = onnx.load(
-            os.path.join(self.configs["export"].weights, "last.onnx")
-        )
-
-        nodes = onnx_model.graph.node
-        nodes_names = [node.name for node in nodes]
-        nodes_count = Counter([node_name.split("_")[0] for node_name in nodes_names])
+@skip_inactive_stage
+def test_export_onnx_graph(self):
+    model = onnx.load(
+        os.path.join(os.path.dirname(self.configs["export"]["args"].weights), "last.onnx")
+    )
