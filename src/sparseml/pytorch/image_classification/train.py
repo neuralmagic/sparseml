@@ -88,9 +88,6 @@ Options:
                                   multiple GPUs using
                                   `DistributedDataParallel` with one GPU per
                                   process
-  --debug-steps, --debug_steps INTEGER
-                                  Amount of steps to run for training and
-                                  testing for when in debug mode
   --pretrained TEXT               The type of pretrained weights to use, loads
                                   default pretrained weights for the model if
                                   not specified or set to `True`. Otherwise,
@@ -138,10 +135,14 @@ Options:
   --max-train-steps, --max_train_steps INTEGER
                                   The maximum number of training steps to run
                                   per epoch. If negative, will run for the
-                                  entire dataset. Note if debug_steps is
+                                  entire dataset. Note if max_eval_steps is
                                   positive then this is ignored  [default: -1]
+  --max-eval-steps, --max_eval_steps INTEGER
+                                  The maximum number of eval steps to run per
+                                  epoch. If negative, will run for the entire
+                                  dataset. Note if max_eval_steps is positive
+                                  then this is ignored  [default: -1]
   --help                          Show this message and exit.
-
 #########
 EXAMPLES
 #########
@@ -359,13 +360,6 @@ METADATA_ARGS = [
     "`DistributedDataParallel` with one GPU per process",
 )
 @click.option(
-    "--debug-steps",
-    "--debug_steps",
-    type=int,
-    default=-1,
-    help="Amount of steps to run for training and testing for when in debug mode",
-)
-@click.option(
     "--pretrained",
     type=str,
     default=True,
@@ -473,7 +467,17 @@ METADATA_ARGS = [
     type=int,
     show_default=True,
     help="The maximum number of training steps to run per epoch. If negative, "
-    "will run for the entire dataset. Note if debug_steps is positive "
+    "will run for the entire dataset. Note if max_eval_steps is positive "
+    "then this is ignored",
+)
+@click.option(
+    "--max-eval-steps",
+    "--max_eval_steps",
+    default=-1,
+    type=int,
+    show_default=True,
+    help="The maximum number of eval steps to run per epoch. If negative, "
+    "will run for the entire dataset. Note if max_eval_steps is positive "
     "then this is ignored",
 )
 def main(
@@ -493,7 +497,6 @@ def main(
     save_best_after: int,
     save_epochs: Tuple[int, ...],
     use_mixed_precision: bool,
-    debug_steps: int,
     pretrained: Union[str, bool],
     pretrained_dataset: Optional[str],
     model_kwargs: Dict[str, Any],
@@ -507,6 +510,7 @@ def main(
     ffcv: bool,
     recipe_args: str,
     max_train_steps: int,
+    max_eval_steps: int,
 ):
     """
     PyTorch training integration with SparseML for image classification models
@@ -624,7 +628,7 @@ def main(
     train(
         trainer=trainer,
         save_dir=save_dir,
-        debug_steps=debug_steps,
+        max_eval_steps=max_eval_steps,
         eval_mode=eval_mode,
         is_main_process=is_main_process,
         save_best_after=save_best_after,
@@ -636,7 +640,7 @@ def main(
 def train(
     trainer: ImageClassificationTrainer,
     save_dir: str,
-    debug_steps: int,
+    max_eval_steps: int,
     eval_mode: bool,
     is_main_process: bool,
     save_best_after: int,
@@ -648,7 +652,7 @@ def train(
 
     :param trainer: The ImageClassificationTrainer object
     :param save_dir: The directory to save checkpoints to
-    :param debug_steps: The number of steps to run in debug mode
+    :param max_eval_steps: The number of steps to run for validation
     :param eval_mode: Whether to run in evaluation mode
     :param is_main_process: Whether this is the main process
     :param save_best_after: The number of epochs to wait before saving
@@ -656,12 +660,11 @@ def train(
     :param save_epochs: The epochs to save checkpoints for
     :param rank: The rank of the process
     """
-    max_steps = debug_steps if debug_steps > 0 else trainer.max_train_steps
 
     # Baseline eval run
     trainer.run_one_epoch(
         mode="validation",
-        max_steps=max_steps,
+        max_steps=max_eval_steps,
         baseline_run=True,
     )
 
@@ -673,14 +676,14 @@ def train(
         while trainer.epoch < trainer.max_epochs:
             train_res = trainer.run_one_epoch(
                 mode="train",
-                max_steps=max_steps,
+                max_steps=trainer.max_train_steps,
             )
             LOGGER.info(f"\nEpoch {trainer.epoch} training results: {train_res}")
             # testing steps
             if is_main_process:
                 val_res = trainer.run_one_epoch(
                     mode="val",
-                    max_steps=max_steps,
+                    max_steps=max_eval_steps,
                 )
                 val_metric = val_res.result_mean(trainer.target_metric).item()
 
