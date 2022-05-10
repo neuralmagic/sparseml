@@ -100,6 +100,7 @@ class RecipeManagerTrainerInterface:
         recipe: Optional[str],
         recipe_args: Optional[Union[Dict[str, Any], str]] = None,
         metadata_args: Optional[List[str]] = None,
+        data_args: Optional[List[str]] = None,
         teacher: Optional[Union[Module, str]] = None,
         **kwargs,
     ):
@@ -110,15 +111,14 @@ class RecipeManagerTrainerInterface:
         self.recipe_args = recipe_args
         self.teacher = teacher
 
-        training_args, data_args = kwargs.get("args"), kwargs.get("data_args")
-
+        training_args = kwargs.get("args")
         self.metadata = (
             self._extract_metadata(
                 metadata_args=metadata_args,
                 training_args_dict=training_args.to_dict(),
                 data_args_dict=asdict(data_args),
             )
-            if (training_args or data_args)
+            if training_args
             else None
         )
 
@@ -349,6 +349,9 @@ class RecipeManagerTrainerInterface:
             or not self.manager.enabled
             or not self.manager.distillation_modifiers
         ):
+            inputs = {
+                k: inputs[k] for k in inputs if k in self._model_signature_columns
+            }
             return super().compute_loss(model, inputs, return_outputs=return_outputs)
 
         student_inputs = {
