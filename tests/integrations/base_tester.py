@@ -29,7 +29,6 @@ described in B and should be decorated by @skip_inactive_stage found in helpers.
 """
 
 import os
-import shutil
 import subprocess
 from functools import wraps
 from typing import Dict, Union
@@ -38,7 +37,7 @@ import pytest
 import yaml
 from pydantic import BaseModel
 
-from tests.integrations.helpers import get_configs_with_cadence
+from tests.integrations.helpers import stream_process
 
 from tests.integrations.helpers import Config, get_configs_with_cadence
 
