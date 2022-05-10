@@ -371,6 +371,7 @@ def save_model_training(
         checkpoint
     """
 
+    save_message_shown = False
     recipe = str(
         ScheduledModifierManager.compose_staged(
             base_recipe=checkpoint_manager, additional_recipe=manager
@@ -387,6 +388,7 @@ def save_model_training(
             f"Saving model for epoch {epoch} and {metric_name} "
             f"{metric} to {save_dir} for {save_name}"
         )
+        save_message_shown = True
     exporter = ModuleExporter(model, save_dir)
     exporter.export_pytorch(
         optimizer=optim,
@@ -407,6 +409,9 @@ def save_model_training(
                 info_lines.append(f"{loss}: {val_res.result_mean(loss).item()}")
 
         info_file.write("\n".join(info_lines))
+
+    if not save_message_shown:
+        print(f"Saving model for epoch {epoch} " f"to {save_dir} for {save_name}")
 
 
 def set_seeds(local_rank: int):

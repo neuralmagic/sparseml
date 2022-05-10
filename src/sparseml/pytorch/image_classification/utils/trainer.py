@@ -84,6 +84,8 @@ class ImageClassificationTrainer(Trainer):
     :param recipe_args: json parsable dict of recipe variable names to values
         to overwrite with
     :param max_train_steps: The maximum number of training steps to run per epoch
+        to overwrite with.
+    :param one_shot: bool indicating whether to apply recipe in one shot manner
     """
 
     def __init__(
@@ -106,6 +108,7 @@ class ImageClassificationTrainer(Trainer):
         optim_kwargs: Optional[Dict[str, Any]] = None,
         recipe_args: Optional[str] = None,
         max_train_steps: int = -1,
+        one_shot: bool = False,
     ):
         """
         Initializes the module_trainer
@@ -126,6 +129,7 @@ class ImageClassificationTrainer(Trainer):
         self.loggers = loggers
         self.recipe_args = recipe_args
         self.max_train_steps = max_train_steps
+        self.one_shot = one_shot
 
         self.val_loss = loss_fn()
         _LOGGER.info(f"created loss for validation: {self.val_loss}")
@@ -206,6 +210,13 @@ class ImageClassificationTrainer(Trainer):
         :return: the maximum number of epochs from manager
         """
         return self.manager.max_epochs if self.manager is not None else 0
+
+    def _one_shot(self):
+        self.manager = ScheduledModifierManager.from_yaml(
+            self.recipe_path,
+        )
+
+        self.manager.apply(self.model)
 
     def _initialize_module_tester(self):
         tester = ModuleTester(

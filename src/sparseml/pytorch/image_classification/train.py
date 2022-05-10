@@ -142,7 +142,11 @@ Options:
                                   epoch. If negative, will run for the entire
                                   dataset. Note if max_eval_steps is positive
                                   then this is ignored  [default: -1]
+  --one-shot, --one_shot / --no-one-shot, --no_one_shot
+                                  Apply recipe in a one-shot fashion and save
+                                  the model  [default: no-one-shot]
   --help                          Show this message and exit.
+
 #########
 EXAMPLES
 #########
@@ -480,6 +484,14 @@ METADATA_ARGS = [
     "will run for the entire dataset. Note if max_eval_steps is positive "
     "then this is ignored",
 )
+@click.option(
+    "--one-shot/--no-one-shot",
+    "--one_shot/--no_one_shot",
+    default=False,
+    is_flag=True,
+    show_default=True,
+    help="Apply recipe in a one-shot fashion and save the model",
+)
 def main(
     train_batch_size: int,
     test_batch_size: int,
@@ -511,6 +523,7 @@ def main(
     recipe_args: str,
     max_train_steps: int,
     max_eval_steps: int,
+    one_shot: bool,
 ):
     """
     PyTorch training integration with SparseML for image classification models
@@ -623,6 +636,7 @@ def main(
         optim_kwargs=optim_args,
         recipe_args=recipe_args,
         max_train_steps=max_train_steps,
+        one_shot=one_shot,
     )
 
     train(
@@ -661,19 +675,20 @@ def train(
     :param rank: The rank of the process
     """
 
-    # Baseline eval run
-    trainer.run_one_epoch(
-        mode="validation",
-        max_steps=max_eval_steps,
-        baseline_run=True,
-    )
+    if not trainer.one_shot:
+        # Baseline eval run
+        trainer.run_one_epoch(
+            mode="validation",
+            max_steps=max_eval_steps,
+            baseline_run=True,
+        )
 
     if not eval_mode:
         LOGGER.info(f"Starting training from epoch {trainer.epoch}")
 
         val_metric = best_metric = val_res = None
 
-        while trainer.epoch < trainer.max_epochs:
+        while trainer.epoch < trainer.max_epochs and not trainer.one_shot:
             train_res = trainer.run_one_epoch(
                 mode="train",
                 max_steps=trainer.max_train_steps,
@@ -738,12 +753,13 @@ def train(
         LOGGER.info("completed...")
         if is_main_process:
             # Convert QAT -> quantized ONNX graph for finalized model only
+            save_name = "model" if not trainer.one_shot else "model-one-shot"
             helpers.save_model_training(
                 model=trainer.model,
                 optim=trainer.optim,
                 manager=trainer.manager,
                 checkpoint_manager=trainer.checkpoint_manager,
-                save_name="model",
+                save_name=save_name,
                 save_dir=save_dir,
                 epoch=trainer.epoch - 1,
                 val_res=val_res,
