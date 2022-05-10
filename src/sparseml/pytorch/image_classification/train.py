@@ -137,7 +137,9 @@ Options:
                                   to values to overwrite with
   --max-train-steps, --max_train_steps INTEGER
                                   The maximum number of training steps to run
-                                  [default: -1]
+                                  per epoch. If negative, will run for the
+                                  entire dataset. Note if debug_steps is
+                                  positive then this is ignored  [default: -1]
   --help                          Show this message and exit.
 
 #########
@@ -471,7 +473,7 @@ METADATA_ARGS = [
     type=int,
     show_default=True,
     help="The maximum number of training steps to run per epoch. If negative, "
-    "will run for the entire dataset. Note if debug_steps is positive"
+    "will run for the entire dataset. Note if debug_steps is positive "
     "then this is ignored",
 )
 def main(
