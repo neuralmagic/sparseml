@@ -62,3 +62,10 @@ def skip_inactive_stage(test):
         test(self, *args, **kwargs)
 
     return wrapped_test
+
+
+def stream_process(process):
+    go = process.poll() is None
+    for line in process.stdout:
+        print(line)
+    return go

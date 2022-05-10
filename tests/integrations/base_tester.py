@@ -30,13 +30,14 @@ described in B and should be decorated by @skip_inactive_stage found in helpers.
 
 import os
 import subprocess
+from time import sleep
 from typing import Dict, List, Union
 
 import pytest
 import yaml
 from pydantic import BaseModel
 
-from tests.integrations.helpers import get_configs_with_cadence
+from tests.integrations.helpers import stream_process
 
 
 class BaseIntegrationTester:
@@ -78,8 +79,8 @@ class BaseIntegrationTester:
     }
 
     @pytest.fixture(
-    scope="class",
-    autouse="true",
+        scope="class",
+        autouse="true",
     )
     def setup(self, request):
         self = request.cls
@@ -115,11 +116,13 @@ class BaseIntegrationTester:
             _type: config["test_args"] for _type, config in raw_config.items()
         }
 
-        # Combine pre-args, command stubs, and args into complete CLI commands
-        self.commands = self.compose_command_scripts(self.configs, self.command_stubs_final)
-
         # Capture any pre-run information that may be needed for post-run testing
         self.capture_pre_run_state(self)
+
+        # Combine pre-args, command stubs, and args into complete CLI commands
+        self.commands = self.compose_command_scripts(
+            self.configs, self.command_stubs_final
+        )
 
         # All commands are run sequentially
         self.run_commands(self)
@@ -131,7 +134,6 @@ class BaseIntegrationTester:
 
         # Check for successful teardown
         self.teardown_check(self)
-
 
     @classmethod
     def get_root_commands(cls, configs: Dict[str, Union[str, BaseModel]]):
@@ -146,7 +148,9 @@ class BaseIntegrationTester:
         return cls.command_stubs
 
     @classmethod
-    def compose_command_scripts(cls, configs: Dict[str, BaseModel], command_stubs: Dict[str, str]):
+    def compose_command_scripts(
+        cls, configs: Dict[str, BaseModel], command_stubs: Dict[str, str]
+    ):
         """
         For each command, create the full CLI command by combining the pre-args,
         command stub, and run args.
@@ -160,7 +164,7 @@ class BaseIntegrationTester:
             if _type not in cls.command_stubs:
                 raise ValueError(f"{_type} is not a valid command type")
             commands[_type] = cls.create_command_script(
-                config["pre_args"], command_stubs, config["args"]
+                config["pre_args"], command_stubs[_type], config["args"]
             )
         return commands
 
@@ -194,7 +198,7 @@ class BaseIntegrationTester:
                 # e.g. --freeze-layers 0 10 15
                 else:
                     args_string_list.append(key)
-                    args_string_list.extend(value)
+                    args_string_list.extend(map(str, value))
             # Handles the most straightforward case of keyword followed by value
             # e.g. --epochs 30
             else:
@@ -204,7 +208,6 @@ class BaseIntegrationTester:
         pre_args = pre_args.split(" ") if pre_args else []
         return pre_args + [command_stub] + args_string_list
 
-    
     def capture_pre_run_state(self):
         """
         Store pre-run information which will be relevant for post-run testing
@@ -218,11 +221,26 @@ class BaseIntegrationTester:
         :param kwargs_dict: dict mapping command type to subprocess.call() kwargs
             to be used with the command, if any
         """
+        ## Debug only code
+        self.commands["train"] = [
+            "/home/konstantin/Source/sparseml/dev-venv/bin/python3.8",
+            "/home/konstantin/Source/sparseml/src/sparseml/pytorch/object_detection/train.py",
+        ] + self.commands["train"][1:]
+        self.commands["export"] = [
+            "/home/konstantin/Source/sparseml/dev-venv/bin/python3.8",
+            "/home/konstantin/Source/sparseml/src/sparseml/pytorch/object_detection/export.py",
+        ] + self.commands["export"][1:]
+
         if not kwargs_dict:
             kwargs_dict = {key: {} for key in self.command_types}
         for _type in self.command_types:
             # Optionally, save intermediate state variables between stages
             self.save_stage_information(self, _type)
+            """
+            process = subprocess.Popen(self.commands[_type], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            while stream_process(process):
+                sleep(0.1)
+            """
             try:
                 subprocess.check_output(self.commands[_type], **kwargs_dict[_type])
             except subprocess.CalledProcessError as e:
