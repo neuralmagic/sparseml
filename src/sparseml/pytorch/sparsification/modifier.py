@@ -238,7 +238,7 @@ class Modifier(BaseModifier):
             return
 
         if isinstance(loggers, List):
-            loggers = LoggerManager(loggers)
+            loggers = LoggerManager(loggers or [])
         self._loggers_initialized = True
         self._loggers = loggers
 
