@@ -24,6 +24,7 @@ import time
 import warnings
 from copy import deepcopy
 from pathlib import Path
+import pandas as pd
 
 import torch
 import torch.nn as nn
@@ -289,6 +290,20 @@ def load_state_dict(model, state_dict, train, exclude_anchors):
     model.load_state_dict(state_dict, strict=not train)  # load
 
     return state_dict
+
+def export_formats():
+    x = [['PyTorch', '-', '.pt', True],
+         ['TorchScript', 'torchscript', '.torchscript', True],
+         ['ONNX', 'onnx', '.onnx', True],
+         ['OpenVINO', 'openvino', '_openvino_model', False],
+         ['TensorRT', 'engine', '.engine', True],
+         ['CoreML', 'coreml', '.mlmodel', False],
+         ['TensorFlow SavedModel', 'saved_model', '_saved_model', True],
+         ['TensorFlow GraphDef', 'pb', '.pb', True],
+         ['TensorFlow Lite', 'tflite', '.tflite', False],
+         ['TensorFlow Edge TPU', 'edgetpu', '_edgetpu.tflite', False],
+         ['TensorFlow.js', 'tfjs', '_web_model', False]]
+    return pd.DataFrame(x, columns=['Format', 'Argument', 'Suffix', 'GPU'])
 
 
 @torch.no_grad()
