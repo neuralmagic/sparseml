@@ -135,6 +135,9 @@ Options:
   --recipe-args, --recipe_args TEXT
                                   json parsable dict of recipe variable names
                                   to values to overwrite with
+  --max-train-steps, --max_train_steps INTEGER
+                                  The maximum number of training steps to run
+                                  [default: -1]
   --help                          Show this message and exit.
 
 #########
@@ -155,6 +158,18 @@ sparseml.image_classification.train \
     --arch-key mobilenet_v1 --pretrained pruned-moderate \
     --dataset imagefolder --dataset-path ~/datasets/my_imagefolder_dataset \
     --train-batch-size 256 --test-batch-size 1024
+
+##########
+Example command for training resnet50 on imagenette for 100 steps:
+sparseml.image_classification.train \
+    --train_batch_size 32 \
+    --test_batch_size 32 \
+    --dataset imagenette \
+    --dataset-path imagenette \
+    --max-train-steps 100 \
+    --arch-key resnet50 \
+    --recipe-path [RESNET_RECIPE] \
+    --checkpoint-path zoo
 
 ##########
 Template command for running training with this script on multiple GPUs using
@@ -623,7 +638,7 @@ def train(
     save_best_after: int,
     save_epochs: Tuple[int, ...],
     rank: int,
-    max_train_steps: int=-1,
+    max_train_steps: int = -1,
 ):
     """
     Utility function to run the training loop
