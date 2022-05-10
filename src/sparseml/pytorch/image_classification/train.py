@@ -132,6 +132,9 @@ Options:
                                   [S, S, C] dimensional input  [default: 224]
   --ffcv                          Use `ffcv` for loading data  [default:
                                   False]
+  --recipe-args, --recipe_args TEXT
+                                  json parsable dict of recipe variable names
+                                  to values to overwrite with
   --help                          Show this message and exit.
 
 #########
@@ -183,6 +186,14 @@ from sparseml.pytorch.utils import default_device, get_prunable_layers, tensor_s
 
 CURRENT_TASK = helpers.Tasks.TRAIN
 LOGGER = get_main_logger()
+METADATA_ARGS = [
+    "arch_key",
+    "dataset",
+    "device",
+    "pretrained",
+    "test_batch_size",
+    "train_batch_size",
+]
 
 
 @click.command()
@@ -419,7 +430,6 @@ LOGGER = get_main_logger()
 @click.option(
     "--image-size",
     "--image_size",
-    "-is",
     type=int,
     default=224,
     show_default=True,
@@ -431,6 +441,13 @@ LOGGER = get_main_logger()
     is_flag=True,
     show_default=True,
     help="Use `ffcv` for loading data",
+)
+@click.option(
+    "--recipe-args",
+    "--recipe_args",
+    type=str,
+    default=None,
+    help="json parsable dict of recipe variable names to values to overwrite with",
 )
 def main(
     train_batch_size: int,
@@ -461,6 +478,7 @@ def main(
     loader_pin_memory: bool,
     image_size: int,
     ffcv: bool,
+    recipe_args: str,
 ):
     """
     PyTorch training integration with SparseML for image classification models
@@ -548,12 +566,18 @@ def main(
         rank=rank,
     )
 
+    metadata = helpers.extract_metadata(
+        metadata_args=METADATA_ARGS, training_args_dict=cli_helpers.parameters_to_dict()
+    )
+
     LOGGER.info(f"running on device {device}")
 
     trainer = ImageClassificationTrainer(
         model=model,
         key=arch_key,
         recipe_path=recipe_path,
+        checkpoint_path=checkpoint_path,
+        metadata=metadata,
         ddp=ddp,
         device=device,
         use_mixed_precision=use_mixed_precision,
@@ -565,6 +589,7 @@ def main(
         init_lr=init_lr,
         optim_name=optim,
         optim_kwargs=optim_args,
+        recipe_args=recipe_args,
     )
 
     train(
@@ -611,7 +636,6 @@ def train(
     )
 
     if not eval_mode:
-        helpers.save_recipe(recipe_manager=trainer.manager, save_dir=save_dir)
         LOGGER.info(f"Starting training from epoch {trainer.epoch}")
 
         val_metric = best_metric = val_res = None
@@ -642,6 +666,8 @@ def train(
                     helpers.save_model_training(
                         model=trainer.model,
                         optim=trainer.optim,
+                        manager=trainer.manager,
+                        checkpoint_manager=trainer.checkpoint_manager,
                         save_name="checkpoint-best",
                         save_dir=save_dir,
                         epoch=trainer.epoch,
@@ -664,6 +690,8 @@ def train(
                 helpers.save_model_training(
                     model=trainer.model,
                     optim=trainer.optim,
+                    manager=trainer.manager,
+                    checkpoint_manager=trainer.checkpoint_manager,
                     save_name=save_name,
                     save_dir=save_dir,
                     epoch=trainer.epoch,
@@ -680,6 +708,8 @@ def train(
             helpers.save_model_training(
                 model=trainer.model,
                 optim=trainer.optim,
+                manager=trainer.manager,
+                checkpoint_manager=trainer.checkpoint_manager,
                 save_name="model",
                 save_dir=save_dir,
                 epoch=trainer.epoch - 1,
