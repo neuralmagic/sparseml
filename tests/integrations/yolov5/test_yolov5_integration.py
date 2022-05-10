@@ -13,9 +13,9 @@
 # limitations under the License.
 
 import os
+import tempfile
 from collections import Counter
 from pathlib import Path
-import tempfile
 
 import onnx
 import pandas as pd
@@ -63,25 +63,27 @@ class TestYolov5Integration(BaseIntegrationTester):
             )
 
     def teardown(self):
-        #self.save_dir.cleanup()
+        # self.save_dir.cleanup()
         pass
 
-@skip_inactive_stage
-def test_train_val(self):
-    args = self.configs["train"]["args"]
-    model_file = os.path.join(self.save_dir.name, "exp", "weights", "last.pt")
-    assert os.path.isfile(model_file)
-    metrics, *_ = val(data=ROOT / "data/coco128.yaml", weights=model_file)
-    if "target_name" in self.test_args["train"]:
-        test_args = self.test_args["train"]
-        metric_idx = METRIC_TO_INDEX[test_args["target_name"]]
-        metric = metrics[metric_idx]
-        target_mean = test_args["target_mean"]
-        target_std = test_args["target_std"]
-        assert target_mean - target_std <= metric <= target_mean + target_std
+    @skip_inactive_stage
+    def test_train_val(self):
+        args = self.configs["train"]["args"]
+        model_file = os.path.join(self.save_dir.name, "exp", "weights", "last.pt")
+        assert os.path.isfile(model_file)
+        metrics, *_ = val(data=ROOT / "data/coco128.yaml", weights=model_file)
+        if "target_name" in self.test_args["train"]:
+            test_args = self.test_args["train"]
+            metric_idx = METRIC_TO_INDEX[test_args["target_name"]]
+            metric = metrics[metric_idx]
+            target_mean = test_args["target_mean"]
+            target_std = test_args["target_std"]
+            assert target_mean - target_std <= metric <= target_mean + target_std
 
-@skip_inactive_stage
-def test_export_onnx_graph(self):
-    model = onnx.load(
-        os.path.join(os.path.dirname(self.configs["export"]["args"].weights), "last.onnx")
-    )
+    @skip_inactive_stage
+    def test_export_onnx_graph(self):
+        model = onnx.load(
+            os.path.join(
+                os.path.dirname(self.configs["export"]["args"].weights), "last.onnx"
+            )
+        )
