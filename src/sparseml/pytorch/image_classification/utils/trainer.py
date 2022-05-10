@@ -104,6 +104,7 @@ class ImageClassificationTrainer(Trainer):
         optim_name="Adam",
         optim_kwargs: Optional[Dict[str, Any]] = None,
         recipe_args: Optional[str] = None,
+        max_train_steps: int = -1,
     ):
         """
         Initializes the module_trainer.
@@ -123,6 +124,7 @@ class ImageClassificationTrainer(Trainer):
         self.train_loader = train_loader
         self.loggers = loggers
         self.recipe_args = recipe_args
+        self.max_train_steps = max_train_steps
 
         self.val_loss = loss_fn()
         _LOGGER.info(f"created loss for validation: {self.val_loss}")
@@ -234,11 +236,14 @@ class ImageClassificationTrainer(Trainer):
             metadata=self.metadata,
         )
 
+        steps_per_epoch = (
+            len(self.train_loader) if self.max_train_steps < 0 else self.max_train_steps
+        )
         optim = ScheduledOptimizer(
             optim,
             self.model.module if is_parallel_model(self.model) else self.model,
             manager,
-            steps_per_epoch=len(self.train_loader),
+            steps_per_epoch=steps_per_epoch,
             loggers=self.loggers,
         )
         _LOGGER.info(f"created manager: {manager}")

@@ -470,7 +470,9 @@ METADATA_ARGS = [
     default=-1,
     type=int,
     show_default=True,
-    help="The maximum number of training steps to run",
+    help="The maximum number of training steps to run per epoch. If negative, "
+    "will run for the entire dataset. Note if debug_steps is positive"
+    "then this is ignored",
 )
 def main(
     train_batch_size: int,
@@ -614,6 +616,7 @@ def main(
         optim_name=optim,
         optim_kwargs=optim_args,
         recipe_args=recipe_args,
+        max_train_steps=max_train_steps,
     )
 
     train(
@@ -625,7 +628,6 @@ def main(
         save_best_after=save_best_after,
         save_epochs=save_epochs,
         rank=rank,
-        max_train_steps=max_train_steps,
     )
 
 
@@ -638,7 +640,6 @@ def train(
     save_best_after: int,
     save_epochs: Tuple[int, ...],
     rank: int,
-    max_train_steps: int = -1,
 ):
     """
     Utility function to run the training loop
@@ -652,11 +653,8 @@ def train(
         a new best model
     :param save_epochs: The epochs to save checkpoints for
     :param rank: The rank of the process
-    :param max_train_steps: The maximum number of training steps. If negative,
-        will run for the entire dataset. Note if debug_steps is positive
-        then this is ignored.
     """
-    max_steps = debug_steps if debug_steps > 0 else max_train_steps
+    max_steps = debug_steps if debug_steps > 0 else trainer.max_train_steps
 
     # Baseline eval run
     trainer.run_one_epoch(
@@ -669,21 +667,18 @@ def train(
         LOGGER.info(f"Starting training from epoch {trainer.epoch}")
 
         val_metric = best_metric = val_res = None
-        remaining_steps = max_steps
-        if remaining_steps < 0:
-            remaining_steps = float("inf")
 
-        while trainer.epoch < trainer.max_epochs and remaining_steps > 0:
+        while trainer.epoch < trainer.max_epochs:
             train_res = trainer.run_one_epoch(
                 mode="train",
-                max_steps=remaining_steps,
+                max_steps=max_steps,
             )
             LOGGER.info(f"\nEpoch {trainer.epoch} training results: {train_res}")
             # testing steps
             if is_main_process:
                 val_res = trainer.run_one_epoch(
                     mode="val",
-                    max_steps=remaining_steps,
+                    max_steps=max_steps,
                 )
                 val_metric = val_res.result_mean(trainer.target_metric).item()
 
@@ -733,7 +728,6 @@ def train(
                 )
 
             trainer.epoch += 1
-            remaining_steps -= len(trainer.train_loader)
 
         # export the final model
         LOGGER.info("completed...")
