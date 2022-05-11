@@ -30,14 +30,10 @@ described in B and should be decorated by @skip_inactive_stage found in helpers.
 
 import os
 import subprocess
-from time import sleep
 from typing import Dict, List, Union
 
-import pytest
 import yaml
 from pydantic import BaseModel
-
-from tests.integrations.helpers import stream_process
 
 
 class BaseIntegrationTester:
@@ -78,14 +74,7 @@ class BaseIntegrationTester:
         "deploy": BaseModel,
     }
 
-    @pytest.fixture(
-        scope="class",
-        autouse="true",
-    )
-    def setup(self, request):
-        self = request.cls
-
-        config_path = request.param
+    def __init__(self, config_path):
         with open(config_path) as f:
             raw_config = yaml.safe_load(f)
 
@@ -117,7 +106,7 @@ class BaseIntegrationTester:
         }
 
         # Capture any pre-run information that may be needed for post-run testing
-        self.capture_pre_run_state(self)
+        self.capture_pre_run_state()
 
         # Combine pre-args, command stubs, and args into complete CLI commands
         self.commands = self.compose_command_scripts(
@@ -125,15 +114,7 @@ class BaseIntegrationTester:
         )
 
         # All commands are run sequentially
-        self.run_commands(self)
-
-        yield
-
-        # Clean up environment after testing is complete
-        self.teardown(self)
-
-        # Check for successful teardown
-        self.teardown_check(self)
+        self.run_commands()
 
     @classmethod
     def get_root_commands(cls, configs: Dict[str, Union[str, BaseModel]]):
@@ -221,26 +202,11 @@ class BaseIntegrationTester:
         :param kwargs_dict: dict mapping command type to subprocess.call() kwargs
             to be used with the command, if any
         """
-        ## Debug only code
-        self.commands["train"] = [
-            "/home/konstantin/Source/sparseml/dev-venv/bin/python3.8",
-            "/home/konstantin/Source/sparseml/src/sparseml/pytorch/object_detection/train.py",
-        ] + self.commands["train"][1:]
-        self.commands["export"] = [
-            "/home/konstantin/Source/sparseml/dev-venv/bin/python3.8",
-            "/home/konstantin/Source/sparseml/src/sparseml/pytorch/object_detection/export.py",
-        ] + self.commands["export"][1:]
-
         if not kwargs_dict:
             kwargs_dict = {key: {} for key in self.command_types}
         for _type in self.command_types:
             # Optionally, save intermediate state variables between stages
-            self.save_stage_information(self, _type)
-            """
-            process = subprocess.Popen(self.commands[_type], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-            while stream_process(process):
-                sleep(0.1)
-            """
+            self.save_stage_information(_type)
             try:
                 subprocess.check_output(self.commands[_type], **kwargs_dict[_type])
             except subprocess.CalledProcessError as e:

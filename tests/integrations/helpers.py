@@ -49,23 +49,23 @@ def skip_inactive_stage(test):
     """
 
     @wraps(test)
-    def wrapped_test(self, *args, **kwargs):
+    def wrapped_test(**kward_args):
+        tester_name = [arg for arg in kward_args if arg.endswith("_tester")]
+        if len(tester_name) != 1:
+            raise KeyError(
+                f"Expected function {test.__name__} to ingest a tester object with "
+                f"name convention *__tester. Found {len(tester_name)} matching args."
+            )
+        tester = kward_args[tester_name[0]]
         command_type = test.__name__.split("_")[1]
-        if command_type not in self.command_stubs:
+        if command_type not in tester.command_stubs:
             raise ValueError(
                 "Invalid test function definition. Test names must take the form "
                 f"test_{{CommandType}}_... Found instead {command_type} for "
                 "{Command_type}"
             )
-        if command_type not in self.command_types:
+        if command_type not in tester.command_types:
             pytest.skip(f"No {command_type} stage active. Skipping test")
-        test(self, *args, **kwargs)
+        test(tester)
 
     return wrapped_test
-
-
-def stream_process(process):
-    go = process.poll() is None
-    for line in process.stdout:
-        print(line)
-    return go
