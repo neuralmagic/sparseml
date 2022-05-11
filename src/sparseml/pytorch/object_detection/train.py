@@ -209,7 +209,9 @@ def train(hyp, opt, device, callbacks):  # path/to/hyp.yaml or hyp dictionary
         LOGGER.info(extras["report"])
     else:
         model = Model(cfg, ch=3, nc=nc, anchors=hyp.get("anchors")).to(device)  # create
-        sparseml_wrapper = SparseMLWrapper(model, None, opt.recipe, steps_per_epoch=opt.max_train_steps)
+        sparseml_wrapper = SparseMLWrapper(
+            model, None, opt.recipe, steps_per_epoch=opt.max_train_steps
+        )
         sparseml_wrapper.initialize(start_epoch=0)
         ckpt = None
 
@@ -460,11 +462,7 @@ def train(hyp, opt, device, callbacks):  # path/to/hyp.yaml or hyp dictionary
         mloss = torch.zeros(3, device=device)  # mean losses
         if RANK != -1:
             train_loader.sampler.set_epoch(epoch)
-        pbar =(
-            next(enumerate(train_loader))
-            for _ in range(opt.max_train_steps)
-
-        )
+        pbar = (next(enumerate(train_loader)) for _ in range(opt.max_train_steps))
         LOGGER.info(
             ("\n" + "%10s" * 7)
             % ("Epoch", "gpu_mem", "box", "obj", "cls", "labels", "img_size")
@@ -878,11 +876,10 @@ def parse_opt(known=False):
     )
     parser.add_argument(
         "--max-train-steps",
-        "--max_train_steps",
         type=int,
         default=-1,
         help="Set the maximum number of training steps per epoch. if negative,"
-             "the entire dataset will be used, default=-1",
+        "the entire dataset will be used, default=-1",
     )
 
     opt = parser.parse_known_args()[0] if known else parser.parse_args()
