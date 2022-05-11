@@ -570,7 +570,7 @@ def main(
             ffcv=ffcv,
             device=device,
         )
-        if is_main_process
+        if is_main_process and not one_shot
         else (None, None)
     )
 
@@ -682,13 +682,13 @@ def train(
             max_steps=max_eval_steps,
             baseline_run=True,
         )
-
-    if not eval_mode:
+    val_res = None
+    if not (eval_mode or trainer.one_shot):
         LOGGER.info(f"Starting training from epoch {trainer.epoch}")
 
-        val_metric = best_metric = val_res = None
+        val_metric = best_metric = None
 
-        while trainer.epoch < trainer.max_epochs and not trainer.one_shot:
+        while trainer.epoch < trainer.max_epochs:
             train_res = trainer.run_one_epoch(
                 mode="train",
                 max_steps=trainer.max_train_steps,
@@ -750,26 +750,24 @@ def train(
             trainer.epoch += 1
 
         # export the final model
-        LOGGER.info("completed...")
-        if is_main_process:
-            # Convert QAT -> quantized ONNX graph for finalized model only
-            save_name = "model" if not trainer.one_shot else "model-one-shot"
-            helpers.save_model_training(
-                model=trainer.model,
-                optim=trainer.optim,
-                manager=trainer.manager,
-                checkpoint_manager=trainer.checkpoint_manager,
-                save_name=save_name,
-                save_dir=save_dir,
-                epoch=trainer.epoch - 1,
-                val_res=val_res,
-            )
+    LOGGER.info("completed...")
+    if is_main_process and not eval_mode:
+        # Convert QAT -> quantized ONNX graph for finalized model only
+        save_name = "model" if not trainer.one_shot else "model-one-shot"
+        helpers.save_model_training(
+            model=trainer.model,
+            optim=trainer.optim,
+            manager=trainer.manager,
+            checkpoint_manager=trainer.checkpoint_manager,
+            save_name=save_name,
+            save_dir=save_dir,
+            epoch=trainer.epoch - 1,
+            val_res=val_res,
+        )
 
-            LOGGER.info("layer sparsities:")
-            for (name, layer) in get_prunable_layers(trainer.model):
-                LOGGER.info(
-                    f"{name}.weight: {tensor_sparsity(layer.weight).item():.4f}"
-                )
+        LOGGER.info("layer sparsities:")
+        for (name, layer) in get_prunable_layers(trainer.model):
+            LOGGER.info(f"{name}.weight: {tensor_sparsity(layer.weight).item():.4f}")
 
     # close DDP
     if rank != -1:

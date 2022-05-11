@@ -142,7 +142,7 @@ class ImageClassificationTrainer(Trainer):
         self._device_context = ModuleDeviceContext(
             use_mixed_precision=self.use_mixed_precision,
         )
-        if self.train_loader is not None:
+        if self.train_loader is not None and not self.one_shot:
             (
                 self.epoch,
                 self.optim,
@@ -152,7 +152,7 @@ class ImageClassificationTrainer(Trainer):
         else:
             self.optim = self.manager = self.module_trainer = None
             if self.one_shot:
-                self._one_shot()
+                self._apply_one_shot()
 
         self.checkpoint_manager = (
             self._setup_checkpoint_manager() if self.checkpoint_path else None
@@ -213,13 +213,13 @@ class ImageClassificationTrainer(Trainer):
         """
         return self.manager.max_epochs if self.manager is not None else 0
 
-    def _one_shot(self):
+    def _apply_one_shot(self):
         self.manager = ScheduledModifierManager.from_yaml(
             self.recipe_path,
         )
 
         self.manager.apply(self.model)
-        _LOGGER.info(f"Applied recipe to manager")
+        _LOGGER.info("Applied recipe to manager")
 
     def _initialize_module_tester(self):
         tester = ModuleTester(
