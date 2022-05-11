@@ -151,6 +151,8 @@ class ImageClassificationTrainer(Trainer):
             self.module_trainer = self._initialize_module_trainer()
         else:
             self.optim = self.manager = self.module_trainer = None
+            if self.one_shot:
+                self._one_shot()
 
         self.checkpoint_manager = (
             self._setup_checkpoint_manager() if self.checkpoint_path else None
@@ -217,6 +219,7 @@ class ImageClassificationTrainer(Trainer):
         )
 
         self.manager.apply(self.model)
+        _LOGGER.info(f"Applied recipe to manager")
 
     def _initialize_module_tester(self):
         tester = ModuleTester(
