@@ -14,31 +14,20 @@
 
 import os
 import tempfile
-from collections import Counter
-from pathlib import Path
 
 import onnx
-import pandas as pd
 import pytest
 
 from tests.integrations.base_tester import BaseIntegrationTester
 from tests.integrations.helpers import get_configs_with_cadence, skip_inactive_stage
 from tests.integrations.yolov5.yolov5_args import Yolov5ExportArgs, Yolov5TrainArgs
-from yolov5.utils.general import ROOT, increment_path
+from yolov5.utils.general import ROOT
 from yolov5.val import run as val
 
 
 METRIC_TO_INDEX = {"map0.5": 2}
 
 
-@pytest.mark.parametrize(
-    "setup",
-    get_configs_with_cadence(
-        os.environ.get("NM_TEST_CADENCE", "commit"), os.path.dirname(__file__)
-    ),
-    indirect=True,
-    scope="class",
-)
 # Iterate over configs with the matching cadence (default commit)
 class TestYolov5Integration(BaseIntegrationTester):
 
@@ -66,24 +55,39 @@ class TestYolov5Integration(BaseIntegrationTester):
         # self.save_dir.cleanup()
         pass
 
-    @skip_inactive_stage
-    def test_train_val(self):
-        args = self.configs["train"]["args"]
-        model_file = os.path.join(self.save_dir.name, "exp", "weights", "last.pt")
-        assert os.path.isfile(model_file)
-        metrics, *_ = val(data=ROOT / "data/coco128.yaml", weights=model_file)
-        if "target_name" in self.test_args["train"]:
-            test_args = self.test_args["train"]
-            metric_idx = METRIC_TO_INDEX[test_args["target_name"]]
-            metric = metrics[metric_idx]
-            target_mean = test_args["target_mean"]
-            target_std = test_args["target_std"]
-            assert target_mean - target_std <= metric <= target_mean + target_std
 
-    @skip_inactive_stage
-    def test_export_onnx_graph(self):
-        model = onnx.load(
-            os.path.join(
-                os.path.dirname(self.configs["export"]["args"].weights), "last.onnx"
-            )
-        )
+@pytest.fixture(
+    params=get_configs_with_cadence(
+        os.environ.get("NM_TEST_CADENCE", "commit"), os.path.dirname(__file__)
+    ),
+    scope="module",
+)
+def yolov5_tester(request):
+    tester = TestYolov5Integration(config_path=request.param)
+    yield tester
+    tester.teardown()
+
+
+@skip_inactive_stage
+def test_train_val(yolov5_tester):
+    tester = yolov5_tester
+    model_file = os.path.join(tester.save_dir.name, "exp", "weights", "last.pt")
+    assert os.path.isfile(model_file)
+    metrics, *_ = val(data=ROOT / "data/coco128.yaml", weights=model_file)
+    if "target_name" in tester.test_args["train"]:
+        test_args = tester.test_args["train"]
+        metric_idx = METRIC_TO_INDEX[test_args["target_name"]]
+        metric = metrics[metric_idx]
+        target_mean = test_args["target_mean"]
+        target_std = test_args["target_std"]
+        assert target_mean - target_std <= metric <= target_mean + target_std
+
+
+@skip_inactive_stage
+def test_export_onnx_graph(yolov5_tester):
+    tester = yolov5_tester
+    onnx_file = os.path.join(
+        os.path.dirname(tester.configs["export"]["args"].weights), "last.onnx"
+    )
+    assert os.path.isfile(onnx_file)
+    model = onnx.load(onnx_file)
