@@ -570,7 +570,7 @@ def main(
             ffcv=ffcv,
             device=device,
         )
-        if is_main_process and not one_shot
+        if is_main_process
         else (None, None)
     )
 

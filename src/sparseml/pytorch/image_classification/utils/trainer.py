@@ -219,7 +219,7 @@ class ImageClassificationTrainer(Trainer):
         )
 
         self.manager.apply(self.model)
-        _LOGGER.info("Applied recipe to manager")
+        _LOGGER.info(f"Applied {self.recipe_path} to manager")
 
     def _initialize_module_tester(self):
         tester = ModuleTester(
