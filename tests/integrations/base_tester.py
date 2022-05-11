@@ -33,7 +33,6 @@ import subprocess
 from functools import wraps
 from typing import Dict, Union
 
-import pytest
 import yaml
 from pydantic import BaseModel
 
@@ -104,7 +103,7 @@ class BaseIntegrationManager:
         }
 
         # Capture any pre-run information that may be needed for post-run testing
-        self.capture_pre_run_state(self)
+        self.capture_pre_run_state()
 
         # Combine pre-args, command stubs, and args into complete CLI commands
         self.commands = {
