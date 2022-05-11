@@ -21,6 +21,7 @@ from typing import Any, Callable, Dict, Generator, Iterable, Iterator, List, Tup
 
 import torch
 from torch.nn import Module
+from tqdm import tqdm
 
 from sparseml.pytorch.utils.helpers import (
     get_prunable_layers,
@@ -206,7 +207,10 @@ class GradSampler:
         self._loss_fn = loss_fn
 
     def iter_module_backwards(
-        self, module: Module, num_grads: int
+        self,
+        module: Module,
+        num_grads: int,
+        progress_bar: bool = True,
     ) -> Generator[int, None, None]:
         """
         :param module: module to compute gradients for
@@ -215,19 +219,24 @@ class GradSampler:
             of the gradient sample number
         """
         computed_grads = 0
+        pbar = tqdm(
+            total=num_grads, desc="Collecting gradients", disable=not progress_bar
+        )
 
-        while computed_grads < num_grads:
-            for forward_args, forward_kwargs, loss_target in self._data_loader:
-                module.zero_grad()
-                # run sample forward and backwards pass
-                model_outputs = module(*forward_args, **forward_kwargs)
-                loss = self._loss_fn(model_outputs, loss_target)
-                loss.backward()
+        with pbar:
+            while computed_grads < num_grads:
+                for forward_args, forward_kwargs, loss_target in self._data_loader:
+                    module.zero_grad()
+                    # run sample forward and backwards pass
+                    model_outputs = module(*forward_args, **forward_kwargs)
+                    loss = self._loss_fn(model_outputs, loss_target)
+                    loss.backward()
 
-                # yield so gradients can be collected
-                computed_grads += 1
-                yield computed_grads
-
-                if computed_grads >= num_grads:
-                    break
+                    # yield so gradients can be collected
+                    computed_grads += 1
+                    yield computed_grads
+                    if progress_bar:
+                        pbar.update(1)
+                    if computed_grads >= num_grads:
+                        break
         module.zero_grad()

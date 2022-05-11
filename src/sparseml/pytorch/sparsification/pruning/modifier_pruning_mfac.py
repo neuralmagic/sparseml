@@ -255,7 +255,7 @@ class MFACPruningModifier(BaseGradualPruningModifier):
         :param kwargs: Optional kwargs to support specific arguments
             for individual modifiers.
         """
-        _LOGGER.debug("Initializing MFACPruningModifier")
+        super().initialize(module, epoch, loggers, **kwargs)
         if "grad_sampler" in kwargs and self._use_gradient_buffering is not True:
             # set grad sampler, must be done before initialize in case pruning step
             # occurs on initialize epoch
@@ -265,7 +265,7 @@ class MFACPruningModifier(BaseGradualPruningModifier):
                     "grad_sampler must be an instance of the GradSampler class"
                 )
             self._grad_sampler = grad_sampler
-            _LOGGER.debug("Using provided GradSampler")
+            self.log_string("Using provided GradSampler")
 
         elif self._use_gradient_buffering is False:
             raise RuntimeError(
@@ -273,9 +273,7 @@ class MFACPruningModifier(BaseGradualPruningModifier):
                 "to False"
             )
         else:
-            _LOGGER.debug("Using gradient buffering")
-
-        super().initialize(module, epoch, loggers, **kwargs)
+            self.log_string("Using gradient buffering")
 
         if self._grad_sampler is not None:
             # disable gradient buffering until sampler is invoked
@@ -342,7 +340,7 @@ class MFACPruningModifier(BaseGradualPruningModifier):
         _LOGGER.debug(f"Starting to collect {num_grads} grads with GradSampler")
         for _ in grad_sampler.iter_module_backwards(module, num_grads):
             self._module_masks.pre_optim_step_update()
-        _LOGGER.debug("GradSampler grad collection complete")
+        self.log_string("GradSampler grad collection complete")
 
         if is_training:
             _LOGGER.debug("Setting the model back to the train mode")
@@ -1187,7 +1185,7 @@ class FisherInverseFastSmallBlocks(FisherInverse):
         # As a failsafe for a memory issue, try again with half the number of blocks
         # This condition has not been encountered in testing as of yet
         except Exception as error_msg:
-            _LOGGER.debug(
+            _LOGGER.warning(
                 f"{error_msg}"
                 f"Initialization of H^-1 for {num_blocks} blocks on {device} failed"
                 f"Retrying with {num_blocks//2} blocks"
