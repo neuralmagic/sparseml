@@ -718,6 +718,7 @@ def _prepare_qat_embedding(embedding: Module, qconfig: "torch.quantization.QConf
     embedding.weight_fake_quant = qconfig.weight()
 
     def _qat_forward(self, input: torch.Tensor) -> torch.Tensor:
+        self.weight_fake_quant.to(self.weight.device)
         return torch.nn.functional.embedding(
             input,
             self.weight_fake_quant(self.weight),
@@ -747,9 +748,10 @@ def _overwrite_qat_linear_with_bias(
         with torch.no_grad():
             bias_scale = input_scale * weight_scale
 
+        #print(bias)
         # fake fp32 -> int32 quantization
         bias = bias / bias_scale
-        bias.round_()
+        bias = _DifferentiableRound.apply(bias)
         bias.clip_(min=int32_min, max=int32_max)
         # fake dequant
         bias = bias * bias_scale
@@ -892,3 +894,12 @@ class _BNWrapper(Module):
         self.freeze_bn = False
         self.bn.training = True
         return self
+
+class _DifferentiableRound(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, x):
+        return torch.round(x)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        return grad_output
