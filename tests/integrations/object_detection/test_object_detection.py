@@ -138,10 +138,10 @@ class TestObjectDetection(BaseIntegrationTester):
             os.path.dirname(export_args.run_args.weights), "last.onnx"
         )
         _, *_ = load_checkpoint(
-                type_="val",
-                weights=target_model_path,
-                device=torch.device("cpu"),
-            )
+            type_="val",
+            weights=target_model_path,
+            device=torch.device("cpu"),
+        )
         input_data = deepsparse.utils.generate_random_inputs(run_model_path, 1)
         input_names = deepsparse.utils.get_input_names(run_model_path)
         output_names = deepsparse.utils.get_output_names(run_model_path)
