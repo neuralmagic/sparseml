@@ -84,6 +84,11 @@ Options:
                                   [S, S, C] dimensional input  [default: 224]
   --recipe TEXT                   The path to a recipe file or SparseZoo stub
                                   to use for exporting the model
+  --convert_qat, --convert-qat / --no_convert_qat, --no-convert-qat
+                                  if True, exports of torch QAT graphs will be
+                                  converted to a fully quantized
+                                  representation. Default is True  [default:
+                                  convert_qat]
   --help                          Show this message and exit.
 
 ##########
@@ -248,6 +253,14 @@ LOGGER = get_main_logger()
     default=None,
     help="The path to a recipe file or SparseZoo stub to use for exporting the model",
 )
+@click.option(
+    "--convert_qat/--no_convert_qat",
+    "--convert-qat/--no-convert-qat",
+    default=True,
+    show_default=True,
+    help="if True, exports of torch QAT graphs will be converted to a fully quantized "
+    "representation. Default is True",
+)
 def main(
     dataset: str,
     dataset_path: str,
@@ -264,6 +277,7 @@ def main(
     save_dir: str,
     image_size: int,
     recipe: Optional[str],
+    convert_qat: bool,
 ):
     """
     SparseML-PyTorch Integration for exporting image classification models to
@@ -324,6 +338,7 @@ def main(
         use_zipfile_serialization_if_available=use_zipfile_serialization_if_available,
         num_samples=num_samples,
         onnx_opset=onnx_opset,
+        convert_qat=convert_qat,
     )
 
 
@@ -334,6 +349,7 @@ def export(
     use_zipfile_serialization_if_available: bool,
     num_samples: int,
     onnx_opset: int = 11,
+    convert_qat: bool = True,
 ) -> None:
     """
     Utility method to export the model and data
@@ -345,6 +361,8 @@ def export(
         serialization during export
     :param num_samples: Number of samples to export
     :param onnx_opset: ONNX opset version to use
+    :param convert_qat: set True to convert QAT export to fully quantized
+        representation
     """
     exporter = ModuleExporter(model, save_dir)
 
@@ -364,7 +382,7 @@ def export(
         if not onnx_exported:
             # export onnx file using first sample for graph freezing
             LOGGER.info(f"exporting onnx in {save_dir}")
-            exporter.export_onnx(data[0], opset=onnx_opset, convert_qat=True)
+            exporter.export_onnx(data[0], opset=onnx_opset, convert_qat=convert_qat)
             onnx_exported = True
 
         if num_samples > 0:
