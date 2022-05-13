@@ -14,7 +14,6 @@
 
 import os
 import tempfile
-from collections import OrderedDict
 
 import onnx
 import onnxruntime as ort
@@ -32,7 +31,6 @@ from tests.integrations.object_detection.object_detection_args import (
     Yolov5TrainArgs,
 )
 from yolov5.export import load_checkpoint
-from yolov5.utils.general import ROOT
 from yolov5.val import run as val
 
 
@@ -45,7 +43,6 @@ except Exception:
 METRIC_TO_INDEX = {"map0.5": 2}
 
 
-# Iterate over configs with the matching cadence (default commit)
 class ObjectDetectionManager(BaseIntegrationManager):
 
     command_stubs = {
@@ -53,7 +50,7 @@ class ObjectDetectionManager(BaseIntegrationManager):
         "export": "sparseml.object_detection.export",
         "deploy": "sparseml.object_detection.deploy",
     }
-    command_args_classes = {
+    config_classes = {
         "train": Yolov5TrainArgs,
         "export": Yolov5ExportArgs,
     }
@@ -70,13 +67,8 @@ class ObjectDetectionManager(BaseIntegrationManager):
                 train_args.project, "exp", "weights", "last.pt"
             )
 
-    # def teardown(self):
-    # self.save_dir.cleanup()
-
-
-"""@pytest.mark.parametrize("config", get_configs_with_cadence(
-            os.environ.get("NM_TEST_CADENCE", "commit"), os.path.dirname(__file__)), scope = "class"
-        )"""
+    def teardown(self):
+        self.save_dir.cleanup()
 
 
 class TestObjectDetection(BaseIntegrationTester):
@@ -94,7 +86,6 @@ class TestObjectDetection(BaseIntegrationTester):
     @skip_inactive_stage
     def test_train_complete(self, integration_manager):
         manager = integration_manager
-        train_args = manager.configs["train"].run_args
         model_file = os.path.join(manager.save_dir.name, "exp", "weights", "last.pt")
         assert os.path.isfile(model_file)
         model, extras = load_checkpoint(
@@ -138,10 +129,10 @@ class TestObjectDetection(BaseIntegrationTester):
             os.path.dirname(export_args.run_args.weights), "last.onnx"
         )
         _, *_ = load_checkpoint(
-                type_="val",
-                weights=target_model_path,
-                device=torch.device("cpu"),
-            )
+            type_="val",
+            weights=target_model_path,
+            device=torch.device("cpu"),
+        )
         input_data = deepsparse.utils.generate_random_inputs(run_model_path, 1)
         input_names = deepsparse.utils.get_input_names(run_model_path)
         output_names = deepsparse.utils.get_output_names(run_model_path)
