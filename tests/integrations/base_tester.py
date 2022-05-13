@@ -30,13 +30,17 @@ described in B and should be decorated by @skip_inactive_stage found in helpers.
 
 import os
 import subprocess
-from typing import Dict, List, Union
+from functools import wraps
+from typing import Dict, Union
 
+import pytest
 import yaml
 from pydantic import BaseModel
 
+from tests.integrations.helpers import Config
 
-class BaseIntegrationTester:
+
+class BaseIntegrationManager:
     """
     Base class for testing integrations through train, export, and deploy scripts.
 
@@ -87,37 +91,29 @@ class BaseIntegrationTester:
         # Final command stub
         self.command_stubs_final = self.get_root_commands(raw_config)
 
-        # Map each present command type to the pydantic class and pre-args (see below)
+        # Compose commands into arg managers
         self.configs = {
-            _type: {
-                # pre_args are CLI commands that can precede the python call
-                # e.g. "torch.distributed.launch" or "CUDA_VISIBLE_DEVICES": 2
-                "pre_args": config.pop("pre_args", ""),
-                # Instantiate the correspoding pydantic class with the command args
-                "args": self.command_args_classes[_type](**config.get("command_args")),
-            }
+            _type: Config(
+                self.command_args_classes[_type],
+                config,
+                self.command_stubs_final[_type],
+            )
             for _type, config in raw_config.items()
-        }
-
-        # test args are used to guide testing of the stage. e.g. target metrics or
-        # named quantities/qualities to test for
-        self.test_args = {
-            _type: config["test_args"] for _type, config in raw_config.items()
         }
 
         # Capture any pre-run information that may be needed for post-run testing
         self.capture_pre_run_state()
 
         # Combine pre-args, command stubs, and args into complete CLI commands
-        self.commands = self.compose_command_scripts(
-            self.configs, self.command_stubs_final
-        )
+        self.commands = {
+            _type: config.create_command_script()
+            for _type, config in self.configs.items()
+        }
 
         # All commands are run sequentially
         self.run_commands()
 
-    @classmethod
-    def get_root_commands(cls, configs: Dict[str, Union[str, BaseModel]]):
+    def get_root_commands(self, configs: Dict[str, Union[str, BaseModel]]):
         """
         Returns the command stubs to use. e.g. "sparseml.yolov5.train".
         If the stub for the integration needs to be determined based on the configs
@@ -126,68 +122,7 @@ class BaseIntegrationTester:
         :param configs: unprocessed configs dict
         :return: dict mapping command type to the respective CLI root command
         """
-        return cls.command_stubs
-
-    @classmethod
-    def compose_command_scripts(
-        cls, configs: Dict[str, BaseModel], command_stubs: Dict[str, str]
-    ):
-        """
-        For each command, create the full CLI command by combining the pre-args,
-        command stub, and run args.
-
-        :param configs: dict mapping command type to a pydantic class holding
-            the command args
-        :return: dict mapping command type to the full CLI command string
-        """
-        commands = {}
-        for _type, config in configs.items():
-            if _type not in cls.command_stubs:
-                raise ValueError(f"{_type} is not a valid command type")
-            commands[_type] = cls.create_command_script(
-                config["pre_args"], command_stubs[_type], config["args"]
-            )
-        return commands
-
-    @classmethod
-    def create_command_script(cls, pre_args: str, command_stub: str, config: BaseModel):
-        """
-        Handles logic for converting pydantic classes into valid argument strings.
-        This should set arg standards for all integrations and should generally not
-        be overridden. If the need to override comes up, consider updating this method
-        instead.
-
-        :param pre_args: string of arguments to prepend to the command stub
-        :param command_stub: the root command e.g. sparseml.yolov5.train
-        :param config: a pydantic class holding the args for this command
-        :return: string of the full CLI command
-        """
-        args_dict = config.dict()
-        args_string_list = []
-        for key, value in args_dict.items():
-            key = "--" + key.replace("_", "-")
-            # Handles bool type args (e.g. --do-train)
-            if isinstance(value, bool):
-                if value:
-                    args_string_list.append(key)
-            elif isinstance(value, List):
-                # Handles args that are both bool and value based (see evolve in yolov5)
-                if isinstance(value[0], bool):
-                    if value[0]:
-                        args_string_list.extend([key, str(value[1])])
-                # Handles args that have multiple values after the keyword.
-                # e.g. --freeze-layers 0 10 15
-                else:
-                    args_string_list.append(key)
-                    args_string_list.extend(map(str, value))
-            # Handles the most straightforward case of keyword followed by value
-            # e.g. --epochs 30
-            else:
-                if value is None:
-                    continue
-                args_string_list.extend([key, str(value)])
-        pre_args = pre_args.split(" ") if pre_args else []
-        return pre_args + [command_stub] + args_string_list
+        return self.command_stubs
 
     def capture_pre_run_state(self):
         """
@@ -202,6 +137,16 @@ class BaseIntegrationTester:
         :param kwargs_dict: dict mapping command type to subprocess.call() kwargs
             to be used with the command, if any
         """
+        # Debug only code
+        self.commands["train"] = [
+            "/home/konstantin/Source/sparseml/dev-venv/bin/python3.8",
+            "/home/konstantin/Source/sparseml/src/sparseml/pytorch/object_detection/train.py",
+        ] + self.commands["train"][1:]
+        self.commands["export"] = [
+            "/home/konstantin/Source/sparseml/dev-venv/bin/python3.8",
+            "/home/konstantin/Source/sparseml/src/sparseml/pytorch/object_detection/export.py",
+        ] + self.commands["export"][1:]
+
         if not kwargs_dict:
             kwargs_dict = {key: {} for key in self.command_types}
         for _type in self.command_types:
@@ -226,7 +171,7 @@ class BaseIntegrationTester:
         """
         Cleanup environment after test completion
         """
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def teardown_check(self):
         """
@@ -244,3 +189,60 @@ class BaseIntegrationTester:
             f"{self._end_file_count - self._start_file_count} files created during "
             "pytest run"
         )
+
+
+def skip_inactive_stage(test):
+    """
+    Check whether the this test's command type is active in this run. If not,
+    skip test.
+
+    :param test: test function which follows the name convention test_{command_type}_...
+    """
+
+    @wraps(test)
+    def wrapped_test(self, *args, **kwargs):
+        manager = [arg for arg in args if isinstance(arg, BaseIntegrationManager)] or [
+            val
+            for kwarg, val in kwargs.items()
+            if isinstance(val, BaseIntegrationManager)
+        ]
+        if len(manager) != 1:
+            raise KeyError(
+                f"Expected function {test.__name__} to ingest a manager object of type "
+                f"BaseIntegrationManager. Found {len(manager)} matching args."
+            )
+        manager = manager[0]
+        command_type = test.__name__.split("_")[1]
+        if command_type not in manager.command_stubs:
+            raise ValueError(
+                "Invalid test function definition. Test names must take the form "
+                f"test_{{CommandType}}_... Found instead {command_type} for "
+                "{Command_type}"
+            )
+        if command_type not in manager.command_types:
+            pytest.skip(f"No {command_type} stage active. Skipping test")
+        test(self, *args, **kwargs)
+
+    return wrapped_test
+
+
+class BaseIntegrationTester:
+    @pytest.fixture(scope="class")
+    def integration_manager(request):
+        raise NotImplementedError()
+
+    @skip_inactive_stage
+    def test_train_complete(self, integration_manager):
+        raise NotImplementedError()
+
+    @skip_inactive_stage
+    def test_train_metrics(self, integration_manager):
+        raise NotImplementedError()
+
+    @skip_inactive_stage
+    def test_export_onnx_graph(self, integration_manager):
+        raise NotImplementedError()
+
+    @skip_inactive_stage
+    def test_export_target_model(self, integration_manager):
+        raise NotImplementedError()

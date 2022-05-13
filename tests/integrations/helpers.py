@@ -15,8 +15,9 @@
 import glob
 import os
 from functools import wraps
+from typing import Dict, List
 
-import pytest
+from pydantic import BaseModel
 
 
 def get_configs_with_cadence(cadence: str, dir_path: str = "."):
@@ -40,32 +41,50 @@ def get_configs_with_cadence(cadence: str, dir_path: str = "."):
     return matching_files
 
 
-def skip_inactive_stage(test):
-    """
-    Check whether the this test's command type is active in this run. If not,
-    skip test.
+class Config:
+    def __init__(self, args_class: BaseModel, config: Dict, command_stub: str):
+        self.raw_config = config
+        # pre_args are CLI commands that can precede the python call
+        # e.g. "torch.distributed.launch" or "CUDA_VISIBLE_DEVICES": 2
+        self.pre_args = config.pop("pre_args", "")
+        self.run_args = args_class(**config.get("command_args"))
+        self.command_stub = command_stub
+        # test args are used to guide testing of the stage. e.g. target metrics or
+        # named quantities/qualities to test for
+        self.test_args = config.pop("test_args", {})
 
-    :param test: test function which follows the name convention test_{command_type}_...
-    """
+    def create_command_script(self):
+        """
+        Handles logic for converting pydantic classes into valid argument strings.
+        This should set arg standards for all integrations and should generally not
+        be overridden. If the need to override comes up, consider updating this method
+        instead.
 
-    @wraps(test)
-    def wrapped_test(**kward_args):
-        tester_name = [arg for arg in kward_args if arg.endswith("_tester")]
-        if len(tester_name) != 1:
-            raise KeyError(
-                f"Expected function {test.__name__} to ingest a tester object with "
-                f"name convention *__tester. Found {len(tester_name)} matching args."
-            )
-        tester = kward_args[tester_name[0]]
-        command_type = test.__name__.split("_")[1]
-        if command_type not in tester.command_stubs:
-            raise ValueError(
-                "Invalid test function definition. Test names must take the form "
-                f"test_{{CommandType}}_... Found instead {command_type} for "
-                "{Command_type}"
-            )
-        if command_type not in tester.command_types:
-            pytest.skip(f"No {command_type} stage active. Skipping test")
-        test(tester)
-
-    return wrapped_test
+        :return: string of the full CLI command
+        """
+        args_dict = self.run_args.dict()
+        args_string_list = []
+        for key, value in args_dict.items():
+            key = "--" + key.replace("_", "-")
+            # Handles bool type args (e.g. --do-train)
+            if isinstance(value, bool):
+                if value:
+                    args_string_list.append(key)
+            elif isinstance(value, List):
+                # Handles args that are both bool and value based (see evolve in yolov5)
+                if isinstance(value[0], bool):
+                    if value[0]:
+                        args_string_list.extend([key, str(value[1])])
+                # Handles args that have multiple values after the keyword.
+                # e.g. --freeze-layers 0 10 15
+                else:
+                    args_string_list.append(key)
+                    args_string_list.extend(map(str, value))
+            # Handles the most straightforward case of keyword followed by value
+            # e.g. --epochs 30
+            else:
+                if value is None:
+                    continue
+                args_string_list.extend([key, str(value)])
+        pre_args = self.pre_args.split(" ") if self.pre_args else []
+        return pre_args + [self.command_stub] + args_string_list
