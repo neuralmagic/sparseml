@@ -137,15 +137,6 @@ class BaseIntegrationManager:
         :param kwargs_dict: dict mapping command type to subprocess.call() kwargs
             to be used with the command, if any
         """
-        # Debug only code
-        self.commands["train"] = [
-            "/home/konstantin/Source/sparseml/dev-venv/bin/python3.8",
-            "/home/konstantin/Source/sparseml/src/sparseml/pytorch/object_detection/train.py",
-        ] + self.commands["train"][1:]
-        self.commands["export"] = [
-            "/home/konstantin/Source/sparseml/dev-venv/bin/python3.8",
-            "/home/konstantin/Source/sparseml/src/sparseml/pytorch/object_detection/export.py",
-        ] + self.commands["export"][1:]
 
         if not kwargs_dict:
             kwargs_dict = {key: {} for key in self.command_types}
