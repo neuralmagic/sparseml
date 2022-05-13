@@ -19,8 +19,8 @@ To implement an integration-specific set of integrations tests 4 components are 
 - {Integration_name}_args.py file containing pydantic classes for the args of each of
 the commands (i.e. train, export, deploy).
 
-- {Integration_name}_tester.py file containing integration testing class inherited
-from BaseIntegrationTester
+- {Integration_name}_tester.py file containing integration manager and test classes 
+inherited from BaseIntegrationManager and BaseIntegrationTester, respectively
 
 - Tests to run after commands are run. Tests should be implemented in the tester class
 described in B and should be decorated by @skip_inactive_stage found in helpers.py
@@ -52,7 +52,7 @@ class BaseIntegrationManager:
 
     :field command_stubs: Mapping from command type to the respective CLI command.
         Note that the stubs can be modified via the get_root_commands() function
-    :field command_args_classes: Mapping from command type to the pydnatic class
+    :field config_classes: Mapping from command type to the pydnatic class
         which holds the CLI args for that command
     :function teardown: Perform the appropriate post-testing teardown, including
         file cleanup
@@ -72,7 +72,7 @@ class BaseIntegrationManager:
         "export": "sparseml.foo_integration.export",
         "deploy": "sparseml.foo_integration.deploy",
     }
-    command_args_classes = {
+    config_classes = {
         "train": BaseModel,
         "export": BaseModel,
         "deploy": BaseModel,
@@ -94,7 +94,7 @@ class BaseIntegrationManager:
         # Compose commands into arg managers
         self.configs = {
             _type: Config(
-                self.command_args_classes[_type],
+                self.config_classes[_type],
                 config,
                 self.command_stubs_final[_type],
             )
