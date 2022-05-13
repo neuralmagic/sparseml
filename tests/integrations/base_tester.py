@@ -33,6 +33,7 @@ import subprocess
 from functools import wraps
 from typing import Dict, Union
 
+import pytest
 import yaml
 from pydantic import BaseModel
 
