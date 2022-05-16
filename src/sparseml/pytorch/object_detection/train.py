@@ -374,7 +374,6 @@ def train(hyp, opt, device, callbacks):  # path/to/hyp.yaml or hyp dictionary
             prefix=colorstr("val: "),
         )[0]
 
-
         if not resume:
             labels = np.concatenate(dataset.labels, 0)
             # c = torch.tensor(labels[:, 0])  # classes
@@ -600,8 +599,7 @@ def train(hyp, opt, device, callbacks):  # path/to/hyp.yaml or hyp dictionary
                 if opt.max_eval_steps > 0:
                     # Early stop val batch loader
                     val_data_loader = (
-                        next(val_data_loader)
-                        for _ in range(opt.max_eval_steps)
+                        next(val_data_loader) for _ in range(opt.max_eval_steps)
                     )
                 results, maps, _ = val(
                     data_dict,
