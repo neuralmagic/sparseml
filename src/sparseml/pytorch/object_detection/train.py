@@ -374,9 +374,6 @@ def train(hyp, opt, device, callbacks):  # path/to/hyp.yaml or hyp dictionary
             prefix=colorstr("val: "),
         )[0]
 
-        if opt.max_eval_steps > 0:
-            # Early stop val batch loader
-            val_loader = (next(val_loader) for _ in range(opt.max_eval_steps))
 
         if not resume:
             labels = np.concatenate(dataset.labels, 0)
@@ -599,13 +596,20 @@ def train(hyp, opt, device, callbacks):  # path/to/hyp.yaml or hyp dictionary
             )
             final_epoch = (epoch + 1 == epochs) or stopper.possible_stop
             if not noval or final_epoch:  # Calculate mAP
+                val_data_loader = val_loader
+                if opt.max_eval_steps > 0:
+                    # Early stop val batch loader
+                    val_data_loader = (
+                        next(val_data_loader)
+                        for _ in range(opt.max_eval_steps)
+                    )
                 results, maps, _ = val(
                     data_dict,
                     batch_size=batch_size // WORLD_SIZE * 2,
                     imgsz=imgsz,
                     model=ema.ema,
                     single_cls=single_cls,
-                    dataloader=val_loader,
+                    dataloader=val_data_loader,
                     save_dir=save_dir,
                     plots=False,
                     callbacks=callbacks,
