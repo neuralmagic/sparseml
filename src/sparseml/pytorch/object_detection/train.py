@@ -462,7 +462,10 @@ def train(hyp, opt, device, callbacks):  # path/to/hyp.yaml or hyp dictionary
         mloss = torch.zeros(3, device=device)  # mean losses
         if RANK != -1:
             train_loader.sampler.set_epoch(epoch)
-        pbar = (next(enumerate(train_loader)) for _ in range(opt.max_train_steps))
+        pbar = enumerate(train_loader)
+        if opt.max_train_steps > 0:
+            # Early stop the batch-loader
+            pbar = (next(pbar) for _ in range(opt.max_train_steps))
         LOGGER.info(
             ("\n" + "%10s" * 7)
             % ("Epoch", "gpu_mem", "box", "obj", "cls", "labels", "img_size")
