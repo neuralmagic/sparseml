@@ -26,7 +26,6 @@ from copy import deepcopy
 from typing import Any, Callable, Dict, List, Tuple, Union
 
 import numpy
-import onnxruntime
 import psutil
 from onnx import ModelProto
 from tqdm import auto
@@ -42,6 +41,16 @@ from sparseml.onnx.utils.helpers import (
     is_foldable_node,
 )
 from sparsezoo.objects import File, Model
+
+
+try:
+    import onnxruntime
+except ModuleNotFoundError as error:
+    print(
+        error.__class__.__name__
+        + ": "
+        + f"{error.msg}. To fix this error, install sparseml[onnxruntime]."
+    )
 
 
 try:

@@ -39,7 +39,6 @@ _deps = [
     "matplotlib>=3.0.0",
     "merge-args>=0.1.0",
     "onnx>=1.5.0,<=1.10.1",
-    "onnxruntime>=1.0.0",
     "pandas>=0.25.0",
     "packaging>=20.0",
     "psutil>=5.0.0",
@@ -55,6 +54,8 @@ _nm_deps = [f"{'sparsezoo' if is_release else 'sparsezoo-nightly'}~={version_nm_
 _deepsparse_deps = [
     f"{'deepsparse' if is_release else 'deepsparse-nightly'}~={version_nm_deps}"
 ]
+
+_onnxruntime_deps = ["onnxruntime>=1.0.0"]
 _pytorch_deps = [
     "torch>=1.1.0,<=1.9.1",
     "tensorboard>=1.0",
@@ -112,6 +113,7 @@ def _setup_extras() -> Dict:
     return {
         "dev": _dev_deps,
         "deepsparse": _deepsparse_deps,
+        "onnxruntime": _onnxruntime_deps,
         "torch": _pytorch_deps,
         "torchvision": _pytorch_vision_deps,
         "tf_v1": _tensorflow_v1_deps,

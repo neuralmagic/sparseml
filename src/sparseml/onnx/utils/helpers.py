@@ -24,11 +24,20 @@ from typing import Any, Dict, List, NamedTuple, Tuple, Union
 
 import numpy
 import onnx
-import onnxruntime
 from onnx import ModelProto, NodeProto, TensorProto, numpy_helper
 from onnx.helper import get_attribute_value, make_empty_tensor_value_info
 
 from sparseml.utils import clean_path
+
+
+try:
+    import onnxruntime
+except ModuleNotFoundError as error:
+    print(
+        error.__class__.__name__
+        + ": "
+        + f"{error.msg}. To fix this error, install sparseml[onnxruntime]."
+    )
 
 
 _LOGGER = logging.getLogger(__name__)
