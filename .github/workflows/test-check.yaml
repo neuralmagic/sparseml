@@ -152,7 +152,7 @@ jobs:
       - name: "Clean sparsezoo directory"
         run: rm -r sparsezoo/
       - name: "⚙️ Install dependencies"
-        run: pip3 install .[dev,torchvision]
+        run: pip3 install .[dev,torchvision,onnxruntime]
       - name: "🔬 Running onnx tests"
         run: make test TARGETS=onnx
   pytorch-tests:
