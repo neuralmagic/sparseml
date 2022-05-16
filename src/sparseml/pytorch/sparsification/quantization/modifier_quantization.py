@@ -602,18 +602,15 @@ class QuantizationModifier(ScheduledModifier):
             module_fuse_fn(**self._model_fuse_fn_kwargs)
 
         # build list of layer types that should not quantize output activations
-        to_remove_layer_name = []
+        remove_activation_qat_layers = ["FloatFunctional"]
         if not self.quantize_linear_activations:
-            to_remove_layer_name.extend(LINEAR_ACTIVATION_NAMES)
+            remove_activation_qat_layers.extend(LINEAR_ACTIVATION_NAMES)
 
         if not self.quantize_conv_activations:
-            to_remove_layer_name.extend(CONV_ACTIVATION_NAMES)
+            remove_activation_qat_layers.extend(CONV_ACTIVATION_NAMES)
 
         if not self.quantize_embedding_activations:
-            to_remove_layer_name.append("Embedding")
-
-        if len(to_remove_layer_name) == 0:
-            to_remove_layer_name = None
+            remove_activation_qat_layers.append("Embedding")
 
         # fix for freezing batchnorm statistics when not fusing BN with convs.
         # pytorch only supports freezing batchnorm statistics for fused modules.
@@ -658,8 +655,9 @@ class QuantizationModifier(ScheduledModifier):
             add_quant_dequant(quant_module, name, module)
 
             # Remove output quantization from appropriate modules
-            if to_remove_layer_name:
-                remove_activation_qat_by_layer_name(quant_module, to_remove_layer_name)
+            remove_activation_qat_by_layer_name(
+                quant_module, remove_activation_qat_layers
+            )
 
         # remove qconfigs for module types in exclude_module_types
         to_exclude = []
