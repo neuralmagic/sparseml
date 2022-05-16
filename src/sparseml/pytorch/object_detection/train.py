@@ -374,6 +374,10 @@ def train(hyp, opt, device, callbacks):  # path/to/hyp.yaml or hyp dictionary
             prefix=colorstr("val: "),
         )[0]
 
+        if opt.max_eval_steps > 0:
+            # Early stop val batch loader
+            val_loader = (next(val_loader) for _ in range(opt.max_eval_steps))
+
         if not resume:
             labels = np.concatenate(dataset.labels, 0)
             # c = torch.tensor(labels[:, 0])  # classes
@@ -882,6 +886,13 @@ def parse_opt(known=False):
         type=int,
         default=-1,
         help="Set the maximum number of training steps per epoch. if negative,"
+        "the entire dataset will be used, default=-1",
+    )
+    parser.add_argument(
+        "--max-eval-steps",
+        type=int,
+        default=-1,
+        help="Set the maximum number of eval steps per epoch. if negative,"
         "the entire dataset will be used, default=-1",
     )
 
