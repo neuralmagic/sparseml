@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
+import math
 import os
 import tempfile
 from collections import OrderedDict
@@ -21,6 +23,7 @@ import onnxruntime as ort
 import pytest
 import torch
 
+from sparseml.pytorch.optim.manager import ScheduledModifierManager
 from tests.integrations.base_tester import (
     BaseIntegrationManager,
     BaseIntegrationTester,
@@ -102,6 +105,27 @@ class TestTransformers(BaseIntegrationTester):
     @skip_inactive_stage
     def test_train_complete(self, integration_manager):
         manager = integration_manager
-        model_file = os.path.join(manager.save_dir.name, "exp", "pytorch.model")
+        run_args = manager.configs["train"].run_args
+        results_file = os.path.join(manager.save_dir.name, "train_results.json")
+        model_file = os.path.join(manager.save_dir.name, "pytorch_model.bin")
         assert os.path.isfile(model_file)
-        assert extras["ckpt"]["epoch"] == -1
+        end_epoch = (
+            ScheduledModifierManager.from_yaml(run_args.recipe).max_epochs
+            if train_args.recipe
+            else train_args.num_train_epochs
+        )
+        with open(results_file) as f:
+            train_results = json.load(f)
+        assert train_results["epoch"] == math.floor(end_epoch)
+
+    def test_train_metrics(self, integration_manager):
+        manager = integration_manager
+        args = manager.configs["train"]
+        results_file = os.path.join(manager.save_dir.name, "train_results.json")
+        with open(results_file) as f:
+            train_results = json.load(f)
+        if "target_name" in args.test_args:
+            train_test_args = args.test_args
+            target_mean = train_test_args["target_mean"]
+            target_std = train_test_args["target_std"]
+            assert target_mean - target_std <= metric <= target_mean + target_std
