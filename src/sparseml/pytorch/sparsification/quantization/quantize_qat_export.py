@@ -862,7 +862,7 @@ def _convert_quantizable_matmul_matmul(model: ModelProto):
         # Convert to MatMulInteger
         _add_quantized_conv_matmul_add_ops(
             model=model,
-            node=matmul_constant_nodenode,
+            node=matmul_constant_node,
             input_quantize_node=output_quantize_node,
             weight_quantize_node=weight_quantize_node,
             input_quantize_params=output_quantize_params,
@@ -1753,6 +1753,7 @@ def quantize_torch_qat_export(
     _fold_relu_quants(model)
     _convert_single_constants_to_initializers(model)
     _delete_repeated_qat_blocks(model)
+    _convert_quantizable_matmul_matmul(model)
     _convert_quantizable_matmul(model)
     _convert_quantizable_matmul_and_add(model)
 
