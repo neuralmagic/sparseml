@@ -19,7 +19,7 @@ To implement an integration-specific set of integrations tests 4 components are 
 - {Integration_name}_args.py file containing pydantic classes for the args of each of
 the commands (i.e. train, export, deploy).
 
-- {Integration_name}_tester.py file containing integration manager and test classes 
+- {Integration_name}_tester.py file containing integration manager and test classes
 inherited from BaseIntegrationManager and BaseIntegrationTester, respectively
 
 - Tests to run after commands are run. Tests should be implemented in the tester class
