@@ -658,7 +658,7 @@ def main():
         elif last_checkpoint is not None:
             checkpoint = last_checkpoint
         train_result = trainer.train(resume_from_checkpoint=checkpoint)
-        if trainer.one_shot:
+        if not trainer.one_shot:
             metrics = train_result.metrics
             max_train_samples = (
                 data_args.max_train_samples
