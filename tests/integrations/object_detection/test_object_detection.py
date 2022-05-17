@@ -57,18 +57,22 @@ class ObjectDetectionManager(BaseIntegrationManager):
 
     def capture_pre_run_state(self):
         super().capture_pre_run_state()
-        train_args = self.configs["train"].run_args
-        export_args = self.configs["export"].run_args
-        self.save_dir = tempfile.TemporaryDirectory(dir=train_args.project)
-        train_args.project = self.save_dir.name
+        if "train" in self.command_types:
+            train_args = self.configs["train"].run_args
+            train_args.project = self.save_dir.name
+            self.save_dir = tempfile.TemporaryDirectory(dir=train_args.project)
 
         if "export" in self.command_types:
-            export_args.weights = os.path.join(
+            export_args = self.configs["export"].run_args
+            export_args.weights = export_args.weights or os.path.join(
                 train_args.project, "exp", "weights", "last.pt"
             )
 
     def teardown(self):
-        self.save_dir.cleanup()
+        if "train" in self.command_types:
+            self.save_dir.cleanup()
+        # TODO: Add cleanup of export file if export only mode was ran
+        # TODO: Add cleanup of models downloaded from zoo to base_tester
 
 
 class TestObjectDetection(BaseIntegrationTester):
