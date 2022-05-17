@@ -100,7 +100,7 @@ class RecipeManagerTrainerInterface:
         recipe: Optional[str],
         recipe_args: Optional[Union[Dict[str, Any], str]] = None,
         metadata_args: Optional[List[str]] = None,
-        data_args: Optional[List[str]] = None,
+        data_args: Optional["DataTrainingArguments"] = None,  # noqa: F821
         teacher: Optional[Union[Module, str]] = None,
         **kwargs,
     ):
