@@ -233,11 +233,13 @@ class GradSampler:
             total=num_grads, desc="Collecting gradients", disable=not progress_bar
         )
 
-        data_loader = (
-            self._data_loader() if callable(self._data_loader) else self._data_loader
-        )
         with pbar:
             while computed_grads < num_grads:
+                data_loader = (
+                    self._data_loader()
+                    if callable(self._data_loader)
+                    else self._data_loader
+                )
                 for forward_args, forward_kwargs, loss_target in data_loader:
                     module.zero_grad()
                     # run sample forward and backwards pass
