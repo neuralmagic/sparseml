@@ -203,7 +203,7 @@ class RecipeManagerTrainerInterface:
             else:
                 self.manager.apply(self.model)
                 self.manager_applied = True
-                _LOGGER.info(f"Applied {self.recipe} to manager")
+                _LOGGER.info(f"Applied one shot recipe {self.recipe} to the manager")
                 return True
 
         # reload the state dict for the model now that architecture matches expected
