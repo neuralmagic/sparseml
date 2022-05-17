@@ -271,6 +271,10 @@ class DataTrainingArguments:
             "of evaluation examples to this value if set."
         },
     )
+    one_shot: bool = field(
+        default=False,
+        metadata={"help": "Whether to apply recipe in a one shot manner."},
+    )
 
     def __post_init__(self):
         if (
@@ -696,22 +700,22 @@ def main():
         elif last_checkpoint is not None:
             checkpoint = last_checkpoint
         train_result = trainer.train(resume_from_checkpoint=checkpoint)
+        if not trainer.one_shot:
+            metrics = train_result.metrics
+            max_train_samples = (
+                data_args.max_train_samples
+                if data_args.max_train_samples is not None
+                else len(train_dataset)
+            )
+            metrics["train_samples"] = min(max_train_samples, len(train_dataset))
+            trainer.log_metrics("train", metrics)
+            trainer.save_metrics("train", metrics)
+
         trainer.save_model()  # Saves the tokenizer too for easy upload
-        metrics = train_result.metrics
-
-        max_train_samples = (
-            data_args.max_train_samples
-            if data_args.max_train_samples is not None
-            else len(train_dataset)
-        )
-        metrics["train_samples"] = min(max_train_samples, len(train_dataset))
-
-        trainer.log_metrics("train", metrics)
-        trainer.save_metrics("train", metrics)
         trainer.save_state()
 
     # Evaluation
-    if training_args.do_eval:
+    if training_args.do_eval and not trainer.one_shot:
         _LOGGER.info("*** Evaluate ***")
 
         metrics = trainer.evaluate()
