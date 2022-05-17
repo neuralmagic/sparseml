@@ -468,11 +468,17 @@ def add_quant_dequant(module, name=None, parent_module=None):
         and hasattr(module, "qconfig")
         and module.qconfig
     ):
+        module = torch_quantization.QuantWrapper(module)
         if parent_module is not None and len(list(named_children)) <= 0:
-            module = torch_quantization.QuantWrapper(module)
+            if "." in name:
+                # unwrap name under parent module, nested through multiple submodules
+                name_parts = name.split(".")
+                for name_part in name_parts[:-1]:
+                    parent_module = getattr(parent_module, name_part)
+                name = name_parts[-1]
+
+            # set parent module child to the newly wrapped module
             setattr(parent_module, name, module)
-        else:
-            module = torch_quantization.QuantWrapper(module)
     else:
         for name, child in named_children:
             setattr(module, name, add_quant_dequant(child))
