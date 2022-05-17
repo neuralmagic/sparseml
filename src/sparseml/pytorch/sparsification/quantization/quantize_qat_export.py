@@ -665,6 +665,7 @@ def _convert_quantizable_matmul(model: ModelProto):
             f"Converted {conversion_count} quantizable MatMul ops " "to QLinearMatMul"
         )
 
+
 def _convert_quantizable_matmul_matmul(model: ModelProto):
     """
     A pass for converting a MatMul into a quantized representation
@@ -750,19 +751,13 @@ def _convert_quantizable_matmul_matmul(model: ModelProto):
         tranpose_node = graph.get_node_single_child(matmul_node)
 
         # Make sure the output from matmul node is Transpose
-        if (
-            tranpose_node is None
-            or tranpose_node.op_type != "Transpose"
-        ):
+        if tranpose_node is None or tranpose_node.op_type != "Transpose":
             continue
 
         reshape_node = graph.get_node_single_child(tranpose_node)
 
         # Make sure the output from transpose node is Reshape
-        if (
-            reshape_node is None
-            or reshape_node.op_type != "Reshape"
-        ):
+        if reshape_node is None or reshape_node.op_type != "Reshape":
             continue
 
         output_quantize_node = graph.get_node_single_child(reshape_node)
@@ -776,16 +771,16 @@ def _convert_quantizable_matmul_matmul(model: ModelProto):
 
         # Make sure the output from quantize node is DequantizeLinear
         output_dequantize_node = graph.get_node_single_child(output_quantize_node)
-        if output_dequantize_node is None or output_dequantize_node.op_type != "DequantizeLinear":
+        if (
+            output_dequantize_node is None
+            or output_dequantize_node.op_type != "DequantizeLinear"
+        ):
             continue
 
         matmul_constant_node = graph.get_node_single_child(output_dequantize_node)
 
         # Make sure the output from dequantize node is MatMul
-        if (
-            matmul_constant_node is None
-            or matmul_constant_node.op_type != "MatMul"
-        ):
+        if matmul_constant_node is None or matmul_constant_node.op_type != "MatMul":
             continue
 
         # Make sure the weight input to matmul node is Transpose
@@ -826,8 +821,10 @@ def _convert_quantizable_matmul_matmul(model: ModelProto):
         if bias_initializer is None:
             continue
 
-
-        _LOGGER.debug(f"Matched pair of quantizable MatMuls: {matmul_node.name} followed by {matmul_constant_node.name}")
+        _LOGGER.debug(
+            f"Matched pair of quantizable MatMuls: {matmul_node.name} "
+            f"followed by {matmul_constant_node.name}"
+        )
 
         #############
         # Conversion
@@ -898,6 +895,7 @@ def _convert_quantizable_matmul_matmul(model: ModelProto):
             f"Converted {conversion_count} pairs of quantizable MatMul ops "
             "to QLinearMatMul + MatMulInteger"
         )
+
 
 def _add_quantized_conv_matmul_add_ops(
     model: ModelProto,
