@@ -37,7 +37,7 @@ import pytest
 import yaml
 from pydantic import BaseModel
 
-from tests.integrations.helpers import Config
+from tests.integrations.helpers import Config, get_configs_with_cadence
 
 
 class BaseIntegrationManager:
@@ -218,22 +218,60 @@ def skip_inactive_stage(test):
 
 
 class BaseIntegrationTester:
-    @pytest.fixture(scope="class")
+    """
+    Class from which integration test-holding classes should inherit. Tests defined here
+    need to be implemented for each integration on the integration level.
+    """
+
+    @pytest.fixture(
+        params=get_configs_with_cadence(
+            os.environ.get("NM_TEST_CADENCE", "commit"), os.path.dirname(__file__)
+        ),
+        scope="class",
+    )
     def integration_manager(request):
+        """
+        Fixture with a lifecycle of:
+        - Create integration manager instance (child of BaseIntegrationManager)
+        - Yield manager to test
+        - teardown
+
+        Child implementations of fixture need to include the same fixture decorator
+        """
         raise NotImplementedError()
 
     @skip_inactive_stage
     def test_train_complete(self, integration_manager):
+        """
+        Tests:
+            - Run created a model file
+            - Model file is loadable
+            - The model epoch corresponds to the expecte value
+        """
         raise NotImplementedError()
 
     @skip_inactive_stage
     def test_train_metrics(self, integration_manager):
+        """
+        Tests:
+            - Train metrics are within the expected range
+        """
         raise NotImplementedError()
 
     @skip_inactive_stage
     def test_export_onnx_graph(self, integration_manager):
+        """
+        Test:
+            - Export generated an onnx model which passes the onnx checker
+        """
         raise NotImplementedError()
 
     @skip_inactive_stage
     def test_export_target_model(self, integration_manager):
+        """
+        If no target model provided in config file, skip test
+        Tests:
+            - Target model and generated model produce similar outputs when run through
+            onnixruntime. Tolerance set via pytest.approx(abs=1e-5)
+        """
         raise NotImplementedError()
