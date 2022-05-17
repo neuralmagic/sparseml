@@ -28,6 +28,10 @@ from tests.integrations.base_tester import (
 )
 from tests.integrations.helpers import get_configs_with_cadence
 from tests.integrations.transformers.transformers_args import (
+    MaskedLanguageModellingArgs,
+    QuestionAnsweringArgs,
+    TextClassificationArgs,
+    TokenClassificationArgs,
     TransformersTrainArgs,
 )
 
@@ -38,14 +42,66 @@ except Exception:
     deepsparse = None
 
 
-METRIC_TO_INDEX = {}
-
-
 class TransformersManager(BaseIntegrationManager):
     command_stubs = {
-        "train": "sparseml.transformers{task}.train",
-        "export": "sparseml.transformers{task}.export"
+        "train": "sparseml.transformers.train.{task}",
+        "export": "sparseml.transformers.export",
     }
-    config_classes = {
-        "train": TransformersTrainArgs
+    config_classes = {"train": TransformersTrainArgs}
+    task_config_classes = {
+        "masked_language_modeling": MaskedLanguageModellingArgs,
+        "question_answering": QuestionAnsweringArgs,
+        "text_classification": TextClassificationArgs,
+        "token_classification": TokenClassificationArgs,
     }
+    metrics = {}
+
+    def capture_pre_run_state(self):
+        super().capture_pre_run_state()
+        train_args = (
+            self.configs["train"].run_args if "train" in self.command_types else None
+        )
+        export_args = (
+            self.configs["export"].run_args if "export" in self.command_types else None
+        )
+        self.save_dir = tempfile.TemporaryDirectory(
+            dir=os.path.dirname(train_args.output_dir)
+        )
+        train_args.output_dir = self.save_dir.name
+
+    def get_root_commands(self, raw_configs):
+        self.task = (
+            raw_configs["train"]["task"].lower().replace("-", "_")
+            if "train" in self.command_types
+            else "NullTask"
+        )
+        if self.task not in self.task_config_classes:
+            raise ValueError(f"{self.task} is not a supported task")
+
+        self.config_classes["train"] = self.task_config_classes[self.task]
+
+        command_stubs_final = self.command_stubs
+        command_stubs_final["train"] = command_stubs_final["train"].format(
+            task=self.task
+        )
+        return command_stubs_final
+
+
+class TestTransformers(BaseIntegrationTester):
+    @pytest.fixture(
+        params=get_configs_with_cadence(
+            os.environ.get("NM_TEST_CADENCE", "commit"), os.path.dirname(__file__)
+        ),
+        scope="class",
+    )
+    def integration_manager(self, request):
+        manager = TransformersManager(config_path=request.param)
+        yield manager
+        manager.teardown()
+
+    @skip_inactive_stage
+    def test_train_complete(self, integration_manager):
+        manager = integration_manager
+        model_file = os.path.join(manager.save_dir.name, "exp", "pytorch.model")
+        assert os.path.isfile(model_file)
+        assert extras["ckpt"]["epoch"] == -1
