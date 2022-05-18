@@ -220,6 +220,7 @@ def load_checkpoint(
             model = DetectMultiBackend(
                 model=model, device=device, dnn=dnn, data=data, fp16=half
             )
+            model.model.eval()
 
     # turn gradients for params back on in case they were removed
     for p in model.parameters():
