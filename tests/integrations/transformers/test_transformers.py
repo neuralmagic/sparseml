@@ -111,8 +111,8 @@ class TestTransformers(BaseIntegrationTester):
         assert os.path.isfile(model_file)
         end_epoch = (
             ScheduledModifierManager.from_yaml(run_args.recipe).max_epochs
-            if train_args.recipe
-            else train_args.num_train_epochs
+            if run_args.recipe
+            else run_args.num_train_epochs
         )
         with open(results_file) as f:
             train_results = json.load(f)

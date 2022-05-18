@@ -5,6 +5,8 @@ train:
    model_name_or_path: bert-base-uncased
    dataset_name: squad
    do_train: True
+   do_eval: True
+   evaluation_strategy: epoch
    per_device_train_batch_size: 16
    max_seq_length: 384
    doc_stride: 128
@@ -12,7 +14,6 @@ train:
    preprocessing_num_workers: 6
    fp16: True
    num_train_epochs: 0.1
-   recipes: recipes/mfac_test.md
    save_strategy: epoch
    max_steps: 5
   test_args: 
