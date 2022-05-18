@@ -51,10 +51,11 @@ class Config:
         # test args are used to guide testing of the stage. e.g. target metrics or
         # named quantities/qualities to test for
         self.test_args = config.pop("test_args", {})
-
+        # whether to replace '_' with '-' for run keywords
+        self.dashed_keywords = False
         self._validate_config()
 
-    def create_command_script(self, dashed_keywords=False):
+    def create_command_script(self):
         """
         Handles logic for converting pydantic classes into valid argument strings.
         This should set arg standards for all integrations and should generally not
@@ -67,7 +68,7 @@ class Config:
         args_string_list = []
         for key, value in args_dict.items():
             key = "--" + key
-            key = key.replace("_", "-") if dashed_keywords else key
+            key = key.replace("_", "-") if self.dashed_keywords else key
             # Handles bool type args (e.g. --do-train)
             if isinstance(value, bool):
                 if value:
