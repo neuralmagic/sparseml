@@ -15,12 +15,12 @@
 import json
 import os
 from pathlib import Path
-from typing import Literal, Union
+from typing import Literal, Optional, Union
 
 from pydantic import BaseModel, Field
 
 from sparseml.pytorch.image_classification.utils import OPTIMIZERS
-from sparseml.pytorch.utils import default_dataset
+from sparseml.pytorch.utils import default_device
 from sparseml.utils.datasets import default_dataset_path
 
 
@@ -37,10 +37,11 @@ DEFAULT_SAVE_DIR = "pytorch_vision_tests/"
 class _ImageClassificationBaseArgs(BaseModel):
     # shared args
     dataset: str = Field(
-        description="name of dataset to use, imagefolder can be used for custom"
+        default=None,
+        description="name of dataset to use, imagefolder can be used for custom",
     )
     dataset_path: Union[str, Path] = Field(
-        default=default_dataset_path(),
+        default=None,
         description=(
             "location of dataset root or where dataset should be downloaded. Defaults "
             "to a cache directory"
@@ -56,7 +57,7 @@ class _ImageClassificationBaseArgs(BaseModel):
     checkpoint_path: Union[str, Path] = Field(
         default=None, description="path to weights checkpoint"
     )
-    pretrained: str = Field(defualt="True", description="type of pretrained weights")
+    pretrained: str = Field(default="True", description="type of pretrained weights")
     pretrained_dataset: str = Field(default=None, description="checkpoint data name")
     model_kwargs: str = Field(
         default=None, description="json string for model constructor args"
@@ -66,6 +67,10 @@ class _ImageClassificationBaseArgs(BaseModel):
     )
     model_tag: str = Field(description="required - tag for model under save_dir")
     save_dir: Union[str, Path] = Field(default=DEFAULT_SAVE_DIR)
+
+    def __post_init__(self):
+        if self.dataset and not self.dataset_path:
+            self.dataset_path = default_dataset_path(self.dataset)
 
 
 class ImageClassificationTrainArgs(_ImageClassificationBaseArgs):
@@ -102,7 +107,7 @@ class ImageClassificationTrainArgs(_ImageClassificationBaseArgs):
     debug_steps: int = Field(
         default=-1, description="number of steps to run per epoch in debug mode"
     )
-    device: str = Field(default=default_dataset())
+    device: str = Field(default=default_device())
     loader_num_workers: int = Field(default=4, description="num workers per process")
     loader_pin_memory: bool = Field(default=True)
     image_size: int = Field(default=224)
@@ -123,4 +128,7 @@ class ImageClassificationExportArgs(_ImageClassificationBaseArgs):
     use_zipfile_serialization_if_available: bool = Field(default=True)
     recipe: Union[str, Path] = Field(
         default=None, description="recipe to apply to model before loading weights"
+    )
+    num_classes: Optional[int] = Field(
+        default=None, description="number of classes for model load/export"
     )

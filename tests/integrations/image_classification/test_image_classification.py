@@ -41,7 +41,7 @@ class ImageClassificationManager(BaseIntegrationManager):
 
     command_stubs = {
         "train": "sparseml.image_classification.train",
-        "export": "sparseml.image_classification.export",
+        "export": "sparseml.image_classification.export_onnx",
         "deploy": "sparseml.image_classification.deploy",  # placeholder
     }
     command_args_classes = {
@@ -57,7 +57,7 @@ class ImageClassificationManager(BaseIntegrationManager):
 
         if "train" in self.configs:
             train_args = self.configs["train"].run_args
-            self.save_dir = tempfile.TemporaryDirectory(dir=train_args.save_dir)
+            self.save_dir = tempfile.TemporaryDirectory()
             train_args.save_dir = self.save_dir.name
             train_args.logs_dir = os.path.join(self.save_dir.name, "tensorboard_logs")
             self.expected_checkpoint_path = os.path.join(
@@ -67,7 +67,7 @@ class ImageClassificationManager(BaseIntegrationManager):
         if "export" in self.configs:
             export_args = self.configs["export"].run_args
             if not self.save_dir:
-                self.save_dir = tempfile.TemporaryDirectory(dir=export_args.save_dir)
+                self.save_dir = tempfile.TemporaryDirectory()
                 export_args.save_dir = self.save_dir.name
             else:
                 export_args.checkpoint_path = self.expected_checkpoint_path
@@ -110,7 +110,7 @@ class TestImageClassification(BaseIntegrationTester):
         # locate training metrics file
         metrics_file_path = os.path.join(
             integration_manager.save_dir.name,
-            train_args.model_tag,
+            train_args.run_args.model_tag,
             "framework",
             "model.txt",
         )
@@ -146,7 +146,9 @@ class TestImageClassification(BaseIntegrationTester):
     def test_export_onnx_graph(self, integration_manager):
         export_args = integration_manager.configs["export"]
         expected_onnx_path = os.path.join(
-            integration_manager.save_dir.name, export_args.model_tag, "model.onnx"
+            integration_manager.save_dir.name,
+            export_args.run_args.model_tag,
+            "model.onnx",
         )
         assert os.path.isfile(expected_onnx_path)
         onnx_model = onnx.load(expected_onnx_path)
@@ -164,7 +166,9 @@ class TestImageClassification(BaseIntegrationTester):
             zoo_model = Zoo.load_model_from_stub(target_model_path)
             target_model_path = zoo_model.onnx_file.downloaded_path()
         export_model_path = os.path.join(
-            integration_manager.save_dir.name, export_args.model_tag, "model.onnx"
+            integration_manager.save_dir.name,
+            export_args.run_args.model_tag,
+            "model.onnx",
         )
 
         _test_model_op_counts(export_model_path, target_model_path)
@@ -190,7 +194,7 @@ def _test_model_op_counts(model_path_a, model_path_b):
     def _get_model_op_counts(model):
         op_counts = defaultdict(int)
         for node in model.graph.node:
-            if node in _TEST_OPS:
+            if node.op_type in _TEST_OPS:
                 op_counts[node.op_type] += 1
         return op_counts
 
