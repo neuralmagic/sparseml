@@ -68,6 +68,8 @@ class ObjectDetectionManager(BaseIntegrationManager):
             export_args.weights = export_args.weights or os.path.join(
                 train_args.project, "exp", "weights", "last.pt"
             )
+        for stage, config in self.configs.items():
+            config.dashed_keywords = True
 
     def teardown(self):
         if "train" in self.command_types:
