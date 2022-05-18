@@ -57,7 +57,7 @@ class Config:
 
         self._validate_config()
 
-    def create_command_script(self, dashed_keywords=False):
+    def create_command_script(self):
         """
         Handles logic for converting pydantic classes into valid argument strings.
         This should set arg standards for all integrations and should generally not
