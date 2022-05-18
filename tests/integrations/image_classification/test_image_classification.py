@@ -21,6 +21,7 @@ import onnx
 import pytest
 import torch
 from onnxruntime import InferenceSession
+from pydantic import BaseModel
 
 from sparseml.onnx.utils import get_tensor_shape
 from sparseml.pytorch.models import ModelRegistry
@@ -44,9 +45,10 @@ class ImageClassificationManager(BaseIntegrationManager):
         "export": "sparseml.image_classification.export_onnx",
         "deploy": "sparseml.image_classification.deploy",  # placeholder
     }
-    command_args_classes = {
+    config_classes = {
         "train": ImageClassificationTrainArgs,
         "export": ImageClassificationExportArgs,
+        "deploy": BaseModel,
     }
 
     def capture_pre_run_state(self):

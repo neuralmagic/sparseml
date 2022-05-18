@@ -45,7 +45,8 @@ Options:
    --onnx-opset, --onnx_opset INTEGER
                                   The onnx opset to use for exporting the
                                   model  [default: 11]
-  --use_zipfile_serialization_if_available, --use-zipfile-serialization-if-available / --no_zipfile_serialization, --no-zipfile-serialization
+  --use_zipfile_serialization_if_available, --use-zipfile-serialization-if-available /
+  --no_zipfile_serialization, --no-zipfile-serialization
                                   For torch >= 1.6.0 only exports the Module's
                                   state dict using the new zipfile
                                   serialization. Default is True, has no
