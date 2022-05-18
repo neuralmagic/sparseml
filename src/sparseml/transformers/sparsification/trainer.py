@@ -143,6 +143,7 @@ class RecipeManagerTrainerInterface:
         else:
             self.logger_manager = LoggerManager(log_python=False)
 
+        self.one_shot = data_args.one_shot if hasattr(data_args, "one_shot") else False
         self.manager, self.arch_manager = self._setup_manager(kwargs)
         self.manager_applied = False
         self.manager_initialized = False
@@ -193,11 +194,17 @@ class RecipeManagerTrainerInterface:
             )
 
         if self.manager is not None:
-            self.manager.apply_structure(self.model, epoch=epoch)
-            _LOGGER.info(
-                "Applied structure from SparseML recipe argument to model at "
-                f"epoch {epoch}"
-            )
+            if not self.one_shot:
+                self.manager.apply_structure(self.model, epoch=epoch)
+                _LOGGER.info(
+                    "Applied structure from SparseML recipe argument to model at "
+                    f"epoch {epoch}"
+                )
+            else:
+                self.manager.apply(self.model)
+                self.manager_applied = True
+                _LOGGER.info(f"Applied one shot recipe {self.recipe} to the manager")
+                return True
 
         # reload the state dict for the model now that architecture matches expected
         load_path = checkpoint or self.model_state_path
@@ -676,9 +683,13 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         checkpoint, epoch = self._generate_apply_manager_params(kwargs)
         applied = self.apply_manager(epoch=epoch, checkpoint=checkpoint)
         self.callback_disable_fp16.check_disable(epoch, force=True)
-        output = super().train(*args, **kwargs)
-        if applied:
-            self.finalize_manager()
+        output = None
+        if not self.one_shot:
+            output = super().train(*args, **kwargs)
+            if applied:
+                self.finalize_manager()
+        else:
+            _LOGGER.info(f"Skipping Training due to one-shot: {self.one_shot}")
         self.log_model_sparsification()
 
         return output
