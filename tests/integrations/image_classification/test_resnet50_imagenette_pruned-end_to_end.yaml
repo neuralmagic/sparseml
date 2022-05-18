@@ -11,8 +11,8 @@ train:
     save_dir: image_classification-end_to_end-test
   test_args:
     target_name: "top1acc"
-    target_mean: 99.0
-    target_std: 1
+    target_mean: 97.0
+    target_std: 3
 export:
   command_args:
     checkpoint_path: image_classification-export-test/resnet50-imagenette-pruned/framework/model.pth
