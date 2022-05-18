@@ -47,8 +47,7 @@ class ObjectDetectionManager(BaseIntegrationManager):
 
     command_stubs = {
         "train": "sparseml.object_detection.train",
-        "export": "sparseml.object_detection.export",
-        "deploy": "sparseml.object_detection.deploy",
+        "export": "sparseml.object_detection.export_onnx",
     }
     config_classes = {
         "train": Yolov5TrainArgs,
@@ -59,8 +58,10 @@ class ObjectDetectionManager(BaseIntegrationManager):
         super().capture_pre_run_state()
         if "train" in self.command_types:
             train_args = self.configs["train"].run_args
+            directory = os.path.dirname(train_args.project)
+            os.makedirs(directory, exist_ok=True)
+            self.save_dir = tempfile.TemporaryDirectory(dir=directory)
             train_args.project = self.save_dir.name
-            self.save_dir = tempfile.TemporaryDirectory(dir=train_args.project)
 
         if "export" in self.command_types:
             export_args = self.configs["export"].run_args
@@ -89,16 +90,19 @@ class TestObjectDetection(BaseIntegrationTester):
 
     @skip_inactive_stage
     def test_train_complete(self, integration_manager):
+        # Test that file is created, model is loadable
         manager = integration_manager
         model_file = os.path.join(manager.save_dir.name, "exp", "weights", "last.pt")
         assert os.path.isfile(model_file)
         model, extras = load_checkpoint(
             type_="val", weights=model_file, device=torch.device("cpu")
         )
+        # Test that training ran to completion
         assert extras["ckpt"]["epoch"] == -1
 
     @skip_inactive_stage
     def test_train_metrics(self, integration_manager):
+        # Test train metric(s) if specified
         manager = integration_manager
         train_args = manager.configs["train"]
         model_file = os.path.join(manager.save_dir.name, "exp", "weights", "last.pt")
@@ -113,6 +117,7 @@ class TestObjectDetection(BaseIntegrationTester):
 
     @skip_inactive_stage
     def test_export_onnx_graph(self, integration_manager):
+        # Test that onnx model is loadable and passes onnx checker
         manager = integration_manager
         onnx_file = os.path.join(
             os.path.dirname(manager.configs["export"]["args"].weights), "last.onnx"
@@ -124,6 +129,8 @@ class TestObjectDetection(BaseIntegrationTester):
     @pytest.mark.skipif(not deepsparse, reason="Deepsparse not installed")
     @skip_inactive_stage
     def test_export_target_model(self, integration_manager):
+        # If target model provided in target_args, test that they have similar
+        # ort output
         manager = integration_manager
         export_args = manager.configs["export"]
         target_model_path = export_args.test_args.get("target_model")
