@@ -52,7 +52,9 @@ class Config:
         # named quantities/qualities to test for
         self.test_args = config.pop("test_args", {})
 
-    def create_command_script(self):
+        self._validate_config()
+
+    def create_command_script(self, dashed_keywords=False):
         """
         Handles logic for converting pydantic classes into valid argument strings.
         This should set arg standards for all integrations and should generally not
@@ -64,7 +66,8 @@ class Config:
         args_dict = self.run_args.dict()
         args_string_list = []
         for key, value in args_dict.items():
-            key = "--" + key.replace("_", "-")
+            key = "--" + key
+            key = key.replace("_", "-") if dashed_keywords else key
             # Handles bool type args (e.g. --do-train)
             if isinstance(value, bool):
                 if value:
@@ -87,3 +90,17 @@ class Config:
                 args_string_list.extend([key, str(value)])
         pre_args = self.pre_args.split(" ") if self.pre_args else []
         return pre_args + [self.command_stub] + args_string_list
+
+    def _validate_config(self):
+        # Check that all provided run args correspond to expected run args. Mainly
+        # meant to catch typos
+        unknown_run_args = [
+            arg
+            for arg in self.raw_config["command_args"].keys()
+            if arg not in self.run_args.__fields_set__
+        ]
+        if len(unknown_run_args) > 0:
+            raise ValueError(
+                f"Found unexpected run args {unknown_run_args} for "
+                f"{type(self.run_args).__name__}"
+            )
