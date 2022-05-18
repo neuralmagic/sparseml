@@ -896,6 +896,12 @@ def parse_opt(known=False):
         help="Set the maximum number of eval steps per epoch. if negative,"
         "the entire dataset will be used, default=-1",
     )
+    parser.add_argument(
+        "--one-shot",
+        action="store_true",
+        default=False,
+        help="Apply recipe in one shot manner"
+    )
 
     opt = parser.parse_known_args()[0] if known else parser.parse_args()
     return opt
