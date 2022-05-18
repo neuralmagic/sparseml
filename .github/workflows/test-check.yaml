@@ -87,7 +87,7 @@ jobs:
       - name: "Upgrade protobuf version"
         run: pip3 install --upgrade protobuf
       - name: "⚙️ Install dependencies"
-        run: pip3 install .[dev]
+        run: pip3 install .[dev,onnxruntime]
       - name: "🔬 Running base tests"
         run: make test
   deepsparse-tests:
@@ -110,7 +110,7 @@ jobs:
       - name: "Upgrade protobuf version"
         run: pip3 install --upgrade protobuf
       - name: "⚙️ Install dependencies"
-        run: pip3 install .[dev,deepsparse]
+        run: pip3 install .[dev,deepsparse,onnxruntime]
       - name: "🔬 Running deepsparse tests"
         run: make test TARGETS=deepsparse
   keras-tests:
@@ -131,7 +131,7 @@ jobs:
       - name: "Clean sparsezoo directory"
         run: rm -r sparsezoo/
       - name: "⚙️ Install dependencies"
-        run: pip3 install .[dev,tf_keras]
+        run: pip3 install .[dev,tf_keras,onnxruntime]
       - name: "🔬 Running keras tests"
         run: make test TARGETS=keras
   onnx-tests:
@@ -173,7 +173,7 @@ jobs:
       - name: "Clean sparsezoo directory"
         run: rm -r sparsezoo/
       - name: "⚙️ Install dependencies"
-        run: pip3 install .[dev,torchvision]
+        run: pip3 install .[dev,torchvision,onnxruntime]
       - name: "🔬 Running pytorch tests"
         run: make test TARGETS=pytorch
   tensorflow-v1-tests:
@@ -194,6 +194,6 @@ jobs:
       - name: "Clean sparsezoo directory"
         run: rm -r sparsezoo/
       - name: "⚙️ Install dependencies"
-        run: pip3 install .[dev,tf_v1]
+        run: pip3 install .[dev,tf_v1,onnxruntime]
       - name: "🔬 Running tensorflow_v1 tests"
         run: make test TARGETS=tensorflow_v1
