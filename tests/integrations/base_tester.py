@@ -37,8 +37,6 @@ import pytest
 import yaml
 from pydantic import BaseModel
 
-from tests.integrations.helpers import stream_process
-
 from tests.integrations.helpers import Config, get_configs_with_cadence
 
 
@@ -113,7 +111,7 @@ class BaseIntegrationManager:
         }
 
         # All commands are run sequentially
-        self.run_commands(self)
+        self.run_commands()
 
     def get_root_commands(self, configs: Dict[str, Union[str, BaseModel]]):
         """
@@ -126,23 +124,15 @@ class BaseIntegrationManager:
         """
         return self.command_stubs
 
-    def cleanup_files(self, dir):
+    def capture_pre_run_state(self):
         """
-        Dummy cleanup function. Will be fleshed out later
+        Store pre-run information which will be relevant for post-run testing
         """
-        if os.path.isdir(dir):
-            shutil.rmtree(dir)
+        self._start_file_count = sum(len(files) for _, _, files in os.walk(r"."))
 
-    def check_file_creation(self, dir):
+    def run_commands(self, kwargs_dict: Union[Dict[str, Dict], None] = None):
         """
-        Dummy function for testing for file creation. Will be fleshed out later
-        """
-        self._end_file_count = sum(len(files) for _, _, files in os.walk(r"."))
-        assert self._start_file_count >= self._end_file_count, (
-            f"{self._end_file_count - self._start_file_count} files created during "
-            "pytest run"
-        )
-
+        Execute CLI commands in order
 
         :param kwargs_dict: dict mapping command type to subprocess.call() kwargs
             to be used with the command, if any
@@ -152,7 +142,7 @@ class BaseIntegrationManager:
             kwargs_dict = {key: {} for key in self.command_types}
         for _type in self.command_types:
             # Optionally, save intermediate state variables between stages
-            self.save_stage_information(self, _type)
+            self.save_stage_information(_type)
             try:
                 subprocess.check_output(self.commands[_type], **kwargs_dict[_type])
             except subprocess.CalledProcessError as e:
@@ -162,7 +152,10 @@ class BaseIntegrationManager:
                     )
                 )
 
-    def test_target_metric_compliance(self):
+    def save_stage_information(self, command_type):
+        """
+        Optional function for saving state information between stages.
+        """
         pass
 
     def teardown(self):
@@ -171,8 +164,10 @@ class BaseIntegrationManager:
         """
         raise NotImplementedError()
 
-class BaseExportTester(BaseIntegrationTester):
-    def test_onnx_nodes(self, setup):
+    def teardown_check(self):
+        """
+        Check for successful environment cleanup.
+        """
         pass
 
     def check_file_creation(self, dir):
