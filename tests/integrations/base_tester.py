@@ -234,7 +234,7 @@ class BaseIntegrationTester:
         Fixture with a lifecycle of:
         - Create integration manager instance (child of BaseIntegrationManager)
         - Yield manager to test
-        - teardown
+        - Teardown
 
         Child implementations of fixture need to include the same fixture decorator
         """
