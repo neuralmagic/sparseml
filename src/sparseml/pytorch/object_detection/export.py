@@ -25,6 +25,7 @@ import warnings
 from copy import deepcopy
 from pathlib import Path
 
+import pandas as pd
 import torch
 import torch.nn as nn
 
@@ -219,6 +220,7 @@ def load_checkpoint(
             model = DetectMultiBackend(
                 model=model, device=device, dnn=dnn, data=data, fp16=half
             )
+            model.model.eval()
 
     # turn gradients for params back on in case they were removed
     for p in model.parameters():
@@ -291,6 +293,23 @@ def load_state_dict(model, state_dict, train, exclude_anchors):
     return state_dict
 
 
+def export_formats():
+    x = [
+        ["PyTorch", "-", ".pt", True],
+        ["TorchScript", "torchscript", ".torchscript", True],
+        ["ONNX", "onnx", ".onnx", True],
+        ["OpenVINO", "openvino", "_openvino_model", False],
+        ["TensorRT", "engine", ".engine", True],
+        ["CoreML", "coreml", ".mlmodel", False],
+        ["TensorFlow SavedModel", "saved_model", "_saved_model", True],
+        ["TensorFlow GraphDef", "pb", ".pb", True],
+        ["TensorFlow Lite", "tflite", ".tflite", False],
+        ["TensorFlow Edge TPU", "edgetpu", "_edgetpu.tflite", False],
+        ["TensorFlow.js", "tfjs", "_web_model", False],
+    ]
+    return pd.DataFrame(x, columns=["Format", "Argument", "Suffix", "GPU"])
+
+
 @torch.no_grad()
 def run(
     weights=ROOT / "yolov5s.pt",  # weights path
@@ -318,7 +337,10 @@ def run(
     model, extras = load_checkpoint(
         type_="ensemble", weights=weights, device=device
     )  # load FP32 model
-    nc, names = extras["ckpt"]["nc"], model.names  # number of classes, class names
+    nc, names = (
+        extras["ckpt"].get("nc") or model.nc,
+        model.names,
+    )  # number of classes, class names
 
     # Checks
     imgsz *= 2 if len(imgsz) == 1 else 1  # expand

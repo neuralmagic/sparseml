@@ -66,7 +66,8 @@ _QUANTIZE_OP_NAMES = ["QuantizeLinear", "DequantizeLinear"]
 KEEP_QUANT_INPUT_OPS = [
     "Add",
     "ConvInteger",
-    "MatMulInteger, " "QLinearConv",
+    "MatMulInteger",
+    "QLinearConv",
     "QLinearMatMul",
     "QLinearAdd",
 ]

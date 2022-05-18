@@ -21,6 +21,7 @@ import inspect
 import logging
 import math
 import os
+from dataclasses import asdict
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import datasets
@@ -99,6 +100,7 @@ class RecipeManagerTrainerInterface:
         recipe: Optional[str],
         recipe_args: Optional[Union[Dict[str, Any], str]] = None,
         metadata_args: Optional[List[str]] = None,
+        data_args: Optional["DataTrainingArguments"] = None,  # noqa: F821
         teacher: Optional[Union[Module, str]] = None,
         **kwargs,
     ):
@@ -108,11 +110,15 @@ class RecipeManagerTrainerInterface:
         self.recipe = recipe
         self.recipe_args = recipe_args
         self.teacher = teacher
+
+        training_args = kwargs.get("args")
         self.metadata = (
             self._extract_metadata(
-                metadata_args=metadata_args, training_args=kwargs["args"]
+                metadata_args=metadata_args,
+                training_args_dict=training_args.to_dict(),
+                data_args_dict=asdict(data_args),
             )
-            if ("args" in kwargs and metadata_args)
+            if training_args
             else None
         )
 
@@ -137,6 +143,7 @@ class RecipeManagerTrainerInterface:
         else:
             self.logger_manager = LoggerManager(log_python=False)
 
+        self.one_shot = data_args.one_shot if hasattr(data_args, "one_shot") else False
         self.manager, self.arch_manager = self._setup_manager(kwargs)
         self.manager_applied = False
         self.manager_initialized = False
@@ -187,11 +194,17 @@ class RecipeManagerTrainerInterface:
             )
 
         if self.manager is not None:
-            self.manager.apply_structure(self.model, epoch=epoch)
-            _LOGGER.info(
-                "Applied structure from SparseML recipe argument to model at "
-                f"epoch {epoch}"
-            )
+            if not self.one_shot:
+                self.manager.apply_structure(self.model, epoch=epoch)
+                _LOGGER.info(
+                    "Applied structure from SparseML recipe argument to model at "
+                    f"epoch {epoch}"
+                )
+            else:
+                self.manager.apply(self.model)
+                self.manager_applied = True
+                _LOGGER.info(f"Applied one shot recipe {self.recipe} to the manager")
+                return True
 
         # reload the state dict for the model now that architecture matches expected
         load_path = checkpoint or self.model_state_path
@@ -343,6 +356,9 @@ class RecipeManagerTrainerInterface:
             or not self.manager.enabled
             or not self.manager.distillation_modifiers
         ):
+            inputs = {
+                k: inputs[k] for k in inputs if k in self._model_signature_columns
+            }
             return super().compute_loss(model, inputs, return_outputs=return_outputs)
 
         student_inputs = {
@@ -451,20 +467,29 @@ class RecipeManagerTrainerInterface:
         )
 
     def _extract_metadata(
-        self, metadata_args: List[str], training_args: TrainingArguments
-    ) -> Dict:
+        self,
+        metadata_args: List[str],
+        training_args_dict: Dict[str, Any],
+        data_args_dict: Dict[str, Any],
+    ) -> Dict[str, Any]:
         metadata = {}
-        training_args_dict = training_args.to_dict()
+        if not training_args_dict.keys().isdisjoint(data_args_dict.keys()):
+            raise ValueError(
+                "Found common keys in `training_args` and `data args`. "
+                "This is prohibitive and may lead to undesired behavior."
+            )
+
+        args_dict = {**training_args_dict, **data_args_dict}
 
         for arg in metadata_args:
-            if arg not in training_args_dict.keys():
+            if arg not in args_dict.keys():
                 logging.warning(
                     f"Required metadata argument {arg} was not found "
                     f"in the training arguments. Setting {arg} to None."
                 )
                 metadata[arg] = None
             else:
-                metadata[arg] = training_args_dict[arg]
+                metadata[arg] = args_dict[arg]
 
         return metadata
 
@@ -658,9 +683,13 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         checkpoint, epoch = self._generate_apply_manager_params(kwargs)
         applied = self.apply_manager(epoch=epoch, checkpoint=checkpoint)
         self.callback_disable_fp16.check_disable(epoch, force=True)
-        output = super().train(*args, **kwargs)
-        if applied:
-            self.finalize_manager()
+        output = None
+        if not self.one_shot:
+            output = super().train(*args, **kwargs)
+            if applied:
+                self.finalize_manager()
+        else:
+            _LOGGER.info(f"Skipping Training due to one-shot: {self.one_shot}")
         self.log_model_sparsification()
 
         return output
