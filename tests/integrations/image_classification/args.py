@@ -68,6 +68,10 @@ class _ImageClassificationBaseArgs(BaseModel):
     model_tag: str = Field(description="required - tag for model under save_dir")
     save_dir: Union[str, Path] = Field(default=DEFAULT_SAVE_DIR)
 
+    def __init__(self, **data):
+        super().__init__(**data)
+        self.__post_init__()
+
     def __post_init__(self):
         if self.dataset and not self.dataset_path:
             self.dataset_path = default_dataset_path(self.dataset)
@@ -80,9 +84,7 @@ class ImageClassificationTrainArgs(_ImageClassificationBaseArgs):
     recipe_path: Union[str, Path] = Field(
         default=None, description="path to sparsification recipe"
     )
-    eval_mode: bool = Field(
-        default=True, description="defaults to True to run eval on epoch"
-    )
+    eval_mode: bool = Field(default=False, description="defaults to only run eval")
     optim: Literal[tuple(OPTIMIZERS)] = Field(
         default="SGD", description="torch optimizer class to use, default SGD"
     )

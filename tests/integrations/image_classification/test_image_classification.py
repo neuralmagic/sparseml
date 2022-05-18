@@ -98,8 +98,13 @@ class TestImageClassification(BaseIntegrationTester):
         assert os.path.isfile(integration_manager.expected_checkpoint_path)
         # test that model can be reloaded from checkpoint
         # this includes reading arch_key and applying recipe before weight load
+        create_kwargs = {}
+        train_run_args = integration_manager.configs["train"].run_args
+        if train_run_args.arch_key:
+            create_kwargs["key"] = train_run_args.arch_key
         reloaded_model = ModelRegistry.create(
-            pretrained_path=integration_manager.expected_checkpoint_path
+            pretrained_path=integration_manager.expected_checkpoint_path,
+            **create_kwargs,
         )
         assert isinstance(reloaded_model, torch.nn.Module)
 
@@ -111,7 +116,6 @@ class TestImageClassification(BaseIntegrationTester):
         metrics_file_path = os.path.join(
             integration_manager.save_dir.name,
             train_args.run_args.model_tag,
-            "framework",
             "model.txt",
         )
         assert os.path.isfile(metrics_file_path)
@@ -172,7 +176,14 @@ class TestImageClassification(BaseIntegrationTester):
         )
 
         _test_model_op_counts(export_model_path, target_model_path)
-        _test_model_inputs_outputs(export_model_path, target_model_path)
+
+        compare_outputs = export_args.test_args.get("compare_outputs", True)
+        if isinstance(compare_outputs, str) and (
+            compare_outputs.lower() in ["none", "False"]
+        ):
+            compare_outputs = False
+        if compare_outputs:
+            _test_model_inputs_outputs(export_model_path, target_model_path)
 
 
 _TEST_OPS = {
