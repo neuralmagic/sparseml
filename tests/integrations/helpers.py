@@ -55,8 +55,6 @@ class Config:
         self.dashed_keywords = False
         self._validate_config()
 
-        self._validate_config()
-
     def create_command_script(self):
         """
         Handles logic for converting pydantic classes into valid argument strings.
