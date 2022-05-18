@@ -135,13 +135,11 @@ Options:
   --max-train-steps, --max_train_steps INTEGER
                                   The maximum number of training steps to run
                                   per epoch. If negative, will run for the
-                                  entire dataset. Note if max_eval_steps is
-                                  positive then this is ignored  [default: -1]
+                                  entire dataset. [default: -1]
   --max-eval-steps, --max_eval_steps INTEGER
                                   The maximum number of eval steps to run per
                                   epoch. If negative, will run for the entire
-                                  dataset. Note if max_eval_steps is positive
-                                  then this is ignored  [default: -1]
+                                  dataset. [default: -1]
   --one-shot, --one_shot / --no-one-shot, --no_one_shot
                                   Apply recipe in a one-shot fashion and save
                                   the model  [default: no-one-shot]
@@ -471,8 +469,7 @@ METADATA_ARGS = [
     type=int,
     show_default=True,
     help="The maximum number of training steps to run per epoch. If negative, "
-    "will run for the entire dataset. Note if max_eval_steps is positive "
-    "then this is ignored",
+    "will run for the entire dataset",
 )
 @click.option(
     "--max-eval-steps",
@@ -481,8 +478,7 @@ METADATA_ARGS = [
     type=int,
     show_default=True,
     help="The maximum number of eval steps to run per epoch. If negative, "
-    "will run for the entire dataset. Note if max_eval_steps is positive "
-    "then this is ignored",
+    "will run for the entire dataset",
 )
 @click.option(
     "--one-shot/--no-one-shot",
