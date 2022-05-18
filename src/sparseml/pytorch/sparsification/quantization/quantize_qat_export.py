@@ -611,25 +611,36 @@ def _convert_quantizable_matmul(model: ModelProto):
         ):
             continue
 
-        # Check if transpose node is present
-        transpose_node = graph.get_node_single_child(matmul_node)
+        # Check if first optional node is present
+        first_optional_node = graph.get_node_single_child(matmul_node)
         current_output = matmul_node
-        if transpose_node is None or transpose_node.op_type != "Transpose":
-            transpose_node = None
+        transpose_node = None
+        reshape_node = None
+        if first_optional_node is not None:
+            if first_optional_node.op_type == "Transpose":
+                transpose_node = first_optional_node
+                current_output = transpose_node
+            elif first_optional_node.op_type == "Reshape":
+                reshape_node = first_optional_node
+                current_output = reshape_node
+            else:
+                first_optional_node = None
 
-        if transpose_node:
-            current_output = transpose_node
+        # Check if second optional node is present
+        if first_optional_node is not None:
+            second_optional_node = graph.get_node_single_child(matmul_node)
+            if second_optional_node is not None:
+                if transpose_node is None and second_optional_node.op_type == "Transpose":
+                    transpose_node = second_optional_node
+                    current_output = transpose_node
+                elif reshape_node is None and second_optional_node.op_type == "Reshape":
+                    reshape_node = second_optional_node
+                    current_output = reshape_node
+                else:
+                    second_optional_node = None
 
-        # Check if reshape node is present
-        reshape_node = graph.get_node_single_child(current_output)
-        if reshape_node is None or reshape_node.op_type != "Reshape":
-            reshape_node = None
-
-        if reshape_node:
-            current_output = reshape_node
-
-        output_quantize_node = graph.get_node_single_child(current_output)
         # Make sure the output node is QuantizeLinear
+        output_quantize_node = graph.get_node_single_child(current_output)
         if (
             output_quantize_node is None
             or output_quantize_node.op_type != "QuantizeLinear"
@@ -663,6 +674,7 @@ def _convert_quantizable_matmul(model: ModelProto):
 
         if transpose_node or reshape_node:
             qmatmul_output = matmul_node.output[0]
+            current_output.output[0] = output_quantize_node.output[0]
         else:
             qmatmul_output = output_quantize_node.output[0]
         qmatmul_name = "{}_quant".format(matmul_node.name)
@@ -675,11 +687,6 @@ def _convert_quantizable_matmul(model: ModelProto):
             qmatmul_name,
         )
         model.graph.node.append(qmatmul_node)
-
-        if reshape_node:
-            reshape_node.output[0] = output_quantize_node.output[0]
-        elif transpose_node:
-            transpose_node.output[0] = output_quantize_node.output[0]
 
         for node in input_dequantize_nodes:
             delete_quant_node(model, node, keep_params=True)
