@@ -336,7 +336,10 @@ def run(
     model, extras = load_checkpoint(
         type_="ensemble", weights=weights, device=device
     )  # load FP32 model
-    nc, names = extras["ckpt"]["nc"], model.names  # number of classes, class names
+    nc, names = (
+        extras["ckpt"].get("nc") or model.nc,
+        model.names,
+    )  # number of classes, class names
 
     # Checks
     imgsz *= 2 if len(imgsz) == 1 else 1  # expand
