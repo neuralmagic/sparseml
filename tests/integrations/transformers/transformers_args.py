@@ -213,7 +213,8 @@ class TransformersTrainArgs(BaseModel):
     )
     tpu_num_cores: Optional[int] = Field(
         default=None,
-        description="TPU: Number of TPU cores (automatically passed by launcher script)",
+        description="TPU: Number of TPU cores (automatically passed by launcher "
+        "script)",
     )
     tpu_metrics_debug: bool = Field(
         default=False,
@@ -979,5 +980,41 @@ class MaskedLanguageModellingArgs(TransformersTrainArgs):
         description=(
             "For debugging purposes or quicker training, truncate the number "
             "of evaluation examples to this value if set."
+        ),
+    )
+
+
+class TransformersExportArgs(BaseModel):
+    task: str = Field(
+        description="Task to create the model for. i.e. mlm, qa, glue, ner"
+    )
+    model_path: str = Field(
+        description=(
+            "Path to directory where model files for weights, config, and "
+            "tokenizer are stored"
+        )
+    )
+    sequence_length: int = Field(
+        default=384,
+        description="Sequence length to use. Default is 384. Can be overwritten later",
+    )
+    no_convert_qat: bool = Field(
+        default=True,
+        description=(
+            "Set flag to not perform QAT to fully quantized conversion after export"
+        ),
+    )
+    finetuning_task: Optional[str] = Field(
+        default=None,
+        description=(
+            "Optional finetuning task for text classification and token "
+            "classification exports"
+        ),
+    )
+    onnx_file_name: str = Field(
+        default="model.onnx",
+        description=(
+            "Name for exported ONNX file in the model directory. "
+            "Default and reccomended value for pipeline compatibility is 'model.onnx'"
         ),
     )

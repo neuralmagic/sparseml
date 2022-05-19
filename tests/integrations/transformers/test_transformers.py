@@ -16,14 +16,13 @@ import json
 import math
 import os
 import tempfile
-from collections import OrderedDict
 
 import onnx
 import onnxruntime as ort
 import pytest
-import torch
 
 from sparseml.pytorch.optim.manager import ScheduledModifierManager
+from sparseml.transformers.utils import SparseAutoModel
 from tests.integrations.base_tester import (
     BaseIntegrationManager,
     BaseIntegrationTester,
@@ -57,7 +56,7 @@ class TransformersManager(BaseIntegrationManager):
         "text_classification": TextClassificationArgs,
         "token_classification": TokenClassificationArgs,
     }
-    metrics = {}
+    supported_metrics = ["f1", "exact_match"]
 
     def capture_pre_run_state(self):
         super().capture_pre_run_state()
@@ -70,7 +69,8 @@ class TransformersManager(BaseIntegrationManager):
         self.save_dir = tempfile.TemporaryDirectory(
             dir=os.path.dirname(train_args.output_dir)
         )
-        train_args.output_dir = self.save_dir.name
+        if train_args:
+            train_args.output_dir = self.save_dir.name
 
     def get_root_commands(self, raw_configs):
         self.task = (
@@ -118,14 +118,62 @@ class TestTransformers(BaseIntegrationTester):
             train_results = json.load(f)
         assert train_results["epoch"] == math.floor(end_epoch)
 
+    @skip_inactive_stage
     def test_train_metrics(self, integration_manager):
         manager = integration_manager
         args = manager.configs["train"]
-        results_file = os.path.join(manager.save_dir.name, "train_results.json")
+        results_file = os.path.join(manager.save_dir.name, "eval_results.json")
         with open(results_file) as f:
-            train_results = json.load(f)
+            eval_results = json.load(f)
         if "target_name" in args.test_args:
             train_test_args = args.test_args
+            if train_test_args["target_name"] not in manager.supported_metrics:
+                raise ValueError(
+                    f"{train_test_args['target_name']} is not a supported target metric"
+                )
+            metric = eval_results["eval_f1"]
             target_mean = train_test_args["target_mean"]
             target_std = train_test_args["target_std"]
             assert target_mean - target_std <= metric <= target_mean + target_std
+
+    @skip_inactive_stage
+    def test_export_onnx_graph(self, integration_manager):
+        manager = integration_manager
+        export_run_args = manager.configs["export"].run_args
+        onnx_file = os.path.join(
+            os.path.dirname(export_run_args.model_path), export_run_args.onnx_file_name
+        )
+        assert os.path.isfile(onnx_file)
+        model = onnx.load(onnx_file)
+        onnx.checker.check_model(model)
+
+    @skip_inactive_stage
+    def test_export_target_model(self, integration_manager):
+        manager = integration_manager
+        export_args = manager.configs["export"]
+        target_model_path = export_args.test_args.get("target_model")
+        if not target_model_path:
+            pytest.skip("No target model provided")
+        run_model_path = os.path.join(manager.save_dir.name, "pytorch_model.bin")
+        model = _load_model_on_task(run_model_path, "student", manager.task)
+
+        input_data = deepsparse.utils.generate_random_inputs(run_model_path, 1)
+        input_names = deepsparse.utils.get_input_names(run_model_path)
+        output_names = deepsparse.utils.get_output_names(run_model_path)
+        inputs_dict = {name: value for name, value in zip(input_names, input_data)}
+        run_ort_sess = ort.InferenceSession(run_model_path)
+        run_out = run_ort_sess.run(output_names, inputs_dict)
+        target_ort_sess = ort.InferenceSession(target_model_path)
+        target_out = target_ort_sess.run(output_names, inputs_dict)
+        for ro, to in zip(run_out, target_out):
+            pytest.approx(ro, abs=1e-5) == to
+
+
+def _load_model_on_task(model_name_or_path, model_type, task, **model_kwargs):
+    load_funcs = {
+        "masked_language_modeling": SparseAutoModel.masked_language_modeling_from_pretrained,  # noqa
+        "question_answering": SparseAutoModel.question_answering_from_pretrained,
+        "text_classification": SparseAutoModel.text_classification_from_pretrained,
+        "token_classification": SparseAutoModel.token_classification_from_pretrained,
+    }
+    return load_funcs[task](model_name_or_path, model_type=model_type, **model_kwargs)
