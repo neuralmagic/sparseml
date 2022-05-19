@@ -208,6 +208,14 @@ class DataTrainingArguments:
         default=False,
         metadata={"help": "Whether to apply recipe in a one shot manner."},
     )
+    do_save_sample_outputs: bool = field(
+        default=False,
+        metadata={"help": "Whether to apply recipe in a one shot manner."},
+    )
+    num_export_samples: int = field(
+        default=0,
+        metadata={"help": "Number of sample inputs/outputs to export during eval."},
+    )
 
     def __post_init__(self):
         if self.task_name is not None:
@@ -785,6 +793,13 @@ def main():
         kwargs["dataset_tags"] = "glue"
         kwargs["dataset_args"] = data_args.task_name
         kwargs["dataset"] = f"GLUE {data_args.task_name.upper()}"
+
+    # Exporting Samples
+
+    if data_args.do_save_sample_outputs and data_args.num_export_samples > 0:
+        trainer.save_sample_inputs_outputs(
+            num_samples_to_export=data_args.num_export_samples
+        )
 
     if training_args.push_to_hub:
         trainer.push_to_hub(**kwargs)
