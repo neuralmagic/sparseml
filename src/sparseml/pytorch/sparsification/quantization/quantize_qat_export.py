@@ -630,7 +630,10 @@ def _convert_quantizable_matmul(model: ModelProto):
         if first_optional_node is not None:
             second_optional_node = graph.get_node_single_child(current_output)
             if second_optional_node is not None:
-                if transpose_node is None and second_optional_node.op_type == "Transpose":
+                if (
+                    transpose_node is None
+                    and second_optional_node.op_type == "Transpose"
+                ):
                     transpose_node = second_optional_node
                     current_output = transpose_node
                 elif reshape_node is None and second_optional_node.op_type == "Reshape":
