@@ -432,7 +432,7 @@ def train(hyp, opt, device, callbacks):  # path/to/hyp.yaml or hyp dictionary
     scaler = sparseml_wrapper.modify(scaler, optimizer, model, train_loader)
     scheduler = sparseml_wrapper.check_lr_override(scheduler, RANK)
     epochs = sparseml_wrapper.check_epoch_override(epochs, RANK)
-
+    train_steps_executed = 0
     for epoch in range(
         start_epoch, epochs
     ):  # epoch ------------------------------------------------------------------
@@ -463,16 +463,14 @@ def train(hyp, opt, device, callbacks):  # path/to/hyp.yaml or hyp dictionary
         if RANK != -1:
             train_loader.sampler.set_epoch(epoch)
         pbar = enumerate(train_loader)
-        if opt.max_train_steps > 0:
-            # Early stop the batch-loader
-            pbar = (next(pbar) for _ in range(opt.max_train_steps))
         LOGGER.info(
             ("\n" + "%10s" * 7)
             % ("Epoch", "gpu_mem", "box", "obj", "cls", "labels", "img_size")
         )
         if RANK in [-1, 0]:
+            steps = opt.max_train_steps if opt.max_train_steps > 0 else nb
             pbar = tqdm(
-                pbar, total=nb, bar_format="{l_bar}{bar:10}{r_bar}{bar:-10b}"
+                pbar, total=steps, bar_format="{l_bar}{bar:10}{r_bar}{bar:-10b}"
             )  # progress bar
         optimizer.zero_grad()
         for i, (
@@ -535,6 +533,7 @@ def train(hyp, opt, device, callbacks):  # path/to/hyp.yaml or hyp dictionary
 
             # Backward
             scaler.scale(loss).backward()
+            train_steps_executed += 1
 
             # Optimize
             if ni - last_opt_step >= accumulate:
@@ -580,6 +579,10 @@ def train(hyp, opt, device, callbacks):  # path/to/hyp.yaml or hyp dictionary
                 )
                 if callbacks.stop_training:
                     return
+
+            if 0 < opt.max_train_steps <= train_steps_executed:
+                LOGGER.info(f"\nStopping early, {train_steps_executed} executed")
+                break
             # end batch ---------------------------------------------------------------
 
         # Scheduler
@@ -595,24 +598,19 @@ def train(hyp, opt, device, callbacks):  # path/to/hyp.yaml or hyp dictionary
             )
             final_epoch = (epoch + 1 == epochs) or stopper.possible_stop
             if not noval or final_epoch:  # Calculate mAP
-                val_data_loader = val_loader
-                if opt.max_eval_steps > 0:
-                    # Early stop val batch loader
-                    val_data_loader = (
-                        next(val_data_loader) for _ in range(opt.max_eval_steps)
-                    )
                 results, maps, _ = val(
                     data_dict,
                     batch_size=batch_size // WORLD_SIZE * 2,
                     imgsz=imgsz,
                     model=ema.ema,
                     single_cls=single_cls,
-                    dataloader=val_data_loader,
+                    dataloader=val_loader,
                     save_dir=save_dir,
                     plots=False,
                     callbacks=callbacks,
                     compute_loss=compute_loss,
                     half=half_precision,
+                    max_steps=opt.max_eval_steps,
                 )
 
             # Update best mAP
@@ -665,12 +663,13 @@ def train(hyp, opt, device, callbacks):  # path/to/hyp.yaml or hyp dictionary
         # with torch_distributed_zero_first(RANK):
         # if stop:
         #    break  # must break all DDP ranks
-
+        if 0 < opt.max_train_steps <= train_steps_executed:
+            break
         # end epoch -------------------------------------------------------------------
     # end training --------------------------------------------------------------------
     if RANK in [-1, 0]:
         LOGGER.info(
-            f"\n{epochs - start_epoch + 1} epochs completed in "
+            f"\n{start_epoch + 1} epochs completed in "
             f"{(time.time() - t0) / 3600:.3f} hours."
         )
         for f in last, best:

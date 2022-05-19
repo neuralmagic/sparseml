@@ -149,6 +149,7 @@ def run(
     plots=True,
     callbacks=Callbacks(),
     compute_loss=None,
+    max_steps=-1,
 ):
     # Initialize/load model and set device
     training = model is not None
@@ -253,10 +254,13 @@ def run(
     )
     loss = torch.zeros(3, device=device)
     jdict, stats, ap, ap_class = [], [], [], []
+    steps = len(dataloader) if max_steps < 0 else max_steps
     pbar = tqdm(
-        dataloader, desc=s, bar_format="{l_bar}{bar:10}{r_bar}{bar:-10b}"
+        enumerate(dataloader), total=steps, desc=s, bar_format="{l_bar}{bar:10}{r_bar}{bar:-10b}"
     )  # progress bar
-    for batch_i, (im, targets, paths, shapes) in enumerate(pbar):
+
+    steps_inferred = 0
+    for batch_i, (im, targets, paths, shapes) in pbar:
         t1 = time_sync()
         if cuda:
             im = im.to(device, non_blocking=True)
@@ -272,6 +276,7 @@ def run(
             model(im) if training else model(im, augment=augment, val=True)
         )  # inference, loss outputs
         dt[1] += time_sync() - t2
+        steps_inferred += 1
 
         # Loss
         if compute_loss:
@@ -350,6 +355,7 @@ def run(
                 )  # append to COCO-JSON dictionary
             callbacks.run("on_val_image_end", pred, predn, path, names, im[si])
 
+
         # Plot images
         if plots and batch_i < 3:
             f = save_dir / f"val_batch{batch_i}_labels.jpg"  # labels
@@ -363,6 +369,9 @@ def run(
                 daemon=True,
             ).start()
 
+        if 0 < max_steps <= steps_inferred:
+            LOGGER.info("\nStopping eval early, max eval steps executed")
+            break
     # Compute metrics
     stats = [np.concatenate(x, 0) for x in zip(*stats)]  # to numpy
     if len(stats) and stats[0].any():
