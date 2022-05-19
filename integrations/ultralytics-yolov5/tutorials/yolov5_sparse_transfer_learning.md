@@ -55,7 +55,7 @@ For Neural Magic Support, sign up or log in to our [**Deep Sparse Community Slac
    | YOLOv5l Pruned           | A highly sparse, FP32 YOLOv5l model that recovers close to the baseline model.            | 0.643        | 32.8 MB      | 63.7 img/sec               |
    | YOLOv5l Pruned Quantized | A highly sparse, INT8 YOLOv5l model that recovers reasonably close to the baseline model. | 0.623        | 12.7 MB      | 139.8 img/sec              |
 
-   \*\* DeepSparse Performance measured on an AWS c5.12xlarge instance with 24 cores, batch size 64, and 640x640 input with version 0.12.0 of the DeepSparse Engine i.e. `deepsparse.benchmark --batch_size 64 --scenario sync [model_path]
+   \*\* DeepSparse Performance measured on an AWS c5.12xlarge instance with 24 cores, batch size 64, and 640x640 input with version 0.12.0 of the DeepSparse Engine i.e. `deepsparse.benchmark --batch_size 64 --scenario sync [model_path]`
 
 2. After deciding on which model meets your performance requirements for both speed and accuracy, select the SparseZoo stub associated with that model.
    The stub will be used later with the training script to automatically pull down the desired pre-trained weights.
