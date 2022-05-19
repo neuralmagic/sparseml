@@ -256,7 +256,10 @@ def run(
     jdict, stats, ap, ap_class = [], [], [], []
     steps = len(dataloader) if max_steps < 0 else max_steps
     pbar = tqdm(
-        enumerate(dataloader), total=steps, desc=s, bar_format="{l_bar}{bar:10}{r_bar}{bar:-10b}"
+        enumerate(dataloader),
+        total=steps,
+        desc=s,
+        bar_format="{l_bar}{bar:10}{r_bar}{bar:-10b}",
     )  # progress bar
 
     steps_inferred = 0
@@ -354,7 +357,6 @@ def run(
                     predn, jdict, path, class_map
                 )  # append to COCO-JSON dictionary
             callbacks.run("on_val_image_end", pred, predn, path, names, im[si])
-
 
         # Plot images
         if plots and batch_i < 3:
