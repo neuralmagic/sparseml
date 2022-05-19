@@ -88,9 +88,6 @@ Options:
                                   multiple GPUs using
                                   `DistributedDataParallel` with one GPU per
                                   process
-  --debug-steps, --debug_steps INTEGER
-                                  Amount of steps to run for training and
-                                  testing for when in debug mode
   --pretrained TEXT               The type of pretrained weights to use, loads
                                   default pretrained weights for the model if
                                   not specified or set to `True`. Otherwise,
@@ -135,6 +132,17 @@ Options:
   --recipe-args, --recipe_args TEXT
                                   json parsable dict of recipe variable names
                                   to values to overwrite with
+  --max-train-steps, --max_train_steps INTEGER
+                                  The maximum number of training steps to run
+                                  per epoch. If negative, will run for the
+                                  entire dataset. [default: -1]
+  --max-eval-steps, --max_eval_steps INTEGER
+                                  The maximum number of eval steps to run per
+                                  epoch. If negative, will run for the entire
+                                  dataset. [default: -1]
+  --one-shot, --one_shot / --no-one-shot, --no_one_shot
+                                  Apply recipe in a one-shot fashion and save
+                                  the model  [default: no-one-shot]
   --help                          Show this message and exit.
 
 #########
@@ -155,6 +163,18 @@ sparseml.image_classification.train \
     --arch-key mobilenet_v1 --pretrained pruned-moderate \
     --dataset imagefolder --dataset-path ~/datasets/my_imagefolder_dataset \
     --train-batch-size 256 --test-batch-size 1024
+
+##########
+Example command for training resnet50 on imagenette for 100 steps:
+sparseml.image_classification.train \
+    --train_batch_size 32 \
+    --test_batch_size 32 \
+    --dataset imagenette \
+    --dataset-path imagenette \
+    --max-train-steps 100 \
+    --arch-key resnet50 \
+    --recipe-path [RESNET_RECIPE] \
+    --checkpoint-path zoo
 
 ##########
 Template command for running training with this script on multiple GPUs using
@@ -342,13 +362,6 @@ METADATA_ARGS = [
     "`DistributedDataParallel` with one GPU per process",
 )
 @click.option(
-    "--debug-steps",
-    "--debug_steps",
-    type=int,
-    default=-1,
-    help="Amount of steps to run for training and testing for when in " "debug mode",
-)
-@click.option(
     "--pretrained",
     type=str,
     default=True,
@@ -449,6 +462,32 @@ METADATA_ARGS = [
     default=None,
     help="json parsable dict of recipe variable names to values to overwrite with",
 )
+@click.option(
+    "--max-train-steps",
+    "--max_train_steps",
+    default=-1,
+    type=int,
+    show_default=True,
+    help="The maximum number of training steps to run per epoch. If negative, "
+    "will run for the entire dataset",
+)
+@click.option(
+    "--max-eval-steps",
+    "--max_eval_steps",
+    default=-1,
+    type=int,
+    show_default=True,
+    help="The maximum number of eval steps to run per epoch. If negative, "
+    "will run for the entire dataset",
+)
+@click.option(
+    "--one-shot/--no-one-shot",
+    "--one_shot/--no_one_shot",
+    default=False,
+    is_flag=True,
+    show_default=True,
+    help="Apply recipe in a one-shot fashion and save the model",
+)
 def main(
     train_batch_size: int,
     test_batch_size: int,
@@ -466,7 +505,6 @@ def main(
     save_best_after: int,
     save_epochs: Tuple[int, ...],
     use_mixed_precision: bool,
-    debug_steps: int,
     pretrained: Union[str, bool],
     pretrained_dataset: Optional[str],
     model_kwargs: Dict[str, Any],
@@ -479,6 +517,9 @@ def main(
     image_size: int,
     ffcv: bool,
     recipe_args: str,
+    max_train_steps: int,
+    max_eval_steps: int,
+    one_shot: bool,
 ):
     """
     PyTorch training integration with SparseML for image classification models
@@ -536,7 +577,7 @@ def main(
         model_kwargs=model_kwargs,
     )
 
-    model, arch_key = helpers.create_model(
+    model, arch_key, checkpoint_path = helpers.create_model(
         checkpoint_path=checkpoint_path,
         recipe_path=recipe_path,
         num_classes=num_classes,
@@ -590,12 +631,14 @@ def main(
         optim_name=optim,
         optim_kwargs=optim_args,
         recipe_args=recipe_args,
+        max_train_steps=max_train_steps,
+        one_shot=one_shot,
     )
 
     train(
         trainer=trainer,
         save_dir=save_dir,
-        debug_steps=debug_steps,
+        max_eval_steps=max_eval_steps,
         eval_mode=eval_mode,
         is_main_process=is_main_process,
         save_best_after=save_best_after,
@@ -607,7 +650,7 @@ def main(
 def train(
     trainer: ImageClassificationTrainer,
     save_dir: str,
-    debug_steps: int,
+    max_eval_steps: int,
     eval_mode: bool,
     is_main_process: bool,
     save_best_after: int,
@@ -619,7 +662,7 @@ def train(
 
     :param trainer: The ImageClassificationTrainer object
     :param save_dir: The directory to save checkpoints to
-    :param debug_steps: The number of steps to run in debug mode
+    :param max_eval_steps: The number of steps to run for validation
     :param eval_mode: Whether to run in evaluation mode
     :param is_main_process: Whether this is the main process
     :param save_best_after: The number of epochs to wait before saving
@@ -628,29 +671,30 @@ def train(
     :param rank: The rank of the process
     """
 
-    # Baseline eval run
-    trainer.run_one_epoch(
-        mode="validation",
-        max_steps=debug_steps,
-        baseline_run=True,
-    )
-
-    if not eval_mode:
+    if not trainer.one_shot:
+        # Baseline eval run
+        trainer.run_one_epoch(
+            mode="validation",
+            max_steps=max_eval_steps,
+            baseline_run=True,
+        )
+    val_res = None
+    if not (eval_mode or trainer.one_shot):
         LOGGER.info(f"Starting training from epoch {trainer.epoch}")
 
-        val_metric = best_metric = val_res = None
+        val_metric = best_metric = None
 
         while trainer.epoch < trainer.max_epochs:
             train_res = trainer.run_one_epoch(
                 mode="train",
-                max_steps=debug_steps,
+                max_steps=trainer.max_train_steps,
             )
             LOGGER.info(f"\nEpoch {trainer.epoch} training results: {train_res}")
             # testing steps
             if is_main_process:
                 val_res = trainer.run_one_epoch(
                     mode="val",
-                    max_steps=debug_steps,
+                    max_steps=max_eval_steps,
                 )
                 val_metric = val_res.result_mean(trainer.target_metric).item()
 
@@ -702,25 +746,24 @@ def train(
             trainer.epoch += 1
 
         # export the final model
-        LOGGER.info("completed...")
-        if is_main_process:
-            # Convert QAT -> quantized ONNX graph for finalized model only
-            helpers.save_model_training(
-                model=trainer.model,
-                optim=trainer.optim,
-                manager=trainer.manager,
-                checkpoint_manager=trainer.checkpoint_manager,
-                save_name="model",
-                save_dir=save_dir,
-                epoch=trainer.epoch - 1,
-                val_res=val_res,
-            )
+    LOGGER.info("completed...")
+    if is_main_process and not eval_mode:
+        # Convert QAT -> quantized ONNX graph for finalized model only
+        save_name = "model" if not trainer.one_shot else "model-one-shot"
+        helpers.save_model_training(
+            model=trainer.model,
+            optim=trainer.optim,
+            manager=trainer.manager,
+            checkpoint_manager=trainer.checkpoint_manager,
+            save_name=save_name,
+            save_dir=save_dir,
+            epoch=trainer.epoch - 1,
+            val_res=val_res,
+        )
 
-            LOGGER.info("layer sparsities:")
-            for (name, layer) in get_prunable_layers(trainer.model):
-                LOGGER.info(
-                    f"{name}.weight: {tensor_sparsity(layer.weight).item():.4f}"
-                )
+        LOGGER.info("layer sparsities:")
+        for (name, layer) in get_prunable_layers(trainer.model):
+            LOGGER.info(f"{name}.weight: {tensor_sparsity(layer.weight).item():.4f}")
 
     # close DDP
     if rank != -1:

@@ -98,6 +98,8 @@ class ModelRegistry(object):
         key_copy = key
 
         if key_copy is None:
+            if pretrained_path is None:
+                raise ValueError("Must provide a key or a pretrained_path")
             _checkpoint = torch.load(pretrained_path)
             if "arch_key" in _checkpoint:
                 key_copy = _checkpoint["arch_key"]
