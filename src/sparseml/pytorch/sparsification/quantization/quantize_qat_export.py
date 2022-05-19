@@ -628,7 +628,7 @@ def _convert_quantizable_matmul(model: ModelProto):
 
         # Check if second optional node is present
         if first_optional_node is not None:
-            second_optional_node = graph.get_node_single_child(matmul_node)
+            second_optional_node = graph.get_node_single_child(first_optional_node)
             if second_optional_node is not None:
                 if transpose_node is None and second_optional_node.op_type == "Transpose":
                     transpose_node = second_optional_node
