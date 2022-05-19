@@ -427,6 +427,26 @@ def train(hyp, opt, device, callbacks):  # path/to/hyp.yaml or hyp dictionary
     )
 
     # SparseML Integration
+    if opt.one_shot:
+        # skip training and save model on one-shot
+        LOGGER.info(f"Skipped training due to one-shot: {opt.one_shot}")
+
+        # create and save checkpoint
+        ckpt_extras = {
+            "nc": nc,
+            "best_fitness": best_fitness,
+            "wandb_id": loggers.wandb.wandb_run.id if loggers.wandb else None,
+            "date": datetime.now().isoformat(),
+        }
+        ckpt = create_checkpoint(
+            -1, model, optimizer, ema, sparseml_wrapper, **ckpt_extras
+        )
+        one_shot_checkpoint_name = w / "checkpoint-one-shot.pt"
+        torch.save(ckpt, one_shot_checkpoint_name)
+        LOGGER.info(f"One shot checkpoint saved to {one_shot_checkpoint_name}")
+        torch.cuda.empty_cache()
+        return results
+
     if RANK in [-1, 0]:
         sparseml_wrapper.initialize_loggers(loggers.logger, loggers.tb, loggers.wandb)
     scaler = sparseml_wrapper.modify(scaler, optimizer, model, train_loader)
@@ -670,6 +690,308 @@ def train(hyp, opt, device, callbacks):  # path/to/hyp.yaml or hyp dictionary
     if RANK in [-1, 0]:
         LOGGER.info(
             f"\n{start_epoch + 1} epochs completed in "
+            f"{(time.time() - t0) / 3600:.3f} hours."
+        )
+        for f in last, best:
+            if f.exists():
+                strip_optimizer(f)  # strip optimizers
+                if f is best:
+                    LOGGER.info(f"\nValidating {f}...")
+                    results, _, _ = val(
+                        data_dict,
+                        batch_size=batch_size // WORLD_SIZE * 2,
+                        imgsz=imgsz,
+                        model=load_checkpoint(
+                            type_="ensemble", weights=best, device=device
+                        )[0],
+                        iou_thres=0.65
+                        if is_coco
+                        else 0.60,  # best pycocotools results at 0.65
+                        single_cls=single_cls,
+                        dataloader=val_loader,
+                        save_dir=save_dir,
+                        save_json=is_coco,
+                        verbose=True,
+                        plots=True,
+                        callbacks=callbacks,
+                        compute_loss=compute_loss,  # val best model with plots
+                        half=half_precision,
+                    )
+                    if is_coco:
+                        callbacks.run(
+                            "on_fit_epoch_end",
+                            list(mloss) + list(results) + lr,
+                            epoch,
+                            best_fitness,
+                            fi,
+                        )
+
+        callbacks.run("on_train_end", last, best, plots, epoch, results)
+        LOGGER.info(f"Results saved to {colorstr('bold', save_dir)}")
+
+        torch.cuda.empty_cache()
+        return results
+
+    # Continue as expected
+    if RANK in [-1, 0]:
+        sparseml_wrapper.initialize_loggers(
+            loggers.logger, loggers.tb, loggers.wandb
+        )
+    scaler = sparseml_wrapper.modify(scaler, optimizer, model, train_loader)
+    scheduler = sparseml_wrapper.check_lr_override(scheduler, RANK)
+    epochs = sparseml_wrapper.check_epoch_override(epochs, RANK)
+
+    for epoch in range(
+        start_epoch, epochs
+    ):  # epoch ------------------------------------------------------------------
+        if sparseml_wrapper.qat_active(epoch):
+            LOGGER.info("Disabling half precision and EMA, QAT scheduled to run")
+            half_precision = False
+            scaler._enabled = False
+            ema.enabled = False
+        model.train()
+
+        # Update image weights (optional, single-GPU only)
+        if opt.image_weights:
+            cw = (
+                model.class_weights.cpu().numpy() * (1 - maps) ** 2 / nc
+            )  # class weights
+            iw = labels_to_image_weights(
+                dataset.labels, nc=nc, class_weights=cw
+            )  # image weights
+            dataset.indices = random.choices(
+                range(dataset.n), weights=iw, k=dataset.n
+            )  # rand weighted idx
+
+        # Update mosaic border (optional)
+        # b = int(random.uniform(0.25 * imgsz, 0.75 * imgsz + gs) // gs * gs)
+        # dataset.mosaic_border = [b - imgsz, -b]  # height, width borders
+
+        mloss = torch.zeros(3, device=device)  # mean losses
+        if RANK != -1:
+            train_loader.sampler.set_epoch(epoch)
+        pbar = enumerate(train_loader)
+        if opt.max_train_steps > 0:
+            # Early stop the batch-loader
+            pbar = (next(pbar) for _ in range(opt.max_train_steps))
+        LOGGER.info(
+            ("\n" + "%10s" * 7)
+            % ("Epoch", "gpu_mem", "box", "obj", "cls", "labels", "img_size")
+        )
+        if RANK in [-1, 0]:
+            pbar = tqdm(
+                pbar, total=nb, bar_format="{l_bar}{bar:10}{r_bar}{bar:-10b}"
+            )  # progress bar
+        optimizer.zero_grad()
+        for i, (
+            imgs,
+            targets,
+            paths,
+            _,
+        ) in (
+            pbar
+        ):  # batch -------------------------------------------------------------
+            ni = i + nb * epoch  # number integrated batches (since train start)
+            imgs = (
+                imgs.to(device, non_blocking=True).float() / 255
+            )  # uint8 to float32, 0-255 to 0.0-1.0
+
+            # Warmup
+            if ni <= nw:
+                xi = [0, nw]  # x interp
+                # compute_loss.gr = np.interp(ni, xi, [0.0, 1.0])  # iou loss ratio
+                # (obj_loss = 1.0 or iou)
+                accumulate = max(
+                    1, np.interp(ni, xi, [1, nbs / batch_size]).round()
+                )
+                for j, x in enumerate(optimizer.param_groups):
+                    # bias lr falls from 0.1 to lr0, all other lrs rise
+                    # from 0.0 to lr0
+                    if scheduler:
+                        x["lr"] = np.interp(
+                            ni,
+                            xi,
+                            [
+                                hyp["warmup_bias_lr"] if j == 2 else 0.0,
+                                x["initial_lr"] * lf(epoch),
+                            ],
+                        )
+                    if "momentum" in x:
+                        x["momentum"] = np.interp(
+                            ni, xi, [hyp["warmup_momentum"], hyp["momentum"]]
+                        )
+
+            # Multi-scale
+            if opt.multi_scale:
+                sz = (
+                    random.randrange(imgsz * 0.5, imgsz * 1.5 + gs) // gs * gs
+                )  # size
+                sf = sz / max(imgs.shape[2:])  # scale factor
+                if sf != 1:
+                    ns = [
+                        math.ceil(x * sf / gs) * gs for x in imgs.shape[2:]
+                    ]  # new shape (stretched to gs-multiple)
+                    imgs = nn.functional.interpolate(
+                        imgs, size=ns, mode="bilinear", align_corners=False
+                    )
+
+            # Forward
+            with amp.autocast(enabled=half_precision):
+                pred = model(imgs)  # forward
+                loss, loss_items = compute_loss(
+                    pred, targets.to(device)
+                )  # loss scaled by batch_size
+                if RANK != -1:
+                    loss *= (
+                        WORLD_SIZE  # gradient averaged between devices in DDP mode
+                    )
+                if opt.quad:
+                    loss *= 4.0
+
+            # Backward
+            scaler.scale(loss).backward()
+
+            # Optimize
+            if ni - last_opt_step >= accumulate:
+                scaler.step(optimizer)  # optimizer.step
+                scaler.update()
+                optimizer.zero_grad()
+                if ema:
+                    ema.update(model)
+                last_opt_step = ni
+            elif hasattr(scaler, "emulated_step"):
+                # Call for SparseML integration since the number of
+                # steps per epoch can vary. This keeps the number of steps
+                # per epoch equivalent to the number of batches per epoch.
+                # Does not step the scaler or the optimizer
+                scaler.emulated_step()
+
+            # Log
+            if RANK in [-1, 0]:
+                # update mean losses
+                mloss = (mloss * i + loss_items) / (i + 1)
+                mem = "{:.3f}G".format(
+                    torch.cuda.memory_reserved() / 1e9
+                    if torch.cuda.is_available()
+                    else 0
+                )  # (GB)
+                pbar.set_description(
+                    ("%10s" * 2 + "%10.4g" * 5)
+                    % (
+                        f"{epoch}/{epochs - 1}",
+                        mem,
+                        *mloss,
+                        targets.shape[0],
+                        imgs.shape[-1],
+                    )
+                )
+                callbacks.run(
+                    "on_train_batch_end",
+                    ni,
+                    model,
+                    imgs,
+                    targets,
+                    paths,
+                    plots,
+                    opt.sync_bn,
+                )
+                if callbacks.stop_training:
+                    return
+            # end batch ---------------------------------------------------
+
+        # Scheduler
+        lr = [x["lr"] for x in optimizer.param_groups]  # for loggers
+        if scheduler:
+            scheduler.step()
+
+        if RANK in [-1, 0]:
+            # mAP
+            callbacks.run("on_train_epoch_end", epoch=epoch)
+            ema.update_attr(
+                model,
+                include=["yaml", "nc", "hyp", "names", "stride", "class_weights"],
+            )
+            final_epoch = (epoch + 1 == epochs) or stopper.possible_stop
+            if not noval or final_epoch:  # Calculate mAP
+                val_data_loader = val_loader
+                if opt.max_eval_steps > 0:
+                    # Early stop val batch loader
+                    val_data_loader = (
+                        next(val_data_loader) for _ in range(opt.max_eval_steps)
+                    )
+                results, maps, _ = val(
+                    data_dict,
+                    batch_size=batch_size // WORLD_SIZE * 2,
+                    imgsz=imgsz,
+                    model=ema.ema,
+                    single_cls=single_cls,
+                    dataloader=val_data_loader,
+                    save_dir=save_dir,
+                    plots=False,
+                    callbacks=callbacks,
+                    compute_loss=compute_loss,
+                    half=half_precision,
+                )
+
+            # Update best mAP
+            fi = fitness(
+                np.array(results).reshape(1, -1)
+            )  # weighted combination of [P, R, mAP@.5, mAP@.5-.95]
+            if fi > best_fitness or sparseml_wrapper.reset_best(epoch):
+                best_fitness = fi
+            log_vals = list(mloss) + list(results) + lr
+            callbacks.run("on_fit_epoch_end", log_vals, epoch, best_fitness, fi)
+
+            # Save model
+            if (not opt.nosave) or (final_epoch and not opt.evolve):  # if save
+                ckpt_extras = {
+                    "nc": nc,
+                    "best_fitness": best_fitness,
+                    "wandb_id": loggers.wandb.wandb_run.id
+                    if loggers.wandb
+                    else None,
+                    "date": datetime.now().isoformat(),
+                }
+                ckpt = create_checkpoint(
+                    epoch, model, optimizer, ema, sparseml_wrapper, **ckpt_extras
+                )
+
+                # Save last, best and delete
+                torch.save(ckpt, last)
+                if best_fitness == fi:
+                    torch.save(ckpt, best)
+                if (
+                    (epoch > 0)
+                    and (opt.save_period > 0)
+                    and (epoch % opt.save_period == 0)
+                ):
+                    torch.save(ckpt, w / f"epoch{epoch}.pt")
+                del ckpt
+                callbacks.run(
+                    "on_model_save", last, epoch, final_epoch, best_fitness, fi
+                )
+
+            # Stop Single-GPU
+            if RANK == -1 and stopper(epoch=epoch, fitness=fi):
+                break
+
+            # Stop DDP TODO: known issues
+            # shttps://github.com/ultralytics/yolov5/pull/4576
+            # stop = stopper(epoch=epoch, fitness=fi)
+            # if RANK == 0:
+            #    dist.broadcast_object_list([stop], 0)  # broadcast 'stop'
+            #    to all ranks
+
+        # Stop DPP
+        # with torch_distributed_zero_first(RANK):
+        # if stop:
+        #    break  # must break all DDP ranks
+
+        # end epoch -------------------------------------------------------
+    # end training --------------------------------------------------------
+    if RANK in [-1, 0]:
+        LOGGER.info(
+            f"\n{epochs - start_epoch + 1} epochs completed in "
             f"{(time.time() - t0) / 3600:.3f} hours."
         )
         for f in last, best:
