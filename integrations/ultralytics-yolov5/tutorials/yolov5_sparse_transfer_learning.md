@@ -48,14 +48,14 @@ For Neural Magic Support, sign up or log in to our [**Deep Sparse Community Slac
 
    | Sparsification Type      | Description                                                                               | COCO mAP@0.5 | Size on Disk | DeepSparse Performance\*\* |
    | ------------------------ | ----------------------------------------------------------------------------------------- | ------------ | ------------ | -------------------------- |
-   | YOLOv5s Baseline         | The baseline, small YOLOv5 model used as the starting point for sparsification.           | 0.556        | 24.8 MB      | 78.2 img/sec               |
-   | YOLOv5s Pruned           | A highly sparse, FP32 YOLOv5s model that recovers close to the baseline model.            | 0.534        | 8.4 MB       | 100.5 img/sec              |
-   | YOLOv5s Pruned Quantized | A highly sparse, INT8 YOLOv5s model that recovers reasonably close to the baseline model. | 0.525        | 3.3 MB       | 198.2 img/sec              |
-   | YOLOv5l Baseline         | The baseline, large YOLOv5 model used as the starting point for sparsification.           | 0.654        | 154 MB       | 22.7 img/sec               |
-   | YOLOv5l Pruned           | A highly sparse, FP32 YOLOv5l model that recovers close to the baseline model.            | 0.643        | 32.8 MB      | 40.1 img/sec               |
-   | YOLOv5l Pruned Quantized | A highly sparse, INT8 YOLOv5l model that recovers reasonably close to the baseline model. | 0.623        | 12.7 MB      | 98.6 img/sec               |
+   | YOLOv5s Baseline         | The baseline, small YOLOv5 model used as the starting point for sparsification.           | 0.556        | 24.8 MB      | 135.8 img/sec              |
+   | YOLOv5s Pruned           | A highly sparse, FP32 YOLOv5s model that recovers close to the baseline model.            | 0.534        | 8.4 MB       | 199.1 img/sec              |
+   | YOLOv5s Pruned Quantized | A highly sparse, INT8 YOLOv5s model that recovers reasonably close to the baseline model. | 0.525        | 3.3 MB       | 396.7 img/sec              |
+   | YOLOv5l Baseline         | The baseline, large YOLOv5 model used as the starting point for sparsification.           | 0.654        | 154 MB       | 27.9 img/sec               |
+   | YOLOv5l Pruned           | A highly sparse, FP32 YOLOv5l model that recovers close to the baseline model.            | 0.643        | 32.8 MB      | 63.7 img/sec               |
+   | YOLOv5l Pruned Quantized | A highly sparse, INT8 YOLOv5l model that recovers reasonably close to the baseline model. | 0.623        | 12.7 MB      | 139.8 img/sec              |
 
-   \*\* DeepSparse Performance measured on an AWS C5 instance with 24 cores, batch size 64, and 640x640 input with version 1.6 of the DeepSparse Engine.
+   \*\* DeepSparse Performance measured on an AWS c5.12xlarge instance with 24 cores, batch size 64, and 640x640 input with version 0.12.0 of the DeepSparse Engine i.e. `deepsparse.benchmark --batch_size 64 --scenario sync [model_path]
 
 2. After deciding on which model meets your performance requirements for both speed and accuracy, select the SparseZoo stub associated with that model.
    The stub will be used later with the training script to automatically pull down the desired pre-trained weights.
