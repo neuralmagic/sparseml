@@ -23,6 +23,7 @@ from collections import defaultdict
 import numpy
 import onnx
 import pytest
+import torch
 from onnxruntime import InferenceSession
 from transformers import AutoConfig, AutoTokenizer
 from transformers.tokenization_utils_base import PaddingStrategy
@@ -64,9 +65,6 @@ class TransformersManager(BaseIntegrationManager):
         train_args = (
             self.configs["train"].run_args if "train" in self.command_types else None
         )
-        export_args = (
-            self.configs["export"].run_args if "export" in self.command_types else None
-        )
         self.save_dir = tempfile.TemporaryDirectory(
             dir=os.path.dirname(train_args.output_dir)
         )
@@ -89,6 +87,9 @@ class TransformersManager(BaseIntegrationManager):
             task=self.task
         )
         return command_stubs_final
+
+    def teardown(self):
+        pass  # not yet implemented
 
 
 class TestTransformers(BaseIntegrationTester):
@@ -118,7 +119,7 @@ class TestTransformers(BaseIntegrationTester):
         )
         with open(results_file) as f:
             train_results = json.load(f)
-        assert train_results["epoch"] == math.floor(end_epoch)
+        assert abs(train_results["epoch"] - math.floor(end_epoch)) < 0.1
 
     @skip_inactive_stage
     def test_train_metrics(self, integration_manager):
@@ -133,10 +134,10 @@ class TestTransformers(BaseIntegrationTester):
                 raise ValueError(
                     f"{train_test_args['target_name']} is not a supported target metric"
                 )
-            metric = eval_results["eval_f1"]
+            metric = eval_results[train_test_args["target_name"]]
             target_mean = train_test_args["target_mean"]
             target_std = train_test_args["target_std"]
-            assert target_mean - target_std <= metric <= target_mean + target_std
+            assert (target_mean - target_std) <= metric <= (target_mean + target_std)
 
     @skip_inactive_stage
     def test_export_onnx_graph(self, integration_manager):
