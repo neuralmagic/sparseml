@@ -172,10 +172,12 @@ The table below compares these tradeoffs and shows how to run them on the COCO d
 
 | Sparsification Type |                                    Description                                    | COCO mAP@all | Size on Disk | DeepSparse Performance** |                                        Commands                                        |
 |:-------------------:|:---------------------------------------------------------------------------------:|:------------:|:------------:|:------------------------:|:--------------------------------------------------------------------------------------:|
-| Baseline            | The baseline, pretrained model on the COCO dataset.                               | 0.288        | 170 MB       | -- img/sec               | `python train.py`                                                                      |
-| Pruned              | A highly sparse, FP32 model that recovers close to the baseline model.            | 0.286        | 30.1 MB      | -- img/sec               | `python train.py --resume weights/model.pth --recipe ../recipe/yolact.pruned.md`       |
-| Pruned Quantized    | A highly sparse, INT8 model that recovers reasonably close to the baseline model. | 0.282        | 9.7 MB       | -- img/sec               | `python train.py --resume weights/model.pth --recipe ../recipe/yolact.pruned_quant.md` |
+| Baseline            | The baseline, pretrained model on the COCO dataset.                               | 0.288        | 170 MB       | 29.7 img/sec               | `python train.py`                                                                      |
+| Pruned              | A highly sparse, FP32 model that recovers close to the baseline model.            | 0.286        | 30.1 MB      | 61.6 img/sec               | `python train.py --resume weights/model.pth --recipe ../recipe/yolact.pruned.md`       |
+| Pruned Quantized    | A highly sparse, INT8 model that recovers reasonably close to the baseline model. | 0.282        | 9.7 MB       | 144.4 img/sec               | `python train.py --resume weights/model.pth --recipe ../recipe/yolact.pruned_quant.md` |
 
+   \*\* DeepSparse Performance measured on an AWS c5.12xlarge instance with 24 cores, batch size 64, and 550x550 input with version 0.12.0 of the DeepSparse Engine i.e. `deepsparse.benchmark --batch_size 64 --scenario sync [model_path]`
+   
 2. Select a recipe to use on top of the pre-trained model you created.
 
     - Check your CPU hardware support for quantized networks (VNNI instruction set) using the DeepSparse API:
