@@ -221,7 +221,7 @@ def _test_model_inputs_outputs(model_path_a, model_path_b):
         input_a_shape = get_tensor_shape(input_a)
         assert input_a_shape == get_tensor_shape(input_b)
         d_type = (
-            numpy.int8
+            numpy.uint8
             if input_a.type.tensor_type.elem_type == 2
             else numpy.float32
         )
