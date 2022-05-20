@@ -28,6 +28,7 @@ from onnxruntime import InferenceSession
 from transformers import AutoConfig, AutoTokenizer
 from transformers.tokenization_utils_base import PaddingStrategy
 
+from sparseml.onnx.utils import get_tensor_shape
 from sparseml.pytorch.optim.manager import ScheduledModifierManager
 from sparseml.transformers.export import load_task_model
 from sparseml.transformers.utils import SparseAutoModel
@@ -235,7 +236,7 @@ def _test_model_inputs_outputs(model_path_a, model_path_b, config):
 
     for output_a, output_b in zip(model_a.graph.output, model_b.graph.output):
         assert output_a.name == output_b.name
-        assert _get_tensor_shape(output_a) == _get_tensor_shape(output_b)
+        assert get_tensor_shape(output_a) == get_tensor_shape(output_b)
         output_names.append(output_a.name)
 
     # run sample forward and test absolute max diff
@@ -245,11 +246,6 @@ def _test_model_inputs_outputs(model_path_a, model_path_b, config):
     forward_output_b = ort_sess_b.run(output_names, sample_input)
     for out_a, out_b in zip(forward_output_a, forward_output_b):
         assert numpy.max(numpy.abs(out_a - out_b)) <= 1e-4
-
-
-# TODO: remove once IC testing branch lands
-def _get_tensor_shape(tensor):
-    return [dim.dim_value for dim in tensor.type.tensor_type.shape.dim]
 
 
 def _create_bert_input(model_path, task):

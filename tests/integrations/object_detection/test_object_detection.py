@@ -77,8 +77,6 @@ class ObjectDetectionManager(BaseIntegrationManager):
     def teardown(self):
         if "train" in self.command_types:
             self.save_dir.cleanup()
-        # TODO: Add cleanup of export file if export only mode was ran
-        # TODO: Add cleanup of models downloaded from zoo to base_tester
 
 
 class TestObjectDetection(BaseIntegrationTester):

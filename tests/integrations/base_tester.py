@@ -173,7 +173,6 @@ class BaseIntegrationManager:
     def check_file_creation(self, dir):
         """
         Check whether files have been created during the run.
-        TODO: Move to universal fixtures file?
         """
         self._end_file_count = sum(len(files) for _, _, files in os.walk(r"."))
         assert self._start_file_count >= self._end_file_count, (
