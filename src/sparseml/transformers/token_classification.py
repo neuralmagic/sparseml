@@ -245,6 +245,10 @@ class DataTrainingArguments:
         default=False,
         metadata={"help": "Whether to apply recipe in a one shot manner."},
     )
+    num_export_samples: int = field(
+        default=0,
+        metadata={"help": "Number of samples (inputs/outputs) to export during eval."},
+    )
 
     def __post_init__(self):
         if (
@@ -729,6 +733,13 @@ def main():
             ] = f"{data_args.dataset_name} {data_args.dataset_config_name}"
         else:
             kwargs["dataset"] = data_args.dataset_name
+
+    # Exporting Samples
+
+    if data_args.num_export_samples > 0:
+        trainer.save_sample_inputs_outputs(
+            num_samples_to_export=data_args.num_export_samples
+        )
 
     if training_args.push_to_hub:
         trainer.push_to_hub(**kwargs)
