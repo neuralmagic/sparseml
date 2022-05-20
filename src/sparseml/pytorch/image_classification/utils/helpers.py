@@ -248,7 +248,7 @@ def create_model(
     pretrained_dataset: Optional[str] = None,
     local_rank: int = -1,
     **model_kwargs,
-) -> Tuple[Module, str]:
+) -> Tuple[Module, str, str]:
     """
     :param checkpoint_path: Path to the checkpoint to load. `zoo` for
         downloading weights with respect to a SparseZoo recipe
