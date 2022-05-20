@@ -123,7 +123,9 @@ class ImageClassificationTrainArgs(_ImageClassificationBaseArgs):
 
 
 class ImageClassificationExportArgs(_ImageClassificationBaseArgs):
-    onnx_opset: int = Field(default=11)
+    onnx_opset: int = Field(
+        default=11, description="The onnx opset to use for exporting the model"
+    )
     num_samples: int = Field(
         default=-1, description="number of forward data output samples to produce"
     )

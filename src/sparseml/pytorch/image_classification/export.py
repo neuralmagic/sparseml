@@ -413,7 +413,12 @@ def export(
             )
 
 
-def _validate_dataset_num_classes(dataset, dataset_path, num_samples, num_classes):
+def _validate_dataset_num_classes(
+    dataset: str,
+    dataset_path: str,
+    num_samples: int,
+    num_classes: int,
+):
     if dataset and not dataset_path:
         raise ValueError(f"found dataset {dataset} but dataset_path not specified")
     if dataset_path and not dataset:
