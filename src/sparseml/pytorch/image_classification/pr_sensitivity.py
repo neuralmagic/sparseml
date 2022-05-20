@@ -335,7 +335,7 @@ def main(
         model_kwargs=model_kwargs,
     )
 
-    model, arch_key = helpers.create_model(
+    model, arch_key, _ = helpers.create_model(
         checkpoint_path=checkpoint_path,
         recipe_path=None,
         num_classes=num_classes,
