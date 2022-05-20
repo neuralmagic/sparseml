@@ -16,7 +16,6 @@
 SparseML transformers trainer classes and interfaces to be plugged in with
 existing or similiar HF trainer flows
 """
-
 import inspect
 import logging
 import math
@@ -25,6 +24,7 @@ from dataclasses import asdict
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import datasets
+import numpy
 import torch
 from torch import distributed as dist
 from torch.nn import Module
@@ -465,6 +465,61 @@ class RecipeManagerTrainerInterface:
             f"{model_type} model detected, "
             f"all sparsification info: {sparsification_info}"
         )
+
+    def save_sample_inputs_outputs(
+        self, num_samples_to_export: int = 100, output_dir: Optional[str] = None
+    ):
+        """
+        Save sample inputs/outputs/labels in save_dir as .npz arrays
+
+        :param num_samples_to_export: Number of samples to export.
+            Defaults to 100
+        :param output_dir: The directory to store sample inputs and outputs in
+        """
+        num_samples = 0
+        output_dir = output_dir or self.args.output_dir or ""
+
+        sample_in_dir = os.path.join(output_dir, "sample-inputs")
+        sample_out_dir = os.path.join(output_dir, "sample-outputs")
+
+        os.makedirs(sample_in_dir, exist_ok=True)
+        os.makedirs(sample_out_dir, exist_ok=True)
+        device = self.model.device
+
+        dataloader = self.get_val_dataloader() or self.get_train_dataloader()
+        _LOGGER.info(f"Exporting {num_samples_to_export} samples to {output_dir}")
+        for _, sample_batch in enumerate(dataloader):
+            sample_batch.pop("labels", None)
+            input_names = list(sample_batch.keys())
+
+            for input_vals in zip(*sample_batch.values()):
+                input_feed = {k: v.to("cpu") for k, v in zip(input_names, input_vals)}
+                model_inputs = {
+                    k: input_feed[k].to(device).reshape(1, -1) for k in input_feed
+                }
+                output_vals = self.model(**model_inputs)
+                output_dict = {
+                    name: torch.squeeze(val).detach().to("cpu")
+                    for name, val in output_vals.items()
+                }
+                file_idx = f"{num_samples}".zfill(4)
+
+                sample_input_filename = os.path.join(
+                    f"{sample_in_dir}", f"inp-{file_idx}.npz"
+                )
+                numpy.savez(sample_input_filename, **input_feed)
+
+                sample_output_filename = os.path.join(
+                    f"{sample_out_dir}", f"out-{file_idx}.npz"
+                )
+                numpy.savez(sample_output_filename, *output_dict)
+                num_samples += 1
+
+                if num_samples >= num_samples_to_export:
+                    break
+            if num_samples >= num_samples_to_export:
+                break
+        _LOGGER.info(f"Exported {num_samples_to_export} samples to {output_dir}")
 
     def _extract_metadata(
         self,
