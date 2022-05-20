@@ -18,6 +18,7 @@ from collections import defaultdict
 
 import numpy
 import onnx
+import pandas as pd
 import pytest
 import torch
 from onnxruntime import InferenceSession
@@ -28,15 +29,11 @@ from tests.integrations.base_tester import (
     skip_inactive_stage,
 )
 from tests.integrations.helpers import get_configs_with_cadence
-from tests.integrations.object_detection.object_detection_args import (
-    Yolov5ExportArgs,
-    Yolov5TrainArgs,
-)
+from tests.integrations.object_detection.args import Yolov5ExportArgs, Yolov5TrainArgs
 from yolov5.export import load_checkpoint
-from yolov5.val import run as val
 
 
-METRIC_TO_INDEX = {"map0.5": 2}
+METRIC_TO_COLUMN = {"map0.5": "metrics/mAP_0.5"}
 
 
 class ObjectDetectionManager(BaseIntegrationManager):
@@ -52,6 +49,8 @@ class ObjectDetectionManager(BaseIntegrationManager):
 
     def capture_pre_run_state(self):
         super().capture_pre_run_state()
+
+        # Setup temporary directory for train run
         if "train" in self.command_types:
             train_args = self.configs["train"].run_args
             directory = os.path.dirname(train_args.project)
@@ -59,11 +58,18 @@ class ObjectDetectionManager(BaseIntegrationManager):
             self.save_dir = tempfile.TemporaryDirectory(dir=directory)
             train_args.project = self.save_dir.name
 
+        # Either grab output directory from train run or setup new temporary directory
+        # for export
         if "export" in self.command_types:
             export_args = self.configs["export"].run_args
-            export_args.weights = export_args.weights or os.path.join(
-                train_args.project, "exp", "weights", "last.pt"
+            export_args.weights = os.path.join(
+                train_args.project,
+                "exp",
+                "weights",
+                "last.pt" if "train" in self.command_types else export_args.weights,
             )
+
+        # Turn on "_" -> "-" conversion for CLI args
         for stage, config in self.configs.items():
             config.dashed_keywords = True
 
@@ -88,13 +94,16 @@ class TestObjectDetection(BaseIntegrationTester):
 
     @skip_inactive_stage
     def test_train_complete(self, integration_manager):
-        # Test that file is created, model is loadable
+        # Test that file is created
         manager = integration_manager
         model_file = os.path.join(manager.save_dir.name, "exp", "weights", "last.pt")
         assert os.path.isfile(model_file)
-        model, extras = load_checkpoint(
+
+        # Test that model file loadable
+        _, extras = load_checkpoint(
             type_="val", weights=model_file, device=torch.device("cpu")
         )
+
         # Test that training ran to completion
         assert extras["ckpt"]["epoch"] == -1
 
@@ -103,24 +112,31 @@ class TestObjectDetection(BaseIntegrationTester):
         # Test train metric(s) if specified
         manager = integration_manager
         train_args = manager.configs["train"]
-        model_file = os.path.join(manager.save_dir.name, "exp", "weights", "last.pt")
-        metrics, *_ = val(data=train_args.run_args.data, weights=model_file)
+        results_file = os.path.join(manager.save_dir.name, "exp", "results.csv")
+
         if "target_name" in train_args.test_args:
             train_test_args = train_args.test_args
-            metric_idx = METRIC_TO_INDEX[train_test_args["target_name"]]
-            metric = metrics[metric_idx] * 100
+            results = pd.read_csv(results_file, skipinitialspace=True)
+
+            metric_key = METRIC_TO_COLUMN[train_test_args["target_name"]]
+            metric = results[metric_key].iloc[-1] * 100
+
             target_mean = train_test_args["target_mean"]
             target_std = train_test_args["target_std"]
+
             assert target_mean - target_std <= metric <= target_mean + target_std
 
     @skip_inactive_stage
     def test_export_onnx_graph(self, integration_manager):
         # Test that onnx model is loadable and passes onnx checker
         manager = integration_manager
+        export_args = manager.configs["export"]
         onnx_file = os.path.join(
-            os.path.dirname(manager.configs["export"]["args"].weights), "last.onnx"
+            os.path.dirname(export_args.run_args.weights), "last.onnx"
         )
+
         assert os.path.isfile(onnx_file)
+
         model = onnx.load(onnx_file)
         onnx.checker.check_model(model)
 
@@ -131,11 +147,19 @@ class TestObjectDetection(BaseIntegrationTester):
         manager = integration_manager
         export_args = manager.configs["export"]
         target_model_path = export_args.test_args.get("target_model")
+
         if not target_model_path:
             pytest.skip("No target model provided")
+
         export_model_path = os.path.join(
             os.path.dirname(export_args.run_args.weights), "last.onnx"
         )
+
+        # Downloads model if zoo stubs and additionally tests that it can be loaded
+        _, *_ = load_checkpoint(
+            type_="val", weights=target_model_path, device=torch.device("cpu")
+        )
+
         _test_model_op_counts(export_model_path, target_model_path)
 
         compare_outputs = export_args.test_args.get("compare_outputs", True)
