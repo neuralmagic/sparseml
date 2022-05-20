@@ -16,7 +16,3 @@ train:
    num_train_epochs: 0.1
    save_strategy: epoch
    max_steps: 5
-  test_args: 
-    target_name: "test"
-    target_mean: 0 
-    target_std: 1
