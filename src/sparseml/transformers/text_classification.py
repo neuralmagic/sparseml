@@ -280,6 +280,13 @@ class ModelArguments:
         default=True,
         metadata={"help": "Whether to use one of the fast tokenizers. Default True"},
     )
+    use_teacher_tokenizer: bool = field(
+        default=False,
+        metadata={
+            "help": "Whether to use separate tokenizer for distillation teacher. "
+            "Default False; uses same tokenizer for teacher and student"
+        },
+    )
     model_revision: str = field(
         default="main",
         metadata={
@@ -480,17 +487,32 @@ def main():
         },
     )
 
-    tokenizer_src = (
-        model_args.tokenizer_name
-        if model_args.tokenizer_name
-        else get_shared_tokenizer_src(model, teacher)
-    )
-    tokenizer = AutoTokenizer.from_pretrained(
-        tokenizer_src,
+    teacher_tokenizer = None
+    tokenizer_kwargs = dict(
         cache_dir=model_args.cache_dir,
         use_fast=model_args.use_fast_tokenizer,
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
+    )
+    if not model_args.use_teacher_tokenizer:
+        tokenizer_src = (
+            model_args.tokenizer_name
+            if model_args.tokenizer_name
+            else get_shared_tokenizer_src(model, teacher)
+        )
+    else:
+        tokenizer_src = (
+            model_args.tokenizer_name
+            if model_args.tokenizer_name
+            else model.config._name_or_path
+        )
+        teacher_tokenizer = AutoTokenizer.from_pretrained(
+            teacher.config._name_or_path,
+            **tokenizer_kwargs,
+        )
+    tokenizer = AutoTokenizer.from_pretrained(
+        tokenizer_src,
+        **tokenizer_kwargs,
     )
 
     # Preprocessing the datasets
@@ -567,13 +589,23 @@ def main():
         model.config.label2id = {l: i for i, l in enumerate(label_list)}
         model.config.id2label = {id: label for label, id in config.label2id.items()}
 
-    if data_args.max_seq_length > tokenizer.model_max_length:
+    max_seq_length = data_args.max_seq_length
+    if max_seq_length > tokenizer.model_max_length:
         _LOGGER.warning(
-            f"The max_seq_length passed ({data_args.max_seq_length}) is larger than "
+            f"The max_seq_length passed ({max_seq_length}) is larger than "
             f"the maximum length for the model ({tokenizer.model_max_length}). "
             f"Using max_seq_length={tokenizer.model_max_length}."
         )
     max_seq_length = min(data_args.max_seq_length, tokenizer.model_max_length)
+
+    def map_labels_to_ids(examples, tokenizer_result):
+        # Map labels to IDs (not necessary for GLUE tasks)
+        if label_to_id is not None and label_column in examples:
+            tokenizer_result[label_column] = [
+                (label_to_id[label] if label != -1 else -1)
+                for label in examples[label_column]
+            ]
+        return tokenizer_result
 
     def preprocess_function(examples):
         # Tokenize the texts
@@ -585,13 +617,21 @@ def main():
         result = tokenizer(
             *args, padding=padding, max_length=max_seq_length, truncation=True
         )
+        result = map_labels_to_ids(examples, result)
 
-        # Map labels to IDs (not necessary for GLUE tasks)
-        if label_to_id is not None and label_column in examples:
-            result[label_column] = [
-                (label_to_id[label] if label != -1 else -1)
-                for label in examples[label_column]
-            ]
+        if teacher_tokenizer is not None:
+            teacher_result = teacher_tokenizer(
+                *args, padding=padding, max_length=max_seq_length, truncation=True
+            )
+            teacher_result = map_labels_to_ids(examples, teacher_result)
+
+            # add results from teacher_tokenizer to results with 'distill_teacher:' id
+            teacher_result = {
+                f"distill_teacher:{tokenizer_key}": value
+                for tokenizer_key, value in teacher_result.items()
+            }
+            result.update(teacher_result)
+
         return result
 
     with training_args.main_process_first(desc="dataset map pre-processing"):
