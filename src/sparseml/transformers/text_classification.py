@@ -596,13 +596,6 @@ def main():
             f"the maximum length for the model ({tokenizer.model_max_length}). "
             f"Using max_seq_length={tokenizer.model_max_length}."
         )
-    if teacher_tokenizer and max_seq_length > teacher_tokenizer.model_max_length:
-        _LOGGER.warning(
-            f"The max_seq_length passed ({max_seq_length}) is larger than "
-            "the maximum length for the teacher model "
-            f"({teacher_tokenizer.model_max_length}). "
-            f"Using max_seq_length={teacher_tokenizer.model_max_length}."
-        )
     max_seq_length = min(data_args.max_seq_length, tokenizer.model_max_length)
 
     def map_labels_to_ids(examples, tokenizer_result):
