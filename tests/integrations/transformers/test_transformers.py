@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import collections
+import inspect
 import json
 import math
 import os
@@ -22,8 +24,11 @@ import numpy
 import onnx
 import pytest
 from onnxruntime import InferenceSession
+from transformers import AutoConfig, AutoTokenizer
+from transformers.tokenization_utils_base import PaddingStrategy
 
 from sparseml.pytorch.optim.manager import ScheduledModifierManager
+from sparseml.transformers.export import load_task_model
 from sparseml.transformers.utils import SparseAutoModel
 from tests.integrations.base_tester import (
     BaseIntegrationManager,
@@ -105,7 +110,7 @@ class TestTransformers(BaseIntegrationTester):
         results_file = os.path.join(manager.save_dir.name, "train_results.json")
         model_file = os.path.join(manager.save_dir.name, "pytorch_model.bin")
         assert os.path.isfile(model_file)
-        model = _load_model_on_task(model_file, "student", manager.task)
+        _ = _load_model_on_task(model_file, "student", manager.task)
         end_epoch = (
             ScheduledModifierManager.from_yaml(run_args.recipe).max_epochs
             if run_args.recipe
@@ -163,7 +168,9 @@ class TestTransformers(BaseIntegrationTester):
         ):
             compare_outputs = False
         if compare_outputs:
-            _test_model_inputs_outputs(export_model_path, target_model_path)
+            _test_model_inputs_outputs(
+                export_model_path, target_model_path, manager.configs["export"]
+            )
 
 
 def _load_model_on_task(model_name_or_path, model_type, task, **model_kwargs):
@@ -210,7 +217,7 @@ def _test_model_op_counts(model_path_a, model_path_b):
         assert count_a == op_counts_b[op]
 
 
-def _test_model_inputs_outputs(model_path_a, model_path_b):
+def _test_model_inputs_outputs(model_path_a, model_path_b, config):
     # compare export and target graphs and build fake data
     model_a = onnx.load(model_path_a)
     model_b = onnx.load(model_path_b)
@@ -220,13 +227,7 @@ def _test_model_inputs_outputs(model_path_a, model_path_b):
     sample_input = {}
     output_names = []
 
-    for input_a, input_b in zip(model_a.graph.input, model_b.graph.input):
-        assert input_a.name == input_b.name
-        input_a_shape = _get_tensor_shape(input_a)
-        assert input_a_shape == _get_tensor_shape(input_b)
-        sample_input[input_a.name] = numpy.random.randn(*input_a_shape).astype(
-            numpy.float32
-        )
+    sample_input = _create_bert_input(config.run_args.model_path, config.run_args.task)
 
     for output_a, output_b in zip(model_a.graph.output, model_b.graph.output):
         assert output_a.name == output_b.name
@@ -245,3 +246,42 @@ def _test_model_inputs_outputs(model_path_a, model_path_b):
 # TODO: remove once IC testing branch lands
 def _get_tensor_shape(tensor):
     return [dim.dim_value for dim in tensor.type.tensor_type.shape.dim]
+
+
+def _create_bert_input(model_path, task):
+    config_args = {"finetuning_task": task} if task else {}
+    config = AutoConfig.from_pretrained(
+        model_path,
+        **config_args,
+    )
+
+    tokenizer = AutoTokenizer.from_pretrained(model_path, model_max_length=384)
+
+    model = load_task_model(task, model_path, config)
+
+    # create fake model input
+    inputs = tokenizer(
+        "", return_tensors="pt", padding=PaddingStrategy.MAX_LENGTH.value
+    ).data  # Dict[Tensor]
+
+    # Rearrange inputs' keys to match those defined by model foward func, which
+    # seem to define how the order of inputs is determined in the exported model
+    forward_args_spec = inspect.getfullargspec(model.__class__.forward)
+    dropped = [f for f in inputs.keys() if f not in forward_args_spec.args]
+    inputs = collections.OrderedDict(
+        [
+            (f, inputs[f][0].reshape(1, -1))
+            for f in forward_args_spec.args
+            if f in inputs
+        ]
+    )
+    if dropped:
+        raise ValueError(
+            "The following inputs were not present in the model forward function "
+            f"and therefore dropped from ONNX export: {dropped}"
+        )
+
+    input_names = list(inputs.keys())
+    inputs = tuple([inputs[f] for f in input_names])
+
+    return inputs
