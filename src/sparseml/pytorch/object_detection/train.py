@@ -456,7 +456,7 @@ def train(hyp, opt, device, callbacks):  # path/to/hyp.yaml or hyp dictionary
             sparseml_wrapper.save_sample_inputs_outputs(
                 dataloader=dataloader,
                 num_export_samples=opt.num_export_samples,
-                save_dir=w / "samples",
+                save_dir=str(w),
             )
 
         torch.cuda.empty_cache()
@@ -749,7 +749,7 @@ def train(hyp, opt, device, callbacks):  # path/to/hyp.yaml or hyp dictionary
         sparseml_wrapper.save_sample_inputs_outputs(
             dataloader=val_loader or train_loader,
             num_export_samples=opt.num_export_samples,
-            save_dir=w / "samples",
+            save_dir=str(w),
         )
 
     torch.cuda.empty_cache()
