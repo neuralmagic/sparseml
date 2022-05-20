@@ -145,7 +145,9 @@ class TestImageClassification(BaseIntegrationTester):
         expected_mean = train_args.test_args["target_mean"]
         expected_std = train_args.test_args["target_std"]
         assert (
-            (expected_mean - expected_std) <= metric_val <= (expected_mean + expected_std)
+            (expected_mean - expected_std)
+            <= metric_val
+            <= (expected_mean + expected_std)
         )
 
     @skip_inactive_stage
