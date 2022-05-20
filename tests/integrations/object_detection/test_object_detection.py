@@ -22,7 +22,6 @@ import pytest
 import torch
 from onnxruntime import InferenceSession
 
-from sparseml.onnx.utils import get_tensor_shape
 from tests.integrations.base_tester import (
     BaseIntegrationManager,
     BaseIntegrationTester,
@@ -194,15 +193,15 @@ def _test_model_inputs_outputs(model_path_a, model_path_b):
 
     for input_a, input_b in zip(model_a.graph.input, model_b.graph.input):
         assert input_a.name == input_b.name
-        input_a_shape = get_tensor_shape(input_a)
-        assert input_a_shape == get_tensor_shape(input_b)
+        input_a_shape = _get_tensor_shape(input_a)
+        assert input_a_shape == _get_tensor_shape(input_b)
         sample_input[input_a.name] = numpy.random.randn(*input_a_shape).astype(
             numpy.float32
         )
 
     for output_a, output_b in zip(model_a.graph.output, model_b.graph.output):
         assert output_a.name == output_b.name
-        assert get_tensor_shape(output_a) == get_tensor_shape(output_b)
+        assert _get_tensor_shape(output_a) == _get_tensor_shape(output_b)
         output_names.append(output_a.name)
 
     # run sample forward and test absolute max diff
@@ -212,3 +211,8 @@ def _test_model_inputs_outputs(model_path_a, model_path_b):
     forward_output_b = ort_sess_b.run(output_names, sample_input)
     for out_a, out_b in zip(forward_output_a, forward_output_b):
         assert numpy.max(numpy.abs(out_a - out_b)) <= 1e-4
+
+
+# TODO: remove once IC testing branch lands
+def _get_tensor_shape(tensor):
+    return [dim.dim_value for dim in tensor.type.tensor_type.shape.dim]
