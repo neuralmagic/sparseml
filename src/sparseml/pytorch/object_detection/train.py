@@ -581,7 +581,9 @@ def train(hyp, opt, device, callbacks):  # path/to/hyp.yaml or hyp dictionary
                     return
 
             if 0 < opt.max_train_steps <= train_steps_executed:
-                LOGGER.info(f"\nStopping early, {train_steps_executed} executed")
+                LOGGER.info(
+                    f"\nStopping early, {train_steps_executed} training steps executed"
+                )
                 break
             # end batch ---------------------------------------------------------------
 
@@ -668,8 +670,11 @@ def train(hyp, opt, device, callbacks):  # path/to/hyp.yaml or hyp dictionary
         # end epoch -------------------------------------------------------------------
     # end training --------------------------------------------------------------------
     if RANK in [-1, 0]:
+        epochs_ = epochs - start_epoch + 1
+        if opt.max_train_steps > 0:
+            epochs_ = opt.max_train_steps / nb
         LOGGER.info(
-            f"\n{start_epoch + 1} epochs completed in "
+            f"\n{epochs_} epochs completed in "
             f"{(time.time() - t0) / 3600:.3f} hours."
         )
         for f in last, best:
