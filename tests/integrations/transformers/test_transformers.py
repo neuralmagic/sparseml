@@ -109,9 +109,12 @@ class TestTransformers(BaseIntegrationTester):
         manager = integration_manager
         run_args = manager.configs["train"].run_args
         results_file = os.path.join(manager.save_dir.name, "train_results.json")
-        model_file = os.path.join(manager.save_dir.name, "pytorch_model.bin")
-        assert os.path.isfile(model_file)
-        _ = _load_model_on_task(model_file, "student", manager.task)
+        model_directory = manager.save_dir.name
+        assert os.path.isdir(model_directory)
+        assert os.path.exists(os.path.join(model_directory, "pytorch_model.bin"))
+        model = _load_model_on_task(model_directory, "student", manager.task)
+        assert isinstance(model, torch.nn.Module)
+
         end_epoch = (
             ScheduledModifierManager.from_yaml(run_args.recipe).max_epochs
             if run_args.recipe
