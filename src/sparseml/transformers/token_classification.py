@@ -245,13 +245,9 @@ class DataTrainingArguments:
         default=False,
         metadata={"help": "Whether to apply recipe in a one shot manner."},
     )
-    do_save_sample_outputs: bool = field(
-        default=False,
-        metadata={"help": "Whether to apply recipe in a one shot manner."},
-    )
     num_export_samples: int = field(
         default=0,
-        metadata={"help": "Number of sample inputs/outputs to export during eval."},
+        metadata={"help": "Number of samples (inputs/outputs) to export during eval."},
     )
 
     def __post_init__(self):
@@ -740,7 +736,7 @@ def main():
 
     # Exporting Samples
 
-    if data_args.do_save_sample_outputs and data_args.num_export_samples > 0:
+    if data_args.num_export_samples > 0:
         trainer.save_sample_inputs_outputs(
             num_samples_to_export=data_args.num_export_samples
         )

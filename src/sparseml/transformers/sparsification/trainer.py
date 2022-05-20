@@ -477,19 +477,16 @@ class RecipeManagerTrainerInterface:
         :param output_dir: The directory to store sample inputs and outputs in
         """
         num_samples = 0
+        output_dir = output_dir or self.args.output_dir or ""
 
-        potential_output_dir = (
-            self.args.output_dir if hasattr(self.args, "output_dir") else ""
-        )
-        output_dir = output_dir or potential_output_dir or ""
+        sample_in_dir = os.path.join(output_dir, "sample-inputs")
+        sample_out_dir = os.path.join(output_dir, "sample-outputs")
 
-        sample_inputs = os.path.join(output_dir, "sample-inputs")
-        sample_outputs = os.path.join(output_dir, "sample-outputs")
-        os.makedirs(sample_inputs, exist_ok=True)
-        os.makedirs(sample_outputs, exist_ok=True)
-        device = "cuda" if torch.cuda.is_available() else "cpu"
+        os.makedirs(sample_in_dir, exist_ok=True)
+        os.makedirs(sample_out_dir, exist_ok=True)
+        device = self.model.device
 
-        dataloader = self.get_train_dataloader()
+        dataloader = self.get_val_dataloader() or self.get_train_dataloader()
         _LOGGER.info(f"Exporting {num_samples_to_export} samples to {output_dir}")
         for _, sample_batch in enumerate(dataloader):
             sample_batch.pop("labels", None)
@@ -501,17 +498,27 @@ class RecipeManagerTrainerInterface:
                     k: input_feed[k].to(device).reshape(1, -1) for k in input_feed
                 }
                 output_vals = self.model(**model_inputs)
-
                 output_dict = {
                     name: torch.squeeze(val).detach().to("cpu")
                     for name, val in output_vals.items()
                 }
                 file_idx = f"{num_samples}".zfill(4)
-                numpy.savez(f"{sample_inputs}/inp-{file_idx}.npz", **input_feed)
-                numpy.savez(f"{sample_outputs}/out-{file_idx}.npz", **output_dict)
+
+                sample_input_filename = os.path.join(
+                    f"{sample_in_dir}", f"inp-{file_idx}.npz"
+                )
+                numpy.savez(sample_input_filename, **input_feed)
+
+                sample_output_filename = os.path.join(
+                    f"{sample_out_dir}", f"out-{file_idx}.npz"
+                )
+                numpy.savez(sample_output_filename, *output_dict)
                 num_samples += 1
+
                 if num_samples >= num_samples_to_export:
                     break
+            if num_samples >= num_samples_to_export:
+                break
         _LOGGER.info(f"Exported {num_samples_to_export} samples to {output_dir}")
 
     def _extract_metadata(
