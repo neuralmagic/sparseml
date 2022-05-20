@@ -17,7 +17,17 @@ Helper functions for retrieving information related to model sparsification
 """
 
 import json
-from typing import Any, Callable, Dict, Generator, Iterable, Iterator, List, Tuple
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generator,
+    Iterable,
+    Iterator,
+    List,
+    Tuple,
+    Union,
+)
 
 import torch
 from torch.nn import Module
@@ -189,13 +199,13 @@ class GradSampler:
 
     def __init__(
         self,
-        data_loader: Iterator[Tuple[List[Any], Dict[str, Any], Any]],
+        data_loader: Union[Iterator[Tuple[List[Any], Dict[str, Any], Any]], Callable],
         loss_fn: Callable[[Any], Any],
     ):
-        if not isinstance(data_loader, Iterable):
+        if not isinstance(data_loader, Iterable) and not callable(data_loader):
             raise ValueError(
-                "data_loader for GradSampler must be Iterable, received object of "
-                f"type {type(data_loader)}"
+                "data_loader for GradSampler must be Iterable or Callable, received "
+                f"object of type {type(data_loader)}"
             )
         if not callable(loss_fn):
             raise ValueError(
@@ -225,7 +235,12 @@ class GradSampler:
 
         with pbar:
             while computed_grads < num_grads:
-                for forward_args, forward_kwargs, loss_target in self._data_loader:
+                data_loader = (
+                    self._data_loader()
+                    if callable(self._data_loader)
+                    else self._data_loader
+                )
+                for forward_args, forward_kwargs, loss_target in data_loader:
                     module.zero_grad()
                     # run sample forward and backwards pass
                     model_outputs = module(*forward_args, **forward_kwargs)
