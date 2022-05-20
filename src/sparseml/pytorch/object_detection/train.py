@@ -450,9 +450,19 @@ def train(hyp, opt, device, callbacks):  # path/to/hyp.yaml or hyp dictionary
         one_shot_checkpoint_name = w / "checkpoint-one-shot.pt"
         torch.save(ckpt, one_shot_checkpoint_name)
         LOGGER.info(f"One shot checkpoint saved to {one_shot_checkpoint_name}")
+
+        if opt.num_export_samples > 0:
+            dataloader = val_loader or train_loader
+            sparseml_wrapper.save_sample_inputs_outputs(
+                dataloader=dataloader,
+                num_export_samples=opt.num_export_samples,
+                save_dir=str(w),
+            )
+
         torch.cuda.empty_cache()
         return results
 
+    # Continue as expected
     if RANK in [-1, 0]:
         sparseml_wrapper.initialize_loggers(loggers.logger, loggers.tb, loggers.wandb)
     scaler = sparseml_wrapper.modify(scaler, optimizer, model, train_loader)
@@ -735,6 +745,13 @@ def train(hyp, opt, device, callbacks):  # path/to/hyp.yaml or hyp dictionary
         callbacks.run("on_train_end", last, best, plots, epoch, results)
         LOGGER.info(f"Results saved to {colorstr('bold', save_dir)}")
 
+    if opt.num_export_samples > 0:
+        sparseml_wrapper.save_sample_inputs_outputs(
+            dataloader=val_loader or train_loader,
+            num_export_samples=opt.num_export_samples,
+            save_dir=str(w),
+        )
+
     torch.cuda.empty_cache()
     return results
 
@@ -927,6 +944,12 @@ def parse_opt(known=False):
         action="store_true",
         default=False,
         help="Apply recipe in one shot manner",
+    )
+    parser.add_argument(
+        "--num-export-samples",
+        type=int,
+        default=0,
+        help="The number of sample inputs/outputs to export, default=0",
     )
 
     opt = parser.parse_known_args()[0] if known else parser.parse_args()
