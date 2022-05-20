@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from pathlib import Path
-from typing import List, Literal, Tuple, Union
+from typing import List, Tuple, Union
 
 from pydantic import BaseModel, Field
 
@@ -44,7 +44,7 @@ class Yolov5TrainArgs(BaseModel):
         default=[False, 300], description="evolve hyperparameters for x generations"
     )
     bucket: str = Field(default='""', description="gsutil bucket")
-    cache: Literal["ram", "disk"] = Field(
+    cache: str = Field(
         default="ram", description='--cache images in "ram" (default) or "disk"'
     )
     image_weights: bool = Field(
@@ -55,9 +55,7 @@ class Yolov5TrainArgs(BaseModel):
     single_cls: bool = Field(
         default=False, description="train multi-class data as single-class"
     )
-    optimizer: Literal["SGD", "Adam", "AdamW"] = Field(
-        default="SGD", description="optimizer"
-    )
+    optimizer: str = Field(default="SGD", description="optimizer")
     sync_bin: bool = Field(
         default=False, description="use SyncBatchNorm, only available in DDP mode"
     )
@@ -94,6 +92,22 @@ class Yolov5TrainArgs(BaseModel):
     disable_ema: bool = Field(
         default=False, description="Disable EMA model updates (enabled by default)"
     )
+
+    def __init__(self, **data):
+        super().__init__(**data)
+        self.__post_init__()
+
+    def __post_init__(self):
+        if self.cache not in ["ram", "disk"]:
+            raise ValueError(
+                f"keyword --cache must be one of {['ram', 'disk']}. "
+                f"Instead, received: {self.cache}"
+            )
+        if self.optimizer not in ["SGD", "Adam", "AdamW"]:
+            raise ValueError(
+                f"keyword --optimizer must be one of {['SGD', 'Adam', 'AdamW']}. "
+                f"Instead, received: {self.optimizer}"
+            )
 
 
 class Yolov5ExportArgs(BaseModel):

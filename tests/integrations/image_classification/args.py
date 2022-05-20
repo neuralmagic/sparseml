@@ -15,7 +15,7 @@
 import json
 import os
 from pathlib import Path
-from typing import Literal, Optional, Union
+from typing import Optional, Union
 
 from pydantic import BaseModel, Field
 
@@ -85,7 +85,7 @@ class ImageClassificationTrainArgs(_ImageClassificationBaseArgs):
         default=None, description="path to sparsification recipe"
     )
     eval_mode: bool = Field(default=False, description="defaults to only run eval")
-    optim: Literal[tuple(OPTIMIZERS)] = Field(
+    optim: str = Field(
         default="SGD", description="torch optimizer class to use, default SGD"
     )
     optim_args: str = Field(
@@ -120,6 +120,17 @@ class ImageClassificationTrainArgs(_ImageClassificationBaseArgs):
     recipe_args: str = Field(
         default=None, description="json string for recipe constructor"
     )
+
+    def __init__(self, **data):
+        super().__init__(**data)
+        self.__post_init__()
+
+    def __post_init__(self):
+        if self.optim not in tuple(OPTIMIZERS):
+            raise ValueError(
+                f"keyword --optim must be one of {tuple(OPTIMIZERS)}. "
+                f"Instead, received: {self.optim}"
+            )
 
 
 class ImageClassificationExportArgs(_ImageClassificationBaseArgs):
