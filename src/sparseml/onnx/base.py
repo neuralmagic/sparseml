@@ -31,9 +31,14 @@ try:
     import onnxruntime
 
     onnxruntime_err = None
-except Exception as err:
+
+except ModuleNotFoundError as error:
+    raise error.__class__(
+        f"{error.msg}. To fix this error, install sparseml[onnxruntime]."
+    )
+
     onnxruntime = object()  # TODO: populate with fake object for necessary imports
-    onnxruntime_err = err
+    onnxruntime_err = error
 
 __all__ = [
     "onnx",

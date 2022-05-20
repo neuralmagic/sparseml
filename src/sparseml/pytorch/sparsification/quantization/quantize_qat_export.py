@@ -553,6 +553,9 @@ def _convert_quantizable_matmul(model: ModelProto):
     |                  |      |
     |                   MatMul
     |                     |
+    |                  Transpose (optional)
+    |                     |
+    |                  Reshape (optional)
     |                     |
     |               QuantizeLinear
     |                     |
@@ -567,6 +570,9 @@ def _convert_quantizable_matmul(model: ModelProto):
     |                  |      |
     |                   QLinearMatMul
     |                     |
+    |                   Transpose (optional)
+    |                     |
+    |                    Reshape (optional)
     |                     |
     |              DequantizeLinear
     |                     |
@@ -574,8 +580,8 @@ def _convert_quantizable_matmul(model: ModelProto):
     """
     conversion_count = 0
     matmul_nodes = [n for n in model.graph.node if n.op_type in ["MatMul"]]
+    graph = ONNXGraph(model)
     for matmul_node in matmul_nodes:
-        graph = ONNXGraph(model)
         #############
         # Matching
         #############
@@ -605,9 +611,39 @@ def _convert_quantizable_matmul(model: ModelProto):
         ):
             continue
 
-        output_quantize_node = graph.get_node_single_child(matmul_node)
+        # Check if first optional node is present
+        first_optional_node = graph.get_node_single_child(matmul_node)
+        current_output = matmul_node
+        transpose_node = None
+        reshape_node = None
+        if first_optional_node is not None:
+            if first_optional_node.op_type == "Transpose":
+                transpose_node = first_optional_node
+                current_output = transpose_node
+            elif first_optional_node.op_type == "Reshape":
+                reshape_node = first_optional_node
+                current_output = reshape_node
+            else:
+                first_optional_node = None
+
+        # Check if second optional node is present
+        if first_optional_node is not None:
+            second_optional_node = graph.get_node_single_child(current_output)
+            if second_optional_node is not None:
+                if (
+                    transpose_node is None
+                    and second_optional_node.op_type == "Transpose"
+                ):
+                    transpose_node = second_optional_node
+                    current_output = transpose_node
+                elif reshape_node is None and second_optional_node.op_type == "Reshape":
+                    reshape_node = second_optional_node
+                    current_output = reshape_node
+                else:
+                    second_optional_node = None
 
         # Make sure the output node is QuantizeLinear
+        output_quantize_node = graph.get_node_single_child(current_output)
         if (
             output_quantize_node is None
             or output_quantize_node.op_type != "QuantizeLinear"
@@ -639,7 +675,11 @@ def _convert_quantizable_matmul(model: ModelProto):
             output_quantize_node.input[2],  # y_zero_point
         ]
 
-        qmatmul_output = output_quantize_node.output[0]
+        if transpose_node or reshape_node:
+            qmatmul_output = matmul_node.output[0]
+            current_output.output[0] = output_quantize_node.output[0]
+        else:
+            qmatmul_output = output_quantize_node.output[0]
         qmatmul_name = "{}_quant".format(matmul_node.name)
 
         # create qmatmul node and add it to graph
@@ -655,10 +695,11 @@ def _convert_quantizable_matmul(model: ModelProto):
             delete_quant_node(model, node, keep_params=True)
         delete_quant_node(model, output_quantize_node, keep_params=True)
 
-        # delete original Gemm node
+        # delete original MatMul node
         remove_node_and_params_from_graph(model, matmul_node, keep_params=None)
 
         conversion_count += 1
+        graph = ONNXGraph(model)
 
     if matmul_nodes:
         _LOGGER.info(
@@ -822,19 +863,16 @@ def _convert_quantizable_gemm_no_activations(model: ModelProto):
     a bias add and cast to FP32
 
     | Starting with:
-    |          INPUT         QuantizeLinear (with constant kernel)
+    |
+    |          INPUT        QuantizeLinear (with constant kernel)
     |            |               |
-    |     QuantizeLinear     DequantizeLinear
-    |            |               |
-    |     DequantizeLinear      |
+    |     DequantizeLinear  DequantizeLinear
     |                  |      |
     |                   Gemm (with bias)
     |                     |
     |                  OUTPUT
     | We end up converting to:
     |       INPUT
-    |         |
-    |     QuantizeLinear
     |         |
     |     MatMulInteger (with constant uint8 kernel)
     |         |

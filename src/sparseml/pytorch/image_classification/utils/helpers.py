@@ -263,7 +263,8 @@ def create_model(
         None
     :param local_rank: The local rank of the process. Defaults to -1
     :param model_kwargs: Additional keyword arguments to pass to the model
-    :returns: A tuple containing the model and the model's arch_key
+    :returns: A tuple containing the mode, the model's arch_key, and the
+        checkpoint path
     """
     with torch_distributed_zero_first(local_rank):
         # only download once locally
@@ -286,7 +287,7 @@ def create_model(
         else:
             model, arch_key = result
 
-        return model, arch_key
+        return model, arch_key, checkpoint_path
 
 
 def infer_num_classes(
@@ -370,6 +371,7 @@ def save_model_training(
         checkpoint
     """
 
+    save_message_shown = False
     recipe = str(
         ScheduledModifierManager.compose_staged(
             base_recipe=checkpoint_manager, additional_recipe=manager
@@ -386,6 +388,7 @@ def save_model_training(
             f"Saving model for epoch {epoch} and {metric_name} "
             f"{metric} to {save_dir} for {save_name}"
         )
+        save_message_shown = True
     exporter = ModuleExporter(model, save_dir)
     exporter.export_pytorch(
         optimizer=optim,
@@ -406,6 +409,9 @@ def save_model_training(
                 info_lines.append(f"{loss}: {val_res.result_mean(loss).item()}")
 
         info_file.write("\n".join(info_lines))
+
+    if not save_message_shown:
+        print(f"Saving model for epoch {epoch} " f"to {save_dir} for {save_name}")
 
 
 def set_seeds(local_rank: int):
