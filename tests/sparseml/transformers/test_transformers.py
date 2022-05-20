@@ -23,6 +23,7 @@ import onnxruntime as ort
 import pytest
 from transformers import AutoConfig
 
+from sparseml.pytorch.optim import ScheduledModifierManager
 from sparseml.transformers.sparsification import Trainer
 from sparsezoo import Zoo
 from sparsezoo.utils import load_numpy_list
@@ -34,7 +35,12 @@ def _is_yaml_recipe_present(model_path):
         [
             file
             for file in glob.glob(os.path.join(model_path, "*"))
-            if (file.endswith(".yaml") or ("recipe" in file))
+            if (
+                file.endswith(
+                    ".yaml",
+                )
+                or ("recipe" in file)
+            )
         ]
     )
 
@@ -80,14 +86,34 @@ def _compare_onnx_models(model_1, model_2):
         assert nodes1_count[node] == nodes2_count[node]
 
 
+# TODO: Remove this function once yaml recipes supplied
+def _attempt_copy_original_recipe(model_path):
+    recipe_path = os.path.join(os.path.dirname(model_path), "recipes")
+    recipe_path = recipe_path if os.path.exists(recipe_path) else model_path
+
+    recipe_match = glob.glob(os.path.join(recipe_path, "*.md")) or glob.glob(
+        os.path.join(recipe_path, "*recipe")
+    )
+    recipe = str(recipe_match[0]) if recipe_match else None
+
+    if recipe:
+        manager = ScheduledModifierManager.from_yaml(recipe)
+        manager.save(os.path.join(model_path, "recipe.yaml"))
+
+
 @pytest.mark.parametrize(
     "model_stub, recipe_present, task",
     [
         (
             "zoo:nlp/question_answering/bert-base/pytorch/huggingface/squad/pruned-conservative",  # noqa: E501
-            False,
+            True,
             "question-answering",
-        )
+        ),
+        (
+            "zoo:nlp/sentiment_analysis/bert-base/pytorch/huggingface/sst2/12layer_pruned80_quant-none-vnni",  # noqa: E501
+            True,
+            "sentiment-analysis",
+        ),
     ],
     scope="function",
 )
@@ -98,6 +124,7 @@ class TestModelFromZoo:
         self.onnx_retrieved_name = "retrieved_model.onnx"
         model = Zoo.load_model_from_stub(model_stub)
         model.download()
+        _attempt_copy_original_recipe(model.framework_files[0].dir_path)
 
         yield model, recipe_present, task
 
@@ -114,8 +141,8 @@ class TestModelFromZoo:
 
         assert model
         assert recipe_present == _is_yaml_recipe_present(model_path)
-        if recipe_present:
 
+        if recipe_present:
             trainer = Trainer(
                 model=model,
                 model_state_path=model_path,
@@ -159,6 +186,7 @@ class TestModelFromZoo:
             task=task,
             model_path=model_path,
             onnx_file_name=self.onnx_retrieved_name,
+            sequence_length=next(iter(input_data.values())).shape[0],
         )
 
         out1 = _run_inference_onnx(path_onnx, input_data)

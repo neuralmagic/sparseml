@@ -283,6 +283,14 @@ class DataTrainingArguments:
             ),
         },
     )
+    one_shot: bool = field(
+        default=False,
+        metadata={"help": "Whether to apply recipe in a one shot manner."},
+    )
+    num_export_samples: int = field(
+        default=0,
+        metadata={"help": "Number of samples (inputs/outputs) to export during eval."},
+    )
 
     def __post_init__(self):
         if (
@@ -767,6 +775,7 @@ def main():
         metadata_args=metadata_args,
         teacher=teacher,
         args=training_args,
+        data_args=data_args,
         train_dataset=train_dataset if training_args.do_train else None,
         eval_dataset=eval_dataset if training_args.do_eval else None,
         eval_examples=eval_examples if training_args.do_eval else None,
@@ -784,22 +793,21 @@ def main():
         elif last_checkpoint is not None:
             checkpoint = last_checkpoint
         train_result = trainer.train(resume_from_checkpoint=checkpoint)
+        if not trainer.one_shot:
+            metrics = train_result.metrics
+            max_train_samples = (
+                data_args.max_train_samples
+                if data_args.max_train_samples is not None
+                else len(train_dataset)
+            )
+            metrics["train_samples"] = min(max_train_samples, len(train_dataset))
+            trainer.log_metrics("train", metrics)
+            trainer.save_metrics("train", metrics)
         trainer.save_model()  # Saves the tokenizer too for easy upload
-
-        metrics = train_result.metrics
-        max_train_samples = (
-            data_args.max_train_samples
-            if data_args.max_train_samples is not None
-            else len(train_dataset)
-        )
-        metrics["train_samples"] = min(max_train_samples, len(train_dataset))
-
-        trainer.log_metrics("train", metrics)
-        trainer.save_metrics("train", metrics)
         trainer.save_state()
 
     # Evaluation
-    if training_args.do_eval:
+    if training_args.do_eval and not trainer.one_shot:
         _LOGGER.info("*** Evaluate ***")
         metrics = trainer.evaluate()
 
@@ -814,7 +822,7 @@ def main():
         trainer.save_metrics("eval", metrics)
 
     # Prediction
-    if training_args.do_predict:
+    if training_args.do_predict and not trainer.one_shot:
         _LOGGER.info("*** Predict ***")
         results = trainer.predict(predict_dataset, predict_examples)
         metrics = results.metrics
@@ -843,6 +851,12 @@ def main():
         else:
             kwargs["dataset"] = data_args.dataset_name
 
+    # Exporting Samples
+
+    if data_args.num_export_samples > 0:
+        trainer.save_sample_inputs_outputs(
+            num_samples_to_export=data_args.num_export_samples
+        )
     if training_args.push_to_hub:
         trainer.push_to_hub(**kwargs)
     else:

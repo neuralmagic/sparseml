@@ -16,14 +16,15 @@
 SparseML transformers trainer classes and interfaces to be plugged in with
 existing or similiar HF trainer flows
 """
-
 import inspect
 import logging
 import math
 import os
+from dataclasses import asdict
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import datasets
+import numpy
 import torch
 from torch import distributed as dist
 from torch.nn import Module
@@ -99,6 +100,7 @@ class RecipeManagerTrainerInterface:
         recipe: Optional[str],
         recipe_args: Optional[Union[Dict[str, Any], str]] = None,
         metadata_args: Optional[List[str]] = None,
+        data_args: Optional["DataTrainingArguments"] = None,  # noqa: F821
         teacher: Optional[Union[Module, str]] = None,
         **kwargs,
     ):
@@ -108,11 +110,15 @@ class RecipeManagerTrainerInterface:
         self.recipe = recipe
         self.recipe_args = recipe_args
         self.teacher = teacher
+
+        training_args = kwargs.get("args")
         self.metadata = (
             self._extract_metadata(
-                metadata_args=metadata_args, training_args=kwargs["args"]
+                metadata_args=metadata_args,
+                training_args_dict=training_args.to_dict(),
+                data_args_dict=asdict(data_args),
             )
-            if ("args" in kwargs and metadata_args)
+            if training_args
             else None
         )
 
@@ -131,9 +137,13 @@ class RecipeManagerTrainerInterface:
                 )
             else:
                 self.logger_manager = LoggerManager(loggers)
+
+            if recipe:
+                self.logger_manager.save(recipe)
         else:
             self.logger_manager = LoggerManager(log_python=False)
 
+        self.one_shot = data_args.one_shot if hasattr(data_args, "one_shot") else False
         self.manager, self.arch_manager = self._setup_manager(kwargs)
         self.manager_applied = False
         self.manager_initialized = False
@@ -184,11 +194,17 @@ class RecipeManagerTrainerInterface:
             )
 
         if self.manager is not None:
-            self.manager.apply_structure(self.model, epoch=epoch)
-            _LOGGER.info(
-                "Applied structure from SparseML recipe argument to model at "
-                f"epoch {epoch}"
-            )
+            if not self.one_shot:
+                self.manager.apply_structure(self.model, epoch=epoch)
+                _LOGGER.info(
+                    "Applied structure from SparseML recipe argument to model at "
+                    f"epoch {epoch}"
+                )
+            else:
+                self.manager.apply(self.model)
+                self.manager_applied = True
+                _LOGGER.info(f"Applied one shot recipe {self.recipe} to the manager")
+                return True
 
         # reload the state dict for the model now that architecture matches expected
         load_path = checkpoint or self.model_state_path
@@ -340,6 +356,9 @@ class RecipeManagerTrainerInterface:
             or not self.manager.enabled
             or not self.manager.distillation_modifiers
         ):
+            inputs = {
+                k: inputs[k] for k in inputs if k in self._model_signature_columns
+            }
             return super().compute_loss(model, inputs, return_outputs=return_outputs)
 
         student_inputs = {
@@ -447,21 +466,85 @@ class RecipeManagerTrainerInterface:
             f"all sparsification info: {sparsification_info}"
         )
 
+    def save_sample_inputs_outputs(
+        self, num_samples_to_export: int = 100, output_dir: Optional[str] = None
+    ):
+        """
+        Save sample inputs/outputs/labels in save_dir as .npz arrays
+
+        :param num_samples_to_export: Number of samples to export.
+            Defaults to 100
+        :param output_dir: The directory to store sample inputs and outputs in
+        """
+        num_samples = 0
+        output_dir = output_dir or self.args.output_dir or ""
+
+        sample_in_dir = os.path.join(output_dir, "sample-inputs")
+        sample_out_dir = os.path.join(output_dir, "sample-outputs")
+
+        os.makedirs(sample_in_dir, exist_ok=True)
+        os.makedirs(sample_out_dir, exist_ok=True)
+        device = self.model.device
+
+        dataloader = self.get_val_dataloader() or self.get_train_dataloader()
+        _LOGGER.info(f"Exporting {num_samples_to_export} samples to {output_dir}")
+        for _, sample_batch in enumerate(dataloader):
+            sample_batch.pop("labels", None)
+            input_names = list(sample_batch.keys())
+
+            for input_vals in zip(*sample_batch.values()):
+                input_feed = {k: v.to("cpu") for k, v in zip(input_names, input_vals)}
+                model_inputs = {
+                    k: input_feed[k].to(device).reshape(1, -1) for k in input_feed
+                }
+                output_vals = self.model(**model_inputs)
+                output_dict = {
+                    name: torch.squeeze(val).detach().to("cpu")
+                    for name, val in output_vals.items()
+                }
+                file_idx = f"{num_samples}".zfill(4)
+
+                sample_input_filename = os.path.join(
+                    f"{sample_in_dir}", f"inp-{file_idx}.npz"
+                )
+                numpy.savez(sample_input_filename, **input_feed)
+
+                sample_output_filename = os.path.join(
+                    f"{sample_out_dir}", f"out-{file_idx}.npz"
+                )
+                numpy.savez(sample_output_filename, *output_dict)
+                num_samples += 1
+
+                if num_samples >= num_samples_to_export:
+                    break
+            if num_samples >= num_samples_to_export:
+                break
+        _LOGGER.info(f"Exported {num_samples_to_export} samples to {output_dir}")
+
     def _extract_metadata(
-        self, metadata_args: List[str], training_args: TrainingArguments
-    ) -> Dict:
+        self,
+        metadata_args: List[str],
+        training_args_dict: Dict[str, Any],
+        data_args_dict: Dict[str, Any],
+    ) -> Dict[str, Any]:
         metadata = {}
-        training_args_dict = training_args.to_dict()
+        if not training_args_dict.keys().isdisjoint(data_args_dict.keys()):
+            raise ValueError(
+                "Found common keys in `training_args` and `data args`. "
+                "This is prohibitive and may lead to undesired behavior."
+            )
+
+        args_dict = {**training_args_dict, **data_args_dict}
 
         for arg in metadata_args:
-            if arg not in training_args_dict.keys():
+            if arg not in args_dict.keys():
                 logging.warning(
                     f"Required metadata argument {arg} was not found "
                     f"in the training arguments. Setting {arg} to None."
                 )
                 metadata[arg] = None
             else:
-                metadata[arg] = training_args_dict[arg]
+                metadata[arg] = args_dict[arg]
 
         return metadata
 
@@ -655,9 +738,13 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         checkpoint, epoch = self._generate_apply_manager_params(kwargs)
         applied = self.apply_manager(epoch=epoch, checkpoint=checkpoint)
         self.callback_disable_fp16.check_disable(epoch, force=True)
-        output = super().train(*args, **kwargs)
-        if applied:
-            self.finalize_manager()
+        output = None
+        if not self.one_shot:
+            output = super().train(*args, **kwargs)
+            if applied:
+                self.finalize_manager()
+        else:
+            _LOGGER.info(f"Skipping Training due to one-shot: {self.one_shot}")
         self.log_model_sparsification()
 
         return output

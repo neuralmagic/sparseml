@@ -123,6 +123,8 @@ class QuantizationModifier(ScheduledModifier):
         for output activations of fully connected layers. Default is True.
     :param quantize_conv_activations: if True, FakeQuantize ops will be run
         for output activations of convolutional layers. Default is True.
+    :param quantize_embedding_activations: if True, FakeQuantize ops will be run
+        for output activations of embedding layers. Default is True.
     :param activation_bits: Number of bits to use for setting quant min/max values for
         activations. Default 8.
     :param weight_bits: Number of bits to use for setting quant min/max values for
@@ -154,6 +156,7 @@ class QuantizationModifier(ScheduledModifier):
         reduce_range: bool = False,
         quantize_linear_activations: bool = True,
         quantize_conv_activations: bool = True,
+        quantize_embedding_activations: bool = True,
         activation_bits: int = 8,
         weight_bits: int = 8,
         num_calibration_steps: Optional[int] = None,
@@ -187,6 +190,7 @@ class QuantizationModifier(ScheduledModifier):
         self._reduce_range = reduce_range
         self._quantize_linear_activations = quantize_linear_activations
         self._quantize_conv_activations = quantize_conv_activations
+        self._quantize_embedding_activations = quantize_embedding_activations
         self._activation_bits = activation_bits
         self._weight_bits = weight_bits
         self._exclude_batchnorm = exclude_batchnorm
@@ -369,6 +373,21 @@ class QuantizationModifier(ScheduledModifier):
             return False
         else:
             return self._quantize_conv_activations
+
+    @ModifierProp()
+    def quantize_embedding_activations(self) -> bool:
+        """
+        :return: if True, FakeQuantize ops will be run for output activations
+            of convolutional layers
+        """
+        if self.tensorrt:
+            _LOGGER.info(
+                "Overriding quantize_embedding_activations to False "
+                "because tensorrt flag is True."
+            )
+            return False
+        else:
+            return self._quantize_embedding_activations
 
     @ModifierProp()
     def exclude_module_types(self) -> Union[List[str], None]:
@@ -583,15 +602,15 @@ class QuantizationModifier(ScheduledModifier):
             module_fuse_fn(**self._model_fuse_fn_kwargs)
 
         # build list of layer types that should not quantize output activations
-        to_remove_layer_name = []
+        remove_activation_qat_layers = ["FloatFunctional"]
         if not self.quantize_linear_activations:
-            to_remove_layer_name.extend(LINEAR_ACTIVATION_NAMES)
+            remove_activation_qat_layers.extend(LINEAR_ACTIVATION_NAMES)
 
         if not self.quantize_conv_activations:
-            to_remove_layer_name.extend(CONV_ACTIVATION_NAMES)
+            remove_activation_qat_layers.extend(CONV_ACTIVATION_NAMES)
 
-        if len(to_remove_layer_name) == 0:
-            to_remove_layer_name = None
+        if not self.quantize_embedding_activations:
+            remove_activation_qat_layers.append("Embedding")
 
         # fix for freezing batchnorm statistics when not fusing BN with convs.
         # pytorch only supports freezing batchnorm statistics for fused modules.
@@ -636,8 +655,9 @@ class QuantizationModifier(ScheduledModifier):
             add_quant_dequant(quant_module, name, module)
 
             # Remove output quantization from appropriate modules
-            if to_remove_layer_name:
-                remove_activation_qat_by_layer_name(quant_module, to_remove_layer_name)
+            remove_activation_qat_by_layer_name(
+                quant_module, remove_activation_qat_layers
+            )
 
         # remove qconfigs for module types in exclude_module_types
         to_exclude = []

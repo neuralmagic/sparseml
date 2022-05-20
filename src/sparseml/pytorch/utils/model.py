@@ -85,6 +85,14 @@ def load_model(
             )[0]
     model_dict = torch.load(path, map_location="cpu")
     current_dict = model.state_dict()
+    recipe = model_dict.get("recipe")
+
+    if recipe:
+        from sparseml.pytorch.optim import ScheduledModifierManager
+
+        epoch = model_dict.get("epoch", float("inf"))
+        checkpoint_manager = ScheduledModifierManager.from_yaml(recipe)
+        checkpoint_manager.apply_structure(module=model, epoch=epoch)
 
     if "state_dict" in model_dict:
         model_dict = model_dict["state_dict"]
@@ -184,6 +192,7 @@ def save_model(
     path: str,
     model: Module,
     optimizer: Optimizer = None,
+    recipe: Optional[str] = None,
     epoch: Optional[int] = None,
     use_zipfile_serialization_if_available: bool = True,
     include_modifiers: bool = False,
@@ -196,6 +205,7 @@ def save_model(
     :param path: the path to save the file the states to
     :param model: the model to save state for
     :param optimizer: the optimizer, if any, to save state for
+    :param recipe: the recipe used to obtain the model
     :param epoch: the epoch to save
     :param use_zipfile_serialization_if_available: for torch >= 1.6.0 only
         exports the model's state dict using the new zipfile serialization
@@ -220,6 +230,9 @@ def save_model(
 
     if optimizer:
         save_dict["optimizer"] = optimizer.state_dict()
+
+    if recipe:
+        save_dict["recipe"] = recipe
 
     if epoch is not None:
         save_dict["epoch"] = epoch
