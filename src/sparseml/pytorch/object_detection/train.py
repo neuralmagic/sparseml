@@ -200,6 +200,7 @@ def train(hyp, opt, device, callbacks):  # path/to/hyp.yaml or hyp dictionary
             recipe=opt.recipe,
             resume=opt.resume,
             rank=LOCAL_RANK,
+            one_shot=opt.one_shot,
         )
         ckpt, _, sparseml_wrapper = (
             extras["ckpt"],
@@ -210,9 +211,14 @@ def train(hyp, opt, device, callbacks):  # path/to/hyp.yaml or hyp dictionary
     else:
         model = Model(cfg, ch=3, nc=nc, anchors=hyp.get("anchors")).to(device)  # create
         sparseml_wrapper = SparseMLWrapper(
-            model, None, opt.recipe, steps_per_epoch=opt.max_train_steps
+            model,
+            None,
+            opt.recipe,
+            steps_per_epoch=opt.max_train_steps,
+            one_shot=opt.one_shot,
         )
-        sparseml_wrapper.initialize(start_epoch=0)
+        if not opt.one_shot:
+            sparseml_wrapper.initialize(start_epoch=0)
         ckpt = None
 
     # Freeze
