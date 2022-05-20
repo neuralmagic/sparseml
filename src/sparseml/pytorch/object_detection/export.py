@@ -169,6 +169,7 @@ def load_checkpoint(
     recipe=None,
     resume=None,
     rank=-1,
+    one_shot=False,
 ):
     with torch_distributed_zero_first(rank):
         # download if not found locally or from sparsezoo if stub
@@ -234,7 +235,10 @@ def load_checkpoint(
         train_recipe, checkpoint_recipe = recipe, ckpt.get("recipe")
 
     sparseml_wrapper = SparseMLWrapper(
-        model.model if val_type else model, checkpoint_recipe, train_recipe
+        model.model if val_type else model,
+        checkpoint_recipe,
+        train_recipe,
+        one_shot=one_shot,
     )
     exclude_anchors = train_type and (cfg or hyp.get("anchors")) and not resume
     loaded = False
@@ -251,7 +255,8 @@ def load_checkpoint(
                 model, state_dict, train=True, exclude_anchors=exclude_anchors
             )
             loaded = True
-        sparseml_wrapper.initialize(start_epoch)
+        if not one_shot:
+            sparseml_wrapper.initialize(start_epoch)
 
     if not loaded:
         state_dict = load_state_dict(

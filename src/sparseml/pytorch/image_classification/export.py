@@ -332,7 +332,7 @@ def main(
             model_kwargs=model_kwargs,
         )
 
-    model, arch_key = helpers.create_model(
+    model, arch_key, _ = helpers.create_model(
         checkpoint_path=checkpoint_path if recipe is None else None,
         recipe_path=recipe,
         num_classes=num_classes,
