@@ -41,6 +41,16 @@ endif
 ifneq ($(findstring tensorflow_v1_datasets,$(TARGETS)),tensorflow_v1_datasets)
     PYTEST_ARGS := $(PYTEST_ARGS) --ignore tests/sparseml/tensorflow_v1/datasets
 endif
+ifneq ($(findstring image_classification,$(TARGETS)),image_classification)
+    PYTEST_ARGS := $(PYTEST_ARGS) --ignore tests/integrations/image_classification
+endif
+ifneq ($(findstring transformers,$(TARGETS)),transformers)
+    PYTEST_ARGS := $(PYTEST_ARGS) --ignore tests/integrations/transformers
+endif
+ifneq ($(findstring object_detection,$(TARGETS)),object_detection)
+    PYTEST_ARGS := $(PYTEST_ARGS) --ignore tests/integrations/object_detection
+endif
+
 
 # run checks on all files for the repo
 quality:
