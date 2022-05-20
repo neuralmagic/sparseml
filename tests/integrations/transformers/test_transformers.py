@@ -41,12 +41,6 @@ from tests.integrations.transformers.transformers_args import (
 )
 
 
-try:
-    import deepsparse
-except Exception:
-    deepsparse = None
-
-
 class TransformersManager(BaseIntegrationManager):
     command_stubs = {
         "train": "sparseml.transformers.train.{task}",
