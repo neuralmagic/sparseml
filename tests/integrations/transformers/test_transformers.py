@@ -16,11 +16,14 @@ import json
 import math
 import os
 import tempfile
+from collections import defaultdict
 
+import numpy
 import onnx
-import onnxruntime as ort
 import pytest
+from onnxruntime import InferenceSession
 
+from sparseml.onnx.utils import get_tensor_shape
 from sparseml.pytorch.optim.manager import ScheduledModifierManager
 from sparseml.transformers.utils import SparseAutoModel
 from tests.integrations.base_tester import (
@@ -109,6 +112,7 @@ class TestTransformers(BaseIntegrationTester):
         results_file = os.path.join(manager.save_dir.name, "train_results.json")
         model_file = os.path.join(manager.save_dir.name, "pytorch_model.bin")
         assert os.path.isfile(model_file)
+        model = _load_model_on_task(model_file, "student", manager.task)
         end_epoch = (
             ScheduledModifierManager.from_yaml(run_args.recipe).max_epochs
             if run_args.recipe
@@ -154,19 +158,19 @@ class TestTransformers(BaseIntegrationTester):
         target_model_path = export_args.test_args.get("target_model")
         if not target_model_path:
             pytest.skip("No target model provided")
-        run_model_path = os.path.join(manager.save_dir.name, "pytorch_model.bin")
-        model = _load_model_on_task(run_model_path, "student", manager.task)
+        export_model_path = os.path.join(
+            os.path.dirname(export_args.run_args.model_path),
+            export_args.run_args.onnx_file_name,
+        )
+        _test_model_op_counts(export_model_path, target_model_path)
 
-        input_data = deepsparse.utils.generate_random_inputs(run_model_path, 1)
-        input_names = deepsparse.utils.get_input_names(run_model_path)
-        output_names = deepsparse.utils.get_output_names(run_model_path)
-        inputs_dict = {name: value for name, value in zip(input_names, input_data)}
-        run_ort_sess = ort.InferenceSession(run_model_path)
-        run_out = run_ort_sess.run(output_names, inputs_dict)
-        target_ort_sess = ort.InferenceSession(target_model_path)
-        target_out = target_ort_sess.run(output_names, inputs_dict)
-        for ro, to in zip(run_out, target_out):
-            pytest.approx(ro, abs=1e-5) == to
+        compare_outputs = export_args.test_args.get("compare_outputs", True)
+        if isinstance(compare_outputs, str) and (
+            compare_outputs.lower() in ["none", "False"]
+        ):
+            compare_outputs = False
+        if compare_outputs:
+            _test_model_inputs_outputs(export_model_path, target_model_path)
 
 
 def _load_model_on_task(model_name_or_path, model_type, task, **model_kwargs):
@@ -177,3 +181,69 @@ def _load_model_on_task(model_name_or_path, model_type, task, **model_kwargs):
         "token_classification": SparseAutoModel.token_classification_from_pretrained,
     }
     return load_funcs[task](model_name_or_path, model_type=model_type, **model_kwargs)
+
+
+_TEST_OPS = {
+    "MatMul",
+    "Gemm",
+    "Conv",
+    "MatMulInteger",
+    "ConvInteger",
+    "QLinearMatMul",
+    "QLinearConv",
+}
+
+
+def _test_model_op_counts(model_path_a, model_path_b):
+
+    model_a = onnx.load(model_path_a)
+    model_b = onnx.load(model_path_b)
+
+    def _get_model_op_counts(model):
+        op_counts = defaultdict(int)
+        for node in model.graph.node:
+            if node.op_type in _TEST_OPS:
+                op_counts[node.op_type] += 1
+        return op_counts
+
+    op_counts_a = _get_model_op_counts(model_a)
+    op_counts_b = _get_model_op_counts(model_b)
+
+    assert len(op_counts_a) > 0
+    assert len(op_counts_a) == len(op_counts_b)
+
+    for op, count_a in op_counts_a.items():
+        assert op in op_counts_b
+        assert count_a == op_counts_b[op]
+
+
+def _test_model_inputs_outputs(model_path_a, model_path_b):
+    # compare export and target graphs and build fake data
+    model_a = onnx.load(model_path_a)
+    model_b = onnx.load(model_path_b)
+    assert len(model_a.graph.input) == len(model_b.graph.input)
+    assert len(model_a.graph.output) == len(model_b.graph.output)
+
+    sample_input = {}
+    output_names = []
+
+    for input_a, input_b in zip(model_a.graph.input, model_b.graph.input):
+        assert input_a.name == input_b.name
+        input_a_shape = get_tensor_shape(input_a)
+        assert input_a_shape == get_tensor_shape(input_b)
+        sample_input[input_a.name] = numpy.random.randn(*input_a_shape).astype(
+            numpy.float32
+        )
+
+    for output_a, output_b in zip(model_a.graph.output, model_b.graph.output):
+        assert output_a.name == output_b.name
+        assert get_tensor_shape(output_a) == get_tensor_shape(output_b)
+        output_names.append(output_a.name)
+
+    # run sample forward and test absolute max diff
+    ort_sess_a = InferenceSession(model_path_a)
+    ort_sess_b = InferenceSession(model_path_b)
+    forward_output_a = ort_sess_a.run(output_names, sample_input)
+    forward_output_b = ort_sess_b.run(output_names, sample_input)
+    for out_a, out_b in zip(forward_output_a, forward_output_b):
+        assert numpy.max(numpy.abs(out_a - out_b)) <= 1e-4
