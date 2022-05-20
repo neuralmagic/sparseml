@@ -200,6 +200,7 @@ def train(hyp, opt, device, callbacks):  # path/to/hyp.yaml or hyp dictionary
             recipe=opt.recipe,
             resume=opt.resume,
             rank=LOCAL_RANK,
+            one_shot=opt.one_shot,
         )
         ckpt, _, sparseml_wrapper = (
             extras["ckpt"],
@@ -210,9 +211,14 @@ def train(hyp, opt, device, callbacks):  # path/to/hyp.yaml or hyp dictionary
     else:
         model = Model(cfg, ch=3, nc=nc, anchors=hyp.get("anchors")).to(device)  # create
         sparseml_wrapper = SparseMLWrapper(
-            model, None, opt.recipe, steps_per_epoch=opt.max_train_steps
+            model,
+            None,
+            opt.recipe,
+            steps_per_epoch=opt.max_train_steps,
+            one_shot=opt.one_shot,
         )
-        sparseml_wrapper.initialize(start_epoch=0)
+        if not opt.one_shot:
+            sparseml_wrapper.initialize(start_epoch=0)
         ckpt = None
 
     # Freeze
@@ -427,6 +433,36 @@ def train(hyp, opt, device, callbacks):  # path/to/hyp.yaml or hyp dictionary
     )
 
     # SparseML Integration
+    if opt.one_shot:
+        # skip training and save model on one-shot
+        LOGGER.info(f"Skipped training due to one-shot: {opt.one_shot}")
+
+        # create and save checkpoint
+        ckpt_extras = {
+            "nc": nc,
+            "best_fitness": best_fitness,
+            "wandb_id": loggers.wandb.wandb_run.id if loggers.wandb else None,
+            "date": datetime.now().isoformat(),
+        }
+        ckpt = create_checkpoint(
+            -1, model, optimizer, ema, sparseml_wrapper, **ckpt_extras
+        )
+        one_shot_checkpoint_name = w / "checkpoint-one-shot.pt"
+        torch.save(ckpt, one_shot_checkpoint_name)
+        LOGGER.info(f"One shot checkpoint saved to {one_shot_checkpoint_name}")
+
+        if opt.num_export_samples > 0:
+            dataloader = val_loader or train_loader
+            sparseml_wrapper.save_sample_inputs_outputs(
+                dataloader=dataloader,
+                num_export_samples=opt.num_export_samples,
+                save_dir=str(w),
+            )
+
+        torch.cuda.empty_cache()
+        return results
+
+    # Continue as expected
     if RANK in [-1, 0]:
         sparseml_wrapper.initialize_loggers(loggers.logger, loggers.tb, loggers.wandb)
     scaler = sparseml_wrapper.modify(scaler, optimizer, model, train_loader)
@@ -714,6 +750,13 @@ def train(hyp, opt, device, callbacks):  # path/to/hyp.yaml or hyp dictionary
         callbacks.run("on_train_end", last, best, plots, epoch, results)
         LOGGER.info(f"Results saved to {colorstr('bold', save_dir)}")
 
+    if opt.num_export_samples > 0:
+        sparseml_wrapper.save_sample_inputs_outputs(
+            dataloader=val_loader or train_loader,
+            num_export_samples=opt.num_export_samples,
+            save_dir=str(w),
+        )
+
     torch.cuda.empty_cache()
     return results
 
@@ -900,6 +943,18 @@ def parse_opt(known=False):
         default=-1,
         help="Set the maximum number of eval steps per epoch. if negative,"
         "the entire dataset will be used, default=-1",
+    )
+    parser.add_argument(
+        "--one-shot",
+        action="store_true",
+        default=False,
+        help="Apply recipe in one shot manner",
+    )
+    parser.add_argument(
+        "--num-export-samples",
+        type=int,
+        default=0,
+        help="The number of sample inputs/outputs to export, default=0",
     )
 
     opt = parser.parse_known_args()[0] if known else parser.parse_args()
