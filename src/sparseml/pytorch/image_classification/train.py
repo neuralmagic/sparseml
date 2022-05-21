@@ -281,6 +281,7 @@ METADATA_ARGS = [
 )
 @click.option(
     "--init-lr",
+    "--init_lr",
     type=float,
     default=1e-9,
     show_default=True,
