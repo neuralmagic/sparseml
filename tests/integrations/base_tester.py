@@ -85,6 +85,9 @@ class BaseIntegrationManager:
         # Remove cadence for easier processing. It's saved, but not utilized later
         self.cadence = raw_config.pop("cadence")
 
+        # If abridged, the run parameters are modified to significantly shorten the run
+        self.abridged = raw_config.pop("abridged_mode", False)
+
         # Command types present in this config
         self.command_types = [_type for _type in raw_config]
 
@@ -103,6 +106,10 @@ class BaseIntegrationManager:
 
         # Capture any pre-run information that may be needed for post-run testing
         self.capture_pre_run_state()
+
+        # Shorten run to a standardized abridged format
+        if self.abridged:
+            self.add_abridged_configs()
 
         # Combine pre-args, command stubs, and args into complete CLI commands
         self.commands = {
@@ -129,6 +136,12 @@ class BaseIntegrationManager:
         Store pre-run information which will be relevant for post-run testing
         """
         self._start_file_count = sum(len(files) for _, _, files in os.walk(r"."))
+
+    def add_abridged_configs(self):
+        """
+        Update configs to shorten run. e.g. set small steps_per_epoch for training run
+        """
+        raise NotImplementedError()
 
     def run_commands(self, kwargs_dict: Union[Dict[str, Dict], None] = None):
         """
