@@ -106,6 +106,11 @@ class TransformersManager(BaseIntegrationManager):
             if self.save_dir:
                 export_args = self.configs["export"].run_args
                 deploy_args.model_path = export_args.model_path
+        
+    def add_abridged_configs(self):
+        if "train" in self.command_types:
+            self.configs["train"].max_steps = 10
+            self.configs["train"].max_eval_samples = 10
 
     def get_root_commands(self, raw_configs):
         self.task = (
