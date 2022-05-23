@@ -92,6 +92,11 @@ class TransformersManager(BaseIntegrationManager):
                     train_args.output_dir, checkpoints[-1]
                 )
         self.commands["export"] = self.configs["export"].create_command_script()
+        
+    def add_abridged_configs(self):
+        if "train" in self.command_types:
+            self.configs["train"].max_steps = 10
+            self.configs["train"].max_eval_samples = 10
 
     def get_root_commands(self, raw_configs):
         self.task = (
