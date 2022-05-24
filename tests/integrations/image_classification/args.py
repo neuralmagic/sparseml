@@ -106,6 +106,9 @@ class ImageClassificationTrainArgs(_ImageClassificationBaseArgs):
         default=1, description="epoch to save best checkpoint after"
     )
     use_mixed_precision: bool = Field(default=False, description="set True for fp16")
+    debug_steps: int = Field(
+        default=-1, description="number of steps to run per epoch in debug mode"
+    )
     device: str = Field(default=default_device())
     loader_num_workers: int = Field(default=4, description="num workers per process")
     loader_pin_memory: bool = Field(default=True)
