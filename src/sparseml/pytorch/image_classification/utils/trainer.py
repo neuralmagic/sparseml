@@ -292,6 +292,7 @@ class ImageClassificationTrainer(Trainer):
             return self.module_tester.run_epoch(
                 self.val_loader,
                 epoch=-1 if baseline_run else self.epoch,
+                max_epochs=-1 if baseline_run else self.max_epochs,
                 max_steps=max_steps,
             )
 
@@ -314,6 +315,7 @@ class ImageClassificationTrainer(Trainer):
         return self.module_trainer.run_epoch(
             data_loader=self.train_loader,
             epoch=self.epoch,
+            max_epochs=self.max_epochs,
             max_steps=max_steps,
             show_progress=self.is_main_process,
         )
