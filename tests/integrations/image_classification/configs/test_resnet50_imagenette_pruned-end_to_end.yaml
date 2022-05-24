@@ -2,6 +2,7 @@ cadence: "commit"
 train:
   command_args:
     dataset: imagenette
+    dataset_path: imagenette
     recipe_path: zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenette/pruned-conservative
     arch_key: resnet50
     use_mixed_precision: True

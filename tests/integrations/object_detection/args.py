@@ -31,6 +31,17 @@ class Yolov5TrainArgs(BaseModel):
         description="hyperparameters path",
     )
     epochs: int = Field(default=300)
+    max_train_steps: int = Field(
+        default=1,
+        description="Set the maximum number of training steps per epoch. if negative,"
+        "the entire dataset will be used, default=-1",
+    )
+    max_eval_steps: int = Field(
+        default=-1,
+        description="Set the maximum number of eval steps per epoch. if negative,"
+        "the entire dataset will be used, default=-1",
+    )
+    one_shot: bool = Field(default=False, description="Apply recipe in one shot manner")
     batch_size: int = Field(
         default=16, description="total batch size for all GPUs, -1 for autobatch"
     )
@@ -50,7 +61,9 @@ class Yolov5TrainArgs(BaseModel):
     image_weights: bool = Field(
         default=False, description="use weighted image selection for training"
     )
-    device: str = Field(default="", description="cuda device, i.e. 0 or 0,1,2,3 or cpu")
+    device: str = Field(
+        default='""', description="cuda device, i.e. 0 or 0,1,2,3 or cpu"
+    )
     multi_scale: bool = Field(default=False, description="vary img-size +/- 50%%")
     single_cls: bool = Field(
         default=False, description="train multi-class data as single-class"
