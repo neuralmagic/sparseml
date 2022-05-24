@@ -222,7 +222,7 @@ class TransformersTrainArgs(BaseModel):
         "TPU: Whether to print debug metrics",
     )
     debug: str = Field(
-        default="",
+        default='""',
         description="Whether or not to enable debug mode. Current options: "
         "`underflow_overflow` (Detect underflow and overflow in activations and "
         "weights), `tpu_metrics_debug` (print debug metrics on TPU).",
@@ -286,7 +286,7 @@ class TransformersTrainArgs(BaseModel):
         "and batches to get to the same training data.",
     )
     sharded_ddp: str = Field(
-        default="",
+        default='""',
         description="Whether or not to use sharded DDP training (in distributed "
         "training only). The base option should be `simple`, `zero_dp_2` or "
         "`zero_dp_3` and you can add CPU-offload to `zero_dp_2` or `zero_dp_3` like "
@@ -387,7 +387,7 @@ class TransformersTrainArgs(BaseModel):
     )
     _n_gpu: int = Field(init=False, repr=False, default=-1)
     mp_parameters: str = Field(
-        default="",
+        default='""',
         description="Used by the SageMaker launcher to send mp-specific args. "
         "Ignored in Trainer",
     )
