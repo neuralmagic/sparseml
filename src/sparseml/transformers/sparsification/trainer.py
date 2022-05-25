@@ -28,7 +28,8 @@ import numpy
 import torch
 from torch import distributed as dist
 from torch.nn import Module
-from transformers import Trainer as TransformersTrainer
+from torch.utils.data import RandomSampler
+from transformers import Trainer as _TransformersTrainer
 from transformers import TrainerCallback, TrainerControl, TrainingArguments
 from transformers.file_utils import WEIGHTS_NAME
 from transformers.integrations import TensorBoardCallback
@@ -51,6 +52,7 @@ __all__ = [
     "TrainerInterface",
     "Trainer",
     "DisableHalfPrecisionCallback",
+    "TransformersTrainer"
 ]
 
 
@@ -855,6 +857,38 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         return checkpoint, epoch
 
 
+class TransformersTrainer(_TransformersTrainer):
+    """
+    A transformers trainer class with customed behaviors that can be shared
+    by all trainers inside SparseML
+    """
+    def _save_checkpoint(self, model, trial, metrics=None):
+        super()._save_checkpoint(model, trial, metrics=metrics)
+        if (
+            self.args.metric_for_best_model is None
+            or self.args.best_model_after_epoch is None
+        ):
+            return
+
+        if (self.state.epoch > self.args.best_model_after_epoch):
+            metric_to_check = self.args.metric_for_best_model
+            if not metric_to_check.startswith("eval_"):
+                metric_to_check = f"eval_{metric_to_check}"
+            metric_value = metrics[metric_to_check]
+
+            operator = np.greater if self.args.greater_is_better else np.less
+            if (
+                self.state.best_metric is None
+                or self.state.best_model_checkpoint is None
+                or operator(metric_value, self.state.best_metric)
+            ):
+                self.state.best_metric = metric_value
+                self.state.best_model_checkpoint = output_dir
+        else:
+            self.state.best_metric = None
+            self.state.best_model_checkpoint = None
+    
+
 class Trainer(TrainerInterface, TransformersTrainer):
     """
     Training implementation for running sparsification recipes with transformers flows.
@@ -924,7 +958,7 @@ class Trainer(TrainerInterface, TransformersTrainer):
             self._signature_columns += ["label", "label_ids"]
 
         return super()._remove_unused_columns(dataset, description)
-
+    
 
 class DisableHalfPrecisionCallback(TrainerCallback):
     """
