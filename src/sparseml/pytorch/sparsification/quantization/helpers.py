@@ -454,7 +454,7 @@ def configure_module_default_qconfigs(module: Module):
             submodule.configure_qconfig()
 
 
-def add_quant_dequant(module, name=None, parent_module=None):
+def add_quant_dequant(module, name=None, parent_module=None, layer_class_names: Optional[List[str]]=None):
     """
     Wraps all Conv and Linear submodule with a qconfig with a QuantWrapper
     :param module: the module to modify
@@ -463,8 +463,11 @@ def add_quant_dequant(module, name=None, parent_module=None):
     :return: the modified module
     """
     named_children = module.named_children()
+    is_quantizable = type(module) in _QUANTIZABLE_MODULE_TYPES
+    if layer_class_names:
+        is_quantizable = is_quantizable or module.__class__.__name__ in layer_class_names
     if (
-        type(module) in _QUANTIZABLE_MODULE_TYPES
+        is_quantizable
         and hasattr(module, "qconfig")
         and module.qconfig
     ):
