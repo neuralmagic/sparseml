@@ -40,7 +40,6 @@ from transformers import (
     EvalPrediction,
     HfArgumentParser,
     PreTrainedTokenizerFast,
-    TrainingArguments,
     default_data_collator,
     set_seed,
 )
@@ -51,6 +50,7 @@ from transformers.utils.versions import require_version
 from sparseml.transformers.sparsification import (
     QuestionAnsweringTrainer,
     postprocess_qa_predictions,
+    TrainingArguments,
 )
 from sparseml.transformers.utils import SparseAutoModel, get_shared_tokenizer_src
 

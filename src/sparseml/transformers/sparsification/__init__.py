@@ -21,3 +21,4 @@ Hugging Face transformers flows
 
 from .question_answering import *
 from .trainer import *
+from .training_args import *

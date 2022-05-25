@@ -31,10 +31,10 @@ import datasets
 import numpy as np
 from torch.nn import Module
 from tqdm.auto import tqdm
-from transformers import Trainer, is_torch_tpu_available
+from transformers import is_torch_tpu_available
 from transformers.trainer_utils import PredictionOutput
 
-from sparseml.transformers.sparsification.trainer import TrainerInterface
+from sparseml.transformers.sparsification.trainer import TrainerInterface, TransformersTrainer
 
 
 if is_torch_tpu_available():
@@ -51,7 +51,7 @@ __all__ = [
 _LOGGER = logging.getLogger(__name__)
 
 
-class _QuestionAnsweringTrainer(Trainer):
+class _QuestionAnsweringTrainer(TransformersTrainer):
     """
     Trainer implementation for Question-Answering processing
     """
