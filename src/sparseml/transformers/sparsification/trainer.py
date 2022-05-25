@@ -499,7 +499,11 @@ class RecipeManagerTrainerInterface:
         os.makedirs(sample_out_dir, exist_ok=True)
         device = self.model.device
 
-        dataloader = self.get_val_dataloader() or self.get_train_dataloader()
+        try:
+            dataloader = self.get_val_dataloader()
+        except Exception:
+            dataloader = self.get_train_dataloader()
+
         _LOGGER.info(f"Exporting {num_samples_to_export} samples to {output_dir}")
         for _, sample_batch in enumerate(dataloader):
             sample_batch.pop("labels", None)
