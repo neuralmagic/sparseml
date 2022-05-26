@@ -454,12 +454,13 @@ def configure_module_default_qconfigs(module: Module):
             submodule.configure_qconfig()
 
 
-def add_quant_dequant(module, name=None, parent_module=None, layer_class_names: Optional[List[str]]=None):
+def add_quant_dequant(module, name=None, parent_module=None, layer_class_names=None):
     """
     Wraps all Conv and Linear submodule with a qconfig with a QuantWrapper
     :param module: the module to modify
     :param name: name of the module to modify; default to None
     :param parent_module: parent module containing the module to modify; default to None
+    :param layer_class_names: list of module class names to be added to the list of quantizable modules
     :return: the modified module
     """
     named_children = module.named_children()
@@ -484,7 +485,7 @@ def add_quant_dequant(module, name=None, parent_module=None, layer_class_names: 
             setattr(parent_module, name, module)
     else:
         for name, child in named_children:
-            setattr(module, name, add_quant_dequant(child))
+            setattr(module, name, add_quant_dequant(child, layer_class_names=layer_class_names))
     return module
 
 

@@ -663,7 +663,6 @@ class QuantizationModifier(ScheduledModifier):
             # wrap all conv / linear blocks in with quantization observers
             torch_quantization.propagate_qconfig_(quant_module)
             configure_module_default_qconfigs(quant_module)
-
             add_quant_dequant(quant_module, name, module, self.include_module_types)
 
             # Remove output quantization from appropriate modules
@@ -674,7 +673,7 @@ class QuantizationModifier(ScheduledModifier):
         # remove qconfigs for module types in exclude_module_types
         to_exclude = []
         if self._exclude_module_types:
-            to_exclude.extend(self._exclude_module_types)
+            to_exclude.extend(self.exclude_module_types)
 
         # if exclude_batchnorm flag is used, add batch norm layers to list of
         # modules to exclude qconfig
