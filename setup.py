@@ -175,6 +175,8 @@ def _setup_entry_points() -> Dict:
             "sparseml.pytorch.object_detection.train:main",
             "sparseml.object_detection.validation="
             "sparseml.pytorch.object_detection.val:main",
+            "sparseml.object_detection.eval_onnx="
+            "sparseml.pytorch.object_detection.val_onnx:main",
         ]
     )
 
