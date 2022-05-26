@@ -115,7 +115,13 @@ def check_onnxruntime_install(
             raise onnxruntime_err
         return False
 
-    return check_version("onnxruntime", min_version, max_version, raise_on_error)
+    return check_version(
+        "onnxruntime",
+        min_version,
+        max_version,
+        raise_on_error,
+        extra_error_message="Try installing sparseml[onnxruntime] or onnxruntime",
+    )
 
 
 def require_onnx(
