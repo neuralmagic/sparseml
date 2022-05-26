@@ -108,7 +108,7 @@ class ModuleParamPruningMask(object):
                 )
 
         # initialize masks to all ones
-        self._param_masks = [torch.ones(param.shape) for param in self._params]
+        self._param_masks = [torch.ones_like(param) for param in self._params]
         self._params_init = [None] * len(self._layers)  # type: List[Tensor]
         self._params_unmasked = [None] * len(self._layers)  # type: List[Tensor]
         self._params_grad = [None] * len(self._layers)  # type: List[Tensor]
