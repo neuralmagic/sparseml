@@ -528,6 +528,12 @@ def main(
     world_size = int(os.environ.get("WORLD_SIZE", 1))
     rank = int(os.environ.get("RANK", -1))
 
+    # training requires recipe path
+    if not eval_mode and recipe_path is None:
+        raise ValueError(
+            "Must include --recipe-path when not running in eval mode"
+        )
+
     # non DDP execution or 0th DDP process
     is_main_process = rank in (-1, 0)
 
@@ -694,7 +700,7 @@ def train(
             # testing steps
             if is_main_process:
                 val_res = trainer.run_one_epoch(
-                    mode="val",
+                    mode="validation",
                     max_steps=max_eval_steps,
                 )
                 val_metric = val_res.result_mean(trainer.target_metric).item()
