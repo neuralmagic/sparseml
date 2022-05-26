@@ -286,9 +286,6 @@ def run(
         dt[0] += t2 - t1
 
         # Inference
-        # out, train_out = yolo_pipeline(images=[im])
-        # import pdb; pdb.set_trace()
-
         out = yolo_pipeline(
             images=[im.numpy()], iou_thresh=iou_thres, conf_thresh=conf_thres
         )
