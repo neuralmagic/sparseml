@@ -26,7 +26,6 @@ from copy import deepcopy
 from typing import Any, Callable, Dict, List, Tuple, Union
 
 import numpy
-import onnxruntime
 import psutil
 from onnx import ModelProto
 from tqdm import auto
@@ -462,6 +461,8 @@ class ORTModelRunner(ModelRunner):
         providers: List[str] = None,
         **kwargs,
     ):
+        import onnxruntime  # import protected by @require_onnxruntime()
+
         super().__init__(loss)
         self._model = check_load_model(model)
 
