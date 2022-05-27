@@ -627,7 +627,7 @@ class BaseScheduled(BaseObject):
     :param end_comparator: integer value representing how the end_epoch should be
         compared to start_epoch.
         if == None, then end_epoch can only be set to what its initial value was.
-        if == -1, then end_epoch can be less than, equal, or greater than start_epoch.
+        if == -1, then end_epoch can be -1, equal to, or greater than start_epoch.
         if == 0, then end_epoch can be equal to or greater than start_epoch.
         if == 1, then end_epoch can only be greater than start_epoch.
     :param kwargs: standard key word args, used to support multi inheritance
@@ -709,6 +709,18 @@ class BaseScheduled(BaseObject):
                 "end_epoch of {} must be equal the init value of {} for {}".format(
                     self._end_epoch, self._init_end, self.__class__.__name__
                 )
+            )
+
+        if (
+            self._end_comparator == -1
+            and self._end_epoch < self._start_epoch
+            and (self._end_epoch != -1)
+        ):
+            raise ValueError(
+                (
+                    "end_epoch of {} must be greater than"
+                    " or equal to start_epoch of {} for {} or equal to -1"
+                ).format(self._end_epoch, self._start_epoch, self.__class__.__name__)
             )
 
         if self._end_comparator == 0 and self._start_epoch > self._end_epoch:
