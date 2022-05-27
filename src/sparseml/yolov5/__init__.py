@@ -106,30 +106,3 @@ def _check_yolov5_install():
 
 
 _check_yolov5_install()
-
-from pathlib import Path
-
-from yolov5.export import export_run
-from yolov5.export import parse_opt as parse_export_args
-from yolov5.train import parse_opt as parse_train_args
-from yolov5.train import run as train_run
-from yolov5.val import parse_opt as parse_val_args
-from yolov5.val import val_run
-
-
-DEFAULT_SAVE_PATH = Path(__file__).resolve().parents[0]
-
-
-def train():
-    opt = parse_train_args(default_project_dir=DEFAULT_SAVE_PATH)
-    train_run(**vars(opt))
-
-
-def val():
-    opt = parse_val_args(default_project_dir=DEFAULT_SAVE_PATH)
-    val_run(**vars(opt))
-
-
-def export():
-    opt = parse_export_args()
-    export_run(**vars(opt))
