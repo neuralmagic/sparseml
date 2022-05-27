@@ -20,7 +20,6 @@ from yolov5.train import parse_opt as parse_train_args
 from yolov5.train import run as train_run
 from yolov5.val import parse_opt as parse_val_args
 from yolov5.val import val_run
-<<<<<<< HEAD
 from yolov5.val_onnx import parse_opt as parse_val_onnx_args
 from yolov5.val_onnx import val_onnx_run
 
@@ -31,8 +30,6 @@ __all__ = [
     "export",
     "val_onnx",
 ]
-=======
->>>>>>> Update: move hooks to separate file
 
 
 DEFAULT_SAVE_PATH = Path(__file__).resolve().parents[0]
@@ -60,7 +57,6 @@ def export():
     """
     opt = parse_export_args()
     export_run(**vars(opt))
-<<<<<<< HEAD
 
 
 def val_onnx():
@@ -69,5 +65,3 @@ def val_onnx():
     """
     opt = parse_val_onnx_args()
     val_onnx_run(**vars(opt))
-=======
->>>>>>> Update: move hooks to separate file
