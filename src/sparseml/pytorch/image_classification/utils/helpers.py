@@ -397,8 +397,20 @@ def save_model_training(
         name=f"{save_name}.pth",
         arch_key=arch_key,
     )
-    info_path = os.path.join(save_dir, f"{save_name}.txt")
 
+    info_path = os.path.join(save_dir, f"{save_name}.txt")
+    write_validation_results(info_path, val_res, epoch=epoch)
+
+    if not save_message_shown:
+        print(f"Saving model for epoch {epoch} to {save_dir} for {save_name}")
+
+
+def write_validation_results(info_path, val_res, epoch=0):
+    """
+    :param: file path to save results to
+    :param: results from validation run
+    :param: epoch number of validation run
+    """
     with open(info_path, "w") as info_file:
         info_lines = [
             f"epoch: {epoch}",
@@ -409,9 +421,6 @@ def save_model_training(
                 info_lines.append(f"{loss}: {val_res.result_mean(loss).item()}")
 
         info_file.write("\n".join(info_lines))
-
-    if not save_message_shown:
-        print(f"Saving model for epoch {epoch} " f"to {save_dir} for {save_name}")
 
 
 def set_seeds(local_rank: int):

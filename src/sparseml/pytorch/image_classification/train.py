@@ -530,9 +530,7 @@ def main(
 
     # training requires recipe path
     if not eval_mode and recipe_path is None:
-        raise ValueError(
-            "Must include --recipe-path when not running in eval mode"
-        )
+        raise ValueError("Must include --recipe-path when not running in eval mode")
 
     # non DDP execution or 0th DDP process
     is_main_process = rank in (-1, 0)
@@ -678,14 +676,21 @@ def train(
     :param rank: The rank of the process
     """
 
+    val_res = None
     if not trainer.one_shot:
         # Baseline eval run
-        trainer.run_one_epoch(
-            mode="validation",
+        val_res = trainer.run_one_epoch(
+            mode="val",
             max_steps=max_eval_steps,
             baseline_run=True,
         )
-    val_res = None
+
+        LOGGER.info(f"\nInitial validation results: {val_res}")
+
+        eval_results_path = os.path.join(save_dir, "eval.txt")
+        helpers.write_validation_results(eval_results_path, val_res, epoch=0)
+        print(f"Saving initial validation results to {eval_results_path}")
+
     if not (eval_mode or trainer.one_shot):
         LOGGER.info(f"Starting training from epoch {trainer.epoch}")
 
@@ -700,7 +705,7 @@ def train(
             # testing steps
             if is_main_process:
                 val_res = trainer.run_one_epoch(
-                    mode="validation",
+                    mode="val",
                     max_steps=max_eval_steps,
                 )
                 val_metric = val_res.result_mean(trainer.target_metric).item()
