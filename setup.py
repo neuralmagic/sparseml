@@ -170,12 +170,9 @@ def _setup_entry_points() -> Dict:
 
     entry_points["console_scripts"].extend(
         [
-            "sparseml.object_detection.export_onnx="
-            "sparseml.pytorch.object_detection.export:main",
-            "sparseml.object_detection.train="
-            "sparseml.pytorch.object_detection.train:main",
-            "sparseml.object_detection.validation="
-            "sparseml.pytorch.object_detection.val:main",
+            "sparseml.yolov5.export_onnx=" "sparseml.yolov5.__init__:export",
+            "sparseml.yolov5.train=" "sparseml.yolov5.__init__:train",
+            "sparseml.yolov5.validation=" "sparseml.yolov5.__init__:val",
         ]
     )
 
