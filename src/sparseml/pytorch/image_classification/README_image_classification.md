@@ -145,7 +145,7 @@ from deepsparse import pipeline
 
 cv_pipeline = pipeline(
   task='image_classification', 
-  model_path='zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/pruned95-none', #Path to checkpoint or SparseZoo stub
+  model_path='zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/pruned95-none',  # Path to checkpoint or SparseZoo stub
 )
 
 input_image = ... # Read input images
