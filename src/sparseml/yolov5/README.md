@@ -67,7 +67,7 @@ sparseml.yolov5.train --help
 In the example below, a YOLOv5s model pre-trained on COCO is pruned and quantized with recipe 
 `zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned_quant-aggressive_94` (located in [SparseZoo](https://sparsezoo.neuralmagic.com/models/cv%2Fdetection%2Fyolov5-s%2Fpytorch%2Fultralytics%2Fcoco%2Fpruned_quant-aggressive_94)) while continuing training on COCO. You may sparsify your model while training on your own, private (downstream) dataset or while continuing training with the original (upstream) dataset.  
 
-```python
+```bash
 sparseml.yolov5.train \
   --weights zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/base-none \   # Pre-trained model weights
   --data coco.yaml \                                                         # Dataset to continue training on
@@ -81,7 +81,7 @@ Once you sparsify a model using SparseML, you can easily sparse fine-tune it on 
 While you are free to use your backbone, we encourage you to leverage one of our [sparse pre-trained models](https://sparsezoo.neuralmagic.com) to boost your productivity!
 
 In the example below, we fetch a pruned, quantized BERT model, pre-trained on Wikipedia and Bookcorpus datasets. We then fine-tune the model to the SQuAD dataset. 
-```python
+```bash
 sparseml.yolov5.train \
   --data VOC.yaml \
   --cfg ../models_v5.0/yolov5s.yaml \
@@ -108,13 +108,13 @@ Once the model is exported to the ONNX format, it is ready for deployment with t
 
 To benchmark the model, you can run
 
-```python
+```bash
 deepsparse.benchmark path/to/model.onnx
 ```
 
 To run validation in the DeepSparse Engine, you can run
 
-```
+```bash
 sparseml.yolov5.val_onnx path/to/model.onnx --data coco128.yaml
 ```
 
