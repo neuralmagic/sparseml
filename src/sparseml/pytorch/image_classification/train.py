@@ -689,7 +689,7 @@ def train(
 
         if eval_mode:
             eval_results_path = os.path.join(save_dir, "eval.txt")
-            helpers.write_validation_results(eval_results_path, val_res, epoch=0)
+            helpers.write_validation_results(eval_results_path, val_res)
 
     if not (eval_mode or trainer.one_shot):
         LOGGER.info(f"Starting training from epoch {trainer.epoch}")

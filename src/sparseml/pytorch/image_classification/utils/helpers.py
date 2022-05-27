@@ -53,6 +53,8 @@ from sparseml.utils import create_dirs
 from sparsezoo import Zoo
 
 
+_LOGGER = logging.getLogger(__name__)
+
 __all__ = [
     "Tasks",
     "get_save_dir_and_loggers",
@@ -406,7 +408,9 @@ def save_model_training(
         print(f"Saving model for epoch {epoch} to {save_dir} for {save_name}")
 
 
-def write_validation_results(info_path: str, val_res: ModuleRunResults, epoch: Optional[int] = None):
+def write_validation_results(
+    info_path: str, val_res: ModuleRunResults, epoch: Optional[int] = None
+):
     """
     :param: file path to save results to
     :param: results from validation run
@@ -423,7 +427,7 @@ def write_validation_results(info_path: str, val_res: ModuleRunResults, epoch: O
                 info_lines.append(f"{loss}: {val_res.result_mean(loss).item()}")
 
         info_file.write("\n".join(info_lines))
-        LOGGER.info(f"Saving validation results to {eval_results_path}")
+        _LOGGER.info(f"Saving validation results to {info_path}")
 
 
 def set_seeds(local_rank: int):
