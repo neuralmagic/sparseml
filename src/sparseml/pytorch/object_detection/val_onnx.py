@@ -156,10 +156,7 @@ def get_stride(model_path, image_shape=(640, 640)) -> int:
         for index in range(1, len(model.graph.output))
     )
 
-    strides = (
-        image_shape[0] // grid_shape
-        for grid_shape in grid_shapes
-    )
+    strides = (image_shape[0] // grid_shape for grid_shape in grid_shapes)
     return max(strides)
 
 
@@ -287,7 +284,7 @@ def run(
 
         # Inference
         out = yolo_pipeline(
-            images=[im.numpy()], iou_thresh=iou_thres, conf_thresh=conf_thres
+            images=[im.numpy()], iou_thres=iou_thres, conf_thres=conf_thres
         )
 
         # inference, loss outputs
