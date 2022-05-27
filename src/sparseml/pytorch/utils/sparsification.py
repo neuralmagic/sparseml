@@ -200,7 +200,7 @@ class GradSampler:
     def __init__(
         self,
         data_loader: Union[Iterator[Tuple[List[Any], Dict[str, Any], Any]], Callable],
-        loss_fn: Callable[[Any], Any],
+        loss_fn: Callable[[Any, Any], Any],
     ):
         if not isinstance(data_loader, Iterable) and not callable(data_loader):
             raise ValueError(
