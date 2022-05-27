@@ -1,4 +1,4 @@
-# SparseML Transformer Question Answer Integration
+# SparseML YOLOv5 Integration
 This directory combines the SparseML recipe-driven approach with the 
 [ultralytics/yolov5](https://github.com/ultralytics/yolov5) repository.
 By integrating the robust training flows in the `yolov5` repository with the SparseML code base, we enable model sparsification techniques on the popular [YOLOv5 architecture](https://github.com/ultralytics/yolov5/issues/280)
@@ -119,7 +119,7 @@ sparseml.yolov5.val_onnx path/to/model.onnx --data coco128.yaml
 ```
 
 
-To learn more about the engine and deploying your model, refer to the [appropriate documentation in the DeepSparse repository](https://github.com/neuralmagic/deepsparse/tree/main/examples/huggingface-transformers)
+To learn more about the engine and deploying your model, refer to the [appropriate documentation in the DeepSparse repository](https://github.com/neuralmagic/deepsparse/tree/main/examples/ultralytics-yolo)
 
 ## Support
 
