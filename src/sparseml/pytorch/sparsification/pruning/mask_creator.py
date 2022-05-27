@@ -136,7 +136,7 @@ class UnstructuredPruningMaskCreator(PruningMaskCreator):
             min_val = tensor.min().item()
 
             if threshold.item() > min_val:
-                threshold_mask = (tensor > threshold)
+                threshold_mask = tensor > threshold
 
                 num_masked = num_elem - torch.sum(threshold_mask).item()
                 if num_masked != target_num_mask:
