@@ -24,6 +24,15 @@ from yolov5.val_onnx import parse_opt as parse_val_onnx_args
 from yolov5.val_onnx import val_onnx_run
 
 
+
+__all__ = [
+    "train",
+    "val",
+    "export",
+    "val_onnx",
+]
+
+
 DEFAULT_SAVE_PATH = Path(__file__).resolve().parents[0]
 
 
