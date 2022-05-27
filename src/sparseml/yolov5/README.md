@@ -24,8 +24,8 @@ Note: YOLOV5 will not immediately install with this command. Instead, a sparsifi
 
 ## Tutorials
 
-- [Sparsifying BERT Models Using Recipes](https://github.com/neuralmagic/sparseml/blob/main/integrations/huggingface-transformers/tutorials/sparsifying_bert_using_recipes.md)
-- [Sparse Transfer Learning With BERT](https://github.com/neuralmagic/sparseml/blob/main/integrations/huggingface-transformers/tutorials/bert_sparse_transfer_learning.md)
+- [Sparsifying YOLOv5 Using Recipes](https://github.com/neuralmagic/sparseml/blob/main/integrations/ultralytics-yolov5/tutorials/sparsifying_yolov5_using_recipes.md)
+- [Sparse Transfer Learning With YOLOv5](https://github.com/neuralmagic/sparseml/blob/main/integrations/ultralytics-yolov5/tutorials/yolov5_sparse_transfer_learning.md)
 
 ## Quick Tour
 
@@ -53,6 +53,7 @@ The SparseML installation provides a CLI for running YOLOv5 scripts with SparseM
 sparseml.yolov5.train
 sparseml.yolov5.val
 sparseml.yolov5.export_onnx
+sparseml.yolov5.val_onnx
 ```
 
 Appending the `--help` argument displays a full list of options for the command:
@@ -101,14 +102,20 @@ sparseml.yolov5.export_onnx \
     --dynamic 
 ```
 
-### DeepSparse Engine Benchmarking
+### DeepSparse Engine Benchmarking and Deployment
 
 Once the model is exported to the ONNX format, it is ready for deployment with the DeepSparse Engine. 
 
-To benchmark the model, you can simply run
+To benchmark the model, you can run
 
 ```python
 deepsparse.benchmark path/to/model.onnx
+```
+
+To run validation in the DeepSparse Engine, you can run
+
+```
+sparseml.yolov5.val_onnx path/to/model.onnx --data coco128.yaml
 ```
 
 
