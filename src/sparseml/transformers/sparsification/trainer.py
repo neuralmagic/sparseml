@@ -386,6 +386,8 @@ class RecipeManagerTrainerInterface:
             teacher_inputs = None
 
         loss = student_outputs["loss"]
+        if self.args.n_gpu > 1:  # DataParallel
+            loss = loss.mean()
         loss = self.manager.loss_update(
             loss,
             model,
