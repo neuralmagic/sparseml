@@ -65,3 +65,7 @@ def val_onnx():
     """
     opt = parse_val_onnx_args()
     val_onnx_run(**vars(opt))
+<<<<<<< HEAD
+=======
+
+>>>>>>> Add val-onnx cli callable
