@@ -60,6 +60,7 @@ __all__ = [
     "create_model",
     "infer_num_classes",
     "save_model_training",
+    "write_validation_results",
     "set_seeds",
     "get_loss_wrapper",
     "ddp_aware_model_move",
@@ -405,22 +406,24 @@ def save_model_training(
         print(f"Saving model for epoch {epoch} to {save_dir} for {save_name}")
 
 
-def write_validation_results(info_path, val_res, epoch=0):
+def write_validation_results(info_path: str, val_res: ModuleRunResults, epoch: Optional[int] = None):
     """
     :param: file path to save results to
     :param: results from validation run
     :param: epoch number of validation run
     """
     with open(info_path, "w") as info_file:
-        info_lines = [
-            f"epoch: {epoch}",
-        ]
+        info_lines = []
+
+        if epoch is not None:
+            info_lines.append(f"epoch: {epoch}")
 
         if val_res is not None:
             for loss in val_res.results.keys():
                 info_lines.append(f"{loss}: {val_res.result_mean(loss).item()}")
 
         info_file.write("\n".join(info_lines))
+        LOGGER.info(f"Saving validation results to {eval_results_path}")
 
 
 def set_seeds(local_rank: int):
