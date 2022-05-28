@@ -135,7 +135,7 @@ class UnstructuredPruningMaskCreator(PruningMaskCreator):
             min_val = tensor.min().item()
 
             if threshold.item() > min_val:
-                threshold_mask = (tensor > threshold).type(tensor.type())
+                threshold_mask = tensor > threshold
 
                 num_masked = num_elem - torch.sum(threshold_mask).item()
                 if num_masked != target_num_mask:
@@ -147,7 +147,7 @@ class UnstructuredPruningMaskCreator(PruningMaskCreator):
                         threshold_mask, tensor, threshold, num_to_flip, over_masked
                     )
 
-                masks.append(threshold_mask)
+                masks.append(threshold_mask.type(tensor.type()))
                 continue
 
             # too many zeros so will go over the already given sparsity
