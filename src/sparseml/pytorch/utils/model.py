@@ -40,6 +40,7 @@ except Exception as ddp_error:
 __all__ = [
     "load_model",
     "load_optimizer",
+    "load_loss_scaler",
     "load_epoch",
     "save_model",
     "script_model",
@@ -139,6 +140,22 @@ def load_optimizer(
     optimizer.load_state_dict(model_dict["optimizer"])
 
 
+def load_loss_scaler(
+    path: str, loss_scaler: Optimizer, map_location: Union[None, str] = "cpu"
+):
+    """
+    Load the state dict into an loss_scaler from a given file.
+
+    :param path: the path to the pth file to load the state dict from
+    :param loss_scaler: the loss_scaler to load the state dict into
+    :param map_location: the location to map the values to when loading the
+    :return: the epoch saved in the file, if any
+    """
+    model_dict = torch.load(path, map_location=map_location)
+    if args.get("loss_scaler"):
+        loss_scaler.load_state_dict(model_dict["loss_scaler"])
+
+
 def load_epoch(path: str, map_location: Union[None, str] = "cpu") -> Union[int, None]:
     model_dict = torch.load(path, map_location=map_location)
 
@@ -184,6 +201,7 @@ def save_model(
     path: str,
     model: Module,
     optimizer: Optimizer = None,
+    loss_scaler = None,
     epoch: Optional[int] = None,
     use_zipfile_serialization_if_available: bool = True,
     include_modifiers: bool = False,
@@ -196,6 +214,7 @@ def save_model(
     :param path: the path to save the file the states to
     :param model: the model to save state for
     :param optimizer: the optimizer, if any, to save state for
+    :param loss_scaler: the loss_scaler, if any, to save state for
     :param epoch: the epoch to save
     :param use_zipfile_serialization_if_available: for torch >= 1.6.0 only
         exports the model's state dict using the new zipfile serialization
@@ -220,6 +239,9 @@ def save_model(
 
     if optimizer:
         save_dict["optimizer"] = optimizer.state_dict()
+
+    if loss_scaler:
+        save_dict['loss_scaler'] = loss_scaler.state_dict()
 
     if epoch is not None:
         save_dict["epoch"] = epoch
