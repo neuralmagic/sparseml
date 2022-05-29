@@ -298,8 +298,10 @@ class OBSPruningModifier(BaseGradualPruningModifier):
         module.eval()
 
         _LOGGER.debug(f"Starting to collect {self._num_grads} grads with GradSampler")
-        for _ in grad_sampler.iter_module_backwards(module, self._num_grads):
+        for i in grad_sampler.iter_module_backwards(module, self._num_grads):
             self._module_masks.pre_optim_step_update()
+            if i % 100 == 0:
+                print(f"GradSampler collected {i} gradients")
 
         if is_training:
             _LOGGER.debug("Setting the model back to the train mode")
