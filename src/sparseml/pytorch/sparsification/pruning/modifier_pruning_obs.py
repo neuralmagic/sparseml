@@ -109,10 +109,10 @@ class OBSPruningModifier(BaseGradualPruningModifier):
         immediately after or doing some other prune
     :param inter_func: the type of interpolation function to use:
         [linear, cubic, inverse_cubic]
-    :param mask_type: String to define type of sparsity to apply. May be 'unstructured'
-        for unstructured pruning or 'block4' for four block pruning. Default is 'unstructured'
+    :param mask_type: String to define type of sparsity to apply. 'unstructured'
+        and 'block4' are supported. Default is 'unstructured'
     :param global_sparsity: set True to enable global pruning. If False, pruning will
-        be layer-wise, default is True
+        be layer-wise. Default is True
     :param num_grads: number of gradients used to calculate the Fisher approximation
     :param damp: dampening factor, default is 1e-7
     :param fisher_block_size: size of blocks along the main diagonal of the Fisher
