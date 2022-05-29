@@ -294,15 +294,15 @@ class OBSPruningModifier(BaseGradualPruningModifier):
             )
 
         is_training = module.training
-        _LOGGER.info("Setting the model in the eval mode")
+        _LOGGER.debug("Setting the model in the eval mode")
         module.eval()
 
-        _LOGGER.info(f"Starting to collect {self._num_grads} grads with GradSampler")
+        _LOGGER.debug(f"Starting to collect {self._num_grads} grads with GradSampler")
         for _ in grad_sampler.iter_module_backwards(module, self._num_grads):
             self._module_masks.pre_optim_step_update()
 
         if is_training:
-            _LOGGER.info("Setting the model back to the train mode")
+            _LOGGER.debug("Setting the model back to the train mode")
             module.train()
 
 
