@@ -240,7 +240,7 @@ class OBSPruningModifier(BaseGradualPruningModifier):
         super().initialize(module, epoch, loggers, **kwargs)
         self._grad_sampler = GradSampler(
             kwargs["grad_sampler"]["data_loader_builder"](
-                self._grad_sampler_kwargs
+                **self._grad_sampler_kwargs
             ),
             kwargs["grad_sampler"]["loss_function"],
         )
@@ -298,7 +298,7 @@ class OBSPruningModifier(BaseGradualPruningModifier):
             )
 
         is_training = module.training
-        _LOGGER.info("Setting the model in the eval mode")
+        _LOGGER.debug("Setting the model in the eval mode")
         module.eval()
 
         _LOGGER.debug(f"Starting to collect {self._num_grads} grads with GradSampler")
@@ -308,7 +308,7 @@ class OBSPruningModifier(BaseGradualPruningModifier):
                  print(f"GradSampler collected {i} gradients")
 
         if is_training:
-            _LOGGER.info("Setting the model back to the train mode")
+            _LOGGER.debug("Setting the model back to the train mode")
             module.train()
 
 
