@@ -27,6 +27,8 @@ from torch.nn import Module, Parameter
 from tqdm import tqdm
 from typing import Any, Dict, List, Optional, Union
 
+from torch.nn.parallel import DistributedDataParallel as DDP
+
 from sparseml.pytorch.sparsification.modifier import ModifierProp, PyTorchModifierYAML
 from sparseml.pytorch.sparsification.pruning.mask_creator import (
     PruningMaskCreator,
@@ -291,6 +293,8 @@ class OBSPruningModifier(BaseGradualPruningModifier):
         module: Module,
         grad_sampler: GradSampler,
     ):
+        if isinstance(module, DDP):
+            module = module.module
         if not isinstance(grad_sampler, GradSampler):
             raise ValueError(
                 "One-shot OBS pruning requires a GradSampler object given by the "
