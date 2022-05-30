@@ -17,13 +17,15 @@ Modifier classes implementing the blockwise version of the Optimal Brain Surgeon
 pruning framework, optimized for small blocks. The algorithm is described in details
 in the Optimal BERT Surgeon paper https://arxiv.org/abs/2203.07259
 """
-import logging
 import math
-from typing import Any, Dict, List, Optional, Union
-
 import torch
+import logging
+
+
 from torch import Tensor
 from torch.nn import Module, Parameter
+from tqdm import tqdm
+from typing import Any, Dict, List, Optional, Union
 
 from sparseml.pytorch.sparsification.modifier import ModifierProp, PyTorchModifierYAML
 from sparseml.pytorch.sparsification.pruning.mask_creator import (
@@ -137,6 +139,7 @@ class OBSPruningModifier(BaseGradualPruningModifier):
         damp: float = 1e-7,
         fisher_block_size: int = 50,
         grad_sampler_kwargs: Dict[str, Any] = {},
+        grad_log_freq = 100
     ):
         super().__init__(
             params=params,
@@ -155,6 +158,7 @@ class OBSPruningModifier(BaseGradualPruningModifier):
         self._damp = damp
         self._fisher_block_size = fisher_block_size
         self._grad_sampler_kwargs = grad_sampler_kwargs
+        self._grad_log_freq = grad_log_freq
 
         self._grad_sampler = None
         self._supported_masks = ("unstructured", "block4")
@@ -238,7 +242,7 @@ class OBSPruningModifier(BaseGradualPruningModifier):
         if self._scorer._is_main_proc:  # grads collected only in the main proc
             self._grad_sampler = GradSampler(
                 kwargs["grad_sampler"]["data_loader_builder"](
-                    self._grad_sampler_kwargs
+                    **self._grad_sampler_kwargs
                 ),
                 kwargs["grad_sampler"]["loss_function"],
             )
@@ -298,10 +302,12 @@ class OBSPruningModifier(BaseGradualPruningModifier):
         module.eval()
 
         _LOGGER.debug(f"Starting to collect {self._num_grads} grads with GradSampler")
+
         for i in grad_sampler.iter_module_backwards(module, self._num_grads):
             self._module_masks.pre_optim_step_update()
-            if i % 100 == 0:
-                print(f"GradSampler collected {i} gradients")
+            if i % self._grad_log_freq == 0:
+                 print(f"GradSampler collected {i} gradients")
+
 
         if is_training:
             _LOGGER.debug("Setting the model back to the train mode")
