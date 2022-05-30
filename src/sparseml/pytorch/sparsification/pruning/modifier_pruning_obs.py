@@ -27,8 +27,6 @@ from torch.nn import Module, Parameter
 from tqdm import tqdm
 from typing import Any, Dict, List, Optional, Union
 
-from torch.nn.parallel import DistributedDataParallel as DDP
-
 from sparseml.pytorch.sparsification.modifier import ModifierProp, PyTorchModifierYAML
 from sparseml.pytorch.sparsification.pruning.mask_creator import (
     PruningMaskCreator,
@@ -240,14 +238,12 @@ class OBSPruningModifier(BaseGradualPruningModifier):
             )
 
         super().initialize(module, epoch, loggers, **kwargs)
-
-        if self._scorer._is_main_proc:  # grads collected only in the main proc
-            self._grad_sampler = GradSampler(
-                kwargs["grad_sampler"]["data_loader_builder"](
-                    **self._grad_sampler_kwargs
-                ),
-                kwargs["grad_sampler"]["loss_function"],
-            )
+        self._grad_sampler = GradSampler(
+            kwargs["grad_sampler"]["data_loader_builder"](
+                self._grad_sampler_kwargs
+            ),
+            kwargs["grad_sampler"]["loss_function"],
+        )
 
     def _get_mask_creator(
         self, param_names: List[str], params: List[Parameter]
@@ -280,10 +276,12 @@ class OBSPruningModifier(BaseGradualPruningModifier):
 
         _LOGGER.info("Running OBS Pruning")
         if self._scorer._is_main_proc:
-            # collect grads for empirical inverse Fisher estimation
             self._scorer._enabled_grad_buffering = True
-            self._collect_grad_samples(module, self._grad_sampler)
-            self._pre_step_completed = True
+
+        self._collect_grad_samples(module, self._grad_sampler)
+        self._pre_step_completed = True
+
+        if self._scorer._is_main_proc:
             self._scorer._enabled_grad_buffering = False
 
         super().check_mask_update(module, epoch, steps_per_epoch, **kwargs)
@@ -293,8 +291,6 @@ class OBSPruningModifier(BaseGradualPruningModifier):
         module: Module,
         grad_sampler: GradSampler,
     ):
-        if isinstance(module, DDP):
-            module = module.module
         if not isinstance(grad_sampler, GradSampler):
             raise ValueError(
                 "One-shot OBS pruning requires a GradSampler object given by the "
@@ -302,19 +298,17 @@ class OBSPruningModifier(BaseGradualPruningModifier):
             )
 
         is_training = module.training
-        _LOGGER.debug("Setting the model in the eval mode")
+        _LOGGER.info("Setting the model in the eval mode")
         module.eval()
 
         _LOGGER.debug(f"Starting to collect {self._num_grads} grads with GradSampler")
-
         for i in grad_sampler.iter_module_backwards(module, self._num_grads):
             self._module_masks.pre_optim_step_update()
             if i % self._grad_log_freq == 0:
                  print(f"GradSampler collected {i} gradients")
 
-
         if is_training:
-            _LOGGER.debug("Setting the model back to the train mode")
+            _LOGGER.info("Setting the model back to the train mode")
             module.train()
 
 
