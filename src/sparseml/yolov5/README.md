@@ -7,7 +7,6 @@ creating smaller and faster deployable versions.
 The techniques include, but are not limited to:
 - Pruning
 - Quantization
-- Pruning + Quantization
 - Sparse Transfer Learning
 
 After training, the model can be deployed with Neural Magic's DeepSparse Engine. The engine enables inference with GPU-class performance directly on your CPU.
