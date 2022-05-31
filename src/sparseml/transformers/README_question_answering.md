@@ -1,7 +1,7 @@
 # SparseML Transformer Question Answer Integration
 
 
-SparseML Question Answer pipeline integrates with Hugging Face’s Transformers library to enable the sparsification of any transformer model.
+SparseML Question Answer pipeline integrates with Hugging Face’s Transformers library to enable the sparsification of a large set of transformers models.
 Sparsification is a powerful technique that results in faster, smaller, and cheaper deployable models. 
 After training, the model can be deployed with Neural Magic's DeepSparse Engine. The engine enables inference with GPU-class performance directly on your CPU.
 
@@ -26,7 +26,6 @@ Note: Transformers will not immediately install with this command. Instead, a sp
 
 ### Sparsifying Popular Transformer Models
 
-Sparse ML Hugging Face Question Answer integration allows sparsifying any dense transformer.
 
 In the example below, a dense BERT model is trained on the SQuAD dataset. By passing the recipe `zoo:nlp/question_answering/bert-base/pytorch/huggingface/squad/pruned-aggressive_98` (located in [SparseZoo](https://sparsezoo.neuralmagic.com/models/nlp%2Fquestion_answering%2Fbert-base%2Fpytorch%2Fhuggingface%2Fsquad%2Fpruned-aggressive_98)) we modify (sparsify) the training process and/or the model.
 
