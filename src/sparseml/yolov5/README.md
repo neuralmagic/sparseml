@@ -55,6 +55,28 @@ Appending the `--help` argument displays a full list of options for the command:
 sparseml.yolov5.train --help
 ```
 
+output:
+```
+usage: sparseml.yolov5.train [-h] [--weights WEIGHTS] [--cfg CFG] [--data DATA] [--hyp HYP] [--epochs EPOCHS] [--batch-size BATCH_SIZE] [--imgsz IMGSZ] [--rect]
+                             [--resume [RESUME]] [--nosave] [--noval] [--noautoanchor] [--evolve [EVOLVE]] [--bucket BUCKET] [--cache [CACHE]] [--image-weights]
+                             [--device DEVICE] [--multi-scale] [--single-cls] [--optimizer {SGD,Adam,AdamW}] [--sync-bn] [--workers WORKERS] [--project PROJECT]
+                             [--name NAME] [--exist-ok] [--quad] [--cos-lr] [--label-smoothing LABEL_SMOOTHING] [--patience PATIENCE] [--freeze FREEZE [FREEZE ...]]
+                             [--save-period SAVE_PERIOD] [--local_rank LOCAL_RANK] [--entity ENTITY] [--upload_dataset [UPLOAD_DATASET]]
+                             [--bbox_interval BBOX_INTERVAL] [--artifact_alias ARTIFACT_ALIAS] [--recipe RECIPE] [--disable-ema] [--max-train-steps MAX_TRAIN_STEPS]
+                             [--max-eval-steps MAX_EVAL_STEPS] [--one-shot] [--num-export-samples NUM_EXPORT_SAMPLES]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --weights WEIGHTS     initial weights path
+  --cfg CFG             model.yaml path
+  --data DATA           dataset.yaml path
+  --hyp HYP             hyperparameters path
+  --epochs EPOCHS
+  --batch-size BATCH_SIZE
+                        total batch size for all GPUs, -1 for autobatch
+...
+```
+
 ## Getting Started
 
 ### Sparsifying YOLOv5
@@ -78,10 +100,10 @@ In the example below, we fetch a pruned, quantized BERT model, pre-trained on Wi
 ```bash
 sparseml.yolov5.train \
   --data VOC.yaml \
-  --cfg ../models_v5.0/yolov5s.yaml \
-  --weights zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/ pruned_quant-aggressive_94?recipe_type=transfer \
+  --cfg models_v5.0/yolov5s.yaml \
+  --weights zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned_quant-aggressive_94?recipe_type=transfer \
   --hyp data/hyps/hyp.finetune.yaml \
-  --recipe ../recipes/yolov5.transfer_learn_pruned_quantized.md
+  --recipe zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned-aggressive_96
 ```
 
 ## Once the Training is Done...
