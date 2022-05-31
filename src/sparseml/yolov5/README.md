@@ -19,7 +19,7 @@ This integration enables spinning up one of the following end-to-end functionali
 
 ```pip install sparseml[torchvision]```
 
-Note: YOLOV5 will not immediately install with this command. Instead, a sparsification-compatible version of YOLOv5 will install on the first invocation of the YOLOv5 code in SparseML.
+Note: YOLOv5 will not immediately install with this command. Instead, a sparsification-compatible version of YOLOv5 will install on the first invocation of the YOLOv5 code in SparseML.
 
 ## Tutorials
 
