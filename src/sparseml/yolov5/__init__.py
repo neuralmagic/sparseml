@@ -106,6 +106,3 @@ def _check_yolov5_install():
 
 
 _check_yolov5_install()
-
-from .export import create_checkpoint, load_checkpoint
-from .val import run as val

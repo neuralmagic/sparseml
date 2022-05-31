@@ -56,6 +56,8 @@ def create_dir_callback(ctx, params, value: str):
     :param value: The value to create the directory from
     :returns: The directory path
     """
+    if value is None:
+        return
     os.makedirs(value, exist_ok=True)
     return value
 

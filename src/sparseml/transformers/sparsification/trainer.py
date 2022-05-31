@@ -365,14 +365,29 @@ class RecipeManagerTrainerInterface:
             k: inputs[k] for k in inputs if k in self._model_signature_columns
         }
         student_outputs = model(**student_inputs)
-        if self._teacher_signature_columns is not None:
+        if any(_get_teacher_base_column_name(column) for column in inputs):
+            # inputs from teacher tokenizer available
+            teacher_inputs = {}
+            for column_name, column_data in inputs.items():
+                teacher_column_name = _get_teacher_base_column_name(column_name)
+                if not teacher_column_name or (
+                    self._teacher_signature_columns
+                    and teacher_column_name not in self._teacher_signature_columns
+                ):
+                    continue  # not valid teacher column name or no forward match
+                teacher_inputs[teacher_column_name] = column_data
+        elif self._teacher_signature_columns is not None:
+            # select from main student inputs
             teacher_inputs = {
                 k: inputs[k] for k in inputs if k in self._teacher_signature_columns
             }
         else:
+            # pass all inputs
             teacher_inputs = None
 
         loss = student_outputs["loss"]
+        if self.args.n_gpu > 1:  # DataParallel
+            loss = loss.mean()
         loss = self.manager.loss_update(
             loss,
             model,
@@ -486,7 +501,11 @@ class RecipeManagerTrainerInterface:
         os.makedirs(sample_out_dir, exist_ok=True)
         device = self.model.device
 
-        dataloader = self.get_val_dataloader() or self.get_train_dataloader()
+        try:
+            dataloader = self.get_val_dataloader()
+        except Exception:
+            dataloader = self.get_train_dataloader()
+
         _LOGGER.info(f"Exporting {num_samples_to_export} samples to {output_dir}")
         for _, sample_batch in enumerate(dataloader):
             sample_batch.pop("labels", None)
@@ -862,6 +881,16 @@ class Trainer(TrainerInterface, TransformersTrainer):
                 model_signature_columns | teacher_signature_columns
             )
 
+            # add columns from teacher tokenizer to allowed list
+            for column_name in dataset.column_names:
+                teacher_column_name = _get_teacher_base_column_name(column_name)
+                if not teacher_column_name or (
+                    teacher_column_name not in teacher_signature_columns
+                ):
+                    continue  # not a teacher tokenizer column
+                # add column name with distill teacher prefix to allowed list
+                self._signature_columns.append(column_name)
+
             # Labels may be named label or label_ids, the default data
             # collator handles that.
             self._signature_columns += ["label", "label_ids"]
@@ -927,3 +956,10 @@ class DisableHalfPrecisionCallback(TrainerCallback):
 
         if state.epoch > self.quant_start_epoch:
             _LOGGER.info(self.trainer.model)
+
+
+def _get_teacher_base_column_name(column_name: str) -> Optional[str]:
+    # if column was created by teacher tokenizer, return the base name
+    if not column_name.startswith("distill_teacher:"):
+        return
+    return column_name[len("distill_teacher:") :]
