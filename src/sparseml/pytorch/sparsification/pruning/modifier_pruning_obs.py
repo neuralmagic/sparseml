@@ -239,6 +239,14 @@ class OBSPruningModifier(BaseGradualPruningModifier):
                 "must be provided to initialize GradSampler"
             )
 
+        if math.isinf(epoch): # hack to enable oneshot
+            self._grad_sampler = GradSampler(
+                kwargs["grad_sampler"]["data_loader_builder"](
+                    **self._grad_sampler_kwargs
+                ),
+                kwargs["grad_sampler"]["loss_function"],
+            )
+
         super().initialize(module, epoch, loggers, **kwargs)
 
         if self._scorer._is_main_proc:  # grads collected only in the main proc

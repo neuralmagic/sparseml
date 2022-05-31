@@ -17,8 +17,8 @@ Modifiers for changing the learning rate while training according to
 certain update formulas or patterns.
 """
 
-import math
 import sys
+import math
 from typing import Dict, List, Optional, Union
 
 from torch.nn import Module
@@ -267,10 +267,14 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         final_lr: float,
         start_epoch: float,
         end_epoch: float,
+        # cycle schedule params
         cycle_epochs: float = 1.0,
         cycle_mul: float = 1.0,
         cycle_coef: float = 1.0,
         cycle_warmup: float = 0.0,
+        # decaying schedule params
+        decay_rate: float = 0.9,
+        decay_epochs: float = 1.0,
         param_groups: Optional[List[int]] = None,
         update_frequency: float = -1.0,
     ):
@@ -283,10 +287,15 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         self._lr_func = lr_func
         self._init_lr = init_lr
         self._final_lr = final_lr
+        # cycle schedule params
         self._cycle_epochs = cycle_epochs
         self._cycle_warmup = cycle_warmup
         self._cycle_coef = cycle_coef
         self._cycle_mul = cycle_mul
+        # decay schedule params
+        self._decay_epochs = decay_epochs
+        self._decay_rate = decay_rate
+        # param groups
         self._param_groups = param_groups
         self._learning_rate = None
         self._last_applied_lr = None
@@ -445,7 +454,16 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         """
         Validate the values of the params for the current instance are valid
         """
-        lr_funcs = ["linear", "cosine", "cyclic_linear", "cyclic_cosine", "cyclic_linear_envelope"]
+        lr_funcs = [
+            "linear", 
+            "cosine", 
+            "exponential",
+            "step_exponential",
+            "cyclic_linear", 
+            "cyclic_cosine", 
+            "cyclic_exponential",
+            "cyclic_linear_envelope"
+        ]
         if self.lr_func not in lr_funcs:
             raise ValueError(f"lr_func must be one of {lr_funcs}")
 
@@ -523,6 +541,42 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
             self.init_lr - self.final_lr
         )
         return lr
+
+
+    def _step_exponential(self, epoch: float, steps_per_epoch: int):
+        end_step   = self.end_epoch * steps_per_epoch
+        start_step = self.start_epoch * steps_per_epoch
+        # get current step
+        current_step  = (epoch - self.start_epoch) * steps_per_epoch
+        # decay steps
+        decay_steps = self._decay_epochs * steps_per_epoch
+        lr = self.init_lr * self._decay_rate ** (math.floor((current_step - start_step) / decay_steps))
+        lr = max(lr, self.final_lr)
+        return lr
+
+    def _exponential(self, epoch: float, steps_per_epoch: int):
+        start_step   = self.start_epoch * steps_per_epoch
+        decay_steps  = self._decay_epochs * self._decay_rate
+        current_step = (epoch - self.start_epoch) * steps_per_epoch
+        lr = self.init_lr * self._decay_rate ** ((current_step - start_step) / decay_steps)
+        # min lr is final_lr
+        lr = max(lr, self.final_lr)
+        return lr
+
+    
+    def _cyclic_exponential(self, epoch: float, steps_per_epoch: int):
+        end_step    = self.end_epoch * steps_per_epoch
+        start_step  = self.start_epoch * steps_per_epoch
+        cycle_steps = self.cycle_epochs * steps_per_epoch
+        decay_steps = self._decay_epochs * steps_per_epoch
+        current_step = (epoch - self.start_epoch) * steps_per_epoch
+        # crop current step to the current cycle
+        current_step = min(max(current_step, start_step), end_step) % cycle_steps
+        lr = self.init_lr * self._decay_rate ** ((current_step - start_step) / decay_steps)
+        # min lr is final_lr
+        lr = max(lr, self.final_lr)
+        return lr
+
 
     def _cyclic_cosine(self, epoch: int, steps_per_epoch: int,):
         end_step     = self.end_epoch    * steps_per_epoch
