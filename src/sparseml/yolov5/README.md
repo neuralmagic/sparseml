@@ -35,11 +35,6 @@ Recipes encode the instructions and hyperparameters for sparsifying a model usin
 The modifiers can range from pruning and quantization to learning rate and weight decay.
 When appropriately combined, it becomes possible to create highly sparse and accurate models.
 
-This integration adds a `--recipe` argument to the [`train.py` script](https://github.com/neuralmagic/yolov5/blob/master/train.py).
-The argument loads an appropriate recipe while preserving the rest of the training pipeline.
-Popular recipes used with this argument are found in the [`recipes` folder](./recipes).
-Otherwise, all other arguments and functionality remain the same as the original repository.
-
 ### SparseZoo
 
 Neural Magic’s ML team creates sparsified models that allow anyone to plug in their data and leverage pre-sparsified models from the SparseZoo.
