@@ -2,11 +2,11 @@
 
 
 SparseML Question Answer pipeline integrates with Hugging Face’s Transformers library to enable the sparsification of any transformer model.
-Sparsification is a powerful feature that results in faster, smaller, and cheaper deployable Transformer models. 
-The sparse model can be eventually deployed to Neural Magic's DeepSparse Engine. This allows running the inference with GPU-class performance directly on your CPU.
+Sparsification is a powerful technique that results in faster, smaller, and cheaper deployable models. 
+After training, the model can be deployed with Neural Magic's DeepSparse Engine. The engine enables inference with GPU-class performance directly on your CPU.
 
 This integration enables spinning up one of the following end-to-end functionalities:
-- **Sparsification of Popular Transformer Models** - easily sparsify any of the popular Hugging Face transformer models. 
+- **Sparsification of Popular Transformer Models** - easily sparsify any popular Hugging Face transformer models. 
 - **Sparse Transfer Learning** - fine-tune a sparse backbone model (or use one of our [sparse pre-trained models](https://sparsezoo.neuralmagic.com/?page=1&domain=nlp&sub_domain=question_answering)) on your own, private dataset.
 
 ## Installation
@@ -24,13 +24,13 @@ Note: Transformers will not immediately install with this command. Instead, a sp
 
 ## Getting Started
 
-### Sparsification of Popular Transformer Models
+### Sparsifying Popular Transformer Models
 
 Sparse ML Hugging Face Question Answer integration allows sparsifying any dense transformer.
 
 In the example below, a dense BERT model is trained on the SQuAD dataset. By passing the recipe `zoo:nlp/question_answering/bert-base/pytorch/huggingface/squad/pruned-aggressive_98` (located in [SparseZoo](https://sparsezoo.neuralmagic.com/models/nlp%2Fquestion_answering%2Fbert-base%2Fpytorch%2Fhuggingface%2Fsquad%2Fpruned-aggressive_98)) we modify (sparsify) the training process and/or the model.
 
-```python
+```bash
 sparseml.transformers.question_answering \
   --model_name_or_path bert-base-uncased \          # name of the Hugging Face dense model
   --dataset_name squad \                            # name of the dataset we want to sparse train on
@@ -48,7 +48,7 @@ Once you sparsify a model using SparseML, you can easily sparse fine-tune it on 
 While you are free to use your backbone, we encourage you to leverage one of our [sparse pre-trained models](https://sparsezoo.neuralmagic.com) to boost your productivity!
 
 In the example below, we fetch a pruned, quantized BERT model, pre-trained on Wikipedia and Bookcorpus datasets. We then fine-tune the model to the SQuAD dataset. 
-```python
+```bash
 sparseml.transformers.question_answering \
     --model_name_or_path zoo:nlp/masked_language_modeling/bert-base/pytorch/huggingface/wikipedia_bookcorpus/12layer_pruned80_quant-none-vnni \
     --dataset_name squad \
@@ -127,7 +127,7 @@ sparseml.transformers.export_onnx \
 
 ### DeepSparse Engine Deployment
 
-Once the model is exported an ONNX format, it is ready for deployment with the DeepSparse Engine. 
+Once the model is exported in the ONNX format, it is ready for deployment with the DeepSparse Engine. 
 
 The deployment is intuitive due to the DeepSparse Python API.
 
