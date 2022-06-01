@@ -59,7 +59,7 @@ sparseml.transformers.question_answering \
 ```
 
 #### Knowledge Distillation
-By modifying the `distill_teacher` argument, you can enable [Knowledge Destillation](https://neptune.ai/blog/knowledge-distillation) (KD) functionality.
+By modifying the `distill_teacher` argument, you can enable [Knowledge Distillation](https://neptune.ai/blog/knowledge-distillation) (KD) functionality.
 
 In this example, the `--distill_teacher` argument is set to pull a dense SQuAD model from the SparseZoo to enable it to run independently of the dense teacher step:
 
