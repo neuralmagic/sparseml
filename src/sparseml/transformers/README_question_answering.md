@@ -131,9 +131,9 @@ Once the model is exported in the ONNX format, it is ready for deployment with t
 The deployment is intuitive due to the DeepSparse Python API.
 
 ```python
-from deepsparse.transformers import pipeline
+from deepsparse.pipeline import Pipeline
 
-qa_pipeline = pipeline(
+qa_pipeline = Pipeline.create(
   task="question-answering", 
   model_path='./output'
 )
