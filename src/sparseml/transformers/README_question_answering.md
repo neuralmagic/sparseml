@@ -6,7 +6,7 @@ Sparsification is a powerful technique that results in faster, smaller, and chea
 After training, the model can be deployed with Neural Magic's DeepSparse Engine. The engine enables inference with GPU-class performance directly on your CPU.
 
 This integration enables spinning up one of the following end-to-end functionalities:
-- **Sparsification of Popular Transformer Models** - easily sparsify any popular Hugging Face transformer models. 
+- **Sparsification of Popular Transformer Models** - easily sparsify any popular Hugging Face Transformer model. 
 - **Sparse Transfer Learning** - fine-tune a sparse backbone model (or use one of our [sparse pre-trained models](https://sparsezoo.neuralmagic.com/?page=1&domain=nlp&sub_domain=question_answering)) on your own private dataset.
 
 ## Installation
