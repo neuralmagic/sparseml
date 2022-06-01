@@ -1,7 +1,7 @@
-# SparseML Transformer Question Answer Integration
+# SparseML Transformer Question Answering Integration
 
 
-SparseML Question Answer pipeline integrates with Hugging Face’s Transformers library to enable the sparsification of a large set of transformers models.
+SparseML Question Answering pipeline integrates with Hugging Face’s Transformers library to enable the sparsification of a large set of transformers models.
 Sparsification is a powerful technique that results in faster, smaller, and cheaper deployable models. 
 After training, the model can be deployed with Neural Magic's DeepSparse Engine. The engine enables inference with GPU-class performance directly on your CPU.
 
