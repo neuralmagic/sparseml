@@ -252,4 +252,4 @@ For Neural Magic Support, sign up or log in to our [Deep Sparse Community Slack]
 [ImageNet]: https://www.image-net.org/
 [ImageNette]: https://github.com/fastai/imagenette
 [DeepSparse]: https://github.com/neuralmagic/sparseml
-[Client]: #Clie
+[Client]: #Client
