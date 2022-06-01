@@ -112,9 +112,8 @@ To learn about the Hugging Face Transformers parameters in more detail, refer to
 The artifacts of the training process are saved to the directory `--output_dir`. Once the script terminates, the directory will have everything required to deploy or further modify the model such as:
 - The recipe (with the full description of the sparsification attributes).
 - Checkpoint files (saved in the appropriate framework format).
-- Hugging Face Transformer's specific files (e.g., the tokenizer).
+- Additional configuration files (e.g. tokenizer, dataset info)
 
-This includes the recipe (with the full description of the sparsification attributes), checkpoint files (saved in the appropriate framework format), Hugging Face Transformer's specific files (e.g. the tokenizer), etc.
 
 ### Exporting the Sparse Model to ONNX
 
@@ -134,7 +133,7 @@ Once the model is exported in the ONNX format, it is ready for deployment with t
 The deployment is intuitive due to the DeepSparse Python API.
 
 ```python
-from deepsparse.pipeline import Pipeline
+from deepsparse import Pipeline
 
 qa_pipeline = Pipeline.create(
   task="question-answering", 
