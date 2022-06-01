@@ -109,7 +109,10 @@ To learn about the Hugging Face Transformers parameters in more detail, refer to
 
 ## Once the Training is Done...
 
-The artifacts of the training process are saved to the directory `--output_dir`. Once the script terminates, you should find there everything required to deploy or further modify the model. 
+The artifacts of the training process are saved to the directory `--output_dir`. Once the script terminates, the directory will have everything required to deploy or further modify the model such as:
+- The recipe (with the full description of the sparsification attributes).
+- Checkpoint files (saved in the appropriate framework format).
+- Hugging Face Transformer's specific files (e.g., the tokenizer).
 
 This includes the recipe (with the full description of the sparsification attributes), checkpoint files (saved in the appropriate framework format), Hugging Face Transformer's specific files (e.g. the tokenizer), etc.
 
