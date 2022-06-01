@@ -462,6 +462,7 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
             "cyclic_linear", 
             "cyclic_cosine", 
             "cyclic_exponential",
+            "cyclic_step_exponential",
             "cyclic_linear_envelope"
         ]
         if self.lr_func not in lr_funcs:
@@ -544,7 +545,6 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
 
 
     def _step_exponential(self, epoch: float, steps_per_epoch: int):
-        end_step   = self.end_epoch * steps_per_epoch
         start_step = self.start_epoch * steps_per_epoch
         # get current step
         current_step  = (epoch - self.start_epoch) * steps_per_epoch
@@ -573,6 +573,20 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         # crop current step to the current cycle
         current_step = min(max(current_step, start_step), end_step) % cycle_steps
         lr = self.init_lr * self._decay_rate ** ((current_step - start_step) / decay_steps)
+        # min lr is final_lr
+        lr = max(lr, self.final_lr)
+        return lr
+
+
+    def _cyclic_step_exponential(self, epoch: float, steps_per_epoch: int):
+        end_step    = self.end_epoch * steps_per_epoch
+        start_step  = self.start_epoch * steps_per_epoch
+        cycle_steps = self.cycle_epochs * steps_per_epoch
+        decay_steps = self._decay_epochs * steps_per_epoch
+        current_step = (epoch - self.start_epoch) * steps_per_epoch
+        # crop current step to the current cycle
+        current_step = min(max(current_step, start_step), end_step) % cycle_steps
+        lr = self.init_lr * self._decay_rate ** (math.floor((current_step - start_step) / decay_steps))
         # min lr is final_lr
         lr = max(lr, self.final_lr)
         return lr
