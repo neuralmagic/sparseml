@@ -59,7 +59,8 @@ sparseml.image_classification.train \
     --model-kwargs '{"ignore_error_tensors": ["classifier.fc.weight", "classifier.fc.bias"]}' \
     --dataset imagenette \
     --dataset-path /PATH/TO/IMAGENETTE  \
-    --train-batch-size 32 --test-batch-size 64 \
+    --train-batch-size 32 \
+    --test-batch-size 64 \
     --loader-num-workers 0 \
     --optim Adam \
     --optim-args '{}' \
@@ -110,19 +111,18 @@ Options:
   ...
 ```
 
-To learn about the sparsification in more detail, refer to [SparseML docs](https://docs.neuralmagic.com/sparseml/)
+To learn about sparsification in more detail, refer to [SparseML docs](https://docs.neuralmagic.com/sparseml/)
 
 ## Once the Training is Done...
 
-The artifacts of the training process are saved to the `--save-dir` under `--model-tag`.
+The artifacts of the training process are saved to `--save-dir` under `--model-tag`.
 Once the script terminates, you should find everything required to deploy or further modify the model,
 including the recipe (with the full description of the sparsification attributes), checkpoint files (saved in the appropriate framework format), etc.
 
 ### Exporting the Sparse Model to ONNX
 
 The [DeepSparse] Engine uses the ONNX format to load neural networks and 
-deliver breakthrough performance for CPUs by leveraging the sparsity and 
-quantization within a network.
+deliver breakthrough performance for CPUs by leveraging the sparsity within a network.
 
 The SparseML installation provides a `sparseml.image_classification.export_onnx` 
 command that you can use to load the checkpoint and create a new `model.onnx` file. 
@@ -130,7 +130,8 @@ Be sure the `--model_path` argument points to your trained model.
 
 ```bash
 sparseml.image_classification.export_onnx \
-    --arch-key resnet50 --dataset imagenet \
+    --arch-key resnet50 \
+    --dataset imagenet \
     --dataset-path ~/datasets/ILSVRC2012 \
     --checkpoint-path ~/checkpoints/resnet50_checkpoint.pth
 ```
@@ -161,7 +162,8 @@ command to spin up a server hosting a model:
 ```bash
 deepsparse.server \
     --task image_classification \
-    --model_path zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/pruned95-none
+    --model_path zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/pruned95-none \
+    --port 5534
 ```
 This will start the server at `http://localhost:5543/predict`, now we can make 
 `POST` requests to the endpoint, a valid response will include the inference results,
@@ -250,4 +252,4 @@ For Neural Magic Support, sign up or log in to our [Deep Sparse Community Slack]
 [ImageNet]: https://www.image-net.org/
 [ImageNette]: https://github.com/fastai/imagenette
 [DeepSparse]: https://github.com/neuralmagic/sparseml
-[Client]: #Client
+[Client]: #Clie
