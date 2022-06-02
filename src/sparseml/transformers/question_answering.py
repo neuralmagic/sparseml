@@ -477,7 +477,7 @@ def main():
     # Preprocessing is slighlty different for training and evaluation.
     if training_args.do_train:
         column_names = raw_datasets["train"].column_names
-    elif training_args.do_eval:
+    elif training_args.do_eval or data_args.num_export_samples > 0:
         column_names = raw_datasets["validation"].column_names
     else:
         column_names = raw_datasets["test"].column_names
@@ -666,7 +666,7 @@ def main():
 
         return tokenized_examples
 
-    if training_args.do_eval:
+    if training_args.do_eval or data_args.num_export_samples > 0:
         if "validation" not in raw_datasets:
             raise ValueError("--do_eval requires a validation dataset")
         eval_examples = raw_datasets["validation"]
@@ -777,7 +777,9 @@ def main():
         args=training_args,
         data_args=data_args,
         train_dataset=train_dataset if training_args.do_train else None,
-        eval_dataset=eval_dataset if training_args.do_eval else None,
+        eval_dataset=eval_dataset
+        if training_args.do_eval or data_args.num_export_samples > 0
+        else None,
         eval_examples=eval_examples if training_args.do_eval else None,
         tokenizer=tokenizer,
         data_collator=data_collator,
