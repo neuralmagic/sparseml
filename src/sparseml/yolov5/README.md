@@ -2,7 +2,7 @@
 This directory combines the SparseML recipe-driven approach with the 
 [ultralytics/yolov5](https://github.com/ultralytics/yolov5) repository.
 By integrating the robust training flows in the `yolov5` repository with the SparseML code base, we enable model sparsification techniques on the popular [YOLOv5 architecture](https://github.com/ultralytics/yolov5/issues/280)
-as well as the updated [YOLOV5x6 architecture](https://github.com/ultralytics/yolov5/releases/tag/v5.0),
+as well as the updated [YOLOV5-P6 architecture](https://github.com/ultralytics/yolov5/releases/tag/v5.0),
 creating smaller and faster deployable versions.
 The techniques include, but are not limited to:
 - Pruning
@@ -12,8 +12,8 @@ The techniques include, but are not limited to:
 After training, the model can be deployed with Neural Magic's DeepSparse Engine. The engine enables inference with GPU-class performance directly on your CPU.
 
 This integration enables spinning up one of the following end-to-end functionalities:
-- **Sparsification of YOLOv5 Models** - easily sparsify any of the YOLOV5 and YOLOV5x6 models, from YOLOv5n to YOLOv5x models. 
-- **Sparse Transfer Learning** - fine-tune a sparse backbone model (or use one of our [sparse pre-trained models](https://sparsezoo.neuralmagic.com/?domain=cv&sub_domain=detection&page=1)) on your own, private dataset.
+- **Sparsification of YOLOv5 Models** - easily sparsify any of the YOLOV5 and YOLOV5-P6 models, from YOLOv5n to YOLOv5x models. 
+- **Sparse Transfer Learning** - fine-tune a sparse backbone model (or use one of our [sparse pre-trained models](https://sparsezoo.neuralmagic.com/?domain=cv&sub_domain=detection&page=1)) on your own private dataset.
 
 ## Installation
 

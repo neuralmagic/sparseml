@@ -52,7 +52,7 @@ pruning_modifiers:
     mask_type: *pruning_mask_type
     num_grads: 256
     fisher_block_size: 2000
-    available_gpus: ["cuda:0"]
+    available_devices: ["cuda:0"]
 
   - !SetWeightDecayModifier
     weight_decay: 0.0
@@ -64,7 +64,7 @@ This recipe prunes a MobileNet model to 95% sparsity over 3 epochs using the M-F
 
 * This recipe must be run at train batch size 32. If running at a different batch size,
     the learning rate and number of M-FAC gradients should be adjusted accordingly
-* `available_gpus` should be updated based on the devices available on the system.
+* `available_devices` should be updated based on the devices available on the system.
     If no GPU is available, then it should be removed
 * This recipe is for demonstration purposes only; in practice a larger dataset and longer pruning
     schedule should be used to obtain best results
