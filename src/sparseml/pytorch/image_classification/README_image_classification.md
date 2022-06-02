@@ -157,7 +157,7 @@ To learn more, refer to the [appropriate documentation in the DeepSparse reposit
 #### Server
 We also provide a `deepsparse.server` utility for quick deployment, 
 just install [DeepSparse] using `pip install deepsparse[server]` and use the following 
-command to spin up a server hosting a model: 
+command to spin up a server hosting a model at `port 5543`: 
 
 ```bash
 deepsparse.server \
@@ -167,76 +167,7 @@ deepsparse.server \
 ```
 This will start the server at `http://localhost:5543/predict`, now we can make 
 `POST` requests to the endpoint, a valid response will include the inference results,
-An example client is given in [Client]
-
-#### Client
-
-The following client can be used to make requests to an image classification 
-[DeepSparse] server.
-
-`imagenet_client.py`
-```python
-from glob import glob
-import pathlib
-
-import click
-import requests
-import cv2
-
-default_url = "http://localhost:5543/predict"
-
-
-@click.command()
-@click.option(
-    '--url',
-    default=default_url,
-    help='The URL to the server',
-    show_default=True,
-)
-@click.option(
-    '--data',
-    '--data',
-    default="data",
-    type=click.Path(exists=True, file_okay=True, dir_okay=True),
-)
-@click.option(
-    '--max_samples',
-    '--max-samples',
-    default=100,
-    type=int,
-    help='The maximum number of samples to test',
-)
-def main(url, data, max_samples):
-    input_path = pathlib.Path(data)
-    input_file_names = (
-        glob(f"{data}/*.jpg") + glob(f"{data}/*.jpeg") + glob(f"{data}/*.JPEG")
-        if input_path.is_dir()
-        else [data]
-    )
-
-    for index, image_path in enumerate(input_file_names):
-        if index >= max_samples:
-            break
-
-        image = cv2.imread(image_path)
-        image = cv2.resize(image, (224, 224))
-        payload = {
-            "images": [image.tolist()]
-        }
-        response = requests.post(url, json=payload)
-        print(response.json())
-
-
-
-if __name__ == '__main__':
-    main()
-```
-
-Invoke the client for 10 samples as follows:
-```bash
-python imagenet_client.py --data PATH/TO/IMAGE/DIRECTORY \
-    --max-samples 10
-```
+An example client is given in [DeepSparse Image Classification Documentation]
 
 ## Support
 
@@ -252,4 +183,4 @@ For Neural Magic Support, sign up or log in to our [Deep Sparse Community Slack]
 [ImageNet]: https://www.image-net.org/
 [ImageNette]: https://github.com/fastai/imagenette
 [DeepSparse]: https://github.com/neuralmagic/sparseml
-[Client]: #Client
+[DeepSparse Image Classification Documentation]: https://github.com/neuralmagic/deepsparse/tree/main/src/deepsparse/image_classification/README.md
