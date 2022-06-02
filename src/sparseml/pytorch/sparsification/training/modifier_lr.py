@@ -547,7 +547,7 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
     def _step_exponential(self, epoch: float, steps_per_epoch: int):
         start_step = self.start_epoch * steps_per_epoch
         # get current step
-        current_step  = (epoch - self.start_epoch) * steps_per_epoch
+        current_step  = epoch * steps_per_epoch
         # decay steps
         decay_steps = self._decay_epochs * steps_per_epoch
         lr = self.init_lr * self._decay_rate ** (math.floor((current_step - start_step) / decay_steps))
@@ -556,8 +556,8 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
 
     def _exponential(self, epoch: float, steps_per_epoch: int):
         start_step   = self.start_epoch * steps_per_epoch
-        decay_steps  = self._decay_epochs * self._decay_rate
-        current_step = (epoch - self.start_epoch) * steps_per_epoch
+        decay_steps  = self._decay_epochs * steps_per_epoch
+        current_step = epoch * steps_per_epoch
         lr = self.init_lr * self._decay_rate ** ((current_step - start_step) / decay_steps)
         # min lr is final_lr
         lr = max(lr, self.final_lr)
@@ -569,7 +569,7 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         start_step  = self.start_epoch * steps_per_epoch
         cycle_steps = self.cycle_epochs * steps_per_epoch
         decay_steps = self._decay_epochs * steps_per_epoch
-        current_step = (epoch - self.start_epoch) * steps_per_epoch
+        current_step = epoch * steps_per_epoch
         # crop current step to the current cycle
         current_step = min(max(current_step, start_step), end_step) % cycle_steps
         lr = self.init_lr * self._decay_rate ** ((current_step - start_step) / decay_steps)
@@ -583,7 +583,7 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         start_step  = self.start_epoch * steps_per_epoch
         cycle_steps = self.cycle_epochs * steps_per_epoch
         decay_steps = self._decay_epochs * steps_per_epoch
-        current_step = (epoch - self.start_epoch) * steps_per_epoch
+        current_step = epoch * steps_per_epoch
         # crop current step to the current cycle
         current_step = min(max(current_step, start_step), end_step) % cycle_steps
         lr = self.init_lr * self._decay_rate ** (math.floor((current_step - start_step) / decay_steps))
@@ -598,7 +598,7 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         cycle_steps  = self.cycle_epochs * steps_per_epoch
         warmup_steps = self.cycle_warmup * steps_per_epoch
         # get current step and cycle idx
-        current_step  = (epoch - self.start_epoch) * steps_per_epoch
+        current_step  = epoch * steps_per_epoch
         # clamp steps
         current_step = min(max(current_step, start_step), end_step) % cycle_steps
         current_cycle = max(epoch - self.start_epoch, 0.0) // self.cycle_epochs
