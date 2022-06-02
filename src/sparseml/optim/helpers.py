@@ -348,7 +348,7 @@ def check_if_staged_recipe(container: dict) -> bool:
     for k, v in container.items():
         if isinstance(v, dict):
             if any(
-                [key for key in v.keys() if isinstance(key, str) and "modifiers" in key]
+                key for key in v.keys() if isinstance(key, str) and "modifiers" in key
             ):
                 return True
     return False
