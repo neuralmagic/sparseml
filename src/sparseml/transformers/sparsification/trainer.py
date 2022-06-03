@@ -386,6 +386,8 @@ class RecipeManagerTrainerInterface:
             teacher_inputs = None
 
         loss = student_outputs["loss"]
+        if self.args.n_gpu > 1:  # DataParallel
+            loss = loss.mean()
         loss = self.manager.loss_update(
             loss,
             model,
@@ -499,7 +501,11 @@ class RecipeManagerTrainerInterface:
         os.makedirs(sample_out_dir, exist_ok=True)
         device = self.model.device
 
-        dataloader = self.get_val_dataloader() or self.get_train_dataloader()
+        try:
+            dataloader = self.get_val_dataloader()
+        except Exception:
+            dataloader = self.get_train_dataloader()
+
         _LOGGER.info(f"Exporting {num_samples_to_export} samples to {output_dir}")
         for _, sample_batch in enumerate(dataloader):
             sample_batch.pop("labels", None)
@@ -656,30 +662,33 @@ class RecipeManagerTrainerInterface:
         )
 
     def _mfac_data_loader(self):
-        data_loader_template = self.get_train_dataloader()
+        def dataloader():
+            data_loader_template = self.get_train_dataloader()
 
-        data_loader = torch.utils.data.DataLoader(
-            dataset=data_loader_template.dataset,
-            batch_size=data_loader_template.batch_size // 2,
-            sampler=RandomSampler(data_loader_template.dataset, replacement=False),
-            num_workers=data_loader_template.num_workers,
-            collate_fn=data_loader_template.collate_fn,
-            pin_memory=data_loader_template.pin_memory,
-            drop_last=data_loader_template.drop_last,
-            timeout=data_loader_template.timeout,
-            worker_init_fn=data_loader_template.worker_init_fn,
-            generator=data_loader_template.generator,
-            prefetch_factor=data_loader_template.prefetch_factor,
-            persistent_workers=data_loader_template.persistent_workers,
-        )
+            data_loader = torch.utils.data.DataLoader(
+                dataset=data_loader_template.dataset,
+                batch_size=data_loader_template.batch_size // 2,
+                sampler=RandomSampler(data_loader_template.dataset, replacement=False),
+                num_workers=data_loader_template.num_workers,
+                collate_fn=data_loader_template.collate_fn,
+                pin_memory=data_loader_template.pin_memory,
+                drop_last=data_loader_template.drop_last,
+                timeout=data_loader_template.timeout,
+                worker_init_fn=data_loader_template.worker_init_fn,
+                generator=data_loader_template.generator,
+                prefetch_factor=data_loader_template.prefetch_factor,
+                persistent_workers=data_loader_template.persistent_workers,
+            )
 
-        for sample in data_loader:
-            if self.label_smoother is not None and "labels" in sample:
-                label = sample.pop("labels")
-            else:
-                label = None
-            sample = self._prepare_inputs(sample)
-            yield [], sample, label
+            for sample in data_loader:
+                if self.label_smoother is not None and "labels" in sample:
+                    label = sample.pop("labels")
+                else:
+                    label = None
+                sample = self._prepare_inputs(sample)
+                yield [], sample, label
+
+        return dataloader
 
     def _mfac_loss_function(self, model_outputs, loss_target):
         if loss_target is not None:
