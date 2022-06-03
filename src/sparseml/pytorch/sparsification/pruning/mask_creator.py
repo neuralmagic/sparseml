@@ -185,7 +185,6 @@ class UnstructuredPruningMaskCreator(PruningMaskCreator):
         if tensor.numel() < 1 or sparsity <= 0.0 or sparsity > 1.0:
             return tensor.new_tensor([])
 
-        sorted_vals, _ = torch.sort(tensor.view(-1))
         lookup_index = round(sparsity * tensor.numel()) - 1
 
         if lookup_index < 0:
@@ -193,7 +192,7 @@ class UnstructuredPruningMaskCreator(PruningMaskCreator):
         elif lookup_index > tensor.numel():
             lookup_index = tensor.numel()
 
-        return sorted_vals[lookup_index]
+        return torch.kthvalue(tensor.view(-1), lookup_index + 1)[0]
 
     def _flatten_and_stack_tensors(self, tensors: List[Tensor]) -> Tensor:
         total_elements = sum(tensor.numel() for tensor in tensors)
