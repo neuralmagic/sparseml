@@ -96,7 +96,7 @@ sparseml.yolov5.train \
 Once you sparsify a model using SparseML, you can easily sparse fine-tune it on a new dataset.
 While you are free to use your backbone, we encourage you to leverage one of our [sparse pre-trained models](https://sparsezoo.neuralmagic.com) to boost your productivity!
 
-In the example below, we fetch a pruned, quantized BERT model, pre-trained on Wikipedia and Bookcorpus datasets. We then fine-tune the model to the SQuAD dataset. 
+In the example below, we fetch a pruned, quantized YOLOv5s model, pre-trained on the COCO dataset. We then fine-tune the model to the VOC dataset. 
 ```bash
 sparseml.yolov5.train \
   --data VOC.yaml \
