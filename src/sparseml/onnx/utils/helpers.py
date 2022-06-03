@@ -24,10 +24,10 @@ from typing import Any, Dict, List, NamedTuple, Tuple, Union
 
 import numpy
 import onnx
-import onnxruntime
 from onnx import ModelProto, NodeProto, TensorProto, numpy_helper
 from onnx.helper import get_attribute_value, make_empty_tensor_value_info
 
+from sparseml.onnx.base import require_onnxruntime
 from sparseml.utils import clean_path
 
 
@@ -234,6 +234,7 @@ NodeShape = NamedTuple(
 )
 
 
+@require_onnxruntime()
 def extract_nodes_shapes_ort(model: ModelProto) -> Dict[str, List[List[int]]]:
     """
     Creates a modified model to expose intermediate outputs and runs an ONNX Runtime
@@ -242,6 +243,8 @@ def extract_nodes_shapes_ort(model: ModelProto) -> Dict[str, List[List[int]]]:
     :param model: an ONNX model
     :return: a list of NodeArg with their shape exposed
     """
+    import onnxruntime  # import protected by @require_onnxruntime()
+
     model_copy = deepcopy(model)
 
     for node in model_copy.graph.node:
@@ -252,7 +255,17 @@ def extract_nodes_shapes_ort(model: ModelProto) -> Dict[str, List[List[int]]]:
 
     sess_options = onnxruntime.SessionOptions()
     sess_options.log_severity_level = 3
-    sess = onnxruntime.InferenceSession(model_copy.SerializeToString(), sess_options)
+    providers = (
+        ["CUDAExecutionProvider", "CPUExecutionProvider"]
+        if onnxruntime.get_device() == "GPU"
+        else ["CPUExecutionProvider"]
+    )
+
+    sess = onnxruntime.InferenceSession(
+        model_copy.SerializeToString(),
+        sess_options=sess_options,
+        providers=providers,
+    )
 
     output_shapes = {}
     for node in sess.get_outputs() + sess.get_inputs():

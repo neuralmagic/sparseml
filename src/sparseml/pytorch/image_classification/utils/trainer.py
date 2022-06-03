@@ -191,7 +191,9 @@ class ImageClassificationTrainer(Trainer):
         :returns: Results from validation or training run
         """
         train_mode = mode == "train"
-        validation_mode = not train_mode
+        validation_mode = mode == "val"
+        if not (train_mode or validation_mode):
+            raise ValueError(f"Invalid train mode '{mode}', must be 'train' or 'val'")
 
         if torch.__version__ < "1.9" and self.manager.qat_active(epoch=self.epoch):
             # switch off fp16
@@ -292,6 +294,7 @@ class ImageClassificationTrainer(Trainer):
             return self.module_tester.run_epoch(
                 self.val_loader,
                 epoch=-1 if baseline_run else self.epoch,
+                max_epochs=-1 if baseline_run else self.max_epochs,
                 max_steps=max_steps,
             )
 
@@ -314,6 +317,7 @@ class ImageClassificationTrainer(Trainer):
         return self.module_trainer.run_epoch(
             data_loader=self.train_loader,
             epoch=self.epoch,
+            max_epochs=self.max_epochs,
             max_steps=max_steps,
             show_progress=self.is_main_process,
         )
