@@ -32,11 +32,7 @@ try:
 
     onnxruntime_err = None
 
-except ModuleNotFoundError as error:
-    raise error.__class__(
-        f"{error.msg}. To fix this error, install sparseml[onnxruntime]."
-    )
-
+except Exception as error:
     onnxruntime = object()  # TODO: populate with fake object for necessary imports
     onnxruntime_err = error
 
@@ -119,7 +115,13 @@ def check_onnxruntime_install(
             raise onnxruntime_err
         return False
 
-    return check_version("onnxruntime", min_version, max_version, raise_on_error)
+    return check_version(
+        "onnxruntime",
+        min_version,
+        max_version,
+        raise_on_error,
+        extra_error_message="Try installing sparseml[onnxruntime] or onnxruntime",
+    )
 
 
 def require_onnx(
