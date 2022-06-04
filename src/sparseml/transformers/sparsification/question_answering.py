@@ -21,13 +21,11 @@ Training and post-processing utilities for question answering.
 """
 
 import collections
-import inspect
 import json
 import logging
 import os
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-import datasets
 import numpy as np
 from torch.nn import Module
 from tqdm.auto import tqdm
