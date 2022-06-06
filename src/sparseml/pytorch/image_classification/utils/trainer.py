@@ -195,7 +195,11 @@ class ImageClassificationTrainer(Trainer):
         if not (train_mode or validation_mode):
             raise ValueError(f"Invalid train mode '{mode}', must be 'train' or 'val'")
 
-        if torch.__version__ < "1.9" and self.manager.qat_active(epoch=self.epoch):
+        if (
+            torch.__version__ < "1.9"
+            and self.manager
+            and (self.manager.qat_active(epoch=self.epoch))
+        ):
             # switch off fp16
             self._device_context.use_mixed_precision = False
 
