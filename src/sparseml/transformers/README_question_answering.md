@@ -112,7 +112,7 @@ To learn about the Hugging Face Transformers parameters in more detail, refer to
 The artifacts of the training process are saved to the directory `--output_dir`. Once the script terminates, the directory will have everything required to deploy or further modify the model such as:
 - The recipe (with the full description of the sparsification attributes).
 - Checkpoint files (saved in the appropriate framework format).
-- Additional configuration files (e.g. tokenizer, dataset info)
+- Additional configuration files (e.g., tokenizer, dataset info).
 
 
 ### Exporting the Sparse Model to ONNX
