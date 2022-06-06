@@ -36,7 +36,7 @@ sparseml.transformers.question_answering \
   --do_eval \                                       # run evaluation on validation set 
   --output_dir './output' \                         # output directory of the saved model
   --cache_dir cache \                               # local directory to store the downloaded hugging face model.  
-  --distill_teacher disable \                       # disable knowledge destillation
+  --distill_teacher disable \                       # disable knowledge distillation
   --recipe zoo:nlp/token_classification/bert-base/pytorch/huggingface/conll2003/12layer_pruned80_quant-none-vnni        
 ```
 
@@ -58,7 +58,7 @@ sparseml.transformers.token_classification \
 ```
 
 #### Knowledge Distillation
-By modifying the `distill_teacher` argument, you can enable [Knowledge Destillation](https://neptune.ai/blog/knowledge-distillation) (KD) functionality.
+By modifying the `distill_teacher` argument, you can enable [Knowledge Distillation](https://neptune.ai/blog/knowledge-distillation) (KD) functionality.
 
 In this example, the `--distill_teacher` argument is set to pull a dense CoNLL-2003 model from the SparseZoo to enable it to run independently of the dense teacher step:
 
