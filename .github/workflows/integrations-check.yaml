@@ -9,7 +9,8 @@ on:
       - main
       - 'release/*'
   schedule:
-  - cron: 0 0 * * *
+  // Every day at midnight
+  - cron: 0 4 * * *
   // Every Sunday at 9 am EST
   - cron: 0 13 * * 6
 
