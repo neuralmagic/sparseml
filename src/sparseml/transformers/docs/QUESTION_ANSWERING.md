@@ -37,7 +37,7 @@ sparseml.transformers.question_answering \
   --do_eval \                                       # run evaluation on validation set 
   --output_dir './output' \                         # output directory of the saved model
   --cache_dir cache \                               # local directory to store the downloaded hugging face model.  
-  --distill_teacher disable \                       # disable knowledge destillation
+  --distill_teacher disable \                       # disable knowledge distillation
   --recipe zoo:nlp/question_answering/bert-base/pytorch/huggingface/squad/pruned-aggressive_98          
 ```
 
