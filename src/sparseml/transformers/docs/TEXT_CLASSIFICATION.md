@@ -1,37 +1,28 @@
 # SparseML Transformer Text Classification Integration
 
 
-SparseML Text Classification pipeline integrates with Hugging Face’s Transformers library to enable the sparsification of any transformer model.
-Sparsification is a powerful feature that results in faster, smaller, and cheaper deployable Transformer models. 
-The sparse model can be eventually deployed to Neural Magic's DeepSparse Engine. This allows running the inference with GPU-class performance directly on your CPU.
+SparseML Text Classification pipeline integrates with Hugging Face’s Transformers library to enable the sparsification of a large set of transformers models.
+Sparsification is a powerful technique that results in faster, smaller, and cheaper deployable models. 
+After training, the model can be deployed with Neural Magic's DeepSparse Engine. The engine enables inference with GPU-class performance directly on your CPU.
 
 This integration enables spinning up one of the following end-to-end functionalities:
-- **Sparsification of Popular Transformer Models** - easily sparsify any of the popular Hugging Face transformer models. 
-- **Sparse Transfer Learning** - fine-tune a sparse backbone model (or use one of our [sparse pre-trained models](https://sparsezoo.neuralmagic.com/?domain=nlp&sub_domain=text_classification)) on your own, private dataset.
+- **Sparsification of Popular Transformer Models** - easily sparsify any popular Hugging Face Transformer model. 
+- **Sparse Transfer Learning** - fine-tune a sparse backbone model (or use one of our [sparse pre-trained models](https://sparsezoo.neuralmagic.com/?domain=nlp&sub_domain=text_classification)) on your own private dataset.
 
 ## Installation
 
 ```pip install sparseml[torch]```
-
 It is recommended to run Python 3.8 as some of the scripts within the transformers repository require it.
-
 Note: Transformers will not immediately install with this command. Instead, a sparsification-compatible version of Transformers will install on the first invocation of the Transformers code in SparseML.
 
 ## Tutorials
-
 - [Sparse Sentiment Analysis with BERT](https://neuralmagic.com/use-cases/sparse-sentiment-analysis/)
 - [Crypto Sentiment Analysis example](https://github.com/neuralmagic/deepsparse/tree/500d132f27e97547b752c99dd06e17b8e53a1ba8/examples/twitter-nlp) + [accompanying video](https://www.youtube.com/watch?v=7UTKt-PDLvk)
-
 ## Getting Started
-
-### Sparsification of Popular Transformer Models
-
-Sparse ML Hugging Face Text Classification integration allows sparsifying any dense transformer.
-
-In the example below, a dense BERT model is trained on the Multi-Genre Natural Language Inference (MultiNLI) dataset. By passing the recipe `zoo:nlp/text_classification/bert-base/pytorch/huggingface/mnli/12layer_pruned90-none` (located in [SparseZoo](https://sparsezoo.neuralmagic.com/models/nlp%2Ftext_classification%2Fbert-base%2Fpytorch%2Fhuggingface%2Fmnli%2F12layer_pruned90-none)) we modify (sparsify) the training process and/or the model.
-
-```python
-sparseml.transformers.text_classification \
+### Sparsifying Popular Transformer Models
+In the example below, a dense BERT model is trained on the SQuAD dataset. By passing the recipe `zoo:nlp/question_answering/bert-base/pytorch/huggingface/squad/pruned-aggressive_98` (located in [SparseZoo](https://sparsezoo.neuralmagic.com/models/nlp%2Fquestion_answering%2Fbert-base%2Fpytorch%2Fhuggingface%2Fsquad%2Fpruned-aggressive_98)) we modify (sparsify) the training process and/or the model.
+```bash
+sparseml.transformers.question_answering \
   --model_name_or_path bert-base-uncased \          # name of the Hugging Face dense model
   --task_name mnli \                                # name of the task we want to sparse train on
   --do_train \                                      # run training
@@ -48,7 +39,7 @@ Once you sparsify a model using SparseML, you can easily sparse fine-tune it on 
 While you are free to use your backbone, we encourage you to leverage one of our [sparse pre-trained models](https://sparsezoo.neuralmagic.com) to boost your productivity!
 
 In the example below, we fetch a pruned, quantized BERT model, pre-trained on Wikipedia and Bookcorpus datasets. We then fine-tune the model to the SST2 dataset. 
-```python
+```bash
 sparseml.transformers.text_classification \
     --model_name_or_path zoo:nlp/masked_language_modeling/bert-base/pytorch/huggingface/wikipedia_bookcorpus/12layer_pruned80_quant-none-vnni \
     --task_name sst2 \
@@ -60,7 +51,7 @@ sparseml.transformers.text_classification \
 ```
 
 #### Knowledge Distillation
-By modifying the `distill_teacher` argument, you can enable [Knowledge Destillation](https://neptune.ai/blog/knowledge-distillation) (KD) functionality.
+By modifying the `distill_teacher` argument, you can enable [Knowledge Distillation](https://neptune.ai/blog/knowledge-distillation) (KD) functionality.
 
 In this example, the `--distill_teacher` argument is set to pull a dense SST2 model from the SparseZoo to enable it to run independently of the dense teacher step:
 
@@ -110,9 +101,11 @@ To learn about the Hugging Face Transformers parameters in more detail, refer to
 
 ## Once the Training is Done...
 
-The artifacts of the training process are saved to the directory `--output_dir`. Once the script terminates, you should find there everything required to deploy or further modify the model. 
+The artifacts of the training process are saved to the directory `--output_dir`. Once the script terminates, the directory will have everything required to deploy or further modify the model such as:
+- The recipe (with the full description of the sparsification attributes).
+- Checkpoint files (saved in the appropriate framework format).
+- Additional configuration files (e.g., tokenizer, dataset info).
 
-This includes the recipe (with the full description of the sparsification attributes), checkpoint files (saved in the appropriate framework format), Hugging Face Transformer's specific files (e.g. the tokenizer), etc.
 
 ### Exporting the Sparse Model to ONNX
 
@@ -127,16 +120,15 @@ sparseml.transformers.export_onnx \
 
 ### DeepSparse Engine Deployment
 
-Once the model is exported an ONNX format, it is ready for deployment with the DeepSparse Engine. 
+Once the model is exported in the ONNX format, it is ready for deployment with the DeepSparse Engine. 
 
 The deployment is intuitive due to the DeepSparse Python API.
 
 ```python
-from deepsparse.transformers import pipeline
-
-tc_pipeline = pipeline(
-    task="text-classification",
-    model_path='./output'
+from deepsparse import Pipeline
+tc_pipeline = Pipeline.create(
+  task="text-classification", 
+  model_path='./output'
 )
 
 inference = tc_pipeline("Snorlax loves my Tesla!")
