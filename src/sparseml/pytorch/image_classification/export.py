@@ -13,7 +13,7 @@
 # limitations under the License.
 
 """
-√ΩUsage: sparseml.image_classification.export_onnx [OPTIONS]
+Usage: export.py [OPTIONS]
 
   SparseML-PyTorch Integration for exporting image classification models to
   onnx along with sample inputs and outputs
@@ -24,11 +24,11 @@ Options:
                                   Set to `imagefolder` for a generic dataset
                                   setup with imagefolder type structure like
                                   imagenet or loadable by a dataset in
-                                  `sparseml.pytorch.datasets`  [required]
+                                  `sparseml.pytorch.datasets`
   --dataset-path, --dataset_path DIRECTORY
                                   The root dir path where the dataset is
                                   stored or should be downloaded to if
-                                  available  [required]
+                                  available
   --checkpoint-path, --checkpoint_path TEXT
                                   A path to a previous checkpoint to load the
                                   state from and resume the state for
@@ -41,13 +41,12 @@ Options:
                                   The number of samples to export along with
                                   the model onnx and pth files (sample inputs
                                   and labels as well as the outputs from model
-                                  execution)  [default: 100]
-  --onnx-opset, --onnx_opset INTEGER
+                                  execution)  [default: -1]
+   --onnx-opset, --onnx_opset INTEGER
                                   The onnx opset to use for exporting the
                                   model  [default: 11]
-  --use_zipfile_serialization_if_available,
-  --use-zipfile-serialization-if-available / --no_zipfile_serialization,
-  --no-zipfile-serialization
+  --use_zipfile_serialization_if_available, --use-zipfile-serialization-if-available /
+  --no_zipfile_serialization, --no-zipfile-serialization
                                   For torch >= 1.6.0 only exports the Module's
                                   state dict using the new zipfile
                                   serialization. Default is True, has no
@@ -82,7 +81,18 @@ Options:
                                   The size of the image input to the model.
                                   Value should be equal to S for [C, S, S] or
                                   [S, S, C] dimensional input  [default: 224]
+  --recipe TEXT                   The path to a recipe file or SparseZoo stub
+                                  to use for exporting the model
+  --convert_qat, --convert-qat / --no_convert_qat, --no-convert-qat
+                                  if True, exports of torch QAT graphs will be
+                                  converted to a fully quantized
+                                  representation. Default is True  [default:
+                                  convert_qat]
+  --num-classes, --num_classes INTEGER
+                                  number of classes for model; must be set if
+                                  a dataset is not provided
   --help                          Show this message and exit.
+
 
 ##########
 Example command for exporting ResNet50:
@@ -94,6 +104,7 @@ sparseml.image_classification.export_onnx \
 import json
 from typing import Any, Dict, Optional, Union
 
+import torch
 from torch.nn import Module
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -101,7 +112,8 @@ from tqdm import tqdm
 import click
 from sparseml import get_main_logger
 from sparseml.pytorch.image_classification.utils import cli_helpers, helpers
-from sparseml.pytorch.utils import ModuleExporter
+from sparseml.pytorch.optim import ScheduledModifierManager
+from sparseml.pytorch.utils import ModuleExporter, load_model
 
 
 CURRENT_TASK = helpers.Tasks.EXPORT
@@ -112,7 +124,7 @@ LOGGER = get_main_logger()
 @click.option(
     "--dataset",
     type=str,
-    required=True,
+    default=None,
     help="The dataset used for training, "
     "ex: `imagenet`, `imagenette`, `cifar10`, etc. "
     "Set to `imagefolder` for a generic dataset setup with "
@@ -124,7 +136,7 @@ LOGGER = get_main_logger()
     "--dataset_path",
     type=click.Path(dir_okay=True, file_okay=False),
     callback=cli_helpers.create_dir_callback,
-    required=True,
+    default=None,
     help="The root dir path where the dataset is stored or should "
     "be downloaded to if available",
 )
@@ -149,7 +161,7 @@ LOGGER = get_main_logger()
     "--num-samples",
     "--num_samples",
     type=int,
-    default=100,
+    default=-1,
     show_default=True,
     help="The number of samples to export along with the model onnx "
     "and pth files (sample inputs and labels as well as the "
@@ -239,6 +251,28 @@ LOGGER = get_main_logger()
     help="The size of the image input to the model. Value should be "
     "equal to S for [C, S, S] or [S, S, C] dimensional input",
 )
+@click.option(
+    "--recipe",
+    type=str,
+    default=None,
+    help="The path to a recipe file or SparseZoo stub to use for exporting the model",
+)
+@click.option(
+    "--convert_qat/--no_convert_qat",
+    "--convert-qat/--no-convert-qat",
+    default=True,
+    show_default=True,
+    help="if True, exports of torch QAT graphs will be converted to a fully quantized "
+    "representation. Default is True",
+)
+@click.option(
+    "--num-classes",
+    "--num_classes",
+    type=int,
+    default=None,
+    show_default=True,
+    help="number of classes for model; must be set if a dataset is not provided",
+)
 def main(
     dataset: str,
     dataset_path: str,
@@ -254,55 +288,64 @@ def main(
     model_tag: Optional[str],
     save_dir: str,
     image_size: int,
+    recipe: Optional[str],
+    convert_qat: bool,
+    num_classes: int,
 ):
     """
     SparseML-PyTorch Integration for exporting image classification models to
     onnx along with sample inputs and outputs
     """
-    local_rank: int = -1
-    is_main_process: bool = True
+    _validate_dataset_num_classes(dataset, dataset_path, num_samples, num_classes)
 
     save_dir, loggers = helpers.get_save_dir_and_loggers(
         task=CURRENT_TASK,
-        is_main_process=is_main_process,
+        is_main_process=True,
         save_dir=save_dir,
         arch_key=arch_key,
         model_tag=model_tag,
-        dataset_name=dataset,
+        dataset_name=dataset or "",
     )
 
-    val_dataset, val_loader = helpers.get_dataset_and_dataloader(
-        dataset_name=dataset,
-        dataset_path=dataset_path,
-        batch_size=1,
-        image_size=image_size,
-        dataset_kwargs=dataset_kwargs,
-        training=False,
-        loader_num_workers=1,
-        loader_pin_memory=False,
-        max_samples=num_samples,
-    )
-
-    train_dataset = None
+    if dataset:
+        val_dataset, val_loader = helpers.get_dataset_and_dataloader(
+            dataset_name=dataset,
+            dataset_path=dataset_path,
+            batch_size=1,
+            image_size=image_size,
+            dataset_kwargs=dataset_kwargs,
+            training=False,
+            loader_num_workers=1,
+            loader_pin_memory=False,
+            max_samples=num_samples,
+        )
+    else:
+        val_dataset = None
+        val_loader = None
 
     # model creation
-    num_classes = helpers.infer_num_classes(
-        train_dataset=train_dataset,
-        val_dataset=val_dataset,
-        dataset=dataset,
-        model_kwargs=model_kwargs,
-    )
-    model, arch_key = helpers.create_model(
-        checkpoint_path=checkpoint_path,
-        recipe_path=None,
+    if num_classes is None:
+        num_classes = helpers.infer_num_classes(
+            train_dataset=None,
+            val_dataset=val_dataset,
+            dataset=dataset,
+            model_kwargs=model_kwargs,
+        )
+
+    model, arch_key, _ = helpers.create_model(
+        checkpoint_path=checkpoint_path if recipe is None else None,
+        recipe_path=recipe,
         num_classes=num_classes,
         arch_key=arch_key,
         pretrained=pretrained,
         pretrained_dataset=pretrained_dataset,
-        local_rank=local_rank,
+        local_rank=-1,
         **model_kwargs,
     )
 
+    if recipe is not None:
+        ScheduledModifierManager.from_yaml(recipe).apply_structure(model)
+        load_model(checkpoint_path, model, strict=True)
     export(
         model=model,
         val_loader=val_loader,
@@ -310,6 +353,8 @@ def main(
         use_zipfile_serialization_if_available=use_zipfile_serialization_if_available,
         num_samples=num_samples,
         onnx_opset=onnx_opset,
+        convert_qat=convert_qat,
+        image_size=image_size,
     )
 
 
@@ -320,6 +365,8 @@ def export(
     use_zipfile_serialization_if_available: bool,
     num_samples: int,
     onnx_opset: int = 11,
+    convert_qat: bool = True,
+    image_size: int = 224,
 ) -> None:
     """
     Utility method to export the model and data
@@ -331,6 +378,9 @@ def export(
         serialization during export
     :param num_samples: Number of samples to export
     :param onnx_opset: ONNX opset version to use
+    :param convert_qat: set True to convert QAT export to fully quantized
+        representation
+    :param image_size: size of image to export
     """
     exporter = ModuleExporter(model, save_dir)
 
@@ -342,6 +392,10 @@ def export(
     )
     onnx_exported = False
 
+    if not val_loader:
+        # create fake data for export
+        val_loader = [[torch.randn(1, 3, image_size, image_size)]]
+
     for batch, data in tqdm(
         enumerate(val_loader),
         desc="Exporting samples",
@@ -350,13 +404,35 @@ def export(
         if not onnx_exported:
             # export onnx file using first sample for graph freezing
             LOGGER.info(f"exporting onnx in {save_dir}")
-            exporter.export_onnx(data[0], opset=onnx_opset, convert_qat=True)
+            exporter.export_onnx(data[0], opset=onnx_opset, convert_qat=convert_qat)
             onnx_exported = True
 
         if num_samples > 0:
             exporter.export_samples(
                 sample_batches=[data[0]], sample_labels=[data[1]], exp_counter=batch
             )
+
+
+def _validate_dataset_num_classes(
+    dataset: str,
+    dataset_path: str,
+    num_samples: int,
+    num_classes: int,
+):
+    if dataset and not dataset_path:
+        raise ValueError(f"found dataset {dataset} but dataset_path not specified")
+    if dataset_path and not dataset:
+        raise ValueError(f"found dataset_path {dataset_path} but dataset not specified")
+    if num_classes is None and (not dataset or not dataset_path):
+        raise ValueError(
+            "If num_classes is not provided, both dataset and dataset_path must be "
+            "set to infer num_classes"
+        )
+    if num_samples > 0 and (not dataset or not dataset_path):
+        raise ValueError(
+            "If num_samples > 0, both dataset and dataset_path must be "
+            "set to load samples for export"
+        )
 
 
 if __name__ == "__main__":

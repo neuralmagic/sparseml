@@ -23,7 +23,7 @@ import warnings
 from collections import OrderedDict, namedtuple
 from contextlib import contextmanager
 from copy import deepcopy
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple, Union
 
 import numpy
 import torch
@@ -70,6 +70,7 @@ __all__ = [
     "tensors_export",
     "tensor_density",
     "tensor_sparsity",
+    "tensor_list_sparsity",
     "tensor_sample",
     "mask_difference",
     "get_layer",
@@ -121,7 +122,7 @@ def default_device() -> str:
 def device_of(inputs: Any):
     if isinstance(inputs, Tensor):
         return inputs.device
-    elif isinstance(inputs, Dict):
+    elif isinstance(inputs, Mapping):
         for tens in inputs.values():
             return device_of(tens)
     elif isinstance(inputs, Iterable):
@@ -356,7 +357,7 @@ def tensors_to_precision(
 
 
 def tensors_module_forward(
-    tensors: Union[Tensor, Iterable[Tensor], Dict[Any, Tensor]],
+    tensors: Union[Tensor, Iterable[Tensor], Mapping[Any, Tensor]],
     module: Module,
     check_feat_lab_inp: bool = True,
 ) -> Any:
@@ -391,7 +392,7 @@ def tensors_module_forward(
     if isinstance(tensors, Tensor):
         return module(tensors)
 
-    if isinstance(tensors, Dict):
+    if isinstance(tensors, Mapping):
         return module(**tensors)
 
     if isinstance(tensors, Iterable):
@@ -650,6 +651,19 @@ def tensor_sample(
     samples = samples.view(*(tens.shape[ind] for ind in dim), sample_size)
 
     return samples
+
+
+def tensor_list_sparsity(tensors: List[Tensor]) -> float:
+    """
+    :param tensors: the list of tensors to calculate the sparsity for
+    :return: the total sparsity of all tensors in the list
+    """
+    zeros = 0
+    numel = 0
+    for tensor in tensors:
+        zeros += (tensor == 0).sum().item()
+        numel += tensor.numel()
+    return float(zeros) / float(numel)
 
 
 def mask_difference(old_mask: Tensor, new_mask: Tensor) -> Tensor:

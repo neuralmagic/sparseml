@@ -785,6 +785,7 @@ class ModuleRunner(ABC):
         self,
         data_loader: DataLoader,
         epoch: int,
+        max_epochs: int,
         show_progress: bool = True,
         track_results: bool = True,
         max_steps: int = -1,
@@ -805,7 +806,7 @@ class ModuleRunner(ABC):
         """
         return self.run(
             data_loader,
-            "{} epoch {}".format(self._log_name, epoch),
+            "{} epoch {}/{}".format(self._log_name, epoch, max_epochs),
             epoch,
             show_progress,
             track_results,
