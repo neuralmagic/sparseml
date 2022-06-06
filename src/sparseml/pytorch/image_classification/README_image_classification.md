@@ -2,9 +2,8 @@
 
 
 [SparseML] Image Classification pipeline integrates with [torch] and [torchvision] libraries to enable the sparsification of any image classification model.
-Sparsification is a powerful feature that results in faster, smaller, and cheaper deployable models. 
-The sparse model can be eventually deployed to Neural Magic's [DeepSparse] Engine. 
-This allows running the inference with GPU-class performance directly on your CPU.
+Sparsification is a powerful technique that results in faster, smaller, and cheaper deployable models. 
+After training, the model can be deployed with Neural Magic's DeepSparse Engine. The engine enables inference with GPU-class performance directly on your CPU.
 
 This integration enables spinning up one of the following end-to-end functionalities:
 - **Sparsification of Popular Torchvision Models** - easily sparsify any popular [torchvision] image classification models. 
@@ -20,15 +19,10 @@ We recommend using a [virtualenv] to install dependencies.
 - [Sparse Transfer Learning for Image Classification](https://github.com/neuralmagic/sparseml/blob/main/integrations/pytorch/tutorials/classification_sparse_transfer_learning_tutorial.md)
 
 ## Getting Started
-
-### Sparsification of Image Classification Models
-
-[SparseML] Image Classification integration allows sparsifying any dense image classification model.
-
-A dense [ResNet] model is trained on the [ImageNette] dataset in the example below.
-By passing the recipe `zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenette/pruned-conservative?recipe_type=original` 
-(located in [SparseZoo]) we modify (sparsify) the training process and/or the model.
-
+### Sparsifying Image Classification Models
+In the example below, a dense [ResNet] model is trained on the [ImageNette] dataset.
+By passing the recipe `zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenette/pruned-conservative?recipe_type=original` (located in [SparseZoo](https://sparsezoo.neuralmagic.com/models/cv%2Fclassification%2Fresnet_v1-50%2Fpytorch%2Fsparseml%2Fimagenette%2Fpruned-conservative))
+we modify (sparsify) the training process and/or the model.
 ```bash
 sparseml.image_classification.train \
     --recipe-path "zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenette/pruned-conservative?recipe_type=original" \
@@ -117,12 +111,13 @@ To learn about sparsification in more detail, refer to [SparseML docs](https://d
 
 The artifacts of the training process are saved to `--save-dir` under `--model-tag`.
 Once the script terminates, you should find everything required to deploy or further modify the model,
-including the recipe (with the full description of the sparsification attributes), checkpoint files (saved in the appropriate framework format), etc.
+including the recipe (with the full description of the sparsification attributes), 
+checkpoint files (saved in the appropriate framework format), etc.
 
 ### Exporting the Sparse Model to ONNX
 
-The [DeepSparse] Engine uses the ONNX format to load neural networks and 
-deliver breakthrough performance for CPUs by leveraging the sparsity within a network.
+The [DeepSparse] Engine uses the ONNX format to load neural networks and then 
+deliver breakthrough performance for CPUs by leveraging the sparsity and quantization within a network.
 
 The SparseML installation provides a `sparseml.image_classification.export_onnx` 
 command that you can use to load the checkpoint and create a new `model.onnx` file. 
@@ -138,8 +133,10 @@ sparseml.image_classification.export_onnx \
 
 ### DeepSparse Engine Deployment
 
-Once the model is exported an ONNX format, it is ready for deployment with the 
-[DeepSparse] Engine. The deployment is intuitive due to the [DeepSparse] Python API.
+Once the model is exported in the ONNX format, it is ready for deployment with the 
+[DeepSparse] Engine. 
+
+The deployment is intuitive due to the [DeepSparse] Python API.
 
 ```python
 from deepsparse import pipeline
@@ -152,22 +149,9 @@ cv_pipeline = pipeline(
 input_image = ... # Read input images
 inference = cv_pipeline(images=input_image)
 ```
+
+
 To learn more, refer to the [appropriate documentation in the DeepSparse repository](https://github.com/neuralmagic/deepsparse/tree/main/examples/classification)
-
-#### Server
-We also provide a `deepsparse.server` utility for quick deployment, 
-just install [DeepSparse] using `pip install deepsparse[server]` and use the following 
-command to spin up a server hosting a model at `port 5543`: 
-
-```bash
-deepsparse.server \
-    --task image_classification \
-    --model_path zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/pruned95-none \
-    --port 5534
-```
-This will start the server at `http://localhost:5543/predict`, now we can make 
-`POST` requests to the endpoint, a valid response will include the inference results,
-An example client is given in [DeepSparse Image Classification Documentation]
 
 ## Support
 
