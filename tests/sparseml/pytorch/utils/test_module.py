@@ -342,7 +342,7 @@ def _train_helper(model, dataset, loss, optimizer, batch_size, device):
 
     trainer = ModuleTrainer(model, device, loss, optimizer)
     result = trainer.run_epoch(
-        data_loader, epoch=0, show_progress=False, track_results=True
+        data_loader, epoch=0, max_epochs=0, show_progress=False, track_results=True
     )
     assert isinstance(result, ModuleRunResults)
 
@@ -461,7 +461,7 @@ def _test_helper(model, dataset, loss, batch_size, device):
 
     tester = ModuleTester(model, device, loss)
     result = tester.run_epoch(
-        data_loader, epoch=0, show_progress=False, track_results=True
+        data_loader, epoch=0, max_epochs=0, show_progress=False, track_results=True
     )
     assert isinstance(result, ModuleRunResults)
 

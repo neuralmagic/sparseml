@@ -15,6 +15,8 @@
 """
 Helper methods for image classification/detection based tasks
 """
+
+import logging
 import os
 import warnings
 from contextlib import contextmanager
@@ -26,6 +28,7 @@ from torch.nn import Module
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader, Dataset
 
+from sparseml.optim.manager import BaseManager
 from sparseml.pytorch.datasets import DatasetRegistry
 from sparseml.pytorch.datasets.image_classification.ffcv_dataset import (
     FFCVCompatibleDataset,
@@ -50,17 +53,20 @@ from sparseml.utils import create_dirs
 from sparsezoo import Zoo
 
 
+_LOGGER = logging.getLogger(__name__)
+
 __all__ = [
     "Tasks",
     "get_save_dir_and_loggers",
     "get_dataset_and_dataloader",
     "create_model",
     "infer_num_classes",
-    "save_recipe",
     "save_model_training",
+    "write_validation_results",
     "set_seeds",
     "get_loss_wrapper",
     "ddp_aware_model_move",
+    "extract_metadata",
 ]
 
 
@@ -245,7 +251,7 @@ def create_model(
     pretrained_dataset: Optional[str] = None,
     local_rank: int = -1,
     **model_kwargs,
-) -> Tuple[Module, str]:
+) -> Tuple[Module, str, str]:
     """
     :param checkpoint_path: Path to the checkpoint to load. `zoo` for
         downloading weights with respect to a SparseZoo recipe
@@ -260,7 +266,8 @@ def create_model(
         None
     :param local_rank: The local rank of the process. Defaults to -1
     :param model_kwargs: Additional keyword arguments to pass to the model
-    :returns: A tuple containing the model and the model's arch_key
+    :returns: A tuple containing the mode, the model's arch_key, and the
+        checkpoint path
     """
     with torch_distributed_zero_first(local_rank):
         # only download once locally
@@ -283,7 +290,7 @@ def create_model(
         else:
             model, arch_key = result
 
-        return model, arch_key
+        return model, arch_key, checkpoint_path
 
 
 def infer_num_classes(
@@ -343,40 +350,39 @@ def get_arch_key(arch_key: Optional[str], checkpoint_path: Optional[str]) -> str
 
 
 # saving helpers
-
-
-def save_recipe(
-    recipe_manager: ScheduledModifierManager,
-    save_dir: str,
-):
-    """
-    :param recipe_manager: The ScheduleModified manager to save recipes
-    :param save_dir: The directory to save the recipe
-    """
-    recipe_save_path = os.path.join(save_dir, "recipe.yaml")
-    recipe_manager.save(recipe_save_path)
-    print(f"Saved recipe to {recipe_save_path}")
-
-
 def save_model_training(
     model: Module,
     optim: Optimizer,
+    manager: BaseManager,
     save_name: str,
     save_dir: str,
     epoch: int,
     val_res: Optional[ModuleRunResults],
+    checkpoint_manager: Optional[BaseManager] = None,
     arch_key: Optional[str] = None,
 ):
     """
     :param model: model architecture
-    :param optim: The optimizer used
+    :param optim: the optimizer used
+    :param manager: manager created from the training recipe
     :param save_name: name to save model to
     :param save_dir: directory to save results in
     :param epoch: integer representing umber of epochs to
     :param val_res: results from validation run
+    :param checkpoint_manager: manager created from the checkpoint recipe
     :param arch_key: if provided, the `arch_key` will be saved in the
         checkpoint
     """
+
+    save_message_shown = False
+    recipe = str(
+        ScheduledModifierManager.compose_staged(
+            base_recipe=checkpoint_manager, additional_recipe=manager
+        )
+        if checkpoint_manager
+        else str(manager)
+    )
+
     if val_res is not None:
         has_top1 = "top1acc" in val_res.results
         metric_name = "top-1 accuracy" if has_top1 else "val_loss"
@@ -385,25 +391,43 @@ def save_model_training(
             f"Saving model for epoch {epoch} and {metric_name} "
             f"{metric} to {save_dir} for {save_name}"
         )
+        save_message_shown = True
     exporter = ModuleExporter(model, save_dir)
     exporter.export_pytorch(
-        optim,
-        epoch,
-        f"{save_name}.pth",
+        optimizer=optim,
+        epoch=epoch,
+        recipe=recipe,
+        name=f"{save_name}.pth",
         arch_key=arch_key,
     )
-    info_path = os.path.join(save_dir, f"{save_name}.txt")
 
+    info_path = os.path.join(save_dir, f"{save_name}.txt")
+    write_validation_results(info_path, val_res, epoch=epoch)
+
+    if not save_message_shown:
+        print(f"Saving model for epoch {epoch} to {save_dir} for {save_name}")
+
+
+def write_validation_results(
+    info_path: str, val_res: ModuleRunResults, epoch: Optional[int] = None
+):
+    """
+    :param: file path to save results to
+    :param: results from validation run
+    :param: epoch number of validation run
+    """
     with open(info_path, "w") as info_file:
-        info_lines = [
-            f"epoch: {epoch}",
-        ]
+        info_lines = []
+
+        if epoch is not None:
+            info_lines.append(f"epoch: {epoch}")
 
         if val_res is not None:
             for loss in val_res.results.keys():
                 info_lines.append(f"{loss}: {val_res.result_mean(loss).item()}")
 
         info_file.write("\n".join(info_lines))
+        _LOGGER.info(f"Saving validation results to {info_path}")
 
 
 def set_seeds(local_rank: int):
@@ -455,6 +479,35 @@ def ddp_aware_model_move(
         ddp=ddp,
     )
     return ddp, device, model
+
+
+def extract_metadata(
+    metadata_args: List[str], training_args_dict: Dict[str, Any]
+) -> Dict[str, Any]:
+    """
+    Extract metadata from the training arguments.
+
+    :param metadata_args: List of keys we are attempting to retrieve from
+        `training_arg` and pass as metadata
+    :param training_args_dict: Dictionary extracted from
+        the TrainingArguments of the pipeline
+    :return: metadata
+    """
+    # TODO: Possibly share this functionality among
+    #  IC and transformers (and future pipelines)
+    metadata = {}
+
+    for arg in metadata_args:
+        if arg not in training_args_dict.keys():
+            logging.warning(
+                f"Required metadata argument {arg} was not found "
+                f"in the training arguments. Setting {arg} to None."
+            )
+            metadata[arg] = None
+        else:
+            metadata[arg] = training_args_dict[arg]
+
+    return metadata
 
 
 def _download_model_from_zoo_using_recipe(
