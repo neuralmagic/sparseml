@@ -16,14 +16,15 @@
 SparseML transformers trainer classes and interfaces to be plugged in with
 existing or similiar HF trainer flows
 """
-
 import inspect
 import logging
 import math
 import os
+from dataclasses import asdict
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import datasets
+import numpy
 import torch
 from torch import distributed as dist
 from torch.nn import Module
@@ -99,6 +100,7 @@ class RecipeManagerTrainerInterface:
         recipe: Optional[str],
         recipe_args: Optional[Union[Dict[str, Any], str]] = None,
         metadata_args: Optional[List[str]] = None,
+        data_args: Optional["DataTrainingArguments"] = None,  # noqa: F821
         teacher: Optional[Union[Module, str]] = None,
         **kwargs,
     ):
@@ -108,11 +110,15 @@ class RecipeManagerTrainerInterface:
         self.recipe = recipe
         self.recipe_args = recipe_args
         self.teacher = teacher
+
+        training_args = kwargs.get("args")
         self.metadata = (
             self._extract_metadata(
-                metadata_args=metadata_args, training_args=kwargs["args"]
+                metadata_args=metadata_args,
+                training_args_dict=training_args.to_dict(),
+                data_args_dict=asdict(data_args),
             )
-            if ("args" in kwargs and metadata_args)
+            if training_args
             else None
         )
 
@@ -131,9 +137,13 @@ class RecipeManagerTrainerInterface:
                 )
             else:
                 self.logger_manager = LoggerManager(loggers)
+
+            if recipe:
+                self.logger_manager.save(recipe)
         else:
             self.logger_manager = LoggerManager(log_python=False)
 
+        self.one_shot = data_args.one_shot if hasattr(data_args, "one_shot") else False
         self.manager, self.arch_manager = self._setup_manager(kwargs)
         self.manager_applied = False
         self.manager_initialized = False
@@ -184,11 +194,17 @@ class RecipeManagerTrainerInterface:
             )
 
         if self.manager is not None:
-            self.manager.apply_structure(self.model, epoch=epoch)
-            _LOGGER.info(
-                "Applied structure from SparseML recipe argument to model at "
-                f"epoch {epoch}"
-            )
+            if not self.one_shot:
+                self.manager.apply_structure(self.model, epoch=epoch)
+                _LOGGER.info(
+                    "Applied structure from SparseML recipe argument to model at "
+                    f"epoch {epoch}"
+                )
+            else:
+                self.manager.apply(self.model)
+                self.manager_applied = True
+                _LOGGER.info(f"Applied one shot recipe {self.recipe} to the manager")
+                return True
 
         # reload the state dict for the model now that architecture matches expected
         load_path = checkpoint or self.model_state_path
@@ -340,20 +356,38 @@ class RecipeManagerTrainerInterface:
             or not self.manager.enabled
             or not self.manager.distillation_modifiers
         ):
+            inputs = {
+                k: inputs[k] for k in inputs if k in self._model_signature_columns
+            }
             return super().compute_loss(model, inputs, return_outputs=return_outputs)
 
         student_inputs = {
             k: inputs[k] for k in inputs if k in self._model_signature_columns
         }
         student_outputs = model(**student_inputs)
-        if self._teacher_signature_columns is not None:
+        if any(_get_teacher_base_column_name(column) for column in inputs):
+            # inputs from teacher tokenizer available
+            teacher_inputs = {}
+            for column_name, column_data in inputs.items():
+                teacher_column_name = _get_teacher_base_column_name(column_name)
+                if not teacher_column_name or (
+                    self._teacher_signature_columns
+                    and teacher_column_name not in self._teacher_signature_columns
+                ):
+                    continue  # not valid teacher column name or no forward match
+                teacher_inputs[teacher_column_name] = column_data
+        elif self._teacher_signature_columns is not None:
+            # select from main student inputs
             teacher_inputs = {
                 k: inputs[k] for k in inputs if k in self._teacher_signature_columns
             }
         else:
+            # pass all inputs
             teacher_inputs = None
 
         loss = student_outputs["loss"]
+        if self.args.n_gpu > 1:  # DataParallel
+            loss = loss.mean()
         loss = self.manager.loss_update(
             loss,
             model,
@@ -447,21 +481,89 @@ class RecipeManagerTrainerInterface:
             f"all sparsification info: {sparsification_info}"
         )
 
+    def save_sample_inputs_outputs(
+        self, num_samples_to_export: int = 100, output_dir: Optional[str] = None
+    ):
+        """
+        Save sample inputs/outputs/labels in save_dir as .npz arrays
+
+        :param num_samples_to_export: Number of samples to export.
+            Defaults to 100
+        :param output_dir: The directory to store sample inputs and outputs in
+        """
+        num_samples = 0
+        output_dir = output_dir or self.args.output_dir or ""
+
+        sample_in_dir = os.path.join(output_dir, "sample-inputs")
+        sample_out_dir = os.path.join(output_dir, "sample-outputs")
+
+        os.makedirs(sample_in_dir, exist_ok=True)
+        os.makedirs(sample_out_dir, exist_ok=True)
+        device = self.model.device
+
+        try:
+            dataloader = self.get_val_dataloader()
+        except Exception:
+            dataloader = self.get_train_dataloader()
+
+        _LOGGER.info(f"Exporting {num_samples_to_export} samples to {output_dir}")
+        for _, sample_batch in enumerate(dataloader):
+            sample_batch.pop("labels", None)
+            input_names = list(sample_batch.keys())
+
+            for input_vals in zip(*sample_batch.values()):
+                input_feed = {k: v.to("cpu") for k, v in zip(input_names, input_vals)}
+                model_inputs = {
+                    k: input_feed[k].to(device).reshape(1, -1) for k in input_feed
+                }
+                output_vals = self.model(**model_inputs)
+                output_dict = {
+                    name: torch.squeeze(val).detach().to("cpu")
+                    for name, val in output_vals.items()
+                }
+                file_idx = f"{num_samples}".zfill(4)
+
+                sample_input_filename = os.path.join(
+                    f"{sample_in_dir}", f"inp-{file_idx}.npz"
+                )
+                numpy.savez(sample_input_filename, **input_feed)
+
+                sample_output_filename = os.path.join(
+                    f"{sample_out_dir}", f"out-{file_idx}.npz"
+                )
+                numpy.savez(sample_output_filename, *output_dict)
+                num_samples += 1
+
+                if num_samples >= num_samples_to_export:
+                    break
+            if num_samples >= num_samples_to_export:
+                break
+        _LOGGER.info(f"Exported {num_samples_to_export} samples to {output_dir}")
+
     def _extract_metadata(
-        self, metadata_args: List[str], training_args: TrainingArguments
-    ) -> Dict:
+        self,
+        metadata_args: List[str],
+        training_args_dict: Dict[str, Any],
+        data_args_dict: Dict[str, Any],
+    ) -> Dict[str, Any]:
         metadata = {}
-        training_args_dict = training_args.to_dict()
+        if not training_args_dict.keys().isdisjoint(data_args_dict.keys()):
+            raise ValueError(
+                "Found common keys in `training_args` and `data args`. "
+                "This is prohibitive and may lead to undesired behavior."
+            )
+
+        args_dict = {**training_args_dict, **data_args_dict}
 
         for arg in metadata_args:
-            if arg not in training_args_dict.keys():
+            if arg not in args_dict.keys():
                 logging.warning(
                     f"Required metadata argument {arg} was not found "
                     f"in the training arguments. Setting {arg} to None."
                 )
                 metadata[arg] = None
             else:
-                metadata[arg] = training_args_dict[arg]
+                metadata[arg] = args_dict[arg]
 
         return metadata
 
@@ -560,30 +662,33 @@ class RecipeManagerTrainerInterface:
         )
 
     def _mfac_data_loader(self):
-        data_loader_template = self.get_train_dataloader()
+        def dataloader():
+            data_loader_template = self.get_train_dataloader()
 
-        data_loader = torch.utils.data.DataLoader(
-            dataset=data_loader_template.dataset,
-            batch_size=data_loader_template.batch_size // 2,
-            sampler=RandomSampler(data_loader_template.dataset, replacement=False),
-            num_workers=data_loader_template.num_workers,
-            collate_fn=data_loader_template.collate_fn,
-            pin_memory=data_loader_template.pin_memory,
-            drop_last=data_loader_template.drop_last,
-            timeout=data_loader_template.timeout,
-            worker_init_fn=data_loader_template.worker_init_fn,
-            generator=data_loader_template.generator,
-            prefetch_factor=data_loader_template.prefetch_factor,
-            persistent_workers=data_loader_template.persistent_workers,
-        )
+            data_loader = torch.utils.data.DataLoader(
+                dataset=data_loader_template.dataset,
+                batch_size=data_loader_template.batch_size // 2,
+                sampler=RandomSampler(data_loader_template.dataset, replacement=False),
+                num_workers=data_loader_template.num_workers,
+                collate_fn=data_loader_template.collate_fn,
+                pin_memory=data_loader_template.pin_memory,
+                drop_last=data_loader_template.drop_last,
+                timeout=data_loader_template.timeout,
+                worker_init_fn=data_loader_template.worker_init_fn,
+                generator=data_loader_template.generator,
+                prefetch_factor=data_loader_template.prefetch_factor,
+                persistent_workers=data_loader_template.persistent_workers,
+            )
 
-        for sample in data_loader:
-            if self.label_smoother is not None and "labels" in sample:
-                label = sample.pop("labels")
-            else:
-                label = None
-            sample = self._prepare_inputs(sample)
-            yield [], sample, label
+            for sample in data_loader:
+                if self.label_smoother is not None and "labels" in sample:
+                    label = sample.pop("labels")
+                else:
+                    label = None
+                sample = self._prepare_inputs(sample)
+                yield [], sample, label
+
+        return dataloader
 
     def _mfac_loss_function(self, model_outputs, loss_target):
         if loss_target is not None:
@@ -655,9 +760,13 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         checkpoint, epoch = self._generate_apply_manager_params(kwargs)
         applied = self.apply_manager(epoch=epoch, checkpoint=checkpoint)
         self.callback_disable_fp16.check_disable(epoch, force=True)
-        output = super().train(*args, **kwargs)
-        if applied:
-            self.finalize_manager()
+        output = None
+        if not self.one_shot:
+            output = super().train(*args, **kwargs)
+            if applied:
+                self.finalize_manager()
+        else:
+            _LOGGER.info(f"Skipping Training due to one-shot: {self.one_shot}")
         self.log_model_sparsification()
 
         return output
@@ -775,6 +884,16 @@ class Trainer(TrainerInterface, TransformersTrainer):
                 model_signature_columns | teacher_signature_columns
             )
 
+            # add columns from teacher tokenizer to allowed list
+            for column_name in dataset.column_names:
+                teacher_column_name = _get_teacher_base_column_name(column_name)
+                if not teacher_column_name or (
+                    teacher_column_name not in teacher_signature_columns
+                ):
+                    continue  # not a teacher tokenizer column
+                # add column name with distill teacher prefix to allowed list
+                self._signature_columns.append(column_name)
+
             # Labels may be named label or label_ids, the default data
             # collator handles that.
             self._signature_columns += ["label", "label_ids"]
@@ -840,3 +959,10 @@ class DisableHalfPrecisionCallback(TrainerCallback):
 
         if state.epoch > self.quant_start_epoch:
             _LOGGER.info(self.trainer.model)
+
+
+def _get_teacher_base_column_name(column_name: str) -> Optional[str]:
+    # if column was created by teacher tokenizer, return the base name
+    if not column_name.startswith("distill_teacher:"):
+        return
+    return column_name[len("distill_teacher:") :]
