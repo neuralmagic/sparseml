@@ -560,7 +560,8 @@ def main():
                 desc="Running tokenizer on train dataset",
             )
 
-    if training_args.do_eval:
+    make_eval_dataset = training_args.do_eval or data_args.num_export_samples > 0
+    if make_eval_dataset:
         if "validation" not in raw_datasets:
             raise ValueError("--do_eval requires a validation dataset")
         eval_dataset = raw_datasets["validation"]
@@ -648,7 +649,7 @@ def main():
         args=training_args,
         data_args=data_args,
         train_dataset=train_dataset if training_args.do_train else None,
-        eval_dataset=eval_dataset if training_args.do_eval else None,
+        eval_dataset=eval_dataset if make_eval_dataset else None,
         tokenizer=tokenizer,
         data_collator=data_collator,
         compute_metrics=compute_metrics,
