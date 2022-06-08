@@ -62,6 +62,7 @@ _pytorch_deps = [
     "tensorboard>=1.0",
     "tensorboardX>=1.0",
     "gputils",
+    "click<8.1",
 ]
 _pytorch_vision_deps = _pytorch_deps + ["torchvision>=0.3.0,<=0.10.1"]
 _tensorflow_v1_deps = ["tensorflow<2.0.0", "tensorboard<2.0.0", "tf2onnx>=1.0.0,<1.6"]
