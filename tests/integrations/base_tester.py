@@ -37,7 +37,13 @@ import pytest
 import yaml
 from pydantic import BaseModel
 
-from tests.integrations.helpers import Config, get_configs_with_cadence
+from tests.integrations import Config, get_configs_with_cadence
+
+
+__all__ = [
+    "BaseIntegrationManager",
+    "BaseIntegrationTester",
+]
 
 
 class BaseIntegrationManager:
@@ -245,7 +251,7 @@ class BaseIntegrationTester:
         Tests:
             - Run created a model file
             - Model file is loadable
-            - The model epoch corresponds to the expecte value
+            - The model epoch corresponds to the expected value
         """
         raise NotImplementedError()
 
@@ -270,6 +276,7 @@ class BaseIntegrationTester:
         """
         If no target model provided in config file, skip test
         Tests:
+            - Target model and generated model have equivalent graphs
             - Target model and generated model produce similar outputs when run through
             onnixruntime. Tolerance set via pytest.approx(abs=1e-5)
         """
