@@ -140,7 +140,7 @@ Required Parameters:
    Regex can also be used to match all conv params: `['re:.*conv']` for PyTorch and `['re:.*/conv']` for TensorFlow.
 - `init_sparsity`: The decimal value for the initial sparsity to start pruning with.
    At `start_epoch` will set the sparsity for the param/variable to this value. 
-   Generally, this is kept at kept at 0.05 (5%).
+   Generally, this is kept at 0.05 (5%).
 - `final_sparsity`: The decimal value for the final sparsity to end pruning with.
    By the start of `end_epoch` will set the sparsity for the param/variable to this value.
    Generally, this is kept in a range from 0.6 to 0.95 depending on the model and layer. 

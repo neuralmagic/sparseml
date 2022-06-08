@@ -649,7 +649,8 @@ def main():
         if data_args.max_train_samples is not None:
             train_dataset = train_dataset.select(range(data_args.max_train_samples))
 
-    if training_args.do_eval:
+    make_eval_dataset = training_args.do_eval or data_args.num_export_samples > 0
+    if make_eval_dataset:
         if (
             "validation" not in raw_datasets
             and "validation_matched" not in raw_datasets
@@ -725,7 +726,7 @@ def main():
         args=training_args,
         data_args=data_args,
         train_dataset=train_dataset if training_args.do_train else None,
-        eval_dataset=eval_dataset if training_args.do_eval else None,
+        eval_dataset=eval_dataset if make_eval_dataset else None,
         tokenizer=tokenizer,
         data_collator=data_collator,
         compute_metrics=compute_metrics,

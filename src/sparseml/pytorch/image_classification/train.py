@@ -545,18 +545,22 @@ def main(
     train_batch_size = train_batch_size // world_size
     helpers.set_seeds(local_rank=local_rank)
 
-    train_dataset, train_loader, = helpers.get_dataset_and_dataloader(
-        dataset_name=dataset,
-        dataset_path=dataset_path,
-        batch_size=train_batch_size,
-        image_size=image_size,
-        dataset_kwargs=dataset_kwargs,
-        training=True,
-        loader_num_workers=loader_num_workers,
-        loader_pin_memory=loader_pin_memory,
-        ffcv=ffcv,
-        device=device,
-    )
+    if not eval_mode:
+        train_dataset, train_loader, = helpers.get_dataset_and_dataloader(
+            dataset_name=dataset,
+            dataset_path=dataset_path,
+            batch_size=train_batch_size,
+            image_size=image_size,
+            dataset_kwargs=dataset_kwargs,
+            training=True,
+            loader_num_workers=loader_num_workers,
+            loader_pin_memory=loader_pin_memory,
+            ffcv=ffcv,
+            device=device,
+        )
+    else:
+        train_dataset = None
+        train_loader = None
 
     val_dataset, val_loader = (
         helpers.get_dataset_and_dataloader(
