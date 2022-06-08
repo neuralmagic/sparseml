@@ -502,7 +502,7 @@ class RecipeManagerTrainerInterface:
         device = self.model.device
 
         try:
-            dataloader = self.get_val_dataloader()
+            dataloader = self.get_eval_dataloader()
         except Exception:
             dataloader = self.get_train_dataloader()
 

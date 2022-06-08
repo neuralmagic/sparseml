@@ -568,7 +568,7 @@ class BaseManager(BaseObject):
 
     def _info_log_metadata(self):
         metadata_str = json.dumps(self._metadata, indent=1)
-        _LOGGER.info(f"Created recipe manager with metadata: {metadata_str}")
+        _LOGGER.debug(f"Created recipe manager with metadata: {metadata_str}")
 
 
 def _sort_modifiers_list(modifiers: List[BaseModifier]) -> List[BaseModifier]:
