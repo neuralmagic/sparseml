@@ -146,12 +146,12 @@ cv_pipeline = pipeline(
   model_path='zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/pruned95-none',  # Path to checkpoint or SparseZoo stub
 )
 
-input_image = ... # Read input images
+input_image = "my_image.png" # path to input image 
 inference = cv_pipeline(images=input_image)
 ```
 
 
-To learn more, refer to the [appropriate documentation in the DeepSparse repository](https://github.com/neuralmagic/deepsparse/tree/main/examples/classification)
+To learn more, refer to the [appropriate documentation in the DeepSparse repository](https://github.com/neuralmagic/deepsparse/tree/main/src/deepsparse/image_classification/README.md)
 
 ## Support
 
