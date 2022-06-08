@@ -286,7 +286,8 @@ class BaseDistillationModifier(ScheduledUpdateModifier):
             student_outputs=student_outputs,
             teacher_outputs=teacher_outputs,
             student_labels=student_labels,
-            teacher_labels=teacher_labels)
+            teacher_labels=teacher_labels,
+        )
 
         total_loss = self.compute_total_loss(loss, distillation_loss)
         self._logged_loss_terms.update(
@@ -385,4 +386,3 @@ class BaseDistillationModifier(ScheduledUpdateModifier):
 
     def compute_total_loss(self, loss, distillation_loss):
         raise NotImplementedError()
-
