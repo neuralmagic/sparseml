@@ -1,7 +1,7 @@
 # SparseML Image Classification Integration
 
 
-[SparseML] Image Classification pipeline integrates with [torch] and [torchvision] libraries to enable the sparsification of any image classification model.
+[SparseML] Image Classification pipeline integrates with [torch] and [torchvision] libraries to enable the sparsification of popular image classification model.
 Sparsification is a powerful technique that results in faster, smaller, and cheaper deployable models. 
 After training, the model can be deployed with Neural Magic's DeepSparse Engine. The engine enables inference with GPU-class performance directly on your CPU.
 
