@@ -50,6 +50,7 @@ _deps = [
     "toposort>=1.0",
     "GPUtil>=1.4.0",
     "protobuf>=3.12.2,<4",
+    "click==8.0",
 ]
 _nm_deps = [f"{'sparsezoo' if is_release else 'sparsezoo-nightly'}~={version_nm_deps}"]
 _deepsparse_deps = [
@@ -92,7 +93,6 @@ _dev_deps = [
     "pytest-mock~=3.6.0",
     "flaky~=3.7.0",
     "sphinx-rtd-theme",
-    "click<8.1",
 ]
 
 
