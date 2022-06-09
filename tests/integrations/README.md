@@ -65,7 +65,7 @@ deploy:
 `'epochs: 5' -> '--epochs 5'` <br>
 `'dynamic: True' -> '--dynamic'`
 
-**test_args:** These arguments provide information to the tests on what quantities and qualities of the run output to test. These can integration specific, but right now the following set of test args are supported across the integrations:
+**test_args:** These arguments provide information to the tests on what quantities and qualities of the run output to test. These can integration specific, but right now the following set of `test args` are supported across the integrations:
 - Train
     - `target_name`: Name of the metric to test
     - target_mean: Mean value of the named metric
