@@ -37,7 +37,7 @@ When appropriately combined, it becomes possible to create highly sparse and acc
 ### SparseZoo
 
 Neural Magic’s ML team creates sparsified models that allow anyone to plug in their data and leverage pre-sparsified models from the SparseZoo.
-Select a yolov5 model from the [SparseZoo](https://sparsezoo.neuralmagic.com/?repo=ultralytics&page=1).
+Select a YOLOv5 model from the [SparseZoo](https://sparsezoo.neuralmagic.com/?repo=ultralytics&page=1).
 
 ### SparseML CLI
 
