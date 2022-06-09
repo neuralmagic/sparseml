@@ -59,7 +59,7 @@ deploy:
 
 **Stage Name:** [>1 Required] Supported stage names are `train`, `export`, and `deploy` [WIP]. None are individually required, but at least one must be present in the config. 
 
-**pre_args:** [WIP][Optional] Allows for the addition of CLI commands to pre-pend to the run command. Most common use case is for setting environment variables.
+**pre_args:** [WIP][Optional] Allows for the addition of CLI commands to prepend to the run command. The most common use case is for setting environment variables.
 
 **command_args:** [Optional/Required] The arguments to be passed to each stage of the run. These arguments are converted into CLI commands for runtime (example below). Supported args are defined by the `arg class` implementations for the integration. Thus if the corresponding class defines required arguments, then the `command_args` field is required. Field names provided in the config that don't correspond to supported arguments in the code are flagged with an error to prevent user error. Example of arg conversions from config to CLI command <br>
 `'epochs: 5' -> '--epochs 5'` <br>
