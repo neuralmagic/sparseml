@@ -223,7 +223,7 @@ class BaseIntegrationTester:
 
     All tests are expected to follow the name convention `test_{stage}_{name}` where
     stage is `train`, `export`, or `deploy` and name is a unique name to describe the test.
-    This naming convention is used and enforced within the decorator skip_inactive_stage
+    This naming convention is used and enforced within the decorator `@skip_inactive_stage`
     """
 
     @pytest.fixture(
