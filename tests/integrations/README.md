@@ -53,7 +53,7 @@ deploy:
 ```
 
 ## Config Fields
-**cadence:** [Required] Defines how often the test should be run. Supported values are `commit`, `nightly`, and `weekly`. Upon testing, config files with the desired cadence will be be fetched, ran, and tested.
+**cadence:** [Required] Defines how often the test should be run. Supported values are `commit`, `nightly`, and `weekly`. Upon testing, config files with the desired cadence will be fetched, ran, and tested.
 
 **abridged_mode:** [Optional] When true, the length of the run will be automatically shortened to a standardized abridged version. e.g. for training, a default, low value of maximum training and eval steps will be set. This allows for testing of long runs on a higher cadence. Naturally, metrics can not be tested for abridged runs. Defaults to False when not set
 
