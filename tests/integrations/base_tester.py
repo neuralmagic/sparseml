@@ -222,7 +222,7 @@ class BaseIntegrationTester:
     need to be implemented for each integration on the integration level.
 
     All tests are expected to follow the name convention `test_{stage}_{name}` where
-    stage is train, export, or deploy and name is a unique name to describe the test.
+    stage is `train`, `export`, or `deploy` and name is a unique name to describe the test.
     This naming convention is used and enforced within the decorator skip_inactive_stage
     """
 
