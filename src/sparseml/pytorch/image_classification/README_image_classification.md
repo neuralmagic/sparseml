@@ -6,7 +6,7 @@ Sparsification is a powerful technique that results in faster, smaller, and chea
 After training, the model can be deployed with Neural Magic's DeepSparse Engine. The engine enables inference with GPU-class performance directly on your CPU.
 
 This integration enables spinning up one of the following end-to-end functionalities:
-- **Sparsification of Popular Torchvision Models** - easily sparsify any popular [torchvision] image classification models. 
+- **Sparsification of Popular Torchvision Models** - easily sparsify popular [torchvision] image classification models. 
 - **Sparse Transfer Learning** - fine-tune a sparse backbone model (or use one of our [sparse pre-trained models](https://sparsezoo.neuralmagic.com/?domain=cv&sub_domain=classification&page=1)
 ## Installation
 
