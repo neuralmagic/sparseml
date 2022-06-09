@@ -69,7 +69,7 @@ deploy:
 - Train
     - `target_name`: Name of the metric to test
     - `target_mean`: Mean value of the named metric
-    - target_std: Acceptable range of deviation from the target mean for the named metric
+    - `target_std`: Acceptable range of deviation from the target mean for the named metric
 - Export
     - target_model: zoo stub for a model to test the onnx model produced by the run against
 
