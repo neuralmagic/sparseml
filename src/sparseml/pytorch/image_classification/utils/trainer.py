@@ -33,6 +33,7 @@ from sparseml.pytorch.utils import (
     default_device,
     is_parallel_model,
 )
+from sparsezoo import Zoo
 
 
 _LOGGER = logging.getLogger(__file__)
