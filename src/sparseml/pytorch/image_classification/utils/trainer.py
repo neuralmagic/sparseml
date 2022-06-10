@@ -327,6 +327,10 @@ class ImageClassificationTrainer(Trainer):
         )
 
     def _setup_checkpoint_manager(self):
+        if self.checkpoint_path and self.checkpoint_path.startswith("zoo"):
+            self.checkpoint_path = Zoo.load_model_from_stub(
+                self.checkpoint_path
+            ).download_framework_files(extensions=[".pth"])[0]
         checkpoint_state = torch.load(self.checkpoint_path)
         checkpoint_manager = None
         checkpoint_recipe = checkpoint_state.get("recipe")
