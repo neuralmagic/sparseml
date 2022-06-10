@@ -13,7 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 -->
-<span style="color:red">This pathway is deprecated. Please refer to the instructions [here](../../src/sparseml/yolov5) on how to run YOLOv5 + SparseML with `sparseml.yolo5` commands.</span>
+
 # SparseML Ultralytics YOLOv5 Integration
 
 This directory combines the SparseML recipe-driven approach with the 
