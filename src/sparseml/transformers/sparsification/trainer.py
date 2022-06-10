@@ -254,9 +254,10 @@ class RecipeManagerTrainerInterface:
             if torch.distributed.is_initialized()
             else self.args._n_gpu
         )
+        n_device = n_gpu if n_gpu > 0 else 1
         total_batch_size = (
             self.args.per_device_train_batch_size
-            * n_gpu
+            * n_device
             * self.args.gradient_accumulation_steps
         )
         self.manager_steps_per_epoch = math.ceil(
