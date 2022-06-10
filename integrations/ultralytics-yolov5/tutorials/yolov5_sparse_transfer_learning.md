@@ -13,7 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 -->
-<span style="color:red">This pathway is deprecated. Please refer to the instructions [here](https://github.com/neuralmagic/sparseml/blob/main/src/sparseml/yolov5) on how to run YOLOv5 + SparseML with `sparseml.yolo5` commands.</span>
+<span style="color:red">This pathway is deprecated. Please refer to the instructions [here](https://github.com/neuralmagic/sparseml/blob/main/src/sparseml/yolov5) on how to run YOLOv5 + SparseML with `sparseml.yolov5` commands.</span>
 # Sparse Transfer Learning With YOLOv5
 
 This tutorial shows how Neural Magic sparse models simplify the sparsification process by offering pre-sparsified YOLOv5 models for transfer learning onto other datasets.
