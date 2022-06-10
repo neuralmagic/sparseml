@@ -48,7 +48,7 @@ In the example below, we fetch a pruned [ResNet] model, pre-trained on [ImageNet
 ```bash
 sparseml.image_classification.train \
     --recipe-path zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/pruned95-none?recipe_type=transfer-classification \
-    --checkpoint-path zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/pruned95-none \
+    --checkpoint-path zoo \
     --arch-key resnet50 \
     --model-kwargs '{"ignore_error_tensors": ["classifier.fc.weight", "classifier.fc.bias"]}' \
     --dataset imagenette \
