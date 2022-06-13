@@ -125,9 +125,9 @@ def get_model_directory(
     # validate whether the remaining `ModelDirectory` files are present
     missing_file_names = {
         "model.onnx",
-        "sample-inputs",
-        "sample-labels",
-        "sample-outputs",
+        "sample_inputs",
+        "sample_labels",
+        "sample_outputs",
     }.difference(files_names)
     if missing_file_names:
         from sparseml.pytorch.image_classification import export
