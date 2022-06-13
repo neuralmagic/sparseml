@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pathlib import Path
 
 from yolov5.export import export_run
 from yolov5.export import parse_opt as parse_export_args
@@ -34,11 +33,7 @@ __all__ = [
     "val",
     "export",
     "val_onnx",
-    "ROOT_PATH",
 ]
-
-
-ROOT_PATH = Path(__file__).resolve().parents[0]
 
 
 def train():
@@ -74,3 +69,6 @@ def val_onnx():
 
     opt = parse_val_onnx_args()
     val_onnx_run(**vars(opt))
+
+
+train()
