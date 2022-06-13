@@ -106,3 +106,5 @@ def _check_yolov5_install():
 
 
 _check_yolov5_install()
+
+from .scripts import *

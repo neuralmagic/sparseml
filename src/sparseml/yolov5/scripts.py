@@ -34,17 +34,18 @@ __all__ = [
     "val",
     "export",
     "val_onnx",
+    "ROOT_PATH",
 ]
 
 
-DEFAULT_SAVE_PATH = Path(__file__).resolve().parents[0]
+ROOT_PATH = Path(__file__).resolve().parents[0]
 
 
 def train():
     """
     Hook to call into train.py in YOLOv5 fork
     """
-    opt = parse_train_args(default_project_dir=DEFAULT_SAVE_PATH)
+    opt = parse_train_args()
     train_run(**vars(opt))
 
 
@@ -52,7 +53,7 @@ def val():
     """
     Hook to call into val.py in YOLOv5 fork
     """
-    opt = parse_val_args(default_project_dir=DEFAULT_SAVE_PATH)
+    opt = parse_val_args()
     val_run(**vars(opt))
 
 
