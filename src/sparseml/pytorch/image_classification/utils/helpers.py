@@ -16,8 +16,10 @@
 Helper methods for image classification/detection based tasks
 """
 
+import glob
 import logging
 import os
+import shutil
 import warnings
 from contextlib import contextmanager
 from enum import Enum, auto, unique
@@ -51,6 +53,7 @@ from sparseml.pytorch.utils import (
 )
 from sparseml.utils import create_dirs
 from sparsezoo import Zoo
+from sparsezoo.v2.model_directory import ModelDirectory
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -67,7 +70,106 @@ __all__ = [
     "get_loss_wrapper",
     "ddp_aware_model_move",
     "extract_metadata",
+    "get_model_directory",
 ]
+
+
+def get_model_directory(
+    output_dir: str, logs_path: Optional[str] = None, **kwargs
+) -> "ModelDirectory":
+    """
+    Helper function to create ModelDirectory class object from the artifacts returned by
+    the Image Classification training procedure.
+
+    :param output_dir: The path to the directory where the artifacts
+        from training are saved
+    :param logs_path: Optional pointer to the folder containing log files
+        pertaining the same training run that generated `output_dir`
+    :param kwargs: Additional arguments, that might be optionally passed
+        to the export function
+    :return: ModelDirectory created from `output_dir`
+    """
+    # creating a mapping from file name to file path
+    files = {
+        os.path.basename(path): path
+        for path in glob.glob(os.path.join(output_dir, "*"))
+    }
+    files_names = set(files.keys())
+
+    # validate that `training` folder is present
+    if "training" not in files_names:
+        raise ValueError(
+            f"Could not find `training` folder for the `output_dir`: {output_dir}."
+            f"Make sure that the argument is pointing to the right directory."
+        )
+
+    # validate whether `logs` folder is present
+    if "logs" not in files_names:
+        # if logs_path not explicitly provided, infer it from the
+        # SparseML structure
+        if not logs_path:
+            logs_path = output_dir.replace(
+                "pytorch_vision", "pytorch_vision_train/tensorboard-logs"
+            )
+
+        logging.info(
+            f"Missing 'logs' directory. "
+            f"Copying log files over from directory: {logs_path}."
+        )
+        # create logs directory and paste the logs in
+        os.mkdir(path=os.path.join(output_dir, "logs"))
+        for path in glob.glob(os.path.join(logs_path, "*")):
+            copy_path = os.path.join(output_dir, "logs", os.path.basename(path))
+            shutil.copyfile(path, copy_path)
+
+    # validate whether the remaining `ModelDirectory` files are present
+    missing_file_names = {
+        "model.onnx",
+        "sample-inputs",
+        "sample-labels",
+        "sample-outputs",
+    }.difference(files_names)
+    if missing_file_names:
+        from sparseml.pytorch.image_classification import export
+
+        logging.info(
+            f"Missing required files: {missing_file_names}. "
+            f"Running export script to fetch the missing files."
+        )
+        export.main(kwargs)
+
+    # validate whether `deployment` folder is present
+    if "deployment" not in files:
+        logging.info(
+            "Missing 'deployment' directory. "
+            "The directory will be created from anew."
+        )
+        os.mkdir(path=os.path.join(output_dir, "deployment"))
+
+        training_dir = os.path.join(output_dir, "training")
+        is_training_nested = any(
+            [os.path.isdir(path) for path in glob.glob(os.path.join(training_dir, "*"))]
+        )
+        if is_training_nested:
+            # if training folder is nested, fetch the folder
+            # that has been created most recently
+            training_dirs_list = glob.glob(os.path.join(training_dir, "*"))
+            training_dirs_list.sort()
+            training_dir = training_dirs_list[-1]
+
+        # copy model.onnx file to `deployment`
+        copy_onnx_path = files["model.onnx"].replace(
+            "model.onnx", "deployment/model.onnx"
+        )
+        shutil.copyfile(files["model.onnx"], copy_onnx_path)
+        # copy all the files from `training` to `deployment`
+        for path in glob.glob(os.path.join(training_dir, "*")):
+            copy_path = os.path.join(output_dir, "deployment", os.path.basename(path))
+            shutil.copyfile(path, copy_path)
+
+    model_directory = ModelDirectory.from_directory(directory_path=output_dir)
+    model_directory.validate(minimal_validation=True)
+    return model_directory
 
 
 @unique

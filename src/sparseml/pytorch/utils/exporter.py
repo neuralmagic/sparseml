@@ -268,7 +268,7 @@ class ModuleExporter(object):
         :param arch_key: if provided, the `arch_key` will be saved in the
             checkpoint
         """
-        pytorch_path = os.path.join(self._output_dir, "framework")
+        pytorch_path = os.path.join(self._output_dir, "training")
         pth_path = os.path.join(pytorch_path, name)
         create_parent_dirs(pth_path)
 

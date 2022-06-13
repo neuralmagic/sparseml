@@ -700,7 +700,7 @@ def train(
 
         val_metric = best_metric = None
 
-        while trainer.epoch < trainer.max_epochs:
+        while trainer.epoch < 3:
             train_res = trainer.run_one_epoch(
                 mode="train",
                 max_steps=trainer.max_train_steps,
