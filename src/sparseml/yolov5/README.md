@@ -45,7 +45,7 @@ The SparseML installation provides a CLI for running YOLOv5 scripts with SparseM
 
 ```bash
 sparseml.yolov5.train
-sparseml.yolov5.val
+sparseml.yolov5.validation
 sparseml.yolov5.export_onnx
 sparseml.yolov5.val_onnx
 ```
@@ -85,9 +85,9 @@ In the example below, a YOLOv5s model pre-trained on COCO is pruned and quantize
 
 ```bash
 sparseml.yolov5.train \
-  --weights zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/base-none \   # Pre-trained model weights
-  --data coco.yaml \                                                         # Dataset to continue training on
-  --hyp data/hyps/hyp.scratch.yaml \                                         # Training hyperparameters
+  --weights zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/base-none \
+  --data coco.yaml \
+  --hyp data/hyps/hyp.scratch.yaml \
   --recipe zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned_quant-aggressive_94 
 ```
 
