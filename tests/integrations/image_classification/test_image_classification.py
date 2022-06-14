@@ -29,8 +29,8 @@ from tests.integrations.base_tester import (
 )
 from tests.integrations.helpers import (
     get_configs_with_cadence,
-    test_model_inputs_outputs,
-    test_model_op_counts,
+    model_inputs_outputs_test,
+    model_op_counts_test,
 )
 from tests.integrations.image_classification.args import (
     ImageClassificationExportArgs,
@@ -179,7 +179,7 @@ class TestImageClassification(BaseIntegrationTester):
             "model.onnx",
         )
 
-        test_model_op_counts(export_model_path, target_model_path)
+        model_op_counts_test(export_model_path, target_model_path)
 
         compare_outputs = export_args.test_args.get("compare_outputs", True)
         if isinstance(compare_outputs, str) and (
@@ -187,4 +187,4 @@ class TestImageClassification(BaseIntegrationTester):
         ):
             compare_outputs = False
         if compare_outputs:
-            test_model_inputs_outputs(export_model_path, target_model_path)
+            model_inputs_outputs_test(export_model_path, target_model_path)

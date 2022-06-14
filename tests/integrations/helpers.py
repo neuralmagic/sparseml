@@ -26,8 +26,8 @@ from sparseml.onnx.utils import get_tensor_shape
 
 __all__ = [
     "get_configs_with_cadence",
-    "test_model_op_counts",
-    "test_model_inputs_outputs",
+    "model_op_counts_test",
+    "model_inputs_outputs_test",
     "TEST_OPS",
 ]
 
@@ -68,7 +68,7 @@ TEST_OPS = {
 }
 
 
-def test_model_op_counts(
+def model_op_counts_test(
     model_path_a: str,
     model_path_b: str,
 ):
@@ -101,7 +101,7 @@ def test_model_op_counts(
         assert count_a == op_counts_b[op]
 
 
-def test_model_inputs_outputs(
+def model_inputs_outputs_test(
     model_path_a: str,
     model_path_b: str,
     input_getter: Optional[Callable] = None,

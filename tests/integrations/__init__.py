@@ -14,6 +14,6 @@
 
 # flake8: noqa
 
-from base_tester import *
-from config import *
-from helpers import *
+from .base_tester import *
+from .config import *
+from .helpers import *

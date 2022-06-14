@@ -27,8 +27,8 @@ from tests.integrations.base_tester import (
 )
 from tests.integrations.helpers import (
     get_configs_with_cadence,
-    test_model_inputs_outputs,
-    test_model_op_counts,
+    model_inputs_outputs_test,
+    model_op_counts_test,
 )
 from tests.integrations.object_detection.args import Yolov5ExportArgs, Yolov5TrainArgs
 from yolov5.export import load_checkpoint
@@ -159,7 +159,7 @@ class TestObjectDetection(BaseIntegrationTester):
             type_="val", weights=target_model_path, device=torch.device("cpu")
         )
 
-        test_model_op_counts(export_model_path, target_model_path)
+        model_op_counts_test(export_model_path, target_model_path)
 
         compare_outputs = export_args.test_args.get("compare_outputs", True)
         if isinstance(compare_outputs, str) and (
@@ -167,4 +167,4 @@ class TestObjectDetection(BaseIntegrationTester):
         ):
             compare_outputs = False
         if compare_outputs:
-            test_model_inputs_outputs(export_model_path, target_model_path)
+            model_inputs_outputs_test(export_model_path, target_model_path)

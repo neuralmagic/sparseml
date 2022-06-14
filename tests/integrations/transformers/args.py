@@ -68,9 +68,6 @@ class _TransformersTrainArgs(BaseModel):
         default=None,
         description="Recipe arguments to be overwritten",
     )
-    task_name: Optional[str] = Field(
-        default="ner", description=("The name of the task (ner, pos...).")
-    )
     dataset_name: Optional[str] = Field(
         default=None,
         description=("The name of the dataset to use (via the datasets library)"),
@@ -573,6 +570,9 @@ class TextClassificationArgs(_TransformersTrainArgs):
             "prediction examples to this value if set."
         ),
     )
+    task_name: Optional[str] = Field(
+        default="ner", description=("The name of the task (ner, pos...).")
+    )
 
 
 class TokenClassificationArgs(_TransformersTrainArgs):
@@ -596,6 +596,12 @@ class TokenClassificationArgs(_TransformersTrainArgs):
         description=(
             "Whether to return all the entity levels during evaluation or "
             "just the overall ones."
+        ),
+    )
+    task_name: Optional[str] = Field(
+        default=None,
+        description=(
+            "The name of the task to train on: " + ", ".join(_TASK_TO_KEYS.keys())
         ),
     )
 
