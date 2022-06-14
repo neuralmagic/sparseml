@@ -8,11 +8,6 @@ on:
     branches:
       - main
       - 'release/*'
-  schedule:
-  // Every day at midnight
-  - cron: 0 4 * * *
-  // Every Sunday at 9 am EST
-  - cron: 0 13 * * 6
 
 jobs:
   get-trigger:
@@ -22,10 +17,6 @@ jobs:
       run: echo "::set-output name=cadence::pre-commit"
       if: ${{github.event_name}} == 'push'
       run: echo "::set-output name=cadence::commit"
-      if: ${{github.event_name}} == 'schedule' && contains(github.event.schedule, "0 0 * * *")
-      run: echo "::set-output name=cadence::nightly"
-      if: ${{github.event_name}} == 'schedule' && contains(github.event.schedule, "0 13 * * 6")
-      run: echo "::set-output name=cadence::weekly"
   changed-integrations:
     runs-on: ubuntu-18.04
     outputs:
