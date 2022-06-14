@@ -625,9 +625,9 @@ def main(**kwargs):
     trainer = Trainer(
         model=model,
         model_state_path=model_args.model_name_or_path,
-        recipe=data_args.recipe,
+        recipe=training_args.recipe,
         metadata_args=metadata_args,
-        recipe_args=data_args.recipe_args,
+        recipe_args=training_args.recipe_args,
         teacher=teacher,
         args=training_args,
         data_args=data_args,

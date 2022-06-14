@@ -28,7 +28,6 @@ import numpy
 import torch
 from torch import distributed as dist
 from torch.nn import Module
-from torch.utils.data import RandomSampler
 from transformers import Trainer as HFTransformersTrainer
 from transformers import TrainerCallback, TrainerControl, TrainingArguments
 from transformers.file_utils import WEIGHTS_NAME
@@ -859,7 +858,7 @@ class TrainerInterface(RecipeManagerTrainerInterface):
 
 class TransformersTrainer(HFTransformersTrainer):
     """
-    A transformers trainer class with customed behaviors that can be shared
+    A transformers trainer class with custom behavior that can be shared
     by all trainers inside SparseML
     """
 
