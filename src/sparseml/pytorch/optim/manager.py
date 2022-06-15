@@ -383,9 +383,8 @@ class ScheduledModifierManager(BaseManager, Modifier):
         **kwargs,
     ):
         """
-        Apply the modifier for a given model/module (one shot application).
-        Calls into initialize(module, epoch, loggers, **kwargs) and then
-        finalize(module, **kwargs) immediately after if finalize=True.
+        Applies the lifecycle of each stage in the manager/recipe
+        by calling into initialize and finalize for each modifier for each stage
 
         :param module: the PyTorch model/module to modify
         :param epoch: the epoch to apply the modifier at, defaults to math.inf (end)
