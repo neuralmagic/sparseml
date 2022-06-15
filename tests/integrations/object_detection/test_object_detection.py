@@ -52,7 +52,7 @@ class ObjectDetectionManager(BaseIntegrationManager):
         super().capture_pre_run_state()
 
         # Setup temporary directory for train run
-        if "train" in self.command_types:
+        if "train" in self.configs:
             train_args = self.configs["train"].run_args
             directory = os.path.dirname(train_args.project)
             os.makedirs(directory, exist_ok=True)
@@ -61,14 +61,18 @@ class ObjectDetectionManager(BaseIntegrationManager):
 
         # Either grab output directory from train run or setup new temporary directory
         # for export
-        if "export" in self.command_types:
+        if "export" in self.configs:
             export_args = self.configs["export"].run_args
-            export_args.weights = os.path.join(
-                train_args.project,
-                "exp",
-                "weights",
-                "last.pt" if "train" in self.command_types else export_args.weights,
-            )
+            if not self.save_dir:
+                self.save_dir = tempfile.TemporaryDirectory()
+                export_args.save_dir = self.save_dir.name
+            else:
+                export_args.weights = os.path.join(
+                    train_args.project,
+                    "exp",
+                    "weights",
+                    "last.pt" if "train" in self.command_types else export_args.weights,
+                )
 
         # Turn on "_" -> "-" conversion for CLI args
         for stage, config in self.configs.items():

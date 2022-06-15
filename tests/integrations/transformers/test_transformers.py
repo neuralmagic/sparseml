@@ -63,14 +63,32 @@ class TransformersManager(BaseIntegrationManager):
 
     def capture_pre_run_state(self):
         super().capture_pre_run_state()
-        train_args = (
-            self.configs["train"].run_args if "train" in self.command_types else None
-        )
-        self.save_dir = tempfile.TemporaryDirectory(
-            dir=os.path.dirname(train_args.output_dir)
-        )
-        if train_args:
+
+        # Setup temporary directory for train run
+        if "train" in self.configs:
+            train_args = self.configs["train"].run_args
+            os.makedirs(train_args.output_dir, exist_ok=True)
+            self.save_dir = tempfile.TemporaryDirectory(dir=train_args.output_dir)
             train_args.output_dir = self.save_dir.name
+
+    def save_stage_information(self, command_type):
+        # Either grab output directory from train run or setup new temporary directory
+        # for export
+        if command_type == "export":
+            export_args = self.configs["export"].run_args
+            if not self.save_dir:
+                self.save_dir = tempfile.TemporaryDirectory()
+                export_args.save_dir = self.save_dir.name
+            else:
+                train_args = self.configs["train"].run_args
+                checkpoints = [
+                    file
+                    for file in os.listdir(train_args.output_dir)
+                    if os.path.isdir(os.path.join(train_args.output_dir, file))
+                    and file.startswith("checkpoint-")
+                ]
+                checkpoints.sort(key=lambda ckpt: ckpt.split("-")[1])
+                export_args.model_path = checkpoints[-1]
 
     def get_root_commands(self, raw_configs):
         self.task = (

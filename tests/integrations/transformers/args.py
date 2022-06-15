@@ -338,8 +338,8 @@ class _TransformersTrainArgs(BaseModel):
         description="Deprecated, the use of `--debug tpu_metrics_debug` is preferred. "
         "TPU: Whether to print debug metrics",
     )
-    debug: str = Field(
-        default='""',
+    debug: Optional[str] = Field(
+        default=None,
         description="Whether or not to enable debug mode. Current options: "
         "`underflow_overflow` (Detect underflow and overflow in activations and "
         "weights), `tpu_metrics_debug` (print debug metrics on TPU).",
@@ -402,8 +402,8 @@ class _TransformersTrainArgs(BaseModel):
         description="When resuming training, whether or not to skip the first epochs "
         "and batches to get to the same training data.",
     )
-    sharded_ddp: str = Field(
-        default='""',
+    sharded_ddp: Optional[str] = Field(
+        default=None,
         description="Whether or not to use sharded DDP training (in distributed "
         "training only). The base option should be `simple`, `zero_dp_2` or "
         "`zero_dp_3` and you can add CPU-offload to `zero_dp_2` or `zero_dp_3` like "
@@ -503,8 +503,8 @@ class _TransformersTrainArgs(BaseModel):
         default=None, description="The token to use to push to the Model Hub."
     )
     _n_gpu: int = Field(init=False, repr=False, default=-1)
-    mp_parameters: str = Field(
-        default='""',
+    mp_parameters: Optional[str] = Field(
+        default=None,
         description="Used by the SageMaker launcher to send mp-specific args. "
         "Ignored in Trainer",
     )
@@ -653,11 +653,12 @@ class TransformersExportArgs(BaseModel):
     task: str = Field(
         description="Task to create the model for. i.e. mlm, qa, glue, ner"
     )
-    model_path: str = Field(
+    model_path: Optional[str] = Field(
+        default=None,
         description=(
             "Path to directory where model files for weights, config, and "
             "tokenizer are stored"
-        )
+        ),
     )
     sequence_length: int = Field(
         default=384,

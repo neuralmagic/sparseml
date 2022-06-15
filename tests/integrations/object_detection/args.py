@@ -32,7 +32,7 @@ class Yolov5TrainArgs(BaseModel):
     )
     epochs: int = Field(default=300)
     max_train_steps: int = Field(
-        default=1,
+        default=-1,
         description="Set the maximum number of training steps per epoch. if negative,"
         "the entire dataset will be used, default=-1",
     )
