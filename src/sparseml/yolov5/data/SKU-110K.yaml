@@ -25,7 +25,7 @@ download: |
   from utils.general import np, pd, Path, download, xyxy2xywh, os
 
 
-  # Download labels
+  # Download
   root_path = os.path.join("src", "sparseml", "yolov5")
   dir = Path(os.path.join(root_path, yaml['path']))  # dataset root dirr
   parent = Path(dir.parent)  # download dir

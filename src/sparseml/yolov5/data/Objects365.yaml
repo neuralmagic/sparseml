@@ -66,7 +66,7 @@ download: |
   from utils.general import Path, download, np, xyxy2xywhn, os
 
 
-  # Download labels
+  # Make Directories
   root_path = os.path.join("src", "sparseml", "yolov5")
   dir = Path(os.path.join(root_path, yaml['path']))  # dataset root dir
   for p in 'images', 'labels':
