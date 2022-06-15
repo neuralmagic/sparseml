@@ -38,7 +38,11 @@ class Config:
         # e.g. "torch.distributed.launch" or "CUDA_VISIBLE_DEVICES": 2
         self.pre_args = config.pop("pre_args", "")
         self._args_class = args_class
-        self.run_args = args_class(**config.get("command_args")) if config.get("command_args") else args_class()
+        self.run_args = (
+            args_class(**config.get("command_args"))
+            if config.get("command_args")
+            else args_class()
+        )
         self.command_stub = command_stub
         # test args are used to guide testing of the stage. e.g. target metrics or
         # named quantities/qualities to test for

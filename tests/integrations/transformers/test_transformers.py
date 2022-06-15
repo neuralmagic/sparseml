@@ -220,7 +220,10 @@ class TestTransformers(BaseIntegrationTester):
     def test_deploy_model_compile(self, integration_manager):
         manager = integration_manager
         args = manager.configs["deploy"]
-        pipeline = Pipeline.create(task=args.run_args.task, model_path = args.run_args.model_path)
+        _ = Pipeline.create(
+            task=args.run_args.task, model_path=args.run_args.model_path
+        )
+
 
 def _load_model_on_task(model_name_or_path, model_type, task, **model_kwargs):
     load_funcs = {

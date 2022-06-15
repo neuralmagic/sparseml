@@ -18,8 +18,8 @@ import tempfile
 import onnx
 import pytest
 import torch
-from pydantic import BaseModel
 
+from deepsparse import Pipeline
 from sparseml.pytorch.models import ModelRegistry
 from sparsezoo import Zoo
 from tests.integrations.base_tester import (
@@ -33,12 +33,10 @@ from tests.integrations.helpers import (
     model_op_counts_test,
 )
 from tests.integrations.image_classification.args import (
+    ImageClassificationDeployArgs,
     ImageClassificationExportArgs,
     ImageClassificationTrainArgs,
-    ImageClassificationDeployArgs,
 )
-
-from deepsparse import Pipeline
 
 
 class ImageClassificationManager(BaseIntegrationManager):
@@ -83,8 +81,8 @@ class ImageClassificationManager(BaseIntegrationManager):
             if self.save_dir:
                 export_args = self.configs["export"].run_args
                 deploy_args.model_path = os.path.join(
-                export_args.save_dir, export_args.model_tag, "model.onnx"
-            )
+                    export_args.save_dir, export_args.model_tag, "model.onnx"
+                )
 
     def teardown(self):
         """
@@ -204,4 +202,4 @@ class TestImageClassification(BaseIntegrationTester):
     def test_deploy_model_compile(self, integration_manager):
         manager = integration_manager
         args = manager.configs["deploy"]
-        pipeline = Pipeline.create("image-classification", model_path = args.run_args.model_path)
+        _ = Pipeline.create("image-classification", model_path=args.run_args.model_path)

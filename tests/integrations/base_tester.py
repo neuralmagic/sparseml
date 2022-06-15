@@ -152,7 +152,7 @@ class BaseIntegrationManager:
         for _type in self.command_types:
             # Optionally, save intermediate state variables between stages
             self.save_stage_information(_type)
-            if self.command_stubs[_type]: #check if command is executable
+            if self.command_stubs[_type]:  # check if command is executable
                 try:
                     subprocess.check_output(self.commands[_type], **kwargs_dict[_type])
                 except subprocess.CalledProcessError as e:
