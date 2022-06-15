@@ -22,6 +22,7 @@ import onnx
 from onnxruntime import InferenceSession
 
 from sparseml.onnx.utils import get_tensor_shape
+from sparsezoo import Zoo
 
 
 __all__ = [
@@ -80,8 +81,8 @@ def model_op_counts_test(
     :param model_path_b: path to other onnx model
     """
 
-    model_a = onnx.load(model_path_a)
-    model_b = onnx.load(model_path_b)
+    model_a = _load_onnx_model(model_path_a)
+    model_b = _load_onnx_model(model_path_b)
 
     def _get_model_op_counts(model):
         op_counts = defaultdict(int)
@@ -117,8 +118,8 @@ def model_inputs_outputs_test(
         used for models/integrations which don't take numpy arrays as input
     """
     # compare export and target graphs and build fake data
-    model_a = onnx.load(model_path_a)
-    model_b = onnx.load(model_path_b)
+    model_a = _load_onnx_model(model_path_a)
+    model_b = _load_onnx_model(model_path_b)
     assert len(model_a.graph.input) == len(model_b.graph.input)
     assert len(model_a.graph.output) == len(model_b.graph.output)
 
@@ -149,3 +150,14 @@ def model_inputs_outputs_test(
     forward_output_b = ort_sess_b.run(output_names, sample_input)
     for out_a, out_b in zip(forward_output_a, forward_output_b):
         assert numpy.max(numpy.abs(out_a - out_b)) <= 1e-4
+
+
+def _load_onnx_model(path: str):
+    if path.startswith("zoo:"):
+        model = Zoo.load_model_from_stub(path)
+        model.download()
+        path_onnx = model.onnx_file.downloaded_path()
+    else:
+        path_onnx = path
+
+    return onnx.load(path_onnx)
