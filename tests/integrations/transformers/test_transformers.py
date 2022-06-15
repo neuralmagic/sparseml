@@ -88,7 +88,9 @@ class TransformersManager(BaseIntegrationManager):
                     and file.startswith("checkpoint-")
                 ]
                 checkpoints.sort(key=lambda ckpt: ckpt.split("-")[1])
-                export_args.model_path = checkpoints[-1]
+                export_args.model_path = os.path.join(
+                    train_args.output_dir, checkpoints[-1]
+                )
         self.commands["export"] = self.configs["export"].create_command_script()
 
     def get_root_commands(self, raw_configs):
