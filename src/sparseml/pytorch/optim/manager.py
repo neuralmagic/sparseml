@@ -680,6 +680,9 @@ class ScheduledModifierManager(BaseManager, Modifier):
         loggers: Union[None, LoggerManager, List[BaseLogger]] = None,
         **kwargs,
     ):
+        if isinstance(modifiers, Modifier):
+            modifiers = [modifiers]
+
         for mod in modifiers:
             if mod.initialized:
                 # check in case modifier was initialized from apply_structure
@@ -694,5 +697,8 @@ class ScheduledModifierManager(BaseManager, Modifier):
         reset_loggers: bool = True,
         **kwargs,
     ):
+        if isinstance(modifiers, Modifier):
+            modifiers = [modifiers]
+
         for mod in modifiers:
             mod.finalize(module, reset_loggers, **kwargs)
