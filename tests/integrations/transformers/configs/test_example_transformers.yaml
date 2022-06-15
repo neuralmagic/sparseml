@@ -16,3 +16,7 @@ train:
    num_train_epochs: 0.1
    save_strategy: epoch
    max_steps: 5
+export:
+  command_args:
+    task: qa
+
