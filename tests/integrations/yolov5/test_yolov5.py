@@ -30,18 +30,18 @@ from tests.integrations.helpers import (
     model_inputs_outputs_test,
     model_op_counts_test,
 )
-from tests.integrations.object_detection.args import Yolov5ExportArgs, Yolov5TrainArgs
+from tests.integrations.yolov5.args import Yolov5ExportArgs, Yolov5TrainArgs
 from yolov5.export import load_checkpoint
 
 
 METRIC_TO_COLUMN = {"map0.5": "metrics/mAP_0.5"}
 
 
-class ObjectDetectionManager(BaseIntegrationManager):
+class Yolov5Manager(BaseIntegrationManager):
 
     command_stubs = {
-        "train": "sparseml.object_detection.train",
-        "export": "sparseml.object_detection.export_onnx",
+        "train": "sparseml.yolov5.train",
+        "export": "sparseml.yolov5.export_onnx",
     }
     config_classes = {
         "train": Yolov5TrainArgs,
@@ -83,7 +83,7 @@ class ObjectDetectionManager(BaseIntegrationManager):
             self.save_dir.cleanup()
 
 
-class TestObjectDetection(BaseIntegrationTester):
+class TestYolov5(BaseIntegrationTester):
     @pytest.fixture(
         params=get_configs_with_cadence(
             os.environ.get("NM_TEST_CADENCE", "commit"), os.path.dirname(__file__)
@@ -91,7 +91,7 @@ class TestObjectDetection(BaseIntegrationTester):
         scope="class",
     )
     def integration_manager(self, request):
-        manager = ObjectDetectionManager(config_path=request.param)
+        manager = Yolov5Manager(config_path=request.param)
         yield manager
         manager.teardown()
 

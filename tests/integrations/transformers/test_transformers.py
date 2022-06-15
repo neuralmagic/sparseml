@@ -50,7 +50,7 @@ from tests.integrations.transformers.args import (
 class TransformersManager(BaseIntegrationManager):
     command_stubs = {
         "train": "sparseml.transformers.train.{task}",
-        "export": "sparseml.transformers.export",
+        "export": "sparseml.transformers.export_onnx",
     }
     config_classes = {"train": None, "export": TransformersExportArgs}
     task_config_classes = {
