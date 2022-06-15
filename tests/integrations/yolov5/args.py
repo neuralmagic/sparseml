@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from pathlib import Path
-from typing import List, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 from pydantic import BaseModel, Field
 
@@ -21,8 +21,10 @@ from yolov5.utils.general import ROOT
 
 
 class Yolov5TrainArgs(BaseModel):
-    weights: Union[str, Path] = Field(default='""', description="initial weights path")
-    cfg: Union[str, Path] = Field(default='""', description="model.yaml path")
+    weights: Union[str, Path, None] = Field(
+        default=None, description="initial weights path"
+    )
+    cfg: Union[str, Path, None] = Field(default=None, description="model.yaml path")
     data: Union[str, Path] = Field(
         default=ROOT / "data/coco128.yaml", description="dataset.yaml path"
     )
@@ -31,6 +33,17 @@ class Yolov5TrainArgs(BaseModel):
         description="hyperparameters path",
     )
     epochs: int = Field(default=300)
+    max_train_steps: int = Field(
+        default=-1,
+        description="Set the maximum number of training steps per epoch. if negative,"
+        "the entire dataset will be used, default=-1",
+    )
+    max_eval_steps: int = Field(
+        default=-1,
+        description="Set the maximum number of eval steps per epoch. if negative,"
+        "the entire dataset will be used, default=-1",
+    )
+    one_shot: bool = Field(default=False, description="Apply recipe in one shot manner")
     batch_size: int = Field(
         default=16, description="total batch size for all GPUs, -1 for autobatch"
     )
@@ -43,14 +56,16 @@ class Yolov5TrainArgs(BaseModel):
     evolve: Tuple[bool, int] = Field(
         default=[False, 300], description="evolve hyperparameters for x generations"
     )
-    bucket: str = Field(default='""', description="gsutil bucket")
+    bucket: Optional[str] = Field(default=None, description="gsutil bucket")
     cache: str = Field(
         default="ram", description='--cache images in "ram" (default) or "disk"'
     )
     image_weights: bool = Field(
         default=False, description="use weighted image selection for training"
     )
-    device: str = Field(default="", description="cuda device, i.e. 0 or 0,1,2,3 or cpu")
+    device: Optional[str] = Field(
+        default=None, description="cuda device, i.e. 0 or 0,1,2,3 or cpu"
+    )
     multi_scale: bool = Field(default=False, description="vary img-size +/- 50%%")
     single_cls: bool = Field(
         default=False, description="train multi-class data as single-class"

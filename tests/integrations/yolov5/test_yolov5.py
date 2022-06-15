@@ -27,21 +27,21 @@ from tests.integrations.base_tester import (
 )
 from tests.integrations.helpers import (
     get_configs_with_cadence,
-    test_model_inputs_outputs,
-    test_model_op_counts,
+    model_inputs_outputs_test,
+    model_op_counts_test,
 )
-from tests.integrations.object_detection.args import Yolov5ExportArgs, Yolov5TrainArgs
+from tests.integrations.yolov5.args import Yolov5ExportArgs, Yolov5TrainArgs
 from yolov5.export import load_checkpoint
 
 
 METRIC_TO_COLUMN = {"map0.5": "metrics/mAP_0.5"}
 
 
-class ObjectDetectionManager(BaseIntegrationManager):
+class Yolov5Manager(BaseIntegrationManager):
 
     command_stubs = {
-        "train": "sparseml.object_detection.train",
-        "export": "sparseml.object_detection.export_onnx",
+        "train": "sparseml.yolov5.train",
+        "export": "sparseml.yolov5.export_onnx",
     }
     config_classes = {
         "train": Yolov5TrainArgs,
@@ -52,7 +52,7 @@ class ObjectDetectionManager(BaseIntegrationManager):
         super().capture_pre_run_state()
 
         # Setup temporary directory for train run
-        if "train" in self.command_types:
+        if "train" in self.configs:
             train_args = self.configs["train"].run_args
             directory = os.path.dirname(train_args.project)
             os.makedirs(directory, exist_ok=True)
@@ -61,14 +61,18 @@ class ObjectDetectionManager(BaseIntegrationManager):
 
         # Either grab output directory from train run or setup new temporary directory
         # for export
-        if "export" in self.command_types:
+        if "export" in self.configs:
             export_args = self.configs["export"].run_args
-            export_args.weights = os.path.join(
-                train_args.project,
-                "exp",
-                "weights",
-                "last.pt" if "train" in self.command_types else export_args.weights,
-            )
+            if not self.save_dir:
+                self.save_dir = tempfile.TemporaryDirectory()
+                export_args.save_dir = self.save_dir.name
+            else:
+                export_args.weights = os.path.join(
+                    train_args.project,
+                    "exp",
+                    "weights",
+                    "last.pt" if "train" in self.command_types else export_args.weights,
+                )
 
         # Turn on "_" -> "-" conversion for CLI args
         for stage, config in self.configs.items():
@@ -79,7 +83,7 @@ class ObjectDetectionManager(BaseIntegrationManager):
             self.save_dir.cleanup()
 
 
-class TestObjectDetection(BaseIntegrationTester):
+class TestYolov5(BaseIntegrationTester):
     @pytest.fixture(
         params=get_configs_with_cadence(
             os.environ.get("NM_TEST_CADENCE", "commit"), os.path.dirname(__file__)
@@ -87,7 +91,7 @@ class TestObjectDetection(BaseIntegrationTester):
         scope="class",
     )
     def integration_manager(self, request):
-        manager = ObjectDetectionManager(config_path=request.param)
+        manager = Yolov5Manager(config_path=request.param)
         yield manager
         manager.teardown()
 
@@ -159,7 +163,7 @@ class TestObjectDetection(BaseIntegrationTester):
             type_="val", weights=target_model_path, device=torch.device("cpu")
         )
 
-        test_model_op_counts(export_model_path, target_model_path)
+        model_op_counts_test(export_model_path, target_model_path)
 
         compare_outputs = export_args.test_args.get("compare_outputs", True)
         if isinstance(compare_outputs, str) and (
@@ -167,4 +171,4 @@ class TestObjectDetection(BaseIntegrationTester):
         ):
             compare_outputs = False
         if compare_outputs:
-            test_model_inputs_outputs(export_model_path, target_model_path)
+            model_inputs_outputs_test(export_model_path, target_model_path)
