@@ -120,12 +120,12 @@ class ImageClassificationTrainArgs(_ImageClassificationBaseArgs):
     max_train_steps: int = Field(
         default=-1,
         description="The maximum number of training steps to run per epoch. If "
-        "negative, will run for the entire dataset",
+        "negative, will run for the entire training set",
     )
     max_eval_steps: int = Field(
         default=-1,
         description="The maximum number of eval steps to run per epoch. If negative, "
-        "will run for the entire dataset",
+        "will run for the entire validation set",
     )
 
     def __init__(self, **data):
