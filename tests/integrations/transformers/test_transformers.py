@@ -25,6 +25,7 @@ import torch
 from transformers import AutoConfig, AutoTokenizer
 from transformers.tokenization_utils_base import PaddingStrategy
 
+from deepsparse import Pipeline
 from sparseml.pytorch.optim.manager import ScheduledModifierManager
 from sparseml.transformers.export import load_task_model
 from sparseml.transformers.utils import SparseAutoModel
@@ -43,6 +44,7 @@ from tests.integrations.transformers.args import (
     QuestionAnsweringArgs,
     TextClassificationArgs,
     TokenClassificationArgs,
+    TransformersDeployArgs,
     TransformersExportArgs,
 )
 
@@ -51,8 +53,13 @@ class TransformersManager(BaseIntegrationManager):
     command_stubs = {
         "train": "sparseml.transformers.train.{task}",
         "export": "sparseml.transformers.export_onnx",
+        "deploy": None,
     }
-    config_classes = {"train": None, "export": TransformersExportArgs}
+    config_classes = {
+        "train": None,
+        "export": TransformersExportArgs,
+        "deploy": TransformersDeployArgs,
+    }
     task_config_classes = {
         "masked_language_modeling": MaskedLanguageModellingArgs,
         "question_answering": QuestionAnsweringArgs,
@@ -91,12 +98,20 @@ class TransformersManager(BaseIntegrationManager):
                 export_args.model_path = os.path.join(
                     train_args.output_dir, checkpoints[-1]
                 )
-        self.commands["export"] = self.configs["export"].create_command_script()
+            self.commands["export"] = self.configs["export"].create_command_script()
+
+        # Grab onnx output path from the export stage if it exists
+        if command_type == "deploy":
+            deploy_args = self.configs["deploy"].run_args
+            if self.save_dir:
+                export_args = self.configs["export"].run_args
+                deploy_args.model_path = export_args.model_path
+            self.commands["deploy"] = self.configs["deploy"].create_command_script()
 
     def get_root_commands(self, raw_configs):
         self.task = (
             raw_configs["train"]["task"].lower().replace("-", "_")
-            if "train" in self.command_types
+            if "train" in self.exec_command_types
             else "NullTask"
         )
         if self.task not in self.task_config_classes:
@@ -169,7 +184,7 @@ class TestTransformers(BaseIntegrationTester):
         manager = integration_manager
         export_run_args = manager.configs["export"].run_args
         onnx_file = os.path.join(
-            os.path.dirname(export_run_args.model_path), export_run_args.onnx_file_name
+            export_run_args.model_path, export_run_args.onnx_file_name
         )
         assert os.path.isfile(onnx_file)
         model = onnx.load(onnx_file)
@@ -201,6 +216,15 @@ class TestTransformers(BaseIntegrationTester):
                 model_path=export_args.run_args.model_path,
                 task=manager.task,
             )
+
+    @skip_inactive_stage
+    def test_deploy_model_compile(self, integration_manager):
+        manager = integration_manager
+        args = manager.configs["deploy"]
+        pipeline = Pipeline.create(task=args.run_args.task)
+        sample_input = _create_bert_input(manager.task, args.run_args.model_path)
+        for input in sample_input:
+            pipeline(input)
 
 
 def _load_model_on_task(model_name_or_path, model_type, task, **model_kwargs):

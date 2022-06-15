@@ -71,7 +71,9 @@ class Yolov5Manager(BaseIntegrationManager):
                     train_args.project,
                     "exp",
                     "weights",
-                    "last.pt" if "train" in self.command_types else export_args.weights,
+                    "last.pt"
+                    if "train" in self.exec_command_types
+                    else export_args.weights,
                 )
 
         # Turn on "_" -> "-" conversion for CLI args
@@ -79,7 +81,7 @@ class Yolov5Manager(BaseIntegrationManager):
             config.dashed_keywords = True
 
     def teardown(self):
-        if "train" in self.command_types:
+        if "train" in self.exec_command_types:
             self.save_dir.cleanup()
 
 

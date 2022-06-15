@@ -94,6 +94,9 @@ class BaseIntegrationManager:
 
         # Command types present in this config
         self.command_types = [_type for _type in raw_config]
+        self.exec_command_types = [
+            _type for _type in raw_config if self.command_stubs[_type]
+        ]
 
         # Final command stub
         self.command_stubs_final = self.get_root_commands(raw_config)
@@ -112,9 +115,11 @@ class BaseIntegrationManager:
         self.capture_pre_run_state()
 
         # Combine pre-args, command stubs, and args into complete CLI commands
+        # If command stub is of type None, skip generating command
         self.commands = {
             _type: config.create_command_script()
             for _type, config in self.configs.items()
+            if self.command_stubs[_type]
         }
 
         # All commands are run sequentially
@@ -146,8 +151,8 @@ class BaseIntegrationManager:
         """
 
         if not kwargs_dict:
-            kwargs_dict = {key: {} for key in self.command_types}
-        for _type in self.command_types:
+            kwargs_dict = {key: {} for key in self.exec_command_types}
+        for _type in self.exec_command_types:
             # Optionally, save intermediate state variables between stages
             self.save_stage_information(_type)
             try:
@@ -280,5 +285,14 @@ class BaseIntegrationTester:
             - Target model and generated model have equivalent graphs
             - Target model and generated model produce similar outputs when run through
             onnixruntime. Tolerance set via pytest.approx(abs=1e-5)
+        """
+        raise NotImplementedError()
+
+    @skip_inactive_stage
+    def test_deploy_model_compile(self, integration_manager):
+        """
+        Tests:
+            - Exported onnx model can be loaded into a DeepSparse Pipeline
+            - Generated Pipeline can process input
         """
         raise NotImplementedError()
