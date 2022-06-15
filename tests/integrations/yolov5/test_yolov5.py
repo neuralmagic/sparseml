@@ -20,6 +20,7 @@ import pandas as pd
 import pytest
 import torch
 
+from deepsparse import Pipeline
 from tests.integrations.base_tester import (
     BaseIntegrationManager,
     BaseIntegrationTester,
@@ -30,10 +31,12 @@ from tests.integrations.helpers import (
     model_inputs_outputs_test,
     model_op_counts_test,
 )
-from tests.integrations.yolov5.args import Yolov5ExportArgs, Yolov5TrainArgs, Yolov5DeployArgs
+from tests.integrations.yolov5.args import (
+    Yolov5DeployArgs,
+    Yolov5ExportArgs,
+    Yolov5TrainArgs,
+)
 from yolov5.export import load_checkpoint
-
-from deepsparse import Pipeline
 
 
 METRIC_TO_COLUMN = {"map0.5": "metrics/mAP_0.5"}
@@ -75,9 +78,7 @@ class Yolov5Manager(BaseIntegrationManager):
                     train_args.project,
                     "exp",
                     "weights",
-                    "last.pt"
-                    if "train" in self.command_types
-                    else export_args.weights,
+                    "last.pt" if "train" in self.command_types else export_args.weights,
                 )
 
         if "deploy" in self.configs:
@@ -85,7 +86,6 @@ class Yolov5Manager(BaseIntegrationManager):
             if self.save_dir:
                 export_args = self.configs["export"].run_args
                 deploy_args.model_path = export_args.weights.replace(".pt", ".onnx")
-
 
         # Turn on "_" -> "-" conversion for CLI args
         for stage, config in self.configs.items():
@@ -190,4 +190,4 @@ class TestYolov5(BaseIntegrationTester):
     def test_deploy_model_compile(self, integration_manager):
         manager = integration_manager
         args = manager.configs["deploy"]
-        pipeline = Pipeline.create("yolo", model_path = args.run_args.model_path)
+        _ = Pipeline.create("yolo", model_path=args.run_args.model_path)

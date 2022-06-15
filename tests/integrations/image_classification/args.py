@@ -145,6 +145,7 @@ class ImageClassificationExportArgs(_ImageClassificationBaseArgs):
         default=None, description="number of classes for model load/export"
     )
 
+
 class ImageClassificationDeployArgs(BaseModel):
     model_path: Optional[str] = Field(
         default=None,
