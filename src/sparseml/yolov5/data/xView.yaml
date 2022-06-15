@@ -9,7 +9,7 @@
 
 
 # Train/val/test sets as 1) dir: path/to/imgs, 2) file: path/to/imgs.txt, or 3) list: [path/to/imgs1, path/to/imgs2, ..]
-path: src/sparseml/yolov5/datasets/xView  # dataset root dir
+path: datasets/xView  # dataset root dir
 train: images/autosplit_train.txt  # train images (relative to 'path') 90% of 847 train images
 val: images/autosplit_val.txt  # train images (relative to 'path') 10% of 847 train images
 
@@ -83,7 +83,8 @@ download: |
 
 
   # Download manually from https://challenge.xviewdataset.org
-  dir = Path(yaml['path'])  # dataset root dir
+  root_path = os.path.join("src", "sparseml", "yolov5")
+  dir = Path(os.path.join(root_path, yaml['path']))  # dataset root dirr
   # urls = ['https://d307kc0mrhucc3.cloudfront.net/train_labels.zip',  # train labels
   #         'https://d307kc0mrhucc3.cloudfront.net/train_images.zip',  # 15G, 847 train images
   #         'https://d307kc0mrhucc3.cloudfront.net/val_images.zip']  # 5G, 282 val images (no labels)

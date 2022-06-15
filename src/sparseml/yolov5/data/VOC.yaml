@@ -8,7 +8,7 @@
 
 
 # Train/val/test sets as 1) dir: path/to/imgs, 2) file: path/to/imgs.txt, or 3) list: [path/to/imgs1, path/to/imgs2, ..]
-path: src/sparseml/yolov5/datasets/VOC
+path: datasets/VOC
 train: # train images (relative to 'path')  16551 images
   - images/train2012
   - images/train2007
@@ -30,7 +30,7 @@ download: |
   import xml.etree.ElementTree as ET
 
   from tqdm import tqdm
-  from utils.general import download, Path
+  from utils.general import download, Path, os
 
 
   def convert_label(path, lb_path, year, image_id):
@@ -57,7 +57,8 @@ download: |
 
 
   # Download
-  dir = Path(yaml['path'])  # dataset root dir
+  root_path = os.path.join("src", "sparseml", "yolov5")
+  dir = Path(os.path.join(root_path, yaml['path']))  # dataset root dirr
   url = 'https://github.com/ultralytics/yolov5/releases/download/v1.0/'
   urls = [url + 'VOCtrainval_06-Nov-2007.zip',  # 446MB, 5012 images
           url + 'VOCtest_06-Nov-2007.zip',  # 438MB, 4953 images

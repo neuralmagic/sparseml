@@ -8,7 +8,7 @@
 
 
 # Train/val/test sets as 1) dir: path/to/imgs, 2) file: path/to/imgs.txt, or 3) list: [path/to/imgs1, path/to/imgs2, ..]
-path: src/sparseml/yolov5/datasets/Objects365  # dataset root dir
+path: datasets/Objects365  # dataset root dir
 train: images/train  # train images (relative to 'path') 1742289 images
 val: images/val # val images (relative to 'path') 80000 images
 test:  # test images (optional)
@@ -63,11 +63,12 @@ download: |
   from pycocotools.coco import COCO
   from tqdm import tqdm
 
-  from utils.general import Path, download, np, xyxy2xywhn
+  from utils.general import Path, download, np, xyxy2xywhn, os
 
 
-  # Make Directories
-  dir = Path(yaml['path'])  # dataset root dir
+  # Download labels
+  root_path = os.path.join("src", "sparseml", "yolov5")
+  dir = Path(os.path.join(root_path, yaml['path']))  # dataset root dir
   for p in 'images', 'labels':
       (dir / p).mkdir(parents=True, exist_ok=True)
       for q in 'train', 'val':

@@ -8,7 +8,7 @@
 
 
 # Train/val/test sets as 1) dir: path/to/imgs, 2) file: path/to/imgs.txt, or 3) list: [path/to/imgs1, path/to/imgs2, ..]
-path: src/sparseml/yolov5/datasets/coco  # dataset root dir
+path: datasets/coco  # dataset root dir
 train: train2017.txt  # train images (relative to 'path') 118287 images
 val: val2017.txt  # val images (relative to 'path') 5000 images
 test: test-dev2017.txt  # 20288 of 40670 images, submit to https://competitions.codalab.org/competitions/20794
@@ -28,12 +28,13 @@ names: ['person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 't
 
 # Download script/URL (optional)
 download: |
-  from utils.general import download, Path
+  from utils.general import download, Path, os
 
 
   # Download labels
+  root_path = os.path.join("src", "sparseml", "yolov5")
   segments = False  # segment or box labels
-  dir = Path(yaml['path'])  # dataset root dir
+  dir = Path(os.path.join(root_path, yaml['path']))  # dataset root dir
   url = 'https://github.com/ultralytics/yolov5/releases/download/v1.0/'
   urls = [url + ('coco2017labels-segments.zip' if segments else 'coco2017labels.zip')]  # labels
   download(urls, dir=dir.parent)

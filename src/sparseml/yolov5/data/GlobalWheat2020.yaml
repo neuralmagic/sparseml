@@ -8,7 +8,7 @@
 
 
 # Train/val/test sets as 1) dir: path/to/imgs, 2) file: path/to/imgs.txt, or 3) list: [path/to/imgs1, path/to/imgs2, ..]
-path: src/sparseml/yolov5/datasets/GlobalWheat2020  # dataset root dir
+path: datasets/GlobalWheat2020  # dataset root dir
 train: # train images (relative to 'path') 3422 images
   - images/arvalis_1
   - images/arvalis_2
@@ -32,11 +32,12 @@ names: ['wheat_head']  # class names
 
 # Download script/URL (optional) ---------------------------------------------------------------------------------------
 download: |
-  from utils.general import download, Path
+  from utils.general import download, Path, os
 
 
-  # Download
-  dir = Path(yaml['path'])  # dataset root dir
+  # Download labels
+  root_path = os.path.join("src", "sparseml", "yolov5")
+  dir = Path(os.path.join(root_path, yaml['path']))  # dataset root dir
   urls = ['https://zenodo.org/record/4298502/files/global-wheat-codalab-official.zip',
           'https://github.com/ultralytics/yolov5/releases/download/v1.0/GlobalWheat2020_labels.zip']
   download(urls, dir=dir)
