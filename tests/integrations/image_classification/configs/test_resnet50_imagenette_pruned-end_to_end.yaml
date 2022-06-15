@@ -24,3 +24,5 @@ export:
   test_args:
     target_model: zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenette/pruned-conservative
     compare_outputs: False
+deploy:
+  command_args: null

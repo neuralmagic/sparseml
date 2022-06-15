@@ -35,7 +35,10 @@ from tests.integrations.helpers import (
 from tests.integrations.image_classification.args import (
     ImageClassificationExportArgs,
     ImageClassificationTrainArgs,
+    ImageClassificationDeployArgs,
 )
+
+from deepsparse import Pipeline
 
 
 class ImageClassificationManager(BaseIntegrationManager):
@@ -43,12 +46,12 @@ class ImageClassificationManager(BaseIntegrationManager):
     command_stubs = {
         "train": "sparseml.image_classification.train",
         "export": "sparseml.image_classification.export_onnx",
-        "deploy": "sparseml.image_classification.deploy",  # placeholder
+        "deploy": None,
     }
     config_classes = {
         "train": ImageClassificationTrainArgs,
         "export": ImageClassificationExportArgs,
-        "deploy": BaseModel,
+        "deploy": ImageClassificationDeployArgs,
     }
 
     def capture_pre_run_state(self):
@@ -74,6 +77,14 @@ class ImageClassificationManager(BaseIntegrationManager):
             else:
                 export_args.checkpoint_path = self.expected_checkpoint_path
                 export_args.save_dir = train_args.save_dir
+
+        if "deploy" in self.configs:
+            deploy_args = self.configs["deploy"].run_args
+            if self.save_dir:
+                export_args = self.configs["export"].run_args
+                deploy_args.model_path = os.path.join(
+                export_args.save_dir, export_args.model_tag, "model.onnx"
+            )
 
     def teardown(self):
         """
@@ -188,3 +199,9 @@ class TestImageClassification(BaseIntegrationTester):
             compare_outputs = False
         if compare_outputs:
             model_inputs_outputs_test(export_model_path, target_model_path)
+
+    @skip_inactive_stage
+    def test_deploy_model_compile(self, integration_manager):
+        manager = integration_manager
+        args = manager.configs["deploy"]
+        pipeline = Pipeline.create("image-classification", model_path = args.run_args.model_path)
