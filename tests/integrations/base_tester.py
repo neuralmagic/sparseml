@@ -94,9 +94,6 @@ class BaseIntegrationManager:
 
         # Command types present in this config
         self.command_types = [_type for _type in raw_config]
-        self.exec_command_types = [
-            _type for _type in raw_config if self.command_stubs[_type]
-        ]
 
         # Final command stub
         self.command_stubs_final = self.get_root_commands(raw_config)
@@ -151,18 +148,19 @@ class BaseIntegrationManager:
         """
 
         if not kwargs_dict:
-            kwargs_dict = {key: {} for key in self.exec_command_types}
-        for _type in self.exec_command_types:
+            kwargs_dict = {key: {} for key in self.command_types}
+        for _type in self.command_types:
             # Optionally, save intermediate state variables between stages
             self.save_stage_information(_type)
-            try:
-                subprocess.check_output(self.commands[_type], **kwargs_dict[_type])
-            except subprocess.CalledProcessError as e:
-                raise RuntimeError(
-                    "command '{}' return with error (code {}): {}".format(
-                        e.cmd, e.returncode, e.output
+            if self.command_stubs[_type]: #check if command is executable
+                try:
+                    subprocess.check_output(self.commands[_type], **kwargs_dict[_type])
+                except subprocess.CalledProcessError as e:
+                    raise RuntimeError(
+                        "command '{}' return with error (code {}): {}".format(
+                            e.cmd, e.returncode, e.output
+                        )
                     )
-                )
 
     def save_stage_information(self, command_type):
         """

@@ -106,12 +106,11 @@ class TransformersManager(BaseIntegrationManager):
             if self.save_dir:
                 export_args = self.configs["export"].run_args
                 deploy_args.model_path = export_args.model_path
-            self.commands["deploy"] = self.configs["deploy"].create_command_script()
 
     def get_root_commands(self, raw_configs):
         self.task = (
             raw_configs["train"]["task"].lower().replace("-", "_")
-            if "train" in self.exec_command_types
+            if "train" in self.command_types
             else "NullTask"
         )
         if self.task not in self.task_config_classes:
@@ -221,11 +220,7 @@ class TestTransformers(BaseIntegrationTester):
     def test_deploy_model_compile(self, integration_manager):
         manager = integration_manager
         args = manager.configs["deploy"]
-        pipeline = Pipeline.create(task=args.run_args.task)
-        sample_input = _create_bert_input(manager.task, args.run_args.model_path)
-        for input in sample_input:
-            pipeline(input)
-
+        pipeline = Pipeline.create(task=args.run_args.task, model_path = args.run_args.model_path)
 
 def _load_model_on_task(model_name_or_path, model_type, task, **model_kwargs):
     load_funcs = {
@@ -238,6 +233,7 @@ def _load_model_on_task(model_name_or_path, model_type, task, **model_kwargs):
 
 
 def _create_bert_input(model_path, task):
+    task = task.replace("_", "-")
     config_args = {"finetuning_task": task} if task else {}
     config = AutoConfig.from_pretrained(
         model_path,

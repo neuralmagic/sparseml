@@ -38,7 +38,7 @@ class Config:
         # e.g. "torch.distributed.launch" or "CUDA_VISIBLE_DEVICES": 2
         self.pre_args = config.pop("pre_args", "")
         self._args_class = args_class
-        self.run_args = args_class(**config.get("command_args"))
+        self.run_args = args_class(**config.get("command_args")) if config.get("command_args") else args_class()
         self.command_stub = command_stub
         # test args are used to guide testing of the stage. e.g. target metrics or
         # named quantities/qualities to test for
@@ -87,6 +87,8 @@ class Config:
     def _validate_config(self):
         # Check that all provided run args correspond to expected run args. Mainly
         # meant to catch typos
+        if self.raw_config.get("command_args") is None:
+            return
         unknown_run_args = [
             arg
             for arg in self.raw_config["command_args"].keys()

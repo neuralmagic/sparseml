@@ -144,3 +144,9 @@ class ImageClassificationExportArgs(_ImageClassificationBaseArgs):
     num_classes: Optional[int] = Field(
         default=None, description="number of classes for model load/export"
     )
+
+class ImageClassificationDeployArgs(BaseModel):
+    model_path: Optional[str] = Field(
+        default=None,
+        description=("Path to directory where model onnx file is stored"),
+    )

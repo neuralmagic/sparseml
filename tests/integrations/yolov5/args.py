@@ -152,3 +152,9 @@ class Yolov5ExportArgs(BaseModel):
     remove_grid: bool = Field(
         default=False, description="remove export of Detect() layer grid"
     )
+
+class Yolov5DeployArgs(BaseModel):
+    model_path: Optional[str] = Field(
+        default=None,
+        description=("Path to directory where model onnx file is stored"),
+    )
