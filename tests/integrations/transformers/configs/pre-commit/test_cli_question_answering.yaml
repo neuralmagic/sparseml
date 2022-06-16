@@ -11,7 +11,7 @@ train:
    max_steps: 5
 export:
   command_args:
-    task: 
+    task: ner
 deploy:
   command_args:
     task: token-classification
