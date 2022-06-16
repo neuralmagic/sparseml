@@ -30,7 +30,6 @@ described in B and should be decorated by @skip_inactive_stage found in helpers.
 
 import os
 import subprocess
-from ast import Import
 from functools import wraps
 from typing import Dict, Union
 
@@ -312,15 +311,6 @@ class BaseIntegrationTester:
             - Target model and generated model have equivalent graphs
             - Target model and generated model produce similar outputs when run through
             onnxruntime. Tolerance set via pytest.approx(abs=1e-5)
-        """
-        raise NotImplementedError()
-
-    @skip_inactive_stage
-    def test_deploy_model_compile(self, integration_manager):
-        """
-        Tests:
-            - Exported onnx model can be loaded into a DeepSparse Pipeline
-            - Generated Pipeline can process input
         """
         raise NotImplementedError()
 
