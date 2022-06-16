@@ -20,7 +20,7 @@ Also handles loading modifiers from yaml files
 
 import logging
 import math
-from typing import Any, Dict, Iterable, List, Optional, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import torch
 from torch import Tensor
@@ -307,6 +307,14 @@ class ScheduledModifierManager(BaseManager, Modifier):
         super().__init__(modifiers=modifiers, metadata=metadata)
         self._initialize_epoch = 0
 
+        self._stage_end_epochs_finalized = {}  # type: Dict[str, Tuple[float, bool]]
+        if isinstance(self._modifiers, Dict):
+            for stage, stage_modifiers in self._modifiers.items():
+                self._stage_end_epochs_finalized[stage] = (
+                    self._get_max_epochs(stage_modifiers),
+                    False,
+                )
+
     def state_dict(self) -> Dict[str, Dict]:
         """
         :return: Dictionary to store any state variables for this manager.
@@ -558,7 +566,9 @@ class ScheduledModifierManager(BaseManager, Modifier):
         """
         super().finalize(module, reset_loggers, **kwargs)
 
-        self._finalize_modifiers(self.iter_modifiers(), module, reset_loggers, **kwargs)
+        self._finalize_modifiers(
+            self.iter_modifiers(initialized_only=True), module, reset_loggers, **kwargs
+        )
 
     def update(
         self,
@@ -582,7 +592,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
         """
         super().update(module, optimizer, epoch, steps_per_epoch)
 
-        for mod in self.iter_modifiers():
+        for mod in self.iter_modifiers(initialized_only=True):
             if not mod.enabled:
                 continue
 
@@ -614,7 +624,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
         """
         super().loss_update(loss, module, optimizer, epoch, steps_per_epoch, **kwargs)
 
-        for mod in self.iter_modifiers():
+        for mod in self.iter_modifiers(initialized_only=True):
             if not mod.enabled:
                 continue
 
@@ -645,7 +655,10 @@ class ScheduledModifierManager(BaseManager, Modifier):
         """
         super().optimizer_pre_step(module, optimizer, epoch, steps_per_epoch)
 
-        for mod in self.iter_modifiers():
+        # finalize any stages who's max_epoch has passed
+        self._check_finalize_stages(module, epoch)
+
+        for mod in self.iter_modifiers(initialized_only=True):
             if not mod.enabled:
                 continue
 
@@ -666,7 +679,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
         """
         super().optimizer_post_step(module, optimizer, epoch, steps_per_epoch)
 
-        for mod in self.iter_modifiers():
+        for mod in self.iter_modifiers(initialized_only=True):
             if not mod.enabled:
                 continue
 
@@ -701,4 +714,17 @@ class ScheduledModifierManager(BaseManager, Modifier):
             modifiers = [modifiers]
 
         for mod in modifiers:
+            if not mod._initialized:
+                continue  # already finalized
             mod.finalize(module, reset_loggers, **kwargs)
+
+    def _check_finalize_stages(self, module: Module, epoch: int):
+        # finalize stage modifiers if max epoch of stage has passed
+        if not isinstance(self._modifiers, Dict):
+            return  # not a staged recipe
+
+        for stage, (max_epochs, finalized) in self._stage_end_epochs_finalized.items():
+            if not finalized and max_epochs < epoch:
+                _LOGGER.info(f"Entering epoch {epoch}, finalizing recipe stage {stage}")
+                self._finalize_modifiers(self._modifiers[stage], module)
+                self._stage_end_epochs_finalized[stage] = (max_epochs, True)

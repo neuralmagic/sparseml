@@ -24,7 +24,7 @@ import math
 from collections import OrderedDict
 from copy import deepcopy
 from functools import cmp_to_key
-from typing import Any, Dict, Generator, List, Optional, Union
+from typing import Any, Dict, Generator, Iterable, List, Optional, Union
 
 from sparseml.optim.modifier import BaseModifier, BaseObject, ModifierProp
 from sparseml.sparsification.types import SparsificationTypes
@@ -348,23 +348,7 @@ class BaseManager(BaseObject):
         """
         :return: the minimum epochs required by any of the modifiers under the manager
         """
-        vals = []
-        vals.extend(
-            [
-                math.floor(mod.start_epoch)
-                for mod in self.iter_modifiers()
-                if mod.start_epoch > -1
-            ]
-        )
-        vals.extend(
-            [
-                math.floor(mod.end_epoch)
-                for mod in self.iter_modifiers()
-                if mod.end_epoch > -1
-            ]
-        )
-
-        return min(vals) if len(vals) > 0 else -1
+        return self._get_max_epochs(self.iter_modifiers(), get_min=True)
 
     @ModifierProp(serializable=False)
     def max_epochs(self) -> int:
@@ -372,23 +356,7 @@ class BaseManager(BaseObject):
         :return: the maximum number of epochs required by any of the modifiers
             under the manager
         """
-        vals = []
-        vals.extend(
-            [
-                math.ceil(mod.start_epoch)
-                for mod in self.iter_modifiers()
-                if mod.start_epoch > -1
-            ]
-        )
-        vals.extend(
-            [
-                math.ceil(mod.end_epoch)
-                for mod in self.iter_modifiers()
-                if mod.end_epoch > -1
-            ]
-        )
-
-        return max(vals) if len(vals) > 0 else -1
+        return self._get_max_epochs(self.iter_modifiers())
 
     def save(self, file_path: str, include_metadata: bool = True):
         """
@@ -429,8 +397,13 @@ class BaseManager(BaseObject):
         with open(file_path, "w") as yaml_file:
             yaml_file.write(structured_recipe_yaml)
 
-    def iter_modifiers(self) -> Generator[None, None, BaseModifier]:
+    def iter_modifiers(
+        self,
+        initialized_only: bool = False,
+    ) -> Generator[None, None, BaseModifier]:
         """
+        :param initialized_only: if True, will skip uninitialized modifiers.
+            Default False
         :return: generator for modifiers of this manager
         """
         modifiers_dict = (
@@ -440,6 +413,8 @@ class BaseManager(BaseObject):
         )
         for modifiers_list in modifiers_dict.values():
             for mod in modifiers_list:
+                if initialized_only and not mod.initialized:
+                    continue
                 yield mod
 
     def to_string_lines(self, include_metadata: bool = True) -> List[str]:
@@ -569,6 +544,26 @@ class BaseManager(BaseObject):
     def _info_log_metadata(self):
         metadata_str = json.dumps(self._metadata, indent=1)
         _LOGGER.debug(f"Created recipe manager with metadata: {metadata_str}")
+
+    def _get_max_epochs(
+        self,
+        modifiers: Iterable[BaseModifier],
+        get_min: bool = False,
+    ) -> int:
+        if isinstance(modifiers, BaseModifier):
+            modifiers = [modifiers]
+
+        vals = []
+        for mod in modifiers:
+            if mod.start_epoch > -1:
+                vals.append(math.ceil(mod.start_epoch))
+            if mod.end_epoch > -1:
+                vals.append(math.ceil(mod.end_epoch))
+
+        if not get_min:
+            return max(vals) if len(vals) > 0 else -1
+        else:
+            return min(vals) if len(vals) > 0 else -1
 
 
 def _sort_modifiers_list(modifiers: List[BaseModifier]) -> List[BaseModifier]:
