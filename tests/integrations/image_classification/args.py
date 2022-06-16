@@ -117,6 +117,16 @@ class ImageClassificationTrainArgs(_ImageClassificationBaseArgs):
     recipe_args: str = Field(
         default=None, description="json string for recipe constructor"
     )
+    max_train_steps: int = Field(
+        default=-1,
+        description="The maximum number of training steps to run per epoch. If "
+        "negative, will run for the entire training set",
+    )
+    max_eval_steps: int = Field(
+        default=-1,
+        description="The maximum number of eval steps to run per epoch. If negative, "
+        "will run for the entire validation set",
+    )
 
     def __init__(self, **data):
         super().__init__(**data)
