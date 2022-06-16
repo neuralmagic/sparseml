@@ -210,8 +210,8 @@ class _TransformersTrainArgs(BaseModel):
     )
     max_grad_norm: float = Field(default=1.0, description="Max gradient norm.")
 
-    num_train_epochs: float = Field(
-        default=3.0, description="Total number of training epochs to perform."
+    num_train_epochs: Optional[float] = Field(
+        default=None, description="Total number of training epochs to perform."
     )
     max_steps: int = Field(
         default=-1,

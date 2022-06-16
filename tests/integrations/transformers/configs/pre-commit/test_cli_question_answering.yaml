@@ -7,8 +7,8 @@ train:
    dataset_name: squad
    do_train: True
    do_eval: True
-   num_train_epochs: 1
-   max_steps: 5
+   max_steps: 1
+   save_strategy: epoch
 export:
   command_args:
     task: qa

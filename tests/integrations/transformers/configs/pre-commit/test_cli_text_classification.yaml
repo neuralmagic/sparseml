@@ -7,12 +7,11 @@ train:
    task_name: mnli
    do_train: True
    do_eval: True
-   per_device_train_batch_size: 16
-   num_train_epochs: 1
    max_steps: 5
+   save_strategy: epoch
 export:
   command_args:
-    task: mnli
+    task: glue
 deploy:
   command_args:
     task: text-classification

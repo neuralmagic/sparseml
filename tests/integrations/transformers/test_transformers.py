@@ -168,9 +168,11 @@ class TestTransformers(BaseIntegrationTester):
             if run_args.recipe
             else run_args.num_train_epochs
         )
-        with open(results_file) as f:
-            train_results = json.load(f)
-        assert abs(train_results["epoch"] - math.floor(end_epoch)) < 0.1
+        # skip for step-based tests
+        if end_epoch:
+            with open(results_file) as f:
+                train_results = json.load(f)
+            assert abs(train_results["epoch"] - math.floor(end_epoch)) < 0.1
 
     @skip_inactive_stage
     def test_train_metrics(self, integration_manager):
