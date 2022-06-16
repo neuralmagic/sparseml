@@ -1,0 +1,74 @@
+name: Integrations Testing
+on: 
+  push:
+    branches:
+      - main
+      - 'release/*'
+      - integrations-testing-updates
+  pull_request:
+    branches:
+      - main
+      - 'release/*'
+
+jobs:
+  get-trigger:
+    runs-on: ubuntu-18.04
+    steps:
+      if: ${{github.event_name}} == 'pull_request' 
+      run: echo "::set-output name=cadence::pre-commit"
+      if: ${{github.event_name}} == 'push'
+      run: echo "::set-output name=cadence::commit"
+  changed-integrations:
+    runs-on: ubuntu-18.04
+    outputs:
+      transformers: ${{ steps.transformers.outputs.output }}
+      yolov5: ${{ steps.yolov5.outputs.output }}
+      image_classification: ${{ steps.image_classification.outputs.output }}
+        id: transformers-check
+        run: >
+          ((git diff --name-only origin/main HEAD | grep -E "[src|tests]/sparseml/transformers|setup.py")
+          || (echo $GITHUB_REF | grep -E "refs/heads/[release/|main]"))
+          && echo "::set-output name=output::transformers" || echo "::set-output name=output::"
+        id: yolov5-check
+        run: >
+          ((git diff --name-only origin/main HEAD | grep -E "[src|tests]/sparseml/yolov5|setup.py")
+          || (echo $GITHUB_REF | grep -E "refs/heads/[release/|main]"))
+          && echo "::set-output name=output::yolov5" || echo "::set-output name=output::"
+        id: image-classification-check
+        run: >
+          ((git diff --name-only origin/main HEAD | grep -E "[src|tests]/sparseml/pytorch/image_classification|setup.py")
+          || (echo $GITHUB_REF | grep -E "refs/heads/[release/|main]"))
+          && echo "::set-output name=output::image_classification" || echo "::set-output name=output::"
+  integrations-tests:
+    runs-on: ubuntu-18.04
+    needs: get-trigger
+    needs: changed-integrations
+    env:
+      SPARSEZOO_TEST_MODE: "true"
+      SPARSEML_TEST_CADENCE: ${{needs.get-trigger.outputs.cadence}}
+      TRANSFORMERS: needs.changed-integrations.outputs.transformers
+      YOLOV5: needs.changed-integrations.outputs.yolov5
+      IMAGE_CLASSIFICATION: needs.changed-integrations.outputs.image_classification
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/checkout@v2
+        with:
+          repository: "neuralmagic/sparsezoo"
+          path: "sparsezoo"
+          ref: ${{needs.test-setup.outputs.branch}}
+      - name: "⚙️ Install sparsezoo dependencies"
+        run: pip3 install -U pip && pip3 install setuptools sparsezoo/
+      - name: "Clean sparsezoo directory"
+        run: rm -r sparsezoo/
+      - name: "⚙️ Install dependencies"
+        run: pip3 install .[dev,tf_v1,onnxruntime]
+      - name: "⚙️ Install deepsparse"
+        run: pip install deepsparse
+      - name: "🔬 Running integrations tests (cadence: ${{needs.get-trigger.outputs.cadence}})"
+        if: ${{needs.get-trigger.outputs.cadence}} == "pre-commit"
+        run: make test TARGETS=$TRANSFORMERS,$YOLOV5,$IMAGE_CLASSIFICATION
+        if: ${{needs.get-trigger.outputs.cadence}} != "pre-commit"
+        run: make test TARGETS=transformers,yolov5,image_classification
+
+    
+
