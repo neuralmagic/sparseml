@@ -305,7 +305,7 @@ class BaseIntegrationTester:
         Tests:
             - Target model and generated model have equivalent graphs
             - Target model and generated model produce similar outputs when run through
-            onnixruntime. Tolerance set via pytest.approx(abs=1e-5)
+            onnxruntime. Tolerance set via pytest.approx(abs=1e-5)
         """
         raise NotImplementedError()
 

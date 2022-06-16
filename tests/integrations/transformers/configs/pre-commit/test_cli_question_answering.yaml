@@ -7,11 +7,8 @@ train:
    dataset_name: squad
    do_train: True
    do_eval: True
-   max_steps: 1
+   max_steps: 5
    save_strategy: epoch
 export:
   command_args:
     task: qa
-deploy:
-  command_args:
-    task: question-answering

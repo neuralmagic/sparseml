@@ -12,6 +12,3 @@ train:
 export:
   command_args:
     task: glue
-deploy:
-  command_args:
-    task: text-classification

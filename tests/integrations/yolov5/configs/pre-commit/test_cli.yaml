@@ -8,5 +8,3 @@ train:
 export:
   command_args:
     dynamic: True
-deploy:
-  command_args: null

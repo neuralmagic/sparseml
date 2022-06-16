@@ -47,6 +47,8 @@ from tests.integrations.transformers.args import (
     TransformersExportArgs,
 )
 
+from copy import deepcopy
+
 
 deepsparse_error = None
 try:
@@ -130,7 +132,7 @@ class TransformersManager(BaseIntegrationManager):
 
         self.config_classes["train"] = self.task_config_classes[self.task]
 
-        command_stubs_final = self.command_stubs
+        command_stubs_final = deepcopy(self.command_stubs)
         command_stubs_final["train"] = command_stubs_final["train"].format(
             task=self.task
         )
