@@ -20,7 +20,6 @@ import pandas as pd
 import pytest
 import torch
 
-from deepsparse import Pipeline
 from tests.integrations.base_tester import (
     BaseIntegrationManager,
     BaseIntegrationTester,
@@ -41,6 +40,13 @@ from yolov5.export import load_checkpoint
 
 METRIC_TO_COLUMN = {"map0.5": "metrics/mAP_0.5"}
 
+deepsparse_error = None
+try:
+    import deepsparse
+    from deepsparse import Pipeline
+except Exception as e:
+    deepsparse_error = e
+
 
 class Yolov5Manager(BaseIntegrationManager):
 
@@ -57,6 +63,7 @@ class Yolov5Manager(BaseIntegrationManager):
 
     def capture_pre_run_state(self):
         super().capture_pre_run_state()
+        self._check_deploy_requirements(deepsparse_error)
 
         # Setup temporary directory for train run
         if "train" in self.configs:

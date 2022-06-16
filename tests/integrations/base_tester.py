@@ -30,6 +30,7 @@ described in B and should be decorated by @skip_inactive_stage found in helpers.
 
 import os
 import subprocess
+from ast import Import
 from functools import wraps
 from typing import Dict, Union
 
@@ -189,6 +190,16 @@ class BaseIntegrationManager:
             f"{self._end_file_count - self._start_file_count} files created during "
             "pytest run"
         )
+
+    def _check_deploy_requirements(self, deepsparse_error):
+        """
+        If a deploy stage is present and deepsparse is not installed, throw an error.
+        """
+        if "deploy" in self.command_types and deepsparse_error:
+            raise ImportError(
+                "DeepSparse is required for integration tests with a deploy stage."
+                f"DeepSparse import error: {deepsparse_error}"
+            )
 
 
 def skip_inactive_stage(test):

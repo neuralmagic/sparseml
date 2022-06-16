@@ -25,7 +25,6 @@ import torch
 from transformers import AutoConfig, AutoTokenizer
 from transformers.tokenization_utils_base import PaddingStrategy
 
-from deepsparse import Pipeline
 from sparseml.pytorch.optim.manager import ScheduledModifierManager
 from sparseml.transformers.export import load_task_model
 from sparseml.transformers.utils import SparseAutoModel
@@ -49,6 +48,14 @@ from tests.integrations.transformers.args import (
 )
 
 
+deepsparse_error = None
+try:
+    import deepsparse
+    from deepsparse import Pipeline
+except Exception as e:
+    deepsparse_error = e
+
+
 class TransformersManager(BaseIntegrationManager):
     command_stubs = {
         "train": "sparseml.transformers.train.{task}",
@@ -70,6 +77,7 @@ class TransformersManager(BaseIntegrationManager):
 
     def capture_pre_run_state(self):
         super().capture_pre_run_state()
+        self._check_deploy_requirements(deepsparse_error)
 
         # Setup temporary directory for train run
         if "train" in self.configs:
