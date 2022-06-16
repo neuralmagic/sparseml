@@ -19,7 +19,6 @@ import onnx
 import pytest
 import torch
 
-from deepsparse import Pipeline
 from sparseml.pytorch.models import ModelRegistry
 from sparsezoo import Zoo
 from tests.integrations.base_tester import (
@@ -39,6 +38,14 @@ from tests.integrations.image_classification.args import (
 )
 
 
+deepsparse_error = None
+try:
+    import deepsparse
+    from deepsparse import Pipeline
+except Exception as e:
+    deepsparse_error = e
+
+
 class ImageClassificationManager(BaseIntegrationManager):
 
     command_stubs = {
@@ -54,6 +61,7 @@ class ImageClassificationManager(BaseIntegrationManager):
 
     def capture_pre_run_state(self):
         super().capture_pre_run_state()
+        self._check_deploy_requirements(deepsparse_error)
 
         train_args = None
         self.save_dir = None
