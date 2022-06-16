@@ -70,11 +70,11 @@ class Config:
                 if value:
                     args_string_list.append(key)
             elif isinstance(value, List):
-                if len(value) <2:
-                        raise ValueError(
-                            "List arguments must have more one entry. "
-                            f"Received {key}:{value}"
-                            )
+                if len(value) < 2:
+                    raise ValueError(
+                        "List arguments must have more one entry. "
+                        f"Received {key}:{value}"
+                    )
                 # Handles args that are both bool and value based (see evolve in yolov5)
                 if isinstance(value[0], bool):
                     if value[0]:
