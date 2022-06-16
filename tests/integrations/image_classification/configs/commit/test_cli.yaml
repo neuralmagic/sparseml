@@ -1,4 +1,4 @@
-cadence: "pre-commit"
+cadence: "commit"
 abridged: True
 train:
   command_args:

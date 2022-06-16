@@ -1,14 +1,14 @@
-cadence: "pre-commit"
+cadence: "commit"
 abridged: True
 train:
-  task: Question-Answering
+  task: Text-Classification
   command_args:
    model_name_or_path: bert-base-uncased
-   dataset_name: squad
+   task_name: mnli
    do_train: True
    do_eval: True
    max_steps: 5
    save_strategy: epoch
 export:
   command_args:
-    task: qa
+    task: glue
