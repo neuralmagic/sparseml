@@ -20,9 +20,9 @@ Note: Transformers will not immediately install with this command. Instead, a sp
 - [Crypto Sentiment Analysis example](https://github.com/neuralmagic/deepsparse/tree/500d132f27e97547b752c99dd06e17b8e53a1ba8/examples/twitter-nlp) + [accompanying video](https://www.youtube.com/watch?v=7UTKt-PDLvk)
 ## Getting Started
 ### Sparsifying Popular Transformer Models
-In the example below, a dense BERT model is trained on the SQuAD dataset. By passing the recipe `zoo:nlp/question_answering/bert-base/pytorch/huggingface/squad/pruned-aggressive_98` (located in [SparseZoo](https://sparsezoo.neuralmagic.com/models/nlp%2Fquestion_answering%2Fbert-base%2Fpytorch%2Fhuggingface%2Fsquad%2Fpruned-aggressive_98)) we modify (sparsify) the training process and/or the model.
+In the example below, a dense BERT model is trained on the MNLI dataset. By passing the recipe `zoo:nlp/text_classification/bert-base/pytorch/huggingface/mnli/12layer_pruned90-none ` (located in [SparseZoo](https://sparsezoo.neuralmagic.com/models/nlp%2Ftext_classification%2Fbert-base%2Fpytorch%2Fhuggingface%2Fmnli%2F12layer_pruned90-none)) we modify (sparsify) the training process and/or the model.
 ```bash
-sparseml.transformers.question_answering \
+sparseml.transformers.text_classification \
   --model_name_or_path bert-base-uncased \          # name of the Hugging Face dense model
   --task_name mnli \                                # name of the task we want to sparse train on
   --do_train \                                      # run training

@@ -29,7 +29,7 @@ Note: Transformers will not immediately install with this command. Instead, a sp
 In the example below, a dense BERT model is trained on the CoNLL-2003 dataset. By passing the recipe `zoo:nlp/token_classification/bert-base/pytorch/huggingface/conll2003/12layer_pruned80_quant-none-vnni` (located in [SparseZoo](https://sparsezoo.neuralmagic.com/models/nlp%2Ftoken_classification%2Fbert-base%2Fpytorch%2Fhuggingface%2Fconll2003%2F12layer_pruned80_quant-none-vnni)) we modify (sparsify) the training process and/or the model.
 
 ```bash
-sparseml.transformers.question_answering \
+sparseml.transformers.token_classification \
   --model_name_or_path bert-base-uncased \          # name of the Hugging Face dense model
   --dataset_name conll2003 \                        # name of the dataset we want to sparse train on
   --do_train \                                      # run training
