@@ -93,6 +93,11 @@ class TransformersManager(BaseIntegrationManager):
                 )
         self.commands["export"] = self.configs["export"].create_command_script()
 
+    def add_abridged_configs(self):
+        if "train" in self.command_types:
+            self.configs["train"].max_train_samples = 10
+            self.configs["train"].max_eval_samples = 10
+
     def get_root_commands(self, raw_configs):
         self.task = (
             raw_configs["train"]["task"].lower().replace("-", "_")

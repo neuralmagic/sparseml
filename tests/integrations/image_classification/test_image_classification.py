@@ -75,6 +75,11 @@ class ImageClassificationManager(BaseIntegrationManager):
                 export_args.checkpoint_path = self.expected_checkpoint_path
                 export_args.save_dir = train_args.save_dir
 
+    def add_abridged_configs(self):
+        if "train" in self.command_types:
+            self.configs["train"].max_train_steps = 10
+            self.configs["train"].max_eval_steps = 10
+
     def teardown(self):
         """
         Cleanup environment after test completion
