@@ -1,7 +1,7 @@
 cadence: "pre-commit"
 abridged: True
 train:
-  task: Token-Classification
+  task: Question-Answering
   command_args:
    model_name_or_path: bert-base-uncased
    dataset_name: squad
@@ -11,7 +11,7 @@ train:
    max_steps: 5
 export:
   command_args:
-    task: ner
+    task: qa
 deploy:
   command_args:
-    task: token-classification
+    task: question-answering

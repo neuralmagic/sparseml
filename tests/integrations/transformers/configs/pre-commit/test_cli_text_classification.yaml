@@ -12,7 +12,7 @@ train:
    max_steps: 5
 export:
   command_args:
-    task: qa
+    task: mnli
 deploy:
   command_args:
     task: text-classification
