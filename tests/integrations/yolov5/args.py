@@ -36,12 +36,12 @@ class Yolov5TrainArgs(BaseModel):
     max_train_steps: int = Field(
         default=-1,
         description="Set the maximum number of training steps per epoch. if negative,"
-        "the entire dataset will be used, default=-1",
+        "the entire training set will be used, default=-1",
     )
     max_eval_steps: int = Field(
         default=-1,
         description="Set the maximum number of eval steps per epoch. if negative,"
-        "the entire dataset will be used, default=-1",
+        "the entire validation set will be used, default=-1",
     )
     one_shot: bool = Field(default=False, description="Apply recipe in one shot manner")
     batch_size: int = Field(
@@ -152,7 +152,6 @@ class Yolov5ExportArgs(BaseModel):
     remove_grid: bool = Field(
         default=False, description="remove export of Detect() layer grid"
     )
-
 
 class Yolov5DeployArgs(BaseModel):
     model_path: Optional[str] = Field(
