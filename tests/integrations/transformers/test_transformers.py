@@ -43,16 +43,30 @@ from tests.integrations.transformers.args import (
     QuestionAnsweringArgs,
     TextClassificationArgs,
     TokenClassificationArgs,
+    TransformersDeployArgs,
     TransformersExportArgs,
 )
+
+
+deepsparse_error = None
+try:
+    import deepsparse
+    from deepsparse import Pipeline
+except Exception as e:
+    deepsparse_error = e
 
 
 class TransformersManager(BaseIntegrationManager):
     command_stubs = {
         "train": "sparseml.transformers.train.{task}",
         "export": "sparseml.transformers.export_onnx",
+        "deploy": None,
     }
-    config_classes = {"train": None, "export": TransformersExportArgs}
+    config_classes = {
+        "train": None,
+        "export": TransformersExportArgs,
+        "deploy": TransformersDeployArgs,
+    }
     task_config_classes = {
         "masked_language_modeling": MaskedLanguageModellingArgs,
         "question_answering": QuestionAnsweringArgs,
@@ -63,6 +77,7 @@ class TransformersManager(BaseIntegrationManager):
 
     def capture_pre_run_state(self):
         super().capture_pre_run_state()
+        self._check_deploy_requirements(deepsparse_error)
 
         # Setup temporary directory for train run
         if "train" in self.configs:
@@ -91,7 +106,14 @@ class TransformersManager(BaseIntegrationManager):
                 export_args.model_path = os.path.join(
                     train_args.output_dir, checkpoints[-1]
                 )
-        self.commands["export"] = self.configs["export"].create_command_script()
+            self.commands["export"] = self.configs["export"].create_command_script()
+
+        # Grab onnx output path from the export stage if it exists
+        if command_type == "deploy":
+            deploy_args = self.configs["deploy"].run_args
+            if self.save_dir:
+                export_args = self.configs["export"].run_args
+                deploy_args.model_path = export_args.model_path
 
     def add_abridged_configs(self):
         if "train" in self.command_types:
@@ -174,7 +196,7 @@ class TestTransformers(BaseIntegrationTester):
         manager = integration_manager
         export_run_args = manager.configs["export"].run_args
         onnx_file = os.path.join(
-            os.path.dirname(export_run_args.model_path), export_run_args.onnx_file_name
+            export_run_args.model_path, export_run_args.onnx_file_name
         )
         assert os.path.isfile(onnx_file)
         model = onnx.load(onnx_file)
@@ -207,6 +229,14 @@ class TestTransformers(BaseIntegrationTester):
                 task=manager.task,
             )
 
+    @skip_inactive_stage
+    def test_deploy_model_compile(self, integration_manager):
+        manager = integration_manager
+        args = manager.configs["deploy"]
+        _ = Pipeline.create(
+            task=args.run_args.task, model_path=args.run_args.model_path
+        )
+
 
 def _load_model_on_task(model_name_or_path, model_type, task, **model_kwargs):
     load_funcs = {
@@ -219,6 +249,7 @@ def _load_model_on_task(model_name_or_path, model_type, task, **model_kwargs):
 
 
 def _create_bert_input(model_path, task):
+    task = task.replace("_", "-")
     config_args = {"finetuning_task": task} if task else {}
     config = AutoConfig.from_pretrained(
         model_path,

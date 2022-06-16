@@ -18,7 +18,6 @@ import tempfile
 import onnx
 import pytest
 import torch
-from pydantic import BaseModel
 
 from sparseml.pytorch.models import ModelRegistry
 from sparsezoo import Zoo
@@ -33,9 +32,18 @@ from tests.integrations.helpers import (
     model_op_counts_test,
 )
 from tests.integrations.image_classification.args import (
+    ImageClassificationDeployArgs,
     ImageClassificationExportArgs,
     ImageClassificationTrainArgs,
 )
+
+
+deepsparse_error = None
+try:
+    import deepsparse
+    from deepsparse import Pipeline
+except Exception as e:
+    deepsparse_error = e
 
 
 class ImageClassificationManager(BaseIntegrationManager):
@@ -43,16 +51,17 @@ class ImageClassificationManager(BaseIntegrationManager):
     command_stubs = {
         "train": "sparseml.image_classification.train",
         "export": "sparseml.image_classification.export_onnx",
-        "deploy": "sparseml.image_classification.deploy",  # placeholder
+        "deploy": None,
     }
     config_classes = {
         "train": ImageClassificationTrainArgs,
         "export": ImageClassificationExportArgs,
-        "deploy": BaseModel,
+        "deploy": ImageClassificationDeployArgs,
     }
 
     def capture_pre_run_state(self):
         super().capture_pre_run_state()
+        self._check_deploy_requirements(deepsparse_error)
 
         train_args = None
         self.save_dir = None
@@ -75,6 +84,14 @@ class ImageClassificationManager(BaseIntegrationManager):
                 export_args.checkpoint_path = self.expected_checkpoint_path
                 export_args.save_dir = train_args.save_dir
 
+        if "deploy" in self.configs:
+            deploy_args = self.configs["deploy"].run_args
+            if self.save_dir:
+                export_args = self.configs["export"].run_args
+                deploy_args.model_path = os.path.join(
+                    export_args.save_dir, export_args.model_tag, "model.onnx"
+                )
+              
     def add_abridged_configs(self):
         if "train" in self.command_types:
             self.configs["train"].max_train_steps = 10
@@ -193,3 +210,9 @@ class TestImageClassification(BaseIntegrationTester):
             compare_outputs = False
         if compare_outputs:
             model_inputs_outputs_test(export_model_path, target_model_path)
+
+    @skip_inactive_stage
+    def test_deploy_model_compile(self, integration_manager):
+        manager = integration_manager
+        args = manager.configs["deploy"]
+        _ = Pipeline.create("image-classification", model_path=args.run_args.model_path)

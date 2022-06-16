@@ -30,11 +30,22 @@ from tests.integrations.helpers import (
     model_inputs_outputs_test,
     model_op_counts_test,
 )
-from tests.integrations.yolov5.args import Yolov5ExportArgs, Yolov5TrainArgs
+from tests.integrations.yolov5.args import (
+    Yolov5DeployArgs,
+    Yolov5ExportArgs,
+    Yolov5TrainArgs,
+)
 from yolov5.export import load_checkpoint
 
 
 METRIC_TO_COLUMN = {"map0.5": "metrics/mAP_0.5"}
+
+deepsparse_error = None
+try:
+    import deepsparse
+    from deepsparse import Pipeline
+except Exception as e:
+    deepsparse_error = e
 
 
 class Yolov5Manager(BaseIntegrationManager):
@@ -42,14 +53,17 @@ class Yolov5Manager(BaseIntegrationManager):
     command_stubs = {
         "train": "sparseml.yolov5.train",
         "export": "sparseml.yolov5.export_onnx",
+        "deploy": None,
     }
     config_classes = {
         "train": Yolov5TrainArgs,
         "export": Yolov5ExportArgs,
+        "deploy": Yolov5DeployArgs,
     }
 
     def capture_pre_run_state(self):
         super().capture_pre_run_state()
+        self._check_deploy_requirements(deepsparse_error)
 
         # Setup temporary directory for train run
         if "train" in self.configs:
@@ -73,6 +87,12 @@ class Yolov5Manager(BaseIntegrationManager):
                     "weights",
                     "last.pt" if "train" in self.command_types else export_args.weights,
                 )
+
+        if "deploy" in self.configs:
+            deploy_args = self.configs["deploy"].run_args
+            if self.save_dir:
+                export_args = self.configs["export"].run_args
+                deploy_args.model_path = export_args.weights.replace(".pt", ".onnx")
 
         # Turn on "_" -> "-" conversion for CLI args
         for stage, config in self.configs.items():
@@ -177,3 +197,9 @@ class TestYolov5(BaseIntegrationTester):
             compare_outputs = False
         if compare_outputs:
             model_inputs_outputs_test(export_model_path, target_model_path)
+
+    @skip_inactive_stage
+    def test_deploy_model_compile(self, integration_manager):
+        manager = integration_manager
+        args = manager.configs["deploy"]
+        _ = Pipeline.create("yolo", model_path=args.run_args.model_path)

@@ -30,6 +30,7 @@ described in B and should be decorated by @skip_inactive_stage found in helpers.
 
 import os
 import subprocess
+from ast import Import
 from functools import wraps
 from typing import Dict, Union
 
@@ -119,9 +120,11 @@ class BaseIntegrationManager:
             self.add_abridged_configs()
 
         # Combine pre-args, command stubs, and args into complete CLI commands
+        # If command stub is of type None, skip generating command
         self.commands = {
             _type: config.create_command_script()
             for _type, config in self.configs.items()
+            if self.command_stubs[_type]
         }
 
         # All commands are run sequentially
@@ -163,14 +166,15 @@ class BaseIntegrationManager:
         for _type in self.command_types:
             # Optionally, save intermediate state variables between stages
             self.save_stage_information(_type)
-            try:
-                subprocess.check_output(self.commands[_type], **kwargs_dict[_type])
-            except subprocess.CalledProcessError as e:
-                raise RuntimeError(
-                    "command '{}' return with error (code {}): {}".format(
-                        e.cmd, e.returncode, e.output
+            if self.command_stubs[_type]:  # check if command is executable
+                try:
+                    subprocess.check_output(self.commands[_type], **kwargs_dict[_type])
+                except subprocess.CalledProcessError as e:
+                    raise RuntimeError(
+                        "command '{}' return with error (code {}): {}".format(
+                            e.cmd, e.returncode, e.output
+                        )
                     )
-                )
 
     def save_stage_information(self, command_type):
         """
@@ -199,6 +203,16 @@ class BaseIntegrationManager:
             f"{self._end_file_count - self._start_file_count} files created during "
             "pytest run"
         )
+
+    def _check_deploy_requirements(self, deepsparse_error):
+        """
+        If a deploy stage is present and deepsparse is not installed, throw an error.
+        """
+        if "deploy" in self.command_types and deepsparse_error:
+            raise ImportError(
+                "DeepSparse is required for integration tests with a deploy stage."
+                f"DeepSparse import error: {deepsparse_error}"
+            )
 
 
 def skip_inactive_stage(test):
@@ -293,5 +307,14 @@ class BaseIntegrationTester:
             - Target model and generated model have equivalent graphs
             - Target model and generated model produce similar outputs when run through
             onnixruntime. Tolerance set via pytest.approx(abs=1e-5)
+        """
+        raise NotImplementedError()
+
+    @skip_inactive_stage
+    def test_deploy_model_compile(self, integration_manager):
+        """
+        Tests:
+            - Exported onnx model can be loaded into a DeepSparse Pipeline
+            - Generated Pipeline can process input
         """
         raise NotImplementedError()

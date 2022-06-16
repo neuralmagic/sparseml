@@ -19,4 +19,6 @@ train:
 export:
   command_args:
     task: qa
-
+deploy:
+  command_args:
+    task: question-answering
