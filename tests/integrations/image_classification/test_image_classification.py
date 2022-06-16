@@ -90,7 +90,7 @@ class ImageClassificationManager(BaseIntegrationManager):
                 deploy_args.model_path = os.path.join(
                     export_args.save_dir, export_args.model_tag, "model.onnx"
                 )
-                
+
     def add_abridged_configs(self):
         if "train" in self.command_types:
             self.configs["train"].max_train_steps = 10

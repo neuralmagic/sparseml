@@ -18,6 +18,7 @@ import json
 import math
 import os
 import tempfile
+from copy import deepcopy
 
 import onnx
 import pytest
@@ -46,8 +47,6 @@ from tests.integrations.transformers.args import (
     TransformersDeployArgs,
     TransformersExportArgs,
 )
-
-from copy import deepcopy
 
 
 deepsparse_error = None
