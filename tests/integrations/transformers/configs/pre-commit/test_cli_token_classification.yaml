@@ -1,0 +1,18 @@
+cadence: "pre-commit"
+abridged: True
+train:
+  task: Question-Answering
+  command_args:
+   model_name_or_path: bert-base-uncased
+   task_name: ner
+   dataset_name: conll2003
+   do_train: True
+   do_eval: True
+   num_train_epochs: 1
+   max_steps: 5
+export:
+  command_args:
+    task: ner
+deploy:
+  command_args:
+    task: question-answering

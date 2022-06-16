@@ -50,7 +50,6 @@ from tests.integrations.transformers.args import (
 
 deepsparse_error = None
 try:
-    import deepsparse
     from deepsparse import Pipeline
 except Exception as e:
     deepsparse_error = e
@@ -144,7 +143,7 @@ class TransformersManager(BaseIntegrationManager):
 class TestTransformers(BaseIntegrationTester):
     @pytest.fixture(
         params=get_configs_with_cadence(
-            os.environ.get("NM_TEST_CADENCE", "commit"), os.path.dirname(__file__)
+            os.environ.get("NM_TEST_CADENCE", "pre-commit"), os.path.dirname(__file__)
         ),
         scope="class",
     )

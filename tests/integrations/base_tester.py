@@ -30,7 +30,6 @@ described in B and should be decorated by @skip_inactive_stage found in helpers.
 
 import os
 import subprocess
-from ast import Import
 from functools import wraps
 from typing import Dict, Union
 
@@ -94,7 +93,7 @@ class BaseIntegrationManager:
         self.cadence = raw_config.pop("cadence")
 
         # If abridged, the run parameters are modified to significantly shorten the run
-        self.abridged = raw_config.pop("abridged_mode", False)
+        self.abridged = raw_config.pop("abridged", False)
 
         # Command types present in this config
         self.command_types = [_type for _type in raw_config]
@@ -258,7 +257,7 @@ class BaseIntegrationTester:
 
     @pytest.fixture(
         params=get_configs_with_cadence(
-            os.environ.get("NM_TEST_CADENCE", "commit"), os.path.dirname(__file__)
+            os.environ.get("NM_TEST_CADENCE", "pre-commit"), os.path.dirname(__file__)
         ),
         scope="class",
     )

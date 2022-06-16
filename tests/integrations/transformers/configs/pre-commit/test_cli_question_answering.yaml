@@ -1,0 +1,17 @@
+cadence: "pre-commit"
+abridged: True
+train:
+  task: Token-Classification
+  command_args:
+   model_name_or_path: bert-base-uncased
+   dataset_name: squad
+   do_train: True
+   do_eval: True
+   num_train_epochs: 1
+   max_steps: 5
+export:
+  command_args:
+    task: 
+deploy:
+  command_args:
+    task: token-classification

@@ -42,7 +42,6 @@ METRIC_TO_COLUMN = {"map0.5": "metrics/mAP_0.5"}
 
 deepsparse_error = None
 try:
-    import deepsparse
     from deepsparse import Pipeline
 except Exception as e:
     deepsparse_error = e
@@ -102,6 +101,7 @@ class Yolov5Manager(BaseIntegrationManager):
         if "train" in self.command_types:
             self.configs["train"].max_train_steps = 10
             self.configs["train"].max_eval_steps = 10
+            self.configs["train"].data = "coco128.yaml"
 
     def teardown(self):
         if "train" in self.command_types:
@@ -111,7 +111,7 @@ class Yolov5Manager(BaseIntegrationManager):
 class TestYolov5(BaseIntegrationTester):
     @pytest.fixture(
         params=get_configs_with_cadence(
-            os.environ.get("NM_TEST_CADENCE", "commit"), os.path.dirname(__file__)
+            os.environ.get("NM_TEST_CADENCE", "pre-commit"), os.path.dirname(__file__)
         ),
         scope="class",
     )
