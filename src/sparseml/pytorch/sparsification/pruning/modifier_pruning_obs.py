@@ -368,7 +368,8 @@ class OBSPruningParamsScorer(PruningParamsGradScorer):
             for param in self._params:
                 assert (
                     param.numel() % self._fisher_block_size == 0
-                ), "number of elements in each param must be divisible by fisher_block_size"
+                ), "number of elements in each param must be divisible by \
+                    fisher_block_size"
 
     def _setup_FisherInverse(self, masks: List[Tensor]):
         self._masks = masks  # to be used by score_parameters

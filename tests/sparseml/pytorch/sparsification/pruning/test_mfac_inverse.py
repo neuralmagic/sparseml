@@ -19,10 +19,10 @@ import torch
 
 from flaky import flaky
 from sparseml.pytorch.sparsification.pruning import (
+    EmpiricalBlockFisherInverse,
     FisherInverseFast,
     FisherInverseFastBlock,
     FisherInverseFastSmallBlocks,
-    EmpiricalBlockFisherInverse,
 )
 
 
@@ -107,7 +107,7 @@ def test_blocked_fisher_inverse(fisher_algorithm, devices):
     "fisher_block_online_algorithm",
     [
         EmpiricalBlockFisherInverse,
-    ]
+    ],
 )
 @pytest.mark.parametrize(
     "device",
