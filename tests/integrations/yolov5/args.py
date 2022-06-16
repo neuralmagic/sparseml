@@ -152,13 +152,9 @@ class Yolov5ExportArgs(BaseModel):
     remove_grid: bool = Field(
         default=False, description="remove export of Detect() layer grid"
     )
-    max_train_steps: int = Field(
-        default=-1,
-        description="Set the maximum number of training steps per epoch. if negative,"
-        "the entire training set will be used, default=-1",
-    )
-    max_eval_steps: int = Field(
-        default=-1,
-        description="Set the maximum number of eval steps per epoch. if negative,"
-        "the entire validation set will be used, default=-1",
+
+class Yolov5DeployArgs(BaseModel):
+    model_path: Optional[str] = Field(
+        default=None,
+        description=("Path to directory where model onnx file is stored"),
     )

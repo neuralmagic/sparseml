@@ -684,3 +684,11 @@ class TransformersExportArgs(BaseModel):
             "Default and reccomended value for pipeline compatibility is 'model.onnx'"
         ),
     )
+
+
+class TransformersDeployArgs(BaseModel):
+    task: str = Field(description="Task to create the model for.")
+    model_path: Optional[str] = Field(
+        default=None,
+        description=("Path to directory where model onnx file is stored"),
+    )

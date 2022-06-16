@@ -14,3 +14,5 @@ export:
     dynamic: True
   test_args:
     target_model: "zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned_quant-aggressive_94"
+deploy:
+  command_args: null
