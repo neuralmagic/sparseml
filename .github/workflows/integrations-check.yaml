@@ -50,6 +50,9 @@ jobs:
 
   integrations-tests:
     runs-on: ubuntu-18.04
+    needs: test-setup
+    env:
+      SPARSEZOO_TEST_MODE: "true"
       SPARSEML_TEST_CADENCE: ${{needs.test-setup.outputs.cadence}}
       TRANSFORMERS: needs.test-setup.outputs.transformers
       YOLOV5: needs.test-setup.outputs.yolov5
