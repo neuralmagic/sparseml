@@ -40,7 +40,6 @@ from tests.integrations.image_classification.args import (
 
 deepsparse_error = None
 try:
-    import deepsparse
     from deepsparse import Pipeline
 except Exception as e:
     deepsparse_error = e
@@ -91,7 +90,7 @@ class ImageClassificationManager(BaseIntegrationManager):
                 deploy_args.model_path = os.path.join(
                     export_args.save_dir, export_args.model_tag, "model.onnx"
                 )
-              
+                
     def add_abridged_configs(self):
         if "train" in self.command_types:
             self.configs["train"].max_train_steps = 10
@@ -107,7 +106,7 @@ class ImageClassificationManager(BaseIntegrationManager):
 class TestImageClassification(BaseIntegrationTester):
     @pytest.fixture(
         params=get_configs_with_cadence(
-            os.environ.get("NM_TEST_CADENCE", "commit"), os.path.dirname(__file__)
+            os.environ.get("NM_TEST_CADENCE", "pre-commit"), os.path.dirname(__file__)
         ),
         scope="class",
     )

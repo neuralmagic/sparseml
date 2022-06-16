@@ -94,7 +94,7 @@ class BaseIntegrationManager:
         self.cadence = raw_config.pop("cadence")
 
         # If abridged, the run parameters are modified to significantly shorten the run
-        self.abridged = raw_config.pop("abridged_mode", False)
+        self.abridged = raw_config.pop("abridged", False)
 
         # Command types present in this config
         self.command_types = [_type for _type in raw_config]
@@ -263,7 +263,7 @@ class BaseIntegrationTester:
 
     @pytest.fixture(
         params=get_configs_with_cadence(
-            os.environ.get("NM_TEST_CADENCE", "commit"), os.path.dirname(__file__)
+            os.environ.get("NM_TEST_CADENCE", "pre-commit"), os.path.dirname(__file__)
         ),
         scope="class",
     )
@@ -311,7 +311,16 @@ class BaseIntegrationTester:
         Tests:
             - Target model and generated model have equivalent graphs
             - Target model and generated model produce similar outputs when run through
-            onnixruntime. Tolerance set via pytest.approx(abs=1e-5)
+            onnxruntime. Tolerance set via pytest.approx(abs=1e-5)
+        """
+        raise NotImplementedError()
+
+    @skip_inactive_stage
+    def test_deploy_model_compile(self, integration_manager):
+        """
+        Tests:
+            - Exported onnx model can be loaded into a DeepSparse Pipeline
+            - Generated Pipeline can process input
         """
         raise NotImplementedError()
 

@@ -42,7 +42,9 @@ def get_configs_with_cadence(cadence: str, dir_path: str = "."):
     :param dir_path: path to the directory in which to search for the config files
     :return List of file paths to matching configs
     """
-    all_files_found = glob.glob(os.path.join(dir_path, "configs", "test*.yaml"))
+    all_files_found = glob.glob(
+        os.path.join(dir_path, "configs", "**", "test*.yaml"), recursive=True
+    )
     matching_files = []
     for file in all_files_found:
         with open(file) as f:

@@ -139,8 +139,9 @@ class _TransformersTrainArgs(BaseModel):
         ),
     )
     output_dir: str = Field(
+        default=".",
         description="The output directory where the model predictions and checkpoints "
-        " will be written."
+        " will be written.",
     )
     overwrite_output_dir: bool = Field(
         default=False,
@@ -209,8 +210,8 @@ class _TransformersTrainArgs(BaseModel):
     )
     max_grad_norm: float = Field(default=1.0, description="Max gradient norm.")
 
-    num_train_epochs: float = Field(
-        default=3.0, description="Total number of training epochs to perform."
+    num_train_epochs: Optional[float] = Field(
+        default=None, description="Total number of training epochs to perform."
     )
     max_steps: int = Field(
         default=-1,
@@ -571,7 +572,10 @@ class TextClassificationArgs(_TransformersTrainArgs):
         ),
     )
     task_name: Optional[str] = Field(
-        default="ner", description=("The name of the task (ner, pos...).")
+        default=None,
+        description=(
+            "The name of the task to train on: " + ", ".join(_TASK_TO_KEYS.keys())
+        ),
     )
 
 
@@ -599,10 +603,7 @@ class TokenClassificationArgs(_TransformersTrainArgs):
         ),
     )
     task_name: Optional[str] = Field(
-        default=None,
-        description=(
-            "The name of the task to train on: " + ", ".join(_TASK_TO_KEYS.keys())
-        ),
+        default="ner", description=("The name of the task (ner, pos...).")
     )
 
 

@@ -1,0 +1,14 @@
+cadence: "pre-commit"
+abridged: True
+train:
+  task: Text-Classification
+  command_args:
+   model_name_or_path: bert-base-uncased
+   task_name: mnli
+   do_train: True
+   do_eval: True
+   max_steps: 5
+   save_strategy: epoch
+export:
+  command_args:
+    task: glue

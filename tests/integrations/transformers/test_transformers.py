@@ -47,6 +47,15 @@ from tests.integrations.transformers.args import (
     TransformersExportArgs,
 )
 
+from copy import deepcopy
+
+
+deepsparse_error = None
+try:
+    from deepsparse import Pipeline
+except Exception as e:
+    deepsparse_error = e
+
 
 deepsparse_error = None
 try:
@@ -131,7 +140,7 @@ class TransformersManager(BaseIntegrationManager):
 
         self.config_classes["train"] = self.task_config_classes[self.task]
 
-        command_stubs_final = self.command_stubs
+        command_stubs_final = deepcopy(self.command_stubs)
         command_stubs_final["train"] = command_stubs_final["train"].format(
             task=self.task
         )
@@ -144,7 +153,7 @@ class TransformersManager(BaseIntegrationManager):
 class TestTransformers(BaseIntegrationTester):
     @pytest.fixture(
         params=get_configs_with_cadence(
-            os.environ.get("NM_TEST_CADENCE", "commit"), os.path.dirname(__file__)
+            os.environ.get("NM_TEST_CADENCE", "pre-commit"), os.path.dirname(__file__)
         ),
         scope="class",
     )
@@ -169,9 +178,11 @@ class TestTransformers(BaseIntegrationTester):
             if run_args.recipe
             else run_args.num_train_epochs
         )
-        with open(results_file) as f:
-            train_results = json.load(f)
-        assert abs(train_results["epoch"] - math.floor(end_epoch)) < 0.1
+        # skip for step-based tests
+        if end_epoch:
+            with open(results_file) as f:
+                train_results = json.load(f)
+            assert abs(train_results["epoch"] - math.floor(end_epoch)) < 0.1
 
     @skip_inactive_stage
     def test_train_metrics(self, integration_manager):

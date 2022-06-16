@@ -10,12 +10,10 @@ train:
    per_device_train_batch_size: 16
    max_seq_length: 384
    doc_stride: 128
-   output_dir: "."
    preprocessing_num_workers: 6
    fp16: True
-   num_train_epochs: 0.1
+   num_train_epochs: 10
    save_strategy: epoch
-   max_steps: 5
 export:
   command_args:
     task: qa
