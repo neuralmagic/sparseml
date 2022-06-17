@@ -663,7 +663,9 @@ class QuantizationModifier(ScheduledModifier):
             # wrap all conv / linear blocks in with quantization observers
             torch_quantization.propagate_qconfig_(quant_module)
             configure_module_default_qconfigs(quant_module)
-            add_quant_dequant(quant_module, name, module, self.add_quantizable_module_types)
+            add_quant_dequant(
+                quant_module, name, module, self.add_quantizable_module_types
+            )
 
             # Remove output quantization from appropriate modules
             remove_activation_qat_by_layer_name(

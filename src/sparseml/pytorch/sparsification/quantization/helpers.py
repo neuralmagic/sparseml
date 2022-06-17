@@ -480,18 +480,17 @@ def add_quant_dequant(module, name=None, parent_module=None, layer_class_names=N
     :param module: the module to modify
     :param name: name of the module to modify; default to None
     :param parent_module: parent module containing the module to modify; default to None
-    :param layer_class_names: list of module class names to be added to the list of quantizable modules
+    :param layer_class_names: list of module class names to be added to the
+        list of quantizable modules
     :return: the modified module
     """
     named_children = module.named_children()
     is_quantizable = type(module) in _QUANTIZABLE_MODULE_TYPES
     if layer_class_names:
-        is_quantizable = is_quantizable or module.__class__.__name__ in layer_class_names
-    if (
-        is_quantizable
-        and hasattr(module, "qconfig")
-        and module.qconfig
-    ):
+        is_quantizable = (
+            is_quantizable or module.__class__.__name__ in layer_class_names
+        )
+    if is_quantizable and hasattr(module, "qconfig") and module.qconfig:
         module = torch_quantization.QuantWrapper(module)
         if parent_module is not None and len(list(named_children)) <= 0:
             if "." in name:
@@ -505,7 +504,11 @@ def add_quant_dequant(module, name=None, parent_module=None, layer_class_names=N
             setattr(parent_module, name, module)
     else:
         for name, child in named_children:
-            setattr(module, name, add_quant_dequant(child, layer_class_names=layer_class_names))
+            setattr(
+                module,
+                name,
+                add_quant_dequant(child, layer_class_names=layer_class_names),
+            )
     return module
 
 
