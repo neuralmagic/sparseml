@@ -103,9 +103,11 @@ class TransformersManager(BaseIntegrationManager):
                     and file.startswith("checkpoint-")
                 ]
                 checkpoints.sort(key=lambda ckpt: ckpt.split("-")[1])
-                export_args.model_path = os.path.join(
-                    train_args.output_dir, checkpoints[-1]
-                ) if checkpoints else train_args.output_dir
+                export_args.model_path = (
+                    os.path.join(train_args.output_dir, checkpoints[-1])
+                    if checkpoints
+                    else train_args.output_dir
+                )
             self.commands["export"] = self.configs["export"].create_command_script()
 
         # Grab onnx output path from the export stage if it exists
@@ -144,7 +146,8 @@ class TransformersManager(BaseIntegrationManager):
 class TestTransformers(BaseIntegrationTester):
     @pytest.fixture(
         params=get_configs_with_cadence(
-            os.environ.get("SPARSEML_TEST_CADENCE", "pre-commit"), os.path.dirname(__file__)
+            os.environ.get("SPARSEML_TEST_CADENCE", "pre-commit"),
+            os.path.dirname(__file__),
         ),
         scope="class",
     )

@@ -1,4 +1,4 @@
-cadence: "commit"
+cadence: "pre-commit"
 abridged: True
 train:
   task: Question-Answering
@@ -7,8 +7,7 @@ train:
    dataset_name: squad
    do_train: True
    do_eval: True
-   max_steps: 5
-   save_strategy: epoch
+   one_shot: True
 export:
   command_args:
     task: qa

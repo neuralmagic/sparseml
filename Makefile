@@ -48,7 +48,7 @@ endif
 ifneq ($(findstring transformers,$(TARGETS)),transformers)
     PYTEST_INTEGRATION_ARGS := $(PYTEST_INTEGRATION_ARGS) --ignore tests/integrations/transformers
 endif
-ifneq ($(findstring object_detection,$(TARGETS)),yolov5)
+ifneq ($(findstring yolov5,$(TARGETS)),yolov5)
     PYTEST_INTEGRATION_ARGS := $(PYTEST_INTEGRATION_ARGS) --ignore tests/integrations/yolov5
 endif
 

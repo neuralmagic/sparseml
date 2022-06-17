@@ -71,6 +71,12 @@ class Yolov5Manager(BaseIntegrationManager):
             os.makedirs(directory, exist_ok=True)
             self.save_dir = tempfile.TemporaryDirectory(dir=directory)
             train_args.project = self.save_dir.name
+            self.expected_checkpoint_path = os.path.join(
+                train_args.project,
+                "exp",
+                "weights",
+                "checkpoint-one-shot.pt" if train_args.one_shot else "last.pt",
+            )
 
         # Either grab output directory from train run or setup new temporary directory
         # for export
@@ -80,12 +86,7 @@ class Yolov5Manager(BaseIntegrationManager):
                 self.save_dir = tempfile.TemporaryDirectory()
                 export_args.save_dir = self.save_dir.name
             else:
-                export_args.weights = os.path.join(
-                    train_args.project,
-                    "exp",
-                    "weights",
-                    "last.pt" if "train" in self.command_types else export_args.weights,
-                )
+                export_args.weights = self.expected_checkpoint_path
 
         if "deploy" in self.configs:
             deploy_args = self.configs["deploy"].run_args
@@ -111,7 +112,8 @@ class Yolov5Manager(BaseIntegrationManager):
 class TestYolov5(BaseIntegrationTester):
     @pytest.fixture(
         params=get_configs_with_cadence(
-            os.environ.get("SPARSEML_TEST_CADENCE", "pre-commit"), os.path.dirname(__file__)
+            os.environ.get("SPARSEML_TEST_CADENCE", "pre-commit"),
+            os.path.dirname(__file__),
         ),
         scope="class",
     )
@@ -124,7 +126,7 @@ class TestYolov5(BaseIntegrationTester):
     def test_train_complete(self, integration_manager):
         # Test that file is created
         manager = integration_manager
-        model_file = os.path.join(manager.save_dir.name, "exp", "weights", "last.pt")
+        model_file = manager.expected_checkpoint_path
         assert os.path.isfile(model_file)
 
         # Test that model file loadable
@@ -159,9 +161,7 @@ class TestYolov5(BaseIntegrationTester):
         # Test that onnx model is loadable and passes onnx checker
         manager = integration_manager
         export_args = manager.configs["export"]
-        onnx_file = os.path.join(
-            os.path.dirname(export_args.run_args.weights), "last.onnx"
-        )
+        onnx_file = export_args.run_args.weights.replace(".pt", ".onnx")
 
         assert os.path.isfile(onnx_file)
 

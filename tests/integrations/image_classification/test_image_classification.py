@@ -71,7 +71,10 @@ class ImageClassificationManager(BaseIntegrationManager):
             train_args.save_dir = self.save_dir.name
             train_args.logs_dir = os.path.join(self.save_dir.name, "tensorboard_logs")
             self.expected_checkpoint_path = os.path.join(
-                train_args.save_dir, train_args.model_tag, "framework", "model-one-shot.pth" if train_args.one_shot else "model.pth"
+                train_args.save_dir,
+                train_args.model_tag,
+                "framework",
+                "model-one-shot.pth" if train_args.one_shot else "model.pth",
             )
 
         if "export" in self.configs:
@@ -106,7 +109,8 @@ class ImageClassificationManager(BaseIntegrationManager):
 class TestImageClassification(BaseIntegrationTester):
     @pytest.fixture(
         params=get_configs_with_cadence(
-            os.environ.get("SPARSEML_TEST_CADENCE", "pre-commit"), os.path.dirname(__file__)
+            os.environ.get("SPARSEML_TEST_CADENCE", "pre-commit"),
+            os.path.dirname(__file__),
         ),
         scope="class",
     )

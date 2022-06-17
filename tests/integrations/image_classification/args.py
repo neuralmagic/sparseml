@@ -129,7 +129,7 @@ class ImageClassificationTrainArgs(_ImageClassificationBaseArgs):
     )
     one_shot: bool = Field(
         default=False,
-        description="Apply recipe in a one-shot fashion and save the model"
+        description="Apply recipe in a one-shot fashion and save the model",
     )
 
     def __init__(self, **data):
