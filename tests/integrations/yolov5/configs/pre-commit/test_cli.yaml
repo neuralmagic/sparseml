@@ -2,7 +2,6 @@ cadence: "pre-commit"
 abridged: True
 train:
   command_args:
-    cfg: "integrations/ultralytics-yolov5/models_v5.0/yolov5s.yaml"
     weights: "zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/base-none"
     one_shot: True
 export:
