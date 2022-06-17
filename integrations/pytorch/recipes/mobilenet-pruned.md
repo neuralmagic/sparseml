@@ -90,12 +90,12 @@ using an SGD optimizer.
 When running, adjust hyperparameters based on training environment and dataset.
 
 ## Training
-The training script can be found at `sparseml/integrations/pytorch/train.py`.
+We can use the `sparseml.image_classification.train` utility for training.
 
 *script command:*
 
 ```
-python integrations/pytorch/train.py \
+sparseml.image_classification.train \
     --recipe-path zoo:cv/classification/mobilenet_v1-1.0/pytorch/sparseml/imagenet/pruned-moderate?recipe_type=original \
     --pretrained True \
     --arch-key mobilenet \
