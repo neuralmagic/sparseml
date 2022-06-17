@@ -1,9 +1,5 @@
 name: Integrations Testing
 on: 
-  push:
-    branches:
-      - main
-      - 'release/*'
   pull_request:
     branches:
       - main
@@ -23,12 +19,6 @@ jobs:
           (git branch --show-current | grep -E "release/")
           && echo "::set-output name=branch::$(git branch --show-current)"
           || echo "::set-output name=branch::main"
-      - name: pre-commit cadence
-        if: ${{github.event_name}} == 'pull_request' 
-        run: echo "::set-output name=cadence::pre-commit"
-      - name: commit cadence
-        if: ${{github.event_name}} == 'push'
-        run: echo "::set-output name=cadence::commit"
       - name: "Checking if sparseml.transformers was changed"
         id: transformers-check
         run: >
@@ -53,7 +43,7 @@ jobs:
     needs: test-setup
     env:
       SPARSEZOO_TEST_MODE: "true"
-      SPARSEML_TEST_CADENCE: ${{needs.test-setup.outputs.cadence}}
+      SPARSEML_TEST_CADENCE: "pre-commit"
       TRANSFORMERS: needs.test-setup.outputs.transformers
       YOLOV5: needs.test-setup.outputs.yolov5
       IMAGE_CLASSIFICATION: needs.test-setup.outputs.image_classification
@@ -77,11 +67,5 @@ jobs:
       - name: "Install yolov5 integration"
         run: sparseml.yolov5.train --help
       - name: "🔬 Running integrations tests (cadence: pre-commit}})"
-        if: ${{needs.get-trigger.outputs.cadence}} == "pre-commit"
         run: make testinteg TARGETS=$TRANSFORMERS,$YOLOV5,$IMAGE_CLASSIFICATION
-      - name: "🔬 Running integrations tests (cadence: commit}})"
-        if: ${{needs.get-trigger.outputs.cadence}} != "pre-commit"
-        run: make testinteg TARGETS=transformers,yolov5,image_classification
-
-    
 

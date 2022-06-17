@@ -1,19 +1,15 @@
 cadence: "commit"
+abridged: True
 train:
   command_args:
     dataset: imagenette
     dataset_path: imagenette
-    recipe_path: zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenette/pruned-conservative
+    recipe_path: tests/integrations/image_classification/configs/commit/recipe_short_prune_quant.md
     arch_key: resnet50
-    use_mixed_precision: True
     train_batch_size: 64
     test_batch_size: 64
     model_tag: resnet50-imagenette-pruned
     save_dir: image_classification-end_to_end-test
-  test_args:
-    target_name: "top1acc"
-    target_mean: 97.0
-    target_std: 3
 export:
   command_args:
     checkpoint_path: image_classification-export-test/resnet50-imagenette-pruned/framework/model.pth
@@ -22,7 +18,7 @@ export:
     model_tag: resnet50-imagenette-pruned
     save_dir: image_classification-end_to_end-test
   test_args:
-    target_model: zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenette/pruned-conservative
+    target_model: zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/pruned85_quant-none-vnni
     compare_outputs: False
 deploy:
   command_args: null

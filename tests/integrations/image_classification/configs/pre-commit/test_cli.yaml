@@ -3,7 +3,7 @@ train:
   command_args:
     dataset: imagenette
     dataset_path: imagenette
-    recipe_path: tests/integrations/image_classification/configs/commit/recipe_test_cli.md
+    recipe_path: tests/integrations/image_classification/configs/pre-commit/recipe_test_cli.md
     arch_key: resnet50
     use_mixed_precision: True
     train_batch_size: 10
