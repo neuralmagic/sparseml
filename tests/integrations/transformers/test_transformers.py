@@ -105,7 +105,7 @@ class TransformersManager(BaseIntegrationManager):
                 checkpoints.sort(key=lambda ckpt: ckpt.split("-")[1])
                 export_args.model_path = os.path.join(
                     train_args.output_dir, checkpoints[-1]
-                )
+                ) if checkpoints else train_args.output_dir
             self.commands["export"] = self.configs["export"].create_command_script()
 
         # Grab onnx output path from the export stage if it exists
@@ -179,6 +179,8 @@ class TestTransformers(BaseIntegrationTester):
     def test_train_metrics(self, integration_manager):
         manager = integration_manager
         args = manager.configs["train"]
+        if args.run_args.one_shot:
+            pytest.skip("One-shot mode. Skipping test")
         results_file = os.path.join(manager.save_dir.name, "eval_results.json")
         with open(results_file) as f:
             eval_results = json.load(f)

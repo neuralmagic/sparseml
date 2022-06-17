@@ -78,10 +78,10 @@ jobs:
         run: sparseml.yolov5.train --help
       - name: "🔬 Running integrations tests (cadence: pre-commit}})"
         if: ${{needs.get-trigger.outputs.cadence}} == "pre-commit"
-        run: make test TARGETS=$TRANSFORMERS,$YOLOV5,$IMAGE_CLASSIFICATION
+        run: make integtest TARGETS=$TRANSFORMERS,$YOLOV5,$IMAGE_CLASSIFICATION
       - name: "🔬 Running integrations tests (cadence: commit}})"
         if: ${{needs.get-trigger.outputs.cadence}} != "pre-commit"
-        run: pytest tests/integrations
+        run: make testinteg TARGETS=transformers,yolov5,image_classification
 
     
 

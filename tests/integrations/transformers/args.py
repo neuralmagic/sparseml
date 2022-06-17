@@ -138,6 +138,10 @@ class _TransformersTrainArgs(BaseModel):
             "of evaluation examples to this value if set."
         ),
     )
+    one_shot: bool = Field(
+        default=False,
+        description="Whether to apply recipe in a one shot manner.",
+    )
     output_dir: str = Field(
         default=".",
         description="The output directory where the model predictions and checkpoints "
