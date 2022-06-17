@@ -67,5 +67,5 @@ jobs:
       - name: "Install yolov5 integration"
         run: sparseml.yolov5.train --help
       - name: "🔬 Running integrations tests (cadence: pre-commit}})"
-        run: make testinteg TARGETS=$TRANSFORMERS,$YOLOV5,$IMAGE_CLASSIFICATION
+        run: make testinteg TARGETS=$TRANSFORMERS,$IMAGE_CLASSIFICATION
 

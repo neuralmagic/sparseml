@@ -61,13 +61,7 @@ distillation_modifiers:
 
 pruning_modifiers:
   - !MagnitudePruningModifier
-    params:
-      - re:bert.encoder.layer.*.attention.self.query.weight
-      - re:bert.encoder.layer.*.attention.self.key.weight
-      - re:bert.encoder.layer.*.attention.self.value.weight
-      - re:bert.encoder.layer.*.attention.output.dense.weight
-      - re:bert.encoder.layer.*.intermediate.dense.weight
-      - re:bert.encoder.layer.*.output.dense.weight
+    params: __ALL_PRUNABLE__
     start_epoch: eval(pruning_start_epoch)
     end_epoch: eval(pruning_end_epoch)
     init_sparsity: eval(pruning_init_sparsity)
