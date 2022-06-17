@@ -127,6 +127,10 @@ class ImageClassificationTrainArgs(_ImageClassificationBaseArgs):
         description="The maximum number of eval steps to run per epoch. If negative, "
         "will run for the entire validation set",
     )
+    one_shot: bool = Field(
+        default=False,
+        description="Apply recipe in a one-shot fashion and save the model"
+    )
 
     def __init__(self, **data):
         super().__init__(**data)

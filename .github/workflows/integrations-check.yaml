@@ -32,19 +32,19 @@ jobs:
       - name: "Checking if sparseml.transformers was changed"
         id: transformers-check
         run: >
-          ((git diff --name-only origin/main HEAD | grep -E "[src|tests]/sparseml/transformers|setup.py")
+          ((git diff --name-only origin/main HEAD | grep -E "[src/sparseml|tests/integrations]/transformers|setup.py")
           || (echo $GITHUB_REF | grep -E "refs/heads/[release/|main]"))
           && echo "::set-output name=output::transformers" || echo "::set-output name=output::"
       - name: "Checking if sparseml.yolov5 was changed" 
         id: yolov5-check
         run: >
-          ((git diff --name-only origin/main HEAD | grep -E "[src|tests]/sparseml/yolov5|setup.py")
+          ((git diff --name-only origin/main HEAD | grep -E "[src/sparseml|tests/integrations]/yolov5|setup.py")
           || (echo $GITHUB_REF | grep -E "refs/heads/[release/|main]"))
           && echo "::set-output name=output::yolov5" || echo "::set-output name=output::"
       - name: "Checking if sparseml.pytorch.image_classification was changed" 
         id: image-classification-check
         run: >
-          ((git diff --name-only origin/main HEAD | grep -E "[src|tests]/sparseml/pytorch/image_classification|setup.py")
+          ((git diff --name-only origin/main HEAD | grep -E "[src/sparseml/pytorch|tests/integrations]/image_classification|setup.py")
           || (echo $GITHUB_REF | grep -E "refs/heads/[release/|main]"))
           && echo "::set-output name=output::image_classification" || echo "::set-output name=output::"
 
@@ -81,7 +81,7 @@ jobs:
         run: make test TARGETS=$TRANSFORMERS,$YOLOV5,$IMAGE_CLASSIFICATION
       - name: "🔬 Running integrations tests (cadence: commit}})"
         if: ${{needs.get-trigger.outputs.cadence}} != "pre-commit"
-        run: make test TARGETS=transformers,yolov5,image_classification
+        run: pytest tests/integrations
 
     
 

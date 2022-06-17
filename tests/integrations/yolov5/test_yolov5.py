@@ -111,7 +111,7 @@ class Yolov5Manager(BaseIntegrationManager):
 class TestYolov5(BaseIntegrationTester):
     @pytest.fixture(
         params=get_configs_with_cadence(
-            os.environ.get("NM_TEST_CADENCE", "pre-commit"), os.path.dirname(__file__)
+            os.environ.get("SPARSEML_TEST_CADENCE", "pre-commit"), os.path.dirname(__file__)
         ),
         scope="class",
     )
