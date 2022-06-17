@@ -39,10 +39,56 @@ from sparseml.sparsification import SparsificationTypes
 
 __all__ = [
     "BaseDistillationModifier",
+    "kl_logsoftmax",
+    "kldiv_loss"
 ]
 
 
 _LOGGER = logging.getLogger(__name__)
+
+def kl_logsoftmax(
+        x: Tensor,
+        y: Tensor,
+        temperature: Union[float, Tensor],
+        dim: int = -1
+) -> Tensor:
+    number_items = x.numel() / y.size(dim)
+    return TF.kl_div(
+        input=TF.log_softmax(x / temperature, dim=dim),
+        target=TF.log_softmax(y / temperature, dim=dim),
+        log_target=True,
+        reduction="sum",
+    ) * (temperature ** 2) / number_items
+
+def kldiv_loss(
+    student_outputs,
+    teacher_outputs,
+    temperature,
+    output_keys=None,
+    dim=-1,
+):
+    distill_head_output_losses = []
+    if isinstance(student_outputs, Tensor):
+        distill_head_output_losses.append(
+            kl_logsoftmax(student_outputs, teacher_outputs, temperature, dim)
+        )
+    elif isinstance(student_outputs, Mapping):
+        for key in output_keys or student_outputs:
+            distill_head_output_losses.append(
+                 kl_logsoftmax(student_outputs[key], teacher_outputs[key], temperature, dim)
+            )
+    elif isinstance(student_outputs, Iterable):
+        for idx in output_keys or range(len(student_outputs)):
+            distill_head_output_losses.append(
+                kl_logsoftmax(student_outputs[idx], teacher_outputs[idx], temperature, dim)
+            )
+    kldiv_output_loss = (
+        sum(distill_head_output_losses) / len(distill_head_output_losses)
+        if distill_head_output_losses
+        else 0.0
+    )
+    return kldiv_output_loss
+
 
 
 class BaseDistillationModifier(ScheduledUpdateModifier):
@@ -337,49 +383,6 @@ class BaseDistillationModifier(ScheduledUpdateModifier):
         super().finalize(module, reset_loggers, **kwargs)
         self._teacher = None
         self._distillation_enabled = False
-
-    def _calc_distill_head_output_loss(
-        self, student_val: Tensor, teacher_val: Tensor
-    ) -> Tensor:
-        v = (
-            TF.kl_div(
-                input=TF.log_softmax(student_val / self._temperature, dim=-1),
-                target=TF.log_softmax(teacher_val / self._temperature, dim=-1),
-                log_target=True,
-                reduction="sum",
-            )
-            * (self._temperature ** 2)
-            / (student_val.numel() / student_val.shape[-1])
-        )
-        return v
-
-    def _kldiv_output_loss(self, student_outputs, teacher_outputs):
-        # Distillation loss from the head outputs
-        distill_head_output_losses = []
-        if isinstance(student_outputs, Tensor):
-            distill_head_output_losses.append(
-                self._calc_distill_head_output_loss(student_outputs, teacher_outputs)
-            )
-        elif isinstance(student_outputs, Mapping):
-            for key in self._distill_output_keys or student_outputs:
-                distill_head_output_losses.append(
-                    self._calc_distill_head_output_loss(
-                        student_outputs[key], teacher_outputs[key]
-                    )
-                )
-        elif isinstance(student_outputs, Iterable):
-            for idx in self._distill_output_keys or range(len(student_outputs)):
-                distill_head_output_losses.append(
-                    self._calc_distill_head_output_loss(
-                        student_outputs[idx], teacher_outputs[idx]
-                    )
-                )
-        kldiv_output_loss = (
-            sum(distill_head_output_losses) / len(distill_head_output_losses)
-            if distill_head_output_losses
-            else 0.0
-        )
-        return kldiv_output_loss
 
     def compute_distillation_loss(self, student_outputs, teacher_outputs, labels):
         raise NotImplementedError()
