@@ -2,9 +2,8 @@ cadence: "commit"
 abridged: True
 train:
   command_args:
-    cfg: "integrations/ultralytics-yolov5/models_v5.0/yolov5s.yaml"
     weights: "zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/base-none"
-    recipe: "zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned_quant-aggressive_94"
+    recipe: "tests/integrations/yolov5/configs/commit/recipe_short_prune_quant.md"
   test_args: 
     target_name: "map0.5"
     target_mean: 52.5 
@@ -14,5 +13,6 @@ export:
     dynamic: True
   test_args:
     target_model: "zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned_quant-aggressive_94"
+    compare_outputs: False
 deploy:
   command_args: null
