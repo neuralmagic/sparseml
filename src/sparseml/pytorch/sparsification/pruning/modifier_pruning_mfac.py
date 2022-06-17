@@ -54,6 +54,7 @@ __all__ = [
 ]
 
 _LOGGER = logging.getLogger(__name__)
+_LOGGER.setLevel(logging.INFO)
 BYTES_IN_MIB = 1024 ** 2
 
 

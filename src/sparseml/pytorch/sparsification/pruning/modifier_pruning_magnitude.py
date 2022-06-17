@@ -44,6 +44,7 @@ __all__ = [
 
 
 _LOGGER = logging.getLogger(__name__)
+_LOGGER.setLevel(logging.INFO)
 
 
 class MagnitudePruningParamsScorer(PruningParamsScorer):
