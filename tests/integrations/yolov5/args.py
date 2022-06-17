@@ -19,7 +19,6 @@ from typing import List, Optional, Tuple, Union
 from pydantic import BaseModel, Field
 
 
-# from yolov5.utils.general import ROOT
 FILE = Path(__file__).resolve()
 ROOT = Path(os.path.join(FILE.parents[3], "src", "sparseml", "yolov5"))
 
