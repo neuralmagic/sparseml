@@ -20,7 +20,7 @@ We recommend using a [virtualenv] to install dependencies.
 
 ## Getting Started
 ### Sparsifying Image Classification Models
-In the example below, a dense [ResNet] model is trained on the [ImageNette] dataset.
+In the example below, a dense [ResNet] model is trained on the [Imagenette] dataset.
 By passing the recipe `zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenette/pruned-conservative?recipe_type=original` (located in [SparseZoo](https://sparsezoo.neuralmagic.com/models/cv%2Fclassification%2Fresnet_v1-50%2Fpytorch%2Fsparseml%2Fimagenette%2Fpruned-conservative))
 we modify (sparsify) the training process and/or the model.
 ```bash
@@ -44,7 +44,7 @@ sparseml.image_classification.train \
 Once you sparsify a model using [SparseML], you can easily sparse fine-tune it on a new dataset.
 While you are free to use your backbone, we encourage you to leverage one of our [sparse pre-trained models](https://sparsezoo.neuralmagic.com) to boost your productivity!
 
-In the example below, we fetch a pruned [ResNet] model, pre-trained on [ImageNet] dataset. We then fine-tune the model on the [ImageNette] dataset. 
+In the example below, we fetch a pruned [ResNet] model, pre-trained on [ImageNet] dataset. We then fine-tune the model on the [Imagenette] dataset. 
 ```bash
 sparseml.image_classification.train \
     --recipe-path zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/pruned95-none?recipe_type=transfer-classification \
@@ -151,7 +151,7 @@ inference = cv_pipeline(images=input_image)
 ```
 
 
-To learn more, refer to the [appropriate documentation in the DeepSparse repository](https://github.com/neuralmagic/deepsparse/tree/main/src/deepsparse/image_classification/README.md)
+To learn more, refer to the [appropriate documentation in the DeepSparse repository](https://github.com/neuralmagic/deepsparse/tree/main/src/deepsparse/image_classification/README.md).
 
 ## Support
 
@@ -165,6 +165,6 @@ For Neural Magic Support, sign up or log in to our [Deep Sparse Community Slack]
 [ResNet]: https://arxiv.org/abs/1512.03385
 [virtualenv]: https://docs.python.org/3/library/venv.html
 [ImageNet]: https://www.image-net.org/
-[ImageNette]: https://github.com/fastai/imagenette
+[Imagenette]: https://github.com/fastai/imagenette
 [DeepSparse]: https://github.com/neuralmagic/sparseml
 [DeepSparse Image Classification Documentation]: https://github.com/neuralmagic/deepsparse/tree/main/src/deepsparse/image_classification/README.md
