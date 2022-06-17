@@ -1,18 +1,20 @@
 cadence: "commit"
+abridged: True
 train:
   task: Question-Answering
   command_args:
    model_name_or_path: bert-base-uncased
+   distill_teacher: bert-base-uncased
+   recipe: tests/integrations/transformers/configs/commit/recipe_short_prune_quant_distil.md
    dataset_name: squad
    do_train: True
    do_eval: True
-   evaluation_strategy: epoch
    per_device_train_batch_size: 16
    max_seq_length: 384
    doc_stride: 128
-   output_dir: "."
-   preprocessing_num_workers: 6
-   fp16: True
-   num_train_epochs: 0.1
-   save_strategy: epoch
-   max_steps: 5
+export:
+  command_args:
+    task: qa
+deploy:
+  command_args:
+    task: question-answering
