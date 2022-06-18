@@ -357,6 +357,8 @@ class ModuleParamPruningMask(object):
             target = [target] * len(self._params)
         if self.adjust_target_sparsity_for_thinning:
             for idx, sparsity_val in enumerate(target):
+                if sparsity_val is None:
+                    continue  # ie constant pruning
                 applied_thinning = self._params_applied_thinning[idx]
                 if applied_thinning > 0.0:
                     # adjust sparsity for thinned (compressed) layer param
