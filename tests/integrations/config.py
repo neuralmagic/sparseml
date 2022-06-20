@@ -12,10 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+from pathlib import Path
 from typing import Dict, List, Optional
 
 from pydantic import BaseModel
 
+
+# path to sparseml root directory
+ROOT = Path(Path(__file__).resolve().parents[2])
 
 __all__ = ["Config"]
 
@@ -49,6 +54,15 @@ class Config:
         self.test_args = config.pop("test_args", {})
         # whether to replace '_' with '-' for run keywords
         self.dashed_keywords = False
+
+        # Construct explicit path from relative path, using sparseml base directory
+        # as root
+        recipe = getattr(self.run_args, "recipe", None)
+        if recipe and not recipe.startswith("zoo:"):
+            self.run_args.recipe = str(
+                Path(os.path.join(ROOT, self.run_args.recipe)).resolve()
+            )
+
         self._validate_config()
 
     def create_command_script(self):

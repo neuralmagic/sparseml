@@ -1,6 +1,6 @@
 name: Integrations Testing
 on: 
-  pull_request:
+  push:
     branches:
       - main
       - 'release/*'
@@ -59,9 +59,7 @@ jobs:
         with:
           python-version: 3.8
       - name: "⚙️ Install sparsezoo dependencies"
-        run: |
-          python --version
-          pip3 install -U pip && pip3 install setuptools sparsezoo/
+        run: pip3 install -U pip && pip3 install setuptools sparsezoo/
       - name: "Clean sparsezoo directory"
         run: rm -r sparsezoo/
       - name: "Upgrade protobuf version"
