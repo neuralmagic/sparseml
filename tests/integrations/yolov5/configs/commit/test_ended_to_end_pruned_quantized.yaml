@@ -1,4 +1,4 @@
-cadence: "commit"
+cadence: "pre-commit"
 train:
   command_args:
     weights: "zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/base-none"
