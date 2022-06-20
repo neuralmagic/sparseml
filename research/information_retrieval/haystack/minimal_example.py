@@ -13,13 +13,13 @@ from haystack.document_stores import InMemoryDocumentStore
 from haystack.pipelines import DocumentSearchPipeline
 from haystack.utils import print_documents
 
-from haystack.nodes import EmbeddingRetriever
-#from readers import EmbeddingRetriever
+#from haystack.nodes import EmbeddingRetriever
+from readers import DeepSparseEmbeddingRetriever
 
 # Pass the SparseZoo model
 model_stub = "zoo:nlp/question_answering/bert-base/pytorch/huggingface/squad/pruned_3layers-aggressive_90"
 
-query = "Famous artists"
+query = "Scientific and statistical methods based on anatomy"
 contexts = [
     "Richard Paul Astley (born 6 February 1966) is an English singer, songwriter and "
     "radio personality, who has been active in music for several decades. He gained "
@@ -46,7 +46,7 @@ contexts = [
 # Haystack finds answer to query within the documents stored in a DocumentStore
 # e.g. ElasticsearchDocumentStore, SQLDocumentStore etc.
 # Let's just use our memory as a store.
-document_store = InMemoryDocumentStore(use_gpu=False)
+document_store = InMemoryDocumentStore(similarity="cosine", use_gpu=False)
 docs = [
     {
         'content': contexts[0],
@@ -63,8 +63,8 @@ docs = [
 ]
 document_store.write_documents(docs)
 
-embedding_retriever = EmbeddingRetriever(document_store=document_store,
-                               embedding_model="deepset/sentence_bert", use_gpu=False)
+embedding_retriever = DeepSparseEmbeddingRetriever(document_store=document_store,
+                               embedding_model_stub="deepset/sentence_bert", use_gpu=False)
 document_store.update_embeddings(embedding_retriever, update_existing_embeddings=False)
 
 pipe = DocumentSearchPipeline(embedding_retriever)

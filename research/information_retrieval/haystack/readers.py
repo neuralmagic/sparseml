@@ -11,10 +11,11 @@ import torch
 import numpy
 
 from deepsparse.transformers import pipeline
+
 from haystack.nodes.reader.base import BaseReader
 from haystack.nodes.retriever.base import BaseRetriever
 from haystack.document_stores import BaseDocumentStore
-from haystack.nodes.retriever._embedding_encoder import _EMBEDDING_ENCODERS
+from haystack.nodes.retriever._embedding_encoder import _EMBEDDING_ENCODERS, _BaseEmbeddingEncoder
 from haystack.schema import Document, Answer
 from haystack.modeling.utils import initialize_device_settings
 
@@ -186,11 +187,57 @@ class EmbeddingRetriever(BaseRetriever):
         return linearized_docs
 
 
-class DeepSparseEmbeddingRetriever(BaseRetriever):
+class _DeepSparseEmbeddingEncoder(_BaseEmbeddingEncoder):
+    def __init__(self, retriever: "EmbeddingRetriever"):
+        # TODO: Check imports work
+        try:
+            from sentence_transformers import SentenceTransformer
+        except (ImportError, ModuleNotFoundError) as ie:
+            from haystack.utils.import_utils import _optional_component_not_installed
+
+            _optional_component_not_installed(__name__, "sentence", ie)
+
+
+        # Create model
+        self.embedding_model = SentenceTransformer(
+            retriever.embedding_model_stub, device=str(retriever.devices[0]), use_auth_token=retriever.use_auth_token
+        )
+        #self.embedding_model = pipeline.create(
+        #    retriever.embedding_model_stub, device=str(retriever.devices[0]), use_auth_token=retriever.use_auth_token
+        #)
+
+        self.batch_size = retriever.batch_size
+        self.embedding_model.max_seq_length = retriever.max_seq_len
+        self.show_progress_bar = retriever.progress_bar
+        document_store = retriever.document_store
+        if document_store.similarity != "cosine":
+            logger.warning(
+                f"You are using a Sentence Transformer with the {document_store.similarity} function. "
+                f"We recommend using cosine instead. "
+                f"This can be set when initializing the DocumentStore"
+            )
+
+    def embed(self, texts: Union[List[List[str]], List[str], str]) -> List[numpy.ndarray]:
+        # texts can be a list of strings or a list of [title, text]
+        # get back list of numpy embedding vectors
+        print(f"embed {texts}")
+        emb = self.embedding_model.encode(texts, batch_size=self.batch_size, show_progress_bar=self.show_progress_bar)
+        emb = [r for r in emb]
+        return emb
+
+    def embed_queries(self, texts: List[str]) -> List[numpy.ndarray]:
+        return self.embed(texts)
+
+    def embed_documents(self, docs: List[Document]) -> List[numpy.ndarray]:
+        passages = [[d.meta["name"] if d.meta and "name" in d.meta else "", d.content] for d in docs]  # type: ignore
+        return self.embed(passages)
+
+
+class DeepSparseEmbeddingRetriever(EmbeddingRetriever):
     def __init__(
         self,
         document_store: BaseDocumentStore,
-        embedding_model: str,
+        embedding_model_stub: str,
         model_version: Optional[str] = None,
         use_gpu: bool = True,
         batch_size: int = 32,
@@ -204,4 +251,33 @@ class DeepSparseEmbeddingRetriever(BaseRetriever):
         use_auth_token: Optional[Union[str, bool]] = None,
         scale_score: bool = True,
     ):
-        pass
+        super(BaseRetriever).__init__()
+
+        if devices is not None:
+            self.devices = [torch.device(device) for device in devices]
+        else:
+            self.devices, _ = initialize_device_settings(use_cuda=use_gpu, multi_gpu=True)
+
+        if batch_size < len(self.devices):
+            logger.warning("Batch size is less than the number of devices. All gpus will not be utilized.")
+
+        self.document_store = document_store
+        self.embedding_model_stub = embedding_model_stub
+        self.model_format = model_format
+        self.model_version = model_version
+        self.use_gpu = use_gpu
+        self.batch_size = batch_size
+        self.max_seq_len = max_seq_len
+        self.pooling_strategy = pooling_strategy
+        self.emb_extraction_layer = emb_extraction_layer
+        self.top_k = top_k
+        self.progress_bar = progress_bar
+        self.use_auth_token = use_auth_token
+        self.scale_score = scale_score
+
+        logger.info(f"Init retriever using embeddings of model stub {embedding_model_stub}")
+
+        # TODO: Throw value error if unknown model
+        # TODO: Give warning if using wrong kind of model
+
+        self.embedding_encoder = _DeepSparseEmbeddingEncoder(self)
