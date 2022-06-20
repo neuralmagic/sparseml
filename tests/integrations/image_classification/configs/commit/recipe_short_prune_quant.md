@@ -47,25 +47,4 @@ pruning_modifiers:
     final_sparsity: eval(pruning_sparsity)
     update_frequency: eval(pruning_update_frequency)
     params: __ALL_PRUNABLE__
-
-quantization_modifiers:
-  - !SetLearningRateModifier
-    start_epoch: eval(quantization_start_epoch)
-    learning_rate: eval(quantization_init_lr)
-
-  - !LearningRateFunctionModifier
-    final_lr: 0.0
-    init_lr: eval(quantization_init_lr)
-    lr_func: cosine
-    start_epoch: eval(quantization_start_epoch + quantization_keep_bn_epochs)
-    end_epoch: eval(num_epochs)
-
-  - !QuantizationModifier
-    start_epoch: eval(quantization_start_epoch)
-    submodules:
-      - input
-      - sections
-    disable_quantization_observer_epoch: eval(quantization_start_epoch + quantization_observer_epochs)
-    freeze_bn_stats_epoch: eval(quantization_start_epoch + quantization_keep_bn_epochs)
-    quantize_conv_activations: False
 ---
