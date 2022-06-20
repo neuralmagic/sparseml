@@ -122,20 +122,20 @@ sparseml.yolov5.export_onnx \
 
 Once the model is exported to the ONNX format, it is ready for deployment with the DeepSparse Engine. 
 
-To benchmark the model, you can run
+To benchmark the model, run
 
 ```bash
 deepsparse.benchmark path/to/model.onnx
 ```
 
-To run validation in the DeepSparse Engine, you can run
+To run validation in the DeepSparse Engine, execute
 
 ```bash
 sparseml.yolov5.val_onnx --model_path path/to/model.onnx --data coco128.yaml
 ```
 
 
-To learn more about the engine and deploying your model, refer to the [appropriate documentation in the DeepSparse repository](https://github.com/neuralmagic/deepsparse/tree/main/src/deepsparse/yolo)
+To learn more about the engine and deploying your model, refer to the [appropriate documentation in the DeepSparse repository](https://github.com/neuralmagic/deepsparse/tree/main/src/deepsparse/yolo).
 
 ## Support
 

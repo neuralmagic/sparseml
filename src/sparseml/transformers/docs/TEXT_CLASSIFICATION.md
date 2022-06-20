@@ -141,7 +141,7 @@ inference = tc_pipeline("Snorlax hates pineapple pizza!")
 ```
 
 
-To learn more, refer to the [appropriate documentation in the DeepSparse repository](https://github.com/neuralmagic/deepsparse/tree/main/examples/huggingface-transformers)
+To learn more, refer to the [appropriate documentation in the DeepSparse repository](https://github.com/neuralmagic/deepsparse/blob/main/src/deepsparse/transformers/README.md).
 
 ## Support
 
