@@ -131,7 +131,7 @@ deepsparse.benchmark path/to/model.onnx
 To run validation in the DeepSparse Engine, you can run
 
 ```bash
-sparseml.yolov5.val_onnx path/to/model.onnx --data coco128.yaml
+sparseml.yolov5.val_onnx --model_path path/to/model.onnx --data coco128.yaml
 ```
 
 
