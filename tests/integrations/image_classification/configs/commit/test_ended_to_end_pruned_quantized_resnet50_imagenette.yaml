@@ -1,5 +1,4 @@
 cadence: "commit"
-abridged: True
 train:
   command_args:
     dataset: imagenette
