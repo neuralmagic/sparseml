@@ -35,11 +35,4 @@ pruning_modifiers:
     end_epoch: *pruning_end_epoch
     update_frequency: *pruning_update_frequency
     mask_type: *mask_type
-             
-quantization_modifiers:
-  - !QuantizationModifier
-    start_epoch: *quantization_start_epoch
-    submodules: [ 'model.0', 'model.1', 'model.2', 'model.3', 'model.4', 'model.5', 'model.6', 'model.7', 'model.8', 'model.9', 'model.10', 'model.11', 'model.12', 'model.13', 'model.14', 'model.15', 'model.16', 'model.17', 'model.18', 'model.19', 'model.20', 'model.21', 'model.22', 'model.23' ]
-    
-    
 ---
