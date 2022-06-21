@@ -4,8 +4,8 @@ train:
     dataset: imagenette
     dataset_path: imagenette
     recipe_path: tests/integrations/image_classification/configs/commit/recipe_short_prune_quant.md
-    arch_key: resnet50
+    arch_key: mobilenet
     train_batch_size: 2
     test_batch_size: 2
-    model_tag: resnet50-imagenette-pruned
+    model_tag: mobilenet
     save_dir: image_classification-end_to_end-test
