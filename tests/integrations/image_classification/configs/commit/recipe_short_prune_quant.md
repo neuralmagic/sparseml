@@ -1,5 +1,4 @@
 ---
-
 version: 1.1.0
 training_modifiers:
   - !EpochRangeModifier
