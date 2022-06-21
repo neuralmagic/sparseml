@@ -121,14 +121,15 @@ deliver breakthrough performance for CPUs by leveraging the sparsity and quantiz
 
 The SparseML installation provides a `sparseml.image_classification.export_onnx` 
 command that you can use to load the checkpoint and create a new `model.onnx` file. 
-Be sure the `--model_path` argument points to your trained model. 
+Be sure the `--model_path` argument points to your trained `model.pth` or `checkpoint-best.pth` file.
+Both are included in `<save-dir>/<model-tag>/framework/` from the sparsification run.
 
 ```bash
 sparseml.image_classification.export_onnx \
     --arch-key resnet50 \
     --dataset imagenet \
-    --dataset-path ~/datasets/ILSVRC2012 \
-    --checkpoint-path ~/checkpoints/resnet50_checkpoint.pth
+    --dataset-path ./data \
+    --checkpoint-path sparsification_example/resnet50-imagenette-pruned/framework/model.pth
 ```
 
 ### DeepSparse Engine Deployment
