@@ -120,7 +120,8 @@ The [DeepSparse] Engine uses the ONNX format to load neural networks and then
 deliver breakthrough performance for CPUs by leveraging the sparsity and quantization within a network.
 
 The SparseML installation provides a `sparseml.image_classification.export_onnx` 
-command that you can use to load the checkpoint and create a new `model.onnx` file. 
+command that you can use to load the checkpoint and create a new `model.onnx` file in the same directory the
+framework directory is stored. 
 Be sure the `--model_path` argument points to your trained `model.pth` or `checkpoint-best.pth` file.
 Both are included in `<save-dir>/<model-tag>/framework/` from the sparsification run.
 
@@ -128,7 +129,7 @@ Both are included in `<save-dir>/<model-tag>/framework/` from the sparsification
 sparseml.image_classification.export_onnx \
     --arch-key resnet50 \
     --dataset imagenet \
-    --dataset-path ./data \
+    --dataset-path ./data/imagenette-160 \
     --checkpoint-path sparsification_example/resnet50-imagenette-pruned/framework/model.pth
 ```
 
