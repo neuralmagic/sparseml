@@ -1,5 +1,5 @@
 cadence: "commit"
 train:
   command_args:
-    cfg: models_v5.0/yolov5s.yaml
+    cfg: "../../../src/sparseml/yolov5/models_v5.0/yolov5s.yaml"
     epochs: 1
