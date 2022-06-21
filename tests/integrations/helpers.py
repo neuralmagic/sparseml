@@ -54,6 +54,11 @@ def get_configs_with_cadence(cadence: str, dir_path: str = "."):
                     if line.split(":")[1].strip().strip('"').lower() == cadence:
                         matching_files.append(file)
                         break
+                    
+    print(
+        f"\nFor {cadence} found matching files: {matching_files}"
+        )
+
     return matching_files
 
 
