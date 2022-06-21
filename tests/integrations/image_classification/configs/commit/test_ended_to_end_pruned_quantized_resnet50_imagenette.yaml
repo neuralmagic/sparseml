@@ -1,12 +1,11 @@
 cadence: "commit"
-abridged: True
 train:
   command_args:
     dataset: imagenette
     dataset_path: imagenette
     recipe_path: tests/integrations/image_classification/configs/commit/recipe_short_prune_quant.md
     arch_key: resnet50
-    train_batch_size: 10
-    test_batch_size: 10
+    train_batch_size: 2
+    test_batch_size: 2
     model_tag: resnet50-imagenette-pruned
     save_dir: image_classification-end_to_end-test
