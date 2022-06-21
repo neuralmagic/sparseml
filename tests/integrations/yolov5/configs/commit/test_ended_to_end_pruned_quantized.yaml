@@ -1,5 +1,5 @@
 cadence: "commit"
 train:
   command_args:
-    cfg: "../../../src/sparseml/yolov5/models_v5.0/yolov5s.yaml"
+    weights: "zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/base-none"
     epochs: 1
