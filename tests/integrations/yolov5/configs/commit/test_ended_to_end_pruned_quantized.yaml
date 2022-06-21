@@ -1,13 +1,5 @@
-cadence: "pre-commit"
+cadence: "commit"
 train:
   command_args:
     weights: "zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/base-none"
     recipe: "tests/integrations/yolov5/configs/commit/recipe_short_prune_quant.md"
-export:
-  command_args:
-    dynamic: True
-  test_args:
-    target_model: "zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned_quant-aggressive_94"
-    compare_outputs: False
-deploy:
-  command_args: null

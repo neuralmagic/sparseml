@@ -259,7 +259,7 @@ class BaseIntegrationTester:
     test. This naming convention is used and enforced within the decorator
     `@skip_inactive_stage`
 
-    Adding the fixture below to each test class will parameterize the test over 
+    Adding the fixture below to each test class will parameterize the test over
     the set of test configs that match the cadence setting.
 
     @pytest.fixture(
@@ -270,6 +270,7 @@ class BaseIntegrationTester:
         scope="class",
     )
     """
+
     def integration_manager(request):
         """
         Fixture with a lifecycle of:
