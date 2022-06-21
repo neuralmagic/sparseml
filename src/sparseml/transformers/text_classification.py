@@ -31,6 +31,8 @@ import sys
 from dataclasses import dataclass, field
 from typing import Optional
 
+from sklearn.model_selection import train_test_split
+
 import datasets
 import numpy as np
 import transformers
@@ -72,6 +74,7 @@ _TASK_TO_KEYS = {
     "sst2": ("sentence", None),
     "stsb": ("sentence1", "sentence2"),
     "wnli": ("sentence1", "sentence2"),
+    "imdb": ("text", None)
 }
 
 _LOGGER = logging.getLogger(__name__)
@@ -168,6 +171,14 @@ class DataTrainingArguments:
     test_file: Optional[str] = field(
         default=None,
         metadata={"help": "A csv or a json file containing the test data."},
+    )
+    validation_percentage: Optional[float] = field(
+        default=None,
+        metadata={"help": "Percentage of the training data to be used as validation."},
+    )
+    test_as_validation: bool = field(
+        default=False,
+        metadata={"help": "Use the test dataset for validation."},
     )
     input_column_names: Optional[str] = field(
         default=None,
@@ -635,11 +646,27 @@ def main(**kwargs):
         if (
             "validation" not in raw_datasets
             and "validation_matched" not in raw_datasets
+            and data_args.validation_percentage is None
+            and data_args.test_as_validation is False
         ):
-            raise ValueError("--do_eval requires a validation dataset")
-        eval_dataset = raw_datasets[
-            "validation_matched" if data_args.task_name == "mnli" else "validation"
-        ]
+            raise ValueError("--do_eval requires an explicit validation dataset, "
+                             "specified validation percentage, or test as validation")
+
+        if data_args.task_name == "mnli":
+            eval_dataset = raw_datasets["validation_matched"]
+        elif "validation" in raw_datasets:
+            if data_args.validation_percentage is not None:
+                raise ValueError("validation_percentage cannot be specified when validation set exists")
+            if data_args.test_as_validation is True:
+                raise ValueError("test_as_validation cannot be specified when validation set exists")
+            eval_dataset = raw_datasets["validation"]
+        elif data_args.validation_percentage is not None:
+            train_dataset, eval_dataset = _split_train_val(train_dataset, data_args.validation_percentage)
+        elif test_as_validation:
+            if "test" not in raw_datasets:
+                raise ValueError("test split not found but test_as_validation is on")
+            eval_dataset = raw_datasets["test"]
+
         if data_args.max_eval_samples is not None:
             eval_dataset = eval_dataset.select(range(data_args.max_eval_samples))
 
@@ -830,6 +857,13 @@ def main(**kwargs):
         trainer.push_to_hub(**kwargs)
     else:
         trainer.create_model_card(**kwargs)
+
+
+def _split_train_val(train_dataset, val_ratio):
+    ds = train_dataset.train_test_split(test_size=val_ratio, stratify_by_column="label", seed=42)
+    train_ds = ds.pop("train")
+    val_ds = ds.pop("test")
+    return train_ds, val_ds
 
 
 def _mp_fn(index):
