@@ -33,10 +33,6 @@ jobs:
           repository: "neuralmagic/sparsezoo"
           path: "sparsezoo"
           ref: ${{needs.test-setup.outputs.branch}}
-      - name: Set up Python 3.8
-        uses: actions/setup-python@v3
-        with:
-          python-version: 3.8
       - name: "⚙️ Install sparsezoo dependencies"
         run: pip3 install -U pip && pip3 install setuptools sparsezoo/
       - name: "Clean sparsezoo directory"
@@ -50,4 +46,4 @@ jobs:
       - name: "Install yolov5 integration"
         run: sparseml.yolov5.train --help
       - name: "🔬 Running integrations tests (cadence: commit}})"
-        run: make testinteg TARGETS=yolov5
+        run: make testinteg TARGETS=image_classification
