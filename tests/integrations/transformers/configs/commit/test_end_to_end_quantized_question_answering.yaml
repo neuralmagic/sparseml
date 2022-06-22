@@ -10,4 +10,4 @@ train:
    per_device_train_batch_size: 16
    max_seq_length: 384
    doc_stride: 128
-   max_steps: 20
+   max_steps: 1
