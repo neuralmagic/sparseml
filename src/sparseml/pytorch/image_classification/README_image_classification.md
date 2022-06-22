@@ -141,9 +141,9 @@ Once the model is exported in the ONNX format, it is ready for deployment with t
 The deployment is intuitive due to the [DeepSparse] Python API.
 
 ```python
-from deepsparse import pipeline
+from deepsparse import Pipeline
 
-cv_pipeline = pipeline(
+cv_pipeline = Pipeline.create(
   task='image_classification', 
   model_path='zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/pruned95-none',  # Path to checkpoint or SparseZoo stub
 )
