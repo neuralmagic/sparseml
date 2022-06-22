@@ -1,6 +1,7 @@
 cadence: "commit"
 train:
   command_args:
-    weights: "zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/base-none"
+    weights: "yolov5s.pt"
+    recipe: "tests/integrations/yolov5/configs/commit/recipe_short_prune_quant.md"
     epochs: 1
     workers: 0
