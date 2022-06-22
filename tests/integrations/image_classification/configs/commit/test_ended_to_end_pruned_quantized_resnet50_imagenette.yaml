@@ -5,7 +5,7 @@ train:
     dataset_path: imagenette
     recipe_path: tests/integrations/image_classification/configs/commit/recipe_short_prune_quant.md
     arch_key: mobilenet
-    train_batch_size: 2
-    test_batch_size: 2
+    train_batch_size: 64
+    test_batch_size: 64
     model_tag: mobilenet
     save_dir: image_classification-end_to_end-test
