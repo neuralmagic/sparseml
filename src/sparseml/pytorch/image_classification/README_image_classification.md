@@ -138,7 +138,8 @@ sparseml.image_classification.export_onnx \
 Once the model is exported in the ONNX format, it is ready for deployment with the 
 [DeepSparse] Engine. 
 
-The deployment is intuitive due to the [DeepSparse] Python API.
+The deployment is intuitive due to the [DeepSparse] Python API.  DeepSparse can be installed via
+`pip install deepsparse`.
 
 ```python
 from deepsparse import Pipeline
