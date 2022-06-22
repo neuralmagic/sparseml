@@ -96,8 +96,8 @@ class ImageClassificationManager(BaseIntegrationManager):
 
     def add_abridged_configs(self):
         if "train" in self.command_types:
-            self.configs["train"].max_train_steps = 10
-            self.configs["train"].max_eval_steps = 10
+            self.configs["train"].max_train_steps = 2
+            self.configs["train"].max_eval_steps = 2
 
     def teardown(self):
         """
