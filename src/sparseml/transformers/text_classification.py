@@ -759,7 +759,11 @@ def main():
         _LOGGER.info("*** Evaluate ***")
 
         # Loop to handle MNLI double evaluation (matched, mis-matched)
-        tasks = [data_args.task_name]
+        tasks = (
+            [data_args.task_name]
+            if data_args.task_name is not None
+            else [data_args.dataset_name]
+        )
         eval_datasets = [eval_dataset]
         if data_args.task_name == "mnli":
             tasks.append("mnli-mm")
