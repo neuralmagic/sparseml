@@ -203,6 +203,7 @@ setup(
     ),
     license="Apache",
     url="https://github.com/neuralmagic/sparseml",
+    include_package_data=True,
     package_dir=_setup_package_dir(),
     packages=_setup_packages(),
     install_requires=_setup_install_requires(),
