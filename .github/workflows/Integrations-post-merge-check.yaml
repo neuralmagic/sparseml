@@ -1,7 +1,7 @@
 name: Integrations Testing Post-Merge
 on: 
-  push:
-    pull_request:
+  pull_request:
+    branches:
       - main
       - 'release/*'
 
@@ -50,4 +50,4 @@ jobs:
       - name: "Install yolov5 integration"
         run: sparseml.yolov5.train --help
       - name: "🔬 Running integrations tests (cadence: commit}})"
-        run: make testinteg TARGETS=yolov5
+        run: make testinteg TARGETS=yolov5,transformers

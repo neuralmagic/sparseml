@@ -1,6 +1,6 @@
 name: Integrations Testing
 on: 
-  pull_request:
+  push:
     branches:
       - main
       - 'release/*'
