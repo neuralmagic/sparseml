@@ -2,11 +2,11 @@ name: Upload Data Tar
 
 on:
   push:
-    branches: ["include-data-files"]
+    branches: ["release/*"]
     paths:
-      - 'src/sparseml/yolov5/models'
-      - 'src/sparseml/yolov5/models_v5.0'
-      - 'src/sparseml/yolov5/data'
+      - 'src/sparseml/yolov5/models/**'
+      - 'src/sparseml/yolov5/models_v5.0/**'
+      - 'src/sparseml/yolov5/data/**'
 
 jobs:
   build-tar:
@@ -17,18 +17,27 @@ jobs:
         with:
           fetch-depth: 0
       - run: git branch --show-current
-      - name: get tag
+      - name: get tag name
         id: extract_tag
-        run: echo "##[set-output name=tag;]$(echo v${GITHUB_REF_NAME#*/})"
+        run: echo "##[set-output name=tag;]$(echo v${GITHUB_REF_NAME#*/}.0)"
+      - name: check tag exists
+      - uses: mukunku/tag-exists-action@v1.0.0
+        id: checkTag
+        with: 
+          tag: ${{ steps.extract_tag.outputs.tag }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: build tar
-        run: cd src/sparseml && find yolov5 -name "*.yaml" -o -name "*.sh" | tar -czvf data.tar.gz -T -
+        if: ${{ steps.checkTag.outputs.exists }}
         id: build_tar
+        run: cd src/sparseml && find yolov5 -name "*.yaml" -o -name "*.sh" | tar -czvf data.tar.gz -T -
       - name: Upload Data Asset
+        if: ${{ steps.checkTag.outputs.exists }}
         id: upload-release-asset 
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: src/sparseml/data.tar.gz
           asset_name: data.tar.gz
-          tag: v0.12
+          tag: ${{ steps.extract_tag.outputs.tag }}
           overwrite: true
