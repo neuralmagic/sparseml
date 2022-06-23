@@ -120,15 +120,17 @@ The [DeepSparse] Engine uses the ONNX format to load neural networks and then
 deliver breakthrough performance for CPUs by leveraging the sparsity and quantization within a network.
 
 The SparseML installation provides a `sparseml.image_classification.export_onnx` 
-command that you can use to load the checkpoint and create a new `model.onnx` file. 
-Be sure the `--model_path` argument points to your trained model. 
+command that you can use to load the checkpoint and create a new `model.onnx` file in the same directory the
+framework directory is stored. 
+Be sure the `--model_path` argument points to your trained `model.pth` or `checkpoint-best.pth` file.
+Both are included in `<save-dir>/<model-tag>/framework/` from the sparsification run.
 
 ```bash
 sparseml.image_classification.export_onnx \
     --arch-key resnet50 \
     --dataset imagenet \
-    --dataset-path ~/datasets/ILSVRC2012 \
-    --checkpoint-path ~/checkpoints/resnet50_checkpoint.pth
+    --dataset-path ./data/imagenette-160 \
+    --checkpoint-path sparsification_example/resnet50-imagenette-pruned/framework/model.pth
 ```
 
 ### DeepSparse Engine Deployment
@@ -136,12 +138,13 @@ sparseml.image_classification.export_onnx \
 Once the model is exported in the ONNX format, it is ready for deployment with the 
 [DeepSparse] Engine. 
 
-The deployment is intuitive due to the [DeepSparse] Python API.
+The deployment is intuitive due to the [DeepSparse] Python API.  DeepSparse can be installed via
+`pip install deepsparse`.
 
 ```python
-from deepsparse import pipeline
+from deepsparse import Pipeline
 
-cv_pipeline = pipeline(
+cv_pipeline = Pipeline.create(
   task='image_classification', 
   model_path='zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/pruned95-none',  # Path to checkpoint or SparseZoo stub
 )
