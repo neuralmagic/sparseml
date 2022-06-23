@@ -28,13 +28,12 @@ names: ['person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 't
 
 # Download script/URL (optional)
 download: |
-  from utils.general import download, Path, os
+  from utils.general import download, Path
 
 
   # Download labels
-  root_path = os.path.join("src", "sparseml", "yolov5")
   segments = False  # segment or box labels
-  dir = Path(os.path.join(root_path, yaml['path']))  # dataset root dir
+  dir = Path(yaml['path'])  # dataset root dir
   url = 'https://github.com/ultralytics/yolov5/releases/download/v1.0/'
   urls = [url + ('coco2017labels-segments.zip' if segments else 'coco2017labels.zip')]  # labels
   download(urls, dir=dir.parent)
