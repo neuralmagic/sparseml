@@ -2,8 +2,11 @@ name: Upload Data Tar
 
 on:
   push:
-    branches:
-      - "release/*"
+    branches: ["include-data-files"]
+    paths:
+      - 'src/sparseml/yolov5/models'
+      - 'src/sparseml/yolov5/models_v5.0'
+      - 'src/sparseml/yolov5/data'
 
 jobs:
   build-tar:
@@ -14,26 +17,18 @@ jobs:
         with:
           fetch-depth: 0
       - run: git branch --show-current
-      - name: "Checking if yolov5 data was changed"
-        id: yolov5-check
-        run: >
-          ((git diff --name-only origin/main HEAD | grep -E "src/sparseml/yolov5/[data|models]")
-          || (echo $GITHUB_REF | grep -E "refs/heads/[release/|main]"))
-          && echo "::set-output name=yolov5::1" || echo "::set-output name=yolov5::"
       - name: get tag
         id: extract_tag
         run: echo "##[set-output name=tag;]$(echo v${GITHUB_REF_NAME#*/})"
       - name: build tar
-        if: ${{ steps.yolov5-check.outputs.yolov5 == 1}}
         run: cd src/sparseml && find yolov5 -name "*.yaml" -o -name "*.sh" | tar -czvf data.tar.gz -T -
         id: build_tar
       - name: Upload Data Asset
-        if: ${{ steps.yolov5-check.outputs.yolov5 == 1}}
         id: upload-release-asset 
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: src/sparseml/data.tar.gz
           asset_name: data.tar.gz
-          tag: ${{ steps.extract_tag.outputs.tag }}
+          tag: v0.12
           overwrite: true
