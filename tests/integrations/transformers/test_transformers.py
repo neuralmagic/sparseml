@@ -119,8 +119,8 @@ class TransformersManager(BaseIntegrationManager):
 
     def add_abridged_configs(self):
         if "train" in self.command_types:
-            self.configs["train"].max_train_samples = 10
-            self.configs["train"].max_eval_samples = 10
+            self.configs["train"].max_train_samples = 2
+            self.configs["train"].max_eval_samples = 2
 
     def get_root_commands(self, raw_configs):
         self.task = (
