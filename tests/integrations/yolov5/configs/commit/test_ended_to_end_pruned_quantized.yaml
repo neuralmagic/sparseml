@@ -2,5 +2,5 @@ cadence: "commit"
 train:
   command_args:
     weights: "zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned-aggressive_96"
-    epochs: 1
-    workers: 0
+    epochs: 100
+    batch_size: 4
