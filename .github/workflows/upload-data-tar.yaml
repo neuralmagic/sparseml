@@ -3,31 +3,37 @@ name: Upload Data Tar
 on:
   push:
     branches:
-      - "master"
+      - "release/*"
 
 jobs:
-  build-wheel:
+  build-tar:
     runs-on: "ubuntu-latest"
     steps:
+      - name: Checkout
         uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - run: git branch --show-current
       - name: "Checking if yolov5 data was changed"
         id: yolov5-check
         run: >
           ((git diff --name-only origin/main HEAD | grep -E "src/sparseml/yolov5/[data|models]")
           || (echo $GITHUB_REF | grep -E "refs/heads/[release/|main]"))
-          && echo "::set-output name=output::yolov5" || echo "::set-output name=output::"
+          && echo "::set-output name=yolov5::1" || echo "::set-output name=yolov5::"
+      - name: get tag
+        id: extract_tag
+        run: echo "##[set-output name=tag;]$(echo v${GITHUB_REF_NAME#*/})"
       - name: build tar
-        if: ${{ steps.yolov5-check.outputs.yolov5 }}
-        run: cd src/sparseml && find yolov5 -name "*.yaml" -o -name "*.sh" | tar -cf data.tar.gz -T -
+        if: ${{ steps.yolov5-check.outputs.yolov5 == 1}}
+        run: cd src/sparseml && find yolov5 -name "*.yaml" -o -name "*.sh" | tar -czvf data.tar.gz -T -
         id: build_tar
       - name: Upload Data Asset
-      if: ${{ steps.yolov5-check.outputs.yolov5 }}
+        if: ${{ steps.yolov5-check.outputs.yolov5 == 1}}
         id: upload-release-asset 
         uses: svenstaro/upload-release-action@v2
         with:
-          repo_name: neuralmagic/yolov5
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: data.tar.gz
+          file: src/sparseml/data.tar.gz
           asset_name: data.tar.gz
-          tag: "data"
+          tag: ${{ steps.extract_tag.outputs.tag }}
           overwrite: true

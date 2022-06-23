@@ -18,6 +18,11 @@ Tools for integrating SparseML with yolov5 training flows
 # flake8: noqa
 
 import logging as _logging
+import tarfile
+
+import requests
+
+from sparseml.utils import ROOT_PATH
 
 
 try:
@@ -30,11 +35,14 @@ except Exception as _yolov5_import_err:
     _yolov5_import_error = _yolov5_import_err
 
 _LOGGER = _logging.getLogger(__name__)
-_NM_YOLOV5_TAR_TEMPLATE = (
+_NM_YOLOV5_WHEEL_TEMPLATE = (
     "https://github.com/neuralmagic/yolov5/releases/download/"
     "{version}/yolov5-6.1.0-py3-none-any.whl"
 )
-_NM_YOLOV5_NIGHTLY = _NM_YOLOV5_TAR_TEMPLATE.format(version="nightly")
+_NM_YOLOV5_DATA_TAR_TEMPLATE = (
+    "https://github.com/neuralmagic/sparseml/releases/download/{version}/data.tar.gz"
+)
+_NM_YOLOV5_NIGHTLY = _NM_YOLOV5_WHEEL_TEMPLATE.format(version="nightly")
 
 
 def _install_yolov5_and_deps():
@@ -48,7 +56,7 @@ def _install_yolov5_and_deps():
         "nightly" if not _sparseml.is_release else f"v{_sparseml.version_major_minor}"
     )
 
-    yolov5_requirement = _NM_YOLOV5_TAR_TEMPLATE.format(version=nm_yolov5_release)
+    yolov5_requirement = _NM_YOLOV5_WHEEL_TEMPLATE.format(version=nm_yolov5_release)
 
     try:
         _subprocess.check_call(
@@ -70,6 +78,13 @@ def _install_yolov5_and_deps():
             "that yolov5 is installed, if not, install via "
             f"`pip install {_NM_YOLOV5_NIGHTLY}`"
         )
+
+    if nm_yolov5_release is not "nightly":
+        response = requests.get(
+            _NM_YOLOV5_DATA_TAR_TEMPLATE.format(version=nm_yolov5_release), stream=True
+        )
+        thetarfile = tarfile.open(fileobj=response.raw, mode="r:gz")
+        thetarfile.extractall(path=ROOT_PATH)
 
 
 def _check_yolov5_install():
