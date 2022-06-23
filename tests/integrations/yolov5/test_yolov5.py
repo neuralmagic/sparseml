@@ -14,80 +14,111 @@
 
 import os
 import tempfile
-from collections import defaultdict
 
-import numpy
 import onnx
 import pandas as pd
 import pytest
 import torch
-from onnxruntime import InferenceSession
 
-from sparseml.onnx.utils import get_tensor_shape
 from tests.integrations.base_tester import (
     BaseIntegrationManager,
     BaseIntegrationTester,
     skip_inactive_stage,
 )
-from tests.integrations.helpers import get_configs_with_cadence
-from tests.integrations.object_detection.args import Yolov5ExportArgs, Yolov5TrainArgs
+from tests.integrations.helpers import (
+    get_configs_with_cadence,
+    model_inputs_outputs_test,
+    model_op_counts_test,
+)
+from tests.integrations.yolov5.args import (
+    Yolov5DeployArgs,
+    Yolov5ExportArgs,
+    Yolov5TrainArgs,
+)
 from yolov5.export import load_checkpoint
 
 
 METRIC_TO_COLUMN = {"map0.5": "metrics/mAP_0.5"}
 
+deepsparse_error = None
+try:
+    from deepsparse import Pipeline
+except Exception as e:
+    deepsparse_error = e
 
-class ObjectDetectionManager(BaseIntegrationManager):
+
+class Yolov5Manager(BaseIntegrationManager):
 
     command_stubs = {
-        "train": "sparseml.object_detection.train",
-        "export": "sparseml.object_detection.export_onnx",
+        "train": "sparseml.yolov5.train",
+        "export": "sparseml.yolov5.export_onnx",
+        "deploy": None,
     }
     config_classes = {
         "train": Yolov5TrainArgs,
         "export": Yolov5ExportArgs,
+        "deploy": Yolov5DeployArgs,
     }
 
     def capture_pre_run_state(self):
         super().capture_pre_run_state()
+        self._check_deploy_requirements(deepsparse_error)
 
         # Setup temporary directory for train run
-        if "train" in self.command_types:
+        if "train" in self.configs:
             train_args = self.configs["train"].run_args
             directory = os.path.dirname(train_args.project)
             os.makedirs(directory, exist_ok=True)
             self.save_dir = tempfile.TemporaryDirectory(dir=directory)
             train_args.project = self.save_dir.name
-
-        # Either grab output directory from train run or setup new temporary directory
-        # for export
-        if "export" in self.command_types:
-            export_args = self.configs["export"].run_args
-            export_args.weights = os.path.join(
+            self.expected_checkpoint_path = os.path.join(
                 train_args.project,
                 "exp",
                 "weights",
-                "last.pt" if "train" in self.command_types else export_args.weights,
+                "checkpoint-one-shot.pt" if train_args.one_shot else "last.pt",
             )
+
+        # Either grab output directory from train run or setup new temporary directory
+        # for export
+        if "export" in self.configs:
+            export_args = self.configs["export"].run_args
+            if not self.save_dir:
+                self.save_dir = tempfile.TemporaryDirectory()
+                export_args.save_dir = self.save_dir.name
+            else:
+                export_args.weights = self.expected_checkpoint_path
+
+        if "deploy" in self.configs:
+            deploy_args = self.configs["deploy"].run_args
+            if self.save_dir:
+                export_args = self.configs["export"].run_args
+                deploy_args.model_path = export_args.weights.replace(".pt", ".onnx")
 
         # Turn on "_" -> "-" conversion for CLI args
         for stage, config in self.configs.items():
             config.dashed_keywords = True
+
+    def add_abridged_configs(self):
+        if "train" in self.command_types:
+            self.configs["train"].max_train_steps = 10
+            self.configs["train"].max_eval_steps = 10
+            self.configs["train"].data = "coco128.yaml"
 
     def teardown(self):
         if "train" in self.command_types:
             self.save_dir.cleanup()
 
 
-class TestObjectDetection(BaseIntegrationTester):
+class TestYolov5(BaseIntegrationTester):
     @pytest.fixture(
         params=get_configs_with_cadence(
-            os.environ.get("NM_TEST_CADENCE", "commit"), os.path.dirname(__file__)
+            os.environ.get("SPARSEML_TEST_CADENCE", "pre-commit"),
+            os.path.dirname(__file__),
         ),
         scope="class",
     )
     def integration_manager(self, request):
-        manager = ObjectDetectionManager(config_path=request.param)
+        manager = Yolov5Manager(config_path=request.param)
         yield manager
         manager.teardown()
 
@@ -95,7 +126,7 @@ class TestObjectDetection(BaseIntegrationTester):
     def test_train_complete(self, integration_manager):
         # Test that file is created
         manager = integration_manager
-        model_file = os.path.join(manager.save_dir.name, "exp", "weights", "last.pt")
+        model_file = manager.expected_checkpoint_path
         assert os.path.isfile(model_file)
 
         # Test that model file loadable
@@ -130,9 +161,7 @@ class TestObjectDetection(BaseIntegrationTester):
         # Test that onnx model is loadable and passes onnx checker
         manager = integration_manager
         export_args = manager.configs["export"]
-        onnx_file = os.path.join(
-            os.path.dirname(export_args.run_args.weights), "last.onnx"
-        )
+        onnx_file = export_args.run_args.weights.replace(".pt", ".onnx")
 
         assert os.path.isfile(onnx_file)
 
@@ -159,7 +188,7 @@ class TestObjectDetection(BaseIntegrationTester):
             type_="val", weights=target_model_path, device=torch.device("cpu")
         )
 
-        _test_model_op_counts(export_model_path, target_model_path)
+        model_op_counts_test(export_model_path, target_model_path)
 
         compare_outputs = export_args.test_args.get("compare_outputs", True)
         if isinstance(compare_outputs, str) and (
@@ -167,71 +196,10 @@ class TestObjectDetection(BaseIntegrationTester):
         ):
             compare_outputs = False
         if compare_outputs:
-            _test_model_inputs_outputs(export_model_path, target_model_path)
+            model_inputs_outputs_test(export_model_path, target_model_path)
 
-
-_TEST_OPS = {
-    "MatMul",
-    "Gemm",
-    "Conv",
-    "MatMulInteger",
-    "ConvInteger",
-    "QLinearMatMul",
-    "QLinearConv",
-}
-
-
-def _test_model_op_counts(model_path_a, model_path_b):
-
-    model_a = onnx.load(model_path_a)
-    model_b = onnx.load(model_path_b)
-
-    def _get_model_op_counts(model):
-        op_counts = defaultdict(int)
-        for node in model.graph.node:
-            if node.op_type in _TEST_OPS:
-                op_counts[node.op_type] += 1
-        return op_counts
-
-    op_counts_a = _get_model_op_counts(model_a)
-    op_counts_b = _get_model_op_counts(model_b)
-
-    assert len(op_counts_a) > 0
-    assert len(op_counts_a) == len(op_counts_b)
-
-    for op, count_a in op_counts_a.items():
-        assert op in op_counts_b
-        assert count_a == op_counts_b[op]
-
-
-def _test_model_inputs_outputs(model_path_a, model_path_b):
-    # compare export and target graphs and build fake data
-    model_a = onnx.load(model_path_a)
-    model_b = onnx.load(model_path_b)
-    assert len(model_a.graph.input) == len(model_b.graph.input)
-    assert len(model_a.graph.output) == len(model_b.graph.output)
-
-    sample_input = {}
-    output_names = []
-
-    for input_a, input_b in zip(model_a.graph.input, model_b.graph.input):
-        assert input_a.name == input_b.name
-        input_a_shape = get_tensor_shape(input_a)
-        assert input_a_shape == get_tensor_shape(input_b)
-        d_type = (
-            numpy.uint8 if input_a.type.tensor_type.elem_type == 2 else numpy.float32
-        )
-        sample_input[input_a.name] = numpy.random.randn(*input_a_shape).astype(d_type)
-
-    for output_a, output_b in zip(model_a.graph.output, model_b.graph.output):
-        assert output_a.name == output_b.name
-        assert get_tensor_shape(output_a) == get_tensor_shape(output_b)
-        output_names.append(output_a.name)
-
-    # run sample forward and test absolute max diff
-    ort_sess_a = InferenceSession(model_path_a)
-    ort_sess_b = InferenceSession(model_path_b)
-    forward_output_a = ort_sess_a.run(output_names, sample_input)
-    forward_output_b = ort_sess_b.run(output_names, sample_input)
-    for out_a, out_b in zip(forward_output_a, forward_output_b):
-        assert numpy.max(numpy.abs(out_a - out_b)) <= 1e-4
+    @skip_inactive_stage
+    def test_deploy_model_compile(self, integration_manager):
+        manager = integration_manager
+        args = manager.configs["deploy"]
+        _ = Pipeline.create("yolo", model_path=args.run_args.model_path)

@@ -45,7 +45,7 @@ The SparseML installation provides a CLI for running YOLOv5 scripts with SparseM
 
 ```bash
 sparseml.yolov5.train
-sparseml.yolov5.val
+sparseml.yolov5.validation
 sparseml.yolov5.export_onnx
 sparseml.yolov5.val_onnx
 ```
@@ -85,9 +85,9 @@ In the example below, a YOLOv5s model pre-trained on COCO is pruned and quantize
 
 ```bash
 sparseml.yolov5.train \
-  --weights zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/base-none \   # Pre-trained model weights
-  --data coco.yaml \                                                         # Dataset to continue training on
-  --hyp data/hyps/hyp.scratch.yaml \                                         # Training hyperparameters
+  --weights zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/base-none \
+  --data coco.yaml \
+  --hyp data/hyps/hyp.scratch.yaml \
   --recipe zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned_quant-aggressive_94 
 ```
 
@@ -122,20 +122,20 @@ sparseml.yolov5.export_onnx \
 
 Once the model is exported to the ONNX format, it is ready for deployment with the DeepSparse Engine. 
 
-To benchmark the model, you can run
+To benchmark the model, run
 
 ```bash
 deepsparse.benchmark path/to/model.onnx
 ```
 
-To run validation in the DeepSparse Engine, you can run
+To run validation in the DeepSparse Engine, execute
 
 ```bash
-sparseml.yolov5.val_onnx path/to/model.onnx --data coco128.yaml
+sparseml.yolov5.val_onnx --model_path path/to/model.onnx --data coco128.yaml
 ```
 
 
-To learn more about the engine and deploying your model, refer to the [appropriate documentation in the DeepSparse repository](https://github.com/neuralmagic/deepsparse/tree/main/src/deepsparse/yolo)
+To learn more about the engine and deploying your model, refer to the [appropriate documentation in the DeepSparse repository](https://github.com/neuralmagic/deepsparse/tree/main/src/deepsparse/yolo).
 
 ## Support
 

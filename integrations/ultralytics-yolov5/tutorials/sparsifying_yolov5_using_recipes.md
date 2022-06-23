@@ -13,7 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 -->
-
+<span style="color:red">This pathway is deprecated. Please refer to the instructions [here](https://github.com/neuralmagic/sparseml/blob/main/src/sparseml/yolov5) on how to run YOLOv5 + SparseML with `sparseml.yolov5` commands.</span>
 # Sparsifying YOLOv5 Using Recipes
 
 This tutorial shows how Neural Magic recipes simplify the sparsification process by encoding the hyperparameters and instructions needed to create highly accurate pruned and pruned-quantized YOLOv5 models, specifically for the s and l versions.

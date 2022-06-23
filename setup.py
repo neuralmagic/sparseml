@@ -60,7 +60,7 @@ _deepsparse_deps = [
 _onnxruntime_deps = ["onnxruntime>=1.0.0"]
 _pytorch_deps = [
     "torch>=1.1.0,<=1.9.1",
-    "tensorboard>=1.0",
+    "tensorboard>=1.0,<2.9",
     "tensorboardX>=1.0",
     "gputils",
 ]
@@ -93,6 +93,7 @@ _dev_deps = [
     "pytest-mock~=3.6.0",
     "flaky~=3.7.0",
     "sphinx-rtd-theme",
+    "docutils<0.17",
 ]
 
 
@@ -202,6 +203,7 @@ setup(
     ),
     license="Apache",
     url="https://github.com/neuralmagic/sparseml",
+    include_package_data=True,
     package_dir=_setup_package_dir(),
     packages=_setup_packages(),
     install_requires=_setup_install_requires(),

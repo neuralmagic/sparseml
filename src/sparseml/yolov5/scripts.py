@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pathlib import Path
 
 from yolov5.export import export_run
 from yolov5.export import parse_opt as parse_export_args
@@ -37,14 +36,11 @@ __all__ = [
 ]
 
 
-DEFAULT_SAVE_PATH = Path(__file__).resolve().parents[0]
-
-
 def train():
     """
     Hook to call into train.py in YOLOv5 fork
     """
-    opt = parse_train_args(default_project_dir=DEFAULT_SAVE_PATH)
+    opt = parse_train_args()
     train_run(**vars(opt))
 
 
@@ -52,7 +48,7 @@ def val():
     """
     Hook to call into val.py in YOLOv5 fork
     """
-    opt = parse_val_args(default_project_dir=DEFAULT_SAVE_PATH)
+    opt = parse_val_args()
     val_run(**vars(opt))
 
 

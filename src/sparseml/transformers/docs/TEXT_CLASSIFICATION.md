@@ -20,16 +20,16 @@ Note: Transformers will not immediately install with this command. Instead, a sp
 - [Crypto Sentiment Analysis example](https://github.com/neuralmagic/deepsparse/tree/500d132f27e97547b752c99dd06e17b8e53a1ba8/examples/twitter-nlp) + [accompanying video](https://www.youtube.com/watch?v=7UTKt-PDLvk)
 ## Getting Started
 ### Sparsifying Popular Transformer Models
-In the example below, a dense BERT model is trained on the SQuAD dataset. By passing the recipe `zoo:nlp/question_answering/bert-base/pytorch/huggingface/squad/pruned-aggressive_98` (located in [SparseZoo](https://sparsezoo.neuralmagic.com/models/nlp%2Fquestion_answering%2Fbert-base%2Fpytorch%2Fhuggingface%2Fsquad%2Fpruned-aggressive_98)) we modify (sparsify) the training process and/or the model.
+In the example below, a dense BERT model is trained on the MNLI dataset. By passing the recipe `zoo:nlp/text_classification/bert-base/pytorch/huggingface/mnli/12layer_pruned90-none ` (located in [SparseZoo](https://sparsezoo.neuralmagic.com/models/nlp%2Ftext_classification%2Fbert-base%2Fpytorch%2Fhuggingface%2Fmnli%2F12layer_pruned90-none)) we modify (sparsify) the training process and/or the model.
 ```bash
-sparseml.transformers.question_answering \
-  --model_name_or_path bert-base-uncased \          # name of the Hugging Face dense model
-  --task_name mnli \                                # name of the task we want to sparse train on
-  --do_train \                                      # run training
-  --do_eval \                                       # run evaluation on validation set 
-  --output_dir './output' \                         # output directory of the saved model
-  --cache_dir cache \                               # local directory to store the downloaded hugging face model.   
-  --distill_teacher disable \                       # disable knowledge destillation
+sparseml.transformers.text_classification \
+  --model_name_or_path bert-base-uncased \
+  --task_name mnli \
+  --do_train \
+  --do_eval \
+  --output_dir './output' \
+  --cache_dir cache \
+  --distill_teacher disable \
   --recipe zoo:nlp/text_classification/bert-base/pytorch/huggingface/mnli/12layer_pruned90-none         
 ```
 
@@ -45,9 +45,9 @@ sparseml.transformers.text_classification \
     --task_name sst2 \
     --do_train \
     --do_eval \
-    --output_dir './output' \ 
+    --output_dir './output' \
     --distill_teacher disable \
-    --recipe zoo:nlp/masked_language_modeling/bert-base/pytorch/huggingface/wikipedia_bookcorpus/12layer_pruned80_quant-none-vnni?recipe_type=transfer-text_classification \
+    --recipe zoo:nlp/masked_language_modeling/bert-base/pytorch/huggingface/wikipedia_bookcorpus/12layer_pruned80_quant-none-vnni?recipe_type=transfer-text_classification 
 ```
 
 #### Knowledge Distillation
@@ -141,7 +141,7 @@ inference = tc_pipeline("Snorlax hates pineapple pizza!")
 ```
 
 
-To learn more, refer to the [appropriate documentation in the DeepSparse repository](https://github.com/neuralmagic/deepsparse/tree/main/examples/huggingface-transformers)
+To learn more, refer to the [appropriate documentation in the DeepSparse repository](https://github.com/neuralmagic/deepsparse/blob/main/src/deepsparse/transformers/README.md).
 
 ## Support
 
