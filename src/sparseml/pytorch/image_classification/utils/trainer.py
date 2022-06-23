@@ -33,6 +33,7 @@ from sparseml.pytorch.utils import (
     default_device,
     is_parallel_model,
 )
+from sparsezoo import Zoo
 
 
 _LOGGER = logging.getLogger(__file__)
@@ -191,9 +192,15 @@ class ImageClassificationTrainer(Trainer):
         :returns: Results from validation or training run
         """
         train_mode = mode == "train"
-        validation_mode = not train_mode
+        validation_mode = mode == "val"
+        if not (train_mode or validation_mode):
+            raise ValueError(f"Invalid train mode '{mode}', must be 'train' or 'val'")
 
-        if torch.__version__ < "1.9" and self.manager.qat_active(epoch=self.epoch):
+        if (
+            torch.__version__ < "1.9"
+            and self.manager
+            and (self.manager.qat_active(epoch=self.epoch))
+        ):
             # switch off fp16
             self._device_context.use_mixed_precision = False
 
@@ -321,6 +328,10 @@ class ImageClassificationTrainer(Trainer):
         )
 
     def _setup_checkpoint_manager(self):
+        if self.checkpoint_path and self.checkpoint_path.startswith("zoo"):
+            self.checkpoint_path = Zoo.load_model_from_stub(
+                self.checkpoint_path
+            ).download_framework_files(extensions=[".pth"])[0]
         checkpoint_state = torch.load(self.checkpoint_path)
         checkpoint_manager = None
         checkpoint_recipe = checkpoint_state.get("recipe")

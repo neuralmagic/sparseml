@@ -234,9 +234,6 @@ class Modifier(BaseModifier):
         :param loggers: the logger maanger to setup this modifier with for logging
         important info and milestones to
         """
-        if self._loggers_initialized and self._loggers:
-            return
-
         loggers = loggers or []
         if isinstance(loggers, List):
             loggers = LoggerManager(loggers)
@@ -411,7 +408,7 @@ class ScheduledModifier(Modifier, BaseScheduled):
     :param end_comparator: integer value representing how the end_epoch should be
         compared to start_epoch.
         if == None, then end_epoch can only be set to what its initial value was.
-        if == -1, then end_epoch can be less than, equal, or greater than start_epoch.
+        if == -1, then end_epoch can be -1, equal, or greater than start_epoch.
         if == 0, then end_epoch can be equal to or greater than start_epoch.
         if == 1, then end_epoch can only be greater than start_epoch.
     :param kwargs: standard key word args, used to support multi inheritance
@@ -709,7 +706,7 @@ class ScheduledModifier(Modifier, BaseScheduled):
         level = level or LOGGING_LEVELS["debug"]
         step = (
             loggers.epoch_to_step(epoch, steps_per_epoch)
-            if (epoch and steps_per_epoch)
+            if (epoch is not None) and (steps_per_epoch is not None)
             else None
         )
         loggers.log_string(tag=tag, string=string, step=step, level=level)
@@ -727,7 +724,7 @@ class ScheduledModifier(Modifier, BaseScheduled):
         loggers = loggers or self.loggers
         step = (
             loggers.epoch_to_step(epoch, steps_per_epoch)
-            if (epoch and steps_per_epoch)
+            if (epoch is not None) and (steps_per_epoch is not None)
             else None
         )
         loggers.log_scalar(tag=tag, value=value, step=step, level=level)
@@ -779,7 +776,7 @@ class ScheduledUpdateModifier(ScheduledModifier, BaseUpdate):
     :param end_comparator: integer value representing how the end_epoch should be
         compared to start_epoch.
         if == None, then end_epoch can only be set to what its initial value was.
-        if == -1, then end_epoch can be less than, equal, or greater than start_epoch.
+        if == -1, then end_epoch can be -1, equal, or greater than start_epoch.
         if == 0, then end_epoch can be equal to or greater than start_epoch.
         if == 1, then end_epoch can only be greater than start_epoch.
     :param min_frequency: The minimum acceptable value for update_frequency, default -1
