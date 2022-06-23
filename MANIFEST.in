@@ -1,2 +1,1 @@
 include LICENSE
-recursive-include sparseml/yolov5 *.yaml *.sh

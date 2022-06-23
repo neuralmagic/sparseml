@@ -209,7 +209,6 @@ setup(
     extras_require=_setup_extras(),
     entry_points=_setup_entry_points(),
     python_requires=">=3.6.0",
-    include_package_data=True,
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Programming Language :: Python :: 3",
