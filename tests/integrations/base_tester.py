@@ -38,7 +38,6 @@ import yaml
 from pydantic import BaseModel
 
 from tests.integrations.config import Config
-from tests.integrations.helpers import get_configs_with_cadence
 
 
 __all__ = [

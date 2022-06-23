@@ -50,4 +50,4 @@ jobs:
       - name: "Install yolov5 integration"
         run: sparseml.yolov5.train --help
       - name: "🔬 Running integrations tests (cadence: commit}})"
-        run: make testinteg TARGETS=yolov5,transformers
+        run: make testinteg TARGETS=yolov5,transformers,image_classification
