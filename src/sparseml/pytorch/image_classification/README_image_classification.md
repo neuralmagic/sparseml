@@ -48,7 +48,7 @@ In the example below, we fetch a pruned [ResNet] model, pre-trained on [ImageNet
 ```bash
 sparseml.image_classification.train \
     --recipe-path zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/pruned95-none?recipe_type=transfer-classification \
-    --checkpoint-path zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/pruned95-none \
+    --checkpoint-path zoo \
     --arch-key resnet50 \
     --model-kwargs '{"ignore_error_tensors": ["classifier.fc.weight", "classifier.fc.bias"]}' \
     --dataset imagenette \
@@ -138,12 +138,13 @@ sparseml.image_classification.export_onnx \
 Once the model is exported in the ONNX format, it is ready for deployment with the 
 [DeepSparse] Engine. 
 
-The deployment is intuitive due to the [DeepSparse] Python API.
+The deployment is intuitive due to the [DeepSparse] Python API.  DeepSparse can be installed via
+`pip install deepsparse`.
 
 ```python
-from deepsparse import pipeline
+from deepsparse import Pipeline
 
-cv_pipeline = pipeline(
+cv_pipeline = Pipeline.create(
   task='image_classification', 
   model_path='zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/pruned95-none',  # Path to checkpoint or SparseZoo stub
 )

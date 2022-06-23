@@ -22,12 +22,11 @@ names: ['object']  # class names
 download: |
   import shutil
   from tqdm import tqdm
-  from utils.general import np, pd, Path, download, xyxy2xywh, os
+  from utils.general import np, pd, Path, download, xyxy2xywh
 
 
   # Download
-  root_path = os.path.join("src", "sparseml", "yolov5")
-  dir = Path(os.path.join(root_path, yaml['path']))  # dataset root dirr
+  dir = Path(yaml['path'])  # dataset root dir
   parent = Path(dir.parent)  # download dir
   urls = ['http://trax-geometry.s3.amazonaws.com/cvpr_challenge/SKU110K_fixed.tar.gz']
   download(urls, dir=parent, delete=False)
