@@ -1,6 +1,6 @@
 name: Integrations Testing Post-Merge
 on: 
-  pull_request:
+  push:
     branches:
       - main
       - 'release/*'
