@@ -145,6 +145,9 @@ class ImageClassificationTrainArgs(_ImageClassificationBaseArgs):
 
 
 class ImageClassificationExportArgs(_ImageClassificationBaseArgs):
+    model_tag: Optional[str] = Field(
+        Default=None, description="required - tag for model under save_dir"
+    )
     onnx_opset: int = Field(
         default=11, description="The onnx opset to use for exporting the model"
     )

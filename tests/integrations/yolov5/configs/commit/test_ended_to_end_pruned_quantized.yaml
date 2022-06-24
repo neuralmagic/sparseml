@@ -4,10 +4,7 @@ train:
   command_args:
     weights: "zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/base-none"
     recipe: "tests/integrations/yolov5/configs/commit/recipe_short_prune_quant.md"
-  test_args: 
-    target_name: "map0.5"
-    target_mean: 52.5 
-    target_std: 3
+    batch_size: 4
 export:
   command_args:
     dynamic: True
