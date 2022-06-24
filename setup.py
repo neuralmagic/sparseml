@@ -49,6 +49,8 @@ _deps = [
     "tqdm>=4.0.0",
     "toposort>=1.0",
     "GPUtil>=1.4.0",
+    "protobuf>=3.12.2,<4",
+    "click==8.0",
 ]
 _nm_deps = [f"{'sparsezoo' if is_release else 'sparsezoo-nightly'}~={version_nm_deps}"]
 _deepsparse_deps = [
@@ -58,7 +60,7 @@ _deepsparse_deps = [
 _onnxruntime_deps = ["onnxruntime>=1.0.0"]
 _pytorch_deps = [
     "torch>=1.1.0,<=1.9.1",
-    "tensorboard>=1.0",
+    "tensorboard>=1.0,<2.9",
     "tensorboardX>=1.0",
     "gputils",
 ]
@@ -91,7 +93,7 @@ _dev_deps = [
     "pytest-mock~=3.6.0",
     "flaky~=3.7.0",
     "sphinx-rtd-theme",
-    "click<8.1",
+    "docutils<0.17",
 ]
 
 
@@ -169,12 +171,10 @@ def _setup_entry_points() -> Dict:
 
     entry_points["console_scripts"].extend(
         [
-            "sparseml.object_detection.export_onnx="
-            "sparseml.pytorch.object_detection.export:main",
-            "sparseml.object_detection.train="
-            "sparseml.pytorch.object_detection.train:main",
-            "sparseml.object_detection.validation="
-            "sparseml.pytorch.object_detection.val:main",
+            "sparseml.yolov5.export_onnx=sparseml.yolov5.scripts:export",
+            "sparseml.yolov5.train=sparseml.yolov5.scripts:train",
+            "sparseml.yolov5.validation=sparseml.yolov5.scripts:val",
+            "sparseml.yolov5.val_onnx=sparseml.yolov5.scripts:val_onnx",
         ]
     )
 
@@ -203,6 +203,7 @@ setup(
     ),
     license="Apache",
     url="https://github.com/neuralmagic/sparseml",
+    include_package_data=True,
     package_dir=_setup_package_dir(),
     packages=_setup_packages(),
     install_requires=_setup_install_requires(),

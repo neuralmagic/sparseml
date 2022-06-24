@@ -254,9 +254,10 @@ class RecipeManagerTrainerInterface:
             if torch.distributed.is_initialized()
             else self.args._n_gpu
         )
+        n_device = n_gpu if n_gpu > 0 else 1
         total_batch_size = (
             self.args.per_device_train_batch_size
-            * n_gpu
+            * n_device
             * self.args.gradient_accumulation_steps
         )
         self.manager_steps_per_epoch = math.ceil(
@@ -386,6 +387,8 @@ class RecipeManagerTrainerInterface:
             teacher_inputs = None
 
         loss = student_outputs["loss"]
+        if self.args.n_gpu > 1:  # DataParallel
+            loss = loss.mean()
         loss = self.manager.loss_update(
             loss,
             model,
@@ -500,7 +503,7 @@ class RecipeManagerTrainerInterface:
         device = self.model.device
 
         try:
-            dataloader = self.get_val_dataloader()
+            dataloader = self.get_eval_dataloader()
         except Exception:
             dataloader = self.get_train_dataloader()
 
@@ -660,30 +663,33 @@ class RecipeManagerTrainerInterface:
         )
 
     def _mfac_data_loader(self):
-        data_loader_template = self.get_train_dataloader()
+        def dataloader():
+            data_loader_template = self.get_train_dataloader()
 
-        data_loader = torch.utils.data.DataLoader(
-            dataset=data_loader_template.dataset,
-            batch_size=data_loader_template.batch_size // 2,
-            sampler=RandomSampler(data_loader_template.dataset, replacement=False),
-            num_workers=data_loader_template.num_workers,
-            collate_fn=data_loader_template.collate_fn,
-            pin_memory=data_loader_template.pin_memory,
-            drop_last=data_loader_template.drop_last,
-            timeout=data_loader_template.timeout,
-            worker_init_fn=data_loader_template.worker_init_fn,
-            generator=data_loader_template.generator,
-            prefetch_factor=data_loader_template.prefetch_factor,
-            persistent_workers=data_loader_template.persistent_workers,
-        )
+            data_loader = torch.utils.data.DataLoader(
+                dataset=data_loader_template.dataset,
+                batch_size=data_loader_template.batch_size // 2,
+                sampler=RandomSampler(data_loader_template.dataset, replacement=False),
+                num_workers=data_loader_template.num_workers,
+                collate_fn=data_loader_template.collate_fn,
+                pin_memory=data_loader_template.pin_memory,
+                drop_last=data_loader_template.drop_last,
+                timeout=data_loader_template.timeout,
+                worker_init_fn=data_loader_template.worker_init_fn,
+                generator=data_loader_template.generator,
+                prefetch_factor=data_loader_template.prefetch_factor,
+                persistent_workers=data_loader_template.persistent_workers,
+            )
 
-        for sample in data_loader:
-            if self.label_smoother is not None and "labels" in sample:
-                label = sample.pop("labels")
-            else:
-                label = None
-            sample = self._prepare_inputs(sample)
-            yield [], sample, label
+            for sample in data_loader:
+                if self.label_smoother is not None and "labels" in sample:
+                    label = sample.pop("labels")
+                else:
+                    label = None
+                sample = self._prepare_inputs(sample)
+                yield [], sample, label
+
+        return dataloader
 
     def _mfac_loss_function(self, model_outputs, loss_target):
         if loss_target is not None:
