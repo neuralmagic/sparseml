@@ -91,7 +91,7 @@ class Yolov5TrainArgs(BaseModel):
     cost_lr: bool = Field(default=False, description="cosine LR scheduler")
     label_smoothing: float = Field(default=0.0, description="Label smoothing epsilon")
     patience: int = Field(
-        default=100, description="EarlyStopping patience (epochs without improvement)"
+        default=0, description="EarlyStopping patience (epochs without improvement)"
     )
     freeze: str = Field(
         default="0", description="Freeze layers: backbone=10, first3=0 1 2"

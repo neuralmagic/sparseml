@@ -38,7 +38,6 @@ import yaml
 from pydantic import BaseModel
 
 from tests.integrations.config import Config
-from tests.integrations.helpers import get_configs_with_cadence
 
 
 __all__ = [
@@ -258,7 +257,9 @@ class BaseIntegrationTester:
     stage is `train`, `export`, or `deploy` and name is a unique name to describe the
     test. This naming convention is used and enforced within the decorator
     `@skip_inactive_stage`
-    """
+
+    Adding the fixture below to each test class will parameterize the test over
+    the set of test configs that match the cadence setting.
 
     @pytest.fixture(
         params=get_configs_with_cadence(
@@ -267,6 +268,8 @@ class BaseIntegrationTester:
         ),
         scope="class",
     )
+    """
+
     def integration_manager(request):
         """
         Fixture with a lifecycle of:

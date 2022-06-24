@@ -100,9 +100,8 @@ class Yolov5Manager(BaseIntegrationManager):
 
     def add_abridged_configs(self):
         if "train" in self.command_types:
-            self.configs["train"].max_train_steps = 10
-            self.configs["train"].max_eval_steps = 10
-            self.configs["train"].data = "coco128.yaml"
+            self.configs["train"].run_args.max_train_steps = 2
+            self.configs["train"].run_args.max_eval_steps = 2
 
     def teardown(self):
         if "train" in self.command_types:

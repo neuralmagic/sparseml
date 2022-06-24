@@ -1,5 +1,4 @@
 cadence: "pre-commit"
-abridged: True
 train:
   task: Question-Answering
   command_args:
