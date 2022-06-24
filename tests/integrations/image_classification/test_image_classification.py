@@ -84,7 +84,9 @@ class ImageClassificationManager(BaseIntegrationManager):
                 export_args.save_dir = self.save_dir.name
             else:
                 export_args.checkpoint_path = self.expected_checkpoint_path
-                export_args.save_dir = train_args.save_dir
+                export_args.save_dir = train_args.save_dir + "_exported"
+                export_args.model_tag = train_args.model_tag
+                export_args.arch_key = train_args.arch_key
 
         if "deploy" in self.configs:
             deploy_args = self.configs["deploy"].run_args
@@ -181,7 +183,7 @@ class TestImageClassification(BaseIntegrationTester):
     def test_export_onnx_graph(self, integration_manager):
         export_args = integration_manager.configs["export"]
         expected_onnx_path = os.path.join(
-            integration_manager.save_dir.name,
+            export_args.run_args.save_dir,
             export_args.run_args.model_tag,
             "model.onnx",
         )
@@ -201,7 +203,7 @@ class TestImageClassification(BaseIntegrationTester):
             zoo_model = Zoo.load_model_from_stub(target_model_path)
             target_model_path = zoo_model.onnx_file.downloaded_path()
         export_model_path = os.path.join(
-            integration_manager.save_dir.name,
+            export_args.run_args.save_dir,
             export_args.run_args.model_tag,
             "model.onnx",
         )

@@ -12,10 +12,6 @@ train:
     save_dir: image_classification-end_to_end-test
 export:
   command_args:
-    checkpoint_path: image_classification-export-test/mobilenet-imagenette-pruned/framework/model.pth
-    arch_key: mobilenet
     num_classes: 10
-    model_tag: mobilenet-imagenette-pruned
-    save_dir: image_classification-end_to_end-test
 deploy:
   command_args: null
