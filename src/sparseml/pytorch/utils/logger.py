@@ -778,6 +778,16 @@ class LoggerManager(ABC):
     def __iter__(self):
         return iter(self.loggers)
 
+    def add_logger(self, logger: BaseLogger):
+        """
+        add a BaseLogger implementation to the loggers of this manager
+
+        :param logger: logger object to add
+        """
+        if not isinstance(logger, BaseLogger):
+            raise ValueError(f"logger {type(logger)} must be of type BaseLogger")
+        self._loggers.append(logger)
+
     def log_ready(self, epoch, last_log_epoch):
         """
         Check if there is a logger that is ready to accept a log
