@@ -1,5 +1,4 @@
 cadence: "pre-commit"
-abridged: True
 train:
   task: Text-Classification
   command_args:
