@@ -1,0 +1,9 @@
+cadence: "pre-commit"
+train:
+  command_args:
+    weights: "zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/base-none"
+    recipe: zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned_quant-aggressive_94
+    one_shot: True
+export:
+  command_args:
+    dynamic: True

@@ -12,17 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 from pathlib import Path
-from typing import List, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 from pydantic import BaseModel, Field
 
-from yolov5.utils.general import ROOT
+
+FILE = Path(__file__).resolve()
+ROOT = Path(os.path.join(FILE.parents[3], "src", "sparseml", "yolov5"))
 
 
 class Yolov5TrainArgs(BaseModel):
-    weights: Union[str, Path] = Field(default='""', description="initial weights path")
-    cfg: Union[str, Path] = Field(default='""', description="model.yaml path")
+    weights: Union[str, Path, None] = Field(
+        default=None, description="initial weights path"
+    )
+    cfg: Union[str, Path, None] = Field(default=None, description="model.yaml path")
     data: Union[str, Path] = Field(
         default=ROOT / "data/coco128.yaml", description="dataset.yaml path"
     )
@@ -31,6 +36,17 @@ class Yolov5TrainArgs(BaseModel):
         description="hyperparameters path",
     )
     epochs: int = Field(default=300)
+    max_train_steps: int = Field(
+        default=-1,
+        description="Set the maximum number of training steps per epoch. if negative,"
+        "the entire training set will be used, default=-1",
+    )
+    max_eval_steps: int = Field(
+        default=-1,
+        description="Set the maximum number of eval steps per epoch. if negative,"
+        "the entire validation set will be used, default=-1",
+    )
+    one_shot: bool = Field(default=False, description="Apply recipe in one shot manner")
     batch_size: int = Field(
         default=16, description="total batch size for all GPUs, -1 for autobatch"
     )
@@ -43,14 +59,16 @@ class Yolov5TrainArgs(BaseModel):
     evolve: Tuple[bool, int] = Field(
         default=[False, 300], description="evolve hyperparameters for x generations"
     )
-    bucket: str = Field(default='""', description="gsutil bucket")
+    bucket: Optional[str] = Field(default=None, description="gsutil bucket")
     cache: str = Field(
         default="ram", description='--cache images in "ram" (default) or "disk"'
     )
     image_weights: bool = Field(
         default=False, description="use weighted image selection for training"
     )
-    device: str = Field(default="", description="cuda device, i.e. 0 or 0,1,2,3 or cpu")
+    device: Optional[str] = Field(
+        default=None, description="cuda device, i.e. 0 or 0,1,2,3 or cpu"
+    )
     multi_scale: bool = Field(default=False, description="vary img-size +/- 50%%")
     single_cls: bool = Field(
         default=False, description="train multi-class data as single-class"
@@ -73,7 +91,7 @@ class Yolov5TrainArgs(BaseModel):
     cost_lr: bool = Field(default=False, description="cosine LR scheduler")
     label_smoothing: float = Field(default=0.0, description="Label smoothing epsilon")
     patience: int = Field(
-        default=100, description="EarlyStopping patience (epochs without improvement)"
+        default=0, description="EarlyStopping patience (epochs without improvement)"
     )
     freeze: str = Field(
         default="0", description="Freeze layers: backbone=10, first3=0 1 2"
@@ -136,4 +154,11 @@ class Yolov5ExportArgs(BaseModel):
     )
     remove_grid: bool = Field(
         default=False, description="remove export of Detect() layer grid"
+    )
+
+
+class Yolov5DeployArgs(BaseModel):
+    model_path: Optional[str] = Field(
+        default=None,
+        description=("Path to directory where model onnx file is stored"),
     )
