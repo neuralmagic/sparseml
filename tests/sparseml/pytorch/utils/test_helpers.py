@@ -891,7 +891,6 @@ def test_thin_model_from_checkpoint(model, state_dict, test_input):
         (torch.rand(1000), 123),
         (torch.rand(10_000), 4321),
         (torch.rand(100_000), 12345),
-        (torch.rand(500_000_000), 123_456),
     ],
 )
 def test_memory_aware_threshold(tensor, idx):
