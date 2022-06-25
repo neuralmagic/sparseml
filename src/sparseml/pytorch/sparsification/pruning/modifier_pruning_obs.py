@@ -138,7 +138,7 @@ class OBSPruningModifier(BaseGradualPruningModifier):
         num_grads: int = 1024,
         damp: float = 1e-7,
         fisher_block_size: int = 50,
-        grad_sampler_kwargs: Dict[str, Any] = {},
+        grad_sampler_kwargs: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(
             params=params,
@@ -162,19 +162,6 @@ class OBSPruningModifier(BaseGradualPruningModifier):
         self._supported_masks = ("unstructured", "block4")
 
         self._validate()
-
-    def _validate(self):
-        if isinstance(self._damp, str):  # to support 'damp: 1e-7' in the recipe
-            self._damp = float(self._damp)
-
-        assert (
-            self._mask_type in self._supported_masks
-        ), f"{self._mask_type} mask_type not supported"
-
-        if self._mask_type == "block4":
-            assert (
-                self._fisher_block_size % 4 == 0
-            ), "fisher_block_size must be divisible by 4 for block4 pruning"
 
     @ModifierProp()
     def mask_type(self) -> str:
@@ -245,6 +232,22 @@ class OBSPruningModifier(BaseGradualPruningModifier):
                 kwargs["grad_sampler"]["loss_function"],
             )
 
+    def check_mask_update(
+        self, module: Module, epoch: float, steps_per_epoch: int, **kwargs
+    ):
+        if steps_per_epoch == 1 and not math.isinf(epoch):
+            return  # not a one-shot run
+
+        _LOGGER.info("Running OBS Pruning")
+        if self._scorer._is_main_proc:
+            # collect grads for empirical inverse Fisher estimation
+            self._scorer._enabled_grad_buffering = True
+            self._collect_grad_samples(module, self._grad_sampler)
+            self._pre_step_completed = True
+            self._scorer._enabled_grad_buffering = False
+
+        super().check_mask_update(module, epoch, steps_per_epoch, **kwargs)
+
     def _get_mask_creator(
         self, param_names: List[str], params: List[Parameter]
     ) -> PruningMaskCreator:
@@ -268,22 +271,6 @@ class OBSPruningModifier(BaseGradualPruningModifier):
             mask_type=self._mask_type,
         )
 
-    def check_mask_update(
-        self, module: Module, epoch: float, steps_per_epoch: int, **kwargs
-    ):
-        if steps_per_epoch == 1 and not math.isinf(epoch):
-            return  # not a one-shot run
-
-        _LOGGER.info("Running OBS Pruning")
-        if self._scorer._is_main_proc:
-            # collect grads for empirical inverse Fisher estimation
-            self._scorer._enabled_grad_buffering = True
-            self._collect_grad_samples(module, self._grad_sampler)
-            self._pre_step_completed = True
-            self._scorer._enabled_grad_buffering = False
-
-        super().check_mask_update(module, epoch, steps_per_epoch, **kwargs)
-
     def _collect_grad_samples(
         self,
         module: Module,
@@ -306,6 +293,18 @@ class OBSPruningModifier(BaseGradualPruningModifier):
         if is_training:
             _LOGGER.debug("Setting the model back to the train mode")
             module.train()
+
+    def _validate(self):
+        if isinstance(self._damp, str):  # to support 'damp: 1e-7' in the recipe
+            self._damp = float(self._damp)
+
+        if self._mask_type not in self._supported_masks:
+            raise ValueError(f"{self._mask_type} mask_type not supported")
+
+        if self._mask_type == "block4" and self._fisher_block_size % 4 != 0:
+            raise ValueError(
+                "fisher_block_size must be divisible by 4 for block4 pruning"
+            )
 
 
 class OBSPruningParamsScorer(PruningParamsGradScorer):
@@ -336,7 +335,7 @@ class OBSPruningParamsScorer(PruningParamsGradScorer):
         self._fisher_block_size = fisher_block_size
         self._mask_type = mask_type
 
-        self._Finvs = None  # type: List[EmpiricalBlockFisherInverse]
+        self._finvs = None  # type: List[EmpiricalBlockFisherInverse]
         self._enabled_grad_buffering = False
         self._eps = torch.finfo(torch.float32).eps
 
@@ -356,34 +355,12 @@ class OBSPruningParamsScorer(PruningParamsGradScorer):
 
         self._pickle_exclude_params.extend(
             [
-                "_Finvs",
+                "_finvs",
                 "_enabled_grad_buffering",
                 "_devices",
             ]
         )
         self._validate()
-
-    def _validate(self):
-        if self._mask_type == "block4":
-            for param in self._params:
-                assert (
-                    param.numel() % self._fisher_block_size == 0
-                ), "number of elements in each param must be divisible by \
-                    fisher_block_size"
-
-    def _setup_FisherInverse(self, masks: List[Tensor]):
-        self._masks = masks  # to be used by score_parameters
-        self._Finvs = []
-        for i, param in enumerate(self._params):
-            self._Finvs.append(
-                EmpiricalBlockFisherInverse(
-                    self._num_grads,
-                    self._fisher_block_size,
-                    param.numel(),
-                    self._damp,
-                    self._devices[i],
-                )
-            )
 
     @torch.no_grad()
     def score_parameters(self) -> List[Tensor]:
@@ -395,7 +372,7 @@ class OBSPruningParamsScorer(PruningParamsGradScorer):
         block_finv_w = [None] * len(self._params)
 
         if self._is_main_proc:
-            for i, finv in enumerate(self._Finvs):
+            for i, finv in enumerate(self._finvs):
                 if self._mask_type == "unstructured":
                     scores[i] = (
                         (self._params[i].data.view(-1) ** 2).to(self._devices[i])
@@ -406,7 +383,7 @@ class OBSPruningParamsScorer(PruningParamsGradScorer):
                     block_finv = (
                         torch.cat(
                             [
-                                finv.F_inv[:, i : i + 4, i : i + 4]
+                                finv.f_inv[:, i : i + 4, i : i + 4]
                                 for i in range(0, finv.B, 4)
                             ],
                             dim=1,
@@ -450,10 +427,10 @@ class OBSPruningParamsScorer(PruningParamsGradScorer):
             # this ignores calls invoked by manager during training
             return
 
-        if self._Finvs is None:
-            self._setup_FisherInverse(masks)
+        if self._finvs is None:
+            self._setup_fisher_inverse(masks)
 
-        for i, finv in enumerate(self._Finvs):
+        for i, finv in enumerate(self._finvs):
             self._params[i].grad.mul_(masks[i])
             finv.add_grad(self._params[i].grad.view(-1).to(self._devices[i]))
 
@@ -472,18 +449,18 @@ class OBSPruningParamsScorer(PruningParamsGradScorer):
             for i, param in enumerate(self._params):
                 if self._mask_type == "unstructured":
                     obs_updates[i] = (
-                        self._Finvs[i]
+                        self._finvs[i]
                         .mul(
                             (param.data * (mask_diffs[i] == -1))
                             .view(-1)
                             .to(self._devices[i])
-                            / (self._Finvs[i].diag() + self._eps)
+                            / (self._finvs[i].diag() + self._eps)
                         )
                         .view(param.data.shape)
                     )
                 else:  # self._mask_type == "block4":
                     obs_updates[i] = (
-                        self._Finvs[i]
+                        self._finvs[i]
                         .mul(
                             self._block_finv_w[i].view(-1)
                             * (mask_diffs[i] == -1).view(-1).to(self._devices[i])
@@ -497,7 +474,30 @@ class OBSPruningParamsScorer(PruningParamsGradScorer):
             param.data -= obs_updates[i].to(param.data.device)
             param.data[mask_diffs[i] == -1] = 0.0
 
-        self._Finvs = None
+        self._finvs = None
+
+    def _validate(self):
+        if self._mask_type == "block4":
+            for param in self._params:
+                if param.numel() % self._fisher_block_size != 0:
+                    raise ValueError(
+                        "number of elements in each param must be divisible \
+                        by fisher_block_size"
+                    )
+
+    def _setup_fisher_inverse(self, masks: List[Tensor]):
+        self._masks = masks  # to be used by score_parameters
+        self._finvs = []
+        for i, param in enumerate(self._params):
+            self._finvs.append(
+                EmpiricalBlockFisherInverse(
+                    self._num_grads,
+                    self._fisher_block_size,
+                    param.numel(),
+                    self._damp,
+                    self._devices[i],
+                )
+            )
 
 
 class EmpiricalBlockFisherInverse:
@@ -516,7 +516,7 @@ class EmpiricalBlockFisherInverse:
         self.dev = device
 
         self.num_blocks = math.ceil(self.d / self.B)
-        self.F_inv = (
+        self.f_inv = (
             (1.0 / self.damp * torch.eye(n=self.B, device=self.dev))
             .unsqueeze(0)
             .repeat(self.num_blocks, 1, 1)
@@ -536,21 +536,21 @@ class EmpiricalBlockFisherInverse:
         # prepare grad for batch calculations
         g = g.view(self.num_blocks, self.B)
 
-        # batched F_inv x g: (batch, B, B) x (batch, B) -> (batch, B)
-        Finv_g = torch.einsum("bij,bj->bi", self.F_inv, g)
+        # batched f_inv x g: (batch, B, B) x (batch, B) -> (batch, B)
+        finv_g = torch.einsum("bij,bj->bi", self.f_inv, g)
 
         # scalar denominator for each batch: (batch)
-        alpha = (self.m + torch.einsum("bi,bi->b", g, Finv_g)).sqrt().unsqueeze(1)
-        Finv_g /= alpha
+        alpha = (self.m + torch.einsum("bi,bi->b", g, finv_g)).sqrt().unsqueeze(1)
+        finv_g /= alpha
 
-        # update F_inv with new outer product: (batch, B) x (batch, B) -> (batch, B, B)
-        self.F_inv.baddbmm_(Finv_g.unsqueeze(2), Finv_g.unsqueeze(1), alpha=-1)
+        # update f_inv with new outer product: (batch, B) x (batch, B) -> (batch, B, B)
+        self.f_inv.baddbmm_(finv_g.unsqueeze(2), finv_g.unsqueeze(1), alpha=-1)
 
     def diag(self) -> Tensor:
         """
         :return: diagonal of the Fisher inverse matrix
         """
-        return self.F_inv.diagonal(dim1=1, dim2=2).flatten()[: self.d]
+        return self.f_inv.diagonal(dim1=1, dim2=2).flatten()[: self.d]
 
     def mul(self, v: Tensor) -> Tensor:
         """
@@ -563,5 +563,5 @@ class EmpiricalBlockFisherInverse:
                 [v, torch.zeros(self.num_blocks * self.B - v.numel(), device=v.device)]
             )
         return torch.bmm(
-            self.F_inv, v.view(self.num_blocks, self.B).unsqueeze_(2)
+            self.f_inv, v.view(self.num_blocks, self.B).unsqueeze_(2)
         ).flatten()[: self.d]
