@@ -63,6 +63,7 @@ def _get_dataloader_builder(
         for sample in data_loader:
             img, target = [t for t in sample]
             yield [img], {}, target
+
     return dataloader_builder
 
 
@@ -329,8 +330,8 @@ def test_obs_pruning_yaml(params, init_sparsity, final_sparsity):
         damp=damp,
         fisher_block_size=fisher_block_size,
         grad_sampler_kwargs={
-            'batch_size': batch_size,
-        }
+            "batch_size": batch_size,
+        },
     )
     assert isinstance(yaml_modifier, OBSPruningModifier)
     pruning_modifier_serialization_vals_test(
