@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import os
-from functools import partial
+from typing import Any, Dict, Optional
 
 import pytest
 import torch
@@ -39,27 +39,31 @@ from tests.sparseml.pytorch.helpers import (  # noqa isort:skip
 )
 
 
-def _obs_loss_function(model_outputs, loss_target):
-    return torch.nn.functional.mse_loss(model_outputs[0], loss_target)
+def _get_loss_function():
+    return lambda model_outputs, loss_target: torch.nn.functional.mse_loss(
+        model_outputs[0], loss_target
+    )
 
 
-def _obs_data_loader(
+def _get_dataloader_builder(
     dataset_lambda,
-    batch_size,
+    obs_batch_size,
     num_grads,
     num_epochs,
     update_frequency,
-    obs_kwargs,
 ):
-    if "batch_size" in obs_kwargs:
-        batch_size = obs_kwargs["batch_size"]
+    def dataloader_builder(kwargs: Optional[Dict[str, Any]] = None):
+        batch_size = kwargs["batch_size"] if kwargs else obs_batch_size
+        data_length = int(
+            obs_batch_size * num_grads * num_epochs * (1 / update_frequency) * 2
+        )
+        dataset = dataset_lambda(length=data_length)
+        data_loader = DataLoader(dataset, batch_size=batch_size)
 
-    data_length = int(batch_size * num_grads * num_epochs * (1 / update_frequency) * 2)
-    dataset = dataset_lambda(length=data_length)
-    data_loader = DataLoader(dataset, batch_size=batch_size)
-    for sample in data_loader:
-        img, target = [t for t in sample]
-        yield [img], {}, target
+        for sample in data_loader:
+            img, target = [t for t in sample]
+            yield [img], {}, target
+    return dataloader_builder
 
 
 @flaky(max_runs=3, min_passes=2)
@@ -122,8 +126,8 @@ def _obs_data_loader(
 )
 class TestOBSPruningModifier(ScheduledUpdateModifierTest):
     @pytest.mark.parametrize(
-        "dataset_lambda, obs_loss, obs_data_loader, obs_batch_size",
-        [(MLPDataset, _obs_loss_function, _obs_data_loader, 4)],
+        "dataset_lambda, obs_batch_size",
+        [(MLPDataset, 4)],
     )
     def test_lifecycle(
         self,
@@ -132,30 +136,23 @@ class TestOBSPruningModifier(ScheduledUpdateModifierTest):
         optim_lambda,
         test_steps_per_epoch,  # noqa: F811
         dataset_lambda,
-        obs_loss,
-        obs_data_loader,
         obs_batch_size,
     ):
         modifier = modifier_lambda()
         model = model_lambda()
         optimizer = optim_lambda(model)
+        grad_sampler = {
+            "data_loader_builder": _get_dataloader_builder(
+                dataset_lambda,
+                obs_batch_size,
+                modifier.num_grads,
+                modifier.end_epoch - modifier.start_epoch + 1,
+                modifier.update_frequency,
+            ),
+            "loss_function": _get_loss_function(),
+        }
 
-        obs_data_loader_builder = partial(
-            obs_data_loader,
-            dataset_lambda,
-            obs_batch_size,
-            modifier.num_grads,
-            modifier.end_epoch - modifier.start_epoch + 1,
-            modifier.update_frequency,
-        )
-        self.initialize_helper(
-            modifier,
-            model,
-            grad_sampler={
-                "data_loader_builder": obs_data_loader_builder,
-                "loss_function": obs_loss,
-            },
-        )
+        self.initialize_helper(modifier, model, grad_sampler=grad_sampler)
         if modifier.start_epoch > 0:
             assert modifier.applied_sparsity is None
         assert modifier._mask_creator == modifier._module_masks._mask_creator
@@ -230,8 +227,8 @@ class TestOBSPruningModifier(ScheduledUpdateModifierTest):
             _test_final_sparsity_applied()
 
     @pytest.mark.parametrize(
-        "dataset_lambda, obs_loss, obs_data_loader, obs_batch_size",
-        [(MLPDataset, _obs_loss_function, _obs_data_loader, 4)],
+        "dataset_lambda, obs_batch_size",
+        [(MLPDataset, 4)],
     )
     def test_scheduled_update(
         self,
@@ -241,30 +238,27 @@ class TestOBSPruningModifier(ScheduledUpdateModifierTest):
         test_epoch,  # noqa: F811
         test_steps_per_epoch,  # noqa: F811
         dataset_lambda,
-        obs_loss,
-        obs_data_loader,
         obs_batch_size,
     ):
         modifier = modifier_lambda()
+        grad_sampler = {
+            "data_loader_builder": _get_dataloader_builder(
+                dataset_lambda,
+                obs_batch_size,
+                modifier.num_grads,
+                modifier.end_epoch - modifier.start_epoch + 1,
+                modifier.update_frequency,
+            ),
+            "loss_function": _get_loss_function(),
+        }
 
-        obs_data_loader_builder = partial(
-            obs_data_loader,
-            dataset_lambda,
-            obs_batch_size,
-            modifier.num_grads,
-            modifier.end_epoch - modifier.start_epoch + 1,
-            modifier.update_frequency,
-        )
         super().test_scheduled_update(
             modifier_lambda,
             model_lambda,
             optim_lambda,
             test_epoch,
             test_steps_per_epoch,
-            grad_sampler={
-                "data_loader_builder": obs_data_loader_builder,
-                "loss_function": obs_loss,
-            },
+            grad_sampler=grad_sampler,
         )
 
 
@@ -299,6 +293,7 @@ def test_obs_pruning_yaml(params, init_sparsity, final_sparsity):
     damp = 0.000001
     fisher_block_size = 20
     mask_type = "block4"
+    batch_size = 4
     yaml_str = f"""
     !OBSPruningModifier
         init_sparsity: {init_sparsity}
@@ -313,6 +308,8 @@ def test_obs_pruning_yaml(params, init_sparsity, final_sparsity):
         num_grads: {num_grads}
         damp: {damp}
         fisher_block_size: {fisher_block_size}
+        grad_sampler_kwargs:
+            batch_size: {batch_size}
     """
     yaml_modifier = OBSPruningModifier.load_obj(yaml_str)
     serialized_modifier = OBSPruningModifier.load_obj(
@@ -331,6 +328,9 @@ def test_obs_pruning_yaml(params, init_sparsity, final_sparsity):
         num_grads=num_grads,
         damp=damp,
         fisher_block_size=fisher_block_size,
+        grad_sampler_kwargs={
+            'batch_size': batch_size,
+        }
     )
     assert isinstance(yaml_modifier, OBSPruningModifier)
     pruning_modifier_serialization_vals_test(
@@ -360,4 +360,9 @@ def test_obs_pruning_yaml(params, init_sparsity, final_sparsity):
         str(yaml_modifier.mask_type)
         == str(serialized_modifier.mask_type)
         == str(obj_modifier.mask_type)
+    )
+    assert (
+        str(yaml_modifier._grad_sampler_kwargs)
+        == str(serialized_modifier._grad_sampler_kwargs)
+        == str(obj_modifier._grad_sampler_kwargs)
     )
