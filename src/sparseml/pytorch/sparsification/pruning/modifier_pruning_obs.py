@@ -191,6 +191,13 @@ class OBSPruningModifier(BaseGradualPruningModifier):
         """
         return self._fisher_block_size
 
+    @ModifierProp()
+    def grad_sampler_kwargs(self) -> Optional[Dict[str, Any]]:
+        """
+        :return: dict of training dataloader's overridden configs for gradient sampling
+        """
+        return self._grad_sampler_kwargs
+
     def initialize(
         self,
         module: Module,
