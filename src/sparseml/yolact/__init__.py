@@ -20,6 +20,7 @@ import importlib
 import logging as _logging
 from collections import namedtuple
 
+
 _LOGGER = _logging.getLogger(__name__)
 _NM_YOLACT_LINK_TEMPLATE = (
     "https://github.com/neuralmagic/yolact/releases/download/"
@@ -55,8 +56,7 @@ def _autoinstall_dependency(dependency: _Dependency):
 
     if _os.getenv("NM_NO_AUTOINSTALL", False):
         _LOGGER.warning(
-            "Unable to import, skipping auto installation "
-            "due to NM_NO_AUTOINSTALL"
+            "Unable to import, skipping auto installation " "due to NM_NO_AUTOINSTALL"
         )
         # skip any further checks
         return
