@@ -178,6 +178,16 @@ def _setup_entry_points() -> Dict:
         ]
     )
 
+    # object segmentation integration
+
+    entry_points["console_scripts"].extend(
+        [
+            "sparseml.yolact.export_onnx=sparseml.yolact.scripts:export",
+            "sparseml.yolact.train=sparseml.yolact.scripts:train",
+            "sparseml.yolact.validation=sparseml.yolact.scripts:val",
+        ]
+    )
+
     return entry_points
 
 
