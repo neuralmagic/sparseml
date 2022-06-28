@@ -17,15 +17,13 @@ Modifier classes implementing the blockwise version of the Optimal Brain Surgeon
 pruning framework, optimized for small blocks. The algorithm is described in details
 in the Optimal BERT Surgeon paper https://arxiv.org/abs/2203.07259
 """
-import math
-import torch
 import logging
+import math
+from typing import Any, Dict, List, Optional, Union
 
-
+import torch
 from torch import Tensor
 from torch.nn import Module, Parameter
-from tqdm import tqdm
-from typing import Any, Dict, List, Optional, Union
 
 from sparseml.pytorch.sparsification.modifier import ModifierProp, PyTorchModifierYAML
 from sparseml.pytorch.sparsification.pruning.mask_creator import (
@@ -43,6 +41,7 @@ from sparseml.pytorch.utils.logger import BaseLogger
 __all__ = [
     "OBSPruningModifier",
     "OBSPruningParamsScorer",
+    "EmpiricalBlockFisherInverse",
 ]
 
 
@@ -54,19 +53,19 @@ class OBSPruningModifier(BaseGradualPruningModifier):
     """
     As described in https://arxiv.org/abs/2203.07259
 
-    Gradually applies kernel sparsity to a given parameter or parameters from
+    Gradually applies sparsity to a given parameter or parameters from
     init_sparsity until final_sparsity is reached over a given number of epochs.
     Uses the Optimal BERT Surgeon algorithm to prune weights based on the
     approximate second-order information of the loss function. When pruning,
     it also updates remaining weights to compensate for accuracy drops incurred
-    by pruning. It follows the Optimal Brain Surgeon framework with optimizations
-    to make it efficient but accurate for huge models.
+    by pruning. It follows the Optimal Brain Surgeon framework with approximations
+    and optimizations to make it efficient but accurate for huge models.
     It can be used to prune other models besides BERT too.
 
     Naming convention with respect to the paper:
-        - damp == small dampening constant 'lambda'
-        - num_grads == number of gradient outer products 'm'
-        - fisher_block_size == size of the blocks 'B' along the main diagonal
+        * damp == small dampening constant 'lambda'
+        * num_grads == number of gradient outer products 'm'
+        * fisher_block_size == size of the blocks 'B' along the main diagonal
 
     Memory requirements: O(dB), where 'd' is the total number of prunable weights.
     If O(dB) can't fit on a single GPU device, pytorch DDP should be used to split
@@ -84,6 +83,7 @@ class OBSPruningModifier(BaseGradualPruningModifier):
     |       params: ["re:.*weight"]
     |       leave_enabled: True
     |       inter_func: cubic
+    |       global_sparsity: True
     |       mask_type: unstructured
     |       num_grads: 1024
     |       damp: 1e-7
@@ -139,7 +139,6 @@ class OBSPruningModifier(BaseGradualPruningModifier):
         damp: float = 1e-7,
         fisher_block_size: int = 50,
         grad_sampler_kwargs: Dict[str, Any] = {},
-        grad_log_freq = 100
     ):
         super().__init__(
             params=params,
@@ -158,7 +157,6 @@ class OBSPruningModifier(BaseGradualPruningModifier):
         self._damp = damp
         self._fisher_block_size = fisher_block_size
         self._grad_sampler_kwargs = grad_sampler_kwargs
-        self._grad_log_freq = grad_log_freq
 
         self._grad_sampler = None
         self._supported_masks = ("unstructured", "block4")
@@ -237,15 +235,9 @@ class OBSPruningModifier(BaseGradualPruningModifier):
                 "must be provided to initialize GradSampler"
             )
 
-        if math.isinf(epoch): # hack to enable oneshot
-            self._grad_sampler = GradSampler(
-                kwargs["grad_sampler"]["data_loader_builder"](
-                    **self._grad_sampler_kwargs
-                ),
-                kwargs["grad_sampler"]["loss_function"],
-            )
-
         super().initialize(module, epoch, loggers, **kwargs)
+
+        # if self._scorer._is_main_proc:  # grads collected only in the main proc
         self._grad_sampler = GradSampler(
             kwargs["grad_sampler"]["data_loader_builder"](
                 **self._grad_sampler_kwargs
@@ -284,6 +276,7 @@ class OBSPruningModifier(BaseGradualPruningModifier):
 
         _LOGGER.info("Running OBS Pruning")
         if self._scorer._is_main_proc:
+            # collect grads for empirical inverse Fisher estimation
             self._scorer._enabled_grad_buffering = True
 
         self._collect_grad_samples(module, self._grad_sampler)
@@ -310,10 +303,8 @@ class OBSPruningModifier(BaseGradualPruningModifier):
         module.eval()
 
         _LOGGER.debug(f"Starting to collect {self._num_grads} grads with GradSampler")
-        for i in grad_sampler.iter_module_backwards(module, self._num_grads):
+        for _ in grad_sampler.iter_module_backwards(module, self._num_grads):
             self._module_masks.pre_optim_step_update()
-            if i % self._grad_log_freq == 0:
-                 print(f"GradSampler collected {i} gradients")
 
         if is_training:
             _LOGGER.debug("Setting the model back to the train mode")
@@ -353,14 +344,18 @@ class OBSPruningParamsScorer(PruningParamsGradScorer):
         self._eps = torch.finfo(torch.float32).eps
 
         # assign device to each Finv
-        num_devices = torch.cuda.device_count()
-        per_device = math.floor(len(self._params) / num_devices)
         self._devices = []
-        for i in range(num_devices):
-            self._devices += [torch.device("cuda", i)] * per_device
-        remainder = len(self._params) - len(self._devices)
-        if remainder > 0:
-            self._devices += [self._devices[-1]] * remainder
+        num_devices = torch.cuda.device_count()
+        if num_devices == 0:
+            self._devices = [torch.device("cpu")] * len(self._params)
+        else:
+            num_devices = min(num_devices, len(self._params))
+            per_device = math.floor(len(self._params) / num_devices)
+            for i in range(num_devices):
+                self._devices += [torch.device("cuda", i)] * per_device
+            remainder = len(self._params) - len(self._devices)
+            if remainder > 0:
+                self._devices += [self._devices[-1]] * remainder
 
         self._pickle_exclude_params.extend(
             [
@@ -369,6 +364,15 @@ class OBSPruningParamsScorer(PruningParamsGradScorer):
                 "_devices",
             ]
         )
+        self._validate()
+
+    def _validate(self):
+        if self._mask_type == "block4":
+            for param in self._params:
+                assert (
+                    param.numel() % self._fisher_block_size == 0
+                ), "number of elements in each param must be divisible by \
+                    fisher_block_size"
 
     def _setup_FisherInverse(self, masks: List[Tensor]):
         self._masks = masks  # to be used by score_parameters
