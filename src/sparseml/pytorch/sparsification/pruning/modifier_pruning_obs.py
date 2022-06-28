@@ -139,6 +139,8 @@ class OBSPruningModifier(BaseGradualPruningModifier):
         damp: float = 1e-7,
         fisher_block_size: int = 50,
         grad_sampler_kwargs: Dict[str, Any] = {},
+        magn_scorer: bool = False,
+        mask_update: bool = True
     ):
         super().__init__(
             params=params,
@@ -157,6 +159,8 @@ class OBSPruningModifier(BaseGradualPruningModifier):
         self._damp = damp
         self._fisher_block_size = fisher_block_size
         self._grad_sampler_kwargs = grad_sampler_kwargs
+        self._magn_scorer = magn_scorer
+        self._mask_update = mask_update
 
         self._grad_sampler = None
         self._supported_masks = ("unstructured", "block4")
@@ -203,6 +207,20 @@ class OBSPruningModifier(BaseGradualPruningModifier):
         :return: size of blocks along the main diagonal of the Fisher approximation
         """
         return self._fisher_block_size
+
+    @ModifierProp()
+    def magn_scorer(self) -> bool:
+        """
+        :return: whether magnitude pruning is used in OBS elimination
+        """
+        return self._magn_scorer
+
+    @ModifierProp()
+    def mask_update(self) -> bool:
+        """
+        :return: whether the nonzero weights are updated in OBS step
+        """
+        return self._mask_update
 
     def initialize(
         self,
@@ -332,12 +350,16 @@ class OBSPruningParamsScorer(PruningParamsGradScorer):
         damp: float,
         fisher_block_size: int,
         mask_type: str,
+        magn_scorer: bool = False,
+        mask_update: bool = True
     ):
         super().__init__(params)
         self._num_grads = num_grads
         self._damp = damp
         self._fisher_block_size = fisher_block_size
         self._mask_type = mask_type
+        self._magn_scorer = magn_scorer
+        self._mask_update = mask_update
 
         self._Finvs = None  # type: List[EmpiricalBlockFisherInverse]
         self._enabled_grad_buffering = False
@@ -400,10 +422,14 @@ class OBSPruningParamsScorer(PruningParamsGradScorer):
         if self._is_main_proc:
             for i, finv in enumerate(self._Finvs):
                 if self._mask_type == "unstructured":
-                    scores[i] = (
-                        (self._params[i].data.view(-1) ** 2).to(self._devices[i])
-                        / (2.0 * finv.diag() + self._eps)
-                    ).view(self._params[i].shape)
+                    if self._magn_scorer:
+                        # score as magnitude pruning
+                        scores[i] = (self._params[i] ** 2).to(self._devices[i])
+                    else:
+                        scores[i] = (
+                            (self._params[i].data.view(-1) ** 2).to(self._devices[i])
+                            / (2.0 * finv.diag() + self._eps)
+                        ).view(self._params[i].shape)
                 else:  # self._mask_type == "block4":
                     block_w = self._params[i].data.view(-1, 4).to(finv.dev)  # (d/Q, Q)
                     block_finv = (
@@ -470,6 +496,9 @@ class OBSPruningParamsScorer(PruningParamsGradScorer):
         :param mask_diffs: mask diff values returned by mask_difference for these
             masks that describe how these masks changed since the last update
         """
+        if not self._mask_update:
+            return 
+
         obs_updates = [None] * len(self._params)
         if self._is_main_proc:
             for i, param in enumerate(self._params):
