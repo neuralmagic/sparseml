@@ -159,3 +159,10 @@ class ConstantPruningModifier(BasePruningModifier, BaseConstantPruningModifier):
         immediately after or doing some other prune.
         """
         return self._leave_enabled
+
+    @ModifierProp(serializable=False)
+    def global_sparsity(self) -> bool:
+        """
+        :return: value of global_sparsity that is passed to mask_creator methods
+        """
+        return self._global_sparsity
