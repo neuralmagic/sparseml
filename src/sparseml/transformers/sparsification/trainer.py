@@ -61,7 +61,7 @@ TRAINER_STATE_NAME = "trainer_state.json"
 class RecipeManagerTrainerInterface:
     """
     Training base interface for running sparsification recipes with transformers flows.
-    Defines it's own lifecycle that is compatible with transformers flows.
+    Defines its own lifecycle that is compatible with transformers flows.
     Can additionally be used outside of transformers flows provided
     they match reasonably closely.
 
@@ -81,7 +81,7 @@ class RecipeManagerTrainerInterface:
     :param model: the model to use with the trainer and apply sparsification to
     :param model_state_path: the state path to the model,
         used to load config and tokenizer settings
-    :param recipe: the recipe, if any, to apply to the modle and training
+    :param recipe: the recipe, if any, to apply to the model and training
         process
     :param recipe_args: A json string, csv key=value string, or dictionary containing
         arguments to override the root arguments within the recipe such as
@@ -89,7 +89,7 @@ class RecipeManagerTrainerInterface:
     :param metadata_args A list of arguments to be extracted from training_args
         and passed as metadata for the final, saved recipe.
     :param teacher: teacher model for distillation. Set to 'self' to distill
-        from the loaded model or 'disable' to turn of distillation
+        from the loaded model or 'disable' to turn off distillation
     :param kwargs: key word arguments passed to the parent class
     """
 
@@ -411,7 +411,7 @@ class RecipeManagerTrainerInterface:
     ) -> Tuple[Optional[float], Optional[torch.Tensor], Optional[torch.Tensor]]:
         """
         Wraps the prediction step from the original trainer to remove any input entry
-        that should not be passed to model.
+        that should not be passed to the model.
         This situation may arise when distillation is used and the teacher model
         contains more inputs than the student model.
         """
@@ -621,7 +621,7 @@ class RecipeManagerTrainerInterface:
         ):
             _LOGGER.warning(
                 "Model state was not reloaded for SparseML: "
-                f"could not find model wieghts for model_path {load_path}"
+                f"could not find model weights for model_path {load_path}"
             )
             return
 
@@ -708,14 +708,14 @@ class TrainerInterface(RecipeManagerTrainerInterface):
     Training interface for running sparsification recipes with transformers flows.
     Mimics the lifecycle of transformers Trainer classes.
 
-    Should be instantiated with multi-inheretance with a custom trainer class.
+    Should be instantiated with multi-inheritance with a custom trainer class.
     TrainerInterface must be provided before Trainer for proper class dependency.
     i.e. class MyCustomTrainer(TrainerInterface, Trainer)
 
     :param model: the model to use with the trainer and apply sparsification to
     :param model_state_path: the state path to the model,
         used to load config and tokenizer settings
-    :param recipe: the recipe, if any, to apply to the modle and training
+    :param recipe: the recipe, if any, to apply to the model and training
         process
     :param recipe_args: A json string, csv key=value string, or dictionary containing
         arguments to override the root arguments within the recipe such as
@@ -723,7 +723,7 @@ class TrainerInterface(RecipeManagerTrainerInterface):
     :param metadata_args A list of arguments to be extracted from training_args
         and passed as metadata for the final, saved recipe.
     :param teacher: teacher model for distillation. Set to 'self' to distill
-        from the loaded model or 'disable' to turn of distillation
+        from the loaded model or 'disable' to turn off distillation
     :param kwargs: key word arguments passed to the parent class
     """
 
@@ -837,13 +837,13 @@ class Trainer(TrainerInterface, TransformersTrainer):
     :param model: the model to use with the trainer and apply sparsification to
     :param model_state_path: the state path to the model,
         used to load config and tokenizer settings
-    :param recipe: the recipe, if any, to apply to the modle and training
+    :param recipe: the recipe, if any, to apply to the model and training
         process
     :param recipe_args: A json string, csv key=value string, or dictionary containing
         arguments to override the root arguments within the recipe such as
         learning rate or num epochs
     :param teacher: teacher model for distillation. Set to 'self' to distill
-        from the loaded model or 'disable' to turn of distillation
+        from the loaded model or 'disable' to turn off distillation
     :param kwargs: key word arguments passed to the parent class
     """
 
