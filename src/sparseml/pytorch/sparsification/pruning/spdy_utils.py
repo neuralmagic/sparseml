@@ -2,6 +2,7 @@ import os
 import time
 import math
 import torch
+import logging
 import numpy as np
 import torch.nn as nn
 
@@ -25,6 +26,9 @@ def safe_cholesky_inv(X: Tensor, rel_damp: float = 1e-2):
     except RuntimeError:
         reg = (rel_damp * torch.diag(X).mean()) * torch.eye(X.shape[0], device=X.device)
         return torch.cholesky_inverse(torch.linalg.cholesky(X + reg))
+
+    
+_LOGGER = logging.getLogger(__name__)
 
 
 class OBSHandle:
@@ -158,7 +162,7 @@ class OBSHandle:
         _end = time.perf_counter()
 
         if self.verbose:
-            print(f'[{self.layer_name}] Preparation of losses and traces took {(_end - _start):.2f} s')
+            _LOGGER.info(f'[{self.layer_name}] Preparation of losses and traces took {(_end - _start):.2f} s')
             
 
     def get_pruning_database(self, sparsities: np.ndarray) -> Tensor:
@@ -178,7 +182,10 @@ class OBSHandle:
         
         if self.verbose:
             for sparsity, cum_loss in zip(sparsities, cum_losses):
-                print(f'Sparsity: {sparsity:.3f} / Loss: {cum_loss:.4f}')
+                _LOGGER.info(f'Sparsity: {sparsity:.3f} / Loss: {cum_loss:.4f}')
+
+        # free memory
+        self.free()
 
         return Ws
 
@@ -248,7 +255,7 @@ class SPDY:
         device: str = 'cpu',
         verbose: bool = False,
         save_profile: bool = False,
-        save_profile_path: str = './best_coefs.npy',
+        save_profile_path: str = './spdy_profile.npy',
     ):
         self.model = model
         self.loader = loader
@@ -354,7 +361,7 @@ class SPDY:
         num_layers = len(self.weight_database)
         num_evalutations = 0
         if self.verbose:
-            print('Finding init.')
+            _LOGGER.info('Finding init.')
         # init values
         best_coefs = None
         best_score = float('inf')
@@ -365,17 +372,17 @@ class SPDY:
             solution, score = self.evaluate(coefs)
             num_evalutations += 1
             if self.verbose:
-                print(f'Evaluation {num_evalutations} {score:.4f} (best {best_score:.4f})')
+                _LOGGER.info(f'Evaluation {num_evalutations} {score:.4f} (best {best_score:.4f})')
             if score < best_score:
                 best_score = score
                 best_coefs = coefs
                 best_solution = solution
 
         if self.verbose:
-            print('Running local search.')
+            _LOGGER.info('Running local search.')
         for resamplings in range(int(self.resample_perc * num_layers), 0, -1):
             if self.verbose:
-                print(f'Trying {resamplings} resamplings ...')
+                _LOGGER.info(f'Trying {resamplings} resamplings ...')
             improved = True
             while improved: 
                 improved = False
@@ -386,7 +393,7 @@ class SPDY:
                     solution, score = self.evaluate(coefs)
                     num_evalutations += 1
                     if self.verbose:
-                        print(f'Evaluation {num_evalutations} {score:.4f} (best {best_score:.4f})')
+                        _LOGGER.info(f'Evaluation {num_evalutations} {score:.4f} (best {best_score:.4f})')
                     if score < best_score:
                         best_score = score
                         best_coefs = coefs

@@ -139,6 +139,7 @@ class OBSPruningModifier(BaseGradualPruningModifier):
         damp: float = 1e-7,
         fisher_block_size: int = 50,
         grad_sampler_kwargs: Dict[str, Any] = {},
+        num_recompute: int = 1,
         magn_scorer: bool = False,
         mask_update: bool = True
     ):
@@ -159,11 +160,13 @@ class OBSPruningModifier(BaseGradualPruningModifier):
         self._damp = damp
         self._fisher_block_size = fisher_block_size
         self._grad_sampler_kwargs = grad_sampler_kwargs
+        self._num_recompute = num_recompute
         self._magn_scorer = magn_scorer
         self._mask_update = mask_update
-
         self._grad_sampler = None
         self._supported_masks = ("unstructured", "block4")
+        # previously applied sparsity
+        self._prev_sparsity = None
 
         self._validate()
 
@@ -252,6 +255,13 @@ class OBSPruningModifier(BaseGradualPruningModifier):
                 "grad_sampler dict with data_loader_builder and loss_function "
                 "must be provided to initialize GradSampler"
             )
+        if math.isinf(epoch): # hack to enable oneshot
+            self._grad_sampler = GradSampler(
+                kwargs["grad_sampler"]["data_loader_builder"](
+                    **self._grad_sampler_kwargs
+                ),
+                kwargs["grad_sampler"]["loss_function"],
+            )
 
         super().initialize(module, epoch, loggers, **kwargs)
 
@@ -284,15 +294,12 @@ class OBSPruningModifier(BaseGradualPruningModifier):
             damp=self._damp,
             fisher_block_size=self._fisher_block_size,
             mask_type=self._mask_type,
+            magn_scorer=self._magn_scorer,
+            mask_update=self._mask_update
         )
 
-    def check_mask_update(
-        self, module: Module, epoch: float, steps_per_epoch: int, **kwargs
-    ):
-        if steps_per_epoch == 1 and not math.isinf(epoch):
-            return  # not a one-shot run
-
-        _LOGGER.info("Running OBS Pruning")
+    
+    def _prepare(self,  module: Module):
         if self._scorer._is_main_proc:
             # collect grads for empirical inverse Fisher estimation
             self._scorer._enabled_grad_buffering = True
@@ -303,7 +310,59 @@ class OBSPruningModifier(BaseGradualPruningModifier):
         if self._scorer._is_main_proc:
             self._scorer._enabled_grad_buffering = False
 
-        super().check_mask_update(module, epoch, steps_per_epoch, **kwargs)
+
+    def check_mask_update(
+        self, module: Module, epoch: float, steps_per_epoch: int, **kwargs
+    ):
+        """
+        Update mask values if necessary
+
+        :param module: module to modify
+        :param epoch: current epoch and progress within the current epoch
+        :param steps_per_epoch: number of steps taken within each epoch
+            (calculate batch number using this and epoch)
+        """
+        if steps_per_epoch == 1 and not math.isinf(epoch):
+            return  # not a one-shot run
+
+        started = self.started
+        if self.start_pending(epoch, steps_per_epoch):
+            self._module_masks.enabled = True
+            started = True
+
+        if not self._pre_step_completed:
+            # do pre optim step before mask update on update steps
+            self._module_masks.pre_optim_step_update()
+            self._pre_step_completed = True
+
+        if started:
+            # get sparsity level to be applied
+            self._applied_sparsity = self.get_applied_sparsity_for_epoch(
+                epoch, steps_per_epoch
+            )
+
+            # torch tensor for vectorized operations
+            _applied_sparsity = torch.tensor(self._applied_sparsity)
+            if self._prev_sparsity is None:
+                _prev_sparsity = torch.zeros_like(_applied_sparsity)
+            else:
+                _prev_sparsity = torch.tensor(self._prev_sparsity)
+
+            # compute sparsity difference on step
+            _sparsity_diff = (_applied_sparsity - _prev_sparsity) / self._num_recompute
+
+            for i in range(self._num_recompute):
+                _cur_sparsity = (_prev_sparsity + (i + 1) * _sparsity_diff).tolist()
+                _LOGGER.info(f'OBS computation [{i}/{self._num_recompute}].')
+                self._prepare(module)
+                self._module_masks.update_param_masks(target=_cur_sparsity)
+
+            self._sparsity_applied = True
+            self._prev_sparsity = self._applied_sparsity
+
+        if self.end_pending(epoch, steps_per_epoch):
+            self._module_masks.pruning_end(self._leave_enabled)
+            
 
     def _collect_grad_samples(
         self,

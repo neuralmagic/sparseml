@@ -111,7 +111,8 @@ class SPDYPruningModifier(BaseGradualPruningModifier):
         num_calibration_samples: int = 1024,
         dim_batch_size: int = 32,
         rel_damp: float = 0.0,
-        verbose: bool = False,
+        handle_verbose: bool = False,
+        spdy_verbose: bool = False,
         min_sparsity: float = 0.0,
         max_sparsity: float = 1.0,
         num_sparsity_levels: int = 40,
@@ -146,7 +147,8 @@ class SPDYPruningModifier(BaseGradualPruningModifier):
             num_calibration_samples=num_calibration_samples,
             dim_batch_size=dim_batch_size,
             rel_damp=rel_damp,
-            verbose=verbose,
+            handle_verbose=handle_verbose,
+            spdy_verbose=spdy_verbose,
             min_sparsity=min_sparsity,
             max_sparsity=max_sparsity,
             num_sparsity_levels=num_sparsity_levels,
@@ -256,7 +258,9 @@ class SPDYPruningModifier(BaseGradualPruningModifier):
         if self._scorer._is_main_proc:
             self._scorer._enabled_spdy_preparation = True
         
-        self._scorer._cur_target = np.mean(self.get_applied_sparsity_for_epoch(epoch, 1))
+        # get mean sparsity per all modules
+        mean_sparsity = np.mean(self.get_applied_sparsity_for_epoch(epoch, 1))
+        self._scorer.update_target(mean_sparsity)
 
         is_training = module.training
         module.eval()
@@ -285,7 +289,8 @@ class SPDYPruningParamScorer(PruningParamsGradScorer):
         num_calibration_samples: int = 1024,
         dim_batch_size: int = 32,
         rel_damp: float = 0.0,
-        verbose: bool = False,
+        handle_verbose: bool = False,
+        spdy_verbose: bool = False,
         min_sparsity: float = 0.0,
         max_sparsity: float = 1.0,
         num_sparsity_levels: int = 40,
@@ -310,7 +315,8 @@ class SPDYPruningParamScorer(PruningParamsGradScorer):
         self._num_calibration_samples = num_calibration_samples
         self._dim_batch_size = dim_batch_size
         self._rel_damp = rel_damp
-        self._verbose = verbose
+        self._spdy_verbose = spdy_verbose
+        self._handle_verbose = handle_verbose
         self._min_sparsity = min_sparsity
         self._max_sparsity = max_sparsity
         self._num_sparsity_levels = num_sparsity_levels
@@ -335,7 +341,7 @@ class SPDYPruningParamScorer(PruningParamsGradScorer):
                 num_samples=num_calibration_samples,
                 dim_batch_size=dim_batch_size,
                 rel_damp=rel_damp,
-                verbose=verbose
+                verbose=handle_verbose
             )
         # make sparsity levels
         l_ = np.log2(1.0 - min_sparsity)
@@ -471,7 +477,7 @@ class SPDYPruningParamScorer(PruningParamsGradScorer):
                 resample_perc=self._resample_perc,
                 patience=self._patience,
                 device=self._device,
-                verbose=self._verbose,
+                verbose=self._spdy_verbose,
                 save_profile=self._save_profile,
                 save_profile_path=self._save_profile_path
             )
@@ -508,5 +514,3 @@ class SPDYPruningParamScorer(PruningParamsGradScorer):
         # clean-up
         if self._is_main_proc:
             self._weight_database = None
-            for _, obs_handle in self.obs_handles.items():
-                obs_handle.free()
