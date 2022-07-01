@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import os.path
-
+from sparsezoo.v2.model_directory import ModelDirectory
 from sparseml.pytorch.image_classification.utils.helpers import get_model_directory
 
 
@@ -39,3 +39,5 @@ start_path = save_dir
 for path, dirs, files in os.walk(start_path):
     for filename in files:
         print(os.path.join(path, filename))
+
+assert ModelDirectory.from_directory(save_dir)
