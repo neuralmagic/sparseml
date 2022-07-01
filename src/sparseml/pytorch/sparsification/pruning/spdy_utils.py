@@ -1,6 +1,4 @@
 import os
-import time
-import math
 import torch
 import logging
 import numpy as np
@@ -8,194 +6,16 @@ import torch.nn as nn
 
 
 from torch import Tensor
-from torch.nn import Module
 from torch.utils.data import DataLoader
 
 
 __all__ = [
-    "safe_cholesky_inv",
-    "OBSHandle",
     "WeightDatabase",
     "SPDY"
 ]
 
-
-def safe_cholesky_inv(X: Tensor, rel_damp: float = 1e-2):
-    try:
-        return torch.cholesky_inverse(torch.linalg.cholesky(X))
-    except RuntimeError:
-        reg = (rel_damp * torch.diag(X).mean()) * torch.eye(X.shape[0], device=X.device)
-        return torch.cholesky_inverse(torch.linalg.cholesky(X + reg))
-
     
 _LOGGER = logging.getLogger(__name__)
-
-
-class OBSHandle:
-
-    def __init__(
-        self, 
-        layer: Module,
-        num_samples: int,
-        dim_batch_size: int,
-        rel_damp: float = 0.0,
-        dtype_H = torch.float32,
-        verbose: bool = False,
-        layer_name: str = ''
-    ) -> None:
-        assert isinstance(layer, (nn.Linear, nn.Conv1d, nn.Conv2d, nn.Conv3d))
-        self.layer = layer
-        self.num_samples = num_samples
-        self.dim_batch_size = dim_batch_size
-        self.rel_damp = rel_damp
-        self.verbose = verbose
-        self.layer_name = layer_name
-        # get weight
-        W = layer.weight
-        self.device = W.device
-        # convert weight to the matrix form (d_out, d_in)
-        self.dim_out  = W.shape[0]
-        self.dim_in   = np.prod(W.shape[1:])
-        self.H = torch.zeros((self.dim_in, self.dim_in), device=self.device, dtype=dtype_H)
-        # init weight handle
-        self.W =  None
-        # init the loss evolution
-        self.losses = None
-        # init weight traces
-        self.traces = None
-
-
-    def update_H(self, inp: Tensor) -> None:
-        # unfold inp if needed
-        if isinstance(self.layer, (nn.Conv1d, nn.Conv2d, nn.Conv3d)):
-            unfold = nn.Unfold(
-                self.layer.kernel_size,
-                dilation=self.layer.dilation,
-                padding=self.layer.padding,
-                stride=self.layer.stride
-            )
-            inp = unfold(inp)
-            inp = inp.permute([1, 0, 2])
-            inp = inp.flatten(1)
-        else:
-            inp = inp.view(-1, inp.shape[-1])
-        self.H += (2 / self.num_samples) * inp.T @ inp
-
-
-    def prepare(self) -> None:
-        self.W = self.layer.weight.data.clone()
-        if isinstance(self.layer, (nn.Conv1d, nn.Conv2d, nn.Conv3d)):
-            self.W = self.W.flatten(1)
-        # if the entire input is 0 -> channel is dead and doesn't contribute
-        dead = torch.diag(self.H) == 0
-        self.H[dead, dead] = 1
-        self.W[:, dead] = 0
-        # prepare losses
-        self.losses = torch.zeros((self.dim_out, self.dim_in + 1), device=self.device)
-        # prepare traces
-        self.traces = torch.zeros((self.dim_in + 1, self.dim_out, self.dim_in), device='cpu')
-
-
-    def prepare_batch(self, i_start, i_end) -> tuple[Tensor]:
-        W_batch = self.W[i_start:i_end, :]
-        mask_batch = torch.zeros_like(W_batch).bool()
-        return W_batch, mask_batch
-
-
-    def prepare_batch_sparse(self, W_batch, mask_batch): 
-        min_zeros = torch.sum((W_batch == 0), dim=1).min().item()
-        # temporary hessian
-        H_inv_batch = torch.empty((W_batch.shape[0], *self.H.shape), device=self.device)
-        for i in range(W_batch.shape[0]):
-            zero_ids = (W_batch[i] == 0)
-            H_cur = self.H.clone()
-            H_cur[zero_ids, :] = 0
-            H_cur[:, zero_ids] = 0
-            H_cur[zero_ids, zero_ids] = 1
-            # invert
-            H_inv_batch[i] = safe_cholesky_inv(H_cur)
-            mask_batch[i, torch.nonzero(zero_ids, as_tuple=True)[0][:min_zeros]] = True
-
-        return H_inv_batch, min_zeros
-
-
-    def prepare_losses_and_traces(self) -> None:
-        # prepare all
-        self.prepare()
-
-        _start = time.perf_counter()
-
-        for i_start in range(0, self.dim_out, self.dim_batch_size):
-            i_end = min(i_start + self.dim_batch_size, self.dim_out)
-            batch_size = i_end - i_start
-            batch_ids = torch.arange(batch_size, device=self.device)
-            # prepare batch 
-            W_batch, mask_batch = self.prepare_batch(i_start, i_end)
-            H_inv_batch, min_nnz = self.prepare_batch_sparse(W_batch, mask_batch) 
-            # init weight traces
-            trace = torch.zeros((self.dim_in + 1, i_end - i_start, self.dim_in), device=self.device)
-            trace[:(min_nnz + 1), :, :] = W_batch      
-
-            for zeros in range(min_nnz + 1, self.dim_in + 1):
-                _diag = torch.diagonal(H_inv_batch, dim1=1, dim2=2)
-                scores = (W_batch ** 2) / _diag
-                scores[mask_batch] = float('inf')
-                pruned_id = torch.argmin(scores, 1)
-                self.losses[i_start: i_end, zeros] = scores[batch_ids, pruned_id]
-                row = H_inv_batch[batch_ids, pruned_id, :]
-                d = _diag[batch_ids, pruned_id]
-                W_batch -= row * (W_batch[batch_ids, pruned_id] / d).unsqueeze(1)
-                mask_batch[batch_ids, pruned_id] = True
-                W_batch[mask_batch] = 0
-                trace[zeros, :, :] = W_batch
-                # do not update on the last iteration
-                if zeros == self.dim_in:
-                    break
-                row /= torch.sqrt(d).unsqueeze(1)
-                H_inv_batch -= torch.bmm(row.unsqueeze(2), row.unsqueeze(1))
-
-            self.losses[i_start: i_end, :] /= 2
-            self.traces[:, i_start: i_end, :] = trace.cpu()
-
-            torch.cuda.synchronize()
-
-        _end = time.perf_counter()
-
-        if self.verbose:
-            _LOGGER.info(f'[{self.layer_name}] Preparation of losses and traces took {(_end - _start):.2f} s')
-            
-
-    def get_pruning_database(self, sparsities: np.ndarray) -> Tensor:
-        losses = self.losses[:, 1:].reshape(-1)
-        order = torch.argsort(losses)
-        Ws = torch.zeros((len(sparsities), self.dim_out, self.dim_in), device=self.device)
-        cum_losses = [0] * len(sparsities)
-
-        for i in range(self.dim_out):
-            for j, sparsity in enumerate(sparsities):
-                count = int(math.ceil(self.dim_out * self.dim_in * sparsity))
-                perrow = torch.sum(
-                    torch.div(order[:count], self.dim_in, rounding_mode='trunc') == i
-                ).item()
-                cum_losses[j] += torch.sum(self.losses[i, :(perrow + 1)]).item()
-                Ws[j, i, :] = self.traces[perrow, i, :].to(self.device)
-        
-        if self.verbose:
-            for sparsity, cum_loss in zip(sparsities, cum_losses):
-                _LOGGER.info(f'Sparsity: {sparsity:.3f} / Loss: {cum_loss:.4f}')
-
-        # free memory
-        self.free()
-
-        return Ws
-
-
-    def free(self) -> None:
-        del self.H
-        del self.W
-        del self.losses
-        del self.traces
-        torch.cuda.empty_cache()
 
 
 class WeightDatabase:

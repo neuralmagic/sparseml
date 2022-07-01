@@ -41,6 +41,7 @@ from sparseml.pytorch.utils.helpers import tensor_density
 
 from .spdy_utils import *
 from .budget_counter_utils import *
+from .pruning_handle import AdaOBCHandle
 
 
 __all__ = [
@@ -335,9 +336,8 @@ class SPDYPruningParamScorer(PruningParamsGradScorer):
         self.obs_handles = {}
         for layer_name, layer in zip(layer_names, layers):
             # add obs handle to each module
-            self.obs_handles[layer_name] = OBSHandle(
+            self.obs_handles[layer_name] = AdaOBCHandle(
                 layer,
-                layer_name=layer_name,
                 num_samples=num_calibration_samples,
                 dim_batch_size=dim_batch_size,
                 rel_damp=rel_damp,
@@ -351,7 +351,7 @@ class SPDYPruningParamScorer(PruningParamsGradScorer):
         self._weight_database = None
         self._errs_per_layer = None
         self._budgets_per_layer = None
-        self._enabled_spdy_preparation = True
+        self._enabled_spdy_preparation = False
         self._cur_target = 1.0
 
     
@@ -509,7 +509,7 @@ class SPDYPruningParamScorer(PruningParamsGradScorer):
         self._broadcast_list_from_main(spdy_weights)
 
         for i, param in enumerate(self._params):
-            param.data = spdy_weights[i]
+            param.data = spdy_weights[i].to(param.device)
 
         # clean-up
         if self._is_main_proc:
