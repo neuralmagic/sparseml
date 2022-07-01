@@ -17,14 +17,15 @@ Modifier classes implementing the blockwise version of the Optimal Brain Surgeon
 pruning framework, optimized for small blocks. The algorithm is described in details
 in the Optimal BERT Surgeon paper https://arxiv.org/abs/2203.07259
 """
-import logging
 import math
-from typing import Any, Dict, List, Optional, Union
-
 import torch
+import logging
+
 from torch import Tensor
 from torch.nn import Module, Parameter
+from typing import Any, Dict, List, Optional, Union
 
+from sparseml.utils import interpolate
 from sparseml.pytorch.sparsification.modifier import ModifierProp, PyTorchModifierYAML
 from sparseml.pytorch.sparsification.pruning.mask_creator import (
     PruningMaskCreator,
@@ -46,6 +47,7 @@ __all__ = [
 
 
 _LOGGER = logging.getLogger(__name__)
+# logging.basicConfig(format='[%(name)s/%(levelname)s]: %(message)s')
 
 
 @PyTorchModifierYAML()
@@ -123,6 +125,8 @@ class OBSPruningModifier(BaseGradualPruningModifier):
         for pruner's gradient sampling.
     """
 
+    _supported_masks = ("unstructured", "block4")
+
     def __init__(
         self,
         init_sparsity: float,
@@ -139,9 +143,10 @@ class OBSPruningModifier(BaseGradualPruningModifier):
         damp: float = 1e-7,
         fisher_block_size: int = 50,
         grad_sampler_kwargs: Dict[str, Any] = {},
-        num_recompute: int = 1,
+        num_recomputations: int = 1,
         magn_scorer: bool = False,
-        mask_update: bool = True
+        mask_update: bool = True,
+        recomputation_inter_func: str = 'linear'
     ):
         super().__init__(
             params=params,
@@ -160,14 +165,13 @@ class OBSPruningModifier(BaseGradualPruningModifier):
         self._damp = damp
         self._fisher_block_size = fisher_block_size
         self._grad_sampler_kwargs = grad_sampler_kwargs
-        self._num_recompute = num_recompute
+        self._num_recomputations = num_recomputations
         self._magn_scorer = magn_scorer
         self._mask_update = mask_update
         self._grad_sampler = None
-        self._supported_masks = ("unstructured", "block4")
-        # previously applied sparsity
-        self._prev_sparsity = None
-
+        self._recomputation_inter_func = recomputation_inter_func
+        self._last_applied_sparsity = init_sparsity
+        # check arguments
         self._validate()
 
     def _validate(self):
@@ -177,6 +181,8 @@ class OBSPruningModifier(BaseGradualPruningModifier):
         assert (
             self._mask_type in self._supported_masks
         ), f"{self._mask_type} mask_type not supported"
+
+        assert self._recomputation_inter_func in ("linear", "cubic")
 
         if self._mask_type == "block4":
             assert (
@@ -224,6 +230,13 @@ class OBSPruningModifier(BaseGradualPruningModifier):
         :return: whether the nonzero weights are updated in OBS step
         """
         return self._mask_update
+
+    @ModifierProp()
+    def recomputation_inter_func(self) -> str:
+        """
+        :return: whether the nonzero weights are updated in OBS step
+        """
+        return self._recomputation_inter_func
 
     def initialize(
         self,
@@ -314,54 +327,50 @@ class OBSPruningModifier(BaseGradualPruningModifier):
     def check_mask_update(
         self, module: Module, epoch: float, steps_per_epoch: int, **kwargs
     ):
-        """
-        Update mask values if necessary
-
-        :param module: module to modify
-        :param epoch: current epoch and progress within the current epoch
-        :param steps_per_epoch: number of steps taken within each epoch
-            (calculate batch number using this and epoch)
-        """
         if steps_per_epoch == 1 and not math.isinf(epoch):
             return  # not a one-shot run
 
-        started = self.started
-        if self.start_pending(epoch, steps_per_epoch):
-            self._module_masks.enabled = True
-            started = True
+        if self._scorer._is_main_proc:
+            _LOGGER.info("Running OBS Pruning")
+        # set here to prevent inf loop when super().check_mask_update(...)
+        # is called num_recomputations times
+        self._pre_step_completed = True
 
-        if not self._pre_step_completed:
-            # do pre optim step before mask update on update steps
-            self._module_masks.pre_optim_step_update()
-            self._pre_step_completed = True
+        to_apply_sparsities = self.get_applied_sparsity_for_epoch(
+            epoch, steps_per_epoch
+        )
 
-        if started:
-            # get sparsity level to be applied
-            self._applied_sparsity = self.get_applied_sparsity_for_epoch(
-                epoch, steps_per_epoch
+        last_applied_sparsities = (
+            self._last_applied_sparsity
+            if isinstance(self._last_applied_sparsity, List)
+            else [self._last_applied_sparsity] * len(to_apply_sparsities)
+        )
+
+        for i in range(1, self._num_recomputations + 1):
+            if self._scorer._is_main_proc:
+                _LOGGER.info(f"Recomputation [{i}/{self._num_recomputations}]")
+            # prepare for pruning
+            self._prepare(module)
+            recomputation_sparsity = [
+                interpolate(
+                    i,
+                    0,
+                    self._num_recomputations,
+                    y0=start_sparsity,
+                    y1=target_sparsity,
+                    inter_func=self._recomputation_inter_func
+                )
+                for start_sparsity, target_sparsity in zip(last_applied_sparsities, to_apply_sparsities)
+            ]
+            # overwrite sparsity targets when there are recomputations
+            super().check_mask_update(
+                module,
+                epoch,
+                steps_per_epoch,
+                recomputation_sparsity=recomputation_sparsity,
             )
 
-            # torch tensor for vectorized operations
-            _applied_sparsity = torch.tensor(self._applied_sparsity)
-            if self._prev_sparsity is None:
-                _prev_sparsity = torch.zeros_like(_applied_sparsity)
-            else:
-                _prev_sparsity = torch.tensor(self._prev_sparsity)
-
-            # compute sparsity difference on step
-            _sparsity_diff = (_applied_sparsity - _prev_sparsity) / self._num_recompute
-
-            for i in range(self._num_recompute):
-                _cur_sparsity = (_prev_sparsity + (i + 1) * _sparsity_diff).tolist()
-                _LOGGER.info(f'OBS computation [{i}/{self._num_recompute}].')
-                self._prepare(module)
-                self._module_masks.update_param_masks(target=_cur_sparsity)
-
-            self._sparsity_applied = True
-            self._prev_sparsity = self._applied_sparsity
-
-        if self.end_pending(epoch, steps_per_epoch):
-            self._module_masks.pruning_end(self._leave_enabled)
+        self._last_applied_sparsity = to_apply_sparsities
             
 
     def _collect_grad_samples(
