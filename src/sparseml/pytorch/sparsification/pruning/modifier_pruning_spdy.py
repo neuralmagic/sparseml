@@ -141,7 +141,7 @@ class SPDYPruningModifier(BaseGradualPruningModifier):
             parent_class_kwarg_names=[],
         )
         self._mask_type = mask_type
-        self._supported_masks = ("unstructured", )
+        self._supported_masks = ("unstructured",)
         self._bugdet_metrics = ("params", "flops")
         # SPDY + OBC params
         self._spdy_kw = dict(
@@ -333,10 +333,10 @@ class SPDYPruningParamScorer(PruningParamsGradScorer):
         self._store_dir = store_dir
 
         # init OBS handles
-        self.obs_handles = {}
-        for layer_name, layer in zip(layer_names, layers):
+        self.obs_handles: List[AdaOBCHandle] = [None] * len(self._params)
+        for layer_id, layer in enumerate(layers):
             # add obs handle to each module
-            self.obs_handles[layer_name] = AdaOBCHandle(
+            self.obs_handles[layer_id] = AdaOBCHandle(
                 layer,
                 num_samples=num_calibration_samples,
                 dim_batch_size=dim_batch_size,
@@ -356,23 +356,23 @@ class SPDYPruningParamScorer(PruningParamsGradScorer):
 
     
     def collect_hessians(self):
-        def update_H_hook(layer_name):
+        def update_H_hook(layer_id: int):
             def _hook(layer, inp, out):
-                self.obs_handles[layer_name].update_H(inp[0].data)
+                self.obs_handles[layer_id].update_H(inp[0].data)
             return _hook
 
         # register batch collecting hook
-        hooks = {}
-        for layer_name, obs_handle in self.obs_handles.items():
+        hooks = [None] * len(self._params)
+        for layer_id, obs_handle in enumerate(self.obs_handles):
             layer = obs_handle.layer
-            hooks[layer_name] = layer.register_forward_hook(update_H_hook(layer_name))
+            hooks[layer_id] = layer.register_forward_hook(update_H_hook(layer_id))
         # collect batches
         with torch.no_grad():
             for inputs, _ in self._loader:
                 inputs = inputs.to(self._device)
                 _ = self._model(inputs)
         # remove hooks
-        for _, hook in hooks.items():
+        for hook in hooks:
             hook.remove()
 
 
@@ -415,7 +415,7 @@ class SPDYPruningParamScorer(PruningParamsGradScorer):
             store_on_drive=self._store_on_drive,
             store_dir=self._store_dir
         )
-        for layer_name, obs_handle in self.obs_handles.items():
+        for layer_name, obs_handle in zip(self._layer_names, self.obs_handles):
             self._weight_database[layer_name] = obs_handle.get_pruning_database(self.sparsities)
         # restore weights (to the one before pruning)
         for layer_name in self._weight_database.keys():

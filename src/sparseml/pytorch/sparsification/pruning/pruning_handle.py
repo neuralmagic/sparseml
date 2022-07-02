@@ -38,22 +38,21 @@ class AdaOBCHandle:
         rel_damp: float = 0.0,
         verbose: bool = False
     ) -> None:
-        assert isinstance(layer, (nn.Linear, nn.Conv1d, nn.Conv2d, nn.Conv3d))
         self.layer = layer
+        # set params
         self.num_samples = num_samples
         self.dim_batch_size = dim_batch_size
         self.rel_damp = rel_damp
         self.verbose = verbose
+        # set weight
+        self.W = layer.weight
         # get weight
-        W = layer.weight
-        self.device = W.device
-        # convert weight to the matrix form (d_out, d_in)
-        self.dim_out = W.shape[0]
-        self.dim_in  = np.prod(W.shape[1:])
+        self.device  = self.W.device
+        # convert self.W to the matrix form (d_out, d_in)
+        self.dim_out = self.W.shape[0]
+        self.dim_in  = np.prod(self.W.shape[1:])
         # init hessian
         self.H = None
-        # init weight handle
-        self.W = W
         # init the loss evolution
         self.losses = None
         # init weight traces
@@ -135,13 +134,13 @@ class AdaOBCHandle:
             trace[:(min_nnz + 1), :, :] = W_batch      
 
             for zeros in range(min_nnz + 1, self.dim_in + 1):
-                _diag = torch.diagonal(H_inv_batch, dim1=1, dim2=2)
-                scores = (W_batch ** 2) / _diag
+                H_inv_batch_diag = torch.diagonal(H_inv_batch, dim1=1, dim2=2)
+                scores = (W_batch ** 2) / H_inv_batch_diag
                 scores[mask_batch] = float('inf')
                 pruned_id = torch.argmin(scores, 1)
                 self.losses[i_start: i_end, zeros] = scores[batch_ids, pruned_id]
                 row = H_inv_batch[batch_ids, pruned_id, :]
-                d = _diag[batch_ids, pruned_id]
+                d = H_inv_batch_diag[batch_ids, pruned_id]
                 W_batch -= row * (W_batch[batch_ids, pruned_id] / d).unsqueeze(1)
                 mask_batch[batch_ids, pruned_id] = True
                 W_batch[mask_batch] = 0
@@ -190,7 +189,6 @@ class AdaOBCHandle:
 
     def free(self) -> None:
         self.H = None
-        self.W = None
         self.losses = None
         self.traces = None
         torch.cuda.empty_cache()
@@ -210,9 +208,11 @@ class FisherOBCHandle:
         # convert weight to the matrix form (d_out, d_in)
         self.dim_out = weight.shape[0]
         self.dim_in  = np.prod(weight.shape[1:])
+        # backup original shape
+        self.shape_orig = weight.shape
         # init Finv
         self.Finv = None
-        # init weight handle
+        # init weight
         self.W = weight
         # init the loss evolution
         self.losses = None
@@ -221,9 +221,13 @@ class FisherOBCHandle:
 
     
     def set_Finv(self, Finv: Tensor):
-        assert Finv.shape == (self.dim_out, self.dim_in, self.dim_in), \
-            "Expected block Fisher inverse shape (dim_out, dim_in, dim_in)"
+        assert len(Finv.shape) == 3 and Finv.shape[1] == Finv.shape[2], \
+            "Finv has to have the form of (num_blocks, block_size, block_size)"
         self.Finv = Finv.to(self.device)
+        self.dim_in  = self.Finv.shape[1]
+        # reshape weight to match Finv -> (-1, block_size)
+        self.W = self.W.reshape(-1, self.dim_in)
+        self.dim_out = self.W.shape[0]
 
 
     def prepare(self) -> None:
@@ -256,7 +260,7 @@ class FisherOBCHandle:
             # get current batch size
             batch_size = i_end - i_start
             batch_ids = torch.arange(batch_size, device=self.device)
-            shifted_batch_ids = torch.arange(i_start, i_end, device=self.device)
+            shifted_batch_ids = batch_ids + i_start
             # prepare batch 
             W_batch, M_batch, H_inv_batch, min_nnz = self.prepare_batch(i_start, i_end)
             # init weight traces
@@ -272,7 +276,7 @@ class FisherOBCHandle:
                 cur_losses += min_scores
                 self.losses[shifted_batch_ids, pruned_id] = cur_losses
                 row = H_inv_batch[batch_ids, pruned_id, :]
-                d = H_inv_batch_diag[batch_ids, pruned_id]
+                d   = H_inv_batch_diag[batch_ids, pruned_id]
                 W_batch -= row * (W_batch[batch_ids, pruned_id] / d).unsqueeze(1)
                 M_batch[batch_ids, pruned_id] = True
                 W_batch[M_batch] = 0
@@ -293,13 +297,11 @@ class FisherOBCHandle:
         if self.verbose:
             _LOGGER.info(f'Preparation of losses and traces took {(_end - _start):.2f} s')
 
-            
 
     def get_pruning_database(self, sparsities: np.ndarray) -> list[Tensor]:
         sorted_losses, _ = torch.sort(self.losses.view(-1))
         # prepare list of weight for every sparsity level of interest
         Ws = [torch.zeros((self.dim_out, self.dim_in), device=self.device) for _ in sparsities]
-        # 
         for i, sparsity in enumerate(sparsities):
             num_zeros = int(math.ceil(self.dim_out * self.dim_in * sparsity))
             # loss threshold
@@ -308,6 +310,8 @@ class FisherOBCHandle:
                 num_zeros_in_row = torch.count_nonzero(self.losses[row, :] <= loss_thr)
                 Ws[i][row, :] = self.traces[num_zeros_in_row, row, :]
 
+            Ws[i] = Ws[i].reshape(self.shape_orig)
+
         # free memory
         self.free()
 
@@ -315,7 +319,6 @@ class FisherOBCHandle:
 
     def free(self) -> None:
         self.Finv = None
-        self.W = None
         self.losses = None
         self.traces = None
         torch.cuda.empty_cache()

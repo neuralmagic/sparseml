@@ -145,6 +145,7 @@ class OBC_OBS_PruningModifier(BaseGradualPruningModifier):
         mask_type: str = "unstructured",
         num_grads: int = 1024,
         damp: float = 1e-7,
+        fisher_block_size: int = 64,
         grad_sampler_kwargs: Dict[str, Any] = {},
         num_recomputations: int = 1,
         recomputation_inter_func: str = 'linear',
@@ -165,6 +166,7 @@ class OBC_OBS_PruningModifier(BaseGradualPruningModifier):
         self._mask_type = mask_type
         self._num_grads = num_grads
         self._damp = damp
+        self._fisher_block_size = fisher_block_size
         self._grad_sampler_kwargs = grad_sampler_kwargs
         self._num_recomputations = num_recomputations
         self._obc_batch_size = obc_batch_size
@@ -289,6 +291,7 @@ class OBC_OBS_PruningModifier(BaseGradualPruningModifier):
             params=params,
             num_grads=self._num_grads,
             damp=self._damp,
+            fisher_block_size=self._fisher_block_size,
             mask_type=self._mask_type,
             obc_batch_size=self._obc_batch_size
         )
@@ -398,15 +401,17 @@ class OBC_OBS_PruningParamsScorer(PruningParamsGradScorer):
         params: List[Parameter],
         num_grads: int,
         damp: float,
+        fisher_block_size: int,
         mask_type: str,
         obc_batch_size: int = 32,
     ):
         super().__init__(params)
         self._damp = damp
         self._num_grads = num_grads
+        self._fisher_block_size = fisher_block_size
         self._mask_type = mask_type
 
-        self._Finvs = None  # type: List[EmpiricalBlockFisherInverse]
+        self._Finvs: List[EmpiricalBlockFisherInverse] = None
         self._enabled_grad_buffering = False
         self._eps = torch.finfo(torch.float32).eps
 
@@ -446,11 +451,10 @@ class OBC_OBS_PruningParamsScorer(PruningParamsGradScorer):
         self._masks = masks  # to be used by score_parameters
         self._Finvs = []
         for i, param in enumerate(self._params):
-            dim_in = np.prod(param.shape[1:])
             self._Finvs.append(
                 EmpiricalBlockFisherInverse(
                     self._num_grads,
-                    dim_in,
+                    self._fisher_block_size,
                     param.numel(),
                     self._damp,
                     self._devices[i],
@@ -471,7 +475,7 @@ class OBC_OBS_PruningParamsScorer(PruningParamsGradScorer):
                 obc_handle.set_Finv(self._Finvs[i].F_inv)
                 # compute losses and weight traces
                 obc_handle.prepare_losses_and_traces()
-                scores[i] = obc_handle.losses
+                scores[i] = obc_handle.losses.reshape(obc_handle.shape_orig)
                 # scores are losses
                 scores[i][self._masks[i] == 0] = float("-inf")
 
