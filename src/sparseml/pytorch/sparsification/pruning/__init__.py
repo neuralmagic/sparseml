@@ -34,4 +34,5 @@ from .modifier_pruning_obs import *
 from .modifier_pruning_spdy import *
 from .modifier_pruning_structured import *
 from .modifier_pruning_obc_obs import *
+from .modifier_pruning_spdy_obs import *
 from .scorer import *

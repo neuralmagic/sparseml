@@ -428,6 +428,7 @@ class SPDYPruningParamScorer(PruningParamsGradScorer):
         _LOGGER.info("Computation of budgets...")
         self._budgets_per_layer = self.compute_budget()
 
+
     def collect_errors(self) -> None:
         # reinit errs
         self._errs_per_layer = {

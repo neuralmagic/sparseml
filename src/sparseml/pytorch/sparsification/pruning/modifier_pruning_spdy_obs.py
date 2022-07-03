@@ -21,9 +21,11 @@ import math
 import torch
 import logging
 import numpy as np
+import torch.nn.functional as F
 
 from torch import Tensor
 from torch.nn import Module, Parameter
+from torch.utils.data import DataLoader
 from typing import Any, Dict, List, Optional, Union
 
 from sparseml.utils import interpolate
@@ -38,24 +40,26 @@ from sparseml.pytorch.sparsification.pruning.modifier_pruning_base import (
 from sparseml.pytorch.sparsification.pruning.scorer import PruningParamsGradScorer
 from sparseml.pytorch.utils import GradSampler, tensor_sparsity
 from sparseml.pytorch.utils.logger import BaseLogger
+from sparseml.pytorch.utils.helpers import tensor_density
 # spdy imports
 from .pruning_handle import FisherOBCHandle
 # obs imports
 from .modifier_pruning_obs import EmpiricalBlockFisherInverse
+from .spdy_utils import *
+from .budget_counter_utils import *
 
 
 __all__ = [
-    "OBC_OBS_PruningModifier",
-    "OBC_OBS_PruningParamsScorer",
+    "SPDY_OBS_PruningModifier",
+    "SPDY_OBS_PruningParamsScorer",
 ]
 
 
 _LOGGER = logging.getLogger(__name__)
-# logging.basicConfig(format='[%(name)s/%(levelname)s]: %(message)s')
 
 
 @PyTorchModifierYAML()
-class OBC_OBS_PruningModifier(BaseGradualPruningModifier):
+class SPDY_OBS_PruningModifier(BaseGradualPruningModifier):
     """
     As described in https://arxiv.org/abs/2203.07259
 
@@ -129,7 +133,7 @@ class OBC_OBS_PruningModifier(BaseGradualPruningModifier):
         for pruner's gradient sampling.
     """
 
-    _supported_masks = ("unstructured")
+    _supported_masks = ("unstructured",)
 
     def __init__(
         self,
@@ -141,7 +145,6 @@ class OBC_OBS_PruningModifier(BaseGradualPruningModifier):
         params: Union[str, List[str]],
         leave_enabled: bool = True,
         inter_func: str = "cubic",
-        global_sparsity: bool = True,
         mask_type: str = "unstructured",
         num_grads: int = 1024,
         damp: float = 1e-7,
@@ -150,6 +153,20 @@ class OBC_OBS_PruningModifier(BaseGradualPruningModifier):
         num_recomputations: int = 1,
         recomputation_inter_func: str = 'linear',
         obc_batch_size: int = 32,
+        # SPDY kwargs
+        spdy_verbose: bool = False,
+        min_sparsity_level: float = 0.0,
+        max_sparsity_level: float = 1.0,
+        num_sparsity_levels: int = 40,
+        num_buckets: int = 10000,
+        num_rand_inits: int = 100,
+        resample_perc: float = 0.1, 
+        patience: int = 100,
+        save_profile: bool = False,
+        save_profile_path: str = './best_profile.npy',
+        store_on_drive: bool = False,
+        store_dir: str = '',
+
     ):
         super().__init__(
             params=params,
@@ -159,7 +176,7 @@ class OBC_OBS_PruningModifier(BaseGradualPruningModifier):
             start_epoch=start_epoch,
             end_epoch=end_epoch,
             update_frequency=update_frequency,
-            global_sparsity=global_sparsity,
+            global_sparsity=True,
             leave_enabled=leave_enabled,
             parent_class_kwarg_names=[],
         )
@@ -173,6 +190,21 @@ class OBC_OBS_PruningModifier(BaseGradualPruningModifier):
         self._grad_sampler = None
         self._recomputation_inter_func = recomputation_inter_func
         self._last_applied_sparsity = init_sparsity
+        # SPDY kwargs
+        self._spdy_kw=dict(
+            spdy_verbose=spdy_verbose,
+            min_sparsity_level=min_sparsity_level,
+            max_sparsity_level=max_sparsity_level,
+            num_sparsity_levels=num_sparsity_levels,
+            num_buckets=num_buckets,
+            num_rand_inits=num_rand_inits,
+            resample_perc=resample_perc,
+            patience=patience,
+            save_profile=save_profile,
+            save_profile_path=save_profile_path,
+            store_on_drive=store_on_drive,
+            store_dir=store_dir,
+        )
         # check arguments
         self._validate()
 
@@ -242,16 +274,24 @@ class OBC_OBS_PruningModifier(BaseGradualPruningModifier):
         :param kwargs: optional kwargs to support specific arguments
             for individual modifiers.
         """
-        _LOGGER.info("Initializing OBSPruningModifier")
+        _LOGGER.info("Initializing SPDY+OBC PruningModifier")
         if (
             "grad_sampler" not in kwargs
             or "data_loader_builder" not in kwargs["grad_sampler"]
             or "loss_function" not in kwargs["grad_sampler"]
+            or "calibration_loader" not in kwargs
+            or "loss_fn" not in kwargs
         ):
             raise RuntimeError(
                 "grad_sampler dict with data_loader_builder and loss_function "
                 "must be provided to initialize GradSampler"
+                "calibration loader and loss_fn"
+                "must be provided for SPDY evalutation"
             )
+        self._model   = module
+        self._loader  = kwargs["calibration_loader"]
+        self._loss_fn = kwargs["loss_fn"]
+
         if math.isinf(epoch): # hack to enable oneshot
             self._grad_sampler = GradSampler(
                 kwargs["grad_sampler"]["data_loader_builder"](
@@ -286,14 +326,23 @@ class OBC_OBS_PruningModifier(BaseGradualPruningModifier):
         :param params: list of Parameters for scorer to track
         :return: param scorer object to be used by this pruning algorithm
         """
+        # extract layer names
+        named_layers_and_params = self._create_named_layers_and_params(self._model)
+        layers = [nlp.layer for nlp in named_layers_and_params]
+        layer_names = [nlp.layer_name for nlp in named_layers_and_params]
 
-        return OBC_OBS_PruningParamsScorer(
+        return SPDY_OBS_PruningParamsScorer(
+            model=self._model,
+            loader=self._loader,
+            loss_fn=self._loss_fn,
             params=params,
+            layers=layers,
+            layer_names=layer_names,
             num_grads=self._num_grads,
             damp=self._damp,
             fisher_block_size=self._fisher_block_size,
             mask_type=self._mask_type,
-            obc_batch_size=self._obc_batch_size
+            **self._spdy_kw
         )
 
     
@@ -316,7 +365,7 @@ class OBC_OBS_PruningModifier(BaseGradualPruningModifier):
             return  # not a one-shot run
 
         if self._scorer._is_main_proc:
-            _LOGGER.info("Running OBC+OBS Pruning")
+            _LOGGER.info("Running SPDY+OBS Pruning")
         # set here to prevent inf loop when super().check_mask_update(...)
         # is called num_recomputations times
         self._pre_step_completed = True
@@ -347,6 +396,8 @@ class OBC_OBS_PruningModifier(BaseGradualPruningModifier):
                 )
                 for start_sparsity, target_sparsity in zip(last_applied_sparsities, to_apply_sparsities)
             ]
+            # update scorer target sparsity
+            self._scorer.update_target(np.mean(recomputation_sparsity))
             # overwrite sparsity targets when there are recomputations
             super().check_mask_update(
                 module,
@@ -382,7 +433,7 @@ class OBC_OBS_PruningModifier(BaseGradualPruningModifier):
             module.train()
 
 
-class OBC_OBS_PruningParamsScorer(PruningParamsGradScorer):
+class SPDY_OBS_PruningParamsScorer(PruningParamsGradScorer):
     """
     Scores parameters using the equations introduced in the Optimal BERT Surgeon
     to solve for the optimal weight update in the Optimal Brain Surgeon (OBS)
@@ -398,18 +449,58 @@ class OBC_OBS_PruningParamsScorer(PruningParamsGradScorer):
 
     def __init__(
         self,
+        model: Module,
+        loader: DataLoader,
+        loss_fn: Module,
+        layers: List[Module],
+        layer_names: List[str],
         params: List[Parameter],
         num_grads: int,
         damp: float,
         fisher_block_size: int,
         mask_type: str,
         obc_batch_size: int = 32,
+        spdy_verbose: bool = False,
+        min_sparsity_level: float = 0.0,
+        max_sparsity_level: float = 1.0,
+        num_sparsity_levels: int = 40,
+        budget_metric: str = 'params',
+        num_buckets: int = 10000,
+        num_rand_inits: int = 100,
+        patience: int = 100,
+        resample_perc: float = 0.1, 
+        save_profile: bool = False,
+        save_profile_path: str = './best_profile.npy',
+        store_on_drive: bool = False,
+        store_dir: str = '',
     ):
         super().__init__(params)
+        # set initial params
+        self._model = model
+        self._loader = loader
+        self._layers = layers
+        self._loss_fn = loss_fn
+        self._layer_names = layer_names
+        # Fisher params
         self._damp = damp
         self._num_grads = num_grads
         self._fisher_block_size = fisher_block_size
         self._mask_type = mask_type
+        # SPDY params
+        self._spdy_verbose = spdy_verbose
+        self._min_sparsity_level = min_sparsity_level
+        self._max_sparsity_level = max_sparsity_level
+        self._num_sparsity_levels = num_sparsity_levels
+        self._budget_metric = budget_metric
+        self._num_buckets = num_buckets
+        self._num_rand_inits = num_rand_inits
+        self._patience = patience
+        self._resample_perc = resample_perc
+        self._save_profile = save_profile
+        self._save_profile_path = save_profile_path
+        self._store_on_drive = store_on_drive
+        self._store_dir = store_dir
+        self._num_calibration_samples = len(self._loader.dataset)
 
         self._Finvs: List[EmpiricalBlockFisherInverse] = None
         self._enabled_grad_buffering = False
@@ -428,6 +519,8 @@ class OBC_OBS_PruningParamsScorer(PruningParamsGradScorer):
             remainder = len(self._params) - len(self._devices)
             if remainder > 0:
                 self._devices += [self._devices[-1]] * remainder
+        # may lead to failure in some cases (but hopefull not)
+        self._device = self._params[0].device
 
         self._pickle_exclude_params.extend(
             [
@@ -447,6 +540,17 @@ class OBC_OBS_PruningParamsScorer(PruningParamsGradScorer):
                 verbose=False
             )
 
+        # make sparsity levels
+        l_ = np.log2(1.0 - min_sparsity_level)
+        r_ = np.log2(1.0 - max_sparsity_level)
+        self.sparsities = 1 - np.logspace(l_, r_, num=num_sparsity_levels, base=2)
+        # init weight database
+        self._weight_database = None
+        self._errs_per_layer = None
+        self._budgets_per_layer = None
+        self._enabled_spdy_preparation = False
+        self._cur_target = 1.0
+
     def _setup_FisherInverse(self, masks: List[Tensor]):
         self._masks = masks  # to be used by score_parameters
         self._Finvs = []
@@ -461,6 +565,61 @@ class OBC_OBS_PruningParamsScorer(PruningParamsGradScorer):
                 )
             )
 
+
+    def compute_budget(self):
+        if self._budget_metric == 'params':
+            # param_counts
+            budgets_dense = get_param_counter(self._layer_names, self._layers)
+        if self._budget_metric == 'flops':
+            sample_input, _ = next(iter(self._loader))
+            sample_input = sample_input.to(self._device)
+            budgets_dense = get_flop_counter(self._model, self._layer_names, self._layers, sample_input)
+
+        budgets_per_sparsity = {}
+        for layer_name in self._weight_database.keys():
+            budgets_per_sparsity[layer_name] = [
+                int(budgets_dense[layer_name] * tensor_density(self._weight_database.get(layer_name, i)).item())
+                for i in range(self._num_sparsity_levels)
+            ]
+
+        return budgets_per_sparsity
+
+    
+    def update_target(self, target_sparsity: float):
+        self._cur_target = 1 - target_sparsity
+
+
+    def collect_errors(self) -> None:
+        # reinit errs
+        self._errs_per_layer = {
+            layer_name: np.zeros_like(self.sparsities)
+            for layer_name in self._layer_names
+        }
+        # register batch collecting hook
+        hooks = {}
+
+        def accum_err_inp_out_hook(layer_name):
+            def _hook(layer, inp, out):
+                weight = layer.weight
+                hooks[layer_name].remove()
+                for i, _ in enumerate(self.sparsities):
+                    weight.data = self._weight_database.get(layer_name, i)
+                    self._errs_per_layer[layer_name][i] += \
+                        (len(inp) / self._num_calibration_samples) * F.mse_loss(layer(inp[0]), out)
+                # restore original weight
+                weight.data = self._weight_database.get(layer_name, 0)
+            return _hook
+
+        for layer_name, layer in zip(self._layer_names, self._layers):
+            hooks[layer_name] = layer.register_forward_hook(accum_err_inp_out_hook(layer_name))
+
+        # collect batches (hooks are removed automatically)
+        with torch.no_grad():
+            for inputs, _ in self._loader:
+                inputs = inputs.to(self._device)
+                _ = self._model(inputs)
+    
+
     @torch.no_grad()
     def score_parameters(self) -> List[Tensor]:
         """
@@ -470,14 +629,56 @@ class OBC_OBS_PruningParamsScorer(PruningParamsGradScorer):
         scores = [None] * len(self._params)
 
         if self._is_main_proc:
+            # prepare losses and traces
             for i, obc_handle in enumerate(self.obc_handles):
                 # set fisher inverse
                 obc_handle.set_Finv(self._Finvs[i].F_inv)
                 # compute losses and weight traces
                 obc_handle.prepare_losses_and_traces()
-                scores[i] = obc_handle.losses.reshape(obc_handle.shape_orig)
-                # scores are losses
-                scores[i][self._masks[i] == 0] = float("-inf")
+
+            _LOGGER.info("Creating weight database...")
+            self._weight_database = WeightDatabase(
+                store_on_drive=self._store_on_drive,
+                store_dir=self._store_dir
+            )
+            for layer_name, obc_handle in zip(self._layer_names, self.obc_handles):
+                self._weight_database[layer_name] = obc_handle.get_pruning_database(self.sparsities)
+            # restore weights (to the one before pruning)
+            for layer_name in self._weight_database.keys():
+                layer = self._model.get_submodule(layer_name)
+                layer.weight.data = self._weight_database.get(layer_name, 0)
+            # dict of errors per layer and sparsity
+            _LOGGER.info("Collecting errors per layer...")
+            self.collect_errors()
+            # compute budgets
+            _LOGGER.info("Computation of budgets...")
+            self._budgets_per_layer = self.compute_budget()
+
+            spdy_solver = SPDY(
+                self._model,
+                self._loader,
+                self._loss_fn,
+                self._weight_database,
+                self._errs_per_layer,
+                self._budgets_per_layer,
+                target_budget_frac=self._cur_target,
+                num_buckets=self._num_buckets, 
+                num_rand_inits=self._num_rand_inits,
+                resample_perc=self._resample_perc,
+                patience=self._patience,
+                device=self._device,
+                verbose=self._spdy_verbose,
+                save_profile=self._save_profile,
+                save_profile_path=self._save_profile_path
+            )
+
+            spdy_solver.search()
+            # best solution found
+            self._best_solution = spdy_solver.best_solution
+            # hack to score model according to SPDY
+            for layer_id, layer_name in enumerate(self._layer_names):
+                weight = self._weight_database.get(layer_name, self._best_solution[layer_id])
+                scores[layer_id] = (weight != 0).to(torch.float32)
 
         self._broadcast_list_from_main(scores)
 
@@ -505,28 +706,20 @@ class OBC_OBS_PruningParamsScorer(PruningParamsGradScorer):
 
     @torch.no_grad()
     def mask_update(self, masks: List[Tensor], mask_diffs: List[Tensor]):
-        """
-        Apply OBS weight update which zeros-out pruned weights and updates the
-        remaining weights to preserve the loss.
-
-        :param masks: latest masks to be applied to these parameters
-        :param mask_diffs: mask diff values returned by mask_difference for these
-            masks that describe how these masks changed since the last update
-        """
-
-        obc_weights = [None] * len(self._params)
+        '''
+        Set the weights from the chosen SPDY profile
+        '''
+        # collect weights chosen by SPDY
+        spdy_weights = [None] * len(self._params)
         if self._is_main_proc:
-            for i, obc_handle  in enumerate(self.obc_handles):
-                param_sparsity = tensor_sparsity(masks[i])
-                # get weight from the mask sparsity and pruning traces
-                obc_weight = obc_handle.get_pruning_database([param_sparsity])[0]
-                # update weight in obc_handle
-                obc_handle.W   = obc_weight
-                obc_weights[i] = obc_weight
+            for i, (layer_name, sp_lvl) in enumerate(zip(self._layer_names, self._best_solution)):
+                spdy_weights[i] = self._weight_database.get(layer_name, sp_lvl)
 
-        self._broadcast_list_from_main(obc_weights)
-        # set weight according to the OBC selection
+        self._broadcast_list_from_main(spdy_weights)
+
         for i, param in enumerate(self._params):
-            param.data = obc_weights[i].to(param.data.device)
+            param.data = spdy_weights[i].to(param.device)
 
-        self._Finvs = None
+        # clean-up
+        if self._is_main_proc:
+            self._weight_database = None
