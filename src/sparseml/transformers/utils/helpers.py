@@ -41,7 +41,7 @@ TRAINING_FILES = [
     "tokenizer_config.json",
     "tokenizer.json",
 ]
-DEPLOYMENT_FILES = ["tokenizer_config.json", "config.json", "model.onnx"]
+DEPLOYMENT_FILES = ["tokenizer.json", "config.json", "model.onnx"]
 
 
 def get_model_directory(
