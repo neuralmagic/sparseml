@@ -99,11 +99,7 @@ def get_model_directory(
     setup_model_directory(
         output_dir=output_dir,
         training=os.path.join(training_outputs_dir, "training"),
-        deployment=[
-            file
-            for file in glob.glob(os.path.join(training_outputs_dir, "training", "*"))
-        ]
-        + [os.path.join(training_outputs_dir, "model.onnx")],
+        deployment=os.path.join(training_outputs_dir, "model.onnx"),
         onnx_model=os.path.join(training_outputs_dir, "model.onnx"),
         sample_inputs=os.path.join(training_outputs_dir, "sample_inputs"),
         sample_outputs=os.path.join(training_outputs_dir, "sample_outputs"),
