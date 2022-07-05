@@ -47,7 +47,7 @@ Your goal after this is to create a smaller, faster model that recovers to the p
 Creating a pre-trained model involves two steps: 1) setting up the data and 2) training the model.
 
 **Note**: If using your custom data, the Ultralytics repo contains a walk-through for [training custom data](https://github.com/ultralytics/yolov5/wiki/Train-Custom-Data). 
-Otherwise, setup scripts for both [VOC](https://cs.stanford.edu/~roozbeh/pascal-context/) and [COCO](https://cocodataset.org/#home) can be found under the [yolov5/data/scripts path](https://github.com/neuralmagic/sparseml/blob/main/src/sparseml/yolov5/data/scripts).
+Otherwise, setup scripts for both [VOC](https://cs.stanford.edu/~roozbeh/pascal-context/) and [COCO](https://cocodataset.org/#home) can be found under the [yolov5/data/scripts path](https://github.com/neuralmagic/sparseml/tree/main/src/sparseml/yolov5/data/scripts).
 
 ### Setting Up the Data
 
@@ -193,7 +193,7 @@ The `best.pt` file contains a checkpoint of the best weights measured on the val
 These weights can be loaded into the `train.py` and `test.py` scripts now. 
 However, other formats are generally more friendly for other inference deployment platforms, such as [ONNX](https://onnx.ai/).
 
-The [`export.py` script](https://github.com/neuralmagic/yolov5/blob/master/export.py) handles the logic behind loading the checkpoint and converting it into the more common inference formats, as described here.
+The [`export.py` script](https://github.com/neuralmagic/yolov5/blob/master/export.py) handles the logic behind loading the checkpoint and converting it into the more common inference formats, as described here (`sparseml.yolov5.export_onnx` is a hook into export.py)
 
 1. Enter the following command to load the PyTorch graph, convert to ONNX, and correct any misformatted pieces of the graph for the pruned and quantized models.
 
