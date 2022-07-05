@@ -178,13 +178,16 @@ def _setup_entry_points() -> Dict:
         ]
     )
 
-    # object segmentation integration
+    # instance segmentation integration
+
+    yolact_top_level_callable = "sparseml.instance_segmentation.yolact"
+    yolact_scripts_path = "sparseml.yolact.scripts"
 
     entry_points["console_scripts"].extend(
         [
-            "sparseml.yolact.export_onnx=sparseml.yolact.scripts:export",
-            "sparseml.yolact.train=sparseml.yolact.scripts:train",
-            "sparseml.yolact.validation=sparseml.yolact.scripts:val",
+            f"{yolact_top_level_callable}.export_onnx={yolact_scripts_path}:export",
+            f"{yolact_top_level_callable}.train={yolact_scripts_path}:train",
+            f"{yolact_top_level_callable}.validation={yolact_scripts_path}:val",
         ]
     )
 
