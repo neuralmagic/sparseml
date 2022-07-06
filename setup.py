@@ -180,7 +180,7 @@ def _setup_entry_points() -> Dict:
 
     # instance segmentation integration
 
-    yolact_top_level_callable = "sparseml.instance_segmentation.yolact"
+    yolact_top_level_callable = "sparseml.yolact"
     yolact_scripts_path = "sparseml.yolact.scripts"
 
     entry_points["console_scripts"].extend(
