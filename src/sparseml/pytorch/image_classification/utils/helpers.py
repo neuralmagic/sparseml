@@ -16,7 +16,6 @@
 Helper methods for image classification/detection based tasks
 """
 
-import glob
 import logging
 import os
 import warnings
