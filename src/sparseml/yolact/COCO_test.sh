@@ -46,7 +46,7 @@ curl -LO http://images.cocodataset.org/annotations/image_info_test2017.zip
 echo "Finished downloading. Now extracting ..."
 
 # Unzip data
-echo "Extracting train images ..."
+echo "Extracting test images ..."
 unzip -qqjd ../images ../images/test2017.zip
 echo "Extracting info ..."
 unzip -qqd .. ./image_info_test2017.zip
