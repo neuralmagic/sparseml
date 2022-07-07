@@ -12,11 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import click
+
 
 __all__ = [
     "export",
     "train",
     "val",
+    "download",
 ]
 
 
@@ -36,3 +39,37 @@ def val():
     from yolact.eval import main as run_val
 
     run_val()
+
+
+@click.command()
+@click.option(
+    "--test",
+    default=False,
+    is_flag=True,
+    show_default=True,
+    help="Download COCO test data",
+)
+def download(test: bool = False):
+    """
+    A command line callable to download training/test coco dataset for yolact
+
+    :param test: if True download test data else training + validation data
+    """
+    import os as _os
+    import subprocess as _subprocess
+
+    try:
+
+        yolact_folder = "src/sparseml/yolact"
+        bash_script = "COCO_test.sh" if test else "COCO.sh"
+        _subprocess.check_call(
+            [
+                "bash",
+                _os.path.join(yolact_folder, bash_script),
+            ]
+        )
+    except Exception as data_download_exception:
+        raise ValueError(
+            "Unable to download coco with the "
+            f"following exception {data_download_exception}"
+        )

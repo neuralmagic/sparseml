@@ -188,6 +188,7 @@ def _setup_entry_points() -> Dict:
             f"{yolact_top_level_callable}.export_onnx={yolact_scripts_path}:export",
             f"{yolact_top_level_callable}.train={yolact_scripts_path}:train",
             f"{yolact_top_level_callable}.validation={yolact_scripts_path}:val",
+            f"{yolact_top_level_callable}.download={yolact_scripts_path}:download",
         ]
     )
 

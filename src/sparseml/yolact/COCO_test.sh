@@ -30,6 +30,7 @@ fi
 
 # Download the image data.
 cd ./images
+images_dir=$(pwd)
 echo "Downloading MSCOCO test images ..."
 curl -LO http://images.cocodataset.org/zips/test2017.zip
 
@@ -41,6 +42,7 @@ fi
 
 # Download the annotation data.
 cd ./annotations
+annotations_dir=$(pwd)
 echo "Downloading MSCOCO test info ..."
 curl -LO http://images.cocodataset.org/annotations/image_info_test2017.zip
 echo "Finished downloading. Now extracting ..."
@@ -60,3 +62,5 @@ end=`date +%s`
 runtime=$((end-start))
 
 echo "Completed in " $runtime " seconds"
+echo "The test annotation jsons were downloaded to ${annotations_dir}"
+echo "The test images were downloaded to ${images_dir}"
