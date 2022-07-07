@@ -52,8 +52,6 @@ def val():
 def download(test: bool = False):
     """
     A command line callable to download training/test coco dataset for yolact
-
-    :param test: if True download test data else training + validation data
     """
     import os as _os
     import subprocess as _subprocess
