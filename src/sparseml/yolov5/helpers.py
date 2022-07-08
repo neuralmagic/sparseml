@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import glob
 import logging
 import os
 
@@ -38,7 +37,7 @@ def get_model_directory(
         with the saved training artifacts
     :param model_file_torch: name of the final .pth/.pt file to be saved
     """
-    training_outputs_files = glob.glob(os.path.join(training_outputs_dir, "*"))
+    training_outputs_files = os.listdir(training_outputs_dir)
     logs_path = [
         file
         for file in training_outputs_files
@@ -47,7 +46,7 @@ def get_model_directory(
     for root_file in ["sample_inputs.tar.gz", "sample_outputs.tar.gz"]:
         root_file_path = os.path.join(training_outputs_dir, root_file)
         if not os.path.exists(root_file_path):
-            raise ValueError(
+            logging.warning(
                 f"File {root_file_path} missing. To create this file, "
                 "make sure that the training script is being ran with"
                 "`--num_export_samples` argument."
