@@ -330,14 +330,14 @@ def _quantize_array(
     elif dtype == numpy.int32:
         tensor_dtype = torch.qint32
 
-    t = torch.Tensor(array).to(torch.float32)
+    tensor = torch.Tensor(array).to(torch.float32)
     if isinstance(scale, numpy.ndarray):
         scale = scale.item()
     if isinstance(zero_point, numpy.ndarray):
         zero_point = zero_point.item()
 
-    q_tensor = torch.quantize_per_tensor(t, scale, zero_point, tensor_dtype)
-    return q_tensor.int_repr().numpy()
+    quant_tensor = torch.quantize_per_tensor(tensor, scale, zero_point, tensor_dtype)
+    return quant_tensor.int_repr().numpy()
 
 
 def _convert_quantizable_conv(
