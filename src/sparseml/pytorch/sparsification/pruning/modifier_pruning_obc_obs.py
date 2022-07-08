@@ -242,7 +242,7 @@ class OBC_OBS_PruningModifier(BaseGradualPruningModifier):
         :param kwargs: optional kwargs to support specific arguments
             for individual modifiers.
         """
-        _LOGGER.info("Initializing OBSPruningModifier")
+        _LOGGER.info("Initializing OBC+OBS PruningModifier")
         if (
             "grad_sampler" not in kwargs
             or "data_loader_builder" not in kwargs["grad_sampler"]

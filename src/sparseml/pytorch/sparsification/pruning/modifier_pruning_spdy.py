@@ -110,19 +110,20 @@ class SPDYPruningModifier(BaseGradualPruningModifier):
         inter_func: str = "cubic",
         mask_type: str = "unstructured",
         num_calibration_samples: int = 1024,
-        dim_batch_size: int = 32,
+        obc_batch_size: int = 32,
         rel_damp: float = 0.0,
         handle_verbose: bool = False,
         spdy_verbose: bool = False,
-        min_sparsity: float = 0.0,
-        max_sparsity: float = 1.0,
+        min_sparsity_level: float = 0.0,
+        max_sparsity_level: float = 1.0,
         num_sparsity_levels: int = 40,
-        budget_metric: str = 'flops',
+        level_inter_func: str = 'exp', 
+        inter_power: float = 3.0,
+        budget_metric: str = 'params',
         num_buckets: int = 10000,
         num_rand_inits: int = 100,
         resample_perc: float = 0.1, 
         patience: int = 100,
-        device: str = 'cpu',
         save_profile: bool = False,
         save_profile_path: str = './best_coefs.npy',
         store_on_drive: bool = False,
@@ -146,19 +147,20 @@ class SPDYPruningModifier(BaseGradualPruningModifier):
         # SPDY + OBC params
         self._spdy_kw = dict(
             num_calibration_samples=num_calibration_samples,
-            dim_batch_size=dim_batch_size,
+            obc_batch_size=obc_batch_size,
             rel_damp=rel_damp,
             handle_verbose=handle_verbose,
             spdy_verbose=spdy_verbose,
-            min_sparsity=min_sparsity,
-            max_sparsity=max_sparsity,
+            min_sparsity_level=min_sparsity_level,
+            max_sparsity_level=max_sparsity_level,
             num_sparsity_levels=num_sparsity_levels,
+            level_inter_func=level_inter_func,
+            inter_power=inter_power,
             budget_metric=budget_metric,
             num_buckets=num_buckets,
             num_rand_inits=num_rand_inits,
             resample_perc=resample_perc,
             patience=patience,
-            device=device,
             save_profile=save_profile,
             save_profile_path=save_profile_path,
             store_on_drive=store_on_drive,
@@ -170,8 +172,9 @@ class SPDYPruningModifier(BaseGradualPruningModifier):
 
     def _validate(self):
         assert self._mask_type in self._supported_masks
-        assert 0.0 <= self._spdy_kw["min_sparsity"] <= self._spdy_kw["max_sparsity"] < 1.0
+        assert 0.0 <= self._spdy_kw["min_sparsity_level"] <= self._spdy_kw["max_sparsity_level"] < 1.0
         assert self._spdy_kw["budget_metric"] in self._bugdet_metrics
+        assert self._spdy_kw["level_inter_func"] in ("exp", "pow")
 
 
     @ModifierProp()
@@ -207,11 +210,11 @@ class SPDYPruningModifier(BaseGradualPruningModifier):
         """
         _LOGGER.info("Initializing SPDYPruningModifier")
 
-        if 'loss_fn' not in kwargs and 'loader' not in kwargs:
+        if 'loss_fn' not in kwargs and 'calibration_loader' not in kwargs:
             raise RuntimeError("loss_fn and loader has to provided for SPDY+OBC")
         else:
             self._model = module
-            self._loader = kwargs["loader"]
+            self._loader = kwargs["calibration_loader"]
             self._loss_fn = kwargs["loss_fn"]
 
         super().initialize(module, epoch, loggers, **kwargs)
@@ -288,19 +291,20 @@ class SPDYPruningParamScorer(PruningParamsGradScorer):
         layer_names: List[str],
         params: List[Parameter],
         num_calibration_samples: int = 1024,
-        dim_batch_size: int = 32,
+        obc_batch_size: int = 32,
         rel_damp: float = 0.0,
         handle_verbose: bool = False,
         spdy_verbose: bool = False,
-        min_sparsity: float = 0.0,
-        max_sparsity: float = 1.0,
+        min_sparsity_level: float = 0.0,
+        max_sparsity_level: float = 1.0,
         num_sparsity_levels: int = 40,
+        level_inter_func: str = 'exp',
+        inter_power: float = 3.0,
         budget_metric: str = 'flops',
         num_buckets: int = 10000,
         num_rand_inits: int = 100,
         patience: int = 100,
         resample_perc: float = 0.1, 
-        device: str = 'cpu',
         save_profile: bool = False,
         save_profile_path: str = './best_coefs.npy',
         store_on_drive: bool = False,
@@ -314,23 +318,26 @@ class SPDYPruningParamScorer(PruningParamsGradScorer):
         self._loss_fn = loss_fn
         self._layer_names = layer_names
         self._num_calibration_samples = num_calibration_samples
-        self._dim_batch_size = dim_batch_size
+        self._obc_batch_size = obc_batch_size
         self._rel_damp = rel_damp
         self._spdy_verbose = spdy_verbose
         self._handle_verbose = handle_verbose
-        self._min_sparsity = min_sparsity
-        self._max_sparsity = max_sparsity
+        self._min_sparsity_level = min_sparsity_level
+        self._max_sparsity_level = max_sparsity_level
         self._num_sparsity_levels = num_sparsity_levels
+        self._inter_func = level_inter_func
+        self._inter_power = inter_power
         self._budget_metric = budget_metric
         self._num_buckets = num_buckets
         self._num_rand_inits = num_rand_inits
         self._patience = patience
         self._resample_perc = resample_perc
-        self._device = device
         self._save_profile = save_profile
         self._save_profile_path = save_profile_path
         self._store_on_drive = store_on_drive
         self._store_dir = store_dir
+        # assuming all params of the model are stored on the single device
+        self._device = params[0].device
 
         # init OBS handles
         self.obs_handles: List[AdaOBCHandle] = [None] * len(self._params)
@@ -339,14 +346,19 @@ class SPDYPruningParamScorer(PruningParamsGradScorer):
             self.obs_handles[layer_id] = AdaOBCHandle(
                 layer,
                 num_samples=num_calibration_samples,
-                dim_batch_size=dim_batch_size,
+                obc_batch_size=obc_batch_size,
                 rel_damp=rel_damp,
                 verbose=handle_verbose
             )
+
         # make sparsity levels
-        l_ = np.log2(1.0 - min_sparsity)
-        r_ = np.log2(1.0 - max_sparsity)
-        self.sparsities = 1 - np.logspace(l_, r_, num=num_sparsity_levels, base=2)
+        if self._inter_func == 'exp':
+            l_ = np.log2(1.0 - min_sparsity_level)
+            r_ = np.log2(1.0 - max_sparsity_level)
+            self._sparsities = 1 - np.logspace(l_, r_, num=num_sparsity_levels, base=2)
+        else:
+            self._sparsities = min_sparsity_level + (max_sparsity_level - min_sparsity_level) * \
+                (np.arange(num_sparsity_levels) / num_sparsity_levels) ** (1 / inter_power)
         # init weight database
         self._weight_database = None
         self._errs_per_layer = None
@@ -407,7 +419,7 @@ class SPDYPruningParamScorer(PruningParamsGradScorer):
         _LOGGER.info("Collecting hessians...")
         self.collect_hessians()
         # prepare losses and traces
-        for layer_name, obs_handle in self.obs_handles.items():
+        for obs_handle in self.obs_handles:
             obs_handle.prepare_losses_and_traces()
         # create weight database
         _LOGGER.info("Creating weight database...")
@@ -416,7 +428,7 @@ class SPDYPruningParamScorer(PruningParamsGradScorer):
             store_dir=self._store_dir
         )
         for layer_name, obs_handle in zip(self._layer_names, self.obs_handles):
-            self._weight_database[layer_name] = obs_handle.get_pruning_database(self.sparsities)
+            self._weight_database[layer_name] = obs_handle.get_pruning_database(self._sparsities)
         # restore weights (to the one before pruning)
         for layer_name in self._weight_database.keys():
             layer = self._model.get_submodule(layer_name)
@@ -432,8 +444,8 @@ class SPDYPruningParamScorer(PruningParamsGradScorer):
     def collect_errors(self) -> None:
         # reinit errs
         self._errs_per_layer = {
-            layer_name: np.zeros_like(self.sparsities)
-            for layer_name, _ in self.obs_handles.items()
+            layer_name: np.zeros_like(self._sparsities)
+            for layer_name in self._layer_names
         }
         # register batch collecting hook
         hooks = {}
@@ -442,7 +454,7 @@ class SPDYPruningParamScorer(PruningParamsGradScorer):
             def _hook(layer, inp, out):
                 weight = layer.weight
                 hooks[layer_name].remove()
-                for i, _ in enumerate(self.sparsities):
+                for i, _ in enumerate(self._sparsities):
                     weight.data = self._weight_database.get(layer_name, i)
                     self._errs_per_layer[layer_name][i] += \
                         (len(inp) / self._num_calibration_samples) * F.mse_loss(layer(inp[0]), out)

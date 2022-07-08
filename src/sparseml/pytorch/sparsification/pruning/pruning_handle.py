@@ -33,7 +33,7 @@ class AdaOBCHandle:
     def __init__(
         self, 
         layer: Module,
-        dim_batch_size: int,
+        obc_batch_size: int,
         num_samples: int,
         rel_damp: float = 0.0,
         verbose: bool = False
@@ -41,7 +41,7 @@ class AdaOBCHandle:
         self.layer = layer
         # set params
         self.num_samples = num_samples
-        self.dim_batch_size = dim_batch_size
+        self.obc_batch_size = obc_batch_size
         self.rel_damp = rel_damp
         self.verbose = verbose
         # set weight
@@ -122,8 +122,8 @@ class AdaOBCHandle:
 
         _start = time.perf_counter()
 
-        for i_start in range(0, self.dim_out, self.dim_batch_size):
-            i_end = min(i_start + self.dim_batch_size, self.dim_out)
+        for i_start in range(0, self.dim_out, self.obc_batch_size):
+            i_end = min(i_start + self.obc_batch_size, self.dim_out)
             batch_size = i_end - i_start
             batch_ids = torch.arange(batch_size, device=self.device)
             # prepare batch 

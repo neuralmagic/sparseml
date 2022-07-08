@@ -158,6 +158,9 @@ class SPDY_OBS_PruningModifier(BaseGradualPruningModifier):
         min_sparsity_level: float = 0.0,
         max_sparsity_level: float = 1.0,
         num_sparsity_levels: int = 40,
+        level_inter_func: str = 'exp',
+        inter_power: float = 3.0,
+        budget_metric: str = 'params',
         num_buckets: int = 10000,
         num_rand_inits: int = 100,
         resample_perc: float = 0.1, 
@@ -196,6 +199,9 @@ class SPDY_OBS_PruningModifier(BaseGradualPruningModifier):
             min_sparsity_level=min_sparsity_level,
             max_sparsity_level=max_sparsity_level,
             num_sparsity_levels=num_sparsity_levels,
+            level_inter_func=level_inter_func,
+            inter_power=inter_power,
+            budget_metric=budget_metric,
             num_buckets=num_buckets,
             num_rand_inits=num_rand_inits,
             resample_perc=resample_perc,
@@ -216,7 +222,9 @@ class SPDY_OBS_PruningModifier(BaseGradualPruningModifier):
             self._mask_type in self._supported_masks
         ), f"{self._mask_type} mask_type not supported"
 
+        assert 0.0 <= self._spdy_kw["min_sparsity_level"] <= self._spdy_kw["max_sparsity_level"] < 1.0
         assert self._recomputation_inter_func in ("linear", "cubic")
+        assert self._spdy_kw["level_inter_func"] in ("exp", "pow")
 
 
     @ModifierProp()
@@ -464,6 +472,8 @@ class SPDY_OBS_PruningParamsScorer(PruningParamsGradScorer):
         min_sparsity_level: float = 0.0,
         max_sparsity_level: float = 1.0,
         num_sparsity_levels: int = 40,
+        level_inter_func: str = 'exp',
+        inter_power: float = 3.0,
         budget_metric: str = 'params',
         num_buckets: int = 10000,
         num_rand_inits: int = 100,
@@ -491,6 +501,8 @@ class SPDY_OBS_PruningParamsScorer(PruningParamsGradScorer):
         self._min_sparsity_level = min_sparsity_level
         self._max_sparsity_level = max_sparsity_level
         self._num_sparsity_levels = num_sparsity_levels
+        self._level_inter_func = level_inter_func
+        self._inter_power = inter_power
         self._budget_metric = budget_metric
         self._num_buckets = num_buckets
         self._num_rand_inits = num_rand_inits
@@ -541,9 +553,13 @@ class SPDY_OBS_PruningParamsScorer(PruningParamsGradScorer):
             )
 
         # make sparsity levels
-        l_ = np.log2(1.0 - min_sparsity_level)
-        r_ = np.log2(1.0 - max_sparsity_level)
-        self.sparsities = 1 - np.logspace(l_, r_, num=num_sparsity_levels, base=2)
+        if self._level_inter_func == 'exp':
+            l_ = np.log2(1.0 - min_sparsity_level)
+            r_ = np.log2(1.0 - max_sparsity_level)
+            self._sparsities = 1 - np.logspace(l_, r_, num=num_sparsity_levels, base=2)
+        else:
+            self._sparsities = min_sparsity_level + (max_sparsity_level - min_sparsity_level) * \
+                (np.arange(num_sparsity_levels) / num_sparsity_levels) ** (1 / inter_power)
         # init weight database
         self._weight_database = None
         self._errs_per_layer = None
@@ -592,7 +608,7 @@ class SPDY_OBS_PruningParamsScorer(PruningParamsGradScorer):
     def collect_errors(self) -> None:
         # reinit errs
         self._errs_per_layer = {
-            layer_name: np.zeros_like(self.sparsities)
+            layer_name: np.zeros_like(self._sparsities)
             for layer_name in self._layer_names
         }
         # register batch collecting hook
@@ -602,7 +618,7 @@ class SPDY_OBS_PruningParamsScorer(PruningParamsGradScorer):
             def _hook(layer, inp, out):
                 weight = layer.weight
                 hooks[layer_name].remove()
-                for i, _ in enumerate(self.sparsities):
+                for i, _ in enumerate(self._sparsities):
                     weight.data = self._weight_database.get(layer_name, i)
                     self._errs_per_layer[layer_name][i] += \
                         (len(inp) / self._num_calibration_samples) * F.mse_loss(layer(inp[0]), out)
@@ -642,7 +658,7 @@ class SPDY_OBS_PruningParamsScorer(PruningParamsGradScorer):
                 store_dir=self._store_dir
             )
             for layer_name, obc_handle in zip(self._layer_names, self.obc_handles):
-                self._weight_database[layer_name] = obc_handle.get_pruning_database(self.sparsities)
+                self._weight_database[layer_name] = obc_handle.get_pruning_database(self._sparsities)
             # restore weights (to the one before pruning)
             for layer_name in self._weight_database.keys():
                 layer = self._model.get_submodule(layer_name)
