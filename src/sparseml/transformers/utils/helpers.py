@@ -35,7 +35,7 @@ TRAINING_FILES = [
     "trainer_state.json",
     "special_tokens_map.json",
     "train_results.json",
-    "recipe.yaml",
+    RECIPE_NAME,
     "pytorch_model.bin",
     "config.json",
     "tokenizer_config.json",
@@ -75,7 +75,7 @@ def get_model_directory(
 
     model_onnx_path = os.path.join(training_outputs_dir, "model.onnx")
     if not os.path.exists(model_onnx_path):
-        raise ValueError(
+        logging.warning(
             f"File {model_onnx_path} missing. To create this file, "
             "make sure that the `export` script (for exporting "
             "transformer models) has been evoked."
