@@ -1418,7 +1418,9 @@ def _quantize_qat_embedding(model: ModelProto):
         embedding = numpy_helper.to_array(embedding_initializer)
         scale = numpy_helper.to_array(scale_initializer)
         zero_point = numpy_helper.to_array(zp_initializer)
-        embedding_quant = _quantize_array(embedding, scale, zero_point, zero_point.dtype)
+        embedding_quant = _quantize_array(
+            embedding, scale, zero_point, zero_point.dtype
+        )
         embedding_quant_initializer = numpy_helper.from_array(
             embedding_quant, name=f"{embedding_initializer.name}_quant"
         )
