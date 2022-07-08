@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from pathlib import Path
 
 import click
 
@@ -58,7 +59,7 @@ def download(test: bool = False):
 
     try:
 
-        yolact_folder = "src/sparseml/yolact"
+        yolact_folder = Path(_os.path.abspath(__file__)).parent.resolve()
         bash_script = "COCO_test.sh" if test else "COCO.sh"
         _subprocess.check_call(
             [
