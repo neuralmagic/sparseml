@@ -67,7 +67,7 @@ def get_model_directory(
     for root_file in ["sample_inputs", "sample_outputs"]:
         root_file_path = os.path.join(training_outputs_dir, root_file)
         if not os.path.exists(root_file_path):
-            raise ValueError(
+            logging.warning(
                 f"File {root_file_path} missing. To create this file, "
                 "make sure that the training script is being ran with"
                 "`--num_export_samples` argument."
@@ -75,7 +75,7 @@ def get_model_directory(
 
     model_onnx_path = os.path.join(training_outputs_dir, "model.onnx")
     if not os.path.exists(model_onnx_path):
-        logging.warning(
+        raise ValueError(
             f"File {model_onnx_path} missing. To create this file, "
             "make sure that the `export` script (for exporting "
             "transformer models) has been evoked."
