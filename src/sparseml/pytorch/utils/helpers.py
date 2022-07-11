@@ -1087,7 +1087,7 @@ def thin_model_from_checkpoint(model: Module, state_dict: Dict[str, Any]):
 MEMORY_BOUNDED = "MEMORY_BOUNDED"
 
 
-def memory_aware_threshold(tensor: torch.Tensor, idx: int):
+def memory_aware_threshold(tensor: torch.Tensor, idx: int) -> Tensor:
     """
     Finds a threshold at the lookup idx in the most efficient way with available
     resources. Will be phased out when GPU-memory overhead of torch.sort reduces,
