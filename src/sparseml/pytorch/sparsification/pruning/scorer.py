@@ -18,7 +18,7 @@ Classes for tracking and scoring model parameters to generate pruning scores
 
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import torch.distributed as dist
 from torch import Tensor
@@ -97,13 +97,13 @@ class PruningParamsGradScorer(PruningParamsScorer, ABC):
     Adds extra abstraction for handling gradient sharing between parameters
 
     :param params: list of model Parameters to track and score
-    :param grad_sampler: optional instance of GradSampler used to collect gradients
-        before pruning.
+    :param dist_backend: to communicate gradients between processes
     """
 
     def __init__(
         self,
         params: List[Parameter],
+        dist_backend: Optional[str] = None,
     ):
         super().__init__(params=params)
 
@@ -111,9 +111,13 @@ class PruningParamsGradScorer(PruningParamsScorer, ABC):
         self._is_main_proc = not self._is_ddp or dist.get_rank() == 0
 
         # create group to broadcast gradients across processes
-        self._gloo_handle = dist.new_group(backend="gloo") if self._is_ddp else None
+        self._dist_group = (
+            dist.new_group(backend=dist_backend)
+            if self._is_ddp and dist_backend is not None
+            else None
+        )
 
-        self._pickle_exclude_params = ["_is_ddp", "_is_main_proc", "_gloo_handle"]
+        self._pickle_exclude_params = ["_is_ddp", "_is_main_proc", "_dist_group"]
 
     def __getstate__(self) -> Dict[str, Any]:
         """
@@ -131,11 +135,11 @@ class PruningParamsGradScorer(PruningParamsScorer, ABC):
         """
         super().on_pruning_end()
 
-        if self._is_ddp:
-            dist.destroy_process_group(self._gloo_handle)
+        if self._is_ddp and self._dist_group is not None:
+            dist.destroy_process_group(self._dist_group)
 
     def _broadcast_list_from_main(self, val: Any) -> Any:
         if not self._is_ddp:
             return val
-        dist.broadcast_object_list(val, src=0, group=self._gloo_handle)
+        dist.broadcast_object_list(val, src=0, group=self._dist_group)
         return val

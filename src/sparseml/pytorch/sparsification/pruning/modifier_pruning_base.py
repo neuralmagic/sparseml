@@ -222,6 +222,13 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         """
         return self._leave_enabled
 
+    @ModifierProp()
+    def global_sparsity(self) -> bool:
+        """
+        :return: value of global_sparsity that is passed to mask_creator methods
+        """
+        return self._global_sparsity
+
     @property
     def module_masks(self) -> Optional[ModuleParamPruningMask]:
         """
@@ -251,13 +258,6 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         :return: param scorer object used by this pruning algorithm
         """
         return self._scorer
-
-    @property
-    def global_sparsity(self) -> bool:
-        """
-        :return: value of global_sparsity that is passed to mask_creator methods
-        """
-        return self._global_sparsity
 
     @property
     def allow_reintroduction(self) -> bool:
