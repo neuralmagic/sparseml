@@ -28,11 +28,13 @@ from torch.utils.data import DataLoader
 from flaky import flaky
 from sparseml.pytorch.datasets import RandNDataset
 from sparseml.pytorch.utils import (
+    MEMORY_BOUNDED,
     default_device,
     early_stop_data_loader,
     get_optim_learning_rate,
     infinite_data_loader,
     mask_difference,
+    memory_aware_threshold,
     set_optim_learning_rate,
     tensor_density,
     tensor_export,
@@ -880,3 +882,28 @@ def test_thin_model_from_checkpoint(model, state_dict, test_input):
     thin_model_from_checkpoint(model, state_dict)
     model.load_state_dict(state_dict, strict=True)
     assert isinstance(model(test_input), Tensor)
+
+
+@pytest.mark.parametrize(
+    "tensor,idx",
+    [
+        (torch.rand(1), 0),
+        (torch.rand(1_000), 123),
+        (torch.rand(10_000), 4321),
+        (torch.rand(100_000), 12345),
+    ],
+)
+def test_memory_aware_threshold(tensor, idx):
+    prior_state = os.getenv(MEMORY_BOUNDED)
+
+    dev = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
+    tensor = tensor.to(dev)
+
+    os.environ[MEMORY_BOUNDED] = "True"
+    t1 = memory_aware_threshold(tensor, idx)
+    os.environ[MEMORY_BOUNDED] = "False"
+    t2 = memory_aware_threshold(tensor, idx)
+    assert abs(t1 - t2) < 1e-3
+
+    if prior_state is not None:
+        os.environ[MEMORY_BOUNDED] = prior_state
