@@ -44,7 +44,7 @@ def train(**kwargs):
         train_run(**kwargs)
     else:
         opt = parse_train_args()
-        train_run(**vars(parse_train_args()))
+        train_run(**vars(opt))
 
 
 def val(**kwargs):
