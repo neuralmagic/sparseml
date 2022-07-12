@@ -36,36 +36,48 @@ __all__ = [
 ]
 
 
-def train():
+def train(**kwargs):
     """
     Hook to call into train.py in YOLOv5 fork
     """
-    opt = parse_train_args()
-    train_run(**vars(opt))
+    if kwargs:
+        train_run(**kwargs)
+    else:
+        opt = parse_train_args()
+        train_run(**vars(opt))
 
 
-def val():
+def val(**kwargs):
     """
     Hook to call into val.py in YOLOv5 fork
     """
-    opt = parse_val_args()
-    val_run(**vars(opt))
+    if kwargs:
+        val_run(**kwargs)
+    else:
+        opt = parse_val_args()
+        val_run(**vars(opt))
 
 
-def export():
+def export(**kwargs):
     """
     Hook to call into export.py in YOLOv5 fork
     """
-    opt = parse_export_args()
-    export_run(**vars(opt))
+    if kwargs:
+        export_run(**kwargs)
+    else:
+        opt = parse_export_args()
+        export_run(**vars(opt))
 
 
-def val_onnx():
+def val_onnx(**kwargs):
     """
     Hook to call into val_onnx.py in YOLOv5 fork
     """
     if val_onnx_error:
         raise RuntimeError(val_onnx_error)
 
-    opt = parse_val_onnx_args()
-    val_onnx_run(**vars(opt))
+    if kwargs:
+        val_onnx_run(**kwargs)
+    else:
+        opt = parse_val_onnx_args()
+        val_onnx_run(**vars(opt))
