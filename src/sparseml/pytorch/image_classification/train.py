@@ -622,15 +622,9 @@ def main(
         rank=rank,
     )
 
-    context = click.get_current_context(silent=True)
-
-    metadata = (
-        helpers.extract_metadata(
-            metadata_args=METADATA_ARGS,
-            training_args_dict=cli_helpers.parameters_to_dict(),
-        )
-        if context
-        else None
+    metadata = helpers.extract_metadata(
+        metadata_args=METADATA_ARGS,
+        training_args_dict=locals(),
     )
 
     LOGGER.info(f"running on device {device}")
