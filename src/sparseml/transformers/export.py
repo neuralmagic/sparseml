@@ -38,7 +38,7 @@ optional arguments:
                         later
   --convert_qat CONVERT_QAT
                         Set flag to not perform QAT to fully quantized conversion
-                        after main
+                        after export
   --finetuning_task FINETUNING_TASK
                         optional finetuning task for text classification and token
                         classification exports
@@ -128,8 +128,8 @@ def export_transformer_to_onnx(
 
     :param task: task to create the model for. i.e. mlm, qa, glue, ner
     :param model_path: path to directory where model files, tokenizers,
-        and configs are saved. ONNX main will also be written here
-    :param sequence_length: model sequence length to use for main
+        and configs are saved. ONNX export will also be written here
+    :param sequence_length: model sequence length to use for export
     :param convert_qat: set True to convert a QAT model to fully quantized
         ONNX model. Default is True
     :param finetuning_task: optional string finetuning task for text classification
@@ -147,7 +147,7 @@ def export_transformer_to_onnx(
             f"files. {model_path} is not a directory or does not exist"
         )
 
-    _LOGGER.info(f"Attempting onnx main for model at {model_path} for task {task}")
+    _LOGGER.info(f"Attempting onnx export for model at {model_path} for task {task}")
     config_args = {"finetuning_task": finetuning_task} if finetuning_task else {}
     config = AutoConfig.from_pretrained(
         model_path,
@@ -207,7 +207,7 @@ def export_transformer_to_onnx(
     if dropped:
         _LOGGER.warning(
             "The following inputs were not present in the model forward function "
-            f"and therefore dropped from ONNX main: {dropped}"
+            f"and therefore dropped from ONNX export: {dropped}"
         )
 
     inputs_shapes = {
@@ -218,9 +218,9 @@ def export_transformer_to_onnx(
         for key, val in inputs.items()
     }
 
-    _LOGGER.info(f"Created sample inputs for the ONNX main process: {inputs_shapes}")
+    _LOGGER.info(f"Created sample inputs for the ONNX export process: {inputs_shapes}")
 
-    # run main
+    # run export
     onnx_file_path = os.path.join(model_path, onnx_file_name)
     export_onnx(
         model,
@@ -262,7 +262,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--no_convert_qat",
         action="store_false",
-        help=("Set flag to not perform QAT to fully quantized conversion after main"),
+        help=("Set flag to not perform QAT to fully quantized conversion after export"),
     )
     parser.add_argument(
         "--finetuning_task",
