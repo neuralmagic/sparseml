@@ -19,7 +19,7 @@ for use with engines such as DeepSparse
 script accessible from sparseml.transformers.export_onnx
 
 command help:
-usage: export.py [-h] --task TASK --model_path MODEL_PATH
+usage: main.py [-h] --task TASK --model_path MODEL_PATH
                  [--sequence_length SEQUENCE_LENGTH]
                  [--convert_qat CONVERT_QAT]
                  [--finetuning_task FINETUNING_TASK]
@@ -38,7 +38,7 @@ optional arguments:
                         later
   --convert_qat CONVERT_QAT
                         Set flag to not perform QAT to fully quantized conversion
-                        after export
+                        after main
   --finetuning_task FINETUNING_TASK
                         optional finetuning task for text classification and token
                         classification exports
@@ -128,8 +128,8 @@ def export_transformer_to_onnx(
 
     :param task: task to create the model for. i.e. mlm, qa, glue, ner
     :param model_path: path to directory where model files, tokenizers,
-        and configs are saved. ONNX export will also be written here
-    :param sequence_length: model sequence length to use for export
+        and configs are saved. ONNX main will also be written here
+    :param sequence_length: model sequence length to use for main
     :param convert_qat: set True to convert a QAT model to fully quantized
         ONNX model. Default is True
     :param finetuning_task: optional string finetuning task for text classification
@@ -147,7 +147,7 @@ def export_transformer_to_onnx(
             f"files. {model_path} is not a directory or does not exist"
         )
 
-    _LOGGER.info(f"Attempting onnx export for model at {model_path} for task {task}")
+    _LOGGER.info(f"Attempting onnx main for model at {model_path} for task {task}")
     config_args = {"finetuning_task": finetuning_task} if finetuning_task else {}
     config = AutoConfig.from_pretrained(
         model_path,
@@ -207,7 +207,7 @@ def export_transformer_to_onnx(
     if dropped:
         _LOGGER.warning(
             "The following inputs were not present in the model forward function "
-            f"and therefore dropped from ONNX export: {dropped}"
+            f"and therefore dropped from ONNX main: {dropped}"
         )
 
     inputs_shapes = {
@@ -218,9 +218,9 @@ def export_transformer_to_onnx(
         for key, val in inputs.items()
     }
 
-    _LOGGER.info(f"Created sample inputs for the ONNX export process: {inputs_shapes}")
+    _LOGGER.info(f"Created sample inputs for the ONNX main process: {inputs_shapes}")
 
-    # run export
+    # run main
     onnx_file_path = os.path.join(model_path, onnx_file_name)
     export_onnx(
         model,
@@ -262,7 +262,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--no_convert_qat",
         action="store_false",
-        help=("Set flag to not perform QAT to fully quantized conversion after export"),
+        help=("Set flag to not perform QAT to fully quantized conversion after main"),
     )
     parser.add_argument(
         "--finetuning_task",
@@ -286,10 +286,29 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def main():
-    args = _parse_args()
-    _LOGGER.info(f"Exporting {args.model_path} to ONNX")
+def main(
+    task: str,
+    model_path: str,
+    sequence_length: int,
+    no_convert_qat: bool,
+    finetuning_task: str,
+    onnx_file_name: str,
+):
+    _LOGGER.info(f"Exporting {model_path} to ONNX")
     onnx_path = export_transformer_to_onnx(
+        task=task,
+        model_path=model_path,
+        sequence_length=sequence_length,
+        convert_qat=no_convert_qat,  # False if flagged
+        finetuning_task=finetuning_task,
+        onnx_file_name=onnx_file_name,
+    )
+    _LOGGER.info(f"Model exported to: {onnx_path}")
+
+
+def parse_args_and_export():
+    args = _parse_args()
+    main(
         task=args.task,
         model_path=args.model_path,
         sequence_length=args.sequence_length,
@@ -297,8 +316,7 @@ def main():
         finetuning_task=args.finetuning_task,
         onnx_file_name=args.onnx_file_name,
     )
-    _LOGGER.info(f"Model exported to: {onnx_path}")
 
 
 if __name__ == "__main__":
-    main()
+    parse_args_and_export()
