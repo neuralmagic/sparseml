@@ -782,7 +782,7 @@ def main():
 
             if task == "mnli-mm":
                 metrics = {k + "_mm": v for k, v in metrics.items()}
-            if task != None and "mnli" in task:
+            if task is not None and "mnli" in task:
                 combined.update(metrics)
                 trainer.save_metrics("eval", combined)
             else:
