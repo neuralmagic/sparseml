@@ -8,7 +8,7 @@ FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu18.04 as base
 # Source: https://github.com/NVIDIA/nvidia-docker/issues/1632
 
 RUN if [ -f /etc/apt/sources.list.d/cuda.list ] ; then rm /etc/apt/sources.list.d/cuda.list ; fi
-RUN if [ -f /etc/apt/sources.list.d/nvidia-ml.list ] ; rm /etc/apt/sources.list.d/nvidia-ml.list ; fi
+RUN if [ -f /etc/apt/sources.list.d/nvidia-ml.list ] ; then rm /etc/apt/sources.list.d/nvidia-ml.list ; fi
 
 RUN : \
     && apt-get update \
