@@ -37,7 +37,14 @@ import pytest
 import yaml
 from pydantic import BaseModel
 
-from tests.integrations.helpers import Config, get_configs_with_cadence
+from flaky import flaky
+from tests.integrations.config import Config
+
+
+__all__ = [
+    "BaseIntegrationManager",
+    "BaseIntegrationTester",
+]
 
 
 class BaseIntegrationManager:
@@ -85,6 +92,9 @@ class BaseIntegrationManager:
         # Remove cadence for easier processing. It's saved, but not utilized later
         self.cadence = raw_config.pop("cadence")
 
+        # If abridged, the run parameters are modified to significantly shorten the run
+        self.abridged = raw_config.pop("abridged", False)
+
         # Command types present in this config
         self.command_types = [_type for _type in raw_config]
 
@@ -104,10 +114,16 @@ class BaseIntegrationManager:
         # Capture any pre-run information that may be needed for post-run testing
         self.capture_pre_run_state()
 
+        # Shorten run to a standardized abridged format
+        if self.abridged:
+            self.add_abridged_configs()
+
         # Combine pre-args, command stubs, and args into complete CLI commands
+        # If command stub is of type None, skip generating command
         self.commands = {
             _type: config.create_command_script()
             for _type, config in self.configs.items()
+            if self.command_stubs[_type]
         }
 
         # All commands are run sequentially
@@ -130,6 +146,12 @@ class BaseIntegrationManager:
         """
         self._start_file_count = sum(len(files) for _, _, files in os.walk(r"."))
 
+    def add_abridged_configs(self):
+        """
+        Update configs to shorten run. e.g. set small steps_per_epoch for training run
+        """
+        raise NotImplementedError()
+
     def run_commands(self, kwargs_dict: Union[Dict[str, Dict], None] = None):
         """
         Execute CLI commands in order
@@ -143,14 +165,15 @@ class BaseIntegrationManager:
         for _type in self.command_types:
             # Optionally, save intermediate state variables between stages
             self.save_stage_information(_type)
-            try:
-                subprocess.check_output(self.commands[_type], **kwargs_dict[_type])
-            except subprocess.CalledProcessError as e:
-                raise RuntimeError(
-                    "command '{}' return with error (code {}): {}".format(
-                        e.cmd, e.returncode, e.output
+            if self.command_stubs[_type]:  # check if command is executable
+                try:
+                    subprocess.check_output(self.commands[_type], **kwargs_dict[_type])
+                except subprocess.CalledProcessError as e:
+                    raise RuntimeError(
+                        "command '{}' return with error (code {}): {}".format(
+                            e.cmd, e.returncode, e.output
+                        )
                     )
-                )
 
     def save_stage_information(self, command_type):
         """
@@ -179,6 +202,16 @@ class BaseIntegrationManager:
             f"{self._end_file_count - self._start_file_count} files created during "
             "pytest run"
         )
+
+    def _check_deploy_requirements(self, deepsparse_error):
+        """
+        If a deploy stage is present and deepsparse is not installed, throw an error.
+        """
+        if "deploy" in self.command_types and deepsparse_error:
+            raise ImportError(
+                "DeepSparse is required for integration tests with a deploy stage."
+                f"DeepSparse import error: {deepsparse_error}"
+            )
 
 
 def skip_inactive_stage(test):
@@ -216,6 +249,7 @@ def skip_inactive_stage(test):
     return wrapped_test
 
 
+@flaky(max_runs=2, min_passes=1)
 class BaseIntegrationTester:
     """
     Class from which integration test-holding classes should inherit. Tests defined here
@@ -225,14 +259,19 @@ class BaseIntegrationTester:
     stage is `train`, `export`, or `deploy` and name is a unique name to describe the
     test. This naming convention is used and enforced within the decorator
     `@skip_inactive_stage`
-    """
+
+    Adding the fixture below to each test class will parameterize the test over
+    the set of test configs that match the cadence setting.
 
     @pytest.fixture(
         params=get_configs_with_cadence(
-            os.environ.get("NM_TEST_CADENCE", "commit"), os.path.dirname(__file__)
+            os.environ.get("SPARSEML_TEST_CADENCE", "pre-commit"),
+            os.path.dirname(__file__),
         ),
         scope="class",
     )
+    """
+
     def integration_manager(request):
         """
         Fixture with a lifecycle of:
@@ -250,7 +289,7 @@ class BaseIntegrationTester:
         Tests:
             - Run created a model file
             - Model file is loadable
-            - The model epoch corresponds to the expecte value
+            - The model epoch corresponds to the expected value
         """
         raise NotImplementedError()
 
@@ -275,7 +314,17 @@ class BaseIntegrationTester:
         """
         If no target model provided in config file, skip test
         Tests:
+            - Target model and generated model have equivalent graphs
             - Target model and generated model produce similar outputs when run through
-            onnixruntime. Tolerance set via pytest.approx(abs=1e-5)
+            onnxruntime. Tolerance set via pytest.approx(abs=1e-5)
+        """
+        raise NotImplementedError()
+
+    @skip_inactive_stage
+    def test_deploy_model_compile(self, integration_manager):
+        """
+        Tests:
+            - Exported onnx model can be loaded into a DeepSparse Pipeline
+            - Generated Pipeline can process input
         """
         raise NotImplementedError()

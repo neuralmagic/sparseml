@@ -20,10 +20,132 @@ from sparseml.transformers.masked_language_modeling import MODEL_TYPES
 from sparseml.transformers.text_classification import _TASK_TO_KEYS
 
 
-class TransformersTrainArgs(BaseModel):
+class _TransformersTrainArgs(BaseModel):
+    model_name_or_path: str = Field(
+        description=(
+            "Path to pretrained model, sparsezoo stub. or model identifier from "
+            "huggingface.co/models"
+        )
+    )
+    distill_teacher: Optional[str] = Field(
+        default=None,
+        description=("Teacher model which needs to be a trained NER model"),
+    )
+    config_name: Optional[str] = Field(
+        default=None,
+        description=("Pretrained config name or path if not the same as model_name"),
+    )
+    tokenizer_name: Optional[str] = Field(
+        default=None,
+        description=("Pretrained tokenizer name or path if not the same as model_name"),
+    )
+    cache_dir: Optional[str] = Field(
+        default=None,
+        description=("Where to store the pretrained data from huggingface.co"),
+    )
+    model_revision: str = Field(
+        default="main",
+        description=(
+            "The specific model version to use "
+            "(can be a branch name, tag name or commit id)"
+        ),
+    )
+    use_auth_token: bool = Field(
+        default=False,
+        description=(
+            "Will use token generated when running `transformers-cli login` "
+            "(necessary to use this script with private models)"
+        ),
+    )
+    recipe: Optional[str] = Field(
+        default=None,
+        description=(
+            "Path to a SparseML sparsification recipe, see "
+            "https://github.com/neuralmagic/sparseml for more information"
+        ),
+    )
+    recipe_args: Optional[str] = Field(
+        default=None,
+        description="Recipe arguments to be overwritten",
+    )
+    dataset_name: Optional[str] = Field(
+        default=None,
+        description=("The name of the dataset to use (via the datasets library)"),
+    )
+    dataset_config_name: Optional[str] = Field(
+        default=None,
+        description=("The configuration name of the dataset to use"),
+    )
+    train_file: Optional[str] = Field(
+        default=None,
+        description=("A csv or a json file containing the training data."),
+    )
+    validation_file: Optional[str] = Field(
+        default=None,
+        description=("A csv or a json file containing the validation data."),
+    )
+    test_file: Optional[str] = Field(
+        default=None,
+        description=("A csv or a json file containing the test data."),
+    )
+    text_column_name: Optional[str] = Field(
+        default=None,
+        description=(
+            "The column name of text to input in the file " "(a csv or JSON file)."
+        ),
+    )
+    label_column_name: Optional[str] = Field(
+        default=None,
+        description=(
+            "The column name of label to input in the file " "(a csv or JSON file)."
+        ),
+    )
+    overwrite_cache: bool = Field(
+        default=False,
+        description=("Overwrite the cached training and evaluation sets"),
+    )
+    preprocessing_num_workers: Optional[int] = Field(
+        default=None,
+        description=("The number of processes to use for the preprocessing."),
+    )
+    max_seq_length: int = Field(
+        default=None,
+        description=(
+            "The maximum total input sequence length after tokenization. "
+            "If set, sequences longer than this will be truncated, sequences shorter "
+            "will be padded."
+        ),
+    )
+    pad_to_max_length: bool = Field(
+        default=False,
+        description=(
+            "Whether to pad all samples to `max_seq_length`. If False, "
+            "will pad the samples dynamically when batching to the maximum length "
+            "in the batch (which can be faster on GPU but will be slower on TPU)."
+        ),
+    )
+    max_train_samples: Optional[int] = Field(
+        default=None,
+        description=(
+            "For debugging purposes or quicker training, truncate the number "
+            "of training examples to this value if set."
+        ),
+    )
+    max_eval_samples: Optional[int] = Field(
+        default=None,
+        description=(
+            "For debugging purposes or quicker training, truncate the number "
+            "of evaluation examples to this value if set."
+        ),
+    )
+    one_shot: bool = Field(
+        default=False,
+        description="Whether to apply recipe in a one shot manner.",
+    )
     output_dir: str = Field(
+        default=".",
         description="The output directory where the model predictions and checkpoints "
-        " will be written."
+        " will be written.",
     )
     overwrite_output_dir: bool = Field(
         default=False,
@@ -92,8 +214,8 @@ class TransformersTrainArgs(BaseModel):
     )
     max_grad_norm: float = Field(default=1.0, description="Max gradient norm.")
 
-    num_train_epochs: float = Field(
-        default=3.0, description="Total number of training epochs to perform."
+    num_train_epochs: Optional[float] = Field(
+        default=None, description="Total number of training epochs to perform."
     )
     max_steps: int = Field(
         default=-1,
@@ -221,8 +343,8 @@ class TransformersTrainArgs(BaseModel):
         description="Deprecated, the use of `--debug tpu_metrics_debug` is preferred. "
         "TPU: Whether to print debug metrics",
     )
-    debug: str = Field(
-        default="",
+    debug: Optional[str] = Field(
+        default=None,
         description="Whether or not to enable debug mode. Current options: "
         "`underflow_overflow` (Detect underflow and overflow in activations and "
         "weights), `tpu_metrics_debug` (print debug metrics on TPU).",
@@ -285,8 +407,8 @@ class TransformersTrainArgs(BaseModel):
         description="When resuming training, whether or not to skip the first epochs "
         "and batches to get to the same training data.",
     )
-    sharded_ddp: str = Field(
-        default="",
+    sharded_ddp: Optional[str] = Field(
+        default=None,
         description="Whether or not to use sharded DDP training (in distributed "
         "training only). The base option should be `simple`, `zero_dp_2` or "
         "`zero_dp_3` and you can add CPU-offload to `zero_dp_2` or `zero_dp_3` like "
@@ -386,8 +508,8 @@ class TransformersTrainArgs(BaseModel):
         default=None, description="The token to use to push to the Model Hub."
     )
     _n_gpu: int = Field(init=False, repr=False, default=-1)
-    mp_parameters: str = Field(
-        default="",
+    mp_parameters: Optional[str] = Field(
+        default=None,
         description="Used by the SageMaker launcher to send mp-specific args. "
         "Ignored in Trainer",
     )
@@ -400,123 +522,7 @@ class TransformersTrainArgs(BaseModel):
     )
 
 
-class QuestionAnsweringArgs(TransformersTrainArgs):
-    model_name_or_path: str = Field(
-        description=(
-            "Path to pretrained model or model identifier from " "huggingface.co/models"
-        )
-    )
-    distill_teacher: Optional[str] = Field(
-        default=None,
-        description=("Teacher model which needs to be a trained QA model"),
-    )
-    config_name: Optional[str] = Field(
-        default=None,
-        description=("Pretrained config name or path if not the same as model_name"),
-    )
-    tokenizer_name: Optional[str] = Field(
-        default=None,
-        description=("Pretrained tokenizer name or path if not the same as model_name"),
-    )
-    cache_dir: Optional[str] = Field(
-        default=None,
-        description=(
-            "Path to directory to store the pretrained models downloaded from "
-            "huggingface.co"
-        ),
-    )
-    model_revision: str = Field(
-        default="main",
-        description=(
-            "The specific model version to use (can be a branch name, "
-            "tag name or commit id)."
-        ),
-    )
-    use_auth_token: bool = Field(
-        default=False,
-        description=(
-            "Will use the token generated when running `transformers-cli login` "
-            "(necessary to use this script with private models)."
-        ),
-    )
-    recipe: Optional[str] = Field(
-        default=None,
-        description=(
-            "Path to a SparseML sparsification recipe, see "
-            "https://github.com/neuralmagic/sparseml for more information"
-        ),
-    )
-    recipe_args: Optional[str] = Field(
-        default=None,
-        description="Recipe arguments to be overwritten",
-    )
-    dataset_name: Optional[str] = Field(
-        default=None,
-        description="The name of the dataset to use (via the datasets library).",
-    )
-    dataset_config_name: Optional[str] = Field(
-        default=None,
-        description=(
-            "The configuration name of the dataset to use "
-            "(via the datasets library)."
-        ),
-    )
-    train_file: Optional[str] = Field(
-        default=None,
-        description=("The input training data file (a text file)."),
-    )
-    validation_file: Optional[str] = Field(
-        default=None,
-        description=(
-            "An optional input evaluation data file to evaluate the perplexity "
-            "on (a text file)."
-        ),
-    )
-    test_file: Optional[str] = Field(
-        default=None,
-        description=(
-            "An optional input test data file to evaluate the perplexity on "
-            "(a text file)."
-        ),
-    )
-    overwrite_cache: bool = Field(
-        default=False,
-        description=("Overwrite the cached training and evaluation sets"),
-    )
-    preprocessing_num_workers: Optional[int] = Field(
-        default=None,
-        description=("The number of processes to use for the preprocessing."),
-    )
-    max_seq_length: int = Field(
-        default=384,
-        description=(
-            "The maximum total input sequence length after tokenization. "
-            "Sequences longer  than this will be truncated, sequences shorter will "
-            "be padded."
-        ),
-    )
-    pad_to_max_length: bool = Field(
-        default=True,
-        description=(
-            "Whether to pad all samples to `max_seq_length`. If False, "
-            "will pad the samples dynamically when batching to the maximum length "
-            "in the batch (which can be faster on GPU but will be slower on TPU)."
-        ),
-    )
-    max_train_samples: Optional[int] = Field(
-        default=None,
-        description=(
-            "For debugging purposes or quicker training, truncate the number "
-            "of training examples to this value if set."
-        ),
-    )
-    max_eval_samples: Optional[int] = Field(
-        default=None,
-        description=(
-            "For debugging purposes or quicker training, truncate the number "
-            "of evaluation examples to this value if set."
-        ),
-    )
+class QuestionAnsweringArgs(_TransformersTrainArgs):
     max_predict_samples: Optional[int] = Field(
         default=None,
         description=(
@@ -561,70 +567,7 @@ class QuestionAnsweringArgs(TransformersTrainArgs):
     )
 
 
-class TextClassificationArgs(TransformersTrainArgs):
-    recipe: Optional[str] = Field(
-        default=None,
-        description=(
-            "Path to a SparseML sparsification recipe, see "
-            "https://github.com/neuralmagic/sparseml for more information"
-        ),
-    )
-    recipe_args: Optional[str] = Field(
-        default=None,
-        description="Recipe arguments to be overwritten",
-    )
-    task_name: Optional[str] = Field(
-        default=None,
-        description=(
-            "The name of the task to train on: " + ", ".join(_TASK_TO_KEYS.keys())
-        ),
-    )
-    dataset_name: Optional[str] = Field(
-        default=None,
-        description=("The name of the dataset to use (via the datasets library)"),
-    )
-    dataset_config_name: Optional[str] = Field(
-        default=None,
-        description=("The configuration name of the dataset to use"),
-    )
-    max_seq_length: int = Field(
-        default=384,
-        description=(
-            "The maximum total input sequence length after tokenization. "
-            "Sequences longer  than this will be truncated, sequences shorter will "
-            "be padded."
-        ),
-    )
-    overwrite_cache: bool = Field(
-        default=False,
-        description=("Overwrite the cached preprocessed datasets or not."),
-    )
-    preprocessing_num_workers: Optional[int] = Field(
-        default=None,
-        description=("The number of processes to use for the preprocessing."),
-    )
-    pad_to_max_length: bool = Field(
-        default=True,
-        description=(
-            "Whether to pad all samples to `max_seq_length`. If False, "
-            "will pad the samples dynamically when batching to the maximum length "
-            "in the batch (which can be faster on GPU but will be slower on TPU)."
-        ),
-    )
-    max_train_samples: Optional[int] = Field(
-        default=None,
-        description=(
-            "For debugging purposes or quicker training, truncate the number "
-            "of training examples to this value if set."
-        ),
-    )
-    max_eval_samples: Optional[int] = Field(
-        default=None,
-        description=(
-            "For debugging purposes or quicker training, truncate the number "
-            "of evaluation examples to this value if set."
-        ),
-    )
+class TextClassificationArgs(_TransformersTrainArgs):
     max_predict_samples: Optional[int] = Field(
         default=None,
         description=(
@@ -632,182 +575,15 @@ class TextClassificationArgs(TransformersTrainArgs):
             "prediction examples to this value if set."
         ),
     )
-    train_file: Optional[str] = Field(
-        default=None,
-        description=("A csv or a json file containing the training data."),
-    )
-    validation_file: Optional[str] = Field(
-        default=None,
-        description=("A csv or a json file containing the validation data."),
-    )
-    test_file: Optional[str] = Field(
-        default=None,
-        description=("A csv or a json file containing the test data."),
-    )
-
-    model_name_or_path: str = Field(
-        description=(
-            "Path to pretrained model, sparsezoo stub. or model identifier from "
-            "huggingface.co/models"
-        )
-    )
-    distill_teacher: Optional[str] = Field(
-        default=None,
-        description=("Teacher model which must be a trained text classification model"),
-    )
-    config_name: Optional[str] = Field(
-        default=None,
-        description=("Pretrained config name or path if not the same as model_name"),
-    )
-    tokenizer_name: Optional[str] = Field(
-        default=None,
-        description=("Pretrained tokenizer name or path if not the same as model_name"),
-    )
-    cache_dir: Optional[str] = Field(
-        default=None,
-        description=("Where to store the pretrained data from huggingface.co"),
-    )
-    use_fast_tokenizer: bool = Field(
-        default=True,
-        description=("Whether to use one of the fast tokenizers. Default True"),
-    )
-    model_revision: str = Field(
-        default="main",
-        description=(
-            "The specific model version to use "
-            "(can be a branch name, tag name or commit id)"
-        ),
-    )
-    use_auth_token: bool = Field(
-        default=False,
-        description=(
-            "Will use token generated when running `transformers-cli login` "
-            "(necessary to use this script with private models)"
-        ),
-    )
-
-
-class TokenClassificationArgs(TransformersTrainArgs):
-    model_name_or_path: str = Field(
-        description=(
-            "Path to pretrained model, sparsezoo stub. or model identifier from "
-            "huggingface.co/models"
-        )
-    )
-    distill_teacher: Optional[str] = Field(
-        default=None,
-        description=("Teacher model which needs to be a trained NER model"),
-    )
-    config_name: Optional[str] = Field(
-        default=None,
-        description=("Pretrained config name or path if not the same as model_name"),
-    )
-    tokenizer_name: Optional[str] = Field(
-        default=None,
-        description=("Pretrained tokenizer name or path if not the same as model_name"),
-    )
-    cache_dir: Optional[str] = Field(
-        default=None,
-        description=("Where to store the pretrained data from huggingface.co"),
-    )
-    model_revision: str = Field(
-        default="main",
-        description=(
-            "The specific model version to use "
-            "(can be a branch name, tag name or commit id)"
-        ),
-    )
-    use_auth_token: bool = Field(
-        default=False,
-        description=(
-            "Will use token generated when running `transformers-cli login` "
-            "(necessary to use this script with private models)"
-        ),
-    )
-    recipe: Optional[str] = Field(
-        default=None,
-        description=(
-            "Path to a SparseML sparsification recipe, see "
-            "https://github.com/neuralmagic/sparseml for more information"
-        ),
-    )
-    recipe_args: Optional[str] = Field(
-        default=None,
-        description="Recipe arguments to be overwritten",
-    )
     task_name: Optional[str] = Field(
-        default="ner", description=("The name of the task (ner, pos...).")
-    )
-    dataset_name: Optional[str] = Field(
-        default=None,
-        description=("The name of the dataset to use (via the datasets library)"),
-    )
-    dataset_config_name: Optional[str] = Field(
-        default=None,
-        description=("The configuration name of the dataset to use"),
-    )
-    train_file: Optional[str] = Field(
-        default=None,
-        description=("A csv or a json file containing the training data."),
-    )
-    validation_file: Optional[str] = Field(
-        default=None,
-        description=("A csv or a json file containing the validation data."),
-    )
-    test_file: Optional[str] = Field(
-        default=None,
-        description=("A csv or a json file containing the test data."),
-    )
-    text_column_name: Optional[str] = Field(
         default=None,
         description=(
-            "The column name of text to input in the file " "(a csv or JSON file)."
+            "The name of the task to train on: " + ", ".join(_TASK_TO_KEYS.keys())
         ),
     )
-    label_column_name: Optional[str] = Field(
-        default=None,
-        description=(
-            "The column name of label to input in the file " "(a csv or JSON file)."
-        ),
-    )
-    overwrite_cache: bool = Field(
-        default=False,
-        description=("Overwrite the cached training and evaluation sets"),
-    )
-    preprocessing_num_workers: Optional[int] = Field(
-        default=None,
-        description=("The number of processes to use for the preprocessing."),
-    )
-    max_seq_length: int = Field(
-        default=None,
-        description=(
-            "The maximum total input sequence length after tokenization. "
-            "If set, sequences longer than this will be truncated, sequences shorter "
-            "will be padded."
-        ),
-    )
-    pad_to_max_length: bool = Field(
-        default=False,
-        description=(
-            "Whether to pad all samples to `max_seq_length`. If False, "
-            "will pad the samples dynamically when batching to the maximum length "
-            "in the batch (which can be faster on GPU but will be slower on TPU)."
-        ),
-    )
-    max_train_samples: Optional[int] = Field(
-        default=None,
-        description=(
-            "For debugging purposes or quicker training, truncate the number "
-            "of training examples to this value if set."
-        ),
-    )
-    max_eval_samples: Optional[int] = Field(
-        default=None,
-        description=(
-            "For debugging purposes or quicker training, truncate the number "
-            "of evaluation examples to this value if set."
-        ),
-    )
+
+
+class TokenClassificationArgs(_TransformersTrainArgs):
     max_predict_samples: Optional[int] = Field(
         default=None,
         description=(
@@ -830,84 +606,19 @@ class TokenClassificationArgs(TransformersTrainArgs):
             "just the overall ones."
         ),
     )
+    task_name: Optional[str] = Field(
+        default="ner", description=("The name of the task (ner, pos...).")
+    )
 
 
-class MaskedLanguageModellingArgs(TransformersTrainArgs):
-    model_name_or_path: Optional[str] = Field(
+class MaskedLanguageModellingArgs(_TransformersTrainArgs):
+    task_name: Optional[str] = Field(
         default=None,
         description=(
-            "The model checkpoint for weights initialization."
-            "Don't set if you want to train a model from scratch."
+            "The name of the task to train on: " + ", ".join(_TASK_TO_KEYS.keys())
         ),
     )
-    model_type: Optional[str] = Field(
-        default=None,
-        description=(
-            "If training from scratch, pass a model type from the list: "
-            + ", ".join(MODEL_TYPES)
-        ),
-    )
-    config_overrides: Optional[str] = Field(
-        default=None,
-        description=(
-            "Override some existing default config settings when a model is"
-            "trained from scratch. Example: "
-            "n_embd=10,resid_pdrop=0.2,scale_attn_weights=false,summary_type=cls_index"
-        ),
-    )
-    distill_teacher: Optional[str] = Field(
-        default=None,
-        description=("Teacher model which needs to be a trained QA model"),
-    )
-    config_name: Optional[str] = Field(
-        default=None,
-        description=("Pretrained config name or path if not the same as model_name"),
-    )
-    tokenizer_name: Optional[str] = Field(
-        default=None,
-        description=("Pretrained tokenizer name or path if not the same as model_name"),
-    )
-    cache_dir: Optional[str] = Field(
-        default=None,
-        description=("Where to store the pretrained models from huggingface.co"),
-    )
-    use_fast_tokenizer: bool = Field(
-        default=True,
-        description=("Whether to use one of the fast tokenizers. Default True"),
-    )
-    model_revision: str = Field(
-        default="main",
-        description=(
-            "The specific model version to use "
-            "(can be a branch name, tag name or commit id)"
-        ),
-    )
-    use_auth_token: bool = Field(
-        default=False,
-        description=(
-            "Will use token generated when running `transformers-cli login` "
-            "(necessary to use this script with private models)"
-        ),
-    )
-    recipe: Optional[str] = Field(
-        default=None,
-        description=(
-            "Path to a SparseML sparsification recipe, see "
-            "https://github.com/neuralmagic/sparseml for more information"
-        ),
-    )
-    recipe_args: Optional[str] = Field(
-        default=None,
-        description=("Recipe arguments to be overwritten"),
-    )
-    dataset_name: Optional[str] = Field(
-        default=None,
-        description=("The name of the dataset to use (via the datasets library)"),
-    )
-    dataset_config_name: Optional[str] = Field(
-        default=None,
-        description=("The configuration name of the dataset to use"),
-    )
+
     dataset_name_2: Optional[str] = Field(
         default=None,
         description=("The name of the dataset to use (via the datasets library)"),
@@ -916,38 +627,12 @@ class MaskedLanguageModellingArgs(TransformersTrainArgs):
         default=None,
         description=("The configuration name of the dataset to use"),
     )
-
-    train_file: Optional[str] = Field(
-        default=None, description=("The input training data file (a text file).")
-    )
-    validation_file: Optional[str] = Field(
-        default=None,
-        description=(
-            "An optional input evaluation data file to evaluate the perplexity on"
-            "(a text file)."
-        ),
-    )
-    overwrite_cache: bool = Field(
-        default=False,
-        description=("Overwrite the cached training and evaluation sets"),
-    )
     validation_split_percentage: Optional[int] = Field(
         default=5,
         description=(
             "The percentage of the train set used as validation set in case "
             "there's no validation split"
         ),
-    )
-    max_seq_length: Optional[int] = Field(
-        default=None,
-        description=(
-            "The maximum total input sequence length after tokenization. "
-            "Sequences longer than this will be truncated."
-        ),
-    )
-    preprocessing_num_workers: Optional[int] = Field(
-        default=None,
-        description=("The number of processes to use for the preprocessing."),
     )
     mlm_probability: float = Field(
         default=0.15,
@@ -960,39 +645,25 @@ class MaskedLanguageModellingArgs(TransformersTrainArgs):
             "distinct sequences."
         ),
     )
-    pad_to_max_length: bool = Field(
-        default=False,
-        description=(
-            "Whether to pad all samples to `max_seq_length`. "
-            "If False, will pad the samples dynamically when batching to "
-            "the maximum length in the batch."
-        ),
-    )
-    max_train_samples: Optional[int] = Field(
-        default=None,
-        description=(
-            "For debugging purposes or quicker training, truncate the number "
-            "of training examples to this value if set."
-        ),
-    )
-    max_eval_samples: Optional[int] = Field(
-        default=None,
-        description=(
-            "For debugging purposes or quicker training, truncate the number "
-            "of evaluation examples to this value if set."
-        ),
-    )
 
 
 class TransformersExportArgs(BaseModel):
+    model_type: Optional[str] = Field(
+        default=None,
+        description=(
+            "If training from scratch, pass a model type from the list: "
+            + ", ".join(MODEL_TYPES)
+        ),
+    )
     task: str = Field(
         description="Task to create the model for. i.e. mlm, qa, glue, ner"
     )
-    model_path: str = Field(
+    model_path: Optional[str] = Field(
+        default=None,
         description=(
             "Path to directory where model files for weights, config, and "
             "tokenizer are stored"
-        )
+        ),
     )
     sequence_length: int = Field(
         default=384,
@@ -1017,4 +688,12 @@ class TransformersExportArgs(BaseModel):
             "Name for exported ONNX file in the model directory. "
             "Default and reccomended value for pipeline compatibility is 'model.onnx'"
         ),
+    )
+
+
+class TransformersDeployArgs(BaseModel):
+    task: str = Field(description="Task to create the model for.")
+    model_path: Optional[str] = Field(
+        default=None,
+        description=("Path to directory where model onnx file is stored"),
     )

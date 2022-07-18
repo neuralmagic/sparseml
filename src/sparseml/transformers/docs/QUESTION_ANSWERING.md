@@ -31,14 +31,14 @@ In the example below, a dense BERT model is trained on the SQuAD dataset. By pas
 
 ```bash
 sparseml.transformers.question_answering \
-  --model_name_or_path bert-base-uncased \          # name of the Hugging Face dense model
-  --dataset_name squad \                            # name of the dataset we want to sparse train on
-  --do_train \                                      # run training
-  --do_eval \                                       # run evaluation on validation set 
-  --output_dir './output' \                         # output directory of the saved model
-  --cache_dir cache \                               # local directory to store the downloaded hugging face model.  
-  --distill_teacher disable \                       # disable knowledge distillation
-  --recipe zoo:nlp/question_answering/bert-base/pytorch/huggingface/squad/pruned-aggressive_98          
+  --model_name_or_path bert-base-uncased \
+  --dataset_name squad \
+  --do_train \
+  --do_eval \
+  --output_dir './output' \
+  --cache_dir cache \
+  --distill_teacher disable \
+  --recipe zoo:nlp/question_answering/bert-base/pytorch/huggingface/squad/pruned-aggressive_98 
 ```
 
 ### Sparse Transfer Learning
@@ -53,9 +53,9 @@ sparseml.transformers.question_answering \
     --dataset_name squad \
     --do_train \
     --do_eval \
-    --output_dir './output' \ 
+    --output_dir './output' \
     --distill_teacher disable \
-    --recipe zoo:nlp/masked_language_modeling/bert-base/pytorch/huggingface/wikipedia_bookcorpus/12layer_pruned80_quant-none-vnni?recipe_type=transfer-question_answering \
+    --recipe zoo:nlp/masked_language_modeling/bert-base/pytorch/huggingface/wikipedia_bookcorpus/12layer_pruned80_quant-none-vnni?recipe_type=transfer-question_answering 
 ```
 
 #### Knowledge Distillation
@@ -146,7 +146,7 @@ inference = qa_pipeline(question="What's my name?", context="My name is Snorlax"
 ```
 
 
-To learn more, refer to the [appropriate documentation in the DeepSparse repository](https://github.com/neuralmagic/deepsparse/tree/main/examples/huggingface-transformers)
+To learn more, refer to the [appropriate documentation in the DeepSparse repository](https://github.com/neuralmagic/deepsparse/blob/main/src/deepsparse/transformers/README.md).
 
 ## Support
 
