@@ -126,15 +126,14 @@ def _get_dataloader_builder(
     scope="function",
 )
 class TestOBSPruningModifier(ScheduledUpdateModifierTest):
-    def add_default_initialize_kwargs(self, initialize_kwargs) -> Dict[str, Any]:
+    def get_default_initialize_kwargs(self) -> Dict[str, Any]:
         # add default no-op grad_sampler for initialization on non lifecycle tests
-        if "grad_sampler" not in initialize_kwargs:
-            initialize_kwargs["grad_sampler"] = {
+        return {
+            "grad_sampler": {
                 "data_loader_builder": lambda *loader_args, **loader_kwargs: [],
                 "loss_function": lambda *loss_args, **loss_kwargs: None,
             }
-
-        return initialize_kwargs
+        }
 
     @pytest.mark.parametrize(
         "dataset_lambda, obs_batch_size",

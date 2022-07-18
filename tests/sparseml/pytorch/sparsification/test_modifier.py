@@ -61,10 +61,10 @@ __all__ = [
     reason="Skipping pytorch tests",
 )
 class ModifierTest(BaseModifierTest):
-    def add_default_initialize_kwargs(self, **kwargs) -> Dict[str, Any]:
+    def get_default_initialize_kwargs(self) -> Dict[str, Any]:
         # add defaults for any required kwargs for modifier initialization
         # that are not explicitly needed for every test
-        return kwargs
+        return {}
 
     # noinspection PyMethodOverriding
     def initialize_helper(
@@ -75,8 +75,10 @@ class ModifierTest(BaseModifierTest):
         log_initialize: bool = True,
         **kwargs,
     ):
-        kwargs = self.add_default_initialize_kwargs(kwargs)
-        modifier.initialize(model, epoch, **kwargs)
+        # override any default kwargs with given kwargs
+        initialize_kwargs = self.get_default_initialize_kwargs()
+        initialize_kwargs.update(kwargs)
+        modifier.initialize(model, epoch, **initialize_kwargs)
 
         if log_initialize:
             modifier.initialize_loggers(LoggerManager([PythonLogger()]))
