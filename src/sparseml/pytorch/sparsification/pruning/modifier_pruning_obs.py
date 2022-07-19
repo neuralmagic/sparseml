@@ -303,7 +303,7 @@ class OBSPruningModifier(BaseGradualPruningModifier):
 
     def _validate(self):
         if not hasattr(torch.linalg, "solve"):
-            raise Runtime(
+            raise RuntimeError(
                 f"torch>=1.9 required to use {self.__class__.__name__} "
                 f"found {torch.__version__}"
             )
