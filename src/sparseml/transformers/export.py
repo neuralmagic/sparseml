@@ -294,7 +294,6 @@ def main(
     finetuning_task: str,
     onnx_file_name: str,
 ):
-    _LOGGER.info(f"Exporting {model_path} to ONNX")
     onnx_path = export_transformer_to_onnx(
         task=task,
         model_path=model_path,
