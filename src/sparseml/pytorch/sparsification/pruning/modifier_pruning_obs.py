@@ -302,6 +302,12 @@ class OBSPruningModifier(BaseGradualPruningModifier):
             module.train()
 
     def _validate(self):
+        if not hasattr(torch.linalg, "solve"):
+            raise Runtime(
+                f"torch>=1.9 required to use {self.__class__.__name__} "
+                f"found {torch.__version__}"
+            )
+
         if isinstance(self._damp, str):  # to support 'damp: 1e-7' in the recipe
             self._damp = float(self._damp)
 
