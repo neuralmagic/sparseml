@@ -19,7 +19,7 @@ for use with engines such as DeepSparse
 script accessible from sparseml.transformers.export_onnx
 
 command help:
-usage: main.py [-h] --task TASK --model_path MODEL_PATH
+usage: export.py [-h] --task TASK --model_path MODEL_PATH
                  [--sequence_length SEQUENCE_LENGTH]
                  [--convert_qat CONVERT_QAT]
                  [--finetuning_task FINETUNING_TASK]
@@ -286,7 +286,7 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def main(
+def export(
     task: str,
     model_path: str,
     sequence_length: int,
@@ -305,17 +305,17 @@ def main(
     _LOGGER.info(f"Model exported to: {onnx_path}")
 
 
-def parse_args_and_export():
+def main():
     args = _parse_args()
-    main(
+    export(
         task=args.task,
         model_path=args.model_path,
         sequence_length=args.sequence_length,
-        convert_qat=args.no_convert_qat,  # False if flagged
+        no_convert_qat=args.no_convert_qat,  # False if flagged
         finetuning_task=args.finetuning_task,
         onnx_file_name=args.onnx_file_name,
     )
 
 
 if __name__ == "__main__":
-    parse_args_and_export()
+    main()
