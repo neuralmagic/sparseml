@@ -532,7 +532,7 @@ class RecipeManagerTrainerInterface:
                 sample_output_filename = os.path.join(
                     f"{sample_out_dir}", f"out-{file_idx}.npz"
                 )
-                numpy.savez(sample_output_filename, *output_dict)
+                numpy.savez(sample_output_filename, **output_dict)
                 num_samples += 1
 
                 if num_samples >= num_samples_to_export:
