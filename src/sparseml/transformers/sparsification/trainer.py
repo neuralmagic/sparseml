@@ -144,6 +144,9 @@ class RecipeManagerTrainerInterface:
             self.logger_manager = LoggerManager(log_python=False)
 
         self.one_shot = data_args.one_shot if hasattr(data_args, "one_shot") else False
+        self.no_amp_eval = (
+            data_args.no_amp_eval if hasattr(data_args, "no_amp_eval") else False
+        )
         self.manager, self.arch_manager = self._setup_manager(kwargs)
         self.manager_applied = False
         self.manager_initialized = False
@@ -783,7 +786,11 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         :return: the output from super.evaluate()
         """
         applied = self.apply_manager(epoch=math.inf, checkpoint=None)
+        use_amp = self.use_amp
+        if self.no_amp_eval:
+            self.use_amp = False
         output = super().evaluate(*args, **kwargs)
+        self.use_amp = use_amp
         if applied:
             self.finalize_manager()
 
