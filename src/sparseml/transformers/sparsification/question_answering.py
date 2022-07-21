@@ -61,7 +61,6 @@ class _QuestionAnsweringTrainer(Trainer):
         *args,
         eval_examples=None,
         post_process_function=None,
-        no_amp_eval=False,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
@@ -79,9 +78,9 @@ class _QuestionAnsweringTrainer(Trainer):
         eval_dataloader = self.get_eval_dataloader(eval_dataset)
         eval_examples = self.eval_examples if eval_examples is None else eval_examples
 
+        # Always evaluate w/ fp32 to be closer to DeepSparse
         use_amp = self.use_amp
-        if self.no_amp_eval:
-            self.use_amp = False
+        self.use_amp = False
 
         # Temporarily disable metric computation, we will do it in the loop here.
         compute_metrics = self.compute_metrics

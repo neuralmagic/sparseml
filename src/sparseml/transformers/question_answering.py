@@ -291,15 +291,6 @@ class DataTrainingArguments:
         default=0,
         metadata={"help": "Number of samples (inputs/outputs) to export during eval."},
     )
-    no_amp_eval: bool = field(
-        default=False,
-        metadata={
-            "help": (
-                "If true, do not use mixed precision when evaluating model "
-                "(for use during training with mixed precision)"
-            )
-        },
-    )
 
     def __post_init__(self):
         if (
@@ -794,7 +785,6 @@ def main(**kwargs):
         data_collator=data_collator,
         post_process_function=post_processing_function,
         compute_metrics=compute_metrics,
-        no_amp_eval=data_args.no_amp_eval,
     )
 
     # Training
