@@ -85,7 +85,7 @@ The [GitHub repository](https://github.com/neuralmagic/sparseml) contains integr
 ### Creating Sparse Models
 
 <p>
-    <a href="https://github.com/neuralmagic/sparseml/tree/main/integrations/pytorch/notebooks/classification.ipynb">
+    <a href="https://github.com/neuralmagic/sparseml/tree/main/examples/classification.ipynb">
         <img src="https://docs.neuralmagic.com/docs/source/tutorials/classification_resnet-50.png" width="136px" />
     </a>
     <a href="https://github.com/neuralmagic/sparseml/tree/main/integrations/ultralytics-yolov3/tutorials/sparsifying_yolov3_using_recipes.md">
@@ -102,7 +102,7 @@ The [GitHub repository](https://github.com/neuralmagic/sparseml) contains integr
 ### Transfer Learning from Sparse Models
 
 <p>
-    <a href="https://github.com/neuralmagic/sparseml/tree/main/integrations/pytorch/notebooks/sparse_quantized_transfer_learning.ipynb">
+    <a href="https://github.com/neuralmagic/sparseml/tree/main/examples/sparse_quantized_transfer_learning.ipynb">
         <img src="https://docs.neuralmagic.com/docs/source/tutorials/classification_resnet-50.png" width="136px" />
     </a>
     <a href="https://github.com/neuralmagic/sparseml/blob/main/integrations/ultralytics-yolov3/tutorials/yolov3_sparse_transfer_learning.md">
@@ -129,10 +129,10 @@ The [GitHub repository](https://github.com/neuralmagic/sparseml) contains integr
 &emsp; **Notebooks**
 
 - [Keras Image Classification Model Pruning Using SparseML](https://github.com/neuralmagic/sparseml/blob/main/integrations/keras/notebooks/classification.ipynb)
-- [PyTorch Image Classification Model Pruning Using SparseML](https://github.com/neuralmagic/sparseml/blob/main/integrations/pytorch/notebooks/classification.ipynb)
-- [PyTorch Image Detection Model Pruning Using SparseML](https://github.com/neuralmagic/sparseml/blob/main/integrations/pytorch/notebooks/detection.ipynb)
-- [Sparse-Quantized Transfer Learning in PyTorch Using SparseML](https://github.com/neuralmagic/sparseml/blob/main/integrations/pytorch/notebooks/sparse_quantized_transfer_learning.ipynb)
-- [Torchvision Classification Model Pruning Using SparseML](https://github.com/neuralmagic/sparseml/blob/main/integrations/pytorch/notebooks/torchvision.ipynb)
+- [PyTorch Image Classification Model Pruning Using SparseML](https://github.com/neuralmagic/sparseml/blob/main/examples/classification.ipynb)
+- [PyTorch Image Detection Model Pruning Using SparseML](https://github.com/neuralmagic/sparseml/blob/main/examples/detection.ipynb)
+- [Sparse-Quantized Transfer Learning in PyTorch Using SparseML](https://github.com/neuralmagic/sparseml/blob/main/examples/sparse_quantized_transfer_learning.ipynb)
+- [Torchvision Classification Model Pruning Using SparseML](https://github.com/neuralmagic/sparseml/blob/main/examples/torchvision.ipynb)
 - [TensorFlow v1 Classification Model Pruning Using SparseML](https://github.com/neuralmagic/sparseml/blob/main/integrations/tensorflow_v1/notebooks/classification.ipynb)
 
 ### 📰 NLP
