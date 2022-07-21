@@ -786,7 +786,8 @@ class TrainerInterface(RecipeManagerTrainerInterface):
 
         # Always evaluate w/ fp32 to be closer to DeepSparse
         use_amp = self.use_amp
-        self.use_amp = False
+        if not self.args.fp16_full_eval and not self.args.bf16_full_eval:
+            self.use_amp = False
 
         output = super().evaluate(*args, **kwargs)
         self.use_amp = use_amp

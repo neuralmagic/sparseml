@@ -80,7 +80,8 @@ class _QuestionAnsweringTrainer(Trainer):
 
         # Always evaluate w/ fp32 to be closer to DeepSparse
         use_amp = self.use_amp
-        self.use_amp = False
+        if not self.args.fp16_full_eval and not self.args.bf16_full_eval:
+            self.use_amp = False
 
         # Temporarily disable metric computation, we will do it in the loop here.
         compute_metrics = self.compute_metrics
