@@ -13,8 +13,8 @@ LABEL org.opencontainers.image.authors = "Neuralmagic, Inc."
 LABEL org.opencontainers.image.source = "https://github.com/neuralmagic/sparseml"
 LABEL org.opencontainers.image.licenses = "Apache License 2.0"
 
-RUN rm /etc/apt/sources.list.d/cuda.list
-RUN rm /etc/apt/sources.list.d/nvidia-ml.list
+RUN if [ -f /etc/apt/sources.list.d/cuda.list ] ; then rm /etc/apt/sources.list.d/cuda.list ; fi
+RUN if [ -f /etc/apt/sources.list.d/nvidia-ml.list ] ; then rm /etc/apt/sources.list.d/nvidia-ml.list ; fi
 
 RUN : \
     && apt-get update \
