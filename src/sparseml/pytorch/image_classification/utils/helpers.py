@@ -51,6 +51,7 @@ from sparseml.pytorch.utils import (
 )
 from sparseml.utils import create_dirs
 from sparsezoo import Zoo
+from sparsezoo.v2.helpers import setup_model_directory
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -67,7 +68,50 @@ __all__ = [
     "get_loss_wrapper",
     "ddp_aware_model_move",
     "extract_metadata",
+    "get_model_directory",
 ]
+
+
+def get_model_directory(
+    output_dir: str, training_outputs_dir: str, logs_path: Optional[str] = None
+) -> None:
+    """
+    Takes the `training_outputs_dir`
+    (the directory where the pipeline saves its training artifacts),
+    and saves the training artifacts to `output_dir` in the `ModelDirectory` structure.
+
+    :param output_dir: The output path where the artifacts are saved
+        (adhering to the in `ModelDirectory` structure)
+    :param training_outputs_dir: The path to the existing directory
+        with the saved training artifacts
+    :param logs_path: Optional directory where the training logs reside
+    """
+    for root_file in ["model.onnx", "sample_inputs", "sample_outputs", "sample_labels"]:
+        root_file_path = os.path.join(training_outputs_dir, root_file)
+        if not os.path.exists(root_file_path):
+            raise ValueError(
+                f"File {root_file_path} missing. To create this file, "
+                "make sure that the `export` script (for exporting image "
+                "classification models) has been evoked."
+            )
+
+    setup_model_directory(
+        output_dir=output_dir,
+        training=os.path.join(training_outputs_dir, "training"),
+        deployment=os.path.join(training_outputs_dir, "model.onnx"),
+        onnx_model=os.path.join(training_outputs_dir, "model.onnx"),
+        sample_inputs=os.path.join(training_outputs_dir, "sample_inputs"),
+        sample_outputs=os.path.join(training_outputs_dir, "sample_outputs"),
+        sample_labels=os.path.join(training_outputs_dir, "sample_labels"),
+        model_card=os.path.join(training_outputs_dir, "model.md"),
+        logs=logs_path,
+        sample_originals=None,
+        analysis=None,
+        benchmarks=None,
+        eval_results=None,
+        recipes=None,
+    )
+    _LOGGER.info(f"Created `ModelDirectory` folder locally in {output_dir}")
 
 
 @unique
