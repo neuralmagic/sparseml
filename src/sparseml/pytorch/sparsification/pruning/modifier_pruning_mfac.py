@@ -238,7 +238,7 @@ class MFACPruningModifier(BaseGradualPruningModifier):
     @ModifierProp(serializable=True)
     def grad_sampler_kwargs(self) -> Optional[Dict[str, Any]]:
         """
-        Return dict of training dataloader's overriden configs for gradient sampling
+        Return dict of training dataloader configs overriden for gradient sampling
         """
         return self._grad_sampler_kwargs
 
