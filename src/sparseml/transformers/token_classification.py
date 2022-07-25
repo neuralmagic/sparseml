@@ -660,6 +660,7 @@ def main(**kwargs):
 
         trainer.save_model()  # Saves the tokenizer too for easy upload
         trainer.save_state()
+        trainer.save_optimizer_and_scheduler(training_args.output_dir)
 
     # Evaluation
     if training_args.do_eval and not trainer.one_shot:
