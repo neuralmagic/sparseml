@@ -178,6 +178,20 @@ def _setup_entry_points() -> Dict:
         ]
     )
 
+    # instance segmentation integration
+
+    yolact_top_level_callable = "sparseml.yolact"
+    yolact_scripts_path = "sparseml.yolact.scripts"
+
+    entry_points["console_scripts"].extend(
+        [
+            f"{yolact_top_level_callable}.export_onnx={yolact_scripts_path}:export",
+            f"{yolact_top_level_callable}.train={yolact_scripts_path}:train",
+            f"{yolact_top_level_callable}.validation={yolact_scripts_path}:val",
+            f"{yolact_top_level_callable}.download={yolact_scripts_path}:download",
+        ]
+    )
+
     return entry_points
 
 
@@ -209,7 +223,7 @@ setup(
     install_requires=_setup_install_requires(),
     extras_require=_setup_extras(),
     entry_points=_setup_entry_points(),
-    python_requires=">=3.6.0",
+    python_requires=">=3.6.0,<3.10",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Programming Language :: Python :: 3",
