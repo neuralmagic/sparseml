@@ -7,8 +7,14 @@ FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu18.04 as base
 # As of 05/05/22 nvidia images are broken. Two lines below are a temporary fix.
 # Source: https://github.com/NVIDIA/nvidia-docker/issues/1632
 
-RUN rm /etc/apt/sources.list.d/cuda.list
-RUN rm /etc/apt/sources.list.d/nvidia-ml.list
+# metainformation
+LABEL org.opencontainers.image.version = "1.0.1"
+LABEL org.opencontainers.image.authors = "Neuralmagic, Inc."
+LABEL org.opencontainers.image.source = "https://github.com/neuralmagic/sparseml"
+LABEL org.opencontainers.image.licenses = "Apache License 2.0"
+
+RUN if [ -f /etc/apt/sources.list.d/cuda.list ] ; then rm /etc/apt/sources.list.d/cuda.list ; fi
+RUN if [ -f /etc/apt/sources.list.d/nvidia-ml.list ] ; then rm /etc/apt/sources.list.d/nvidia-ml.list ; fi
 
 RUN : \
     && apt-get update \
