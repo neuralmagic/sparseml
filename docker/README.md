@@ -12,6 +12,7 @@ You can access the already built image detailed at https://github.com/orgs/neura
 
 ```bash
 docker pull ghcr.io/neuralmagic/sparseml:1.0.1-ubuntu18.04-cu11.1
+docker tag ghcr.io/neuralmagic/sparseml:1.0.1-ubuntu18.04-cu11.1 sparseml_docker
 ```
 
 ## Extend
