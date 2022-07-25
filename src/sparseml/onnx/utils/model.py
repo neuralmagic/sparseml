@@ -40,7 +40,8 @@ from sparseml.onnx.utils.helpers import (
     get_prunable_node_from_foldable,
     is_foldable_node,
 )
-from sparsezoo.objects import File, Model
+from sparsezoo.objects.model import Model
+from sparsezoo.objects.file import File
 
 
 try:
@@ -574,7 +575,7 @@ class _DeepSparseBaseModelRunner(ModelRunner):
 
     def __init__(
         self,
-        model: Union[str, ModelProto, Model, File],
+        model: Union[str, ModelProto, Model, "File"],
         batch_size: int,
         num_cores: int,
         loss: Union[

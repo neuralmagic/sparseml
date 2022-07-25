@@ -36,7 +36,6 @@ from sparseml.optim import (
 )
 from sparseml.pytorch.sparsification.modifier import Modifier, ScheduledModifier
 from sparseml.pytorch.utils import BaseLogger, LoggerManager, is_parallel_model
-from sparsezoo.objects import Recipe
 
 
 __all__ = ["RecipeManagerStepWrapper", "ScheduledModifierManager"]
@@ -257,7 +256,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
 
     @staticmethod
     def from_yaml(
-        file_path: Union[str, Recipe],
+        file_path: Union[str],
         add_modifiers: Optional[List[Modifier]] = None,
         recipe_variables: Optional[Union[Dict[str, Any], str]] = None,
         metadata: Optional[Dict[str, Any]] = None,

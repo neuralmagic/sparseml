@@ -28,10 +28,10 @@ from sparseml.onnx.base import require_onnx, require_onnxruntime
 from sparseml.onnx.framework import framework_info as get_framework_info
 from sparseml.onnx.framework import is_supported
 from sparseml.onnx.utils import DataLoader, ORTModelRunner, max_available_cores
-from sparsezoo.models import Zoo
-from sparsezoo.objects import File, Model
-from sparsezoo.utils import DataLoader as SparseZooDataLoader
-from sparsezoo.utils import Dataset as SparseZooDataset
+from sparsezoo.objects.model import Model
+from sparsezoo.objects.file import File
+#from sparsezoo.utils import DataLoader as SparseZooDataLoader
+#from sparsezoo.utils import Dataset as SparseZooDataset
 
 
 __all__ = [
@@ -295,10 +295,10 @@ def load_model(model: Any, **kwargs) -> ModelProto:
 
     if isinstance(model, Model):
         # default to the main onnx file for the model
-        model = model.onnx_file.downloaded_path()
+        model = model.onnx_file.get_path()
     elif isinstance(model, File):
         # get the downloaded_path -- will auto download if not on local system
-        model = model.downloaded_path()
+        model = model.get_path()
     elif isinstance(model, ModelProto):
         return model
 

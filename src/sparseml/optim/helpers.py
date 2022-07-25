@@ -32,8 +32,7 @@ from sparseml.utils import (
     UnknownVariableException,
     restricted_eval,
 )
-from sparsezoo import Zoo
-from sparsezoo.objects import Recipe
+from sparsezoo import Model
 
 
 __all__ = [
@@ -50,7 +49,7 @@ __all__ = [
 
 
 def load_recipe_yaml_str(
-    file_path: Union[str, Recipe],
+    file_path: str,
     **variable_overrides,
 ) -> str:
     """
@@ -82,8 +81,8 @@ def load_recipe_yaml_str(
 
     if file_path.startswith("zoo:"):
         # download from zoo stub
-        recipe = Zoo.download_recipe_from_stub(file_path)
-        file_path = recipe.downloaded_path()
+        model = Model(file_path)
+        file_path = model.recipe.get_path()
 
     # load the yaml string
     if "\n" in file_path or "\r" in file_path:

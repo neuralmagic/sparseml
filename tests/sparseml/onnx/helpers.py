@@ -19,7 +19,7 @@ import pytest
 import torch
 
 from sparseml.pytorch.utils import ModuleExporter
-from sparsezoo import Zoo
+from sparsezoo import Model
 from tests.sparseml.pytorch.helpers import ConvNet, LinearNet, MLPNet
 
 
@@ -992,50 +992,22 @@ OnnxRepoModelFixture = NamedTuple(
     scope="session",
     params=[
         (
-            {
-                "domain": "cv",
-                "sub_domain": "classification",
-                "architecture": "resnet_v1",
-                "sub_architecture": "50",
-                "framework": "pytorch",
-                "repo": "sparseml",
-                "dataset": "imagenet",
-                "training_scheme": None,
-                "sparse_name": "base",
-                "sparse_category": "none",
-                "sparse_target": None,
-            },
+            "zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/base-none",
             "resnet50",
         ),
         (
-            {
-                "domain": "cv",
-                "sub_domain": "classification",
-                "architecture": "mobilenet_v1",
-                "sub_architecture": "1.0",
-                "framework": "pytorch",
-                "repo": "sparseml",
-                "dataset": "imagenet",
-                "training_scheme": None,
-                "sparse_name": "base",
-                "sparse_category": "none",
-                "sparse_target": None,
-            },
+            "zoo:cv/classification/mobilenet_v1-1.0/pytorch/sparseml/imagenet/base-none",
             "mobilenet",
         ),
     ],
 )
 def onnx_repo_models(request) -> OnnxRepoModelFixture:
-    model_args, model_name = request.param
-    model = Zoo.load_model(**model_args)
-    model_path = model.onnx_file.downloaded_path()
-    data_paths = [data_file.downloaded_path() for data_file in model.data.values()]
-
-    input_paths = None
-    output_paths = None
-    for path in data_paths:
-        if "sample-inputs" in path:
-            input_paths = path
-        elif "sample-outputs" in path:
-            output_paths = path
+    model_stub, model_name = request.param
+    model = Model(model_stub)
+    model_path = model.onnx_model.get_path()
+    input_paths, output_paths = None, None
+    if model.sample_inputs:
+        input_paths = model.sample_inputs.get_path()
+    if model.sample_outputs:
+        outputs_paths = model.sample_outputs["framework"].get_path()
     return OnnxRepoModelFixture(model_path, model_name, input_paths, output_paths)

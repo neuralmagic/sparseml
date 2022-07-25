@@ -25,7 +25,7 @@ from transformers import AutoConfig
 
 from sparseml.pytorch.optim import ScheduledModifierManager
 from sparseml.transformers.sparsification import Trainer
-from sparsezoo import Zoo
+from sparsezoo import Model
 from sparsezoo.utils import load_numpy_list
 from src.sparseml.transformers import export_transformer_to_onnx, load_task_model
 
@@ -86,32 +86,18 @@ def _compare_onnx_models(model_1, model_2):
         assert nodes1_count[node] == nodes2_count[node]
 
 
-# TODO: Remove this function once yaml recipes supplied
-def _attempt_copy_original_recipe(model_path):
-    recipe_path = os.path.join(os.path.dirname(model_path), "recipes")
-    recipe_path = recipe_path if os.path.exists(recipe_path) else model_path
-
-    recipe_match = glob.glob(os.path.join(recipe_path, "*.md")) or glob.glob(
-        os.path.join(recipe_path, "*recipe")
-    )
-    recipe = str(recipe_match[0]) if recipe_match else None
-
-    if recipe:
-        manager = ScheduledModifierManager.from_yaml(recipe)
-        manager.save(os.path.join(model_path, "recipe.yaml"))
-
 
 @pytest.mark.parametrize(
     "model_stub, recipe_present, task",
     [
         (
             "zoo:nlp/question_answering/bert-base/pytorch/huggingface/squad/pruned-conservative",  # noqa: E501
-            True,
+            False,
             "question-answering",
         ),
         (
             "zoo:nlp/sentiment_analysis/bert-base/pytorch/huggingface/sst2/12layer_pruned80_quant-none-vnni",  # noqa: E501
-            True,
+            False,
             "sentiment-analysis",
         ),
     ],
@@ -122,29 +108,27 @@ class TestModelFromZoo:
     def setup(self, model_stub, recipe_present, task):
         # setup
         self.onnx_retrieved_name = "retrieved_model.onnx"
-        model = Zoo.load_model_from_stub(model_stub)
-        model.download()
-        _attempt_copy_original_recipe(model.framework_files[0].dir_path)
+        model = Model(model_stub)
 
         yield model, recipe_present, task
 
         # teardown
-        model_path = model.framework_files[0].dir_path
-        shutil.rmtree(os.path.dirname(model_path))
+        model_path = model.get_path()
+        shutil.rmtree(model_path)
 
     def test_load_weights_apply_recipe(self, setup):
         model, recipe_present, task = setup
-        model_path = model.framework_files[0].dir_path
+        model_path = model.training.default.get_path()
 
         config = AutoConfig.from_pretrained(model_path)
-        model = load_task_model(task, model_path, config)
+        network = load_task_model(task, model_path, config)
 
         assert model
         assert recipe_present == _is_yaml_recipe_present(model_path)
 
         if recipe_present:
             trainer = Trainer(
-                model=model,
+                model=network,
                 model_state_path=model_path,
                 recipe=None,
                 recipe_args=None,
@@ -156,8 +140,8 @@ class TestModelFromZoo:
 
     def test_export_to_onnx(self, setup):
         model, recipe_present, task = setup
-        path_onnx = model.onnx_file.downloaded_path()
-        model_path = model.framework_files[0].dir_path
+        path_onnx = model.onnx_model.get_path()
+        model_path = model.training.default.get_path()
 
         path_retrieved_onnx = export_transformer_to_onnx(
             task=task,
@@ -176,9 +160,9 @@ class TestModelFromZoo:
     def test_outputs_ort(self, setup):
 
         model, recipe_present, task = setup
-        path_onnx = model.onnx_file.downloaded_path()
-        model_path = model.framework_files[0].dir_path
-        inputs_path = model.data_inputs.path
+        inputs_path = model.sample_inputs.get_path()
+        path_onnx = model.onnx_model.get_path()
+        model_path = model.training.default.get_path()
 
         input_data = load_numpy_list(inputs_path)[0]
 

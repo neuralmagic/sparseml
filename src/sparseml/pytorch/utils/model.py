@@ -25,7 +25,7 @@ from torch.optim.optimizer import Optimizer
 
 from sparseml.pytorch.utils.helpers import thin_model_from_checkpoint
 from sparseml.utils.helpers import create_parent_dirs
-from sparsezoo import Zoo
+from sparsezoo import Model
 
 
 try:

@@ -50,7 +50,7 @@ from sparseml.pytorch.utils import (
     torch_distributed_zero_first,
 )
 from sparseml.utils import create_dirs
-from sparsezoo import Zoo
+from sparsezoo import Model
 from sparsezoo.v2.helpers import setup_model_directory
 
 
@@ -572,10 +572,7 @@ def _download_model_from_zoo_using_recipe(
             f" but got {recipe_stub} instead"
         )
 
-    files = Zoo.download_recipe_base_framework_files(
-        stub=recipe_stub,
-        extensions=[".pth"],
-    )
+    files = Model(recipe_stub).training.files
 
     checkpoint_path = files[0]
     return checkpoint_path

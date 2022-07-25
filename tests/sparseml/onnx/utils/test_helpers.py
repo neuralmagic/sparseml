@@ -48,7 +48,7 @@ from sparseml.onnx.utils import (
     model_outputs,
     onnx_nodes_sparsities,
 )
-from sparsezoo import Zoo
+from sparsezoo import Model
 
 
 from tests.sparseml.onnx.helpers import (  # noqa isort: skip
@@ -361,7 +361,7 @@ def test_get_node_params(prunable_onnx_model):
 
 def test_onnx_node_sparsities():
     # runs through nearly all other onnx functions imported above as well
-    models = Zoo.search_models(
+    models = Model.search_models(
         domain="cv",
         sub_domain="classification",
         architecture="mobilenet_v1",

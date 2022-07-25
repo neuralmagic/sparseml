@@ -18,7 +18,7 @@ import os
 import pytest
 
 from sparseml.onnx.optim import ModelAnalyzer, NodeAnalyzer
-from sparsezoo import Zoo
+from sparsezoo import Model
 
 
 from tests.sparseml.onnx.helpers import analyzer_models  # noqa isort: skip
@@ -52,10 +52,10 @@ RELATIVE_PATH = os.path.dirname(os.path.realpath(__file__))
     ],
 )
 def analyzer_models_repo(request):
-    model_args, output_path = request.param
+    model_stub, output_path = request.param
     output_path = os.path.join(RELATIVE_PATH, "test_analyzer_model_data", output_path)
-    model = Zoo.load_model(**model_args)
-    model_path = model.onnx_file.downloaded_path()
+    model = Model(model_stub)
+    model_path = model.onnx_model.get_path()
 
     if GENERATE_TEST_FILES:
         analyzer = ModelAnalyzer(model_path)
