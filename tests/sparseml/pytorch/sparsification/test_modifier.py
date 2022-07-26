@@ -14,7 +14,7 @@
 
 import os
 import sys
-from typing import Callable
+from typing import Any, Callable, Dict
 
 import pytest
 from torch import Tensor
@@ -61,6 +61,11 @@ __all__ = [
     reason="Skipping pytorch tests",
 )
 class ModifierTest(BaseModifierTest):
+    def get_default_initialize_kwargs(self) -> Dict[str, Any]:
+        # add defaults for any required kwargs for modifier initialization
+        # that are not explicitly needed for every test
+        return {}
+
     # noinspection PyMethodOverriding
     def initialize_helper(
         self,
@@ -70,7 +75,10 @@ class ModifierTest(BaseModifierTest):
         log_initialize: bool = True,
         **kwargs,
     ):
-        modifier.initialize(model, epoch, **kwargs)
+        # override any default kwargs with given kwargs
+        initialize_kwargs = self.get_default_initialize_kwargs()
+        initialize_kwargs.update(kwargs)
+        modifier.initialize(model, epoch, **initialize_kwargs)
 
         if log_initialize:
             modifier.initialize_loggers(LoggerManager([PythonLogger()]))
