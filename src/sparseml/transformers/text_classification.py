@@ -651,7 +651,6 @@ def main(**kwargs):
         ):
             raise ValueError("--do_eval requires an explicit validation dataset, "
                              "specified validation percentage, or test as validation")
-
         if data_args.task_name == "mnli":
             eval_dataset = raw_datasets["validation_matched"]
         elif "validation" in raw_datasets:
@@ -662,7 +661,7 @@ def main(**kwargs):
             eval_dataset = raw_datasets["validation"]
         elif data_args.validation_percentage is not None:
             train_dataset, eval_dataset = _split_train_val(train_dataset, data_args.validation_percentage)
-        elif test_as_validation:
+        elif data_args.test_as_validation:
             if "test" not in raw_datasets:
                 raise ValueError("test split not found but test_as_validation is on")
             eval_dataset = raw_datasets["test"]
@@ -747,6 +746,7 @@ def main(**kwargs):
             checkpoint = training_args.resume_from_checkpoint
         elif last_checkpoint is not None:
             checkpoint = last_checkpoint
+
         train_result = trainer.train(resume_from_checkpoint=checkpoint)
         if not trainer.one_shot:
             metrics = train_result.metrics
@@ -788,7 +788,6 @@ def main(**kwargs):
                 else len(eval_dataset)
             )
             metrics["eval_samples"] = min(max_eval_samples, len(eval_dataset))
-
             if task == "mnli-mm":
                 metrics = {k + "_mm": v for k, v in metrics.items()}
             if task is not None and "mnli" in task:

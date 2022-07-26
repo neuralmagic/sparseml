@@ -24,6 +24,7 @@ import warnings
 from dataclasses import asdict
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+import warnings
 import datasets
 import numpy
 import torch
@@ -969,6 +970,21 @@ class TransformersTrainer(HFTransformersTrainer):
             self._signature_columns += ["label", "label_ids"]
 
         return super()._remove_unused_columns(dataset, description)
+
+    def save_optimizer_and_scheduler(self, output_dir: Optional[str] = None):
+        if output_dir is None:
+            output_dir = self.args.output_dir
+
+        # Following the logic in _save_checkpoint
+        if self.sharded_ddp == ShardedDDPOption.SIMPLE:
+            self.optimizer.consolidate_state_dict()
+        if self.is_world_process_zero():
+            torch.save(self.optimizer.state_dict(), os.path.join(output_dir, "optimizer.pt"))
+            with warnings.catch_warnings(record=True) as caught_warnings:
+                torch.save(self.lr_scheduler.state_dict(), os.path.join(output_dir, "scheduler.pt"))
+            reissue_pt_warnings(caught_warnings)
+            if self.use_amp:
+                torch.save(self.scaler.state_dict(), os.path.join(output_dir, "scaler.pt"))
 
 
 class Trainer(TrainerInterface, TransformersTrainer):
