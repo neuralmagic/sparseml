@@ -532,7 +532,7 @@ class RecipeManagerTrainerInterface:
                 sample_output_filename = os.path.join(
                     f"{sample_out_dir}", f"out-{file_idx}.npz"
                 )
-                numpy.savez(sample_output_filename, *output_dict)
+                numpy.savez(sample_output_filename, **output_dict)
                 num_samples += 1
 
                 if num_samples >= num_samples_to_export:
@@ -783,7 +783,14 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         :return: the output from super.evaluate()
         """
         applied = self.apply_manager(epoch=math.inf, checkpoint=None)
+
+        # Always evaluate w/ fp32 to be closer to DeepSparse
+        use_amp = self.use_amp
+        if not self.args.fp16_full_eval and not self.args.bf16_full_eval:
+            self.use_amp = False
+
         output = super().evaluate(*args, **kwargs)
+        self.use_amp = use_amp
         if applied:
             self.finalize_manager()
 
