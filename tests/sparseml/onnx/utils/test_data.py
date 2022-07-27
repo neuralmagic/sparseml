@@ -38,9 +38,7 @@ DataloaderModelFixture = NamedTuple(
 @pytest.fixture(
     params=[
         (
-
             "zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/base-none",
-
             {"input": (1, 3, 224, 224)},
             {"output_0": (1, 1000), "output_1": (1, 1000)},
             {"input": numpy.dtype("float32")},
@@ -56,7 +54,7 @@ DataloaderModelFixture = NamedTuple(
 def dataloader_models(request) -> DataloaderModelFixture:
     model_stub, input_shapes, output_shapes, data_types = request.param
     model = Model(model_stub)
-    model_path = model.onnx_model.get_path()
+    model_path = model.onnx_model.path
 
     return DataloaderModelFixture(model_path, input_shapes, output_shapes, data_types)
 

@@ -25,6 +25,7 @@ from merge_args import merge_args
 from sparseml.pytorch.utils import load_model
 from sparseml.utils import parse_optimization_str, wrapper_decorator
 from sparseml.utils.frameworks import PYTORCH_FRAMEWORK
+from sparsezoo import Model
 
 
 __all__ = [
@@ -149,7 +150,7 @@ class ModelRegistry(object):
             pretrained if isinstance(pretrained, str) else attributes.default_desc
         )
 
-        return Zoo.load_model(
+        return Model.load_model(
             attributes.domain,
             attributes.sub_domain,
             attributes.architecture,

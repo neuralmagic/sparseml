@@ -14,8 +14,7 @@
 
 import logging
 import os
-from collections import OrderedDict
-from typing import Any, Dict, Iterable, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Union
 
 import onnx
 from onnx import ModelProto
@@ -28,7 +27,7 @@ from sparseml.onnx.base import require_onnx, require_onnxruntime
 from sparseml.onnx.framework import framework_info as get_framework_info
 from sparseml.onnx.framework import is_supported
 from sparseml.onnx.utils import ORTModelRunner, max_available_cores
-from sparsezoo import Model, File
+from sparsezoo import File, Model
 
 
 __all__ = [
@@ -288,13 +287,15 @@ def load_model(model: Any, **kwargs) -> ModelProto:
 
     if isinstance(model, str) and model.startswith("zoo:"):
         model = Model(model)
+        if "path" in kwargs:
+            model.path = kwargs["path"]
 
     if isinstance(model, Model):
         # default to the main onnx file for the model
-        model = model.onnx_model.get_path(**kwargs)
+        model = model.onnx_model.path
     elif isinstance(model, File):
         # get the downloaded_path -- will auto download if not on local system
-        model = model.get_path()
+        model = model.path
     elif isinstance(model, ModelProto):
         return model
 

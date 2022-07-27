@@ -88,8 +88,9 @@ def _test_resnet_identity_quant(model_path, has_resnet_block, save_optimized):
 )
 def test_quantize_model_post_training_resnet50_imagenette():
     # Prepare model paths
-    resnet50_imagenette_path = \
-        Model("zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenette/base-none").onnx_model.path
+    resnet50_imagenette_path = Model(
+        "zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenette/base-none"
+    ).onnx_model.path
     quant_model_path = tempfile.NamedTemporaryFile(suffix=".onnx", delete=False).name
 
     # Prepare sample validation dataset

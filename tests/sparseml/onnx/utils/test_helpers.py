@@ -48,7 +48,7 @@ from sparseml.onnx.utils import (
     model_outputs,
     onnx_nodes_sparsities,
 )
-from sparsezoo import Model
+from sparsezoo import search_models
 
 
 from tests.sparseml.onnx.helpers import (  # noqa isort: skip
@@ -361,7 +361,7 @@ def test_get_node_params(prunable_onnx_model):
 
 def test_onnx_node_sparsities():
     # runs through nearly all other onnx functions imported above as well
-    models = Model.search_models(
+    models = search_models(
         domain="cv",
         sub_domain="classification",
         architecture="mobilenet_v1",
@@ -374,7 +374,7 @@ def test_onnx_node_sparsities():
     assert len(models) > 0
 
     for model in models:
-        file_path = model.onnx_file.downloaded_path()
+        file_path = model.onnx_model.path
 
         tot, nodes = onnx_nodes_sparsities(file_path)
 

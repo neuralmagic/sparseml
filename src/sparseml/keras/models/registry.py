@@ -22,6 +22,7 @@ from merge_args import merge_args
 from sparseml import get_main_logger
 from sparseml.keras.utils import keras
 from sparseml.utils import KERAS_FRAMEWORK, parse_optimization_str, wrapper_decorator
+from sparsezoo import Model
 
 
 __all__ = [
@@ -126,7 +127,7 @@ class ModelRegistry(object):
             pretrained if isinstance(pretrained, str) else attributes.default_desc
         )
 
-        return Zoo.load_model(
+        return Model.load_model(
             attributes.domain,
             attributes.sub_domain,
             attributes.architecture,

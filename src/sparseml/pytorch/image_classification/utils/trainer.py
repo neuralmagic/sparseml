@@ -329,7 +329,8 @@ class ImageClassificationTrainer(Trainer):
 
     def _setup_checkpoint_manager(self):
         if self.checkpoint_path and self.checkpoint_path.startswith("zoo"):
-            self.checkpoint_path = Model(self.checkpoint_path
+            self.checkpoint_path = Model(
+                self.checkpoint_path
             ).training.default.search_file(".pth")[0]
         checkpoint_state = torch.load(self.checkpoint_path)
         checkpoint_manager = None

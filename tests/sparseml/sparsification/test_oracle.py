@@ -17,9 +17,11 @@ import os
 from typing import NamedTuple
 
 import pytest
-from sparsezoo import Model
+
 from sparseml.onnx.sparsification import PruningPerformanceSensitivityAnalyzer
 from sparseml.sparsification import create_pruning_recipe
+from sparsezoo import Model
+
 
 try:
     from sparseml.pytorch.models import mobilenet, resnet18
@@ -43,8 +45,16 @@ OracleTestFixture = NamedTuple(
 @pytest.fixture(
     scope="session",
     params=[
-        ("zoo:cv/classification/mobilenet_v1-1.0/pytorch/sparseml/imagenet/base-none", "mobilenet.yaml", mobilenet),
-        ("zoo:cv/classification/resnet_v1-18/pytorch/sparseml/imagenet/base-none", "resnet18.yaml", resnet18),
+        (
+            "zoo:cv/classification/mobilenet_v1-1.0/pytorch/sparseml/imagenet/base-none",  # noqa 501
+            "mobilenet.yaml",
+            mobilenet,
+        ),
+        (
+            "zoo:cv/classification/resnet_v1-18/pytorch/sparseml/imagenet/base-none",
+            "resnet18.yaml",
+            resnet18,
+        ),
     ],
 )
 def oracle_test_params(request) -> OracleTestFixture:

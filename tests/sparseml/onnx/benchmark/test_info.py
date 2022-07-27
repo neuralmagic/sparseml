@@ -14,7 +14,6 @@
 
 import tempfile
 from collections import OrderedDict
-from typing import Dict, List, Tuple
 
 import numpy
 import onnx
@@ -22,9 +21,8 @@ import pytest
 
 from pytest_mock import MockerFixture, mocker  # noqa: F401
 from sparseml.base import Framework
-from sparseml.benchmark.serialization import BatchBenchmarkResult, BenchmarkResult
+from sparseml.benchmark.serialization import BatchBenchmarkResult
 from sparseml.onnx.benchmark import ORTBenchmarkRunner, load_model
-from sparseml.onnx.benchmark.info import load_data
 from sparseml.onnx.framework import framework_info as get_framework_info
 from sparsezoo import Model
 
@@ -37,7 +35,7 @@ MOCK_BENCHMARK_RETURN_VALUE = 0.5
 def mobilenet_fixture() -> Model:
     with tempfile.TemporaryDirectory() as onnx_dir:
         model = Model(TEST_STUB)
-        model.onnx_model.download(onnx_dir)
+        model.path = onnx_dir
         yield model
 
 
@@ -64,24 +62,23 @@ def cpu_runner_fixture(
 
 class TestLoadModel:
     def test_load_model_from_sparsezoo_model(self, mobilenet_fixture: Model):
-        onnx_model = onnx.load(mobilenet_fixture.onnx_model.get_path())
+        onnx_model = onnx.load(mobilenet_fixture.onnx_model.path)
         assert load_model(mobilenet_fixture) == onnx_model
 
     def test_load_model_from_sparsezoo_file(self, mobilenet_fixture: Model):
-        onnx_model = onnx.load(mobilenet_fixture.onnx_model.get_path())
+        onnx_model = onnx.load(mobilenet_fixture.onnx_model.path)
         assert load_model(mobilenet_fixture.onnx_model) == onnx_model
 
     def test_load_model_from_stub(self, mobilenet_fixture: Model):
-        onnx_model = onnx.load(mobilenet_fixture.onnx_model.get_path())
-        assert (load_model(TEST_STUB, download_directory = mobilenet_fixture.get_path()) == onnx_model
-        )
+        onnx_model = onnx.load(mobilenet_fixture.onnx_model.path)
+        assert load_model(TEST_STUB, path=mobilenet_fixture._path) == onnx_model
 
     def test_load_model_from_path(self, mobilenet_fixture: Model):
-        onnx_model = onnx.load(mobilenet_fixture.onnx_model.get_path())
-        assert load_model(mobilenet_fixture.onnx_model.get_path()) == onnx_model
+        onnx_model = onnx.load(mobilenet_fixture.onnx_model.path)
+        assert load_model(mobilenet_fixture.onnx_model.path) == onnx_model
 
     def test_load_model_from_onnx(self, mobilenet_fixture: Model):
-        onnx_model = onnx.load(mobilenet_fixture.onnx_model.get_path())
+        onnx_model = onnx.load(mobilenet_fixture.onnx_model.path)
 
         assert load_model(onnx_model) == onnx_model
 
@@ -137,76 +134,6 @@ class TestOrtBenchmarkRunner:
         cpu_runner_fixture._model_runner.batch_forward.assert_called_with(mock_data[0])
         assert isinstance(benchmark_result, BatchBenchmarkResult)
         assert benchmark_result.batch_time == MOCK_BENCHMARK_RETURN_VALUE
-
-    def test_run(
-        self,
-        mocker: MockerFixture,  # noqa: F811
-        cpu_runner_fixture: ORTBenchmarkRunner,
-    ):
-        mock_data = [OrderedDict([("arr00", numpy.random.randn(3, 224, 224))])] * 5
-
-        data_loader = load_data(
-            mock_data,
-            cpu_runner_fixture.model,
-            batch_size=cpu_runner_fixture.batch_size,
-            total_iterations=cpu_runner_fixture.iterations
-            + cpu_runner_fixture.warmup_iterations,
-        )
-        benchmark_results = cpu_runner_fixture.run(mock_data)
-
-        mock_calls = cpu_runner_fixture._model_runner.batch_forward.call_args_list
-        for mock_call, (data, _) in zip(mock_calls, data_loader):
-            mock_args, _ = mock_call
-            batch_arg = mock_args[0]
-            for key in data:
-                assert batch_arg[key].shape == data[key].shape
-                assert (batch_arg[key] == data[key]).all()
-
-        assert (
-            cpu_runner_fixture._model_runner.batch_forward.call_count
-            == cpu_runner_fixture.iterations + cpu_runner_fixture.warmup_iterations
-        )
-        assert isinstance(benchmark_results, BenchmarkResult)
-        assert len(benchmark_results.results) == cpu_runner_fixture.iterations
-
-    def test_run_iter(
-        self,
-        mocker: MockerFixture,  # noqa: F811
-        cpu_runner_fixture: ORTBenchmarkRunner,
-    ):
-        mock_data = [OrderedDict([("arr00", numpy.random.randn(3, 224, 224))])] * 5
-
-        total_iterations = (
-            cpu_runner_fixture.iterations + cpu_runner_fixture.warmup_iterations
-        )
-        data_loader = load_data(
-            mock_data,
-            cpu_runner_fixture.model,
-            batch_size=cpu_runner_fixture.batch_size,
-            total_iterations=total_iterations,
-        )
-
-        data_list = []
-        for index, (data, _) in enumerate(data_loader):
-            if index > total_iterations:
-                break
-            data_list.append(data)
-
-        for index, benchmark_result in enumerate(
-            cpu_runner_fixture.run_iter(mock_data)
-        ):
-            assert isinstance(benchmark_result, BatchBenchmarkResult)
-            assert (
-                cpu_runner_fixture._model_runner.batch_forward.call_count
-                == index + 1 + cpu_runner_fixture.warmup_iterations
-            )
-            mock_args, _ = cpu_runner_fixture._model_runner.batch_forward.call_args
-            batch_args = mock_args[0]
-            for key in batch_args:
-                assert (
-                    batch_args[key]
-                    == data_list[index + cpu_runner_fixture.warmup_iterations][key]
-                ).all()
 
     def test_benchmark_config(self, cpu_runner_fixture: ORTBenchmarkRunner):
         config = cpu_runner_fixture.benchmark_config

@@ -43,7 +43,6 @@ OnnxModelDataFixture = NamedTuple(
 
 @pytest.fixture(
     params=[
-
         "zoo:cv/classification/mobilenet_v1-1.0/pytorch/sparseml/imagenet/base-none",
     ]
 )

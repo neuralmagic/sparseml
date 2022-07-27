@@ -32,7 +32,7 @@ from sparseml.utils import (
     UnknownVariableException,
     restricted_eval,
 )
-from sparsezoo import Model, File
+from sparsezoo import File, Model
 
 
 __all__ = [
@@ -64,7 +64,7 @@ def load_recipe_yaml_str(
         stub to a SparseZoo model whose recipe will be downloaded and loaded.
         SparseZoo stubs should be preceded by 'zoo:', and can contain an optional
         '?recipe_type=<type>' parameter or include a `/<type>` subpath. Can also
-        be a SparseZoo File object. i.e. '/path/to/local/recipe.yaml',
+        be a SparseZoo File object. i.e. '/path/to/local/recipe.md',
         'zoo:model/stub/path', 'zoo:model/stub/path?recipe_type=transfer_learn',
         'zoo:model/stub/path/transfer_learn'. Additionally, a raw
          yaml str is also supported in place of a file path.
@@ -82,7 +82,7 @@ def load_recipe_yaml_str(
     if file_path.startswith("zoo:"):
         # download from zoo stub
         model = Model(file_path)
-        file_path = model.recipe.path
+        file_path = model.recipes.default.path
 
     # load the yaml string
     if "\n" in file_path or "\r" in file_path:

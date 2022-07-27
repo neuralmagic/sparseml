@@ -21,6 +21,7 @@ import torch
 
 from flaky import flaky
 from sparseml.pytorch.models import ModelRegistry
+from sparsezoo import Model
 from tests.integrations.base_tester import (
     BaseIntegrationManager,
     BaseIntegrationTester,
@@ -36,7 +37,6 @@ from tests.integrations.image_classification.args import (
     ImageClassificationExportArgs,
     ImageClassificationTrainArgs,
 )
-from sparsezoo import Model
 
 
 deepsparse_error = None

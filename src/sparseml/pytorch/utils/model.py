@@ -75,7 +75,7 @@ def load_model(
         This removes "module." all keys
     """
     if path.startswith("zoo:"):
-        path = Model(path).get_file(".pth")
+        path = Model(path).get_file(".pth")[0]
     model_dict = torch.load(path, map_location="cpu")
     current_dict = model.state_dict()
     recipe = model_dict.get("recipe")
