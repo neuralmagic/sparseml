@@ -19,6 +19,7 @@ import onnx
 import pytest
 import torch
 
+from flaky import flaky
 from sparseml.pytorch.models import ModelRegistry
 from sparsezoo import Zoo
 from tests.integrations.base_tester import (
@@ -45,6 +46,7 @@ except Exception as e:
     deepsparse_error = e
 
 
+@flaky(max_runs=2, min_passes=1)
 class ImageClassificationManager(BaseIntegrationManager):
 
     command_stubs = {

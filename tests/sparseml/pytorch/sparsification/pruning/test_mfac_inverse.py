@@ -19,6 +19,7 @@ import torch
 
 from flaky import flaky
 from sparseml.pytorch.sparsification.pruning import (
+    EmpiricalBlockFisherInverse,
     FisherInverseFast,
     FisherInverseFastBlock,
     FisherInverseFastSmallBlocks,
@@ -95,4 +96,77 @@ def test_blocked_fisher_inverse(fisher_algorithm, devices):
             torch.sqrt(torch.mean(torch.square(fast_mul_out))).item() * PRECISION,
         )
         == small_blocks_mul_out
+    )
+
+
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
+)
+@pytest.mark.parametrize(
+    "fisher_block_online_algorithm",
+    [
+        EmpiricalBlockFisherInverse,
+    ],
+)
+@pytest.mark.parametrize(
+    "device",
+    [
+        "cpu",
+        pytest.param(
+            "cuda:0",
+            marks=pytest.mark.skipif(
+                not torch.cuda.is_available(),
+                reason="No CUDA devices available",
+            ),
+        ),
+    ],
+)
+@flaky(max_runs=3, min_passes=2)
+def test_online_blocked_fisher_inverse(fisher_block_online_algorithm, device):
+    total_params = 10000
+    num_grads = 32
+    block_size = 1000
+    damp = 0.000001
+
+    grads1 = torch.rand(num_grads, total_params)
+    grads2 = grads1.clone()
+
+    finv_smallblocks = FisherInverseFastSmallBlocks(
+        grads=grads1,
+        block_size=block_size,
+        damp=damp,
+        devices=[device],
+    )
+
+    finv_block_online = fisher_block_online_algorithm(
+        num_grads=num_grads,
+        fisher_block_size=block_size,
+        num_weights=total_params,
+        damp=damp,
+        device=device,
+    )
+    for i in range(num_grads):
+        finv_block_online.add_grad(grads2[i, :].to(device))
+
+    finv_diag = finv_smallblocks.diag()
+    finv_online_diag = finv_block_online.diag().cpu()
+
+    tensor_to_mul = torch.rand(total_params, device=device)
+    finv_mul_out = finv_smallblocks.mul(tensor_to_mul)
+    finv_online_mul_out = finv_block_online.mul(tensor_to_mul).cpu()
+
+    assert (
+        pytest.approx(
+            finv_diag,
+            torch.sqrt(torch.mean(torch.square(finv_diag))).item() * PRECISION,
+        )
+        == finv_online_diag
+    )
+    assert (
+        pytest.approx(
+            finv_mul_out,
+            torch.sqrt(torch.mean(torch.square(finv_mul_out))).item() * PRECISION,
+        )
+        == finv_online_mul_out
     )

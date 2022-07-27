@@ -25,6 +25,7 @@ from typing import Any, Dict, List, NamedTuple, Optional, Union
 
 import numpy
 import onnx
+import torch
 from onnx import ModelProto, NodeProto, numpy_helper
 
 from sparseml.onnx.utils import (
@@ -34,7 +35,6 @@ from sparseml.onnx.utils import (
     get_node_attributes,
     get_node_output_nodes,
     quantize_resnet_identity_add_inputs,
-    quantized_residual_add_optim,
     remove_node_and_params_from_graph,
     swap_node_output,
     update_model_param,
@@ -323,9 +323,21 @@ def _attribute_to_kwarg(attribute: onnx.AttributeProto):
 def _quantize_array(
     array: numpy.ndarray, scale: float, zero_point: int, dtype: Any = numpy.uint8
 ) -> numpy.ndarray:
-    dmin = numpy.iinfo(dtype).min
-    dmax = numpy.iinfo(dtype).max
-    return ((array / scale).round() + zero_point).clip(dmin, dmax).astype(dtype)
+    if dtype == numpy.uint8:
+        tensor_dtype = torch.quint8
+    elif dtype == numpy.int8:
+        tensor_dtype = torch.qint8
+    elif dtype == numpy.int32:
+        tensor_dtype = torch.qint32
+
+    tensor = torch.Tensor(array).to(torch.float32)
+    if isinstance(scale, numpy.ndarray):
+        scale = scale.item()
+    if isinstance(zero_point, numpy.ndarray):
+        zero_point = zero_point.item()
+
+    quant_tensor = torch.quantize_per_tensor(tensor, scale, zero_point, tensor_dtype)
+    return quant_tensor.int_repr().numpy()
 
 
 def _convert_quantizable_conv(
@@ -450,6 +462,7 @@ def _convert_quantizable_gemm(
         weight_quantize_params.target,
         weight_quantize_params.scale,
         weight_quantize_params.zero_point,
+        weight_quantize_params.zero_point.dtype,
     )
     quantized_weight = quantized_weight.transpose()  # Gemm has implicit transpose
     quantized_weight_name = "{}.weight_quantized".format(gemm_node.name)
@@ -732,6 +745,7 @@ def _add_quantized_conv_matmul_add_ops(
         weight_quantize_params.target,
         weight_quantize_params.scale,
         weight_quantize_params.zero_point,
+        weight_quantize_params.zero_point.dtype,
     )
     if transpose_weight:
         quantized_weight = quantized_weight.transpose()
@@ -1404,7 +1418,9 @@ def _quantize_qat_embedding(model: ModelProto):
         embedding = numpy_helper.to_array(embedding_initializer)
         scale = numpy_helper.to_array(scale_initializer)
         zero_point = numpy_helper.to_array(zp_initializer)
-        embedding_quant = _quantize_array(embedding, scale, zero_point)
+        embedding_quant = _quantize_array(
+            embedding, scale, zero_point, zero_point.dtype
+        )
         embedding_quant_initializer = numpy_helper.from_array(
             embedding_quant, name=f"{embedding_initializer.name}_quant"
         )
@@ -1569,7 +1585,6 @@ def quantize_torch_qat_export(
     _convert_quantizable_gemm_no_activations(model)
     _quantize_qat_embedding(model)
     quantize_resnet_identity_add_inputs(model)
-    quantized_residual_add_optim(model)
     _remove_duplicate_quantize_ops(model)
     _cleanup_unused_quants(model)
 
