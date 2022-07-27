@@ -60,17 +60,18 @@ Complete lists are available online for all [models](https://sparsezoo.neuralmag
 
 Sample code for retrieving a model from the SparseZoo:
 ```python
-from sparsezoo import Zoo
+from sparsezoo import Model
 
-model = Zoo.load_model_from_stub("zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/pruned_quant-moderate")
+model = Model("zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/pruned_quant-moderate")
 print(model)
 ```
 
 Sample code for retrieving a recipe from the SparseZoo:
 ```python
-from sparsezoo import Zoo
+from sparsezoo import Model
 
-recipe = Zoo.load_recipe_from_stub("zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/pruned_quant-moderate/original")
+model = Model("zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/pruned_quant-moderate/original")
+recipe = model.recipe.default
 print(recipe)
 ```
 

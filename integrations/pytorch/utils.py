@@ -45,7 +45,7 @@ from sparseml.pytorch.utils import (
     torch_distributed_zero_first,
 )
 from sparseml.utils import create_dirs
-from sparsezoo import Zoo
+from sparsezoo import Model
 
 
 @unique
@@ -237,9 +237,7 @@ def create_model(args: Any, num_classes: int) -> Module:
     with torch_distributed_zero_first(args.local_rank):  # only download once locally
         if args.checkpoint_path == "zoo":
             if args.recipe_path and args.recipe_path.startswith("zoo:"):
-                args.checkpoint_path = Zoo.download_recipe_base_framework_files(
-                    args.recipe_path, extensions=[".pth"]
-                )[0]
+                args.checkpoint_path = Model(args.recipe_path).training.path
             else:
                 raise ValueError(
                     "'zoo' provided as --checkpoint-path but a SparseZoo stub"

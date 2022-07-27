@@ -25,7 +25,7 @@ from merge_args import merge_args
 from sparseml.pytorch.utils import load_model
 from sparseml.utils import parse_optimization_str, wrapper_decorator
 from sparseml.utils.frameworks import PYTORCH_FRAMEWORK
-from sparsezoo import Model
+from sparsezoo import Model, model_dict_to_stub
 
 
 __all__ = [
@@ -150,21 +150,17 @@ class ModelRegistry(object):
             pretrained if isinstance(pretrained, str) else attributes.default_desc
         )
 
-        return Model.load_model(
-            attributes.domain,
-            attributes.sub_domain,
-            attributes.architecture,
-            attributes.sub_architecture,
-            PYTORCH_FRAMEWORK,
-            attributes.repo_source,
-            attributes.default_dataset
-            if pretrained_dataset is None
-            else pretrained_dataset,
-            None,
-            sparse_name,
-            sparse_category,
-            sparse_target,
-        )
+        model_dict = {"domain": attributes.domain,
+                      "sub_domain": attributes.sub_domain,
+                      "architecture": attributes.architecture,
+                      "sub_architecture": attributes.sub_architecture,
+                      "framework": PYTORCH_FRAMEWORK,
+                      "repo": attributes.repo_source,
+                      "dataset": attributes.default_dataset if pretrained_dataset is None else pretrained_dataset,
+                      "sparse_tag": f"{sparse_name}-{sparse_category}"}
+
+        stub = model_dict_to_stub(model_dict)
+        return Model(stub)
 
     @staticmethod
     def input_shape(key: str) -> Any:
@@ -366,14 +362,12 @@ class ModelRegistry(object):
                     key, pretrained, pretrained_dataset
                 )
                 try:
-                    paths = zoo_model.download_framework_files(extensions=[".pth"])
-                    load_model(paths[0], model, load_strict, ignore)
+                    path = zoo_model.training.default.get_file("model.pth").path
+                    load_model(path, model, load_strict, ignore)
                 except Exception:
                     # try one more time with overwrite on in case file was corrupted
-                    paths = zoo_model.download_framework_files(
-                        overwrite=True, extensions=[".pth"]
-                    )
-                    load_model(paths[0], model, load_strict, ignore)
+                    path = zoo_model.training.default.get_file("model.pth").path
+                    load_model(path, model, load_strict, ignore)
 
             return model
 

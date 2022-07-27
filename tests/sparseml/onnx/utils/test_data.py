@@ -44,7 +44,7 @@ DataloaderModelFixture = NamedTuple(
             {"input": numpy.dtype("float32")},
         ),
         (
-            "zoo:cv/classification/mobilenet_v1-1.0/pytorch/sparseml/imagenet/base-none",
+            "zoo:cv/classification/mobilenet_v1-1.0/pytorch/sparseml/imagenet/base-none",  # noqa 501
             {"input": (1, 3, 224, 224)},
             {"output_0": (1, 1000)},
             {"input": numpy.dtype("float32")},
