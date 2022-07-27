@@ -17,11 +17,9 @@ import os
 from typing import NamedTuple
 
 import pytest
-
+from sparsezoo import Model
 from sparseml.onnx.sparsification import PruningPerformanceSensitivityAnalyzer
 from sparseml.sparsification import create_pruning_recipe
-from sparsezoo.models.classification import mobilenet_v1, resnet_18
-
 
 try:
     from sparseml.pytorch.models import mobilenet, resnet18
@@ -45,13 +43,14 @@ OracleTestFixture = NamedTuple(
 @pytest.fixture(
     scope="session",
     params=[
-        (mobilenet_v1(), "mobilenet.yaml", mobilenet),
-        (resnet_18(), "resnet18.yaml", resnet18),
+        ("zoo:cv/classification/mobilenet_v1-1.0/pytorch/sparseml/imagenet/base-none", "mobilenet.yaml", mobilenet),
+        ("zoo:cv/classification/resnet_v1-18/pytorch/sparseml/imagenet/base-none", "resnet18.yaml", resnet18),
     ],
 )
 def oracle_test_params(request) -> OracleTestFixture:
-    zoo_model, expected_recipe_name, model_lambda = request.param
-    onnx_path = zoo_model.onnx_file.downloaded_path()
+    zoo_stub, expected_recipe_name, model_lambda = request.param
+    zoo_model = Model(zoo_stub)
+    onnx_path = zoo_model.onnx_model.path
     generated_recipe = create_pruning_recipe(
         onnx_path,
         skip_analyzer_types=[PruningPerformanceSensitivityAnalyzer],

@@ -50,13 +50,13 @@ OnnxModelDataFixture = NamedTuple(
 def onnx_models_with_data(request) -> OnnxModelDataFixture:
     model_stub = request.param
     model = Model(model_stub)
-    model_path = model.onnx_model.get_path()
+    model_path = model.onnx_model.path
     inputs_paths = None
     outputs_paths = None
-    if model.sample_inputs:
-        inputs_paths = model.sample_inputs.get_path()
-    if model.sample_outputs:
-        outputs_paths = model.sample_outputs["framework"].get_path()
+    if model.sample_inputs is not None:
+        inputs_paths = model.sample_inputs.path
+    if model.sample_outputs is not None:
+        outputs_paths = model.sample_outputs["framework"].path
     return OnnxModelDataFixture(model_path, inputs_paths, outputs_paths)
 
 

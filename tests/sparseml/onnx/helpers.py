@@ -1004,10 +1004,10 @@ OnnxRepoModelFixture = NamedTuple(
 def onnx_repo_models(request) -> OnnxRepoModelFixture:
     model_stub, model_name = request.param
     model = Model(model_stub)
-    model_path = model.onnx_model.get_path()
+    model_path = model.onnx_model.path
     input_paths, output_paths = None, None
     if model.sample_inputs:
-        input_paths = model.sample_inputs.get_path()
+        input_paths = model.sample_inputs.path
     if model.sample_outputs:
-        outputs_paths = model.sample_outputs["framework"].get_path()
+        output_paths = model.sample_outputs["framework"].path
     return OnnxRepoModelFixture(model_path, model_name, input_paths, output_paths)

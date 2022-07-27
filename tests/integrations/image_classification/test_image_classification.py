@@ -21,7 +21,6 @@ import torch
 
 from flaky import flaky
 from sparseml.pytorch.models import ModelRegistry
-from sparsezoo import Model
 from tests.integrations.base_tester import (
     BaseIntegrationManager,
     BaseIntegrationTester,
@@ -37,6 +36,7 @@ from tests.integrations.image_classification.args import (
     ImageClassificationExportArgs,
     ImageClassificationTrainArgs,
 )
+from sparsezoo import Model
 
 
 deepsparse_error = None
@@ -203,7 +203,7 @@ class TestImageClassification(BaseIntegrationTester):
         if target_model_path.startswith("zoo:"):
             # download zoo model
             zoo_model = Model(target_model_path)
-            target_model_path = zoo_model.onnx_model.get_path()
+            target_model_path = zoo_model.onnx_model.path
         export_model_path = os.path.join(
             export_args.run_args.save_dir,
             export_args.run_args.model_tag,

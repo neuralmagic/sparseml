@@ -40,8 +40,8 @@ from sparseml.onnx.utils.helpers import (
     get_prunable_node_from_foldable,
     is_foldable_node,
 )
-from sparsezoo.objects.model import Model
-from sparsezoo.objects.file import File
+from sparsezoo import Model
+from sparsezoo import File
 
 
 try:

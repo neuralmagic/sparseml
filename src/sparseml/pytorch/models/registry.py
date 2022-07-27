@@ -25,8 +25,6 @@ from merge_args import merge_args
 from sparseml.pytorch.utils import load_model
 from sparseml.utils import parse_optimization_str, wrapper_decorator
 from sparseml.utils.frameworks import PYTORCH_FRAMEWORK
-from sparsezoo import Zoo
-from sparsezoo.objects import Model
 
 
 __all__ = [

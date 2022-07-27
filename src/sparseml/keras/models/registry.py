@@ -22,8 +22,6 @@ from merge_args import merge_args
 from sparseml import get_main_logger
 from sparseml.keras.utils import keras
 from sparseml.utils import KERAS_FRAMEWORK, parse_optimization_str, wrapper_decorator
-from sparsezoo import Zoo
-from sparsezoo.objects import Model
 
 
 __all__ = [

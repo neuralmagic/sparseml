@@ -75,14 +75,7 @@ def load_model(
         This removes "module." all keys
     """
     if path.startswith("zoo:"):
-        if "recipe_type=" in path:
-            path = Zoo.download_recipe_base_framework_files(path, extensions=[".pth"])[
-                0
-            ]
-        else:
-            path = Zoo.load_model_from_stub(path).download_framework_files(
-                extensions=[".pth"]
-            )[0]
+        path = Model(path).get_file(".pth")
     model_dict = torch.load(path, map_location="cpu")
     current_dict = model.state_dict()
     recipe = model_dict.get("recipe")

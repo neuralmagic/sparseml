@@ -113,12 +113,12 @@ class TestModelFromZoo:
         yield model, recipe_present, task
 
         # teardown
-        model_path = model.get_path()
+        model_path = model.path
         shutil.rmtree(model_path)
 
     def test_load_weights_apply_recipe(self, setup):
         model, recipe_present, task = setup
-        model_path = model.training.default.get_path()
+        model_path = model.training.default.path
 
         config = AutoConfig.from_pretrained(model_path)
         network = load_task_model(task, model_path, config)
@@ -140,8 +140,8 @@ class TestModelFromZoo:
 
     def test_export_to_onnx(self, setup):
         model, recipe_present, task = setup
-        path_onnx = model.onnx_model.get_path()
-        model_path = model.training.default.get_path()
+        path_onnx = model.onnx_model.path
+        model_path = model.training.default.path
 
         path_retrieved_onnx = export_transformer_to_onnx(
             task=task,
@@ -160,9 +160,9 @@ class TestModelFromZoo:
     def test_outputs_ort(self, setup):
 
         model, recipe_present, task = setup
-        inputs_path = model.sample_inputs.get_path()
-        path_onnx = model.onnx_model.get_path()
-        model_path = model.training.default.get_path()
+        inputs_path = model.sample_inputs.path
+        path_onnx = model.onnx_model.path
+        model_path = model.training.default.path
 
         input_data = load_numpy_list(inputs_path)[0]
 

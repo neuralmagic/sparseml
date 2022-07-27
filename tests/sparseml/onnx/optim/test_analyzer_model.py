@@ -34,19 +34,7 @@ RELATIVE_PATH = os.path.dirname(os.path.realpath(__file__))
     scope="session",
     params=[
         (
-            {
-                "domain": "cv",
-                "sub_domain": "classification",
-                "architecture": "resnet_v1",
-                "sub_architecture": "50",
-                "framework": "pytorch",
-                "repo": "sparseml",
-                "dataset": "imagenet",
-                "training_scheme": None,
-                "sparse_name": "base",
-                "sparse_category": "none",
-                "sparse_target": None,
-            },
+            "zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/base-none",
             "resnet50pytorch.json",
         ),
     ],
@@ -55,13 +43,12 @@ def analyzer_models_repo(request):
     model_stub, output_path = request.param
     output_path = os.path.join(RELATIVE_PATH, "test_analyzer_model_data", output_path)
     model = Model(model_stub)
-    model_path = model.onnx_model.get_path()
+    model_path = model.onnx_model.path
 
     if GENERATE_TEST_FILES:
         analyzer = ModelAnalyzer(model_path)
         analyzer.save_json(output_path)
 
-    output = {}
     with open(output_path) as output_file:
         output = dict(json.load(output_file))
 

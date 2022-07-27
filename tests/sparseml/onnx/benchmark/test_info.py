@@ -26,9 +26,7 @@ from sparseml.benchmark.serialization import BatchBenchmarkResult, BenchmarkResu
 from sparseml.onnx.benchmark import ORTBenchmarkRunner, load_model
 from sparseml.onnx.benchmark.info import load_data
 from sparseml.onnx.framework import framework_info as get_framework_info
-from sparseml.onnx.utils.data import DataLoader
-from sparsezoo.models import Zoo
-from sparsezoo.objects import Model
+from sparsezoo import Model
 
 
 TEST_STUB = "zoo:cv/classification/mobilenet_v1-1.0/pytorch/sparseml/imagenet/base-none"
@@ -38,7 +36,9 @@ MOCK_BENCHMARK_RETURN_VALUE = 0.5
 @pytest.fixture(scope="module")
 def mobilenet_fixture() -> Model:
     with tempfile.TemporaryDirectory() as onnx_dir:
-        yield Zoo.download_model_from_stub(TEST_STUB, override_parent_path=onnx_dir)
+        model = Model(TEST_STUB)
+        model.onnx_model.download(onnx_dir)
+        yield model
 
 
 @pytest.fixture()
@@ -64,149 +64,26 @@ def cpu_runner_fixture(
 
 class TestLoadModel:
     def test_load_model_from_sparsezoo_model(self, mobilenet_fixture: Model):
-        onnx_model = onnx.load(mobilenet_fixture.onnx_file.path)
+        onnx_model = onnx.load(mobilenet_fixture.onnx_model.get_path())
         assert load_model(mobilenet_fixture) == onnx_model
 
     def test_load_model_from_sparsezoo_file(self, mobilenet_fixture: Model):
-        onnx_model = onnx.load(mobilenet_fixture.onnx_file.path)
-        assert load_model(mobilenet_fixture.onnx_file) == onnx_model
+        onnx_model = onnx.load(mobilenet_fixture.onnx_model.get_path())
+        assert load_model(mobilenet_fixture.onnx_model) == onnx_model
 
     def test_load_model_from_stub(self, mobilenet_fixture: Model):
-        onnx_model = onnx.load(mobilenet_fixture.onnx_file.path)
-        assert (
-            load_model(
-                TEST_STUB, override_parent_path=mobilenet_fixture.override_parent_path
-            )
-            == onnx_model
+        onnx_model = onnx.load(mobilenet_fixture.onnx_model.get_path())
+        assert (load_model(TEST_STUB, download_directory = mobilenet_fixture.get_path()) == onnx_model
         )
 
     def test_load_model_from_path(self, mobilenet_fixture: Model):
-        onnx_model = onnx.load(mobilenet_fixture.onnx_file.path)
-        assert load_model(mobilenet_fixture.onnx_file.path) == onnx_model
+        onnx_model = onnx.load(mobilenet_fixture.onnx_model.get_path())
+        assert load_model(mobilenet_fixture.onnx_model.get_path()) == onnx_model
 
     def test_load_model_from_onnx(self, mobilenet_fixture: Model):
-        mobilenet_fixture.onnx_file.download()
-        onnx_model = onnx.load(mobilenet_fixture.onnx_file.path)
+        onnx_model = onnx.load(mobilenet_fixture.onnx_model.get_path())
 
         assert load_model(onnx_model) == onnx_model
-
-
-class TestLoadData:
-    @pytest.mark.parametrize(
-        "batch_size,total_iterations",
-        [
-            (1, 1),
-            (1, 10),
-            (3, 10),
-        ],
-    )
-    def test_load_data_from_model(
-        self, mobilenet_fixture: Model, batch_size: int, total_iterations: int
-    ):
-        dataloader = load_data(
-            None,
-            mobilenet_fixture,
-            batch_size=batch_size,
-            total_iterations=total_iterations,
-        )
-
-        iterations = 0
-        for (data, _) in dataloader:
-            iterations += 1
-            for key in data:
-                assert data[key].shape[0] == (batch_size)
-        assert iterations == total_iterations
-
-    def test_load_data_from_dataloader(self, mobilenet_fixture: Model):
-        model = onnx.load_model(mobilenet_fixture.onnx_file.path)
-        original_loader = DataLoader.from_model_random(
-            model, batch_size=1, iter_steps=1
-        )
-        new_loader = load_data(original_loader)
-        assert new_loader == original_loader
-
-    def test_load_data_from_stub(self, mobilenet_fixture: Model):
-        original_loader = mobilenet_fixture.data_inputs.loader(batch_as_list=False)
-        dataloader = load_data(TEST_STUB)
-
-        for original_data, (loaded_data, _) in zip(original_loader, dataloader):
-            assert type(loaded_data) == OrderedDict
-            for original_key, loaded_key in zip(original_data, loaded_data):
-                assert (original_data[original_key] == loaded_data[loaded_key]).all()
-
-    def test_load_data_from_loader_dict(self, mobilenet_fixture: Model):
-        original_loader = mobilenet_fixture.data_inputs.loader(batch_as_list=False)
-        dataloader = load_data(original_loader)
-
-        for original_data, (loaded_data, _) in zip(original_loader, dataloader):
-            assert type(loaded_data) == OrderedDict
-            for original_key, loaded_key in zip(original_data, loaded_data):
-                assert (original_data[original_key] == loaded_data[loaded_key]).all()
-
-    def test_load_data_from_loader_list(self, mobilenet_fixture: Model):
-        original_loader = mobilenet_fixture.data_inputs.loader(batch_as_list=True)
-        dataloader = load_data(original_loader)
-
-        for original_data, (loaded_data, _) in zip(original_loader, dataloader):
-            assert type(loaded_data) == OrderedDict
-            for original_data_element, loaded_key in zip(original_data, loaded_data):
-                assert (original_data_element == loaded_data[loaded_key]).all()
-
-    @pytest.mark.parametrize(
-        "shapes",
-        [
-            [(3, 224, 224)],
-            [(3, 224, 224), (3, 224, 224)],
-            [(3, 224, 224), (3, 512, 512)],
-        ],
-    )
-    def test_load_data_from_shape_list(self, shapes: List[Tuple[int, ...]]):
-        dataloader = load_data(shapes)
-        for (data, _) in dataloader:
-            for (value), shape in zip(data.values(), shapes):
-                assert value.shape[1:] == shape
-
-    @pytest.mark.parametrize(
-        "shapes",
-        [
-            dict(inp1=(3, 224, 224)),
-            dict(inp1=(3, 224, 224), inp2=(3, 224, 224)),
-            dict(inp1=(3, 224, 224), inp2=(3, 512, 512)),
-        ],
-    )
-    def test_load_data_from_shape_dict(self, shapes: Dict[str, Tuple[int, ...]]):
-        dataloader = load_data(shapes)
-        for (data, _) in dataloader:
-            for key in shapes:
-                assert shapes[key] == data[key].shape[1:]
-
-    def test_load_data_from_path(self, mobilenet_fixture: Model):
-        original_loader = mobilenet_fixture.data_inputs.loader(batch_as_list=False)
-        dataloader = load_data(mobilenet_fixture.data_inputs.path)
-
-        for original_data, (loaded_data, _) in zip(original_loader, dataloader):
-            assert type(loaded_data) == OrderedDict
-            for original_key, loaded_key in zip(original_data, loaded_data):
-                # Test for shape matching since load order may vary
-                assert (
-                    original_data[original_key].shape == loaded_data[loaded_key].shape
-                )
-
-    def test_load_data_from_iterable(self, mobilenet_fixture: Model):
-        original_loader = mobilenet_fixture.data_inputs.loader(batch_as_list=False)
-
-        def _loader():
-            for data in original_loader:
-                yield OrderedDict(
-                    (key, value.reshape(value.shape[1:])) for key, value in data.items()
-                )
-
-        dataloader = load_data([data for data in _loader()])
-
-        for original_data, (loaded_data, _) in zip(original_loader, dataloader):
-            assert type(loaded_data) == OrderedDict
-            for original_key, loaded_key in zip(original_data, loaded_data):
-                assert (original_data[original_key] == loaded_data[loaded_key]).all()
 
 
 class TestOrtBenchmarkRunner:

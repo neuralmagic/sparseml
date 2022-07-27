@@ -50,9 +50,9 @@ from sparseml.pytorch.utils import (
     torch_distributed_zero_first,
 )
 from sparseml.utils import create_dirs
-from sparsezoo import Model
-from sparsezoo.v2.helpers import setup_model_directory
 
+from sparsezoo import Model
+from sparsezoo.objects import setup_model
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -95,7 +95,7 @@ def get_model_directory(
                 "classification models) has been evoked."
             )
 
-    setup_model_directory(
+    setup_model(
         output_dir=output_dir,
         training=os.path.join(training_outputs_dir, "training"),
         deployment=os.path.join(training_outputs_dir, "model.onnx"),
@@ -572,10 +572,7 @@ def _download_model_from_zoo_using_recipe(
             f" but got {recipe_stub} instead"
         )
 
-    files = Model(recipe_stub).training.files
-
-    checkpoint_path = files[0]
-    return checkpoint_path
+    return Model(recipe_stub).training.default.path
 
 
 @contextmanager

@@ -36,7 +36,7 @@ from sparseml.optim import (
 )
 from sparseml.pytorch.sparsification.modifier import Modifier, ScheduledModifier
 from sparseml.pytorch.utils import BaseLogger, LoggerManager, is_parallel_model
-
+from sparsezoo import File
 
 __all__ = ["RecipeManagerStepWrapper", "ScheduledModifierManager"]
 
@@ -256,7 +256,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
 
     @staticmethod
     def from_yaml(
-        file_path: Union[str],
+        file_path: Union[str, File],
         add_modifiers: Optional[List[Modifier]] = None,
         recipe_variables: Optional[Union[Dict[str, Any], str]] = None,
         metadata: Optional[Dict[str, Any]] = None,
@@ -268,7 +268,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
         :param file_path: the path to the recipe file to load the modifier from, or
             a SparseZoo model stub to load a recipe for a model stored in SparseZoo.
             SparseZoo stubs should be preceded by 'zoo:', and can contain an optional
-            '?recipe_type=<type>' parameter. Can also be a SparseZoo Recipe
+            '?recipe_type=<type>' parameter. Can also be a SparseZoo File
             object. i.e. '/path/to/local/recipe.yaml', 'zoo:model/stub/path',
             'zoo:model/stub/path?recipe_type=transfer'. Additionally, a raw
              yaml str is also supported in place of a file path.

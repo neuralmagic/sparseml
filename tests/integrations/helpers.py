@@ -160,7 +160,7 @@ def model_inputs_outputs_test(
 def _load_onnx_model(path: str):
     if path.startswith("zoo:"):
         model = Model(path)
-        path_onnx = model.onnx_model.downloaded_path()
+        path_onnx = model.onnx_model.path
     else:
         path_onnx = path
 
