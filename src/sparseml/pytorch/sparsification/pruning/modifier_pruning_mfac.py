@@ -133,7 +133,7 @@ class MFACPruningModifier(BaseGradualPruningModifier):
         for unstructured pruning or 'block4' for four block pruning or a list of two
         integers for a custom block shape. Default is 'unstructured'
     :param grad_sampler_kwargs: kwargs to override default train dataloader config
-        for pruner's gradient sampling.
+        for gradient sampling.
     """
 
     def __init__(
@@ -238,7 +238,7 @@ class MFACPruningModifier(BaseGradualPruningModifier):
     @ModifierProp(serializable=True)
     def grad_sampler_kwargs(self) -> Optional[Dict[str, Any]]:
         """
-        Return dict of training dataloader configs overriden for gradient sampling
+        Return dict of training dataloader configs overridden for gradient sampling
         """
         return self._grad_sampler_kwargs
 
