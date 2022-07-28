@@ -70,7 +70,7 @@ Sample code for retrieving a recipe from the SparseZoo:
 ```python
 from sparsezoo import Model
 
-model = Model("zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/pruned_quant-moderate/original")
+model = Model("zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/pruned_quant-moderate")
 recipe = model.recipe.default
 print(recipe)
 ```
