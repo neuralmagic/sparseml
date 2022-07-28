@@ -31,11 +31,18 @@ from torch.nn import Module
 from transformers import Trainer as TransformersTrainer
 from transformers import TrainerCallback, TrainerControl, TrainingArguments
 from transformers.file_utils import WEIGHTS_NAME
+from transformers.integrations import TensorBoardCallback
 from transformers.trainer_callback import TrainerState
 from transformers.trainer_utils import get_last_checkpoint
 
 from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
-from sparseml.pytorch.utils import LoggerManager, ModuleSparsificationInfo, WANDBLogger
+from sparseml.pytorch.utils import (
+    GradSampler,
+    LoggerManager,
+    ModuleSparsificationInfo,
+    TensorBoardLogger,
+    WANDBLogger,
+)
 from sparseml.transformers.utils import SparseAutoModel
 from sparseml.transformers.utils.helpers import RECIPE_NAME
 
@@ -148,6 +155,7 @@ class RecipeManagerTrainerInterface:
         self.criterion = torch.nn.CrossEntropyLoss()
         self.callback_disable_fp16 = DisableHalfPrecisionCallback(self)
         self.callback_handler.add_callback(self.callback_disable_fp16)
+        self._add_tensorboard_logger_if_available()
 
         model_signature = inspect.signature(self.model.forward)
         self._model_signature_columns = list(model_signature.parameters.keys())
@@ -253,7 +261,6 @@ class RecipeManagerTrainerInterface:
         self.manager_steps_per_epoch = math.ceil(
             len(self.train_dataset) / total_batch_size
         )
-
         if hasattr(self, "scaler"):
             wrap_optim_key = "scaler"
             self.scaler = self.manager.modify(
@@ -694,6 +701,24 @@ class RecipeManagerTrainerInterface:
                 else model_outputs[0]
             )
         return loss
+
+    def _add_tensorboard_logger_if_available(self):
+        tensorboard_callback = None
+        for callback in self.callback_handler.callbacks:
+            if isinstance(callback, TensorBoardCallback):
+                tensorboard_callback = callback
+                break
+        if tensorboard_callback is None:
+            return
+
+        if tensorboard_callback.tb_writer is None:
+            tensorboard_callback._init_summary_writer(
+                self.args, log_dir=self.args.logging_dir
+            )
+
+        self.logger_manager.add_logger(
+            TensorBoardLogger(writer=tensorboard_callback.tb_writer)
+        )
 
 
 class TrainerInterface(RecipeManagerTrainerInterface):
