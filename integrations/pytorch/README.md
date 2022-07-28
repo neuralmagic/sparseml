@@ -71,7 +71,7 @@ Sample code for retrieving a recipe from the SparseZoo:
 from sparsezoo import Model
 
 model = Model("zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/pruned_quant-moderate")
-recipe = model.recipe.default
+recipe = model.recipes.default
 print(recipe)
 ```
 
