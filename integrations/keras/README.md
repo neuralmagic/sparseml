@@ -68,7 +68,7 @@ Sample code for retrieving a recipe from the SparseZoo:
 from sparsezoo import Model
 
 model = Model("zoo:cv/classification/resnet_v1-50/keras/sparseml/imagenet/pruned-conservative")
-recipe = model.recipe.default
+recipe = model.recipes.default
 print(recipe)
 ```
 
