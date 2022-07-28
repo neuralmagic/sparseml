@@ -16,6 +16,9 @@
 Code related to the PyTorch model registry for easily creating models.
 """
 
+import glob
+import os
+import shutil
 from typing import Any, Callable, Dict, List, NamedTuple, Optional, Tuple, Union
 
 import torch
@@ -162,7 +165,13 @@ class ModelRegistry(object):
             else pretrained_dataset,
             "sparse_tag": f"{sparse_name}-{sparse_category}",
         }
-
+        # clear cache
+        CACHE_DIR = os.path.expanduser(os.path.join("~", ".cache", "sparsezoo"))
+        [
+            shutil.rmtree(cached_model_dir)
+            for cached_model_dir in glob.glob(os.path.join(CACHE_DIR, "*"))
+            if os.path.isdir(cached_model_dir)
+        ]
         stub = model_dict_to_stub(model_dict)
         return Model(stub)
 

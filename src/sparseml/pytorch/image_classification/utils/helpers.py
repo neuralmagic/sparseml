@@ -68,20 +68,20 @@ __all__ = [
     "get_loss_wrapper",
     "ddp_aware_model_move",
     "extract_metadata",
-    "get_model_directory",
+    "create_sparsezoo_model",
 ]
 
 
-def get_model_directory(
+def create_sparsezoo_model(
     output_dir: str, training_outputs_dir: str, logs_path: Optional[str] = None
 ) -> None:
     """
     Takes the `training_outputs_dir`
     (the directory where the pipeline saves its training artifacts),
-    and saves the training artifacts to `output_dir` in the `ModelDirectory` structure.
+    and saves the training artifacts to `output_dir` in the `Model` structure.
 
     :param output_dir: The output path where the artifacts are saved
-        (adhering to the in `ModelDirectory` structure)
+        (adhering to the in `Model` structure)
     :param training_outputs_dir: The path to the existing directory
         with the saved training artifacts
     :param logs_path: Optional directory where the training logs reside
@@ -111,7 +111,7 @@ def get_model_directory(
         eval_results=None,
         recipes=None,
     )
-    _LOGGER.info(f"Created `ModelDirectory` folder locally in {output_dir}")
+    _LOGGER.info(f"Created SparseZoo `Model` folder locally in {output_dir}")
 
 
 @unique
@@ -572,7 +572,7 @@ def _download_model_from_zoo_using_recipe(
             f" but got {recipe_stub} instead"
         )
 
-    return Model(recipe_stub).training.default.path
+    return Model(recipe_stub).training.default.get_file("model.pth").path
 
 
 @contextmanager

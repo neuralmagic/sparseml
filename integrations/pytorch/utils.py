@@ -237,7 +237,9 @@ def create_model(args: Any, num_classes: int) -> Module:
     with torch_distributed_zero_first(args.local_rank):  # only download once locally
         if args.checkpoint_path == "zoo":
             if args.recipe_path and args.recipe_path.startswith("zoo:"):
-                args.checkpoint_path = Model(args.recipe_path).training.path
+                args.checkpoint_path = (
+                    Model(args.recipe_path).training.default.get_file("model.pth").path
+                )
             else:
                 raise ValueError(
                     "'zoo' provided as --checkpoint-path but a SparseZoo stub"

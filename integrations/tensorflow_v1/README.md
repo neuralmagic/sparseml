@@ -67,8 +67,8 @@ Sample code for retrieving a recipe from the SparseZoo:
 ```python
 from sparsezoo import Model
 
-model = Model("zoo:cv/classification/resnet_v1-50/tensorflow_v1/sparseml/imagenette/pruned-moderate/original")
-recipe = model.recipe.default
+model = Model("zoo:cv/classification/resnet_v1-50/tensorflow_v1/sparseml/imagenette/pruned-moderate")
+recipe = model.recipes.default
 print(recipe)
 ```
 

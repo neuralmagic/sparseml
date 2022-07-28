@@ -574,7 +574,7 @@ class _DeepSparseBaseModelRunner(ModelRunner):
 
     def __init__(
         self,
-        model: Union[str, ModelProto, Model, "File"],
+        model: Union[str, ModelProto, Model, File],
         batch_size: int,
         num_cores: int,
         loss: Union[

@@ -73,8 +73,9 @@ def download_model_and_recipe(root_dir: str):
     # Load base model to prune
     base_zoo_model = Model(recipe_file_path)
     base_zoo_model.path = os.path.join(root_dir, "resnet20_v1")
-    base_zoo_model.download()
-    model_file_path = base_zoo_model.training.default.path
+    checkpoint = base_zoo_model.training.default
+    model_file_path = checkpoint.get_file("model.h5").path
+    recipe_file_path = base_zoo_model.recipes.default.path
     if not os.path.exists(model_file_path) or not model_file_path.endswith(".h5"):
         raise RuntimeError("Model file not found: {}".format(model_file_path))
 

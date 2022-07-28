@@ -94,8 +94,8 @@ Sample code for retrieving a recipe from the SparseZoo:
 ```python
 from sparsezoo import Model
 
-model = Model("zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned_quant-aggressive_94/original")
-recipe = model.recipe.default
+model = Model("zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned_quant-aggressive_94")
+recipe = model.recipes.default
 print(recipe)
 ```
 
