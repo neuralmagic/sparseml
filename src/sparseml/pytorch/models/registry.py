@@ -150,14 +150,18 @@ class ModelRegistry(object):
             pretrained if isinstance(pretrained, str) else attributes.default_desc
         )
 
-        model_dict = {"domain": attributes.domain,
-                      "sub_domain": attributes.sub_domain,
-                      "architecture": attributes.architecture,
-                      "sub_architecture": attributes.sub_architecture,
-                      "framework": PYTORCH_FRAMEWORK,
-                      "repo": attributes.repo_source,
-                      "dataset": attributes.default_dataset if pretrained_dataset is None else pretrained_dataset,
-                      "sparse_tag": f"{sparse_name}-{sparse_category}"}
+        model_dict = {
+            "domain": attributes.domain,
+            "sub_domain": attributes.sub_domain,
+            "architecture": attributes.architecture,
+            "sub_architecture": attributes.sub_architecture,
+            "framework": PYTORCH_FRAMEWORK,
+            "repo": attributes.repo_source,
+            "dataset": attributes.default_dataset
+            if pretrained_dataset is None
+            else pretrained_dataset,
+            "sparse_tag": f"{sparse_name}-{sparse_category}",
+        }
 
         stub = model_dict_to_stub(model_dict)
         return Model(stub)
