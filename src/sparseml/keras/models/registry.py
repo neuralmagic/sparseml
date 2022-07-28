@@ -16,13 +16,16 @@
 Code related to the Keras model registry for easily creating models.
 """
 
+import glob
+import os
+import shutil
 from typing import Any, Callable, Dict, List, NamedTuple, Union
 
 from merge_args import merge_args
 from sparseml import get_main_logger
 from sparseml.keras.utils import keras
 from sparseml.utils import KERAS_FRAMEWORK, parse_optimization_str, wrapper_decorator
-from sparsezoo import Model
+from sparsezoo import Model, search_models
 
 
 __all__ = [
@@ -127,21 +130,27 @@ class ModelRegistry(object):
             pretrained if isinstance(pretrained, str) else attributes.default_desc
         )
 
-        return Model.load_model(
-            attributes.domain,
-            attributes.sub_domain,
-            attributes.architecture,
-            attributes.sub_architecture,
-            KERAS_FRAMEWORK,
-            attributes.repo_source,
-            attributes.default_dataset
+        model_dict = {
+            "domain": attributes.domain,
+            "sub_domain": attributes.sub_domain,
+            "architecture": attributes.architecture,
+            "sub_architecture": attributes.sub_architecture,
+            "framework": KERAS_FRAMEWORK,
+            "repo": attributes.repo_source,
+            "dataset": attributes.default_dataset
             if pretrained_dataset is None
             else pretrained_dataset,
-            None,
-            sparse_name,
-            sparse_category,
-            sparse_target,
-        )
+            "sparse_tag": f"{sparse_name}-{sparse_category}",
+        }
+        # clear cache
+        CACHE_DIR = os.path.expanduser(os.path.join("~", ".cache", "sparsezoo"))
+        [
+            shutil.rmtree(cached_model_dir)
+            for cached_model_dir in glob.glob(os.path.join(CACHE_DIR, "*"))
+            if os.path.isdir(cached_model_dir)
+        ]
+        stub = model_dict_to_stub(**model_dict)
+        return Model(stub)
 
     @staticmethod
     def input_shape(key: str) -> Any:

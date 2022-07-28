@@ -172,7 +172,7 @@ class ModelRegistry(object):
             for cached_model_dir in glob.glob(os.path.join(CACHE_DIR, "*"))
             if os.path.isdir(cached_model_dir)
         ]
-        stub = model_dict_to_stub(model_dict)
+        stub = model_dict_to_stub(**model_dict)
         return Model(stub)
 
     @staticmethod

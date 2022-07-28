@@ -16,14 +16,16 @@
 Code related to the PyTorch model registry for easily creating models.
 """
 
+import glob
+import os
 import re
+import shutil
 from typing import Any, Callable, Dict, List, Optional, Union
 
 from sparseml.tensorflow_v1.models.estimator import EstimatorModelFn
 from sparseml.tensorflow_v1.utils import tf_compat
 from sparseml.utils import TENSORFLOW_V1_FRAMEWORK, parse_optimization_str
-from sparsezoo import Zoo
-from sparsezoo.objects import Model
+from sparsezoo import Model, model_dict_to_stub
 
 
 __all__ = ["ModelRegistry"]
@@ -151,21 +153,27 @@ class ModelRegistry(object):
             pretrained if isinstance(pretrained, str) else attributes.default_desc
         )
 
-        return Zoo.load_model(
-            attributes.domain,
-            attributes.sub_domain,
-            attributes.architecture,
-            attributes.sub_architecture,
-            TENSORFLOW_V1_FRAMEWORK,
-            attributes.repo_source,
-            attributes.default_dataset
+        model_dict = {
+            "domain": attributes.domain,
+            "sub_domain": attributes.sub_domain,
+            "architecture": attributes.architecture,
+            "sub_architecture": attributes.sub_architecture,
+            "framework": TENSORFLOW_V1_FRAMEWORK,
+            "repo": attributes.repo_source,
+            "dataset": attributes.default_dataset
             if pretrained_dataset is None
             else pretrained_dataset,
-            None,
-            sparse_name,
-            sparse_category,
-            sparse_target,
-        )
+            "sparse_tag": f"{sparse_name}-{sparse_category}",
+        }
+        # clear cache
+        CACHE_DIR = os.path.expanduser(os.path.join("~", ".cache", "sparsezoo"))
+        [
+            shutil.rmtree(cached_model_dir)
+            for cached_model_dir in glob.glob(os.path.join(CACHE_DIR, "*"))
+            if os.path.isdir(cached_model_dir)
+        ]
+        stub = model_dict_to_stub(**model_dict)
+        return Model(stub)
 
     @staticmethod
     def load_pretrained(
