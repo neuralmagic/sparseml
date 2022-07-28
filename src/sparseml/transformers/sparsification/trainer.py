@@ -37,7 +37,6 @@ from transformers.trainer_utils import get_last_checkpoint
 
 from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
 from sparseml.pytorch.utils import (
-    GradSampler,
     LoggerManager,
     ModuleSparsificationInfo,
     TensorBoardLogger,
