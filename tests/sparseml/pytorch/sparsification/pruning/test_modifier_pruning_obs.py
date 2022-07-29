@@ -19,7 +19,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from flaky import flaky
-from sparseml.pytorch.sparsification.pruning import MFACPruningModifier
+from sparseml.pytorch.sparsification.pruning import OBSPruningModifier
 from sparseml.pytorch.utils import tensor_sparsity
 from sparseml.utils import FROM_PARAM_TOKEN
 from tests.sparseml.pytorch.helpers import MLPDataset, MLPNet
@@ -47,15 +47,15 @@ def _get_loss_function():
 
 def _get_dataloader_builder(
     dataset_lambda,
-    mfac_batch_size,
+    obs_batch_size,
     num_grads,
     num_epochs,
     update_frequency,
 ):
     def dataloader_builder(kwargs: Optional[Dict[str, Any]] = None):
-        batch_size = kwargs["batch_size"] if kwargs else mfac_batch_size
+        batch_size = kwargs["batch_size"] if kwargs else obs_batch_size
         data_length = int(
-            mfac_batch_size * num_grads * num_epochs * (1 / update_frequency) * 2
+            obs_batch_size * num_grads * num_epochs * (1 / update_frequency) * 2
         )
         dataset = dataset_lambda(length=data_length)
         data_loader = DataLoader(dataset, batch_size=batch_size)
@@ -75,19 +75,20 @@ def _get_dataloader_builder(
 @pytest.mark.parametrize(
     "modifier_lambda",
     [
-        lambda: MFACPruningModifier(
+        lambda: OBSPruningModifier(
             init_sparsity=0.5,
             final_sparsity=0.95,
             start_epoch=2.0,
             end_epoch=5.0,
             update_frequency=1.0,
             params=["re:.*weight"],
-            inter_func="linear",
-            fisher_block_size=50,
+            inter_func="cubic",
+            mask_type="unstructured",
             num_grads=8,
-            available_devices=["cpu"],
+            damp=1e-7,
+            fisher_block_size=50,
         ),
-        lambda: MFACPruningModifier(
+        lambda: OBSPruningModifier(
             init_sparsity=FROM_PARAM_TOKEN,
             final_sparsity=0.95,
             start_epoch=2.0,
@@ -95,12 +96,13 @@ def _get_dataloader_builder(
             update_frequency=1.0,
             params=["re:.*weight"],
             inter_func="linear",
-            fisher_block_size=1500,
+            mask_type="block4",
+            fisher_block_size=64,
             damp=0.000001,
             num_grads=8,
-            available_devices=["cpu"],
+            grad_sampler_kwargs={"batch_size": 8},
         ),
-        lambda: MFACPruningModifier(
+        lambda: OBSPruningModifier(
             params=["seq.fc1.weight", "seq.fc2.weight"],
             init_sparsity=0.5,
             final_sparsity=0.95,
@@ -110,9 +112,6 @@ def _get_dataloader_builder(
             inter_func="cubic",
             num_grads=8,
             global_sparsity=True,
-            grad_sampler_kwargs={
-                "batch_size": 4,
-            },
         ),
     ],
     scope="function",
@@ -126,9 +125,18 @@ def _get_dataloader_builder(
     [create_optim_adam],
     scope="function",
 )
-class TestMFACPruningModifier(ScheduledUpdateModifierTest):
+class TestOBSPruningModifier(ScheduledUpdateModifierTest):
+    def get_default_initialize_kwargs(self) -> Dict[str, Any]:
+        # add default no-op grad_sampler for initialization on non lifecycle tests
+        return {
+            "grad_sampler": {
+                "data_loader_builder": lambda *loader_args, **loader_kwargs: [],
+                "loss_function": lambda *loss_args, **loss_kwargs: None,
+            }
+        }
+
     @pytest.mark.parametrize(
-        "dataset_lambda,mfac_batch_size",
+        "dataset_lambda, obs_batch_size",
         [(MLPDataset, 4)],
     )
     def test_lifecycle(
@@ -138,7 +146,7 @@ class TestMFACPruningModifier(ScheduledUpdateModifierTest):
         optim_lambda,
         test_steps_per_epoch,  # noqa: F811
         dataset_lambda,
-        mfac_batch_size,
+        obs_batch_size,
     ):
         modifier = modifier_lambda()
         model = model_lambda()
@@ -146,7 +154,7 @@ class TestMFACPruningModifier(ScheduledUpdateModifierTest):
         grad_sampler = {
             "data_loader_builder": _get_dataloader_builder(
                 dataset_lambda,
-                mfac_batch_size,
+                obs_batch_size,
                 modifier.num_grads,
                 modifier.end_epoch - modifier.start_epoch + 1,
                 modifier.update_frequency,
@@ -229,7 +237,7 @@ class TestMFACPruningModifier(ScheduledUpdateModifierTest):
             _test_final_sparsity_applied()
 
     @pytest.mark.parametrize(
-        "dataset_lambda,mfac_batch_size",
+        "dataset_lambda, obs_batch_size",
         [(MLPDataset, 4)],
     )
     def test_scheduled_update(
@@ -240,13 +248,13 @@ class TestMFACPruningModifier(ScheduledUpdateModifierTest):
         test_epoch,  # noqa: F811
         test_steps_per_epoch,  # noqa: F811
         dataset_lambda,
-        mfac_batch_size,
+        obs_batch_size,
     ):
         modifier = modifier_lambda()
         grad_sampler = {
             "data_loader_builder": _get_dataloader_builder(
                 dataset_lambda,
-                mfac_batch_size,
+                obs_batch_size,
                 modifier.num_grads,
                 modifier.end_epoch - modifier.start_epoch + 1,
                 modifier.update_frequency,
@@ -285,7 +293,7 @@ class TestMFACPruningModifier(ScheduledUpdateModifierTest):
     os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
     reason="Skipping pytorch tests",
 )
-def test_mfac_pruning_yaml(params, init_sparsity, final_sparsity):
+def test_obs_pruning_yaml(params, init_sparsity, final_sparsity):
     start_epoch = 5.0
     end_epoch = 15.0
     update_frequency = 1.0
@@ -293,14 +301,11 @@ def test_mfac_pruning_yaml(params, init_sparsity, final_sparsity):
     global_sparsity = False
     num_grads = 64
     damp = 0.000001
-    grads_device = "cpu"
     fisher_block_size = 20
-    num_pages = 1
-    available_devices = ["cpu"]
     mask_type = "block4"
     batch_size = 4
     yaml_str = f"""
-    !MFACPruningModifier
+    !OBSPruningModifier
         init_sparsity: {init_sparsity}
         final_sparsity: {final_sparsity}
         start_epoch: {start_epoch}
@@ -309,21 +314,18 @@ def test_mfac_pruning_yaml(params, init_sparsity, final_sparsity):
         params: {params}
         inter_func: {inter_func}
         global_sparsity: {global_sparsity}
+        mask_type: {mask_type}
         num_grads: {num_grads}
         damp: {damp}
-        grads_device: {grads_device}
         fisher_block_size: {fisher_block_size}
-        num_pages: {num_pages}
-        available_devices: {available_devices}
-        mask_type: {mask_type}
         grad_sampler_kwargs:
             batch_size: {batch_size}
     """
-    yaml_modifier = MFACPruningModifier.load_obj(yaml_str)
-    serialized_modifier = MFACPruningModifier.load_obj(
+    yaml_modifier = OBSPruningModifier.load_obj(yaml_str)
+    serialized_modifier = OBSPruningModifier.load_obj(
         str(yaml_modifier)
-    )  # type: MFACPruningModifier
-    obj_modifier = MFACPruningModifier(
+    )  # type: OBSPruningModifier
+    obj_modifier = OBSPruningModifier(
         init_sparsity=init_sparsity,
         final_sparsity=final_sparsity,
         start_epoch=start_epoch,
@@ -332,18 +334,15 @@ def test_mfac_pruning_yaml(params, init_sparsity, final_sparsity):
         params=params,
         inter_func=inter_func,
         global_sparsity=global_sparsity,
+        mask_type=mask_type,
         num_grads=num_grads,
         damp=damp,
-        grads_device=grads_device,
         fisher_block_size=fisher_block_size,
-        num_pages=num_pages,
-        available_devices=available_devices,
-        mask_type=mask_type,
         grad_sampler_kwargs={
             "batch_size": batch_size,
         },
     )
-    assert isinstance(yaml_modifier, MFACPruningModifier)
+    assert isinstance(yaml_modifier, OBSPruningModifier)
     pruning_modifier_serialization_vals_test(
         yaml_modifier, serialized_modifier, obj_modifier
     )
@@ -363,24 +362,9 @@ def test_mfac_pruning_yaml(params, init_sparsity, final_sparsity):
         == str(obj_modifier._damp)
     )
     assert (
-        str(yaml_modifier._grads_device)
-        == str(serialized_modifier._grads_device)
-        == str(obj_modifier._grads_device)
-    )
-    assert (
         str(yaml_modifier._fisher_block_size)
         == str(serialized_modifier._fisher_block_size)
         == str(obj_modifier._fisher_block_size)
-    )
-    assert (
-        str(yaml_modifier._num_pages)
-        == str(serialized_modifier._num_pages)
-        == str(obj_modifier._num_pages)
-    )
-    assert (
-        str(yaml_modifier._available_devices)
-        == str(serialized_modifier._available_devices)
-        == str(obj_modifier._available_devices)
     )
     assert (
         str(yaml_modifier.mask_type)
