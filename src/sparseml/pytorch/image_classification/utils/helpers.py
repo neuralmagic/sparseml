@@ -50,8 +50,7 @@ from sparseml.pytorch.utils import (
     torch_distributed_zero_first,
 )
 from sparseml.utils import create_dirs
-from sparsezoo import Model
-from sparsezoo.objects import setup_model
+from sparsezoo import Model, setup_model
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -69,7 +68,30 @@ __all__ = [
     "ddp_aware_model_move",
     "extract_metadata",
     "create_sparsezoo_model",
+    "download_framework_model_by_recipe_type",
 ]
+
+
+def download_framework_model_by_recipe_type(
+    zoo_model: Model, recipe_name: Optional[str] = None
+) -> str:
+    """
+    Extract the path of the framework model from the
+    zoo model, conditioned on the name of the recipe
+    By default, the function will return path to the final framework model
+    :params zoo_model: model object from sparsezoo
+    :params recipe_name: a name of the recipe (e.g. "transfer_learn", "original" etc.)
+    :return: path to the framework model
+    """
+    if recipe_name:
+        if "transfer" in recipe_name.lower():
+            # fetching the model for transfer learning
+            framework_model = zoo_model.training.default.get_file("model.ckpt.pth")
+    else:
+        # fetching the model for inference
+        framework_model = zoo_model.training.default.get_file("model.pth")
+
+    return framework_model.path
 
 
 def create_sparsezoo_model(
@@ -572,7 +594,7 @@ def _download_model_from_zoo_using_recipe(
             f" but got {recipe_stub} instead"
         )
 
-    return Model(recipe_stub).training.default.get_file("model.pth").path
+    return download_framework_model_by_recipe_type(Model(valid_recipe_stub))
 
 
 @contextmanager

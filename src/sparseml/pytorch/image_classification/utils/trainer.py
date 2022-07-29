@@ -23,6 +23,9 @@ from typing import Any, Callable, Dict, List, Optional
 import torch
 from torch.utils.data import DataLoader
 
+from sparseml.pytorch.image_classification.utils.helpers import (
+    download_framework_model_by_recipe_type,
+)
 from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
 from sparseml.pytorch.utils import (
     DEFAULT_LOSS_KEY,
@@ -329,11 +332,9 @@ class ImageClassificationTrainer(Trainer):
 
     def _setup_checkpoint_manager(self):
         if self.checkpoint_path and self.checkpoint_path.startswith("zoo"):
-            self.checkpoint_path = (
-                Model(self.checkpoint_path)
-                .training.default.search_file("model.pth")
-                .path
-            )
+            zoo_model = Model(self.checkpoint_path)
+            self.checkpoint_path = download_framework_model_by_recipe_type(zoo_model)
+
         checkpoint_state = torch.load(self.checkpoint_path)
         checkpoint_manager = None
         checkpoint_recipe = checkpoint_state.get("recipe")

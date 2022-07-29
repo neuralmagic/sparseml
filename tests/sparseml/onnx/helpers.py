@@ -12,9 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import glob
+
 import os
-import shutil
 from typing import NamedTuple
 
 import pytest
@@ -1004,13 +1003,6 @@ OnnxRepoModelFixture = NamedTuple(
     ],
 )
 def onnx_repo_models(request) -> OnnxRepoModelFixture:
-    # clear cache
-    CACHE_DIR = os.path.expanduser(os.path.join("~", ".cache", "sparsezoo"))
-    [
-        shutil.rmtree(cached_model_dir)
-        for cached_model_dir in glob.glob(os.path.join(CACHE_DIR, "*"))
-        if os.path.isdir(cached_model_dir)
-    ]
 
     model_stub, model_name = request.param
     model = Model(model_stub)

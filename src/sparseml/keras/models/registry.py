@@ -16,16 +16,13 @@
 Code related to the Keras model registry for easily creating models.
 """
 
-import glob
-import os
-import shutil
 from typing import Any, Callable, Dict, List, NamedTuple, Union
 
 from merge_args import merge_args
 from sparseml import get_main_logger
 from sparseml.keras.utils import keras
 from sparseml.utils import KERAS_FRAMEWORK, parse_optimization_str, wrapper_decorator
-from sparsezoo import Model, search_models
+from sparsezoo import Model, model_args_to_stub
 
 
 __all__ = [
@@ -142,14 +139,8 @@ class ModelRegistry(object):
             else pretrained_dataset,
             "sparse_tag": f"{sparse_name}-{sparse_category}",
         }
-        # clear cache
-        CACHE_DIR = os.path.expanduser(os.path.join("~", ".cache", "sparsezoo"))
-        [
-            shutil.rmtree(cached_model_dir)
-            for cached_model_dir in glob.glob(os.path.join(CACHE_DIR, "*"))
-            if os.path.isdir(cached_model_dir)
-        ]
-        stub = model_dict_to_stub(**model_dict)
+
+        stub = model_args_to_stub(**model_dict)
         return Model(stub)
 
     @staticmethod
