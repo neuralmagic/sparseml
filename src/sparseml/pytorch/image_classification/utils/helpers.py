@@ -271,7 +271,7 @@ def create_model(
     """
     with torch_distributed_zero_first(local_rank):
         # only download once locally
-        if checkpoint_path and checkpoint_path.lower() == "zoo":
+        if checkpoint_path and checkpoint_path.lower().startswith("zoo"):
             checkpoint_path = _download_model_from_zoo_using_recipe(
                 recipe_stub=recipe_path,
             )
