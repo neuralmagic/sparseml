@@ -23,7 +23,10 @@ import torch
 from torch.nn import DataParallel, Module
 from torch.optim.optimizer import Optimizer
 
-from sparseml.pytorch.utils.helpers import thin_model_from_checkpoint
+from sparseml.pytorch.utils.helpers import (
+    download_framework_model_by_recipe_type,
+    thin_model_from_checkpoint,
+)
 from sparseml.utils.helpers import create_parent_dirs
 from sparsezoo import Model
 
@@ -75,11 +78,7 @@ def load_model(
         This removes "module." all keys
     """
     if path.startswith("zoo:"):
-        path = [
-            file
-            for file in Model(path).training.default.files
-            if file.name.endswith(".pth")
-        ][0].path
+        path = download_framework_model_by_recipe_type(Model(path))
     model_dict = torch.load(path, map_location="cpu")
     current_dict = model.state_dict()
     recipe = model_dict.get("recipe")

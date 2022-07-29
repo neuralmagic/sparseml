@@ -23,9 +23,6 @@ from typing import Any, Callable, Dict, List, Optional
 import torch
 from torch.utils.data import DataLoader
 
-from sparseml.pytorch.image_classification.utils.helpers import (
-    download_framework_model_by_recipe_type,
-)
 from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
 from sparseml.pytorch.utils import (
     DEFAULT_LOSS_KEY,
@@ -34,6 +31,7 @@ from sparseml.pytorch.utils import (
     ModuleTester,
     ModuleTrainer,
     default_device,
+    download_framework_model_by_recipe_type,
     is_parallel_model,
 )
 from sparsezoo import Model

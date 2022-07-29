@@ -23,10 +23,10 @@ import torch
 from torch.nn import Module
 
 from merge_args import merge_args
-from sparseml.pytorch.utils import load_model
+from sparseml.pytorch.utils import download_framework_model_by_recipe_type, load_model
 from sparseml.utils import parse_optimization_str, wrapper_decorator
 from sparseml.utils.frameworks import PYTORCH_FRAMEWORK
-from sparsezoo import Model, model_dict_to_stub
+from sparsezoo import Model, model_args_to_stub
 
 
 __all__ = [
@@ -100,6 +100,10 @@ class ModelRegistry(object):
         if key_copy is None:
             if pretrained_path is None:
                 raise ValueError("Must provide a key or a pretrained_path")
+            if pretrained_path.startswith("zoo:"):
+                pretrained_path = download_framework_model_by_recipe_type(
+                    Model(pretrained_path)
+                )
             _checkpoint = torch.load(pretrained_path)
             if "arch_key" in _checkpoint:
                 key_copy = _checkpoint["arch_key"]
@@ -163,7 +167,8 @@ class ModelRegistry(object):
             else pretrained_dataset,
             "sparse_tag": f"{sparse_name}-{sparse_category}",
         }
-        stub = model_dict_to_stub(**model_dict)
+        stub = model_args_to_stub(**model_dict)
+
         return Model(stub)
 
     @staticmethod

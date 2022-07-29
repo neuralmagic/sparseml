@@ -44,6 +44,7 @@ from sparseml.pytorch.utils import (
     TensorBoardLogger,
     TopKAccuracy,
     default_device,
+    download_framework_model_by_recipe_type,
     early_stop_data_loader,
     model_to_device,
     set_deterministic_seeds,
@@ -68,30 +69,7 @@ __all__ = [
     "ddp_aware_model_move",
     "extract_metadata",
     "create_sparsezoo_model",
-    "download_framework_model_by_recipe_type",
 ]
-
-
-def download_framework_model_by_recipe_type(
-    zoo_model: Model, recipe_name: Optional[str] = None
-) -> str:
-    """
-    Extract the path of the framework model from the
-    zoo model, conditioned on the name of the recipe
-    By default, the function will return path to the final framework model
-    :params zoo_model: model object from sparsezoo
-    :params recipe_name: a name of the recipe (e.g. "transfer_learn", "original" etc.)
-    :return: path to the framework model
-    """
-    if recipe_name:
-        if "transfer" in recipe_name.lower():
-            # fetching the model for transfer learning
-            framework_model = zoo_model.training.default.get_file("model.ckpt.pth")
-    else:
-        # fetching the model for inference
-        framework_model = zoo_model.training.default.get_file("model.pth")
-
-    return framework_model.path
 
 
 def create_sparsezoo_model(
@@ -337,9 +315,18 @@ def create_model(
     """
     with torch_distributed_zero_first(local_rank):
         # only download once locally
-        if checkpoint_path and checkpoint_path.lower() == "zoo":
+        if checkpoint_path and checkpoint_path.startswith("zoo"):
+            recipe_type = None
+            if recipe_path and "recipe_type=" in recipe_path:
+                # override recipe type from recipe path
+                recipe_type = recipe_path.split("recipe_type=")[1]
+                recipe_type = recipe_type.split("&")[0]
+
+            if checkpoint_path.lower() == "zoo":
+                checkpoint_path = recipe_path
+
             checkpoint_path = _download_model_from_zoo_using_recipe(
-                recipe_stub=recipe_path,
+                recipe_stub=checkpoint_path, recipe_type=recipe_type
             )
 
         result = ModelRegistry.create(
@@ -578,12 +565,14 @@ def extract_metadata(
 
 def _download_model_from_zoo_using_recipe(
     recipe_stub: str,
+    recipe_type: Optional[str],
 ) -> Optional[str]:
     """
     Download a model from the zoo using a recipe stub and return the
     path to the downloaded model.
 
     :param recipe_stub: Path to a valid recipe stub
+    :param recipe_type: recipe type override in zoo stub
     :return: Path to the downloaded model
     """
     valid_recipe_stub = recipe_stub and recipe_stub.startswith("zoo:")
@@ -594,7 +583,10 @@ def _download_model_from_zoo_using_recipe(
             f" but got {recipe_stub} instead"
         )
 
-    return download_framework_model_by_recipe_type(Model(valid_recipe_stub))
+    return download_framework_model_by_recipe_type(
+        Model(recipe_stub),
+        recipe_name=recipe_type,
+    )
 
 
 @contextmanager
