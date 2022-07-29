@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import os
+from typing import Any, Dict, Optional
 
 import pytest
 import torch
@@ -19,7 +20,7 @@ from torch.utils.data import DataLoader
 
 from flaky import flaky
 from sparseml.pytorch.sparsification.pruning import MFACPruningModifier
-from sparseml.pytorch.utils import GradSampler, tensor_sparsity
+from sparseml.pytorch.utils import tensor_sparsity
 from sparseml.utils import FROM_PARAM_TOKEN
 from tests.sparseml.pytorch.helpers import MLPDataset, MLPNet
 from tests.sparseml.pytorch.sparsification.pruning.helpers import (
@@ -38,29 +39,32 @@ from tests.sparseml.pytorch.helpers import (  # noqa isort:skip
 )
 
 
-def _device_data_loader(data_loader):
-    for sample in data_loader:
-        img, target = [t for t in sample]
-        yield [img], {}, target
+def _get_loss_function():
+    return lambda model_outputs, loss_target: torch.nn.functional.mse_loss(
+        model_outputs[0], loss_target
+    )
 
 
-def _mfac_loss_function(model_outputs, loss_target):
-    return torch.nn.functional.mse_loss(model_outputs[0], loss_target)
-
-
-def _build_gradient_sampler(
+def _get_dataloader_builder(
     dataset_lambda,
-    loss_function,
-    data_generator,
-    batch_size,
+    mfac_batch_size,
     num_grads,
     num_epochs,
     update_frequency,
 ):
-    data_length = int(batch_size * num_grads * num_epochs * (1 / update_frequency) * 2)
-    dataset = dataset_lambda(length=data_length)
-    data_loader = DataLoader(dataset, batch_size=batch_size)
-    return GradSampler(data_generator(data_loader), loss_function)
+    def dataloader_builder(kwargs: Optional[Dict[str, Any]] = None):
+        batch_size = kwargs["batch_size"] if kwargs else mfac_batch_size
+        data_length = int(
+            mfac_batch_size * num_grads * num_epochs * (1 / update_frequency) * 2
+        )
+        dataset = dataset_lambda(length=data_length)
+        data_loader = DataLoader(dataset, batch_size=batch_size)
+
+        for sample in data_loader:
+            img, target = [t for t in sample]
+            yield [img], {}, target
+
+    return dataloader_builder
 
 
 @flaky(max_runs=3, min_passes=2)
@@ -106,6 +110,9 @@ def _build_gradient_sampler(
             inter_func="cubic",
             num_grads=8,
             global_sparsity=True,
+            grad_sampler_kwargs={
+                "batch_size": 4,
+            },
         ),
     ],
     scope="function",
@@ -121,8 +128,8 @@ def _build_gradient_sampler(
 )
 class TestMFACPruningModifier(ScheduledUpdateModifierTest):
     @pytest.mark.parametrize(
-        "dataset_lambda,loss,mfac_batch_size",
-        [(MLPDataset, _mfac_loss_function, 4)],
+        "dataset_lambda,mfac_batch_size",
+        [(MLPDataset, 4)],
     )
     def test_lifecycle(
         self,
@@ -131,21 +138,21 @@ class TestMFACPruningModifier(ScheduledUpdateModifierTest):
         optim_lambda,
         test_steps_per_epoch,  # noqa: F811
         dataset_lambda,
-        loss,
         mfac_batch_size,
     ):
         modifier = modifier_lambda()
         model = model_lambda()
         optimizer = optim_lambda(model)
-        grad_sampler = _build_gradient_sampler(
-            dataset_lambda,
-            loss,
-            _device_data_loader,
-            mfac_batch_size,
-            modifier.num_grads,
-            modifier.end_epoch - modifier.start_epoch + 1,
-            modifier.update_frequency,
-        )
+        grad_sampler = {
+            "data_loader_builder": _get_dataloader_builder(
+                dataset_lambda,
+                mfac_batch_size,
+                modifier.num_grads,
+                modifier.end_epoch - modifier.start_epoch + 1,
+                modifier.update_frequency,
+            ),
+            "loss_function": _get_loss_function(),
+        }
 
         self.initialize_helper(modifier, model, grad_sampler=grad_sampler)
         if modifier.start_epoch > 0:
@@ -222,8 +229,8 @@ class TestMFACPruningModifier(ScheduledUpdateModifierTest):
             _test_final_sparsity_applied()
 
     @pytest.mark.parametrize(
-        "dataset_lambda,loss,mfac_batch_size",
-        [(MLPDataset, _mfac_loss_function, 4)],
+        "dataset_lambda,mfac_batch_size",
+        [(MLPDataset, 4)],
     )
     def test_scheduled_update(
         self,
@@ -233,19 +240,20 @@ class TestMFACPruningModifier(ScheduledUpdateModifierTest):
         test_epoch,  # noqa: F811
         test_steps_per_epoch,  # noqa: F811
         dataset_lambda,
-        loss,
         mfac_batch_size,
     ):
         modifier = modifier_lambda()
-        grad_sampler = _build_gradient_sampler(
-            dataset_lambda,
-            loss,
-            _device_data_loader,
-            mfac_batch_size,
-            modifier.num_grads,
-            modifier.end_epoch - modifier.start_epoch + 1,
-            modifier.update_frequency,
-        )
+        grad_sampler = {
+            "data_loader_builder": _get_dataloader_builder(
+                dataset_lambda,
+                mfac_batch_size,
+                modifier.num_grads,
+                modifier.end_epoch - modifier.start_epoch + 1,
+                modifier.update_frequency,
+            ),
+            "loss_function": _get_loss_function(),
+        }
+
         super().test_scheduled_update(
             modifier_lambda,
             model_lambda,
@@ -290,6 +298,7 @@ def test_mfac_pruning_yaml(params, init_sparsity, final_sparsity):
     num_pages = 1
     available_devices = ["cpu"]
     mask_type = "block4"
+    batch_size = 4
     yaml_str = f"""
     !MFACPruningModifier
         init_sparsity: {init_sparsity}
@@ -307,6 +316,8 @@ def test_mfac_pruning_yaml(params, init_sparsity, final_sparsity):
         num_pages: {num_pages}
         available_devices: {available_devices}
         mask_type: {mask_type}
+        grad_sampler_kwargs:
+            batch_size: {batch_size}
     """
     yaml_modifier = MFACPruningModifier.load_obj(yaml_str)
     serialized_modifier = MFACPruningModifier.load_obj(
@@ -328,6 +339,9 @@ def test_mfac_pruning_yaml(params, init_sparsity, final_sparsity):
         num_pages=num_pages,
         available_devices=available_devices,
         mask_type=mask_type,
+        grad_sampler_kwargs={
+            "batch_size": batch_size,
+        },
     )
     assert isinstance(yaml_modifier, MFACPruningModifier)
     pruning_modifier_serialization_vals_test(
@@ -372,4 +386,9 @@ def test_mfac_pruning_yaml(params, init_sparsity, final_sparsity):
         str(yaml_modifier.mask_type)
         == str(serialized_modifier.mask_type)
         == str(obj_modifier.mask_type)
+    )
+    assert (
+        str(yaml_modifier._grad_sampler_kwargs)
+        == str(serialized_modifier._grad_sampler_kwargs)
+        == str(obj_modifier._grad_sampler_kwargs)
     )

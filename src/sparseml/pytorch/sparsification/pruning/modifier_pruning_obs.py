@@ -246,6 +246,7 @@ class OBSPruningModifier(BaseGradualPruningModifier):
             return  # not a one-shot run
 
         _LOGGER.info("Running OBS Pruning")
+        torch.cuda.empty_cache()
         if self._scorer._is_main_proc:
             # collect grads for empirical inverse Fisher estimation
             self._scorer._enabled_grad_buffering = True
@@ -254,6 +255,7 @@ class OBSPruningModifier(BaseGradualPruningModifier):
             self._scorer._enabled_grad_buffering = False
 
         super().check_mask_update(module, epoch, steps_per_epoch, **kwargs)
+        torch.cuda.empty_cache()
 
     def _get_mask_creator(
         self, param_names: List[str], params: List[Parameter]
