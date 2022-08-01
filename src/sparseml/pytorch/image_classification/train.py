@@ -538,6 +538,11 @@ def main(
     if not eval_mode and recipe_path is None:
         raise ValueError("Must include --recipe-path when not running in eval mode")
 
+    if eval_mode and "recipe_type=transfer" in checkpoint_path:
+        checkpoint_path = checkpoint_path.replace(
+            "recipe_type=transfer", "recipe_type=original"
+        )
+
     # non DDP execution or 0th DDP process
     is_main_process = rank in (-1, 0)
 

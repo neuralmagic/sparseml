@@ -21,7 +21,7 @@ import numpy
 import pytest
 
 from sparseml.onnx.utils import DataLoader
-from sparsezoo import Zoo
+from sparsezoo import Model
 
 
 DataloaderModelFixture = NamedTuple(
@@ -38,37 +38,13 @@ DataloaderModelFixture = NamedTuple(
 @pytest.fixture(
     params=[
         (
-            {
-                "domain": "cv",
-                "sub_domain": "classification",
-                "architecture": "resnet_v1",
-                "sub_architecture": "50",
-                "framework": "pytorch",
-                "repo": "sparseml",
-                "dataset": "imagenet",
-                "training_scheme": None,
-                "sparse_name": "base",
-                "sparse_category": "none",
-                "sparse_target": None,
-            },
+            "zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/base-none",
             {"input": (1, 3, 224, 224)},
             {"output_0": (1, 1000), "output_1": (1, 1000)},
             {"input": numpy.dtype("float32")},
         ),
         (
-            {
-                "domain": "cv",
-                "sub_domain": "classification",
-                "architecture": "mobilenet_v1",
-                "sub_architecture": "1.0",
-                "framework": "pytorch",
-                "repo": "sparseml",
-                "dataset": "imagenet",
-                "training_scheme": None,
-                "sparse_name": "base",
-                "sparse_category": "none",
-                "sparse_target": None,
-            },
+            "zoo:cv/classification/mobilenet_v1-1.0/pytorch/sparseml/imagenet/base-none",  # noqa 501
             {"input": (1, 3, 224, 224)},
             {"output_0": (1, 1000)},
             {"input": numpy.dtype("float32")},
@@ -76,9 +52,9 @@ DataloaderModelFixture = NamedTuple(
     ]
 )
 def dataloader_models(request) -> DataloaderModelFixture:
-    model_args, input_shapes, output_shapes, data_types = request.param
-    model = Zoo.load_model(**model_args)
-    model_path = model.onnx_file.downloaded_path()
+    model_stub, input_shapes, output_shapes, data_types = request.param
+    model = Model(model_stub)
+    model_path = model.onnx_model.path
 
     return DataloaderModelFixture(model_path, input_shapes, output_shapes, data_types)
 
