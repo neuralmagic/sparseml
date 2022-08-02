@@ -418,31 +418,24 @@ def test_extract_node_shape(extract_node_models):  # noqa: F811
     `len` of 2 (if test case for legacy and upgraded PyTorch)
     """
     expected_outputs = [x for x in expected_outputs if x]
-    correct_input_shapes = [False] * len(expected_outputs)
-    correct_output_shapes = [False] * len(expected_outputs)
 
-    for i, expected_output in enumerate(expected_outputs):
-        if all(node in node_shapes for node in expected_output):
-            correct_input_shapes[i] = all(
-                [
-                    node_shapes[node].input_shapes == expected_output[node][0]
-                    for node in node_shapes
-                ]
-            )
-            correct_output_shapes[i] = all(
-                [
-                    node_shapes[node].output_shapes == expected_output[node][1]
-                    for node in node_shapes
-                ]
-            )
     """
     If we have only one test case, it must must evaluate to True,
     If we have two test cases, at least one must evaluate to True.
     In other words, we are happy with test passing for legacy or
     upgraded PyTorch (worst case scenario).
     """
-    assert any(correct_input_shapes)
-    assert any(correct_output_shapes)
+    # make sure at least one of the expected outputs has the same shape as `node_shapes`
+    assert any(len(output) == len(node_shapes) for output in expected_outputs)
+
+    for expected_output in expected_outputs:
+        if len(expected_output) == len(node_shapes):
+            for expected, found in zip(expected_output.items(), node_shapes.items()):
+                _key, (expected_inp_shape, expected_out_shape) = expected
+                _node_key, node = found
+                # NOTE: keys may not match up, so not testing for those.
+                assert node.input_shapes == expected_inp_shape
+                assert node.output_shapes == expected_out_shape
 
 
 @pytest.mark.parametrize(

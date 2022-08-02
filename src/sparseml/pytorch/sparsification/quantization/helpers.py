@@ -26,9 +26,11 @@ from torch.nn import BatchNorm2d, Conv2d, Embedding, Module, ReLU
 try:
     import torch.nn.intrinsic as nni
     from torch import quantization as torch_quantization
+    import torch.ao.quantization as torch_ao_quantization
 except Exception:
     nni = None
     torch_quantization = None
+    torch_ao_quantization = None
 
 from dataclasses import dataclass, field
 
@@ -695,15 +697,8 @@ def fuse_module_conv_bn_relus(
     if len(current_block) > 1:
         conv_blocks.append(current_block)
     if conv_blocks:
-        # manually save and move hooks surrounding fused blocks into new fused modules
-        # due to torch.quantization error when a module has more than one hook
-        block_hooks = _delete_get_block_hooks(module, conv_blocks)
-
         # run torch fusion
-        torch_quantization.fuse_modules(module, conv_blocks, inplace=True)
-
-        # add hooks back
-        _add_fused_block_hooks(module, block_hooks)
+        torch_ao_quantization.fuse_modules_qat(module, conv_blocks, inplace=True)
 
     return module
 
@@ -795,7 +790,8 @@ def _prepare_qat_embedding(embedding: Module, qconfig: "torch.quantization.QConf
     setattr(embedding, "forward", qat_forward_bound)
 
 
-def _set_submodule(root_module, sub_module_path, sub_module):
+def _set_submodule(root_module: Module, sub_module_path, sub_module: Module):
+    sub_module.training = root_module.training
     current_module = root_module
     sub_module_path = sub_module_path.split(".")
     for child_module in sub_module_path[:-1]:

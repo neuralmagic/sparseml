@@ -139,15 +139,20 @@ def test_mode_analyzer_json():
 
 def _test_model_analyzer(model_path: str, expected_output: str):
     analyzer = ModelAnalyzer(model_path)
-
-    analyzer_from_json = ModelAnalyzer.from_dict(expected_output)
     analyzer_dict = analyzer.dict()
 
-    return (
-        True
-        if (analyzer_dict == expected_output) and (analyzer == analyzer_from_json)
-        else False
-    )
+    analyzer_from_json = ModelAnalyzer.from_dict(expected_output)
+
+    assert len(analyzer_dict["nodes"]) == len(expected_output["nodes"])
+    for node, expected_node in zip(analyzer_dict["nodes"], expected_output["nodes"]):
+        assert sorted(node.keys()) == sorted(expected_node.keys())
+        for key, value in node.items():
+            if key == "id":
+                continue
+            expected_value = expected_node[key]
+            assert value == expected_value, (key, value, expected_value)
+
+    # return (analyzer_dict == expected_output) and (analyzer == analyzer_from_json)
 
 
 def test_model_analyzer(analyzer_models):  # noqa: F811
@@ -162,14 +167,14 @@ def test_model_analyzer(analyzer_models):  # noqa: F811
     expected_outputs = [x for x in expected_outputs if x]
     result = [False] * len(expected_outputs)
     for i, expected_output in enumerate(expected_outputs):
-        result[i] = _test_model_analyzer(model_path, expected_output)
+        _test_model_analyzer(model_path, expected_output)
     """
     If we have only one test case, it must must evaluate to True,
     If we have two test cases, at least one must evaluate to True.
     In other words, we are happy with test passing for legacy or
     upgraded PyTorch (worst case scenario).
     """
-    assert any(result)
+    # assert any(result)
 
 
 def test_model_analyzer_from_repo(analyzer_models_repo):
