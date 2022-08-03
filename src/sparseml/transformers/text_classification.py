@@ -746,6 +746,8 @@ def main(**kwargs):
             checkpoint = training_args.resume_from_checkpoint
         elif last_checkpoint is not None:
             checkpoint = last_checkpoint
+        elif training_args.resume_training:
+            checkpoint = trainer.model_state_path
 
         train_result = trainer.train(resume_from_checkpoint=checkpoint)
         if not trainer.one_shot:
@@ -859,6 +861,7 @@ def main(**kwargs):
 
 
 def _split_train_val(train_dataset, val_ratio):
+    # Fixed random seed to make split consistent across runs with the same ratio
     ds = train_dataset.train_test_split(test_size=val_ratio, stratify_by_column="label", seed=42)
     train_ds = ds.pop("train")
     val_ds = ds.pop("test")

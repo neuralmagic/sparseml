@@ -114,6 +114,7 @@ class RecipeManagerTrainerInterface:
         # instantiate necessary state, like managers, so we can override args
         self.model = model
         self.model_state_path = str(model_state_path)
+        self.checkpoint = None
         self.recipe = recipe
         self.recipe_args = recipe_args
         self.teacher = teacher
@@ -779,8 +780,8 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         :param kwargs: keyword args to pass to super().train()
         :return: the output from super.train()
         """
-        checkpoint, epoch = self._generate_apply_manager_params(kwargs)
-        applied = self.apply_manager(epoch=epoch, checkpoint=checkpoint)
+        self.checkpoint, epoch = self._generate_apply_manager_params(kwargs)
+        applied = self.apply_manager(epoch=epoch, checkpoint=self.checkpoint)
         self.callback_disable_fp16.check_disable(epoch, force=True)
         output = None
         if not self.one_shot:
@@ -985,6 +986,19 @@ class TransformersTrainer(HFTransformersTrainer):
             reissue_pt_warnings(caught_warnings)
             if self.use_amp:
                 torch.save(self.scaler.state_dict(), os.path.join(output_dir, "scaler.pt"))
+
+    def _load_optimizer_and_scheduler(self, checkpoint):
+        """
+        Override the Transformers Trainer so that optimizer and scaler are loaded
+        from the input model folder, which is our use case (instead of from a separate
+        checkpoint folder).
+        """
+        # We include the model path as where the optimizer and scheduler could be loaded
+        # (in addition to checkpoint folders)
+        model_folder = self.checkpoint if self.checkpoint is not None else self.model_state_path
+        if os.path.isfile(os.path.join(model_folder, OPTIMIZER_NAME)) or \
+           os.path.isfile(os.path.join(model_folder, SCHEDULER_NAME)):
+            super()._load_optimizer_and_scheduler(model_folder)
 
 
 class Trainer(TrainerInterface, TransformersTrainer):
