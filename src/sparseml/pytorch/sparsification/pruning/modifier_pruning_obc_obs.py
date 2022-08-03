@@ -172,7 +172,7 @@ class OBC_OBS_PruningModifier(BaseGradualPruningModifier):
         self._obc_batch_size = obc_batch_size
         self._grad_sampler = None
         self._recomputation_inter_func = recomputation_inter_func
-        self._last_applied_sparsity = init_sparsity
+        self._last_applied_sparsity = 0
         # check arguments
         self._validate()
 
@@ -317,9 +317,12 @@ class OBC_OBS_PruningModifier(BaseGradualPruningModifier):
 
         if self._scorer._is_main_proc:
             _LOGGER.info("Running OBC+OBS Pruning")
-        # set here to prevent inf loop when super().check_mask_update(...)
-        # is called num_recomputations times
-        self._pre_step_completed = True
+       
+        # pruning start (copied from modifier_pruning_base.py)
+        started = self.started
+        if self.start_pending(epoch, steps_per_epoch):
+            self._module_masks.enabled = True
+            started = True
 
         to_apply_sparsities = self.get_applied_sparsity_for_epoch(
             epoch, steps_per_epoch
@@ -347,16 +350,18 @@ class OBC_OBS_PruningModifier(BaseGradualPruningModifier):
                 )
                 for start_sparsity, target_sparsity in zip(last_applied_sparsities, to_apply_sparsities)
             ]
-            # overwrite sparsity targets when there are recomputations
-            super().check_mask_update(
-                module,
-                epoch,
-                steps_per_epoch,
-                recomputation_sparsity=recomputation_sparsity,
-            )
 
+            if self._scorer._is_main_proc:
+                _LOGGER.info(f"Recomputation sparsity: {np.mean(recomputation_sparsity):.3f}")
+            # update masks
+            self._module_masks.update_param_masks(target=recomputation_sparsity)
+
+        self._sparsity_applied = True
         self._last_applied_sparsity = to_apply_sparsities
-            
+        # end of pruning step
+        if self.end_pending(epoch, steps_per_epoch):
+            self._module_masks.pruning_end(self._leave_enabled)
+
 
     def _collect_grad_samples(
         self,

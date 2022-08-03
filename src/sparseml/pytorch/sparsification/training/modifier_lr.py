@@ -246,11 +246,7 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         (set to -1.0 so it doesn't end)
     :param cycle_epochs: The number of epochs between two consecutive LR rewinding;
         used for cyclic_linear schedule only.
-    :param cycle_mul: The factor on which lr is increased at each cycle;
-        used for cyclic_cosine schedule only.
-    :param cycle_coef: The coefficient in linear envelope of cyclic_linear
-        i.e lr = (1 + cycle_coef * cycle_idx) * cyclic_linear;
-        used for cyclic_linear_envelope only.
+    :param cycle_mul: The factor by which lr is increased at each cycle;
     :param cycle_warmup: Number of warmup epochs inside cycle
         used in cyclic_cosine and cyclic_linear_envelope.
     :param_groups: The param group indices to set the lr for within the optimizer,
@@ -268,10 +264,9 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         start_epoch: float,
         end_epoch: float,
         # cycle schedule params
-        cycle_epochs: float = 1.0,
+        cycle_epochs: float = -1.0,
         cycle_mul: float = 1.0,
-        cycle_coef: float = 1.0,
-        cycle_warmup: float = 0.0,
+        warmup: float = 0.0,
         # decaying schedule params
         decay_rate: float = 0.9,
         decay_epochs: float = 1.0,
@@ -284,13 +279,16 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
             update_frequency=-1.0,
             end_comparator=1,
         )
+        # setup cycle epochs
+        if cycle_epochs < 0:
+            cycle_epochs = end_epoch - start_epoch
+
         self._lr_func = lr_func
         self._init_lr = init_lr
         self._final_lr = final_lr
         # cycle schedule params
         self._cycle_epochs = cycle_epochs
-        self._cycle_warmup = cycle_warmup
-        self._cycle_coef = cycle_coef
+        self._warmup = warmup
         self._cycle_mul = cycle_mul
         # decay schedule params
         self._decay_epochs = decay_epochs
@@ -359,12 +357,8 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         return self._cycle_epochs
 
     @ModifierProp()
-    def cycle_warmup(self) -> float:
-        return self._cycle_warmup
-
-    @ModifierProp()
-    def cycle_coef(self) -> float:
-        return self._cycle_coef
+    def warmup(self) -> float:
+        return self._warmup
 
     @ModifierProp()
     def cycle_mul(self) -> float:
@@ -458,19 +452,13 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
             "linear", 
             "cosine", 
             "exponential",
-            "step_exponential",
-            "cyclic_linear", 
-            "cyclic_cosine", 
-            "cyclic_exponential",
-            "cyclic_step_exponential",
-            "cyclic_linear_envelope"
         ]
         if self.lr_func not in lr_funcs:
             raise ValueError(f"lr_func must be one of {lr_funcs}")
 
-        if lr_funcs == "cyclic_linear" and self.cycle_epochs <= 0.0:
+        if self.cycle_epochs <= 0.0:
             raise ValueError(
-                "cycle_epochs in the cyclic_linear schedule must be positive"
+                "cycle_epochs in the schedule must be positive"
             )
 
         if isinstance(self.init_lr, str):
@@ -500,130 +488,63 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         if self.update_frequency != -1.0:
             raise ValueError("update_frequency must be kept at -1.0")
 
-    def _linear(self, epoch: float, steps_per_epoch: int) -> float:
-        # y = y1 + ((x – x1) / (x2 – x1)) * (y2 – y1)
-        start = self.start_epoch if self.start_epoch > 0 else 0.0
-        end = self.end_epoch
-
-        return self.init_lr + ((epoch - start) / (end - start)) * (
-            self.final_lr - self.init_lr
-        )
-
-    def _cosine(self, epoch: float, steps_per_epoch: int) -> float:
-        start = self.start_epoch if self.start_epoch > 0 else 0.0
-        end = self.end_epoch
-
-        # scale x to [0-1] for use with cosine
-        x_norm = (epoch - start) / (end - start)
-
-        # conditional to support cosine down to a value and up to a value
-        if self.final_lr < self.init_lr:
-            y_range = self.init_lr - self.final_lr
-            y_shift = self.final_lr
-            x_shift = 0
-        else:
-            y_range = self.final_lr - self.init_lr
-            y_shift = self.init_lr
-            x_shift = math.pi
-
-        return (
-            math.cos(x_norm * math.pi + x_shift) * y_range / 2 + y_range / 2 + y_shift
-        )
-
-    def _cyclic_linear(self, epoch: float, steps_per_epoch: int):
-        end_step = self.end_epoch * steps_per_epoch
-        start_step = self.start_epoch * steps_per_epoch
-        cycle_steps = self.cycle_epochs * steps_per_epoch
-        current_step = (epoch - self.start_epoch) * steps_per_epoch
-        if current_step > int((end_step - start_step) / cycle_steps) * cycle_steps:
-            cycle_steps = (end_step - start_step) % cycle_steps
-        adjusted_step = current_step % cycle_steps
-        lr = self.init_lr - (adjusted_step / (cycle_steps - 1)) * (
-            self.init_lr - self.final_lr
-        )
-        return lr
-
-
-    def _step_exponential(self, epoch: float, steps_per_epoch: int):
-        start_step = self.start_epoch * steps_per_epoch
-        # get current step
-        current_step  = epoch * steps_per_epoch
-        # decay steps
-        decay_steps = self._decay_epochs * steps_per_epoch
-        lr = self.init_lr * self._decay_rate ** (math.floor((current_step - start_step) / decay_steps))
-        lr = max(lr, self.final_lr)
+    def _linear(self, epoch: float, steps_per_epoch: int):
+        start     = self.start_epoch * steps_per_epoch
+        end       = self.end_epoch * steps_per_epoch
+        cycle_len = self.cycle_epochs * steps_per_epoch
+        cur_step  = (epoch - self.start_epoch) * steps_per_epoch
+        # get current cycle
+        cycle_id  = max(epoch - self.start_epoch, 0.0) // self.cycle_epochs
+        if cur_step > int((end - start) / cycle_len) * cycle_len:
+            cur_step = (end - start) % cycle_len
+        # step mod lenght of the cycle
+        adj_step = cur_step % cycle_len
+        lr = self.init_lr - (adj_step / (cycle_len - 1)) * (self.init_lr - self.final_lr)
+        # compute warmup factor
+        warmup_factor = min(adj_step / max(self.warmup, 1.0), 1.0)
+        # multiply learning rate by cycle multiplier and warmup factor
+        lr *= warmup_factor * self.cycle_mul ** cycle_id
         return lr
 
     def _exponential(self, epoch: float, steps_per_epoch: int):
-        start_step   = self.start_epoch * steps_per_epoch
-        decay_steps  = self._decay_epochs * steps_per_epoch
-        current_step = epoch * steps_per_epoch
-        lr = self.init_lr * self._decay_rate ** ((current_step - start_step) / decay_steps)
-        # min lr is final_lr
-        lr = max(lr, self.final_lr)
-        return lr
-
-    
-    def _cyclic_exponential(self, epoch: float, steps_per_epoch: int):
-        end_step    = self.end_epoch * steps_per_epoch
-        start_step  = self.start_epoch * steps_per_epoch
-        cycle_steps = self.cycle_epochs * steps_per_epoch
+        start     = self.start_epoch * steps_per_epoch
+        end       = self.end_epoch * steps_per_epoch
+        cycle_len = self.cycle_epochs * steps_per_epoch
+        cur_step  = (epoch - self.start_epoch) * steps_per_epoch
+        # get number of decay steps
         decay_steps = self._decay_epochs * steps_per_epoch
-        current_step = epoch * steps_per_epoch
-        # crop current step to the current cycle
-        current_step = min(max(current_step, start_step), end_step) % cycle_steps
-        lr = self.init_lr * self._decay_rate ** ((current_step - start_step) / decay_steps)
-        # min lr is final_lr
+        # get current cycle
+        cycle_id  = max(epoch - self.start_epoch, 0.0) // self.cycle_epochs
+        if cur_step > int((end - start) / cycle_len) * cycle_len:
+            cur_step = (end - start) % cycle_len
+        # step mod lenght of the cycle
+        adj_step = cur_step % cycle_len
+        lr = self.init_lr * self._decay_rate ** (adj_step / decay_steps)
+        # min lr is bounded by the final_lr
         lr = max(lr, self.final_lr)
+        # compute warmup factor
+        warmup_factor = min(adj_step / max(self.warmup, 1.0), 1.0)
+        # multiply learning rate by cycle multiplier and warmup factor
+        lr *= warmup_factor * self.cycle_mul ** cycle_id
         return lr
 
-
-    def _cyclic_step_exponential(self, epoch: float, steps_per_epoch: int):
-        end_step    = self.end_epoch * steps_per_epoch
-        start_step  = self.start_epoch * steps_per_epoch
-        cycle_steps = self.cycle_epochs * steps_per_epoch
-        decay_steps = self._decay_epochs * steps_per_epoch
-        current_step = epoch * steps_per_epoch
-        # crop current step to the current cycle
-        current_step = min(max(current_step, start_step), end_step) % cycle_steps
-        lr = self.init_lr * self._decay_rate ** (math.floor((current_step - start_step) / decay_steps))
-        # min lr is final_lr
-        lr = max(lr, self.final_lr)
+    def _cosine(self, epoch: int, steps_per_epoch: int,):
+        start     = self.start_epoch * steps_per_epoch
+        end       = self.end_epoch * steps_per_epoch
+        cycle_len = self.cycle_epochs * steps_per_epoch
+        cur_step  = (epoch - self.start_epoch) * steps_per_epoch
+        # get current cycle
+        cycle_id  = max(epoch - self.start_epoch, 0.0) // self.cycle_epochs
+        if cur_step > int((end - start) / cycle_len) * cycle_len:
+            cur_step = (end - start) % cycle_len
+        # step mod lenght of the cycle
+        adj_step = cur_step % cycle_len(epoch - self.start_epoch, 0.0) // self.cycle_epochs
+        lr = self.final_lr + 0.5 * (self.init_lr - self.final_lr) * (1 + math.cos(math.pi * adj_step / cycle_len))
+        # compute warmup factor
+        warmup_factor = min(adj_step / max(self.warmup, 1.0), 1.0)
+        # multiply learning rate by cycle multiplier and warmup factor
+        lr *= warmup_factor * self.cycle_mul ** cycle_id
         return lr
-
-
-    def _cyclic_cosine(self, epoch: int, steps_per_epoch: int,):
-        end_step     = self.end_epoch    * steps_per_epoch
-        start_step   = self.start_epoch  * steps_per_epoch
-        cycle_steps  = self.cycle_epochs * steps_per_epoch
-        warmup_steps = self.cycle_warmup * steps_per_epoch
-        # get current step and cycle idx
-        current_step  = epoch * steps_per_epoch
-        # clamp steps
-        current_step = min(max(current_step, start_step), end_step) % cycle_steps
-        current_cycle = max(epoch - self.start_epoch, 0.0) // self.cycle_epochs
-        #
-        cosine_lr = self.final_lr + 0.5 * (self.init_lr - self.final_lr) * \
-            (1 + math.cos(math.pi * current_step / cycle_steps))
-        warmup_lr = min(current_step / max(warmup_steps, 1.0), 1.0)
-        lr_mult   = self.cycle_mul ** current_cycle
-        return lr_mult * cosine_lr * warmup_lr 
-
-    def _cyclic_linear_envelope(self, epoch: int, steps_per_epoch: int):
-        end_step     = self.end_epoch    * steps_per_epoch
-        start_step   = self.start_epoch  * steps_per_epoch
-        cycle_steps  = self.cycle_epochs * steps_per_epoch
-        warmup_steps = self.cycle_warmup * steps_per_epoch
-        # get current step and cycle idx
-        current_step  = (epoch - self.start_epoch) * steps_per_epoch
-        # clamp steps
-        current_step = min(max(current_step, start_step), end_step) % cycle_steps
-        current_cycle = max(epoch - self.start_epoch, 0.0) // self.cycle_epochs
-        #
-        cycle_lr = min(current_step / max(warmup_steps, 1.0), 1.0) * ((self.init_lr - self.final_lr) * min(
-            (cycle_steps - current_step) / (cycle_steps - warmup_steps), 1.0) + self.final_lr)
-        envelope_lr = 1 + self.cycle_coef * current_cycle
-        return cycle_lr * envelope_lr
 
 
 @PyTorchModifierYAML()
