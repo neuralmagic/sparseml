@@ -26,6 +26,7 @@ import torch
 from transformers import AutoConfig, AutoTokenizer
 from transformers.tokenization_utils_base import PaddingStrategy
 
+from flaky import flaky
 from sparseml.pytorch.optim.manager import ScheduledModifierManager
 from sparseml.transformers.export import load_task_model
 from sparseml.transformers.utils import SparseAutoModel
@@ -143,6 +144,7 @@ class TransformersManager(BaseIntegrationManager):
         pass  # not yet implemented
 
 
+@flaky(max_runs=2, min_passes=1)
 class TestTransformers(BaseIntegrationTester):
     @pytest.fixture(
         params=get_configs_with_cadence(
