@@ -31,9 +31,10 @@ from sparseml.pytorch.utils import (
     ModuleTester,
     ModuleTrainer,
     default_device,
+    download_framework_model_by_recipe_type,
     is_parallel_model,
 )
-from sparsezoo import Zoo
+from sparsezoo import Model
 
 
 _LOGGER = logging.getLogger(__file__)
@@ -329,9 +330,9 @@ class ImageClassificationTrainer(Trainer):
 
     def _setup_checkpoint_manager(self):
         if self.checkpoint_path and self.checkpoint_path.startswith("zoo"):
-            self.checkpoint_path = Zoo.load_model_from_stub(
-                self.checkpoint_path
-            ).download_framework_files(extensions=[".pth"])[0]
+            zoo_model = Model(self.checkpoint_path)
+            self.checkpoint_path = download_framework_model_by_recipe_type(zoo_model)
+
         checkpoint_state = torch.load(self.checkpoint_path)
         checkpoint_manager = None
         checkpoint_recipe = checkpoint_state.get("recipe")

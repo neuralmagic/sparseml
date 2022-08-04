@@ -149,14 +149,12 @@ Ultralytics supports both DataParallel and DDP.
 
 The sparse weights used with this recipe are stored in the SparseZoo and can be retrieved with the following code:
  ```python
-from sparsezoo import Zoo
-
+from sparsezoo import Model
 
 stub = 'zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned-aggressive_97'
-model = Zoo.load_model_from_stub(stub)
-downloded_path = model.framework_files[-1].downloaded_path()
-print(f'model with stub {stub} downloaded to')
-print(downloded_path)
+model = Model(stub)
+downloaded_path = model.path
+print(f'Model with stub {stub} downloaded to {downloaded_path}.')
 ```
 
 *script command:*
