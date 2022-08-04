@@ -1721,6 +1721,7 @@ def skip_onnx_input_quantize(
     if output_file_path:
         onnx.save(model, output_file_path)
 
+
 def _propagate_mobilebert_embedding_quantization(model: ModelProto):
     """
     A pass for propagating embedding quantizations through concat
@@ -1812,7 +1813,9 @@ def _propagate_mobilebert_embedding_quantization(model: ModelProto):
                 pad_value_array = pad_value_array + 128
                 pad_value_array = pad_value_array.astype(numpy.uint8)
                 model.graph.initializer.remove(pad_value)
-                pad_value = numpy_helper.from_array(pad_value_array, name=pad_value.name)
+                pad_value = numpy_helper.from_array(
+                    pad_value_array, name=pad_value.name
+                )
                 model.graph.initializer.append(pad_value)
 
         for id, input_name in enumerate(concat_node.input):
@@ -1832,4 +1835,6 @@ def _propagate_mobilebert_embedding_quantization(model: ModelProto):
     graph.delete_unused_initializers()
 
     if converted_nodes > 0:
-        _LOGGER.info(f"Propagated {converted_nodes} DequantizeLinear node(s) through Concat")
+        _LOGGER.info(
+            f"Propagated {converted_nodes} DequantizeLinear node(s) through Concat"
+        )
