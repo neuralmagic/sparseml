@@ -373,6 +373,7 @@ class OBSPruningModifier(BaseGradualPruningModifier):
 
         self._sparsity_applied = True
         self._last_applied_sparsity = to_apply_sparsities
+        self._applied_sparsity = to_apply_sparsities
         # end of pruning step
         if self.end_pending(epoch, steps_per_epoch):
             self._module_masks.pruning_end(self._leave_enabled)
