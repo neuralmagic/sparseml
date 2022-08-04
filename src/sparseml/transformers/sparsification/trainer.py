@@ -59,6 +59,9 @@ __all__ = [
 
 _LOGGER = logging.getLogger(__name__)
 TRAINER_STATE_NAME = "trainer_state.json"
+OPTIMIZER_NAME = "optimizer.pt"
+SCHEDULER_NAME = "scheduler.pt"
+SCALER_NAME = "scaler.pt"
 
 
 class RecipeManagerTrainerInterface:
@@ -335,10 +338,7 @@ class RecipeManagerTrainerInterface:
             return
 
         # allow SparseML to manage LR and set a dummy scheduler
-        self.lr_scheduler = torch.optim.lr_scheduler.MultiplicativeLR(
-            self.optimizer,
-            lambda _: 1.0,
-        )
+        self.lr_scheduler = self._dummy_lr_scheduler()
         _LOGGER.warning("Overrode the lr_scheduler from SparseML recipe")
 
     def compute_loss(
@@ -907,6 +907,32 @@ class TransformersTrainer(HFTransformersTrainer):
                 torch.save(
                     self.scaler.state_dict(), os.path.join(output_dir, "scaler.pt")
                 )
+
+    def _load_optimizer_and_scheduler(self, checkpoint):
+        """
+        Override the Transformers Trainer so that optimizer, scheduler and scaler could
+        be loaded also from the input model folder, which is our use case (instead of
+        only from a separate checkpoint folder).
+        """
+        # We include the model path as where the optimizer and scheduler could be loaded
+        # (in addition to checkpoint folders)
+        model_folder = checkpoint if checkpoint is not None else self.model_state_path
+        if not os.path.isfile(os.path.join(model_folder, OPTIMIZER_NAME)):
+            return
+
+        super()._load_optimizer_and_scheduler(model_folder)
+
+        if self.manager.learning_rate_modifiers:
+            # If LR modifiers are present in the recipe, SparseML willl take
+            # control of the learning rate schedule. Therefore, set the built-in
+            # scheduler to a dummy
+            self.lr_scheduler = self._dummy_lr_scheduler()
+
+    def _dummy_lr_scheduler(self):
+        return torch.optim.lr_scheduler.MultiplicativeLR(
+            self.optimizer,
+            lambda _: 1.0,
+        )
 
     def _remove_unused_columns(
         self, dataset: "datasets.Dataset", description: Optional[str] = None
