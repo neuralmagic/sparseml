@@ -20,6 +20,7 @@ import pandas as pd
 import pytest
 import torch
 
+from flaky import flaky
 from tests.integrations.base_tester import (
     BaseIntegrationManager,
     BaseIntegrationTester,
@@ -108,6 +109,7 @@ class Yolov5Manager(BaseIntegrationManager):
             self.save_dir.cleanup()
 
 
+@flaky(max_runs=2, min_passes=1)
 class TestYolov5(BaseIntegrationTester):
     @pytest.fixture(
         params=get_configs_with_cadence(

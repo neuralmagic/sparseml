@@ -275,7 +275,7 @@ class DataTrainingArguments:
         self.task_name = self.task_name.lower()
 
 
-def main():
+def main(**kwargs):
     # See all possible arguments in src/transformers/training_args.py
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
@@ -289,9 +289,10 @@ def main():
         model_args, data_args, training_args = parser.parse_json_file(
             json_file=os.path.abspath(sys.argv[1])
         )
-    else:
+    elif not kwargs:
         model_args, data_args, training_args = parser.parse_args_into_dataclasses()
-
+    else:
+        model_args, data_args, training_args = parser.parse_dict(kwargs)
     # Setup logging
     log_level = training_args.get_process_log_level()
     _LOGGER.setLevel(log_level)

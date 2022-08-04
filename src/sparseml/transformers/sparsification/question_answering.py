@@ -56,7 +56,13 @@ class _QuestionAnsweringTrainer(Trainer):
     Trainer implementation for Question-Answering processing
     """
 
-    def __init__(self, *args, eval_examples=None, post_process_function=None, **kwargs):
+    def __init__(
+        self,
+        *args,
+        eval_examples=None,
+        post_process_function=None,
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)
         self.eval_examples = eval_examples
         self.post_process_function = post_process_function
@@ -71,6 +77,11 @@ class _QuestionAnsweringTrainer(Trainer):
         eval_dataset = self.eval_dataset if eval_dataset is None else eval_dataset
         eval_dataloader = self.get_eval_dataloader(eval_dataset)
         eval_examples = self.eval_examples if eval_examples is None else eval_examples
+
+        # Always evaluate w/ fp32 to be closer to DeepSparse
+        use_amp = self.use_amp
+        if not self.args.fp16_full_eval and not self.args.bf16_full_eval:
+            self.use_amp = False
 
         # Temporarily disable metric computation, we will do it in the loop here.
         compute_metrics = self.compute_metrics
@@ -116,6 +127,9 @@ class _QuestionAnsweringTrainer(Trainer):
         self.control = self.callback_handler.on_evaluate(
             self.args, self.state, self.control, metrics
         )
+
+        self.use_amp = use_amp
+
         return metrics
 
     def predict(

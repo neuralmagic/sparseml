@@ -15,7 +15,7 @@
 from sparseml.base import Framework
 from sparseml.deepsparse.framework import detect_framework, framework_info, is_supported
 from sparseml.framework import framework_info as base_framework_info
-from sparsezoo.models.classification import mobilenet_v1
+from sparsezoo import Model
 
 
 def test_is_supported():
@@ -23,9 +23,11 @@ def test_is_supported():
     assert is_supported("deepsparse")
     assert is_supported("/path/to/model.onnx")
 
-    model = mobilenet_v1()
+    model = Model(
+        "zoo:cv/classification/mobilenet_v1-1.0/pytorch/sparseml/imagenet/base-none"
+    )
     assert is_supported(model)
-    assert is_supported(model.onnx_file)
+    assert is_supported(model.onnx_model)
 
 
 def test_detect_framework():
@@ -33,9 +35,11 @@ def test_detect_framework():
     assert detect_framework("deepsparse") == Framework.deepsparse
     assert detect_framework("/path/to/model.onnx") == Framework.deepsparse
 
-    model = mobilenet_v1()
+    model = Model(
+        "zoo:cv/classification/mobilenet_v1-1.0/pytorch/sparseml/imagenet/base-none"
+    )
     assert detect_framework(model) == Framework.deepsparse
-    assert detect_framework(model.onnx_file) == Framework.deepsparse
+    assert detect_framework(model.onnx_model) == Framework.deepsparse
 
 
 def test_framework_info():
