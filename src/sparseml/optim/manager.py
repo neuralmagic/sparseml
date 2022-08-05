@@ -248,7 +248,7 @@ class BaseManager(BaseObject):
                         additional_modifier.end_epoch += base_end_epoch
                     if hasattr(additional_modifier, "start_epoch"):
                         additional_modifier.start_epoch = max(
-                            0., additional_modifier.start_epoch
+                            0.0, additional_modifier.start_epoch
                         )
                         additional_modifier.start_epoch += base_end_epoch
 
