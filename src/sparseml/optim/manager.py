@@ -249,6 +249,23 @@ class BaseManager(BaseObject):
                     if hasattr(additional_modifier, "start_epoch"):
                         additional_modifier.start_epoch += base_end_epoch
 
+                    # increment epoch-dependent attributes
+                    for attr in dir(additional_modifier):
+                        if (
+                            "epoch" in attr
+                            and attr not in ("start_epoch", "end_epoch")
+                            and not attr.startswith("_")
+                            and not attr.startswith("__")
+                            and not callable(getattr(additional_modifier, attr))
+                            and getattr(additional_modifier, attr) is not None
+                        ):
+                            setattr(
+                                additional_modifier,
+                                attr,
+                                max(0.0, getattr(additional_modifier, attr))
+                                + base_end_epoch,
+                            )
+
         combined_stages = base_stages
         combined_stages.update(additional_stages)
 
