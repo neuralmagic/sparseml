@@ -286,18 +286,35 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def export(
+    task: str,
+    model_path: str,
+    sequence_length: int,
+    no_convert_qat: bool,
+    finetuning_task: str,
+    onnx_file_name: str,
+):
+    onnx_path = export_transformer_to_onnx(
+        task=task,
+        model_path=model_path,
+        sequence_length=sequence_length,
+        convert_qat=no_convert_qat,  # False if flagged
+        finetuning_task=finetuning_task,
+        onnx_file_name=onnx_file_name,
+    )
+    _LOGGER.info(f"Model exported to: {onnx_path}")
+
+
 def main():
     args = _parse_args()
-    _LOGGER.info(f"Exporting {args.model_path} to ONNX")
-    onnx_path = export_transformer_to_onnx(
+    export(
         task=args.task,
         model_path=args.model_path,
         sequence_length=args.sequence_length,
-        convert_qat=args.no_convert_qat,  # False if flagged
+        no_convert_qat=args.no_convert_qat,  # False if flagged
         finetuning_task=args.finetuning_task,
         onnx_file_name=args.onnx_file_name,
     )
-    _LOGGER.info(f"Model exported to: {onnx_path}")
 
 
 if __name__ == "__main__":
