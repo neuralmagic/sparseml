@@ -155,7 +155,7 @@ When running, adjust hyper-parameters based on the training environment and data
 ## Training
 
 To set up the training environment, follow the instructions on the [integration README](../README.md).
-Using the given training script from the `yolact` directory the following command can be used to launch this recipe. 
+The following command can be used to launch this recipe. 
 Adjust the script command for your GPU device setup. 
 
 YOLACT supports DataParallel. Currently, this repo only supports YOLACT models with a DarkNet53 backbone.
@@ -164,7 +164,11 @@ YOLACT supports DataParallel. Currently, this repo only supports YOLACT models w
 *script command:*
 
 ```
-python train.py \
+sparseml.yolact.train \
 --recipe=../recipes/yolact.pruned.md \
---resume=zoo:cv/segmentation/yolact-darknet53/pytorch/dbolya/coco/base-none
+--resume=zoo:cv/segmentation/yolact-darknet53/pytorch/dbolya/coco/base-none \
+--train_info ./data/coco/annotations/instances_train2017.json \
+--validation_info ./data/coco/annotations/instances_val2017.json \
+--train_images ./data/coco/images \
+--validation_images ./datas/coco/images
 ```

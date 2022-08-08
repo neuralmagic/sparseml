@@ -40,8 +40,6 @@ through a compression algorithm to reduce its deployment size and run it in an i
 The examples listed in this tutorial are all performed on the COCO dataset.
 
 Before diving in, be sure to go through the setup as listed out in the [README](../README.md) for this integration.
-Additionally, all commands are intended to be run from the root of the `yolact` repository folder 
-(`cd integrations/dbolya-yolact/yolact`).
 
 ## Need Help?
 
@@ -69,31 +67,19 @@ Otherwise, setup scripts for [COCO](https://cocodataset.org/#home) can be found 
 
 1. For this tutorial, run the COCO setup script with the following command from the root of the `yolact` repository:
     ```bash
-    bash data/scripts/COCO.sh
+    sparseml.yolact.download
     ```
    
     Download and validation of the COCO dataset will begin and take around 10 minutes to finish (based on the speed of your internet connection).
     The script downloads the COCO dataset into a `coco` folder under the data directory.
     Notice that once completed, the data is ready for training with the folder structure in the following state (only directories are shown for brevity):
     ```
-   └── yolact
     ├── data
-    │   ├── coco
-    │   │   ├── annotations
-    │   │   └── images
-    │   └── scripts
-    ├── external
-    │   └── DCNv2
-    │       └── src
-    ├── layers
-    │   ├── functions
-    │   └── modules
-    ├── scripts
-    ├── utils
-    └── web
-        ├── css
-        ├── dets
-        └── scripts
+       ├── coco
+       │   ├── annotations
+       │   └── images
+       └── scripts
+    
     ```
    
     You are ready to train the model.
@@ -105,23 +91,11 @@ Otherwise, setup scripts for [COCO](https://cocodataset.org/#home) can be found 
    - Download ImageNet-pre-trained [`DarkNet-53` backbone](https://drive.google.com/file/d/17Y431j4sagFpSReuPNoFcj9h7azDTZFf/view?usp=sharing)
      and put it in `./weights` directory. The directory structure should look like the following:
 ````
-    └── yolact
+    └── Project_directory
         ├── data
         │   ├── coco
         │   │   ├── annotations
         │   │   └── images
-        │   └── scripts
-        ├── external
-        │   └── DCNv2
-        │       └── src
-        ├── layers
-        │   ├── functions
-        │   └── modules
-        ├── scripts
-        ├── utils
-        ├── web
-        │   ├── css
-        │   ├── dets
         │   └── scripts
         └── weights
             └── darknet53.pth
@@ -129,7 +103,12 @@ Otherwise, setup scripts for [COCO](https://cocodataset.org/#home) can be found 
 
 2) Run the following command to kickstart training
 ```bash
-python train.py 
+sparseml.yolact.train --resume \
+./weights/darknet53.pth \
+--train_info ./data/coco/annotations/instances_train2017.json \
+--validation_info ./data/coco/annotations/instances_val2017.json \
+--train_images ./data/coco/images \
+--validation_images ./datas/coco/images
 ```
 The weights are stored in the `./weights` directory by default and use the `<config>_<epoch>_<iter>.pth` naming 
 convention
@@ -137,30 +116,18 @@ convention
 3) Validate that the training commands are completed successfully by checking under the `./weights` directory for the trained weights.
    Upon success, the resulting directory structure should look like the following (a few directories are missing content for brevity):
 ```
-└── yolact
+└── Project_Directory
     ├── data
     │   ├── coco
     │   │   ├── annotations
     │   │   └── images
-    │   └── scripts
-    ├── external
-    │   └── DCNv2
-    │       └── src
-    ├── layers
-    │   ├── functions
-    │   └── modules
-    ├── scripts
-    ├── utils
-    ├── web
-    │   ├── css
-    │   ├── dets
     │   └── scripts
     └── weights
         ├── darknet53.pth
         └── yolact_darknet53_54_800000.pth
  ```
 
-You are ready to use the weights at `yolact/weights/yolact_darknet53_54_800000.pth` with the Neural Magic recipes to create a sparsified model.
+You are ready to use the weights at `./weights/yolact_darknet53_54_800000.pth` with the Neural Magic recipes to create a sparsified model.
 You can also download this baseline, pre-trained checkpoint directly from the [SparseZoo UI](https://sparsezoo.neuralmagic.com/models/cv%2Fsegmentation%2Fyolact-darknet53%2Fpytorch%2Fdbolya%2Fcoco%2Fbase-none),
 or pass its model stub directly to the `--resume` argument while invoking the training script.
 ## Applying a Recipe
@@ -181,9 +148,8 @@ The table below compares these tradeoffs and shows how to run them on the COCO d
 2. Select a recipe to use on top of the pre-trained model you created.
 
     - Check your CPU hardware support for quantized networks (VNNI instruction set) using the DeepSparse API:
-      ```python
-        from deepsparse.cpu import cpu_vnni_compatible
-        print(f"VNNI available: {cpu_vnni_compatible()}")
+      ```bash
+      deepsparse.check_hardware
       ```
     - If your hardware does not support quantized networks for inference speedup or complete recovery is very important, then Neural Magic recommends using the  `pruned` recipe. The recipe to use depends on how long you are willing to train and how vital full recovery is. Consult the table above for this comparison.
     - If your hardware does support quantized networks, we recommend using the `pruned quantized` recipe. The recipe to use depends on how long you are willing to train and how crucial full recovery is. Consult the table for this comparison.
@@ -192,10 +158,14 @@ The table below compares these tradeoffs and shows how to run them on the COCO d
 3. To begin applying one of the recipes, use the `--recipe` argument within the YOLACT [train script](https://github.com/neuralmagic/yolact/blob/master/train.py).
    The recipe argument is combined with our previous training command and COCO pre-trained weights to run the recipes over the model. For example, a command for pruning YOLACT would look like this:
 ```bash
-python train.py \
+sparseml.yolact.train \
 --recipe=../recipes/yolact.pruned.md \
 --resume=zoo:cv/segmentation/yolact-darknet53/pytorch/dbolya/coco/base-none \
---save_folder=./pruned 
+--save_folder=./pruned \
+--train_info ./data/coco/annotations/instances_train2017.json \
+--validation_info ./data/coco/annotations/instances_val2017.json \
+--train_images ./data/coco/images \
+--validation_images ./datas/coco/images
 ```
 After applying a recipe, you are ready to export for inference.
 
@@ -207,7 +177,7 @@ Then, you can run the file through a compression algorithm to reduce its deploym
 When you applied a recipe in the previous step, the sparsification run created a new `./pruned` directory under the `yolact` directory:
 
 ```
-└── yolact
+└── Project_directory
     ├── data
     │   ├── coco
     │   │   ├── annotations
@@ -215,31 +185,19 @@ When you applied a recipe in the previous step, the sparsification run created a
     │   └── scripts
     ├── pruned
     │    └── yolact_darknet53_3_29316.pth 
-    ├── external
-    │   └── DCNv2
-    │       └── src
-    ├── layers
-    │   ├── functions
-    │   └── modules
-    ├── scripts
-    ├── utils
-    ├── web
-    │   ├── css
-    │   ├── dets
-    │   └── scripts
     └── weights
         └── yolact_darknet53_54_800000.pth
 ```
 
-These weights under `./pruned` can be loaded into the `train.py` and `export.py` scripts now. 
+These weights under `./pruned` can be loaded into the `sparseml.yolact.train` and `sparseml.yolact.export_onnx` utilities now. 
 However, other formats are generally more friendly for other inference deployment platforms, such as [ONNX](https://onnx.ai/).
 
-The [`export.py` script](https://github.com/neuralmagic/yolact/blob/master/export.py) handles the logic behind loading the checkpoint and converting it into the more common inference formats, as described here.
+[`sparseml.yolact.export_onnx`](https://github.com/neuralmagic/yolact/blob/master/export.py) handles the logic behind loading the checkpoint and converting it into the more common inference formats, as described here.
 
 1. Enter the following command to load the PyTorch graph, convert to ONNX, and correct any misformatted pieces of the graph for the pruned and quantized models.
 
     ```bash
-    python export.py --checkpoint PATH_TO_SPARSIFIED_WEIGHTS
+    sparseml.yolact.export_onnx --checkpoint PATH_TO_SPARSIFIED_WEIGHTS
     ```
     
     The result is a new file added next to the sparsified checkpoint with a `.onnx` extension:
@@ -253,7 +211,7 @@ The [`export.py` script](https://github.com/neuralmagic/yolact/blob/master/expor
 Neural Magic recipes simplify the sparsification process by encoding the hyperparameters and instructions needed to create highly accurate pruned and pruned-quantized YOLACT models for image segmentation tasks. 
 In this tutorial, you created a pre-trained model to establish a baseline, applied a Neural Magic recipe for sparsification, and exported it to ONNX to run through an inference engine.
 
-Now, refer [here](https://github.com/neuralmagic/deepsparse/tree/main/examples/dbolya-yolact) for an example for benchmarking and deploying YOLACT models with DeepSparse.
+Now, refer [here](https://github.com/neuralmagic/deepsparse/blob/main/src/deepsparse/yolact/README.md) for an example for benchmarking and deploying YOLACT models with DeepSparse.
 
 For Neural Magic Support, sign up or log in to our [**Deep Sparse Community Slack**](https://join.slack.com/t/discuss-neuralmagic/shared_invite/zt-q1a1cnvo-YBoICSIw3L1dmQpjBeDurQ). Bugs, feature requests, or additional questions can also be posted to our [GitHub Issue Queue.](https://github.com/neuralmagic/sparseml/issues)
 
