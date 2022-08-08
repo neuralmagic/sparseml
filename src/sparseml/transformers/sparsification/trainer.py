@@ -330,7 +330,6 @@ class RecipeManagerTrainerInterface:
         :param optimizer: pre-initialized optimizer
         """
         self._check_super_defined("create_scheduler")
-
         if (
             self.lr_scheduler is not None
             or self.manager is None
@@ -996,9 +995,20 @@ class TransformersTrainer(HFTransformersTrainer):
         # We include the model path as where the optimizer and scheduler could be loaded
         # (in addition to checkpoint folders)
         model_folder = self.checkpoint if self.checkpoint is not None else self.model_state_path
-        if os.path.isfile(os.path.join(model_folder, OPTIMIZER_NAME)) or \
-           os.path.isfile(os.path.join(model_folder, SCHEDULER_NAME)):
-            super()._load_optimizer_and_scheduler(model_folder)
+        if not os.path.isfile(os.path.join(model_folder, OPTIMIZER_NAME)):
+            return
+
+        super()._load_optimizer_and_scheduler(model_folder)
+
+        if self.manager.learning_rate_modifiers:
+            # allow SparseML to manage LR and set a dummy scheduler
+            self.lr_scheduler = self._dummy_lr_scheduler()
+
+    def _dummy_lr_scheduler(self):
+        return torch.optim.lr_scheduler.MultiplicativeLR(
+            self.optimizer,
+            lambda _: 1.0,
+        )
 
 
 class Trainer(TrainerInterface, TransformersTrainer):
