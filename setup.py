@@ -38,7 +38,7 @@ _deps = [
     "numpy>=1.0.0",
     "matplotlib>=3.0.0",
     "merge-args>=0.1.0",
-    "onnx>=1.5.0,<=1.10.1",
+    "onnx>=1.5.0,<=1.12.0",
     "pandas>=0.25.0",
     "packaging>=20.0",
     "psutil>=5.0.0",
@@ -59,7 +59,7 @@ _deepsparse_deps = [
 
 _onnxruntime_deps = ["onnxruntime>=1.0.0"]
 _pytorch_deps = [
-    "torch>=1.1.0,<=1.9.1,>=1.12.1",
+    "torch>=1.1.0,<=1.12.1,!=1.10.0,!=1.11.0",
     "tensorboard>=1.0,<2.9",
     "tensorboardX>=1.0",
     "gputils",
@@ -223,7 +223,7 @@ setup(
     install_requires=_setup_install_requires(),
     extras_require=_setup_extras(),
     entry_points=_setup_entry_points(),
-    python_requires=">=3.6.0,<3.10",
+    python_requires=">=3.6.0,<3.11",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Programming Language :: Python :: 3",
