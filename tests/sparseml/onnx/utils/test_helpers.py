@@ -431,9 +431,9 @@ def test_extract_node_shape(extract_node_models):  # noqa: F811
     for expected_output in expected_outputs:
         if len(expected_output) == len(node_shapes):
             for expected, found in zip(expected_output.items(), node_shapes.items()):
-                _key, (expected_inp_shape, expected_out_shape) = expected
-                _node_key, node = found
-                # NOTE: keys may not match up, so not testing for those.
+                expected_key, (expected_inp_shape, expected_out_shape) = expected
+                node_key, node = found
+                assert node_key == expected_key
                 assert node.input_shapes == expected_inp_shape
                 assert node.output_shapes == expected_out_shape
 
