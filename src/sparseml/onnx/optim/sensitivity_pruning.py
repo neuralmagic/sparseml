@@ -17,7 +17,6 @@ Sensitivity analysis implementations for kernel sparsity on Models against loss 
 """
 
 import logging
-import numbers
 import time
 from typing import Any, Generator, List, NamedTuple, Tuple, Union
 
@@ -45,7 +44,6 @@ from sparseml.optim import (
     default_pruning_sparsities_loss,
     default_pruning_sparsities_perf,
 )
-from sparseml.utils import flatten_iterable
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -96,20 +94,17 @@ def pruning_loss_sens_approx(
         return 0.0
 
     if input_shape:
-        input_shape = flatten_iterable(input_shape)
-        input_shape = [
-            size for size in input_shape if size and isinstance(size, numbers.Number)
-        ]
-
-    input_volume = 0 if not input_shape else numpy.prod(input_shape).item()
+        input_shape = [numpy.prod(subshape).item() for subshape in input_shape]
+        input_volume = sum(input_shape)
+    else:
+        input_volume = 0
 
     if output_shape:
-        output_shape = flatten_iterable(output_shape)
-        output_shape = [
-            size for size in output_shape if size and isinstance(size, numbers.Number)
-        ]
+        output_shape = [numpy.prod(subshape).item() for subshape in output_shape]
+        output_volume = sum(output_shape)
+    else:
+        output_volume = 0
 
-    output_volume = 0 if not output_shape else numpy.prod(output_shape).item()
     total_volume = input_volume + output_volume
 
     features_per_params = total_volume / float(params)

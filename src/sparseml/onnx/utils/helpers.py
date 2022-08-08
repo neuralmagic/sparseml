@@ -1159,17 +1159,6 @@ def _numpy_prod_with_none_check(array: Union[List, None]) -> Union[float, None]:
     return numpy.prod(array) if array is not None else None
 
 
-def _attempt_cast_as_float(value: Any) -> float:
-    """
-    :param vale: a value
-    :return: the value as a float if casting is possible, otherwise return 1
-    """
-    try:
-        return float(value)
-    except (ValueError, TypeError):
-        return 1.0
-
-
 def _array_as_numeric(array: Union[List, None]) -> Union[List, None]:
     """
     :param array: an array like list
@@ -1179,13 +1168,7 @@ def _array_as_numeric(array: Union[List, None]) -> Union[List, None]:
     if array is None:
         return None
 
-    array = numpy.array(array, dtype=object)
-    # Check if the array datatype is a number
-    if numpy.issubdtype(array.dtype, numpy.number):
-        return array
-    else:
-        to_float = numpy.vectorize(_attempt_cast_as_float)
-        return to_float(array)
+    return [numpy.array(a, dtype=float) for a in array]
 
 
 def get_quantize_parent_for_dequantize_node(

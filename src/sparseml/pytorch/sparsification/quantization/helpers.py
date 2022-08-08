@@ -24,9 +24,9 @@ from torch.nn import BatchNorm2d, Conv2d, Embedding, Module, ReLU
 
 
 try:
+    import torch.ao.quantization as torch_ao_quantization
     import torch.nn.intrinsic as nni
     from torch import quantization as torch_quantization
-    import torch.ao.quantization as torch_ao_quantization
 except Exception:
     nni = None
     torch_quantization = None

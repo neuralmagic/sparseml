@@ -137,46 +137,49 @@ def test_mode_analyzer_json():
     )
 
 
-def _test_model_analyzer(model_path: str, expected_output: str):
-    analyzer = ModelAnalyzer(model_path)
-    analyzer_dict = analyzer.dict()
-
-    analyzer_from_json = ModelAnalyzer.from_dict(expected_output)
-
-    assert len(analyzer_dict["nodes"]) == len(expected_output["nodes"])
-    for node, expected_node in zip(analyzer_dict["nodes"], expected_output["nodes"]):
-        assert sorted(node.keys()) == sorted(expected_node.keys())
-        for key, value in node.items():
-            if key == "id":
-                continue
-            expected_value = expected_node[key]
-            assert value == expected_value, (key, value, expected_value)
-
-    # return (analyzer_dict == expected_output) and (analyzer == analyzer_from_json)
-
-
 def test_model_analyzer(analyzer_models):  # noqa: F811
     model_path, *expected_outputs = analyzer_models
+
+    analyzer = ModelAnalyzer(model_path)
+    found = analyzer.dict()
+
     """
     Depending whether we have test case written for legacy PyTorch
     or both legacy and upgraded PyTorch, three lists below will have:
     `len` of 1 (if only legacy PyTorch test case present)
     `len` of 2 (if test case for legacy and upgraded PyTorch)
     """
-
     expected_outputs = [x for x in expected_outputs if x]
-    result = [False] * len(expected_outputs)
-    for i, expected_output in enumerate(expected_outputs):
-        _test_model_analyzer(model_path, expected_output)
+
     """
     If we have only one test case, it must must evaluate to True,
     If we have two test cases, at least one must evaluate to True.
     In other words, we are happy with test passing for legacy or
     upgraded PyTorch (worst case scenario).
     """
-    # assert any(result)
+    # make sure at least one of the expected outputs has the same shape as `node_shapes`
+    assert any(
+        len(output["nodes"]) == len(found["nodes"]) for output in expected_outputs
+    )
+
+    for expected in expected_outputs:
+        if len(found["nodes"]) == len(expected["nodes"]):
+            for node, expected_node in zip(found["nodes"], expected["nodes"]):
+                assert sorted(node.keys()) == sorted(expected_node.keys())
+                for key, value in node.items():
+                    expected_value = expected_node[key]
+                    assert value == expected_value, (key, value, expected_value)
 
 
 def test_model_analyzer_from_repo(analyzer_models_repo):
-    model_path, expected_output = analyzer_models_repo
-    _test_model_analyzer(model_path, expected_output)
+    model_path, expected = analyzer_models_repo
+
+    analyzer = ModelAnalyzer(model_path)
+    found = analyzer.dict()
+
+    assert len(found["nodes"]) == len(expected["nodes"])
+    for node, expected_node in zip(found["nodes"], expected["nodes"]):
+        assert sorted(node.keys()) == sorted(expected_node.keys())
+        for key, value in node.items():
+            expected_value = expected_node[key]
+            assert value == expected_value, (key, value, expected_value)
