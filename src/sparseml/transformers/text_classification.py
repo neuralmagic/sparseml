@@ -783,11 +783,13 @@ def main(**kwargs):
 
             if task == "mnli-mm":
                 metrics = {k + "_mm": v for k, v in metrics.items()}
-            if "mnli" in task:
+            if task is not None and "mnli" in task:
                 combined.update(metrics)
+                trainer.save_metrics("eval", combined)
+            else:
+                trainer.save_metrics("eval", metrics)
 
             trainer.log_metrics("eval", metrics)
-            trainer.save_metrics("eval", combined if "mnli" in task else metrics)
 
     if training_args.do_predict and not trainer.one_shot:
         _LOGGER.info("*** Predict ***")

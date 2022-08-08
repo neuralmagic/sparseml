@@ -37,8 +37,7 @@ MOCK_BENCHMARK_RETURN_VALUE = 0.5
 @pytest.fixture(scope="module")
 def mobilenet_fixture() -> Model:
     with tempfile.TemporaryDirectory() as onnx_dir:
-        model = Model(TEST_STUB)
-        model.path = onnx_dir
+        model = Model(TEST_STUB, download_path=onnx_dir)
         yield model
 
 

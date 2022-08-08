@@ -290,9 +290,11 @@ def load_model(model: Any, **kwargs) -> ModelProto:
         raise ValueError("Model must not be None type")
 
     if isinstance(model, str) and model.startswith("zoo:"):
-        model = Model(model)
-        if "path" in kwargs:
-            model.path = kwargs["path"]
+        model = (
+            Model(model, download_path=kwargs["path"])
+            if "path" in kwargs
+            else Model(model)
+        )
 
     if isinstance(model, Model):
         # default to the main onnx file for the model

@@ -75,7 +75,7 @@ class ImageClassificationManager(BaseIntegrationManager):
             self.expected_checkpoint_path = os.path.join(
                 train_args.save_dir,
                 train_args.model_tag,
-                "framework",
+                "training",
                 "model-one-shot.pth" if train_args.one_shot else "model.pth",
             )
 
