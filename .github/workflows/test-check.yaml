@@ -74,6 +74,9 @@ jobs:
     needs: test-setup
     if: ${{needs.test-setup.outputs.base == 1}}
     steps:
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
       - uses: actions/checkout@v2
       - uses: actions/checkout@v2
         with:
@@ -101,6 +104,9 @@ jobs:
     needs: test-setup
     if: ${{needs.test-setup.outputs.deepsparse == 1}}
     steps:
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
       - uses: actions/checkout@v2
       - uses: actions/checkout@v2
         with:
@@ -124,6 +130,9 @@ jobs:
     needs: test-setup
     if:  ${{needs.test-setup.outputs.keras == 1}}
     steps:
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
       - uses: actions/checkout@v2
       - uses: actions/checkout@v2
         with:
@@ -145,6 +154,9 @@ jobs:
     needs: test-setup
     if: ${{needs.test-setup.outputs.onnx == 1}}
     steps:
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
       - uses: actions/checkout@v2
       - uses: actions/checkout@v2
         with:
@@ -166,6 +178,9 @@ jobs:
     needs: test-setup
     if: ${{needs.test-setup.outputs.pytorch == 1}}
     steps:
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
       - uses: actions/checkout@v2
       - uses: actions/checkout@v2
         with:
@@ -187,6 +202,9 @@ jobs:
     needs: test-setup
     if:  ${{needs.test-setup.outputs.tensorflow_v1 == 1}}
     steps:
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
       - uses: actions/checkout@v2
       - uses: actions/checkout@v2
         with:
