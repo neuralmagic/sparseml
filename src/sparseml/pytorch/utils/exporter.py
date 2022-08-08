@@ -419,7 +419,6 @@ def export_onnx(
     create_parent_dirs(file_path)
 
     module = deepcopy(module).cpu()
-    # module.eval()
 
     with torch.no_grad():
         out = tensors_module_forward(sample_batch, module, check_feat_lab_inp=False)
