@@ -59,7 +59,7 @@ _deepsparse_deps = [
 
 _onnxruntime_deps = ["onnxruntime>=1.0.0"]
 _pytorch_deps = [
-    "torch>=1.1.0,<=1.12.1,!=1.10.0,!=1.11.0",
+    "torch>=1.1.0,<=1.12.1,!=1.10,!=1.11",
     "tensorboard>=1.0,<2.9",
     "tensorboardX>=1.0",
     "gputils",
