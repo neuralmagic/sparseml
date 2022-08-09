@@ -20,6 +20,7 @@ from collections import OrderedDict
 from typing import Any, List, Optional, Tuple, Union
 
 import torch
+from packaging import version
 from torch.nn import DataParallel, Module
 from torch.optim.optimizer import Optimizer
 
@@ -241,7 +242,7 @@ def save_model(
     if arch_key:
         save_dict["arch_key"] = arch_key
 
-    if torch.__version__ < "1.6":
+    if version.parse(torch.__version__) < version.parse("1.6"):
         torch.save(save_dict, path)
     else:
         torch.save(

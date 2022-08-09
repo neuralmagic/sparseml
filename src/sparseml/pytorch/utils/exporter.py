@@ -26,6 +26,7 @@ import numpy
 import onnx
 import torch
 from onnx import numpy_helper
+from packaging import version
 from torch import Tensor
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
@@ -51,7 +52,9 @@ __all__ = [
 ]
 
 
-DEFAULT_ONNX_OPSET = 13
+DEFAULT_ONNX_OPSET = (
+    9 if version.parse(torch.__version__) < version.parse("1.3") else 13
+)
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -471,7 +474,11 @@ def export_onnx(
         for submodule in module.modules()
     )
     batch_norms_wrapped = False
-    if torch.__version__ >= "1.7" and not is_quant_module and disable_bn_fusing:
+    if (
+        version.parse(torch.__version__) >= version.parse("1.7")
+        and not is_quant_module
+        and disable_bn_fusing
+    ):
         # prevent batch norm fusing by adding a trivial operation before every
         # batch norm layer
         batch_norms_wrapped = _wrap_batch_norms(module)
