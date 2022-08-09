@@ -674,16 +674,16 @@ class QuantizationModifier(ScheduledModifier):
 
         # remove qconfigs for module types in exclude_module_types
         to_exclude = []
-        if self._exclude_module_types:
+        if self.exclude_module_types:
             to_exclude.extend(self.exclude_module_types)
 
         # if exclude_batchnorm flag is used, add batch norm layers to list of
         # modules to exclude qconfig
-        if self._exclude_batchnorm:
+        if self.exclude_batchnorm:
             to_exclude.extend(["BatchNorm1d", "BatchNorm2d", "BatchNorm3d"])
 
-        self._exclude_module_types = to_exclude
-        if self._exclude_module_types:
+        self.exclude_module_types = to_exclude
+        if self.exclude_module_types:
             self._strip_excluded_module_qconfigs(module)
 
         # set modules with proper qconfigs to QAT mode
