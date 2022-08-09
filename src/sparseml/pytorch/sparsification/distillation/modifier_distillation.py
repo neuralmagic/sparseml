@@ -18,6 +18,7 @@ Modifier for performing model distillation
 
 
 import logging
+from collections.abc import Mapping
 from copy import deepcopy
 from typing import Any, Dict, Iterable, List, Optional, Union
 
@@ -387,7 +388,7 @@ class DistillationModifier(ScheduledUpdateModifier):
             distill_head_output_losses.append(
                 self._calc_distill_head_output_loss(student_outputs, teacher_outputs)
             )
-        elif isinstance(student_outputs, Dict):
+        elif isinstance(student_outputs, Mapping):
             for key in self._distill_output_keys or student_outputs:
                 distill_head_output_losses.append(
                     self._calc_distill_head_output_loss(
