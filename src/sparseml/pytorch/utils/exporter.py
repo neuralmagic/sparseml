@@ -51,7 +51,7 @@ __all__ = [
 ]
 
 
-DEFAULT_ONNX_OPSET = 9 if torch.__version__ < "1.3" else 11
+DEFAULT_ONNX_OPSET = 9 if torch.__version__ < "1.3" else 13
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -402,6 +402,13 @@ def export_onnx(
         See more on the torch.onnx.export api spec in the PyTorch docs:
         https://pytorch.org/docs/stable/onnx.html
     """
+    if opset < 13 and convert_qat:
+        warnings.warn(
+            "Exporting onnx with QAT and opset < 13 may result in errors. "
+            "Please use opset>=13 with QAT. "
+            "See https://github.com/pytorch/pytorch/issues/77455 for more info. "
+        )
+
     if not export_kwargs:
         export_kwargs = {}
 
@@ -524,6 +531,8 @@ def export_onnx(
             _LOGGER.warning(
                 f"Unable to skip input QuantizeLinear op with exception {e}"
             )
+
+    onnx.checker.check_model(file_path)
 
 
 def _get_output_names(out: Any):
