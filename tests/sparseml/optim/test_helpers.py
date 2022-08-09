@@ -624,7 +624,7 @@ def test_evaluate_recipe_yaml_str_equations_invalid(recipe):
         ),
         (
             "zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenette/"
-            "pruned-conservative?recipe_type=original"
+            "pruned-conservative?recipe=original"
         ),
     ],
 )

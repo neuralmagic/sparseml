@@ -57,18 +57,16 @@ These models were originally pruned on the COCO dataset achieving the following 
 
 1) After deciding on which model meets your performance requirements for both speed and accuracy, the following code is used to download the PyTorch checkpoints for the desired model from the SparseZoo:
     ```python
-    from sparsezoo import Zoo
-    
+    from sparsezoo import Model
     
     BASELINE_STUB = 'zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/base-none'
     PRUNED_STUB = 'zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned-aggressive_97'
     PRUNED_QUANT_STUB = 'zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned_quant-aggressive_94'
     
     stub = PRUNED_QUANT_STUB
-    model = Zoo.load_model_from_stub(stub)
-    downloded_path = model.framework_files[-1].downloaded_path()
-    print(f'model with stub {stub} downloaded to')
-    print(downloded_path)
+    model = Model(stub)
+    downloded_path = model.path
+    print(f'Model with stub {stub} downloaded to {downloded_path}.')
     ```
 
 2) Once the desired checkpoint has downloaded, it must be reset for training again.

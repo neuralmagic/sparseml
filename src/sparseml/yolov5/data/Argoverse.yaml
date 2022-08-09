@@ -56,7 +56,7 @@ download: |
 
 
   # Download
-  dir = Path('src/sparseml/yolov5/datasets/Argoverse')  # dataset root dir
+  dir = Path('datasets/Argoverse')  # dataset root dir
   urls = ['https://argoverse-hd.s3.us-east-2.amazonaws.com/Argoverse-HD-Full.zip']
   download(urls, dir=dir, delete=False)
 

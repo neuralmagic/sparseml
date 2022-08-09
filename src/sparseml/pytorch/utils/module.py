@@ -693,6 +693,9 @@ class ModuleRunner(ABC):
         epoch_timer = time.time()
 
         for batch, data in data_iter:
+            if 0 < max_steps and batch >= max_steps:
+                break
+
             step_timer = time.time()
             batch_size = self._run_funcs.batch_size(data)  # type: int
 
@@ -750,9 +753,6 @@ class ModuleRunner(ABC):
 
             if results is not None:
                 results.append(batch_results, batch_size)
-
-            if 0 < max_steps <= batch:
-                break
 
         should_log = self._loggers and self._log_summary and results
         log_step = counter  # log under the counter step for the summaries

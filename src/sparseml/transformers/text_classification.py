@@ -303,7 +303,7 @@ class ModelArguments:
     )
 
 
-def main():
+def main(**kwargs):
     # See all possible arguments in src/transformers/training_args.py
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
@@ -317,9 +317,10 @@ def main():
         model_args, data_args, training_args = parser.parse_json_file(
             json_file=os.path.abspath(sys.argv[1])
         )
-    else:
+    elif not kwargs:
         model_args, data_args, training_args = parser.parse_args_into_dataclasses()
-
+    else:
+        model_args, data_args, training_args = parser.parse_dict(kwargs)
     # Setup logging
 
     log_level = training_args.get_process_log_level()
@@ -759,7 +760,11 @@ def main():
         _LOGGER.info("*** Evaluate ***")
 
         # Loop to handle MNLI double evaluation (matched, mis-matched)
-        tasks = [data_args.task_name]
+        tasks = (
+            [data_args.task_name]
+            if data_args.task_name is not None
+            else [data_args.dataset_name]
+        )
         eval_datasets = [eval_dataset]
         if data_args.task_name == "mnli":
             tasks.append("mnli-mm")
@@ -778,11 +783,13 @@ def main():
 
             if task == "mnli-mm":
                 metrics = {k + "_mm": v for k, v in metrics.items()}
-            if "mnli" in task:
+            if task is not None and "mnli" in task:
                 combined.update(metrics)
+                trainer.save_metrics("eval", combined)
+            else:
+                trainer.save_metrics("eval", metrics)
 
             trainer.log_metrics("eval", metrics)
-            trainer.save_metrics("eval", combined if "mnli" in task else metrics)
 
     if training_args.do_predict and not trainer.one_shot:
         _LOGGER.info("*** Predict ***")

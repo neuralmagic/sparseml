@@ -30,13 +30,13 @@ In the example below, a dense BERT model is trained on the CoNLL-2003 dataset. B
 
 ```bash
 sparseml.transformers.token_classification \
-  --model_name_or_path bert-base-uncased \          # name of the Hugging Face dense model
-  --dataset_name conll2003 \                        # name of the dataset we want to sparse train on
-  --do_train \                                      # run training
-  --do_eval \                                       # run evaluation on validation set 
-  --output_dir './output' \                         # output directory of the saved model
-  --cache_dir cache \                               # local directory to store the downloaded hugging face model.  
-  --distill_teacher disable \                       # disable knowledge distillation
+  --model_name_or_path bert-base-uncased \
+  --dataset_name conll2003 \
+  --do_train \
+  --do_eval \
+  --output_dir './output' \
+  --cache_dir cache \
+  --distill_teacher disable \
   --recipe zoo:nlp/token_classification/bert-base/pytorch/huggingface/conll2003/12layer_pruned80_quant-none-vnni        
 ```
 
@@ -52,7 +52,7 @@ sparseml.transformers.token_classification \
     --dataset_name conll2003 \
     --do_train \
     --do_eval \
-    --output_dir './output' \ 
+    --output_dir './output' \
     --distill_teacher disable \
     --recipe zoo:nlp/masked_language_modeling/bert-base/pytorch/huggingface/wikipedia_bookcorpus/12layer_pruned80_quant-none-vnni?recipe_type=transfer-token_classification
 ```
@@ -149,7 +149,7 @@ inference = tc_pipeline("We are flying from Texas to California")
 ```
 
 
-To learn more, refer to the [appropriate documentation in the DeepSparse repository](https://github.com/neuralmagic/deepsparse/tree/main/examples/huggingface-transformers)
+To learn more, refer to the [appropriate documentation in the DeepSparse repository](https://github.com/neuralmagic/deepsparse/blob/main/src/deepsparse/transformers/README.md).
 
 ## Support
 

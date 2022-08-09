@@ -44,7 +44,7 @@ For Neural Magic Support, sign up or log in to our [**Deep Sparse Community Slac
 Before applying one of the pruning recipes with the distillation approach, we need a "teacher" model pretrained on the dataset. In our experiments, we trained the BERT model adapted to SQuAD in two epochs, resulting in a teacher model with EM/F1 metrics of 80.9/88.4. The `run_qa.py` script could be used for this purpose as follows.
 
 ```bash
-python transformers/examples/pytorch/question-answering/run_qa.py  \
+sparseml.transformers.question_answering  \
   --model_name_or_path bert-base-uncased \
   --dataset_name squad \
   --do_train \
@@ -72,12 +72,10 @@ Using the teacher model `bert-base-12layers` above, you can now train and prune 
 - `--recipe`: path to a YAML recipe file that defines, among other information, the parameters and the desired sparsity levels to prune;
 - `--distill_teacher`: path to the teacher model for distillation; the student model is trained to learn from both its correct targets and those "instructed" by the teacher model. The distillation hardness defining the ratio (in `[0.0, 1.0]`) of the loss defined on the teacher model targets, and the temperature used to soften the distribution of the targets are specified as parts of the distillation modifier in the recipe.
 
-Additionally, you will use the argument `--onnx_export_path` to specify the destination folder for the exported ONNX model. The resulting exported model could then be used for inference with the `DeepSparse Engine`.
-
 The following command prunes the model in 30 epochs to 80% sparsity of the encoder layers, saving two checkpoints during training:
 
 ```bash
-python transformers/examples/pytorch/question-answering/run_qa.py \
+sparseml.transformers.question_answering \
   --model_name_or_path bert-base-uncased \
   --distill_teacher MODELS_DIR/bert-base-12layers \
   --dataset_name squad \
@@ -94,7 +92,6 @@ python transformers/examples/pytorch/question-answering/run_qa.py \
   --fp16 \
   --num_train_epochs 30 \
   --recipe recipes/bert-base-12layers_prune80.md \
-  --onnx_export_path MODELS_DIR/bert-base-12layers_prune80/onnx \
   --save_strategy epoch \
   --save_total_limit 2
 ```
@@ -130,25 +127,20 @@ The following table presents the recipes in the directory, the corresponding res
 
 ## Exporting for Inference
 
-The sparsification run with the argument `--export_onnx_path` will creates an ONNX model that can be used for benchmarking with `DeepSparse Engine`. You can export a model as part of the training and pruning process (as in the commands above), or after the model is pruned. 
+Additionally, you may use the `sparseml.transformers.export_onnx` script to generate an ONNX model that can be used
+for inference deployment and benchmarking with the `DeepSparse Engine`.
 
 The following command evaluates a pruned model and converts it to the ONNX format:
 
 ```bash
-python transformers/examples/pytorch/question-answering/run_qa.py \
-  --model_name_or_path MODELS_DIR/bert-base-12layers_prune80 \
-  --dataset_name squad \
-  --do_eval \
-  --per_device_eval_batch_size 64 \
-  --max_seq_length 384 \
-  --doc_stride 128 \
-  --output_dir MODELS_DIR/bert-base-12layers_prune80/eval \
-  --cache_dir cache \
-  --preprocessing_num_workers 6 \
-  --onnx_export_path MODELS_DIR/bert-base-12layers_prune80/onnx
+sparseml.transformers.export_onnx \
+  --task question-question
+  --model_path MODELS_DIR/bert-base-12layers_prune80
 ```
 
 If it runs successfully, you will have the converted `model.onnx` in `MODELS_DIR/bert-base-12layers_prune80/onnx`. You can now run it in ONNX-compatible inference engines such as [DeepSparse](https://github.com/neuralmagic/deepsparse). The `DeepSparse Engine` is explicitly coded to support running sparsified models for significant improvements in inference performance.
+When running in `DeepSparse`, reference the entire model directory so that the ONNX file as well as tokenizer and data configs
+are read.
 
 ## Wrap-Up
 

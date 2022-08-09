@@ -13,7 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 -->
-<span style="color:red">This pathway is deprecated. Please refer to the instructions [here](https://github.com/neuralmagic/sparseml/blob/main/src/sparseml/yolov5) on how to run YOLOv5 + SparseML with `sparseml.yolov5` commands.</span>
+
 # Sparse Transfer Learning With YOLOv5
 
 This tutorial shows how Neural Magic sparse models simplify the sparsification process by offering pre-sparsified YOLOv5 models for transfer learning onto other datasets.
@@ -35,7 +35,6 @@ The examples listed in this tutorial are all performed on the VOC dataset.
 Additionally, the results listed in this tutorial are available publicly through a [Weights and Biases project](https://wandb.ai/neuralmagic/yolov5-voc-sparse-transfer-learning).
 
 Before diving in, be sure to go through setup as listed out in the [README](https://github.com/neuralmagic/sparseml/blob/main/integrations/ultralytics-yolov5/README.md) for this integration.
-Additionally, all commands are intended to be run from the root of the `yolov5` repository folder (`cd integrations/ultralytics-yolov5/yolov5`).
 
 ## Need Help?
 
@@ -71,7 +70,7 @@ You are now ready to set up the data for training.
 ## Setting Up the Data
 
 Note: If using your custom data, the Ultralytics repo contains a walk-through for [training custom data](https://github.com/ultralytics/yolov5/wiki/Train-Custom-Data).
-Otherwise, setup scripts for both [VOC](https://cs.stanford.edu/~roozbeh/pascal-context/) and [COCO](https://cocodataset.org/#home) can be found under the [yolov5/data/scripts path](https://github.com/ultralytics/yolov5/tree/master/data/scripts).
+Otherwise, setup scripts for both [VOC](https://cs.stanford.edu/~roozbeh/pascal-context/) and [COCO](https://cocodataset.org/#home) can be found under the [yolov5/data/scripts path](https://github.com/neuralmagic/sparseml/tree/main/src/sparseml/yolov5/data/scripts).
 
 1. For this tutorial, run the VOC setup script with the following command from the root of the `yolov5` repository:
    ```bash
@@ -88,20 +87,6 @@ Otherwise, setup scripts for both [VOC](https://cs.stanford.edu/~roozbeh/pascal-
    |   `-- labels
    |       |-- train
    |       `-- val
-   |-- yolov5
-   |   |-- data
-   |   |-- models
-   |   |-- utils
-   |   |-- weights
-   |   |-- Dockerfile
-   |   |-- LICENSE
-   |   |-- README.md
-   |   |-- detect.py
-   |   |-- hubconf.py
-   |   |-- requirements.txt
-   |   |-- test.py
-   |   |-- train.py
-   |   `-- tutorial.ipynb
    ```
 
 You are ready to transfer learn the model.
@@ -119,27 +104,27 @@ The recipes are specific to the sparsification type, so the training command wil
 
    - YOLOv5s Pruned transfer learning:
      ```bash
-     python train.py --data VOC.yaml --cfg ../models_v5.0/yolov5s.yaml --weights zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned-aggressive_96?recipe_type=transfer --hyp data/hyps/hyp.finetune.yaml --recipe ../recipes/yolov5.transfer_learn_pruned.md
+     sparseml.yolov5.train --data VOC.yaml --cfg /models_v5.0/yolov5s.yaml --weights zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned-aggressive_96?recipe_type=transfer --hyp data/hyps/hyp.finetune.yaml --recipe /recipes/yolov5.transfer_learn_pruned.md
      ```
    - YOLOv5s Pruned-Quantized transfer learning:
      ```bash
-     python train.py --data VOC.yaml --cfg ../models_v5.0/yolov5s.yaml --weights zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned_quant-aggressive_94?recipe_type=transfer --hyp data/hyps/hyp.finetune.yaml --recipe ../recipes/yolov5.transfer_learn_pruned_quantized.md
+     sparseml.yolov5.train --data VOC.yaml --cfg models_v5.0/yolov5s.yaml --weights zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned_quant-aggressive_94?recipe_type=transfer --hyp data/hyps/hyp.finetune.yaml --recipe recipes/yolov5.transfer_learn_pruned_quantized.md
      ```
    - YOLOv5s Baseline transfer learning:
      ```bash
-     python train.py --data VOC.yaml --cfg ../models_v5.0/yolov5s.yaml --weights zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/base-none --hyp data/hyps/hyp.finetune.yaml --epochs 50
+     sparseml.yolov5.train --data VOC.yaml --cfg models_v5.0/yolov5s.yaml --weights zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/base-none --hyp data/hyps/hyp.finetune.yaml --epochs 50
      ```
    - YOLOv5l Pruned transfer learning:
      ```bash
-     python train.py --data VOC.yaml --cfg ../models_v5.0/yolov5l.yaml --weights zoo:cv/detection/yolov5-l/pytorch/ultralytics/coco/pruned-aggressive_98?recipe_type=transfer --hyp data/hyps/hyp.finetune.yaml --recipe ../recipes/yolov5.transfer_learn_pruned.md
+     sparseml.yolov5.train --data VOC.yaml --cfg models_v5.0/yolov5l.yaml --weights zoo:cv/detection/yolov5-l/pytorch/ultralytics/coco/pruned-aggressive_98?recipe_type=transfer --hyp data/hyps/hyp.finetune.yaml --recipe recipes/yolov5.transfer_learn_pruned.md
      ```
    - YOLOv5l Pruned-Quantized transfer learning:
      ```bash
-     python train.py --data VOC.yaml --cfg ../models_v5.0/yolov5l.yaml --weights zoo:cv/detection/yolov5-l/pytorch/ultralytics/coco/pruned_quant-aggressive_95?recipe_type=transfer --hyp data/hyps/hyp.finetune.yaml --recipe ../recipes/yolov5.transfer_learn_pruned_quantized.md
+     sparseml.yolov5.train --data VOC.yaml --cfg models_v5.0/yolov5l.yaml --weights zoo:cv/detection/yolov5-l/pytorch/ultralytics/coco/pruned_quant-aggressive_95?recipe_type=transfer --hyp data/hyps/hyp.finetune.yaml --recipe recipes/yolov5.transfer_learn_pruned_quantized.md
      ```
    - YOLOv5l Baseline transfer learning:
      ```bash
-     python train.py --data VOC.yaml --cfg ../models_v5.0/yolov5l.yaml --weights zoo:cv/detection/yolov5-l/pytorch/ultralytics/coco/base-none --hyp data/hyps/hyp.finetune.yaml --epochs 50
+     sparseml.yolov5.train --data VOC.yaml --cfg models_v5.0/yolov5l.yaml --weights zoo:cv/detection/yolov5-l/pytorch/ultralytics/coco/base-none --hyp data/hyps/hyp.finetune.yaml --epochs 50
      ```
 
    **_Notes About Transfer Learning_**
@@ -163,30 +148,25 @@ The recipes are specific to the sparsification type, so the training command wil
    The training command creates a `runs` directory under the `yolov5` repository directory.
    This directory will contain the outputs from the training run, including experimental results along with the trained model:
    ```
-   |-- VOC
    |-- data
    |-- models
    |-- recipes
    |-- tutorials
-   |-- yolov5
-   |   |-- data
-   |   |-- models
-   |   |-- runs
-   |   |   `-- train
-   |   |       |-- exp
-   |   |       |   |-- weights
-   |   |       |   |   |-- best.pt
-   |   |       |   |   `-- last.pt
-   |   |       |   |-- F1_curve.png
-   |   |       |   |-- PR_curve.png
-   |   |       |   |-- P_curve.png
-   |   |       |   |-- R_curve.png
-   |   |       |   |-- confusion_matrix.png
-   |   |       |   `-- ...
-   |   |-- train.py
-   |   `-- ...
+   |-- runs
+   |   `-- train
+   |   |   |-- exp
+   |   |   |-- weights
+   |   |       |-- best.pt
+   |   |       |`-- last.pt
+   |   |   |-- F1_curve.png
+   |   |   |-- PR_curve.png
+   |   |   |-- P_curve.png
+   |   |   |-- R_curve.png
+   |   |   |-- confusion_matrix.png
+   |   |   |   `-- ...
+   |-- __init__.py
    |-- README.md
-   `-- setup_integration.sh
+   |-- scripts.py
    ```
 
 You are ready to export for inference.
@@ -200,11 +180,11 @@ The `best.pt` file, located in the previous step, contains a checkpoint of the b
 These weights can be loaded into the `train.py` and `test.py` scripts now.
 However, other formats are generally more friendly for other inference deployment platforms, such as [ONNX](https://onnx.ai/).
 
-The [export.py script](https://github.com/neuralmagic/yolov5/blob/master/export.py) handles the logic behind loading the checkpoint and converting it into the more common inference formats, as described here.
+The [export.py script](https://github.com/neuralmagic/yolov5/blob/master/export.py) handles the logic behind loading the checkpoint and converting it into the more common inference formats, as described here. (`sparseml.yolov5.export_onnx` is a hook into export.py)
 
 1. Enter the following command to load the PyTorch graph, convert to ONNX, and correct any misformatted pieces of the graph for the pruned and quantized models.
    ```bash
-   python export.py --weights PATH_TO_SPARSIFIED_WEIGHTS  --dynamic
+   sparseml.yolov5.export_onnx --weights PATH_TO_SPARSIFIED_WEIGHTS  --dynamic
    ```
    The result is a new file added next to the sparsified checkpoint with a `.onnx` extension:
    ```

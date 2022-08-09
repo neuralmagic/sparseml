@@ -60,7 +60,7 @@ _deepsparse_deps = [
 _onnxruntime_deps = ["onnxruntime>=1.0.0"]
 _pytorch_deps = [
     "torch>=1.1.0,<=1.9.1",
-    "tensorboard>=1.0",
+    "tensorboard>=1.0,<2.9",
     "tensorboardX>=1.0",
     "gputils",
 ]
@@ -93,6 +93,7 @@ _dev_deps = [
     "pytest-mock~=3.6.0",
     "flaky~=3.7.0",
     "sphinx-rtd-theme",
+    "docutils<0.17",
 ]
 
 
@@ -177,6 +178,20 @@ def _setup_entry_points() -> Dict:
         ]
     )
 
+    # instance segmentation integration
+
+    yolact_top_level_callable = "sparseml.yolact"
+    yolact_scripts_path = "sparseml.yolact.scripts"
+
+    entry_points["console_scripts"].extend(
+        [
+            f"{yolact_top_level_callable}.export_onnx={yolact_scripts_path}:export",
+            f"{yolact_top_level_callable}.train={yolact_scripts_path}:train",
+            f"{yolact_top_level_callable}.validation={yolact_scripts_path}:val",
+            f"{yolact_top_level_callable}.download={yolact_scripts_path}:download",
+        ]
+    )
+
     return entry_points
 
 
@@ -202,12 +217,13 @@ setup(
     ),
     license="Apache",
     url="https://github.com/neuralmagic/sparseml",
+    include_package_data=True,
     package_dir=_setup_package_dir(),
     packages=_setup_packages(),
     install_requires=_setup_install_requires(),
     extras_require=_setup_extras(),
     entry_points=_setup_entry_points(),
-    python_requires=">=3.6.0",
+    python_requires=">=3.6.0,<3.10",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Programming Language :: Python :: 3",

@@ -234,9 +234,6 @@ class Modifier(BaseModifier):
         :param loggers: the logger maanger to setup this modifier with for logging
         important info and milestones to
         """
-        if self._loggers_initialized and self._loggers:
-            return
-
         loggers = loggers or []
         if isinstance(loggers, List):
             loggers = LoggerManager(loggers)
@@ -709,7 +706,7 @@ class ScheduledModifier(Modifier, BaseScheduled):
         level = level or LOGGING_LEVELS["debug"]
         step = (
             loggers.epoch_to_step(epoch, steps_per_epoch)
-            if (epoch and steps_per_epoch)
+            if (epoch is not None) and (steps_per_epoch is not None)
             else None
         )
         loggers.log_string(tag=tag, string=string, step=step, level=level)
@@ -727,7 +724,7 @@ class ScheduledModifier(Modifier, BaseScheduled):
         loggers = loggers or self.loggers
         step = (
             loggers.epoch_to_step(epoch, steps_per_epoch)
-            if (epoch and steps_per_epoch)
+            if (epoch is not None) and (steps_per_epoch is not None)
             else None
         )
         loggers.log_scalar(tag=tag, value=value, step=step, level=level)
