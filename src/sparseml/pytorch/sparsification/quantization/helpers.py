@@ -481,7 +481,9 @@ def configure_module_default_qconfigs(module: Module):
             submodule.configure_qconfig()
 
 
-def add_quant_dequant(module: torch.nn.Module, name=None, parent_module=None, layer_class_names=None):
+def add_quant_dequant(
+    module: torch.nn.Module, name=None, parent_module=None, layer_class_names=None
+):
     """
     Wraps all Conv and Linear submodule with a qconfig with a QuantWrapper
     :param module: the module to modify
