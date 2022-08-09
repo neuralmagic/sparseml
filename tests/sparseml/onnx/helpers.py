@@ -80,18 +80,18 @@ GENERATE_TEST_FILES = False if GENERATE_TEST_FILES == "0" else GENERATE_TEST_FIL
         ],
         [
             (
-                "test_conv_net_torch-1.12",
+                "test_conv_net",
                 ConvNet,
                 torch.randn(16, 3, 3, 3),
                 {
-                    "output": ([[16, 10]], [[16, 10]]),
+                    "output": (None, [[16, 10]]),
                     "input.1": ([[16, 3, 3, 3]], [[16, 16, 2, 2]]),
                     "input.4": ([[16, 16, 2, 2]], [[16, 16, 2, 2]]),
                     "input.8": ([[16, 16, 2, 2]], [[16, 32, 1, 1]]),
                     "input.12": ([[16, 32, 1, 1]], [[16, 32, 1, 1]]),
                     "onnx::Reshape_11": ([[16, 32, 1, 1]], [[16, 32, 1, 1]]),
-                    "onnx::Gemm_17": ([[16, 32, 1, 1]], [[16, 32]]),
-                    "onnx::Sigmoid_18": ([[16, 32]], [[16, 10]]),
+                    "onnx::Gemm_17": ([[16, 32, 1, 1]], None),
+                    "onnx::Sigmoid_18": (None, None),
                     "input": (None, [[16, 3, 3, 3]]),
                 },
             ),

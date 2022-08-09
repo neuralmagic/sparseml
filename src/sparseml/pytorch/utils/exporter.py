@@ -477,8 +477,8 @@ def export_onnx(
         verbose=False,
         opset_version=opset,
         dynamic_axes=dynamic_axes,
-        do_constant_folding=True,
-        keep_initializers_as_inputs=False,
+        do_constant_folding=not module.training,
+        keep_initializers_as_inputs=True,
         **export_kwargs,
     )
 
