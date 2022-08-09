@@ -51,7 +51,7 @@ __all__ = [
 ]
 
 
-DEFAULT_ONNX_OPSET = 9 if torch.__version__ < "1.3" else 13
+DEFAULT_ONNX_OPSET = 13
 _LOGGER = logging.getLogger(__name__)
 
 
