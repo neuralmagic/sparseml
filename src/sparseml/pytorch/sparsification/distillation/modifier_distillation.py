@@ -18,7 +18,7 @@ Modifier for performing model distillation
 
 
 import logging
-from collections import Mapping
+from collections.abc import Mapping
 from copy import deepcopy
 from typing import Any, Dict, Iterable, List, Optional, Union
 
