@@ -11,7 +11,7 @@ on:
 
 jobs:
   test-setup:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     outputs:
       branch: ${{ steps.get-branch.outputs.branch }}
       base: ${{ steps.base-check.outputs.output }}
@@ -68,7 +68,7 @@ jobs:
           || (echo $GITHUB_REF | grep -E "refs/heads/[release/|main]"))
           && echo "::set-output name=output::1" || echo "::set-output name=output::0"
   base-tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     env:
       SPARSEZOO_TEST_MODE: "true"
     needs: test-setup
@@ -94,7 +94,7 @@ jobs:
       - name: "🔬 Running base tests"
         run: make test
   deepsparse-tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     env:
       SPARSEZOO_TEST_MODE: "true"
     needs: test-setup
@@ -120,7 +120,7 @@ jobs:
       - name: "🔬 Running deepsparse tests"
         run: make test TARGETS=deepsparse
   keras-tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     env:
       SPARSEZOO_TEST_MODE: "true"
     needs: test-setup
@@ -144,7 +144,7 @@ jobs:
       - name: "🔬 Running keras tests"
         run: make test TARGETS=keras
   onnx-tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     env:
       SPARSEZOO_TEST_MODE: "true"
     needs: test-setup
@@ -168,7 +168,7 @@ jobs:
       - name: "🔬 Running onnx tests"
         run: make test TARGETS=onnx
   pytorch-tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     env:
       SPARSEZOO_TEST_MODE: "true"
     needs: test-setup
@@ -192,7 +192,7 @@ jobs:
       - name: "🔬 Running pytorch tests"
         run: make test TARGETS=pytorch
   tensorflow-v1-tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     env:
       SPARSEZOO_TEST_MODE: "true"
     needs: test-setup
