@@ -77,7 +77,7 @@ Popular recipes used with this argument are found in the [`recipes` folder](./re
 Otherwise, all other arguments and functionality remain the same as the original repository.
 
 Example train command:
-(Note kindly provide correct dataset path to the utility based on your local setup)
+(Provide the correct dataset path to the utility based on your local setup)
 
 ```bash
 sparseml.yolact.train --resume \
