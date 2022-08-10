@@ -31,6 +31,7 @@ version_nm_deps = f"{version_major_minor}.0"
 _PACKAGE_NAME = "sparseml" if is_release else "sparseml-nightly"
 
 _deps = [
+    "setuptools<=59.5.0",
     "jupyter>=1.0.0",
     "ipywidgets>=7.0.0",
     "pyyaml>=5.0.0",
