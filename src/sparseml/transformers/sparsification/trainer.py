@@ -28,7 +28,7 @@ import numpy
 import torch
 from torch import distributed as dist
 from torch.nn import Module
-from transformers import Trainer as TransformersTrainer
+from transformers import Trainer as HFTransformersTrainer
 from transformers import TrainerCallback, TrainerControl, TrainingArguments
 from transformers.file_utils import WEIGHTS_NAME
 from transformers.integrations import TensorBoardCallback
@@ -51,6 +51,7 @@ __all__ = [
     "TrainerInterface",
     "Trainer",
     "DisableHalfPrecisionCallback",
+    "TransformersTrainer",
 ]
 
 
@@ -855,39 +856,25 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         return checkpoint, epoch
 
 
-class Trainer(TrainerInterface, TransformersTrainer):
+class TransformersTrainer(HFTransformersTrainer):
     """
-    Training implementation for running sparsification recipes with transformers flows.
-    :param model: the model to use with the trainer and apply sparsification to
-    :param model_state_path: the state path to the model,
-        used to load config and tokenizer settings
-    :param recipe: the recipe, if any, to apply to the model and training
-        process
-    :param recipe_args: A json string, csv key=value string, or dictionary containing
-        arguments to override the root arguments within the recipe such as
-        learning rate or num epochs
-    :param teacher: teacher model for distillation. Set to 'self' to distill
-        from the loaded model or 'disable' to turn off distillation
-    :param kwargs: key word arguments passed to the parent class
+    A transformers trainer class with custom behavior that can be shared
+    by all trainers inside SparseML
     """
 
-    def __init__(
-        self,
-        model: Module,
-        model_state_path: str,
-        recipe: Optional[str],
-        recipe_args: Optional[Union[Dict[str, Any], str]] = None,
-        teacher: Optional[Union[Module, str]] = None,
-        **kwargs,
-    ):
-        super().__init__(
-            model=model,
-            model_state_path=model_state_path,
-            recipe=recipe,
-            recipe_args=recipe_args,
-            teacher=teacher,
-            **kwargs,
-        )
+    def _save_checkpoint(self, model, trial, metrics=None):
+        # Call into the save checkpoint by HF Transformers, which saves the
+        # best metric if required
+        super()._save_checkpoint(model, trial, metrics=metrics)
+        if (
+            self.args.metric_for_best_model is None
+            or self.args.best_model_after_epoch is None
+        ):
+            return
+
+        if self.state.epoch <= self.args.best_model_after_epoch:
+            self.state.best_metric = None
+            self.state.best_model_checkpoint = None
 
     def _remove_unused_columns(
         self, dataset: "datasets.Dataset", description: Optional[str] = None
@@ -924,6 +911,41 @@ class Trainer(TrainerInterface, TransformersTrainer):
             self._signature_columns += ["label", "label_ids"]
 
         return super()._remove_unused_columns(dataset, description)
+
+
+class Trainer(TrainerInterface, TransformersTrainer):
+    """
+    Training implementation for running sparsification recipes with transformers flows.
+    :param model: the model to use with the trainer and apply sparsification to
+    :param model_state_path: the state path to the model,
+        used to load config and tokenizer settings
+    :param recipe: the recipe, if any, to apply to the modle and training
+        process
+    :param recipe_args: A json string, csv key=value string, or dictionary containing
+        arguments to override the root arguments within the recipe such as
+        learning rate or num epochs
+    :param teacher: teacher model for distillation. Set to 'self' to distill
+        from the loaded model or 'disable' to turn of distillation
+    :param kwargs: key word arguments passed to the parent class
+    """
+
+    def __init__(
+        self,
+        model: Module,
+        model_state_path: str,
+        recipe: Optional[str],
+        recipe_args: Optional[Union[Dict[str, Any], str]] = None,
+        teacher: Optional[Union[Module, str]] = None,
+        **kwargs,
+    ):
+        super().__init__(
+            model=model,
+            model_state_path=model_state_path,
+            recipe=recipe,
+            recipe_args=recipe_args,
+            teacher=teacher,
+            **kwargs,
+        )
 
 
 class DisableHalfPrecisionCallback(TrainerCallback):
