@@ -135,7 +135,7 @@ class QuantizationModifier(ScheduledModifier):
         batch-normalization modules
     :param exclude_module_types: optional list of module class names
         to not propagate quantization configs to. Default is None
-    :param add_quantizable_module_types: optional list of module class names
+    :param custom_quantizable_module_types: optional list of module class names
         to be added to the list of quantizable modules. Default is None
     :param activation_qconfig_kwargs: Additional kwargs for quantization of
         activations.
@@ -164,7 +164,7 @@ class QuantizationModifier(ScheduledModifier):
         num_calibration_steps: Optional[int] = None,
         exclude_batchnorm: bool = True,
         exclude_module_types: Optional[List[str]] = None,
-        add_quantizable_module_types: Optional[List[str]] = None,
+        custom_quantizable_module_types: Optional[List[str]] = None,
         activation_qconfig_kwargs: Optional[Dict[str, Any]] = None,
         weight_qconfig_kwargs: Optional[Dict[str, Any]] = None,
         tensorrt: bool = False,
@@ -198,7 +198,7 @@ class QuantizationModifier(ScheduledModifier):
         self._weight_bits = weight_bits
         self._exclude_batchnorm = exclude_batchnorm
         self._exclude_module_types = exclude_module_types
-        self._add_quantizable_module_types = add_quantizable_module_types
+        self._custom_quantizable_module_types = custom_quantizable_module_types
 
         self._modules_to_quantize = None
         self._qat_enabled = False
@@ -394,12 +394,12 @@ class QuantizationModifier(ScheduledModifier):
             return self._quantize_embedding_activations
 
     @ModifierProp()
-    def add_quantizable_module_types(self) -> Union[List[str], None]:
+    def custom_quantizable_module_types(self) -> Union[List[str], None]:
         """
         :return: optional list of module class names to be included
             in list of quantizable modules. Default is None
         """
-        return self._add_quantizable_module_types
+        return self._custom_quantizable_module_types
 
     @ModifierProp()
     def exclude_module_types(self) -> Union[List[str], None]:
@@ -664,7 +664,7 @@ class QuantizationModifier(ScheduledModifier):
             torch_quantization.propagate_qconfig_(quant_module)
             configure_module_default_qconfigs(quant_module)
             add_quant_dequant(
-                quant_module, name, module, self.add_quantizable_module_types
+                quant_module, name, module, self.custom_quantizable_module_types
             )
 
             # Remove output quantization from appropriate modules
