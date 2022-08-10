@@ -682,7 +682,7 @@ class QuantizationModifier(ScheduledModifier):
         if self.exclude_batchnorm:
             to_exclude.extend(["BatchNorm1d", "BatchNorm2d", "BatchNorm3d"])
 
-        self.exclude_module_types = to_exclude
+        self._exclude_module_types = to_exclude
         if self.exclude_module_types:
             self._strip_excluded_module_qconfigs(module)
 
@@ -766,9 +766,9 @@ class QuantizationModifier(ScheduledModifier):
         )
 
     def _strip_excluded_module_qconfigs(self, module: Module):
-        if not self._exclude_module_types:
+        if not self.exclude_module_types:
             return
-        excluded_classes = set(self._exclude_module_types)
+        excluded_classes = set(self.exclude_module_types)
         for submodule in module.modules():
             if submodule.__class__.__name__ in excluded_classes and hasattr(
                 submodule, "qconfig"
