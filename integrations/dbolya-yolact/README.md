@@ -61,7 +61,7 @@ Simply invoke:
 sparseml.yolact.download
 ```
 
-To download `COCO` test-set invoke `sparseml.yolact.download --test`; for more information
+To download `COCO` test-set invoke `sparseml.yolact.download --test`. For more information
 on this utility invoke it with the `--help` option. (Kindly note the download location of the dataset)
 
 ### Recipes
