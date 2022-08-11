@@ -18,6 +18,7 @@ Export PyTorch models to the local device
 import collections
 import logging
 import os
+import shutil
 import warnings
 from copy import deepcopy
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
@@ -52,6 +53,7 @@ __all__ = [
 
 
 DEFAULT_ONNX_OPSET = 9 if torch.__version__ < "1.3" else 11
+MODEL_ONNX_NAME = "model.onnx"
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -167,7 +169,7 @@ class ModuleExporter(object):
     def export_onnx(
         self,
         sample_batch: Any,
-        name: str = "model.onnx",
+        name: str = MODEL_ONNX_NAME,
         opset: int = DEFAULT_ONNX_OPSET,
         disable_bn_fusing: bool = True,
         convert_qat: bool = False,
@@ -239,6 +241,30 @@ class ModuleExporter(object):
             trace_model(path, self._module, sample_batch)
         else:
             script_model(path, self._module)
+
+    def create_deployment_folder(self):
+        """
+        Create a deployment folder inside the `save_dir` directory.
+        """
+        deployment_folder_dir = os.path.join(self._output_dir, "deployment")
+        if os.path.isdir(deployment_folder_dir):
+            shutil.rmtree(deployment_folder_dir)
+        os.makedirs(deployment_folder_dir)
+        _LOGGER.info(f"Created deployment folder at {deployment_folder_dir}")
+
+        # copy over model onnx
+        expected_onnx_model_dir = os.path.join(self._output_dir, MODEL_ONNX_NAME)
+        deployment_onnx_model_dir = os.path.join(deployment_folder_dir, MODEL_ONNX_NAME)
+        if not os.path.exists(expected_onnx_model_dir):
+            raise ValueError(
+                f"Attempting to copy onnx model file from {expected_onnx_model_dir},"
+                "but the file does not exits. Perhaps call this method after the "
+                "method `export_onnx` had been called"
+            )
+        shutil.copyfile(expected_onnx_model_dir, deployment_onnx_model_dir)
+        _LOGGER.info(
+            f"Created saving model.onnx at deployment folder at {deployment_onnx_model_dir}"
+        )
 
     def export_pytorch(
         self,
