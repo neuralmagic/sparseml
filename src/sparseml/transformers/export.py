@@ -268,8 +268,8 @@ def create_deployment_folder(
             f"but received path to {training_directory.split('/')[1]} directory/file"
         )
 
-    sparsezoo_model_root_dir = os.path.dirname(training_directory)
-    deployment_folder_dir = os.path.join(sparsezoo_model_root_dir, "deployment")
+    model_root_dir = os.path.dirname(training_directory)
+    deployment_folder_dir = os.path.join(model_root_dir, "deployment")
     if os.path.isdir(deployment_folder_dir):
         shutil.rmtree(deployment_folder_dir)
     os.makedirs(deployment_folder_dir)
