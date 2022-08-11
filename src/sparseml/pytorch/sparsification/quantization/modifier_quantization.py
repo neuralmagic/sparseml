@@ -581,6 +581,27 @@ class QuantizationModifier(ScheduledModifier):
 
         return pending
 
+    def advance_epochs(self, ref_start_epoch: float = None):
+        """
+        Advance epoch attributes given a reference start epoch
+
+        :param ref_start_epoch: the reference, i.e. new, start epoch
+        """
+        if ref_start_epoch is None:
+            return
+
+        super().advance_epochs(ref_start_epoch=ref_start_epoch)
+
+        if self._disable_quantization_observer_epoch is not None:
+            self._disable_quantization_observer_epoch = (
+                max(0.0, self._disable_quantization_observer_epoch) + ref_start_epoch
+            )
+        if self._freeze_bn_stats_epoch is not None:
+            self._freeze_bn_stats_epoch = (
+                max(0.0, self._freeze_bn_stats_epoch) + ref_start_epoch
+            )
+        self.validate_schedule()
+
     def _check_quantization_update(
         self, module: Module, epoch: float, steps_per_epoch: int
     ):
