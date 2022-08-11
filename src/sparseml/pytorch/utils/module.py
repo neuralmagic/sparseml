@@ -709,7 +709,7 @@ class ModuleRunner(ABC):
                 and batch % self._log_steps == 0
             )
             log_step = previous_steps + batch
-            batch_results = self._runner_batch(
+            batch_results = self._runner_batch, counter_len
                 counter, batch, batch_size, data, should_log, log_step
             )
 
@@ -789,6 +789,7 @@ class ModuleRunner(ABC):
         show_progress: bool = True,
         track_results: bool = True,
         max_steps: int = -1,
+        grad_accum_steps : int = 1,
     ):
         """
         Convenience function for evaluation over all the data in the given data loader
@@ -802,6 +803,8 @@ class ModuleRunner(ABC):
             False to return None
         :param max_steps: maximum number of steps/batches to run through,
             will stop after reaching this. if <= 0 then no restriction is placed
+        :param grad_accum_steps: Number of gradient accumulation steps to run before
+            updating weights
         :return: the results of evaluation if track_results else None
         """
         return self.run(
@@ -955,6 +958,7 @@ class ModuleTrainer(ModuleRunner):
         data: Any,
         should_log: bool,
         log_step: int,
+        counter_len: int,
     ):
         # setup
         self._accumulated += 1
@@ -974,7 +978,7 @@ class ModuleTrainer(ModuleRunner):
             self._run_hooks.invoke_batch_forward(counter, batch, batch_size, data, pred)
 
             # loss calculation
-            losses = self._loss(data, pred)
+            losses = self._loss(data, pred) / self._num_accumulated_batches
 
             self._run_hooks.invoke_batch_loss(
                 counter, batch, batch_size, data, pred, losses
@@ -987,7 +991,10 @@ class ModuleTrainer(ModuleRunner):
         )
 
         # optimizer / gradients update
-        if self._accumulated == self._num_accumulated_batches:
+        if (
+            self._accumulated == self._num_accumulated_batches
+            or self._accumulated == counter_len
+        ):
             if self.device_context.use_mixed_precision:
                 self._scaler.step(self._optimizer)
                 self._scaler.update()
