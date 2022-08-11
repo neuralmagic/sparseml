@@ -263,7 +263,7 @@ class ModuleExporter(object):
             )
         shutil.copyfile(expected_onnx_model_dir, deployment_onnx_model_dir)
         _LOGGER.info(
-            f"Saved model.onnx at deployment folder at {deployment_onnx_model_dir}"
+            f"Saved model.onnx in the deployment folder at {deployment_onnx_model_dir}"
         )
 
     def export_pytorch(
