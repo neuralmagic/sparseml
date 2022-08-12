@@ -324,13 +324,12 @@ def _quantize_array(
     array: numpy.ndarray, scale: float, zero_point: int, dtype: Any = numpy.uint8
 ) -> numpy.ndarray:
 
-    dtype_conversion = {
-        numpy.uint8: torch.quint8,
-        numpy.int8: torch.qint8,
-        numpy.int32: torch.qint32,
-    }
-
-    tensor_dtype = dtype_conversion[dtype]
+    if dtype == numpy.uint8:
+        tensor_dtype = torch.quint8
+    elif dtype == numpy.int8:
+        tensor_dtype = torch.qint8
+    elif dtype == numpy.int32:
+        tensor_dtype = torch.qint32
 
     tensor = torch.Tensor(array).to(torch.float32)
     if isinstance(scale, numpy.ndarray):
