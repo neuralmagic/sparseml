@@ -16,6 +16,7 @@
 Export PyTorch models to the local device
 """
 import collections
+import json
 import logging
 import os
 import shutil
@@ -54,6 +55,7 @@ __all__ = [
 
 DEFAULT_ONNX_OPSET = 9 if torch.__version__ < "1.3" else 11
 MODEL_ONNX_NAME = "model.onnx"
+CONFIG_JSON_NAME = "config.json"
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -242,11 +244,19 @@ class ModuleExporter(object):
         else:
             script_model(path, self._module)
 
-    def create_deployment_folder(self):
+    def create_deployment_folder(
+        self, labels_to_class_mapping: Optional[Union[str, Dict[Any, str]]] = None
+    ):
         """
-        Create a deployment folder inside the `save_dir` directory.
+        Create a deployment folder inside the `config_path` directory.
+
+        :param labels_to_class_mapping: information about the mapping
+            from integer labels to string class names.
+            Can be either a string (path to the .json serialized dictionary)
+            or a dictionary. Default is None
         """
         deployment_folder_dir = os.path.join(self._output_dir, "deployment")
+
         if os.path.isdir(deployment_folder_dir):
             shutil.rmtree(deployment_folder_dir)
         os.makedirs(deployment_folder_dir)
@@ -255,16 +265,21 @@ class ModuleExporter(object):
         # copy over model onnx
         expected_onnx_model_dir = os.path.join(self._output_dir, MODEL_ONNX_NAME)
         deployment_onnx_model_dir = os.path.join(deployment_folder_dir, MODEL_ONNX_NAME)
-        if not os.path.exists(expected_onnx_model_dir):
-            raise ValueError(
-                f"Attempting to copy onnx model file from {expected_onnx_model_dir},"
-                "but the file does not exits. Perhaps call this method after the "
-                "method `export_onnx` had been called"
-            )
-        shutil.copyfile(expected_onnx_model_dir, deployment_onnx_model_dir)
+        self._copy_file(src=expected_onnx_model_dir, target=deployment_onnx_model_dir)
         _LOGGER.info(
-            f"Saved model.onnx in the deployment folder at {deployment_onnx_model_dir}"
+            f"Saved {MODEL_ONNX_NAME} in the deployment "
+            f"folder at {deployment_onnx_model_dir}"
         )
+
+        # create config.json
+        config_file_path = self._create_config_file(save_dir=deployment_folder_dir)
+
+        if labels_to_class_mapping:
+            # append `labels_to_class_mapping` info to config.json
+            self._save_label_to_class_mapping(
+                labels_to_class_mapping=labels_to_class_mapping,
+                config_file_path=config_file_path,
+            )
 
     def export_pytorch(
         self,
@@ -549,6 +564,84 @@ def export_onnx(
             _LOGGER.warning(
                 f"Unable to skip input QuantizeLinear op with exception {e}"
             )
+
+
+@staticmethod
+def _copy_file(src: str, target: str):
+    if not os.path.exists(src):
+        raise ValueError(
+            f"Attempting to copy file from {src}, but the file does not exist."
+        )
+    shutil.copyfile(src, target)
+
+
+@staticmethod
+def _create_config_file(save_dir: str) -> str:
+    config_file_path = os.path.join(save_dir, CONFIG_JSON_NAME)
+    with open(config_file_path, "w"):
+        # create empty json file
+        pass
+
+    _LOGGER.info(f"Created {CONFIG_JSON_NAME} file at {save_dir}")
+    return config_file_path
+
+
+@staticmethod
+def _save_label_to_class_mapping(
+    labels_to_class_mapping: Union[str, Dict[Any, str]],
+    config_file_path: str,
+    key_name: str = "labels_to_class_mapping",
+):
+    """
+    Appends `labels_to_class_mapping` information to the config.json file:
+        - new key: `labels_to_class_mapping`
+        - new value: a dictionary that maps the integer
+          labels to string class names
+    If config.json already contains `labels_to_class_mapping`,
+    this information will be overwritten
+
+    :param labels_to_class_mapping: information about the mapping from
+        integer labels to string class names. Can be either a string
+        (path to the .json serialized dictionary) or a dictionary.
+    :param config_file_path: path to the directory of the `config.json` file.
+    :param key_name: the key under which the information about
+        the mapping will be stored inside the config.json file
+    """
+    is_config_empty = os.stat(config_file_path).st_size == 0
+
+    if not is_config_empty:
+        with open(config_file_path, "r") as outfile:
+            config = json.load(outfile.read())
+    else:
+        config = {}
+
+    # check whether the label names are not already present in the config.
+    if key_name in config.keys():
+        _LOGGER.warning(
+            f"The file: {CONFIG_JSON_NAME} already contains key {key_name}. "
+            f"The old {key_name} data will be overwritten..."
+        )
+
+    if isinstance(labels_to_class_mapping, str):
+        # deserialize .json into a dictionary
+        _, file_extension = os.path.splitext(labels_to_class_mapping)
+        if file_extension != ".json":
+            raise ValueError(
+                f"The path to the serialized `labels_to_class_mapping`is expected "
+                f"to point to a json file. "
+                f"However, found file with the extension {file_extension}"
+            )
+        else:
+            with open(labels_to_class_mapping) as outfile:
+                labels_to_class_mapping = json.load(outfile)
+
+    config[key_name] = labels_to_class_mapping
+
+    with open(config_file_path, "w") as outfile:
+        json.dump(config, outfile)
+    _LOGGER.info(
+        f"Appended {key_name} data to {CONFIG_JSON_NAME} at {config_file_path}"
+    )
 
 
 def _get_output_names(out: Any):
