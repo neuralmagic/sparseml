@@ -33,6 +33,12 @@ Options:
                                   A path to a previous checkpoint to load the
                                   state from and resume the state for
                                   exporting
+  --labels-to-class_mapping , --labels_to_class_mapping TEXT
+                                  Optional pointer to the dataset-specific
+                                  mapping from numeric labels to human-readable
+                                  class strings. Expected to be a path to file
+                                  containinsg a serialized dictionary (saved as
+                                  a .json file)
   --arch_key, --arch-key TEXT     The architecture key for image
                                   classification model; example: `resnet50`,
                                   `mobilenet`. Note: Will be read from the
@@ -74,7 +80,7 @@ Options:
                                   object
   --model-tag, --model_tag TEXT   A tag for saving results under save-dir,
                                   defaults to the model arch and dataset used
-  --save-dir, --save_dir DIRECTORY
+  --save-dir, --config_path DIRECTORY
                                   The path to the directory for saving results
                                   [default: pytorch_vision]
   --image-size, --image_size INTEGER
@@ -148,6 +154,14 @@ LOGGER = get_main_logger()
     default=None,
     help="A path to a previous checkpoint to load the state from "
     "and resume the state for exporting",
+)
+@click.option(
+    "--labels-to-class-mapping",
+    "--labels_to_class_mapping",
+    type=str,
+    default=None,
+    help="Optional pointer to the dataset-specific mapping "
+    "from numeric labels to human-readable class strings",
 )
 @click.option(
     "--arch_key",
@@ -278,6 +292,7 @@ def main(
     dataset: Optional[str] = None,
     dataset_path: Optional[str] = None,
     checkpoint_path: Optional[str] = None,
+    labels_to_class_mapping: Optional[str] = None,
     arch_key: Optional[str] = None,
     num_samples: int = -1,
     onnx_opset: int = 11,
@@ -346,6 +361,9 @@ def main(
         **model_kwargs,
     )
 
+    if labels_to_class_mapping is None:
+        labels_to_class_mapping = helpers.label_to_class_mapping_from_dataset(dataset)
+
     if recipe is not None:
         ScheduledModifierManager.from_yaml(recipe).apply_structure(model)
         load_model(checkpoint_path, model, strict=True)
@@ -358,6 +376,7 @@ def main(
         onnx_opset=onnx_opset,
         convert_qat=convert_qat,
         image_size=image_size,
+        labels_to_class_mapping=labels_to_class_mapping,
     )
 
 
@@ -370,6 +389,7 @@ def export(
     onnx_opset: int = 11,
     convert_qat: bool = True,
     image_size: int = 224,
+    labels_to_class_mapping: Optional[Union[str, Dict[Any, str]]] = None,
 ) -> None:
     """
     Utility method to export the model and data
@@ -384,6 +404,9 @@ def export(
     :param convert_qat: set True to convert QAT export to fully quantized
         representation
     :param image_size: size of image to export
+    :param labels_to_class_mapping: information about the mapping
+        from integer labels to string class names. Can be either a string
+        (path to the .json serialized dictionary) or a dictionary.
     """
     exporter = ModuleExporter(model, save_dir)
 
@@ -415,7 +438,7 @@ def export(
                 sample_batches=[data[0]], sample_labels=[data[1]], exp_counter=batch
             )
 
-    exporter.create_deployment_folder()
+    exporter.create_deployment_folder(labels_to_class_mapping=labels_to_class_mapping)
 
 
 def _validate_dataset_num_classes(
