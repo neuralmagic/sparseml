@@ -409,7 +409,7 @@ def save_model_training(
     manager: BaseManager,
     save_name: str,
     save_dir: str,
-    epoch: int,
+    epoch: Optional[int],
     val_res: Optional[ModuleRunResults],
     checkpoint_manager: Optional[BaseManager] = None,
     arch_key: Optional[str] = None,
@@ -420,7 +420,7 @@ def save_model_training(
     :param manager: manager created from the training recipe
     :param save_name: name to save model to
     :param save_dir: directory to save results in
-    :param epoch: integer representing umber of epochs to
+    :param epoch: integer representing epoch at which model is saved at
     :param val_res: results from validation run
     :param checkpoint_manager: manager created from the checkpoint recipe
     :param arch_key: if provided, the `arch_key` will be saved in the
