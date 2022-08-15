@@ -20,6 +20,7 @@ import inspect
 import logging
 import math
 import os
+import warnings
 from dataclasses import asdict
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -28,12 +29,13 @@ import numpy
 import torch
 from torch import distributed as dist
 from torch.nn import Module
-from transformers import Trainer as TransformersTrainer
+from transformers import Trainer as HFTransformersTrainer
 from transformers import TrainerCallback, TrainerControl, TrainingArguments
 from transformers.file_utils import WEIGHTS_NAME
 from transformers.integrations import TensorBoardCallback
 from transformers.trainer_callback import TrainerState
-from transformers.trainer_utils import get_last_checkpoint
+from transformers.trainer_pt_utils import reissue_pt_warnings
+from transformers.trainer_utils import ShardedDDPOption, get_last_checkpoint
 
 from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
 from sparseml.pytorch.utils import (
@@ -51,11 +53,15 @@ __all__ = [
     "TrainerInterface",
     "Trainer",
     "DisableHalfPrecisionCallback",
+    "TransformersTrainer",
 ]
 
 
 _LOGGER = logging.getLogger(__name__)
 TRAINER_STATE_NAME = "trainer_state.json"
+OPTIMIZER_NAME = "optimizer.pt"
+SCHEDULER_NAME = "scheduler.pt"
+SCALER_NAME = "scaler.pt"
 
 
 class RecipeManagerTrainerInterface:
@@ -332,10 +338,7 @@ class RecipeManagerTrainerInterface:
             return
 
         # allow SparseML to manage LR and set a dummy scheduler
-        self.lr_scheduler = torch.optim.lr_scheduler.MultiplicativeLR(
-            self.optimizer,
-            lambda _: 1.0,
-        )
+        self.lr_scheduler = self._dummy_lr_scheduler()
         _LOGGER.warning("Overrode the lr_scheduler from SparseML recipe")
 
     def compute_loss(
@@ -855,38 +858,80 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         return checkpoint, epoch
 
 
-class Trainer(TrainerInterface, TransformersTrainer):
+class TransformersTrainer(HFTransformersTrainer):
     """
-    Training implementation for running sparsification recipes with transformers flows.
-    :param model: the model to use with the trainer and apply sparsification to
-    :param model_state_path: the state path to the model,
-        used to load config and tokenizer settings
-    :param recipe: the recipe, if any, to apply to the model and training
-        process
-    :param recipe_args: A json string, csv key=value string, or dictionary containing
-        arguments to override the root arguments within the recipe such as
-        learning rate or num epochs
-    :param teacher: teacher model for distillation. Set to 'self' to distill
-        from the loaded model or 'disable' to turn off distillation
-    :param kwargs: key word arguments passed to the parent class
+    A transformers trainer class with custom behavior that can be shared
+    by all trainers inside SparseML
     """
 
-    def __init__(
-        self,
-        model: Module,
-        model_state_path: str,
-        recipe: Optional[str],
-        recipe_args: Optional[Union[Dict[str, Any], str]] = None,
-        teacher: Optional[Union[Module, str]] = None,
-        **kwargs,
-    ):
-        super().__init__(
-            model=model,
-            model_state_path=model_state_path,
-            recipe=recipe,
-            recipe_args=recipe_args,
-            teacher=teacher,
-            **kwargs,
+    def _save_checkpoint(self, model, trial, metrics=None):
+        # Call into the save checkpoint by HF Transformers, which saves the
+        # best metric if required
+        super()._save_checkpoint(model, trial, metrics=metrics)
+        if (
+            self.args.metric_for_best_model is None
+            or self.args.best_model_after_epoch is None
+        ):
+            return
+
+        if self.state.epoch <= self.args.best_model_after_epoch:
+            self.state.best_metric = None
+            self.state.best_model_checkpoint = None
+
+    def save_optimizer_and_scheduler(self, output_dir: Optional[str] = None):
+        """
+        Save optimizer, scheduler and scaler
+
+        :param output_dir: The output model directory to save the above
+        """
+        if output_dir is None:
+            output_dir = self.args.output_dir
+
+        if self.sharded_ddp == ShardedDDPOption.SIMPLE and self.optimizer is not None:
+            self.optimizer.consolidate_state_dict()
+
+        if self.is_world_process_zero():
+            if self.optimizer is not None:
+                torch.save(
+                    self.optimizer.state_dict(),
+                    os.path.join(output_dir, "optimizer.pt"),
+                )
+            with warnings.catch_warnings(record=True) as caught_warnings:
+                if self.lr_scheduler is not None:
+                    torch.save(
+                        self.lr_scheduler.state_dict(),
+                        os.path.join(output_dir, "scheduler.pt"),
+                    )
+            reissue_pt_warnings(caught_warnings)
+            if self.use_amp:
+                torch.save(
+                    self.scaler.state_dict(), os.path.join(output_dir, "scaler.pt")
+                )
+
+    def _load_optimizer_and_scheduler(self, checkpoint):
+        """
+        Override the Transformers Trainer so that optimizer, scheduler and scaler could
+        be loaded also from the input model folder, which is our use case (instead of
+        only from a separate checkpoint folder).
+        """
+        # We include the model path as where the optimizer and scheduler could be loaded
+        # (in addition to checkpoint folders)
+        model_folder = checkpoint if checkpoint is not None else self.model_state_path
+        if not os.path.isfile(os.path.join(model_folder, OPTIMIZER_NAME)):
+            return
+
+        super()._load_optimizer_and_scheduler(model_folder)
+
+        if self.manager.learning_rate_modifiers:
+            # If LR modifiers are present in the recipe, SparseML willl take
+            # control of the learning rate schedule. Therefore, set the built-in
+            # scheduler to a dummy
+            self.lr_scheduler = self._dummy_lr_scheduler()
+
+    def _dummy_lr_scheduler(self):
+        return torch.optim.lr_scheduler.MultiplicativeLR(
+            self.optimizer,
+            lambda _: 1.0,
         )
 
     def _remove_unused_columns(
@@ -924,6 +969,41 @@ class Trainer(TrainerInterface, TransformersTrainer):
             self._signature_columns += ["label", "label_ids"]
 
         return super()._remove_unused_columns(dataset, description)
+
+
+class Trainer(TrainerInterface, TransformersTrainer):
+    """
+    Training implementation for running sparsification recipes with transformers flows.
+    :param model: the model to use with the trainer and apply sparsification to
+    :param model_state_path: the state path to the model,
+        used to load config and tokenizer settings
+    :param recipe: the recipe, if any, to apply to the modle and training
+        process
+    :param recipe_args: A json string, csv key=value string, or dictionary containing
+        arguments to override the root arguments within the recipe such as
+        learning rate or num epochs
+    :param teacher: teacher model for distillation. Set to 'self' to distill
+        from the loaded model or 'disable' to turn of distillation
+    :param kwargs: key word arguments passed to the parent class
+    """
+
+    def __init__(
+        self,
+        model: Module,
+        model_state_path: str,
+        recipe: Optional[str],
+        recipe_args: Optional[Union[Dict[str, Any], str]] = None,
+        teacher: Optional[Union[Module, str]] = None,
+        **kwargs,
+    ):
+        super().__init__(
+            model=model,
+            model_state_path=model_state_path,
+            recipe=recipe,
+            recipe_args=recipe_args,
+            teacher=teacher,
+            **kwargs,
+        )
 
 
 class DisableHalfPrecisionCallback(TrainerCallback):
