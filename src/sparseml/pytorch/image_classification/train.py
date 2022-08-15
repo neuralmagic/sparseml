@@ -51,7 +51,7 @@ Options:
                                   training, the actual initial value used will
                                   be set by the sparseml recipe  [default:
                                   1e-09]
-  --grad-accum-steps, --gradient_accum_steps INTEGER
+  --gradient-accum-steps, --gradient_accum_steps INTEGER
                                   Gradient accumulation steps
   --recipe-path, --recipe_path TEXT
                                   The path to the yaml/md file containing the
