@@ -709,8 +709,8 @@ class ModuleRunner(ABC):
                 and batch % self._log_steps == 0
             )
             log_step = previous_steps + batch
-            batch_results = self._runner_batch, counter_len
-                counter, batch, batch_size, data, should_log, log_step
+            batch_results = self._runner_batch(
+                counter, batch, batch_size, data, should_log, log_step, counter_len
             )
 
             if should_log:
@@ -789,7 +789,7 @@ class ModuleRunner(ABC):
         show_progress: bool = True,
         track_results: bool = True,
         max_steps: int = -1,
-        grad_accum_steps : int = 1,
+        gradient_accum_steps: int = 1,
     ):
         """
         Convenience function for evaluation over all the data in the given data loader
@@ -803,7 +803,7 @@ class ModuleRunner(ABC):
             False to return None
         :param max_steps: maximum number of steps/batches to run through,
             will stop after reaching this. if <= 0 then no restriction is placed
-        :param grad_accum_steps: Number of gradient accumulation steps to run before
+        :param gradient_accum_steps: Number of gradient accumulation steps to run before
             updating weights
         :return: the results of evaluation if track_results else None
         """
@@ -833,6 +833,7 @@ class ModuleRunner(ABC):
         data: Any,
         should_log: bool,
         log_step: int,
+        counter_len: int,
     ) -> Dict[str, Any]:
         raise NotImplementedError()
 
@@ -965,10 +966,6 @@ class ModuleTrainer(ModuleRunner):
         data = self._run_funcs.to_device(data, self._device)
         self._run_hooks.invoke_batch_start(counter, batch, batch_size, data)
 
-        # optimizer / gradients reset
-        if self._accumulated == self._num_accumulated_batches:
-            self._optimizer.zero_grad()
-
         forward_context = (
             autocast if self.device_context.use_mixed_precision else ExitStack
         )
@@ -978,7 +975,8 @@ class ModuleTrainer(ModuleRunner):
             self._run_hooks.invoke_batch_forward(counter, batch, batch_size, data, pred)
 
             # loss calculation
-            losses = self._loss(data, pred) / self._num_accumulated_batches
+            losses = self._loss(data, pred)
+            losses[DEFAULT_LOSS_KEY] /= self._num_accumulated_batches
 
             self._run_hooks.invoke_batch_loss(
                 counter, batch, batch_size, data, pred, losses
@@ -1001,6 +999,7 @@ class ModuleTrainer(ModuleRunner):
             else:
                 self._optimizer.step(closure=self._optim_closure)
             self._accumulated = 0
+            self._optimizer.zero_grad()
 
         self._run_hooks.invoke_batch_end(counter, batch, batch_size, data, pred, losses)
 
@@ -1095,6 +1094,7 @@ class ModuleTester(ModuleRunner):
         data: Any,
         should_log: bool,
         log_step: int,
+        counter_len: int,
     ):
         with torch.no_grad():
             # setup
