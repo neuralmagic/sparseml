@@ -61,8 +61,8 @@ Simply invoke:
 sparseml.yolact.download
 ```
 
-To download `COCO` test-set invoke `sparseml.yolact.download --test`. For more information
-on this utility invoke it with the `--help` option. (Note: by default, the dataset is downloaded to the code execution directory. )
+To download  a test `COCO` dataset, run `sparseml.yolact.download --test`. For more information
+on this utility append the `--help` option. (Note: by default, the dataset is downloaded to the code execution directory. )
 
 ### Recipes
 
@@ -76,8 +76,8 @@ The argument loads an appropriate recipe while preserving the rest of the traini
 Popular recipes used with this argument are found in the [`recipes` folder](./recipes).
 Otherwise, all other arguments and functionality remain the same as the original repository.
 
-Example train command:
-(Provide the correct dataset path to the utility based on your local setup)
+Example `train` command;
+be sure to provide the correct dataset path to the utility based on your local setup:
 
 ```bash
 sparseml.yolact.train --resume \
@@ -118,7 +118,7 @@ converts the model into deployment formats such as [ONNX](https://onnx.ai/).
 The export process is modified such that the quantized and pruned models are 
 corrected and folded properly.
 
-For example, the following command can be run to export a trained/sparsified yolact 
+For example, the following command can be run to export a trained/sparsified YOLACT
 model's checkpoint:
 
 ```bash

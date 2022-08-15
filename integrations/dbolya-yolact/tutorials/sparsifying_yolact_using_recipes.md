@@ -70,9 +70,9 @@ Otherwise, setup scripts for [COCO](https://cocodataset.org/#home) can be found 
     sparseml.yolact.download
     ```
    
-    Download and validation of the COCO dataset will begin and take around 10 minutes to finish (based on the speed of your internet connection).
+Based on your internet connection, downloading and validation of the COCO dataset will take around 10 minutes to complete.
     The script downloads the COCO dataset into a `coco` folder under the data directory.
-    Notice that once completed, the data is ready for training with the folder structure in the following state (only directories are shown for brevity):
+Once completed, the data is ready for training with the folder structure in the following state (only directories are shown for brevity):
     ```
     ├── data
        ├── coco
@@ -88,7 +88,7 @@ Otherwise, setup scripts for [COCO](https://cocodataset.org/#home) can be found 
 
 1. Training YOLACT from scratch requires a pretrained-backbone model, 
    currently SparseML supports training with `DarkNet-53` backbone. 
-   - Download ImageNet-pre-trained [`DarkNet-53` backbone](https://drive.google.com/file/d/17Y431j4sagFpSReuPNoFcj9h7azDTZFf/view?usp=sharing)
+   - Download ImageNet-pre-trained [`Darknet-53` backbone](https://drive.google.com/file/d/17Y431j4sagFpSReuPNoFcj9h7azDTZFf/view?usp=sharing)
      and put it in `./weights` directory. The directory structure should look like the following:
 ````
     └── Project_directory
