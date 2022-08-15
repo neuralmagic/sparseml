@@ -70,5 +70,5 @@ sparseml.yolact.train \
 --train_info ./data/coco/annotations/instances_train2017.json \
 --validation_info ./data/coco/annotations/instances_val2017.json \
 --train_images ./data/coco/images \
---validation_images ./datas/coco/images
+--validation_images ./data/coco/images
 ```
