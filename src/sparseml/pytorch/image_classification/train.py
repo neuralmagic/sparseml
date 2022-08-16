@@ -785,7 +785,7 @@ def train(
             checkpoint_manager=trainer.checkpoint_manager,
             save_name=save_name,
             save_dir=save_dir,
-            epoch=trainer.epoch - 1,
+            epoch=trainer.epoch - 1 if not trainer.one_shot else None,
             val_res=val_res,
         )
 
