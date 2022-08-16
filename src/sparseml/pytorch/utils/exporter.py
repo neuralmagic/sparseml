@@ -265,18 +265,18 @@ class ModuleExporter(object):
         # copy over model onnx
         expected_onnx_model_dir = os.path.join(self._output_dir, MODEL_ONNX_NAME)
         deployment_onnx_model_dir = os.path.join(deployment_folder_dir, MODEL_ONNX_NAME)
-        self._copy_file(src=expected_onnx_model_dir, target=deployment_onnx_model_dir)
+        _copy_file(src=expected_onnx_model_dir, target=deployment_onnx_model_dir)
         _LOGGER.info(
             f"Saved {MODEL_ONNX_NAME} in the deployment "
             f"folder at {deployment_onnx_model_dir}"
         )
 
         # create config.json
-        config_file_path = self._create_config_file(save_dir=deployment_folder_dir)
+        config_file_path = _create_config_file(save_dir=deployment_folder_dir)
 
         if labels_to_class_mapping:
             # append `labels_to_class_mapping` info to config.json
-            self._save_label_to_class_mapping(
+            _save_label_to_class_mapping(
                 labels_to_class_mapping=labels_to_class_mapping,
                 config_file_path=config_file_path,
             )
@@ -566,7 +566,6 @@ def export_onnx(
             )
 
 
-@staticmethod
 def _copy_file(src: str, target: str):
     if not os.path.exists(src):
         raise ValueError(
@@ -575,7 +574,6 @@ def _copy_file(src: str, target: str):
     shutil.copyfile(src, target)
 
 
-@staticmethod
 def _create_config_file(save_dir: str) -> str:
     config_file_path = os.path.join(save_dir, CONFIG_JSON_NAME)
     with open(config_file_path, "w"):
@@ -586,7 +584,6 @@ def _create_config_file(save_dir: str) -> str:
     return config_file_path
 
 
-@staticmethod
 def _save_label_to_class_mapping(
     labels_to_class_mapping: Union[str, Dict[int, str]],
     config_file_path: str,
