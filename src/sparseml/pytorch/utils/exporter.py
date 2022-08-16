@@ -244,9 +244,10 @@ class ModuleExporter(object):
 
     def create_deployment_folder(self):
         """
-        Create a deployment folder inside the `save_dir` directory.
+        Create a deployment folder inside the `self._output_dir` directory.
         """
         deployment_folder_dir = os.path.join(self._output_dir, "deployment")
+
         if os.path.isdir(deployment_folder_dir):
             shutil.rmtree(deployment_folder_dir)
         os.makedirs(deployment_folder_dir)
@@ -255,15 +256,10 @@ class ModuleExporter(object):
         # copy over model onnx
         expected_onnx_model_dir = os.path.join(self._output_dir, MODEL_ONNX_NAME)
         deployment_onnx_model_dir = os.path.join(deployment_folder_dir, MODEL_ONNX_NAME)
-        if not os.path.exists(expected_onnx_model_dir):
-            raise ValueError(
-                f"Attempting to copy onnx model file from {expected_onnx_model_dir},"
-                "but the file does not exits. Perhaps call this method after the "
-                "method `export_onnx` had been called"
-            )
-        shutil.copyfile(expected_onnx_model_dir, deployment_onnx_model_dir)
+        _copy_file(src=expected_onnx_model_dir, target=deployment_onnx_model_dir)
         _LOGGER.info(
-            f"Saved model.onnx in the deployment folder at {deployment_onnx_model_dir}"
+            f"Saved {MODEL_ONNX_NAME} in the deployment "
+            f"folder at {deployment_onnx_model_dir}"
         )
 
     def export_pytorch(
@@ -549,6 +545,14 @@ def export_onnx(
             _LOGGER.warning(
                 f"Unable to skip input QuantizeLinear op with exception {e}"
             )
+
+
+def _copy_file(src: str, target: str):
+    if not os.path.exists(src):
+        raise ValueError(
+            f"Attempting to copy file from {src}, but the file does not exist."
+        )
+    shutil.copyfile(src, target)
 
 
 def _get_output_names(out: Any):
