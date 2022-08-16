@@ -245,7 +245,7 @@ class ModuleExporter(object):
             script_model(path, self._module)
 
     def create_deployment_folder(
-        self, labels_to_class_mapping: Optional[Union[str, Dict[Any, str]]] = None
+        self, labels_to_class_mapping: Optional[Union[str, Dict[int, str]]] = None
     ):
         """
         Create a deployment folder inside the `config_path` directory.
@@ -588,7 +588,7 @@ def _create_config_file(save_dir: str) -> str:
 
 @staticmethod
 def _save_label_to_class_mapping(
-    labels_to_class_mapping: Union[str, Dict[Any, str]],
+    labels_to_class_mapping: Union[str, Dict[int, str]],
     config_file_path: str,
     key_name: str = "labels_to_class_mapping",
 ):
@@ -639,6 +639,7 @@ def _save_label_to_class_mapping(
 
     with open(config_file_path, "w") as outfile:
         json.dump(config, outfile)
+
     _LOGGER.info(
         f"Appended {key_name} data to {CONFIG_JSON_NAME} at {config_file_path}"
     )

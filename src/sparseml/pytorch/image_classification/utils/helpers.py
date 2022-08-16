@@ -197,7 +197,7 @@ def get_save_dir_and_loggers(
 
 
 # data helpers
-def label_to_class_mapping_from_dataset(dataset: str) -> Optional[Dict[Any, str]]:
+def label_to_class_mapping_from_dataset(dataset: str) -> Optional[Dict[int, str]]:
     """
     Retrieve the label-to-class-mapping for the chosen dataset
     If dataset is not recognized, returns None

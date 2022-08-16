@@ -34,11 +34,10 @@ Options:
                                   state from and resume the state for
                                   exporting
   --labels-to-class_mapping , --labels_to_class_mapping TEXT
-                                  Optional pointer to the dataset-specific
+                                  Optional path to the dataset-specific
                                   mapping from numeric labels to human-readable
-                                  class strings. Expected to be a path to file
-                                  containinsg a serialized dictionary (saved as
-                                  a .json file)
+                                  class strings. Expected to be a path to a
+                                  .json file containing a serialized dictionary
   --arch_key, --arch-key TEXT     The architecture key for image
                                   classification model; example: `resnet50`,
                                   `mobilenet`. Note: Will be read from the
@@ -80,7 +79,7 @@ Options:
                                   object
   --model-tag, --model_tag TEXT   A tag for saving results under save-dir,
                                   defaults to the model arch and dataset used
-  --save-dir, --config_path DIRECTORY
+  --save-dir, --save_dir DIRECTORY
                                   The path to the directory for saving results
                                   [default: pytorch_vision]
   --image-size, --image_size INTEGER
@@ -156,12 +155,12 @@ LOGGER = get_main_logger()
     "and resume the state for exporting",
 )
 @click.option(
-    "--labels-to-class-mapping",
-    "--labels_to_class_mapping",
+    "--labels_to_class-mapping",
+    "--labels-to-class_mapping",
     type=str,
     default=None,
-    help="Optional pointer to the dataset-specific mapping "
-    "from numeric labels to human-readable class strings",
+    help="Optional path to file containing the dataset-specific "
+    "mapping from numeric labels to human-readable class strings",
 )
 @click.option(
     "--arch_key",
@@ -389,7 +388,7 @@ def export(
     onnx_opset: int = 11,
     convert_qat: bool = True,
     image_size: int = 224,
-    labels_to_class_mapping: Optional[Union[str, Dict[Any, str]]] = None,
+    labels_to_class_mapping: Optional[Union[str, Dict[int, str]]] = None,
 ) -> None:
     """
     Utility method to export the model and data
