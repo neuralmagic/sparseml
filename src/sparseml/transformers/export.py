@@ -21,7 +21,7 @@ script accessible from sparseml.transformers.export_onnx
 command help:
 usage: export.py [-h] --task TASK --model_path MODEL_PATH
                  [--sequence_length SEQUENCE_LENGTH]
-                 [--convert_qat CONVERT_QAT]
+                 [--no_convert_qat NO_CONVERT_QAT]
                  [--finetuning_task FINETUNING_TASK]
                  [--onnx_file_name ONNX_FILE_NAME]
 
@@ -36,7 +36,7 @@ optional arguments:
   --sequence_length SEQUENCE_LENGTH
                         Sequence length to use. Default is 384. Can be overwritten
                         later
-  --convert_qat CONVERT_QAT
+  --no_convert_qat NO_CONVERT_QAT
                         Set flag to not perform QAT to fully quantized conversion
                         after export
   --finetuning_task FINETUNING_TASK
