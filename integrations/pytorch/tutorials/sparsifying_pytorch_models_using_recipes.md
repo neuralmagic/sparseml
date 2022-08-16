@@ -113,7 +113,7 @@ After, the training pruned model and training log files will be found under
 an inference engine such as [DeepSparse](https://github.com/neuralmagic/deepsparse), the pruned model must be
 exported to the ONNX format.
 
-This step can be completed using `sparseml/integrations/pytorch/export.py` script which uses the
+This step can be completed using `sparseml.image_classificaiton.export` script which uses the
 `sparseml.pytorch.utils.ModuleExporter` class. Run the script with `--help` option to see usage.
 
 The DeepSparse Engine is explicitly coded to support running sparsified models for significant improvements in
