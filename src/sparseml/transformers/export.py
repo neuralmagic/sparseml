@@ -29,7 +29,7 @@ usage: export.py [-h] --task TASK --model_path MODEL_PATH
                  [--finetuning_task FINETUNING_TASK]
                  [--onnx_file_name ONNX_FILE_NAME]
 
-Export inference artifacts for trained transformers model.
+Export inference artifacts for trained transformers model
 
 optional arguments:
   -h, --help            show this help message and exit
