@@ -988,6 +988,8 @@ class ModuleTrainer(ModuleRunner):
             counter, batch, batch_size, data, pred, losses
         )
 
+        losses[DEFAULT_LOSS_KEY] *= self._num_accumulated_batches
+
         # optimizer / gradients update
         if (
             self._accumulated == self._num_accumulated_batches
