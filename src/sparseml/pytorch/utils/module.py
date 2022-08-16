@@ -961,6 +961,9 @@ class ModuleTrainer(ModuleRunner):
         log_step: int,
         counter_len: int,
     ):
+        if self._accumulated == 0:
+            self._optimizer.zero_grad()
+
         # setup
         self._accumulated += 1
         data = self._run_funcs.to_device(data, self._device)
@@ -1001,7 +1004,6 @@ class ModuleTrainer(ModuleRunner):
             else:
                 self._optimizer.step(closure=self._optim_closure)
             self._accumulated = 0
-            self._optimizer.zero_grad()
 
         self._run_hooks.invoke_batch_end(counter, batch, batch_size, data, pred, losses)
 
