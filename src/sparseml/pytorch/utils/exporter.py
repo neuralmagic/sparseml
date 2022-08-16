@@ -248,7 +248,7 @@ class ModuleExporter(object):
         self, labels_to_class_mapping: Optional[Union[str, Dict[int, str]]] = None
     ):
         """
-        Create a deployment folder inside the `config_path` directory.
+        Create a deployment folder inside the `self._output_dir` directory.
 
         :param labels_to_class_mapping: information about the mapping
             from integer labels to string class names.
