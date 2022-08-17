@@ -78,10 +78,10 @@ def get_model_directory(
     """
     Takes the `training_outputs_dir`
     (the directory where the pipeline saves its training artifacts),
-    and saves the training artifacts to `output_dir` in the `ModelDirectory` structure.
+    and saves the training artifacts to `output_dir` as a sparsezoo Model class object.
 
     :param output_dir: The output path where the artifacts are saved
-        (adhering to the in `ModelDirectory` structure)
+        (adhering to the structure of sparsezoo Model class object)
     :param training_outputs_dir: The path to the existing directory
         with the saved training artifacts
     :param logs_path: Optional directory where the training logs reside
@@ -95,7 +95,7 @@ def get_model_directory(
                 "classification models) has been evoked."
             )
 
-    setup_model_directory(
+    setup_model(
         output_dir=output_dir,
         training=os.path.join(training_outputs_dir, "training"),
         deployment=os.path.join(training_outputs_dir, "model.onnx"),
