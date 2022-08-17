@@ -26,7 +26,11 @@ from torch.optim.optimizer import Optimizer
 from sparseml import version as sparseml_version
 from sparseml.optim import BaseModifier
 from sparseml.pytorch.optim import ScheduledModifierManager
-from sparseml.pytorch.sparsification import Modifier
+from sparseml.pytorch.sparsification import (
+    LayerThinningModifier,
+    LearningRateFunctionModifier,
+    Modifier,
+)
 from tests.sparseml.pytorch.helpers import (
     SAMPLE_STAGED_RECIPE,
     LinearNet,
@@ -702,6 +706,53 @@ def test_lifecycle_manager_staged(
             )
     final_recipe = str(recipe_manager)
     assert final_recipe == expected_recipe
+
+
+THINNING_TEST_INPUTS = [
+    (
+        # Base recipe
+        lambda: LearningRateFunctionModifier(
+            lr_func="linear",
+            init_lr=0.1,
+            final_lr=0.001,
+            start_epoch=0,
+            end_epoch=10,
+            update_frequency=0.5,
+        ),
+        # Additional recipe to start after the base one
+        lambda: LayerThinningModifier(
+            param_group_dependency_map={},
+            start_epoch=0.0,
+            update_epochs=[1.0, 2.0, 3.0],
+        ),
+        10,  # expected start_epoch
+        [11.0, 12.0, 13.0],  # expected update_epochs
+    )
+]
+
+
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
+)
+@pytest.mark.parametrize("test_inputs", THINNING_TEST_INPUTS, scope="function")
+def test_composing_thinning_modifier(test_inputs):
+    recipe_0 = test_inputs[0]()
+    recipe_1 = test_inputs[1]()
+    expected_start_epoch = test_inputs[2]
+    expected_update_epochs = test_inputs[3]
+
+    recipe_0_manager = ScheduledModifierManager([recipe_0])
+    recipe_1_manager = ScheduledModifierManager([recipe_1])
+    manager = ScheduledModifierManager.compose_staged(
+        base_recipe=recipe_0_manager,
+        additional_recipe=recipe_1_manager,
+    )
+    assert manager.num_stages() == 2
+    thin_mod = manager.modifiers["stage_1"][0]
+    assert type(thin_mod) == LayerThinningModifier
+    assert thin_mod.start_epoch == expected_start_epoch
+    assert thin_mod.update_epochs == expected_update_epochs
 
 
 TWO_STAGES_RECIPE = """version: 1.1.0
