@@ -69,7 +69,7 @@ def get_model_directory(
         if not os.path.exists(root_file_path):
             logging.warning(
                 f"File {root_file_path} missing. To create this file, "
-                "make sure that the training script is being ran with"
+                "make sure that the export script is being ran with"
                 "`--num_export_samples` argument."
             )
 
