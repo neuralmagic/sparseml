@@ -20,7 +20,7 @@ import logging
 import os
 from typing import Optional
 
-from sparsezoo.v2.helpers import setup_model_directory
+from sparsezoo import setup_model
 
 
 __all__ = ["RECIPE_NAME", "get_model_directory"]
@@ -41,7 +41,7 @@ TRAINING_FILES = [
     "tokenizer_config.json",
     "tokenizer.json",
 ]
-DEPLOYMENT_FILES = ["tokenizer.json", "config.json", "model.onnx"]
+DEPLOYMENT_FILES = ["tokenizer.json", "tokenizer_config.json", "config.json", "model.onnx"]
 
 
 def get_model_directory(
