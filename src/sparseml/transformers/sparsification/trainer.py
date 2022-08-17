@@ -24,7 +24,6 @@ import warnings
 from dataclasses import asdict
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-import warnings
 import datasets
 import numpy
 import torch
@@ -114,7 +113,6 @@ class RecipeManagerTrainerInterface:
         # instantiate necessary state, like managers, so we can override args
         self.model = model
         self.model_state_path = str(model_state_path)
-        self.checkpoint = None
         self.recipe = recipe
         self.recipe_args = recipe_args
         self.teacher = teacher
@@ -779,8 +777,8 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         :param kwargs: keyword args to pass to super().train()
         :return: the output from super.train()
         """
-        self.checkpoint, epoch = self._generate_apply_manager_params(kwargs)
-        applied = self.apply_manager(epoch=epoch, checkpoint=self.checkpoint)
+        checkpoint, epoch = self._generate_apply_manager_params(kwargs)
+        applied = self.apply_manager(epoch=epoch, checkpoint=checkpoint)
         self.callback_disable_fp16.check_disable(epoch, force=True)
         output = None
         if not self.one_shot:
