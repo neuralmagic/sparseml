@@ -54,7 +54,7 @@ def get_model_directory(
     """
     Takes the `training_outputs_dir`
     (the directory where the pipeline saves its training artifacts),
-    and saves the training artifacts to `output_dir` in the `ModelDirectory` structure.
+    and saves the training artifacts to `output_dir` as a sparsezoo Model class object.
 
     :param output_dir: The output path where the artifacts are saved
         (adhering to the in `ModelDirectory` structure)
