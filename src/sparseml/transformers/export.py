@@ -261,7 +261,7 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--no_convert_qat",
-        action="store_false",
+        action="store_true",
         help=("Set flag to not perform QAT to fully quantized conversion after export"),
     )
     parser.add_argument(
@@ -298,7 +298,7 @@ def export(
         task=task,
         model_path=model_path,
         sequence_length=sequence_length,
-        convert_qat=no_convert_qat,  # False if flagged
+        convert_qat=(not no_convert_qat),  # False if flagged
         finetuning_task=finetuning_task,
         onnx_file_name=onnx_file_name,
     )
