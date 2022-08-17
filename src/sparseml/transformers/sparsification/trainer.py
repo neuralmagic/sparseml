@@ -971,45 +971,6 @@ class TransformersTrainer(HFTransformersTrainer):
 
         return super()._remove_unused_columns(dataset, description)
 
-    def save_optimizer_and_scheduler(self, output_dir: Optional[str] = None):
-        if output_dir is None:
-            output_dir = self.args.output_dir
-
-        # Following the logic in _save_checkpoint
-        if self.sharded_ddp == ShardedDDPOption.SIMPLE:
-            self.optimizer.consolidate_state_dict()
-        if self.is_world_process_zero():
-            torch.save(self.optimizer.state_dict(), os.path.join(output_dir, "optimizer.pt"))
-            with warnings.catch_warnings(record=True) as caught_warnings:
-                torch.save(self.lr_scheduler.state_dict(), os.path.join(output_dir, "scheduler.pt"))
-            reissue_pt_warnings(caught_warnings)
-            if self.use_amp:
-                torch.save(self.scaler.state_dict(), os.path.join(output_dir, "scaler.pt"))
-
-    def _load_optimizer_and_scheduler(self, checkpoint):
-        """
-        Override the Transformers Trainer so that optimizer and scaler are loaded
-        from the input model folder, which is our use case (instead of from a separate
-        checkpoint folder).
-        """
-        # We include the model path as where the optimizer and scheduler could be loaded
-        # (in addition to checkpoint folders)
-        model_folder = self.checkpoint if self.checkpoint is not None else self.model_state_path
-        if not os.path.isfile(os.path.join(model_folder, OPTIMIZER_NAME)):
-            return
-
-        super()._load_optimizer_and_scheduler(model_folder)
-
-        if self.manager.learning_rate_modifiers:
-            # allow SparseML to manage LR and set a dummy scheduler
-            self.lr_scheduler = self._dummy_lr_scheduler()
-
-    def _dummy_lr_scheduler(self):
-        return torch.optim.lr_scheduler.MultiplicativeLR(
-            self.optimizer,
-            lambda _: 1.0,
-        )
-
 
 class Trainer(TrainerInterface, TransformersTrainer):
     """
