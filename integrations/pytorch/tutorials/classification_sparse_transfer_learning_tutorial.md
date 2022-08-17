@@ -118,7 +118,7 @@ The script automatically saves model checkpoints after each epoch and reports th
 
 ### ONNX Export
 The model can be saved to [ONNX](https://onnx.ai/) format to be loaded later for inference or other experiments using
-the `sparseml.image_classification.export` script.
+the `sparseml.image_classification.export_onnx` script.
 
 ```
 sparseml.image_classification.export_onnx \
