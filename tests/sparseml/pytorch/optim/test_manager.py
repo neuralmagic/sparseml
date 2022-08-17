@@ -435,6 +435,8 @@ pruning_modifiers:
 quantization_modifiers:
   - !QuantizationModifier
     start_epoch: 50
+    disable_quantization_observer_epoch: 51
+    freeze_bn_stats_epoch: 51
     submodules: ['model.0']
 """
 
@@ -456,8 +458,10 @@ stage_0:
   
       - !QuantizationModifier
           activation_bits: 8
+          disable_quantization_observer_epoch: 51
           end_epoch: 52
           exclude_batchnorm: True
+          freeze_bn_stats_epoch: 51
           model_fuse_fn_name: conv_bn_relus
           quantize_conv_activations: True
           quantize_embedding_activations: True
@@ -492,8 +496,10 @@ stage_1:
   
       - !QuantizationModifier
           activation_bits: 8
+          disable_quantization_observer_epoch: 103
           end_epoch: -1.0
           exclude_batchnorm: True
+          freeze_bn_stats_epoch: 103
           model_fuse_fn_name: conv_bn_relus
           quantize_conv_activations: True
           quantize_embedding_activations: True
@@ -694,7 +700,6 @@ def test_lifecycle_manager_staged(
                 base_recipe=checkpoint_recipe,
                 additional_recipe=recipe_manager,
             )
-
     final_recipe = str(recipe_manager)
     assert final_recipe == expected_recipe
 

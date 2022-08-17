@@ -600,7 +600,7 @@ class QuantizationModifier(ScheduledModifier):
             self._freeze_bn_stats_epoch = (
                 max(0.0, self._freeze_bn_stats_epoch) + ref_start_epoch
             )
-        self.validate_schedule()
+        self._validate_params()
 
     def _check_quantization_update(
         self, module: Module, epoch: float, steps_per_epoch: int
@@ -797,6 +797,7 @@ class QuantizationModifier(ScheduledModifier):
                 submodule.qconfig = None
 
     def _validate_params(self):
+        self.validate_schedule()
         if (
             self._disable_quantization_observer_epoch is not None
             and self._disable_quantization_observer_epoch < self._start_epoch
