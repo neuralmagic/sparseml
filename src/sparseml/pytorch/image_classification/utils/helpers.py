@@ -74,7 +74,7 @@ __all__ = [
 
 def get_model_directory(
     output_dir: str, training_outputs_dir: str, logs_path: Optional[str] = None
-) -> None:
+):
     """
     Takes the `training_outputs_dir`
     (the directory where the pipeline saves its training artifacts),
