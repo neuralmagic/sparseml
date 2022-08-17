@@ -15,7 +15,7 @@
 import logging
 import os
 
-from sparsezoo.v2.helpers import setup_model_directory
+from sparsezoo import setup_model
 
 
 __all__ = ["get_model_directory"]
@@ -29,10 +29,10 @@ def get_model_directory(
     """
     Takes the `training_outputs_dir`
     (the directory where the pipeline saves its training artifacts),
-    and saves the training artifacts to `output_dir` in the `ModelDirectory` structure.
+    and saves the training artifacts to `output_dir` as a sparsezoo Model class object.
 
     :param output_dir: The output path where the artifacts are saved
-        (adhering to the in `ModelDirectory` structure)
+        (adhering to the structure of sparsezoo Model class object)
     :param training_outputs_dir: The path to the existing directory
         with the saved training artifacts
     :param model_file_torch: name of the final .pth/.pt file to be saved
@@ -48,7 +48,7 @@ def get_model_directory(
         if not os.path.exists(root_file_path):
             logging.warning(
                 f"File {root_file_path} missing. To create this file, "
-                "make sure that the training script is being ran with"
+                "make sure that the export script has been ran with"
                 "`--num_export_samples` argument."
             )
 
@@ -62,7 +62,7 @@ def get_model_directory(
             "yolo model) has been evoked."
         )
 
-    setup_model_directory(
+    setup_model(
         output_dir=output_dir,
         training=[os.path.join(training_outputs_dir, "weights", model_file_torch)],
         deployment=[model_onnx_path],
