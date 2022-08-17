@@ -658,7 +658,7 @@ def main(**kwargs):
         ):
             raise ValueError(
                 "--do_eval requires an explicit validation dataset, "
-                "specified validation ratio, or test as validation"
+                "specified validation ratio, or eval_on_test"
             )
         if data_args.task_name == "mnli":
             eval_dataset = raw_datasets["validation_matched"]
