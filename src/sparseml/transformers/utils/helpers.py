@@ -50,7 +50,7 @@ def get_model_directory(
     logs_path: Optional[str] = None,
     training_files: str = TRAINING_FILES,
     deployment_files: str = DEPLOYMENT_FILES,
-) -> None:
+):
     """
     Takes the `training_outputs_dir`
     (the directory where the pipeline saves its training artifacts),
