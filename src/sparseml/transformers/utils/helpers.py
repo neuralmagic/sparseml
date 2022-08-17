@@ -81,7 +81,7 @@ def get_model_directory(
             "transformer models) has been evoked."
         )
 
-    setup_model_directory(
+    setup_model(
         output_dir=output_dir,
         training=[
             os.path.join(training_outputs_dir, file_name)
