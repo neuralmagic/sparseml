@@ -1,0 +1,6 @@
+nltk==3.5
+lxml==4.5.2
+defusedxml==0.6.0
+python-docx==0.8.10
+unrar==0.4
+zipp==2.2.0
