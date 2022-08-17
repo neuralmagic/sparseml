@@ -103,4 +103,4 @@ def get_model_directory(
         eval_results=None,
         recipes=None,
     )
-    logging.info(f"Created `ModelDirectory` folder locally in {output_dir}")
+    logging.info(f"Created sparsezoo Model directory locally in {output_dir}")
