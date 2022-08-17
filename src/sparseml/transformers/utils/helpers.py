@@ -57,7 +57,7 @@ def get_model_directory(
     and saves the training artifacts to `output_dir` as a sparsezoo Model class object.
 
     :param output_dir: The output path where the artifacts are saved
-        (adhering to the in `ModelDirectory` structure)
+        (adhering to the structure of sparsezoo Model class object)
     :param training_outputs_dir: The path to the existing directory
         with the saved training artifacts
     :param logs_path: Optional directory where the training logs reside
