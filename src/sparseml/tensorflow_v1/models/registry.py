@@ -23,7 +23,7 @@ from typing import Any, Callable, Dict, List, Optional, Union
 from sparseml.tensorflow_v1.models.estimator import EstimatorModelFn
 from sparseml.tensorflow_v1.utils import tf_compat
 from sparseml.utils import TENSORFLOW_V1_FRAMEWORK, parse_optimization_str
-from sparsezoo import Model, model_dict_to_stub
+from sparsezoo import Model, search_models
 
 
 __all__ = ["ModelRegistry"]
@@ -161,11 +161,11 @@ class ModelRegistry(object):
             "dataset": attributes.default_dataset
             if pretrained_dataset is None
             else pretrained_dataset,
-            "sparse_tag": f"{sparse_name}-{sparse_category}",
+            "sparse_name": sparse_name,
+            "sparse_category": sparse_category,
         }
 
-        stub = model_dict_to_stub(**model_dict)
-        return Model(stub)
+        return search_models(**model_dict)[0]
 
     @staticmethod
     def load_pretrained(
@@ -230,15 +230,13 @@ class ModelRegistry(object):
                 key, pretrained, pretrained_dataset
             )
             try:
-                paths = zoo_model.download_framework_files()
-                index_path = [path for path in paths if path.endswith(".index")]
+                index_path = [f.path for f in zoo_model.training.files if f.name.endswith(".index")]
                 index_path = index_path[0]
                 model_path = index_path[:-6]
                 saver.restore(sess, model_path)
             except Exception:
                 # try one more time with overwrite on in case files were corrupted
-                paths = zoo_model.download_framework_files(overwrite=True)
-                index_path = [path for path in paths if path.endswith(".index")]
+                index_path = [f.path for f in zoo_model.training.files if f.name.endswith(".index")]
 
                 if len(index_path) != 1:
                     raise FileNotFoundError(
