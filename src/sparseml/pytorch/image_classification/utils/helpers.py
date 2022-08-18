@@ -50,7 +50,6 @@ from sparseml.pytorch.utils import (
     torch_distributed_zero_first,
 )
 from sparseml.utils import create_dirs
-from sparsezoo import Zoo
 from sparsezoo import setup_model
 
 
@@ -68,11 +67,11 @@ __all__ = [
     "get_loss_wrapper",
     "ddp_aware_model_move",
     "extract_metadata",
-    "get_model_directory",
+    "save_zoo_directory",
 ]
 
 
-def get_model_directory(
+def save_zoo_directory(
     output_dir: str, training_outputs_dir: str, logs_path: Optional[str] = None
 ):
     """
@@ -86,7 +85,13 @@ def get_model_directory(
         with the saved training artifacts
     :param logs_path: Optional directory where the training logs reside
     """
-    for root_file in ["model.onnx", "sample_inputs", "sample_outputs", "sample_labels"]:
+    for root_file in [
+        "model.onnx",
+        "sample_inputs",
+        "sample_outputs",
+        "sample_labels",
+        "deployment",
+    ]:
         root_file_path = os.path.join(training_outputs_dir, root_file)
         if not os.path.exists(root_file_path):
             raise ValueError(
@@ -98,7 +103,7 @@ def get_model_directory(
     setup_model(
         output_dir=output_dir,
         training=os.path.join(training_outputs_dir, "training"),
-        deployment=os.path.join(training_outputs_dir, "model.onnx"),
+        deployment=os.path.join(training_outputs_dir, "deployment"),
         onnx_model=os.path.join(training_outputs_dir, "model.onnx"),
         sample_inputs=os.path.join(training_outputs_dir, "sample_inputs"),
         sample_outputs=os.path.join(training_outputs_dir, "sample_outputs"),
