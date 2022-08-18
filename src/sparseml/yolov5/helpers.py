@@ -12,16 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import glob
 import logging
 import os
 
 from sparsezoo import setup_model
 
 
-__all__ = ["get_model_directory"]
+__all__ = ["save_zoo_directory"]
 
 
-def get_model_directory(
+def save_zoo_directory(
     output_dir: str,
     training_outputs_dir: str,
     model_file_torch: str,
@@ -37,10 +38,9 @@ def get_model_directory(
         with the saved training artifacts
     :param model_file_torch: name of the final .pth/.pt file to be saved
     """
-    training_outputs_files = os.listdir(training_outputs_dir)
     logs_path = [
         file
-        for file in training_outputs_files
+        for file in glob.glob(os.path.join(training_outputs_dir, "*"))
         if os.path.basename(file).startswith("events.out.")
     ]
     for root_file in ["sample_inputs.tar.gz", "sample_outputs.tar.gz"]:
@@ -51,21 +51,27 @@ def get_model_directory(
                 "make sure that the export script has been ran with"
                 "`--num_export_samples` argument."
             )
-
     model_onnx_path = os.path.join(
         training_outputs_dir, "weights", model_file_torch.replace(".pt", ".onnx")
     )
-    if not os.path.exists(model_onnx_path):
-        raise ValueError(
-            f"File {model_onnx_path} missing. To create this file, "
-            "make sure that the `export` script (for exporting "
-            "yolo model) has been evoked."
-        )
+    deployment_path = os.path.join(
+        training_outputs_dir,
+        "weights",
+        "deployment",
+        model_file_torch.replace(".pt", ".onnx"),
+    )
+    for path in [model_onnx_path, deployment_path]:
+        if not os.path.exists(path):
+            raise ValueError(
+                f"File {path} missing. To create this file, "
+                "make sure that the `export` script (for exporting "
+                "yolo model) has been evoked."
+            )
 
     setup_model(
         output_dir=output_dir,
         training=[os.path.join(training_outputs_dir, "weights", model_file_torch)],
-        deployment=[model_onnx_path],
+        deployment=os.path.join(training_outputs_dir, "weights/deployment"),
         onnx_model=model_onnx_path,
         sample_inputs=os.path.join(training_outputs_dir, "sample_inputs.tar.gz"),
         sample_outputs=os.path.join(training_outputs_dir, "sample_outputs.tar.gz"),

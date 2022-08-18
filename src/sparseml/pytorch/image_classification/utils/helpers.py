@@ -68,11 +68,11 @@ __all__ = [
     "get_loss_wrapper",
     "ddp_aware_model_move",
     "extract_metadata",
-    "create_sparsezoo_model",
+    "save_zoo_directory",
 ]
 
 
-def create_sparsezoo_model(
+def save_zoo_directory(
     output_dir: str, training_outputs_dir: str, logs_path: Optional[str] = None
 ) -> None:
     """
