@@ -18,6 +18,7 @@ Export PyTorch models to the local device
 import collections
 import logging
 import os
+import shutil
 import warnings
 from copy import deepcopy
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
@@ -52,6 +53,7 @@ __all__ = [
 
 
 DEFAULT_ONNX_OPSET = 9 if torch.__version__ < "1.3" else 11
+MODEL_ONNX_NAME = "model.onnx"
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -167,7 +169,7 @@ class ModuleExporter(object):
     def export_onnx(
         self,
         sample_batch: Any,
-        name: str = "model.onnx",
+        name: str = MODEL_ONNX_NAME,
         opset: int = DEFAULT_ONNX_OPSET,
         disable_bn_fusing: bool = True,
         convert_qat: bool = False,
@@ -239,6 +241,26 @@ class ModuleExporter(object):
             trace_model(path, self._module, sample_batch)
         else:
             script_model(path, self._module)
+
+    def create_deployment_folder(self):
+        """
+        Create a deployment folder inside the `self._output_dir` directory.
+        """
+        deployment_folder_dir = os.path.join(self._output_dir, "deployment")
+
+        if os.path.isdir(deployment_folder_dir):
+            shutil.rmtree(deployment_folder_dir)
+        os.makedirs(deployment_folder_dir)
+        _LOGGER.info(f"Created deployment folder at {deployment_folder_dir}")
+
+        # copy over model onnx
+        expected_onnx_model_dir = os.path.join(self._output_dir, MODEL_ONNX_NAME)
+        deployment_onnx_model_dir = os.path.join(deployment_folder_dir, MODEL_ONNX_NAME)
+        _copy_file(src=expected_onnx_model_dir, target=deployment_onnx_model_dir)
+        _LOGGER.info(
+            f"Saved {MODEL_ONNX_NAME} in the deployment "
+            f"folder at {deployment_onnx_model_dir}"
+        )
 
     def export_pytorch(
         self,
@@ -523,6 +545,14 @@ def export_onnx(
             _LOGGER.warning(
                 f"Unable to skip input QuantizeLinear op with exception {e}"
             )
+
+
+def _copy_file(src: str, target: str):
+    if not os.path.exists(src):
+        raise ValueError(
+            f"Attempting to copy file from {src}, but the file does not exist."
+        )
+    shutil.copyfile(src, target)
 
 
 def _get_output_names(out: Any):
