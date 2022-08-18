@@ -33,11 +33,12 @@ Options:
                                   A path to a previous checkpoint to load the
                                   state from and resume the state for
                                   exporting
-  --labels-to-class_mapping , --labels_to_class_mapping TEXT
+  --labels-to-class-mapping , --labels_to_class_mapping TEXT
                                   Optional path to the dataset-specific
                                   mapping from numeric labels to human-readable
                                   class strings. Expected to be a path to a
                                   .json file containing a serialized dictionary
+                                  [default: None]
   --arch_key, --arch-key TEXT     The architecture key for image
                                   classification model; example: `resnet50`,
                                   `mobilenet`. Note: Will be read from the
@@ -155,12 +156,14 @@ LOGGER = get_main_logger()
     "and resume the state for exporting",
 )
 @click.option(
-    "--labels_to_class-mapping",
-    "--labels-to-class_mapping",
+    "--labels-to-class-mapping",
+    "--labels_to_class_mapping",
     type=str,
     default=None,
-    help="Optional path to file containing the dataset-specific "
-    "mapping from numeric labels to human-readable class strings",
+    help="Optional path to the dataset-specific mapping from "
+    "numeric labels to human-readable class strings. "
+    "Expected to be a path to a .json file containing "
+    "a serialized dictionary",
 )
 @click.option(
     "--arch_key",
