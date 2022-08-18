@@ -44,10 +44,10 @@ Before applying one of the recipes, you must first create the pre-trained model 
 The pre-trained model enables pruning and other algorithms to remove the correct redundant information in place of random information. 
 Your goal after this is to create a smaller, faster model that recovers to the pre-trained baseline.
 
-Creating a pre-trained model involves two steps: 1) setting up the data and 2) training the model.
-
 **Note**: If using your custom data, the Ultralytics repo contains a walk-through for [training custom data](https://github.com/ultralytics/yolov5/wiki/Train-Custom-Data). 
 Otherwise, setup scripts for both [VOC](https://cs.stanford.edu/~roozbeh/pascal-context/) and [COCO](https://cocodataset.org/#home) can be found under the [yolov5/data/scripts path](https://github.com/neuralmagic/sparseml/tree/main/src/sparseml/yolov5/data/scripts).
+
+You are ready to train the model.
 
 ### Training the Model
 
