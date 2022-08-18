@@ -73,14 +73,14 @@ Otherwise, setup scripts for [COCO](https://cocodataset.org/#home) can be found 
 Based on your internet connection, downloading and validation of the COCO dataset will take around 10 minutes to complete.
     The script downloads the COCO dataset into a `coco` folder under the data directory.
 Once completed, the data is ready for training with the folder structure in the following state (only directories are shown for brevity):
-    ```
-    ├── data
+```bash
+    └─ data
        ├── coco
        │   ├── annotations
        │   └── images
        └── scripts
-    
-    ```
+ 
+ ```
    
     You are ready to train the model.
 
