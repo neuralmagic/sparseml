@@ -40,29 +40,54 @@ python3 -m venv venv # create a venv virtual environment
 source venv/bin/activate # activate venv
 pip install --upgrade pip # upgrade pip
 ```
-To begin, run the following command in the root directory of this integration 
-(`cd integrations/dbolya-yolact`):
-```bash
-bash setup_integration.sh
-```
+To begin, install `sparseml>=1.1`
 
-The `setup_integration.sh` file will clone the yolact-sparseml integration repository. After the repo has successfully cloned, all dependencies from the `yolact/requirements.txt` file will install in your current environment.
+```bash
+pip install "sparseml>=1.1"
+```
 
 Note: This integration requires `python>=3.7,<3.10`
 
 
 ## Quick Tour
 
+### Downloading COCO
+
+The `sparseml.yolact.download` utility provides an easy to use interface to download
+the `COCO` dataset.
+
+Simply invoke:
+```bash
+sparseml.yolact.download
+```
+
+To download  a test `COCO` dataset, run `sparseml.yolact.download --test`. For more information
+on this utility append the `--help` option. (Note: by default, the dataset is downloaded to the code execution directory. )
+
 ### Recipes
+
 Recipes encode the instructions and hyperparameters for sparsifying a model using modifiers to the training process.
 The modifiers can range from pruning and quantization to learning rate and weight decay.
 When appropriately combined, it becomes possible to create highly sparse and accurate models.
 
-This integration adds a `--recipe` argument to the 
+`sparseml.yolact.train` adds a `--recipe` argument to the 
 [`train.py` script](https://github.com/neuralmagic/yolact/blob/master/train.py).
 The argument loads an appropriate recipe while preserving the rest of the training pipeline.
 Popular recipes used with this argument are found in the [`recipes` folder](./recipes).
 Otherwise, all other arguments and functionality remain the same as the original repository.
+
+Example `train` command;
+be sure to provide the correct dataset and recipe path to the utility based on your local setup:
+
+```bash
+sparseml.yolact.train --resume \
+zoo:cv/segmentation/yolact-darknet53/pytorch/dbolya/coco/base-none \
+--recipe ./recipes/yolact.pruned.md \
+--train_info ./data/coco/annotations/instances_train2017.json \
+--validation_info ./data/coco/annotations/instances_val2017.json \
+--train_images ./data/coco/images \
+--validation_images ./data/coco/images
+```
 
 ### SparseZoo
 
@@ -83,22 +108,21 @@ The following table lays out the root-level files and folders along with a descr
 | [recipes](./recipes)                            | Typical recipes for sparsifying YOLACT models along with any downloaded recipes from the SparseZoo.                   |
 | [yolact](./yolact)                              | Integration repository folder used to train and sparsify YOLACT models (`setup_integration.sh` must run first).       |
 | [README.md](./README.md)                        | Readme file.                                                                                                          |
-| [setup_integration.sh](./setup_integrations.sh) | Setup file for the integration run from the command line.                                                             |
 | [tutorials](./tutorials)                        | Easy to follow sparsification tutorials for YOLACT  models.                                                            |
 
 ### Exporting for Inference
 
 After sparsifying a model, the 
-[`export.py` script](https://github.com/neuralmagic/yolact/blob/master/export.py)
+`sparseml.yolact.export_onnx` utility
 converts the model into deployment formats such as [ONNX](https://onnx.ai/).
 The export process is modified such that the quantized and pruned models are 
 corrected and folded properly.
 
-For example, the following command can be run from within the Neural Magic's 
-`yolact` repository folder to export a trained/sparsified model's checkpoint:
+For example, the following command can be run to export a trained/sparsified YOLACT
+model's checkpoint:
 
 ```bash
-python export.py --checkpoint ./quantized-yolact/model.pth \
+sparseml.yolact.export_onnx --checkpoint ./quantized-yolact/model.pth \
     --name quantized-yolact.onnx
 ```
 

@@ -40,7 +40,6 @@ from sparseml.onnx.utils.helpers import (
 __all__ = [
     "fold_conv_bns",
     "quantize_resnet_identity_add_inputs",
-    "quantized_residual_add_optim",
 ]
 
 
@@ -198,91 +197,6 @@ def quantize_resnet_identity_add_inputs(quantized_model: onnx.ModelProto) -> boo
         add_node.input[relu_input_idx] = dequantize_identity_output_name
 
         optimization_made = True
-
-    return optimization_made
-
-
-def quantized_residual_add_optim(quantized_model: onnx.ModelProto) -> bool:
-    """
-    This optimization adds a quant/dequant block to the identity branch of a
-    residual whose non-identity branch is quantized. This enables the add at the
-    end of the residual to be fused at runtime.
-
-    Function will match to any node who has two children nodes - one add node
-    and one quantize node whose branch eventually leads to the other add node.
-
-    :param quantized_model: A loaded quantized model to perform this optimization on
-    :return: True if an in-place optimization was made
-    """
-    graph = ONNXGraph(quantized_model)
-    optimization_made = False
-    for node in quantized_model.graph.node:
-        children_nodes = graph.get_node_children(node)
-        if len(children_nodes) != 2:
-            continue
-
-        add_node = [node for node in children_nodes if node.op_type == "Add"]
-        quant_node = [
-            node for node in children_nodes if node.op_type == "QuantizeLinear"
-        ]
-        if not add_node or not quant_node:
-            continue
-        add_node = add_node[0]
-        quant_node = quant_node[0]
-
-        # verify that quant_node eventually leads to add_node
-        curr_node = [quant_node]
-        iter = 0
-        max_iter = 20  # avoid cycles
-        while curr_node and curr_node[0] != add_node and iter < max_iter:
-            curr_node = graph.get_node_children(curr_node[0])
-            iter += 1
-        if curr_node[0] != add_node:
-            continue
-
-        # create de-quantize node for identity
-        dequant_node = _make_dequant_node_for_quant(quant_node)
-
-        # update graph
-        identity_edge_idx = 0 if add_node.input[0] == node.output[0] else 1
-        graph.add_node(dequant_node)
-        graph.update_node_input(add_node, dequant_node.output[0], identity_edge_idx)
-        optimization_made = True
-
-        # if any of the add children have are a quantize op while others aren't
-        # add a quant/dequant block to the non quantized paths to allow for fusion
-        # of the add
-        add_node_children = graph.get_node_children(add_node)
-        add_node_quant_child_idx = [
-            idx
-            for idx, node in enumerate(add_node_children)
-            if node.op_type == "QuantizeLinear"
-        ]
-        if not add_node_quant_child_idx or all(
-            n.op_type == "Add" or n.op_type == "QuantizeLinear"
-            for n in add_node_children
-        ):
-            # no quant child node, or all child nodes are quant/add nodes
-            continue
-
-        # make dequant pair node for quant child and add to graph
-        add_node_dequant_child = _make_dequant_node_for_quant(
-            add_node_children[add_node_quant_child_idx[0]]
-        )
-        graph.add_node(add_node_dequant_child)
-
-        # update all non quant node children to take the quant/dequant block as input
-        for add_child_node in add_node_children:
-            if add_child_node.op_type == "QuantizeLinear":
-                continue
-            add_node_id_idx = [
-                idx
-                for idx, output_id in enumerate(add_child_node.input)
-                if output_id == add_node.output[0]
-            ][0]
-            graph.update_node_input(
-                add_child_node, add_node_dequant_child.output[0], add_node_id_idx
-            )
 
     return optimization_made
 

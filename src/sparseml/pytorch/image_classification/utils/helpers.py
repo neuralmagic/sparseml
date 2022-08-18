@@ -44,12 +44,14 @@ from sparseml.pytorch.utils import (
     TensorBoardLogger,
     TopKAccuracy,
     default_device,
+    download_framework_model_by_recipe_type,
     early_stop_data_loader,
     model_to_device,
     set_deterministic_seeds,
     torch_distributed_zero_first,
 )
 from sparseml.utils import create_dirs
+from sparsezoo import Model, setup_model
 from sparsezoo import setup_model
 
 
@@ -320,9 +322,18 @@ def create_model(
     """
     with torch_distributed_zero_first(local_rank):
         # only download once locally
-        if checkpoint_path and checkpoint_path.lower() == "zoo":
+        if checkpoint_path and checkpoint_path.startswith("zoo"):
+            recipe_type = None
+            if recipe_path and "recipe_type=" in recipe_path:
+                # override recipe type from recipe path
+                recipe_type = recipe_path.split("recipe_type=")[1]
+                recipe_type = recipe_type.split("&")[0]
+
+            if checkpoint_path.lower() == "zoo":
+                checkpoint_path = recipe_path
+
             checkpoint_path = _download_model_from_zoo_using_recipe(
-                recipe_stub=recipe_path,
+                recipe_stub=checkpoint_path, recipe_type=recipe_type
             )
 
         result = ModelRegistry.create(
@@ -405,7 +416,7 @@ def save_model_training(
     manager: BaseManager,
     save_name: str,
     save_dir: str,
-    epoch: int,
+    epoch: Optional[int],
     val_res: Optional[ModuleRunResults],
     checkpoint_manager: Optional[BaseManager] = None,
     arch_key: Optional[str] = None,
@@ -416,7 +427,7 @@ def save_model_training(
     :param manager: manager created from the training recipe
     :param save_name: name to save model to
     :param save_dir: directory to save results in
-    :param epoch: integer representing umber of epochs to
+    :param epoch: integer representing epoch at which model is saved at
     :param val_res: results from validation run
     :param checkpoint_manager: manager created from the checkpoint recipe
     :param arch_key: if provided, the `arch_key` will be saved in the
@@ -561,12 +572,14 @@ def extract_metadata(
 
 def _download_model_from_zoo_using_recipe(
     recipe_stub: str,
+    recipe_type: Optional[str],
 ) -> Optional[str]:
     """
     Download a model from the zoo using a recipe stub and return the
     path to the downloaded model.
 
     :param recipe_stub: Path to a valid recipe stub
+    :param recipe_type: recipe type override in zoo stub
     :return: Path to the downloaded model
     """
     valid_recipe_stub = recipe_stub and recipe_stub.startswith("zoo:")
@@ -577,13 +590,10 @@ def _download_model_from_zoo_using_recipe(
             f" but got {recipe_stub} instead"
         )
 
-    files = Zoo.download_recipe_base_framework_files(
-        stub=recipe_stub,
-        extensions=[".pth"],
+    return download_framework_model_by_recipe_type(
+        Model(recipe_stub),
+        recipe_name=recipe_type,
     )
-
-    checkpoint_path = files[0]
-    return checkpoint_path
 
 
 @contextmanager

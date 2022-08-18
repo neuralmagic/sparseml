@@ -7,7 +7,7 @@ on:
 
 jobs:
   test-setup:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v2
         with:
@@ -21,7 +21,7 @@ jobs:
           || echo "::set-output name=branch::main"
 
   integrations-tests:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     needs: test-setup
     env:
       SPARSEZOO_TEST_MODE: "true"
@@ -33,10 +33,10 @@ jobs:
           repository: "neuralmagic/sparsezoo"
           path: "sparsezoo"
           ref: ${{needs.test-setup.outputs.branch}}
-      - name: Set up Python 3.8
-        uses: actions/setup-python@v3
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v4
         with:
-          python-version: 3.8
+          python-version: 3.9
       - name: "⚙️ Install sparsezoo dependencies"
         run: pip3 install -U pip && pip3 install setuptools sparsezoo/
       - name: "Clean sparsezoo directory"

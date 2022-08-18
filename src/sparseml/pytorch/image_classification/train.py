@@ -494,43 +494,54 @@ def main(
     test_batch_size: int,
     dataset: str,
     dataset_path: str,
-    arch_key: Optional[str],
-    local_rank: int,
-    checkpoint_path: Optional[str],
-    init_lr: float,
-    recipe_path: Optional[str],
-    eval_mode: bool,
-    optim: str,
-    optim_args: Dict[str, Any],
-    logs_dir: str,
-    save_best_after: int,
-    save_epochs: Tuple[int, ...],
-    use_mixed_precision: bool,
-    pretrained: Union[str, bool],
-    pretrained_dataset: Optional[str],
-    model_kwargs: Dict[str, Any],
-    dataset_kwargs: Dict[str, Any],
-    model_tag: Optional[str],
-    save_dir: str,
-    device: Optional[str],
-    loader_num_workers: int,
-    loader_pin_memory: bool,
-    image_size: int,
-    ffcv: bool,
-    recipe_args: str,
-    max_train_steps: int,
-    max_eval_steps: int,
-    one_shot: bool,
+    arch_key: Optional[str] = None,
+    local_rank: int = -1,
+    checkpoint_path: Optional[str] = None,
+    init_lr: float = 1e-9,
+    recipe_path: Optional[str] = None,
+    eval_mode: bool = False,
+    optim: str = DEFAULT_OPTIMIZER,
+    optim_args: Dict[str, Any] = {
+        "momentum": 0.9,
+        "nesterov": True,
+        "weight_decay": 0.0001,
+    },
+    logs_dir: str = os.path.join("pytorch_vision_train", "tensorboard-logs"),
+    save_best_after: int = 1,
+    save_epochs: Tuple[int, ...] = (5, 10),
+    use_mixed_precision: bool = False,
+    pretrained: Union[str, bool] = True,
+    pretrained_dataset: Optional[str] = None,
+    model_kwargs: Dict[str, Any] = {},
+    dataset_kwargs: Dict[str, Any] = {},
+    model_tag: Optional[str] = None,
+    save_dir: str = "pytorch_vision",
+    device: Optional[str] = default_device(),
+    loader_num_workers: int = 4,
+    loader_pin_memory: bool = True,
+    image_size: int = 224,
+    ffcv: bool = False,
+    recipe_args: Optional[str] = None,
+    max_train_steps: int = -1,
+    max_eval_steps: int = -1,
+    one_shot: bool = False,
 ):
     """
     PyTorch training integration with SparseML for image classification models
     """
+    os.makedirs(logs_dir, exist_ok=True)
+    os.makedirs(save_dir, exist_ok=True)
     world_size = int(os.environ.get("WORLD_SIZE", 1))
     rank = int(os.environ.get("RANK", -1))
 
     # training requires recipe path
     if not eval_mode and recipe_path is None:
         raise ValueError("Must include --recipe-path when not running in eval mode")
+
+    if eval_mode and "recipe_type=transfer" in checkpoint_path:
+        checkpoint_path = checkpoint_path.replace(
+            "recipe_type=transfer", "recipe_type=original"
+        )
 
     # non DDP execution or 0th DDP process
     is_main_process = rank in (-1, 0)
@@ -617,7 +628,8 @@ def main(
     )
 
     metadata = helpers.extract_metadata(
-        metadata_args=METADATA_ARGS, training_args_dict=cli_helpers.parameters_to_dict()
+        metadata_args=METADATA_ARGS,
+        training_args_dict=locals(),
     )
 
     LOGGER.info(f"running on device {device}")
@@ -773,7 +785,7 @@ def train(
             checkpoint_manager=trainer.checkpoint_manager,
             save_name=save_name,
             save_dir=save_dir,
-            epoch=trainer.epoch - 1,
+            epoch=trainer.epoch - 1 if not trainer.one_shot else None,
             val_res=val_res,
         )
 

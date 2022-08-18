@@ -26,7 +26,7 @@ from sparseml.onnx.utils.model import (
     ORTModelRunner,
     max_available_cores,
 )
-from sparsezoo import Zoo
+from sparsezoo import Model
 
 
 try:
@@ -43,35 +43,19 @@ OnnxModelDataFixture = NamedTuple(
 
 @pytest.fixture(
     params=[
-        (
-            {
-                "domain": "cv",
-                "sub_domain": "classification",
-                "architecture": "mobilenet_v1",
-                "sub_architecture": "1.0",
-                "framework": "pytorch",
-                "repo": "sparseml",
-                "dataset": "imagenet",
-                "training_scheme": None,
-                "sparse_name": "base",
-                "sparse_category": "none",
-                "sparse_target": None,
-            }
-        ),
+        "zoo:cv/classification/mobilenet_v1-1.0/pytorch/sparseml/imagenet/base-none",
     ]
 )
 def onnx_models_with_data(request) -> OnnxModelDataFixture:
-    model_args = request.param
-    model = Zoo.load_model(**model_args)
-    model_path = model.onnx_file.downloaded_path()
-    data_paths = [data_file.downloaded_path() for data_file in model.data.values()]
+    model_stub = request.param
+    model = Model(model_stub)
+    model_path = model.onnx_model.path
     inputs_paths = None
     outputs_paths = None
-    for path in data_paths:
-        if "sample-inputs" in path:
-            inputs_paths = path
-        elif "sample-outputs" in path:
-            outputs_paths = path
+    if model.sample_inputs is not None:
+        inputs_paths = model.sample_inputs.path
+    if model.sample_outputs is not None:
+        outputs_paths = model.sample_outputs["framework"].path
     return OnnxModelDataFixture(model_path, inputs_paths, outputs_paths)
 
 

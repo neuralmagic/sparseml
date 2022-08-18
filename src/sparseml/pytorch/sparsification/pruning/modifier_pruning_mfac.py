@@ -21,7 +21,7 @@ import math
 import os
 from abc import ABC, abstractmethod
 from functools import wraps
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import torch
 import torch.distributed as dist
@@ -83,6 +83,8 @@ class MFACPruningModifier(BaseGradualPruningModifier):
     |       num_grads: {0.0: 64, 0.5: 128, 0.75: 256, 0.85: 512}
     |       fisher_block_size: 10000
     |       available_devices: ["cuda:0"]
+    |       grad_sampler_kwargs:
+    |           batch_size: 8
 
     :param init_sparsity: the initial sparsity for the param to start with at
         start_epoch
@@ -130,6 +132,8 @@ class MFACPruningModifier(BaseGradualPruningModifier):
     :param mask_type: String to define type of sparsity to apply. May be 'unstructred'
         for unstructured pruning or 'block4' for four block pruning or a list of two
         integers for a custom block shape. Default is 'unstructured'
+    :param grad_sampler_kwargs: kwargs to override default train dataloader config
+        for gradient sampling.
     """
 
     def __init__(
@@ -151,6 +155,7 @@ class MFACPruningModifier(BaseGradualPruningModifier):
         num_pages: int = 1,  # break computation into pages when block size is None
         available_devices: Optional[List[str]] = None,
         mask_type: str = "unstructured",
+        grad_sampler_kwargs: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(
             params=params,
@@ -172,6 +177,7 @@ class MFACPruningModifier(BaseGradualPruningModifier):
         self._fisher_block_size = fisher_block_size
         self._num_pages = num_pages
         self._mask_type = mask_type
+        self._grad_sampler_kwargs = grad_sampler_kwargs
         if available_devices is None:
             if torch.cuda.device_count() > 0:
                 self._available_devices = ["cuda:0"]
@@ -229,6 +235,13 @@ class MFACPruningModifier(BaseGradualPruningModifier):
         """
         return self._available_devices
 
+    @ModifierProp(serializable=True)
+    def grad_sampler_kwargs(self) -> Optional[Dict[str, Any]]:
+        """
+        Return dict of training dataloader configs overridden for gradient sampling
+        """
+        return self._grad_sampler_kwargs
+
     @ModifierProp()
     def mask_type(self) -> str:
         """
@@ -259,14 +272,21 @@ class MFACPruningModifier(BaseGradualPruningModifier):
         if "grad_sampler" in kwargs and self._use_gradient_buffering is not True:
             # set grad sampler, must be done before initialize in case pruning step
             # occurs on initialize epoch
-            grad_sampler = kwargs["grad_sampler"]
-            if not isinstance(grad_sampler, GradSampler):
-                raise ValueError(
-                    "grad_sampler must be an instance of the GradSampler class"
+            if (
+                "data_loader_builder" not in kwargs["grad_sampler"]
+                or "loss_function" not in kwargs["grad_sampler"]
+            ):
+                raise RuntimeError(
+                    "grad_sampler dict with data_loader_builder and loss_function "
+                    "must be provided to initialize GradSampler"
                 )
-            self._grad_sampler = grad_sampler
+            self._grad_sampler = GradSampler(
+                kwargs["grad_sampler"]["data_loader_builder"](
+                    self._grad_sampler_kwargs
+                ),
+                kwargs["grad_sampler"]["loss_function"],
+            )
             self.log_string("Using provided GradSampler")
-
         elif self._use_gradient_buffering is False:
             raise RuntimeError(
                 "grad_sampler must be provided when use_gradient_buffering is set"
@@ -384,7 +404,7 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
         num_pages: int,
         available_devices: Optional[List[str]],
     ):
-        super().__init__(params)
+        super().__init__(params, dist_backend="gloo")
         self._num_grads = num_grads
         self._damp = damp
         self._fisher_block_size = fisher_block_size
@@ -457,11 +477,11 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
                 dist.gather(
                     self._grad_buffer,
                     gather_list=gather_list,
-                    group=self._gloo_handle,
+                    group=self._dist_group,
                     dst=0,
                 )
             else:
-                dist.gather(self._grad_buffer, group=self._gloo_handle, dst=0)
+                dist.gather(self._grad_buffer, group=self._dist_group, dst=0)
         else:
             self._grads = self._grad_buffer
 

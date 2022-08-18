@@ -102,6 +102,7 @@ sparseml.image_classification.export_onnx \
     --checkpoint-path ~/checkpoints/resnet50_checkpoint.pth
 """
 import json
+import os
 from typing import Any, Dict, Optional, Union
 
 import torch
@@ -274,28 +275,30 @@ LOGGER = get_main_logger()
     help="number of classes for model; must be set if a dataset is not provided",
 )
 def main(
-    dataset: str,
-    dataset_path: str,
-    checkpoint_path: Optional[str],
-    arch_key: Optional[str],
-    num_samples: int,
-    onnx_opset: int,
-    use_zipfile_serialization_if_available: bool,
-    pretrained: Union[str, bool],
-    pretrained_dataset: Optional[str],
-    model_kwargs: Dict[str, Any],
-    dataset_kwargs: Dict[str, Any],
-    model_tag: Optional[str],
-    save_dir: str,
-    image_size: int,
-    recipe: Optional[str],
-    convert_qat: bool,
-    num_classes: int,
+    dataset: Optional[str] = None,
+    dataset_path: Optional[str] = None,
+    checkpoint_path: Optional[str] = None,
+    arch_key: Optional[str] = None,
+    num_samples: int = -1,
+    onnx_opset: int = 11,
+    use_zipfile_serialization_if_available: bool = True,
+    pretrained: Union[str, bool] = True,
+    pretrained_dataset: Optional[str] = None,
+    model_kwargs: Dict[str, Any] = {},
+    dataset_kwargs: Dict[str, Any] = {},
+    model_tag: Optional[str] = None,
+    save_dir: str = "pytorch_vision",
+    image_size: int = 224,
+    recipe: Optional[str] = None,
+    convert_qat: bool = True,
+    num_classes: Optional[int] = None,
 ):
     """
     SparseML-PyTorch Integration for exporting image classification models to
     onnx along with sample inputs and outputs
     """
+
+    os.makedirs(save_dir, exist_ok=True)
     _validate_dataset_num_classes(dataset, dataset_path, num_samples, num_classes)
 
     save_dir, loggers = helpers.get_save_dir_and_loggers(
@@ -411,6 +414,8 @@ def export(
             exporter.export_samples(
                 sample_batches=[data[0]], sample_labels=[data[1]], exp_counter=batch
             )
+
+    exporter.create_deployment_folder()
 
 
 def _validate_dataset_num_classes(

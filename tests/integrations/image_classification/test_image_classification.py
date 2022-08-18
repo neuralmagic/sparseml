@@ -19,8 +19,9 @@ import onnx
 import pytest
 import torch
 
+from flaky import flaky
 from sparseml.pytorch.models import ModelRegistry
-from sparsezoo import Zoo
+from sparsezoo import Model
 from tests.integrations.base_tester import (
     BaseIntegrationManager,
     BaseIntegrationTester,
@@ -45,6 +46,7 @@ except Exception as e:
     deepsparse_error = e
 
 
+@flaky(max_runs=2, min_passes=1)
 class ImageClassificationManager(BaseIntegrationManager):
 
     command_stubs = {
@@ -73,7 +75,7 @@ class ImageClassificationManager(BaseIntegrationManager):
             self.expected_checkpoint_path = os.path.join(
                 train_args.save_dir,
                 train_args.model_tag,
-                "framework",
+                "training",
                 "model-one-shot.pth" if train_args.one_shot else "model.pth",
             )
 
@@ -200,8 +202,8 @@ class TestImageClassification(BaseIntegrationTester):
             pytest.skip("No target model provided")
         if target_model_path.startswith("zoo:"):
             # download zoo model
-            zoo_model = Zoo.load_model_from_stub(target_model_path)
-            target_model_path = zoo_model.onnx_file.downloaded_path()
+            zoo_model = Model(target_model_path)
+            target_model_path = zoo_model.onnx_model.path
         export_model_path = os.path.join(
             export_args.run_args.save_dir,
             export_args.run_args.model_tag,
