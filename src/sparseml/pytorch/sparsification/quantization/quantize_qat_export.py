@@ -323,6 +323,7 @@ def _attribute_to_kwarg(attribute: onnx.AttributeProto):
 def _quantize_array(
     array: numpy.ndarray, scale: float, zero_point: int, dtype: Any = numpy.uint8
 ) -> numpy.ndarray:
+
     if dtype == numpy.uint8:
         tensor_dtype = torch.quint8
     elif dtype == numpy.int8:
@@ -1060,25 +1061,8 @@ def _convert_quantizable_matmul_and_add(model: ModelProto):
         if not bias_add_node or bias_add_node.op_type != "Add":
             continue
 
-        # Optionally find output QDQ block which will be deleted
-        output_quantize_node = graph.get_node_single_child(bias_add_node)
-        if (
-            not output_quantize_node
-            or output_quantize_node.op_type not in _QUANTIZE_OP_NAMES
-        ):
-            output_quantize_node = None
-
-        output_dequantize_node = (
-            graph.get_node_single_child(output_quantize_node)
-            if output_quantize_node
-            else None
-        )
-        if (
-            not output_dequantize_node
-            or output_dequantize_node.op_type not in _QUANTIZE_OP_NAMES
-        ):
-            output_quantize_node = None
-            output_dequantize_node = None
+        output_quantize_node = None
+        output_dequantize_node = None
 
         input_quantize_params = get_quantization_params(
             model, input_quantize_node, include_target=False
@@ -1587,7 +1571,6 @@ def quantize_torch_qat_export(
     _convert_quantizable_gemm_no_activations(model)
     quantize_resnet_identity_add_inputs(model)
     _remove_duplicate_quantize_ops(model)
-    _cleanup_unused_quants(model)
 
     graph = ONNXGraph(model)
     graph.sort_nodes_topologically()
