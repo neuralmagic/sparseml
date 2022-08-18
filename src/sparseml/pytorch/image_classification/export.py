@@ -409,6 +409,8 @@ def export(
                 sample_batches=[data[0]], sample_labels=[data[1]], exp_counter=batch
             )
 
+    exporter.create_deployment_folder()
+
 
 def _validate_dataset_num_classes(
     dataset: str,
