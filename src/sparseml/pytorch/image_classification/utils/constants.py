@@ -20,10 +20,7 @@ from inspect import isclass
 import torch
 
 
-__all__ = [
-    "OPTIMIZERS",
-    "DEFAULT_OPTIMIZER",
-]
+__all__ = ["OPTIMIZERS", "DEFAULT_OPTIMIZER", "AVAILABLE_DATASETS"]
 
 OPTIMIZERS = [
     key
@@ -39,3 +36,4 @@ if not OPTIMIZERS:
     )
 
 DEFAULT_OPTIMIZER = "SGD" if "SGD" in OPTIMIZERS else OPTIMIZERS[0]
+AVAILABLE_DATASETS = ["cifar", "imagenet", "imagenette"]
