@@ -35,7 +35,6 @@ import datasets
 import numpy as np
 import transformers
 from datasets import load_dataset, load_metric
-from sklearn.model_selection import train_test_split
 from transformers import (
     AutoConfig,
     AutoTokenizer,
@@ -765,8 +764,6 @@ def main(**kwargs):
             checkpoint = training_args.resume_from_checkpoint
         elif last_checkpoint is not None:
             checkpoint = last_checkpoint
-        elif training_args.resume_training:
-            checkpoint = trainer.model_state_path
 
         train_result = trainer.train(resume_from_checkpoint=checkpoint)
         if not trainer.one_shot:
