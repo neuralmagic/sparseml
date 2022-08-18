@@ -593,12 +593,15 @@ class QuantizationModifier(ScheduledModifier):
 
         super().advance_epochs(ref_start_epoch=ref_start_epoch)
 
-        self._disable_quantization_observer_epoch = (
-            max(0.0, self._disable_quantization_observer_epoch) + ref_start_epoch
-        )
-        self._freeze_bn_stats_epoch = (
-            max(0.0, self._freeze_bn_stats_epoch) + ref_start_epoch
-        )
+        if self._disable_quantization_observer_epoch is not None:
+            self._disable_quantization_observer_epoch = (
+                max(0.0, self._disable_quantization_observer_epoch) + ref_start_epoch
+            )
+
+        if self._freeze_bn_stats_epoch is not None:
+            self._freeze_bn_stats_epoch = (
+                max(0.0, self._freeze_bn_stats_epoch) + ref_start_epoch
+            )
         self._validate_params()
 
     def _check_quantization_update(
