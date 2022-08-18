@@ -77,12 +77,12 @@ Popular recipes used with this argument are found in the [`recipes` folder](./re
 Otherwise, all other arguments and functionality remain the same as the original repository.
 
 Example `train` command;
-be sure to provide the correct dataset path to the utility based on your local setup:
+be sure to provide the correct dataset and recipe path to the utility based on your local setup:
 
 ```bash
 sparseml.yolact.train --resume \
 zoo:cv/segmentation/yolact-darknet53/pytorch/dbolya/coco/base-none \
---recipe ./quant_small-recipe_yolact.yaml \
+--recipe ./recipes/yolact.pruned.md \
 --train_info ./data/coco/annotations/instances_train2017.json \
 --validation_info ./data/coco/annotations/instances_val2017.json \
 --train_images ./data/coco/images \
