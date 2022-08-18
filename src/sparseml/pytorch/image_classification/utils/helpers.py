@@ -52,7 +52,6 @@ from sparseml.pytorch.utils import (
 )
 from sparseml.utils import create_dirs
 from sparsezoo import Model, setup_model
-from sparsezoo import setup_model
 
 
 _LOGGER = logging.getLogger(__name__)
