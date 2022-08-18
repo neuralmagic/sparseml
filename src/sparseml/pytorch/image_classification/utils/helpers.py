@@ -71,7 +71,6 @@ __all__ = [
     "ddp_aware_model_move",
     "extract_metadata",
     "save_zoo_directory",
-    "create_sparsezoo_model",
     "label_to_class_mapping_from_dataset",
 
 
