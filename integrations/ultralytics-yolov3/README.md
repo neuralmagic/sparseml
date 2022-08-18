@@ -84,17 +84,18 @@ Complete lists are available online for all [models](https://sparsezoo.neuralmag
 
 Sample code for retrieving a model from the SparseZoo:
 ```python
-from sparsezoo import Zoo
+from sparsezoo import Model
 
-model = Zoo.load_model_from_stub("zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned_quant-aggressive_94")
+model = Model("zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned_quant-aggressive_94")
 print(model)
 ```
 
 Sample code for retrieving a recipe from the SparseZoo:
 ```python
-from sparsezoo import Zoo
+from sparsezoo import Model
 
-recipe = Zoo.load_recipe_from_stub("zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned_quant-aggressive_94/original")
+model = Model("zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned_quant-aggressive_94")
+recipe = model.recipes.default
 print(recipe)
 ```
 

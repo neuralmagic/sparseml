@@ -91,10 +91,10 @@ The training command will take a few hours to complete (~3 hours for a Titan RTX
 1. To expedite the training process, you will transfer learn from weights initially trained on the COCO dataset. These are stored in the SparseZoo and accessed with the following Python code. Enter:
 
 ```python
-from sparsezoo import Zoo
+from sparsezoo import Model
 
-model = Zoo.load_model_from_stub("zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/base-none")
-checkpoint_path = model.framework_files[0].downloaded_path()
+model = Model("zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/base-none")
+checkpoint_path = model.training.default.path
 print(checkpoint_path)
 ```
 

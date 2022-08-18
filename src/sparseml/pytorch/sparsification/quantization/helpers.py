@@ -256,6 +256,13 @@ class QATWrapper(Module):
         num_input_quant_stubs = num_inputs + len(self.kwarg_input_names)
 
         self.forward_fn = forward_fn
+        # Add weight qconfig to forward_fn (in case it has weights)
+        qconfig_ = get_qat_qconfig(qproperties)
+        qconfig = torch_quantization.QConfig(
+            activation=torch.nn.Identity,
+            weight=qconfig_.weight,
+        )
+        self.forward_fn.qconfig = qconfig
 
         self.input_qconfigs = self._load_qconfigs(
             name="input_qconfigs",
@@ -474,20 +481,25 @@ def configure_module_default_qconfigs(module: Module):
             submodule.configure_qconfig()
 
 
-def add_quant_dequant(module, name=None, parent_module=None):
+def add_quant_dequant(
+    module: torch.nn.Module, name=None, parent_module=None, layer_class_names=None
+):
     """
     Wraps all Conv and Linear submodule with a qconfig with a QuantWrapper
     :param module: the module to modify
     :param name: name of the module to modify; default to None
     :param parent_module: parent module containing the module to modify; default to None
+    :param layer_class_names: list of module class names to be added to the
+        list of quantizable modules
     :return: the modified module
     """
     named_children = module.named_children()
-    if (
-        type(module) in _QUANTIZABLE_MODULE_TYPES
-        and hasattr(module, "qconfig")
-        and module.qconfig
-    ):
+    is_quantizable = type(module) in _QUANTIZABLE_MODULE_TYPES
+    if layer_class_names:
+        is_quantizable = (
+            is_quantizable or module.__class__.__name__ in layer_class_names
+        )
+    if is_quantizable and hasattr(module, "qconfig") and module.qconfig:
         module = torch_quantization.QuantWrapper(module)
         if parent_module is not None and len(list(named_children)) <= 0:
             if "." in name:
@@ -501,7 +513,11 @@ def add_quant_dequant(module, name=None, parent_module=None):
             setattr(parent_module, name, module)
     else:
         for name, child in named_children:
-            setattr(module, name, add_quant_dequant(child))
+            setattr(
+                module,
+                name,
+                add_quant_dequant(child, layer_class_names=layer_class_names),
+            )
     return module
 
 

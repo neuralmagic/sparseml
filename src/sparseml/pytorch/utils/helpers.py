@@ -17,6 +17,7 @@ Utility / helper functions
 """
 
 import logging
+import os
 import random
 import re
 import warnings
@@ -46,6 +47,7 @@ except Exception as _err:
     QATConv2d = None
 
 from sparseml.utils import create_dirs, save_numpy
+from sparsezoo import Model
 
 
 try:
@@ -87,6 +89,9 @@ __all__ = [
     "set_deterministic_seeds",
     "torch_distributed_zero_first",
     "thin_model_from_checkpoint",
+    "MEMORY_BOUNDED",
+    "memory_aware_threshold",
+    "download_framework_model_by_recipe_type",
 ]
 
 
@@ -1072,3 +1077,70 @@ def thin_model_from_checkpoint(model: Module, state_dict: Dict[str, Any]):
             f"Thinned layer {layer_name} from shape {orig_shape} to "
             f"{layer.weight.shape}"
         )
+
+
+##############################
+#
+# misc pytorch helper functions
+#
+##############################
+
+
+MEMORY_BOUNDED = "MEMORY_BOUNDED"
+
+
+def memory_aware_threshold(tensor: torch.Tensor, idx: int) -> Tensor:
+    """
+    Finds a threshold at the lookup idx in the most efficient way with available
+    resources. Will be phased out when GPU-memory overhead of torch.sort reduces,
+    or when torch.kthvalue becomes faster than torch.sort.
+
+    :param tensor: A tensor to find a k-th smallest value in, where k=idx+1
+    :param idx: A lookup index
+    :return: k-th smallest value from the given tensor, where k=idx+1
+    """
+    try:
+        if (
+            MEMORY_BOUNDED in os.environ
+            and os.environ[MEMORY_BOUNDED].lower() == "true"
+        ):
+            return torch.kthvalue(tensor.view(-1), idx + 1)[0]
+        else:
+            return torch.sort(tensor.view(-1))[0][idx]
+    except RuntimeError:
+        _LOGGER.warning(
+            "Finding threshold from sparsity failed due to lack of memory, "
+            "will attempt to recover. Consider setting env variable "
+            f"{MEMORY_BOUNDED}=True in future runs."
+        )
+        torch.cuda.empty_cache()
+        os.environ[MEMORY_BOUNDED] = "True"
+        return torch.kthvalue(tensor.view(-1), idx + 1)[0]
+
+
+def download_framework_model_by_recipe_type(
+    zoo_model: Model, recipe_name: Optional[str] = None
+) -> str:
+    """
+    Extract the path of the framework model from the
+    zoo model, conditioned on the name of the recipe
+    By default, the function will return path to the final framework model
+    :params zoo_model: model object from sparsezoo
+    :params recipe_name: a name of the recipe (e.g. "transfer_learn", "original" etc.)
+    :return: path to the framework model
+    """
+
+    # default to model query params if available
+    recipe_name = recipe_name or (
+        zoo_model.stub_params.get("recipe_type") or zoo_model.stub_params.get("recipe")
+    )
+
+    if recipe_name:
+        if "transfer" in recipe_name.lower():
+            # fetching the model for transfer learning
+            framework_model = zoo_model.training.default.get_file("model.ckpt.pth")
+    else:
+        # fetching the model for inference
+        framework_model = zoo_model.training.default.get_file("model.pth")
+
+    return framework_model.path

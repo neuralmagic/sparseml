@@ -21,7 +21,7 @@ script accessible from sparseml.transformers.export_onnx
 command help:
 usage: export.py [-h] --task TASK --model_path MODEL_PATH
                  [--sequence_length SEQUENCE_LENGTH]
-                 [--convert_qat CONVERT_QAT]
+                 [--no_convert_qat NO_CONVERT_QAT]
                  [--finetuning_task FINETUNING_TASK]
                  [--onnx_file_name ONNX_FILE_NAME]
 
@@ -36,7 +36,7 @@ optional arguments:
   --sequence_length SEQUENCE_LENGTH
                         Sequence length to use. Default is 384. Can be overwritten
                         later
-  --convert_qat CONVERT_QAT
+  --no_convert_qat NO_CONVERT_QAT
                         Set flag to not perform QAT to fully quantized conversion
                         after export
   --finetuning_task FINETUNING_TASK
@@ -261,7 +261,7 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--no_convert_qat",
-        action="store_false",
+        action="store_true",
         help=("Set flag to not perform QAT to fully quantized conversion after export"),
     )
     parser.add_argument(
@@ -286,18 +286,35 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def export(
+    task: str,
+    model_path: str,
+    sequence_length: int,
+    no_convert_qat: bool,
+    finetuning_task: str,
+    onnx_file_name: str,
+):
+    onnx_path = export_transformer_to_onnx(
+        task=task,
+        model_path=model_path,
+        sequence_length=sequence_length,
+        convert_qat=(not no_convert_qat),  # False if flagged
+        finetuning_task=finetuning_task,
+        onnx_file_name=onnx_file_name,
+    )
+    _LOGGER.info(f"Model exported to: {onnx_path}")
+
+
 def main():
     args = _parse_args()
-    _LOGGER.info(f"Exporting {args.model_path} to ONNX")
-    onnx_path = export_transformer_to_onnx(
+    export(
         task=args.task,
         model_path=args.model_path,
         sequence_length=args.sequence_length,
-        convert_qat=args.no_convert_qat,  # False if flagged
+        no_convert_qat=args.no_convert_qat,  # False if flagged
         finetuning_task=args.finetuning_task,
         onnx_file_name=args.onnx_file_name,
     )
-    _LOGGER.info(f"Model exported to: {onnx_path}")
 
 
 if __name__ == "__main__":
