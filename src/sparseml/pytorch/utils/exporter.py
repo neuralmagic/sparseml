@@ -615,22 +615,13 @@ def _save_label_to_class_mapping(
     # check whether the label names are not already present in the config.
     if key_name in config.keys():
         _LOGGER.warning(
-            f"The file: {CONFIG_JSON_NAME} already contains key {key_name}. "
-            f"The old {key_name} data will be overwritten..."
+            f"File: {CONFIG_JSON_NAME} already contains key {key_name}. "
+            f"{key_name} data will be overwritten"
         )
 
     if isinstance(labels_to_class_mapping, str):
-        # deserialize .json into a dictionary
-        _, file_extension = os.path.splitext(labels_to_class_mapping)
-        if file_extension != ".json":
-            raise ValueError(
-                f"The path to the serialized `labels_to_class_mapping`is expected "
-                f"to point to a json file. "
-                f"However, found file with the extension {file_extension}"
-            )
-        else:
-            with open(labels_to_class_mapping) as outfile:
-                labels_to_class_mapping = json.load(outfile)
+        with open(labels_to_class_mapping) as outfile:
+            labels_to_class_mapping = json.load(outfile)
 
     config[key_name] = labels_to_class_mapping
 
