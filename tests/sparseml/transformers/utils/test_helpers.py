@@ -24,8 +24,8 @@ from sparsezoo import Model
 @pytest.mark.parametrize(
     "stub",
     [
-        "zoo:nlp/question_answering/bert-base/pytorch/huggingface/squad/pruned95_obs_quant-none",
-        "zoo:nlp/question_answering/obert-base/pytorch/huggingface/squad/pruned90_quant-none",
+        "zoo:nlp/question_answering/bert-base/pytorch/huggingface/squad/pruned95_obs_quant-none",  # noqa E501
+        "zoo:nlp/question_answering/obert-base/pytorch/huggingface/squad/pruned90_quant-none",  # noqa E501
     ],
 )
 def test_save_zoo_directory(stub):

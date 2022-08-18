@@ -24,8 +24,8 @@ from sparsezoo import Model
 @pytest.mark.parametrize(
     "stub",
     [
-        "zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/pruned95_quant-none",
-        "zoo:cv/classification/mobilenet_v1-1.0/pytorch/sparseml/imagenet/pruned_quant-moderate",
+        "zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/pruned95_quant-none",  # noqa E501
+        "zoo:cv/classification/mobilenet_v1-1.0/pytorch/sparseml/imagenet/pruned_quant-moderate",  # noqa E501
     ],
 )
 def test_save_zoo_directory(stub):
