@@ -685,6 +685,27 @@ class BaseScheduled(BaseObject):
         self._end_epoch = value
         self.validate_schedule()
 
+    def advance_epochs(self, ref_start_epoch: float = None):
+        """
+        Advance epoch attributes given a reference start epoch
+        Derived modifiers might override this method for their specific attributes
+
+        :param ref_start_epoch: the reference, i.e. new, start epoch
+        """
+        if ref_start_epoch is not None:
+            self._start_epoch = max(0.0, self._start_epoch) + ref_start_epoch
+            self._init_end = (
+                self._init_end + ref_start_epoch
+                if self._init_end != -1
+                else self._init_end
+            )
+            self._end_epoch = (
+                self._end_epoch + ref_start_epoch
+                if self._end_epoch != -1
+                else self._end_epoch
+            )
+            self.validate_schedule()
+
     def validate_schedule(self):
         """
         Validate the schedule values of the params for the current instance are valid
