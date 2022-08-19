@@ -48,7 +48,7 @@ For Neural Magic Support, sign up or log in to our [**Deep Sparse Community Slac
 
 ## Setting up the data
 
-Before applying one of the recipes, you must first setup your data and select a pre-trained [SparseZoo-YOLACT] stub  
+Before applying one of the recipes, you must first setup your data and select a pre-trained [SparseZoo-YOLACT] model stub.  
 The pre-trained model enables pruning and other algorithms to remove the correct redundant information in place of random information. 
 Your goal after this is to create a smaller, faster model that recovers to the pre-trained baseline.
  
@@ -111,7 +111,7 @@ The table below compares these tradeoffs and shows how to run them on the COCO d
 
    \*\* DeepSparse Performance measured on an AWS c5.12xlarge instance with 24 cores, batch size 64, and 550x550 input with version 0.12.0 of the DeepSparse Engine i.e. `deepsparse.benchmark --batch_size 64 --scenario sync [model_path]`
    
-2. Select a recipe to use on top of the pre-trained model you selected.
+2. Select a recipe to use on top of the pre-trained model stub you selected.
 
     - Check your CPU hardware support for quantized networks (VNNI instruction set) using the DeepSparse API:
       ```bash
