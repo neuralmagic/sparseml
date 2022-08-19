@@ -230,13 +230,21 @@ class ModelRegistry(object):
                 key, pretrained, pretrained_dataset
             )
             try:
-                index_path = [f.path for f in zoo_model.training.files if f.name.endswith(".index")]
+                index_path = [
+                    f.path
+                    for f in zoo_model.training.files
+                    if f.name.endswith(".index")
+                ]
                 index_path = index_path[0]
                 model_path = index_path[:-6]
                 saver.restore(sess, model_path)
             except Exception:
                 # try one more time with overwrite on in case files were corrupted
-                index_path = [f.path for f in zoo_model.training.files if f.name.endswith(".index")]
+                index_path = [
+                    f.path
+                    for f in zoo_model.training.files
+                    if f.name.endswith(".index")
+                ]
 
                 if len(index_path) != 1:
                     raise FileNotFoundError(
