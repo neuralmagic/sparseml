@@ -584,7 +584,6 @@ class QuantizationModifier(ScheduledModifier):
     def advance_epochs(self, ref_start_epoch: float = None):
         """
         Advance epoch attributes given a reference start epoch
-        Derived modifiers might override this method for their specific attributes
 
         :param ref_start_epoch: the reference, i.e. new, start epoch
         """

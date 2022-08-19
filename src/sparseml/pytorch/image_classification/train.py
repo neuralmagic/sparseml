@@ -51,6 +51,8 @@ Options:
                                   training, the actual initial value used will
                                   be set by the sparseml recipe  [default:
                                   1e-09]
+  --gradient-accum-steps, --gradient_accum_steps INTEGER
+                                  Gradient accumulation steps
   --recipe-path, --recipe_path TEXT
                                   The path to the yaml/md file containing the
                                   modifiers and schedule to apply them with.
@@ -290,6 +292,14 @@ METADATA_ARGS = [
     " sparseml recipe",
 )
 @click.option(
+    "--gradient-accum-steps",
+    "--gradient_accum_steps",
+    type=int,
+    default=1,
+    show_default=True,
+    help="gradient accumulation steps",
+)
+@click.option(
     "--recipe-path",
     "--recipe_path",
     type=str,
@@ -498,6 +508,7 @@ def main(
     local_rank: int = -1,
     checkpoint_path: Optional[str] = None,
     init_lr: float = 1e-9,
+    gradient_accum_steps: int = 1,
     recipe_path: Optional[str] = None,
     eval_mode: bool = False,
     optim: str = DEFAULT_OPTIMIZER,
@@ -654,6 +665,7 @@ def main(
         recipe_args=recipe_args,
         max_train_steps=max_train_steps,
         one_shot=one_shot,
+        gradient_accum_steps=gradient_accum_steps,
     )
 
     train(
