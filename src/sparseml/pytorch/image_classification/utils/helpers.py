@@ -33,6 +33,7 @@ from sparseml.pytorch.datasets import DatasetRegistry
 from sparseml.pytorch.datasets.image_classification.ffcv_dataset import (
     FFCVCompatibleDataset,
 )
+from sparseml.pytorch.image_classification.utils.constants import AVAILABLE_DATASETS
 from sparseml.pytorch.models import ModelRegistry
 from sparseml.pytorch.optim import ScheduledModifierManager
 from sparseml.pytorch.utils import (
@@ -51,6 +52,7 @@ from sparseml.pytorch.utils import (
     torch_distributed_zero_first,
 )
 from sparseml.utils import create_dirs
+from sparseml.utils.datasets import cifar, imagenet, imagenette
 from sparsezoo import Model, setup_model
 
 
@@ -69,6 +71,7 @@ __all__ = [
     "ddp_aware_model_move",
     "extract_metadata",
     "create_sparsezoo_model",
+    "label_to_class_mapping_from_dataset",
 ]
 
 
@@ -194,6 +197,26 @@ def get_save_dir_and_loggers(
 
 
 # data helpers
+def label_to_class_mapping_from_dataset(dataset: str) -> Optional[Dict[int, str]]:
+    """
+    Retrieve the label-to-class-mapping for the chosen dataset
+    If dataset is not recognized, returns None
+
+    :param dataset: string identifier of the dataset (e.g. "imagenet")
+    :return: mapping from labels to class strings if found. Otherwise None
+    """
+    if dataset not in AVAILABLE_DATASETS:
+        _LOGGER.warning(f"Dataset: {dataset} not recognized.")
+        return None
+    else:
+        if dataset == "cifar":
+            return cifar.CIFAR_10_CLASSES
+        elif dataset == "imagenette":
+            return imagenette.IMAGENETTE_CLASSES
+        else:
+            return imagenet.IMAGENET_CLASSES
+
+
 def get_dataset_and_dataloader(
     dataset_name: str,
     dataset_path: str,
