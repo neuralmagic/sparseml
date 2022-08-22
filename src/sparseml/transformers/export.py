@@ -14,7 +14,7 @@
 
 """
 Helper functions and script for exporting inference artifacts
-to be used by the inference engines such as DeepSparse.
+to be used by inference engines such as DeepSparse.
 The export incorporates:
 - creating the deployment directory (the direct input to the DeepSparse
     inference pipeline)
