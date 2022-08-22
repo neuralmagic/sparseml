@@ -73,16 +73,14 @@ Otherwise, setup scripts for [COCO](https://cocodataset.org/#home) can be found 
 Based on your internet connection, downloading and validation of the COCO dataset will take around 10 minutes to complete.
     The script downloads the COCO dataset into a `coco` folder under the data directory.
 Once completed, the data is ready for training with the folder structure in the following state (only directories are shown for brevity):
-```bash
+```
     └─ data
-       ├── coco
-       │   ├── annotations
-       │   └── images
-       └── scripts
- 
+       └─ coco
+          ├── annotations
+          └── images
  ```
    
-    You are ready to train the model.
+ You are ready to train the model.
 
 ### Downloading Model Backbone
 
@@ -93,10 +91,10 @@ Once completed, the data is ready for training with the folder structure in the 
 ````
     └── Project_directory
         ├── data
-        │   ├── coco
-        │   │   ├── annotations
-        │   │   └── images
-        │   └── scripts
+        │   └─ coco
+        │      ├── annotations
+        │      └── images
+        │   
         └── weights
             └── darknet53.pth
 ````
@@ -108,20 +106,21 @@ sparseml.yolact.train --resume \
 --train_info ./data/coco/annotations/instances_train2017.json \
 --validation_info ./data/coco/annotations/instances_val2017.json \
 --train_images ./data/coco/images \
---validation_images ./data/coco/images
+--validation_images ./data/coco/images \
+--backbone
 ```
 The weights are stored in the `./weights` directory by default and use the `<config>_<epoch>_<iter>.pth` naming 
 convention
 
-3) Validate that the training commands are completed successfully by checking under the `./weights` directory for the trained weights.
+3) Validate that the training command was completed successfully by checking under the `./weights` directory for the trained weights.
    Upon success, the resulting directory structure should look like the following (a few directories are missing content for brevity):
 ```
 └── Project_Directory
     ├── data
-    │   ├── coco
-    │   │   ├── annotations
-    │   │   └── images
-    │   └── scripts
+    │    └── coco
+    │        ├── annotations
+    │        └── images
+    │   
     └── weights
         ├── darknet53.pth
         └── yolact_darknet53_54_800000.pth
