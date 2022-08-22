@@ -288,7 +288,12 @@ def create_deployment_folder(
                 f"but the file does not exits. Make sure that {training_directory} "
                 f"contains following files: {deployment_files}"
             )
-        shutil.copyfile(expected_file_path, deployment_file_path)
+        if file_name == MODEL_ONNX_NAME:
+            # moving onnx file from training to deployment directory
+            shutil.move(expected_file_path, deployment_file_path)
+        else:
+            # copying remaining `deployment_files` from training to deployment directory
+            shutil.copyfile(expected_file_path, deployment_file_path)
         _LOGGER.info(
             f"Saved {file_name} in the deployment folder at {deployment_file_path}"
         )
@@ -357,7 +362,7 @@ def export(
     finetuning_task: str,
     onnx_file_name: str,
 ):
-    onnx_path = export_transformer_to_onnx(
+    export_transformer_to_onnx(
         task=task,
         model_path=model_path,
         sequence_length=sequence_length,
@@ -365,12 +370,14 @@ def export(
         finetuning_task=finetuning_task,
         onnx_file_name=onnx_file_name,
     )
-    _LOGGER.info(f"Model exported to: {onnx_path}")
 
     deployment_folder_dir = create_deployment_folder(
         training_directory=model_path, onnx_file_name=onnx_file_name
     )
-    _LOGGER.info(f"Created deployment folder at {deployment_folder_dir}")
+    _LOGGER.info(
+        f"Created deployment folder at {deployment_folder_dir} "
+        f"with files: {os.listdir(deployment_folder_dir)}"
+    )
 
 
 def main():
