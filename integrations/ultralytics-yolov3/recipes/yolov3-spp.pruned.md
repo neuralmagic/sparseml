@@ -50,7 +50,6 @@ pruning_modifiers:
 
   - !GMPruningModifier
     params:
-      - model.12.cv1.conv.weight
       - model.14.conv.weight
       - model.2.cv1.conv.weight
       - model.20.cv2.conv.weight
@@ -89,7 +88,6 @@ pruning_modifiers:
       - model.10.2.cv1.conv.weight
       - model.10.3.cv1.conv.weight
       - model.11.cv1.conv.weight
-      - model.12.cv2.conv.weight
       - model.19.cv2.conv.weight
       - model.2.cv2.conv.weight
       - model.27.0.cv1.conv.weight

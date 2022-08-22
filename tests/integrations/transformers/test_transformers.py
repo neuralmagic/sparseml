@@ -19,6 +19,7 @@ import math
 import os
 import tempfile
 from copy import deepcopy
+from pathlib import Path
 
 import onnx
 import pytest
@@ -205,7 +206,9 @@ class TestTransformers(BaseIntegrationTester):
         manager = integration_manager
         export_run_args = manager.configs["export"].run_args
         onnx_file = os.path.join(
-            export_run_args.model_path, export_run_args.onnx_file_name
+            Path(export_run_args.model_path).parents[0],
+            "deployment",
+            export_run_args.onnx_file_name,
         )
         assert os.path.isfile(onnx_file)
         model = onnx.load(onnx_file)
