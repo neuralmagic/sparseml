@@ -72,6 +72,7 @@ __all__ = [
     "extract_metadata",
     "save_zoo_directory",
     "label_to_class_mapping_from_dataset",
+]
 
 
 def save_zoo_directory(
