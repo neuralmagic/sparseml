@@ -12,9 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import shutil
-import tempfile
-
 import pytest
 
 from sparseml.transformers.utils.helpers import save_zoo_directory
@@ -28,9 +25,9 @@ from sparsezoo import Model
         "zoo:nlp/question_answering/obert-base/pytorch/huggingface/squad/pruned90_quant-none",  # noqa E501
     ],
 )
-def test_save_zoo_directory(stub):
-    path_to_training_outputs = tempfile.mktemp()
-    save_dir = tempfile.mktemp()
+def test_save_zoo_directory(stub, tmp_path_factory):
+    path_to_training_outputs = tmp_path_factory.mktemp("outputs")
+    save_dir = tmp_path_factory.mktemp("save_dir")
 
     zoo_model = Model(stub, path_to_training_outputs)
     zoo_model.download()
@@ -42,8 +39,5 @@ def test_save_zoo_directory(stub):
         output_dir=save_dir,
         training_outputs_dir=path_to_training_outputs,
     )
-    new_zoo_model = Model(save_dir)
+    new_zoo_model = Model(str(save_dir))
     assert new_zoo_model.validate(minimal_validation=True, validate_onnxruntime=False)
-
-    shutil.rmtree(path_to_training_outputs)
-    shutil.rmtree(save_dir)
