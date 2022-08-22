@@ -268,7 +268,7 @@ def create_deployment_folder(
         deployment_files.update(onnx_file_name)
 
     if training_directory.split("/")[-1] != "training":
-        raise ValueError(
+        _LOGGER.warning(
             "Expected to receive path to the training directory, "
             f"but received path to {training_directory.split('/')[1]} directory/file"
         )
