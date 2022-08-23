@@ -70,26 +70,32 @@ __all__ = [
     "get_loss_wrapper",
     "ddp_aware_model_move",
     "extract_metadata",
-    "create_sparsezoo_model",
+    "save_zoo_directory",
     "label_to_class_mapping_from_dataset",
 ]
 
 
-def create_sparsezoo_model(
+def save_zoo_directory(
     output_dir: str, training_outputs_dir: str, logs_path: Optional[str] = None
-) -> None:
+):
     """
     Takes the `training_outputs_dir`
     (the directory where the pipeline saves its training artifacts),
-    and saves the training artifacts to `output_dir` in the `Model` structure.
+    and saves the training artifacts to `output_dir` as a sparsezoo Model class object.
 
     :param output_dir: The output path where the artifacts are saved
-        (adhering to the in `Model` structure)
+        (adhering to the structure of sparsezoo Model class object)
     :param training_outputs_dir: The path to the existing directory
         with the saved training artifacts
     :param logs_path: Optional directory where the training logs reside
     """
-    for root_file in ["model.onnx", "sample_inputs", "sample_outputs", "sample_labels"]:
+    for root_file in [
+        "model.onnx",
+        "sample_inputs",
+        "sample_outputs",
+        "sample_labels",
+        "deployment",
+    ]:
         root_file_path = os.path.join(training_outputs_dir, root_file)
         if not os.path.exists(root_file_path):
             raise ValueError(
@@ -101,7 +107,7 @@ def create_sparsezoo_model(
     setup_model(
         output_dir=output_dir,
         training=os.path.join(training_outputs_dir, "training"),
-        deployment=os.path.join(training_outputs_dir, "model.onnx"),
+        deployment=os.path.join(training_outputs_dir, "deployment"),
         onnx_model=os.path.join(training_outputs_dir, "model.onnx"),
         sample_inputs=os.path.join(training_outputs_dir, "sample_inputs"),
         sample_outputs=os.path.join(training_outputs_dir, "sample_outputs"),
@@ -114,7 +120,7 @@ def create_sparsezoo_model(
         eval_results=None,
         recipes=None,
     )
-    _LOGGER.info(f"Created SparseZoo `Model` folder locally in {output_dir}")
+    _LOGGER.info(f"Created sparsezoo Model directory locally in {output_dir}")
 
 
 @unique
