@@ -21,6 +21,8 @@ from sparsezoo import setup_model
 
 __all__ = ["save_zoo_directory"]
 
+MODEL_ONNX_NAME = "model.onnx"
+
 
 def save_zoo_directory(
     output_dir: str,
@@ -51,15 +53,9 @@ def save_zoo_directory(
                 "make sure that the export script has been ran with"
                 "`--num_export_samples` argument."
             )
-    model_onnx_path = os.path.join(
-        training_outputs_dir, "weights", model_file_torch.replace(".pt", ".onnx")
-    )
-    deployment_path = os.path.join(
-        training_outputs_dir,
-        "weights",
-        "deployment",
-        model_file_torch.replace(".pt", ".onnx"),
-    )
+    model_onnx_path = os.path.join(training_outputs_dir, "weights", MODEL_ONNX_NAME)
+    deployment_path = os.path.join(training_outputs_dir, "deployment")
+
     for path in [model_onnx_path, deployment_path]:
         if not os.path.exists(path):
             raise ValueError(
@@ -71,7 +67,7 @@ def save_zoo_directory(
     setup_model(
         output_dir=output_dir,
         training=[os.path.join(training_outputs_dir, "weights", model_file_torch)],
-        deployment=os.path.join(training_outputs_dir, "weights/deployment"),
+        deployment=deployment_path,
         onnx_model=model_onnx_path,
         sample_inputs=os.path.join(training_outputs_dir, "sample_inputs.tar.gz"),
         sample_outputs=os.path.join(training_outputs_dir, "sample_outputs.tar.gz"),

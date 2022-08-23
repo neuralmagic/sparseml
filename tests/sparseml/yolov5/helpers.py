@@ -35,6 +35,7 @@ def test_save_zoo_directory(stub):
 
     zoo_model = Model(stub, path_to_training_outputs)
 
+    zoo_model.deployment.default.download()
     zoo_model.model_card.download()
 
     sample_inputs = zoo_model.sample_inputs
@@ -48,12 +49,11 @@ def test_save_zoo_directory(stub):
     os.mkdir(weights_directory)
 
     # prepare files to be copied over
-    deployment_path = zoo_model.deployment.default.path
     model_path = zoo_model.training.default.get_file("model.pt").path
     onnx_model_path = zoo_model.onnx_model.path
 
     # copy
-    for path in [deployment_path, model_path, onnx_model_path]:
+    for path in [model_path, onnx_model_path]:
         if os.path.isdir(path):
             shutil.copytree(
                 path, os.path.join(weights_directory, os.path.basename(path))
