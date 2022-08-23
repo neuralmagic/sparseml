@@ -17,8 +17,7 @@ limitations under the License.
 # Sparsifying YOLACT Using Recipes
 
 This tutorial shows how Neural Magic recipes simplify the sparsification process by encoding the hyperparameters 
-and instructions needed to create highly accurate pruned and pruned-quantized [YOLACT](https://arxiv.org/abs/1904.02689) 
-segmentation models.
+and instructions needed to create highly accurate pruned and pruned-quantized [YOLACT](https://arxiv.org/abs/1904.02689) segmentation models.
 
 ## Overview
 
@@ -31,7 +30,7 @@ complicated process and number of hyper-parameters involved.
 
 Working through this tutorial, you will experience how Neural Magic recipes simplify the sparsification process by:
 
-* Fetching appropriate pre-trained model from [SparseZoo].
+* Creating a pre-trained model to establish a baseline. You will set up your data and then train the model.
 * Applying a recipe to select the trade-off between the amount of recovery to the baseline training performance with 
 the amount of sparsification for inference performance.
 * Exporting for inference to run a file (that contains a checkpoint of the best weights measured on the validation set) 
@@ -46,22 +45,23 @@ Before diving in, be sure to go through the setup as listed out in the [README](
 
 For Neural Magic Support, sign up or log in to our [**Deep Sparse Community Slack**](https://join.slack.com/t/discuss-neuralmagic/shared_invite/zt-q1a1cnvo-YBoICSIw3L1dmQpjBeDurQ). Bugs, feature requests, or additional questions can also be posted to our [GitHub Issue Queue.](https://github.com/neuralmagic/sparseml/issues)
 
-## Setting up the data
+## Creating a Pre-trained Model
 
-Before applying one of the recipes, you must first setup your data and select a pre-trained [SparseZoo-YOLACT] model stub.  
+Before applying one of the recipes, you must first create the pre-trained model to sparsify further. 
 The pre-trained model enables pruning and other algorithms to remove the correct redundant information in place of random information. 
 Your goal after this is to create a smaller, faster model that recovers to the pre-trained baseline.
  
 Creating a pre-trained model involves three steps: 
 1) Setting up the data.
-2) Selecting appropriate pre-trained model stub from [SparseZoo].
+2) Fetching a model backbone. 
+3) Training the model.
 
-If training with COCO, use the baseline [SparseZoo] stub,
+If training with COCO, skip steps 2 and 3 and use the following baseline SparseZoo stub,
 `zoo:cv/segmentation/yolact-darknet53/pytorch/dbolya/coco/base-none` with the `--resume` argument
 in the [`train.py` script](https://github.com/neuralmagic/yolact/blob/master/train.py)
 
 **Note**: If using your custom data, the [YOLACT](https://github.com/dbolya/yolact) repo mentions a post for [training custom data](https://github.com/dbolya/yolact/issues/70#issuecomment-504283008). 
-Otherwise, `sparseml.yolact.download` CLI utility can be used to fetch [COCO](https://cocodataset.org/#home),  
+Otherwise, setup scripts for [COCO](https://cocodataset.org/#home) can be found under the [yolact/data/scripts path](https://github.com/neuralmagic/yolact/tree/master/data/scripts).
 
 ### Setting Up the Data
 
@@ -71,31 +71,64 @@ Otherwise, `sparseml.yolact.download` CLI utility can be used to fetch [COCO](ht
     ```
    
 Based on your internet connection, downloading and validation of the COCO dataset will take around 10 minutes to complete.
-The script downloads the COCO dataset into a `coco` folder under the data directory.
+    The script downloads the COCO dataset into a `coco` folder under the data directory.
 Once completed, the data is ready for training with the folder structure in the following state (only directories are shown for brevity):
-
 ```
     └─ data
        └─ coco
           ├── annotations
           └── images
  ```
+   
+ You are ready to train the model.
 
-### Selecting appropriate pre-trained model stub
+### Downloading Model Backbone
 
-Select one of the following pre-trained baselines based on your use case.
+1. Training YOLACT from scratch requires a pretrained-backbone model, 
+   currently SparseML supports training with `DarkNet-53` backbone. 
+   - Download ImageNet-pre-trained [`Darknet-53` backbone](https://drive.google.com/file/d/17Y431j4sagFpSReuPNoFcj9h7azDTZFf/view?usp=sharing)
+     and put it in `./weights` directory. The directory structure should look like the following:
+````
+    └── Project_directory
+        ├── data
+        │   └─ coco
+        │      ├── annotations
+        │      └── images
+        │   
+        └── weights
+            └── darknet53.pth
+````
 
+2) Run the following command to kickstart training
+```bash
+sparseml.yolact.train --resume \
+./weights/darknet53.pth \
+--train_info ./data/coco/annotations/instances_train2017.json \
+--validation_info ./data/coco/annotations/instances_val2017.json \
+--train_images ./data/coco/images \
+--validation_images ./data/coco/images \
+--backbone
+```
+The weights are stored in the `./weights` directory by default and use the `<config>_<epoch>_<iter>.pth` naming 
+convention
 
-| Sparsification Type | Description                                                                       | Zoo Stub                                                                     | COCO mAP@all | Size on Disk | DeepSparse Performance** |
-|---------------------|-----------------------------------------------------------------------------------|------------------------------------------------------------------------------|--------------|--------------|--------------------------|
-| Baseline            | The baseline, pretrained model on the COCO dataset.                               | zoo:cv/segmentation/yolact-darknet53/pytorch/dbolya/coco/base-none           | 0.288        | 170 MB       | -- img/sec               |
-| Pruned              | A highly sparse, FP32 model that recovers close to the baseline model.            | zoo:cv/segmentation/yolact-darknet53/pytorch/dbolya/coco/pruned90-none       | 0.286        | 30.1 MB      | -- img/sec               |
-| Pruned Quantized    | A highly sparse, INT8 model that recovers reasonably close to the baseline model. | zoo:cv/segmentation/yolact-darknet53/pytorch/dbolya/coco/pruned82_quant-none | 0.282        | 9.7 MB       | -- img/sec               |
+3) Validate that the training command was completed successfully by checking under the `./weights` directory for the trained weights.
+   Upon success, the resulting directory structure should look like the following (a few directories are missing content for brevity):
+```
+└── Project_Directory
+    ├── data
+    │    └── coco
+    │        ├── annotations
+    │        └── images
+    │   
+    └── weights
+        ├── darknet53.pth
+        └── yolact_darknet53_54_800000.pth
+ ```
 
-These models can also be viewed on the [SparseZoo Website](https://sparsezoo.neuralmagic.com/?domain=cv&sub_domain=segmentation&page=1).
-Once above steps are complete you are ready to apply a recipe and train a YOLACT model on COCO or your own dataset.
-
-
+You are ready to use the weights at `./weights/yolact_darknet53_54_800000.pth` with the Neural Magic recipes to create a sparsified model.
+You can also download this baseline, pre-trained checkpoint directly from the [SparseZoo UI](https://sparsezoo.neuralmagic.com/models/cv%2Fsegmentation%2Fyolact-darknet53%2Fpytorch%2Fdbolya%2Fcoco%2Fbase-none),
+or pass its model stub directly to the `--resume` argument while invoking the training script.
 ## Applying a Recipe
 
 In general, recipes trade off the amount of recovery to the baseline training performance with the amount of sparsification for inference performance.
@@ -111,7 +144,7 @@ The table below compares these tradeoffs and shows how to run them on the COCO d
 
    \*\* DeepSparse Performance measured on an AWS c5.12xlarge instance with 24 cores, batch size 64, and 550x550 input with version 0.12.0 of the DeepSparse Engine i.e. `deepsparse.benchmark --batch_size 64 --scenario sync [model_path]`
    
-2. Select a recipe to use on top of the pre-trained model stub you selected.
+2. Select a recipe to use on top of the pre-trained model you created.
 
     - Check your CPU hardware support for quantized networks (VNNI instruction set) using the DeepSparse API:
       ```bash
@@ -133,7 +166,6 @@ sparseml.yolact.train \
 --train_images ./data/coco/images \
 --validation_images ./data/coco/images
 ```
-Once the training is complete using the above command a trained Yolact checkpoint should be saved in `pruned` folder
 After applying a recipe, you are ready to export for inference.
 
 ## Exporting for Inference
@@ -144,13 +176,16 @@ Then, you can run the file through a compression algorithm to reduce its deploym
 When you applied a recipe in the previous step, the sparsification run created a new `./pruned` directory under the `yolact` directory:
 
 ```
+└── Project_directory
     ├── data
-    │   └──coco
-    │       ├── annotations
-    │       └── images
-    │   
-    └── pruned
-         └── yolact_darknet53_3_29316.pth 
+    │   ├── coco
+    │   │   ├── annotations
+    │   │   └── images
+    │   └── scripts
+    ├── pruned
+    │    └── yolact_darknet53_3_29316.pth 
+    └── weights
+        └── yolact_darknet53_54_800000.pth
 ```
 
 These weights under `./pruned` can be loaded into the `sparseml.yolact.train` and `sparseml.yolact.export_onnx` utilities now. 
@@ -189,7 +224,3 @@ For Neural Magic Support, sign up or log in to our [**Deep Sparse Community Slac
   year      = {2019},
 }
 ```
-
-
-[SparseZoo]: http://sparsezoo.neuralmagic.com
-[SparseZoo-YOLACT]: https://sparsezoo.neuralmagic.com/?domain=cv&sub_domain=segmentation&page=1
