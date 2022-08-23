@@ -15,6 +15,7 @@
 import glob
 import logging
 import os
+import shutil
 
 from sparsezoo import setup_model
 
@@ -53,7 +54,9 @@ def save_zoo_directory(
                 "make sure that the export script has been ran with"
                 "`--num_export_samples` argument."
             )
-    model_onnx_path = os.path.join(training_outputs_dir, "weights", MODEL_ONNX_NAME)
+    model_onnx_path = os.path.join(
+        training_outputs_dir, "weights", model_file_torch.replace(".pt", ".onnx")
+    )
     deployment_path = os.path.join(training_outputs_dir, "deployment")
 
     for path in [model_onnx_path, deployment_path]:
@@ -63,6 +66,8 @@ def save_zoo_directory(
                 "make sure that the `export` script (for exporting "
                 "yolo model) has been evoked."
             )
+    _assert_correct_model_onnx_name(model_onnx_path)
+    _assert_correct_model_onnx_name(deployment_path)
 
     setup_model(
         output_dir=output_dir,
@@ -81,3 +86,31 @@ def save_zoo_directory(
         recipes=None,
     )
     logging.info(f"Created `ModelDirectory` folder locally in {output_dir}")
+
+
+def _assert_correct_model_onnx_name(onnx_file_or_parent_directory_path: str):
+    # get a pointer to a single onnx file
+    # (either direct path to the onnx file or to its parent directory)
+    # and rename it to MODEL_ONNX_NAME if necessary
+    if os.path.isdir(onnx_file_or_parent_directory_path):
+        parent_dir = onnx_file_or_parent_directory_path
+        parent_directory_files = os.listdir(parent_dir)
+        onnx_file_name = [
+            file_name
+            for file_name in parent_directory_files
+            if file_name.endswith(".onnx")
+        ]
+        if len(onnx_file_name) != 1:
+            raise ValueError(
+                f"Expected to find only one .onnx file inside the {parent_dir}. "
+                f"However, found {len(onnx_file_name)} .onnx files"
+            )
+        onnx_file_path = os.path.join(parent_dir, onnx_file_name[0])
+    else:
+        onnx_file_path = onnx_file_or_parent_directory_path
+
+    if not os.path.basename(onnx_file_path) == MODEL_ONNX_NAME:
+        target_onnx_file_path = os.path.join(
+            os.path.dirname(onnx_file_path), MODEL_ONNX_NAME
+        )
+        shutil.move(onnx_file_path, target_onnx_file_path)
