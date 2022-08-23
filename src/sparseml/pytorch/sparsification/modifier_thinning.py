@@ -107,6 +107,7 @@ class LayerThinningModifier(ScheduledModifier):
         return [SparsificationTypes.pruning, SparsificationTypes.structured]
 
     def _validate(self):
+        self.validate_schedule()
         if self._structure_type not in ["filter", "channel"]:
             raise ValueError(
                 f"invalid structure_type {self._structure_type}. "
@@ -234,6 +235,19 @@ class LayerThinningModifier(ScheduledModifier):
                 self._structure_type,
                 strict=self._strict,
             )
+
+    def advance_epochs(self, ref_start_epoch: float = None):
+        """
+        Advance epoch attributes given a reference start epoch
+
+        :param ref_start_epoch: the reference, i.e. new, start epoch
+        """
+        if ref_start_epoch is None:
+            return
+
+        super().advance_epochs(ref_start_epoch=ref_start_epoch)
+        self._update_epochs = [e + ref_start_epoch for e in self._update_epochs]
+        self._validate()
 
     def _check_update_epoch(self, epoch) -> bool:
         return any(

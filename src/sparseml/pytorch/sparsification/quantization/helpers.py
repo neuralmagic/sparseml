@@ -796,9 +796,15 @@ def _prepare_qat_embedding(embedding: Module, qconfig: "torch.quantization.QConf
     embedding.weight_fake_quant = qconfig.weight()
 
     def _qat_forward(self, input: torch.Tensor) -> torch.Tensor:
+        weight = self.weight_fake_quant(self.weight)
+        if weight.device != input.device:
+            # torch DataParallel may not pick up overwritten bound method
+            # send weight to correct device
+            weight = weight.to(input.device)
+
         return torch.nn.functional.embedding(
             input,
-            self.weight_fake_quant(self.weight),
+            weight,
             self.padding_idx,
             self.max_norm,
             self.norm_type,
@@ -808,6 +814,7 @@ def _prepare_qat_embedding(embedding: Module, qconfig: "torch.quantization.QConf
 
     # bind qat forward to embedding
     qat_forward_bound = _qat_forward.__get__(embedding, embedding.__class__)
+    embedding.to(embedding.weight.device)  # set weight_fake_quant to correct device
     setattr(embedding, "forward", qat_forward_bound)
 
 
