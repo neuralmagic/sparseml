@@ -13,6 +13,8 @@
 # limitations under the License.
 
 
+from torch.distributed.elastic.multiprocessing.errors import record
+
 from yolov5.export import export_run
 from yolov5.export import parse_opt as parse_export_args
 from yolov5.train import parse_opt as parse_train_args
@@ -36,6 +38,7 @@ __all__ = [
 ]
 
 
+@record
 def train(**kwargs):
     """
     Hook to call into train.py in YOLOv5 fork

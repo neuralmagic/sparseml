@@ -40,6 +40,7 @@ from typing import Optional
 import datasets
 import transformers
 from datasets import concatenate_datasets, load_dataset, load_metric
+from torch.distributed.elastic.multiprocessing.errors import record
 from transformers import (
     CONFIG_MAPPING,
     MODEL_FOR_MASKED_LM_MAPPING,
@@ -286,6 +287,7 @@ class DataTrainingArguments:
                     )
 
 
+@record
 def main(**kwargs):
     # See all possible arguments in src/transformers/training_args.py
     # or by passing the --help flag to this script.

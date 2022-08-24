@@ -33,6 +33,7 @@ import datasets
 import numpy as np
 import transformers
 from datasets import ClassLabel, load_dataset, load_metric
+from torch.distributed.elastic.multiprocessing.errors import record
 from transformers import (
     AutoConfig,
     AutoTokenizer,
@@ -257,6 +258,7 @@ class DataTrainingArguments:
         self.task_name = self.task_name.lower()
 
 
+@record
 def main(**kwargs):
     # See all possible arguments in src/transformers/training_args.py
     # or by passing the --help flag to this script.

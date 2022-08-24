@@ -33,6 +33,7 @@ from typing import Optional
 import datasets
 import transformers
 from datasets import load_dataset, load_metric
+from torch.distributed.elastic.multiprocessing.errors import record
 from transformers import (
     AutoConfig,
     AutoTokenizer,
@@ -304,6 +305,7 @@ class DataTrainingArguments:
                 ], "`test_file` should be a csv or a json file."
 
 
+@record
 def main(**kwargs):
     # See all possible arguments in src/transformers/training_args.py
     # or by passing the --help flag to this script.

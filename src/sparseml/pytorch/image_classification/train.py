@@ -193,6 +193,7 @@ import os
 from typing import Any, Dict, Optional, Tuple, Union
 
 import torch
+from torch.distributed.elastic.multiprocessing.errors import record
 
 import click
 from sparseml import get_main_logger
@@ -265,7 +266,7 @@ METADATA_ARGS = [
     "--local_rank",
     "--local-rank",
     type=int,
-    default=-1,
+    default=None,
     help="Local rank for distributed training",
     hidden=True,  # should not be modified by user
 )
@@ -499,13 +500,14 @@ METADATA_ARGS = [
     show_default=True,
     help="Apply recipe in a one-shot fashion and save the model",
 )
+@record
 def main(
     train_batch_size: int,
     test_batch_size: int,
     dataset: str,
     dataset_path: str,
     arch_key: Optional[str] = None,
-    local_rank: int = -1,
+    local_rank: Optional[int] = None,
     checkpoint_path: Optional[str] = None,
     init_lr: float = 1e-9,
     gradient_accum_steps: int = 1,
@@ -544,6 +546,8 @@ def main(
     os.makedirs(save_dir, exist_ok=True)
     world_size = int(os.environ.get("WORLD_SIZE", 1))
     rank = int(os.environ.get("RANK", -1))
+    # support for legacy torch.distributed.launch and new torch.distributed.run
+    local_rank = local_rank or int(os.environ.get("LOCAL_RANK", -1))
 
     # training requires recipe path
     if not eval_mode and recipe_path is None:
@@ -579,6 +583,7 @@ def main(
             loader_pin_memory=loader_pin_memory,
             ffcv=ffcv,
             device=device,
+            rank=rank,
         )
     else:
         train_dataset = None
