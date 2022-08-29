@@ -21,6 +21,7 @@ import math
 from collections import OrderedDict
 from typing import List, Tuple, Union
 
+import torch
 from torch import Tensor
 from torch.nn import (
     AdaptiveAvgPool2d,
@@ -33,6 +34,12 @@ from torch.nn import (
     Sigmoid,
     Softmax,
 )
+
+
+try:
+    from torch.nn.quantized import FloatFunctional
+except Exception:
+    FloatFunctional = None
 
 from sparseml.pytorch.models.registry import ModelRegistry
 from sparseml.pytorch.nn import SqueezeExcite, Swish
@@ -52,6 +59,36 @@ __all__ = [
 ]
 
 
+class _Add(Module):
+    def __init__(self):
+        super().__init__()
+
+        if FloatFunctional:
+            self.functional = FloatFunctional()
+            self.wrap_qat = True
+            self.qat_wrapper_kwargs = {
+                "num_inputs": 2,
+                "num_outputs": 0,
+            }
+
+    def forward(self, a: Tensor, b: Tensor):
+        if FloatFunctional:
+            return self.functional.add(a, b)
+        else:
+            return torch.add(a, b)
+
+
+class QATSwish(Swish):
+    def __init__(self, num_channels):
+        super().__init__(num_channels)
+
+        self.wrap_qat = True
+        self.qat_wrapper_kwargs = {
+            "num_inputs": 1,
+            "num_outputs": 1,
+        }
+
+
 class _InvertedBottleneckBlock(Module):
     def __init__(
         self,
@@ -69,6 +106,12 @@ class _InvertedBottleneckBlock(Module):
         self._stride = stride
         self._se_mod = se_mod
         expanded_channels = int(in_channels * expansion_ratio)
+        squeezed_channels = (
+            max(1, int(in_channels * se_ratio))
+            if se_ratio and 0 < se_ratio <= 1
+            else None
+        )
+
         self.expand = (
             Sequential(
                 OrderedDict(
@@ -83,7 +126,12 @@ class _InvertedBottleneckBlock(Module):
                             ),
                         ),
                         ("bn", BatchNorm2d(num_features=expanded_channels)),
-                        ("act", Swish(num_channels=expanded_channels)),
+                        (
+                            "act",
+                            QATSwish(num_channels=expanded_channels)
+                            if squeezed_channels
+                            else Swish(num_channels=expanded_channels),
+                        ),
                     ]
                 )
             )
@@ -108,15 +156,14 @@ class _InvertedBottleneckBlock(Module):
                         ),
                     ),
                     ("bn", BatchNorm2d(num_features=expanded_channels)),
-                    ("act", Swish(num_channels=expanded_channels)),
+                    (
+                        "act",
+                        QATSwish(num_channels=expanded_channels)
+                        if squeezed_channels
+                        else Swish(num_channels=expanded_channels),
+                    ),
                 ]
             )
-        )
-
-        squeezed_channels = (
-            max(1, int(in_channels * se_ratio))
-            if se_ratio and 0 < se_ratio <= 1
-            else None
         )
 
         if self._se_mod:
@@ -131,6 +178,11 @@ class _InvertedBottleneckBlock(Module):
                 if squeezed_channels
                 else None
             )
+
+        if self._stride == 1 and self._in_channels == self._out_channels:
+            self.add = _Add()
+        else:
+            self.add = None
 
         self.project = Sequential(
             OrderedDict(
@@ -165,8 +217,8 @@ class _InvertedBottleneckBlock(Module):
         if self.se is not None and self._se_mod:
             out = out * self.se(out)
 
-        if self._stride == 1 and self._in_channels == self._out_channels:
-            out = out + inp
+        if self.add is not None:
+            out = self.add(out, inp)
 
         return out
 
@@ -317,19 +369,18 @@ class EfficientNet(Module):
         stride = settings.stride
         blocks = []
 
-        for _ in range(settings.num_blocks):
+        for block in range(settings.num_blocks):
             blocks.append(
                 _InvertedBottleneckBlock(
-                    in_channels=in_channels,
+                    in_channels=in_channels if block == 0 else settings.out_channels,
                     out_channels=settings.out_channels,
                     kernel_size=settings.kernel_size,
                     expansion_ratio=settings.expansion_ratio,
-                    stride=stride,
+                    stride=stride if block == 0 else 1,
                     se_ratio=settings.se_ratio,
                     se_mod=settings.se_mod,
                 )
             )
-            in_channels = settings.out_channels
 
         return Sequential(*blocks)
 
