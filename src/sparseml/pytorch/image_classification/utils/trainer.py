@@ -31,9 +31,10 @@ from sparseml.pytorch.utils import (
     ModuleTester,
     ModuleTrainer,
     default_device,
+    download_framework_model_by_recipe_type,
     is_parallel_model,
 )
-from sparsezoo import Zoo
+from sparsezoo import Model
 
 
 _LOGGER = logging.getLogger(__file__)
@@ -110,6 +111,7 @@ class ImageClassificationTrainer(Trainer):
         recipe_args: Optional[str] = None,
         max_train_steps: int = -1,
         one_shot: bool = False,
+        gradient_accum_steps: int = 1,
     ):
         """
         Initializes the module_trainer
@@ -131,6 +133,7 @@ class ImageClassificationTrainer(Trainer):
         self.recipe_args = recipe_args
         self.max_train_steps = max_train_steps
         self.one_shot = one_shot
+        self._gradient_accum_steps = gradient_accum_steps
 
         self.val_loss = loss_fn()
         _LOGGER.info(f"created loss for validation: {self.val_loss}")
@@ -280,6 +283,7 @@ class ImageClassificationTrainer(Trainer):
             optimizer=self.optim,
             loggers=self.loggers,
             device_context=self._device_context,
+            num_accumulated_batches=self._gradient_accum_steps,
         )
         _LOGGER.info(f"created Module Trainer: {trainer}")
 
@@ -329,9 +333,9 @@ class ImageClassificationTrainer(Trainer):
 
     def _setup_checkpoint_manager(self):
         if self.checkpoint_path and self.checkpoint_path.startswith("zoo"):
-            self.checkpoint_path = Zoo.load_model_from_stub(
-                self.checkpoint_path
-            ).download_framework_files(extensions=[".pth"])[0]
+            zoo_model = Model(self.checkpoint_path)
+            self.checkpoint_path = download_framework_model_by_recipe_type(zoo_model)
+
         checkpoint_state = torch.load(self.checkpoint_path)
         checkpoint_manager = None
         checkpoint_recipe = checkpoint_state.get("recipe")

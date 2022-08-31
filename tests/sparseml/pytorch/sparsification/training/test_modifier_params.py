@@ -92,7 +92,11 @@ class TestTrainableParamsModifierImpl(ScheduledModifierTest):
 
         self.initialize_helper(modifier, model)
         for param in model.parameters():
-            assert param.requires_grad != modifier.trainable
+            if modifier.start_epoch == 0.0 or modifier.start_epoch == -1.0:
+                # modifier starts at init (e.g. one-shot)
+                assert param.requires_grad == modifier.trainable
+            else:
+                assert param.requires_grad != modifier.trainable
 
         for epoch in range(int(modifier.start_epoch)):
             assert not modifier.update_ready(epoch, test_steps_per_epoch)

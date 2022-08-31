@@ -323,6 +323,7 @@ def _attribute_to_kwarg(attribute: onnx.AttributeProto):
 def _quantize_array(
     array: numpy.ndarray, scale: float, zero_point: int, dtype: Any = numpy.uint8
 ) -> numpy.ndarray:
+
     if dtype == numpy.uint8:
         tensor_dtype = torch.quint8
     elif dtype == numpy.int8:
@@ -1060,25 +1061,8 @@ def _convert_quantizable_matmul_and_add(model: ModelProto):
         if not bias_add_node or bias_add_node.op_type != "Add":
             continue
 
-        # Optionally find output QDQ block which will be deleted
-        output_quantize_node = graph.get_node_single_child(bias_add_node)
-        if (
-            not output_quantize_node
-            or output_quantize_node.op_type not in _QUANTIZE_OP_NAMES
-        ):
-            output_quantize_node = None
-
-        output_dequantize_node = (
-            graph.get_node_single_child(output_quantize_node)
-            if output_quantize_node
-            else None
-        )
-        if (
-            not output_dequantize_node
-            or output_dequantize_node.op_type not in _QUANTIZE_OP_NAMES
-        ):
-            output_quantize_node = None
-            output_dequantize_node = None
+        output_quantize_node = None
+        output_dequantize_node = None
 
         input_quantize_params = get_quantization_params(
             model, input_quantize_node, include_target=False
@@ -1380,9 +1364,9 @@ def _quantize_qat_embedding(model: ModelProto):
     |      |         |
     |         Gather
     |           |
-    |       QuantizeLinear
+    |       QuantizeLinear (Optional)
     |           |
-    |       DequantizeLinear
+    |       DequantizeLinear (Optional)
     |           |
     |         OUTPUT
 
@@ -1571,11 +1555,13 @@ def quantize_torch_qat_export(
         model = deepcopy(model)
 
     _fold_qat_conv_bns(model)
-    _fold_relu_quants(model)
     _convert_single_constants_to_initializers(model)
     _delete_repeated_qat_blocks(model)
+    _quantize_qat_embedding(model)
+    _propagate_mobilebert_embedding_quantization(model)
     _convert_quantizable_matmul(model)
     _convert_quantizable_matmul_and_add(model)
+    _fold_relu_quants(model)
 
     # only convert to either ConvInteger or QLinearConv (legacy)
     if not use_qlinearconv:
@@ -1583,10 +1569,8 @@ def quantize_torch_qat_export(
     _convert_quantizable_ops(model, convert_qlinearconv=use_qlinearconv)
 
     _convert_quantizable_gemm_no_activations(model)
-    _quantize_qat_embedding(model)
     quantize_resnet_identity_add_inputs(model)
     _remove_duplicate_quantize_ops(model)
-    _cleanup_unused_quants(model)
 
     graph = ONNXGraph(model)
     graph.sort_nodes_topologically()
@@ -1719,3 +1703,121 @@ def skip_onnx_input_quantize(
 
     if output_file_path:
         onnx.save(model, output_file_path)
+
+
+def _propagate_mobilebert_embedding_quantization(model: ModelProto):
+    """
+    A pass for propagating embedding quantizations through concat
+
+    Starting with:
+    |           GATHER     (UINT8 data initializer)
+    |           |
+    |       DequantizeLinear
+    |         |   |   |
+    |         | Slice Slice
+    |         |   |   |
+    |         |  Pad Pad
+    |         |   |   |
+    |           Concat
+    |             |
+    |           OUTPUT
+
+    Converts to:
+    |           GATHER     (UINT8 data initializer)
+    |         |   |   |
+    |         | Slice Slice
+    |         |   |   |
+    |         |  Pad Pad
+    |         |   |   |
+    |           Concat
+    |             |
+    |       DequantizeLinear
+    |             |
+    |           OUTPUT
+    """
+    converted_nodes = 0
+    gather_nodes = [n for n in model.graph.node if n.op_type in ["Gather"]]
+    graph = ONNXGraph(model)
+    for gather_node in gather_nodes:
+        # find quantized weight
+        embedding_initializer = graph.get_init_by_name(gather_node.input[0])
+        if not embedding_initializer:
+            continue
+
+        embedding_array = numpy_helper.to_array(embedding_initializer)
+        if embedding_array.dtype != numpy.uint8:
+            continue
+
+        dequant_node = graph.get_node_single_child(gather_node)
+        if not dequant_node or dequant_node.op_type != "DequantizeLinear":
+            continue
+
+        # loop through the children of the dequantize node and check if they
+        # are composed of slice + pad nodes and converge at the same concat node
+        valid = True
+        concat_node = None
+        for branch_node in graph.get_node_children(dequant_node):
+            if branch_node.op_type == "Slice":
+                pad_node = graph.get_node_single_child(branch_node)
+                if not pad_node or pad_node.op_type != "Pad":
+                    valid = False
+                    break
+
+                concat_node_ = graph.get_node_single_child(pad_node)
+                if not concat_node_ or concat_node_.op_type != "Concat":
+                    valid = False
+                    break
+
+                if concat_node is None:
+                    concat_node = concat_node_
+                elif concat_node != concat_node_:
+                    valid = False
+                    break
+            elif branch_node.op_type == "Concat":
+                if concat_node is None:
+                    concat_node = branch_node
+                elif branch_node != concat_node:
+                    valid = False
+                    break
+            else:
+                valid = False
+                break
+
+        if not valid or not concat_node:
+            continue
+
+        # switch position of dequantize node
+        for branch_node in graph.get_node_children(dequant_node):
+            if branch_node.op_type == "Slice":
+                branch_node.input[0] = gather_node.output[0]
+                pad_node = graph.get_node_single_child(branch_node)
+                pad_value = graph.get_init_by_name(pad_node.input[2])
+                pad_value_array = numpy_helper.to_array(pad_value)
+                pad_value_array = pad_value_array + 128
+                pad_value_array = pad_value_array.astype(numpy.uint8)
+                model.graph.initializer.remove(pad_value)
+                pad_value = numpy_helper.from_array(
+                    pad_value_array, name=pad_value.name
+                )
+                model.graph.initializer.append(pad_value)
+
+        for id, input_name in enumerate(concat_node.input):
+            if input_name == dequant_node.output[0]:
+                break
+
+        concat_node.input[id] = gather_node.output[0]
+        temp = concat_node.output[0]
+        concat_node.output[0] = dequant_node.output[0]
+        dequant_node.output[0] = temp
+        dequant_node.input[0] = concat_node.output[0]
+
+        graph.update()
+
+        converted_nodes += 1
+
+    graph.delete_unused_initializers()
+
+    if converted_nodes > 0:
+        _LOGGER.info(
+            f"Propagated {converted_nodes} DequantizeLinear node(s) through Concat"
+        )

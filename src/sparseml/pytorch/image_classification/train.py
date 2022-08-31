@@ -51,6 +51,8 @@ Options:
                                   training, the actual initial value used will
                                   be set by the sparseml recipe  [default:
                                   1e-09]
+  --gradient-accum-steps, --gradient_accum_steps INTEGER
+                                  Gradient accumulation steps
   --recipe-path, --recipe_path TEXT
                                   The path to the yaml/md file containing the
                                   modifiers and schedule to apply them with.
@@ -290,6 +292,14 @@ METADATA_ARGS = [
     " sparseml recipe",
 )
 @click.option(
+    "--gradient-accum-steps",
+    "--gradient_accum_steps",
+    type=int,
+    default=1,
+    show_default=True,
+    help="gradient accumulation steps",
+)
+@click.option(
     "--recipe-path",
     "--recipe_path",
     type=str,
@@ -498,6 +508,7 @@ def main(
     local_rank: int = -1,
     checkpoint_path: Optional[str] = None,
     init_lr: float = 1e-9,
+    gradient_accum_steps: int = 1,
     recipe_path: Optional[str] = None,
     eval_mode: bool = False,
     optim: str = DEFAULT_OPTIMIZER,
@@ -537,6 +548,11 @@ def main(
     # training requires recipe path
     if not eval_mode and recipe_path is None:
         raise ValueError("Must include --recipe-path when not running in eval mode")
+
+    if eval_mode and "recipe_type=transfer" in checkpoint_path:
+        checkpoint_path = checkpoint_path.replace(
+            "recipe_type=transfer", "recipe_type=original"
+        )
 
     # non DDP execution or 0th DDP process
     is_main_process = rank in (-1, 0)
@@ -649,6 +665,7 @@ def main(
         recipe_args=recipe_args,
         max_train_steps=max_train_steps,
         one_shot=one_shot,
+        gradient_accum_steps=gradient_accum_steps,
     )
 
     train(
@@ -780,7 +797,7 @@ def train(
             checkpoint_manager=trainer.checkpoint_manager,
             save_name=save_name,
             save_dir=save_dir,
-            epoch=trainer.epoch - 1,
+            epoch=trainer.epoch - 1 if not trainer.one_shot else None,
             val_res=val_res,
         )
 

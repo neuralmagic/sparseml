@@ -81,6 +81,9 @@ class ImageClassificationTrainArgs(_ImageClassificationBaseArgs):
     train_batch_size: int = Field(description="batch size to use in train loop")
     test_batch_size: int = Field(description="batch size to use in eval loop")
     init_lr: float = Field(default=1e-9, description="will be overwritten by recipe")
+    gradient_accum_steps: int = Field(
+        default=1, description="gradient accumulation steps"
+    )
     recipe_path: Union[str, Path] = Field(
         default=None, description="path to sparsification recipe"
     )

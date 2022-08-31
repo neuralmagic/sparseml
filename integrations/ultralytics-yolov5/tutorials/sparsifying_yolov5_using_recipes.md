@@ -44,37 +44,10 @@ Before applying one of the recipes, you must first create the pre-trained model 
 The pre-trained model enables pruning and other algorithms to remove the correct redundant information in place of random information. 
 Your goal after this is to create a smaller, faster model that recovers to the pre-trained baseline.
 
-Creating a pre-trained model involves two steps: 1) setting up the data and 2) training the model.
-
 **Note**: If using your custom data, the Ultralytics repo contains a walk-through for [training custom data](https://github.com/ultralytics/yolov5/wiki/Train-Custom-Data). 
 Otherwise, setup scripts for both [VOC](https://cs.stanford.edu/~roozbeh/pascal-context/) and [COCO](https://cocodataset.org/#home) can be found under the [yolov5/data/scripts path](https://github.com/neuralmagic/sparseml/tree/main/src/sparseml/yolov5/data/scripts).
 
-### Setting Up the Data
-
-1. For this tutorial, run the COCO setup script with the following command from the root of the `yolov5` repository:
-    ```bash
-    bash data/scripts/get_coco.sh
-    ```
-2. Download and validation of the COCO dataset will begin and takes around 10 minutes to finish.
-    The script downloads the COCO dataset into a `coco` folder under the parent directory.
-    Notice that, once completed, the data is ready for training with the folder structure in the following state:
-    ```
-    |-- coco
-    |   |-- annotations
-    |   |-- images
-    |   |-- labels
-    |   |-- LICENSE
-    |   |-- README.txt
-    |   |-- test-dev2017.txt
-    |   |-- train2017.cache
-    |   |-- train2017.txt
-    |   |-- val2017.cache
-    |   `-- val2017.txt
-    |-- data
-    |-- models
-    ```
-   
-    You are ready to train the model.
+You are ready to train the model.
 
 ### Training the Model
 
@@ -131,12 +104,12 @@ The table below compares these tradeoffs and shows how to run them on the COCO d
 
     | Recipe Name                                                                                                                                              | Description                                                                                                                     | Train Command                                                                                                                                                                               | COCO mAP@0.5 | Size on Disk | DeepSparse Performance** |
     |----------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------|--------------|--------------------------|
-    | YOLOv5s Baseline                                                                                                                                         | The baseline, small YOLOv5 model used as the starting point for sparsification.                                                 | ``` sparseml.yolov5.train --cfg models_v5.0/yolov5s.yaml --weights "" --data coco.yaml --hyp data/hyps/hyp.scratch.yaml ```                                                                              | 0.556        | 24.8 MB       | 135.8 img/sec             |
-    | [YOLOv5s Pruned](https://github.com/neuralmagic/sparseml/blob/main/integrations/ultralytics-yolov5/recipes/yolov5s.pruned.md)                            | Creates a highly sparse, FP32 YOLOv5s model that recovers close to the baseline model.                                          | ``` sparseml.yolov5.train --cfg models_v5.0/yolov5s.yaml --weights PATH_TO_COCO_PRETRAINED_WEIGHTS --data coco.yaml --hyp data/hyps/hyp.scratch.yaml --recipe recipes/yolov5s.pruned.md ```           | 0.534        | 8.4 MB      | 199.1 img/sec            |
-    | [YOLOv5s Pruned Quantized](https://github.com/neuralmagic/sparseml/blob/main/integrations/ultralytics-yolov5/recipes/yolov5s.pruned_quantized.md)        | Creates a highly sparse, INT8 YOLOv5s model that recovers reasonably close to the baseline model.                               | ``` sparseml.yolov5.train --cfg models_v5.0/yolov5s.yaml --weights PATH_TO_COCO_PRETRAINED_WEIGHTS --data coco.yaml --hyp data/hyps/hyp.scratch.yaml --recipe recipes/yolov5s.pruned_quantized.md ``` | 0.525        | 3.3 MB      | 396.7 img/sec            |
-    | YOLOv5l Baseline                                                                                                                                         | The baseline, large YOLOv5 model used as the starting point for sparsification.                                                 | ``` sparseml.yolov5.train --cfg models_v5.0/yolov5l.yaml --weights "" --data coco.yaml --hyp data/hyps/hyp.scratch.yaml ```                                                                              | 0.654        | 154 MB      | 27.9 img/sec             |
-    | [YOLOv5l Pruned](https://github.com/neuralmagic/sparseml/blob/main/integrations/ultralytics-yolov5/recipes/yolov5l.pruned.md)                            | Creates a highly sparse, FP32 YOLOv5l model that recovers close to the baseline model.                                          | ``` sparseml.yolov5.train --cfg models_v5.0/yolov5l.yaml --weights PATH_TO_COCO_PRETRAINED_WEIGHTS --data coco.yaml --hyp data/hyps/hyp.scratch.yaml --recipe recipes/yolov5l.pruned.md ```           | 0.643        | 32.8 MB       | 63.7 img/sec             |
-    | [YOLOv5l Pruned Quantized](https://github.com/neuralmagic/sparseml/blob/main/integrations/ultralytics-yolov5/recipes/yolov5l.pruned_quantized.md)        | Creates a highly sparse, INT8 YOLOv5l model that recovers reasonably close to the baseline model.                               | ``` sparseml.yolov5.train --cfg models_v5.0/yolov5l.yaml --weights PATH_TO_COCO_PRETRAINED_WEIGHTS --data coco.yaml --hyp data/hyps/hyp.scratch.yaml --recipe recipes/yolov5l.pruned_quantized.md ``` | 0.623        | 12.7 MB       | 139.8 img/sec             |
+    | [YOLOv5s Baseline](https://sparsezoo.neuralmagic.com/models/cv%2Fdetection%2Fyolov5-s%2Fpytorch%2Fultralytics%2Fcoco%2Fbase-none)                                                                                                                                         | The baseline, small YOLOv5 model used as the starting point for sparsification.                                                 | ``` sparseml.yolov5.train --cfg models_v5.0/yolov5s.yaml --weights "" --data coco.yaml --hyp data/hyps/hyp.scratch.yaml ```                                                                              | 0.556        | 24.8 MB       | 135.8 img/sec             |
+    | [YOLOv5s Pruned](https://sparsezoo.neuralmagic.com/models/cv%2Fdetection%2Fyolov5-s%2Fpytorch%2Fultralytics%2Fcoco%2Fpruned-aggressive_96)                            | Creates a highly sparse, FP32 YOLOv5s model that recovers close to the baseline model.                                          | ``` sparseml.yolov5.train --cfg models_v5.0/yolov5s.yaml --weights PATH_TO_COCO_PRETRAINED_WEIGHTS --data coco.yaml --hyp data/hyps/hyp.scratch.yaml --recipe zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned-aggressive_96 ```           | 0.534        | 8.4 MB      | 199.1 img/sec            |
+    | [YOLOv5s Pruned Quantized](https://sparsezoo.neuralmagic.com/models/cv%2Fdetection%2Fyolov5-s%2Fpytorch%2Fultralytics%2Fcoco%2Fpruned_quant-aggressive_94)        | Creates a highly sparse, INT8 YOLOv5s model that recovers reasonably close to the baseline model.                               | ``` sparseml.yolov5.train --cfg models_v5.0/yolov5s.yaml --weights PATH_TO_COCO_PRETRAINED_WEIGHTS --data coco.yaml --hyp data/hyps/hyp.scratch.yaml --recipe zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned_quant-aggressive_94 ``` | 0.525        | 3.3 MB      | 396.7 img/sec            |
+    | [YOLOv5l Baseline](https://sparsezoo.neuralmagic.com/models/cv%2Fdetection%2Fyolov5-l%2Fpytorch%2Fultralytics%2Fcoco%2Fbase-none)                                                                                                                                         | The baseline, large YOLOv5 model used as the starting point for sparsification.                                                 | ``` sparseml.yolov5.train --cfg models_v5.0/yolov5l.yaml --weights "" --data coco.yaml --hyp data/hyps/hyp.scratch.yaml ```                                                                              | 0.654        | 154 MB      | 27.9 img/sec             |
+    | [YOLOv5l Pruned](https://sparsezoo.neuralmagic.com/models/cv%2Fdetection%2Fyolov5-l%2Fpytorch%2Fultralytics%2Fcoco%2Fpruned-aggressive_98)                            | Creates a highly sparse, FP32 YOLOv5l model that recovers close to the baseline model.                                          | ``` sparseml.yolov5.train --cfg models_v5.0/yolov5l.yaml --weights PATH_TO_COCO_PRETRAINED_WEIGHTS --data coco.yaml --hyp data/hyps/hyp.scratch.yaml --recipe zoo:cv/detection/yolov5-l/pytorch/ultralytics/coco/pruned-aggressive_98 ```           | 0.643        | 32.8 MB       | 63.7 img/sec             |
+    | [YOLOv5l Pruned Quantized](https://sparsezoo.neuralmagic.com/models/cv%2Fdetection%2Fyolov5-l%2Fpytorch%2Fultralytics%2Fcoco%2Fpruned_quant-aggressive_95)        | Creates a highly sparse, INT8 YOLOv5l model that recovers reasonably close to the baseline model.                               | ``` sparseml.yolov5.train --cfg models_v5.0/yolov5l.yaml --weights PATH_TO_COCO_PRETRAINED_WEIGHTS --data coco.yaml --hyp data/hyps/hyp.scratch.yaml --recipe zoo:cv/detection/yolov5-l/pytorch/ultralytics/coco/pruned_quant-aggressive_95 ``` | 0.623        | 12.7 MB       | 139.8 img/sec             |
 
    \*\* DeepSparse Performance measured on an AWS c5.12xlarge instance with 24 cores, batch size 64, and 640x640 input with version 0.12.0 of the DeepSparse Engine i.e. `deepsparse.benchmark --batch_size 64 --scenario sync [model_path]`
 

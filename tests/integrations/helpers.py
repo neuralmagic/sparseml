@@ -22,7 +22,7 @@ import onnx
 from onnxruntime import InferenceSession
 
 from sparseml.onnx.utils import get_tensor_shape
-from sparsezoo import Zoo
+from sparsezoo import Model
 
 
 __all__ = [
@@ -159,9 +159,8 @@ def model_inputs_outputs_test(
 
 def _load_onnx_model(path: str):
     if path.startswith("zoo:"):
-        model = Zoo.load_model_from_stub(path)
-        model.download()
-        path_onnx = model.onnx_file.downloaded_path()
+        model = Model(path)
+        path_onnx = model.onnx_model.path
     else:
         path_onnx = path
 

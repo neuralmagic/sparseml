@@ -65,30 +65,6 @@ For Neural Magic Support, sign up or log in to our [**Deep Sparse Community Slac
    - YOLOv5l Pruned: `zoo:cv/detection/yolov5-l/pytorch/ultralytics/coco/pruned-aggressive_98`
    - YOLOv5l Pruned Quantized: `zoo:cv/detection/yolov5-l/pytorch/ultralytics/coco/pruned_quant-aggressive_95`
 
-You are now ready to set up the data for training.
-
-## Setting Up the Data
-
-Note: If using your custom data, the Ultralytics repo contains a walk-through for [training custom data](https://github.com/ultralytics/yolov5/wiki/Train-Custom-Data).
-Otherwise, setup scripts for both [VOC](https://cs.stanford.edu/~roozbeh/pascal-context/) and [COCO](https://cocodataset.org/#home) can be found under the [yolov5/data/scripts path](https://github.com/neuralmagic/sparseml/tree/main/src/sparseml/yolov5/data/scripts).
-
-1. For this tutorial, run the VOC setup script with the following command from the root of the `yolov5` repository:
-   ```bash
-   bash data/scripts/get_voc.sh
-   ```
-2. Download and validation of the VOC dataset will begin and take around 10 minutes to finish.
-   The script downloads the VOC dataset into a `VOC` folder under the parent directory.
-   Notice that, once completed, the data is ready for training with the folder structure in the following state:
-   ```
-   |-- VOC
-   |   |-- images
-   |   |   |-- train
-   |   |   `-- val
-   |   `-- labels
-   |       |-- train
-   |       `-- val
-   ```
-
 You are ready to transfer learn the model.
 
 ## Transfer Learning the Model
@@ -104,11 +80,11 @@ The recipes are specific to the sparsification type, so the training command wil
 
    - YOLOv5s Pruned transfer learning:
      ```bash
-     sparseml.yolov5.train --data VOC.yaml --cfg /models_v5.0/yolov5s.yaml --weights zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned-aggressive_96?recipe_type=transfer --hyp data/hyps/hyp.finetune.yaml --recipe /recipes/yolov5.transfer_learn_pruned.md
+     sparseml.yolov5.train --data VOC.yaml --cfg models_v5.0/yolov5s.yaml --weights zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned-aggressive_96?recipe_type=transfer --hyp data/hyps/hyp.finetune.yaml --recipe zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned-aggressive_96?recipe_type=transfer
      ```
    - YOLOv5s Pruned-Quantized transfer learning:
      ```bash
-     sparseml.yolov5.train --data VOC.yaml --cfg models_v5.0/yolov5s.yaml --weights zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned_quant-aggressive_94?recipe_type=transfer --hyp data/hyps/hyp.finetune.yaml --recipe recipes/yolov5.transfer_learn_pruned_quantized.md
+     sparseml.yolov5.train --data VOC.yaml --cfg models_v5.0/yolov5s.yaml --weights zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned_quant-aggressive_94?recipe_type=transfer --hyp data/hyps/hyp.finetune.yaml --recipe zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned_quant-aggressive_94?recipe_type=transfer
      ```
    - YOLOv5s Baseline transfer learning:
      ```bash
@@ -116,11 +92,11 @@ The recipes are specific to the sparsification type, so the training command wil
      ```
    - YOLOv5l Pruned transfer learning:
      ```bash
-     sparseml.yolov5.train --data VOC.yaml --cfg models_v5.0/yolov5l.yaml --weights zoo:cv/detection/yolov5-l/pytorch/ultralytics/coco/pruned-aggressive_98?recipe_type=transfer --hyp data/hyps/hyp.finetune.yaml --recipe recipes/yolov5.transfer_learn_pruned.md
+     sparseml.yolov5.train --data VOC.yaml --cfg models_v5.0/yolov5l.yaml --weights zoo:cv/detection/yolov5-l/pytorch/ultralytics/coco/pruned-aggressive_98?recipe_type=transfer --hyp data/hyps/hyp.finetune.yaml --recipe zoo:cv/detection/yolov5-l/pytorch/ultralytics/coco/pruned-aggressive_98?recipe_type=transfer
      ```
    - YOLOv5l Pruned-Quantized transfer learning:
      ```bash
-     sparseml.yolov5.train --data VOC.yaml --cfg models_v5.0/yolov5l.yaml --weights zoo:cv/detection/yolov5-l/pytorch/ultralytics/coco/pruned_quant-aggressive_95?recipe_type=transfer --hyp data/hyps/hyp.finetune.yaml --recipe recipes/yolov5.transfer_learn_pruned_quantized.md
+     sparseml.yolov5.train --data VOC.yaml --cfg models_v5.0/yolov5l.yaml --weights zoo:cv/detection/yolov5-l/pytorch/ultralytics/coco/pruned_quant-aggressive_95?recipe_type=transfer --hyp data/hyps/hyp.finetune.yaml --recipe zoo:cv/detection/yolov5-l/pytorch/ultralytics/coco/pruned_quant-aggressive_95?recipe_type=transfer
      ```
    - YOLOv5l Baseline transfer learning:
      ```bash
