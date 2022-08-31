@@ -51,7 +51,7 @@ _deps = [
     "toposort>=1.0",
     "GPUtil>=1.4.0",
     "protobuf>=3.12.2,<4",
-    "click==8.0",
+    "click~=8.0.0",
 ]
 _nm_deps = [f"{'sparsezoo' if is_release else 'sparsezoo-nightly'}~={version_nm_deps}"]
 _deepsparse_deps = [
@@ -60,12 +60,12 @@ _deepsparse_deps = [
 
 _onnxruntime_deps = ["onnxruntime>=1.0.0"]
 _pytorch_deps = [
-    "torch>=1.1.0,<=1.9.1",
+    "torch>=1.1.0,<1.9.2",
     "tensorboard>=1.0,<2.9",
     "tensorboardX>=1.0",
     "gputils",
 ]
-_pytorch_vision_deps = _pytorch_deps + ["torchvision>=0.3.0,<=0.10.1"]
+_pytorch_vision_deps = _pytorch_deps + ["torchvision>=0.3.0,<0.10.2"]
 _tensorflow_v1_deps = ["tensorflow<2.0.0", "tensorboard<2.0.0", "tf2onnx>=1.0.0,<1.6"]
 _tensorflow_v1_gpu_deps = [
     "tensorflow-gpu<2.0.0",

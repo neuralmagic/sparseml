@@ -19,6 +19,7 @@ import math
 import os
 import tempfile
 from copy import deepcopy
+from pathlib import Path
 
 import onnx
 import pytest
@@ -203,10 +204,7 @@ class TestTransformers(BaseIntegrationTester):
     @skip_inactive_stage
     def test_export_onnx_graph(self, integration_manager):
         manager = integration_manager
-        export_run_args = manager.configs["export"].run_args
-        onnx_file = os.path.join(
-            export_run_args.model_path, export_run_args.onnx_file_name
-        )
+        onnx_file = _get_onnx_model_path(manager)
         assert os.path.isfile(onnx_file)
         model = onnx.load(onnx_file)
         onnx.checker.check_model(model)
@@ -218,10 +216,7 @@ class TestTransformers(BaseIntegrationTester):
         target_model_path = export_args.test_args.get("target_model")
         if not target_model_path:
             pytest.skip("No target model provided")
-        export_model_path = os.path.join(
-            os.path.dirname(export_args.run_args.model_path),
-            export_args.run_args.onnx_file_name,
-        )
+        export_model_path = _get_onnx_model_path(manager)
         model_op_counts_test(export_model_path, target_model_path)
 
         compare_outputs = export_args.test_args.get("compare_outputs", True)
@@ -243,8 +238,18 @@ class TestTransformers(BaseIntegrationTester):
         manager = integration_manager
         args = manager.configs["deploy"]
         _ = Pipeline.create(
-            task=args.run_args.task, model_path=args.run_args.model_path
+            task=args.run_args.task,
+            model_path=os.path.dirname(_get_onnx_model_path(manager)),
         )
+
+
+def _get_onnx_model_path(manager) -> str:
+    export_run_args = manager.configs["export"].run_args
+    return os.path.join(
+        Path(export_run_args.model_path).parents[0],
+        "deployment",
+        export_run_args.onnx_file_name,
+    )
 
 
 def _load_model_on_task(model_name_or_path, model_type, task, **model_kwargs):

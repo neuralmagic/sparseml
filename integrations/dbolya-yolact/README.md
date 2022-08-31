@@ -40,10 +40,10 @@ python3 -m venv venv # create a venv virtual environment
 source venv/bin/activate # activate venv
 pip install --upgrade pip # upgrade pip
 ```
-To begin, install `sparseml>=1.1`
+To begin, install `sparseml[torchvision]>=1.1`
 
 ```bash
-pip install "sparseml>=1.1"
+pip install "sparseml[torchvision]>=1.1"
 ```
 
 Note: This integration requires `python>=3.7,<3.10`
