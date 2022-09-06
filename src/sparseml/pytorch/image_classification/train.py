@@ -193,7 +193,6 @@ import os
 from typing import Any, Dict, Optional, Tuple, Union
 
 import torch
-from torch.distributed.elastic.multiprocessing.errors import record
 
 import click
 from sparseml import get_main_logger
@@ -205,6 +204,7 @@ from sparseml.pytorch.image_classification.utils import (
     helpers,
 )
 from sparseml.pytorch.utils import default_device, get_prunable_layers, tensor_sparsity
+from sparseml.pytorch.utils.distributed import record
 
 
 CURRENT_TASK = helpers.Tasks.TRAIN

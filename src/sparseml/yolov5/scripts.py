@@ -13,8 +13,7 @@
 # limitations under the License.
 
 
-from torch.distributed.elastic.multiprocessing.errors import record
-
+from sparseml.pytorch.utils.distributed import record
 from yolov5.export import export_run
 from yolov5.export import parse_opt as parse_export_args
 from yolov5.train import parse_opt as parse_train_args

@@ -40,7 +40,6 @@ from typing import Optional
 import datasets
 import transformers
 from datasets import concatenate_datasets, load_dataset, load_metric
-from torch.distributed.elastic.multiprocessing.errors import record
 from transformers import (
     CONFIG_MAPPING,
     MODEL_FOR_MASKED_LM_MAPPING,
@@ -54,6 +53,7 @@ from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils import check_min_version
 from transformers.utils.versions import require_version
 
+from sparseml.pytorch.utils.distributed import record
 from sparseml.transformers.sparsification import Trainer, TrainingArguments
 from sparseml.transformers.utils import SparseAutoModel, get_shared_tokenizer_src
 
