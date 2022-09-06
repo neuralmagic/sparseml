@@ -328,7 +328,6 @@ class RecipeManagerTrainerInterface:
         :param optimizer: pre-initialized optimizer
         """
         self._check_super_defined("create_scheduler")
-
         if (
             self.lr_scheduler is not None
             or self.manager is None
