@@ -46,5 +46,13 @@ RUN pip3 install --upgrade pip torch==${TORCH_VERSION}+cu111 torchvision==${TORC
 
 FROM cuda-$CUDA_VERSION as target
 
+RUN pip3 install --upgrade setuptools wheel
+
+ARG GIT_CHECKOUT
 # Install SparseML
-RUN pip3 install --no-cache-dir --upgrade sparseml[dev,torchvision]
+# if $GIT_CHECKOUT is not specified - just install from pypi
+RUN if [ -z "${GIT_CHECKOUT}" ] ; then pip3 install --no-cache-dir --upgrade sparseml[dev,torchvision] ; fi
+
+# if $GIT_CHECKOUT is specified - clone, checkout $GIT_CHECKOUT, and install with -e
+RUN if [ -n "${GIT_CHECKOUT}" ] ; then git clone https://github.com/neuralmagic/sparseml.git --depth 1 -b $GIT_CHECKOUT; fi
+RUN if [ -n "${GIT_CHECKOUT}" ] ; then pip3 install --no-cache-dir --upgrade -e "./sparseml[dev, torchvision]" ; fi
