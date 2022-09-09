@@ -7,10 +7,32 @@ image (with CUDA support). The image comes with a pre-installed `sparseml`, as w
 
 This `Dockerfile` is tested on the Ubuntu 20.04.2 LTS with CUDA Version: 11.4.
 
+## Pull
+You can access the already built image detailed at https://github.com/orgs/neuralmagic/packages/container/package/sparseml:
+
+```bash
+docker pull ghcr.io/neuralmagic/sparseml:1.0.1-ubuntu18.04-cu11.1
+docker tag ghcr.io/neuralmagic/sparseml:1.0.1-ubuntu18.04-cu11.1 sparseml_docker
+```
+
+## Extend
+If you would like to customize the docker image, you can use the pre-built images as a base in your own `Dockerfile`:
+
+```Dockerfile
+from ghcr.io/neuralmagic/sparseml:1.0.1-ubuntu18.04-cu11.1
+
+...
+```
+
 ## Build
 To build and launch this image with the tag `sparseml_docker`, run from the root directory:
 - for compute platform CUDA 10.2: `docker build --build-arg CUDA_VERSION=10.2 -t sparseml_docker .`
 - for compute platform CUDA 11.1: `docker build --build-arg CUDA_VERSION=11.1 -t sparseml_docker .` 
+
+If you want to use a specific branch from sparseml you can use the `GIT_CHECKOUT` build arg:
+```
+docker build --build-arg CUDA_VERSION=11.1 --build-arg GIT_CHECKOUT=main -t sparseml_nightly .`
+```
 
 ## Run
 To run the built image launch: `docker run -it --gpus all sparseml_docker`
