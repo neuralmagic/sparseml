@@ -33,6 +33,7 @@ from torch.nn import (
     Sequential,
     Sigmoid,
     Softmax,
+    SiLU,
 )
 
 
@@ -42,7 +43,7 @@ except Exception:
     FloatFunctional = None
 
 from sparseml.pytorch.models.registry import ModelRegistry
-from sparseml.pytorch.nn import SqueezeExcite, Swish
+from sparseml.pytorch.nn import SqueezeExcite
 
 
 __all__ = [
@@ -78,9 +79,9 @@ class _Add(Module):
             return torch.add(a, b)
 
 
-class QATSwish(Swish):
-    def __init__(self, num_channels):
-        super().__init__(num_channels)
+class QATSiLU(SiLU):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
         self.wrap_qat = True
         self.qat_wrapper_kwargs = {
@@ -128,9 +129,9 @@ class _InvertedBottleneckBlock(Module):
                         ("bn", BatchNorm2d(num_features=expanded_channels)),
                         (
                             "act",
-                            QATSwish(num_channels=expanded_channels)
+                            QATSiLU()
                             if squeezed_channels
-                            else Swish(num_channels=expanded_channels),
+                            else SiLU(),
                         ),
                     ]
                 )
@@ -158,9 +159,9 @@ class _InvertedBottleneckBlock(Module):
                     ("bn", BatchNorm2d(num_features=expanded_channels)),
                     (
                         "act",
-                        QATSwish(num_channels=expanded_channels)
+                        QATSiLU()
                         if squeezed_channels
-                        else Swish(num_channels=expanded_channels),
+                        else SiLU(),
                     ),
                 ]
             )
@@ -168,13 +169,13 @@ class _InvertedBottleneckBlock(Module):
 
         if self._se_mod:
             self.se = (
-                SqueezeExcite(out_channels, squeezed_channels)
+                SqueezeExcite(out_channels, squeezed_channels, "silu")
                 if squeezed_channels
                 else None
             )
         else:
             self.se = (
-                SqueezeExcite(expanded_channels, squeezed_channels)
+                SqueezeExcite(expanded_channels, squeezed_channels, "silu")
                 if squeezed_channels
                 else None
             )
@@ -240,7 +241,7 @@ class _Classifier(Module):
             bias=False,
         )
         self.bn = BatchNorm2d(num_features=out_channels)
-        self.act = Swish(out_channels)
+        self.act = SiLU()
         self.pool = AdaptiveAvgPool2d(1)
         self.dropout = Dropout(p=dropout)
         self.fc = Linear(out_channels, classes)
@@ -335,11 +336,12 @@ class EfficientNet(Module):
                             out_channels=sec_settings[0].in_channels,
                             kernel_size=3,
                             stride=2,
+                            padding=1,
                             bias=False,
                         ),
                     ),
                     ("bn", BatchNorm2d(num_features=sec_settings[0].in_channels)),
-                    ("act", Swish(sec_settings[0].in_channels)),
+                    ("act", SiLU()),
                 ]
             )
         )
@@ -529,6 +531,7 @@ def efficientnet_b0(
     :return: The created EfficientNet B0 Module
     """
 
+    se_mod = False
     width_mult = 1.0
     depth_mult = 1.0
     sec_settings, out_channels = _create_section_settings(
