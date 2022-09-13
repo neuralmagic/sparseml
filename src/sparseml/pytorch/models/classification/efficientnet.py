@@ -19,7 +19,7 @@ Further info can be found in the paper `here <https://arxiv.org/abs/1905.11946>`
 
 import math
 from collections import OrderedDict
-from typing import List, Tuple, Union
+from typing import List, Tuple, Union, Optional
 
 import torch
 from torch import Tensor
@@ -106,7 +106,7 @@ class _InvertedBottleneckBlock(Module):
         self._out_channels = out_channels
         self._stride = stride
         self._se_mod = se_mod
-        expanded_channels = int(in_channels * expansion_ratio)
+        expanded_channels = _scale_num_channels(in_channels, expansion_ratio)
         squeezed_channels = (
             max(1, int(in_channels * se_ratio))
             if se_ratio and 0 < se_ratio <= 1
@@ -387,17 +387,24 @@ class EfficientNet(Module):
         return Sequential(*blocks)
 
 
+def _make_divisible(v: float, divisor: int, min_value: Optional[int] = None) -> int:
+    """
+    This function is taken from the original tf repo.
+    It ensures that all layers have a channel number that is divisible by 8
+    It can be seen here:
+    https://github.com/tensorflow/models/blob/master/research/slim/nets/mobilenet/mobilenet.py
+    """
+    if min_value is None:
+        min_value = divisor
+    new_v = max(min_value, int(v + divisor / 2) // divisor * divisor)
+    # Make sure that round down does not go down by more than 10%.
+    if new_v < 0.9 * v:
+        new_v += divisor
+    return int(math.ceil(new_v))
+
+
 def _scale_num_channels(channels: int, width_mult: float) -> int:
-    divisor = 8
-    scaled = channels * width_mult
-    scaled = max(divisor, int(scaled + divisor / 2) // divisor * divisor)
-
-    if scaled < 0.9 * channels:
-        # prevent rounding by more than 10%
-        scaled += divisor
-
-    return int(scaled)
-
+    return _make_divisible(channels * width_mult, 8)
 
 def _scale_num_blocks(blocks: int, depth_mult: float) -> int:
     scaled = int(math.ceil(depth_mult * blocks))
@@ -491,7 +498,7 @@ def _efficient_net_params(model_name):
     params_dict = {
         "efficientnet_b0": (1.0, 1.0, 0.2, 224),
         "efficientnet_b1": (1.0, 1.1, 0.2, 240),
-        "efficientnet_b2": (1.1, 1.2, 0.3, 260),
+        "efficientnet_b2": (1.1, 1.2, 0.3, 288),
         "efficientnet_b3": (1.2, 1.4, 0.3, 300),
         "efficientnet_b4": (1.4, 1.8, 0.4, 380),
         "efficientnet_b5": (1.6, 2.2, 0.4, 456),
@@ -531,7 +538,6 @@ def efficientnet_b0(
     :return: The created EfficientNet B0 Module
     """
 
-    se_mod = False
     width_mult = 1.0
     depth_mult = 1.0
     sec_settings, out_channels = _create_section_settings(
