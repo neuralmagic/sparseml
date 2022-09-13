@@ -14,9 +14,23 @@
 
 import glob
 import os
-from typing import Dict, List
+from collections import defaultdict
+from typing import Callable, Optional
 
-from pydantic import BaseModel
+import numpy
+import onnx
+from onnxruntime import InferenceSession
+
+from sparseml.onnx.utils import get_tensor_shape
+from sparsezoo import Model
+
+
+__all__ = [
+    "get_configs_with_cadence",
+    "model_op_counts_test",
+    "model_inputs_outputs_test",
+    "TEST_OPS",
+]
 
 
 def get_configs_with_cadence(cadence: str, dir_path: str = "."):
@@ -28,7 +42,9 @@ def get_configs_with_cadence(cadence: str, dir_path: str = "."):
     :param dir_path: path to the directory in which to search for the config files
     :return List of file paths to matching configs
     """
-    all_files_found = glob.glob(os.path.join(dir_path, "test*.yaml"))
+    all_files_found = glob.glob(
+        os.path.join(dir_path, "configs", "**", "test*.yaml"), recursive=True
+    )
     matching_files = []
     for file in all_files_found:
         with open(file) as f:
@@ -38,72 +54,114 @@ def get_configs_with_cadence(cadence: str, dir_path: str = "."):
                     if line.split(":")[1].strip().strip('"').lower() == cadence:
                         matching_files.append(file)
                         break
+
+    print(f"\nFor {cadence} found matching files: {matching_files}")
+
     return matching_files
 
 
-class Config:
-    def __init__(self, args_class: BaseModel, config: Dict, command_stub: str):
-        self.raw_config = config
-        # pre_args are CLI commands that can precede the python call
-        # e.g. "torch.distributed.launch" or "CUDA_VISIBLE_DEVICES": 2
-        self.pre_args = config.pop("pre_args", "")
-        self._args_class = args_class
-        self.run_args = args_class(**config.get("command_args"))
-        self.command_stub = command_stub
-        # test args are used to guide testing of the stage. e.g. target metrics or
-        # named quantities/qualities to test for
-        self.test_args = config.pop("test_args", {})
-        # whether to replace '_' with '-' for run keywords
-        self.dashed_keywords = False
-        self._validate_config()
+"""
+Network graph operations to include when comparing operation counts between models
+"""
+TEST_OPS = {
+    "MatMul",
+    "Gemm",
+    "Conv",
+    "MatMulInteger",
+    "ConvInteger",
+    "QLinearMatMul",
+    "QLinearConv",
+}
 
-    def create_command_script(self):
-        """
-        Handles logic for converting pydantic classes into valid argument strings.
-        This should set arg standards for all integrations and should generally not
-        be overridden. If the need to override comes up, consider updating this method
-        instead.
 
-        :return: string of the full CLI command
-        """
-        args_dict = self.run_args.dict()
-        args_string_list = []
-        for key, value in args_dict.items():
-            key = "--" + key
-            key = key.replace("_", "-") if self.dashed_keywords else key
-            # Handles bool type args (e.g. --do-train)
-            if isinstance(value, bool):
-                if value:
-                    args_string_list.append(key)
-            elif isinstance(value, List):
-                # Handles args that are both bool and value based (see evolve in yolov5)
-                if isinstance(value[0], bool):
-                    if value[0]:
-                        args_string_list.extend([key, str(value[1])])
-                # Handles args that have multiple values after the keyword.
-                # e.g. --freeze-layers 0 10 15
-                else:
-                    args_string_list.append(key)
-                    args_string_list.extend(map(str, value))
-            # Handles the most straightforward case of keyword followed by value
-            # e.g. --epochs 30
-            else:
-                if value is None:
-                    continue
-                args_string_list.extend([key, str(value)])
-        pre_args = self.pre_args.split(" ") if self.pre_args else []
-        return pre_args + [self.command_stub] + args_string_list
+def model_op_counts_test(
+    model_path_a: str,
+    model_path_b: str,
+):
+    """
+    Test that the number of operations of each type, are the same between two onnx
+    models.
 
-    def _validate_config(self):
-        # Check that all provided run args correspond to expected run args. Mainly
-        # meant to catch typos
-        unknown_run_args = [
-            arg
-            for arg in self.raw_config["command_args"].keys()
-            if arg not in self.run_args.__fields_set__
-        ]
-        if len(unknown_run_args) > 0:
-            raise ValueError(
-                f"Found unexpected run args {unknown_run_args} for "
-                f"{type(self.run_args).__name__}"
+    :param model_path_a: path to one onnx model
+    :param model_path_b: path to other onnx model
+    """
+
+    model_a = _load_onnx_model(model_path_a)
+    model_b = _load_onnx_model(model_path_b)
+
+    def _get_model_op_counts(model):
+        op_counts = defaultdict(int)
+        for node in model.graph.node:
+            if node.op_type in TEST_OPS:
+                op_counts[node.op_type] += 1
+        return op_counts
+
+    op_counts_a = _get_model_op_counts(model_a)
+    op_counts_b = _get_model_op_counts(model_b)
+
+    assert len(op_counts_a) > 0
+    assert len(op_counts_a) == len(op_counts_b)
+
+    for op, count_a in op_counts_a.items():
+        assert op in op_counts_b
+        assert count_a == op_counts_b[op]
+
+
+def model_inputs_outputs_test(
+    model_path_a: str,
+    model_path_b: str,
+    input_getter: Optional[Callable] = None,
+    **input_getter_kwargs,
+):
+    """
+    Test that the output generated by two onnx models is similar to within some error
+    when given the same input
+
+    :param model_path_a: path to one onnx model
+    :param model_path_b: path to other onnx model
+    :input_getter: optional function to replace generic input generation routine. To be
+        used for models/integrations which don't take numpy arrays as input
+    """
+    # compare export and target graphs and build fake data
+    model_a = _load_onnx_model(model_path_a)
+    model_b = _load_onnx_model(model_path_b)
+    assert len(model_a.graph.input) == len(model_b.graph.input)
+    assert len(model_a.graph.output) == len(model_b.graph.output)
+
+    sample_input = {}
+    output_names = []
+
+    if input_getter:
+        sample_input = input_getter(**input_getter_kwargs)
+
+    else:
+        for input_a, input_b in zip(model_a.graph.input, model_b.graph.input):
+            assert input_a.name == input_b.name
+            input_a_shape = get_tensor_shape(input_a)
+            assert input_a_shape == get_tensor_shape(input_b)
+            sample_input[input_a.name] = numpy.random.randn(*input_a_shape).astype(
+                numpy.float32
             )
+
+    for output_a, output_b in zip(model_a.graph.output, model_b.graph.output):
+        assert output_a.name == output_b.name
+        assert get_tensor_shape(output_a) == get_tensor_shape(output_b)
+        output_names.append(output_a.name)
+
+    # run sample forward and test absolute max diff
+    ort_sess_a = InferenceSession(model_path_a)
+    ort_sess_b = InferenceSession(model_path_b)
+    forward_output_a = ort_sess_a.run(output_names, sample_input)
+    forward_output_b = ort_sess_b.run(output_names, sample_input)
+    for out_a, out_b in zip(forward_output_a, forward_output_b):
+        assert numpy.max(numpy.abs(out_a - out_b)) <= 1e-4
+
+
+def _load_onnx_model(path: str):
+    if path.startswith("zoo:"):
+        model = Model(path)
+        path_onnx = model.onnx_model.path
+    else:
+        path_onnx = path
+
+    return onnx.load(path_onnx)

@@ -10,8 +10,11 @@ on:
       - 'release/*'
 jobs:
   quality-check:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
       - uses: actions/checkout@v2
       - uses: actions/checkout@v2
         with:

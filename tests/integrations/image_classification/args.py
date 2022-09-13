@@ -81,6 +81,9 @@ class ImageClassificationTrainArgs(_ImageClassificationBaseArgs):
     train_batch_size: int = Field(description="batch size to use in train loop")
     test_batch_size: int = Field(description="batch size to use in eval loop")
     init_lr: float = Field(default=1e-9, description="will be overwritten by recipe")
+    gradient_accum_steps: int = Field(
+        default=1, description="gradient accumulation steps"
+    )
     recipe_path: Union[str, Path] = Field(
         default=None, description="path to sparsification recipe"
     )
@@ -106,9 +109,6 @@ class ImageClassificationTrainArgs(_ImageClassificationBaseArgs):
         default=1, description="epoch to save best checkpoint after"
     )
     use_mixed_precision: bool = Field(default=False, description="set True for fp16")
-    debug_steps: int = Field(
-        default=-1, description="number of steps to run per epoch in debug mode"
-    )
     device: str = Field(default=default_device())
     loader_num_workers: int = Field(default=4, description="num workers per process")
     loader_pin_memory: bool = Field(default=True)
@@ -119,6 +119,20 @@ class ImageClassificationTrainArgs(_ImageClassificationBaseArgs):
     )
     recipe_args: str = Field(
         default=None, description="json string for recipe constructor"
+    )
+    max_train_steps: int = Field(
+        default=-1,
+        description="The maximum number of training steps to run per epoch. If "
+        "negative, will run for the entire training set",
+    )
+    max_eval_steps: int = Field(
+        default=-1,
+        description="The maximum number of eval steps to run per epoch. If negative, "
+        "will run for the entire validation set",
+    )
+    one_shot: bool = Field(
+        default=False,
+        description="Apply recipe in a one-shot fashion and save the model",
     )
 
     def __init__(self, **data):
@@ -134,6 +148,9 @@ class ImageClassificationTrainArgs(_ImageClassificationBaseArgs):
 
 
 class ImageClassificationExportArgs(_ImageClassificationBaseArgs):
+    model_tag: Optional[str] = Field(
+        Default=None, description="required - tag for model under save_dir"
+    )
     onnx_opset: int = Field(
         default=11, description="The onnx opset to use for exporting the model"
     )
@@ -146,4 +163,11 @@ class ImageClassificationExportArgs(_ImageClassificationBaseArgs):
     )
     num_classes: Optional[int] = Field(
         default=None, description="number of classes for model load/export"
+    )
+
+
+class ImageClassificationDeployArgs(BaseModel):
+    model_path: Optional[str] = Field(
+        default=None,
+        description=("Path to directory where model onnx file is stored"),
     )

@@ -42,7 +42,6 @@ from transformers import (
     EvalPrediction,
     HfArgumentParser,
     PretrainedConfig,
-    TrainingArguments,
     default_data_collator,
     set_seed,
 )
@@ -50,7 +49,8 @@ from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils import check_min_version
 from transformers.utils.versions import require_version
 
-from sparseml.transformers.sparsification import Trainer
+from sparseml.pytorch.utils.distributed import record
+from sparseml.transformers.sparsification import Trainer, TrainingArguments
 from sparseml.transformers.utils import SparseAutoModel, get_shared_tokenizer_src
 
 
@@ -73,6 +73,7 @@ _TASK_TO_KEYS = {
     "sst2": ("sentence", None),
     "stsb": ("sentence1", "sentence2"),
     "wnli": ("sentence1", "sentence2"),
+    "imdb": ("text", None),
 }
 
 _LOGGER = logging.getLogger(__name__)
@@ -94,19 +95,6 @@ class DataTrainingArguments:
     arguments to be able to specify them on the command line
     """
 
-    recipe: Optional[str] = field(
-        default=None,
-        metadata={
-            "help": (
-                "Path to a SparseML sparsification recipe, see "
-                "https://github.com/neuralmagic/sparseml for more information"
-            ),
-        },
-    )
-    recipe_args: Optional[str] = field(
-        default=None,
-        metadata={"help": "Recipe arguments to be overwritten"},
-    )
     task_name: Optional[str] = field(
         default=None,
         metadata={
@@ -183,6 +171,14 @@ class DataTrainingArguments:
         default=None,
         metadata={"help": "A csv or a json file containing the test data."},
     )
+    validation_ratio: Optional[float] = field(
+        default=None,
+        metadata={"help": "Percentage of the training data to be used as validation."},
+    )
+    eval_on_test: bool = field(
+        default=False,
+        metadata={"help": "Evaluate the test dataset."},
+    )
     input_column_names: Optional[str] = field(
         default=None,
         metadata={
@@ -254,12 +250,6 @@ class ModelArguments:
             )
         }
     )
-    distill_teacher: Optional[str] = field(
-        default=None,
-        metadata={
-            "help": "Teacher model which must be a trained text classification model"
-        },
-    )
     config_name: Optional[str] = field(
         default=None,
         metadata={
@@ -303,7 +293,8 @@ class ModelArguments:
     )
 
 
-def main():
+@record
+def main(**kwargs):
     # See all possible arguments in src/transformers/training_args.py
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
@@ -317,9 +308,10 @@ def main():
         model_args, data_args, training_args = parser.parse_json_file(
             json_file=os.path.abspath(sys.argv[1])
         )
-    else:
+    elif not kwargs:
         model_args, data_args, training_args = parser.parse_args_into_dataclasses()
-
+    else:
+        model_args, data_args, training_args = parser.parse_dict(kwargs)
     # Setup logging
 
     log_level = training_args.get_process_log_level()
@@ -480,7 +472,7 @@ def main():
             "revision": model_args.model_revision,
             "use_auth_token": True if model_args.use_auth_token else None,
         },
-        teacher_name_or_path=model_args.distill_teacher,
+        teacher_name_or_path=training_args.distill_teacher,
         teacher_kwargs={
             "cache_dir": model_args.cache_dir,
             "use_auth_token": True if model_args.use_auth_token else None,
@@ -642,23 +634,58 @@ def main():
             load_from_cache_file=not data_args.overwrite_cache,
             desc="Running tokenizer on dataset",
         )
+
+    def _create_train_dataset(raw_datasets, max_train_samples):
+        if "train" not in raw_datasets:
+            raise ValueError("Requires a train split in the dataset")
+        train_dataset = raw_datasets["train"]
+        if max_train_samples is not None:
+            train_dataset = train_dataset.select(range(max_train_samples))
+        return train_dataset
+
+    train_dataset = None
     if training_args.do_train:
         if "train" not in raw_datasets:
             raise ValueError("--do_train requires a train dataset")
-        train_dataset = raw_datasets["train"]
-        if data_args.max_train_samples is not None:
-            train_dataset = train_dataset.select(range(data_args.max_train_samples))
+        train_dataset = _create_train_dataset(raw_datasets, data_args.max_train_samples)
 
     make_eval_dataset = training_args.do_eval or data_args.num_export_samples > 0
     if make_eval_dataset:
         if (
             "validation" not in raw_datasets
             and "validation_matched" not in raw_datasets
+            and data_args.validation_ratio is None
+            and data_args.eval_on_test is False
         ):
-            raise ValueError("--do_eval requires a validation dataset")
-        eval_dataset = raw_datasets[
-            "validation_matched" if data_args.task_name == "mnli" else "validation"
-        ]
+            raise ValueError(
+                "--do_eval requires an explicit validation dataset, "
+                "specified validation ratio, or eval_on_test"
+            )
+        if data_args.task_name == "mnli":
+            eval_dataset = raw_datasets["validation_matched"]
+        elif "validation" in raw_datasets:
+            if data_args.validation_ratio is not None:
+                raise ValueError(
+                    "validation_ratio cannot be specified when validation set exists"
+                )
+            if data_args.eval_on_test is True:
+                raise ValueError(
+                    "eval_on_test cannot be specified when validation set exists"
+                )
+            eval_dataset = raw_datasets["validation"]
+        elif data_args.validation_ratio is not None:
+            if train_dataset is None:
+                train_dataset = _create_train_dataset(
+                    raw_datasets, data_args.max_train_samples
+                )
+            train_dataset, eval_dataset = _split_train_val(
+                train_dataset, data_args.validation_ratio
+            )
+        elif data_args.eval_on_test:
+            if "test" not in raw_datasets:
+                raise ValueError("test split not found but eval_on_test is on")
+            eval_dataset = raw_datasets["test"]
+
         if data_args.max_eval_samples is not None:
             eval_dataset = eval_dataset.select(range(data_args.max_eval_samples))
 
@@ -719,9 +746,9 @@ def main():
     trainer = Trainer(
         model=model,
         model_state_path=model_args.model_name_or_path,
-        recipe=data_args.recipe,
+        recipe=training_args.recipe,
         metadata_args=metadata_args,
-        recipe_args=data_args.recipe_args,
+        recipe_args=training_args.recipe_args,
         teacher=teacher,
         args=training_args,
         data_args=data_args,
@@ -739,6 +766,7 @@ def main():
             checkpoint = training_args.resume_from_checkpoint
         elif last_checkpoint is not None:
             checkpoint = last_checkpoint
+
         train_result = trainer.train(resume_from_checkpoint=checkpoint)
         if not trainer.one_shot:
             metrics = train_result.metrics
@@ -753,13 +781,18 @@ def main():
 
         trainer.save_model()  # Saves the tokenizer too for easy upload
         trainer.save_state()
+        trainer.save_optimizer_and_scheduler(training_args.output_dir)
 
     # Evaluation
     if training_args.do_eval and not trainer.one_shot:
         _LOGGER.info("*** Evaluate ***")
 
         # Loop to handle MNLI double evaluation (matched, mis-matched)
-        tasks = [data_args.task_name]
+        tasks = (
+            [data_args.task_name]
+            if data_args.task_name is not None
+            else [data_args.dataset_name]
+        )
         eval_datasets = [eval_dataset]
         if data_args.task_name == "mnli":
             tasks.append("mnli-mm")
@@ -775,14 +808,15 @@ def main():
                 else len(eval_dataset)
             )
             metrics["eval_samples"] = min(max_eval_samples, len(eval_dataset))
-
             if task == "mnli-mm":
                 metrics = {k + "_mm": v for k, v in metrics.items()}
-            if "mnli" in task:
+            if task is not None and "mnli" in task:
                 combined.update(metrics)
+                trainer.save_metrics("eval", combined)
+            else:
+                trainer.save_metrics("eval", metrics)
 
             trainer.log_metrics("eval", metrics)
-            trainer.save_metrics("eval", combined if "mnli" in task else metrics)
 
     if training_args.do_predict and not trainer.one_shot:
         _LOGGER.info("*** Predict ***")
@@ -842,6 +876,16 @@ def main():
         trainer.push_to_hub(**kwargs)
     else:
         trainer.create_model_card(**kwargs)
+
+
+def _split_train_val(train_dataset, val_ratio):
+    # Fixed random seed to make split consistent across runs with the same ratio
+    ds = train_dataset.train_test_split(
+        test_size=val_ratio, stratify_by_column="label", seed=42
+    )
+    train_ds = ds.pop("train")
+    val_ds = ds.pop("test")
+    return train_ds, val_ds
 
 
 def _mp_fn(index):

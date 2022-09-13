@@ -14,45 +14,55 @@
 
 import os
 import tempfile
-from collections import defaultdict
 
-import numpy
 import onnx
 import pytest
 import torch
-from onnxruntime import InferenceSession
-from pydantic import BaseModel
 
-from sparseml.onnx.utils import get_tensor_shape
+from flaky import flaky
 from sparseml.pytorch.models import ModelRegistry
-from sparsezoo import Zoo
+from sparsezoo import Model
 from tests.integrations.base_tester import (
     BaseIntegrationManager,
     BaseIntegrationTester,
     skip_inactive_stage,
 )
-from tests.integrations.helpers import get_configs_with_cadence
+from tests.integrations.helpers import (
+    get_configs_with_cadence,
+    model_inputs_outputs_test,
+    model_op_counts_test,
+)
 from tests.integrations.image_classification.args import (
+    ImageClassificationDeployArgs,
     ImageClassificationExportArgs,
     ImageClassificationTrainArgs,
 )
 
 
+deepsparse_error = None
+try:
+    from deepsparse import Pipeline
+except Exception as e:
+    deepsparse_error = e
+
+
+@flaky(max_runs=2, min_passes=1)
 class ImageClassificationManager(BaseIntegrationManager):
 
     command_stubs = {
         "train": "sparseml.image_classification.train",
         "export": "sparseml.image_classification.export_onnx",
-        "deploy": "sparseml.image_classification.deploy",  # placeholder
+        "deploy": None,
     }
     config_classes = {
         "train": ImageClassificationTrainArgs,
         "export": ImageClassificationExportArgs,
-        "deploy": BaseModel,
+        "deploy": ImageClassificationDeployArgs,
     }
 
     def capture_pre_run_state(self):
         super().capture_pre_run_state()
+        self._check_deploy_requirements(deepsparse_error)
 
         train_args = None
         self.save_dir = None
@@ -63,7 +73,10 @@ class ImageClassificationManager(BaseIntegrationManager):
             train_args.save_dir = self.save_dir.name
             train_args.logs_dir = os.path.join(self.save_dir.name, "tensorboard_logs")
             self.expected_checkpoint_path = os.path.join(
-                train_args.save_dir, train_args.model_tag, "framework", "model.pth"
+                train_args.save_dir,
+                train_args.model_tag,
+                "training",
+                "model-one-shot.pth" if train_args.one_shot else "model.pth",
             )
 
         if "export" in self.configs:
@@ -73,7 +86,22 @@ class ImageClassificationManager(BaseIntegrationManager):
                 export_args.save_dir = self.save_dir.name
             else:
                 export_args.checkpoint_path = self.expected_checkpoint_path
-                export_args.save_dir = train_args.save_dir
+                export_args.save_dir = train_args.save_dir + "_exported"
+                export_args.model_tag = train_args.model_tag
+                export_args.arch_key = train_args.arch_key
+
+        if "deploy" in self.configs:
+            deploy_args = self.configs["deploy"].run_args
+            if self.save_dir:
+                export_args = self.configs["export"].run_args
+                deploy_args.model_path = os.path.join(
+                    export_args.save_dir, export_args.model_tag, "model.onnx"
+                )
+
+    def add_abridged_configs(self):
+        if "train" in self.command_types:
+            self.configs["train"].run_args.max_train_steps = 2
+            self.configs["train"].run_args.max_eval_steps = 2
 
     def teardown(self):
         """
@@ -85,7 +113,8 @@ class ImageClassificationManager(BaseIntegrationManager):
 class TestImageClassification(BaseIntegrationTester):
     @pytest.fixture(
         params=get_configs_with_cadence(
-            os.environ.get("NM_TEST_CADENCE", "commit"), os.path.dirname(__file__)
+            os.environ.get("SPARSEML_TEST_CADENCE", "pre-commit"),
+            os.path.dirname(__file__),
         ),
         scope="class",
     )
@@ -113,6 +142,8 @@ class TestImageClassification(BaseIntegrationTester):
     @skip_inactive_stage
     def test_train_metrics(self, integration_manager):
         train_args = integration_manager.configs["train"]
+        if train_args.run_args.one_shot:
+            pytest.skip("One-shot mode. Skipping test")
 
         # locate training metrics file
         metrics_file_path = os.path.join(
@@ -154,7 +185,7 @@ class TestImageClassification(BaseIntegrationTester):
     def test_export_onnx_graph(self, integration_manager):
         export_args = integration_manager.configs["export"]
         expected_onnx_path = os.path.join(
-            integration_manager.save_dir.name,
+            export_args.run_args.save_dir,
             export_args.run_args.model_tag,
             "model.onnx",
         )
@@ -171,15 +202,15 @@ class TestImageClassification(BaseIntegrationTester):
             pytest.skip("No target model provided")
         if target_model_path.startswith("zoo:"):
             # download zoo model
-            zoo_model = Zoo.load_model_from_stub(target_model_path)
-            target_model_path = zoo_model.onnx_file.downloaded_path()
+            zoo_model = Model(target_model_path)
+            target_model_path = zoo_model.onnx_model.path
         export_model_path = os.path.join(
-            integration_manager.save_dir.name,
+            export_args.run_args.save_dir,
             export_args.run_args.model_tag,
             "model.onnx",
         )
 
-        _test_model_op_counts(export_model_path, target_model_path)
+        model_op_counts_test(export_model_path, target_model_path)
 
         compare_outputs = export_args.test_args.get("compare_outputs", True)
         if isinstance(compare_outputs, str) and (
@@ -187,70 +218,10 @@ class TestImageClassification(BaseIntegrationTester):
         ):
             compare_outputs = False
         if compare_outputs:
-            _test_model_inputs_outputs(export_model_path, target_model_path)
+            model_inputs_outputs_test(export_model_path, target_model_path)
 
-
-_TEST_OPS = {
-    "MatMul",
-    "Gemm",
-    "Conv",
-    "MatMulInteger",
-    "ConvInteger",
-    "QLinearMatMul",
-    "QLinearConv",
-}
-
-
-def _test_model_op_counts(model_path_a, model_path_b):
-
-    model_a = onnx.load(model_path_a)
-    model_b = onnx.load(model_path_b)
-
-    def _get_model_op_counts(model):
-        op_counts = defaultdict(int)
-        for node in model.graph.node:
-            if node.op_type in _TEST_OPS:
-                op_counts[node.op_type] += 1
-        return op_counts
-
-    op_counts_a = _get_model_op_counts(model_a)
-    op_counts_b = _get_model_op_counts(model_b)
-
-    assert len(op_counts_a) > 0
-    assert len(op_counts_a) == len(op_counts_b)
-
-    for op, count_a in op_counts_a.items():
-        assert op in op_counts_b
-        assert count_a == op_counts_b[op]
-
-
-def _test_model_inputs_outputs(model_path_a, model_path_b):
-    # compare export and target graphs and build fake data
-    model_a = onnx.load(model_path_a)
-    model_b = onnx.load(model_path_b)
-    assert len(model_a.graph.input) == len(model_b.graph.input)
-    assert len(model_a.graph.output) == len(model_b.graph.output)
-
-    sample_input = {}
-    output_names = []
-
-    for input_a, input_b in zip(model_a.graph.input, model_b.graph.input):
-        assert input_a.name == input_b.name
-        input_a_shape = get_tensor_shape(input_a)
-        assert input_a_shape == get_tensor_shape(input_b)
-        sample_input[input_a.name] = numpy.random.randn(*input_a_shape).astype(
-            numpy.float32
-        )
-
-    for output_a, output_b in zip(model_a.graph.output, model_b.graph.output):
-        assert output_a.name == output_b.name
-        assert get_tensor_shape(output_a) == get_tensor_shape(output_b)
-        output_names.append(output_a.name)
-
-    # run sample forward and test absolute max diff
-    ort_sess_a = InferenceSession(model_path_a)
-    ort_sess_b = InferenceSession(model_path_b)
-    forward_output_a = ort_sess_a.run(output_names, sample_input)
-    forward_output_b = ort_sess_b.run(output_names, sample_input)
-    for out_a, out_b in zip(forward_output_a, forward_output_b):
-        assert numpy.max(numpy.abs(out_a - out_b)) <= 1e-4
+    @skip_inactive_stage
+    def test_deploy_model_compile(self, integration_manager):
+        manager = integration_manager
+        args = manager.configs["deploy"]
+        _ = Pipeline.create("image-classification", model_path=args.run_args.model_path)

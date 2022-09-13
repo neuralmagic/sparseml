@@ -11,6 +11,7 @@ SPARSEZOO_TEST_MODE := "true"
 BUILD_ARGS :=  # set nightly to build nightly release
 TARGETS := ""  # targets for running pytests: deepsparse,keras,onnx,pytorch,pytorch_models,pytorch_datasets,tensorflow_v1,tensorflow_v1_models,tensorflow_v1_datasets
 PYTEST_ARGS ?= ""
+PYTEST_INTEG_ARGS ?= ""
 ifneq ($(findstring deepsparse,$(TARGETS)),deepsparse)
     PYTEST_ARGS := $(PYTEST_ARGS) --ignore tests/sparseml/deepsparse
 endif
@@ -42,13 +43,13 @@ ifneq ($(findstring tensorflow_v1_datasets,$(TARGETS)),tensorflow_v1_datasets)
     PYTEST_ARGS := $(PYTEST_ARGS) --ignore tests/sparseml/tensorflow_v1/datasets
 endif
 ifneq ($(findstring image_classification,$(TARGETS)),image_classification)
-    PYTEST_ARGS := $(PYTEST_ARGS) --ignore tests/integrations/image_classification
+    PYTEST_INTEGRATION_ARGS := $(PYTEST_INTEGRATION_ARGS) --ignore tests/integrations/image_classification
 endif
 ifneq ($(findstring transformers,$(TARGETS)),transformers)
-    PYTEST_ARGS := $(PYTEST_ARGS) --ignore tests/integrations/transformers
+    PYTEST_INTEGRATION_ARGS := $(PYTEST_INTEGRATION_ARGS) --ignore tests/integrations/transformers
 endif
-ifneq ($(findstring object_detection,$(TARGETS)),object_detection)
-    PYTEST_ARGS := $(PYTEST_ARGS) --ignore tests/integrations/object_detection
+ifneq ($(findstring yolov5,$(TARGETS)),yolov5)
+    PYTEST_INTEGRATION_ARGS := $(PYTEST_INTEGRATION_ARGS) --ignore tests/integrations/yolov5
 endif
 
 
@@ -72,7 +73,12 @@ style:
 # run tests for the repo
 test:
 	@echo "Running python tests";
-	SPARSEZOO_TEST_MODE="true" pytest tests $(PYTEST_ARGS)
+	SPARSEZOO_TEST_MODE="true" pytest tests $(PYTEST_ARGS) --ignore tests/integrations
+
+# run integration tests
+testinteg:
+	@echo "Running integration tests";
+	SPARSEZOO_TEST_MODE="true" pytest tests/integrations $(PYTEST_INTEGRATION_ARGS)
 
 # create docs
 docs:

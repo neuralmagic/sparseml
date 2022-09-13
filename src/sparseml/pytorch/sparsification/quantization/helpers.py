@@ -17,7 +17,7 @@ Helper functions for performing quantization aware training with PyTorch
 """
 
 from copy import deepcopy
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import torch
 from torch.nn import BatchNorm2d, Conv2d, Embedding, Module, ReLU
@@ -33,6 +33,7 @@ except Exception:
 from dataclasses import dataclass, field
 
 from sparseml.pytorch.nn import ReLU as ReLU_nm
+from sparseml.pytorch.utils import get_layer
 
 
 __all__ = [
@@ -89,6 +90,25 @@ _QUANTIZABLE_MODULE_TYPES = (
     }
     if nni  # nni will always import if torch.quantization is available
     else None
+)
+
+_FUSED_MODULE_TYPES = (
+    (
+        # Conv based layers
+        nni.ConvBn1d,
+        nni.ConvBn2d,
+        nni.ConvBn3d,
+        nni.ConvReLU1d,
+        nni.ConvReLU2d,
+        nni.ConvReLU3d,
+        nni.ConvBnReLU1d,
+        nni.ConvBnReLU2d,
+        nni.ConvBnReLU3d,
+        # Linear Layers
+        nni.LinearReLU,
+    )
+    if nni  # nni will always import if torch.quantization is available
+    else tuple()
 )
 
 
@@ -236,6 +256,13 @@ class QATWrapper(Module):
         num_input_quant_stubs = num_inputs + len(self.kwarg_input_names)
 
         self.forward_fn = forward_fn
+        # Add weight qconfig to forward_fn (in case it has weights)
+        qconfig_ = get_qat_qconfig(qproperties)
+        qconfig = torch_quantization.QConfig(
+            activation=torch.nn.Identity,
+            weight=qconfig_.weight,
+        )
+        self.forward_fn.qconfig = qconfig
 
         self.input_qconfigs = self._load_qconfigs(
             name="input_qconfigs",
@@ -454,20 +481,25 @@ def configure_module_default_qconfigs(module: Module):
             submodule.configure_qconfig()
 
 
-def add_quant_dequant(module, name=None, parent_module=None):
+def add_quant_dequant(
+    module: torch.nn.Module, name=None, parent_module=None, layer_class_names=None
+):
     """
     Wraps all Conv and Linear submodule with a qconfig with a QuantWrapper
     :param module: the module to modify
     :param name: name of the module to modify; default to None
     :param parent_module: parent module containing the module to modify; default to None
+    :param layer_class_names: list of module class names to be added to the
+        list of quantizable modules
     :return: the modified module
     """
     named_children = module.named_children()
-    if (
-        type(module) in _QUANTIZABLE_MODULE_TYPES
-        and hasattr(module, "qconfig")
-        and module.qconfig
-    ):
+    is_quantizable = type(module) in _QUANTIZABLE_MODULE_TYPES
+    if layer_class_names:
+        is_quantizable = (
+            is_quantizable or module.__class__.__name__ in layer_class_names
+        )
+    if is_quantizable and hasattr(module, "qconfig") and module.qconfig:
         module = torch_quantization.QuantWrapper(module)
         if parent_module is not None and len(list(named_children)) <= 0:
             if "." in name:
@@ -481,7 +513,11 @@ def add_quant_dequant(module, name=None, parent_module=None):
             setattr(parent_module, name, module)
     else:
         for name, child in named_children:
-            setattr(module, name, add_quant_dequant(child))
+            setattr(
+                module,
+                name,
+                add_quant_dequant(child, layer_class_names=layer_class_names),
+            )
     return module
 
 
@@ -675,7 +711,16 @@ def fuse_module_conv_bn_relus(
     if len(current_block) > 1:
         conv_blocks.append(current_block)
     if conv_blocks:
+        # manually save and move hooks surrounding fused blocks into new fused modules
+        # due to torch.quantization error when a module has more than one hook
+        block_hooks = _delete_get_block_hooks(module, conv_blocks)
+
+        # run torch fusion
         torch_quantization.fuse_modules(module, conv_blocks, inplace=True)
+
+        # add hooks back
+        _add_fused_block_hooks(module, block_hooks)
+
     return module
 
 
@@ -701,13 +746,65 @@ def prepare_embeddings_qat(
             _prepare_qat_embedding(submodule, qconfig)
 
 
+def _delete_get_block_hooks(
+    module: Module,
+    fuse_blocks: List[str],
+) -> List[Tuple[Any, Any]]:
+    block_hooks = []
+    for block in fuse_blocks:
+        pre_hooks = []
+        post_hooks = []
+
+        # get first and last Module objects in block by their names
+        block_head = get_layer(block[0], module)
+        block_tail = get_layer(block[-1], module)
+
+        for handle_id, pre_hook_fn in list(block_head._forward_pre_hooks.items()):
+            pre_hooks.append(pre_hook_fn)
+            del block_head._forward_pre_hooks[handle_id]
+
+        for handle_id, hook_fn in list(block_tail._forward_hooks.items()):
+            post_hooks.append(hook_fn)
+            del block_tail._forward_hooks[handle_id]
+
+        block_hooks.append((pre_hooks, post_hooks))
+
+    return block_hooks
+
+
+def _add_fused_block_hooks(module: Module, block_hooks: List[Tuple[Any, Any]]):
+    fused_modules = [
+        mod for mod in module.modules() if isinstance(mod, _FUSED_MODULE_TYPES)
+    ]
+
+    if len(fused_modules) != len(block_hooks):
+        raise RuntimeError(
+            f"Number of fused modules ({len(fused_modules)}) after layer fusion in "
+            f"module {module.__class__.__name__}. does not match expected "
+            f"({len(block_hooks)}). Module may have already been fused or block "
+            "skipped during torch.quantization.fuse_modules"
+        )
+
+    for fused_module, (pre_hooks, post_hooks) in zip(fused_modules, block_hooks):
+        for pre_hook in pre_hooks:
+            fused_module.register_forward_pre_hook(pre_hook)
+        for post_hook in post_hooks:
+            fused_module.register_forward_hook(post_hook)
+
+
 def _prepare_qat_embedding(embedding: Module, qconfig: "torch.quantization.QConfig"):
     embedding.weight_fake_quant = qconfig.weight()
 
     def _qat_forward(self, input: torch.Tensor) -> torch.Tensor:
+        weight = self.weight_fake_quant(self.weight)
+        if weight.device != input.device:
+            # torch DataParallel may not pick up overwritten bound method
+            # send weight to correct device
+            weight = weight.to(input.device)
+
         return torch.nn.functional.embedding(
             input,
-            self.weight_fake_quant(self.weight),
+            weight,
             self.padding_idx,
             self.max_norm,
             self.norm_type,
@@ -717,6 +814,7 @@ def _prepare_qat_embedding(embedding: Module, qconfig: "torch.quantization.QConf
 
     # bind qat forward to embedding
     qat_forward_bound = _qat_forward.__get__(embedding, embedding.__class__)
+    embedding.to(embedding.weight.device)  # set weight_fake_quant to correct device
     setattr(embedding, "forward", qat_forward_bound)
 
 

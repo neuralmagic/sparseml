@@ -38,12 +38,10 @@ For Neural Magic Support, sign up or log in to our [**Deep Sparse Community Slac
 
 ## Setting Up
 
-This tutorial can be run by cloning and installing the `sparseml` repository which contains scripts and recipes for
-this pruning example:
+This tutorial can be run by installing `sparseml` which contains scripts for this pruning example:
 
 ```bash
-git clone https://github.com/neuralmagic/sparseml.git
-pip install sparseml[torchvision]
+pip install "sparseml[torchvision, dev]"
 ```
 
 ## Inspecting a Recipe
@@ -75,7 +73,7 @@ Recipes can integrated into training flows with a couple of lines of code by usi
 that wraps the PyTorch `Optimizer` step.  An example of how this is done can be found
 [here](../../../docs/source/code.md#pytorch-sparsification).
 
-For this example, we can use the `sparseml/integrations/pytorch/train.py` script.  This script runs a
+For this example, we can use the `sparseml.image_classification.train` utility.  This utility runs a
 PyTorch training flow that is modified by a `ScheduledModifierManager` and takes a recipe as an input.
 It natively supports ResNet-50 and other popular image classification models.
 
@@ -86,9 +84,7 @@ If the Imagenette dataset has not been downloaded yet, the script will automatic
 *Note:* If an out of memory exception occurs, the train batch size should be lowered to fit on your device
 
 ```bash
-cd sparseml
-
-python integrations/pytorch/train.py \
+sparseml.image_classification.train \
     --recipe-path integrations/pytorch/recipes/resnet50-imagenette-pruned.md \
     --dataset-path ./data \
     --pretrained True \
@@ -106,7 +102,7 @@ python integrations/pytorch/train.py \
 A full list of arguments and their descriptions can be found by running 
 
 ```bash
-python integrations/pytorch/train.py --help
+sparseml.image_classification.train --help
 ```
 
 
@@ -117,7 +113,7 @@ After, the training pruned model and training log files will be found under
 an inference engine such as [DeepSparse](https://github.com/neuralmagic/deepsparse), the pruned model must be
 exported to the ONNX format.
 
-This step can be completed using `sparseml/integrations/pytorch/export.py` script which uses the
+This step can be completed using `sparseml.image_classification.export_onnx` script which uses the
 `sparseml.pytorch.utils.ModuleExporter` class. Run the script with `--help` option to see usage.
 
 The DeepSparse Engine is explicitly coded to support running sparsified models for significant improvements in

@@ -31,6 +31,7 @@ version_nm_deps = f"{version_major_minor}.0"
 _PACKAGE_NAME = "sparseml" if is_release else "sparseml-nightly"
 
 _deps = [
+    "setuptools<=59.5.0",
     "jupyter>=1.0.0",
     "ipywidgets>=7.0.0",
     "pyyaml>=5.0.0",
@@ -50,6 +51,7 @@ _deps = [
     "toposort>=1.0",
     "GPUtil>=1.4.0",
     "protobuf>=3.12.2,<4",
+    "click~=8.0.0",
 ]
 _nm_deps = [f"{'sparsezoo' if is_release else 'sparsezoo-nightly'}~={version_nm_deps}"]
 _deepsparse_deps = [
@@ -58,13 +60,12 @@ _deepsparse_deps = [
 
 _onnxruntime_deps = ["onnxruntime>=1.0.0"]
 _pytorch_deps = [
-    "torch>=1.1.0,<=1.9.1",
-    "tensorboard>=1.0",
+    "torch>=1.1.0,<1.9.2",
+    "tensorboard>=1.0,<2.9",
     "tensorboardX>=1.0",
     "gputils",
-    "click<8.1",
 ]
-_pytorch_vision_deps = _pytorch_deps + ["torchvision>=0.3.0,<=0.10.1"]
+_pytorch_vision_deps = _pytorch_deps + ["torchvision>=0.3.0,<0.10.2"]
 _tensorflow_v1_deps = ["tensorflow<2.0.0", "tensorboard<2.0.0", "tf2onnx>=1.0.0,<1.6"]
 _tensorflow_v1_gpu_deps = [
     "tensorflow-gpu<2.0.0",
@@ -93,7 +94,7 @@ _dev_deps = [
     "pytest-mock~=3.6.0",
     "flaky~=3.7.0",
     "sphinx-rtd-theme",
-    "click<8.1",
+    "docutils<0.17",
 ]
 
 
@@ -178,6 +179,20 @@ def _setup_entry_points() -> Dict:
         ]
     )
 
+    # instance segmentation integration
+
+    yolact_top_level_callable = "sparseml.yolact"
+    yolact_scripts_path = "sparseml.yolact.scripts"
+
+    entry_points["console_scripts"].extend(
+        [
+            f"{yolact_top_level_callable}.export_onnx={yolact_scripts_path}:export",
+            f"{yolact_top_level_callable}.train={yolact_scripts_path}:train",
+            f"{yolact_top_level_callable}.validation={yolact_scripts_path}:val",
+            f"{yolact_top_level_callable}.download={yolact_scripts_path}:download",
+        ]
+    )
+
     return entry_points
 
 
@@ -203,12 +218,13 @@ setup(
     ),
     license="Apache",
     url="https://github.com/neuralmagic/sparseml",
+    include_package_data=True,
     package_dir=_setup_package_dir(),
     packages=_setup_packages(),
     install_requires=_setup_install_requires(),
     extras_require=_setup_extras(),
     entry_points=_setup_entry_points(),
-    python_requires=">=3.6.0",
+    python_requires=">=3.6.0,<3.10",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Programming Language :: Python :: 3",

@@ -18,17 +18,16 @@ import json
 import math
 import os
 import tempfile
-from collections import defaultdict
+from copy import deepcopy
+from pathlib import Path
 
-import numpy
 import onnx
 import pytest
 import torch
-from onnxruntime import InferenceSession
 from transformers import AutoConfig, AutoTokenizer
 from transformers.tokenization_utils_base import PaddingStrategy
 
-from sparseml.onnx.utils import get_tensor_shape
+from flaky import flaky
 from sparseml.pytorch.optim.manager import ScheduledModifierManager
 from sparseml.transformers.export import load_task_model
 from sparseml.transformers.utils import SparseAutoModel
@@ -37,22 +36,39 @@ from tests.integrations.base_tester import (
     BaseIntegrationTester,
     skip_inactive_stage,
 )
-from tests.integrations.helpers import get_configs_with_cadence
-from tests.integrations.transformers.transformers_args import (
+from tests.integrations.helpers import (
+    get_configs_with_cadence,
+    model_inputs_outputs_test,
+    model_op_counts_test,
+)
+from tests.integrations.transformers.args import (
     MaskedLanguageModellingArgs,
     QuestionAnsweringArgs,
     TextClassificationArgs,
     TokenClassificationArgs,
-    TransformersTrainArgs,
+    TransformersDeployArgs,
+    TransformersExportArgs,
 )
+
+
+deepsparse_error = None
+try:
+    from deepsparse import Pipeline
+except Exception as e:
+    deepsparse_error = e
 
 
 class TransformersManager(BaseIntegrationManager):
     command_stubs = {
         "train": "sparseml.transformers.train.{task}",
-        "export": "sparseml.transformers.export",
+        "export": "sparseml.transformers.export_onnx",
+        "deploy": None,
     }
-    config_classes = {"train": TransformersTrainArgs}
+    config_classes = {
+        "train": None,
+        "export": TransformersExportArgs,
+        "deploy": TransformersDeployArgs,
+    }
     task_config_classes = {
         "masked_language_modeling": MaskedLanguageModellingArgs,
         "question_answering": QuestionAnsweringArgs,
@@ -63,14 +79,50 @@ class TransformersManager(BaseIntegrationManager):
 
     def capture_pre_run_state(self):
         super().capture_pre_run_state()
-        train_args = (
-            self.configs["train"].run_args if "train" in self.command_types else None
-        )
-        self.save_dir = tempfile.TemporaryDirectory(
-            dir=os.path.dirname(train_args.output_dir)
-        )
-        if train_args:
+        self._check_deploy_requirements(deepsparse_error)
+
+        # Setup temporary directory for train run
+        if "train" in self.configs:
+            train_args = self.configs["train"].run_args
+            os.makedirs(train_args.output_dir, exist_ok=True)
+            self.save_dir = tempfile.TemporaryDirectory(dir=train_args.output_dir)
             train_args.output_dir = self.save_dir.name
+
+    def save_stage_information(self, command_type):
+        # Either grab output directory from train run or setup new temporary directory
+        # for export
+        if command_type == "export":
+            export_args = self.configs["export"].run_args
+            if not self.save_dir:
+                self.save_dir = tempfile.TemporaryDirectory()
+                export_args.save_dir = self.save_dir.name
+            else:
+                train_args = self.configs["train"].run_args
+                checkpoints = [
+                    file
+                    for file in os.listdir(train_args.output_dir)
+                    if os.path.isdir(os.path.join(train_args.output_dir, file))
+                    and file.startswith("checkpoint-")
+                ]
+                checkpoints.sort(key=lambda ckpt: ckpt.split("-")[1])
+                export_args.model_path = (
+                    os.path.join(train_args.output_dir, checkpoints[-1])
+                    if checkpoints
+                    else train_args.output_dir
+                )
+            self.commands["export"] = self.configs["export"].create_command_script()
+
+        # Grab onnx output path from the export stage if it exists
+        if command_type == "deploy":
+            deploy_args = self.configs["deploy"].run_args
+            if self.save_dir:
+                export_args = self.configs["export"].run_args
+                deploy_args.model_path = export_args.model_path
+
+    def add_abridged_configs(self):
+        if "train" in self.command_types:
+            self.configs["train"].run_args.max_train_samples = 2
+            self.configs["train"].run_args.max_eval_samples = 2
 
     def get_root_commands(self, raw_configs):
         self.task = (
@@ -83,7 +135,7 @@ class TransformersManager(BaseIntegrationManager):
 
         self.config_classes["train"] = self.task_config_classes[self.task]
 
-        command_stubs_final = self.command_stubs
+        command_stubs_final = deepcopy(self.command_stubs)
         command_stubs_final["train"] = command_stubs_final["train"].format(
             task=self.task
         )
@@ -93,10 +145,12 @@ class TransformersManager(BaseIntegrationManager):
         pass  # not yet implemented
 
 
+@flaky(max_runs=2, min_passes=1)
 class TestTransformers(BaseIntegrationTester):
     @pytest.fixture(
         params=get_configs_with_cadence(
-            os.environ.get("NM_TEST_CADENCE", "commit"), os.path.dirname(__file__)
+            os.environ.get("SPARSEML_TEST_CADENCE", "pre-commit"),
+            os.path.dirname(__file__),
         ),
         scope="class",
     )
@@ -121,14 +175,18 @@ class TestTransformers(BaseIntegrationTester):
             if run_args.recipe
             else run_args.num_train_epochs
         )
-        with open(results_file) as f:
-            train_results = json.load(f)
-        assert abs(train_results["epoch"] - math.floor(end_epoch)) < 0.1
+        # skip for step-based tests
+        if end_epoch:
+            with open(results_file) as f:
+                train_results = json.load(f)
+            assert abs(train_results["epoch"] - math.floor(end_epoch)) < 0.1
 
     @skip_inactive_stage
     def test_train_metrics(self, integration_manager):
         manager = integration_manager
         args = manager.configs["train"]
+        if args.run_args.one_shot:
+            pytest.skip("One-shot mode. Skipping test")
         results_file = os.path.join(manager.save_dir.name, "eval_results.json")
         with open(results_file) as f:
             eval_results = json.load(f)
@@ -146,10 +204,7 @@ class TestTransformers(BaseIntegrationTester):
     @skip_inactive_stage
     def test_export_onnx_graph(self, integration_manager):
         manager = integration_manager
-        export_run_args = manager.configs["export"].run_args
-        onnx_file = os.path.join(
-            os.path.dirname(export_run_args.model_path), export_run_args.onnx_file_name
-        )
+        onnx_file = _get_onnx_model_path(manager)
         assert os.path.isfile(onnx_file)
         model = onnx.load(onnx_file)
         onnx.checker.check_model(model)
@@ -161,11 +216,8 @@ class TestTransformers(BaseIntegrationTester):
         target_model_path = export_args.test_args.get("target_model")
         if not target_model_path:
             pytest.skip("No target model provided")
-        export_model_path = os.path.join(
-            os.path.dirname(export_args.run_args.model_path),
-            export_args.run_args.onnx_file_name,
-        )
-        _test_model_op_counts(export_model_path, target_model_path)
+        export_model_path = _get_onnx_model_path(manager)
+        model_op_counts_test(export_model_path, target_model_path)
 
         compare_outputs = export_args.test_args.get("compare_outputs", True)
         if isinstance(compare_outputs, str) and (
@@ -173,9 +225,31 @@ class TestTransformers(BaseIntegrationTester):
         ):
             compare_outputs = False
         if compare_outputs:
-            _test_model_inputs_outputs(
-                export_model_path, target_model_path, manager.configs["export"]
+            model_inputs_outputs_test(
+                export_model_path,
+                target_model_path,
+                _create_bert_input,
+                model_path=export_args.run_args.model_path,
+                task=manager.task,
             )
+
+    @skip_inactive_stage
+    def test_deploy_model_compile(self, integration_manager):
+        manager = integration_manager
+        args = manager.configs["deploy"]
+        _ = Pipeline.create(
+            task=args.run_args.task,
+            model_path=os.path.dirname(_get_onnx_model_path(manager)),
+        )
+
+
+def _get_onnx_model_path(manager) -> str:
+    export_run_args = manager.configs["export"].run_args
+    return os.path.join(
+        Path(export_run_args.model_path).parents[0],
+        "deployment",
+        export_run_args.onnx_file_name,
+    )
 
 
 def _load_model_on_task(model_name_or_path, model_type, task, **model_kwargs):
@@ -188,67 +262,8 @@ def _load_model_on_task(model_name_or_path, model_type, task, **model_kwargs):
     return load_funcs[task](model_name_or_path, model_type=model_type, **model_kwargs)
 
 
-_TEST_OPS = {
-    "MatMul",
-    "Gemm",
-    "Conv",
-    "MatMulInteger",
-    "ConvInteger",
-    "QLinearMatMul",
-    "QLinearConv",
-}
-
-
-def _test_model_op_counts(model_path_a, model_path_b):
-
-    model_a = onnx.load(model_path_a)
-    model_b = onnx.load(model_path_b)
-
-    def _get_model_op_counts(model):
-        op_counts = defaultdict(int)
-        for node in model.graph.node:
-            if node.op_type in _TEST_OPS:
-                op_counts[node.op_type] += 1
-        return op_counts
-
-    op_counts_a = _get_model_op_counts(model_a)
-    op_counts_b = _get_model_op_counts(model_b)
-
-    assert len(op_counts_a) > 0
-    assert len(op_counts_a) == len(op_counts_b)
-
-    for op, count_a in op_counts_a.items():
-        assert op in op_counts_b
-        assert count_a == op_counts_b[op]
-
-
-def _test_model_inputs_outputs(model_path_a, model_path_b, config):
-    # compare export and target graphs and build fake data
-    model_a = onnx.load(model_path_a)
-    model_b = onnx.load(model_path_b)
-    assert len(model_a.graph.input) == len(model_b.graph.input)
-    assert len(model_a.graph.output) == len(model_b.graph.output)
-
-    sample_input = {}
-    output_names = []
-
-    sample_input = _create_bert_input(config.run_args.model_path, config.run_args.task)
-
-    for output_a, output_b in zip(model_a.graph.output, model_b.graph.output):
-        assert output_a.name == output_b.name
-        assert get_tensor_shape(output_a) == get_tensor_shape(output_b)
-        output_names.append(output_a.name)
-
-    # run sample forward and test absolute max diff
-    ort_sess_a = InferenceSession(model_path_a)
-    ort_sess_b = InferenceSession(model_path_b)
-    forward_output_a = ort_sess_a.run(output_names, sample_input)
-    forward_output_b = ort_sess_b.run(output_names, sample_input)
-    for out_a, out_b in zip(forward_output_a, forward_output_b):
-        assert numpy.max(numpy.abs(out_a - out_b)) <= 1e-4
-
-
 def _create_bert_input(model_path, task):
+    task = task.replace("_", "-")
     config_args = {"finetuning_task": task} if task else {}
     config = AutoConfig.from_pretrained(
         model_path,

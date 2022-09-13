@@ -40,7 +40,6 @@ from transformers import (
     EvalPrediction,
     HfArgumentParser,
     PreTrainedTokenizerFast,
-    TrainingArguments,
     default_data_collator,
     set_seed,
 )
@@ -48,8 +47,10 @@ from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils import check_min_version
 from transformers.utils.versions import require_version
 
+from sparseml.pytorch.utils.distributed import record
 from sparseml.transformers.sparsification import (
     QuestionAnsweringTrainer,
+    TrainingArguments,
     postprocess_qa_predictions,
 )
 from sparseml.transformers.utils import SparseAutoModel, get_shared_tokenizer_src
@@ -89,10 +90,6 @@ class ModelArguments:
                 "huggingface.co/models"
             )
         }
-    )
-    distill_teacher: Optional[str] = field(
-        default=None,
-        metadata={"help": "Teacher model which needs to be a trained QA model"},
     )
     config_name: Optional[str] = field(
         default=None,
@@ -141,21 +138,6 @@ class DataTrainingArguments:
     Arguments pertaining to what data to input to our model for training and eval
     """
 
-    recipe: Optional[str] = field(
-        default=None,
-        metadata={
-            "help": (
-                "Path to a SparseML sparsification recipe, see "
-                "https://github.com/neuralmagic/sparseml for more information"
-            )
-        },
-    )
-    recipe_args: Optional[str] = field(
-        default=None,
-        metadata={
-            "help": "Recipe arguments to be overwritten",
-        },
-    )
     dataset_name: Optional[str] = field(
         default=None,
         metadata={
@@ -323,7 +305,8 @@ class DataTrainingArguments:
                 ], "`test_file` should be a csv or a json file."
 
 
-def main():
+@record
+def main(**kwargs):
     # See all possible arguments in src/transformers/training_args.py
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
@@ -337,9 +320,10 @@ def main():
         model_args, data_args, training_args = parser.parse_json_file(
             json_file=os.path.abspath(sys.argv[1])
         )
-    else:
+    elif not kwargs:
         model_args, data_args, training_args = parser.parse_args_into_dataclasses()
-
+    else:
+        model_args, data_args, training_args = parser.parse_dict(kwargs)
     # Setup logging
     log_level = training_args.get_process_log_level()
     _LOGGER.setLevel(log_level)
@@ -444,7 +428,7 @@ def main():
             "revision": model_args.model_revision,
             "use_auth_token": True if model_args.use_auth_token else None,
         },
-        teacher_name_or_path=model_args.distill_teacher,
+        teacher_name_or_path=training_args.distill_teacher,
         teacher_kwargs={
             "cache_dir": model_args.cache_dir,
             "use_auth_token": True if model_args.use_auth_token else None,
@@ -771,8 +755,8 @@ def main():
     trainer = QuestionAnsweringTrainer(
         model=model,
         model_state_path=model_args.model_name_or_path,
-        recipe=data_args.recipe,
-        recipe_args=data_args.recipe_args,
+        recipe=training_args.recipe,
+        recipe_args=training_args.recipe_args,
         metadata_args=metadata_args,
         teacher=teacher,
         args=training_args,
@@ -806,6 +790,7 @@ def main():
             trainer.save_metrics("train", metrics)
         trainer.save_model()  # Saves the tokenizer too for easy upload
         trainer.save_state()
+        trainer.save_optimizer_and_scheduler(training_args.output_dir)
 
     # Evaluation
     if training_args.do_eval and not trainer.one_shot:
