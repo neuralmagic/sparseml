@@ -120,7 +120,12 @@ class DistillationModifier(BaseDistillationModifier):
         self._temperature = value
 
     def compute_distillation_loss(self, student_outputs, teacher_outputs, **kwargs):
-        return kldiv_loss(student_outputs, teacher_outputs, self.temperature, self._distill_output_keys)
+        return kldiv_loss(
+            student_outputs,
+            teacher_outputs,
+            self.temperature,
+            self._distill_output_keys,
+        )
 
     def compute_total_loss(self, loss, distillation_loss):
         return ((1.0 - self.hardness) * loss) + (self.hardness * distillation_loss)

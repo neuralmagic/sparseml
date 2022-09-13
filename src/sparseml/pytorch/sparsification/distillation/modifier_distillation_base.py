@@ -16,7 +16,6 @@
 Base modifier for performing model distillation
 """
 
-
 import logging
 from collections import Mapping
 from copy import deepcopy
@@ -37,28 +36,26 @@ from sparseml.pytorch.utils import BaseLogger, device_of, tensors_module_forward
 from sparseml.sparsification import SparsificationTypes
 
 
-__all__ = [
-    "BaseDistillationModifier",
-    "kl_logsoftmax",
-    "kldiv_loss"
-]
-
+__all__ = ["BaseDistillationModifier", "kl_logsoftmax", "kldiv_loss"]
 
 _LOGGER = logging.getLogger(__name__)
 
+
 def kl_logsoftmax(
-        x: Tensor,
-        y: Tensor,
-        temperature: Union[float, Tensor],
-        dim: int = -1
+    x: Tensor, y: Tensor, temperature: Union[float, Tensor], dim: int = -1
 ) -> Tensor:
     number_items = x.numel() / y.size(dim)
-    return TF.kl_div(
-        input=TF.log_softmax(x / temperature, dim=dim),
-        target=TF.log_softmax(y / temperature, dim=dim),
-        log_target=True,
-        reduction="sum",
-    ) * (temperature ** 2) / number_items
+    return (
+        TF.kl_div(
+            input=TF.log_softmax(x / temperature, dim=dim),
+            target=TF.log_softmax(y / temperature, dim=dim),
+            log_target=True,
+            reduction="sum",
+        )
+        * (temperature ** 2)
+        / number_items
+    )
+
 
 def kldiv_loss(
     student_outputs,
@@ -75,12 +72,16 @@ def kldiv_loss(
     elif isinstance(student_outputs, Mapping):
         for key in output_keys or student_outputs:
             distill_head_output_losses.append(
-                 kl_logsoftmax(student_outputs[key], teacher_outputs[key], temperature, dim)
+                kl_logsoftmax(
+                    student_outputs[key], teacher_outputs[key], temperature, dim
+                )
             )
     elif isinstance(student_outputs, Iterable):
         for idx in output_keys or range(len(student_outputs)):
             distill_head_output_losses.append(
-                kl_logsoftmax(student_outputs[idx], teacher_outputs[idx], temperature, dim)
+                kl_logsoftmax(
+                    student_outputs[idx], teacher_outputs[idx], temperature, dim
+                )
             )
     kldiv_output_loss = (
         sum(distill_head_output_losses) / len(distill_head_output_losses)
@@ -88,7 +89,6 @@ def kldiv_loss(
         else 0.0
     )
     return kldiv_output_loss
-
 
 
 class BaseDistillationModifier(ScheduledUpdateModifier):
