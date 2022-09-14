@@ -19,7 +19,7 @@ Further info can be found in the paper `here <https://arxiv.org/abs/1905.11946>`
 
 import math
 from collections import OrderedDict
-from typing import List, Tuple, Union, Optional
+from typing import List, Optional, Tuple, Union
 
 import torch
 from torch import Tensor
@@ -32,8 +32,8 @@ from torch.nn import (
     Module,
     Sequential,
     Sigmoid,
-    Softmax,
     SiLU,
+    Softmax,
 )
 
 
@@ -129,9 +129,7 @@ class _InvertedBottleneckBlock(Module):
                         ("bn", BatchNorm2d(num_features=expanded_channels)),
                         (
                             "act",
-                            QATSiLU()
-                            if squeezed_channels
-                            else SiLU(),
+                            QATSiLU() if squeezed_channels else SiLU(),
                         ),
                     ]
                 )
@@ -159,9 +157,7 @@ class _InvertedBottleneckBlock(Module):
                     ("bn", BatchNorm2d(num_features=expanded_channels)),
                     (
                         "act",
-                        QATSiLU()
-                        if squeezed_channels
-                        else SiLU(),
+                        QATSiLU() if squeezed_channels else SiLU(),
                     ),
                 ]
             )
@@ -405,6 +401,7 @@ def _make_divisible(v: float, divisor: int, min_value: Optional[int] = None) -> 
 
 def _scale_num_channels(channels: int, width_mult: float) -> int:
     return _make_divisible(channels * width_mult, 8)
+
 
 def _scale_num_blocks(blocks: int, depth_mult: float) -> int:
     scaled = int(math.ceil(depth_mult * blocks))

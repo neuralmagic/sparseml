@@ -28,6 +28,7 @@ from sparseml.pytorch.nn.activations import create_activation
 
 __all__ = ["SqueezeExcite"]
 
+
 class SqueezeExcite(Module):
     """
     Standard implementation for SqueezeExcite in PyTorch
