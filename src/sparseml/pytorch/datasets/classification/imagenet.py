@@ -31,6 +31,8 @@ except Exception as torchvision_error:
     ImageFolder = object  # default for constructor
     torchvision_import_error = torchvision_error
 
+from typing import Union
+
 from sparseml.pytorch.datasets.image_classification.ffcv_dataset import (
     FFCVImageNetDataset,
 )
@@ -91,7 +93,9 @@ class ImageNetDataset(ImageFolder, FFCVImageNetDataset):
             ]
             if rand_trans
             else [
-                transforms.Resize(round(resize_scale * image_size), interpolation=interpolation),
+                transforms.Resize(
+                    round(resize_scale * image_size), interpolation=interpolation
+                ),
                 transforms.CenterCrop(image_size),
             ]
         )
