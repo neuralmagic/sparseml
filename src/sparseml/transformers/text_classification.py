@@ -35,6 +35,7 @@ import datasets
 import numpy as np
 import transformers
 from datasets import load_dataset, load_metric
+from sklearn.model_selection import StratifiedShuffleSplit
 from transformers import (
     AutoConfig,
     AutoTokenizer,
@@ -635,19 +636,11 @@ def main(**kwargs):
             desc="Running tokenizer on dataset",
         )
 
-    def _create_train_dataset(raw_datasets, max_train_samples):
-        if "train" not in raw_datasets:
-            raise ValueError("Requires a train split in the dataset")
-        train_dataset = raw_datasets["train"]
-        if max_train_samples is not None:
-            train_dataset = train_dataset.select(range(max_train_samples))
-        return train_dataset
-
     train_dataset = None
     if training_args.do_train:
         if "train" not in raw_datasets:
             raise ValueError("--do_train requires a train dataset")
-        train_dataset = _create_train_dataset(raw_datasets, data_args.max_train_samples)
+        train_dataset = raw_datasets["train"]
 
     make_eval_dataset = training_args.do_eval or data_args.num_export_samples > 0
     if make_eval_dataset:
@@ -674,19 +667,26 @@ def main(**kwargs):
                 )
             eval_dataset = raw_datasets["validation"]
         elif data_args.validation_ratio is not None:
-            if train_dataset is None:
-                train_dataset = _create_train_dataset(
-                    raw_datasets, data_args.max_train_samples
-                )
+            train_dataset = (
+                raw_datasets["train"] if train_dataset is None else train_dataset
+            )
             train_dataset, eval_dataset = _split_train_val(
                 train_dataset, data_args.validation_ratio
             )
+            if (
+                data_args.max_train_samples is not None
+                and len(train_dataset) > data_args.max_train_samples
+            ):
+                train_dataset = train_dataset.select(range(data_args.max_train_samples))
         elif data_args.eval_on_test:
             if "test" not in raw_datasets:
                 raise ValueError("test split not found but eval_on_test is on")
             eval_dataset = raw_datasets["test"]
 
-        if data_args.max_eval_samples is not None:
+        if (
+            data_args.max_eval_samples is not None
+            and len(eval_dataset) > data_args.max_eval_samples
+        ):
             eval_dataset = eval_dataset.select(range(data_args.max_eval_samples))
 
     if (
@@ -880,11 +880,21 @@ def main(**kwargs):
 
 def _split_train_val(train_dataset, val_ratio):
     # Fixed random seed to make split consistent across runs with the same ratio
-    ds = train_dataset.train_test_split(
-        test_size=val_ratio, stratify_by_column="label", seed=42
-    )
-    train_ds = ds.pop("train")
-    val_ds = ds.pop("test")
+    seed = 42
+    try:
+        ds = train_dataset.train_test_split(
+            test_size=val_ratio, stratify_by_column="label", seed=seed
+        )
+        train_ds = ds.pop("train")
+        val_ds = ds.pop("test")
+    except TypeError:
+        X = list(range(len(train_dataset)))
+        y = train_dataset["label"]
+        sss = StratifiedShuffleSplit(n_splits=1, test_size=val_ratio, random_state=seed)
+        for train_indices, test_indices in sss.split(X, y):
+            train_ds = train_dataset.select(train_indices)
+            val_ds = train_dataset.select(test_indices)
+
     return train_ds, val_ds
 
 
