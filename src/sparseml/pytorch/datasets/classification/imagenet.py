@@ -73,7 +73,7 @@ class ImageNetDataset(ImageFolder, FFCVImageNetDataset):
         rand_trans: bool = False,
         image_size: int = 224,
         resize_scale: float = 1.143,
-        resize_mode: str = "bilinear",
+        resize_mode: Union[str, "transforms.InterpolationMode"] = "bilinear",
     ):
         if torchvision_import_error is not None:
             raise torchvision_import_error
