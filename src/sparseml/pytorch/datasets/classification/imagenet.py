@@ -81,9 +81,9 @@ class ImageNetDataset(ImageFolder, FFCVImageNetDataset):
             raise torchvision_import_error
 
         root = clean_path(root)
-        if resize_mode.lower() in ["linear", "bilinear"]:
+        if type(resize_mode) is str and resize_mode.lower() in ["linear", "bilinear"]:
             interpolation = transforms.InterpolationMode.BILINEAR
-        elif resize_mode.lower() in ["cubic", "bicubic"]:
+        elif type(resize_mode) is str and resize_mode.lower() in ["cubic", "bicubic"]:
             interpolation = transforms.InterpolationMode.BICUBIC
 
         init_trans = (
