@@ -72,20 +72,26 @@ class ImageNetDataset(ImageFolder, FFCVImageNetDataset):
         train: bool = True,
         rand_trans: bool = False,
         image_size: int = 224,
+        resize_scale: float = 1.143,
+        resize_mode: str = "bilinear",
     ):
         if torchvision_import_error is not None:
             raise torchvision_import_error
 
         root = clean_path(root)
-        non_rand_resize_scale = 256.0 / 224.0  # standard used
+        if resize_mode.lower() in ["linear", "bilinear"]:
+            interpolation = transforms.InterpolationMode.BILINEAR
+        elif resize_mode.lower() in ["cubic", "bicubic"]:
+            interpolation = transforms.InterpolationMode.BICUBIC
+
         init_trans = (
             [
-                transforms.RandomResizedCrop(image_size),
+                transforms.RandomResizedCrop(image_size, interpolation=interpolation),
                 transforms.RandomHorizontalFlip(),
             ]
             if rand_trans
             else [
-                transforms.Resize(round(non_rand_resize_scale * image_size)),
+                transforms.Resize(round(resize_scale * image_size), interpolation=interpolation),
                 transforms.CenterCrop(image_size),
             ]
         )
