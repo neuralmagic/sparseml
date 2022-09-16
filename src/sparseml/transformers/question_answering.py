@@ -47,6 +47,7 @@ from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils import check_min_version
 from transformers.utils.versions import require_version
 
+from sparseml.pytorch.utils.distributed import record
 from sparseml.transformers.sparsification import (
     QuestionAnsweringTrainer,
     TrainingArguments,
@@ -304,6 +305,7 @@ class DataTrainingArguments:
                 ], "`test_file` should be a csv or a json file."
 
 
+@record
 def main(**kwargs):
     # See all possible arguments in
     # src/sparseml/transformers/sparsification/training_args.py

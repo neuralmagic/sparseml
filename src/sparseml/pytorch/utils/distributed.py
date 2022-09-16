@@ -13,23 +13,21 @@
 # limitations under the License.
 
 """
-Generic code used as utilities and helpers for PyTorch
+Helper functions for external distributed sparseml calls
 """
 
-# flake8: noqa
-
-from ..base import check_torch_install as _check_torch_install
-from .benchmarker import *
-from .distributed import *
-from .exporter import *
-from .helpers import *
-from .logger import *
-from .loss import *
-from .model import *
-from .module import *
-from .sparsification import *
-from .ssd_helpers import *
-from .yolo_helpers import *
+__all__ = ["record"]
 
 
-_check_torch_install()  # TODO: remove once files within package load without installs
+def record(func):
+    """
+    Wraps function with pytorch elastic record for error propagation. Introduced in
+    pytorch v1.9 and will return the unmodified function for lesser versions
+    """
+    try:
+        from torch.distributed.elastic.multiprocessing.errors import record
+
+        return record(func)
+
+    except ImportError:
+        return func
