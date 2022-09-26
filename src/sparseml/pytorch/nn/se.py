@@ -36,7 +36,7 @@ class SqueezeExcite(Module):
     :param expanded_channels: the number of channels to expand to in the SE layer
     :param squeezed_channels: the number of channels to squeeze down to in the SE layer
     :param act_type: the activation type to use in the SE layer; options:
-        [relu, relu6, prelu, lrelu, swish]
+        [relu, relu6, prelu, lrelu, swish, silu]
     """
 
     def __init__(

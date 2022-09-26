@@ -332,7 +332,7 @@ class ImageClassificationTrainer(Trainer):
         )
 
     def _setup_checkpoint_manager(self):
-        if self.checkpoint_path and self.checkpoint_path.startswith("zoo"):
+        if self.checkpoint_path and self.checkpoint_path.startswith("zoo:"):
             zoo_model = Model(self.checkpoint_path)
             self.checkpoint_path = download_framework_model_by_recipe_type(zoo_model)
 
