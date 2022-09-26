@@ -197,7 +197,7 @@ def _setup_entry_points() -> Dict:
     # recipe_template entrypoint
 
     entry_points["console_scripts"].append(
-        "sparseml.recipe_tempalte=sparseml.recipe_template.cli.main"
+        "sparseml.recipe_template=sparseml.recipe_template.cli:main"
     )
 
     return entry_points
