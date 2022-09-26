@@ -19,6 +19,7 @@ Further info can be found in the paper `here <https://arxiv.org/abs/1905.11946>`
 
 import math
 from collections import OrderedDict
+from dataclasses import dataclass
 from typing import List, Optional, Tuple, Union
 
 import torch
@@ -36,7 +37,6 @@ from torch.nn import (
     Softmax,
 )
 
-
 try:
     from torch.nn.quantized import FloatFunctional
 except Exception:
@@ -44,7 +44,6 @@ except Exception:
 
 from sparseml.pytorch.models.registry import ModelRegistry
 from sparseml.pytorch.nn import SqueezeExcite
-
 
 __all__ = [
     "EfficientNet",
@@ -57,6 +56,9 @@ __all__ = [
     "efficientnet_b5",
     "efficientnet_b6",
     "efficientnet_b7",
+    "efficientnet_v2_s",
+    "efficientnet_v2_m",
+    "efficientnet_v2_l",
 ]
 
 
@@ -92,14 +94,14 @@ class QATSiLU(SiLU):
 
 class _InvertedBottleneckBlock(Module):
     def __init__(
-        self,
-        in_channels: int,
-        out_channels: int,
-        kernel_size: int,
-        expansion_ratio: int,
-        stride: int,
-        se_ratio: Union[float, None],
-        se_mod: bool,
+            self,
+            in_channels: int,
+            out_channels: int,
+            kernel_size: int,
+            expansion_ratio: int,
+            stride: int,
+            se_ratio: Union[float, None],
+            se_mod: bool,
     ):
         super().__init__()
         self._in_channels = in_channels
@@ -176,11 +178,6 @@ class _InvertedBottleneckBlock(Module):
                 else None
             )
 
-        if self._stride == 1 and self._in_channels == self._out_channels:
-            self.add = _Add()
-        else:
-            self.add = None
-
         self.project = Sequential(
             OrderedDict(
                 [
@@ -197,6 +194,11 @@ class _InvertedBottleneckBlock(Module):
                 ]
             )
         )
+
+        if self._stride == 1 and self._in_channels == self._out_channels:
+            self.add = _Add()
+        else:
+            self.add = None
 
     def forward(self, inp: Tensor):
         out = inp
@@ -220,14 +222,95 @@ class _InvertedBottleneckBlock(Module):
         return out
 
 
+class _FusedInvertedBottleneckBlock(Module):
+    def __init__(
+            self,
+            in_channels: int,
+            out_channels: int,
+            kernel_size: int,
+            expansion_ratio: int,
+            stride: int,
+    ):
+        super().__init__()
+        self._in_channels = in_channels
+        self._out_channels = out_channels
+        self._stride = stride
+        expanded_channels = _scale_num_channels(in_channels, expansion_ratio)
+
+        if expanded_channels == in_channels:
+            projection_layer = False
+            expanded_channels = out_channels
+        else:
+            projection_layer = True
+
+        spatial_padding = (kernel_size - 1) // 2
+        self.expand = (
+            Sequential(
+                OrderedDict(
+                    [
+                        (
+                            "conv",
+                            Conv2d(
+                                in_channels=in_channels,
+                                out_channels=expanded_channels,
+                                kernel_size=kernel_size,
+                                bias=False,
+                                padding=spatial_padding,
+                                stride=stride,
+                            ),
+                        ),
+                        ("bn", BatchNorm2d(num_features=expanded_channels)),
+                        ("act", SiLU(),),
+                    ]
+                )
+            )
+        )
+
+        if projection_layer:
+            self.project = Sequential(
+                OrderedDict(
+                    [
+                        (
+                            "conv",
+                            Conv2d(
+                                in_channels=expanded_channels,
+                                out_channels=out_channels,
+                                kernel_size=1,
+                                bias=False,
+                            ),
+                        ),
+                        ("bn", BatchNorm2d(num_features=out_channels)),
+                    ]
+                )
+            )
+        else:
+            self.project = None
+
+        if self._stride == 1 and self._in_channels == self._out_channels:
+            self.add = _Add()
+        else:
+            self.add = None
+
+    def forward(self, inp: Tensor):
+        out = self.expand(inp)
+
+        if self.project is not None:
+            out = self.project(out)
+
+        if self.add is not None:
+            out = self.add(out, inp)
+
+        return out
+
+
 class _Classifier(Module):
     def __init__(
-        self,
-        in_channels: int,
-        out_channels: int,
-        classes: int,
-        dropout: float,
-        class_type: str,
+            self,
+            in_channels: int,
+            out_channels: int,
+            classes: int,
+            dropout: float,
+            class_type: str,
     ):
         super().__init__()
         self.conv = Conv2d(
@@ -281,15 +364,16 @@ class EfficientNetSectionSettings(object):
     """
 
     def __init__(
-        self,
-        num_blocks: int,
-        in_channels: int,
-        out_channels: int,
-        kernel_size: int,
-        expansion_ratio: int,
-        stride: int,
-        se_ratio: Union[float, None],
-        se_mod: bool,
+            self,
+            num_blocks: int,
+            in_channels: int,
+            out_channels: int,
+            kernel_size: int,
+            expansion_ratio: int,
+            stride: int,
+            se_ratio: Optional[float] = None,
+            se_mod: bool = False,
+            is_fused: bool = False,
     ):
         self.num_blocks = num_blocks
         self.in_channels = in_channels
@@ -299,6 +383,7 @@ class EfficientNetSectionSettings(object):
         self.stride = stride
         self.se_ratio = se_ratio
         self.se_mod = se_mod
+        self.is_fused = is_fused
 
 
 class EfficientNet(Module):
@@ -314,12 +399,12 @@ class EfficientNet(Module):
     """
 
     def __init__(
-        self,
-        sec_settings: List[EfficientNetSectionSettings],
-        out_channels: int,
-        num_classes: int,
-        class_type: str,
-        dropout: float,
+            self,
+            sec_settings: List[EfficientNetSectionSettings],
+            out_channels: int,
+            num_classes: int,
+            class_type: str,
+            dropout: float,
     ):
         super().__init__()
         self.input = Sequential(
@@ -368,17 +453,28 @@ class EfficientNet(Module):
         blocks = []
 
         for block in range(settings.num_blocks):
-            blocks.append(
-                _InvertedBottleneckBlock(
-                    in_channels=in_channels if block == 0 else settings.out_channels,
-                    out_channels=settings.out_channels,
-                    kernel_size=settings.kernel_size,
-                    expansion_ratio=settings.expansion_ratio,
-                    stride=stride if block == 0 else 1,
-                    se_ratio=settings.se_ratio,
-                    se_mod=settings.se_mod,
+            if settings.is_fused:
+                blocks.append(
+                    _FusedInvertedBottleneckBlock(
+                        in_channels=in_channels if block == 0 else settings.out_channels,
+                        out_channels=settings.out_channels,
+                        kernel_size=settings.kernel_size,
+                        expansion_ratio=settings.expansion_ratio,
+                        stride=stride if block == 0 else 1,
+                    )
                 )
-            )
+            else:
+                blocks.append(
+                    _InvertedBottleneckBlock(
+                        in_channels=in_channels if block == 0 else settings.out_channels,
+                        out_channels=settings.out_channels,
+                        kernel_size=settings.kernel_size,
+                        expansion_ratio=settings.expansion_ratio,
+                        stride=stride if block == 0 else 1,
+                        se_ratio=settings.se_ratio,
+                        se_mod=settings.se_mod,
+                    )
+                )
 
         return Sequential(*blocks)
 
@@ -410,7 +506,7 @@ def _scale_num_blocks(blocks: int, depth_mult: float) -> int:
 
 
 def _create_section_settings(
-    width_mult: float, depth_mult: float, se_mod: bool
+        width_mult: float, depth_mult: float, se_mod: bool
 ) -> Tuple[List[EfficientNetSectionSettings], int]:
     # return section settings as well as the out channels as tuple
     return (
@@ -489,7 +585,6 @@ def _create_section_settings(
         _scale_num_channels(1280, width_mult),
     )
 
-
 def _efficient_net_params(model_name):
     # Coefficients: width, depth, dropout, in_size
     params_dict = {
@@ -518,10 +613,10 @@ def _efficient_net_params(model_name):
     desc_args={"optim-perf": ("se_mod", True)},
 )
 def efficientnet_b0(
-    num_classes: int = 1000,
-    class_type: str = "single",
-    dropout: float = 0.2,
-    se_mod: bool = False,
+        num_classes: int = 1000,
+        class_type: str = "single",
+        dropout: float = 0.2,
+        se_mod: bool = False,
 ) -> EfficientNet:
     """
     EfficientNet B0 implementation; expected input shape is (B, 3, 224, 224)
@@ -563,10 +658,10 @@ def efficientnet_b0(
     desc_args={"optim-perf": ("se_mod", True)},
 )
 def efficientnet_b1(
-    num_classes: int = 1000,
-    class_type: str = "single",
-    dropout: float = 0.2,
-    se_mod: bool = False,
+        num_classes: int = 1000,
+        class_type: str = "single",
+        dropout: float = 0.2,
+        se_mod: bool = False,
 ) -> EfficientNet:
     """
     EfficientNet B1 implementation; expected input shape is (B, 3, 240, 240)
@@ -608,10 +703,10 @@ def efficientnet_b1(
     desc_args={"optim-perf": ("se_mod", True)},
 )
 def efficientnet_b2(
-    num_classes: int = 1000,
-    class_type: str = "single",
-    dropout: float = 0.3,
-    se_mod: bool = False,
+        num_classes: int = 1000,
+        class_type: str = "single",
+        dropout: float = 0.3,
+        se_mod: bool = False,
 ) -> EfficientNet:
     """
     EfficientNet B2 implementation; expected input shape is (B, 3, 260, 260)
@@ -653,10 +748,10 @@ def efficientnet_b2(
     desc_args={"optim-perf": ("se_mod", True)},
 )
 def efficientnet_b3(
-    num_classes: int = 1000,
-    class_type: str = "single",
-    dropout: float = 0.3,
-    se_mod: bool = False,
+        num_classes: int = 1000,
+        class_type: str = "single",
+        dropout: float = 0.3,
+        se_mod: bool = False,
 ) -> EfficientNet:
     """
     EfficientNet B3 implementation; expected input shape is (B, 3, 300, 300)
@@ -698,10 +793,10 @@ def efficientnet_b3(
     desc_args={"optim-perf": ("se_mod", True)},
 )
 def efficientnet_b4(
-    num_classes: int = 1000,
-    class_type: str = "single",
-    dropout: float = 0.4,
-    se_mod: bool = False,
+        num_classes: int = 1000,
+        class_type: str = "single",
+        dropout: float = 0.4,
+        se_mod: bool = False,
 ) -> EfficientNet:
     """
     EfficientNet B4 implementation; expected input shape is (B, 3, 380, 380)
@@ -743,10 +838,10 @@ def efficientnet_b4(
     desc_args={"optim-perf": ("se_mod", True)},
 )
 def efficientnet_b5(
-    num_classes: int = 1000,
-    class_type: str = "single",
-    dropout: float = 0.4,
-    se_mod: bool = False,
+        num_classes: int = 1000,
+        class_type: str = "single",
+        dropout: float = 0.4,
+        se_mod: bool = False,
 ) -> EfficientNet:
     """
     EfficientNet B5 implementation; expected input shape is (B, 3, 456, 456)
@@ -788,10 +883,10 @@ def efficientnet_b5(
     desc_args={"optim-perf": ("se_mod", True)},
 )
 def efficientnet_b6(
-    num_classes: int = 1000,
-    class_type: str = "single",
-    dropout: float = 0.5,
-    se_mod: bool = False,
+        num_classes: int = 1000,
+        class_type: str = "single",
+        dropout: float = 0.5,
+        se_mod: bool = False,
 ) -> EfficientNet:
     """
     EfficientNet B6 implementation; expected input shape is (B, 3, 528, 528)
@@ -833,10 +928,10 @@ def efficientnet_b6(
     desc_args={"optim-perf": ("se_mod", True)},
 )
 def efficientnet_b7(
-    num_classes: int = 1000,
-    class_type: str = "single",
-    dropout: float = 0.5,
-    se_mod: bool = False,
+        num_classes: int = 1000,
+        class_type: str = "single",
+        dropout: float = 0.5,
+        se_mod: bool = False,
 ) -> EfficientNet:
     """
     EfficientNet B0 implementation; expected input shape is (B, 3, 600, 600)
@@ -859,6 +954,100 @@ def efficientnet_b7(
     return EfficientNet(
         sec_settings=sec_settings,
         out_channels=out_channels,
+        num_classes=num_classes,
+        class_type=class_type,
+        dropout=dropout,
+    )
+
+@ModelRegistry.register(
+    key=["efficientnet_v2_s", "efficientnet_v2-s", "efficientnetv2-s", "efficientnetv2_s"],
+    input_shape=(3, 384, 384),
+    domain="cv",
+    sub_domain="classification",
+    architecture="efficientnet_v2",
+    sub_architecture="s",
+    default_dataset="imagenet",
+    default_desc="base",
+    def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
+    desc_args={},
+)
+
+def efficientnet_v2_s(
+        num_classes: int = 1000,
+        class_type: str = "single",
+        dropout: float = 0.2,
+        se_mod: bool = False,
+) -> EfficientNet:
+    """
+    EfficientNetV2-s implementation; expected input shape is (B, 3, 384, 384)
+
+    :param num_classes: the number of classes to classify
+    :param class_type: one of [single, multi] to support multi class training;
+        default single
+    :param dropout: the amount of dropout to use while training
+    :return: The created EfficientNet_V2-S Module
+    """
+
+    sec_settings = [
+        EfficientNetSectionSettings(
+            num_blocks=2,
+            in_channels=24,
+            out_channels=24,
+            kernel_size=3,
+            expansion_ratio=1,
+            stride=1,
+        ),
+        EfficientNetSectionSettings(
+            num_blocks=4,
+            in_channels=24,
+            out_channels=48,
+            kernel_size=3,
+            expansion_ratio=4,
+            stride=2,
+        ),
+        EfficientNetSectionSettings(
+            num_blocks=4,
+            in_channels=48,
+            out_channels=64,
+            kernel_size=3,
+            expansion_ratio=4,
+            stride=2,
+        ),
+        EfficientNetSectionSettings(
+            num_blocks=6,
+            in_channels=64,
+            out_channels=128,
+            kernel_size=3,
+            expansion_ratio=4,
+            stride=2,
+            se_ratio=0.25,
+            se_mod=se_mod,
+        ),
+        EfficientNetSectionSettings(
+            num_blocks=9,
+            in_channels=128,
+            out_channels=160,
+            kernel_size=3,
+            expansion_ratio=6,
+            stride=1,
+            se_ratio=0.25,
+            se_mod=se_mod,
+        ),
+        EfficientNetSectionSettings(
+            num_blocks=15,
+            in_channels=160,
+            out_channels=256,
+            kernel_size=3,
+            expansion_ratio=6,
+            stride=2,
+            se_ratio=0.25,
+            se_mod=se_mod,
+        ),
+    ]
+
+    return EfficientNet(
+        sec_settings=sec_settings,
+        out_channels=1280,
         num_classes=num_classes,
         class_type=class_type,
         dropout=dropout,
