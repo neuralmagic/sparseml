@@ -1222,8 +1222,8 @@ def efficientnet_v2_l(
     sec_settings = [
         EfficientNetSectionSettings(
             num_blocks=4,
-            in_channels=43,
-            out_channels=43,
+            in_channels=32,
+            out_channels=32,
             kernel_size=3,
             expansion_ratio=1,
             stride=1,
