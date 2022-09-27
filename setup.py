@@ -46,6 +46,7 @@ _deps = [
     "pydantic>=1.5.0",
     "requests>=2.0.0",
     "scikit-image>=0.15.0",
+    "scikit-learn>=0.24.2",
     "scipy>=1.0.0",
     "tqdm>=4.0.0",
     "toposort>=1.0",
