@@ -1081,6 +1081,20 @@ def efficientnet_v2_s(
         bn_kwargs={"eps": 1.e-03}
     )
 
+
+@ModelRegistry.register(
+    key=["efficientnet_v2_m", "efficientnet_v2-m", "efficientnetv2-m", "efficientnetv2_m"],
+    input_shape=(3, 480, 480),
+    domain="cv",
+    sub_domain="classification",
+    architecture="efficientnet_v2",
+    sub_architecture="m",
+    default_dataset="imagenet",
+    default_desc="base",
+    def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
+    desc_args={"optim-perf": ("se_mod", True)},
+)
+
 def efficientnet_v2_m(
         num_classes: int = 1000,
         class_type: str = "single",
@@ -1175,6 +1189,19 @@ def efficientnet_v2_m(
         dropout=dropout,
         bn_kwargs={"eps": 1.e-03}
     )
+
+@ModelRegistry.register(
+    key=["efficientnet_v2_l", "efficientnet_v2-l", "efficientnetv2-l", "efficientnetv2_l"],
+    input_shape=(3, 480, 480),
+    domain="cv",
+    sub_domain="classification",
+    architecture="efficientnet_v2",
+    sub_architecture="l",
+    default_dataset="imagenet",
+    default_desc="base",
+    def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
+    desc_args={"optim-perf": ("se_mod", True)},
+)
 
 def efficientnet_v2_l(
         num_classes: int = 1000,
