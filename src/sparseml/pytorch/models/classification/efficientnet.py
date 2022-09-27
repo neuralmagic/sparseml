@@ -320,6 +320,7 @@ class _Classifier(Module):
             classes: int,
             dropout: float,
             class_type: str,
+            bn_kwargs: Optional[Mapping],
     ):
         super().__init__()
         self.conv = Conv2d(
@@ -328,7 +329,9 @@ class _Classifier(Module):
             kernel_size=1,
             bias=False,
         )
-        self.bn = BatchNorm2d(num_features=out_channels)
+        if bn_kwargs is None:
+            bn_kwargs = {}
+        self.bn = BatchNorm2d(num_features=out_channels, **bn_kwargs)
         self.act = SiLU()
         self.pool = AdaptiveAvgPool2d(1)
         self.dropout = Dropout(p=dropout)
@@ -451,6 +454,7 @@ class EfficientNet(Module):
             classes=num_classes,
             dropout=dropout,
             class_type=class_type,
+            bn_kwargs=bn_kwargs,
         )
 
     def forward(self, inp: Tensor) -> Tuple[Tensor, Tensor]:
