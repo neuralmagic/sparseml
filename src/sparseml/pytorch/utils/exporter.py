@@ -492,7 +492,7 @@ def export_onnx(
         opset_version=opset,
         dynamic_axes=dynamic_axes,
         do_constant_folding=not module.training,
-        keep_initializers_as_inputs=True,
+        keep_initializers_as_inputs=False,
         **export_kwargs,
     )
 
@@ -539,7 +539,7 @@ def export_onnx(
                 f"Unable to skip input QuantizeLinear op with exception {e}"
             )
 
-    onnx.checker.check_model(file_path)
+    # onnx.checker.check_model(file_path)
 
 
 def _get_output_names(out: Any):
