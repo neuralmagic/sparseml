@@ -36,6 +36,7 @@ from sparseml.pytorch.sparsification.pruning.modifier_pruning_base import (
 from sparseml.pytorch.sparsification.pruning.scorer import PruningParamsGradScorer
 from sparseml.pytorch.utils import GradSampler
 from sparseml.pytorch.utils.logger import BaseLogger
+from sparseml.utils import interpolate
 
 
 __all__ = [
@@ -121,6 +122,8 @@ class OBSPruningModifier(BaseGradualPruningModifier):
         approximation, default is 50
     :param grad_sampler_kwargs: kwargs to override default train dataloader config
         for pruner's gradient sampling.
+    :param num_recomputations: number of recomputations of the inverse Hessian
+        approximation while performing one pruning step
     """
 
     def __init__(
@@ -139,6 +142,7 @@ class OBSPruningModifier(BaseGradualPruningModifier):
         damp: float = 1e-7,
         fisher_block_size: int = 50,
         grad_sampler_kwargs: Optional[Dict[str, Any]] = None,
+        num_recomputations: int = 1,
     ):
         super().__init__(
             params=params,
@@ -157,6 +161,8 @@ class OBSPruningModifier(BaseGradualPruningModifier):
         self._damp = damp
         self._fisher_block_size = fisher_block_size
         self._grad_sampler_kwargs = grad_sampler_kwargs
+        self._num_recomputations = num_recomputations
+        self._last_applied_sparsity = 0.0  # keep track for recomputations
 
         self._grad_sampler = None
         self._supported_masks = ("unstructured", "block4")
@@ -197,6 +203,14 @@ class OBSPruningModifier(BaseGradualPruningModifier):
         :return: dict of training dataloader's overridden configs for gradient sampling
         """
         return self._grad_sampler_kwargs
+
+    @ModifierProp()
+    def num_recomputations(self) -> int:
+        """
+        :return: number of recomputations of the inverse Hessian approximation
+            while doing one pruning step
+        """
+        return self._num_recomputations
 
     def initialize(
         self,
@@ -248,14 +262,41 @@ class OBSPruningModifier(BaseGradualPruningModifier):
         _LOGGER.info("Running OBS Pruning")
         torch.cuda.empty_cache()
         if self._scorer._is_main_proc:
-            # collect grads for empirical inverse Fisher estimation
-            self._scorer._enabled_grad_buffering = True
-            self._collect_grad_samples(module, self._grad_sampler)
             self._pre_step_completed = True
-            self._scorer._enabled_grad_buffering = False
+            self._scorer._enabled_grad_buffering = True
+            to_apply_sparsities = self.get_applied_sparsity_for_epoch(
+                epoch, steps_per_epoch
+            )
+            last_applied_sparsities = (
+                self._last_applied_sparsity
+                if isinstance(self._last_applied_sparsity, List)
+                else [self._last_applied_sparsity] * len(to_apply_sparsities)
+            )
 
-        super().check_mask_update(module, epoch, steps_per_epoch, **kwargs)
-        torch.cuda.empty_cache()
+            for i in range(1, self._num_recomputations + 1):
+                self._collect_grad_samples(module, self._grad_sampler)
+                recomputation_sparsity = [
+                    interpolate(
+                        i,
+                        0,
+                        self._num_recomputations,
+                        start_sparsity,
+                        target_sparsity,
+                    )
+                    for start_sparsity, target_sparsity in zip(
+                        last_applied_sparsities, to_apply_sparsities
+                    )
+                ]
+                super().check_mask_update(
+                    module,
+                    epoch,
+                    steps_per_epoch,
+                    recomputation_sparsity=recomputation_sparsity,
+                )
+
+            torch.cuda.empty_cache()
+            self._scorer._enabled_grad_buffering = False
+            self._last_applied_sparsity = to_apply_sparsities
 
     def _get_mask_creator(
         self, param_names: List[str], params: List[Parameter]

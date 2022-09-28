@@ -347,7 +347,12 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         self.check_mask_update(module, epoch, steps_per_epoch)
 
     def check_mask_update(
-        self, module: Module, epoch: float, steps_per_epoch: int, **kwargs
+        self,
+        module: Module,
+        epoch: float,
+        steps_per_epoch: int,
+        recomputation_sparsity: Optional[float] = None,
+        **kwargs,
     ):
         """
         Update mask values if necessary
@@ -373,7 +378,9 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
                 epoch, steps_per_epoch
             )
 
-            self._module_masks.update_param_masks(target=self._applied_sparsity)
+            self._module_masks.update_param_masks(
+                target=recomputation_sparsity or self._applied_sparsity
+            )
             self._sparsity_applied = True
 
         if self.end_pending(epoch, steps_per_epoch):
