@@ -19,7 +19,7 @@ Further info can be found in the paper `here <https://arxiv.org/abs/1905.11946>`
 
 import math
 from collections import OrderedDict
-from typing import List, Optional, Tuple, Union, Mapping
+from typing import List, Mapping, Optional, Tuple, Union
 
 import torch
 from torch import Tensor
@@ -36,6 +36,7 @@ from torch.nn import (
     Softmax,
 )
 
+
 try:
     from torch.nn.quantized import FloatFunctional
 except Exception:
@@ -43,6 +44,7 @@ except Exception:
 
 from sparseml.pytorch.models.registry import ModelRegistry
 from sparseml.pytorch.nn import SqueezeExcite
+
 
 __all__ = [
     "EfficientNet",
@@ -93,15 +95,15 @@ class QATSiLU(SiLU):
 
 class _InvertedBottleneckBlock(Module):
     def __init__(
-            self,
-            in_channels: int,
-            out_channels: int,
-            kernel_size: int,
-            expansion_ratio: int,
-            stride: int,
-            se_ratio: Optional[float],
-            se_mod: bool,
-            bn_kwargs: Optional[Mapping] = None,
+        self,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: int,
+        expansion_ratio: int,
+        stride: int,
+        se_ratio: Optional[float],
+        se_mod: bool,
+        bn_kwargs: Optional[Mapping] = None,
     ):
         super().__init__()
         self._in_channels = in_channels
@@ -132,7 +134,10 @@ class _InvertedBottleneckBlock(Module):
                                 bias=False,
                             ),
                         ),
-                        ("bn", BatchNorm2d(num_features=expanded_channels, **bn_kwargs)),
+                        (
+                            "bn",
+                            BatchNorm2d(num_features=expanded_channels, **bn_kwargs),
+                        ),
                         (
                             "act",
                             QATSiLU() if squeezed_channels else SiLU(),
@@ -228,13 +233,13 @@ class _InvertedBottleneckBlock(Module):
 
 class _FusedInvertedBottleneckBlock(Module):
     def __init__(
-            self,
-            in_channels: int,
-            out_channels: int,
-            kernel_size: int,
-            expansion_ratio: int,
-            stride: int,
-            bn_kwargs: Optional[Mapping] = None,
+        self,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: int,
+        expansion_ratio: int,
+        stride: int,
+        bn_kwargs: Optional[Mapping] = None,
     ):
         super().__init__()
         self._in_channels = in_channels
@@ -253,25 +258,26 @@ class _FusedInvertedBottleneckBlock(Module):
             projection_layer = True
 
         spatial_padding = (kernel_size - 1) // 2
-        self.expand = (
-            Sequential(
-                OrderedDict(
-                    [
-                        (
-                            "conv",
-                            Conv2d(
-                                in_channels=in_channels,
-                                out_channels=expanded_channels,
-                                kernel_size=kernel_size,
-                                bias=False,
-                                padding=spatial_padding,
-                                stride=stride,
-                            ),
+        self.expand = Sequential(
+            OrderedDict(
+                [
+                    (
+                        "conv",
+                        Conv2d(
+                            in_channels=in_channels,
+                            out_channels=expanded_channels,
+                            kernel_size=kernel_size,
+                            bias=False,
+                            padding=spatial_padding,
+                            stride=stride,
                         ),
-                        ("bn", BatchNorm2d(num_features=expanded_channels, **bn_kwargs)),
-                        ("act", SiLU(),),
-                    ]
-                )
+                    ),
+                    ("bn", BatchNorm2d(num_features=expanded_channels, **bn_kwargs)),
+                    (
+                        "act",
+                        SiLU(),
+                    ),
+                ]
             )
         )
 
@@ -314,13 +320,13 @@ class _FusedInvertedBottleneckBlock(Module):
 
 class _Classifier(Module):
     def __init__(
-            self,
-            in_channels: int,
-            out_channels: int,
-            classes: int,
-            dropout: float,
-            class_type: str,
-            bn_kwargs: Optional[Mapping],
+        self,
+        in_channels: int,
+        out_channels: int,
+        classes: int,
+        dropout: float,
+        class_type: str,
+        bn_kwargs: Optional[Mapping],
     ):
         super().__init__()
         self.conv = Conv2d(
@@ -376,16 +382,16 @@ class EfficientNetSectionSettings(object):
     """
 
     def __init__(
-            self,
-            num_blocks: int,
-            in_channels: int,
-            out_channels: int,
-            kernel_size: int,
-            expansion_ratio: int,
-            stride: int,
-            se_ratio: Optional[float] = None,
-            se_mod: bool = False,
-            is_fused: bool = False,
+        self,
+        num_blocks: int,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: int,
+        expansion_ratio: int,
+        stride: int,
+        se_ratio: Optional[float] = None,
+        se_mod: bool = False,
+        is_fused: bool = False,
     ):
         self.num_blocks = num_blocks
         self.in_channels = in_channels
@@ -411,13 +417,13 @@ class EfficientNet(Module):
     """
 
     def __init__(
-            self,
-            sec_settings: List[EfficientNetSectionSettings],
-            out_channels: int,
-            num_classes: int,
-            class_type: str,
-            dropout: float,
-            bn_kwargs: Optional[Mapping] = None,
+        self,
+        sec_settings: List[EfficientNetSectionSettings],
+        out_channels: int,
+        num_classes: int,
+        class_type: str,
+        dropout: float,
+        bn_kwargs: Optional[Mapping] = None,
     ):
         super().__init__()
 
@@ -440,13 +446,21 @@ class EfficientNet(Module):
                             bias=False,
                         ),
                     ),
-                    ("bn", BatchNorm2d(num_features=sec_settings[0].in_channels, **_bn_kwargs)),
+                    (
+                        "bn",
+                        BatchNorm2d(
+                            num_features=sec_settings[0].in_channels, **_bn_kwargs
+                        ),
+                    ),
                     ("act", SiLU()),
                 ]
             )
         )
         self.sections = Sequential(
-            *[EfficientNet.create_section(settings, bn_kwargs) for settings in sec_settings]
+            *[
+                EfficientNet.create_section(settings, bn_kwargs)
+                for settings in sec_settings
+            ]
         )
         self.classifier = _Classifier(
             in_channels=sec_settings[-1].out_channels,
@@ -466,8 +480,8 @@ class EfficientNet(Module):
 
     @staticmethod
     def create_section(
-            settings: EfficientNetSectionSettings,
-            bn_kwargs:Optional[Mapping],
+        settings: EfficientNetSectionSettings,
+        bn_kwargs: Optional[Mapping],
     ) -> Sequential:
         assert settings.num_blocks > 0
 
@@ -479,7 +493,9 @@ class EfficientNet(Module):
             if settings.is_fused:
                 blocks.append(
                     _FusedInvertedBottleneckBlock(
-                        in_channels=in_channels if block == 0 else settings.out_channels,
+                        in_channels=in_channels
+                        if block == 0
+                        else settings.out_channels,
                         out_channels=settings.out_channels,
                         kernel_size=settings.kernel_size,
                         expansion_ratio=settings.expansion_ratio,
@@ -490,7 +506,9 @@ class EfficientNet(Module):
             else:
                 blocks.append(
                     _InvertedBottleneckBlock(
-                        in_channels=in_channels if block == 0 else settings.out_channels,
+                        in_channels=in_channels
+                        if block == 0
+                        else settings.out_channels,
                         out_channels=settings.out_channels,
                         kernel_size=settings.kernel_size,
                         expansion_ratio=settings.expansion_ratio,
@@ -531,7 +549,7 @@ def _scale_num_blocks(blocks: int, depth_mult: float) -> int:
 
 
 def _create_section_settings(
-        width_mult: float, depth_mult: float, se_mod: bool
+    width_mult: float, depth_mult: float, se_mod: bool
 ) -> Tuple[List[EfficientNetSectionSettings], int]:
     # return section settings as well as the out channels as tuple
     return (
@@ -610,6 +628,7 @@ def _create_section_settings(
         _scale_num_channels(1280, width_mult),
     )
 
+
 def _efficient_net_params(model_name):
     # Coefficients: width, depth, dropout, in_size
     params_dict = {
@@ -638,10 +657,10 @@ def _efficient_net_params(model_name):
     desc_args={"optim-perf": ("se_mod", True)},
 )
 def efficientnet_b0(
-        num_classes: int = 1000,
-        class_type: str = "single",
-        dropout: float = 0.2,
-        se_mod: bool = False,
+    num_classes: int = 1000,
+    class_type: str = "single",
+    dropout: float = 0.2,
+    se_mod: bool = False,
 ) -> EfficientNet:
     """
     EfficientNet B0 implementation; expected input shape is (B, 3, 224, 224)
@@ -683,10 +702,10 @@ def efficientnet_b0(
     desc_args={"optim-perf": ("se_mod", True)},
 )
 def efficientnet_b1(
-        num_classes: int = 1000,
-        class_type: str = "single",
-        dropout: float = 0.2,
-        se_mod: bool = False,
+    num_classes: int = 1000,
+    class_type: str = "single",
+    dropout: float = 0.2,
+    se_mod: bool = False,
 ) -> EfficientNet:
     """
     EfficientNet B1 implementation; expected input shape is (B, 3, 240, 240)
@@ -728,10 +747,10 @@ def efficientnet_b1(
     desc_args={"optim-perf": ("se_mod", True)},
 )
 def efficientnet_b2(
-        num_classes: int = 1000,
-        class_type: str = "single",
-        dropout: float = 0.3,
-        se_mod: bool = False,
+    num_classes: int = 1000,
+    class_type: str = "single",
+    dropout: float = 0.3,
+    se_mod: bool = False,
 ) -> EfficientNet:
     """
     EfficientNet B2 implementation; expected input shape is (B, 3, 260, 260)
@@ -773,10 +792,10 @@ def efficientnet_b2(
     desc_args={"optim-perf": ("se_mod", True)},
 )
 def efficientnet_b3(
-        num_classes: int = 1000,
-        class_type: str = "single",
-        dropout: float = 0.3,
-        se_mod: bool = False,
+    num_classes: int = 1000,
+    class_type: str = "single",
+    dropout: float = 0.3,
+    se_mod: bool = False,
 ) -> EfficientNet:
     """
     EfficientNet B3 implementation; expected input shape is (B, 3, 300, 300)
@@ -818,10 +837,10 @@ def efficientnet_b3(
     desc_args={"optim-perf": ("se_mod", True)},
 )
 def efficientnet_b4(
-        num_classes: int = 1000,
-        class_type: str = "single",
-        dropout: float = 0.4,
-        se_mod: bool = False,
+    num_classes: int = 1000,
+    class_type: str = "single",
+    dropout: float = 0.4,
+    se_mod: bool = False,
 ) -> EfficientNet:
     """
     EfficientNet B4 implementation; expected input shape is (B, 3, 380, 380)
@@ -863,10 +882,10 @@ def efficientnet_b4(
     desc_args={"optim-perf": ("se_mod", True)},
 )
 def efficientnet_b5(
-        num_classes: int = 1000,
-        class_type: str = "single",
-        dropout: float = 0.4,
-        se_mod: bool = False,
+    num_classes: int = 1000,
+    class_type: str = "single",
+    dropout: float = 0.4,
+    se_mod: bool = False,
 ) -> EfficientNet:
     """
     EfficientNet B5 implementation; expected input shape is (B, 3, 456, 456)
@@ -892,7 +911,7 @@ def efficientnet_b5(
         num_classes=num_classes,
         class_type=class_type,
         dropout=dropout,
-        bn_kwargs={"eps": 1.e-03, "momentum": 0.01}
+        bn_kwargs={"eps": 1.0e-03, "momentum": 0.01},
     )
 
 
@@ -909,10 +928,10 @@ def efficientnet_b5(
     desc_args={"optim-perf": ("se_mod", True)},
 )
 def efficientnet_b6(
-        num_classes: int = 1000,
-        class_type: str = "single",
-        dropout: float = 0.5,
-        se_mod: bool = False,
+    num_classes: int = 1000,
+    class_type: str = "single",
+    dropout: float = 0.5,
+    se_mod: bool = False,
 ) -> EfficientNet:
     """
     EfficientNet B6 implementation; expected input shape is (B, 3, 528, 528)
@@ -938,7 +957,7 @@ def efficientnet_b6(
         num_classes=num_classes,
         class_type=class_type,
         dropout=dropout,
-        bn_kwargs={"eps": 1.e-03, "momentum": 0.01}
+        bn_kwargs={"eps": 1.0e-03, "momentum": 0.01},
     )
 
 
@@ -955,10 +974,10 @@ def efficientnet_b6(
     desc_args={"optim-perf": ("se_mod", True)},
 )
 def efficientnet_b7(
-        num_classes: int = 1000,
-        class_type: str = "single",
-        dropout: float = 0.5,
-        se_mod: bool = False,
+    num_classes: int = 1000,
+    class_type: str = "single",
+    dropout: float = 0.5,
+    se_mod: bool = False,
 ) -> EfficientNet:
     """
     EfficientNet B0 implementation; expected input shape is (B, 3, 600, 600)
@@ -984,11 +1003,17 @@ def efficientnet_b7(
         num_classes=num_classes,
         class_type=class_type,
         dropout=dropout,
-        bn_kwargs={"eps": 1.e-03, "momentum": 0.01}
+        bn_kwargs={"eps": 1.0e-03, "momentum": 0.01},
     )
 
+
 @ModelRegistry.register(
-    key=["efficientnet_v2_s", "efficientnet_v2-s", "efficientnetv2-s", "efficientnetv2_s"],
+    key=[
+        "efficientnet_v2_s",
+        "efficientnet_v2-s",
+        "efficientnetv2-s",
+        "efficientnetv2_s",
+    ],
     input_shape=(3, 384, 384),
     domain="cv",
     sub_domain="classification",
@@ -999,12 +1024,11 @@ def efficientnet_b7(
     def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
     desc_args={"optim-perf": ("se_mod", True)},
 )
-
 def efficientnet_v2_s(
-        num_classes: int = 1000,
-        class_type: str = "single",
-        dropout: float = 0.2,
-        se_mod: bool = False,
+    num_classes: int = 1000,
+    class_type: str = "single",
+    dropout: float = 0.2,
+    se_mod: bool = False,
 ) -> EfficientNet:
     """
     EfficientNetV2-s implementation; expected input shape is (B, 3, 384, 384)
@@ -1082,12 +1106,17 @@ def efficientnet_v2_s(
         num_classes=num_classes,
         class_type=class_type,
         dropout=dropout,
-        bn_kwargs={"eps": 1.e-03}
+        bn_kwargs={"eps": 1.0e-03},
     )
 
 
 @ModelRegistry.register(
-    key=["efficientnet_v2_m", "efficientnet_v2-m", "efficientnetv2-m", "efficientnetv2_m"],
+    key=[
+        "efficientnet_v2_m",
+        "efficientnet_v2-m",
+        "efficientnetv2-m",
+        "efficientnetv2_m",
+    ],
     input_shape=(3, 480, 480),
     domain="cv",
     sub_domain="classification",
@@ -1098,12 +1127,11 @@ def efficientnet_v2_s(
     def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
     desc_args={"optim-perf": ("se_mod", True)},
 )
-
 def efficientnet_v2_m(
-        num_classes: int = 1000,
-        class_type: str = "single",
-        dropout: float = 0.3,
-        se_mod: bool = False,
+    num_classes: int = 1000,
+    class_type: str = "single",
+    dropout: float = 0.3,
+    se_mod: bool = False,
 ) -> EfficientNet:
     """
     EfficientNetV2-m implementation; expected input shape is (B, 3, 480, 480)
@@ -1191,11 +1219,17 @@ def efficientnet_v2_m(
         num_classes=num_classes,
         class_type=class_type,
         dropout=dropout,
-        bn_kwargs={"eps": 1.e-03}
+        bn_kwargs={"eps": 1.0e-03},
     )
 
+
 @ModelRegistry.register(
-    key=["efficientnet_v2_l", "efficientnet_v2-l", "efficientnetv2-l", "efficientnetv2_l"],
+    key=[
+        "efficientnet_v2_l",
+        "efficientnet_v2-l",
+        "efficientnetv2-l",
+        "efficientnetv2_l",
+    ],
     input_shape=(3, 480, 480),
     domain="cv",
     sub_domain="classification",
@@ -1206,12 +1240,11 @@ def efficientnet_v2_m(
     def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
     desc_args={"optim-perf": ("se_mod", True)},
 )
-
 def efficientnet_v2_l(
-        num_classes: int = 1000,
-        class_type: str = "single",
-        dropout: float = 0.4,
-        se_mod: bool = False,
+    num_classes: int = 1000,
+    class_type: str = "single",
+    dropout: float = 0.4,
+    se_mod: bool = False,
 ) -> EfficientNet:
     """
     EfficientNetV2-l implementation; expected input shape is (B, 3, 480, 480)
@@ -1299,5 +1332,5 @@ def efficientnet_v2_l(
         num_classes=num_classes,
         class_type=class_type,
         dropout=dropout,
-        bn_kwargs={"eps": 1.e-03}
+        bn_kwargs={"eps": 1.0e-03},
     )
