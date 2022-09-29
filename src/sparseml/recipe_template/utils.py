@@ -12,17 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Union
 
+from torch.nn import Module
+
+from sparseml.optim import BaseModifier
 from sparseml.pytorch.sparsification import (
     ACDCPruningModifier,
-    GMPruningModifier,
-    MagnitudePruningModifier,
-    Modifier,
+    EpochRangeModifier, GMPruningModifier,
+    LearningRateFunctionModifier, MagnitudePruningModifier,
     QuantizationModifier,
 )
+from sparseml.pytorch.utils import get_prunable_layers, get_quantizable_layers
 from sparseml.sparsification import ModifierYAMLBuilder
-
 
 __all__ = [
     "ModifierBuildInfo",
@@ -43,7 +45,7 @@ class ModifierBuildInfo:
 
     def __init__(
         self,
-        modifier: Modifier,
+        modifier: BaseModifier,
         modifier_name: str = "mod",
         fields: Optional[Dict[str, Any]] = None,
     ):
