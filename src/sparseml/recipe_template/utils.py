@@ -18,12 +18,16 @@ from torch.nn import Module
 
 from sparseml.pytorch.sparsification import (
     ACDCPruningModifier,
-    EpochRangeModifier, GMPruningModifier,
-    LearningRateFunctionModifier, MagnitudePruningModifier,
-    Modifier, QuantizationModifier,
+    EpochRangeModifier,
+    GMPruningModifier,
+    LearningRateFunctionModifier,
+    MagnitudePruningModifier,
+    Modifier,
+    QuantizationModifier,
 )
 from sparseml.pytorch.utils import get_prunable_layers, get_quantizable_layers
 from sparseml.sparsification import ModifierYAMLBuilder
+
 
 __all__ = [
     "ModifierBuildInfo",
@@ -150,6 +154,7 @@ _QUANTIZATION_MODIFIER_INFO_REGISTRY = {
 
 # getters
 
+
 def get_quantization_info(
     quantization: Union[str, bool] = False,
     target: str = "vnni",
@@ -237,7 +242,8 @@ def get_training_info(lr_func: str = "linear") -> List[ModifierBuildInfo]:
         fields={
             "start_epoch": 0.0,
             "end_epoch": 10,
-        })
+        },
+    )
     lr_modifier_info = ModifierBuildInfo(
         modifier=LearningRateFunctionModifier,
         modifier_name="lr_function_mod",
@@ -247,6 +253,7 @@ def get_training_info(lr_func: str = "linear") -> List[ModifierBuildInfo]:
             "lr_func": lr_func,
             "init_lr": "1e-3",
             "final_lr": "1e-8",
-        })
+        },
+    )
 
     return [epoch_modifier_info, lr_modifier_info]
