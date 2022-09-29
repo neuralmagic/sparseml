@@ -528,6 +528,7 @@ def export_onnx(
 
     # onnx file fixes
     onnx_model = onnx.load(file_path)
+    _fold_identity_initializers(onnx_model)
     # fix changed batch norm names
     _fix_batch_norm_names(onnx_model)
     if batch_norms_wrapped:
@@ -631,6 +632,35 @@ def _save_label_to_class_mapping(
     _LOGGER.info(
         f"Appended {key_name} data to {CONFIG_JSON_NAME} at {config_file_path}"
     )
+
+
+def _fold_identity_initializers(model: onnx.ModelProto):
+    # folds any Identity nodes that have a single input (which is an initializer)
+    # and a single output
+    matches = []
+
+    def is_match(node: onnx.NodeProto) -> bool:
+        return (
+            node.op_type == "Identity"
+            and len(node.input) == 1
+            and len(node.output) == 1
+            and any(node.input[0] == init.name for init in model.graph.initializer)
+        )
+
+    for match in model.graph.node:
+        if not is_match(match):
+            continue
+        matches.append(match)
+
+        # find any node in the graph that uses the output of `match`
+        # as an input. replace the input with `match`'s input
+        for other in model.graph.node:
+            for i in range(len(other.input)):
+                if other.input[i] == match.output[0]:
+                    other.input[i] = match.input[0]
+
+    for node in matches:
+        model.graph.node.remove(node)
 
 
 def _get_output_names(out: Any):
