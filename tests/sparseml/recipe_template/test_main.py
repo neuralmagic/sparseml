@@ -12,16 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from subprocess import PIPE, run
+import pytest
 
 from sparseml import recipe_template
+from sparseml.pytorch.optim import ScheduledModifierManager
 
 
-def test_cli_entrypoint_invocation():
-    output = run(["sparseml.recipe_template"], stdout=PIPE, stderr=PIPE)
-    assert "EpochRangeModifier" in output.stdout.decode()
-    assert "LearningRateFunctionModifier" in output.stdout.decode()
-
-
-def test_function_entrypoint():
-    recipe_template()
+@pytest.mark.parametrize(
+    "pruning, quantization, kwargs",
+    [
+        (True, True, {}),
+        ("true", "true", {}),
+        ("false", "False", {}),
+        ("acdc", "false", {}),
+    ],
+)
+def test_recipe_template_returns_a_loadable_recipe(pruning, quantization, kwargs):
+    actual = recipe_template(pruning=pruning, quantization=quantization, **kwargs)
+    assert actual
+    ScheduledModifierManager.from_yaml(file_path=actual)

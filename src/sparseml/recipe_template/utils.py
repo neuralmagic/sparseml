@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+from collections import defaultdict
 from typing import Any, Dict, List, Optional, Union
 
 from torch.nn import Module
@@ -26,7 +26,7 @@ from sparseml.pytorch.sparsification import (
     QuantizationModifier,
 )
 from sparseml.pytorch.utils import get_prunable_layers, get_quantizable_layers
-from sparseml.sparsification import ModifierYAMLBuilder
+from sparseml.sparsification import ModifierYAMLBuilder, RecipeYAMLBuilder
 
 
 __all__ = [
@@ -81,6 +81,37 @@ class ModifierBuildInfo:
             for the current object
         """
         return self.__modifier_recipe_variables
+
+    @staticmethod
+    def build_recipe_from_modifier_info(
+        modifier_info_groups: Dict[str, List["ModifierBuildInfo"]],
+        convert_to_md: bool = False,
+    ) -> str:
+        """
+        :param modifier_info_groups: A dict mapping b/w modifier group names
+            and List[ModifierBuildInfo] representing information for each modifier
+            in the group
+        :param convert_to_md: A boolean flag, if True the string is returned with
+            yaml front matter that can be embedded in a .md file
+        :return: A yaml or md string representing a valid recipe
+        """
+        recipe_variables = {}
+        modifier_groups = defaultdict(list)
+
+        for group_name, modifier_group in modifier_info_groups.items():
+            for modifier_info in modifier_group:
+                if modifier_info is not None:
+                    recipe_variables.update(modifier_info.modifier_recipe_variables)
+                    modifier_groups[group_name].append(modifier_info.modifier_builder)
+
+        recipe_builder = RecipeYAMLBuilder(
+            variables=recipe_variables,
+            modifier_groups=modifier_groups,
+        )
+
+        yaml_str = recipe_builder.build_yaml_str()
+
+        return f"---\n{yaml_str}\n---\n" if convert_to_md else yaml_str
 
 
 # PRUNING MODIFIERS INFO
