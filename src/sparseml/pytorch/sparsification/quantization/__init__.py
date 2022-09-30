@@ -16,4 +16,5 @@
 
 from .helpers import *
 from .modifier_quantization import *
+from .quantize import *
 from .quantize_qat_export import *
