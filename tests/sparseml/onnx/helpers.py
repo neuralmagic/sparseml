@@ -17,11 +17,8 @@ import os
 from typing import NamedTuple
 
 import pytest
-import torch
 
-from sparseml.pytorch.utils import ModuleExporter
 from sparsezoo import Model
-from tests.sparseml.pytorch.helpers import ConvNet, LinearNet, MLPNet
 
 
 __all__ = [

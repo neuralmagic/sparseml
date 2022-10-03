@@ -12,13 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
+import os
+
 import numpy
 import pytest
+import torch
 from onnx import TensorProto, load_model, numpy_helper
 from onnx.helper import make_graph, make_model, make_node, make_tensor_value_info
-from tests.sparseml.pytorch.helpers import ConvNet, LinearNet, MLPNet
-from sparseml.pytorch.utils import ModuleExporter
-import json
+from packaging import version
+
 from sparseml.onnx.utils import (
     NodeParam,
     SparsityMeasurement,
@@ -50,11 +53,11 @@ from sparseml.onnx.utils import (
     model_outputs,
     onnx_nodes_sparsities,
 )
+from sparseml.pytorch.utils import ModuleExporter
 from sparsezoo import search_models
-import os
-from packaging import version
+from tests.sparseml.pytorch.helpers import ConvNet, LinearNet, MLPNet
 
-import torch
+
 from tests.sparseml.onnx.helpers import (  # noqa isort: skip
     onnx_repo_models,
 )

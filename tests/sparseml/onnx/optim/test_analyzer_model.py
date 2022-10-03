@@ -16,13 +16,14 @@ import json
 import os
 
 import pytest
-
 import torch
+from packaging import version
+
 from sparseml.onnx.optim import ModelAnalyzer, NodeAnalyzer
 from sparseml.pytorch.utils import ModuleExporter
 from sparsezoo import Model
 from tests.sparseml.pytorch.helpers import ConvNet, LinearNet, MLPNet
-from packaging import version
+
 
 GENERATE_TEST_FILES = os.getenv("NM_ML_GENERATE_ONNX_TEST_DATA", False)
 GENERATE_TEST_FILES = False if GENERATE_TEST_FILES == "0" else GENERATE_TEST_FILES
