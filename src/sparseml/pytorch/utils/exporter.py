@@ -53,12 +53,13 @@ __all__ = [
     "export_onnx",
 ]
 
+_PARSED_TORCH_VERSION = version.parse(torch.__version__)
 
 DEFAULT_ONNX_OPSET = (
     9
-    if version.parse(torch.__version__) < version.parse("1.3")
+    if _PARSED_TORCH_VERSION < version.parse("1.3")
     else 10
-    if version.parse(torch.__version__) <= version.parse("1.9.2")
+    if _PARSED_TORCH_VERSION < version.parse("1.10.0")
     else 13
 )
 MODEL_ONNX_NAME = "model.onnx"
@@ -450,7 +451,7 @@ def export_onnx(
         See more on the torch.onnx.export api spec in the PyTorch docs:
         https://pytorch.org/docs/stable/onnx.html
     """
-    if opset < 13 and convert_qat:
+    if _PARSED_TORCH_VERSION >= version.parse("1.10.0") and opset < 13 and convert_qat:
         warnings.warn(
             "Exporting onnx with QAT and opset < 13 may result in errors. "
             "Please use opset>=13 with QAT. "
@@ -520,7 +521,7 @@ def export_onnx(
     )
     batch_norms_wrapped = False
     if (
-        version.parse(torch.__version__) >= version.parse("1.7")
+        _PARSED_TORCH_VERSION >= version.parse("1.7")
         and not is_quant_module
         and disable_bn_fusing
     ):
@@ -528,18 +529,24 @@ def export_onnx(
         # batch norm layer
         batch_norms_wrapped = _wrap_batch_norms(module)
 
-    torch.onnx.export(
-        module,
-        sample_batch,
-        file_path,
-        training=torch.onnx.TrainingMode.PRESERVE,
+    kwargs = dict(
+        model=module,
+        args=sample_batch,
+        f=file_path,
         verbose=False,
         opset_version=opset,
         dynamic_axes=dynamic_axes,
-        do_constant_folding=not module.training,
-        keep_initializers_as_inputs=False,
         **export_kwargs,
     )
+
+    if _PARSED_TORCH_VERSION < version.parse("1.10.0"):
+        kwargs["strip_doc_string"] = True
+    else:
+        kwargs["training"] = torch.onnx.TrainingMode.PRESERVE
+        kwargs["do_constant_folding"] = not module.training
+        kwargs["keep_initializers_as_inputs"] = False
+
+    torch.onnx.export(**kwargs)
 
     # re-enable disabled quantization observers
     for submodule in disabled_observers:
@@ -583,8 +590,6 @@ def export_onnx(
             _LOGGER.warning(
                 f"Unable to skip input QuantizeLinear op with exception {e}"
             )
-
-    # onnx.checker.check_model(file_path)
 
 
 def _copy_file(src: str, target: str):
