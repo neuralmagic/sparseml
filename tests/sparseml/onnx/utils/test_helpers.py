@@ -16,7 +16,9 @@ import numpy
 import pytest
 from onnx import TensorProto, load_model, numpy_helper
 from onnx.helper import make_graph, make_model, make_node, make_tensor_value_info
-
+from tests.sparseml.pytorch.helpers import ConvNet, LinearNet, MLPNet
+from sparseml.pytorch.utils import ModuleExporter
+import json
 from sparseml.onnx.utils import (
     NodeParam,
     SparsityMeasurement,
@@ -49,12 +51,17 @@ from sparseml.onnx.utils import (
     onnx_nodes_sparsities,
 )
 from sparsezoo import search_models
+import os
+from packaging import version
 
-
+import torch
 from tests.sparseml.onnx.helpers import (  # noqa isort: skip
-    extract_node_models,
     onnx_repo_models,
 )
+
+
+RELATIVE_PATH = os.path.dirname(os.path.realpath(__file__))
+TORCH_VERSION = version.parse(torch.__version__)
 
 
 @pytest.fixture
@@ -406,36 +413,41 @@ def test_onnx_node_sparsities():
             assert val.params_zero_count > 0
 
 
-def test_extract_node_shape(extract_node_models):  # noqa: F811
-    model_path, *expected_outputs = extract_node_models
-    onnx_model = load_model(model_path)
-    node_shapes = extract_node_shapes(onnx_model)
+@pytest.mark.parametrize(
+    "cls,fname",
+    [
+        (LinearNet, "LinearNet-single.json"),
+        (MLPNet, "MLPNet-single.json"),
+        (ConvNet, "ConvNet-batched.json"),
+    ],
+)
+def test_extract_node_shape(tmp_path, cls, fname):  # noqa: F811
+    module = cls()
+    data_path = os.path.join(
+        RELATIVE_PATH,
+        "data",
+        "node_models",
+        f"torch-{TORCH_VERSION.major}.{TORCH_VERSION.minor}",
+        fname,
+    )
+    with open(data_path) as fp:
+        expected = json.load(fp)
 
-    """
-    Depending whether we have test case written for legacy PyTorch
-    or both legacy and upgraded PyTorch, three lists below will have:
-    `len` of 1 (if only legacy PyTorch test case present)
-    `len` of 2 (if test case for legacy and upgraded PyTorch)
-    """
-    expected_outputs = [x for x in expected_outputs if x]
+    input_shape = expected["input_shape"]
 
-    """
-    If we have only one test case, it must must evaluate to True,
-    If we have two test cases, at least one must evaluate to True.
-    In other words, we are happy with test passing for legacy or
-    upgraded PyTorch (worst case scenario).
-    """
-    # make sure at least one of the expected outputs has the same shape as `node_shapes`
-    assert any(len(output) == len(node_shapes) for output in expected_outputs)
+    exporter = ModuleExporter(module, str(tmp_path))
+    exporter.export_onnx(sample_batch=torch.randn(*input_shape))
 
-    for expected_output in expected_outputs:
-        if len(expected_output) == len(node_shapes):
-            for expected, found in zip(expected_output.items(), node_shapes.items()):
-                expected_key, (expected_inp_shape, expected_out_shape) = expected
-                node_key, node = found
-                assert node_key == expected_key
-                assert node.input_shapes == expected_inp_shape
-                assert node.output_shapes == expected_out_shape
+    onnx_model = load_model(str(tmp_path / "model.onnx"))
+    found = extract_node_shapes(onnx_model)
+
+    assert len(expected["nodes"]) == len(found)
+    for found_item, expected_item in zip(found.items(), expected["nodes"].items()):
+        expected_key, (expected_inp_shape, expected_out_shape) = expected_item
+        node_key, node = found_item
+        assert node_key == expected_key
+        assert node.input_shapes == expected_inp_shape, node_key
+        assert node.output_shapes == expected_out_shape, node_key
 
 
 @pytest.mark.parametrize(
