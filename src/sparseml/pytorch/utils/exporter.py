@@ -655,9 +655,9 @@ def _fold_identity_initializers(model: onnx.ModelProto):
         # find any node in the graph that uses the output of `node`
         # as an input. replace the input with `node`'s input
         for other in model.graph.node:
-            for i in range(len(other.input)):
+            for i, other_input_i in enumerate(other.input):
                 # NOTE: this just replaces the str ids
-                if other.input[i] == node.output[0]:
+                if other_input_i == node.output[0]:
                     other.input[i] = node.input[0]
 
     for node in matches:
