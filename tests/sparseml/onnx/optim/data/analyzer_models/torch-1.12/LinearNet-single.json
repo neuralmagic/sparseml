@@ -1,0 +1,267 @@
+{
+    "input_shape": [
+        8
+    ],
+    "nodes": [
+        {
+            "attributes": {},
+            "bias_name": null,
+            "bias_shape": null,
+            "flops": 256.0,
+            "id": "onnx::Add_10",
+            "input_names": [
+                "input"
+            ],
+            "input_shapes": [
+                [
+                    8
+                ]
+            ],
+            "op_type": "MatMul",
+            "output_names": [
+                "onnx::Add_10"
+            ],
+            "output_shapes": [
+                [
+                    16
+                ]
+            ],
+            "params": 128,
+            "prunable": true,
+            "prunable_equation_sensitivity": 0.375,
+            "prunable_params": 128,
+            "prunable_params_zeroed": 0,
+            "weight_name": "onnx::MatMul_21",
+            "weight_shape": [
+                8,
+                16
+            ]
+        },
+        {
+            "attributes": {},
+            "bias_name": null,
+            "bias_shape": null,
+            "flops": 16.0,
+            "id": "onnx::MatMul_11",
+            "input_names": [
+                "onnx::Add_10"
+            ],
+            "input_shapes": [
+                [
+                    16
+                ]
+            ],
+            "op_type": "Add",
+            "output_names": [
+                "onnx::MatMul_11"
+            ],
+            "output_shapes": [
+                [
+                    16
+                ]
+            ],
+            "params": 0,
+            "prunable": false,
+            "prunable_equation_sensitivity": null,
+            "prunable_params": -1,
+            "prunable_params_zeroed": 0,
+            "weight_name": null,
+            "weight_shape": null
+        },
+        {
+            "attributes": {},
+            "bias_name": null,
+            "bias_shape": null,
+            "flops": 1024.0,
+            "id": "onnx::Add_13",
+            "input_names": [
+                "onnx::MatMul_11"
+            ],
+            "input_shapes": [
+                [
+                    16
+                ]
+            ],
+            "op_type": "MatMul",
+            "output_names": [
+                "onnx::Add_13"
+            ],
+            "output_shapes": [
+                [
+                    32
+                ]
+            ],
+            "params": 512,
+            "prunable": true,
+            "prunable_equation_sensitivity": 0.1875,
+            "prunable_params": 512,
+            "prunable_params_zeroed": 0,
+            "weight_name": "onnx::MatMul_22",
+            "weight_shape": [
+                16,
+                32
+            ]
+        },
+        {
+            "attributes": {},
+            "bias_name": null,
+            "bias_shape": null,
+            "flops": 32.0,
+            "id": "onnx::MatMul_14",
+            "input_names": [
+                "onnx::Add_13"
+            ],
+            "input_shapes": [
+                [
+                    32
+                ]
+            ],
+            "op_type": "Add",
+            "output_names": [
+                "onnx::MatMul_14"
+            ],
+            "output_shapes": [
+                [
+                    32
+                ]
+            ],
+            "params": 0,
+            "prunable": false,
+            "prunable_equation_sensitivity": null,
+            "prunable_params": -1,
+            "prunable_params_zeroed": 0,
+            "weight_name": null,
+            "weight_shape": null
+        },
+        {
+            "attributes": {},
+            "bias_name": null,
+            "bias_shape": null,
+            "flops": 1024.0,
+            "id": "onnx::Add_16",
+            "input_names": [
+                "onnx::MatMul_14"
+            ],
+            "input_shapes": [
+                [
+                    32
+                ]
+            ],
+            "op_type": "MatMul",
+            "output_names": [
+                "onnx::Add_16"
+            ],
+            "output_shapes": [
+                [
+                    16
+                ]
+            ],
+            "params": 512,
+            "prunable": true,
+            "prunable_equation_sensitivity": 0.1875,
+            "prunable_params": 512,
+            "prunable_params_zeroed": 0,
+            "weight_name": "onnx::MatMul_23",
+            "weight_shape": [
+                32,
+                16
+            ]
+        },
+        {
+            "attributes": {},
+            "bias_name": null,
+            "bias_shape": null,
+            "flops": 16.0,
+            "id": "onnx::MatMul_17",
+            "input_names": [
+                "onnx::Add_16"
+            ],
+            "input_shapes": [
+                [
+                    16
+                ]
+            ],
+            "op_type": "Add",
+            "output_names": [
+                "onnx::MatMul_17"
+            ],
+            "output_shapes": [
+                [
+                    16
+                ]
+            ],
+            "params": 0,
+            "prunable": false,
+            "prunable_equation_sensitivity": null,
+            "prunable_params": -1,
+            "prunable_params_zeroed": 0,
+            "weight_name": null,
+            "weight_shape": null
+        },
+        {
+            "attributes": {},
+            "bias_name": null,
+            "bias_shape": null,
+            "flops": 256.0,
+            "id": "onnx::Add_19",
+            "input_names": [
+                "onnx::MatMul_17"
+            ],
+            "input_shapes": [
+                [
+                    16
+                ]
+            ],
+            "op_type": "MatMul",
+            "output_names": [
+                "onnx::Add_19"
+            ],
+            "output_shapes": [
+                [
+                    8
+                ]
+            ],
+            "params": 128,
+            "prunable": true,
+            "prunable_equation_sensitivity": 0.375,
+            "prunable_params": 128,
+            "prunable_params_zeroed": 0,
+            "weight_name": "onnx::MatMul_24",
+            "weight_shape": [
+                16,
+                8
+            ]
+        },
+        {
+            "attributes": {},
+            "bias_name": null,
+            "bias_shape": null,
+            "flops": 8.0,
+            "id": "output",
+            "input_names": [
+                "onnx::Add_19"
+            ],
+            "input_shapes": [
+                [
+                    8
+                ]
+            ],
+            "op_type": "Add",
+            "output_names": [
+                "output"
+            ],
+            "output_shapes": [
+                [
+                    8
+                ]
+            ],
+            "params": 0,
+            "prunable": false,
+            "prunable_equation_sensitivity": null,
+            "prunable_params": -1,
+            "prunable_params_zeroed": 0,
+            "weight_name": null,
+            "weight_shape": null
+        }
+    ]
+}

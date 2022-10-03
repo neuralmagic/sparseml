@@ -1,0 +1,514 @@
+{
+    "input_shape": [
+        16,
+        3,
+        3,
+        3
+    ],
+    "nodes": [
+        {
+            "attributes": {
+                "dilations": [
+                    1,
+                    1
+                ],
+                "group": 1,
+                "kernel_shape": [
+                    3,
+                    3
+                ],
+                "pads": [
+                    1,
+                    1,
+                    1,
+                    1
+                ],
+                "strides": [
+                    2,
+                    2
+                ]
+            },
+            "bias_name": "seq.conv1.bias",
+            "bias_shape": [
+                16
+            ],
+            "flops": 27712.0,
+            "id": "7",
+            "input_names": [
+                "input"
+            ],
+            "input_shapes": [
+                [
+                    16,
+                    3,
+                    3,
+                    3
+                ]
+            ],
+            "op_type": "Conv",
+            "output_names": [
+                "7"
+            ],
+            "output_shapes": [
+                [
+                    16,
+                    16,
+                    2,
+                    2
+                ]
+            ],
+            "params": 448,
+            "prunable": true,
+            "prunable_equation_sensitivity": 7.703703703703703,
+            "prunable_params": 432,
+            "prunable_params_zeroed": 0,
+            "weight_name": "seq.conv1.weight",
+            "weight_shape": [
+                16,
+                3,
+                3,
+                3
+            ]
+        },
+        {
+            "attributes": {},
+            "bias_name": null,
+            "bias_shape": null,
+            "flops": 1024.0,
+            "id": "8",
+            "input_names": [
+                "7"
+            ],
+            "input_shapes": [
+                [
+                    16,
+                    16,
+                    2,
+                    2
+                ]
+            ],
+            "op_type": "Relu",
+            "output_names": [
+                "8"
+            ],
+            "output_shapes": [
+                [
+                    16,
+                    16,
+                    2,
+                    2
+                ]
+            ],
+            "params": 0,
+            "prunable": false,
+            "prunable_equation_sensitivity": null,
+            "prunable_params": -1,
+            "prunable_params_zeroed": 0,
+            "weight_name": null,
+            "weight_shape": null
+        },
+        {
+            "attributes": {
+                "dilations": [
+                    1,
+                    1
+                ],
+                "group": 1,
+                "kernel_shape": [
+                    3,
+                    3
+                ],
+                "pads": [
+                    1,
+                    1,
+                    1,
+                    1
+                ],
+                "strides": [
+                    2,
+                    2
+                ]
+            },
+            "bias_name": "seq.conv2.bias",
+            "bias_shape": [
+                32
+            ],
+            "flops": 73760.0,
+            "id": "9",
+            "input_names": [
+                "8"
+            ],
+            "input_shapes": [
+                [
+                    16,
+                    16,
+                    2,
+                    2
+                ]
+            ],
+            "op_type": "Conv",
+            "output_names": [
+                "9"
+            ],
+            "output_shapes": [
+                [
+                    16,
+                    32,
+                    1,
+                    1
+                ]
+            ],
+            "params": 4640,
+            "prunable": true,
+            "prunable_equation_sensitivity": 0.6620689655172414,
+            "prunable_params": 4608,
+            "prunable_params_zeroed": 0,
+            "weight_name": "seq.conv2.weight",
+            "weight_shape": [
+                32,
+                16,
+                3,
+                3
+            ]
+        },
+        {
+            "attributes": {},
+            "bias_name": null,
+            "bias_shape": null,
+            "flops": 512.0,
+            "id": "10",
+            "input_names": [
+                "9"
+            ],
+            "input_shapes": [
+                [
+                    16,
+                    32,
+                    1,
+                    1
+                ]
+            ],
+            "op_type": "Relu",
+            "output_names": [
+                "10"
+            ],
+            "output_shapes": [
+                [
+                    16,
+                    32,
+                    1,
+                    1
+                ]
+            ],
+            "params": 0,
+            "prunable": false,
+            "prunable_equation_sensitivity": null,
+            "prunable_params": -1,
+            "prunable_params_zeroed": 0,
+            "weight_name": null,
+            "weight_shape": null
+        },
+        {
+            "attributes": {},
+            "bias_name": null,
+            "bias_shape": null,
+            "flops": 512.0,
+            "id": "11",
+            "input_names": [
+                "10"
+            ],
+            "input_shapes": [
+                [
+                    16,
+                    32,
+                    1,
+                    1
+                ]
+            ],
+            "op_type": "GlobalAveragePool",
+            "output_names": [
+                "11"
+            ],
+            "output_shapes": [
+                [
+                    16,
+                    32,
+                    1,
+                    1
+                ]
+            ],
+            "params": 0,
+            "prunable": false,
+            "prunable_equation_sensitivity": null,
+            "prunable_params": -1,
+            "prunable_params_zeroed": 0,
+            "weight_name": null,
+            "weight_shape": null
+        },
+        {
+            "attributes": {},
+            "bias_name": null,
+            "bias_shape": null,
+            "flops": null,
+            "id": "12",
+            "input_names": [
+                "11"
+            ],
+            "input_shapes": [
+                [
+                    16,
+                    32,
+                    1,
+                    1
+                ]
+            ],
+            "op_type": "Shape",
+            "output_names": [
+                "12"
+            ],
+            "output_shapes": [
+                [
+                    4
+                ]
+            ],
+            "params": 0,
+            "prunable": false,
+            "prunable_equation_sensitivity": null,
+            "prunable_params": -1,
+            "prunable_params_zeroed": 0,
+            "weight_name": null,
+            "weight_shape": null
+        },
+        {
+            "attributes": {
+                "value": null
+            },
+            "bias_name": null,
+            "bias_shape": null,
+            "flops": null,
+            "id": "13",
+            "input_names": [],
+            "input_shapes": null,
+            "op_type": "Constant",
+            "output_names": [
+                "13"
+            ],
+            "output_shapes": null,
+            "params": 0,
+            "prunable": false,
+            "prunable_equation_sensitivity": null,
+            "prunable_params": -1,
+            "prunable_params_zeroed": 0,
+            "weight_name": null,
+            "weight_shape": null
+        },
+        {
+            "attributes": {
+                "axis": 0
+            },
+            "bias_name": null,
+            "bias_shape": null,
+            "flops": null,
+            "id": "14",
+            "input_names": [
+                "12",
+                "13"
+            ],
+            "input_shapes": [
+                [
+                    4
+                ]
+            ],
+            "op_type": "Gather",
+            "output_names": [
+                "14"
+            ],
+            "output_shapes": null,
+            "params": 0,
+            "prunable": false,
+            "prunable_equation_sensitivity": null,
+            "prunable_params": -1,
+            "prunable_params_zeroed": 0,
+            "weight_name": null,
+            "weight_shape": null
+        },
+        {
+            "attributes": {
+                "axes": [
+                    0
+                ]
+            },
+            "bias_name": null,
+            "bias_shape": null,
+            "flops": null,
+            "id": "16",
+            "input_names": [
+                "14"
+            ],
+            "input_shapes": null,
+            "op_type": "Unsqueeze",
+            "output_names": [
+                "16"
+            ],
+            "output_shapes": [
+                [
+                    1
+                ]
+            ],
+            "params": 0,
+            "prunable": false,
+            "prunable_equation_sensitivity": null,
+            "prunable_params": -1,
+            "prunable_params_zeroed": 0,
+            "weight_name": null,
+            "weight_shape": null
+        },
+        {
+            "attributes": {
+                "axis": 0
+            },
+            "bias_name": null,
+            "bias_shape": null,
+            "flops": null,
+            "id": "18",
+            "input_names": [
+                "16"
+            ],
+            "input_shapes": [
+                [
+                    1
+                ]
+            ],
+            "op_type": "Concat",
+            "output_names": [
+                "18"
+            ],
+            "output_shapes": [
+                [
+                    2
+                ]
+            ],
+            "params": 0,
+            "prunable": false,
+            "prunable_equation_sensitivity": null,
+            "prunable_params": -1,
+            "prunable_params_zeroed": 0,
+            "weight_name": null,
+            "weight_shape": null
+        },
+        {
+            "attributes": {},
+            "bias_name": null,
+            "bias_shape": null,
+            "flops": null,
+            "id": "19",
+            "input_names": [
+                "11",
+                "18"
+            ],
+            "input_shapes": [
+                [
+                    16,
+                    32,
+                    1,
+                    1
+                ],
+                [
+                    2
+                ]
+            ],
+            "op_type": "Reshape",
+            "output_names": [
+                "19"
+            ],
+            "output_shapes": [
+                [
+                    16,
+                    32
+                ]
+            ],
+            "params": 0,
+            "prunable": false,
+            "prunable_equation_sensitivity": null,
+            "prunable_params": -1,
+            "prunable_params_zeroed": 0,
+            "weight_name": null,
+            "weight_shape": null
+        },
+        {
+            "attributes": {
+                "alpha": 1.0,
+                "beta": 1.0,
+                "transB": 1
+            },
+            "bias_name": "mlp.fc.bias",
+            "bias_shape": [
+                10
+            ],
+            "flops": 650.0,
+            "id": "20",
+            "input_names": [
+                "19"
+            ],
+            "input_shapes": [
+                [
+                    16,
+                    32
+                ]
+            ],
+            "op_type": "Gemm",
+            "output_names": [
+                "20"
+            ],
+            "output_shapes": [
+                [
+                    16,
+                    10
+                ]
+            ],
+            "params": 330,
+            "prunable": true,
+            "prunable_equation_sensitivity": 6.516363636363636,
+            "prunable_params": 320,
+            "prunable_params_zeroed": 0,
+            "weight_name": "mlp.fc.weight",
+            "weight_shape": [
+                10,
+                32
+            ]
+        },
+        {
+            "attributes": {},
+            "bias_name": null,
+            "bias_shape": null,
+            "flops": 160.0,
+            "id": "output",
+            "input_names": [
+                "20"
+            ],
+            "input_shapes": [
+                [
+                    16,
+                    10
+                ]
+            ],
+            "op_type": "Sigmoid",
+            "output_names": [
+                "output"
+            ],
+            "output_shapes": [
+                [
+                    16,
+                    10
+                ]
+            ],
+            "params": 0,
+            "prunable": false,
+            "prunable_equation_sensitivity": null,
+            "prunable_params": -1,
+            "prunable_params_zeroed": 0,
+            "weight_name": null,
+            "weight_shape": null
+        }
+    ]
+}

@@ -17,17 +17,19 @@ import os
 
 import pytest
 
+import torch
 from sparseml.onnx.optim import ModelAnalyzer, NodeAnalyzer
+from sparseml.pytorch.utils import ModuleExporter
 from sparsezoo import Model
-
-
-from tests.sparseml.onnx.helpers import analyzer_models  # noqa isort: skip
-
+from tests.sparseml.pytorch.helpers import ConvNet, LinearNet, MLPNet
+from packaging import version
 
 GENERATE_TEST_FILES = os.getenv("NM_ML_GENERATE_ONNX_TEST_DATA", False)
 GENERATE_TEST_FILES = False if GENERATE_TEST_FILES == "0" else GENERATE_TEST_FILES
 
 RELATIVE_PATH = os.path.dirname(os.path.realpath(__file__))
+
+TORCH_VERSION = version.parse(torch.__version__)
 
 
 @pytest.fixture(
@@ -137,38 +139,43 @@ def test_mode_analyzer_json():
     )
 
 
-def test_model_analyzer(analyzer_models):  # noqa: F811
-    model_path, *expected_outputs = analyzer_models
+@pytest.mark.parametrize(
+    "cls,fname",
+    [
+        (LinearNet, "LinearNet-single.json"),
+        (LinearNet, "LinearNet-batched.json"),
+        (MLPNet, "MLPNet-single.json"),
+        (ConvNet, "ConvNet-batched.json"),
+    ],
+)
+def test_model_analyzer(tmp_path, cls, fname):  # noqa: F811
+    module = cls()
+    data_path = os.path.join(
+        RELATIVE_PATH,
+        "data",
+        "analyzer_models",
+        f"torch-{TORCH_VERSION.major}.{TORCH_VERSION.minor}",
+        fname,
+    )
+    with open(data_path) as fp:
+        expected = json.load(fp)
 
-    analyzer = ModelAnalyzer(model_path)
+    input_shape = expected["input_shape"]
+
+    exporter = ModuleExporter(module, str(tmp_path))
+    exporter.export_onnx(sample_batch=torch.randn(*input_shape))
+
+    analyzer = ModelAnalyzer(str(tmp_path / "model.onnx"))
     found = analyzer.dict()
 
-    """
-    Depending whether we have test case written for legacy PyTorch
-    or both legacy and upgraded PyTorch, three lists below will have:
-    `len` of 1 (if only legacy PyTorch test case present)
-    `len` of 2 (if test case for legacy and upgraded PyTorch)
-    """
-    expected_outputs = [x for x in expected_outputs if x]
-
-    """
-    If we have only one test case, it must must evaluate to True,
-    If we have two test cases, at least one must evaluate to True.
-    In other words, we are happy with test passing for legacy or
-    upgraded PyTorch (worst case scenario).
-    """
-    # make sure at least one of the expected outputs has the same shape as `node_shapes`
-    assert any(
-        len(output["nodes"]) == len(found["nodes"]) for output in expected_outputs
-    )
-
-    for expected in expected_outputs:
-        if len(found["nodes"]) == len(expected["nodes"]):
-            for node, expected_node in zip(found["nodes"], expected["nodes"]):
-                assert sorted(node.keys()) == sorted(expected_node.keys())
-                for key, value in node.items():
-                    expected_value = expected_node[key]
-                    assert value == expected_value, (key, value, expected_value)
+    assert len(expected["nodes"]) == len(found["nodes"])
+    for node, expected_node in zip(found["nodes"], expected["nodes"]):
+        assert sorted(node.keys()) == sorted(expected_node.keys())
+        for key, value in node.items():
+            expected_value = expected_node[key]
+            assert value == expected_value, dict(
+                id=node["id"], key=key, found=value, expected=expected_value
+            )
 
 
 def test_model_analyzer_from_repo(analyzer_models_repo):
