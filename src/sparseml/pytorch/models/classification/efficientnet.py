@@ -19,7 +19,7 @@ Further info can be found in the paper `here <https://arxiv.org/abs/1905.11946>`
 
 import math
 from collections import OrderedDict
-from typing import List, Mapping, Optional, Tuple
+from typing import List, Mapping, Optional, Tuple, Any
 
 import torch
 from torch import Tensor
@@ -103,7 +103,7 @@ class _InvertedBottleneckBlock(Module):
         stride: int,
         se_ratio: Optional[float],
         se_mod: bool,
-        bn_kwargs: Optional[Mapping] = None,
+        bn_kwargs: Optional[Mapping[str, Any]] = None,
     ):
         super().__init__()
         self._in_channels = in_channels
@@ -326,7 +326,7 @@ class _Classifier(Module):
         classes: int,
         dropout: float,
         class_type: str,
-        bn_kwargs: Optional[Mapping],
+        bn_kwargs: Optional[Mapping[str, Any]] = None,
     ):
         super().__init__()
         self.conv = Conv2d(
@@ -423,7 +423,7 @@ class EfficientNet(Module):
         num_classes: int,
         class_type: str,
         dropout: float,
-        bn_kwargs: Optional[Mapping] = None,
+        bn_kwargs: Optional[Mapping[str, Any]] = None,
     ):
         super().__init__()
 
@@ -481,7 +481,7 @@ class EfficientNet(Module):
     @staticmethod
     def create_section(
         settings: EfficientNetSectionSettings,
-        bn_kwargs: Optional[Mapping],
+        bn_kwargs: Optional[Mapping[str, Any]] = None,
     ) -> Sequential:
         assert settings.num_blocks > 0
 
