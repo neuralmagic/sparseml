@@ -710,8 +710,9 @@ def fuse_module_conv_bn_relus(
     if conv_blocks:
         # run torch fusion
         if _PARSED_TORCH_VERSION < version.parse("1.10.0"):
-            # manually save and move hooks surrounding fused blocks into new fused modules
-            # due to torch.quantization error when a module has more than one hook
+            # manually save and move hooks surrounding fused blocks
+            # into new fused modules due to torch.quantization
+            # error when a module has more than one hook
             block_hooks = _delete_get_block_hooks(module, conv_blocks)
 
             # run torch fusion
