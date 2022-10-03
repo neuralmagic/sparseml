@@ -215,7 +215,7 @@ jobs:
         run: pip3 install .[dev,tf_v1,onnxruntime]
       - name: "🔬 Running tensorflow_v1 tests"
         run: make test TARGETS=tensorflow_v1
-  compat-tests-pytorch-1.9:
+  compat-pytorch-1_9-pytorch-tests:
     runs-on: ubuntu-22.04
     env:
       SPARSEZOO_TEST_MODE: "true"
@@ -239,7 +239,7 @@ jobs:
         run: pip3 install .[dev,torchvision,onnxruntime] torch==1.9.1
       - name: "🔬 Running pytorch tests"
         run: make test TARGETS=pytorch
-  compat-tests-pytorch-1.9-onnx:
+  compat-pytorch-1_9-onnx-tests:
     runs-on: ubuntu-22.04
     env:
       SPARSEZOO_TEST_MODE: "true"
