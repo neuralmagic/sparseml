@@ -59,7 +59,7 @@ _PARSED_TORCH_VERSION = version.parse(torch.__version__)
 DEFAULT_ONNX_OPSET = (
     9
     if _PARSED_TORCH_VERSION < version.parse("1.3")
-    else 10
+    else 11
     if _PARSED_TORCH_VERSION < version.parse("1.10.0")
     else 13
 )
