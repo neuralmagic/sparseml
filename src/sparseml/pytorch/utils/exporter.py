@@ -647,17 +647,18 @@ def _fold_identity_initializers(model: onnx.ModelProto):
             and any(node.input[0] == init.name for init in model.graph.initializer)
         )
 
-    for match in model.graph.node:
-        if not is_match(match):
+    for node in model.graph.node:
+        if not is_match(node):
             continue
-        matches.append(match)
+        matches.append(node)
 
-        # find any node in the graph that uses the output of `match`
-        # as an input. replace the input with `match`'s input
+        # find any node in the graph that uses the output of `node`
+        # as an input. replace the input with `node`'s input
         for other in model.graph.node:
             for i in range(len(other.input)):
-                if other.input[i] == match.output[0]:
-                    other.input[i] = match.input[0]
+                # NOTE: this just replaces the str ids
+                if other.input[i] == node.output[0]:
+                    other.input[i] = node.input[0]
 
     for node in matches:
         model.graph.node.remove(node)
