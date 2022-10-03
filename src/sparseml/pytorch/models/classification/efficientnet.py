@@ -239,7 +239,7 @@ class _FusedInvertedBottleneckBlock(Module):
         kernel_size: int,
         expansion_ratio: int,
         stride: int,
-        bn_kwargs: Optional[Mapping] = None,
+        bn_kwargs: Optional[Mapping[str, Any]] = None,
     ):
         super().__init__()
         self._in_channels = in_channels
