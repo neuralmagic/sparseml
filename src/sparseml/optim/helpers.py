@@ -255,7 +255,9 @@ def _update_recipe_variable(var_name: str, var_value, container):
     key_found = False
 
     for key, value in container.items():
-        if not isinstance(value, list):
+        if not isinstance(value, list) or not all(
+            isinstance(val, dict) for val in value
+        ):
             if var_name == key:
                 container[var_name] = var_value
                 key_found = True

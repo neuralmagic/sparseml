@@ -31,6 +31,8 @@ except Exception as torchvision_error:
     ImageFolder = object  # default for constructor
     torchvision_import_error = torchvision_error
 
+from typing import Union
+
 from sparseml.pytorch.datasets.image_classification.ffcv_dataset import (
     FFCVImageNetDataset,
 )
@@ -72,20 +74,28 @@ class ImageNetDataset(ImageFolder, FFCVImageNetDataset):
         train: bool = True,
         rand_trans: bool = False,
         image_size: int = 224,
+        resize_scale: float = 1.143,
+        resize_mode: Union[str, "transforms.InterpolationMode"] = "bilinear",
     ):
         if torchvision_import_error is not None:
             raise torchvision_import_error
 
         root = clean_path(root)
-        non_rand_resize_scale = 256.0 / 224.0  # standard used
+        if type(resize_mode) is str and resize_mode.lower() in ["linear", "bilinear"]:
+            interpolation = transforms.InterpolationMode.BILINEAR
+        elif type(resize_mode) is str and resize_mode.lower() in ["cubic", "bicubic"]:
+            interpolation = transforms.InterpolationMode.BICUBIC
+
         init_trans = (
             [
-                transforms.RandomResizedCrop(image_size),
+                transforms.RandomResizedCrop(image_size, interpolation=interpolation),
                 transforms.RandomHorizontalFlip(),
             ]
             if rand_trans
             else [
-                transforms.Resize(round(non_rand_resize_scale * image_size)),
+                transforms.Resize(
+                    round(resize_scale * image_size), interpolation=interpolation
+                ),
                 transforms.CenterCrop(image_size),
             ]
         )

@@ -31,6 +31,7 @@ version_nm_deps = f"{version_major_minor}.0"
 _PACKAGE_NAME = "sparseml" if is_release else "sparseml-nightly"
 
 _deps = [
+    "setuptools<=59.5.0",
     "jupyter>=1.0.0",
     "ipywidgets>=7.0.0",
     "pyyaml>=5.0.0",
@@ -45,12 +46,13 @@ _deps = [
     "pydantic>=1.5.0",
     "requests>=2.0.0",
     "scikit-image>=0.15.0",
+    "scikit-learn>=0.24.2",
     "scipy>=1.0.0",
     "tqdm>=4.0.0",
     "toposort>=1.0",
     "GPUtil>=1.4.0",
     "protobuf>=3.12.2,<4",
-    "click==8.0",
+    "click~=8.0.0",
 ]
 _nm_deps = [f"{'sparsezoo' if is_release else 'sparsezoo-nightly'}~={version_nm_deps}"]
 _deepsparse_deps = [

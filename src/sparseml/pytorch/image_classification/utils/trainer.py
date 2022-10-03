@@ -112,6 +112,7 @@ class ImageClassificationTrainer(Trainer):
         recipe_args: Optional[str] = None,
         max_train_steps: int = -1,
         one_shot: bool = False,
+        gradient_accum_steps: int = 1,
     ):
         """
         Initializes the module_trainer
@@ -133,6 +134,7 @@ class ImageClassificationTrainer(Trainer):
         self.recipe_args = recipe_args
         self.max_train_steps = max_train_steps
         self.one_shot = one_shot
+        self._gradient_accum_steps = gradient_accum_steps
 
         self.val_loss = loss_fn()
         _LOGGER.info(f"created loss for validation: {self.val_loss}")
@@ -282,6 +284,7 @@ class ImageClassificationTrainer(Trainer):
             optimizer=self.optim,
             loggers=self.loggers,
             device_context=self._device_context,
+            num_accumulated_batches=self._gradient_accum_steps,
         )
         _LOGGER.info(f"created Module Trainer: {trainer}")
 
@@ -330,7 +333,7 @@ class ImageClassificationTrainer(Trainer):
         )
 
     def _setup_checkpoint_manager(self):
-        if self.checkpoint_path and self.checkpoint_path.startswith("zoo"):
+        if self.checkpoint_path and self.checkpoint_path.startswith("zoo:"):
             zoo_model = Model(self.checkpoint_path)
             self.checkpoint_path = download_framework_model_by_recipe_type(zoo_model)
 

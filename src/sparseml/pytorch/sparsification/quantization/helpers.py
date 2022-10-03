@@ -483,20 +483,25 @@ def configure_module_default_qconfigs(module: Module):
             submodule.configure_qconfig()
 
 
-def add_quant_dequant(module, name=None, parent_module=None):
+def add_quant_dequant(
+    module: torch.nn.Module, name=None, parent_module=None, layer_class_names=None
+):
     """
     Wraps all Conv and Linear submodule with a qconfig with a QuantWrapper
     :param module: the module to modify
     :param name: name of the module to modify; default to None
     :param parent_module: parent module containing the module to modify; default to None
+    :param layer_class_names: list of module class names to be added to the
+        list of quantizable modules
     :return: the modified module
     """
     named_children = module.named_children()
-    if (
-        type(module) in _QUANTIZABLE_MODULE_TYPES
-        and hasattr(module, "qconfig")
-        and module.qconfig
-    ):
+    is_quantizable = type(module) in _QUANTIZABLE_MODULE_TYPES
+    if layer_class_names:
+        is_quantizable = (
+            is_quantizable or module.__class__.__name__ in layer_class_names
+        )
+    if is_quantizable and hasattr(module, "qconfig") and module.qconfig:
         module = torch_quantization.QuantWrapper(module)
         if parent_module is not None and len(list(named_children)) <= 0:
             if "." in name:
@@ -510,7 +515,11 @@ def add_quant_dequant(module, name=None, parent_module=None):
             setattr(parent_module, name, module)
     else:
         for name, child in named_children:
-            setattr(module, name, add_quant_dequant(child))
+            setattr(
+                module,
+                name,
+                add_quant_dequant(child, layer_class_names=layer_class_names),
+            )
     return module
 
 
@@ -782,9 +791,15 @@ def _prepare_qat_embedding(embedding: Module, qconfig: "torch.quantization.QConf
     embedding.weight_fake_quant = qconfig.weight()
 
     def _qat_forward(self, input: torch.Tensor) -> torch.Tensor:
+        weight = self.weight_fake_quant(self.weight)
+        if weight.device != input.device:
+            # torch DataParallel may not pick up overwritten bound method
+            # send weight to correct device
+            weight = weight.to(input.device)
+
         return torch.nn.functional.embedding(
             input,
-            self.weight_fake_quant(self.weight),
+            weight,
             self.padding_idx,
             self.max_norm,
             self.norm_type,
@@ -794,6 +809,7 @@ def _prepare_qat_embedding(embedding: Module, qconfig: "torch.quantization.QConf
 
     # bind qat forward to embedding
     qat_forward_bound = _qat_forward.__get__(embedding, embedding.__class__)
+    embedding.to(embedding.weight.device)  # set weight_fake_quant to correct device
     setattr(embedding, "forward", qat_forward_bound)
 
 
