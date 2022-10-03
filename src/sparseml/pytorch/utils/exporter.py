@@ -33,6 +33,7 @@ from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 from torch.utils.data import DataLoader
 
+from sparseml.onnx.utils import ONNXGraph
 from sparseml.pytorch.utils.helpers import (
     tensors_export,
     tensors_module_forward,
@@ -639,12 +640,14 @@ def _fold_identity_initializers(model: onnx.ModelProto):
     # and a single output
     matches = []
 
+    graph = ONNXGraph(model)
+
     def is_match(node: onnx.NodeProto) -> bool:
         return (
             node.op_type == "Identity"
             and len(node.input) == 1
             and len(node.output) == 1
-            and any(node.input[0] == init.name for init in model.graph.initializer)
+            and node.input[0] in graph._name_to_initializer
         )
 
     for node in model.graph.node:
@@ -654,7 +657,7 @@ def _fold_identity_initializers(model: onnx.ModelProto):
 
         # find any node in the graph that uses the output of `node`
         # as an input. replace the input with `node`'s input
-        for other in model.graph.node:
+        for other in graph.get_node_children(node):
             for i, other_input_i in enumerate(other.input):
                 # NOTE: this just replaces the str ids
                 if other_input_i == node.output[0]:
