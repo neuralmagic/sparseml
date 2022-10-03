@@ -427,10 +427,7 @@ class EfficientNet(Module):
     ):
         super().__init__()
 
-        if bn_kwargs is None:
-            _bn_kwargs = {}
-        else:
-            _bn_kwargs = bn_kwargs
+        _bn_kwargs = bn_kwargs or {}
 
         self.input = Sequential(
             OrderedDict(
