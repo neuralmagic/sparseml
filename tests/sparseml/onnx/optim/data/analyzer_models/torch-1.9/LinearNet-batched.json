@@ -1,176 +1,81 @@
 {
-    "input_shape": [
-        42,
-        8
-    ],
-    "nodes": [
-        {
-            "id": "9",
-            "op_type": "Gemm",
-            "input_names": [
-                "input"
-            ],
-            "output_names": [
-                "9"
-            ],
-            "input_shapes": [
-                [
-                    42,
-                    8
-                ]
-            ],
-            "output_shapes": [
-                [
-                    42,
-                    16
-                ]
-            ],
-            "params": 144,
-            "prunable": true,
-            "prunable_params": 128,
-            "prunable_params_zeroed": 0,
-            "prunable_equation_sensitivity": 14.0,
-            "flops": 272.0,
-            "weight_name": "seq.fc1.weight",
-            "weight_shape": [
-                16,
-                8
-            ],
-            "bias_name": "seq.fc1.bias",
-            "bias_shape": [
-                16
-            ],
-            "attributes": {
-                "alpha": 1.0,
-                "beta": 1.0,
-                "transB": 1
-            }
-        },
-        {
-            "id": "10",
-            "op_type": "Gemm",
-            "input_names": [
-                "9"
-            ],
-            "output_names": [
-                "10"
-            ],
-            "input_shapes": [
-                [
-                    42,
-                    16
-                ]
-            ],
-            "output_shapes": [
-                [
-                    42,
-                    32
-                ]
-            ],
-            "params": 544,
-            "prunable": true,
-            "prunable_params": 512,
-            "prunable_params_zeroed": 0,
-            "prunable_equation_sensitivity": 7.411764705882353,
-            "flops": 1056.0,
-            "weight_name": "seq.fc2.weight",
-            "weight_shape": [
-                32,
-                16
-            ],
-            "bias_name": "seq.fc2.bias",
-            "bias_shape": [
-                32
-            ],
-            "attributes": {
-                "alpha": 1.0,
-                "beta": 1.0,
-                "transB": 1
-            }
-        },
-        {
-            "id": "11",
-            "op_type": "Gemm",
-            "input_names": [
-                "10"
-            ],
-            "output_names": [
-                "11"
-            ],
-            "input_shapes": [
-                [
-                    42,
-                    32
-                ]
-            ],
-            "output_shapes": [
-                [
-                    42,
-                    16
-                ]
-            ],
-            "params": 528,
-            "prunable": true,
-            "prunable_params": 512,
-            "prunable_params_zeroed": 0,
-            "prunable_equation_sensitivity": 7.636363636363637,
-            "flops": 1040.0,
-            "weight_name": "seq.block1.fc1.weight",
-            "weight_shape": [
-                16,
-                32
-            ],
-            "bias_name": "seq.block1.fc1.bias",
-            "bias_shape": [
-                16
-            ],
-            "attributes": {
-                "alpha": 1.0,
-                "beta": 1.0,
-                "transB": 1
-            }
-        },
-        {
-            "id": "output",
-            "op_type": "Gemm",
-            "input_names": [
-                "11"
-            ],
-            "output_names": [
-                "output"
-            ],
-            "input_shapes": [
-                [
-                    42,
-                    16
-                ]
-            ],
-            "output_shapes": [
-                [
-                    42,
-                    8
-                ]
-            ],
-            "params": 136,
-            "prunable": true,
-            "prunable_params": 128,
-            "prunable_params_zeroed": 0,
-            "prunable_equation_sensitivity": 14.823529411764707,
-            "flops": 264.0,
-            "weight_name": "seq.block1.fc2.weight",
-            "weight_shape": [
-                8,
-                16
-            ],
-            "bias_name": "seq.block1.fc2.bias",
-            "bias_shape": [
-                8
-            ],
-            "attributes": {
-                "alpha": 1.0,
-                "beta": 1.0,
-                "transB": 1
-            }
-        }
-    ]
+  "input_shape": [42, 8],
+  "nodes": [
+    {
+      "id": "9",
+      "op_type": "Gemm",
+      "input_names": ["input"],
+      "output_names": ["9"],
+      "input_shapes": [[42, 8]],
+      "output_shapes": [[42, 16]],
+      "params": 144,
+      "prunable": true,
+      "prunable_params": 128,
+      "prunable_params_zeroed": 0,
+      "prunable_equation_sensitivity": 14,
+      "flops": 272,
+      "weight_name": "seq.fc1.weight",
+      "weight_shape": [16, 8],
+      "bias_name": "seq.fc1.bias",
+      "bias_shape": [16],
+      "attributes": {"alpha": 1, "beta": 1, "transB": 1}
+    },
+    {
+      "id": "10",
+      "op_type": "Gemm",
+      "input_names": ["9"],
+      "output_names": ["10"],
+      "input_shapes": [[42, 16]],
+      "output_shapes": [[42, 32]],
+      "params": 544,
+      "prunable": true,
+      "prunable_params": 512,
+      "prunable_params_zeroed": 0,
+      "prunable_equation_sensitivity": 7.411764705882353,
+      "flops": 1056,
+      "weight_name": "seq.fc2.weight",
+      "weight_shape": [32, 16],
+      "bias_name": "seq.fc2.bias",
+      "bias_shape": [32],
+      "attributes": {"alpha": 1, "beta": 1, "transB": 1}
+    },
+    {
+      "id": "11",
+      "op_type": "Gemm",
+      "input_names": ["10"],
+      "output_names": ["11"],
+      "input_shapes": [[42, 32]],
+      "output_shapes": [[42, 16]],
+      "params": 528,
+      "prunable": true,
+      "prunable_params": 512,
+      "prunable_params_zeroed": 0,
+      "prunable_equation_sensitivity": 7.636363636363637,
+      "flops": 1040,
+      "weight_name": "seq.block1.fc1.weight",
+      "weight_shape": [16, 32],
+      "bias_name": "seq.block1.fc1.bias",
+      "bias_shape": [16],
+      "attributes": {"alpha": 1, "beta": 1, "transB": 1}
+    },
+    {
+      "id": "output",
+      "op_type": "Gemm",
+      "input_names": ["11"],
+      "output_names": ["output"],
+      "input_shapes": [[42, 16]],
+      "output_shapes": [[42, 8]],
+      "params": 136,
+      "prunable": true,
+      "prunable_params": 128,
+      "prunable_params_zeroed": 0,
+      "prunable_equation_sensitivity": 14.823529411764707,
+      "flops": 264,
+      "weight_name": "seq.block1.fc2.weight",
+      "weight_shape": [8, 16],
+      "bias_name": "seq.block1.fc2.bias",
+      "bias_shape": [8],
+      "attributes": {"alpha": 1, "beta": 1, "transB": 1}
+    }
+  ]
 }
