@@ -747,8 +747,6 @@ def _delete_trivial_onnx_adds(model: onnx.ModelProto):
 
 
 def _unwrap_batchnorms(model: onnx.ModelProto):
-    onnx.checker.check_model(model)
-
     for init in model.graph.initializer:
         init.name = init.name.replace(".bn_wrapper_replace_me", "")
     for node in model.graph.node:
