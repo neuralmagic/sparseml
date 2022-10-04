@@ -33,6 +33,7 @@ from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 from torch.utils.data import DataLoader
 
+from sparseml.onnx.utils import ONNXGraph
 from sparseml.pytorch.utils.helpers import (
     tensors_export,
     tensors_module_forward,
@@ -528,6 +529,7 @@ def export_onnx(
 
     # onnx file fixes
     onnx_model = onnx.load(file_path)
+    _fold_identity_initializers(onnx_model)
     # fix changed batch norm names
     _fix_batch_norm_names(onnx_model)
     if batch_norms_wrapped:
@@ -631,6 +633,38 @@ def _save_label_to_class_mapping(
     _LOGGER.info(
         f"Appended {key_name} data to {CONFIG_JSON_NAME} at {config_file_path}"
     )
+
+
+def _fold_identity_initializers(model: onnx.ModelProto):
+    # folds any Identity nodes that have a single input (which is an initializer)
+    # and a single output
+    matches = []
+
+    graph = ONNXGraph(model)
+
+    def is_match(node: onnx.NodeProto) -> bool:
+        return (
+            node.op_type == "Identity"
+            and len(node.input) == 1
+            and len(node.output) == 1
+            and node.input[0] in graph._name_to_initializer
+        )
+
+    for node in model.graph.node:
+        if not is_match(node):
+            continue
+        matches.append(node)
+
+        # find any node in the graph that uses the output of `node`
+        # as an input. replace the input with `node`'s input
+        for other in graph.get_node_children(node):
+            for i, other_input_i in enumerate(other.input):
+                # NOTE: this just replaces the str ids
+                if other_input_i == node.output[0]:
+                    other.input[i] = node.input[0]
+
+    for node in matches:
+        model.graph.node.remove(node)
 
 
 def _get_output_names(out: Any):
