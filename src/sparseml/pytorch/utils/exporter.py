@@ -531,7 +531,7 @@ def export_onnx(
     onnx_model = onnx.load(file_path)
     _fold_identity_initializers(onnx_model)
     # fix changed batch norm names
-    _fix_batch_norm_names(onnx_model)
+    _remove_module_from_names(onnx_model)
     if batch_norms_wrapped:
         # clean up graph from any injected / wrapped operations
         _delete_trivial_onnx_adds(onnx_model)
@@ -745,25 +745,15 @@ def _delete_trivial_onnx_adds(model: onnx.ModelProto):
             continue
 
 
-def _fix_batch_norm_names(model: onnx.ModelProto):
-    name_to_inits = {init.name: init for init in model.graph.initializer}
+def _remove_module_from_names(model: onnx.ModelProto):
+    onnx.checker.check_model(model)
+
+    for init in model.graph.initializer:
+        init.name = init.name.replace(".module", "")
     for node in model.graph.node:
-        if node.op_type != "BatchNormalization":
-            continue
         for idx in range(len(node.input)):
-            init_name = node.input[idx]
-            name_parts = init_name.split(".")
-            if (
-                init_name not in name_to_inits
-                or len(name_parts) < 2
-                or (name_parts[-2] != "module")
-            ):
-                continue
-            del name_parts[-2]
-            new_name = ".".join(name_parts)
-            if new_name not in name_to_inits:
-                init = name_to_inits[init_name]
-                del name_to_inits[init_name]
-                init.name = new_name
-                node.input[idx] = new_name
-                name_to_inits[new_name] = init
+            node.input[idx] = node.input[idx].replace(".module", "")
+        for idx in range(len(node.output)):
+            node.output[idx] = node.output[idx].replace(".module", "")
+
+    onnx.checker.check_model(model)
