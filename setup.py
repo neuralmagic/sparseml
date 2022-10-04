@@ -58,6 +58,7 @@ _nm_deps = [f"{'sparsezoo' if is_release else 'sparsezoo-nightly'}~={version_nm_
 _deepsparse_deps = [
     f"{'deepsparse' if is_release else 'deepsparse-nightly'}~={version_nm_deps}"
 ]
+_deepsparse_ent_deps = [f"deepsparse-ent~={version_nm_deps}"]
 
 _onnxruntime_deps = ["onnxruntime>=1.0.0"]
 _pytorch_deps = [
@@ -117,6 +118,7 @@ def _setup_extras() -> Dict:
     return {
         "dev": _dev_deps,
         "deepsparse": _deepsparse_deps,
+        "deepsparse-ent": _deepsparse_ent_deps,
         "onnxruntime": _onnxruntime_deps,
         "torch": _pytorch_deps,
         "torchvision": _pytorch_vision_deps,
