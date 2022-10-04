@@ -336,10 +336,9 @@ def remove_node_and_params_from_graph(
         default is None.
     """
     keep_params = keep_params or []
-    for param in model.graph.initializer:
-        if param.name not in keep_params and param.name in node.input:
-            model.graph.initializer.remove(param)
     model.graph.node.remove(node)
+    graph = ONNXGraph(model)
+    graph.delete_unused_initializers()
 
 
 def _override_tensor_batch_dim(model, tensor, batch_size):
