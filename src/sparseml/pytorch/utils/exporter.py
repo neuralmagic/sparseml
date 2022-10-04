@@ -530,9 +530,10 @@ def export_onnx(
     # onnx file fixes
     onnx_model = onnx.load(file_path)
     _fold_identity_initializers(onnx_model)
-    # fix changed batch norm names
-    _remove_module_from_names(onnx_model)
     if batch_norms_wrapped:
+        # fix changed batch norm names
+        _unwrap_batchnorms(onnx_model)
+
         # clean up graph from any injected / wrapped operations
         _delete_trivial_onnx_adds(onnx_model)
     onnx.save(onnx_model, file_path)
@@ -689,11 +690,11 @@ class _AddNoOpWrapper(Module):
 
     def __init__(self, module: Module):
         super().__init__()
-        self.module = module
+        self.bn_wrapper_replace_me = module
 
     def forward(self, inp):
         inp = inp + 0  # no-op
-        return self.module(inp)
+        return self.bn_wrapper_replace_me(inp)
 
 
 def _get_submodule(module: Module, path: List[str]) -> Module:
@@ -745,15 +746,15 @@ def _delete_trivial_onnx_adds(model: onnx.ModelProto):
             continue
 
 
-def _remove_module_from_names(model: onnx.ModelProto):
+def _unwrap_batchnorms(model: onnx.ModelProto):
     onnx.checker.check_model(model)
 
     for init in model.graph.initializer:
-        init.name = init.name.replace(".module", "")
+        init.name = init.name.replace(".bn_wrapper_replace_me", "")
     for node in model.graph.node:
         for idx in range(len(node.input)):
-            node.input[idx] = node.input[idx].replace(".module", "")
+            node.input[idx] = node.input[idx].replace(".bn_wrapper_replace_me", "")
         for idx in range(len(node.output)):
-            node.output[idx] = node.output[idx].replace(".module", "")
+            node.output[idx] = node.output[idx].replace(".bn_wrapper_replace_me", "")
 
     onnx.checker.check_model(model)
