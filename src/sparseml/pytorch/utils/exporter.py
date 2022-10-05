@@ -33,6 +33,7 @@ from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 from torch.utils.data import DataLoader
 
+from sparseml.onnx.utils import ONNXGraph
 from sparseml.pytorch.utils.helpers import (
     tensors_export,
     tensors_module_forward,
@@ -528,9 +529,11 @@ def export_onnx(
 
     # onnx file fixes
     onnx_model = onnx.load(file_path)
-    # fix changed batch norm names
-    _fix_batch_norm_names(onnx_model)
+    _fold_identity_initializers(onnx_model)
     if batch_norms_wrapped:
+        # fix changed batch norm names
+        _unwrap_batchnorms(onnx_model)
+
         # clean up graph from any injected / wrapped operations
         _delete_trivial_onnx_adds(onnx_model)
     onnx.save(onnx_model, file_path)
@@ -633,6 +636,38 @@ def _save_label_to_class_mapping(
     )
 
 
+def _fold_identity_initializers(model: onnx.ModelProto):
+    # folds any Identity nodes that have a single input (which is an initializer)
+    # and a single output
+    matches = []
+
+    graph = ONNXGraph(model)
+
+    def is_match(node: onnx.NodeProto) -> bool:
+        return (
+            node.op_type == "Identity"
+            and len(node.input) == 1
+            and len(node.output) == 1
+            and node.input[0] in graph._name_to_initializer
+        )
+
+    for node in model.graph.node:
+        if not is_match(node):
+            continue
+        matches.append(node)
+
+        # find any node in the graph that uses the output of `node`
+        # as an input. replace the input with `node`'s input
+        for other in graph.get_node_children(node):
+            for i, other_input_i in enumerate(other.input):
+                # NOTE: this just replaces the str ids
+                if other_input_i == node.output[0]:
+                    other.input[i] = node.input[0]
+
+    for node in matches:
+        model.graph.node.remove(node)
+
+
 def _get_output_names(out: Any):
     """
     Get name of output tensors
@@ -655,11 +690,11 @@ class _AddNoOpWrapper(Module):
 
     def __init__(self, module: Module):
         super().__init__()
-        self.module = module
+        self.bn_wrapper_replace_me = module
 
     def forward(self, inp):
         inp = inp + 0  # no-op
-        return self.module(inp)
+        return self.bn_wrapper_replace_me(inp)
 
 
 def _get_submodule(module: Module, path: List[str]) -> Module:
@@ -711,25 +746,13 @@ def _delete_trivial_onnx_adds(model: onnx.ModelProto):
             continue
 
 
-def _fix_batch_norm_names(model: onnx.ModelProto):
-    name_to_inits = {init.name: init for init in model.graph.initializer}
+def _unwrap_batchnorms(model: onnx.ModelProto):
+    for init in model.graph.initializer:
+        init.name = init.name.replace(".bn_wrapper_replace_me", "")
     for node in model.graph.node:
-        if node.op_type != "BatchNormalization":
-            continue
         for idx in range(len(node.input)):
-            init_name = node.input[idx]
-            name_parts = init_name.split(".")
-            if (
-                init_name not in name_to_inits
-                or len(name_parts) < 2
-                or (name_parts[-2] != "module")
-            ):
-                continue
-            del name_parts[-2]
-            new_name = ".".join(name_parts)
-            if new_name not in name_to_inits:
-                init = name_to_inits[init_name]
-                del name_to_inits[init_name]
-                init.name = new_name
-                node.input[idx] = new_name
-                name_to_inits[new_name] = init
+            node.input[idx] = node.input[idx].replace(".bn_wrapper_replace_me", "")
+        for idx in range(len(node.output)):
+            node.output[idx] = node.output[idx].replace(".bn_wrapper_replace_me", "")
+
+    onnx.checker.check_model(model)
