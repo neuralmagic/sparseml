@@ -51,13 +51,14 @@ _deps = [
     "tqdm>=4.0.0",
     "toposort>=1.0",
     "GPUtil>=1.4.0",
-    "protobuf>=3.12.2,<4",
+    "protobuf>=3.12.2,<=3.20.1",
     "click~=8.0.0",
 ]
 _nm_deps = [f"{'sparsezoo' if is_release else 'sparsezoo-nightly'}~={version_nm_deps}"]
 _deepsparse_deps = [
     f"{'deepsparse' if is_release else 'deepsparse-nightly'}~={version_nm_deps}"
 ]
+_deepsparse_ent_deps = [f"deepsparse-ent~={version_nm_deps}"]
 
 _onnxruntime_deps = ["onnxruntime>=1.0.0"]
 _pytorch_deps = [
@@ -117,6 +118,7 @@ def _setup_extras() -> Dict:
     return {
         "dev": _dev_deps,
         "deepsparse": _deepsparse_deps,
+        "deepsparse-ent": _deepsparse_ent_deps,
         "onnxruntime": _onnxruntime_deps,
         "torch": _pytorch_deps,
         "torchvision": _pytorch_vision_deps,
@@ -225,7 +227,7 @@ setup(
     install_requires=_setup_install_requires(),
     extras_require=_setup_extras(),
     entry_points=_setup_entry_points(),
-    python_requires=">=3.6.0,<3.10",
+    python_requires=">=3.7.0,<3.10",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Programming Language :: Python :: 3",

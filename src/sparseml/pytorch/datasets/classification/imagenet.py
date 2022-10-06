@@ -31,7 +31,7 @@ except Exception as torchvision_error:
     ImageFolder = object  # default for constructor
     torchvision_import_error = torchvision_error
 
-from typing import Union
+from typing import List, Union
 
 from sparseml.pytorch.datasets.image_classification.ffcv_dataset import (
     FFCVImageNetDataset,
@@ -76,6 +76,8 @@ class ImageNetDataset(ImageFolder, FFCVImageNetDataset):
         image_size: int = 224,
         resize_scale: float = 1.143,
         resize_mode: Union[str, "transforms.InterpolationMode"] = "bilinear",
+        rgb_means: List[float] = IMAGENET_RGB_MEANS,
+        rgb_stds: List[float] = IMAGENET_RGB_STDS,
     ):
         if torchvision_import_error is not None:
             raise torchvision_import_error
@@ -103,7 +105,7 @@ class ImageNetDataset(ImageFolder, FFCVImageNetDataset):
         trans = [
             *init_trans,
             transforms.ToTensor(),
-            transforms.Normalize(mean=IMAGENET_RGB_MEANS, std=IMAGENET_RGB_STDS),
+            transforms.Normalize(mean=rgb_means, std=rgb_stds),
         ]
         root = os.path.join(
             os.path.abspath(os.path.expanduser(root)), "train" if train else "val"
