@@ -22,7 +22,7 @@ __all__ = [
     "recipe_template",
 ]
 
-from sparseml.recipe_template.utils import (
+from sparseml.pytorch.recipe_template.utils import (
     ModifierBuildInfo,
     get_pruning_info,
     get_quantization_info,

@@ -57,5 +57,4 @@ except Exception as err:
         f"check\n{err}"
     )
 
-from .pytorch import recipe_template as recipe_template_module
-from .pytorch.recipe_template import recipe_template
+from .pytorch import recipe_template
