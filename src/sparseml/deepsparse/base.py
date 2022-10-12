@@ -71,7 +71,7 @@ def check_deepsparse_install(
         min_version,
         max_version,
         raise_on_error,
-        alternate_package_names=["deepsparse-nightly"],
+        alternate_package_names=["deepsparse-nightly", "deepsparse-ent"],
     )
 
 

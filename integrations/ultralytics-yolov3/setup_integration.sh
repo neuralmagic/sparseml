@@ -6,5 +6,5 @@
 
 git clone https://github.com/neuralmagic/yolov3.git
 cd yolov3
-git checkout release/0.11
+git checkout release/1.1
 pip install -r requirements.txt

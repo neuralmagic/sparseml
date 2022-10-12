@@ -328,7 +328,6 @@ class RecipeManagerTrainerInterface:
         :param optimizer: pre-initialized optimizer
         """
         self._check_super_defined("create_scheduler")
-
         if (
             self.lr_scheduler is not None
             or self.manager is None
@@ -462,7 +461,6 @@ class RecipeManagerTrainerInterface:
             )
             composed_manager.save(recipe_path)
         else:
-
             self.manager.save(recipe_path)
 
         _LOGGER.info(f"Saved SparseML recipe with model state to {recipe_path}")
@@ -503,8 +501,8 @@ class RecipeManagerTrainerInterface:
         num_samples = 0
         output_dir = output_dir or self.args.output_dir or ""
 
-        sample_in_dir = os.path.join(output_dir, "sample-inputs")
-        sample_out_dir = os.path.join(output_dir, "sample-outputs")
+        sample_in_dir = os.path.join(output_dir, "sample_inputs")
+        sample_out_dir = os.path.join(output_dir, "sample_outputs")
 
         os.makedirs(sample_in_dir, exist_ok=True)
         os.makedirs(sample_out_dir, exist_ok=True)

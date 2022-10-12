@@ -35,6 +35,7 @@ import datasets
 import numpy as np
 import transformers
 from datasets import load_dataset, load_metric
+from sklearn.model_selection import StratifiedShuffleSplit
 from transformers import (
     AutoConfig,
     AutoTokenizer,
@@ -49,6 +50,7 @@ from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils import check_min_version
 from transformers.utils.versions import require_version
 
+from sparseml.pytorch.utils.distributed import record
 from sparseml.transformers.sparsification import Trainer, TrainingArguments
 from sparseml.transformers.utils import SparseAutoModel, get_shared_tokenizer_src
 
@@ -72,6 +74,7 @@ _TASK_TO_KEYS = {
     "sst2": ("sentence", None),
     "stsb": ("sentence1", "sentence2"),
     "wnli": ("sentence1", "sentence2"),
+    "imdb": ("text", None),
 }
 
 _LOGGER = logging.getLogger(__name__)
@@ -168,6 +171,14 @@ class DataTrainingArguments:
     test_file: Optional[str] = field(
         default=None,
         metadata={"help": "A csv or a json file containing the test data."},
+    )
+    validation_ratio: Optional[float] = field(
+        default=None,
+        metadata={"help": "Percentage of the training data to be used as validation."},
+    )
+    eval_on_test: bool = field(
+        default=False,
+        metadata={"help": "Evaluate the test dataset."},
     )
     input_column_names: Optional[str] = field(
         default=None,
@@ -283,8 +294,10 @@ class ModelArguments:
     )
 
 
+@record
 def main(**kwargs):
-    # See all possible arguments in src/transformers/training_args.py
+    # See all possible arguments in
+    # src/sparseml/transformers/sparsification/training_args.py
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
 
@@ -623,24 +636,58 @@ def main(**kwargs):
             load_from_cache_file=not data_args.overwrite_cache,
             desc="Running tokenizer on dataset",
         )
+
+    train_dataset = None
     if training_args.do_train:
         if "train" not in raw_datasets:
             raise ValueError("--do_train requires a train dataset")
         train_dataset = raw_datasets["train"]
-        if data_args.max_train_samples is not None:
-            train_dataset = train_dataset.select(range(data_args.max_train_samples))
 
     make_eval_dataset = training_args.do_eval or data_args.num_export_samples > 0
     if make_eval_dataset:
         if (
             "validation" not in raw_datasets
             and "validation_matched" not in raw_datasets
+            and data_args.validation_ratio is None
+            and data_args.eval_on_test is False
         ):
-            raise ValueError("--do_eval requires a validation dataset")
-        eval_dataset = raw_datasets[
-            "validation_matched" if data_args.task_name == "mnli" else "validation"
-        ]
-        if data_args.max_eval_samples is not None:
+            raise ValueError(
+                "--do_eval requires an explicit validation dataset, "
+                "specified validation ratio, or eval_on_test"
+            )
+        if data_args.task_name == "mnli":
+            eval_dataset = raw_datasets["validation_matched"]
+        elif "validation" in raw_datasets:
+            if data_args.validation_ratio is not None:
+                raise ValueError(
+                    "validation_ratio cannot be specified when validation set exists"
+                )
+            if data_args.eval_on_test is True:
+                raise ValueError(
+                    "eval_on_test cannot be specified when validation set exists"
+                )
+            eval_dataset = raw_datasets["validation"]
+        elif data_args.validation_ratio is not None:
+            train_dataset = (
+                raw_datasets["train"] if train_dataset is None else train_dataset
+            )
+            train_dataset, eval_dataset = _split_train_val(
+                train_dataset, data_args.validation_ratio
+            )
+            if (
+                data_args.max_train_samples is not None
+                and len(train_dataset) > data_args.max_train_samples
+            ):
+                train_dataset = train_dataset.select(range(data_args.max_train_samples))
+        elif data_args.eval_on_test:
+            if "test" not in raw_datasets:
+                raise ValueError("test split not found but eval_on_test is on")
+            eval_dataset = raw_datasets["test"]
+
+        if (
+            data_args.max_eval_samples is not None
+            and len(eval_dataset) > data_args.max_eval_samples
+        ):
             eval_dataset = eval_dataset.select(range(data_args.max_eval_samples))
 
     if (
@@ -720,6 +767,7 @@ def main(**kwargs):
             checkpoint = training_args.resume_from_checkpoint
         elif last_checkpoint is not None:
             checkpoint = last_checkpoint
+
         train_result = trainer.train(resume_from_checkpoint=checkpoint)
         if not trainer.one_shot:
             metrics = train_result.metrics
@@ -761,7 +809,6 @@ def main(**kwargs):
                 else len(eval_dataset)
             )
             metrics["eval_samples"] = min(max_eval_samples, len(eval_dataset))
-
             if task == "mnli-mm":
                 metrics = {k + "_mm": v for k, v in metrics.items()}
             if task is not None and "mnli" in task:
@@ -830,6 +877,26 @@ def main(**kwargs):
         trainer.push_to_hub(**kwargs)
     else:
         trainer.create_model_card(**kwargs)
+
+
+def _split_train_val(train_dataset, val_ratio):
+    # Fixed random seed to make split consistent across runs with the same ratio
+    seed = 42
+    try:
+        ds = train_dataset.train_test_split(
+            test_size=val_ratio, stratify_by_column="label", seed=seed
+        )
+        train_ds = ds.pop("train")
+        val_ds = ds.pop("test")
+    except TypeError:
+        X = list(range(len(train_dataset)))
+        y = train_dataset["label"]
+        sss = StratifiedShuffleSplit(n_splits=1, test_size=val_ratio, random_state=seed)
+        for train_indices, test_indices in sss.split(X, y):
+            train_ds = train_dataset.select(train_indices)
+            val_ds = train_dataset.select(test_indices)
+
+    return train_ds, val_ds
 
 
 def _mp_fn(index):
