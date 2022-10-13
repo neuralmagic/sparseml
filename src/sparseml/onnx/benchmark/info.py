@@ -28,8 +28,7 @@ from sparseml.onnx.base import require_onnx, require_onnxruntime
 from sparseml.onnx.framework import framework_info as get_framework_info
 from sparseml.onnx.framework import is_supported
 from sparseml.onnx.utils import DataLoader, ORTModelRunner, max_available_cores
-from sparsezoo.models import Zoo
-from sparsezoo.objects import File, Model
+from sparsezoo import File, Model
 from sparsezoo.utils import DataLoader as SparseZooDataLoader
 from sparsezoo.utils import Dataset as SparseZooDataset
 
@@ -291,14 +290,18 @@ def load_model(model: Any, **kwargs) -> ModelProto:
         raise ValueError("Model must not be None type")
 
     if isinstance(model, str) and model.startswith("zoo:"):
-        model = Zoo.load_model_from_stub(model, **kwargs)
+        model = (
+            Model(model, download_path=kwargs["path"])
+            if "path" in kwargs
+            else Model(model)
+        )
 
     if isinstance(model, Model):
         # default to the main onnx file for the model
-        model = model.onnx_file.downloaded_path()
+        model = model.onnx_model.path
     elif isinstance(model, File):
         # get the downloaded_path -- will auto download if not on local system
-        model = model.downloaded_path()
+        model = model.path
     elif isinstance(model, ModelProto):
         return model
 
@@ -320,7 +323,6 @@ def load_data(
 ) -> Iterable[Tuple[Dict[str, Any], Any]]:
     """
     Creates a iteratable data loader for the given data.
-
     Acceptable types for data are:
     - a folder path containing numpy files
     - a list of file paths
@@ -328,7 +330,6 @@ def load_data(
     - a SparseZoo DataLoader
     - an iterable
     - None type, in which case model must be passed
-
     :param data: data to use for benchmarking
     :param model: model to use for generating data
     :param batch_size: batch size
@@ -347,8 +348,8 @@ def load_data(
 
     # If data is a SparseZoo stub, downloads model data
     if isinstance(data, str) and data.startswith("zoo:"):
-        model_from_zoo = Zoo.load_model_from_stub(data)
-        data = model_from_zoo.data_inputs.loader(
+        model_from_zoo = Model(data)
+        data = model_from_zoo.sample_inputs.loader(
             batch_size, total_iterations, batch_as_list=False
         )
 

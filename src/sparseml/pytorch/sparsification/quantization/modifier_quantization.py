@@ -135,6 +135,8 @@ class QuantizationModifier(ScheduledModifier):
         batch-normalization modules
     :param exclude_module_types: optional list of module class names
         to not propagate quantization configs to. Default is None
+    :param custom_quantizable_module_types: optional list of module class names
+        to be added to the list of quantizable modules. Default is None
     :param activation_qconfig_kwargs: Additional kwargs for quantization of
         activations.
     :param weight_qconfig_kwargs: Additional kwargs for quantization of
@@ -162,6 +164,7 @@ class QuantizationModifier(ScheduledModifier):
         num_calibration_steps: Optional[int] = None,
         exclude_batchnorm: bool = True,
         exclude_module_types: Optional[List[str]] = None,
+        custom_quantizable_module_types: Optional[List[str]] = None,
         activation_qconfig_kwargs: Optional[Dict[str, Any]] = None,
         weight_qconfig_kwargs: Optional[Dict[str, Any]] = None,
         tensorrt: bool = False,
@@ -195,6 +198,7 @@ class QuantizationModifier(ScheduledModifier):
         self._weight_bits = weight_bits
         self._exclude_batchnorm = exclude_batchnorm
         self._exclude_module_types = exclude_module_types
+        self._custom_quantizable_module_types = custom_quantizable_module_types
 
         self._modules_to_quantize = None
         self._qat_enabled = False
@@ -390,6 +394,14 @@ class QuantizationModifier(ScheduledModifier):
             return self._quantize_embedding_activations
 
     @ModifierProp()
+    def custom_quantizable_module_types(self) -> Union[List[str], None]:
+        """
+        :return: optional list of module class names to be included
+            in list of quantizable modules. Default is None
+        """
+        return self._custom_quantizable_module_types
+
+    @ModifierProp()
     def exclude_module_types(self) -> Union[List[str], None]:
         """
         :return: optional list of module class names to not propagate
@@ -569,6 +581,28 @@ class QuantizationModifier(ScheduledModifier):
 
         return pending
 
+    def advance_epochs(self, ref_start_epoch: float = None):
+        """
+        Advance epoch attributes given a reference start epoch
+
+        :param ref_start_epoch: the reference, i.e. new, start epoch
+        """
+        if ref_start_epoch is None:
+            return
+
+        super().advance_epochs(ref_start_epoch=ref_start_epoch)
+
+        if self._disable_quantization_observer_epoch is not None:
+            self._disable_quantization_observer_epoch = (
+                max(0.0, self._disable_quantization_observer_epoch) + ref_start_epoch
+            )
+
+        if self._freeze_bn_stats_epoch is not None:
+            self._freeze_bn_stats_epoch = (
+                max(0.0, self._freeze_bn_stats_epoch) + ref_start_epoch
+            )
+        self._validate_params()
+
     def _check_quantization_update(
         self, module: Module, epoch: float, steps_per_epoch: int
     ):
@@ -651,8 +685,9 @@ class QuantizationModifier(ScheduledModifier):
             # wrap all conv / linear blocks in with quantization observers
             torch_quantization.propagate_qconfig_(quant_module)
             configure_module_default_qconfigs(quant_module)
-
-            add_quant_dequant(quant_module, name, module)
+            add_quant_dequant(
+                quant_module, name, module, self.custom_quantizable_module_types
+            )
 
             # Remove output quantization from appropriate modules
             remove_activation_qat_by_layer_name(
@@ -661,16 +696,16 @@ class QuantizationModifier(ScheduledModifier):
 
         # remove qconfigs for module types in exclude_module_types
         to_exclude = []
-        if self._exclude_module_types:
-            to_exclude.extend(self._exclude_module_types)
+        if self.exclude_module_types:
+            to_exclude.extend(self.exclude_module_types)
 
         # if exclude_batchnorm flag is used, add batch norm layers to list of
         # modules to exclude qconfig
-        if self._exclude_batchnorm:
+        if self.exclude_batchnorm:
             to_exclude.extend(["BatchNorm1d", "BatchNorm2d", "BatchNorm3d"])
 
         self._exclude_module_types = to_exclude
-        if self._exclude_module_types:
+        if self.exclude_module_types:
             self._strip_excluded_module_qconfigs(module)
 
         # set modules with proper qconfigs to QAT mode
@@ -753,9 +788,9 @@ class QuantizationModifier(ScheduledModifier):
         )
 
     def _strip_excluded_module_qconfigs(self, module: Module):
-        if not self._exclude_module_types:
+        if not self.exclude_module_types:
             return
-        excluded_classes = set(self._exclude_module_types)
+        excluded_classes = set(self.exclude_module_types)
         for submodule in module.modules():
             if submodule.__class__.__name__ in excluded_classes and hasattr(
                 submodule, "qconfig"
@@ -763,6 +798,7 @@ class QuantizationModifier(ScheduledModifier):
                 submodule.qconfig = None
 
     def _validate_params(self):
+        self.validate_schedule()
         if (
             self._disable_quantization_observer_epoch is not None
             and self._disable_quantization_observer_epoch < self._start_epoch

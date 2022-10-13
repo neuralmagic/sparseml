@@ -33,6 +33,7 @@ from sparseml.pytorch.datasets import DatasetRegistry
 from sparseml.pytorch.datasets.image_classification.ffcv_dataset import (
     FFCVCompatibleDataset,
 )
+from sparseml.pytorch.image_classification.utils.constants import AVAILABLE_DATASETS
 from sparseml.pytorch.models import ModelRegistry
 from sparseml.pytorch.optim import ScheduledModifierManager
 from sparseml.pytorch.utils import (
@@ -44,13 +45,15 @@ from sparseml.pytorch.utils import (
     TensorBoardLogger,
     TopKAccuracy,
     default_device,
+    download_framework_model_by_recipe_type,
     early_stop_data_loader,
     model_to_device,
     set_deterministic_seeds,
     torch_distributed_zero_first,
 )
 from sparseml.utils import create_dirs
-from sparsezoo import Zoo
+from sparseml.utils.datasets import cifar, imagenet, imagenette
+from sparsezoo import Model, setup_model
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -67,7 +70,57 @@ __all__ = [
     "get_loss_wrapper",
     "ddp_aware_model_move",
     "extract_metadata",
+    "save_zoo_directory",
+    "label_to_class_mapping_from_dataset",
 ]
+
+
+def save_zoo_directory(
+    output_dir: str, training_outputs_dir: str, logs_path: Optional[str] = None
+):
+    """
+    Takes the `training_outputs_dir`
+    (the directory where the pipeline saves its training artifacts),
+    and saves the training artifacts to `output_dir` as a sparsezoo Model class object.
+
+    :param output_dir: The output path where the artifacts are saved
+        (adhering to the structure of sparsezoo Model class object)
+    :param training_outputs_dir: The path to the existing directory
+        with the saved training artifacts
+    :param logs_path: Optional directory where the training logs reside
+    """
+    for root_file in [
+        "model.onnx",
+        "sample_inputs",
+        "sample_outputs",
+        "sample_labels",
+        "deployment",
+    ]:
+        root_file_path = os.path.join(training_outputs_dir, root_file)
+        if not os.path.exists(root_file_path):
+            raise ValueError(
+                f"File {root_file_path} missing. To create this file, "
+                "make sure that the `export` script (for exporting image "
+                "classification models) has been evoked."
+            )
+
+    setup_model(
+        output_dir=output_dir,
+        training=os.path.join(training_outputs_dir, "training"),
+        deployment=os.path.join(training_outputs_dir, "deployment"),
+        onnx_model=os.path.join(training_outputs_dir, "model.onnx"),
+        sample_inputs=os.path.join(training_outputs_dir, "sample_inputs"),
+        sample_outputs=os.path.join(training_outputs_dir, "sample_outputs"),
+        sample_labels=os.path.join(training_outputs_dir, "sample_labels"),
+        model_card=os.path.join(training_outputs_dir, "model.md"),
+        logs=logs_path,
+        sample_originals=None,
+        analysis=None,
+        benchmarks=None,
+        eval_results=None,
+        recipes=None,
+    )
+    _LOGGER.info(f"Created sparsezoo Model directory locally in {output_dir}")
 
 
 @unique
@@ -150,6 +203,26 @@ def get_save_dir_and_loggers(
 
 
 # data helpers
+def label_to_class_mapping_from_dataset(dataset: str) -> Optional[Dict[int, str]]:
+    """
+    Retrieve the label-to-class-mapping for the chosen dataset
+    If dataset is not recognized, returns None
+
+    :param dataset: string identifier of the dataset (e.g. "imagenet")
+    :return: mapping from labels to class strings if found. Otherwise None
+    """
+    if dataset not in AVAILABLE_DATASETS:
+        _LOGGER.warning(f"Dataset: {dataset} not recognized.")
+        return None
+    else:
+        if dataset == "cifar":
+            return cifar.CIFAR_10_CLASSES
+        elif dataset == "imagenette":
+            return imagenette.IMAGENETTE_CLASSES
+        else:
+            return imagenet.IMAGENET_CLASSES
+
+
 def get_dataset_and_dataloader(
     dataset_name: str,
     dataset_path: str,
@@ -271,9 +344,18 @@ def create_model(
     """
     with torch_distributed_zero_first(local_rank):
         # only download once locally
-        if checkpoint_path and checkpoint_path.lower().startswith("zoo"):
+        if checkpoint_path and checkpoint_path.startswith("zoo"):
+            recipe_type = None
+            if recipe_path and "recipe_type=" in recipe_path:
+                # override recipe type from recipe path
+                recipe_type = recipe_path.split("recipe_type=")[1]
+                recipe_type = recipe_type.split("&")[0]
+
+            if checkpoint_path.lower() == "zoo":
+                checkpoint_path = recipe_path
+
             checkpoint_path = _download_model_from_zoo_using_recipe(
-                recipe_stub=recipe_path,
+                recipe_stub=checkpoint_path, recipe_type=recipe_type
             )
 
         result = ModelRegistry.create(
@@ -356,7 +438,7 @@ def save_model_training(
     manager: BaseManager,
     save_name: str,
     save_dir: str,
-    epoch: int,
+    epoch: Optional[int],
     val_res: Optional[ModuleRunResults],
     checkpoint_manager: Optional[BaseManager] = None,
     arch_key: Optional[str] = None,
@@ -367,7 +449,7 @@ def save_model_training(
     :param manager: manager created from the training recipe
     :param save_name: name to save model to
     :param save_dir: directory to save results in
-    :param epoch: integer representing umber of epochs to
+    :param epoch: integer representing epoch at which model is saved at
     :param val_res: results from validation run
     :param checkpoint_manager: manager created from the checkpoint recipe
     :param arch_key: if provided, the `arch_key` will be saved in the
@@ -512,12 +594,14 @@ def extract_metadata(
 
 def _download_model_from_zoo_using_recipe(
     recipe_stub: str,
+    recipe_type: Optional[str],
 ) -> Optional[str]:
     """
     Download a model from the zoo using a recipe stub and return the
     path to the downloaded model.
 
     :param recipe_stub: Path to a valid recipe stub
+    :param recipe_type: recipe type override in zoo stub
     :return: Path to the downloaded model
     """
     valid_recipe_stub = recipe_stub and recipe_stub.startswith("zoo:")
@@ -528,13 +612,10 @@ def _download_model_from_zoo_using_recipe(
             f" but got {recipe_stub} instead"
         )
 
-    files = Zoo.download_recipe_base_framework_files(
-        stub=recipe_stub,
-        extensions=[".pth"],
+    return download_framework_model_by_recipe_type(
+        Model(recipe_stub),
+        recipe_name=recipe_type,
     )
-
-    checkpoint_path = files[0]
-    return checkpoint_path
 
 
 @contextmanager

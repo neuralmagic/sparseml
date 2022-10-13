@@ -47,6 +47,7 @@ except Exception as _err:
     QATConv2d = None
 
 from sparseml.utils import create_dirs, save_numpy
+from sparsezoo import Model
 
 
 try:
@@ -90,6 +91,7 @@ __all__ = [
     "thin_model_from_checkpoint",
     "MEMORY_BOUNDED",
     "memory_aware_threshold",
+    "download_framework_model_by_recipe_type",
 ]
 
 
@@ -1114,3 +1116,31 @@ def memory_aware_threshold(tensor: torch.Tensor, idx: int) -> Tensor:
         torch.cuda.empty_cache()
         os.environ[MEMORY_BOUNDED] = "True"
         return torch.kthvalue(tensor.view(-1), idx + 1)[0]
+
+
+def download_framework_model_by_recipe_type(
+    zoo_model: Model, recipe_name: Optional[str] = None
+) -> str:
+    """
+    Extract the path of the framework model from the
+    zoo model, conditioned on the name of the recipe
+    By default, the function will return path to the final framework model
+    :params zoo_model: model object from sparsezoo
+    :params recipe_name: a name of the recipe (e.g. "transfer_learn", "original" etc.)
+    :return: path to the framework model
+    """
+
+    # default to model query params if available
+    recipe_name = recipe_name or (
+        zoo_model.stub_params.get("recipe_type") or zoo_model.stub_params.get("recipe")
+    )
+
+    if recipe_name:
+        if "transfer" in recipe_name.lower():
+            # fetching the model for transfer learning
+            framework_model = zoo_model.training.default.get_file("model.ckpt.pth")
+    else:
+        # fetching the model for inference
+        framework_model = zoo_model.training.default.get_file("model.pth")
+
+    return framework_model.path

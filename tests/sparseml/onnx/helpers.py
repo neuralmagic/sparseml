@@ -7,10 +7,11 @@
 #    http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing,
-# software distributed under the License is distributed on an "AS IS" BASIS,
+# software distributed under the License is distributed on an "AS IS" BASIS,t
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 
 import os
 from typing import NamedTuple
@@ -19,7 +20,7 @@ import pytest
 import torch
 
 from sparseml.pytorch.utils import ModuleExporter
-from sparsezoo import Zoo
+from sparsezoo import Model
 from tests.sparseml.pytorch.helpers import ConvNet, LinearNet, MLPNet
 
 
@@ -992,50 +993,28 @@ OnnxRepoModelFixture = NamedTuple(
     scope="session",
     params=[
         (
-            {
-                "domain": "cv",
-                "sub_domain": "classification",
-                "architecture": "resnet_v1",
-                "sub_architecture": "50",
-                "framework": "pytorch",
-                "repo": "sparseml",
-                "dataset": "imagenet",
-                "training_scheme": None,
-                "sparse_name": "base",
-                "sparse_category": "none",
-                "sparse_target": None,
-            },
+            "zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/base-none",
             "resnet50",
         ),
         (
-            {
-                "domain": "cv",
-                "sub_domain": "classification",
-                "architecture": "mobilenet_v1",
-                "sub_architecture": "1.0",
-                "framework": "pytorch",
-                "repo": "sparseml",
-                "dataset": "imagenet",
-                "training_scheme": None,
-                "sparse_name": "base",
-                "sparse_category": "none",
-                "sparse_target": None,
-            },
+            "zoo:cv/classification/mobilenet_v1-1.0/pytorch/sparseml/imagenet/base-none",  # noqa 501
             "mobilenet",
         ),
     ],
 )
 def onnx_repo_models(request) -> OnnxRepoModelFixture:
-    model_args, model_name = request.param
-    model = Zoo.load_model(**model_args)
-    model_path = model.onnx_file.downloaded_path()
-    data_paths = [data_file.downloaded_path() for data_file in model.data.values()]
 
-    input_paths = None
-    output_paths = None
-    for path in data_paths:
-        if "sample-inputs" in path:
-            input_paths = path
-        elif "sample-outputs" in path:
-            output_paths = path
+    model_stub, model_name = request.param
+    model = Model(model_stub)
+    model_path = model.onnx_model.path
+    input_paths, output_paths = None, None
+    if model.sample_inputs is not None:
+        if not model.sample_inputs.files:
+            model.sample_inputs.unzip()
+        input_paths = model.sample_inputs.path
+    if model.sample_outputs is not None:
+        if not model.sample_outputs["framework"].files:
+            model.sample_outputs["framework"].unzip()
+        output_paths = model.sample_outputs["framework"].path
+
     return OnnxRepoModelFixture(model_path, model_name, input_paths, output_paths)
