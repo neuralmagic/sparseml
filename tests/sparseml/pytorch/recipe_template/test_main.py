@@ -18,9 +18,9 @@ import torch
 from packaging import version
 from torch.nn import Module
 
-from sparseml import recipe_template
 from sparseml.pytorch.models import resnet50
 from sparseml.pytorch.optim import ScheduledModifierManager
+from sparseml.pytorch.recipe_template.main import _build_recipe
 
 
 @pytest.fixture
@@ -50,7 +50,7 @@ min_torch_version = pytest.mark.skipif(
 def test_generic_recipe_creation(
     pruning: str, quantization: bool, kwargs, model: Optional[Module]
 ):
-    actual = recipe_template(pruning=pruning, quantization=quantization, **kwargs)
+    actual = _build_recipe(pruning=pruning, quantization=quantization, **kwargs)
     assert actual
     manager = ScheduledModifierManager.from_yaml(file_path=actual)
     manager.apply(module=model)
@@ -59,8 +59,8 @@ def test_generic_recipe_creation(
 @pytest.mark.parametrize(
     "pruning, quantization, kwargs",
     [
-        ("true", True, {}),
-        ("true", False, {}),
+        ("true", True, {"lr_func": "cosine"}),
+        ("true", False, {"lr_func": "cyclic_linear"}),
         ("false", True, {}),
         ("false", False, {}),
     ],
@@ -68,7 +68,7 @@ def test_generic_recipe_creation(
 def test_recipe_creation_with_a_specific_model(
     pruning: str, quantization: bool, kwargs, model: Optional[Module]
 ):
-    actual = recipe_template(
+    actual = _build_recipe(
         pruning=pruning, quantization=quantization, model=model, **kwargs
     )
     assert actual
@@ -77,7 +77,7 @@ def test_recipe_creation_with_a_specific_model(
 
 
 def test_recipe_can_be_updated():
-    actual = recipe_template(pruning="true", quantization=False)
+    actual = _build_recipe(pruning="true", quantization=False)
     manager = ScheduledModifierManager.from_yaml(
         file_path=actual,
         recipe_variables=dict(
@@ -101,7 +101,7 @@ def test_recipe_can_be_updated():
     ],
 )
 def test_pruning_modifiers_match_pruning_algo(pruning_algo: str, expected: str):
-    actual_recipe = recipe_template(pruning=pruning_algo)
+    actual_recipe = _build_recipe(pruning=pruning_algo)
     manager = ScheduledModifierManager.from_yaml(file_path=actual_recipe)
     manager_recipe = str(manager)
     assert expected in manager_recipe
@@ -124,8 +124,7 @@ def test_obs_modifier():
     ],
 )
 def test_one_shot_applies_sparsification(pruning, quantization, quant_expected, model):
-    actual = recipe_template(pruning=pruning, quantization=quantization, model=model)
-
+    actual = _build_recipe(pruning=pruning, quantization=quantization, model=model)
     manager = ScheduledModifierManager.from_yaml(file_path=actual)
     manager.apply(module=model)
     model_is_quantized = hasattr(model, "qconfig") and model.qconfig is not None

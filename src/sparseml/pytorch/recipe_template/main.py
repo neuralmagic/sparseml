@@ -13,8 +13,10 @@
 # limitations under the License.
 import warnings
 from collections import defaultdict
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+import torch
 from torch.nn import Module
 
 from sparseml.pytorch.sparsification import (
@@ -46,15 +48,14 @@ def recipe_template(
     global_sparsity: bool = False,
     target: Optional[str] = None,
     model: Union[str, Module, None] = None,
-    convert_to_md: bool = True,
-    file_name: str = "recipe",
+    file_name: str = "recipe.md",
 ):
     """
     Returns a valid yaml or md recipe based on specified arguments
 
     :pruning: the pruning algorithm to use in the recipe, can be any of the following,
         `true` (represents Magnitude/Global-Magnitude pruning according to
-        global_sparsity), `false` (No pruning), `ac/dc`, `mfac`, `movement`, `obs` or
+        global_sparsity), `false` (No pruning), `acdc`, `mfac`, `movement`, `obs` or
         `constant`. Defaults to `false`
     :quantization: True if quantization needs to be applied else False. Defaults to
         False
@@ -64,22 +65,44 @@ def recipe_template(
         False
     :target: the target hardware, can be set to `vnni` or `tensorrt`. Defaults to
         None
-    :model: an instantiated PyTorch Module, or the loacl path to a torch.jit loadable
+    :model: an instantiated PyTorch Module, or the local path to a torch.jit loadable
         *.pt file, if supplied then the recipe is built according to this architecture
-    :convert_to_md: set to True to return a valid markdown, else a yaml recipe is
-        returned
-    :file_name: the filename to save this recipe to. Defaults to `recipe`
-        (Note: the extension is decided based on recipe type)
+    :file_name: the filename to save this recipe to. Defaults to `recipe.md`, if the
+        file extension is not markdown, then a yaml file is written.
     """
+
+    recipe = _build_recipe(
+        global_sparsity=global_sparsity,
+        lr_func=lr_func,
+        mask_type=mask_type,
+        model=model,
+        pruning=pruning,
+        quantization=quantization,
+        target=target,
+        convert_to_md=Path(file_name).suffix == ".md",
+    )
+    _write_recipe_to_file(file_name=file_name, recipe=recipe)
+    return recipe
+
+
+def _build_recipe(
+    pruning: str = "false",
+    quantization: bool = False,
+    lr_func: str = "linear",
+    mask_type: str = "unstructured",
+    global_sparsity: bool = False,
+    target: Optional[str] = None,
+    model: Union[str, Module, None] = None,
+    convert_to_md: bool = False,
+):
     if isinstance(model, str):
         # load model file to in memory Module using torch.jit
         model = torch.jit.load(model)
 
     mask_type = _validate_mask_type(mask_type=mask_type, target=target)
-
     recipe_variables = _get_recipe_variables(
-        pruning,
-        quantization,
+        pruning=pruning.lower() != "false",
+        quantization=quantization,
         lr_func=lr_func,
         mask_type=mask_type,
         global_sparsity=global_sparsity,
@@ -89,7 +112,6 @@ def recipe_template(
         "true": "magnitude",
         "false": "",
     }
-
     builder_groups = {"training_modifiers": _get_training_modifier_builders()}
 
     pruning_algo = (
@@ -97,17 +119,19 @@ def recipe_template(
         if pruning.lower() in bool_str_to_pruning_algo
         else pruning
     )
-    pruning_algo = "constant" if not pruning_algo and quantization else pruning_algo
 
+    # naive normalization, lower and remove `/` for ac/dc
+    pruning_algo = pruning_algo.lower().replace("/", "")
+
+    pruning_algo = "constant" if not pruning_algo and quantization else pruning_algo
     if pruning_algo:
         pruning_builders, pruning_variables = _get_pruning_modifier_builders(
             pruning_algo=pruning_algo, model=model, global_sparsity=global_sparsity
         )
         recipe_variables.update(pruning_variables)
         builder_groups["pruning_modifiers"] = pruning_builders
-
     if quantization:
-        is_post_pruning = bool(pruning_algo)
+        is_post_pruning = pruning_algo not in ["constant", ""]
         quant_builders, quant_variables = _get_quantization_modifier_builders(
             post_pruning=is_post_pruning, target=target
         )
@@ -117,33 +141,27 @@ def recipe_template(
     recipe_builder = RecipeYAMLBuilder(
         variables=recipe_variables, modifier_groups=builder_groups
     )
-    yaml_recipe = recipe_builder.build_yaml_str()
+    recipe = recipe_builder.build_yaml_str()
 
     if convert_to_md:
-        recipe_builder.save_markdown(file_path=file_name)
-    else:
-        recipe_builder.save_yaml(file_path=file_name)
-
-    return f"---\n{yaml_recipe}\n---\n" if convert_to_md else yaml_recipe
+        recipe = f"---\n{recipe}\n---"
+    return recipe
 
 
 def _get_recipe_variables(
-    pruning: Union[str, bool],
+    pruning: bool,
     quantization: bool,
     lr_func: str = "linear",
     mask_type: str = "unstructured",
     global_sparsity: bool = False,
 ) -> Dict[str, Any]:
-    recipe_variables = {}
+    recipe_variables = dict(lr_func=lr_func, init_lr=1.5e-4, final_lr=0)
 
     if pruning:
         recipe_variables.update(
             dict(
                 num_pruning_active_epochs=20,
                 num_pruning_finetuning_epochs=10,
-                init_lr=1.5e-4,
-                final_lr=0,
-                lr_func=lr_func,
                 pruning_init_sparsity=0.05,
                 pruning_final_sparsity=0.9,
                 pruning_update_frequency=0.01,
@@ -163,12 +181,14 @@ def _get_recipe_variables(
                 quantization_submodules="null",
             )
         )
-
-    recipe_variables["num_epochs"] = "eval(_num_pruning_epochs + num_qat_epochs)"
-    if pruning and not quantization:
+    if pruning and quantization:
+        recipe_variables["num_epochs"] = "eval(_num_pruning_epochs + num_qat_epochs)"
+    elif pruning and not quantization:
         recipe_variables["num_epochs"] = "eval(_num_pruning_epochs)"
     elif quantization and not pruning:
-        recipe_variables["num_epochs"] = "eval(_nRum_qat_epochs)"
+        recipe_variables["num_epochs"] = "eval(num_qat_epochs)"
+    else:
+        recipe_variables["num_epochs"] = 35
 
     return recipe_variables
 
@@ -282,7 +302,7 @@ def _get_quantization_modifier_builders(
     post_pruning: bool,
     target: str,
     model: Optional[Module] = None,
-) -> List[ModifierYAMLBuilder]:
+) -> Tuple[List[ModifierYAMLBuilder], Dict[str, Any]]:
     extra_recipe_variables = {}
     freeze_graph_epoch = (
         "eval(_num_pruning_epochs + num_qat_epochs - num_qat_finetuning_epochs)"
@@ -323,3 +343,9 @@ def _validate_mask_type(
         )
         mask_type = target_to_mask_type[target]
     return mask_type
+
+
+def _write_recipe_to_file(file_name: str, recipe: str):
+    Path(file_name).parent.mkdir(parents=True, exist_ok=True)
+    with open(file_name, "w") as file:
+        file.write(recipe)
