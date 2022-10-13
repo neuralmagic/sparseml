@@ -31,6 +31,8 @@ except Exception as torchvision_error:
     ImageFolder = object  # default for constructor
     torchvision_import_error = torchvision_error
 
+from typing import List, Union
+
 from sparseml.pytorch.datasets.image_classification.ffcv_dataset import (
     FFCVImageNetDataset,
 )
@@ -72,20 +74,30 @@ class ImageNetDataset(ImageFolder, FFCVImageNetDataset):
         train: bool = True,
         rand_trans: bool = False,
         image_size: int = 224,
+        resize_scale: float = 1.143,
+        resize_mode: Union[str, "transforms.InterpolationMode"] = "bilinear",
+        rgb_means: List[float] = IMAGENET_RGB_MEANS,
+        rgb_stds: List[float] = IMAGENET_RGB_STDS,
     ):
         if torchvision_import_error is not None:
             raise torchvision_import_error
 
         root = clean_path(root)
-        non_rand_resize_scale = 256.0 / 224.0  # standard used
+        if type(resize_mode) is str and resize_mode.lower() in ["linear", "bilinear"]:
+            interpolation = transforms.InterpolationMode.BILINEAR
+        elif type(resize_mode) is str and resize_mode.lower() in ["cubic", "bicubic"]:
+            interpolation = transforms.InterpolationMode.BICUBIC
+
         init_trans = (
             [
-                transforms.RandomResizedCrop(image_size),
+                transforms.RandomResizedCrop(image_size, interpolation=interpolation),
                 transforms.RandomHorizontalFlip(),
             ]
             if rand_trans
             else [
-                transforms.Resize(round(non_rand_resize_scale * image_size)),
+                transforms.Resize(
+                    round(resize_scale * image_size), interpolation=interpolation
+                ),
                 transforms.CenterCrop(image_size),
             ]
         )
@@ -93,7 +105,7 @@ class ImageNetDataset(ImageFolder, FFCVImageNetDataset):
         trans = [
             *init_trans,
             transforms.ToTensor(),
-            transforms.Normalize(mean=IMAGENET_RGB_MEANS, std=IMAGENET_RGB_STDS),
+            transforms.Normalize(mean=rgb_means, std=rgb_stds),
         ]
         root = os.path.join(
             os.path.abspath(os.path.expanduser(root)), "train" if train else "val"
