@@ -484,13 +484,18 @@ def export_onnx(
     if "output_names" not in export_kwargs:
         export_kwargs["output_names"] = _get_output_names(out)
 
-    if dynamic_axes == "batch":
-        dynamic_axes = {
-            tensor_name: {0: "batch"}
-            for tensor_name in (
-                export_kwargs["input_names"] + export_kwargs["output_names"]
-            )
-        }
+    if dynamic_axes is not None:
+        warnings.warn(
+            "Setting dynamic_axes is deprecated, now it is always set",
+            category=DeprecationWarning,
+        )
+
+    dynamic_axes = {
+        tensor_name: {0: "batch"}
+        for tensor_name in (
+            export_kwargs["input_names"] + export_kwargs["output_names"]
+        )
+    }
 
     # disable active quantization observers because they cannot be exported
     disabled_observers = []
