@@ -80,9 +80,9 @@ class _QuestionAnsweringTrainer(TransformersTrainer):
         eval_examples = self.eval_examples if eval_examples is None else eval_examples
 
         # Always evaluate w/ fp32 to be closer to DeepSparse
-        use_amp = self.use_amp
+        use_cuda_amp = self.use_cuda_amp
         if not self.args.fp16_full_eval and not self.args.bf16_full_eval:
-            self.use_amp = False
+            self.use_cuda_amp = False
 
         # Temporarily disable metric computation, we will do it in the loop here.
         compute_metrics = self.compute_metrics
@@ -129,7 +129,7 @@ class _QuestionAnsweringTrainer(TransformersTrainer):
             self.args, self.state, self.control, metrics
         )
 
-        self.use_amp = use_amp
+        self.use_cuda_amp = use_cuda_amp
 
         return metrics
 

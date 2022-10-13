@@ -638,11 +638,16 @@ class RecipeManagerTrainerInterface:
             return
 
         # change in keys due to architecture changes, reload statedict
-        load_state_dict = torch.load(
+        loaded_state_dict = torch.load(
             os.path.join(load_path, WEIGHTS_NAME), map_location="cpu"
         )
-        _, missing, unexpected, _, _ = self.model._load_state_dict_into_model(
-            self.model, load_state_dict, load_path, _fast_init=False
+        _, missing, unexpected, _, _ = self.model._load_pretrained_model(
+            model=self.model,
+            state_dict=loaded_state_dict,
+            loaded_keys=list(loaded_state_dict.keys()),
+            resolved_archive_file=[],
+            pretrained_model_name_or_path=load_path,
+            _fast_init=False,
         )
 
         if missing:
@@ -803,12 +808,12 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         applied = self.apply_manager(epoch=math.inf, checkpoint=None)
 
         # Always evaluate w/ fp32 to be closer to DeepSparse
-        use_amp = self.use_amp
+        use_cuda_amp = self.use_cuda_amp
         if not self.args.fp16_full_eval and not self.args.bf16_full_eval:
-            self.use_amp = False
+            self.use_cuda_amp = False
 
         output = super().evaluate(*args, **kwargs)
-        self.use_amp = use_amp
+        self.use_cuda_amp = use_cuda_amp
         if applied:
             self.finalize_manager()
 
@@ -901,7 +906,7 @@ class TransformersTrainer(HFTransformersTrainer):
                         os.path.join(output_dir, "scheduler.pt"),
                     )
             reissue_pt_warnings(caught_warnings)
-            if self.use_amp:
+            if self.use_cuda_amp:
                 torch.save(
                     self.scaler.state_dict(), os.path.join(output_dir, "scaler.pt")
                 )
@@ -1038,7 +1043,7 @@ class DisableHalfPrecisionCallback(TrainerCallback):
         if not self.on_begin_called:
             # disable if training loops haven't started so we don't load
             # the empty scaler state dict and instead disable it from the start
-            self.trainer.use_amp = False
+            self.trainer.use_cuda_amp = False
 
         if hasattr(self.trainer, "scaler"):
             self.trainer.scaler._enabled = False
