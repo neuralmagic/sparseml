@@ -123,15 +123,12 @@ def get_quantization_params(
 def delete_quant_node(
     model: ModelProto,
     node: NodeProto,
-    keep_params: bool = False,
     keep_weight: bool = False,
 ):
     """
     Deletes a QuantizeLinear or DequantizeLinear and its parameters from the model
     :param model: ONNX model to modify
     :param node: the QuantizeLinear or DequantizeLinear node to delete
-    :param keep_params: set true to not delete scale and zero point parameters stored
-        in the graph
     :param keep_weight: set true to not delete the weight param possibly stored as an
         initializer to the first input of this node
     """
@@ -140,9 +137,6 @@ def delete_quant_node(
     ), "Op Type must be either QuantizeLinear or DequantizeLinear, found {} ".format(
         node.op_type
     )
-    if keep_params:
-        del node.input[2]  # delete reference to zero point
-        del node.input[1]  # delete reference to scale
     if keep_weight:
         del node.input[0]
     remove_node_and_params_from_graph(model, node)
@@ -274,7 +268,7 @@ def _delete_repeated_qat_blocks(model: ModelProto):
         nodes_to_delete.append(dequant_node_1)
 
     for n in nodes_to_delete:
-        delete_quant_node(model, n, keep_params=True)
+        delete_quant_node(model, n)
 
     # cleanup graph
     graph.update()
@@ -388,11 +382,9 @@ def _convert_quantizable_conv(
         output_quantize_node.input[2],  # y_zero_point
     ]
 
-    conv_keep_params = None
     if len(conv_node.input) > 2:
         bias = get_init_by_name(model, conv_node.input[2])
         if bias is not None:
-            conv_keep_params = [conv_node.input[2]]
             # quantize bias and add it to the qconv inputs
             bias = numpy_helper.to_array(bias)
             input_quantize_params = get_quantization_params(
@@ -422,14 +414,14 @@ def _convert_quantizable_conv(
     model.graph.node.append(qconv_node)
 
     # delete original conv and folded quantization ops
-    remove_node_and_params_from_graph(model, conv_node, keep_params=conv_keep_params)
-    delete_quant_node(model, weight_dequantize_node, keep_params=False)
-    delete_quant_node(model, weight_quantize_node, keep_params=True, keep_weight=True)
+    remove_node_and_params_from_graph(model, conv_node)
+    delete_quant_node(model, weight_dequantize_node)
+    delete_quant_node(model, weight_quantize_node, keep_weight=True)
     if fold_input_quant and len(get_node_output_nodes(model, input_quantize_node)) <= 1:
         # fold if this conv is the only node that reads from this quant op
-        delete_quant_node(model, input_quantize_node, keep_params=True)
+        delete_quant_node(model, input_quantize_node)
     if fold_output_quant:
-        delete_quant_node(model, output_quantize_node, keep_params=True)
+        delete_quant_node(model, output_quantize_node)
     return qconv_node
 
 
@@ -502,13 +494,13 @@ def _convert_quantizable_gemm(
     model.graph.node.append(qmatmul_node)
 
     # delete folded quantization ops
-    delete_quant_node(model, weight_dequantize_node, keep_params=False)
-    delete_quant_node(model, weight_quantize_node, keep_params=True)
+    delete_quant_node(model, weight_dequantize_node)
+    delete_quant_node(model, weight_quantize_node)
     if fold_input_quant and len(get_node_output_nodes(model, input_quantize_node)) <= 1:
         # fold if this gemm is the only node that reads from this quant op
-        delete_quant_node(model, input_quantize_node, keep_params=True)
+        delete_quant_node(model, input_quantize_node)
     if fold_output_quant:
-        delete_quant_node(model, output_quantize_node, keep_params=True)
+        delete_quant_node(model, output_quantize_node)
 
     if len(gemm_node.input) > 2:
         # add bias term following FC in the graph
@@ -549,8 +541,7 @@ def _convert_quantizable_gemm(
         model.graph.node.append(qmatmul_bias_add_node)
 
         # delete original Gemm node
-        params_to_keep = [gemm_node.input[2]] if len(gemm_node.input) > 1 else []
-        remove_node_and_params_from_graph(model, gemm_node, keep_params=params_to_keep)
+        remove_node_and_params_from_graph(model, gemm_node)
 
 
 def _convert_quantizable_matmul(model: ModelProto):
@@ -706,11 +697,11 @@ def _convert_quantizable_matmul(model: ModelProto):
         model.graph.node.append(qmatmul_node)
 
         for node in input_dequantize_nodes:
-            delete_quant_node(model, node, keep_params=True)
-        delete_quant_node(model, output_quantize_node, keep_params=True)
+            delete_quant_node(model, node)
+        delete_quant_node(model, output_quantize_node)
 
         # delete original MatMul node
-        remove_node_and_params_from_graph(model, matmul_node, keep_params=None)
+        remove_node_and_params_from_graph(model, matmul_node)
 
         conversion_count += 1
         graph = ONNXGraph(model)
@@ -972,16 +963,16 @@ def _convert_quantizable_gemm_no_activations(model: ModelProto):
 
         # Cleanup
         # delete folded quantization ops
-        delete_quant_node(model, weight_dequantize_node, keep_params=False)
-        delete_quant_node(model, weight_quantize_node, keep_params=True)
+        delete_quant_node(model, weight_dequantize_node)
+        delete_quant_node(model, weight_quantize_node)
 
         # only delete input node if the matmul is the only child
         current_graph = ONNXGraph(model)
         if len(current_graph.get_node_children(input_quantize_node)) == 1:
-            delete_quant_node(model, input_quantize_node, keep_params=True)
+            delete_quant_node(model, input_quantize_node)
 
         # delete original Gemm node
-        remove_node_and_params_from_graph(model, gemm_node, keep_params=None)
+        remove_node_and_params_from_graph(model, gemm_node)
 
         conversion_count += 1
 
@@ -1107,23 +1098,23 @@ def _convert_quantizable_matmul_and_add(model: ModelProto):
 
         # Cleanup
         # delete folded quantization ops
-        delete_quant_node(model, weight_dequantize_node, keep_params=False)
-        delete_quant_node(model, weight_quantize_node, keep_params=True)
+        delete_quant_node(model, weight_dequantize_node)
+        delete_quant_node(model, weight_quantize_node)
         remove_node_and_params_from_graph(model, weight_transpose_node)
 
         # only delete input node if the matmul is the only child
         current_graph = ONNXGraph(model)
         if len(current_graph.get_node_children(input_quantize_node)) == 1:
-            delete_quant_node(model, input_quantize_node, keep_params=True)
+            delete_quant_node(model, input_quantize_node)
         if output_quantize_node:
-            delete_quant_node(model, output_quantize_node, keep_params=True)
+            delete_quant_node(model, output_quantize_node)
         if output_dequantize_node:
-            delete_quant_node(model, output_dequantize_node, keep_params=True)
+            delete_quant_node(model, output_dequantize_node)
 
         # delete original Gemm node
-        remove_node_and_params_from_graph(model, matmul_node, keep_params=None)
+        remove_node_and_params_from_graph(model, matmul_node)
         # delete original Add node
-        remove_node_and_params_from_graph(model, bias_add_node, keep_params=None)
+        remove_node_and_params_from_graph(model, bias_add_node)
 
         conversion_count += 1
 
@@ -1237,16 +1228,16 @@ def _convert_quantizable_conv_integer(model: ModelProto):
 
         # Cleanup
         # delete folded quantization ops
-        delete_quant_node(model, weight_dequantize_node, keep_params=False)
-        delete_quant_node(model, weight_quantize_node, keep_params=True)
+        delete_quant_node(model, weight_dequantize_node)
+        delete_quant_node(model, weight_quantize_node)
 
         # only delete input node if the conv is the only child
         current_graph = ONNXGraph(model)
         if len(current_graph.get_node_children(input_quantize_node)) == 1:
-            delete_quant_node(model, input_quantize_node, keep_params=True)
+            delete_quant_node(model, input_quantize_node)
 
         # delete original Conv node
-        remove_node_and_params_from_graph(model, conv_node, keep_params=None)
+        remove_node_and_params_from_graph(model, conv_node)
 
         conversion_count += 1
 
@@ -1430,9 +1421,9 @@ def _quantize_qat_embedding(model: ModelProto):
             output_dequant_node.input[1] = input_quant_node.input[1]
             output_dequant_node.input[2] = input_quant_node.input[2]
             # delete unnecessary quantize and dequantize ops
-            delete_quant_node(model, input_quant_node, keep_params=True)
-            delete_quant_node(model, input_dequant_node, keep_params=False)
-            delete_quant_node(model, output_quant_node, keep_params=False)
+            delete_quant_node(model, input_quant_node)
+            delete_quant_node(model, input_dequant_node)
+            delete_quant_node(model, output_quant_node)
 
         else:
             # use input dequant to dequantize output
@@ -1441,7 +1432,7 @@ def _quantize_qat_embedding(model: ModelProto):
             input_dequant_node.output[0] = gather_node.output[0]
             gather_node.output[0] = embedding_quant_output_id
 
-            delete_quant_node(model, input_quant_node, keep_params=False)
+            delete_quant_node(model, input_quant_node)
         graph.update()
         converted_nodes += 1
 
@@ -1478,7 +1469,7 @@ def _remove_duplicate_quantize_ops(model: ModelProto):
                 _replace_input_id_model(
                     model, remove_node.output[0], keep_node.output[0]
                 )
-                delete_quant_node(model, remove_node, keep_params=True)
+                delete_quant_node(model, remove_node)
     # cleanup graph
     graph.update()
     graph.delete_unused_initializers()
@@ -1522,7 +1513,7 @@ def _cleanup_unused_quants(model: ModelProto):
         nodes_to_delete.append(dequant_node)
 
     for n in nodes_to_delete:
-        delete_quant_node(model, n, keep_params=True)
+        delete_quant_node(model, n)
 
     # update graph
     graph.update()
