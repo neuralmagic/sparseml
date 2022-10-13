@@ -461,7 +461,6 @@ class RecipeManagerTrainerInterface:
             )
             composed_manager.save(recipe_path)
         else:
-
             self.manager.save(recipe_path)
 
         _LOGGER.info(f"Saved SparseML recipe with model state to {recipe_path}")

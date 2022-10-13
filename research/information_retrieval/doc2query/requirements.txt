@@ -34,7 +34,7 @@ ipython-genutils==0.2.0
 ipywidgets==7.6.3
 jedi==0.18.0
 Jinja2==3.0.1
-joblib==1.0.1
+joblib==1.2.0
 jsonschema==3.2.0
 jupyter==1.0.0
 jupyter-client==6.1.12
@@ -74,7 +74,7 @@ progressbar2==3.53.1
 prometheus-client==0.11.0
 promise==2.3
 prompt-toolkit==3.0.18
-protobuf==3.17.3
+protobuf==3.18.3
 psutil==5.8.0
 ptyprocess==0.7.0
 pyarrow==3.0.0

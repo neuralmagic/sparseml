@@ -53,6 +53,7 @@ from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils import check_min_version
 from transformers.utils.versions import require_version
 
+from sparseml.pytorch.utils.distributed import record
 from sparseml.transformers.sparsification import Trainer, TrainingArguments
 from sparseml.transformers.utils import SparseAutoModel, get_shared_tokenizer_src
 
@@ -286,8 +287,10 @@ class DataTrainingArguments:
                     )
 
 
+@record
 def main(**kwargs):
-    # See all possible arguments in src/transformers/training_args.py
+    # See all possible arguments in
+    # src/sparseml/transformers/sparsification/training_args.py
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
 
