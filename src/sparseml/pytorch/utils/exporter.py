@@ -486,7 +486,8 @@ def export_onnx(
 
     if dynamic_axes is not None:
         warnings.warn(
-            "Setting dynamic_axes is deprecated, now it is always set",
+            "`dynamic_axes` is deprecated and does not affect anything. "
+            "The 0th axis is always treated as dynamic.",
             category=DeprecationWarning,
         )
 
