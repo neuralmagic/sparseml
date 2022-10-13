@@ -51,6 +51,8 @@ Options:
                                   training, the actual initial value used will
                                   be set by the sparseml recipe  [default:
                                   1e-09]
+  --gradient-accum-steps, --gradient_accum_steps INTEGER
+                                  Gradient accumulation steps
   --recipe-path, --recipe_path TEXT
                                   The path to the yaml/md file containing the
                                   modifiers and schedule to apply them with.
@@ -202,6 +204,7 @@ from sparseml.pytorch.image_classification.utils import (
     helpers,
 )
 from sparseml.pytorch.utils import default_device, get_prunable_layers, tensor_sparsity
+from sparseml.pytorch.utils.distributed import record
 
 
 CURRENT_TASK = helpers.Tasks.TRAIN
@@ -263,7 +266,7 @@ METADATA_ARGS = [
     "--local_rank",
     "--local-rank",
     type=int,
-    default=-1,
+    default=None,
     help="Local rank for distributed training",
     hidden=True,  # should not be modified by user
 )
@@ -288,6 +291,14 @@ METADATA_ARGS = [
     help="The initial learning rate to use while training, "
     "the actual initial value used will be set by the"
     " sparseml recipe",
+)
+@click.option(
+    "--gradient-accum-steps",
+    "--gradient_accum_steps",
+    type=int,
+    default=1,
+    show_default=True,
+    help="gradient accumulation steps",
 )
 @click.option(
     "--recipe-path",
@@ -489,15 +500,17 @@ METADATA_ARGS = [
     show_default=True,
     help="Apply recipe in a one-shot fashion and save the model",
 )
+@record
 def main(
     train_batch_size: int,
     test_batch_size: int,
     dataset: str,
     dataset_path: str,
     arch_key: Optional[str] = None,
-    local_rank: int = -1,
+    local_rank: Optional[int] = None,
     checkpoint_path: Optional[str] = None,
     init_lr: float = 1e-9,
+    gradient_accum_steps: int = 1,
     recipe_path: Optional[str] = None,
     eval_mode: bool = False,
     optim: str = DEFAULT_OPTIMIZER,
@@ -533,6 +546,8 @@ def main(
     os.makedirs(save_dir, exist_ok=True)
     world_size = int(os.environ.get("WORLD_SIZE", 1))
     rank = int(os.environ.get("RANK", -1))
+    # support for legacy torch.distributed.launch and new torch.distributed.run
+    local_rank = local_rank or int(os.environ.get("LOCAL_RANK", -1))
 
     # training requires recipe path
     if not eval_mode and recipe_path is None:
@@ -568,6 +583,7 @@ def main(
             loader_pin_memory=loader_pin_memory,
             ffcv=ffcv,
             device=device,
+            rank=rank,
         )
     else:
         train_dataset = None
@@ -654,6 +670,7 @@ def main(
         recipe_args=recipe_args,
         max_train_steps=max_train_steps,
         one_shot=one_shot,
+        gradient_accum_steps=gradient_accum_steps,
     )
 
     train(
@@ -785,7 +802,7 @@ def train(
             checkpoint_manager=trainer.checkpoint_manager,
             save_name=save_name,
             save_dir=save_dir,
-            epoch=trainer.epoch - 1,
+            epoch=trainer.epoch - 1 if not trainer.one_shot else None,
             val_res=val_res,
         )
 

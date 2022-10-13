@@ -123,15 +123,12 @@ def get_quantization_params(
 def delete_quant_node(
     model: ModelProto,
     node: NodeProto,
-    keep_params: bool = False,
     keep_weight: bool = False,
 ):
     """
     Deletes a QuantizeLinear or DequantizeLinear and its parameters from the model
     :param model: ONNX model to modify
     :param node: the QuantizeLinear or DequantizeLinear node to delete
-    :param keep_params: set true to not delete scale and zero point parameters stored
-        in the graph
     :param keep_weight: set true to not delete the weight param possibly stored as an
         initializer to the first input of this node
     """
@@ -140,9 +137,6 @@ def delete_quant_node(
     ), "Op Type must be either QuantizeLinear or DequantizeLinear, found {} ".format(
         node.op_type
     )
-    if keep_params:
-        del node.input[2]  # delete reference to zero point
-        del node.input[1]  # delete reference to scale
     if keep_weight:
         del node.input[0]
     remove_node_and_params_from_graph(model, node)
@@ -274,7 +268,7 @@ def _delete_repeated_qat_blocks(model: ModelProto):
         nodes_to_delete.append(dequant_node_1)
 
     for n in nodes_to_delete:
-        delete_quant_node(model, n, keep_params=True)
+        delete_quant_node(model, n)
 
     # cleanup graph
     graph.update()
@@ -323,6 +317,7 @@ def _attribute_to_kwarg(attribute: onnx.AttributeProto):
 def _quantize_array(
     array: numpy.ndarray, scale: float, zero_point: int, dtype: Any = numpy.uint8
 ) -> numpy.ndarray:
+
     if dtype == numpy.uint8:
         tensor_dtype = torch.quint8
     elif dtype == numpy.int8:
@@ -387,11 +382,9 @@ def _convert_quantizable_conv(
         output_quantize_node.input[2],  # y_zero_point
     ]
 
-    conv_keep_params = None
     if len(conv_node.input) > 2:
         bias = get_init_by_name(model, conv_node.input[2])
         if bias is not None:
-            conv_keep_params = [conv_node.input[2]]
             # quantize bias and add it to the qconv inputs
             bias = numpy_helper.to_array(bias)
             input_quantize_params = get_quantization_params(
@@ -421,14 +414,14 @@ def _convert_quantizable_conv(
     model.graph.node.append(qconv_node)
 
     # delete original conv and folded quantization ops
-    remove_node_and_params_from_graph(model, conv_node, keep_params=conv_keep_params)
-    delete_quant_node(model, weight_dequantize_node, keep_params=False)
-    delete_quant_node(model, weight_quantize_node, keep_params=True, keep_weight=True)
+    remove_node_and_params_from_graph(model, conv_node)
+    delete_quant_node(model, weight_dequantize_node)
+    delete_quant_node(model, weight_quantize_node, keep_weight=True)
     if fold_input_quant and len(get_node_output_nodes(model, input_quantize_node)) <= 1:
         # fold if this conv is the only node that reads from this quant op
-        delete_quant_node(model, input_quantize_node, keep_params=True)
+        delete_quant_node(model, input_quantize_node)
     if fold_output_quant:
-        delete_quant_node(model, output_quantize_node, keep_params=True)
+        delete_quant_node(model, output_quantize_node)
     return qconv_node
 
 
@@ -501,13 +494,13 @@ def _convert_quantizable_gemm(
     model.graph.node.append(qmatmul_node)
 
     # delete folded quantization ops
-    delete_quant_node(model, weight_dequantize_node, keep_params=False)
-    delete_quant_node(model, weight_quantize_node, keep_params=True)
+    delete_quant_node(model, weight_dequantize_node)
+    delete_quant_node(model, weight_quantize_node)
     if fold_input_quant and len(get_node_output_nodes(model, input_quantize_node)) <= 1:
         # fold if this gemm is the only node that reads from this quant op
-        delete_quant_node(model, input_quantize_node, keep_params=True)
+        delete_quant_node(model, input_quantize_node)
     if fold_output_quant:
-        delete_quant_node(model, output_quantize_node, keep_params=True)
+        delete_quant_node(model, output_quantize_node)
 
     if len(gemm_node.input) > 2:
         # add bias term following FC in the graph
@@ -548,8 +541,7 @@ def _convert_quantizable_gemm(
         model.graph.node.append(qmatmul_bias_add_node)
 
         # delete original Gemm node
-        params_to_keep = [gemm_node.input[2]] if len(gemm_node.input) > 1 else []
-        remove_node_and_params_from_graph(model, gemm_node, keep_params=params_to_keep)
+        remove_node_and_params_from_graph(model, gemm_node)
 
 
 def _convert_quantizable_matmul(model: ModelProto):
@@ -705,11 +697,11 @@ def _convert_quantizable_matmul(model: ModelProto):
         model.graph.node.append(qmatmul_node)
 
         for node in input_dequantize_nodes:
-            delete_quant_node(model, node, keep_params=True)
-        delete_quant_node(model, output_quantize_node, keep_params=True)
+            delete_quant_node(model, node)
+        delete_quant_node(model, output_quantize_node)
 
         # delete original MatMul node
-        remove_node_and_params_from_graph(model, matmul_node, keep_params=None)
+        remove_node_and_params_from_graph(model, matmul_node)
 
         conversion_count += 1
         graph = ONNXGraph(model)
@@ -971,16 +963,16 @@ def _convert_quantizable_gemm_no_activations(model: ModelProto):
 
         # Cleanup
         # delete folded quantization ops
-        delete_quant_node(model, weight_dequantize_node, keep_params=False)
-        delete_quant_node(model, weight_quantize_node, keep_params=True)
+        delete_quant_node(model, weight_dequantize_node)
+        delete_quant_node(model, weight_quantize_node)
 
         # only delete input node if the matmul is the only child
         current_graph = ONNXGraph(model)
         if len(current_graph.get_node_children(input_quantize_node)) == 1:
-            delete_quant_node(model, input_quantize_node, keep_params=True)
+            delete_quant_node(model, input_quantize_node)
 
         # delete original Gemm node
-        remove_node_and_params_from_graph(model, gemm_node, keep_params=None)
+        remove_node_and_params_from_graph(model, gemm_node)
 
         conversion_count += 1
 
@@ -1060,25 +1052,8 @@ def _convert_quantizable_matmul_and_add(model: ModelProto):
         if not bias_add_node or bias_add_node.op_type != "Add":
             continue
 
-        # Optionally find output QDQ block which will be deleted
-        output_quantize_node = graph.get_node_single_child(bias_add_node)
-        if (
-            not output_quantize_node
-            or output_quantize_node.op_type not in _QUANTIZE_OP_NAMES
-        ):
-            output_quantize_node = None
-
-        output_dequantize_node = (
-            graph.get_node_single_child(output_quantize_node)
-            if output_quantize_node
-            else None
-        )
-        if (
-            not output_dequantize_node
-            or output_dequantize_node.op_type not in _QUANTIZE_OP_NAMES
-        ):
-            output_quantize_node = None
-            output_dequantize_node = None
+        output_quantize_node = None
+        output_dequantize_node = None
 
         input_quantize_params = get_quantization_params(
             model, input_quantize_node, include_target=False
@@ -1123,23 +1098,23 @@ def _convert_quantizable_matmul_and_add(model: ModelProto):
 
         # Cleanup
         # delete folded quantization ops
-        delete_quant_node(model, weight_dequantize_node, keep_params=False)
-        delete_quant_node(model, weight_quantize_node, keep_params=True)
+        delete_quant_node(model, weight_dequantize_node)
+        delete_quant_node(model, weight_quantize_node)
         remove_node_and_params_from_graph(model, weight_transpose_node)
 
         # only delete input node if the matmul is the only child
         current_graph = ONNXGraph(model)
         if len(current_graph.get_node_children(input_quantize_node)) == 1:
-            delete_quant_node(model, input_quantize_node, keep_params=True)
+            delete_quant_node(model, input_quantize_node)
         if output_quantize_node:
-            delete_quant_node(model, output_quantize_node, keep_params=True)
+            delete_quant_node(model, output_quantize_node)
         if output_dequantize_node:
-            delete_quant_node(model, output_dequantize_node, keep_params=True)
+            delete_quant_node(model, output_dequantize_node)
 
         # delete original Gemm node
-        remove_node_and_params_from_graph(model, matmul_node, keep_params=None)
+        remove_node_and_params_from_graph(model, matmul_node)
         # delete original Add node
-        remove_node_and_params_from_graph(model, bias_add_node, keep_params=None)
+        remove_node_and_params_from_graph(model, bias_add_node)
 
         conversion_count += 1
 
@@ -1253,16 +1228,16 @@ def _convert_quantizable_conv_integer(model: ModelProto):
 
         # Cleanup
         # delete folded quantization ops
-        delete_quant_node(model, weight_dequantize_node, keep_params=False)
-        delete_quant_node(model, weight_quantize_node, keep_params=True)
+        delete_quant_node(model, weight_dequantize_node)
+        delete_quant_node(model, weight_quantize_node)
 
         # only delete input node if the conv is the only child
         current_graph = ONNXGraph(model)
         if len(current_graph.get_node_children(input_quantize_node)) == 1:
-            delete_quant_node(model, input_quantize_node, keep_params=True)
+            delete_quant_node(model, input_quantize_node)
 
         # delete original Conv node
-        remove_node_and_params_from_graph(model, conv_node, keep_params=None)
+        remove_node_and_params_from_graph(model, conv_node)
 
         conversion_count += 1
 
@@ -1380,9 +1355,9 @@ def _quantize_qat_embedding(model: ModelProto):
     |      |         |
     |         Gather
     |           |
-    |       QuantizeLinear
+    |       QuantizeLinear (Optional)
     |           |
-    |       DequantizeLinear
+    |       DequantizeLinear (Optional)
     |           |
     |         OUTPUT
 
@@ -1446,9 +1421,9 @@ def _quantize_qat_embedding(model: ModelProto):
             output_dequant_node.input[1] = input_quant_node.input[1]
             output_dequant_node.input[2] = input_quant_node.input[2]
             # delete unnecessary quantize and dequantize ops
-            delete_quant_node(model, input_quant_node, keep_params=True)
-            delete_quant_node(model, input_dequant_node, keep_params=False)
-            delete_quant_node(model, output_quant_node, keep_params=False)
+            delete_quant_node(model, input_quant_node)
+            delete_quant_node(model, input_dequant_node)
+            delete_quant_node(model, output_quant_node)
 
         else:
             # use input dequant to dequantize output
@@ -1457,7 +1432,7 @@ def _quantize_qat_embedding(model: ModelProto):
             input_dequant_node.output[0] = gather_node.output[0]
             gather_node.output[0] = embedding_quant_output_id
 
-            delete_quant_node(model, input_quant_node, keep_params=False)
+            delete_quant_node(model, input_quant_node)
         graph.update()
         converted_nodes += 1
 
@@ -1494,7 +1469,7 @@ def _remove_duplicate_quantize_ops(model: ModelProto):
                 _replace_input_id_model(
                     model, remove_node.output[0], keep_node.output[0]
                 )
-                delete_quant_node(model, remove_node, keep_params=True)
+                delete_quant_node(model, remove_node)
     # cleanup graph
     graph.update()
     graph.delete_unused_initializers()
@@ -1538,7 +1513,7 @@ def _cleanup_unused_quants(model: ModelProto):
         nodes_to_delete.append(dequant_node)
 
     for n in nodes_to_delete:
-        delete_quant_node(model, n, keep_params=True)
+        delete_quant_node(model, n)
 
     # update graph
     graph.update()
@@ -1571,11 +1546,13 @@ def quantize_torch_qat_export(
         model = deepcopy(model)
 
     _fold_qat_conv_bns(model)
-    _fold_relu_quants(model)
     _convert_single_constants_to_initializers(model)
     _delete_repeated_qat_blocks(model)
+    _quantize_qat_embedding(model)
+    _propagate_mobilebert_embedding_quantization(model)
     _convert_quantizable_matmul(model)
     _convert_quantizable_matmul_and_add(model)
+    _fold_relu_quants(model)
 
     # only convert to either ConvInteger or QLinearConv (legacy)
     if not use_qlinearconv:
@@ -1583,10 +1560,8 @@ def quantize_torch_qat_export(
     _convert_quantizable_ops(model, convert_qlinearconv=use_qlinearconv)
 
     _convert_quantizable_gemm_no_activations(model)
-    _quantize_qat_embedding(model)
     quantize_resnet_identity_add_inputs(model)
     _remove_duplicate_quantize_ops(model)
-    _cleanup_unused_quants(model)
 
     graph = ONNXGraph(model)
     graph.sort_nodes_topologically()
@@ -1719,3 +1694,121 @@ def skip_onnx_input_quantize(
 
     if output_file_path:
         onnx.save(model, output_file_path)
+
+
+def _propagate_mobilebert_embedding_quantization(model: ModelProto):
+    """
+    A pass for propagating embedding quantizations through concat
+
+    Starting with:
+    |           GATHER     (UINT8 data initializer)
+    |           |
+    |       DequantizeLinear
+    |         |   |   |
+    |         | Slice Slice
+    |         |   |   |
+    |         |  Pad Pad
+    |         |   |   |
+    |           Concat
+    |             |
+    |           OUTPUT
+
+    Converts to:
+    |           GATHER     (UINT8 data initializer)
+    |         |   |   |
+    |         | Slice Slice
+    |         |   |   |
+    |         |  Pad Pad
+    |         |   |   |
+    |           Concat
+    |             |
+    |       DequantizeLinear
+    |             |
+    |           OUTPUT
+    """
+    converted_nodes = 0
+    gather_nodes = [n for n in model.graph.node if n.op_type in ["Gather"]]
+    graph = ONNXGraph(model)
+    for gather_node in gather_nodes:
+        # find quantized weight
+        embedding_initializer = graph.get_init_by_name(gather_node.input[0])
+        if not embedding_initializer:
+            continue
+
+        embedding_array = numpy_helper.to_array(embedding_initializer)
+        if embedding_array.dtype != numpy.uint8:
+            continue
+
+        dequant_node = graph.get_node_single_child(gather_node)
+        if not dequant_node or dequant_node.op_type != "DequantizeLinear":
+            continue
+
+        # loop through the children of the dequantize node and check if they
+        # are composed of slice + pad nodes and converge at the same concat node
+        valid = True
+        concat_node = None
+        for branch_node in graph.get_node_children(dequant_node):
+            if branch_node.op_type == "Slice":
+                pad_node = graph.get_node_single_child(branch_node)
+                if not pad_node or pad_node.op_type != "Pad":
+                    valid = False
+                    break
+
+                concat_node_ = graph.get_node_single_child(pad_node)
+                if not concat_node_ or concat_node_.op_type != "Concat":
+                    valid = False
+                    break
+
+                if concat_node is None:
+                    concat_node = concat_node_
+                elif concat_node != concat_node_:
+                    valid = False
+                    break
+            elif branch_node.op_type == "Concat":
+                if concat_node is None:
+                    concat_node = branch_node
+                elif branch_node != concat_node:
+                    valid = False
+                    break
+            else:
+                valid = False
+                break
+
+        if not valid or not concat_node:
+            continue
+
+        # switch position of dequantize node
+        for branch_node in graph.get_node_children(dequant_node):
+            if branch_node.op_type == "Slice":
+                branch_node.input[0] = gather_node.output[0]
+                pad_node = graph.get_node_single_child(branch_node)
+                pad_value = graph.get_init_by_name(pad_node.input[2])
+                pad_value_array = numpy_helper.to_array(pad_value)
+                pad_value_array = pad_value_array + 128
+                pad_value_array = pad_value_array.astype(numpy.uint8)
+                model.graph.initializer.remove(pad_value)
+                pad_value = numpy_helper.from_array(
+                    pad_value_array, name=pad_value.name
+                )
+                model.graph.initializer.append(pad_value)
+
+        for id, input_name in enumerate(concat_node.input):
+            if input_name == dequant_node.output[0]:
+                break
+
+        concat_node.input[id] = gather_node.output[0]
+        temp = concat_node.output[0]
+        concat_node.output[0] = dequant_node.output[0]
+        dequant_node.output[0] = temp
+        dequant_node.input[0] = concat_node.output[0]
+
+        graph.update()
+
+        converted_nodes += 1
+
+    graph.delete_unused_initializers()
+
+    if converted_nodes > 0:
+        _LOGGER.info(
+            f"Propagated {converted_nodes} DequantizeLinear node(s) through Concat"
+        )

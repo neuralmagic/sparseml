@@ -106,6 +106,7 @@ sparseml.image_classification.train \
     --loader-num-workers 0 \
     --optim Adam \
     --optim-args '{}' \
+    --save-dir sparse-transfer-models
     --model-tag mobilenet-imagenette-sparse-transfer-learned
 ```
 The `--checkpoint-path` argument can take in path to a model checkpoint, or a SpareZoo model stub,
@@ -114,7 +115,18 @@ the `checkpoint-path` can be set to `zoo` for auto-downloading corresponding che
 To learn more about the usage, run script with `-h` option to see help. 
 
 The script automatically saves model checkpoints after each epoch and reports the validation loss along with layer sparsities. 
-The model is saved in [ONNX](https://onnx.ai/) format and can be loaded later for inference or other experiments.
+
+### ONNX Export
+The model can be saved to [ONNX](https://onnx.ai/) format to be loaded later for inference or other experiments using
+the `sparseml.image_classification.export_onnx` script.
+
+```
+sparseml.image_classification.export_onnx \
+    --arch-key mobilenet \
+    --dataset imagenette \
+    --dataset-path /PATH/TO/IMAGENETTE \
+    --checkpoint-path sparse-transfer-models/mobilenet-imagenette-sparse-transfer-learned/pytorch/model.pth
+```
 
 ## Wrap-Up
 

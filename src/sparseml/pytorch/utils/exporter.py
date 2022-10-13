@@ -16,8 +16,10 @@
 Export PyTorch models to the local device
 """
 import collections
+import json
 import logging
 import os
+import shutil
 import warnings
 from copy import deepcopy
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
@@ -31,6 +33,7 @@ from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 from torch.utils.data import DataLoader
 
+from sparseml.onnx.utils import ONNXGraph
 from sparseml.pytorch.utils.helpers import (
     tensors_export,
     tensors_module_forward,
@@ -52,6 +55,8 @@ __all__ = [
 
 
 DEFAULT_ONNX_OPSET = 9 if torch.__version__ < "1.3" else 11
+MODEL_ONNX_NAME = "model.onnx"
+CONFIG_JSON_NAME = "config.json"
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -167,7 +172,7 @@ class ModuleExporter(object):
     def export_onnx(
         self,
         sample_batch: Any,
-        name: str = "model.onnx",
+        name: str = MODEL_ONNX_NAME,
         opset: int = DEFAULT_ONNX_OPSET,
         disable_bn_fusing: bool = True,
         convert_qat: bool = False,
@@ -239,6 +244,43 @@ class ModuleExporter(object):
             trace_model(path, self._module, sample_batch)
         else:
             script_model(path, self._module)
+
+    def create_deployment_folder(
+        self, labels_to_class_mapping: Optional[Union[str, Dict[int, str]]] = None
+    ):
+        """
+        Create a deployment folder inside the `self._output_dir` directory.
+
+        :param labels_to_class_mapping: information about the mapping
+            from integer labels to string class names.
+            Can be either a string (path to the .json serialized dictionary)
+            or a dictionary. Default is None
+        """
+        deployment_folder_dir = os.path.join(self._output_dir, "deployment")
+
+        if os.path.isdir(deployment_folder_dir):
+            shutil.rmtree(deployment_folder_dir)
+        os.makedirs(deployment_folder_dir)
+        _LOGGER.info(f"Created deployment folder at {deployment_folder_dir}")
+
+        # copy over model onnx
+        expected_onnx_model_dir = os.path.join(self._output_dir, MODEL_ONNX_NAME)
+        deployment_onnx_model_dir = os.path.join(deployment_folder_dir, MODEL_ONNX_NAME)
+        _copy_file(src=expected_onnx_model_dir, target=deployment_onnx_model_dir)
+        _LOGGER.info(
+            f"Saved {MODEL_ONNX_NAME} in the deployment "
+            f"folder at {deployment_onnx_model_dir}"
+        )
+
+        # create config.json
+        config_file_path = _create_config_file(save_dir=deployment_folder_dir)
+
+        if labels_to_class_mapping:
+            # append `labels_to_class_mapping` info to config.json
+            _save_label_to_class_mapping(
+                labels_to_class_mapping=labels_to_class_mapping,
+                config_file_path=config_file_path,
+            )
 
     def export_pytorch(
         self,
@@ -487,9 +529,11 @@ def export_onnx(
 
     # onnx file fixes
     onnx_model = onnx.load(file_path)
-    # fix changed batch norm names
-    _fix_batch_norm_names(onnx_model)
+    _fold_identity_initializers(onnx_model)
     if batch_norms_wrapped:
+        # fix changed batch norm names
+        _unwrap_batchnorms(onnx_model)
+
         # clean up graph from any injected / wrapped operations
         _delete_trivial_onnx_adds(onnx_model)
     onnx.save(onnx_model, file_path)
@@ -525,6 +569,105 @@ def export_onnx(
             )
 
 
+def _copy_file(src: str, target: str):
+    if not os.path.exists(src):
+        raise ValueError(
+            f"Attempting to copy file from {src}, but the file does not exist."
+        )
+    shutil.copyfile(src, target)
+
+
+def _create_config_file(save_dir: str) -> str:
+    config_file_path = os.path.join(save_dir, CONFIG_JSON_NAME)
+    with open(config_file_path, "w"):
+        # create empty json file
+        pass
+
+    _LOGGER.info(f"Created {CONFIG_JSON_NAME} file at {save_dir}")
+    return config_file_path
+
+
+def _save_label_to_class_mapping(
+    labels_to_class_mapping: Union[str, Dict[int, str]],
+    config_file_path: str,
+    key_name: str = "labels_to_class_mapping",
+):
+    """
+    Appends `labels_to_class_mapping` information to the config.json file:
+        - new key: `labels_to_class_mapping`
+        - new value: a dictionary that maps the integer
+          labels to string class names
+    If config.json already contains `labels_to_class_mapping`,
+    this information will be overwritten
+
+    :param labels_to_class_mapping: information about the mapping from
+        integer labels to string class names. Can be either a string
+        (path to the .json serialized dictionary) or a dictionary.
+    :param config_file_path: path to the directory of the `config.json` file.
+    :param key_name: the key under which the information about
+        the mapping will be stored inside the config.json file
+    """
+    is_config_empty = os.stat(config_file_path).st_size == 0
+
+    if not is_config_empty:
+        with open(config_file_path, "r") as outfile:
+            config = json.load(outfile.read())
+    else:
+        config = {}
+
+    # check whether the label names are not already present in the config.
+    if key_name in config.keys():
+        _LOGGER.warning(
+            f"File: {CONFIG_JSON_NAME} already contains key {key_name}. "
+            f"{key_name} data will be overwritten"
+        )
+
+    if isinstance(labels_to_class_mapping, str):
+        with open(labels_to_class_mapping) as outfile:
+            labels_to_class_mapping = json.load(outfile)
+
+    config[key_name] = labels_to_class_mapping
+
+    with open(config_file_path, "w") as outfile:
+        json.dump(config, outfile)
+
+    _LOGGER.info(
+        f"Appended {key_name} data to {CONFIG_JSON_NAME} at {config_file_path}"
+    )
+
+
+def _fold_identity_initializers(model: onnx.ModelProto):
+    # folds any Identity nodes that have a single input (which is an initializer)
+    # and a single output
+    matches = []
+
+    graph = ONNXGraph(model)
+
+    def is_match(node: onnx.NodeProto) -> bool:
+        return (
+            node.op_type == "Identity"
+            and len(node.input) == 1
+            and len(node.output) == 1
+            and node.input[0] in graph._name_to_initializer
+        )
+
+    for node in model.graph.node:
+        if not is_match(node):
+            continue
+        matches.append(node)
+
+        # find any node in the graph that uses the output of `node`
+        # as an input. replace the input with `node`'s input
+        for other in graph.get_node_children(node):
+            for i, other_input_i in enumerate(other.input):
+                # NOTE: this just replaces the str ids
+                if other_input_i == node.output[0]:
+                    other.input[i] = node.input[0]
+
+    for node in matches:
+        model.graph.node.remove(node)
+
+
 def _get_output_names(out: Any):
     """
     Get name of output tensors
@@ -547,11 +690,11 @@ class _AddNoOpWrapper(Module):
 
     def __init__(self, module: Module):
         super().__init__()
-        self.module = module
+        self.bn_wrapper_replace_me = module
 
     def forward(self, inp):
         inp = inp + 0  # no-op
-        return self.module(inp)
+        return self.bn_wrapper_replace_me(inp)
 
 
 def _get_submodule(module: Module, path: List[str]) -> Module:
@@ -603,25 +746,13 @@ def _delete_trivial_onnx_adds(model: onnx.ModelProto):
             continue
 
 
-def _fix_batch_norm_names(model: onnx.ModelProto):
-    name_to_inits = {init.name: init for init in model.graph.initializer}
+def _unwrap_batchnorms(model: onnx.ModelProto):
+    for init in model.graph.initializer:
+        init.name = init.name.replace(".bn_wrapper_replace_me", "")
     for node in model.graph.node:
-        if node.op_type != "BatchNormalization":
-            continue
         for idx in range(len(node.input)):
-            init_name = node.input[idx]
-            name_parts = init_name.split(".")
-            if (
-                init_name not in name_to_inits
-                or len(name_parts) < 2
-                or (name_parts[-2] != "module")
-            ):
-                continue
-            del name_parts[-2]
-            new_name = ".".join(name_parts)
-            if new_name not in name_to_inits:
-                init = name_to_inits[init_name]
-                del name_to_inits[init_name]
-                init.name = new_name
-                node.input[idx] = new_name
-                name_to_inits[new_name] = init
+            node.input[idx] = node.input[idx].replace(".bn_wrapper_replace_me", "")
+        for idx in range(len(node.output)):
+            node.output[idx] = node.output[idx].replace(".bn_wrapper_replace_me", "")
+
+    onnx.checker.check_model(model)

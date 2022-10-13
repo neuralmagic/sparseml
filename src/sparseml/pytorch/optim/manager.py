@@ -205,7 +205,6 @@ class RecipeManagerStepWrapper(object):
             kwargs["skip_orig_step"] if "skip_orig_step" in kwargs else False
         )
         ret = None
-
         if self._wrapped_manager.enabled:
             self._wrapped_manager.update(
                 self._wrapped_module,

@@ -33,6 +33,7 @@ from sparseml.pytorch.datasets import DatasetRegistry
 from sparseml.pytorch.datasets.image_classification.ffcv_dataset import (
     FFCVCompatibleDataset,
 )
+from sparseml.pytorch.image_classification.utils.constants import AVAILABLE_DATASETS
 from sparseml.pytorch.models import ModelRegistry
 from sparseml.pytorch.optim import ScheduledModifierManager
 from sparseml.pytorch.utils import (
@@ -51,6 +52,7 @@ from sparseml.pytorch.utils import (
     torch_distributed_zero_first,
 )
 from sparseml.utils import create_dirs
+from sparseml.utils.datasets import cifar, imagenet, imagenette
 from sparsezoo import Model, setup_model
 
 
@@ -68,25 +70,32 @@ __all__ = [
     "get_loss_wrapper",
     "ddp_aware_model_move",
     "extract_metadata",
-    "create_sparsezoo_model",
+    "save_zoo_directory",
+    "label_to_class_mapping_from_dataset",
 ]
 
 
-def create_sparsezoo_model(
+def save_zoo_directory(
     output_dir: str, training_outputs_dir: str, logs_path: Optional[str] = None
-) -> None:
+):
     """
     Takes the `training_outputs_dir`
     (the directory where the pipeline saves its training artifacts),
-    and saves the training artifacts to `output_dir` in the `Model` structure.
+    and saves the training artifacts to `output_dir` as a sparsezoo Model class object.
 
     :param output_dir: The output path where the artifacts are saved
-        (adhering to the in `Model` structure)
+        (adhering to the structure of sparsezoo Model class object)
     :param training_outputs_dir: The path to the existing directory
         with the saved training artifacts
     :param logs_path: Optional directory where the training logs reside
     """
-    for root_file in ["model.onnx", "sample_inputs", "sample_outputs", "sample_labels"]:
+    for root_file in [
+        "model.onnx",
+        "sample_inputs",
+        "sample_outputs",
+        "sample_labels",
+        "deployment",
+    ]:
         root_file_path = os.path.join(training_outputs_dir, root_file)
         if not os.path.exists(root_file_path):
             raise ValueError(
@@ -98,7 +107,7 @@ def create_sparsezoo_model(
     setup_model(
         output_dir=output_dir,
         training=os.path.join(training_outputs_dir, "training"),
-        deployment=os.path.join(training_outputs_dir, "model.onnx"),
+        deployment=os.path.join(training_outputs_dir, "deployment"),
         onnx_model=os.path.join(training_outputs_dir, "model.onnx"),
         sample_inputs=os.path.join(training_outputs_dir, "sample_inputs"),
         sample_outputs=os.path.join(training_outputs_dir, "sample_outputs"),
@@ -111,7 +120,7 @@ def create_sparsezoo_model(
         eval_results=None,
         recipes=None,
     )
-    _LOGGER.info(f"Created SparseZoo `Model` folder locally in {output_dir}")
+    _LOGGER.info(f"Created sparsezoo Model directory locally in {output_dir}")
 
 
 @unique
@@ -194,6 +203,26 @@ def get_save_dir_and_loggers(
 
 
 # data helpers
+def label_to_class_mapping_from_dataset(dataset: str) -> Optional[Dict[int, str]]:
+    """
+    Retrieve the label-to-class-mapping for the chosen dataset
+    If dataset is not recognized, returns None
+
+    :param dataset: string identifier of the dataset (e.g. "imagenet")
+    :return: mapping from labels to class strings if found. Otherwise None
+    """
+    if dataset not in AVAILABLE_DATASETS:
+        _LOGGER.warning(f"Dataset: {dataset} not recognized.")
+        return None
+    else:
+        if dataset == "cifar":
+            return cifar.CIFAR_10_CLASSES
+        elif dataset == "imagenette":
+            return imagenette.IMAGENETTE_CLASSES
+        else:
+            return imagenet.IMAGENET_CLASSES
+
+
 def get_dataset_and_dataloader(
     dataset_name: str,
     dataset_path: str,
@@ -409,7 +438,7 @@ def save_model_training(
     manager: BaseManager,
     save_name: str,
     save_dir: str,
-    epoch: int,
+    epoch: Optional[int],
     val_res: Optional[ModuleRunResults],
     checkpoint_manager: Optional[BaseManager] = None,
     arch_key: Optional[str] = None,
@@ -420,7 +449,7 @@ def save_model_training(
     :param manager: manager created from the training recipe
     :param save_name: name to save model to
     :param save_dir: directory to save results in
-    :param epoch: integer representing umber of epochs to
+    :param epoch: integer representing epoch at which model is saved at
     :param val_res: results from validation run
     :param checkpoint_manager: manager created from the checkpoint recipe
     :param arch_key: if provided, the `arch_key` will be saved in the

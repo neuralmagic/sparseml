@@ -13,27 +13,21 @@
 # limitations under the License.
 
 """
-Constants for PyTorch Image Classification Integrations
+Helper functions for external distributed sparseml calls
 """
-from inspect import isclass
 
-import torch
+__all__ = ["record"]
 
 
-__all__ = ["OPTIMIZERS", "DEFAULT_OPTIMIZER", "AVAILABLE_DATASETS"]
+def record(func):
+    """
+    Wraps function with pytorch elastic record for error propagation. Introduced in
+    pytorch v1.9 and will return the unmodified function for lesser versions
+    """
+    try:
+        from torch.distributed.elastic.multiprocessing.errors import record
 
-OPTIMIZERS = [
-    key
-    for key in torch.optim.__dict__.keys()
-    if isclass(torch.optim.__dict__[key]) and key != "Optimizer"
-]
+        return record(func)
 
-# Early exit if no optimizer is found
-if not OPTIMIZERS:
-    raise RuntimeError(
-        "No optimizers found in torch.optim. "
-        "Please install a torch optimizer to use this integration."
-    )
-
-DEFAULT_OPTIMIZER = "SGD" if "SGD" in OPTIMIZERS else OPTIMIZERS[0]
-AVAILABLE_DATASETS = ["cifar", "imagenet", "imagenette"]
+    except ImportError:
+        return func

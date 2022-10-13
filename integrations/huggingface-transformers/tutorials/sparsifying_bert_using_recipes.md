@@ -134,7 +134,7 @@ The following command evaluates a pruned model and converts it to the ONNX forma
 
 ```bash
 sparseml.transformers.export_onnx \
-  --task question-question
+  --task question-answering \
   --model_path MODELS_DIR/bert-base-12layers_prune80
 ```
 
