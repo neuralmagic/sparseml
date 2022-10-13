@@ -17,9 +17,8 @@ Base modifier for performing model distillation
 """
 
 import logging
-from collections import Mapping
 from copy import deepcopy
-from typing import Any, Dict, Iterable, List, Optional, Union
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Union
 
 import torch
 import torch.nn.functional as TF
