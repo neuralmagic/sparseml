@@ -47,7 +47,7 @@ MarkupSafe==2.0.1
 matplotlib==3.4.2
 matplotlib-inline==0.1.2
 merge-args==0.1.4
-mistune==0.8.4
+mistune==2.0.3
 multiprocess==0.70.12.2
 murmurhash==1.0.5
 nbclient==0.5.3
