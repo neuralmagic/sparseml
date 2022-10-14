@@ -440,7 +440,7 @@ def test_extract_node_shape(name, stub):
     data_path = os.path.join(
         RELATIVE_PATH, "test_extract_node_shape_data", name + ".json"
     )
-    if True:
+    if GENERATE_TEST_FILES:
         with open(data_path, "w") as fp:
             json.dump(actual_shapes, fp, indent=1)
 
