@@ -56,6 +56,14 @@ except Exception as _err:
     quant_conv3d_err = _err
     QATConv3d = None
 
+
+try:
+    from transformers.modeling_utils import Conv1D as GPTConv1D
+except Exception as _err:
+    gpt_conv1d_err = _err
+    GPTConv1D = None
+
+
 __all__ = [
     "default_device",
     "device_of",
@@ -318,7 +326,7 @@ def tensors_to_device(
             [(key, tensors_to_device(tens, device)) for key, tens in tensors.items()]
         )
 
-    if isinstance(tensors, Dict):
+    if isinstance(tensors, Mapping):
         return {key: tensors_to_device(tens, device) for key, tens in tensors.items()}
 
     if isinstance(tensors, tuple):
@@ -344,7 +352,7 @@ def tensors_to_precision(
     if isinstance(tensors, Tensor):
         return tensors.float() if full_precision else tensors.half()
 
-    if isinstance(tensors, Dict):
+    if isinstance(tensors, Mapping):
         return {
             key: tensors_to_precision(tens, full_precision)
             for key, tens in tensors.items()
@@ -761,7 +769,9 @@ def get_conv_layers(module: Module) -> Dict[str, Module]:
     :return: a list of all the conv layers in the module
     """
     return {
-        name: mod for name, mod in module.named_modules() if isinstance(mod, _ConvNd)
+        name: mod
+        for name, mod in module.named_modules()
+        if (isinstance(mod, _ConvNd) or (GPTConv1D and isinstance(mod, GPTConv1D)))
     }
 
 
@@ -790,6 +800,7 @@ def get_prunable_layers(module: Module) -> List[Tuple[str, Module]]:
             or (QATLinear and isinstance(mod, QATLinear))
             or (QATConv2d and isinstance(mod, QATConv2d))
             or (QATConv3d and isinstance(mod, QATConv3d))
+            or (GPTConv1D and isinstance(mod, GPTConv1D))
         )
     ]
 
