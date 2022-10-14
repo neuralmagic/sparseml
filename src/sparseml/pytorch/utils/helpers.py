@@ -326,7 +326,7 @@ def tensors_to_device(
             [(key, tensors_to_device(tens, device)) for key, tens in tensors.items()]
         )
 
-    if isinstance(tensors, Dict):
+    if isinstance(tensors, Mapping):
         return {key: tensors_to_device(tens, device) for key, tens in tensors.items()}
 
     if isinstance(tensors, tuple):
@@ -352,7 +352,7 @@ def tensors_to_precision(
     if isinstance(tensors, Tensor):
         return tensors.float() if full_precision else tensors.half()
 
-    if isinstance(tensors, Dict):
+    if isinstance(tensors, Mapping):
         return {
             key: tensors_to_precision(tens, full_precision)
             for key, tens in tensors.items()
