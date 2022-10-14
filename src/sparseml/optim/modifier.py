@@ -643,12 +643,12 @@ class BaseScheduled(BaseObject):
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self._start_epoch = start_epoch
-        self._init_start = start_epoch
-        self._min_start = min_start
-        self._end_epoch = end_epoch
-        self._init_end = end_epoch
-        self._min_end = min_end
+        self._start_epoch = float(start_epoch)
+        self._init_start = float(start_epoch)
+        self._min_start = float(min_start)
+        self._end_epoch = float(end_epoch)
+        self._init_end = float(end_epoch)
+        self._min_end = float(min_end)
         self._end_comparator = end_comparator
         self.validate_schedule()
 
