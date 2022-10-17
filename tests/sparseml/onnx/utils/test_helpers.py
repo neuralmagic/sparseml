@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
+import os
+
 import numpy
 import pytest
 from onnx import TensorProto, load_model, numpy_helper
@@ -48,13 +51,15 @@ from sparseml.onnx.utils import (
     model_outputs,
     onnx_nodes_sparsities,
 )
-from sparsezoo import search_models
+from sparsezoo import Model, search_models
 
 
 from tests.sparseml.onnx.helpers import (  # noqa isort: skip
-    extract_node_models,
+    GENERATE_TEST_FILES,
     onnx_repo_models,
 )
+
+RELATIVE_PATH = os.path.dirname(os.path.realpath(__file__))
 
 
 @pytest.fixture
@@ -406,36 +411,43 @@ def test_onnx_node_sparsities():
             assert val.params_zero_count > 0
 
 
-def test_extract_node_shape(extract_node_models):  # noqa: F811
-    model_path, *expected_outputs = extract_node_models
-    onnx_model = load_model(model_path)
-    node_shapes = extract_node_shapes(onnx_model)
+@pytest.mark.parametrize(
+    "name,stub",
+    [
+        (
+            "resnet50-pq",
+            "zoo:cv/classification/resnet_v1-50/"
+            "pytorch/sparseml/imagenet/pruned95_quant-none",
+        ),
+        (
+            "mobilenet-p",
+            "zoo:cv/classification/mobilenet_v1-1.0"
+            "/pytorch/sparseml/imagenet/pruned-moderate",
+        ),
+    ],
+)
+def test_extract_node_shape(name, stub):
+    model = Model(stub)
 
-    """
-    Depending whether we have test case written for legacy PyTorch
-    or both legacy and upgraded PyTorch, three lists below will have:
-    `len` of 1 (if only legacy PyTorch test case present)
-    `len` of 2 (if test case for legacy and upgraded PyTorch)
-    """
-    expected_outputs = [x for x in expected_outputs if x]
+    onnx_model = load_model(model.onnx_model.path)
+    actual_shapes = extract_node_shapes(onnx_model)
 
-    """
-    If we have only one test case, it must must evaluate to True,
-    If we have two test cases, at least one must evaluate to True.
-    In other words, we are happy with test passing for legacy or
-    upgraded PyTorch (worst case scenario).
-    """
-    # make sure at least one of the expected outputs has the same shape as `node_shapes`
-    assert any(len(output) == len(node_shapes) for output in expected_outputs)
+    actual_shapes = {
+        k: {"input_shapes": v.input_shapes, "output_shapes": v.output_shapes}
+        for k, v in actual_shapes.items()
+    }
 
-    for expected_output in expected_outputs:
-        if len(expected_output) == len(node_shapes):
-            for expected, found in zip(expected_output.items(), node_shapes.items()):
-                expected_key, (expected_inp_shape, expected_out_shape) = expected
-                node_key, node = found
-                assert node_key == expected_key
-                assert node.input_shapes == expected_inp_shape
-                assert node.output_shapes == expected_out_shape
+    data_path = os.path.join(
+        RELATIVE_PATH, "test_extract_node_shape_data", name + ".json"
+    )
+    if GENERATE_TEST_FILES:
+        with open(data_path, "w") as fp:
+            json.dump(actual_shapes, fp, indent=1)
+
+    with open(data_path) as fp:
+        expected_shapes = json.load(fp)
+
+    assert actual_shapes == expected_shapes
 
 
 @pytest.mark.parametrize(

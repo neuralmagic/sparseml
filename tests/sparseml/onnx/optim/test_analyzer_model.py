@@ -19,40 +19,10 @@ import pytest
 
 from sparseml.onnx.optim import ModelAnalyzer, NodeAnalyzer
 from sparsezoo import Model
+from tests.sparseml.onnx.helpers import GENERATE_TEST_FILES
 
-
-from tests.sparseml.onnx.helpers import analyzer_models  # noqa isort: skip
-
-
-GENERATE_TEST_FILES = os.getenv("NM_ML_GENERATE_ONNX_TEST_DATA", False)
-GENERATE_TEST_FILES = False if GENERATE_TEST_FILES == "0" else GENERATE_TEST_FILES
 
 RELATIVE_PATH = os.path.dirname(os.path.realpath(__file__))
-
-
-@pytest.fixture(
-    scope="session",
-    params=[
-        (
-            "zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/base-none",
-            "resnet50pytorch.json",
-        ),
-    ],
-)
-def analyzer_models_repo(request):
-    model_stub, output_path = request.param
-    output_path = os.path.join(RELATIVE_PATH, "test_analyzer_model_data", output_path)
-    model = Model(model_stub)
-    model_path = model.onnx_model.path
-
-    if GENERATE_TEST_FILES:
-        analyzer = ModelAnalyzer(model_path)
-        analyzer.save_json(output_path)
-
-    with open(output_path) as output_file:
-        output = dict(json.load(output_file))
-
-    return model_path, output
 
 
 def test_node_analyzer_kwargs():
@@ -137,49 +107,32 @@ def test_mode_analyzer_json():
     )
 
 
-def test_model_analyzer(analyzer_models):  # noqa: F811
-    model_path, *expected_outputs = analyzer_models
+@pytest.mark.parametrize(
+    "name,stub",
+    [
+        (
+            "resnet50-pq",
+            "zoo:cv/classification/resnet_v1-50/"
+            "pytorch/sparseml/imagenet/pruned95_quant-none",
+        ),
+        (
+            "mobilenet-p",
+            "zoo:cv/classification/mobilenet_v1-1.0"
+            "/pytorch/sparseml/imagenet/pruned-moderate",
+        ),
+    ],
+)
+def test_model_analyzer(name, stub):
+    model = Model(stub)
+    analyzer = ModelAnalyzer(model.onnx_model.path)
+    actual_analysis = analyzer.dict()
 
-    analyzer = ModelAnalyzer(model_path)
-    found = analyzer.dict()
+    data_path = os.path.join(RELATIVE_PATH, "test_analyzer_model_data", name + ".json")
+    if GENERATE_TEST_FILES:
+        with open(data_path, "w") as fp:
+            json.dump(actual_analysis, fp, indent=1)
 
-    """
-    Depending whether we have test case written for legacy PyTorch
-    or both legacy and upgraded PyTorch, three lists below will have:
-    `len` of 1 (if only legacy PyTorch test case present)
-    `len` of 2 (if test case for legacy and upgraded PyTorch)
-    """
-    expected_outputs = [x for x in expected_outputs if x]
+    with open(data_path) as fp:
+        expected_analysis = json.load(fp)
 
-    """
-    If we have only one test case, it must must evaluate to True,
-    If we have two test cases, at least one must evaluate to True.
-    In other words, we are happy with test passing for legacy or
-    upgraded PyTorch (worst case scenario).
-    """
-    # make sure at least one of the expected outputs has the same shape as `node_shapes`
-    assert any(
-        len(output["nodes"]) == len(found["nodes"]) for output in expected_outputs
-    )
-
-    for expected in expected_outputs:
-        if len(found["nodes"]) == len(expected["nodes"]):
-            for node, expected_node in zip(found["nodes"], expected["nodes"]):
-                assert sorted(node.keys()) == sorted(expected_node.keys())
-                for key, value in node.items():
-                    expected_value = expected_node[key]
-                    assert value == expected_value, (key, value, expected_value)
-
-
-def test_model_analyzer_from_repo(analyzer_models_repo):
-    model_path, expected = analyzer_models_repo
-
-    analyzer = ModelAnalyzer(model_path)
-    found = analyzer.dict()
-
-    assert len(found["nodes"]) == len(expected["nodes"])
-    for node, expected_node in zip(found["nodes"], expected["nodes"]):
-        assert sorted(node.keys()) == sorted(expected_node.keys())
-        for key, value in node.items():
-            expected_value = expected_node[key]
-            assert value == expected_value, (key, value, expected_value)
+    assert actual_analysis == expected_analysis
