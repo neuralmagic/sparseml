@@ -171,6 +171,7 @@ def export_transformer_to_onnx(
     model = load_task_model(task, model_path, config)
     _LOGGER.info(f"loaded model, config, and tokenizer from {model_path}")
 
+    model = model.train()
     trainer = Trainer(
         model=model,
         model_state_path=model_path,
@@ -178,6 +179,7 @@ def export_transformer_to_onnx(
         recipe_args=None,
         teacher=None,
     )
+    model = model.cpu()
     applied = trainer.apply_manager(epoch=math.inf, checkpoint=None)
 
     if not applied:
@@ -233,6 +235,7 @@ def export_transformer_to_onnx(
     _LOGGER.info(f"Created sample inputs for the ONNX export process: {inputs_shapes}")
 
     # run export
+    model = model.eval()
     onnx_file_path = os.path.join(model_path, onnx_file_name)
     export_onnx(
         model,
