@@ -81,8 +81,8 @@ training_modifiers:
 
 pruning_modifiers:
     - !ConstantPruningModifier
-        start_epoch: 2
-        end_epoch: 5
+        start_epoch: 2.0
+        end_epoch: 5.0
         params: eval(params)
 """
 
@@ -155,9 +155,9 @@ TWO_STAGES_RECIPE = """version: 1.1.0
 
   {stage_1_name}_modifiers:
       - !ConstantPruningModifier
-          end_epoch: 8
+          end_epoch: 8.0
           params: ['re:.*weight']
-          start_epoch: 5
+          start_epoch: 5.0
           update_frequency: -1
   
       - !EpochRangeModifier
@@ -207,9 +207,9 @@ stage_1:
 
   stage_1_modifiers:
       - !ConstantPruningModifier
-          end_epoch: 8
+          end_epoch: 8.0
           params: ['re:.*weight']
-          start_epoch: 5
+          start_epoch: 5.0
           update_frequency: -1
   
       - !EpochRangeModifier
@@ -311,9 +311,9 @@ stage_1:
 
   stage_1_modifiers:
       - !ConstantPruningModifier
-          end_epoch: 11
+          end_epoch: 11.0
           params: ['re:.*weight']
-          start_epoch: 8
+          start_epoch: 8.0
           update_frequency: -1
   
       - !EpochRangeModifier
@@ -362,9 +362,9 @@ stage_1:
 
   stage_1_modifiers:
       - !ConstantPruningModifier
-          end_epoch: 8
+          end_epoch: 8.0
           params: ['re:.*weight']
-          start_epoch: 5
+          start_epoch: 5.0
           update_frequency: -1
   
       - !EpochRangeModifier
@@ -410,9 +410,9 @@ stage_4:
 
   stage_4_modifiers:
       - !ConstantPruningModifier
-          end_epoch: 17
+          end_epoch: 17.0
           params: ['re:.*weight']
-          start_epoch: 14
+          start_epoch: 14.0
           update_frequency: -1
   
       - !EpochRangeModifier
@@ -425,10 +425,10 @@ RECIPE_END_EPOCH_IMPLICIT = """
 training_modifiers:
   - !EpochRangeModifier
     start_epoch: 0.0
-    end_epoch: 52
+    end_epoch: 52.0
 
   - !SetLearningRateModifier
-    start_epoch: 50
+    start_epoch: 50.0
     learning_rate: 0.000002
 
 pruning_modifiers:
@@ -438,9 +438,9 @@ pruning_modifiers:
 
 quantization_modifiers:
   - !QuantizationModifier
-    start_epoch: 50
-    disable_quantization_observer_epoch: 51
-    freeze_bn_stats_epoch: 51
+    start_epoch: 50.0
+    disable_quantization_observer_epoch: 51.0
+    freeze_bn_stats_epoch: 51.0
     submodules: ['model.0']
 """
 
@@ -457,22 +457,22 @@ stage_0:
           update_frequency: -1
   
       - !EpochRangeModifier
-          end_epoch: 52
+          end_epoch: 52.0
           start_epoch: 0.0
   
       - !QuantizationModifier
           activation_bits: 8
-          disable_quantization_observer_epoch: 51
+          disable_quantization_observer_epoch: 51.0
           end_epoch: 52
           exclude_batchnorm: True
-          freeze_bn_stats_epoch: 51
+          freeze_bn_stats_epoch: 51.0
           model_fuse_fn_name: conv_bn_relus
           quantize_conv_activations: True
           quantize_embedding_activations: True
           quantize_embeddings: True
           quantize_linear_activations: True
           reduce_range: False
-          start_epoch: 50
+          start_epoch: 50.0
           submodules: ['model.0']
           tensorrt: False
           weight_bits: 8
@@ -481,7 +481,7 @@ stage_0:
           constant_logging: False
           end_epoch: 52
           learning_rate: 2e-06
-          start_epoch: 50
+          start_epoch: 50.0
   
 
 stage_1:
@@ -489,7 +489,7 @@ stage_1:
 
   stage_1_modifiers:
       - !EpochRangeModifier
-          end_epoch: 104
+          end_epoch: 104.0
           start_epoch: 52.0
   
       - !ConstantPruningModifier
@@ -500,17 +500,17 @@ stage_1:
   
       - !QuantizationModifier
           activation_bits: 8
-          disable_quantization_observer_epoch: 103
+          disable_quantization_observer_epoch: 103.0
           end_epoch: -1.0
           exclude_batchnorm: True
-          freeze_bn_stats_epoch: 103
+          freeze_bn_stats_epoch: 103.0
           model_fuse_fn_name: conv_bn_relus
           quantize_conv_activations: True
           quantize_embedding_activations: True
           quantize_embeddings: True
           quantize_linear_activations: True
           reduce_range: False
-          start_epoch: 102
+          start_epoch: 102.0
           submodules: ['model.0']
           tensorrt: False
           weight_bits: 8
@@ -519,7 +519,7 @@ stage_1:
           constant_logging: False
           end_epoch: -1.0
           learning_rate: 2e-06
-          start_epoch: 102
+          start_epoch: 102.0
   
 """  # noqa: W293
 
@@ -781,9 +781,9 @@ stage_1:
 
   stage_1_modifiers:
       - !ConstantPruningModifier
-          end_epoch: 8
+          end_epoch: 8.0
           params: ['re:.*weight']
-          start_epoch: 5
+          start_epoch: 5.0
           update_frequency: -1
 
       - !EpochRangeModifier
