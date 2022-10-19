@@ -67,7 +67,7 @@ class Yolov5TrainArgs(BaseModel):
         default=False, description="use weighted image selection for training"
     )
     device: Optional[str] = Field(
-        default=None, description="cuda device, i.e. 0 or 0,1,2,3 or cpu"
+        default="cpu", description="cuda device, i.e. 0 or 0,1,2,3 or cpu"
     )
     multi_scale: bool = Field(default=False, description="vary img-size +/- 50%%")
     single_cls: bool = Field(
