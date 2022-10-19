@@ -140,6 +140,7 @@ class Yolov5ExportArgs(BaseModel):
     half: bool = Field(default=False, description="FP16 half-precision export")
     inplace: bool = Field(default=False, description="set YOLOv5 Detect() inplace=True")
     train: bool = Field(default=False, description="model.train() mode")
+    include: str = Field(default="onnx", description="Formats to export to")
     optimize: bool = Field(
         default=False, description="TorchScript: optimize for mobile"
     )
