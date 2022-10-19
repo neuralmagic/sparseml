@@ -53,8 +53,5 @@ try:
     )
 except Exception as err:
     print(
-        f"Need sparsezoo version above 0.9.0 to run Neural Magic's latest-version "
-        f"check\n{err}"
+        f"Need sparsezoo version above 0.9.0 to run Neural Magic's latest-version check\n{err}"
     )
-
-from .pytorch import recipe_template
