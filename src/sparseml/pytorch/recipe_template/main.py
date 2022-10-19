@@ -72,7 +72,7 @@ manager.apply(model)
 
 
 def recipe_template(
-    pruning: str = "false",
+    pruning: Optional[str] = None,
     quantization: bool = False,
     lr_func: str = "linear",
     mask_type: str = "unstructured",
@@ -80,14 +80,15 @@ def recipe_template(
     target: Optional[str] = None,
     model: Union[str, Module, None] = None,
     file_name: Optional[str] = None,
-):
+) -> str:
     """
     Returns a valid yaml or md recipe based on specified arguments
 
-    :pruning: the pruning algorithm to use in the recipe, can be any of the following,
+    :pruning: optional pruning algorithm to use in the recipe, can be any of the
+    following,
         `true` (represents Magnitude/Global-Magnitude pruning according to
         global_sparsity), `false` (No pruning), `acdc`, `mfac`, `movement`, `obs` or
-        `constant`. Defaults to `false`
+        `constant`. Defaults to None
     :quantization: True if quantization needs to be applied else False. Defaults to
         False
     :lr_func: the learning rate schedule function. Defaults to `linear`
@@ -107,9 +108,9 @@ def recipe_template(
         # load model file to in memory Module using torch.jit
         model = torch.jit.load(model)
 
-    mask_type = _validate_mask_type(mask_type=mask_type, target=target)
-    pruning = _validate_pruning(pruning=pruning)
-    recipe = _build_recipe_template(
+    mask_type: str = _validate_mask_type(mask_type=mask_type, target=target)
+    pruning: str = _validate_pruning(pruning=pruning, quantization=quantization)
+    recipe: str = _build_recipe_template(
         pruning=pruning,
         quantization=quantization,
         lr_func=lr_func,
@@ -127,9 +128,9 @@ def recipe_template(
     return recipe
 
 
-def _validate_pruning(pruning: str, quantization: bool = False) -> str:
+def _validate_pruning(pruning: Optional[str] = None, quantization: bool = False) -> str:
     # normalize pruning algo name
-    pruning = pruning.lower().replace("/", "")
+    pruning = (pruning or "").lower().replace("/", "")
 
     if pruning == "true":
         pruning = "magnitude"
@@ -336,6 +337,9 @@ def _get_pruning_builders_and_variables(
         modifier_class = MovementPruningModifier
 
         # movement pruning does not support global_sparsity
+        if global_sparsity:
+            raise ValueError("Movement pruning does not support `global_sparsity`")
+
         del pruning_arguments["global_sparsity"]
 
     elif pruning_algo == "obs":
