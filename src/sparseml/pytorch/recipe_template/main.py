@@ -19,6 +19,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import torch
 from torch.nn import Module
 
+from sparseml.pytorch.recipe_template.description import DESCRIPTION
 from sparseml.pytorch.sparsification import (
     ACDCPruningModifier,
     ConstantPruningModifier,
@@ -38,37 +39,6 @@ from sparseml.sparsification import ModifierYAMLBuilder, RecipeYAMLBuilder
 __all__ = [
     "recipe_template",
 ]
-
-# flake8: noqa W293, W291
-__DESC = """
-This recipe defines the hyperparams necessary to apply specified sparsification 
-techniques.
- 
-Users are encouraged to experiment with the training length and initial learning 
-rate to either expedite training or to produce a more accurate model.
-
-This can be done by either editing the recipe or supplying the `--recipe_args` 
-argument to the training commands.
-
-For example, the following appended to the training commands will change the number 
-of epochs and the initial learning rate:
-
-```bash
---recipe_args '{"num_epochs":8,"init_lr":0.0001}'
-```
-
-The following template can be used to apply this recipe in a `one-shot` manner:
-
-```python
-from sparseml.pytorch.optim import ScheduledModifierManager
-
-model = ... # instantiated model
-recipe = ... # local path to this recipe
-
-manager = ScheduledModifierManager.from_yaml(recipe)
-manager.apply(model) 
-```
-"""
 
 
 def recipe_template(
@@ -197,7 +167,7 @@ def _build_recipe_template(
     return recipe
 
 
-def _add_description(recipe: str, description: str = __DESC) -> str:
+def _add_description(recipe: str, description: str = DESCRIPTION) -> str:
     recipe = f"---\n{recipe}\n---"
     return "\n".join((recipe, description))
 
