@@ -573,7 +573,7 @@ def parse_args():
         "--onnx-opset",
         type=int,
         default=13,
-        help="The onnx opset to use for export. Default is 11",
+        help="The onnx opset to use for export. Default is 13",
     )
     export_parser.add_argument(
         "--export-debug-mode",
