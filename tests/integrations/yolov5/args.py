@@ -147,7 +147,7 @@ class Yolov5ExportArgs(BaseModel):
     int8: bool = Field(default=False, description="CoreML/TF INT8 quantization")
     dynamic: bool = Field(default=False, description="ONNX/TF: dynamic axes")
     simplify: bool = Field(default=False, description="ONNX: simplify model")
-    opset: int = Field(default=12, description="ONNX: opset version")
+    opset: int = Field(default=13, description="ONNX: opset version")
     verbose: bool = Field(default=False, description="TensorRT: verbose log")
     nms: bool = Field(default=False, description="TF: add NMS to model")
     agnostic_nms: bool = Field(

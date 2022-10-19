@@ -56,7 +56,7 @@ optional arguments:
                         labels as well as the outputs from model
                         execution)
   --onnx-opset ONNX_OPSET
-                        The onnx opset to use for export. Default is 11
+                        The onnx opset to use for export. Default is 13
   --use-zipfile-serialization-if-available
                         USE_ZIPFILE_SERIALIZATION_IF_AVAILABLE
                         for torch >= 1.6.0 only exports the Module's
@@ -132,7 +132,7 @@ class ExportArgs:
     :param num_samples: The number of samples to export along with the model
         onnx and pth files (sample inputs and labels as well as the outputs
         from model execution). Default is 100.
-    :param onnx_opset: The onnx opset to use for export. Default is 11.
+    :param onnx_opset: The onnx opset to use for export. Default is 13.
     :param use_zipfile_serialization_if_available: for torch >= 1.6.0 only
         exports the Module's state dict using the new zipfile serialization.
         Default is True, has no affect on lower torch versions.
@@ -196,7 +196,7 @@ class ExportArgs:
     )
 
     onnx_opset: int = field(
-        default=11, metadata={"help": "The onnx opset to use for export. Default is 11"}
+        default=13, metadata={"help": "The onnx opset to use for export. Default is 13"}
     )
 
     use_zipfile_serialization_if_available: convert_to_bool = field(

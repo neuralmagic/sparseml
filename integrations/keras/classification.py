@@ -572,7 +572,7 @@ def parse_args():
     export_parser.add_argument(
         "--onnx-opset",
         type=int,
-        default=11,
+        default=13,
         help="The onnx opset to use for export. Default is 11",
     )
     export_parser.add_argument(

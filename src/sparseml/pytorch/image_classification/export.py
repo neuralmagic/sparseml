@@ -50,7 +50,7 @@ Options:
                                   execution)  [default: -1]
    --onnx-opset, --onnx_opset INTEGER
                                   The onnx opset to use for exporting the
-                                  model  [default: 11]
+                                  model  [default: 13]
   --use_zipfile_serialization_if_available, --use-zipfile-serialization-if-available /
   --no_zipfile_serialization, --no-zipfile-serialization
                                   For torch >= 1.6.0 only exports the Module's
@@ -188,7 +188,7 @@ LOGGER = get_main_logger()
     "--onnx-opset",
     "--onnx_opset",
     type=int,
-    default=11,
+    default=13,
     show_default=True,
     help="The onnx opset to use for exporting the model",
 )
@@ -297,7 +297,7 @@ def main(
     labels_to_class_mapping: Optional[str] = None,
     arch_key: Optional[str] = None,
     num_samples: int = -1,
-    onnx_opset: int = 11,
+    onnx_opset: int = 13,
     use_zipfile_serialization_if_available: bool = True,
     pretrained: Union[str, bool] = True,
     pretrained_dataset: Optional[str] = None,
@@ -388,7 +388,7 @@ def export(
     save_dir: str,
     use_zipfile_serialization_if_available: bool,
     num_samples: int,
-    onnx_opset: int = 11,
+    onnx_opset: int = 13,
     convert_qat: bool = True,
     image_size: int = 224,
     labels_to_class_mapping: Optional[Union[str, Dict[int, str]]] = None,

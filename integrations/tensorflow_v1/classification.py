@@ -185,7 +185,7 @@ optional arguments:
                         onnx and pth files (sample inputs and labels as well
                         as the outputs from model execution)
   --onnx-opset ONNX_OPSET
-                        The onnx opset to use for export. Default is 11
+                        The onnx opset to use for export. Default is 13
 
 
 ##########
@@ -546,8 +546,8 @@ def parse_args():
             par.add_argument(
                 "--onnx-opset",
                 type=int,
-                default=11,
-                help="The onnx opset to use for export. Default is 11",
+                default=13,
+                help="The onnx opset to use for export. Default is 13",
             )
 
         if par == pruning_sensitivity_parser:
@@ -821,7 +821,7 @@ def train(args, save_dir, logs_dir):
         checkpoint_path=checkpoint_path,
         skip_samples=True,
         num_classes=num_classes,
-        opset=11,
+        opset=13,
     )
 
 

@@ -38,7 +38,7 @@ __all__ = ["default_onnx_opset", "GraphExporter"]
 
 
 def default_onnx_opset() -> int:
-    return 9 if onnx.__version__ < "1.6" else 11
+    return 9 if onnx.__version__ < "1.6" else 13
 
 
 class GraphExporter(object):

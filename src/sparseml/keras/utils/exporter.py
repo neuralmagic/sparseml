@@ -34,7 +34,7 @@ except Exception as keras2onnx_error:
 __all__ = ["ModelExporter"]
 
 
-DEFAULT_ONNX_OPSET = 11
+DEFAULT_ONNX_OPSET = 13
 
 
 class ModelExporter(object):
@@ -67,7 +67,7 @@ class ModelExporter(object):
         Export an ONNX file for the current model.
 
         :param name: name of the onnx file to save
-        :param opset: onnx opset to use for exported model. Default is 11
+        :param opset: onnx opset to use for exported model. Default is 13
         :param doc_string: optional doc string for exported ONNX model
         :param debug_mode: debug mode, default to True, passed into `convert_keras`
         :param kwargs: additional parameters passed into `convert_keras`
