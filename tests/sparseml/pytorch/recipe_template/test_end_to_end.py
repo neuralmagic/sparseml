@@ -12,15 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from subprocess import PIPE, run
 
-from sparseml import recipe_template
-
-
-def test_cli_entrypoint_invocation():
-    output = run(["sparseml.recipe_template"], stdout=PIPE, stderr=PIPE)
-    assert "EpochRangeModifier" in output.stdout.decode()
-    assert "LearningRateFunctionModifier" in output.stdout.decode()
+from sparseml.pytorch import recipe_template
 
 
 def test_function_entrypoint():
