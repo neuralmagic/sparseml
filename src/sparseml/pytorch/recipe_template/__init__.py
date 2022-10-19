@@ -13,5 +13,3 @@
 # limitations under the License.
 
 # flake8: noqa
-
-from .main import recipe_template

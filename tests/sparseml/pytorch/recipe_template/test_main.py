@@ -17,10 +17,12 @@ import pytest
 import torch
 from packaging import version
 from torch.nn import Module
+from torch.quantization import FakeQuantize
 
+from sparseml.pytorch import recipe_template
 from sparseml.pytorch.models import resnet50
 from sparseml.pytorch.optim import ScheduledModifierManager
-from sparseml.pytorch.recipe_template.main import _build_recipe
+from sparseml.pytorch.utils import tensor_sparsity
 
 
 @pytest.fixture
@@ -50,7 +52,7 @@ min_torch_version = pytest.mark.skipif(
 def test_generic_recipe_creation(
     pruning: str, quantization: bool, kwargs, model: Optional[Module]
 ):
-    actual = _build_recipe(pruning=pruning, quantization=quantization, **kwargs)
+    actual = recipe_template(pruning=pruning, quantization=quantization, **kwargs)
     assert actual
     manager = ScheduledModifierManager.from_yaml(file_path=actual)
     manager.apply(module=model)
@@ -68,7 +70,7 @@ def test_generic_recipe_creation(
 def test_recipe_creation_with_a_specific_model(
     pruning: str, quantization: bool, kwargs, model: Optional[Module]
 ):
-    actual = _build_recipe(
+    actual = recipe_template(
         pruning=pruning, quantization=quantization, model=model, **kwargs
     )
     assert actual
@@ -77,7 +79,7 @@ def test_recipe_creation_with_a_specific_model(
 
 
 def test_recipe_can_be_updated():
-    actual = _build_recipe(pruning="true", quantization=False)
+    actual = recipe_template(pruning="true", quantization=False)
     manager = ScheduledModifierManager.from_yaml(
         file_path=actual,
         recipe_variables=dict(
@@ -101,7 +103,7 @@ def test_recipe_can_be_updated():
     ],
 )
 def test_pruning_modifiers_match_pruning_algo(pruning_algo: str, expected: str):
-    actual_recipe = _build_recipe(pruning=pruning_algo)
+    actual_recipe = recipe_template(pruning=pruning_algo)
     manager = ScheduledModifierManager.from_yaml(file_path=actual_recipe)
     manager_recipe = str(manager)
     assert expected in manager_recipe
@@ -124,12 +126,24 @@ def test_obs_modifier():
     ],
 )
 def test_one_shot_applies_sparsification(pruning, quantization, quant_expected, model):
-    actual = _build_recipe(pruning=pruning, quantization=quantization, model=model)
+    actual = recipe_template(pruning=pruning, quantization=quantization, model=model)
     manager = ScheduledModifierManager.from_yaml(file_path=actual)
     manager.apply(module=model)
-    model_is_quantized = hasattr(model, "qconfig") and model.qconfig is not None
+    model_is_quantized = (
+        hasattr(model, "qconfig")
+        and model.qconfig is not None
+        and any(isinstance(module, FakeQuantize) for module in model.modules())
+    )
 
     if quant_expected:
         assert model_is_quantized
     else:
         assert model_is_quantized is False
+
+    if pruning != "false":
+        weights = [weights for _, weights in model.state_dict().items()]
+        sparsity = sum(
+            tensor_sparsity(weight) * torch.numel(weight) for weight in weights
+        ) / sum(torch.numel(weight) for weight in weights)
+
+        assert sparsity > 0.75

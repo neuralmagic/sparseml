@@ -18,8 +18,7 @@ Functionality for working with and sparsifying Models in the PyTorch framework
 
 # flake8: noqa
 
-from . import recipe_template as recipe_template_module
 from .base import *
 from .framework import detect_framework, framework_info, is_supported
-from .recipe_template import recipe_template
+from .recipe_template.main import recipe_template
 from .sparsification import sparsification_info
