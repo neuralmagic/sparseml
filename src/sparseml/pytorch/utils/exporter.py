@@ -574,13 +574,13 @@ def export_onnx(
         if (
             _PARSED_TORCH_VERSION.major == 1
             and _PARSED_TORCH_VERSION.minor in [10, 11]
-            and "NM_FORCE_QUANT_EXPORT" not in os.environ
+            and os.environ.get("NM_FORCE_QUANT_EXPORT", "").lower() == "true"
         ):
             raise RuntimeError(
                 "Quantized exports are not supported in torch==1.10.* or 1.11.*. "
                 f"Found torch version {torch.__version__}. "
                 "To override this error, set environment variable "
-                "`NM_FORCE_QUANT_EXPORT` to anything."
+                "`NM_FORCE_QUANT_EXPORT` to 'true'."
             )
 
         # overwrite exported model with fully quantized version
