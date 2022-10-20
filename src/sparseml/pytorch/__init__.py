@@ -16,6 +16,29 @@
 Functionality for working with and sparsifying Models in the PyTorch framework
 """
 
+import os
+
+from packaging import version
+
+
+try:
+    import torch
+
+    _PARSED_TORCH_VERSION = version.parse(torch.__version__)
+    if (
+        _PARSED_TORCH_VERSION.major == 1
+        and _PARSED_TORCH_VERSION.minor in [10, 11]
+        and os.environ.get("NM_BYPASS_TORCH_VERSION", "").lower() == "true"
+    ):
+        raise RuntimeError(
+            "sparseml does not support torch==1.10.* or 1.11.*. "
+            f"Found torch version {torch.__version__}. "
+            "To override this error, set environment variable "
+            "`NM_BYPASS_TORCH_VERSION` to 'true'."
+        )
+except ImportError:
+    pass
+
 # flake8: noqa
 
 from .base import *

@@ -571,18 +571,6 @@ def export_onnx(
     onnx.save(onnx_model, file_path)
 
     if convert_qat and is_quant_module:
-        if (
-            _PARSED_TORCH_VERSION.major == 1
-            and _PARSED_TORCH_VERSION.minor in [10, 11]
-            and os.environ.get("NM_FORCE_QUANT_EXPORT", "").lower() == "true"
-        ):
-            raise RuntimeError(
-                "Quantized exports are not supported in torch==1.10.* or 1.11.*. "
-                f"Found torch version {torch.__version__}. "
-                "To override this error, set environment variable "
-                "`NM_FORCE_QUANT_EXPORT` to 'true'."
-            )
-
         # overwrite exported model with fully quantized version
         # import here to avoid cyclic dependency
         from sparseml.pytorch.sparsification.quantization import (
