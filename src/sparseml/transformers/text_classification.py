@@ -873,11 +873,6 @@ def main(**kwargs):
             num_samples_to_export=data_args.num_export_samples
         )
 
-    if training_args.push_to_hub:
-        trainer.push_to_hub(**kwargs)
-    else:
-        trainer.create_model_card(**kwargs)
-
 
 def _split_train_val(train_dataset, val_ratio):
     # Fixed random seed to make split consistent across runs with the same ratio
