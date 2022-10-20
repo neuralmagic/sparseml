@@ -45,7 +45,6 @@ from sparseml.pytorch.utils import (
     WANDBLogger,
 )
 from sparseml.transformers.utils import SparseAutoModel
-from sparseml.transformers.utils.helpers import RECIPE_NAME
 
 
 __all__ = [
@@ -62,6 +61,7 @@ TRAINER_STATE_NAME = "trainer_state.json"
 OPTIMIZER_NAME = "optimizer.pt"
 SCHEDULER_NAME = "scheduler.pt"
 SCALER_NAME = "scaler.pt"
+RECIPE_NAME = "recipe.yaml"
 
 
 class RecipeManagerTrainerInterface:
