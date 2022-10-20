@@ -17,6 +17,7 @@ Functionality for working with and sparsifying Models in the PyTorch framework
 """
 
 import os
+import warnings
 
 from packaging import version
 
@@ -25,17 +26,22 @@ try:
     import torch
 
     _PARSED_TORCH_VERSION = version.parse(torch.__version__)
-    if (
-        _PARSED_TORCH_VERSION.major == 1
-        and _PARSED_TORCH_VERSION.minor in [10, 11]
-        and os.environ.get("NM_BYPASS_TORCH_VERSION", "").lower() == "true"
-    ):
-        raise RuntimeError(
-            "sparseml does not support torch==1.10.* or 1.11.*. "
-            f"Found torch version {torch.__version__}. "
-            "To override this error, set environment variable "
-            "`NM_BYPASS_TORCH_VERSION` to 'true'."
-        )
+    _BYPASS = bool(int(os.environ.get("NM_BYPASS_TORCH_VERSION", "0")))
+    if _PARSED_TORCH_VERSION.major == 1 and _PARSED_TORCH_VERSION.minor in [10, 11]:
+        if not _BYPASS:
+            raise RuntimeError(
+                "sparseml does not support torch==1.10.* or 1.11.*. "
+                f"Found torch version {torch.__version__}.\n\n"
+                "To bypass this error, set environment variable "
+                "`NM_BYPASS_TORCH_VERSION` to '1'.\n\n"
+                "Bypassing may result in errors or "
+                "incorrect behavior, so set at your own risk."
+            )
+        else:
+            warnings.warn(
+                "sparseml quantized onnx export does not work "
+                "with torch==1.10.* or 1.11.*"
+            )
 except ImportError:
     pass
 
