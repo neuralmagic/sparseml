@@ -56,7 +56,7 @@ optional arguments:
                         labels as well as the outputs from model
                         execution)
   --onnx-opset ONNX_OPSET
-                        The onnx opset to use for export. Default is 11
+                        The onnx opset to use for export.
   --use-zipfile-serialization-if-available
                         USE_ZIPFILE_SERIALIZATION_IF_AVAILABLE
                         for torch >= 1.6.0 only exports the Module's
@@ -102,6 +102,7 @@ from tqdm import tqdm
 import utils
 from argparser_.nm_argparser_ import NmArgumentParser
 from sparseml import get_main_logger
+from sparseml.pytorch import TORCH_ONNX_OPSET
 from sparseml.pytorch.models import ModelRegistry
 from sparseml.pytorch.utils import ModuleExporter
 from sparseml.utils import convert_to_bool
@@ -196,7 +197,10 @@ class ExportArgs:
     )
 
     onnx_opset: int = field(
-        default=11, metadata={"help": "The onnx opset to use for export. Default is 11"}
+        default=TORCH_ONNX_OPSET,
+        metadata={
+            "help": f"The onnx opset to use for export. Default is {TORCH_ONNX_OPSET}"
+        },
     )
 
     use_zipfile_serialization_if_available: convert_to_bool = field(

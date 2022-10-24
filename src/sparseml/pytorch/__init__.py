@@ -22,10 +22,21 @@ import warnings
 from packaging import version
 
 
+def _default_opset(torch_version: version.Version) -> int:
+    if torch_version < version.parse("1.3"):
+        return 9
+    if torch_version < version.parse("1.10.0"):
+        return 11
+    return 13
+
+
 try:
     import torch
 
     _PARSED_TORCH_VERSION = version.parse(torch.__version__)
+
+    TORCH_ONNX_OPSET = _default_opset(_PARSED_TORCH_VERSION)
+
     _BYPASS = bool(int(os.environ.get("NM_BYPASS_TORCH_VERSION", "0")))
     if _PARSED_TORCH_VERSION.major == 1 and _PARSED_TORCH_VERSION.minor in [10, 11]:
         if not _BYPASS:

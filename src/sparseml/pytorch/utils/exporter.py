@@ -35,6 +35,7 @@ from torch.optim.optimizer import Optimizer
 from torch.utils.data import DataLoader
 
 from sparseml.onnx.utils import ONNXGraph
+from sparseml.pytorch import TORCH_ONNX_OPSET
 from sparseml.pytorch.utils.helpers import (
     tensors_export,
     tensors_module_forward,
@@ -56,13 +57,6 @@ __all__ = [
 
 _PARSED_TORCH_VERSION = version.parse(torch.__version__)
 
-DEFAULT_ONNX_OPSET = (
-    9
-    if _PARSED_TORCH_VERSION < version.parse("1.3")
-    else 11
-    if _PARSED_TORCH_VERSION < version.parse("1.10.0")
-    else 13
-)
 MODEL_ONNX_NAME = "model.onnx"
 CONFIG_JSON_NAME = "config.json"
 _LOGGER = logging.getLogger(__name__)
@@ -181,7 +175,7 @@ class ModuleExporter(object):
         self,
         sample_batch: Any,
         name: str = MODEL_ONNX_NAME,
-        opset: int = DEFAULT_ONNX_OPSET,
+        opset: int = TORCH_ONNX_OPSET,
         disable_bn_fusing: bool = True,
         convert_qat: bool = False,
         **export_kwargs,
@@ -194,8 +188,8 @@ class ModuleExporter(object):
         :param sample_batch: the batch to export an onnx for, handles creating the
             static graph for onnx as well as setting dimensions
         :param name: name of the onnx file to save
-        :param opset: onnx opset to use for exported model. Default is 11, if torch
-            version is 1.2 or below, default is 9
+        :param opset: onnx opset to use for exported model.
+            Default is based on torch version.
         :param disable_bn_fusing: torch >= 1.7.0 only. Set True to disable batch norm
             fusing during torch export. Default and suggested setting is True. Batch
             norm fusing will change the exported parameter names as well as affect
@@ -412,7 +406,7 @@ def export_onnx(
     module: Module,
     sample_batch: Any,
     file_path: str,
-    opset: int = DEFAULT_ONNX_OPSET,
+    opset: int = TORCH_ONNX_OPSET,
     disable_bn_fusing: bool = True,
     convert_qat: bool = False,
     dynamic_axes: Union[str, Dict[str, List[int]]] = None,
@@ -428,8 +422,8 @@ def export_onnx(
     :param sample_batch: the batch to export an onnx for, handles creating the
         static graph for onnx as well as setting dimensions
     :param file_path: path to the onnx file to save
-    :param opset: onnx opset to use for exported model. Default is 11, if torch
-        version is 1.2 or below, default is 9
+    :param opset: onnx opset to use for exported model.
+        Default is based on torch version.
     :param disable_bn_fusing: torch >= 1.7.0 only. Set True to disable batch norm
         fusing during torch export. Default and suggested setting is True. Batch
         norm fusing will change the exported parameter names as well as affect
