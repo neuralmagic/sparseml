@@ -20,4 +20,3 @@ Hot patches transformers integration to support sparseml training routines
 
 from .argparser import *
 from .models import *
-from .trainer import *

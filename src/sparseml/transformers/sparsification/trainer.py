@@ -16,10 +16,12 @@
 SparseML transformers trainer classes and interfaces to be plugged in with
 existing or similiar HF trainer flows
 """
+import contextlib
 import inspect
 import logging
 import math
 import os
+import sys
 import warnings
 from dataclasses import asdict
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -33,6 +35,7 @@ from transformers import Trainer as HFTransformersTrainer
 from transformers import TrainerCallback, TrainerControl, TrainingArguments
 from transformers.file_utils import WEIGHTS_NAME
 from transformers.integrations import TensorBoardCallback
+from transformers.pytorch_utils import is_torch_greater_or_equal_than_1_10
 from transformers.trainer_callback import TrainerState
 from transformers.trainer_pt_utils import reissue_pt_warnings
 from transformers.trainer_utils import ShardedDDPOption, get_last_checkpoint
@@ -719,6 +722,30 @@ class RecipeManagerTrainerInterface:
         self.logger_manager.add_logger(
             TensorBoardLogger(writer=tensorboard_callback.tb_writer)
         )
+
+    def autocast_smart_context_manager(self):
+        """
+        A helper wrapper that creates an appropriate context manager for `autocast`
+        while feeding it the desired arguments, depending on the situation.
+        """
+        enabled = enabled = hasattr(self, "scaler") and self.scaler.is_enabled()
+        if self.use_cuda_amp or self.use_cpu_amp:
+            if is_torch_greater_or_equal_than_1_10:
+                ctx_manager = (
+                    torch.cpu.amp.autocast(dtype=self.amp_dtype)
+                    if self.use_cpu_amp
+                    else torch.cuda.amp.autocast(dtype=self.amp_dtype, enabled=enabled)
+                )
+            else:
+                ctx_manager = torch.cuda.amp.autocast(enabled=enabled)
+        else:
+            ctx_manager = (
+                contextlib.nullcontext()
+                if sys.version_info >= (3, 7)
+                else contextlib.suppress()
+            )
+
+        return ctx_manager
 
 
 class TrainerInterface(RecipeManagerTrainerInterface):
