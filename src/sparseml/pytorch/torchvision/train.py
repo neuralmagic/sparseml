@@ -28,6 +28,8 @@ import presets
 import transforms
 import utils
 from sampler import RASampler
+from sparseml.pytorch.datasets import DatasetRegistry
+from sparseml.pytorch.optim import ScheduledModifierManager
 
 
 def train_one_epoch(
@@ -141,70 +143,24 @@ def _get_cache_path(filepath):
     return cache_path
 
 
-def load_data(traindir, valdir, args):
+def load_data(name, root, args):
     # Data loading code
     print("Loading data")
-    val_resize_size, val_crop_size, train_crop_size = (
-        args.val_resize_size,
-        args.val_crop_size,
-        args.train_crop_size,
-    )
-    interpolation = InterpolationMode(args.interpolation)
 
     print("Loading training data")
     st = time.time()
-    cache_path = _get_cache_path(traindir)
-    if args.cache_dataset and os.path.exists(cache_path):
-        # Attention, as the transforms are also cached!
-        print(f"Loading dataset_train from {cache_path}")
-        dataset, _ = torch.load(cache_path)
-    else:
-        auto_augment_policy = getattr(args, "auto_augment", None)
-        random_erase_prob = getattr(args, "random_erase", 0.0)
-        ra_magnitude = args.ra_magnitude
-        augmix_severity = args.augmix_severity
-        dataset = torchvision.datasets.ImageFolder(
-            traindir,
-            presets.ClassificationPresetTrain(
-                crop_size=train_crop_size,
-                interpolation=interpolation,
-                auto_augment_policy=auto_augment_policy,
-                random_erase_prob=random_erase_prob,
-                ra_magnitude=ra_magnitude,
-                augmix_severity=augmix_severity,
-            ),
-        )
-        if args.cache_dataset:
-            print(f"Saving dataset_train to {cache_path}")
-            utils.mkdir(os.path.dirname(cache_path))
-            utils.save_on_master((dataset, traindir), cache_path)
+    dataset = DatasetRegistry.create(
+        name,
+        root=root,
+        train=True,
+        rand_trans=True,
+    )
     print("Took", time.time() - st)
 
     print("Loading validation data")
-    cache_path = _get_cache_path(valdir)
-    if args.cache_dataset and os.path.exists(cache_path):
-        # Attention, as the transforms are also cached!
-        print(f"Loading dataset_test from {cache_path}")
-        dataset_test, _ = torch.load(cache_path)
-    else:
-        if args.weights and args.test_only:
-            weights = torchvision.models.get_weight(args.weights)
-            preprocessing = weights.transforms()
-        else:
-            preprocessing = presets.ClassificationPresetEval(
-                crop_size=val_crop_size,
-                resize_size=val_resize_size,
-                interpolation=interpolation,
-            )
-
-        dataset_test = torchvision.datasets.ImageFolder(
-            valdir,
-            preprocessing,
-        )
-        if args.cache_dataset:
-            print(f"Saving dataset_test to {cache_path}")
-            utils.mkdir(os.path.dirname(cache_path))
-            utils.save_on_master((dataset_test, valdir), cache_path)
+    dataset_test = DatasetRegistry.create(
+        name, root=root, train=False, rand_trans=False
+    )
 
     print("Creating data loaders")
     if args.distributed:
@@ -237,10 +193,8 @@ def main(args):
     else:
         torch.backends.cudnn.benchmark = True
 
-    train_dir = os.path.join(args.data_path, "train")
-    val_dir = os.path.join(args.data_path, "val")
     dataset, dataset_test, train_sampler, test_sampler = load_data(
-        train_dir, val_dir, args
+        args.dataset, args.data_path, args
     )
 
     collate_fn = None
@@ -277,8 +231,8 @@ def main(args):
     )
 
     print("Creating model")
-    model = torchvision.models.get_model(
-        args.model, weights=args.weights, num_classes=num_classes
+    model = torchvision.models.__dict__[args.model](
+        weights=args.weights, num_classes=num_classes
     )
     model.to(device)
 
@@ -423,6 +377,9 @@ def main(args):
             evaluate(model, criterion, data_loader_test, device=device)
         return
 
+    manager = ScheduledModifierManager.from_yaml(args.recipe)
+    optimizer = manager.modify(model, optimizer, len(data_loader))
+
     print("Start training")
     start_time = time.time()
     for epoch in range(args.start_epoch, args.epochs):
@@ -464,6 +421,8 @@ def main(args):
                 checkpoint, os.path.join(args.output_dir, "checkpoint.pth")
             )
 
+    manager.finalize(model)
+
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print(f"Training time {total_time_str}")
@@ -475,10 +434,13 @@ def get_args_parser(add_help=True):
     parser = argparse.ArgumentParser(
         description="PyTorch Classification Training", add_help=add_help
     )
-
+    parser.add_argument("--recipe", required=True, type=str)
+    parser.add_argument(
+        "--dataset", default="cifar10", type=str, help="name of dataset"
+    )
     parser.add_argument(
         "--data-path",
-        default="/datasets01/imagenet_full_size/061417/",
+        required=True,
         type=str,
         help="dataset path",
     )
@@ -597,7 +559,7 @@ def get_args_parser(add_help=True):
     )
     parser.add_argument("--print-freq", default=10, type=int, help="print frequency")
     parser.add_argument(
-        "--output-dir", default=".", type=str, help="path to save outputs"
+        "--output-dir", default="./checkpoints", type=str, help="path to save outputs"
     )
     parser.add_argument("--resume", default="", type=str, help="path of checkpoint")
     parser.add_argument(
@@ -684,24 +646,6 @@ def get_args_parser(add_help=True):
         default="bilinear",
         type=str,
         help="the interpolation method (default: bilinear)",
-    )
-    parser.add_argument(
-        "--val-resize-size",
-        default=256,
-        type=int,
-        help="the resize size used for validation (default: 256)",
-    )
-    parser.add_argument(
-        "--val-crop-size",
-        default=224,
-        type=int,
-        help="the central crop size used for validation (default: 224)",
-    )
-    parser.add_argument(
-        "--train-crop-size",
-        default=224,
-        type=int,
-        help="the random crop size used for training (default: 224)",
     )
     parser.add_argument(
         "--clip-grad-norm",
