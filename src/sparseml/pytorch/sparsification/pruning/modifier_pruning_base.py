@@ -16,7 +16,7 @@
 Base classes for creating modifiers for pruning algorithms
 """
 
-
+import math
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from typing import Dict, List, Optional, Tuple, Union
@@ -273,6 +273,12 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         """
         return self._applied_sparsity
 
+    def is_oneshot(self, epoch: float, steps_per_epoch: int) -> bool:
+        """
+        :return: True if modifier called in a one-shot manner
+        """
+        return steps_per_epoch == 1 and math.isinf(epoch)
+
     def initialize(
         self,
         module: Module,
@@ -319,7 +325,8 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
 
         self.initialize_extras(module)
 
-        self.check_mask_update(module, epoch, steps_per_epoch=1, **kwargs)
+        if self.is_oneshot(epoch, steps_per_epoch=1):
+            self.check_mask_update(module, epoch, steps_per_epoch=1, **kwargs)
 
     def initialize_extras(self, module: Module):
         """
