@@ -24,10 +24,8 @@ from torch import nn
 from torch.utils.data.dataloader import default_collate
 from torchvision.transforms.functional import InterpolationMode
 
-import presets
-import transforms
-import utils
-from sampler import RASampler
+from sparseml.pytorch.torchvision import presets, transforms, utils
+from sparseml.pytorch.torchvision.sampler import RASampler
 
 
 def train_one_epoch(
@@ -60,7 +58,8 @@ def train_one_epoch(
         if scaler is not None:
             scaler.scale(loss).backward()
             if args.clip_grad_norm is not None:
-                # we should unscale the gradients of optimizer's assigned params if do gradient clipping
+                # we should unscale the gradients of optimizer's assigned params
+                # if do gradient clipping
                 scaler.unscale_(optimizer)
                 nn.utils.clip_grad_norm_(model.parameters(), args.clip_grad_norm)
             scaler.step(optimizer)
@@ -116,7 +115,8 @@ def evaluate(model, criterion, data_loader, device, print_freq=100, log_suffix="
     ):
         # See FIXME above
         warnings.warn(
-            f"It looks like the dataset has {len(data_loader.dataset)} samples, but {num_processed_samples} "
+            f"It looks like the dataset has {len(data_loader.dataset)} samples, "
+            f"but {num_processed_samples} "
             "samples were used for the validation, which might bias the results. "
             "Try adjusting the batch size and / or the world size. "
             "Setting the world size to 1 is always a safe bet."
@@ -125,7 +125,9 @@ def evaluate(model, criterion, data_loader, device, print_freq=100, log_suffix="
     metric_logger.synchronize_between_processes()
 
     print(
-        f"{header} Acc@1 {metric_logger.acc1.global_avg:.3f} Acc@5 {metric_logger.acc5.global_avg:.3f}"
+        header,
+        f"Acc@1 {metric_logger.acc1.global_avg:.3f}",
+        f"Acc@5 {metric_logger.acc5.global_avg:.3f}",
     )
     return metric_logger.acc1.global_avg
 
@@ -350,7 +352,8 @@ def main(args):
         )
     else:
         raise RuntimeError(
-            f"Invalid lr scheduler '{args.lr_scheduler}'. Only StepLR, CosineAnnealingLR and ExponentialLR "
+            f"Invalid lr scheduler '{args.lr_scheduler}'. "
+            "Only StepLR, CosineAnnealingLR and ExponentialLR "
             "are supported."
         )
 
@@ -369,7 +372,8 @@ def main(args):
             )
         else:
             raise RuntimeError(
-                f"Invalid warmup lr method '{args.lr_warmup_method}'. Only linear and constant are supported."
+                f"Invalid warmup lr method '{args.lr_warmup_method}'. "
+                "Only linear and constant are supported."
             )
         lr_scheduler = torch.optim.lr_scheduler.SequentialLR(
             optimizer,
@@ -386,12 +390,16 @@ def main(args):
 
     model_ema = None
     if args.model_ema:
-        # Decay adjustment that aims to keep the decay independent from other hyper-parameters originally proposed at:
+        # Decay adjustment that aims to keep the decay independent from
+        # other hyper-parameters originally proposed at:
         # https://github.com/facebookresearch/pycls/blob/f8cd9627/pycls/core/net.py#L123
         #
-        # total_ema_updates = (Dataset_size / n_GPUs) * epochs / (batch_size_per_gpu * EMA_steps)
-        # We consider constant = Dataset_size for a given dataset/setup and ommit it. Thus:
-        # adjust = 1 / total_ema_updates ~= n_GPUs * batch_size_per_gpu * EMA_steps / epochs
+        # total_ema_updates =
+        #   (Dataset_size / n_GPUs) * epochs / (batch_size_per_gpu * EMA_steps)
+        # We consider constant = Dataset_size for a given dataset/setup and ommit it.
+        # Thus:
+        # adjust = 1 / total_ema_updates ~=
+        #   n_GPUs * batch_size_per_gpu * EMA_steps / epochs
         adjust = args.world_size * args.batch_size * args.model_ema_steps / args.epochs
         alpha = 1.0 - args.model_ema_decay
         alpha = min(1.0, alpha * adjust)
@@ -412,7 +420,8 @@ def main(args):
             scaler.load_state_dict(checkpoint["scaler"])
 
     if args.test_only:
-        # We disable the cudnn benchmarking because it can noticeably affect the accuracy
+        # We disable the cudnn benchmarking because it can
+        # noticeably affect the accuracy
         torch.backends.cudnn.benchmark = False
         torch.backends.cudnn.deterministic = True
         if model_ema:
@@ -529,19 +538,22 @@ def get_args_parser(add_help=True):
         "--norm-weight-decay",
         default=None,
         type=float,
-        help="weight decay for Normalization layers (default: None, same value as --wd)",
+        help="weight decay for Normalization layers "
+        "(default: None, same value as --wd)",
     )
     parser.add_argument(
         "--bias-weight-decay",
         default=None,
         type=float,
-        help="weight decay for bias parameters of all layers (default: None, same value as --wd)",
+        help="weight decay for bias parameters of all layers "
+        "(default: None, same value as --wd)",
     )
     parser.add_argument(
         "--transformer-embedding-decay",
         default=None,
         type=float,
-        help="weight decay for embedding parameters for vision transformer models (default: None, same value as --wd)",
+        help="weight decay for embedding parameters for vision transformer models "
+        "(default: None, same value as --wd)",
     )
     parser.add_argument(
         "--label-smoothing",
@@ -606,7 +618,8 @@ def get_args_parser(add_help=True):
     parser.add_argument(
         "--cache-dataset",
         dest="cache_dataset",
-        help="Cache the datasets for quicker initialization. It also serializes the transforms",
+        help="Cache the datasets for quicker initialization. "
+        "It also serializes the transforms",
         action="store_true",
     )
     parser.add_argument(
@@ -666,13 +679,15 @@ def get_args_parser(add_help=True):
         "--model-ema-steps",
         type=int,
         default=32,
-        help="the number of iterations that controls how often to update the EMA model (default: 32)",
+        help="the number of iterations that controls "
+        "how often to update the EMA model (default: 32)",
     )
     parser.add_argument(
         "--model-ema-decay",
         type=float,
         default=0.99998,
-        help="decay factor for Exponential Moving Average of model parameters (default: 0.99998)",
+        help="decay factor for Exponential Moving Average "
+        "of model parameters (default: 0.99998)",
     )
     parser.add_argument(
         "--use-deterministic-algorithms",
