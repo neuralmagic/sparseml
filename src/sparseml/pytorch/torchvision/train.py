@@ -51,8 +51,9 @@ def train_one_epoch(
     optimizer.zero_grad()
 
     header = f"Epoch: [{epoch}]"
-    for i, (image, target) in enumerate(
-        metric_logger.log_every(data_loader, args.print_freq, header)
+    for i, (image, target) in zip(
+        range(args.max_train_steps),
+        metric_logger.log_every(data_loader, args.print_freq, header),
     ):
         start_time = time.time()
         image, target = image.to(device), target.to(device)
@@ -444,7 +445,10 @@ def main(args):
         return
 
     manager = ScheduledModifierManager.from_yaml(args.recipe_path)
-    optimizer = manager.modify(model, optimizer, len(data_loader))
+
+    if args.max_train_steps < 0:
+        args.max_train_steps = len(data_loader)
+    optimizer = manager.modify(model, optimizer, steps_per_epoch=args.max_train_steps)
 
     print("Start training")
     start_time = time.time()
@@ -759,6 +763,13 @@ def get_args_parser(add_help=True):
         default=1,
         type=int,
         help="gradient accumulation steps",
+    )
+    parser.add_argument(
+        "--max-train-steps",
+        default=-1,
+        type=int,
+        help="The maximum number of training steps to run **per epoch**. If negative, "
+        "will run for the entire dataset",
     )
     return parser
 
