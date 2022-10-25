@@ -460,7 +460,7 @@ def main(args):
             epoch,
             args,
             model_ema,
-            scaler,
+            scaler=None if manager.qat_active(epoch=epoch) else scaler,
         )
         lr_scheduler.step()
         evaluate(model, criterion, data_loader_test, device=device)
