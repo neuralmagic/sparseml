@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import warnings
 from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -118,11 +117,10 @@ def _validate_mask_type(
     )
 
     if target is not None and mask_type != target_to_mask_type[target]:
-        warnings.warn(
+        raise ValueError(
             f"The specified mask type {mask_type} and target {target} are "
-            f"incompatible, overriding mask_type tp {target_to_mask_type[target]}"
+            f"incompatible, try overriding mask_type to {target_to_mask_type[target]}"
         )
-        mask_type = target_to_mask_type[target]
     return mask_type
 
 
@@ -168,8 +166,7 @@ def _build_recipe_template(
 
 
 def _add_description(recipe: str, description: str = DESCRIPTION) -> str:
-    recipe = f"---\n{recipe}\n---"
-    return "\n".join((recipe, description))
+    return f"---\n{recipe}\n---{description}"
 
 
 def _write_recipe_to_file(file_name: str, recipe: str):
