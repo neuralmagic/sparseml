@@ -45,7 +45,7 @@ def train_one_epoch(
     metric_logger.add_meter("lr", utils.SmoothedValue(window_size=1, fmt="{value}"))
     metric_logger.add_meter("img/s", utils.SmoothedValue(window_size=10, fmt="{value}"))
 
-    accum = 0
+    steps_accumulated = 0
 
     # initial zero grad for gradient accumulation
     optimizer.zero_grad()
@@ -60,7 +60,7 @@ def train_one_epoch(
             output = model(image)
             loss = criterion(output, target)
 
-        if accum % args.gradient_accum_steps == 0:
+        if steps_accumulated % args.gradient_accum_steps == 0:
             # first: do training to consume gradients
             if scaler is not None:
                 scaler.scale(loss).backward()
@@ -79,7 +79,7 @@ def train_one_epoch(
 
             # zero grad here to start accumulating next set of gradients
             optimizer.zero_grad()
-        accum += 1
+        steps_accumulated += 1
 
         if model_ema and i % args.model_ema_steps == 0:
             model_ema.update_parameters(model)
