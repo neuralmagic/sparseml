@@ -436,6 +436,9 @@ def main(args):
     manager = ScheduledModifierManager.from_yaml(args.recipe_path)
     optimizer = manager.modify(model, optimizer, len(data_loader))
 
+    if manager.learning_rate_modifiers:
+        lr_scheduler = None
+
     print("Start training")
     start_time = time.time()
     for epoch in range(args.start_epoch, manager.max_epochs):
@@ -452,7 +455,8 @@ def main(args):
             model_ema,
             scaler,
         )
-        lr_scheduler.step()
+        if lr_scheduler:
+            lr_scheduler.step()
         evaluate(model, criterion, data_loader_test, device=device)
         if model_ema:
             evaluate(
@@ -462,10 +466,11 @@ def main(args):
             checkpoint = {
                 "model": model_without_ddp.state_dict(),
                 "optimizer": optimizer.state_dict(),
-                "lr_scheduler": lr_scheduler.state_dict(),
                 "epoch": epoch,
                 "args": args,
             }
+            if lr_scheduler:
+                checkpoint["lr_scheduler"] = lr_scheduler.state_dict()
             if model_ema:
                 checkpoint["model_ema"] = model_ema.state_dict()
             if scaler:
