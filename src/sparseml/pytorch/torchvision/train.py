@@ -45,6 +45,11 @@ def train_one_epoch(
     metric_logger.add_meter("lr", utils.SmoothedValue(window_size=1, fmt="{value}"))
     metric_logger.add_meter("img/s", utils.SmoothedValue(window_size=10, fmt="{value}"))
 
+    steps_accumulated = 0
+
+    # initial zero grad for gradient accumulation
+    optimizer.zero_grad()
+
     header = f"Epoch: [{epoch}]"
     for i, (image, target) in enumerate(
         metric_logger.log_every(data_loader, args.print_freq, header)
@@ -55,21 +60,26 @@ def train_one_epoch(
             output = model(image)
             loss = criterion(output, target)
 
-        optimizer.zero_grad()
-        if scaler is not None:
-            scaler.scale(loss).backward()
-            if args.clip_grad_norm is not None:
-                # we should unscale the gradients of optimizer's assigned params
-                # if do gradient clipping
-                scaler.unscale_(optimizer)
-                nn.utils.clip_grad_norm_(model.parameters(), args.clip_grad_norm)
-            scaler.step(optimizer)
-            scaler.update()
-        else:
-            loss.backward()
-            if args.clip_grad_norm is not None:
-                nn.utils.clip_grad_norm_(model.parameters(), args.clip_grad_norm)
-            optimizer.step()
+        if steps_accumulated % args.gradient_accum_steps == 0:
+            # first: do training to consume gradients
+            if scaler is not None:
+                scaler.scale(loss).backward()
+                if args.clip_grad_norm is not None:
+                    # we should unscale the gradients of optimizer's assigned params
+                    # if do gradient clipping
+                    scaler.unscale_(optimizer)
+                    nn.utils.clip_grad_norm_(model.parameters(), args.clip_grad_norm)
+                scaler.step(optimizer)
+                scaler.update()
+            else:
+                loss.backward()
+                if args.clip_grad_norm is not None:
+                    nn.utils.clip_grad_norm_(model.parameters(), args.clip_grad_norm)
+                optimizer.step()
+
+            # zero grad here to start accumulating next set of gradients
+            optimizer.zero_grad()
+        steps_accumulated += 1
 
         if model_ema and i % args.model_ema_steps == 0:
             model_ema.update_parameters(model)
@@ -743,6 +753,12 @@ def get_args_parser(add_help=True):
     )
     parser.add_argument(
         "--weights", default=None, type=str, help="the weights enum name to load"
+    )
+    parser.add_argument(
+        "--gradient-accum-steps",
+        default=1,
+        type=int,
+        help="gradient accumulation steps",
     )
     return parser
 
