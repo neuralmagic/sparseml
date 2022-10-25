@@ -444,6 +444,10 @@ def main(args):
         return
 
     manager = ScheduledModifierManager.from_yaml(args.recipe_path)
+    if args.one_shot:
+        manager.apply(model)
+        return
+
     optimizer = manager.modify(model, optimizer, len(data_loader))
 
     print("Start training")
@@ -759,6 +763,12 @@ def get_args_parser(add_help=True):
         default=1,
         type=int,
         help="gradient accumulation steps",
+    )
+    parser.add_argument(
+        "--one-shot",
+        action="store_true",
+        default=False,
+        help="Apply recipe in a one-shot fashion, do no training, and save the model",
     )
     return parser
 
