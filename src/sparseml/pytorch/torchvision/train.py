@@ -26,6 +26,7 @@ from torchvision.transforms.functional import InterpolationMode
 
 from sparseml.pytorch.torchvision import presets, transforms, utils
 from sparseml.pytorch.torchvision.sampler import RASampler
+from sparseml.pytorch.optim import ScheduledModifierManager
 
 
 def train_one_epoch(
@@ -432,9 +433,12 @@ def main(args):
             evaluate(model, criterion, data_loader_test, device=device)
         return
 
+    manager = ScheduledModifierManager.from_yaml(args.recipe_path)
+    optimizer = manager.modify(model, optimizer, len(data_loader))
+
     print("Start training")
     start_time = time.time()
-    for epoch in range(args.start_epoch, args.epochs):
+    for epoch in range(args.start_epoch, manager.max_epochs):
         if args.distributed:
             train_sampler.set_epoch(epoch)
         train_one_epoch(
@@ -472,6 +476,7 @@ def main(args):
             utils.save_on_master(
                 checkpoint, os.path.join(args.output_dir, "checkpoint.pth")
             )
+    manager.finalize()
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
@@ -485,6 +490,7 @@ def get_args_parser(add_help=True):
         description="PyTorch Classification Training", add_help=add_help
     )
 
+    parser.add_argument("--recipe-path", required=True, type=str, help="Path to recipe")
     parser.add_argument(
         "--data-path",
         default="/datasets01/imagenet_full_size/061417/",
