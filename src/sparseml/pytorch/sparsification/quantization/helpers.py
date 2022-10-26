@@ -708,20 +708,24 @@ def fuse_module_conv_bn_relus(
     if len(current_block) > 1:
         conv_blocks.append(current_block)
     if conv_blocks:
+        # manually save and move hooks surrounding fused blocks
+        # into new fused modules due to torch.quantization
+        # error when a module has more than one hook
+        block_hooks = _delete_get_block_hooks(module, conv_blocks)
+
         # run torch fusion
         if _PARSED_TORCH_VERSION < version.parse("1.10.0"):
-            # manually save and move hooks surrounding fused blocks
-            # into new fused modules due to torch.quantization
-            # error when a module has more than one hook
-            block_hooks = _delete_get_block_hooks(module, conv_blocks)
-
-            # run torch fusion
             torch_quantization.fuse_modules(module, conv_blocks, inplace=True)
-
-            # add hooks back
-            _add_fused_block_hooks(module, block_hooks)
         else:
-            torch.ao.quantization.fuse_modules_qat(module, conv_blocks, inplace=True)
+            if module.training:
+                torch.ao.quantization.fuse_modules_qat(
+                    module, conv_blocks, inplace=True
+                )
+            else:
+                torch.ao.quantization.fuse_modules(module, conv_blocks, inplace=True)
+
+        # add hooks back
+        _add_fused_block_hooks(module, block_hooks)
 
     return module
 
