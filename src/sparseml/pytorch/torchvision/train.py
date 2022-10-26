@@ -451,6 +451,9 @@ def main(args):
     for epoch in range(args.start_epoch, manager.max_epochs):
         if args.distributed:
             train_sampler.set_epoch(epoch)
+        if manager.qat_active(epoch=epoch):
+            scaler = None
+            model_ema = None
         train_one_epoch(
             model,
             criterion,
@@ -459,8 +462,8 @@ def main(args):
             device,
             epoch,
             args,
-            model_ema,
-            scaler=None if manager.qat_active(epoch=epoch) else scaler,
+            model_ema=model_ema,
+            scaler=scaler,
         )
         lr_scheduler.step()
         evaluate(model, criterion, data_loader_test, device=device)
