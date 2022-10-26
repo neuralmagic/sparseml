@@ -35,7 +35,7 @@ from torch.optim.optimizer import Optimizer
 from torch.utils.data import DataLoader
 
 from sparseml.onnx.utils import ONNXGraph
-from sparseml.pytorch import TORCH_ONNX_OPSET
+from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
 from sparseml.pytorch.utils.helpers import (
     tensors_export,
     tensors_module_forward,
@@ -175,7 +175,7 @@ class ModuleExporter(object):
         self,
         sample_batch: Any,
         name: str = MODEL_ONNX_NAME,
-        opset: int = TORCH_ONNX_OPSET,
+        opset: int = TORCH_DEFAULT_ONNX_OPSET,
         disable_bn_fusing: bool = True,
         convert_qat: bool = False,
         **export_kwargs,
@@ -406,7 +406,7 @@ def export_onnx(
     module: Module,
     sample_batch: Any,
     file_path: str,
-    opset: int = TORCH_ONNX_OPSET,
+    opset: int = TORCH_DEFAULT_ONNX_OPSET,
     disable_bn_fusing: bool = True,
     convert_qat: bool = False,
     dynamic_axes: Union[str, Dict[str, List[int]]] = None,

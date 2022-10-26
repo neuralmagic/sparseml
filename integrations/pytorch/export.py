@@ -102,8 +102,8 @@ from tqdm import tqdm
 import utils
 from argparser_.nm_argparser_ import NmArgumentParser
 from sparseml import get_main_logger
-from sparseml.pytorch import TORCH_ONNX_OPSET
 from sparseml.pytorch.models import ModelRegistry
+from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
 from sparseml.pytorch.utils import ModuleExporter
 from sparseml.utils import convert_to_bool
 
@@ -197,9 +197,10 @@ class ExportArgs:
     )
 
     onnx_opset: int = field(
-        default=TORCH_ONNX_OPSET,
+        default=TORCH_DEFAULT_ONNX_OPSET,
         metadata={
-            "help": f"The onnx opset to use for export. Default is {TORCH_ONNX_OPSET}"
+            "help": "The onnx opset to use for export. "
+            f"Default is {TORCH_DEFAULT_ONNX_OPSET}"
         },
     )
 
