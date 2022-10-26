@@ -325,7 +325,7 @@ def _quantize_array(
     elif dtype == numpy.int32:
         tensor_dtype = torch.qint32
 
-    tensor = torch.Tensor(array).to(torch.float32)
+    tensor = torch.Tensor(array.copy()).to(torch.float32)
     if isinstance(scale, numpy.ndarray):
         scale = scale.item()
     if isinstance(zero_point, numpy.ndarray):
