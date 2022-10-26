@@ -73,8 +73,7 @@ from transformers.tokenization_utils_base import PaddingStrategy
 
 from sparseml.pytorch.utils import export_onnx
 from sparseml.transformers.sparsification import Trainer
-from sparseml.transformers.utils import SparseAutoModel
-
+from sparseml.transformers.utils import SparseAutoModel, get_tokenized_dataset
 
 __all__ = ["export_transformer_to_onnx", "load_task_model"]
 
@@ -133,6 +132,8 @@ def export_transformer_to_onnx(
     convert_qat: bool = True,
     finetuning_task: Optional[str] = None,
     onnx_file_name: str = MODEL_ONNX_NAME,
+    num_export_samples: int = 0,
+    dataset_name: Optional[str] = None,
 ) -> str:
     """
     Exports the saved transformers file to ONNX at batch size 1 using
@@ -149,6 +150,7 @@ def export_transformer_to_onnx(
     :param onnx_file_name: name to save the exported ONNX file as. Default
         is model.onnx. Note that when loading a model directory to a deepsparse
         pipeline, it will look only for 'model.onnx'
+    :param num_export_samples: Number of samples (inputs/outputs) to export
     :return: path to the exported ONNX file
     """
     task = task.replace("_", "-").replace(" ", "-")
@@ -157,6 +159,12 @@ def export_transformer_to_onnx(
         raise ValueError(
             "model_path must be a directory that contains the trained transformer "
             f"files. {model_path} is not a directory or does not exist"
+        )
+
+    if num_export_samples > 0 and dataset_name is None:
+        raise ValueError(
+            f"--dataset_name is needed for exporting {num_export_samples} "
+            f"samples but got {dataset_name}"
         )
 
     _LOGGER.info(f"Attempting onnx export for model at {model_path} for task {task}")
@@ -170,10 +178,13 @@ def export_transformer_to_onnx(
     )
     model = load_task_model(task, model_path, config)
     _LOGGER.info(f"loaded model, config, and tokenizer from {model_path}")
-
+    tokenized_dataset = get_tokenized_dataset(
+            task=task, tokenizer=tokenizer, data_args=dict(dataset_name=dataset_name)
+    ) if dataset_name else {}
     trainer = Trainer(
         model=model,
         model_state_path=model_path,
+        eval_dataset=tokenized_dataset.get("validation"),
         recipe=None,
         recipe_args=None,
         teacher=None,
@@ -242,6 +253,14 @@ def export_transformer_to_onnx(
     )
     _LOGGER.info(f"ONNX exported to {onnx_file_path}")
 
+    # export sample inputs/outputs
+
+    _LOGGER.info(f"Exporting {num_export_samples} sample inputs/outputs")
+    trainer.save_sample_inputs_outputs(
+        num_samples_to_export=num_export_samples,
+    )
+
+    _LOGGER.info(f"Sample inputs/outputs exported")
     return onnx_file_path
 
 
@@ -350,6 +369,19 @@ def _parse_args() -> argparse.Namespace:
             f"compatibility is {MODEL_ONNX_NAME}"
         ),
     )
+    parser.add_argument(
+        "--num_export_samples",
+        type=int,
+        default=0,
+        help="Number of samples (inputs/outputs) to export",
+    )
+    parser.add_argument(
+        "--dataset_name",
+        type=str,
+        default=None,
+        help="Dataset name to use for exporting samples. Needed if "
+             "num_export_samples>0",
+    )
 
     return parser.parse_args()
 
@@ -361,6 +393,8 @@ def export(
     no_convert_qat: bool,
     finetuning_task: str,
     onnx_file_name: str,
+    num_export_samples: int = 0,
+    dataset_name: Optional[str] = None,
 ):
     export_transformer_to_onnx(
         task=task,
@@ -369,6 +403,8 @@ def export(
         convert_qat=(not no_convert_qat),  # False if flagged
         finetuning_task=finetuning_task,
         onnx_file_name=onnx_file_name,
+        num_export_samples=num_export_samples,
+        dataset_name=dataset_name,
     )
 
     deployment_folder_dir = create_deployment_folder(
@@ -389,6 +425,8 @@ def main():
         no_convert_qat=args.no_convert_qat,  # False if flagged
         finetuning_task=args.finetuning_task,
         onnx_file_name=args.onnx_file_name,
+        num_export_samples=args.num_export_samples,
+        dataset_name=args.dataset_name,
     )
 
 

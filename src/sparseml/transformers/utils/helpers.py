@@ -18,13 +18,12 @@ flows
 """
 import logging
 import os
-from typing import Optional
+from collections import UserString
+from typing import Any, Dict, List, Optional
 
 from sparsezoo import setup_model
 
-
-__all__ = ["RECIPE_NAME", "save_zoo_directory"]
-
+__all__ = ["RECIPE_NAME", "save_zoo_directory", "get_tokenized_dataset"]
 
 RECIPE_NAME = "recipe.yaml"
 
@@ -79,3 +78,47 @@ def save_zoo_directory(
         recipes=None,
     )
     logging.info(f"Created sparsezoo Model directory locally in {output_dir}")
+
+
+# need to remove this class and rely on original task/dataset name checking
+class AliasedString(UserString):
+    def __init__(self, string, aliases: Optional[List[str]] = None):
+        super().__init__(string.lower().replace("-", "_"))
+        self.aliases = self._get_supported_aliases(string)
+        for alias in (aliases or []):
+            self._add_alias(alias)
+
+    def _get_supported_aliases(self, string):
+        string = string.lower().replace("-", "_")
+        aliases = [string]
+        if "_" in string:
+            aliases.append(string.replace("_", "-"))
+            aliases.append(string.replace("_", ""))
+        return aliases
+
+    def _add_alias(self, alias):
+        self.aliases.extend(self._get_supported_aliases(alias))
+
+    def __eq__(self, other):
+        if isinstance(other, str):
+            other = AliasedString(other)
+        return any(
+            other_alias == self_alias
+            for self_alias in self.aliases
+            for other_alias in other.aliases
+        )
+
+
+def get_tokenized_dataset(task: str, tokenizer, data_args: Dict[str, Any]):
+    """
+    A stub that will return a dataloader based on specified task and other
+    arguments
+    """
+    mlm = AliasedString("mlm", aliases=["masked-language-modelling", "m-l-m"])
+
+    if mlm == task:
+        from sparseml.transformers.masked_language_modeling import DataTrainingArguments, get_tokenized_mlm_dataset
+        data_training_args = DataTrainingArguments(**data_args)
+        return get_tokenized_mlm_dataset(data_training_args, tokenizer)
+
+    raise NotImplemented
