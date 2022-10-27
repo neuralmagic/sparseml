@@ -67,7 +67,7 @@ class Yolov5TrainArgs(BaseModel):
         default=False, description="use weighted image selection for training"
     )
     device: Optional[str] = Field(
-        default=None, description="cuda device, i.e. 0 or 0,1,2,3 or cpu"
+        default="cpu", description="cuda device, i.e. 0 or 0,1,2,3 or cpu"
     )
     multi_scale: bool = Field(default=False, description="vary img-size +/- 50%%")
     single_cls: bool = Field(
@@ -140,13 +140,14 @@ class Yolov5ExportArgs(BaseModel):
     half: bool = Field(default=False, description="FP16 half-precision export")
     inplace: bool = Field(default=False, description="set YOLOv5 Detect() inplace=True")
     train: bool = Field(default=False, description="model.train() mode")
+    include: str = Field(default="onnx", description="Formats to export to")
     optimize: bool = Field(
         default=False, description="TorchScript: optimize for mobile"
     )
     int8: bool = Field(default=False, description="CoreML/TF INT8 quantization")
     dynamic: bool = Field(default=False, description="ONNX/TF: dynamic axes")
     simplify: bool = Field(default=False, description="ONNX: simplify model")
-    opset: int = Field(default=12, description="ONNX: opset version")
+    opset: int = Field(default=13, description="ONNX: opset version")
     verbose: bool = Field(default=False, description="TensorRT: verbose log")
     nms: bool = Field(default=False, description="TF: add NMS to model")
     agnostic_nms: bool = Field(
