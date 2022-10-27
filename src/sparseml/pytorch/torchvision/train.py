@@ -96,7 +96,13 @@ def train_one_epoch(
 
 
 def evaluate(
-    model, criterion, data_loader, device, args, print_freq=100, log_suffix=""
+    model,
+    criterion,
+    data_loader,
+    device,
+    steps_per_epoch,
+    print_freq=100,
+    log_suffix="",
 ):
     model.eval()
     metric_logger = utils.MetricLogger(delimiter="  ")
@@ -104,10 +110,12 @@ def evaluate(
 
     num_processed_samples = 0
     with torch.inference_mode():
-        for i, (image, target) in zip(
-            range(args.max_eval_steps),
-            metric_logger.log_every(data_loader, print_freq, header),
+        for i, (image, target) in enumerate(
+            metric_logger.log_every(data_loader, print_freq, header)
         ):
+            if i >= steps_per_epoch:
+                break
+
             image = image.to(device, non_blocking=True)
             target = target.to(device, non_blocking=True)
             output = model(image)
@@ -294,6 +302,10 @@ def main(args):
         pin_memory=True,
     )
 
+    steps_per_eval = len(data_loader_test)
+    if args.max_eval_steps > 0:
+        steps_per_eval = min(steps_per_eval, args.max_eval_steps)
+
     print("Creating model")
     model = torchvision.models.get_model(
         args.model, weights=args.weights, num_classes=num_classes
@@ -435,9 +447,6 @@ def main(args):
         if scaler:
             scaler.load_state_dict(checkpoint["scaler"])
 
-    if args.max_eval_steps < 0:
-        args.max_eval_steps = len(data_loader_test)
-
     if args.test_only:
         # We disable the cudnn benchmarking because it can
         # noticeably affect the accuracy
@@ -445,10 +454,15 @@ def main(args):
         torch.backends.cudnn.deterministic = True
         if model_ema:
             evaluate(
-                model_ema, criterion, data_loader_test, device, args, log_suffix="EMA"
+                model_ema,
+                criterion,
+                data_loader_test,
+                device,
+                steps_per_eval,
+                log_suffix="EMA",
             )
         else:
-            evaluate(model, criterion, data_loader_test, device, args)
+            evaluate(model, criterion, data_loader_test, device, steps_per_eval)
         return
 
     manager = ScheduledModifierManager.from_yaml(args.recipe_path)
@@ -471,10 +485,15 @@ def main(args):
             scaler=None if manager.qat_active(epoch=epoch) else scaler,
         )
         lr_scheduler.step()
-        evaluate(model, criterion, data_loader_test, device, args)
+        evaluate(model, criterion, data_loader_test, device, steps_per_eval)
         if model_ema:
             evaluate(
-                model_ema, criterion, data_loader_test, device, args, log_suffix="EMA"
+                model_ema,
+                criterion,
+                data_loader_test,
+                device,
+                steps_per_eval,
+                log_suffix="EMA",
             )
         if args.output_dir:
             checkpoint = {
@@ -772,7 +791,7 @@ def get_args_parser(add_help=True):
         "--max-eval-steps",
         default=-1,
         type=int,
-        help="The maximum number of eval steps to run per epoch. If negative, "
+        help="Per epoch number of eval steps to run. If negative, "
         "will run for the entire dataset",
     )
     return parser
