@@ -139,10 +139,20 @@ def load_task_dataset(task: str, tokenizer, data_args: Optional[Dict[str, Any]])
         instance for fetching the dataset
     """
     # TODO: fill out the function for
-    #  1) mlm
-    #  2) question-answering
-    #  3) text-classification
-    #  4) token-classification
+    #  1) question-answering
+    #  2) text-classification
+    #  3) token-classification
+
+    if task == "masked-language-modeling" or task == "mlm":
+        from sparseml.transformers.masked_language_modeling import (
+            DataTrainingArguments,
+            get_tokenized_mlm_dataset,
+        )
+
+        data_training_args = DataTrainingArguments(**data_args)
+        return get_tokenized_mlm_dataset(data_training_args, tokenizer)
+
+    raise NotImplementedError
 
 
 def export_transformer_to_onnx(
