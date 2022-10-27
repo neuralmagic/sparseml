@@ -223,6 +223,8 @@ def _get_num_epochs(pruning: bool, quantization: bool) -> Union[int, str]:
         return "eval(_num_pruning_epochs)"
     if quantization and not pruning:
         return "eval(num_qat_epochs)"
+    # default placeholder epoch number if no
+    # pruning or quantization present
     return 35
 
 
