@@ -221,7 +221,6 @@ def export_transformer_to_onnx(
     tokenized_dataset = load_task_dataset(
         task=task, tokenizer=tokenizer, data_args=data_args
     )
-
     model = model.train()
     trainer = Trainer(
         model=model,
