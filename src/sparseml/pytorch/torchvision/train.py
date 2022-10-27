@@ -36,6 +36,7 @@ def train_one_epoch(
     data_loader,
     device,
     epoch,
+    steps_per_epoch,
     args,
     model_ema=None,
     scaler=None,
@@ -51,10 +52,11 @@ def train_one_epoch(
     optimizer.zero_grad()
 
     header = f"Epoch: [{epoch}]"
-    for i, (image, target) in zip(
-        range(args.max_train_steps),
-        metric_logger.log_every(data_loader, args.print_freq, header),
+    for i, (image, target) in enumerate(
+        metric_logger.log_every(data_loader, args.print_freq, header)
     ):
+        if i > steps_per_epoch:
+            break
         start_time = time.time()
         image, target = image.to(device), target.to(device)
         with torch.cuda.amp.autocast(enabled=scaler is not None):
@@ -282,6 +284,11 @@ def main(args):
         pin_memory=True,
         collate_fn=collate_fn,
     )
+
+    steps_per_epoch = len(data_loader)
+    if args.max_train_steps > 0:
+        steps_per_epoch = min(steps_per_epoch, args.max_train_steps)
+
     data_loader_test = torch.utils.data.DataLoader(
         dataset_test,
         batch_size=args.batch_size,
@@ -445,10 +452,7 @@ def main(args):
         return
 
     manager = ScheduledModifierManager.from_yaml(args.recipe_path)
-
-    if args.max_train_steps < 0:
-        args.max_train_steps = len(data_loader)
-    optimizer = manager.modify(model, optimizer, steps_per_epoch=args.max_train_steps)
+    optimizer = manager.modify(model, optimizer, steps_per_epoch=steps_per_epoch)
 
     print("Start training")
     start_time = time.time()
@@ -462,6 +466,7 @@ def main(args):
             data_loader,
             device,
             epoch,
+            steps_per_epoch,
             args,
             model_ema,
             scaler=None if manager.qat_active(epoch=epoch) else scaler,
