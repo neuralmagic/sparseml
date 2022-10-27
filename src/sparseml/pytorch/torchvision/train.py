@@ -446,6 +446,21 @@ def main(args):
     manager = ScheduledModifierManager.from_yaml(args.recipe_path)
     if args.one_shot:
         manager.apply(model)
+        checkpoint = {
+            "model": model_without_ddp.state_dict(),
+            "optimizer": optimizer.state_dict(),
+            "epoch": -1,
+            "args": args,
+        }
+        if lr_scheduler:
+            checkpoint["lr_scheduler"] = lr_scheduler.state_dict()
+        if model_ema:
+            checkpoint["model_ema"] = model_ema.state_dict()
+        if scaler:
+            checkpoint["scaler"] = scaler.state_dict()
+        utils.save_on_master(
+            checkpoint, os.path.join(args.output_dir, "model_one-shot.pth")
+        )
         return
 
     optimizer = manager.modify(model, optimizer, len(data_loader))
