@@ -327,7 +327,6 @@ def _get_pruning_builders_and_variables(
         # params
         pruning_arguments = dict(
             start_epoch=0.0,
-            end_epoch=10.0,
             params="__ALL_PRUNABLE__",  # preferred for constant pruning
         )
     else:
