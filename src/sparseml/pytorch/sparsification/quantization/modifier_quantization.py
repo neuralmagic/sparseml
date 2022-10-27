@@ -695,7 +695,7 @@ class QuantizationModifier(ScheduledModifier):
             )
 
         # remove qconfigs for module types in exclude_module_types
-        to_exclude = []
+        to_exclude = ["Softmax"]
         if self.exclude_module_types:
             to_exclude.extend(self.exclude_module_types)
 
