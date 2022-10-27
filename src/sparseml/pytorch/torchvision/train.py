@@ -773,7 +773,7 @@ def get_args_parser(add_help=True):
         "--max-train-steps",
         default=-1,
         type=int,
-        help="The maximum number of training steps to run **per epoch**. If negative, "
+        help="Per epoch number of training steps to run. If negative, "
         "will run for the entire dataset",
     )
     return parser
