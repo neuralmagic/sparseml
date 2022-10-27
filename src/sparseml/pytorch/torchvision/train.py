@@ -55,7 +55,7 @@ def train_one_epoch(
     for i, (image, target) in enumerate(
         metric_logger.log_every(data_loader, args.print_freq, header)
     ):
-        if i > steps_per_epoch:
+        if i >= steps_per_epoch:
             break
         start_time = time.time()
         image, target = image.to(device), target.to(device)
