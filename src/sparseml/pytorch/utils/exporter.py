@@ -28,12 +28,14 @@ import numpy
 import onnx
 import torch
 from onnx import numpy_helper
+from packaging import version
 from torch import Tensor
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 from torch.utils.data import DataLoader
 
 from sparseml.onnx.utils import ONNXGraph
+from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
 from sparseml.pytorch.utils.helpers import (
     tensors_export,
     tensors_module_forward,
@@ -53,8 +55,8 @@ __all__ = [
     "export_onnx",
 ]
 
+_PARSED_TORCH_VERSION = version.parse(torch.__version__)
 
-DEFAULT_ONNX_OPSET = 9 if torch.__version__ < "1.3" else 11
 MODEL_ONNX_NAME = "model.onnx"
 CONFIG_JSON_NAME = "config.json"
 _LOGGER = logging.getLogger(__name__)
@@ -173,7 +175,7 @@ class ModuleExporter(object):
         self,
         sample_batch: Any,
         name: str = MODEL_ONNX_NAME,
-        opset: int = DEFAULT_ONNX_OPSET,
+        opset: int = TORCH_DEFAULT_ONNX_OPSET,
         disable_bn_fusing: bool = True,
         convert_qat: bool = False,
         **export_kwargs,
@@ -186,8 +188,8 @@ class ModuleExporter(object):
         :param sample_batch: the batch to export an onnx for, handles creating the
             static graph for onnx as well as setting dimensions
         :param name: name of the onnx file to save
-        :param opset: onnx opset to use for exported model. Default is 11, if torch
-            version is 1.2 or below, default is 9
+        :param opset: onnx opset to use for exported model.
+            Default is based on torch version.
         :param disable_bn_fusing: torch >= 1.7.0 only. Set True to disable batch norm
             fusing during torch export. Default and suggested setting is True. Batch
             norm fusing will change the exported parameter names as well as affect
@@ -404,7 +406,7 @@ def export_onnx(
     module: Module,
     sample_batch: Any,
     file_path: str,
-    opset: int = DEFAULT_ONNX_OPSET,
+    opset: int = TORCH_DEFAULT_ONNX_OPSET,
     disable_bn_fusing: bool = True,
     convert_qat: bool = False,
     dynamic_axes: Union[str, Dict[str, List[int]]] = None,
@@ -420,8 +422,8 @@ def export_onnx(
     :param sample_batch: the batch to export an onnx for, handles creating the
         static graph for onnx as well as setting dimensions
     :param file_path: path to the onnx file to save
-    :param opset: onnx opset to use for exported model. Default is 11, if torch
-        version is 1.2 or below, default is 9
+    :param opset: onnx opset to use for exported model.
+        Default is based on torch version.
     :param disable_bn_fusing: torch >= 1.7.0 only. Set True to disable batch norm
         fusing during torch export. Default and suggested setting is True. Batch
         norm fusing will change the exported parameter names as well as affect
@@ -444,6 +446,13 @@ def export_onnx(
         See more on the torch.onnx.export api spec in the PyTorch docs:
         https://pytorch.org/docs/stable/onnx.html
     """
+    if _PARSED_TORCH_VERSION >= version.parse("1.10.0") and opset < 13 and convert_qat:
+        warnings.warn(
+            "Exporting onnx with QAT and opset < 13 may result in errors. "
+            "Please use opset>=13 with QAT. "
+            "See https://github.com/pytorch/pytorch/issues/77455 for more info. "
+        )
+
     if not export_kwargs:
         export_kwargs = {}
 
@@ -461,7 +470,6 @@ def export_onnx(
     create_parent_dirs(file_path)
 
     module = deepcopy(module).cpu()
-    module.eval()
 
     with torch.no_grad():
         out = tensors_module_forward(sample_batch, module, check_feat_lab_inp=False)
@@ -513,21 +521,33 @@ def export_onnx(
         for submodule in module.modules()
     )
     batch_norms_wrapped = False
-    if torch.__version__ >= "1.7" and not is_quant_module and disable_bn_fusing:
+    if (
+        _PARSED_TORCH_VERSION >= version.parse("1.7")
+        and not is_quant_module
+        and disable_bn_fusing
+    ):
         # prevent batch norm fusing by adding a trivial operation before every
         # batch norm layer
         batch_norms_wrapped = _wrap_batch_norms(module)
 
-    torch.onnx.export(
-        module,
-        sample_batch,
-        file_path,
-        strip_doc_string=True,
+    kwargs = dict(
+        model=module,
+        args=sample_batch,
+        f=file_path,
         verbose=False,
         opset_version=opset,
         dynamic_axes=dynamic_axes,
         **export_kwargs,
     )
+
+    if _PARSED_TORCH_VERSION < version.parse("1.10.0"):
+        kwargs["strip_doc_string"] = True
+    else:
+        kwargs["training"] = torch.onnx.TrainingMode.PRESERVE
+        kwargs["do_constant_folding"] = not module.training
+        kwargs["keep_initializers_as_inputs"] = False
+
+    torch.onnx.export(**kwargs)
 
     # re-enable disabled quantization observers
     for submodule in disabled_observers:

@@ -23,33 +23,36 @@ The export incorporates:
 script accessible from sparseml.transformers.export_onnx
 
 command help:
-usage: export.py [-h] --task TASK --model_path MODEL_PATH
-                 [--sequence_length SEQUENCE_LENGTH]
-                 [--no_convert_qat NO_CONVERT_QAT]
-                 [--finetuning_task FINETUNING_TASK]
-                 [--onnx_file_name ONNX_FILE_NAME]
+usage: sparseml.transformers.export_onnx [-h] --task TASK --model_path
+                                         MODEL_PATH
+                                         [--sequence_length SEQUENCE_LENGTH]
+                                         [--no_convert_qat]
+                                         [--finetuning_task FINETUNING_TASK]
+                                         [--onnx_file_name ONNX_FILE_NAME]
+                                         [--one_shot ONE_SHOT]
 
-Export inference artifacts for trained transformers model
+Export a trained transformers model to an ONNX file
 
 optional arguments:
   -h, --help            show this help message and exit
   --task TASK           Task to create the model for. i.e. mlm, qa, glue, ner
   --model_path MODEL_PATH
-                        Path to directory where model files for weights, config,
-                        and tokenizer are stored
+                        Path to directory where model files for weights,
+                        config, and tokenizer are stored
   --sequence_length SEQUENCE_LENGTH
-                        Sequence length to use. Default is 384. Can be overwritten
-                        later
-  --no_convert_qat NO_CONVERT_QAT
-                        Set flag to not perform QAT to fully quantized conversion
-                        after export
+                        Sequence length to use. Default is 384. Can be
+                        overwritten later
+  --no_convert_qat      Set flag to not perform QAT to fully quantized
+                        conversion after export
   --finetuning_task FINETUNING_TASK
-                        optional finetuning task for text classification and token
-                        classification exports
+                        Optional finetuning task for text classification and
+                        token classification exports
   --onnx_file_name ONNX_FILE_NAME
-                        Name for exported ONNX file in the model directory. Default
-                        and recommended value for pipeline compatibility is
-                        'model.onnx'
+                        Name for exported ONNX file in the model directory.
+                        Default and recommended value for pipeline
+                        compatibility is model.onnx
+  --one_shot ONE_SHOT   local path or SparseZoo stub to a recipe that should
+                        be applied in a one-shot manner before exporting
 
 example usage:
 sparseml.transformers.export_onnx \
@@ -71,6 +74,7 @@ from torch.nn import Module
 from transformers import AutoConfig, AutoTokenizer
 from transformers.tokenization_utils_base import PaddingStrategy
 
+from sparseml.pytorch.optim import ScheduledModifierManager
 from sparseml.pytorch.utils import export_onnx
 from sparseml.transformers.sparsification import Trainer
 from sparseml.transformers.utils import SparseAutoModel
@@ -133,6 +137,7 @@ def export_transformer_to_onnx(
     convert_qat: bool = True,
     finetuning_task: Optional[str] = None,
     onnx_file_name: str = MODEL_ONNX_NAME,
+    one_shot: Optional[str] = None,
 ) -> str:
     """
     Exports the saved transformers file to ONNX at batch size 1 using
@@ -171,6 +176,7 @@ def export_transformer_to_onnx(
     model = load_task_model(task, model_path, config)
     _LOGGER.info(f"loaded model, config, and tokenizer from {model_path}")
 
+    model = model.train()
     trainer = Trainer(
         model=model,
         model_state_path=model_path,
@@ -178,6 +184,7 @@ def export_transformer_to_onnx(
         recipe_args=None,
         teacher=None,
     )
+    model = model.cpu()
     applied = trainer.apply_manager(epoch=math.inf, checkpoint=None)
 
     if not applied:
@@ -233,7 +240,13 @@ def export_transformer_to_onnx(
     _LOGGER.info(f"Created sample inputs for the ONNX export process: {inputs_shapes}")
 
     # run export
+    model = model.eval()
     onnx_file_path = os.path.join(model_path, onnx_file_name)
+
+    if one_shot:
+        one_shot_manager = ScheduledModifierManager.from_yaml(file_path=one_shot)
+        one_shot_manager.apply(module=model)
+
     export_onnx(
         model,
         inputs,
@@ -350,6 +363,13 @@ def _parse_args() -> argparse.Namespace:
             f"compatibility is {MODEL_ONNX_NAME}"
         ),
     )
+    parser.add_argument(
+        "--one_shot",
+        type=str,
+        default=None,
+        help="local path or SparseZoo stub to a recipe that should be applied "
+        "in a one-shot manner before exporting",
+    )
 
     return parser.parse_args()
 
@@ -361,6 +381,7 @@ def export(
     no_convert_qat: bool,
     finetuning_task: str,
     onnx_file_name: str,
+    one_shot: Optional[str] = None,
 ):
     export_transformer_to_onnx(
         task=task,
@@ -369,6 +390,7 @@ def export(
         convert_qat=(not no_convert_qat),  # False if flagged
         finetuning_task=finetuning_task,
         onnx_file_name=onnx_file_name,
+        one_shot=one_shot,
     )
 
     deployment_folder_dir = create_deployment_folder(
@@ -389,6 +411,7 @@ def main():
         no_convert_qat=args.no_convert_qat,  # False if flagged
         finetuning_task=args.finetuning_task,
         onnx_file_name=args.onnx_file_name,
+        one_shot=args.one_shot,
     )
 
 

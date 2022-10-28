@@ -12,4 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# flake8: noqa
+import torch
+from packaging import version
+
+
+def _default_opset() -> int:
+    torch_version = version.parse(torch.__version__)
+    if torch_version < version.parse("1.3"):
+        return 9
+    if torch_version < version.parse("1.10.0"):
+        return 11
+    return 13
+
+
+TORCH_DEFAULT_ONNX_OPSET = _default_opset()

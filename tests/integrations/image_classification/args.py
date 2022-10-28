@@ -152,7 +152,7 @@ class ImageClassificationExportArgs(_ImageClassificationBaseArgs):
         Default=None, description="required - tag for model under save_dir"
     )
     onnx_opset: int = Field(
-        default=11, description="The onnx opset to use for exporting the model"
+        default=13, description="The onnx opset to use for exporting the model"
     )
     num_samples: int = Field(
         default=-1, description="number of forward data output samples to produce"
