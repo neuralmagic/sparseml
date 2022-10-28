@@ -513,13 +513,6 @@ class _TransformersTrainArgs(BaseModel):
         description="Used by the SageMaker launcher to send mp-specific args. "
         "Ignored in Trainer",
     )
-    modifier_log_frequency: float = Field(
-        default=0.1,
-        description=(
-            "How often to log SparseML modifier data, in number of epochs or fraction "
-            "of epochs"
-        ),
-    )
 
 
 class QuestionAnsweringArgs(_TransformersTrainArgs):
