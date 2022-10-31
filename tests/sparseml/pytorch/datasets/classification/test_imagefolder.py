@@ -30,7 +30,7 @@ def hide_torchvision(monkeypatch):
 
 
 @pytest.mark.usefixtures("hide_torchvision")
-def test_message():
+def test_import_error():
     with pytest.raises(ImportError, match="not found"):
         from sparseml.pytorch.datasets.classification import (  # noqa F401
             ImageFolderDataset,
