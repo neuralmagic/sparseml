@@ -55,9 +55,10 @@ optional arguments:
                         be applied in a one-shot manner before exporting
   --num_export_samples NUM_EXPORT_SAMPLES
                         Number of samples (inputs/outputs) to export
-  --dataset_name DATASET_NAME
-                        Dataset name to use for exporting samples. Needed if
-                        num_export_samples > 0
+  --data_args DATA_ARGS
+                        Valid json loadable args used to instantiate a
+                        `DataTrainingArguments` instance while exporting
+                        samples
 
 example usage:
 sparseml.transformers.export_onnx \
@@ -73,12 +74,13 @@ import logging
 import math
 import os
 import shutil
-from typing import Any, Dict, Optional, Set
+from typing import Any, Dict, Optional, Set, Union
 
 from torch.nn import Module
 from transformers import AutoConfig, AutoTokenizer
 from transformers.tokenization_utils_base import PaddingStrategy
 
+from sparseml.optim import parse_recipe_variables
 from sparseml.pytorch.optim import ScheduledModifierManager
 from sparseml.pytorch.utils import export_onnx
 from sparseml.transformers.sparsification import Trainer
@@ -135,7 +137,7 @@ def load_task_model(task: str, model_path: str, config: Any) -> Module:
     raise ValueError(f"unrecognized task given of {task}")
 
 
-def load_task_dataset(task: str, tokenizer, data_args: Optional[Dict[str, Any]]):
+def load_task_dataset(task: str, tokenizer, data_args: Dict[str, Any]):
     """
     :param task: the task a dataset being loaded for
     :param tokenizer: the tokenizer to use for the dataset
@@ -167,7 +169,7 @@ def export_transformer_to_onnx(
     finetuning_task: Optional[str] = None,
     onnx_file_name: str = MODEL_ONNX_NAME,
     num_export_samples: int = 0,
-    dataset_name: Optional[str] = None,
+    data_args: Optional[Union[Dict[str, Any], str]] = None,
     one_shot: Optional[str] = None,
 ) -> str:
     """
@@ -186,8 +188,8 @@ def export_transformer_to_onnx(
         is model.onnx. Note that when loading a model directory to a deepsparse
         pipeline, it will look only for 'model.onnx'
     :param num_export_samples: number of samples (inputs/outputs) to export
-    :param dataset_name: name of the dataset to use for exporting samples. Needed
-        when num_export_samples > 0
+    :param data_args: additional args to instantiate a `DataTrainingArguments`
+        instance for exporting samples
     :return: path to the exported ONNX file
     """
     task = task.replace("_", "-").replace(" ", "-")
@@ -198,11 +200,12 @@ def export_transformer_to_onnx(
             f"files. {model_path} is not a directory or does not exist"
         )
 
-    if num_export_samples > 0 and dataset_name is None:
+    if num_export_samples > 0 and data_args is None:
         raise ValueError(
-            f"--dataset_name is needed for exporting {num_export_samples} "
-            f"samples but got {dataset_name}"
+            f"--data_args is needed for exporting {num_export_samples} "
+            f"samples but got {data_args}"
         )
+    data_args: Dict[str, Any] = _parse_data_args(data_args)
 
     _LOGGER.info(f"Attempting onnx export for model at {model_path} for task {task}")
     config_args = {"finetuning_task": finetuning_task} if finetuning_task else {}
@@ -215,13 +218,10 @@ def export_transformer_to_onnx(
     )
     model = load_task_model(task, model_path, config)
     _LOGGER.info(f"loaded model, config, and tokenizer from {model_path}")
-    tokenized_dataset = (
-        load_task_dataset(
-            task=task, tokenizer=tokenizer, data_args=dict(dataset_name=dataset_name)
-        )
-        if dataset_name
-        else {}
+    tokenized_dataset = load_task_dataset(
+        task=task, tokenizer=tokenizer, data_args=data_args
     )
+
     model = model.train()
     trainer = Trainer(
         model=model,
@@ -289,6 +289,11 @@ def export_transformer_to_onnx(
     # run export
     model = model.eval()
     onnx_file_path = os.path.join(model_path, onnx_file_name)
+
+    if one_shot:
+        one_shot_manager = ScheduledModifierManager.from_yaml(file_path=one_shot)
+        one_shot_manager.apply(module=model)
+
     export_onnx(
         model,
         inputs,
@@ -306,6 +311,16 @@ def export_transformer_to_onnx(
 
     _LOGGER.info(f"{num_export_samples} sample inputs/outputs exported")
     return onnx_file_path
+
+
+def _parse_data_args(data_args):
+    try:
+        return parse_recipe_variables(data_args)
+    except ValueError as parse_error:
+        message = str(parse_error).replace("recipe_args", "data_args")
+        if "recipe variables" in message:
+            message = message.replace("recipe variables", "data_args")
+        raise ValueError(message)
 
 
 def create_deployment_folder(
@@ -420,11 +435,11 @@ def _parse_args() -> argparse.Namespace:
         help="Number of samples (inputs/outputs) to export",
     )
     parser.add_argument(
-        "--dataset_name",
+        "--data_args",
         type=str,
         default=None,
-        help="Dataset name to use for exporting samples. Needed if "
-        "num_export_samples>0",
+        help="Valid json loadable args used to instantiate a `DataTrainingArguments`"
+        " instance while exporting samples",
     )
     parser.add_argument(
         "--one_shot",
@@ -445,7 +460,7 @@ def export(
     finetuning_task: str,
     onnx_file_name: str,
     num_export_samples: int = 0,
-    dataset_name: Optional[str] = None,
+    data_args: Optional[str] = None,
     one_shot: Optional[str] = None,
 ):
     export_transformer_to_onnx(
@@ -456,7 +471,7 @@ def export(
         finetuning_task=finetuning_task,
         onnx_file_name=onnx_file_name,
         num_export_samples=num_export_samples,
-        dataset_name=dataset_name,
+        data_args=data_args,
         one_shot=one_shot,
     )
 
@@ -478,8 +493,9 @@ def main():
         no_convert_qat=args.no_convert_qat,  # False if flagged
         finetuning_task=args.finetuning_task,
         onnx_file_name=args.onnx_file_name,
+        one_shot=args.one_shot,
         num_export_samples=args.num_export_samples,
-        dataset_name=args.dataset_name,
+        data_args=args.data_args,
     )
 
 
