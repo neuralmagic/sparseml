@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import datetime
+import math
 import os
 import time
 import warnings
@@ -430,6 +431,13 @@ def main(args):
         if scaler:
             scaler.load_state_dict(checkpoint["scaler"])
 
+        checkpoint_manager = ScheduledModifierManager.from_yaml(
+            checkpoint["checkpoint_recipe"]
+        )
+        checkpoint_manager.apply_structure(model_without_ddp, math.inf)
+    else:
+        checkpoint_manager = None
+
     if args.test_only:
         # We disable the cudnn benchmarking because it can
         # noticeably affect the accuracy
@@ -480,6 +488,13 @@ def main(args):
                 checkpoint["model_ema"] = model_ema.state_dict()
             if scaler:
                 checkpoint["scaler"] = scaler.state_dict()
+
+            checkpoint["checkpoint_recipe"] = str(
+                ScheduledModifierManager.compose_staged(checkpoint_manager, manager)
+                if checkpoint_manager is not None
+                else manager
+            )
+
             utils.save_on_master(
                 checkpoint, os.path.join(args.output_dir, f"model_{epoch}.pth")
             )
