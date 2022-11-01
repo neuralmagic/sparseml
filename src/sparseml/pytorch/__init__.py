@@ -49,4 +49,5 @@ except ImportError:
 
 from .base import *
 from .framework import detect_framework, framework_info, is_supported
+from .recipe_template.main import recipe_template
 from .sparsification import sparsification_info
