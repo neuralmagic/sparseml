@@ -556,6 +556,7 @@ def export_onnx(
     # onnx file fixes
     onnx_model = onnx.load(file_path)
     _fold_identity_initializers(onnx_model)
+    _flatten_qparams(onnx_model)
     if batch_norms_wrapped:
         # fix changed batch norm names
         _unwrap_batchnorms(onnx_model)
@@ -660,6 +661,36 @@ def _save_label_to_class_mapping(
     _LOGGER.info(
         f"Appended {key_name} data to {CONFIG_JSON_NAME} at {config_file_path}"
     )
+
+
+def _flatten_qparams(model: onnx.ModelProto):
+    # transforms any QuantizeLinear/DequantizeLinear that have
+    # zero_point/scale with shapes `(1,)` into shape `()`
+    graph = ONNXGraph(model)
+
+    inits_to_flatten = set()
+
+    for node in model.graph.node:
+        if node.op_type in ["QuantizeLinear", "DequantizeLinear"]:
+            # scale is required
+            scale_init = graph.get_init_by_name(node.input[1], allow_optional=False)
+            if list(scale_init.dims) == [1]:
+                inits_to_flatten.add(node.input[1])
+
+                # zero_point is optional AND shape must match
+                # scale. so if scale is (1,), then so will zero point
+                if len(node.input) == 3:
+                    inits_to_flatten.add(node.input[2])
+
+    for i, init in enumerate(model.graph.initializer):
+        if init.name not in inits_to_flatten:
+            continue
+        a = numpy_helper.to_array(init)
+        assert a.shape == (1,)
+        b = numpy.array(a[0])
+        assert b.shape == ()
+        assert b.dtype == a.dtype
+        model.graph.initializer[i].CopyFrom(numpy_helper.from_array(b, name=init.name))
 
 
 def _fold_identity_initializers(model: onnx.ModelProto):
