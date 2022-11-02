@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import datetime
-import math
 import os
 import time
 import warnings
@@ -28,6 +27,8 @@ from torchvision.transforms.functional import InterpolationMode
 from sparseml.pytorch.optim import ScheduledModifierManager
 from sparseml.pytorch.torchvision import presets, transforms, utils
 from sparseml.pytorch.torchvision.sampler import RASampler
+from sparseml.pytorch.utils.helpers import download_framework_model_by_recipe_type
+from sparsezoo import Model
 
 
 def train_one_epoch(
@@ -400,11 +401,6 @@ def main(args):
     else:
         lr_scheduler = main_lr_scheduler
 
-    model_without_ddp = model
-    if args.distributed:
-        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
-        model_without_ddp = model.module
-
     model_ema = None
     if args.model_ema:
         # Decay adjustment that aims to keep the decay independent from
@@ -421,47 +417,50 @@ def main(args):
         alpha = 1.0 - args.model_ema_decay
         alpha = min(1.0, alpha * adjust)
         model_ema = utils.ExponentialMovingAverage(
-            model_without_ddp, device=device, decay=1.0 - alpha
+            model, device=device, decay=1.0 - alpha
         )
 
-    manager = ScheduledModifierManager.from_yaml(args.recipe_path)
-
     if args.checkpoint_path:
-        checkpoint = torch.load(args.checkpoint_path, map_location="cpu")
-        model_without_ddp.load_state_dict(checkpoint["model"])
-        if not args.test_only:
-            optimizer.load_state_dict(checkpoint["optimizer"])
-            lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
-        args.start_epoch = checkpoint["epoch"] + 1
+        checkpoint = _load_checkpoint(args.checkpoint_path)
+        model.load_state_dict(checkpoint["model"])
+        optimizer.load_state_dict(checkpoint["optimizer"])
+        lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
         if model_ema:
             model_ema.load_state_dict(checkpoint["model_ema"])
         if scaler:
             scaler.load_state_dict(checkpoint["scaler"])
 
+        args.start_epoch = checkpoint["epoch"] + 1
+
+        manager = ScheduledModifierManager.from_yaml(args.recipe_path)
         checkpoint_manager = ScheduledModifierManager.from_yaml(
             checkpoint["checkpoint_recipe"]
         )
-        checkpoint_manager.apply_structure(model_without_ddp, epoch=checkpoint["epoch"])
+
+        checkpoint_manager.apply_structure(model, epoch=checkpoint["epoch"])
     elif args.resume:
-        checkpoint = torch.load(args.resume, map_location="cpu")
-        model_without_ddp.load_state_dict(checkpoint["model"])
-        if not args.test_only:
-            optimizer.load_state_dict(checkpoint["optimizer"])
-            lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
-        args.start_epoch = checkpoint["epoch"] + 1
+        checkpoint = _load_checkpoint(args.resume)
+        model.load_state_dict(checkpoint["model"])
+        optimizer.load_state_dict(checkpoint["optimizer"])
+        lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
         if model_ema:
             model_ema.load_state_dict(checkpoint["model_ema"])
         if scaler:
             scaler.load_state_dict(checkpoint["scaler"])
+
+        args.start_epoch = checkpoint["epoch"] + 1
 
         # NOTE: override manager with the checkpoint's manager
         manager = ScheduledModifierManager.from_yaml(checkpoint["checkpoint_recipe"])
         checkpoint_manager = None
 
-        # TODO do we still do this?
-        manager.apply_structure(model_without_ddp, epoch=checkpoint["epoch"])
+        manager.initialize(model, epoch=checkpoint["epoch"])
     else:
+        manager = ScheduledModifierManager.from_yaml(args.recipe_path)
         checkpoint_manager = None
+
+    # TODO do we still need this in case of resume or checkpoint_path?
+    optimizer = manager.modify(model, optimizer, len(data_loader))
 
     if args.test_only:
         # We disable the cudnn benchmarking because it can
@@ -476,8 +475,10 @@ def main(args):
             evaluate(model, criterion, data_loader_test, device=device)
         return
 
-    # TODO do we still need this in case of resume or checkpoint_path?
-    optimizer = manager.modify(model, optimizer, len(data_loader))
+    model_without_ddp = model
+    if args.distributed:
+        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
+        model_without_ddp = model.module
 
     print("Start training")
     start_time = time.time()
@@ -506,7 +507,6 @@ def main(args):
                 "model": model_without_ddp.state_dict(),
                 "optimizer": optimizer.state_dict(),
                 "lr_scheduler": lr_scheduler.state_dict(),
-                "epoch": -1 if epoch == manager.max_epochs - 1 else epoch,
                 "args": args,
             }
             if model_ema:
@@ -514,11 +514,18 @@ def main(args):
             if scaler:
                 checkpoint["scaler"] = scaler.state_dict()
 
-            checkpoint["checkpoint_recipe"] = str(
-                ScheduledModifierManager.compose_staged(checkpoint_manager, manager)
-                if checkpoint_manager is not None
-                else manager
-            )
+            if checkpoint_manager is not None:
+                checkpoint["epoch"] = (
+                    -1
+                    if epoch == manager.max_epochs - 1
+                    else epoch + checkpoint_manager.max_epochs
+                )
+                checkpoint["checkpoint_recipe"] = str(
+                    ScheduledModifierManager.compose_staged(checkpoint_manager, manager)
+                )
+            else:
+                checkpoint["epoch"] = -1 if epoch == manager.max_epochs - 1 else epoch
+                checkpoint["checkpoint_recipe"] = str(manager)
 
             utils.save_on_master(
                 checkpoint, os.path.join(args.output_dir, f"model_{epoch}.pth")
@@ -531,6 +538,12 @@ def main(args):
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print(f"Training time {total_time_str}")
+
+
+def _load_checkpoint(path):
+    if path.startswith("zoo:"):
+        path = download_framework_model_by_recipe_type(Model(path))
+    return torch.load(path, map_location="cpu")
 
 
 def get_args_parser(add_help=True):
