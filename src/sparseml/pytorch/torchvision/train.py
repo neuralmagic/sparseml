@@ -237,6 +237,11 @@ def load_data(traindir, valdir, args):
 
 
 def main(args):
+    if args.resume is not None and args.checkpoint_path is not None:
+        raise ValueError(
+            "Only one of --resume or --checkpoint-path can be specified, not both."
+        )
+
     if args.output_dir:
         utils.mkdir(args.output_dir)
 
@@ -419,8 +424,10 @@ def main(args):
             model_without_ddp, device=device, decay=1.0 - alpha
         )
 
-    if args.resume:
-        checkpoint = torch.load(args.resume, map_location="cpu")
+    manager = ScheduledModifierManager.from_yaml(args.recipe_path)
+
+    if args.checkpoint_path:
+        checkpoint = torch.load(args.checkpoint_path, map_location="cpu")
         model_without_ddp.load_state_dict(checkpoint["model"])
         if not args.test_only:
             optimizer.load_state_dict(checkpoint["optimizer"])
@@ -434,7 +441,25 @@ def main(args):
         checkpoint_manager = ScheduledModifierManager.from_yaml(
             checkpoint["checkpoint_recipe"]
         )
-        checkpoint_manager.apply_structure(model_without_ddp, math.inf)
+        checkpoint_manager.apply_structure(model_without_ddp, epoch=checkpoint["epoch"])
+    elif args.resume:
+        checkpoint = torch.load(args.resume, map_location="cpu")
+        model_without_ddp.load_state_dict(checkpoint["model"])
+        if not args.test_only:
+            optimizer.load_state_dict(checkpoint["optimizer"])
+            lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
+        args.start_epoch = checkpoint["epoch"] + 1
+        if model_ema:
+            model_ema.load_state_dict(checkpoint["model_ema"])
+        if scaler:
+            scaler.load_state_dict(checkpoint["scaler"])
+
+        # NOTE: override manager with the checkpoint's manager
+        manager = ScheduledModifierManager.from_yaml(checkpoint["checkpoint_recipe"])
+        checkpoint_manager = None
+
+        # TODO do we still do this?
+        manager.apply_structure(model_without_ddp, epoch=checkpoint["epoch"])
     else:
         checkpoint_manager = None
 
@@ -451,7 +476,7 @@ def main(args):
             evaluate(model, criterion, data_loader_test, device=device)
         return
 
-    manager = ScheduledModifierManager.from_yaml(args.recipe_path)
+    # TODO do we still need this in case of resume or checkpoint_path?
     optimizer = manager.modify(model, optimizer, len(data_loader))
 
     print("Start training")
@@ -481,7 +506,7 @@ def main(args):
                 "model": model_without_ddp.state_dict(),
                 "optimizer": optimizer.state_dict(),
                 "lr_scheduler": lr_scheduler.state_dict(),
-                "epoch": epoch,
+                "epoch": -1 if epoch == manager.max_epochs - 1 else epoch,
                 "args": args,
             }
             if model_ema:
@@ -643,6 +668,19 @@ def get_args_parser(add_help=True):
         "--output-dir", default=".", type=str, help="path to save outputs"
     )
     parser.add_argument("--resume", default="", type=str, help="path of checkpoint")
+    parser.add_argument(
+        "--checkpoint-path",
+        default=None,
+        type=str,
+        help=(
+            "A path to a previous checkpoint to load the state from "
+            "and resume the state for. If provided, pretrained will "
+            "be ignored. If using a SparseZoo recipe, can also "
+            "provide 'zoo' to load the base weights associated with "
+            "that recipe. Additionally, can also provide a SparseZoo model stub "
+            "to load model weights from SparseZoo"
+        ),
+    )
     parser.add_argument(
         "--start-epoch", default=0, type=int, metavar="N", help="start epoch"
     )
