@@ -672,9 +672,9 @@ def _flatten_qparams(model: onnx.ModelProto):
 
     for node in model.graph.node:
         if node.op_type in ["QuantizeLinear", "DequantizeLinear"]:
-            # scale is required
-            scale_init = graph.get_init_by_name(node.input[1], allow_optional=False)
-            if list(scale_init.dims) == [1]:
+            # scale is required if the input is an initializer
+            scale_init = graph.get_init_by_name(node.input[1])
+            if scale_init is not None and list(scale_init.dims) == [1]:
                 inits_to_flatten.add(node.input[1])
 
                 # zero_point is optional AND shape must match
