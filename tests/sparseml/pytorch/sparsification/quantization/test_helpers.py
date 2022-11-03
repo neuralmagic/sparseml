@@ -28,6 +28,9 @@ from sparseml.pytorch.sparsification.quantization import (
     get_qat_qconfig,
     prepare_embeddings_qat,
 )
+from sparseml.pytorch.sparsification.quantization.modifier_quantization import (
+    QuantizationModifier,
+)
 
 
 try:
@@ -283,3 +286,16 @@ def test_prepare_embeddings_qat():
     module(torch.arange(10))
     observed_range_min = observer.activation_post_process.min_val.item()
     assert orig_range_min != observed_range_min
+
+
+def test_zero_point_is_128():
+    # see https://github.com/neuralmagic/sparseml/pull/604
+
+    # give QATMatMul a layer to be wrapped
+    dummy_sequential = torch.nn.Sequential(_QATMatMul())
+    QuantizationModifier().apply(dummy_sequential)
+    qat_matmul = dummy_sequential[0]
+    _ = qat_matmul(torch.randn(10, 10), torch.randn(10, 10))
+
+    fq = qat_matmul.input_quant_stubs[1].activation_post_process
+    assert fq.zero_point[0] == 128
