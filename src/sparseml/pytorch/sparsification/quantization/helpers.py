@@ -18,6 +18,7 @@ Helper functions for performing quantization aware training with PyTorch
 
 from copy import deepcopy
 from dataclasses import dataclass, field
+from functools import partial
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import torch
@@ -31,7 +32,7 @@ from sparseml.pytorch.utils import get_layer
 
 
 _PARSED_TORCH_VERSION = version.parse(torch.__version__)
-
+_TORCH_PRE_112 = _PARSED_TORCH_VERSION < version.parse("1.12.0")
 
 __all__ = [
     "QATWrapper",
@@ -572,8 +573,19 @@ def get_observer(
 ):
     qscheme = torch.per_tensor_symmetric if symmetric else torch.per_tensor_affine
     quant_min, quant_max = compute_range(dtype, bits)
+
+    observer = torch_quantization.MovingAverageMinMaxObserver
+    if _TORCH_PRE_112:
+        # in torch 1.9.1, quant_min and quant_max are not passed to observer:
+        # https://github.com/pytorch/pytorch/blob/v1.9.1/torch/quantization/fake_quantize.py#L109
+        # however in 1.12.0, this is fixed so both are passed to observer:
+        # https://github.com/pytorch/pytorch/blob/v1.12.1/torch/ao/quantization/fake_quantize.py#L132
+        #
+        # this line makes it so both <1.12 and >=1.12 have the same behavior
+        observer = partial(observer, quant_min=quant_min, quant_max=quant_max)
+
     observer_kwargs = dict(
-        observer=torch_quantization.MovingAverageMinMaxObserver,
+        observer=observer,
         quant_min=quant_min,
         quant_max=quant_max,
         dtype=dtype,
