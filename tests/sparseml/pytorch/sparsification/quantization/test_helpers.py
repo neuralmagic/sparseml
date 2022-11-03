@@ -309,8 +309,6 @@ def test_standard_qrange_zero_points():
     fake_quantize(torch.randn(10, 10))
     assert fake_quantize.quant_min == -128
     assert fake_quantize.quant_max == 127
-    assert fake_quantize.activation_post_process.quant_min == -128
-    assert fake_quantize.activation_post_process.quant_max == 127
     _, zero_point = fake_quantize.calculate_qparams()
     assert zero_point[0] == 0
 
@@ -318,8 +316,6 @@ def test_standard_qrange_zero_points():
     fake_quantize(torch.randn(10, 10))
     assert fake_quantize.quant_min == 0
     assert fake_quantize.quant_max == 255
-    assert fake_quantize.activation_post_process.quant_min == 0
-    assert fake_quantize.activation_post_process.quant_max == 255
     _, zero_point = fake_quantize.calculate_qparams()
     assert zero_point[0] == 128
 
