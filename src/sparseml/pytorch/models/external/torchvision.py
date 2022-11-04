@@ -40,8 +40,13 @@ __all__ = []
 def _register_classification_models():
     # find model functions in torchvision.models
     for model_name, constructor_function in getmembers(torchvision_models, isfunction):
-        # using the "pretrained" keyword as proxy for a model function
-        if "pretrained" not in signature(constructor_function).parameters:
+        # using the "pretrained" or "weights" keyword as proxy for a model function
+        # "pretrained" is keyword for torchvision pre 0.13 "weights" for post 1.13
+        constructor_params = signature(constructor_function).parameters
+        if (
+            "pretrained" not in constructor_params
+            and "weights" not in constructor_params
+        ):
             continue
 
         key = "torchvision.{}".format(model_name)
