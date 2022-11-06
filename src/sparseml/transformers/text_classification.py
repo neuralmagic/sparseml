@@ -209,6 +209,15 @@ class DataTrainingArguments:
         default=0,
         metadata={"help": "Number of samples (inputs/outputs) to export during eval."},
     )
+    problem_type: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "Problem type to override in config. Options are "
+            "'single_label_classification', 'multi_label_classification', "
+            "or 'regression'. Default is None, leaving problem type to be "
+            "inferred by model definition"
+        },
+    )
 
     def __post_init__(self):
         if self.task_name is not None:
@@ -441,6 +450,9 @@ def main(**kwargs):
         ]
         if is_regression:
             num_labels = 1
+        elif data_args.problem_type == "multi_label_classification":
+            label_list = raw_datasets["train"].features[label_column].feature.names
+            num_labels = len(label_list)
         else:
             label_list = raw_datasets["train"].unique(label_column)
             label_list.sort()  # Let's sort it for determinism
@@ -460,6 +472,7 @@ def main(**kwargs):
         cache_dir=model_args.cache_dir,
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
+        problem_type=data_args.problem_type,
     )
 
     model, teacher = SparseAutoModel.text_classification_from_pretrained_distil(
@@ -592,13 +605,26 @@ def main(**kwargs):
         )
     max_seq_length = min(data_args.max_seq_length, tokenizer.model_max_length)
 
+    def one_hot_labels(target_labels):
+        # use 1 - 1e-9 for now as workaround target, values get cast to int somewhere
+        # when encoded as 1.0/0.0. must be float for compatibility w/ BCE logits loss
+        return [
+            1 - 1e-9 if label in target_labels else 0.0 for label in range(num_labels)
+        ]
+
     def map_labels_to_ids(examples, tokenizer_result):
         # Map labels to IDs (not necessary for GLUE tasks)
         if label_to_id is not None and label_column in examples:
-            tokenizer_result[label_column] = [
-                (label_to_id[label] if label != -1 else -1)
-                for label in examples[label_column]
-            ]
+            if data_args.problem_type == "multi_label_classification":
+                tokenizer_result[label_column] = [
+                    one_hot_labels(target_labels)
+                    for target_labels in examples[label_column]
+                ]
+            else:
+                tokenizer_result[label_column] = [
+                    (label_to_id[label] if label != -1 else -1)
+                    for label in examples[label_column]
+                ]
         return tokenizer_result
 
     def preprocess_function(examples):
