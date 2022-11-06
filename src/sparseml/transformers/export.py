@@ -137,7 +137,7 @@ def load_task_model(task: str, model_path: str, config: Any) -> Module:
     raise ValueError(f"unrecognized task given of {task}")
 
 
-def load_task_dataset(task: str, tokenizer, data_args: Dict[str, Any]):
+def load_task_dataset(task: str, tokenizer, data_args: Dict[str, Any], model: Module):
     """
     :param task: the task a dataset being loaded for
     :param tokenizer: the tokenizer to use for the dataset
@@ -145,9 +145,8 @@ def load_task_dataset(task: str, tokenizer, data_args: Dict[str, Any]):
         instance for fetching the dataset
     """
     # TODO: fill out the function for
-    #  1) question-answering
-    #  2) text-classification
-    #  3) token-classification
+    #   1) question-answering
+    #   2) text-classification
 
     if task == "masked-language-modeling" or task == "mlm":
         from sparseml.transformers.masked_language_modeling import (
@@ -157,6 +156,17 @@ def load_task_dataset(task: str, tokenizer, data_args: Dict[str, Any]):
 
         data_training_args = DataTrainingArguments(**data_args)
         return get_tokenized_mlm_dataset(data_training_args, tokenizer)
+
+    if task == "token-classification" or task == "ner":
+        from sparseml.transformers.token_classification import (
+            DataTrainingArguments,
+            get_tokenized_token_classification_dataset,
+        )
+
+        data_training_args = DataTrainingArguments(**data_args)
+        return get_tokenized_token_classification_dataset(
+            data_args=data_training_args, tokenizer=tokenizer, model=model
+        )
 
     raise NotImplementedError
 
@@ -219,7 +229,10 @@ def export_transformer_to_onnx(
     model = load_task_model(task, model_path, config)
     _LOGGER.info(f"loaded model, config, and tokenizer from {model_path}")
     tokenized_dataset = load_task_dataset(
-        task=task, tokenizer=tokenizer, data_args=data_args
+        task=task,
+        tokenizer=tokenizer,
+        data_args=data_args,
+        model=model,
     )
 
     model = model.train()
