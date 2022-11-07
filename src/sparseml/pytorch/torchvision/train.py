@@ -455,15 +455,6 @@ def main(args):
             checkpoint["checkpoint_recipe"]
         )
         checkpoint_manager.apply_structure(model, epoch=checkpoint["epoch"])
-
-        # load values
-        model.load_state_dict(checkpoint["model"])
-        optimizer.load_state_dict(checkpoint["optimizer"])
-        lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
-        if model_ema:
-            model_ema.load_state_dict(checkpoint["model_ema"])
-        if scaler:
-            scaler.load_state_dict(checkpoint["scaler"])
     elif args.resume:
         checkpoint = _load_checkpoint(args.resume)
 
@@ -472,20 +463,23 @@ def main(args):
         checkpoint_manager = None
         manager.initialize(model, epoch=checkpoint["epoch"])
 
-        # load params
-        model.load_state_dict(checkpoint["model"])
-        optimizer.load_state_dict(checkpoint["optimizer"])
-        lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
-        if model_ema:
-            model_ema.load_state_dict(checkpoint["model_ema"])
-        if scaler:
-            scaler.load_state_dict(checkpoint["scaler"])
-
         # NOTE: override start epoch
         args.start_epoch = checkpoint["epoch"] + 1
+
+        lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
     else:
+        checkpoint = None
         manager = ScheduledModifierManager.from_yaml(args.recipe_path)
         checkpoint_manager = None
+
+    # load params
+    if checkpoint is not None:
+        model.load_state_dict(checkpoint["model"])
+        optimizer.load_state_dict(checkpoint["optimizer"])
+        if model_ema and "model_ema" in checkpoint:
+            model_ema.load_state_dict(checkpoint["model_ema"])
+        if scaler and "scaler" in checkpoint:
+            scaler.load_state_dict(checkpoint["scaler"])
 
     optimizer = manager.modify(model, optimizer, len(data_loader))
 
