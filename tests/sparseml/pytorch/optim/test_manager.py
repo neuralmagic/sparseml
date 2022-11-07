@@ -26,7 +26,11 @@ from torch.optim.optimizer import Optimizer
 from sparseml import version as sparseml_version
 from sparseml.optim import BaseModifier
 from sparseml.pytorch.optim import ScheduledModifierManager
-from sparseml.pytorch.sparsification import Modifier
+from sparseml.pytorch.sparsification import (
+    LayerThinningModifier,
+    LearningRateFunctionModifier,
+    Modifier,
+)
 from tests.sparseml.pytorch.helpers import (
     SAMPLE_STAGED_RECIPE,
     LinearNet,
@@ -77,8 +81,8 @@ training_modifiers:
 
 pruning_modifiers:
     - !ConstantPruningModifier
-        start_epoch: 2
-        end_epoch: 5
+        start_epoch: 2.0
+        end_epoch: 5.0
         params: eval(params)
 """
 
@@ -151,9 +155,9 @@ TWO_STAGES_RECIPE = """version: 1.1.0
 
   {stage_1_name}_modifiers:
       - !ConstantPruningModifier
-          end_epoch: 8
+          end_epoch: 8.0
           params: ['re:.*weight']
-          start_epoch: 5
+          start_epoch: 5.0
           update_frequency: -1
   
       - !EpochRangeModifier
@@ -203,9 +207,9 @@ stage_1:
 
   stage_1_modifiers:
       - !ConstantPruningModifier
-          end_epoch: 8
+          end_epoch: 8.0
           params: ['re:.*weight']
-          start_epoch: 5
+          start_epoch: 5.0
           update_frequency: -1
   
       - !EpochRangeModifier
@@ -307,9 +311,9 @@ stage_1:
 
   stage_1_modifiers:
       - !ConstantPruningModifier
-          end_epoch: 11
+          end_epoch: 11.0
           params: ['re:.*weight']
-          start_epoch: 8
+          start_epoch: 8.0
           update_frequency: -1
   
       - !EpochRangeModifier
@@ -358,9 +362,9 @@ stage_1:
 
   stage_1_modifiers:
       - !ConstantPruningModifier
-          end_epoch: 8
+          end_epoch: 8.0
           params: ['re:.*weight']
-          start_epoch: 5
+          start_epoch: 5.0
           update_frequency: -1
   
       - !EpochRangeModifier
@@ -406,9 +410,9 @@ stage_4:
 
   stage_4_modifiers:
       - !ConstantPruningModifier
-          end_epoch: 17
+          end_epoch: 17.0
           params: ['re:.*weight']
-          start_epoch: 14
+          start_epoch: 14.0
           update_frequency: -1
   
       - !EpochRangeModifier
@@ -421,10 +425,10 @@ RECIPE_END_EPOCH_IMPLICIT = """
 training_modifiers:
   - !EpochRangeModifier
     start_epoch: 0.0
-    end_epoch: 52
+    end_epoch: 52.0
 
   - !SetLearningRateModifier
-    start_epoch: 50
+    start_epoch: 50.0
     learning_rate: 0.000002
 
 pruning_modifiers:
@@ -434,7 +438,9 @@ pruning_modifiers:
 
 quantization_modifiers:
   - !QuantizationModifier
-    start_epoch: 50
+    start_epoch: 50.0
+    disable_quantization_observer_epoch: 51.0
+    freeze_bn_stats_epoch: 51.0
     submodules: ['model.0']
 """
 
@@ -451,19 +457,22 @@ stage_0:
           update_frequency: -1
   
       - !EpochRangeModifier
-          end_epoch: 52
+          end_epoch: 52.0
           start_epoch: 0.0
   
       - !QuantizationModifier
           activation_bits: 8
+          disable_quantization_observer_epoch: 51.0
           end_epoch: 52
           exclude_batchnorm: True
+          freeze_bn_stats_epoch: 51.0
           model_fuse_fn_name: conv_bn_relus
           quantize_conv_activations: True
+          quantize_embedding_activations: True
           quantize_embeddings: True
           quantize_linear_activations: True
           reduce_range: False
-          start_epoch: 50
+          start_epoch: 50.0
           submodules: ['model.0']
           tensorrt: False
           weight_bits: 8
@@ -472,7 +481,7 @@ stage_0:
           constant_logging: False
           end_epoch: 52
           learning_rate: 2e-06
-          start_epoch: 50
+          start_epoch: 50.0
   
 
 stage_1:
@@ -480,7 +489,7 @@ stage_1:
 
   stage_1_modifiers:
       - !EpochRangeModifier
-          end_epoch: 104
+          end_epoch: 104.0
           start_epoch: 52.0
   
       - !ConstantPruningModifier
@@ -491,14 +500,17 @@ stage_1:
   
       - !QuantizationModifier
           activation_bits: 8
+          disable_quantization_observer_epoch: 103.0
           end_epoch: -1.0
           exclude_batchnorm: True
+          freeze_bn_stats_epoch: 103.0
           model_fuse_fn_name: conv_bn_relus
           quantize_conv_activations: True
+          quantize_embedding_activations: True
           quantize_embeddings: True
           quantize_linear_activations: True
           reduce_range: False
-          start_epoch: 102
+          start_epoch: 102.0
           submodules: ['model.0']
           tensorrt: False
           weight_bits: 8
@@ -507,7 +519,7 @@ stage_1:
           constant_logging: False
           end_epoch: -1.0
           learning_rate: 2e-06
-          start_epoch: 102
+          start_epoch: 102.0
   
 """  # noqa: W293
 
@@ -692,9 +704,55 @@ def test_lifecycle_manager_staged(
                 base_recipe=checkpoint_recipe,
                 additional_recipe=recipe_manager,
             )
-
     final_recipe = str(recipe_manager)
     assert final_recipe == expected_recipe
+
+
+THINNING_TEST_INPUTS = [
+    (
+        # Base recipe
+        lambda: LearningRateFunctionModifier(
+            lr_func="linear",
+            init_lr=0.1,
+            final_lr=0.001,
+            start_epoch=0,
+            end_epoch=10,
+            update_frequency=0.5,
+        ),
+        # Additional recipe to start after the base one
+        lambda: LayerThinningModifier(
+            param_group_dependency_map={},
+            start_epoch=0.0,
+            update_epochs=[1.0, 2.0, 3.0],
+        ),
+        10,  # expected start_epoch
+        [11.0, 12.0, 13.0],  # expected update_epochs
+    )
+]
+
+
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
+)
+@pytest.mark.parametrize("test_inputs", THINNING_TEST_INPUTS, scope="function")
+def test_composing_thinning_modifier(test_inputs):
+    recipe_0 = test_inputs[0]()
+    recipe_1 = test_inputs[1]()
+    expected_start_epoch = test_inputs[2]
+    expected_update_epochs = test_inputs[3]
+
+    recipe_0_manager = ScheduledModifierManager([recipe_0])
+    recipe_1_manager = ScheduledModifierManager([recipe_1])
+    manager = ScheduledModifierManager.compose_staged(
+        base_recipe=recipe_0_manager,
+        additional_recipe=recipe_1_manager,
+    )
+    assert manager.num_stages() == 2
+    thin_mod = manager.modifiers["stage_1"][0]
+    assert type(thin_mod) == LayerThinningModifier
+    assert thin_mod.start_epoch == expected_start_epoch
+    assert thin_mod.update_epochs == expected_update_epochs
 
 
 TWO_STAGES_RECIPE = """version: 1.1.0
@@ -723,9 +781,9 @@ stage_1:
 
   stage_1_modifiers:
       - !ConstantPruningModifier
-          end_epoch: 8
+          end_epoch: 8.0
           params: ['re:.*weight']
-          start_epoch: 5
+          start_epoch: 5.0
           update_frequency: -1
 
       - !EpochRangeModifier

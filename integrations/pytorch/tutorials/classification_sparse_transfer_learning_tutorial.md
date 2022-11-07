@@ -41,8 +41,7 @@ This tutorial can be run by cloning and installing the `sparseml` repository whi
 this example:
 
 ```bash
-git clone https://github.com/neuralmagic/sparseml.git
-pip install sparseml[torchvision]
+pip install "sparseml[torchvision, dev]"
 ```
 Note:  make sure to upgrade `pip` using `python -m pip install -U pip`
 ## Downloading and Preparing a Pre-Sparsified Model
@@ -79,7 +78,7 @@ Note: The models above were originally trained and sparsified on the [ImageNet](
 
 - Run the following example command to kick off transfer learning for [ResNet-50](https://arxiv.org/abs/1512.03385) starting from a moderately pruned checkpoint from [SparseZoo](https://sparsezoo.neuralmagic.com/):
 ```
-python integrations/pytorch/train.py \
+sparseml.image_classification.train \
     --recipe-path integrations/pytorch/recipes/classification.transfer_learn_pruned.md \
     --checkpoint-path "zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/pruned-moderate" \
     --arch-key resnet50 \
@@ -96,7 +95,7 @@ python integrations/pytorch/train.py \
 To transfer learn [MobileNet](https://arxiv.org/abs/1704.04861) on [Imagenette](https://github.com/fastai/imagenette), starting from a moderately pruned checkpoint from [SparseZoo](https://sparsezoo.neuralmagic.com/), run the following example command:
 
 ```
-python integrations/pytorch/train.py \
+sparseml.image_classification.train \
     --recipe-path integrations/pytorch/recipes/classification.transfer_learn_pruned.md \
     --checkpoint-path "zoo:cv/classification/mobilenet_v1-1.0/pytorch/sparseml/imagenet/pruned-moderate" \
     --arch-key mobilenet \
@@ -107,6 +106,7 @@ python integrations/pytorch/train.py \
     --loader-num-workers 0 \
     --optim Adam \
     --optim-args '{}' \
+    --save-dir sparse-transfer-models
     --model-tag mobilenet-imagenette-sparse-transfer-learned
 ```
 The `--checkpoint-path` argument can take in path to a model checkpoint, or a SpareZoo model stub,
@@ -115,7 +115,18 @@ the `checkpoint-path` can be set to `zoo` for auto-downloading corresponding che
 To learn more about the usage, run script with `-h` option to see help. 
 
 The script automatically saves model checkpoints after each epoch and reports the validation loss along with layer sparsities. 
-The model is saved in [ONNX](https://onnx.ai/) format and can be loaded later for inference or other experiments.
+
+### ONNX Export
+The model can be saved to [ONNX](https://onnx.ai/) format to be loaded later for inference or other experiments using
+the `sparseml.image_classification.export_onnx` script.
+
+```
+sparseml.image_classification.export_onnx \
+    --arch-key mobilenet \
+    --dataset imagenette \
+    --dataset-path /PATH/TO/IMAGENETTE \
+    --checkpoint-path sparse-transfer-models/mobilenet-imagenette-sparse-transfer-learned/pytorch/model.pth
+```
 
 ## Wrap-Up
 

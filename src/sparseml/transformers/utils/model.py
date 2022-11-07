@@ -394,7 +394,7 @@ def get_shared_tokenizer_src(student: Module, teacher: Optional[Module]) -> str:
     :return: the source for the tokenizer shared between teacher and model
     """
 
-    if teacher is not None:
+    if teacher is not None and teacher not in ("disable", "self"):
         student_forward_params = list(
             inspect.signature(student.forward).parameters.keys()
         )

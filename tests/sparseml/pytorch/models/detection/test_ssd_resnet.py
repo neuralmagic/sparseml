@@ -48,7 +48,7 @@ from tests.sparseml.pytorch.models.utils import compare_model
         ("ssd300_resnet152", False, True, True, ssd300_resnet152),
     ],
 )
-def test_ssd_resnsets(
+def test_ssd_resnets(
     key: str,
     pretrained: Union[bool, str],
     pretrained_backbone: Union[bool, str],

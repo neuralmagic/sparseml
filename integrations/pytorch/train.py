@@ -565,7 +565,9 @@ def train(
         tester = ModuleTester(model, device, val_loss, loggers=loggers, log_steps=-1)
 
         # initial baseline eval run
-        tester.run_epoch(val_loader, epoch=epoch - 1, max_steps=train_args.debug_steps)
+        tester.run_epoch(
+            val_loader, epoch=epoch - 1, max_epochs=-1, max_steps=train_args.debug_steps
+        )
 
     if not train_args.eval_mode:
         utils.save_recipe(recipe_manager=manager, save_dir=save_dir)
@@ -593,6 +595,7 @@ def train(
             trainer.run_epoch(
                 train_loader,
                 epoch,
+                max_epochs=manager.max_epochs,
                 max_steps=train_args.debug_steps,
                 show_progress=train_args.is_main_process,
             )
@@ -601,7 +604,10 @@ def train(
             if train_args.is_main_process:
                 # only test and save on main process
                 val_res = tester.run_epoch(
-                    val_loader, epoch, max_steps=train_args.debug_steps
+                    val_loader,
+                    epoch,
+                    max_epochs=manager.max_epochs,
+                    max_steps=train_args.debug_steps,
                 )
                 val_metric = val_res.result_mean(target_metric).item()
 

@@ -70,6 +70,7 @@ class LayerPruningModifier(ScheduledUpdateModifier):
             start_epoch=start_epoch,
             end_epoch=end_epoch,
             update_frequency=-1.0,
+            end_comparator=-1,
         )
         self._layers = validate_str_iterable(
             layers, "{} for layers".format(self.__class__.__name__)

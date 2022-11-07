@@ -20,6 +20,7 @@ Generic code used as utilities and helpers for PyTorch
 
 from ..base import check_torch_install as _check_torch_install
 from .benchmarker import *
+from .distributed import *
 from .exporter import *
 from .helpers import *
 from .logger import *

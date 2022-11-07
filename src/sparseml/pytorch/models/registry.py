@@ -16,17 +16,17 @@
 Code related to the PyTorch model registry for easily creating models.
 """
 
+
 from typing import Any, Callable, Dict, List, NamedTuple, Optional, Tuple, Union
 
 import torch
 from torch.nn import Module
 
 from merge_args import merge_args
-from sparseml.pytorch.utils import load_model
+from sparseml.pytorch.utils import download_framework_model_by_recipe_type, load_model
 from sparseml.utils import parse_optimization_str, wrapper_decorator
 from sparseml.utils.frameworks import PYTORCH_FRAMEWORK
-from sparsezoo import Zoo
-from sparsezoo.objects import Model
+from sparsezoo import Model, model_args_to_stub
 
 
 __all__ = [
@@ -98,6 +98,12 @@ class ModelRegistry(object):
         key_copy = key
 
         if key_copy is None:
+            if pretrained_path is None:
+                raise ValueError("Must provide a key or a pretrained_path")
+            if pretrained_path.startswith("zoo:"):
+                pretrained_path = download_framework_model_by_recipe_type(
+                    Model(pretrained_path)
+                )
             _checkpoint = torch.load(pretrained_path)
             if "arch_key" in _checkpoint:
                 key_copy = _checkpoint["arch_key"]
@@ -149,21 +155,21 @@ class ModelRegistry(object):
             pretrained if isinstance(pretrained, str) else attributes.default_desc
         )
 
-        return Zoo.load_model(
-            attributes.domain,
-            attributes.sub_domain,
-            attributes.architecture,
-            attributes.sub_architecture,
-            PYTORCH_FRAMEWORK,
-            attributes.repo_source,
-            attributes.default_dataset
+        model_dict = {
+            "domain": attributes.domain,
+            "sub_domain": attributes.sub_domain,
+            "architecture": attributes.architecture,
+            "sub_architecture": attributes.sub_architecture,
+            "framework": PYTORCH_FRAMEWORK,
+            "repo": attributes.repo_source,
+            "dataset": attributes.default_dataset
             if pretrained_dataset is None
             else pretrained_dataset,
-            None,
-            sparse_name,
-            sparse_category,
-            sparse_target,
-        )
+            "sparse_tag": f"{sparse_name}-{sparse_category}",
+        }
+        stub = model_args_to_stub(**model_dict)
+
+        return Model(stub)
 
     @staticmethod
     def input_shape(key: str) -> Any:
@@ -365,14 +371,12 @@ class ModelRegistry(object):
                     key, pretrained, pretrained_dataset
                 )
                 try:
-                    paths = zoo_model.download_framework_files(extensions=[".pth"])
-                    load_model(paths[0], model, load_strict, ignore)
+                    path = download_framework_model_by_recipe_type(zoo_model)
+                    load_model(path, model, load_strict, ignore)
                 except Exception:
                     # try one more time with overwrite on in case file was corrupted
-                    paths = zoo_model.download_framework_files(
-                        overwrite=True, extensions=[".pth"]
-                    )
-                    load_model(paths[0], model, load_strict, ignore)
+                    path = download_framework_model_by_recipe_type(zoo_model)
+                    load_model(path, model, load_strict, ignore)
 
             return model
 

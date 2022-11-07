@@ -297,7 +297,9 @@ class DatasetImpl(Dataset):
     os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
     reason="Skipping pytorch tests",
 )
-def _train_helper(model, dataset, loss, optimizer, batch_size, device):
+def _train_helper(
+    model, dataset, loss, optimizer, batch_size, device, num_accumulated_batches=1
+):
     model.to(device)
     counters = {"start": 0, "forward": 0, "loss": 0, "backward": 0, "end": 0}
 
@@ -342,15 +344,31 @@ def _train_helper(model, dataset, loss, optimizer, batch_size, device):
 
     trainer = ModuleTrainer(model, device, loss, optimizer)
     result = trainer.run_epoch(
-        data_loader, epoch=0, show_progress=False, track_results=True
+        data_loader, epoch=0, max_epochs=0, show_progress=False, track_results=True
     )
     assert isinstance(result, ModuleRunResults)
 
     for key, losses in result.results.items():
         assert len(losses) == expected_batches
 
-        for loss in losses:
-            assert not loss.is_cuda
+        for _loss in losses:
+            assert not _loss.is_cuda
+
+    data_loader = DataLoader(dataset, batch_size // num_accumulated_batches)
+    trainer = ModuleTrainer(
+        model, device, loss, optimizer, num_accumulated_batches=num_accumulated_batches
+    )
+    result_accumulated = trainer.run_epoch(
+        data_loader, epoch=0, max_epochs=0, show_progress=False, track_results=True
+    )
+
+    assert pytest.approx(
+        result.result_mean(DEFAULT_LOSS_KEY), rel=1e-1
+    ) == result_accumulated.result_mean(DEFAULT_LOSS_KEY)
+    for key, losses in result.results.items():
+        assert len(losses) == math.ceil(
+            len(result_accumulated.results[key]) / num_accumulated_batches
+        )
 
 
 @pytest.mark.skipif(
@@ -358,7 +376,7 @@ def _train_helper(model, dataset, loss, optimizer, batch_size, device):
     reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
-    "model,dataset,loss,optimizer,batch_size",
+    "model,dataset,loss,optimizer,batch_size,num_accumulated_batches",
     [
         (
             TEST_MODULE,
@@ -366,6 +384,7 @@ def _train_helper(model, dataset, loss, optimizer, batch_size, device):
             LossWrapper(TF.mse_loss),
             SGD(TEST_MODULE.parameters(), 0.001),
             16,
+            2,
         ),
         (
             TEST_MODULE,
@@ -373,11 +392,16 @@ def _train_helper(model, dataset, loss, optimizer, batch_size, device):
             LossWrapper(TF.mse_loss),
             Adam(TEST_MODULE.parameters()),
             27,
+            1,
         ),
     ],
 )
-def test_module_trainer(model, dataset, loss, optimizer, batch_size):
-    _train_helper(model, dataset, loss, optimizer, batch_size, "cpu")
+def test_module_trainer(
+    model, dataset, loss, optimizer, batch_size, num_accumulated_batches
+):
+    _train_helper(
+        model, dataset, loss, optimizer, batch_size, "cpu", num_accumulated_batches
+    )
 
 
 @pytest.mark.skipif(
@@ -461,7 +485,7 @@ def _test_helper(model, dataset, loss, batch_size, device):
 
     tester = ModuleTester(model, device, loss)
     result = tester.run_epoch(
-        data_loader, epoch=0, show_progress=False, track_results=True
+        data_loader, epoch=0, max_epochs=0, show_progress=False, track_results=True
     )
     assert isinstance(result, ModuleRunResults)
 

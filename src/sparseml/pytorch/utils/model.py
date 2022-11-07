@@ -20,12 +20,16 @@ from collections import OrderedDict
 from typing import Any, List, Optional, Tuple, Union
 
 import torch
+from packaging import version
 from torch.nn import DataParallel, Module
 from torch.optim.optimizer import Optimizer
 
-from sparseml.pytorch.utils.helpers import thin_model_from_checkpoint
+from sparseml.pytorch.utils.helpers import (
+    download_framework_model_by_recipe_type,
+    thin_model_from_checkpoint,
+)
 from sparseml.utils.helpers import create_parent_dirs
-from sparsezoo import Zoo
+from sparsezoo import Model
 
 
 try:
@@ -75,17 +79,18 @@ def load_model(
         This removes "module." all keys
     """
     if path.startswith("zoo:"):
-        if "recipe_type=" in path:
-            path = Zoo.download_recipe_base_framework_files(path, extensions=[".pth"])[
-                0
-            ]
-        else:
-            path = Zoo.load_model_from_stub(path).download_framework_files(
-                extensions=[".pth"]
-            )[0]
+        path = download_framework_model_by_recipe_type(Model(path))
     model_dict = torch.load(path, map_location="cpu")
-    current_dict = model.state_dict()
+    recipe = model_dict.get("recipe")
 
+    if recipe:
+        from sparseml.pytorch.optim import ScheduledModifierManager
+
+        epoch = model_dict.get("epoch", float("inf"))
+        checkpoint_manager = ScheduledModifierManager.from_yaml(recipe)
+        checkpoint_manager.apply_structure(module=model, epoch=epoch)
+
+    current_dict = model.state_dict()
     if "state_dict" in model_dict:
         model_dict = model_dict["state_dict"]
 
@@ -184,6 +189,7 @@ def save_model(
     path: str,
     model: Module,
     optimizer: Optimizer = None,
+    recipe: Optional[str] = None,
     epoch: Optional[int] = None,
     use_zipfile_serialization_if_available: bool = True,
     include_modifiers: bool = False,
@@ -196,6 +202,7 @@ def save_model(
     :param path: the path to save the file the states to
     :param model: the model to save state for
     :param optimizer: the optimizer, if any, to save state for
+    :param recipe: the recipe used to obtain the model
     :param epoch: the epoch to save
     :param use_zipfile_serialization_if_available: for torch >= 1.6.0 only
         exports the model's state dict using the new zipfile serialization
@@ -221,6 +228,9 @@ def save_model(
     if optimizer:
         save_dict["optimizer"] = optimizer.state_dict()
 
+    if recipe:
+        save_dict["recipe"] = recipe
+
     if epoch is not None:
         save_dict["epoch"] = epoch
 
@@ -232,7 +242,7 @@ def save_model(
     if arch_key:
         save_dict["arch_key"] = arch_key
 
-    if torch.__version__ < "1.6":
+    if version.parse(torch.__version__) < version.parse("1.6"):
         torch.save(save_dict, path)
     else:
         torch.save(

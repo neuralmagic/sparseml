@@ -238,6 +238,7 @@ pruning_start_epoch: eval(num_epochs * 0.2)
 pruning_end_epoch: eval(num_epochs * 0.8)
 init_sparsity: 0.2
 num_pruning_epochs: 6
+pruning_mask_type: [1, 4]
 
 modifiers:
     - !EpochRangeModifier
@@ -250,7 +251,7 @@ modifiers:
         init_sparsity: eval(init_sparsity)
         inter_func: cubic
         leave_enabled: True
-        mask_type: [1, 4]
+        mask_type: eval(pruning_mask_type)
         params: __ALL_PRUNABLE__
         start_epoch: eval(pruning_start_epoch)
         update_frequency: 0.01
@@ -262,6 +263,7 @@ pruning_end_epoch: eval(pruning_start_epoch + num_pruning_epochs)
 pruning_start_epoch: eval(num_epochs * 0.2)
 num_pruning_epochs: 6
 init_sparsity: 0.2
+pruning_mask_type: [1, 4]
 
 modifiers:
     - !EpochRangeModifier
@@ -274,7 +276,7 @@ modifiers:
         init_sparsity: eval(init_sparsity)
         inter_func: cubic
         leave_enabled: True
-        mask_type: [1, 4]
+        mask_type: eval(pruning_mask_type)
         params: __ALL_PRUNABLE__
         start_epoch: eval(pruning_start_epoch)
         update_frequency: 0.01
@@ -286,6 +288,7 @@ init_sparsity: 0.2
 pruning_start_epoch: 2.0
 pruning_end_epoch: 8.0
 num_pruning_epochs: 6
+pruning_mask_type: [1, 4]
 
 modifiers:
 - !EpochRangeModifier
@@ -624,7 +627,7 @@ def test_evaluate_recipe_yaml_str_equations_invalid(recipe):
         ),
         (
             "zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenette/"
-            "pruned-conservative?recipe_type=original"
+            "pruned-conservative?recipe=original"
         ),
     ],
 )

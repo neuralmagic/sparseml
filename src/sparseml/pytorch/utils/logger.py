@@ -22,6 +22,7 @@ import time
 from abc import ABC
 from datetime import datetime
 from logging import CRITICAL, DEBUG, ERROR, INFO, WARN, Logger
+from types import ModuleType
 from typing import Callable, Dict, List, Optional, Union
 
 
@@ -159,6 +160,18 @@ class BaseLogger(ABC):
         :param wall_time: global wall time for when the values were taken
         :param kwargs: additional logging arguments to support Python and custom loggers
         :return: True if logged, False otherwise.
+        """
+        return False
+
+    def save(
+        self,
+        file_path: str,
+        **kwargs,
+    ) -> bool:
+        """
+        :param file_path: path to a file to be saved
+        :param kwargs: additional arguments that a specific logger might use
+        :return: True if saved, False otherwise
         """
         return False
 
@@ -369,7 +382,7 @@ class PythonLogger(LambdaLogger):
         :return: True if logged, False otherwise.
         """
         if not level:
-            level = self._log_level
+            level = LOGGING_LEVELS["debug"]
 
         if level > LOGGING_LEVELS["debug"]:
             format = "%s %s step %s: %s"
@@ -452,6 +465,12 @@ class TensorBoardLogger(LambdaLogger):
         elif not writer and not log_path:
             log_path = os.path.join(".", "tensorboard")
 
+        if os.environ.get("NM_TEST_MODE"):
+            test_log_root = os.environ.get("NM_TEST_LOG_DIR")
+            log_path = (
+                os.path.join(test_log_root, log_path) if log_path else test_log_root
+            )
+
         if log_path:
             create_dirs(log_path)
 
@@ -522,6 +541,14 @@ class WANDBLogger(LambdaLogger):
             enabled=enabled,
         )
 
+        if os.environ.get("NM_TEST_MODE"):
+            test_log_path = os.environ.get("NM_TEST_LOG_DIR")
+            create_dirs(test_log_path)
+            if init_kwargs:
+                init_kwargs["dir"] = test_log_path
+            else:
+                init_kwargs = {"dir": test_log_path}
+
         if wandb_err:
             raise wandb_err
 
@@ -529,6 +556,8 @@ class WANDBLogger(LambdaLogger):
             wandb.init(**init_kwargs)
         else:
             wandb.init()
+
+        self.wandb = wandb
 
     def _log_lambda(
         self,
@@ -551,6 +580,16 @@ class WANDBLogger(LambdaLogger):
 
         wandb.log(params, step=step)
 
+        return True
+
+    def save(
+        self,
+        file_path: str,
+    ) -> bool:
+        """
+        :param file_path: path to a file to be saved
+        """
+        wandb.save(file_path)
         return True
 
 
@@ -739,6 +778,16 @@ class LoggerManager(ABC):
     def __iter__(self):
         return iter(self.loggers)
 
+    def add_logger(self, logger: BaseLogger):
+        """
+        add a BaseLogger implementation to the loggers of this manager
+
+        :param logger: logger object to add
+        """
+        if not isinstance(logger, BaseLogger):
+            raise ValueError(f"logger {type(logger)} must be of type BaseLogger")
+        self._loggers.append(logger)
+
     def log_ready(self, epoch, last_log_epoch):
         """
         Check if there is a logger that is ready to accept a log
@@ -795,6 +844,16 @@ class LoggerManager(ABC):
         :return: name given to the logger, used for identification
         """
         return self._name
+
+    @property
+    def wandb(self) -> Optional[ModuleType]:
+        """
+        :return: wandb module if initialized
+        """
+        for log in self.loggers:
+            if isinstance(log, WANDBLogger) and log.enabled:
+                return log.wandb
+        return None
 
     def log_scalar(
         self,
@@ -890,3 +949,16 @@ class LoggerManager(ABC):
         for log in self._loggers:
             if log.enabled and (log_types == ALL_TOKEN or log.name in log_types):
                 log.log_hyperparams(params, level)
+
+    def save(
+        self,
+        file_path: str,
+        **kwargs,
+    ):
+        """
+        :param file_path: path to a file to be saved
+        :param kwargs: additional arguments that a specific logger might use
+        """
+        for log in self._loggers:
+            if log.enabled:
+                log.save(file_path, **kwargs)

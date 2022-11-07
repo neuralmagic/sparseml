@@ -239,6 +239,7 @@ def check_version(
     max_version: Optional[str] = None,
     raise_on_error: bool = True,
     alternate_package_names: Optional[List[str]] = None,
+    extra_error_message: Optional[str] = None,
 ) -> bool:
     """
     :param package_name: the name of the package to check the version of
@@ -255,6 +256,9 @@ def check_version(
     :param alternate_package_names: List of alternate names to look for the package
         under if package_name is not found. Useful for nightly builds.
     :type alternate_package_names: Optional[List[str]]
+    :param extra_error_message: optional string to append to error message if error
+        is raised
+    :type extra_error_message: Optional[str]
     :return: If raise_on_error, will return False if the package is not installed
         or the version is outside the accepted bounds and True if everything is correct.
     :rtype: bool
@@ -273,6 +277,7 @@ def check_version(
             raise ImportError(
                 f"required min {package_name} version {min_version}, "
                 f"found {current_version}"
+                + (f". {extra_error_message}" if extra_error_message else "")
             )
         return False
 
@@ -281,6 +286,7 @@ def check_version(
             raise ImportError(
                 f"required max {package_name} version {max_version}, "
                 f"found {current_version}"
+                + (f". {extra_error_message}" if extra_error_message else "")
             )
         return False
 

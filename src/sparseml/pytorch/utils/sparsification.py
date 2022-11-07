@@ -17,10 +17,21 @@ Helper functions for retrieving information related to model sparsification
 """
 
 import json
-from typing import Any, Callable, Dict, Generator, Iterable, Iterator, List, Tuple
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generator,
+    Iterable,
+    Iterator,
+    List,
+    Tuple,
+    Union,
+)
 
 import torch
 from torch.nn import Module
+from tqdm import tqdm
 
 from sparseml.pytorch.utils.helpers import (
     get_prunable_layers,
@@ -188,13 +199,13 @@ class GradSampler:
 
     def __init__(
         self,
-        data_loader: Iterator[Tuple[List[Any], Dict[str, Any], Any]],
-        loss_fn: Callable[[Any], Any],
+        data_loader: Union[Iterator[Tuple[List[Any], Dict[str, Any], Any]], Callable],
+        loss_fn: Callable[[Any, Any], Any],
     ):
-        if not isinstance(data_loader, Iterable):
+        if not isinstance(data_loader, Iterable) and not callable(data_loader):
             raise ValueError(
-                "data_loader for GradSampler must be Iterable, received object of "
-                f"type {type(data_loader)}"
+                "data_loader for GradSampler must be Iterable or Callable, received "
+                f"object of type {type(data_loader)}"
             )
         if not callable(loss_fn):
             raise ValueError(
@@ -206,7 +217,10 @@ class GradSampler:
         self._loss_fn = loss_fn
 
     def iter_module_backwards(
-        self, module: Module, num_grads: int
+        self,
+        module: Module,
+        num_grads: int,
+        progress_bar: bool = True,
     ) -> Generator[int, None, None]:
         """
         :param module: module to compute gradients for
@@ -215,19 +229,29 @@ class GradSampler:
             of the gradient sample number
         """
         computed_grads = 0
+        pbar = tqdm(
+            total=num_grads, desc="Collecting gradients", disable=not progress_bar
+        )
 
-        while computed_grads < num_grads:
-            for forward_args, forward_kwargs, loss_target in self._data_loader:
-                module.zero_grad()
-                # run sample forward and backwards pass
-                model_outputs = module(*forward_args, **forward_kwargs)
-                loss = self._loss_fn(model_outputs, loss_target)
-                loss.backward()
+        with pbar:
+            while computed_grads < num_grads:
+                data_loader = (
+                    self._data_loader()
+                    if callable(self._data_loader)
+                    else self._data_loader
+                )
+                for forward_args, forward_kwargs, loss_target in data_loader:
+                    module.zero_grad()
+                    # run sample forward and backwards pass
+                    model_outputs = module(*forward_args, **forward_kwargs)
+                    loss = self._loss_fn(model_outputs, loss_target)
+                    loss.backward()
 
-                # yield so gradients can be collected
-                computed_grads += 1
-                yield computed_grads
-
-                if computed_grads >= num_grads:
-                    break
+                    # yield so gradients can be collected
+                    computed_grads += 1
+                    yield computed_grads
+                    if progress_bar:
+                        pbar.update(1)
+                    if computed_grads >= num_grads:
+                        break
         module.zero_grad()

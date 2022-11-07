@@ -24,6 +24,7 @@ import logging
 import os
 import sys
 from collections import OrderedDict
+from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Tuple, Union
 from urllib.parse import urlparse
 
@@ -38,6 +39,7 @@ __all__ = [
     "FROM_PARAM_TOKEN",
     "RECIPE_METADATA_KEY",
     "FRAMEWORK_METADATA_KEY",
+    "ROOT_PATH",
     "flatten_iterable",
     "convert_to_bool",
     "validate_str_iterable",
@@ -70,6 +72,7 @@ ALL_PRUNABLE_TOKEN = "__ALL_PRUNABLE__"
 FROM_PARAM_TOKEN = "__FROM_PARAM__"
 RECIPE_METADATA_KEY = "__metadata__"
 FRAMEWORK_METADATA_KEY = "framework_metadata"
+ROOT_PATH = Path(__file__).resolve().parents[1]
 _LOGGER = logging.getLogger(__name__)
 
 

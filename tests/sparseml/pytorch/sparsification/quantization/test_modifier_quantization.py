@@ -233,6 +233,7 @@ def test_quantization_modifier_yaml():
     reduce_range = True
     quantize_linear_activations = False
     quantize_conv_activations = False
+    quantize_embedding_activations = False
     num_calibration_steps = 2
     exclude_module_types = ["LayerNorm", "Tanh"]
     activation_bits = 4
@@ -253,6 +254,7 @@ def test_quantization_modifier_yaml():
             reduce_range: {reduce_range}
             quantize_linear_activations: {quantize_linear_activations}
             quantize_conv_activations: {quantize_conv_activations}
+            quantize_embedding_activations: {quantize_embedding_activations}
             num_calibration_steps: {num_calibration_steps}
             exclude_module_types: {exclude_module_types}
             activation_bits: {activation_bits}
@@ -276,6 +278,7 @@ def test_quantization_modifier_yaml():
         reduce_range=reduce_range,
         quantize_linear_activations=quantize_linear_activations,
         quantize_conv_activations=quantize_conv_activations,
+        quantize_embedding_activations=quantize_embedding_activations,
         activation_bits=activation_bits,
         num_calibration_steps=num_calibration_steps,
         exclude_module_types=exclude_module_types,
@@ -329,6 +332,11 @@ def test_quantization_modifier_yaml():
         yaml_modifier.quantize_conv_activations
         == serialized_modifier.quantize_conv_activations
         == obj_modifier.quantize_conv_activations
+    )
+    assert (
+        yaml_modifier.quantize_embedding_activations
+        == serialized_modifier.quantize_embedding_activations
+        == obj_modifier.quantize_embedding_activations
     )
     assert (
         yaml_modifier.activation_bits

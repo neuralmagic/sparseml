@@ -123,6 +123,8 @@ class QuantizationModifier(ScheduledModifier):
         for output activations of fully connected layers. Default is True.
     :param quantize_conv_activations: if True, FakeQuantize ops will be run
         for output activations of convolutional layers. Default is True.
+    :param quantize_embedding_activations: if True, FakeQuantize ops will be run
+        for output activations of embedding layers. Default is True.
     :param activation_bits: Number of bits to use for setting quant min/max values for
         activations. Default 8.
     :param weight_bits: Number of bits to use for setting quant min/max values for
@@ -133,6 +135,8 @@ class QuantizationModifier(ScheduledModifier):
         batch-normalization modules
     :param exclude_module_types: optional list of module class names
         to not propagate quantization configs to. Default is None
+    :param custom_quantizable_module_types: optional list of module class names
+        to be added to the list of quantizable modules. Default is None
     :param activation_qconfig_kwargs: Additional kwargs for quantization of
         activations.
     :param weight_qconfig_kwargs: Additional kwargs for quantization of
@@ -154,11 +158,13 @@ class QuantizationModifier(ScheduledModifier):
         reduce_range: bool = False,
         quantize_linear_activations: bool = True,
         quantize_conv_activations: bool = True,
+        quantize_embedding_activations: bool = True,
         activation_bits: int = 8,
         weight_bits: int = 8,
         num_calibration_steps: Optional[int] = None,
         exclude_batchnorm: bool = True,
         exclude_module_types: Optional[List[str]] = None,
+        custom_quantizable_module_types: Optional[List[str]] = None,
         activation_qconfig_kwargs: Optional[Dict[str, Any]] = None,
         weight_qconfig_kwargs: Optional[Dict[str, Any]] = None,
         tensorrt: bool = False,
@@ -187,10 +193,12 @@ class QuantizationModifier(ScheduledModifier):
         self._reduce_range = reduce_range
         self._quantize_linear_activations = quantize_linear_activations
         self._quantize_conv_activations = quantize_conv_activations
+        self._quantize_embedding_activations = quantize_embedding_activations
         self._activation_bits = activation_bits
         self._weight_bits = weight_bits
         self._exclude_batchnorm = exclude_batchnorm
         self._exclude_module_types = exclude_module_types
+        self._custom_quantizable_module_types = custom_quantizable_module_types
 
         self._modules_to_quantize = None
         self._qat_enabled = False
@@ -369,6 +377,29 @@ class QuantizationModifier(ScheduledModifier):
             return False
         else:
             return self._quantize_conv_activations
+
+    @ModifierProp()
+    def quantize_embedding_activations(self) -> bool:
+        """
+        :return: if True, FakeQuantize ops will be run for output activations
+            of convolutional layers
+        """
+        if self.tensorrt:
+            _LOGGER.info(
+                "Overriding quantize_embedding_activations to False "
+                "because tensorrt flag is True."
+            )
+            return False
+        else:
+            return self._quantize_embedding_activations
+
+    @ModifierProp()
+    def custom_quantizable_module_types(self) -> Union[List[str], None]:
+        """
+        :return: optional list of module class names to be included
+            in list of quantizable modules. Default is None
+        """
+        return self._custom_quantizable_module_types
 
     @ModifierProp()
     def exclude_module_types(self) -> Union[List[str], None]:
@@ -550,6 +581,28 @@ class QuantizationModifier(ScheduledModifier):
 
         return pending
 
+    def advance_epochs(self, ref_start_epoch: float = None):
+        """
+        Advance epoch attributes given a reference start epoch
+
+        :param ref_start_epoch: the reference, i.e. new, start epoch
+        """
+        if ref_start_epoch is None:
+            return
+
+        super().advance_epochs(ref_start_epoch=ref_start_epoch)
+
+        if self._disable_quantization_observer_epoch is not None:
+            self._disable_quantization_observer_epoch = (
+                max(0.0, self._disable_quantization_observer_epoch) + ref_start_epoch
+            )
+
+        if self._freeze_bn_stats_epoch is not None:
+            self._freeze_bn_stats_epoch = (
+                max(0.0, self._freeze_bn_stats_epoch) + ref_start_epoch
+            )
+        self._validate_params()
+
     def _check_quantization_update(
         self, module: Module, epoch: float, steps_per_epoch: int
     ):
@@ -583,15 +636,15 @@ class QuantizationModifier(ScheduledModifier):
             module_fuse_fn(**self._model_fuse_fn_kwargs)
 
         # build list of layer types that should not quantize output activations
-        to_remove_layer_name = []
+        remove_activation_qat_layers = ["FloatFunctional"]
         if not self.quantize_linear_activations:
-            to_remove_layer_name.extend(LINEAR_ACTIVATION_NAMES)
+            remove_activation_qat_layers.extend(LINEAR_ACTIVATION_NAMES)
 
         if not self.quantize_conv_activations:
-            to_remove_layer_name.extend(CONV_ACTIVATION_NAMES)
+            remove_activation_qat_layers.extend(CONV_ACTIVATION_NAMES)
 
-        if len(to_remove_layer_name) == 0:
-            to_remove_layer_name = None
+        if not self.quantize_embedding_activations:
+            remove_activation_qat_layers.append("Embedding")
 
         # fix for freezing batchnorm statistics when not fusing BN with convs.
         # pytorch only supports freezing batchnorm statistics for fused modules.
@@ -615,9 +668,8 @@ class QuantizationModifier(ScheduledModifier):
                 "Overriding quantization scheme to symmetric int8 "
                 "for both weights and activations because tensorrt flag is True."
             )
-            qproperties.symmetric_activations = True
+            qproperties.tensorrt = True
             qproperties.activation_dtype = torch.qint8
-            qproperties.symmetric_weights = True
             qproperties.weight_dtype = torch.qint8
 
         qconfig = get_qat_qconfig(qproperties)
@@ -633,25 +685,27 @@ class QuantizationModifier(ScheduledModifier):
             # wrap all conv / linear blocks in with quantization observers
             torch_quantization.propagate_qconfig_(quant_module)
             configure_module_default_qconfigs(quant_module)
-
-            add_quant_dequant(quant_module, name, module)
+            add_quant_dequant(
+                quant_module, name, module, self.custom_quantizable_module_types
+            )
 
             # Remove output quantization from appropriate modules
-            if to_remove_layer_name:
-                remove_activation_qat_by_layer_name(quant_module, to_remove_layer_name)
+            remove_activation_qat_by_layer_name(
+                quant_module, remove_activation_qat_layers
+            )
 
         # remove qconfigs for module types in exclude_module_types
-        to_exclude = []
-        if self._exclude_module_types:
-            to_exclude.extend(self._exclude_module_types)
+        to_exclude = ["Softmax"]
+        if self.exclude_module_types:
+            to_exclude.extend(self.exclude_module_types)
 
         # if exclude_batchnorm flag is used, add batch norm layers to list of
         # modules to exclude qconfig
-        if self._exclude_batchnorm:
+        if self.exclude_batchnorm:
             to_exclude.extend(["BatchNorm1d", "BatchNorm2d", "BatchNorm3d"])
 
         self._exclude_module_types = to_exclude
-        if self._exclude_module_types:
+        if self.exclude_module_types:
             self._strip_excluded_module_qconfigs(module)
 
         # set modules with proper qconfigs to QAT mode
@@ -734,9 +788,9 @@ class QuantizationModifier(ScheduledModifier):
         )
 
     def _strip_excluded_module_qconfigs(self, module: Module):
-        if not self._exclude_module_types:
+        if not self.exclude_module_types:
             return
-        excluded_classes = set(self._exclude_module_types)
+        excluded_classes = set(self.exclude_module_types)
         for submodule in module.modules():
             if submodule.__class__.__name__ in excluded_classes and hasattr(
                 submodule, "qconfig"
@@ -744,6 +798,7 @@ class QuantizationModifier(ScheduledModifier):
                 submodule.qconfig = None
 
     def _validate_params(self):
+        self.validate_schedule()
         if (
             self._disable_quantization_observer_epoch is not None
             and self._disable_quantization_observer_epoch < self._start_epoch

@@ -26,6 +26,9 @@ from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 
 from sparseml.pytorch.datasets import DatasetRegistry, ssd_collate_fn, yolo_collate_fn
+from sparseml.pytorch.image_classification.utils.helpers import (
+    download_framework_model_by_recipe_type,
+)
 from sparseml.pytorch.models import ModelRegistry
 from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
 from sparseml.pytorch.sparsification import ConstantPruningModifier
@@ -45,7 +48,7 @@ from sparseml.pytorch.utils import (
     torch_distributed_zero_first,
 )
 from sparseml.utils import create_dirs
-from sparsezoo import Zoo
+from sparsezoo import Model
 
 
 @unique
@@ -237,9 +240,10 @@ def create_model(args: Any, num_classes: int) -> Module:
     with torch_distributed_zero_first(args.local_rank):  # only download once locally
         if args.checkpoint_path == "zoo":
             if args.recipe_path and args.recipe_path.startswith("zoo:"):
-                args.checkpoint_path = Zoo.download_recipe_base_framework_files(
-                    args.recipe_path, extensions=[".pth"]
-                )[0]
+                zoo_model = Model(args.recipe_path)
+                args.checkpoint_path = download_framework_model_by_recipe_type(
+                    zoo_model
+                )
             else:
                 raise ValueError(
                     "'zoo' provided as --checkpoint-path but a SparseZoo stub"
