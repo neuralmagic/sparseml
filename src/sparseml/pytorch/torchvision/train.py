@@ -573,7 +573,6 @@ def main(args):
                 checkpoint["epoch"] = -1 if epoch == manager.max_epochs - 1 else epoch
                 checkpoint["checkpoint_recipe"] = str(manager)
 
-
             file_names = [f"model_{epoch}.pth", "checkpoint.pth"]
             if is_new_best:
                 file_names.append("checkpoint-best.pth")
