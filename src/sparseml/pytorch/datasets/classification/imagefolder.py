@@ -29,11 +29,11 @@ try:
     from torchvision import transforms
     from torchvision.datasets import ImageFolder
 
-    torchvision_import_error = None
 except Exception as torchvision_error:
-    transforms = None
-    ImageFolder = object  # default for constructor
-    torchvision_import_error = torchvision_error
+    raise ImportError(
+        "torchvision dependencies not found, kindly install using "
+        f"`pip install sparseml[torchvision]`, {torchvision_error}"
+    )
 
 from sparseml.pytorch.datasets.registry import DatasetRegistry
 from sparseml.utils import clean_path
@@ -84,9 +84,6 @@ class ImageFolderDataset(ImageFolder, FFCVImageNetDataset):
         rand_trans: bool = False,
         image_size: int = 224,
     ):
-        if torchvision_import_error is not None:
-            raise torchvision_import_error
-
         root = clean_path(root)
         non_rand_resize_scale = 256.0 / 224.0  # standard used
         init_trans = (

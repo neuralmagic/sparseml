@@ -135,7 +135,7 @@ class ScheduledModifier(Modifier, BaseScheduled):
     :param end_comparator: integer value representing how the end_epoch should be
         compared to start_epoch.
         if == None, then end_epoch can only be set to what its initial value was.
-        if == -1, then end_epoch can be less than, equal, or greater than start_epoch.
+        if == -1, then end_epoch can be -1, equal, or greater than start_epoch.
         if == 0, then end_epoch can be equal to or greater than start_epoch.
         if == 1, then end_epoch can only be greater than start_epoch.
     :param kwargs: standard key word args, used to support multi inheritance

@@ -37,7 +37,7 @@ from sparseml.keras.optim import ScheduledModifierManager
 from sparseml.keras.utils.callbacks import LossesAndMetricsLoggingCallback
 from sparseml.keras.utils.exporter import ModelExporter
 from sparseml.keras.utils.logger import TensorBoardLogger
-from sparsezoo.models import Zoo
+from sparsezoo import Model
 
 
 # Root directory
@@ -64,32 +64,20 @@ def download_model_and_recipe(root_dir: str):
     """
     Download pretrained model and a pruning recipe
     """
-    model_dir = os.path.join(root_dir, "resnet20_v1")
 
-    # Load base model to prune
-    base_zoo_model = Zoo.load_model(
-        domain="cv",
-        sub_domain="classification",
-        architecture="resnet_v1",
-        sub_architecture=20,
-        framework="keras",
-        repo="sparseml",
-        dataset="cifar_10",
-        training_scheme=None,
-        sparse_name="base",
-        sparse_category="none",
-        sparse_target=None,
-        override_parent_path=model_dir,
-    )
-    base_zoo_model.download()
-    model_file_path = base_zoo_model.framework_files[0].downloaded_path()
-    if not os.path.exists(model_file_path) or not model_file_path.endswith(".h5"):
-        raise RuntimeError("Model file not found: {}".format(model_file_path))
-
-    # Simply use the recipe stub
+    # Use the recipe stub
     recipe_file_path = (
         "zoo:cv/classification/resnet_v1-20/keras/sparseml/cifar_10/pruned-conservative"
     )
+
+    # Load base model to prune
+    base_zoo_model = Model(recipe_file_path)
+    base_zoo_model.path = os.path.join(root_dir, "resnet20_v1")
+    checkpoint = base_zoo_model.training.default
+    model_file_path = checkpoint.get_file("model.h5").path
+    recipe_file_path = base_zoo_model.recipes.default.path
+    if not os.path.exists(model_file_path) or not model_file_path.endswith(".h5"):
+        raise RuntimeError("Model file not found: {}".format(model_file_path))
 
     return model_file_path, recipe_file_path
 

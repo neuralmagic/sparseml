@@ -35,6 +35,7 @@ import datasets
 import numpy as np
 import transformers
 from datasets import load_dataset, load_metric
+from sklearn.model_selection import StratifiedShuffleSplit
 from transformers import (
     AutoConfig,
     AutoTokenizer,
@@ -42,7 +43,6 @@ from transformers import (
     EvalPrediction,
     HfArgumentParser,
     PretrainedConfig,
-    TrainingArguments,
     default_data_collator,
     set_seed,
 )
@@ -50,7 +50,8 @@ from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils import check_min_version
 from transformers.utils.versions import require_version
 
-from sparseml.transformers.sparsification import Trainer
+from sparseml.pytorch.utils.distributed import record
+from sparseml.transformers.sparsification import Trainer, TrainingArguments
 from sparseml.transformers.utils import SparseAutoModel, get_shared_tokenizer_src
 
 
@@ -73,6 +74,7 @@ _TASK_TO_KEYS = {
     "sst2": ("sentence", None),
     "stsb": ("sentence1", "sentence2"),
     "wnli": ("sentence1", "sentence2"),
+    "imdb": ("text", None),
 }
 
 _LOGGER = logging.getLogger(__name__)
@@ -94,19 +96,6 @@ class DataTrainingArguments:
     arguments to be able to specify them on the command line
     """
 
-    recipe: Optional[str] = field(
-        default=None,
-        metadata={
-            "help": (
-                "Path to a SparseML sparsification recipe, see "
-                "https://github.com/neuralmagic/sparseml for more information"
-            ),
-        },
-    )
-    recipe_args: Optional[str] = field(
-        default=None,
-        metadata={"help": "Recipe arguments to be overwritten"},
-    )
     task_name: Optional[str] = field(
         default=None,
         metadata={
@@ -183,6 +172,43 @@ class DataTrainingArguments:
         default=None,
         metadata={"help": "A csv or a json file containing the test data."},
     )
+    validation_ratio: Optional[float] = field(
+        default=None,
+        metadata={"help": "Percentage of the training data to be used as validation."},
+    )
+    eval_on_test: bool = field(
+        default=False,
+        metadata={"help": "Evaluate the test dataset."},
+    )
+    input_column_names: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": (
+                "name of column to read model input data from. May also be comma "
+                "separated list of two columns to use as inputs. Examples include "
+                "'sentence' for single column and 'sentence_1,sentence_2' for two. "
+                "Default behavior is to read columns based on task name or infer from "
+                "non 'label' columns if sentence_column_names and task name not"
+                "provided"
+            )
+        },
+    )
+    label_column_name: str = field(
+        default="label",
+        metadata={
+            "help": (
+                "column in dataset where input labels are located. Default is 'label'"
+            )
+        },
+    )
+    one_shot: bool = field(
+        default=False,
+        metadata={"help": "Whether to apply recipe in a one shot manner."},
+    )
+    num_export_samples: int = field(
+        default=0,
+        metadata={"help": "Number of samples (inputs/outputs) to export during eval."},
+    )
 
     def __post_init__(self):
         if self.task_name is not None:
@@ -225,12 +251,6 @@ class ModelArguments:
             )
         }
     )
-    distill_teacher: Optional[str] = field(
-        default=None,
-        metadata={
-            "help": "Teacher model which must be a trained text classification model"
-        },
-    )
     config_name: Optional[str] = field(
         default=None,
         metadata={
@@ -251,6 +271,13 @@ class ModelArguments:
         default=True,
         metadata={"help": "Whether to use one of the fast tokenizers. Default True"},
     )
+    use_teacher_tokenizer: bool = field(
+        default=False,
+        metadata={
+            "help": "Whether to use separate tokenizer for distillation teacher. "
+            "Default False; uses same tokenizer for teacher and student"
+        },
+    )
     model_revision: str = field(
         default="main",
         metadata={
@@ -267,8 +294,10 @@ class ModelArguments:
     )
 
 
-def main():
-    # See all possible arguments in src/transformers/training_args.py
+@record
+def main(**kwargs):
+    # See all possible arguments in
+    # src/sparseml/transformers/sparsification/training_args.py
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
 
@@ -281,9 +310,10 @@ def main():
         model_args, data_args, training_args = parser.parse_json_file(
             json_file=os.path.abspath(sys.argv[1])
         )
-    else:
+    elif not kwargs:
         model_args, data_args, training_args = parser.parse_args_into_dataclasses()
-
+    else:
+        model_args, data_args, training_args = parser.parse_dict(kwargs)
     # Setup logging
 
     log_level = training_args.get_process_log_level()
@@ -395,23 +425,24 @@ def main():
     # https://huggingface.co/docs/datasets/loading_datasets.html.
 
     # Labels
+    label_column = data_args.label_column_name
     if data_args.task_name is not None:
         is_regression = data_args.task_name == "stsb"
         if not is_regression:
-            label_list = raw_datasets["train"].features["label"].names
+            label_list = raw_datasets["train"].features[label_column].names
             num_labels = len(label_list)
         else:
             num_labels = 1
     else:
         # Trying to have good defaults here, don't hesitate to tweak to your needs.
-        is_regression = raw_datasets["train"].features["label"].dtype in [
+        is_regression = raw_datasets["train"].features[label_column].dtype in [
             "float32",
             "float64",
         ]
         if is_regression:
             num_labels = 1
         else:
-            label_list = raw_datasets["train"].unique("label")
+            label_list = raw_datasets["train"].unique(label_column)
             label_list.sort()  # Let's sort it for determinism
             num_labels = len(label_list)
 
@@ -443,34 +474,63 @@ def main():
             "revision": model_args.model_revision,
             "use_auth_token": True if model_args.use_auth_token else None,
         },
-        teacher_name_or_path=model_args.distill_teacher,
+        teacher_name_or_path=training_args.distill_teacher,
         teacher_kwargs={
             "cache_dir": model_args.cache_dir,
             "use_auth_token": True if model_args.use_auth_token else None,
         },
     )
 
-    tokenizer_src = (
-        model_args.tokenizer_name
-        if model_args.tokenizer_name
-        else get_shared_tokenizer_src(model, teacher)
-    )
-    tokenizer = AutoTokenizer.from_pretrained(
-        tokenizer_src,
+    teacher_tokenizer = None
+    tokenizer_kwargs = dict(
         cache_dir=model_args.cache_dir,
         use_fast=model_args.use_fast_tokenizer,
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
     )
+    if not model_args.use_teacher_tokenizer:
+        tokenizer_src = (
+            model_args.tokenizer_name
+            if model_args.tokenizer_name
+            else get_shared_tokenizer_src(model, teacher)
+        )
+    else:
+        tokenizer_src = (
+            model_args.tokenizer_name
+            if model_args.tokenizer_name
+            else model.config._name_or_path
+        )
+        teacher_tokenizer = AutoTokenizer.from_pretrained(
+            teacher.config._name_or_path,
+            **tokenizer_kwargs,
+        )
+    tokenizer = AutoTokenizer.from_pretrained(
+        tokenizer_src,
+        **tokenizer_kwargs,
+    )
 
     # Preprocessing the datasets
-    if data_args.task_name is not None:
+    if data_args.input_column_names is not None:
+        if "," in data_args.input_column_names:
+            # two input columns
+            columns = data_args.input_column_names.split(",")
+            if len(columns) != 2:
+                raise ValueError(
+                    "input_column_names may only specify up to two columns "
+                    f"{len(columns)} provided: {columns}"
+                )
+            sentence1_key, sentence2_key = columns
+        else:
+            # one input column
+            sentence1_key = data_args.input_column_names
+            sentence2_key = None
+    elif data_args.task_name is not None:
         sentence1_key, sentence2_key = _TASK_TO_KEYS[data_args.task_name]
     else:
         # Again, we try to have some nice defaults but don't hesitate to tweak to your
         # use case
         non_label_column_names = [
-            name for name in raw_datasets["train"].column_names if name != "label"
+            name for name in raw_datasets["train"].column_names if name != label_column
         ]
         if (
             "sentence1" in non_label_column_names
@@ -523,13 +583,23 @@ def main():
         model.config.label2id = {l: i for i, l in enumerate(label_list)}
         model.config.id2label = {id: label for label, id in config.label2id.items()}
 
-    if data_args.max_seq_length > tokenizer.model_max_length:
+    max_seq_length = data_args.max_seq_length
+    if max_seq_length > tokenizer.model_max_length:
         _LOGGER.warning(
-            f"The max_seq_length passed ({data_args.max_seq_length}) is larger than "
+            f"The max_seq_length passed ({max_seq_length}) is larger than "
             f"the maximum length for the model ({tokenizer.model_max_length}). "
             f"Using max_seq_length={tokenizer.model_max_length}."
         )
     max_seq_length = min(data_args.max_seq_length, tokenizer.model_max_length)
+
+    def map_labels_to_ids(examples, tokenizer_result):
+        # Map labels to IDs (not necessary for GLUE tasks)
+        if label_to_id is not None and label_column in examples:
+            tokenizer_result[label_column] = [
+                (label_to_id[label] if label != -1 else -1)
+                for label in examples[label_column]
+            ]
+        return tokenizer_result
 
     def preprocess_function(examples):
         # Tokenize the texts
@@ -541,13 +611,21 @@ def main():
         result = tokenizer(
             *args, padding=padding, max_length=max_seq_length, truncation=True
         )
+        result = map_labels_to_ids(examples, result)
 
-        # Map labels to IDs (not necessary for GLUE tasks)
-        if label_to_id is not None and "label" in examples:
-            result["label"] = [
-                (label_to_id[label] if label != -1 else -1)
-                for label in examples["label"]
-            ]
+        if teacher_tokenizer is not None:
+            teacher_result = teacher_tokenizer(
+                *args, padding=padding, max_length=max_seq_length, truncation=True
+            )
+            teacher_result = map_labels_to_ids(examples, teacher_result)
+
+            # add results from teacher_tokenizer to results with 'distill_teacher:' id
+            teacher_result = {
+                f"distill_teacher:{tokenizer_key}": value
+                for tokenizer_key, value in teacher_result.items()
+            }
+            result.update(teacher_result)
+
         return result
 
     with training_args.main_process_first(desc="dataset map pre-processing"):
@@ -558,23 +636,58 @@ def main():
             load_from_cache_file=not data_args.overwrite_cache,
             desc="Running tokenizer on dataset",
         )
+
+    train_dataset = None
     if training_args.do_train:
         if "train" not in raw_datasets:
             raise ValueError("--do_train requires a train dataset")
         train_dataset = raw_datasets["train"]
-        if data_args.max_train_samples is not None:
-            train_dataset = train_dataset.select(range(data_args.max_train_samples))
 
-    if training_args.do_eval:
+    make_eval_dataset = training_args.do_eval or data_args.num_export_samples > 0
+    if make_eval_dataset:
         if (
             "validation" not in raw_datasets
             and "validation_matched" not in raw_datasets
+            and data_args.validation_ratio is None
+            and data_args.eval_on_test is False
         ):
-            raise ValueError("--do_eval requires a validation dataset")
-        eval_dataset = raw_datasets[
-            "validation_matched" if data_args.task_name == "mnli" else "validation"
-        ]
-        if data_args.max_eval_samples is not None:
+            raise ValueError(
+                "--do_eval requires an explicit validation dataset, "
+                "specified validation ratio, or eval_on_test"
+            )
+        if data_args.task_name == "mnli":
+            eval_dataset = raw_datasets["validation_matched"]
+        elif "validation" in raw_datasets:
+            if data_args.validation_ratio is not None:
+                raise ValueError(
+                    "validation_ratio cannot be specified when validation set exists"
+                )
+            if data_args.eval_on_test is True:
+                raise ValueError(
+                    "eval_on_test cannot be specified when validation set exists"
+                )
+            eval_dataset = raw_datasets["validation"]
+        elif data_args.validation_ratio is not None:
+            train_dataset = (
+                raw_datasets["train"] if train_dataset is None else train_dataset
+            )
+            train_dataset, eval_dataset = _split_train_val(
+                train_dataset, data_args.validation_ratio
+            )
+            if (
+                data_args.max_train_samples is not None
+                and len(train_dataset) > data_args.max_train_samples
+            ):
+                train_dataset = train_dataset.select(range(data_args.max_train_samples))
+        elif data_args.eval_on_test:
+            if "test" not in raw_datasets:
+                raise ValueError("test split not found but eval_on_test is on")
+            eval_dataset = raw_datasets["test"]
+
+        if (
+            data_args.max_eval_samples is not None
+            and len(eval_dataset) > data_args.max_eval_samples
+        ):
             eval_dataset = eval_dataset.select(range(data_args.max_eval_samples))
 
     if (
@@ -634,13 +747,14 @@ def main():
     trainer = Trainer(
         model=model,
         model_state_path=model_args.model_name_or_path,
-        recipe=data_args.recipe,
+        recipe=training_args.recipe,
         metadata_args=metadata_args,
-        recipe_args=data_args.recipe_args,
+        recipe_args=training_args.recipe_args,
         teacher=teacher,
         args=training_args,
+        data_args=data_args,
         train_dataset=train_dataset if training_args.do_train else None,
-        eval_dataset=eval_dataset if training_args.do_eval else None,
+        eval_dataset=eval_dataset if make_eval_dataset else None,
         tokenizer=tokenizer,
         data_collator=data_collator,
         compute_metrics=compute_metrics,
@@ -653,27 +767,33 @@ def main():
             checkpoint = training_args.resume_from_checkpoint
         elif last_checkpoint is not None:
             checkpoint = last_checkpoint
+
         train_result = trainer.train(resume_from_checkpoint=checkpoint)
-        metrics = train_result.metrics
-        max_train_samples = (
-            data_args.max_train_samples
-            if data_args.max_train_samples is not None
-            else len(train_dataset)
-        )
-        metrics["train_samples"] = min(max_train_samples, len(train_dataset))
+        if not trainer.one_shot:
+            metrics = train_result.metrics
+            max_train_samples = (
+                data_args.max_train_samples
+                if data_args.max_train_samples is not None
+                else len(train_dataset)
+            )
+            metrics["train_samples"] = min(max_train_samples, len(train_dataset))
+            trainer.log_metrics("train", metrics)
+            trainer.save_metrics("train", metrics)
 
         trainer.save_model()  # Saves the tokenizer too for easy upload
-
-        trainer.log_metrics("train", metrics)
-        trainer.save_metrics("train", metrics)
         trainer.save_state()
+        trainer.save_optimizer_and_scheduler(training_args.output_dir)
 
     # Evaluation
-    if training_args.do_eval:
+    if training_args.do_eval and not trainer.one_shot:
         _LOGGER.info("*** Evaluate ***")
 
         # Loop to handle MNLI double evaluation (matched, mis-matched)
-        tasks = [data_args.task_name]
+        tasks = (
+            [data_args.task_name]
+            if data_args.task_name is not None
+            else [data_args.dataset_name]
+        )
         eval_datasets = [eval_dataset]
         if data_args.task_name == "mnli":
             tasks.append("mnli-mm")
@@ -689,16 +809,17 @@ def main():
                 else len(eval_dataset)
             )
             metrics["eval_samples"] = min(max_eval_samples, len(eval_dataset))
-
             if task == "mnli-mm":
                 metrics = {k + "_mm": v for k, v in metrics.items()}
-            if "mnli" in task:
+            if task is not None and "mnli" in task:
                 combined.update(metrics)
+                trainer.save_metrics("eval", combined)
+            else:
+                trainer.save_metrics("eval", metrics)
 
             trainer.log_metrics("eval", metrics)
-            trainer.save_metrics("eval", combined if "mnli" in task else metrics)
 
-    if training_args.do_predict:
+    if training_args.do_predict and not trainer.one_shot:
         _LOGGER.info("*** Predict ***")
 
         # Loop to handle MNLI double evaluation (matched, mis-matched)
@@ -711,7 +832,7 @@ def main():
         for predict_dataset, task in zip(predict_datasets, tasks):
             # Removing the `label` columns because it contains -1 and Trainer will
             # not like that
-            predict_dataset = predict_dataset.remove_columns("label")
+            predict_dataset = predict_dataset.remove_columns(label_column)
             predictions = trainer.predict(
                 predict_dataset, metric_key_prefix="predict"
             ).predictions
@@ -745,10 +866,32 @@ def main():
         kwargs["dataset_args"] = data_args.task_name
         kwargs["dataset"] = f"GLUE {data_args.task_name.upper()}"
 
-    if training_args.push_to_hub:
-        trainer.push_to_hub(**kwargs)
-    else:
-        trainer.create_model_card(**kwargs)
+    # Exporting Samples
+
+    if data_args.num_export_samples > 0:
+        trainer.save_sample_inputs_outputs(
+            num_samples_to_export=data_args.num_export_samples
+        )
+
+
+def _split_train_val(train_dataset, val_ratio):
+    # Fixed random seed to make split consistent across runs with the same ratio
+    seed = 42
+    try:
+        ds = train_dataset.train_test_split(
+            test_size=val_ratio, stratify_by_column="label", seed=seed
+        )
+        train_ds = ds.pop("train")
+        val_ds = ds.pop("test")
+    except TypeError:
+        X = list(range(len(train_dataset)))
+        y = train_dataset["label"]
+        sss = StratifiedShuffleSplit(n_splits=1, test_size=val_ratio, random_state=seed)
+        for train_indices, test_indices in sss.split(X, y):
+            train_ds = train_dataset.select(train_indices)
+            val_ds = train_dataset.select(test_indices)
+
+    return train_ds, val_ds
 
 
 def _mp_fn(index):

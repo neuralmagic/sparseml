@@ -28,7 +28,7 @@ Here's some details to get started.
 ```bash
 git clone https://github.com/neuralmagic/sparseml.git
 cd sparseml
-python3 -m pip install -e ./[dev]
+python3 -m pip install -e "./[dev]"
 ```
 
 This will clone the SparseML repo, install it, and install the development dependencies.
@@ -37,7 +37,7 @@ To develop framework specific features, you will also need the relevant framewor
 Those can be installed by adding the framework name to the install extras. Frameworks include
 `torch`, `keras`, and `tensorflow_v1`. For example:
 ```bash
-python3 -m pip install -e ./[dev,torch]
+python3 -m pip install -e "./[dev,torch]"
 ```
 
 **Code Styling and Formatting checks**

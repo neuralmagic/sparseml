@@ -11,7 +11,7 @@ on:
 
 jobs:
   test-setup:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     outputs:
       branch: ${{ steps.get-branch.outputs.branch }}
       base: ${{ steps.base-check.outputs.output }}
@@ -34,46 +34,49 @@ jobs:
       - name: "Checking if sparseml was changed"
         id: base-check
         run: >
-          ((git diff --name-only origin/main HEAD | grep -E "[src|tests]/sparseml|setup.py")
+          ((git diff --name-only origin/main HEAD | grep -E "[src|tests]/sparseml|setup.py|.github")
           || (echo $GITHUB_REF | grep -E "refs/heads/[release/|main]"))
           && echo "::set-output name=output::1" || echo "::set-output name=output::0"
       - name: "Checking if sparseml.deepsaprse was changed"
         id: deepsparse-check
         run: >
-          ((git diff --name-only origin/main HEAD | grep -E "[src|tests]/sparseml/deepsparse|setup.py")
+          ((git diff --name-only origin/main HEAD | grep -E "[src|tests]/sparseml/deepsparse|setup.py|.github")
           || (echo $GITHUB_REF | grep -E "refs/heads/[release/|main]"))
           && echo "::set-output name=output::1" || echo "::set-output name=output::0"
       - name: "Checking if sparseml.keras was changed"
         id: keras-check
         run: >
-          ((git diff --name-only origin/main HEAD | grep -E "[src|tests]/sparseml/keras|setup.py")
+          ((git diff --name-only origin/main HEAD | grep -E "[src|tests]/sparseml/keras|setup.py|.github")
           || (echo $GITHUB_REF | grep -E "refs/heads/[release/|main]"))
           && echo "::set-output name=output::1" || echo "::set-output name=output::0"
       - name: "Checking if sparseml.onnx was changed"
         id: onnx-check
         run: >
-          ((git diff --name-only origin/main HEAD | grep -E "[src|tests]/sparseml/onnx|setup.py")
+          ((git diff --name-only origin/main HEAD | grep -E "[src|tests]/sparseml/onnx|setup.py|.github")
           || (echo $GITHUB_REF | grep -E "refs/heads/[release/|main]"))
           && echo "::set-output name=output::1" || echo "::set-output name=output::0"
       - name: "Checking if sparseml.pytorch was changed"
         id: pytorch-check
         run: >
-          ((git diff --name-only origin/main HEAD | grep -E "[src|tests]/sparseml/pytorch|setup.py")
+          ((git diff --name-only origin/main HEAD | grep -E "[src|tests]/sparseml/pytorch|setup.py|.github")
           || (echo $GITHUB_REF | grep -E "refs/heads/[release/|main]"))
           && echo "::set-output name=output::1" || echo "::set-output name=output::0"
       - name: "Checking if sparseml.tensorflow_v1 was changed"
         id: tensorflow_v1-check
         run: >
-          ((git diff --name-only origin/main HEAD | grep -E "[src|tests]/sparseml/tensorflow_v1|setup.py")
+          ((git diff --name-only origin/main HEAD | grep -E "[src|tests]/sparseml/tensorflow_v1|setup.py|.github")
           || (echo $GITHUB_REF | grep -E "refs/heads/[release/|main]"))
           && echo "::set-output name=output::1" || echo "::set-output name=output::0"
   base-tests:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     env:
       SPARSEZOO_TEST_MODE: "true"
     needs: test-setup
     if: ${{needs.test-setup.outputs.base == 1}}
     steps:
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
       - uses: actions/checkout@v2
       - uses: actions/checkout@v2
         with:
@@ -87,16 +90,19 @@ jobs:
       - name: "Upgrade protobuf version"
         run: pip3 install --upgrade protobuf
       - name: "⚙️ Install dependencies"
-        run: pip3 install .[dev]
+        run: pip3 install .[dev,onnxruntime]
       - name: "🔬 Running base tests"
         run: make test
   deepsparse-tests:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     env:
       SPARSEZOO_TEST_MODE: "true"
     needs: test-setup
     if: ${{needs.test-setup.outputs.deepsparse == 1}}
     steps:
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
       - uses: actions/checkout@v2
       - uses: actions/checkout@v2
         with:
@@ -110,16 +116,19 @@ jobs:
       - name: "Upgrade protobuf version"
         run: pip3 install --upgrade protobuf
       - name: "⚙️ Install dependencies"
-        run: pip3 install .[dev,deepsparse]
+        run: pip3 install .[dev,deepsparse,onnxruntime]
       - name: "🔬 Running deepsparse tests"
         run: make test TARGETS=deepsparse
   keras-tests:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     env:
       SPARSEZOO_TEST_MODE: "true"
     needs: test-setup
     if:  ${{needs.test-setup.outputs.keras == 1}}
     steps:
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.8'
       - uses: actions/checkout@v2
       - uses: actions/checkout@v2
         with:
@@ -131,16 +140,19 @@ jobs:
       - name: "Clean sparsezoo directory"
         run: rm -r sparsezoo/
       - name: "⚙️ Install dependencies"
-        run: pip3 install .[dev,tf_keras]
+        run: pip3 install .[dev,tf_keras,onnxruntime]
       - name: "🔬 Running keras tests"
         run: make test TARGETS=keras
   onnx-tests:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     env:
       SPARSEZOO_TEST_MODE: "true"
     needs: test-setup
     if: ${{needs.test-setup.outputs.onnx == 1}}
     steps:
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
       - uses: actions/checkout@v2
       - uses: actions/checkout@v2
         with:
@@ -152,16 +164,19 @@ jobs:
       - name: "Clean sparsezoo directory"
         run: rm -r sparsezoo/
       - name: "⚙️ Install dependencies"
-        run: pip3 install .[dev,torchvision]
+        run: pip3 install .[dev,torchvision,onnxruntime]
       - name: "🔬 Running onnx tests"
         run: make test TARGETS=onnx
   pytorch-tests:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     env:
       SPARSEZOO_TEST_MODE: "true"
     needs: test-setup
     if: ${{needs.test-setup.outputs.pytorch == 1}}
     steps:
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
       - uses: actions/checkout@v2
       - uses: actions/checkout@v2
         with:
@@ -173,16 +188,19 @@ jobs:
       - name: "Clean sparsezoo directory"
         run: rm -r sparsezoo/
       - name: "⚙️ Install dependencies"
-        run: pip3 install .[dev,torchvision]
+        run: pip3 install .[dev,torchvision,onnxruntime]
       - name: "🔬 Running pytorch tests"
         run: make test TARGETS=pytorch
   tensorflow-v1-tests:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     env:
       SPARSEZOO_TEST_MODE: "true"
     needs: test-setup
     if:  ${{needs.test-setup.outputs.tensorflow_v1 == 1}}
     steps:
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.7'
       - uses: actions/checkout@v2
       - uses: actions/checkout@v2
         with:
@@ -194,6 +212,54 @@ jobs:
       - name: "Clean sparsezoo directory"
         run: rm -r sparsezoo/
       - name: "⚙️ Install dependencies"
-        run: pip3 install .[dev,tf_v1]
+        run: pip3 install .[dev,tf_v1,onnxruntime]
       - name: "🔬 Running tensorflow_v1 tests"
         run: make test TARGETS=tensorflow_v1
+  compat-pytorch-1_9-pytorch-tests:
+    runs-on: ubuntu-22.04
+    env:
+      SPARSEZOO_TEST_MODE: "true"
+    needs: test-setup
+    if: ${{needs.test-setup.outputs.pytorch == 1}}
+    steps:
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      - uses: actions/checkout@v2
+      - uses: actions/checkout@v2
+        with:
+          repository: "neuralmagic/sparsezoo"
+          path: "sparsezoo"
+          ref: ${{needs.test-setup.outputs.branch}}
+      - name: "⚙️ Install sparsezoo dependencies"
+        run: pip3 install -U pip && pip3 install setuptools sparsezoo/
+      - name: "Clean sparsezoo directory"
+        run: rm -r sparsezoo/
+      - name: "⚙️ Install dependencies"
+        run: pip3 install .[dev,torchvision,onnxruntime] torch==1.9.1
+      - name: "🔬 Running pytorch tests"
+        run: make test TARGETS=pytorch
+  compat-pytorch-1_9-onnx-tests:
+    runs-on: ubuntu-22.04
+    env:
+      SPARSEZOO_TEST_MODE: "true"
+    needs: test-setup
+    if: ${{needs.test-setup.outputs.onnx == 1}}
+    steps:
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      - uses: actions/checkout@v2
+      - uses: actions/checkout@v2
+        with:
+          repository: "neuralmagic/sparsezoo"
+          path: "sparsezoo"
+          ref: ${{needs.test-setup.outputs.branch}}
+      - name: "⚙️ Install sparsezoo dependencies"
+        run: pip3 install -U pip && pip3 install setuptools sparsezoo/
+      - name: "Clean sparsezoo directory"
+        run: rm -r sparsezoo/
+      - name: "⚙️ Install dependencies"
+        run: pip3 install .[dev,torchvision,onnxruntime] torch==1.9.1
+      - name: "🔬 Running onnx tests"
+        run: make test TARGETS=onnx

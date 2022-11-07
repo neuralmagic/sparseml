@@ -32,8 +32,7 @@ from sparseml.utils import (
     UnknownVariableException,
     restricted_eval,
 )
-from sparsezoo import Zoo
-from sparsezoo.objects import Recipe
+from sparsezoo import File, Model
 
 
 __all__ = [
@@ -50,7 +49,7 @@ __all__ = [
 
 
 def load_recipe_yaml_str(
-    file_path: Union[str, Recipe],
+    file_path: str,
     **variable_overrides,
 ) -> str:
     """
@@ -65,7 +64,7 @@ def load_recipe_yaml_str(
         stub to a SparseZoo model whose recipe will be downloaded and loaded.
         SparseZoo stubs should be preceded by 'zoo:', and can contain an optional
         '?recipe_type=<type>' parameter or include a `/<type>` subpath. Can also
-        be a SparseZoo Recipe object. i.e. '/path/to/local/recipe.yaml',
+        be a SparseZoo File object. i.e. '/path/to/local/recipe.md',
         'zoo:model/stub/path', 'zoo:model/stub/path?recipe_type=transfer_learn',
         'zoo:model/stub/path/transfer_learn'. Additionally, a raw
          yaml str is also supported in place of a file path.
@@ -73,17 +72,17 @@ def load_recipe_yaml_str(
         in the loaded yaml string. Default is None
     :return: the recipe YAML configuration loaded as a string
     """
-    if isinstance(file_path, Recipe):
+    if isinstance(file_path, File):
         # download and unwrap Recipe object
-        file_path = file_path.downloaded_path()
+        file_path = file_path.path
 
     if not isinstance(file_path, str):
         raise ValueError(f"file_path must be a str, given {type(file_path)}")
 
     if file_path.startswith("zoo:"):
         # download from zoo stub
-        recipe = Zoo.download_recipe_from_stub(file_path)
-        file_path = recipe.downloaded_path()
+        model = Model(file_path)
+        file_path = model.recipes.default.path
 
     # load the yaml string
     if "\n" in file_path or "\r" in file_path:
@@ -256,7 +255,9 @@ def _update_recipe_variable(var_name: str, var_value, container):
     key_found = False
 
     for key, value in container.items():
-        if not isinstance(value, list):
+        if not isinstance(value, list) or not all(
+            isinstance(val, dict) for val in value
+        ):
             if var_name == key:
                 container[var_name] = var_value
                 key_found = True
@@ -347,7 +348,9 @@ def check_if_staged_recipe(container: dict) -> bool:
     """
     for k, v in container.items():
         if isinstance(v, dict):
-            if any([key for key in v.keys() if "modifiers" in key]):
+            if any(
+                key for key in v.keys() if isinstance(key, str) and "modifiers" in key
+            ):
                 return True
     return False
 

@@ -137,7 +137,7 @@ class MovementPruningParamsScorer(PruningParamsGradScorer):
     """
 
     def __init__(self, params: List[Parameter]):
-        super().__init__(params)
+        super().__init__(params, dist_backend="gloo")
 
         self._movement_scores = [
             param.data.new_zeros(param.data.shape).detach().requires_grad_(False)
@@ -160,11 +160,11 @@ class MovementPruningParamsScorer(PruningParamsGradScorer):
                 torch.zeros_like(scores_flat) for _ in range(dist.get_world_size())
             ]
             dist.gather(
-                scores_flat, gather_list=gather_list, group=self._gloo_handle, dst=0
+                scores_flat, gather_list=gather_list, group=self._dist_group, dst=0
             )
             total_scores_flat = torch.sum(torch.stack(gather_list), dim=0)
         else:
-            dist.gather(scores_flat, group=self._gloo_handle, dst=0)
+            dist.gather(scores_flat, group=self._dist_group, dst=0)
 
         # broadcast total scores to all devices
         total_scores_flat = self._broadcast_list_from_main(

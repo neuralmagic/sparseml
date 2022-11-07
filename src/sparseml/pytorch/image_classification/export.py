@@ -13,79 +13,93 @@
 # limitations under the License.
 
 """
-#####
-Command help:
-usage: export.py [-h] --arch-key ARCH_KEY --dataset DATASET
-                 --dataset-path DATASET_PATH
-                 [--checkpoint-path CHECKPOINT_PATH]
-                 [--num-samples NUM_SAMPLES] [--onnx-opset ONNX_OPSET]
-                 [--use-zipfile-serialization-if-available
-                 USE_ZIPFILE_SERIALIZATION_IF_AVAILABLE]
-                 [--pretrained PRETRAINED]
-                 [--pretrained-dataset PRETRAINED_DATASET]
-                 [--model-kwargs MODEL_KWARGS]
-                 [--dataset-kwargs DATASET_KWARGS]
-                 [--model-tag MODEL_TAG] [--save-dir SAVE_DIR]
+Usage: export.py [OPTIONS]
 
-Utility script to export a model to onnx and also store sample
-inputs/outputs
+  SparseML-PyTorch Integration for exporting image classification models to
+  onnx along with sample inputs and outputs
 
-optional arguments:
-  -h, --help            show this help message and exit
-  --arch-key ARCH_KEY   The type of model to use, ex: resnet50, vgg16,
-                        mobilenet put as help to see the full list
-                        (will raise an exception with the list)
-  --dataset DATASET     The dataset to use for exporting, ex: imagenet,
-                        imagenette, cifar10, etc. Set to imagefolder
-                        for a generic dataset setup with an image
-                        folder structure setup like imagenet or
-                        loadable by a dataset in
-                        sparseml.pytorch.datasets
-  --dataset-path DATASET_PATH
-                        The root path to where the dataset is stored
-  --checkpoint-path CHECKPOINT_PATH
-                        A path to a previous checkpoint to load the
-                        state from and resume the state for. If
-                        provided, pretrained will be ignored . If using
-                        a SparseZoo recipe, can also provide 'zoo' to
-                        load the base weights associated with that
-                        recipe
-  --num-samples NUM_SAMPLES
-                        The number of samples to export along with the
-                        model onnx and pth files (sample inputs and
-                        labels as well as the outputs from model
-                        execution)
-  --onnx-opset ONNX_OPSET
-                        The onnx opset to use for export. Default is 11
-  --use-zipfile-serialization-if-available
-                        USE_ZIPFILE_SERIALIZATION_IF_AVAILABLE
-                        for torch >= 1.6.0 only exports the Module's
-                        state dict using the new zipfile serialization.
-                        Default is True, has no affect on lower torch
-                        versions
-  --pretrained PRETRAINED
-                        The type of pretrained weights to use, default
-                        is true to load the default pretrained weights
-                        for the model. Otherwise should be set to the
-                        desired weights type: [base, optim, optim-
-                        perf]. To not load any weights set to one of
-                        [none, false]
-  --pretrained-dataset PRETRAINED_DATASET
-                        The dataset to load pretrained weights for if
-                        pretrained is set. Default is None which will
-                        load the default dataset for the architecture.
-                        Ex can be set to imagenet, cifar10, etc
-  --model-kwargs MODEL_KWARGS
-                        Keyword arguments to be passed to model
-                        constructor, should be given as a json object
-  --dataset-kwargs DATASET_KWARGS
-                        Keyword arguments to be passed to dataset
-                        constructor, should be given as a json object
-  --model-tag MODEL_TAG
-                        A tag to use for the model for saving results
-                        under save-dir, defaults to the model arch and
-                        dataset used
-  --save-dir SAVE_DIR   The path to the directory for saving results
+Options:
+  --dataset TEXT                  The dataset used for training, ex:
+                                  `imagenet`, `imagenette`, `cifar10`, etc.
+                                  Set to `imagefolder` for a generic dataset
+                                  setup with imagefolder type structure like
+                                  imagenet or loadable by a dataset in
+                                  `sparseml.pytorch.datasets`
+  --dataset-path, --dataset_path DIRECTORY
+                                  The root dir path where the dataset is
+                                  stored or should be downloaded to if
+                                  available
+  --checkpoint-path, --checkpoint_path TEXT
+                                  A path to a previous checkpoint to load the
+                                  state from and resume the state for
+                                  exporting
+  --labels-to-class-mapping , --labels_to_class_mapping TEXT
+                                  Optional path to the dataset-specific
+                                  mapping from numeric labels to human-readable
+                                  class strings. Expected to be a path to a
+                                  .json file containing a serialized dictionary
+                                  [default: None]
+  --arch_key, --arch-key TEXT     The architecture key for image
+                                  classification model; example: `resnet50`,
+                                  `mobilenet`. Note: Will be read from the
+                                  checkpoint if not specified
+  --num-samples, --num_samples INTEGER
+                                  The number of samples to export along with
+                                  the model onnx and pth files (sample inputs
+                                  and labels as well as the outputs from model
+                                  execution)  [default: -1]
+   --onnx-opset, --onnx_opset INTEGER
+                                  The onnx opset to use for exporting the
+                                  model  [default: 11]
+  --use_zipfile_serialization_if_available, --use-zipfile-serialization-if-available /
+  --no_zipfile_serialization, --no-zipfile-serialization
+                                  For torch >= 1.6.0 only exports the Module's
+                                  state dict using the new zipfile
+                                  serialization. Default is True, has no
+                                  effect with lower torch versions  [default:
+                                  use_zipfile_serialization_if_available]
+  --pretrained TEXT               The type of pretrained weights to use, loads
+                                  default pretrained weights for the model if
+                                  not specified or set to `True`. Otherwise
+                                  should be set to the desired weights type:
+                                  [base, optim, optim-perf]. To not load any
+                                  weights set to one of [none, false]
+                                  [default: True]
+  --pretrained-dataset, --pretrained_dataset TEXT
+                                  The dataset to load pretrained weights for
+                                  if pretrained is set. Load the default
+                                  dataset for the architecture if set to None.
+                                  examples:`imagenet`, `cifar10`, etc...
+  --model-kwargs, --model_kwargs TEXT
+                                  Keyword arguments to be passed to model
+                                  constructor, should be given as a json
+                                  object
+  --dataset-kwargs, --dataset_kwargs TEXT
+                                  Keyword arguments to be passed to dataset
+                                  constructor, should be specified as a json
+                                  object
+  --model-tag, --model_tag TEXT   A tag for saving results under save-dir,
+                                  defaults to the model arch and dataset used
+  --save-dir, --save_dir DIRECTORY
+                                  The path to the directory for saving results
+                                  [default: pytorch_vision]
+  --image-size, --image_size INTEGER
+                                  The size of the image input to the model.
+                                  Value should be equal to S for [C, S, S] or
+                                  [S, S, C] dimensional input  [default: 224]
+  --recipe TEXT                   The path to a recipe file or SparseZoo stub
+                                  to use for exporting the model
+  --convert_qat, --convert-qat / --no_convert_qat, --no-convert-qat
+                                  if True, exports of torch QAT graphs will be
+                                  converted to a fully quantized
+                                  representation. Default is True  [default:
+                                  convert_qat]
+  --num-classes, --num_classes INTEGER
+                                  number of classes for model; must be set if
+                                  a dataset is not provided
+  --help                          Show this message and exit.
+
+
 ##########
 Example command for exporting ResNet50:
 sparseml.image_classification.export_onnx \
@@ -94,294 +108,356 @@ sparseml.image_classification.export_onnx \
     --checkpoint-path ~/checkpoints/resnet50_checkpoint.pth
 """
 import json
-from dataclasses import dataclass, field
-from typing import Any, Optional, Tuple
+import os
+from typing import Any, Dict, Optional, Union
 
+import torch
 from torch.nn import Module
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+import click
 from sparseml import get_main_logger
-from sparseml.pytorch.image_classification.utils import NmArgumentParser, helpers
-from sparseml.pytorch.models import ModelRegistry
-from sparseml.pytorch.utils import ModuleExporter
-from sparseml.utils import convert_to_bool
+from sparseml.pytorch.image_classification.utils import cli_helpers, helpers
+from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
+from sparseml.pytorch.optim import ScheduledModifierManager
+from sparseml.pytorch.utils import ModuleExporter, load_model
 
 
 CURRENT_TASK = helpers.Tasks.EXPORT
 LOGGER = get_main_logger()
 
 
-@dataclass
-class ExportArgs:
+@click.command()
+@click.option(
+    "--dataset",
+    type=str,
+    default=None,
+    help="The dataset used for training, "
+    "ex: `imagenet`, `imagenette`, `cifar10`, etc. "
+    "Set to `imagefolder` for a generic dataset setup with "
+    "imagefolder type structure like imagenet or loadable by "
+    "a dataset in `sparseml.pytorch.datasets`",
+)
+@click.option(
+    "--dataset-path",
+    "--dataset_path",
+    type=click.Path(dir_okay=True, file_okay=False),
+    callback=cli_helpers.create_dir_callback,
+    default=None,
+    help="The root dir path where the dataset is stored or should "
+    "be downloaded to if available",
+)
+@click.option(
+    "--checkpoint-path",
+    "--checkpoint_path",
+    type=str,
+    default=None,
+    help="A path to a previous checkpoint to load the state from "
+    "and resume the state for exporting",
+)
+@click.option(
+    "--labels-to-class-mapping",
+    "--labels_to_class_mapping",
+    type=str,
+    default=None,
+    help="Optional path to the dataset-specific mapping from "
+    "numeric labels to human-readable class strings. "
+    "Expected to be a path to a .json file containing "
+    "a serialized dictionary",
+)
+@click.option(
+    "--arch_key",
+    "--arch-key",
+    type=str,
+    default=None,
+    help="The architecture key for image classification model; "
+    "example: `resnet50`, `mobilenet`. "
+    "Note: Will be read from the checkpoint if not specified",
+)
+@click.option(
+    "--num-samples",
+    "--num_samples",
+    type=int,
+    default=-1,
+    show_default=True,
+    help="The number of samples to export along with the model onnx "
+    "and pth files (sample inputs and labels as well as the "
+    "outputs from model execution)",
+)
+@click.option(
+    "--onnx-opset",
+    "--onnx_opset",
+    type=int,
+    default=TORCH_DEFAULT_ONNX_OPSET,
+    show_default=True,
+    help="The onnx opset to use for exporting the model",
+)
+@click.option(
+    "--use_zipfile_serialization_if_available/--no_zipfile_serialization",
+    "--use-zipfile-serialization-if-available/--no-zipfile-serialization",
+    is_flag=True,
+    default=True,
+    show_default=True,
+    help="For torch >= 1.6.0 only exports the Module's state dict "
+    "using the new zipfile serialization. Default is True, "
+    "has no effect with lower torch versions",
+)
+@click.option(
+    "--pretrained",
+    type=str,
+    default=True,
+    show_default=True,
+    help="The type of pretrained weights to use, "
+    "loads default pretrained weights for "
+    "the model if not specified or set to `True`. "
+    "Otherwise should be set to the desired weights "
+    "type: [base, optim, optim-perf]. To not load any weights set"
+    " to one of [none, false]",
+)
+@click.option(
+    "--pretrained-dataset",
+    "--pretrained_dataset",
+    type=str,
+    default=None,
+    show_default=True,
+    help="The dataset to load pretrained weights for if pretrained is "
+    "set. Load the default dataset for the architecture if set to None. "
+    "examples:`imagenet`, `cifar10`, etc...",
+)
+@click.option(
+    "--model-kwargs",
+    "--model_kwargs",
+    default=json.dumps({}),
+    type=str,
+    callback=cli_helpers.parse_json_callback,
+    help="Keyword arguments to be passed to model constructor, should "
+    "be given as a json object",
+)
+@click.option(
+    "--dataset-kwargs",
+    "--dataset_kwargs",
+    default=json.dumps({}),
+    type=str,
+    callback=cli_helpers.parse_json_callback,
+    help="Keyword arguments to be passed to dataset constructor, "
+    "should be specified as a json object",
+)
+@click.option(
+    "--model-tag",
+    "--model_tag",
+    type=str,
+    default=None,
+    help="A tag for saving results under save-dir, "
+    "defaults to the model arch and dataset used",
+)
+@click.option(
+    "--save-dir",
+    "--save_dir",
+    type=click.Path(dir_okay=True, file_okay=False),
+    default="pytorch_vision",
+    callback=cli_helpers.create_dir_callback,
+    show_default=True,
+    help="The path to the directory for saving results",
+)
+@click.option(
+    "--image-size",
+    "--image_size",
+    type=int,
+    default=224,
+    show_default=True,
+    help="The size of the image input to the model. Value should be "
+    "equal to S for [C, S, S] or [S, S, C] dimensional input",
+)
+@click.option(
+    "--recipe",
+    type=str,
+    default=None,
+    help="The path to a recipe file or SparseZoo stub to use for exporting the model",
+)
+@click.option(
+    "--convert_qat/--no_convert_qat",
+    "--convert-qat/--no-convert-qat",
+    default=True,
+    show_default=True,
+    help="if True, exports of torch QAT graphs will be converted to a fully quantized "
+    "representation. Default is True",
+)
+@click.option(
+    "--num-classes",
+    "--num_classes",
+    type=int,
+    default=None,
+    show_default=True,
+    help="number of classes for model; must be set if a dataset is not provided",
+)
+def main(
+    dataset: Optional[str] = None,
+    dataset_path: Optional[str] = None,
+    checkpoint_path: Optional[str] = None,
+    labels_to_class_mapping: Optional[str] = None,
+    arch_key: Optional[str] = None,
+    num_samples: int = -1,
+    onnx_opset: int = TORCH_DEFAULT_ONNX_OPSET,
+    use_zipfile_serialization_if_available: bool = True,
+    pretrained: Union[str, bool] = True,
+    pretrained_dataset: Optional[str] = None,
+    model_kwargs: Dict[str, Any] = {},
+    dataset_kwargs: Dict[str, Any] = {},
+    model_tag: Optional[str] = None,
+    save_dir: str = "pytorch_vision",
+    image_size: int = 224,
+    recipe: Optional[str] = None,
+    convert_qat: bool = True,
+    num_classes: Optional[int] = None,
+):
     """
-    Represents the arguments we use in our PyTorch integration scripts for
-    exporting tasks
-
-    Using :class:`NmArgumentParser` we can turn this class into `argparse
-    <https://docs.python.org/3/library/argparse.html#module-argparse>`__
-    arguments that can be specified on the command line.
-    :param arch_key: A str key representing the type of model to use,
-        ex:resnet50.
-    :param dataset: The dataset to use for analysis, ex imagenet, imagenette,
-        etc; Set to `imagefolder` for a custom dataset.
-    :param dataset_path: Root path to dataset location.
-    :param checkpoint_path: A path to a previous checkpoint to load the state
-        from and resume the state for; Also works with SparseZoo recipes;
-        Set to zoo to automatically download and load weights associated with a
-        recipe.
-    :param num_samples: The number of samples to export along with the model
-        onnx and pth files (sample inputs and labels as well as the outputs
-        from model execution). Default is 100.
-    :param onnx_opset: The onnx opset to use for export. Default is 11.
-    :param use_zipfile_serialization_if_available: for torch >= 1.6.0 only
-        exports the Module's state dict using the new zipfile serialization.
-        Default is True, has no affect on lower torch versions.
-    :param pretrained: The type of pretrained weights to use,
-        default is true to load the default pretrained weights for the model.
-        Otherwise should be set to the desired weights type: [base, optim,
-        optim-perf]. To not load any weights set to one of [none, false].
-    :param pretrained_dataset: The dataset to load pretrained weights for if
-        pretrained is set. Default is None which will load the default
-        dataset for the architecture. Ex can be set to imagenet, cifar10, etc.
-    :param model_kwargs: Keyword arguments to be passed to model constructor,
-        should be given as a json object.
-    :param dataset_kwargs: Keyword arguments to be passed to dataset
-        constructor, should be given as a json object.
-    :param model_tag: A tag to use for the model for saving results under
-        save-dir, defaults to the model arch and dataset used.
-    :param save_dir: The path to the directory for saving results.
+    SparseML-PyTorch Integration for exporting image classification models to
+    onnx along with sample inputs and outputs
     """
 
-    dataset: str = field(
-        metadata={
-            "help": "The dataset to use for exporting, "
-            "ex: imagenet, imagenette, cifar10, etc. "
-            "Set to imagefolder for a generic dataset setup "
-            "with an image folder structure setup like imagenet or "
-            "loadable by a dataset in sparseml.pytorch.datasets"
-        }
+    os.makedirs(save_dir, exist_ok=True)
+    _validate_dataset_num_classes(dataset, dataset_path, num_samples, num_classes)
+
+    save_dir, loggers = helpers.get_save_dir_and_loggers(
+        task=CURRENT_TASK,
+        is_main_process=True,
+        save_dir=save_dir,
+        arch_key=arch_key,
+        model_tag=model_tag,
+        dataset_name=dataset or "",
     )
 
-    dataset_path: str = field(
-        metadata={
-            "help": "The root path to where the dataset is stored",
-        }
-    )
-    checkpoint_path: str = field(
-        default=None,
-        metadata={
-            "help": "A path to a previous checkpoint to load the state from "
-            "and resume the state for. If provided, pretrained will "
-            "be ignored . If using a SparseZoo recipe, can also "
-            "provide 'zoo' to load the base weights associated with "
-            "that recipe"
-        },
-    )
-    arch_key: Optional[str] = field(
-        default=None,
-        metadata={
-            "help": "The type of model to use, ex: resnet50, vgg16, mobilenet "
-            "put as help to see the full list (will raise an exception "
-            "with the list)",
-        },
-    )
+    if dataset:
+        val_dataset, val_loader = helpers.get_dataset_and_dataloader(
+            dataset_name=dataset,
+            dataset_path=dataset_path,
+            batch_size=1,
+            image_size=image_size,
+            dataset_kwargs=dataset_kwargs,
+            training=False,
+            loader_num_workers=1,
+            loader_pin_memory=False,
+            max_samples=num_samples,
+        )
+    else:
+        val_dataset = None
+        val_loader = None
 
-    num_samples: int = field(
-        default=100,
-        metadata={
-            "help": "The number of samples to export along with the model onnx "
-            "and pth files (sample inputs and labels as well as the "
-            "outputs from model execution)"
-        },
-    )
-
-    onnx_opset: int = field(
-        default=11, metadata={"help": "The onnx opset to use for export. Default is 11"}
-    )
-
-    use_zipfile_serialization_if_available: convert_to_bool = field(
-        default=True,
-        metadata={
-            "help": "for torch >= 1.6.0 only exports the Module's state dict "
-            "using the new zipfile serialization. Default is True, "
-            "has no affect on lower torch versions"
-        },
-    )
-
-    pretrained: str = field(
-        default=True,
-        metadata={
-            "help": "The type of pretrained weights to use, "
-            "default is true to load the default pretrained weights for "
-            "the model. Otherwise should be set to the desired weights "
-            "type: [base, optim, optim-perf]. To not load any weights "
-            "set to one of [none, false]"
-        },
-    )
-
-    pretrained_dataset: str = field(
-        default=None,
-        metadata={
-            "help": "The dataset to load pretrained weights for if pretrained "
-            "is set. Default is None which will load the default "
-            "dataset for the architecture. Ex can be set to imagenet, "
-            "cifar10, etc",
-        },
-    )
-
-    model_kwargs: json.loads = field(
-        default_factory=lambda: {},
-        metadata={
-            "help": "Keyword arguments to be passed to model constructor, should "
-            "be given as a json object"
-        },
-    )
-
-    dataset_kwargs: json.loads = field(
-        default_factory=lambda: {},
-        metadata={
-            "help": "Keyword arguments to be passed to dataset constructor, "
-            "should be  given as a json object",
-        },
-    )
-
-    model_tag: str = field(
-        default=None,
-        metadata={
-            "help": "A tag to use for the model for saving results under save-dir, "
-            "defaults to the model arch and dataset used",
-        },
-    )
-
-    save_dir: str = field(
-        default="pytorch_vision",
-        metadata={
-            "help": "The path to the directory for saving results",
-        },
-    )
-
-    def __post_init__(self):
-        self.arch_key = helpers.get_arch_key(
-            arch_key=self.arch_key,
-            checkpoint_path=self.checkpoint_path,
+    # model creation
+    if num_classes is None:
+        num_classes = helpers.infer_num_classes(
+            train_dataset=None,
+            val_dataset=val_dataset,
+            dataset=dataset,
+            model_kwargs=model_kwargs,
         )
 
-        if "preprocessing_type" not in self.dataset_kwargs and (
-            "coco" in self.dataset.lower() or "voc" in self.dataset.lower()
-        ):
-            if "ssd" in self.arch_key.lower():
-                self.dataset_kwargs["preprocessing_type"] = "ssd"
-            elif "yolo" in self.arch_key.lower():
-                self.dataset_kwargs["preprocessing_type"] = "yolo"
+    model, arch_key, _ = helpers.create_model(
+        checkpoint_path=checkpoint_path if recipe is None else None,
+        recipe_path=recipe,
+        num_classes=num_classes,
+        arch_key=arch_key,
+        pretrained=pretrained,
+        pretrained_dataset=pretrained_dataset,
+        local_rank=-1,
+        **model_kwargs,
+    )
 
-        self.local_rank: int = -1
-        self.is_main_process: bool = True
+    if labels_to_class_mapping is None:
+        labels_to_class_mapping = helpers.label_to_class_mapping_from_dataset(dataset)
+
+    if recipe is not None:
+        ScheduledModifierManager.from_yaml(recipe).apply_structure(model)
+        load_model(checkpoint_path, model, strict=True)
+    export(
+        model=model,
+        val_loader=val_loader,
+        save_dir=save_dir,
+        use_zipfile_serialization_if_available=use_zipfile_serialization_if_available,
+        num_samples=num_samples,
+        onnx_opset=onnx_opset,
+        convert_qat=convert_qat,
+        image_size=image_size,
+        labels_to_class_mapping=labels_to_class_mapping,
+    )
 
 
 def export(
-    args: ExportArgs, model: Module, val_loader: DataLoader, save_dir: str
+    model: Module,
+    val_loader: "DataLoader",
+    save_dir: str,
+    use_zipfile_serialization_if_available: bool,
+    num_samples: int,
+    onnx_opset: int = TORCH_DEFAULT_ONNX_OPSET,
+    convert_qat: bool = True,
+    image_size: int = 224,
+    labels_to_class_mapping: Optional[Union[str, Dict[int, str]]] = None,
 ) -> None:
     """
     Utility method to export the model and data
 
-    :param args : An ExportArgs object containing config for export task.
     :param model: loaded model architecture to export
     :param val_loader: A DataLoader for validation data
     :param save_dir: Directory to store checkpoints at during exporting process
+    :param use_zipfile_serialization_if_available: Whether to use zipfile
+        serialization during export
+    :param num_samples: Number of samples to export
+    :param onnx_opset: ONNX opset version to use
+    :param convert_qat: set True to convert QAT export to fully quantized
+        representation
+    :param image_size: size of image to export
+    :param labels_to_class_mapping: information about the mapping
+        from integer labels to string class names. Can be either a string
+        (path to the .json serialized dictionary) or a dictionary.
     """
     exporter = ModuleExporter(model, save_dir)
 
-    # export PyTorch state dict
-    LOGGER.info(f"exporting pytorch in {save_dir}")
+    if not val_loader:
+        # create fake data for export
+        val_loader = [[torch.randn(1, 3, image_size, image_size)]]
 
-    exporter.export_pytorch(
-        use_zipfile_serialization_if_available=(
-            args.use_zipfile_serialization_if_available
-        )
-    )
     onnx_exported = False
 
     for batch, data in tqdm(
         enumerate(val_loader),
         desc="Exporting samples",
-        total=args.num_samples if args.num_samples > 1 else 1,
+        total=num_samples if num_samples > 1 else 1,
     ):
         if not onnx_exported:
             # export onnx file using first sample for graph freezing
             LOGGER.info(f"exporting onnx in {save_dir}")
-            exporter.export_onnx(data[0], opset=args.onnx_opset, convert_qat=True)
+            exporter.export_onnx(data[0], opset=onnx_opset, convert_qat=convert_qat)
             onnx_exported = True
 
-        if args.num_samples > 0:
+        if num_samples > 0:
             exporter.export_samples(
                 sample_batches=[data[0]], sample_labels=[data[1]], exp_counter=batch
             )
 
-
-def export_setup(args_: ExportArgs) -> Tuple[Module, Optional[str], Any]:
-    """
-    Pre-export setup
-
-    :param args_ : An ExportArgs object containing config for export task.
-    """
-    save_dir, loggers = helpers.get_save_dir_and_loggers(
-        task=CURRENT_TASK,
-        is_main_process=args_.is_main_process,
-        save_dir=args_.save_dir,
-        arch_key=args_.arch_key,
-        model_tag=args_.model_tag,
-        dataset_name=args_.dataset,
-    )
-    input_shape = ModelRegistry.input_shape(key=args_.arch_key)
-    image_size = input_shape[1]  # assume shape [C, S, S] where S is the image size
-
-    val_dataset, val_loader = helpers.get_dataset_and_dataloader(
-        dataset_name=args_.dataset,
-        dataset_path=args_.dataset_path,
-        batch_size=1,
-        image_size=image_size,
-        dataset_kwargs=args_.dataset_kwargs,
-        training=False,
-        loader_num_workers=1,
-        loader_pin_memory=False,
-        max_samples=args_.num_samples,
-    )
-
-    train_dataset = None
-
-    # model creation
-    num_classes = helpers.infer_num_classes(
-        train_dataset=train_dataset,
-        val_dataset=val_dataset,
-        dataset=args_.dataset,
-        model_kwargs=args_.model_kwargs,
-    )
-    model, args_.arch_key = helpers.create_model(
-        checkpoint_path=args_.checkpoint_path,
-        recipe_path=None,
-        num_classes=num_classes,
-        arch_key=args_.arch_key,
-        pretrained=args_.pretrained,
-        pretrained_dataset=args_.pretrained_dataset,
-        local_rank=args_.local_rank,
-        **args_.model_kwargs,
-    )
-    return model, save_dir, val_loader
+    exporter.create_deployment_folder(labels_to_class_mapping=labels_to_class_mapping)
 
 
-def main():
-    """
-    Driver function
-    """
-    _parser = NmArgumentParser(
-        dataclass_types=ExportArgs,
-        description="Utility script to export a model to onnx "
-        "and also store sample inputs/outputs",
-    )
-    (args_,) = _parser.parse_args_into_dataclasses()
-    model, save_dir, val_loader = export_setup(args_)
-    export(args_, model, val_loader, save_dir)
+def _validate_dataset_num_classes(
+    dataset: str,
+    dataset_path: str,
+    num_samples: int,
+    num_classes: int,
+):
+    if dataset and not dataset_path:
+        raise ValueError(f"found dataset {dataset} but dataset_path not specified")
+    if dataset_path and not dataset:
+        raise ValueError(f"found dataset_path {dataset_path} but dataset not specified")
+    if num_classes is None and (not dataset or not dataset_path):
+        raise ValueError(
+            "If num_classes is not provided, both dataset and dataset_path must be "
+            "set to infer num_classes"
+        )
+    if num_samples > 0 and (not dataset or not dataset_path):
+        raise ValueError(
+            "If num_samples > 0, both dataset and dataset_path must be "
+            "set to load samples for export"
+        )
 
 
 if __name__ == "__main__":

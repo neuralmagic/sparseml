@@ -41,7 +41,9 @@ def _register_classification_models():
     # find model functions in torchvision.models
     for model_name, constructor_function in getmembers(torchvision_models, isfunction):
         # using the "pretrained" keyword as proxy for a model function
-        if "pretrained" not in signature(constructor_function).parameters:
+        # NOTE: pretrained param was replaced with "weights" in torchvision 0.13.0
+        params = signature(constructor_function).parameters
+        if not ("pretrained" in params or "weights" in params):
             continue
 
         key = "torchvision.{}".format(model_name)

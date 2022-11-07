@@ -126,6 +126,8 @@ class TrainableParamsModifier(BaseTrainableParamsModifier, ScheduledModifier):
         for layer_name, layer, param_name, param in layers_names_and_params:
             self._module_params.append(param)
 
+        self._check_update(epoch, steps_per_epoch=1)
+
     def update(
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
     ):
@@ -142,16 +144,23 @@ class TrainableParamsModifier(BaseTrainableParamsModifier, ScheduledModifier):
             (calculate batch number using this and epoch)
         """
         super().update(module, optimizer, epoch, steps_per_epoch)
+        self._check_update(epoch, steps_per_epoch)
 
-        if self.start_pending(epoch, steps_per_epoch):
-            self._original.clear()
+    def _enable(self, param: Parameter):
+        param.requires_grad_(True)
 
+    def _disable(self, param: Parameter):
+        param.requires_grad_(False)
+        param.grad = None  # clear to prevent optimizer updates
+
+    def _check_update(self, epoch: float, steps_per_epoch: int):
+        if self.start_pending(epoch, steps_per_epoch) and not self._original:
             for param in self._module_params:
                 self._original.append(param.requires_grad)
-                param.requires_grad = self._trainable
+                self._enable(param) if self._trainable else self._disable(param)
         elif self.end_pending(epoch, steps_per_epoch):
             for original, param in zip(self._original, self._module_params):
-                param.requires_grad = original
+                self._enable(param) if original else self._disable(param)
 
 
 @PyTorchModifierYAML()

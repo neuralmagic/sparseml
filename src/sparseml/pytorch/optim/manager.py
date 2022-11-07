@@ -19,7 +19,8 @@ Also handles loading modifiers from yaml files
 """
 
 import logging
-from typing import Any, Dict, List, Optional, Union
+import math
+from typing import Any, Dict, Iterable, List, Optional, Union
 
 import torch
 from torch import Tensor
@@ -35,7 +36,7 @@ from sparseml.optim import (
 )
 from sparseml.pytorch.sparsification.modifier import Modifier, ScheduledModifier
 from sparseml.pytorch.utils import BaseLogger, LoggerManager, is_parallel_model
-from sparsezoo.objects import Recipe
+from sparsezoo import File
 
 
 __all__ = ["RecipeManagerStepWrapper", "ScheduledModifierManager"]
@@ -204,7 +205,6 @@ class RecipeManagerStepWrapper(object):
             kwargs["skip_orig_step"] if "skip_orig_step" in kwargs else False
         )
         ret = None
-
         if self._wrapped_manager.enabled:
             self._wrapped_manager.update(
                 self._wrapped_module,
@@ -256,7 +256,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
 
     @staticmethod
     def from_yaml(
-        file_path: Union[str, Recipe],
+        file_path: Union[str, File],
         add_modifiers: Optional[List[Modifier]] = None,
         recipe_variables: Optional[Union[Dict[str, Any], str]] = None,
         metadata: Optional[Dict[str, Any]] = None,
@@ -268,8 +268,8 @@ class ScheduledModifierManager(BaseManager, Modifier):
         :param file_path: the path to the recipe file to load the modifier from, or
             a SparseZoo model stub to load a recipe for a model stored in SparseZoo.
             SparseZoo stubs should be preceded by 'zoo:', and can contain an optional
-            '?recipe_type=<type>' parameter. Can also be a SparseZoo Recipe
-            object. i.e. '/path/to/local/recipe.yaml', 'zoo:model/stub/path',
+            '?recipe_type=<type>' parameter. Can also be a SparseZoo File
+            object. i.e. '/path/to/local/recipe.md', 'zoo:model/stub/path',
             'zoo:model/stub/path?recipe_type=transfer'. Additionally, a raw
              yaml str is also supported in place of a file path.
         :param add_modifiers: additional modifiers that should be added to the
@@ -373,6 +373,45 @@ class ScheduledModifierManager(BaseManager, Modifier):
 
             modifiers_index[key].load_state_dict(val)
 
+    def apply(
+        self,
+        module: Module,
+        epoch: float = math.inf,
+        loggers: Optional[LoggerManager] = None,
+        finalize: bool = True,
+        **kwargs,
+    ):
+        """
+        Applies the lifecycle of each stage in the manager/recipe
+        by calling into initialize and finalize for each modifier for each stage
+
+        :param module: the PyTorch model/module to modify
+        :param epoch: the epoch to apply the modifier at, defaults to math.inf (end)
+        :param loggers: Optional logger manager to log the modification process to
+        :param finalize: True to invoke finalize after initialize, False otherwise.
+            If training after one shot, set finalize=False to keep modifiers applied.
+        :param kwargs: Optional kwargs to support specific arguments
+            for individual modifiers (passed to initialize and finalize).
+        """
+        if not self.initialized:
+            super().initialize(module, epoch, loggers, **kwargs)
+            self._initialize_epoch = epoch
+
+        modifier_lists = (
+            self._modifiers
+            if isinstance(self._modifiers, List)
+            else list(self._modifiers.values())
+        )
+
+        for modifier_list in modifier_lists:
+
+            self._initialize_modifiers(
+                modifier_list, module, epoch, loggers=loggers, **kwargs
+            )
+
+            if finalize:
+                self._finalize_modifiers(modifier_list, module, **kwargs)
+
     def apply_structure(
         self,
         module: Module,
@@ -422,12 +461,9 @@ class ScheduledModifierManager(BaseManager, Modifier):
         super().initialize(module, epoch, loggers, **kwargs)
         self._initialize_epoch = epoch
 
-        for mod in self.iter_modifiers():
-            if mod.initialized:
-                # check in case modifier was initialized from apply_structure
-                continue
-
-            mod.initialize(module, epoch, loggers, **kwargs)
+        self._initialize_modifiers(
+            self.iter_modifiers(), module, epoch, loggers, **kwargs
+        )
 
     def initialize_loggers(self, loggers: Union[None, LoggerManager, List[BaseLogger]]):
         """
@@ -521,8 +557,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
         """
         super().finalize(module, reset_loggers, **kwargs)
 
-        for mod in self.iter_modifiers():
-            mod.finalize(module, reset_loggers, **kwargs)
+        self._finalize_modifiers(self.iter_modifiers(), module, reset_loggers, **kwargs)
 
     def update(
         self,
@@ -635,3 +670,34 @@ class ScheduledModifierManager(BaseManager, Modifier):
                 continue
 
             mod.optimizer_post_step(module, optimizer, epoch, steps_per_epoch)
+
+    def _initialize_modifiers(
+        self,
+        modifiers: Iterable[Modifier],
+        module: Module,
+        epoch: float = 0,
+        loggers: Union[None, LoggerManager, List[BaseLogger]] = None,
+        **kwargs,
+    ):
+        if isinstance(modifiers, Modifier):
+            modifiers = [modifiers]
+
+        for mod in modifiers:
+            if mod.initialized:
+                # check in case modifier was initialized from apply_structure
+                continue
+
+            mod.initialize(module, epoch, loggers, **kwargs)
+
+    def _finalize_modifiers(
+        self,
+        modifiers: Iterable[Modifier],
+        module: Optional[Module] = None,
+        reset_loggers: bool = True,
+        **kwargs,
+    ):
+        if isinstance(modifiers, Modifier):
+            modifiers = [modifiers]
+
+        for mod in modifiers:
+            mod.finalize(module, reset_loggers, **kwargs)

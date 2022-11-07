@@ -627,7 +627,7 @@ class BaseScheduled(BaseObject):
     :param end_comparator: integer value representing how the end_epoch should be
         compared to start_epoch.
         if == None, then end_epoch can only be set to what its initial value was.
-        if == -1, then end_epoch can be less than, equal, or greater than start_epoch.
+        if == -1, then end_epoch can be -1, equal to, or greater than start_epoch.
         if == 0, then end_epoch can be equal to or greater than start_epoch.
         if == 1, then end_epoch can only be greater than start_epoch.
     :param kwargs: standard key word args, used to support multi inheritance
@@ -643,12 +643,12 @@ class BaseScheduled(BaseObject):
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self._start_epoch = start_epoch
-        self._init_start = start_epoch
-        self._min_start = min_start
-        self._end_epoch = end_epoch
-        self._init_end = end_epoch
-        self._min_end = min_end
+        self._start_epoch = float(start_epoch)
+        self._init_start = float(start_epoch)
+        self._min_start = float(min_start)
+        self._end_epoch = float(end_epoch)
+        self._init_end = float(end_epoch)
+        self._min_end = float(min_end)
         self._end_comparator = end_comparator
         self.validate_schedule()
 
@@ -685,6 +685,27 @@ class BaseScheduled(BaseObject):
         self._end_epoch = value
         self.validate_schedule()
 
+    def advance_epochs(self, ref_start_epoch: float = None):
+        """
+        Advance epoch attributes given a reference start epoch
+        Derived modifiers might override this method for their specific attributes
+
+        :param ref_start_epoch: the reference, i.e. new, start epoch
+        """
+        if ref_start_epoch is not None:
+            self._start_epoch = max(0.0, self._start_epoch) + ref_start_epoch
+            self._init_end = (
+                self._init_end + ref_start_epoch
+                if self._init_end != -1
+                else self._init_end
+            )
+            self._end_epoch = (
+                self._end_epoch + ref_start_epoch
+                if self._end_epoch != -1
+                else self._end_epoch
+            )
+            self.validate_schedule()
+
     def validate_schedule(self):
         """
         Validate the schedule values of the params for the current instance are valid
@@ -709,6 +730,18 @@ class BaseScheduled(BaseObject):
                 "end_epoch of {} must be equal the init value of {} for {}".format(
                     self._end_epoch, self._init_end, self.__class__.__name__
                 )
+            )
+
+        if (
+            self._end_comparator == -1
+            and self._end_epoch < self._start_epoch
+            and (self._end_epoch != -1)
+        ):
+            raise ValueError(
+                (
+                    "end_epoch of {} must be greater than"
+                    " or equal to start_epoch of {} for {} or equal to -1"
+                ).format(self._end_epoch, self._start_epoch, self.__class__.__name__)
             )
 
         if self._end_comparator == 0 and self._start_epoch > self._end_epoch:

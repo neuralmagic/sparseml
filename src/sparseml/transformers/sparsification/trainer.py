@@ -16,29 +16,32 @@
 SparseML transformers trainer classes and interfaces to be plugged in with
 existing or similiar HF trainer flows
 """
-
 import inspect
 import logging
 import math
 import os
+import warnings
+from dataclasses import asdict
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import datasets
+import numpy
 import torch
 from torch import distributed as dist
 from torch.nn import Module
-from torch.utils.data import RandomSampler
-from transformers import Trainer as TransformersTrainer
+from transformers import Trainer as HFTransformersTrainer
 from transformers import TrainerCallback, TrainerControl, TrainingArguments
 from transformers.file_utils import WEIGHTS_NAME
+from transformers.integrations import TensorBoardCallback
 from transformers.trainer_callback import TrainerState
-from transformers.trainer_utils import get_last_checkpoint
+from transformers.trainer_pt_utils import reissue_pt_warnings
+from transformers.trainer_utils import ShardedDDPOption, get_last_checkpoint
 
 from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
 from sparseml.pytorch.utils import (
-    GradSampler,
     LoggerManager,
     ModuleSparsificationInfo,
+    TensorBoardLogger,
     WANDBLogger,
 )
 from sparseml.transformers.utils import SparseAutoModel
@@ -50,17 +53,21 @@ __all__ = [
     "TrainerInterface",
     "Trainer",
     "DisableHalfPrecisionCallback",
+    "TransformersTrainer",
 ]
 
 
 _LOGGER = logging.getLogger(__name__)
 TRAINER_STATE_NAME = "trainer_state.json"
+OPTIMIZER_NAME = "optimizer.pt"
+SCHEDULER_NAME = "scheduler.pt"
+SCALER_NAME = "scaler.pt"
 
 
 class RecipeManagerTrainerInterface:
     """
     Training base interface for running sparsification recipes with transformers flows.
-    Defines it's own lifecycle that is compatible with transformers flows.
+    Defines its own lifecycle that is compatible with transformers flows.
     Can additionally be used outside of transformers flows provided
     they match reasonably closely.
 
@@ -80,7 +87,7 @@ class RecipeManagerTrainerInterface:
     :param model: the model to use with the trainer and apply sparsification to
     :param model_state_path: the state path to the model,
         used to load config and tokenizer settings
-    :param recipe: the recipe, if any, to apply to the modle and training
+    :param recipe: the recipe, if any, to apply to the model and training
         process
     :param recipe_args: A json string, csv key=value string, or dictionary containing
         arguments to override the root arguments within the recipe such as
@@ -88,7 +95,7 @@ class RecipeManagerTrainerInterface:
     :param metadata_args A list of arguments to be extracted from training_args
         and passed as metadata for the final, saved recipe.
     :param teacher: teacher model for distillation. Set to 'self' to distill
-        from the loaded model or 'disable' to turn of distillation
+        from the loaded model or 'disable' to turn off distillation
     :param kwargs: key word arguments passed to the parent class
     """
 
@@ -99,6 +106,7 @@ class RecipeManagerTrainerInterface:
         recipe: Optional[str],
         recipe_args: Optional[Union[Dict[str, Any], str]] = None,
         metadata_args: Optional[List[str]] = None,
+        data_args: Optional["DataTrainingArguments"] = None,  # noqa: F821
         teacher: Optional[Union[Module, str]] = None,
         **kwargs,
     ):
@@ -108,11 +116,15 @@ class RecipeManagerTrainerInterface:
         self.recipe = recipe
         self.recipe_args = recipe_args
         self.teacher = teacher
+
+        training_args = kwargs.get("args")
         self.metadata = (
             self._extract_metadata(
-                metadata_args=metadata_args, training_args=kwargs["args"]
+                metadata_args=metadata_args,
+                training_args_dict=training_args.to_dict(),
+                data_args_dict=asdict(data_args),
             )
-            if ("args" in kwargs and metadata_args)
+            if training_args
             else None
         )
 
@@ -131,9 +143,13 @@ class RecipeManagerTrainerInterface:
                 )
             else:
                 self.logger_manager = LoggerManager(loggers)
+
+            if recipe:
+                self.logger_manager.save(recipe)
         else:
             self.logger_manager = LoggerManager(log_python=False)
 
+        self.one_shot = data_args.one_shot if hasattr(data_args, "one_shot") else False
         self.manager, self.arch_manager = self._setup_manager(kwargs)
         self.manager_applied = False
         self.manager_initialized = False
@@ -144,15 +160,12 @@ class RecipeManagerTrainerInterface:
         self.criterion = torch.nn.CrossEntropyLoss()
         self.callback_disable_fp16 = DisableHalfPrecisionCallback(self)
         self.callback_handler.add_callback(self.callback_disable_fp16)
-
-        self.grad_sampler = GradSampler(
-            self._mfac_data_loader(), self._mfac_loss_function
-        )
+        self._add_tensorboard_logger_if_available()
 
         model_signature = inspect.signature(self.model.forward)
         self._model_signature_columns = list(model_signature.parameters.keys())
 
-        if self.teacher is not None:
+        if self.teacher is not None and teacher not in ("disable", "self"):
             teacher_signature = inspect.signature(self.teacher.forward)
             self._teacher_signature_columns = list(teacher_signature.parameters.keys())
         else:
@@ -184,11 +197,17 @@ class RecipeManagerTrainerInterface:
             )
 
         if self.manager is not None:
-            self.manager.apply_structure(self.model, epoch=epoch)
-            _LOGGER.info(
-                "Applied structure from SparseML recipe argument to model at "
-                f"epoch {epoch}"
-            )
+            if not self.one_shot:
+                self.manager.apply_structure(self.model, epoch=epoch)
+                _LOGGER.info(
+                    "Applied structure from SparseML recipe argument to model at "
+                    f"epoch {epoch}"
+                )
+            else:
+                self.manager.apply(self.model)
+                self.manager_applied = True
+                _LOGGER.info(f"Applied one shot recipe {self.recipe} to the manager")
+                return True
 
         # reload the state dict for the model now that architecture matches expected
         load_path = checkpoint or self.model_state_path
@@ -238,15 +257,15 @@ class RecipeManagerTrainerInterface:
             if torch.distributed.is_initialized()
             else self.args._n_gpu
         )
+        n_device = n_gpu if n_gpu > 0 else 1
         total_batch_size = (
             self.args.per_device_train_batch_size
-            * n_gpu
+            * n_device
             * self.args.gradient_accumulation_steps
         )
         self.manager_steps_per_epoch = math.ceil(
             len(self.train_dataset) / total_batch_size
         )
-
         if hasattr(self, "scaler"):
             wrap_optim_key = "scaler"
             self.scaler = self.manager.modify(
@@ -257,7 +276,10 @@ class RecipeManagerTrainerInterface:
                 wrap_optim=self.scaler,
                 loggers=self.logger_manager,
                 distillation_teacher=self.teacher,
-                grad_sampler=self.grad_sampler,
+                grad_sampler={
+                    "data_loader_builder": self._data_loader_builder,
+                    "loss_function": self._loss_function,
+                },
             )
         else:
             wrap_optim_key = "optimizer"
@@ -268,8 +290,11 @@ class RecipeManagerTrainerInterface:
                 steps_per_epoch=self.manager_steps_per_epoch,
                 loggers=self.logger_manager,
                 initialize_kwargs={
-                    "grad_sampler": self.grad_sampler,
                     "distillation_teacher": self.teacher,
+                    "grad_sampler": {
+                        "data_loader_builder": self._data_loader_builder,
+                        "loss_function": self._loss_function,
+                    },
                 },
             )
             if not self.manager.initialized:
@@ -277,7 +302,10 @@ class RecipeManagerTrainerInterface:
                     self.model,
                     loggers=self.logger_manager,
                     distillation_teacher=self.teacher,
-                    grad_sampler=self.grad_sampler,
+                    grad_sampler={
+                        "data_loader_builder": self._data_loader_builder,
+                        "loss_function": self._loss_function,
+                    },
                 )
         self.manager_initialized = True
         _LOGGER.info(
@@ -300,7 +328,6 @@ class RecipeManagerTrainerInterface:
         :param optimizer: pre-initialized optimizer
         """
         self._check_super_defined("create_scheduler")
-
         if (
             self.lr_scheduler is not None
             or self.manager is None
@@ -310,10 +337,7 @@ class RecipeManagerTrainerInterface:
             return
 
         # allow SparseML to manage LR and set a dummy scheduler
-        self.lr_scheduler = torch.optim.lr_scheduler.MultiplicativeLR(
-            self.optimizer,
-            lambda _: 1.0,
-        )
+        self.lr_scheduler = self._dummy_lr_scheduler()
         _LOGGER.warning("Overrode the lr_scheduler from SparseML recipe")
 
     def compute_loss(
@@ -340,18 +364,38 @@ class RecipeManagerTrainerInterface:
             or not self.manager.enabled
             or not self.manager.distillation_modifiers
         ):
+            inputs = {
+                k: inputs[k] for k in inputs if k in self._model_signature_columns
+            }
             return super().compute_loss(model, inputs, return_outputs=return_outputs)
 
         student_inputs = {
             k: inputs[k] for k in inputs if k in self._model_signature_columns
         }
         student_outputs = model(**student_inputs)
-
-        teacher_inputs = {
-            k: inputs[k] for k in inputs if k in self._teacher_signature_columns
-        }
+        if any(_get_teacher_base_column_name(column) for column in inputs):
+            # inputs from teacher tokenizer available
+            teacher_inputs = {}
+            for column_name, column_data in inputs.items():
+                teacher_column_name = _get_teacher_base_column_name(column_name)
+                if not teacher_column_name or (
+                    self._teacher_signature_columns
+                    and teacher_column_name not in self._teacher_signature_columns
+                ):
+                    continue  # not valid teacher column name or no forward match
+                teacher_inputs[teacher_column_name] = column_data
+        elif self._teacher_signature_columns is not None:
+            # select from main student inputs
+            teacher_inputs = {
+                k: inputs[k] for k in inputs if k in self._teacher_signature_columns
+            }
+        else:
+            # pass all inputs
+            teacher_inputs = None
 
         loss = student_outputs["loss"]
+        if self.args.n_gpu > 1:  # DataParallel
+            loss = loss.mean()
         loss = self.manager.loss_update(
             loss,
             model,
@@ -364,6 +408,25 @@ class RecipeManagerTrainerInterface:
         )
 
         return (loss, student_outputs) if return_outputs else loss
+
+    def prediction_step(
+        self,
+        model: Module,
+        inputs: Dict[str, Union[torch.Tensor, Any]],
+        prediction_loss_only: bool,
+        ignore_keys: Optional[List[str]] = None,
+    ) -> Tuple[Optional[float], Optional[torch.Tensor], Optional[torch.Tensor]]:
+        """
+        Wraps the prediction step from the original trainer to remove any input entry
+        that should not be passed to the model.
+        This situation may arise when distillation is used and the teacher model
+        contains more inputs than the student model.
+        """
+        self._check_super_defined("prediction_step")
+
+        inputs = {k: inputs[k] for k in inputs if k in self._model_signature_columns}
+
+        return super().prediction_step(model, inputs, prediction_loss_only, ignore_keys)
 
     def save_model(
         self,
@@ -398,7 +461,6 @@ class RecipeManagerTrainerInterface:
             )
             composed_manager.save(recipe_path)
         else:
-
             self.manager.save(recipe_path)
 
         _LOGGER.info(f"Saved SparseML recipe with model state to {recipe_path}")
@@ -426,21 +488,89 @@ class RecipeManagerTrainerInterface:
             f"all sparsification info: {sparsification_info}"
         )
 
+    def save_sample_inputs_outputs(
+        self, num_samples_to_export: int = 100, output_dir: Optional[str] = None
+    ):
+        """
+        Save sample inputs/outputs/labels in save_dir as .npz arrays
+
+        :param num_samples_to_export: Number of samples to export.
+            Defaults to 100
+        :param output_dir: The directory to store sample inputs and outputs in
+        """
+        num_samples = 0
+        output_dir = output_dir or self.args.output_dir or ""
+
+        sample_in_dir = os.path.join(output_dir, "sample_inputs")
+        sample_out_dir = os.path.join(output_dir, "sample_outputs")
+
+        os.makedirs(sample_in_dir, exist_ok=True)
+        os.makedirs(sample_out_dir, exist_ok=True)
+        device = self.model.device
+
+        try:
+            dataloader = self.get_eval_dataloader()
+        except Exception:
+            dataloader = self.get_train_dataloader()
+
+        _LOGGER.info(f"Exporting {num_samples_to_export} samples to {output_dir}")
+        for _, sample_batch in enumerate(dataloader):
+            sample_batch.pop("labels", None)
+            input_names = list(sample_batch.keys())
+
+            for input_vals in zip(*sample_batch.values()):
+                input_feed = {k: v.to("cpu") for k, v in zip(input_names, input_vals)}
+                model_inputs = {
+                    k: input_feed[k].to(device).reshape(1, -1) for k in input_feed
+                }
+                output_vals = self.model(**model_inputs)
+                output_dict = {
+                    name: torch.squeeze(val).detach().to("cpu")
+                    for name, val in output_vals.items()
+                }
+                file_idx = f"{num_samples}".zfill(4)
+
+                sample_input_filename = os.path.join(
+                    f"{sample_in_dir}", f"inp-{file_idx}.npz"
+                )
+                numpy.savez(sample_input_filename, **input_feed)
+
+                sample_output_filename = os.path.join(
+                    f"{sample_out_dir}", f"out-{file_idx}.npz"
+                )
+                numpy.savez(sample_output_filename, **output_dict)
+                num_samples += 1
+
+                if num_samples >= num_samples_to_export:
+                    break
+            if num_samples >= num_samples_to_export:
+                break
+        _LOGGER.info(f"Exported {num_samples_to_export} samples to {output_dir}")
+
     def _extract_metadata(
-        self, metadata_args: List[str], training_args: TrainingArguments
-    ) -> Dict:
+        self,
+        metadata_args: List[str],
+        training_args_dict: Dict[str, Any],
+        data_args_dict: Dict[str, Any],
+    ) -> Dict[str, Any]:
         metadata = {}
-        training_args_dict = training_args.to_dict()
+        if not training_args_dict.keys().isdisjoint(data_args_dict.keys()):
+            raise ValueError(
+                "Found common keys in `training_args` and `data args`. "
+                "This is prohibitive and may lead to undesired behavior."
+            )
+
+        args_dict = {**training_args_dict, **data_args_dict}
 
         for arg in metadata_args:
-            if arg not in training_args_dict.keys():
+            if arg not in args_dict.keys():
                 logging.warning(
                     f"Required metadata argument {arg} was not found "
                     f"in the training arguments. Setting {arg} to None."
                 )
                 metadata[arg] = None
             else:
-                metadata[arg] = training_args_dict[arg]
+                metadata[arg] = args_dict[arg]
 
         return metadata
 
@@ -497,7 +627,7 @@ class RecipeManagerTrainerInterface:
         ):
             _LOGGER.warning(
                 "Model state was not reloaded for SparseML: "
-                f"could not find model wieghts for model_path {load_path}"
+                f"could not find model weights for model_path {load_path}"
             )
             return
 
@@ -508,11 +638,16 @@ class RecipeManagerTrainerInterface:
             return
 
         # change in keys due to architecture changes, reload statedict
-        load_state_dict = torch.load(
+        loaded_state_dict = torch.load(
             os.path.join(load_path, WEIGHTS_NAME), map_location="cpu"
         )
-        _, missing, unexpected, _, _ = self.model._load_state_dict_into_model(
-            self.model, load_state_dict, load_path, _fast_init=False
+        _, missing, unexpected, _, _ = self.model._load_pretrained_model(
+            model=self.model,
+            state_dict=loaded_state_dict,
+            loaded_keys=list(loaded_state_dict.keys()),
+            resolved_archive_file=[],
+            pretrained_model_name_or_path=load_path,
+            _fast_init=False,
         )
 
         if missing:
@@ -538,33 +673,30 @@ class RecipeManagerTrainerInterface:
             delayed_load=False,
         )
 
-    def _mfac_data_loader(self):
-        data_loader_template = self.get_train_dataloader()
+    def _data_loader_builder(self, kwargs: Optional[Dict[str, Any]] = None):
+        default_loader = self.get_train_dataloader()
+        template = dict(default_loader.__dict__)
 
-        data_loader = torch.utils.data.DataLoader(
-            dataset=data_loader_template.dataset,
-            batch_size=data_loader_template.batch_size // 2,
-            sampler=RandomSampler(data_loader_template.dataset, replacement=False),
-            num_workers=data_loader_template.num_workers,
-            collate_fn=data_loader_template.collate_fn,
-            pin_memory=data_loader_template.pin_memory,
-            drop_last=data_loader_template.drop_last,
-            timeout=data_loader_template.timeout,
-            worker_init_fn=data_loader_template.worker_init_fn,
-            generator=data_loader_template.generator,
-            prefetch_factor=data_loader_template.prefetch_factor,
-            persistent_workers=data_loader_template.persistent_workers,
-        )
+        # drop attributes that will be auto-initialized
+        to_drop = [k for k in template if k.startswith("_") or k == "batch_sampler"]
+        for item in to_drop:
+            template.pop(item)
 
-        for sample in data_loader:
-            if self.label_smoother is not None and "labels" in sample:
-                label = sample.pop("labels")
-            else:
-                label = None
-            sample = self._prepare_inputs(sample)
-            yield [], sample, label
+        # override defaults if kwargs are given, for example via recipe
+        if kwargs:
+            template.update(kwargs)
+        data_loader = type(default_loader)(**template)
 
-    def _mfac_loss_function(self, model_outputs, loss_target):
+        while True:  # infinite dataloading
+            for sample in data_loader:
+                if self.label_smoother is not None and "labels" in sample:
+                    label = sample.pop("labels")
+                else:
+                    label = None
+                sample = self._prepare_inputs(sample)
+                yield [], sample, label
+
+    def _loss_function(self, model_outputs, loss_target):
         if loss_target is not None:
             loss = self.label_smoother(model_outputs, loss_target)
         else:
@@ -575,20 +707,38 @@ class RecipeManagerTrainerInterface:
             )
         return loss
 
+    def _add_tensorboard_logger_if_available(self):
+        tensorboard_callback = None
+        for callback in self.callback_handler.callbacks:
+            if isinstance(callback, TensorBoardCallback):
+                tensorboard_callback = callback
+                break
+        if tensorboard_callback is None:
+            return
+
+        if tensorboard_callback.tb_writer is None:
+            tensorboard_callback._init_summary_writer(
+                self.args, log_dir=self.args.logging_dir
+            )
+
+        self.logger_manager.add_logger(
+            TensorBoardLogger(writer=tensorboard_callback.tb_writer)
+        )
+
 
 class TrainerInterface(RecipeManagerTrainerInterface):
     """
     Training interface for running sparsification recipes with transformers flows.
     Mimics the lifecycle of transformers Trainer classes.
 
-    Should be instantiated with multi-inheretance with a custom trainer class.
+    Should be instantiated with multi-inheritance with a custom trainer class.
     TrainerInterface must be provided before Trainer for proper class dependency.
     i.e. class MyCustomTrainer(TrainerInterface, Trainer)
 
     :param model: the model to use with the trainer and apply sparsification to
     :param model_state_path: the state path to the model,
         used to load config and tokenizer settings
-    :param recipe: the recipe, if any, to apply to the modle and training
+    :param recipe: the recipe, if any, to apply to the model and training
         process
     :param recipe_args: A json string, csv key=value string, or dictionary containing
         arguments to override the root arguments within the recipe such as
@@ -596,7 +746,7 @@ class TrainerInterface(RecipeManagerTrainerInterface):
     :param metadata_args A list of arguments to be extracted from training_args
         and passed as metadata for the final, saved recipe.
     :param teacher: teacher model for distillation. Set to 'self' to distill
-        from the loaded model or 'disable' to turn of distillation
+        from the loaded model or 'disable' to turn off distillation
     :param kwargs: key word arguments passed to the parent class
     """
 
@@ -634,9 +784,13 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         checkpoint, epoch = self._generate_apply_manager_params(kwargs)
         applied = self.apply_manager(epoch=epoch, checkpoint=checkpoint)
         self.callback_disable_fp16.check_disable(epoch, force=True)
-        output = super().train(*args, **kwargs)
-        if applied:
-            self.finalize_manager()
+        output = None
+        if not self.one_shot:
+            output = super().train(*args, **kwargs)
+            if applied:
+                self.finalize_manager()
+        else:
+            _LOGGER.info(f"Skipping Training due to one-shot: {self.one_shot}")
         self.log_model_sparsification()
 
         return output
@@ -652,7 +806,14 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         :return: the output from super.evaluate()
         """
         applied = self.apply_manager(epoch=math.inf, checkpoint=None)
+
+        # Always evaluate w/ fp32 to be closer to DeepSparse
+        use_cuda_amp = self.use_cuda_amp
+        if not self.args.fp16_full_eval and not self.args.bf16_full_eval:
+            self.use_cuda_amp = False
+
         output = super().evaluate(*args, **kwargs)
+        self.use_cuda_amp = use_cuda_amp
         if applied:
             self.finalize_manager()
 
@@ -700,6 +861,119 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         return checkpoint, epoch
 
 
+class TransformersTrainer(HFTransformersTrainer):
+    """
+    A transformers trainer class with custom behavior that can be shared
+    by all trainers inside SparseML
+    """
+
+    def _save_checkpoint(self, model, trial, metrics=None):
+        # Call into the save checkpoint by HF Transformers, which saves the
+        # best metric if required
+        super()._save_checkpoint(model, trial, metrics=metrics)
+        if (
+            self.args.metric_for_best_model is None
+            or self.args.best_model_after_epoch is None
+        ):
+            return
+
+        if self.state.epoch <= self.args.best_model_after_epoch:
+            self.state.best_metric = None
+            self.state.best_model_checkpoint = None
+
+    def save_optimizer_and_scheduler(self, output_dir: Optional[str] = None):
+        """
+        Save optimizer, scheduler and scaler
+
+        :param output_dir: The output model directory to save the above
+        """
+        if output_dir is None:
+            output_dir = self.args.output_dir
+
+        if self.sharded_ddp == ShardedDDPOption.SIMPLE and self.optimizer is not None:
+            self.optimizer.consolidate_state_dict()
+
+        if self.is_world_process_zero():
+            if self.optimizer is not None:
+                torch.save(
+                    self.optimizer.state_dict(),
+                    os.path.join(output_dir, "optimizer.pt"),
+                )
+            with warnings.catch_warnings(record=True) as caught_warnings:
+                if self.lr_scheduler is not None:
+                    torch.save(
+                        self.lr_scheduler.state_dict(),
+                        os.path.join(output_dir, "scheduler.pt"),
+                    )
+            reissue_pt_warnings(caught_warnings)
+            if self.use_cuda_amp:
+                torch.save(
+                    self.scaler.state_dict(), os.path.join(output_dir, "scaler.pt")
+                )
+
+    def _load_optimizer_and_scheduler(self, checkpoint):
+        """
+        Override the Transformers Trainer so that optimizer, scheduler and scaler could
+        be loaded also from the input model folder, which is our use case (instead of
+        only from a separate checkpoint folder).
+        """
+        # We include the model path as where the optimizer and scheduler could be loaded
+        # (in addition to checkpoint folders)
+        model_folder = checkpoint if checkpoint is not None else self.model_state_path
+        if not os.path.isfile(os.path.join(model_folder, OPTIMIZER_NAME)):
+            return
+
+        super()._load_optimizer_and_scheduler(model_folder)
+
+        if self.manager.learning_rate_modifiers:
+            # If LR modifiers are present in the recipe, SparseML willl take
+            # control of the learning rate schedule. Therefore, set the built-in
+            # scheduler to a dummy
+            self.lr_scheduler = self._dummy_lr_scheduler()
+
+    def _dummy_lr_scheduler(self):
+        return torch.optim.lr_scheduler.MultiplicativeLR(
+            self.optimizer,
+            lambda _: 1.0,
+        )
+
+    def _remove_unused_columns(
+        self, dataset: "datasets.Dataset", description: Optional[str] = None
+    ):
+        if not self.args.remove_unused_columns:
+            return dataset
+        if (
+            self._signature_columns is None
+            and self.teacher is not None
+            and self.teacher not in ("disable", "self")
+        ):
+            model_signature = inspect.signature(self.model.forward)
+            model_signature_columns = set(model_signature.parameters.keys())
+
+            teacher_signature = inspect.signature(self.teacher.forward)
+            teacher_signature_columns = set(teacher_signature.parameters.keys())
+
+            self._signature_columns = list(
+                model_signature_columns | teacher_signature_columns
+            )
+
+            # add columns from teacher tokenizer to allowed list
+            for column_name in dataset.column_names:
+                teacher_column_name = _get_teacher_base_column_name(column_name)
+                if not teacher_column_name or (
+                    teacher_column_name not in teacher_signature_columns
+                ):
+                    continue  # not a teacher tokenizer column
+                # add column name with distill teacher prefix to allowed list
+                self._signature_columns.append(column_name)
+
+            # Labels may be named label or label_ids, the default data
+            # collator handles that.
+            self._signature_columns += ["label", "label_ids"]
+
+        return super()._remove_unused_columns(dataset, description)
+
+
 class Trainer(TrainerInterface, TransformersTrainer):
     """
     Training implementation for running sparsification recipes with transformers flows.
@@ -733,28 +1007,6 @@ class Trainer(TrainerInterface, TransformersTrainer):
             teacher=teacher,
             **kwargs,
         )
-
-    def _remove_unused_columns(
-        self, dataset: "datasets.Dataset", description: Optional[str] = None
-    ):
-        if not self.args.remove_unused_columns:
-            return dataset
-        if self._signature_columns is None and self.teacher is not None:
-            model_signature = inspect.signature(self.model.forward)
-            model_signature_columns = set(model_signature.parameters.keys())
-
-            teacher_signature = inspect.signature(self.teacher.forward)
-            teacher_signature_columns = set(teacher_signature.parameters.keys())
-
-            self._signature_columns = list(
-                model_signature_columns | teacher_signature_columns
-            )
-
-            # Labels may be named label or label_ids, the default data
-            # collator handles that.
-            self._signature_columns += ["label", "label_ids"]
-
-        return super()._remove_unused_columns(dataset, description)
 
 
 class DisableHalfPrecisionCallback(TrainerCallback):
@@ -791,7 +1043,7 @@ class DisableHalfPrecisionCallback(TrainerCallback):
         if not self.on_begin_called:
             # disable if training loops haven't started so we don't load
             # the empty scaler state dict and instead disable it from the start
-            self.trainer.use_amp = False
+            self.trainer.use_cuda_amp = False
 
         if hasattr(self.trainer, "scaler"):
             self.trainer.scaler._enabled = False
@@ -815,3 +1067,10 @@ class DisableHalfPrecisionCallback(TrainerCallback):
 
         if state.epoch > self.quant_start_epoch:
             _LOGGER.info(self.trainer.model)
+
+
+def _get_teacher_base_column_name(column_name: str) -> Optional[str]:
+    # if column was created by teacher tokenizer, return the base name
+    if not column_name.startswith("distill_teacher:"):
+        return
+    return column_name[len("distill_teacher:") :]

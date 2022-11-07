@@ -26,7 +26,7 @@ from torch.nn import Module, Parameter
 
 from sparseml.pytorch.sparsification.pruning.mask_creator import PruningMaskCreator
 from sparseml.pytorch.sparsification.pruning.scorer import PruningParamsScorer
-from sparseml.pytorch.utils import mask_difference, tensor_sparsity
+from sparseml.pytorch.utils import mask_difference, tensor_list_sparsity
 
 
 __all__ = [
@@ -108,7 +108,7 @@ class ModuleParamPruningMask(object):
                 )
 
         # initialize masks to all ones
-        self._param_masks = [torch.ones(param.shape) for param in self._params]
+        self._param_masks = [torch.ones_like(param) for param in self._params]
         self._params_init = [None] * len(self._layers)  # type: List[Tensor]
         self._params_unmasked = [None] * len(self._layers)  # type: List[Tensor]
         self._params_grad = [None] * len(self._layers)  # type: List[Tensor]
@@ -357,6 +357,8 @@ class ModuleParamPruningMask(object):
             target = [target] * len(self._params)
         if self.adjust_target_sparsity_for_thinning:
             for idx, sparsity_val in enumerate(target):
+                if sparsity_val is None:
+                    continue  # ie constant pruning
                 applied_thinning = self._params_applied_thinning[idx]
                 if applied_thinning > 0.0:
                     # adjust sparsity for thinned (compressed) layer param
@@ -373,9 +375,7 @@ class ModuleParamPruningMask(object):
         )
 
         if self._scorer:
-            self._scorer.update_last_applied_sparsity(
-                tensor_sparsity(self.params_data[0])
-            )
+            self._scorer.update_last_applied_sparsity(tensor_list_sparsity(masks))
 
         return self.set_param_masks(masks)
 

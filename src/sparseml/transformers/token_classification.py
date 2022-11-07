@@ -40,14 +40,14 @@ from transformers import (
     HfArgumentParser,
     PretrainedConfig,
     PreTrainedTokenizerFast,
-    TrainingArguments,
     set_seed,
 )
 from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils import check_min_version
 from transformers.utils.versions import require_version
 
-from sparseml.transformers.sparsification import Trainer
+from sparseml.pytorch.utils.distributed import record
+from sparseml.transformers.sparsification import Trainer, TrainingArguments
 from sparseml.transformers.utils import SparseAutoModel, get_shared_tokenizer_src
 
 
@@ -83,10 +83,6 @@ class ModelArguments:
                 "huggingface.co/models"
             )
         }
-    )
-    distill_teacher: Optional[str] = field(
-        default=None,
-        metadata={"help": "Teacher model which needs to be a trained NER model"},
     )
     config_name: Optional[str] = field(
         default=None,
@@ -127,19 +123,6 @@ class DataTrainingArguments:
     training and eval
     """
 
-    recipe: Optional[str] = field(
-        default=None,
-        metadata={
-            "help": (
-                "Path to a SparseML sparsification recipe, see "
-                "https://github.com/neuralmagic/sparseml for more information"
-            ),
-        },
-    )
-    recipe_args: Optional[str] = field(
-        default=None,
-        metadata={"help": "Recipe arguments to be overwritten"},
-    )
     task_name: Optional[str] = field(
         default="ner", metadata={"help": "The name of the task (ner, pos...)."}
     )
@@ -241,6 +224,14 @@ class DataTrainingArguments:
             "just the overall ones."
         },
     )
+    one_shot: bool = field(
+        default=False,
+        metadata={"help": "Whether to apply recipe in a one shot manner."},
+    )
+    num_export_samples: int = field(
+        default=0,
+        metadata={"help": "Number of samples (inputs/outputs) to export during eval."},
+    )
 
     def __post_init__(self):
         if (
@@ -267,8 +258,10 @@ class DataTrainingArguments:
         self.task_name = self.task_name.lower()
 
 
-def main():
-    # See all possible arguments in src/transformers/training_args.py
+@record
+def main(**kwargs):
+    # See all possible arguments in
+    # src/sparseml/transformers/sparsification/training_args.py
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
 
@@ -281,9 +274,10 @@ def main():
         model_args, data_args, training_args = parser.parse_json_file(
             json_file=os.path.abspath(sys.argv[1])
         )
-    else:
+    elif not kwargs:
         model_args, data_args, training_args = parser.parse_args_into_dataclasses()
-
+    else:
+        model_args, data_args, training_args = parser.parse_dict(kwargs)
     # Setup logging
     log_level = training_args.get_process_log_level()
     _LOGGER.setLevel(log_level)
@@ -432,7 +426,7 @@ def main():
             "revision": model_args.model_revision,
             "use_auth_token": True if model_args.use_auth_token else None,
         },
-        teacher_name_or_path=model_args.distill_teacher,
+        teacher_name_or_path=training_args.distill_teacher,
         teacher_kwargs={
             "cache_dir": model_args.cache_dir,
             "use_auth_token": True if model_args.use_auth_token else None,
@@ -552,7 +546,8 @@ def main():
                 desc="Running tokenizer on train dataset",
             )
 
-    if training_args.do_eval:
+    make_eval_dataset = training_args.do_eval or data_args.num_export_samples > 0
+    if make_eval_dataset:
         if "validation" not in raw_datasets:
             raise ValueError("--do_eval requires a validation dataset")
         eval_dataset = raw_datasets["validation"]
@@ -633,13 +628,14 @@ def main():
     trainer = Trainer(
         model=model,
         model_state_path=model_args.model_name_or_path,
-        recipe=data_args.recipe,
+        recipe=training_args.recipe,
         metadata_args=metadata_args,
-        recipe_args=data_args.recipe_args,
+        recipe_args=training_args.recipe_args,
         teacher=teacher,
         args=training_args,
+        data_args=data_args,
         train_dataset=train_dataset if training_args.do_train else None,
-        eval_dataset=eval_dataset if training_args.do_eval else None,
+        eval_dataset=eval_dataset if make_eval_dataset else None,
         tokenizer=tokenizer,
         data_collator=data_collator,
         compute_metrics=compute_metrics,
@@ -653,22 +649,24 @@ def main():
         elif last_checkpoint is not None:
             checkpoint = last_checkpoint
         train_result = trainer.train(resume_from_checkpoint=checkpoint)
-        metrics = train_result.metrics
+        if not trainer.one_shot:
+            metrics = train_result.metrics
+            max_train_samples = (
+                data_args.max_train_samples
+                if data_args.max_train_samples is not None
+                else len(train_dataset)
+            )
+            metrics["train_samples"] = min(max_train_samples, len(train_dataset))
+
+            trainer.log_metrics("train", metrics)
+            trainer.save_metrics("train", metrics)
+
         trainer.save_model()  # Saves the tokenizer too for easy upload
-
-        max_train_samples = (
-            data_args.max_train_samples
-            if data_args.max_train_samples is not None
-            else len(train_dataset)
-        )
-        metrics["train_samples"] = min(max_train_samples, len(train_dataset))
-
-        trainer.log_metrics("train", metrics)
-        trainer.save_metrics("train", metrics)
         trainer.save_state()
+        trainer.save_optimizer_and_scheduler(training_args.output_dir)
 
     # Evaluation
-    if training_args.do_eval:
+    if training_args.do_eval and not trainer.one_shot:
         _LOGGER.info("*** Evaluate ***")
 
         metrics = trainer.evaluate()
@@ -684,7 +682,7 @@ def main():
         trainer.save_metrics("eval", metrics)
 
     # Predict
-    if training_args.do_predict:
+    if training_args.do_predict and not trainer.one_shot:
         _LOGGER.info("*** Predict ***")
 
         predictions, labels, metrics = trainer.predict(
@@ -724,10 +722,12 @@ def main():
         else:
             kwargs["dataset"] = data_args.dataset_name
 
-    if training_args.push_to_hub:
-        trainer.push_to_hub(**kwargs)
-    else:
-        trainer.create_model_card(**kwargs)
+    # Exporting Samples
+
+    if data_args.num_export_samples > 0:
+        trainer.save_sample_inputs_outputs(
+            num_samples_to_export=data_args.num_export_samples
+        )
 
 
 def _mp_fn(index):

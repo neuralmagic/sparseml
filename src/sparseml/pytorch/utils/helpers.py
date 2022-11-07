@@ -17,13 +17,14 @@ Utility / helper functions
 """
 
 import logging
+import os
 import random
 import re
 import warnings
 from collections import OrderedDict, namedtuple
 from contextlib import contextmanager
 from copy import deepcopy
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple, Union
 
 import numpy
 import torch
@@ -46,6 +47,7 @@ except Exception as _err:
     QATConv2d = None
 
 from sparseml.utils import create_dirs, save_numpy
+from sparsezoo import Model
 
 
 try:
@@ -53,6 +55,14 @@ try:
 except Exception as _err:
     quant_conv3d_err = _err
     QATConv3d = None
+
+
+try:
+    from transformers.modeling_utils import Conv1D as GPTConv1D
+except Exception as _err:
+    gpt_conv1d_err = _err
+    GPTConv1D = None
+
 
 __all__ = [
     "default_device",
@@ -70,6 +80,7 @@ __all__ = [
     "tensors_export",
     "tensor_density",
     "tensor_sparsity",
+    "tensor_list_sparsity",
     "tensor_sample",
     "mask_difference",
     "get_layer",
@@ -86,6 +97,9 @@ __all__ = [
     "set_deterministic_seeds",
     "torch_distributed_zero_first",
     "thin_model_from_checkpoint",
+    "MEMORY_BOUNDED",
+    "memory_aware_threshold",
+    "download_framework_model_by_recipe_type",
 ]
 
 
@@ -121,7 +135,7 @@ def default_device() -> str:
 def device_of(inputs: Any):
     if isinstance(inputs, Tensor):
         return inputs.device
-    elif isinstance(inputs, Dict):
+    elif isinstance(inputs, Mapping):
         for tens in inputs.values():
             return device_of(tens)
     elif isinstance(inputs, Iterable):
@@ -312,7 +326,7 @@ def tensors_to_device(
             [(key, tensors_to_device(tens, device)) for key, tens in tensors.items()]
         )
 
-    if isinstance(tensors, Dict):
+    if isinstance(tensors, Mapping):
         return {key: tensors_to_device(tens, device) for key, tens in tensors.items()}
 
     if isinstance(tensors, tuple):
@@ -338,7 +352,7 @@ def tensors_to_precision(
     if isinstance(tensors, Tensor):
         return tensors.float() if full_precision else tensors.half()
 
-    if isinstance(tensors, Dict):
+    if isinstance(tensors, Mapping):
         return {
             key: tensors_to_precision(tens, full_precision)
             for key, tens in tensors.items()
@@ -356,7 +370,7 @@ def tensors_to_precision(
 
 
 def tensors_module_forward(
-    tensors: Union[Tensor, Iterable[Tensor], Dict[Any, Tensor]],
+    tensors: Union[Tensor, Iterable[Tensor], Mapping[Any, Tensor]],
     module: Module,
     check_feat_lab_inp: bool = True,
 ) -> Any:
@@ -391,7 +405,7 @@ def tensors_module_forward(
     if isinstance(tensors, Tensor):
         return module(tensors)
 
-    if isinstance(tensors, Dict):
+    if isinstance(tensors, Mapping):
         return module(**tensors)
 
     if isinstance(tensors, Iterable):
@@ -652,6 +666,19 @@ def tensor_sample(
     return samples
 
 
+def tensor_list_sparsity(tensors: List[Tensor]) -> float:
+    """
+    :param tensors: the list of tensors to calculate the sparsity for
+    :return: the total sparsity of all tensors in the list
+    """
+    zeros = 0
+    numel = 0
+    for tensor in tensors:
+        zeros += (tensor == 0).sum().item()
+        numel += tensor.numel()
+    return float(zeros) / float(numel)
+
+
 def mask_difference(old_mask: Tensor, new_mask: Tensor) -> Tensor:
     """
     :param old_mask: the old mask to compare against for calculating the difference
@@ -742,7 +769,9 @@ def get_conv_layers(module: Module) -> Dict[str, Module]:
     :return: a list of all the conv layers in the module
     """
     return {
-        name: mod for name, mod in module.named_modules() if isinstance(mod, _ConvNd)
+        name: mod
+        for name, mod in module.named_modules()
+        if (isinstance(mod, _ConvNd) or (GPTConv1D and isinstance(mod, GPTConv1D)))
     }
 
 
@@ -771,6 +800,7 @@ def get_prunable_layers(module: Module) -> List[Tuple[str, Module]]:
             or (QATLinear and isinstance(mod, QATLinear))
             or (QATConv2d and isinstance(mod, QATConv2d))
             or (QATConv3d and isinstance(mod, QATConv3d))
+            or (GPTConv1D and isinstance(mod, GPTConv1D))
         )
     ]
 
@@ -1058,3 +1088,70 @@ def thin_model_from_checkpoint(model: Module, state_dict: Dict[str, Any]):
             f"Thinned layer {layer_name} from shape {orig_shape} to "
             f"{layer.weight.shape}"
         )
+
+
+##############################
+#
+# misc pytorch helper functions
+#
+##############################
+
+
+MEMORY_BOUNDED = "MEMORY_BOUNDED"
+
+
+def memory_aware_threshold(tensor: torch.Tensor, idx: int) -> Tensor:
+    """
+    Finds a threshold at the lookup idx in the most efficient way with available
+    resources. Will be phased out when GPU-memory overhead of torch.sort reduces,
+    or when torch.kthvalue becomes faster than torch.sort.
+
+    :param tensor: A tensor to find a k-th smallest value in, where k=idx+1
+    :param idx: A lookup index
+    :return: k-th smallest value from the given tensor, where k=idx+1
+    """
+    try:
+        if (
+            MEMORY_BOUNDED in os.environ
+            and os.environ[MEMORY_BOUNDED].lower() == "true"
+        ):
+            return torch.kthvalue(tensor.view(-1), idx + 1)[0]
+        else:
+            return torch.sort(tensor.view(-1))[0][idx]
+    except RuntimeError:
+        _LOGGER.warning(
+            "Finding threshold from sparsity failed due to lack of memory, "
+            "will attempt to recover. Consider setting env variable "
+            f"{MEMORY_BOUNDED}=True in future runs."
+        )
+        torch.cuda.empty_cache()
+        os.environ[MEMORY_BOUNDED] = "True"
+        return torch.kthvalue(tensor.view(-1), idx + 1)[0]
+
+
+def download_framework_model_by_recipe_type(
+    zoo_model: Model, recipe_name: Optional[str] = None
+) -> str:
+    """
+    Extract the path of the framework model from the
+    zoo model, conditioned on the name of the recipe
+    By default, the function will return path to the final framework model
+    :params zoo_model: model object from sparsezoo
+    :params recipe_name: a name of the recipe (e.g. "transfer_learn", "original" etc.)
+    :return: path to the framework model
+    """
+
+    # default to model query params if available
+    recipe_name = recipe_name or (
+        zoo_model.stub_params.get("recipe_type") or zoo_model.stub_params.get("recipe")
+    )
+
+    if recipe_name:
+        if "transfer" in recipe_name.lower():
+            # fetching the model for transfer learning
+            framework_model = zoo_model.training.default.get_file("model.ckpt.pth")
+    else:
+        # fetching the model for inference
+        framework_model = zoo_model.training.default.get_file("model.pth")
+
+    return framework_model.path

@@ -73,7 +73,7 @@ To run this recipe, you may run the example notebook
 or can run the example script command below.
 
 ```
-python integrations/pytorch/train.py \
+sparseml.image_classification.train \
     --recipe-path zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/pruned_quant-moderate?recipe_type=transfer_learn \
     --checkpoint-path zoo \
     --arch-key resnet50 \

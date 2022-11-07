@@ -238,16 +238,7 @@ class BaseManager(BaseObject):
 
             for additional_modifiers in additional_stages.values():
                 for additional_modifier in additional_modifiers:
-                    if (
-                        hasattr(additional_modifier, "end_epoch")
-                        and additional_modifier.end_epoch != -1
-                    ):
-                        # if end_epoch == -1, the .end_epoch is being
-                        # assumed implicitly and does not need to be
-                        # incremented
-                        additional_modifier.end_epoch += base_end_epoch
-                    if hasattr(additional_modifier, "start_epoch"):
-                        additional_modifier.start_epoch += base_end_epoch
+                    additional_modifier.advance_epochs(ref_start_epoch=base_end_epoch)
 
         combined_stages = base_stages
         combined_stages.update(additional_stages)
@@ -568,7 +559,7 @@ class BaseManager(BaseObject):
 
     def _info_log_metadata(self):
         metadata_str = json.dumps(self._metadata, indent=1)
-        _LOGGER.info(f"Created recipe manager with metadata: {metadata_str}")
+        _LOGGER.debug(f"Created recipe manager with metadata: {metadata_str}")
 
 
 def _sort_modifiers_list(modifiers: List[BaseModifier]) -> List[BaseModifier]:
