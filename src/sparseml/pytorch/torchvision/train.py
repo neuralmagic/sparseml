@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import datetime
+import math
 import os
 import time
 import warnings
@@ -476,6 +477,8 @@ def main(args):
     manager = ScheduledModifierManager.from_yaml(args.recipe_path)
     optimizer = manager.modify(model, optimizer, steps_per_epoch=steps_per_epoch)
 
+    best_top1_acc = -math.inf
+
     print("Start training")
     start_time = time.time()
     for epoch in range(args.start_epoch, manager.max_epochs):
@@ -494,7 +497,7 @@ def main(args):
             scaler=None if manager.qat_active(epoch=epoch) else scaler,
         )
         lr_scheduler.step()
-        evaluate(model, criterion, data_loader_test, device, steps_per_eval)
+        top1_acc = evaluate(model, criterion, data_loader_test, device, steps_per_eval)
         if model_ema:
             evaluate(
                 model_ema,
@@ -504,6 +507,9 @@ def main(args):
                 steps_per_eval,
                 log_suffix="EMA",
             )
+        is_new_best = epoch >= args.save_best_after and top1_acc > best_top1_acc
+        if is_new_best:
+            best_top1_acc = top1_acc
         if args.output_dir:
             checkpoint = {
                 "model": model_without_ddp.state_dict(),
@@ -516,12 +522,11 @@ def main(args):
                 checkpoint["model_ema"] = model_ema.state_dict()
             if scaler:
                 checkpoint["scaler"] = scaler.state_dict()
-            utils.save_on_master(
-                checkpoint, os.path.join(args.output_dir, f"model_{epoch}.pth")
-            )
-            utils.save_on_master(
-                checkpoint, os.path.join(args.output_dir, "checkpoint.pth")
-            )
+            file_names = [f"model_{epoch}.pth", "checkpoint.pth"]
+            if is_new_best:
+                file_names.append("checkpoint-best.pth")
+            for fname in file_names:
+                utils.save_on_master(checkpoint, os.path.join(args.output_dir, fname))
     manager.finalize()
 
     total_time = time.time() - start_time
@@ -795,6 +800,13 @@ def get_args_parser(add_help=True):
         default=1,
         type=int,
         help="gradient accumulation steps",
+    )
+    parser.add_argument(
+        "--save-best-after",
+        default=1,
+        type=int,
+        help="Save the best validation result after the given "
+        "epoch completes until the end of training",
     )
     parser.add_argument(
         "--max-train-steps",
