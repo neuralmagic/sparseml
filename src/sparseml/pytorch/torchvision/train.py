@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import datetime
+import math
 import os
 import time
 import warnings
@@ -38,6 +39,7 @@ def train_one_epoch(
     data_loader,
     device,
     epoch,
+    steps_per_epoch,
     args,
     model_ema=None,
     scaler=None,
@@ -56,6 +58,8 @@ def train_one_epoch(
     for i, (image, target) in enumerate(
         metric_logger.log_every(data_loader, args.print_freq, header)
     ):
+        if i >= steps_per_epoch:
+            break
         start_time = time.time()
         image, target = image.to(device), target.to(device)
         with torch.cuda.amp.autocast(enabled=scaler is not None):
@@ -301,6 +305,11 @@ def main(args):
         pin_memory=True,
         collate_fn=collate_fn,
     )
+
+    steps_per_epoch = len(data_loader)
+    if args.max_train_steps > 0:
+        steps_per_epoch = min(steps_per_epoch, args.max_train_steps)
+
     data_loader_test = torch.utils.data.DataLoader(
         dataset_test,
         batch_size=args.batch_size,
@@ -503,11 +512,16 @@ def main(args):
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
         model_without_ddp = model.module
 
+    best_top1_acc = -math.inf
+
     print("Start training")
     start_time = time.time()
     for epoch in range(args.start_epoch, manager.max_epochs):
         if args.distributed:
             train_sampler.set_epoch(epoch)
+        if manager.qat_active(epoch=epoch):
+            scaler = None
+            model_ema = None
         train_one_epoch(
             model,
             criterion,
@@ -515,12 +529,13 @@ def main(args):
             data_loader,
             device,
             epoch,
+            steps_per_epoch,
             args,
-            model_ema,
-            scaler=None if manager.qat_active(epoch=epoch) else scaler,
+            model_ema=model_ema,
+            scaler=scaler,
         )
         lr_scheduler.step()
-        evaluate(model, criterion, data_loader_test, device, steps_per_eval)
+        top1_acc = evaluate(model, criterion, data_loader_test, device, steps_per_eval)
         if model_ema:
             evaluate(
                 model_ema,
@@ -530,6 +545,9 @@ def main(args):
                 steps_per_eval,
                 log_suffix="EMA",
             )
+        is_new_best = epoch >= args.save_best_after and top1_acc > best_top1_acc
+        if is_new_best:
+            best_top1_acc = top1_acc
         if args.output_dir:
             checkpoint = {
                 "model": model_without_ddp.state_dict(),
@@ -555,12 +573,13 @@ def main(args):
                 checkpoint["epoch"] = -1 if epoch == manager.max_epochs - 1 else epoch
                 checkpoint["checkpoint_recipe"] = str(manager)
 
-            utils.save_on_master(
-                checkpoint, os.path.join(args.output_dir, f"model_{epoch}.pth")
-            )
-            utils.save_on_master(
-                checkpoint, os.path.join(args.output_dir, "checkpoint.pth")
-            )
+
+            file_names = [f"model_{epoch}.pth", "checkpoint.pth"]
+            if is_new_best:
+                file_names.append("checkpoint-best.pth")
+            for fname in file_names:
+                utils.save_on_master(checkpoint, os.path.join(args.output_dir, fname))
+
     manager.finalize()
 
     total_time = time.time() - start_time
@@ -853,6 +872,20 @@ def get_args_parser(add_help=True):
         default=1,
         type=int,
         help="gradient accumulation steps",
+    )
+    parser.add_argument(
+        "--save-best-after",
+        default=1,
+        type=int,
+        help="Save the best validation result after the given "
+        "epoch completes until the end of training",
+    )
+    parser.add_argument(
+        "--max-train-steps",
+        default=-1,
+        type=int,
+        help="Per epoch number of training steps to run. If negative, "
+        "will run for the entire dataset",
     )
     parser.add_argument(
         "--max-eval-steps",
