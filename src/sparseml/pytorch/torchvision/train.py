@@ -317,14 +317,7 @@ def main(args):
         steps_per_eval = min(steps_per_eval, args.max_eval_steps)
 
     print("Creating model")
-    model = _create_model(
-        key=args.arch_key,
-        pretrained=args.pretrained,
-        num_classes=num_classes,
-        checkpoint_path=None,  # TODO fill this in later once checkpoints are merged
-        recipe_path=args.recipe_path,
-        args=args,
-    )
+    model = _create_model(args, num_classes)
     model.to(device)
 
     if args.distributed and args.sync_bn:
@@ -543,28 +536,28 @@ def main(args):
     print(f"Training time {total_time_str}")
 
 
-def _create_model(key, pretrained, num_classes, checkpoint_path, recipe_path, args):
+def _create_model(args, num_classes):
     # only download once locally
     with torch_distributed_zero_first(args.rank if args.distributed else None):
-        if checkpoint_path and checkpoint_path.startswith("zoo"):
+        if args.checkpoint_path and args.checkpoint_path.startswith("zoo"):
             recipe_type = None
-            if recipe_path and "recipe_type=" in recipe_path:
+            if args.recipe_path and "recipe_type=" in args.recipe_path:
                 # override recipe type from recipe path
-                recipe_type = recipe_path.split("recipe_type=")[1]
+                recipe_type = args.recipe_path.split("recipe_type=")[1]
                 recipe_type = recipe_type.split("&")[0]
 
-            if checkpoint_path.lower() == "zoo":
-                checkpoint_path = recipe_path
+            if args.checkpoint_path.lower() == "zoo":
+                checkpoint_path = args.recipe_path
 
             checkpoint_path = _download_model_from_zoo_using_recipe(
                 recipe_stub=checkpoint_path, recipe_type=recipe_type
             )
 
     return ModelRegistry.create(
-        key=key,
-        pretrained=pretrained,
+        key=args.arch_key,
+        pretrained=args.pretrained,
         pretrained_path=checkpoint_path,
-        pretrained_dataset=None,  # TODO what should this be??
+        pretrained_dataset=args.pretrained_dataset,
         num_classes=num_classes,
     )
 
@@ -605,6 +598,16 @@ def get_args_parser(add_help=True):
             "Otherwise, should be set to the desired weights "
             "type: [base, optim, optim-perf]. To not load any weights set"
             " to one of [none, false]",
+        ),
+    )
+    parser.add_argument(
+        "--pretrained-dataset",
+        default=None,
+        type=str,
+        help=(
+            "The dataset to load pretrained weights for if pretrained is "
+            "set. Load the default dataset for the architecture if set to None. "
+            "examples:`imagenet`, `cifar10`, etc..."
         ),
     )
     parser.add_argument(
