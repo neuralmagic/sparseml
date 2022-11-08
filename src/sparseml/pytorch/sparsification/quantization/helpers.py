@@ -581,23 +581,25 @@ def get_observer(
         reduce_range=reduce_range,
     )
 
-    # in torch 1.9.1, quant_min and quant_max are not passed to observer:
-    # https://github.com/pytorch/pytorch/blob/v1.9.1/torch/quantization/fake_quantize.py#L109
-    # however in 1.12.0, this is fixed so both are passed to observer:
-    # https://github.com/pytorch/pytorch/blob/v1.12.1/torch/ao/quantization/fake_quantize.py#L132
-    #
-    # Passing quant_min/quant_max to observer means the observer will have
-    # `self.has_customized_qrange == True` in both 1.9.1 and 1.12.0.
-    #
-    # For whatever reason, both versions calculate zero point for
-    # quint8 differently **if there is a customized_qrange**
-    # 1. customized qrange has zero point of 127
-    # 2. non-customized has zero point of 128.
-    # source:
-    # https://github.com/pytorch/pytorch/blob/v1.12.1/torch/ao/quantization/observer.py#L293
-    #
-    # **we want to ensure that the zero point is 128**
-    # see https://github.com/neuralmagic/sparseml/pull/604
+    """
+    in torch 1.9.1, quant_min and quant_max are not passed to observer:
+    https://github.com/pytorch/pytorch/blob/v1.9.1/torch/quantization/fake_quantize.py#L109
+    however in 1.12.0, this is fixed so both are passed to observer:
+    https://github.com/pytorch/pytorch/blob/v1.12.1/torch/ao/quantization/fake_quantize.py#L132
+
+    Passing quant_min/quant_max to observer means the observer will have
+    `self.has_customized_qrange == True` in both 1.9.1 and 1.12.0.
+
+    For whatever reason, both versions calculate zero point for
+    quint8 differently **if there is a customized_qrange**
+    1. customized qrange has zero point of 127
+    2. non-customized has zero point of 128.
+    source:
+    https://github.com/pytorch/pytorch/blob/v1.12.1/torch/ao/quantization/observer.py#L293
+
+    **we want to ensure that the zero point is 128**
+    see https://github.com/neuralmagic/sparseml/pull/604
+    """
     if is_custom_qrange:
         # for both versions we need to include the custom min/max values in kwargs
         observer_kwargs["quant_min"] = quant_min
