@@ -28,6 +28,8 @@ from torchvision.transforms.functional import InterpolationMode
 from sparseml.pytorch.optim import ScheduledModifierManager
 from sparseml.pytorch.torchvision import presets, transforms, utils
 from sparseml.pytorch.torchvision.sampler import RASampler
+from sparseml.pytorch.utils.helpers import download_framework_model_by_recipe_type
+from sparsezoo import Model
 
 
 def train_one_epoch(
@@ -253,6 +255,11 @@ def load_data(traindir, valdir, args):
 
 
 def main(args):
+    if args.resume is not None and args.checkpoint_path is not None:
+        raise ValueError(
+            "Only one of --resume or --checkpoint-path can be specified, not both."
+        )
+
     if args.output_dir:
         utils.mkdir(args.output_dir)
 
@@ -420,11 +427,6 @@ def main(args):
     else:
         lr_scheduler = main_lr_scheduler
 
-    model_without_ddp = model
-    if args.distributed:
-        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
-        model_without_ddp = model.module
-
     model_ema = None
     if args.model_ema:
         # Decay adjustment that aims to keep the decay independent from
@@ -441,20 +443,45 @@ def main(args):
         alpha = 1.0 - args.model_ema_decay
         alpha = min(1.0, alpha * adjust)
         model_ema = utils.ExponentialMovingAverage(
-            model_without_ddp, device=device, decay=1.0 - alpha
+            model, device=device, decay=1.0 - alpha
         )
 
-    if args.resume:
-        checkpoint = torch.load(args.resume, map_location="cpu")
-        model_without_ddp.load_state_dict(checkpoint["model"])
-        if not args.test_only:
-            optimizer.load_state_dict(checkpoint["optimizer"])
-            lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
+    if args.checkpoint_path:
+        checkpoint = _load_checkpoint(args.checkpoint_path)
+
+        # restore state from prior recipe
+        manager = ScheduledModifierManager.from_yaml(args.recipe_path)
+        checkpoint_manager = ScheduledModifierManager.from_yaml(
+            checkpoint["checkpoint_recipe"]
+        )
+        checkpoint_manager.apply_structure(model, epoch=checkpoint["epoch"])
+    elif args.resume:
+        checkpoint = _load_checkpoint(args.resume)
+
+        # NOTE: override manager with the checkpoint's manager
+        manager = ScheduledModifierManager.from_yaml(checkpoint["checkpoint_recipe"])
+        checkpoint_manager = None
+        manager.initialize(model, epoch=checkpoint["epoch"])
+
+        # NOTE: override start epoch
         args.start_epoch = checkpoint["epoch"] + 1
-        if model_ema:
+
+        lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
+    else:
+        checkpoint = None
+        manager = ScheduledModifierManager.from_yaml(args.recipe_path)
+        checkpoint_manager = None
+
+    # load params
+    if checkpoint is not None:
+        model.load_state_dict(checkpoint["model"])
+        optimizer.load_state_dict(checkpoint["optimizer"])
+        if model_ema and "model_ema" in checkpoint:
             model_ema.load_state_dict(checkpoint["model_ema"])
-        if scaler:
+        if scaler and "scaler" in checkpoint:
             scaler.load_state_dict(checkpoint["scaler"])
+
+    optimizer = manager.modify(model, optimizer, len(data_loader))
 
     if args.test_only:
         # We disable the cudnn benchmarking because it can
@@ -474,8 +501,10 @@ def main(args):
             evaluate(model, criterion, data_loader_test, device, steps_per_eval)
         return
 
-    manager = ScheduledModifierManager.from_yaml(args.recipe_path)
-    optimizer = manager.modify(model, optimizer, steps_per_epoch=steps_per_epoch)
+    model_without_ddp = model
+    if args.distributed:
+        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
+        model_without_ddp = model.module
 
     best_top1_acc = -math.inf
 
@@ -518,23 +547,43 @@ def main(args):
                 "model": model_without_ddp.state_dict(),
                 "optimizer": optimizer.state_dict(),
                 "lr_scheduler": lr_scheduler.state_dict(),
-                "epoch": epoch,
                 "args": args,
             }
             if model_ema:
                 checkpoint["model_ema"] = model_ema.state_dict()
             if scaler:
                 checkpoint["scaler"] = scaler.state_dict()
+
+            if checkpoint_manager is not None:
+                checkpoint["epoch"] = (
+                    -1
+                    if epoch == manager.max_epochs - 1
+                    else epoch + checkpoint_manager.max_epochs
+                )
+                checkpoint["checkpoint_recipe"] = str(
+                    ScheduledModifierManager.compose_staged(checkpoint_manager, manager)
+                )
+            else:
+                checkpoint["epoch"] = -1 if epoch == manager.max_epochs - 1 else epoch
+                checkpoint["checkpoint_recipe"] = str(manager)
+
             file_names = [f"model_{epoch}.pth", "checkpoint.pth"]
             if is_new_best:
                 file_names.append("checkpoint-best.pth")
             for fname in file_names:
                 utils.save_on_master(checkpoint, os.path.join(args.output_dir, fname))
+
     manager.finalize()
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print(f"Training time {total_time_str}")
+
+
+def _load_checkpoint(path):
+    if path.startswith("zoo:"):
+        path = download_framework_model_by_recipe_type(Model(path))
+    return torch.load(path, map_location="cpu")
 
 
 def get_args_parser(add_help=True):
@@ -672,6 +721,19 @@ def get_args_parser(add_help=True):
         "--output-dir", default=".", type=str, help="path to save outputs"
     )
     parser.add_argument("--resume", default="", type=str, help="path of checkpoint")
+    parser.add_argument(
+        "--checkpoint-path",
+        default=None,
+        type=str,
+        help=(
+            "A path to a previous checkpoint to load the state from "
+            "and resume the state for. If provided, pretrained will "
+            "be ignored. If using a SparseZoo recipe, can also "
+            "provide 'zoo' to load the base weights associated with "
+            "that recipe. Additionally, can also provide a SparseZoo model stub "
+            "to load model weights from SparseZoo"
+        ),
+    )
     parser.add_argument(
         "--start-epoch", default=0, type=int, metavar="N", help="start epoch"
     )
