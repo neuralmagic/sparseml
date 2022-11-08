@@ -26,14 +26,15 @@ from torch import nn
 from torch.utils.data.dataloader import default_collate
 from torchvision.transforms.functional import InterpolationMode
 
-from sparseml.pytorch.image_classification.utils.helpers import (
-    _download_model_from_zoo_using_recipe,
-)
 from sparseml.pytorch.models.registry import ModelRegistry
 from sparseml.pytorch.optim import ScheduledModifierManager
 from sparseml.pytorch.torchvision import presets, transforms, utils
 from sparseml.pytorch.torchvision.sampler import RASampler
-from sparseml.pytorch.utils.helpers import torch_distributed_zero_first
+from sparseml.pytorch.utils.helpers import (
+    download_framework_model_by_recipe_type,
+    torch_distributed_zero_first,
+)
+from sparsezoo import Model
 
 
 def train_one_epoch(
@@ -564,8 +565,8 @@ def _create_model(
         if checkpoint_path.lower() == "zoo":
             checkpoint_path = recipe_path
 
-        checkpoint_path = _download_model_from_zoo_using_recipe(
-            recipe_stub=checkpoint_path, recipe_type=recipe_type
+        checkpoint_path = download_framework_model_by_recipe_type(
+            recipe_stub=Model(checkpoint_path), recipe_type=recipe_type
         )
 
     if arch_key in ModelRegistry.available_keys():
