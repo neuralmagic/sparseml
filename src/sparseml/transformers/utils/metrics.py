@@ -74,9 +74,13 @@ def multi_label_precision_recall_f1(
         results[f"recall_{label}"] = recall[idx]
         results[f"f1_{label}"] = f1[idx]
 
-    # add macro averages to results
-    results["macro_average_precision"] = precision.mean()
-    results["macro_average_recall"] = recall.mean()
-    results["macro_average_f1"] = f1.mean()
+    # add macro averages and std to results
+    results["precision_macro_average"] = precision.mean()
+    results["recall_macro_average"] = recall.mean()
+    results["f1_macro_average"] = f1.mean()
+
+    results["precision_std"] = precision.std()
+    results["recall_std"] = recall.std()
+    results["f1_std"] = f1.std()
 
     return results
