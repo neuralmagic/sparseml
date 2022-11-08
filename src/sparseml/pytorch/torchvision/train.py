@@ -544,26 +544,21 @@ def main(args):
 
 
 def _create_model(key, pretrained, num_classes, checkpoint_path, recipe_path, args):
-    if args.distributed:
-        if args.rank not in [-1, 0]:
-            torch.distributed.barrier()
-        if args.rank == 0:
-            torch.distributed.barrier()
-
     # only download once locally
-    if checkpoint_path and checkpoint_path.startswith("zoo"):
-        recipe_type = None
-        if recipe_path and "recipe_type=" in recipe_path:
-            # override recipe type from recipe path
-            recipe_type = recipe_path.split("recipe_type=")[1]
-            recipe_type = recipe_type.split("&")[0]
+    with torch_distributed_zero_first(args.rank if args.distributed else None):
+        if checkpoint_path and checkpoint_path.startswith("zoo"):
+            recipe_type = None
+            if recipe_path and "recipe_type=" in recipe_path:
+                # override recipe type from recipe path
+                recipe_type = recipe_path.split("recipe_type=")[1]
+                recipe_type = recipe_type.split("&")[0]
 
-        if checkpoint_path.lower() == "zoo":
-            checkpoint_path = recipe_path
+            if checkpoint_path.lower() == "zoo":
+                checkpoint_path = recipe_path
 
-        checkpoint_path = _download_model_from_zoo_using_recipe(
-            recipe_stub=checkpoint_path, recipe_type=recipe_type
-        )
+            checkpoint_path = _download_model_from_zoo_using_recipe(
+                recipe_stub=checkpoint_path, recipe_type=recipe_type
+            )
 
     return ModelRegistry.create(
         key=key,
