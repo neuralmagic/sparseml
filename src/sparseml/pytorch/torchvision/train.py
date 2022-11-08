@@ -553,13 +553,19 @@ def _create_model(args, num_classes):
                 recipe_stub=checkpoint_path, recipe_type=recipe_type
             )
 
-    return ModelRegistry.create(
-        key=args.arch_key,
-        pretrained=args.pretrained,
-        pretrained_path=args.checkpoint_path,
-        pretrained_dataset=args.pretrained_dataset,
-        num_classes=num_classes,
-    )
+    if args.arch_key in ModelRegistry.available_keys():
+        return ModelRegistry.create(
+            key=args.arch_key,
+            pretrained=args.pretrained,
+            pretrained_path=args.checkpoint_path,
+            pretrained_dataset=args.pretrained_dataset,
+            num_classes=num_classes,
+        )
+    else:
+        # fall back to torchvision
+        return torchvision.models.__dict__[args.arch_key](
+            pretrained=args.pretrained, num_classes=num_classes
+        )
 
 
 def get_args_parser(add_help=True):
