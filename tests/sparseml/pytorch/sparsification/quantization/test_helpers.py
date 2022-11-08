@@ -28,6 +28,10 @@ from sparseml.pytorch.sparsification.quantization import (
     get_qat_qconfig,
     prepare_embeddings_qat,
 )
+from sparseml.pytorch.sparsification.quantization.helpers import get_observer
+from sparseml.pytorch.sparsification.quantization.modifier_quantization import (
+    QuantizationModifier,
+)
 
 
 try:
@@ -283,3 +287,57 @@ def test_prepare_embeddings_qat():
     module(torch.arange(10))
     observed_range_min = observer.activation_post_process.min_val.item()
     assert orig_range_min != observed_range_min
+
+
+def test_zero_point_is_128():
+    # see https://github.com/neuralmagic/sparseml/pull/604
+
+    # give QATMatMul a layer to be wrapped
+    dummy_sequential = torch.nn.Sequential(_QATMatMul())
+    QuantizationModifier().apply(dummy_sequential)
+    qat_matmul = dummy_sequential[0]
+    _ = qat_matmul(torch.randn(10, 10), torch.randn(10, 10))
+
+    fq = qat_matmul.input_quant_stubs[1].activation_post_process
+    assert fq.zero_point[0] == 128
+
+
+def test_standard_qrange_zero_points():
+    bits = 8
+
+    fake_quantize = get_observer(True, torch.qint8, bits, False, {})()
+    fake_quantize(torch.randn(10, 10))
+    assert fake_quantize.quant_min == -128
+    assert fake_quantize.quant_max == 127
+    _, zero_point = fake_quantize.calculate_qparams()
+    assert zero_point[0] == 0
+
+    fake_quantize = get_observer(True, torch.quint8, bits, False, {})()
+    fake_quantize(torch.randn(10, 10))
+    assert fake_quantize.quant_min == 0
+    assert fake_quantize.quant_max == 255
+    _, zero_point = fake_quantize.calculate_qparams()
+    assert zero_point[0] == 128
+
+
+def test_custom_qrange_zero_points():
+    # non 8 bits is what makes it a custom qrange
+    bits = 4
+
+    fake_quantize = get_observer(True, torch.qint8, bits, False, {})()
+    fake_quantize(torch.randn(10, 10))
+    assert fake_quantize.quant_min == -8
+    assert fake_quantize.quant_max == 7
+    assert fake_quantize.activation_post_process.quant_min == -8
+    assert fake_quantize.activation_post_process.quant_max == 7
+    _, zero_point = fake_quantize.calculate_qparams()
+    assert zero_point[0] == 0
+
+    fake_quantize = get_observer(True, torch.quint8, bits, False, {})()
+    fake_quantize(torch.randn(10, 10))
+    assert fake_quantize.quant_min == 0
+    assert fake_quantize.quant_max == 15
+    assert fake_quantize.activation_post_process.quant_min == 0
+    assert fake_quantize.activation_post_process.quant_max == 15
+    _, zero_point = fake_quantize.calculate_qparams()
+    assert zero_point[0] == 7
