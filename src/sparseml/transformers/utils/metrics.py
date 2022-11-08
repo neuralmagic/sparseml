@@ -60,6 +60,11 @@ def multi_label_precision_recall_f1(
     recall = true_positives / (true_positives + false_negatives)
     f1 = 2 * (precision * recall) / (precision + recall)
 
+    # labels with no TP/FN will evaluate to nan - convert to 0.0
+    precision = numpy.nan_to_num(precision)
+    recall = numpy.nan_to_num(recall)
+    f1 = numpy.nan_to_num(f1)
+
     # compile results into required str -> float dict
     results = {}
     for idx in range(predictions.shape[1]):
