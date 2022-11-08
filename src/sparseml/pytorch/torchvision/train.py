@@ -17,6 +17,7 @@ import math
 import os
 import time
 import warnings
+from typing import Optional
 
 import torch
 import torch.utils.data
@@ -317,7 +318,16 @@ def main(args):
         steps_per_eval = min(steps_per_eval, args.max_eval_steps)
 
     print("Creating model")
-    model = _create_model(args, num_classes)
+    # only download once locally
+    with torch_distributed_zero_first(args.rank if args.distributed else None):
+        model = _create_model(
+            args.arch_key,
+            num_classes,
+            None,  # TODO replace with args.checkpoint_path
+            args.recipe_path,
+            args.pretrained,
+            args.pretrained_dataset,
+        )
     model.to(device)
 
     if args.distributed and args.sync_bn:
@@ -536,35 +546,40 @@ def main(args):
     print(f"Training time {total_time_str}")
 
 
-def _create_model(args, num_classes):
-    # only download once locally
-    with torch_distributed_zero_first(args.rank if args.distributed else None):
-        if args.checkpoint_path and args.checkpoint_path.startswith("zoo"):
-            recipe_type = None
-            if args.recipe_path and "recipe_type=" in args.recipe_path:
-                # override recipe type from recipe path
-                recipe_type = args.recipe_path.split("recipe_type=")[1]
-                recipe_type = recipe_type.split("&")[0]
+def _create_model(
+    arch_key: str,
+    num_classes: int,
+    checkpoint_path: Optional[str],
+    recipe_path: Optional[str],
+    pretrained: bool,
+    pretrained_dataset: Optional[str],
+):
+    if checkpoint_path and checkpoint_path.startswith("zoo"):
+        recipe_type = None
+        if recipe_path and "recipe_type=" in recipe_path:
+            # override recipe type from recipe path
+            recipe_type = recipe_path.split("recipe_type=")[1]
+            recipe_type = recipe_type.split("&")[0]
 
-            if args.checkpoint_path.lower() == "zoo":
-                checkpoint_path = args.recipe_path
+        if checkpoint_path.lower() == "zoo":
+            checkpoint_path = recipe_path
 
-            checkpoint_path = _download_model_from_zoo_using_recipe(
-                recipe_stub=checkpoint_path, recipe_type=recipe_type
-            )
+        checkpoint_path = _download_model_from_zoo_using_recipe(
+            recipe_stub=checkpoint_path, recipe_type=recipe_type
+        )
 
-    if args.arch_key in ModelRegistry.available_keys():
+    if arch_key in ModelRegistry.available_keys():
         return ModelRegistry.create(
-            key=args.arch_key,
-            pretrained=args.pretrained,
-            pretrained_path=args.checkpoint_path,
-            pretrained_dataset=args.pretrained_dataset,
+            key=arch_key,
+            pretrained=pretrained,
+            pretrained_path=checkpoint_path,
+            pretrained_dataset=pretrained_dataset,
             num_classes=num_classes,
         )
     else:
         # fall back to torchvision
-        return torchvision.models.__dict__[args.arch_key](
-            pretrained=args.pretrained, num_classes=num_classes
+        return torchvision.models.__dict__[arch_key](
+            pretrained=pretrained, num_classes=num_classes
         )
 
 
