@@ -66,7 +66,7 @@ def train_one_epoch(
         start_time = time.time()
         image, target = image.to(device), target.to(device)
         with torch.cuda.amp.autocast(enabled=scaler is not None):
-            output = model(image)
+            output, _ = model(image)
             loss = criterion(output, target)
 
         if steps_accumulated % args.gradient_accum_steps == 0:
@@ -321,8 +321,9 @@ def main(args):
         key=args.arch_key,
         pretrained=args.pretrained,
         num_classes=num_classes,
-        checkpoint_path=args.checkpoint_path,
+        checkpoint_path=None,  # TODO fill this in later once checkpoints are merged
         recipe_path=args.recipe_path,
+        args=args,
     )
     model.to(device)
 
@@ -542,28 +543,33 @@ def main(args):
     print(f"Training time {total_time_str}")
 
 
-def _create_model(key, pretrained, num_classes, checkpoint_path, recipe_path):
-    with torch_distributed_zero_first(torch.distributed.get_rank()):
-        # only download once locally
-        if checkpoint_path and checkpoint_path.startswith("zoo"):
-            recipe_type = None
-            if recipe_path and "recipe_type=" in recipe_path:
-                # override recipe type from recipe path
-                recipe_type = recipe_path.split("recipe_type=")[1]
-                recipe_type = recipe_type.split("&")[0]
+def _create_model(key, pretrained, num_classes, checkpoint_path, recipe_path, args):
+    if args.distributed:
+        if args.rank not in [-1, 0]:
+            torch.distributed.barrier()
+        if args.rank == 0:
+            torch.distributed.barrier()
 
-            if checkpoint_path.lower() == "zoo":
-                checkpoint_path = recipe_path
+    # only download once locally
+    if checkpoint_path and checkpoint_path.startswith("zoo"):
+        recipe_type = None
+        if recipe_path and "recipe_type=" in recipe_path:
+            # override recipe type from recipe path
+            recipe_type = recipe_path.split("recipe_type=")[1]
+            recipe_type = recipe_type.split("&")[0]
 
-            checkpoint_path = _download_model_from_zoo_using_recipe(
-                recipe_stub=checkpoint_path, recipe_type=recipe_type
-            )
+        if checkpoint_path.lower() == "zoo":
+            checkpoint_path = recipe_path
+
+        checkpoint_path = _download_model_from_zoo_using_recipe(
+            recipe_stub=checkpoint_path, recipe_type=recipe_type
+        )
 
     return ModelRegistry.create(
         key=key,
         pretrained=pretrained,
         pretrained_path=checkpoint_path,
-        pretrained_dataset=...,  # TODO what should this be??
+        pretrained_dataset=None,  # TODO what should this be??
         num_classes=num_classes,
     )
 
