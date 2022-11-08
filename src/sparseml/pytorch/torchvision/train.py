@@ -63,7 +63,10 @@ def train_one_epoch(
         start_time = time.time()
         image, target = image.to(device), target.to(device)
         with torch.cuda.amp.autocast(enabled=scaler is not None):
-            output, _ = model(image)
+            output = model(image)
+            if isinstance(output, tuple):
+                # NOTE: sparseml models return two things (logits & probs)
+                output = output[0]
             loss = criterion(output, target)
 
         if steps_accumulated % args.gradient_accum_steps == 0:
