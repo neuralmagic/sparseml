@@ -137,16 +137,15 @@ def load_task_model(task: str, model_path: str, config: Any) -> Module:
     raise ValueError(f"unrecognized task given of {task}")
 
 
-def load_task_dataset(task: str, tokenizer, data_args: Dict[str, Any], model: Module):
+def load_task_dataset(
+    task: str, tokenizer, data_args: Dict[str, Any], model: Module, config=None
+):
     """
     :param task: the task a dataset being loaded for
     :param tokenizer: the tokenizer to use for the dataset
     :param data_args: additional data args used to create a `DataTrainingArguments`
         instance for fetching the dataset
     """
-    # TODO: fill out the function for
-    #   1) question-answering
-    #   2) text-classification
 
     if task == "masked-language-modeling" or task == "mlm":
         from sparseml.transformers.masked_language_modeling import (
@@ -166,6 +165,27 @@ def load_task_dataset(task: str, tokenizer, data_args: Dict[str, Any], model: Mo
         data_training_args = DataTrainingArguments(**data_args)
         return get_tokenized_token_classification_dataset(
             data_args=data_training_args, tokenizer=tokenizer, model=model
+        )
+
+    if (
+        task == "sequence-classification"
+        or task == "glue"
+        or task == "sentiment-analysis"
+        or task == "text-classification"
+    ):
+
+        from sparseml.transformers.text_classification import (
+            DataTrainingArguments,
+            get_tokenized_text_classification_dataset,
+        )
+
+        data_training_args = DataTrainingArguments(**data_args)
+
+        return get_tokenized_text_classification_dataset(
+            data_args=data_training_args,
+            tokenizer=tokenizer,
+            model=model,
+            config=config,
         )
 
     raise NotImplementedError
@@ -233,6 +253,7 @@ def export_transformer_to_onnx(
         tokenizer=tokenizer,
         data_args=data_args,
         model=model,
+        config=config,
     )
 
     model = model.train()
