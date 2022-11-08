@@ -25,9 +25,14 @@ from torch import nn
 from torch.utils.data.dataloader import default_collate
 from torchvision.transforms.functional import InterpolationMode
 
+from sparseml.pytorch.image_classification.utils.helpers import (
+    _download_model_from_zoo_using_recipe,
+)
+from sparseml.pytorch.models.registry import ModelRegistry
 from sparseml.pytorch.optim import ScheduledModifierManager
 from sparseml.pytorch.torchvision import presets, transforms, utils
 from sparseml.pytorch.torchvision.sampler import RASampler
+from sparseml.pytorch.utils.helpers import torch_distributed_zero_first
 
 
 def train_one_epoch(
@@ -217,15 +222,11 @@ def load_data(traindir, valdir, args):
         print(f"Loading dataset_test from {cache_path}")
         dataset_test, _ = torch.load(cache_path)
     else:
-        if args.weights and args.test_only:
-            weights = torchvision.models.get_weight(args.weights)
-            preprocessing = weights.transforms()
-        else:
-            preprocessing = presets.ClassificationPresetEval(
-                crop_size=val_crop_size,
-                resize_size=val_resize_size,
-                interpolation=interpolation,
-            )
+        preprocessing = presets.ClassificationPresetEval(
+            crop_size=val_crop_size,
+            resize_size=val_resize_size,
+            interpolation=interpolation,
+        )
 
         dataset_test = torchvision.datasets.ImageFolder(
             valdir,
@@ -316,8 +317,12 @@ def main(args):
         steps_per_eval = min(steps_per_eval, args.max_eval_steps)
 
     print("Creating model")
-    model = torchvision.models.get_model(
-        args.model, weights=args.weights, num_classes=num_classes
+    model = _create_model(
+        key=args.arch_key,
+        pretrained=args.pretrained,
+        num_classes=num_classes,
+        checkpoint_path=args.checkpoint_path,
+        recipe_path=args.recipe_path,
     )
     model.to(device)
 
@@ -537,6 +542,32 @@ def main(args):
     print(f"Training time {total_time_str}")
 
 
+def _create_model(key, pretrained, num_classes, checkpoint_path, recipe_path):
+    with torch_distributed_zero_first(torch.distributed.get_rank()):
+        # only download once locally
+        if checkpoint_path and checkpoint_path.startswith("zoo"):
+            recipe_type = None
+            if recipe_path and "recipe_type=" in recipe_path:
+                # override recipe type from recipe path
+                recipe_type = recipe_path.split("recipe_type=")[1]
+                recipe_type = recipe_type.split("&")[0]
+
+            if checkpoint_path.lower() == "zoo":
+                checkpoint_path = recipe_path
+
+            checkpoint_path = _download_model_from_zoo_using_recipe(
+                recipe_stub=checkpoint_path, recipe_type=recipe_type
+            )
+
+    return ModelRegistry.create(
+        key=key,
+        pretrained=pretrained,
+        pretrained_path=checkpoint_path,
+        pretrained_dataset=...,  # TODO what should this be??
+        num_classes=num_classes,
+    )
+
+
 def get_args_parser(add_help=True):
     import argparse
 
@@ -547,11 +578,34 @@ def get_args_parser(add_help=True):
     parser.add_argument("--recipe-path", required=True, type=str, help="Path to recipe")
     parser.add_argument(
         "--data-path",
-        default="/datasets01/imagenet_full_size/061417/",
+        required=True,
+        default=None,
         type=str,
         help="dataset path",
     )
-    parser.add_argument("--model", default="resnet18", type=str, help="model name")
+    parser.add_argument(
+        "--arch-key",
+        default=None,
+        type=str,
+        help=(
+            "The architecture key for image classification model; "
+            "example: `resnet50`, `mobilenet`. "
+            "Note: Will be read from the checkpoint if not specified"
+        ),
+    )
+    parser.add_argument(
+        "--pretrained",
+        default=True,
+        type=str,
+        help=(
+            "The type of pretrained weights to use, "
+            "loads default pretrained weights for "
+            "the model if not specified or set to `True`. "
+            "Otherwise, should be set to the desired weights "
+            "type: [base, optim, optim-perf]. To not load any weights set"
+            " to one of [none, false]",
+        ),
+    )
     parser.add_argument(
         "--device",
         default="cuda",
@@ -794,9 +848,6 @@ def get_args_parser(add_help=True):
         default=3,
         type=int,
         help="number of repetitions for Repeated Augmentation (default: 3)",
-    )
-    parser.add_argument(
-        "--weights", default=None, type=str, help="the weights enum name to load"
     )
     parser.add_argument(
         "--gradient-accum-steps",
