@@ -556,7 +556,7 @@ def _create_model(args, num_classes):
     return ModelRegistry.create(
         key=args.arch_key,
         pretrained=args.pretrained,
-        pretrained_path=checkpoint_path,
+        pretrained_path=args.checkpoint_path,
         pretrained_dataset=args.pretrained_dataset,
         num_classes=num_classes,
     )
