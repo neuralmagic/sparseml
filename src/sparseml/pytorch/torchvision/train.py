@@ -17,7 +17,6 @@ import math
 import os
 import time
 import warnings
-from typing import Optional
 
 import torch
 import torch.utils.data
@@ -30,11 +29,7 @@ from sparseml.pytorch.models.registry import ModelRegistry
 from sparseml.pytorch.optim import ScheduledModifierManager
 from sparseml.pytorch.torchvision import presets, transforms, utils
 from sparseml.pytorch.torchvision.sampler import RASampler
-from sparseml.pytorch.utils.helpers import (
-    download_framework_model_by_recipe_type,
-    torch_distributed_zero_first,
-)
-from sparsezoo import Model
+from sparseml.pytorch.utils.helpers import torch_distributed_zero_first
 
 
 def train_one_epoch(
@@ -319,15 +314,19 @@ def main(args):
         steps_per_eval = min(steps_per_eval, args.max_eval_steps)
 
     print("Creating model")
-    # only download once locally
-    with torch_distributed_zero_first(args.rank if args.distributed else None):
-        model = _create_model(
-            args.arch_key,
-            num_classes,
-            None,  # TODO replace with args.checkpoint_path
-            args.recipe_path,
-            args.pretrained,
-            args.pretrained_dataset,
+    if args.arch_key in ModelRegistry.available_keys():
+        with torch_distributed_zero_first(args.rank if args.distributed else None):
+            model = ModelRegistry.create(
+                key=args.arch_key,
+                pretrained=args.pretrained,
+                pretrained_path=args.checkpoint_path,
+                pretrained_dataset=args.pretrained_dataset,
+                num_classes=num_classes,
+            )
+    else:
+        # fall back to torchvision
+        model = torchvision.models.__dict__[args.arch_key](
+            pretrained=args.pretrained, num_classes=num_classes
         )
     model.to(device)
 
@@ -545,43 +544,6 @@ def main(args):
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print(f"Training time {total_time_str}")
-
-
-def _create_model(
-    arch_key: str,
-    num_classes: int,
-    checkpoint_path: Optional[str],
-    recipe_path: Optional[str],
-    pretrained: bool,
-    pretrained_dataset: Optional[str],
-):
-    if checkpoint_path and checkpoint_path.startswith("zoo"):
-        recipe_type = None
-        if recipe_path and "recipe_type=" in recipe_path:
-            # override recipe type from recipe path
-            recipe_type = recipe_path.split("recipe_type=")[1]
-            recipe_type = recipe_type.split("&")[0]
-
-        if checkpoint_path.lower() == "zoo":
-            checkpoint_path = recipe_path
-
-        checkpoint_path = download_framework_model_by_recipe_type(
-            recipe_stub=Model(checkpoint_path), recipe_type=recipe_type
-        )
-
-    if arch_key in ModelRegistry.available_keys():
-        return ModelRegistry.create(
-            key=arch_key,
-            pretrained=pretrained,
-            pretrained_path=checkpoint_path,
-            pretrained_dataset=pretrained_dataset,
-            num_classes=num_classes,
-        )
-    else:
-        # fall back to torchvision
-        return torchvision.models.__dict__[arch_key](
-            pretrained=pretrained, num_classes=num_classes
-        )
 
 
 def get_args_parser(add_help=True):
