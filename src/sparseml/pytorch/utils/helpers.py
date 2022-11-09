@@ -1138,6 +1138,7 @@ def download_framework_model_by_recipe_type(
     By default, the function will return path to the final framework model
     :params zoo_model: model object from sparsezoo
     :params recipe_name: a name of the recipe (e.g. "transfer_learn", "original" etc.)
+    :params model_suffix: model_suffix that models are saved with
     :return: path to the framework model
     """
 
