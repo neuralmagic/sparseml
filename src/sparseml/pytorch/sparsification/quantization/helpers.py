@@ -18,6 +18,7 @@ Helper functions for performing quantization aware training with PyTorch
 
 from copy import deepcopy
 from dataclasses import dataclass, field
+from functools import partial
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import torch
@@ -31,7 +32,7 @@ from sparseml.pytorch.utils import get_layer
 
 
 _PARSED_TORCH_VERSION = version.parse(torch.__version__)
-
+_TORCH_PRE_112 = _PARSED_TORCH_VERSION < version.parse("1.12.0")
 
 __all__ = [
     "QATWrapper",
@@ -41,7 +42,6 @@ __all__ = [
     "add_quant_dequant",
     "remove_activation_qat_by_layer_name",
     "get_qat_qconfig",
-    "fix_observer_quant_range",
     "freeze_bn_stats",
     "fuse_module_conv_bn_relus",
     "prepare_embeddings_qat",
@@ -450,9 +450,10 @@ def compute_range(dtype: torch.dtype, bits: int):
 
     :param dtype: data type.
     :param bits: number of bits.
-    :return: minimum limit, maximum limit
+    :return: minimum limit, maximum limit, whether the range is customized
     """
     bits = bits if bits else 8
+    is_custom = bits != 8
     if dtype == torch.qint8:
         quant_min = -(2 ** (bits - 1))
         quant_max = (2 ** (bits - 1)) - 1
@@ -460,7 +461,7 @@ def compute_range(dtype: torch.dtype, bits: int):
         quant_min = 0
         quant_max = (2 ** bits) - 1
 
-    return quant_min, quant_max
+    return quant_min, quant_max, is_custom
 
 
 def configure_module_default_qconfigs(module: Module):
@@ -571,59 +572,65 @@ def get_observer(
     qconfig_kwargs: Dict[str, Any],
 ):
     qscheme = torch.per_tensor_symmetric if symmetric else torch.per_tensor_affine
-    quant_min, quant_max = compute_range(dtype, bits)
+    quant_min, quant_max, is_custom_qrange = compute_range(dtype, bits)
+
+    observer_cls = torch_quantization.MovingAverageMinMaxObserver
     observer_kwargs = dict(
-        observer=torch_quantization.MovingAverageMinMaxObserver,
-        quant_min=quant_min,
-        quant_max=quant_max,
         dtype=dtype,
         qscheme=qscheme,
         reduce_range=reduce_range,
     )
+
+    """
+    in torch 1.9.1, quant_min and quant_max are not passed to observer:
+    https://github.com/pytorch/pytorch/blob/v1.9.1/torch/quantization/fake_quantize.py#L109
+    however in 1.12.0, this is fixed so both are passed to observer:
+    https://github.com/pytorch/pytorch/blob/v1.12.1/torch/ao/quantization/fake_quantize.py#L132
+
+    Passing quant_min/quant_max to observer means the observer will have
+    `self.has_customized_qrange == True` in both 1.9.1 and 1.12.0.
+
+    For whatever reason, both versions calculate zero point for
+    quint8 differently **if there is a customized_qrange**
+    1. customized qrange has zero point of 127
+    2. non-customized has zero point of 128.
+    source:
+    https://github.com/pytorch/pytorch/blob/v1.12.1/torch/ao/quantization/observer.py#L293
+
+    **we want to ensure that the zero point is 128**
+    see https://github.com/neuralmagic/sparseml/pull/604
+    """
+    if is_custom_qrange:
+        # for both versions we need to include the custom min/max values in kwargs
+        observer_kwargs["quant_min"] = quant_min
+        observer_kwargs["quant_max"] = quant_max
+        if _TORCH_PRE_112:
+            # pre 1.12, the observer doesn't get passed the quant_min/quant_max values,
+            # so we patch them in to the constructor of the observer
+            observer_cls = partial(
+                observer_cls, quant_min=quant_min, quant_max=quant_max
+            )
+    else:
+        # if using a non custom qrange, we can rely on default values used by
+        # the observers
+        if _TORCH_PRE_112:
+            # pre 1.12, the observer doesn't get passed the quant_min/quant_max values,
+            # so we are safe to pass these to FakeQuantize
+            observer_kwargs["quant_min"] = quant_min
+            observer_kwargs["quant_max"] = quant_max
+        else:
+            # post 1.12 we cannot pass them to the observer since that will set
+            # has_customized_qrange. instead we rely on the default values
+            # being equal to the `quant_min` and `quant_max` here.
+            pass
+
+    observer_kwargs["observer"] = observer_cls
     observer_kwargs.update(qconfig_kwargs or {})
     observer = torch_quantization.FakeQuantize.with_args(
         **observer_kwargs,
     )
 
     return observer
-
-
-def fix_observer_quant_range(module: Module):
-    """
-    As of torch 1.10.2 there is a bug in FakeQuantize initialization where
-    quant_min and quant_max of FakeQuantize are not propagated to its
-    activation_post_process observer. This function propagates FakeQuantize quant
-    ranges to their Observer objects
-
-    :param module: Module object to propagate FakeQuantize quant ranges of. Propagates
-        in place
-    """
-    for submodule in module.modules():
-        if isinstance(submodule, torch_quantization.FakeQuantize):
-            fake_quantize = submodule
-        elif hasattr(submodule, "activation_post_process") and isinstance(
-            submodule.activation_post_process, torch_quantization.FakeQuantize
-        ):
-            fake_quantize = submodule.activation_post_process
-        else:
-            continue
-
-        # continue if fake_quantize quant range not set, or observer quant range is set
-        observer = fake_quantize.activation_post_process
-        if (
-            fake_quantize.quant_min is None
-            or fake_quantize.quant_max is None
-            or (observer.quant_min is not None or observer.quant_max is not None)
-            or (  # do not propagate default uint8 symmetric range
-                observer.qscheme == torch.per_tensor_symmetric
-                and fake_quantize.quant_min == 0
-                and fake_quantize.quant_max == 255
-            )
-        ):
-            continue
-        observer.quant_min = fake_quantize.quant_min
-        observer.quant_max = fake_quantize.quant_max
-        observer.has_customized_qrange = True
 
 
 def freeze_bn_stats(module: Module):
