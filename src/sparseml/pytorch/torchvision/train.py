@@ -29,8 +29,10 @@ from sparseml.pytorch.models.registry import ModelRegistry
 from sparseml.pytorch.optim import ScheduledModifierManager
 from sparseml.pytorch.torchvision import presets, transforms, utils
 from sparseml.pytorch.torchvision.sampler import RASampler
-from sparseml.pytorch.utils.helpers import torch_distributed_zero_first
-from sparseml.pytorch.utils.helpers import download_framework_model_by_recipe_type
+from sparseml.pytorch.utils.helpers import (
+    download_framework_model_by_recipe_type,
+    torch_distributed_zero_first,
+)
 from sparsezoo import Model
 
 
@@ -333,10 +335,14 @@ def main(args):
                 pretrained_dataset=args.pretrained_dataset,
                 num_classes=num_classes,
             )
-    else:
+    elif args.arch_key in torchvision.models.__dict__:
         # fall back to torchvision
         model = torchvision.models.__dict__[args.arch_key](
             pretrained=args.pretrained, num_classes=num_classes
+        )
+    else:
+        raise ValueError(
+            f"Unable to find {args.arch_key} in ModelRegistry or in torchvision.models"
         )
     model.to(device)
 
