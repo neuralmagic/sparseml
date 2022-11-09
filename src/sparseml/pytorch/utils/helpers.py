@@ -1130,7 +1130,7 @@ def memory_aware_threshold(tensor: torch.Tensor, idx: int) -> Tensor:
 
 
 def download_framework_model_by_recipe_type(
-    zoo_model: Model, recipe_name: Optional[str] = None, model_suffix: str = ".pth"
+    zoo_model: Model, recipe_name: Optional[str] = None, model_suffix: str = "pth"
 ) -> str:
     """
     Extract the path of the framework model from the
