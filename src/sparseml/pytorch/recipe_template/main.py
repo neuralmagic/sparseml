@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import logging
 from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -39,11 +40,13 @@ __all__ = [
     "recipe_template",
 ]
 
+_LOGGER = logging.getLogger(__name__)
+
 
 def recipe_template(
     pruning: Optional[str] = None,
-    quantization: bool = False,
-    lr_func: str = "linear",
+    quantization: Union[bool, str] = False,
+    lr: str = "linear",
     mask_type: str = "unstructured",
     global_sparsity: bool = False,
     target: Optional[str] = None,
@@ -53,36 +56,40 @@ def recipe_template(
     """
     Returns a valid yaml or md recipe based on specified arguments
 
-    :pruning: optional pruning algorithm to use in the recipe, can be any of the
+    :param pruning: optional pruning algorithm to use in the recipe, can be any of the
     following,
         `true` (represents Magnitude/Global-Magnitude pruning according to
         global_sparsity), `false` (No pruning), `acdc`, `mfac`, `movement`, `obs` or
         `constant`. Defaults to None
-    :quantization: True if quantization needs to be applied else False. Defaults to
+    :param quantization: True if quantization needs to be applied else False. Defaults
+        to False. Can also be string representation of boolean values i.e `true` or
+        `false`
+    :param lr: the learning rate schedule function. Defaults to `linear`
+    :param mask_type: the mask_type to use for pruning. Defaults to `unstructured`
+    :param global_sparsity: if set to True then apply sparsity globally, defaults to
         False
-    :lr_func: the learning rate schedule function. Defaults to `linear`
-    :mask_type: the mask_type to use for pruning. Defaults to `unstructured`
-    :global_sparsity: if set to True then apply sparsity globally, defaults to
-        False
-    :target: the target hardware, can be set to `vnni` or `tensorrt`. Defaults to
+    :param target: the target hardware, can be set to `vnni` or `tensorrt`. Defaults to
         None
-    :model: an instantiated PyTorch Module, or the local path to a torch.jit loadable
-        *.pt file, if supplied then the recipe is built according to this architecture
-    :file_name: an optional filename to save this recipe to. If specified the extension
-        is used to determine if file should be written in markdown or yaml syntax. If
-        not specified recipe is not written to a file
+    :param model: an instantiated PyTorch Module, or the local path to a torch.jit
+        loadable *.pt file, if supplied then the recipe is built according to this
+        architecture
+    :param file_name: an optional filename to save this recipe to. If specified the
+        extension is used to determine if file should be written in markdown
+        or yaml syntax. If not specified recipe is not written to a file
+    :return: A valid string recipe based on the arguments
     """
 
     if isinstance(model, str):
         # load model file to in memory Module using torch.jit
         model = torch.jit.load(model)
 
+    quantization: bool = _validate_quantization(quantization=quantization)
     mask_type: str = _validate_mask_type(mask_type=mask_type, target=target)
     pruning: str = _validate_pruning(pruning=pruning, quantization=quantization)
     recipe: str = _build_recipe_template(
         pruning=pruning,
         quantization=quantization,
-        lr_func=lr_func,
+        lr_func=lr,
         mask_type=mask_type,
         global_sparsity=global_sparsity,
         target=target,
@@ -95,6 +102,14 @@ def recipe_template(
 
         _write_recipe_to_file(file_name=file_name, recipe=recipe)
     return recipe
+
+
+def _validate_quantization(quantization: Union[bool, str]) -> bool:
+    if isinstance(quantization, str):
+        quantization = quantization.lower() == "true"
+    if not isinstance(quantization, bool):
+        raise ValueError("`quantization` must be a bool")
+    return quantization
 
 
 def _validate_pruning(pruning: Optional[str] = None, quantization: bool = False) -> str:
@@ -173,6 +188,7 @@ def _write_recipe_to_file(file_name: str, recipe: str):
     Path(file_name).parent.mkdir(parents=True, exist_ok=True)
     with open(file_name, "w") as file:
         file.write(recipe)
+    _LOGGER.info(f"Recipe written to file {file_name}")
 
 
 def _get_base_recipe_variables(
