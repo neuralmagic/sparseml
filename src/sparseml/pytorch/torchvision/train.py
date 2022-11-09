@@ -25,10 +25,14 @@ from torch import nn
 from torch.utils.data.dataloader import default_collate
 from torchvision.transforms.functional import InterpolationMode
 
+from sparseml.pytorch.models.registry import ModelRegistry
 from sparseml.pytorch.optim import ScheduledModifierManager
 from sparseml.pytorch.torchvision import presets, transforms, utils
 from sparseml.pytorch.torchvision.sampler import RASampler
-from sparseml.pytorch.utils.helpers import download_framework_model_by_recipe_type
+from sparseml.pytorch.utils.helpers import (
+    download_framework_model_by_recipe_type,
+    torch_distributed_zero_first,
+)
 from sparsezoo import Model
 
 
@@ -64,6 +68,9 @@ def train_one_epoch(
         image, target = image.to(device), target.to(device)
         with torch.cuda.amp.autocast(enabled=scaler is not None):
             output = model(image)
+            if isinstance(output, tuple):
+                # NOTE: sparseml models return two things (logits & probs)
+                output = output[0]
             loss = criterion(output, target)
 
         if steps_accumulated % args.gradient_accum_steps == 0:
@@ -219,15 +226,11 @@ def load_data(traindir, valdir, args):
         print(f"Loading dataset_test from {cache_path}")
         dataset_test, _ = torch.load(cache_path)
     else:
-        if args.weights and args.test_only:
-            weights = torchvision.models.get_weight(args.weights)
-            preprocessing = weights.transforms()
-        else:
-            preprocessing = presets.ClassificationPresetEval(
-                crop_size=val_crop_size,
-                resize_size=val_resize_size,
-                interpolation=interpolation,
-            )
+        preprocessing = presets.ClassificationPresetEval(
+            crop_size=val_crop_size,
+            resize_size=val_resize_size,
+            interpolation=interpolation,
+        )
 
         dataset_test = torchvision.datasets.ImageFolder(
             valdir,
@@ -323,9 +326,24 @@ def main(args):
         steps_per_eval = min(steps_per_eval, args.max_eval_steps)
 
     print("Creating model")
-    model = torchvision.models.get_model(
-        args.model, weights=args.weights, num_classes=num_classes
-    )
+    if args.arch_key in ModelRegistry.available_keys():
+        with torch_distributed_zero_first(args.rank if args.distributed else None):
+            model = ModelRegistry.create(
+                key=args.arch_key,
+                pretrained=args.pretrained,
+                pretrained_path=args.checkpoint_path,
+                pretrained_dataset=args.pretrained_dataset,
+                num_classes=num_classes,
+            )
+    elif args.arch_key in torchvision.models.__dict__:
+        # fall back to torchvision
+        model = torchvision.models.__dict__[args.arch_key](
+            pretrained=args.pretrained, num_classes=num_classes
+        )
+    else:
+        raise ValueError(
+            f"Unable to find {args.arch_key} in ModelRegistry or in torchvision.models"
+        )
     model.to(device)
 
     if args.distributed and args.sync_bn:
@@ -596,11 +614,44 @@ def get_args_parser(add_help=True):
     parser.add_argument("--recipe-path", required=True, type=str, help="Path to recipe")
     parser.add_argument(
         "--data-path",
-        default="/datasets01/imagenet_full_size/061417/",
+        required=True,
+        default=None,
         type=str,
         help="dataset path",
     )
-    parser.add_argument("--model", default="resnet18", type=str, help="model name")
+    parser.add_argument(
+        "--arch-key",
+        default=None,
+        type=str,
+        help=(
+            "The architecture key for image classification model; "
+            "example: `resnet50`, `mobilenet`. "
+            "Note: Will be read from the checkpoint if not specified"
+        ),
+    )
+    parser.add_argument(
+        "--pretrained",
+        default=True,
+        type=str,
+        help=(
+            "The type of pretrained weights to use, "
+            "loads default pretrained weights for "
+            "the model if not specified or set to `True`. "
+            "Otherwise, should be set to the desired weights "
+            "type: [base, optim, optim-perf]. To not load any weights set"
+            " to one of [none, false]",
+        ),
+    )
+    parser.add_argument(
+        "--pretrained-dataset",
+        default=None,
+        type=str,
+        help=(
+            "The dataset to load pretrained weights for if pretrained is "
+            "set. Load the default dataset for the architecture if set to None. "
+            "examples:`imagenet`, `cifar10`, etc..."
+        ),
+    )
     parser.add_argument(
         "--device",
         default="cuda",
@@ -856,9 +907,6 @@ def get_args_parser(add_help=True):
         default=3,
         type=int,
         help="number of repetitions for Repeated Augmentation (default: 3)",
-    )
-    parser.add_argument(
-        "--weights", default=None, type=str, help="the weights enum name to load"
     )
     parser.add_argument(
         "--gradient-accum-steps",
