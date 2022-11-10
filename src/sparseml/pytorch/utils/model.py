@@ -17,7 +17,7 @@ Code related to interacting with a trained model such as saving, loading, etc
 """
 
 from collections import OrderedDict
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import torch
 from packaging import version
@@ -39,7 +39,6 @@ try:
 except Exception as ddp_error:
     DDP = None
     ddp_import_error = ddp_error
-
 
 __all__ = [
     "load_model",
@@ -80,7 +79,13 @@ def load_model(
     """
     if path.startswith("zoo:"):
         path = download_framework_model_by_recipe_type(Model(path))
-    model_dict = torch.load(path, map_location="cpu")
+    model_dict: Union[Module, Dict[str, Any]] = torch.load(path, map_location="cpu")
+
+    if isinstance(model_dict, Module):
+        model_dict = {
+            "state_dict": model_dict.state_dict(),
+        }
+
     recipe = model_dict.get("recipe")
 
     if recipe:
