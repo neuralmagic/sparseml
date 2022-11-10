@@ -132,6 +132,8 @@ def evaluate(
             image = image.to(device, non_blocking=True)
             target = target.to(device, non_blocking=True)
             output = model(image)
+            if isinstance(output, tuple):
+                output = output[0]
             loss = criterion(output, target)
 
             acc1, acc5 = utils.accuracy(output, target, topk=(1, 5))
