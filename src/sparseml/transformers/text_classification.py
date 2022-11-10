@@ -213,15 +213,6 @@ class DataTrainingArguments:
         default=0,
         metadata={"help": "Number of samples (inputs/outputs) to export during eval."},
     )
-    problem_type: Optional[str] = field(
-        default=None,
-        metadata={
-            "help": "Problem type to override in config. Options are "
-            "'single_label_classification', 'multi_label_classification', "
-            "or 'regression'. Default is None, leaving problem type to be "
-            "inferred by model definition"
-        },
-    )
 
     def __post_init__(self):
         if self.task_name is not None:
@@ -448,13 +439,10 @@ def main(**kwargs):
             num_labels = 1
     else:
         # Trying to have good defaults here, don't hesitate to tweak to your needs.
-        is_regression = raw_datasets["train"].features[label_column].dtype in [
-            "float32",
-            "float64",
-        ]
-        is_multi_label_classification = data_args.problem_type == (
-            "multi_label_classification"
-        )
+        label_type = raw_datasets["train"].features[label_column].dtype
+        is_regression = label_type in ["float32", "float64"]
+        is_multi_label_classification = label_type == "list"
+
         if is_regression:
             num_labels = 1
         elif is_multi_label_classification:
@@ -469,7 +457,9 @@ def main(**kwargs):
     #
     # In distributed training, the .from_pretrained methods guarantee that only one
     # local process can concurrently download model & vocab.
-
+    config_kwargs = {}
+    if is_multi_label_classification:
+        config_kwargs["problem_type"] = "multi_label_classification"
     config = AutoConfig.from_pretrained(
         model_args.config_name
         if model_args.config_name
@@ -479,7 +469,7 @@ def main(**kwargs):
         cache_dir=model_args.cache_dir,
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
-        problem_type=data_args.problem_type,
+        **config_kwargs,
     )
 
     model, teacher = SparseAutoModel.text_classification_from_pretrained_distil(
