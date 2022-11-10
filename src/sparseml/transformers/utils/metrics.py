@@ -20,6 +20,7 @@ Utilities for evaluation metric computation
 from typing import Dict, Optional
 
 import numpy
+from sklearn.metrics import precision_recall_fscore_support
 
 
 __all__ = [
@@ -46,24 +47,7 @@ def multi_label_precision_recall_f1(
     :return: dictionary of per label and macro-average results for precision, recall,
         and f1
     """
-    # predictions and targets shape: (num_samples, num_labels)
-    predictions = predictions.astype(bool)
-    targets = targets.astype(bool)
-
-    # compute per-class TP, FP, FN
-    true_positives = numpy.logical_and(predictions, targets).sum(axis=0)
-    false_positives = numpy.logical_and(predictions, ~targets).sum(axis=0)
-    false_negatives = numpy.logical_and(~predictions, targets).sum(axis=0)
-
-    # compute per-class precision, recall, f1
-    precision = true_positives / (true_positives + false_positives)
-    recall = true_positives / (true_positives + false_negatives)
-    f1 = 2 * (precision * recall) / (precision + recall)
-
-    # labels with no TP/FN will evaluate to nan - convert to 0.0
-    precision = numpy.nan_to_num(precision)
-    recall = numpy.nan_to_num(recall)
-    f1 = numpy.nan_to_num(f1)
+    precision, recall, f1, _ = precision_recall_fscore_support(targets, predictions)
 
     # compile results into required str -> float dict
     results = {}
