@@ -61,8 +61,8 @@ def test_generic_recipe_creation(
 @pytest.mark.parametrize(
     "pruning, quantization, kwargs",
     [
-        ("true", True, {"lr_func": "cosine"}),
-        ("true", False, {"lr_func": "cyclic_linear"}),
+        ("true", True, {"lr": "cosine"}),
+        ("true", False, {"lr": "cyclic_linear"}),
         ("false", True, {}),
         ("false", False, {}),
     ],
