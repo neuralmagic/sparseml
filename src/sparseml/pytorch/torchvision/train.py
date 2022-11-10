@@ -399,52 +399,6 @@ def main(args):
 
     scaler = torch.cuda.amp.GradScaler() if args.amp else None
 
-    args.lr_scheduler = args.lr_scheduler.lower()
-    if args.lr_scheduler == "steplr":
-        main_lr_scheduler = torch.optim.lr_scheduler.StepLR(
-            optimizer, step_size=args.lr_step_size, gamma=args.lr_gamma
-        )
-    elif args.lr_scheduler == "cosineannealinglr":
-        main_lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-            optimizer, T_max=args.epochs - args.lr_warmup_epochs, eta_min=args.lr_min
-        )
-    elif args.lr_scheduler == "exponentiallr":
-        main_lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(
-            optimizer, gamma=args.lr_gamma
-        )
-    else:
-        raise RuntimeError(
-            f"Invalid lr scheduler '{args.lr_scheduler}'. "
-            "Only StepLR, CosineAnnealingLR and ExponentialLR "
-            "are supported."
-        )
-
-    if args.lr_warmup_epochs > 0:
-        if args.lr_warmup_method == "linear":
-            warmup_lr_scheduler = torch.optim.lr_scheduler.LinearLR(
-                optimizer,
-                start_factor=args.lr_warmup_decay,
-                total_iters=args.lr_warmup_epochs,
-            )
-        elif args.lr_warmup_method == "constant":
-            warmup_lr_scheduler = torch.optim.lr_scheduler.ConstantLR(
-                optimizer,
-                factor=args.lr_warmup_decay,
-                total_iters=args.lr_warmup_epochs,
-            )
-        else:
-            raise RuntimeError(
-                f"Invalid warmup lr method '{args.lr_warmup_method}'. "
-                "Only linear and constant are supported."
-            )
-        lr_scheduler = torch.optim.lr_scheduler.SequentialLR(
-            optimizer,
-            schedulers=[warmup_lr_scheduler, main_lr_scheduler],
-            milestones=[args.lr_warmup_epochs],
-        )
-    else:
-        lr_scheduler = main_lr_scheduler
-
     model_ema = None
     if args.model_ema:
         # Decay adjustment that aims to keep the decay independent from
@@ -483,8 +437,6 @@ def main(args):
 
         # NOTE: override start epoch
         args.start_epoch = checkpoint["epoch"] + 1
-
-        lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
     else:
         checkpoint = None
         manager = ScheduledModifierManager.from_yaml(args.recipe_path)
@@ -500,6 +452,60 @@ def main(args):
             scaler.load_state_dict(checkpoint["scaler"])
 
     optimizer = manager.modify(model, optimizer, len(data_loader))
+
+    if manager.learning_rate_modifiers:
+        lr_scheduler = None
+    else:
+        args.lr_scheduler = args.lr_scheduler.lower()
+        if args.lr_scheduler == "steplr":
+            main_lr_scheduler = torch.optim.lr_scheduler.StepLR(
+                optimizer, step_size=args.lr_step_size, gamma=args.lr_gamma
+            )
+        elif args.lr_scheduler == "cosineannealinglr":
+            main_lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+                optimizer,
+                T_max=args.epochs - args.lr_warmup_epochs,
+                eta_min=args.lr_min,
+            )
+        elif args.lr_scheduler == "exponentiallr":
+            main_lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(
+                optimizer, gamma=args.lr_gamma
+            )
+        else:
+            raise RuntimeError(
+                f"Invalid lr scheduler '{args.lr_scheduler}'. "
+                "Only StepLR, CosineAnnealingLR and ExponentialLR "
+                "are supported."
+            )
+
+        if args.lr_warmup_epochs > 0:
+            if args.lr_warmup_method == "linear":
+                warmup_lr_scheduler = torch.optim.lr_scheduler.LinearLR(
+                    optimizer,
+                    start_factor=args.lr_warmup_decay,
+                    total_iters=args.lr_warmup_epochs,
+                )
+            elif args.lr_warmup_method == "constant":
+                warmup_lr_scheduler = torch.optim.lr_scheduler.ConstantLR(
+                    optimizer,
+                    factor=args.lr_warmup_decay,
+                    total_iters=args.lr_warmup_epochs,
+                )
+            else:
+                raise RuntimeError(
+                    f"Invalid warmup lr method '{args.lr_warmup_method}'. "
+                    "Only linear and constant are supported."
+                )
+            lr_scheduler = torch.optim.lr_scheduler.SequentialLR(
+                optimizer,
+                schedulers=[warmup_lr_scheduler, main_lr_scheduler],
+                milestones=[args.lr_warmup_epochs],
+            )
+        else:
+            lr_scheduler = main_lr_scheduler
+
+        if args.resume and checkpoint:
+            lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
 
     if args.test_only:
         # We disable the cudnn benchmarking because it can
@@ -546,7 +552,8 @@ def main(args):
             model_ema=model_ema,
             scaler=scaler,
         )
-        lr_scheduler.step()
+        if lr_scheduler:
+            lr_scheduler.step()
         top1_acc = evaluate(model, criterion, data_loader_test, device, steps_per_eval)
         if model_ema:
             evaluate(
@@ -564,9 +571,10 @@ def main(args):
             checkpoint = {
                 "model": model_without_ddp.state_dict(),
                 "optimizer": optimizer.state_dict(),
-                "lr_scheduler": lr_scheduler.state_dict(),
                 "args": args,
             }
+            if lr_scheduler:
+                checkpoint["lr_scheduler"] = lr_scheduler.state_dict()
             if model_ema:
                 checkpoint["model_ema"] = model_ema.state_dict()
             if scaler:
