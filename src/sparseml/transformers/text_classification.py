@@ -767,7 +767,7 @@ def main(**kwargs):
         elif is_regression:
             return {"mse": ((preds - p.label_ids) ** 2).mean().item()}
         elif is_multi_label_classification:
-            threshold = 0.5  # from go_emotions paper - potentially move to arg/config
+            threshold = 0.3  # from go_emotions paper - potentially move to arg/config
             preds_sigmoid = 1 / (1 + np.exp(-preds))
             multi_label_preds = (preds_sigmoid > threshold).astype(np.float32)
             id_to_label = {id_: label for label, id_ in label_to_id.items()}
