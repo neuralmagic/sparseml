@@ -20,12 +20,17 @@ Tools for integrating SparseML with transformers training flows
 
 import logging as _logging
 
+from packaging import version
+
 
 try:
     import transformers as _transformers
 
-    # triggers error if neuralmagic/transformers is not installed
-    assert _transformers.NM_INTEGRATED
+    # triggers error if the latest neuralmagic/transformers is not installed
+    assert (
+        _transformers.NM_INTEGRATED
+        and str(version.parse(_transformers.__version__)) == "4.23.1"
+    )
     _transformers_import_error = None
 except Exception as _transformers_import_err:
     _transformers_import_error = _transformers_import_err
