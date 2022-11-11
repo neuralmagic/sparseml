@@ -63,12 +63,13 @@ sparseml.transformers.export_onnx \
 
 import argparse
 import collections
+import copy
 import inspect
 import logging
 import math
 import os
 import shutil
-from typing import Any, Optional, Set
+from typing import Any, List, Optional
 
 from torch.nn import Module
 from transformers import AutoConfig, AutoTokenizer
@@ -83,12 +84,12 @@ from sparseml.transformers.utils import SparseAutoModel
 __all__ = ["export_transformer_to_onnx", "load_task_model"]
 
 MODEL_ONNX_NAME = "model.onnx"
-DEPLOYMENT_FILES = {
+DEPLOYMENT_FILES = [
     MODEL_ONNX_NAME,
     "tokenizer.json",
     "tokenizer_config.json",
     "config.json",
-}
+]
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -261,7 +262,7 @@ def export_transformer_to_onnx(
 def create_deployment_folder(
     training_directory: str,
     onnx_file_name: str = MODEL_ONNX_NAME,
-    deployment_files: Set[str] = DEPLOYMENT_FILES,
+    deployment_files: Optional[List[str]] = None,
 ):
     """
     Sets up the deployment directory i.e. copies over the complete set of files
@@ -270,21 +271,17 @@ def create_deployment_folder(
     :param training_directory: path to directory where model files, tokenizers,
         and configs are saved. Exported ONNX model is also expected to be there
     :param onnx_file_name: Name for exported ONNX file in the model directory.
-    :param deployment_files: The set of files that are expected to be present in
-        to the deployment folder once this function terminates.
+    :param deployment_files: optional list of deployment file names to override
+        default file names with.
     :return: path to the valid deployment directory
     """
 
-    if onnx_file_name != MODEL_ONNX_NAME:
-        # replace the default onnx name with the custom one
-        deployment_files.remove(MODEL_ONNX_NAME)
-        deployment_files.update(onnx_file_name)
-
-    if training_directory.split("/")[-1] != "training":
-        _LOGGER.warning(
-            "Expected to receive path to the training directory, "
-            f"but received path to {training_directory.split('/')[1]} directory/file"
-        )
+    if deployment_files is None:
+        # set deployment files to default values
+        deployment_files = copy.deepcopy(DEPLOYMENT_FILES)
+        if onnx_file_name != MODEL_ONNX_NAME:
+            # replace the default onnx model name with the custom one
+            deployment_files[deployment_files.index(MODEL_ONNX_NAME)] = onnx_file_name
 
     model_root_dir = os.path.dirname(training_directory)
     deployment_folder_dir = os.path.join(model_root_dir, "deployment")
