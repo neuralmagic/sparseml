@@ -518,7 +518,7 @@ class OBSPruningParamsScorer(PruningParamsGradScorer):
                     obs_updates[i] = (
                         self._finvs[i]
                         .mul(
-                            self._block_finv_w[i].view(-1)
+                            self._block_finv_w[i].reshape(-1)
                             * (mask_diffs[i] == -1).view(-1).to(self._devices[i])
                         )
                         .view(param.data.shape)
