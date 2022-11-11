@@ -164,9 +164,13 @@ def get_save_dir_and_loggers(
             if task == Tasks.TRAIN
             else None
         )
-
+        arch_key_save_name = f"{arch_key.replace('/', '.')}"
         if not model_tag:
-            model_tag = f"{arch_key.replace('/', '.')}_{dataset_name}"
+            model_tag = (
+                f"{arch_key_save_name}_{dataset_name}"
+                if dataset_name
+                else arch_key_save_name
+            )
             model_id = model_tag
             model_inc = 0
             # set location to check for models with same name
