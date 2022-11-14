@@ -34,6 +34,7 @@ try:
     assert _upstream_base_version == _expected_upstream_base_version
     _transformers_import_error = None
 except Exception as _transformers_import_err:
+    _nm_integrated = False
     _transformers_import_error = _transformers_import_err
 
 
