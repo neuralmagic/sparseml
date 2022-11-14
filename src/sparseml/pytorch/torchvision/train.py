@@ -377,6 +377,10 @@ def main(args):
         optimizer = torch.optim.AdamW(
             parameters, lr=args.lr, weight_decay=args.weight_decay
         )
+    elif opt_name == "adam":
+        optimizer = torch.optim.Adam(
+            parameters, lr=args.lr, weight_decay=args.weight_decay
+        )
     else:
         raise RuntimeError(
             f"Invalid optimizer {args.opt}. Only SGD, RMSprop and AdamW are supported."
