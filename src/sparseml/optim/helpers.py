@@ -242,8 +242,6 @@ def _update_recipe_variable(var_name: str, var_value, container):
     # Checks whether there is at least one attribute (key) in the container,
     # with the same name as var_name.
     # If this is the case, key_found = True, otherwise False.
-    # Additionally, during checking, when var_name key is present in any of the
-    # container's attributes, this attribute's value gets overwritten with var_value.
 
     # :param var_name: The key we are attempting to find in the container.
     # :param var_value: The value which will overwrite the previous value
@@ -261,11 +259,6 @@ def _update_recipe_variable(var_name: str, var_value, container):
             if var_name == key:
                 container[var_name] = var_value
                 key_found = True
-        else:
-            for idx, modifier in enumerate(value):
-                if var_name in modifier.keys():
-                    container[key][idx][var_name] = var_value
-                    key_found = True
 
     return container, key_found
 
