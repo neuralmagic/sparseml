@@ -38,6 +38,7 @@ from sparsezoo import File, Model
 __all__ = [
     "load_recipe_yaml_str",
     "load_recipe_yaml_str_no_classes",
+    "load_recipe_variables_from_yaml",
     "rewrite_recipe_yaml_string_with_classes",
     "update_recipe_variables",
     "evaluate_recipe_yaml_str_equations",
@@ -72,52 +73,8 @@ def load_recipe_yaml_str(
         in the loaded yaml string. Default is None
     :return: the recipe YAML configuration loaded as a string
     """
-    if isinstance(file_path, File):
-        # download and unwrap Recipe object
-        file_path = file_path.path
 
-    if not isinstance(file_path, str):
-        raise ValueError(f"file_path must be a str, given {type(file_path)}")
-
-    if file_path.startswith("zoo:"):
-        # download from zoo stub
-        model = Model(file_path)
-        file_path = model.recipes.default.path
-
-    # load the yaml string
-    if "\n" in file_path or "\r" in file_path:
-        # treat as raw yaml passed in
-        yaml_str = file_path
-        extension = "unknown"
-    else:
-        # load yaml from file_path
-        extension = file_path.lower().split(".")[-1]
-        if extension not in ["md", "yaml"]:
-            raise ValueError(
-                "Unsupported file extension for recipe. Excepted '.md' or '.yaml'. "
-                f"Received {file_path}"
-            )
-        with open(file_path, "r") as yaml_file:
-            yaml_str = yaml_file.read()
-
-    if extension == "md" or extension == "unknown":
-        # extract YAML front matter from markdown recipe card
-        # adapted from
-        # https://github.com/jonbeebe/frontmatter/blob/master/frontmatter
-        yaml_delim = r"(?:---|\+\+\+)"
-        yaml = r"(.*?)"
-        re_pattern = r"^\s*" + yaml_delim + yaml + yaml_delim
-        regex = re.compile(re_pattern, re.S | re.M)
-        result = regex.search(yaml_str)
-
-        if result:
-            yaml_str = result.group(1)
-        elif extension == "md":
-            # fail if we know whe should have extracted front matter out
-            raise RuntimeError(
-                "Could not extract YAML front matter from recipe card:"
-                " {}".format(file_path)
-            )
+    yaml_str = _load_yaml_str_from_file(file_path)
 
     if variable_overrides:
         yaml_str = update_recipe_variables(yaml_str, variable_overrides)
@@ -125,7 +82,7 @@ def load_recipe_yaml_str(
     return yaml_str
 
 
-def load_recipe_yaml_str_no_classes(recipe_yaml_str: str) -> str:
+def load_recipe_yaml_str_no_classes(recipe_yaml_str: str) -> Dict[str, Any]:
     """
     :param recipe_yaml_str: YAML string of a SparseML recipe
     :return: recipe loaded into YAML with all objects replaced
@@ -134,6 +91,27 @@ def load_recipe_yaml_str_no_classes(recipe_yaml_str: str) -> str:
     pattern = re.compile(r"!(?P<class_name>(?!.*\.)[a-zA-Z_][a-zA-Z^._0-9]+)")
     classless_yaml_str = pattern.sub(r"OBJECT.\g<class_name>:", recipe_yaml_str)
     return yaml.safe_load(classless_yaml_str)
+
+
+def load_recipe_variables_from_yaml(file_path: Union[str, File]) -> Dict[str, Any]:
+    """
+    :param file_path: path to recipe yaml or markdown or raw recipe yaml str
+    :return: dictionary of recipe variable name to value
+    """
+    yaml_str = _load_yaml_str_from_file(file_path)
+    recipe_dict_full = load_recipe_yaml_str_no_classes(yaml_str)
+
+    # filter modifier containers from recipe variables
+    recipe_variables = {}
+    for variable_name, value in recipe_dict_full.items():
+        if "modifier" in variable_name:
+            # modifier group, skip
+            continue
+        if isinstance(value, dict) and any("modifier" in key for key in value):
+            # recipe stage: skip
+            continue
+        recipe_variables[variable_name] = value
+    return recipe_variables
 
 
 def rewrite_recipe_yaml_string_with_classes(recipe_contianer: Any) -> str:
@@ -414,6 +392,57 @@ def _evaluate_staged_recipe_yaml_str_equations(container: dict) -> dict:
 
 def is_eval_string(val: str) -> bool:
     return val.startswith("eval(") and val.endswith(")")
+
+
+def _load_yaml_str_from_file(file_path: Union[str, File]) -> str:
+    # load raw yaml string from yaml file, zoo stub, or markdown frontmatter
+    if isinstance(file_path, File):
+        # download and unwrap Recipe object
+        file_path = file_path.path
+
+    if not isinstance(file_path, str):
+        raise ValueError(f"file_path must be a str, given {type(file_path)}")
+
+    if file_path.startswith("zoo:"):
+        # download from zoo stub
+        model = Model(file_path)
+        file_path = model.recipes.default.path
+
+    # load the yaml string
+    if "\n" in file_path or "\r" in file_path:
+        # treat as raw yaml passed in
+        yaml_str = file_path
+        extension = "unknown"
+    else:
+        # load yaml from file_path
+        extension = file_path.lower().split(".")[-1]
+        if extension not in ["md", "yaml"]:
+            raise ValueError(
+                "Unsupported file extension for recipe. Excepted '.md' or '.yaml'. "
+                f"Received {file_path}"
+            )
+        with open(file_path, "r") as yaml_file:
+            yaml_str = yaml_file.read()
+
+    if extension == "md" or extension == "unknown":
+        # extract YAML front matter from markdown recipe card
+        # adapted from
+        # https://github.com/jonbeebe/frontmatter/blob/master/frontmatter
+        yaml_delim = r"(?:---|\+\+\+)"
+        yaml = r"(.*?)"
+        re_pattern = r"^\s*" + yaml_delim + yaml + yaml_delim
+        regex = re.compile(re_pattern, re.S | re.M)
+        result = regex.search(yaml_str)
+
+        if result:
+            yaml_str = result.group(1)
+        elif extension == "md":
+            # fail if we know whe should have extracted front matter out
+            raise RuntimeError(
+                "Could not extract YAML front matter from recipe card:"
+                " {}".format(file_path)
+            )
+    return yaml_str
 
 
 def _is_evaluatable_variable(val: Any):

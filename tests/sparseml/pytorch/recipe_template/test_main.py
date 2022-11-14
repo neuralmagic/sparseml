@@ -147,3 +147,12 @@ def test_one_shot_applies_sparsification(pruning, quantization, quant_expected, 
         ) / sum(torch.numel(weight) for weight in weights)
 
         assert sparsity > 0.75
+
+
+def test_correct_recipe_variables():
+    # TODO: verify correct top level recipe variables given
+    #  num_epochs, init_lr, final_lr, sparsity
+
+    # use sparseml.optim.helpers.load_recipe_variables_from_yaml to extract variables
+    # from generated recipe and compare to expected values
+    pass
