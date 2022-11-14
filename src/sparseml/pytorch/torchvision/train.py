@@ -43,7 +43,6 @@ def train_one_epoch(
     data_loader,
     device,
     epoch,
-    steps_per_epoch,
     args,
     model_ema=None,
     scaler=None,
@@ -62,8 +61,6 @@ def train_one_epoch(
     for i, (image, target) in enumerate(
         metric_logger.log_every(data_loader, args.print_freq, header)
     ):
-        if i >= steps_per_epoch:
-            break
         start_time = time.time()
         image, target = image.to(device), target.to(device)
         with torch.cuda.amp.autocast(enabled=scaler is not None):
@@ -113,7 +110,6 @@ def evaluate(
     criterion,
     data_loader,
     device,
-    steps_per_epoch,
     print_freq=100,
     log_suffix="",
 ):
@@ -123,12 +119,7 @@ def evaluate(
 
     num_processed_samples = 0
     with torch.inference_mode():
-        for i, (image, target) in enumerate(
-            metric_logger.log_every(data_loader, print_freq, header)
-        ):
-            if i >= steps_per_epoch:
-                break
-
+        for image, target in metric_logger.log_every(data_loader, print_freq, header):
             image = image.to(device, non_blocking=True)
             target = target.to(device, non_blocking=True)
             output = model(image)
@@ -279,8 +270,8 @@ def main(args):
     else:
         torch.backends.cudnn.benchmark = True
 
-    train_dir = os.path.join(args.data_path, "train")
-    val_dir = os.path.join(args.data_path, "val")
+    train_dir = os.path.join(args.dataset_path, "train")
+    val_dir = os.path.join(args.dataset_path, "val")
     dataset, dataset_test, train_sampler, test_sampler = load_data(
         train_dir, val_dir, args
     )
@@ -311,10 +302,6 @@ def main(args):
         collate_fn=collate_fn,
     )
 
-    steps_per_epoch = len(data_loader)
-    if args.max_train_steps > 0:
-        steps_per_epoch = min(steps_per_epoch, args.max_train_steps)
-
     data_loader_test = torch.utils.data.DataLoader(
         dataset_test,
         batch_size=args.batch_size,
@@ -322,10 +309,6 @@ def main(args):
         num_workers=args.workers,
         pin_memory=True,
     )
-
-    steps_per_eval = len(data_loader_test)
-    if args.max_eval_steps > 0:
-        steps_per_eval = min(steps_per_eval, args.max_eval_steps)
 
     print("Creating model")
     if args.arch_key in ModelRegistry.available_keys():
@@ -520,11 +503,10 @@ def main(args):
                 criterion,
                 data_loader_test,
                 device,
-                steps_per_eval,
                 log_suffix="EMA",
             )
         else:
-            evaluate(model, criterion, data_loader_test, device, steps_per_eval)
+            evaluate(model, criterion, data_loader_test, device)
         return
 
     model_without_ddp = model
@@ -549,21 +531,19 @@ def main(args):
             data_loader,
             device,
             epoch,
-            steps_per_epoch,
             args,
             model_ema=model_ema,
             scaler=scaler,
         )
         if lr_scheduler:
             lr_scheduler.step()
-        top1_acc = evaluate(model, criterion, data_loader_test, device, steps_per_eval)
+        top1_acc = evaluate(model, criterion, data_loader_test, device)
         if model_ema:
             evaluate(
                 model_ema,
                 criterion,
                 data_loader_test,
                 device,
-                steps_per_eval,
                 log_suffix="EMA",
             )
         is_new_best = epoch >= args.save_best_after and top1_acc > best_top1_acc
@@ -614,16 +594,14 @@ def _load_checkpoint(path):
     return torch.load(path, map_location="cpu")
 
 
-def get_args_parser(add_help=True):
+def get_args_parser():
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="PyTorch Classification Training", add_help=add_help
-    )
+    parser = argparse.ArgumentParser(description="PyTorch Classification Training")
 
     parser.add_argument("--recipe-path", required=True, type=str, help="Path to recipe")
     parser.add_argument(
-        "--data-path",
+        "--dataset-path",
         required=True,
         default=None,
         type=str,
@@ -649,7 +627,7 @@ def get_args_parser(add_help=True):
             "the model if not specified or set to `True`. "
             "Otherwise, should be set to the desired weights "
             "type: [base, optim, optim-perf]. To not load any weights set"
-            " to one of [none, false]",
+            " to one of [none, false]"
         ),
     )
     parser.add_argument(
@@ -677,7 +655,7 @@ def get_args_parser(add_help=True):
     )
     parser.add_argument(
         "--epochs",
-        default=90,
+        default=10,
         type=int,
         metavar="N",
         help="number of total epochs to run",
@@ -930,20 +908,6 @@ def get_args_parser(add_help=True):
         type=int,
         help="Save the best validation result after the given "
         "epoch completes until the end of training",
-    )
-    parser.add_argument(
-        "--max-train-steps",
-        default=-1,
-        type=int,
-        help="Per epoch number of training steps to run. If negative, "
-        "will run for the entire dataset",
-    )
-    parser.add_argument(
-        "--max-eval-steps",
-        default=-1,
-        type=int,
-        help="Per epoch number of eval steps to run. If negative, "
-        "will run for the entire dataset",
     )
     return parser
 
