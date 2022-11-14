@@ -27,10 +27,11 @@ try:
     import transformers as _transformers
 
     # triggers error if the latest neuralmagic/transformers is not installed
-    assert (
-        _transformers.NM_INTEGRATED
-        and str(version.parse(_transformers.__version__)) == "4.23.1"
-    )
+    _nm_integrated = _transformers.NM_INTEGRATED
+    _upstream_base_version = str(version.parse(_transformers.__version__))
+    _expected_upstream_base_version = "4.23.1"
+    assert _nm_integrated
+    assert _upstream_base_version == _expected_upstream_base_version
     _transformers_import_error = None
 except Exception as _transformers_import_err:
     _transformers_import_error = _transformers_import_err
@@ -93,6 +94,14 @@ def _check_transformers_install():
             )
             # skip any further checks
             return
+        elif _nm_integrated:
+            _LOGGER.warning(
+                f"incompatible sparseml-transformers v{_upstream_base_version} "
+                "detected. Overwriting exiting installation with sparseml-transformers "
+                f"v{_expected_upstream_base_version}. Set environment variable "
+                "NM_NO_AUTOINSTALL_TRANSFORMERS to disable"
+            )
+            _install_transformers_and_deps()
         else:
             _LOGGER.warning(
                 "sparseml-transformers installation not detected. Installing "
