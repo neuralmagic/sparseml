@@ -432,6 +432,7 @@ def main(**kwargs):
     label_column = data_args.label_column_name
     if data_args.task_name is not None:
         is_regression = data_args.task_name == "stsb"
+        is_multi_label_classification = False
         if not is_regression:
             label_list = raw_datasets["train"].features[label_column].names
             num_labels = len(label_list)
