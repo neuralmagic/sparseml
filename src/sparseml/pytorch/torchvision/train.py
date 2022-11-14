@@ -46,7 +46,7 @@ def train_one_epoch(
     args,
     model_ema=None,
     scaler=None,
-):
+) -> utils.MetricLogger:
     model.train()
     metric_logger = utils.MetricLogger(delimiter="  ")
     metric_logger.add_meter("lr", utils.SmoothedValue(window_size=1, fmt="{value}"))
@@ -103,6 +103,7 @@ def train_one_epoch(
         metric_logger.meters["acc1"].update(acc1.item(), n=batch_size)
         metric_logger.meters["acc5"].update(acc5.item(), n=batch_size)
         metric_logger.meters["img/s"].update(batch_size / (time.time() - start_time))
+    return metric_logger
 
 
 def evaluate(
@@ -112,7 +113,7 @@ def evaluate(
     device,
     print_freq=100,
     log_suffix="",
-):
+) -> utils.MetricLogger:
     model.eval()
     metric_logger = utils.MetricLogger(delimiter="  ")
     header = f"Test: {log_suffix}"
@@ -159,7 +160,7 @@ def evaluate(
         f"Acc@1 {metric_logger.acc1.global_avg:.3f}",
         f"Acc@5 {metric_logger.acc5.global_avg:.3f}",
     )
-    return metric_logger.acc1.global_avg
+    return metric_logger
 
 
 def _get_cache_path(filepath):
@@ -528,7 +529,7 @@ def main(args):
         if manager.qat_active(epoch=epoch):
             scaler = None
             model_ema = None
-        train_one_epoch(
+        train_metrics = train_one_epoch(
             model,
             criterion,
             optimizer,
@@ -541,7 +542,8 @@ def main(args):
         )
         if lr_scheduler:
             lr_scheduler.step()
-        top1_acc = evaluate(model, criterion, data_loader_test, device)
+        eval_metrics = evaluate(model, criterion, data_loader_test, device)
+        top1_acc = eval_metrics.acc1.global_avg
         if model_ema:
             evaluate(
                 model_ema,
@@ -579,11 +581,17 @@ def main(args):
                 checkpoint["epoch"] = -1 if epoch == manager.max_epochs - 1 else epoch
                 checkpoint["checkpoint_recipe"] = str(manager)
 
-            file_names = [f"model_{epoch}.pth", "checkpoint.pth"]
+            file_names = ["checkpoint.pth"]
             if is_new_best:
                 file_names.append("checkpoint-best.pth")
-            for fname in file_names:
-                utils.save_on_master(checkpoint, os.path.join(args.output_dir, fname))
+            _save_checkpoints(
+                epoch,
+                args.output_dir,
+                file_names,
+                checkpoint,
+                train_metrics,
+                eval_metrics,
+            )
 
     manager.finalize()
 
@@ -596,6 +604,26 @@ def _load_checkpoint(path):
     if path.startswith("zoo:"):
         path = download_framework_model_by_recipe_type(Model(path))
     return torch.load(path, map_location="cpu")
+
+
+def _save_checkpoints(
+    epoch, output_dir, file_names, checkpoint, train_metrics, eval_metrics
+):
+    metrics = "\n".join(
+        [
+            f"epoch: {epoch}",
+            f"__loss__: {train_metrics.loss.global_avg}",
+            f"top1acc: {eval_metrics.acc1.global_avg}",
+            f"top5acc: {eval_metrics.acc5.global_avg}",
+        ]
+    )
+    for fname in file_names:
+        utils.save_on_master(checkpoint, os.path.join(output_dir, fname))
+        if utils.is_main_process():
+            with open(
+                os.path.join(args.output_dir, fname.replace(".pth", ".txt")), "w"
+            ) as fp:
+                fp.write(metrics)
 
 
 def get_args_parser():
