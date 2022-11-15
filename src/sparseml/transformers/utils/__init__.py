@@ -19,4 +19,5 @@ Utilities for applying sparsification algorithms to Hugging Face transformers fl
 # flake8: noqa
 
 from .helpers import *
+from .metrics import *
 from .model import *
