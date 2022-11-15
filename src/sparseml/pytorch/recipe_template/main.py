@@ -102,6 +102,10 @@ def recipe_template(
         global_sparsity=global_sparsity,
         target=target,
         model=model,
+        num_epochs=num_epochs,
+        init_lr=init_lr,
+        final_lr=final_lr,
+        sparsity=sparsity,
     )
 
     if file_name is not None:
@@ -175,14 +179,11 @@ def _build_recipe_template(
 
     builder_groups = {"training_modifiers": _get_training_builders()}
 
-    pruning_end_epoch = 0.0
-
     if pruning:
         pruning_builders, pruning_variables = _get_pruning_builders_and_variables(
             pruning_algo=pruning,
             model=model,
             global_sparsity=global_sparsity,
-            end_epoch=pruning_end_epoch,
         )
         recipe_variables.update(pruning_variables)
         builder_groups["pruning_modifiers"] = pruning_builders
@@ -223,7 +224,10 @@ def _get_base_recipe_variables(
     final_lr: float = 0.0,
     sparsity: float = 0.8,
 ) -> Dict[str, Any]:
-    recipe_variables = dict(lr_func=lr_func, init_lr=init_lr, final_lr=final_lr)
+
+    recipe_variables = dict(
+        lr_func=lr_func, init_lr=init_lr, final_lr=final_lr, num_epochs=num_epochs
+    )
 
     num_qat_epochs = 0
     if quantization:
@@ -257,24 +261,7 @@ def _get_base_recipe_variables(
             )
         )
 
-    recipe_variables["num_epochs"] = _get_num_epochs(
-        pruning=pruning,
-        quantization=quantization,
-    )
-
     return recipe_variables
-
-
-def _get_num_epochs(pruning: bool, quantization: bool) -> Union[int, str]:
-    if pruning and quantization:
-        return "eval(_num_pruning_epochs + num_qat_epochs)"
-    if pruning and not quantization:
-        return "eval(_num_pruning_epochs)"
-    if quantization and not pruning:
-        return "eval(num_qat_epochs)"
-    # default placeholder epoch number if no
-    # pruning or quantization present
-    return 35
 
 
 def _get_training_builders() -> List[ModifierYAMLBuilder]:
@@ -310,7 +297,7 @@ def _get_pruning_builders_and_variables(
         params=prunable_params,
         init_sparsity=0.05,
         final_sparsity=0.8,
-        end_epoch="eval(pruning_active_epochs)",
+        end_epoch="eval(num_pruning_active_epochs)",
         update_frequency=1.0,
         mask_type="eval(mask_type)",
         global_sparsity="eval(global_sparsity)",

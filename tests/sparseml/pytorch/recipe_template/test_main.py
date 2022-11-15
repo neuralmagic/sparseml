@@ -23,6 +23,7 @@ from sparseml.pytorch import recipe_template
 from sparseml.pytorch.models import resnet50
 from sparseml.pytorch.optim import ScheduledModifierManager
 from sparseml.pytorch.utils import tensor_sparsity
+from src.sparseml.optim import load_recipe_variables_from_yaml
 
 
 @pytest.fixture
@@ -95,15 +96,30 @@ def test_recipe_can_be_updated():
 @pytest.mark.parametrize(
     "pruning_algo, expected",
     [
-        ("true", "!MagnitudePruningModifier"),
+        ("true", "!GlobalMagnitudePruningModifier"),
         ("acdc", "!ACDCPruningModifier"),
         ("mfac", "!MFACPruningModifier"),
-        ("movement", "!MovementPruningModifier"),
         ("constant", "!ConstantPruningModifier"),
     ],
 )
 def test_pruning_modifiers_match_pruning_algo(pruning_algo: str, expected: str):
     actual_recipe = recipe_template(pruning=pruning_algo)
+    manager = ScheduledModifierManager.from_yaml(file_path=actual_recipe)
+    manager_recipe = str(manager)
+    assert expected in manager_recipe
+
+
+@pytest.mark.parametrize(
+    "pruning_algo, expected",
+    [
+        ("true", "!MagnitudePruningModifier"),
+        ("movement", "!MovementPruningModifier"),
+    ],
+)
+def test_pruning_modifiers_match_pruning_algo_without_global_sparsity(
+    pruning_algo: str, expected: str
+):
+    actual_recipe = recipe_template(pruning=pruning_algo, global_sparsity=False)
     manager = ScheduledModifierManager.from_yaml(file_path=actual_recipe)
     manager_recipe = str(manager)
     assert expected in manager_recipe
@@ -149,10 +165,45 @@ def test_one_shot_applies_sparsification(pruning, quantization, quant_expected, 
         assert sparsity > 0.75
 
 
-def test_correct_recipe_variables():
-    # TODO: verify correct top level recipe variables given
-    #  num_epochs, init_lr, final_lr, sparsity
+@pytest.mark.parametrize(
+    "num_epochs, init_lr, final_lr, sparsity, lr_func",
+    [
+        (20, 0.001, 0.0, 0.8, "linear"),
+        (2, 0.0001, 0.0, 0.9, "cyclic_linear"),
+    ],
+)
+def test_correct_recipe_variables(num_epochs, init_lr, final_lr, sparsity, lr_func):
+    actual = recipe_template(
+        pruning="true",
+        quantization=True,
+        num_epochs=num_epochs,
+        init_lr=init_lr,
+        final_lr=final_lr,
+        sparsity=sparsity,
+        lr=lr_func,
+    )
 
-    # use sparseml.optim.helpers.load_recipe_variables_from_yaml to extract variables
-    # from generated recipe and compare to expected values
-    pass
+    actual_recipe_variables = load_recipe_variables_from_yaml(actual)
+
+    num_qat_epochs = 5 if num_epochs >= 15 else 2
+    num_pruning_active_epochs = 0.5 * (num_epochs - num_qat_epochs)
+    expected_variables = {
+        "num_qat_epochs": num_qat_epochs,
+        "num_pruning_active_epochs": num_pruning_active_epochs,
+        "num_pruning_finetuning_epochs": num_pruning_active_epochs,
+        "num_qat_finetuning_epochs": num_qat_epochs / 2,
+        "init_lr": init_lr,
+        "final_lr": final_lr,
+        "lr_func": lr_func,
+        "pruning_init_sparsity": min(0.05, sparsity),
+        "pruning_final_sparsity": sparsity,
+        "pruning_update_frequency": (
+            1 if num_pruning_active_epochs > 20 else num_pruning_active_epochs / 20.0
+        ),
+        "global_sparsity": True,
+    }
+
+    for key, expected_value in expected_variables.items():
+        actual_value = actual_recipe_variables.get(key)
+        assert actual_value is not None
+        assert actual_value == expected_value
