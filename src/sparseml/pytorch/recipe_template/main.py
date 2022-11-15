@@ -44,7 +44,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def recipe_template(
-    pruning: Optional[str, bool] = None,
+    pruning: Union[str, bool, None] = None,
     quantization: Union[bool, str] = False,
     lr: str = "linear",
     mask_type: str = "unstructured",
@@ -124,7 +124,7 @@ def _validate_quantization(quantization: Union[bool, str]) -> bool:
 
 
 def _validate_pruning(
-    pruning: Optional[str, bool] = None, quantization: bool = False
+    pruning: Union[str, bool, None] = None, quantization: bool = False
 ) -> str:
     # normalize pruning algo name
     if isinstance(pruning, bool):
