@@ -235,13 +235,13 @@ def _get_base_recipe_variables(
         recipe_variables.update(
             dict(
                 num_qat_epochs=num_qat_epochs,
-                num_qat_finetuning_epochs=num_qat_epochs / 2,
+                num_qat_finetuning_epochs=num_qat_epochs / 2.0,
                 quantization_submodules="null",
             )
         )
 
     if pruning:
-        num_pruning_active_epochs = 0.5 * (num_epochs - num_qat_epochs)
+        num_pruning_active_epochs = (num_epochs - num_qat_epochs) / 2.0
         recipe_variables.update(
             dict(
                 num_pruning_active_epochs=num_pruning_active_epochs,
@@ -250,7 +250,7 @@ def _get_base_recipe_variables(
                 pruning_final_sparsity=sparsity,
                 pruning_update_frequency=(
                     1.0
-                    if num_pruning_active_epochs / 20.0 > 1
+                    if num_pruning_active_epochs > 20
                     else num_pruning_active_epochs / 20.0
                 ),
                 mask_type=mask_type,

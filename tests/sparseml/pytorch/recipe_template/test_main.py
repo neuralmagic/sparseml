@@ -19,7 +19,7 @@ from packaging import version
 from torch.nn import Module
 from torch.quantization import FakeQuantize
 
-from sparseml.optim.helpers import load_recipe_variables_from_yaml
+from sparseml.optim.helpers import load_global_recipe_variables_from_yaml
 from sparseml.pytorch import recipe_template
 from sparseml.pytorch.models import resnet50
 from sparseml.pytorch.optim import ScheduledModifierManager
@@ -166,13 +166,22 @@ def test_one_shot_applies_sparsification(pruning, quantization, quant_expected, 
 
 
 @pytest.mark.parametrize(
-    "num_epochs, init_lr, final_lr, sparsity, lr_func",
+    "num_epochs, init_lr, final_lr, sparsity, lr_func, num_qat_epochs, "
+    "num_pruning_active_epochs",
     [
-        (20, 0.001, 0.0, 0.8, "linear"),
-        (2, 0.0001, 0.0, 0.9, "cyclic_linear"),
+        (20, 0.001, 0.0, 0.8, "linear", 5, 7.5),
+        (3, 0.0001, 0.0, 0.9, "cyclic_linear", 2, 0.5),
     ],
 )
-def test_correct_recipe_variables(num_epochs, init_lr, final_lr, sparsity, lr_func):
+def test_correct_recipe_variables(
+    num_epochs,
+    init_lr,
+    final_lr,
+    sparsity,
+    lr_func,
+    num_qat_epochs,
+    num_pruning_active_epochs,
+):
     actual = recipe_template(
         pruning="true",
         quantization=True,
@@ -183,10 +192,8 @@ def test_correct_recipe_variables(num_epochs, init_lr, final_lr, sparsity, lr_fu
         lr=lr_func,
     )
 
-    actual_recipe_variables = load_recipe_variables_from_yaml(actual)
+    actual_recipe_variables = load_global_recipe_variables_from_yaml(actual)
 
-    num_qat_epochs = 5 if num_epochs >= 15 else 2
-    num_pruning_active_epochs = 0.5 * (num_epochs - num_qat_epochs)
     expected_variables = {
         "num_qat_epochs": num_qat_epochs,
         "num_pruning_active_epochs": num_pruning_active_epochs,

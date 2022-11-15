@@ -38,7 +38,7 @@ from sparsezoo import File, Model
 __all__ = [
     "load_recipe_yaml_str",
     "load_recipe_yaml_str_no_classes",
-    "load_recipe_variables_from_yaml",
+    "load_global_recipe_variables_from_yaml",
     "rewrite_recipe_yaml_string_with_classes",
     "update_recipe_variables",
     "evaluate_recipe_yaml_str_equations",
@@ -93,7 +93,9 @@ def load_recipe_yaml_str_no_classes(recipe_yaml_str: str) -> Dict[str, Any]:
     return yaml.safe_load(classless_yaml_str)
 
 
-def load_recipe_variables_from_yaml(file_path: Union[str, File]) -> Dict[str, Any]:
+def load_global_recipe_variables_from_yaml(
+    file_path: Union[str, File]
+) -> Dict[str, Any]:
     """
     :param file_path: path to recipe yaml or markdown or raw recipe yaml str
     :return: dictionary of recipe variable name to value
