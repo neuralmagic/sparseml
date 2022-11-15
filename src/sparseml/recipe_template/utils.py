@@ -134,7 +134,7 @@ def create_quantization_recipe(
 
     return recipe_template(
         model=model,
-        pruning="false",
+        pruning=False,
         quantization=method,
         lr=lr_func,
         **recipe_args,
