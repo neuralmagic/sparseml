@@ -19,11 +19,11 @@ from packaging import version
 from torch.nn import Module
 from torch.quantization import FakeQuantize
 
+from sparseml.optim.helpers import load_recipe_variables_from_yaml
 from sparseml.pytorch import recipe_template
 from sparseml.pytorch.models import resnet50
 from sparseml.pytorch.optim import ScheduledModifierManager
 from sparseml.pytorch.utils import tensor_sparsity
-from src.sparseml.optim import load_recipe_variables_from_yaml
 
 
 @pytest.fixture
