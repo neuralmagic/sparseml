@@ -44,7 +44,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def recipe_template(
-    pruning: Optional[str] = None,
+    pruning: Optional[str, bool] = None,
     quantization: Union[bool, str] = False,
     lr: str = "linear",
     mask_type: str = "unstructured",
@@ -61,10 +61,9 @@ def recipe_template(
     Returns a valid yaml or md recipe based on specified arguments
 
     :param pruning: optional pruning algorithm to use in the recipe, can be any of the
-    following,
-        `true` (represents Magnitude/Global-Magnitude pruning according to
+        following,`true` (represents Magnitude/Global-Magnitude pruning according to
         global_sparsity), `false` (No pruning), `acdc`, `mfac`, `movement`, `obs` or
-        `constant`. Defaults to None
+        `constant`. Can also be a bool. Defaults to None
     :param quantization: True if quantization needs to be applied else False. Defaults
         to False. Can also be string representation of boolean values i.e `true` or
         `false`
@@ -124,8 +123,13 @@ def _validate_quantization(quantization: Union[bool, str]) -> bool:
     return quantization
 
 
-def _validate_pruning(pruning: Optional[str] = None, quantization: bool = False) -> str:
+def _validate_pruning(
+    pruning: Optional[str, bool] = None, quantization: bool = False
+) -> str:
     # normalize pruning algo name
+    if isinstance(pruning, bool):
+        pruning = str(pruning)
+
     pruning = (pruning or "").lower().replace("/", "")
 
     if pruning == "true":
