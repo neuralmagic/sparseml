@@ -24,7 +24,7 @@ import torch
 import torch.utils.data
 import torchvision
 from torch import nn
-from torch.utils.data.dataloader import default_collate
+from torch.utils.data.dataloader import DataLoader, default_collate
 from torchvision.transforms.functional import InterpolationMode
 
 from sparseml.pytorch.models.registry import ModelRegistry
@@ -39,12 +39,12 @@ from sparsezoo import Model
 
 
 def train_one_epoch(
-    model,
-    criterion,
-    optimizer,
-    data_loader,
-    device,
-    epoch,
+    model: torch.nn.Module,
+    criterion: torch.nn.Module,
+    optimizer: torch.optim.Optimizer,
+    data_loader: DataLoader,
+    device: torch.device,
+    epoch: int,
     args,
     model_ema=None,
     scaler=None,
