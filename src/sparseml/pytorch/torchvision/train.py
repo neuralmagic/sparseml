@@ -19,6 +19,7 @@ import math
 import os
 import time
 import warnings
+from types import SimpleNamespace
 
 import torch
 import torch.utils.data
@@ -27,6 +28,7 @@ from torch import nn
 from torch.utils.data.dataloader import DataLoader, default_collate
 from torchvision.transforms.functional import InterpolationMode
 
+import click
 from sparseml.pytorch.models.registry import ModelRegistry
 from sparseml.pytorch.optim import ScheduledModifierManager
 from sparseml.pytorch.torchvision import presets, transforms, utils
@@ -623,329 +625,275 @@ def _save_checkpoints(
         utils.save_on_master(checkpoint, os.path.join(output_dir, fname))
         if utils.is_main_process():
             with open(
-                os.path.join(args.output_dir, fname.replace(".pth", ".txt")), "w"
+                os.path.join(output_dir, fname.replace(".pth", ".txt")), "w"
             ) as fp:
                 fp.write(metrics)
 
 
-def get_args_parser():
-    import argparse
-
-    parser = argparse.ArgumentParser(description="PyTorch Classification Training")
-
-    parser.add_argument("--recipe-path", required=True, type=str, help="Path to recipe")
-    parser.add_argument(
-        "--dataset-path",
-        required=True,
-        default=None,
-        type=str,
-        help="dataset path",
+@click.command(
+    context_settings=dict(
+        token_normalize_func=lambda x: x.replace("-", "_"), show_default=True
     )
-    parser.add_argument(
-        "--arch-key",
-        default=None,
-        type=str,
-        help=(
-            "The architecture key for image classification model; "
-            "example: `resnet50`, `mobilenet`. "
-            "Note: Will be read from the checkpoint if not specified"
-        ),
-    )
-    parser.add_argument(
-        "--pretrained",
-        default=True,
-        type=str,
-        help=(
-            "The type of pretrained weights to use, "
-            "loads default pretrained weights for "
-            "the model if not specified or set to `True`. "
-            "Otherwise, should be set to the desired weights "
-            "type: [base, optim, optim-perf]. To not load any weights set"
-            " to one of [none, false]"
-        ),
-    )
-    parser.add_argument(
-        "--pretrained-dataset",
-        default=None,
-        type=str,
-        help=(
-            "The dataset to load pretrained weights for if pretrained is "
-            "set. Load the default dataset for the architecture if set to None. "
-            "examples:`imagenet`, `cifar10`, etc..."
-        ),
-    )
-    parser.add_argument(
-        "--device",
-        default="cuda",
-        type=str,
-        help="device (Use cuda or cpu Default: cuda)",
-    )
-    parser.add_argument(
-        "-b",
-        "--batch-size",
-        default=32,
-        type=int,
-        help="images per gpu, the total batch size is $NGPU x batch_size",
-    )
-    parser.add_argument(
-        "--epochs",
-        default=10,
-        type=int,
-        metavar="N",
-        help="number of total epochs to run",
-    )
-    parser.add_argument(
-        "-j",
-        "--workers",
-        default=16,
-        type=int,
-        metavar="N",
-        help="number of data loading workers (default: 16)",
-    )
-    parser.add_argument("--opt", default="sgd", type=str, help="optimizer")
-    parser.add_argument("--lr", default=0.1, type=float, help="initial learning rate")
-    parser.add_argument(
-        "--momentum", default=0.9, type=float, metavar="M", help="momentum"
-    )
-    parser.add_argument(
-        "--wd",
-        "--weight-decay",
-        default=1e-4,
-        type=float,
-        metavar="W",
-        help="weight decay (default: 1e-4)",
-        dest="weight_decay",
-    )
-    parser.add_argument(
-        "--norm-weight-decay",
-        default=None,
-        type=float,
-        help="weight decay for Normalization layers "
-        "(default: None, same value as --wd)",
-    )
-    parser.add_argument(
-        "--bias-weight-decay",
-        default=None,
-        type=float,
-        help="weight decay for bias parameters of all layers "
-        "(default: None, same value as --wd)",
-    )
-    parser.add_argument(
-        "--transformer-embedding-decay",
-        default=None,
-        type=float,
-        help="weight decay for embedding parameters for vision transformer models "
-        "(default: None, same value as --wd)",
-    )
-    parser.add_argument(
-        "--label-smoothing",
-        default=0.0,
-        type=float,
-        help="label smoothing (default: 0.0)",
-        dest="label_smoothing",
-    )
-    parser.add_argument(
-        "--mixup-alpha", default=0.0, type=float, help="mixup alpha (default: 0.0)"
-    )
-    parser.add_argument(
-        "--cutmix-alpha", default=0.0, type=float, help="cutmix alpha (default: 0.0)"
-    )
-    parser.add_argument(
-        "--lr-scheduler",
-        default="steplr",
-        type=str,
-        help="the lr scheduler (default: steplr)",
-    )
-    parser.add_argument(
-        "--lr-warmup-epochs",
-        default=0,
-        type=int,
-        help="the number of epochs to warmup (default: 0)",
-    )
-    parser.add_argument(
-        "--lr-warmup-method",
-        default="constant",
-        type=str,
-        help="the warmup method (default: constant)",
-    )
-    parser.add_argument(
-        "--lr-warmup-decay", default=0.01, type=float, help="the decay for lr"
-    )
-    parser.add_argument(
-        "--lr-step-size",
-        default=30,
-        type=int,
-        help="decrease lr every step-size epochs",
-    )
-    parser.add_argument(
-        "--lr-gamma",
-        default=0.1,
-        type=float,
-        help="decrease lr by a factor of lr-gamma",
-    )
-    parser.add_argument(
-        "--lr-min",
-        default=0.0,
-        type=float,
-        help="minimum lr of lr schedule (default: 0.0)",
-    )
-    parser.add_argument("--print-freq", default=10, type=int, help="print frequency")
-    parser.add_argument(
-        "--output-dir", default=".", type=str, help="path to save outputs"
-    )
-    parser.add_argument("--resume", default="", type=str, help="path of checkpoint")
-    parser.add_argument(
-        "--checkpoint-path",
-        default=None,
-        type=str,
-        help=(
-            "A path to a previous checkpoint to load the state from "
-            "and resume the state for. If provided, pretrained will "
-            "be ignored. If using a SparseZoo recipe, can also "
-            "provide 'zoo' to load the base weights associated with "
-            "that recipe. Additionally, can also provide a SparseZoo model stub "
-            "to load model weights from SparseZoo"
-        ),
-    )
-    parser.add_argument(
-        "--start-epoch", default=0, type=int, metavar="N", help="start epoch"
-    )
-    parser.add_argument(
-        "--cache-dataset",
-        dest="cache_dataset",
-        help="Cache the datasets for quicker initialization. "
-        "It also serializes the transforms",
-        action="store_true",
-    )
-    parser.add_argument(
-        "--sync-bn",
-        dest="sync_bn",
-        help="Use sync batch norm",
-        action="store_true",
-    )
-    parser.add_argument(
-        "--test-only",
-        dest="test_only",
-        help="Only test the model",
-        action="store_true",
-    )
-    parser.add_argument(
-        "--auto-augment",
-        default=None,
-        type=str,
-        help="auto augment policy (default: None)",
-    )
-    parser.add_argument(
-        "--ra-magnitude", default=9, type=int, help="magnitude of auto augment policy"
-    )
-    parser.add_argument(
-        "--augmix-severity", default=3, type=int, help="severity of augmix policy"
-    )
-    parser.add_argument(
-        "--random-erase",
-        default=0.0,
-        type=float,
-        help="random erasing probability (default: 0.0)",
-    )
-
-    # Mixed precision training parameters
-    parser.add_argument(
-        "--amp",
-        action="store_true",
-        help="Use torch.cuda.amp for mixed precision training",
-    )
-
-    # distributed training parameters
-    parser.add_argument(
-        "--world-size", default=1, type=int, help="number of distributed processes"
-    )
-    parser.add_argument(
-        "--dist-url",
-        default="env://",
-        type=str,
-        help="url used to set up distributed training",
-    )
-    parser.add_argument(
-        "--model-ema",
-        action="store_true",
-        help="enable tracking Exponential Moving Average of model parameters",
-    )
-    parser.add_argument(
-        "--model-ema-steps",
-        type=int,
-        default=32,
-        help="the number of iterations that controls "
-        "how often to update the EMA model (default: 32)",
-    )
-    parser.add_argument(
-        "--model-ema-decay",
-        type=float,
-        default=0.99998,
-        help="decay factor for Exponential Moving Average "
-        "of model parameters (default: 0.99998)",
-    )
-    parser.add_argument(
-        "--use-deterministic-algorithms",
-        action="store_true",
-        help="Forces the use of deterministic algorithms only.",
-    )
-    parser.add_argument(
-        "--interpolation",
-        default="bilinear",
-        type=str,
-        help="the interpolation method (default: bilinear)",
-    )
-    parser.add_argument(
-        "--val-resize-size",
-        default=256,
-        type=int,
-        help="the resize size used for validation (default: 256)",
-    )
-    parser.add_argument(
-        "--val-crop-size",
-        default=224,
-        type=int,
-        help="the central crop size used for validation (default: 224)",
-    )
-    parser.add_argument(
-        "--train-crop-size",
-        default=224,
-        type=int,
-        help="the random crop size used for training (default: 224)",
-    )
-    parser.add_argument(
-        "--clip-grad-norm",
-        default=None,
-        type=float,
-        help="the maximum gradient norm (default None)",
-    )
-    parser.add_argument(
-        "--ra-sampler",
-        action="store_true",
-        help="whether to use Repeated Augmentation in training",
-    )
-    parser.add_argument(
-        "--ra-reps",
-        default=3,
-        type=int,
-        help="number of repetitions for Repeated Augmentation (default: 3)",
-    )
-    parser.add_argument(
-        "--gradient-accum-steps",
-        default=1,
-        type=int,
-        help="gradient accumulation steps",
-    )
-    parser.add_argument(
-        "--save-best-after",
-        default=1,
-        type=int,
-        help="Save the best validation result after the given "
-        "epoch completes until the end of training",
-    )
-    return parser
+)
+@click.option("--recipe-path", required=True, type=str, help="Path to recipe")
+@click.option("--dataset-path", required=True, type=str, help="dataset path")
+@click.option(
+    "--arch-key",
+    default=None,
+    type=str,
+    help=(
+        "The architecture key for image classification model; "
+        "example: `resnet50`, `mobilenet`. "
+        "Note: Will be read from the checkpoint if not specified"
+    ),
+)
+@click.option(
+    "--pretrained",
+    default="True",
+    type=str,
+    help=(
+        "The type of pretrained weights to use, "
+        "loads default pretrained weights for "
+        "the model if not specified or set to `True`. "
+        "Otherwise, should be set to the desired weights "
+        "type: [base, optim, optim-perf]. To not load any weights set"
+        " to one of [none, false]"
+    ),
+)
+@click.option(
+    "--pretrained-dataset",
+    default=None,
+    type=str,
+    help=(
+        "The dataset to load pretrained weights for if pretrained is "
+        "set. Load the default dataset for the architecture if set to None. "
+        "examples:`imagenet`, `cifar10`, etc..."
+    ),
+)
+@click.option(
+    "--device",
+    default="cuda",
+    type=str,
+    help="device (Use cuda or cpu)",
+)
+@click.option(
+    "-b",
+    "--batch-size",
+    default=32,
+    type=int,
+    help="images per gpu, the total batch size is $NGPU x batch_size",
+)
+@click.option(
+    "--epochs",
+    default=10,
+    type=int,
+    metavar="N",
+    help="number of total epochs to run",
+)
+@click.option(
+    "-j",
+    "--workers",
+    default=16,
+    type=int,
+    metavar="N",
+    help="number of data loading workers",
+)
+@click.option("--opt", default="sgd", type=str, help="optimizer")
+@click.option("--lr", default=0.1, type=float, help="initial learning rate")
+@click.option("--momentum", default=0.9, type=float, metavar="M", help="momentum")
+@click.option(
+    "-w", "--weight-decay", default=1e-4, type=float, metavar="W", help="weight decay"
+)
+@click.option(
+    "--norm-weight-decay",
+    default=None,
+    type=float,
+    help="weight decay for Normalization layers",
+)
+@click.option(
+    "--bias-weight-decay",
+    default=None,
+    type=float,
+    help="weight decay for bias parameters of all layers",
+)
+@click.option(
+    "--transformer-embedding-decay",
+    default=None,
+    type=float,
+    help="weight decay for embedding parameters for vision transformer models.",
+)
+@click.option("--label-smoothing", default=0.0, type=float, help="label smoothing")
+@click.option("--mixup-alpha", default=0.0, type=float, help="mixup alpha")
+@click.option("--cutmix-alpha", default=0.0, type=float, help="cutmix alpha")
+@click.option("--lr-scheduler", default="steplr", type=str, help="the lr scheduler")
+@click.option(
+    "--lr-warmup-epochs",
+    default=0,
+    type=int,
+    help="the number of epochs to warmup",
+)
+@click.option(
+    "--lr-warmup-method",
+    default="constant",
+    type=str,
+    help="the warmup method",
+)
+@click.option("--lr-warmup-decay", default=0.01, type=float, help="the decay for lr")
+@click.option(
+    "--lr-step-size",
+    default=30,
+    type=int,
+    help="decrease lr every step-size epochs",
+)
+@click.option(
+    "--lr-gamma",
+    default=0.1,
+    type=float,
+    help="decrease lr by a factor of lr-gamma",
+)
+@click.option(
+    "--lr-min",
+    default=0.0,
+    type=float,
+    help="minimum lr of lr schedule",
+)
+@click.option("--print-freq", default=10, type=int, help="print frequency")
+@click.option("--output-dir", default=".", type=str, help="path to save outputs")
+@click.option("--resume", default="", type=str, help="path of checkpoint")
+@click.option(
+    "--checkpoint-path",
+    default=None,
+    type=str,
+    help=(
+        "A path to a previous checkpoint to load the state from "
+        "and resume the state for. If provided, pretrained will "
+        "be ignored. If using a SparseZoo recipe, can also "
+        "provide 'zoo' to load the base weights associated with "
+        "that recipe. Additionally, can also provide a SparseZoo model stub "
+        "to load model weights from SparseZoo"
+    ),
+)
+@click.option("--start-epoch", default=0, type=int, metavar="N", help="start epoch")
+@click.option(
+    "--cache-dataset",
+    is_flag=True,
+    default=False,
+    help="Cache the datasets for quicker initialization. "
+    "It also serializes the transforms",
+)
+@click.option("--sync-bn", is_flag=True, default=False, help="Use sync batch norm")
+@click.option("--test-only", is_flag=True, default=False, help="Only test the model")
+@click.option("--auto-augment", default=None, type=str, help="auto augment policy")
+@click.option(
+    "--ra-magnitude", default=9, type=int, help="magnitude of auto augment policy"
+)
+@click.option(
+    "--augmix-severity", default=3, type=int, help="severity of augmix policy"
+)
+@click.option(
+    "--random-erase", default=0.0, type=float, help="random erasing probability"
+)
+@click.option(
+    "--amp",
+    is_flag=True,
+    default=False,
+    help="Use torch.cuda.amp for mixed precision training",
+)
+@click.option(
+    "--world-size", default=1, type=int, help="number of distributed processes"
+)
+@click.option(
+    "--dist-url",
+    default="env://",
+    type=str,
+    help="url used to set up distributed training",
+)
+@click.option(
+    "--model-ema",
+    is_flag=True,
+    default=False,
+    help="enable tracking Exponential Moving Average of model parameters",
+)
+@click.option(
+    "--model-ema-steps",
+    type=int,
+    default=32,
+    help="the number of iterations that controls how often to update the EMA model",
+)
+@click.option(
+    "--model-ema-decay",
+    type=float,
+    default=0.99998,
+    help="decay factor for Exponential Moving Average of model parameters",
+)
+@click.option(
+    "--use-deterministic-algorithms",
+    is_flag=True,
+    default=False,
+    help="Forces the use of deterministic algorithms only.",
+)
+@click.option(
+    "--interpolation",
+    default="bilinear",
+    type=str,
+    help="the interpolation method",
+)
+@click.option(
+    "--val-resize-size",
+    default=256,
+    type=int,
+    help="the resize size used for validation",
+)
+@click.option(
+    "--val-crop-size",
+    default=224,
+    type=int,
+    help="the central crop size used for validation",
+)
+@click.option(
+    "--train-crop-size",
+    default=224,
+    type=int,
+    help="the random crop size used for training",
+)
+@click.option(
+    "--clip-grad-norm",
+    default=None,
+    type=float,
+    help="the maximum gradient norm",
+)
+@click.option(
+    "--ra-sampler",
+    is_flag=True,
+    default=False,
+    help="whether to use Repeated Augmentation in training",
+)
+@click.option(
+    "--ra-reps",
+    default=3,
+    type=int,
+    help="number of repetitions for Repeated Augmentation",
+)
+@click.option(
+    "--gradient-accum-steps",
+    default=1,
+    type=int,
+    help="gradient accumulation steps",
+)
+@click.option(
+    "--save-best-after",
+    default=1,
+    type=int,
+    help="Save the best validation result after the given "
+    "epoch completes until the end of training",
+)
+@click.pass_context
+def cli(ctx, **kwargs):
+    """
+    PyTorch classification training
+    """
+    main(SimpleNamespace(**kwargs))
 
 
 if __name__ == "__main__":
-    args = get_args_parser().parse_args()
-    main(args)
+    cli()
