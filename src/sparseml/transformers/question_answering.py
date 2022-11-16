@@ -815,6 +815,7 @@ def _get_tokenized_datasets_and_examples(
 
         return tokenized_examples
 
+    eval_examples = None
     if make_eval_dataset:
         if "validation" not in raw_datasets:
             raise ValueError("--do_eval requires a validation dataset")
@@ -836,6 +837,8 @@ def _get_tokenized_datasets_and_examples(
             # During Feature creation dataset samples might increase, we will select
             # required samples again
             eval_dataset = eval_dataset.select(range(data_args.max_eval_samples))
+
+    predict_examples = None
     if do_predict:
         if "test" not in raw_datasets:
             raise ValueError("--do_predict requires a test dataset")
