@@ -191,7 +191,8 @@ class MetricLogger:
 class ExponentialMovingAverage(torch.optim.swa_utils.AveragedModel):
     """Maintains moving averages of model parameters using an exponential decay.
     ``ema_avg = decay * avg_model_param + (1 - decay) * model_param``
-    `torch.optim.swa_utils.AveragedModel <https://pytorch.org/docs/stable/optim.html#custom-averaging-strategies>`_
+    `torch.optim.swa_utils.AveragedModel
+    <https://pytorch.org/docs/stable/optim.html#custom-averaging-strategies>`_
     is used to compute the EMA.
     """
 
@@ -305,7 +306,8 @@ def init_distributed_mode(args):
 
 
 def average_checkpoints(inputs):
-    """Loads checkpoints from inputs and returns a model with averaged weights. Original implementation taken from:
+    """Loads checkpoints from inputs and returns a model with averaged weights.
+    Original implementation taken from:
     https://github.com/pytorch/fairseq/blob/a48f235636557b8d3bc4922a6fa90f3a0fa57955/scripts/average_checkpoints.py#L16
 
     Args:
@@ -336,7 +338,8 @@ def average_checkpoints(inputs):
             params_keys = model_params_keys
         elif params_keys != model_params_keys:
             raise KeyError(
-                f"For checkpoint {f}, expected list of params: {params_keys}, but found: {model_params_keys}"
+                f"For checkpoint {f}, expected list of params: "
+                f"{params_keys}, but found: {model_params_keys}"
             )
         for k in params_keys:
             p = model_params[k]
@@ -379,17 +382,21 @@ def store_model_weights(model, checkpoint_path, checkpoint_key="model", strict=T
         print(store_model_weights(model, './qat.pth'))
 
         # Object Detection
-        model = M.detection.fasterrcnn_mobilenet_v3_large_fpn(weights=None, weights_backbone=None)
+        model = M.detection.fasterrcnn_mobilenet_v3_large_fpn(
+            weights=None, weights_backbone=None)
         print(store_model_weights(model, './obj.pth'))
 
         # Segmentation
-        model = M.segmentation.deeplabv3_mobilenet_v3_large(weights=None, weights_backbone=None, aux_loss=True)
+        model = M.segmentation.deeplabv3_mobilenet_v3_large(
+            weights=None, weights_backbone=None, aux_loss=True)
         print(store_model_weights(model, './segm.pth', strict=False))
 
     Args:
-        model (pytorch.nn.Module): The model on which the weights will be loaded for validation purposes.
+        model (pytorch.nn.Module): The model on which the weights
+            will be loaded for validation purposes.
         checkpoint_path (str): The path of the checkpoint we will load.
-        checkpoint_key (str, optional): The key of the checkpoint where the model weights are stored.
+        checkpoint_key (str, optional): The key of the checkpoint where
+            the model weights are stored.
             Default: "model".
         strict (bool): whether to strictly enforce that the keys
             in :attr:`state_dict` match the keys returned by this module's
@@ -433,7 +440,8 @@ def store_model_weights(model, checkpoint_path, checkpoint_key="model", strict=T
 
 def reduce_across_processes(val):
     if not is_dist_avail_and_initialized():
-        # nothing to sync, but we still convert to tensor for consistency with the distributed case.
+        # nothing to sync, but we still convert to tensor
+        # for consistency with the distributed case.
         return torch.tensor(val)
 
     t = torch.tensor(val, device="cuda")

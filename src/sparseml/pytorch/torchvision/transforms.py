@@ -44,7 +44,8 @@ class RandomMixup(torch.nn.Module):
 
         if num_classes < 1:
             raise ValueError(
-                f"Please provide a valid positive value for the num_classes. Got num_classes={num_classes}"
+                "Please provide a valid positive value for the num_classes. "
+                f"Got num_classes={num_classes}"
             )
 
         if alpha <= 0:
@@ -85,7 +86,8 @@ class RandomMixup(torch.nn.Module):
         if torch.rand(1).item() >= self.p:
             return batch, target
 
-        # It's faster to roll the batch by one instead of shuffling it to create image pairs
+        # It's faster to roll the batch by one instead
+        # of shuffling it to create image pairs
         batch_rolled = batch.roll(1, 0)
         target_rolled = target.roll(1, 0)
 
@@ -116,7 +118,8 @@ class RandomMixup(torch.nn.Module):
 class RandomCutmix(torch.nn.Module):
     """Randomly apply Cutmix to the provided batch and targets.
     The class implements the data augmentations as described in the paper
-    `"CutMix: Regularization Strategy to Train Strong Classifiers with Localizable Features"
+    `"CutMix: Regularization Strategy to Train Strong
+    Classifiers with Localizable Features"
     <https://arxiv.org/abs/1905.04899>`_.
 
     Args:
@@ -177,7 +180,8 @@ class RandomCutmix(torch.nn.Module):
         if torch.rand(1).item() >= self.p:
             return batch, target
 
-        # It's faster to roll the batch by one instead of shuffling it to create image pairs
+        # It's faster to roll the batch by one instead
+        # of shuffling it to create image pairs
         batch_rolled = batch.roll(1, 0)
         target_rolled = target.roll(1, 0)
 
