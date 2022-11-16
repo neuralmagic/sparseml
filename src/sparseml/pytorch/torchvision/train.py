@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Adapted from https://github.com/pytorch/vision
+
 import datetime
 import math
 import os
