@@ -731,13 +731,8 @@ def fuse_module_conv_bn_relus(
             else:
                 torch.ao.quantization.fuse_modules(module, conv_blocks, inplace=True)
 
-            # run torch fusion
-            torch_quantization.fuse_modules(module, conv_blocks, inplace=True)
-
-            # add hooks back
-            _add_fused_block_hooks(module, block_hooks)
-        else:
-            torch.ao.quantization.fuse_modules_qat(module, conv_blocks, inplace=True)
+        # add hooks back
+        _add_fused_block_hooks(module, block_hooks)
 
     return module
 
