@@ -12,12 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Utilities for applying sparsification algorithms to Hugging Face transformers flows
-"""
 
-# flake8: noqa
+from sparseml.pytorch import recipe_template
 
-from .helpers import *
-from .metrics import *
-from .model import *
+
+def test_function_entrypoint():
+    recipe_template()

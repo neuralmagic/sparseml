@@ -1130,7 +1130,7 @@ def memory_aware_threshold(tensor: torch.Tensor, idx: int) -> Tensor:
 
 
 def download_framework_model_by_recipe_type(
-    zoo_model: Model, recipe_name: Optional[str] = None
+    zoo_model: Model, recipe_name: Optional[str] = None, model_suffix: str = "pth"
 ) -> str:
     """
     Extract the path of the framework model from the
@@ -1138,6 +1138,7 @@ def download_framework_model_by_recipe_type(
     By default, the function will return path to the final framework model
     :params zoo_model: model object from sparsezoo
     :params recipe_name: a name of the recipe (e.g. "transfer_learn", "original" etc.)
+    :params model_suffix: model_suffix that models are saved with
     :return: path to the framework model
     """
 
@@ -1145,13 +1146,18 @@ def download_framework_model_by_recipe_type(
     recipe_name = recipe_name or (
         zoo_model.stub_params.get("recipe_type") or zoo_model.stub_params.get("recipe")
     )
-
-    if recipe_name:
-        if "transfer" in recipe_name.lower():
-            # fetching the model for transfer learning
-            framework_model = zoo_model.training.default.get_file("model.ckpt.pth")
+    if recipe_name and "transfer" in recipe_name.lower():
+        # fetching the model for transfer learning
+        model_name = f"model.ckpt.{model_suffix}"
+        framework_model = zoo_model.training.default.get_file(model_name)
+        if not framework_model:
+            raise ValueError(
+                f"Could not find saved checkpoint {model_name} in SparseZoo Model "
+                f"{zoo_model.source}"
+            )
     else:
         # fetching the model for inference
-        framework_model = zoo_model.training.default.get_file("model.pth")
+        model_name = f"model.{model_suffix}"
+        framework_model = zoo_model.training.default.get_file(model_name)
 
     return framework_model.path

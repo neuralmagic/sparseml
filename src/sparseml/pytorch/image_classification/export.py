@@ -97,6 +97,8 @@ Options:
   --num-classes, --num_classes INTEGER
                                   number of classes for model; must be set if
                                   a dataset is not provided
+  --one-shot, --one_shot TEXT     recipe to be applied in one-shot manner,
+                                  before exporting
   --help                          Show this message and exit.
 
 
@@ -106,6 +108,13 @@ sparseml.image_classification.export_onnx \
     --arch-key resnet50 --dataset imagenet \
     --dataset-path ~/datasets/ILSVRC2012 \
     --checkpoint-path ~/checkpoints/resnet50_checkpoint.pth
+
+Example command for exporting ResNet50 with one-shot:
+sparseml.image_classification.export_onnx \
+    --arch-key resnet50 --dataset imagenet \
+    --dataset-path ~/datasets/ILSVRC2012 \
+    --checkpoint-path ~/checkpoints/resnet50_checkpoint.pth \
+    --one-shot ~/recipes/resnet_recipe.md
 """
 import json
 import os
@@ -119,6 +128,7 @@ from tqdm import tqdm
 import click
 from sparseml import get_main_logger
 from sparseml.pytorch.image_classification.utils import cli_helpers, helpers
+from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
 from sparseml.pytorch.optim import ScheduledModifierManager
 from sparseml.pytorch.utils import ModuleExporter, load_model
 
@@ -188,7 +198,7 @@ LOGGER = get_main_logger()
     "--onnx-opset",
     "--onnx_opset",
     type=int,
-    default=11,
+    default=TORCH_DEFAULT_ONNX_OPSET,
     show_default=True,
     help="The onnx opset to use for exporting the model",
 )
@@ -290,6 +300,14 @@ LOGGER = get_main_logger()
     show_default=True,
     help="number of classes for model; must be set if a dataset is not provided",
 )
+@click.option(
+    "--one-shot",
+    "--one_shot",
+    type=str,
+    default=None,
+    show_default=True,
+    help="recipe to be applied in one-shot manner, before exporting",
+)
 def main(
     dataset: Optional[str] = None,
     dataset_path: Optional[str] = None,
@@ -297,7 +315,7 @@ def main(
     labels_to_class_mapping: Optional[str] = None,
     arch_key: Optional[str] = None,
     num_samples: int = -1,
-    onnx_opset: int = 11,
+    onnx_opset: int = TORCH_DEFAULT_ONNX_OPSET,
     use_zipfile_serialization_if_available: bool = True,
     pretrained: Union[str, bool] = True,
     pretrained_dataset: Optional[str] = None,
@@ -309,6 +327,7 @@ def main(
     recipe: Optional[str] = None,
     convert_qat: bool = True,
     num_classes: Optional[int] = None,
+    one_shot: Optional[str] = None,
 ):
     """
     SparseML-PyTorch Integration for exporting image classification models to
@@ -368,7 +387,13 @@ def main(
 
     if recipe is not None:
         ScheduledModifierManager.from_yaml(recipe).apply_structure(model)
+
+    if checkpoint_path:
         load_model(checkpoint_path, model, strict=True)
+
+    if one_shot is not None:
+        ScheduledModifierManager.from_yaml(file_path=one_shot).apply(module=model)
+
     export(
         model=model,
         val_loader=val_loader,
@@ -388,7 +413,7 @@ def export(
     save_dir: str,
     use_zipfile_serialization_if_available: bool,
     num_samples: int,
-    onnx_opset: int = 11,
+    onnx_opset: int = TORCH_DEFAULT_ONNX_OPSET,
     convert_qat: bool = True,
     image_size: int = 224,
     labels_to_class_mapping: Optional[Union[str, Dict[int, str]]] = None,

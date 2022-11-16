@@ -52,7 +52,11 @@ from transformers.utils.versions import require_version
 
 from sparseml.pytorch.utils.distributed import record
 from sparseml.transformers.sparsification import Trainer, TrainingArguments
-from sparseml.transformers.utils import SparseAutoModel, get_shared_tokenizer_src
+from sparseml.transformers.utils import (
+    SparseAutoModel,
+    get_shared_tokenizer_src,
+    multi_label_precision_recall_f1,
+)
 
 
 # Will error if the minimal version of Transformers is not installed.
@@ -428,6 +432,7 @@ def main(**kwargs):
     label_column = data_args.label_column_name
     if data_args.task_name is not None:
         is_regression = data_args.task_name == "stsb"
+        is_multi_label_classification = False
         if not is_regression:
             label_list = raw_datasets["train"].features[label_column].names
             num_labels = len(label_list)
@@ -435,12 +440,15 @@ def main(**kwargs):
             num_labels = 1
     else:
         # Trying to have good defaults here, don't hesitate to tweak to your needs.
-        is_regression = raw_datasets["train"].features[label_column].dtype in [
-            "float32",
-            "float64",
-        ]
+        label_type = raw_datasets["train"].features[label_column].dtype
+        is_regression = label_type in ["float32", "float64"]
+        is_multi_label_classification = label_type == "list"
+
         if is_regression:
             num_labels = 1
+        elif is_multi_label_classification:
+            label_list = raw_datasets["train"].features[label_column].feature.names
+            num_labels = len(label_list)
         else:
             label_list = raw_datasets["train"].unique(label_column)
             label_list.sort()  # Let's sort it for determinism
@@ -450,7 +458,9 @@ def main(**kwargs):
     #
     # In distributed training, the .from_pretrained methods guarantee that only one
     # local process can concurrently download model & vocab.
-
+    config_kwargs = {}
+    if is_multi_label_classification:
+        config_kwargs["problem_type"] = "multi_label_classification"
     config = AutoConfig.from_pretrained(
         model_args.config_name
         if model_args.config_name
@@ -460,6 +470,7 @@ def main(**kwargs):
         cache_dir=model_args.cache_dir,
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
+        **config_kwargs,
     )
 
     model, teacher = SparseAutoModel.text_classification_from_pretrained_distil(
@@ -592,13 +603,26 @@ def main(**kwargs):
         )
     max_seq_length = min(data_args.max_seq_length, tokenizer.model_max_length)
 
+    def one_hot_labels(target_labels):
+        # use 1 - 1e-9 for now as workaround target, values get cast to int somewhere
+        # when encoded as 1.0/0.0. must be float for compatibility w/ BCE logits loss
+        return [
+            1 - 1e-9 if label in target_labels else 0.0 for label in range(num_labels)
+        ]
+
     def map_labels_to_ids(examples, tokenizer_result):
         # Map labels to IDs (not necessary for GLUE tasks)
         if label_to_id is not None and label_column in examples:
-            tokenizer_result[label_column] = [
-                (label_to_id[label] if label != -1 else -1)
-                for label in examples[label_column]
-            ]
+            if is_multi_label_classification:
+                tokenizer_result[label_column] = [
+                    one_hot_labels(target_labels)
+                    for target_labels in examples[label_column]
+                ]
+            else:
+                tokenizer_result[label_column] = [
+                    (label_to_id[label] if label != -1 else -1)
+                    for label in examples[label_column]
+                ]
         return tokenizer_result
 
     def preprocess_function(examples):
@@ -642,6 +666,11 @@ def main(**kwargs):
         if "train" not in raw_datasets:
             raise ValueError("--do_train requires a train dataset")
         train_dataset = raw_datasets["train"]
+        if (
+            data_args.max_train_samples is not None
+            and len(train_dataset) > data_args.max_train_samples
+        ):
+            train_dataset = train_dataset.select(range(data_args.max_train_samples))
 
     make_eval_dataset = training_args.do_eval or data_args.num_export_samples > 0
     if make_eval_dataset:
@@ -674,11 +703,6 @@ def main(**kwargs):
             train_dataset, eval_dataset = _split_train_val(
                 train_dataset, data_args.validation_ratio
             )
-            if (
-                data_args.max_train_samples is not None
-                and len(train_dataset) > data_args.max_train_samples
-            ):
-                train_dataset = train_dataset.select(range(data_args.max_train_samples))
         elif data_args.eval_on_test:
             if "test" not in raw_datasets:
                 raise ValueError("test split not found but eval_on_test is on")
@@ -721,7 +745,11 @@ def main(**kwargs):
     # dictionary string to float.
     def compute_metrics(p: EvalPrediction):
         preds = p.predictions[0] if isinstance(p.predictions, tuple) else p.predictions
-        preds = np.squeeze(preds) if is_regression else np.argmax(preds, axis=1)
+        if is_regression:
+            preds = np.squeeze(preds)
+        elif not is_multi_label_classification:
+            # do not run argmax for multi label classification
+            preds = np.argmax(preds, axis=1)
         if data_args.task_name is not None:
             result = metric.compute(predictions=preds, references=p.label_ids)
             if len(result) > 1:
@@ -729,6 +757,17 @@ def main(**kwargs):
             return result
         elif is_regression:
             return {"mse": ((preds - p.label_ids) ** 2).mean().item()}
+        elif is_multi_label_classification:
+            threshold = 0.3  # from go_emotions paper - potentially move to arg/config
+            preds_sigmoid = 1 / (1 + np.exp(-preds))
+            multi_label_preds = (preds_sigmoid > threshold).astype(np.float32)
+            id_to_label = {id_: label for label, id_ in label_to_id.items()}
+
+            return multi_label_precision_recall_f1(
+                predictions=multi_label_preds,
+                targets=p.label_ids,
+                id_to_label=id_to_label,
+            )
         else:
             return {
                 "accuracy": (preds == p.label_ids).astype(np.float32).mean().item(),

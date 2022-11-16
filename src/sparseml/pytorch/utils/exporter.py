@@ -35,6 +35,7 @@ from torch.optim.optimizer import Optimizer
 from torch.utils.data import DataLoader
 
 from sparseml.onnx.utils import ONNXGraph
+from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
 from sparseml.pytorch.utils.helpers import (
     tensors_export,
     tensors_module_forward,
@@ -56,13 +57,6 @@ __all__ = [
 
 _PARSED_TORCH_VERSION = version.parse(torch.__version__)
 
-DEFAULT_ONNX_OPSET = (
-    9
-    if _PARSED_TORCH_VERSION < version.parse("1.3")
-    else 11
-    if _PARSED_TORCH_VERSION < version.parse("1.10.0")
-    else 13
-)
 MODEL_ONNX_NAME = "model.onnx"
 CONFIG_JSON_NAME = "config.json"
 _LOGGER = logging.getLogger(__name__)
@@ -181,7 +175,7 @@ class ModuleExporter(object):
         self,
         sample_batch: Any,
         name: str = MODEL_ONNX_NAME,
-        opset: int = DEFAULT_ONNX_OPSET,
+        opset: int = TORCH_DEFAULT_ONNX_OPSET,
         disable_bn_fusing: bool = True,
         convert_qat: bool = False,
         **export_kwargs,
@@ -194,8 +188,8 @@ class ModuleExporter(object):
         :param sample_batch: the batch to export an onnx for, handles creating the
             static graph for onnx as well as setting dimensions
         :param name: name of the onnx file to save
-        :param opset: onnx opset to use for exported model. Default is 11, if torch
-            version is 1.2 or below, default is 9
+        :param opset: onnx opset to use for exported model.
+            Default is based on torch version.
         :param disable_bn_fusing: torch >= 1.7.0 only. Set True to disable batch norm
             fusing during torch export. Default and suggested setting is True. Batch
             norm fusing will change the exported parameter names as well as affect
@@ -412,7 +406,7 @@ def export_onnx(
     module: Module,
     sample_batch: Any,
     file_path: str,
-    opset: int = DEFAULT_ONNX_OPSET,
+    opset: int = TORCH_DEFAULT_ONNX_OPSET,
     disable_bn_fusing: bool = True,
     convert_qat: bool = False,
     dynamic_axes: Union[str, Dict[str, List[int]]] = None,
@@ -428,8 +422,8 @@ def export_onnx(
     :param sample_batch: the batch to export an onnx for, handles creating the
         static graph for onnx as well as setting dimensions
     :param file_path: path to the onnx file to save
-    :param opset: onnx opset to use for exported model. Default is 11, if torch
-        version is 1.2 or below, default is 9
+    :param opset: onnx opset to use for exported model.
+        Default is based on torch version.
     :param disable_bn_fusing: torch >= 1.7.0 only. Set True to disable batch norm
         fusing during torch export. Default and suggested setting is True. Batch
         norm fusing will change the exported parameter names as well as affect
@@ -562,6 +556,7 @@ def export_onnx(
     # onnx file fixes
     onnx_model = onnx.load(file_path)
     _fold_identity_initializers(onnx_model)
+    _flatten_qparams(onnx_model)
     if batch_norms_wrapped:
         # fix changed batch norm names
         _unwrap_batchnorms(onnx_model)
@@ -666,6 +661,36 @@ def _save_label_to_class_mapping(
     _LOGGER.info(
         f"Appended {key_name} data to {CONFIG_JSON_NAME} at {config_file_path}"
     )
+
+
+def _flatten_qparams(model: onnx.ModelProto):
+    # transforms any QuantizeLinear/DequantizeLinear that have
+    # zero_point/scale with shapes `(1,)` into shape `()`
+    graph = ONNXGraph(model)
+
+    inits_to_flatten = set()
+
+    for node in model.graph.node:
+        if node.op_type in ["QuantizeLinear", "DequantizeLinear"]:
+            # scale is required if the input is an initializer
+            scale_init = graph.get_init_by_name(node.input[1])
+            if scale_init is not None and list(scale_init.dims) == [1]:
+                inits_to_flatten.add(node.input[1])
+
+                # zero_point is optional AND shape must match
+                # scale. so if scale is (1,), then so will zero point
+                if len(node.input) == 3:
+                    inits_to_flatten.add(node.input[2])
+
+    for i, init in enumerate(model.graph.initializer):
+        if init.name not in inits_to_flatten:
+            continue
+        a = numpy_helper.to_array(init)
+        assert a.shape == (1,)
+        b = numpy.array(a[0])
+        assert b.shape == ()
+        assert b.dtype == a.dtype
+        model.graph.initializer[i].CopyFrom(numpy_helper.from_array(b, name=init.name))
 
 
 def _fold_identity_initializers(model: onnx.ModelProto):
