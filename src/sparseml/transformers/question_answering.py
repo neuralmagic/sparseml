@@ -27,6 +27,7 @@ Fine-tuning the library models for question answering integrated with sparseml
 import logging
 import os
 import sys
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -367,46 +368,6 @@ def main(**kwargs):
     # Set seed before initializing model.
     set_seed(training_args.seed)
 
-    # Get the datasets: you can either provide your own CSV/JSON/TXT training and
-    # evaluation files (see below)or just provide the name of one of the public
-    # datasets available on the hub at https://huggingface.co/datasets/
-    # (the dataset will be downloaded automatically from the datasets Hub).
-    #
-    # For CSV/JSON files, this script will use the column called 'text' or the
-    # first column if no column called
-    # 'text' is found. You can easily tweak this behavior (see below).
-    #
-    # In distributed training, the load_dataset function guarantee that
-    # only one local process can concurrently download the dataset.
-    if data_args.dataset_name is not None:
-        # Downloading and loading a dataset from the hub.
-        raw_datasets = load_dataset(
-            data_args.dataset_name,
-            data_args.dataset_config_name,
-            cache_dir=model_args.cache_dir,
-        )
-    else:
-        data_files = {}
-        if data_args.train_file is not None:
-            data_files["train"] = data_args.train_file
-            extension = data_args.train_file.split(".")[-1]
-
-        if data_args.validation_file is not None:
-            data_files["validation"] = data_args.validation_file
-            extension = data_args.validation_file.split(".")[-1]
-        if data_args.test_file is not None:
-            data_files["test"] = data_args.test_file
-            extension = data_args.test_file.split(".")[-1]
-        raw_datasets = load_dataset(
-            extension,
-            data_files=data_files,
-            field="data",
-            cache_dir=model_args.cache_dir,
-        )
-    # See more about loading any type of standard or custom dataset
-    # (from files, python dict, pandas DataFrame, etc) at
-    # https://huggingface.co/docs/datasets/loading_datasets.html.
-
     # Load pretrained model and tokenizer
     #
     # Distributed training:
@@ -458,251 +419,25 @@ def main(**kwargs):
             "find the model types that meet this requirement"
         )
 
-    # Preprocessing the datasets.
-    # Preprocessing is slighlty different for training and evaluation.
+    raw_datasets = _get_raw_dataset(data_args=data_args, cache_dir=model_args.cache_dir)
     make_eval_dataset = training_args.do_eval or data_args.num_export_samples > 0
-    if training_args.do_train:
-        column_names = raw_datasets["train"].column_names
-    elif make_eval_dataset:
-        column_names = raw_datasets["validation"].column_names
-    else:
-        column_names = raw_datasets["test"].column_names
-    question_column_name = "question" if "question" in column_names else column_names[0]
-    context_column_name = "context" if "context" in column_names else column_names[1]
-    answer_column_name = "answers" if "answers" in column_names else column_names[2]
+    tokenized_datasets, examples = _get_tokenized_datasets_and_examples(
+        data_args=data_args,
+        raw_datasets=raw_datasets,
+        tokenizer=tokenizer,
+        make_eval_dataset=make_eval_dataset,
+        do_train=training_args.do_train,
+        do_predict=training_args.do_predict,
+        main_process_func=training_args.main_process_first,
+    )
 
-    # Padding side determines if we do (question|context) or (context|question).
-    pad_on_right = tokenizer.padding_side == "right"
-
-    if data_args.max_seq_length > tokenizer.model_max_length:
-        _LOGGER.warning(
-            f"The max_seq_length passed ({data_args.max_seq_length}) is larger "
-            f"than the maximum length for the model ({tokenizer.model_max_length}). "
-            f"Using max_seq_length={tokenizer.model_max_length}."
-        )
-    max_seq_length = min(data_args.max_seq_length, tokenizer.model_max_length)
-
-    # Training preprocessing
-    def prepare_train_features(examples):
-        # Some of the questions have lots of whitespace on the left, which is not
-        # useful and will make the truncation of the context fail (the tokenized
-        # question will take a lots of space). So we remove that left whitespace
-        examples[question_column_name] = [
-            q.lstrip() for q in examples[question_column_name]
-        ]
-
-        # Tokenize our examples with truncation and maybe padding, but keep the
-        # overflows using a stride. This results in one example possible giving
-        # several features when a context is long, each of those features having a
-        # context that overlaps a bit the context of the previous feature.
-        tokenized_examples = tokenizer(
-            examples[question_column_name if pad_on_right else context_column_name],
-            examples[context_column_name if pad_on_right else question_column_name],
-            truncation="only_second" if pad_on_right else "only_first",
-            max_length=max_seq_length,
-            stride=data_args.doc_stride,
-            return_overflowing_tokens=True,
-            return_offsets_mapping=True,
-            padding="max_length" if data_args.pad_to_max_length else False,
-        )
-
-        # Since one example might give us several features if it has a long context,
-        # we need a map from a feature to its corresponding example. This key gives
-        # us just that.
-        sample_mapping = tokenized_examples.pop("overflow_to_sample_mapping")
-        # The offset mappings will give us a map from token to character position in the
-        # original context. This will help us compute the start_positions and
-        # end_positions
-        offset_mapping = tokenized_examples.pop("offset_mapping")
-
-        # Let's label those examples!
-        tokenized_examples["start_positions"] = []
-        tokenized_examples["end_positions"] = []
-
-        for i, offsets in enumerate(offset_mapping):
-            # We will label impossible answers with the index of the CLS token.
-            input_ids = tokenized_examples["input_ids"][i]
-            cls_index = input_ids.index(tokenizer.cls_token_id)
-
-            # Grab the sequence corresponding to that example
-            # (to know what is the context and what is the question).
-            sequence_ids = tokenized_examples.sequence_ids(i)
-
-            # One example can give several spans, this is the index of the
-            # example containing this span of text.
-            sample_index = sample_mapping[i]
-            answers = examples[answer_column_name][sample_index]
-            # If no answers are given, set the cls_index as answer.
-            if len(answers["answer_start"]) == 0:
-                tokenized_examples["start_positions"].append(cls_index)
-                tokenized_examples["end_positions"].append(cls_index)
-            else:
-                # Start/end character index of the answer in the text.
-                start_char = answers["answer_start"][0]
-                end_char = start_char + len(answers["text"][0])
-
-                # Start token index of the current span in the text.
-                token_start_index = 0
-                while sequence_ids[token_start_index] != (1 if pad_on_right else 0):
-                    token_start_index += 1
-
-                # End token index of the current span in the text.
-                token_end_index = len(input_ids) - 1
-                while sequence_ids[token_end_index] != (1 if pad_on_right else 0):
-                    token_end_index -= 1
-
-                # Detect if the answer is out of the span (in which case this feature
-                # is labeled with the CLS index).
-                if not (
-                    offsets[token_start_index][0] <= start_char
-                    and offsets[token_end_index][1] >= end_char
-                ):
-                    tokenized_examples["start_positions"].append(cls_index)
-                    tokenized_examples["end_positions"].append(cls_index)
-                else:
-                    # Otherwise move the token_start_index and token_end_index to the
-                    # two ends of the answer
-                    # Note: we could go after the last offset if the answer is the last
-                    # word (edge case).
-                    while (
-                        token_start_index < len(offsets)
-                        and offsets[token_start_index][0] <= start_char
-                    ):
-                        token_start_index += 1
-                    tokenized_examples["start_positions"].append(token_start_index - 1)
-                    while offsets[token_end_index][1] >= end_char:
-                        token_end_index -= 1
-                    tokenized_examples["end_positions"].append(token_end_index + 1)
-
-        return tokenized_examples
-
-    if training_args.do_train:
-        if "train" not in raw_datasets:
-            raise ValueError("--do_train requires a train dataset")
-        train_dataset = raw_datasets["train"]
-        if data_args.max_train_samples is not None:
-            # We will select sample from whole data if argument is specified
-            train_dataset = train_dataset.select(range(data_args.max_train_samples))
-        # Create train feature from dataset
-        with training_args.main_process_first(desc="train dataset map pre-processing"):
-            train_dataset = train_dataset.map(
-                prepare_train_features,
-                batched=True,
-                num_proc=data_args.preprocessing_num_workers,
-                remove_columns=column_names,
-                load_from_cache_file=not data_args.overwrite_cache,
-                desc="Running tokenizer on train dataset",
-            )
-        if data_args.max_train_samples is not None:
-            # Number of samples might increase during Feature Creation, We select only
-            # specified max samples
-            train_dataset = train_dataset.select(range(data_args.max_train_samples))
-
-    # Validation preprocessing
-    def prepare_validation_features(examples):
-        # Some of the questions have lots of whitespace on the left, which is not
-        # useful and will make the truncation of the context fail (the tokenized
-        # question will take a lots of space). So we remove that left whitespace
-        examples[question_column_name] = [
-            q.lstrip() for q in examples[question_column_name]
-        ]
-
-        # Tokenize our examples with truncation and maybe padding, but keep the
-        # overflows using a stride. This results in one example possible giving
-        # several features when a context is long, each of those features having a
-        # context that overlaps a bit the context of the previous feature.
-        tokenized_examples = tokenizer(
-            examples[question_column_name if pad_on_right else context_column_name],
-            examples[context_column_name if pad_on_right else question_column_name],
-            truncation="only_second" if pad_on_right else "only_first",
-            max_length=max_seq_length,
-            stride=data_args.doc_stride,
-            return_overflowing_tokens=True,
-            return_offsets_mapping=True,
-            padding="max_length" if data_args.pad_to_max_length else False,
-        )
-
-        # Since one example might give us several features if it has a long context,
-        # we need a map from a feature to its corresponding example.
-        # This key gives us just that
-        sample_mapping = tokenized_examples.pop("overflow_to_sample_mapping")
-
-        # For evaluation, we will need to convert our predictions to substrings of
-        # the context, so we keep the corresponding example_id and we will store
-        # the offset mappings.
-        tokenized_examples["example_id"] = []
-
-        for i in range(len(tokenized_examples["input_ids"])):
-            # Grab the sequence corresponding to that example
-            # (to know what is the context and what is the question).
-            sequence_ids = tokenized_examples.sequence_ids(i)
-            context_index = 1 if pad_on_right else 0
-
-            # One example can give several spans, this is the index of the example
-            # containing this span of text.
-            sample_index = sample_mapping[i]
-            tokenized_examples["example_id"].append(examples["id"][sample_index])
-
-            # Set to None the offset_mapping that are not part of the context so
-            # it's easy to determine if a token position is part of the context or not
-            tokenized_examples["offset_mapping"][i] = [
-                (o if sequence_ids[k] == context_index else None)
-                for k, o in enumerate(tokenized_examples["offset_mapping"][i])
-            ]
-
-        return tokenized_examples
-
-    if make_eval_dataset:
-        if "validation" not in raw_datasets:
-            raise ValueError("--do_eval requires a validation dataset")
-        eval_examples = raw_datasets["validation"]
-        if data_args.max_eval_samples is not None:
-            # We will select sample from whole data
-            eval_examples = eval_examples.select(range(data_args.max_eval_samples))
-        # Validation Feature Creation
-        with training_args.main_process_first(
-            desc="validation dataset map pre-processing"
-        ):
-            eval_dataset = eval_examples.map(
-                prepare_validation_features,
-                batched=True,
-                num_proc=data_args.preprocessing_num_workers,
-                remove_columns=column_names,
-                load_from_cache_file=not data_args.overwrite_cache,
-                desc="Running tokenizer on validation dataset",
-            )
-        if data_args.max_eval_samples is not None:
-            # During Feature creation dataset samples might increase, we will select
-            # required samples again
-            eval_dataset = eval_dataset.select(range(data_args.max_eval_samples))
-
-    if training_args.do_predict:
-        if "test" not in raw_datasets:
-            raise ValueError("--do_predict requires a test dataset")
-        predict_examples = raw_datasets["test"]
-        if data_args.max_predict_samples is not None:
-            # We will select sample from whole data
-            predict_examples = predict_examples.select(
-                range(data_args.max_predict_samples)
-            )
-        # Predict Feature Creation
-        with training_args.main_process_first(
-            desc="prediction dataset map pre-processing"
-        ):
-            predict_dataset = predict_examples.map(
-                prepare_validation_features,
-                batched=True,
-                num_proc=data_args.preprocessing_num_workers,
-                remove_columns=column_names,
-                load_from_cache_file=not data_args.overwrite_cache,
-                desc="Running tokenizer on prediction dataset",
-            )
-        if data_args.max_predict_samples is not None:
-            # During Feature creation dataset samples might increase,
-            # we will select required samples again
-            predict_dataset = predict_dataset.select(
-                range(data_args.max_predict_samples)
-            )
+    train_dataset = tokenized_datasets.get("train")
+    eval_dataset, eval_examples = tokenized_datasets.get("validation"), examples.get(
+        "validation"
+    )
+    predict_dataset, predict_examples = tokenized_datasets.get("test"), examples.get(
+        "test"
+    )
 
     # Data collator
     # We have already padded to max length if the corresponding flag is True,
@@ -714,6 +449,12 @@ def main(**kwargs):
             tokenizer, pad_to_multiple_of=8 if training_args.fp16 else None
         )
     )
+    column_names = _get_column_names(
+        raw_datasets=raw_datasets,
+        make_eval_dataset=make_eval_dataset,
+        do_train=training_args.do_train,
+    )
+    answer_column_name = "answers" if "answers" in column_names else column_names[2]
 
     # Post-processing:
     def post_processing_function(examples, features, predictions, stage="eval"):
@@ -844,6 +585,346 @@ def main(**kwargs):
         trainer.save_sample_inputs_outputs(
             num_samples_to_export=data_args.num_export_samples
         )
+
+
+def get_tokenized_qa_dataset(
+    data_args: DataTrainingArguments,
+    tokenizer: transformers.PreTrainedTokenizerBase,
+    cache_dir: Optional[str] = None,
+):
+    """
+    Utility method to get tokenized question answering dataset given at-least
+    the tokenizer, and data_arguments
+    :param data_args: Arguments pertaining to what data we are going to input
+        our model for training and eval
+    :param tokenizer: The tokenizer to use for tokenizing raw dataset
+    :param cache_dir: Local path to store the pretrained data from huggingface.co
+    """
+    raw_datasets = _get_raw_dataset(data_args=data_args, cache_dir=cache_dir)
+    tokenized_datasets, _ = _get_tokenized_datasets_and_examples(
+        data_args=data_args,
+        raw_datasets=raw_datasets,
+        tokenizer=tokenizer,
+        make_eval_dataset=True,
+    )
+    return tokenized_datasets
+
+
+def _get_tokenized_datasets_and_examples(
+    data_args,
+    raw_datasets,
+    tokenizer,
+    make_eval_dataset: bool = False,
+    do_train: bool = False,
+    do_predict: bool = False,
+    main_process_func=None,
+):
+    if main_process_func is None:
+        main_process_func = lambda desc: nullcontext(desc)  # noqa: E731
+
+    # Preprocessing the datasets.
+    # Preprocessing is slighlty different for training and evaluation.
+    column_names = _get_column_names(
+        raw_datasets=raw_datasets,
+        make_eval_dataset=make_eval_dataset,
+        do_train=do_train,
+    )
+    question_column_name = "question" if "question" in column_names else column_names[0]
+    context_column_name = "context" if "context" in column_names else column_names[1]
+    answer_column_name = "answers" if "answers" in column_names else column_names[2]
+
+    # Padding side determines if we do (question|context) or (context|question).
+    pad_on_right = tokenizer.padding_side == "right"
+
+    if data_args.max_seq_length > tokenizer.model_max_length:
+        _LOGGER.warning(
+            f"The max_seq_length passed ({data_args.max_seq_length}) is larger "
+            f"than the maximum length for the model ({tokenizer.model_max_length}). "
+            f"Using max_seq_length={tokenizer.model_max_length}."
+        )
+    max_seq_length = min(data_args.max_seq_length, tokenizer.model_max_length)
+
+    # Training preprocessing
+    def prepare_train_features(examples):
+        # Some of the questions have lots of whitespace on the left, which is not
+        # useful and will make the truncation of the context fail (the tokenized
+        # question will take a lots of space). So we remove that left whitespace
+        examples[question_column_name] = [
+            q.lstrip() for q in examples[question_column_name]
+        ]
+
+        # Tokenize our examples with truncation and maybe padding, but keep the
+        # overflows using a stride. This results in one example possible giving
+        # several features when a context is long, each of those features having a
+        # context that overlaps a bit the context of the previous feature.
+        tokenized_examples = tokenizer(
+            examples[question_column_name if pad_on_right else context_column_name],
+            examples[context_column_name if pad_on_right else question_column_name],
+            truncation="only_second" if pad_on_right else "only_first",
+            max_length=max_seq_length,
+            stride=data_args.doc_stride,
+            return_overflowing_tokens=True,
+            return_offsets_mapping=True,
+            padding="max_length" if data_args.pad_to_max_length else False,
+        )
+
+        # Since one example might give us several features if it has a long context,
+        # we need a map from a feature to its corresponding example. This key gives
+        # us just that.
+        sample_mapping = tokenized_examples.pop("overflow_to_sample_mapping")
+        # The offset mappings will give us a map from token to character position in the
+        # original context. This will help us compute the start_positions and
+        # end_positions
+        offset_mapping = tokenized_examples.pop("offset_mapping")
+
+        # Let's label those examples!
+        tokenized_examples["start_positions"] = []
+        tokenized_examples["end_positions"] = []
+
+        for i, offsets in enumerate(offset_mapping):
+            # We will label impossible answers with the index of the CLS token.
+            input_ids = tokenized_examples["input_ids"][i]
+            cls_index = input_ids.index(tokenizer.cls_token_id)
+
+            # Grab the sequence corresponding to that example
+            # (to know what is the context and what is the question).
+            sequence_ids = tokenized_examples.sequence_ids(i)
+
+            # One example can give several spans, this is the index of the
+            # example containing this span of text.
+            sample_index = sample_mapping[i]
+            answers = examples[answer_column_name][sample_index]
+            # If no answers are given, set the cls_index as answer.
+            if len(answers["answer_start"]) == 0:
+                tokenized_examples["start_positions"].append(cls_index)
+                tokenized_examples["end_positions"].append(cls_index)
+            else:
+                # Start/end character index of the answer in the text.
+                start_char = answers["answer_start"][0]
+                end_char = start_char + len(answers["text"][0])
+
+                # Start token index of the current span in the text.
+                token_start_index = 0
+                while sequence_ids[token_start_index] != (1 if pad_on_right else 0):
+                    token_start_index += 1
+
+                # End token index of the current span in the text.
+                token_end_index = len(input_ids) - 1
+                while sequence_ids[token_end_index] != (1 if pad_on_right else 0):
+                    token_end_index -= 1
+
+                # Detect if the answer is out of the span (in which case this feature
+                # is labeled with the CLS index).
+                if not (
+                    offsets[token_start_index][0] <= start_char
+                    and offsets[token_end_index][1] >= end_char
+                ):
+                    tokenized_examples["start_positions"].append(cls_index)
+                    tokenized_examples["end_positions"].append(cls_index)
+                else:
+                    # Otherwise move the token_start_index and token_end_index to the
+                    # two ends of the answer
+                    # Note: we could go after the last offset if the answer is the last
+                    # word (edge case).
+                    while (
+                        token_start_index < len(offsets)
+                        and offsets[token_start_index][0] <= start_char
+                    ):
+                        token_start_index += 1
+                    tokenized_examples["start_positions"].append(token_start_index - 1)
+                    while offsets[token_end_index][1] >= end_char:
+                        token_end_index -= 1
+                    tokenized_examples["end_positions"].append(token_end_index + 1)
+
+        return tokenized_examples
+
+    train_dataset = eval_dataset = predict_dataset = None
+    if do_train:
+        if "train" not in raw_datasets:
+            raise ValueError("--do_train requires a train dataset")
+        train_dataset = raw_datasets["train"]
+        if data_args.max_train_samples is not None:
+            # We will select sample from whole data if argument is specified
+            train_dataset = train_dataset.select(range(data_args.max_train_samples))
+        # Create train feature from dataset
+        with main_process_func(desc="train dataset map pre-processing"):
+            train_dataset = train_dataset.map(
+                prepare_train_features,
+                batched=True,
+                num_proc=data_args.preprocessing_num_workers,
+                remove_columns=column_names,
+                load_from_cache_file=not data_args.overwrite_cache,
+                desc="Running tokenizer on train dataset",
+            )
+        if data_args.max_train_samples is not None:
+            # Number of samples might increase during Feature Creation, We select only
+            # specified max samples
+            train_dataset = train_dataset.select(range(data_args.max_train_samples))
+
+    # Validation preprocessing
+    def prepare_validation_features(examples):
+        # Some of the questions have lots of whitespace on the left, which is not
+        # useful and will make the truncation of the context fail (the tokenized
+        # question will take a lots of space). So we remove that left whitespace
+        examples[question_column_name] = [
+            q.lstrip() for q in examples[question_column_name]
+        ]
+
+        # Tokenize our examples with truncation and maybe padding, but keep the
+        # overflows using a stride. This results in one example possible giving
+        # several features when a context is long, each of those features having a
+        # context that overlaps a bit the context of the previous feature.
+        tokenized_examples = tokenizer(
+            examples[question_column_name if pad_on_right else context_column_name],
+            examples[context_column_name if pad_on_right else question_column_name],
+            truncation="only_second" if pad_on_right else "only_first",
+            max_length=max_seq_length,
+            stride=data_args.doc_stride,
+            return_overflowing_tokens=True,
+            return_offsets_mapping=True,
+            padding="max_length" if data_args.pad_to_max_length else False,
+        )
+
+        # Since one example might give us several features if it has a long context,
+        # we need a map from a feature to its corresponding example.
+        # This key gives us just that
+        sample_mapping = tokenized_examples.pop("overflow_to_sample_mapping")
+
+        # For evaluation, we will need to convert our predictions to substrings of
+        # the context, so we keep the corresponding example_id and we will store
+        # the offset mappings.
+        tokenized_examples["example_id"] = []
+
+        for i in range(len(tokenized_examples["input_ids"])):
+            # Grab the sequence corresponding to that example
+            # (to know what is the context and what is the question).
+            sequence_ids = tokenized_examples.sequence_ids(i)
+            context_index = 1 if pad_on_right else 0
+
+            # One example can give several spans, this is the index of the example
+            # containing this span of text.
+            sample_index = sample_mapping[i]
+            tokenized_examples["example_id"].append(examples["id"][sample_index])
+
+            # Set to None the offset_mapping that are not part of the context so
+            # it's easy to determine if a token position is part of the context or not
+            tokenized_examples["offset_mapping"][i] = [
+                (o if sequence_ids[k] == context_index else None)
+                for k, o in enumerate(tokenized_examples["offset_mapping"][i])
+            ]
+
+        return tokenized_examples
+
+    if make_eval_dataset:
+        if "validation" not in raw_datasets:
+            raise ValueError("--do_eval requires a validation dataset")
+        eval_examples = raw_datasets["validation"]
+        if data_args.max_eval_samples is not None:
+            # We will select sample from whole data
+            eval_examples = eval_examples.select(range(data_args.max_eval_samples))
+        # Validation Feature Creation
+        with main_process_func(desc="validation dataset map pre-processing"):
+            eval_dataset = eval_examples.map(
+                prepare_validation_features,
+                batched=True,
+                num_proc=data_args.preprocessing_num_workers,
+                remove_columns=column_names,
+                load_from_cache_file=not data_args.overwrite_cache,
+                desc="Running tokenizer on validation dataset",
+            )
+        if data_args.max_eval_samples is not None:
+            # During Feature creation dataset samples might increase, we will select
+            # required samples again
+            eval_dataset = eval_dataset.select(range(data_args.max_eval_samples))
+    if do_predict:
+        if "test" not in raw_datasets:
+            raise ValueError("--do_predict requires a test dataset")
+        predict_examples = raw_datasets["test"]
+        if data_args.max_predict_samples is not None:
+            # We will select sample from whole data
+            predict_examples = predict_examples.select(
+                range(data_args.max_predict_samples)
+            )
+        # Predict Feature Creation
+        with main_process_func(desc="prediction dataset map pre-processing"):
+            predict_dataset = predict_examples.map(
+                prepare_validation_features,
+                batched=True,
+                num_proc=data_args.preprocessing_num_workers,
+                remove_columns=column_names,
+                load_from_cache_file=not data_args.overwrite_cache,
+                desc="Running tokenizer on prediction dataset",
+            )
+        if data_args.max_predict_samples is not None:
+            # During Feature creation dataset samples might increase,
+            # we will select required samples again
+            predict_dataset = predict_dataset.select(
+                range(data_args.max_predict_samples)
+            )
+
+    tokenized_datasets = {
+        "train": train_dataset,
+        "validation": eval_dataset,
+        "test": predict_dataset,
+    }
+
+    examples = {"train": None, "validation": eval_examples, "test": predict_examples}
+    return tokenized_datasets, examples
+
+
+def _get_column_names(
+    raw_datasets, do_train: bool = False, make_eval_dataset: bool = False
+):
+    if do_train:
+        column_names = raw_datasets["train"].column_names
+    elif make_eval_dataset:
+        column_names = raw_datasets["validation"].column_names
+    else:
+        column_names = raw_datasets["test"].column_names
+    return column_names
+
+
+def _get_raw_dataset(data_args, cache_dir: Optional[str] = None):
+    # Get the datasets: you can either provide your own CSV/JSON/TXT training and
+    # evaluation files (see below)or just provide the name of one of the public
+    # datasets available on the hub at https://huggingface.co/datasets/
+    # (the dataset will be downloaded automatically from the datasets Hub).
+    #
+    # For CSV/JSON files, this script will use the column called 'text' or the
+    # first column if no column called
+    # 'text' is found. You can easily tweak this behavior (see below).
+    #
+    # In distributed training, the load_dataset function guarantee that
+    # only one local process can concurrently download the dataset.
+    if data_args.dataset_name is not None:
+        # Downloading and loading a dataset from the hub.
+        raw_datasets = load_dataset(
+            data_args.dataset_name,
+            data_args.dataset_config_name,
+            cache_dir=cache_dir,
+        )
+    else:
+        data_files = {}
+        if data_args.train_file is not None:
+            data_files["train"] = data_args.train_file
+            extension = data_args.train_file.split(".")[-1]
+
+        if data_args.validation_file is not None:
+            data_files["validation"] = data_args.validation_file
+            extension = data_args.validation_file.split(".")[-1]
+        if data_args.test_file is not None:
+            data_files["test"] = data_args.test_file
+            extension = data_args.test_file.split(".")[-1]
+        raw_datasets = load_dataset(
+            extension,
+            data_files=data_files,
+            field="data",
+            cache_dir=cache_dir,
+        )
+    # See more about loading any type of standard or custom dataset
+    # (from files, python dict, pandas DataFrame, etc) at
+    # https://huggingface.co/docs/datasets/loading_datasets.html.
+    return raw_datasets
 
 
 def _mp_fn(index):

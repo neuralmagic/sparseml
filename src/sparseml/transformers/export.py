@@ -145,9 +145,7 @@ def load_task_dataset(task: str, tokenizer, data_args: Dict[str, Any]):
         instance for fetching the dataset
     """
     # TODO: fill out the function for
-    #  1) question-answering
-    #  2) text-classification
-    #  3) token-classification
+    #  1) text-classification
 
     if task == "masked-language-modeling" or task == "mlm":
         from sparseml.transformers.masked_language_modeling import (
@@ -156,7 +154,20 @@ def load_task_dataset(task: str, tokenizer, data_args: Dict[str, Any]):
         )
 
         data_training_args = DataTrainingArguments(**data_args)
-        return get_tokenized_mlm_dataset(data_training_args, tokenizer)
+        return get_tokenized_mlm_dataset(
+            data_args=data_training_args, tokenizer=tokenizer
+        )
+
+    if task == "question-answering" or task == "qa":
+        from sparseml.transformers.question_answering import (
+            DataTrainingArguments,
+            get_tokenized_qa_dataset,
+        )
+
+        data_training_args = DataTrainingArguments(**data_args)
+        return get_tokenized_qa_dataset(
+            data_args=data_training_args, tokenizer=tokenizer
+        )
 
     raise NotImplementedError
 
@@ -190,6 +201,7 @@ def export_transformer_to_onnx(
     :param num_export_samples: number of samples (inputs/outputs) to export
     :param data_args: additional args to instantiate a `DataTrainingArguments`
         instance for exporting samples
+    :param one_shot: one shot recipe to be applied before exporting model
     :return: path to the exported ONNX file
     """
     task = task.replace("_", "-").replace(" ", "-")
