@@ -55,9 +55,11 @@ from transformers.utils.versions import require_version
 from sparseml.pytorch.utils.distributed import record
 from sparseml.transformers.sparsification import Trainer, TrainingArguments
 from sparseml.transformers.utils import (
-    SparseAutoModel, get_shared_tokenizer_src,
+    SparseAutoModel,
+    get_shared_tokenizer_src,
     multi_label_precision_recall_f1,
 )
+
 
 # Will error if the minimal version of Transformers is not installed.
 # Remove at your own risks.
@@ -104,7 +106,7 @@ class DataTrainingArguments:
         default=None,
         metadata={
             "help": "The name of the task to train on: "
-                    + ", ".join(_TASK_TO_KEYS.keys())
+            + ", ".join(_TASK_TO_KEYS.keys())
         },
     )
     dataset_name: Optional[str] = field(
@@ -121,9 +123,8 @@ class DataTrainingArguments:
         default=384,
         metadata={
             "help": "The maximum total input sequence length after tokenization. "
-                    "Sequences longer  than this will be truncated, sequences shorter "
-                    "will "
-                    "be padded."
+            "Sequences longer  than this will be truncated, sequences shorter will "
+            "be padded."
         },
     )
     overwrite_cache: bool = field(
@@ -138,24 +139,22 @@ class DataTrainingArguments:
         default=True,
         metadata={
             "help": "Whether to pad all samples to `max_seq_length`. If False, "
-                    "will pad the samples dynamically when batching to the maximum "
-                    "length "
-                    "in the batch (which can be faster on GPU but will be slower on "
-                    "TPU)."
+            "will pad the samples dynamically when batching to the maximum length "
+            "in the batch (which can be faster on GPU but will be slower on TPU)."
         },
     )
     max_train_samples: Optional[int] = field(
         default=None,
         metadata={
             "help": "For debugging purposes or quicker training, truncate the number "
-                    "of training examples to this value if set."
+            "of training examples to this value if set."
         },
     )
     max_eval_samples: Optional[int] = field(
         default=None,
         metadata={
             "help": "For debugging purposes or quicker training, truncate the number "
-                    "of evaluation examples to this value if set."
+            "of evaluation examples to this value if set."
         },
     )
     max_predict_samples: Optional[int] = field(
@@ -282,21 +281,21 @@ class ModelArguments:
         default=False,
         metadata={
             "help": "Whether to use separate tokenizer for distillation teacher. "
-                    "Default False; uses same tokenizer for teacher and student"
+            "Default False; uses same tokenizer for teacher and student"
         },
     )
     model_revision: str = field(
         default="main",
         metadata={
             "help": "The specific model version to use "
-                    "(can be a branch name, tag name or commit id)"
+            "(can be a branch name, tag name or commit id)"
         },
     )
     use_auth_token: bool = field(
         default=False,
         metadata={
             "help": "Will use token generated when running `transformers-cli login` "
-                    "(necessary to use this script with private models)"
+            "(necessary to use this script with private models)"
         },
     )
 
@@ -369,9 +368,13 @@ def main(**kwargs):
     )
 
     # Labels
-    is_regression, label_column, label_list, num_labels, is_multi_label_classification = _get_label_info(
-        data_args, raw_datasets
-    )
+    (
+        is_regression,
+        label_column,
+        label_list,
+        num_labels,
+        is_multi_label_classification,
+    ) = _get_label_info(data_args, raw_datasets)
 
     # Load pretrained model and tokenizer
     #
@@ -380,7 +383,6 @@ def main(**kwargs):
     config_kwargs = {}
     if is_multi_label_classification:
         config_kwargs["problem_type"] = "multi_label_classification"
-
     config = AutoConfig.from_pretrained(
         model_args.config_name
         if model_args.config_name
@@ -673,8 +675,13 @@ def _get_label_info(data_args, raw_datasets):
             label_list = raw_datasets["train"].unique(label_column)
             label_list.sort()  # Let's sort it for determinism
             num_labels = len(label_list)
-    return (is_regression, label_column, label_list, num_labels,
-            is_multi_label_classification)
+    return (
+        is_regression,
+        label_column,
+        label_list,
+        num_labels,
+        is_multi_label_classification,
+    )
 
 
 def _get_tokenized_and_preprocessed_raw_datasets(
@@ -689,8 +696,13 @@ def _get_tokenized_and_preprocessed_raw_datasets(
     do_train: bool = False,
     main_process_func=None,
 ):
-    (is_regression, label_column, label_list, num_labels,
-     is_multi_label_classification) = _get_label_info(data_args, raw_datasets)
+    (
+        is_regression,
+        label_column,
+        label_list,
+        num_labels,
+        is_multi_label_classification,
+    ) = _get_label_info(data_args, raw_datasets)
 
     train_dataset = predict_dataset = eval_dataset = None
     if not main_process_func:
@@ -740,8 +752,9 @@ def _get_tokenized_and_preprocessed_raw_datasets(
 
     # Some models have set the order of the labels to use, so let's make sure
     # we do use it
-    label_to_id = _get_label_to_id(data_args, is_regression, label_list, model,
-                                   num_labels)
+    label_to_id = _get_label_to_id(
+        data_args, is_regression, label_list, model, num_labels
+    )
 
     if label_to_id is not None:
         model.config.label2id = label_to_id
@@ -765,7 +778,6 @@ def _get_tokenized_and_preprocessed_raw_datasets(
         return [
             1 - 1e-9 if label in target_labels else 0.0 for label in range(num_labels)
         ]
-
 
     def map_labels_to_ids(examples, tokenizer_result):
         # Map labels to IDs (not necessary for GLUE tasks)
