@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import datetime
+import math
 import os
 import time
 import warnings
@@ -24,8 +25,15 @@ from torch import nn
 from torch.utils.data.dataloader import default_collate
 from torchvision.transforms.functional import InterpolationMode
 
+from sparseml.pytorch.models.registry import ModelRegistry
+from sparseml.pytorch.optim import ScheduledModifierManager
 from sparseml.pytorch.torchvision import presets, transforms, utils
 from sparseml.pytorch.torchvision.sampler import RASampler
+from sparseml.pytorch.utils.helpers import (
+    download_framework_model_by_recipe_type,
+    torch_distributed_zero_first,
+)
+from sparsezoo import Model
 
 
 def train_one_epoch(
@@ -38,11 +46,16 @@ def train_one_epoch(
     args,
     model_ema=None,
     scaler=None,
-):
+) -> utils.MetricLogger:
     model.train()
     metric_logger = utils.MetricLogger(delimiter="  ")
     metric_logger.add_meter("lr", utils.SmoothedValue(window_size=1, fmt="{value}"))
     metric_logger.add_meter("img/s", utils.SmoothedValue(window_size=10, fmt="{value}"))
+
+    steps_accumulated = 0
+
+    # initial zero grad for gradient accumulation
+    optimizer.zero_grad()
 
     header = f"Epoch: [{epoch}]"
     for i, (image, target) in enumerate(
@@ -52,23 +65,31 @@ def train_one_epoch(
         image, target = image.to(device), target.to(device)
         with torch.cuda.amp.autocast(enabled=scaler is not None):
             output = model(image)
+            if isinstance(output, tuple):
+                # NOTE: sparseml models return two things (logits & probs)
+                output = output[0]
             loss = criterion(output, target)
 
-        optimizer.zero_grad()
-        if scaler is not None:
-            scaler.scale(loss).backward()
-            if args.clip_grad_norm is not None:
-                # we should unscale the gradients of optimizer's assigned params
-                # if do gradient clipping
-                scaler.unscale_(optimizer)
-                nn.utils.clip_grad_norm_(model.parameters(), args.clip_grad_norm)
-            scaler.step(optimizer)
-            scaler.update()
-        else:
-            loss.backward()
-            if args.clip_grad_norm is not None:
-                nn.utils.clip_grad_norm_(model.parameters(), args.clip_grad_norm)
-            optimizer.step()
+        if steps_accumulated % args.gradient_accum_steps == 0:
+            # first: do training to consume gradients
+            if scaler is not None:
+                scaler.scale(loss).backward()
+                if args.clip_grad_norm is not None:
+                    # we should unscale the gradients of optimizer's assigned params
+                    # if do gradient clipping
+                    scaler.unscale_(optimizer)
+                    nn.utils.clip_grad_norm_(model.parameters(), args.clip_grad_norm)
+                scaler.step(optimizer)
+                scaler.update()
+            else:
+                loss.backward()
+                if args.clip_grad_norm is not None:
+                    nn.utils.clip_grad_norm_(model.parameters(), args.clip_grad_norm)
+                optimizer.step()
+
+            # zero grad here to start accumulating next set of gradients
+            optimizer.zero_grad()
+        steps_accumulated += 1
 
         if model_ema and i % args.model_ema_steps == 0:
             model_ema.update_parameters(model)
@@ -82,9 +103,17 @@ def train_one_epoch(
         metric_logger.meters["acc1"].update(acc1.item(), n=batch_size)
         metric_logger.meters["acc5"].update(acc5.item(), n=batch_size)
         metric_logger.meters["img/s"].update(batch_size / (time.time() - start_time))
+    return metric_logger
 
 
-def evaluate(model, criterion, data_loader, device, print_freq=100, log_suffix=""):
+def evaluate(
+    model,
+    criterion,
+    data_loader,
+    device,
+    print_freq=100,
+    log_suffix="",
+) -> utils.MetricLogger:
     model.eval()
     metric_logger = utils.MetricLogger(delimiter="  ")
     header = f"Test: {log_suffix}"
@@ -95,6 +124,8 @@ def evaluate(model, criterion, data_loader, device, print_freq=100, log_suffix="
             image = image.to(device, non_blocking=True)
             target = target.to(device, non_blocking=True)
             output = model(image)
+            if isinstance(output, tuple):
+                output = output[0]
             loss = criterion(output, target)
 
             acc1, acc5 = utils.accuracy(output, target, topk=(1, 5))
@@ -129,7 +160,7 @@ def evaluate(model, criterion, data_loader, device, print_freq=100, log_suffix="
         f"Acc@1 {metric_logger.acc1.global_avg:.3f}",
         f"Acc@5 {metric_logger.acc5.global_avg:.3f}",
     )
-    return metric_logger.acc1.global_avg
+    return metric_logger
 
 
 def _get_cache_path(filepath):
@@ -189,15 +220,11 @@ def load_data(traindir, valdir, args):
         print(f"Loading dataset_test from {cache_path}")
         dataset_test, _ = torch.load(cache_path)
     else:
-        if args.weights and args.test_only:
-            weights = torchvision.models.get_weight(args.weights)
-            preprocessing = weights.transforms()
-        else:
-            preprocessing = presets.ClassificationPresetEval(
-                crop_size=val_crop_size,
-                resize_size=val_resize_size,
-                interpolation=interpolation,
-            )
+        preprocessing = presets.ClassificationPresetEval(
+            crop_size=val_crop_size,
+            resize_size=val_resize_size,
+            interpolation=interpolation,
+        )
 
         dataset_test = torchvision.datasets.ImageFolder(
             valdir,
@@ -225,6 +252,11 @@ def load_data(traindir, valdir, args):
 
 
 def main(args):
+    if args.resume is not None and args.checkpoint_path is not None:
+        raise ValueError(
+            "Only one of --resume or --checkpoint-path can be specified, not both."
+        )
+
     if args.output_dir:
         utils.mkdir(args.output_dir)
 
@@ -239,8 +271,8 @@ def main(args):
     else:
         torch.backends.cudnn.benchmark = True
 
-    train_dir = os.path.join(args.data_path, "train")
-    val_dir = os.path.join(args.data_path, "val")
+    train_dir = os.path.join(args.dataset_path, "train")
+    val_dir = os.path.join(args.dataset_path, "val")
     dataset, dataset_test, train_sampler, test_sampler = load_data(
         train_dir, val_dir, args
     )
@@ -270,6 +302,7 @@ def main(args):
         pin_memory=True,
         collate_fn=collate_fn,
     )
+
     data_loader_test = torch.utils.data.DataLoader(
         dataset_test,
         batch_size=args.batch_size,
@@ -279,9 +312,24 @@ def main(args):
     )
 
     print("Creating model")
-    model = torchvision.models.get_model(
-        args.model, weights=args.weights, num_classes=num_classes
-    )
+    if args.arch_key in ModelRegistry.available_keys():
+        with torch_distributed_zero_first(args.rank if args.distributed else None):
+            model = ModelRegistry.create(
+                key=args.arch_key,
+                pretrained=args.pretrained,
+                pretrained_path=args.checkpoint_path,
+                pretrained_dataset=args.pretrained_dataset,
+                num_classes=num_classes,
+            )
+    elif args.arch_key in torchvision.models.__dict__:
+        # fall back to torchvision
+        model = torchvision.models.__dict__[args.arch_key](
+            pretrained=args.pretrained, num_classes=num_classes
+        )
+    else:
+        raise ValueError(
+            f"Unable to find {args.arch_key} in ModelRegistry or in torchvision.models"
+        )
     model.to(device)
 
     if args.distributed and args.sync_bn:
@@ -330,63 +378,16 @@ def main(args):
         optimizer = torch.optim.AdamW(
             parameters, lr=args.lr, weight_decay=args.weight_decay
         )
+    elif opt_name == "adam":
+        optimizer = torch.optim.Adam(
+            parameters, lr=args.lr, weight_decay=args.weight_decay
+        )
     else:
         raise RuntimeError(
             f"Invalid optimizer {args.opt}. Only SGD, RMSprop and AdamW are supported."
         )
 
     scaler = torch.cuda.amp.GradScaler() if args.amp else None
-
-    args.lr_scheduler = args.lr_scheduler.lower()
-    if args.lr_scheduler == "steplr":
-        main_lr_scheduler = torch.optim.lr_scheduler.StepLR(
-            optimizer, step_size=args.lr_step_size, gamma=args.lr_gamma
-        )
-    elif args.lr_scheduler == "cosineannealinglr":
-        main_lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-            optimizer, T_max=args.epochs - args.lr_warmup_epochs, eta_min=args.lr_min
-        )
-    elif args.lr_scheduler == "exponentiallr":
-        main_lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(
-            optimizer, gamma=args.lr_gamma
-        )
-    else:
-        raise RuntimeError(
-            f"Invalid lr scheduler '{args.lr_scheduler}'. "
-            "Only StepLR, CosineAnnealingLR and ExponentialLR "
-            "are supported."
-        )
-
-    if args.lr_warmup_epochs > 0:
-        if args.lr_warmup_method == "linear":
-            warmup_lr_scheduler = torch.optim.lr_scheduler.LinearLR(
-                optimizer,
-                start_factor=args.lr_warmup_decay,
-                total_iters=args.lr_warmup_epochs,
-            )
-        elif args.lr_warmup_method == "constant":
-            warmup_lr_scheduler = torch.optim.lr_scheduler.ConstantLR(
-                optimizer,
-                factor=args.lr_warmup_decay,
-                total_iters=args.lr_warmup_epochs,
-            )
-        else:
-            raise RuntimeError(
-                f"Invalid warmup lr method '{args.lr_warmup_method}'. "
-                "Only linear and constant are supported."
-            )
-        lr_scheduler = torch.optim.lr_scheduler.SequentialLR(
-            optimizer,
-            schedulers=[warmup_lr_scheduler, main_lr_scheduler],
-            milestones=[args.lr_warmup_epochs],
-        )
-    else:
-        lr_scheduler = main_lr_scheduler
-
-    model_without_ddp = model
-    if args.distributed:
-        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
-        model_without_ddp = model.module
 
     model_ema = None
     if args.model_ema:
@@ -404,20 +405,97 @@ def main(args):
         alpha = 1.0 - args.model_ema_decay
         alpha = min(1.0, alpha * adjust)
         model_ema = utils.ExponentialMovingAverage(
-            model_without_ddp, device=device, decay=1.0 - alpha
+            model, device=device, decay=1.0 - alpha
         )
 
-    if args.resume:
-        checkpoint = torch.load(args.resume, map_location="cpu")
-        model_without_ddp.load_state_dict(checkpoint["model"])
-        if not args.test_only:
-            optimizer.load_state_dict(checkpoint["optimizer"])
-            lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
+    if args.checkpoint_path:
+        checkpoint = _load_checkpoint(args.checkpoint_path)
+
+        # restore state from prior recipe
+        manager = ScheduledModifierManager.from_yaml(args.recipe_path)
+        checkpoint_manager = ScheduledModifierManager.from_yaml(
+            checkpoint["checkpoint_recipe"]
+        )
+        checkpoint_manager.apply_structure(model, epoch=checkpoint["epoch"])
+    elif args.resume:
+        checkpoint = _load_checkpoint(args.resume)
+
+        # NOTE: override manager with the checkpoint's manager
+        manager = ScheduledModifierManager.from_yaml(checkpoint["checkpoint_recipe"])
+        checkpoint_manager = None
+        manager.initialize(model, epoch=checkpoint["epoch"])
+
+        # NOTE: override start epoch
         args.start_epoch = checkpoint["epoch"] + 1
-        if model_ema:
+    else:
+        checkpoint = None
+        manager = ScheduledModifierManager.from_yaml(args.recipe_path)
+        checkpoint_manager = None
+
+    # load params
+    if checkpoint is not None:
+        model.load_state_dict(checkpoint["model"])
+        optimizer.load_state_dict(checkpoint["optimizer"])
+        if model_ema and "model_ema" in checkpoint:
             model_ema.load_state_dict(checkpoint["model_ema"])
-        if scaler:
+        if scaler and "scaler" in checkpoint:
             scaler.load_state_dict(checkpoint["scaler"])
+
+    optimizer = manager.modify(model, optimizer, len(data_loader))
+
+    if manager.learning_rate_modifiers:
+        lr_scheduler = None
+    else:
+        args.lr_scheduler = args.lr_scheduler.lower()
+        if args.lr_scheduler == "steplr":
+            main_lr_scheduler = torch.optim.lr_scheduler.StepLR(
+                optimizer, step_size=args.lr_step_size, gamma=args.lr_gamma
+            )
+        elif args.lr_scheduler == "cosineannealinglr":
+            main_lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+                optimizer,
+                T_max=args.epochs - args.lr_warmup_epochs,
+                eta_min=args.lr_min,
+            )
+        elif args.lr_scheduler == "exponentiallr":
+            main_lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(
+                optimizer, gamma=args.lr_gamma
+            )
+        else:
+            raise RuntimeError(
+                f"Invalid lr scheduler '{args.lr_scheduler}'. "
+                "Only StepLR, CosineAnnealingLR and ExponentialLR "
+                "are supported."
+            )
+
+        if args.lr_warmup_epochs > 0:
+            if args.lr_warmup_method == "linear":
+                warmup_lr_scheduler = torch.optim.lr_scheduler.LinearLR(
+                    optimizer,
+                    start_factor=args.lr_warmup_decay,
+                    total_iters=args.lr_warmup_epochs,
+                )
+            elif args.lr_warmup_method == "constant":
+                warmup_lr_scheduler = torch.optim.lr_scheduler.ConstantLR(
+                    optimizer,
+                    factor=args.lr_warmup_decay,
+                    total_iters=args.lr_warmup_epochs,
+                )
+            else:
+                raise RuntimeError(
+                    f"Invalid warmup lr method '{args.lr_warmup_method}'. "
+                    "Only linear and constant are supported."
+                )
+            lr_scheduler = torch.optim.lr_scheduler.SequentialLR(
+                optimizer,
+                schedulers=[warmup_lr_scheduler, main_lr_scheduler],
+                milestones=[args.lr_warmup_epochs],
+            )
+        else:
+            lr_scheduler = main_lr_scheduler
+
+        if args.resume and checkpoint:
+            lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
 
     if args.test_only:
         # We disable the cudnn benchmarking because it can
@@ -426,18 +504,32 @@ def main(args):
         torch.backends.cudnn.deterministic = True
         if model_ema:
             evaluate(
-                model_ema, criterion, data_loader_test, device=device, log_suffix="EMA"
+                model_ema,
+                criterion,
+                data_loader_test,
+                device,
+                log_suffix="EMA",
             )
         else:
-            evaluate(model, criterion, data_loader_test, device=device)
+            evaluate(model, criterion, data_loader_test, device)
         return
+
+    model_without_ddp = model
+    if args.distributed:
+        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
+        model_without_ddp = model.module
+
+    best_top1_acc = -math.inf
 
     print("Start training")
     start_time = time.time()
-    for epoch in range(args.start_epoch, args.epochs):
+    for epoch in range(args.start_epoch, manager.max_epochs):
         if args.distributed:
             train_sampler.set_epoch(epoch)
-        train_one_epoch(
+        if manager.qat_active(epoch=epoch):
+            scaler = None
+            model_ema = None
+        train_metrics = train_one_epoch(
             model,
             criterion,
             optimizer,
@@ -445,53 +537,141 @@ def main(args):
             device,
             epoch,
             args,
-            model_ema,
-            scaler,
+            model_ema=model_ema,
+            scaler=scaler,
         )
-        lr_scheduler.step()
-        evaluate(model, criterion, data_loader_test, device=device)
+        if lr_scheduler:
+            lr_scheduler.step()
+        eval_metrics = evaluate(model, criterion, data_loader_test, device)
+        top1_acc = eval_metrics.acc1.global_avg
         if model_ema:
             evaluate(
-                model_ema, criterion, data_loader_test, device=device, log_suffix="EMA"
+                model_ema,
+                criterion,
+                data_loader_test,
+                device,
+                log_suffix="EMA",
             )
+        is_new_best = epoch >= args.save_best_after and top1_acc > best_top1_acc
+        if is_new_best:
+            best_top1_acc = top1_acc
         if args.output_dir:
             checkpoint = {
                 "model": model_without_ddp.state_dict(),
                 "optimizer": optimizer.state_dict(),
-                "lr_scheduler": lr_scheduler.state_dict(),
-                "epoch": epoch,
                 "args": args,
             }
+            if lr_scheduler:
+                checkpoint["lr_scheduler"] = lr_scheduler.state_dict()
             if model_ema:
                 checkpoint["model_ema"] = model_ema.state_dict()
             if scaler:
                 checkpoint["scaler"] = scaler.state_dict()
-            utils.save_on_master(
-                checkpoint, os.path.join(args.output_dir, f"model_{epoch}.pth")
+
+            if checkpoint_manager is not None:
+                checkpoint["epoch"] = (
+                    -1
+                    if epoch == manager.max_epochs - 1
+                    else epoch + checkpoint_manager.max_epochs
+                )
+                checkpoint["checkpoint_recipe"] = str(
+                    ScheduledModifierManager.compose_staged(checkpoint_manager, manager)
+                )
+            else:
+                checkpoint["epoch"] = -1 if epoch == manager.max_epochs - 1 else epoch
+                checkpoint["checkpoint_recipe"] = str(manager)
+
+            file_names = ["checkpoint.pth"]
+            if is_new_best:
+                file_names.append("checkpoint-best.pth")
+            _save_checkpoints(
+                epoch,
+                args.output_dir,
+                file_names,
+                checkpoint,
+                train_metrics,
+                eval_metrics,
             )
-            utils.save_on_master(
-                checkpoint, os.path.join(args.output_dir, "checkpoint.pth")
-            )
+
+    manager.finalize()
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print(f"Training time {total_time_str}")
 
 
-def get_args_parser(add_help=True):
+def _load_checkpoint(path):
+    if path.startswith("zoo:"):
+        path = download_framework_model_by_recipe_type(Model(path))
+    return torch.load(path, map_location="cpu")
+
+
+def _save_checkpoints(
+    epoch, output_dir, file_names, checkpoint, train_metrics, eval_metrics
+):
+    metrics = "\n".join(
+        [
+            f"epoch: {epoch}",
+            f"__loss__: {train_metrics.loss.global_avg}",
+            f"top1acc: {eval_metrics.acc1.global_avg}",
+            f"top5acc: {eval_metrics.acc5.global_avg}",
+        ]
+    )
+    for fname in file_names:
+        utils.save_on_master(checkpoint, os.path.join(output_dir, fname))
+        if utils.is_main_process():
+            with open(
+                os.path.join(args.output_dir, fname.replace(".pth", ".txt")), "w"
+            ) as fp:
+                fp.write(metrics)
+
+
+def get_args_parser():
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="PyTorch Classification Training", add_help=add_help
-    )
+    parser = argparse.ArgumentParser(description="PyTorch Classification Training")
 
+    parser.add_argument("--recipe-path", required=True, type=str, help="Path to recipe")
     parser.add_argument(
-        "--data-path",
-        default="/datasets01/imagenet_full_size/061417/",
+        "--dataset-path",
+        required=True,
+        default=None,
         type=str,
         help="dataset path",
     )
-    parser.add_argument("--model", default="resnet18", type=str, help="model name")
+    parser.add_argument(
+        "--arch-key",
+        default=None,
+        type=str,
+        help=(
+            "The architecture key for image classification model; "
+            "example: `resnet50`, `mobilenet`. "
+            "Note: Will be read from the checkpoint if not specified"
+        ),
+    )
+    parser.add_argument(
+        "--pretrained",
+        default=True,
+        type=str,
+        help=(
+            "The type of pretrained weights to use, "
+            "loads default pretrained weights for "
+            "the model if not specified or set to `True`. "
+            "Otherwise, should be set to the desired weights "
+            "type: [base, optim, optim-perf]. To not load any weights set"
+            " to one of [none, false]"
+        ),
+    )
+    parser.add_argument(
+        "--pretrained-dataset",
+        default=None,
+        type=str,
+        help=(
+            "The dataset to load pretrained weights for if pretrained is "
+            "set. Load the default dataset for the architecture if set to None. "
+            "examples:`imagenet`, `cifar10`, etc..."
+        ),
+    )
     parser.add_argument(
         "--device",
         default="cuda",
@@ -507,7 +687,7 @@ def get_args_parser(add_help=True):
     )
     parser.add_argument(
         "--epochs",
-        default=90,
+        default=10,
         type=int,
         metavar="N",
         help="number of total epochs to run",
@@ -612,6 +792,19 @@ def get_args_parser(add_help=True):
         "--output-dir", default=".", type=str, help="path to save outputs"
     )
     parser.add_argument("--resume", default="", type=str, help="path of checkpoint")
+    parser.add_argument(
+        "--checkpoint-path",
+        default=None,
+        type=str,
+        help=(
+            "A path to a previous checkpoint to load the state from "
+            "and resume the state for. If provided, pretrained will "
+            "be ignored. If using a SparseZoo recipe, can also "
+            "provide 'zoo' to load the base weights associated with "
+            "that recipe. Additionally, can also provide a SparseZoo model stub "
+            "to load model weights from SparseZoo"
+        ),
+    )
     parser.add_argument(
         "--start-epoch", default=0, type=int, metavar="N", help="start epoch"
     )
@@ -736,7 +929,17 @@ def get_args_parser(add_help=True):
         help="number of repetitions for Repeated Augmentation (default: 3)",
     )
     parser.add_argument(
-        "--weights", default=None, type=str, help="the weights enum name to load"
+        "--gradient-accum-steps",
+        default=1,
+        type=int,
+        help="gradient accumulation steps",
+    )
+    parser.add_argument(
+        "--save-best-after",
+        default=1,
+        type=int,
+        help="Save the best validation result after the given "
+        "epoch completes until the end of training",
     )
     return parser
 
