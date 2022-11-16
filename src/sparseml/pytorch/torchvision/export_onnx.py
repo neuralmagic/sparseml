@@ -45,8 +45,7 @@ _LOGGER = logging.getLogger(__name__)
     type=str,
     required=True,
     help="The architecture key for image classification model; "
-    "example: `resnet50`, `mobilenet`. "
-    "Note: Will be read from the checkpoint if not specified",
+    "example: `resnet50`, `mobilenet`. ",
 )
 @click.option(
     "--checkpoint-path",
