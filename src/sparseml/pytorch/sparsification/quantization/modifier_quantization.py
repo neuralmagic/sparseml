@@ -57,7 +57,6 @@ from sparseml.pytorch.sparsification.quantization.helpers import (
     configure_module_bn_wrappers,
     configure_module_default_qconfigs,
     configure_module_qat_wrappers,
-    fix_observer_quant_range,
     freeze_bn_stats,
     fuse_module_conv_bn_relus,
     get_qat_qconfig,
@@ -712,9 +711,6 @@ class QuantizationModifier(ScheduledModifier):
         torch_quantization.prepare_qat(module, inplace=True)
         if self._quantize_embeddings:
             prepare_embeddings_qat(module, qproperties)
-
-        # propagate custom quant min/max range from FakeQuantize to Observer objects
-        fix_observer_quant_range(module)
 
         self._qat_enabled = True
         self._calibrate_if_possible(module)

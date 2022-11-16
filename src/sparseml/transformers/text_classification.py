@@ -54,8 +54,10 @@ from transformers.utils.versions import require_version
 
 from sparseml.pytorch.utils.distributed import record
 from sparseml.transformers.sparsification import Trainer, TrainingArguments
-from sparseml.transformers.utils import SparseAutoModel, get_shared_tokenizer_src
-
+from sparseml.transformers.utils import (
+    SparseAutoModel, get_shared_tokenizer_src,
+    multi_label_precision_recall_f1,
+)
 
 # Will error if the minimal version of Transformers is not installed.
 # Remove at your own risks.
@@ -102,7 +104,7 @@ class DataTrainingArguments:
         default=None,
         metadata={
             "help": "The name of the task to train on: "
-            + ", ".join(_TASK_TO_KEYS.keys())
+                    + ", ".join(_TASK_TO_KEYS.keys())
         },
     )
     dataset_name: Optional[str] = field(
@@ -119,8 +121,9 @@ class DataTrainingArguments:
         default=384,
         metadata={
             "help": "The maximum total input sequence length after tokenization. "
-            "Sequences longer  than this will be truncated, sequences shorter will "
-            "be padded."
+                    "Sequences longer  than this will be truncated, sequences shorter "
+                    "will "
+                    "be padded."
         },
     )
     overwrite_cache: bool = field(
@@ -135,22 +138,24 @@ class DataTrainingArguments:
         default=True,
         metadata={
             "help": "Whether to pad all samples to `max_seq_length`. If False, "
-            "will pad the samples dynamically when batching to the maximum length "
-            "in the batch (which can be faster on GPU but will be slower on TPU)."
+                    "will pad the samples dynamically when batching to the maximum "
+                    "length "
+                    "in the batch (which can be faster on GPU but will be slower on "
+                    "TPU)."
         },
     )
     max_train_samples: Optional[int] = field(
         default=None,
         metadata={
             "help": "For debugging purposes or quicker training, truncate the number "
-            "of training examples to this value if set."
+                    "of training examples to this value if set."
         },
     )
     max_eval_samples: Optional[int] = field(
         default=None,
         metadata={
             "help": "For debugging purposes or quicker training, truncate the number "
-            "of evaluation examples to this value if set."
+                    "of evaluation examples to this value if set."
         },
     )
     max_predict_samples: Optional[int] = field(
@@ -277,21 +282,21 @@ class ModelArguments:
         default=False,
         metadata={
             "help": "Whether to use separate tokenizer for distillation teacher. "
-            "Default False; uses same tokenizer for teacher and student"
+                    "Default False; uses same tokenizer for teacher and student"
         },
     )
     model_revision: str = field(
         default="main",
         metadata={
             "help": "The specific model version to use "
-            "(can be a branch name, tag name or commit id)"
+                    "(can be a branch name, tag name or commit id)"
         },
     )
     use_auth_token: bool = field(
         default=False,
         metadata={
             "help": "Will use token generated when running `transformers-cli login` "
-            "(necessary to use this script with private models)"
+                    "(necessary to use this script with private models)"
         },
     )
 
@@ -364,7 +369,7 @@ def main(**kwargs):
     )
 
     # Labels
-    is_regression, label_column, label_list, num_labels = _get_label_info(
+    is_regression, label_column, label_list, num_labels, is_multi_label_classification = _get_label_info(
         data_args, raw_datasets
     )
 
@@ -372,6 +377,9 @@ def main(**kwargs):
     #
     # In distributed training, the .from_pretrained methods guarantee that only one
     # local process can concurrently download model & vocab.
+    config_kwargs = {}
+    if is_multi_label_classification:
+        config_kwargs["problem_type"] = "multi_label_classification"
 
     config = AutoConfig.from_pretrained(
         model_args.config_name
@@ -382,6 +390,7 @@ def main(**kwargs):
         cache_dir=model_args.cache_dir,
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
+        **config_kwargs,
     )
 
     model, teacher = SparseAutoModel.text_classification_from_pretrained_distil(
@@ -464,7 +473,11 @@ def main(**kwargs):
     # dictionary string to float.
     def compute_metrics(p: EvalPrediction):
         preds = p.predictions[0] if isinstance(p.predictions, tuple) else p.predictions
-        preds = np.squeeze(preds) if is_regression else np.argmax(preds, axis=1)
+        if is_regression:
+            preds = np.squeeze(preds)
+        elif not is_multi_label_classification:
+            # do not run argmax for multi label classification
+            preds = np.argmax(preds, axis=1)
         if data_args.task_name is not None:
             result = metric.compute(predictions=preds, references=p.label_ids)
             if len(result) > 1:
@@ -472,6 +485,24 @@ def main(**kwargs):
             return result
         elif is_regression:
             return {"mse": ((preds - p.label_ids) ** 2).mean().item()}
+        elif is_multi_label_classification:
+            threshold = 0.3  # from go_emotions paper - potentially move to arg/config
+            preds_sigmoid = 1 / (1 + np.exp(-preds))
+            multi_label_preds = (preds_sigmoid > threshold).astype(np.float32)
+            label_to_id = _get_label_to_id(
+                data_args=data_args,
+                is_regression=is_regression,
+                label_list=label_list,
+                model=model,
+                num_labels=num_labels,
+            )
+            id_to_label = {id_: label for label, id_ in label_to_id.items()}
+
+            return multi_label_precision_recall_f1(
+                predictions=multi_label_preds,
+                targets=p.label_ids,
+                id_to_label=id_to_label,
+            )
         else:
             return {
                 "accuracy": (preds == p.label_ids).astype(np.float32).mean().item(),
@@ -621,6 +652,7 @@ def _get_label_info(data_args, raw_datasets):
     label_column = data_args.label_column_name
     if data_args.task_name is not None:
         is_regression = data_args.task_name == "stsb"
+        is_multi_label_classification = False
         if not is_regression:
             label_list = raw_datasets["train"].features[label_column].names
             num_labels = len(label_list)
@@ -628,17 +660,21 @@ def _get_label_info(data_args, raw_datasets):
             num_labels = 1
     else:
         # Trying to have good defaults here, don't hesitate to tweak to your needs.
-        is_regression = raw_datasets["train"].features[label_column].dtype in [
-            "float32",
-            "float64",
-        ]
+        label_type = raw_datasets["train"].features[label_column].dtype
+        is_regression = label_type in ["float32", "float64"]
+        is_multi_label_classification = label_type == "list"
+
         if is_regression:
             num_labels = 1
+        elif is_multi_label_classification:
+            label_list = raw_datasets["train"].features[label_column].feature.names
+            num_labels = len(label_list)
         else:
             label_list = raw_datasets["train"].unique(label_column)
             label_list.sort()  # Let's sort it for determinism
             num_labels = len(label_list)
-    return is_regression, label_column, label_list, num_labels
+    return (is_regression, label_column, label_list, num_labels,
+            is_multi_label_classification)
 
 
 def _get_tokenized_and_preprocessed_raw_datasets(
@@ -653,9 +689,9 @@ def _get_tokenized_and_preprocessed_raw_datasets(
     do_train: bool = False,
     main_process_func=None,
 ):
-    is_regression, label_column, label_list, num_labels = _get_label_info(
-        data_args, raw_datasets
-    )
+    (is_regression, label_column, label_list, num_labels,
+     is_multi_label_classification) = _get_label_info(data_args, raw_datasets)
+
     train_dataset = predict_dataset = eval_dataset = None
     if not main_process_func:
         main_process_func = lambda desc: nullcontext(desc)  # noqa: E731
@@ -704,28 +740,8 @@ def _get_tokenized_and_preprocessed_raw_datasets(
 
     # Some models have set the order of the labels to use, so let's make sure
     # we do use it
-    label_to_id = None
-    if (
-        model.config.label2id != PretrainedConfig(num_labels=num_labels).label2id
-        and data_args.task_name is not None
-        and not is_regression
-    ):
-        # Some have all caps in their config, some don't.
-        label_name_to_id = {k.lower(): v for k, v in model.config.label2id.items()}
-        if list(sorted(label_name_to_id.keys())) == list(sorted(label_list)):
-            label_to_id = {
-                i: int(label_name_to_id[label_list[i]]) for i in range(num_labels)
-            }
-        else:
-            _LOGGER.warning(
-                "Your model seems to have been trained with labels, but they don't "
-                "match the dataset: ",
-                f"model labels: {list(sorted(label_name_to_id.keys()))}, dataset "
-                f"labels: {list(sorted(label_list))}."
-                "\nIgnoring the model labels as a result.",
-            )
-    elif data_args.task_name is None and not is_regression:
-        label_to_id = {v: i for i, v in enumerate(label_list)}
+    label_to_id = _get_label_to_id(data_args, is_regression, label_list, model,
+                                   num_labels)
 
     if label_to_id is not None:
         model.config.label2id = label_to_id
@@ -743,13 +759,27 @@ def _get_tokenized_and_preprocessed_raw_datasets(
         )
     max_seq_length = min(data_args.max_seq_length, tokenizer.model_max_length)
 
+    def one_hot_labels(target_labels):
+        # use 1 - 1e-9 for now as workaround target, values get cast to int somewhere
+        # when encoded as 1.0/0.0. must be float for compatibility w/ BCE logits loss
+        return [
+            1 - 1e-9 if label in target_labels else 0.0 for label in range(num_labels)
+        ]
+
+
     def map_labels_to_ids(examples, tokenizer_result):
         # Map labels to IDs (not necessary for GLUE tasks)
         if label_to_id is not None and label_column in examples:
-            tokenizer_result[label_column] = [
-                (label_to_id[label] if label != -1 else -1)
-                for label in examples[label_column]
-            ]
+            if is_multi_label_classification:
+                tokenizer_result[label_column] = [
+                    one_hot_labels(target_labels)
+                    for target_labels in examples[label_column]
+                ]
+            else:
+                tokenizer_result[label_column] = [
+                    (label_to_id[label] if label != -1 else -1)
+                    for label in examples[label_column]
+                ]
         return tokenizer_result
 
     def preprocess_function(examples):
@@ -791,6 +821,11 @@ def _get_tokenized_and_preprocessed_raw_datasets(
         if "train" not in raw_datasets:
             raise ValueError("--do_train requires a train dataset")
         train_dataset = raw_datasets["train"]
+        if (
+            data_args.max_train_samples is not None
+            and len(train_dataset) > data_args.max_train_samples
+        ):
+            train_dataset = train_dataset.select(range(data_args.max_train_samples))
     if make_eval_dataset:
         if (
             "validation" not in raw_datasets
@@ -821,11 +856,6 @@ def _get_tokenized_and_preprocessed_raw_datasets(
             train_dataset, eval_dataset = _split_train_val(
                 train_dataset, data_args.validation_ratio
             )
-            if (
-                data_args.max_train_samples is not None
-                and len(train_dataset) > data_args.max_train_samples
-            ):
-                train_dataset = train_dataset.select(range(data_args.max_train_samples))
         elif data_args.eval_on_test:
             if "test" not in raw_datasets:
                 raise ValueError("test split not found but eval_on_test is on")
@@ -853,6 +883,32 @@ def _get_tokenized_and_preprocessed_raw_datasets(
         "test": predict_dataset,
     }
     return tokenized_datasets, raw_datasets
+
+
+def _get_label_to_id(data_args, is_regression, label_list, model, num_labels):
+    label_to_id = None
+    if (
+        model.config.label2id != PretrainedConfig(num_labels=num_labels).label2id
+        and data_args.task_name is not None
+        and not is_regression
+    ):
+        # Some have all caps in their config, some don't.
+        label_name_to_id = {k.lower(): v for k, v in model.config.label2id.items()}
+        if list(sorted(label_name_to_id.keys())) == list(sorted(label_list)):
+            label_to_id = {
+                i: int(label_name_to_id[label_list[i]]) for i in range(num_labels)
+            }
+        else:
+            _LOGGER.warning(
+                "Your model seems to have been trained with labels, but they don't "
+                "match the dataset: ",
+                f"model labels: {list(sorted(label_name_to_id.keys()))}, dataset "
+                f"labels: {list(sorted(label_list))}."
+                "\nIgnoring the model labels as a result.",
+            )
+    elif data_args.task_name is None and not is_regression:
+        label_to_id = {v: i for i, v in enumerate(label_list)}
+    return label_to_id
 
 
 def _get_raw_dataset(

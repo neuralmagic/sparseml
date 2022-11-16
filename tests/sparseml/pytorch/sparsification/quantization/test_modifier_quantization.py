@@ -98,10 +98,9 @@ def _test_quantizable_module(module, qat_expected, modifier):
             if modifier.activation_bits is not None:
                 expected_quant_min = 0
                 expected_quant_max = (1 << modifier.activation_bits) - 1
-                activation_quant_properties = module.qconfig.activation.p.keywords
 
-                assert activation_quant_properties["quant_min"] == expected_quant_min
-                assert activation_quant_properties["quant_max"] == expected_quant_max
+                module.activation_post_process.quant_min == expected_quant_min
+                module.activation_post_process.quant_max == expected_quant_max
 
         if isinstance(module, Linear):
             assert isinstance(module.activation_post_process, Identity) == (
