@@ -625,7 +625,7 @@ def _save_checkpoints(
         utils.save_on_master(checkpoint, os.path.join(output_dir, fname))
         if utils.is_main_process():
             with open(
-                os.path.join(args.output_dir, fname.replace(".pth", ".txt")), "w"
+                os.path.join(output_dir, fname.replace(".pth", ".txt")), "w"
             ) as fp:
                 fp.write(metrics)
 
