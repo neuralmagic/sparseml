@@ -95,25 +95,25 @@ _LOGGER = logging.getLogger(__name__)
     default=True,
     is_flag=True,
     help="if True, exports of torch QAT graphs will be converted to a fully quantized "
-    "representation. Default is True",
+    "representation.",
 )
 @click.option(
     "--interpolation",
     default="bilinear",
     type=str,
-    help="the interpolation method (default: bilinear)",
+    help="the interpolation method",
 )
 @click.option(
     "--img-resize-size",
     default=256,
     type=int,
-    help="the resize size used for validation (default: 256)",
+    help="the resize size used for validation",
 )
 @click.option(
     "--img-crop-size",
     default=224,
     type=int,
-    help="the central crop size used for validation (default: 224)",
+    help="the central crop size used for validation",
 )
 def main(
     arch_key: str,
@@ -133,7 +133,7 @@ def main(
     onnx along with sample inputs and outputs
     """
 
-    os.makedirs(save_dir, exist_ok=True)
+    save_dir.mkdir(parents=True, exist_ok=True)
 
     dataset = torchvision.datasets.ImageFolder(
         dataset_path / "val",
