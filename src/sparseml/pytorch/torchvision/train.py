@@ -17,8 +17,10 @@
 import datetime
 import math
 import os
+import sys
 import time
 import warnings
+from functools import update_wrapper
 from types import SimpleNamespace
 
 import torch
@@ -416,7 +418,7 @@ def main(args):
         checkpoint = _load_checkpoint(args.checkpoint_path)
 
         # restore state from prior recipe
-        manager = ScheduledModifierManager.from_yaml(args.recipe_path)
+        manager = ScheduledModifierManager.from_yaml(args.recipe)
         checkpoint_manager = ScheduledModifierManager.from_yaml(
             checkpoint["checkpoint_recipe"]
         )
@@ -433,7 +435,7 @@ def main(args):
         args.start_epoch = checkpoint["epoch"] + 1
     else:
         checkpoint = None
-        manager = ScheduledModifierManager.from_yaml(args.recipe_path)
+        manager = ScheduledModifierManager.from_yaml(args.recipe)
         checkpoint_manager = None
 
     # load params
@@ -630,12 +632,33 @@ def _save_checkpoints(
                 fp.write(metrics)
 
 
+_ARGUMENTS_ERROR = (
+    "Deprecated arguments found: {}. "
+    "Please see --help for new arguments.\n"
+    "The old script can be accessed with "
+    "`sparseml.pytorch.image_classification.train`"
+)
+
+
+def _deprecate_old_arguments(f):
+    def new_func(*args, **kwargs):
+        if "--recipe-path" in sys.argv:
+            raise ValueError(_ARGUMENTS_ERROR.format("--recipe-path"))
+        return f(*args, **kwargs)
+
+    return update_wrapper(new_func, f)
+
+
+@_deprecate_old_arguments
 @click.command(
     context_settings=dict(
-        token_normalize_func=lambda x: x.replace("-", "_"), show_default=True
+        token_normalize_func=lambda x: x.replace("-", "_"),
+        show_default=True,
+        ignore_unknown_options=True,
+        allow_extra_args=True,
     )
 )
-@click.option("--recipe-path", required=True, type=str, help="Path to recipe")
+@click.option("--recipe", required=True, type=str, help="Path to recipe")
 @click.option("--dataset-path", required=True, type=str, help="dataset path")
 @click.option(
     "--arch-key",
@@ -892,6 +915,8 @@ def cli(ctx, **kwargs):
     """
     PyTorch classification training
     """
+    if len(ctx.args) > 0:
+        raise ValueError(_ARGUMENTS_ERROR.format(ctx.args))
     main(SimpleNamespace(**kwargs))
 
 
