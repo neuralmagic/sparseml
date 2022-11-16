@@ -17,7 +17,6 @@ import logging
 from pathlib import Path
 from typing import Dict, Optional, Union
 
-import torch
 import torchvision
 from torch.nn import Module
 from torch.utils.data import DataLoader
@@ -26,9 +25,10 @@ from tqdm import tqdm
 
 import click
 from sparseml.pytorch.models.registry import ModelRegistry
+from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
 from sparseml.pytorch.torchvision import presets
 from sparseml.pytorch.utils import ModuleExporter
-from sparseml.pytorch.utils.exporter import DEFAULT_ONNX_OPSET
+from sparseml.pytorch.utils.model import load_model
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -48,10 +48,10 @@ _LOGGER = logging.getLogger(__name__)
 )
 @click.option(
     "--checkpoint-path",
-    type=click.Path(dir_okay=False, file_okay=True, exists=True, path_type=Path),
+    type=str,
     required=True,
     help="A path to a previous checkpoint to load the state from "
-    "and resume the state for exporting",
+    "and resume the state for exporting, or a zoo stub.",
 )
 @click.option(
     "--dataset-path",
@@ -80,7 +80,7 @@ _LOGGER = logging.getLogger(__name__)
 @click.option(
     "--onnx-opset",
     type=int,
-    default=DEFAULT_ONNX_OPSET,
+    default=TORCH_DEFAULT_ONNX_OPSET,
     help="The onnx opset to use for exporting the model",
 )
 @click.option(
@@ -156,8 +156,8 @@ def main(
         raise ValueError(
             f"Unable to find {arch_key} in ModelRegistry or in torchvision.models"
         )
-    checkpoint = torch.load(checkpoint_path)
-    model.load_state_dict(checkpoint["model"])
+
+    load_model(checkpoint_path, model, strict=True)
 
     if labels_to_class_mapping is not None:
         with open(labels_to_class_mapping) as fp:

@@ -559,7 +559,7 @@ def main(args):
             best_top1_acc = top1_acc
         if args.output_dir:
             checkpoint = {
-                "model": model_without_ddp.state_dict(),
+                "state_dict": model_without_ddp.state_dict(),
                 "optimizer": optimizer.state_dict(),
                 "args": args,
             }
