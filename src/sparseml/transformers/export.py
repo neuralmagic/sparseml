@@ -154,7 +154,20 @@ def load_task_dataset(
         )
 
         data_training_args = DataTrainingArguments(**data_args)
-        return get_tokenized_mlm_dataset(data_training_args, tokenizer)
+        return get_tokenized_mlm_dataset(
+            data_args=data_training_args, tokenizer=tokenizer
+        )
+
+    if task == "question-answering" or task == "qa":
+        from sparseml.transformers.question_answering import (
+            DataTrainingArguments,
+            get_tokenized_qa_dataset,
+        )
+
+        data_training_args = DataTrainingArguments(**data_args)
+        return get_tokenized_qa_dataset(
+            data_args=data_training_args, tokenizer=tokenizer
+        )
 
     if task == "token-classification" or task == "ner":
         from sparseml.transformers.token_classification import (
@@ -220,6 +233,7 @@ def export_transformer_to_onnx(
     :param num_export_samples: number of samples (inputs/outputs) to export
     :param data_args: additional args to instantiate a `DataTrainingArguments`
         instance for exporting samples
+    :param one_shot: one shot recipe to be applied before exporting model
     :return: path to the exported ONNX file
     """
     task = task.replace("_", "-").replace(" ", "-")
