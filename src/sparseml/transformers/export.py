@@ -202,7 +202,7 @@ def load_task_dataset(
             config=config,
         )
 
-    raise NotImplementedError
+    raise ValueError(f"unrecognized task given of {task}")
 
 
 def export_transformer_to_onnx(
@@ -263,19 +263,24 @@ def export_transformer_to_onnx(
     )
     model = load_task_model(task, model_path, config)
     _LOGGER.info(f"loaded model, config, and tokenizer from {model_path}")
-    tokenized_dataset = load_task_dataset(
-        task=task,
-        tokenizer=tokenizer,
-        data_args=data_args,
-        model=model,
-        config=config,
-    )
+
+    eval_dataset = None
+    if num_export_samples > 0:
+        tokenized_dataset = load_task_dataset(
+            task=task,
+            tokenizer=tokenizer,
+            data_args=data_args,
+            model=model,
+            config=config,
+        )
+        eval_dataset = tokenized_dataset.get("validation")
+        _LOGGER.info(f"loaded validation dataset for args {data_args}")
 
     model = model.train()
     trainer = Trainer(
         model=model,
         model_state_path=model_path,
-        eval_dataset=tokenized_dataset.get("validation"),
+        eval_dataset=eval_dataset,
         recipe=None,
         recipe_args=None,
         teacher=None,
@@ -353,10 +358,11 @@ def export_transformer_to_onnx(
 
     # export sample inputs/outputs
 
-    _LOGGER.info(f"Exporting {num_export_samples} sample inputs/outputs")
-    trainer.save_sample_inputs_outputs(
-        num_samples_to_export=num_export_samples,
-    )
+    if num_export_samples > 0:
+        _LOGGER.info(f"Exporting {num_export_samples} sample inputs/outputs")
+        trainer.save_sample_inputs_outputs(
+            num_samples_to_export=num_export_samples,
+        )
 
     _LOGGER.info(f"{num_export_samples} sample inputs/outputs exported")
     return onnx_file_path
