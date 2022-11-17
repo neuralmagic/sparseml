@@ -33,6 +33,7 @@ from sparseml.utils import FRAMEWORK_METADATA_KEY, RECIPE_METADATA_KEY
 
 STAGED_RECIPE_COMPLEX = """
 sparsity: {sparsity}
+lr_func: {lr_func}
 init_lr: 0.05
 final_lr: 0.0
 end_epoch: 100
@@ -66,7 +67,7 @@ ac_dc_phase:
   - !LearningRateFunctionModifier
     start_epoch: eval(end_warm_up_epoch)
     end_epoch: eval(end_epoch_global)
-    lr_func: {lr_func}
+    lr_func: eval(lr_func)
     init_lr: eval(final_lr)
     final_lr: 0.0
 
@@ -102,6 +103,7 @@ end_epoch: 100
 update_frequency: 10
 start_epoch: 0.0
 global_sparsity: True
+lr_func: cosine
 
 ac_dc_phase:
   update_frequency: 5
