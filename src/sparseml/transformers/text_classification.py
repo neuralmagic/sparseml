@@ -862,6 +862,10 @@ def _get_tokenized_and_preprocessed_raw_datasets(
                 )
             eval_dataset = raw_datasets["validation"]
         elif data_args.validation_ratio is not None:
+            if data_args.eval_on_test is True:
+                raise ValueError(
+                    "eval_on_test cannot be specified when validation_ratio is set"
+                )
             train_dataset = (
                 raw_datasets["train"] if train_dataset is None else train_dataset
             )
