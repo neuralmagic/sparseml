@@ -97,13 +97,13 @@ next_stage:
 
 STAGED_RECIPE_COMPLEX_EVAL = """
 sparsity: 0.9
+lr_func: cosine
 init_lr: 0.05
 final_lr: 0.0
 end_epoch: 100
 update_frequency: 10
 start_epoch: 0.0
 global_sparsity: True
-lr_func: cosine
 
 ac_dc_phase:
   update_frequency: 5
@@ -654,16 +654,16 @@ def test_load_recipe_yaml_str_zoo(zoo_path):
         ),
         (
             STAGED_RECIPE_COMPLEX.format(
-                sparsity=0.9, num_epochs=10, lr_func="cosine", new_num_epochs=15
+                sparsity=0.9, num_epochs=10, lr_func="linear", new_num_epochs=15
             ),
             {
                 "sparsity": 0.5,
                 "num_epochs": 11,
-                "lr_func": "linear",
+                "lr_func": "cosine",
                 "new_num_epochs": 13,
             },
             STAGED_RECIPE_COMPLEX.format(
-                sparsity=0.5, num_epochs=11, lr_func="linear", new_num_epochs=13
+                sparsity=0.5, num_epochs=11, lr_func="cosine", new_num_epochs=13
             ),
             False,
         ),
