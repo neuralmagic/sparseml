@@ -981,13 +981,13 @@ def set_deterministic_seeds(seed: int = 0):
 
 
 @contextmanager
-def torch_distributed_zero_first(local_rank: int):
+def torch_distributed_zero_first(local_rank: Optional[int]):
     """
     Decorator to make all processes in distributed training wait for each
     local 0 ranked process to do something.
     :param local_rank: the local rank of this process
     """
-    if local_rank not in [-1, 0]:
+    if local_rank is not None and local_rank not in [-1, 0]:
         torch.distributed.barrier()
     yield
     if local_rank == 0:

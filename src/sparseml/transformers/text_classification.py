@@ -28,6 +28,7 @@ import logging
 import os
 import random
 import sys
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -36,6 +37,7 @@ import numpy as np
 import transformers
 from datasets import load_dataset, load_metric
 from sklearn.model_selection import StratifiedShuffleSplit
+from torch.nn import Module
 from transformers import (
     AutoConfig,
     AutoTokenizer,
@@ -81,7 +83,7 @@ _TASK_TO_KEYS = {
     "imdb": ("text", None),
 }
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: logging.Logger = logging.getLogger(__name__)
 
 metadata_args = [
     "per_device_train_batch_size",
@@ -361,98 +363,18 @@ def main(**kwargs):
     # Set seed before initializing model.
     set_seed(training_args.seed)
 
-    # Get the datasets: you can either provide your own CSV/JSON training and
-    # evaluation files (see below) or specify a GLUE benchmark task
-    # (the dataset will be downloaded automatically from the datasets Hub).
-    #
-    # For CSV/JSON files, this script will use as labels the column called 'label' and
-    # as pair of sentences the sentences in columns called 'sentence1' and 'sentence2'
-    # if such column exists or the first two columns not named
-    # label if at least two columns are provided.
-    #
-    # If the CSVs/JSONs contain only one non-label column, the script does single
-    # sentence classification on this single column. You can easily tweak this behavior
-    # (see below)
-    #
-    # In distributed training, the load_dataset function guarantee that only one local
-    # process can concurrently download the dataset.
-    if data_args.task_name is not None:
-        # Downloading and loading a dataset from the hub.
-        raw_datasets = load_dataset(
-            "glue", data_args.task_name, cache_dir=model_args.cache_dir
-        )
-    elif data_args.dataset_name is not None:
-        # Downloading and loading a dataset from the hub.
-        raw_datasets = load_dataset(
-            data_args.dataset_name,
-            data_args.dataset_config_name,
-            cache_dir=model_args.cache_dir,
-        )
-    else:
-        # Loading a dataset from your local files.
-        # CSV/JSON training and evaluation files are needed.
-        data_files = {
-            "train": data_args.train_file,
-            "validation": data_args.validation_file,
-        }
-
-        # Get the test dataset: you can provide your own CSV/JSON test file (see below)
-        # when you use `do_predict` without specifying a GLUE benchmark task.
-        if training_args.do_predict:
-            if data_args.test_file is not None:
-                train_extension = data_args.train_file.split(".")[-1]
-                test_extension = data_args.test_file.split(".")[-1]
-                assert test_extension == train_extension, (
-                    "`test_file` should have the same extension (csv or json) as "
-                    "`train_file`."
-                )
-                data_files["test"] = data_args.test_file
-            else:
-                raise ValueError(
-                    "Need either a GLUE task or a test file for `do_predict`."
-                )
-
-        for key in data_files.keys():
-            _LOGGER.info(f"load a local file for {key}: {data_files[key]}")
-
-        if data_args.train_file.endswith(".csv"):
-            # Loading a dataset from local csv files
-            raw_datasets = load_dataset(
-                "csv", data_files=data_files, cache_dir=model_args.cache_dir
-            )
-        else:
-            # Loading a dataset from local json files
-            raw_datasets = load_dataset(
-                "json", data_files=data_files, cache_dir=model_args.cache_dir
-            )
-    # See more about loading any type of standard or custom dataset at
-    # https://huggingface.co/docs/datasets/loading_datasets.html.
+    raw_datasets = _get_raw_dataset(
+        data_args, cache_dir=model_args.cache_dir, do_predict=training_args.do_predict
+    )
 
     # Labels
-    label_column = data_args.label_column_name
-    if data_args.task_name is not None:
-        is_regression = data_args.task_name == "stsb"
-        is_multi_label_classification = False
-        if not is_regression:
-            label_list = raw_datasets["train"].features[label_column].names
-            num_labels = len(label_list)
-        else:
-            num_labels = 1
-    else:
-        # Trying to have good defaults here, don't hesitate to tweak to your needs.
-        label_type = raw_datasets["train"].features[label_column].dtype
-        is_regression = label_type in ["float32", "float64"]
-        is_multi_label_classification = label_type == "list"
-
-        if is_regression:
-            num_labels = 1
-        elif is_multi_label_classification:
-            label_list = raw_datasets["train"].features[label_column].feature.names
-            num_labels = len(label_list)
-        else:
-            label_list = raw_datasets["train"].unique(label_column)
-            label_list.sort()  # Let's sort it for determinism
-            num_labels = len(label_list)
+    (
+        is_regression,
+        label_column,
+        label_list,
+        num_labels,
+        is_multi_label_classification,
+    ) = _get_label_info(data_args, raw_datasets)
 
     # Load pretrained model and tokenizer
     #
@@ -519,215 +441,23 @@ def main(**kwargs):
         tokenizer_src,
         **tokenizer_kwargs,
     )
-
-    # Preprocessing the datasets
-    if data_args.input_column_names is not None:
-        if "," in data_args.input_column_names:
-            # two input columns
-            columns = data_args.input_column_names.split(",")
-            if len(columns) != 2:
-                raise ValueError(
-                    "input_column_names may only specify up to two columns "
-                    f"{len(columns)} provided: {columns}"
-                )
-            sentence1_key, sentence2_key = columns
-        else:
-            # one input column
-            sentence1_key = data_args.input_column_names
-            sentence2_key = None
-    elif data_args.task_name is not None:
-        sentence1_key, sentence2_key = _TASK_TO_KEYS[data_args.task_name]
-    else:
-        # Again, we try to have some nice defaults but don't hesitate to tweak to your
-        # use case
-        non_label_column_names = [
-            name for name in raw_datasets["train"].column_names if name != label_column
-        ]
-        if (
-            "sentence1" in non_label_column_names
-            and "sentence2" in non_label_column_names
-        ):
-            sentence1_key, sentence2_key = "sentence1", "sentence2"
-        else:
-            if len(non_label_column_names) >= 2:
-                sentence1_key, sentence2_key = non_label_column_names[:2]
-            else:
-                sentence1_key, sentence2_key = non_label_column_names[0], None
-
-    # Padding strategy
-    if data_args.pad_to_max_length:
-        padding = "max_length"
-    else:
-        # We will pad later, dynamically at batch creation, to the max sequence
-        # length in each batch
-        padding = False
-
-    # Some models have set the order of the labels to use, so let's make sure
-    # we do use it
-    label_to_id = None
-    if (
-        model.config.label2id != PretrainedConfig(num_labels=num_labels).label2id
-        and data_args.task_name is not None
-        and not is_regression
-    ):
-        # Some have all caps in their config, some don't.
-        label_name_to_id = {k.lower(): v for k, v in model.config.label2id.items()}
-        if list(sorted(label_name_to_id.keys())) == list(sorted(label_list)):
-            label_to_id = {
-                i: int(label_name_to_id[label_list[i]]) for i in range(num_labels)
-            }
-        else:
-            _LOGGER.warning(
-                "Your model seems to have been trained with labels, but they don't "
-                "match the dataset: ",
-                f"model labels: {list(sorted(label_name_to_id.keys()))}, dataset "
-                f"labels: {list(sorted(label_list))}."
-                "\nIgnoring the model labels as a result.",
-            )
-    elif data_args.task_name is None and not is_regression:
-        label_to_id = {v: i for i, v in enumerate(label_list)}
-
-    if label_to_id is not None:
-        model.config.label2id = label_to_id
-        model.config.id2label = {id: label for label, id in config.label2id.items()}
-    elif data_args.task_name is not None and not is_regression:
-        model.config.label2id = {l: i for i, l in enumerate(label_list)}
-        model.config.id2label = {id: label for label, id in config.label2id.items()}
-
-    max_seq_length = data_args.max_seq_length
-    if max_seq_length > tokenizer.model_max_length:
-        _LOGGER.warning(
-            f"The max_seq_length passed ({max_seq_length}) is larger than "
-            f"the maximum length for the model ({tokenizer.model_max_length}). "
-            f"Using max_seq_length={tokenizer.model_max_length}."
-        )
-    max_seq_length = min(data_args.max_seq_length, tokenizer.model_max_length)
-
-    def one_hot_labels(target_labels):
-        # use 1 - 1e-9 for now as workaround target, values get cast to int somewhere
-        # when encoded as 1.0/0.0. must be float for compatibility w/ BCE logits loss
-        return [
-            1 - 1e-9 if label in target_labels else 0.0 for label in range(num_labels)
-        ]
-
-    def map_labels_to_ids(examples, tokenizer_result):
-        # Map labels to IDs (not necessary for GLUE tasks)
-        if label_to_id is not None and label_column in examples:
-            if is_multi_label_classification:
-                tokenizer_result[label_column] = [
-                    one_hot_labels(target_labels)
-                    for target_labels in examples[label_column]
-                ]
-            else:
-                tokenizer_result[label_column] = [
-                    (label_to_id[label] if label != -1 else -1)
-                    for label in examples[label_column]
-                ]
-        return tokenizer_result
-
-    def preprocess_function(examples):
-        # Tokenize the texts
-        args = (
-            (examples[sentence1_key],)
-            if sentence2_key is None
-            else (examples[sentence1_key], examples[sentence2_key])
-        )
-        result = tokenizer(
-            *args, padding=padding, max_length=max_seq_length, truncation=True
-        )
-        result = map_labels_to_ids(examples, result)
-
-        if teacher_tokenizer is not None:
-            teacher_result = teacher_tokenizer(
-                *args, padding=padding, max_length=max_seq_length, truncation=True
-            )
-            teacher_result = map_labels_to_ids(examples, teacher_result)
-
-            # add results from teacher_tokenizer to results with 'distill_teacher:' id
-            teacher_result = {
-                f"distill_teacher:{tokenizer_key}": value
-                for tokenizer_key, value in teacher_result.items()
-            }
-            result.update(teacher_result)
-
-        return result
-
-    with training_args.main_process_first(desc="dataset map pre-processing"):
-        raw_datasets = raw_datasets.map(
-            preprocess_function,
-            batched=True,
-            num_proc=data_args.preprocessing_num_workers,
-            load_from_cache_file=not data_args.overwrite_cache,
-            desc="Running tokenizer on dataset",
-        )
-
-    train_dataset = None
-    if training_args.do_train:
-        if "train" not in raw_datasets:
-            raise ValueError("--do_train requires a train dataset")
-        train_dataset = raw_datasets["train"]
-        if (
-            data_args.max_train_samples is not None
-            and len(train_dataset) > data_args.max_train_samples
-        ):
-            train_dataset = train_dataset.select(range(data_args.max_train_samples))
-
     make_eval_dataset = training_args.do_eval or data_args.num_export_samples > 0
-    if make_eval_dataset:
-        if (
-            "validation" not in raw_datasets
-            and "validation_matched" not in raw_datasets
-            and data_args.validation_ratio is None
-            and data_args.eval_on_test is False
-        ):
-            raise ValueError(
-                "--do_eval requires an explicit validation dataset, "
-                "specified validation ratio, or eval_on_test"
-            )
-        if data_args.task_name == "mnli":
-            eval_dataset = raw_datasets["validation_matched"]
-        elif "validation" in raw_datasets:
-            if data_args.validation_ratio is not None:
-                raise ValueError(
-                    "validation_ratio cannot be specified when validation set exists"
-                )
-            if data_args.eval_on_test is True:
-                raise ValueError(
-                    "eval_on_test cannot be specified when validation set exists"
-                )
-            eval_dataset = raw_datasets["validation"]
-        elif data_args.validation_ratio is not None:
-            train_dataset = (
-                raw_datasets["train"] if train_dataset is None else train_dataset
-            )
-            train_dataset, eval_dataset = _split_train_val(
-                train_dataset, data_args.validation_ratio
-            )
-        elif data_args.eval_on_test:
-            if "test" not in raw_datasets:
-                raise ValueError("test split not found but eval_on_test is on")
-            eval_dataset = raw_datasets["test"]
+    tokenized_datasets, raw_datasets = _get_tokenized_and_preprocessed_raw_datasets(
+        config=config,
+        data_args=data_args,
+        model=model,
+        raw_datasets=raw_datasets,
+        tokenizer=tokenizer,
+        teacher_tokenizer=teacher_tokenizer,
+        make_eval_dataset=make_eval_dataset,
+        main_process_func=training_args.main_process_first,
+        do_train=training_args.do_train,
+        do_predict=training_args.do_predict,
+    )
 
-        if (
-            data_args.max_eval_samples is not None
-            and len(eval_dataset) > data_args.max_eval_samples
-        ):
-            eval_dataset = eval_dataset.select(range(data_args.max_eval_samples))
-
-    if (
-        training_args.do_predict
-        or data_args.task_name is not None
-        or data_args.test_file is not None
-    ):
-        if "test" not in raw_datasets and "test_matched" not in raw_datasets:
-            raise ValueError("--do_predict requires a test dataset")
-        predict_dataset = raw_datasets[
-            "test_matched" if data_args.task_name == "mnli" else "test"
-        ]
-        if data_args.max_predict_samples is not None:
-            predict_dataset = predict_dataset.select(
-                range(data_args.max_predict_samples)
-            )
+    train_dataset = tokenized_datasets.get("train")
+    eval_dataset = tokenized_datasets.get("validation")
+    predict_dataset = tokenized_datasets.get("test")
 
     # Log a few random samples from the training set:
     if training_args.do_train:
@@ -761,6 +491,13 @@ def main(**kwargs):
             threshold = 0.3  # from go_emotions paper - potentially move to arg/config
             preds_sigmoid = 1 / (1 + np.exp(-preds))
             multi_label_preds = (preds_sigmoid > threshold).astype(np.float32)
+            label_to_id = _get_label_to_id(
+                data_args=data_args,
+                is_regression=is_regression,
+                label_list=label_list,
+                model=model,
+                num_labels=num_labels,
+            )
             id_to_label = {id_: label for label, id_ in label_to_id.items()}
 
             return multi_label_precision_recall_f1(
@@ -913,6 +650,353 @@ def main(**kwargs):
         )
 
 
+def _get_label_info(data_args, raw_datasets):
+    label_column = data_args.label_column_name
+    if data_args.task_name is not None:
+        is_regression = data_args.task_name == "stsb"
+        is_multi_label_classification = False
+        if not is_regression:
+            label_list = raw_datasets["train"].features[label_column].names
+            num_labels = len(label_list)
+        else:
+            num_labels = 1
+    else:
+        # Trying to have good defaults here, don't hesitate to tweak to your needs.
+        label_type = raw_datasets["train"].features[label_column].dtype
+        is_regression = label_type in ["float32", "float64"]
+        is_multi_label_classification = label_type == "list"
+
+        if is_regression:
+            num_labels = 1
+        elif is_multi_label_classification:
+            label_list = raw_datasets["train"].features[label_column].feature.names
+            num_labels = len(label_list)
+        else:
+            label_list = raw_datasets["train"].unique(label_column)
+            label_list.sort()  # Let's sort it for determinism
+            num_labels = len(label_list)
+    return (
+        is_regression,
+        label_column,
+        label_list,
+        num_labels,
+        is_multi_label_classification,
+    )
+
+
+def _get_tokenized_and_preprocessed_raw_datasets(
+    config,
+    data_args: DataTrainingArguments,
+    model: Module,
+    raw_datasets,
+    tokenizer: transformers.PreTrainedTokenizerBase,
+    teacher_tokenizer=None,
+    make_eval_dataset: bool = False,
+    do_predict: bool = False,
+    do_train: bool = False,
+    main_process_func=None,
+):
+    (
+        is_regression,
+        label_column,
+        label_list,
+        num_labels,
+        is_multi_label_classification,
+    ) = _get_label_info(data_args, raw_datasets)
+
+    train_dataset = predict_dataset = eval_dataset = None
+    if not main_process_func:
+        main_process_func = lambda desc: nullcontext(desc)  # noqa: E731
+
+    # Preprocessing the datasets
+    if data_args.input_column_names is not None:
+        if "," in data_args.input_column_names:
+            # two input columns
+            columns = data_args.input_column_names.split(",")
+            if len(columns) != 2:
+                raise ValueError(
+                    "input_column_names may only specify up to two columns "
+                    f"{len(columns)} provided: {columns}"
+                )
+            sentence1_key, sentence2_key = columns
+        else:
+            # one input column
+            sentence1_key = data_args.input_column_names
+            sentence2_key = None
+    elif data_args.task_name is not None:
+        sentence1_key, sentence2_key = _TASK_TO_KEYS[data_args.task_name]
+    else:
+        # Again, we try to have some nice defaults but don't hesitate to tweak to your
+        # use case
+        non_label_column_names = [
+            name for name in raw_datasets["train"].column_names if name != label_column
+        ]
+        if (
+            "sentence1" in non_label_column_names
+            and "sentence2" in non_label_column_names
+        ):
+            sentence1_key, sentence2_key = "sentence1", "sentence2"
+        else:
+            if len(non_label_column_names) >= 2:
+                sentence1_key, sentence2_key = non_label_column_names[:2]
+            else:
+                sentence1_key, sentence2_key = non_label_column_names[0], None
+
+    # Padding strategy
+    if data_args.pad_to_max_length:
+        padding = "max_length"
+    else:
+        # We will pad later, dynamically at batch creation, to the max sequence
+        # length in each batch
+        padding = False
+
+    # Some models have set the order of the labels to use, so let's make sure
+    # we do use it
+    label_to_id = _get_label_to_id(
+        data_args, is_regression, label_list, model, num_labels
+    )
+
+    if label_to_id is not None:
+        model.config.label2id = label_to_id
+        model.config.id2label = {id: label for label, id in config.label2id.items()}
+    elif data_args.task_name is not None and not is_regression:
+        model.config.label2id = {l: i for i, l in enumerate(label_list)}
+        model.config.id2label = {id: label for label, id in config.label2id.items()}
+
+    max_seq_length = data_args.max_seq_length
+    if max_seq_length > tokenizer.model_max_length:
+        _LOGGER.warning(
+            f"The max_seq_length passed ({max_seq_length}) is larger than "
+            f"the maximum length for the model ({tokenizer.model_max_length}). "
+            f"Using max_seq_length={tokenizer.model_max_length}."
+        )
+    max_seq_length = min(data_args.max_seq_length, tokenizer.model_max_length)
+
+    def one_hot_labels(target_labels):
+        # use 1 - 1e-9 for now as workaround target, values get cast to int somewhere
+        # when encoded as 1.0/0.0. must be float for compatibility w/ BCE logits loss
+        return [
+            1 - 1e-9 if label in target_labels else 0.0 for label in range(num_labels)
+        ]
+
+    def map_labels_to_ids(examples, tokenizer_result):
+        # Map labels to IDs (not necessary for GLUE tasks)
+        if label_to_id is not None and label_column in examples:
+            if is_multi_label_classification:
+                tokenizer_result[label_column] = [
+                    one_hot_labels(target_labels)
+                    for target_labels in examples[label_column]
+                ]
+            else:
+                tokenizer_result[label_column] = [
+                    (label_to_id[label] if label != -1 else -1)
+                    for label in examples[label_column]
+                ]
+        return tokenizer_result
+
+    def preprocess_function(examples):
+        # Tokenize the texts
+        args = (
+            (examples[sentence1_key],)
+            if sentence2_key is None
+            else (examples[sentence1_key], examples[sentence2_key])
+        )
+        result = tokenizer(
+            *args, padding=padding, max_length=max_seq_length, truncation=True
+        )
+        result = map_labels_to_ids(examples, result)
+
+        if teacher_tokenizer is not None:
+            teacher_result = teacher_tokenizer(
+                *args, padding=padding, max_length=max_seq_length, truncation=True
+            )
+            teacher_result = map_labels_to_ids(examples, teacher_result)
+
+            # add results from teacher_tokenizer to results with 'distill_teacher:' id
+            teacher_result = {
+                f"distill_teacher:{tokenizer_key}": value
+                for tokenizer_key, value in teacher_result.items()
+            }
+            result.update(teacher_result)
+
+        return result
+
+    with main_process_func(desc="dataset map pre-processing"):
+        raw_datasets = raw_datasets.map(
+            preprocess_function,
+            batched=True,
+            num_proc=data_args.preprocessing_num_workers,
+            load_from_cache_file=not data_args.overwrite_cache,
+            desc="Running tokenizer on dataset",
+        )
+    if do_train:
+        if "train" not in raw_datasets:
+            raise ValueError("--do_train requires a train dataset")
+        train_dataset = raw_datasets["train"]
+        if (
+            data_args.max_train_samples is not None
+            and len(train_dataset) > data_args.max_train_samples
+        ):
+            train_dataset = train_dataset.select(range(data_args.max_train_samples))
+    if make_eval_dataset:
+        if (
+            "validation" not in raw_datasets
+            and "validation_matched" not in raw_datasets
+            and data_args.validation_ratio is None
+            and data_args.eval_on_test is False
+        ):
+            raise ValueError(
+                "--do_eval requires an explicit validation dataset, "
+                "specified validation ratio, or eval_on_test"
+            )
+        if data_args.task_name == "mnli":
+            eval_dataset = raw_datasets["validation_matched"]
+        elif "validation" in raw_datasets:
+            if data_args.validation_ratio is not None:
+                raise ValueError(
+                    "validation_ratio cannot be specified when validation set exists"
+                )
+            if data_args.eval_on_test is True:
+                raise ValueError(
+                    "eval_on_test cannot be specified when validation set exists"
+                )
+            eval_dataset = raw_datasets["validation"]
+        elif data_args.validation_ratio is not None:
+            if data_args.eval_on_test is True:
+                raise ValueError(
+                    "eval_on_test cannot be specified when validation_ratio is set"
+                )
+            train_dataset = (
+                raw_datasets["train"] if train_dataset is None else train_dataset
+            )
+            train_dataset, eval_dataset = _split_train_val(
+                train_dataset, data_args.validation_ratio
+            )
+        elif data_args.eval_on_test:
+            if "test" not in raw_datasets:
+                raise ValueError("test split not found but eval_on_test is on")
+            eval_dataset = raw_datasets["test"]
+
+        if (
+            data_args.max_eval_samples is not None
+            and len(eval_dataset) > data_args.max_eval_samples
+        ):
+            eval_dataset = eval_dataset.select(range(data_args.max_eval_samples))
+    if do_predict or data_args.task_name is not None or data_args.test_file is not None:
+        if "test" not in raw_datasets and "test_matched" not in raw_datasets:
+            raise ValueError("--do_predict requires a test dataset")
+        predict_dataset = raw_datasets[
+            "test_matched" if data_args.task_name == "mnli" else "test"
+        ]
+        if data_args.max_predict_samples is not None:
+            predict_dataset = predict_dataset.select(
+                range(data_args.max_predict_samples)
+            )
+
+    tokenized_datasets = {
+        "train": train_dataset,
+        "validation": eval_dataset,
+        "test": predict_dataset,
+    }
+    return tokenized_datasets, raw_datasets
+
+
+def _get_label_to_id(data_args, is_regression, label_list, model, num_labels):
+    label_to_id = None
+    if (
+        model.config.label2id != PretrainedConfig(num_labels=num_labels).label2id
+        and data_args.task_name is not None
+        and not is_regression
+    ):
+        # Some have all caps in their config, some don't.
+        label_name_to_id = {k.lower(): v for k, v in model.config.label2id.items()}
+        if list(sorted(label_name_to_id.keys())) == list(sorted(label_list)):
+            label_to_id = {
+                i: int(label_name_to_id[label_list[i]]) for i in range(num_labels)
+            }
+        else:
+            _LOGGER.warning(
+                "Your model seems to have been trained with labels, but they don't "
+                "match the dataset: ",
+                f"model labels: {list(sorted(label_name_to_id.keys()))}, dataset "
+                f"labels: {list(sorted(label_list))}."
+                "\nIgnoring the model labels as a result.",
+            )
+    elif data_args.task_name is None and not is_regression:
+        label_to_id = {v: i for i, v in enumerate(label_list)}
+    return label_to_id
+
+
+def _get_raw_dataset(
+    data_args, cache_dir: Optional[str] = None, do_predict: bool = False
+):
+    # Get the datasets: you can either provide your own CSV/JSON training and
+    # evaluation files (see below) or specify a GLUE benchmark task
+    # (the dataset will be downloaded automatically from the datasets Hub).
+    #
+    # For CSV/JSON files, this script will use as labels the column called 'label' and
+    # as pair of sentences the sentences in columns called 'sentence1' and 'sentence2'
+    # if such column exists or the first two columns not named
+    # label if at least two columns are provided.
+    #
+    # If the CSVs/JSONs contain only one non-label column, the script does single
+    # sentence classification on this single column. You can easily tweak this behavior
+    # (see below)
+    #
+    # In distributed training, the load_dataset function guarantee that only one local
+    # process can concurrently download the dataset.
+    if data_args.task_name is not None:
+        # Downloading and loading a dataset from the hub.
+        raw_datasets = load_dataset("glue", data_args.task_name, cache_dir=cache_dir)
+    elif data_args.dataset_name is not None:
+        # Downloading and loading a dataset from the hub.
+        raw_datasets = load_dataset(
+            data_args.dataset_name,
+            data_args.dataset_config_name,
+            cache_dir=cache_dir,
+        )
+    else:
+        # Loading a dataset from your local files.
+        # CSV/JSON training and evaluation files are needed.
+        data_files = {
+            "train": data_args.train_file,
+            "validation": data_args.validation_file,
+        }
+
+        # Get the test dataset: you can provide your own CSV/JSON test file (see below)
+        # when you use `do_predict` without specifying a GLUE benchmark task.
+        if do_predict:
+            if data_args.test_file is not None:
+                train_extension = data_args.train_file.split(".")[-1]
+                test_extension = data_args.test_file.split(".")[-1]
+                assert test_extension == train_extension, (
+                    "`test_file` should have the same extension (csv or json) as "
+                    "`train_file`."
+                )
+                data_files["test"] = data_args.test_file
+            else:
+                raise ValueError(
+                    "Need either a GLUE task or a test file for `do_predict`."
+                )
+
+        for key in data_files.keys():
+            _LOGGER.info(f"load a local file for {key}: {data_files[key]}")
+
+        if data_args.train_file.endswith(".csv"):
+            # Loading a dataset from local csv files
+            raw_datasets = load_dataset(
+                "csv", data_files=data_files, cache_dir=cache_dir
+            )
+        else:
+            # Loading a dataset from local json files
+            raw_datasets = load_dataset(
+                "json", data_files=data_files, cache_dir=cache_dir
+            )
+    # See more about loading any type of standard or custom dataset at
+    # https://huggingface.co/docs/datasets/loading_datasets.html.
+    return raw_datasets
+
+
 def _split_train_val(train_dataset, val_ratio):
     # Fixed random seed to make split consistent across runs with the same ratio
     seed = 42
@@ -931,6 +1015,40 @@ def _split_train_val(train_dataset, val_ratio):
             val_ds = train_dataset.select(test_indices)
 
     return train_ds, val_ds
+
+
+def get_tokenized_text_classification_dataset(
+    data_args: DataTrainingArguments,
+    tokenizer: transformers.PreTrainedTokenizerBase,
+    model: Module,
+    config,
+    cache_dir: Optional[str] = None,
+):
+    """
+    Utility method to get tokenized text classification dataset given at-least
+    the tokenizer, model, and data_arguments
+
+    :param data_args: Arguments pertaining to what data we are going to input
+        our model for training and eval
+    :param tokenizer: The tokenizer to use for tokenizing raw dataset
+    :param config: The pretrained config used to load this model
+    :param cache_dir: Local path to store the pretrained data from huggingface.co
+    :returns: A dictionary containing tokenized_datasets
+    """
+
+    raw_datasets = _get_raw_dataset(data_args, cache_dir=cache_dir, do_predict=True)
+
+    tokenized_datasets, _ = _get_tokenized_and_preprocessed_raw_datasets(
+        config=config,
+        data_args=data_args,
+        model=model,
+        raw_datasets=raw_datasets,
+        tokenizer=tokenizer,
+        teacher_tokenizer=None,
+        make_eval_dataset=True,
+    )
+
+    return tokenized_datasets
 
 
 def _mp_fn(index):
