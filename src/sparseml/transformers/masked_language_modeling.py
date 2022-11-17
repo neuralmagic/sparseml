@@ -33,9 +33,10 @@ import logging
 import math
 import os
 import sys
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from itertools import chain
-from typing import Optional
+from typing import Any, Callable, Optional
 
 import datasets
 import transformers
@@ -350,99 +351,6 @@ def main(**kwargs):
     # Set seed before initializing model.
     set_seed(training_args.seed)
 
-    # Get the datasets: you can either provide your own CSV/JSON/TXT training and
-    # evaluation files (see below) or just provide the name of one of the public
-    # datasets available on the hub at https://huggingface.co/datasets/
-    # (the dataset will be downloaded automatically from the datasets Hub
-    #
-    # For CSV/JSON files, this script will use the column called 'text' or the
-    # first column. You can easily tweak this behavior (see below)
-    #
-    # In distributed training, the load_dataset function guarantee that only one
-    # local process can concurrently download the dataset.
-    if data_args.dataset_name is not None:
-        # Downloading and loading a dataset from the hub.
-        raw_datasets = load_dataset(
-            data_args.dataset_name,
-            data_args.dataset_config_name,
-            cache_dir=model_args.cache_dir,
-        )
-        if "validation" not in raw_datasets.keys():
-            raw_datasets["validation"] = load_dataset(
-                data_args.dataset_name,
-                data_args.dataset_config_name,
-                split=f"train[:{data_args.validation_split_percentage}%]",
-                cache_dir=model_args.cache_dir,
-            )
-            raw_datasets["train"] = load_dataset(
-                data_args.dataset_name,
-                data_args.dataset_config_name,
-                split=f"train[{data_args.validation_split_percentage}%:]",
-                cache_dir=model_args.cache_dir,
-            )
-    else:
-        data_files = {}
-        if data_args.train_file is not None:
-            data_files["train"] = data_args.train_file
-            extension = data_args.train_file.split(".")[-1]
-        if data_args.validation_file is not None:
-            data_files["validation"] = data_args.validation_file
-            extension = data_args.validation_file.split(".")[-1]
-        if extension == "txt":
-            extension = "text"
-        raw_datasets = load_dataset(
-            extension, data_files=data_files, cache_dir=model_args.cache_dir
-        )
-
-        # If no validation data is there, validation_split_percentage will be used
-        # to divide the dataset.
-        if "validation" not in raw_datasets.keys():
-            raw_datasets["validation"] = load_dataset(
-                extension,
-                data_files=data_files,
-                split=f"train[:{data_args.validation_split_percentage}%]",
-                cache_dir=model_args.cache_dir,
-            )
-            raw_datasets["train"] = load_dataset(
-                extension,
-                data_files=data_files,
-                split=f"train[{data_args.validation_split_percentage}%:]",
-                cache_dir=model_args.cache_dir,
-            )
-
-    # See more about loading any type of standard or custom dataset (from files,
-    # python dict, pandas DataFrame, etc) at
-    # https://huggingface.co/docs/datasets/loading_datasets.html.
-
-    # Load extra dataset if specified, and concatenate with the original one
-    if data_args.dataset_name_2 is not None:
-        # Downloading and loading a dataset from the hub.
-        raw_datasets_2 = load_dataset(
-            data_args.dataset_name_2,
-            data_args.dataset_config_name_2,
-            cache_dir=model_args.cache_dir,
-        )
-        if "validation" not in raw_datasets_2.keys():
-            raw_datasets_2["validation"] = load_dataset(
-                data_args.dataset_name_2,
-                data_args.dataset_config_name_2,
-                split=f"train[:{data_args.validation_split_percentage}%]",
-                cache_dir=model_args.cache_dir,
-            )
-            raw_datasets_2["train"] = load_dataset(
-                data_args.dataset_name_2,
-                data_args.dataset_config_name_2,
-                split=f"train[{data_args.validation_split_percentage}%:]",
-                cache_dir=model_args.cache_dir,
-            )
-
-        # Concatenate two datasets
-        if datasets is not None:
-            for split in ["validation", "train"]:
-                raw_datasets[split] = concatenate_datasets(
-                    [raw_datasets[split], raw_datasets_2[split]]
-                )
-
     # Load pretrained model and tokenizer
     #
     # Distributed training:
@@ -496,122 +404,12 @@ def main(**kwargs):
     tokenizer = AutoTokenizer.from_pretrained(tokenizer_src, **tokenizer_kwargs)
 
     model.resize_token_embeddings(len(tokenizer))
-
-    # Preprocessing the datasets.
-    # First we tokenize all the texts.
-    if training_args.do_train:
-        column_names = raw_datasets["train"].column_names
-    else:
-        column_names = raw_datasets["validation"].column_names
-    text_column_name = "text" if "text" in column_names else column_names[0]
-
-    if data_args.max_seq_length is None:
-        max_seq_length = tokenizer.model_max_length
-        if max_seq_length > 1024:
-            _LOGGER.warning(
-                "The tokenizer picked seems to have a very large `model_max_length`"
-                f"({tokenizer.model_max_length}). Picking 1024 instead. You can "
-                "change that default value by passing --max_seq_length xxx."
-            )
-            max_seq_length = 1024
-    else:
-        if data_args.max_seq_length > tokenizer.model_max_length:
-            _LOGGER.warning(
-                f"The max_seq_length passed ({data_args.max_seq_length}) "
-                "is larger than the maximum length for the model "
-                f"({tokenizer.model_max_length}). Using "
-                f"max_seq_length={tokenizer.model_max_length}."
-            )
-        max_seq_length = min(data_args.max_seq_length, tokenizer.model_max_length)
-
-    if data_args.line_by_line:
-        # When using line_by_line, we just tokenize each nonempty line.
-        padding = "max_length" if data_args.pad_to_max_length else False
-
-        def tokenize_function(examples):
-            # Remove empty lines
-            examples[text_column_name] = [
-                line
-                for line in examples[text_column_name]
-                if len(line) > 0 and not line.isspace()
-            ]
-            return tokenizer(
-                examples[text_column_name],
-                padding=padding,
-                truncation=True,
-                max_length=max_seq_length,
-                # We use this option because DataCollatorForLanguageModeling (see
-                # below) is more efficient when it receives the `special_tokens_mask`.
-                return_special_tokens_mask=True,
-            )
-
-        with training_args.main_process_first(desc="dataset map tokenization"):
-            tokenized_datasets = raw_datasets.map(
-                tokenize_function,
-                batched=True,
-                num_proc=data_args.preprocessing_num_workers,
-                remove_columns=[text_column_name],
-                load_from_cache_file=not data_args.overwrite_cache,
-                desc="Running tokenizer on dataset line_by_line",
-            )
-    else:
-        # Otherwise, we tokenize every text, then concatenate them together before
-        # splitting them in smaller parts. We use `return_special_tokens_mask=True`
-        # because DataCollatorForLanguageModeling (see below) is more
-        # efficient when it receives the `special_tokens_mask`.
-        def tokenize_function(examples):
-            return tokenizer(
-                examples[text_column_name], return_special_tokens_mask=True
-            )
-
-        with training_args.main_process_first(desc="dataset map tokenization"):
-            tokenized_datasets = raw_datasets.map(
-                tokenize_function,
-                batched=True,
-                num_proc=data_args.preprocessing_num_workers,
-                remove_columns=column_names,
-                load_from_cache_file=not data_args.overwrite_cache,
-                desc="Running tokenizer on every text in dataset",
-            )
-
-        # Main data processing function that will concatenate all texts from our
-        # dataset and generate chunks of max_seq_length.
-        def group_texts(examples):
-            # Concatenate all texts.
-            concatenated_examples = {
-                k: list(chain(*examples[k])) for k in examples.keys()
-            }
-            total_length = len(concatenated_examples[list(examples.keys())[0]])
-            # We drop the small remainder, we could add padding if the model supported
-            # it instead of this drop, you can customize this part to your needs
-            if total_length >= max_seq_length:
-                total_length = (total_length // max_seq_length) * max_seq_length
-            # Split by chunks of max_len.
-            result = {
-                k: [
-                    t[i : i + max_seq_length]
-                    for i in range(0, total_length, max_seq_length)
-                ]
-                for k, t in concatenated_examples.items()
-            }
-            return result
-
-        # Note that with `batched=True`, this map processes 1,000 texts together,
-        # so group_texts throws away a remainder for each of those groups of 1,000
-        # texts. You can adjust that batch_size here but a higher value
-        # might be slower to preprocess.
-        #
-        # To speed up this part, we use multiprocessing. See the documentation of
-        # the map method for more information:
-        # https://huggingface.co/docs/datasets/package_reference/main_classes.html#datasets.Dataset.map # noqa
-        with training_args.main_process_first(desc="grouping texts together"):
-            tokenized_datasets = tokenized_datasets.map(
-                group_texts,
-                batched=True,
-                num_proc=data_args.preprocessing_num_workers,
-                load_from_cache_file=not data_args.overwrite_cache,
-                desc=f"Grouping texts in chunks of {max_seq_length}",
-            )
+    tokenized_datasets = get_tokenized_mlm_dataset(
+        tokenizer=tokenizer,
+        data_args=data_args,
+        training_args=training_args,
+        cache_dir=model_args.cache_dir,
+    )
 
     if training_args.do_train:
         if "train" not in tokenized_datasets:
@@ -743,6 +541,263 @@ def main(**kwargs):
         trainer.save_sample_inputs_outputs(
             num_samples_to_export=data_args.num_export_samples
         )
+
+
+def get_tokenized_mlm_dataset(
+    data_args: DataTrainingArguments,
+    tokenizer,
+    cache_dir: Optional[str] = None,
+    training_args: Optional[TrainingArguments] = None,
+):
+    """
+    A convenience function to fetch a tokenized dataset for masked_language_modelling
+
+    :param data_args: a valid `DataTrainingArguments` instance with relevant args for
+        fetching the tokenized dataset
+    :param tokenizer: the tokenizer to use for tokenizing the raw dataset
+    :parm cache_dir: an optional cache directory to look at before downloading the
+        dataset, this directory is also used to store the downloaded dataset if
+        not pre-downloaded
+    :param training_args: an optional `TrainingArgument` instance, used for
+        downloading with main process, and also contains relevant
+        training information
+    :returns: A valid tokenized dataset for masked_language_modelling task
+    """
+    raw_datasets = _get_mlm_raw_dataset(data_args=data_args, cache_dir=cache_dir)
+
+    main_process_func = (
+        lambda desc: training_args.main_process_first(desc=desc)
+        if training_args
+        else nullcontext(desc)
+    )
+    do_train = training_args.do_train if training_args else False
+
+    tokenized_datasets = _get_tokenized_mlm_dataset_from_raw_dataset(
+        raw_datasets=raw_datasets,
+        tokenizer=tokenizer,
+        data_args=data_args,
+        main_process_func=main_process_func,
+        do_train=do_train,
+    )
+    return tokenized_datasets
+
+
+def _get_tokenized_mlm_dataset_from_raw_dataset(
+    raw_datasets,
+    tokenizer,
+    data_args: DataTrainingArguments,
+    main_process_func: Callable[..., Any] = nullcontext,
+    do_train: bool = False,
+):
+    # Preprocessing the datasets.
+    # First we tokenize all the texts.
+    if do_train:
+        column_names = raw_datasets["train"].column_names
+    else:
+        column_names = raw_datasets["validation"].column_names
+    text_column_name = "text" if "text" in column_names else column_names[0]
+    if data_args.max_seq_length is None:
+        max_seq_length = tokenizer.model_max_length
+        if max_seq_length > 1024:
+            _LOGGER.warning(
+                "The tokenizer picked seems to have a very large `model_max_length`"
+                f"({tokenizer.model_max_length}). Picking 1024 instead. You can "
+                "change that default value by passing --max_seq_length xxx."
+            )
+            max_seq_length = 1024
+    else:
+        if data_args.max_seq_length > tokenizer.model_max_length:
+            _LOGGER.warning(
+                f"The max_seq_length passed ({data_args.max_seq_length}) "
+                "is larger than the maximum length for the model "
+                f"({tokenizer.model_max_length}). Using "
+                f"max_seq_length={tokenizer.model_max_length}."
+            )
+        max_seq_length = min(data_args.max_seq_length, tokenizer.model_max_length)
+    if data_args.line_by_line:
+        # When using line_by_line, we just tokenize each nonempty line.
+        padding = "max_length" if data_args.pad_to_max_length else False
+
+        def tokenize_function(examples):
+            # Remove empty lines
+            examples[text_column_name] = [
+                line
+                for line in examples[text_column_name]
+                if len(line) > 0 and not line.isspace()
+            ]
+            return tokenizer(
+                examples[text_column_name],
+                padding=padding,
+                truncation=True,
+                max_length=max_seq_length,
+                # We use this option because DataCollatorForLanguageModeling (see
+                # below) is more efficient when it receives the `special_tokens_mask`.
+                return_special_tokens_mask=True,
+            )
+
+        with main_process_func(desc="dataset map tokenization"):
+            tokenized_datasets = raw_datasets.map(
+                tokenize_function,
+                batched=True,
+                num_proc=data_args.preprocessing_num_workers,
+                remove_columns=[text_column_name],
+                load_from_cache_file=not data_args.overwrite_cache,
+                desc="Running tokenizer on dataset line_by_line",
+            )
+    else:
+        # Otherwise, we tokenize every text, then concatenate them together before
+        # splitting them in smaller parts. We use `return_special_tokens_mask=True`
+        # because DataCollatorForLanguageModeling (see below) is more
+        # efficient when it receives the `special_tokens_mask`.
+        def tokenize_function(examples):
+            return tokenizer(
+                examples[text_column_name], return_special_tokens_mask=True
+            )
+
+        with main_process_func(desc="dataset map tokenization"):
+            tokenized_datasets = raw_datasets.map(
+                tokenize_function,
+                batched=True,
+                num_proc=data_args.preprocessing_num_workers,
+                remove_columns=column_names,
+                load_from_cache_file=not data_args.overwrite_cache,
+                desc="Running tokenizer on every text in dataset",
+            )
+
+        # Main data processing function that will concatenate all texts from our
+        # dataset and generate chunks of max_seq_length.
+        def group_texts(examples):
+            # Concatenate all texts.
+            concatenated_examples = {
+                k: list(chain(*examples[k])) for k in examples.keys()
+            }
+            total_length = len(concatenated_examples[list(examples.keys())[0]])
+            # We drop the small remainder, we could add padding if the model supported
+            # it instead of this drop, you can customize this part to your needs
+            if total_length >= max_seq_length:
+                total_length = (total_length // max_seq_length) * max_seq_length
+            # Split by chunks of max_len.
+            result = {
+                k: [
+                    t[i : i + max_seq_length]
+                    for i in range(0, total_length, max_seq_length)
+                ]
+                for k, t in concatenated_examples.items()
+            }
+            return result
+
+        # Note that with `batched=True`, this map processes 1,000 texts together,
+        # so group_texts throws away a remainder for each of those groups of 1,000
+        # texts. You can adjust that batch_size here but a higher value
+        # might be slower to preprocess.
+        #
+        # To speed up this part, we use multiprocessing. See the documentation of
+        # the map method for more information:
+        # https://huggingface.co/docs/datasets/package_reference/main_classes.html
+        # #datasets.Dataset.map # noqa
+        with main_process_func(desc="grouping texts together"):
+            tokenized_datasets = tokenized_datasets.map(
+                group_texts,
+                batched=True,
+                num_proc=data_args.preprocessing_num_workers,
+                load_from_cache_file=not data_args.overwrite_cache,
+                desc=f"Grouping texts in chunks of {max_seq_length}",
+            )
+    return tokenized_datasets
+
+
+def _get_mlm_raw_dataset(data_args: DataTrainingArguments, cache_dir: Optional[str]):
+    # Get the datasets: you can either provide your own CSV/JSON/TXT training and
+    # evaluation files (see below) or just provide the name of one of the public
+    # datasets available on the hub at https://huggingface.co/datasets/
+    # (the dataset will be downloaded automatically from the datasets Hub
+    #
+    # For CSV/JSON files, this script will use the column called 'text' or the
+    # first column. You can easily tweak this behavior (see below)
+    #
+    # In distributed training, the load_dataset function guarantee that only one
+    # local process can concurrently download the dataset.
+    if data_args.dataset_name is not None:
+        # Downloading and loading a dataset from the hub.
+        raw_datasets = load_dataset(
+            data_args.dataset_name,
+            data_args.dataset_config_name,
+            cache_dir=cache_dir,
+        )
+        if "validation" not in raw_datasets.keys():
+            raw_datasets["validation"] = load_dataset(
+                data_args.dataset_name,
+                data_args.dataset_config_name,
+                split=f"train[:{data_args.validation_split_percentage}%]",
+                cache_dir=cache_dir,
+            )
+            raw_datasets["train"] = load_dataset(
+                data_args.dataset_name,
+                data_args.dataset_config_name,
+                split=f"train[{data_args.validation_split_percentage}%:]",
+                cache_dir=cache_dir,
+            )
+    else:
+        data_files = {}
+        if data_args.train_file is not None:
+            data_files["train"] = data_args.train_file
+            extension = data_args.train_file.split(".")[-1]
+        if data_args.validation_file is not None:
+            data_files["validation"] = data_args.validation_file
+            extension = data_args.validation_file.split(".")[-1]
+        if extension == "txt":
+            extension = "text"
+        raw_datasets = load_dataset(
+            extension, data_files=data_files, cache_dir=cache_dir
+        )
+
+        # If no validation data is there, validation_split_percentage will be used
+        # to divide the dataset.
+        if "validation" not in raw_datasets.keys():
+            raw_datasets["validation"] = load_dataset(
+                extension,
+                data_files=data_files,
+                split=f"train[:{data_args.validation_split_percentage}%]",
+                cache_dir=cache_dir,
+            )
+            raw_datasets["train"] = load_dataset(
+                extension,
+                data_files=data_files,
+                split=f"train[{data_args.validation_split_percentage}%:]",
+                cache_dir=cache_dir,
+            )
+    # See more about loading any type of standard or custom dataset (from files,
+    # python dict, pandas DataFrame, etc) at
+    # https://huggingface.co/docs/datasets/loading_datasets.html.
+    # Load extra dataset if specified, and concatenate with the original one
+    if data_args.dataset_name_2 is not None:
+        # Downloading and loading a dataset from the hub.
+        raw_datasets_2 = load_dataset(
+            data_args.dataset_name_2,
+            data_args.dataset_config_name_2,
+            cache_dir=cache_dir,
+        )
+        if "validation" not in raw_datasets_2.keys():
+            raw_datasets_2["validation"] = load_dataset(
+                data_args.dataset_name_2,
+                data_args.dataset_config_name_2,
+                split=f"train[:{data_args.validation_split_percentage}%]",
+                cache_dir=cache_dir,
+            )
+            raw_datasets_2["train"] = load_dataset(
+                data_args.dataset_name_2,
+                data_args.dataset_config_name_2,
+                split=f"train[{data_args.validation_split_percentage}%:]",
+                cache_dir=cache_dir,
+            )
+
+        # Concatenate two datasets
+        if datasets is not None:
+            for split in ["validation", "train"]:
+                raw_datasets[split] = concatenate_datasets(
+                    [raw_datasets[split], raw_datasets_2[split]]
+                )
+    return raw_datasets
 
 
 def _mp_fn(index):

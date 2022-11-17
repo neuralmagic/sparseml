@@ -296,7 +296,7 @@ class QuantizationModifier(ScheduledModifier):
 
     @disable_quantization_observer_epoch.setter
     def disable_quantization_observer_epoch(self, value: Union[float, None]):
-        """print
+        """
         :params value: Epoch to disable updates to the module's
             quantization observers. After this point, quantized weights and zero points
             will not be updated. Set None to not disable observers during QAT
@@ -681,6 +681,11 @@ class QuantizationModifier(ScheduledModifier):
             # set quantization config (asymmetric activations, symmetric weights)
             quant_module.qconfig = qconfig
 
+            # if for some reason the qconfig property is already set to None
+            # in a submodule, the desired qconfig will not be propagated if
+            # appropriate, calling helper function to delete these
+            _clear_null_qconfigs(quant_module)
+
             # wrap all conv / linear blocks in with quantization observers
             torch_quantization.propagate_qconfig_(quant_module)
             configure_module_default_qconfigs(quant_module)
@@ -816,3 +821,9 @@ class QuantizationModifier(ScheduledModifier):
                     self._freeze_bn_stats_epoch, self._start_epoch
                 )
             )
+
+
+def _clear_null_qconfigs(model: Module):
+    for submodule in model.modules():
+        if hasattr(submodule, "qconfig") and submodule.qconfig is None:
+            del submodule.qconfig

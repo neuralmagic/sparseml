@@ -26,13 +26,18 @@ Fine-tuning the library models for token classification
 import logging
 import os
 import sys
+from contextlib import nullcontext
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Any, Dict, List, Optional, Union
 
 import datasets
 import numpy as np
 import transformers
 from datasets import ClassLabel, load_dataset, load_metric
+from datasets.arrow_dataset import Dataset
+from datasets.dataset_dict import DatasetDict, IterableDatasetDict
+from datasets.iterable_dataset import IterableDataset
+from torch.nn import Module
 from transformers import (
     AutoConfig,
     AutoTokenizer,
@@ -60,7 +65,7 @@ require_version(
     "To fix: pip install -r examples/pytorch/token-classification/requirements.txt",
 )
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: logging.Logger = logging.getLogger(__name__)
 
 metadata_args = [
     "per_device_train_batch_size",
@@ -320,70 +325,14 @@ def main(**kwargs):
     # Set seed before initializing model.
     set_seed(training_args.seed)
 
-    # Get the datasets: you can either provide your own CSV/JSON/TXT training and
-    # evaluation files (see below) or just provide the name of one of the public
-    # datasets available on the hub at https://huggingface.co/datasets/
-    # (the dataset will be downloaded automatically from the datasets Hub).
-    #
-    # For CSV/JSON files, this script will use the column called 'text' or the first
-    # column if no column called 'text' is found. You can easily tweak this behavior
-    # (see below).
-    #
-    # In distributed training, the load_dataset function guarantee that only one
-    # local process can concurrently download the dataset.
-    if data_args.dataset_name is not None:
-        # Downloading and loading a dataset from the hub.
-        raw_datasets = load_dataset(
-            data_args.dataset_name,
-            data_args.dataset_config_name,
-            cache_dir=model_args.cache_dir,
-        )
-    else:
-        data_files = {}
-        if data_args.train_file is not None:
-            data_files["train"] = data_args.train_file
-        if data_args.validation_file is not None:
-            data_files["validation"] = data_args.validation_file
-        if data_args.test_file is not None:
-            data_files["test"] = data_args.test_file
-        extension = data_args.train_file.split(".")[-1]
-        raw_datasets = load_dataset(
-            extension, data_files=data_files, cache_dir=model_args.cache_dir
-        )
-    # See more about loading any type of standard or custom dataset (from files, python
-    # dict, pandas DataFrame, etc) at
-    # https://huggingface.co/docs/datasets/loading_datasets.html.
+    raw_datasets = _get_raw_dataset(data_args, model_args.cache_dir)
 
-    if training_args.do_train:
-        column_names = raw_datasets["train"].column_names
-        features = raw_datasets["train"].features
-    else:
-        column_names = raw_datasets["validation"].column_names
-        features = raw_datasets["validation"].features
+    column_names, features = _get_column_names_and_features(
+        raw_datasets, do_train=training_args.do_train
+    )
 
-    if data_args.text_column_name is not None:
-        text_column_name = data_args.text_column_name
-    elif "tokens" in column_names:
-        text_column_name = "tokens"
-    else:
-        text_column_name = column_names[0]
-
-    if data_args.label_column_name is not None:
-        label_column_name = data_args.label_column_name
-    elif f"{data_args.task_name}_tags" in column_names:
-        label_column_name = f"{data_args.task_name}_tags"
-    else:
-        label_column_name = column_names[1]
-
-    # In the event the labels are not a `Sequence[ClassLabel]`, we will need to go
-    # through the dataset to get the unique labels.
-    def get_label_list(labels):
-        unique_labels = set()
-        for label in labels:
-            unique_labels = unique_labels | set(label)
-        label_list = list(unique_labels)
-        label_list.sort()
-        return label_list
+    text_column_name = _get_text_column_names(column_names, data_args)
+    label_column_name = _get_label_column_name(column_names, data_args)
 
     # If the labels are of type ClassLabel, they are already integers and we have the
     # map stored somewhere. Otherwise, we have to get the list of labels manually.
@@ -392,7 +341,7 @@ def main(**kwargs):
         label_list = features[label_column_name].feature.names
         label_to_id = {i: i for i in range(len(label_list))}
     else:
-        label_list = get_label_list(raw_datasets["train"][label_column_name])
+        label_list = _get_label_list(raw_datasets["train"][label_column_name])
         label_to_id = {l: i for i, l in enumerate(label_list)}
 
     num_labels = len(label_list)
@@ -457,131 +406,27 @@ def main(**kwargs):
             "to find the model types that meet this requirement"
         )
 
-    # Model has labels -> use them.
-    if model.config.label2id != PretrainedConfig(num_labels=num_labels).label2id:
-        if list(sorted(model.config.label2id.keys())) == list(sorted(label_list)):
-            # Reorganize `label_list` to match the ordering of the model.
-            if labels_are_int:
-                label_to_id = {
-                    i: int(model.config.label2id[l]) for i, l in enumerate(label_list)
-                }
-                label_list = [model.config.id2label[i] for i in range(num_labels)]
-            else:
-                label_list = [model.config.id2label[i] for i in range(num_labels)]
-                label_to_id = {l: i for i, l in enumerate(label_list)}
-        else:
-            _LOGGER.warning(
-                "Your model seems to have been trained with labels, but they don't "
-                "match the dataset: ",
-                f"model labels: {list(sorted(model.config.label2id.keys()))}, dataset "
-                f"labels: {list(sorted(label_list))}."
-                "\nIgnoring the model labels as a result.",
-            )
+    tokenized_dataset = _get_tokenized_dataset(
+        data_args=data_args,
+        label_list=label_list,
+        labels_are_int=labels_are_int,
+        model=model,
+        num_labels=num_labels,
+        raw_datasets=raw_datasets,
+        tokenizer=tokenizer,
+        text_column_name=text_column_name,
+        label_column_name=label_column_name,
+        label_to_id=label_to_id,
+        do_train=training_args.do_train,
+        do_eval=training_args.do_eval,
+        do_predict=training_args.do_predict,
+        main_process_func=training_args.main_process_first,
+    )
 
-    # Set the correspondences label/ID inside the model config
-    model.config.label2id = {l: i for i, l in enumerate(label_list)}
-    model.config.id2label = {i: l for i, l in enumerate(label_list)}
-
-    # Map that sends B-Xxx label to its I-Xxx counterpart
-    b_to_i_label = []
-    for idx, label in enumerate(label_list):
-        if label.startswith("B-") and label.replace("B-", "I-") in label_list:
-            b_to_i_label.append(label_list.index(label.replace("B-", "I-")))
-        else:
-            b_to_i_label.append(idx)
-
-    # Preprocessing the dataset
-    # Padding strategy
-    padding = "max_length" if data_args.pad_to_max_length else False
-
-    # Tokenize all texts and align the labels with them.
-    def tokenize_and_align_labels(examples):
-        tokenized_inputs = tokenizer(
-            examples[text_column_name],
-            padding=padding,
-            truncation=True,
-            max_length=data_args.max_seq_length,
-            # We use this argument because the texts in our dataset are lists of words
-            # (with a label for each word).
-            is_split_into_words=True,
-        )
-        labels = []
-        for i, label in enumerate(examples[label_column_name]):
-            word_ids = tokenized_inputs.word_ids(batch_index=i)
-            previous_word_idx = None
-            label_ids = []
-            for word_idx in word_ids:
-                # Special tokens have a word id that is None. We set the label to -100
-                # so they are automatically ignored in the loss function.
-                if word_idx is None:
-                    label_ids.append(-100)
-                # We set the label for the first token of each word.
-                elif word_idx != previous_word_idx:
-                    label_ids.append(label_to_id[label[word_idx]])
-                # For the other tokens in a word, we set the label to either the
-                # current label or -100, depending on the label_all_tokens flag.
-                else:
-                    if data_args.label_all_tokens:
-                        label_ids.append(b_to_i_label[label_to_id[label[word_idx]]])
-                    else:
-                        label_ids.append(-100)
-                previous_word_idx = word_idx
-
-            labels.append(label_ids)
-        tokenized_inputs["labels"] = labels
-        return tokenized_inputs
-
-    if training_args.do_train:
-        if "train" not in raw_datasets:
-            raise ValueError("--do_train requires a train dataset")
-        train_dataset = raw_datasets["train"]
-        if data_args.max_train_samples is not None:
-            train_dataset = train_dataset.select(range(data_args.max_train_samples))
-        with training_args.main_process_first(desc="train dataset map pre-processing"):
-            train_dataset = train_dataset.map(
-                tokenize_and_align_labels,
-                batched=True,
-                num_proc=data_args.preprocessing_num_workers,
-                load_from_cache_file=not data_args.overwrite_cache,
-                desc="Running tokenizer on train dataset",
-            )
-
-    make_eval_dataset = training_args.do_eval or data_args.num_export_samples > 0
-    if make_eval_dataset:
-        if "validation" not in raw_datasets:
-            raise ValueError("--do_eval requires a validation dataset")
-        eval_dataset = raw_datasets["validation"]
-        if data_args.max_eval_samples is not None:
-            eval_dataset = eval_dataset.select(range(data_args.max_eval_samples))
-        with training_args.main_process_first(
-            desc="validation dataset map pre-processing"
-        ):
-            eval_dataset = eval_dataset.map(
-                tokenize_and_align_labels,
-                batched=True,
-                num_proc=data_args.preprocessing_num_workers,
-                load_from_cache_file=not data_args.overwrite_cache,
-                desc="Running tokenizer on validation dataset",
-            )
-
-    if training_args.do_predict:
-        if "test" not in raw_datasets:
-            raise ValueError("--do_predict requires a test dataset")
-        predict_dataset = raw_datasets["test"]
-        if data_args.max_predict_samples is not None:
-            predict_dataset = predict_dataset.select(
-                range(data_args.max_predict_samples)
-            )
-        with training_args.main_process_first(
-            desc="prediction dataset map pre-processing"
-        ):
-            predict_dataset = predict_dataset.map(
-                tokenize_and_align_labels,
-                batched=True,
-                num_proc=data_args.preprocessing_num_workers,
-                load_from_cache_file=not data_args.overwrite_cache,
-                desc="Running tokenizer on prediction dataset",
-            )
+    make_eval_dataset = training_args.do_eval or (data_args.num_export_samples > 0)
+    train_dataset = tokenized_dataset.get("train")
+    eval_dataset = tokenized_dataset.get("validation")
+    predict_dataset = tokenized_dataset.get("test")
 
     # Data collator
     data_collator = DataCollatorForTokenClassification(
@@ -728,6 +573,296 @@ def main(**kwargs):
         trainer.save_sample_inputs_outputs(
             num_samples_to_export=data_args.num_export_samples
         )
+
+
+def _get_label_list(labels):
+    # In the event the labels are not a `Sequence[ClassLabel]`, we will need to go
+    # through the dataset to get the unique labels.
+    unique_labels = set()
+    for label in labels:
+        unique_labels = unique_labels | set(label)
+    label_list = list(unique_labels)
+    label_list.sort()
+    return label_list
+
+
+def _get_label_column_name(column_names, data_args):
+    if data_args.label_column_name is not None:
+        label_column_name = data_args.label_column_name
+    elif f"{data_args.task_name}_tags" in column_names:
+        label_column_name = f"{data_args.task_name}_tags"
+    else:
+        label_column_name = column_names[1]
+    return label_column_name
+
+
+def _get_text_column_names(column_names, data_args):
+    if data_args.text_column_name is not None:
+        text_column_name = data_args.text_column_name
+    elif "tokens" in column_names:
+        text_column_name = "tokens"
+    else:
+        text_column_name = column_names[0]
+    return text_column_name
+
+
+def _get_column_names_and_features(
+    raw_datasets: Union[Dataset, DatasetDict, IterableDatasetDict, IterableDataset],
+    do_train: bool,
+):
+    if do_train:
+        column_names = raw_datasets["train"].column_names
+        features = raw_datasets["train"].features
+    else:
+        column_names = raw_datasets["validation"].column_names
+        features = raw_datasets["validation"].features
+    return column_names, features
+
+
+def get_tokenized_token_classification_dataset(
+    data_args: DataTrainingArguments,
+    tokenizer: transformers.PreTrainedTokenizerBase,
+    model: Module,
+    cache_dir: Optional[str] = None,
+    do_train: bool = False,
+    do_eval: bool = True,
+    do_predict: bool = False,
+    main_process_func=None,
+):
+    """
+    Utility method to get tokenized token classification dataset given at-least
+    the tokenizer, model, and data_arguments
+
+    :param data_args: Arguments pertaining to what data we are going to input
+        our model for training and eval
+    :param tokenizer: The tokenizer to use for tokenizing raw dataset
+    :param model: The instantiated torch module to create the dataset for
+    :param cache_dir: Local path to store the pretrained data from huggingface.co
+    :param do_train: True to create the train dataset
+    :param do_predict: True to create test dataset
+    :param do_eval: True to create eval dataset
+    :param main_process_func: Callable Context Manager to do something on
+        the main process
+    """
+    raw_datasets = _get_raw_dataset(data_args=data_args, cache_dir=cache_dir)
+    column_names, features = _get_column_names_and_features(
+        raw_datasets, do_train=do_train
+    )
+    text_column_name = _get_text_column_names(column_names, data_args)
+    label_column_name = _get_label_column_name(column_names, data_args)
+
+    # If the labels are of type ClassLabel, they are already integers and we have the
+    # map stored somewhere. Otherwise, we have to get the list of labels manually.
+    labels_are_int = isinstance(features[label_column_name].feature, ClassLabel)
+    if labels_are_int:
+        label_list = features[label_column_name].feature.names
+        label_to_id = {i: i for i in range(len(label_list))}
+    else:
+        label_list = _get_label_list(raw_datasets["train"][label_column_name])
+        label_to_id = {l: i for i, l in enumerate(label_list)}
+
+    num_labels = len(label_list)
+    main_process_func = (
+        main_process_func if main_process_func else lambda desc: nullcontext(desc)
+    )
+
+    tokenized_dataset = _get_tokenized_dataset(
+        data_args=data_args,
+        label_list=label_list,
+        labels_are_int=labels_are_int,
+        model=model,
+        num_labels=num_labels,
+        raw_datasets=raw_datasets,
+        tokenizer=tokenizer,
+        text_column_name=text_column_name,
+        label_column_name=label_column_name,
+        label_to_id=label_to_id,
+        do_train=do_train,
+        do_eval=do_eval,
+        main_process_func=main_process_func,
+        do_predict=do_predict,
+    )
+    return tokenized_dataset
+
+
+def _get_tokenized_dataset(
+    data_args: DataTrainingArguments,
+    label_list: List,
+    labels_are_int: bool,
+    model: Module,
+    num_labels: int,
+    raw_datasets: Union[Dataset, DatasetDict, IterableDatasetDict, IterableDataset],
+    tokenizer: transformers.PreTrainedTokenizerBase,
+    text_column_name: str,
+    label_column_name: str,
+    label_to_id: Dict[Any, Any],
+    do_train: bool,
+    do_eval: bool,
+    main_process_func,
+    do_predict: bool = False,
+) -> Dict[str, Any]:
+    train_dataset = predict_dataset = eval_dataset = None
+    # Model has labels -> use them.
+    if model.config.label2id != PretrainedConfig(num_labels=num_labels).label2id:
+        if list(sorted(model.config.label2id.keys())) == list(sorted(label_list)):
+            # Reorganize `label_list` to match the ordering of the model.
+            if labels_are_int:
+                label_to_id = {
+                    i: int(model.config.label2id[l]) for i, l in enumerate(label_list)
+                }
+                label_list = [model.config.id2label[i] for i in range(num_labels)]
+            else:
+                label_list = [model.config.id2label[i] for i in range(num_labels)]
+                label_to_id = {l: i for i, l in enumerate(label_list)}
+        else:
+            _LOGGER.warning(
+                "Your model seems to have been trained with labels, but they don't "
+                "match the dataset: ",
+                f"model labels: {list(sorted(model.config.label2id.keys()))}, dataset "
+                f"labels: {list(sorted(label_list))}."
+                "\nIgnoring the model labels as a result.",
+            )
+    # Set the correspondences label/ID inside the model config
+    model.config.label2id = {l: i for i, l in enumerate(label_list)}
+    model.config.id2label = {i: l for i, l in enumerate(label_list)}
+    # Map that sends B-Xxx label to its I-Xxx counterpart
+    b_to_i_label = []
+    for idx, label in enumerate(label_list):
+        if label.startswith("B-") and label.replace("B-", "I-") in label_list:
+            b_to_i_label.append(label_list.index(label.replace("B-", "I-")))
+        else:
+            b_to_i_label.append(idx)
+    # Preprocessing the dataset
+    # Padding strategy
+    padding = "max_length" if data_args.pad_to_max_length else False
+
+    # Tokenize all texts and align the labels with them.
+    def tokenize_and_align_labels(examples):
+        tokenized_inputs = tokenizer(
+            examples[text_column_name],
+            padding=padding,
+            truncation=True,
+            max_length=data_args.max_seq_length,
+            # We use this argument because the texts in our dataset are lists of words
+            # (with a label for each word).
+            is_split_into_words=True,
+        )
+        labels = []
+        for i, label in enumerate(examples[label_column_name]):
+            word_ids = tokenized_inputs.word_ids(batch_index=i)
+            previous_word_idx = None
+            label_ids = []
+            for word_idx in word_ids:
+                # Special tokens have a word id that is None. We set the label to -100
+                # so they are automatically ignored in the loss function.
+                if word_idx is None:
+                    label_ids.append(-100)
+                # We set the label for the first token of each word.
+                elif word_idx != previous_word_idx:
+                    label_ids.append(label_to_id[label[word_idx]])
+                # For the other tokens in a word, we set the label to either the
+                # current label or -100, depending on the label_all_tokens flag.
+                else:
+                    if data_args.label_all_tokens:
+                        label_ids.append(b_to_i_label[label_to_id[label[word_idx]]])
+                    else:
+                        label_ids.append(-100)
+                previous_word_idx = word_idx
+
+            labels.append(label_ids)
+        tokenized_inputs["labels"] = labels
+        return tokenized_inputs
+
+    if do_train:
+        if "train" not in raw_datasets:
+            raise ValueError("--do_train requires a train dataset")
+        train_dataset = raw_datasets["train"]
+        if data_args.max_train_samples is not None:
+            train_dataset = train_dataset.select(range(data_args.max_train_samples))
+        with main_process_func(desc="train dataset map pre-processing"):
+            train_dataset = train_dataset.map(
+                tokenize_and_align_labels,
+                batched=True,
+                num_proc=data_args.preprocessing_num_workers,
+                load_from_cache_file=not data_args.overwrite_cache,
+                desc="Running tokenizer on train dataset",
+            )
+    make_eval_dataset = do_eval or data_args.num_export_samples > 0
+    if make_eval_dataset:
+        if "validation" not in raw_datasets:
+            raise ValueError("--do_eval requires a validation dataset")
+        eval_dataset = raw_datasets["validation"]
+        if data_args.max_eval_samples is not None:
+            eval_dataset = eval_dataset.select(range(data_args.max_eval_samples))
+        with main_process_func(desc="validation dataset map pre-processing"):
+            eval_dataset = eval_dataset.map(
+                tokenize_and_align_labels,
+                batched=True,
+                num_proc=data_args.preprocessing_num_workers,
+                load_from_cache_file=not data_args.overwrite_cache,
+                desc="Running tokenizer on validation dataset",
+            )
+    if do_predict:
+        if "test" not in raw_datasets:
+            raise ValueError("--do_predict requires a test dataset")
+        predict_dataset = raw_datasets["test"]
+        if data_args.max_predict_samples is not None:
+            predict_dataset = predict_dataset.select(
+                range(data_args.max_predict_samples)
+            )
+        with main_process_func(desc="prediction dataset map pre-processing"):
+            predict_dataset = predict_dataset.map(
+                tokenize_and_align_labels,
+                batched=True,
+                num_proc=data_args.preprocessing_num_workers,
+                load_from_cache_file=not data_args.overwrite_cache,
+                desc="Running tokenizer on prediction dataset",
+            )
+    tokenized_dataset = {
+        "train": train_dataset,
+        "validation": eval_dataset,
+        "test": predict_dataset,
+    }
+    return tokenized_dataset
+
+
+def _get_raw_dataset(
+    data_args, cache_dir: Optional[str]
+) -> Union[Dataset, DatasetDict, IterableDatasetDict, IterableDataset]:
+    # Get the datasets: you can either provide your own CSV/JSON/TXT training and
+    # evaluation files (see below) or just provide the name of one of the public
+    # datasets available on the hub at https://huggingface.co/datasets/
+    # (the dataset will be downloaded automatically from the datasets Hub).
+    #
+    # For CSV/JSON files, this script will use the column called 'text' or the first
+    # column if no column called 'text' is found. You can easily tweak this behavior
+    # (see below).
+    #
+    # In distributed training, the load_dataset function guarantee that only one
+    # local process can concurrently download the dataset.
+    if data_args.dataset_name is not None:
+        # Downloading and loading a dataset from the hub.
+        raw_datasets = load_dataset(
+            data_args.dataset_name,
+            data_args.dataset_config_name,
+            cache_dir=cache_dir,
+        )
+    else:
+        data_files = {}
+        if data_args.train_file is not None:
+            data_files["train"] = data_args.train_file
+        if data_args.validation_file is not None:
+            data_files["validation"] = data_args.validation_file
+        if data_args.test_file is not None:
+            data_files["test"] = data_args.test_file
+        extension = data_args.train_file.split(".")[-1]
+        raw_datasets = load_dataset(
+            extension, data_files=data_files, cache_dir=cache_dir
+        )
+    # See more about loading any type of standard or custom dataset (from files, python
+    # dict, pandas DataFrame, etc) at
+    # https://huggingface.co/docs/datasets/loading_datasets.html.
+    return raw_datasets
 
 
 def _mp_fn(index):
