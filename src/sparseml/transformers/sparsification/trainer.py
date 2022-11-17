@@ -122,7 +122,7 @@ class RecipeManagerTrainerInterface:
             self._extract_metadata(
                 metadata_args=metadata_args,
                 training_args_dict=training_args.to_dict(),
-                data_args_dict=asdict(data_args),
+                data_args_dict=asdict(data_args) if data_args else {},
             )
             if training_args
             else None
