@@ -9,8 +9,8 @@ index: 1000
 
 This page explains how to create recipes using the SparseML Recipe Template local API. 
 
-The SparseML Recipe Template API is a simple API that outtakes in an optional path to a dense Pytorch model as input and returns a [Sparsification recipe](https://docs.neuralmagic.com/user-guide/recipes) for that given model in the form of a `recipe.md` file. If no model is supplied, SparseML Recipe Template will generate a default Sparsification Recipe for a generic model. The Sparsification recipe that is outputted by a call to the SopaseML Recipe Template API can then be applied to a model in [Pytorch, Keras, or TensorFlow V1 training pipelines](https://docs.neuralmagic.com/user-guide/recipes/enabling) to train asparse model, all with just a few lines of code. 
-
+SparseML Recipe Template is a simple API to generate sparsification recipes on the fly. In the most basic use case it takes in information about the pruning and quantization techniques and produces a relevant recipe.
+Optionally path to a `torch.jit` loadable model can also be specified in which case the recipe produced is specific to the architecture of the specified model.  The  sparsification recipes are produced in `markdown` or `yaml` format which can be directly used across all SparseML utilities. Learn more about sparsification recipes [here](https://docs.neuralmagic.com/user-guide/recipes)
 SparseML Recipe Template is built for users who may be inclined to create their recipes by hand to enable more
 fine-grained control or add custom modifiers when sparsifying a new model from scratch with a single API command. 
 
