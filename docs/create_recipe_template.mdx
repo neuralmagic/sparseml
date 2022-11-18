@@ -40,7 +40,7 @@ TYPE: constant, stepped, cyclic, exponential, linear
 ```
 
 ### Creating the Recipe Template
-Once SparseML.recipe_template is run, a base recipe template will be created with the necessary top level variables based on the compression methods specified (ie pruning, quantization). The repo will maintain versions for pruning, qat, and pruning+qat.  These templates will either be python strings with `{variable}` placeholders left in for on the fly formatting, or functions that take in the desired variables and return the constructed template.
+Once `sparseml.recipe_template` is run, a base recipe template will be created with the necessary top level variables based on the compression methods specified (ie pruning, quantization). The repo will maintain versions for pruning, qat, and pruning+qat.  These templates will either be python strings with `{variable}` placeholders left in for on the fly formatting, or functions that take in the desired variables and return the constructed template.
 
 *Notes on template construction:*
 
