@@ -22,7 +22,7 @@ Usage: sparseml.recipe_template [OPTIONS]
 
        `sparseml.recipe_template --pruning true --quantization true`
 
-       `sparseml.recipe_template --quantization vnni --lr constant `
+       `sparseml.recipe_template --quantization true --target vnni --lr constant `
 
 Options:
   --version                       Show the version and exit.  [default: False]
