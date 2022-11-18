@@ -28,15 +28,15 @@ To learn more about the usage invoke the Recipe Template cli with `--help` optio
   sparseml.recipe_template --help
 ```
 
-The arguments specified configure different aspects of the recipe such as whether it should include pruning and if so, what algorithm should be used, quantization and if so, what algorithm should be used, as well as the learning rate schedule function type to mention a few. 
+The arguments specified configure different aspects of the recipe such as whether it should include pruning and if so, what algorithm should be used, quantization and if so, what algorithm should be used, as well as the learning rate schedule function type, to mention a few. 
 
 ### Base Arguments:
 ```bash
 --pruning true|false(default)|ALGORITHM
-ALGORITHM: global magnitude pruning, gradual magnitude pruning – sparsity per layer, ACDC, Movement, MFAC, OBC
+  - ALGORITHM: global magnitude pruning, gradual magnitude pruning – sparsity per layer, ACDC, Movement, MFAC, OBC
 --quantization true|false(default)|TARGET_HARDWARE(default to QAT algorithm ex: vnni, tensorrt)
 --lr TYPE
-TYPE: constant, stepped, cyclic, exponential, linear
+  - TYPE: constant, stepped, cyclic, exponential, linear
 ```
 
 ### Creating the Recipe Template
@@ -63,16 +63,16 @@ Additionally, a printout of the settable recipe variables and instructions on ho
 
 ## Additional Features:
 - Sparse transfer mode (use constant pruning modifier instead of pruning modifier)
-- Convenience functions to replace manager from_yaml (ie manager.sparsification(...))
+- Convenience functions to replace manager from_yaml (ie. `manager.sparsification(...)`)
 - For LR modifiers:
-  - When pruning, cycle through init_lr and final_lr
-  - When finetuning, cycle through init_lr and final_lr
-  - When quantizing, hold constant at final_lr
+  - When pruning, cycle through `init_lr` and `final_lr`
+  - When finetuning, cycle through `init_lr` and `final_lr`
+  - When quantizing, hold constant at `final_lr`
 
 
 ### Additional Recipe Template Modifyers
 
-When using the python api, you can also fine tune specific parameters at a more detialed level such as Epoch, LR, Pruning, QAT, and Modifiers in addition to the base arguments to configure the generated recipe based on your needs.
+When using the Python API, you can also fine tune specific parameters at a more detialed level such as Epoch, LR, Pruning, QAT, and Modifiers in addition to the base arguments to configure the generated recipe based on your needs.
 
 
 
