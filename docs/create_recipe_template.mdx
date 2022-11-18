@@ -20,7 +20,7 @@ fine-grained control or add custom modifiers when sparsifying a new model from s
 SparseML Recipe Template can optionally take in the path to an `torch.jit` loadable model that a user wishes to generate a Sparsification recipe for; if no such model is provided, a generic recipe based on good defaults and designated parameters is produced.  If you are using the python API, you may also supply an already instantiated PyTorch Module.
 
 
-You have many different options for configuring the Recipe Template API to generate a sparse model to your choosing leveraging techniques like pruning and quantization. Recipe Template has many available arguements which allows you to fully customize the recipe that gets created. A handful of them are required to help designate the techniques used in generating a Sparsification recipe.
+This utility also provides different options for configuring the generated recipe according to required sparsification techniques. Users are encouraged to change the recipes according to their specific needs.
 
 To run the SparseML Recipe Template API, you use the following command: 
 
