@@ -84,13 +84,13 @@ def test_recipe_can_be_updated():
     manager = ScheduledModifierManager.from_yaml(
         file_path=actual,
         recipe_variables=dict(
-            start_epoch=100,
-            end_epoch=1000,
+            num_epochs=100,
+            lr_func="cosine",
         ),
     )
     recipe_from_manager = str(manager)
-    assert "start_epoch: 100" in recipe_from_manager
-    assert "end_epoch: 1000" in recipe_from_manager
+    assert "end_epoch: 100" in recipe_from_manager
+    assert "lr_func: cosine" in recipe_from_manager
 
 
 @pytest.mark.parametrize(
@@ -214,3 +214,6 @@ def test_correct_recipe_variables(
         actual_value = actual_recipe_variables.get(key)
         assert actual_value is not None
         assert actual_value == expected_value
+
+
+test_recipe_can_be_updated()
