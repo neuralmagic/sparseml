@@ -2,7 +2,7 @@
 
 Sample training command:
 ```bash
-python src/sparseml/pytorch/openpifpaf/train.py \
+CUDA_VISIBLE_DEVICES=0 python src/sparseml/pytorch/openpifpaf/train.py \
     --lr=0.001 \
     --momentum=0.9 \
     --b-scale=10.0 \
