@@ -214,6 +214,3 @@ def test_correct_recipe_variables(
         actual_value = actual_recipe_variables.get(key)
         assert actual_value is not None
         assert actual_value == expected_value
-
-
-test_recipe_can_be_updated()
