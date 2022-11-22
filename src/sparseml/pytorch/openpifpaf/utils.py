@@ -49,6 +49,7 @@ class SparseMLTrainer(openpifpaf.network.Trainer):
         if self.manager.learning_rate_modifiers:
             lr_scheduler = None
 
+        self.manager.initialize(model)
         optimizer = self.manager.modify(model, optimizer, num_batches_per_epoch)
 
         super().__init__(
@@ -74,6 +75,15 @@ class SparseMLTrainer(openpifpaf.network.Trainer):
     def configure(cls, args: argparse.Namespace):
         openpifpaf.network.Trainer.configure(args)
         cls.recipe = args.recipe
+
+    def loop(
+        self,
+        train_scenes: torch.utils.data.DataLoader,
+        val_scenes: torch.utils.data.DataLoader,
+        start_epoch=0,
+    ):
+        super().loop(train_scenes, val_scenes, start_epoch)
+        self.manager.finalize(self.model)
 
     def train(self, scenes, epoch):
         if self.manager.qat_active(epoch=epoch):
