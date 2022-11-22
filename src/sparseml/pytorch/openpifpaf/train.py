@@ -25,7 +25,7 @@ import torch
 import openpifpaf
 from openpifpaf import __version__
 from openpifpaf.train import default_output_file
-from sparseml.pytorch.openpifpaf.utils import SparseMLTrainer
+from sparseml.pytorch.openpifpaf.trainer import SparseMLTrainer
 
 
 LOG = logging.getLogger(__name__)

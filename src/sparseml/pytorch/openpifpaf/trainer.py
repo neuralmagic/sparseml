@@ -27,6 +27,18 @@ LOG = logging.getLogger(__name__)
 
 
 class SparseMLTrainer(openpifpaf.network.Trainer):
+    """
+    Lifecycle of this object is:
+    1. SparseMLTrainer.cli is called to add parameters to argparser
+    2. SparseMLTrainer.configure is called to set class level variables
+       from argparse args
+    3. The object is instantiated with `__init__`
+    4. the `loop` method is called to run training.
+
+    All of this happens in the train.py file.
+    """
+
+    # class level variable parsed from argparse results
     recipe: str = None
 
     def __init__(
