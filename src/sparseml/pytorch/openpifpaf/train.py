@@ -25,7 +25,7 @@ import torch
 import openpifpaf
 from openpifpaf import __version__
 from openpifpaf.train import default_output_file
-from sparseml.pytorch.openpifpaf.utils import SparseMLTrainer
+from sparseml.pytorch.openpifpaf.trainer import SparseMLTrainer
 
 
 LOG = logging.getLogger(__name__)
@@ -71,7 +71,7 @@ def cli():
     openpifpaf.logger.cli(parser)
     openpifpaf.network.Factory.cli(parser)
     openpifpaf.network.losses.Factory.cli(parser)
-    openpifpaf.network.Trainer.cli(parser)
+    SparseMLTrainer.cli(parser)
     openpifpaf.encoder.cli(parser)
     openpifpaf.optimize.cli(parser)
     openpifpaf.datasets.cli(parser)
@@ -137,7 +137,7 @@ def cli():
 
     openpifpaf.network.Factory.configure(args)
     openpifpaf.network.losses.Factory.configure(args)
-    openpifpaf.network.Trainer.configure(args)
+    SparseMLTrainer.configure(args)
     openpifpaf.encoder.configure(args)
     openpifpaf.datasets.configure(args)
     openpifpaf.show.configure(args)
@@ -214,6 +214,7 @@ def main():
         loss,
         optimizer,
         args.output,
+        num_batches_per_epoch=len(train_loader),
         checkpoint_shell=checkpoint_shell,
         lr_scheduler=lr_scheduler,
         device=args.device,
