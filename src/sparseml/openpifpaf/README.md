@@ -1,8 +1,10 @@
 # OpenPifPaf Integration
 
+## Training
+
 Sample training command:
 ```bash
-CUDA_VISIBLE_DEVICES=0 python src/sparseml/pytorch/openpifpaf/train.py \
+CUDA_VISIBLE_DEVICES=0 python src/sparseml/openpifpaf/train.py \
     --recipe prune-openpifpaf.yaml
     --lr=0.001 \
     --momentum=0.9 \
@@ -40,4 +42,13 @@ pruning_modifiers:
     start_epoch: 0.1
     end_epoch: 8.0
     update_frequency: 0.5
+```
+
+## Exporting
+
+From a training checkpoint
+```bash
+python src/sparseml/openpifpaf/export_onnx.py \
+    --checkpoint <path to .pkl.epochXXX file from train> \
+    --dataset <same dataset used for training>
 ```
