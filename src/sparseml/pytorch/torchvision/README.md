@@ -20,7 +20,7 @@ By passing the recipe `zoo:cv/classification/resnet_v1-50/pytorch/sparseml/image
 we modify (sparsify) the training process and/or the model.
 ```bash
 sparseml.image_classification.train \
-    --recipe-path "zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenette/pruned-conservative?recipe_type=original" \
+    --recipe "zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenette/pruned-conservative?recipe_type=original" \
     --dataset-path ./data \
     --pretrained True \
     --arch-key resnet50 \

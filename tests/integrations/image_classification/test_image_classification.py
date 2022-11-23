@@ -50,8 +50,8 @@ except Exception as e:
 class ImageClassificationManager(BaseIntegrationManager):
 
     command_stubs = {
-        "train": "sparseml.image_classification.train",
-        "export": "sparseml.image_classification.export_onnx",
+        "train": "sparseml.pytorch.image_classification.train",
+        "export": "sparseml.pytorch.image_classification.export_onnx",
         "deploy": None,
     }
     config_classes = {

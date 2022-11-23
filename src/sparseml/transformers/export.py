@@ -340,13 +340,13 @@ def export_transformer_to_onnx(
 
     _LOGGER.info(f"Created sample inputs for the ONNX export process: {inputs_shapes}")
 
-    # run export
-    model = model.eval()
-    onnx_file_path = os.path.join(model_path, onnx_file_name)
-
     if one_shot:
         one_shot_manager = ScheduledModifierManager.from_yaml(file_path=one_shot)
         one_shot_manager.apply(module=model)
+
+    # run export
+    model = model.eval()
+    onnx_file_path = os.path.join(model_path, onnx_file_name)
 
     export_onnx(
         model,
