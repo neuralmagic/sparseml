@@ -246,9 +246,10 @@ def export_transformer_to_onnx(
         )
 
     if num_export_samples > 0 and data_args is None:
-        raise ValueError(
+        _LOGGER.info(
             f"--data_args is needed for exporting {num_export_samples} "
-            f"samples but got {data_args}"
+            f"real samples but got {data_args}, fake samples will be generated "
+            f"based on model input/output shapes"
         )
     data_args: Dict[str, Any] = _parse_data_args(data_args)
 
@@ -265,7 +266,7 @@ def export_transformer_to_onnx(
     _LOGGER.info(f"loaded model, config, and tokenizer from {model_path}")
 
     eval_dataset = None
-    if num_export_samples > 0:
+    if num_export_samples > 0 and data_args:
         tokenized_dataset = load_task_dataset(
             task=task,
             tokenizer=tokenizer,
@@ -362,6 +363,7 @@ def export_transformer_to_onnx(
         _LOGGER.info(f"Exporting {num_export_samples} sample inputs/outputs")
         trainer.save_sample_inputs_outputs(
             num_samples_to_export=num_export_samples,
+            tokenizer=tokenizer,
         )
 
     _LOGGER.info(f"{num_export_samples} sample inputs/outputs exported")

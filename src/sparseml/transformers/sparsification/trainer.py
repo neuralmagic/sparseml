@@ -16,12 +16,15 @@
 SparseML transformers trainer classes and interfaces to be plugged in with
 existing or similiar HF trainer flows
 """
+import collections
 import inspect
 import logging
 import math
 import os
 import warnings
+from contextlib import suppress
 from dataclasses import asdict
+from functools import partial
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import datasets
@@ -36,6 +39,7 @@ from transformers.integrations import TensorBoardCallback
 from transformers.trainer_callback import TrainerState
 from transformers.trainer_pt_utils import reissue_pt_warnings
 from transformers.trainer_utils import ShardedDDPOption, get_last_checkpoint
+from transformers.utils import PaddingStrategy
 
 from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
 from sparseml.pytorch.utils import (
@@ -55,7 +59,6 @@ __all__ = [
     "DisableHalfPrecisionCallback",
     "TransformersTrainer",
 ]
-
 
 _LOGGER = logging.getLogger(__name__)
 TRAINER_STATE_NAME = "trainer_state.json"
@@ -489,7 +492,10 @@ class RecipeManagerTrainerInterface:
         )
 
     def save_sample_inputs_outputs(
-        self, num_samples_to_export: int = 100, output_dir: Optional[str] = None
+        self,
+        num_samples_to_export: int = 100,
+        output_dir: Optional[str] = None,
+        tokenizer: Optional[Any] = None,
     ):
         """
         Save sample inputs/outputs/labels in save_dir as .npz arrays
@@ -497,6 +503,8 @@ class RecipeManagerTrainerInterface:
         :param num_samples_to_export: Number of samples to export.
             Defaults to 100
         :param output_dir: The directory to store sample inputs and outputs in
+        :param tokenizer: if eval and train dataset cannot be generated, then
+            the tokenizer is used to generate fake inputs
         """
         num_samples = 0
         output_dir = output_dir or self.args.output_dir or ""
@@ -508,12 +516,28 @@ class RecipeManagerTrainerInterface:
         os.makedirs(sample_out_dir, exist_ok=True)
         device = self.model.device
 
+        dataloader = None
         try:
             dataloader = self.get_eval_dataloader()
         except Exception:
-            dataloader = self.get_train_dataloader()
+            with suppress(ValueError):
+                dataloader = self.get_train_dataloader()
 
-        _LOGGER.info(f"Exporting {num_samples_to_export} samples to {output_dir}")
+        if not dataloader and not tokenizer:
+            raise ValueError(
+                "tokenizer is needed to generate fake sample inputs when Trainer is "
+                "not initialized with a train or eval dataset"
+            )
+        if dataloader is None:
+            # we have the tokenizer so use it
+            dataloader = self._get_fake_dataloader(
+                num_samples=num_samples_to_export, tokenizer=tokenizer
+            )
+
+        _LOGGER.info(
+            f"Exporting {num_samples_to_export} samples to "
+            f"{os.path.abspath(output_dir)}"
+        )
         for _, sample_batch in enumerate(dataloader):
             sample_batch.pop("labels", None)
             input_names = list(sample_batch.keys())
@@ -724,6 +748,31 @@ class RecipeManagerTrainerInterface:
         self.logger_manager.add_logger(
             TensorBoardLogger(writer=tensorboard_callback.tb_writer)
         )
+
+    def _get_fake_dataloader(
+        self,
+        num_samples: int,
+        tokenizer: "PreTrainedTokenizerBase",  # noqa: F821
+    ):
+
+        # Rearrange inputs' keys to match those defined by model foward func, which
+        # seem to define how the order of inputs is determined in the exported model
+        forward_args_spec = inspect.getfullargspec(self.model.__class__.forward)
+        input_func = partial(
+            self._get_fake_input,
+            model_input_keys=forward_args_spec.args,
+            tokenizer=tokenizer,
+        )
+        return (input_func() for _ in range(num_samples))
+
+    def _get_fake_input(self, model_input_keys, tokenizer):
+        inputs = tokenizer(
+            "", return_tensors="pt", padding=PaddingStrategy.MAX_LENGTH.value
+        ).data  # Dict[Tensor]
+        inputs = collections.OrderedDict(
+            [(f, inputs[f][0].reshape(1, -1)) for f in model_input_keys if f in inputs]
+        )
+        return inputs
 
 
 class TrainerInterface(RecipeManagerTrainerInterface):
