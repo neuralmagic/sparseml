@@ -243,6 +243,25 @@ def _convert_single_constants_to_initializers(model: ModelProto):
     model.graph.node.extend(non_single_constant_nodes)
 
 
+def _convert_signed_to_unsigned(model: ModelProto):
+    # converts all int8 initializers to uint8 initializers for consistency
+    # between quantized op input/weights
+
+    def _cast_init_int8_to_uint8(int8_init):
+        arr_int8 = numpy_helper.to_array(int8_init)
+        arr_uint8 = (arr_int8.astype(numpy.int32) + 128).astype(numpy.uint8)
+        return numpy_helper.from_array(arr_uint8, name=int8_init.name)
+
+    def _replace_initializer(init_old, init_new):
+        model.graph.initializer.remove(init_old)
+        model.graph.initializer.append(init_new)
+
+    for init in model.graph.initializer:
+        if init.data_type == 3:  # int8 dtype
+            init_uint8 = _cast_init_int8_to_uint8(init)
+            _replace_initializer(model, init, init_uint8)
+
+
 def _delete_repeated_qat_blocks(model: ModelProto):
     # removes repeated qat quant/dequant blocks with the same parameters
     # (Quant -> Dequant -> Quant -> Dequant) -> (Quant -> Dequant)
@@ -1547,6 +1566,7 @@ def quantize_torch_qat_export(
 
     _fold_qat_conv_bns(model)
     _convert_single_constants_to_initializers(model)
+    _convert_signed_to_unsigned(model)
     _delete_repeated_qat_blocks(model)
     _quantize_qat_embedding(model)
     _propagate_mobilebert_embedding_quantization(model)
