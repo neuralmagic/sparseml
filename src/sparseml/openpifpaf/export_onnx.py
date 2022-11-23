@@ -22,6 +22,7 @@ import onnx
 import torch
 
 import openpifpaf
+from sparseml.pytorch.optim.manager import ScheduledModifierManager
 from sparseml.pytorch.utils import ModuleExporter
 
 
@@ -66,7 +67,9 @@ def main():
     )
     parser.add_argument("--input-width", type=int, default=129)
     parser.add_argument("--input-height", type=int, default=97)
-
+    parser.add_argument(
+        "--one-shot", type=str, help="Path to recipe to apply in a zero shot fashion."
+    )
     openpifpaf.datasets.cli(parser)
 
     args = parser.parse_args()
@@ -76,6 +79,10 @@ def main():
     datamodule = openpifpaf.datasets.factory(args.dataset)
 
     model, _ = openpifpaf.network.Factory().factory(head_metas=datamodule.head_metas)
+
+    if args.one_shot:
+        manager = ScheduledModifierManager.from_yaml(args.one_shot)
+        manager.apply(model)
 
     image_size_warning(model.base_net.stride, args.input_width, args.input_height)
 
