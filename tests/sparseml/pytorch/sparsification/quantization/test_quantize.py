@@ -32,8 +32,8 @@ from sparseml.pytorch.sparsification.quantization import (
             QuantizationArgs(num_bits=4, symmetric=True),
         ),
         (
-            dict(num_bits=8, kwargs=dict(reduce_rage=True)),
-            QuantizationArgs(num_bits=8, kwargs=dict(reduce_rage=True)),
+            dict(num_bits=8, kwargs=dict(reduce_range=True)),
+            QuantizationArgs(num_bits=8, kwargs=dict(reduce_range=True)),
         ),
     ],
 )
@@ -56,13 +56,13 @@ def test_quantization_args_from_dict(quantization_args_dict, target_quantization
             dict(
                 input_activations=dict(num_bits=8, symmetric=False),
                 weights=dict(num_bits=4, symmetric=True),
-                output_activations=dict(num_bits=8, kwargs=dict(reduce_rage=True)),
+                output_activations=dict(num_bits=8, kwargs=dict(reduce_range=True)),
             ),
             QuantizationScheme(
                 input_activations=QuantizationArgs(num_bits=8, symmetric=False),
                 weights=QuantizationArgs(num_bits=4, symmetric=True),
                 output_activations=QuantizationArgs(
-                    num_bits=8, kwargs=dict(reduce_rage=True)
+                    num_bits=8, kwargs=dict(reduce_range=True)
                 ),
             ),
         ),

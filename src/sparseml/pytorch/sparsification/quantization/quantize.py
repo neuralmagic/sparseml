@@ -43,13 +43,16 @@ class QuantizationArgs(BaseModel):
     activations or weights in a network
     """
 
-    num_bits: int = Field(default=8, help="number of bits to target for quantization")
+    num_bits: int = Field(
+        default=8, description="number of bits to target for quantization"
+    )
     symmetric: bool = Field(
-        default=False, help="set True to use symmetric quantization. Default False"
+        default=False,
+        description="set True to use symmetric quantization. Default False",
     )
     kwargs: Dict[str, Any] = Field(
         default_factory=dict,
-        help=(
+        description=(
             "optional dict of kwargs to be passed directly to torch quantization "
             "Observers constructor excluding quantization range or symmetry"
         ),
@@ -97,21 +100,21 @@ class QuantizationScheme(BaseModel):
 
     input_activations: Optional[QuantizationArgs] = Field(
         default_factory=QuantizationArgs.default_activation_args,
-        help=(
+        description=(
             "target quantization setting for input activations. Set to None to "
             "not quantize input activations. Default is 8 bits asymmetric"
         ),
     )
     weights: Optional[QuantizationArgs] = Field(
         default_factory=QuantizationArgs.default_weight_args,
-        help=(
+        description=(
             "target quantization setting for model weights. Set to None to "
             "not quantize weights. Default is 8 bits symmetric"
         ),
     )
     output_activations: Optional[QuantizationArgs] = Field(
         default=None,
-        help=(
+        description=(
             "target quantization setting for output activations. Set to None to "
             "not quantize output activations. Default is None"
         ),
@@ -126,7 +129,7 @@ class QuantizationScheme(BaseModel):
 
     def get_wrapper_qconfig(self) -> "torch.quantization.QConfig":
         """
-        :return: QConfig for QuantWrapper objets (input activations used)
+        :return: QConfig for QuantWrapper objects (input activations used)
         """
         return _get_qconfig(self.input_activations, self.weights)
 
