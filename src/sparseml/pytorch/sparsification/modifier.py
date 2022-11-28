@@ -20,7 +20,7 @@ are implemented as modifiers.
 """
 
 import math
-from typing import Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Type, Union
 
 from torch import Tensor
 from torch.nn import Module
@@ -52,10 +52,21 @@ class PyTorchModifierYAML(ModifierYAML):
     """
     A decorator to handle making a pytorch modifier class YAML ready.
     IE it can be loaded in through the yaml plugin easily.
+
+    :param swap_class_by_state_fn: optional function to provide a different class
+        to construct on yaml load based on the state given (ie provide a
+        legacy class to load if certain parameters are passed). Expected format
+        is to take a dict of kwargs, expects a class to be returned
     """
 
-    def __init__(self):
-        super().__init__(PYTORCH_FRAMEWORK)
+    def __init__(
+        self,
+        swap_class_by_state_fn: Callable[[Dict[str, Any]], Type[BaseModifier]] = None,
+    ):
+        super().__init__(
+            PYTORCH_FRAMEWORK,
+            swap_class_by_state_fn=swap_class_by_state_fn,
+        )
 
 
 class Modifier(BaseModifier):
