@@ -48,6 +48,7 @@ __all__ = [
     "QConfigProperties",
     "LINEAR_ACTIVATION_NAMES",
     "CONV_ACTIVATION_NAMES",
+    "is_quantizable_module",
 ]
 
 LINEAR_ACTIVATION_NAMES = ["Linear", "LinearReLU"]
@@ -107,6 +108,26 @@ _FUSED_MODULE_TYPES = (
     if nni  # nni will always import if torch.quantization is available
     else tuple()
 )
+
+
+def is_quantizable_module(
+    module: Module,
+    exclude_module_types: Optional[List[str]] = None,
+) -> bool:
+    """
+    :param module: module to check
+    :param exclude_module_types: string names of modules to not include for
+        quantization. Default None
+    :return: boolean value if the module is quantizable. Module is considered
+        quantizable if its type is not included in exclude_module_types and
+        it either has no module children or is a torch qat fused module
+    """
+    exclude_module_types = exclude_module_types or []
+    if module.__class__.__name__ in exclude_module_types:
+        return False
+    return len(list(module.children())) == 0 or isinstance(
+        module, tuple(_QUANTIZABLE_MODULE_TYPES)
+    )
 
 
 @dataclass
@@ -739,24 +760,28 @@ def fuse_module_conv_bn_relus(
 
 def prepare_embeddings_qat(
     module: Module,
-    qproperties: QConfigProperties,
+    qproperties: Optional[QConfigProperties] = None,
     qconfig: Optional["torch.quantization.QConfig"] = None,
 ):
     """
     adds a fake quantize call to the weights of any Embedding modules in the given
-    module
+    module. The used qconfig will have a heirarchy of
+
+    submodule.qconfig -> qconfig -> qproperties
 
     :param module: module to run QAT for the embeddings of
-    :param qconfig: qconfig to generate the fake quantize ops from. Default uses INT8
-        asymmetric range
-    :param qproperties: properties used to define QConfig.
+    :param qconfig: qconfig to generate the fake quantize ops from if qconfig
+        not set in moduleDefault uses INT8 asymmetric range
+    :param qproperties: properties used to define QConfig if qconfig not present
     """
-    if qconfig is None:
+    if qconfig is None and qproperties is not None:
         qproperties.symmetric_weights = False
         qconfig = get_qat_qconfig(qproperties)
     for submodule in module.modules():
-        if type(submodule) is Embedding:
-            _prepare_qat_embedding(submodule, qconfig)
+        submodule_qconfig = getattr(submodule, "qconfig", None)
+        submodule_qconfig = submodule_qconfig or qconfig
+        if type(submodule) is Embedding and submodule_qconfig is not None:
+            _prepare_qat_embedding(submodule, submodule_qconfig)
 
 
 def _delete_get_block_hooks(
