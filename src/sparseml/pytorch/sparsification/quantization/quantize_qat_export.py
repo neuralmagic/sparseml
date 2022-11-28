@@ -259,7 +259,7 @@ def _convert_signed_to_unsigned(model: ModelProto):
     for init in model.graph.initializer:
         if init.data_type == 3:  # int8 dtype
             init_uint8 = _cast_init_int8_to_uint8(init)
-            _replace_initializer(model, init, init_uint8)
+            _replace_initializer(init, init_uint8)
 
 
 def _delete_repeated_qat_blocks(model: ModelProto):
