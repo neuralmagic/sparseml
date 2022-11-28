@@ -1,25 +1,30 @@
 # OpenPifPaf Integration
 
+## Training
+
 Sample training command:
 ```bash
-CUDA_VISIBLE_DEVICES=0 python src/sparseml/pytorch/openpifpaf/train.py \
-    --recipe prune-openpifpaf.yaml
+CUDA_VISIBLE_DEVICES=0 python src/sparseml/openpifpaf/train.py \
+    --recipe prune-openpifpaf.yaml \
     --lr=0.001 \
     --momentum=0.9 \
     --b-scale=10.0 \
     --clip-grad-value=10.0 \
     --bce-background-clamp=-7 \
     --epochs=100 \
-    --lr-decay 80 90 \
+    --lr-decay 230 240 \
     --lr-decay-epochs=10 \
-    --batch-size=16 \
+    --batch-size=8 \
     --weight-decay=1e-5 \
-    --dataset=cocodet \
-    --cocodet-train-image-dir=/network/datasets/coco/images/train2017 \
-    --cocodet-val-image-dir=/network/datasets/coco/images/val2017 \
-    --cocodet-train-annotations=/network/datasets/coco/annotations/instances_train2017.json \
-    --cocodet-val-annotations=/network/datasets/coco/annotations/instances_val2017.json \
-    --cocodet-upsample=2 \
+    --dataset=cocokp \
+    --cocokp-square-edge=513 \
+    --cocokp-upsample=2 \
+    --cocokp-extended-scale \
+    --cocokp-orientation-invariant=0.1 \
+    --cocokp-train-image-dir=/network/datasets/coco/images/train2017 \
+    --cocokp-val-image-dir=/network/datasets/coco/images/val2017 \
+    --cocokp-train-annotations=/home/corey/coco/annotations/person_keypoints_train2017.json \
+    --cocokp-val-annotations=/home/corey/coco/annotations/person_keypoints_val2017.json \
     --basenet=mobilenetv3small
 ```
 
@@ -40,4 +45,13 @@ pruning_modifiers:
     start_epoch: 0.1
     end_epoch: 8.0
     update_frequency: 0.5
+```
+
+## Exporting
+
+From a training checkpoint
+```bash
+python src/sparseml/openpifpaf/export_onnx.py \
+    --checkpoint=<path to .pkl.epochXXX file from train> \
+    --dataset=cocokp
 ```
