@@ -17,7 +17,9 @@ import os
 import pytest
 from torch.nn import Conv2d, Identity, Linear
 
-from sparseml.pytorch.sparsification import QuantizationModifier
+from sparseml.pytorch.sparsification.quantization.legacy_modifier_quantization import (
+    QuantizationModifier,
+)
 from tests.sparseml.pytorch.helpers import ConvNet, LinearNet, create_optim_sgd
 from tests.sparseml.pytorch.sparsification.test_modifier import ScheduledModifierTest
 
@@ -37,17 +39,20 @@ except Exception:
 QUANTIZATION_MODIFIERS = [
     lambda: QuantizationModifier(
         start_epoch=0.0,
+        submodules=["seq"],
         disable_quantization_observer_epoch=2,
         freeze_bn_stats_epoch=3.0,
     ),
     lambda: QuantizationModifier(start_epoch=2.0, submodules=["seq"]),
     lambda: QuantizationModifier(
         start_epoch=0.0,
+        submodules=["seq"],
         quantize_linear_activations=False,
         quantize_conv_activations=False,
     ),
     lambda: QuantizationModifier(
         start_epoch=0.0,
+        submodules=["seq"],
         activation_bits=4,
     ),
 ]
@@ -64,6 +69,7 @@ QUANTIZATION_MODIFIERS_LINEAR = QUANTIZATION_MODIFIERS + [
     ),
     lambda: QuantizationModifier(
         start_epoch=0.0,
+        submodules=["seq.fc1", "seq.block1.fc2"],
         exclude_module_types=["Linear"],
     ),
 ]
