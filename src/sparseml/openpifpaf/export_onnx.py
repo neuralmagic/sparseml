@@ -17,6 +17,7 @@
 import argparse
 import logging
 import os
+from typing import Optional
 
 import onnx
 import torch
@@ -53,9 +54,6 @@ def image_size_warning(basenet_stride, input_w, input_h):
 
 def main():
     parser = argparse.ArgumentParser()
-
-    openpifpaf.network.Factory.cli(parser)
-
     parser.add_argument(
         "--save-dir",
         type=str,
@@ -70,34 +68,54 @@ def main():
     parser.add_argument(
         "--one-shot", type=str, help="Path to recipe to apply in a zero shot fashion."
     )
-    openpifpaf.datasets.cli(parser)
 
+    openpifpaf.network.Factory.cli(parser)
+    openpifpaf.datasets.cli(parser)
     args = parser.parse_args()
 
     openpifpaf.network.Factory.configure(args)
 
     datamodule = openpifpaf.datasets.factory(args.dataset)
-
     model, _ = openpifpaf.network.Factory().factory(head_metas=datamodule.head_metas)
 
-    if args.one_shot:
-        manager = ScheduledModifierManager.from_yaml(args.one_shot)
+    export(
+        args.save_dir,
+        args.name,
+        model,
+        datamodule,
+        args.one_shot,
+        args.input_width,
+        args.input_height,
+    )
+
+
+def export(
+    save_dir: str,
+    name: str,
+    model,
+    datamodule,
+    one_shot: Optional[str],
+    input_width: int,
+    input_height: int,
+):
+    if one_shot:
+        manager = ScheduledModifierManager.from_yaml(one_shot)
         manager.apply(model)
 
-    image_size_warning(model.base_net.stride, args.input_width, args.input_height)
+    image_size_warning(model.base_net.stride, input_width, input_height)
 
     # configure
     openpifpaf.network.heads.CompositeField3.inplace_ops = False
     openpifpaf.network.heads.CompositeField4.inplace_ops = False
 
-    exporter = ModuleExporter(model, args.save_dir)
+    exporter = ModuleExporter(model, save_dir)
     exporter.export_onnx(
-        torch.randn(1, 3, args.input_height, args.input_width),
-        name=args.name,
+        torch.randn(1, 3, input_height, input_width),
+        name=name,
         input_names=["input_batch"],
         output_names=[meta.name for meta in datamodule.head_metas],
     )
-    onnx.checker.check_model(os.path.join(args.save_dir, args.name))
+    onnx.checker.check_model(os.path.join(save_dir, name))
     exporter.create_deployment_folder()
 
 
