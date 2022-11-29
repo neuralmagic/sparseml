@@ -214,6 +214,7 @@ def main():
         loss,
         optimizer,
         args.output,
+        checkpoint_path=args.checkpoint,
         num_batches_per_epoch=len(train_loader),
         checkpoint_shell=checkpoint_shell,
         lr_scheduler=lr_scheduler,

@@ -16,14 +16,17 @@ import argparse
 import hashlib
 import logging
 import shutil
+from typing import Optional
 
 import torch
 
 import openpifpaf
 from sparseml.pytorch.optim import ScheduledModifierManager
+from sparseml.pytorch.utils.helpers import download_framework_model_by_recipe_type
+from sparsezoo import Model
 
 
-LOG = logging.getLogger(__name__)
+LOG = logging.getLogger("openpifpaf." + __name__)
 
 
 class SparseMLTrainer(openpifpaf.network.Trainer):
@@ -49,13 +52,51 @@ class SparseMLTrainer(openpifpaf.network.Trainer):
         out,
         num_batches_per_epoch,
         *,
+        checkpoint_path: Optional[str] = None,
         checkpoint_shell=None,
         lr_scheduler=None,
         device=None,
         model_meta_data=None,
     ):
-        self.manager = ScheduledModifierManager.from_yaml(SparseMLTrainer.recipe)
+        self.manager = ScheduledModifierManager.from_yaml(self.recipe)
+        self.checkpoint_manager = None
 
+        # download zoo stub locally
+        if checkpoint_path and checkpoint_path.startswith("zoo:"):
+            checkpoint_path = download_framework_model_by_recipe_type(
+                Model(checkpoint_path)
+            )
+
+        if checkpoint_path:
+            checkpoint = torch.load(checkpoint_path, map_location="cpu")
+            if "checkpoint_recipe" in checkpoint:
+                LOG.info("Found recipe in checkpoint")
+                checkpoint_manager = ScheduledModifierManager.from_yaml(
+                    checkpoint["checkpoint_recipe"]
+                )
+                if checkpoint["epoch"] == -1:
+                    # restore state from finished recipe
+                    LOG.info(
+                        "Checkpoint was from epoch -1, "
+                        "checkpoint recipe is NOT overriding configured recipe"
+                    )
+                    checkpoint_manager.apply_structure(model, epoch=checkpoint["epoch"])
+                    self.checkpoint_manager = checkpoint_manager
+                else:
+                    # resume
+                    LOG.info(
+                        "Checkpoint is a resume checkpoint (epoch > 0), "
+                        "checkpoint recipe is overriding configured recipe"
+                    )
+                    checkpoint_manager.initialize(model, epoch=checkpoint["epoch"])
+                    # NOTE: override manager with the checkpoint's manager
+                    self.manager = checkpoint_manager
+            else:
+                LOG.info(
+                    f"No checkpoint recipe in checkpoint: {list(checkpoint.keys())}"
+                )
+        else:
+            LOG.info("Not loading anything from checkpoint")
         self.epochs = self.manager.max_epochs
 
         if self.manager.learning_rate_modifiers:
@@ -116,16 +157,25 @@ class SparseMLTrainer(openpifpaf.network.Trainer):
 
         filename = "{}.epoch{:03d}".format(self.out, epoch)
         LOG.debug("about to write model")
-        torch.save(
-            {
-                "model": model_to_save,
-                "state_dict": model_to_save.state_dict(),
-                "checkpoint_recipe": str(self.manager),
-                "epoch": epoch,
-                "meta": self.model_meta_data,
-            },
-            filename,
-        )
+
+        checkpoint = {
+            "model": model_to_save,
+            "state_dict": model_to_save.state_dict(),
+            "meta": self.model_meta_data,
+        }
+
+        checkpoint["epoch"] = -1 if epoch == self.manager.max_epochs - 1 else epoch
+        if self.checkpoint_manager is not None and checkpoint["epoch"] > 0:
+            checkpoint["epoch"] += self.checkpoint_manager.max_epochs
+
+        recipe = self.manager
+        if self.checkpoint_manager is not None:
+            recipe = ScheduledModifierManager.compose_staged(
+                self.checkpoint_manager, recipe
+            )
+        checkpoint["checkpoint_recipe"] = str(recipe)
+
+        torch.save(checkpoint, filename)
         LOG.info("model written: %s", filename)
 
         if final:
