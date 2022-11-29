@@ -152,6 +152,14 @@ def main():
 
     datamodule = openpifpaf.datasets.factory(args.dataset)
 
+    """
+    Cases for checkpointing:
+    1. No checkpoint - no changes to base flow
+    2. Checkpoint from local file - no changes to base flow
+    3. Checkpoint from zoo stub:
+        a. set args.checkpoint to None to get a base net
+        b. manually load in state dict
+    """
     zoo_stub = None
     if args.checkpoint and args.checkpoint.startswith("zoo:"):
         if args.basenet is None:
@@ -168,6 +176,12 @@ def main():
         head_metas=datamodule.head_metas
     )
     loss = openpifpaf.network.losses.Factory().factory(datamodule.head_metas)
+
+    if zoo_stub is not None:
+        # just load state dict from zoo stub
+        checkpoint_path = download_framework_model_by_recipe_type(Model(zoo_stub))
+        checkpoint = torch.load(checkpoint_path, map_location="cpu")
+        net_cpu.load_state_dict(checkpoint["state_dict"])
 
     checkpoint_shell = None
     if not args.disable_cuda and torch.cuda.device_count() > 1 and not args.ddp:

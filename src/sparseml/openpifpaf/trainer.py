@@ -61,42 +61,8 @@ class SparseMLTrainer(openpifpaf.network.Trainer):
         self.manager = ScheduledModifierManager.from_yaml(self.recipe)
         self.checkpoint_manager = None
 
-        # download zoo stub locally
-        if checkpoint_path and checkpoint_path.startswith("zoo:"):
-            checkpoint_path = download_framework_model_by_recipe_type(
-                Model(checkpoint_path)
-            )
+        self._load_checkpoint(checkpoint_path, model)
 
-        if checkpoint_path:
-            checkpoint = torch.load(checkpoint_path, map_location="cpu")
-            if "checkpoint_recipe" in checkpoint:
-                LOG.info("Found recipe in checkpoint")
-                checkpoint_manager = ScheduledModifierManager.from_yaml(
-                    checkpoint["checkpoint_recipe"]
-                )
-                if checkpoint["epoch"] == -1:
-                    # restore state from finished recipe
-                    LOG.info(
-                        "Checkpoint was from epoch -1, "
-                        "checkpoint recipe is NOT overriding configured recipe"
-                    )
-                    checkpoint_manager.apply_structure(model, epoch=checkpoint["epoch"])
-                    self.checkpoint_manager = checkpoint_manager
-                else:
-                    # resume
-                    LOG.info(
-                        "Checkpoint is a resume checkpoint (epoch > 0), "
-                        "checkpoint recipe is overriding configured recipe"
-                    )
-                    checkpoint_manager.initialize(model, epoch=checkpoint["epoch"])
-                    # NOTE: override manager with the checkpoint's manager
-                    self.manager = checkpoint_manager
-            else:
-                LOG.info(
-                    f"No checkpoint recipe in checkpoint: {list(checkpoint.keys())}"
-                )
-        else:
-            LOG.info("Not loading anything from checkpoint")
         self.epochs = self.manager.max_epochs
 
         if self.manager.learning_rate_modifiers:
@@ -115,6 +81,43 @@ class SparseMLTrainer(openpifpaf.network.Trainer):
             device=device,
             model_meta_data=model_meta_data,
         )
+
+    def _load_checkpoint(self, checkpoint_path, model):
+        if checkpoint_path is None:
+            LOG.info("Not loading anything from checkpoint")
+            return
+
+        if checkpoint_path.startswith("zoo:"):
+            checkpoint_path = download_framework_model_by_recipe_type(
+                Model(checkpoint_path)
+            )
+
+        checkpoint = torch.load(checkpoint_path, map_location="cpu")
+        if "checkpoint_recipe" not in checkpoint:
+            LOG.info(f"No checkpoint recipe in checkpoint: {list(checkpoint.keys())}")
+            return
+
+        LOG.info("Found recipe in checkpoint")
+        checkpoint_manager = ScheduledModifierManager.from_yaml(
+            checkpoint["checkpoint_recipe"]
+        )
+        if checkpoint["epoch"] == -1:
+            # restore state from finished recipe
+            LOG.info(
+                "Checkpoint was from epoch -1, "
+                "checkpoint recipe is NOT overriding configured recipe"
+            )
+            checkpoint_manager.apply_structure(model, epoch=checkpoint["epoch"])
+            self.checkpoint_manager = checkpoint_manager
+        else:
+            # resume
+            LOG.info(
+                "Checkpoint is a resume checkpoint (epoch > 0), "
+                "checkpoint recipe is overriding configured recipe"
+            )
+            checkpoint_manager.initialize(model, epoch=checkpoint["epoch"])
+            # NOTE: override manager with the checkpoint's manager
+            self.manager = checkpoint_manager
 
     @classmethod
     def cli(cls, parser: argparse.ArgumentParser):
