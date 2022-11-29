@@ -26,6 +26,8 @@ import openpifpaf
 from openpifpaf import __version__
 from openpifpaf.train import default_output_file
 from sparseml.openpifpaf.trainer import SparseMLTrainer
+from sparseml.pytorch.utils.helpers import download_framework_model_by_recipe_type
+from sparsezoo import Model
 
 
 LOG = logging.getLogger(__name__)
@@ -135,7 +137,6 @@ def cli():
         args.output = default_output_file(args)
         os.makedirs("outputs", exist_ok=True)
 
-    openpifpaf.network.Factory.configure(args)
     openpifpaf.network.losses.Factory.configure(args)
     SparseMLTrainer.configure(args)
     openpifpaf.encoder.configure(args)
@@ -150,6 +151,18 @@ def main():
     args = cli()
 
     datamodule = openpifpaf.datasets.factory(args.dataset)
+
+    zoo_stub = None
+    if args.checkpoint and args.checkpoint.startswith("zoo:"):
+        if args.basenet is None:
+            raise ValueError(
+                "Must specify --basenet when using a zoo stub in --checkpoint"
+            )
+        zoo_stub = args.checkpoint
+        args.checkpoint = None
+
+    # NOTE: configure this after removing zoo stub checkpoint
+    openpifpaf.network.Factory.configure(args)
 
     net_cpu, start_epoch = openpifpaf.network.Factory().factory(
         head_metas=datamodule.head_metas
@@ -214,7 +227,7 @@ def main():
         loss,
         optimizer,
         args.output,
-        checkpoint_path=args.checkpoint,
+        checkpoint_path=args.checkpoint or zoo_stub,
         num_batches_per_epoch=len(train_loader),
         checkpoint_shell=checkpoint_shell,
         lr_scheduler=lr_scheduler,
