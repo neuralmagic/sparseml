@@ -84,7 +84,7 @@ _dev_deps = [
     "flake8==3.9.2",
     "isort==5.8.0",
     "m2r2~=0.2.7",
-    "mistune<3, >=2.0.3'",
+    "mistune<3,>=2.0.3",
     "myst-parser~=0.14.0",
     "rinohtype~=0.4.2",
     "sphinx~=3.5.0",
