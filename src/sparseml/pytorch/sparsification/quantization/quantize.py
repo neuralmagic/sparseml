@@ -21,7 +21,7 @@ from typing import Any, Dict, Optional, Union
 
 import torch
 from pydantic import BaseModel, Field
-from torch.nn import Module
+from torch.nn import Identity, Module
 
 from sparseml.pytorch.sparsification.quantization.helpers import (
     get_observer,
@@ -191,6 +191,9 @@ def set_qconfigs_from_quantization_schemes(module: Module):
             continue
         submodule.qconfig = submodule.quantization_scheme.get_qconfig()
 
+    # TODO: remove after set_quantization_schemes updated
+    torch_quantization.propagate_qconfig_(module)
+
 
 def add_input_activation_quant_wrappers(module: Module) -> Module:
     """
@@ -256,6 +259,6 @@ def _get_qconfig(
     activation_args: Optional[QuantizationArgs], weight_args: Optional[QuantizationArgs]
 ) -> "torch.quantization.QConfig":
     return torch_quantization.QConfig(
-        activation=activation_args.get_observer() if activation_args else None,
-        weight=weight_args.get_observer() if weight_args else None,
+        activation=activation_args.get_observer() if activation_args else Identity,
+        weight=weight_args.get_observer() if weight_args else Identity,
     )
