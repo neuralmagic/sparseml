@@ -51,7 +51,7 @@ pruning_modifiers:
 
 From a training checkpoint
 ```bash
-python src/sparseml/openpifpaf/export_onnx.py \
+python src/sparseml/openpifpaf/export.py \
     --checkpoint=<path to .pkl.epochXXX file from train> \
     --dataset=cocokp
 ```
