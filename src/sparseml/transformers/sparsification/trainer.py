@@ -24,8 +24,7 @@ import os
 import warnings
 from contextlib import suppress
 from dataclasses import asdict
-from functools import partial
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, Final, List, Optional, Tuple, Union
 
 import datasets
 import numpy
@@ -507,10 +506,14 @@ class RecipeManagerTrainerInterface:
             the tokenizer is used to generate fake inputs
         """
         num_samples = 0
-        output_dir = output_dir or self.args.output_dir or ""
 
-        sample_in_dir = os.path.join(output_dir, "sample_inputs")
-        sample_out_dir = os.path.join(output_dir, "sample_outputs")
+        if output_dir is None:
+            output_dir = (
+                self.args.output_dir if hasattr(self.args, "output_dir") else ""
+            )
+
+        sample_in_dir = os.path.join(output_dir, "sample-inputs")
+        sample_out_dir = os.path.join(output_dir, "sample-outputs")
 
         os.makedirs(sample_in_dir, exist_ok=True)
         os.makedirs(sample_out_dir, exist_ok=True)
@@ -758,19 +761,22 @@ class RecipeManagerTrainerInterface:
         # Rearrange inputs' keys to match those defined by model foward func, which
         # seem to define how the order of inputs is determined in the exported model
         forward_args_spec = inspect.getfullargspec(self.model.__class__.forward)
-        input_func = partial(
-            self._get_fake_input,
-            model_input_keys=forward_args_spec.args,
+        synthetic_input: Final = self._get_fake_input(
+            forward_func_input_keys=forward_args_spec.args,
             tokenizer=tokenizer,
         )
-        return (input_func() for _ in range(num_samples))
+        return (synthetic_input for _ in range(num_samples))
 
-    def _get_fake_input(self, model_input_keys, tokenizer):
+    def _get_fake_input(self, forward_func_input_keys, tokenizer):
         inputs = tokenizer(
             "", return_tensors="pt", padding=PaddingStrategy.MAX_LENGTH.value
         ).data  # Dict[Tensor]
         inputs = collections.OrderedDict(
-            [(f, inputs[f][0].reshape(1, -1)) for f in model_input_keys if f in inputs]
+            [
+                (input_key, inputs[input_key][0].reshape(1, -1))
+                for input_key in forward_func_input_keys
+                if input_key in inputs
+            ]
         )
         return inputs
 

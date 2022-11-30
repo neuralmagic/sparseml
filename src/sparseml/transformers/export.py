@@ -248,8 +248,8 @@ def export_transformer_to_onnx(
     if num_export_samples > 0 and data_args is None:
         _LOGGER.info(
             f"--data_args is needed for exporting {num_export_samples} "
-            f"real samples but got {data_args}, fake samples will be generated "
-            f"based on model input/output shapes"
+            "real samples but got None, synthetic data samples will be "
+            "generated based on model input/output shapes"
         )
     data_args: Dict[str, Any] = _parse_data_args(data_args)
 
@@ -317,12 +317,16 @@ def export_transformer_to_onnx(
     # Rearrange inputs' keys to match those defined by model foward func, which
     # seem to define how the order of inputs is determined in the exported model
     forward_args_spec = inspect.getfullargspec(model.__class__.forward)
-    dropped = [f for f in inputs.keys() if f not in forward_args_spec.args]
+    dropped = [
+        input_key
+        for input_key in inputs.keys()
+        if input_key not in forward_args_spec.args
+    ]
     inputs = collections.OrderedDict(
         [
-            (f, inputs[f][0].reshape(1, -1))
-            for f in forward_args_spec.args
-            if f in inputs
+            (func_input_arg_name, inputs[func_input_arg_name][0].reshape(1, -1))
+            for func_input_arg_name in forward_args_spec.args
+            if func_input_arg_name in inputs
         ]
     )
     if dropped:
