@@ -76,13 +76,15 @@ _tensorflow_v1_gpu_deps = [
 ]
 _keras_deps = ["tensorflow~=2.2.0", "keras2onnx>=1.0.0"]
 
+_open_pif_paf_deps = ["openpifpaf==0.13.6"]
+
 _dev_deps = [
     "beautifulsoup4==4.9.3",
     "black==21.5b2",
     "flake8==3.9.2",
     "isort==5.8.0",
     "m2r2~=0.2.7",
-    "mistune==0.8.4",
+    "mistune<3, >=2.0.3'",
     "myst-parser~=0.14.0",
     "rinohtype~=0.4.2",
     "sphinx~=3.5.0",
@@ -209,6 +211,15 @@ def _setup_entry_points() -> Dict:
 
     entry_points["console_scripts"].append(
         "sparseml.recipe_template=sparseml.pytorch.recipe_template.cli:main"
+    )
+
+    # pose detection entrypoint
+
+    entry_points["console_scripts"].extend(
+        [
+            "sparseml.openpifpaf.train=" "sparseml.openpifpaf.train:main",
+            "sparseml.openpifpaf.export_onnx=" "sparseml.openpifpaf.export:main",
+        ]
     )
 
     return entry_points
