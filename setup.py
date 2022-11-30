@@ -217,8 +217,8 @@ def _setup_entry_points() -> Dict:
 
     entry_points["console_scripts"].extend(
         [
-            "sparseml.openpifpaf.train=" "sparseml.openpifpaf.train:main",
-            "sparseml.openpifpaf.export_onnx=" "sparseml.openpifpaf.export:main",
+            "sparseml.openpifpaf.train=sparseml.openpifpaf.train:main",
+            "sparseml.openpifpaf.export_onnx=sparseml.openpifpaf.export:main",
         ]
     )
 
