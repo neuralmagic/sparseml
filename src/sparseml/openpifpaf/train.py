@@ -162,10 +162,10 @@ def main():
     """
     zoo_stub = None
     if args.checkpoint and args.checkpoint.startswith("zoo:"):
-        if args.basenet is None:
-            raise ValueError(
-                "Must specify --basenet when using a zoo stub in --checkpoint"
-            )
+        checkpoint_path = download_framework_model_by_recipe_type(Model(zoo_stub))
+        checkpoint = torch.load(checkpoint_path, map_location="cpu")
+        args.basenet = checkpoint["meta"]["args"]["basenet"]
+        LOG.info(f"Overriding --basenet with value from checkpoint: {args.basenet}")
         zoo_stub = args.checkpoint
         args.checkpoint = None
 
@@ -179,8 +179,6 @@ def main():
 
     if zoo_stub is not None:
         # just load state dict from zoo stub
-        checkpoint_path = download_framework_model_by_recipe_type(Model(zoo_stub))
-        checkpoint = torch.load(checkpoint_path, map_location="cpu")
         net_cpu.load_state_dict(checkpoint["state_dict"])
 
     checkpoint_shell = None
