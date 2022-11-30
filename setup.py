@@ -62,12 +62,12 @@ _deepsparse_ent_deps = [f"deepsparse-ent~={version_nm_deps}"]
 
 _onnxruntime_deps = ["onnxruntime>=1.0.0"]
 _pytorch_deps = [
-    "torch>=1.1.0,<=1.13.0",
+    "torch>=1.1.0,<=1.12.1",
     "tensorboard>=1.0,<2.9",
     "tensorboardX>=1.0",
     "gputils",
 ]
-_pytorch_vision_deps = _pytorch_deps + ["torchvision>=0.3.0,<=0.14.0"]
+_pytorch_vision_deps = _pytorch_deps + ["torchvision>=0.3.0,<=0.13.0"]
 _tensorflow_v1_deps = ["tensorflow<2.0.0", "tensorboard<2.0.0", "tf2onnx>=1.0.0,<1.6"]
 _tensorflow_v1_gpu_deps = [
     "tensorflow-gpu<2.0.0",
