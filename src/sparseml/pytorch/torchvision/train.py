@@ -440,7 +440,7 @@ def main(args):
 
     # load params
     if checkpoint is not None:
-        model.load_state_dict(checkpoint["model"])
+        model.load_state_dict(checkpoint["state_dict"])
         optimizer.load_state_dict(checkpoint["optimizer"])
         if model_ema and "model_ema" in checkpoint:
             model_ema.load_state_dict(checkpoint["model_ema"])
@@ -782,7 +782,7 @@ def _deprecate_old_arguments(f):
 )
 @click.option("--print-freq", default=10, type=int, help="print frequency")
 @click.option("--output-dir", default=".", type=str, help="path to save outputs")
-@click.option("--resume", default="", type=str, help="path of checkpoint")
+@click.option("--resume", default=None, type=str, help="path of checkpoint")
 @click.option(
     "--checkpoint-path",
     default=None,
