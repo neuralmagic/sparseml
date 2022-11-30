@@ -58,9 +58,6 @@ __all__ = [
 def _select_quantization_modifier(state: Dict[str, Any]) -> Type:
     # if kwargs for the legacy quantization modifier are provided,
     # route YAML loading to that class
-    import pdb
-
-    pdb.set_trace()
     return LegacyQuantizationModifier if "submodules" in state else QuantizationModifier
 
 
@@ -95,7 +92,7 @@ class QuantizationModifier(ScheduledModifier):
         self,
         start_epoch: float = -1.0,
         default_scheme: Union[QuantizationScheme, DictQuantizationScheme, None] = None,
-        end_epoch: float = -1,
+        end_epoch: float = -1.0,
     ):
         raise_if_torch_quantization_not_available()
         if end_epoch != -1:

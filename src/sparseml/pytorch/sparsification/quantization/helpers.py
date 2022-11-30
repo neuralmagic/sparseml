@@ -125,6 +125,9 @@ def is_quantizable_module(
     exclude_module_types = exclude_module_types or []
     if module.__class__.__name__ in exclude_module_types:
         return False
+    # for now - considering any "leaf level" (no children) submodule
+    # to be quantizable, update PR on this feature branch will prune the
+    # list of valid module types
     return len(list(module.children())) == 0 or isinstance(
         module, tuple(_QUANTIZABLE_MODULE_TYPES)
     )
