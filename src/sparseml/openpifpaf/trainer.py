@@ -61,7 +61,7 @@ class SparseMLTrainer(openpifpaf.network.Trainer):
         self.manager = ScheduledModifierManager.from_yaml(self.recipe)
         self.checkpoint_manager = None
 
-        self._load_checkpoint(checkpoint_path, model)
+        self._load_managers_from_checkpoint(checkpoint_path, model)
 
         self.epochs = self.manager.max_epochs
 
@@ -82,7 +82,9 @@ class SparseMLTrainer(openpifpaf.network.Trainer):
             model_meta_data=model_meta_data,
         )
 
-    def _load_checkpoint(self, checkpoint_path, model):
+    def _load_managers_from_checkpoint(
+        self, checkpoint_path: str, model: torch.nn.Module
+    ):
         if checkpoint_path is None:
             LOG.info("Not loading anything from checkpoint")
             return
