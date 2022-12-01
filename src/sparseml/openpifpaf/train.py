@@ -270,6 +270,9 @@ def _load_managers_from_checkpoint(
     manager = ScheduledModifierManager.from_yaml(recipe)
     checkpoint_manager = None
 
+    if checkpoint is None:
+        return manager, checkpoint_manager
+
     if "checkpoint_recipe" not in checkpoint:
         LOG.info(f"No checkpoint recipe in checkpoint: {list(checkpoint.keys())}")
         manager.initialize(model)
