@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import argparse
 import hashlib
 import logging
 import shutil
@@ -23,7 +22,7 @@ import openpifpaf
 from sparseml.pytorch.optim import ScheduledModifierManager
 
 
-LOG = logging.getLogger(__name__)
+LOG = logging.getLogger("openpifpaf." + __name__)
 
 
 class SparseMLTrainer(openpifpaf.network.Trainer):
@@ -38,31 +37,26 @@ class SparseMLTrainer(openpifpaf.network.Trainer):
     All of this happens in the train.py file.
     """
 
-    # class level variable parsed from argparse results
-    recipe: str = None
-
     def __init__(
         self,
         model: torch.nn.Module,
         loss,
         optimizer,
         out,
-        num_batches_per_epoch,
+        manager,
+        checkpoint_manager,
         *,
         checkpoint_shell=None,
         lr_scheduler=None,
         device=None,
         model_meta_data=None,
     ):
-        self.manager = ScheduledModifierManager.from_yaml(SparseMLTrainer.recipe)
-
+        self.manager = manager
+        self.checkpoint_manager = checkpoint_manager
         self.epochs = self.manager.max_epochs
 
         if self.manager.learning_rate_modifiers:
             lr_scheduler = None
-
-        self.manager.initialize(model)
-        optimizer = self.manager.modify(model, optimizer, num_batches_per_epoch)
 
         super().__init__(
             model,
@@ -74,19 +68,6 @@ class SparseMLTrainer(openpifpaf.network.Trainer):
             device=device,
             model_meta_data=model_meta_data,
         )
-
-    @classmethod
-    def cli(cls, parser: argparse.ArgumentParser):
-        openpifpaf.network.Trainer.cli(parser)
-        group = parser.add_argument_group("sparseml")
-        group.add_argument(
-            "--recipe", default=None, required=True, help="Path to sparseml recipe"
-        )
-
-    @classmethod
-    def configure(cls, args: argparse.Namespace):
-        openpifpaf.network.Trainer.configure(args)
-        cls.recipe = args.recipe
 
     def loop(
         self,
@@ -116,16 +97,25 @@ class SparseMLTrainer(openpifpaf.network.Trainer):
 
         filename = "{}.epoch{:03d}".format(self.out, epoch)
         LOG.debug("about to write model")
-        torch.save(
-            {
-                "model": model_to_save,
-                "state_dict": model_to_save.state_dict(),
-                "checkpoint_recipe": str(self.manager),
-                "epoch": epoch,
-                "meta": self.model_meta_data,
-            },
-            filename,
-        )
+
+        checkpoint = {
+            "model": model_to_save,
+            "state_dict": model_to_save.state_dict(),
+            "meta": self.model_meta_data,
+        }
+
+        checkpoint["epoch"] = -1 if epoch == self.manager.max_epochs - 1 else epoch
+        if self.checkpoint_manager is not None and checkpoint["epoch"] > 0:
+            checkpoint["epoch"] += self.checkpoint_manager.max_epochs
+
+        recipe = self.manager
+        if self.checkpoint_manager is not None:
+            recipe = ScheduledModifierManager.compose_staged(
+                self.checkpoint_manager, recipe
+            )
+        checkpoint["checkpoint_recipe"] = str(recipe)
+
+        torch.save(checkpoint, filename)
         LOG.info("model written: %s", filename)
 
         if final:
