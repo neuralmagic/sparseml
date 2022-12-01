@@ -142,7 +142,7 @@ class TestQuantizationModifierImpl(ScheduledModifierTest):
                 assert not hasattr(module, "qconfig") or module.qconfig is None
         else:
             # QAT should be applied
-            # _test_qat_applied(modifier, model)
+            _test_qat_applied(modifier, model)
             pass
 
         modifier.scheduled_update(
@@ -160,7 +160,7 @@ class TestQuantizationModifierImpl(ScheduledModifierTest):
                 epoch = modifier.start_epoch + 0.1 * epoch_interval
                 assert not modifier.update_ready(epoch, test_steps_per_epoch)
 
-        # _test_qat_applied(modifier, model)
+        _test_qat_applied(modifier, model)
 
 
 @pytest.mark.skipif(
