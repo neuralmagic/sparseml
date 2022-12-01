@@ -170,8 +170,8 @@ def main():
                 Model(args.checkpoint)
             )
         checkpoint = torch.load(args.checkpoint, map_location="cpu")
+        # NOTE: set basenet instead of checkpoint so we get a randomized network
         args.basenet = checkpoint["meta"]["args"]["basenet"]
-        LOG.info(f"Overriding --basenet with value from checkpoint: {args.basenet}")
         args.checkpoint = None
     else:
         checkpoint = None
