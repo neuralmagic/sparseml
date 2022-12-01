@@ -19,7 +19,7 @@ import copy
 import logging
 import os
 import socket
-from typing import Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 import torch
 
@@ -162,8 +162,8 @@ def main():
     1. No checkpoint - no changes to base flow
     2. Checkpoint from local file - no changes to base flow
     3. Checkpoint from zoo stub:
-        a. set args.checkpoint to None to get a base net
-        b. manually load in state dict
+        a. set args.checkpoint to None to get a random network
+        b. manually load in state dict in _load_managers_from_checkpoint
     """
     zoo_stub = None
     if args.checkpoint and args.checkpoint.startswith("zoo:"):
@@ -265,7 +265,7 @@ def main():
 
 
 def _load_managers_from_checkpoint(
-    recipe: str, model: torch.nn.Module, checkpoint: Optional[str]
+    recipe: str, model: torch.nn.Module, checkpoint: Optional[Dict]
 ) -> Tuple[ScheduledModifierManager, ScheduledModifierManager]:
     manager = ScheduledModifierManager.from_yaml(recipe)
     checkpoint_manager = None
