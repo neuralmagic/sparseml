@@ -29,8 +29,8 @@ from sparseml.pytorch.sparsification.quantization import (
     prepare_embeddings_qat,
 )
 from sparseml.pytorch.sparsification.quantization.helpers import get_observer
-from sparseml.pytorch.sparsification.quantization.modifier_quantization import (
-    QuantizationModifier,
+from sparseml.pytorch.sparsification.quantization.legacy_modifier_quantization import (
+    QuantizationModifier as LegacyQuantizationModifier,
 )
 
 
@@ -294,7 +294,7 @@ def test_zero_point_is_128():
 
     # give QATMatMul a layer to be wrapped
     dummy_sequential = torch.nn.Sequential(_QATMatMul())
-    QuantizationModifier().apply(dummy_sequential)
+    LegacyQuantizationModifier().apply(dummy_sequential)
     qat_matmul = dummy_sequential[0]
     _ = qat_matmul(torch.randn(10, 10), torch.randn(10, 10))
 
