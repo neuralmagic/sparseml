@@ -17,24 +17,45 @@ Tooling for applying quantization to pytorch modules via
 structured configurations
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
 import torch
 from pydantic import BaseModel, Field
+from torch.nn import Identity, Module
 
-from sparseml.pytorch.sparsification.quantization.helpers import compute_range
+from sparseml.pytorch.sparsification.quantization.helpers import (
+    get_observer,
+    is_quantizable_module,
+    prepare_embeddings_qat,
+)
 
 
 try:
     from torch import quantization as torch_quantization
+    from torch.nn import intrinsic as torch_intrinsic
 except Exception:
     torch_quantization = None
+    torch_intrinsic = None
 
 
 __all__ = [
+    "DictQuantizationArgs",
+    "DictQuantizationScheme",
     "QuantizationArgs",
     "QuantizationScheme",
+    "set_quantization_schemes",
+    "set_qconfigs_from_quantization_schemes",
+    "add_input_activation_quant_wrappers",
+    "raise_if_torch_quantization_not_available",
 ]
+
+
+"""
+Type definition aliases for defining QuantizationArgs and QuantizationScheme
+as dictionaries for YAML serialization
+"""
+DictQuantizationArgs = Dict[str, Union[int, bool, Dict[str, Any]]]
+DictQuantizationScheme = Dict[str, DictQuantizationArgs]
 
 
 class QuantizationArgs(BaseModel):
@@ -76,18 +97,12 @@ class QuantizationArgs(BaseModel):
         """
         :return: torch quantization FakeQuantize built based on these QuantizationArgs
         """
-        qscheme = (
-            torch.per_tensor_symmetric if self.symmetric else torch.per_tensor_affine
-        )
-        target_dtype = torch.qint8
-        quant_min, quant_max = compute_range(target_dtype, self.num_bits)
-        return torch_quantization.FakeQuantize.with_args(
-            observer=torch_quantization.MovingAverageMinMaxObserver,
-            quant_min=quant_min,
-            quant_max=quant_max,
-            dtype=target_dtype,
-            qscheme=qscheme,
-            **self.kwargs,
+        return get_observer(
+            symmetric=self.symmetric,
+            dtype=torch.qint8,
+            bits=self.num_bits,
+            reduce_range=self.kwargs.get("reduce_range", False),
+            qconfig_kwargs=self.kwargs,
         )
 
 
@@ -97,6 +112,14 @@ class QuantizationScheme(BaseModel):
     quantizing models. Provides a simple user interface for defining how inputs,
     weights, and outputs should be quantized
     """
+
+    def __init__(self, *args, **kwargs):
+        # support for loading from yaml str
+        args = [arg if arg != "null" else None for arg in args]
+        for key, val in kwargs.items():
+            if val == "null":
+                kwargs[key] = None
+        super().__init__(*args, **kwargs)
 
     input_activations: Optional[QuantizationArgs] = Field(
         default_factory=QuantizationArgs.default_activation_args,
@@ -133,11 +156,109 @@ class QuantizationScheme(BaseModel):
         """
         return _get_qconfig(self.input_activations, self.weights)
 
+    def __str__(self) -> str:
+        """
+        :return: YAML friendly string serialization
+        """
+        dict_repr = self.dict()
+        dict_repr = {
+            key: val if val is not None else "null" for key, val in dict_repr.items()
+        }
+        return str(dict_repr)
+
+
+def set_quantization_schemes(module: Module, default_scheme: QuantizationScheme):
+    """
+    Sets an appropriate `quantization_scheme` porperty to targeted sections of the
+    given module based on inputs
+
+    :param module: module to attach QuantizationSchemes to
+    :param default_scheme: default scheme to add to a target module unless overwritten
+        by another scheme
+    """
+    module.quantization_scheme = default_scheme
+
+
+def set_qconfigs_from_quantization_schemes(module: Module):
+    """
+    Sets `qconfig` properties to the given module and its submodule
+    based on any potentially assigned quantization schemes
+
+    :param module: module to set qconfig properties for
+    """
+    for submodule in module.modules():
+        if not hasattr(submodule, "quantization_scheme"):
+            continue
+        submodule.qconfig = submodule.quantization_scheme.get_qconfig()
+
+    # TODO: remove after set_quantization_schemes updated
+    torch_quantization.propagate_qconfig_(module)
+
+
+def add_input_activation_quant_wrappers(module: Module) -> Module:
+    """
+    Adds QuantWrapper objects to wrap submodules that include quantization
+    schemes targeting input activations
+
+    :param module: module to add input activation QuantWrappers for
+    :return: the updated module - necessary in case top level module is wrapped
+        as in-place modification will not support it
+    """
+    # check if module type is appropriate for quantization
+    is_quantizable = is_quantizable_module(module)
+
+    # check if module targets input activation quantization
+    quantize_activations = (
+        hasattr(module, "quantization_scheme")
+        and (module.quantization_scheme is not None)
+        and module.quantization_scheme.input_activations is not None
+    )
+
+    if is_quantizable and quantize_activations:
+        # wrap module with a QuantWrapper and assign it the input activation qconfig
+        wrapper_qconfig = module.quantization_scheme.get_wrapper_qconfig()
+        module = torch_quantization.QuantWrapper(module)
+        module.qconfig = wrapper_qconfig
+
+        # assumes no nested children of a wrapped block need input activation
+        # does not recurse further in this case
+    else:
+        # recurse to module children
+        for name, child in module.named_children():
+            setattr(module, name, add_input_activation_quant_wrappers(child))
+    return module
+
+
+def prepare_module_qat(module: Module):
+    """
+    Converts submodules with set qconfigs into quantization aware modules
+    with FakeQuantize modules in the model
+
+    :param module: module to convert to QAT mode
+    """
+    # set modules with proper qconfigs to QAT mode
+    torch_quantization.prepare_qat(module, inplace=True)
+    # manual pass to convert relevant Embedding layers
+    prepare_embeddings_qat(module)
+
+
+def raise_if_torch_quantization_not_available():
+    """
+    :raises: RuntimeError if the installed torch version does not include
+        support for quantization aware training
+    """
+    if torch_quantization is None or torch_intrinsic is None:
+        raise RuntimeError(
+            "Unable to import package torch.quantization and/or "
+            "torch.nn.intrinsic. "
+            "Try upgrading your PyTorch version to use the QuantizationModifier."
+        )
+
 
 def _get_qconfig(
     activation_args: Optional[QuantizationArgs], weight_args: Optional[QuantizationArgs]
 ) -> "torch.quantization.QConfig":
     return torch_quantization.QConfig(
-        activation=activation_args.get_observer() if activation_args else None,
-        weight=weight_args.get_observer() if weight_args else None,
+        activation=activation_args.get_observer() if activation_args else Identity,
+        weight=weight_args.get_observer() if weight_args else Identity,
     )
