@@ -16,16 +16,18 @@
 Tooling for applying quantization to pytorch modules via
 structured configurations
 """
-
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import torch
 from pydantic import BaseModel, Field
 from torch.nn import Identity, Module
 
+from sparseml.pytorch.sparsification.quantization.constants import (
+    FUSED_MODULE_NAMES,
+    NON_QUANTIZABLE_MODULE_NAMES,
+)
 from sparseml.pytorch.sparsification.quantization.helpers import (
     get_observer,
-    is_quantizable_module,
     prepare_embeddings_qat,
 )
 
@@ -43,6 +45,8 @@ __all__ = [
     "DictQuantizationScheme",
     "QuantizationArgs",
     "QuantizationScheme",
+    "convert_module_qat_from_schemes",
+    "is_quantizable_module",
     "set_quantization_schemes",
     "set_qconfigs_from_quantization_schemes",
     "add_input_activation_quant_wrappers",
@@ -148,13 +152,19 @@ class QuantizationScheme(BaseModel):
         :return: QConfig for Modules (output activations used,
             use QuantWrapper for inputs)
         """
-        return _get_qconfig(self.output_activations, self.weights)
+        qconfig = _get_qconfig(self.output_activations, self.weights)
+        # add reference to this quantization scheme for reference
+        qconfig.quantization_scheme = self
+        return qconfig
 
     def get_wrapper_qconfig(self) -> "torch.quantization.QConfig":
         """
         :return: QConfig for QuantWrapper objects (input activations used)
         """
-        return _get_qconfig(self.input_activations, self.weights)
+        qconfig = _get_qconfig(self.input_activations, None)
+        # add reference to this quantization scheme for reference
+        qconfig.quantization_scheme = self
+        return qconfig
 
     def __str__(self) -> str:
         """
@@ -167,16 +177,44 @@ class QuantizationScheme(BaseModel):
         return str(dict_repr)
 
 
+def is_quantizable_module(
+    module: Module,
+    exclude_module_types: Optional[List[str]] = None,
+) -> bool:
+    """
+    :param module: module to check
+    :param exclude_module_types: string names of modules to not include for
+        quantization. Default None
+    :return: boolean value if the module is quantizable. Module is considered
+        quantizable if its type is not included in exclude_module_types or
+        NON_QUANTIZABLE_MODULE_NAMES and
+        it either has no module children or is a torch qat fused module
+    """
+    # considers any non-excluded "leaf level" (no children) submodule
+    # to be quantizable as well as torch fused modules
+
+    # add all default excluded module type names
+    exclude_module_types = set(exclude_module_types or [])
+    exclude_module_types.update(NON_QUANTIZABLE_MODULE_NAMES)
+
+    module_type_name = module.__class__.__name__
+    if module_type_name in exclude_module_types:
+        return False
+
+    return len(list(module.children())) == 0 or module_type_name in FUSED_MODULE_NAMES
+
+
 def set_quantization_schemes(module: Module, default_scheme: QuantizationScheme):
     """
-    Sets an appropriate `quantization_scheme` porperty to targeted sections of the
-    given module based on inputs
+    Sets an appropriate `quantization_scheme` to targeted quantizable submodules
 
     :param module: module to attach QuantizationSchemes to
     :param default_scheme: default scheme to add to a target module unless overwritten
         by another scheme
     """
-    module.quantization_scheme = default_scheme
+    for submodule in module.modules():
+        if is_quantizable_module(submodule):
+            submodule.quantization_scheme = default_scheme
 
 
 def set_qconfigs_from_quantization_schemes(module: Module):
@@ -189,10 +227,11 @@ def set_qconfigs_from_quantization_schemes(module: Module):
     for submodule in module.modules():
         if not hasattr(submodule, "quantization_scheme"):
             continue
-        submodule.qconfig = submodule.quantization_scheme.get_qconfig()
-
-    # TODO: remove after set_quantization_schemes updated
-    torch_quantization.propagate_qconfig_(module)
+        if isinstance(submodule, torch_quantization.QuantWrapper):
+            submodule.qconfig = submodule.quantization_scheme.get_wrapper_qconfig()
+            submodule.quant.qconfig = submodule.qconfig
+        else:
+            submodule.qconfig = submodule.quantization_scheme.get_qconfig()
 
 
 def add_input_activation_quant_wrappers(module: Module) -> Module:
@@ -204,9 +243,6 @@ def add_input_activation_quant_wrappers(module: Module) -> Module:
     :return: the updated module - necessary in case top level module is wrapped
         as in-place modification will not support it
     """
-    # check if module type is appropriate for quantization
-    is_quantizable = is_quantizable_module(module)
-
     # check if module targets input activation quantization
     quantize_activations = (
         hasattr(module, "quantization_scheme")
@@ -214,11 +250,11 @@ def add_input_activation_quant_wrappers(module: Module) -> Module:
         and module.quantization_scheme.input_activations is not None
     )
 
-    if is_quantizable and quantize_activations:
+    if quantize_activations:
         # wrap module with a QuantWrapper and assign it the input activation qconfig
-        wrapper_qconfig = module.quantization_scheme.get_wrapper_qconfig()
+        quantization_scheme = module.quantization_scheme
         module = torch_quantization.QuantWrapper(module)
-        module.qconfig = wrapper_qconfig
+        module.quantization_scheme = quantization_scheme
 
         # assumes no nested children of a wrapped block need input activation
         # does not recurse further in this case
@@ -229,17 +265,31 @@ def add_input_activation_quant_wrappers(module: Module) -> Module:
     return module
 
 
-def prepare_module_qat(module: Module):
+def convert_module_qat_from_schemes(module: Module):
     """
-    Converts submodules with set qconfigs into quantization aware modules
+    Converts submodules with set quantization_schemes into quantization aware modules
     with FakeQuantize modules in the model
 
     :param module: module to convert to QAT mode
     """
+    # inject necessary QuantWrappers into the module to apply QAT to
+    # targeted layer input activations
+    module = add_input_activation_quant_wrappers(module)
+
+    # set appropriate qconfig properties in submodules
+    set_qconfigs_from_quantization_schemes(module)
+
     # set modules with proper qconfigs to QAT mode
-    torch_quantization.prepare_qat(module, inplace=True)
+    mapping = _get_qat_module_mappings()
+    torch_quantization.convert(
+        module, mapping=mapping, inplace=True, remove_qconfig=False
+    )
+    torch_quantization.add_observer_(module, non_leaf_module_list=set(mapping.values()))
+
     # manual pass to convert relevant Embedding layers
     prepare_embeddings_qat(module)
+    # re-attach any quantization schemes lost during conversion
+    _reattach_quantization_schemes(module)
 
 
 def raise_if_torch_quantization_not_available():
@@ -262,3 +312,28 @@ def _get_qconfig(
         activation=activation_args.get_observer() if activation_args else Identity,
         weight=weight_args.get_observer() if weight_args else Identity,
     )
+
+
+def _reattach_quantization_schemes(module: Module):
+    # after torch.prepare_qat is called, quantization scheme properties may be lost
+    # due to transfer of base module classes to their QAT implementations
+    # this function uses the reference to the quantization_scheme in the qconfig
+    # to potentially re-attach the scheme
+    for submodule in module.modules():
+        qconfig = getattr(submodule, "qconfig", None)
+        if not qconfig or hasattr(submodule, "quantization_scheme"):
+            # no qconfig, or scheme already set
+            continue
+        quantization_scheme = getattr(qconfig, "quantization_scheme", None)
+        if not quantization_scheme:
+            continue
+        submodule.quantization_scheme = quantization_scheme
+
+
+def _get_qat_module_mappings() -> Dict[Module, Module]:
+    mappings = torch_quantization.quantization_mappings
+    if not hasattr(mappings, "get_default_qat_module_mappings"):
+        # legacy
+        return mappings.get_qat_module_mappings()
+    # latest
+    return mappings.get_default_qat_module_mappings()

@@ -48,7 +48,6 @@ __all__ = [
     "QConfigProperties",
     "LINEAR_ACTIVATION_NAMES",
     "CONV_ACTIVATION_NAMES",
-    "is_quantizable_module",
 ]
 
 LINEAR_ACTIVATION_NAMES = ["Linear", "LinearReLU"]
@@ -108,29 +107,6 @@ _FUSED_MODULE_TYPES = (
     if nni  # nni will always import if torch.quantization is available
     else tuple()
 )
-
-
-def is_quantizable_module(
-    module: Module,
-    exclude_module_types: Optional[List[str]] = None,
-) -> bool:
-    """
-    :param module: module to check
-    :param exclude_module_types: string names of modules to not include for
-        quantization. Default None
-    :return: boolean value if the module is quantizable. Module is considered
-        quantizable if its type is not included in exclude_module_types and
-        it either has no module children or is a torch qat fused module
-    """
-    exclude_module_types = exclude_module_types or []
-    if module.__class__.__name__ in exclude_module_types:
-        return False
-    # for now - considering any "leaf level" (no children) submodule
-    # to be quantizable, update PR on this feature branch will prune the
-    # list of valid module types
-    return len(list(module.children())) == 0 or isinstance(
-        module, tuple(_QUANTIZABLE_MODULE_TYPES)
-    )
 
 
 @dataclass
