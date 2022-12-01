@@ -46,6 +46,7 @@ __all__ = [
     "QuantizationArgs",
     "QuantizationScheme",
     "convert_module_qat_from_schemes",
+    "is_qat_helper_module",
     "is_quantizable_module",
     "set_quantization_schemes",
     "set_qconfigs_from_quantization_schemes",
@@ -177,6 +178,23 @@ class QuantizationScheme(BaseModel):
         return str(dict_repr)
 
 
+def is_qat_helper_module(module: Module) -> bool:
+    """
+    :param module: module to check
+    :return: True if module is an instance of a torch QAT helper class
+    """
+    return isinstance(
+        module,
+        (
+            torch_quantization.ObserverBase,
+            torch_quantization.FakeQuantize,
+            torch_quantization.DeQuantStub,
+            torch_quantization.QuantStub,
+            Identity,
+        ),
+    )
+
+
 def is_quantizable_module(
     module: Module,
     exclude_module_types: Optional[List[str]] = None,
@@ -188,7 +206,7 @@ def is_quantizable_module(
     :return: boolean value if the module is quantizable. Module is considered
         quantizable if its type is not included in exclude_module_types or
         NON_QUANTIZABLE_MODULE_NAMES and
-        it either has no module children or is a torch qat fused module
+        it either has no module children outside of QAT or is a torch qat fused module
     """
     # considers any non-excluded "leaf level" (no children) submodule
     # to be quantizable as well as torch fused modules
@@ -201,19 +219,33 @@ def is_quantizable_module(
     if module_type_name in exclude_module_types:
         return False
 
-    return len(list(module.children())) == 0 or module_type_name in FUSED_MODULE_NAMES
+    return (
+        module_type_name in FUSED_MODULE_NAMES
+        or all(
+            # no children (leaf modules) evaluate to all([]) - (True)
+            is_qat_helper_module(child)
+            for child in module.children()
+        )
+        or isinstance(module, torch_quantization.QuantWrapper)
+    )
 
 
-def set_quantization_schemes(module: Module, default_scheme: QuantizationScheme):
+def set_quantization_schemes(
+    module: Module,
+    default_scheme: QuantizationScheme,
+    exclude_module_types: Optional[List[str]] = None,
+):
     """
     Sets an appropriate `quantization_scheme` to targeted quantizable submodules
 
     :param module: module to attach QuantizationSchemes to
+    :param exclude_module_types: string names of modules to not include for
+        quantization. Default None
     :param default_scheme: default scheme to add to a target module unless overwritten
         by another scheme
     """
     for submodule in module.modules():
-        if is_quantizable_module(submodule):
+        if is_quantizable_module(submodule, exclude_module_types):
             submodule.quantization_scheme = default_scheme
 
 
