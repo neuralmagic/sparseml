@@ -184,7 +184,7 @@ def main():
     )
     loss = openpifpaf.network.losses.Factory().factory(datamodule.head_metas)
 
-    manager, checkpoint_manager = _load_managers_from_checkpoint(
+    manager, checkpoint_manager = _load_managers_and_weights_from_checkpoint(
         args.recipe, net_cpu, checkpoint
     )
 
@@ -264,7 +264,7 @@ def main():
     trainer.loop(train_loader, val_loader, start_epoch=start_epoch)
 
 
-def _load_managers_from_checkpoint(
+def _load_managers_and_weights_from_checkpoint(
     recipe: str, model: torch.nn.Module, checkpoint: Optional[Dict]
 ) -> Tuple[ScheduledModifierManager, ScheduledModifierManager]:
     manager = ScheduledModifierManager.from_yaml(recipe)
