@@ -160,21 +160,21 @@ def main():
     """
     Cases for checkpointing:
     1. No checkpoint - no changes to base flow
-    2. Checkpoint from local file - no changes to base flow
-    3. Checkpoint from zoo stub:
+    2. Checkpoint from local file OR zoo stub:
         a. set args.checkpoint to None to get a random network
         b. manually load in state dict in _load_managers_from_checkpoint
     """
-    zoo_stub = None
-    if args.checkpoint and args.checkpoint.startswith("zoo:"):
-        checkpoint_path = download_framework_model_by_recipe_type(Model(zoo_stub))
-        zoo_checkpoint = torch.load(checkpoint_path, map_location="cpu")
-        args.basenet = zoo_checkpoint["meta"]["args"]["basenet"]
+    if args.checkpoint:
+        if args.checkpoint.startswith("zoo:"):
+            args.checkpoint = download_framework_model_by_recipe_type(
+                Model(args.checkpoint)
+            )
+        checkpoint = torch.load(args.checkpoint, map_location="cpu")
+        args.basenet = checkpoint["meta"]["args"]["basenet"]
         LOG.info(f"Overriding --basenet with value from checkpoint: {args.basenet}")
-        zoo_stub = args.checkpoint
         args.checkpoint = None
     else:
-        zoo_checkpoint = None
+        checkpoint = None
 
     # NOTE: configure this after removing zoo stub checkpoint
     openpifpaf.network.Factory.configure(args)
@@ -185,7 +185,7 @@ def main():
     loss = openpifpaf.network.losses.Factory().factory(datamodule.head_metas)
 
     manager, checkpoint_manager = _load_managers_from_checkpoint(
-        args.recipe, net_cpu, zoo_checkpoint
+        args.recipe, net_cpu, checkpoint
     )
 
     checkpoint_shell = None
