@@ -12,18 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import argparse
 import hashlib
 import logging
 import shutil
-from typing import Optional
 
 import torch
 
 import openpifpaf
 from sparseml.pytorch.optim import ScheduledModifierManager
-from sparseml.pytorch.utils.helpers import download_framework_model_by_recipe_type
-from sparsezoo import Model
 
 
 LOG = logging.getLogger("openpifpaf." + __name__)
@@ -41,35 +37,26 @@ class SparseMLTrainer(openpifpaf.network.Trainer):
     All of this happens in the train.py file.
     """
 
-    # class level variable parsed from argparse results
-    recipe: str = None
-
     def __init__(
         self,
         model: torch.nn.Module,
         loss,
         optimizer,
         out,
-        num_batches_per_epoch,
+        manager,
+        checkpoint_manager,
         *,
-        checkpoint_path: Optional[str] = None,
         checkpoint_shell=None,
         lr_scheduler=None,
         device=None,
         model_meta_data=None,
     ):
-        self.manager = ScheduledModifierManager.from_yaml(self.recipe)
-        self.checkpoint_manager = None
-
-        self._load_managers_from_checkpoint(checkpoint_path, model)
-
+        self.manager = manager
+        self.checkpoint_manager = checkpoint_manager
         self.epochs = self.manager.max_epochs
 
         if self.manager.learning_rate_modifiers:
             lr_scheduler = None
-
-        self.manager.initialize(model)
-        optimizer = self.manager.modify(model, optimizer, num_batches_per_epoch)
 
         super().__init__(
             model,
@@ -81,58 +68,6 @@ class SparseMLTrainer(openpifpaf.network.Trainer):
             device=device,
             model_meta_data=model_meta_data,
         )
-
-    def _load_managers_from_checkpoint(
-        self, checkpoint_path: str, model: torch.nn.Module
-    ):
-        if checkpoint_path is None:
-            LOG.info("Not loading anything from checkpoint")
-            return
-
-        if checkpoint_path.startswith("zoo:"):
-            checkpoint_path = download_framework_model_by_recipe_type(
-                Model(checkpoint_path)
-            )
-
-        checkpoint = torch.load(checkpoint_path, map_location="cpu")
-        if "checkpoint_recipe" not in checkpoint:
-            LOG.info(f"No checkpoint recipe in checkpoint: {list(checkpoint.keys())}")
-            return
-
-        LOG.info("Found recipe in checkpoint")
-        checkpoint_manager = ScheduledModifierManager.from_yaml(
-            checkpoint["checkpoint_recipe"]
-        )
-        if checkpoint["epoch"] == -1:
-            # restore state from finished recipe
-            LOG.info(
-                "Checkpoint was from epoch -1, "
-                "checkpoint recipe is NOT overriding configured recipe"
-            )
-            checkpoint_manager.apply_structure(model, epoch=checkpoint["epoch"])
-            self.checkpoint_manager = checkpoint_manager
-        else:
-            # resume
-            LOG.info(
-                "Checkpoint is a resume checkpoint (epoch > 0), "
-                "checkpoint recipe is overriding configured recipe"
-            )
-            checkpoint_manager.initialize(model, epoch=checkpoint["epoch"])
-            # NOTE: override manager with the checkpoint's manager
-            self.manager = checkpoint_manager
-
-    @classmethod
-    def cli(cls, parser: argparse.ArgumentParser):
-        openpifpaf.network.Trainer.cli(parser)
-        group = parser.add_argument_group("sparseml")
-        group.add_argument(
-            "--recipe", default=None, required=True, help="Path to sparseml recipe"
-        )
-
-    @classmethod
-    def configure(cls, args: argparse.Namespace):
-        openpifpaf.network.Trainer.configure(args)
-        cls.recipe = args.recipe
 
     def loop(
         self,

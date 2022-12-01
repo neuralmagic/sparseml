@@ -19,6 +19,7 @@ import copy
 import logging
 import os
 import socket
+from typing import Optional, Tuple
 
 import torch
 
@@ -26,6 +27,7 @@ import openpifpaf
 from openpifpaf import __version__
 from openpifpaf.train import default_output_file
 from sparseml.openpifpaf.trainer import SparseMLTrainer
+from sparseml.pytorch.optim.manager import ScheduledModifierManager
 from sparseml.pytorch.utils.helpers import download_framework_model_by_recipe_type
 from sparsezoo import Model
 
@@ -44,6 +46,9 @@ def cli():
         "--version",
         action="version",
         version="OpenPifPaf {version}".format(version=__version__),
+    )
+    parser.add_argument(
+        "--recipe", default=None, required=True, help="Path to sparseml recipe"
     )
     parser.add_argument("-o", "--output", default=None, help="output file")
     parser.add_argument("--disable-cuda", action="store_true", help="disable CUDA")
@@ -163,11 +168,13 @@ def main():
     zoo_stub = None
     if args.checkpoint and args.checkpoint.startswith("zoo:"):
         checkpoint_path = download_framework_model_by_recipe_type(Model(zoo_stub))
-        checkpoint = torch.load(checkpoint_path, map_location="cpu")
-        args.basenet = checkpoint["meta"]["args"]["basenet"]
+        zoo_checkpoint = torch.load(checkpoint_path, map_location="cpu")
+        args.basenet = zoo_checkpoint["meta"]["args"]["basenet"]
         LOG.info(f"Overriding --basenet with value from checkpoint: {args.basenet}")
         zoo_stub = args.checkpoint
         args.checkpoint = None
+    else:
+        zoo_checkpoint = None
 
     # NOTE: configure this after removing zoo stub checkpoint
     openpifpaf.network.Factory.configure(args)
@@ -177,9 +184,9 @@ def main():
     )
     loss = openpifpaf.network.losses.Factory().factory(datamodule.head_metas)
 
-    if zoo_stub is not None:
-        # just load state dict from zoo stub
-        net_cpu.load_state_dict(checkpoint["state_dict"])
+    manager, checkpoint_manager = _load_managers_from_checkpoint(
+        args.recipe, net_cpu, zoo_checkpoint
+    )
 
     checkpoint_shell = None
     if not args.disable_cuda and torch.cuda.device_count() > 1 and not args.ddp:
@@ -234,13 +241,16 @@ def main():
     lr_scheduler = openpifpaf.optimize.factory_lrscheduler(
         args, optimizer, len(train_loader), last_epoch=start_epoch
     )
+
+    optimizer = manager.modify(net, optimizer, len(train_loader))
+
     trainer = SparseMLTrainer(
         net,
         loss,
         optimizer,
         args.output,
-        checkpoint_path=args.checkpoint or zoo_stub,
-        num_batches_per_epoch=len(train_loader),
+        manager=manager,
+        checkpoint_manager=checkpoint_manager,
         checkpoint_shell=checkpoint_shell,
         lr_scheduler=lr_scheduler,
         device=args.device,
@@ -252,6 +262,44 @@ def main():
         },
     )
     trainer.loop(train_loader, val_loader, start_epoch=start_epoch)
+
+
+def _load_managers_from_checkpoint(
+    recipe: str, model: torch.nn.Module, checkpoint: Optional[str]
+) -> Tuple[ScheduledModifierManager, ScheduledModifierManager]:
+    manager = ScheduledModifierManager.from_yaml(recipe)
+    checkpoint_manager = None
+
+    if "checkpoint_recipe" not in checkpoint:
+        LOG.info(f"No checkpoint recipe in checkpoint: {list(checkpoint.keys())}")
+        manager.initialize(model)
+        return manager, checkpoint_manager
+
+    LOG.info("Found recipe in checkpoint")
+    checkpoint_manager = ScheduledModifierManager.from_yaml(
+        checkpoint["checkpoint_recipe"]
+    )
+    if checkpoint["epoch"] == -1:
+        # restore state from finished recipe
+        LOG.info(
+            "Checkpoint was from epoch -1, "
+            "checkpoint recipe is NOT overriding configured recipe"
+        )
+        checkpoint_manager.apply_structure(model, epoch=checkpoint["epoch"])
+    else:
+        # resume
+        LOG.info(
+            "Checkpoint is a resume checkpoint (epoch > 0), "
+            "checkpoint recipe is overriding configured recipe"
+        )
+        checkpoint_manager.initialize(model, epoch=checkpoint["epoch"])
+        # NOTE: override manager with the checkpoint's manager
+        manager = checkpoint_manager
+        checkpoint_manager = None
+
+    # just load state dict from zoo stub
+    model.load_state_dict(checkpoint["state_dict"])
+    return manager, checkpoint_manager
 
 
 if __name__ == "__main__":
