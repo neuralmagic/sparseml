@@ -13,6 +13,8 @@
 # limitations under the License.
 
 import pytest
+import torch
+from packaging import version
 
 from sparseml.pytorch.sparsification.quantization import (
     QuantizationArgs,
@@ -85,16 +87,23 @@ def test_quantization_scheme_from_dict(
 
 
 @pytest.mark.parametrize(
-    "qunatization_args,target_quant_min,target_quant_max",
+    "quantization_args,target_quant_min,target_quant_max",
     [
         (QuantizationArgs(num_bits=8, symmetric=False), -128, 127),
         (QuantizationArgs(num_bits=4, symmetric=True), -8, 7),
     ],
 )
 def test_quantization_args_get_observer(
-    qunatization_args, target_quant_min, target_quant_max
+    quantization_args, target_quant_min, target_quant_max
 ):
-    observer = qunatization_args.get_observer()
+    observer = quantization_args.get_observer()
     assert hasattr(observer, "with_args")
+
+    if quantization_args.num_bits == 8 and (
+        version.parse(torch.__version__) >= version.parse("1.12.0")
+    ):
+        # quant min and max not set for default in later versions, no need to parse
+        return
+
     assert observer.p.keywords["quant_min"] == target_quant_min
     assert observer.p.keywords["quant_max"] == target_quant_max

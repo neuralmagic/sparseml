@@ -39,10 +39,8 @@ from sparseml.pytorch.sparsification.quantization.legacy_modifier_quantization i
 from sparseml.pytorch.sparsification.quantization.quantize import (
     DictQuantizationScheme,
     QuantizationScheme,
-    add_input_activation_quant_wrappers,
-    prepare_module_qat,
+    convert_module_qat_from_schemes,
     raise_if_torch_quantization_not_available,
-    set_qconfigs_from_quantization_schemes,
     set_quantization_schemes,
 )
 from sparseml.pytorch.utils import BaseLogger
@@ -204,21 +202,14 @@ class QuantizationModifier(ScheduledModifier):
         # add quantization_schemes to target submodules
         set_quantization_schemes(module, default_scheme=self._default_scheme)
 
-        # set appropriate qconfig properties in submodules
-        set_qconfigs_from_quantization_schemes(module)
-
         # fix for freezing batchnorm statistics when not fusing BN with convs.
         # pytorch only supports freezing batchnorm statistics for fused modules.
         # this fix wraps BN modules adding with a new module class that supports
         # methods related to freezing/unfreezing BN statistics.
         configure_module_bn_wrappers(module)
 
-        # inject necessary QuantWrappers into the module to apply QAT to
-        # targeted layer input activations
-        module = add_input_activation_quant_wrappers(module)
-
         # convert target qconfig layers to QAT modules with FakeQuantize
-        prepare_module_qat(module)
+        convert_module_qat_from_schemes(module)
 
         self._qat_enabled = True
 
