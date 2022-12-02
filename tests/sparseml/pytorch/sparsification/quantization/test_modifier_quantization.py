@@ -19,7 +19,11 @@ import pytest
 from sparseml.pytorch.sparsification.quantization.modifier_quantization import (
     QuantizationModifier,
 )
-from sparseml.pytorch.sparsification.quantization.quantize import QuantizationScheme
+from sparseml.pytorch.sparsification.quantization.quantize import (
+    QuantizationScheme,
+    is_qat_helper_module,
+    is_quantizable_module,
+)
 from tests.sparseml.pytorch.helpers import ConvNet, LinearNet, create_optim_sgd
 from tests.sparseml.pytorch.sparsification.test_modifier import ScheduledModifierTest
 
@@ -53,7 +57,8 @@ def _assert_qconfigs_equal(qconfig_1, qconfig_2):
     _assert_observers_eq(qconfig_1.weight, qconfig_2.weight)
 
 
-def _test_quantized_module(module):
+def _test_quantized_module(base_model, module, name):
+    # check quant scheme and configs are set
     quantization_scheme = getattr(module, "quantization_scheme", None)
     qconfig = getattr(module, "qconfig", None)
     assert quantization_scheme is not None
@@ -67,32 +72,39 @@ def _test_quantized_module(module):
         else quantization_scheme.get_qconfig()
     )
 
+    # check generated qconfig matches expected
     _assert_qconfigs_equal(qconfig, expected_qconfig)
 
     if is_quant_wrapper:
+        # assert that activations are tracked by observer
         assert hasattr(module.quant, "activation_post_process")
         assert isinstance(
             module.quant.activation_post_process, torch_quantization.FakeQuantize
         )
-        # test wrapped module
-        _test_quantized_module(module.module)
+    elif quantization_scheme.input_activations:
+        # assert that parent is a QuantWrapper to quantize activations
+        parent_module = base_model
+        for layer in name.split(".")[:-1]:
+            parent_module = getattr(parent_module, layer)
+        assert isinstance(parent_module, torch_quantization.QuantWrapper)
 
 
 def _test_qat_applied(modifier, model):
     assert modifier._qat_enabled
 
-    # TODO: update to test against expected target modules from modifier
-    # for now, just test QuantWrappers are as expected
-    quant_wrappers = [
-        mod
-        for mod in model.modules()
-        if isinstance(mod, torch_quantization.QuantWrapper)
-    ]
-    assert len(quant_wrappers) > 0
-
-    for module in model.modules():
-        if isinstance(module, torch_quantization.QuantWrapper):
-            _test_quantized_module(module)
+    for name, module in model.named_modules():
+        if is_qat_helper_module(module):
+            # skip helper modules
+            continue
+        if is_quantizable_module(
+            module, exclude_module_types=modifier.exclude_module_types
+        ):
+            # check each target module is quantized
+            _test_quantized_module(model, module, name)
+        else:
+            # check all non-target modules are not quantized
+            assert not hasattr(module, "quantization_scheme")
+            assert not hasattr(module, "qconfig")
 
 
 @pytest.mark.skipif(
@@ -117,8 +129,20 @@ def _test_qat_applied(modifier, model):
             ),
             LinearNet,
         ),
+        (
+            lambda: QuantizationModifier(
+                start_epoch=0.0, exclude_module_types=["Linear"]
+            ),
+            LinearNet,
+        ),
         (lambda: QuantizationModifier(start_epoch=0.0), ConvNet),
         (lambda: QuantizationModifier(start_epoch=2.0), ConvNet),
+        (
+            lambda: QuantizationModifier(
+                start_epoch=0.0, exclude_module_types=["ReLU"]
+            ),
+            ConvNet,
+        ),
     ],
     scope="function",
 )
@@ -192,10 +216,13 @@ def test_quantization_modifier_yaml():
         input_activations=dict(num_bits=8, symmetric=True),
         weights=dict(num_bits=6, symmetric=False),
     )
+    exclude_module_types = ["LayerNorm", "Tanh"]
+
     yaml_str = f"""
     !QuantizationModifier
         start_epoch: {start_epoch}
         default_scheme: {default_scheme}
+        exclude_module_types: {exclude_module_types}
     """
     yaml_modifier = QuantizationModifier.load_obj(
         yaml_str
@@ -206,6 +233,7 @@ def test_quantization_modifier_yaml():
     obj_modifier = QuantizationModifier(
         start_epoch=start_epoch,
         default_scheme=default_scheme,
+        exclude_module_types=exclude_module_types,
     )
 
     assert isinstance(yaml_modifier, QuantizationModifier)
@@ -222,3 +250,8 @@ def test_quantization_modifier_yaml():
     assert isinstance(yaml_modifier.default_scheme, QuantizationScheme)
     assert isinstance(serialized_modifier.default_scheme, QuantizationScheme)
     assert isinstance(obj_modifier.default_scheme, QuantizationScheme)
+    assert (
+        yaml_modifier.exclude_module_types
+        == serialized_modifier.exclude_module_types
+        == obj_modifier.exclude_module_types
+    )
