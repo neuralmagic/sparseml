@@ -37,8 +37,8 @@ from sparseml.pytorch.sparsification.quantization.legacy_modifier_quantization i
     QuantizationModifier as LegacyQuantizationModifier,
 )
 from sparseml.pytorch.sparsification.quantization.quantize import (
-    DictQuantizationScheme,
     QuantizationScheme,
+    QuantizationSchemeLoadable,
     convert_module_qat_from_schemes,
     raise_if_torch_quantization_not_available,
     set_quantization_schemes,
@@ -76,13 +76,27 @@ class QuantizationModifier(ScheduledModifier):
     |           weights:
     |               num_bits: 8
     |               symmetric: True
+    |       submodule_schemes:
+    |           feature_extractor: "default"
+    |           classifier:
+    |               input_activations:
+    |                   num_bits: 8
+    |                   symmetric: False
+    |               weights: null
     |       exclude_module_types: ["ReLU"]
 
     :param start_epoch: The epoch to start the modifier at
     :param default_scheme: Default QuantizationScheme to use when enabling quantization
         in a module. May also be a dictionary to be loaded into the QuantizationScheme
-        class. If None, the default scheme (`QuantizationScheme()`) will be used.
+        class. A string alias may also be used, supported aliases: ['default'].
+        If None, the default scheme (`QuantizationScheme()`) will be used.
         Default is None
+    :param submodule_schemes: Specify submodules to target for quantization. Must
+        be a dictionary of the submodule name to the a quantization scheme
+        specification to quantize that submodule with.  Modules not included under
+        a named submodule in the dictionary will not be targeted for quantization.
+        If set to None, the entire module will be quantized falling back to the default
+        scheme. Default is None
     :param exclude_module_types: optional list of module class names
         to not quantize. Default is None
     :param end_epoch: Disabled, setting to anything other than -1 will raise an
@@ -92,7 +106,8 @@ class QuantizationModifier(ScheduledModifier):
     def __init__(
         self,
         start_epoch: float = -1.0,
-        default_scheme: Union[QuantizationScheme, DictQuantizationScheme, None] = None,
+        default_scheme: QuantizationSchemeLoadable = None,
+        submodule_schemes: Optional[Dict[str, QuantizationSchemeLoadable]] = None,
         exclude_module_types: Optional[List[str]] = None,
         end_epoch: float = -1.0,
     ):
@@ -104,7 +119,10 @@ class QuantizationModifier(ScheduledModifier):
             )
         super().__init__(start_epoch=start_epoch, end_epoch=-1.0, end_comparator=-1)
 
-        self._default_scheme = _load_default_scheme(default_scheme)
+        self._default_scheme = QuantizationScheme.load(default_scheme)
+        self._submodule_schemes = _load_submodule_schemes(
+            submodule_schemes, self._default_scheme
+        )
         self._exclude_module_types = exclude_module_types
 
         self._qat_enabled = False
@@ -117,7 +135,7 @@ class QuantizationModifier(ScheduledModifier):
         return [SparsificationTypes.quantization, SparsificationTypes.structured]
 
     @ModifierProp()
-    def default_scheme(self) -> Union[QuantizationScheme, DictQuantizationScheme, None]:
+    def default_scheme(self) -> QuantizationSchemeLoadable:
         """
         :return: Default QuantizationScheme to use when enabling quantization
             in a module. returned as a dictionary for serialization purposes
@@ -125,17 +143,32 @@ class QuantizationModifier(ScheduledModifier):
         return self._default_scheme
 
     @default_scheme.setter
-    def default_scheme(
-        self,
-        value: Union[QuantizationScheme, DictQuantizationScheme, None],
-    ):
+    def default_scheme(self, value: QuantizationSchemeLoadable):
         """
         :params value: Default QuantizationScheme to use when enabling quantization
             in a module. May also be a dictionary to be loaded into the
             QuantizationScheme class. If None, the default scheme
             (`QuantizationScheme()`) will be used
         """
-        self._default_scheme = _load_default_scheme(value)
+        self._default_scheme = QuantizationScheme.load(value)
+
+    @ModifierProp()
+    def submodule_schemes(self) -> Optional[Dict[str, QuantizationSchemeLoadable]]:
+        """
+        :return: Default QuantizationScheme to use when enabling quantization
+            in a module. returned as a dictionary for serialization purposes
+        """
+        return self._submodule_schemes
+
+    @submodule_schemes.setter
+    def submodule_schemes(self, value: Optional[Dict[str, QuantizationSchemeLoadable]]):
+        """
+        :params value: Default QuantizationScheme to use when enabling quantization
+            in a module. May also be a dictionary to be loaded into the
+            QuantizationScheme class. If None, the default scheme
+            (`QuantizationScheme()`) will be used
+        """
+        self._submodule_schemes = _load_submodule_schemes(value, self._default_scheme)
 
     @ModifierProp()
     def exclude_module_types(self) -> Optional[List[str]]:
@@ -226,6 +259,7 @@ class QuantizationModifier(ScheduledModifier):
         set_quantization_schemes(
             module,
             default_scheme=self._default_scheme,
+            submodule_schemes=self._submodule_schemes,
             exclude_module_types=self._exclude_module_types,
         )
 
@@ -241,12 +275,27 @@ class QuantizationModifier(ScheduledModifier):
         self._qat_enabled = True
 
 
-def _load_default_scheme(
-    default_scheme: Union[QuantizationScheme, DictQuantizationScheme, None]
-) -> QuantizationScheme:
-    if default_scheme is None:
-        return QuantizationScheme()
-    elif isinstance(default_scheme, QuantizationScheme):
-        return default_scheme
-    else:
-        return QuantizationScheme.parse_obj(default_scheme)
+class _QuantizationSchemesDict(dict):
+    # wrapper class for dict to override the __str__ method for yaml serialization
+
+    def __str__(self):
+        return str({submodule: scheme.dict() for submodule, scheme in self.items()})
+
+
+def _load_submodule_schemes(
+    submodule_schemes: Optional[Dict[str, QuantizationSchemeLoadable]],
+    default_scheme: QuantizationScheme,
+) -> Optional[Dict[str, QuantizationScheme]]:
+    if submodule_schemes is None:
+        return None
+    if not isinstance(submodule_schemes, dict):
+        raise ValueError(
+            "submodule_schemes must be set to None or a dict. "
+            f"Found {type(submodule_schemes)}"
+        )
+    return _QuantizationSchemesDict(
+        {
+            submodule: QuantizationScheme.load(scheme, default=default_scheme)
+            for submodule, scheme in submodule_schemes.items()
+        }
+    )

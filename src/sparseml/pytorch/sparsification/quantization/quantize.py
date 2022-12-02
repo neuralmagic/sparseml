@@ -16,6 +16,7 @@
 Tooling for applying quantization to pytorch modules via
 structured configurations
 """
+from copy import deepcopy
 from typing import Any, Dict, List, Optional, Union
 
 import torch
@@ -30,6 +31,7 @@ from sparseml.pytorch.sparsification.quantization.helpers import (
     get_observer,
     prepare_embeddings_qat,
 )
+from sparseml.pytorch.utils import get_layer
 
 
 try:
@@ -45,6 +47,7 @@ __all__ = [
     "DictQuantizationScheme",
     "QuantizationArgs",
     "QuantizationScheme",
+    "QuantizationSchemeLoadable",
     "convert_module_qat_from_schemes",
     "is_qat_helper_module",
     "is_quantizable_module",
@@ -61,6 +64,17 @@ as dictionaries for YAML serialization
 """
 DictQuantizationArgs = Dict[str, Union[int, bool, Dict[str, Any]]]
 DictQuantizationScheme = Dict[str, DictQuantizationArgs]
+
+"""
+Type definition for a type that is valid for loading a QuantizationScheme
+using QuantizationScheme.load
+"""
+QuantizationSchemeLoadable = Union[
+    "QuantizationScheme",
+    DictQuantizationScheme,
+    str,
+    None,
+]
 
 
 class QuantizationArgs(BaseModel):
@@ -148,6 +162,41 @@ class QuantizationScheme(BaseModel):
         ),
     )
 
+    @classmethod
+    def load(
+        cls,
+        scheme: QuantizationSchemeLoadable,
+        default: Optional["QuantizationScheme"] = None,
+    ) -> "QuantizationScheme":
+        """
+        :param scheme: QuantizationScheme, dict representation of scheme,
+            or string alias of a scheme to load. Valid strings: ['default']
+        :param default: default QuantizationScheme to override 'default' scheme
+            with
+        :return: constructed QuantizationScheme object from the given scheme;
+            if given a dict, returns QuantizationScheme.parse_obj(scheme), string
+            input will return the defualt QuantizationScheme if set to 'default'.
+        """
+        if isinstance(scheme, cls):
+            return scheme
+        elif scheme is None or scheme == "default":
+            # if no default override, defaults to QuantizationScheme()
+            return deepcopy(default) or cls()
+        elif isinstance(scheme, str):
+            raise ValueError(
+                f"Unrecognized QuantizationScheme string alias {scheme}. "
+                "Valid strings: ['default']"
+            )
+        elif isinstance(scheme, dict):
+            # default to dict
+            scheme = {key: _parse_quantization_arg(arg) for key, arg in scheme.items()}
+            return cls.parse_obj(scheme)
+        else:
+            raise ValueError(
+                f"Unrecognized type {type(scheme)} for QuantizationScheme.load, "
+                "expected one of: [QuantizationScheme, Dict, str, None]"
+            )
+
     def get_qconfig(self) -> "torch.quantization.QConfig":
         """
         :return: QConfig for Modules (output activations used,
@@ -231,22 +280,34 @@ def is_quantizable_module(
 
 
 def set_quantization_schemes(
-    module: Module,
+    model: Module,
     default_scheme: QuantizationScheme,
+    submodule_schemes: Optional[Dict[str, QuantizationScheme]] = None,
     exclude_module_types: Optional[List[str]] = None,
 ):
     """
     Sets an appropriate `quantization_scheme` to targeted quantizable submodules
 
-    :param module: module to attach QuantizationSchemes to
+    :param model: module to attach QuantizationSchemes to
     :param exclude_module_types: string names of modules to not include for
         quantization. Default None
+    :param submodule_schemes:
     :param default_scheme: default scheme to add to a target module unless overwritten
         by another scheme
     """
-    for submodule in module.modules():
-        if is_quantizable_module(submodule, exclude_module_types):
-            submodule.quantization_scheme = default_scheme
+
+    def _propagate_quantization_scheme(module: Module, scheme: QuantizationScheme):
+        for submodule in module.modules():
+            if is_quantizable_module(submodule, exclude_module_types):
+                submodule.quantization_scheme = scheme
+
+    if submodule_schemes is None:
+        # quantize entire model
+        _propagate_quantization_scheme(model, default_scheme)
+    else:
+        for submodule_name, target_scheme in submodule_schemes.items():
+            submodule = get_layer(submodule_name, model)
+            _propagate_quantization_scheme(submodule, target_scheme)
 
 
 def set_qconfigs_from_quantization_schemes(module: Module):
@@ -369,3 +430,9 @@ def _get_qat_module_mappings() -> Dict[Module, Module]:
         return mappings.get_qat_module_mappings()
     # latest
     return mappings.get_default_qat_module_mappings()
+
+
+def _parse_quantization_arg(arg: Any):
+    if arg == "None":
+        return None
+    return arg
