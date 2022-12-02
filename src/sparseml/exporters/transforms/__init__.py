@@ -13,4 +13,6 @@
 # limitations under the License.
 # flake8: noqa
 from .base_transform import *
+from .convert_quantizable_matmul import *
 from .fold_identity_initializers import *
+from .helpers import *
