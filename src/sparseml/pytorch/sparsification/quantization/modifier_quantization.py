@@ -76,12 +76,15 @@ class QuantizationModifier(ScheduledModifier):
     |           weights:
     |               num_bits: 8
     |               symmetric: True
+    |       exclude_module_types: ["ReLU"]
 
     :param start_epoch: The epoch to start the modifier at
     :param default_scheme: Default QuantizationScheme to use when enabling quantization
         in a module. May also be a dictionary to be loaded into the QuantizationScheme
         class. If None, the default scheme (`QuantizationScheme()`) will be used.
         Default is None
+    :param exclude_module_types: optional list of module class names
+        to not quantize. Default is None
     :param end_epoch: Disabled, setting to anything other than -1 will raise an
         exception. For compatibility with YAML serialization only.
     """
@@ -90,6 +93,7 @@ class QuantizationModifier(ScheduledModifier):
         self,
         start_epoch: float = -1.0,
         default_scheme: Union[QuantizationScheme, DictQuantizationScheme, None] = None,
+        exclude_module_types: Optional[List[str]] = None,
         end_epoch: float = -1.0,
     ):
         raise_if_torch_quantization_not_available()
@@ -101,6 +105,7 @@ class QuantizationModifier(ScheduledModifier):
         super().__init__(start_epoch=start_epoch, end_epoch=-1.0, end_comparator=-1)
 
         self._default_scheme = _load_default_scheme(default_scheme)
+        self._exclude_module_types = exclude_module_types
 
         self._qat_enabled = False
 
@@ -131,6 +136,24 @@ class QuantizationModifier(ScheduledModifier):
             (`QuantizationScheme()`) will be used
         """
         self._default_scheme = _load_default_scheme(value)
+
+    @ModifierProp()
+    def exclude_module_types(self) -> Optional[List[str]]:
+        """
+        :return: optional list of module class names to not propagate
+            quantization configs to. Default is None
+        """
+        return self._exclude_module_types
+
+    @exclude_module_types.setter
+    def exclude_module_types(self, value: Optional[List[str]]):
+        """
+        :params value: Default QuantizationScheme to use when enabling quantization
+            in a module. May also be a dictionary to be loaded into the
+            QuantizationScheme class. If None, the default scheme
+            (`QuantizationScheme()`) will be used
+        """
+        self._exclude_module_types = value
 
     def initialize(
         self,
@@ -200,7 +223,11 @@ class QuantizationModifier(ScheduledModifier):
         fuse_module_conv_bn_relus(module, inplace=True)
 
         # add quantization_schemes to target submodules
-        set_quantization_schemes(module, default_scheme=self._default_scheme)
+        set_quantization_schemes(
+            module,
+            default_scheme=self._default_scheme,
+            exclude_module_types=self._exclude_module_types,
+        )
 
         # fix for freezing batchnorm statistics when not fusing BN with convs.
         # pytorch only supports freezing batchnorm statistics for fused modules.

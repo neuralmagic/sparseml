@@ -18,6 +18,7 @@ Constants related to sparseml pytorch quantization flows
 
 
 __all__ = [
+    "FUSED_MODULE_NAMES",
     "NON_QUANTIZABLE_MODULE_NAMES",
 ]
 
