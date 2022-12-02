@@ -18,7 +18,8 @@ from typing import Optional, Tuple, Union
 import onnx
 from onnx import ModelProto, NodeProto
 
-from sparseml.exporters.transforms import BaseTransform, delete_quant_node
+from sparseml.exporters.transforms import BaseTransform
+from sparseml.exporters.transforms.helpers import delete_quant_node
 from sparseml.onnx.utils import (
     ONNXGraph,
     check_load_model,
@@ -202,7 +203,11 @@ def convert_matmul_to_quantized(
     # follows the last optional node
     if last_node_optional:
         output_dequantize_node = graph.get_node_single_child(output_quantize_node)
-        output_dequantize_node[0] = last_node_optional.output[0]
+        graph.update_node_input(
+            node=output_dequantize_node,
+            input_idx=0,
+            input_id=last_node_optional.input[0],
+        )
 
     # create qmatmul node and add it to graph
     qmatmul_output = (
