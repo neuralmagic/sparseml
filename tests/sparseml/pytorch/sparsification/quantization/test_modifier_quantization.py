@@ -39,7 +39,7 @@ except Exception:
 
 def _assert_qconfigs_equal(qconfig_1, qconfig_2):
     def _assert_observers_eq(observer_1, observer_2):
-        assert type(observer_1) is type(observer_2)
+        assert type(observer_1).__name__ == type(observer_2).__name__
 
         if hasattr(observer_1, "p"):
             # assume observer is a partial, test by properties dict
@@ -70,14 +70,25 @@ def _test_quantized_module(module):
     _assert_qconfigs_equal(qconfig, expected_qconfig)
 
     if is_quant_wrapper:
+        assert hasattr(module.quant, "activation_post_process")
+        assert isinstance(
+            module.quant.activation_post_process, torch_quantization.FakeQuantize
+        )
         # test wrapped module
         _test_quantized_module(module.module)
 
 
 def _test_qat_applied(modifier, model):
+    assert modifier._qat_enabled
+
     # TODO: update to test against expected target modules from modifier
     # for now, just test QuantWrappers are as expected
-    assert getattr(model, "qconfig", None) is not None
+    quant_wrappers = [
+        mod
+        for mod in model.modules()
+        if isinstance(mod, torch_quantization.QuantWrapper)
+    ]
+    assert len(quant_wrappers) > 0
 
     for module in model.modules():
         if isinstance(module, torch_quantization.QuantWrapper):
@@ -182,10 +193,10 @@ def test_quantization_modifier_yaml():
         weights=dict(num_bits=6, symmetric=False),
     )
     yaml_str = f"""
-        !QuantizationModifier
-            start_epoch: {start_epoch}
-            default_scheme: {default_scheme}
-        """
+    !QuantizationModifier
+        start_epoch: {start_epoch}
+        default_scheme: {default_scheme}
+    """
     yaml_modifier = QuantizationModifier.load_obj(
         yaml_str
     )  # type: QuantizationModifier

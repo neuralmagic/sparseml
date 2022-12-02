@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from .constants import *
 from .helpers import *
 from .modifier_quantization import *
 from .quantize import *
