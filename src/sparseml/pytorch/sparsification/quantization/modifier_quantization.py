@@ -19,7 +19,7 @@ PyTorch version must support quantization (>=1.2, ONNX export support introduced
 """
 
 
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Dict, List, Optional, Type
 
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
@@ -120,7 +120,7 @@ class QuantizationModifier(ScheduledModifier):
         super().__init__(start_epoch=start_epoch, end_epoch=-1.0, end_comparator=-1)
 
         self._default_scheme = QuantizationScheme.load(default_scheme)
-        self._submodule_schemes = _load_submodule_schemes(
+        self._submodule_schemes = _load_quantization_schemes_dict(
             submodule_schemes, self._default_scheme
         )
         self._exclude_module_types = exclude_module_types
@@ -168,7 +168,9 @@ class QuantizationModifier(ScheduledModifier):
             QuantizationScheme class. If None, the default scheme
             (`QuantizationScheme()`) will be used
         """
-        self._submodule_schemes = _load_submodule_schemes(value, self._default_scheme)
+        self._submodule_schemes = _load_quantization_schemes_dict(
+            value, self._default_scheme
+        )
 
     @ModifierProp()
     def exclude_module_types(self) -> Optional[List[str]]:
@@ -282,20 +284,15 @@ class _QuantizationSchemesDict(dict):
         return str({submodule: scheme.dict() for submodule, scheme in self.items()})
 
 
-def _load_submodule_schemes(
-    submodule_schemes: Optional[Dict[str, QuantizationSchemeLoadable]],
+def _load_quantization_schemes_dict(
+    schemes_dict: Optional[Dict[str, QuantizationSchemeLoadable]],
     default_scheme: QuantizationScheme,
 ) -> Optional[Dict[str, QuantizationScheme]]:
-    if submodule_schemes is None:
+    if schemes_dict is None:
         return None
-    if not isinstance(submodule_schemes, dict):
-        raise ValueError(
-            "submodule_schemes must be set to None or a dict. "
-            f"Found {type(submodule_schemes)}"
-        )
     return _QuantizationSchemesDict(
         {
             submodule: QuantizationScheme.load(scheme, default=default_scheme)
-            for submodule, scheme in submodule_schemes.items()
+            for submodule, scheme in schemes_dict.items()
         }
     )
