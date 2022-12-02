@@ -170,7 +170,8 @@ class QuantizationScheme(BaseModel):
     ) -> "QuantizationScheme":
         """
         :param scheme: QuantizationScheme, dict representation of scheme,
-            or string alias of a scheme to load. Valid strings: ['default']
+            or string alias of a scheme to load. Valid strings:
+            ['default', 'deepsparse', 'tensorrt']
         :param default: default QuantizationScheme to override 'default' scheme
             with
         :return: constructed QuantizationScheme object from the given scheme;
@@ -183,9 +184,13 @@ class QuantizationScheme(BaseModel):
             # if no default override, defaults to QuantizationScheme()
             return deepcopy(default) or cls()
         elif isinstance(scheme, str):
+            if scheme == "deepsparse":
+                return cls.deepsparse()
+            elif scheme == "tensorrt":
+                return cls.tensorrt()
             raise ValueError(
                 f"Unrecognized QuantizationScheme string alias {scheme}. "
-                "Valid strings: ['default']"
+                "Valid strings: ['default', 'deepsparse', 'tensorrt']"
             )
         elif isinstance(scheme, dict):
             # default to dict
@@ -196,6 +201,31 @@ class QuantizationScheme(BaseModel):
                 f"Unrecognized type {type(scheme)} for QuantizationScheme.load, "
                 "expected one of: [QuantizationScheme, Dict, str, None]"
             )
+
+    @classmethod
+    def deepsparse(cls) -> "QuantizationScheme":
+        """
+        :return: QuantizationScheme for deepsparse targeted deployments -
+            int8, symmetric weights, asymmetric inputs, no output quantization
+        """
+        return cls(
+            input_activations=QuantizationArgs(num_bits=8, symmetric=False),
+            weights=QuantizationArgs(num_bits=8, symmetric=True),
+            output_activations=None,
+        )
+
+    @classmethod
+    def tensorrt(cls) -> "QuantizationScheme":
+        """
+        :return: QuantizationScheme for tensorrt targeted deployments -
+            compatibility with explict quantization as supported by TensorRT 8.2:
+            int8, symmetric for both weights and inputs, no output quantization
+        """
+        return cls(
+            input_activations=QuantizationArgs(num_bits=8, symmetric=True),
+            weights=QuantizationArgs(num_bits=8, symmetric=True),
+            output_activations=None,
+        )
 
     def get_qconfig(self) -> "torch.quantization.QConfig":
         """

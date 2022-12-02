@@ -107,3 +107,32 @@ def test_quantization_args_get_observer(
 
     assert observer.p.keywords["quant_min"] == target_quant_min
     assert observer.p.keywords["quant_max"] == target_quant_max
+
+
+@pytest.mark.parametrize(
+    "scheme_str,expected_scheme",
+    [
+        ("default", QuantizationScheme()),
+        (
+            "deepsparse",
+            QuantizationScheme(
+                input_activations=QuantizationArgs(num_bits=8, symmetric=False),
+                weights=QuantizationArgs(num_bits=8, symmetric=True),
+                output_activations=None,
+            ),
+        ),
+        (
+            "tensorrt",
+            QuantizationScheme(
+                input_activations=QuantizationArgs(num_bits=8, symmetric=True),
+                weights=QuantizationArgs(num_bits=8, symmetric=True),
+                output_activations=None,
+            ),
+        ),
+        # adding to raise an issue if default scheme changes from deepsparse
+        ("deepsparse", QuantizationScheme()),
+    ],
+)
+def test_load_quantization_scheme_from_str(scheme_str, expected_scheme):
+    loaded_scheme = QuantizationScheme.load(scheme_str)
+    assert loaded_scheme == expected_scheme
