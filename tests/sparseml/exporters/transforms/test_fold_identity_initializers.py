@@ -17,7 +17,7 @@ import onnx
 from sparseml.exporters.transforms import FoldIdentityInitializers
 
 
-def test_fold_identity_initializers():
+def _create_test_model():
     model_input = onnx.helper.make_tensor_value_info(
         "input", onnx.TensorProto.FLOAT, (1,)
     )
@@ -38,12 +38,19 @@ def test_fold_identity_initializers():
         outputs=[model_output],
         initializer=[init1],
     )
+
     model = onnx.helper.make_model(graph)
-    onnx.checker.check_model(model)
 
     assert len(model.graph.node) == 2
     assert len(model.graph.initializer) == 1
     assert [node.name for node in model.graph.node] == ["id1", "add"]
+
+    return model
+
+
+def test_fold_identity_initializers():
+    model = _create_test_model()
+    onnx.checker.check_model(model)
 
     transform = FoldIdentityInitializers()
     model = transform(model)

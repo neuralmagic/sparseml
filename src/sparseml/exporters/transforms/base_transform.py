@@ -24,11 +24,11 @@ class BaseTransform(ABC):
     and returns a modified model.
     """
 
-    def __init__(self):
-        pass
+    def __call__(self, model: Any) -> Any:
+        return self.apply(model)
 
     @abstractmethod
-    def __call__(self, model: Any) -> Any:
+    def apply(self, model: Any) -> Any:
         """
         1. Validate the input model
         2. Apply the transform to the model

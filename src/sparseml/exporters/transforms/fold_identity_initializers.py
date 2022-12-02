@@ -66,7 +66,7 @@ class FoldIdentityInitializers(BaseTransform):
     def _validate_output(self, model: ModelProto):
         validate_onnx_file(model)
 
-    def __call__(self, model: Union[ModelProto, str]) -> ModelProto:
+    def apply(self, model: Union[ModelProto, str]) -> ModelProto:
         onnx_model = check_load_model(model)
         self._validate_input(onnx_model)
         onnx_model = self._transform(onnx_model)
