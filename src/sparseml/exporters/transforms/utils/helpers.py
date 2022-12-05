@@ -12,10 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import List, NamedTuple, Set, Union
+from typing import Iterable, List, NamedTuple, Optional, Set, Tuple, Union
 
 import numpy
-from onnx import ModelProto, NodeProto, numpy_helper
+from onnx import ModelProto, NodeProto, TensorProto, numpy_helper
 
 from sparseml.onnx.utils import ONNXGraph, remove_node_and_params_from_graph
 
@@ -161,3 +161,107 @@ def assert_node_type(node: NodeProto, op: Union[List[str], Set[str], str]) -> bo
         return node.op_type == op
     else:
         return node.op_type in op
+
+
+NodeOrInit = Union[NodeProto, TensorProto]
+
+
+class MatchResult:
+    def __init__(self, node: NodeOrInit) -> None:
+        self.node: Optional[NodeOrInit] = node
+        self.parents: List[Optional[NodeOrInit]] = []
+        self.children: List[Optional[NodeOrInit]] = []
+
+
+INITIALIZER_MATCH = "__Initializer__"
+
+
+def optional_node(tag: str) -> str:
+    return "Optional-" + tag
+
+
+def _is_optional_node(tag: str) -> Tuple[str, bool]:
+    if tag.startswith("Optional-"):
+        return tag.split("-")[1], True
+    else:
+        return tag, False
+
+
+def iter_structural_matches(
+    graph: ONNXGraph,
+    op_type: Optional[str] = None,
+    parent_ops: Optional[List[List[str]]] = None,
+    children_ops: Optional[List[List[str]]] = None,
+) -> Iterable[MatchResult]:
+    for node in graph._model.graph.node:
+        match = match_structure(
+            graph,
+            node,
+            op_type=op_type,
+            parent_ops=parent_ops,
+            children_ops=children_ops,
+        )
+        if match is not None:
+            yield match
+
+
+def match_structure(
+    graph: ONNXGraph,
+    node: Union[NodeProto, TensorProto],
+    op_type: Optional[str] = None,
+    parent_ops: Optional[List[List[str]]] = None,
+    children_ops: Optional[List[List[str]]] = None,
+) -> Optional[MatchResult]:
+    """ """
+    match = MatchResult(node)
+
+    if op_type is not None:
+        op_type, is_optional = _is_optional_node(op_type)
+        if is_optional and op_type == INITIALIZER_MATCH:
+            raise NotImplementedError("optional initializers not supported")
+
+        if op_type == INITIALIZER_MATCH and not isinstance(node, TensorProto):
+            return None
+        if op_type != INITIALIZER_MATCH and not (
+            isinstance(node, NodeProto) and node.op_type == op_type
+        ):
+            if is_optional:
+                match.node = None
+            else:
+                return None
+
+    if parent_ops:
+        if not (isinstance(node, NodeProto) and len(parent_ops) == len(node.input)):
+            return None
+
+        parents = graph.get_node_parents(node)
+        assert len(parents) == len(parent_ops)
+        for p, ops in zip(parents, parent_ops):
+            sub_match = match_structure(
+                graph,
+                p,
+                op_type=ops[-1],
+                parent_ops=[ops[:-1]] if len(ops) > 1 else None,
+            )
+            if sub_match is None:
+                return None
+            match.parents.append([sub_match.node] + sub_match.parents)
+
+    if children_ops:
+        if not (isinstance(node, NodeProto) and len(children_ops) == len(node.output)):
+            return None
+
+        children = graph.get_node_children(node)
+        assert len(children) == len(children_ops)
+        for c, ops in zip(children, children_ops):
+            sub_match = match_structure(
+                graph,
+                c,
+                op_type=ops[-1],
+                children_ops=[ops[:-1]] if len(ops) > 1 else None,
+            )
+            if sub_match is None:
+                return None
+            match.children.append([sub_match.node] + sub_match.children)
+
+    return match
