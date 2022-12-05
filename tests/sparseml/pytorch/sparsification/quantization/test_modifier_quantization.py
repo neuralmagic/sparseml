@@ -300,6 +300,8 @@ def test_quantization_modifier_yaml():
     disable_quantization_observer_epoch = 2.0
     freeze_bn_stats_epoch = 3.0
     num_calibration_steps = 1000
+    model_fuse_fn_name = "custom_fuse_fn"
+    model_fuse_fn_kwargs = dict(inplace=True)
 
     yaml_str = f"""
     !QuantizationModifier
@@ -311,6 +313,8 @@ def test_quantization_modifier_yaml():
         disable_quantization_observer_epoch: {disable_quantization_observer_epoch}
         freeze_bn_stats_epoch: {freeze_bn_stats_epoch}
         num_calibration_steps: {num_calibration_steps}
+        model_fuse_fn_name: {model_fuse_fn_name}
+        model_fuse_fn_kwargs: {model_fuse_fn_kwargs}
     """
     yaml_modifier = QuantizationModifier.load_obj(
         yaml_str
@@ -327,6 +331,8 @@ def test_quantization_modifier_yaml():
         disable_quantization_observer_epoch=disable_quantization_observer_epoch,
         freeze_bn_stats_epoch=freeze_bn_stats_epoch,
         num_calibration_steps=num_calibration_steps,
+        model_fuse_fn_name=model_fuse_fn_name,
+        model_fuse_fn_kwargs=model_fuse_fn_kwargs,
     )
 
     assert isinstance(yaml_modifier, QuantizationModifier)
@@ -372,4 +378,14 @@ def test_quantization_modifier_yaml():
         yaml_modifier.num_calibration_steps
         == serialized_modifier.num_calibration_steps
         == obj_modifier.num_calibration_steps
+    )
+    assert (
+        yaml_modifier.model_fuse_fn_name
+        == serialized_modifier.model_fuse_fn_name
+        == obj_modifier.model_fuse_fn_name
+    )
+    assert (
+        yaml_modifier.model_fuse_fn_kwargs
+        == serialized_modifier.model_fuse_fn_kwargs
+        == obj_modifier.model_fuse_fn_kwargs
     )
