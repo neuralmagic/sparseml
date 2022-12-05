@@ -12,22 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from onnx import ModelProto, NodeProto, numpy_helper
-from typing import List, Union, Set
-from sparseml.onnx.utils import ONNXGraph
+from typing import List, NamedTuple, Set, Union
+
 import numpy
-from typing import NamedTuple
-from sparseml.onnx.utils import remove_node_and_params_from_graph
+from onnx import ModelProto, NodeProto, numpy_helper
+
+from sparseml.onnx.utils import ONNXGraph, remove_node_and_params_from_graph
 
 
 _QUANTIZE_OP_NAMES = ["QuantizeLinear", "DequantizeLinear"]
+
 """
 Named tuple object to represent scale/zero point values for quantizing tenors
 """
+
 QuantizationParams = NamedTuple(
     "QuantizationParams",
     [("scale", float), ("zero_point", int), ("target", Union[numpy.ndarray, None])],
 )
+
+
 def get_quantization_params(
     model: Union[ModelProto, ONNXGraph],
     node: NodeProto,
@@ -73,6 +77,7 @@ def get_quantization_params(
             target = numpy_helper.to_array(target)
 
     return QuantizationParams(scale=scale, zero_point=zero_point, target=target)
+
 
 def delete_quant_node(
     model: ModelProto,

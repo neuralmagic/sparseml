@@ -13,17 +13,17 @@
 # limitations under the License.
 
 import logging
-from typing import Optional, Tuple, Union, Set
+from typing import Optional, Set, Tuple, Union
 
 import onnx
 from onnx import ModelProto, NodeProto
 
 from sparseml.exporters.transforms import BaseTransform
 from sparseml.exporters.transforms.helpers import (
-    delete_quant_node,
-    check_for_sequence_of_parent_nodes,
-    check_for_sequence_of_children_nodes,
     assert_node_type,
+    check_for_sequence_of_children_nodes,
+    check_for_sequence_of_parent_nodes,
+    delete_quant_node,
 )
 from sparseml.onnx.utils import (
     ONNXGraph,
@@ -31,6 +31,7 @@ from sparseml.onnx.utils import (
     remove_node_and_params_from_graph,
     validate_onnx_file,
 )
+
 
 _LOGGER = logging.getLogger(__name__)
 
