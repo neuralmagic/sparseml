@@ -19,7 +19,7 @@ import onnx
 from onnx import ModelProto, NodeProto
 
 from sparseml.exporters.transforms import BaseTransform
-from sparseml.exporters.transforms.helpers import (
+from sparseml.exporters.transforms.utils import (
     assert_node_type,
     check_for_sequence_of_children_nodes,
     check_for_sequence_of_parent_nodes,

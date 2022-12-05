@@ -231,37 +231,45 @@ def match_structure(
                 return None
 
     if parent_ops:
-        if not (isinstance(node, NodeProto) and len(parent_ops) == len(node.input)):
+        if not (isinstance(node, NodeProto) and len(parent_ops) <= len(node.input)):
             return None
 
         parents = graph.get_node_parents(node)
-        assert len(parents) == len(parent_ops)
-        for p, ops in zip(parents, parent_ops):
+        assert len(parents) == len(node.input)
+        for p, expected_op_sequence in zip(parents, parent_ops):
+            *head, tail = expected_op_sequence
             sub_match = match_structure(
                 graph,
-                p,
-                op_type=ops[-1],
-                parent_ops=[ops[:-1]] if len(ops) > 1 else None,
+                node=p,
+                op_type=tail,
+                # NOTE: explicitly only matching against a single parent input here
+                #       even though it could have multiple inputs
+                parent_ops=[head] if len(head) > 0 else None,
             )
             if sub_match is None:
                 return None
-            match.parents.append([sub_match.node] + sub_match.parents)
+            sub_parents = sub_match.parents[0] if len(head) > 0 else []
+            match.parents.append(sub_parents + [sub_match.node])
 
     if children_ops:
-        if not (isinstance(node, NodeProto) and len(children_ops) == len(node.output)):
+        if not (isinstance(node, NodeProto) and len(children_ops) <= len(node.output)):
             return None
 
         children = graph.get_node_children(node)
-        assert len(children) == len(children_ops)
-        for c, ops in zip(children, children_ops):
+        assert len(children) == len(node.output)
+        for c, expected_op_sequence in zip(children, children_ops):
+            *head, tail = expected_op_sequence
             sub_match = match_structure(
                 graph,
-                c,
-                op_type=ops[-1],
-                children_ops=[ops[:-1]] if len(ops) > 1 else None,
+                node=c,
+                op_type=tail,
+                # NOTE: explicitly only matching against a single child output here
+                #       even though it could have multiple outputs
+                children_ops=[head] if len(head) > 0 else None,
             )
             if sub_match is None:
                 return None
-            match.children.append([sub_match.node] + sub_match.children)
+            sub_children = sub_match.children[0] if len(head) > 0 else []
+            match.children.append(sub_children + [sub_match.node])
 
     return match
