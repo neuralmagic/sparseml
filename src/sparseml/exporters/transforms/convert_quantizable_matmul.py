@@ -19,7 +19,7 @@ import onnx
 from onnx import ModelProto, NodeProto
 
 from sparseml.exporters.transforms import BaseTransform
-from sparseml.exporters.transforms.helpers import delete_quant_node
+from sparseml.exporters.transforms.helpers import delete_quant_node,check_for_sequence_of_parent_nodes,check_for_sequence_of_children_nodes,check_node_op
 from sparseml.onnx.utils import (
     ONNXGraph,
     check_load_model,
@@ -27,75 +27,9 @@ from sparseml.onnx.utils import (
     validate_onnx_file,
 )
 
-
 _LOGGER = logging.getLogger(__name__)
 
 OPTIONAL_NODES_NAMES = {"Transpose", "Reshape"}
-
-
-def is_node_quantize_linear(node: NodeProto) -> bool:
-    """
-    Checks if a node is a valid quantize linear node
-    """
-    if node is None:
-        return False
-    return node.op_type == "QuantizeLinear"
-
-
-def is_node_dequantize_linear(node: NodeProto) -> bool:
-    """
-    Checks if a node is a valid dequantize linear node
-    """
-    if node is None:
-        return False
-    return node.op_type == "DequantizeLinear"
-
-
-def dequant_quant_previous(matmul_node: NodeProto, graph: "ONNXGraph") -> bool:
-    """
-    Checks whether the inputs to the matmul_node are composed of two nodes:
-    - dequantize_linear
-    - quantize_linear nodes.
-    In other words:
-    - both parent nodes of the matmul_node are `dequantize_linear` nodes
-    - both grandparent nodes (each parent has only a single parent) of
-        the `matmul_node` are `quantize_linear` nodes
-
-    :param matmul_node: A matmul node
-        (i.e a node with op_type == "MatMul")
-    :param graph: An ONNX graph that the node belongs to
-    :return: a boolean flag indicating whether the matmul_node fulfills
-        the conditions described above
-    """
-    parent_nodes = [graph.get_node_single_parent(matmul_node, i) for i in range(2)]
-    for parent_node in parent_nodes:
-        if not is_node_dequantize_linear(parent_node):
-            return False
-        grandparent_node = graph.get_node_single_parent(parent_node, 0)
-        if not is_node_quantize_linear(grandparent_node):
-            return False
-    return True
-
-
-def quant_dequant_next(node: NodeProto, graph: "ONNXGraph") -> bool:
-    """
-    Checks whether the node is followed by a quantize_linear node
-    and then by a dequantize_linear node.
-
-    :param node: A node
-    :param graph: An ONNX graph that the node belongs to
-    :return: a boolean flag indicating whether the node fulfills
-        the conditions described above
-    """
-    child_node = graph.get_node_single_child(node)
-
-    if not is_node_quantize_linear(child_node):
-        return False
-    grandchild_node = graph.get_node_single_child(child_node)
-    if not is_node_dequantize_linear(grandchild_node):
-        return False
-    return True
-
 
 def check_optional_nodes(node: NodeProto, graph: "ONNXGraph") -> Optional[NodeProto]:
     """
@@ -105,18 +39,15 @@ def check_optional_nodes(node: NodeProto, graph: "ONNXGraph") -> Optional[NodePr
     :param graph: An ONNX graph that the node belongs to
     :return: a last optional node
     """
-    child_node = graph.get_node_single_child(node)
-    op_child_node = child_node.op_type
-    if op_child_node not in OPTIONAL_NODES_NAMES:
-        # no optional nodes detected
-        return None
-    grandchild_node = graph.get_node_single_child(child_node)
-    op_grandchild_node = grandchild_node.op_type
-    if op_grandchild_node not in OPTIONAL_NODES_NAMES:
-        # one optional node detected
-        return child_node
-    # two optional nodes detected; returning the last one
-    return grandchild_node
+    list_optional_nodes = []
+    while True:
+        child_node = graph.get_node_single_child(node)
+        if child_node.op_type not in OPTIONAL_NODES_NAMES:
+            break
+        list_optional_nodes.append(child_node)
+        node = child_node
+
+    return list_optional_nodes[-1] if list_optional_nodes else None
 
 
 def is_quantizable_matmul(
@@ -136,22 +67,23 @@ def is_quantizable_matmul(
             1. quantizable matmul node and
             2. None (if no optional nodes present in the graph)
     """
+    parent_nodes = [graph.get_node_single_parent(matmul_node, i) for i in range(2)]
+    for parent_node in parent_nodes:
+        if not check_node_op(parent_node, "DequantizeLinear"):
+            return None
+        if not check_for_sequence_of_parent_nodes(node = parent_node, graph = graph, node_sequence = ["QuantizeLinear"]):
+            return None
 
-    if not dequant_quant_previous(matmul_node, graph):
-        # checking whether nodes prior to matmul are
-        # dequantize_linear and quantize_linear
-        return None
     # check whether matmul node is followed by any of the optional nodes
     last_node_optional = check_optional_nodes(matmul_node, graph)
     node = last_node_optional or matmul_node
 
-    if not quant_dequant_next(node, graph):
-        # checking whether nodes that come after
-        # matmul (or optional nodes if present) are
-        # quantize_linear and dequantize_linear
+    if not check_for_sequence_of_children_nodes(node = node, graph = graph, node_sequence = ["QuantizeLinear", "DequantizeLinear"]):
+        # checking whether nodes prior to matmul are
+        # dequantize_linear and quantize_linear
         return None
-    output_quantize_node = graph.get_node_single_child(node)
 
+    output_quantize_node = graph.get_node_single_child(node)
     return output_quantize_node, last_node_optional
 
 
