@@ -19,7 +19,10 @@ PyTorch version must support quantization (>=1.2, ONNX export support introduced
 """
 
 
-from typing import Any, Dict, List, Optional, Type
+import logging
+import warnings
+from itertools import cycle
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Type
 
 import torch
 from torch.nn import Module
@@ -45,13 +48,16 @@ from sparseml.pytorch.sparsification.quantization.quantize import (
     raise_if_torch_quantization_not_available,
     set_quantization_schemes,
 )
-from sparseml.pytorch.utils import BaseLogger
+from sparseml.pytorch.utils import BaseLogger, tensors_module_forward, tensors_to_device
 from sparseml.sparsification import SparsificationTypes
 
 
 __all__ = [
     "QuantizationModifier",
 ]
+
+
+_LOGGER = logging.getLogger(__name__)
 
 
 # do not move, required to be defined before PyTorchModifierYAML decorator
@@ -117,6 +123,8 @@ class QuantizationModifier(ScheduledModifier):
         not be updated. Leave None to not disable observers during QAT. Default is None
     :param freeze_bn_stats_epoch: Epoch to stop the tracking of batch norm stats. Leave
         None to not stop tracking batch norm stats during QAT. Default is None
+    :param num_calibration_steps: Number of steps to run post training calibration for.
+        When None, the entire calibration_dataloader is used
     :param end_epoch: Disabled, setting to anything other than -1 will raise an
         exception. For compatibility with YAML serialization only.
     """
@@ -130,6 +138,7 @@ class QuantizationModifier(ScheduledModifier):
         exclude_module_types: Optional[List[str]] = None,
         disable_quantization_observer_epoch: Optional[float] = None,
         freeze_bn_stats_epoch: Optional[float] = None,
+        num_calibration_steps: Optional[int] = None,
         end_epoch: float = -1.0,
     ):
         raise_if_torch_quantization_not_available()
@@ -150,6 +159,10 @@ class QuantizationModifier(ScheduledModifier):
         self._exclude_module_types = exclude_module_types
         self._disable_quantization_observer_epoch = disable_quantization_observer_epoch
         self._freeze_bn_stats_epoch = freeze_bn_stats_epoch
+
+        self._num_calibration_steps = num_calibration_steps
+        self._calibration_dataloader = None
+        self._calibration_function = None
 
         self._qat_enabled = False
         self._quantization_observer_disabled = False
@@ -282,11 +295,29 @@ class QuantizationModifier(ScheduledModifier):
         self._freeze_bn_stats_epoch = value
         self._validate_params()
 
+    @ModifierProp()
+    def num_calibration_steps(self) -> Optional[int]:
+        """
+        :return: Number of steps to run post training calibration for.
+            When None, the entire calibration_dataloader is used
+        """
+        return self._num_calibration_steps
+
+    @num_calibration_steps.setter
+    def num_calibration_steps(self, value: Optional[int]):
+        """
+        :params value: Number of steps to run post training calibration for.
+            When None, the entire calibration_dataloader is used
+        """
+        self._num_calibration_steps = value
+
     def initialize(
         self,
         module: Module,
         epoch: float = 0,
         loggers: Optional[List[BaseLogger]] = None,
+        calibration_dataloader: Optional[Iterable[Tuple[List, Dict[str, Any]]]] = None,
+        calibration_function: Optional[Callable] = None,
         **kwargs,
     ):
         """
@@ -296,10 +327,20 @@ class QuantizationModifier(ScheduledModifier):
         :param epoch: The epoch to initialize the modifier and module at.
             Defaults to 0 (start of the training process)
         :param loggers: Optional list of loggers to log the modification process to
+        :param calibration_dataloader: optional dataloader for running post training
+            quantization with the given model. if present, calibration will be run
+            immediately after quantization is enabled
+        :param calibration_function: An Optional callable to use for
+            calibration of module parameters post training. Should be able to
+            accept a batch of inputs along with a module.
+            Example: func(batch, module), Defaults to tensors_module_forward
         :param kwargs: Optional kwargs to support specific arguments
             for individual modifiers.
         """
         super().initialize(module, epoch, loggers, **kwargs)
+
+        self._calibration_dataloader = calibration_dataloader
+        self._calibration_function = calibration_function
 
         self._check_quantization_update(module, epoch, steps_per_epoch=0)
 
@@ -414,6 +455,56 @@ class QuantizationModifier(ScheduledModifier):
         convert_module_qat_from_schemes(module)
 
         self._qat_enabled = True
+
+        self._calibrate_if_possible(module)
+
+    def _calibrate_if_possible(self, module):
+        if self.num_calibration_steps == 0 and self._calibration_dataloader:
+            warnings.warn(
+                f"num_calibration_steps is {self.num_calibration_steps}."
+                f"Calibration data loader will not be used."
+            )
+        elif self.num_calibration_steps and not self._calibration_dataloader:
+            raise ValueError(
+                f"num_calibration_steps is {self.num_calibration_steps}. "
+                "Calibration data loader is not set. Pass a "
+                "calibration_data_loader with initialize(...) method."
+            )
+
+        elif not self._calibration_dataloader or not self._qat_enabled:
+            return
+
+        elif self._calibration_dataloader:
+            self._calibrate(module)
+
+    def _calibrate(self, module):
+        _LOGGER.info("Running quantization calibration using calibration_dataloader")
+
+        module_training = module.training
+        module.eval()
+
+        forward_fn: Callable = (
+            self._calibration_function
+            if self._calibration_function
+            else tensors_module_forward
+        )
+
+        model_device = next(module.parameters()).device
+        _dataloader = (
+            self._calibration_dataloader
+            if self.num_calibration_steps is None
+            else cycle(self._calibration_dataloader)
+        )
+
+        for batch_idx, batch in enumerate(_dataloader):
+            if self.num_calibration_steps and batch_idx >= self.num_calibration_steps:
+                break
+            batch = tensors_to_device(batch, model_device)
+            with torch.no_grad():
+                forward_fn(batch, module=module)
+
+        if module_training:
+            module.train()
 
     def _validate_params(self):
         self.validate_schedule()
