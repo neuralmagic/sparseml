@@ -13,19 +13,18 @@
 # limitations under the License.
 
 import logging
-from typing import Optional, Tuple, Union
+from typing import Union
 
 import onnx
-from onnx import ModelProto, NodeProto
+from onnx import ModelProto
 
 from sparseml.exporters.transforms.base_transform import BaseTransform
 from sparseml.exporters.transforms.utils import (
     MatchResult,
     add_quantized_conv_matmul_add_ops,
-    assert_node_type,
     delete_quant_node,
     get_quantization_params,
-    iter_structural_matches,
+    get_structural_matches,
 )
 from sparseml.exporters.transforms.utils.helpers import INITIALIZER_MATCH
 from sparseml.onnx.utils import (
@@ -126,7 +125,7 @@ class ConvertQuantizableConvInteger(BaseTransform):
     def _transform(self, model: ModelProto) -> ModelProto:
         count_converted_nodes = 0
         graph = ONNXGraph(model)
-        for match in iter_structural_matches(
+        for match in get_structural_matches(
             graph,
             parent_ops=[
                 ["QuantizeLinear", "DequantizeLinear"],

@@ -24,6 +24,9 @@ from sparseml.exporters.transforms.utils import (
     check_for_sequence_of_children_nodes,
     check_for_sequence_of_parent_nodes,
     delete_quant_node,
+    get_structural_matches,
+    MatchResult,
+    optional_node,
 )
 from sparseml.onnx.utils import (
     ONNXGraph,
@@ -105,10 +108,7 @@ def is_quantizable_matmul(
 
 def convert_matmul_to_quantized(
     model: ModelProto,
-    matmul_node: NodeProto,
-    matmul_node_index: int,
-    output_quantize_node: NodeProto,
-    last_node_optional: Optional[NodeProto] = None,
+    match: MatchResult,
 ) -> ModelProto:
     """
     Converts a matmul node to a quantized matmul node
@@ -123,56 +123,43 @@ def convert_matmul_to_quantized(
     :param last_node_optional: An optional node that precedes the `output_quantize_node`
     :return: The modified ONNX model
     """
-    graph = ONNXGraph(model)
-    # fetch two `DequantizeLinear` nodes that precede the `MatMul` node
-    node_0, node_1 = [graph.get_node_single_parent(matmul_node, i) for i in range(2)]
+    a_quant, a_dequant = match.parents[0]
+    b_quant, b_dequant = match.parents[1]
+    opt_transpose, opt_reshape, output_quant, output_dequant = match.children[0]
+
     # construct inputs for the new `QLinearMatmul` node
     qmatmul_inputs = [
-        node_0.input[0],  # a
-        node_0.input[1],  # a_scale
-        node_0.input[2],  # a_zero_point
-        node_1.input[0],  # b
-        node_1.input[1],  # b_scale
-        node_1.input[2],  # b_zero_point
-        output_quantize_node.input[1],  # y_scale
-        output_quantize_node.input[2],  # y_zero_point
+        a_dequant.input[0],  # a
+        a_dequant.input[1],  # a_scale
+        a_dequant.input[2],  # a_zero_point
+        b_dequant.input[0],  # b
+        b_dequant.input[1],  # b_scale
+        b_dequant.input[2],  # b_zero_point
+        output_quant.input[1],  # y_scale
+        output_quant.input[2],  # y_zero_point
     ]
 
     # remove the `DequantizeLinear` nodes that precede the `MatMul` node,
     # as well as the `QuantizeLinear` node that follows the `MatMul` node
     # (or follows the last optional node if optional nodes present)
-    for node_to_delete in [node_0, node_1, output_quantize_node]:
+    for node_to_delete in [a_dequant, b_dequant, output_quant]:
         delete_quant_node(model, node_to_delete)
 
     # delete original MatMul node
-    remove_node_and_params_from_graph(model, matmul_node)
+    remove_node_and_params_from_graph(model, match.node)
 
-    # if optional nodes present, adjust the `DequantizeLinear` node that
-    # follows the last optional node
-    if last_node_optional:
-        output_dequantize_node = graph.get_node_single_child(output_quantize_node)
-        graph.update_node_input(
-            node=output_dequantize_node,
-            input_idx=0,
-            input_id=last_node_optional.input[0],
-        )
+    # set dequantize's input to quant's input
+    # NOTE: this handles the prescence of the optional transpose/reshape nodes
+    output_dequant.input[0] = output_quant.input[0]
 
     # create qmatmul node and add it to graph
-    qmatmul_output = (
-        matmul_node.output[0] if last_node_optional else output_quantize_node.output[0]
-    )
-    qmatmul_name = "{}_quant".format(matmul_node.name)
     qmatmul_node = onnx.helper.make_node(
         "QLinearMatMul",
         qmatmul_inputs,
-        [qmatmul_output],
-        qmatmul_name,
+        [match.node.output[0]],
+        "{}_quant".format(match.node.name),
     )
-    matmul_node_index -= (
-        2  # adjust index to account for two deleted nodes (node_0 and node_1)
-    )
-
-    model.graph.node.insert(matmul_node_index, qmatmul_node)
+    model.graph.node.append(qmatmul_node)
     return model
 
 
@@ -221,28 +208,30 @@ class ConvertQuantizableMatmul(BaseTransform):
     def _transform(self, model: ModelProto) -> ModelProto:
         graph = ONNXGraph(model)
         count_converted_nodes = 0
-        matmul_nodes_indices, matmul_nodes = zip(
-            *[
-                (idx, node)
-                for idx, node in enumerate(model.graph.node)
-                if node.op_type == "MatMul"
-            ]
-        )
-        for idx, matmul_node in zip(matmul_nodes_indices, matmul_nodes):
-            # Check whether there is a match
-            result = is_quantizable_matmul(matmul_node, graph)
-            if result is None:
-                continue
-            output_quantize_node, last_node_optional = result
-            _LOGGER.debug(f"Matched quantizable MatMul: {matmul_node.name}")
+        for match in get_structural_matches(
+            graph,
+            parent_ops=[
+                ["QuantizeLinear", "DequantizeLinear"],
+                ["QuantizeLinear", "DequantizeLinear"],
+            ],
+            op_type="MatMul",
+            children_ops=[
+                [
+                    optional_node("Transpose"),
+                    optional_node("Reshape"),
+                    "QuantizeLinear",
+                    "DequantizeLinear",
+                ]
+            ],
+        ):
+            _LOGGER.debug(f"Matched quantizable MatMul: {match.node.name}")
 
             # Convert
-            model = convert_matmul_to_quantized(
-                model, matmul_node, idx, output_quantize_node, last_node_optional
-            )
+            model = convert_matmul_to_quantized(model, match)
             count_converted_nodes += 1
 
-        if matmul_nodes:
+        ONNXGraph(model).sort_nodes_topologically()
+        if count_converted_nodes > 0:
             _LOGGER.info(
                 f"Converted {count_converted_nodes} quantizable MatMul ops "
                 "to QLinearMatMul"

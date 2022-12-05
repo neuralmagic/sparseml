@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Iterable, List, NamedTuple, Optional, Set, Tuple, Union
+from typing import List, NamedTuple, Optional, Set, Tuple, Union
 
 import numpy
 from onnx import ModelProto, NodeProto, TensorProto, numpy_helper
@@ -169,8 +169,8 @@ NodeOrInit = Union[NodeProto, TensorProto]
 class MatchResult:
     def __init__(self, node: NodeOrInit) -> None:
         self.node: Optional[NodeOrInit] = node
-        self.parents: List[Optional[NodeOrInit]] = []
-        self.children: List[Optional[NodeOrInit]] = []
+        self.parents: List[List[Optional[NodeOrInit]]] = []
+        self.children: List[List[Optional[NodeOrInit]]] = []
 
 
 INITIALIZER_MATCH = "__Initializer__"
@@ -187,22 +187,20 @@ def _is_optional_node(tag: str) -> Tuple[str, bool]:
         return tag, False
 
 
-def iter_structural_matches(
+def get_structural_matches(
     graph: ONNXGraph,
     op_type: Optional[str] = None,
     parent_ops: Optional[List[List[str]]] = None,
     children_ops: Optional[List[List[str]]] = None,
-) -> Iterable[MatchResult]:
+) -> List[MatchResult]:
+    # NOTE: gather matches completely first, so we don't have to worry about
+    # updates to the graph messing with the iteration
+    matches = []
     for node in graph._model.graph.node:
-        match = match_structure(
-            graph,
-            node,
-            op_type=op_type,
-            parent_ops=parent_ops,
-            children_ops=children_ops,
-        )
+        match = match_structure(graph, node, op_type, parent_ops, children_ops)
         if match is not None:
-            yield match
+            matches.append(match)
+    return matches
 
 
 def match_structure(
@@ -217,18 +215,15 @@ def match_structure(
 
     if op_type is not None:
         op_type, is_optional = _is_optional_node(op_type)
-        if is_optional and op_type == INITIALIZER_MATCH:
-            raise NotImplementedError("optional initializers not supported")
-
+        # NOTE: optional handled in children_ops branch below for simplicity
+        #       of implementation
+        assert not is_optional
         if op_type == INITIALIZER_MATCH and not isinstance(node, TensorProto):
             return None
         if op_type != INITIALIZER_MATCH and not (
             isinstance(node, NodeProto) and node.op_type == op_type
         ):
-            if is_optional:
-                match.node = None
-            else:
-                return None
+            return None
 
     if parent_ops:
         if not (isinstance(node, NodeProto) and len(parent_ops) <= len(node.input)):
@@ -238,38 +233,66 @@ def match_structure(
         assert len(parents) == len(node.input)
         for p, expected_op_sequence in zip(parents, parent_ops):
             *head, tail = expected_op_sequence
+            # NOTE: explicitly only matching against a single parent input here
+            #       even though it could have multiple inputs
             sub_match = match_structure(
-                graph,
-                node=p,
-                op_type=tail,
-                # NOTE: explicitly only matching against a single parent input here
-                #       even though it could have multiple inputs
-                parent_ops=[head] if len(head) > 0 else None,
+                graph, node=p, op_type=tail, parent_ops=[head] if head else None
             )
             if sub_match is None:
                 return None
-            sub_parents = sub_match.parents[0] if len(head) > 0 else []
-            match.parents.append(sub_parents + [sub_match.node])
+            match.parents.append(
+                (sub_match.parents[0] if head else []) + [sub_match.node]
+            )
 
     if children_ops:
         if not (isinstance(node, NodeProto) and len(children_ops) <= len(node.output)):
             return None
 
         children = graph.get_node_children(node)
-        assert len(children) == len(node.output)
-        for c, expected_op_sequence in zip(children, children_ops):
-            *head, tail = expected_op_sequence
-            sub_match = match_structure(
-                graph,
-                node=c,
-                op_type=tail,
+        # NOTE: get_node_children can return less than node.output if one of the outputs
+        #       is the graph output.
+        # this is a difference in behavior to get_node_parents, which replaces input
+        # with None, instead of removing it.
+        if not (len(children_ops) <= len(children)):
+            return None
+        for child, expected_op_sequence in zip(children, children_ops):
+            head, *tail = expected_op_sequence
+            head, is_optional = _is_optional_node(head)
+            if is_optional and not (
+                isinstance(child, NodeProto) and child.op_type == head
+            ):
+                if len(tail) == 0:
+                    # there's nothing else to match against, so its successful
+                    match.children.append([None])
+                else:
+                    sub_match = match_structure(
+                        graph,
+                        node=child,
+                        op_type=tail[0],
+                        children_ops=[tail[1:]] if tail[1:] else None,
+                    )
+                    if sub_match is None:
+                        return None
+                    match.children.append(
+                        [None, sub_match.node]
+                        + (sub_match.children[0] if tail[1:] else [])
+                    )
+
+            else:
                 # NOTE: explicitly only matching against a single child output here
                 #       even though it could have multiple outputs
-                children_ops=[head] if len(head) > 0 else None,
-            )
-            if sub_match is None:
-                return None
-            sub_children = sub_match.children[0] if len(head) > 0 else []
-            match.children.append(sub_children + [sub_match.node])
+                sub_match = match_structure(
+                    graph,
+                    node=child,
+                    op_type=head,
+                    children_ops=[tail] if tail else None,
+                )
+                if sub_match is None:
+                    return None
+                match.children.append(
+                    [sub_match.node] + (sub_match.children[0] if tail else [])
+                )
 
+            # sanity checks
+            assert len(match.children[-1]) == len(expected_op_sequence)
     return match

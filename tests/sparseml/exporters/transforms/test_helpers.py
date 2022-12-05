@@ -17,7 +17,7 @@ import pytest
 
 from sparseml.exporters.transforms.utils import (
     INITIALIZER_MATCH,
-    iter_structural_matches,
+    get_structural_matches,
     optional_node,
 )
 from sparseml.onnx.utils.graph_editor import ONNXGraph
@@ -58,10 +58,8 @@ def onnx_graph() -> ONNXGraph:
 
 
 def test_match_optional_nodes(onnx_graph: ONNXGraph):
-    matches = list(
-        iter_structural_matches(
-            onnx_graph, op_type="Add", children_ops=[[optional_node("Add")]]
-        )
+    matches = get_structural_matches(
+        onnx_graph, op_type="Add", children_ops=[[optional_node("Add")]]
     )
     assert len(matches) == 2
 
@@ -77,16 +75,14 @@ def test_match_optional_nodes(onnx_graph: ONNXGraph):
 
 
 def test_match_all_options(onnx_graph: ONNXGraph):
-    matches = list(
-        iter_structural_matches(
-            onnx_graph,
-            parent_ops=[
-                ["Add"],
-                [INITIALIZER_MATCH],
-            ],
-            op_type="Add",
-            children_ops=[["Identity"]],
-        )
+    matches = get_structural_matches(
+        onnx_graph,
+        parent_ops=[
+            ["Add"],
+            [INITIALIZER_MATCH],
+        ],
+        op_type="Add",
+        children_ops=[["Identity"]],
     )
     assert len(matches) == 1
     assert matches[0].node.name == "add2"
@@ -103,10 +99,10 @@ def test_match_all_options(onnx_graph: ONNXGraph):
 
 
 def test_only_op_type(onnx_graph: ONNXGraph):
-    matches = list(iter_structural_matches(onnx_graph, op_type="Conv"))
+    matches = get_structural_matches(onnx_graph, op_type="Conv")
     assert len(matches) == 0
 
-    matches = list(iter_structural_matches(onnx_graph, op_type="Identity"))
+    matches = get_structural_matches(onnx_graph, op_type="Identity")
     assert len(matches) == 2
     assert matches[0].node.name == "id1"
     assert matches[0].parents == []
@@ -115,7 +111,7 @@ def test_only_op_type(onnx_graph: ONNXGraph):
     assert matches[1].parents == []
     assert matches[1].children == []
 
-    matches = list(iter_structural_matches(onnx_graph, op_type="Add"))
+    matches = get_structural_matches(onnx_graph, op_type="Add")
     assert len(matches) == 2
     matches[0].node.name == "add1"
     assert matches[0].parents == []
@@ -126,8 +122,6 @@ def test_only_op_type(onnx_graph: ONNXGraph):
 
 
 def test_initializers_matches(onnx_graph: ONNXGraph):
-    matches = list(
-        iter_structural_matches(onnx_graph, parent_ops=[[INITIALIZER_MATCH]])
-    )
+    matches = get_structural_matches(onnx_graph, parent_ops=[[INITIALIZER_MATCH]])
     assert len(matches) == 1
     assert matches[0].node.name == "id1"
