@@ -83,6 +83,11 @@ class QuantizationModifier(ScheduledModifier):
     |                   num_bits: 8
     |                   symmetric: False
     |               weights: null
+    |       module_type_schemes:
+    |           Conv2d:
+    |               input_activations:
+    |                   num_bits: 8
+    |                   symmetric: True
     |       exclude_module_types: ["ReLU"]
 
     :param start_epoch: The epoch to start the modifier at
