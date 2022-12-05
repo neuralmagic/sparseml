@@ -13,13 +13,18 @@
 # limitations under the License.
 
 import logging
-from typing import Optional, Tuple, Union
+from typing import Optional, Tuple, Union, Set
 
 import onnx
 from onnx import ModelProto, NodeProto
 
 from sparseml.exporters.transforms import BaseTransform
-from sparseml.exporters.transforms.helpers import delete_quant_node,check_for_sequence_of_parent_nodes,check_for_sequence_of_children_nodes,check_node_op
+from sparseml.exporters.transforms.helpers import (
+    delete_quant_node,
+    check_for_sequence_of_parent_nodes,
+    check_for_sequence_of_children_nodes,
+    assert_node_type,
+)
 from sparseml.onnx.utils import (
     ONNXGraph,
     check_load_model,
@@ -31,23 +36,29 @@ _LOGGER = logging.getLogger(__name__)
 
 OPTIONAL_NODES_NAMES = {"Transpose", "Reshape"}
 
-def check_optional_nodes(node: NodeProto, graph: "ONNXGraph") -> Optional[NodeProto]:
+
+def check_optional_nodes(
+    node: NodeProto,
+    graph: "ONNXGraph",
+    optional_nodes_names: Set[str] = OPTIONAL_NODES_NAMES,
+) -> Optional[NodeProto]:
     """
-    Checks whether the node is followed by at most two optional nodes
+    Checks whether the node is followed by a sequence of optional nodes.
+    Assume a linear sequence of optional nodes.
 
     :param node: A node
     :param graph: An ONNX graph that the node belongs to
-    :return: a last optional node
+    :return: a last optional node if available, None otherwise
     """
-    list_optional_nodes = []
+    last_optional_node = None
     while True:
         child_node = graph.get_node_single_child(node)
-        if child_node.op_type not in OPTIONAL_NODES_NAMES:
+        if child_node.op_type not in optional_nodes_names:
             break
-        list_optional_nodes.append(child_node)
         node = child_node
+        last_optional_node = child_node
 
-    return list_optional_nodes[-1] if list_optional_nodes else None
+    return last_optional_node
 
 
 def is_quantizable_matmul(
@@ -69,18 +80,22 @@ def is_quantizable_matmul(
     """
     parent_nodes = [graph.get_node_single_parent(matmul_node, i) for i in range(2)]
     for parent_node in parent_nodes:
-        if not check_node_op(parent_node, "DequantizeLinear"):
+        # assert parent nodes of MatMul are DequantizeLinear
+        if not assert_node_type(parent_node, "DequantizeLinear"):
             return None
-        if not check_for_sequence_of_parent_nodes(node = parent_node, graph = graph, node_sequence = ["QuantizeLinear"]):
+        # assert that grandparent nodes of MatMul are QuantizeLinear
+        if not check_for_sequence_of_parent_nodes(
+            node=parent_node, graph=graph, node_sequence=["QuantizeLinear"]
+        ):
             return None
 
     # check whether matmul node is followed by any of the optional nodes
     last_node_optional = check_optional_nodes(matmul_node, graph)
     node = last_node_optional or matmul_node
 
-    if not check_for_sequence_of_children_nodes(node = node, graph = graph, node_sequence = ["QuantizeLinear", "DequantizeLinear"]):
-        # checking whether nodes prior to matmul are
-        # dequantize_linear and quantize_linear
+    if not check_for_sequence_of_children_nodes(
+        node=node, graph=graph, node_sequence=["QuantizeLinear", "DequantizeLinear"]
+    ):
         return None
 
     output_quantize_node = graph.get_node_single_child(node)
@@ -162,7 +177,7 @@ def convert_matmul_to_quantized(
 
 class ConvertQuantizableMatmul(BaseTransform):
     """
-    A transform that attempts, if appropriate, to convert MatMul nodes into
+    A transform that attempts, if possible, to convert MatMul nodes into
     their quantized representation.
     This MatMul is the result of quantizing native torch.matmul using QATMatMul
 

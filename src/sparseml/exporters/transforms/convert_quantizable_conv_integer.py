@@ -19,7 +19,7 @@ import onnx
 from onnx import ModelProto, NodeProto
 
 from sparseml.exporters.transforms import BaseTransform
-from sparseml.exporters.transforms.helpers import check_for_sequence_of_parent_nodes, check_node_op
+from sparseml.exporters.transforms.helpers import check_for_sequence_of_parent_nodes, assert_node_type, get_quantization_params
 from sparseml.onnx.utils import (
     ONNXGraph,
     check_load_model,
@@ -44,33 +44,23 @@ def is_quantizable_conv(conv_node: NodeProto, model: ModelProto) -> bool:
         # (i.e. from folded batch norm value)
         return False
 
-    for parent_node in [graph.get_node_single_parent(conv_node, i) for i in range(2):
-        if not check_node_op(parent_node, "DequantizeLinear"):
-            return False
-        if not check_for_sequence_of_parent_nodes(node = parent_node, graph = graph, node_sequence = ["QuantizeLinear"]):
-            return False
-    # TODO: WHY QUANTIZE OP NAMES HERE
+    # check the weight nodes
+    weight_dequantize_node = graph.get_node_single_parent(conv_node, 1)
+    if not assert_node_type(weight_dequantize_node, "DequantizeLinear") or not check_for_sequence_of_parent_nodes(weight_dequantize_node, graph, ["QuantizeLinear"]):
+        return False
 
-    if not is_node_dequantize_linear(weight_dequantize_node):
-        return False
-    weight_quantize_node = graph.get_node_single_parent(weight_dequantize_node, 0)
-    if not is_node_quantize_linear(weight_quantize_node):
-        return False
-    # --------
+    # check the input nodes
     input_quantize_node = graph.get_node_single_parent(conv_node, 0)
-    if not is_node_quantize_linear(input_quantize_node) or is_node_dequantize_linear(input_quantize_node):
+    if not assert_node_type(input_quantize_node, "DequantizeLinear"):
         return False
 
-    input_quantize_params = get_quantization_params(model, input_quantize_node, include_target=False)
-    weight_quantize_params = get_quantization_params(model, weight_quantize_node, include_target=True)
-
+    weight_quantize_node = graph.get_node_single_parent(weight_dequantize_node, 0)
+    weight_quantize_params = get_quantization_params(model,weight_quantize_node, include_target=True)
     if weight_quantize_params.target is None:
         # weight initializer not included
         return False
 
-    if input_quantize_node.op_type != "DequantizeLinear":
-        return False
-
+    # check the bias
     bias_initializer = graph.get_init_by_name(conv_node.input[2])
     if bias_initializer is None:
         _LOGGER.debug(f"Unable to find bias initializer: {conv_node.input[2]}")
@@ -78,13 +68,14 @@ def is_quantizable_conv(conv_node: NodeProto, model: ModelProto) -> bool:
 
     return True
 
+
 class ConvertQuantizableConvInteger(BaseTransform):
     """
-    A transform that attempts, if appropriate, to convert Convolution Op with kernel whose activations
+    A transform that attempts, if possible, to convert Convolution Op with kernel whose activations
     are not necessarily quantized into a ConvInteger followed by a bias add and cast to FP32
     This MatMul is the result of quantizing native torch.matmul using QATMatMul
 
-     | Starting with:
+    | Starting with:
     |          INPUT         QuantizeLinear (with constant kernel)
     |            |               |
     |     QuantizeLinear     DequantizeLinear
@@ -111,7 +102,6 @@ class ConvertQuantizableConvInteger(BaseTransform):
     """
 
     def _transform(self, model: ModelProto) -> ModelProto:
-        graph = ONNXGraph(model)
         count_converted_nodes = 0
         conv_nodes_indices, conv_nodes = zip(
             *[
@@ -127,9 +117,6 @@ class ConvertQuantizableConvInteger(BaseTransform):
             _LOGGER.debug(f"Matched quantizable Conv weight and bias: {conv_node.name}")
 
             # Convert
-            model = convert_matmul_to_quantized(
-                model, matmul_node, idx, output_quantize_node, last_node_optional
-            )
             count_converted_nodes += 1
 
         if conv_nodes:

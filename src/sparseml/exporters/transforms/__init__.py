@@ -15,3 +15,4 @@
 from .base_transform import *
 from .convert_quantizable_matmul import *
 from .fold_identity_initializers import *
+from .convert_quantizable_conv_integer import *
