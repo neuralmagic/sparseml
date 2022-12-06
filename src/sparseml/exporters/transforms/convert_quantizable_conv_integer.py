@@ -25,8 +25,8 @@ from sparseml.exporters.transforms.utils import (
     delete_quant_node,
     get_quantization_params,
     get_structural_matches,
+    INITIALIZER_MATCH,
 )
-from sparseml.exporters.transforms.utils.helpers import INITIALIZER_MATCH
 from sparseml.onnx.utils import (
     ONNXGraph,
     check_load_model,
