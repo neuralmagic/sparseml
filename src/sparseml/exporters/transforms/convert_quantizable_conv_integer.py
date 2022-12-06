@@ -13,16 +13,19 @@
 # limitations under the License.
 
 import logging
-from typing import Optional, Tuple, Union
+from typing import Union
 
 import onnx
-from onnx import ModelProto, NodeProto
+from onnx import ModelProto
 
-from sparseml.exporters.transforms import BaseTransform
-from sparseml.exporters.transforms.helpers import assert_node_type, delete_quant_node
+from sparseml.exporters.transforms.base_transform import BaseTransform
 from sparseml.exporters.transforms.utils import (
+    INITIALIZER_MATCH,
+    MatchResult,
     add_quantized_conv_matmul_add_ops,
+    delete_quant_node,
     get_quantization_params,
+    get_structural_matches,
 )
 from sparseml.onnx.utils import (
     ONNXGraph,
@@ -35,72 +38,9 @@ from sparseml.onnx.utils import (
 _LOGGER = logging.getLogger(__name__)
 
 
-def is_quantizable_conv_int(
-    conv_node: NodeProto, model: ModelProto
-) -> Optional[Tuple[NodeProto, NodeProto, NodeProto]]:
-    """
-    Checks if a convolution node is quantizable
-
-    :param conv_node: A convolution node (i.e a node with op_type == "Conv")
-    :param graph: An ONNX graph that the node belongs to
-    :return: One of the following:
-        - None if the convolution node is not quantizable
-        - otherwise, a tuple of:
-            - the input quantize node
-            - the quantized weights node
-            - the dequantized weights node
-    """
-    graph = ONNXGraph(model)
-
-    if len(conv_node.input) != 3:
-        # this function currently only converts Conv nodes with bias param
-        # (i.e. from folded batch norm value)
-        return None
-
-    # verify that between the input and the conv node
-    # there is a quantize and dequantize node
-    weight_dequantize_node = graph.get_node_single_parent(conv_node, 1)
-    weight_quantize_node = graph.get_node_single_parent(weight_dequantize_node, 0)
-    if not assert_node_type(
-        weight_dequantize_node, "DequantizeLinear"
-    ) or not assert_node_type(weight_quantize_node, "QuantizeLinear"):
-        return None
-
-    # verify that between the input and the conv node
-    # there is a quantize and dequantize node
-    input_quantize_node = graph.get_node_single_parent(conv_node, 0)
-    input_dequantize_node = graph.get_node_single_parent(input_quantize_node, 0)
-    if not assert_node_type(
-        input_quantize_node, "DequantizeLinear"
-    ) or not assert_node_type(input_dequantize_node, "QuantizeLinear"):
-        return None
-
-    # verify that the weights and bias have a valid initializer
-    weight_quantize_params = get_quantization_params(
-        model, weight_quantize_node, include_target=True
-    )
-    bias_initializer = graph.get_init_by_name(conv_node.input[2])
-    if weight_quantize_params.target is None:
-        # weight initializer not included
-        return None
-    if bias_initializer is None:
-        # bias initializer not included
-        _LOGGER.debug(f"Unable to find bias initializer: {conv_node.input[2]}")
-        return None
-
-    return (
-        input_quantize_node,
-        weight_quantize_node,
-        weight_dequantize_node,
-    )
-
-
 def convert_conv_to_quantized(
     model: ModelProto,
-    conv_node: NodeProto,
-    weight_quantize_node: NodeProto,
-    weight_dequantize_node: NodeProto,
-    input_quantize_node: NodeProto,
+    match: MatchResult,
 ) -> onnx.ModelProto:
     """
     Converts a conv node to a quantized conv node
@@ -113,10 +53,13 @@ def convert_conv_to_quantized(
     :param input_quantize_node: The quantize node for the input of the conv node
     :return: The converted ONNX model
     """
-    graph = ONNXGraph(model)
+    input_quantize_node, input_dequantize_node = match.parents[0]
+    weight_init, weight_quantize_node, weight_dequantize_node = match.parents[1]
+    (bias_init,) = match.parents[2]
+
     model = add_quantized_conv_matmul_add_ops(
         model=model,
-        node=conv_node,
+        node=match.node,
         input_quantize_node=input_quantize_node,
         weight_quantize_node=weight_quantize_node,
         input_quantize_params=get_quantization_params(
@@ -125,14 +68,15 @@ def convert_conv_to_quantized(
         weight_quantize_params=get_quantization_params(
             model, weight_quantize_node, include_target=True
         ),
-        bias_initializer=graph.get_init_by_name(conv_node.input[2]),
-        bias_add_name="{}_bias_add".format(conv_node.name),
-        target_output=conv_node.output[0],
+        bias_initializer=bias_init,
+        bias_add_name="{}_bias_add".format(match.node.name),
+        target_output=match.node.output[0],
         transpose_weight=False,
     )
 
     delete_quant_node(model, weight_dequantize_node)
     delete_quant_node(model, weight_quantize_node)
+    delete_quant_node(model, input_dequantize_node)
 
     # only delete input node if the matmul is the only child
     current_graph = ONNXGraph(model)
@@ -140,7 +84,7 @@ def convert_conv_to_quantized(
         delete_quant_node(model, input_quantize_node)
 
     # delete original Conv node
-    remove_node_and_params_from_graph(model, conv_node)
+    remove_node_and_params_from_graph(model, match.node)
 
     return model
 
@@ -180,31 +124,32 @@ class ConvertQuantizableConvInteger(BaseTransform):
 
     def _transform(self, model: ModelProto) -> ModelProto:
         count_converted_nodes = 0
-        conv_nodes_indices, conv_nodes = zip(
-            *[
-                (idx, node)
-                for idx, node in enumerate(model.graph.node)
-                if node.op_type == "Conv"
-            ]
-        )
-        for idx, conv_node in zip(conv_nodes_indices, conv_nodes):
-            # Check whether there is a match
-            result = is_quantizable_conv_int(conv_node, model)
-            if result is None:
-                continue
-            input_quantize_node, weight_quantize_node, weight_dequantize_node = result
-            _LOGGER.debug(f"Matched quantizable Conv weight and bias: {conv_node.name}")
-            model = convert_conv_to_quantized(
-                model,
-                conv_node,
-                weight_quantize_node,
-                weight_dequantize_node,
-                input_quantize_node,
+        graph = ONNXGraph(model)
+        for match in get_structural_matches(
+            graph,
+            parent_ops=[
+                ["QuantizeLinear", "DequantizeLinear"],
+                [
+                    # weight should be initializer
+                    INITIALIZER_MATCH,
+                    "QuantizeLinear",
+                    "DequantizeLinear",
+                ],
+                [
+                    # bias should be initializer
+                    INITIALIZER_MATCH
+                ],
+            ],
+            op_type="Conv",
+        ):
+            _LOGGER.debug(
+                f"Matched quantizable Conv weight and bias: {match.node.name}"
             )
+            model = convert_conv_to_quantized(model, match)
 
             count_converted_nodes += 1
 
-        if conv_nodes:
+        if count_converted_nodes > 0:
             _LOGGER.info(
                 f"Converted {count_converted_nodes} quantizable "
                 f"Conv ops with weight and bias "

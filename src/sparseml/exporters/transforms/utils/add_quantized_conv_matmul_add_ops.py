@@ -19,7 +19,7 @@ import onnx
 import torch
 from onnx import AttributeProto, ModelProto, NodeProto, TensorProto, numpy_helper
 
-from sparseml.exporters.transforms.utils import QuantizationParams
+from sparseml.exporters.transforms.utils.helpers import QuantizationParams
 
 
 __all__ = ["add_quantized_conv_matmul_add_ops"]

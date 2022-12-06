@@ -105,6 +105,6 @@ def test():
         "quantize_linear_node_0",
         "conv_node_quant",
         "conv_node_bias_add_quant",
-        "conv_nose_bias_add_quant_cast",
+        "conv_node_bias_add_quant_cast",
         "conv_node_bias_add_quant_rescale_mul",
     ]
