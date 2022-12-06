@@ -13,19 +13,16 @@
 # limitations under the License.
 
 import logging
-from typing import Optional, Set, Tuple, Union
+from typing import Union
 
 import onnx
-from onnx import ModelProto, NodeProto
+from onnx import ModelProto
 
 from sparseml.exporters.transforms import BaseTransform
 from sparseml.exporters.transforms.utils import (
-    assert_node_type,
-    check_for_sequence_of_children_nodes,
-    check_for_sequence_of_parent_nodes,
+    MatchResult,
     delete_quant_node,
     get_structural_matches,
-    MatchResult,
     optional_node,
 )
 from sparseml.onnx.utils import (
@@ -37,73 +34,6 @@ from sparseml.onnx.utils import (
 
 
 _LOGGER = logging.getLogger(__name__)
-
-OPTIONAL_NODES_NAMES = {"Transpose", "Reshape"}
-
-
-def check_optional_nodes(
-    node: NodeProto,
-    graph: "ONNXGraph",
-    optional_nodes_names: Set[str] = OPTIONAL_NODES_NAMES,
-) -> Optional[NodeProto]:
-    """
-    Checks whether the node is followed by a sequence of optional nodes.
-    Assume a linear sequence of optional nodes.
-
-    :param node: A node
-    :param graph: An ONNX graph that the node belongs to
-    :return: a last optional node if available, None otherwise
-    """
-    last_optional_node = None
-    while True:
-        child_node = graph.get_node_single_child(node)
-        if child_node.op_type not in optional_nodes_names:
-            break
-        node = child_node
-        last_optional_node = child_node
-
-    return last_optional_node
-
-
-def is_quantizable_matmul(
-    matmul_node: NodeProto, graph: "ONNXGraph"
-) -> Optional[Tuple[NodeProto, NodeProto]]:
-    """
-    Checks if a matmul node is quantizable
-
-    :param matmul_node: A matmul node (i.e a node with op_type == "MatMul")
-    :param graph: An ONNX graph that the node belongs to
-    :return: One of the following:
-        - None if the matmul node is not quantizable
-        - A tuple of the
-            1. quantizable matmul node and
-            2. last optional node (if any optional nodes present in the graph)
-        - A tuple of the
-            1. quantizable matmul node and
-            2. None (if no optional nodes present in the graph)
-    """
-    parent_nodes = [graph.get_node_single_parent(matmul_node, i) for i in range(2)]
-    for parent_node in parent_nodes:
-        # assert parent nodes of MatMul are DequantizeLinear
-        if not assert_node_type(parent_node, "DequantizeLinear"):
-            return None
-        # assert that grandparent nodes of MatMul are QuantizeLinear
-        if not check_for_sequence_of_parent_nodes(
-            node=parent_node, graph=graph, node_sequence=["QuantizeLinear"]
-        ):
-            return None
-
-    # check whether matmul node is followed by any of the optional nodes
-    last_node_optional = check_optional_nodes(matmul_node, graph)
-    node = last_node_optional or matmul_node
-
-    if not check_for_sequence_of_children_nodes(
-        node=node, graph=graph, node_sequence=["QuantizeLinear", "DequantizeLinear"]
-    ):
-        return None
-
-    output_quantize_node = graph.get_node_single_child(node)
-    return output_quantize_node, last_node_optional
 
 
 def convert_matmul_to_quantized(

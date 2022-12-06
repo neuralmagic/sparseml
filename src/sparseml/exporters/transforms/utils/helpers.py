@@ -206,23 +206,21 @@ def get_structural_matches(
 def match_structure(
     graph: ONNXGraph,
     node: Union[NodeProto, TensorProto],
-    op_type: Optional[str] = None,
+    op_type: str,
     parent_ops: Optional[List[List[str]]] = None,
     children_ops: Optional[List[List[str]]] = None,
 ) -> Optional[MatchResult]:
-    """ """
     match = MatchResult(node)
 
-    if op_type is not None:
-        op_type, is_optional = _is_optional_node(op_type)
-        # NOTE: optional handled in children_ops branch below for simplicity
-        #       of implementation
-        assert not is_optional
-        if op_type == INITIALIZER_MATCH and not isinstance(node, TensorProto):
-            return None
-        if op_type != INITIALIZER_MATCH and not (
-            isinstance(node, NodeProto) and node.op_type == op_type
-        ):
+    op_type, is_optional = _is_optional_node(op_type)
+    if op_type == INITIALIZER_MATCH and not isinstance(node, TensorProto):
+        return None
+    if op_type != INITIALIZER_MATCH and not (
+        isinstance(node, NodeProto) and node.op_type == op_type
+    ):
+        if is_optional:
+            match.node = None
+        else:
             return None
 
     if parent_ops:
@@ -232,6 +230,7 @@ def match_structure(
         parents = graph.get_node_parents(node)
         assert len(parents) == len(node.input)
         for p, expected_op_sequence in zip(parents, parent_ops):
+            # NOTE: since these are before the current parent, we iterate backwards
             *head, tail = expected_op_sequence
             # NOTE: explicitly only matching against a single parent input here
             #       even though it could have multiple inputs
@@ -257,41 +256,20 @@ def match_structure(
             return None
         for child, expected_op_sequence in zip(children, children_ops):
             head, *tail = expected_op_sequence
-            head, is_optional = _is_optional_node(head)
-            if is_optional and not (
-                isinstance(child, NodeProto) and child.op_type == head
-            ):
-                if len(tail) == 0:
-                    # there's nothing else to match against, so its successful
-                    match.children.append([None])
-                else:
-                    sub_match = match_structure(
-                        graph,
-                        node=child,
-                        op_type=tail[0],
-                        children_ops=[tail[1:]] if tail[1:] else None,
-                    )
-                    if sub_match is None:
-                        return None
-                    match.children.append(
-                        [None, sub_match.node]
-                        + (sub_match.children[0] if tail[1:] else [])
-                    )
 
-            else:
-                # NOTE: explicitly only matching against a single child output here
-                #       even though it could have multiple outputs
-                sub_match = match_structure(
-                    graph,
-                    node=child,
-                    op_type=head,
-                    children_ops=[tail] if tail else None,
-                )
-                if sub_match is None:
-                    return None
-                match.children.append(
-                    [sub_match.node] + (sub_match.children[0] if tail else [])
-                )
+            # NOTE: explicitly only matching against a single child output here
+            #       even though it could have multiple outputs
+            sub_match = match_structure(
+                graph,
+                node=node if match.node is None else child,
+                op_type=head,
+                children_ops=[tail] if tail else None,
+            )
+            if sub_match is None:
+                return None
+            match.children.append(
+                [sub_match.node] + (sub_match.children[0] if tail else [])
+            )
 
             # sanity checks
             assert len(match.children[-1]) == len(expected_op_sequence)
