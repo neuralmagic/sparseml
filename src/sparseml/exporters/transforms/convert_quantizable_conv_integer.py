@@ -20,12 +20,12 @@ from onnx import ModelProto
 
 from sparseml.exporters.transforms.base_transform import BaseTransform
 from sparseml.exporters.transforms.utils import (
+    INITIALIZER_MATCH,
     MatchResult,
     add_quantized_conv_matmul_add_ops,
     delete_quant_node,
     get_quantization_params,
     get_structural_matches,
-    INITIALIZER_MATCH,
 )
 from sparseml.onnx.utils import (
     ONNXGraph,
