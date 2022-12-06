@@ -119,3 +119,18 @@ def test_only_op_type(onnx_graph: ONNXGraph):
     matches[1].node.name == "add2"
     assert matches[1].parents == []
     assert matches[1].children == []
+
+
+def test_parent_empty(onnx_graph: ONNXGraph):
+    matches = get_structural_matches(
+        onnx_graph,
+        op_type="Add",
+        parent_ops=[
+            [],
+            [INITIALIZER_MATCH],
+        ],
+    )
+    assert len(matches) == 1
+    assert matches[0].node.name == "add2"
+    assert len(matches[0].parents[0]) == 0
+    assert len(matches[0].parents[1]) == 1
