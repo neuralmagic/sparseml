@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Iterable, List, NamedTuple, Optional, Set, Tuple, Union
-
+from typing import Iterable, List, NamedTuple, Optional, Set, Tuple, Union, Any
+import torch
 import numpy
 from onnx import ModelProto, NodeProto, TensorProto, numpy_helper
 
@@ -100,6 +100,25 @@ def delete_quant_node(
         del node.input[0]
     remove_node_and_params_from_graph(model, node)
 
+def quantize_array(
+    array: numpy.ndarray, scale: float, zero_point: int, dtype: Any = numpy.uint8
+) -> numpy.ndarray:
+
+    if dtype == numpy.uint8:
+        tensor_dtype = torch.quint8
+    elif dtype == numpy.int8:
+        tensor_dtype = torch.qint8
+    elif dtype == numpy.int32:
+        tensor_dtype = torch.qint32
+
+    tensor = torch.Tensor(array.copy()).to(torch.float32)
+    if isinstance(scale, numpy.ndarray):
+        scale = scale.item()
+    if isinstance(zero_point, numpy.ndarray):
+        zero_point = zero_point.item()
+
+    quant_tensor = torch.quantize_per_tensor(tensor, scale, zero_point, tensor_dtype)
+    return quant_tensor.int_repr().numpy()
 
 def check_for_sequence_of_children_nodes(
     node: NodeProto, graph: "ONNXGraph", node_sequence: List[str]
@@ -231,12 +250,14 @@ def match_structure(
                 return None
 
     if parent_ops:
-        if not (isinstance(node, NodeProto) and len(parent_ops) <= len(node.input)):
+        if not (isinstance(node, NodeProto) and len(parent_ops) <= len(node.input)): # maybe add test here
             return None
 
         parents = graph.get_node_parents(node)
-        assert len(parents) == len(node.input)
         for p, expected_op_sequence in zip(parents, parent_ops):
+            if p is None and expected_op_sequence == []:
+                match.parents.append([])
+                continue
             *head, tail = expected_op_sequence
             sub_match = match_structure(
                 graph,

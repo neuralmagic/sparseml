@@ -270,26 +270,6 @@ def _quantize_weight_initializer(
     return quantized_weight_initializer
 
 
-def _quantize_array(
-    array: numpy.ndarray, scale: float, zero_point: int, dtype: Any = numpy.uint8
-) -> numpy.ndarray:
-
-    if dtype == numpy.uint8:
-        tensor_dtype = torch.quint8
-    elif dtype == numpy.int8:
-        tensor_dtype = torch.qint8
-    elif dtype == numpy.int32:
-        tensor_dtype = torch.qint32
-
-    tensor = torch.Tensor(array.copy()).to(torch.float32)
-    if isinstance(scale, numpy.ndarray):
-        scale = scale.item()
-    if isinstance(zero_point, numpy.ndarray):
-        zero_point = zero_point.item()
-
-    quant_tensor = torch.quantize_per_tensor(tensor, scale, zero_point, tensor_dtype)
-    return quant_tensor.int_repr().numpy()
-
 
 def _attribute_to_kwarg(attribute: AttributeProto):
     # Adapted from ORT quantize.py

@@ -170,3 +170,4 @@ class ConvertQuantizableConvInteger(BaseTransform):
         onnx_model = self._transform(onnx_model)
         self._validate_output(onnx_model)
         return onnx_model
+
