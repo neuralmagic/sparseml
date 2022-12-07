@@ -19,6 +19,14 @@ from onnx import NodeProto, TensorProto
 from sparseml.onnx.utils import ONNXGraph
 
 
+__all__ = [
+    "INITIALIZER_MATCH",
+    "optional_node",
+    "MatchResult",
+    "NodeOrInit",
+    "get_structural_matches",
+]
+
 INITIALIZER_MATCH = "__Initializer__"
 """
 A special tag **ONLY** used for matching code to
