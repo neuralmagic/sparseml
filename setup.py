@@ -67,7 +67,7 @@ _pytorch_deps = [
     "tensorboardX>=1.0",
     "gputils",
 ]
-_pytorch_vision_deps = _pytorch_deps + ["torchvision>=0.3.0,<=0.13.0"]
+_pytorch_vision_deps = _pytorch_deps + ["torchvision>=0.3.0,<=0.13"]
 _tensorflow_v1_deps = ["tensorflow<2.0.0", "tensorboard<2.0.0", "tf2onnx>=1.0.0,<1.6"]
 _tensorflow_v1_gpu_deps = [
     "tensorflow-gpu<2.0.0",
