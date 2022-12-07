@@ -49,7 +49,7 @@ class OnnxTransform(BaseTransform):
 
         model = check_load_model(model)
         self.pre_validate(model)
-        model = self._transform(model)
+        model = self.transform(model)
         self.post_validate(model)
         return model
 
