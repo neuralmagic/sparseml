@@ -22,7 +22,6 @@ import time
 import warnings
 from functools import update_wrapper
 from types import SimpleNamespace
-from sparseml.pytorch.utils.model import load_model
 
 import torch
 import torch.utils.data
@@ -40,6 +39,7 @@ from sparseml.pytorch.utils.helpers import (
     download_framework_model_by_recipe_type,
     torch_distributed_zero_first,
 )
+from sparseml.pytorch.utils.model import load_model
 from sparsezoo import Model
 
 
