@@ -419,7 +419,7 @@ def main(args):
 
         # restore state from prior recipe
         manager = ScheduledModifierManager.from_yaml(
-            checkpoint["recipe"] or args.recipe
+            args.recipe or checkpoint["recipe"]
         )
         checkpoint_manager = ScheduledModifierManager.from_yaml(checkpoint["recipe"])
         checkpoint_manager.apply_structure(model, epoch=checkpoint.get("epoch", -1))
