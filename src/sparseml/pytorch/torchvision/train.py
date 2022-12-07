@@ -22,6 +22,7 @@ import time
 import warnings
 from functools import update_wrapper
 from types import SimpleNamespace
+from sparseml.pytorch.utils.model import load_model
 
 import torch
 import torch.utils.data
@@ -332,6 +333,8 @@ def main(args):
         model = torchvision.models.__dict__[args.arch_key](
             pretrained=args.pretrained, num_classes=num_classes
         )
+        if args.checkpoint_path is not None:
+            load_model(args.checkpoint_path, model, strict=True)
     else:
         raise ValueError(
             f"Unable to find {args.arch_key} in ModelRegistry or in torchvision.models"
@@ -418,11 +421,12 @@ def main(args):
         checkpoint = _load_checkpoint(args.checkpoint_path)
 
         # restore state from prior recipe
-        manager = ScheduledModifierManager.from_yaml(
-            args.recipe or checkpoint["recipe"]
+        manager = (
+            ScheduledModifierManager.from_yaml(args.recipe)
+            if args.recipe is not None
+            else None
         )
         checkpoint_manager = ScheduledModifierManager.from_yaml(checkpoint["recipe"])
-        checkpoint_manager.apply_structure(model, epoch=checkpoint.get("epoch", -1))
     elif args.resume:
         checkpoint = _load_checkpoint(args.resume)
 
@@ -442,7 +446,6 @@ def main(args):
 
     # load params
     if checkpoint is not None:
-        model.load_state_dict(checkpoint["state_dict"])
         optimizer.load_state_dict(checkpoint["optimizer"])
         if model_ema and "model_ema" in checkpoint:
             model_ema.load_state_dict(checkpoint["model_ema"])
