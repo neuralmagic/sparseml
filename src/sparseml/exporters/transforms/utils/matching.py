@@ -82,17 +82,36 @@ def get_structural_matches(
     Here's a simple example of matching against an identity node
     with a single parent (because there is a single list in parent_ops),
     and the parent must be an initializer (the INITIALIZER_MATCH value):
-    ```python
-    matches = get_structural_matches(
-        graph,
-        op_type="Identity",
-        parent_ops=[[INITIALIZER_MATCH]]
-    )
-    for match in matches:
-        id_node = match.node
-        (init, ) = match.parents[0]
-        assert isinstance(init, onnx.TensorProto)
-    ```
+
+        ```python
+        matches = get_structural_matches(
+            graph,
+            op_type="Identity",
+            parent_ops=[[INITIALIZER_MATCH]]
+        )
+        for match in matches:
+            id_node = match.node
+            (init, ) = match.parents[0]
+            assert isinstance(init, onnx.TensorProto)
+        ```
+
+    Another example is matching against a single parent branch of a node. In this
+    case you can just specify `[]` as one of the parent ops:
+
+        ```python
+        matches = get_structural_matches(
+            graph,
+            op_type="Add",
+            parent_ops=[
+                [],
+                ["QuantizeLinear", "DequantizeLinear"]
+            ]
+        )
+        for match in matches:
+            add_node = match.node
+            assert len(match.parents[0]) == 0
+            parent_1_quant, parent_1_dequant = match.parents[1]
+        ```
 
     Here is a really complicated example with optional nodes and multiple parents. Here
     we match against MatMul nodes that have at least 2 inputs from Quant/Dequant
@@ -106,29 +125,29 @@ def get_structural_matches(
     In both cases, the length of match.children[0] will be the same as
     the length of children_ops[0].
 
-    ```python
-    matches = get_structural_matches(
-        graph,
-        op_type="MatMul",
-        parent_ops=[
-            ["QuantizeLinear", "DequantizeLinear"],
-            ["QuantizeLinear", "DequantizeLinear"],
-        ],
-        children_ops=[
-            [
-                optional_node("Transpose"),
-                optional_node("Reshape"),
-                "QuantizeLinear",
-                "DequantizeLinear",
+        ```python
+        matches = get_structural_matches(
+            graph,
+            op_type="MatMul",
+            parent_ops=[
+                ["QuantizeLinear", "DequantizeLinear"],
+                ["QuantizeLinear", "DequantizeLinear"],
+            ],
+            children_ops=[
+                [
+                    optional_node("Transpose"),
+                    optional_node("Reshape"),
+                    "QuantizeLinear",
+                    "DequantizeLinear",
+                ]
             ]
-        ]
-    )
-    for match in matches:
-        matmul_node = match.node
-        parent_0_quant, parent_0_dequant = match.parents[0]
-        parent_1_quant, parent_1_dequant = match.parents[1]
-        opt_transpose, opt_reshape, child_quant, child_dequant = match.children[0]
-    ```
+        )
+        for match in matches:
+            matmul_node = match.node
+            parent_0_quant, parent_0_dequant = match.parents[0]
+            parent_1_quant, parent_1_dequant = match.parents[1]
+            opt_transpose, opt_reshape, child_quant, child_dequant = match.children[0]
+        ```
     """
 
     # NOTE: gather matches completely first, so we don't have to worry about
