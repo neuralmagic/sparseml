@@ -37,7 +37,8 @@ class OnnxTransform(BaseTransform):
         3. Validate the resulting model and return it
 
         :param model: The input ONNX model to be
-            validated, transformed and once again, validated
+            validated, transformed and once again, validated.
+            It can be a path to the model or the model itself.
         :return: The transformed ONNX model
         """
         if not ((isinstance(model, str) or isinstance(model, ModelProto))):
@@ -55,7 +56,7 @@ class OnnxTransform(BaseTransform):
     @abstractmethod
     def transform(self, model: ModelProto) -> ModelProto:
         """
-        Logic for applying the transformation to the ONNX model.
+        Logic for applying the transformation to the ONNX model
 
         :param model: The input ONNX model to be transformed
         :return: The transformed ONNX model
