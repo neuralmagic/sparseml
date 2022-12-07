@@ -43,7 +43,7 @@ def fold_identity_initializer(
         for i, child_node_input in enumerate(child_node.input):
             if child_node_input == match.node.output[0]:
                 child_node.input[i] = match.node.input[0]
-        model.graph.node.remove(match.node)
+    model.graph.node.remove(match.node)
     return model
 
 
