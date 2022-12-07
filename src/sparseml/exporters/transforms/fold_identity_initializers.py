@@ -26,8 +26,8 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def fold_identity_initializer(
-    match: "MatchResult", model: ModelProto
-) -> ModelProto:  # noqa F821
+    match: "MatchResult", model: ModelProto  # noqa F821
+) -> ModelProto:
     """
     Find any node in the graph that uses the output of
     the `match.node` as it's input. Replace the input
@@ -50,7 +50,20 @@ def fold_identity_initializer(
 class FoldIdentityInitializers(OnnxTransform):
     """
     Folds any `Identity` initializer node into the graph.
-    TODO: Add graph
+
+    | Starting with:
+    |   INPUT   Identity (with initializer)
+    |      |      |
+    |      (SOME OP)
+    |         |
+    |       OUTPUT
+    |
+    | We end up converting to:
+    |       INPUT
+    |         |
+    |     (SOME OP)
+    |         |
+    |      OUTPUT
     """
 
     def transform(self, model: ModelProto) -> ModelProto:

@@ -18,6 +18,14 @@ from sparseml.exporters.transforms import FoldIdentityInitializers
 
 
 def _create_test_model():
+    """
+    | Creates an ONNX model:
+    |   INPUT   Identity (with initializer)
+    |       |    |
+    |        ADD
+    |         |
+    |       OUTPUT
+    """
     model_input = onnx.helper.make_tensor_value_info(
         "input", onnx.TensorProto.FLOAT, (1,)
     )
