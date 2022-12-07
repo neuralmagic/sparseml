@@ -15,7 +15,7 @@
 import onnx
 import pytest
 
-from sparseml.exporters.transforms.utils import (
+from sparseml.exporters.transforms.utils.matching import (
     INITIALIZER_MATCH,
     get_structural_matches,
     optional_node,
