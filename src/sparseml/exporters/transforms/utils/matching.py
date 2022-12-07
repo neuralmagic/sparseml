@@ -154,7 +154,7 @@ class MatchResult:
     The output of :func:`get_structural_matches`
     """
 
-    def __init__(self, node: NodeOrInit) -> None:
+    def __init__(self, node: NodeOrInit):
         self.node: Optional[NodeOrInit] = node
         """
         The main node that was matched at top level. This node will have the op_type
