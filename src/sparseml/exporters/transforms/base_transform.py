@@ -50,7 +50,6 @@ class BaseTransform(ABC):
         :param model: The input model to be transformed
         :return: The transformed model
         """
-        # The transform algorithm that will be applied to the model
         raise NotImplementedError
 
     @abstractmethod
