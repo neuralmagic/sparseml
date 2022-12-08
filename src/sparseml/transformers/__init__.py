@@ -18,24 +18,13 @@ Tools for integrating SparseML with transformers training flows
 
 # flake8: noqa
 
+import importlib
 import logging as _logging
 
-from packaging import version
+import pkg_resources
 
 
-try:
-    import transformers as _transformers
-
-    # triggers error if the latest neuralmagic/transformers is not installed
-    _nm_integrated = _transformers.NM_INTEGRATED
-    _upstream_base_version = str(version.parse(_transformers.__version__))
-    _expected_upstream_base_version = "4.23.1"
-    assert _nm_integrated
-    assert _upstream_base_version == _expected_upstream_base_version
-    _transformers_import_error = None
-except Exception as _transformers_import_err:
-    _nm_integrated = False
-    _transformers_import_error = _transformers_import_err
+_EXPECTED_VERSION = "4.23.1"
 
 
 _LOGGER = _logging.getLogger(__name__)
@@ -73,7 +62,9 @@ def _install_transformers_and_deps():
             ]
         )
 
-        import transformers as _transformers
+        import transformers
+
+        importlib.reload(transformers)
 
         _LOGGER.info("sparseml-transformers and dependencies successfully installed")
     except Exception:
@@ -85,7 +76,17 @@ def _install_transformers_and_deps():
 
 
 def _check_transformers_install():
-    if _transformers_import_error is not None:
+    transformers_version = next(
+        (
+            pkg.version
+            for pkg in pkg_resources.working_set
+            if pkg.project_name.lower() == "transformers"
+        ),
+        None,
+    )
+
+    # Either no transformers install is found or wrong version installed
+    if transformers_version != _EXPECTED_VERSION:
         import os
 
         if os.getenv("NM_NO_AUTOINSTALL_TRANSFORMERS", False):
@@ -95,22 +96,28 @@ def _check_transformers_install():
             )
             # skip any further checks
             return
-        elif _nm_integrated:
+        else:
             _LOGGER.warning(
-                f"incompatible sparseml-transformers v{_upstream_base_version} "
-                "detected. Overwriting exiting installation with sparseml-transformers "
-                f"v{_expected_upstream_base_version}. Set environment variable "
+                f"sparseml-transformers v{_EXPECTED_VERSION} installation not "
+                "detected. Installing  sparseml-transformers v{_EXPECTED_VERSION} "
+                "dependencies if transformers is already  installed in the "
+                "environment, it will be overwritten. Set  environment variable "
                 "NM_NO_AUTOINSTALL_TRANSFORMERS to disable"
             )
             _install_transformers_and_deps()
-        else:
-            _LOGGER.warning(
-                "sparseml-transformers installation not detected. Installing "
-                "sparseml-transformers dependencies if transformers is already "
-                "installed in the environment, it will be overwritten. Set "
-                "environment variable NM_NO_AUTOINSTALL_TRANSFORMERS to disable"
-            )
+
+    else:
+        import transformers as _transformers
+
+        # Edge case where user has expected version of transformers installed, but
+        # not ours
+        if not _transformers.NM_INTEGRATED:
             _install_transformers_and_deps()
+            raise RuntimeError(
+                "Installed transformers package has been overwritten with "
+                "sparseml-transformers. Stopping process as this is likely to cause "
+                "import issues. Please re-run command"
+            )
 
     # re check import after potential install
     try:
