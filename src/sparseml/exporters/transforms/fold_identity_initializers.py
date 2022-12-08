@@ -43,7 +43,6 @@ def fold_identity_initializer(
         for i, child_node_input in enumerate(child_node.input):
             if child_node_input == match.node.output[0]:
                 child_node.input[i] = match.node.input[0]
-    model.graph.node.remove(match.node)
     return model
 
 
@@ -75,6 +74,7 @@ class FoldIdentityInitializers(OnnxTransform):
         ):
             _LOGGER.debug(f"Matched Identity node: {match.node.name}")
             model = fold_identity_initializer(match, model)
+            model.graph.node.remove(match.node)
             count_converted_nodes += 1
 
         if count_converted_nodes > 0:
