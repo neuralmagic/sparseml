@@ -25,6 +25,21 @@ from sparseml.onnx.utils.graph_editor import ONNXGraph
 
 @pytest.fixture()
 def onnx_graph() -> ONNXGraph:
+    """
+    Creates a graph that looks like:
+
+    init1
+     |
+    id1     input
+      |       |
+       \\    /
+         add1   init2
+          |    /
+          |   /
+          add2
+           |
+        output
+    """
     model_input = onnx.helper.make_tensor_value_info(
         "input", onnx.TensorProto.FLOAT, (1,)
     )
