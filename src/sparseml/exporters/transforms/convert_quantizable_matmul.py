@@ -64,9 +64,6 @@ def convert_matmul_to_quantized(
     for node_to_delete in [a_dequant, b_dequant, output_quant]:
         delete_quant_node(model, node_to_delete)
 
-    # delete original MatMul node
-    remove_node_and_params_from_graph(model, match.node)
-
     # set dequantize's input to quant's input
     # NOTE: this handles the prescence of the optional transpose/reshape nodes
     output_dequant.input[0] = output_quant.input[0]
@@ -79,7 +76,6 @@ def convert_matmul_to_quantized(
         "{}_quant".format(match.node.name),
     )
     model.graph.node.append(qmatmul_node)
-    ONNXGraph(model).sort_nodes_topologically()
     return model
 
 
@@ -149,6 +145,8 @@ class ConvertQuantizableMatmul(OnnxTransform):
             # Convert
             model = convert_matmul_to_quantized(match, model)
             count_converted_nodes += 1
+            remove_node_and_params_from_graph(model, match.node)
+            ONNXGraph(model).sort_nodes_topologically()
 
         if count_converted_nodes > 0:
             _LOGGER.info(
