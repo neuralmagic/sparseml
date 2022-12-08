@@ -39,6 +39,7 @@ from sparseml.pytorch.utils.helpers import (
     download_framework_model_by_recipe_type,
     torch_distributed_zero_first,
 )
+from sparseml.pytorch.utils.model import load_model
 from sparsezoo import Model
 
 
@@ -332,6 +333,8 @@ def main(args):
         model = torchvision.models.__dict__[args.arch_key](
             pretrained=args.pretrained, num_classes=num_classes
         )
+        if args.checkpoint_path is not None:
+            load_model(args.checkpoint_path, model, strict=True)
     else:
         raise ValueError(
             f"Unable to find {args.arch_key} in ModelRegistry or in torchvision.models"
@@ -418,34 +421,53 @@ def main(args):
         checkpoint = _load_checkpoint(args.checkpoint_path)
 
         # restore state from prior recipe
-        manager = ScheduledModifierManager.from_yaml(args.recipe)
-        checkpoint_manager = ScheduledModifierManager.from_yaml(
-            checkpoint["checkpoint_recipe"]
+        manager = (
+            ScheduledModifierManager.from_yaml(args.recipe)
+            if args.recipe is not None
+            else None
         )
-        checkpoint_manager.apply_structure(model, epoch=checkpoint["epoch"])
+        checkpoint_manager = ScheduledModifierManager.from_yaml(checkpoint["recipe"])
     elif args.resume:
         checkpoint = _load_checkpoint(args.resume)
 
         # NOTE: override manager with the checkpoint's manager
-        manager = ScheduledModifierManager.from_yaml(checkpoint["checkpoint_recipe"])
+        manager = ScheduledModifierManager.from_yaml(checkpoint["recipe"])
         checkpoint_manager = None
         manager.initialize(model, epoch=checkpoint["epoch"])
 
         # NOTE: override start epoch
         args.start_epoch = checkpoint["epoch"] + 1
     else:
+        if args.recipe is None:
+            raise ValueError("Must specify --recipe if not loading from a checkpoint")
         checkpoint = None
         manager = ScheduledModifierManager.from_yaml(args.recipe)
         checkpoint_manager = None
 
     # load params
     if checkpoint is not None:
-        model.load_state_dict(checkpoint["state_dict"])
         optimizer.load_state_dict(checkpoint["optimizer"])
         if model_ema and "model_ema" in checkpoint:
             model_ema.load_state_dict(checkpoint["model_ema"])
         if scaler and "scaler" in checkpoint:
             scaler.load_state_dict(checkpoint["scaler"])
+
+    if args.test_only:
+        # We disable the cudnn benchmarking because it can
+        # noticeably affect the accuracy
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = True
+        if model_ema:
+            evaluate(
+                model_ema,
+                criterion,
+                data_loader_test,
+                device,
+                log_suffix="EMA",
+            )
+        else:
+            evaluate(model, criterion, data_loader_test, device)
+        return
 
     optimizer = manager.modify(model, optimizer, len(data_loader))
 
@@ -502,23 +524,6 @@ def main(args):
 
         if args.resume and checkpoint:
             lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
-
-    if args.test_only:
-        # We disable the cudnn benchmarking because it can
-        # noticeably affect the accuracy
-        torch.backends.cudnn.benchmark = False
-        torch.backends.cudnn.deterministic = True
-        if model_ema:
-            evaluate(
-                model_ema,
-                criterion,
-                data_loader_test,
-                device,
-                log_suffix="EMA",
-            )
-        else:
-            evaluate(model, criterion, data_loader_test, device)
-        return
 
     model_without_ddp = model
     if args.distributed:
@@ -580,12 +585,12 @@ def main(args):
                     if epoch == manager.max_epochs - 1
                     else epoch + checkpoint_manager.max_epochs
                 )
-                checkpoint["checkpoint_recipe"] = str(
+                checkpoint["recipe"] = str(
                     ScheduledModifierManager.compose_staged(checkpoint_manager, manager)
                 )
             else:
                 checkpoint["epoch"] = -1 if epoch == manager.max_epochs - 1 else epoch
-                checkpoint["checkpoint_recipe"] = str(manager)
+                checkpoint["recipe"] = str(manager)
 
             file_names = ["checkpoint.pth"]
             if is_new_best:
@@ -658,7 +663,7 @@ def _deprecate_old_arguments(f):
         allow_extra_args=True,
     )
 )
-@click.option("--recipe", required=True, type=str, help="Path to recipe")
+@click.option("--recipe", default=None, type=str, help="Path to recipe")
 @click.option("--dataset-path", required=True, type=str, help="dataset path")
 @click.option(
     "--arch-key",
