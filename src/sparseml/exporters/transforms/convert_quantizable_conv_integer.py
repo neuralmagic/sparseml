@@ -13,10 +13,11 @@
 # limitations under the License.
 
 import logging
+
 import onnx
 from onnx import ModelProto
 
-from sparseml.exporters.transforms.base_transform import BaseTransform
+from sparseml.exporters.transforms import OnnxTransform
 from sparseml.exporters.transforms.utils import (
     INITIALIZER_MATCH,
     add_quantized_conv_matmul_add_ops,
@@ -24,18 +25,14 @@ from sparseml.exporters.transforms.utils import (
     get_quantization_params,
     get_structural_matches,
 )
-from sparseml.onnx.utils import (
-    ONNXGraph,
-    remove_node_and_params_from_graph,
-)
+from sparseml.onnx.utils import ONNXGraph, remove_node_and_params_from_graph
 
 
 _LOGGER = logging.getLogger(__name__)
 
 
 def convert_conv_to_quantized(
-    match: "MatchResult", # noqa F821
-    model: ModelProto
+    match: "MatchResult", model: ModelProto  # noqa F821
 ) -> onnx.ModelProto:
     """
     Converts a conv node to a quantized conv node
@@ -70,17 +67,12 @@ def convert_conv_to_quantized(
     delete_quant_node(model, weight_quantize_node)
     delete_quant_node(model, input_dequantize_node)
 
-    # only delete input node if the matmul is the only child
-    current_graph = ONNXGraph(model)
-    if len(current_graph.get_node_children(input_quantize_node)) == 1:
-        delete_quant_node(model, input_quantize_node)
     # delete original Conv node
     remove_node_and_params_from_graph(model, match.node)
-    ONNXGraph(model).sort_nodes_topologically()
     return model
 
 
-class ConvertQuantizableConvInteger(BaseTransform):
+class ConvertQuantizableConvInteger(OnnxTransform):
     """
     A transform that attempts, if possible, to convert Convolution Op
     with kernel whose activations are not necessarily quantized into a
@@ -136,7 +128,7 @@ class ConvertQuantizableConvInteger(BaseTransform):
             _LOGGER.debug(
                 f"Matched quantizable Conv weight and bias: {match.node.name}"
             )
-            model = convert_conv_to_quantized(model, match)
+            model = convert_conv_to_quantized(match, model)
             count_converted_nodes += 1
 
         if count_converted_nodes > 0:

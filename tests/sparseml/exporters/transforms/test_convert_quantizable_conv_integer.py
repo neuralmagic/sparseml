@@ -12,8 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import onnx
-from tests.sparseml.exporters.transforms.test_onnx_transform import _create_model as _create_model_no_conv
+
 from sparseml.exporters.transforms import ConvertQuantizableConvInteger
+from tests.sparseml.exporters.transforms.test_onnx_transform import (
+    _create_model as _create_model_no_conv,
+)
 
 
 def _create_test_model():
@@ -108,6 +111,7 @@ def test_convert_quantizable_conv_integer():
         "conv_node_bias_add_quant_cast",
         "conv_node_bias_add_quant_rescale_mul",
     ]
+
 
 def test_convert_quantizable_conv_integer_no_conv():
     model_in = _create_model_no_conv()
