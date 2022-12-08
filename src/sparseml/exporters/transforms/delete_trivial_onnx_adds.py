@@ -1,8 +1,11 @@
 from sparseml.exporters.transforms import OnnxTransform
 from onnx import ModelProto
+import logger
+from onnx import numpy_helper
 from sparseml.onnx.utils import ONNXGraph
 from sparseml.exporters.utils.matching import get_structural_matches
 
+_LOGGER = logger.get_logger(__name__)
 
 class DeleteTrivialOnnxAdds(OnnxTransform):
 
@@ -12,14 +15,21 @@ class DeleteTrivialOnnxAdds(OnnxTransform):
         for match in get_structural_matches(
                 graph,
                 op_type="Add",
+                parent_ops = [[], ["Constant"]]
         ):
             _LOGGER.debug(f"Matched Identity node: {match.node.name}")
-            model = fold_identity_initializer(match, model)
+            model = delete_trivial_onnx_add(match, model)
+
             count_converted_nodes += 1
 
         if count_converted_nodes > 0:
-            _LOGGER.info(f"Folded {count_converted_nodes} identity initializer nodes")
+            _LOGGER.info(f"Delete {count_converted_nodes} trivial ONNX Add nodes")
         return model
+
+def delete_trivial_onnx_add(match, model):
+    constant_node = match.node.parent[1]
+    add_const_val = numpy_helper.to_array(add_const_node.attribute[0].t)
+
 
 def _delete_trivial_onnx_adds(model: onnx.ModelProto):
     # delete all add nodes in the graph with second inputs as constant nodes set to 0
