@@ -27,7 +27,6 @@ class BaseTransform(ABC):
     def __call__(self, model: Any) -> Any:
         return self.apply(model)
 
-    @abstractmethod
     def apply(self, model: Any) -> Any:
         """
         The logic for applying the transform to the model
@@ -40,7 +39,10 @@ class BaseTransform(ABC):
             validated, transformed and once again, validated
         :return: The transformed model
         """
-        raise NotImplementedError
+        model = self.pre_validate(model)
+        model = self.transform(model)
+        model = self.post_validate(model)
+        return model
 
     @abstractmethod
     def transform(self, model: Any) -> Any:
@@ -53,7 +55,7 @@ class BaseTransform(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def pre_validate(self, model: Any):
+    def pre_validate(self, model: Any) -> Any:
         """
         Validate the input model before applying the transform
 
@@ -62,7 +64,7 @@ class BaseTransform(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def post_validate(self, model: Any):
+    def post_validate(self, model: Any) -> Any:
         """
         Validate the model after applying the transform
 

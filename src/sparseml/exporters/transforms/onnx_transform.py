@@ -27,32 +27,6 @@ class OnnxTransform(BaseTransform):
     must implement.
     """
 
-    def apply(self, model: Union[ModelProto, str]) -> ModelProto:
-        """
-        The logic for applying the transform to the model
-        should be
-
-        1. Validate the input model
-        2. Apply the transform to the model
-        3. Validate the resulting model and return it
-
-        :param model: The input ONNX model to be
-            validated, transformed and once again, validated.
-            It can be a path to the model or the model itself.
-        :return: The transformed ONNX model
-        """
-        if not ((isinstance(model, str) or isinstance(model, ModelProto))):
-            raise ValueError(
-                f"Invalid model type: {type(model)}. "
-                "Must be a string (path to the .onnx file) or ONNX ModelProto"
-            )
-
-        model = check_load_model(model)
-        self.pre_validate(model)
-        model = self.transform(model)
-        self.post_validate(model)
-        return model
-
     @abstractmethod
     def transform(self, model: ModelProto) -> ModelProto:
         """
@@ -63,18 +37,29 @@ class OnnxTransform(BaseTransform):
         """
         raise NotImplementedError
 
-    def pre_validate(self, model: ModelProto):
+    def pre_validate(self, model: Union[ModelProto, str]) -> ModelProto:
         """
-        Validate the input model before applying the transform
+        Validate the input model before applying the transform.
 
-        :param model: The input model to be validated
+        :param model: The input ONNX model to be
+            validated. It can be a path to the model
+            or the model itself.
+        :return: The validated ONNX model
         """
+        if not ((isinstance(model, str) or isinstance(model, ModelProto))):
+            raise ValueError(
+                f"Invalid model type: {type(model)}. "
+                "Must be a string (path to the .onnx file) or ONNX ModelProto"
+            )
+        model = check_load_model(model)
         validate_onnx_file(model)
+        return model
 
-    def post_validate(self, model: ModelProto):
+    def post_validate(self, model: ModelProto) -> ModelProto:
         """
         Validate the input model after applying the transform
-
-        :param model: The input model to be validated
+        :param model: The input ONNX model to be validated
+        :return The validated ONNX model
         """
         validate_onnx_file(model)
+        return model
