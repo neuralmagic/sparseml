@@ -20,6 +20,7 @@ PyTorch version must support quantization (>=1.2, ONNX export support introduced
 
 
 import logging
+import math
 import warnings
 from itertools import cycle
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Type
@@ -646,6 +647,14 @@ class QuantizationModifier(ScheduledModifier):
             if not isinstance(submodule, torch.quantization.FakeQuantize):
                 continue
             num_fake_quantizes += 1
+
+            qrange = submodule.quant_max - submodule.quant_min + 1
+            num_bits = int(math.log2(qrange))
+
+            _log(
+                tag=f"QuantizationModifier/{name}/num_bits",
+                value=num_bits,
+            )
 
         # log global quantization info
         _log(
