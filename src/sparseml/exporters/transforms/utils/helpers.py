@@ -1,30 +1,35 @@
-# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing,
-# software distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-from typing import Iterable, List, NamedTuple, Optional, Set, Tuple, Union, Any
 import torch
+from typing import NamedTuple, Union, Any, List, Set
+
 import numpy
-from onnx import ModelProto, NodeProto, TensorProto, numpy_helper
+from onnx import ModelProto, NodeProto, numpy_helper
 
 from sparseml.onnx.utils import ONNXGraph, remove_node_and_params_from_graph
 
+__all__ = ["delete_quant_node", "get_quantization_params", "quantize_array", "assert_node_type"]
 
-_QUANTIZE_OP_NAMES = ["QuantizeLinear", "DequantizeLinear"]
+QUANTIZE_OP_NAMES = ["QuantizeLinear", "DequantizeLinear"]
 
-"""
-Named tuple object to represent scale/zero point values for quantizing tenors
-"""
+def quantize_array(
+    array: numpy.ndarray, scale: float, zero_point: int, dtype: Any = numpy.uint8
+) -> numpy.ndarray:
+
+    if dtype == numpy.uint8:
+        tensor_dtype = torch.quint8
+    elif dtype == numpy.int8:
+        tensor_dtype = torch.qint8
+    elif dtype == numpy.int32:
+        tensor_dtype = torch.qint32
+
+    tensor = torch.Tensor(array.copy()).to(torch.float32)
+    if isinstance(scale, numpy.ndarray):
+        scale = scale.item()
+    if isinstance(zero_point, numpy.ndarray):
+        zero_point = zero_point.item()
+
+    quant_tensor = torch.quantize_per_tensor(tensor, scale, zero_point, tensor_dtype)
+    return quant_tensor.int_repr().numpy()
+
 
 QuantizationParams = NamedTuple(
     "QuantizationParams",
@@ -46,7 +51,7 @@ def get_quantization_params(
          quantization target if it is an initializer otherwise target will be None
     """
     assert (
-        node.op_type in _QUANTIZE_OP_NAMES
+        node.op_type in QUANTIZE_OP_NAMES
     ), "Op Type must be either QuantizeLinear or DequantizeLinear, found {} ".format(
         node.op_type
     )
@@ -92,7 +97,7 @@ def delete_quant_node(
         initializer to the first input of this node
     """
     assert (
-        node.op_type in _QUANTIZE_OP_NAMES
+        node.op_type in QUANTIZE_OP_NAMES
     ), "Op Type must be either QuantizeLinear or DequantizeLinear, found {} ".format(
         node.op_type
     )
@@ -100,76 +105,9 @@ def delete_quant_node(
         del node.input[0]
     remove_node_and_params_from_graph(model, node)
 
-def quantize_array(
-    array: numpy.ndarray, scale: float, zero_point: int, dtype: Any = numpy.uint8
-) -> numpy.ndarray:
-
-    if dtype == numpy.uint8:
-        tensor_dtype = torch.quint8
-    elif dtype == numpy.int8:
-        tensor_dtype = torch.qint8
-    elif dtype == numpy.int32:
-        tensor_dtype = torch.qint32
-
-    tensor = torch.Tensor(array.copy()).to(torch.float32)
-    if isinstance(scale, numpy.ndarray):
-        scale = scale.item()
-    if isinstance(zero_point, numpy.ndarray):
-        zero_point = zero_point.item()
-
-    quant_tensor = torch.quantize_per_tensor(tensor, scale, zero_point, tensor_dtype)
-    return quant_tensor.int_repr().numpy()
-
-def check_for_sequence_of_children_nodes(
-    node: NodeProto, graph: "ONNXGraph", node_sequence: List[str]
-) -> bool:
-    """
-    Checks if a sequence of nodes appears after the given node.
-    It does so by performing a depth-first search starting from the given node.
-    (forward -> towards the leaves of the tree).
-
-    :param node: the node to check
-    :param model: the model to check
-    :param node_sequence: the sequence of nodes to check for
-    :return: True if the sequence of nodes follows the given node, False otherwise
-    """
-    for expected_node in node_sequence:
-        child_nodes = graph.get_node_children(node)
-        for child_node in child_nodes:
-            if assert_node_type(child_node, expected_node):
-                node = child_node
-                break
-            return False
-    return True
-
-
-def check_for_sequence_of_parent_nodes(
-    node: NodeProto, graph: "ONNXGraph", node_sequence: List[str]
-) -> bool:
-    """
-    Checks if a sequence of nodes appears before the given node.
-    It does so by performing a depth-first search starting from the given node
-    (backwards -> towards the root of the tree).
-
-    :param node: the node to check
-    :param model: the model to check
-    :param node_sequence: the sequence of nodes to check for
-    :return: True if the sequence of nodes precedes the given node, False otherwise
-    """
-    for expected_node in node_sequence:
-        parent_nodes = graph.get_node_parents(node)
-        for parent_node in parent_nodes:
-            if assert_node_type(parent_node, expected_node):
-                node = parent_node
-                break
-            return False
-    return True
-
-
 def assert_node_type(node: NodeProto, op: Union[List[str], Set[str], str]) -> bool:
     """
     Checks if a node is of the given op type
-
     :param node: the node to check
     :param op: the operation type to check for
     :return: True if the node has the given op type, False otherwise
@@ -180,117 +118,3 @@ def assert_node_type(node: NodeProto, op: Union[List[str], Set[str], str]) -> bo
         return node.op_type == op
     else:
         return node.op_type in op
-
-
-NodeOrInit = Union[NodeProto, TensorProto]
-
-
-class MatchResult:
-    def __init__(self, node: NodeOrInit) -> None:
-        self.node: Optional[NodeOrInit] = node
-        self.parents: List[Optional[NodeOrInit]] = []
-        self.children: List[Optional[NodeOrInit]] = []
-
-
-INITIALIZER_MATCH = "__Initializer__"
-
-
-def optional_node(tag: str) -> str:
-    return "Optional-" + tag
-
-
-def _is_optional_node(tag: str) -> Tuple[str, bool]:
-    if tag.startswith("Optional-"):
-        return tag.split("-")[1], True
-    else:
-        return tag, False
-
-
-def iter_structural_matches(
-    graph: ONNXGraph,
-    op_type: Optional[str] = None,
-    parent_ops: Optional[List[List[str]]] = None,
-    children_ops: Optional[List[List[str]]] = None,
-) -> Iterable[MatchResult]:
-    for node in graph._model.graph.node:
-        match = match_structure(
-            graph,
-            node,
-            op_type=op_type,
-            parent_ops=parent_ops,
-            children_ops=children_ops,
-        )
-        if match is not None:
-            yield match
-
-
-def match_structure(
-    graph: ONNXGraph,
-    node: Union[NodeProto, TensorProto],
-    op_type: Optional[str] = None,
-    parent_ops: Optional[List[List[str]]] = None,
-    children_ops: Optional[List[List[str]]] = None,
-) -> Optional[MatchResult]:
-    """ """
-    match = MatchResult(node)
-
-    if op_type is not None:
-        op_type, is_optional = _is_optional_node(op_type)
-        if is_optional and op_type == INITIALIZER_MATCH:
-            raise NotImplementedError("optional initializers not supported")
-
-        if op_type == INITIALIZER_MATCH and not isinstance(node, TensorProto):
-            return None
-        if op_type != INITIALIZER_MATCH and not (
-            isinstance(node, NodeProto) and node.op_type == op_type
-        ):
-            if is_optional:
-                match.node = None
-            else:
-                return None
-
-    if parent_ops:
-        if not (isinstance(node, NodeProto) and len(parent_ops) <= len(node.input)): # maybe add test here
-            return None
-
-        parents = graph.get_node_parents(node)
-        for p, expected_op_sequence in zip(parents, parent_ops):
-            if p is None and expected_op_sequence == []:
-                match.parents.append([])
-                continue
-            *head, tail = expected_op_sequence
-            sub_match = match_structure(
-                graph,
-                node=p,
-                op_type=tail,
-                # NOTE: explicitly only matching against a single parent input here
-                #       even though it could have multiple inputs
-                parent_ops=[head] if len(head) > 0 else None,
-            )
-            if sub_match is None:
-                return None
-            sub_parents = sub_match.parents[0] if len(head) > 0 else []
-            match.parents.append(sub_parents + [sub_match.node])
-
-    if children_ops:
-        if not (isinstance(node, NodeProto) and len(children_ops) <= len(node.output)):
-            return None
-
-        children = graph.get_node_children(node)
-        assert len(children) == len(node.output)
-        for c, expected_op_sequence in zip(children, children_ops):
-            *head, tail = expected_op_sequence
-            sub_match = match_structure(
-                graph,
-                node=c,
-                op_type=tail,
-                # NOTE: explicitly only matching against a single child output here
-                #       even though it could have multiple outputs
-                children_ops=[head] if len(head) > 0 else None,
-            )
-            if sub_match is None:
-                return None
-            sub_children = sub_match.children[0] if len(head) > 0 else []
-            match.children.append(sub_children + [sub_match.node])
-
-    return match

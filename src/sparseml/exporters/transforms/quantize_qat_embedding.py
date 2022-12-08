@@ -1,15 +1,13 @@
-from onnx import ModelProto, numpy_helper
-from typing import Union
-from sparseml.onnx.utils import ONNXGraph, check_load_model, validate_onnx_file
-from sparseml.exporters.transforms import BaseTransform
-from sparseml.exporters.transforms.utils.helpers import INITIALIZER_MATCH, quantize_array
-from sparseml.exporters.transforms.utils import iter_structural_matches
+from onnx import ModelProto, numpy_helper, helper
+from sparseml.onnx.utils import ONNXGraph
+from sparseml.exporters.transforms import OnnxTransform
+from sparseml.exporters.transforms.utils import get_structural_matches, INITIALIZER_MATCH, quantize_array, delete_quant_node, assert_node_type
 import logging
 _LOGGER = logging.getLogger(__name__)
 
-def quantize_embedding(model, match):
+def quantize_embedding(match, model):
+    graph = ONNXGraph(model)
 
-    graph = ONNXGraph(model.graph)
     input_quantize_node = match.parents[1][1]
     input_dequantize_node = match.parents[1][2]
 
@@ -18,6 +16,7 @@ def quantize_embedding(model, match):
     scale_initializer = graph.get_init_by_name(input_quantize_node.input[1])
     zero_point_initializer = graph.get_init_by_name(input_quantize_node.input[2])
 
+    # arrays from embedding initializer
     embedding = numpy_helper.to_array(embedding_initializer)
     scale = numpy_helper.to_array(scale_initializer)
     zero_point = numpy_helper.to_array(zero_point_initializer)
@@ -30,59 +29,86 @@ def quantize_embedding(model, match):
     match.node.input[0] = embedding_quant_initializer.name
 
     # detect QDQ block on output
-    output_quant_node = graph.get_node_single_child(match.node)
-    if assert_node_type(output_quant_node, "QuantizeLinear"):
-        output_dequant_node = graph.get_node_single_child(output_quant_node)
-        qdq_output = assert_node_type(output_quant_node, "DequantizeLinear")
-    else:
-        qdq_output = False
+    qdq_output = False
 
-    if qdq_output:
-        # forward gather output to dequant input
-        output_dequant_node.input[0] = match.node.output[0]
-        output_dequant_node.input[1] = input_quantize_node.input[1]
-        output_dequant_node.input[2] = input_quantize_node.input[2]
-        # delete unnecessary quantize and dequantize ops
-        delete_quant_node(model, input_quantize_node)
-        delete_quant_node(model, input_dequantize_node)
-        delete_quant_node(model, output_quant_node)
+    output_quant_node = match.children
 
-    else:
-        # use input dequant to dequantize output
-        embedding_quant_output_id = f"{match.node.output[0]}_quant"
-        input_dequant_node.input[0] = embedding_quant_output_id
-        input_dequant_node.output[0] = match.node.output[0]
-        match.node.output[0] = embedding_quant_output_id
+    if not output_quant_node:
+        embedding_dequant_input = f"{match.node.output[0]}_quant"
+        embedding_dequant_output = match.node.output[0]
+        dequantize_linear_node = helper.make_node(
+            "DequantizeLinear",
+            [embedding_dequant_input , input_dequantize_node.inputs[1], input_dequantize_node.inputs[2]],
+            [embedding_dequant_output],
+            name="dequantize_linear_node_0",
+        )
+        pass
 
-        delete_quant_node(model, input_quantize_node)
+    # if output_quant_node:
+    #     if assert_node_type(output_quant_node, "QuantizeLinear"):
+    #         output_dequant_node = graph.get_node_single_child(output_quant_node)
+    #         qdq_output = assert_node_type(output_quant_node, "DequantizeLinear")
+    #
+    # if qdq_output:
+    #     # forward gather output to dequant input
+    #     output_dequant_node.input[0] = match.node.output[0]
+    #     output_dequant_node.input[1] = input_quantize_node.input[1]
+    #     output_dequant_node.input[2] = input_quantize_node.input[2]
+    #     # delete unnecessary quantize and dequantize ops
+    #     delete_quant_node(model, input_quantize_node)
+    #     delete_quant_node(model, input_dequantize_node)
+    #     delete_quant_node(model, output_quant_node)
+    #
+    # else:
+    #     # use input dequant to dequantize output
+    #     embedding_quant_output_id = f"{match.node.output[0]}_quant"
+    #     input_dequantize_node.input[0] = embedding_quant_output_id
+    #     input_dequantize_node.output[0] = match.node.output[0]
+    #     match.node.output[0] = embedding_quant_output_id
+    #     delete_quant_node(model, input_quantize_node)
+
     graph.update()
-    converted_nodes += 1
+    graph.delete_unused_initializers()
 
-graph.delete_unused_initializers()
-
-
+    return model
 
 
-class QuantizeQATEmbedding(BaseTransform):
+class QuantizeQATEmbedding(OnnxTransform):
     """
-    Folds any `Identity` initializer node. Such a node is defined by:
-     - having a single input
-     - having a single output
-     - being an `Identity` operation
-     - being an `initializer` node
+    A transformation for quantizing
+    qat embeddings
+
+    Starting with:
+    |    INPUT    QuantizeLinear (with constant embedding)
+    |      |          |
+    |      |     DequantizeLinear
+    |      |         |
+    |         Gather
+    |           |
+    |       QuantizeLinear (Optional)
+    |           |
+    |       DequantizeLinear (Optional)
+    |           |
+    |         OUTPUT
+
+    Converts to:
+    |   INPUT
+    |     |
+    |   Gather(UINT8 data initializer)
+    |     |
+    |   DequantizeLinear
+    |     |
+    |   OUTPUT
     """
 
-    def _transform(self, model: ModelProto) -> ModelProto:
-        graph = ONNXGraph(model)
-        matches = []
-
+    def transform(self, model: ModelProto) -> ModelProto:
         count_converted_nodes = 0
         graph = ONNXGraph(model)
-        for match in iter_structural_matches(
+        for match in get_structural_matches(
                 graph,
                 parent_ops=[
                     [],
-                    [# weight should be initializer
+                    [
                         INITIALIZER_MATCH,
                         "QuantizeLinear",
                         "DequantizeLinear",
@@ -93,23 +119,10 @@ class QuantizeQATEmbedding(BaseTransform):
             _LOGGER.debug(
                 f"Matched quantizable Conv weight and bias: {match.node.name}"
             )
-            model = quantize_embedding(model, match)
+            model = quantize_embedding(match, model)
 
             count_converted_nodes += 1
 
         if count_converted_nodes > 0:
-            _LOGGER.info(f"Converted {converted_nodes} QAT embedding ops to UINT8")
+            _LOGGER.info(f"Converted {count_converted_nodes} QAT embedding ops to UINT8")
         return model
-
-    def _validate_input(self, model: ModelProto):
-        validate_onnx_file(model)
-
-    def _validate_output(self, model: ModelProto):
-        validate_onnx_file(model)
-
-    def apply(self, model: Union[ModelProto, str]) -> ModelProto:
-        onnx_model = check_load_model(model)
-        self._validate_input(onnx_model)
-        onnx_model = self._transform(onnx_model)
-        self._validate_output(onnx_model)
-        return onnx_model

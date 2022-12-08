@@ -27,32 +27,47 @@ class BaseTransform(ABC):
     def __call__(self, model: Any) -> Any:
         return self.apply(model)
 
-    @abstractmethod
     def apply(self, model: Any) -> Any:
         """
+        The logic for applying the transform to the model
+        should follow the following steps:
         1. Validate the input model
         2. Apply the transform to the model
         3. Validate the resulting model and return it
 
-        :param model: The input model to be transformed
+        :param model: The input model to be
+            validated, transformed and once again, validated
         :return: The transformed model
         """
-        self._validate_input(model)
-        model = self._transform(model)
-        self._validate_output(model)
+        model = self.pre_validate(model)
+        model = self.transform(model)
+        model = self.post_validate(model)
         return model
 
     @abstractmethod
-    def _transform(self, model: Any) -> Any:
-        # The transform algorithm that will be applied to the model
+    def transform(self, model: Any) -> Any:
+        """
+        Logic for applying the transformation to the model.
+
+        :param model: The input model to be transformed
+        :return: The transformed model
+        """
         raise NotImplementedError
 
     @abstractmethod
-    def _validate_input(self, model: Any):
-        # Validate the input model before applying the transform
+    def pre_validate(self, model: Any) -> Any:
+        """
+        Validate the input model before applying the transform
+
+        :param model: The input model to be validated
+        """
         raise NotImplementedError
 
     @abstractmethod
-    def _validate_output(self, model: Any):
-        # Validate the output model after applying the transform
+    def post_validate(self, model: Any) -> Any:
+        """
+        Validate the model after applying the transform
+
+        :param model: The transformed model to be validated
+        """
         raise NotImplementedError

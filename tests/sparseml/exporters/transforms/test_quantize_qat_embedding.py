@@ -1,4 +1,5 @@
 import onnx
+import pytest
 from sparseml.exporters.transforms import QuantizeQATEmbedding
 
 def _create_test_model(with_quantize_linear=False, with_dequantize_linear=False):
@@ -20,7 +21,6 @@ def _create_test_model(with_quantize_linear=False, with_dequantize_linear=False)
 
     input = onnx.helper.make_tensor_value_info("input", onnx.TensorProto.FLOAT, (3,))
     embedding = onnx.helper.make_tensor("embedding", onnx.TensorProto.FLOAT, (1,), [1])
-
     x_scale = onnx.helper.make_tensor("x_scale", onnx.TensorProto.FLOAT, (1,), [1])
     y_scale = onnx.helper.make_tensor("y_scale", onnx.TensorProto.FLOAT, (1,), [1])
     zero_point = onnx.helper.make_tensor("zero_point", onnx.TensorProto.INT8, (1,), [1])
@@ -64,12 +64,18 @@ def _create_test_model(with_quantize_linear=False, with_dequantize_linear=False)
     onnx.checker.check_model(model)
     return model
 
-
-def test_convert_quantizable_matmul():
-    model = _create_test_model()
+def _test_qat_embedding(model):
+    pass
+@pytest.mark.parametrize(
+    "with_quantize_linear, with_dequantize_linear, testing_function",
+    [
+        (False, False, _test_qat_embedding),
+    ]
+)
+def test_quantize_qat_embedding(with_quantize_linear, with_dequantize_linear, testing_function):
+    model = _create_test_model(with_quantize_linear, with_dequantize_linear)
     transform = QuantizeQATEmbedding()
     model = transform(model)
-    #testing_function(model)
+    testing_function(model)
     onnx.checker.check_model(model)
-
 
