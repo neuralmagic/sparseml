@@ -96,7 +96,7 @@ def _check_transformers_install():
         else:
             _LOGGER.warning(
                 f"sparseml-transformers v{_EXPECTED_VERSION} installation not "
-                "detected. Installing  sparseml-transformers v{_EXPECTED_VERSION} "
+                f"detected. Installing  sparseml-transformers v{_EXPECTED_VERSION} "
                 "dependencies if transformers is already  installed in the "
                 "environment, it will be overwritten. Set  environment variable "
                 "NM_NO_AUTOINSTALL_TRANSFORMERS to disable"
