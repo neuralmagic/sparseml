@@ -65,7 +65,7 @@ def convert_matmul_to_quantized(
         delete_quant_node(model, node_to_delete)
 
     # set dequantize's input to quant's input
-    # NOTE: this handles the prescence of the optional transpose/reshape nodes
+    # NOTE: this handles the presence of the optional transpose/reshape nodes
     output_dequant.input[0] = output_quant.input[0]
 
     # create qmatmul node and add it to graph
