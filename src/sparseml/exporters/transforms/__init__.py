@@ -14,3 +14,4 @@
 # flake8: noqa
 from .base_transform import *
 from .onnx_transform import *
+from .convert_quantizable_conv_integer import *
