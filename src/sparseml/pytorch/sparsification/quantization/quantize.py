@@ -16,20 +16,17 @@
 Tooling for applying quantization to pytorch modules via
 structured configurations
 """
-from copy import deepcopy
-from typing import Any, Dict, List, Optional, Union
+from typing import Dict, List, Optional
 
-import torch
-from pydantic import BaseModel, Field
 from torch.nn import Identity, Module
 
 from sparseml.pytorch.sparsification.quantization.constants import (
     FUSED_MODULE_NAMES,
     NON_QUANTIZABLE_MODULE_NAMES,
 )
-from sparseml.pytorch.sparsification.quantization.helpers import (
-    get_observer,
-    prepare_embeddings_qat,
+from sparseml.pytorch.sparsification.quantization.helpers import prepare_embeddings_qat
+from sparseml.pytorch.sparsification.quantization.quantization_scheme import (
+    QuantizationScheme,
 )
 from sparseml.pytorch.utils import get_layer
 
@@ -43,11 +40,6 @@ except Exception:
 
 
 __all__ = [
-    "DictQuantizationArgs",
-    "DictQuantizationScheme",
-    "QuantizationArgs",
-    "QuantizationScheme",
-    "QuantizationSchemeLoadable",
     "convert_module_qat_from_schemes",
     "is_qat_helper_module",
     "is_quantizable_module",
@@ -56,214 +48,6 @@ __all__ = [
     "add_input_activation_quant_wrappers",
     "raise_if_torch_quantization_not_available",
 ]
-
-
-"""
-Type definition aliases for defining QuantizationArgs and QuantizationScheme
-as dictionaries for YAML serialization
-"""
-DictQuantizationArgs = Dict[str, Union[int, bool, Dict[str, Any]]]
-DictQuantizationScheme = Dict[str, DictQuantizationArgs]
-
-"""
-Type definition for a type that is valid for loading a QuantizationScheme
-using QuantizationScheme.load
-"""
-QuantizationSchemeLoadable = Union[
-    "QuantizationScheme",
-    DictQuantizationScheme,
-    str,
-    None,
-]
-
-
-class QuantizationArgs(BaseModel):
-    """
-    Class representing user facing arguments to define quantization Observers of
-    activations or weights in a network
-    """
-
-    num_bits: int = Field(
-        default=8, description="number of bits to target for quantization"
-    )
-    symmetric: bool = Field(
-        default=False,
-        description="set True to use symmetric quantization. Default False",
-    )
-    kwargs: Dict[str, Any] = Field(
-        default_factory=dict,
-        description=(
-            "optional dict of kwargs to be passed directly to torch quantization "
-            "Observers constructor excluding quantization range or symmetry"
-        ),
-    )
-
-    @classmethod
-    def default_activation_args(cls):
-        """
-        :return: default 8 bits asymmetric settings
-        """
-        return cls(num_bits=8, symmetric=False)
-
-    @classmethod
-    def default_weight_args(cls):
-        """
-        :return: default 8 bits symmetric settings
-        """
-        return cls(num_bits=8, symmetric=True)
-
-    def get_observer(self) -> "torch.quantization.FakeQuantize":
-        """
-        :return: torch quantization FakeQuantize built based on these QuantizationArgs
-        """
-        return get_observer(
-            symmetric=self.symmetric,
-            dtype=torch.qint8,
-            bits=self.num_bits,
-            reduce_range=self.kwargs.get("reduce_range", False),
-            qconfig_kwargs=self.kwargs,
-        )
-
-
-class QuantizationScheme(BaseModel):
-    """
-    Class composed of QuantizationArgs to build QConfig and QuantWrapper objects for
-    quantizing models. Provides a simple user interface for defining how inputs,
-    weights, and outputs should be quantized
-    """
-
-    def __init__(self, *args, **kwargs):
-        # support for loading from yaml str
-        args = [arg if arg != "null" else None for arg in args]
-        for key, val in kwargs.items():
-            if val == "null":
-                kwargs[key] = None
-        super().__init__(*args, **kwargs)
-
-    input_activations: Optional[QuantizationArgs] = Field(
-        default_factory=QuantizationArgs.default_activation_args,
-        description=(
-            "target quantization setting for input activations. Set to None to "
-            "not quantize input activations. Default is 8 bits asymmetric"
-        ),
-    )
-    weights: Optional[QuantizationArgs] = Field(
-        default_factory=QuantizationArgs.default_weight_args,
-        description=(
-            "target quantization setting for model weights. Set to None to "
-            "not quantize weights. Default is 8 bits symmetric"
-        ),
-    )
-    output_activations: Optional[QuantizationArgs] = Field(
-        default=None,
-        description=(
-            "target quantization setting for output activations. Set to None to "
-            "not quantize output activations. Default is None"
-        ),
-    )
-    target_hardware: Optional[str] = Field(
-        default=None,
-        description=(
-            "target deployment runtime/hardware name to be set by default "
-            "classmethods. Default is None"
-        ),
-    )
-
-    @classmethod
-    def load(
-        cls,
-        scheme: QuantizationSchemeLoadable,
-        default: Optional["QuantizationScheme"] = None,
-    ) -> "QuantizationScheme":
-        """
-        :param scheme: QuantizationScheme, dict representation of scheme,
-            or string alias of a scheme to load. Valid strings:
-            ['default', 'deepsparse', 'tensorrt']
-        :param default: default QuantizationScheme to override 'default' scheme
-            with
-        :return: constructed QuantizationScheme object from the given scheme;
-            if given a dict, returns QuantizationScheme.parse_obj(scheme), string
-            input will return the defualt QuantizationScheme if set to 'default'.
-        """
-        if isinstance(scheme, cls):
-            return scheme
-        elif scheme is None or scheme == "default":
-            # if no default override, defaults to QuantizationScheme()
-            return deepcopy(default) or cls()
-        elif isinstance(scheme, str):
-            if scheme == "deepsparse":
-                return cls.deepsparse()
-            elif scheme == "tensorrt":
-                return cls.tensorrt()
-            raise ValueError(
-                f"Unrecognized QuantizationScheme string alias {scheme}. "
-                "Valid strings: ['default', 'deepsparse', 'tensorrt']"
-            )
-        elif isinstance(scheme, dict):
-            # default to dict
-            scheme = {key: _parse_quantization_arg(arg) for key, arg in scheme.items()}
-            return cls.parse_obj(scheme)
-        else:
-            raise ValueError(
-                f"Unrecognized type {type(scheme)} for QuantizationScheme.load, "
-                "expected one of: [QuantizationScheme, Dict, str, None]"
-            )
-
-    @classmethod
-    def deepsparse(cls) -> "QuantizationScheme":
-        """
-        :return: QuantizationScheme for deepsparse targeted deployments -
-            int8, symmetric weights, asymmetric inputs, no output quantization
-        """
-        return cls(
-            input_activations=QuantizationArgs(num_bits=8, symmetric=False),
-            weights=QuantizationArgs(num_bits=8, symmetric=True),
-            output_activations=None,
-            target_hardware="deepsparse",
-        )
-
-    @classmethod
-    def tensorrt(cls) -> "QuantizationScheme":
-        """
-        :return: QuantizationScheme for tensorrt targeted deployments -
-            compatibility with explict quantization as supported by TensorRT 8.2:
-            int8, symmetric for both weights and inputs, no output quantization
-        """
-        return cls(
-            input_activations=QuantizationArgs(num_bits=8, symmetric=True),
-            weights=QuantizationArgs(num_bits=8, symmetric=True),
-            output_activations=None,
-            target_hardware="tensorrt",
-        )
-
-    def get_qconfig(self) -> "torch.quantization.QConfig":
-        """
-        :return: QConfig for Modules (output activations used,
-            use QuantWrapper for inputs)
-        """
-        qconfig = _get_qconfig(self.output_activations, self.weights)
-        # add reference to this quantization scheme for reference
-        qconfig.quantization_scheme = self
-        return qconfig
-
-    def get_wrapper_qconfig(self) -> "torch.quantization.QConfig":
-        """
-        :return: QConfig for QuantWrapper objects (input activations used)
-        """
-        qconfig = _get_qconfig(self.input_activations, None)
-        # add reference to this quantization scheme for reference
-        qconfig.quantization_scheme = self
-        return qconfig
-
-    def __str__(self) -> str:
-        """
-        :return: YAML friendly string serialization
-        """
-        dict_repr = self.dict()
-        dict_repr = {
-            key: val if val is not None else "null" for key, val in dict_repr.items()
-        }
-        return str(dict_repr)
 
 
 def is_qat_helper_module(module: Module) -> bool:
@@ -448,15 +232,6 @@ def raise_if_torch_quantization_not_available():
         )
 
 
-def _get_qconfig(
-    activation_args: Optional[QuantizationArgs], weight_args: Optional[QuantizationArgs]
-) -> "torch.quantization.QConfig":
-    return torch_quantization.QConfig(
-        activation=activation_args.get_observer() if activation_args else Identity,
-        weight=weight_args.get_observer() if weight_args else Identity,
-    )
-
-
 def _reattach_quantization_schemes(module: Module):
     # after torch.prepare_qat is called, quantization scheme properties may be lost
     # due to transfer of base module classes to their QAT implementations
@@ -480,9 +255,3 @@ def _get_qat_module_mappings() -> Dict[Module, Module]:
         return mappings.get_qat_module_mappings()
     # latest
     return mappings.get_default_qat_module_mappings()
-
-
-def _parse_quantization_arg(arg: Any):
-    if arg == "None":
-        return None
-    return arg
