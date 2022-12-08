@@ -18,7 +18,6 @@ Tools for integrating SparseML with transformers training flows
 
 # flake8: noqa
 
-import importlib
 import logging as _logging
 
 import pkg_resources
