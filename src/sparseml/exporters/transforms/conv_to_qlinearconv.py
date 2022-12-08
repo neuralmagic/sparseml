@@ -27,11 +27,15 @@ from sparseml.exporters.transforms.utils.matching import (
     MatchResult,
     get_structural_matches,
 )
-from sparseml.onnx.utils.graph_editor import (
+from sparseml.onnx.utils import (
     ONNXGraph,
+    get_init_by_name,
+    get_node_output_nodes,
     remove_node_and_params_from_graph,
 )
-from sparseml.onnx.utils.helpers import get_init_by_name, get_node_output_nodes
+
+
+__all__ = ["ConvToQLinearConv"]
 
 
 class ConvToQLinearConv(OnnxTransform):
@@ -43,11 +47,11 @@ class ConvToQLinearConv(OnnxTransform):
                         |
     input               QuantizeLinear
     |                   |
-    DequantizeLinear    DequantizeLinear
-    |                   |
-            Conv
-            |
-            QuantizeLinear
+    DequantizeLinear    DequantizeLinear    bias (optional)
+    |                   |                   |
+                        Conv
+                        |
+                        QuantizeLinear
     ```
 
     into
@@ -68,13 +72,15 @@ class ConvToQLinearConv(OnnxTransform):
         )
         for match in matches:
             self._do_transform(model, match)
-        ONNXGraph(model).sort_nodes_topologically()
+        graph = ONNXGraph(model)
+        graph.sort_nodes_topologically()
+        graph.delete_unused_initializers()
         return model
 
     def _do_transform(self, model: ModelProto, match: MatchResult):
         conv_node = match.node
         (input_dequant,) = match.parents[0]
-        weight_init, weight_quant, weight_dequant = match.parents[1]
+        _, weight_quant, weight_dequant = match.parents[1]
         (output_quant,) = match.children[0]
 
         weight_quantize_params = get_quantization_params(
@@ -97,9 +103,8 @@ class ConvToQLinearConv(OnnxTransform):
         model.graph.initializer.append(quantized_weight_initializer)
 
         # get qconv inputs and outputs
-        qconv_input = input_dequant.input[0]
         qconv_inputs = [
-            qconv_input,  # x
+            input_dequant.input[0],  # x
             input_dequant.input[1],  # x_scale
             input_dequant.input[2],  # x_zero_point
             quantized_weight_name,  # w
@@ -119,24 +124,30 @@ class ConvToQLinearConv(OnnxTransform):
                 )
                 bias_scale = input_quantize_params.scale * weight_quantize_params.scale
                 quantized_bias = quantize_array(bias, bias_scale, 0, numpy.int32)
-                quantized_bias_name = "{}.bias_quantized".format(conv_node.name)
+                quantized_bias_name = f"{conv_node.name}.bias_quantized"
                 quantized_bias_initializer = numpy_helper.from_array(
                     quantized_bias, name=quantized_bias_name
                 )
                 model.graph.initializer.append(quantized_bias_initializer)
                 qconv_inputs.append(quantized_bias_name)
+            else:
+                # bias is not initializer, still need to append though
+                qconv_inputs.append(conv_node.input[2])
 
-        qconv_output = output_quant.output[0]
-        qconv_name = "{}_quant".format(conv_node.name)
         qconv_kwargs = {}
         for attribute in conv_node.attribute:
             qconv_kwargs.update(attribute_to_kwarg(attribute))
 
-        # create qconv node and add it to graph
-        qconv_node = helper.make_node(
-            "QLinearConv", qconv_inputs, [qconv_output], qconv_name, **qconv_kwargs
+        # create QLinearConv node and add it to graph
+        model.graph.node.append(
+            helper.make_node(
+                "QLinearConv",
+                qconv_inputs,
+                [output_quant.output[0]],
+                name=f"{conv_node.name}_quant",
+                **qconv_kwargs,
+            )
         )
-        model.graph.node.append(qconv_node)
 
         # delete original conv and folded quantization ops
         remove_node_and_params_from_graph(model, conv_node)
@@ -146,4 +157,3 @@ class ConvToQLinearConv(OnnxTransform):
             # fold if this conv is the only node that reads from this quant op
             delete_quant_node(model, input_dequant)
         delete_quant_node(model, output_quant)
-        return qconv_node

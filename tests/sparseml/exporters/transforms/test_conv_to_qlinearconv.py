@@ -104,3 +104,25 @@ def test_vanilla(onnx_model: onnx.ModelProto):
         "conv_quant",
     ]
     assert onnx_model.graph.node[0].op_type == "QLinearConv"
+
+
+def test_with_bias(onnx_model: onnx.ModelProto):
+    bias = helper.make_tensor("bias", onnx.TensorProto.FLOAT, (1,), [1])
+    gemm = [n for n in onnx_model.graph.node if n.op_type == "Conv"][0]
+    gemm.input.append("bias")
+    onnx_model.graph.initializer.append(bias)
+    onnx.checker.check_model(onnx_model)
+
+    onnx_model = ConvToQLinearConv().apply(onnx_model)
+    onnx.checker.check_model(onnx_model)
+    assert [i.name for i in onnx_model.graph.initializer] == [
+        "x_scale",
+        "y_scale",
+        "zero_point",
+        "conv.weight_quantized",
+        "conv.bias_quantized",
+    ]
+    assert [n.name for n in onnx_model.graph.node] == [
+        "conv_quant",
+    ]
+    assert onnx_model.graph.node[0].op_type == "QLinearConv"
