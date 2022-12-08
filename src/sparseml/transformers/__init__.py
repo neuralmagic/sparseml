@@ -62,9 +62,7 @@ def _install_transformers_and_deps():
             ]
         )
 
-        import transformers
-
-        importlib.reload(transformers)
+        import transformers as _transformers
 
         _LOGGER.info("sparseml-transformers and dependencies successfully installed")
     except Exception:
@@ -110,7 +108,7 @@ def _check_transformers_install():
         import transformers as _transformers
 
         # Edge case where user has expected version of transformers installed, but
-        # not ours
+        # not the nm integrated one
         if not _transformers.NM_INTEGRATED:
             _install_transformers_and_deps()
             raise RuntimeError(
