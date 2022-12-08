@@ -275,7 +275,9 @@ def _match_op_type(
 ) -> bool:
     op_type, is_optional = _is_optional_node(op_type)
 
-    if op_type == INITIALIZER_MATCH and node.name not in graph._name_to_initializer:
+    if op_type == INITIALIZER_MATCH and (
+        node is None or node.name not in graph._name_to_initializer
+    ):
         return False
 
     if op_type != INITIALIZER_MATCH and not (
