@@ -23,7 +23,7 @@ __all__ = ["InitializersToUint8"]
 
 class InitializersToUint8(OnnxTransform):
     """
-    Converts any `Constant` nodes into initializers
+    Converts any initializers with int8 dtype to uint8
     """
 
     def transform(self, model: ModelProto) -> ModelProto:
