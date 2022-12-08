@@ -28,6 +28,8 @@ from torch.nn import BatchNorm2d, Conv2d, Embedding, Module, ReLU
 
 from sparseml.pytorch.nn import ReLU as ReLU_nm
 from sparseml.pytorch.sparsification.quantization.quantization_scheme import (
+    QuantizationArgs,
+    QuantizationScheme,
     get_observer,
 )
 from sparseml.pytorch.utils import get_layer
@@ -196,13 +198,14 @@ class QATWrapper(Module):
         QConfig for each output. Instead of a QConfig objects, the string 'asymmetric'
         or 'symmetric' may be used to use default UINT8 asymmetric and symmetric
         quantization respectively
-    :param qproperties: properties used to define QConfig.
+    :param qproperties: properties used to define QConfig. may also be a quantization
+        scheme
     """
 
     @staticmethod
     def from_module(
         module: Module,
-        qproperties: QConfigProperties,
+        qproperties: Union[QConfigProperties, QuantizationScheme],
     ) -> "QATWrapper":
         """
         :param module: torch Module to create a QATWrapper for
@@ -225,7 +228,7 @@ class QATWrapper(Module):
     def __init__(
         self,
         forward_fn: Callable[[Any], Any],
-        qproperties: QConfigProperties,
+        qproperties: Union[QConfigProperties, QuantizationScheme],
         num_inputs: int = 1,
         kwarg_input_names: List[str] = None,
         num_outputs: int = 1,
@@ -255,7 +258,11 @@ class QATWrapper(Module):
 
         self.forward_fn = forward_fn
         # Add weight qconfig to forward_fn (in case it has weights)
-        qconfig_ = get_qat_qconfig(qproperties)
+        qconfig_ = (
+            get_qat_qconfig(qproperties)
+            if isinstance(qproperties, QConfigProperties)
+            else qproperties.get_qconfig()  # QuantizationScheme
+        )
         qconfig = torch_quantization.QConfig(
             activation=torch.nn.Identity,
             weight=qconfig_.weight,
@@ -347,9 +354,13 @@ class QATWrapper(Module):
         """
         for quant_stub, qconfig in zip(self.input_quant_stubs, self.input_qconfigs):
             quant_stub.qconfig = qconfig
+            if hasattr(qconfig, "quantization_stub"):
+                quant_stub.quantization_stub = qconfig.quantization_stub
 
         for quant_stub, qconfig in zip(self.output_quant_stubs, self.output_qconfigs):
             quant_stub.qconfig = qconfig
+            if hasattr(qconfig, "quantization_stub"):
+                quant_stub.quantization_stub = qconfig.quantization_stub
 
     @staticmethod
     def _load_qconfigs(
@@ -386,10 +397,26 @@ class QATWrapper(Module):
                     f"Found string with value {qconfig} in {name}"
                 )
 
-            qproperties_idx = deepcopy(qproperties)
-            qproperties_idx.symmetric_activations = qconfig == "symmetric"
+            qconfig_idx = None
+            if isinstance(qproperties, QConfigProperties):
+                qproperties_idx = deepcopy(qproperties)
+                qproperties_idx.symmetric_activations = qconfig == "symmetric"
+                qconfig_idx = get_qat_qconfig(qproperties_idx)
+            else:
+                scheme_idx = deepcopy(qproperties)
+                symmetric = qconfig == "symmetric"
+                # always use output_activations of scheme because the activations
+                # of the QuantStub() are the ones tracked
+                if scheme_idx.output_activations is not None:
+                    scheme_idx.input_activations.symmetric = symmetric
+                else:
+                    scheme_idx.output_activations = QuantizationArgs(
+                        symmetric=symmetric
+                    )
+                qconfig_idx = scheme_idx.get_qconfig()
+                qconfig_idx.quantization_scheme = scheme_idx
 
-            qconfigs[idx] = get_qat_qconfig(qproperties_idx)
+            qconfigs[idx] = qconfig_idx
 
         return qconfigs
 

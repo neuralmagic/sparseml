@@ -24,7 +24,11 @@ from sparseml.pytorch.sparsification.quantization.constants import (
     FUSED_MODULE_NAMES,
     NON_QUANTIZABLE_MODULE_NAMES,
 )
-from sparseml.pytorch.sparsification.quantization.helpers import prepare_embeddings_qat
+from sparseml.pytorch.sparsification.quantization.helpers import (
+    QATWrapper,
+    configure_module_default_qconfigs,
+    prepare_embeddings_qat,
+)
 from sparseml.pytorch.sparsification.quantization.quantization_scheme import (
     QuantizationScheme,
 )
@@ -124,24 +128,44 @@ def set_quantization_schemes(
         by another scheme
     """
     module_type_schemes = module_type_schemes or {}
+    # keep mapping of targets for QATWrapper to inject later so module is not modified
+    # during iteration
+    wrap_qat_targets = {}  # type: Dict[str, QuantizationScheme]
 
-    def _propagate_quantization_scheme(module: Module, scheme: QuantizationScheme):
-        for submodule in module.modules():
-            if is_quantizable_module(submodule, exclude_module_types):
-                submodule_scheme = (
-                    scheme
-                    if submodule.__class__.__name__ not in module_type_schemes
-                    else module_type_schemes[submodule.__class__.__name__]
-                )
+    def _propagate_quantization_scheme(
+        module: Module,
+        scheme: QuantizationScheme,
+        module_name: str = "",
+    ):
+        for submodule_name, submodule in module.named_modules():
+            if module_name:
+                submodule_name = f"{module_name}.{submodule_name}"
+
+            is_scheme_override = submodule.__class__.__name__ in module_type_schemes
+            submodule_scheme = (
+                scheme
+                if not is_scheme_override
+                else module_type_schemes[submodule.__class__.__name__]
+            )
+
+            if getattr(submodule, "wrap_qat", False):
+                # wrap_qat overrides default scheme behavior
+                wrap_qat_targets[submodule_name] = submodule_scheme
+            elif is_scheme_override or is_quantizable_module(
+                submodule, exclude_module_types
+            ):
                 submodule.quantization_scheme = submodule_scheme
 
     if submodule_schemes is None:
         # quantize entire model
         _propagate_quantization_scheme(model, default_scheme)
     else:
-        for submodule_name, target_scheme in submodule_schemes.items():
-            target_submodule = get_layer(submodule_name, model)
+        for target_name, target_scheme in submodule_schemes.items():
+            target_submodule = get_layer(target_name, model)
             _propagate_quantization_scheme(target_submodule, target_scheme)
+
+    for wraped_module_name, scheme in wrap_qat_targets.items():
+        _inject_qat_wrapper(model, wraped_module_name, scheme)
 
 
 def set_qconfigs_from_quantization_schemes(module: Module):
@@ -206,6 +230,9 @@ def convert_module_qat_from_schemes(module: Module):
     # set appropriate qconfig properties in submodules
     set_qconfigs_from_quantization_schemes(module)
 
+    # override any qconfigs set in `configure_qconfigs` function
+    configure_module_default_qconfigs(module)
+
     # set modules with proper qconfigs to QAT mode
     mapping = _get_qat_module_mappings()
     torch_quantization.convert(
@@ -230,6 +257,21 @@ def raise_if_torch_quantization_not_available():
             "torch.nn.intrinsic. "
             "Try upgrading your PyTorch version to use the QuantizationModifier."
         )
+
+
+def _inject_qat_wrapper(
+    root_module: Module,
+    target_submodule_name: str,
+    quantization_scheme: QuantizationScheme,
+):
+    submodule_name_parts = target_submodule_name.split(".")
+    parent_name = ".".join(submodule_name_parts[:-1])
+
+    parent_module = get_layer(parent_name, root_module)
+    target_module = getattr(parent_module, submodule_name_parts[-1])
+
+    wrapped_target_module = QATWrapper.from_module(target_module, quantization_scheme)
+    setattr(parent_module, submodule_name_parts[-1], wrapped_target_module)
 
 
 def _reattach_quantization_schemes(module: Module):

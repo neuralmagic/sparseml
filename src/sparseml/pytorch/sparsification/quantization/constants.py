@@ -37,6 +37,8 @@ NON_QUANTIZABLE_MODULE_NAMES = {
     "Flatten",
     "Unflatten",
     "DataParallel",
+    "ModuleList",
+    "Sequential",
     # losses
     "L1Loss",
     "NLLLoss",

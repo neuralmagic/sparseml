@@ -16,6 +16,7 @@ import os
 
 import pytest
 
+from sparseml.pytorch.sparsification.quantization.helpers import QATWrapper
 from sparseml.pytorch.sparsification.quantization.modifier_quantization import (
     QuantizationModifier,
 )
@@ -26,7 +27,12 @@ from sparseml.pytorch.sparsification.quantization.quantize import (
     is_qat_helper_module,
     is_quantizable_module,
 )
-from tests.sparseml.pytorch.helpers import ConvNet, LinearNet, create_optim_sgd
+from tests.sparseml.pytorch.helpers import (
+    ConvNet,
+    LinearNet,
+    QATMatMulTestNet,
+    create_optim_sgd,
+)
 from tests.sparseml.pytorch.sparsification.test_modifier import ScheduledModifierTest
 
 
@@ -99,6 +105,13 @@ def _test_quantized_module(base_model, modifier, module, name):
         assert isinstance(parent_module, torch_quantization.QuantWrapper)
 
 
+def _test_qat_wrapped_module(root_module, wrapped_module_name):
+    parent_module = root_module
+    for layer in wrapped_module_name.split(".")[:-1]:
+        parent_module = getattr(parent_module, layer)
+    assert isinstance(parent_module, QATWrapper)
+
+
 def _test_qat_applied(modifier, model):
     assert modifier._qat_enabled
 
@@ -116,8 +129,13 @@ def _test_qat_applied(modifier, model):
         if is_target_submodule and is_quantizable_module(
             module, exclude_module_types=modifier.exclude_module_types
         ):
-            # check each target module is quantized
-            _test_quantized_module(model, modifier, module, name)
+            if getattr(module, "wrap_qat", False):
+                _test_qat_wrapped_module(model, name)
+            elif is_quantizable_module(
+                module, exclude_module_types=modifier.exclude_module_types
+            ):
+                # check each target module is quantized
+                _test_quantized_module(model, modifier, module, name)
         else:
             # check all non-target modules are not quantized
             assert not hasattr(module, "quantization_scheme")
@@ -209,6 +227,8 @@ def _test_freeze_bn_stats_observer_applied(modifier, epoch):
             ),
             ConvNet,
         ),
+        # test wrap_qat feature
+        (lambda: QuantizationModifier(start_epoch=0.0), QATMatMulTestNet),
     ],
     scope="function",
 )

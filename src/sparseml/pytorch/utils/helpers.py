@@ -707,6 +707,9 @@ def get_layer(name: str, module: Module) -> Module:
     :param module: the module containing the layer to grab
     :return: the module representing the layer in the module
     """
+    if not name:
+        return module
+
     layers = name.split(".")
     layer = module
 

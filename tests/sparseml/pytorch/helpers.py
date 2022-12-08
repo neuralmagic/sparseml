@@ -43,6 +43,7 @@ __all__ = [
     "MLPNet",
     "FlatMLPNet",
     "ConvNet",
+    "QATMatMulTestNet",
     "MLPDataset",
     "ConvDataset",
     "create_optim_sgd",
@@ -269,6 +270,46 @@ class ConvNet(Module):
         classes = self.mlp(out)
 
         return classes
+
+
+class _QATMatMul(Module):
+    def __init__(self):
+        super().__init__()
+
+        # behaves like normal torch.matmul unless a SparseML QuantizationModifier
+        # is initialized
+        self.wrap_qat = True
+        self.qat_wrapper_kwargs = {
+            "num_inputs": 2,
+            "input_qconfigs": ["asymmetric", "symmetric"],
+        }
+
+    def forward(self, a: torch.Tensor, b: torch.Tensor):
+        return torch.matmul(a, b)
+
+
+class QATMatMulTestNet(Module):
+    _LAYER_DESCS = None
+
+    @staticmethod
+    def layer_descs() -> List[LayerDesc]:
+        if QATMatMulTestNet._LAYER_DESCS is None:
+            QATMatMulTestNet._LAYER_DESCS = [
+                LayerDesc("fc", (16, 16), (16, 16), True),
+                LayerDesc("matmul", (16, 16), (16, 16), False),
+            ]
+
+        return QATMatMulTestNet._LAYER_DESCS
+
+    def __init__(self):
+        super().__init__()
+        self.fc = Linear(16, 16, bias=True)
+        self.matmul = _QATMatMul()
+
+    def forward(self, inp: Tensor):
+        inp = self.fc(inp)
+        inp = self.matmul(inp, inp)
+        return inp
 
 
 class MLPDataset(Dataset):
