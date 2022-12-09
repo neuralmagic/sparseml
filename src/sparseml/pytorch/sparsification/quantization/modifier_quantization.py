@@ -99,7 +99,7 @@ class QuantizationModifier(ScheduledModifier):
     |               input_activations:
     |                   num_bits: 8
     |                   symmetric: True
-    |       exclude_module_types: ["ReLU"]
+    |       ignore: ["ReLU", "input"]
     |       disable_quantization_observer_epoch: 2.0
     |       freeze_bn_stats_epoch: 3.0
     |       model_fuse_fn_name: 'fuse_module'
@@ -120,7 +120,7 @@ class QuantizationModifier(ScheduledModifier):
     :param module_type_schemes: Specify how to quantize specific module types. Must
         be a dictionary of the module type name to a quantization scheme
         specification to quantize that module type with. Default is None
-    :param exclude_module_types: optional list of module class names
+    :param ignore: optional list of module class names or submodule names
         to not quantize. Default is None
     :param disable_quantization_observer_epoch: Epoch to disable updates to the module
         quantization observers. At this point, quantized weights and zero points will
@@ -145,7 +145,7 @@ class QuantizationModifier(ScheduledModifier):
         scheme: QuantizationSchemeLoadable = None,
         submodule_schemes: Optional[Dict[str, QuantizationSchemeLoadable]] = None,
         module_type_schemes: Optional[Dict[str, QuantizationSchemeLoadable]] = None,
-        exclude_module_types: Optional[List[str]] = None,
+        ignore: Optional[List[str]] = None,
         disable_quantization_observer_epoch: Optional[float] = None,
         freeze_bn_stats_epoch: Optional[float] = None,
         model_fuse_fn_name: Optional[str] = None,
@@ -168,7 +168,7 @@ class QuantizationModifier(ScheduledModifier):
         self._module_type_schemes = _load_quantization_schemes_dict(
             module_type_schemes, self._scheme
         )
-        self._exclude_module_types = exclude_module_types
+        self._ignore = ignore or []
         self._disable_quantization_observer_epoch = disable_quantization_observer_epoch
         self._freeze_bn_stats_epoch = freeze_bn_stats_epoch
 
@@ -260,22 +260,20 @@ class QuantizationModifier(ScheduledModifier):
         self._module_type_schemes = _load_quantization_schemes_dict(value, self._scheme)
 
     @ModifierProp()
-    def exclude_module_types(self) -> Optional[List[str]]:
+    def ignore(self) -> List[str]:
         """
-        :return: optional list of module class names to not propagate
-            quantization configs to. Default is None
+        :return: optional list of module class names or submodule names to not propagate
+            quantization schemes to
         """
-        return self._exclude_module_types
+        return self._ignore
 
-    @exclude_module_types.setter
-    def exclude_module_types(self, value: Optional[List[str]]):
+    @ignore.setter
+    def ignore(self, value: Optional[List[str]]):
         """
-        :params value: Default QuantizationScheme to use when enabling quantization
-            in a module. May also be a dictionary to be loaded into the
-            QuantizationScheme class. If None, the default scheme
-            (`QuantizationScheme()`) will be used
+        :params value: optional list of module class names or submodule names
+            to not propagate quantization schemes to
         """
-        self._exclude_module_types = value
+        self._ignore = value or []
 
     @ModifierProp()
     def disable_quantization_observer_epoch(self) -> Optional[float]:
@@ -497,7 +495,7 @@ class QuantizationModifier(ScheduledModifier):
             scheme_overrides=dict(
                 **(self._submodule_schemes or {}), **(self._module_type_schemes or {})
             ),
-            ignore=self._exclude_module_types,
+            ignore=self._ignore,
         )
 
         # fix for freezing batchnorm statistics when not fusing BN with convs.

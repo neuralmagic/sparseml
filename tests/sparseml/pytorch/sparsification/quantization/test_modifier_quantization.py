@@ -121,18 +121,21 @@ def _test_qat_applied(modifier, model):
             continue
 
         is_target_submodule = not any(
-            name.startswith(submodule_name)
-            for submodule_name in (modifier.exclude_module_types or [])
+            name.startswith(submodule_name) for submodule_name in modifier.ignore
+        )
+        is_included_module_type = any(
+            module_type_name == module.__class__.__name__
+            for module_type_name in (modifier.module_type_schemes or {})
+        )
+        is_quantizable = is_included_module_type or is_quantizable_module(
+            module,
+            exclude_module_types=modifier.ignore,
         )
 
-        if is_target_submodule and is_quantizable_module(
-            module, exclude_module_types=modifier.exclude_module_types
-        ):
+        if is_target_submodule and is_quantizable:
             if getattr(module, "wrap_qat", False):
                 _test_qat_wrapped_module(model, name)
-            elif is_quantizable_module(
-                module, exclude_module_types=modifier.exclude_module_types
-            ):
+            elif is_quantizable:
                 # check each target module is quantized
                 _test_quantized_module(model, modifier, module, name)
         else:
@@ -191,13 +194,12 @@ def _test_freeze_bn_stats_observer_applied(modifier, epoch):
             lambda: QuantizationModifier(
                 start_epoch=1.0,
                 module_type_schemes=dict(Linear=QuantizationScheme(weights=None)),
+                ignore=["seq.0"],
             ),
             LinearNet,
         ),
         (
-            lambda: QuantizationModifier(
-                start_epoch=0.0, exclude_module_types=["Linear"]
-            ),
+            lambda: QuantizationModifier(start_epoch=0.0, ignore=["Linear"]),
             LinearNet,
         ),
         (lambda: QuantizationModifier(start_epoch=0.0), ConvNet),
@@ -213,6 +215,7 @@ def _test_freeze_bn_stats_observer_applied(modifier, epoch):
                 module_type_schemes=dict(Conv2d=QuantizationScheme(weights=None)),
                 freeze_bn_stats_epoch=2.5,
                 disable_quantization_observer_epoch=2.2,
+                ignore=["mlp"],
             ),
             ConvNet,
         ),
@@ -222,7 +225,7 @@ def _test_freeze_bn_stats_observer_applied(modifier, epoch):
                 submodule_schemes=dict(
                     seq="tensorrt", mlp=QuantizationScheme(weights=None)
                 ),
-                exclude_module_types=["ReLU"],
+                ignore=["ReLU", "mlp"],
             ),
             ConvNet,
         ),
@@ -317,7 +320,7 @@ def test_quantization_modifier_yaml():
         ),
     )
     module_type_schemes = dict(Linear=dict(output_activations=dict(symmetric=False)))
-    exclude_module_types = ["LayerNorm", "Tanh"]
+    ignore = ["LayerNorm", "Tanh"]
     disable_quantization_observer_epoch = 2.0
     freeze_bn_stats_epoch = 3.0
     num_calibration_steps = 1000
@@ -330,7 +333,7 @@ def test_quantization_modifier_yaml():
         scheme: {scheme}
         submodule_schemes: {submodule_schemes}
         module_type_schemes: {module_type_schemes}
-        exclude_module_types: {exclude_module_types}
+        ignore: {ignore}
         disable_quantization_observer_epoch: {disable_quantization_observer_epoch}
         freeze_bn_stats_epoch: {freeze_bn_stats_epoch}
         num_calibration_steps: {num_calibration_steps}
@@ -348,7 +351,7 @@ def test_quantization_modifier_yaml():
         scheme=scheme,
         submodule_schemes=submodule_schemes,
         module_type_schemes=module_type_schemes,
-        exclude_module_types=exclude_module_types,
+        ignore=ignore,
         disable_quantization_observer_epoch=disable_quantization_observer_epoch,
         freeze_bn_stats_epoch=freeze_bn_stats_epoch,
         num_calibration_steps=num_calibration_steps,
@@ -376,11 +379,7 @@ def test_quantization_modifier_yaml():
         == serialized_modifier.module_type_schemes
         == obj_modifier.module_type_schemes
     )
-    assert (
-        yaml_modifier.exclude_module_types
-        == serialized_modifier.exclude_module_types
-        == obj_modifier.exclude_module_types
-    )
+    assert yaml_modifier.ignore == serialized_modifier.ignore == obj_modifier.ignore
     assert (
         yaml_modifier.disable_quantization_observer_epoch
         == serialized_modifier.disable_quantization_observer_epoch
