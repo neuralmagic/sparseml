@@ -25,7 +25,7 @@ from sparseml.onnx.utils import ONNXGraph, remove_node_and_params_from_graph
 _LOGGER = logging.getLogger(__name__)
 
 
-def should_delete_trivial_onnx_add(match: "MatchResult") -> bool: # F821
+def should_delete_trivial_onnx_add(match: "MatchResult") -> bool:  # F821
     """
     Check if the match node's second input
     node is a constant node set to zero.

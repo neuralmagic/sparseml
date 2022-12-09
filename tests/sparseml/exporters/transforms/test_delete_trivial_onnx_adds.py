@@ -39,7 +39,7 @@ def _create_test_model(initializer_set_to_nonzero=False):
         "output", onnx.TensorProto.FLOAT, (2,)
     )
     initializer_constant = onnx.helper.make_tensor(
-        name="constant",
+        name="constant_initializer",
         data_type=onnx.TensorProto.FLOAT,
         dims=(2,),
         vals=initializer_vals,
@@ -73,7 +73,7 @@ def _test_initializer_zero(model):
 
 def _test_initializer_nonzero(model):
     assert [node.name for node in model.graph.node] == ["constant", "add"]
-    assert [node.name for node in model.graph.initializer] == ["constant"]
+    assert [node.name for node in model.graph.initializer] == ["constant_initializer"]
     assert model.graph.input[0].name == "input"
     assert model.graph.output[0].name == "output"
 
