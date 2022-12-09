@@ -1,6 +1,22 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import onnx
 import pytest
+
 from sparseml.exporters.transforms import QuantizeQATEmbedding
+
 
 def _create_test_model(with_qdq=False):
     """
@@ -45,7 +61,7 @@ def _create_test_model(with_qdq=False):
         "Gather",
         ["input", "dequant_linear_0_output"],
         ["gather_output"],
-        name = "gather_node"
+        name="gather_node",
     )
 
     graph = onnx.helper.make_graph(
@@ -66,12 +82,20 @@ def _create_test_model(with_qdq=False):
     onnx.checker.check_model(model)
     return model
 
+
 def _add_qdq_nodes(graph):
     quantize_linear_node_1 = onnx.helper.make_node(
-        "QuantizeLinear", ["gather_output", "y_scale", "zero_point"], ["quantize_linear_1_output"], name="quantize_linear_node_1"
+        "QuantizeLinear",
+        ["gather_output", "y_scale", "zero_point"],
+        ["quantize_linear_1_output"],
+        name="quantize_linear_node_1",
     )
     dequantize_linear_node_1 = onnx.helper.make_node(
-        "DequantizeLinear", ["quantize_linear_1_output", "x_scale", "zero_point"], ["dequantize_linear_1_output"], name="dequantize_linear_node_1")
+        "DequantizeLinear",
+        ["quantize_linear_1_output", "x_scale", "zero_point"],
+        ["dequantize_linear_1_output"],
+        name="dequantize_linear_node_1",
+    )
 
     graph.node.append(quantize_linear_node_1)
     graph.node.append(dequantize_linear_node_1)
@@ -80,28 +104,43 @@ def _add_qdq_nodes(graph):
 
 
 def _test_qat_embedding(model):
-    assert [node.name for node in model.graph.node] == ["gather_node", "dequantize_linear_gather_node"]
-    assert [node.name for node in model.graph.initializer] == ["x_scale", "zero_point", "embedding_quant"]
+    assert [node.name for node in model.graph.node] == [
+        "gather_node",
+        "dequantize_linear_gather_node",
+    ]
+    assert [node.name for node in model.graph.initializer] == [
+        "x_scale",
+        "zero_point",
+        "embedding_quant",
+    ]
     assert model.graph.input[0].name == "input"
     assert model.graph.output[0].name == "gather_output"
 
+
 def _test_qat_embedding_w_qdq(model):
-    assert [node.name for node in model.graph.node] == ["gather_node", "dequantize_linear_node_1"]
-    assert [node.name for node in model.graph.initializer] == ["x_scale", "zero_point", "embedding_quant"]
+    assert [node.name for node in model.graph.node] == [
+        "gather_node",
+        "dequantize_linear_node_1",
+    ]
+    assert [node.name for node in model.graph.initializer] == [
+        "x_scale",
+        "zero_point",
+        "embedding_quant",
+    ]
     assert model.graph.input[0].name
     assert model.graph.output[0].name == "dequantize_linear_1_output"
+
 
 @pytest.mark.parametrize(
     "with_qdq, testing_function",
     [
         (False, _test_qat_embedding),
         (True, _test_qat_embedding_w_qdq),
-    ]
+    ],
 )
-def test_quantize_qat_embedding(with_qdq,testing_function):
+def test_quantize_qat_embedding(with_qdq, testing_function):
     model = _create_test_model(with_qdq=with_qdq)
     transform = QuantizeQATEmbedding()
     model = transform(model)
     testing_function(model)
     onnx.checker.check_model(model)
-

@@ -1,9 +1,34 @@
-from onnx import ModelProto, numpy_helper, helper
-from sparseml.onnx.utils import ONNXGraph, remove_node_and_params_from_graph
-from sparseml.exporters.transforms import OnnxTransform
-from sparseml.exporters.transforms.utils import get_structural_matches, optional_node, INITIALIZER_MATCH, quantize_array, delete_quant_node, assert_node_type
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import logging
+
+from onnx import ModelProto, helper, numpy_helper
+
+from sparseml.exporters.transforms import OnnxTransform
+from sparseml.exporters.transforms.utils import (
+    INITIALIZER_MATCH,
+    assert_node_type,
+    get_structural_matches,
+    optional_node,
+    quantize_array,
+)
+from sparseml.onnx.utils import ONNXGraph, remove_node_and_params_from_graph
+
+
 _LOGGER = logging.getLogger(__name__)
+
 
 def quantize_embedding(match, model):
     graph = ONNXGraph(model)
@@ -22,7 +47,9 @@ def quantize_embedding(match, model):
     zero_point = numpy_helper.to_array(zero_point_initializer)
 
     embedding_quant = quantize_array(embedding, scale, zero_point, zero_point.dtype)
-    embedding_quant_initializer = numpy_helper.from_array(embedding_quant, name=f"{embedding_initializer.name}_quant")
+    embedding_quant_initializer = numpy_helper.from_array(
+        embedding_quant, name=f"{embedding_initializer.name}_quant"
+    )
 
     # update graph
     model.graph.initializer.append(embedding_quant_initializer)
@@ -33,7 +60,9 @@ def quantize_embedding(match, model):
     qdq_output = False
     if children:
         if len(children[0]) == 2:
-            if assert_node_type(children[0][0], "QuantizeLinear") and assert_node_type(children[0][1], "DequantizeLinear"):
+            if assert_node_type(children[0][0], "QuantizeLinear") and assert_node_type(
+                children[0][1], "DequantizeLinear"
+            ):
                 qdq_output = True
 
     if qdq_output:
@@ -54,7 +83,11 @@ def quantize_embedding(match, model):
 
         new_dequantize_node = helper.make_node(
             "DequantizeLinear",
-            inputs=[match_node_quant_output, input_dequantize_node.input[1], input_dequantize_node.input[2]],
+            inputs=[
+                match_node_quant_output,
+                input_dequantize_node.input[1],
+                input_dequantize_node.input[2],
+            ],
             outputs=[match.node.output[0]],
             name=f"dequantize_linear_{match.node.name}",
         )
@@ -64,8 +97,6 @@ def quantize_embedding(match, model):
         remove_node_and_params_from_graph(model, input_quantize_node)
         remove_node_and_params_from_graph(model, input_dequantize_node)
 
-    #graph.update()
-    #graph.delete_unused_initializers()
     return model
 
 
@@ -78,7 +109,7 @@ class QuantizeQATEmbedding(OnnxTransform):
     |    INPUT    QuantizeLinear (with constant embedding)
     |      |          |
     |      |     DequantizeLinear
-    |      |         |
+    |       |        |
     |         Gather
     |           |
     |       QuantizeLinear (Optional)
@@ -101,17 +132,19 @@ class QuantizeQATEmbedding(OnnxTransform):
         count_converted_nodes = 0
         graph = ONNXGraph(model)
         for match in get_structural_matches(
-                graph,
-                parent_ops=[
-                    [],
-                    [
-                        INITIALIZER_MATCH,
-                        "QuantizeLinear",
-                        "DequantizeLinear",
-                    ],
-                    ],
-                children_ops=[[optional_node("QuantizeLinear"),optional_node("DequantizeLinear")]],
-                op_type="Gather",
+            graph,
+            parent_ops=[
+                [],
+                [
+                    INITIALIZER_MATCH,
+                    "QuantizeLinear",
+                    "DequantizeLinear",
+                ],
+            ],
+            children_ops=[
+                [optional_node("QuantizeLinear"), optional_node("DequantizeLinear")]
+            ],
+            op_type="Gather",
         ):
             _LOGGER.debug(
                 f"Matched quantizable Conv weight and bias: {match.node.name}"
@@ -121,5 +154,7 @@ class QuantizeQATEmbedding(OnnxTransform):
             count_converted_nodes += 1
 
         if count_converted_nodes > 0:
-            _LOGGER.info(f"Converted {count_converted_nodes} QAT embedding ops to UINT8")
+            _LOGGER.info(
+                f"Converted {count_converted_nodes} QAT embedding ops to UINT8"
+            )
         return model

@@ -1,14 +1,35 @@
-import torch
-from typing import NamedTuple, Union, Any, List, Set
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+from typing import Any, List, NamedTuple, Set, Union
 
 import numpy
+import torch
 from onnx import ModelProto, NodeProto, numpy_helper
 
 from sparseml.onnx.utils import ONNXGraph, remove_node_and_params_from_graph
 
-__all__ = ["delete_quant_node", "get_quantization_params", "quantize_array", "assert_node_type"]
+
+__all__ = [
+    "delete_quant_node",
+    "get_quantization_params",
+    "quantize_array",
+    "assert_node_type",
+]
 
 QUANTIZE_OP_NAMES = ["QuantizeLinear", "DequantizeLinear"]
+
 
 def quantize_array(
     array: numpy.ndarray, scale: float, zero_point: int, dtype: Any = numpy.uint8
@@ -104,6 +125,7 @@ def delete_quant_node(
     if keep_weight:
         del node.input[0]
     remove_node_and_params_from_graph(model, node)
+
 
 def assert_node_type(node: NodeProto, op: Union[List[str], Set[str], str]) -> bool:
     """
