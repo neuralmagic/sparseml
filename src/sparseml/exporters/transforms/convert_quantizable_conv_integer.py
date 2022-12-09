@@ -32,6 +32,7 @@ _LOGGER = logging.getLogger(__name__)
 
 __all__ = ["ConvertQuantizableConvInteger"]
 
+
 def convert_conv_to_quantized(
     match: "MatchResult", model: ModelProto  # noqa F821
 ) -> onnx.ModelProto:
