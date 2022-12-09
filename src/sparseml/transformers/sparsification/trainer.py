@@ -836,6 +836,11 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         :param kwargs: keyword args to pass to super().train()
         :return: the output from super.train()
         """
+        prev_training_mode = None
+        if not self.one_shot:
+            # Set training mode to satisfy a constraint during prepare_qat
+            prev_training_mode = self.model.training
+            self.model.training = True
         checkpoint, epoch = self._generate_apply_manager_params(kwargs)
         applied = self.apply_manager(epoch=epoch, checkpoint=checkpoint)
         self.callback_disable_fp16.check_disable(epoch, force=True)
@@ -847,6 +852,9 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         else:
             _LOGGER.info(f"Skipping Training due to one-shot: {self.one_shot}")
         self.log_model_sparsification()
+
+        if prev_training_mode is not None:
+            self.model.training = prev_training_mode
 
         return output
 
