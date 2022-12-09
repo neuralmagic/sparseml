@@ -11,16 +11,25 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""
-Required to avoid running into
-circular dependencies when importing:
 
-isort:skip_file
-"""
+from typing import List, Set, Union
 
-# flake8: noqa
-from .base_transform import *
-from .onnx_transform import *
+from onnx import NodeProto
 
-from .delete_trivial_onnx_adds import *
-from .fold_identity_initializers import *
+
+__all__ = ["assert_node_type"]
+
+
+def assert_node_type(node: NodeProto, op: Union[List[str], Set[str], str]) -> bool:
+    """
+    Checks if a node is of the given op type
+    :param node: the node to check
+    :param op: the operation type to check for
+    :return: True if the node has the given op type, False otherwise
+    """
+    if node is None:
+        return False
+    if isinstance(op, str):
+        return node.op_type == op
+    else:
+        return node.op_type in op
