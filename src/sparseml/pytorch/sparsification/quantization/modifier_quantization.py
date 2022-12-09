@@ -87,14 +87,13 @@ class QuantizationModifier(ScheduledModifier):
     |           weights:
     |               num_bits: 8
     |               symmetric: True
-    |       submodule_schemes:
+    |       scheme_overrides:
     |           feature_extractor: "default"
     |           classifier:
     |               input_activations:
     |                   num_bits: 8
     |                   symmetric: False
     |               weights: null
-    |       module_type_schemes:
     |           Conv2d:
     |               input_activations:
     |                   num_bits: 8
@@ -111,15 +110,9 @@ class QuantizationModifier(ScheduledModifier):
         ['default', 'deepsparse', 'tensorrt'].
         If None, the default scheme (`QuantizationScheme()`) will be used.
         Default is None
-    :param submodule_schemes: Specify submodules to target for quantization. Must
-        be a dictionary of the submodule name to a quantization scheme
-        specification to quantize that submodule with.  Modules not included under
-        a named submodule in the dictionary will not be targeted for quantization.
-        If set to None, the entire module will be quantized falling back to the default
-        scheme. Default is None
-    :param module_type_schemes: Specify how to quantize specific module types. Must
-        be a dictionary of the module type name to a quantization scheme
-        specification to quantize that module type with. Default is None
+    :param scheme_overrides: optional mapping of module type names or submodule type
+        names to quantization schemes to override them with. If a scheme is mapped to
+        'default', then it will use the scheme set in the modifier scheme property
     :param ignore: optional list of module class names or submodule names
         to not quantize. Default is None
     :param disable_quantization_observer_epoch: Epoch to disable updates to the module
@@ -143,8 +136,7 @@ class QuantizationModifier(ScheduledModifier):
         self,
         start_epoch: float = -1.0,
         scheme: QuantizationSchemeLoadable = None,
-        submodule_schemes: Optional[Dict[str, QuantizationSchemeLoadable]] = None,
-        module_type_schemes: Optional[Dict[str, QuantizationSchemeLoadable]] = None,
+        scheme_overrides: Optional[Dict[str, QuantizationSchemeLoadable]] = None,
         ignore: Optional[List[str]] = None,
         disable_quantization_observer_epoch: Optional[float] = None,
         freeze_bn_stats_epoch: Optional[float] = None,
@@ -162,11 +154,8 @@ class QuantizationModifier(ScheduledModifier):
         super().__init__(start_epoch=start_epoch, end_epoch=-1.0, end_comparator=-1)
 
         self._scheme = QuantizationScheme.load(scheme)
-        self._submodule_schemes = _load_quantization_schemes_dict(
-            submodule_schemes, self._scheme
-        )
-        self._module_type_schemes = _load_quantization_schemes_dict(
-            module_type_schemes, self._scheme
+        self._scheme_overrides = _load_quantization_schemes_dict(
+            scheme_overrides, self._scheme
         )
         self._ignore = ignore or []
         self._disable_quantization_observer_epoch = disable_quantization_observer_epoch
@@ -216,48 +205,24 @@ class QuantizationModifier(ScheduledModifier):
         self._scheme = QuantizationScheme.load(value)
 
     @ModifierProp()
-    def submodule_schemes(self) -> Optional[Dict[str, QuantizationSchemeLoadable]]:
+    def scheme_overrides(self) -> Optional[Dict[str, QuantizationSchemeLoadable]]:
         """
-        :return: Specify submodules to target for quantization. Must
-            be a dictionary of the submodule name to a quantization scheme
-            specification to quantize that submodule with.  Modules not included under
-            a named submodule in the dictionary will not be targeted for quantization.
-            If set to None, the entire module will be quantized falling back to the
-            default scheme.
+        :return: optional mapping of module type names or submodule type
+            names to quantization schemes to override them with. If a scheme is mapped
+            to 'default', then it will use the scheme set in the modifier scheme
+            property
         """
-        return self._submodule_schemes
+        return self._scheme_overrides
 
-    @submodule_schemes.setter
-    def submodule_schemes(self, value: Optional[Dict[str, QuantizationSchemeLoadable]]):
+    @scheme_overrides.setter
+    def scheme_overrides(self, value: Optional[Dict[str, QuantizationSchemeLoadable]]):
         """
-        :params value:  Specify submodules to target for quantization. Must
-            be a dictionary of the submodule name to a quantization scheme
-            specification to quantize that submodule with.  Modules not included under
-            a named submodule in the dictionary will not be targeted for quantization.
-            If set to None, the entire module will be quantized falling back to the
-            default scheme.
+        :params value: optional mapping of module type names or submodule type
+            names to quantization schemes to override them with. If a scheme is mapped
+            to 'default', then it will use the scheme set in the modifier scheme
+            property
         """
-        self._submodule_schemes = _load_quantization_schemes_dict(value, self._scheme)
-
-    @ModifierProp()
-    def module_type_schemes(self) -> Optional[Dict[str, QuantizationSchemeLoadable]]:
-        """
-        :return: Default Specify how to quantize specific module types. Must
-            be a dictionary of the module type name to a quantization scheme
-            specification to quantize that module type with.
-        """
-        return self._module_type_schemes
-
-    @module_type_schemes.setter
-    def module_type_schemes(
-        self, value: Optional[Dict[str, QuantizationSchemeLoadable]]
-    ):
-        """
-        :params value: Specify how to quantize specific module types. Must
-            be a dictionary of the module type name to a quantization scheme
-            specification to quantize that module type with.
-        """
-        self._module_type_schemes = _load_quantization_schemes_dict(value, self._scheme)
+        self._scheme_overrides = _load_quantization_schemes_dict(value, self._scheme)
 
     @ModifierProp()
     def ignore(self) -> List[str]:
@@ -492,9 +457,7 @@ class QuantizationModifier(ScheduledModifier):
         set_quantization_schemes(
             module,
             scheme=self._scheme,
-            scheme_overrides=dict(
-                **(self._submodule_schemes or {}), **(self._module_type_schemes or {})
-            ),
+            scheme_overrides=self._scheme_overrides,
             ignore=self._ignore,
         )
 
@@ -598,11 +561,7 @@ class QuantizationModifier(ScheduledModifier):
                 )
             )
 
-        all_schemes = [self._scheme]
-        if self._submodule_schemes:
-            all_schemes += list(self._submodule_schemes.values())
-        if self._model_fuse_fn_kwargs:
-            all_schemes += list(self._module_type_schemes.values())
+        all_schemes = [self._scheme] + list(self._scheme_overrides.values())
         if any(scheme.target_hardware == "tensorrt" for scheme in all_schemes) and (
             self._model_fuse_fn_name != "no_fuse"
         ):
@@ -676,9 +635,9 @@ class _QuantizationSchemesDict(dict):
 def _load_quantization_schemes_dict(
     schemes_dict: Optional[Dict[str, QuantizationSchemeLoadable]],
     default_scheme: QuantizationScheme,
-) -> Optional[Dict[str, QuantizationScheme]]:
+) -> Dict[str, QuantizationScheme]:
     if schemes_dict is None:
-        return None
+        return {}
     return _QuantizationSchemesDict(
         {
             submodule: QuantizationScheme.load(scheme, default=default_scheme)
