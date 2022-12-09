@@ -333,6 +333,15 @@ def _match_children(
         return False
 
     children = graph.get_node_children(node)
+    if children == [] and all(
+        all(op.startswith("Optional-") for op in ops) for ops in children_ops
+    ):
+        # we are at the end of the graph and all children nodes are optional
+        # this is considered a match
+        for ops in children_ops:
+            match.children.append([None for _ in ops])
+        return True
+
     # NOTE: get_node_children can return less than node.output if one of the outputs
     #       is the graph output.
     # this is a difference in behavior to get_node_parents, which replaces input
