@@ -84,6 +84,8 @@ class ConvertQuantizableMatmul(OnnxTransform):
     A transform that attempts, if possible, to convert MatMul nodes into
     their quantized representation.
     This MatMul is the result of quantizing native torch.matmul using QATMatMul
+    Note: we expect that INPUT_0 and INPUT_1 are not initializers (in case where
+    both inputs are activations)
 
     | Starting with:
     |          INPUT_0           INPUT_1
