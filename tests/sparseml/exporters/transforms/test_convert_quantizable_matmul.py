@@ -45,14 +45,23 @@ def _create_test_model(with_transpose=False, with_reshape=False):
     |                     |
     |                  OUTPUT
     """
-    x_scale = onnx.helper.make_tensor_value_info(
-        "x_scale", onnx.TensorProto.FLOAT, (1,)
+    x_scale = onnx.helper.make_tensor(
+        "x_scale",
+        onnx.TensorProto.FLOAT,
+        (1,),
+        [1],
     )
-    y_scale = onnx.helper.make_tensor_value_info(
-        "y_scale", onnx.TensorProto.FLOAT, (1,)
+    y_scale = onnx.helper.make_tensor(
+        "y_scale",
+        onnx.TensorProto.FLOAT,
+        (1,),
+        [1],
     )
-    zero_point = onnx.helper.make_tensor_value_info(
-        "zero_point", onnx.TensorProto.INT8, (1,)
+    zero_point = onnx.helper.make_tensor(
+        "zero_point",
+        onnx.TensorProto.INT8,
+        (1,),
+        [1],
     )
 
     model_input_0 = onnx.helper.make_tensor_value_info(
@@ -68,7 +77,7 @@ def _create_test_model(with_transpose=False, with_reshape=False):
 
     quantize_linear_node_0 = onnx.helper.make_node(
         "QuantizeLinear",
-        ["input_0", "y_scale"],
+        ["input_0", "y_scale", "zero_point"],
         ["quant_linear_0_output"],
         name="quantize_linear_node_0",
     )
@@ -99,17 +108,17 @@ def _create_test_model(with_transpose=False, with_reshape=False):
         name="matmul_node",
     )
 
-    quantize_linear_node_3 = onnx.helper.make_node(
+    quantize_linear_node_2 = onnx.helper.make_node(
         "QuantizeLinear",
         ["matmul_output", "y_scale", "zero_point"],
-        ["quant_linear_3_output"],
-        name="quantize_linear_node_3",
+        ["quant_linear_2_output"],
+        name="quantize_linear_node_2",
     )
-    dequantize_linear_node_3 = onnx.helper.make_node(
+    dequantize_linear_node_2 = onnx.helper.make_node(
         "DequantizeLinear",
-        ["quant_linear_3_output", "x_scale"],
-        ["dequant_linear_3_output"],
-        name="dequantize_linear_node_3",
+        ["quant_linear_2_output", "x_scale", "zero_point"],
+        ["dequant_linear_2_output"],
+        name="dequantize_linear_node_2",
     )
 
     graph = onnx.helper.make_graph(
@@ -119,12 +128,13 @@ def _create_test_model(with_transpose=False, with_reshape=False):
             quantize_linear_node_1,
             dequantize_linear_node_1,
             matmul_node,
-            quantize_linear_node_3,
-            dequantize_linear_node_3,
+            quantize_linear_node_2,
+            dequantize_linear_node_2,
         ],
         name="g",
-        inputs=[x_scale, y_scale, zero_point, model_input_0, model_input_1],
+        inputs=[model_input_0, model_input_1],
         outputs=[model_output],
+        initializer=[x_scale, y_scale, zero_point],
     )
 
     if with_transpose and not with_reshape:
@@ -151,7 +161,7 @@ def _add_transpose_node(graph):
 
 
 def _add_reshape_node(graph):
-    shape = onnx.helper.make_tensor_value_info("reshape", onnx.TensorProto.INT64, (1,))
+    shape = onnx.helper.make_tensor("reshape", onnx.TensorProto.INT64, (1,), [1])
     reshape_node = onnx.helper.make_node(
         "Reshape",
         ["matmul_output", "reshape"],
@@ -160,12 +170,12 @@ def _add_reshape_node(graph):
     )
     graph.node.insert(5, reshape_node)
     graph.node[6].input[0] = "reshape_output"
-    graph.input.append(shape)
+    graph.initializer.append(shape)
     return graph
 
 
 def _add_reshape_and_transpose_node(graph):
-    shape = onnx.helper.make_tensor_value_info("reshape", onnx.TensorProto.INT64, (1,))
+    shape = onnx.helper.make_tensor("reshape", onnx.TensorProto.INT64, (1,), [1])
 
     transpose_node = onnx.helper.make_node(
         "Transpose", ["matmul_output"], ["transpose_output"], name="transpose_node"
@@ -180,7 +190,7 @@ def _add_reshape_and_transpose_node(graph):
     graph.node.insert(5, reshape_node)
     graph.node.insert(5, transpose_node)
     graph.node[7].input[0] = "reshape_output"
-    graph.input.append(shape)
+    graph.initializer.append(shape)
     return graph
 
 
@@ -194,8 +204,15 @@ def _test_matmul(model):
         "quantize_linear_node_0",
         "quantize_linear_node_1",
         "matmul_node_quant",
-        "dequantize_linear_node_3",
+        "dequantize_linear_node_2",
     ]
+    assert [node.name for node in model.graph.initializer] == [
+        "x_scale",
+        "y_scale",
+        "zero_point",
+    ]
+    assert model.graph.input[0].name == "input_0"
+    assert model.graph.output[0].name == "output"
 
 
 def _test_transpose(model):
@@ -204,8 +221,15 @@ def _test_transpose(model):
         "quantize_linear_node_1",
         "matmul_node_quant",
         "transpose_node",
-        "dequantize_linear_node_3",
+        "dequantize_linear_node_2",
     ]
+    assert [node.name for node in model.graph.initializer] == [
+        "x_scale",
+        "y_scale",
+        "zero_point",
+    ]
+    assert model.graph.input[0].name == "input_0"
+    assert model.graph.output[0].name == "output"
 
 
 def _test_reshape(model):
@@ -214,8 +238,16 @@ def _test_reshape(model):
         "quantize_linear_node_1",
         "matmul_node_quant",
         "reshape_node",
-        "dequantize_linear_node_3",
+        "dequantize_linear_node_2",
     ]
+    assert [node.name for node in model.graph.initializer] == [
+        "x_scale",
+        "y_scale",
+        "zero_point",
+        "reshape",
+    ]
+    assert model.graph.input[0].name == "input_0"
+    assert model.graph.output[0].name == "output"
 
 
 def _test_reshape_and_transpose(model):
@@ -225,8 +257,16 @@ def _test_reshape_and_transpose(model):
         "matmul_node_quant",
         "transpose_node",
         "reshape_node",
-        "dequantize_linear_node_3",
+        "dequantize_linear_node_2",
     ]
+    assert [node.name for node in model.graph.initializer] == [
+        "x_scale",
+        "y_scale",
+        "zero_point",
+        "reshape",
+    ]
+    assert model.graph.input[0].name == "input_0"
+    assert model.graph.output[0].name == "output"
 
 
 @pytest.mark.parametrize(

@@ -140,8 +140,10 @@ class ConvertQuantizableMatmul(OnnxTransform):
                 ]
             ],
         ):
+            for quantize_linear_parent in [match.parents[0][0], match.parents[1][0]]:
+                if graph.get_init_by_name(quantize_linear_parent.input[0]):
+                    continue
             _LOGGER.debug(f"Matched quantizable MatMul: {match.node.name}")
-
             # Convert
             model = convert_matmul_to_quantized(match, model)
             remove_node_and_params_from_graph(model, match.node)
