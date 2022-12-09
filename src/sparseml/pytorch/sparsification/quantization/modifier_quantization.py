@@ -493,10 +493,11 @@ class QuantizationModifier(ScheduledModifier):
         # add quantization_schemes to target submodules
         set_quantization_schemes(
             module,
-            default_scheme=self._scheme,
-            submodule_schemes=self._submodule_schemes,
-            module_type_schemes=self._module_type_schemes,
-            exclude_module_types=self._exclude_module_types,
+            scheme=self._scheme,
+            scheme_overrides=dict(
+                **(self._submodule_schemes or {}), **(self._module_type_schemes or {})
+            ),
+            ignore=self._exclude_module_types,
         )
 
         # fix for freezing batchnorm statistics when not fusing BN with convs.

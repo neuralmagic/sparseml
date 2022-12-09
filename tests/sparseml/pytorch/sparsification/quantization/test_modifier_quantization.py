@@ -120,12 +120,11 @@ def _test_qat_applied(modifier, model):
             # skip helper modules
             continue
 
-        is_target_submodule = modifier.submodule_schemes is None or (
-            any(
-                name.startswith(submodule_name)
-                for submodule_name in modifier.submodule_schemes
-            )
+        is_target_submodule = not any(
+            name.startswith(submodule_name)
+            for submodule_name in (modifier.exclude_module_types or [])
         )
+
         if is_target_submodule and is_quantizable_module(
             module, exclude_module_types=modifier.exclude_module_types
         ):
