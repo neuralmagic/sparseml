@@ -30,6 +30,7 @@ from sparseml.onnx.utils import ONNXGraph, remove_node_and_params_from_graph
 
 _LOGGER = logging.getLogger(__name__)
 
+__all__ = ["ConvertQuantizableConvInteger"]
 
 def convert_conv_to_quantized(
     match: "MatchResult", model: ModelProto  # noqa F821
