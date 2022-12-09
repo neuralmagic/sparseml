@@ -12,4 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # flake8: noqa
+
+from .add_quantized_conv_matmul_add_ops import *
+from .helpers import *
 from .matching import *
