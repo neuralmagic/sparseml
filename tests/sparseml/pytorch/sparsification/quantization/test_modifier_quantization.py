@@ -175,7 +175,7 @@ def _test_freeze_bn_stats_observer_applied(modifier, epoch):
         (lambda: QuantizationModifier(start_epoch=0.0), LinearNet),
         (
             lambda: QuantizationModifier(
-                start_epoch=0.0, default_scheme=QuantizationScheme(weights=None)
+                start_epoch=0.0, scheme=QuantizationScheme(weights=None)
             ),
             LinearNet,
         ),
@@ -306,7 +306,7 @@ class TestQuantizationModifierImpl(ScheduledModifierTest):
 )
 def test_quantization_modifier_yaml():
     start_epoch = 0.0
-    default_scheme = dict(
+    scheme = dict(
         input_activations=dict(num_bits=8, symmetric=True),
         weights=dict(num_bits=6, symmetric=False),
     )
@@ -328,7 +328,7 @@ def test_quantization_modifier_yaml():
     yaml_str = f"""
     !QuantizationModifier
         start_epoch: {start_epoch}
-        default_scheme: {default_scheme}
+        scheme: {scheme}
         submodule_schemes: {submodule_schemes}
         module_type_schemes: {module_type_schemes}
         exclude_module_types: {exclude_module_types}
@@ -346,7 +346,7 @@ def test_quantization_modifier_yaml():
     )  # type: QuantizationModifier
     obj_modifier = QuantizationModifier(
         start_epoch=start_epoch,
-        default_scheme=default_scheme,
+        scheme=scheme,
         submodule_schemes=submodule_schemes,
         module_type_schemes=module_type_schemes,
         exclude_module_types=exclude_module_types,
@@ -363,14 +363,10 @@ def test_quantization_modifier_yaml():
         == serialized_modifier.start_epoch
         == obj_modifier.start_epoch
     )
-    assert (
-        yaml_modifier.default_scheme
-        == serialized_modifier.default_scheme
-        == obj_modifier.default_scheme
-    )
-    assert isinstance(yaml_modifier.default_scheme, QuantizationScheme)
-    assert isinstance(serialized_modifier.default_scheme, QuantizationScheme)
-    assert isinstance(obj_modifier.default_scheme, QuantizationScheme)
+    assert yaml_modifier.scheme == serialized_modifier.scheme == obj_modifier.scheme
+    assert isinstance(yaml_modifier.scheme, QuantizationScheme)
+    assert isinstance(serialized_modifier.scheme, QuantizationScheme)
+    assert isinstance(obj_modifier.scheme, QuantizationScheme)
     assert (
         yaml_modifier.submodule_schemes
         == serialized_modifier.submodule_schemes

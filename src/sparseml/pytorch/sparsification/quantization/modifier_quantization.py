@@ -80,7 +80,7 @@ class QuantizationModifier(ScheduledModifier):
     | Sample yaml:
     |   !QuantizationModifier
     |       start_epoch: 0.0
-    |       default_scheme:
+    |       scheme:
     |           input_activations:
     |               num_bits: 8
     |               symmetric: False
@@ -105,7 +105,7 @@ class QuantizationModifier(ScheduledModifier):
     |       model_fuse_fn_name: 'fuse_module'
 
     :param start_epoch: The epoch to start the modifier at
-    :param default_scheme: Default QuantizationScheme to use when enabling quantization
+    :param scheme: Default QuantizationScheme to use when enabling quantization
         in a module. May also be a dictionary to be loaded into the QuantizationScheme
         class. A string alias may also be used, supported aliases:
         ['default', 'deepsparse', 'tensorrt'].
@@ -142,7 +142,7 @@ class QuantizationModifier(ScheduledModifier):
     def __init__(
         self,
         start_epoch: float = -1.0,
-        default_scheme: QuantizationSchemeLoadable = None,
+        scheme: QuantizationSchemeLoadable = None,
         submodule_schemes: Optional[Dict[str, QuantizationSchemeLoadable]] = None,
         module_type_schemes: Optional[Dict[str, QuantizationSchemeLoadable]] = None,
         exclude_module_types: Optional[List[str]] = None,
@@ -161,12 +161,12 @@ class QuantizationModifier(ScheduledModifier):
             )
         super().__init__(start_epoch=start_epoch, end_epoch=-1.0, end_comparator=-1)
 
-        self._default_scheme = QuantizationScheme.load(default_scheme)
+        self._scheme = QuantizationScheme.load(scheme)
         self._submodule_schemes = _load_quantization_schemes_dict(
-            submodule_schemes, self._default_scheme
+            submodule_schemes, self._scheme
         )
         self._module_type_schemes = _load_quantization_schemes_dict(
-            module_type_schemes, self._default_scheme
+            module_type_schemes, self._scheme
         )
         self._exclude_module_types = exclude_module_types
         self._disable_quantization_observer_epoch = disable_quantization_observer_epoch
@@ -198,22 +198,22 @@ class QuantizationModifier(ScheduledModifier):
         return [SparsificationTypes.quantization, SparsificationTypes.structured]
 
     @ModifierProp()
-    def default_scheme(self) -> QuantizationSchemeLoadable:
+    def scheme(self) -> QuantizationSchemeLoadable:
         """
         :return: Default QuantizationScheme to use when enabling quantization
             in a module. returned as a dictionary for serialization purposes
         """
-        return self._default_scheme
+        return self._scheme
 
-    @default_scheme.setter
-    def default_scheme(self, value: QuantizationSchemeLoadable):
+    @scheme.setter
+    def scheme(self, value: QuantizationSchemeLoadable):
         """
         :params value: Default QuantizationScheme to use when enabling quantization
             in a module. May also be a dictionary to be loaded into the
             QuantizationScheme class. If None, the default scheme
             (`QuantizationScheme()`) will be used
         """
-        self._default_scheme = QuantizationScheme.load(value)
+        self._scheme = QuantizationScheme.load(value)
 
     @ModifierProp()
     def submodule_schemes(self) -> Optional[Dict[str, QuantizationSchemeLoadable]]:
@@ -237,9 +237,7 @@ class QuantizationModifier(ScheduledModifier):
             If set to None, the entire module will be quantized falling back to the
             default scheme.
         """
-        self._submodule_schemes = _load_quantization_schemes_dict(
-            value, self._default_scheme
-        )
+        self._submodule_schemes = _load_quantization_schemes_dict(value, self._scheme)
 
     @ModifierProp()
     def module_type_schemes(self) -> Optional[Dict[str, QuantizationSchemeLoadable]]:
@@ -259,9 +257,7 @@ class QuantizationModifier(ScheduledModifier):
             be a dictionary of the module type name to a quantization scheme
             specification to quantize that module type with.
         """
-        self._module_type_schemes = _load_quantization_schemes_dict(
-            value, self._default_scheme
-        )
+        self._module_type_schemes = _load_quantization_schemes_dict(value, self._scheme)
 
     @ModifierProp()
     def exclude_module_types(self) -> Optional[List[str]]:
@@ -497,7 +493,7 @@ class QuantizationModifier(ScheduledModifier):
         # add quantization_schemes to target submodules
         set_quantization_schemes(
             module,
-            default_scheme=self._default_scheme,
+            default_scheme=self._scheme,
             submodule_schemes=self._submodule_schemes,
             module_type_schemes=self._module_type_schemes,
             exclude_module_types=self._exclude_module_types,
@@ -603,7 +599,7 @@ class QuantizationModifier(ScheduledModifier):
                 )
             )
 
-        all_schemes = [self._default_scheme]
+        all_schemes = [self._scheme]
         if self._submodule_schemes:
             all_schemes += list(self._submodule_schemes.values())
         if self._model_fuse_fn_kwargs:
