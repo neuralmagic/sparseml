@@ -329,15 +329,16 @@ def _match_children(
     node: Union[NodeProto, TensorProto],
     children_ops: List[List[str]],
 ) -> bool:
-    if not (isinstance(node, NodeProto) and len(children_ops) <= len(node.output)):
+    if not isinstance(node, NodeProto):
         return False
 
     children = graph.get_node_children(node)
     # NOTE: get_node_children can return less than node.output if one of the outputs
-    #       is the graph output.
-    # this is a difference in behavior to get_node_parents, which replaces input
-    # with None, instead of removing it.
-    if not (len(children_ops) <= len(children)):
+    #       is the graph output. this is a difference in behavior to get_node_parents, which replaces input
+    #       with None, instead of removing it.
+    # NOTE: comparing to length of children here also handles the case where a node has a single
+    #       output that is used by multiple children nodes
+    if len(children_ops) > len(children):
         return False
     for child, expected_op_sequence in zip(children, children_ops):
         # this case represents when a user passes in an `[]` for one of the elements
