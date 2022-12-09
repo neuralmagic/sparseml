@@ -111,6 +111,7 @@ def set_quantization_schemes(
     scheme: QuantizationScheme,
     scheme_overrides: Optional[Dict[str, QuantizationScheme]] = None,
     ignore: Optional[List[str]] = None,
+    strict: bool = True,
 ):
     """
     Sets an appropriate `quantization_scheme` to targeted quantizable submodules
@@ -124,9 +125,14 @@ def set_quantization_schemes(
         take the highest priority followed by the longest matched submodule name
     :param ignore: string names of modules type names or submodule names to not include
         for quantization. Default None
+    :param strict: if True, will raise an error if any module types or submodules in
+        scheme_overrides or ignore are not found in the given module. Default True
     """
     # default to empty dict
     scheme_overrides = scheme_overrides or {}
+
+    if strict:
+        _validate_set_module_schemes(model, scheme_overrides, ignore)
 
     # keep mapping of targets for QATWrapper to inject later so module is not modified
     # during iteration
@@ -308,3 +314,40 @@ def _get_qat_module_mappings() -> Dict[Module, Module]:
         return mappings.get_qat_module_mappings()
     # latest
     return mappings.get_default_qat_module_mappings()
+
+
+def _validate_set_module_schemes(
+    model: Module,
+    scheme_overrides: Optional[Dict[str, QuantizationScheme]] = None,
+    ignore: Optional[List[str]] = None,
+):
+    def _get_unmatched_types_or_names(types_or_names):
+        unmatched = []
+        for type_or_name in types_or_names:
+            matched = False
+            for submodule_name, submodule in model.named_modules():
+                if submodule_name.startswith(type_or_name) or (
+                    submodule.__class__.__name__ == type_or_name
+                ):
+                    matched = True
+                    break
+            if not matched:
+                unmatched.append(type_or_name)
+        return unmatched
+
+    def _build_error_str(property_name, unmatched_values):
+        return (
+            f"{property_name} contains submodule names or module types "
+            "that do not match to any submodules in the model. "
+            f"unmatched values: {unmatched_values}"
+        )
+
+    unmatched_scheme_overrides = _get_unmatched_types_or_names(scheme_overrides)
+    if unmatched_scheme_overrides:
+        raise ValueError(
+            _build_error_str("scheme_overrides", unmatched_scheme_overrides)
+        )
+
+    unmatched_ignore = _get_unmatched_types_or_names(ignore)
+    if unmatched_ignore:
+        raise ValueError(_build_error_str("ignore", unmatched_ignore))

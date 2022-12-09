@@ -102,6 +102,7 @@ class QuantizationModifier(ScheduledModifier):
     |       disable_quantization_observer_epoch: 2.0
     |       freeze_bn_stats_epoch: 3.0
     |       model_fuse_fn_name: 'fuse_module'
+    |       strict: True
 
     :param start_epoch: The epoch to start the modifier at
     :param scheme: Default QuantizationScheme to use when enabling quantization
@@ -128,6 +129,8 @@ class QuantizationModifier(ScheduledModifier):
         to the model fusing function
     :param num_calibration_steps: Number of steps to run post training calibration for.
         When None, the entire calibration_dataloader is used
+    :param strict: if True, will raise an error if any module types or submodules in
+        scheme_overrides or ignore are not found in a given module. Default True
     :param end_epoch: Disabled, setting to anything other than -1 will raise an
         exception. For compatibility with YAML serialization only.
     """
@@ -143,6 +146,7 @@ class QuantizationModifier(ScheduledModifier):
         model_fuse_fn_name: Optional[str] = None,
         model_fuse_fn_kwargs: Optional[Dict[str, Any]] = None,
         num_calibration_steps: Optional[int] = None,
+        strict: bool = True,
         end_epoch: float = -1.0,
     ):
         raise_if_torch_quantization_not_available()
@@ -172,6 +176,8 @@ class QuantizationModifier(ScheduledModifier):
             and self._model_fuse_fn_name.lower() == "none"
         ):
             self._model_fuse_fn_name = None
+
+        self._strict = strict
 
         self._qat_enabled = False
         self._quantization_observer_disabled = False
@@ -326,6 +332,22 @@ class QuantizationModifier(ScheduledModifier):
         """
         return self._model_fuse_fn_kwargs
 
+    @ModifierProp()
+    def strict(self) -> bool:
+        """
+        :return: if True, will raise an error if any module types or submodules in
+            scheme_overrides or ignore are not found in the given module
+        """
+        return self._strict
+
+    @strict.setter
+    def strict(self, value: bool):
+        """
+        :params value: if True, will raise an error if any module types or submodules in
+            scheme_overrides or ignore are not found in the given module
+        """
+        self._strict = value
+
     def initialize(
         self,
         module: Module,
@@ -459,6 +481,7 @@ class QuantizationModifier(ScheduledModifier):
             scheme=self._scheme,
             scheme_overrides=self._scheme_overrides,
             ignore=self._ignore,
+            strict=self._strict,
         )
 
         # fix for freezing batchnorm statistics when not fusing BN with convs.
