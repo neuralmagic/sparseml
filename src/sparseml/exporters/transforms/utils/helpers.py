@@ -12,10 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import NamedTuple, Union
+from typing import Any, NamedTuple, Union
 
 import numpy
-from onnx import ModelProto, NodeProto, numpy_helper
+import torch
+from onnx import AttributeProto, ModelProto, NodeProto, numpy_helper
 
 from sparseml.onnx.utils import ONNXGraph, remove_node_and_params_from_graph
 
@@ -97,3 +98,63 @@ def delete_quant_node(
     if keep_weight:
         del node.input[0]
     remove_node_and_params_from_graph(model, node)
+
+
+def quantize_array(
+    array: numpy.ndarray, scale: float, zero_point: int, dtype: Any = numpy.uint8
+) -> numpy.ndarray:
+
+    if dtype == numpy.uint8:
+        tensor_dtype = torch.quint8
+    elif dtype == numpy.int8:
+        tensor_dtype = torch.qint8
+    elif dtype == numpy.int32:
+        tensor_dtype = torch.qint32
+
+    tensor = torch.Tensor(array.copy()).to(torch.float32)
+    if isinstance(scale, numpy.ndarray):
+        scale = scale.item()
+    if isinstance(zero_point, numpy.ndarray):
+        zero_point = zero_point.item()
+
+    quant_tensor = torch.quantize_per_tensor(tensor, scale, zero_point, tensor_dtype)
+    return quant_tensor.int_repr().numpy()
+
+
+def attribute_to_kwarg(attribute: AttributeProto):
+    # Adapted from ORT quantize.py
+    if attribute.type == 0:
+        raise ValueError(
+            "attribute {} does not have type specified.".format(attribute.name)
+        )
+
+    # Based on attribute type definitions from AttributeProto
+    # definition in https://github.com/onnx/onnx/blob/master/onnx/onnx.proto
+    if attribute.type == 1:
+        value = attribute.f
+    elif attribute.type == 2:
+        value = attribute.i
+    elif attribute.type == 3:
+        value = attribute.s
+    elif attribute.type == 4:
+        value = attribute.t
+    elif attribute.type == 5:
+        value = attribute.g
+    elif attribute.type == 6:
+        value = attribute.floats
+    elif attribute.type == 7:
+        value = attribute.ints
+    elif attribute.type == 8:
+        value = attribute.strings
+    elif attribute.type == 9:
+        value = attribute.tensors
+    elif attribute.type == 10:
+        value = attribute.graphs
+    else:
+        raise ValueError(
+            "attribute {} has unsupported type {}.".format(
+                attribute.name, attribute.type
+            )
+        )
+
+    return {attribute.name: value}

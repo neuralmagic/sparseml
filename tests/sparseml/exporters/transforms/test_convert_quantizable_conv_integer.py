@@ -111,6 +111,13 @@ def test_convert_quantizable_conv_integer():
         "conv_node_bias_add_quant_cast",
         "conv_node_bias_add_quant_rescale_mul",
     ]
+    assert [node.name for node in model.graph.initializer] == [
+        "y_scale",
+        "zero_point",
+        "conv_node.weight_quantized",
+        "conv_node_bias_add.bias_quantized",
+        "conv_node_bias_add.bias_quantized.scale",
+    ]
 
 
 def test_convert_quantizable_conv_integer_no_conv():

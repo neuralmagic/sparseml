@@ -23,7 +23,7 @@ __all__ = [
     "INITIALIZER_MATCH",
     "optional_node",
     "MatchResult",
-    "NodeOrInit",
+    "NodeOrInitializer",
     "get_structural_matches",
 ]
 
@@ -156,6 +156,13 @@ def get_structural_matches(
             parent_1_quant, parent_1_dequant = match.parents[1]
             opt_transpose, opt_reshape, child_quant, child_dequant = match.children[0]
         ```
+
+    :param graph: the graph to search in
+    :param op_type: The `NodeProto.op_type` to match against
+    :param parent_ops: List of List of `NodeProto.op_type` or `INITIALIZER_MATCH`
+        to match against
+    :param children_ops: List of List of `NodeProto.op_type` or `INITIALIZER_MATCH`
+        to match against
     """
 
     # NOTE: gather matches completely first, so we don't have to worry about
@@ -168,7 +175,7 @@ def get_structural_matches(
     return matches
 
 
-NodeOrInit = Union[NodeProto, TensorProto]
+NodeOrInitializer = Union[NodeProto, TensorProto]
 """
 Represents either:
 1. a node (NodeProto) in an onnx graph
@@ -181,14 +188,14 @@ class MatchResult:
     The output of :func:`get_structural_matches`
     """
 
-    def __init__(self, node: NodeOrInit):
-        self.node: Optional[NodeOrInit] = node
+    def __init__(self, node: NodeOrInitializer):
+        self.node: Optional[NodeOrInitializer] = node
         """
         The main node that was matched at top level. This node will have the op_type
         passed into the matching functions.
         """
 
-        self.parents: List[List[Optional[NodeOrInit]]] = []
+        self.parents: List[List[Optional[NodeOrInitializer]]] = []
         """
         This is the sequence of parent nodes that was matched via the `parent_ops`
         keyword.
@@ -213,7 +220,7 @@ class MatchResult:
         ```
         """
 
-        self.children: List[List[Optional[NodeOrInit]]] = []
+        self.children: List[List[Optional[NodeOrInitializer]]] = []
         """
         This is the sequence of children nodes that were matched via the `children_ops`
         keyword.
@@ -254,7 +261,7 @@ def _match_structure(
     children_ops: Optional[List[List[str]]] = None,
 ) -> Optional[MatchResult]:
     match = MatchResult(node)
-    if not _match_op_type(match, node, op_type):
+    if not _match_op_type(match, graph, node, op_type):
         return None
     if parent_ops and not _match_parents(match, graph, node, parent_ops):
         return None
@@ -263,10 +270,14 @@ def _match_structure(
     return match
 
 
-def _match_op_type(match: MatchResult, node: NodeOrInit, op_type: str) -> bool:
+def _match_op_type(
+    match: MatchResult, graph: ONNXGraph, node: NodeOrInitializer, op_type: str
+) -> bool:
     op_type, is_optional = _is_optional_node(op_type)
 
-    if op_type == INITIALIZER_MATCH and not isinstance(node, TensorProto):
+    if op_type == INITIALIZER_MATCH and (
+        node is None or node.name not in graph._name_to_initializer
+    ):
         return False
 
     if op_type != INITIALIZER_MATCH and not (
@@ -291,6 +302,8 @@ def _match_parents(
     parents = graph.get_node_parents(node)
     assert len(parents) == len(node.input)
     for parent, expected_op_sequence in zip(parents, parent_ops):
+        # this case represents when a user passes in an `[]` for one of the elements
+        # of parent_ops. In which case any parent in this slot is matched.
         if expected_op_sequence == []:
             match.parents.append([])
             continue
@@ -327,6 +340,8 @@ def _match_children(
     if not (len(children_ops) <= len(children)):
         return False
     for child, expected_op_sequence in zip(children, children_ops):
+        # this case represents when a user passes in an `[]` for one of the elements
+        # of children_ops. In which case any child in this slot is matched.
         if expected_op_sequence == []:
             match.children.append([])
             continue

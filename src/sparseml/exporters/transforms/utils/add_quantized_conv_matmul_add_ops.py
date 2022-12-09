@@ -12,14 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Optional, Tuple
+from typing import Optional, Tuple
 
 import numpy
 import onnx
-import torch
-from onnx import AttributeProto, ModelProto, NodeProto, TensorProto, numpy_helper
+from onnx import ModelProto, NodeProto, TensorProto, numpy_helper
 
-from sparseml.exporters.transforms.utils.helpers import QuantizationParams
+from sparseml.exporters.transforms.utils.helpers import (
+    QuantizationParams,
+    attribute_to_kwarg,
+    quantize_array,
+)
 
 
 __all__ = ["add_quantized_conv_matmul_add_ops"]
@@ -196,7 +199,7 @@ def _create_integer_op_node(
         # get conv attributes as kwargs
         conv_kwargs = {}
         for attribute in node.attribute:
-            conv_kwargs.update(_attribute_to_kwarg(attribute))
+            conv_kwargs.update(attribute_to_kwarg(attribute))
 
         # create ConvInteger node and add it to graph
         integer_op_node = onnx.helper.make_node(
@@ -223,7 +226,7 @@ def _quantize_bias(
     bias_initializer = numpy_helper.to_array(bias_initializer)
     bias_scale = input_quantize_params.scale * weight_quantize_params.scale
     bias_zero_point = 0
-    quantized_bias = _quantize_array(
+    quantized_bias = quantize_array(
         bias_initializer, bias_scale, bias_zero_point, dtype=numpy.int32
     )
     if node.op_type == "Conv" and len(quantized_bias.shape) == 1:
@@ -255,7 +258,7 @@ def _quantize_weight_initializer(
     weight_quantize_params: QuantizationParams,
     transpose_weight: bool = False,
 ) -> TensorProto:
-    quantized_weight = _quantize_array(
+    quantized_weight = quantize_array(
         weight_quantize_params.target,
         weight_quantize_params.scale,
         weight_quantize_params.zero_point,
@@ -268,63 +271,3 @@ def _quantize_weight_initializer(
         quantized_weight, name=quantized_weight_name
     )
     return quantized_weight_initializer
-
-
-def _quantize_array(
-    array: numpy.ndarray, scale: float, zero_point: int, dtype: Any = numpy.uint8
-) -> numpy.ndarray:
-
-    if dtype == numpy.uint8:
-        tensor_dtype = torch.quint8
-    elif dtype == numpy.int8:
-        tensor_dtype = torch.qint8
-    elif dtype == numpy.int32:
-        tensor_dtype = torch.qint32
-
-    tensor = torch.Tensor(array.copy()).to(torch.float32)
-    if isinstance(scale, numpy.ndarray):
-        scale = scale.item()
-    if isinstance(zero_point, numpy.ndarray):
-        zero_point = zero_point.item()
-
-    quant_tensor = torch.quantize_per_tensor(tensor, scale, zero_point, tensor_dtype)
-    return quant_tensor.int_repr().numpy()
-
-
-def _attribute_to_kwarg(attribute: AttributeProto):
-    # Adapted from ORT quantize.py
-    if attribute.type == 0:
-        raise ValueError(
-            "attribute {} does not have type specified.".format(attribute.name)
-        )
-
-    # Based on attribute type definitions from AttributeProto
-    # definition in https://github.com/onnx/onnx/blob/master/onnx/onnx.proto
-    if attribute.type == 1:
-        value = attribute.f
-    elif attribute.type == 2:
-        value = attribute.i
-    elif attribute.type == 3:
-        value = attribute.s
-    elif attribute.type == 4:
-        value = attribute.t
-    elif attribute.type == 5:
-        value = attribute.g
-    elif attribute.type == 6:
-        value = attribute.floats
-    elif attribute.type == 7:
-        value = attribute.ints
-    elif attribute.type == 8:
-        value = attribute.strings
-    elif attribute.type == 9:
-        value = attribute.tensors
-    elif attribute.type == 10:
-        value = attribute.graphs
-    else:
-        raise ValueError(
-            "attribute {} has unsupported type {}.".format(
-                attribute.name, attribute.type
-            )
-        )
-
-    return {attribute.name: value}
