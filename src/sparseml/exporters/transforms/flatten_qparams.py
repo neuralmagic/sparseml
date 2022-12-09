@@ -45,7 +45,7 @@ class FlattenQParams(OnnxTransform):
                     if len(node.input) == 3:
                         inits_to_flatten.add(node.input[2])
 
-        for i, init in enumerate(model.graph.initializer):
+        for init in model.graph.initializer:
             if init.name not in inits_to_flatten:
                 continue
             a = numpy_helper.to_array(init)
@@ -53,8 +53,6 @@ class FlattenQParams(OnnxTransform):
             b = numpy.array(a[0])
             assert b.shape == ()
             assert b.dtype == a.dtype
-            model.graph.initializer[i].CopyFrom(
-                numpy_helper.from_array(b, name=init.name)
-            )
+            init.CopyFrom(numpy_helper.from_array(b, name=init.name))
 
         return model
