@@ -61,13 +61,13 @@ class BaseManager(BaseObject):
         if isinstance(modifiers, List):
             # sort modifiers by when they start and end so that later modifiers
             # can overwrite in a deterministic order such as when initializing
-            self._modifiers = _sort_modifiers_list(modifiers)
+            self._modifiers = self._sort_modifiers_list(modifiers)
         elif isinstance(modifiers, Dict):
             # staged recipe
             # sort modifiers of each stage by start/end as above then sort stages
             # by their modifiers
             modifiers = {
-                stage: _sort_modifiers_list(stage_modifiers)
+                stage: self._sort_modifiers_list(stage_modifiers)
                 for stage, stage_modifiers in modifiers.items()
             }
             self._modifiers = OrderedDict(
@@ -98,6 +98,10 @@ class BaseManager(BaseObject):
 
     def __eq__(self, compare: object) -> bool:
         return str(self) == str(compare)
+
+    @staticmethod
+    def _sort_modifiers_list(modifiers: List[BaseModifier]) -> List[BaseModifier]:
+        return sorted(modifiers, key=cmp_to_key(BaseModifier.comparator))
 
     @property
     def metadata(self):
@@ -560,10 +564,6 @@ class BaseManager(BaseObject):
     def _info_log_metadata(self):
         metadata_str = json.dumps(self._metadata, indent=1)
         _LOGGER.debug(f"Created recipe manager with metadata: {metadata_str}")
-
-
-def _sort_modifiers_list(modifiers: List[BaseModifier]) -> List[BaseModifier]:
-    return sorted(modifiers, key=cmp_to_key(BaseModifier.comparator))
 
 
 def _nested_dict_to_lines(

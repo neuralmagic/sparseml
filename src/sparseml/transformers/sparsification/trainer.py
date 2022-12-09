@@ -24,7 +24,7 @@ import os
 import warnings
 from contextlib import suppress
 from dataclasses import asdict
-from typing import Any, Dict, Final, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import datasets
 import numpy
@@ -761,7 +761,7 @@ class RecipeManagerTrainerInterface:
         # Rearrange inputs' keys to match those defined by model foward func, which
         # seem to define how the order of inputs is determined in the exported model
         forward_args_spec = inspect.getfullargspec(self.model.__class__.forward)
-        synthetic_input: Final = self._get_fake_input(
+        synthetic_input = self._get_fake_input(
             forward_func_input_keys=forward_args_spec.args,
             tokenizer=tokenizer,
         )
