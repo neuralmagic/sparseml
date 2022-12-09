@@ -2,14 +2,14 @@ import onnx
 import pytest
 from sparseml.exporters.transforms import QuantizeQATEmbedding
 
-def _create_test_model(with_quantize_linear=False, with_dequantize_linear=False):
+def _create_test_model(with_qdq=False):
     """
      Creates a test model with a convolution node and quantize/dequantize nodes
 
     |    INPUT    QuantizeLinear (with constant embedding)
     |      |          |
     |      |     DequantizeLinear
-    |      |         |
+    |       |        |
     |         Gather
     |           |
     |       QuantizeLinear (Optional)
@@ -26,7 +26,7 @@ def _create_test_model(with_quantize_linear=False, with_dequantize_linear=False)
     zero_point = onnx.helper.make_tensor("zero_point", onnx.TensorProto.INT8, (1,), [1])
 
     model_output = onnx.helper.make_tensor_value_info(
-        "output", onnx.TensorProto.FLOAT, (3,)
+        "gather_output", onnx.TensorProto.FLOAT, (3,)
     )
     quantize_linear_node_0 = onnx.helper.make_node(
         "QuantizeLinear",
@@ -59,21 +59,47 @@ def _create_test_model(with_quantize_linear=False, with_dequantize_linear=False)
         initializer=[x_scale, y_scale, embedding, zero_point],
         outputs=[model_output],
     )
+    if with_qdq:
+        graph = _add_qdq_nodes(graph)
 
     model = onnx.helper.make_model(graph)
     onnx.checker.check_model(model)
     return model
 
+def _add_qdq_nodes(graph):
+    quantize_linear_node_1 = onnx.helper.make_node(
+        "QuantizeLinear", ["gather_output", "y_scale", "zero_point"], ["quantize_linear_1_output"], name="quantize_linear_node_1"
+    )
+    dequantize_linear_node_1 = onnx.helper.make_node(
+        "DequantizeLinear", ["quantize_linear_1_output", "x_scale", "zero_point"], ["dequantize_linear_1_output"], name="dequantize_linear_node_1")
+
+    graph.node.append(quantize_linear_node_1)
+    graph.node.append(dequantize_linear_node_1)
+    graph.output[0].name = "dequantize_linear_1_output"
+    return graph
+
+
 def _test_qat_embedding(model):
-    pass
+    assert [node.name for node in model.graph.node] == ["gather_node", "dequantize_linear_gather_node"]
+    assert [node.name for node in model.graph.initializer] == ["x_scale", "zero_point", "embedding_quant"]
+    assert model.graph.input[0].name == "input"
+    assert model.graph.output[0].name == "gather_output"
+
+def _test_qat_embedding_w_qdq(model):
+    assert [node.name for node in model.graph.node] == ["gather_node", "dequantize_linear_node_1"]
+    assert [node.name for node in model.graph.initializer] == ["x_scale", "zero_point", "embedding_quant"]
+    assert model.graph.input[0].name
+    assert model.graph.output[0].name == "dequantize_linear_1_output"
+
 @pytest.mark.parametrize(
-    "with_quantize_linear, with_dequantize_linear, testing_function",
+    "with_qdq, testing_function",
     [
-        (False, False, _test_qat_embedding),
+        (False, _test_qat_embedding),
+        (True, _test_qat_embedding_w_qdq),
     ]
 )
-def test_quantize_qat_embedding(with_quantize_linear, with_dequantize_linear, testing_function):
-    model = _create_test_model(with_quantize_linear, with_dequantize_linear)
+def test_quantize_qat_embedding(with_qdq,testing_function):
+    model = _create_test_model(with_qdq=with_qdq)
     transform = QuantizeQATEmbedding()
     model = transform(model)
     testing_function(model)

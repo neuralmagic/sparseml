@@ -338,7 +338,10 @@ def _match_children(
     # this is a difference in behavior to get_node_parents, which replaces input
     # with None, instead of removing it.
     if not (len(children_ops) <= len(children)):
-        return False
+        for branch_children_ops in children_ops:
+            num_non_optional_children_ops = len([op_name for op_name in branch_children_ops if not op_name.startswith("Optional-")])
+            if num_non_optional_children_ops:
+                return False
     for child, expected_op_sequence in zip(children, children_ops):
         # this case represents when a user passes in an `[]` for one of the elements
         # of children_ops. In which case any child in this slot is matched.

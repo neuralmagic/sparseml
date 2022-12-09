@@ -1,7 +1,7 @@
 from onnx import ModelProto, numpy_helper, helper
-from sparseml.onnx.utils import ONNXGraph
+from sparseml.onnx.utils import ONNXGraph, remove_node_and_params_from_graph
 from sparseml.exporters.transforms import OnnxTransform
-from sparseml.exporters.transforms.utils import get_structural_matches, INITIALIZER_MATCH, quantize_array, delete_quant_node, assert_node_type
+from sparseml.exporters.transforms.utils import get_structural_matches, optional_node, INITIALIZER_MATCH, quantize_array, delete_quant_node, assert_node_type
 import logging
 _LOGGER = logging.getLogger(__name__)
 
@@ -26,50 +26,46 @@ def quantize_embedding(match, model):
 
     # update graph
     model.graph.initializer.append(embedding_quant_initializer)
-    match.node.input[0] = embedding_quant_initializer.name
+    match.node.input[1] = embedding_quant_initializer.name
 
     # detect QDQ block on output
+    children = match.children
     qdq_output = False
+    if children:
+        if len(children[0]) == 2:
+            if assert_node_type(children[0][0], "QuantizeLinear") and assert_node_type(children[0][1], "DequantizeLinear"):
+                qdq_output = True
 
-    output_quant_node = match.children
+    if qdq_output:
+        output_dequantized_node = children[0][1]
+        output_quantized_node = children[0][0]
+        # forward gather output to dequant input
+        output_dequantized_node.input[0] = match.node.output[0]
+        output_dequantized_node.input[1] = input_dequantize_node.input[1]
+        output_dequantized_node.input[2] = input_dequantize_node.input[2]
+        # delete unnecessary quantize and dequantize ops
+        remove_node_and_params_from_graph(model, input_quantize_node)
+        remove_node_and_params_from_graph(model, input_dequantize_node)
+        remove_node_and_params_from_graph(model, output_quantized_node)
 
-    if not output_quant_node:
-        embedding_dequant_input = f"{match.node.output[0]}_quant"
-        embedding_dequant_output = match.node.output[0]
-        dequantize_linear_node = helper.make_node(
+    else:
+        # add new dequantize node after the match node
+        match_node_quant_output = f"{match.node.output[0]}_quant"
+
+        new_dequantize_node = helper.make_node(
             "DequantizeLinear",
-            [embedding_dequant_input , input_dequantize_node.inputs[1], input_dequantize_node.inputs[2]],
-            [embedding_dequant_output],
-            name="dequantize_linear_node_0",
+            inputs=[match_node_quant_output, input_dequantize_node.input[1], input_dequantize_node.input[2]],
+            outputs=[match.node.output[0]],
+            name=f"dequantize_linear_{match.node.name}",
         )
-        pass
+        model.graph.node.append(new_dequantize_node)
+        match.node.output[0] = match_node_quant_output
 
-    # if output_quant_node:
-    #     if assert_node_type(output_quant_node, "QuantizeLinear"):
-    #         output_dequant_node = graph.get_node_single_child(output_quant_node)
-    #         qdq_output = assert_node_type(output_quant_node, "DequantizeLinear")
-    #
-    # if qdq_output:
-    #     # forward gather output to dequant input
-    #     output_dequant_node.input[0] = match.node.output[0]
-    #     output_dequant_node.input[1] = input_quantize_node.input[1]
-    #     output_dequant_node.input[2] = input_quantize_node.input[2]
-    #     # delete unnecessary quantize and dequantize ops
-    #     delete_quant_node(model, input_quantize_node)
-    #     delete_quant_node(model, input_dequantize_node)
-    #     delete_quant_node(model, output_quant_node)
-    #
-    # else:
-    #     # use input dequant to dequantize output
-    #     embedding_quant_output_id = f"{match.node.output[0]}_quant"
-    #     input_dequantize_node.input[0] = embedding_quant_output_id
-    #     input_dequantize_node.output[0] = match.node.output[0]
-    #     match.node.output[0] = embedding_quant_output_id
-    #     delete_quant_node(model, input_quantize_node)
+        remove_node_and_params_from_graph(model, input_quantize_node)
+        remove_node_and_params_from_graph(model, input_dequantize_node)
 
-    graph.update()
-    graph.delete_unused_initializers()
-
+    #graph.update()
+    #graph.delete_unused_initializers()
     return model
 
 
@@ -114,6 +110,7 @@ class QuantizeQATEmbedding(OnnxTransform):
                         "DequantizeLinear",
                     ],
                     ],
+                children_ops=[[optional_node("QuantizeLinear"),optional_node("DequantizeLinear")]],
                 op_type="Gather",
         ):
             _LOGGER.debug(
