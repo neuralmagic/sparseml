@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, List, NamedTuple, Set, Union
+from typing import Any, NamedTuple, Union
 
 import numpy
 import torch
@@ -21,11 +21,9 @@ from onnx import AttributeProto, ModelProto, NodeProto, numpy_helper
 from sparseml.onnx.utils import ONNXGraph, remove_node_and_params_from_graph
 
 
-_QUANTIZE_OP_NAMES = ["QuantizeLinear", "DequantizeLinear"]
+__all__ = ["delete_quant_node", "get_quantization_params"]
 
-"""
-Named tuple object to represent scale/zero point values for quantizing tenors
-"""
+QUANTIZE_OP_NAMES = ["QuantizeLinear", "DequantizeLinear"]
 
 QuantizationParams = NamedTuple(
     "QuantizationParams",
@@ -47,7 +45,7 @@ def get_quantization_params(
          quantization target if it is an initializer otherwise target will be None
     """
     assert (
-        node.op_type in _QUANTIZE_OP_NAMES
+        node.op_type in QUANTIZE_OP_NAMES
     ), "Op Type must be either QuantizeLinear or DequantizeLinear, found {} ".format(
         node.op_type
     )
@@ -93,72 +91,13 @@ def delete_quant_node(
         initializer to the first input of this node
     """
     assert (
-        node.op_type in _QUANTIZE_OP_NAMES
+        node.op_type in QUANTIZE_OP_NAMES
     ), "Op Type must be either QuantizeLinear or DequantizeLinear, found {} ".format(
         node.op_type
     )
     if keep_weight:
         del node.input[0]
     remove_node_and_params_from_graph(model, node)
-
-
-def check_for_sequence_of_children_nodes(
-    node: NodeProto, graph: "ONNXGraph", node_sequence: List[str]
-) -> bool:
-    """
-    Checks if a sequence of nodes appears after the given node.
-    It does so by performing a depth-first search starting from the given node.
-    (forward -> towards the leaves of the tree).
-    :param node: the node to check
-    :param model: the model to check
-    :param node_sequence: the sequence of nodes to check for
-    :return: True if the sequence of nodes follows the given node, False otherwise
-    """
-    for expected_node in node_sequence:
-        child_nodes = graph.get_node_children(node)
-        for child_node in child_nodes:
-            if assert_node_type(child_node, expected_node):
-                node = child_node
-                break
-            return False
-    return True
-
-
-def check_for_sequence_of_parent_nodes(
-    node: NodeProto, graph: "ONNXGraph", node_sequence: List[str]
-) -> bool:
-    """
-    Checks if a sequence of nodes appears before the given node.
-    It does so by performing a depth-first search starting from the given node
-    (backwards -> towards the root of the tree).
-    :param node: the node to check
-    :param model: the model to check
-    :param node_sequence: the sequence of nodes to check for
-    :return: True if the sequence of nodes precedes the given node, False otherwise
-    """
-    for expected_node in node_sequence:
-        parent_nodes = graph.get_node_parents(node)
-        for parent_node in parent_nodes:
-            if assert_node_type(parent_node, expected_node):
-                node = parent_node
-                break
-            return False
-    return True
-
-
-def assert_node_type(node: NodeProto, op: Union[List[str], Set[str], str]) -> bool:
-    """
-    Checks if a node is of the given op type
-    :param node: the node to check
-    :param op: the operation type to check for
-    :return: True if the node has the given op type, False otherwise
-    """
-    if node is None:
-        return False
-    if isinstance(op, str):
-        return node.op_type == op
-    else:
-        return node.op_type in op
 
 
 def quantize_array(

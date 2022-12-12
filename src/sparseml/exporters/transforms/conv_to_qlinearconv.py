@@ -44,13 +44,13 @@ class ConvToQLinearConv(OnnxTransform):
 
     ```
                         weight (initializer)
-                        |
-    input               QuantizeLinear
-    |                   |
+                              |
+          input         QuantizeLinear
+            |                 |
     DequantizeLinear    DequantizeLinear    bias (optional)
-    |                   |                   |
-                        Conv
-                        |
+                  |           |            |
+                            Conv
+                              |
                         QuantizeLinear
     ```
 
