@@ -33,7 +33,14 @@ __all__ = ["FoldConvDivBn"]
 
 class FoldConvDivBn(OnnxTransform):
     """
-    Transforms
+    The purpose of this pass is to handle the fake batch norm folding
+    that pytorch does. Notably the div node is already folded into
+    the batch norm node by pytorch, and the variance from the batch norm
+    is also already folded into the conv node. Therefore, the only
+    thing remaining is to fold the bias from the batch norm node into
+    the Conv node, which this node does.
+
+    Specifically, this transforms
 
     ```
     input   weight  bias (optional)
