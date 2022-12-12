@@ -6,7 +6,7 @@ backcall==0.2.0
 bleach==3.3.0
 blis==0.7.4
 catalogue==2.0.4
-certifi==2021.5.30
+certifi==2022.12.7
 cffi==1.14.5
 chardet==4.0.0
 click==7.1.2
@@ -39,7 +39,7 @@ jsonschema==3.2.0
 jupyter==1.0.0
 jupyter-client==6.1.12
 jupyter-console==6.4.0
-jupyter-core==4.7.1
+jupyter-core==4.11.2
 jupyterlab-pygments==0.1.2
 jupyterlab-widgets==1.0.0
 kiwisolver==1.3.1
@@ -68,7 +68,7 @@ pathtools==0.1.2
 pathy==0.5.2
 pexpect==4.8.0
 pickleshare==0.7.5
-Pillow==9.0.1
+Pillow==9.3.0
 preshed==3.0.5
 progressbar2==3.53.1
 prometheus-client==0.11.0

@@ -246,9 +246,10 @@ def export_transformer_to_onnx(
         )
 
     if num_export_samples > 0 and data_args is None:
-        raise ValueError(
+        _LOGGER.info(
             f"--data_args is needed for exporting {num_export_samples} "
-            f"samples but got {data_args}"
+            "real samples but got None, synthetic data samples will be "
+            "generated based on model input/output shapes"
         )
     data_args: Dict[str, Any] = _parse_data_args(data_args)
 
@@ -265,7 +266,7 @@ def export_transformer_to_onnx(
     _LOGGER.info(f"loaded model, config, and tokenizer from {model_path}")
 
     eval_dataset = None
-    if num_export_samples > 0:
+    if num_export_samples > 0 and data_args:
         tokenized_dataset = load_task_dataset(
             task=task,
             tokenizer=tokenizer,
@@ -316,12 +317,16 @@ def export_transformer_to_onnx(
     # Rearrange inputs' keys to match those defined by model foward func, which
     # seem to define how the order of inputs is determined in the exported model
     forward_args_spec = inspect.getfullargspec(model.__class__.forward)
-    dropped = [f for f in inputs.keys() if f not in forward_args_spec.args]
+    dropped = [
+        input_key
+        for input_key in inputs.keys()
+        if input_key not in forward_args_spec.args
+    ]
     inputs = collections.OrderedDict(
         [
-            (f, inputs[f][0].reshape(1, -1))
-            for f in forward_args_spec.args
-            if f in inputs
+            (func_input_arg_name, inputs[func_input_arg_name][0].reshape(1, -1))
+            for func_input_arg_name in forward_args_spec.args
+            if func_input_arg_name in inputs
         ]
     )
     if dropped:
@@ -362,6 +367,7 @@ def export_transformer_to_onnx(
         _LOGGER.info(f"Exporting {num_export_samples} sample inputs/outputs")
         trainer.save_sample_inputs_outputs(
             num_samples_to_export=num_export_samples,
+            tokenizer=tokenizer,
         )
 
     _LOGGER.info(f"{num_export_samples} sample inputs/outputs exported")
