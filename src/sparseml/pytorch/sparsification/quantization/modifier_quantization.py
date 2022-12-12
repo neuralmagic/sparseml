@@ -41,9 +41,11 @@ from sparseml.pytorch.sparsification.quantization.helpers import (
 from sparseml.pytorch.sparsification.quantization.legacy_modifier_quantization import (
     QuantizationModifier as LegacyQuantizationModifier,
 )
-from sparseml.pytorch.sparsification.quantization.quantize import (
+from sparseml.pytorch.sparsification.quantization.quantization_scheme import (
     QuantizationScheme,
     QuantizationSchemeLoadable,
+)
+from sparseml.pytorch.sparsification.quantization.quantize import (
     convert_module_qat_from_schemes,
     raise_if_torch_quantization_not_available,
     set_quantization_schemes,

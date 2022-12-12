@@ -19,8 +19,10 @@ import pytest
 from sparseml.pytorch.sparsification.quantization.modifier_quantization import (
     QuantizationModifier,
 )
-from sparseml.pytorch.sparsification.quantization.quantize import (
+from sparseml.pytorch.sparsification.quantization.quantization_scheme import (
     QuantizationScheme,
+)
+from sparseml.pytorch.sparsification.quantization.quantize import (
     is_qat_helper_module,
     is_quantizable_module,
 )
