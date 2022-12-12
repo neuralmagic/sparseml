@@ -119,6 +119,7 @@ def test_quantization_args_get_observer(
                 input_activations=QuantizationArgs(num_bits=8, symmetric=False),
                 weights=QuantizationArgs(num_bits=8, symmetric=True),
                 output_activations=None,
+                target_hardware="deepsparse",
             ),
         ),
         (
@@ -127,10 +128,11 @@ def test_quantization_args_get_observer(
                 input_activations=QuantizationArgs(num_bits=8, symmetric=True),
                 weights=QuantizationArgs(num_bits=8, symmetric=True),
                 output_activations=None,
+                target_hardware="tensorrt",
             ),
         ),
         # adding to raise an issue if default scheme changes from deepsparse
-        ("deepsparse", QuantizationScheme()),
+        ("deepsparse", QuantizationScheme(target_hardware="deepsparse")),
     ],
 )
 def test_load_quantization_scheme_from_str(scheme_str, expected_scheme):
