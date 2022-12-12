@@ -283,6 +283,7 @@ def set_quantization_schemes(
     model: Module,
     default_scheme: QuantizationScheme,
     submodule_schemes: Optional[Dict[str, QuantizationScheme]] = None,
+    module_type_schemes: Optional[Dict[str, QuantizationScheme]] = None,
     exclude_module_types: Optional[List[str]] = None,
 ):
     """
@@ -291,23 +292,33 @@ def set_quantization_schemes(
     :param model: module to attach QuantizationSchemes to
     :param exclude_module_types: string names of modules to not include for
         quantization. Default None
-    :param submodule_schemes:
+    :param submodule_schemes: dictionary of target submodules to their schemes,
+        if given, only the target submodules will have quantization schemes set
+    :param module_type_schemes: dictionary of module class names to quantization
+        schemes to override the default/submodule target scheme with for the associated
+        class
     :param default_scheme: default scheme to add to a target module unless overwritten
         by another scheme
     """
+    module_type_schemes = module_type_schemes or {}
 
     def _propagate_quantization_scheme(module: Module, scheme: QuantizationScheme):
         for submodule in module.modules():
             if is_quantizable_module(submodule, exclude_module_types):
-                submodule.quantization_scheme = scheme
+                submodule_scheme = (
+                    scheme
+                    if submodule.__class__.__name__ not in module_type_schemes
+                    else module_type_schemes[submodule.__class__.__name__]
+                )
+                submodule.quantization_scheme = submodule_scheme
 
     if submodule_schemes is None:
         # quantize entire model
         _propagate_quantization_scheme(model, default_scheme)
     else:
         for submodule_name, target_scheme in submodule_schemes.items():
-            submodule = get_layer(submodule_name, model)
-            _propagate_quantization_scheme(submodule, target_scheme)
+            target_submodule = get_layer(submodule_name, model)
+            _propagate_quantization_scheme(target_submodule, target_scheme)
 
 
 def set_qconfigs_from_quantization_schemes(module: Module):

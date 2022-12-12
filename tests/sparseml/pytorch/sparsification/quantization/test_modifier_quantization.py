@@ -57,12 +57,20 @@ def _assert_qconfigs_equal(qconfig_1, qconfig_2):
     _assert_observers_eq(qconfig_1.weight, qconfig_2.weight)
 
 
-def _test_quantized_module(base_model, module, name):
+def _test_quantized_module(base_model, modifier, module, name):
     # check quant scheme and configs are set
     quantization_scheme = getattr(module, "quantization_scheme", None)
     qconfig = getattr(module, "qconfig", None)
     assert quantization_scheme is not None
     assert qconfig is not None
+
+    # if module_type_schemes is specified and the module type is a match, check
+    # scheme set correctly
+    module_type_name = module.__class__.__name__
+    module_type_schemes = modifier.module_type_schemes
+    if module_type_schemes and module_type_name in module_type_schemes:
+        expected_scheme = module_type_schemes[module_type_name]
+        assert quantization_scheme == expected_scheme
 
     is_quant_wrapper = isinstance(module, torch_quantization.QuantWrapper)
 
@@ -107,7 +115,7 @@ def _test_qat_applied(modifier, model):
             module, exclude_module_types=modifier.exclude_module_types
         ):
             # check each target module is quantized
-            _test_quantized_module(model, module, name)
+            _test_quantized_module(model, modifier, module, name)
         else:
             # check all non-target modules are not quantized
             assert not hasattr(module, "quantization_scheme")
@@ -145,6 +153,13 @@ def _test_qat_applied(modifier, model):
         ),
         (
             lambda: QuantizationModifier(
+                start_epoch=1.0,
+                module_type_schemes=dict(Linear=QuantizationScheme(weights=None)),
+            ),
+            LinearNet,
+        ),
+        (
+            lambda: QuantizationModifier(
                 start_epoch=0.0, exclude_module_types=["Linear"]
             ),
             LinearNet,
@@ -153,6 +168,13 @@ def _test_qat_applied(modifier, model):
         (
             lambda: QuantizationModifier(
                 start_epoch=2.0, submodule_schemes=dict(mlp="default")
+            ),
+            ConvNet,
+        ),
+        (
+            lambda: QuantizationModifier(
+                start_epoch=2.0,
+                module_type_schemes=dict(Conv2d=QuantizationScheme(weights=None)),
             ),
             ConvNet,
         ),
@@ -246,6 +268,7 @@ def test_quantization_modifier_yaml():
             weights=None,
         ),
     )
+    module_type_schemes = dict(Linear=dict(output_activations=dict(symmetric=False)))
     exclude_module_types = ["LayerNorm", "Tanh"]
 
     yaml_str = f"""
@@ -253,6 +276,7 @@ def test_quantization_modifier_yaml():
         start_epoch: {start_epoch}
         default_scheme: {default_scheme}
         submodule_schemes: {submodule_schemes}
+        module_type_schemes: {module_type_schemes}
         exclude_module_types: {exclude_module_types}
     """
     yaml_modifier = QuantizationModifier.load_obj(
@@ -265,6 +289,7 @@ def test_quantization_modifier_yaml():
         start_epoch=start_epoch,
         default_scheme=default_scheme,
         submodule_schemes=submodule_schemes,
+        module_type_schemes=module_type_schemes,
         exclude_module_types=exclude_module_types,
     )
 
@@ -286,6 +311,11 @@ def test_quantization_modifier_yaml():
         yaml_modifier.submodule_schemes
         == serialized_modifier.submodule_schemes
         == obj_modifier.submodule_schemes
+    )
+    assert (
+        yaml_modifier.module_type_schemes
+        == serialized_modifier.module_type_schemes
+        == obj_modifier.module_type_schemes
     )
     assert (
         yaml_modifier.exclude_module_types
