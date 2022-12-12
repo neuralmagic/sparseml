@@ -192,7 +192,7 @@ def _test_freeze_bn_stats_observer_applied(modifier, epoch):
             lambda: QuantizationModifier(
                 start_epoch=1.0,
                 scheme_overrides=dict(Linear=QuantizationScheme(weights=None)),
-                ignore=["seq.0"],
+                ignore=["seq.fc1"],
             ),
             LinearNet,
         ),
@@ -326,6 +326,7 @@ def test_quantization_modifier_yaml():
     num_calibration_steps = 1000
     model_fuse_fn_name = "custom_fuse_fn"
     model_fuse_fn_kwargs = dict(inplace=True)
+    strict = False
 
     yaml_str = f"""
     !QuantizationModifier
@@ -338,6 +339,7 @@ def test_quantization_modifier_yaml():
         num_calibration_steps: {num_calibration_steps}
         model_fuse_fn_name: {model_fuse_fn_name}
         model_fuse_fn_kwargs: {model_fuse_fn_kwargs}
+        strict: {strict}
     """
     yaml_modifier = QuantizationModifier.load_obj(
         yaml_str
@@ -355,6 +357,7 @@ def test_quantization_modifier_yaml():
         num_calibration_steps=num_calibration_steps,
         model_fuse_fn_name=model_fuse_fn_name,
         model_fuse_fn_kwargs=model_fuse_fn_kwargs,
+        strict=strict,
     )
 
     assert isinstance(yaml_modifier, QuantizationModifier)
@@ -398,3 +401,49 @@ def test_quantization_modifier_yaml():
         == serialized_modifier.model_fuse_fn_kwargs
         == obj_modifier.model_fuse_fn_kwargs
     )
+    assert yaml_modifier.strict == serialized_modifier.strict == obj_modifier.strict
+
+
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
+)
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_QUANT_TESTS", False),
+    reason="Skipping pytorch torch quantization tests",
+)
+@pytest.mark.skipif(
+    torch_quantization is None,
+    reason="torch quantization not available",
+)
+@pytest.mark.parametrize(
+    "modifier_lambda,unmatched_values",
+    [
+        (
+            lambda: QuantizationModifier(
+                scheme_overrides=dict(mlp={}, submodule_1={}, Conv2d={}, Embedding={}),
+            ),
+            ["submodule_1", "Embedding"],
+        ),
+        (
+            lambda: QuantizationModifier(
+                ignore=dict(mlp={}, submodule_1={}, Conv2d={}, Embedding={}),
+            ),
+            ["submodule_1", "Embedding"],
+        ),
+        (
+            lambda: QuantizationModifier(
+                ignore=dict(mlp={}, submodule_1={}),
+                scheme_overrides=dict(Conv2d={}, Embedding={}),
+            ),
+            ["Embedding"],
+        ),
+    ],
+)
+def test_strict_raises_expected_error(modifier_lambda, unmatched_values):
+    model = ConvNet()
+    modifier = modifier_lambda()
+
+    with pytest.raises(ValueError) as value_error:
+        modifier.apply(model)
+    assert f"unmatched values: {unmatched_values}" in value_error.value.args[0]
