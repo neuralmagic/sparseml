@@ -108,62 +108,52 @@ def is_quantizable_module(
 
 def set_quantization_schemes(
     model: Module,
-    default_scheme: QuantizationScheme,
-    submodule_schemes: Optional[Dict[str, QuantizationScheme]] = None,
-    module_type_schemes: Optional[Dict[str, QuantizationScheme]] = None,
-    exclude_module_types: Optional[List[str]] = None,
+    scheme: QuantizationScheme,
+    scheme_overrides: Optional[Dict[str, QuantizationScheme]] = None,
+    ignore: Optional[List[str]] = None,
 ):
     """
     Sets an appropriate `quantization_scheme` to targeted quantizable submodules
 
     :param model: module to attach QuantizationSchemes to
-    :param exclude_module_types: string names of modules to not include for
-        quantization. Default None
-    :param submodule_schemes: dictionary of target submodules to their schemes,
-        if given, only the target submodules will have quantization schemes set
-    :param module_type_schemes: dictionary of module class names to quantization
-        schemes to override the default/submodule target scheme with for the associated
-        class
-    :param default_scheme: default scheme to add to a target module unless overwritten
+    :param scheme: default scheme to add to a target module unless overwritten
         by another scheme
+    :param scheme_overrides: dictionary of module type names or submodule names
+        mapped to a quantization scheme to override with. If a submodule matches
+        to multiple submodule overrides and/or a module type, module type will
+        take the highest priority followed by the longest matched submodule name
+    :param ignore: string names of modules type names or submodule names to not include
+        for quantization. Default None
     """
-    module_type_schemes = module_type_schemes or {}
+    # default to empty dict
+    scheme_overrides = scheme_overrides or {}
+
     # keep mapping of targets for QATWrapper to inject later so module is not modified
     # during iteration
     wrap_qat_targets = {}  # type: Dict[str, QuantizationScheme]
 
-    def _propagate_quantization_scheme(
-        module: Module,
-        scheme: QuantizationScheme,
-        module_name: str = "",
-    ):
-        for submodule_name, submodule in module.named_modules():
-            if module_name:
-                submodule_name = f"{module_name}.{submodule_name}"
+    for submodule_name, submodule in model.named_modules():
+        if ignore and _match_submodule_name_or_type(submodule, submodule_name, ignore):
+            # submodule type or graph section set to ignore, skip
+            continue
 
-            is_scheme_override = submodule.__class__.__name__ in module_type_schemes
-            submodule_scheme = (
-                scheme
-                if not is_scheme_override
-                else module_type_schemes[submodule.__class__.__name__]
-            )
+        # override default scheme if necessary
+        override_key = _match_submodule_name_or_type(
+            submodule, submodule_name, scheme_overrides
+        )
+        submodule_scheme = (
+            scheme if override_key is None else scheme_overrides[override_key]
+        )
+        is_module_type_override = override_key == submodule.__class__.__name__
 
-            if getattr(submodule, "wrap_qat", False):
-                # wrap_qat overrides default scheme behavior
-                wrap_qat_targets[submodule_name] = submodule_scheme
-            elif is_scheme_override or is_quantizable_module(
-                submodule, exclude_module_types
-            ):
-                submodule.quantization_scheme = submodule_scheme
+        if getattr(submodule, "wrap_qat", False):
+            # wrap_qat overrides default scheme behavior
+            wrap_qat_targets[submodule_name] = submodule_scheme
+        elif is_module_type_override or is_quantizable_module(submodule):
+            # is base quantizable module or user specifically targeted module type
+            submodule.quantization_scheme = submodule_scheme
 
-    if submodule_schemes is None:
-        # quantize entire model
-        _propagate_quantization_scheme(model, default_scheme)
-    else:
-        for target_name, target_scheme in submodule_schemes.items():
-            target_submodule = get_layer(target_name, model)
-            _propagate_quantization_scheme(target_submodule, target_scheme)
-
+    # inject any targeted QATWrappers
     for wraped_module_name, scheme in wrap_qat_targets.items():
         _inject_qat_wrapper(model, wraped_module_name, scheme)
 
@@ -259,6 +249,25 @@ def raise_if_torch_quantization_not_available():
             "torch.nn.intrinsic. "
             "Try upgrading your PyTorch version to use the QuantizationModifier."
         )
+
+
+def _match_submodule_name_or_type(
+    submodule: Module, submodule_name: str, names_or_types: List[str]
+) -> Optional[str]:
+    # match preferences:
+    #   1. match module type name
+    #   2. match the submodule prefix (longest first)
+    submodule_match = ""
+    for name_or_type in names_or_types:
+        if name_or_type == submodule.__class__.__name__:
+            # type match, return type name
+            return name_or_type
+        if submodule_name.startswith(name_or_type) and (
+            len(name_or_type) > len(submodule_match)
+        ):
+            # match to most specific submodule name
+            submodule_match = name_or_type
+    return submodule_match or None  # return None if no match
 
 
 def _inject_qat_wrapper(
