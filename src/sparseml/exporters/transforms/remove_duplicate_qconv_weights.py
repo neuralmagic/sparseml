@@ -26,7 +26,8 @@ __all__ = ["RemoveDuplicateQConvWeights"]
 
 class RemoveDuplicateQConvWeights(OnnxTransform):
     """
-    Removes weights of QLinearConv and ConvInteger that are the same.
+    Deduplicates weight initializers of QLinearConv and ConvInteger
+    that are exactly the same.
     """
 
     def transform(self, model: ModelProto) -> ModelProto:
@@ -35,6 +36,7 @@ class RemoveDuplicateQConvWeights(OnnxTransform):
         # collect all weights from QLinearConv/ConvInteger nodes
         inits_and_nodes = []
         for node in model.graph.node:
+            weight_init = None
             if node.op_type == "QLinearConv":
                 weight_init = graph.get_init_by_name(node.input[3])
             elif node.op_type == "ConvInteger":
