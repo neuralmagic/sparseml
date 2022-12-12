@@ -20,6 +20,7 @@ PyTorch version must support quantization (>=1.2, ONNX export support introduced
 
 
 import logging
+import math
 import warnings
 from itertools import cycle
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Type
@@ -473,6 +474,8 @@ class QuantizationModifier(ScheduledModifier):
             module.apply(freeze_bn_stats)
             self._bn_stats_frozen = True
 
+        self._log_quantization(module, epoch, steps_per_epoch)
+
     def _disable_quantization_observer_update_ready(self, epoch: float) -> bool:
         return (
             self._disable_quantization_observer_epoch is not None
@@ -613,6 +616,59 @@ class QuantizationModifier(ScheduledModifier):
                 "Disabling model fuse step"
             )
             self._model_fuse_fn_name = "no_fuse"
+
+    def _log_quantization(
+        self,
+        module: Module,
+        epoch: float,
+        steps_per_epoch: int,
+    ):
+        """
+        Check whether to log an update for the learning rate of the modifier.
+
+        :param module: module to modify
+        :param optimizer: optimizer to modify
+        :param epoch: current epoch and progress within the current epoch
+        :param steps_per_epoch: number of steps taken within each epoch
+            (calculate batch number using this and epoch)
+        """
+
+        def _log(tag, value):
+            self.log_scalar(
+                tag=tag,
+                value=value,
+                epoch=epoch,
+                steps_per_epoch=steps_per_epoch,
+            )
+
+        # log layer-wise quantization info
+        num_fake_quantizes = 0
+        for name, submodule in module.named_modules():
+            if not isinstance(submodule, torch.quantization.FakeQuantize):
+                continue
+            num_fake_quantizes += 1
+
+            qrange = submodule.quant_max - submodule.quant_min + 1
+            num_bits = int(math.log2(qrange))
+
+            _log(
+                tag=f"QuantizationModifier/{name}/num_bits",
+                value=num_bits,
+            )
+
+        # log global quantization info
+        _log(
+            tag="QuantizationModifier/num_fake_quantize_global",
+            value=num_fake_quantizes,
+        )
+        _log(
+            tag="QuantizationModifier/bn_stats_frozen",
+            value=1.0 if self._bn_stats_frozen else 0.0,
+        )
+        _log(
+            tag="QuantizationModifier/qat_observers_disabled",
+            value=1.0 if self._quantization_observer_disabled else 0.0,
+        )
 
 
 class _QuantizationSchemesDict(dict):
