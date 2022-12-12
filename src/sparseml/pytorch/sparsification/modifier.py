@@ -733,9 +733,10 @@ class ScheduledModifier(Modifier, BaseScheduled):
     ):
         tag = tag or type(self).__name__
         loggers = loggers or self.loggers
+        edge_epochs = [None, float("-inf"), float("inf")]
         step = (
             loggers.epoch_to_step(epoch, steps_per_epoch)
-            if (epoch is not None) and (steps_per_epoch is not None)
+            if (epoch not in edge_epochs) and (steps_per_epoch is not None)
             else None
         )
         loggers.log_scalar(tag=tag, value=value, step=step, level=level)
