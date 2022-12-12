@@ -23,5 +23,6 @@ from .base_transform import *
 from .onnx_transform import *
 
 from .fold_identity_initializers import *
+from .quantize_qat_embedding import *
 from .convert_quantizable_matmul import *
 from .convert_quantizable_conv_integer import *

@@ -21,9 +21,15 @@ from onnx import AttributeProto, ModelProto, NodeProto, numpy_helper
 from sparseml.onnx.utils import ONNXGraph, remove_node_and_params_from_graph
 
 
-__all__ = ["delete_quant_node", "get_quantization_params"]
+__all__ = [
+    "delete_quant_node",
+    "get_quantization_params",
+    "quantize_array",
+    "assert_node_type",
+]
 
 QUANTIZE_OP_NAMES = ["QuantizeLinear", "DequantizeLinear"]
+
 
 QuantizationParams = NamedTuple(
     "QuantizationParams",
@@ -100,6 +106,21 @@ def delete_quant_node(
     remove_node_and_params_from_graph(model, node)
 
 
+def assert_node_type(node: NodeProto, op: Union[List[str], Set[str], str]) -> bool:
+    """
+    Checks if a node is of the given op type
+    :param node: the node to check
+    :param op: the operation type to check for
+    :return: True if the node has the given op type, False otherwise
+    """
+    if node is None:
+        return False
+    if isinstance(op, str):
+        return node.op_type == op
+    else:
+        return node.op_type in op
+
+
 def quantize_array(
     array: numpy.ndarray, scale: float, zero_point: int, dtype: Any = numpy.uint8
 ) -> numpy.ndarray:
@@ -158,3 +179,4 @@ def attribute_to_kwarg(attribute: AttributeProto):
         )
 
     return {attribute.name: value}
+
