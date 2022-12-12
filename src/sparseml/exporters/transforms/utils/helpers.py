@@ -180,4 +180,3 @@ def attribute_to_kwarg(attribute: AttributeProto):
         )
 
     return {attribute.name: value}
-
