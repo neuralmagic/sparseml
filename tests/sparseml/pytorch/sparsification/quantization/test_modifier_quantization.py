@@ -96,7 +96,14 @@ def _test_qat_applied(modifier, model):
         if is_qat_helper_module(module):
             # skip helper modules
             continue
-        if is_quantizable_module(
+
+        is_target_submodule = modifier.submodule_schemes is None or (
+            any(
+                name.startswith(submodule_name)
+                for submodule_name in modifier.submodule_schemes
+            )
+        )
+        if is_target_submodule and is_quantizable_module(
             module, exclude_module_types=modifier.exclude_module_types
         ):
             # check each target module is quantized
@@ -131,15 +138,31 @@ def _test_qat_applied(modifier, model):
         ),
         (
             lambda: QuantizationModifier(
+                start_epoch=0.0,
+                submodule_schemes=dict(seq="default"),
+            ),
+            LinearNet,
+        ),
+        (
+            lambda: QuantizationModifier(
                 start_epoch=0.0, exclude_module_types=["Linear"]
             ),
             LinearNet,
         ),
         (lambda: QuantizationModifier(start_epoch=0.0), ConvNet),
-        (lambda: QuantizationModifier(start_epoch=2.0), ConvNet),
         (
             lambda: QuantizationModifier(
-                start_epoch=0.0, exclude_module_types=["ReLU"]
+                start_epoch=2.0, submodule_schemes=dict(mlp="default")
+            ),
+            ConvNet,
+        ),
+        (
+            lambda: QuantizationModifier(
+                start_epoch=0.0,
+                submodule_schemes=dict(
+                    seq="default", mlp=QuantizationScheme(weights=None)
+                ),
+                exclude_module_types=["ReLU"],
             ),
             ConvNet,
         ),
@@ -216,12 +239,20 @@ def test_quantization_modifier_yaml():
         input_activations=dict(num_bits=8, symmetric=True),
         weights=dict(num_bits=6, symmetric=False),
     )
+    submodule_schemes = dict(
+        feature_extractor="default",
+        classifier=dict(
+            input_activations=dict(num_bits=8, symmetric=True),
+            weights=None,
+        ),
+    )
     exclude_module_types = ["LayerNorm", "Tanh"]
 
     yaml_str = f"""
     !QuantizationModifier
         start_epoch: {start_epoch}
         default_scheme: {default_scheme}
+        submodule_schemes: {submodule_schemes}
         exclude_module_types: {exclude_module_types}
     """
     yaml_modifier = QuantizationModifier.load_obj(
@@ -233,6 +264,7 @@ def test_quantization_modifier_yaml():
     obj_modifier = QuantizationModifier(
         start_epoch=start_epoch,
         default_scheme=default_scheme,
+        submodule_schemes=submodule_schemes,
         exclude_module_types=exclude_module_types,
     )
 
@@ -250,6 +282,11 @@ def test_quantization_modifier_yaml():
     assert isinstance(yaml_modifier.default_scheme, QuantizationScheme)
     assert isinstance(serialized_modifier.default_scheme, QuantizationScheme)
     assert isinstance(obj_modifier.default_scheme, QuantizationScheme)
+    assert (
+        yaml_modifier.submodule_schemes
+        == serialized_modifier.submodule_schemes
+        == obj_modifier.submodule_schemes
+    )
     assert (
         yaml_modifier.exclude_module_types
         == serialized_modifier.exclude_module_types
