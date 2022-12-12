@@ -33,6 +33,8 @@ A special tag **ONLY** used for matching code to
 match against initializers in an onnx graph
 """
 
+_OPTIONAL_TAG = "Optional-"
+
 
 def optional_node(op_type: str) -> str:
     """
@@ -51,7 +53,7 @@ def optional_node(op_type: str) -> str:
     )
     ```
     """
-    return "Optional-" + op_type
+    return _OPTIONAL_TAG + op_type
 
 
 def get_structural_matches(
@@ -247,7 +249,7 @@ class MatchResult:
 
 
 def _is_optional_node(tag: str) -> Tuple[str, bool]:
-    if tag.startswith("Optional-"):
+    if tag.startswith(_OPTIONAL_TAG):
         return tag.split("-")[1], True
     else:
         return tag, False
@@ -334,7 +336,7 @@ def _match_children(
 
     children = graph.get_node_children(node)
     if children == [] and all(
-        all(op.startswith("Optional-") for op in ops) for ops in children_ops
+        all(op.startswith(_OPTIONAL_TAG) for op in ops) for ops in children_ops
     ):
         # we are at the end of the graph and all children nodes are optional
         # this is considered a match
