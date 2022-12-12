@@ -161,6 +161,13 @@ class QuantizationScheme(BaseModel):
             "not quantize output activations. Default is None"
         ),
     )
+    target_hardware: Optional[str] = Field(
+        default=None,
+        description=(
+            "target deployment runtime/hardware name to be set by default "
+            "classmethods. Default is None"
+        ),
+    )
 
     @classmethod
     def load(
@@ -212,6 +219,7 @@ class QuantizationScheme(BaseModel):
             input_activations=QuantizationArgs(num_bits=8, symmetric=False),
             weights=QuantizationArgs(num_bits=8, symmetric=True),
             output_activations=None,
+            target_hardware="deepsparse",
         )
 
     @classmethod
@@ -225,6 +233,7 @@ class QuantizationScheme(BaseModel):
             input_activations=QuantizationArgs(num_bits=8, symmetric=True),
             weights=QuantizationArgs(num_bits=8, symmetric=True),
             output_activations=None,
+            target_hardware="tensorrt",
         )
 
     def get_qconfig(self) -> "torch.quantization.QConfig":
