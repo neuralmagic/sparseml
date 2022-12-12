@@ -167,7 +167,7 @@ def _test_qat_applied(modifier, model):
         (lambda: QuantizationModifier(start_epoch=0.0), ConvNet),
         (
             lambda: QuantizationModifier(
-                start_epoch=2.0, submodule_schemes=dict(mlp="default")
+                start_epoch=2.0, submodule_schemes=dict(mlp="deepsparse")
             ),
             ConvNet,
         ),
@@ -182,7 +182,7 @@ def _test_qat_applied(modifier, model):
             lambda: QuantizationModifier(
                 start_epoch=0.0,
                 submodule_schemes=dict(
-                    seq="default", mlp=QuantizationScheme(weights=None)
+                    seq="tensorrt", mlp=QuantizationScheme(weights=None)
                 ),
                 exclude_module_types=["ReLU"],
             ),
@@ -262,7 +262,7 @@ def test_quantization_modifier_yaml():
         weights=dict(num_bits=6, symmetric=False),
     )
     submodule_schemes = dict(
-        feature_extractor="default",
+        feature_extractor="deepsparse",
         classifier=dict(
             input_activations=dict(num_bits=8, symmetric=True),
             weights=None,

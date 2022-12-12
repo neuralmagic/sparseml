@@ -93,7 +93,8 @@ class QuantizationModifier(ScheduledModifier):
     :param start_epoch: The epoch to start the modifier at
     :param default_scheme: Default QuantizationScheme to use when enabling quantization
         in a module. May also be a dictionary to be loaded into the QuantizationScheme
-        class. A string alias may also be used, supported aliases: ['default'].
+        class. A string alias may also be used, supported aliases:
+        ['default', 'deepsparse', 'tensorrt'].
         If None, the default scheme (`QuantizationScheme()`) will be used.
         Default is None
     :param submodule_schemes: Specify submodules to target for quantization. Must
