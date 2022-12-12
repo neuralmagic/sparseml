@@ -122,6 +122,21 @@ def _test_qat_applied(modifier, model):
             assert not hasattr(module, "qconfig")
 
 
+def _test_freeze_bn_stats_observer_applied(modifier, epoch):
+    if modifier.disable_quantization_observer_epoch is not None and (
+        epoch >= modifier.disable_quantization_observer_epoch
+    ):
+        assert modifier._quantization_observer_disabled
+    else:
+        assert not modifier._quantization_observer_disabled
+    if modifier.freeze_bn_stats_epoch is not None and (
+        epoch >= modifier.freeze_bn_stats_epoch
+    ):
+        assert modifier._bn_stats_frozen
+    else:
+        assert not modifier._bn_stats_frozen
+
+
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
     reason="Skipping pytorch tests",
@@ -148,6 +163,8 @@ def _test_qat_applied(modifier, model):
             lambda: QuantizationModifier(
                 start_epoch=0.0,
                 submodule_schemes=dict(seq="default"),
+                freeze_bn_stats_epoch=2.0,
+                disable_quantization_observer_epoch=3.0,
             ),
             LinearNet,
         ),
@@ -175,6 +192,8 @@ def _test_qat_applied(modifier, model):
             lambda: QuantizationModifier(
                 start_epoch=2.0,
                 module_type_schemes=dict(Conv2d=QuantizationScheme(weights=None)),
+                freeze_bn_stats_epoch=2.5,
+                disable_quantization_observer_epoch=2.2,
             ),
             ConvNet,
         ),
@@ -206,10 +225,16 @@ class TestQuantizationModifierImpl(ScheduledModifierTest):
 
         self.initialize_helper(modifier, model)
 
+        _test_freeze_bn_stats_observer_applied(modifier, 0.0)
         for epoch in range(int(modifier.start_epoch)):
             assert not modifier.update_ready(epoch, test_steps_per_epoch)
 
         update_epochs = [modifier.start_epoch]
+        if modifier.disable_quantization_observer_epoch is not None:
+            update_epochs.append(modifier.disable_quantization_observer_epoch)
+        if modifier.freeze_bn_stats_epoch is not None:
+            update_epochs.append(modifier.freeze_bn_stats_epoch)
+        update_epochs.sort()
         for epoch in update_epochs:
             assert modifier.update_ready(epoch, test_steps_per_epoch)
         # test update ready is still true after start epoch
@@ -225,9 +250,11 @@ class TestQuantizationModifierImpl(ScheduledModifierTest):
             _test_qat_applied(modifier, model)
             pass
 
-        modifier.scheduled_update(
-            model, optimizer, modifier.start_epoch, test_steps_per_epoch
-        )
+        for update_epoch in update_epochs:
+            modifier.scheduled_update(
+                model, optimizer, update_epoch, test_steps_per_epoch
+            )
+            _test_freeze_bn_stats_observer_applied(modifier, update_epoch)
 
         # test update ready is False after start epoch is applied, before disable epochs
         if (
@@ -270,6 +297,8 @@ def test_quantization_modifier_yaml():
     )
     module_type_schemes = dict(Linear=dict(output_activations=dict(symmetric=False)))
     exclude_module_types = ["LayerNorm", "Tanh"]
+    disable_quantization_observer_epoch = 2.0
+    freeze_bn_stats_epoch = 3.0
 
     yaml_str = f"""
     !QuantizationModifier
@@ -278,6 +307,8 @@ def test_quantization_modifier_yaml():
         submodule_schemes: {submodule_schemes}
         module_type_schemes: {module_type_schemes}
         exclude_module_types: {exclude_module_types}
+        disable_quantization_observer_epoch: {disable_quantization_observer_epoch}
+        freeze_bn_stats_epoch: {freeze_bn_stats_epoch}
     """
     yaml_modifier = QuantizationModifier.load_obj(
         yaml_str
@@ -291,6 +322,8 @@ def test_quantization_modifier_yaml():
         submodule_schemes=submodule_schemes,
         module_type_schemes=module_type_schemes,
         exclude_module_types=exclude_module_types,
+        disable_quantization_observer_epoch=disable_quantization_observer_epoch,
+        freeze_bn_stats_epoch=freeze_bn_stats_epoch,
     )
 
     assert isinstance(yaml_modifier, QuantizationModifier)
@@ -321,4 +354,14 @@ def test_quantization_modifier_yaml():
         yaml_modifier.exclude_module_types
         == serialized_modifier.exclude_module_types
         == obj_modifier.exclude_module_types
+    )
+    assert (
+        yaml_modifier.disable_quantization_observer_epoch
+        == serialized_modifier.disable_quantization_observer_epoch
+        == obj_modifier.disable_quantization_observer_epoch
+    )
+    assert (
+        yaml_modifier.freeze_bn_stats_epoch
+        == serialized_modifier.freeze_bn_stats_epoch
+        == obj_modifier.freeze_bn_stats_epoch
     )

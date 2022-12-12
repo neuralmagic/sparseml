@@ -21,6 +21,7 @@ PyTorch version must support quantization (>=1.2, ONNX export support introduced
 
 from typing import Any, Dict, List, Optional, Type
 
+import torch
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 
@@ -31,6 +32,7 @@ from sparseml.pytorch.sparsification.modifier import (
 )
 from sparseml.pytorch.sparsification.quantization.helpers import (
     configure_module_bn_wrappers,
+    freeze_bn_stats,
     fuse_module_conv_bn_relus,
 )
 from sparseml.pytorch.sparsification.quantization.legacy_modifier_quantization import (
@@ -89,6 +91,8 @@ class QuantizationModifier(ScheduledModifier):
     |                   num_bits: 8
     |                   symmetric: True
     |       exclude_module_types: ["ReLU"]
+    |       disable_quantization_observer_epoch: 2.0
+    |       freeze_bn_stats_epoch: 3.0
 
     :param start_epoch: The epoch to start the modifier at
     :param default_scheme: Default QuantizationScheme to use when enabling quantization
@@ -108,6 +112,11 @@ class QuantizationModifier(ScheduledModifier):
         specification to quantize that module type with. Default is None
     :param exclude_module_types: optional list of module class names
         to not quantize. Default is None
+    :param disable_quantization_observer_epoch: Epoch to disable updates to the module
+        quantization observers. At this point, quantized weights and zero points will
+        not be updated. Leave None to not disable observers during QAT. Default is None
+    :param freeze_bn_stats_epoch: Epoch to stop the tracking of batch norm stats. Leave
+        None to not stop tracking batch norm stats during QAT. Default is None
     :param end_epoch: Disabled, setting to anything other than -1 will raise an
         exception. For compatibility with YAML serialization only.
     """
@@ -119,6 +128,8 @@ class QuantizationModifier(ScheduledModifier):
         submodule_schemes: Optional[Dict[str, QuantizationSchemeLoadable]] = None,
         module_type_schemes: Optional[Dict[str, QuantizationSchemeLoadable]] = None,
         exclude_module_types: Optional[List[str]] = None,
+        disable_quantization_observer_epoch: Optional[float] = None,
+        freeze_bn_stats_epoch: Optional[float] = None,
         end_epoch: float = -1.0,
     ):
         raise_if_torch_quantization_not_available()
@@ -137,8 +148,12 @@ class QuantizationModifier(ScheduledModifier):
             module_type_schemes, self._default_scheme
         )
         self._exclude_module_types = exclude_module_types
+        self._disable_quantization_observer_epoch = disable_quantization_observer_epoch
+        self._freeze_bn_stats_epoch = freeze_bn_stats_epoch
 
         self._qat_enabled = False
+        self._quantization_observer_disabled = False
+        self._bn_stats_frozen = False
 
     @BaseModifier.sparsification_types.getter
     def sparsification_types(self) -> List[SparsificationTypes]:
@@ -231,6 +246,42 @@ class QuantizationModifier(ScheduledModifier):
         """
         self._exclude_module_types = value
 
+    @ModifierProp()
+    def disable_quantization_observer_epoch(self) -> Optional[float]:
+        """
+        :return: Epoch to disable updates to the module
+            quantization observers. At this point, quantized weights and zero points
+            will not be updated. When None, observers never disabled during QAT
+        """
+        return self._disable_quantization_observer_epoch
+
+    @disable_quantization_observer_epoch.setter
+    def disable_quantization_observer_epoch(self, value: Optional[float]):
+        """
+        :params value: Epoch to disable updates to the module
+            quantization observers. At this point, quantized weights and zero points
+            will not be updated. Set None to not disable observers during QAT
+        """
+        self._disable_quantization_observer_epoch = value
+        self._validate_params()
+
+    @ModifierProp()
+    def freeze_bn_stats_epoch(self) -> Optional[float]:
+        """
+        :return: Epoch to stop the tracking of batch norm stats. When
+            None, batch norm stats are track for all of training
+        """
+        return self._freeze_bn_stats_epoch
+
+    @freeze_bn_stats_epoch.setter
+    def freeze_bn_stats_epoch(self, value: Optional[float]):
+        """
+        :params value: Epoch to stop the tracking of batch norm stats. Set
+            None to not stop tracking batch norm stats during QAT
+        """
+        self._freeze_bn_stats_epoch = value
+        self._validate_params()
+
     def initialize(
         self,
         module: Module,
@@ -285,14 +336,60 @@ class QuantizationModifier(ScheduledModifier):
             return False
 
         pending = self.start_pending(epoch, steps_per_epoch)
+        pending |= self._freeze_bn_stats_update_ready(epoch)
+        pending |= self._disable_quantization_observer_update_ready(epoch)
 
         return pending
+
+    def advance_epochs(self, ref_start_epoch: float = None):
+        """
+        Advance epoch attributes given a reference start epoch
+
+        :param ref_start_epoch: the reference, i.e. new, start epoch
+        """
+        if ref_start_epoch is None:
+            return
+
+        super().advance_epochs(ref_start_epoch=ref_start_epoch)
+
+        if self._disable_quantization_observer_epoch is not None:
+            self._disable_quantization_observer_epoch = (
+                max(0.0, self._disable_quantization_observer_epoch) + ref_start_epoch
+            )
+
+        if self._freeze_bn_stats_epoch is not None:
+            self._freeze_bn_stats_epoch = (
+                max(0.0, self._freeze_bn_stats_epoch) + ref_start_epoch
+            )
+        self._validate_params()
 
     def _check_quantization_update(
         self, module: Module, epoch: float, steps_per_epoch: int
     ):
         if self.start_pending(epoch, steps_per_epoch) and not self._qat_enabled:
             self._enable_module_qat(module)
+
+        if self._disable_quantization_observer_update_ready(epoch):
+            module.apply(torch.quantization.disable_observer)
+            self._quantization_observer_disabled = True
+
+        if self._freeze_bn_stats_update_ready(epoch):
+            module.apply(freeze_bn_stats)
+            self._bn_stats_frozen = True
+
+    def _disable_quantization_observer_update_ready(self, epoch: float) -> bool:
+        return (
+            self._disable_quantization_observer_epoch is not None
+            and epoch >= self._disable_quantization_observer_epoch
+            and not self._quantization_observer_disabled
+        )
+
+    def _freeze_bn_stats_update_ready(self, epoch: float) -> bool:
+        return (
+            self._freeze_bn_stats_epoch is not None
+            and epoch >= self._freeze_bn_stats_epoch
+            and not self._bn_stats_frozen
+        )
 
     def _enable_module_qat(self, module: Module):
         # fuse conv-bn-relu blocks prior to quantization emulation
@@ -317,6 +414,30 @@ class QuantizationModifier(ScheduledModifier):
         convert_module_qat_from_schemes(module)
 
         self._qat_enabled = True
+
+    def _validate_params(self):
+        self.validate_schedule()
+        if (
+            self._disable_quantization_observer_epoch is not None
+            and self._disable_quantization_observer_epoch < self._start_epoch
+        ):
+            raise ValueError(
+                f"disable_quantization_observer_epoch may not be greater than "
+                f"start_epoch for QuantizationModifier, received: "
+                f"{self._disable_quantization_observer_epoch} with start_epoch "
+                f"{self._start_epoch}"
+            )
+
+        if (
+            self._freeze_bn_stats_epoch is not None
+            and self._freeze_bn_stats_epoch < self._start_epoch
+        ):
+            raise ValueError(
+                "freeze_bn_stats_epoch may not be greater than start_epoch"
+                " for QuantizationModifier, received: {} with start_epoch {}".format(
+                    self._freeze_bn_stats_epoch, self._start_epoch
+                )
+            )
 
 
 class _QuantizationSchemesDict(dict):
