@@ -33,6 +33,8 @@ A special tag **ONLY** used for matching code to
 match against initializers in an onnx graph
 """
 
+_OPTIONAL_TAG = "Optional-"
+
 
 def optional_node(op_type: str) -> str:
     """
@@ -51,7 +53,7 @@ def optional_node(op_type: str) -> str:
     )
     ```
     """
-    return "Optional-" + op_type
+    return _OPTIONAL_TAG + op_type
 
 
 def get_structural_matches(
@@ -247,7 +249,7 @@ class MatchResult:
 
 
 def _is_optional_node(tag: str) -> Tuple[str, bool]:
-    if tag.startswith("Optional-"):
+    if tag.startswith(_OPTIONAL_TAG):
         return tag.split("-")[1], True
     else:
         return tag, False
@@ -329,21 +331,25 @@ def _match_children(
     node: Union[NodeProto, TensorProto],
     children_ops: List[List[str]],
 ) -> bool:
-    if not (isinstance(node, NodeProto) and len(children_ops) <= len(node.output)):
+    if not isinstance(node, NodeProto):
         return False
 
     children = graph.get_node_children(node)
+    if children == [] and all(
+        all(op.startswith(_OPTIONAL_TAG) for op in ops) for ops in children_ops
+    ):
+        # we are at the end of the graph and all children nodes are optional
+        # this is considered a match
+        for ops in children_ops:
+            match.children.append([None for _ in ops])
+        return True
+
     # NOTE: get_node_children can return less than node.output if one of the outputs
-    #       is the graph output.
-    # this is a difference in behavior to get_node_parents, which replaces input
-    # with None, instead of removing it.
-    non_optional_children_ops = [
-        op
-        for sub_children_ops in children_ops
-        for op in sub_children_ops
-        if not _is_optional_node(op)[1]
-    ]
-    if not (len(non_optional_children_ops) <= len(children)):
+    #       is the graph output. this is a difference in behavior to get_node_parents, which replaces input
+    #       with None, instead of removing it.
+    # NOTE: comparing to length of children here also handles the case where a node has a single
+    #       output that is used by multiple children nodes
+    if len(children_ops) > len(children):
         return False
     for child, expected_op_sequence in zip(children, children_ops):
         # this case represents when a user passes in an `[]` for one of the elements
