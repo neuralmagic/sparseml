@@ -233,14 +233,11 @@ class ImageClassificationTrainer(Trainer):
         _LOGGER.info(f"Applied {self.recipe_path} to manager")
 
     def _initialize_module_tester(self):
-        """
-        This uses self.model.module unlike the ModuleTrainer which uses self.model
-        so that the validation runs on the local copy of the model on the rank 0 gpu
-        rather than on the distributed model
-        """
-        
+        # This uses self.model.module unlike the ModuleTrainer which uses self.model
+        # so that the validation runs on the local copy of the model on the rank 0 gpu
+        # rather than on the distributed model
         tester = ModuleTester(
-            module=self.model.module,
+            module=self.model.module if is_parallel_model(self.model) else self.model,
             device=self.device,
             loss=self.val_loss,
             loggers=self.loggers,
