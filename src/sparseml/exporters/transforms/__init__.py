@@ -22,6 +22,7 @@ isort:skip_file
 from .base_transform import *
 from .onnx_transform import *
 
+from .delete_trivial_onnx_adds import *
 from .fold_identity_initializers import *
 from .quantize_qat_embedding import *
 from .convert_quantizable_matmul import *

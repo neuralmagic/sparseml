@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 from typing import Any, NamedTuple, Union
 
 import numpy
@@ -179,4 +180,3 @@ def attribute_to_kwarg(attribute: AttributeProto):
         )
 
     return {attribute.name: value}
-
