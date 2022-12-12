@@ -178,11 +178,13 @@ def set_qconfigs_from_quantization_schemes(module: Module):
     for submodule in module.modules():
         if not hasattr(submodule, "quantization_scheme"):
             continue
+        # potentially re-load if scheme is set as dict or str
+        quantization_scheme = QuantizationScheme.load(submodule.quantization_scheme)
         if isinstance(submodule, torch_quantization.QuantWrapper):
-            submodule.qconfig = submodule.quantization_scheme.get_wrapper_qconfig()
+            submodule.qconfig = quantization_scheme.get_wrapper_qconfig()
             submodule.quant.qconfig = submodule.qconfig
         else:
-            submodule.qconfig = submodule.quantization_scheme.get_qconfig()
+            submodule.qconfig = quantization_scheme.get_qconfig()
 
 
 def add_input_activation_quant_wrappers(module: Module) -> Module:
