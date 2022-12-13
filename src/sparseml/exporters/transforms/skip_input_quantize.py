@@ -30,29 +30,27 @@ class SkipInputQuantize(OnnxTransform):
             len(model.graph.input) != 1
             or model.graph.input[0].type.tensor_type.elem_type != 1
         ):
-            # more than 1 input or input is not FP32
-            return (
-                "Not modifying ONNX graph inputs - either graph has more than one "
-                "input or input type is not FP32"
-            )
+            _LOGGER.debug("more than 1 input or input is not FP32 - not doing anything")
+            return model
 
         input_node = model.graph.input[0]
         input_children = [
             node for node in model.graph.node if input_node.name in node.input
         ]
         if not all(node.op_type == "QuantizeLinear" for node in input_children):
-            return (
+            _LOGGER.debug(
                 "Not modifying ONNX graph inputs - only QuantizeLinear nodes may follow"
                 "the FP32 input tensor in original graph, prior to converting to uint8"
             )
+            return model
 
         _delete_quantize_nodes(ONNXGraph(model), input_children)
         input_node.type.tensor_type.elem_type = 2  # fp32 -> uint8
-        _LOGGER.info(
+        _LOGGER.debug(
             "Model initial QuantizeLinear node(s) deleted and inputs set to uint8"
         )
 
-        return None
+        return model
 
 
 def _delete_quantize_nodes(graph: ONNXGraph, quantize_nodes: List[NodeProto]):
