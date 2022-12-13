@@ -23,7 +23,7 @@ class BaseExporter(BaseTransform):
         super().__init__()
         self.transforms = transforms
 
-    def apply(self, model: Any) -> Any:
+    def transform(self, model: Any) -> Any:
         for transform in self.transforms:
             model = transform.apply(model)
         return model

@@ -37,9 +37,9 @@ class TorchToONNX(BaseExporter):
     Example usage:
 
     ```python
-    resnet18 = torchvision.models.resnet18()
+    model = torchvision.models.resnet18().eval()
     exporter = TorchToONNX(sample_batch=torch.randn(1, 3, 224, 224))
-    exporter.export(resnet18, "resnest18.onnx")
+    exporter.export(model, "resnest18.onnx")
     ```
 
     :param sample_batch: the batch to export an onnx for, handles creating the
@@ -77,14 +77,18 @@ class TorchToONNX(BaseExporter):
             ],
         )
 
-    def export(self, pre_transforms_model: torch.nn.Module, file_path: str):
-        if not isinstance(pre_transforms_model, torch.nn.Module):
-            raise TypeError(
-                f"Expected torch.nn.Module, found {type(pre_transforms_model)}"
-            )
-        post_transforms_model: onnx.ModelProto = self.apply(pre_transforms_model)
+    def pre_validate(self, model: Any) -> torch.nn.Module:
+        if not isinstance(model, torch.nn.Module):
+            raise TypeError(f"Expected torch.nn.Module, found {type(model)}")
+        return model
+
+    def post_validate(self, model: Any) -> onnx.ModelProto:
         # sanity check
-        assert isinstance(post_transforms_model, onnx.ModelProto)
+        assert isinstance(model, onnx.ModelProto)
+        return model
+
+    def export(self, pre_transforms_model: torch.nn.Module, file_path: str):
+        post_transforms_model: onnx.ModelProto = self.apply(pre_transforms_model)
         onnx.save(post_transforms_model, file_path)
 
 
@@ -113,7 +117,17 @@ class _TorchOnnxExport(BaseTransform):
         self.disable_bn_fusing = disable_bn_fusing
         self.export_kwargs = export_kwargs or {}
 
-    def apply(self, module: torch.nn.Module) -> onnx.ModelProto:
+    def pre_validate(self, model: Any) -> torch.nn.Module:
+        if not isinstance(model, torch.nn.Module):
+            raise TypeError(f"Expected torch.nn.Module, found {type(model)}")
+        return model
+
+    def post_validate(self, model: Any) -> onnx.ModelProto:
+        # sanity check
+        assert isinstance(model, onnx.ModelProto)
+        return model
+
+    def transform(self, module: torch.nn.Module) -> onnx.ModelProto:
         tmp = tempfile.NamedTemporaryFile("w")
         file_path = tmp.name
 
