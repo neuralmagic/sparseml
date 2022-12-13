@@ -17,6 +17,7 @@ from onnx import ModelProto, helper, numpy_helper
 
 from sparseml.exporters.transforms.onnx_transform import OnnxTransform
 from sparseml.exporters.transforms.utils.helpers import (
+    QUANTIZE_OP_NAMES,
     attribute_to_kwarg,
     delete_quant_node,
     get_quantization_params,
@@ -47,7 +48,7 @@ class ConvToQLinearConv(OnnxTransform):
                               |
           input         QuantizeLinear
             |                 |
-    DequantizeLinear    DequantizeLinear    bias (optional)
+    Q or DQ           DequantizeLinear    bias (optional)
                   |           |            |
                             Conv
                               |
@@ -65,12 +66,22 @@ class ConvToQLinearConv(OnnxTransform):
             graph,
             op_type="Conv",
             parent_ops=[
-                ["DequantizeLinear"],
+                [],
                 [INITIALIZER_MATCH, "QuantizeLinear", "DequantizeLinear"],
             ],
-            children_ops=[["QuantizeLinear"]],
+            children_ops=[[]],
         )
         for match in matches:
+            input_quant = graph.get_node_single_parent(match.node, 0)
+            if not input_quant or input_quant.op_type not in QUANTIZE_OP_NAMES:
+                continue
+            match.parents[0].append(input_quant)
+
+            output_quant = graph.get_node_single_child(match.node)
+            if not output_quant or output_quant.op_type not in QUANTIZE_OP_NAMES:
+                continue
+            match.children[0].append(output_quant)
+
             self._do_transform(model, match)
         graph = ONNXGraph(model)
         graph.sort_nodes_topologically()
@@ -79,7 +90,7 @@ class ConvToQLinearConv(OnnxTransform):
 
     def _do_transform(self, model: ModelProto, match: MatchResult):
         conv_node = match.node
-        (input_dequant,) = match.parents[0]
+        (input_quant,) = match.parents[0]
         _, weight_quant, weight_dequant = match.parents[1]
         (output_quant,) = match.children[0]
 
@@ -104,9 +115,9 @@ class ConvToQLinearConv(OnnxTransform):
 
         # get qconv inputs and outputs
         qconv_inputs = [
-            input_dequant.input[0],  # x
-            input_dequant.input[1],  # x_scale
-            input_dequant.input[2],  # x_zero_point
+            input_quant.input[0],  # x
+            input_quant.input[1],  # x_scale
+            input_quant.input[2],  # x_zero_point
             quantized_weight_name,  # w
             weight_quant.input[1],  # w_scale
             weight_quant.input[2],  # w_zero_point
@@ -120,7 +131,7 @@ class ConvToQLinearConv(OnnxTransform):
                 # quantize bias and add it to the qconv inputs
                 bias = numpy_helper.to_array(bias)
                 input_quantize_params = get_quantization_params(
-                    model, input_dequant, include_target=False
+                    model, input_quant, include_target=False
                 )
                 bias_scale = input_quantize_params.scale * weight_quantize_params.scale
                 quantized_bias = quantize_array(bias, bias_scale, 0, numpy.int32)
@@ -153,7 +164,7 @@ class ConvToQLinearConv(OnnxTransform):
         remove_node_and_params_from_graph(model, conv_node)
         delete_quant_node(model, weight_dequant)
         delete_quant_node(model, weight_quant, keep_weight=True)
-        if len(get_node_output_nodes(model, input_dequant)) <= 1:
+        if len(get_node_output_nodes(model, input_quant)) <= 1:
             # fold if this conv is the only node that reads from this quant op
-            delete_quant_node(model, input_dequant)
+            delete_quant_node(model, input_quant)
         delete_quant_node(model, output_quant)

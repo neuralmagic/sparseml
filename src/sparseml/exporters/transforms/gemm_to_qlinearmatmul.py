@@ -16,6 +16,7 @@ from onnx import ModelProto, helper, numpy_helper
 
 from sparseml.exporters.transforms.onnx_transform import OnnxTransform
 from sparseml.exporters.transforms.utils.helpers import (
+    QUANTIZE_OP_NAMES,
     delete_quant_node,
     get_quantization_params,
     quantize_array,
@@ -116,33 +117,43 @@ class GemmToQLinearMatMul(OnnxTransform):
     """
 
     def transform(self, model: ModelProto) -> ModelProto:
+        graph = ONNXGraph(model)
         matches = get_structural_matches(
-            ONNXGraph(model),
+            graph,
             op_type="Gemm",
             parent_ops=[
-                ["DequantizeLinear"],
+                [],
                 [INITIALIZER_MATCH, "QuantizeLinear", "DequantizeLinear"],
             ],
-            children_ops=[
-                [
-                    "QuantizeLinear",
-                    optional_node("DequantizeLinear"),
-                    optional_node("Gemm"),
-                ]
-            ],
+            children_ops=[[]],
         )
         for match in matches:
-            graph = ONNXGraph(model)
-            (output_quant, output_dequant, gemm2) = match.children[0]
-            if output_dequant and gemm2:
-                # output quant is not a QDQ block for the current Gemm Node but,
-                # the input QDQ block for a new Gemm block this Gemm should be
-                # skipped and processed by _convert_quantizable_gemm_no_activations
-                continue
-
-            if len(get_node_attributes(match.node)) > 0:
+            gemm_attributes = get_node_attributes(match.node)
+            if any(float(attribute) != 1.0 for attribute in gemm_attributes.values()):
                 # can only handle Gemm operations without alpha/beta/transB set
                 continue
+
+            input_quant = graph.get_node_single_parent(match.node, 0)
+            if not input_quant or input_quant.op_type not in QUANTIZE_OP_NAMES:
+                continue
+            match.parents[0].append(input_quant)
+
+            output_quant = graph.get_node_single_child(match.node)
+            if not output_quant or output_quant.op_type not in QUANTIZE_OP_NAMES:
+                continue
+            match.children[0].append(output_quant)
+
+            output_dequant = graph.get_node_single_child(output_quant)
+            if output_dequant and output_dequant.op_type in QUANTIZE_OP_NAMES:
+                match.children[0].append(output_dequant)
+                output_dequant_child = graph.get_node_single_child(output_dequant)
+                if output_dequant_child and output_dequant_child.op_type == "Gemm":
+                    # output quant is not a QDQ block for the current Gemm Node but,
+                    # the input QDQ block for a new Gemm block this Gemm should be
+                    # skipped and processed by _convert_quantizable_gemm_no_activations
+                    continue
+            else:
+                match.children[0].append(None)
 
             self._do_transform(model, match)
 
@@ -153,9 +164,9 @@ class GemmToQLinearMatMul(OnnxTransform):
 
     def _do_transform(self, model: ModelProto, match: MatchResult):
         gemm_node = match.node
-        (input_dequant,) = match.parents[0]
+        (input_quant,) = match.parents[0]
         _, weight_quant, weight_dequant = match.parents[1]
-        (output_quant, opt_output_dequant, _) = match.children[0]
+        (output_quant, opt_output_dequant) = match.children[0]
 
         weight_quantize_params = get_quantization_params(
             model, weight_quant, include_target=True
@@ -179,9 +190,9 @@ class GemmToQLinearMatMul(OnnxTransform):
 
         # get qmatmul inputs and outputs
         qmatmul_inputs = [
-            input_dequant.input[0],  # x
-            input_dequant.input[1],  # x_scale
-            input_dequant.input[2],  # x_zero_point
+            input_quant.input[0],  # x
+            input_quant.input[1],  # x_scale
+            input_quant.input[2],  # x_zero_point
             quantized_weight_name,  # w
             weight_quant.input[1],  # w_scale
             weight_quant.input[2],  # w_zero_point
@@ -243,9 +254,9 @@ class GemmToQLinearMatMul(OnnxTransform):
         # delete folded quantization ops
         delete_quant_node(model, weight_dequant)
         delete_quant_node(model, weight_quant)
-        if len(get_node_output_nodes(model, input_dequant)) <= 1:
+        if len(get_node_output_nodes(model, input_quant)) <= 1:
             # fold if this gemm is the only node that reads from this quant op
-            delete_quant_node(model, input_dequant)
+            delete_quant_node(model, input_quant)
         delete_quant_node(model, output_quant)
 
         # delete original Gemm node
