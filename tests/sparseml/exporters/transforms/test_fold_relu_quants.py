@@ -12,10 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import numpy
 import onnx
 import pytest
-from onnx import ModelProto, numpy_helper
+from onnx import ModelProto
 
 from sparseml.exporters.transforms.fold_relu_quants import FoldReLUQuants
 

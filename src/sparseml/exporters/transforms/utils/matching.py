@@ -345,10 +345,10 @@ def _match_children(
         return True
 
     # NOTE: get_node_children can return less than node.output if one of the outputs
-    #       is the graph output. this is a difference in behavior to get_node_parents, which replaces input
-    #       with None, instead of removing it.
-    # NOTE: comparing to length of children here also handles the case where a node has a single
-    #       output that is used by multiple children nodes
+    #       is the graph output. this is a difference in behavior to
+    #       get_node_parents, which replaces input with None, instead of removing it.
+    # NOTE: comparing to length of children here also handles the case where a node
+    #       has a single output that is used by multiple children nodes
     if len(children_ops) > len(children):
         return False
     for child, expected_op_sequence in zip(children, children_ops):

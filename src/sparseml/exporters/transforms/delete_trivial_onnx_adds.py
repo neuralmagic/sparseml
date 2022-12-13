@@ -57,7 +57,8 @@ class DeleteTrivialOnnxAdds(OnnxTransform):
 
             graph = ONNXGraph(model)
             parent = graph.get_node_single_parent(add, 0)
-            parent.output[0] = add.output[0]
+            if parent is not None:
+                parent.output[0] = add.output[0]
             remove_node_and_params_from_graph(model, add)
             remove_node_and_params_from_graph(model, constant)
 

@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-from typing import Any, NamedTuple, Union
+from typing import Any, List, NamedTuple, Set, Union
 
 import numpy
 import torch
