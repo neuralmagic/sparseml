@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import numpy
 import onnx
+import onnxruntime as ort
 import pytest
 import torch
 
@@ -44,6 +46,16 @@ def test_simple_models_against_module_exporter(tmp_path, model, sample_batch):
 
     assert len(old_model.graph.node) == len(new_model.graph.node)
     assert len(old_model.graph.initializer) == len(new_model.graph.initializer)
+
+    old_session = ort.InferenceSession(str(tmp_path / "old_exporter" / "model.onnx"))
+    input_name = old_session.get_inputs()[0].name
+    output_name = old_session.get_outputs()[0].name
+    old_output = old_session.run([output_name], {input_name: sample_batch.numpy()})
+
+    new_session = ort.InferenceSession(str(tmp_path / "new_exporter" / "model.onnx"))
+    new_output = new_session.run([output_name], {input_name: sample_batch.numpy()})
+
+    assert numpy.allclose(old_output, new_output)
 
 
 def test_no_pruning_no_quant():

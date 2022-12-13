@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import collections
+import logging
 import tempfile
 import warnings
 from copy import deepcopy
@@ -29,6 +30,9 @@ from sparseml.pytorch import _PARSED_TORCH_VERSION
 from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
 from sparseml.pytorch.utils.helpers import tensors_module_forward, tensors_to_device
 from sparseml.pytorch.utils.model import is_parallel_model
+
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class TorchToONNX(BaseExporter):
@@ -136,6 +140,8 @@ class _TorchOnnxExport(BaseTransform):
         tmp = tempfile.NamedTemporaryFile("w")
         file_path = tmp.name
 
+        _LOGGER.debug(f"Saving onnx model to {file_path}")
+
         export_kwargs = deepcopy(self.export_kwargs)
 
         sample_batch = tensors_to_device(self.sample_batch, "cpu")
@@ -193,6 +199,7 @@ class _TorchOnnxExport(BaseTransform):
         ):
             # prevent batch norm fusing by adding a trivial operation before every
             # batch norm layer
+            _LOGGER.debug("Wrapping batch norms")
             _wrap_batch_norms(module)
 
         kwargs = dict(
@@ -212,6 +219,7 @@ class _TorchOnnxExport(BaseTransform):
             kwargs["do_constant_folding"] = not module.training
             kwargs["keep_initializers_as_inputs"] = False
 
+        _LOGGER.debug(f"Running torch.onnx.export with {kwargs}")
         torch.onnx.export(**kwargs)
 
         # re-enable disabled quantization observers
