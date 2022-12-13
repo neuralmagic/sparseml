@@ -26,14 +26,14 @@ class ONNXToDeepsparse(BaseExporter):
     Usage:
     ```python
     model: onnx.ModelProto = ... # could be from TorchToOnnx() or somewhere else
-    exporter = OnnxToDeepsparse()
+    exporter = ONNXToDeepsparse()
     exporter.export(model, "model.onnx")
     ```
 
     You can also just optimize the model directly without saving to disk:
     ```python
     model: onnx.ModelProto = ...
-    exporter = OnnxToDeepsparse()
+    exporter = ONNXToDeepsparse()
     optimized_model = exporter.apply(model)
     ```
 

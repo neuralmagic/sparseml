@@ -30,7 +30,7 @@ from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
 from sparseml.pytorch.utils.helpers import tensors_module_forward, tensors_to_device
 
 
-class TorchToOnnx(BaseExporter):
+class TorchToONNX(BaseExporter):
     """
     Transforms a `torch.nn.Module` into an `onnx.ModelProto` using `torch.onnx.export`.
 
@@ -38,7 +38,7 @@ class TorchToOnnx(BaseExporter):
 
     ```python
     resnet18 = torchvision.models.resnet18()
-    exporter = TorchToOnnx(sample_batch=torch.randn(1, 3, 224, 224))
+    exporter = TorchToONNX(sample_batch=torch.randn(1, 3, 224, 224))
     exporter.export(resnet18, "resnest18.onnx")
     ```
 
