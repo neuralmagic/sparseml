@@ -31,6 +31,32 @@ class QuantizeResiduals(OnnxTransform):
     Function will match to any add operation whose inputs are the output of a relu
     or add op and a quantize -> de-quantize block that takes the same relu as input.
     Performs this optimization in place.
+
+    Transforms
+    ```
+                Relu or Add
+             |          |
+    QuantizeLinear      |
+        |               |
+    anything            |
+        |               |
+    DequantizeLinear    |
+                |       |
+                    Add
+    ```
+    Into
+
+    ```
+            Relu or Add
+                |
+            QuantizeLinear
+        |               |
+    anything            |
+        |               |
+    DequantizeLinear    DequantizeLinear
+                |       |
+                    Add
+    ```
     """
 
     def transform(self, model: ModelProto) -> ModelProto:
@@ -62,20 +88,12 @@ class QuantizeResiduals(OnnxTransform):
                 continue
 
             # create de-quantize node for identity
-            identity_dequantize_inputs = [
-                quantize_node.output[0]
-            ] + quantize_node.input[1:]
-            dequantize_identity_output_name = "{}_identity_dequantized".format(
-                other_input_node.output[0]
-            )
-            dequantize_identity_node_name = "{}_identity_dequantized".format(
-                other_input_node.output[0]
-            )
+            dequant_output = f"{other_input_node.output[0]}_identity_dequantized"
             identity_dequantize_node = onnx.helper.make_node(
                 "DequantizeLinear",
-                identity_dequantize_inputs,
-                [dequantize_identity_output_name],
-                dequantize_identity_node_name,
+                [quantize_node.output[0]] + quantize_node.input[1:],
+                [dequant_output],
+                f"{other_input_node.output[0]}_identity_dequantized",
             )
             model.graph.node.append(identity_dequantize_node)
 
@@ -85,6 +103,8 @@ class QuantizeResiduals(OnnxTransform):
                 for i, inp in enumerate(add_node.input)
                 if inp == other_input_node.output[0]
             ][0]
-            add_node.input[relu_input_idx] = dequantize_identity_output_name
+            add_node.input[relu_input_idx] = dequant_output
 
+        graph = ONNXGraph(model)
+        graph.sort_nodes_topologically()
         return model
