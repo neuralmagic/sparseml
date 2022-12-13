@@ -294,8 +294,8 @@ def _get_base_recipe_variables(
     if distillation:
         recipe_variables.update(
             dict(
-                hardness=hardness,
-                temperature=temperature,
+                distillation_hardness=hardness,
+                distillation_temperature=temperature,
             )
         )
 
@@ -452,7 +452,7 @@ def _get_distillation_builders():
         modifier_class=DistillationModifier,
         start_epoch=0.0,
         end_epoch="eval(num_epochs)",
-        hardness="eval(hardness)",
-        temperature="eval(temperature)",
+        hardness="eval(distillation_hardness)",
+        temperature="eval(distillation_temperature)",
     )
     return [distillation_modifier_builder]

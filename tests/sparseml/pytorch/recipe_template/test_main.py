@@ -253,8 +253,8 @@ def test_distillation_recipe_variables_can_be_overridden(
     )
 
     if distillation:
-        assert f"hardness: {hardness}" in recipe
-        assert f"temperature: {temperature}" in recipe
+        assert f"distillation_hardness: {hardness}" in recipe
+        assert f"distillation_temperature: {temperature}" in recipe
     else:
-        assert "hardness:" not in recipe
-        assert "temperature:" not in recipe
+        assert "distillation_hardness:" not in recipe
+        assert "distillation_temperature:" not in recipe
