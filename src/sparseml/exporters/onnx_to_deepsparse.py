@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from copy import deepcopy
 from typing import Any
 
 import onnx
@@ -46,13 +47,21 @@ class ONNXToDeepsparse(BaseExporter):
     :param skip_input_quantize: if True, the export flow will attempt to delete
         the first Quantize Linear Nodes(s) immediately after model input and set
         the model input type to UINT8. Default is False
+    :param inplace: If true, does conversion of model in place. Default is true
+    :param export_input_model: If true, saves the input onnx model alongside the
+        optimized model.
     """
 
     def __init__(
         self,
         use_qlinear_conv: bool = False,
         skip_input_quantize: bool = False,
+        inplace: bool = True,
+        export_input_model: bool = False,
     ):
+        self.inplace = inplace
+        self.export_input_model = export_input_model
+
         cleanups = [
             sparseml_transforms.ConstantsToInitializers(),
             sparseml_transforms.FoldIdentityInitializers(),
@@ -87,7 +96,7 @@ class ONNXToDeepsparse(BaseExporter):
     def pre_validate(self, model: Any) -> onnx.ModelProto:
         if not isinstance(model, onnx.ModelProto):
             raise TypeError(f"Expected onnx.ModelProto, found {type(model)}")
-        return model
+        return model if self.inplace else deepcopy(model)
 
     def post_validate(self, model: Any) -> onnx.ModelProto:
         # sanity check
@@ -95,5 +104,10 @@ class ONNXToDeepsparse(BaseExporter):
         return model
 
     def export(self, pre_transforms_model: onnx.ModelProto, file_path: str):
+        if self.export_input_model:
+            onnx.save(
+                pre_transforms_model, file_path.replace(".onnx", ".pre-deepsparse.onnx")
+            )
+
         post_transforms_model: onnx.ModelProto = self.apply(pre_transforms_model)
         onnx.save(post_transforms_model, file_path)
