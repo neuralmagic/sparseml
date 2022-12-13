@@ -28,6 +28,7 @@ from sparseml.exporters.transforms.base_transform import BaseTransform
 from sparseml.pytorch import _PARSED_TORCH_VERSION
 from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
 from sparseml.pytorch.utils.helpers import tensors_module_forward, tensors_to_device
+from sparseml.pytorch.utils.model import is_parallel_model
 
 
 class TorchToONNX(BaseExporter):
@@ -77,10 +78,14 @@ class TorchToONNX(BaseExporter):
             ],
         )
 
-    def pre_validate(self, model: Any) -> torch.nn.Module:
-        if not isinstance(model, torch.nn.Module):
-            raise TypeError(f"Expected torch.nn.Module, found {type(model)}")
-        return model
+    def pre_validate(self, module: Any) -> torch.nn.Module:
+        if not isinstance(module, torch.nn.Module):
+            raise TypeError(f"Expected torch.nn.Module, found {type(module)}")
+
+        if is_parallel_model(module):
+            module = module.module
+
+        return deepcopy(module).to("cpu").eval()
 
     def post_validate(self, model: Any) -> onnx.ModelProto:
         # sanity check
