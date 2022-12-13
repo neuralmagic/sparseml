@@ -56,6 +56,7 @@ def recipe_template(
     init_lr: float = 0.001,
     final_lr: float = 0.0,
     sparsity: float = 0.8,
+    distillation: bool = False,
 ) -> str:
     """
     Returns a valid yaml or md recipe based on specified arguments
@@ -83,6 +84,8 @@ def recipe_template(
     :param init_lr: target initial learning rate, default 0.001
     :param final_lr: target final learning rate, default 0.0
     :param sparsity: target model sparsity, default 0.8
+    :param distillation: add distillation support to the recipe. default is
+        `False`
     :return: A valid string recipe based on the arguments
     """
 

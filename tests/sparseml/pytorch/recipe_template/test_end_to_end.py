@@ -27,7 +27,17 @@ def test_function_entrypoint():
     "command",
     [
         ["--pruning", "true", "--quantization", "true"],
+        ["--pruning", "true", "--quantization", "true", "--distillation"],
         ["--quantization", "true", "--target", "vnni", "--lr", "constant"],
+        [
+            "--quantization",
+            "true",
+            "--target",
+            "vnni",
+            "--lr",
+            "constant",
+            "--distillation",
+        ],
     ],
 )
 def test_docstring_cli_examples(command, tmp_path):
