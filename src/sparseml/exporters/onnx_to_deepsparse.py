@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Any
+
 import onnx
 
 from sparseml.exporters import transforms as sparseml_transforms
@@ -50,48 +52,48 @@ class ONNXToDeepsparse(BaseExporter):
         self,
         use_qlinear_conv: bool = False,
         skip_input_quantize: bool = False,
-    ) -> None:
-        conv_transform = (
-            sparseml_transforms.ConvToQLinearConv()
-            if use_qlinear_conv
-            else sparseml_transforms.ConvertQuantizableConvInteger()
-        )
-
-        transforms = [
-            # initializer transforms
+    ):
+        cleanups = [
             sparseml_transforms.ConstantsToInitializers(),
             sparseml_transforms.FoldIdentityInitializers(),
             sparseml_transforms.InitializersToUint8(),
-            # trivial folds
             sparseml_transforms.FoldConvDivBn(),
             sparseml_transforms.FoldReLUQuants(),
-            # embeddings
             sparseml_transforms.QuantizeQATEmbedding(),
             sparseml_transforms.PropagateEmbeddingQuantization(),
-            # Matmuls/gemms
+        ]
+
+        if skip_input_quantize:
+            cleanups.append(sparseml_transforms.SkipInputQuantize())
+
+        qat_transforms = [
             sparseml_transforms.ConvertQuantizableMatmul(),
             sparseml_transforms.MatMulToMatMulIntegerAddCastMul(),
             sparseml_transforms.GemmToQLinearMatMul(),
             sparseml_transforms.GemmToMatMulIntegerAddCastMul(),
-            # conv
-            conv_transform,
+            sparseml_transforms.ConvToQLinearConv()
+            if use_qlinear_conv
+            else sparseml_transforms.ConvertQuantizableConvInteger(),
+        ]
+
+        reductions = [
             sparseml_transforms.RemoveDuplicateQConvWeights(),
-            # misc
             sparseml_transforms.QuantizeResiduals(),
             sparseml_transforms.RemoveDuplicateQuantizeOps(),
         ]
 
-        if skip_input_quantize:
-            transforms.append(sparseml_transforms.SkipInputQuantize())
+        super().__init__(cleanups + qat_transforms + reductions)
 
-        super().__init__(transforms)
+    def pre_validate(self, model: Any) -> onnx.ModelProto:
+        if not isinstance(model, onnx.ModelProto):
+            raise TypeError(f"Expected onnx.ModelProto, found {type(model)}")
+        return model
+
+    def post_validate(self, model: Any) -> onnx.ModelProto:
+        # sanity check
+        assert isinstance(model, onnx.ModelProto)
+        return model
 
     def export(self, pre_transforms_model: onnx.ModelProto, file_path: str):
-        if not isinstance(pre_transforms_model, onnx.ModelProto):
-            raise TypeError(
-                f"Expected onnx.ModelProto, found {type(pre_transforms_model)}"
-            )
-        post_transforms_model = self.apply(pre_transforms_model)
-        # sanity check
-        assert isinstance(post_transforms_model, onnx.ModelProto)
+        post_transforms_model: onnx.ModelProto = self.apply(pre_transforms_model)
         onnx.save(post_transforms_model, file_path)
