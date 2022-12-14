@@ -15,7 +15,8 @@
 from onnx import ModelProto
 
 from sparseml.exporters.transforms.onnx_transform import OnnxTransform
-from sparseml.onnx.utils.graph_editor import ONNXGraph
+from sparseml.exporters.transforms.utils import assert_node_type
+from sparseml.onnx.utils import ONNXGraph
 
 
 __all__ = ["DeleteRepeatedQdq"]
@@ -47,13 +48,13 @@ class DeleteRepeatedQdq(OnnxTransform):
         quant_nodes = [n for n in model.graph.node if n.op_type == "QuantizeLinear"]
         for quant_node_1 in quant_nodes:
             dequant_node_1 = graph.get_node_single_child(quant_node_1)
-            if not dequant_node_1 or dequant_node_1.op_type != "DequantizeLinear":
+            if not assert_node_type(dequant_node_1, "DequantizeLinear"):
                 continue
             quant_node_2 = graph.get_node_single_child(dequant_node_1)
-            if not quant_node_2 or quant_node_2.op_type != "QuantizeLinear":
+            if not assert_node_type(quant_node_2, "QuantizeLinear"):
                 continue
             dequant_node_2 = graph.get_node_single_child(quant_node_2)
-            if not dequant_node_2 or dequant_node_2.op_type != "DequantizeLinear":
+            if not assert_node_type(dequant_node_2, "DequantizeLinear"):
                 continue
 
             # forward first qat block input to that of the second
