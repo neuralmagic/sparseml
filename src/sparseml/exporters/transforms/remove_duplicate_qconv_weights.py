@@ -52,7 +52,7 @@ class RemoveDuplicateQConvWeights(OnnxTransform):
             weight = numpy_helper.to_array(init)
             found_match = False
             for idx, val in enumerate(weights_for_group):
-                if numpy.all(val == weight):
+                if val.shape == weight.shape and numpy.all(val == weight):
                     qconv_groups[idx].append(node)
                     found_match = True
                     break
