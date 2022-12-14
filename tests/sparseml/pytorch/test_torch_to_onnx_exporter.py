@@ -12,12 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections import Counter
+
 import numpy
 import onnx
 import onnxruntime as ort
 import pytest
 import torch
 
+from sparseml.exporters.onnx_to_deepsparse import ONNXToDeepsparse
 from sparseml.pytorch.models.registry import ModelRegistry
 from sparseml.pytorch.sparsification.quantization import QuantizationModifier
 from sparseml.pytorch.torch_to_onnx_exporter import TorchToONNX
@@ -50,8 +53,15 @@ def test_simple_models_against_module_exporter(tmp_path, model, sample_batch):
     )
 
 
-@pytest.mark.parametrize("quantize", [False, True])
-def test_resnet50_exporters_are_equivalent(tmp_path, quantize: bool):
+@pytest.mark.parametrize(
+    "quantize,convert_qat",
+    [
+        (False, False),
+        (True, False),
+        (True, True),
+    ],
+)
+def test_resnet50_exporters_are_equivalent(tmp_path, quantize: bool, convert_qat: bool):
     old_dir = tmp_path / "old_exporter"
     old_dir.mkdir()
     new_dir = tmp_path / "new_exporter"
@@ -61,16 +71,28 @@ def test_resnet50_exporters_are_equivalent(tmp_path, quantize: bool):
     model = ModelRegistry.create(
         "resnet50",
         pretrained=True,
-        pretrained_path="zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/base-none",
+        pretrained_path=(
+            "zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/base-none"
+        ),
     )
     if quantize:
         QuantizationModifier().apply(model)
 
-    old_exporter = ModuleExporter(model, old_dir)
-    old_exporter.export_onnx(sample_batch, convert_qat=False)
+    # TODO how to integrate this??
+    use_qlinearconv = hasattr(model, "export_with_qlinearconv") and (
+        model.export_with_qlinearconv
+    )
 
     new_exporter = TorchToONNX(sample_batch)
     new_exporter.export(model, new_dir / "model.onnx")
+    if convert_qat:
+        ONNXToDeepsparse(use_qlinear_conv=use_qlinearconv).export(
+            new_dir / "model.onnx", new_dir / "model.onnx"
+        )
+
+    old_exporter = ModuleExporter(model, old_dir)
+    old_exporter.export_onnx(sample_batch, convert_qat=convert_qat)
+
     _assert_onnx_models_are_equal(
         str(tmp_path / "old_exporter" / "model.onnx"),
         str(tmp_path / "new_exporter" / "model.onnx"),
@@ -79,18 +101,41 @@ def test_resnet50_exporters_are_equivalent(tmp_path, quantize: bool):
     )
 
 
-@pytest.mark.parametrize("quantize", [False, True])
-def test_mobilenet_exporters_are_equivalent(quantize: bool):
+@pytest.mark.parametrize(
+    "quantize,convert_qat",
+    [
+        (False, False),
+        (True, False),
+        (True, True),
+    ],
+)
+def test_mobilenet_exporters_are_equivalent(
+    tmp_path, quantize: bool, convert_qat: bool
+):
     assert False, "TODO"
 
 
-@pytest.mark.parametrize("quantize", [False, True])
-def test_yolov5_exporters_are_equivalent(quantize: bool):
+@pytest.mark.parametrize(
+    "quantize,convert_qat",
+    [
+        (False, False),
+        (True, False),
+        (True, True),
+    ],
+)
+def test_yolov5_exporters_are_equivalent(tmp_path, quantize: bool, convert_qat: bool):
     assert False, "TODO"
 
 
-@pytest.mark.parametrize("quantize", [False, True])
-def test_bert_exporters_are_equivalent(quantize: bool):
+@pytest.mark.parametrize(
+    "quantize,convert_qat",
+    [
+        (False, False),
+        (True, False),
+        (True, True),
+    ],
+)
+def test_bert_exporters_are_equivalent(tmp_path, quantize: bool, convert_qat: bool):
     assert False, "TODO"
 
 
@@ -106,14 +151,16 @@ def _assert_onnx_models_are_equal(
     old_model = onnx.load(old_model_path)
     new_model = onnx.load(new_model_path)
 
-    assert len(old_model.graph.node) == len(new_model.graph.node)
-    assert len(old_model.graph.initializer) == len(new_model.graph.initializer)
-    old_op_types = set([n.op_type for n in old_model.graph.node])
-    new_op_types = set([n.op_type for n in new_model.graph.node])
+    old_op_types = Counter([n.op_type for n in old_model.graph.node])
+    new_op_types = Counter([n.op_type for n in new_model.graph.node])
+    print(old_op_types)
+    print(new_op_types)
     assert old_op_types == new_op_types
     if expect_op_types is not None:
         for op_type in expect_op_types:
             assert op_type in old_op_types
+    assert len(old_model.graph.node) == len(new_model.graph.node)
+    assert len(old_model.graph.initializer) == len(new_model.graph.initializer)
 
     old_session = ort.InferenceSession(old_model_path)
     input_name = old_session.get_inputs()[0].name

@@ -23,6 +23,7 @@ from .base_transform import *
 from .onnx_transform import *
 
 from .delete_trivial_onnx_adds import DeleteTrivialOnnxAdds
+from .delete_repeated_qdq import DeleteRepeatedQdq
 from .fold_identity_initializers import FoldIdentityInitializers
 from .quantize_qat_embedding import QuantizeQATEmbedding
 from .convert_quantizable_matmul import ConvertQuantizableMatmul

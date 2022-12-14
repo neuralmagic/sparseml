@@ -92,8 +92,8 @@ class TorchToONNX(BaseExporter):
         return deepcopy(module).to("cpu").eval()
 
     def post_validate(self, model: Any) -> onnx.ModelProto:
-        # sanity check
-        assert isinstance(model, onnx.ModelProto)
+        if not isinstance(model, onnx.ModelProto):
+            raise TypeError(f"Expected onnx.ModelProto, found {type(model)}")
         return model
 
     def export(self, pre_transforms_model: torch.nn.Module, file_path: str):
@@ -110,6 +110,13 @@ class _TorchOnnxExport(BaseTransform):
         **export_kwargs,
     ):
         super().__init__()
+
+        if _PARSED_TORCH_VERSION >= version.parse("1.10.0") and opset < 13:
+            warnings.warn(
+                "Exporting onnx with QAT and opset < 13 may result in errors. "
+                "Please use opset>=13 with QAT. "
+                "See https://github.com/pytorch/pytorch/issues/77455 for more info. "
+            )
 
         if isinstance(sample_batch, Dict) and not isinstance(
             sample_batch, collections.OrderedDict
@@ -132,8 +139,8 @@ class _TorchOnnxExport(BaseTransform):
         return model
 
     def post_validate(self, model: Any) -> onnx.ModelProto:
-        # sanity check
-        assert isinstance(model, onnx.ModelProto)
+        if not isinstance(model, onnx.ModelProto):
+            raise TypeError(f"Expected onnx.ModelProto, found {type(model)}")
         return model
 
     def transform(self, module: torch.nn.Module) -> onnx.ModelProto:

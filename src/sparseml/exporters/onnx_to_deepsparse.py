@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from copy import deepcopy
+from pathlib import Path
 from typing import Any
 
 import onnx
@@ -62,45 +63,44 @@ class ONNXToDeepsparse(BaseExporter):
         self.inplace = inplace
         self.export_input_model = export_input_model
 
-        cleanups = [
+        transforms = [
+            sparseml_transforms.FoldConvDivBn(),
             sparseml_transforms.ConstantsToInitializers(),
             sparseml_transforms.FoldIdentityInitializers(),
             sparseml_transforms.InitializersToUint8(),
-            sparseml_transforms.FoldConvDivBn(),
-            sparseml_transforms.FoldReLUQuants(),
+            sparseml_transforms.DeleteRepeatedQdq(),
             sparseml_transforms.QuantizeQATEmbedding(),
             sparseml_transforms.PropagateEmbeddingQuantization(),
-        ]
-
-        if skip_input_quantize:
-            cleanups.append(sparseml_transforms.SkipInputQuantize())
-
-        qat_transforms = [
             sparseml_transforms.ConvertQuantizableMatmul(),
             sparseml_transforms.MatMulToMatMulIntegerAddCastMul(),
-            sparseml_transforms.GemmToQLinearMatMul(),
-            sparseml_transforms.GemmToMatMulIntegerAddCastMul(),
+            sparseml_transforms.FoldReLUQuants(),
             sparseml_transforms.ConvToQLinearConv()
             if use_qlinear_conv
             else sparseml_transforms.ConvertQuantizableConvInteger(),
-        ]
-
-        reductions = [
-            sparseml_transforms.RemoveDuplicateQConvWeights(),
+            sparseml_transforms.GemmToQLinearMatMul(),
+            sparseml_transforms.GemmToMatMulIntegerAddCastMul(),
             sparseml_transforms.QuantizeResiduals(),
+            sparseml_transforms.RemoveDuplicateQConvWeights(),
             sparseml_transforms.RemoveDuplicateQuantizeOps(),
         ]
 
-        super().__init__(cleanups + qat_transforms + reductions)
+        if skip_input_quantize:
+            transforms.append(sparseml_transforms.SkipInputQuantize())
+
+        super().__init__(transforms)
 
     def pre_validate(self, model: Any) -> onnx.ModelProto:
+        if isinstance(model, (str, Path)):
+            model = onnx.load(str(model))
+
         if not isinstance(model, onnx.ModelProto):
             raise TypeError(f"Expected onnx.ModelProto, found {type(model)}")
         return model if self.inplace else deepcopy(model)
 
     def post_validate(self, model: Any) -> onnx.ModelProto:
         # sanity check
-        assert isinstance(model, onnx.ModelProto)
+        if not isinstance(model, onnx.ModelProto):
+            raise TypeError(f"Expected onnx.ModelProto, found {type(model)}")
         return model
 
     def export(self, pre_transforms_model: onnx.ModelProto, file_path: str):
