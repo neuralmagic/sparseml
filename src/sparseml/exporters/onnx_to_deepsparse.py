@@ -12,9 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 from copy import deepcopy
 from pathlib import Path
-from typing import Any
+from typing import Union
 
 import onnx
 
@@ -29,16 +30,17 @@ class ONNXToDeepsparse(BaseExporter):
 
     Usage:
     ```python
-    model: onnx.ModelProto = ... # could be a model retrieved previously from TorchToOnnx() or somewhere else
+    # could be a model retrieved previously from TorchToOnnx() or somewhere else
+    onnx_model: onnx.ModelProto = ...
     exporter = ONNXToDeepsparse()
-    exporter.export(model, "model.onnx")
+    exporter.export(onnx_model, "model.onnx")
     ```
 
     You can also just optimize the model directly without saving to disk:
     ```python
-    model: onnx.ModelProto = ...
+    onnx_model: onnx.ModelProto = ...
     exporter = ONNXToDeepsparse()
-    optimized_model = exporter.apply(model)
+    optimized_model = exporter.apply(onnx_model)
     ```
 
     :param use_qlinearconv: Set True to use legacy QLinearConv format instead
@@ -90,7 +92,7 @@ class ONNXToDeepsparse(BaseExporter):
 
         super().__init__(transforms)
 
-    def pre_validate(self, model: Any) -> onnx.ModelProto:
+    def pre_validate(self, model: Union[onnx.ModelProto, str, Path]) -> onnx.ModelProto:
         if isinstance(model, (str, Path)):
             model = onnx.load(str(model))
 
@@ -98,17 +100,15 @@ class ONNXToDeepsparse(BaseExporter):
             raise TypeError(f"Expected onnx.ModelProto, found {type(model)}")
         return model if self.inplace else deepcopy(model)
 
-    def post_validate(self, model: Any) -> onnx.ModelProto:
+    def post_validate(self, model: onnx.ModelProto) -> onnx.ModelProto:
         # sanity check
         if not isinstance(model, onnx.ModelProto):
             raise TypeError(f"Expected onnx.ModelProto, found {type(model)}")
         return model
 
     def export(self, pre_transforms_model: onnx.ModelProto, file_path: str):
-        if self.export_input_model:
-            onnx.save(
-                pre_transforms_model, file_path.replace(".onnx", ".pre-deepsparse.onnx")
-            )
+        if self.export_input_model or os.getenv("SAVE_PREQAT_ONNX", False):
+            onnx.save(pre_transforms_model, file_path.replace(".onnx", ".preqat.onnx"))
 
         post_transforms_model: onnx.ModelProto = self.apply(pre_transforms_model)
         onnx.save(post_transforms_model, file_path)
