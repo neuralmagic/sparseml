@@ -189,14 +189,12 @@ def _assert_onnx_models_are_equal(
 
     old_op_types = Counter([n.op_type for n in old_model.graph.node])
     new_op_types = Counter([n.op_type for n in new_model.graph.node])
-    print(old_op_types)
-    print(new_op_types)
-    # assert old_op_types == new_op_types
+    assert old_op_types == new_op_types
     if expect_op_types is not None:
         for op_type in expect_op_types:
             assert op_type in old_op_types
-    # assert len(old_model.graph.node) == len(new_model.graph.node)
-    # assert len(old_model.graph.initializer) == len(new_model.graph.initializer)
+    assert len(old_model.graph.node) == len(new_model.graph.node)
+    assert len(old_model.graph.initializer) == len(new_model.graph.initializer)
 
     old_session = ort.InferenceSession(old_model_path)
     input_name = old_session.get_inputs()[0].name
