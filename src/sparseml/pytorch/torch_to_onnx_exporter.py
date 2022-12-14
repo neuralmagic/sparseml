@@ -72,9 +72,12 @@ class TorchToONNX(BaseExporter):
     ):
         super().__init__(
             [
+                # NOTE: this first transform is what transforms
+                # the torch.nn.Module into an onnx.ModelProto
                 _TorchOnnxExport(
                     sample_batch, opset, disable_bn_fusing, **export_kwargs
                 ),
+                # NOTE: the remainder of these act on onnx.ModelProto
                 sparseml_transforms.FoldIdentityInitializers(),
                 sparseml_transforms.FlattenQParams(),
                 sparseml_transforms.UnwrapBatchNorms(),
@@ -91,7 +94,7 @@ class TorchToONNX(BaseExporter):
 
         return deepcopy(module).to("cpu").eval()
 
-    def post_validate(self, model: Any) -> onnx.ModelProto:
+    def post_validate(self, model: onnx.ModelProto) -> onnx.ModelProto:
         if not isinstance(model, onnx.ModelProto):
             raise TypeError(f"Expected onnx.ModelProto, found {type(model)}")
         return model
