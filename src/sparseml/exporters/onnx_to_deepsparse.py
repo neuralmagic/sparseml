@@ -29,7 +29,7 @@ class ONNXToDeepsparse(BaseExporter):
 
     Usage:
     ```python
-    model: onnx.ModelProto = ... # could be from TorchToOnnx() or somewhere else
+    model: onnx.ModelProto = ... # could be a model retrieved previously from TorchToOnnx() or somewhere else
     exporter = ONNXToDeepsparse()
     exporter.export(model, "model.onnx")
     ```

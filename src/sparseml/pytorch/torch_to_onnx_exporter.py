@@ -82,7 +82,7 @@ class TorchToONNX(BaseExporter):
             ],
         )
 
-    def pre_validate(self, module: Any) -> torch.nn.Module:
+    def pre_validate(self, module: torch.nn.Module) -> torch.nn.Module:
         if not isinstance(module, torch.nn.Module):
             raise TypeError(f"Expected torch.nn.Module, found {type(module)}")
 
@@ -133,12 +133,12 @@ class _TorchOnnxExport(BaseTransform):
         self.disable_bn_fusing = disable_bn_fusing
         self.export_kwargs = export_kwargs or {}
 
-    def pre_validate(self, model: Any) -> torch.nn.Module:
+    def pre_validate(self, model: torch.nn.Module) -> torch.nn.Module:
         if not isinstance(model, torch.nn.Module):
             raise TypeError(f"Expected torch.nn.Module, found {type(model)}")
         return model
 
-    def post_validate(self, model: Any) -> onnx.ModelProto:
+    def post_validate(self, model: onnx.ModelProto) -> onnx.ModelProto:
         if not isinstance(model, onnx.ModelProto):
             raise TypeError(f"Expected onnx.ModelProto, found {type(model)}")
         return model
