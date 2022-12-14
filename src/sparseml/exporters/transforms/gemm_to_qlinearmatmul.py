@@ -25,7 +25,6 @@ from sparseml.exporters.transforms.utils.matching import (
     INITIALIZER_MATCH,
     MatchResult,
     get_structural_matches,
-    optional_node,
 )
 from sparseml.onnx.utils.graph_editor import (
     ONNXGraph,
@@ -168,6 +167,10 @@ class GemmToQLinearMatMul(OnnxTransform):
         _, weight_quant, weight_dequant = match.parents[1]
         (output_quant, opt_output_dequant) = match.children[0]
 
+        # can fold the input/output quant ops if they are trivial
+        fold_input_quant = input_quant.op_type == "DequantizeLinear"
+        fold_output_quant = output_quant.op_type == "QuantizeLinear"
+
         weight_quantize_params = get_quantization_params(
             model, weight_quant, include_target=True
         )
@@ -189,8 +192,9 @@ class GemmToQLinearMatMul(OnnxTransform):
         model.graph.initializer.append(quantized_weight_initializer)
 
         # get qmatmul inputs and outputs
+        qmatmul_input = input_quant.input[0] if fold_input_quant else gemm_node.input[0]
         qmatmul_inputs = [
-            input_quant.input[0],  # x
+            qmatmul_input,  # x
             input_quant.input[1],  # x_scale
             input_quant.input[2],  # x_zero_point
             quantized_weight_name,  # w
@@ -200,10 +204,11 @@ class GemmToQLinearMatMul(OnnxTransform):
             output_quant.input[2],  # y_zero_point
         ]
 
-        qmatmul_name = f"{gemm_node.name}_quant"
-        qmatmul_output = output_quant.output[0]
-
         # create qmatmul node and add it to graph
+        qmatmul_name = f"{gemm_node.name}_quant"
+        qmatmul_output = (
+            output_quant.output[0] if fold_output_quant else gemm_node.output[0]
+        )
         qmatmul_node = helper.make_node(
             "QLinearMatMul",
             qmatmul_inputs,
@@ -214,19 +219,17 @@ class GemmToQLinearMatMul(OnnxTransform):
 
         # add bias term following FC in the graph
         if len(gemm_node.input) > 2:
+            mm_child = opt_output_dequant if fold_output_quant else output_quant
             qmatmul_output_name = f"{qmatmul_output}_pre_dq"
             dequant_output_name = f"{qmatmul_output}_post_dq"
-            if opt_output_dequant is not None:
-                # sanity check
-                assert opt_output_dequant.op_type == "DequantizeLinear"
-
+            if mm_child is not None and mm_child.op_type == "DequantizeLinear":
                 # create hidden output layer for bias add
-                add_output_name = opt_output_dequant.output[0]
-                opt_output_dequant.output[0] = dequant_output_name
+                add_output_name = mm_child.output[0]
+                mm_child.output[0] = dequant_output_name
             else:
                 # inject dequantize op for matmul
                 model.graph.node[-1].output[0] = qmatmul_output_name
-                opt_output_dequant = helper.make_node(
+                mm_child = helper.make_node(
                     "DequantizeLinear",
                     [
                         qmatmul_output_name,  # input
@@ -236,28 +239,28 @@ class GemmToQLinearMatMul(OnnxTransform):
                     [dequant_output_name],
                     name=f"{qmatmul_name}_injected_dq",
                 )
-                model.graph.node.append(opt_output_dequant)
+                model.graph.node.append(mm_child)
                 add_output_name = qmatmul_output  # original qmatmul output name
 
             # inject bias op for dequantized matmul output
-            qmatmul_bias_add_node = helper.make_node(
-                "Add",
-                [
-                    dequant_output_name,  # add input
-                    gemm_node.input[2],  # Gemm bias
-                ],
-                [add_output_name],
-                f"{gemm_node.name}_injected_bias_add",
+            model.graph.node.append(
+                helper.make_node(
+                    "Add",
+                    # [add_input, gemm bias]
+                    [dequant_output_name, gemm_node.input[2]],
+                    [add_output_name],
+                    f"{gemm_node.name}_injected_bias_add",
+                )
             )
-            model.graph.node.append(qmatmul_bias_add_node)
 
         # delete folded quantization ops
         delete_quant_node(model, weight_dequant)
         delete_quant_node(model, weight_quant)
-        if len(get_node_output_nodes(model, input_quant)) <= 1:
+        if fold_input_quant and len(get_node_output_nodes(model, input_quant)) <= 1:
             # fold if this gemm is the only node that reads from this quant op
             delete_quant_node(model, input_quant)
-        delete_quant_node(model, output_quant)
+        if fold_output_quant:
+            delete_quant_node(model, output_quant)
 
         # delete original Gemm node
         remove_node_and_params_from_graph(model, gemm_node)

@@ -100,6 +100,10 @@ class ConvToQLinearConv(OnnxTransform):
         # sanity check - matching should ensure this
         assert weight_quantize_params.target is not None
 
+        # can fold the input/output quant ops if they are trivial
+        fold_input_quant = input_quant.op_type == "DequantizeLinear"
+        fold_output_quant = output_quant.op_type == "QuantizeLinear"
+
         # quantize weight
         quantized_weight = quantize_array(
             weight_quantize_params.target,
@@ -114,8 +118,9 @@ class ConvToQLinearConv(OnnxTransform):
         model.graph.initializer.append(quantized_weight_initializer)
 
         # get qconv inputs and outputs
+        qconv_input = input_quant.input[0] if fold_input_quant else conv_node.input[0]
         qconv_inputs = [
-            input_quant.input[0],  # x
+            qconv_input,  # x
             input_quant.input[1],  # x_scale
             input_quant.input[2],  # x_zero_point
             quantized_weight_name,  # w
@@ -150,11 +155,14 @@ class ConvToQLinearConv(OnnxTransform):
             qconv_kwargs.update(attribute_to_kwarg(attribute))
 
         # create QLinearConv node and add it to graph
+        qconv_output = (
+            output_quant.output[0] if fold_output_quant else conv_node.output[0]
+        )
         model.graph.node.append(
             helper.make_node(
                 "QLinearConv",
                 qconv_inputs,
-                [output_quant.output[0]],
+                [qconv_output],
                 name=f"{conv_node.name}_quant",
                 **qconv_kwargs,
             )
@@ -164,7 +172,8 @@ class ConvToQLinearConv(OnnxTransform):
         remove_node_and_params_from_graph(model, conv_node)
         delete_quant_node(model, weight_dequant)
         delete_quant_node(model, weight_quant, keep_weight=True)
-        if len(get_node_output_nodes(model, input_quant)) <= 1:
+        if fold_input_quant and len(get_node_output_nodes(model, input_quant)) <= 1:
             # fold if this conv is the only node that reads from this quant op
             delete_quant_node(model, input_quant)
-        delete_quant_node(model, output_quant)
+        if fold_output_quant:
+            delete_quant_node(model, output_quant)
