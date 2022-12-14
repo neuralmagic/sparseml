@@ -67,6 +67,7 @@ class ONNXToDeepsparse(BaseExporter):
             sparseml_transforms.ConstantsToInitializers(),
             sparseml_transforms.FoldIdentityInitializers(),
             sparseml_transforms.InitializersToUint8(),
+            sparseml_transforms.FlattenQParams(),
             sparseml_transforms.FoldConvDivBn(),
             sparseml_transforms.DeleteRepeatedQdq(),
             sparseml_transforms.QuantizeQATEmbedding(),
