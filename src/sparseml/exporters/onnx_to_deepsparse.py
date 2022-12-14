@@ -64,10 +64,10 @@ class ONNXToDeepsparse(BaseExporter):
         self.export_input_model = export_input_model
 
         transforms = [
-            sparseml_transforms.FoldConvDivBn(),
             sparseml_transforms.ConstantsToInitializers(),
             sparseml_transforms.FoldIdentityInitializers(),
             sparseml_transforms.InitializersToUint8(),
+            sparseml_transforms.FoldConvDivBn(),
             sparseml_transforms.DeleteRepeatedQdq(),
             sparseml_transforms.QuantizeQATEmbedding(),
             sparseml_transforms.PropagateEmbeddingQuantization(),
