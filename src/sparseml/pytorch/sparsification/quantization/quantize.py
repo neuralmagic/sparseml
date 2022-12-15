@@ -235,6 +235,9 @@ def add_output_activation_observers(module: Module):
     device = next(module.parameters()).device
 
     def _needs_observer(target_module: Module):
+        # combines logic from multiple places of original implementation which
+        # mostly checked for existnace of a qconfig and if the target was a leaf
+        # module
         if (
             not hasattr(target_module, "quantization_scheme")
             or (hasattr(target_module, "activation_post_process"))
