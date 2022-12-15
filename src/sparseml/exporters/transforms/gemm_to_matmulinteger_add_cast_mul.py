@@ -90,7 +90,7 @@ class GemmToMatMulIntegerAddCastMul(OnnxTransform):
             ],
         )
         for match in matches:
-            _LOGGER.debug(f"Found structural match {match}")
+            _LOGGER.debug(f"Found structural match {match.node.name}")
             attr = get_node_attributes(match.node)
             if (
                 attr.get("alpha", 1.0) != 1.0
@@ -104,6 +104,8 @@ class GemmToMatMulIntegerAddCastMul(OnnxTransform):
 
             self._do_transform(model, match, attr)
 
+        graph = ONNXGraph(model)
+        graph.sort_nodes_topologically()
         return model
 
     def _do_transform(

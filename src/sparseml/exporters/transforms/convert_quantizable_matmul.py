@@ -149,7 +149,6 @@ class ConvertQuantizableMatmul(OnnxTransform):
             # Convert
             model = convert_matmul_to_quantized(match, model)
             remove_node_and_params_from_graph(model, match.node)
-            ONNXGraph(model).sort_nodes_topologically()
 
             count_converted_nodes += 1
 
@@ -158,4 +157,5 @@ class ConvertQuantizableMatmul(OnnxTransform):
                 f"Converted {count_converted_nodes} quantizable MatMul ops "
                 "to QLinearMatMul"
             )
+        ONNXGraph(model).sort_nodes_topologically()
         return model

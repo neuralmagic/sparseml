@@ -105,7 +105,7 @@ class MatMulToMatMulIntegerAddCastMul(OnnxTransform):
                 # bias initializer not present
                 continue
 
-            _LOGGER.debug(f"Found structural match {match}")
+            _LOGGER.debug(f"Found structural match {match.node.name}")
             self._do_transform(model, match, bias_init)
 
         graph = ONNXGraph(model)
