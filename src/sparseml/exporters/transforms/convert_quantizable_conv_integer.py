@@ -44,17 +44,17 @@ def convert_conv_to_quantized(
     :param model: ONNX model to be transformed
     :return: ONNX model with the quantized conv node
     """
-    input_quantize_node, input_dequantize_node = match.parents[0]
+    input_quant, input_dequant = match.parents[0]
     weight_init, weight_quantize_node, weight_dequantize_node = match.parents[1]
     (bias_init,) = match.parents[2]
 
     model = add_quantized_conv_matmul_add_ops(
         model=model,
         node=match.node,
-        input_quantize_node=input_quantize_node,
+        input_quantize_node=input_dequant,
         weight_quantize_node=weight_quantize_node,
         input_quantize_params=get_quantization_params(
-            model, input_quantize_node, include_target=True
+            model, input_dequant, include_target=True
         ),
         weight_quantize_params=get_quantization_params(
             model, weight_quantize_node, include_target=True
@@ -67,7 +67,11 @@ def convert_conv_to_quantized(
 
     delete_quant_node(model, weight_dequantize_node)
     delete_quant_node(model, weight_quantize_node)
-    delete_quant_node(model, input_dequantize_node)
+
+    # only delete input node if the conv is the only child
+    current_graph = ONNXGraph(model)
+    if len(current_graph.get_node_children(input_dequant)) == 1:
+        delete_quant_node(model, input_dequant)
 
     # delete original Conv node
     remove_node_and_params_from_graph(model, match.node)
@@ -139,4 +143,6 @@ class ConvertQuantizableConvInteger(OnnxTransform):
                 f"Conv ops with weight and bias "
                 "to ConvInteger and Add"
             )
+        graph = ONNXGraph(model)
+        graph.sort_nodes_topologically()
         return model

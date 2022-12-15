@@ -25,6 +25,10 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class SkipInputQuantize(OnnxTransform):
+    """
+    Removes any QuantizeLinear nodes that are the first nodes of the graph.
+    """
+
     def transform(self, model: ModelProto) -> ModelProto:
         if (
             len(model.graph.input) != 1
