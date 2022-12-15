@@ -15,6 +15,7 @@
 import os
 
 import pytest
+from torch.nn import Identity
 
 from sparseml.pytorch.sparsification.quantization.helpers import QATWrapper
 from sparseml.pytorch.sparsification.quantization.modifier_quantization import (
@@ -90,17 +91,29 @@ def _test_quantized_module(base_model, modifier, module, name):
     _assert_qconfigs_equal(qconfig, expected_qconfig)
 
     if is_quant_wrapper:
-        # assert that activations are tracked by observer
+        # assert that activations are tracked by quant stub observer
+        assert not hasattr(module, "activation_post_process")
         assert hasattr(module.quant, "activation_post_process")
         assert isinstance(
             module.quant.activation_post_process, torch_quantization.FakeQuantize
         )
-    elif quantization_scheme.input_activations:
-        # assert that parent is a QuantWrapper to quantize activations
-        parent_module = base_model
-        for layer in name.split(".")[:-1]:
-            parent_module = getattr(parent_module, layer)
-        assert isinstance(parent_module, torch_quantization.QuantWrapper)
+    else:
+        if quantization_scheme.input_activations:
+            # assert that parent is a QuantWrapper to quantize input activations
+            parent_module = base_model
+            for layer in name.split(".")[:-1]:
+                parent_module = getattr(parent_module, layer)
+            assert isinstance(parent_module, torch_quantization.QuantWrapper)
+
+        # all non wrapper modules targeted for quantization should have a post process
+        # which is a FakeQuantize quantizing outputs, or an Identity if not
+        assert hasattr(module, "activation_post_process")
+        if quantization_scheme.output_activations is None:
+            assert isinstance(module.activation_post_process, Identity)
+        else:
+            assert isinstance(
+                module.activation_post_process, torch_quantization.FakeQuantize
+            )
 
 
 def _test_qat_wrapped_module(root_module, wrapped_module_name):

@@ -18,6 +18,8 @@ structured configurations
 """
 from typing import Dict, List, Optional
 
+import torch
+from packaging import version
 from torch.nn import Identity, Module
 
 from sparseml.pytorch.sparsification.quantization.constants import (
@@ -50,6 +52,7 @@ __all__ = [
     "set_quantization_schemes",
     "set_qconfigs_from_quantization_schemes",
     "add_input_activation_quant_wrappers",
+    "add_output_activation_observers",
     "raise_if_torch_quantization_not_available",
 ]
 
@@ -59,11 +62,15 @@ def is_qat_helper_module(module: Module) -> bool:
     :param module: module to check
     :return: True if module is an instance of a torch QAT helper class
     """
+    # prefer FakeQuantizeBase which was introduced around torch 1.9
+    fake_quantize_class = getattr(
+        torch_quantization, "FakeQuantizeBase", torch_quantization.FakeQuantize
+    )
     return isinstance(
         module,
         (
+            fake_quantize_class,
             torch_quantization.ObserverBase,
-            torch_quantization.FakeQuantize,
             torch_quantization.DeQuantStub,
             torch_quantization.QuantStub,
             Identity,
@@ -214,6 +221,72 @@ def add_input_activation_quant_wrappers(module: Module) -> Module:
     return module
 
 
+def add_output_activation_observers(module: Module):
+    """
+    implementation of torch.quantization add_observers_ that only adds observers
+    according to attached quantization_scheme properties. the existing implementation
+    (1.9+) includes its own logic for propagating including overriding set qconfigs
+    for certain activations without the ability to disable this behavior
+
+    :param module: module to add output activation observers to
+    """
+    # adapted from torch/ao/quantization/quantize.py::_add_observer_
+    device = next(module.parameters()).device
+
+    def _needs_observer(target_module: Module):
+        if (
+            not hasattr(target_module, "quantization_scheme")
+            or (hasattr(target_module, "activation_post_process"))
+            or isinstance(target_module, torch_quantization.QuantWrapper)
+        ):
+            # submodule not targeted for quantization, already has attached
+            # output observer, or is QuantWrapper (quant wrapper delegates to children)
+            return False
+
+        for descendent_module in target_module.modules():
+            if descendent_module is target_module:
+                continue  # skip itself
+            descendent_scheme = getattr(descendent_module, "quantization_scheme", None)
+            if descendent_scheme is not None and (
+                descendent_scheme.output_activations is not None
+            ):
+                # a descendent of this module targets output activations, return False
+                return False
+        # module has a quantization scheme and no descendents track output activations
+        return True
+
+    def _observer_forward_hook(self, inp, output):
+        # reference for output activation observer hook to register
+        return self.activation_post_process(output)
+
+    def _add_activation_post_process(target_module: Module):
+        # get output observer
+        output_observer = submodule.qconfig.activation()
+        output_observer.to(device)
+
+        # add an activation post process module
+        target_module.add_module("activation_post_process", output_observer)
+
+        # add hook to call observer after output activation has been returned
+        handle = target_module.register_forward_hook(_observer_forward_hook)
+        target_module._forward_hooks.move_to_end(handle.id, last=False)
+
+    for submodule in module.modules():
+        if not _needs_observer(submodule):
+            # submodule not targeted for quantization, already has attached
+            # output observer, or has a descendent that tracks output activations
+            continue
+
+        # extract qconfig and observer from qconfig
+        if not hasattr(submodule, "qconfig"):
+            # set qconfig from scheme if not already set
+            set_qconfigs_from_quantization_schemes(submodule)
+        assert hasattr(submodule, "qconfig")
+
+        # create observer, add as child module, and register hook to call
+        _add_activation_post_process(submodule)
+
+
 def convert_module_qat_from_schemes(module: Module):
     """
     Converts submodules with set quantization_schemes into quantization aware modules
@@ -232,16 +305,26 @@ def convert_module_qat_from_schemes(module: Module):
     configure_module_default_qconfigs(module)
 
     # set modules with proper qconfigs to QAT mode
-    mapping = _get_qat_module_mappings()
-    torch_quantization.convert(
-        module, mapping=mapping, inplace=True, remove_qconfig=False
+    convert_kwargs = (
+        dict(convert_custom_config_dict={})  # do not let torch override any qconfigs
+        if version.parse(torch.__version__) >= version.parse("1.8.0")
+        else {}
     )
-    torch_quantization.add_observer_(module, non_leaf_module_list=set(mapping.values()))
+    torch_quantization.convert(
+        module,
+        mapping=_get_qat_module_mappings(),
+        inplace=True,
+        remove_qconfig=False,
+        **convert_kwargs,
+    )
+    # re-attach any quantization schemes lost during conversion
+    _reattach_quantization_schemes(module)
+
+    # add observers for output activations
+    add_output_activation_observers(module)
 
     # manual pass to convert relevant Embedding layers
     prepare_embeddings_qat(module)
-    # re-attach any quantization schemes lost during conversion
-    _reattach_quantization_schemes(module)
 
 
 def raise_if_torch_quantization_not_available():

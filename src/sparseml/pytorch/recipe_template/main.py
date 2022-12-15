@@ -30,6 +30,8 @@ from sparseml.pytorch.sparsification import (
     MFACPruningModifier,
     MovementPruningModifier,
     OBSPruningModifier,
+)
+from sparseml.pytorch.sparsification.quantization.legacy_modifier_quantization import (
     QuantizationModifier,
 )
 from sparseml.pytorch.utils import get_prunable_layers
