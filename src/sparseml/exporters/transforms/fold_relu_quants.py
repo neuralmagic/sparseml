@@ -13,15 +13,16 @@
 # limitations under the License.
 import logging
 
-from onnx import ModelProto, numpy_helper
+import onnx
+from onnx import ModelProto
 
 from sparseml.exporters.transforms import OnnxTransform
-from sparseml.exporters.transforms.utils import get_structural_matches
-from sparseml.onnx.utils import (
-    ONNXGraph,
-    get_init_by_name,
-    remove_node_and_params_from_graph,
+from sparseml.exporters.transforms.utils import (
+    get_quantization_params,
+    get_structural_matches,
 )
+from sparseml.onnx.utils import ONNXGraph
+from sparseml.onnx.utils.helpers import get_node_output_nodes
 
 
 __all__ = ["FoldReLUQuants"]
@@ -55,20 +56,29 @@ class FoldReLUQuants(OnnxTransform):
     """
 
     def transform(self, model: ModelProto) -> ModelProto:
-        matches = get_structural_matches(
-            ONNXGraph(model), op_type="QuantizeLinear", parent_ops=[["Relu"]]
-        )
-        for match in matches:
-            quant = match.node
-            (relu,) = match.parents[0]
+        graph = ONNXGraph(model)
+        nodes_to_delete = []
+        for match in get_structural_matches(graph, op_type="Relu"):
+            relu_children = graph.get_node_children(match.node)
 
-            if len(quant.input) == 3:
-                zero_point = get_init_by_name(model, quant.input[2])
-                zero_point = numpy_helper.to_array(zero_point)
-                if zero_point != 0:
-                    continue
+            delete = True
+            for quant in relu_children:
+                if quant.op_type != "QuantizeLinear" or (
+                    len(quant.input) == 3
+                    and get_quantization_params(model, quant).zero_point != 0
+                ):
+                    delete = False
+                    break
 
-            _LOGGER.debug(f"Matched {match}")
-            quant.input[0] = relu.input[0]
-            remove_node_and_params_from_graph(model, relu)
+            # set all child input nodes to the relu node input
+            if delete:
+                _LOGGER.debug(f"Matched {match.node.name} - deleting relu node")
+                for quant in relu_children:
+                    quant.input[0] = match.node.input[0]
+                nodes_to_delete.append(match.node)
+
+        graph = ONNXGraph(model)
+        if len(nodes_to_delete) > 0:
+            graph.delete_nodes(nodes_to_delete)
+        graph.sort_nodes_topologically()
         return model
