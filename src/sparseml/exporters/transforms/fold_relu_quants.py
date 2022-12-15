@@ -13,7 +13,6 @@
 # limitations under the License.
 import logging
 
-import onnx
 from onnx import ModelProto
 
 from sparseml.exporters.transforms import OnnxTransform
@@ -22,7 +21,6 @@ from sparseml.exporters.transforms.utils import (
     get_structural_matches,
 )
 from sparseml.onnx.utils import ONNXGraph
-from sparseml.onnx.utils.helpers import get_node_output_nodes
 
 
 __all__ = ["FoldReLUQuants"]

@@ -13,14 +13,16 @@
 # limitations under the License.
 
 
+import logging
 from typing import Any, List, NamedTuple, Set, Union
 
 import numpy
-import torch
 from onnx import AttributeProto, ModelProto, NodeProto, numpy_helper
 
 from sparseml.onnx.utils import ONNXGraph, remove_node_and_params_from_graph
 
+
+_LOGGER = logging.getLogger(__name__)
 
 __all__ = [
     "delete_quant_node",
@@ -30,7 +32,6 @@ __all__ = [
 ]
 
 QUANTIZE_OP_NAMES = ["QuantizeLinear", "DequantizeLinear"]
-
 
 QuantizationParams = NamedTuple(
     "QuantizationParams",
@@ -125,22 +126,17 @@ def assert_node_type(node: NodeProto, op: Union[List[str], Set[str], str]) -> bo
 def quantize_array(
     array: numpy.ndarray, scale: float, zero_point: int, dtype: Any = numpy.uint8
 ) -> numpy.ndarray:
+    try:
+        from sparseml.exporters.transforms.utils.helpers_torch import (
+            quantize_array_torch,
+        )
 
-    if dtype == numpy.uint8:
-        tensor_dtype = torch.quint8
-    elif dtype == numpy.int8:
-        tensor_dtype = torch.qint8
-    elif dtype == numpy.int32:
-        tensor_dtype = torch.qint32
-
-    tensor = torch.Tensor(array.copy()).to(torch.float32)
-    if isinstance(scale, numpy.ndarray):
-        scale = scale.item()
-    if isinstance(zero_point, numpy.ndarray):
-        zero_point = zero_point.item()
-
-    quant_tensor = torch.quantize_per_tensor(tensor, scale, zero_point, tensor_dtype)
-    return quant_tensor.int_repr().numpy()
+        return quantize_array_torch(array, scale, zero_point, dtype)
+    except ModuleNotFoundError as err:
+        _LOGGER.debug(f"Error: {err}. Defaulting to numpy implementation.")
+        dmin = numpy.iinfo(dtype).min
+        dmax = numpy.iinfo(dtype).max
+        return ((array / scale).round() + zero_point).clip(dmin, dmax).astype(dtype)
 
 
 def attribute_to_kwarg(attribute: AttributeProto):

@@ -27,7 +27,7 @@ class DeleteRepeatedQdq(OnnxTransform):
     Removes a QDQ that immediately follows another QDQ.
     NOTE: this will modify graph outputs and does not
     guarantee identical graph behavior. This should be avoided
-    and handled with better graph construction.  
+    and handled with better graph construction.
     Transforms
     ```
     QuantizeLinear
