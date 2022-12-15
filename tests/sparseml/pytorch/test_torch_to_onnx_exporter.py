@@ -54,6 +54,10 @@ def test_simple_models_against_module_exporter(tmp_path, model, sample_batch):
     )
 
 
+@pytest.mark.skipif(
+    not os.getenv("RUN_EXPORTER_REGRESSION_TESTS", False),
+    reason="Slow regression tests",
+)
 @pytest.mark.parametrize(
     "quantize,convert_qat",
     [
@@ -104,7 +108,7 @@ def test_resnet50_exporters_are_equivalent(tmp_path, quantize: bool, convert_qat
 
 @pytest.mark.skipif(
     not os.getenv("RUN_EXPORTER_REGRESSION_TESTS", False),
-    reason="Slow and requires yolov5 dependency",
+    reason="Slow regression tests and requires yolov5 dependency",
 )
 def test_yolov5_exporters_are_equivalent(tmp_path):
     import shutil
