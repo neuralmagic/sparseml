@@ -204,6 +204,7 @@ def add_input_activation_quant_wrappers(module: Module) -> Module:
         hasattr(module, "quantization_scheme")
         and (module.quantization_scheme is not None)
         and module.quantization_scheme.input_activations is not None
+        and not isinstance(module, torch.nn.quantized.FloatFunctional)
     )
 
     if quantize_activations:
@@ -238,14 +239,18 @@ def add_output_activation_observers(module: Module):
         # combines logic from multiple places of original implementation which
         # mostly checked for existnace of a qconfig and if the target was a leaf
         # module
-        if (
-            not hasattr(target_module, "quantization_scheme")
-            or (hasattr(target_module, "activation_post_process"))
-            or isinstance(target_module, torch_quantization.QuantWrapper)
+        if not hasattr(target_module, "quantization_scheme") or isinstance(
+            target_module, torch_quantization.QuantWrapper
         ):
             # submodule not targeted for quantization, already has attached
             # output observer, or is QuantWrapper (quant wrapper delegates to children)
             return False
+
+        if hasattr(target_module, "activation_post_process"):
+            # activation post process is set, only mark for potential overriding
+            # if it is an identity (this comes up when the property is set for
+            # later overriding such as FloatFunctional
+            return isinstance(target_module.activation_post_process, Identity)
 
         for descendent_module in target_module.modules():
             if descendent_module is target_module:
