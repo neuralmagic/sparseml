@@ -231,6 +231,7 @@ def add_output_activation_observers(module: Module):
     :param module: module to add output activation observers to
     """
     # adapted from torch/ao/quantization/quantize.py::_add_observer_
+    # source: https://github.com/pytorch/pytorch/blob/v1.13.0/torch/ao/quantization/quantize.py#L135  # noqa: E501
     device = next(module.parameters()).device
 
     def _needs_observer(target_module: Module):
