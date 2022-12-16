@@ -12,14 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
+
 from onnx import ModelProto
 
 from sparseml.exporters.transforms.onnx_transform import OnnxTransform
-from sparseml.exporters.transforms.utils import assert_node_type
+from sparseml.exporters.transforms.utils import get_structural_matches
 from sparseml.onnx.utils import ONNXGraph
 
 
 __all__ = ["DeleteRepeatedQdq"]
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class DeleteRepeatedQdq(OnnxTransform):
@@ -31,46 +35,38 @@ class DeleteRepeatedQdq(OnnxTransform):
 
     Transforms
     ```
-    QuantizeLinear
-        |
-    DequantizeLinear
-        |
-    QuantizeLinear
-        |
-    DequantizeLinear
+    | QuantizeLinear
+    |     |
+    | DequantizeLinear
+    |     |
+    | QuantizeLinear
+    |     |
+    | DequantizeLinear
     ```
     Into
     ```
-    QuantizeLinear
-        |
-    DequantizeLinear
+    | QuantizeLinear
+    |     |
+    | DequantizeLinear
     ```
     """
 
     def transform(self, model: ModelProto) -> ModelProto:
-        graph = ONNXGraph(model)
-        nodes_to_delete = []
-        quant_nodes = [n for n in model.graph.node if n.op_type == "QuantizeLinear"]
-        for quant_node_1 in quant_nodes:
-            dequant_node_1 = graph.get_node_single_child(quant_node_1)
-            if not assert_node_type(dequant_node_1, "DequantizeLinear"):
-                continue
-            quant_node_2 = graph.get_node_single_child(dequant_node_1)
-            if not assert_node_type(quant_node_2, "QuantizeLinear"):
-                continue
-            dequant_node_2 = graph.get_node_single_child(quant_node_2)
-            if not assert_node_type(dequant_node_2, "DequantizeLinear"):
-                continue
+        matches = get_structural_matches(
+            ONNXGraph(model),
+            op_type="QuantizeLinear",
+            children_ops=[["DequantizeLinear", "QuantizeLinear", "DequantizeLinear"]],
+        )
+        for match in matches:
+            _LOGGER.debug(f"Matched {match}")
+            quant_node_1 = match.node
+            (dequant_node_1, quant_node_2, dequant_node_2) = match.children[0]
 
             # forward first qat block input to that of the second
             quant_node_2.input[0] = quant_node_1.input[0]
 
             # remove repeated quant/dequant block
-            nodes_to_delete.append(quant_node_1)
-            nodes_to_delete.append(dequant_node_1)
-
-        if len(nodes_to_delete) > 0:
-            graph.delete_nodes(nodes_to_delete)
-        graph.update()
-        graph.delete_unused_initializers()
+            self.delete_node_deferred(quant_node_1)
+            self.delete_node_deferred(dequant_node_1)
+        _LOGGER.info(f"Removed {len(self._nodes_to_delete)} Q/Dq nodes")
         return model

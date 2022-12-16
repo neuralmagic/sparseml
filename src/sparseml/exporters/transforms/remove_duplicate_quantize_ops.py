@@ -12,16 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 from collections import defaultdict
 
 from onnx import ModelProto
 
 from sparseml.exporters.transforms.onnx_transform import OnnxTransform
 from sparseml.exporters.transforms.utils import get_quantization_params
-from sparseml.onnx.utils import ONNXGraph
 
 
 __all__ = ["RemoveDuplicateQuantizeOps"]
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class RemoveDuplicateQuantizeOps(OnnxTransform):
@@ -30,17 +32,17 @@ class RemoveDuplicateQuantizeOps(OnnxTransform):
 
     Transforms:
     ```
-      input
-    |   |  ... |
-    Q   Q      Q
-    |   |      |
+    |   input
+    | |   |  ... |
+    | Q   Q      Q
+    | |   |      |
     ```
     where `Q` are all separate instances of the same QuantizeLinear node, into:
     ```
-      input
-       |
-       Q
-    |  | ... |
+    |   input
+    |    |
+    |    Q
+    | |  | ... |
     ```
     """
 
@@ -51,7 +53,6 @@ class RemoveDuplicateQuantizeOps(OnnxTransform):
                 quantize_ops_by_input[node.input[0]].append(node)
 
         # search for nodes to delete
-        nodes_to_delete = []
         input_replacements = {}
         for quantize_op_group in quantize_ops_by_input.values():
             keep_node, *remove_nodes = quantize_op_group
@@ -60,7 +61,7 @@ class RemoveDuplicateQuantizeOps(OnnxTransform):
                 params = get_quantization_params(model, remove_node)
                 if keep_node_params == params:
                     input_replacements[remove_node.output[0]] = keep_node.output[0]
-                    nodes_to_delete.append(remove_node)
+                    self.delete_node_deferred(remove_node)
 
         # replace all the ids of the nodes that are removed
         for old_id, new_id in input_replacements.items():
@@ -69,8 +70,5 @@ class RemoveDuplicateQuantizeOps(OnnxTransform):
                     if inp == old_id:
                         node.input[idx] = new_id
 
-        # cleanup graph
-        graph = ONNXGraph(model)
-        graph.delete_nodes(nodes_to_delete)
-        graph.delete_unused_initializers()
+        _LOGGER.info(f"Removed {len(self._nodes_to_delete)} QuantizeLinear nodes")
         return model

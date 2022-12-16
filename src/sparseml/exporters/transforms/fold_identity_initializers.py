@@ -25,58 +25,36 @@ __all__ = ["FoldIdentityInitializers"]
 _LOGGER = logging.getLogger(__name__)
 
 
-def fold_identity_initializer(
-    match: "MatchResult", model: ModelProto  # noqa F821
-) -> ModelProto:
-    """
-    Find any node in the graph that uses the output of
-    the `match.node` as it's input. Replace the input
-    of this node with `match.node`'s input. Finally,
-    remove `match.node` from the graph.
-
-    :param match: Match node to be folded into the graph
-    :param model: ONNX model to be transformed
-    :return: ONNX model with the match node folded into the graph
-    """
-    graph = ONNXGraph(model)
-    for child_node in graph.get_node_children(match.node):
-        for i, child_node_input in enumerate(child_node.input):
-            if child_node_input == match.node.output[0]:
-                child_node.input[i] = match.node.input[0]
-    return model
-
-
 class FoldIdentityInitializers(OnnxTransform):
     """
-    Folds any `Identity` initializer node into the graph.
+    Removes `Identity` nodes.
 
-    | Starting with:
-    |   INPUT   Identity (with initializer)
-    |      |      |
-    |      (SOME OP)
-    |         |
-    |       OUTPUT
-    |
-    | We end up converting to:
-    |       INPUT
-    |         |
-    |     (SOME OP)
-    |         |
-    |      OUTPUT
+    Transforms
+    ```
+    | initializer
+    |     |
+    | Identity
+    |     |
+    | (Anything)
+    ```
+
+    into
+    ```
+    | initializer
+    |     |
+    | (Anything)
+    ```
     """
 
     def transform(self, model: ModelProto) -> ModelProto:
-        count_converted_nodes = 0
         graph = ONNXGraph(model)
-        for match in get_structural_matches(
-            graph,
-            op_type="Identity",
-        ):
-            _LOGGER.debug(f"Matched Identity node: {match.node.name}")
-            model = fold_identity_initializer(match, model)
-            model.graph.node.remove(match.node)
-            count_converted_nodes += 1
-
-        if count_converted_nodes > 0:
-            _LOGGER.info(f"Folded {count_converted_nodes} identity initializer nodes")
+        matches = get_structural_matches(graph, op_type="Identity")
+        for match in matches:
+            _LOGGER.debug(f"Matched {match}")
+            for child_node in graph.get_node_children(match.node):
+                for i, child_node_input in enumerate(child_node.input):
+                    if child_node_input == match.node.output[0]:
+                        child_node.input[i] = match.node.input[0]
+            self.delete_node_deferred(match.node)
+        _LOGGER.info(f"Removed {len(matches)} Identity")
         return model
