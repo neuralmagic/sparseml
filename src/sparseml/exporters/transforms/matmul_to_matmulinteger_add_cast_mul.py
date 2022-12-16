@@ -21,21 +21,17 @@ from sparseml.exporters.transforms.utils import (
     INITIALIZER_MATCH,
     MatchResult,
     add_quantized_conv_matmul_add_ops,
-    delete_quant_node,
     get_quantization_params,
     get_structural_matches,
     optional_node,
 )
-from sparseml.onnx.utils import (
-    ONNXGraph,
-    get_init_by_name,
-    remove_node_and_params_from_graph,
-)
+from sparseml.onnx.utils import ONNXGraph
+
+
+__all__ = ["MatMulToMatMulIntegerAddCastMul"]
 
 
 _LOGGER = logging.getLogger(__name__)
-
-__all__ = ["MatMulToMatMulIntegerAddCastMul"]
 
 
 class MatMulToMatMulIntegerAddCastMul(OnnxTransform):
@@ -44,42 +40,42 @@ class MatMulToMatMulIntegerAddCastMul(OnnxTransform):
     quantized representation
 
     ```
-    | Starting with:
-    |                        weight (initializer)
-    |                            |
-    |                      QuantizeLinear
-    |                            |
-    |          INPUT     DequantizeLinear
-    |            |               |
-    |     DequantizeLinear   Transpose
-    |                  |      |
-    |                   MatMul    bias (initializer)
-    |                         |   |
-    |                          Add
-    |                          |
-    |                      QuantizeLinear (Optional)
-    |                          |
-    |                      DequantizeLinear (Optional)
-    |                          |
-    |                       OUTPUT
-    | We end up converting to:
-    |       INPUT
+    |     weight (initializer)
     |         |
-    |     MatMulInteger (with constant uint8 kernel)
+    |         Q
     |         |
-    |     Add (constant bias + zero point correction)
+    | input   Dq
+    |   |     |
+    |   Dq   Transpose
+    |     |   |
+    |     MatMul  bias (initializer)
+    |         |   |
+    |         Add
     |         |
-    |     Cast (INT32 -> FP32)
+    |     optional Q
     |         |
-    |     Mul (Rescale from bias scale)
-    |         |
-    |       OUTPUT
+    |     optional Dq
+    ```
+    (where `Q` is QuantizeLinear, and `Dq` is DequantizeLinear)
+    into
+    ```
+    |   input
+    |     |
+    | MatMulInteger (with constant uint8 kernel)
+    |     |
+    | Add (constant bias + zero point correction)
+    |     |
+    | Cast (INT32 -> FP32)
+    |     |
+    | Mul (Rescale from bias scale)
     ```
     """
 
     def transform(self, model: ModelProto) -> ModelProto:
+        graph = ONNXGraph(model)
+        count = 0
         matches = get_structural_matches(
-            ONNXGraph(model),
+            graph,
             op_type="MatMul",
             parent_ops=[
                 ["DequantizeLinear"],
@@ -100,21 +96,22 @@ class MatMulToMatMulIntegerAddCastMul(OnnxTransform):
             ],
         )
         for match in matches:
-            bias_init = get_init_by_name(model, match.children[0][0].input[1])
+            bias_init = graph.get_init_by_name(match.children[0][0].input[1])
             if bias_init is None:
-                # bias initializer not present
+                # bias initializer for add not present
                 continue
-
-            _LOGGER.debug(f"Found structural match {match.node.name}")
-            self._do_transform(model, match, bias_init)
-
-        graph = ONNXGraph(model)
-        graph.delete_unused_initializers()
-        graph.sort_nodes_topologically()
+            _LOGGER.debug(f"Matched {match}")
+            self._transform_match(graph, model, match, bias_init)
+            count += 1
+        _LOGGER.info(f"Transformed {count} MatMul -> MatMulInteger")
         return model
 
-    def _do_transform(
-        self, model: ModelProto, match: MatchResult, bias_init: TensorProto
+    def _transform_match(
+        self,
+        graph: ONNXGraph,
+        model: ModelProto,
+        match: MatchResult,
+        bias_init: TensorProto,
     ):
         matmul = match.node
         (input_dequant,) = match.parents[0]
@@ -147,21 +144,15 @@ class MatMulToMatMulIntegerAddCastMul(OnnxTransform):
             output_dequantize_node=opt_out_dequant,
         )
 
-        # delete folded quantization ops
-        delete_quant_node(model, weight_dequant)
-        delete_quant_node(model, weight_quant)
-        remove_node_and_params_from_graph(model, transpose)
-
-        # only delete input node if the matmul is the only child
-        current_graph = ONNXGraph(model)
-        if len(current_graph.get_node_children(input_dequant)) == 1:
-            delete_quant_node(model, input_dequant)
+        # Clean up
+        self.delete_node_deferred(weight_dequant)
+        self.delete_node_deferred(weight_quant)
+        self.delete_node_deferred(transpose)
+        if len(graph.get_node_children(input_dequant)) == 1:
+            self.delete_node_deferred(input_dequant)
         if opt_out_quant:
-            delete_quant_node(model, opt_out_quant)
+            self.delete_node_deferred(opt_out_quant)
         if opt_out_dequant:
-            delete_quant_node(model, opt_out_dequant)
-
-        # delete original Gemm node
-        remove_node_and_params_from_graph(model, matmul)
-        # delete original Add node
-        remove_node_and_params_from_graph(model, add)
+            self.delete_node_deferred(opt_out_dequant)
+        self.delete_node_deferred(matmul)
+        self.delete_node_deferred(add)

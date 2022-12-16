@@ -22,15 +22,10 @@ from sparseml.exporters.transforms.utils import (
     INITIALIZER_MATCH,
     MatchResult,
     add_quantized_conv_matmul_add_ops,
-    delete_quant_node,
     get_quantization_params,
     get_structural_matches,
 )
-from sparseml.onnx.utils import (
-    ONNXGraph,
-    get_node_attributes,
-    remove_node_and_params_from_graph,
-)
+from sparseml.onnx.utils import ONNXGraph, get_node_attributes
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -44,36 +39,35 @@ class GemmToMatMulIntegerAddCastMul(OnnxTransform):
     are not necessarily quantized into a MatMulInteger followed by
     a bias add and cast to FP32
 
+    Transforms
     ```
-    | Starting with:
-    |
-    |                       weight (initializer)
-    |                         |
-    |          INPUT        QuantizeLinear
-    |            |            |
-    |     DequantizeLinear  DequantizeLinear   bias (initializer)
-    |                  |      |              /
-    |                       Gemm
-    |                         |
-    |                       OUTPUT
-    | We end up converting to:
-    |       INPUT
-    |         |
-    |     MatMulInteger (with constant uint8 kernel)
-    |         |
-    |     Add (constant bias + zero point correction)
-    |         |
-    |     Cast (INT32 -> FP32)
-    |         |
-    |     Mul (Rescale from bias scale)
-    |         |
-    |       OUTPUT
+    |     weight (intializer)
+    |        |
+    | input  Q
+    |   |    |
+    |   Dq   Dq  bias (initializer)
+    |     |  |  |
+    |       Gemm
+    ```
+    (where `Q` is QuantizeLinear, and `Dq` is DequantizeLinear)
+
+    ```
+    |   input
+    |     |
+    | MatMulInteger (with constant uint8 kernel)
+    |     |
+    | Add (constant bias + zero point correction)
+    |     |
+    | Cast (INT32 -> FP32)
+    |     |
+    | Mul (Rescale from bias scale)
     ```
     """
 
     def transform(self, model: ModelProto) -> ModelProto:
+        graph = ONNXGraph(model)
         matches = get_structural_matches(
-            ONNXGraph(model),
+            graph,
             op_type="Gemm",
             parent_ops=[
                 ["DequantizeLinear"],
@@ -90,7 +84,6 @@ class GemmToMatMulIntegerAddCastMul(OnnxTransform):
             ],
         )
         for match in matches:
-            _LOGGER.debug(f"Found structural match {match.node.name}")
             attr = get_node_attributes(match.node)
             if (
                 attr.get("alpha", 1.0) != 1.0
@@ -99,17 +92,18 @@ class GemmToMatMulIntegerAddCastMul(OnnxTransform):
             ):
                 # we do not currently handle Gemms with transposed A
                 # or scalar multiples
-                _LOGGER.debug(f"Skipping due to unsupported attributes {attr}")
                 continue
+            _LOGGER.debug(f"Matched {match}")
+            self._transform_match(graph, model, match, attr)
 
-            self._do_transform(model, match, attr)
-
-        graph = ONNXGraph(model)
-        graph.sort_nodes_topologically()
         return model
 
-    def _do_transform(
-        self, model: ModelProto, match: MatchResult, gemm_attributes: Dict[str, Any]
+    def _transform_match(
+        self,
+        graph: ONNXGraph,
+        model: ModelProto,
+        match: MatchResult,
+        gemm_attributes: Dict[str, Any],
     ):
         gemm = match.node
         (input_dequant,) = match.parents[0]
@@ -141,14 +135,8 @@ class GemmToMatMulIntegerAddCastMul(OnnxTransform):
         )
 
         # Cleanup
-        # delete folded quantization ops
-        delete_quant_node(model, weight_dequant)
-        delete_quant_node(model, weight_quant)
-
-        # only delete input node if the matmul is the only child
-        current_graph = ONNXGraph(model)
-        if len(current_graph.get_node_children(input_dequant)) == 1:
-            delete_quant_node(model, input_dequant)
-
-        # delete original Gemm node
-        remove_node_and_params_from_graph(model, gemm)
+        self.delete_node_deferred(weight_dequant)
+        self.delete_node_deferred(weight_quant)
+        if len(graph.get_node_children(input_dequant)) == 1:
+            self.delete_node_deferred(input_dequant)
+        self.delete_node_deferred(gemm)
