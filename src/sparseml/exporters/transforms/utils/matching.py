@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Union
 
 from onnx import NodeProto, TensorProto
 
@@ -25,6 +25,7 @@ __all__ = [
     "MatchResult",
     "NodeOrInitializer",
     "get_structural_matches",
+    "any_of",
 ]
 
 INITIALIZER_MATCH = "__Initializer__"
@@ -34,6 +35,7 @@ match against initializers in an onnx graph
 """
 
 _OPTIONAL_TAG = "Optional-"
+_ANY_TAG = "Any-"
 
 
 def optional_node(op_type: str) -> str:
@@ -54,6 +56,24 @@ def optional_node(op_type: str) -> str:
     ```
     """
     return _OPTIONAL_TAG + op_type
+
+
+def any_of(*op_type: str) -> str:
+    """
+    Tells :func:`get_structural_matches` that this can be a set of op types
+
+    ```python
+    get_structural_matches(
+        ...,
+        children_ops=[
+            [
+                any_of("QuantizeLinear", "DequantizeLinear"),
+            ]
+        ]
+    )
+    ```
+    """
+    return _ANY_TAG + "-".join(op_type)
 
 
 def get_structural_matches(
@@ -247,12 +267,19 @@ class MatchResult:
         ```
         """
 
-
-def _is_optional_node(tag: str) -> Tuple[str, bool]:
-    if tag.startswith(_OPTIONAL_TAG):
-        return tag.split("-")[1], True
-    else:
-        return tag, False
+    def __str__(self) -> str:
+        node_name = repr(self.node.name) if self.node is not None else None
+        parent_names = [
+            [p.name if p is not None else None for p in ps] for ps in self.parents
+        ]
+        children_names = [
+            [c.name if c is not None else None for c in cs] for cs in self.children
+        ]
+        return (
+            f"MatchResult(node={node_name}, "
+            f"parents={parent_names}, "
+            f"children={children_names})"
+        )
 
 
 def _match_structure(
@@ -275,20 +302,30 @@ def _match_structure(
 def _match_op_type(
     match: MatchResult, graph: ONNXGraph, node: NodeOrInitializer, op_type: str
 ) -> bool:
-    op_type, is_optional = _is_optional_node(op_type)
-
-    if op_type == INITIALIZER_MATCH and (
-        node is None or node.name not in graph._name_to_initializer
-    ):
+    if node is None:
         return False
 
-    if op_type != INITIALIZER_MATCH and not (
-        isinstance(node, NodeProto) and node.op_type == op_type
-    ):
+    if op_type.startswith(_OPTIONAL_TAG):
+        op_type = op_type.split("-")[1]
+        is_optional = True
+    else:
+        is_optional = False
+
+    if op_type.startswith(_ANY_TAG):
+        op_types = op_type.split("-")[1:]
+    else:
+        op_types = [op_type]
+
+    # match against initializers
+    if node.name in graph._name_to_initializer and INITIALIZER_MATCH not in op_types:
+        return False
+
+    if isinstance(node, NodeProto) and node.op_type not in op_types:
         if is_optional:
             # NOTE: this is handled in `_match_children`
             match.node = None
         return is_optional
+
     return True
 
 
