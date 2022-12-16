@@ -171,7 +171,7 @@ def test_yolov5_exporters_are_equivalent(tmp_path):
     "quantize,convert_qat",
     [
         (False, False),
-        # (True, False),
+        (True, False),
         (True, True),
     ],
 )
