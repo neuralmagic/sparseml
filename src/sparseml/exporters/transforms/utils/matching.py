@@ -87,16 +87,18 @@ def get_structural_matches(
     have the specified parent/children structure,
     controlled via parent_ops/children_ops.
 
+    ### op_type example
+
     A simple example just matching against op_type:
 
-        ```python
-        matches = get_structural_matches(graph, op_type="Identity")
-        for match in matches:
-            id_node = match.node
-            assert isinstance(id_node, onnx.NodeProto) and id_node.op_type == "Identity"
-            assert match.parents == []
-            assert match.children == []
-        ```
+    ```python
+    matches = get_structural_matches(graph, op_type="Identity")
+    for match in matches:
+        id_node = match.node
+        assert isinstance(id_node, onnx.NodeProto) and id_node.op_type == "Identity"
+        assert match.parents == []
+        assert match.children == []
+    ```
 
     `parent_ops` and `children_ops` are list of list of op type strings.
     It's a list of lists because nodes can have multiple inputs and multiple outputs.
@@ -109,39 +111,45 @@ def get_structural_matches(
     than parent_ops/children_ops, it is not a possible match and will
     be discarded.
 
+    ### `parent_ops` and `INITIALIZER_MATCH` example
+
     Here's a simple example of matching against an identity node
     with a single parent (because there is a single list in parent_ops),
     and the parent must be an initializer (the INITIALIZER_MATCH value):
 
-        ```python
-        matches = get_structural_matches(
-            graph,
-            op_type="Identity",
-            parent_ops=[[INITIALIZER_MATCH]]
-        )
-        for match in matches:
-            id_node = match.node
-            (init, ) = match.parents[0]
-            assert isinstance(init, onnx.TensorProto)
-        ```
+    ```python
+    matches = get_structural_matches(
+        graph,
+        op_type="Identity",
+        parent_ops=[[INITIALIZER_MATCH]]
+    )
+    for match in matches:
+        id_node = match.node
+        (init, ) = match.parents[0]
+        assert isinstance(init, onnx.TensorProto)
+    ```
+
+    ### Empty `parent_ops` example
 
     Another example is matching against a single parent branch of a node. In this
     case you can just specify `[]` as one of the parent ops:
 
-        ```python
-        matches = get_structural_matches(
-            graph,
-            op_type="Add",
-            parent_ops=[
-                [],
-                ["QuantizeLinear", "DequantizeLinear"]
-            ]
-        )
-        for match in matches:
-            add_node = match.node
-            assert len(match.parents[0]) == 0
-            parent_1_quant, parent_1_dequant = match.parents[1]
-        ```
+    ```python
+    matches = get_structural_matches(
+        graph,
+        op_type="Add",
+        parent_ops=[
+            [],
+            ["QuantizeLinear", "DequantizeLinear"]
+        ]
+    )
+    for match in matches:
+        add_node = match.node
+        assert len(match.parents[0]) == 0
+        parent_1_quant, parent_1_dequant = match.parents[1]
+    ```
+
+    ### `optional_node` example
 
     Here is a really complicated example with optional nodes and multiple parents. Here
     we match against MatMul nodes that have at least 2 inputs from Quant/Dequant
@@ -155,29 +163,46 @@ def get_structural_matches(
     In both cases, the length of match.children[0] will be the same as
     the length of children_ops[0].
 
-        ```python
-        matches = get_structural_matches(
-            graph,
-            op_type="MatMul",
-            parent_ops=[
-                ["QuantizeLinear", "DequantizeLinear"],
-                ["QuantizeLinear", "DequantizeLinear"],
-            ],
-            children_ops=[
-                [
-                    optional_node("Transpose"),
-                    optional_node("Reshape"),
-                    "QuantizeLinear",
-                    "DequantizeLinear",
-                ]
+    ```python
+    matches = get_structural_matches(
+        graph,
+        op_type="MatMul",
+        parent_ops=[
+            ["QuantizeLinear", "DequantizeLinear"],
+            ["QuantizeLinear", "DequantizeLinear"],
+        ],
+        children_ops=[
+            [
+                optional_node("Transpose"),
+                optional_node("Reshape"),
+                "QuantizeLinear",
+                "DequantizeLinear",
             ]
-        )
-        for match in matches:
-            matmul_node = match.node
-            parent_0_quant, parent_0_dequant = match.parents[0]
-            parent_1_quant, parent_1_dequant = match.parents[1]
-            opt_transpose, opt_reshape, child_quant, child_dequant = match.children[0]
-        ```
+        ]
+    )
+    for match in matches:
+        matmul_node = match.node
+        parent_0_quant, parent_0_dequant = match.parents[0]
+        parent_1_quant, parent_1_dequant = match.parents[1]
+        opt_transpose, opt_reshape, child_quant, child_dequant = match.children[0]
+    ```
+
+    ### `any_of` example
+
+    Here is an example using the `any_of` function to match a parent node against
+    a set of op_types:
+
+    ```python
+    matches = get_structural_matches(
+        graph,
+        op_type="MatMul",
+        parent_ops=[[any_of("QuantizeLinear", "DequantizeLinear")]]
+    )
+    for match in matches:
+        (quant_or_dequant, ) = match.parents[0]
+        assert quant_or_dequant.op_type in ["QuantizeLinear", "DequantizeLinear"]
+    ```
+
 
     :param graph: the graph to search in
     :param op_type: The `NodeProto.op_type` to match against

@@ -17,9 +17,9 @@ import pytest
 
 from sparseml.exporters.transforms.utils.matching import (
     INITIALIZER_MATCH,
+    any_of,
     get_structural_matches,
     optional_node,
-    any_of,
 )
 from sparseml.onnx.utils.graph_editor import ONNXGraph
 
