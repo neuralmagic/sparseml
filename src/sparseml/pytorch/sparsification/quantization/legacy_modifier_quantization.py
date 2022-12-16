@@ -709,7 +709,7 @@ class QuantizationModifier(ScheduledModifier):
             self._strip_excluded_module_qconfigs(module)
 
         # set modules with proper qconfigs to QAT mode
-        torch_quantization.prepare_qat(module, inplace=True)
+        self._prepare_qat(module, inplace=True)
         if self._quantize_embeddings:
             prepare_embeddings_qat(module, qproperties)
 
@@ -721,6 +721,13 @@ class QuantizationModifier(ScheduledModifier):
         if hasattr(module, "module"):
             # for DP/DDP unwrapping
             module.module.export_with_qlinearconv = self._quantize_conv_activations
+
+    def _prepare_qat(self, module, inplace=False):
+        # Set training mode to satisfy a constraint during torch's prepare_qat
+        prev_training_mode = module.training
+        module.training = True
+        torch_quantization.prepare_qat(module, inplace=inplace)
+        module.training = prev_training_mode
 
     def _calibrate_if_possible(self, module):
         if self.num_calibration_steps == 0 and self._calibration_dataloader:
