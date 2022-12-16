@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
+
 import numpy
 from onnx import ModelProto, numpy_helper
 
@@ -19,6 +21,8 @@ from sparseml.exporters.transforms.onnx_transform import OnnxTransform
 
 
 __all__ = ["InitializersToUint8"]
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class InitializersToUint8(OnnxTransform):
@@ -33,6 +37,7 @@ class InitializersToUint8(OnnxTransform):
             arr_int8 = numpy_helper.to_array(init)
             if arr_int8.dtype != numpy.int8:
                 continue
+            _LOGGER.debug(f"Matched {init.name}")
             arr_uint8 = (arr_int8.astype(numpy.int32) + 128).astype(numpy.uint8)
             init_uint8 = numpy_helper.from_array(arr_uint8, name=init.name)
             initializers_to_del.append(init)
@@ -41,4 +46,5 @@ class InitializersToUint8(OnnxTransform):
         model.graph.initializer.extend(initializers_to_add)
         for init in initializers_to_del:
             model.graph.initializer.remove(init)
+        _LOGGER.info(f"Transformed {len(initializers_to_add)} initializers int8->uint8")
         return model

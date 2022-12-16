@@ -20,7 +20,6 @@ from onnx import ModelProto, numpy_helper
 from sparseml.exporters.transforms.onnx_transform import OnnxTransform
 from sparseml.exporters.transforms.utils.matching import get_structural_matches
 from sparseml.onnx.utils.graph_editor import ONNXGraph
-from sparseml.onnx.utils.helpers import get_init_by_name
 
 
 __all__ = ["PropagateEmbeddingQuantization"]
@@ -67,8 +66,9 @@ class PropagateEmbeddingQuantization(OnnxTransform):
     """
 
     def transform(self, model: ModelProto) -> ModelProto:
+        graph = ONNXGraph(model)
         matches = get_structural_matches(
-            ONNXGraph(model),
+            graph,
             op_type="DequantizeLinear",
             parent_ops=[["Gather"]],
             children_ops=[
@@ -79,6 +79,7 @@ class PropagateEmbeddingQuantization(OnnxTransform):
                 ["Concat"],
             ],
         )
+        count = 0
         for match in matches:
             (gather,) = match.parents[0]
             dequant = match.node
@@ -87,7 +88,7 @@ class PropagateEmbeddingQuantization(OnnxTransform):
             (concat,) = match.children[2]
 
             # check for uint8 initializer
-            indices = get_init_by_name(model, gather.input[0])
+            indices = graph.get_init_by_name(gather.input[0])
             if indices is None or numpy_helper.to_array(indices).dtype != numpy.uint8:
                 continue
 
@@ -96,6 +97,8 @@ class PropagateEmbeddingQuantization(OnnxTransform):
                 continue
 
             _LOGGER.debug(f"Matched {match}")
+            count += 1
+
             assert concat.input[2] == dequant.output[0]
             concat.input[2] = gather.output[0]
             slice1.input[0] = gather.output[0]
@@ -105,7 +108,5 @@ class PropagateEmbeddingQuantization(OnnxTransform):
             concat.output[0] = dequant.output[0]
             dequant.output[0] = tmp
             dequant.input[0] = concat.output[0]
-
-        graph = ONNXGraph(model)
-        graph.sort_nodes_topologically()
+        _LOGGER.info(f"Transformed {count} gathers")
         return model

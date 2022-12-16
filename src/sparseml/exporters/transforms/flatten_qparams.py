@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
+
 import numpy
 from onnx import ModelProto, numpy_helper
 
@@ -20,6 +22,8 @@ from sparseml.onnx.utils.graph_editor import ONNXGraph
 
 
 __all__ = ["FlattenQParams"]
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class FlattenQParams(OnnxTransform):
@@ -48,11 +52,12 @@ class FlattenQParams(OnnxTransform):
         for init in model.graph.initializer:
             if init.name not in inits_to_flatten:
                 continue
+            _LOGGER.debug(f"Flattening initializer {init.name}")
             a = numpy_helper.to_array(init)
             assert a.shape == (1,)
             b = numpy.array(a[0])
             assert b.shape == ()
             assert b.dtype == a.dtype
             init.CopyFrom(numpy_helper.from_array(b, name=init.name))
-
+        _LOGGER.info(f"Flattened {len(inits_to_flatten)} initializers")
         return model

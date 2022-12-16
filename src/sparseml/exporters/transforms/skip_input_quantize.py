@@ -21,6 +21,8 @@ from sparseml.exporters.transforms.onnx_transform import OnnxTransform
 from sparseml.onnx.utils import ONNXGraph
 
 
+__all__ = ["SkipInputQuantize"]
+
 _LOGGER = logging.getLogger(__name__)
 
 
