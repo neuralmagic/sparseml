@@ -85,6 +85,10 @@ class FoldConvDivBn(OnnxTransform):
             conv_bias_init = get_init_by_name(model, conv_node.input[2])
             if conv_bias_init is not None:
                 conv_bias = numpy_helper.to_array(conv_bias_init)
+            else:
+                raise ValueError(
+                    "Bias was not an initializer, transform executed in wrong order"
+                )
 
         # fold bias into conv from bn then delete bn node
         variance_term = 1 / numpy.sqrt(bn_params.var + bn_params.epsilon)

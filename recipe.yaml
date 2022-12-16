@@ -1,0 +1,49 @@
+version: 1.1.0
+
+modifiers:
+    - !LearningRateFunctionModifier
+        cycle_epochs: 1.0
+        end_epoch: 5
+        final_lr: 0.256
+        init_lr: 0.0512
+        log_types: __ALL__
+        lr_func: linear
+        start_epoch: 0
+        update_frequency: -1.0
+
+    - !ACDCPruningModifier
+        compression_sparsity: 0.9
+        end_epoch: 75
+        leave_enabled: False
+        log_types: __ALL__
+        mask_type: unstructured
+        momentum_buffer_reset: True
+        params: ['re:.*conv*', 're:.*fc.weight*']
+        start_epoch: 5
+        update_frequency: 5
+
+    - !EpochRangeModifier
+        end_epoch: 100.0
+        start_epoch: 0.0
+
+    - !LearningRateFunctionModifier
+        cycle_epochs: 1.0
+        end_epoch: 100
+        final_lr: 0.0
+        init_lr: 0.256
+        log_types: __ALL__
+        lr_func: cosine
+        start_epoch: 5
+        update_frequency: -1.0
+
+    - !GlobalMagnitudePruningModifier
+        end_epoch: 100
+        final_sparsity: 0.9
+        init_sparsity: 0.9
+        inter_func: cubic
+        leave_enabled: True
+        log_types: __ALL__
+        mask_type: unstructured
+        params: ['re:.*conv*', 're:.*fc.weight*']
+        start_epoch: 85
+        update_frequency: 1

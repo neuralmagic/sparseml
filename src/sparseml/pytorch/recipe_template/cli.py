@@ -40,6 +40,8 @@ Options:
   --target [vnni|tensorrt|default]
                                   Specify target hardware type for current
                                   recipe  [default: default]
+  --distillation                  Add distillation support to the recipe
+                                  [default: False]
   --file_name TEXT                The file name to output recipe to  [default:
                                   recipe.md]
   --help                          Show this message and exit.  [default:
@@ -89,6 +91,11 @@ PRUNING_ALGOS = ["true", "false", "gmp", "acdc", "mfac", "movement", "constant"]
     help="Specify target hardware type for current recipe",
 )
 @click.option(
+    "--distillation",
+    is_flag=True,
+    help="Add distillation support to the recipe",
+)
+@click.option(
     "--file_name",
     type=str,
     default="recipe.md",
@@ -107,6 +114,7 @@ def main(**kwargs):
     _LOGGER.debug(f"{kwargs}")
     if kwargs.get("quantization") == "true":
         target = kwargs.get("target")
+        # override mask type based on target
         if target == "vnni":
             kwargs["mask_type"] = "block4"
         elif target == "tensorrt":

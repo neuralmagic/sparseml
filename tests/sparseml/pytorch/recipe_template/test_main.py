@@ -214,3 +214,47 @@ def test_correct_recipe_variables(
         actual_value = actual_recipe_variables.get(key)
         assert actual_value is not None
         assert actual_value == expected_value
+
+
+@pytest.mark.parametrize(
+    "pruning, quantization, distillation",
+    [
+        ("true", True, True),
+        ("true", False, False),
+        ("false", True, True),
+        ("false", False, False),
+    ],
+)
+def test_distillation(pruning, quantization, distillation):
+    actual_recipe = recipe_template(
+        pruning=pruning, quantization=quantization, distillation=distillation
+    )
+    manager = ScheduledModifierManager.from_yaml(file_path=actual_recipe)
+    manager_recipe = str(manager)
+    recipe_contains_distillation = "!DistillationModifier" in manager_recipe
+    if distillation:
+        assert recipe_contains_distillation
+    else:
+        assert recipe_contains_distillation is False
+
+
+@pytest.mark.parametrize(
+    "hardness, temperature, distillation",
+    [
+        (0.5, 1.0, True),
+        (0.5, 1.0, False),
+    ],
+)
+def test_distillation_recipe_variables_can_be_overridden(
+    hardness, temperature, distillation
+):
+    recipe = recipe_template(
+        distillation=distillation, hardness=hardness, temperature=temperature
+    )
+
+    if distillation:
+        assert f"distillation_hardness: {hardness}" in recipe
+        assert f"distillation_temperature: {temperature}" in recipe
+    else:
+        assert "distillation_hardness:" not in recipe
+        assert "distillation_temperature:" not in recipe
