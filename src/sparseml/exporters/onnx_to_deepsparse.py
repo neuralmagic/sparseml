@@ -74,12 +74,12 @@ class ONNXToDeepsparse(BaseExporter):
             sparseml_transforms.DeleteRepeatedQdq(),
             sparseml_transforms.QuantizeQATEmbedding(),
             sparseml_transforms.PropagateEmbeddingQuantization(),
-            sparseml_transforms.ConvertQuantizableMatmul(),
+            sparseml_transforms.MatMulToQLinearMatMul(),
             sparseml_transforms.MatMulToMatMulIntegerAddCastMul(),
             sparseml_transforms.FoldReLUQuants(),
             sparseml_transforms.ConvToQLinearConv()
             if use_qlinear_conv
-            else sparseml_transforms.ConvertQuantizableConvInteger(),
+            else sparseml_transforms.ConvToConvIntegerAddCastMul(),
             sparseml_transforms.GemmToQLinearMatMul(),
             sparseml_transforms.GemmToMatMulIntegerAddCastMul(),
             sparseml_transforms.QuantizeResiduals(),
