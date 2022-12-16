@@ -12,31 +12,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
+
 import numpy
 from onnx import ModelProto, helper, numpy_helper
 
 from sparseml.exporters.transforms.onnx_transform import OnnxTransform
-from sparseml.exporters.transforms.utils.helpers import (
-    QUANTIZE_OP_NAMES,
-    attribute_to_kwarg,
-    delete_quant_node,
-    get_quantization_params,
-    quantize_array,
-)
-from sparseml.exporters.transforms.utils.matching import (
+from sparseml.exporters.transforms.utils import (
     INITIALIZER_MATCH,
     MatchResult,
+    any_of,
+    attribute_to_kwarg,
+    get_quantization_params,
     get_structural_matches,
+    quantize_array,
 )
-from sparseml.onnx.utils import (
-    ONNXGraph,
-    get_init_by_name,
-    get_node_output_nodes,
-    remove_node_and_params_from_graph,
-)
+from sparseml.onnx.utils import ONNXGraph, get_init_by_name, get_node_output_nodes
 
 
 __all__ = ["ConvToQLinearConv"]
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class ConvToQLinearConv(OnnxTransform):
@@ -44,20 +40,25 @@ class ConvToQLinearConv(OnnxTransform):
     Transforms
 
     ```
-                        weight (initializer)
-                              |
-          input         QuantizeLinear
-            |                 |
-    Q or DQ           DequantizeLinear    bias (optional)
-                  |           |            |
-                            Conv
-                              |
-                        QuantizeLinear
+    |     weight (initializer)
+    |            |
+    | input      Q
+    |   |        |
+    |   Q/Dq    Dq    bias (optional)
+    |       |    |     |
+    |           Conv
+    |            |
+    |           Q/Dq
     ```
+    (where `Q` is QuantizeLinear, `Dq` is DequantizeLinear)
 
     into
 
-    `input -> QLinearConv`
+    ```
+    | input
+    |   |
+    | QLinearConv
+    ```
     """
 
     def transform(self, model: ModelProto) -> ModelProto:
@@ -66,29 +67,18 @@ class ConvToQLinearConv(OnnxTransform):
             graph,
             op_type="Conv",
             parent_ops=[
-                [],
+                [any_of("QuantizeLinear", "DequantizeLinear")],
                 [INITIALIZER_MATCH, "QuantizeLinear", "DequantizeLinear"],
             ],
-            children_ops=[[]],
+            children_ops=[[any_of("QuantizeLinear", "DequantizeLinear")]],
         )
         for match in matches:
-            input_quant = graph.get_node_single_parent(match.node, 0)
-            if not input_quant or input_quant.op_type not in QUANTIZE_OP_NAMES:
-                continue
-            match.parents[0].append(input_quant)
-
-            output_quant = graph.get_node_single_child(match.node)
-            if not output_quant or output_quant.op_type not in QUANTIZE_OP_NAMES:
-                continue
-            match.children[0].append(output_quant)
-
-            self._do_transform(model, match)
-        graph = ONNXGraph(model)
-        graph.sort_nodes_topologically()
-        graph.delete_unused_initializers()
+            _LOGGER.debug(f"Transforming {match}")
+            self._transform_match(model, match)
+        _LOGGER.info(f"Transformed {len(matches)} Conv -> QLinearConv")
         return model
 
-    def _do_transform(self, model: ModelProto, match: MatchResult):
+    def _transform_match(self, model: ModelProto, match: MatchResult):
         conv_node = match.node
         (input_quant,) = match.parents[0]
         _, weight_quant, weight_dequant = match.parents[1]
@@ -158,7 +148,7 @@ class ConvToQLinearConv(OnnxTransform):
         qconv_output = (
             output_quant.output[0] if fold_output_quant else conv_node.output[0]
         )
-        model.graph.node.append(
+        self.add_node_deferred(
             helper.make_node(
                 "QLinearConv",
                 qconv_inputs,
@@ -168,12 +158,11 @@ class ConvToQLinearConv(OnnxTransform):
             )
         )
 
-        # delete original conv and folded quantization ops
-        remove_node_and_params_from_graph(model, conv_node)
-        delete_quant_node(model, weight_dequant)
-        delete_quant_node(model, weight_quant, keep_weight=True)
+        # Clean up
+        self.delete_node_deferred(conv_node)
+        self.delete_node_deferred(weight_dequant)
+        self.delete_node_deferred(weight_quant)
         if fold_input_quant and len(get_node_output_nodes(model, input_quant)) <= 1:
-            # fold if this conv is the only node that reads from this quant op
-            delete_quant_node(model, input_quant)
+            self.delete_node_deferred(input_quant)
         if fold_output_quant:
-            delete_quant_node(model, output_quant)
+            self.delete_node_deferred(output_quant)
