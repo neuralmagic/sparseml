@@ -170,7 +170,7 @@ def test_yolov5_exporters_are_equivalent(tmp_path):
 @pytest.mark.parametrize(
     "quantize,convert_qat",
     [
-        # (False, False),
+        (False, False),
         # (True, False),
         (True, True),
     ],
