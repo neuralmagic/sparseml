@@ -126,17 +126,44 @@ def assert_node_type(node: NodeProto, op: Union[List[str], Set[str], str]) -> bo
 def quantize_array(
     array: numpy.ndarray, scale: float, zero_point: int, dtype: Any = numpy.uint8
 ) -> numpy.ndarray:
-    try:
-        from sparseml.exporters.transforms.utils.helpers_torch import (
-            quantize_array_torch,
-        )
 
-        return quantize_array_torch(array, scale, zero_point, dtype)
+    try:
+        import torch  # noqa: F401
+
+        quantize_w_torch = True
     except ModuleNotFoundError as err:
         _LOGGER.debug(f"Error: {err}. Defaulting to numpy implementation.")
-        dmin = numpy.iinfo(dtype).min
-        dmax = numpy.iinfo(dtype).max
-        return ((array / scale).round() + zero_point).clip(dmin, dmax).astype(dtype)
+        quantize_w_torch = False
+
+    if quantize_w_torch:
+        return quantize_array_torch(array, scale, zero_point, dtype)
+
+    dmin = numpy.iinfo(dtype).min
+    dmax = numpy.iinfo(dtype).max
+    return ((array / scale).round() + zero_point).clip(dmin, dmax).astype(dtype)
+
+
+def quantize_array_torch(
+    array: numpy.ndarray, scale: float, zero_point: int, dtype: Any
+) -> numpy.ndarray:
+
+    if dtype == numpy.uint8:
+        tensor_dtype = torch.quint8  # noqa: F821
+    elif dtype == numpy.int8:
+        tensor_dtype = torch.qint8  # noqa: F821
+    elif dtype == numpy.int32:
+        tensor_dtype = torch.qint32  # noqa: F821
+
+    tensor = torch.Tensor(array.copy()).to(torch.float32)  # noqa: F821
+    if isinstance(scale, numpy.ndarray):
+        scale = scale.item()
+    if isinstance(zero_point, numpy.ndarray):
+        zero_point = zero_point.item()
+
+    quant_tensor = torch.quantize_per_tensor(  # noqa: F821
+        tensor, scale, zero_point, tensor_dtype
+    )
+    return quant_tensor.int_repr().numpy()
 
 
 def attribute_to_kwarg(attribute: AttributeProto):
