@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
-
 import onnx
 from onnx import ModelProto
 
@@ -27,8 +25,6 @@ from sparseml.onnx.utils import ONNXGraph
 
 
 __all__ = ["MatMulToQLinearMatMul"]
-
-_LOGGER = logging.getLogger(__name__)
 
 
 class MatMulToQLinearMatMul(OnnxTransform):
@@ -100,10 +96,8 @@ class MatMulToQLinearMatMul(OnnxTransform):
             for quantize_linear_parent in [match.parents[0][0], match.parents[1][0]]:
                 if graph.get_init_by_name(quantize_linear_parent.input[0]):
                     continue
-
-            _LOGGER.debug(f"Matched: {match}")
+            self.log_match(match)
             self._do_transform(model, match)
-        _LOGGER.info(f"Transformed {len(self._nodes_to_add)} MatMul -> QLinearMatMul")
         return model
 
     def _do_transform(self, model: ModelProto, match: MatchResult):
