@@ -80,10 +80,13 @@ class MatMulToMatMulIntegerAddCastMul(OnnxTransform):
             children_ops=[["Add"]],
         )
         for match in matches:
+            # NOTE: bias could be either input 0 or 1 of add node
             bias_init = graph.get_init_by_name(match.children[0][0].input[1])
             if bias_init is None:
-                # bias initializer for add not present
-                continue
+                bias_init = graph.get_init_by_name(match.children[0][0].input[0])
+                if bias_init is None:
+                    # bias initializer for add not present
+                    continue
             self.log_match(match)
             self._transform_match(graph, model, match, bias_init)
         return model
