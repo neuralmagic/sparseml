@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
-
 from onnx import ModelProto
 
 from sparseml.exporters.transforms import OnnxTransform
@@ -26,8 +24,6 @@ from sparseml.exporters.transforms.utils import (
 )
 from sparseml.onnx.utils import ONNXGraph
 
-
-_LOGGER = logging.getLogger(__name__)
 
 __all__ = ["ConvToConvIntegerAddCastMul"]
 
@@ -88,9 +84,8 @@ class ConvToConvIntegerAddCastMul(OnnxTransform):
             op_type="Conv",
         )
         for match in matches:
-            _LOGGER.debug(f"Matched {match}")
+            self.log_match(match)
             self._transform_match(graph, model, match)
-        _LOGGER.info(f"Transformed {len(matches)} Conv -> ConvInteger")
         return model
 
     def _transform_match(self, graph: ONNXGraph, model: ModelProto, match: MatchResult):
