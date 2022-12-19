@@ -12,106 +12,59 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
+
 from onnx import ModelProto, helper, numpy_helper
 
 from sparseml.exporters.transforms.onnx_transform import OnnxTransform
-from sparseml.exporters.transforms.utils.helpers import (
-    QUANTIZE_OP_NAMES,
-    delete_quant_node,
-    get_quantization_params,
-    quantize_array,
-)
-from sparseml.exporters.transforms.utils.matching import (
+from sparseml.exporters.transforms.utils import (
     INITIALIZER_MATCH,
     MatchResult,
+    any_of,
+    get_quantization_params,
     get_structural_matches,
+    optional_node,
+    quantize_array,
 )
-from sparseml.onnx.utils.graph_editor import (
-    ONNXGraph,
-    remove_node_and_params_from_graph,
-)
-from sparseml.onnx.utils.helpers import get_node_attributes, get_node_output_nodes
+from sparseml.onnx.utils import ONNXGraph, get_node_attributes, get_node_output_nodes
 
 
 __all__ = ["GemmToQLinearMatMul"]
 
+_LOGGER = logging.getLogger(__name__)
+
 
 class GemmToQLinearMatMul(OnnxTransform):
     """
-    # Variant 1
+    Transforms Gemm nodes to QLinearMatMul.
 
+    NOTE: Does not match if the structure is
+    `Gemm -> QuantizeLinear -> DequantizeLinear -> Gemm`
+
+    Transforms
     ```
-                        weight (initializer)
-                        |
-    input               QuantizeLinear
-    |                   |
-    DequantizeLinear    DequantizeLinear
-    |                   |
-            Gemm ( with no attributes)
-            |
-            QuantizeLinear
-            |
-            NOT (DequantizeLinear -> Gemm)
+    |       weight (initializer)
+    |         |
+    | input   Q
+    |   |     |
+    | Q/Dq    Dq   optional bias (initializer)
+    |     |   |   |
+    |        Gemm
+    |         |
+    |   optional Q/Dq
     ```
-
-    into
-
-    `input -> QLinearMatmul`
-
-    # Variant 2 (with bias)
-
-    ```
-                        weight (initializer)
-                        |
-    input               QuantizeLinear
-    |                   |
-    DequantizeLinear    DequantizeLinear    bias
-    |                   |                   |
-            Gemm ( with no attributes)
-            |
-            QuantizeLinear
-            |
-            NOT (DequantizeLinear -> Gemm)
-    ```
+    (where `Q` is QuantizeLinear, and `Dq` is DequantizeLinear)
 
     into
 
     ```
-    input
-    |
+        input
+        |
     QLinearMatMul
-    |
-    DequantizeLinear    bias
-    |                   |
-                Add
-    ```
-
-    # Variant 3 (with bias & DequantizeLinear)
-
-    ```
-                        weight (initializer)
-                        |
-    input               QuantizeLinear
-    |                   |
-    DequantizeLinear    DequantizeLinear    bias
-    |                   |                   |
-            Gemm ( with no attributes)
-            |
-            QuantizeLinear
-            |
-            DequantizeLinear -> (NOT -> Gemm)
-    ```
-
-    into
-
-    ```
-    input
-    |
-    QLinearMatMul
-    |
-    DequantizeLinear    bias
-    |                   |
-                Add
+        |
+       Dq  bias (initializer)
+        | |
+        Add
     ```
     """
 
@@ -121,10 +74,15 @@ class GemmToQLinearMatMul(OnnxTransform):
             graph,
             op_type="Gemm",
             parent_ops=[
-                [],
+                [any_of("QuantizeLinear", "DequantizeLinear")],
                 [INITIALIZER_MATCH, "QuantizeLinear", "DequantizeLinear"],
             ],
-            children_ops=[[]],
+            children_ops=[
+                [
+                    any_of("QuantizeLinear", "DequantizeLinear"),
+                    optional_node("DequantizeLinear"),
+                ]
+            ],
         )
         for match in matches:
             gemm_attributes = get_node_attributes(match.node)
@@ -132,36 +90,21 @@ class GemmToQLinearMatMul(OnnxTransform):
                 # can only handle Gemm operations without alpha/beta/transB set
                 continue
 
-            input_quant = graph.get_node_single_parent(match.node, 0)
-            if not input_quant or input_quant.op_type not in QUANTIZE_OP_NAMES:
-                continue
-            match.parents[0].append(input_quant)
-
-            output_quant = graph.get_node_single_child(match.node)
-            if not output_quant or output_quant.op_type not in QUANTIZE_OP_NAMES:
-                continue
-            match.children[0].append(output_quant)
-
-            output_dequant = graph.get_node_single_child(output_quant)
-            if output_dequant and output_dequant.op_type in QUANTIZE_OP_NAMES:
-                match.children[0].append(output_dequant)
+            output_dequant = match.children[0][1]
+            if output_dequant is not None:
                 output_dequant_child = graph.get_node_single_child(output_dequant)
                 if output_dequant_child and output_dequant_child.op_type == "Gemm":
                     # output quant is not a QDQ block for the current Gemm Node but,
                     # the input QDQ block for a new Gemm block this Gemm should be
                     # skipped and processed by _convert_quantizable_gemm_no_activations
                     continue
-            else:
-                match.children[0].append(None)
 
-            self._do_transform(model, match)
+            self.log_match(match)
+            self._transform_match(model, match)
 
-        graph = ONNXGraph(model)
-        graph.sort_nodes_topologically()
-        graph.delete_unused_initializers()
         return model
 
-    def _do_transform(self, model: ModelProto, match: MatchResult):
+    def _transform_match(self, model: ModelProto, match: MatchResult):
         gemm_node = match.node
         (input_quant,) = match.parents[0]
         _, weight_quant, weight_dequant = match.parents[1]
@@ -215,7 +158,7 @@ class GemmToQLinearMatMul(OnnxTransform):
             [qmatmul_output],
             name=qmatmul_name,
         )
-        model.graph.node.append(qmatmul_node)
+        self.add_node_deferred(qmatmul_node)
 
         # add bias term following FC in the graph
         if len(gemm_node.input) > 2:
@@ -228,7 +171,7 @@ class GemmToQLinearMatMul(OnnxTransform):
                 mm_child.output[0] = dequant_output_name
             else:
                 # inject dequantize op for matmul
-                model.graph.node[-1].output[0] = qmatmul_output_name
+                qmatmul_node.output[0] = qmatmul_output_name
                 mm_child = helper.make_node(
                     "DequantizeLinear",
                     [
@@ -239,11 +182,11 @@ class GemmToQLinearMatMul(OnnxTransform):
                     [dequant_output_name],
                     name=f"{qmatmul_name}_injected_dq",
                 )
-                model.graph.node.append(mm_child)
+                self.add_node_deferred(mm_child)
                 add_output_name = qmatmul_output  # original qmatmul output name
 
             # inject bias op for dequantized matmul output
-            model.graph.node.append(
+            self.add_node_deferred(
                 helper.make_node(
                     "Add",
                     # [add_input, gemm bias]
@@ -253,14 +196,11 @@ class GemmToQLinearMatMul(OnnxTransform):
                 )
             )
 
-        # delete folded quantization ops
-        delete_quant_node(model, weight_dequant)
-        delete_quant_node(model, weight_quant)
+        # Clean up
+        self.delete_node_deferred(weight_dequant)
+        self.delete_node_deferred(weight_quant)
         if fold_input_quant and len(get_node_output_nodes(model, input_quant)) <= 1:
-            # fold if this gemm is the only node that reads from this quant op
-            delete_quant_node(model, input_quant)
+            self.delete_node_deferred(input_quant)
         if fold_output_quant:
-            delete_quant_node(model, output_quant)
-
-        # delete original Gemm node
-        remove_node_and_params_from_graph(model, gemm_node)
+            self.delete_node_deferred(output_quant)
+        self.delete_node_deferred(gemm_node)
