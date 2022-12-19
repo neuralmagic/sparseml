@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
-
 from onnx import ModelProto, helper, numpy_helper
 
 from sparseml.exporters.transforms import OnnxTransform
@@ -25,9 +23,6 @@ from sparseml.exporters.transforms.utils import (
     quantize_array,
 )
 from sparseml.onnx.utils import ONNXGraph
-
-
-_LOGGER = logging.getLogger(__name__)
 
 
 class QuantizeQATEmbedding(OnnxTransform):
@@ -77,9 +72,8 @@ class QuantizeQATEmbedding(OnnxTransform):
             ],
         )
         for match in matches:
-            _LOGGER.debug(f"Matched {match}")
+            self.log_match(match)
             self._transform_match(graph, model, match)
-        _LOGGER.info(f"Converted {len(matches)} QAT embedding ops to UINT8")
         return model
 
     def _transform_match(self, graph: ONNXGraph, model: ModelProto, match: MatchResult):
