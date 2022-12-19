@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
 from typing import Any, Dict
 
 from onnx import ModelProto
@@ -22,13 +21,12 @@ from sparseml.exporters.transforms.utils import (
     INITIALIZER_MATCH,
     MatchResult,
     add_quantized_conv_matmul_add_ops,
+    any_of,
     get_quantization_params,
     get_structural_matches,
 )
 from sparseml.onnx.utils import ONNXGraph, get_node_attributes
 
-
-_LOGGER = logging.getLogger(__name__)
 
 __all__ = ["GemmToMatMulIntegerAddCastMul"]
 
@@ -45,7 +43,7 @@ class GemmToMatMulIntegerAddCastMul(OnnxTransform):
     |        |
     | input  Q
     |   |    |
-    |   Dq   Dq  bias (initializer)
+    |  Q/Dq  Dq  bias (initializer)
     |     |  |  |
     |       Gemm
     ```
@@ -70,7 +68,7 @@ class GemmToMatMulIntegerAddCastMul(OnnxTransform):
             graph,
             op_type="Gemm",
             parent_ops=[
-                ["DequantizeLinear"],
+                [any_of("QuantizeLinear", "DequantizeLinear")],
                 [
                     # weight should be initializer
                     INITIALIZER_MATCH,
@@ -93,7 +91,7 @@ class GemmToMatMulIntegerAddCastMul(OnnxTransform):
                 # we do not currently handle Gemms with transposed A
                 # or scalar multiples
                 continue
-            _LOGGER.debug(f"Matched {match}")
+            self.log_match(match)
             self._transform_match(graph, model, match, attr)
 
         return model
@@ -106,14 +104,14 @@ class GemmToMatMulIntegerAddCastMul(OnnxTransform):
         gemm_attributes: Dict[str, Any],
     ):
         gemm = match.node
-        (input_dequant,) = match.parents[0]
+        (input_quant,) = match.parents[0]
         weight_init, weight_quant, weight_dequant = match.parents[1]
         (bias_init,) = match.parents[2]
 
         transpose_weight = bool(gemm_attributes.get("transB"))
 
         input_quantize_params = get_quantization_params(
-            model, input_dequant, include_target=False
+            model, input_quant, include_target=False
         )
         weight_quantize_params = get_quantization_params(
             model, weight_quant, include_target=True
@@ -124,7 +122,7 @@ class GemmToMatMulIntegerAddCastMul(OnnxTransform):
         add_quantized_conv_matmul_add_ops(
             model=model,
             node=match.node,
-            input_quantize_node=input_dequant,
+            input_quantize_node=input_quant,
             weight_quantize_node=weight_quant,
             input_quantize_params=input_quantize_params,
             weight_quantize_params=weight_quantize_params,
@@ -137,6 +135,6 @@ class GemmToMatMulIntegerAddCastMul(OnnxTransform):
         # Cleanup
         self.delete_node_deferred(weight_dequant)
         self.delete_node_deferred(weight_quant)
-        if len(graph.get_node_children(input_dequant)) == 1:
-            self.delete_node_deferred(input_dequant)
+        if len(graph.get_node_children(input_quant)) == 1:
+            self.delete_node_deferred(input_quant)
         self.delete_node_deferred(gemm)
