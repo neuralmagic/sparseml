@@ -27,6 +27,8 @@ __all__ = [
     "get_quantization_params",
     "quantize_array",
     "assert_node_type",
+    "QUANTIZE_OP_NAMES",
+    "attribute_to_kwarg",
 ]
 
 QUANTIZE_OP_NAMES = ["QuantizeLinear", "DequantizeLinear"]

@@ -15,7 +15,6 @@
 from onnx import ModelProto, numpy_helper
 
 from sparseml.exporters.transforms.onnx_transform import OnnxTransform
-from sparseml.onnx.utils.graph_editor import ONNXGraph
 
 
 __all__ = ["ConstantsToInitializers"]
@@ -27,14 +26,12 @@ class ConstantsToInitializers(OnnxTransform):
     """
 
     def transform(self, model: ModelProto) -> ModelProto:
-        nodes_to_delete = []
         for node in model.graph.node:
             if node.op_type != "Constant" or len(node.attribute) != 1:
                 continue
+            self.log_match(node)
             const_array = numpy_helper.to_array(node.attribute[0].t)
             initializer = numpy_helper.from_array(const_array, name=node.output[0])
             model.graph.initializer.append(initializer)
-            nodes_to_delete.append(node)
-        graph = ONNXGraph(model)
-        graph.delete_nodes(nodes_to_delete)
+            self.delete_node_deferred(node)
         return model
