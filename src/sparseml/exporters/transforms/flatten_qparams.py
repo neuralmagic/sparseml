@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
-
 import numpy
 from onnx import ModelProto, numpy_helper
 
@@ -22,8 +20,6 @@ from sparseml.onnx.utils.graph_editor import ONNXGraph
 
 
 __all__ = ["FlattenQParams"]
-
-_LOGGER = logging.getLogger(__name__)
 
 
 class FlattenQParams(OnnxTransform):
