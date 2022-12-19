@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 import onnx
 from onnx import ModelProto, NodeProto
 
@@ -34,35 +33,36 @@ class QuantizeResiduals(OnnxTransform):
 
     Transforms
     ```
-                Relu or Add
-             |          |
-    QuantizeLinear      |
-        |               |
-    anything            |
-        |               |
-    DequantizeLinear    |
-                |       |
-                    Add
+    | Relu or Add
+    | |       |
+    | Q       |
+    | |       |
+    | (any)   |
+    | |       |
+    | Dq      |
+    | |       |
+    |   Add
     ```
-    Into
+    (where `Q` is QuantizeLinear, `Dq` is DequantizeLinear, `(any)` means any sub graph)
 
+    into
     ```
-            Relu or Add
-                |
-            QuantizeLinear
-        |               |
-    anything            |
-        |               |
-    DequantizeLinear    DequantizeLinear
-                |       |
-                    Add
+    | Relu or Add
+    |     |
+    |     Q
+    | |       |
+    | (any)   |
+    | |       |
+    | Dq      Dq
+    | |       |
+    |   Add
     ```
     """
 
     def transform(self, model: ModelProto) -> ModelProto:
+        graph = ONNXGraph(model)
         add_nodes = [node for node in model.graph.node if node.op_type == "Add"]
         for add_node in add_nodes:
-            graph = ONNXGraph(model)
             add_inputs = [
                 i for i in graph.get_node_parents(add_node) if isinstance(i, NodeProto)
             ]
@@ -87,6 +87,8 @@ class QuantizeResiduals(OnnxTransform):
             ):
                 continue
 
+            self.log_match(add_node)
+
             # create de-quantize node for identity
             dequant_output = f"{other_input_node.output[0]}_identity_dequantized"
             identity_dequantize_node = onnx.helper.make_node(
@@ -95,7 +97,7 @@ class QuantizeResiduals(OnnxTransform):
                 [dequant_output],
                 f"{other_input_node.output[0]}_identity_dequantized",
             )
-            model.graph.node.append(identity_dequantize_node)
+            self.add_node_deferred(identity_dequantize_node)
 
             # swap the relu input for the de-quantized identity in the add
             relu_input_idx = [
@@ -104,7 +106,4 @@ class QuantizeResiduals(OnnxTransform):
                 if inp == other_input_node.output[0]
             ][0]
             add_node.input[relu_input_idx] = dequant_output
-
-        graph = ONNXGraph(model)
-        graph.sort_nodes_topologically()
         return model

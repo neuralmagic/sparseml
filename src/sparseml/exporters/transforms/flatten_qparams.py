@@ -48,6 +48,7 @@ class FlattenQParams(OnnxTransform):
         for init in model.graph.initializer:
             if init.name not in inits_to_flatten:
                 continue
+            self.log_match(init)
             a = numpy_helper.to_array(init)
             assert a.shape == (1,)
             b = numpy.array(a[0])

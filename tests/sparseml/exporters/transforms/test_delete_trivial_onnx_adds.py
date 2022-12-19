@@ -56,7 +56,7 @@ def _create_test_model(initializer_set_to_nonzero=False):
         name="g",
         inputs=[model_input],
         outputs=[model_output],
-        initializer=[initializer_constant],
+        initializer=[],
     )
 
     model = onnx.helper.make_model(graph)
@@ -73,7 +73,7 @@ def _test_initializer_zero(model):
 
 def _test_initializer_nonzero(model):
     assert [node.name for node in model.graph.node] == ["constant", "add"]
-    assert [node.name for node in model.graph.initializer] == ["constant_initializer"]
+    assert [node.name for node in model.graph.initializer] == []
     assert model.graph.input[0].name == "input"
     assert model.graph.output[0].name == "output"
 

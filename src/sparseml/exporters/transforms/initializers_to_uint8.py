@@ -33,6 +33,7 @@ class InitializersToUint8(OnnxTransform):
             arr_int8 = numpy_helper.to_array(init)
             if arr_int8.dtype != numpy.int8:
                 continue
+            self.log_match(init)
             arr_uint8 = (arr_int8.astype(numpy.int32) + 128).astype(numpy.uint8)
             init_uint8 = numpy_helper.from_array(arr_uint8, name=init.name)
             initializers_to_del.append(init)
