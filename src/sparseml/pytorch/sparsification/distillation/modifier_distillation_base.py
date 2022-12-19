@@ -126,6 +126,7 @@ class BaseDistillationModifier(ScheduledUpdateModifier):
             start_epoch=start_epoch,
             end_epoch=end_epoch,
             end_comparator=-1,
+            update_frequency=update_frequency,
         )
         self._distill_output_keys = distill_output_keys
         self._teacher_input_keys = teacher_input_keys
