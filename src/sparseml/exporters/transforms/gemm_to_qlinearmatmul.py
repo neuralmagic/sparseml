@@ -99,7 +99,7 @@ class GemmToQLinearMatMul(OnnxTransform):
                     # skipped and processed by _convert_quantizable_gemm_no_activations
                     continue
 
-            _LOGGER.debug(f"Matched {match}")
+            self.log_match(match)
             self._transform_match(model, match)
 
         return model

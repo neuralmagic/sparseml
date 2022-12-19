@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
-
 import numpy
 from onnx import ModelProto, helper, numpy_helper
 
@@ -31,8 +29,6 @@ from sparseml.onnx.utils import ONNXGraph, get_init_by_name, get_node_output_nod
 
 
 __all__ = ["ConvToQLinearConv"]
-
-_LOGGER = logging.getLogger(__name__)
 
 
 class ConvToQLinearConv(OnnxTransform):
@@ -73,9 +69,8 @@ class ConvToQLinearConv(OnnxTransform):
             children_ops=[[any_of("QuantizeLinear", "DequantizeLinear")]],
         )
         for match in matches:
-            _LOGGER.debug(f"Transforming {match}")
+            self.log_match(match)
             self._transform_match(model, match)
-        _LOGGER.info(f"Transformed {len(matches)} Conv -> QLinearConv")
         return model
 
     def _transform_match(self, model: ModelProto, match: MatchResult):
