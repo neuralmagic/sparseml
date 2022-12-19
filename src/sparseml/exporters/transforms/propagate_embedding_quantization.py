@@ -79,7 +79,6 @@ class PropagateEmbeddingQuantization(OnnxTransform):
                 ["Concat"],
             ],
         )
-        count = 0
         for match in matches:
             (gather,) = match.parents[0]
             dequant = match.node
@@ -96,8 +95,7 @@ class PropagateEmbeddingQuantization(OnnxTransform):
             if concat.name != concat1.name or concat.name != concat2.name:
                 continue
 
-            _LOGGER.debug(f"Matched {match}")
-            count += 1
+            self.log_match(match)
 
             assert concat.input[2] == dequant.output[0]
             concat.input[2] = gather.output[0]
@@ -108,5 +106,4 @@ class PropagateEmbeddingQuantization(OnnxTransform):
             concat.output[0] = dequant.output[0]
             dequant.output[0] = tmp
             dequant.input[0] = concat.output[0]
-        _LOGGER.info(f"Transformed {count} gathers")
         return model

@@ -82,8 +82,8 @@ class RemoveDuplicateQConvWeights(OnnxTransform):
                 elif node.op_type == "ConvInteger":
                     node.input[1] = shared_init.name
             node_names = [n.name for n in qconv_nodes]
-            _LOGGER.debug(f"Combined weight initializer for {node_names}")
+            _LOGGER.debug("Combined weight initializer for %s", node_names)
             num_inits += len(qconv_nodes)
             num_groups += 1
-        _LOGGER.info(f"Merged {num_inits} weight initializers into {num_groups}")
+        _LOGGER.debug("Merged %d weight initializers into %d", num_inits, num_groups)
         return model
