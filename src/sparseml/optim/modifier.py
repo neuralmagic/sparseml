@@ -20,7 +20,7 @@ Modifiers allow modifying the training process of a model; ex to perform model p
 import hashlib
 import re
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, List, Union
+from typing import Any, Callable, Dict, List, Type, Union
 
 import yaml
 from yaml import ScalarNode
@@ -822,13 +822,22 @@ class ModifierYAML(object):
 
     :param framework: the string representing the ML framework the modifier should
         be stored under
+    :param swap_class_by_state_fn: optional function to provide a different class
+        to construct on yaml load based on the state given (ie provide a
+        legacy class to load if certain parameters are passed). Expected format
+        is to take a dict of kwargs, expects a class to be returned
     """
 
-    def __init__(self, framework: str):
+    def __init__(
+        self,
+        framework: str,
+        swap_class_by_state_fn: Callable[[Dict[str, Any]], Type[BaseModifier]] = None,
+    ):
         if not framework:
             raise ValueError("a framework is required")
 
         self._framework = framework
+        self._swap_class_by_state_fn = swap_class_by_state_fn
 
     def __call__(self, clazz):
         """
@@ -838,13 +847,18 @@ class ModifierYAML(object):
         yaml_key = "{}".format(BaseModifier.yaml_key(clazz, self._framework))
 
         def constructor(loader, node):
-            instance = clazz.__new__(clazz)
-            yield instance
             state = (
                 loader.construct_mapping(node, deep=True)
                 if not isinstance(node, ScalarNode)
                 else {}
             )
+            target_class = (
+                self._swap_class_by_state_fn(state)
+                if self._swap_class_by_state_fn is not None
+                else clazz
+            )
+            instance = target_class.__new__(target_class)
+            yield instance
             # ignore the log_types arg in recipes to maintain backwards compatability
             # while recipes are updated
             if "log_types" in state:
