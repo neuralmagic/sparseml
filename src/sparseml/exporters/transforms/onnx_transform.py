@@ -12,13 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 from abc import abstractmethod
 from typing import Union
 
-from onnx import ModelProto
+from onnx import ModelProto, NodeProto
 
 from sparseml.exporters.transforms import BaseTransform
-from sparseml.onnx.utils import check_load_model, validate_onnx_file
+from sparseml.onnx.utils import ONNXGraph, check_load_model, validate_onnx_file
+
+
+__all__ = ["OnnxTransform"]
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class OnnxTransform(BaseTransform):
@@ -26,6 +32,19 @@ class OnnxTransform(BaseTransform):
     Interface that all transforms that operate on ONNX models
     must implement.
     """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._nodes_to_delete = []
+        self._nodes_to_add = []
+
+    def add_node_deferred(self, node: NodeProto):
+        _LOGGER.debug(f"Adding node {node.name} op_type={node.op_type}")
+        self._nodes_to_add.append(node)
+
+    def delete_node_deferred(self, node: NodeProto):
+        _LOGGER.debug(f"Removing node {node.name} op_type={node.op_type}")
+        self._nodes_to_delete.append(node)
 
     @abstractmethod
     def transform(self, model: ModelProto) -> ModelProto:
@@ -53,6 +72,8 @@ class OnnxTransform(BaseTransform):
             )
         model = check_load_model(model)
         validate_onnx_file(model)
+        self._nodes_to_delete.clear()
+        self._nodes_to_add.clear()
         return model
 
     def post_validate(self, model: ModelProto) -> ModelProto:
@@ -61,5 +82,11 @@ class OnnxTransform(BaseTransform):
         :param model: The input ONNX model to be validated
         :return The validated ONNX model
         """
+        model.graph.node.extend(self._nodes_to_add)
+        for node in self._nodes_to_delete:
+            model.graph.node.remove(node)
+        graph = ONNXGraph(model)
+        graph.delete_unused_initializers()
+        graph.sort_nodes_topologically()
         validate_onnx_file(model)
         return model
