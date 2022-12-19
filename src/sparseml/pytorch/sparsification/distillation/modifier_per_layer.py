@@ -86,8 +86,8 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
         teacher_input_keys: Optional[List[Any]] = None,
         update_frequency: float = -1.0,
         normalize: bool = True,
-        student_names: Optional[List[str]] = None,
-        teacher_names: Optional[List[str]] = None,
+        student_layer_names: Optional[List[str]] = None,
+        teacher_layer_names: Optional[List[str]] = None,
         project_features: bool = False,
         epsilon: float = 1.e-6,
     ):
@@ -100,8 +100,8 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
         )
         self.gain = gain
         self.normalize = normalize
-        self.student_names = student_names
-        self.teacher_names = teacher_names
+        self.student_layer_names = student_layer_names
+        self.teacher_layer_names = teacher_layer_names
         self.project_features = project_features
         self.epsilon = epsilon
         self._cached_student_output = None
@@ -158,24 +158,24 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
         self._epsilon = value
 
     @ModifierProp()
-    def student_names(self) -> List[str]:
+    def student_layer_names(self) -> List[str]:
         return self._student_names
 
-    @student_names.setter
-    def student_names(self, value: List[str]):
+    @student_layer_names.setter
+    def student_layer_names(self, value: List[str]):
         self._student_names = value
 
     @ModifierProp()
-    def teacher_names(self) -> List[str]:
+    def teacher_layer_names(self) -> List[str]:
         if self._teacher_names is not None:
             return self._teacher_names
-        elif self.student_names is not None:
-            return self.student_names
+        elif self.student_layer_names is not None:
+            return self.student_layer_names
         else:
             return None
 
-    @teacher_names.setter
-    def teacher_names(self, value: List[str]):
+    @teacher_layer_names.setter
+    def teacher_layer_names(self, value: List[str]):
         self._teacher_names = value
 
     @ModifierProp()
@@ -219,15 +219,15 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
             cached_student_layers = {}
             cached_teacher_layers = {}
 
-            if self.student_names is None:
+            if self.student_layer_names is None:
                 _find_layers_by_type(module, cached_student_layers)
                 _find_layers_by_type(distillation_teacher, cached_teacher_layers)
 
                 self._student_names = list(cached_student_layers.keys())
                 self._teacher_names = list(cached_teacher_layers.keys())
             else:
-                _find_layers_by_name(module, self.student_names, cached_student_layers)
-                _find_layers_by_name(distillation_teacher, self.teacher_names, cached_teacher_layers)
+                _find_layers_by_name(module, self.student_layer_names, cached_student_layers)
+                _find_layers_by_name(distillation_teacher, self.teacher_layer_names, cached_teacher_layers)
 
             self._student_handles = []
             self._teacher_handles = []
@@ -280,15 +280,15 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
 
         if self.project_features and self._projection is None:
             self._initialize_projection()
-            student_module_output = self._cached_student_output[self.student_names[0]]
+            student_module_output = self._cached_student_output[self.student_layer_names[0]]
             device = student_module_output.device
             parameters = [p.weight for p in self._projection]
             optimizer.add_param_group({'params': parameters})
             self._projection = [p.to(device) for p in self._projection]
 
-        for index in range(len(self.student_names)):
-            student_module_output = self._cached_student_output[self.student_names[index]]
-            teacher_module_output = self._cached_teacher_output[self.teacher_names[index]]
+        for index in range(len(self.student_layer_names)):
+            student_module_output = self._cached_student_output[self.student_layer_names[index]]
+            teacher_module_output = self._cached_teacher_output[self.teacher_layer_names[index]]
 
             if self.project_features:
                 student_module_output = self._projection[index](student_module_output.float())
@@ -307,9 +307,9 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
 
     def _initialize_projection(self):
         self._projection = []
-        for index in range(len(self.student_names)):
-            student_shape = self._student_output_shapes[self.student_names[index]]
-            teacher_shape = self._teacher_output_shapes[self.teacher_names[index]]
+        for index in range(len(self.student_layer_names)):
+            student_shape = self._student_output_shapes[self.student_layer_names[index]]
+            teacher_shape = self._teacher_output_shapes[self.teacher_layer_names[index]]
             if len(student_shape) == 4:
                 student_features = student_shape[1]
                 teacher_features = teacher_shape[1]
