@@ -26,14 +26,13 @@ from .delete_trivial_onnx_adds import DeleteTrivialOnnxAdds
 from .delete_repeated_qdq import DeleteRepeatedQdq
 from .fold_identity_initializers import FoldIdentityInitializers
 from .quantize_qat_embedding import QuantizeQATEmbedding
-from .convert_quantizable_matmul import ConvertQuantizableMatmul
-from .convert_quantizable_conv_integer import ConvertQuantizableConvInteger
+from .matmul_to_qlinearmatmul import MatMulToQLinearMatMul
+from .conv_to_convinteger_add_cast_mul import ConvToConvIntegerAddCastMul
 from .flatten_qparams import FlattenQParams
 from .unwrap_batchnorms import UnwrapBatchNorms
 from .constants_to_initializers import ConstantsToInitializers
 from .conv_to_qlinearconv import ConvToQLinearConv
-from .convert_quantizable_conv_integer import ConvertQuantizableConvInteger
-from .convert_quantizable_matmul import ConvertQuantizableMatmul
+from .conv_to_convinteger_add_cast_mul import ConvToConvIntegerAddCastMul
 from .fold_conv_div_bn import FoldConvDivBn
 from .fold_relu_quants import FoldReLUQuants
 from .gemm_to_matmulinteger_add_cast_mul import GemmToMatMulIntegerAddCastMul
