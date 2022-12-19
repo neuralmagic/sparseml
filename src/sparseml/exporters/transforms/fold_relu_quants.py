@@ -11,9 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import logging
 
-import onnx
 from onnx import ModelProto
 
 from sparseml.exporters.transforms import OnnxTransform
@@ -22,12 +20,9 @@ from sparseml.exporters.transforms.utils import (
     get_structural_matches,
 )
 from sparseml.onnx.utils import ONNXGraph
-from sparseml.onnx.utils.helpers import get_node_output_nodes
 
 
 __all__ = ["FoldReLUQuants"]
-
-_LOGGER = logging.getLogger(__name__)
 
 
 class FoldReLUQuants(OnnxTransform):
@@ -35,29 +30,24 @@ class FoldReLUQuants(OnnxTransform):
     Transforms
 
     ```
-    |   INPUT
-    |     |
-    |   ReLU   scale   zero point (missing or == 0)
-    |      |     |      |
-    |       QuantizeLinear (with zero point of 0)
-    |            |
-    |          OUTPUT
+    | input
+    |   |
+    | ReLU   scale   zero point (missing or == 0)
+    |    |     |      |
+    |     QuantizeLinear
     ```
 
     into
 
     ```
-    |   INPUT   scale   zero point (missing or == 0)
-    |      |     |      |
-    |       QuantizeLinear (with zero point of 0)
-    |            |
-    |          OUTPUT
+    | input   scale   zero point (missing or == 0)
+    |    |     |      |
+    |     QuantizeLinear
     ```
     """
 
     def transform(self, model: ModelProto) -> ModelProto:
         graph = ONNXGraph(model)
-        nodes_to_delete = []
         for match in get_structural_matches(graph, op_type="Relu"):
             relu_children = graph.get_node_children(match.node)
 
@@ -72,13 +62,8 @@ class FoldReLUQuants(OnnxTransform):
 
             # set all child input nodes to the relu node input
             if delete:
-                _LOGGER.debug(f"Matched {match.node.name} - deleting relu node")
+                self.log_match(match)
                 for quant in relu_children:
                     quant.input[0] = match.node.input[0]
-                nodes_to_delete.append(match.node)
-
-        graph = ONNXGraph(model)
-        if len(nodes_to_delete) > 0:
-            graph.delete_nodes(nodes_to_delete)
-        graph.sort_nodes_topologically()
+                self.delete_node_deferred(match.node)
         return model
