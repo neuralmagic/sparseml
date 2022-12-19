@@ -52,10 +52,9 @@ def onnx_model():
     bn = onnx.helper.make_node(
         "BatchNormalization",
         inputs=["div_output", "scale", "bias", "mean", "variance"],
-        outputs=["bn_output"],
+        outputs=["output"],
         name="bn",
     )
-
     graph = onnx.helper.make_graph(
         nodes=[conv, div, bn],
         name="g",

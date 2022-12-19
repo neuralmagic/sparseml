@@ -20,12 +20,7 @@ from sparseml.exporters.transforms.utils.matching import (
     MatchResult,
     get_structural_matches,
 )
-from sparseml.onnx.utils import (
-    ONNXGraph,
-    get_batch_norm_params,
-    get_init_by_name,
-    remove_node_and_params_from_graph,
-)
+from sparseml.onnx.utils import ONNXGraph, get_batch_norm_params, get_init_by_name
 
 
 __all__ = ["FoldConvDivBn"]
@@ -43,21 +38,21 @@ class FoldConvDivBn(OnnxTransform):
     Specifically, this transforms
 
     ```
-    input   weight  bias (optional)
-         |    |    |
-            Conv
-              |
-            Div
-              |
-        BatchNormalization
+    | input   weight  bias (optional)
+    |      |    |    |
+    |         Conv
+    |           |
+    |         Div
+    |           |
+    |     BatchNormalization
     ```
 
     into
 
     ```
-    input   weight  bias
-         |    |    |
-            Conv
+    | input  weight  bias
+    |      |   |    |
+    |        Conv
     ```
     """
 
@@ -68,11 +63,11 @@ class FoldConvDivBn(OnnxTransform):
             children_ops=[["Div", "BatchNormalization"]],
         )
         for match in matches:
-            self._do_transform(model, match)
-        ONNXGraph(model).delete_unused_initializers()
+            self.log_match(match)
+            self._transform_match(model, match)
         return model
 
-    def _do_transform(self, model: ModelProto, match: MatchResult):
+    def _transform_match(self, model: ModelProto, match: MatchResult):
         conv_node = match.node
         div_node, bn_node = match.children[0]
 
@@ -107,5 +102,5 @@ class FoldConvDivBn(OnnxTransform):
             numpy_helper.from_array(folded_bias, name=bias_name)
         )
 
-        remove_node_and_params_from_graph(model, div_node)
-        remove_node_and_params_from_graph(model, bn_node)
+        self.delete_node_deferred(div_node)
+        self.delete_node_deferred(bn_node)
