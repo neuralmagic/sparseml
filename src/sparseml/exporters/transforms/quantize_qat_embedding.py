@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from onnx import ModelProto, helper, numpy_helper
+from onnx import ModelProto, numpy_helper
 
 from sparseml.exporters.transforms import OnnxTransform
 from sparseml.exporters.transforms.utils import (
@@ -31,12 +31,12 @@ class QuantizeQATEmbedding(OnnxTransform):
 
     Transforms
     ```
-    |       initializer
-    |        |
-    |        Q
-    |        |
-    | input  Dq
-    |  |     |
+    | initializer
+    | |
+    | Q
+    | |
+    | Dq    input
+    | |     |
     |  Gather
     |    |
     | optional Q
@@ -46,11 +46,11 @@ class QuantizeQATEmbedding(OnnxTransform):
     (where `Q` is QuantizeLinear, and `Dq` is Dequantize Linear)
     into
     ```
-    | input
-    |   |
-    | Gather(UINT8 data initializer)
-    |   |
-    | DequantizeLinear
+    | uint8 init    input
+    |     |      |
+    |      Gather
+    |        |
+    |        Dq
     ```
     """
 
@@ -60,7 +60,6 @@ class QuantizeQATEmbedding(OnnxTransform):
             graph,
             op_type="Gather",
             parent_ops=[
-                [],
                 [
                     INITIALIZER_MATCH,
                     "QuantizeLinear",
@@ -72,12 +71,17 @@ class QuantizeQATEmbedding(OnnxTransform):
             ],
         )
         for match in matches:
+            # check that all input_quant's inputs are initializers
+            for init_name in match.parents[0][1].input[:3]:
+                if graph.get_init_by_name(init_name) is None:
+                    continue
+
             self.log_match(match)
             self._transform_match(graph, model, match)
         return model
 
     def _transform_match(self, graph: ONNXGraph, model: ModelProto, match: MatchResult):
-        _, input_quant, input_dequant = match.parents[1]
+        _, input_quant, input_dequant = match.parents[0]
         opt_output_quant, opt_output_dequant = match.children[0]
 
         # quantize embedding
@@ -97,30 +101,26 @@ class QuantizeQATEmbedding(OnnxTransform):
 
         # update graph
         model.graph.initializer.append(embedding_quant_initializer)
-        match.node.input[1] = embedding_quant_initializer.name
+        match.node.input[0] = embedding_quant_initializer.name
 
-        if opt_output_quant is not None and opt_output_dequant is not None:
+        has_qdq = opt_output_quant is not None and opt_output_dequant is not None
+        if (
+            has_qdq
+            # NOTE: we only support this branch for qdq with 1 child
+            and len(graph.get_node_children(match.node)) == 1
+            and len(graph.get_node_children(opt_output_quant)) == 1
+        ):
             # forward gather output to dequant input
             opt_output_dequant.input[0] = match.node.output[0]
             opt_output_dequant.input[1] = input_dequant.input[1]
             opt_output_dequant.input[2] = input_dequant.input[2]
+            self.delete_node_deferred(input_quant)
+            self.delete_node_deferred(input_dequant)
             self.delete_node_deferred(opt_output_quant)
         else:
-            # add new dequantize node after the match node
-            match_node_quant_output = f"{match.node.output[0]}_quant"
-
-            new_dequantize_node = helper.make_node(
-                "DequantizeLinear",
-                inputs=[
-                    match_node_quant_output,
-                    input_dequant.input[1],
-                    input_dequant.input[2],
-                ],
-                outputs=[match.node.output[0]],
-                name=f"dequantize_linear_{match.node.name}",
-            )
-            self.add_node_deferred(new_dequantize_node)
-            match.node.output[0] = match_node_quant_output
-
-        self.delete_node_deferred(input_quant)
-        self.delete_node_deferred(input_dequant)
+            # use input dequant to dequantize output
+            embedding_quant_output_id = f"{match.node.output[0]}_quant"
+            input_dequant.input[0] = embedding_quant_output_id
+            input_dequant.output[0] = match.node.output[0]
+            match.node.output[0] = embedding_quant_output_id
+            self.delete_node_deferred(input_quant)

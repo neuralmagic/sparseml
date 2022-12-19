@@ -59,7 +59,7 @@ def _create_test_model(with_qdq=False):
 
     gather_node = onnx.helper.make_node(
         "Gather",
-        ["input", "dequant_linear_0_output"],
+        ["dequant_linear_0_output", "input"],
         ["gather_output"],
         name="gather_node",
     )
@@ -106,7 +106,7 @@ def _add_qdq_nodes(graph):
 def _test_qat_embedding(model):
     assert [node.name for node in model.graph.node] == [
         "gather_node",
-        "dequantize_linear_gather_node",
+        "dequantize_linear_node_0",
     ]
     assert [node.name for node in model.graph.initializer] == [
         "x_scale",

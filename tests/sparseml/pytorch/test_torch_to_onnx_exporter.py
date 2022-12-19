@@ -167,6 +167,10 @@ def test_yolov5_exporters_are_equivalent(tmp_path):
     )
 
 
+@pytest.mark.skipif(
+    not os.getenv("RUN_EXPORTER_REGRESSION_TESTS", False),
+    reason="Slow regression tests and requires yolov5 dependency",
+)
 @pytest.mark.parametrize(
     "quantize,convert_qat",
     [
@@ -232,6 +236,8 @@ def _assert_onnx_models_are_equal(
 
     old_op_types = Counter([n.op_type for n in old_model.graph.node])
     new_op_types = Counter([n.op_type for n in new_model.graph.node])
+    print("OLD", old_op_types)
+    print("NEW", new_op_types)
     assert old_op_types == new_op_types
     if expect_op_types is not None:
         for op_type in expect_op_types:
