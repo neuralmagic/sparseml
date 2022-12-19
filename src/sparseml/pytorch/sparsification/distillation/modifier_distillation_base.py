@@ -332,6 +332,8 @@ class BaseDistillationModifier(ScheduledUpdateModifier):
             teacher_outputs=teacher_outputs,
             student_labels=student_labels,
             teacher_labels=teacher_labels,
+            optimizer=optimizer,
+
         )
 
         total_loss = self.compute_total_loss(loss, distillation_loss)
