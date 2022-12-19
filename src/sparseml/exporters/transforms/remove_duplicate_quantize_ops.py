@@ -70,5 +70,5 @@ class RemoveDuplicateQuantizeOps(OnnxTransform):
                     if inp == old_id:
                         node.input[idx] = new_id
 
-        _LOGGER.info(f"Removed {len(self._nodes_to_delete)} QuantizeLinear nodes")
+        _LOGGER.debug("Removed %d QuantizeLinear nodes", len(self._nodes_to_delete))
         return model

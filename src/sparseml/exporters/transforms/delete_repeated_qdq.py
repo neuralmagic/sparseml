@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
-
 from onnx import ModelProto
 
 from sparseml.exporters.transforms.onnx_transform import OnnxTransform
@@ -22,8 +20,6 @@ from sparseml.onnx.utils import ONNXGraph
 
 
 __all__ = ["DeleteRepeatedQdq"]
-
-_LOGGER = logging.getLogger(__name__)
 
 
 class DeleteRepeatedQdq(OnnxTransform):
@@ -58,7 +54,7 @@ class DeleteRepeatedQdq(OnnxTransform):
             children_ops=[["DequantizeLinear", "QuantizeLinear", "DequantizeLinear"]],
         )
         for match in matches:
-            _LOGGER.debug(f"Matched {match}")
+            self.log_match(match)
             quant_node_1 = match.node
             (dequant_node_1, quant_node_2, dequant_node_2) = match.children[0]
 
@@ -68,5 +64,4 @@ class DeleteRepeatedQdq(OnnxTransform):
             # remove repeated quant/dequant block
             self.delete_node_deferred(quant_node_1)
             self.delete_node_deferred(dequant_node_1)
-        _LOGGER.info(f"Removed {len(self._nodes_to_delete)} Q/Dq nodes")
         return model

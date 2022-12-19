@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import logging
 
 from onnx import ModelProto
 
@@ -24,8 +23,6 @@ from sparseml.onnx.utils import ONNXGraph
 
 
 __all__ = ["FoldReLUQuants"]
-
-_LOGGER = logging.getLogger(__name__)
 
 
 class FoldReLUQuants(OnnxTransform):
@@ -65,9 +62,8 @@ class FoldReLUQuants(OnnxTransform):
 
             # set all child input nodes to the relu node input
             if delete:
-                _LOGGER.debug(f"Matched {match}")
+                self.log_match(match)
                 for quant in relu_children:
                     quant.input[0] = match.node.input[0]
                 self.delete_node_deferred(match.node)
-        _LOGGER.info(f"Removed {len(self._nodes_to_delete)} Relu")
         return model

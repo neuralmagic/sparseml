@@ -11,8 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import logging
-
 from onnx import ModelProto
 
 from sparseml.exporters.transforms import OnnxTransform
@@ -21,8 +19,6 @@ from sparseml.onnx.utils import ONNXGraph
 
 
 __all__ = ["FoldIdentityInitializers"]
-
-_LOGGER = logging.getLogger(__name__)
 
 
 class FoldIdentityInitializers(OnnxTransform):
@@ -48,13 +44,11 @@ class FoldIdentityInitializers(OnnxTransform):
 
     def transform(self, model: ModelProto) -> ModelProto:
         graph = ONNXGraph(model)
-        matches = get_structural_matches(graph, op_type="Identity")
-        for match in matches:
-            _LOGGER.debug(f"Matched {match}")
+        for match in get_structural_matches(graph, op_type="Identity"):
+            self.log_match(match)
             for child_node in graph.get_node_children(match.node):
                 for i, child_node_input in enumerate(child_node.input):
                     if child_node_input == match.node.output[0]:
                         child_node.input[i] = match.node.input[0]
             self.delete_node_deferred(match.node)
-        _LOGGER.info(f"Removed {len(matches)} Identity")
         return model

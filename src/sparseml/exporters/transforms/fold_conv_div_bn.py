@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
-
 import numpy
 from onnx import ModelProto, numpy_helper
 
@@ -26,8 +24,6 @@ from sparseml.onnx.utils import ONNXGraph, get_batch_norm_params, get_init_by_na
 
 
 __all__ = ["FoldConvDivBn"]
-
-_LOGGER = logging.getLogger(__name__)
 
 
 class FoldConvDivBn(OnnxTransform):
@@ -67,9 +63,8 @@ class FoldConvDivBn(OnnxTransform):
             children_ops=[["Div", "BatchNormalization"]],
         )
         for match in matches:
-            _LOGGER.debug(f"Matched {match}")
+            self.log_match(match)
             self._transform_match(model, match)
-        _LOGGER.info(f"Folded {len(matches)} Conv->Div->Bn")
         return model
 
     def _transform_match(self, model: ModelProto, match: MatchResult):

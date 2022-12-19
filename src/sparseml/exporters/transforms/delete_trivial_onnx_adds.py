@@ -12,17 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
-
 import numpy
 from onnx import ModelProto, numpy_helper
 
 from sparseml.exporters.transforms import OnnxTransform
 from sparseml.exporters.transforms.utils import get_structural_matches
 from sparseml.onnx.utils import ONNXGraph
-
-
-_LOGGER = logging.getLogger(__name__)
 
 
 class DeleteTrivialOnnxAdds(OnnxTransform):
@@ -44,7 +39,6 @@ class DeleteTrivialOnnxAdds(OnnxTransform):
     """
 
     def transform(self, model: ModelProto) -> ModelProto:
-        count = 0
         graph = ONNXGraph(model)
         for match in get_structural_matches(
             graph, op_type="Add", parent_ops=[[], ["Constant"]]
@@ -56,13 +50,11 @@ class DeleteTrivialOnnxAdds(OnnxTransform):
             if not numpy.all(constant_array == 0.0):
                 continue
 
-            _LOGGER.debug(f"Matched {match}")
-            count += 1
+            self.log_match(match)
 
             parent = graph.get_node_single_parent(add, 0)
             if parent is not None:
                 parent.output[0] = add.output[0]
             self.delete_node_deferred(add)
             self.delete_node_deferred(constant)
-        _LOGGER.info(f"Deleted {count} Add nodes")
         return model

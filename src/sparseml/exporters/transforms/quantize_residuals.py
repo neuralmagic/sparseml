@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
-
 import onnx
 from onnx import ModelProto, NodeProto
 
@@ -22,8 +20,6 @@ from sparseml.onnx.utils import ONNXGraph, get_quantize_parent_for_dequantize_no
 
 
 __all__ = ["QuantizeResiduals"]
-
-_LOGGER = logging.getLogger(__name__)
 
 
 class QuantizeResiduals(OnnxTransform):
@@ -91,6 +87,8 @@ class QuantizeResiduals(OnnxTransform):
             ):
                 continue
 
+            self.log_match(add_node)
+
             # create de-quantize node for identity
             dequant_output = f"{other_input_node.output[0]}_identity_dequantized"
             identity_dequantize_node = onnx.helper.make_node(
@@ -108,5 +106,4 @@ class QuantizeResiduals(OnnxTransform):
                 if inp == other_input_node.output[0]
             ][0]
             add_node.input[relu_input_idx] = dequant_output
-        _LOGGER.info(f"Quantized {len(self._nodes_to_add)} residuals")
         return model
