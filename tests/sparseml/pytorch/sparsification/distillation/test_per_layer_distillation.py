@@ -200,3 +200,15 @@ def test_distillation_modifier_yaml():
         == serialized_modifier.distill_output_keys
         == obj_modifier.distill_output_keys
     )
+
+
+def test_optimizer_serialization_with_projects():
+    # since we are adding param groups to optimizer during initialization, we need
+    # to ensure that they can be serialized/reloaded properly
+    assert False, "TODO"
+
+
+def test_hooks_survive_after_quantization_is_applied():
+    # this should test fused module hooks are properly kept around during
+    # quantization
+    assert False, "TODO"
