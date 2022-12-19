@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 from typing import List
 
 import numpy
@@ -22,6 +23,8 @@ from sparseml.onnx.utils import ONNXGraph
 
 
 __all__ = ["RemoveDuplicateQConvWeights"]
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class RemoveDuplicateQConvWeights(OnnxTransform):
@@ -61,9 +64,14 @@ class RemoveDuplicateQConvWeights(OnnxTransform):
                 weights_for_group.append(weight)
 
         # create the new shared initializers and update the nodes
+        num_inits = 0
+        num_groups = 0
         for idx, (weight, qconv_nodes) in enumerate(
             zip(weights_for_group, qconv_groups)
         ):
+            if len(qconv_nodes) == 1:
+                continue
+
             shared_init = numpy_helper.from_array(
                 weight, name=f"qconv_shared_weight_group_{idx}"
             )
@@ -73,7 +81,9 @@ class RemoveDuplicateQConvWeights(OnnxTransform):
                     node.input[3] = shared_init.name
                 elif node.op_type == "ConvInteger":
                     node.input[1] = shared_init.name
-
-        graph = ONNXGraph(model)
-        graph.delete_unused_initializers()
+            node_names = [n.name for n in qconv_nodes]
+            _LOGGER.debug("Combined weight initializer for %s", node_names)
+            num_inits += len(qconv_nodes)
+            num_groups += 1
+        _LOGGER.debug("Merged %d weight initializers into %d", num_inits, num_groups)
         return model

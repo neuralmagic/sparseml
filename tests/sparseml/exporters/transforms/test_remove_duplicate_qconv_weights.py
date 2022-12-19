@@ -67,9 +67,26 @@ def onnx_model():
     conv6 = onnx.helper.make_node(
         "ConvInteger", ["input", "weight3_c"], ["conv6_output"], name="conv6"
     )
-
+    add1 = onnx.helper.make_node(
+        "Add",
+        ["conv1_output", "conv2_output"],
+        ["add1_output"],
+        name="add1",
+    )
+    add2 = onnx.helper.make_node(
+        "Add",
+        ["conv3_output", "conv4_output"],
+        ["add2_output"],
+        name="add2",
+    )
+    add3 = onnx.helper.make_node(
+        "Add",
+        ["conv5_output", "conv6_output"],
+        ["add3_output"],
+        name="add3",
+    )
     graph = onnx.helper.make_graph(
-        nodes=[conv1, conv2, conv3, conv4, conv5, conv6],
+        nodes=[conv1, conv2, conv3, conv4, conv5, conv6, add1, add2, add3],
         name="g",
         inputs=[model_input],
         outputs=[model_output],
@@ -100,16 +117,19 @@ def test_vanilla(onnx_model: ModelProto):
         "conv4",
         "conv5",
         "conv6",
+        "add1",
+        "add2",
+        "add3",
     ]
     assert [i.name for i in onnx_model.graph.initializer] == [
+        "weight2",
         "scale",
         "zp",
         "qconv_shared_weight_group_0",
-        "qconv_shared_weight_group_1",
         "qconv_shared_weight_group_2",
     ]
 
-    _, _, g0, g1, g2 = onnx_model.graph.initializer
+    g1, _, _, g0, g2 = onnx_model.graph.initializer
 
     assert list(numpy_helper.to_array(g0)) == [1]
     assert list(numpy_helper.to_array(g1)) == [2]
