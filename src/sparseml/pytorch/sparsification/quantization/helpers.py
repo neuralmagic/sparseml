@@ -18,7 +18,6 @@ Helper functions for performing quantization aware training with PyTorch
 
 from copy import deepcopy
 from dataclasses import dataclass, field
-from functools import partial
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import torch
@@ -28,11 +27,15 @@ from torch import quantization as torch_quantization
 from torch.nn import BatchNorm2d, Conv2d, Embedding, Module, ReLU
 
 from sparseml.pytorch.nn import ReLU as ReLU_nm
+from sparseml.pytorch.sparsification.quantization.quantization_scheme import (
+    QuantizationArgs,
+    QuantizationScheme,
+    get_observer,
+)
 from sparseml.pytorch.utils import get_layer
 
 
 _PARSED_TORCH_VERSION = version.parse(torch.__version__)
-_TORCH_PRE_112 = _PARSED_TORCH_VERSION < version.parse("1.12.0")
 
 __all__ = [
     "QATWrapper",
@@ -195,13 +198,14 @@ class QATWrapper(Module):
         QConfig for each output. Instead of a QConfig objects, the string 'asymmetric'
         or 'symmetric' may be used to use default UINT8 asymmetric and symmetric
         quantization respectively
-    :param qproperties: properties used to define QConfig.
+    :param qproperties: properties used to define QConfig. may also be a quantization
+        scheme
     """
 
     @staticmethod
     def from_module(
         module: Module,
-        qproperties: QConfigProperties,
+        qproperties: Union[QConfigProperties, QuantizationScheme],
     ) -> "QATWrapper":
         """
         :param module: torch Module to create a QATWrapper for
@@ -224,7 +228,7 @@ class QATWrapper(Module):
     def __init__(
         self,
         forward_fn: Callable[[Any], Any],
-        qproperties: QConfigProperties,
+        qproperties: Union[QConfigProperties, QuantizationScheme],
         num_inputs: int = 1,
         kwarg_input_names: List[str] = None,
         num_outputs: int = 1,
@@ -254,7 +258,11 @@ class QATWrapper(Module):
 
         self.forward_fn = forward_fn
         # Add weight qconfig to forward_fn (in case it has weights)
-        qconfig_ = get_qat_qconfig(qproperties)
+        qconfig_ = (
+            get_qat_qconfig(qproperties)
+            if isinstance(qproperties, QConfigProperties)
+            else qproperties.get_qconfig()  # QuantizationScheme
+        )
         qconfig = torch_quantization.QConfig(
             activation=torch.nn.Identity,
             weight=qconfig_.weight,
@@ -346,9 +354,13 @@ class QATWrapper(Module):
         """
         for quant_stub, qconfig in zip(self.input_quant_stubs, self.input_qconfigs):
             quant_stub.qconfig = qconfig
+            if hasattr(qconfig, "quantization_stub"):
+                quant_stub.quantization_stub = qconfig.quantization_stub
 
         for quant_stub, qconfig in zip(self.output_quant_stubs, self.output_qconfigs):
             quant_stub.qconfig = qconfig
+            if hasattr(qconfig, "quantization_stub"):
+                quant_stub.quantization_stub = qconfig.quantization_stub
 
     @staticmethod
     def _load_qconfigs(
@@ -385,10 +397,26 @@ class QATWrapper(Module):
                     f"Found string with value {qconfig} in {name}"
                 )
 
-            qproperties_idx = deepcopy(qproperties)
-            qproperties_idx.symmetric_activations = qconfig == "symmetric"
+            qconfig_idx = None
+            if isinstance(qproperties, QConfigProperties):
+                qproperties_idx = deepcopy(qproperties)
+                qproperties_idx.symmetric_activations = qconfig == "symmetric"
+                qconfig_idx = get_qat_qconfig(qproperties_idx)
+            else:
+                scheme_idx = deepcopy(qproperties)
+                symmetric = qconfig == "symmetric"
+                # always use output_activations of scheme because the activations
+                # of the QuantStub() are the ones tracked
+                if scheme_idx.output_activations is not None:
+                    scheme_idx.input_activations.symmetric = symmetric
+                else:
+                    scheme_idx.output_activations = QuantizationArgs(
+                        symmetric=symmetric
+                    )
+                qconfig_idx = scheme_idx.get_qconfig()
+                qconfig_idx.quantization_scheme = scheme_idx
 
-            qconfigs[idx] = get_qat_qconfig(qproperties_idx)
+            qconfigs[idx] = qconfig_idx
 
         return qconfigs
 
@@ -442,26 +470,6 @@ def configure_module_qat_wrappers(
             module=child_module,
             qproperties=qproperties,
         )
-
-
-def compute_range(dtype: torch.dtype, bits: int):
-    """
-    compute quantization limits depending on data type and number of bits
-
-    :param dtype: data type.
-    :param bits: number of bits.
-    :return: minimum limit, maximum limit, whether the range is customized
-    """
-    bits = bits if bits else 8
-    is_custom = bits != 8
-    if dtype == torch.qint8:
-        quant_min = -(2 ** (bits - 1))
-        quant_max = (2 ** (bits - 1)) - 1
-    elif dtype == torch.quint8:
-        quant_min = 0
-        quant_max = (2 ** bits) - 1
-
-    return quant_min, quant_max, is_custom
 
 
 def configure_module_default_qconfigs(module: Module):
@@ -562,75 +570,6 @@ def get_qat_qconfig(qproperties: QConfigProperties) -> "torch.quantization.QConf
         activation=activation_observer,
         weight=weight_observer,
     )
-
-
-def get_observer(
-    symmetric: bool,
-    dtype: torch.dtype,
-    bits: int,
-    reduce_range: bool,
-    qconfig_kwargs: Dict[str, Any],
-):
-    qscheme = torch.per_tensor_symmetric if symmetric else torch.per_tensor_affine
-    quant_min, quant_max, is_custom_qrange = compute_range(dtype, bits)
-
-    observer_cls = torch_quantization.MovingAverageMinMaxObserver
-    observer_kwargs = dict(
-        dtype=dtype,
-        qscheme=qscheme,
-        reduce_range=reduce_range,
-    )
-
-    """
-    in torch 1.9.1, quant_min and quant_max are not passed to observer:
-    https://github.com/pytorch/pytorch/blob/v1.9.1/torch/quantization/fake_quantize.py#L109
-    however in 1.12.0, this is fixed so both are passed to observer:
-    https://github.com/pytorch/pytorch/blob/v1.12.1/torch/ao/quantization/fake_quantize.py#L132
-
-    Passing quant_min/quant_max to observer means the observer will have
-    `self.has_customized_qrange == True` in both 1.9.1 and 1.12.0.
-
-    For whatever reason, both versions calculate zero point for
-    quint8 differently **if there is a customized_qrange**
-    1. customized qrange has zero point of 127
-    2. non-customized has zero point of 128.
-    source:
-    https://github.com/pytorch/pytorch/blob/v1.12.1/torch/ao/quantization/observer.py#L293
-
-    **we want to ensure that the zero point is 128**
-    see https://github.com/neuralmagic/sparseml/pull/604
-    """
-    if is_custom_qrange:
-        # for both versions we need to include the custom min/max values in kwargs
-        observer_kwargs["quant_min"] = quant_min
-        observer_kwargs["quant_max"] = quant_max
-        if _TORCH_PRE_112:
-            # pre 1.12, the observer doesn't get passed the quant_min/quant_max values,
-            # so we patch them in to the constructor of the observer
-            observer_cls = partial(
-                observer_cls, quant_min=quant_min, quant_max=quant_max
-            )
-    else:
-        # if using a non custom qrange, we can rely on default values used by
-        # the observers
-        if _TORCH_PRE_112:
-            # pre 1.12, the observer doesn't get passed the quant_min/quant_max values,
-            # so we are safe to pass these to FakeQuantize
-            observer_kwargs["quant_min"] = quant_min
-            observer_kwargs["quant_max"] = quant_max
-        else:
-            # post 1.12 we cannot pass them to the observer since that will set
-            # has_customized_qrange. instead we rely on the default values
-            # being equal to the `quant_min` and `quant_max` here.
-            pass
-
-    observer_kwargs["observer"] = observer_cls
-    observer_kwargs.update(qconfig_kwargs or {})
-    observer = torch_quantization.FakeQuantize.with_args(
-        **observer_kwargs,
-    )
-
-    return observer
 
 
 def freeze_bn_stats(module: Module):
@@ -739,24 +678,28 @@ def fuse_module_conv_bn_relus(
 
 def prepare_embeddings_qat(
     module: Module,
-    qproperties: QConfigProperties,
+    qproperties: Optional[QConfigProperties] = None,
     qconfig: Optional["torch.quantization.QConfig"] = None,
 ):
     """
     adds a fake quantize call to the weights of any Embedding modules in the given
-    module
+    module. The used qconfig will have a heirarchy of
+
+    submodule.qconfig -> qconfig -> qproperties
 
     :param module: module to run QAT for the embeddings of
-    :param qconfig: qconfig to generate the fake quantize ops from. Default uses INT8
-        asymmetric range
-    :param qproperties: properties used to define QConfig.
+    :param qconfig: qconfig to generate the fake quantize ops from if qconfig
+        not set in moduleDefault uses INT8 asymmetric range
+    :param qproperties: properties used to define QConfig if qconfig not present
     """
-    if qconfig is None:
+    if qconfig is None and qproperties is not None:
         qproperties.symmetric_weights = False
         qconfig = get_qat_qconfig(qproperties)
     for submodule in module.modules():
-        if type(submodule) is Embedding:
-            _prepare_qat_embedding(submodule, qconfig)
+        submodule_qconfig = getattr(submodule, "qconfig", None)
+        submodule_qconfig = submodule_qconfig or qconfig
+        if type(submodule) is Embedding and submodule_qconfig is not None:
+            _prepare_qat_embedding(submodule, submodule_qconfig)
 
 
 def _delete_get_block_hooks(
