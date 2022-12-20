@@ -110,7 +110,7 @@ def _test_dataloader(
             3,
             2,
             30,
-            {"0000": numpy.int64, "0001": numpy.float},
+            {"0000": numpy.int64, "0001": numpy.float32},
         ),
         ({"0000": (3, 16, 16)}, {"0000": (1000, 1)}, 3, 20, 30, None),
         (

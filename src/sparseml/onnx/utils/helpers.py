@@ -212,12 +212,11 @@ def get_numpy_dtype(tensor: onnx.TensorProto) -> Union[None, numpy.dtype]:
     """
     data_type_enum = tensor.type.tensor_type.elem_type  # type: int
     data_type = onnx.TensorProto.DataType.Name(data_type_enum).lower()  # type: str
+    if data_type == "float":
+        data_type = "float32"
 
     if hasattr(numpy, data_type):
-        dtype = getattr(numpy, data_type)
-        if dtype is numpy.float:  # default to float32
-            dtype = numpy.float32
-        return dtype
+        return getattr(numpy, data_type)
     return None
 
 
