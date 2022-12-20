@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Union
 
 from onnx import NodeProto, TensorProto
 
@@ -25,6 +25,7 @@ __all__ = [
     "MatchResult",
     "NodeOrInitializer",
     "get_structural_matches",
+    "any_of",
 ]
 
 INITIALIZER_MATCH = "__Initializer__"
@@ -34,6 +35,7 @@ match against initializers in an onnx graph
 """
 
 _OPTIONAL_TAG = "Optional-"
+_ANY_TAG = "Any-"
 
 
 def optional_node(op_type: str) -> str:
@@ -56,6 +58,24 @@ def optional_node(op_type: str) -> str:
     return _OPTIONAL_TAG + op_type
 
 
+def any_of(*op_type: str) -> str:
+    """
+    Tells :func:`get_structural_matches` that this can be a set of op types
+
+    ```python
+    get_structural_matches(
+        ...,
+        children_ops=[
+            [
+                any_of("QuantizeLinear", "DequantizeLinear"),
+            ]
+        ]
+    )
+    ```
+    """
+    return _ANY_TAG + "-".join(op_type)
+
+
 def get_structural_matches(
     graph: ONNXGraph,
     op_type: str,
@@ -67,16 +87,18 @@ def get_structural_matches(
     have the specified parent/children structure,
     controlled via parent_ops/children_ops.
 
+    ### op_type example
+
     A simple example just matching against op_type:
 
-        ```python
-        matches = get_structural_matches(graph, op_type="Identity")
-        for match in matches:
-            id_node = match.node
-            assert isinstance(id_node, onnx.NodeProto) and id_node.op_type == "Identity"
-            assert match.parents == []
-            assert match.children == []
-        ```
+    ```python
+    matches = get_structural_matches(graph, op_type="Identity")
+    for match in matches:
+        id_node = match.node
+        assert isinstance(id_node, onnx.NodeProto) and id_node.op_type == "Identity"
+        assert match.parents == []
+        assert match.children == []
+    ```
 
     `parent_ops` and `children_ops` are list of list of op type strings.
     It's a list of lists because nodes can have multiple inputs and multiple outputs.
@@ -89,39 +111,45 @@ def get_structural_matches(
     than parent_ops/children_ops, it is not a possible match and will
     be discarded.
 
+    ### `parent_ops` and `INITIALIZER_MATCH` example
+
     Here's a simple example of matching against an identity node
     with a single parent (because there is a single list in parent_ops),
     and the parent must be an initializer (the INITIALIZER_MATCH value):
 
-        ```python
-        matches = get_structural_matches(
-            graph,
-            op_type="Identity",
-            parent_ops=[[INITIALIZER_MATCH]]
-        )
-        for match in matches:
-            id_node = match.node
-            (init, ) = match.parents[0]
-            assert isinstance(init, onnx.TensorProto)
-        ```
+    ```python
+    matches = get_structural_matches(
+        graph,
+        op_type="Identity",
+        parent_ops=[[INITIALIZER_MATCH]]
+    )
+    for match in matches:
+        id_node = match.node
+        (init, ) = match.parents[0]
+        assert isinstance(init, onnx.TensorProto)
+    ```
+
+    ### Empty `parent_ops` example
 
     Another example is matching against a single parent branch of a node. In this
     case you can just specify `[]` as one of the parent ops:
 
-        ```python
-        matches = get_structural_matches(
-            graph,
-            op_type="Add",
-            parent_ops=[
-                [],
-                ["QuantizeLinear", "DequantizeLinear"]
-            ]
-        )
-        for match in matches:
-            add_node = match.node
-            assert len(match.parents[0]) == 0
-            parent_1_quant, parent_1_dequant = match.parents[1]
-        ```
+    ```python
+    matches = get_structural_matches(
+        graph,
+        op_type="Add",
+        parent_ops=[
+            [],
+            ["QuantizeLinear", "DequantizeLinear"]
+        ]
+    )
+    for match in matches:
+        add_node = match.node
+        assert len(match.parents[0]) == 0
+        parent_1_quant, parent_1_dequant = match.parents[1]
+    ```
+
+    ### `optional_node` example
 
     Here is a really complicated example with optional nodes and multiple parents. Here
     we match against MatMul nodes that have at least 2 inputs from Quant/Dequant
@@ -135,29 +163,46 @@ def get_structural_matches(
     In both cases, the length of match.children[0] will be the same as
     the length of children_ops[0].
 
-        ```python
-        matches = get_structural_matches(
-            graph,
-            op_type="MatMul",
-            parent_ops=[
-                ["QuantizeLinear", "DequantizeLinear"],
-                ["QuantizeLinear", "DequantizeLinear"],
-            ],
-            children_ops=[
-                [
-                    optional_node("Transpose"),
-                    optional_node("Reshape"),
-                    "QuantizeLinear",
-                    "DequantizeLinear",
-                ]
+    ```python
+    matches = get_structural_matches(
+        graph,
+        op_type="MatMul",
+        parent_ops=[
+            ["QuantizeLinear", "DequantizeLinear"],
+            ["QuantizeLinear", "DequantizeLinear"],
+        ],
+        children_ops=[
+            [
+                optional_node("Transpose"),
+                optional_node("Reshape"),
+                "QuantizeLinear",
+                "DequantizeLinear",
             ]
-        )
-        for match in matches:
-            matmul_node = match.node
-            parent_0_quant, parent_0_dequant = match.parents[0]
-            parent_1_quant, parent_1_dequant = match.parents[1]
-            opt_transpose, opt_reshape, child_quant, child_dequant = match.children[0]
-        ```
+        ]
+    )
+    for match in matches:
+        matmul_node = match.node
+        parent_0_quant, parent_0_dequant = match.parents[0]
+        parent_1_quant, parent_1_dequant = match.parents[1]
+        opt_transpose, opt_reshape, child_quant, child_dequant = match.children[0]
+    ```
+
+    ### `any_of` example
+
+    Here is an example using the `any_of` function to match a parent node against
+    a set of op_types:
+
+    ```python
+    matches = get_structural_matches(
+        graph,
+        op_type="MatMul",
+        parent_ops=[[any_of("QuantizeLinear", "DequantizeLinear")]]
+    )
+    for match in matches:
+        (quant_or_dequant, ) = match.parents[0]
+        assert quant_or_dequant.op_type in ["QuantizeLinear", "DequantizeLinear"]
+    ```
+
 
     :param graph: the graph to search in
     :param op_type: The `NodeProto.op_type` to match against
@@ -247,12 +292,19 @@ class MatchResult:
         ```
         """
 
-
-def _is_optional_node(tag: str) -> Tuple[str, bool]:
-    if tag.startswith(_OPTIONAL_TAG):
-        return tag.split("-")[1], True
-    else:
-        return tag, False
+    def __str__(self) -> str:
+        node_name = repr(self.node.name) if self.node is not None else None
+        parent_names = [
+            [p.name if p is not None else None for p in ps] for ps in self.parents
+        ]
+        children_names = [
+            [c.name if c is not None else None for c in cs] for cs in self.children
+        ]
+        return (
+            f"MatchResult(node={node_name}, "
+            f"parents={parent_names}, "
+            f"children={children_names})"
+        )
 
 
 def _match_structure(
@@ -275,20 +327,30 @@ def _match_structure(
 def _match_op_type(
     match: MatchResult, graph: ONNXGraph, node: NodeOrInitializer, op_type: str
 ) -> bool:
-    op_type, is_optional = _is_optional_node(op_type)
-
-    if op_type == INITIALIZER_MATCH and (
-        node is None or node.name not in graph._name_to_initializer
-    ):
+    if node is None:
         return False
 
-    if op_type != INITIALIZER_MATCH and not (
-        isinstance(node, NodeProto) and node.op_type == op_type
-    ):
+    if op_type.startswith(_OPTIONAL_TAG):
+        op_type = op_type.split("-")[1]
+        is_optional = True
+    else:
+        is_optional = False
+
+    if op_type.startswith(_ANY_TAG):
+        op_types = op_type.split("-")[1:]
+    else:
+        op_types = [op_type]
+
+    # match against initializers
+    if node.name in graph._name_to_initializer and INITIALIZER_MATCH not in op_types:
+        return False
+
+    if isinstance(node, NodeProto) and node.op_type not in op_types:
         if is_optional:
             # NOTE: this is handled in `_match_children`
             match.node = None
         return is_optional
+
     return True
 
 

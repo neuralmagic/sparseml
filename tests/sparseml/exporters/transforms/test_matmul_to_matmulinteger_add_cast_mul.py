@@ -96,34 +96,6 @@ def onnx_model() -> onnx.ModelProto:
     return model
 
 
-@pytest.fixture
-def onnx_model_with_quant(onnx_model: onnx.ModelProto):
-    onnx_model.graph.node.append(
-        helper.make_node(
-            "QuantizeLinear",
-            ["add_output", "y_scale", "zero_point"],
-            ["output_quant_output"],
-            name="output_quant",
-        )
-    )
-    onnx.checker.check_model(onnx_model)
-    return onnx_model
-
-
-@pytest.fixture
-def onnx_model_with_qdq(onnx_model_with_quant: onnx.ModelProto):
-    onnx_model_with_quant.graph.node.append(
-        helper.make_node(
-            "DequantizeLinear",
-            ["output_quant_output", "y_scale", "zero_point"],
-            ["output_dequant_output"],
-            name="output_dequant",
-        )
-    )
-    onnx.checker.check_model(onnx_model_with_quant)
-    return onnx_model_with_quant
-
-
 def test_vanilla(onnx_model: onnx.ModelProto):
     onnx_model = MatMulToMatMulIntegerAddCastMul().apply(onnx_model)
     onnx.checker.check_model(onnx_model)
@@ -168,50 +140,4 @@ def test_no_bias_changes_nothing(onnx_model: onnx.ModelProto):
         "weight_dequant",
         "transpose",
         "matmul",
-    ]
-
-
-def test_output_quant_removes_quant(onnx_model_with_quant: onnx.ModelProto):
-    onnx_model = MatMulToMatMulIntegerAddCastMul().apply(onnx_model_with_quant)
-    onnx.checker.check_model(onnx_model)
-    assert [i.name for i in onnx_model.graph.initializer] == [
-        "zero_point",
-        "matmul.weight_quantized",
-        "add.bias_quantized",
-        "add.bias_quantized.scale",
-    ]
-    assert [n.name for n in onnx_model.graph.node] == [
-        "matmul_quant",
-        "matmul_bias_add_quant",
-        "matmul_bias_add_quant_cast",
-        "matmul_bias_add_quant_rescale_mul",
-    ]
-    assert [n.op_type for n in onnx_model.graph.node] == [
-        "MatMulInteger",
-        "Add",
-        "Cast",
-        "Mul",
-    ]
-
-
-def test_output_qdq_removes_qdq(onnx_model_with_qdq: onnx.ModelProto):
-    onnx_model = MatMulToMatMulIntegerAddCastMul().apply(onnx_model_with_qdq)
-    onnx.checker.check_model(onnx_model)
-    assert [i.name for i in onnx_model.graph.initializer] == [
-        "zero_point",
-        "matmul.weight_quantized",
-        "add.bias_quantized",
-        "add.bias_quantized.scale",
-    ]
-    assert [n.name for n in onnx_model.graph.node] == [
-        "matmul_quant",
-        "matmul_bias_add_quant",
-        "matmul_bias_add_quant_cast",
-        "matmul_bias_add_quant_rescale_mul",
-    ]
-    assert [n.op_type for n in onnx_model.graph.node] == [
-        "MatMulInteger",
-        "Add",
-        "Cast",
-        "Mul",
     ]

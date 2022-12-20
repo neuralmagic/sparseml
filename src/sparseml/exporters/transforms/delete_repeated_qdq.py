@@ -31,25 +31,24 @@ class DeleteRepeatedQdq(OnnxTransform):
 
     Transforms
     ```
-    QuantizeLinear
-        |
-    DequantizeLinear
-        |
-    QuantizeLinear
-        |
-    DequantizeLinear
+    | QuantizeLinear
+    |     |
+    | DequantizeLinear
+    |     |
+    | QuantizeLinear
+    |     |
+    | DequantizeLinear
     ```
     Into
     ```
-    QuantizeLinear
-        |
-    DequantizeLinear
+    | QuantizeLinear
+    |     |
+    | DequantizeLinear
     ```
     """
 
     def transform(self, model: ModelProto) -> ModelProto:
         graph = ONNXGraph(model)
-        nodes_to_delete = []
         quant_nodes = [n for n in model.graph.node if n.op_type == "QuantizeLinear"]
         for quant_node_1 in quant_nodes:
             dequant_node_1 = graph.get_node_single_child(quant_node_1)
@@ -61,16 +60,12 @@ class DeleteRepeatedQdq(OnnxTransform):
             dequant_node_2 = graph.get_node_single_child(quant_node_2)
             if not assert_node_type(dequant_node_2, "DequantizeLinear"):
                 continue
+            self.log_match(quant_node_1)
 
             # forward first qat block input to that of the second
             quant_node_2.input[0] = quant_node_1.input[0]
 
             # remove repeated quant/dequant block
-            nodes_to_delete.append(quant_node_1)
-            nodes_to_delete.append(dequant_node_1)
-
-        if len(nodes_to_delete) > 0:
-            graph.delete_nodes(nodes_to_delete)
-        graph.update()
-        graph.delete_unused_initializers()
+            self.delete_node_deferred(quant_node_1)
+            self.delete_node_deferred(dequant_node_1)
         return model

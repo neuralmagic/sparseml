@@ -167,6 +167,10 @@ def test_yolov5_exporters_are_equivalent(tmp_path):
     )
 
 
+@pytest.mark.skipif(
+    not os.getenv("RUN_EXPORTER_REGRESSION_TESTS", False),
+    reason="Slow regression tests and requires yolov5 dependency",
+)
 @pytest.mark.parametrize(
     "quantize,convert_qat",
     [
@@ -176,7 +180,46 @@ def test_yolov5_exporters_are_equivalent(tmp_path):
     ],
 )
 def test_bert_exporters_are_equivalent(tmp_path, quantize: bool, convert_qat: bool):
-    assert False, "TODO"
+
+    from sparseml.transformers.utils import SparseAutoModel
+    from sparsezoo import Model
+
+    old_dir = tmp_path / "old_exporter"
+    old_dir.mkdir()
+    new_dir = tmp_path / "new_exporter"
+    new_dir.mkdir()
+
+    zoo_model = Model(
+        "zoo:nlp/question_answering/bert-base/pytorch/huggingface/squad/base-none"
+    )
+    sample_batch = zoo_model.sample_inputs.sample_batch(batch_as_list=True)
+    sample_batch = [torch.tensor(v) for v in sample_batch]
+
+    torch_model = SparseAutoModel.question_answering_from_pretrained(
+        model_name_or_path=zoo_model.training.path, model_type="model"
+    )
+    if quantize:
+        QuantizationModifier().apply(torch_model.train())
+
+    use_qlinearconv = hasattr(torch_model, "export_with_qlinearconv") and (
+        torch_model.export_with_qlinearconv
+    )
+    new_exporter = TorchToONNX(sample_batch)
+    new_exporter.export(torch_model, new_dir / "model.onnx")
+    if convert_qat:
+        ONNXToDeepsparse(use_qlinear_conv=use_qlinearconv).export(
+            new_dir / "model.onnx", new_dir / "model.onnx"
+        )
+
+    old_exporter = ModuleExporter(torch_model, old_dir)
+    old_exporter.export_onnx(sample_batch, convert_qat=convert_qat)
+
+    _assert_onnx_models_are_equal(
+        str(tmp_path / old_dir / "model.onnx"),
+        str(tmp_path / new_dir / "model.onnx"),
+        zoo_model.sample_inputs.sample_batch(batch_as_list=False),
+        expect_op_types=["QuantizeLinear", "DequantizeLinear"] if quantize else None,
+    )
 
 
 def _assert_onnx_models_are_equal(
@@ -193,6 +236,8 @@ def _assert_onnx_models_are_equal(
 
     old_op_types = Counter([n.op_type for n in old_model.graph.node])
     new_op_types = Counter([n.op_type for n in new_model.graph.node])
+    print("OLD", old_op_types)
+    print("NEW", new_op_types)
     assert old_op_types == new_op_types
     if expect_op_types is not None:
         for op_type in expect_op_types:
@@ -203,9 +248,19 @@ def _assert_onnx_models_are_equal(
     old_session = ort.InferenceSession(old_model_path)
     input_name = old_session.get_inputs()[0].name
     output_name = old_session.get_outputs()[0].name
-    old_output = old_session.run([output_name], {input_name: sample_batch.numpy()})
+    old_output = old_session.run(
+        [output_name],
+        sample_batch
+        if isinstance(sample_batch, dict)
+        else {input_name: sample_batch.numpy()},
+    )
 
     new_session = ort.InferenceSession(new_model_path)
-    new_output = new_session.run([output_name], {input_name: sample_batch.numpy()})
+    new_output = new_session.run(
+        [output_name],
+        sample_batch
+        if isinstance(sample_batch, dict)
+        else {input_name: sample_batch.numpy()},
+    )
 
     assert numpy.allclose(old_output, new_output)
