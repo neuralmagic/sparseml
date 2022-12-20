@@ -210,12 +210,7 @@ def get_numpy_dtype(tensor: onnx.TensorProto) -> Union[None, numpy.dtype]:
     :param tensor: the tensor to get the dtype of
     :return: a NumPy dtype for the tensor if available otherwise None
     """
-    data_type_enum = tensor.type.tensor_type.elem_type  # type: int
-    data_type = onnx.TensorProto.DataType.Name(data_type_enum).lower()  # type: str
-
-    if hasattr(numpy, data_type):
-        return getattr(numpy, data_type)
-    return None
+    return numpy_helper.to_array(tensor).dtype
 
 
 """
