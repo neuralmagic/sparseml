@@ -13,49 +13,172 @@
 # limitations under the License.
 
 import os
+import re
+from collections import OrderedDict
 from typing import Callable
 
 import pytest
 import torch
-from torch import Tensor
+from torch import Tensor, nn
 from torch.nn import Module
 from torch.optim import Optimizer
 
 from sparseml.pytorch.sparsification import (
-    DistillationModifier,
-    Modifier,
+    PerLayerDistillationModifier,
     ScheduledModifier,
 )
-from tests.sparseml.pytorch.helpers import LinearNet, create_optim_sgd
+from tests.sparseml.pytorch.helpers import create_optim_sgd
 from tests.sparseml.pytorch.sparsification.test_modifier import ScheduledModifierTest
 
 
-from tests.sparseml.pytorch.helpers import (  # noqa isort:skip
-    test_epoch,
-    test_loss,
-    test_steps_per_epoch,
-)
-
-
-DISTILLATION_MODIFIERS = [
-    lambda: DistillationModifier(start_epoch=0.0),
-]
-
-
-def _get_fake_batch(model_lambda):
-    batch_size = 5
-    input_shape = model_lambda.layer_descs()[0].input_size
-    return torch.randn(batch_size, *input_shape)
+def mlp(*layer_sizes: int):
+    layers = []
+    for idx, size in enumerate(layer_sizes[:-1]):
+        layers.append(
+            nn.Sequential(
+                OrderedDict(
+                    [
+                        ("linear", nn.Linear(size, layer_sizes[idx + 1])),
+                        ("activation", nn.ReLU()),
+                    ]
+                )
+            )
+        )
+    return nn.Sequential(*layers)
 
 
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
     reason="Skipping pytorch tests",
 )
-@pytest.mark.parametrize("modifier_lambda", DISTILLATION_MODIFIERS, scope="function")
-@pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
-@pytest.mark.parametrize("optim_lambda", [create_optim_sgd], scope="function")
-class TestDistillationModifierImpl(ScheduledModifierTest):
+def test_different_structure_raises_error():
+    modifier = PerLayerDistillationModifier()
+    student = mlp(12, 24, 32)
+    teacher = mlp(8, 12, 24, 64)
+
+    with pytest.raises(
+        ValueError,
+        match="Found different numbers of teacher and student layers to distill.",
+    ):
+        modifier.initialize(student, distillation_teacher=teacher)
+
+
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
+)
+def test_different_sizes_without_projection_raises_error():
+    modifier = PerLayerDistillationModifier(project_features=False)
+    student = mlp(12, 24, 32)
+    teacher = mlp(12, 12, 24)
+    opt = create_optim_sgd(student)
+
+    modifier.initialize(student, distillation_teacher=teacher)
+
+    with pytest.raises(
+        RuntimeError,
+        match=re.escape(
+            "The size of tensor a (24) must match "
+            "the size of tensor b (12) at non-singleton dimension 1"
+        ),
+    ):
+        x = torch.randn(5, 12)
+        fake_loss = student(x).mean()
+        modifier.loss_update(
+            fake_loss,
+            student,
+            opt,
+            modifier.start_epoch,
+            10,
+            student_outputs=fake_loss,
+            student_inputs=x,
+        )
+
+
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
+)
+def test_same_structure_different_layer_sizes():
+    modifier = PerLayerDistillationModifier(
+        student_layer_names=["1.linear", "2.linear"],
+        teacher_layer_names=["1.linear", "2.linear"],
+        project_features=True,
+    )
+    student = mlp(12, 24, 32, 64)
+    teacher = mlp(12, 48, 64, 128)
+    opt = create_optim_sgd(student)
+    modifier.initialize(student, distillation_teacher=teacher)
+
+    x = torch.randn(5, 12)
+    fake_loss = student(x).mean()
+    updated_loss = modifier.loss_update(
+        fake_loss,
+        student,
+        opt,
+        modifier.start_epoch,
+        10,
+        student_inputs=x,
+        student_outputs=fake_loss,
+    )
+
+    assert isinstance(updated_loss, torch.Tensor)
+    assert updated_loss.shape == fake_loss.shape
+    assert fake_loss.item() != updated_loss.item()
+
+
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
+)
+def test_different_structure():
+    modifier = PerLayerDistillationModifier(
+        student_layer_names=["0.linear", "1.linear"],
+        teacher_layer_names=["1.linear", "2.linear"],
+        project_features=True,
+    )
+    student = mlp(12, 24, 32)
+    teacher = mlp(12, 12, 24, 64)
+    opt = create_optim_sgd(student)
+    modifier.initialize(student, distillation_teacher=teacher)
+
+    x = torch.randn(5, 12)
+    fake_loss = student(x).mean()
+    updated_loss = modifier.loss_update(
+        fake_loss,
+        student,
+        opt,
+        modifier.start_epoch,
+        10,
+        student_inputs=x,
+        student_outputs=fake_loss,
+    )
+
+    assert isinstance(updated_loss, torch.Tensor)
+    assert updated_loss.shape == fake_loss.shape
+    assert fake_loss.item() != updated_loss.item()
+
+
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
+)
+@pytest.mark.parametrize(
+    "modifier_lambda,model_lambda",
+    [
+        (
+            # same structure & sizes
+            lambda: PerLayerDistillationModifier(
+                student_layer_names=["0.linear", "1.linear"],
+                teacher_layer_names=["0.linear", "1.linear"],
+                project_features=False,
+            ),
+            lambda: mlp(12, 24, 32),
+        ),
+    ],
+)
+@pytest.mark.parametrize("optim_lambda", [create_optim_sgd])
+class TestPerLayerDistillationModifierImpl(ScheduledModifierTest):
     def test_update_ready(
         self,
         modifier_lambda: Callable[[], ScheduledModifier],
@@ -119,7 +242,7 @@ class TestDistillationModifierImpl(ScheduledModifierTest):
 
     def test_loss_update(
         self,
-        modifier_lambda: Callable[[], Modifier],
+        modifier_lambda: Callable[[], ScheduledModifier],
         model_lambda: Callable[[], Module],
         optim_lambda: Callable[[Module], Optimizer],
         test_epoch: float,  # noqa: F811
@@ -132,9 +255,7 @@ class TestDistillationModifierImpl(ScheduledModifierTest):
 
         self.initialize_helper(modifier, model, distillation_teacher=model_lambda())
 
-        # test distillation has been applied
-        # fake forward pass
-        student_inputs = _get_fake_batch(model_lambda)
+        student_inputs = torch.randn(5, 12)
         student_outputs = model(student_inputs)
         fake_loss = student_outputs.mean()
         updated_loss = modifier.loss_update(
@@ -143,8 +264,6 @@ class TestDistillationModifierImpl(ScheduledModifierTest):
             optimizer,
             modifier.start_epoch,
             test_steps_per_epoch,
-            student_outputs,
-            student_inputs,
         )
 
         assert isinstance(updated_loss, torch.Tensor)
@@ -157,57 +276,65 @@ class TestDistillationModifierImpl(ScheduledModifierTest):
     reason="Skipping pytorch tests",
 )
 def test_distillation_modifier_yaml():
-    start_epoch = 0.0
-    hardness = 0.9
-    temperature = 5.0
-    distill_output_keys = [0]
+    truth = PerLayerDistillationModifier(
+        gain=2.0,
+        start_epoch=0.0,
+        end_epoch=12.0,
+        update_frequency=1.5,
+        normalize=False,
+        student_layer_names=["a", "b", "c"],
+        teacher_layer_names=["d", "e", "f"],
+        project_features=False,
+        epsilon=3.0,
+    )
     yaml_str = f"""
-        !DistillationModifier
-            start_epoch: {start_epoch}
-            hardness: {hardness}
-            temperature: {temperature}
-            distill_output_keys: {distill_output_keys}
+        !PerLayerDistillationModifier
+            gain: {truth.gain}
+            start_epoch: {truth.start_epoch}
+            end_epoch: {truth.end_epoch}
+            update_frequency: {truth.update_frequency}
+            normalize: {truth.normalize}
+            student_layer_names: {truth.student_layer_names}
+            teacher_layer_names: {truth.teacher_layer_names}
+            project_features: {truth.project_features}
+            epsilon: {truth.epsilon}
         """
-    yaml_modifier = DistillationModifier.load_obj(
-        yaml_str
-    )  # type: DistillationModifier
-    serialized_modifier = DistillationModifier.load_obj(
-        str(yaml_modifier)
-    )  # type: DistillationModifier
-    obj_modifier = DistillationModifier(
-        start_epoch=start_epoch,
-        hardness=hardness,
-        temperature=temperature,
-        distill_output_keys=distill_output_keys,
-    )
+    from_yaml = PerLayerDistillationModifier.load_obj(yaml_str)
+    twice_from_yaml = PerLayerDistillationModifier.load_obj(str(from_yaml))
 
-    assert isinstance(yaml_modifier, DistillationModifier)
-    assert (
-        yaml_modifier.start_epoch
-        == serialized_modifier.start_epoch
-        == obj_modifier.start_epoch
-    )
-    assert (
-        yaml_modifier.hardness == serialized_modifier.hardness == obj_modifier.hardness
-    )
-    assert (
-        yaml_modifier.temperature
-        == serialized_modifier.temperature
-        == obj_modifier.temperature
-    )
-    assert (
-        yaml_modifier.distill_output_keys
-        == serialized_modifier.distill_output_keys
-        == obj_modifier.distill_output_keys
-    )
+    assert isinstance(from_yaml, PerLayerDistillationModifier)
+    for attr_name in [
+        "gain",
+        "start_epoch",
+        "end_epoch",
+        "update_frequency",
+        "normalize",
+        "student_layer_names",
+        "teacher_layer_names",
+        "project_features",
+        "epsilon",
+    ]:
+        assert (
+            getattr(truth, attr_name)
+            == getattr(from_yaml, attr_name)
+            == getattr(twice_from_yaml, attr_name)
+        )
 
 
-def test_optimizer_serialization_with_projects():
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
+)
+def test_optimizer_serialization_with_projections():
     # since we are adding param groups to optimizer during initialization, we need
     # to ensure that they can be serialized/reloaded properly
     assert False, "TODO"
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
+)
 def test_hooks_survive_after_quantization_is_applied():
     # this should test fused module hooks are properly kept around during
     # quantization

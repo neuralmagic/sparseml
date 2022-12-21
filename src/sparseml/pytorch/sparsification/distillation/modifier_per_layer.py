@@ -27,7 +27,11 @@ from sparseml.optim import ModifierProp
 from sparseml.pytorch.sparsification.distillation.modifier_distillation_base import (
     BaseDistillationModifier,
 )
-from sparseml.pytorch.sparsification.modifier import PyTorchModifierYAML
+from sparseml.pytorch.sparsification.modifier import (
+    Modifier,
+    PyTorchModifierYAML,
+    ScheduledUpdateModifier,
+)
 from sparseml.pytorch.utils import BaseLogger
 
 
@@ -75,6 +79,7 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
     # Parameters
 
     :param gain: How much to weight the distillation loss.
+        Default is `1.5`
     :param start_epoch: The epoch to start the modifier at
     :param end_epoch: The epoch to end the modifier at
     :param update_frequency: The number of epochs or fraction of epochs to
@@ -95,7 +100,7 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
 
     def __init__(
         self,
-        gain: float,
+        gain: float = 1.5,
         start_epoch: float = -1.0,
         end_epoch: float = -1.0,
         update_frequency: float = -1.0,
@@ -113,6 +118,20 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
             raise ValueError(
                 "Student and teacher layer names must have the same number of elements"
             )
+
+        if student_layer_names is None and teacher_layer_names is not None:
+            _LOGGER.info(
+                "Distilling same layer names for teacher and student: %s",
+                teacher_layer_names,
+            )
+            student_layer_names = teacher_layer_names
+
+        if teacher_layer_names is None and student_layer_names is not None:
+            _LOGGER.info(
+                "Distilling same layer names for teacher and student: %s",
+                student_layer_names,
+            )
+            teacher_layer_names = student_layer_names
 
         super().__init__(
             start_epoch=start_epoch,
@@ -247,52 +266,48 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
         self._projection.clear()
 
         cached_student_layers: Dict[str, torch.nn.Module] = {}
-        if self.student_layer_names is None:
+        if self._student_layer_names is None:
             _find_layers_by_type(module, cached_student_layers)
-            self.student_layer_names = list(cached_student_layers.keys())
+            self._student_layer_names = list(cached_student_layers.keys())
         else:
             _find_layers_by_name(
-                module, self.student_layer_names, cached_student_layers
+                module, self._student_layer_names, cached_student_layers
             )
-        _LOGGER.info("Distilling student layers: %s", self.student_layer_names)
+        _LOGGER.info("Distilling student layers: %s", self._student_layer_names)
 
         cached_teacher_layers: Dict[str, torch.nn.Module] = {}
-        if self.teacher_layer_names is None:
+        if self._teacher_layer_names is None:
             _find_layers_by_type(self._teacher, cached_teacher_layers)
-            self.teacher_layer_names = list(cached_teacher_layers.keys())
+            self._teacher_layer_names = list(cached_teacher_layers.keys())
         else:
             _find_layers_by_name(
-                self._teacher, self.teacher_layer_names, cached_teacher_layers
+                self._teacher, self._teacher_layer_names, cached_teacher_layers
             )
-        _LOGGER.info("Distilling teacher layers: %s", self.teacher_layer_names)
+        _LOGGER.info("Distilling teacher layers: %s", self._teacher_layer_names)
 
-        if len(self.teacher_layer_names) != len(self.student_layer_names):
+        if len(self._teacher_layer_names) != len(self._student_layer_names):
             raise ValueError(
                 "Found different numbers of teacher and student layers to distill. "
                 "Set teacher_layer_names and student_layer_names explicitly."
             )
 
-        for layer_name in cached_student_layers:
-            self._student_handles.append(
-                cached_student_layers[layer_name].register_forward_hook(
-                    _create_cache_output_hook(
-                        layer_name,
-                        self._cached_student_output,
-                        self._student_output_shapes,
-                    )
+        self._student_handles = [
+            layer.register_forward_hook(
+                _create_cache_output_hook(
+                    name, self._cached_student_output, self._student_output_shapes
                 )
             )
+            for name, layer in cached_student_layers.items()
+        ]
 
-        for layer_name in cached_teacher_layers:
-            self._teacher_handles.append(
-                cached_teacher_layers[layer_name].register_forward_hook(
-                    _create_cache_output_hook(
-                        layer_name,
-                        self._cached_teacher_output,
-                        self._teacher_output_shapes,
-                    )
+        self._teacher_handles = [
+            layer.register_forward_hook(
+                _create_cache_output_hook(
+                    name, self._cached_teacher_output, self._teacher_output_shapes
                 )
             )
+            for name, layer in cached_teacher_layers.items()
+        ]
 
     def update(
         self,
@@ -323,9 +338,7 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
             # NOTE: have to call initialize here because we need the cached output
             # from the module. i.e. we need forward to have been called already
             projection_params = self._initialize_projection()
-            optimizer.add_param_group(
-                {"layerwise_projection_params": projection_params}
-            )
+            optimizer.add_param_group({"params": projection_params})
 
         distillation_loss = 0.0
         for idx in range(len(self.student_layer_names)):
