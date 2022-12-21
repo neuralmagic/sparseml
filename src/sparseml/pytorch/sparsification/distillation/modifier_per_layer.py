@@ -21,6 +21,7 @@ from typing import Dict, List, Optional, Union
 
 import torch
 from torch.nn import Module
+from torch.utils.hooks import RemovableHandle
 
 from sparseml.optim import ModifierProp
 from sparseml.pytorch.sparsification.distillation.modifier_distillation_base import (
@@ -112,13 +113,13 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
         self._teacher_layer_names = teacher_layer_names
         self._project_features = project_features
         self._epsilon = epsilon
-        self._cached_student_output = None
-        self._cached_teacher_output = None
-        self._student_handles = None
-        self._teacher_handles = None
-        self._projection = None
-        self._student_output_shapes = None
-        self._teacher_output_shapes = None
+        self._cached_student_output: Dict[str, torch.Tensor] = {}
+        self._cached_teacher_output: Dict[str, torch.Tensor] = {}
+        self._student_handles: List[RemovableHandle] = []
+        self._teacher_handles: List[RemovableHandle] = []
+        self._projection: List[torch.nn.Module] = []
+        self._student_output_shapes: Dict[str, torch.Size] = {}
+        self._teacher_output_shapes: Dict[str, torch.Size] = {}
 
     @ModifierProp()
     def gain(self) -> float:
@@ -222,12 +223,13 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
                 "To disable set to 'disable' and for self attention set to 'self'"
             )
 
-        self._cached_student_output = {}
-        self._cached_teacher_output = {}
-        self._student_output_shapes = {}
-        self._teacher_output_shapes = {}
-        self._student_handles = []
-        self._teacher_handles = []
+        self._cached_student_output.clear()
+        self._cached_teacher_output.clear()
+        self._student_output_shapes.clear()
+        self._teacher_output_shapes.clear()
+        self._student_handles.clear()
+        self._teacher_handles.clear()
+        self._projection.clear()
 
         cached_student_layers: Dict[str, torch.nn.Module] = {}
         if self.student_layer_names is None:
@@ -295,81 +297,78 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
             handle.remove()
         for handle in self._teacher_handles:
             handle.remove()
-        self._student_handles = None
-        self._teacher_handles = None
-        self._cached_student_output = None
-        self._cached_teacher_output = None
+        self._cached_student_output.clear()
+        self._cached_teacher_output.clear()
+        self._student_output_shapes.clear()
+        self._teacher_output_shapes.clear()
+        self._student_handles.clear()
+        self._teacher_handles.clear()
+        self._projection.clear()
 
-    def compute_distillation_loss(self, optimizer, **kwargs):
-        distillation_loss = 0.0
+    def compute_total_loss(self, loss, distillation_loss):
+        return loss + self.gain * distillation_loss
 
-        if self.project_features and self._projection is None:
-            self._initialize_projection()
-            student_module_output = self._cached_student_output[
-                self.student_layer_names[0]
-            ]
-            device = student_module_output.device
-            parameters = [p.weight for p in self._projection]
-            optimizer.add_param_group({"params": parameters})
-            self._projection = [p.to(device) for p in self._projection]
-
-        for index in range(len(self.student_layer_names)):
-            student_module_output = self._cached_student_output[
-                self.student_layer_names[index]
-            ]
-            teacher_module_output = self._cached_teacher_output[
-                self.teacher_layer_names[index]
-            ]
-
-            if self.project_features:
-                student_module_output = self._projection[index](
-                    student_module_output.float()
-                )
-
-            output_difference = torch.mean(
-                (student_module_output - teacher_module_output) ** 2,
+    def compute_distillation_loss(self, optimizer: torch.optim.Optimizer, **kwargs):
+        if self.project_features and len(self._projection) == 0:
+            # NOTE: have to call initialize here because we need the cached output
+            # from the module. i.e. we need forward to have been called already
+            projection_params = self._initialize_projection()
+            optimizer.add_param_group(
+                {"layerwise_projection_params": projection_params}
             )
 
-            if self.normalize:
-                teacher_output_magnitude = torch.mean(teacher_module_output ** 2)
-                output_difference /= teacher_output_magnitude + self.epsilon
+        distillation_loss = 0.0
+        for idx in range(len(self.student_layer_names)):
+            student_output = self._cached_student_output[self.student_layer_names[idx]]
+            if self.project_features:
+                student_output = self._projection[idx](student_output.float())
 
-            distillation_loss += output_difference
+            teacher_output = self._cached_teacher_output[self.teacher_layer_names[idx]]
+
+            output_mse = (student_output - teacher_output).square().mean()
+            if self.normalize:
+                teacher_output_magnitude = teacher_output.square().mean()
+                output_mse /= teacher_output_magnitude + self.epsilon
+
+            distillation_loss += output_mse
 
         return distillation_loss
 
-    def _initialize_projection(self):
+    def _initialize_projection(self) -> List[torch.Tensor]:
+        device = self._cached_student_output[self.student_layer_names[0]].device
+
         self._projection = []
         for index in range(len(self.student_layer_names)):
             student_shape = self._student_output_shapes[self.student_layer_names[index]]
             teacher_shape = self._teacher_output_shapes[self.teacher_layer_names[index]]
             if len(student_shape) == 4:
-                student_features = student_shape[1]
-                teacher_features = teacher_shape[1]
                 self._projection.append(
                     torch.nn.Conv2d(
-                        in_channels=student_features,
-                        out_channels=teacher_features,
+                        in_channels=student_shape[1],
+                        out_channels=teacher_shape[1],
                         kernel_size=1,
                         bias=False,
+                        device=device,
                     )
                 )
             else:
-                student_features = student_shape[-1]
-                teacher_features = teacher_shape[-1]
                 self._projection.append(
                     torch.nn.Linear(
-                        in_features=student_features,
-                        out_features=teacher_features,
+                        in_features=student_shape[-1],
+                        out_features=teacher_shape[-1],
                         bias=False,
+                        device=device,
                     )
                 )
 
-    def compute_total_loss(self, loss, distillation_loss):
-        return loss + self.gain * distillation_loss
+        return [p.weight for p in self._projection]
 
 
-def _create_cache_output_hook(layer_name, outputs, outputs_shape):
+def _create_cache_output_hook(
+    layer_name: str,
+    outputs: Dict[str, torch.Tensor],
+    outputs_shape: Dict[str, torch.Size],
+):
     def forward_hook_fn(layer, inp, out):
         outputs[layer_name] = out
         if layer_name not in outputs_shape:
