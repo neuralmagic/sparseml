@@ -148,7 +148,7 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
         self._cached_teacher_output: Dict[str, torch.Tensor] = {}
         self._student_handles: List[RemovableHandle] = []
         self._teacher_handles: List[RemovableHandle] = []
-        self._projection: List[torch.nn.Module] = []
+        self._projection: Dict[str, torch.nn.Module] = {}
         self._student_output_shapes: Dict[str, torch.Size] = {}
         self._teacher_output_shapes: Dict[str, torch.Size] = {}
 
@@ -337,12 +337,14 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
             optimizer.add_param_group({"params": projection_params})
 
         distillation_loss = 0.0
-        for idx in range(len(self.student_layer_names)):
-            student_output = self._cached_student_output[self.student_layer_names[idx]]
+        for student_name, teacher_name in zip(
+            self._student_layer_names, self._teacher_layer_names
+        ):
+            student_output = self._cached_student_output[student_name]
             if self.project_features:
-                student_output = self._projection[idx](student_output.float())
+                student_output = self._projection[student_name](student_output.float())
 
-            teacher_output = self._cached_teacher_output[self.teacher_layer_names[idx]]
+            teacher_output = self._cached_teacher_output[teacher_name]
 
             output_mse = (student_output - teacher_output).square().mean()
             if self.normalize:
@@ -356,31 +358,31 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
     def _initialize_projection(self) -> List[torch.Tensor]:
         device = self._cached_student_output[self.student_layer_names[0]].device
 
-        self._projection = []
-        for index in range(len(self.student_layer_names)):
-            student_shape = self._student_output_shapes[self.student_layer_names[index]]
-            teacher_shape = self._teacher_output_shapes[self.teacher_layer_names[index]]
+        assert len(self._student_output_shapes) == len(self._student_layer_names)
+        assert len(self._teacher_output_shapes) == len(self._teacher_layer_names)
+
+        self._projection = {}
+        for student_name, teacher_name in zip(
+            self._student_layer_names, self._teacher_layer_names
+        ):
+            student_shape = self._student_output_shapes[student_name]
+            teacher_shape = self._teacher_output_shapes[teacher_name]
             if len(student_shape) == 4:
-                self._projection.append(
-                    torch.nn.Conv2d(
-                        in_channels=student_shape[1],
-                        out_channels=teacher_shape[1],
-                        kernel_size=1,
-                        bias=False,
-                        device=device,
-                    )
+                self._projection[student_name] = torch.nn.Conv2d(
+                    in_channels=student_shape[1],
+                    out_channels=teacher_shape[1],
+                    kernel_size=1,
+                    bias=False,
+                    device=device,
                 )
             else:
-                self._projection.append(
-                    torch.nn.Linear(
-                        in_features=student_shape[-1],
-                        out_features=teacher_shape[-1],
-                        bias=False,
-                        device=device,
-                    )
+                self._projection[student_name] = torch.nn.Linear(
+                    in_features=student_shape[-1],
+                    out_features=teacher_shape[-1],
+                    bias=False,
+                    device=device,
                 )
-
-        return [p.weight for p in self._projection]
+        return [p.weight for p in self._projection.values()]
 
 
 def _create_cache_output_hook(
