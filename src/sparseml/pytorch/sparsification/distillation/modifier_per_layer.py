@@ -331,6 +331,22 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
             projection_params = self._initialize_projection()
             optimizer.add_param_group({"params": projection_params})
 
+            # NOTE: since we added a param group, if someone tries
+            # to serialize the optimizer, the new param group will be
+            # included. if they try call load_state_dict() on
+            # a fresh optimizer (one that hasn't been called
+            # with compute_distillation_loss), it will
+            # crash.
+            _old_state_dict_fn = optimizer.state_dict
+
+            def state_dict_without_latest_param_group():
+                full_state_dict = _old_state_dict_fn()
+                original_state_dict = deepcopy(full_state_dict)
+                original_state_dict["param_groups"].pop()
+                return original_state_dict
+
+            optimizer.state_dict = state_dict_without_latest_param_group
+
         distillation_loss = 0.0
         for student_name, teacher_name in zip(
             self._student_layer_names, self._teacher_layer_names
