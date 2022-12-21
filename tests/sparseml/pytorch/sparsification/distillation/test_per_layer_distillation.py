@@ -24,11 +24,20 @@ from torch.nn import Module
 from torch.optim import Optimizer
 
 from sparseml.pytorch.sparsification import (
+    Modifier,
     PerLayerDistillationModifier,
     ScheduledModifier,
 )
 from tests.sparseml.pytorch.helpers import create_optim_sgd
 from tests.sparseml.pytorch.sparsification.test_modifier import ScheduledModifierTest
+
+
+# NOTE: these are fixtures used in testing below
+from tests.sparseml.pytorch.helpers import (  # noqa isort:skip
+    test_epoch,
+    test_loss,
+    test_steps_per_epoch,
+)
 
 
 def mlp(*layer_sizes: int):
@@ -242,7 +251,7 @@ class TestPerLayerDistillationModifierImpl(ScheduledModifierTest):
 
     def test_loss_update(
         self,
-        modifier_lambda: Callable[[], ScheduledModifier],
+        modifier_lambda: Callable[[], Modifier],
         model_lambda: Callable[[], Module],
         optim_lambda: Callable[[Module], Optimizer],
         test_epoch: float,  # noqa: F811
@@ -264,6 +273,8 @@ class TestPerLayerDistillationModifierImpl(ScheduledModifierTest):
             optimizer,
             modifier.start_epoch,
             test_steps_per_epoch,
+            student_inputs=student_inputs,
+            student_outputs=student_outputs,
         )
 
         assert isinstance(updated_loss, torch.Tensor)

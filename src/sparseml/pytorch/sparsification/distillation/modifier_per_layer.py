@@ -17,6 +17,7 @@ Modifier for performing knowledge distillation via feature imitation.
 """
 
 import logging
+from copy import deepcopy
 from typing import Dict, List, Optional, Union
 
 import torch
@@ -27,11 +28,7 @@ from sparseml.optim import ModifierProp
 from sparseml.pytorch.sparsification.distillation.modifier_distillation_base import (
     BaseDistillationModifier,
 )
-from sparseml.pytorch.sparsification.modifier import (
-    Modifier,
-    PyTorchModifierYAML,
-    ScheduledUpdateModifier,
-)
+from sparseml.pytorch.sparsification.modifier import PyTorchModifierYAML
 from sparseml.pytorch.utils import BaseLogger
 
 
@@ -248,14 +245,13 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
         """
         super().initialize(module, epoch, loggers, distillation_teacher, **kwargs)
 
-        if isinstance(distillation_teacher, Module):
-            self._teacher = distillation_teacher
-        else:
-            raise ValueError(
-                "unrecognized value for distillation_modifier given of "
-                f"{distillation_teacher}. "
-                "To disable set to 'disable' and for self attention set to 'self'"
-            )
+        if not self._distillation_enabled:
+            return
+
+        if self._teacher is None:
+            # sanity check - logic from super().initializer
+            assert distillation_teacher == "self"
+            self._teacher = deepcopy(module)
 
         self._cached_student_output.clear()
         self._cached_teacher_output.clear()
