@@ -23,10 +23,14 @@ from torch import Tensor, nn
 from torch.nn import Module
 from torch.optim import Optimizer
 
+from sparseml.pytorch.models.classification.resnet import resnet18
 from sparseml.pytorch.sparsification import (
     Modifier,
     PerLayerDistillationModifier,
     ScheduledModifier,
+)
+from sparseml.pytorch.sparsification.quantization.modifier_quantization import (
+    QuantizationModifier,
 )
 from tests.sparseml.pytorch.helpers import create_optim_sgd
 from tests.sparseml.pytorch.sparsification.test_modifier import ScheduledModifierTest
@@ -349,4 +353,29 @@ def test_optimizer_serialization_with_projections():
 def test_hooks_survive_after_quantization_is_applied():
     # this should test fused module hooks are properly kept around during
     # quantization
-    assert False, "TODO"
+    modifier = PerLayerDistillationModifier()
+    student = resnet18(pretrained=True)
+    teacher = resnet18(pretrained=True)
+    opt = create_optim_sgd(student)
+
+    modifier.initialize(student, distillation_teacher=teacher)
+
+    # now apply quantization - hooks may disappear here
+    QuantizationModifier().apply_structure(student)
+
+    x = torch.rand(2, 3, 224, 224)
+    student_outputs = student(x)
+    fake_loss = student_outputs[0].square().mean()
+    updated_loss = modifier.loss_update(
+        fake_loss,
+        student,
+        opt,
+        modifier.start_epoch,
+        10,
+        student_inputs=x,
+        student_outputs=student_outputs,
+    )
+
+    assert isinstance(updated_loss, torch.Tensor)
+    assert updated_loss.shape == fake_loss.shape
+    assert fake_loss.item() != updated_loss.item()
