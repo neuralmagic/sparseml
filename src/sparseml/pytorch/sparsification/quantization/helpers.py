@@ -712,16 +712,16 @@ def _delete_get_block_hooks(
         post_hooks = []
 
         # get first and last Module objects in block by their names
-        block_head = get_layer(block[0], module)
-        block_tail = get_layer(block[-1], module)
+        for name in block:
+            m = get_layer(name, module)
 
-        for handle_id, pre_hook_fn in list(block_head._forward_pre_hooks.items()):
-            pre_hooks.append(pre_hook_fn)
-            del block_head._forward_pre_hooks[handle_id]
+            for handle_id, pre_hook_fn in list(m._forward_pre_hooks.items()):
+                pre_hooks.append(pre_hook_fn)
+                del m._forward_pre_hooks[handle_id]
 
-        for handle_id, hook_fn in list(block_tail._forward_hooks.items()):
-            post_hooks.append(hook_fn)
-            del block_tail._forward_hooks[handle_id]
+            for handle_id, hook_fn in list(m._forward_hooks.items()):
+                post_hooks.append(hook_fn)
+                del m._forward_hooks[handle_id]
 
         block_hooks.append((pre_hooks, post_hooks))
 
