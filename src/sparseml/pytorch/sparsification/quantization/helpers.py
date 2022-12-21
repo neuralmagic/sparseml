@@ -704,24 +704,24 @@ def prepare_embeddings_qat(
 
 def _delete_get_block_hooks(
     module: Module,
-    fuse_blocks: List[str],
+    fuse_blocks: List[List[str]],
 ) -> List[Tuple[Any, Any]]:
     block_hooks = []
     for block in fuse_blocks:
         pre_hooks = []
         post_hooks = []
 
-        # get first and last Module objects in block by their names
         for name in block:
+            # get Module objects in block by their names
             m = get_layer(name, module)
 
-            for handle_id, pre_hook_fn in list(m._forward_pre_hooks.items()):
-                pre_hooks.append(pre_hook_fn)
-                del m._forward_pre_hooks[handle_id]
+            # extract the hooks
+            pre_hooks.extend(m._forward_pre_hooks.values())
+            post_hooks.extend(m._forward_hooks.values())
 
-            for handle_id, hook_fn in list(m._forward_hooks.items()):
-                post_hooks.append(hook_fn)
-                del m._forward_hooks[handle_id]
+            # de-register the hooks from this module
+            m._forward_pre_hooks.clear()
+            m._forward_hooks.clear()
 
         block_hooks.append((pre_hooks, post_hooks))
 
