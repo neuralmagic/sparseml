@@ -17,7 +17,7 @@ Modifier for performing knowledge distillation via feature imitation.
 """
 
 import logging
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import torch
 from torch.nn import Module
@@ -36,12 +36,7 @@ __all__ = [
 
 _LOGGER = logging.getLogger(__name__)
 
-_DISTILLATION_TYPES = [
-    torch.nn.Conv1d,
-    torch.nn.Conv2d,
-    torch.nn.Conv3d,
-    torch.nn.Linear,
-]
+_DISTILLATION_TYPES = [torch.nn.Conv2d, torch.nn.Linear]
 
 
 @PyTorchModifierYAML()
@@ -54,13 +49,19 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
     If no teacher model is provided, then self-distillation will be used.
     The feature difference between teacher and student can be weighted spatially
     by a weighing function.
-    | Sample yaml:
-    |   !PerLayerDistillationModifier
-    |       start_epoch: 0.0
-    |       gain: 2.0
-    |       number_of_classes: 80
-    |       student_features: [64, 128, 256]
-    |       teacher_features: [128, 256, 512]
+
+    # Sample yaml:
+
+    ```yaml
+    !PerLayerDistillationModifier
+        gain: 2.0
+        start_epoch: 0.0
+        project_features: True
+        student_layer_names
+    ```
+
+    # Parameters
+
     :param start_epoch: The epoch to start the modifier at
     :param end_epoch: The epoch to end the modifier at
     :param distill_output_keys: List of keys for the module outputs to use for
@@ -89,6 +90,15 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
         project_features: bool = False,
         epsilon: float = 1.0e-6,
     ):
+        if (
+            student_layer_names is not None
+            and teacher_layer_names is not None
+            and len(student_layer_names) != len(teacher_layer_names)
+        ):
+            raise ValueError(
+                "Student and teacher layer names must have the same number of elements"
+            )
+
         super().__init__(
             start_epoch=start_epoch,
             end_epoch=end_epoch,
@@ -204,59 +214,67 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
         super().initialize(module, epoch, loggers, distillation_teacher, **kwargs)
 
         if isinstance(distillation_teacher, Module):
-            self._cached_student_output = {}
-            self._cached_teacher_output = {}
-            self._student_output_shapes = {}
-            self._teacher_output_shapes = {}
-
-            cached_student_layers = {}
-            cached_teacher_layers = {}
-
-            if self.student_layer_names is None:
-                _find_layers_by_type(module, cached_student_layers)
-                _find_layers_by_type(distillation_teacher, cached_teacher_layers)
-
-                self._student_names = list(cached_student_layers.keys())
-                self._teacher_names = list(cached_teacher_layers.keys())
-            else:
-                _find_layers_by_name(
-                    module, self.student_layer_names, cached_student_layers
-                )
-                _find_layers_by_name(
-                    distillation_teacher,
-                    self.teacher_layer_names,
-                    cached_teacher_layers,
-                )
-
-            self._student_handles = []
-            self._teacher_handles = []
-            for layer_name in cached_student_layers:
-                self._student_handles.append(
-                    cached_student_layers[layer_name].register_forward_hook(
-                        _create_cache_output_hook(
-                            layer_name,
-                            self._cached_student_output,
-                            self._student_output_shapes,
-                        )
-                    )
-                )
-
-            for layer_name in cached_teacher_layers:
-                self._student_handles.append(
-                    cached_teacher_layers[layer_name].register_forward_hook(
-                        _create_cache_output_hook(
-                            layer_name,
-                            self._cached_teacher_output,
-                            self._teacher_output_shapes,
-                        )
-                    )
-                )
             self._teacher = distillation_teacher
         else:
             raise ValueError(
                 "unrecognized value for distillation_modifier given of "
                 f"{distillation_teacher}. "
                 "To disable set to 'disable' and for self attention set to 'self'"
+            )
+
+        self._cached_student_output = {}
+        self._cached_teacher_output = {}
+        self._student_output_shapes = {}
+        self._teacher_output_shapes = {}
+        self._student_handles = []
+        self._teacher_handles = []
+
+        cached_student_layers: Dict[str, torch.nn.Module] = {}
+        if self.student_layer_names is None:
+            _find_layers_by_type(module, cached_student_layers)
+            self.student_layer_names = list(cached_student_layers.keys())
+        else:
+            _find_layers_by_name(
+                module, self.student_layer_names, cached_student_layers
+            )
+        _LOGGER.info("Distilling student layers: %s", self.student_layer_names)
+
+        cached_teacher_layers: Dict[str, torch.nn.Module] = {}
+        if self.teacher_layer_names is None:
+            _find_layers_by_type(self._teacher, cached_teacher_layers)
+            self.teacher_layer_names = list(cached_teacher_layers.keys())
+        else:
+            _find_layers_by_name(
+                self._teacher, self.teacher_layer_names, cached_teacher_layers
+            )
+        _LOGGER.info("Distilling teacher layers: %s", self.teacher_layer_names)
+
+        if len(self.teacher_layer_names) != len(self.student_layer_names):
+            raise ValueError(
+                "Found different numbers of teacher and student layers to distill. "
+                "Set teacher_layer_names and student_layer_names explicitly."
+            )
+
+        for layer_name in cached_student_layers:
+            self._student_handles.append(
+                cached_student_layers[layer_name].register_forward_hook(
+                    _create_cache_output_hook(
+                        layer_name,
+                        self._cached_student_output,
+                        self._student_output_shapes,
+                    )
+                )
+            )
+
+        for layer_name in cached_teacher_layers:
+            self._teacher_handles.append(
+                cached_teacher_layers[layer_name].register_forward_hook(
+                    _create_cache_output_hook(
+                        layer_name,
+                        self._cached_teacher_output,
+                        self._teacher_output_shapes,
+                    )
+                )
             )
 
     def finalize(
@@ -360,7 +378,11 @@ def _create_cache_output_hook(layer_name, outputs, outputs_shape):
     return forward_hook_fn
 
 
-def _find_layers_by_type(layer_module, cached_layers, name=""):
+def _find_layers_by_type(
+    layer_module: torch.nn.Module,
+    cached_layers: Dict[str, torch.nn.Module],
+    name: str = "",
+):
     if type(layer_module) in _DISTILLATION_TYPES:
         cached_layers[name] = layer_module
     for layer_module, child in layer_module.named_children():
@@ -371,7 +393,12 @@ def _find_layers_by_type(layer_module, cached_layers, name=""):
         )
 
 
-def _find_layers_by_name(layer_module, layer_names, cached_layers, name=""):
+def _find_layers_by_name(
+    layer_module: torch.nn.Module,
+    layer_names: List[str],
+    cached_layers: Dict[str, torch.nn.Module],
+    name: str = "",
+):
     if name in layer_names:
         cached_layers[name] = layer_module
     for layer_module, child in layer_module.named_children():
