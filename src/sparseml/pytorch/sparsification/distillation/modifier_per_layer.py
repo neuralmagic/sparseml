@@ -294,31 +294,26 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
                 )
             )
 
-    def finalize(
-        self, module: Optional[Module] = None, reset_loggers: bool = True, **kwargs
+    def update(
+        self,
+        module: Module,
+        optimizer: torch.optim.Optimizer,
+        epoch: float,
+        steps_per_epoch: int,
     ):
-        """
-        Cleans up any state and hooks
-        :param module: The model/module to finalize the modifier for.
-            Marked optional so state can still be cleaned up on delete,
-            but generally should always be passed in.
-        :param reset_loggers: True to remove any currently attached loggers (default),
-            False to keep the loggers attached.
-        :param kwargs: Optional kwargs to support specific arguments
-            for individual modifiers.
-        """
-        super().finalize(module, reset_loggers, **kwargs)
-        for handle in self._student_handles:
-            handle.remove()
-        for handle in self._teacher_handles:
-            handle.remove()
-        self._cached_student_output.clear()
-        self._cached_teacher_output.clear()
-        self._student_output_shapes.clear()
-        self._teacher_output_shapes.clear()
-        self._student_handles.clear()
-        self._teacher_handles.clear()
-        self._projection.clear()
+        super().update(module, optimizer, epoch, steps_per_epoch)
+        if epoch >= self.end_epoch:
+            for handle in self._student_handles:
+                handle.remove()
+            for handle in self._teacher_handles:
+                handle.remove()
+            self._cached_student_output.clear()
+            self._cached_teacher_output.clear()
+            self._student_output_shapes.clear()
+            self._teacher_output_shapes.clear()
+            self._student_handles.clear()
+            self._teacher_handles.clear()
+            self._projection.clear()
 
     def compute_total_loss(self, loss, distillation_loss):
         return loss + self.gain * distillation_loss
