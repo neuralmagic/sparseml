@@ -368,15 +368,16 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
                     out_channels=teacher_shape[1],
                     kernel_size=1,
                     bias=False,
-                    device=device,
                 )
+                self._projection[student_name].to(device)
             else:
                 self._projection[student_name] = torch.nn.Linear(
                     in_features=student_shape[-1],
                     out_features=teacher_shape[-1],
                     bias=False,
-                    device=device,
                 )
+                self._projection[student_name].to(device)
+
         return [p.weight for p in self._projection.values()]
 
 

@@ -340,10 +340,39 @@ def test_distillation_modifier_yaml():
     os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
     reason="Skipping pytorch tests",
 )
-def test_optimizer_serialization_with_projections():
+def test_optimizer_serialization_with_projections(tmp_path):
     # since we are adding param groups to optimizer during initialization, we need
     # to ensure that they can be serialized/reloaded properly
-    assert False, "TODO"
+    optim_checkpoint_path = tmp_path / "optim.pth"
+    student = mlp(12, 24, 64)
+    teacher = mlp(12, 24, 64)
+
+    modifier = PerLayerDistillationModifier()
+    modifier.initialize(module=student, distillation_teacher=teacher)
+
+    optimizer = create_optim_sgd(student)
+    x = torch.randn(5, 12)
+    fake_loss = student(x).mean()
+
+    # add state to optimizer
+    modifier.loss_update(
+        loss=fake_loss,
+        module=student,
+        optimizer=optimizer,
+        epoch=modifier.start_epoch,
+        steps_per_epoch=10,
+        student_inputs=x,
+        student_outputs=fake_loss,
+    )
+
+    optimizer_checkpoint = {
+        "optimizer": optimizer.state_dict(),
+    }
+    torch.save(optimizer_checkpoint, optim_checkpoint_path)
+    loaded_optimizer_checkpoint = torch.load(optim_checkpoint_path)
+
+    loaded_optimizer = create_optim_sgd(student)
+    loaded_optimizer.load_state_dict(loaded_optimizer_checkpoint["optimizer"])
 
 
 @pytest.mark.skipif(
