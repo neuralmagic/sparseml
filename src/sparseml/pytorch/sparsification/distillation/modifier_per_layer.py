@@ -47,9 +47,15 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
     A distillation_teacher module may be provided as a kwarg to
     the Manager initialization and loss_update(loss) must be called before any
     backwards pass in the integrated training flow.
+
     If no teacher model is provided, then self-distillation will be used.
     The feature difference between teacher and student can be weighted spatially
     by a weighing function.
+
+    The connection between layers in the student model and layers in the teacher
+    model is controlled via the `teacher_layer_names` and `student_layer_names`
+    fields. **These fields must be the same length!** The i'th item in both
+    of these arrays are paired together.
 
     # Sample yaml:
 
@@ -57,26 +63,34 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
     !PerLayerDistillationModifier
         gain: 2.0
         start_epoch: 0.0
+        end_epoch: 1.0
+        update_frequency: 0.2
+        normalize: True
+        student_layer_names: ["layer2.0.conv2"]
+        teacher_layer_names: ["layer2.0.conv2"]
         project_features: True
-        student_layer_names
+        epsilon: 1e-6
     ```
 
     # Parameters
 
+    :param gain: How much to weight the distillation loss.
     :param start_epoch: The epoch to start the modifier at
     :param end_epoch: The epoch to end the modifier at
-    :param distill_output_keys: List of keys for the module outputs to use for
-        distillation if multiple outputs are present. None or empty list defaults
-        to using all available outputs
-    :param teacher_input_keys: List of keys to filter the inputs by before
-        passing into the teacher. None or empty list defaults to using
-        all available inputs
-    :param update_frequency:
-    :param gain: How much to weight the distillation loss. Default is 1.5
+    :param update_frequency: The number of epochs or fraction of epochs to
+            update at between start and end
     :param normalize: Whether to normalize the output difference by the
-        the magnitude of the teacher's output
+        the magnitude of the teacher's output.
+        Default is `True`.
+    :param student_layer_names: List of layer names to distill.
+        *Must be same length as teacher_layer_names.*
+    :param teacher_layer_names: List of layer names to distill from.
+        *Must be same length as student_layer_names.*
+    :param project_features: Whether to project the output of student layers to the
+        same size as the output of the teacher layers.
+        Default is `True`
     :param epsilon: Small value used to avoid division by zero when normalization
-        is used. Default is 1.e-6
+        is used. Default is `1e-6`
     """
 
     def __init__(
@@ -88,8 +102,8 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
         normalize: bool = True,
         student_layer_names: Optional[List[str]] = None,
         teacher_layer_names: Optional[List[str]] = None,
-        project_features: bool = False,
-        epsilon: float = 1.0e-6,
+        project_features: bool = True,
+        epsilon: float = 1e-6,
     ):
         if (
             student_layer_names is not None
@@ -113,6 +127,7 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
         self._teacher_layer_names = teacher_layer_names
         self._project_features = project_features
         self._epsilon = epsilon
+
         self._cached_student_output: Dict[str, torch.Tensor] = {}
         self._cached_teacher_output: Dict[str, torch.Tensor] = {}
         self._student_handles: List[RemovableHandle] = []
