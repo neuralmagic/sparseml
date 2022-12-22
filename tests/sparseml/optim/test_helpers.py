@@ -33,6 +33,7 @@ from sparseml.utils import FRAMEWORK_METADATA_KEY, RECIPE_METADATA_KEY
 
 STAGED_RECIPE_COMPLEX = """
 sparsity: {sparsity}
+lr_func: {lr_func}
 init_lr: 0.05
 final_lr: 0.0
 end_epoch: 100
@@ -66,7 +67,7 @@ ac_dc_phase:
   - !LearningRateFunctionModifier
     start_epoch: eval(end_warm_up_epoch)
     end_epoch: eval(end_epoch_global)
-    lr_func: {lr_func}
+    lr_func: eval(lr_func)
     init_lr: eval(final_lr)
     final_lr: 0.0
 
@@ -96,6 +97,7 @@ next_stage:
 
 STAGED_RECIPE_COMPLEX_EVAL = """
 sparsity: 0.9
+lr_func: cosine
 init_lr: 0.05
 final_lr: 0.0
 end_epoch: 100
@@ -652,16 +654,16 @@ def test_load_recipe_yaml_str_zoo(zoo_path):
         ),
         (
             STAGED_RECIPE_COMPLEX.format(
-                sparsity=0.9, num_epochs=10, lr_func="cosine", new_num_epochs=15
+                sparsity=0.9, num_epochs=10, lr_func="linear", new_num_epochs=15
             ),
             {
                 "sparsity": 0.5,
                 "num_epochs": 11,
-                "lr_func": "linear",
+                "lr_func": "cosine",
                 "new_num_epochs": 13,
             },
             STAGED_RECIPE_COMPLEX.format(
-                sparsity=0.5, num_epochs=11, lr_func="linear", new_num_epochs=13
+                sparsity=0.5, num_epochs=11, lr_func="cosine", new_num_epochs=13
             ),
             False,
         ),

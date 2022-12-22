@@ -290,7 +290,12 @@ class GroupedPruningMaskCreator(UnstructuredPruningMaskCreator):
         """
         reduce_fn_name = reduce_fn_name.lower()
         if reduce_fn_name == "l2":
-            return torch.linalg.vector_norm(input=tensor, dim=dim, keepdim=keepdim)
+            norm = (
+                torch.linalg.vector_norm
+                if hasattr(torch.linalg, "vector_norm")
+                else torch.linalg.norm
+            )
+            return norm(input=tensor, dim=dim, keepdim=keepdim)
         if reduce_fn_name == "mean":
             return torch.mean(input=tensor, dim=dim, keepdim=keepdim)
         if reduce_fn_name == "max":

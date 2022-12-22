@@ -19,6 +19,7 @@ from packaging import version
 from torch.nn import Module
 from torch.quantization import FakeQuantize
 
+from sparseml.optim.helpers import load_global_recipe_variables_from_yaml
 from sparseml.pytorch import recipe_template
 from sparseml.pytorch.models import resnet50
 from sparseml.pytorch.optim import ScheduledModifierManager
@@ -83,27 +84,42 @@ def test_recipe_can_be_updated():
     manager = ScheduledModifierManager.from_yaml(
         file_path=actual,
         recipe_variables=dict(
-            start_epoch=100,
-            end_epoch=1000,
+            num_epochs=100,
+            lr_func="cosine",
         ),
     )
     recipe_from_manager = str(manager)
-    assert "start_epoch: 100" in recipe_from_manager
-    assert "end_epoch: 1000" in recipe_from_manager
+    assert "end_epoch: 100" in recipe_from_manager
+    assert "lr_func: cosine" in recipe_from_manager
+
+
+@pytest.mark.parametrize(
+    "pruning_algo, expected",
+    [
+        ("true", "!GlobalMagnitudePruningModifier"),
+        ("acdc", "!ACDCPruningModifier"),
+        ("mfac", "!MFACPruningModifier"),
+        ("constant", "!ConstantPruningModifier"),
+    ],
+)
+def test_pruning_modifiers_match_pruning_algo(pruning_algo: str, expected: str):
+    actual_recipe = recipe_template(pruning=pruning_algo)
+    manager = ScheduledModifierManager.from_yaml(file_path=actual_recipe)
+    manager_recipe = str(manager)
+    assert expected in manager_recipe
 
 
 @pytest.mark.parametrize(
     "pruning_algo, expected",
     [
         ("true", "!MagnitudePruningModifier"),
-        ("acdc", "!ACDCPruningModifier"),
-        ("mfac", "!MFACPruningModifier"),
         ("movement", "!MovementPruningModifier"),
-        ("constant", "!ConstantPruningModifier"),
     ],
 )
-def test_pruning_modifiers_match_pruning_algo(pruning_algo: str, expected: str):
-    actual_recipe = recipe_template(pruning=pruning_algo)
+def test_pruning_modifiers_match_pruning_algo_without_global_sparsity(
+    pruning_algo: str, expected: str
+):
+    actual_recipe = recipe_template(pruning=pruning_algo, global_sparsity=False)
     manager = ScheduledModifierManager.from_yaml(file_path=actual_recipe)
     manager_recipe = str(manager)
     assert expected in manager_recipe
@@ -147,3 +163,98 @@ def test_one_shot_applies_sparsification(pruning, quantization, quant_expected, 
         ) / sum(torch.numel(weight) for weight in weights)
 
         assert sparsity > 0.75
+
+
+@pytest.mark.parametrize(
+    "num_epochs, init_lr, final_lr, sparsity, lr_func, num_qat_epochs, "
+    "num_pruning_active_epochs",
+    [
+        (20, 0.001, 0.0, 0.8, "linear", 5, 7.5),
+        (3, 0.0001, 0.0, 0.9, "cyclic_linear", 2, 0.5),
+    ],
+)
+def test_correct_recipe_variables(
+    num_epochs,
+    init_lr,
+    final_lr,
+    sparsity,
+    lr_func,
+    num_qat_epochs,
+    num_pruning_active_epochs,
+):
+    actual = recipe_template(
+        pruning="true",
+        quantization=True,
+        num_epochs=num_epochs,
+        init_lr=init_lr,
+        final_lr=final_lr,
+        sparsity=sparsity,
+        lr=lr_func,
+    )
+
+    actual_recipe_variables = load_global_recipe_variables_from_yaml(actual)
+
+    expected_variables = {
+        "num_qat_epochs": num_qat_epochs,
+        "num_pruning_active_epochs": num_pruning_active_epochs,
+        "num_pruning_finetuning_epochs": num_pruning_active_epochs,
+        "num_qat_finetuning_epochs": num_qat_epochs / 2,
+        "init_lr": init_lr,
+        "final_lr": final_lr,
+        "lr_func": lr_func,
+        "pruning_init_sparsity": min(0.05, sparsity),
+        "pruning_final_sparsity": sparsity,
+        "pruning_update_frequency": (
+            1 if num_pruning_active_epochs > 20 else num_pruning_active_epochs / 20.0
+        ),
+        "global_sparsity": True,
+    }
+
+    for key, expected_value in expected_variables.items():
+        actual_value = actual_recipe_variables.get(key)
+        assert actual_value is not None
+        assert actual_value == expected_value
+
+
+@pytest.mark.parametrize(
+    "pruning, quantization, distillation",
+    [
+        ("true", True, True),
+        ("true", False, False),
+        ("false", True, True),
+        ("false", False, False),
+    ],
+)
+def test_distillation(pruning, quantization, distillation):
+    actual_recipe = recipe_template(
+        pruning=pruning, quantization=quantization, distillation=distillation
+    )
+    manager = ScheduledModifierManager.from_yaml(file_path=actual_recipe)
+    manager_recipe = str(manager)
+    recipe_contains_distillation = "!DistillationModifier" in manager_recipe
+    if distillation:
+        assert recipe_contains_distillation
+    else:
+        assert recipe_contains_distillation is False
+
+
+@pytest.mark.parametrize(
+    "hardness, temperature, distillation",
+    [
+        (0.5, 1.0, True),
+        (0.5, 1.0, False),
+    ],
+)
+def test_distillation_recipe_variables_can_be_overridden(
+    hardness, temperature, distillation
+):
+    recipe = recipe_template(
+        distillation=distillation, hardness=hardness, temperature=temperature
+    )
+
+    if distillation:
+        assert f"distillation_hardness: {hardness}" in recipe
+        assert f"distillation_temperature: {temperature}" in recipe
+    else:
+        assert "distillation_hardness:" not in recipe
+        assert "distillation_temperature:" not in recipe

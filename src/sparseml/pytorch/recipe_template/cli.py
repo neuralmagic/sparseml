@@ -14,15 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
-Usage: sparseml.pytorch.recipe_template [OPTIONS]
+Usage: sparseml.recipe_template [OPTIONS]
 
   Utility to create a recipe template based on specified options
 
   Example for using sparseml.recipe_template:
 
-       `sparseml.pytorch.recipe_template --pruning true --quantization true`
+       `sparseml.recipe_template --pruning true --quantization true`
 
-       `sparseml.pytorch.recipe_template --quantization vnni --lr constant `
+       `sparseml.recipe_template --quantization true --target vnni --lr constant `
 
 Options:
   --version                       Show the version and exit.  [default: False]
@@ -40,6 +40,8 @@ Options:
   --target [vnni|tensorrt|default]
                                   Specify target hardware type for current
                                   recipe  [default: default]
+  --distillation                  Add distillation support to the recipe
+                                  [default: False]
   --file_name TEXT                The file name to output recipe to  [default:
                                   recipe.md]
   --help                          Show this message and exit.  [default:
@@ -89,6 +91,11 @@ PRUNING_ALGOS = ["true", "false", "gmp", "acdc", "mfac", "movement", "constant"]
     help="Specify target hardware type for current recipe",
 )
 @click.option(
+    "--distillation",
+    is_flag=True,
+    help="Add distillation support to the recipe",
+)
+@click.option(
     "--file_name",
     type=str,
     default="recipe.md",
@@ -100,11 +107,18 @@ def main(**kwargs):
 
     Example for using sparseml.pytorch.recipe_template:
 
-         `sparseml.pytorch.recipe_template --pruning true --quantization true`
+         `sparseml.recipe_template --pruning true --quantization true`
 
-         `sparseml.pytorch.recipe_template --quantization vnni --lr constant `
+         `sparseml.recipe_template --quantization true --target vnni --lr constant `
     """
     _LOGGER.debug(f"{kwargs}")
+    if kwargs.get("quantization") == "true":
+        target = kwargs.get("target")
+        # override mask type based on target
+        if target == "vnni":
+            kwargs["mask_type"] = "block4"
+        elif target == "tensorrt":
+            kwargs["mask_type"] = "2:4"
     template = recipe_template(**kwargs)
     print(f"Template:\n{template}")
 

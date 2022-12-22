@@ -17,32 +17,17 @@ Modifier for models through quantization aware training.
 
 PyTorch version must support quantization (>=1.2, ONNX export support introduced in 1.7)
 """
+
+
 import logging
+import math
 import warnings
 from itertools import cycle
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Iterable,
-    List,
-    NamedTuple,
-    Optional,
-    Tuple,
-    Union,
-)
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Type
 
 import torch
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
-
-
-try:
-    from torch import quantization as torch_quantization
-    from torch.nn import intrinsic as torch_intrinsic
-except Exception:
-    torch_quantization = None
-    torch_intrinsic = None
 
 from sparseml.optim import BaseModifier, ModifierProp
 from sparseml.pytorch.sparsification.modifier import (
@@ -50,173 +35,153 @@ from sparseml.pytorch.sparsification.modifier import (
     ScheduledModifier,
 )
 from sparseml.pytorch.sparsification.quantization.helpers import (
-    CONV_ACTIVATION_NAMES,
-    LINEAR_ACTIVATION_NAMES,
-    QConfigProperties,
-    add_quant_dequant,
     configure_module_bn_wrappers,
-    configure_module_default_qconfigs,
-    configure_module_qat_wrappers,
     freeze_bn_stats,
     fuse_module_conv_bn_relus,
-    get_qat_qconfig,
-    prepare_embeddings_qat,
-    remove_activation_qat_by_layer_name,
+)
+from sparseml.pytorch.sparsification.quantization.legacy_modifier_quantization import (
+    QuantizationModifier as LegacyQuantizationModifier,
+)
+from sparseml.pytorch.sparsification.quantization.quantization_scheme import (
+    QuantizationScheme,
+    QuantizationSchemeLoadable,
+)
+from sparseml.pytorch.sparsification.quantization.quantize import (
+    convert_module_qat_from_schemes,
+    raise_if_torch_quantization_not_available,
+    set_quantization_schemes,
 )
 from sparseml.pytorch.utils import BaseLogger, tensors_module_forward, tensors_to_device
 from sparseml.sparsification import SparsificationTypes
 
 
-_LOGGER = logging.getLogger(__name__)
-
 __all__ = [
     "QuantizationModifier",
 ]
 
-_ModuleToQuantize = NamedTuple(
-    "_ModuleToQuantize", [("name", Optional[str]), ("module", Module)]
-)
+
+_LOGGER = logging.getLogger(__name__)
 
 
-@PyTorchModifierYAML()
+# do not move, required to be defined before PyTorchModifierYAML decorator
+def _select_quantization_modifier(state: Dict[str, Any]) -> Type:
+    # if kwargs for the legacy quantization modifier are provided,
+    # route YAML loading to that class
+    return LegacyQuantizationModifier if "submodules" in state else QuantizationModifier
+
+
+@PyTorchModifierYAML(swap_class_by_state_fn=_select_quantization_modifier)
 class QuantizationModifier(ScheduledModifier):
     """
     Enables quantization aware training (QAT) for a given module or its submodules
-    After the start epoch, the specified module(s)' forward pass will emulate
+    After the start epoch, the specified module(s) forward pass will emulate
     quantized execution and the modifier will be enabled until training is completed.
 
     | Sample yaml:
     |   !QuantizationModifier
     |       start_epoch: 0.0
-    |       submodules: ['blocks.0', 'blocks.2']
-    |       model_fuse_fn_name: 'fuse_module'
+    |       scheme:
+    |           input_activations:
+    |               num_bits: 8
+    |               symmetric: False
+    |           weights:
+    |               num_bits: 8
+    |               symmetric: True
+    |       scheme_overrides:
+    |           feature_extractor: "default"
+    |           classifier:
+    |               input_activations:
+    |                   num_bits: 8
+    |                   symmetric: False
+    |               weights: null
+    |           Conv2d:
+    |               input_activations:
+    |                   num_bits: 8
+    |                   symmetric: True
+    |       ignore: ["ReLU", "input"]
     |       disable_quantization_observer_epoch: 2.0
     |       freeze_bn_stats_epoch: 3.0
-    |       reduce_range: False
-    |       activation_bits: False
+    |       model_fuse_fn_name: 'fuse_module'
+    |       strict: True
 
     :param start_epoch: The epoch to start the modifier at
-    :param submodules: List of submodule names to perform QAT on. Leave None to quantize
-        entire model. Default is None
+    :param scheme: Default QuantizationScheme to use when enabling quantization
+        in a module. May also be a dictionary to be loaded into the QuantizationScheme
+        class. A string alias may also be used, supported aliases:
+        ['default', 'deepsparse', 'tensorrt'].
+        If None, the default scheme (`QuantizationScheme()`) will be used.
+        Default is None
+    :param scheme_overrides: optional mapping of module type names or submodule type
+        names to quantization schemes to override them with. If a scheme is mapped to
+        'default', then it will use the scheme set in the modifier scheme property
+    :param ignore: optional list of module class names or submodule names
+        to not quantize. Default is None
+    :param disable_quantization_observer_epoch: Epoch to disable updates to the module
+        quantization observers. At this point, quantized weights and zero points will
+        not be updated. Leave None to not disable observers during QAT. Default is None
+    :param freeze_bn_stats_epoch: Epoch to stop the tracking of batch norm stats. Leave
+        None to not stop tracking batch norm stats during QAT. Default is None
     :param model_fuse_fn_name: Name of model function to fuse the model in place prior
         to performing QAT.  Set as None or 'no_fuse' to skip module fusing. Set as
          'conv_bv_relus' to use `sparseml.pytorch.utils.fuse_module_conv_bn_relus`.
         Default is None
-    :param disable_quantization_observer_epoch: Epoch to disable updates to the module's
-        quantization observers. After this point, quantized weights and zero points will
-        not be updated. Leave None to not disable observers during QAT. Default is None
-    :param freeze_bn_stats_epoch: Epoch to stop the tracking of batch norm stats. Leave
-        None to not stop tracking batch norm stats during QAT. Default is None
-    :param end_epoch: Disabled, setting to anything other than -1 will raise an
-        exception. For compatibility with YAML serialization only.
     :param model_fuse_fn_kwargs: dictionary of keyword argument values to be passed
         to the model fusing function
-    :param quantize_embeddings: if True, will perform QAT on torch.nn.Embedding layers
-        using sparseml.pytorch.utils.quantization.prepare_embeddings_qat to fake
-        quantize embedding weights. Default is True. Models without embedding layers
-        will be unaffected
-    :param reduce_range: if True, the quantization range will be reduced by one bit.
-        This may prevent overflow issues with model execution on certain hardware
-        Default is False
-    :param quantize_linear_activations: if True, FakeQuantize ops will be run
-        for output activations of fully connected layers. Default is True.
-    :param quantize_conv_activations: if True, FakeQuantize ops will be run
-        for output activations of convolutional layers. Default is True.
-    :param quantize_embedding_activations: if True, FakeQuantize ops will be run
-        for output activations of embedding layers. Default is True.
-    :param activation_bits: Number of bits to use for setting quant min/max values for
-        activations. Default 8.
-    :param weight_bits: Number of bits to use for setting quant min/max values for
-        weights. Default is 8.
     :param num_calibration_steps: Number of steps to run post training calibration for.
         When None, the entire calibration_dataloader is used
-    :param exclude_batchnorm: If True, do not propagate quantization qconfigs to
-        batch-normalization modules
-    :param exclude_module_types: optional list of module class names
-        to not propagate quantization configs to. Default is None
-    :param custom_quantizable_module_types: optional list of module class names
-        to be added to the list of quantizable modules. Default is None
-    :param activation_qconfig_kwargs: Additional kwargs for quantization of
-        activations.
-    :param weight_qconfig_kwargs: Additional kwargs for quantization of
-        weights.
-    :param tenssorrt: if True sets quantization configuration for compatibility with
-       explict quantization as supported by TensorRT 8.2.
+    :param strict: if True, will raise an error if any module types or submodules in
+        scheme_overrides or ignore are not found in a given module. Default True
+    :param end_epoch: Disabled, setting to anything other than -1 will raise an
+        exception. For compatibility with YAML serialization only.
     """
 
     def __init__(
         self,
         start_epoch: float = -1.0,
-        submodules: Union[List[str], None] = None,
-        model_fuse_fn_name: Union[str, None] = None,
-        disable_quantization_observer_epoch: Union[float, None] = None,
-        freeze_bn_stats_epoch: Union[float, None] = None,
-        end_epoch: float = -1,
-        model_fuse_fn_kwargs: Dict[str, Any] = None,
-        quantize_embeddings: bool = True,
-        reduce_range: bool = False,
-        quantize_linear_activations: bool = True,
-        quantize_conv_activations: bool = True,
-        quantize_embedding_activations: bool = True,
-        activation_bits: int = 8,
-        weight_bits: int = 8,
+        scheme: QuantizationSchemeLoadable = None,
+        scheme_overrides: Optional[Dict[str, QuantizationSchemeLoadable]] = None,
+        ignore: Optional[List[str]] = None,
+        disable_quantization_observer_epoch: Optional[float] = None,
+        freeze_bn_stats_epoch: Optional[float] = None,
+        model_fuse_fn_name: Optional[str] = None,
+        model_fuse_fn_kwargs: Optional[Dict[str, Any]] = None,
         num_calibration_steps: Optional[int] = None,
-        exclude_batchnorm: bool = True,
-        exclude_module_types: Optional[List[str]] = None,
-        custom_quantizable_module_types: Optional[List[str]] = None,
-        activation_qconfig_kwargs: Optional[Dict[str, Any]] = None,
-        weight_qconfig_kwargs: Optional[Dict[str, Any]] = None,
-        tensorrt: bool = False,
+        strict: bool = True,
+        end_epoch: float = -1.0,
     ):
-        if torch_quantization is None or torch_intrinsic is None:
-            raise RuntimeError(
-                "Unable to import package torch.quantization and/or "
-                "torch.nn.intrinsic. "
-                "Try upgrading your PyTorch version to use the QuantizationModifier."
-            )
+        raise_if_torch_quantization_not_available()
         if end_epoch != -1:
             raise ValueError(
                 "end_epoch is disabled for QuantizationModifier and can only be set to"
                 " -1. Given {}".format(end_epoch)
             )
-
         super().__init__(start_epoch=start_epoch, end_epoch=-1.0, end_comparator=-1)
 
-        self._start_epoch = start_epoch
-        self._submodules = submodules
-        self._model_fuse_fn_name = model_fuse_fn_name
-        self._model_fuse_fn_kwargs = model_fuse_fn_kwargs or {}
+        self._scheme = QuantizationScheme.load(scheme)
+        self._scheme_overrides = _load_quantization_schemes_dict(
+            scheme_overrides, self._scheme
+        )
+        self._ignore = ignore or []
         self._disable_quantization_observer_epoch = disable_quantization_observer_epoch
         self._freeze_bn_stats_epoch = freeze_bn_stats_epoch
-        self._quantize_embeddings = quantize_embeddings
-        self._reduce_range = reduce_range
-        self._quantize_linear_activations = quantize_linear_activations
-        self._quantize_conv_activations = quantize_conv_activations
-        self._quantize_embedding_activations = quantize_embedding_activations
-        self._activation_bits = activation_bits
-        self._weight_bits = weight_bits
-        self._exclude_batchnorm = exclude_batchnorm
-        self._exclude_module_types = exclude_module_types
-        self._custom_quantizable_module_types = custom_quantizable_module_types
 
-        self._modules_to_quantize = None
-        self._qat_enabled = False
-        self._quantization_observer_disabled = False
-        self._bn_stats_frozen = False
-        self._activation_qconfig_kwargs = activation_qconfig_kwargs
-        self._weight_qconfig_kwargs = weight_qconfig_kwargs
-        self._tensorrt = tensorrt
-
+        self._num_calibration_steps = num_calibration_steps
         self._calibration_dataloader = None
         self._calibration_function = None
-        self._num_calibration_steps = num_calibration_steps
+
+        self._model_fuse_fn_name = model_fuse_fn_name
+        self._model_fuse_fn_kwargs = model_fuse_fn_kwargs or {}
         if (
             isinstance(self._model_fuse_fn_name, str)
             and self._model_fuse_fn_name.lower() == "none"
         ):
             self._model_fuse_fn_name = None
-        if isinstance(self._submodules, list):
-            self._submodules = set(self._submodules)
+
+        self._strict = strict
+
+        self._qat_enabled = False
+        self._quantization_observer_disabled = False
+        self._bn_stats_frozen = False
 
         self._validate_params()
 
@@ -228,49 +193,123 @@ class QuantizationModifier(ScheduledModifier):
         return [SparsificationTypes.quantization, SparsificationTypes.structured]
 
     @ModifierProp()
-    def submodules(self) -> Union[List[str], None]:
+    def scheme(self) -> QuantizationSchemeLoadable:
         """
-        :return: List of submodule names to perform QAT on. None quantizes the entire
-            model
+        :return: Default QuantizationScheme to use when enabling quantization
+            in a module. returned as a dictionary for serialization purposes
         """
-        return list(self._submodules) if self._submodules is not None else None
+        return self._scheme
 
-    @submodules.setter
-    def submodules(self, value: Union[List[str], None]):
+    @scheme.setter
+    def scheme(self, value: QuantizationSchemeLoadable):
         """
-        :params value: List of submodule names to perform QAT on. Set None to quantize
-            entire model
+        :params value: Default QuantizationScheme to use when enabling quantization
+            in a module. May also be a dictionary to be loaded into the
+            QuantizationScheme class. If None, the default scheme
+            (`QuantizationScheme()`) will be used
         """
-        self._submodules = value
-        if isinstance(self._submodules, list):
-            self._submodules = set(self._submodules)
+        self._scheme = QuantizationScheme.load(value)
+
+    @ModifierProp()
+    def scheme_overrides(self) -> Optional[Dict[str, QuantizationSchemeLoadable]]:
+        """
+        :return: optional mapping of module type names or submodule type
+            names to quantization schemes to override them with. If a scheme is mapped
+            to 'default', then it will use the scheme set in the modifier scheme
+            property
+        """
+        return self._scheme_overrides
+
+    @scheme_overrides.setter
+    def scheme_overrides(self, value: Optional[Dict[str, QuantizationSchemeLoadable]]):
+        """
+        :params value: optional mapping of module type names or submodule type
+            names to quantization schemes to override them with. If a scheme is mapped
+            to 'default', then it will use the scheme set in the modifier scheme
+            property
+        """
+        self._scheme_overrides = _load_quantization_schemes_dict(value, self._scheme)
+
+    @ModifierProp()
+    def ignore(self) -> List[str]:
+        """
+        :return: optional list of module class names or submodule names to not propagate
+            quantization schemes to
+        """
+        return self._ignore
+
+    @ignore.setter
+    def ignore(self, value: Optional[List[str]]):
+        """
+        :params value: optional list of module class names or submodule names
+            to not propagate quantization schemes to
+        """
+        self._ignore = value or []
+
+    @ModifierProp()
+    def disable_quantization_observer_epoch(self) -> Optional[float]:
+        """
+        :return: Epoch to disable updates to the module
+            quantization observers. At this point, quantized weights and zero points
+            will not be updated. When None, observers never disabled during QAT
+        """
+        return self._disable_quantization_observer_epoch
+
+    @disable_quantization_observer_epoch.setter
+    def disable_quantization_observer_epoch(self, value: Optional[float]):
+        """
+        :params value: Epoch to disable updates to the module
+            quantization observers. At this point, quantized weights and zero points
+            will not be updated. Set None to not disable observers during QAT
+        """
+        self._disable_quantization_observer_epoch = value
         self._validate_params()
 
     @ModifierProp()
-    def model_fuse_fn_name(self) -> Union[str, None]:
+    def freeze_bn_stats_epoch(self) -> Optional[float]:
+        """
+        :return: Epoch to stop the tracking of batch norm stats. When
+            None, batch norm stats are track for all of training
+        """
+        return self._freeze_bn_stats_epoch
+
+    @freeze_bn_stats_epoch.setter
+    def freeze_bn_stats_epoch(self, value: Optional[float]):
+        """
+        :params value: Epoch to stop the tracking of batch norm stats. Set
+            None to not stop tracking batch norm stats during QAT
+        """
+        self._freeze_bn_stats_epoch = value
+        self._validate_params()
+
+    @ModifierProp()
+    def num_calibration_steps(self) -> Optional[int]:
+        """
+        :return: Number of steps to run post training calibration for.
+            When None, the entire calibration_dataloader is used
+        """
+        return self._num_calibration_steps
+
+    @num_calibration_steps.setter
+    def num_calibration_steps(self, value: Optional[int]):
+        """
+        :params value: Number of steps to run post training calibration for.
+            When None, the entire calibration_dataloader is used
+        """
+        self._num_calibration_steps = value
+
+    @ModifierProp()
+    def model_fuse_fn_name(self) -> Optional[str]:
         """
         :return: Name of model function to fuse the model in place prior
             to performing QAT. None sets to default function.
             If tensorrt flag is True, default is 'no_fuse', otherwise
             `sparseml.pytorch.utils.fuse_module_conv_bn_relus`.
         """
-        if self.tensorrt:
-            _LOGGER.info(
-                "Overriding model_fuse_fn_name to False because tensorrt flag is True."
-            )
-            fuse_fn = (
-                self._model_fuse_fn_name if self._model_fuse_fn_name else "no_fuse"
-            )
-        else:
-            fuse_fn = (
-                self._model_fuse_fn_name
-                if self._model_fuse_fn_name
-                else "conv_bn_relus"
-            )
-        return fuse_fn
+        return self._model_fuse_fn_name
 
     @model_fuse_fn_name.setter
-    def model_fuse_fn_name(self, value: Union[str, None]):
+    def model_fuse_fn_name(self, value: Optional[str]):
         """
         :params value: Name of model function to fuse the model in place prior
             to performing QAT. Set None to use the default function
@@ -286,194 +325,28 @@ class QuantizationModifier(ScheduledModifier):
         self._validate_params()
 
     @ModifierProp()
-    def disable_quantization_observer_epoch(self) -> Union[float, None]:
+    def model_fuse_fn_kwargs(self) -> Dict[str, Any]:
         """
-        :return: Epoch to disable updates to the module's
-            quantization observers. After this point, quantized weights and zero points
-            will not be updated. When None, observers never disabled during QAT
+        :return: Dictionary of keyword arguments to be passed to the
+            model fuse function
         """
-        return self._disable_quantization_observer_epoch
-
-    @disable_quantization_observer_epoch.setter
-    def disable_quantization_observer_epoch(self, value: Union[float, None]):
-        """print
-        :params value: Epoch to disable updates to the module's
-            quantization observers. After this point, quantized weights and zero points
-            will not be updated. Set None to not disable observers during QAT
-        """
-        self._disable_quantization_observer_epoch = value
-        self._validate_params()
+        return self._model_fuse_fn_kwargs
 
     @ModifierProp()
-    def freeze_bn_stats_epoch(self) -> Union[float, None]:
+    def strict(self) -> bool:
         """
-        :return: Epoch to stop the tracking of batch norm stats. When
-            None, batch norm stats are track for all of training
+        :return: if True, will raise an error if any module types or submodules in
+            scheme_overrides or ignore are not found in the given module
         """
-        return self._freeze_bn_stats_epoch
+        return self._strict
 
-    @freeze_bn_stats_epoch.setter
-    def freeze_bn_stats_epoch(self, value: Union[float, None]):
+    @strict.setter
+    def strict(self, value: bool):
         """
-        :params value: Epoch to stop the tracking of batch norm stats. Set
-            None to not stop tracking batch norm stats during QAT
+        :params value: if True, will raise an error if any module types or submodules in
+            scheme_overrides or ignore are not found in the given module
         """
-        self._freeze_bn_stats_epoch = value
-        self._validate_params()
-
-    @ModifierProp()
-    def quantize_embeddings(self) -> bool:
-        """
-        :return: if True, will perform QAT on torch.nn.Embedding layers
-            using sparseml.pytorch.utils.quantization.prepare_embeddings_qat to fake
-            quantize embedding weights
-        """
-        return self._quantize_embeddings
-
-    @quantize_embeddings.setter
-    def quantize_embeddings(self, value: bool):
-        """
-        :params value: if True, will perform QAT on torch.nn.Embedding layers
-            using sparseml.pytorch.utils.quantization.prepare_embeddings_qat to fake
-            quantize embedding weights
-        """
-        self._quantize_embeddings = value
-
-    @ModifierProp()
-    def reduce_range(self) -> bool:
-        """
-        :return: if True, the quantization range will be reduced by one
-            This may prevent overflow issues with model execution on certain hardware
-        """
-        return self._reduce_range
-
-    @ModifierProp()
-    def quantize_linear_activations(self) -> bool:
-        """
-        :return: if True, FakeQuantize ops will be run for output activations
-            of fully connected layers
-        """
-        if self.tensorrt:
-            _LOGGER.info(
-                "Overriding quantize_linear_activations to False "
-                "because tensorrt flag is True."
-            )
-            return False
-        else:
-            return self._quantize_linear_activations
-
-    @ModifierProp()
-    def quantize_conv_activations(self) -> bool:
-        """
-        :return: if True, FakeQuantize ops will be run for output activations
-            of convolutional layers
-        """
-        if self.tensorrt:
-            _LOGGER.info(
-                "Overriding quantize_conv_activations to False "
-                "because tensorrt flag is True."
-            )
-            return False
-        else:
-            return self._quantize_conv_activations
-
-    @ModifierProp()
-    def quantize_embedding_activations(self) -> bool:
-        """
-        :return: if True, FakeQuantize ops will be run for output activations
-            of convolutional layers
-        """
-        if self.tensorrt:
-            _LOGGER.info(
-                "Overriding quantize_embedding_activations to False "
-                "because tensorrt flag is True."
-            )
-            return False
-        else:
-            return self._quantize_embedding_activations
-
-    @ModifierProp()
-    def custom_quantizable_module_types(self) -> Union[List[str], None]:
-        """
-        :return: optional list of module class names to be included
-            in list of quantizable modules. Default is None
-        """
-        return self._custom_quantizable_module_types
-
-    @ModifierProp()
-    def exclude_module_types(self) -> Union[List[str], None]:
-        """
-        :return: optional list of module class names to not propagate
-            quantization configs to. Default is None
-        """
-        return self._exclude_module_types
-
-    @ModifierProp()
-    def exclude_batchnorm(self) -> bool:
-        """
-        :return: if True, do not propagate quantization qconfigs to
-        batch-normalization modules
-        """
-        return self._exclude_batchnorm
-
-    @ModifierProp()
-    def activation_bits(self) -> Optional[int]:
-        """
-        :return: Number of bits to be use for setting quant min/max values for
-            activations. Default is None, which will quantize activations to 8 bits.
-        """
-        return self._activation_bits
-
-    @ModifierProp()
-    def weight_bits(self) -> Optional[int]:
-        """
-        :return: Number of bits to be use for setting quant min/max values for
-            weights. Default is None, which will quantize weights to 8 bits.
-        """
-        return self._weight_bits
-
-    @ModifierProp()
-    def activation_qconfig_kwargs(self) -> Dict[str, Any]:
-        """
-        :return: Dictionary with correct quant_min, quant_max, and dtype values
-            for activations
-
-        """
-        return self._activation_qconfig_kwargs
-
-    @ModifierProp()
-    def weight_qconfig_kwargs(self) -> Dict[str, Any]:
-        """
-        :return: Dictionary with correct quant_min, quant_max, and dtype values
-            for weights
-
-        """
-        if (
-            self._weight_qconfig_kwargs is not None
-            and "observer" in self._weight_qconfig_kwargs
-        ):
-            kwargs = self._weight_qconfig_kwargs.copy()
-            if kwargs["observer"] == "minmaxobserver":
-                kwargs["observer"] = torch_quantization.MinMaxObserver
-            return kwargs
-        else:
-            return self._weight_qconfig_kwargs
-
-    @ModifierProp()
-    def num_calibration_steps(self) -> Optional[int]:
-        """
-        :return: Number of steps to run post training calibration for.
-            When None, the entire calibration_dataloader is used
-        """
-        return self._num_calibration_steps
-
-    @ModifierProp()
-    def tensorrt(self) -> bool:
-        """
-        :return: boolean. When set to True overrides quantization configs
-        to be compatible with TensorRT.
-        """
-        return self._tensorrt
+        self._strict = value
 
     def initialize(
         self,
@@ -502,43 +375,11 @@ class QuantizationModifier(ScheduledModifier):
             for individual modifiers.
         """
         super().initialize(module, epoch, loggers, **kwargs)
-        self._modules_to_quantize = []
+
         self._calibration_dataloader = calibration_dataloader
         self._calibration_function = calibration_function
-        if self._submodules is not None:
-            found_submodules = []
-            for name, submodule in module.named_modules():
-                if name in self._submodules:
-                    self._modules_to_quantize.append(_ModuleToQuantize(name, submodule))
-                    found_submodules.append(name)
-            if not len(found_submodules) == len(self._submodules):
-                raise RuntimeError(
-                    "Could not find all provided submodules to quantize"
-                    "given: {}, found: {}".format(
-                        list(self._submodules), found_submodules
-                    )
-                )
-        else:
-            self._modules_to_quantize.append(_ModuleToQuantize(None, module))
 
         self._check_quantization_update(module, epoch, steps_per_epoch=0)
-
-    def finalize(
-        self, module: Optional[Module] = None, reset_loggers: bool = True, **kwargs
-    ):
-        """
-        Cleans up any state
-
-        :param module: The model/module to finalize the modifier for.
-            Marked optional so state can still be cleaned up on delete,
-            but generally should always be passed in.
-        :param reset_loggers: True to remove any currently attached loggers (default),
-            False to keep the loggers attached.
-        :param kwargs: Optional kwargs to support specific arguments
-            for individual modifiers.
-        """
-        super().finalize(module, reset_loggers, **kwargs)
-        self._modules_to_quantize = None
 
     def update(
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
@@ -572,11 +413,9 @@ class QuantizationModifier(ScheduledModifier):
         if not self._enabled:
             return False
 
-        pending = (
-            self.start_pending(epoch, steps_per_epoch)
-            or self._disable_quantization_observer_update_ready(epoch)
-            or self._freeze_bn_stats_update_ready(epoch)
-        )
+        pending = self.start_pending(epoch, steps_per_epoch)
+        pending |= self._freeze_bn_stats_update_ready(epoch)
+        pending |= self._disable_quantization_observer_update_ready(epoch)
 
         return pending
 
@@ -609,18 +448,57 @@ class QuantizationModifier(ScheduledModifier):
             self._enable_module_qat(module)
 
         if self._disable_quantization_observer_update_ready(epoch):
-            for _, quant_module in self._modules_to_quantize:
-                quant_module.apply(torch_quantization.disable_observer)
+            module.apply(torch.quantization.disable_observer)
             self._quantization_observer_disabled = True
 
         if self._freeze_bn_stats_update_ready(epoch):
-            for _, quant_module in self._modules_to_quantize:
-                quant_module.apply(freeze_bn_stats)
+            module.apply(freeze_bn_stats)
             self._bn_stats_frozen = True
 
+        self._log_quantization(module, epoch, steps_per_epoch)
+
+    def _disable_quantization_observer_update_ready(self, epoch: float) -> bool:
+        return (
+            self._disable_quantization_observer_epoch is not None
+            and epoch >= self._disable_quantization_observer_epoch
+            and not self._quantization_observer_disabled
+        )
+
+    def _freeze_bn_stats_update_ready(self, epoch: float) -> bool:
+        return (
+            self._freeze_bn_stats_epoch is not None
+            and epoch >= self._freeze_bn_stats_epoch
+            and not self._bn_stats_frozen
+        )
+
     def _enable_module_qat(self, module: Module):
-        # fuse module Conv-BNs
-        if self.model_fuse_fn_name == "conv_bn_relus":
+        # fuse conv-bn-relu blocks prior to quantization emulation
+        self._fuse(module)
+
+        # add quantization_schemes to target submodules
+        set_quantization_schemes(
+            module,
+            scheme=self._scheme,
+            scheme_overrides=self._scheme_overrides,
+            ignore=self._ignore,
+            strict=self._strict,
+        )
+
+        # fix for freezing batchnorm statistics when not fusing BN with convs.
+        # pytorch only supports freezing batchnorm statistics for fused modules.
+        # this fix wraps BN modules adding with a new module class that supports
+        # methods related to freezing/unfreezing BN statistics.
+        configure_module_bn_wrappers(module)
+
+        # convert target qconfig layers to QAT modules with FakeQuantize
+        convert_module_qat_from_schemes(module)
+
+        self._qat_enabled = True
+
+        self._calibrate_if_possible(module)
+
+    def _fuse(self, module: Module):
+        if self.model_fuse_fn_name in [None, "conv_bn_relus"]:
             self._model_fuse_fn_kwargs["inplace"] = True
             fuse_module_conv_bn_relus(module, **self._model_fuse_fn_kwargs)
         elif self.model_fuse_fn_name != "no_fuse":
@@ -634,94 +512,7 @@ class QuantizationModifier(ScheduledModifier):
                 )
             module_fuse_fn(**self._model_fuse_fn_kwargs)
 
-        # build list of layer types that should not quantize output activations
-        remove_activation_qat_layers = ["FloatFunctional"]
-        if not self.quantize_linear_activations:
-            remove_activation_qat_layers.extend(LINEAR_ACTIVATION_NAMES)
-
-        if not self.quantize_conv_activations:
-            remove_activation_qat_layers.extend(CONV_ACTIVATION_NAMES)
-
-        if not self.quantize_embedding_activations:
-            remove_activation_qat_layers.append("Embedding")
-
-        # fix for freezing batchnorm statistics when not fusing BN with convs.
-        # pytorch only supports freezing batchnorm statistics for fused modules.
-        # this fix wraps BN modules adding with a new module class that supports
-        # methods related to freezing/unfreezing BN statistics.
-        configure_module_bn_wrappers(module)
-
-        # set qconfig.
-        # if tensorrt flag is used, set activation and weights to symmetric
-        # quantization.
-        # otherwise, use the default values set in QConfigProperties
-        qproperties = QConfigProperties(
-            activation_bits=self.activation_bits,
-            weight_bits=self.weight_bits,
-            activation_qconfig_kwargs=self.activation_qconfig_kwargs,
-            weight_qconfig_kwargs=self.weight_qconfig_kwargs,
-            reduce_range=self.reduce_range,
-        )
-        if self.tensorrt:
-            _LOGGER.info(
-                "Overriding quantization scheme to symmetric int8 "
-                "for both weights and activations because tensorrt flag is True."
-            )
-            qproperties.tensorrt = True
-            qproperties.activation_dtype = torch.qint8
-            qproperties.weight_dtype = torch.qint8
-
-        qconfig = get_qat_qconfig(qproperties)
-
-        # prepare each module / submodule for quantization
-        for name, quant_module in self._modules_to_quantize:
-            # wrap any modules with wrap_qat set to True as QATWrapper(s)
-            configure_module_qat_wrappers(quant_module, qproperties)
-
-            # set quantization config (asymmetric activations, symmetric weights)
-            quant_module.qconfig = qconfig
-
-            # wrap all conv / linear blocks in with quantization observers
-            torch_quantization.propagate_qconfig_(quant_module)
-            configure_module_default_qconfigs(quant_module)
-            add_quant_dequant(
-                quant_module, name, module, self.custom_quantizable_module_types
-            )
-
-            # Remove output quantization from appropriate modules
-            remove_activation_qat_by_layer_name(
-                quant_module, remove_activation_qat_layers
-            )
-
-        # remove qconfigs for module types in exclude_module_types
-        to_exclude = ["Softmax"]
-        if self.exclude_module_types:
-            to_exclude.extend(self.exclude_module_types)
-
-        # if exclude_batchnorm flag is used, add batch norm layers to list of
-        # modules to exclude qconfig
-        if self.exclude_batchnorm:
-            to_exclude.extend(["BatchNorm1d", "BatchNorm2d", "BatchNorm3d"])
-
-        self._exclude_module_types = to_exclude
-        if self.exclude_module_types:
-            self._strip_excluded_module_qconfigs(module)
-
-        # set modules with proper qconfigs to QAT mode
-        torch_quantization.prepare_qat(module, inplace=True)
-        if self._quantize_embeddings:
-            prepare_embeddings_qat(module, qproperties)
-
-        self._qat_enabled = True
-        self._calibrate_if_possible(module)
-
-        # mark export mode for module Conv layers
-        module.export_with_qlinearconv = self._quantize_conv_activations
-        if hasattr(module, "module"):
-            # for DP/DDP unwrapping
-            module.module.export_with_qlinearconv = self._quantize_conv_activations
-
-    def _calibrate_if_possible(self, module):
+    def _calibrate_if_possible(self, module: Module):
         if self.num_calibration_steps == 0 and self._calibration_dataloader:
             warnings.warn(
                 f"num_calibration_steps is {self.num_calibration_steps}."
@@ -740,7 +531,7 @@ class QuantizationModifier(ScheduledModifier):
         elif self._calibration_dataloader:
             self._calibrate(module)
 
-    def _calibrate(self, module):
+    def _calibrate(self, module: Module):
         _LOGGER.info("Running quantization calibration using calibration_dataloader")
 
         module_training = module.training
@@ -769,30 +560,6 @@ class QuantizationModifier(ScheduledModifier):
         if module_training:
             module.train()
 
-    def _disable_quantization_observer_update_ready(self, epoch: float) -> bool:
-        return (
-            self._disable_quantization_observer_epoch is not None
-            and epoch >= self._disable_quantization_observer_epoch
-            and not self._quantization_observer_disabled
-        )
-
-    def _freeze_bn_stats_update_ready(self, epoch: float) -> bool:
-        return (
-            self._freeze_bn_stats_epoch is not None
-            and epoch >= self._freeze_bn_stats_epoch
-            and not self._bn_stats_frozen
-        )
-
-    def _strip_excluded_module_qconfigs(self, module: Module):
-        if not self.exclude_module_types:
-            return
-        excluded_classes = set(self.exclude_module_types)
-        for submodule in module.modules():
-            if submodule.__class__.__name__ in excluded_classes and hasattr(
-                submodule, "qconfig"
-            ):
-                submodule.qconfig = None
-
     def _validate_params(self):
         self.validate_schedule()
         if (
@@ -816,3 +583,87 @@ class QuantizationModifier(ScheduledModifier):
                     self._freeze_bn_stats_epoch, self._start_epoch
                 )
             )
+
+        all_schemes = [self._scheme] + list(self._scheme_overrides.values())
+        if any(scheme.target_hardware == "tensorrt" for scheme in all_schemes) and (
+            self._model_fuse_fn_name != "no_fuse"
+        ):
+            _LOGGER.info(
+                "QuantizationModifier - target hardware tensorrt detected - "
+                "Disabling model fuse step"
+            )
+            self._model_fuse_fn_name = "no_fuse"
+
+    def _log_quantization(
+        self,
+        module: Module,
+        epoch: float,
+        steps_per_epoch: int,
+    ):
+        """
+        Check whether to log an update for the learning rate of the modifier.
+
+        :param module: module to modify
+        :param optimizer: optimizer to modify
+        :param epoch: current epoch and progress within the current epoch
+        :param steps_per_epoch: number of steps taken within each epoch
+            (calculate batch number using this and epoch)
+        """
+
+        def _log(tag, value):
+            self.log_scalar(
+                tag=tag,
+                value=value,
+                epoch=epoch,
+                steps_per_epoch=steps_per_epoch,
+            )
+
+        # log layer-wise quantization info
+        num_fake_quantizes = 0
+        for name, submodule in module.named_modules():
+            if not isinstance(submodule, torch.quantization.FakeQuantize):
+                continue
+            num_fake_quantizes += 1
+
+            qrange = submodule.quant_max - submodule.quant_min + 1
+            num_bits = int(math.log2(qrange))
+
+            _log(
+                tag=f"QuantizationModifier/{name}/num_bits",
+                value=num_bits,
+            )
+
+        # log global quantization info
+        _log(
+            tag="QuantizationModifier/num_fake_quantize_global",
+            value=num_fake_quantizes,
+        )
+        _log(
+            tag="QuantizationModifier/bn_stats_frozen",
+            value=1.0 if self._bn_stats_frozen else 0.0,
+        )
+        _log(
+            tag="QuantizationModifier/qat_observers_disabled",
+            value=1.0 if self._quantization_observer_disabled else 0.0,
+        )
+
+
+class _QuantizationSchemesDict(dict):
+    # wrapper class for dict to override the __str__ method for yaml serialization
+
+    def __str__(self):
+        return str({submodule: scheme.dict() for submodule, scheme in self.items()})
+
+
+def _load_quantization_schemes_dict(
+    schemes_dict: Optional[Dict[str, QuantizationSchemeLoadable]],
+    default_scheme: QuantizationScheme,
+) -> Dict[str, QuantizationScheme]:
+    if schemes_dict is None:
+        return {}
+    return _QuantizationSchemesDict(
+        {
+            submodule: QuantizationScheme.load(scheme, default=default_scheme)
+            for submodule, scheme in schemes_dict.items()
+        }
+    )
