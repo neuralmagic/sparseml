@@ -21,6 +21,7 @@ from abc import ABC, abstractmethod
 from collections import OrderedDict
 from typing import Dict, List, Optional, Tuple, Union
 
+import torch
 from torch import Tensor
 from torch.nn import Module, Parameter
 from torch.optim.optimizer import Optimizer
@@ -411,8 +412,15 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         """
         super().log_update(module, optimizer, epoch, steps_per_epoch)
 
+        num_params = 0
+        num_zeros = 0
         for layer_sparsity in self._analyzers:
             if isinstance(layer_sparsity, ModulePruningAnalyzer):
+                num_params += layer_sparsity.param.numel()
+                num_zeros += (
+                    layer_sparsity.param.numel()
+                    - torch.count_nonzero(layer_sparsity.param).item()
+                )
                 layer_sparsity = (
                     layer_sparsity.tag,
                     layer_sparsity.param_sparsity.item(),
@@ -423,6 +431,12 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
                     epoch=epoch,
                     steps_per_epoch=steps_per_epoch,
                 )
+        self.log_scalar(
+            tag=f"Overall sparsity",
+            value=num_zeros / (num_params + torch.finfo(torch.float32).eps),
+            epoch=epoch,
+            steps_per_epoch=steps_per_epoch,
+        )
 
     def optimizer_pre_step(
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
