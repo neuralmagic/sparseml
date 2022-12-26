@@ -432,7 +432,7 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
                     steps_per_epoch=steps_per_epoch,
                 )
         self.log_scalar(
-            tag="Overall sparsity",
+            tag=f"modifier_sparsity/{self.__class__.__name__}",
             value=num_zeros / (num_params + torch.finfo(torch.float32).eps),
             epoch=epoch,
             steps_per_epoch=steps_per_epoch,
