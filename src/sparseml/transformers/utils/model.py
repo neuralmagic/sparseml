@@ -21,6 +21,7 @@ import torch
 from torch.nn import Module
 from transformers import (
     AutoModelForMaskedLM,
+    AutoModelForMultipleChoice,
     AutoModelForQuestionAnswering,
     AutoModelForSequenceClassification,
     AutoModelForTokenClassification,
@@ -289,6 +290,68 @@ class SparseAutoModel:
         )
         teacher = (
             SparseAutoModel.token_classification_from_pretrained(
+                teacher_name_or_path, model_type="teacher", **teacher_kwargs
+            )
+            if teacher_name_or_path and teacher_name_or_path not in ["self", "disable"]
+            else teacher_name_or_path
+        )
+
+        return model, teacher
+
+    @staticmethod
+    def multiple_choice_from_pretrained(
+        model_name_or_path: str,
+        model_type: str,
+        **kwargs,
+    ) -> Module:
+        """
+        :param model_name_or_path: the name of or path to the model to load
+        :param model_type: specify the type of model loaded for logging;
+            ex one of [model, student, teacher]
+        :param kwargs: keyword arguments to pass through to the AutoModel call
+        :return: the created model for multiple choice
+        """
+        SparseAutoModel._check_tf(model_name_or_path)
+        if not kwargs:
+            kwargs = {}
+        kwargs["from_tf"] = False
+        delayed = False
+        if "state_dict" not in kwargs:
+            kwargs["state_dict"], delayed = SparseAutoModel._loadable_state_dict(
+                model_name_or_path
+            )
+        model = AutoModelForMultipleChoice.from_pretrained(
+            model_name_or_path,
+            **kwargs,
+        )
+        SparseAutoModel.log_model_load(model, model_name_or_path, model_type, delayed)
+
+        return model
+
+    @staticmethod
+    def multiple_choice_from_pretrained_distil(
+        model_name_or_path: str,
+        teacher_name_or_path: Optional[str],
+        model_kwargs: Dict[str, Any],
+        teacher_kwargs: Dict[str, Any],
+    ) -> Tuple[Module, Optional[Module]]:
+        """
+        :param model_name_or_path: the name of or path to the model to load
+        :param teacher_name_or_path: the name of or path to the teacher to load,
+            None or one of ['self', 'disable'] will not create a teacher and
+            instead return the value passed in
+        :param model_kwargs: the keyword args to pass into the AutoModel for model
+        :param teacher_kwargs: the keyword args to pass into the AutoModel for teacher
+        :return: a tuple containing the model and distillation teacher (optional)
+            for multiple choice
+        """
+        model = SparseAutoModel.multiple_choice_from_pretrained(
+            model_name_or_path,
+            model_type="student" if teacher_name_or_path else "model",
+            **model_kwargs,
+        )
+        teacher = (
+            SparseAutoModel.multiple_choice_from_pretrained(
                 teacher_name_or_path, model_type="teacher", **teacher_kwargs
             )
             if teacher_name_or_path and teacher_name_or_path not in ["self", "disable"]
