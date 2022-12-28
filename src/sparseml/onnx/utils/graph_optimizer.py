@@ -107,16 +107,17 @@ def _fold_conv_bn(
     return False
 
 
-def fold_conv_bns(onnx_file: str) -> onnx.ModelProto:
+def fold_conv_bns(onnx_file: Union[str, onnx.ModelProto]) -> onnx.ModelProto:
     """
     When a batch norm op is the only child operator of a conv op, this function
     will fold the batch norm into the conv and return the processed graph
 
-    :param onnx_file: file path to ONNX model to process
+    :param onnx_file: file path to ONNX model to process or in-memory ModelProto
+        to be modified in-place
     :return: A loaded ONNX model with BatchNormalization ops folded into Conv ops
         where possible
     """
-    model = onnx.load(onnx_file)
+    model = onnx.load(onnx_file) if isinstance(onnx_file, str) else onnx_file
     conv_nodes = [n for n in model.graph.node if n.op_type == "Conv"]
     graph_modified = False
     for conv_node in conv_nodes:
