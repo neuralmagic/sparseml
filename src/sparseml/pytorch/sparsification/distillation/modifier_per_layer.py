@@ -165,7 +165,7 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
     def gain(self) -> float:
         """
         :return: how much to weight the distillation loss vs the base loss
-            (e.g. hardness of 0.6 will return 0.6 * distill_loss + 0.4 * base_loss)
+            (e.g. gain of 0.6 will return 0.6 * distill_loss + base_loss)
         """
         return self._gain
 
@@ -173,7 +173,7 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
     def gain(self, value: float):
         """
         :params value: how much to weight the distillation loss vs the base loss
-            (e.g. hardness of 0.6 will return 0.6 * distill_loss + 0.4 * base_loss)
+            (e.g. gain of 0.6 will return 0.6 * distill_loss + base_loss)
         """
         self._gain = value
 
