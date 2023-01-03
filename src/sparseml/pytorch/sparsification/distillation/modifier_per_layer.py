@@ -245,10 +245,10 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
             Defaults to 0 (start of the training process)
         :param loggers: Optional list of loggers to log the modification process to
         :param distillation_teacher: teacher module to perform knowledge distillation
-            with. If not provided, self distillation will be used with a teacher
-             from a copy of the given module at the start epoch. If given string
-             "disable" this modifier will not apply distillation of any kind,
-             even in the active epoch range
+            with. Pass `"self"` to use self distillation with a teacher
+            from a copy of the given module at the start epoch.
+            Pass `"disable"` to disable this modifier.
+            Defaults to `"disable"`
         :param kwargs: Optional kwargs to support specific arguments
             for individual modifiers.
         """
