@@ -194,8 +194,8 @@ manager.apply(model)
 ```
 
 More information on the codebase and contained processes can be found in the SparseML docs:
-- [Sparsification Code](https://docs.neuralmagic.com/sparseml/source/code)
-- [Sparsification Recipes](https://docs.neuralmagic.com/sparseml/source/recipes)
+- [Sparsification Code](https://docs.neuralmagic.com/user-guide/sparsification)
+- [Sparsification Recipes](https://docs.neuralmagic.com/user-guide/recipes)
 - [Exporting to ONNX](https://docs.neuralmagic.com/user-guide/onnx-export)
 
 ## Resources
