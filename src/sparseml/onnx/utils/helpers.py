@@ -86,11 +86,11 @@ def validate_onnx_file(path: str):
     """
     try:
         onnx_model = check_load_model(path)
-
+        onnx.checker.check_model(onnx_model)
         if not onnx_model.opset_import:
             raise ValueError("could not parse opset_import")
     except Exception as err:
-        raise ValueError("file at {} is not a valid onnx model: {}".format(path, err))
+        raise ValueError(f"Invalid onnx model: {err}")
 
 
 def check_load_model(model: Union[str, ModelProto]) -> ModelProto:
@@ -107,7 +107,7 @@ def check_load_model(model: Union[str, ModelProto]) -> ModelProto:
     if isinstance(model, str):
         return onnx.load(clean_path(model))
 
-    raise ValueError("unknown type given for model: {}".format(model))
+    raise ValueError(f"unknown type given for model: {type(model)}")
 
 
 def extract_node_id(node: NodeProto) -> str:
@@ -212,12 +212,11 @@ def get_numpy_dtype(tensor: onnx.TensorProto) -> Union[None, numpy.dtype]:
     """
     data_type_enum = tensor.type.tensor_type.elem_type  # type: int
     data_type = onnx.TensorProto.DataType.Name(data_type_enum).lower()  # type: str
+    if data_type == "float":
+        data_type = "float32"
 
     if hasattr(numpy, data_type):
-        dtype = getattr(numpy, data_type)
-        if dtype is numpy.float:  # default to float32
-            dtype = numpy.float32
-        return dtype
+        return getattr(numpy, data_type)
     return None
 
 
