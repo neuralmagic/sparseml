@@ -247,6 +247,9 @@ class ONNXGraph(object):
         Sorts the order of the graph Node repeated field in place in topological
         order as per the ONNX Model proto specifications
         """
+        if len(self._model.graph.node) == 1:
+            return
+
         # build toposort DAG input and sort
         model_dag = defaultdict(set)  # node_id -> dependencies
         for parent_node_id, child_nodes in self._input_id_to_nodes.items():
