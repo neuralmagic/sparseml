@@ -29,6 +29,9 @@ from sparseml.pytorch.sparsification import (
     PerLayerDistillationModifier,
     ScheduledModifier,
 )
+from sparseml.pytorch.sparsification.distillation.modifier_per_layer import (
+    _DISTILL_PARAM_GROUP_KEY,
+)
 from sparseml.pytorch.sparsification.quantization.modifier_quantization import (
     QuantizationModifier,
 )
@@ -419,7 +422,8 @@ def test_modifier_load_before_forward_pass(tmp_path):
         student_inputs=x,
         student_outputs=fake_loss,
     )
-
+    assert _DISTILL_PARAM_GROUP_KEY in modifier.state_dict()
+    assert _DISTILL_PARAM_GROUP_KEY in modifier_2.state_dict()
     assert _check_state_dict_equality(modifier.state_dict(), modifier_2.state_dict())
 
 
