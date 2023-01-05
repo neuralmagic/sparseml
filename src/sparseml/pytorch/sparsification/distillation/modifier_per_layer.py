@@ -40,6 +40,8 @@ _LOGGER = logging.getLogger(__name__)
 
 _DISTILLATION_TYPES = [torch.nn.Conv2d, torch.nn.Linear]
 
+_DISTILL_PARAM_GROUP_KEY = "distillation_projection_params"
+
 
 @PyTorchModifierYAML()
 class PerLayerDistillationModifier(BaseDistillationModifier):
@@ -121,14 +123,14 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
                 "Distilling same layer names for teacher and student: %s",
                 teacher_layer_names,
             )
-            student_layer_names = teacher_layer_names
+            student_layer_names = teacher_layer_names.copy()
 
         if teacher_layer_names is None and student_layer_names is not None:
             _LOGGER.info(
                 "Distilling same layer names for teacher and student: %s",
                 student_layer_names,
             )
-            teacher_layer_names = student_layer_names
+            teacher_layer_names = student_layer_names.copy()
 
         super().__init__(
             start_epoch=start_epoch,
@@ -151,6 +153,7 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
         self._projection: Dict[str, torch.nn.Module] = {}
         self._student_output_shapes: Dict[str, torch.Size] = {}
         self._teacher_output_shapes: Dict[str, torch.Size] = {}
+        self._loaded_projection = None
 
     def _reset_cache(self):
         self._cached_student_output.clear()
@@ -252,6 +255,20 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
         """
         self._project_features = value
 
+    def state_dict(self) -> Dict[str, Dict]:
+        state = super().state_dict()
+        if self.project_features:
+            state[_DISTILL_PARAM_GROUP_KEY] = {
+                name: p.weight.state_dict() for name, p in self._projection.items()
+            }
+        return state
+
+    def load_state_dict(self, state_dict: Dict[str, Dict], strict: bool = True):
+        if self.project_features:
+            # save until self._projection is actually initialized after forward
+            self._loaded_projection = state_dict.pop(_DISTILL_PARAM_GROUP_KEY)
+        return super().load_state_dict(state_dict, strict)
+
     def initialize(
         self,
         module: Module,
@@ -262,6 +279,7 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
     ):
         """
         Store the teacher model for distillation if provided
+
         :param module: the PyTorch model/module to modify
         :param epoch: The epoch to initialize the modifier and module at.
             Defaults to 0 (start of the training process)
@@ -350,8 +368,20 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
         if self.project_features and len(self._projection) == 0:
             # NOTE: have to call initialize here because we need the cached output
             # from the module. i.e. we need forward to have been called already
-            projection_params = self._initialize_projection()
-            optimizer.add_param_group({"params": projection_params})
+            self._projection = self._initialize_projection()
+
+            if self._loaded_projection is not None:
+                for name, layer in self._projection.items():
+                    layer.weight.load_state_dict(self._loaded_projection.pop(name))
+                self._loaded_projection = None
+
+        if _get_projection_param_group_idx(optimizer.param_groups) is None:
+            optimizer.add_param_group(
+                {
+                    _DISTILL_PARAM_GROUP_KEY: True,
+                    "params": [p.weight for p in self._projection.values()],
+                }
+            )
 
             # NOTE: since we added a param group, if someone tries
             # to serialize the optimizer, the new param group will be
@@ -360,14 +390,33 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
             # with compute_distillation_loss), it will
             # crash.
             _old_state_dict_fn = optimizer.state_dict
+            _old_load_state_dict_fn = optimizer.load_state_dict
 
-            def state_dict_without_latest_param_group():
-                full_state_dict = _old_state_dict_fn()
-                original_state_dict = deepcopy(full_state_dict)
-                original_state_dict["param_groups"].pop()
-                return original_state_dict
+            def state_dict_without_projection():
+                state = _old_state_dict_fn()
+                state = deepcopy(state)
+                idx = _get_projection_param_group_idx(state["param_groups"])
+                assert idx is not None, "optimizer must have had the param_group added"
+                state["param_groups"].pop(idx)
+                return state
 
-            optimizer.state_dict = state_dict_without_latest_param_group
+            def load_state_dict_without_projection(state_dict):
+                # NOTE: state_dict won't have the state for the projections
+                # because we removed that in `state_dict_without_projection`.
+                # but `optimizer` will have an additional param_group, since
+                # it was added above.
+                # so we:
+                # 1. remove the param group from optimizer
+                # 2. call load_state_dict
+                # 3. re-add the param group to the optimizer
+                idx = _get_projection_param_group_idx(optimizer.param_groups)
+                assert idx is not None, "optimizer must have had the param_group added"
+                param_group = optimizer.param_groups.pop(idx)
+                _old_load_state_dict_fn(state_dict)
+                optimizer.add_param_group(param_group)
+
+            optimizer.state_dict = state_dict_without_projection
+            optimizer.load_state_dict = load_state_dict_without_projection
 
         distillation_loss = 0.0
         for student_name, teacher_name in zip(
@@ -388,35 +437,33 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
 
         return distillation_loss
 
-    def _initialize_projection(self) -> List[torch.Tensor]:
+    def _initialize_projection(self) -> Dict[str, torch.Tensor]:
         device = self._cached_student_output[self.student_layer_names[0]].device
 
         assert len(self._student_output_shapes) == len(self._student_layer_names)
         assert len(self._teacher_output_shapes) == len(self._teacher_layer_names)
 
-        self._projection = {}
+        projections = {}
         for student_name, teacher_name in zip(
             self._student_layer_names, self._teacher_layer_names
         ):
             student_shape = self._student_output_shapes[student_name]
             teacher_shape = self._teacher_output_shapes[teacher_name]
             if len(student_shape) == 4:
-                self._projection[student_name] = torch.nn.Conv2d(
+                projections[student_name] = torch.nn.Conv2d(
                     in_channels=student_shape[1],
                     out_channels=teacher_shape[1],
                     kernel_size=1,
                     bias=False,
-                )
-                self._projection[student_name].to(device)
+                ).to(device)
             else:
-                self._projection[student_name] = torch.nn.Linear(
+                projections[student_name] = torch.nn.Linear(
                     in_features=student_shape[-1],
                     out_features=teacher_shape[-1],
                     bias=False,
-                )
-                self._projection[student_name].to(device)
+                ).to(device)
 
-        return [p.weight for p in self._projection.values()]
+        return projections
 
 
 def _create_cache_output_hook(
@@ -462,3 +509,9 @@ def _find_layers_by_name(
             cached_layers,
             name + "." + layer_module if name != "" else layer_module,
         )
+
+
+def _get_projection_param_group_idx(param_groups: List[Dict]) -> Optional[int]:
+    for idx, group in enumerate(param_groups):
+        if _DISTILL_PARAM_GROUP_KEY in group:
+            return idx
