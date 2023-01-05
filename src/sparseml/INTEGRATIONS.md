@@ -2,55 +2,57 @@
 
 | Base | SparseML IC | torchvision IC |
 | --- | --- | --- |
-| CLI | :white_check_mark: | :white_check_mark: |
-| API | :white_check_mark: | :white_check_mark: |
-| Dense training | :white_check_mark: | :white_check_mark: |
+| CLI | ✅ | ✅ |
+| API | ✅ | ✅ |
+| Dense training | ✅ | ✅ |
 
 | Sparsification | SparseML IC | torchvision IC |
 | --- | --- | --- |
-| Optional recipe/recipe_args | :white_check_mark: | |
-| Pruning from a recipe | :white_check_mark: | :white_check_mark: |
-| Pruning with EMA | :x: | :white_check_mark: |
-| Quantization from a recipe | :white_check_mark: | :white_check_mark: |
-| Qauntization with AMP | :white_check_mark: | :white_check_mark: |
-| Quantization with EMA | :x: | :white_check_mark: |
-| Distillation support | :x: | :x: |
+| Recipe | ✅ | ✅ |
+| Recipe args | ✅ | ❌ |
+| Recipe is optional | ✅ | ❌ |
+| Pruning from a recipe | ✅ | ✅ |
+| Pruning with EMA | ❌ | ✅ |
+| Quantization from a recipe | ✅ | ✅ |
+| Qauntization with AMP | ✅ | ✅ |
+| Quantization with EMA | ❌ | ✅ |
+| Distillation support | ❌ | ❌ |
 
 | Datasets | SparseML IC | torchvision IC |
 | --- | --- | --- |
-| Use standard datasets | :white_check_mark: | :white_check_mark: |
-| Support train/validation/test datasets | :white_check_mark: | :white_check_mark: |
-| Auto download datasets | :white_check_mark: | :x: |
+| Use standard datasets | ✅ | ✅ |
+| Support train/validation/test datasets | ✅ | ✅ |
+| Auto download datasets | ✅ | ❌ |
 
 | Checkpoints | SparseML IC | torchvision IC |
 | --- | --- | --- |
-| Model checkpoints from original integration | :white_check_mark: | :white_check_mark: |
-| Model checkpoints from sparsezoo | :white_check_mark: | :white_check_mark: |
-| Checkpoints store all necessary configuration | :white_check_mark: | :white_check_mark: |
-| Best checkpoint saved | :white_check_mark: | :white_check_mark: |
-| Best Pruned checkpoint saved | :x: | :x: |
-| Best Quantized checkpoint saved | :x: | :x: |
-| Best Pruned/Quantized checkpoint saved | :x: | :x: |
-| Architecture changes from saved recipe | :white_check_mark: | :white_check_mark: |
-| Staged recipes | :white_check_mark: | :white_check_mark: |
+| Model checkpoints from original integration | ✅ | ✅ |
+| Model checkpoints from sparsezoo | ✅ | ✅ |
+| Checkpoints store all necessary configuration | ✅ | ✅ |
+| Best checkpoint saved | ✅ | ✅ |
+| Best Pruned checkpoint saved | ❌ | ❌ |
+| Best Quantized checkpoint saved | ❌ | ❌ |
+| Best Pruned/Quantized checkpoint saved | ❌ | ❌ |
+| Architecture changes from saved recipe | ✅ | ✅ |
+| Staged recipes | ✅ | ✅ |
 
 | Logging | SparseML IC | torchvision IC |
 | --- | --- | --- |
-| Log to stdout | :white_check_mark: | :x: |
-| Log to Weights and Biases | :white_check_mark: | :x: |
-| Log to TensorBoard | :white_check_mark: | :x: |
+| Log to stdout | ✅ | ❌ |
+| Log to Weights and Biases | ✅ | ❌ |
+| Log to TensorBoard | ✅ | ❌ |
 
 # Export
 
 | Exporting | SparseML IC | torchvision IC |
 | --- | --- | --- |
-| Optional one shot application of a recipe | :white_check_mark: | :x: |
-| Convert to ONNX | :white_check_mark: | :white_check_mark: |
-| ONNX graph validation | :white_check_mark: | :white_check_mark: |
-| Graph folding/optimization for DeepSparse targets | :white_check_mark: | :white_check_mark: |
-| Convert to TorchScript | :x: | :x: |
+| Optional one shot application of a recipe | ✅ | ❌ |
+| Convert to ONNX | ✅ | ✅ |
+| ONNX graph validation | ✅ | ✅ |
+| Graph folding/optimization for DeepSparse targets | ✅ | ✅ |
+| Convert to TorchScript | ❌ | ❌ |
 | Batch size fixed or dynamic | | |
 | Input shape fixed or dynamic | | |
-| Save to simple deployment folder | :white_check_mark: | :white_check_mark: |
-| Save to SparseZoo folder | :x: | :x: |
+| Save to simple deployment folder | ✅ | ✅ |
+| Save to SparseZoo folder | ❌ | ❌ |
 
