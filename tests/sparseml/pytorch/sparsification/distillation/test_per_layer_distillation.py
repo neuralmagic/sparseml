@@ -383,8 +383,6 @@ def test_optimizer_serialization_with_projections(tmp_path):
     reason="Skipping pytorch tests",
 )
 def test_modifier_load_before_forward_pass(tmp_path):
-    # since we are adding param groups to optimizer during initialization, we need
-    # to ensure that they can be serialized/reloaded properly
     student = mlp(12, 24, 64)
     teacher = mlp(12, 24, 64)
 
@@ -410,7 +408,7 @@ def test_modifier_load_before_forward_pass(tmp_path):
     modifier_2.initialize(module=student, distillation_teacher=teacher)
     modifier_2.load_state_dict(modifier.state_dict())
 
-    # call forwared again
+    # call forward again
     student(x)
     modifier_2.loss_update(
         loss=fake_loss,
@@ -422,7 +420,24 @@ def test_modifier_load_before_forward_pass(tmp_path):
         student_outputs=fake_loss,
     )
 
-    assert modifier.state_dict() == modifier_2.state_dict()
+    assert _check_state_dict_equality(modifier.state_dict(), modifier_2.state_dict())
+
+
+def _check_state_dict_equality(expected_dict, actual_dict):
+    assert len(expected_dict) == len(actual_dict)
+
+    for ((expected_key, expected_value), (actual_key, actual_value)) in zip(
+        expected_dict.items(), actual_dict.items()
+    ):
+        assert expected_key == actual_key
+        assert type(expected_value) == type(actual_value)
+
+        if isinstance(expected_value, (dict, OrderedDict)):
+            assert _check_state_dict_equality(expected_value, actual_value)
+        else:
+            # if not dict type the values are always Tensors
+            assert torch.allclose(expected_value, actual_value)
+    return True
 
 
 @pytest.mark.skipif(

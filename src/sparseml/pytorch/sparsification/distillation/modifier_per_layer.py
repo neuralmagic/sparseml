@@ -259,7 +259,7 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
         state = super().state_dict()
         if self.project_features:
             state[_DISTILL_PARAM_GROUP_KEY] = {
-                name: p.weight.state_dict() for name, p in self._projection.items()
+                name: p.state_dict() for name, p in self._projection.items()
             }
         return state
 
@@ -304,20 +304,20 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
 
         cached_student_layers: Dict[str, torch.nn.Module] = {}
         if self._student_layer_names is None:
-            _find_layers_by_type(module, cached_student_layers)
+            _update_layers_by_type(module, cached_student_layers)
             self._student_layer_names = list(cached_student_layers.keys())
         else:
-            _find_layers_by_name(
+            _update_layers_by_name(
                 module, self._student_layer_names, cached_student_layers
             )
         _LOGGER.info("Distilling student layers: %s", self._student_layer_names)
 
         cached_teacher_layers: Dict[str, torch.nn.Module] = {}
         if self._teacher_layer_names is None:
-            _find_layers_by_type(self._teacher, cached_teacher_layers)
+            _update_layers_by_type(self._teacher, cached_teacher_layers)
             self._teacher_layer_names = list(cached_teacher_layers.keys())
         else:
-            _find_layers_by_name(
+            _update_layers_by_name(
                 self._teacher, self._teacher_layer_names, cached_teacher_layers
             )
         _LOGGER.info("Distilling teacher layers: %s", self._teacher_layer_names)
@@ -372,7 +372,7 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
 
             if self._loaded_projection is not None:
                 for name, layer in self._projection.items():
-                    layer.weight.load_state_dict(self._loaded_projection.pop(name))
+                    layer.load_state_dict(self._loaded_projection.pop(name))
                 self._loaded_projection = None
 
         if _get_projection_param_group_idx(optimizer.param_groups) is None:
@@ -475,7 +475,7 @@ def _create_cache_output_hook(
     return forward_hook_fn
 
 
-def _find_layers_by_type(
+def _update_layers_by_type(
     layer_module: torch.nn.Module,
     cached_layers: Dict[str, torch.nn.Module],
     name: str = "",
@@ -483,14 +483,14 @@ def _find_layers_by_type(
     if type(layer_module) in _DISTILLATION_TYPES:
         cached_layers[name] = layer_module
     for layer_module, child in layer_module.named_children():
-        _find_layers_by_type(
+        _update_layers_by_type(
             child,
             cached_layers,
             name + "." + layer_module if name != "" else layer_module,
         )
 
 
-def _find_layers_by_name(
+def _update_layers_by_name(
     layer_module: torch.nn.Module,
     layer_names: List[str],
     cached_layers: Dict[str, torch.nn.Module],
@@ -499,7 +499,7 @@ def _find_layers_by_name(
     if name in layer_names:
         cached_layers[name] = layer_module
     for layer_module, child in layer_module.named_children():
-        _find_layers_by_name(
+        _update_layers_by_name(
             child,
             layer_names,
             cached_layers,
