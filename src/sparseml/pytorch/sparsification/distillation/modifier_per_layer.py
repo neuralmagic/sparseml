@@ -208,26 +208,48 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
 
     @ModifierProp()
     def student_layer_names(self) -> List[str]:
+        """
+        :return: List of layer names to distill.
+        """
         return self._student_layer_names
 
     @student_layer_names.setter
     def student_layer_names(self, value: List[str]):
+        """
+        :param value: List of layer names to distill.
+            *Must be same length as teacher_layer_names*
+        """
         self._student_layer_names = value
 
     @ModifierProp()
     def teacher_layer_names(self) -> List[str]:
+        """
+        :return: List of layer names to distill
+        """
         return self._teacher_layer_names
 
     @teacher_layer_names.setter
     def teacher_layer_names(self, value: List[str]):
+        """
+        :param value: List of layer names to distill.
+            *Must be same length as student_layer_names*
+        """
         self._teacher_layer_names = value
 
     @ModifierProp()
     def project_features(self) -> bool:
+        """
+        :return: Whether to perform projection
+            between student and teacher layers
+        """
         return self._project_features
 
     @project_features.setter
     def project_features(self, value: bool):
+        """
+        :param value: Whether to perform projection
+            between student and teacher layers
+        """
         self._project_features = value
 
     def initialize(
