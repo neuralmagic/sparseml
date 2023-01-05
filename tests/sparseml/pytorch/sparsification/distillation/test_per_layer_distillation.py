@@ -35,6 +35,7 @@ from sparseml.pytorch.sparsification.quantization.modifier_quantization import (
 from tests.sparseml.pytorch.helpers import create_optim_sgd
 from tests.sparseml.pytorch.sparsification.test_modifier import ScheduledModifierTest
 
+
 # NOTE: these are fixtures used in testing below
 from tests.sparseml.pytorch.helpers import (  # noqa isort:skip
     test_epoch,
@@ -372,6 +373,9 @@ def test_optimizer_serialization_with_projections(tmp_path):
 
     loaded_optimizer = create_optim_sgd(student)
     loaded_optimizer.load_state_dict(loaded_optimizer_checkpoint["optimizer"])
+
+    # also check that we can reload the state dict into our optimizer
+    optimizer.load_state_dict(loaded_optimizer_checkpoint["optimizer"])
 
 
 @pytest.mark.skipif(

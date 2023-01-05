@@ -383,16 +383,12 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
                 }
             )
 
-            # NOTE: since we added a param group, if someone tries
-            # to serialize the optimizer, the new param group will be
-            # included. if they try call load_state_dict() on
-            # a fresh optimizer (one that hasn't been called
-            # with compute_distillation_loss), it will
-            # crash.
             _old_state_dict_fn = optimizer.state_dict
             _old_load_state_dict_fn = optimizer.load_state_dict
 
             def state_dict_without_projection():
+                # Remove the param_group we added, as we save that in the modifier's
+                # state_dict.
                 state = _old_state_dict_fn()
                 state = deepcopy(state)
                 idx = _get_projection_param_group_idx(state["param_groups"])
@@ -512,6 +508,9 @@ def _find_layers_by_name(
 
 
 def _get_projection_param_group_idx(param_groups: List[Dict]) -> Optional[int]:
+    """
+    :return: Optional index where the param group is if it is found.
+    """
     for idx, group in enumerate(param_groups):
         if _DISTILL_PARAM_GROUP_KEY in group:
             return idx
