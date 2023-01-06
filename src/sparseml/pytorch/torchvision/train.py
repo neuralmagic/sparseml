@@ -436,7 +436,9 @@ def main(args):
 
         # restore state from prior recipe
         manager = (
-            ScheduledModifierManager.from_yaml(args.recipe)
+            ScheduledModifierManager.from_yaml(
+                args.recipe, recipe_variables=args.recipe_args
+            )
             if args.recipe is not None
             else None
         )
@@ -460,7 +462,9 @@ def main(args):
     else:
         checkpoint = None
         manager = (
-            ScheduledModifierManager.from_yaml(args.recipe)
+            ScheduledModifierManager.from_yaml(
+                args.recipe, recipe_variables=args.recipe_args
+            )
             if args.recipe is not None
             else None
         )
@@ -731,6 +735,12 @@ def _deprecate_old_arguments(f):
     )
 )
 @click.option("--recipe", default=None, type=str, help="Path to recipe")
+@click.option(
+    "--recipe-args",
+    default=None,
+    type=str,
+    help="json parsable dict of recipe variable names to values to overwrite with",
+)
 @click.option("--dataset-path", required=True, type=str, help="dataset path")
 @click.option(
     "--arch-key",
