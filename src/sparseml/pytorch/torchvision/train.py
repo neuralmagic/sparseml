@@ -417,6 +417,7 @@ def main(args):
             model, device=device, decay=1.0 - alpha
         )
 
+    manager = checkpoint_manager = None
     if args.checkpoint_path:
         checkpoint = _load_checkpoint(args.checkpoint_path)
 
@@ -426,27 +427,37 @@ def main(args):
             if args.recipe is not None
             else None
         )
-        checkpoint_manager = ScheduledModifierManager.from_yaml(checkpoint["recipe"])
+        checkpoint_manager = (
+            ScheduledModifierManager.from_yaml(checkpoint["recipe"])
+            if "recipe" in checkpoint
+            else None
+        )
     elif args.resume:
         checkpoint = _load_checkpoint(args.resume)
 
-        # NOTE: override manager with the checkpoint's manager
-        manager = ScheduledModifierManager.from_yaml(checkpoint["recipe"])
-        checkpoint_manager = None
-        manager.initialize(model, epoch=checkpoint["epoch"])
+        if "recipe" in checkpoint:
+            # NOTE: override manager with the checkpoint's manager
+            manager = ScheduledModifierManager.from_yaml(checkpoint["recipe"])
+            checkpoint_manager = None
+            manager.initialize(model, epoch=checkpoint["epoch"])
+        else:
+            raise ValueError("Flag --resume is set but checkpoint does not have recipe")
 
         # NOTE: override start epoch
         args.start_epoch = checkpoint["epoch"] + 1
     else:
-        if args.recipe is None:
-            raise ValueError("Must specify --recipe if not loading from a checkpoint")
         checkpoint = None
-        manager = ScheduledModifierManager.from_yaml(args.recipe)
+        manager = (
+            ScheduledModifierManager.from_yaml(args.recipe)
+            if args.recipe is not None
+            else None
+        )
         checkpoint_manager = None
 
     # load params
     if checkpoint is not None:
-        optimizer.load_state_dict(checkpoint["optimizer"])
+        if "optimizer" in checkpoint:
+            optimizer.load_state_dict(checkpoint["optimizer"])
         if model_ema and "model_ema" in checkpoint:
             model_ema.load_state_dict(checkpoint["model_ema"])
         if scaler and "scaler" in checkpoint:
@@ -469,9 +480,108 @@ def main(args):
             evaluate(model, criterion, data_loader_test, device)
         return
 
-    optimizer = manager.modify(model, optimizer, len(data_loader))
+    optimizer = (
+        manager.modify(model, optimizer, len(data_loader))
+        if manager is not None
+        else optimizer
+    )
 
-    if manager.learning_rate_modifiers:
+    lr_scheduler = _get_lr_scheduler(
+        args, optimizer, checkpoint=checkpoint, manager=manager
+    )
+
+    model_without_ddp = model
+    if args.distributed:
+        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
+        model_without_ddp = model.module
+
+    best_top1_acc = -math.inf
+
+    print("Start training")
+    start_time = time.time()
+    max_epochs = manager.max_epochs if manager is not None else args.epochs
+    for epoch in range(args.start_epoch, max_epochs):
+        if args.distributed:
+            train_sampler.set_epoch(epoch)
+        if manager is not None and manager.qat_active(epoch=epoch):
+            scaler = None
+            model_ema = None
+        train_metrics = train_one_epoch(
+            model,
+            criterion,
+            optimizer,
+            data_loader,
+            device,
+            epoch,
+            args,
+            model_ema=model_ema,
+            scaler=scaler,
+        )
+        if lr_scheduler:
+            lr_scheduler.step()
+        eval_metrics = evaluate(model, criterion, data_loader_test, device)
+        top1_acc = eval_metrics.acc1.global_avg
+        if model_ema:
+            evaluate(
+                model_ema,
+                criterion,
+                data_loader_test,
+                device,
+                log_suffix="EMA",
+            )
+        is_new_best = epoch >= args.save_best_after and top1_acc > best_top1_acc
+        if is_new_best:
+            best_top1_acc = top1_acc
+        if args.output_dir:
+            checkpoint = {
+                "state_dict": model_without_ddp.state_dict(),
+                "optimizer": optimizer.state_dict(),
+                "args": args,
+            }
+            if lr_scheduler:
+                checkpoint["lr_scheduler"] = lr_scheduler.state_dict()
+            if model_ema:
+                checkpoint["model_ema"] = model_ema.state_dict()
+            if scaler:
+                checkpoint["scaler"] = scaler.state_dict()
+
+            if checkpoint_manager is not None:
+                checkpoint["epoch"] = (
+                    -1
+                    if epoch == max_epochs - 1
+                    else epoch + checkpoint_manager.max_epochs
+                )
+                checkpoint["recipe"] = str(
+                    ScheduledModifierManager.compose_staged(checkpoint_manager, manager)
+                )
+            else:
+                checkpoint["epoch"] = -1 if epoch == max_epochs - 1 else epoch
+                checkpoint["recipe"] = str(manager)
+
+            file_names = ["checkpoint.pth"]
+            if is_new_best:
+                file_names.append("checkpoint-best.pth")
+            _save_checkpoints(
+                epoch,
+                args.output_dir,
+                file_names,
+                checkpoint,
+                train_metrics,
+                eval_metrics,
+            )
+
+    if manager is not None:
+        manager.finalize()
+
+    total_time = time.time() - start_time
+    total_time_str = str(datetime.timedelta(seconds=int(total_time)))
+    print(f"Training time {total_time_str}")
+
+
+def _get_lr_scheduler(args, optimizer, checkpoint=None, manager=None):
+    lr_scheduler = None
+
+    if manager is not None and manager.learning_rate_modifiers:
         lr_scheduler = None
     else:
         args.lr_scheduler = args.lr_scheduler.lower()
@@ -525,90 +635,7 @@ def main(args):
         if args.resume and checkpoint:
             lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
 
-    model_without_ddp = model
-    if args.distributed:
-        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
-        model_without_ddp = model.module
-
-    best_top1_acc = -math.inf
-
-    print("Start training")
-    start_time = time.time()
-    for epoch in range(args.start_epoch, manager.max_epochs):
-        if args.distributed:
-            train_sampler.set_epoch(epoch)
-        if manager.qat_active(epoch=epoch):
-            scaler = None
-            model_ema = None
-        train_metrics = train_one_epoch(
-            model,
-            criterion,
-            optimizer,
-            data_loader,
-            device,
-            epoch,
-            args,
-            model_ema=model_ema,
-            scaler=scaler,
-        )
-        if lr_scheduler:
-            lr_scheduler.step()
-        eval_metrics = evaluate(model, criterion, data_loader_test, device)
-        top1_acc = eval_metrics.acc1.global_avg
-        if model_ema:
-            evaluate(
-                model_ema,
-                criterion,
-                data_loader_test,
-                device,
-                log_suffix="EMA",
-            )
-        is_new_best = epoch >= args.save_best_after and top1_acc > best_top1_acc
-        if is_new_best:
-            best_top1_acc = top1_acc
-        if args.output_dir:
-            checkpoint = {
-                "state_dict": model_without_ddp.state_dict(),
-                "optimizer": optimizer.state_dict(),
-                "args": args,
-            }
-            if lr_scheduler:
-                checkpoint["lr_scheduler"] = lr_scheduler.state_dict()
-            if model_ema:
-                checkpoint["model_ema"] = model_ema.state_dict()
-            if scaler:
-                checkpoint["scaler"] = scaler.state_dict()
-
-            if checkpoint_manager is not None:
-                checkpoint["epoch"] = (
-                    -1
-                    if epoch == manager.max_epochs - 1
-                    else epoch + checkpoint_manager.max_epochs
-                )
-                checkpoint["recipe"] = str(
-                    ScheduledModifierManager.compose_staged(checkpoint_manager, manager)
-                )
-            else:
-                checkpoint["epoch"] = -1 if epoch == manager.max_epochs - 1 else epoch
-                checkpoint["recipe"] = str(manager)
-
-            file_names = ["checkpoint.pth"]
-            if is_new_best:
-                file_names.append("checkpoint-best.pth")
-            _save_checkpoints(
-                epoch,
-                args.output_dir,
-                file_names,
-                checkpoint,
-                train_metrics,
-                eval_metrics,
-            )
-
-    manager.finalize()
-
-    total_time = time.time() - start_time
-    total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-    print(f"Training time {total_time_str}")
+    return lr_scheduler
 
 
 def _load_checkpoint(path):
