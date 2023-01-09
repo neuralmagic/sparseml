@@ -74,6 +74,7 @@ def train_one_epoch(
     )
 
     steps_accumulated = 0
+    num_optim_steps = 0
 
     # initial zero grad for gradient accumulation
     optimizer.zero_grad()
@@ -107,6 +108,7 @@ def train_one_epoch(
                 if args.clip_grad_norm is not None:
                     nn.utils.clip_grad_norm_(model.parameters(), args.clip_grad_norm)
                 optimizer.step()
+                num_optim_steps += 1
 
             # zero grad here to start accumulating next set of gradients
             optimizer.zero_grad()
@@ -128,7 +130,7 @@ def train_one_epoch(
         )
 
         if i % args.logging_steps == 0:
-            log_metrics_fn("Train", metric_logger, epoch, i)
+            log_metrics_fn("Train", metric_logger, epoch, num_optim_steps)
     return metric_logger
 
 
@@ -525,18 +527,13 @@ def main(args):
     else:
         logger = LoggerManager(log_python=False)
 
-    steps_per_epoch = len(data_loader)
+    steps_per_epoch = len(data_loader) / args.gradient_accum_steps
 
-    def log_metrics(tag: str, metrics: utils.MetricLogger, epoch: int, step: int):
-        if manager is None:
-            step = epoch * steps_per_epoch + step
-        else:
-            step = optimizer.wrapped_steps
+    def log_metrics(tag: str, metrics: utils.MetricLogger, epoch: int, epoch_step: int):
+        step = int(epoch * steps_per_epoch + epoch_step)
         for metric_name, smoothed_value in metrics.meters.items():
             logger.log_scalar(
-                f"{tag}/{metric_name}",
-                smoothed_value.global_avg,
-                step=step,
+                f"{tag}/{metric_name}", smoothed_value.global_avg, step=step
             )
 
     if manager is not None:
