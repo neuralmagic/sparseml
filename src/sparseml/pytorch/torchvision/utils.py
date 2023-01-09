@@ -5,6 +5,7 @@ import copy
 import datetime
 import errno
 import hashlib
+import logging
 import os
 import time
 from collections import OrderedDict, defaultdict, deque
@@ -74,7 +75,8 @@ class SmoothedValue:
 
 
 class MetricLogger:
-    def __init__(self, delimiter="\t"):
+    def __init__(self, logger: logging.Logger, delimiter="\t"):
+        self.logger = logger
         self.meters = defaultdict(SmoothedValue)
         self.delimiter = delimiter
 
@@ -148,7 +150,7 @@ class MetricLogger:
                 eta_seconds = iter_time.global_avg * (len(iterable) - i)
                 eta_string = str(datetime.timedelta(seconds=int(eta_seconds)))
                 if torch.cuda.is_available():
-                    print(
+                    self.logger.info(
                         log_msg.format(
                             i,
                             len(iterable),
@@ -160,7 +162,7 @@ class MetricLogger:
                         )
                     )
                 else:
-                    print(
+                    self.logger.info(
                         log_msg.format(
                             i,
                             len(iterable),
@@ -174,7 +176,7 @@ class MetricLogger:
             end = time.time()
         total_time = time.time() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-        print(f"{header} Total time: {total_time_str}")
+        self.logger.info(f"{header} Total time: {total_time_str}")
 
 
 class ExponentialMovingAverage(torch.optim.swa_utils.AveragedModel):
