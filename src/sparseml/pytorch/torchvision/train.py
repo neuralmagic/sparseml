@@ -516,7 +516,12 @@ def main(args):
             )
 
     if manager is not None:
-        manager.initialize(model, epoch=args.start_epoch, loggers=logger)
+        manager.initialize(
+            model,
+            epoch=args.start_epoch,
+            loggers=logger,
+            distillation_teacher=args.distill_teacher,
+        )
         optimizer = manager.modify(
             model, optimizer, len(data_loader), epoch=args.start_epoch
         )
@@ -992,6 +997,13 @@ def _deprecate_old_arguments(f):
     type=int,
     help="Save the best validation result after the given "
     "epoch completes until the end of training",
+)
+@click.option(
+    "--distill-teacher",
+    default=None,
+    type=click.Choice(["self", "disable"], case_sensitive=False),
+    help="Teacher model for distillation (a trained image classification model)"
+    "currently only supports 'self' for self-distillation and 'disable'",
 )
 @click.pass_context
 def cli(ctx, **kwargs):
