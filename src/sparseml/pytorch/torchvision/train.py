@@ -62,6 +62,7 @@ def train_one_epoch(
     device: torch.device,
     epoch: int,
     args,
+    manager=None,
     model_ema=None,
     scaler=None,
 ) -> utils.MetricLogger:
@@ -82,13 +83,24 @@ def train_one_epoch(
         start_time = time.time()
         image, target = image.to(device), target.to(device)
         with torch.cuda.amp.autocast(enabled=scaler is not None):
-            output = model(image)
+            outputs = output = model(image)
             if isinstance(output, tuple):
                 # NOTE: sparseml models return two things (logits & probs)
                 output = output[0]
             loss = criterion(output, target)
 
         if steps_accumulated % args.gradient_accum_steps == 0:
+            if manager is not None:
+                manager.loss_update(
+                    loss=loss,
+                    module=model,
+                    optimizer=optimizer,
+                    epoch=epoch,
+                    steps_per_epoch=len(data_loader),
+                    student_outputs=outputs,
+                    student_inputs=image,
+                )
+
             # first: do training to consume gradients
             if scaler is not None:
                 scaler.scale(loss).backward()
@@ -558,6 +570,7 @@ def main(args):
             device,
             epoch,
             args,
+            manager=manager,
             model_ema=model_ema,
             scaler=scaler,
         )
