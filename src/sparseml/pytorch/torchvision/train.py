@@ -108,10 +108,10 @@ def train_one_epoch(
                 if args.clip_grad_norm is not None:
                     nn.utils.clip_grad_norm_(model.parameters(), args.clip_grad_norm)
                 optimizer.step()
-                num_optim_steps += 1
 
             # zero grad here to start accumulating next set of gradients
             optimizer.zero_grad()
+            num_optim_steps += 1
         steps_accumulated += 1
 
         if model_ema and i % args.model_ema_steps == 0:
@@ -884,7 +884,13 @@ def _deprecate_old_arguments(f):
     type=float,
     help="minimum lr of lr schedule",
 )
-@click.option("--logging-steps", default=10, type=int, help="print frequency")
+@click.option("--print-freq", default=None, type=int, help="DEPRECATED. Does nothing.")
+@click.option(
+    "--logging-steps",
+    default=10,
+    type=int,
+    help="Frequency in number of batch updates for logging/printing",
+)
 @click.option("--output-dir", default=".", type=str, help="path to save outputs")
 @click.option("--resume", default=None, type=str, help="path of checkpoint")
 @click.option(
