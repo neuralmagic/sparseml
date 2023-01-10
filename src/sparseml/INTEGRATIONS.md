@@ -56,10 +56,10 @@ Key:
 | ONNX graph validation            | ✅     | ✅              | ✅      | ❓            | ❓      | ✅          |
 | Graph folding/optimization       | ✅     | ✅              | ✅      | ❓            | ❓      | ✅          |
 | Convert to TorchScript           | ❌     | ❌              | ✅      | ❓            | ❓      | ❌          |
-| Static batch size                | ❌     | ❌              | ❓      | ❓            | ❓      | ❌          |
-| Dynamic batch size               | ✅     | ✅              | ❓      | ❓            | ❓      | ✅          |
-| Static input shape               | ✅     | ✅              | ❓      | ❓            | ❓      | ✅          |
-| Dynamic input shape              | ❌     | ❌              | ❓      | ❓            | ❓      | ❌          |
+| Static batch size                | ❌     | ❌              | ❌      | ❓            | ❓      | ❌          |
+| Dynamic batch size               | ✅     | ✅              | ✅      | ❓            | ❓      | ✅          |
+| Static input shape               | ✅     | ✅              | ✅      | ❓            | ❓      | ✅          |
+| Dynamic input shape              | ❌     | ❌              | ❌      | ❓            | ❓      | ❌          |
 | Save to simple deployment folder | ✅     | ✅              | ✅      | ❓            | ❓      | ✅          |
 | Save to SparseZoo folder         | ❌     | ❌              | ❌      | ❓            | ❓      | ❌          |
 
