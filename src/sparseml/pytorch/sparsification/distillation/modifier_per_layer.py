@@ -43,7 +43,6 @@ _LOGGER = logging.getLogger(__name__)
 _DISTILLATION_TYPES = [torch.nn.Conv2d, torch.nn.Linear]
 
 
-
 @PyTorchModifierYAML()
 class PerLayerDistillationModifier(BaseDistillationModifier):
     """
