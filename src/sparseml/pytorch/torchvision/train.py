@@ -66,12 +66,17 @@ def train_one_epoch(
     model_ema=None,
     scaler=None,
 ) -> utils.MetricLogger:
+    accum_steps = args.gradient_accum_steps
+
     model.train()
     metric_logger = utils.MetricLogger(_LOGGER, delimiter="  ")
     metric_logger.add_meter("lr", utils.SmoothedValue(window_size=1, fmt="{value}"))
     metric_logger.add_meter(
         "imgs_per_sec", utils.SmoothedValue(window_size=10, fmt="{value}")
     )
+    metric_logger.add_meter("loss", utils.SmoothedValue(window_size=accum_steps))
+    metric_logger.add_meter("acc1", utils.SmoothedValue(window_size=accum_steps))
+    metric_logger.add_meter("acc5", utils.SmoothedValue(window_size=accum_steps))
 
     steps_accumulated = 0
     num_optim_steps = 0
@@ -80,8 +85,8 @@ def train_one_epoch(
     optimizer.zero_grad()
 
     header = f"Epoch: [{epoch}]"
-    for i, (image, target) in enumerate(
-        metric_logger.log_every(data_loader, args.logging_steps, header)
+    for (image, target) in metric_logger.log_every(
+        data_loader, args.logging_steps * accum_steps, header
     ):
         start_time = time.time()
         image, target = image.to(device), target.to(device)
@@ -92,7 +97,7 @@ def train_one_epoch(
                 output = output[0]
             loss = criterion(output, target)
 
-        if steps_accumulated % args.gradient_accum_steps == 0:
+        if steps_accumulated % accum_steps == 0:
             # first: do training to consume gradients
             if scaler is not None:
                 scaler.scale(loss).backward()
@@ -114,7 +119,7 @@ def train_one_epoch(
             num_optim_steps += 1
         steps_accumulated += 1
 
-        if model_ema and i % args.model_ema_steps == 0:
+        if model_ema and num_optim_steps % args.model_ema_steps == 0:
             model_ema.update_parameters(model)
             if epoch < args.lr_warmup_epochs:
                 # Reset ema buffer to keep copying weights during warmup period
@@ -129,7 +134,7 @@ def train_one_epoch(
             batch_size / (time.time() - start_time)
         )
 
-        if i % args.logging_steps == 0:
+        if num_optim_steps % args.logging_steps == 0:
             log_metrics_fn("Train", metric_logger, epoch, num_optim_steps)
     return metric_logger
 
