@@ -23,6 +23,7 @@ import time
 import warnings
 from functools import update_wrapper
 from types import SimpleNamespace
+from typing import Optional
 
 import torch
 import torch.utils.data
@@ -332,27 +333,15 @@ def main(args):
     )
 
     _LOGGER.info("Creating model")
-    if args.arch_key in ModelRegistry.available_keys():
-        with torch_distributed_zero_first(args.rank if args.distributed else None):
-            model = ModelRegistry.create(
-                key=args.arch_key,
-                pretrained=args.pretrained,
-                pretrained_path=args.checkpoint_path,
-                pretrained_dataset=args.pretrained_dataset,
-                num_classes=num_classes,
-            )
-    elif args.arch_key in torchvision.models.__dict__:
-        # fall back to torchvision
-        model = torchvision.models.__dict__[args.arch_key](
-            pretrained=args.pretrained, num_classes=num_classes
-        )
-        if args.checkpoint_path is not None:
-            load_model(args.checkpoint_path, model, strict=True)
-    else:
-        raise ValueError(
-            f"Unable to find {args.arch_key} in ModelRegistry or in torchvision.models"
-        )
-    model.to(device)
+    model = _create_model(
+        arch_key=args.arch_key,
+        local_rank=args.rank if args.distributed else None,
+        pretrained=args.pretrained,
+        checkpoint_path=args.checkpoint_path,
+        pretrained_dataset=args.pretrained_dataset,
+        device=device,
+        num_classes=num_classes,
+    )
 
     if args.distributed and args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
@@ -626,6 +615,39 @@ def main(args):
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     _LOGGER.info(f"Training time {total_time_str}")
+
+
+def _create_model(
+    arch_key: Optional[str] = None,
+    local_rank=None,
+    pretrained: Optional[bool] = False,
+    checkpoint_path: Optional[str] = None,
+    pretrained_dataset: Optional[str] = None,
+    device=None,
+    num_classes=None,
+):
+    if arch_key in ModelRegistry.available_keys():
+        with torch_distributed_zero_first(local_rank):
+            model = ModelRegistry.create(
+                key=arch_key,
+                pretrained=pretrained,
+                pretrained_path=checkpoint_path,
+                pretrained_dataset=pretrained_dataset,
+                num_classes=num_classes,
+            )
+    elif arch_key in torchvision.models.__dict__:
+        # fall back to torchvision
+        model = torchvision.models.__dict__[arch_key](
+            pretrained=pretrained, num_classes=num_classes
+        )
+        if checkpoint_path is not None:
+            load_model(checkpoint_path, model, strict=True)
+    else:
+        raise ValueError(
+            f"Unable to find {arch_key} in ModelRegistry or in torchvision.models"
+        )
+    model.to(device)
+    return model
 
 
 def _get_lr_scheduler(args, optimizer, checkpoint=None, manager=None):
