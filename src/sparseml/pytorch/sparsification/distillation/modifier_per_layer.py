@@ -376,6 +376,28 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
                     layer.load_state_dict(self._loaded_projection.pop(name))
                 self._loaded_projection = None
 
+        self._patch_state_dict_loading(optimizer)
+
+        distillation_loss = 0.0
+        for student_name, teacher_name in zip(
+            self._student_layer_names, self._teacher_layer_names
+        ):
+            student_output = self._cached_student_output[student_name]
+            if self.project_features:
+                student_output = self._projection[student_name](student_output.float())
+
+            teacher_output = self._cached_teacher_output[teacher_name]
+
+            output_mse = (student_output - teacher_output).square().mean()
+            if self.normalize:
+                teacher_output_magnitude = teacher_output.square().mean()
+                output_mse /= teacher_output_magnitude + self.epsilon
+
+            distillation_loss += output_mse
+
+        return distillation_loss
+
+    def _patch_state_dict_loading(self, optimizer):
         if _get_projection_param_group_idx(optimizer.param_groups) is None:
             optimizer.add_param_group(
                 {
@@ -414,25 +436,6 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
 
             optimizer.state_dict = state_dict_without_projection
             optimizer.load_state_dict = load_state_dict_without_projection
-
-        distillation_loss = 0.0
-        for student_name, teacher_name in zip(
-            self._student_layer_names, self._teacher_layer_names
-        ):
-            student_output = self._cached_student_output[student_name]
-            if self.project_features:
-                student_output = self._projection[student_name](student_output.float())
-
-            teacher_output = self._cached_teacher_output[teacher_name]
-
-            output_mse = (student_output - teacher_output).square().mean()
-            if self.normalize:
-                teacher_output_magnitude = teacher_output.square().mean()
-                output_mse /= teacher_output_magnitude + self.epsilon
-
-            distillation_loss += output_mse
-
-        return distillation_loss
 
     def _initialize_projection(self) -> Dict[str, torch.Tensor]:
         device = self._cached_student_output[self.student_layer_names[0]].device
