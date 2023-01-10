@@ -9,8 +9,8 @@
 | Sparsification             | NM IC | torchvision IC | yolov5 | transformers | yolact | openpifpaf |
 | -------------------------- | ----- | -------------- | ------ | ------------ | ------ | ---------- |
 | Recipe                     | ✅     | ✅              | ❓      | ❓            | ❓      | ❓          |
-| Recipe args                | ✅     | ❌              | ❓      | ❓            | ❓      | ❓          |
-| Recipe is optional         | ✅     | ❌              | ❓      | ❓            | ❓      | ❓          |
+| Recipe args                | ✅     | ✅              | ❓      | ❓            | ❓      | ❓          |
+| Recipe is optional         | ✅     | ✅              | ❓      | ❓            | ❓      | ❓          |
 | Pruning from a recipe      | ✅     | ✅              | ❓      | ❓            | ❓      | ❓          |
 | Pruning with EMA           | ❌     | ✅              | ❓      | ❓            | ❓      | ❓          |
 | Quantization from a recipe | ✅     | ✅              | ❓      | ❓            | ❓      | ❓          |
@@ -38,9 +38,9 @@
 
 | Logging            | NM IC | torchvision IC | yolov5 | transformers | yolact | openpifpaf |
 | ------------------ | ----- | -------------- | ------ | ------------ | ------ | ---------- |
-| stdout             | ✅     | ❌              | ❓      | ❓            | ❓      | ❓          |
-| Weights and Biases | ✅     | ❌              | ❓      | ❓            | ❓      | ❓          |
-| TensorBoard        | ✅     | ❌              | ❓      | ❓            | ❓      | ❓          |
+| stdout             | ✅     | ✅              | ❓      | ❓            | ❓      | ❓          |
+| Weights and Biases | ❌     | ✅              | ❓      | ❓            | ❓      | ❓          |
+| TensorBoard        | ✅     | ✅              | ❓      | ❓            | ❓      | ❓          |
 
 # Export
 
