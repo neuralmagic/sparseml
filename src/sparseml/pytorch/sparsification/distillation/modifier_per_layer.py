@@ -34,13 +34,14 @@ from sparseml.pytorch.utils import BaseLogger
 
 __all__ = [
     "PerLayerDistillationModifier",
+    "DISTILL_PARAM_GROUP_KEY",
 ]
 
-_LOGGER = logging.getLogger(__name__)
+DISTILL_PARAM_GROUP_KEY = "distillation_projection_params"
 
+_LOGGER = logging.getLogger(__name__)
 _DISTILLATION_TYPES = [torch.nn.Conv2d, torch.nn.Linear]
 
-_DISTILL_PARAM_GROUP_KEY = "distillation_projection_params"
 
 
 @PyTorchModifierYAML()
@@ -258,7 +259,7 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
     def state_dict(self) -> Dict[str, Dict]:
         state = super().state_dict()
         if self.project_features:
-            state[_DISTILL_PARAM_GROUP_KEY] = {
+            state[DISTILL_PARAM_GROUP_KEY] = {
                 name: p.state_dict() for name, p in self._projection.items()
             }
         return state
@@ -266,7 +267,7 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
     def load_state_dict(self, state_dict: Dict[str, Dict], strict: bool = True):
         if self.project_features:
             # save until self._projection is actually initialized after forward
-            self._loaded_projection = state_dict.pop(_DISTILL_PARAM_GROUP_KEY)
+            self._loaded_projection = state_dict.pop(DISTILL_PARAM_GROUP_KEY)
         return super().load_state_dict(state_dict, strict)
 
     def initialize(
@@ -378,7 +379,7 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
         if _get_projection_param_group_idx(optimizer.param_groups) is None:
             optimizer.add_param_group(
                 {
-                    _DISTILL_PARAM_GROUP_KEY: True,
+                    DISTILL_PARAM_GROUP_KEY: True,
                     "params": [p.weight for p in self._projection.values()],
                 }
             )
@@ -512,5 +513,5 @@ def _get_projection_param_group_idx(param_groups: List[Dict]) -> Optional[int]:
     :return: Optional index where the param group is if it is found.
     """
     for idx, group in enumerate(param_groups):
-        if _DISTILL_PARAM_GROUP_KEY in group:
+        if DISTILL_PARAM_GROUP_KEY in group:
             return idx
