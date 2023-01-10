@@ -333,15 +333,28 @@ def main(args):
     )
 
     _LOGGER.info("Creating model")
+    local_rank = args.rank if args.distributed else None
     model = _create_model(
         arch_key=args.arch_key,
-        local_rank=args.rank if args.distributed else None,
+        local_rank=local_rank,
         pretrained=args.pretrained,
         checkpoint_path=args.checkpoint_path,
         pretrained_dataset=args.pretrained_dataset,
         device=device,
         num_classes=num_classes,
     )
+
+    if args.distill_teacher not in ["self", "disable", None]:
+        _LOGGER.info("Instantiating teacher")
+        args.distill_teacher = _create_model(
+            arch_key=args.teacher_arch_key,
+            local_rank=local_rank,
+            pretrained=True,  # teacher is always pretrained
+            pretrained_dataset=args.pretrained_teacher_dataset,
+            checkpoint_path=args.distill_teacher,
+            device=device,
+            num_classes=num_classes,
+        )
 
     if args.distributed and args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
@@ -1023,9 +1036,30 @@ def _deprecate_old_arguments(f):
 @click.option(
     "--distill-teacher",
     default=None,
-    type=click.Choice(["self", "disable"], case_sensitive=False),
+    type=str,
     help="Teacher model for distillation (a trained image classification model)"
-    "currently only supports 'self' for self-distillation and 'disable'",
+    " can be set to 'self' for self-distillation and 'disable' to switch-off"
+    " distillation, additionally can also take in a SparseZoo stub",
+)
+@click.option(
+    "--pretrained-teacher-dataset",
+    default=None,
+    type=str,
+    help=(
+        "The dataset to load pretrained weights for the teacher"
+        "Load the default dataset for the architecture if set to None. "
+        "examples:`imagenet`, `cifar10`, etc..."
+    ),
+)
+@click.option(
+    "--teacher-arch-key",
+    default=None,
+    type=str,
+    help=(
+        "The architecture key for teacher image classification model; "
+        "example: `resnet50`, `mobilenet`. "
+        "Note: Will be read from the checkpoint if not specified"
+    ),
 )
 @click.pass_context
 def cli(ctx, **kwargs):
