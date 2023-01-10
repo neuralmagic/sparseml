@@ -467,7 +467,7 @@ def main(args):
         )
         checkpoint_manager = (
             ScheduledModifierManager.from_yaml(checkpoint["recipe"])
-            if "recipe" in checkpoint
+            if "recipe" in checkpoint and checkpoint["recipe"] is not None
             else None
         )
     elif args.resume:
@@ -635,7 +635,8 @@ def main(args):
                 )
             else:
                 checkpoint["epoch"] = -1 if epoch == max_epochs - 1 else epoch
-                checkpoint["recipe"] = str(manager)
+                if str(manager) is not None:
+                    checkpoint["recipe"] = str(manager)
 
             file_names = ["checkpoint.pth"]
             if is_new_best:
