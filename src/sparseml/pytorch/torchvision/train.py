@@ -105,7 +105,7 @@ def train_one_epoch(
                     module=model,
                     optimizer=optimizer,
                     epoch=epoch,
-                    steps_per_epoch=len(data_loader),
+                    steps_per_epoch=len(data_loader) / accum_steps,
                     student_outputs=outputs,
                     student_inputs=image,
                 )
