@@ -26,6 +26,7 @@ from tqdm import tqdm
 import click
 from sparseml.pytorch.models.registry import ModelRegistry
 from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
+from sparseml.pytorch.optim.manager import ScheduledModifierManager
 from sparseml.pytorch.torchvision import presets
 from sparseml.pytorch.utils import ModuleExporter
 from sparseml.pytorch.utils.model import load_model
@@ -59,6 +60,12 @@ _LOGGER = logging.getLogger(__name__)
     required=True,
     help="The root dir path where the dataset is stored or should "
     "be downloaded to if available",
+)
+@click.option(
+    "--one-shot",
+    default=None,
+    type=str,
+    help="Path to recipe to use to apply in a one-shot manner",
 )
 @click.option(
     "--labels-to-class-mapping",
@@ -118,6 +125,7 @@ def main(
     arch_key: str,
     checkpoint_path: str,
     dataset_path: Path,
+    one_shot: Optional[str],
     labels_to_class_mapping: Optional[Path],
     num_samples: int,
     onnx_opset: int,
@@ -158,6 +166,9 @@ def main(
         )
 
     load_model(checkpoint_path, model, strict=True)
+
+    if one_shot is not None:
+        ScheduledModifierManager.from_yaml(one_shot).apply(model)
 
     if labels_to_class_mapping is not None:
         with open(labels_to_class_mapping) as fp:
