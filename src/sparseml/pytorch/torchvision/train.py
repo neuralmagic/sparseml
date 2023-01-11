@@ -59,6 +59,7 @@ def train_one_epoch(
     criterion: torch.nn.Module,
     optimizer: torch.optim.Optimizer,
     data_loader: DataLoader,
+    data_loader_test: DataLoader,
     device: torch.device,
     epoch: int,
     args,
@@ -134,8 +135,14 @@ def train_one_epoch(
             batch_size / (time.time() - start_time)
         )
 
+        if args.eval_steps is not None and num_optim_steps % args.eval_steps == 0:
+            eval_metrics = evaluate(model, criterion, data_loader_test, device)
+            model.train()
+            log_metrics_fn("Test", eval_metrics, epoch, num_optim_steps)
+
         if num_optim_steps % args.logging_steps == 0:
             log_metrics_fn("Train", metric_logger, epoch, num_optim_steps)
+
     return metric_logger
 
 
@@ -570,6 +577,7 @@ def main(args):
             criterion,
             optimizer,
             data_loader,
+            data_loader_test,
             device,
             epoch,
             args,
@@ -882,9 +890,15 @@ def _deprecate_old_arguments(f):
 @click.option("--print-freq", default=None, type=int, help="DEPRECATED. Does nothing.")
 @click.option(
     "--logging-steps",
-    default=10,
+    default=100,
     type=int,
     help="Frequency in number of batch updates for logging/printing",
+)
+@click.option(
+    "--eval-steps",
+    default=None,
+    type=int,
+    help="Number of steps to evaluate during training",
 )
 @click.option("--output-dir", default=".", type=str, help="path to save outputs")
 @click.option("--resume", default=None, type=str, help="path of checkpoint")
