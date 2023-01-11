@@ -561,13 +561,17 @@ def main(args):
             loggers=logger,
             distillation_teacher=args.distill_teacher,
         )
-        optimizer = manager.modify(
+        step_wrapper = manager.modify(
             model,
             optimizer,
             steps_per_epoch=steps_per_epoch,
             epoch=args.start_epoch,
             wrap_optim=scaler,
         )
+        if scaler is None:
+            optimizer = step_wrapper
+        else:
+            scaler = step_wrapper
 
     lr_scheduler = _get_lr_scheduler(
         args, optimizer, checkpoint=checkpoint, manager=manager
