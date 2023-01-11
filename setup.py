@@ -36,7 +36,7 @@ _deps = [
     "ipywidgets>=7.0.0",
     "pyyaml>=5.0.0",
     "progressbar2>=3.0.0",
-    "numpy>=1.0.0",
+    "numpy>=1.0.0,<=1.21.6",
     "matplotlib>=3.0.0",
     "merge-args>=0.1.0",
     "onnx>=1.5.0,<=1.12.0",

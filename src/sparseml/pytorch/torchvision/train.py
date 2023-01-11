@@ -15,6 +15,7 @@
 # Adapted from https://github.com/pytorch/vision
 
 import datetime
+import logging
 import math
 import os
 import sys
@@ -22,6 +23,7 @@ import time
 import warnings
 from functools import update_wrapper
 from types import SimpleNamespace
+from typing import Callable, Optional
 
 import torch
 import torch.utils.data
@@ -39,8 +41,17 @@ from sparseml.pytorch.utils.helpers import (
     download_framework_model_by_recipe_type,
     torch_distributed_zero_first,
 )
+from sparseml.pytorch.utils.logger import (
+    LoggerManager,
+    PythonLogger,
+    TensorBoardLogger,
+    WANDBLogger,
+)
 from sparseml.pytorch.utils.model import load_model
 from sparsezoo import Model
+
+
+_LOGGER = logging.getLogger(__name__)
 
 
 def train_one_epoch(
@@ -48,36 +59,58 @@ def train_one_epoch(
     criterion: torch.nn.Module,
     optimizer: torch.optim.Optimizer,
     data_loader: DataLoader,
+    data_loader_test: DataLoader,
     device: torch.device,
     epoch: int,
     args,
+    log_metrics_fn: Callable[[str, utils.MetricLogger, int, int], None],
+    manager=None,
     model_ema=None,
     scaler=None,
 ) -> utils.MetricLogger:
+    accum_steps = args.gradient_accum_steps
+
     model.train()
-    metric_logger = utils.MetricLogger(delimiter="  ")
+    metric_logger = utils.MetricLogger(_LOGGER, delimiter="  ")
     metric_logger.add_meter("lr", utils.SmoothedValue(window_size=1, fmt="{value}"))
-    metric_logger.add_meter("img/s", utils.SmoothedValue(window_size=10, fmt="{value}"))
+    metric_logger.add_meter(
+        "imgs_per_sec", utils.SmoothedValue(window_size=10, fmt="{value}")
+    )
+    metric_logger.add_meter("loss", utils.SmoothedValue(window_size=accum_steps))
+    metric_logger.add_meter("acc1", utils.SmoothedValue(window_size=accum_steps))
+    metric_logger.add_meter("acc5", utils.SmoothedValue(window_size=accum_steps))
 
     steps_accumulated = 0
+    num_optim_steps = 0
 
     # initial zero grad for gradient accumulation
     optimizer.zero_grad()
 
     header = f"Epoch: [{epoch}]"
-    for i, (image, target) in enumerate(
-        metric_logger.log_every(data_loader, args.print_freq, header)
+    for (image, target) in metric_logger.log_every(
+        data_loader, args.logging_steps * accum_steps, header
     ):
         start_time = time.time()
         image, target = image.to(device), target.to(device)
         with torch.cuda.amp.autocast(enabled=scaler is not None):
-            output = model(image)
+            outputs = output = model(image)
             if isinstance(output, tuple):
                 # NOTE: sparseml models return two things (logits & probs)
                 output = output[0]
             loss = criterion(output, target)
 
-        if steps_accumulated % args.gradient_accum_steps == 0:
+        if steps_accumulated % accum_steps == 0:
+            if manager is not None:
+                loss = manager.loss_update(
+                    loss=loss,
+                    module=model,
+                    optimizer=optimizer,
+                    epoch=epoch,
+                    steps_per_epoch=len(data_loader) / accum_steps,
+                    student_outputs=outputs,
+                    student_inputs=image,
+                )
+
             # first: do training to consume gradients
             if scaler is not None:
                 scaler.scale(loss).backward()
@@ -96,9 +129,10 @@ def train_one_epoch(
 
             # zero grad here to start accumulating next set of gradients
             optimizer.zero_grad()
+            num_optim_steps += 1
         steps_accumulated += 1
 
-        if model_ema and i % args.model_ema_steps == 0:
+        if model_ema and num_optim_steps % args.model_ema_steps == 0:
             model_ema.update_parameters(model)
             if epoch < args.lr_warmup_epochs:
                 # Reset ema buffer to keep copying weights during warmup period
@@ -109,7 +143,18 @@ def train_one_epoch(
         metric_logger.update(loss=loss.item(), lr=optimizer.param_groups[0]["lr"])
         metric_logger.meters["acc1"].update(acc1.item(), n=batch_size)
         metric_logger.meters["acc5"].update(acc5.item(), n=batch_size)
-        metric_logger.meters["img/s"].update(batch_size / (time.time() - start_time))
+        metric_logger.meters["imgs_per_sec"].update(
+            batch_size / (time.time() - start_time)
+        )
+
+        if args.eval_steps is not None and num_optim_steps % args.eval_steps == 0:
+            eval_metrics = evaluate(model, criterion, data_loader_test, device)
+            model.train()
+            log_metrics_fn("Test", eval_metrics, epoch, num_optim_steps)
+
+        if num_optim_steps % args.logging_steps == 0:
+            log_metrics_fn("Train", metric_logger, epoch, num_optim_steps)
+
     return metric_logger
 
 
@@ -122,7 +167,7 @@ def evaluate(
     log_suffix="",
 ) -> utils.MetricLogger:
     model.eval()
-    metric_logger = utils.MetricLogger(delimiter="  ")
+    metric_logger = utils.MetricLogger(_LOGGER, delimiter="  ")
     header = f"Test: {log_suffix}"
 
     num_processed_samples = 0
@@ -162,10 +207,10 @@ def evaluate(
 
     metric_logger.synchronize_between_processes()
 
-    print(
-        header,
-        f"Acc@1 {metric_logger.acc1.global_avg:.3f}",
-        f"Acc@5 {metric_logger.acc5.global_avg:.3f}",
+    _LOGGER.info(
+        header
+        + f"Acc@1 {metric_logger.acc1.global_avg:.3f}"
+        + f"Acc@5 {metric_logger.acc5.global_avg:.3f}"
     )
     return metric_logger
 
@@ -183,7 +228,7 @@ def _get_cache_path(filepath):
 
 def load_data(traindir, valdir, args):
     # Data loading code
-    print("Loading data")
+    _LOGGER.info("Loading data")
     val_resize_size, val_crop_size, train_crop_size = (
         args.val_resize_size,
         args.val_crop_size,
@@ -191,12 +236,12 @@ def load_data(traindir, valdir, args):
     )
     interpolation = InterpolationMode(args.interpolation)
 
-    print("Loading training data")
+    _LOGGER.info("Loading training data")
     st = time.time()
     cache_path = _get_cache_path(traindir)
     if args.cache_dataset and os.path.exists(cache_path):
         # Attention, as the transforms are also cached!
-        print(f"Loading dataset_train from {cache_path}")
+        _LOGGER.info(f"Loading dataset_train from {cache_path}")
         dataset, _ = torch.load(cache_path)
     else:
         auto_augment_policy = getattr(args, "auto_augment", None)
@@ -215,16 +260,16 @@ def load_data(traindir, valdir, args):
             ),
         )
         if args.cache_dataset:
-            print(f"Saving dataset_train to {cache_path}")
+            _LOGGER.info(f"Saving dataset_train to {cache_path}")
             utils.mkdir(os.path.dirname(cache_path))
             utils.save_on_master((dataset, traindir), cache_path)
-    print("Took", time.time() - st)
+    _LOGGER.info(f"Took {time.time() - st}")
 
-    print("Loading validation data")
+    _LOGGER.info("Loading validation data")
     cache_path = _get_cache_path(valdir)
     if args.cache_dataset and os.path.exists(cache_path):
         # Attention, as the transforms are also cached!
-        print(f"Loading dataset_test from {cache_path}")
+        _LOGGER.info(f"Loading dataset_test from {cache_path}")
         dataset_test, _ = torch.load(cache_path)
     else:
         preprocessing = presets.ClassificationPresetEval(
@@ -238,11 +283,11 @@ def load_data(traindir, valdir, args):
             preprocessing,
         )
         if args.cache_dataset:
-            print(f"Saving dataset_test to {cache_path}")
+            _LOGGER.info(f"Saving dataset_test to {cache_path}")
             utils.mkdir(os.path.dirname(cache_path))
             utils.save_on_master((dataset_test, valdir), cache_path)
 
-    print("Creating data loaders")
+    _LOGGER.info("Creating data loaders")
     if args.distributed:
         if hasattr(args, "ra_sampler") and args.ra_sampler:
             train_sampler = RASampler(dataset, shuffle=True, repetitions=args.ra_reps)
@@ -268,7 +313,10 @@ def main(args):
         utils.mkdir(args.output_dir)
 
     utils.init_distributed_mode(args)
-    print(args)
+    if not utils.is_main_process():
+        _LOGGER.disabled = True
+
+    _LOGGER.info(args)
 
     device = torch.device(args.device)
 
@@ -318,28 +366,29 @@ def main(args):
         pin_memory=True,
     )
 
-    print("Creating model")
-    if args.arch_key in ModelRegistry.available_keys():
-        with torch_distributed_zero_first(args.rank if args.distributed else None):
-            model = ModelRegistry.create(
-                key=args.arch_key,
-                pretrained=args.pretrained,
-                pretrained_path=args.checkpoint_path,
-                pretrained_dataset=args.pretrained_dataset,
-                num_classes=num_classes,
-            )
-    elif args.arch_key in torchvision.models.__dict__:
-        # fall back to torchvision
-        model = torchvision.models.__dict__[args.arch_key](
-            pretrained=args.pretrained, num_classes=num_classes
+    _LOGGER.info("Creating model")
+    local_rank = args.rank if args.distributed else None
+    model = _create_model(
+        arch_key=args.arch_key,
+        local_rank=local_rank,
+        pretrained=args.pretrained,
+        checkpoint_path=args.checkpoint_path,
+        pretrained_dataset=args.pretrained_dataset,
+        device=device,
+        num_classes=num_classes,
+    )
+
+    if args.distill_teacher not in ["self", "disable", None]:
+        _LOGGER.info("Instantiating teacher")
+        args.distill_teacher = _create_model(
+            arch_key=args.teacher_arch_key,
+            local_rank=local_rank,
+            pretrained=True,  # teacher is always pretrained
+            pretrained_dataset=args.pretrained_teacher_dataset,
+            checkpoint_path=args.distill_teacher,
+            device=device,
+            num_classes=num_classes,
         )
-        if args.checkpoint_path is not None:
-            load_model(args.checkpoint_path, model, strict=True)
-    else:
-        raise ValueError(
-            f"Unable to find {args.arch_key} in ModelRegistry or in torchvision.models"
-        )
-    model.to(device)
 
     if args.distributed and args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
@@ -417,36 +466,50 @@ def main(args):
             model, device=device, decay=1.0 - alpha
         )
 
+    manager = checkpoint_manager = None
     if args.checkpoint_path:
         checkpoint = _load_checkpoint(args.checkpoint_path)
 
         # restore state from prior recipe
         manager = (
-            ScheduledModifierManager.from_yaml(args.recipe)
+            ScheduledModifierManager.from_yaml(
+                args.recipe, recipe_variables=args.recipe_args
+            )
             if args.recipe is not None
             else None
         )
-        checkpoint_manager = ScheduledModifierManager.from_yaml(checkpoint["recipe"])
+        checkpoint_manager = (
+            ScheduledModifierManager.from_yaml(checkpoint["recipe"])
+            if "recipe" in checkpoint and checkpoint["recipe"] is not None
+            else None
+        )
     elif args.resume:
         checkpoint = _load_checkpoint(args.resume)
 
-        # NOTE: override manager with the checkpoint's manager
-        manager = ScheduledModifierManager.from_yaml(checkpoint["recipe"])
-        checkpoint_manager = None
-        manager.initialize(model, epoch=checkpoint["epoch"])
+        if "recipe" in checkpoint:
+            # NOTE: override manager with the checkpoint's manager
+            manager = ScheduledModifierManager.from_yaml(checkpoint["recipe"])
+            checkpoint_manager = None
+        else:
+            raise ValueError("Flag --resume is set but checkpoint does not have recipe")
 
         # NOTE: override start epoch
         args.start_epoch = checkpoint["epoch"] + 1
     else:
-        if args.recipe is None:
-            raise ValueError("Must specify --recipe if not loading from a checkpoint")
         checkpoint = None
-        manager = ScheduledModifierManager.from_yaml(args.recipe)
+        manager = (
+            ScheduledModifierManager.from_yaml(
+                args.recipe, recipe_variables=args.recipe_args
+            )
+            if args.recipe is not None
+            else None
+        )
         checkpoint_manager = None
 
     # load params
     if checkpoint is not None:
-        optimizer.load_state_dict(checkpoint["optimizer"])
+        if "optimizer" in checkpoint:
+            optimizer.load_state_dict(checkpoint["optimizer"])
         if model_ema and "model_ema" in checkpoint:
             model_ema.load_state_dict(checkpoint["model_ema"])
         if scaler and "scaler" in checkpoint:
@@ -463,15 +526,194 @@ def main(args):
                 criterion,
                 data_loader_test,
                 device,
+                print_freq=args.logging_steps,
                 log_suffix="EMA",
             )
         else:
-            evaluate(model, criterion, data_loader_test, device)
+            evaluate(
+                model,
+                criterion,
+                data_loader_test,
+                device,
+                print_freq=args.logging_steps,
+            )
         return
 
-    optimizer = manager.modify(model, optimizer, len(data_loader))
+    if utils.is_main_process():
+        loggers = [
+            PythonLogger(logger=_LOGGER),
+            TensorBoardLogger(log_path=args.output_dir),
+        ]
+        try:
+            loggers.append(WANDBLogger())
+        except ImportError:
+            warnings.warn("Unable to import wandb for logging")
+        logger = LoggerManager(loggers)
+    else:
+        logger = LoggerManager(log_python=False)
 
-    if manager.learning_rate_modifiers:
+    steps_per_epoch = len(data_loader) / args.gradient_accum_steps
+
+    def log_metrics(tag: str, metrics: utils.MetricLogger, epoch: int, epoch_step: int):
+        step = int(epoch * steps_per_epoch + epoch_step)
+        for metric_name, smoothed_value in metrics.meters.items():
+            logger.log_scalar(
+                f"{tag}/{metric_name}", smoothed_value.global_avg, step=step
+            )
+
+    if manager is not None:
+        manager.initialize(
+            model,
+            epoch=args.start_epoch,
+            loggers=logger,
+            distillation_teacher=args.distill_teacher,
+        )
+        optimizer = manager.modify(
+            model, optimizer, steps_per_epoch=steps_per_epoch, epoch=args.start_epoch
+        )
+
+    lr_scheduler = _get_lr_scheduler(
+        args, optimizer, checkpoint=checkpoint, manager=manager
+    )
+
+    model_without_ddp = model
+    if args.distributed:
+        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
+        model_without_ddp = model.module
+
+    best_top1_acc = -math.inf
+
+    _LOGGER.info("Start training")
+
+    start_time = time.time()
+    max_epochs = manager.max_epochs if manager is not None else args.epochs
+    for epoch in range(args.start_epoch, max_epochs):
+        if args.distributed:
+            train_sampler.set_epoch(epoch)
+        if manager is not None and manager.qat_active(epoch=epoch):
+            scaler = None
+            model_ema = None
+
+        train_metrics = train_one_epoch(
+            model,
+            criterion,
+            optimizer,
+            data_loader,
+            data_loader_test,
+            device,
+            epoch,
+            args,
+            log_metrics,
+            manager=manager,
+            model_ema=model_ema,
+            scaler=scaler,
+        )
+        log_metrics("Train", train_metrics, epoch, steps_per_epoch)
+
+        if lr_scheduler:
+            lr_scheduler.step()
+
+        eval_metrics = evaluate(model, criterion, data_loader_test, device)
+        log_metrics("Test", eval_metrics, epoch, steps_per_epoch)
+
+        top1_acc = eval_metrics.acc1.global_avg
+        if model_ema:
+            ema_eval_metrics = evaluate(
+                model_ema,
+                criterion,
+                data_loader_test,
+                device,
+                log_suffix="EMA",
+            )
+            log_metrics("Test/EMA", ema_eval_metrics, epoch, steps_per_epoch)
+
+        is_new_best = epoch >= args.save_best_after and top1_acc > best_top1_acc
+        if is_new_best:
+            best_top1_acc = top1_acc
+        if args.output_dir:
+            checkpoint = {
+                "state_dict": model_without_ddp.state_dict(),
+                "optimizer": optimizer.state_dict(),
+                "args": args,
+            }
+            if lr_scheduler:
+                checkpoint["lr_scheduler"] = lr_scheduler.state_dict()
+            if model_ema:
+                checkpoint["model_ema"] = model_ema.state_dict()
+            if scaler:
+                checkpoint["scaler"] = scaler.state_dict()
+
+            if checkpoint_manager is not None:
+                checkpoint["epoch"] = (
+                    -1
+                    if epoch == max_epochs - 1
+                    else epoch + checkpoint_manager.max_epochs
+                )
+                checkpoint["recipe"] = str(
+                    ScheduledModifierManager.compose_staged(checkpoint_manager, manager)
+                )
+            else:
+                checkpoint["epoch"] = -1 if epoch == max_epochs - 1 else epoch
+                if str(manager) is not None:
+                    checkpoint["recipe"] = str(manager)
+
+            file_names = ["checkpoint.pth"]
+            if is_new_best:
+                file_names.append("checkpoint-best.pth")
+            _save_checkpoints(
+                epoch,
+                args.output_dir,
+                file_names,
+                checkpoint,
+                train_metrics,
+                eval_metrics,
+            )
+
+    if manager is not None:
+        manager.finalize()
+
+    total_time = time.time() - start_time
+    total_time_str = str(datetime.timedelta(seconds=int(total_time)))
+    _LOGGER.info(f"Training time {total_time_str}")
+
+
+def _create_model(
+    arch_key: Optional[str] = None,
+    local_rank=None,
+    pretrained: Optional[bool] = False,
+    checkpoint_path: Optional[str] = None,
+    pretrained_dataset: Optional[str] = None,
+    device=None,
+    num_classes=None,
+):
+    if arch_key in ModelRegistry.available_keys():
+        with torch_distributed_zero_first(local_rank):
+            model = ModelRegistry.create(
+                key=arch_key,
+                pretrained=pretrained,
+                pretrained_path=checkpoint_path,
+                pretrained_dataset=pretrained_dataset,
+                num_classes=num_classes,
+            )
+    elif arch_key in torchvision.models.__dict__:
+        # fall back to torchvision
+        model = torchvision.models.__dict__[arch_key](
+            pretrained=pretrained, num_classes=num_classes
+        )
+        if checkpoint_path is not None:
+            load_model(checkpoint_path, model, strict=True)
+    else:
+        raise ValueError(
+            f"Unable to find {arch_key} in ModelRegistry or in torchvision.models"
+        )
+    model.to(device)
+    return model
+
+
+def _get_lr_scheduler(args, optimizer, checkpoint=None, manager=None):
+    lr_scheduler = None
+
+    if manager is not None and manager.learning_rate_modifiers:
         lr_scheduler = None
     else:
         args.lr_scheduler = args.lr_scheduler.lower()
@@ -525,90 +767,7 @@ def main(args):
         if args.resume and checkpoint:
             lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
 
-    model_without_ddp = model
-    if args.distributed:
-        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
-        model_without_ddp = model.module
-
-    best_top1_acc = -math.inf
-
-    print("Start training")
-    start_time = time.time()
-    for epoch in range(args.start_epoch, manager.max_epochs):
-        if args.distributed:
-            train_sampler.set_epoch(epoch)
-        if manager.qat_active(epoch=epoch):
-            scaler = None
-            model_ema = None
-        train_metrics = train_one_epoch(
-            model,
-            criterion,
-            optimizer,
-            data_loader,
-            device,
-            epoch,
-            args,
-            model_ema=model_ema,
-            scaler=scaler,
-        )
-        if lr_scheduler:
-            lr_scheduler.step()
-        eval_metrics = evaluate(model, criterion, data_loader_test, device)
-        top1_acc = eval_metrics.acc1.global_avg
-        if model_ema:
-            evaluate(
-                model_ema,
-                criterion,
-                data_loader_test,
-                device,
-                log_suffix="EMA",
-            )
-        is_new_best = epoch >= args.save_best_after and top1_acc > best_top1_acc
-        if is_new_best:
-            best_top1_acc = top1_acc
-        if args.output_dir:
-            checkpoint = {
-                "state_dict": model_without_ddp.state_dict(),
-                "optimizer": optimizer.state_dict(),
-                "args": args,
-            }
-            if lr_scheduler:
-                checkpoint["lr_scheduler"] = lr_scheduler.state_dict()
-            if model_ema:
-                checkpoint["model_ema"] = model_ema.state_dict()
-            if scaler:
-                checkpoint["scaler"] = scaler.state_dict()
-
-            if checkpoint_manager is not None:
-                checkpoint["epoch"] = (
-                    -1
-                    if epoch == manager.max_epochs - 1
-                    else epoch + checkpoint_manager.max_epochs
-                )
-                checkpoint["recipe"] = str(
-                    ScheduledModifierManager.compose_staged(checkpoint_manager, manager)
-                )
-            else:
-                checkpoint["epoch"] = -1 if epoch == manager.max_epochs - 1 else epoch
-                checkpoint["recipe"] = str(manager)
-
-            file_names = ["checkpoint.pth"]
-            if is_new_best:
-                file_names.append("checkpoint-best.pth")
-            _save_checkpoints(
-                epoch,
-                args.output_dir,
-                file_names,
-                checkpoint,
-                train_metrics,
-                eval_metrics,
-            )
-
-    manager.finalize()
-
-    total_time = time.time() - start_time
-    total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-    print(f"Training time {total_time_str}")
+    return lr_scheduler
 
 
 def _load_checkpoint(path):
@@ -664,6 +823,12 @@ def _deprecate_old_arguments(f):
     )
 )
 @click.option("--recipe", default=None, type=str, help="Path to recipe")
+@click.option(
+    "--recipe-args",
+    default=None,
+    type=str,
+    help="json parsable dict of recipe variable names to values to overwrite with",
+)
 @click.option("--dataset-path", required=True, type=str, help="dataset path")
 @click.option(
     "--arch-key",
@@ -785,7 +950,19 @@ def _deprecate_old_arguments(f):
     type=float,
     help="minimum lr of lr schedule",
 )
-@click.option("--print-freq", default=10, type=int, help="print frequency")
+@click.option("--print-freq", default=None, type=int, help="DEPRECATED. Does nothing.")
+@click.option(
+    "--logging-steps",
+    default=100,
+    type=int,
+    help="Frequency in number of batch updates for logging/printing",
+)
+@click.option(
+    "--eval-steps",
+    default=None,
+    type=int,
+    help="Number of steps to evaluate during training",
+)
 @click.option("--output-dir", default=".", type=str, help="path to save outputs")
 @click.option("--resume", default=None, type=str, help="path of checkpoint")
 @click.option(
@@ -914,6 +1091,34 @@ def _deprecate_old_arguments(f):
     type=int,
     help="Save the best validation result after the given "
     "epoch completes until the end of training",
+)
+@click.option(
+    "--distill-teacher",
+    default=None,
+    type=str,
+    help="Teacher model for distillation (a trained image classification model)"
+    " can be set to 'self' for self-distillation and 'disable' to switch-off"
+    " distillation, additionally can also take in a SparseZoo stub",
+)
+@click.option(
+    "--pretrained-teacher-dataset",
+    default=None,
+    type=str,
+    help=(
+        "The dataset to load pretrained weights for the teacher"
+        "Load the default dataset for the architecture if set to None. "
+        "examples:`imagenet`, `cifar10`, etc..."
+    ),
+)
+@click.option(
+    "--teacher-arch-key",
+    default=None,
+    type=str,
+    help=(
+        "The architecture key for teacher image classification model; "
+        "example: `resnet50`, `mobilenet`. "
+        "Note: Will be read from the checkpoint if not specified"
+    ),
 )
 @click.pass_context
 def cli(ctx, **kwargs):

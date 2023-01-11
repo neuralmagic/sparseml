@@ -232,7 +232,6 @@ class OBSPruningModifier(BaseGradualPruningModifier):
         :param kwargs: optional kwargs to support specific arguments
             for individual modifiers.
         """
-        _LOGGER.info("Initializing OBSPruningModifier")
         if (
             "grad_sampler" not in kwargs
             or "data_loader_builder" not in kwargs["grad_sampler"]
@@ -243,15 +242,12 @@ class OBSPruningModifier(BaseGradualPruningModifier):
                 "must be provided to initialize GradSampler"
             )
 
-        super().initialize(module, epoch, loggers, **kwargs)
+        self._grad_sampler = GradSampler(
+            kwargs["grad_sampler"]["data_loader_builder"](self._grad_sampler_kwargs),
+            kwargs["grad_sampler"]["loss_function"],
+        )
 
-        if self._scorer._is_main_proc:  # grads collected only in the main proc
-            self._grad_sampler = GradSampler(
-                kwargs["grad_sampler"]["data_loader_builder"](
-                    self._grad_sampler_kwargs
-                ),
-                kwargs["grad_sampler"]["loss_function"],
-            )
+        super().initialize(module, epoch, loggers, **kwargs)
 
     def check_mask_update(
         self, module: Module, epoch: float, steps_per_epoch: int, **kwargs
@@ -259,44 +255,46 @@ class OBSPruningModifier(BaseGradualPruningModifier):
         if steps_per_epoch == 1 and not math.isinf(epoch):
             return  # not a one-shot run
 
-        _LOGGER.info("Running OBS Pruning")
         torch.cuda.empty_cache()
         if self._scorer._is_main_proc:
-            self._pre_step_completed = True
+            _LOGGER.info("Running OBS Pruning")
             self._scorer._enabled_grad_buffering = True
-            to_apply_sparsities = self.get_applied_sparsity_for_epoch(
-                epoch, steps_per_epoch
-            )
-            last_applied_sparsities = (
-                self._last_applied_sparsity
-                if isinstance(self._last_applied_sparsity, List)
-                else [self._last_applied_sparsity] * len(to_apply_sparsities)
-            )
 
-            for i in range(1, self._num_recomputations + 1):
-                self._collect_grad_samples(module, self._grad_sampler)
-                recomputation_sparsity = [
-                    interpolate(
-                        i,
-                        0,
-                        self._num_recomputations,
-                        start_sparsity,
-                        target_sparsity,
-                    )
-                    for start_sparsity, target_sparsity in zip(
-                        last_applied_sparsities, to_apply_sparsities
-                    )
-                ]
-                super().check_mask_update(
-                    module,
-                    epoch,
-                    steps_per_epoch,
-                    recomputation_sparsity=recomputation_sparsity,
+        self._pre_step_completed = True
+        to_apply_sparsities = self.get_applied_sparsity_for_epoch(
+            epoch, steps_per_epoch
+        )
+        last_applied_sparsities = (
+            self._last_applied_sparsity
+            if isinstance(self._last_applied_sparsity, List)
+            else [self._last_applied_sparsity] * len(to_apply_sparsities)
+        )
+
+        for i in range(1, self._num_recomputations + 1):
+            self._collect_grad_samples(module, self._grad_sampler)
+            recomputation_sparsity = [
+                interpolate(
+                    i,
+                    0,
+                    self._num_recomputations,
+                    start_sparsity,
+                    target_sparsity,
                 )
+                for start_sparsity, target_sparsity in zip(
+                    last_applied_sparsities, to_apply_sparsities
+                )
+            ]
+            super().check_mask_update(
+                module,
+                epoch,
+                steps_per_epoch,
+                recomputation_sparsity=recomputation_sparsity,
+            )
 
-            torch.cuda.empty_cache()
+        torch.cuda.empty_cache()
+        self._last_applied_sparsity = to_apply_sparsities
+        if self._scorer._is_main_proc:
             self._scorer._enabled_grad_buffering = False
-            self._last_applied_sparsity = to_apply_sparsities
 
     def _get_mask_creator(
         self, param_names: List[str], params: List[Parameter]
