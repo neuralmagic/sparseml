@@ -562,7 +562,11 @@ def main(args):
             distillation_teacher=args.distill_teacher,
         )
         optimizer = manager.modify(
-            model, optimizer, steps_per_epoch=steps_per_epoch, epoch=args.start_epoch
+            model,
+            optimizer,
+            steps_per_epoch=steps_per_epoch,
+            epoch=args.start_epoch,
+            wrap_optim=scaler,
         )
 
     lr_scheduler = _get_lr_scheduler(
