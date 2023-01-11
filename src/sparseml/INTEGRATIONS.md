@@ -68,8 +68,8 @@ Key:
 | Convert to ONNX                  | ✅     | ✅              | ✅      | ❓            | ❓      | ✅          |
 | ONNX graph validation            | ✅     | ✅              | ✅      | ❓            | ❓      | ✅          |
 | Graph folding/optimization       | ✅     | ✅              | ✅      | ❓            | ❓      | ✅          |
-| Convert to TorchScript           | ❌     | ❌              | ✅      | ❓            | ❓      | ❌          |
-| Static batch size                | ❌     | ❌              | ❌      | ❓            | ❓      | ❌          |
+| Convert to TorchScript           | ❌     | ❌              | ✔️       | ❓            | ❓      | ❌          |
+| Static batch size                | ❌     | ❌              | ✔️       | ❓            | ❓      | ❌          |
 | Dynamic batch size               | ✅     | ✅              | ✅      | ❓            | ❓      | ✅          |
 | Static input shape               | ✅     | ✅              | ✅      | ❓            | ❓      | ✅          |
 | Dynamic input shape              | ❌     | ❌              | ❌      | ❓            | ❓      | ❌          |
