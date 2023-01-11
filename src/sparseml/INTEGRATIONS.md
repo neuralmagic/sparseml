@@ -11,7 +11,7 @@ Key:
 | CLI                      | ✅     | ✅              | ✅      | ✅            | ✅      | ✔️          |
 | API                      | ✅     | ✅              | ✅      | ✅            | ✅      | ✔️          |
 | Dense training           | ✅     | ✅              | ✅      | ✅            | ✅      | ✔️          |
-| Gradient accumulation[0] | ❓     | ✅              | ❓      | ✔️            | ❌      | ❓          |
+| Gradient accumulation[0] | ❌     | ✅              | ❓      | ✔️            | ❌      | ❌          |
 
 [0] steps_per_epoch should be `len(data_loader) / gradient_accum_steps`
 
@@ -57,7 +57,7 @@ Key:
 | ------------------ | ----- | -------------- | ------ | ------------ | ------ | ---------- |
 | stdout             | ✅     | ✅              | ✅      | ✅            | ✅      | ✔️          |
 | Weights and Biases | ❌     | ✅              | ✅      | ✅            | ✅      | ❌          |
-| TensorBoard        | ✅     | ✅              | ❌      | ✅            | ✅      | ❌          |
+| TensorBoard        | ✅     | ✅              | ✅      | ✅            | ✅      | ❌          |
 
 [0] The units for x axis in logging should be number of optimizer steps. Notably: `num_optimizer_steps = num_batches / gradient_accum_steps`. So when gradient_accumuluation is not used, the x axis will be number of batches trained on. 
 
