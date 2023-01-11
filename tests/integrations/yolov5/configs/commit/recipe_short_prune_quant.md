@@ -12,7 +12,7 @@ init_sparsity: &init_sparsity 0.05
 pruning_start_epoch: &pruning_start_epoch 0
 pruning_end_epoch: &pruning_end_epoch 1
 update_frequency: &pruning_update_frequency 0.2
-mask_type: &mask_type [1, 4]
+mask_type: &mask_type [1, 1]
 prune_none_target_sparsity: &prune_none_target_sparsity 0.4
 prune_low_target_sparsity: &prune_low_target_sparsity 0.5
 prune_mid_target_sparsity: &prune_mid_target_sparsity 0.65
@@ -39,7 +39,10 @@ pruning_modifiers:
 quantization_modifiers:
   - !QuantizationModifier
     start_epoch: *quantization_start_epoch
-    submodules: ['model']
-    
-    
+    submodules:
+      - model
+    custom_quantizable_module_types: ['SiLU']
+    exclude_module_types: ['SiLU']
+    quantize_conv_activations: False
+   
 ---
