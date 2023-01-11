@@ -91,7 +91,7 @@ def train_one_epoch(
 
         if steps_accumulated % args.gradient_accum_steps == 0:
             if manager is not None:
-                manager.loss_update(
+                loss = manager.loss_update(
                     loss=loss,
                     module=model,
                     optimizer=optimizer,
