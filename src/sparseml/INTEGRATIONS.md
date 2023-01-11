@@ -12,6 +12,7 @@ Key:
 | API                      | ✅     | ✅              | ✅      | ✅            | ✅      | ✔️          |
 | Dense training           | ✅     | ✅              | ✅      | ✅            | ✅      | ✔️          |
 | Gradient accumulation[0] | ❌     | ✅              | ❓      | ✔️            | ❌      | ❌          |
+| DDP                      | ✅     | ✅              | ❓      | ✔️            | ❌      | ✔️          |
 
 [0] steps_per_epoch should be `len(data_loader) / gradient_accum_steps`
 
