@@ -574,9 +574,17 @@ def main(args):
             loggers=logger,
             distillation_teacher=args.distill_teacher,
         )
-        optimizer = manager.modify(
-            model, optimizer, steps_per_epoch=steps_per_epoch, epoch=args.start_epoch
+        step_wrapper = manager.modify(
+            model,
+            optimizer,
+            steps_per_epoch=steps_per_epoch,
+            epoch=args.start_epoch,
+            wrap_optim=scaler,
         )
+        if scaler is None:
+            optimizer = step_wrapper
+        else:
+            scaler = step_wrapper
 
     lr_scheduler = _get_lr_scheduler(
         args, optimizer, checkpoint=checkpoint, manager=manager
@@ -597,7 +605,7 @@ def main(args):
         if args.distributed:
             train_sampler.set_epoch(epoch)
         if manager is not None and manager.qat_active(epoch=epoch):
-            scaler = None
+            scaler._enabled = False
             model_ema = None
 
         train_metrics = train_one_epoch(
