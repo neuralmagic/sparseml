@@ -545,12 +545,18 @@ def main(args):
             TensorBoardLogger(log_path=args.output_dir),
         ]
         try:
-            loggers.append(WANDBLogger())
+            config = vars(args)
+            if manager is not None:
+                config["manager"] = str(manager)
+            loggers.append(WANDBLogger(init_kwargs=dict(config=config)))
         except ImportError:
             warnings.warn("Unable to import wandb for logging")
         logger = LoggerManager(loggers)
     else:
         logger = LoggerManager(log_python=False)
+
+    if args.recipe is not None:
+        logger.save(args.recipe)
 
     steps_per_epoch = len(data_loader) / args.gradient_accum_steps
 
