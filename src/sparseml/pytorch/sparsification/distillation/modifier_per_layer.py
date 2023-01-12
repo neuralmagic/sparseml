@@ -354,7 +354,7 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
         steps_per_epoch: int,
     ):
         super().update(module, optimizer, epoch, steps_per_epoch)
-        if epoch >= self.end_epoch:
+        if 0 < self.end_epoch <= epoch:
             for handle in self._student_handles:
                 handle.remove()
             for handle in self._teacher_handles:
