@@ -23,6 +23,7 @@ import time
 import warnings
 from functools import update_wrapper
 from types import SimpleNamespace
+from typing import Callable, Optional
 
 import torch
 import torch.utils.data
@@ -58,36 +59,58 @@ def train_one_epoch(
     criterion: torch.nn.Module,
     optimizer: torch.optim.Optimizer,
     data_loader: DataLoader,
+    data_loader_test: DataLoader,
     device: torch.device,
     epoch: int,
     args,
+    log_metrics_fn: Callable[[str, utils.MetricLogger, int, int], None],
+    manager=None,
     model_ema=None,
     scaler=None,
 ) -> utils.MetricLogger:
+    accum_steps = args.gradient_accum_steps
+
     model.train()
     metric_logger = utils.MetricLogger(_LOGGER, delimiter="  ")
     metric_logger.add_meter("lr", utils.SmoothedValue(window_size=1, fmt="{value}"))
-    metric_logger.add_meter("img/s", utils.SmoothedValue(window_size=10, fmt="{value}"))
+    metric_logger.add_meter(
+        "imgs_per_sec", utils.SmoothedValue(window_size=10, fmt="{value}")
+    )
+    metric_logger.add_meter("loss", utils.SmoothedValue(window_size=accum_steps))
+    metric_logger.add_meter("acc1", utils.SmoothedValue(window_size=accum_steps))
+    metric_logger.add_meter("acc5", utils.SmoothedValue(window_size=accum_steps))
 
     steps_accumulated = 0
+    num_optim_steps = 0
 
     # initial zero grad for gradient accumulation
     optimizer.zero_grad()
 
     header = f"Epoch: [{epoch}]"
-    for i, (image, target) in enumerate(
-        metric_logger.log_every(data_loader, args.print_freq, header)
+    for (image, target) in metric_logger.log_every(
+        data_loader, args.logging_steps * accum_steps, header
     ):
         start_time = time.time()
         image, target = image.to(device), target.to(device)
         with torch.cuda.amp.autocast(enabled=scaler is not None):
-            output = model(image)
+            outputs = output = model(image)
             if isinstance(output, tuple):
                 # NOTE: sparseml models return two things (logits & probs)
                 output = output[0]
             loss = criterion(output, target)
 
-        if steps_accumulated % args.gradient_accum_steps == 0:
+        if steps_accumulated % accum_steps == 0:
+            if manager is not None:
+                loss = manager.loss_update(
+                    loss=loss,
+                    module=model,
+                    optimizer=optimizer,
+                    epoch=epoch,
+                    steps_per_epoch=len(data_loader) / accum_steps,
+                    student_outputs=outputs,
+                    student_inputs=image,
+                )
+
             # first: do training to consume gradients
             if scaler is not None:
                 scaler.scale(loss).backward()
@@ -106,9 +129,10 @@ def train_one_epoch(
 
             # zero grad here to start accumulating next set of gradients
             optimizer.zero_grad()
+            num_optim_steps += 1
         steps_accumulated += 1
 
-        if model_ema and i % args.model_ema_steps == 0:
+        if model_ema and num_optim_steps % args.model_ema_steps == 0:
             model_ema.update_parameters(model)
             if epoch < args.lr_warmup_epochs:
                 # Reset ema buffer to keep copying weights during warmup period
@@ -119,7 +143,18 @@ def train_one_epoch(
         metric_logger.update(loss=loss.item(), lr=optimizer.param_groups[0]["lr"])
         metric_logger.meters["acc1"].update(acc1.item(), n=batch_size)
         metric_logger.meters["acc5"].update(acc5.item(), n=batch_size)
-        metric_logger.meters["img/s"].update(batch_size / (time.time() - start_time))
+        metric_logger.meters["imgs_per_sec"].update(
+            batch_size / (time.time() - start_time)
+        )
+
+        if args.eval_steps is not None and num_optim_steps % args.eval_steps == 0:
+            eval_metrics = evaluate(model, criterion, data_loader_test, device)
+            model.train()
+            log_metrics_fn("Test", eval_metrics, epoch, num_optim_steps)
+
+        if num_optim_steps % args.logging_steps == 0:
+            log_metrics_fn("Train", metric_logger, epoch, num_optim_steps)
+
     return metric_logger
 
 
@@ -332,27 +367,28 @@ def main(args):
     )
 
     _LOGGER.info("Creating model")
-    if args.arch_key in ModelRegistry.available_keys():
-        with torch_distributed_zero_first(args.rank if args.distributed else None):
-            model = ModelRegistry.create(
-                key=args.arch_key,
-                pretrained=args.pretrained,
-                pretrained_path=args.checkpoint_path,
-                pretrained_dataset=args.pretrained_dataset,
-                num_classes=num_classes,
-            )
-    elif args.arch_key in torchvision.models.__dict__:
-        # fall back to torchvision
-        model = torchvision.models.__dict__[args.arch_key](
-            pretrained=args.pretrained, num_classes=num_classes
+    local_rank = args.rank if args.distributed else None
+    model = _create_model(
+        arch_key=args.arch_key,
+        local_rank=local_rank,
+        pretrained=args.pretrained,
+        checkpoint_path=args.checkpoint_path,
+        pretrained_dataset=args.pretrained_dataset,
+        device=device,
+        num_classes=num_classes,
+    )
+
+    if args.distill_teacher not in ["self", "disable", None]:
+        _LOGGER.info("Instantiating teacher")
+        args.distill_teacher = _create_model(
+            arch_key=args.teacher_arch_key,
+            local_rank=local_rank,
+            pretrained=True,  # teacher is always pretrained
+            pretrained_dataset=args.pretrained_teacher_dataset,
+            checkpoint_path=args.distill_teacher,
+            device=device,
+            num_classes=num_classes,
         )
-        if args.checkpoint_path is not None:
-            load_model(args.checkpoint_path, model, strict=True)
-    else:
-        raise ValueError(
-            f"Unable to find {args.arch_key} in ModelRegistry or in torchvision.models"
-        )
-    model.to(device)
 
     if args.distributed and args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
@@ -490,10 +526,17 @@ def main(args):
                 criterion,
                 data_loader_test,
                 device,
+                print_freq=args.logging_steps,
                 log_suffix="EMA",
             )
         else:
-            evaluate(model, criterion, data_loader_test, device)
+            evaluate(
+                model,
+                criterion,
+                data_loader_test,
+                device,
+                print_freq=args.logging_steps,
+            )
         return
 
     if utils.is_main_process():
@@ -509,16 +552,24 @@ def main(args):
     else:
         logger = LoggerManager(log_python=False)
 
-    def log_metrics(tag: str, metrics: utils.MetricLogger, epoch: int):
+    steps_per_epoch = len(data_loader) / args.gradient_accum_steps
+
+    def log_metrics(tag: str, metrics: utils.MetricLogger, epoch: int, epoch_step: int):
+        step = int(epoch * steps_per_epoch + epoch_step)
         for metric_name, smoothed_value in metrics.meters.items():
             logger.log_scalar(
-                f"{tag}/{metric_name}", smoothed_value.global_avg, step=epoch
+                f"{tag}/{metric_name}", smoothed_value.global_avg, step=step
             )
 
     if manager is not None:
-        manager.initialize(model, epoch=args.start_epoch, loggers=logger)
+        manager.initialize(
+            model,
+            epoch=args.start_epoch,
+            loggers=logger,
+            distillation_teacher=args.distill_teacher,
+        )
         optimizer = manager.modify(
-            model, optimizer, len(data_loader), epoch=args.start_epoch
+            model, optimizer, steps_per_epoch=steps_per_epoch, epoch=args.start_epoch
         )
 
     lr_scheduler = _get_lr_scheduler(
@@ -548,19 +599,22 @@ def main(args):
             criterion,
             optimizer,
             data_loader,
+            data_loader_test,
             device,
             epoch,
             args,
+            log_metrics,
+            manager=manager,
             model_ema=model_ema,
             scaler=scaler,
         )
-        log_metrics("Train", train_metrics, epoch)
+        log_metrics("Train", train_metrics, epoch, steps_per_epoch)
 
         if lr_scheduler:
             lr_scheduler.step()
 
         eval_metrics = evaluate(model, criterion, data_loader_test, device)
-        log_metrics("Test", eval_metrics, epoch)
+        log_metrics("Test", eval_metrics, epoch, steps_per_epoch)
 
         top1_acc = eval_metrics.acc1.global_avg
         if model_ema:
@@ -571,7 +625,7 @@ def main(args):
                 device,
                 log_suffix="EMA",
             )
-            log_metrics("Test/EMA", ema_eval_metrics, epoch)
+            log_metrics("Test/EMA", ema_eval_metrics, epoch, steps_per_epoch)
 
         is_new_best = epoch >= args.save_best_after and top1_acc > best_top1_acc
         if is_new_best:
@@ -621,6 +675,39 @@ def main(args):
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     _LOGGER.info(f"Training time {total_time_str}")
+
+
+def _create_model(
+    arch_key: Optional[str] = None,
+    local_rank=None,
+    pretrained: Optional[bool] = False,
+    checkpoint_path: Optional[str] = None,
+    pretrained_dataset: Optional[str] = None,
+    device=None,
+    num_classes=None,
+):
+    if arch_key in ModelRegistry.available_keys():
+        with torch_distributed_zero_first(local_rank):
+            model = ModelRegistry.create(
+                key=arch_key,
+                pretrained=pretrained,
+                pretrained_path=checkpoint_path,
+                pretrained_dataset=pretrained_dataset,
+                num_classes=num_classes,
+            )
+    elif arch_key in torchvision.models.__dict__:
+        # fall back to torchvision
+        model = torchvision.models.__dict__[arch_key](
+            pretrained=pretrained, num_classes=num_classes
+        )
+        if checkpoint_path is not None:
+            load_model(checkpoint_path, model, strict=True)
+    else:
+        raise ValueError(
+            f"Unable to find {arch_key} in ModelRegistry or in torchvision.models"
+        )
+    model.to(device)
+    return model
 
 
 def _get_lr_scheduler(args, optimizer, checkpoint=None, manager=None):
@@ -863,7 +950,19 @@ def _deprecate_old_arguments(f):
     type=float,
     help="minimum lr of lr schedule",
 )
-@click.option("--print-freq", default=10, type=int, help="print frequency")
+@click.option("--print-freq", default=None, type=int, help="DEPRECATED. Does nothing.")
+@click.option(
+    "--logging-steps",
+    default=100,
+    type=int,
+    help="Frequency in number of batch updates for logging/printing",
+)
+@click.option(
+    "--eval-steps",
+    default=None,
+    type=int,
+    help="Number of steps to evaluate during training",
+)
 @click.option("--output-dir", default=".", type=str, help="path to save outputs")
 @click.option("--resume", default=None, type=str, help="path of checkpoint")
 @click.option(
@@ -992,6 +1091,34 @@ def _deprecate_old_arguments(f):
     type=int,
     help="Save the best validation result after the given "
     "epoch completes until the end of training",
+)
+@click.option(
+    "--distill-teacher",
+    default=None,
+    type=str,
+    help="Teacher model for distillation (a trained image classification model)"
+    " can be set to 'self' for self-distillation and 'disable' to switch-off"
+    " distillation, additionally can also take in a SparseZoo stub",
+)
+@click.option(
+    "--pretrained-teacher-dataset",
+    default=None,
+    type=str,
+    help=(
+        "The dataset to load pretrained weights for the teacher"
+        "Load the default dataset for the architecture if set to None. "
+        "examples:`imagenet`, `cifar10`, etc..."
+    ),
+)
+@click.option(
+    "--teacher-arch-key",
+    default=None,
+    type=str,
+    help=(
+        "The architecture key for teacher image classification model; "
+        "example: `resnet50`, `mobilenet`. "
+        "Note: Will be read from the checkpoint if not specified"
+    ),
 )
 @click.pass_context
 def cli(ctx, **kwargs):
