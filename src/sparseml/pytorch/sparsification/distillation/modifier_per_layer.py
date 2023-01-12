@@ -155,6 +155,8 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
         self._teacher_output_shapes: Dict[str, torch.Size] = {}
         self._loaded_projection = None
 
+        self._compare_model_output = False
+
     def _reset_cache(self):
         self._cached_student_output.clear()
         self._cached_teacher_output.clear()
@@ -354,7 +356,7 @@ class PerLayerDistillationModifier(BaseDistillationModifier):
         steps_per_epoch: int,
     ):
         super().update(module, optimizer, epoch, steps_per_epoch)
-        if epoch >= self.end_epoch:
+        if self.end_epoch > 0 and epoch >= self.end_epoch:
             for handle in self._student_handles:
                 handle.remove()
             for handle in self._teacher_handles:

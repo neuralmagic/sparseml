@@ -132,6 +132,7 @@ class BaseDistillationModifier(ScheduledUpdateModifier):
 
         self._teacher = None
         self._distillation_enabled = False
+        self._compare_model_output = True
 
         self._logged_loss_terms = {}
 
@@ -321,7 +322,9 @@ class BaseDistillationModifier(ScheduledUpdateModifier):
                 teacher_inputs, self._teacher, check_feat_lab_inp=False
             )
 
-        if type(student_outputs) != type(teacher_outputs):
+        if self._compare_model_output and type(student_outputs) != type(
+            teacher_outputs
+        ):
             raise ValueError(
                 f"Student output type of {type(student_outputs)} must match "
                 f"teacher output type of {type(teacher_outputs)}"
