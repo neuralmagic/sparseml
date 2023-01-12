@@ -92,6 +92,7 @@ class QATSiLU(SiLU):
             "num_outputs": 0,
         }
 
+
 class QATSiLUOutput(SiLU):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -102,15 +103,6 @@ class QATSiLUOutput(SiLU):
             "num_outputs": 0,
         }
 
-class QATSiLUOutput(SiLU):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        self.wrap_qat = True
-        self.qat_wrapper_kwargs = {
-            "num_inputs": 1,
-            "num_outputs": 1,
-        }
 
 class _InvertedBottleneckBlock(Module):
     def __init__(
