@@ -120,6 +120,12 @@ class DistillationModifier(BaseDistillationModifier):
         self._temperature = value
 
     def compute_distillation_loss(self, student_outputs, teacher_outputs, **kwargs):
+        if type(student_outputs) != type(teacher_outputs):
+            raise ValueError(
+                f"Student output type of {type(student_outputs)} must match "
+                f"teacher output type of {type(teacher_outputs)}"
+            )
+
         return kldiv_loss(
             student_outputs,
             teacher_outputs,
