@@ -89,7 +89,18 @@ class QATSiLU(SiLU):
         self.wrap_qat = True
         self.qat_wrapper_kwargs = {
             "num_inputs": 1,
-            "num_outputs": 1,
+            "num_outputs": 0,
+        }
+
+
+class QATSiLUOutput(SiLU):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.wrap_qat = True
+        self.qat_wrapper_kwargs = {
+            "num_inputs": 1,
+            "num_outputs": 0,
         }
 
 
@@ -120,6 +131,11 @@ class _InvertedBottleneckBlock(Module):
 
         if bn_kwargs is None:
             bn_kwargs = {}
+
+        if self._se_mod:
+            spatial_activation = QATSiLU() if squeezed_channels else SiLU()
+        else:
+            spatial_activation = QATSiLUOutput() if squeezed_channels else SiLU()
 
         self.expand = (
             Sequential(
@@ -168,7 +184,7 @@ class _InvertedBottleneckBlock(Module):
                     ("bn", BatchNorm2d(num_features=expanded_channels, **bn_kwargs)),
                     (
                         "act",
-                        QATSiLU() if squeezed_channels else SiLU(),
+                        spatial_activation,
                     ),
                 ]
             )
@@ -335,10 +351,11 @@ class _Classifier(Module):
             kernel_size=1,
             bias=False,
         )
+
         if bn_kwargs is None:
             bn_kwargs = {}
         self.bn = BatchNorm2d(num_features=out_channels, **bn_kwargs)
-        self.act = SiLU()
+        self.act = QATSiLUOutput()
         self.pool = AdaptiveAvgPool2d(1)
         self.dropout = Dropout(p=dropout)
         self.fc = Linear(out_channels, classes)
