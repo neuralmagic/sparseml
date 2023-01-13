@@ -100,7 +100,7 @@ class QATSiLUOutput(SiLU):
         self.wrap_qat = True
         self.qat_wrapper_kwargs = {
             "num_inputs": 1,
-            "num_outputs": 0,
+            "num_outputs": 1,
         }
 
 
