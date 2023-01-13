@@ -605,7 +605,8 @@ def main(args):
         if args.distributed:
             train_sampler.set_epoch(epoch)
         if manager is not None and manager.qat_active(epoch=epoch):
-            scaler._enabled = False
+            if scaler is not None:
+                scaler._enabled = False
             model_ema = None
 
         train_metrics = train_one_epoch(
