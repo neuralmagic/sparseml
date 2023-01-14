@@ -508,7 +508,7 @@ def main(args):
 
     # load params
     if checkpoint is not None:
-        if "optimizer" in checkpoint:
+        if "optimizer" in checkpoint and not args.test_only:
             optimizer.load_state_dict(checkpoint["optimizer"])
         if model_ema and "model_ema" in checkpoint:
             model_ema.load_state_dict(checkpoint["model_ema"])
