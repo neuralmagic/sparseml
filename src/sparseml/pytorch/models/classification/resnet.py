@@ -152,6 +152,7 @@ class _NoOp(Module):
     def forward(self, x):
         return x
 
+
 class _BasicBlock(Module):
     def __init__(self, in_channels: int, out_channels: int, stride: int = 1):
         super().__init__()
