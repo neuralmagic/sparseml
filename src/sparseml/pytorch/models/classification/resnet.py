@@ -140,25 +140,17 @@ class _IdentityModifier(Module):
         return in_channels != out_channels or stride > 1
 
 
-class AddReLU(Module):
+class _NoOp(Module):
     """
     Wrapper for the FloatFunctional class that enables QATWrapper used to
     quantize the first input to the Add operation
     """
 
-    def __init__(self, num_channels):
+    def __init__(self):
         super().__init__()
-        if FloatFunctional:
-            self.functional = FloatFunctional()
-        else:
-            self.functional = ReLU(num_channels=num_channels, inplace=True)
 
-    def forward(self, x, y):
-        if isinstance(self.functional, FloatFunctional):
-            return self.functional.add_relu(x, y)
-        else:
-            return self.functional(x + y)
-
+    def forward(self, x):
+        return x
 
 class _BasicBlock(Module):
     def __init__(self, in_channels: int, out_channels: int, stride: int = 1):
@@ -183,7 +175,13 @@ class _BasicBlock(Module):
             else None
         )
 
-        self.add_relu = AddReLU(out_channels)
+        self.no_op_conv = _NoOp()
+        self.no_op_identity = _NoOp()
+        if FloatFunctional:
+            self.add_relu = FloatFunctional()
+        else:
+            self.add_relu = ReLU(num_channels=out_channels, inplace=True)
+
         self.initialize()
 
     def forward(self, inp: Tensor):
@@ -193,10 +191,15 @@ class _BasicBlock(Module):
 
         out = self.conv2(out)
         out = self.bn2(out)
+        out = self.no_op_conv(out)
 
         identity_val = self.identity(inp) if self.identity is not None else inp
-        return self.add_relu(identity_val, out)
+        identity_val = self.no_op_identity(identity_val)
 
+        if isinstance(self.add_relu, FloatFunctional):
+            return self.add_relu.add_relu(identity_val, out)
+        else:
+            return self.add_relu(identity_val + out)
 
     def initialize(self):
         _init_conv(self.conv1)
@@ -238,7 +241,12 @@ class _BottleneckBlock(Module):
             else None
         )
 
-        self.add_relu = AddReLU(out_channels)
+        self.no_op_conv = _NoOp()
+        self.no_op_identity = _NoOp()
+        if FloatFunctional:
+            self.add_relu = FloatFunctional()
+        else:
+            self.add_relu = ReLU(num_channels=out_channels, inplace=True)
 
         self.initialize()
 
@@ -253,10 +261,15 @@ class _BottleneckBlock(Module):
 
         out = self.conv3(out)
         out = self.bn3(out)
+        out = self.no_op_conv(out)
 
         identity_val = self.identity(inp) if self.identity is not None else inp
+        identity_val = self.no_op_identity(identity_val)
 
-        return self.add_relu(identity_val, out)
+        if isinstance(self.add_relu, FloatFunctional):
+            return self.add_relu.add_relu(identity_val, out)
+        else:
+            return self.add_relu(identity_val + out)
 
     def initialize(self):
         _init_conv(self.conv1)
@@ -293,6 +306,9 @@ class _BasicBlockV2(Module):
             else None
         )
 
+        self.no_op_conv = _NoOp()
+        self.no_op_identity = _NoOp()
+
         self.initialize()
 
     def forward(self, inp: Tensor):
@@ -302,11 +318,13 @@ class _BasicBlockV2(Module):
         out = self.act1(out)
         if self.identity is not None:
             identity = self.identity(out)
+            identity = self.no_op_identity(out)
         out = self.conv1(out)
 
         out = self.bn2(out)
         out = self.act2(out)
         out = self.conv2(out)
+        out = self.no_op_conv(out)
 
         out += identity
 
@@ -355,6 +373,8 @@ class _BottleneckBlockV2(Module):
             if in_channels != out_channels or stride != 1
             else None
         )
+        self.no_op_conv = _NoOp()
+        self.no_op_identity = _NoOp()
 
         self.initialize()
 
@@ -365,6 +385,7 @@ class _BottleneckBlockV2(Module):
         out = self.act1(out)
         if self.identity is not None:
             identity = self.identity(out)
+            identity = self.no_op_identity(identity)
         out = self.conv1(out)
 
         out = self.bn2(out)
@@ -374,6 +395,7 @@ class _BottleneckBlockV2(Module):
         out = self.bn3(out)
         out = self.act3(out)
         out = self.conv3(out)
+        out = self.no_op_conv(out)
 
         out += identity
 
