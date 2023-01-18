@@ -32,7 +32,7 @@ except Exception as _yolov5_import_err:
 _LOGGER = _logging.getLogger(__name__)
 _NM_YOLOV5_TAR_TEMPLATE = (
     "https://github.com/neuralmagic/yolov5/releases/download/"
-    "{version}/yolov5-6.1.0-py3-none-any.whl"
+    "{version}/yolov5-6.2.0-py3-none-any.whl"
 )
 _NM_YOLOV5_NIGHTLY = _NM_YOLOV5_TAR_TEMPLATE.format(version="nightly")
 
