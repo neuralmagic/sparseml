@@ -25,8 +25,6 @@ from .helpers import *
 try:
     import yolov5 as _yolov5
 
-    # triggers error if neuralmagic/yolov5 is not installed
-    assert _yolov5.NM_INTEGRATED
     _yolov5_import_error = None
 except Exception as _yolov5_import_err:
     _yolov5_import_error = _yolov5_import_err
@@ -97,8 +95,6 @@ def _check_yolov5_install():
     # re check import after potential install
     try:
         import yolov5 as _yolov5
-
-        assert _yolov5.NM_INTEGRATED
     except Exception:
         _LOGGER.warning(
             "the neuralmagic fork of yolov5 may not be installed. it can be "
