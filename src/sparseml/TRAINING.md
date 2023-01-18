@@ -12,6 +12,7 @@ Key:
 | API                      | ✅     | ✅              | ✅      | ✅            | ✅      | ✔️          |
 | Dense training           | ✅     | ✅              | ✅      | ✅            | ✅      | ✔️          |
 | Gradient accumulation[0] | ❌     | ✅              | ❓      | ✔️            | ❌      | ❌          |
+| DP                       | ❓     | ❌              | ❓      | ❓            | ❓      | ✔️          |
 | DDP                      | ✅     | ✅              | ❓      | ✔️            | ❌      | ✔️          |
 
 [0] steps_per_epoch should be `len(data_loader) / gradient_accum_steps`
@@ -45,14 +46,17 @@ Key:
 | Checkpoints from original integration | ✅     | ✅              | ✅      | ✅            | ✅      | ✅          |
 | Checkpoints from sparsezoo            | ✅     | ✅              | ✅      | ✅            | ✅      | ✅          |
 | Best checkpoint                       | ✅     | ✅              | ✅      | ✅            | ✅      | ✅          |
-| Best Pruned checkpoint                | ❌     | ❌              | ❌      | ❌            | ❌      | ❌          |
+| Best Pruned checkpoint[0]             | ❌     | ❌              | ❌      | ❌            | ❌      | ❌          |
 | Best Quantized checkpoint             | ❌     | ❌              | ❌      | ❌            | ❌      | ❌          |
 | Best Pruned/Quantized checkpoint      | ❌     | ❌              | ❌      | ❌            | ❌      | ❌          |
-| Changes architecture from recipe[0]   | ✅     | ✅              | ✅      | ✅            | ✅      | ✅          |
-| Staged recipes [1]                    | ✅     | ✅              | ✅      | ✅            | ✅      | ✅          |
+| Changes architecture from recipe[1]   | ✅     | ✅              | ✅      | ✅            | ✅      | ✅          |
+| Staged recipes [2]                    | ✅     | ✅              | ✅      | ✅            | ✅      | ✅          |
 
-[0] If the checkpoint has a completed recipe, then need to call `manager.apply_structure(model, checkpoint_epoch)`
-[1] Needs to use `manager.compose_staged(...)` on checkpoint recipe & current recipe
+[0] Can only be saved after pruning fully completes
+
+[1] If the checkpoint has a completed recipe, then need to call `manager.apply_structure(model, checkpoint_epoch)`
+
+[2] Needs to use `manager.compose_staged(...)` on checkpoint recipe & current recipe
 
 | Logging[0]         | NM IC | torchvision IC | yolov5 | transformers | yolact | openpifpaf |
 | ------------------ | ----- | -------------- | ------ | ------------ | ------ | ---------- |
@@ -64,16 +68,18 @@ Key:
 
 # Export
 
-| Exporting                        | NM IC | torchvision IC | yolov5 | transformers | yolact | openpifpaf |
-| -------------------------------- | ----- | -------------- | ------ | ------------ | ------ | ---------- |
-| Optional one shot                | ✅     | ❌              | ✅      | ✅            | ✅      | ✅          |
-| Convert to ONNX[0]               | ✅     | ✅              | ✅      | ✅            | ✅      | ✅          |
-| Convert to TorchScript           | ❌     | ❌              | ✔️      | ❌            | ❌      | ❌          |
-| Static batch size                | ❌     | ❌              | ✔️      | ❌            | ❌      | ❌          |
-| Dynamic batch size               | ✅     | ✅              | ✅      | ✅            | ✅      | ✅          |
-| Static input shape               | ✅     | ✅              | ✅      | ✅            | ✅      | ✅          |
-| Dynamic input shape              | ❌     | ❌              | ❌      | ❌            | ❌      | ❌          |
-| Save to simple deployment folder | ✅     | ✅              | ✅      | ✅            | ✅      | ✅          |
-| Save to SparseZoo folder         | ❌     | ❌              | ❌      | ❌            | ❌      | ❌          |
+| Exporting                           | NM IC | torchvision IC | yolov5 | transformers | yolact | openpifpaf |
+| ----------------------------------- | ----- | -------------- | ------ | ------------ | ------ | ---------- |
+| Optional one shot                   | ✅     | ❌              | ✅      | ✅            | ✅      | ✅          |
+| Convert to ONNX[0]                  | ✅     | ✅              | ✅      | ✅            | ✅      | ✅          |
+| Convert to TorchScript              | ❌     | ❌              | ✔️      | ❌            | ❌      | ❌          |
+| Static batch size                   | ❌     | ❌              | ✔️      | ❌            | ❌      | ❌          |
+| Dynamic batch size                  | ✅     | ✅              | ✅      | ✅            | ✅      | ✅          |
+| Static input shape                  | ✅     | ✅              | ✅      | ✅            | ✅      | ✅          |
+| Dynamic input shape                 | ❌     | ❌              | ❌      | ❌            | ❌      | ❌          |
+| Save to simple deployment folder[1] | ✅     | ✅              | ✅      | ✅            | ✅      | ✅          |
+| Save to SparseZoo folder            | ❌     | ❌              | ❌      | ❌            | ❌      | ❌          |
 
 [0] Should use our `ModuleExporter`
+
+[1] Minimal requirement for this should be checkpoint path and necessary configuration files
