@@ -107,7 +107,7 @@ class Yolov5Manager(BaseIntegrationManager):
             self.save_dir.cleanup()
 
 
-@flaky(max_runs=1, min_passes=1)  # TODO: restore max_runs to 2
+@flaky(max_runs=2, min_passes=1)
 class TestYolov5(BaseIntegrationTester):
     @pytest.fixture(
         params=get_configs_with_cadence(
