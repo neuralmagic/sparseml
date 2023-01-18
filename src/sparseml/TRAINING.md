@@ -11,9 +11,9 @@ Key:
 | CLI                      | ✅     | ✅              | ✅      | ✅            | ✅      | ✔️          |
 | API                      | ✅     | ✅              | ✅      | ✅            | ✅      | ✔️          |
 | Dense training           | ✅     | ✅              | ✅      | ✅            | ✅      | ✔️          |
-| Gradient accumulation[0] | ❌     | ✅              | ❓      | ✔️            | ❌      | ❌          |
-| DP                       | ❓     | ❌              | ❓      | ❓            | ❓      | ✔️          |
-| DDP                      | ✅     | ✅              | ❓      | ✔️            | ❌      | ✔️          |
+| Gradient accumulation[0] | ❌     | ✅              | ✅      | ✔️            | ❌      | ❌          |
+| DP                       | ❓     | ❌              | ✅      | ❓            | ❓      | ✔️          |
+| DDP                      | ✅     | ✅              | ✅      | ✔️            | ❌      | ✔️          |
 
 [0] steps_per_epoch should be `len(data_loader) / gradient_accum_steps`
 
@@ -23,7 +23,7 @@ Key:
 | Recipe args       | ✅     | ✅              | ✅      | ✅            | ❌      | ❌          |
 | EMA               | ❌     | ✅              | ✅      | ❌            | ❌      | ❌          |
 | AMP[1]            | ✅     | ✅              | ✅      | ✅            | ✅      | ❌          |
-| Distillation[2]   | ❌     | ❌              | ❌      | ✅            | ❌      | ❌          |
+| Distillation[2]   | ❌     | ❌              | ✅      | ✅            | ❌      | ❌          |
 
 [0] Quantization needs to work with EMA/AMP (disable them both when quantization is activated)
 
@@ -46,9 +46,9 @@ Key:
 | Checkpoints from original integration | ✅     | ✅              | ✅      | ✅            | ✅      | ✅          |
 | Checkpoints from sparsezoo            | ✅     | ✅              | ✅      | ✅            | ✅      | ✅          |
 | Best checkpoint                       | ✅     | ✅              | ✅      | ✅            | ✅      | ✅          |
-| Best Pruned checkpoint[0]             | ❌     | ❌              | ❌      | ❌            | ❌      | ❌          |
-| Best Quantized checkpoint             | ❌     | ❌              | ❌      | ❌            | ❌      | ❌          |
-| Best Pruned/Quantized checkpoint      | ❌     | ❌              | ❌      | ❌            | ❌      | ❌          |
+| Best Pruned checkpoint[0]             | ❌     | ❌              | ❓      | ❌            | ❌      | ❌          |
+| Best Quantized checkpoint             | ❌     | ❌              | ❓      | ❌            | ❌      | ❌          |
+| Best Pruned/Quantized checkpoint      | ❌     | ❌              | ❓      | ❌            | ❌      | ❌          |
 | Changes architecture from recipe[1]   | ✅     | ✅              | ✅      | ✅            | ✅      | ✅          |
 | Staged recipes [2]                    | ✅     | ✅              | ✅      | ✅            | ✅      | ✅          |
 
