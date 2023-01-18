@@ -15,10 +15,25 @@
 import os
 
 import pytest
-from torch.nn import Conv2d, Identity, Linear
+from torch.nn import Identity
 
-from sparseml.pytorch.sparsification import QuantizationModifier
-from tests.sparseml.pytorch.helpers import ConvNet, LinearNet, create_optim_sgd
+from sparseml.pytorch.sparsification.quantization.helpers import QATWrapper
+from sparseml.pytorch.sparsification.quantization.modifier_quantization import (
+    QuantizationModifier,
+)
+from sparseml.pytorch.sparsification.quantization.quantization_scheme import (
+    QuantizationScheme,
+)
+from sparseml.pytorch.sparsification.quantization.quantize import (
+    is_qat_helper_module,
+    is_quantizable_module,
+)
+from tests.sparseml.pytorch.helpers import (
+    ConvNet,
+    LinearNet,
+    QATMatMulTestNet,
+    create_optim_sgd,
+)
 from tests.sparseml.pytorch.sparsification.test_modifier import ScheduledModifierTest
 
 
@@ -28,108 +43,131 @@ from tests.sparseml.pytorch.helpers import (  # noqa isort:skip
     test_steps_per_epoch,
 )
 
+
 try:
     from torch import quantization as torch_quantization
 except Exception:
     torch_quantization = None
 
 
-QUANTIZATION_MODIFIERS = [
-    lambda: QuantizationModifier(
-        start_epoch=0.0,
-        disable_quantization_observer_epoch=2,
-        freeze_bn_stats_epoch=3.0,
-    ),
-    lambda: QuantizationModifier(start_epoch=2.0, submodules=["seq"]),
-    lambda: QuantizationModifier(
-        start_epoch=0.0,
-        quantize_linear_activations=False,
-        quantize_conv_activations=False,
-    ),
-    lambda: QuantizationModifier(
-        start_epoch=0.0,
-        activation_bits=4,
-    ),
-]
+def _assert_qconfigs_equal(qconfig_1, qconfig_2):
+    def _assert_observers_eq(observer_1, observer_2):
+        assert type(observer_1).__name__ == type(observer_2).__name__
 
-QUANTIZATION_MODIFIERS_LINEAR = QUANTIZATION_MODIFIERS + [
-    lambda: QuantizationModifier(start_epoch=2.0, submodules=["seq.fc1"]),
-    lambda: QuantizationModifier(
-        start_epoch=2.0, submodules=["seq.fc1", "seq.block1.fc2"]
-    ),
-    lambda: QuantizationModifier(
-        start_epoch=2.0,
-        submodules=["seq.fc1", "seq.block1.fc2"],
-        reduce_range=True,
-    ),
-    lambda: QuantizationModifier(
-        start_epoch=0.0,
-        exclude_module_types=["Linear"],
-    ),
-]
+        if hasattr(observer_1, "p"):
+            # assume observer is a partial, test by properties dict
+            assert observer_1.p.keywords == observer_2.p.keywords
+        else:
+            # default to plain `==`
+            assert observer_1 == observer_2
+
+    # check activation and weight observers
+    _assert_observers_eq(qconfig_1.activation, qconfig_2.activation)
+    _assert_observers_eq(qconfig_1.weight, qconfig_2.weight)
 
 
-def _is_valid_submodule(module_name, submodule_names):
-    return module_name in submodule_names or any(
-        module_name.startswith(name) for name in submodule_names
+def _test_quantized_module(base_model, modifier, module, name):
+    # check quant scheme and configs are set
+    quantization_scheme = getattr(module, "quantization_scheme", None)
+    qconfig = getattr(module, "qconfig", None)
+    assert quantization_scheme is not None
+    assert qconfig is not None
+
+    # if module type is overwritten in by scheme_overrides, check scheme set correctly
+    module_type_name = module.__class__.__name__
+    if module_type_name in modifier.scheme_overrides:
+        expected_scheme = modifier.scheme_overrides[module_type_name]
+        assert quantization_scheme == expected_scheme
+
+    is_quant_wrapper = isinstance(module, torch_quantization.QuantWrapper)
+
+    expected_qconfig = (
+        quantization_scheme.get_wrapper_qconfig()
+        if is_quant_wrapper
+        else quantization_scheme.get_qconfig()
     )
 
+    # check generated qconfig matches expected
+    _assert_qconfigs_equal(qconfig, expected_qconfig)
 
-def _is_quantizable_module(module):
-    return isinstance(module, (Conv2d, Linear))
-
-
-def _test_quantizable_module(module, qat_expected, modifier):
-    reduce_range = modifier.reduce_range
-    quantize_linear_activations = modifier.quantize_linear_activations
-
-    excluded_types = modifier.exclude_module_types or []
-    qat_expected = qat_expected and module.__class__.__name__ not in excluded_types
-    if qat_expected:
-        assert hasattr(module, "qconfig") and module.qconfig is not None
-        assert hasattr(module, "weight_fake_quant") and (
-            module.weight_fake_quant is not None
-        )
-        assert hasattr(module, "activation_post_process") and (
-            module.activation_post_process is not None
-        )
-        if module.qconfig.activation is not Identity:
-            assert module.qconfig.activation.p.keywords["reduce_range"] == reduce_range
-            if modifier.activation_bits is not None:
-                expected_quant_min = 0
-                expected_quant_max = (1 << modifier.activation_bits) - 1
-
-                module.activation_post_process.quant_min == expected_quant_min
-                module.activation_post_process.quant_max == expected_quant_max
-
-        if isinstance(module, Linear):
-            assert isinstance(module.activation_post_process, Identity) == (
-                not quantize_linear_activations
-            )
-    else:
-        assert not hasattr(module, "qconfig") or module.qconfig is None
-        assert not hasattr(module, "weight_fake_quant")
+    if is_quant_wrapper:
+        # assert that activations are tracked by quant stub observer
         assert not hasattr(module, "activation_post_process")
+        assert hasattr(module.quant, "activation_post_process")
+        assert isinstance(
+            module.quant.activation_post_process, torch_quantization.FakeQuantize
+        )
+    else:
+        if quantization_scheme.input_activations:
+            # assert that parent is a QuantWrapper to quantize input activations
+            parent_module = base_model
+            for layer in name.split(".")[:-1]:
+                parent_module = getattr(parent_module, layer)
+            assert isinstance(parent_module, torch_quantization.QuantWrapper)
+
+        # all non wrapper modules targeted for quantization should have a post process
+        # which is a FakeQuantize quantizing outputs, or an Identity if not
+        assert hasattr(module, "activation_post_process")
+        if quantization_scheme.output_activations is None:
+            assert isinstance(module.activation_post_process, Identity)
+        else:
+            assert isinstance(
+                module.activation_post_process, torch_quantization.FakeQuantize
+            )
+
+
+def _test_qat_wrapped_module(root_module, wrapped_module_name):
+    parent_module = root_module
+    for layer in wrapped_module_name.split(".")[:-1]:
+        parent_module = getattr(parent_module, layer)
+    assert isinstance(parent_module, QATWrapper)
 
 
 def _test_qat_applied(modifier, model):
-    # test quantization mods are applied
-    if not modifier.submodules or modifier.submodules == [""]:
-        assert hasattr(model, "qconfig") and model.qconfig is not None
-        submodules = [""]
-        for module in model.modules():
-            if _is_quantizable_module(module):
-                _test_quantizable_module(module, True, modifier)
+    assert modifier._qat_enabled
 
-    else:
-        assert not hasattr(model, "qconfig") or model.qconfig is None
-        submodules = modifier.submodules
-    # check qconfig propagation
     for name, module in model.named_modules():
-        if _is_quantizable_module(module):
-            _test_quantizable_module(
-                module, _is_valid_submodule(name, submodules), modifier
-            )
+        if is_qat_helper_module(module):
+            # skip helper modules
+            continue
+
+        is_target_submodule = not any(
+            name.startswith(submodule_name) for submodule_name in modifier.ignore
+        )
+        is_included_module_type = any(
+            module_type_name == module.__class__.__name__
+            for module_type_name in modifier.scheme_overrides
+        )
+        is_quantizable = is_included_module_type or is_quantizable_module(
+            module,
+            exclude_module_types=modifier.ignore,
+        )
+
+        if is_target_submodule and is_quantizable:
+            if getattr(module, "wrap_qat", False):
+                _test_qat_wrapped_module(model, name)
+            elif is_quantizable:
+                # check each target module is quantized
+                _test_quantized_module(model, modifier, module, name)
+        else:
+            # check all non-target modules are not quantized
+            assert not hasattr(module, "quantization_scheme")
+            assert not hasattr(module, "qconfig")
+
+
+def _test_freeze_bn_stats_observer_applied(modifier, epoch):
+    if modifier.disable_quantization_observer_epoch is not None and (
+        epoch >= modifier.disable_quantization_observer_epoch
+    ):
+        assert modifier._quantization_observer_disabled
+    else:
+        assert not modifier._quantization_observer_disabled
+    if modifier.freeze_bn_stats_epoch is not None and (
+        epoch >= modifier.freeze_bn_stats_epoch
+    ):
+        assert modifier._bn_stats_frozen
+    else:
+        assert not modifier._bn_stats_frozen
 
 
 @pytest.mark.skipif(
@@ -146,13 +184,67 @@ def _test_qat_applied(modifier, model):
 )
 @pytest.mark.parametrize(
     "modifier_lambda,model_lambda",
-    list(
-        zip(
-            QUANTIZATION_MODIFIERS_LINEAR,
-            [LinearNet] * len(QUANTIZATION_MODIFIERS_LINEAR),
-        )
-    )
-    + list(zip(QUANTIZATION_MODIFIERS, [ConvNet] * len(QUANTIZATION_MODIFIERS))),
+    [
+        (lambda: QuantizationModifier(start_epoch=0.0), LinearNet),
+        (
+            lambda: QuantizationModifier(
+                start_epoch=0.0, scheme=QuantizationScheme(weights=None)
+            ),
+            LinearNet,
+        ),
+        (
+            lambda: QuantizationModifier(
+                start_epoch=0.0,
+                scheme_overrides=dict(seq="default"),
+                freeze_bn_stats_epoch=2.0,
+                disable_quantization_observer_epoch=3.0,
+            ),
+            LinearNet,
+        ),
+        (
+            lambda: QuantizationModifier(
+                start_epoch=1.0,
+                scheme_overrides=dict(Linear=QuantizationScheme(weights=None)),
+                ignore=["seq.fc1"],
+            ),
+            LinearNet,
+        ),
+        (
+            lambda: QuantizationModifier(start_epoch=0.0, ignore=["Linear"]),
+            LinearNet,
+        ),
+        (lambda: QuantizationModifier(start_epoch=0.0), ConvNet),
+        (
+            lambda: QuantizationModifier(
+                start_epoch=2.0, scheme_overrides=dict(mlp="deepsparse")
+            ),
+            ConvNet,
+        ),
+        (
+            lambda: QuantizationModifier(
+                start_epoch=2.0,
+                scheme_overrides=dict(Conv2d=QuantizationScheme(weights=None)),
+                freeze_bn_stats_epoch=2.5,
+                disable_quantization_observer_epoch=2.2,
+                ignore=["mlp"],
+            ),
+            ConvNet,
+        ),
+        (
+            lambda: QuantizationModifier(
+                start_epoch=0.0,
+                scheme_overrides=dict(
+                    seq="tensorrt",
+                    mlp=QuantizationScheme(weights=None),
+                    Conv2d=QuantizationScheme(output_activations={}),
+                ),
+                ignore=["ReLU", "mlp"],
+            ),
+            ConvNet,
+        ),
+        # test wrap_qat feature
+        (lambda: QuantizationModifier(start_epoch=0.0), QATMatMulTestNet),
+    ],
     scope="function",
 )
 @pytest.mark.parametrize("optim_lambda", [create_optim_sgd], scope="function")
@@ -170,6 +262,7 @@ class TestQuantizationModifierImpl(ScheduledModifierTest):
 
         self.initialize_helper(modifier, model)
 
+        _test_freeze_bn_stats_observer_applied(modifier, 0.0)
         for epoch in range(int(modifier.start_epoch)):
             assert not modifier.update_ready(epoch, test_steps_per_epoch)
 
@@ -178,6 +271,7 @@ class TestQuantizationModifierImpl(ScheduledModifierTest):
             update_epochs.append(modifier.disable_quantization_observer_epoch)
         if modifier.freeze_bn_stats_epoch is not None:
             update_epochs.append(modifier.freeze_bn_stats_epoch)
+        update_epochs.sort()
         for epoch in update_epochs:
             assert modifier.update_ready(epoch, test_steps_per_epoch)
         # test update ready is still true after start epoch
@@ -191,12 +285,15 @@ class TestQuantizationModifierImpl(ScheduledModifierTest):
         else:
             # QAT should be applied
             _test_qat_applied(modifier, model)
+            pass
 
-        modifier.scheduled_update(
-            model, optimizer, modifier.start_epoch, test_steps_per_epoch
-        )
+        for update_epoch in update_epochs:
+            modifier.scheduled_update(
+                model, optimizer, update_epoch, test_steps_per_epoch
+            )
+            _test_freeze_bn_stats_observer_applied(modifier, update_epoch)
 
-        # test update ready is False after start epoch is applied, before diable epochs
+        # test update ready is False after start epoch is applied, before disable epochs
         if (
             len(update_epochs) == 1
             or min(update_epochs[1:]) <= modifier.start_epoch + 1
@@ -224,43 +321,39 @@ class TestQuantizationModifierImpl(ScheduledModifierTest):
 )
 def test_quantization_modifier_yaml():
     start_epoch = 0.0
-    submodules = ["block.0", "block.2"]
-    model_fuse_fn_name = "fuse_module"
+    scheme = dict(
+        input_activations=dict(num_bits=8, symmetric=True),
+        weights=dict(num_bits=6, symmetric=False),
+    )
+    scheme_overrides = dict(
+        feature_extractor="deepsparse",
+        classifier=dict(
+            input_activations=dict(num_bits=8, symmetric=True),
+            weights=None,
+        ),
+        Linear=dict(output_activations=dict(symmetric=False)),
+    )
+    ignore = ["LayerNorm", "Tanh"]
     disable_quantization_observer_epoch = 2.0
     freeze_bn_stats_epoch = 3.0
-    quantize_embeddings = False
-    reduce_range = True
-    quantize_linear_activations = False
-    quantize_conv_activations = False
-    quantize_embedding_activations = False
-    num_calibration_steps = 2
-    exclude_module_types = ["LayerNorm", "Tanh"]
-    activation_bits = 4
-    averaging_constant = 0.05
-    tensorrt = False
-    exclude_batchnorm = False
-    activation_qconfig_kwargs = dict(
-        averaging_constant=averaging_constant,
-    )
+    num_calibration_steps = 1000
+    model_fuse_fn_name = "custom_fuse_fn"
+    model_fuse_fn_kwargs = dict(inplace=True)
+    strict = False
+
     yaml_str = f"""
-        !QuantizationModifier
-            start_epoch: {start_epoch}
-            submodules: {submodules}
-            model_fuse_fn_name: {model_fuse_fn_name}
-            disable_quantization_observer_epoch: {disable_quantization_observer_epoch}
-            freeze_bn_stats_epoch: {freeze_bn_stats_epoch}
-            quantize_embeddings: {quantize_embeddings}
-            reduce_range: {reduce_range}
-            quantize_linear_activations: {quantize_linear_activations}
-            quantize_conv_activations: {quantize_conv_activations}
-            quantize_embedding_activations: {quantize_embedding_activations}
-            num_calibration_steps: {num_calibration_steps}
-            exclude_module_types: {exclude_module_types}
-            activation_bits: {activation_bits}
-            activation_qconfig_kwargs: {activation_qconfig_kwargs}
-            tensorrt: {tensorrt}
-            exclude_batchnorm: {exclude_batchnorm}
-        """
+    !QuantizationModifier
+        start_epoch: {start_epoch}
+        scheme: {scheme}
+        scheme_overrides: {scheme_overrides}
+        ignore: {ignore}
+        disable_quantization_observer_epoch: {disable_quantization_observer_epoch}
+        freeze_bn_stats_epoch: {freeze_bn_stats_epoch}
+        num_calibration_steps: {num_calibration_steps}
+        model_fuse_fn_name: {model_fuse_fn_name}
+        model_fuse_fn_kwargs: {model_fuse_fn_kwargs}
+        strict: {strict}
+    """
     yaml_modifier = QuantizationModifier.load_obj(
         yaml_str
     )  # type: QuantizationModifier
@@ -269,21 +362,15 @@ def test_quantization_modifier_yaml():
     )  # type: QuantizationModifier
     obj_modifier = QuantizationModifier(
         start_epoch=start_epoch,
-        submodules=submodules,
-        model_fuse_fn_name=model_fuse_fn_name,
+        scheme=scheme,
+        scheme_overrides=scheme_overrides,
+        ignore=ignore,
         disable_quantization_observer_epoch=disable_quantization_observer_epoch,
         freeze_bn_stats_epoch=freeze_bn_stats_epoch,
-        quantize_embeddings=quantize_embeddings,
-        reduce_range=reduce_range,
-        quantize_linear_activations=quantize_linear_activations,
-        quantize_conv_activations=quantize_conv_activations,
-        quantize_embedding_activations=quantize_embedding_activations,
-        activation_bits=activation_bits,
         num_calibration_steps=num_calibration_steps,
-        exclude_module_types=exclude_module_types,
-        activation_qconfig_kwargs=activation_qconfig_kwargs,
-        tensorrt=tensorrt,
-        exclude_batchnorm=exclude_batchnorm,
+        model_fuse_fn_name=model_fuse_fn_name,
+        model_fuse_fn_kwargs=model_fuse_fn_kwargs,
+        strict=strict,
     )
 
     assert isinstance(yaml_modifier, QuantizationModifier)
@@ -292,16 +379,16 @@ def test_quantization_modifier_yaml():
         == serialized_modifier.start_epoch
         == obj_modifier.start_epoch
     )
+    assert yaml_modifier.scheme == serialized_modifier.scheme == obj_modifier.scheme
+    assert isinstance(yaml_modifier.scheme, QuantizationScheme)
+    assert isinstance(serialized_modifier.scheme, QuantizationScheme)
+    assert isinstance(obj_modifier.scheme, QuantizationScheme)
     assert (
-        sorted(yaml_modifier.submodules)
-        == sorted(serialized_modifier.submodules)
-        == sorted(obj_modifier.submodules)
+        yaml_modifier.scheme_overrides
+        == serialized_modifier.scheme_overrides
+        == obj_modifier.scheme_overrides
     )
-    assert (
-        yaml_modifier.model_fuse_fn_name
-        == serialized_modifier.model_fuse_fn_name
-        == obj_modifier.model_fuse_fn_name
-    )
+    assert yaml_modifier.ignore == serialized_modifier.ignore == obj_modifier.ignore
     assert (
         yaml_modifier.disable_quantization_observer_epoch
         == serialized_modifier.disable_quantization_observer_epoch
@@ -313,55 +400,63 @@ def test_quantization_modifier_yaml():
         == obj_modifier.freeze_bn_stats_epoch
     )
     assert (
-        yaml_modifier.quantize_embeddings
-        == serialized_modifier.quantize_embeddings
-        == obj_modifier.quantize_embeddings
-    )
-    assert (
-        yaml_modifier.reduce_range
-        == serialized_modifier.reduce_range
-        == obj_modifier.reduce_range
-    )
-    assert (
-        yaml_modifier.quantize_linear_activations
-        == serialized_modifier.quantize_linear_activations
-        == obj_modifier.quantize_linear_activations
-    )
-    assert (
-        yaml_modifier.quantize_conv_activations
-        == serialized_modifier.quantize_conv_activations
-        == obj_modifier.quantize_conv_activations
-    )
-    assert (
-        yaml_modifier.quantize_embedding_activations
-        == serialized_modifier.quantize_embedding_activations
-        == obj_modifier.quantize_embedding_activations
-    )
-    assert (
-        yaml_modifier.activation_bits
-        == serialized_modifier.activation_bits
-        == obj_modifier.activation_bits
-    )
-    assert (
         yaml_modifier.num_calibration_steps
         == serialized_modifier.num_calibration_steps
         == obj_modifier.num_calibration_steps
     )
     assert (
-        yaml_modifier.exclude_module_types
-        == serialized_modifier.exclude_module_types
-        == obj_modifier.exclude_module_types
+        yaml_modifier.model_fuse_fn_name
+        == serialized_modifier.model_fuse_fn_name
+        == obj_modifier.model_fuse_fn_name
     )
     assert (
-        yaml_modifier.activation_qconfig_kwargs
-        == serialized_modifier.activation_qconfig_kwargs
-        == obj_modifier.activation_qconfig_kwargs
+        yaml_modifier.model_fuse_fn_kwargs
+        == serialized_modifier.model_fuse_fn_kwargs
+        == obj_modifier.model_fuse_fn_kwargs
     )
-    assert (
-        yaml_modifier.tensorrt == serialized_modifier.tensorrt == obj_modifier.tensorrt
-    )
-    assert (
-        yaml_modifier.exclude_batchnorm
-        == serialized_modifier.exclude_batchnorm
-        == obj_modifier.exclude_batchnorm
-    )
+    assert yaml_modifier.strict == serialized_modifier.strict == obj_modifier.strict
+
+
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
+)
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_QUANT_TESTS", False),
+    reason="Skipping pytorch torch quantization tests",
+)
+@pytest.mark.skipif(
+    torch_quantization is None,
+    reason="torch quantization not available",
+)
+@pytest.mark.parametrize(
+    "modifier_lambda,unmatched_values",
+    [
+        (
+            lambda: QuantizationModifier(
+                scheme_overrides=dict(mlp={}, submodule_1={}, Conv2d={}, Embedding={}),
+            ),
+            ["submodule_1", "Embedding"],
+        ),
+        (
+            lambda: QuantizationModifier(
+                ignore=dict(mlp={}, submodule_1={}, Conv2d={}, Embedding={}),
+            ),
+            ["submodule_1", "Embedding"],
+        ),
+        (
+            lambda: QuantizationModifier(
+                ignore=dict(mlp={}, submodule_1={}),
+                scheme_overrides=dict(Conv2d={}, Embedding={}),
+            ),
+            ["Embedding"],
+        ),
+    ],
+)
+def test_strict_raises_expected_error(modifier_lambda, unmatched_values):
+    model = ConvNet()
+    modifier = modifier_lambda()
+
+    with pytest.raises(ValueError) as value_error:
+        modifier.apply(model)
+    assert f"unmatched values: {unmatched_values}" in value_error.value.args[0]

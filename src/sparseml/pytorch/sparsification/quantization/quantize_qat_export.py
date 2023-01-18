@@ -147,12 +147,13 @@ def _fold_conv_bn_bias(model: ModelProto, conv_node: NodeProto, bn_node: NodePro
     bn_params = get_batch_norm_params(model, bn_node)
 
     # get conv bias or initialize to zeros
-    conv_bias = None
+    conv_bias = numpy.zeros(bn_params.mean.shape)
     if len(conv_node.input) > 2:
         conv_bias_init = get_init_by_name(model, conv_node.input[2])
         if conv_bias_init is not None:
             conv_bias = numpy_helper.to_array(conv_bias_init)
-    conv_bias = conv_bias or numpy.zeros(bn_params.mean.shape)
+        else:
+            assert False
 
     # fold bias into conv from bn then delete bn node
     variance_term = 1 / numpy.sqrt(bn_params.var + bn_params.epsilon)
@@ -1564,9 +1565,9 @@ def quantize_torch_qat_export(
     if not inplace:
         model = deepcopy(model)
 
-    _fold_qat_conv_bns(model)
     _convert_single_constants_to_initializers(model)
     _convert_signed_to_unsigned(model)
+    _fold_qat_conv_bns(model)
     _delete_repeated_qat_blocks(model)
     _quantize_qat_embedding(model)
     _propagate_mobilebert_embedding_quantization(model)

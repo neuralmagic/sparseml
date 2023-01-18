@@ -152,6 +152,7 @@ class GMPruningModifier(BaseGradualPruningModifier, BaseGMPruningModifier):
                 "params",
                 "leave_enabled",
                 "mask_type",
+                "inter_func",
             ],
         )
 
