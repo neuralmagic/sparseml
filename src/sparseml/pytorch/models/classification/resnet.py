@@ -140,7 +140,7 @@ class _IdentityModifier(Module):
         return in_channels != out_channels or stride > 1
 
 
-class _NoOp(Module):
+class _AddInput(Module):
     """
     Wrapper for the FloatFunctional class that enables QATWrapper used to
     quantize the first input to the Add operation
@@ -176,8 +176,8 @@ class _BasicBlock(Module):
             else None
         )
 
-        self.no_op_conv = _NoOp()
-        self.no_op_identity = _NoOp()
+        self.no_op_conv = _AddInput()
+        self.no_op_identity = _AddInput()
         if FloatFunctional:
             self.add_relu = FloatFunctional()
         else:
@@ -242,8 +242,8 @@ class _BottleneckBlock(Module):
             else None
         )
 
-        self.no_op_conv = _NoOp()
-        self.no_op_identity = _NoOp()
+        self.no_op_conv = _AddInput()
+        self.no_op_identity = _AddInput()
         if FloatFunctional:
             self.add_relu = FloatFunctional()
         else:
@@ -307,8 +307,8 @@ class _BasicBlockV2(Module):
             else None
         )
 
-        self.no_op_conv = _NoOp()
-        self.no_op_identity = _NoOp()
+        self.no_op_conv = _AddInput()
+        self.no_op_identity = _AddInput()
 
         self.initialize()
 
@@ -374,8 +374,8 @@ class _BottleneckBlockV2(Module):
             if in_channels != out_channels or stride != 1
             else None
         )
-        self.no_op_conv = _NoOp()
-        self.no_op_identity = _NoOp()
+        self.no_op_conv = _AddInput()
+        self.no_op_identity = _AddInput()
 
         self.initialize()
 
