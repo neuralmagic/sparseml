@@ -204,10 +204,11 @@ def test_approx_ks_loss_sensitivity(
     )
     expected_layers = sorted(
         expected_analysis.dict()["results"],
-        key=lambda x: (x["index"], x["id"], x["name"]),
+        key=lambda x: (x["index"], x["id"] or "", x["name"] or ""),
     )
     actual_layers = sorted(
-        analysis.dict()["results"], key=lambda x: (x["index"], x["id"], x["name"])
+        analysis.dict()["results"],
+        key=lambda x: (x["index"], x["id"] or "", x["name"] or ""),
     )
     _test_analysis_comparison(expected_layers, actual_layers, False)
 
@@ -234,12 +235,12 @@ def test_one_shot_ks_loss_sensitivity(
 
     expected_layers = sorted(
         expected_analysis.dict()["results"],
-        key=lambda x: (x["index"], x["id"], x["name"]),
+        key=lambda x: (x["index"], x["id"] or "", x["name"] or ""),
     )
 
     actual_layers = sorted(
         analysis.dict()["results"],
-        key=lambda x: (x["index"], x["id"], x["name"]),
+        key=lambda x: (x["index"], x["id"] or "", x["name"] or ""),
     )
 
     _test_analysis_comparison(expected_layers, actual_layers, False)
@@ -273,12 +274,12 @@ def test_one_shot_ks_perf_sensitivity(
 
     expected_layers = sorted(
         expected_analysis.dict()["results"],
-        key=lambda x: (x["index"], x["id"], x["name"]),
+        key=lambda x: (x["index"], x["id"] or "", x["name"] or ""),
     )
 
     actual_layers = sorted(
         analysis.dict()["results"],
-        key=lambda x: (x["index"], x["id"], x["name"]),
+        key=lambda x: (x["index"], x["id"] or "", x["name"] or ""),
     )
 
     _test_analysis_comparison(expected_layers, actual_layers, True)
