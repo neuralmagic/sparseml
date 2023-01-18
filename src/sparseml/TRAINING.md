@@ -77,9 +77,9 @@ Key:
 | Dynamic batch size                  | ✅     | ✅              | ✅      | ✅            | ✅      | ✅          |
 | Static input shape                  | ✅     | ✅              | ✅      | ✅            | ✅      | ✅          |
 | Dynamic input shape                 | ❌     | ❌              | ❌      | ❌            | ❌      | ❌          |
-| Save to simple deployment folder[1] | ✅     | ✅              | ✅      | ✅            | ✅      | ✅          |
+| Save to simple deployment folder[1] | ✅     | ❌              | ✅      | ✅            | ✅      | ✅          |
 | Save to SparseZoo folder            | ❌     | ❌              | ❌      | ❌            | ❌      | ❌          |
 
 [0] Should use our `ModuleExporter`
 
-[1] Minimal requirement for this should be checkpoint path and necessary configuration files
+[1] Should only require specifying checkpoint path and necessary configuration files
