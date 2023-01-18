@@ -200,6 +200,7 @@ class TestYolov5(BaseIntegrationTester):
 
 def _get_onnx_file_path(weights, one_shot):
     weights = Path(weights)
+
     if str(weights).startswith("zoo:") or not len(weights.parents):
         sub_dir = (
             str(weights).split("zoo:")[1].replace("/", "_")
@@ -211,7 +212,7 @@ def _get_onnx_file_path(weights, one_shot):
             one_shot_str = str(weights).split("zoo:")[1].replace("/", "_")
             sub_dir = f"{sub_dir}_one_shot_{one_shot_str}"
 
-        save_dir = Path("DeepSparse_Deployment") / sub_dir
+        save_dir = Path(os.getcwd()) / "DeepSparse_Deployment" / sub_dir
         onnx_file_name = "model.onnx"
 
     else:
