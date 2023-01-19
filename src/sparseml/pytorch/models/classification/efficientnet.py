@@ -222,7 +222,7 @@ class _InvertedBottleneckBlock(Module):
         out = self.project(out)
 
         if self.se is not None and self._se_mod:
-            out = self.mul_input_identity(out)
+            out = self.mul_input(out)
             out = out * self.se(out)
 
         if self.add is not None:
