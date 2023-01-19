@@ -81,6 +81,12 @@ class _Add(Module):
         else:
             return torch.add(a, b)
 
+class MulInput(Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x):
+        return x
 
 class _InvertedBottleneckBlock(Module):
     def __init__(
@@ -176,6 +182,9 @@ class _InvertedBottleneckBlock(Module):
                 else None
             )
 
+        if self.se is not None:
+            self.mul_input = MulInput()
+
         self.project = Sequential(
             OrderedDict(
                 [
@@ -207,11 +216,14 @@ class _InvertedBottleneckBlock(Module):
         out = self.spatial(out)
 
         if self.se is not None and not self._se_mod:
+            out = self.mul_input(out)
             out = out * self.se(out)
 
         out = self.project(out)
 
         if self.se is not None and self._se_mod:
+            out = self.mul_input_identity(out)
+            out = out * self.mul_input_se(self.se(out))
             out = out * self.se(out)
 
         if self.add is not None:
