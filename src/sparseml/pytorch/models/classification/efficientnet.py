@@ -81,12 +81,14 @@ class _Add(Module):
         else:
             return torch.add(a, b)
 
+
 class MulInput(Module):
     def __init__(self):
         super().__init__()
 
     def forward(self, x):
         return x
+
 
 class _InvertedBottleneckBlock(Module):
     def __init__(
