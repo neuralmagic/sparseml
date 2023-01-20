@@ -58,13 +58,13 @@ class SparseTrainer(BaseTrainer):
     """
     Adds SparseML support to yolov8 BaseTrainer. This works in the following way:
 
-    1. Override the DDP command generation that YOLO has built in,
+    1. Handle zoo stubs in `__init__`
+    2. Override `train()` to update the DDP command generation that YOLO has built in,
         which assumes the trainer class is under `ultralytics` package.
-    2. Override `setup_model()` to support zoo checkpoints
+    3. Override `resume_training()` to create/load sparseml managers
     3. Override `_setup_train()` to:
-        1. Initialize sparseml managers/loggers
-        2. Hook into checkpoint logic
-        3. Override lr scheduler logic
+        1. Override lr scheduler logic
+        2. Initializer our sparseml managers
     4. Add callbacks to properly deactivation of EMA & AMP
     5. Override `save_model()` to add manager to checkpoints
     """
@@ -103,7 +103,7 @@ class SparseTrainer(BaseTrainer):
         self.add_callback("teardown", SparseTrainer.callback_teardown)
 
     def train(self):
-        # NOTE: overriden to use our version of generate_ddp_command
+        # NOTE: overriden to use our version of `generate_ddp_command`
         world_size = torch.cuda.device_count()
         if world_size > 1 and "LOCAL_RANK" not in os.environ:
             command = generate_ddp_command(world_size, self)
@@ -116,87 +116,10 @@ class SparseTrainer(BaseTrainer):
         else:
             self._do_train(int(os.getenv("RANK", -1)), world_size)
 
-    def _setup_train(self, rank, world_size):
-        # NOTE: copied from BaseTrainer._setup_train with the differences:
-        # 1. overrides creation of lr scheduler based on manager
-        # 2. initializes sparseml with `self._initializer_sparseml`
-        self.run_callbacks("on_pretrain_routine_start")
-        ckpt = self.setup_model()
-        self.model = self.model.to(self.device)
-        self.set_model_attributes()
-        if world_size > 1:
-            self.model = DDP(self.model, device_ids=[rank])
+    def resume_training(self, ckpt):
+        # NOTE: this method is called at the end of super()._setup_train()
+        super().resume_training(ckpt)
 
-        # Batch size
-        if self.batch_size == -1:
-            if rank == -1:  # single-GPU only, estimate best batch size
-                self.batch_size = check_train_batch_size(
-                    self.model, self.args.imgsz, self.amp
-                )
-            else:
-                raise SyntaxError(
-                    "batch=-1 to use AutoBatch is only available in "
-                    "Single-GPU training. Please pass a valid batch "
-                    "size value for Multi-GPU DDP training, i.e. batch=16"
-                )
-
-        # Optimizer
-        self.accumulate = max(
-            round(self.args.nbs / self.batch_size), 1
-        )  # accumulate loss before optimizing
-        self.args.weight_decay *= (
-            self.batch_size * self.accumulate / self.args.nbs
-        )  # scale weight_decay
-        self.optimizer = self.build_optimizer(
-            model=self.model,
-            name=self.args.optimizer,
-            lr=self.args.lr0,
-            momentum=self.args.momentum,
-            decay=self.args.weight_decay,
-        )
-
-        # dataloaders
-        batch_size = (
-            self.batch_size // world_size if world_size > 1 else self.batch_size
-        )
-        self.train_loader = self.get_dataloader(
-            self.trainset, batch_size=batch_size, rank=rank, mode="train"
-        )
-        if rank in {0, -1}:
-            self.test_loader = self.get_dataloader(
-                self.testset, batch_size=batch_size * 2, rank=-1, mode="val"
-            )
-            self.validator = self.get_validator()
-            metric_keys = self.validator.metrics.keys + self.label_loss_items(
-                prefix="val"
-            )
-            self.metrics = dict(
-                zip(metric_keys, [0] * len(metric_keys))
-            )  # TODO: init metrics for plot_results()?
-            self.ema = ModelEMA(self.model)
-        self.resume_training(ckpt)
-        self.run_callbacks("on_pretrain_routine_end")
-
-        # Modification #1
-        self._initializer_sparseml(rank, ckpt)
-
-        # NOTE: we always need to populate self.lf since it is used with warmup epochs
-        if self.args.cos_lr:
-            self.lf = one_cycle(1, self.args.lrf, self.epochs)
-        else:
-            self.lf = (
-                lambda x: (1 - x / self.epochs) * (1.0 - self.args.lrf) + self.args.lrf
-            )
-
-        self.scheduler = lr_scheduler.LambdaLR(self.optimizer, lr_lambda=self.lf)
-        self.scheduler.last_epoch = self.start_epoch - 1  # do not move
-
-        # Modification #2 - move scheduler creation to after the manager has been
-        # created and override with manager
-        if self.manager is not None and self.manager.learning_rate_modifiers:
-            self.scheduler = _NullLRScheduler()
-
-    def _initializer_sparseml(self, rank, ckpt):
         if ckpt is not None:
             # resume - set manager from checkpoint
             if "recipe" not in ckpt:
@@ -219,8 +142,9 @@ class SparseTrainer(BaseTrainer):
                 self.args.recipe, recipe_variables=self.args.recipe_args
             )
 
-        if self.manager is not None:
-            self.args.epochs = self.manager.max_epochs
+    def _setup_train(self, rank, world_size):
+        super()._setup_train(rank, world_size)
+        # NOTE: self.resume_training() was called in ^
 
         if rank in {0, -1}:
             config = dict(self.args)
@@ -234,6 +158,11 @@ class SparseTrainer(BaseTrainer):
             self.logger_manager = LoggerManager(loggers)
 
         if self.manager is not None:
+            self.args.epochs = self.manager.max_epochs
+
+            if self.manager.learning_rate_modifiers:
+                self.scheduler = _NullLRScheduler()
+
             self.manager.initialize(
                 self.model, epoch=self.start_epoch, loggers=self.logger_manager
             )
@@ -273,6 +202,8 @@ class SparseTrainer(BaseTrainer):
         self.do_emulated_step = False
 
     def callback_on_train_batch_end(self):
+        # Here is where we handle the changing gradient accumulation values by doing
+        # an emulated step if we accumulated gradients of this batch
         if self.do_emulated_step:
             self.scaler.emulated_step()
 
@@ -281,9 +212,11 @@ class SparseTrainer(BaseTrainer):
             self.logger_manager.log_scalar(key, value, step=step)
 
     def save_model(self):
+        # NOTE: identical to super().save_model() with the addition of recipe key
+        # in the checkpoint
+
         epoch = -1 if self.epoch == self.epochs - 1 else self.epoch
 
-        # NOTE: identical to super().save_model() with the addition of recipe key
         if self.checkpoint_manager is not None:
             if epoch >= 0:
                 epoch += self.checkpoint_manager.max_epochs
