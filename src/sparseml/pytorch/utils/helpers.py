@@ -805,6 +805,7 @@ def get_prunable_layers(module: Module) -> List[Tuple[str, Module]]:
             or (QATConv3d and isinstance(mod, QATConv3d))
             or (GPTConv1D and isinstance(mod, GPTConv1D))
         )
+        and mod.weight.requires_grad
     ]
 
 
