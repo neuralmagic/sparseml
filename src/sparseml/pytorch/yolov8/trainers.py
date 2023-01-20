@@ -57,73 +57,11 @@ class SparseTrainer(BaseTrainer):
         else:
             self._do_train(int(os.getenv("RANK", -1)), world_size)
 
+    def resume_training(self, ckpt):
+        return super().resume_training(ckpt)
+
     def _setup_train(self, rank, world_size):
-        # model
-        self.run_callbacks("on_pretrain_routine_start")
-        ckpt = self.setup_model()
-        self.model = self.model.to(self.device)
-        self.set_model_attributes()
-        if world_size > 1:
-            self.model = DDP(self.model, device_ids=[rank])
-
-        # Batch size
-        if self.batch_size == -1:
-            if rank == -1:  # single-GPU only, estimate best batch size
-                self.batch_size = check_train_batch_size(
-                    self.model, self.args.imgsz, self.amp
-                )
-            else:
-                raise SyntaxError(
-                    "batch=-1 to use AutoBatch is only available in "
-                    "Single-GPU training. Please pass a valid batch "
-                    "size value for Multi-GPU DDP training, i.e. batch=16"
-                )
-
-        # Optimizer
-        self.accumulate = max(
-            round(self.args.nbs / self.batch_size), 1
-        )  # accumulate loss before optimizing
-        self.args.weight_decay *= (
-            self.batch_size * self.accumulate / self.args.nbs
-        )  # scale weight_decay
-        self.optimizer = self.build_optimizer(
-            model=self.model,
-            name=self.args.optimizer,
-            lr=self.args.lr0,
-            momentum=self.args.momentum,
-            decay=self.args.weight_decay,
-        )
-        # Scheduler
-        if self.args.cos_lr:
-            self.lf = one_cycle(1, self.args.lrf, self.epochs)  # cosine 1->hyp['lrf']
-        else:
-            self.lf = (
-                lambda x: (1 - x / self.epochs) * (1.0 - self.args.lrf) + self.args.lrf
-            )  # linear
-        self.scheduler = lr_scheduler.LambdaLR(self.optimizer, lr_lambda=self.lf)
-        self.scheduler.last_epoch = self.start_epoch - 1  # do not move
-
-        # dataloaders
-        batch_size = (
-            self.batch_size // world_size if world_size > 1 else self.batch_size
-        )
-        self.train_loader = self.get_dataloader(
-            self.trainset, batch_size=batch_size, rank=rank, mode="train"
-        )
-        if rank in {0, -1}:
-            self.test_loader = self.get_dataloader(
-                self.testset, batch_size=batch_size * 2, rank=-1, mode="val"
-            )
-            self.validator = self.get_validator()
-            metric_keys = self.validator.metrics.keys + self.label_loss_items(
-                prefix="val"
-            )
-            self.metrics = dict(
-                zip(metric_keys, [0] * len(metric_keys))
-            )  # TODO: init metrics for plot_results()?
-            self.ema = ModelEMA(self.model)
-        self.resume_training(ckpt)
-        self.run_callbacks("on_pretrain_routine_end")
+        return super()._setup_train(rank, world_size)
 
     def optimizer_step(self):
         return super().optimizer_step()
