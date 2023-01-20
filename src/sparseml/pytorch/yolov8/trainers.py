@@ -170,7 +170,9 @@ class SparseTrainer(BaseTrainer):
             metric_keys = self.validator.metrics.keys + self.label_loss_items(
                 prefix="val"
             )
-            self.metrics = dict(zip(metric_keys, [0] * len(metric_keys)))
+            self.metrics = dict(
+                zip(metric_keys, [0] * len(metric_keys))
+            )  # TODO: init metrics for plot_results()?
             self.ema = ModelEMA(self.model)
         self.resume_training(ckpt)
         self.run_callbacks("on_pretrain_routine_end")
