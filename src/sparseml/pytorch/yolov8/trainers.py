@@ -24,8 +24,6 @@ from pathlib import Path
 from typing import Optional
 
 import torch
-from torch.nn.parallel import DistributedDataParallel as DDP
-from torch.optim import lr_scheduler
 
 from sparseml.pytorch.optim.manager import ScheduledModifierManager
 from sparseml.pytorch.utils.helpers import download_framework_model_by_recipe_type
@@ -34,13 +32,12 @@ from sparsezoo import Model
 from ultralytics import __version__
 from ultralytics.yolo.engine.trainer import BaseTrainer
 from ultralytics.yolo.utils import LOGGER
-from ultralytics.yolo.utils.autobatch import check_train_batch_size
 from ultralytics.yolo.utils.dist import (
     USER_CONFIG_DIR,
     ddp_cleanup,
     find_free_network_port,
 )
-from ultralytics.yolo.utils.torch_utils import ModelEMA, de_parallel, one_cycle
+from ultralytics.yolo.utils.torch_utils import de_parallel
 from ultralytics.yolo.v8.classify.train import ClassificationTrainer
 from ultralytics.yolo.v8.detect.train import DetectionTrainer
 from ultralytics.yolo.v8.segment.train import SegmentationTrainer
