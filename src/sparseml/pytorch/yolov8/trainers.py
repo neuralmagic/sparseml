@@ -17,16 +17,23 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import warnings
 from copy import deepcopy
 from datetime import datetime
+from pathlib import Path
+from typing import Optional
 
 import torch
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.optim import lr_scheduler
 
+from sparseml.pytorch.optim.manager import ScheduledModifierManager
+from sparseml.pytorch.utils.helpers import download_framework_model_by_recipe_type
+from sparseml.pytorch.utils.logger import LoggerManager, PythonLogger, WANDBLogger
+from sparsezoo import Model
 from ultralytics import __version__
 from ultralytics.yolo.engine.trainer import BaseTrainer
-from ultralytics.yolo.utils import DEFAULT_CONFIG
+from ultralytics.yolo.utils import LOGGER
 from ultralytics.yolo.utils.autobatch import check_train_batch_size
 from ultralytics.yolo.utils.dist import (
     USER_CONFIG_DIR,
@@ -39,9 +46,61 @@ from ultralytics.yolo.v8.detect.train import DetectionTrainer
 from ultralytics.yolo.v8.segment.train import SegmentationTrainer
 
 
+class _NullLRScheduler:
+    def step(self):
+        pass
+
+
+DEFAULT_SPARSEML_CONFIG = Path(__file__).resolve().parent / "default.yaml"
+
+
 class SparseTrainer(BaseTrainer):
-    def __init__(self, config=DEFAULT_CONFIG, overrides=None):
+    """
+    Adds SparseML support to yolov8 BaseTrainer. This works in the following way:
+
+    1. Override the DDP command generation that YOLO has built in,
+        which assumes the trainer class is under `ultralytics` package.
+    2. Override `setup_model()` to support zoo checkpoints
+    3. Override `_setup_train()` to:
+        1. Initialize sparseml managers/loggers
+        2. Hook into checkpoint logic
+        3. Override lr scheduler logic
+    4. Add callbacks to properly deactivation of EMA & AMP
+    5. Override `save_model()` to add manager to checkpoints
+    """
+
+    def __init__(self, config=DEFAULT_SPARSEML_CONFIG, overrides=None):
         super().__init__(config, overrides)
+
+        if isinstance(self.model, str) and self.model.startswith("zoo:"):
+            self.model = download_framework_model_by_recipe_type(Model(self.model))
+
+        if (
+            self.args.checkpoint_path is not None
+            and self.args.checkpoint_path.startswith("zoo:")
+        ):
+            self.args.checkpoint_path = download_framework_model_by_recipe_type(
+                Model(self.args.checkpoint_path)
+            )
+
+        self.manager: Optional[ScheduledModifierManager] = None
+        self.checkpoint_manager: Optional[ScheduledModifierManager] = None
+        self.logger_manager: LoggerManager = LoggerManager(log_python=False)
+
+        self.epoch_step: int = 0
+        self.steps_per_epoch: int = 0
+        self.do_emulated_step: bool = False
+
+        self.add_callback(
+            "on_train_epoch_start", SparseTrainer.callback_on_train_epoch_start
+        )
+        self.add_callback(
+            "on_train_batch_start", SparseTrainer.callback_on_train_batch_start
+        )
+        self.add_callback(
+            "on_train_batch_end", SparseTrainer.callback_on_train_batch_end
+        )
+        self.add_callback("teardown", SparseTrainer.callback_teardown)
 
     def train(self):
         # NOTE: overriden to use our version of generate_ddp_command
@@ -58,7 +117,9 @@ class SparseTrainer(BaseTrainer):
             self._do_train(int(os.getenv("RANK", -1)), world_size)
 
     def _setup_train(self, rank, world_size):
-        # model
+        # NOTE: copied from BaseTrainer._setup_train with the differences:
+        # 1. overrides creation of lr scheduler based on manager
+        # 2. initializes sparseml with `self._initializer_sparseml`
         self.run_callbacks("on_pretrain_routine_start")
         ckpt = self.setup_model()
         self.model = self.model.to(self.device)
@@ -93,15 +154,6 @@ class SparseTrainer(BaseTrainer):
             momentum=self.args.momentum,
             decay=self.args.weight_decay,
         )
-        # Scheduler
-        if self.args.cos_lr:
-            self.lf = one_cycle(1, self.args.lrf, self.epochs)  # cosine 1->hyp['lrf']
-        else:
-            self.lf = (
-                lambda x: (1 - x / self.epochs) * (1.0 - self.args.lrf) + self.args.lrf
-            )  # linear
-        self.scheduler = lr_scheduler.LambdaLR(self.optimizer, lr_lambda=self.lf)
-        self.scheduler.last_epoch = self.start_epoch - 1  # do not move
 
         # dataloaders
         batch_size = (
@@ -118,19 +170,129 @@ class SparseTrainer(BaseTrainer):
             metric_keys = self.validator.metrics.keys + self.label_loss_items(
                 prefix="val"
             )
-            self.metrics = dict(
-                zip(metric_keys, [0] * len(metric_keys))
-            )  # TODO: init metrics for plot_results()?
+            self.metrics = dict(zip(metric_keys, [0] * len(metric_keys)))
             self.ema = ModelEMA(self.model)
         self.resume_training(ckpt)
         self.run_callbacks("on_pretrain_routine_end")
 
+        # Modification #1
+        self._initializer_sparseml(rank, ckpt)
+
+        # NOTE: we always need to populate self.lf since it is used with warmup epochs
+        if self.args.cos_lr:
+            self.lf = one_cycle(1, self.args.lrf, self.epochs)
+        else:
+            self.lf = (
+                lambda x: (1 - x / self.epochs) * (1.0 - self.args.lrf) + self.args.lrf
+            )
+
+        self.scheduler = lr_scheduler.LambdaLR(self.optimizer, lr_lambda=self.lf)
+        self.scheduler.last_epoch = self.start_epoch - 1  # do not move
+
+        # Modification #2 - move scheduler creation to after the manager has been
+        # created and override with manager
+        if self.manager is not None and self.manager.learning_rate_modifiers:
+            self.scheduler = _NullLRScheduler()
+
+    def _initializer_sparseml(self, rank, ckpt):
+        if ckpt is not None:
+            # resume - set manager from checkpoint
+            if "recipe" not in ckpt:
+                raise ValueError("resume is set not checkpoint does not have recipe")
+            self.manager = ScheduledModifierManager.from_yaml(ckpt["recipe"])
+        elif self.args.checkpoint_path is not None:
+            # previous checkpoint
+            if self.args.recipe is not None:
+                self.manager = ScheduledModifierManager.from_yaml(
+                    self.args.recipe, recipe_variables=self.args.recipe_args
+                )
+            old_ckpt = torch.load(self.args.checkpoint_path)
+            if "recipe" in old_ckpt and old_ckpt["recipe"] is not None:
+                self.checkpoint_manager = ScheduledModifierManager.from_yaml(
+                    old_ckpt["recipe"]
+                )
+        elif self.args.recipe is not None:
+            # normal training
+            self.manager = ScheduledModifierManager.from_yaml(
+                self.args.recipe, recipe_variables=self.args.recipe_args
+            )
+
+        if self.manager is not None:
+            self.args.epochs = self.manager.max_epochs
+
+        if rank in {0, -1}:
+            config = dict(self.args)
+            if self.manager is not None:
+                config["manager"] = str(self.manager)
+            loggers = [PythonLogger(logger=LOGGER)]
+            try:
+                loggers.append(WANDBLogger(init_kwargs=dict(config=config)))
+            except ImportError:
+                warnings.warn("Unable to import wandb for logging")
+            self.logger_manager = LoggerManager(loggers)
+
+        if self.manager is not None:
+            self.manager.initialize(
+                self.model, epoch=self.start_epoch, loggers=self.logger_manager
+            )
+
+            # NOTE: we intentionally don't divide number of batches by gradient
+            # accumulation.
+            # This is because yolov8 changes size of gradient accumulation during
+            # warmup epochs, which is incompatible with SparseML managers
+            # because they assume a static steps_per_epoch.
+            # Instead, the manager will effectively ignore gradient accumulation,
+            # and we will call self.scaler.emulated_step() if the batch was
+            # accumulated.
+            self.steps_per_epoch = len(self.train_loader)  # / self.accumulate
+
+            self.scaler = self.manager.modify(
+                self.model,
+                self.optimizer,
+                steps_per_epoch=self.steps_per_epoch,
+                epoch=self.start_epoch,
+                wrap_optim=self.scaler,
+            )
+
+    def callback_on_train_epoch_start(self):
+        # NOTE: this callback is registered in __init__
+        if self.manager is not None and self.manager.qat_active(epoch=self.epoch):
+            if self.scaler is not None:
+                self.scaler._enabled = False
+            self.ema = None
+
+        self.epoch_step = 0
+
+    def callback_on_train_batch_start(self):
+        self.do_emulated_step = True
+
     def optimizer_step(self):
-        return super().optimizer_step()
+        super().optimizer_step()
+        self.do_emulated_step = False
+
+    def callback_on_train_batch_end(self):
+        if self.do_emulated_step:
+            self.scaler.emulated_step()
+
+        step = self.epoch * self.steps_per_epoch + self.epoch_step
+        for key, value in self.label_loss_items(self.tloss).items():
+            self.logger_manager.log_scalar(key, value, step=step)
 
     def save_model(self):
+        epoch = -1 if self.epoch == self.epochs - 1 else self.epoch
+
+        # NOTE: identical to super().save_model() with the addition of recipe key
+        if self.checkpoint_manager is not None:
+            if epoch >= 0:
+                epoch += self.checkpoint_manager.max_epochs
+            manager = ScheduledModifierManager.compose_staged(
+                self.checkpoint_manager, self.manager
+            )
+        else:
+            manager = self.manager if self.manager is not None else None
+
         ckpt = {
-            "epoch": self.epoch,
+            "epoch": epoch,
             "best_fitness": self.best_fitness,
             "model": deepcopy(de_parallel(self.model)).half(),
             "ema": deepcopy(self.ema.ema).half(),
@@ -141,11 +303,19 @@ class SparseTrainer(BaseTrainer):
             "version": __version__,
         }
 
+        if manager is not None:
+            ckpt["recipe"] = str(manager)
+
         # Save last, best and delete
         torch.save(ckpt, self.last)
         if self.best_fitness == self.fitness:
             torch.save(ckpt, self.best)
         del ckpt
+
+    def callback_teardown(self):
+        # NOTE: this callback is registered in __init__
+        if self.manager is not None:
+            self.manager.finalize()
 
 
 class SparseDetectionTrainer(SparseTrainer, DetectionTrainer):
@@ -161,6 +331,7 @@ class SparseSegmentationTrainer(SparseTrainer, SegmentationTrainer):
 
 
 def generate_ddp_command(world_size, trainer):
+    # NOTE: copied from ultralytics.yolo.utils.dist.generate_ddp_command
     import __main__  # noqa local import to avoid https://github.com/Lightning-AI/lightning/issues/15218
 
     file_name = os.path.abspath(sys.argv[0])
@@ -180,15 +351,16 @@ def generate_ddp_command(world_size, trainer):
 
 
 def generate_ddp_file(trainer):
-    import_path = ".".join(str(trainer.__class__).split(".")[1:-1])
+    # NOTE: adapted from ultralytics.yolo.utils.dist.generate_ddp_file
 
     if not trainer.resume:
         shutil.rmtree(trainer.save_dir)  # remove the save_dir
-    content = f"""config = {dict(trainer.args)} \nif __name__ == "__main__":
-    from ultralytics.{import_path} import {trainer.__class__.__name__}
 
-    trainer = {trainer.__class__.__name__}(config=config)
-    trainer.train()"""
+    content = f"""if __name__ == "__main__":
+    from sparseml.pytorch.yolov8.trainers import {trainer.__class__.__name__}
+    trainer = {trainer.__class__.__name__}(config={dict(trainer.args)})
+    trainer.train()
+"""
     (USER_CONFIG_DIR / "DDP").mkdir(exist_ok=True)
     with tempfile.NamedTemporaryFile(
         prefix="_temp_",

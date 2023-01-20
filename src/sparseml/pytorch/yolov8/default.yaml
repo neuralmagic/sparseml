@@ -1,5 +1,9 @@
 # Default training settings and hyperparameters for medium-augmentation COCO training
 
+recipe: null
+recipe_args: null
+checkpoint_path: null
+
 task: "detect" # choices=['detect', 'segment', 'classify', 'init'] # init is a special case. Specify task to run.
 mode: "train" # choices=['train', 'val', 'predict'] # mode to run task in.
 
