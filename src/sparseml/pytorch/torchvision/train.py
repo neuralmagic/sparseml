@@ -38,6 +38,7 @@ from sparseml.pytorch.optim import ScheduledModifierManager
 from sparseml.pytorch.torchvision import presets, transforms, utils
 from sparseml.pytorch.torchvision.sampler import RASampler
 from sparseml.pytorch.utils.helpers import (
+    default_device,
     download_framework_model_by_recipe_type,
     torch_distributed_zero_first,
 )
@@ -47,7 +48,7 @@ from sparseml.pytorch.utils.logger import (
     TensorBoardLogger,
     WANDBLogger,
 )
-from sparseml.pytorch.utils.model import load_model
+from sparseml.pytorch.utils.model import load_model, model_to_device
 from sparsezoo import Model
 
 
@@ -318,7 +319,10 @@ def main(args):
 
     _LOGGER.info(args)
 
-    device = torch.device(args.device)
+    if not args.device:
+        args.device = default_device()
+
+    device = args.device
 
     if args.use_deterministic_algorithms:
         torch.backends.cudnn.benchmark = False
@@ -727,7 +731,7 @@ def _create_model(
         raise ValueError(
             f"Unable to find {arch_key} in ModelRegistry or in torchvision.models"
         )
-    model.to(device)
+    model, _, _ = model_to_device(model=model, device=device)
     return model, arch_key
 
 
@@ -886,9 +890,12 @@ def _deprecate_old_arguments(f):
 )
 @click.option(
     "--device",
-    default="cuda",
+    default=None,
     type=str,
-    help="device (Use cuda or cpu)",
+    help=(
+        "device (Use cuda for all gpus, else use `cuda:device_id,device_id` "
+        "or cpu)"
+    ),
 )
 @click.option(
     "-b",
