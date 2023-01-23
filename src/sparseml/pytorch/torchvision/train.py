@@ -368,7 +368,7 @@ def main(args):
 
     _LOGGER.info("Creating model")
     local_rank = args.rank if args.distributed else None
-    model = _create_model(
+    model, arch_key = _create_model(
         arch_key=args.arch_key,
         local_rank=local_rank,
         pretrained=args.pretrained,
@@ -380,7 +380,7 @@ def main(args):
 
     if args.distill_teacher not in ["self", "disable", None]:
         _LOGGER.info("Instantiating teacher")
-        args.distill_teacher = _create_model(
+        args.distill_teacher, teacher_arch_key = _create_model(
             arch_key=args.teacher_arch_key,
             local_rank=local_rank,
             pretrained=True,  # teacher is always pretrained
@@ -650,6 +650,7 @@ def main(args):
                 "state_dict": model_without_ddp.state_dict(),
                 "optimizer": optimizer.state_dict(),
                 "args": args,
+                "arch_key": arch_key,
             }
             if lr_scheduler:
                 checkpoint["lr_scheduler"] = lr_scheduler.state_dict()
@@ -701,7 +702,7 @@ def _create_model(
     device=None,
     num_classes=None,
 ):
-    if arch_key in ModelRegistry.available_keys():
+    if not arch_key or arch_key in ModelRegistry.available_keys():
         with torch_distributed_zero_first(local_rank):
             model = ModelRegistry.create(
                 key=arch_key,
@@ -710,6 +711,9 @@ def _create_model(
                 pretrained_dataset=pretrained_dataset,
                 num_classes=num_classes,
             )
+
+        if isinstance(model, tuple):
+            model, arch_key = model
     elif arch_key in torchvision.models.__dict__:
         # fall back to torchvision
         model = torchvision.models.__dict__[arch_key](
@@ -722,7 +726,7 @@ def _create_model(
             f"Unable to find {arch_key} in ModelRegistry or in torchvision.models"
         )
     model.to(device)
-    return model
+    return model, arch_key
 
 
 def _get_lr_scheduler(args, optimizer, checkpoint=None, manager=None):
