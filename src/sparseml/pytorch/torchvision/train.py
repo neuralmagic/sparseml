@@ -24,7 +24,6 @@ import warnings
 from functools import update_wrapper
 from types import SimpleNamespace
 from typing import Callable, Optional
-from sparseml.optim.helpers import load_recipe_yaml_str
 
 import torch
 import torch.utils.data
@@ -34,6 +33,7 @@ from torch.utils.data.dataloader import DataLoader, default_collate
 from torchvision.transforms.functional import InterpolationMode
 
 import click
+from sparseml.optim.helpers import load_recipe_yaml_str
 from sparseml.pytorch.models.registry import ModelRegistry
 from sparseml.pytorch.optim import ScheduledModifierManager
 from sparseml.pytorch.torchvision import presets, transforms, utils
