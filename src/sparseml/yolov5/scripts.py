@@ -22,18 +22,10 @@ from yolov5.val import parse_opt as parse_val_args
 from yolov5.val import val_run
 
 
-val_onnx_error = None
-try:
-    from yolov5.val_onnx import parse_opt as parse_val_onnx_args
-    from yolov5.val_onnx import val_onnx_run
-except Exception as deepsparse_error:
-    val_onnx_error = deepsparse_error
-
 __all__ = [
     "train",
     "val",
     "export",
-    "val_onnx",
 ]
 
 
@@ -69,17 +61,3 @@ def export(**kwargs):
     else:
         opt = parse_export_args()
         export_run(**vars(opt))
-
-
-def val_onnx(**kwargs):
-    """
-    Hook to call into val_onnx.py in YOLOv5 fork
-    """
-    if val_onnx_error:
-        raise RuntimeError(val_onnx_error)
-
-    if kwargs:
-        val_onnx_run(**kwargs)
-    else:
-        opt = parse_val_onnx_args()
-        val_onnx_run(**vars(opt))

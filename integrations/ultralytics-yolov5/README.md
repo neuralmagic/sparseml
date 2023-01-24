@@ -63,7 +63,6 @@ The SparseML installation provides a CLI for running YOLOv5 scripts with SparseM
 sparseml.yolov5.train
 sparseml.yolov5.validation
 sparseml.yolov5.export_onnx
-sparseml.yolov5.val_onnx
 ```
 
 Appending the `--help` argument displays a full list of options for the command:
@@ -147,7 +146,7 @@ deepsparse.benchmark path/to/model.onnx
 To run validation in the DeepSparse Engine, execute
 
 ```bash
-sparseml.yolov5.val_onnx --model_path path/to/model.onnx --data coco128.yaml
+sparseml.yolov5.validation --model_path path/to/model.onnx --data coco128.yaml --deepsparse
 ```
 
 
