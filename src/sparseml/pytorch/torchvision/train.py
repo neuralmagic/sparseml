@@ -380,7 +380,7 @@ def main(args):
 
     if args.distill_teacher not in ["self", "disable", None]:
         _LOGGER.info("Instantiating teacher")
-        args.distill_teacher = _create_model(
+        distill_teacher = _create_model(
             arch_key=args.teacher_arch_key,
             local_rank=local_rank,
             pretrained=True,  # teacher is always pretrained
@@ -572,7 +572,7 @@ def main(args):
             model,
             epoch=args.start_epoch,
             loggers=logger,
-            distillation_teacher=args.distill_teacher,
+            distillation_teacher=distill_teacher,
         )
         step_wrapper = manager.modify(
             model,
