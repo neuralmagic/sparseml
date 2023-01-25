@@ -389,6 +389,8 @@ def main(args):
             device=device,
             num_classes=num_classes,
         )
+    else:
+        distill_teacher = args.distill_teacher
 
     if args.distributed and args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
