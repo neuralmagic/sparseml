@@ -263,8 +263,7 @@ def _convert_signed_to_unsigned(model: ModelProto):
 
     for init in to_remove:
         model.graph.initializer.remove(init)
-    for init in to_append:
-        model.graph.initializer.append(init)
+    model.graph.initializer.extend(to_append)
 
 
 def _delete_repeated_qat_blocks(model: ModelProto):
