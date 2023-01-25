@@ -253,14 +253,18 @@ def _convert_signed_to_unsigned(model: ModelProto):
         arr_uint8 = (arr_int8.astype(numpy.int32) + 128).astype(numpy.uint8)
         return numpy_helper.from_array(arr_uint8, name=int8_init.name)
 
-    def _replace_initializer(init_old, init_new):
-        model.graph.initializer.remove(init_old)
-        model.graph.initializer.append(init_new)
-
+    to_append = []
+    to_remove = []
     for init in model.graph.initializer:
         if init.data_type == 3:  # int8 dtype
             init_uint8 = _cast_init_int8_to_uint8(init)
-            _replace_initializer(init, init_uint8)
+            to_append.append(init_uint8)
+            to_remove.append(init)
+
+    for init in to_remove:
+        model.graph.initializer.remove(init)
+    for init in to_append:
+        model.graph.initializer.append(init)
 
 
 def _delete_repeated_qat_blocks(model: ModelProto):
@@ -1566,7 +1570,6 @@ def quantize_torch_qat_export(
         model = deepcopy(model)
 
     _convert_single_constants_to_initializers(model)
-    _convert_signed_to_unsigned(model)
     _fold_qat_conv_bns(model)
     _delete_repeated_qat_blocks(model)
     _quantize_qat_embedding(model)
@@ -1583,6 +1586,7 @@ def quantize_torch_qat_export(
     _convert_quantizable_gemm_no_activations(model)
     quantize_resnet_identity_add_inputs(model)
     _remove_duplicate_quantize_ops(model)
+    _convert_signed_to_unsigned(model)
 
     graph = ONNXGraph(model)
     graph.sort_nodes_topologically()
