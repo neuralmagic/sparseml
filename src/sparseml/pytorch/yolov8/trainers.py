@@ -119,9 +119,8 @@ class SparseTrainer(BaseTrainer):
 
         if ckpt is not None:
             # resume - set manager from checkpoint
-            if "recipe" not in ckpt:
-                raise ValueError("resume is set not checkpoint does not have recipe")
-            self.manager = ScheduledModifierManager.from_yaml(ckpt["recipe"])
+            if "recipe" in ckpt:
+                self.manager = ScheduledModifierManager.from_yaml(ckpt["recipe"])
         elif self.args.checkpoint_path is not None:
             # previous checkpoint
             if self.args.recipe is not None:
@@ -226,14 +225,16 @@ class SparseTrainer(BaseTrainer):
         ckpt = {
             "epoch": epoch,
             "best_fitness": self.best_fitness,
-            "model": deepcopy(de_parallel(self.model)).half(),
-            "ema": deepcopy(self.ema.ema).half(),
-            "updates": self.ema.updates,
+            "model": deepcopy(de_parallel(self.model)).half().state_dict(),
             "optimizer": self.optimizer.state_dict(),
             "train_args": self.args,
             "date": datetime.now().isoformat(),
             "version": __version__,
         }
+
+        if self.ema is not None:
+            ckpt["ema"] = deepcopy(self.ema.ema).half().state_dict()
+            ckpt["updates"] = self.ema.updates
 
         if manager is not None:
             ckpt["recipe"] = str(manager)
