@@ -57,7 +57,7 @@ class SmoothedValue:
 
     @property
     def global_avg(self):
-        return self.total / self.count
+        return 100.0 * self.total / self.count
 
     @property
     def max(self):
@@ -212,8 +212,8 @@ def accuracy(output, target, topk=(1,)):
         res = []
         for k in topk:
             correct_k = correct[:k].flatten().sum(dtype=torch.float32)
-            # res.append(correct_k * (100.0 / batch_size))
-            res.append(correct_k)# * (100.0 / batch_size))
+            res.append(correct_k * (100.0 / batch_size))
+            res.append(correct_k)
         return res
 
 
