@@ -380,7 +380,7 @@ def main(args):
 
     if args.distill_teacher not in ["self", "disable", None]:
         _LOGGER.info("Instantiating teacher")
-        args.distill_teacher, teacher_arch_key = _create_model(
+        distill_teacher = _create_model(
             arch_key=args.teacher_arch_key,
             local_rank=local_rank,
             pretrained=True,  # teacher is always pretrained
@@ -389,6 +389,8 @@ def main(args):
             device=device,
             num_classes=num_classes,
         )
+    else:
+        distill_teacher = args.distill_teacher
 
     if args.distributed and args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
@@ -572,7 +574,7 @@ def main(args):
             model,
             epoch=args.start_epoch,
             loggers=logger,
-            distillation_teacher=args.distill_teacher,
+            distillation_teacher=distill_teacher,
         )
         step_wrapper = manager.modify(
             model,
