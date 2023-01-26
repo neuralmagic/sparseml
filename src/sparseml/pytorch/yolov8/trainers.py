@@ -175,7 +175,7 @@ class SparseTrainer(BaseTrainer):
 
             if isinstance(ema, dict):
                 # this is one of our checkpoints - its a state dict
-                ema_state_dict = ckpt["ema"].state_dict()
+                ema_state_dict = ckpt["ema"]
             else:
                 # this is a yolov8 checkpoint - its a pickled model
                 ema_state_dict = ckpt["ema"].float().state_dict()
