@@ -359,8 +359,19 @@ class SparseYOLO(YOLO):
 
     def _load(self, weights: str):
         if self.is_sparseml_checkpoint:
+            """
+            NOTE: the model is given to the trainer class with this snippet from YOLO base class:
+            ```python
+            self.trainer = self.TrainerClass(overrides=overrides)
+            if not overrides.get("resume"):  # manually set model only if not resuming
+                self.trainer.model = self.trainer.get_model(weights=self.model if self.ckpt else None, cfg=self.model.yaml)
+                self.model = self.trainer.model
+            ```
+            """
+
             self.ckpt = torch.load(weights, map_location="cpu")
-            self.model = deepcopy(self.ckpt["model_yaml_config"])
+            self.model = self.ckpt["model"]
+            setattr(self.model, "yaml", self.ckpt["model_yaml_config"])
             self.ckpt_path = weights
             self.task = self.model["task"]
             self.overrides = deepcopy(self.model)
