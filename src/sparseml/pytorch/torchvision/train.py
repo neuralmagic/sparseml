@@ -139,13 +139,17 @@ def train_one_epoch(
                 # Reset ema buffer to keep copying weights during warmup period
                 model_ema.n_averaged.fill_(0)
 
-        acc1, num_correct_1, acc5, num_correct_5 = utils.accuracy(output, target, topk=(1, 5))
+        acc1, num_correct_1, acc5, num_correct_5 = utils.accuracy(
+            output, target, topk=(1, 5)
+        )
         batch_size = image.shape[0]
         metric_logger.update(loss=loss.item(), lr=optimizer.param_groups[0]["lr"])
         metric_logger.meters["acc1"].update(
-                acc1.item(), n=batch_size, total=num_correct_1)
+            acc1.item(), n=batch_size, total=num_correct_1
+        )
         metric_logger.meters["acc5"].update(
-            acc5.item(), n=batch_size, total=num_correct_5)
+            acc5.item(), n=batch_size, total=num_correct_5
+        )
         metric_logger.meters["imgs_per_sec"].update(
             batch_size / (time.time() - start_time)
         )
@@ -184,15 +188,18 @@ def evaluate(
             loss = criterion(output, target)
 
             acc1, num_correct_1, acc5, num_correct_5 = utils.accuracy(
-                output, target, topk=(1, 5))
+                output, target, topk=(1, 5)
+            )
             # FIXME need to take into account that the datasets
             # could have been padded in distributed setup
             batch_size = image.shape[0]
             metric_logger.update(loss=loss.item())
             metric_logger.meters["acc1"].update(
-                acc1.item(), n=batch_size, total=num_correct_1)
+                acc1.item(), n=batch_size, total=num_correct_1
+            )
             metric_logger.meters["acc5"].update(
-                acc5.item(), n=batch_size, total=num_correct_5)
+                acc5.item(), n=batch_size, total=num_correct_5
+            )
             num_processed_samples += batch_size
     # gather the stats from all processes
 

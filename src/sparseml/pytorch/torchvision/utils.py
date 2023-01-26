@@ -213,7 +213,7 @@ def accuracy(output, target, topk=(1,)):
         for k in topk:
             correct_k = correct[:k].flatten().sum(dtype=torch.float32)
             res.append(correct_k * (100.0 / batch_size))
-            res.append(correct_k *  100.0)
+            res.append(correct_k * 100.0)
         return res
 
 
