@@ -37,7 +37,7 @@ from ultralytics.yolo.utils.dist import (
     ddp_cleanup,
     find_free_network_port,
 )
-from ultralytics.yolo.utils.torch_utils import de_parallel
+from ultralytics.yolo.utils.torch_utils import ModelEMA, de_parallel
 from ultralytics.yolo.v8.classify.train import ClassificationTrainer
 from ultralytics.yolo.v8.detect.train import DetectionTrainer
 from ultralytics.yolo.v8.segment.train import SegmentationTrainer
@@ -46,6 +46,24 @@ from ultralytics.yolo.v8.segment.train import SegmentationTrainer
 class _NullLRScheduler:
     def step(self):
         pass
+
+
+class _ToggleableEMA(ModelEMA):
+    def __init__(self, ema: ModelEMA):
+        self.ema = ema.ema
+        self.updates = ema.updates
+        self.decay = ema.decay
+        self.enabled = True
+
+    def update(self, **kwargs):
+        if not self.enabled:
+            return
+        return super().update(**kwargs)
+
+    def update_attr(self, **kwargs):
+        if not self.enabled:
+            return
+        return super().update_attr(**kwargs)
 
 
 DEFAULT_SPARSEML_CONFIG = Path(__file__).resolve().parent / "default.yaml"
@@ -142,6 +160,9 @@ class SparseTrainer(BaseTrainer):
         super()._setup_train(rank, world_size)
         # NOTE: self.resume_training() was called in ^
 
+        if self.ema is not None:
+            self.ema = _ToggleableEMA(self.ema)
+
         if rank in {0, -1}:
             config = dict(self.args)
             if self.manager is not None:
@@ -186,7 +207,7 @@ class SparseTrainer(BaseTrainer):
         if self.manager is not None and self.manager.qat_active(epoch=self.epoch):
             if self.scaler is not None:
                 self.scaler._enabled = False
-            self.ema = None
+            self.ema.enabled = False
 
         self.epoch_step = 0
 
@@ -226,15 +247,13 @@ class SparseTrainer(BaseTrainer):
             "epoch": epoch,
             "best_fitness": self.best_fitness,
             "model": deepcopy(de_parallel(self.model)).half().state_dict(),
+            "ema": deepcopy(self.ema.ema).half().state_dict(),
+            "updates": self.ema.updates,
             "optimizer": self.optimizer.state_dict(),
             "train_args": self.args,
             "date": datetime.now().isoformat(),
             "version": __version__,
         }
-
-        if self.ema is not None:
-            ckpt["ema"] = deepcopy(self.ema.ema).half().state_dict()
-            ckpt["updates"] = self.ema.updates
 
         if manager is not None:
             ckpt["recipe"] = str(manager)
