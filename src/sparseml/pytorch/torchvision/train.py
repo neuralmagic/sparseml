@@ -893,8 +893,7 @@ def _deprecate_old_arguments(f):
     default=None,
     type=str,
     help=(
-        "device (Use cuda for all gpus, else use `cuda:device_id,device_id` "
-        "or cpu)"
+        "device (Use cuda for all gpus, else use `cuda:device_id,device_id` " "or cpu)"
     ),
 )
 @click.option(
