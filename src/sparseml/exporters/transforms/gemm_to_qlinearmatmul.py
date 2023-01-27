@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
-
 from onnx import ModelProto, helper, numpy_helper
 
 from sparseml.exporters.transforms.onnx_transform import OnnxTransform
@@ -31,15 +29,14 @@ from sparseml.onnx.utils import ONNXGraph, get_node_attributes, get_node_output_
 
 __all__ = ["GemmToQLinearMatMul"]
 
-_LOGGER = logging.getLogger(__name__)
-
 
 class GemmToQLinearMatMul(OnnxTransform):
     """
     Transforms Gemm nodes to QLinearMatMul.
 
     NOTE: Does not match if the structure is
-    `Gemm -> QuantizeLinear -> DequantizeLinear -> Gemm`
+    1. `Gemm -> QuantizeLinear -> DequantizeLinear -> Gemm`
+    2. `Gemm -> QuantizeLinear -> DequantizeLinear -> Softmax`
 
     Transforms
     ```
@@ -93,7 +90,10 @@ class GemmToQLinearMatMul(OnnxTransform):
             output_dequant = match.children[0][1]
             if output_dequant is not None:
                 output_dequant_child = graph.get_node_single_child(output_dequant)
-                if output_dequant_child and output_dequant_child.op_type == "Gemm":
+                if output_dequant_child and output_dequant_child.op_type in {
+                    "Gemm",
+                    "Softmax",
+                }:
                     # output quant is not a QDQ block for the current Gemm Node but,
                     # the input QDQ block for a new Gemm block this Gemm should be
                     # skipped and processed by _convert_quantizable_gemm_no_activations
