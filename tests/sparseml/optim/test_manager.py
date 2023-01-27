@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from sparseml.optim import BaseManager, BaseScheduled, BaseModifier
+from sparseml.optim import BaseManager, BaseModifier, BaseScheduled
 from sparseml.sparsification.types import SparsificationTypes
 
 
