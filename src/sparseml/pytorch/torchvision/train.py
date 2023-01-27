@@ -33,6 +33,7 @@ from torch.utils.data.dataloader import DataLoader, default_collate
 from torchvision.transforms.functional import InterpolationMode
 
 import click
+from sparseml.optim.helpers import load_recipe_yaml_str
 from sparseml.pytorch.models.registry import ModelRegistry
 from sparseml.pytorch.optim import ScheduledModifierManager
 from sparseml.pytorch.torchvision import presets, transforms, utils
@@ -558,7 +559,14 @@ def main(args):
         logger = LoggerManager(log_python=False)
 
     if args.recipe is not None:
-        logger.save(args.recipe)
+        base_path = os.path.join(args.output_dir, "original_recipe.yaml")
+        with open(base_path, "w") as fp:
+            fp.write(load_recipe_yaml_str(args.recipe))
+        logger.save(base_path)
+
+        full_path = os.path.join(args.output_dir, "final_recipe.yaml")
+        manager.save(full_path)
+        logger.save(full_path)
 
     steps_per_epoch = len(data_loader) / args.gradient_accum_steps
 
