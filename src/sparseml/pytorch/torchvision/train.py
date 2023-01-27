@@ -381,7 +381,7 @@ def main(args):
 
     if args.distill_teacher not in ["self", "disable", None]:
         _LOGGER.info("Instantiating teacher")
-        distill_teacher = _create_model(
+        distill_teacher, _ = _create_model(
             arch_key=args.teacher_arch_key,
             local_rank=local_rank,
             pretrained=True,  # teacher is always pretrained
