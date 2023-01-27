@@ -561,6 +561,56 @@ class BaseManager(BaseObject):
             else False
         )
 
+    def phase(self, epoch: float) -> str:
+        """
+        Computes the phase that the modifiers are in.
+
+        Example usage:
+
+        ```python
+        phase = BaseManager.compose_staged(
+            manager,
+            checkpoint_manager
+        ).phase()
+        checkpoint_name = "best_{phase}.pt"
+        ```
+
+        :return: One of the following strings based on the pruning and quantization
+            modifiers that this Manager contains.
+
+            1. "dense" - if no pruning or quantization
+            2. "dense_quantized" - if only quantization
+            3. "pruned" - if only pruning
+            4. "pruned_quantized" - if both pruning and quantization
+            5. "quantized_pruned" - if quantization was before pruning
+        """
+        pruners: List[BaseModifier] = self.pruning_modifiers
+        quantizers: List[BaseModifier] = self.quantization_modifiers
+
+        if len(pruners) == 0:
+            pruned = False
+        else:
+            pruning_end = max(mod.end_epoch for mod in pruners)
+            pruned = epoch > pruning_end
+
+        if len(quantizers) == 0:
+            quantized = False
+        else:
+            quant_start = max(mod.start_epoch for mod in quantizers)
+            quantized = epoch > quant_start
+
+        if not pruned and not quantized:
+            return "dense"
+        elif quantized and not pruned:
+            return "dense_quantized"
+        elif pruned and not quantized:
+            return "pruned"
+        else:
+            if pruning_end < quant_start:
+                return "pruned_quantized"
+            else:
+                return "quantized_pruned"
+
     def _info_log_metadata(self):
         metadata_str = json.dumps(self._metadata, indent=1)
         _LOGGER.debug(f"Created recipe manager with metadata: {metadata_str}")

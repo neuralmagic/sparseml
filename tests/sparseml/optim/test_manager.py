@@ -12,7 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from sparseml.optim import BaseManager, BaseScheduled
+from sparseml.optim import BaseManager, BaseScheduled, BaseModifier
+from sparseml.sparsification.types import SparsificationTypes
+
+
+class _Pruning(BaseScheduled, BaseModifier):
+    @BaseModifier.sparsification_types.getter
+    def sparsification_types(self):
+        return [SparsificationTypes.pruning]
+
+
+class _Quant(BaseScheduled, BaseModifier):
+    @BaseModifier.sparsification_types.getter
+    def sparsification_types(self):
+        return [SparsificationTypes.quantization]
 
 
 def test_manager():
@@ -36,3 +49,107 @@ def test_manager():
     )
     assert manager.min_epochs == 1.0
     assert manager.max_epochs == 10.0
+
+
+def test_phase_dense_simple():
+    manager = BaseManager(modifiers=[])
+    assert manager.phase(epoch=0.0) == "dense"
+
+
+def test_phase_dense_before_pruning():
+    manager = BaseManager(modifiers=[_Pruning(start_epoch=10.0, end_epoch=20.0)])
+    for epoch in [0.0, 5.0, 10.0, 15.0, 20.0]:
+        assert manager.phase(epoch) == "dense"
+    assert manager.phase(20.0001) != "dense"
+
+
+def test_phase_dense_before_quantization():
+    manager = BaseManager(modifiers=[_Quant(start_epoch=10.0, end_epoch=10.0)])
+    for epoch in [0.0, 5.0, 10.0]:
+        assert manager.phase(epoch) == "dense"
+    assert manager.phase(10.0001) != "dense"
+
+
+def test_phase_dense_quantized_single():
+    manager = BaseManager(modifiers=[_Quant(start_epoch=10.0, end_epoch=10.0)])
+    for epoch in [0.0, 5.0, 10.0]:
+        assert manager.phase(epoch) != "dense_quantized"
+    assert manager.phase(10.0001) == "dense_quantized"
+
+
+def test_phase_dense_quantized_multiple():
+    manager = BaseManager(
+        modifiers=[
+            _Quant(start_epoch=10.0, end_epoch=10.0),
+            _Quant(start_epoch=20.0, end_epoch=20.0),
+        ]
+    )
+    for epoch in [0.0, 5.0, 10.0, 15.0, 20.0]:
+        assert manager.phase(epoch) != "dense_quantized"
+    assert manager.phase(20.0001) == "dense_quantized"
+
+
+def test_phase_pruned_single():
+    manager = BaseManager(modifiers=[_Pruning(start_epoch=10.0, end_epoch=20.0)])
+    for epoch in [0.0, 5.0, 10.0, 20.0]:
+        assert manager.phase(epoch) != "pruned"
+    assert manager.phase(20.0001) == "pruned"
+
+
+def test_phase_pruned_multiple():
+    manager = BaseManager(
+        modifiers=[
+            _Pruning(start_epoch=10.0, end_epoch=20.0),
+            _Pruning(start_epoch=25.0, end_epoch=30.0),
+        ]
+    )
+    for epoch in [0.0, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0]:
+        assert manager.phase(epoch) != "pruned"
+    assert manager.phase(30.0001) == "pruned"
+
+
+def test_phase_pruned_quant_single():
+    manager = BaseManager(
+        modifiers=[
+            _Pruning(start_epoch=10.0, end_epoch=20.0),
+            _Quant(start_epoch=25.0, end_epoch=25.0),
+        ]
+    )
+    assert manager.phase(10.0) == "dense"
+    assert manager.phase(20.0) == "dense"
+    assert manager.phase(20.0001) == "pruned"
+    assert manager.phase(25.0) == "pruned"
+    assert manager.phase(25.0001) == "pruned_quantized"
+
+
+def test_phase_pruned_quant_multiple():
+    manager = BaseManager(
+        modifiers=[
+            _Pruning(start_epoch=10.0, end_epoch=20.0),
+            _Pruning(start_epoch=15.0, end_epoch=25.0),
+            _Quant(start_epoch=25.0, end_epoch=25.0),
+            _Quant(start_epoch=35.0, end_epoch=35.0),
+        ]
+    )
+    assert manager.phase(10.0) == "dense"
+    assert manager.phase(20.0) == "dense"
+    assert manager.phase(25.0) == "dense"
+    assert manager.phase(25.0001) == "pruned"
+    assert manager.phase(35.0) == "pruned"
+    assert manager.phase(35.0001) == "pruned_quantized"
+
+
+def test_phase_quant_pruned():
+    manager = BaseManager(
+        modifiers=[
+            _Quant(start_epoch=10.0, end_epoch=10.0),
+            _Quant(start_epoch=20.0, end_epoch=20.0),
+            _Pruning(start_epoch=10.0, end_epoch=20.0),
+            _Pruning(start_epoch=15.0, end_epoch=25.0),
+        ]
+    )
+    assert manager.phase(10.0) == "dense"
+    assert manager.phase(20.0) == "dense"
+    assert manager.phase(20.0001) == "dense_quantized"
+    assert manager.phase(25.0) == "dense_quantized"
+    assert manager.phase(25.0001) == "quantized_pruned"
