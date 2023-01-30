@@ -19,6 +19,7 @@ in the Optimal BERT Surgeon paper https://arxiv.org/abs/2203.07259
 """
 import logging
 import math
+import os
 from typing import Any, Dict, List, Optional, Union
 
 import torch
@@ -34,7 +35,7 @@ from sparseml.pytorch.sparsification.pruning.modifier_pruning_base import (
     BaseGradualPruningModifier,
 )
 from sparseml.pytorch.sparsification.pruning.scorer import PruningParamsGradScorer
-from sparseml.pytorch.utils import GradSampler
+from sparseml.pytorch.utils import MEMORY_BOUNDED, GradSampler
 from sparseml.pytorch.utils.logger import BaseLogger
 from sparseml.utils import interpolate
 
@@ -140,7 +141,7 @@ class OBSPruningModifier(BaseGradualPruningModifier):
         mask_type: str = "unstructured",
         num_grads: int = 1024,
         damp: float = 1e-7,
-        fisher_block_size: int = 50,
+        fisher_block_size: int = 1,
         grad_sampler_kwargs: Optional[Dict[str, Any]] = None,
         num_recomputations: int = 1,
     ):
@@ -359,6 +360,8 @@ class OBSPruningModifier(BaseGradualPruningModifier):
             raise ValueError(
                 "fisher_block_size must be divisible by 4 for block4 pruning"
             )
+        if MEMORY_BOUNDED not in os.environ:
+            os.environ[MEMORY_BOUNDED] = "True"  # more safe for most users
 
 
 class OBSPruningParamsScorer(PruningParamsGradScorer):
