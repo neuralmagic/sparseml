@@ -433,7 +433,9 @@ class OBSPruningParamsScorer(PruningParamsGradScorer):
                         / (2.0 * finv.diag() + self._eps)
                     ).reshape(self._params[i].shape)
                 else:  # self._mask_type == "block4":
-                    block_w = self._params[i].data.reshape(-1, 4).to(finv.dev)  # (d/Q, Q)
+                    block_w = (
+                        self._params[i].data.reshape(-1, 4).to(finv.dev)
+                    )  # (d/Q, Q)
                     block_finv = (
                         torch.cat(
                             [
