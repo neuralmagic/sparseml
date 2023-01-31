@@ -147,10 +147,15 @@ class SparseTrainer(BaseTrainer):
         ckpt = None
         if str(model).endswith(".pt"):
             if self.is_sparseml_checkpoint or os.path.exists(str(model)):
-                # this is one of our checkpoints
                 ckpt = torch.load(str(model), map_location="cpu")
-                weights = ckpt["model"]
-                cfg = ckpt["model_yaml_config"]
+                if "source" in ckpt and ckpt["source"] == "sparseml":
+                    # this is one of our checkpoints
+                    weights = ckpt["model"]
+                    cfg = ckpt["model_yaml_config"]
+                else:
+                    # a ultralytics checkpoint
+                    weights, ckpt = attempt_load_one_weight(model)
+                    cfg = ckpt["model"].yaml
             else:
                 weights, ckpt = attempt_load_one_weight(model)
                 cfg = ckpt["model"].yaml
@@ -302,6 +307,7 @@ class SparseTrainer(BaseTrainer):
             "train_args": self.args,
             "date": datetime.now().isoformat(),
             "version": __version__,
+            "source": "sparseml",
         }
 
         if manager is not None:
@@ -342,7 +348,10 @@ class SparseYOLO(YOLO):
             self.is_sparseml_checkpoint = True
         elif model_str.endswith(".pt"):
             if os.path.exists(model_str):
-                self.is_sparseml_checkpoint = True
+                ckpt = torch.load(model_str)
+                self.is_sparseml_checkpoint = (
+                    "source" in ckpt and ckpt["source"] == "sparseml"
+                )
             else:
                 self.is_sparseml_checkpoint = False
         else:
