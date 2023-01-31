@@ -28,6 +28,7 @@ from typing import Callable, Optional
 import torch
 import torch.utils.data
 import torchvision
+from packaging import version
 from torch import nn
 from torch.utils.data.dataloader import DataLoader, default_collate
 from torchvision.transforms.functional import InterpolationMode
@@ -408,7 +409,14 @@ def main(args):
     if args.distributed and args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
 
-    criterion = nn.CrossEntropyLoss(label_smoothing=args.label_smoothing)
+    min_torch_version_with_label_smoothing = version.parse("1.10")
+    label_smoothing_supported = (
+        version.parse(torch.__version__) >= min_torch_version_with_label_smoothing
+    )
+    if label_smoothing_supported:
+        criterion = nn.CrossEntropyLoss(label_smoothing=args.label_smoothing)
+    else:
+        criterion = nn.CrossEntropyLoss()
 
     custom_keys_weight_decay = []
     if args.bias_weight_decay is not None:
