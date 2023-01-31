@@ -282,6 +282,9 @@ class SparseTrainer(BaseTrainer):
             self.logger_manager.log_scalar(key, value, step=step)
 
     def save_model(self):
+        if self.manager is None:
+            return super().save_model()
+
         # NOTE: identical to super().save_model() with the addition of recipe key
         # in the checkpoint
 
