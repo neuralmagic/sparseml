@@ -409,12 +409,13 @@ def main(args):
     if args.distributed and args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
 
-    min_torch_version_with_label_smoothing = version.parse("1.10")
-    label_smoothing_supported = (
-        version.parse(torch.__version__) >= min_torch_version_with_label_smoothing
-    )
-    if label_smoothing_supported:
+    if version.parse(torch.__version__) >= version.parse("1.10"):
         criterion = nn.CrossEntropyLoss(label_smoothing=args.label_smoothing)
+    elif args.label_smoothing > 0:
+        raise ValueError(
+            f"`label_smoothing` not supported for {torch.__version__}, "
+            f"try upgrading to at-least 1.10"
+        )
     else:
         criterion = nn.CrossEntropyLoss()
 
