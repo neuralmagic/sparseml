@@ -232,7 +232,7 @@ class SparseTrainer(BaseTrainer):
             self.logger_manager = LoggerManager(loggers)
 
         if self.manager is not None:
-            self.args.epochs = self.manager.max_epochs
+            self.epochs = self.manager.max_epochs
 
             if self.manager.learning_rate_modifiers:
                 self.scheduler = _NullLRScheduler()
@@ -316,11 +316,12 @@ class SparseTrainer(BaseTrainer):
         else:
             manager = self.manager if self.manager is not None else None
 
+        model = de_parallel(self.model)
         ckpt = {
             "epoch": epoch,
             "best_fitness": self.best_fitness,
-            "model": deepcopy(de_parallel(self.model)).state_dict(),
-            "model_yaml": dict(self.model.yaml),
+            "model": deepcopy(model).state_dict(),
+            "model_yaml": dict(model.yaml),
             "ema": deepcopy(self.ema.ema).state_dict(),
             "updates": self.ema.updates,
             "optimizer": self.optimizer.state_dict(),
@@ -338,6 +339,11 @@ class SparseTrainer(BaseTrainer):
         if self.best_fitness == self.fitness:
             torch.save(ckpt, self.best)
         del ckpt
+
+    def final_eval(self):
+        # skip final eval if we are using a recipe
+        if self.manager is None:
+            return super().final_eval()
 
     def callback_teardown(self):
         # NOTE: this callback is registered in __init__
