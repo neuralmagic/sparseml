@@ -57,15 +57,15 @@ class _ToggleableEMA(ModelEMA):
         self.decay = ema.decay
         self.enabled = True
 
-    def update(self, **kwargs):
+    def update(self, model, **kwargs):
         if not self.enabled:
             return
-        return super().update(**kwargs)
+        return super().update(model, **kwargs)
 
-    def update_attr(self, **kwargs):
+    def update_attr(self, model, **kwargs):
         if not self.enabled:
             return
-        return super().update_attr(**kwargs)
+        return super().update_attr(model, **kwargs)
 
 
 DEFAULT_SPARSEML_CONFIG = Path(__file__).resolve().parent / "default.yaml"
@@ -175,7 +175,7 @@ class SparseTrainer(BaseTrainer):
 
         # handle loading ema ourselves since we changed it state dict
         # instead of pickling
-        if self.ema and ckpt.get("ema"):
+        if self.ema and ckpt and ckpt.get("ema"):
             ema = ckpt.get("ema")
 
             if isinstance(ema, dict):
@@ -202,6 +202,10 @@ class SparseTrainer(BaseTrainer):
             if "recipe" in old_ckpt and old_ckpt["recipe"] is not None:
                 self.checkpoint_manager = ScheduledModifierManager.from_yaml(
                     old_ckpt["recipe"]
+                )
+                self.checkpoint_manager.apply_structure(
+                    self.model,
+                    epoch=old_ckpt["epoch"] if old_ckpt["epoch"] >= 0 else float("inf"),
                 )
         elif self.args.recipe is not None:
             # normal training
@@ -254,6 +258,9 @@ class SparseTrainer(BaseTrainer):
                 epoch=self.start_epoch,
                 wrap_optim=self.scaler,
             )
+        else:
+            # initialize steps_per_epoch for logging when there's no recipe
+            self.steps_per_epoch = len(self.train_loader)
 
     def callback_on_train_epoch_start(self):
         # NOTE: this callback is registered in __init__
@@ -265,7 +272,8 @@ class SparseTrainer(BaseTrainer):
         self.epoch_step = 0
 
     def callback_on_train_batch_start(self):
-        self.do_emulated_step = True
+        # we only need to do this if we have a recipe
+        self.do_emulated_step = self.manager is not None
 
     def optimizer_step(self):
         super().optimizer_step()
@@ -279,6 +287,15 @@ class SparseTrainer(BaseTrainer):
 
         step = self.epoch * self.steps_per_epoch + self.epoch_step
         for key, value in self.label_loss_items(self.tloss).items():
+            self.logger_manager.log_scalar(key, value, step=step)
+
+        self.epoch_step += 1
+
+    def save_metrics(self, metrics):
+        super().save_metrics(metrics)
+
+        step = self.epoch * self.steps_per_epoch + self.epoch_step
+        for key, value in metrics.items():
             self.logger_manager.log_scalar(key, value, step=step)
 
     def save_model(self):
