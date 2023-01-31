@@ -33,6 +33,7 @@ from torch.utils.data.dataloader import DataLoader, default_collate
 from torchvision.transforms.functional import InterpolationMode
 
 import click
+from sparseml.optim.helpers import load_recipe_yaml_str
 from sparseml.pytorch.models.registry import ModelRegistry
 from sparseml.pytorch.optim import ScheduledModifierManager
 from sparseml.pytorch.torchvision import presets, transforms, utils
@@ -138,11 +139,17 @@ def train_one_epoch(
                 # Reset ema buffer to keep copying weights during warmup period
                 model_ema.n_averaged.fill_(0)
 
-        acc1, acc5 = utils.accuracy(output, target, topk=(1, 5))
+        acc1, num_correct_1, acc5, num_correct_5 = utils.accuracy(
+            output, target, topk=(1, 5)
+        )
         batch_size = image.shape[0]
         metric_logger.update(loss=loss.item(), lr=optimizer.param_groups[0]["lr"])
-        metric_logger.meters["acc1"].update(acc1.item(), n=batch_size)
-        metric_logger.meters["acc5"].update(acc5.item(), n=batch_size)
+        metric_logger.meters["acc1"].update(
+            acc1.item(), n=batch_size, total=num_correct_1
+        )
+        metric_logger.meters["acc5"].update(
+            acc5.item(), n=batch_size, total=num_correct_5
+        )
         metric_logger.meters["imgs_per_sec"].update(
             batch_size / (time.time() - start_time)
         )
@@ -180,13 +187,19 @@ def evaluate(
                 output = output[0]
             loss = criterion(output, target)
 
-            acc1, acc5 = utils.accuracy(output, target, topk=(1, 5))
+            acc1, num_correct_1, acc5, num_correct_5 = utils.accuracy(
+                output, target, topk=(1, 5)
+            )
             # FIXME need to take into account that the datasets
             # could have been padded in distributed setup
             batch_size = image.shape[0]
             metric_logger.update(loss=loss.item())
-            metric_logger.meters["acc1"].update(acc1.item(), n=batch_size)
-            metric_logger.meters["acc5"].update(acc5.item(), n=batch_size)
+            metric_logger.meters["acc1"].update(
+                acc1.item(), n=batch_size, total=num_correct_1
+            )
+            metric_logger.meters["acc5"].update(
+                acc5.item(), n=batch_size, total=num_correct_5
+            )
             num_processed_samples += batch_size
     # gather the stats from all processes
 
@@ -368,7 +381,7 @@ def main(args):
 
     _LOGGER.info("Creating model")
     local_rank = args.rank if args.distributed else None
-    model = _create_model(
+    model, arch_key = _create_model(
         arch_key=args.arch_key,
         local_rank=local_rank,
         pretrained=args.pretrained,
@@ -380,7 +393,7 @@ def main(args):
 
     if args.distill_teacher not in ["self", "disable", None]:
         _LOGGER.info("Instantiating teacher")
-        args.distill_teacher = _create_model(
+        distill_teacher, _ = _create_model(
             arch_key=args.teacher_arch_key,
             local_rank=local_rank,
             pretrained=True,  # teacher is always pretrained
@@ -389,6 +402,8 @@ def main(args):
             device=device,
             num_classes=num_classes,
         )
+    else:
+        distill_teacher = args.distill_teacher
 
     if args.distributed and args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
@@ -556,7 +571,14 @@ def main(args):
         logger = LoggerManager(log_python=False)
 
     if args.recipe is not None:
-        logger.save(args.recipe)
+        base_path = os.path.join(args.output_dir, "original_recipe.yaml")
+        with open(base_path, "w") as fp:
+            fp.write(load_recipe_yaml_str(args.recipe))
+        logger.save(base_path)
+
+        full_path = os.path.join(args.output_dir, "final_recipe.yaml")
+        manager.save(full_path)
+        logger.save(full_path)
 
     steps_per_epoch = len(data_loader) / args.gradient_accum_steps
 
@@ -572,7 +594,7 @@ def main(args):
             model,
             epoch=args.start_epoch,
             loggers=logger,
-            distillation_teacher=args.distill_teacher,
+            distillation_teacher=distill_teacher,
         )
         step_wrapper = manager.modify(
             model,
@@ -650,6 +672,7 @@ def main(args):
                 "state_dict": model_without_ddp.state_dict(),
                 "optimizer": optimizer.state_dict(),
                 "args": args,
+                "arch_key": arch_key,
             }
             if lr_scheduler:
                 checkpoint["lr_scheduler"] = lr_scheduler.state_dict()
@@ -701,7 +724,7 @@ def _create_model(
     device=None,
     num_classes=None,
 ):
-    if arch_key in ModelRegistry.available_keys():
+    if not arch_key or arch_key in ModelRegistry.available_keys():
         with torch_distributed_zero_first(local_rank):
             model = ModelRegistry.create(
                 key=arch_key,
@@ -710,6 +733,9 @@ def _create_model(
                 pretrained_dataset=pretrained_dataset,
                 num_classes=num_classes,
             )
+
+        if isinstance(model, tuple):
+            model, arch_key = model
     elif arch_key in torchvision.models.__dict__:
         # fall back to torchvision
         model = torchvision.models.__dict__[arch_key](
@@ -722,7 +748,7 @@ def _create_model(
             f"Unable to find {arch_key} in ModelRegistry or in torchvision.models"
         )
     model.to(device)
-    return model
+    return model, arch_key
 
 
 def _get_lr_scheduler(args, optimizer, checkpoint=None, manager=None):
