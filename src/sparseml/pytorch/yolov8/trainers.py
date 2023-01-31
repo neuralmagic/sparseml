@@ -93,9 +93,6 @@ class SparseTrainer(BaseTrainer):
             self.model = download_framework_model_by_recipe_type(
                 Model(self.model), model_suffix=".pt"
             )
-            self.is_sparseml_checkpoint = True
-        else:
-            self.is_sparseml_checkpoint = False
 
         if (
             self.args.checkpoint_path is not None
@@ -146,7 +143,7 @@ class SparseTrainer(BaseTrainer):
         model, weights = self.model, None
         ckpt = None
         if str(model).endswith(".pt"):
-            if self.is_sparseml_checkpoint or os.path.exists(str(model)):
+            if os.path.exists(str(model)):
                 ckpt = torch.load(str(model), map_location="cpu")
                 if "source" in ckpt and ckpt["source"] == "sparseml":
                     # this is one of our checkpoints
