@@ -369,11 +369,15 @@ class SparseYOLO(YOLO):
     def _load(self, weights: str):
         if self.is_sparseml_checkpoint:
             """
-            NOTE: the model is given to the trainer class with this snippet from YOLO base class:
+            NOTE: the model is given to the trainer class with this snippet
+            from YOLO base class:
             ```python
             self.trainer = self.TrainerClass(overrides=overrides)
             if not overrides.get("resume"):  # manually set model only if not resuming
-                self.trainer.model = self.trainer.get_model(weights=self.model if self.ckpt else None, cfg=self.model.yaml)
+                self.trainer.model = self.trainer.get_model(
+                    weights=self.model if self.ckpt else None,
+                    cfg=self.model.yaml
+                )
                 self.model = self.trainer.model
             ```
             """
