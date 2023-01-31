@@ -30,6 +30,8 @@ from sparseml.pytorch.utils.helpers import download_framework_model_by_recipe_ty
 from sparseml.pytorch.utils.logger import LoggerManager, PythonLogger, WANDBLogger
 from sparsezoo import Model
 from ultralytics import __version__
+from ultralytics.nn.tasks import attempt_load_one_weight
+from ultralytics.yolo.engine.model import YOLO
 from ultralytics.yolo.engine.trainer import BaseTrainer
 from ultralytics.yolo.utils import LOGGER
 from ultralytics.yolo.utils.dist import (
@@ -88,14 +90,16 @@ class SparseTrainer(BaseTrainer):
         super().__init__(config, overrides)
 
         if isinstance(self.model, str) and self.model.startswith("zoo:"):
-            self.model = download_framework_model_by_recipe_type(Model(self.model))
+            self.model = download_framework_model_by_recipe_type(
+                Model(self.model), model_suffix=".pt"
+            )
 
         if (
             self.args.checkpoint_path is not None
             and self.args.checkpoint_path.startswith("zoo:")
         ):
             self.args.checkpoint_path = download_framework_model_by_recipe_type(
-                Model(self.args.checkpoint_path)
+                Model(self.args.checkpoint_path), model_suffix=".pt"
             )
 
         self.manager: Optional[ScheduledModifierManager] = None
@@ -131,9 +135,58 @@ class SparseTrainer(BaseTrainer):
         else:
             self._do_train(int(os.getenv("RANK", -1)), world_size)
 
+    def setup_model(self):
+        # NOTE: override to handle pickled checkpoints and our own checkpoints
+        if isinstance(self.model, torch.nn.Module):
+            return
+
+        model, weights = self.model, None
+        ckpt = None
+        if str(model).endswith(".pt"):
+            if os.path.exists(str(model)):
+                ckpt = torch.load(str(model), map_location="cpu")
+                if "source" in ckpt and ckpt["source"] == "sparseml":
+                    # this is one of our checkpoints
+                    weights = ckpt["model"]
+                    cfg = ckpt["model_yaml"]
+                    self.model = self.get_model(cfg=cfg, weights=None)
+                    self.model.load_state_dict(weights)
+                    return ckpt
+                else:
+                    # a ultralytics checkpoint
+                    weights, ckpt = attempt_load_one_weight(model)
+                    cfg = ckpt["model"].yaml
+            else:
+                weights, ckpt = attempt_load_one_weight(model)
+                cfg = ckpt["model"].yaml
+        else:
+            cfg = model
+        self.model = self.get_model(cfg=cfg, weights=weights)
+        return ckpt
+
     def resume_training(self, ckpt):
         # NOTE: this method is called at the end of super()._setup_train()
+
+        # set self.ema to None so super().resume_training() doesn't load from checkpoint
+        cached_ema = self.ema
+        self.ema = None
         super().resume_training(ckpt)
+        self.ema = cached_ema
+
+        # handle loading ema ourselves since we changed it state dict
+        # instead of pickling
+        if self.ema and ckpt.get("ema"):
+            ema = ckpt.get("ema")
+
+            if isinstance(ema, dict):
+                # this is one of our checkpoints - its a state dict
+                ema_state_dict = ckpt["ema"]
+            else:
+                # this is a yolov8 checkpoint - its a pickled model
+                ema_state_dict = ckpt["ema"].float().state_dict()
+
+            self.ema.ema.load_state_dict(ema_state_dict)
+            self.ema.updates = ckpt["updates"]
 
         if ckpt is not None:
             # resume - set manager from checkpoint
@@ -229,6 +282,9 @@ class SparseTrainer(BaseTrainer):
             self.logger_manager.log_scalar(key, value, step=step)
 
     def save_model(self):
+        if self.manager is None:
+            return super().save_model()
+
         # NOTE: identical to super().save_model() with the addition of recipe key
         # in the checkpoint
 
@@ -246,13 +302,15 @@ class SparseTrainer(BaseTrainer):
         ckpt = {
             "epoch": epoch,
             "best_fitness": self.best_fitness,
-            "model": deepcopy(de_parallel(self.model)).half().state_dict(),
-            "ema": deepcopy(self.ema.ema).half().state_dict(),
+            "model": deepcopy(de_parallel(self.model)).state_dict(),
+            "model_yaml": dict(self.model.yaml),
+            "ema": deepcopy(self.ema.ema).state_dict(),
             "updates": self.ema.updates,
             "optimizer": self.optimizer.state_dict(),
             "train_args": self.args,
             "date": datetime.now().isoformat(),
             "version": __version__,
+            "source": "sparseml",
         }
 
         if manager is not None:
@@ -280,6 +338,71 @@ class SparseClassificationTrainer(SparseTrainer, ClassificationTrainer):
 
 class SparseSegmentationTrainer(SparseTrainer, SegmentationTrainer):
     pass
+
+
+class SparseYOLO(YOLO):
+    def __init__(self, model="yolov8n.yaml", type="v8") -> None:
+        model_str = str(model)
+
+        if model_str.startswith("zoo:"):
+            model = download_framework_model_by_recipe_type(
+                Model(model_str), model_suffix=".pt"
+            )
+            self.is_sparseml_checkpoint = True
+        elif model_str.endswith(".pt"):
+            if os.path.exists(model_str):
+                ckpt = torch.load(model_str)
+                self.is_sparseml_checkpoint = (
+                    "source" in ckpt and ckpt["source"] == "sparseml"
+                )
+            else:
+                self.is_sparseml_checkpoint = False
+        else:
+            self.is_sparseml_checkpoint = False
+
+        super().__init__(model, type)
+
+        if self.TrainerClass == DetectionTrainer:
+            self.TrainerClass = SparseDetectionTrainer
+        elif self.TrainerClass == ClassificationTrainer:
+            self.TrainerClass = SparseClassificationTrainer
+        elif self.TrainerClass == SegmentationTrainer:
+            self.TrainerClass = SparseSegmentationTrainer
+
+    def _load(self, weights: str):
+        if self.is_sparseml_checkpoint:
+            """
+            NOTE: the model is given to the trainer class with this snippet
+            from YOLO base class:
+            ```python
+            self.trainer = self.TrainerClass(overrides=overrides)
+            if not overrides.get("resume"):  # manually set model only if not resuming
+                self.trainer.model = self.trainer.get_model(
+                    weights=self.model if self.ckpt else None,
+                    cfg=self.model.yaml
+                )
+                self.model = self.trainer.model
+            ```
+            """
+            self.ckpt = torch.load(weights, map_location="cpu")
+            config = dict(self.ckpt["train_args"])
+            config.pop("save_dir", None)
+            self.ckpt_path = weights
+            self.task = config["task"]
+            self.overrides = deepcopy(config)
+            self._reset_ckpt_args(self.overrides)
+            (
+                self.ModelClass,
+                self.TrainerClass,
+                self.ValidatorClass,
+                self.PredictorClass,
+            ) = self._guess_ops_from_task(self.task)
+
+            self.model = self.ModelClass(dict(self.ckpt["model_yaml"]))
+            self.model.load_state_dict(self.ckpt["model"])
+            assert self.model.yaml == self.ckpt["model_yaml"]
+        else:
+            return super()._load(weights)
 
 
 def generate_ddp_command(world_size, trainer):

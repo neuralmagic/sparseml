@@ -13,27 +13,7 @@
 # limitations under the License.
 
 import click
-from sparseml.pytorch.yolov8.trainers import (
-    ClassificationTrainer,
-    DetectionTrainer,
-    SegmentationTrainer,
-    SparseClassificationTrainer,
-    SparseDetectionTrainer,
-    SparseSegmentationTrainer,
-)
-from ultralytics.yolo.engine.model import YOLO
-
-
-class SparseYOLO(YOLO):
-    def __init__(self, model="yolov8n.yaml", type="v8") -> None:
-        super().__init__(model, type)
-
-        if self.TrainerClass == DetectionTrainer:
-            self.TrainerClass = SparseDetectionTrainer
-        elif self.TrainerClass == ClassificationTrainer:
-            self.TrainerClass = SparseClassificationTrainer
-        elif self.TrainerClass == SegmentationTrainer:
-            self.TrainerClass = SparseSegmentationTrainer
+from sparseml.pytorch.yolov8.trainers import SparseYOLO
 
 
 # Options generated from
