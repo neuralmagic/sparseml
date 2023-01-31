@@ -151,7 +151,10 @@ class SparseTrainer(BaseTrainer):
                 if "source" in ckpt and ckpt["source"] == "sparseml":
                     # this is one of our checkpoints
                     weights = ckpt["model"]
-                    cfg = ckpt["model_yaml_config"]
+                    cfg = ckpt["model_yaml"]
+                    self.model = self.get_model(cfg=cfg, weights=None)
+                    self.model.load_state_dict(weights)
+                    return ckpt
                 else:
                     # a ultralytics checkpoint
                     weights, ckpt = attempt_load_one_weight(model)
@@ -300,7 +303,7 @@ class SparseTrainer(BaseTrainer):
             "epoch": epoch,
             "best_fitness": self.best_fitness,
             "model": deepcopy(de_parallel(self.model)).state_dict(),
-            "model_yaml_config": self.model.yaml,
+            "model_yaml": dict(self.model.yaml),
             "ema": deepcopy(self.ema.ema).state_dict(),
             "updates": self.ema.updates,
             "optimizer": self.optimizer.state_dict(),
@@ -381,13 +384,12 @@ class SparseYOLO(YOLO):
                 self.model = self.trainer.model
             ```
             """
-
             self.ckpt = torch.load(weights, map_location="cpu")
-            self.model = self.ckpt["model"]
-            setattr(self.model, "yaml", self.ckpt["model_yaml_config"])
+            config = dict(self.ckpt["train_args"])
+            config.pop("save_dir", None)
             self.ckpt_path = weights
-            self.task = self.model["task"]
-            self.overrides = deepcopy(self.model)
+            self.task = config["task"]
+            self.overrides = deepcopy(config)
             self._reset_ckpt_args(self.overrides)
             (
                 self.ModelClass,
@@ -395,6 +397,10 @@ class SparseYOLO(YOLO):
                 self.ValidatorClass,
                 self.PredictorClass,
             ) = self._guess_ops_from_task(self.task)
+
+            self.model = self.ModelClass(dict(self.ckpt["model_yaml"]))
+            self.model.load_state_dict(self.ckpt["model"])
+            assert self.model.yaml == self.ckpt["model_yaml"]
         else:
             return super()._load(weights)
 
