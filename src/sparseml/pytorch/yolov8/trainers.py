@@ -193,7 +193,7 @@ class SparseTrainer(BaseTrainer):
             self.checkpoint_manager = ScheduledModifierManager.from_yaml(ckpt["recipe"])
             self.checkpoint_manager.apply_structure(self.model, epoch=float("inf"))
 
-        elif ckpt["epoch"] != -1:
+        else:
             # resuming
             if self.args.recipe is not None:
                 raise ValueError(
