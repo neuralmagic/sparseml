@@ -36,19 +36,6 @@ from sparseml.pytorch.yolov8.trainers import SparseYOLO
     "--resume", default=False, is_flag=True, help="resume training from last checkpoint"
 )
 @click.option(
-    "--checkpoint-path",
-    default=None,
-    type=str,
-    help=(
-        "A path to a previous checkpoint to load the state from "
-        "and resume the state for. If provided, pretrained will "
-        "be ignored. If using a SparseZoo recipe, can also "
-        "provide 'zoo' to load the base weights associated with "
-        "that recipe. Additionally, can also provide a SparseZoo model stub "
-        "to load model weights from SparseZoo"
-    ),
-)
-@click.option(
     "--task",
     default="detect",
     type=click.Choice(["detect", "segment", "classify"]),

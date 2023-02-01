@@ -130,6 +130,7 @@ class SparseTrainer(BaseTrainer):
     def setup_model(self):
         # NOTE: override to handle pickled checkpoints and our own checkpoints
         if isinstance(self.model, torch.nn.Module):
+            LOGGER.info("Received torch.nn.Module, not loading from checkpoint")
             self._build_managers(ckpt=None)
             return
 
@@ -195,17 +196,12 @@ class SparseTrainer(BaseTrainer):
 
         else:
             # resuming
-            if self.args.recipe is not None:
-                raise ValueError(
-                    "Checkpoint had un-finished recipe and --recipe was specified. "
-                    "Unclear what recipe to proceed with"
-                )
-
+            # yolo will populate this when the --resume flag
+            assert self.args.recipe is not None
             LOGGER.info(
                 "Applying structure from un-finished recipe in checkpoint "
                 f"at epoch {ckpt['epoch']}"
             )
-            self.manager = ScheduledModifierManager.from_yaml(ckpt["recipe"])
             self.manager.apply_structure(self.model, epoch=ckpt["epoch"])
 
     def resume_training(self, ckpt):
@@ -451,7 +447,20 @@ class SparseYOLO(YOLO):
             ) = self._guess_ops_from_task(self.task)
 
             self.model = self.ModelClass(dict(self.ckpt["model_yaml"]))
+            if "recipe" in self.ckpt:
+                manager = ScheduledModifierManager.from_yaml(self.ckpt["recipe"])
+                epoch = self.ckpt.get("epoch", -1)
+                if epoch < 0:
+                    epoch = float("inf")
+                LOGGER.info(
+                    "Applying structure from sparseml checkpoint "
+                    f"at epoch {self.ckpt['epoch']}"
+                )
+                manager.apply_structure(self.model, epoch=epoch)
+            else:
+                LOGGER.info("No recipe from in sparseml checkpoint")
             self.model.load_state_dict(self.ckpt["model"])
+            LOGGER.info("Loaded previous weights from checkpoint")
             assert self.model.yaml == self.ckpt["model_yaml"]
         else:
             return super()._load(weights)
