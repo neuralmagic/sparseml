@@ -94,14 +94,6 @@ class SparseTrainer(BaseTrainer):
                 Model(self.model), model_suffix=".pt"
             )
 
-        if (
-            self.args.checkpoint_path is not None
-            and self.args.checkpoint_path.startswith("zoo:")
-        ):
-            self.args.checkpoint_path = download_framework_model_by_recipe_type(
-                Model(self.args.checkpoint_path), model_suffix=".pt"
-            )
-
         self.manager: Optional[ScheduledModifierManager] = None
         self.checkpoint_manager: Optional[ScheduledModifierManager] = None
         self.logger_manager: LoggerManager = LoggerManager(log_python=False)
@@ -138,31 +130,86 @@ class SparseTrainer(BaseTrainer):
     def setup_model(self):
         # NOTE: override to handle pickled checkpoints and our own checkpoints
         if isinstance(self.model, torch.nn.Module):
+            self._build_managers(ckpt=None)
             return
 
-        model, weights = self.model, None
-        ckpt = None
-        if str(model).endswith(".pt"):
-            if os.path.exists(str(model)):
-                ckpt = torch.load(str(model), map_location="cpu")
-                if "source" in ckpt and ckpt["source"] == "sparseml":
-                    # this is one of our checkpoints
-                    weights = ckpt["model"]
-                    cfg = ckpt["model_yaml"]
-                    self.model = self.get_model(cfg=cfg, weights=None)
-                    self.model.load_state_dict(weights)
-                    return ckpt
-                else:
-                    # a ultralytics checkpoint
-                    weights, ckpt = attempt_load_one_weight(model)
-                    cfg = ckpt["model"].yaml
-            else:
-                weights, ckpt = attempt_load_one_weight(model)
-                cfg = ckpt["model"].yaml
-        else:
-            cfg = model
-        self.model = self.get_model(cfg=cfg, weights=weights)
+        if not str(self.model).endswith(".pt"):
+            # not a checkpoint - use ultralytics loading logic
+            self.model = self.get_model(cfg=self.model, weights=None)
+            self._build_managers(ckpt=None)
+            return
+
+        if not os.path.exists(str(self.model)):
+            # remote ultralytics checkpoint - zoo checkpoint was already downloaded
+            # in constructor
+            LOGGER.info("Loading remote ultralytics checkpoint")
+            weights, ckpt = attempt_load_one_weight(self.model)
+            cfg = ckpt["model"].yaml
+            self.model = self.get_model(cfg=cfg, weights=weights)
+            self._build_managers(ckpt=ckpt)
+            return ckpt
+
+        ckpt = torch.load(str(self.model), map_location="cpu")
+
+        if not ("source" in ckpt and ckpt["source"] == "sparseml"):
+            # local ultralyltics checkpoint
+            LOGGER.info("Loading local ultralytics checkpoint")
+            weights, ckpt = attempt_load_one_weight(self.model)
+            cfg = ckpt["model"].yaml
+            self.model = self.get_model(cfg=cfg, weights=weights)
+            self._build_managers(ckpt=ckpt)
+            return ckpt
+
+        # sanity check - this is one of our checkpoints
+        LOGGER.info("Loading local sparseml checkpoint")
+        assert ckpt["source"] == "sparseml"
+
+        self.model = self.get_model(cfg=ckpt["model_yaml"], weights=None)
+
+        # NOTE: this will apply structure, we need to do this before loading state dict
+        self._build_managers(ckpt=ckpt)
+
+        self.model.load_state_dict(ckpt["model"])
+        LOGGER.info("Loaded previous weights from sparseml checkpoint")
         return ckpt
+
+    def _build_managers(self, ckpt: Optional[dict]):
+        if self.args.recipe is not None:
+            self.manager = ScheduledModifierManager.from_yaml(
+                self.args.recipe, recipe_variables=self.args.recipe_args
+            )
+
+        if ckpt is None:
+            return
+
+        if "recipe" not in ckpt:
+            return
+
+        if ckpt["epoch"] == -1:
+            LOGGER.info(
+                "Applying structure from completed recipe in checkpoint "
+                f"at epoch {ckpt['epoch']}"
+            )
+            self.checkpoint_manager = ScheduledModifierManager.from_yaml(ckpt["recipe"])
+            self.checkpoint_manager.apply_structure(
+                self.model,
+                epoch=ckpt["epoch"] if ckpt["epoch"] >= 0 else float("inf"),
+            )
+
+        elif ckpt["epoch"] != -1:
+            # resuming
+            if self.args.recipe is not None:
+                raise ValueError(
+                    "Checkpoint had un-finished recipe and --recipe was specified. "
+                    "Unclear what recipe to proceed with"
+                )
+
+            LOGGER.info(
+                "Applying structure from un-finished recipe in checkpoint "
+                f"at epoch {ckpt['epoch']}"
+            )
+            self.manager = ScheduledModifierManager.from_yaml(ckpt["recipe"])
+            self.manager.apply_structure(self.model, epoch=ckpt["epoch"])
 
     def resume_training(self, ckpt):
         # NOTE: this method is called at the end of super()._setup_train()
@@ -187,31 +234,6 @@ class SparseTrainer(BaseTrainer):
 
             self.ema.ema.load_state_dict(ema_state_dict)
             self.ema.updates = ckpt["updates"]
-
-        if ckpt is not None:
-            # resume - set manager from checkpoint
-            if "recipe" in ckpt:
-                self.manager = ScheduledModifierManager.from_yaml(ckpt["recipe"])
-        elif self.args.checkpoint_path is not None:
-            # previous checkpoint
-            if self.args.recipe is not None:
-                self.manager = ScheduledModifierManager.from_yaml(
-                    self.args.recipe, recipe_variables=self.args.recipe_args
-                )
-            old_ckpt = torch.load(self.args.checkpoint_path)
-            if "recipe" in old_ckpt and old_ckpt["recipe"] is not None:
-                self.checkpoint_manager = ScheduledModifierManager.from_yaml(
-                    old_ckpt["recipe"]
-                )
-                self.checkpoint_manager.apply_structure(
-                    self.model,
-                    epoch=old_ckpt["epoch"] if old_ckpt["epoch"] >= 0 else float("inf"),
-                )
-        elif self.args.recipe is not None:
-            # normal training
-            self.manager = ScheduledModifierManager.from_yaml(
-                self.args.recipe, recipe_variables=self.args.recipe_args
-            )
 
     def _setup_train(self, rank, world_size):
         super()._setup_train(rank, world_size)
@@ -310,9 +332,13 @@ class SparseTrainer(BaseTrainer):
         if self.checkpoint_manager is not None:
             if epoch >= 0:
                 epoch += self.checkpoint_manager.max_epochs
-            manager = ScheduledModifierManager.compose_staged(
-                self.checkpoint_manager, self.manager
-            )
+
+            if self.manager is not None:
+                manager = ScheduledModifierManager.compose_staged(
+                    self.checkpoint_manager, self.manager
+                )
+            else:
+                manager = self.checkpoint_manager
         else:
             manager = self.manager if self.manager is not None else None
 
