@@ -283,7 +283,16 @@ class SparseTrainer(BaseTrainer):
 
     def callback_on_train_epoch_start(self):
         # NOTE: this callback is registered in __init__
+
+        model_is_quantized = False
         if self.manager is not None and self.manager.qat_active(epoch=self.epoch):
+            model_is_quantized = True
+        if self.checkpoint_manager is not None and self.checkpoint_manager.qat_active(
+            epoch=self.epoch + self.checkpoint_manager.max_epochs
+        ):
+            model_is_quantized = True
+
+        if model_is_quantized:
             if self.scaler is not None:
                 self.scaler._enabled = False
             self.ema.enabled = False
@@ -318,7 +327,7 @@ class SparseTrainer(BaseTrainer):
             self.logger_manager.log_scalar(key, value, step=step)
 
     def save_model(self):
-        if self.manager is None:
+        if self.manager is None and self.checkpoint_manager is None:
             return super().save_model()
 
         # NOTE: identical to super().save_model() with the addition of recipe key
@@ -365,7 +374,7 @@ class SparseTrainer(BaseTrainer):
 
     def final_eval(self):
         # skip final eval if we are using a recipe
-        if self.manager is None:
+        if self.manager is None and self.checkpoint_manager is None:
             return super().final_eval()
 
     def callback_teardown(self):
