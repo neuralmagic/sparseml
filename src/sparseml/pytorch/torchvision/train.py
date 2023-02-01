@@ -21,15 +21,17 @@ import os
 import sys
 import time
 import warnings
+from collections import defaultdict
 from functools import update_wrapper
 from types import SimpleNamespace
-from typing import Callable, Optional
+from typing import Any, Callable, Dict, Optional
 
 import torch
 import torch.utils.data
 import torchvision
 from packaging import version
 from torch import nn
+from torch.nn import Module
 from torch.utils.data.dataloader import DataLoader, default_collate
 from torchvision.transforms.functional import InterpolationMode
 
@@ -533,6 +535,10 @@ def main(args):
     # load params
     if checkpoint is not None:
         if "optimizer" in checkpoint and not args.test_only:
+            checkpoint["optimizer"] = _update_checkpoint_optimizer(
+                checkpoint_optim=checkpoint["optimizer"],
+                model=model,
+            )
             optimizer.load_state_dict(checkpoint["optimizer"])
         if model_ema and "model_ema" in checkpoint:
             model_ema.load_state_dict(checkpoint["model_ema"])
@@ -722,6 +728,33 @@ def main(args):
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     _LOGGER.info(f"Training time {total_time_str}")
+
+
+def _update_checkpoint_optimizer(checkpoint_optim: Dict[Any, Any], model: Module):
+    # delete params from state dict where the size does not match
+    #  model param size, (this is required for example: in cases when we
+    #  transfer learn onto a dataset where number of output classes is
+    #  different from upstream dataset), these state dict items will be
+    #  re-initialized by the optimizer based on model param shape when
+    #  `optimizer.step()` is called, re-initialization only happens when
+    #  the param are present in optimizer state_dict under "param_groups"
+    #  key
+
+    # torch uses `defaultdict(dict)` as default
+    checkpoint_state_dict = checkpoint_optim.get("state", defaultdict(dict))
+
+    for idx, (name, param) in enumerate(model.named_parameters()):
+        if (
+            idx in checkpoint_state_dict
+            and "momentum_buffer" in checkpoint_state_dict[idx]
+            and param.size() != checkpoint_state_dict[idx]["momentum_buffer"].size()
+        ):
+            del checkpoint_state_dict[idx]
+
+    return {
+        "state": checkpoint_state_dict,
+        "param_groups": checkpoint_optim.get("param_groups"),
+    }
 
 
 def _create_model(
