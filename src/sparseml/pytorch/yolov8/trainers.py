@@ -256,10 +256,6 @@ class SparseTrainer(BaseTrainer):
             if self.manager.learning_rate_modifiers:
                 self.scheduler = _NullLRScheduler()
 
-            self.manager.initialize(
-                self.model, epoch=self.start_epoch, loggers=self.logger_manager
-            )
-
             # NOTE: we intentionally don't divide number of batches by gradient
             # accumulation.
             # This is because yolov8 changes size of gradient accumulation during
@@ -276,6 +272,7 @@ class SparseTrainer(BaseTrainer):
                 steps_per_epoch=self.steps_per_epoch,
                 epoch=self.start_epoch,
                 wrap_optim=self.scaler,
+                loggers=self.logger_manager,
             )
         else:
             # initialize steps_per_epoch for logging when there's no recipe
