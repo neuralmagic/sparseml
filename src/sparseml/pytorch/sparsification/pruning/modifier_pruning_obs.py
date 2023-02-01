@@ -15,7 +15,9 @@
 """
 Modifier classes implementing the blockwise version of the Optimal Brain Surgeon
 pruning framework, optimized for small blocks. The algorithm is described in details
-in the Optimal BERT Surgeon paper https://arxiv.org/abs/2203.07259
+in the Optimal BERT Surgeon paper https://arxiv.org/abs/2203.07259.
+For more details check FAQ section at
+https://github.com/eldarkurtic/sparseml/tree/improve-obs-docs/research/optimal_BERT_surgeon_oBERT
 """
 import logging
 import math
