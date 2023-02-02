@@ -52,7 +52,6 @@ from sparseml.pytorch.utils.logger import (
 from sparseml.pytorch.utils.model import load_model
 from sparsezoo import Model
 
-
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -537,8 +536,9 @@ def main(args):
                 optimizer.load_state_dict(checkpoint["optimizer"])
             else:
                 warnings.warn(
-                    "Optim state dict not loaded cause `--resume` was set to "
-                    f"{args.resume}"
+                    "Optimizer state dict not loaded from checkpoint. Unless run is "
+                    "resumed with the --resume arg, the optimizer will start from a "
+                    "fresh state"
                 )
         if model_ema and "model_ema" in checkpoint:
             model_ema.load_state_dict(checkpoint["model_ema"])
@@ -1040,7 +1040,7 @@ def _deprecate_old_arguments(f):
     is_flag=True,
     default=False,
     help="Cache the datasets for quicker initialization. "
-    "It also serializes the transforms",
+         "It also serializes the transforms",
 )
 @click.option("--sync-bn", is_flag=True, default=False, help="Use sync batch norm")
 @click.option("--test-only", is_flag=True, default=False, help="Only test the model")
@@ -1146,15 +1146,15 @@ def _deprecate_old_arguments(f):
     default=1,
     type=int,
     help="Save the best validation result after the given "
-    "epoch completes until the end of training",
+         "epoch completes until the end of training",
 )
 @click.option(
     "--distill-teacher",
     default=None,
     type=str,
     help="Teacher model for distillation (a trained image classification model)"
-    " can be set to 'self' for self-distillation and 'disable' to switch-off"
-    " distillation, additionally can also take in a SparseZoo stub",
+         " can be set to 'self' for self-distillation and 'disable' to switch-off"
+         " distillation, additionally can also take in a SparseZoo stub",
 )
 @click.option(
     "--pretrained-teacher-dataset",
