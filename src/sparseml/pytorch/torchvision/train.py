@@ -21,17 +21,15 @@ import os
 import sys
 import time
 import warnings
-from collections import defaultdict
 from functools import update_wrapper
 from types import SimpleNamespace
-from typing import Any, Callable, Dict, Optional
+from typing import Callable, Optional
 
 import torch
 import torch.utils.data
 import torchvision
 from packaging import version
 from torch import nn
-from torch.nn import Module
 from torch.utils.data.dataloader import DataLoader, default_collate
 from torchvision.transforms.functional import InterpolationMode
 
