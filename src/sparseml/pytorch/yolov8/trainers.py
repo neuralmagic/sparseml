@@ -225,7 +225,11 @@ class SparseTrainer(BaseTrainer):
                 # this is a yolov8 checkpoint - its a pickled model
                 ema_state_dict = ckpt["ema"].float().state_dict()
 
-            self.ema.ema.load_state_dict(ema_state_dict)
+            try:
+                self.ema.ema.load_state_dict(ema_state_dict)
+            except RuntimeError:
+                LOGGER.warning("Unable to load EMA weights - disabling EMA.")
+                self.ema.enabled = False
             self.ema.updates = ckpt["updates"]
 
     def _setup_train(self, rank, world_size):
