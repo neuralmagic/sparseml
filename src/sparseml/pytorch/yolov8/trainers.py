@@ -33,7 +33,8 @@ from ultralytics import __version__
 from ultralytics.nn.tasks import attempt_load_one_weight
 from ultralytics.yolo.engine.model import YOLO
 from ultralytics.yolo.engine.trainer import BaseTrainer
-from ultralytics.yolo.utils import LOGGER
+from ultralytics.yolo.utils import LOGGER, yaml_load
+from ultralytics.yolo.utils.checks import check_yaml
 from ultralytics.yolo.utils.dist import (
     USER_CONFIG_DIR,
     ddp_cleanup,
@@ -369,6 +370,12 @@ class SparseTrainer(BaseTrainer):
             torch.save(ckpt, self.best)
         del ckpt
 
+    def validate(self):
+        # skip validation if we are using a recipe
+        if self.manager is None and self.checkpoint_manager is None:
+            return super().validate()
+        return {}, None
+
     def final_eval(self):
         # skip final eval if we are using a recipe
         if self.manager is None and self.checkpoint_manager is None:
@@ -468,6 +475,32 @@ class SparseYOLO(YOLO):
             assert self.model.yaml == self.ckpt["model_yaml"]
         else:
             return super()._load(weights)
+
+    def train(self, **kwargs):
+        # NOTE: Copied from base class and removed post-training validation
+        overrides = self.overrides.copy()
+        overrides.update(kwargs)
+        if kwargs.get("cfg"):
+            LOGGER.info(
+                f"cfg file passed. Overriding default params with {kwargs['cfg']}."
+            )
+            overrides = yaml_load(check_yaml(kwargs["cfg"]), append_filename=True)
+        overrides["task"] = self.task
+        overrides["mode"] = "train"
+        if not overrides.get("data"):
+            raise AttributeError(
+                "dataset not provided! Please define `data` in config.yaml or pass as an argument."
+            )
+        if overrides.get("resume"):
+            overrides["resume"] = self.ckpt_path
+
+        self.trainer = self.TrainerClass(overrides=overrides)
+        if not overrides.get("resume"):  # manually set model only if not resuming
+            self.trainer.model = self.trainer.get_model(
+                weights=self.model if self.ckpt else None, cfg=self.model.yaml
+            )
+            self.model = self.trainer.model
+        self.trainer.train()
 
 
 def generate_ddp_command(world_size, trainer):
