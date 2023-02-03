@@ -489,7 +489,8 @@ class SparseYOLO(YOLO):
         overrides["mode"] = "train"
         if not overrides.get("data"):
             raise AttributeError(
-                "dataset not provided! Please define `data` in config.yaml or pass as an argument."
+                "dataset not provided! Please define `data` "
+                "in config.yaml or pass as an argument."
             )
         if overrides.get("resume"):
             overrides["resume"] = self.ckpt_path
