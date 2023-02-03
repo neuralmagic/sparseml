@@ -101,6 +101,8 @@ _dev_deps = [
     "docutils<0.17",
 ]
 
+_ultralytics_deps = ["ultralytics==8.0.11"]
+
 
 def _setup_packages() -> List:
     return find_packages(
@@ -127,6 +129,7 @@ def _setup_extras() -> Dict:
         "tf_v1": _tensorflow_v1_deps,
         "tf_v1_gpu": _tensorflow_v1_gpu_deps,
         "tf_keras": _keras_deps,
+        "ultralytics": _ultralytics_deps,
     }
 
 
