@@ -886,7 +886,7 @@ def _deprecate_old_arguments(f):
     type=str,
     help="json parsable dict of recipe variable names to values to overwrite with",
 )
-@click.option("--dataset-path", required=True, type=str, help="dataset path")
+@click.option("--dataset_path", required=False, type=str, help="dataset path")
 @click.option(
     "--arch-key",
     default=None,
