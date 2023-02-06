@@ -15,7 +15,8 @@
 """
 Helper methods for image classification/detection based tasks
 """
-
+import deeplake
+from PIL import Image
 import logging
 import os
 import warnings
@@ -229,7 +230,7 @@ def label_to_class_mapping_from_dataset(dataset: str) -> Optional[Dict[int, str]
 
 def get_dataset_and_dataloader(
     dataset_name: str,
-    dataset_path: str,
+    dataset_path: Optional[str],
     batch_size: int,
     image_size: int,
     dataset_kwargs: Optional[Dict[str, Any]] = None,
@@ -237,6 +238,8 @@ def get_dataset_and_dataloader(
     rank: int = -1,
     local_rank: int = -1,
     loader_num_workers: int = 0,
+    active_loop: Optional[bool] = False,
+    active_loop_url: Optional[str] = None,
     loader_pin_memory: bool = False,
     max_samples: Optional[int] = None,
     ffcv: bool = False,
@@ -252,22 +255,22 @@ def get_dataset_and_dataloader(
     :param rank: The rank of the current process
     :param local_rank: The local rank of the current process
     :param loader_num_workers: The number of workers to use for the data loader
+    :param active_loop_url: URL of the activeloop dataset
+    :param active_loop: Use activeloop to load the data
     :param loader_pin_memory: Whether to pin memory for the data loader
     :param max_samples: The maximum number of samples to use
     :param ffcv: Whether to use ffcv dataset and data loaders
     :param device: The device to use for the data loader. Required for ffcv
     :return: Tuple with the following format (dataset, dataloader)
     """
-
-    download_context = (
+    if dataset_path is not None:
+        download_context = (
         torch_distributed_zero_first(local_rank)  # only download once locally
-        if training
-        else _nullcontext()
-    )
-    dataset_kwargs = dataset_kwargs or {}
+        if training else _nullcontext() )
+        dataset_kwargs = dataset_kwargs or {}
 
-    with download_context:
-        dataset = DatasetRegistry.create(
+        with download_context:
+            dataset = DatasetRegistry.create(
             dataset_name,
             root=dataset_path,
             train=training,
@@ -276,12 +279,11 @@ def get_dataset_and_dataloader(
             **dataset_kwargs,
         )
 
-    sampler = (
+        sampler = (
         torch.utils.data.distributed.DistributedSampler(dataset)
         if rank != -1 and training  # only run on DDP + training
-        else None
-    )
-    shuffle = sampler is None and not training
+        else None )
+        shuffle = sampler is None and not training
 
     if ffcv:
         if not isinstance(dataset, FFCVCompatibleDataset):
@@ -299,6 +301,10 @@ def get_dataset_and_dataloader(
             num_workers=loader_num_workers,
             device=device,
         )
+
+    elif active_loop:
+        data = deeplake.load(active_loop_url)
+        data_loader = data.pytorch(num_workers=loader_num_workers, shuffle=True, batch_size=batch_size, decode_method={'images': 'pil'})
 
     else:
         data_loader = DataLoader(

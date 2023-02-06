@@ -33,7 +33,7 @@ Options:
   --dataset-path, --dataset_path DIRECTORY
                                   The root dir path where the dataset is
                                   stored or should be downloaded to if
-                                  available  [required]
+                                  available
   --arch_key, --arch-key TEXT     The architecture key for image
                                   classification model; example: `resnet50`,
                                   `mobilenet`. Note: Will be read from the
@@ -131,6 +131,8 @@ Options:
                                   [S, S, C] dimensional input  [default: 224]
   --ffcv                          Use `ffcv` for loading data  [default:
                                   False]
+  --activeloop                    Use activeloop to load the data
+  --active_loop_url              URL of the activeloop dataset
   --recipe-args, --recipe_args TEXT
                                   json parsable dict of recipe variable names
                                   to values to overwrite with
@@ -505,8 +507,10 @@ def main(
     train_batch_size: int,
     test_batch_size: int,
     dataset: str,
-    dataset_path: str,
+    dataset_path: Optional[str],
     arch_key: Optional[str] = None,
+    active_loop: Optional[bool] = False,
+    active_loop_url: Optional[str] = None,
     local_rank: Optional[int] = None,
     checkpoint_path: Optional[str] = None,
     init_lr: float = 1e-9,
@@ -582,6 +586,8 @@ def main(
             loader_num_workers=loader_num_workers,
             loader_pin_memory=loader_pin_memory,
             ffcv=ffcv,
+            active_loop=active_loop,
+            active_loop_url=active_loop_url,
             device=device,
             rank=rank,
         )
