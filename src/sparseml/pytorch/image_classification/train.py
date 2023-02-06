@@ -132,7 +132,7 @@ Options:
   --ffcv                          Use `ffcv` for loading data  [default:
                                   False]
   --activeloop                    Use activeloop to load the data
-  --active_loop_url              URL of the activeloop dataset
+  --activeloop_url              URL of the activeloop dataset
   --recipe-args, --recipe_args TEXT
                                   json parsable dict of recipe variable names
                                   to values to overwrite with
@@ -247,11 +247,11 @@ METADATA_ARGS = [
     "a dataset in `sparseml.pytorch.datasets`",
 )
 @click.option(
-    # "--dataset-path",
+    "--dataset-path",
     "--dataset_path",
     type=click.Path(dir_okay=True, file_okay=False),
     callback=cli_helpers.create_dir_callback,
-    required=True,
+    required=False,
     help="The root dir path where the dataset is stored or should "
     "be downloaded to if available",
 )
@@ -284,6 +284,23 @@ METADATA_ARGS = [
     "that recipe. Additionally, can also provide a SparseZoo model stub "
     "to load model weights from SparseZoo",
 )
+
+@click.option(
+    "--activeloop",
+    type=bool,
+    default=None,
+    help="Whether to use activeloop",
+)
+
+@click.option(
+    "--activeloop-url",
+    "--activeloop_url",
+    type=str,
+    default=None,
+    help="Link to activeloop dataset",
+)
+
+
 @click.option(
     "--init-lr",
     "--init_lr",
@@ -509,8 +526,8 @@ def main(
     dataset: str,
     dataset_path: Optional[str],
     arch_key: Optional[str] = None,
-    active_loop: Optional[bool] = False,
-    active_loop_url: Optional[str] = None,
+    activeloop: Optional[bool] = False,
+    activeloop_url: Optional[str] = None,
     local_rank: Optional[int] = None,
     checkpoint_path: Optional[str] = None,
     init_lr: float = 1e-9,
@@ -586,8 +603,8 @@ def main(
             loader_num_workers=loader_num_workers,
             loader_pin_memory=loader_pin_memory,
             ffcv=ffcv,
-            active_loop=active_loop,
-            active_loop_url=active_loop_url,
+            activeloop=activeloop,
+            activeloop_url=activeloop_url,
             device=device,
             rank=rank,
         )

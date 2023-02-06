@@ -238,8 +238,8 @@ def get_dataset_and_dataloader(
     rank: int = -1,
     local_rank: int = -1,
     loader_num_workers: int = 0,
-    active_loop: Optional[bool] = False,
-    active_loop_url: Optional[str] = None,
+    activeloop: Optional[bool] = False,
+    activeloop_url: Optional[str] = None,
     loader_pin_memory: bool = False,
     max_samples: Optional[int] = None,
     ffcv: bool = False,
@@ -255,8 +255,8 @@ def get_dataset_and_dataloader(
     :param rank: The rank of the current process
     :param local_rank: The local rank of the current process
     :param loader_num_workers: The number of workers to use for the data loader
-    :param active_loop_url: URL of the activeloop dataset
-    :param active_loop: Use activeloop to load the data
+    :param activeloop_url: URL of the activeloop dataset
+    :param activeloop: Use activeloop to load the data
     :param loader_pin_memory: Whether to pin memory for the data loader
     :param max_samples: The maximum number of samples to use
     :param ffcv: Whether to use ffcv dataset and data loaders
@@ -302,8 +302,8 @@ def get_dataset_and_dataloader(
             device=device,
         )
 
-    elif active_loop:
-        data = deeplake.load(active_loop_url)
+    elif activeloop:
+        data = deeplake.load(activeloop_url)
         data_loader = data.pytorch(num_workers=loader_num_workers, shuffle=True, batch_size=batch_size, decode_method={'images': 'pil'})
 
     else:
