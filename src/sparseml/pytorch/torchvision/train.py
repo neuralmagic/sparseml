@@ -920,19 +920,7 @@ def _deprecate_old_arguments(f):
         "examples:`imagenet`, `cifar10`, etc..."
     ),
 )
-@click.option(
-    "--activeloop",
-    type=bool,
-    default=None,
-    help="Whether to use activeloop",
-)
-@click.option(
-    "--activeloop-url",
-    "--activeloop_url",
-    type=str,
-    default=None,
-    help="Link to activeloop hub dataset",
-)
+
 @click.option(
     "--device",
     default="cuda",
