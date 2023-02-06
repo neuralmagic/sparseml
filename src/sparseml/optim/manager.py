@@ -561,7 +561,7 @@ class BaseManager(BaseObject):
             else False
         )
 
-    def phase(self, epoch: float) -> str:
+    def phase(self, epoch: float) -> Optional[str]:
         """
         Computes the phase that the modifiers are in.
 
@@ -572,12 +572,14 @@ class BaseManager(BaseObject):
             manager,
             checkpoint_manager
         ).phase()
-        checkpoint_name = "best_{phase}.pt"
+        if phase is not None:
+            checkpoint_name = "best_{phase}.pt"
         ```
 
         :return: One of the following strings based on the pruning and quantization
             modifiers that this Manager contains.
 
+            0. None - if either pruning or quantization is currently in progress
             1. "dense" - if no pruning or quantization
             2. "dense_quantized" - if only quantization
             3. "pruned" - if only pruning
@@ -589,15 +591,24 @@ class BaseManager(BaseObject):
 
         if len(pruners) == 0:
             pruned = False
+            pruning_in_progress = False
         else:
+            pruning_start = min(mod.start_epoch for mod in pruners)
             pruning_end = max(mod.end_epoch for mod in pruners)
+            pruning_in_progress = pruning_start <= epoch <= pruning_end
             pruned = epoch > pruning_end
 
         if len(quantizers) == 0:
             quantized = False
+            quantization_in_progress = False
         else:
-            quant_start = max(mod.start_epoch for mod in quantizers)
-            quantized = epoch > quant_start
+            first_quant_epoch = min(mod.start_epoch for mod in quantizers)
+            last_quant_epoch = max(mod.start_epoch for mod in quantizers)
+            quantization_in_progress = first_quant_epoch <= epoch <= last_quant_epoch
+            quantized = epoch > last_quant_epoch
+
+        if pruning_in_progress or quantization_in_progress:
+            return None
 
         if not pruned and not quantized:
             return "dense"
@@ -606,7 +617,7 @@ class BaseManager(BaseObject):
         elif pruned and not quantized:
             return "pruned"
         else:
-            if pruning_end < quant_start:
+            if pruning_end < last_quant_epoch:
                 return "pruned_quantized"
             else:
                 return "quantized_pruned"
