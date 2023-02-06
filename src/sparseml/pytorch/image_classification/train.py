@@ -247,7 +247,7 @@ METADATA_ARGS = [
     "a dataset in `sparseml.pytorch.datasets`",
 )
 @click.option(
-    "--dataset-path",
+    # "--dataset-path",
     "--dataset_path",
     type=click.Path(dir_okay=True, file_okay=False),
     callback=cli_helpers.create_dir_callback,
