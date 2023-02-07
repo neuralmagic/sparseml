@@ -339,9 +339,10 @@ def main(args):
     else:
         torch.backends.cudnn.benchmark = True
 
-    train_dir = os.path.join(args.dataset_path, "train")
-    val_dir = os.path.join(args.dataset_path, "val")
-    dataset, dataset_test, train_sampler, test_sampler = load_data(
+    if args.dataset-path is not None:
+        train_dir = os.path.join(args.dataset_path, "train")
+        val_dir = os.path.join(args.dataset_path, "val")
+        dataset, dataset_test, train_sampler, test_sampler = load_data(
         train_dir, val_dir, args
     )
 
