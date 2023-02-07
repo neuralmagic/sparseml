@@ -887,9 +887,6 @@ def _deprecate_old_arguments(f):
     )
 )
 @click.option("--recipe", default=None, type=str, help="Path to recipe")
-@click.option("--deeplake_train_url", default=None, type=str, help="deeplake train dataset url")
-@click.option("--deeplake_test_url", default=None, type=str, help="deeplake test dataset url")
-@click.option("--use_deeplake", default=None, type=bool, help="Whether to use deeplake datasets")
 @click.option(
     "--recipe-args",
     default=None,
@@ -1187,6 +1184,9 @@ def _deprecate_old_arguments(f):
             "Note: Will be read from the checkpoint if not specified"
     ),
 )
+@click.option("--deeplake_train_url", default=None, type=str, help="deeplake train dataset url")
+@click.option("--deeplake_test_url", default=None, type=str, help="deeplake test dataset url")
+@click.option("--use_deeplake", default=None, type=bool, help="Whether to use deeplake datasets")
 @click.pass_context
 def cli(ctx, **kwargs):
     """
