@@ -345,26 +345,24 @@ def main(args):
         dataset, dataset_test, train_sampler, test_sampler = load_data(
             train_dir, val_dir, args
         )
+        num_classes = len(dataset.classes)
+        collate_fn = None
 
-    collate_fn = None
-    # num_classes = len(dataset.classes)
-    num_classes = 2
-    mixup_transforms = []
-    if args.mixup_alpha > 0.0:
-        mixup_transforms.append(
-            transforms.RandomMixup(num_classes, p=1.0, alpha=args.mixup_alpha)
-        )
-    if args.cutmix_alpha > 0.0:
-        mixup_transforms.append(
-            transforms.RandomCutmix(num_classes, p=1.0, alpha=args.cutmix_alpha)
-        )
-    if mixup_transforms:
-        mixupcutmix = torchvision.transforms.RandomChoice(mixup_transforms)
+        mixup_transforms = []
+        if args.mixup_alpha > 0.0:
+            mixup_transforms.append(
+                transforms.RandomMixup(num_classes, p=1.0, alpha=args.mixup_alpha)
+            )
+        if args.cutmix_alpha > 0.0:
+            mixup_transforms.append(
+                transforms.RandomCutmix(num_classes, p=1.0, alpha=args.cutmix_alpha)
+            )
+        if mixup_transforms:
+            mixupcutmix = torchvision.transforms.RandomChoice(mixup_transforms)
 
-        def collate_fn(batch):
-            return mixupcutmix(*default_collate(batch))
+            def collate_fn(batch):
+                return mixupcutmix(*default_collate(batch))
 
-    if args.dataset_path is not None:
         data_loader = torch.utils.data.DataLoader(
             dataset,
             batch_size=args.batch_size,
@@ -396,6 +394,7 @@ def main(args):
             batch_size=args.batch_size,
             decode_method={"images": "pil"},
         )
+        num_classes = len(ds_train.labels.info.class_names)
 
     _LOGGER.info("Creating model")
     local_rank = args.rank if args.distributed else None
