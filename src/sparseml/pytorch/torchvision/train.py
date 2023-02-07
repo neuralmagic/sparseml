@@ -397,6 +397,7 @@ def main(args):
             shuffle=True,
             transform={"images": tform, "labels": None},
             batch_size=args.batch_size,
+            decode_method={"images": "pil"},
         )
         data_loader_test = ds_test.pytorch(
             tensors=["images", "labels"],
@@ -404,6 +405,7 @@ def main(args):
             num_workers=args.workers,
             batch_size=args.batch_size,
             transform={"images": tform, "labels": None},
+            decode_method={"images": "pil"},
         )
         num_classes = len(ds_train.labels.info.class_names)
 
