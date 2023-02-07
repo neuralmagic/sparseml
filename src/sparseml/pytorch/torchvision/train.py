@@ -56,18 +56,18 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def train_one_epoch(
-        model: torch.nn.Module,
-        criterion: torch.nn.Module,
-        optimizer: torch.optim.Optimizer,
-        data_loader: DataLoader,
-        data_loader_test: DataLoader,
-        device: torch.device,
-        epoch: int,
-        args,
-        log_metrics_fn: Callable[[str, utils.MetricLogger, int, int], None],
-        manager=None,
-        model_ema=None,
-        scaler=None,
+    model: torch.nn.Module,
+    criterion: torch.nn.Module,
+    optimizer: torch.optim.Optimizer,
+    data_loader: DataLoader,
+    data_loader_test: DataLoader,
+    device: torch.device,
+    epoch: int,
+    args,
+    log_metrics_fn: Callable[[str, utils.MetricLogger, int, int], None],
+    manager=None,
+    model_ema=None,
+    scaler=None,
 ) -> utils.MetricLogger:
     accum_steps = args.gradient_accum_steps
 
@@ -89,7 +89,7 @@ def train_one_epoch(
 
     header = f"Epoch: [{epoch}]"
     for (image, target) in metric_logger.log_every(
-            data_loader, args.logging_steps * accum_steps, header
+        data_loader, args.logging_steps * accum_steps, header
     ):
         start_time = time.time()
         image, target = image.to(device), target.to(device)
@@ -166,12 +166,12 @@ def train_one_epoch(
 
 
 def evaluate(
-        model,
-        criterion,
-        data_loader,
-        device,
-        print_freq=100,
-        log_suffix="",
+    model,
+    criterion,
+    data_loader,
+    device,
+    print_freq=100,
+    log_suffix="",
 ) -> utils.MetricLogger:
     model.eval()
     metric_logger = utils.MetricLogger(_LOGGER, delimiter="  ")
@@ -205,9 +205,9 @@ def evaluate(
 
     num_processed_samples = utils.reduce_across_processes(num_processed_samples)
     if (
-            hasattr(data_loader.dataset, "__len__")
-            and len(data_loader.dataset) != num_processed_samples
-            and torch.distributed.get_rank() == 0
+        hasattr(data_loader.dataset, "__len__")
+        and len(data_loader.dataset) != num_processed_samples
+        and torch.distributed.get_rank() == 0
     ):
         # See FIXME above
         warnings.warn(
@@ -339,12 +339,12 @@ def main(args):
     else:
         torch.backends.cudnn.benchmark = True
 
-    if args.dataset-path is not None:
+    if args.dataset - path is not None:
         train_dir = os.path.join(args.dataset_path, "train")
         val_dir = os.path.join(args.dataset_path, "val")
         dataset, dataset_test, train_sampler, test_sampler = load_data(
-        train_dir, val_dir, args
-    )
+            train_dir, val_dir, args
+        )
 
     collate_fn = None
     num_classes = len(dataset.classes)
@@ -362,7 +362,8 @@ def main(args):
 
         def collate_fn(batch):
             return mixupcutmix(*default_collate(batch))
-    if args.dataset-path is not None:
+
+    if args.dataset - path is not None:
         data_loader = torch.utils.data.DataLoader(
             dataset,
             batch_size=args.batch_size,
@@ -383,10 +384,17 @@ def main(args):
         ds_train = deeplake.load(args.deeplake_train_url)
         ds_test = deeplake.load(args.deeplake_test_url)
         # Since torchvision transforms expect PIL images, we use the 'pil' decode_method for the 'images' tensor. This is much faster than running ToPILImage inside the transform
-        data_loader = ds_train.pytorch(num_workers=args.workers, shuffle=True, batch_size=args.batch_size,
-                                       decode_method={'images': 'pil'})
-        data_loader_test = ds_test.pytorch(num_workers=args.workers, batch_size=args.batch_size,
-                                           decode_method={'images': 'pil'})
+        data_loader = ds_train.pytorch(
+            num_workers=args.workers,
+            shuffle=True,
+            batch_size=args.batch_size,
+            decode_method={"images": "pil"},
+        )
+        data_loader_test = ds_test.pytorch(
+            num_workers=args.workers,
+            batch_size=args.batch_size,
+            decode_method={"images": "pil"},
+        )
 
     _LOGGER.info("Creating model")
     local_rank = args.rank if args.distributed else None
@@ -740,13 +748,13 @@ def main(args):
 
 
 def _create_model(
-        arch_key: Optional[str] = None,
-        local_rank=None,
-        pretrained: Optional[bool] = False,
-        checkpoint_path: Optional[str] = None,
-        pretrained_dataset: Optional[str] = None,
-        device=None,
-        num_classes=None,
+    arch_key: Optional[str] = None,
+    local_rank=None,
+    pretrained: Optional[bool] = False,
+    checkpoint_path: Optional[str] = None,
+    pretrained_dataset: Optional[str] = None,
+    device=None,
+    num_classes=None,
 ):
     if not arch_key or arch_key in ModelRegistry.available_keys():
         with torch_distributed_zero_first(local_rank):
@@ -842,7 +850,7 @@ def _load_checkpoint(path):
 
 
 def _save_checkpoints(
-        epoch, output_dir, file_names, checkpoint, train_metrics, eval_metrics
+    epoch, output_dir, file_names, checkpoint, train_metrics, eval_metrics
 ):
     metrics = "\n".join(
         [
@@ -856,7 +864,7 @@ def _save_checkpoints(
         utils.save_on_master(checkpoint, os.path.join(output_dir, fname))
         if utils.is_main_process():
             with open(
-                    os.path.join(output_dir, fname.replace(".pth", ".txt")), "w"
+                os.path.join(output_dir, fname.replace(".pth", ".txt")), "w"
             ) as fp:
                 fp.write(metrics)
 
@@ -900,9 +908,9 @@ def _deprecate_old_arguments(f):
     default=None,
     type=str,
     help=(
-            "The architecture key for image classification model; "
-            "example: `resnet50`, `mobilenet`. "
-            "Note: Will be read from the checkpoint if not specified"
+        "The architecture key for image classification model; "
+        "example: `resnet50`, `mobilenet`. "
+        "Note: Will be read from the checkpoint if not specified"
     ),
 )
 @click.option(
@@ -910,12 +918,12 @@ def _deprecate_old_arguments(f):
     default="True",
     type=str,
     help=(
-            "The type of pretrained weights to use, "
-            "loads default pretrained weights for "
-            "the model if not specified or set to `True`. "
-            "Otherwise, should be set to the desired weights "
-            "type: [base, optim, optim-perf]. To not load any weights set"
-            " to one of [none, false]"
+        "The type of pretrained weights to use, "
+        "loads default pretrained weights for "
+        "the model if not specified or set to `True`. "
+        "Otherwise, should be set to the desired weights "
+        "type: [base, optim, optim-perf]. To not load any weights set"
+        " to one of [none, false]"
     ),
 )
 @click.option(
@@ -923,9 +931,9 @@ def _deprecate_old_arguments(f):
     default=None,
     type=str,
     help=(
-            "The dataset to load pretrained weights for if pretrained is "
-            "set. Load the default dataset for the architecture if set to None. "
-            "examples:`imagenet`, `cifar10`, etc..."
+        "The dataset to load pretrained weights for if pretrained is "
+        "set. Load the default dataset for the architecture if set to None. "
+        "examples:`imagenet`, `cifar10`, etc..."
     ),
 )
 @click.option(
@@ -1035,12 +1043,12 @@ def _deprecate_old_arguments(f):
     default=None,
     type=str,
     help=(
-            "A path to a previous checkpoint to load the state from "
-            "and resume the state for. If provided, pretrained will "
-            "be ignored. If using a SparseZoo recipe, can also "
-            "provide 'zoo' to load the base weights associated with "
-            "that recipe. Additionally, can also provide a SparseZoo model stub "
-            "to load model weights from SparseZoo"
+        "A path to a previous checkpoint to load the state from "
+        "and resume the state for. If provided, pretrained will "
+        "be ignored. If using a SparseZoo recipe, can also "
+        "provide 'zoo' to load the base weights associated with "
+        "that recipe. Additionally, can also provide a SparseZoo model stub "
+        "to load model weights from SparseZoo"
     ),
 )
 @click.option("--start-epoch", default=0, type=int, metavar="N", help="start epoch")
@@ -1049,7 +1057,7 @@ def _deprecate_old_arguments(f):
     is_flag=True,
     default=False,
     help="Cache the datasets for quicker initialization. "
-         "It also serializes the transforms",
+    "It also serializes the transforms",
 )
 @click.option("--sync-bn", is_flag=True, default=False, help="Use sync batch norm")
 @click.option("--test-only", is_flag=True, default=False, help="Only test the model")
@@ -1155,24 +1163,24 @@ def _deprecate_old_arguments(f):
     default=1,
     type=int,
     help="Save the best validation result after the given "
-         "epoch completes until the end of training",
+    "epoch completes until the end of training",
 )
 @click.option(
     "--distill-teacher",
     default=None,
     type=str,
     help="Teacher model for distillation (a trained image classification model)"
-         " can be set to 'self' for self-distillation and 'disable' to switch-off"
-         " distillation, additionally can also take in a SparseZoo stub",
+    " can be set to 'self' for self-distillation and 'disable' to switch-off"
+    " distillation, additionally can also take in a SparseZoo stub",
 )
 @click.option(
     "--pretrained-teacher-dataset",
     default=None,
     type=str,
     help=(
-            "The dataset to load pretrained weights for the teacher"
-            "Load the default dataset for the architecture if set to None. "
-            "examples:`imagenet`, `cifar10`, etc..."
+        "The dataset to load pretrained weights for the teacher"
+        "Load the default dataset for the architecture if set to None. "
+        "examples:`imagenet`, `cifar10`, etc..."
     ),
 )
 @click.option(
@@ -1180,14 +1188,20 @@ def _deprecate_old_arguments(f):
     default=None,
     type=str,
     help=(
-            "The architecture key for teacher image classification model; "
-            "example: `resnet50`, `mobilenet`. "
-            "Note: Will be read from the checkpoint if not specified"
+        "The architecture key for teacher image classification model; "
+        "example: `resnet50`, `mobilenet`. "
+        "Note: Will be read from the checkpoint if not specified"
     ),
 )
-@click.option("--deeplake_train_url", default=None, type=str, help="deeplake train dataset url")
-@click.option("--deeplake_test_url", default=None, type=str, help="deeplake test dataset url")
-@click.option("--use_deeplake", default=None, type=bool, help="Whether to use deeplake datasets")
+@click.option(
+    "--deeplake_train_url", default=None, type=str, help="deeplake train dataset url"
+)
+@click.option(
+    "--deeplake_test_url", default=None, type=str, help="deeplake test dataset url"
+)
+@click.option(
+    "--use_deeplake", default=None, type=bool, help="Whether to use deeplake datasets"
+)
 @click.pass_context
 def cli(ctx, **kwargs):
     """

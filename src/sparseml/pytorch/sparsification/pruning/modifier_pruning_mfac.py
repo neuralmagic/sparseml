@@ -54,7 +54,7 @@ __all__ = [
 ]
 
 _LOGGER = logging.getLogger(__name__)
-BYTES_IN_MIB = 1024 ** 2
+BYTES_IN_MIB = 1024**2
 
 
 @PyTorchModifierYAML()
@@ -590,7 +590,7 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
         diag = h_inv.diag().to(non_pruned_weights.device)
 
         # compute global scores for non-pruned weights
-        global_scores = (non_pruned_weights ** 2) / (2.0 * diag)
+        global_scores = (non_pruned_weights**2) / (2.0 * diag)
         parameter_scores = []
         minimum_score = global_scores.min().item() - 1
 
@@ -1576,4 +1576,4 @@ def _block_memory_size(block_size: int, element_size: int) -> int:
     """
     # B^2 * e_size - memory required for H^-1
     # 4*B * e_size - memory required for additional comp vectors
-    return (block_size ** 2 + 4 * block_size) * element_size
+    return (block_size**2 + 4 * block_size) * element_size
