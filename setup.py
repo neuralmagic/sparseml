@@ -67,6 +67,7 @@ _pytorch_deps = [
     "tensorboardX>=1.0",
     "gputils",
 ]
+_pytorch_all_deps = _pytorch_deps + ["torchvision>=0.3.0,<=0.13", "torchaudio<=0.12"]
 _pytorch_vision_deps = _pytorch_deps + ["torchvision>=0.3.0,<=0.13"]
 _tensorflow_v1_deps = ["tensorflow<2.0.0", "tensorboard<2.0.0", "tf2onnx>=1.0.0,<1.6"]
 _tensorflow_v1_gpu_deps = [
@@ -123,6 +124,7 @@ def _setup_extras() -> Dict:
         "deepsparse-ent": _deepsparse_ent_deps,
         "onnxruntime": _onnxruntime_deps,
         "torch": _pytorch_deps,
+        "torch_all": _pytorch_all_deps,
         "torchvision": _pytorch_vision_deps,
         "tf_v1": _tensorflow_v1_deps,
         "tf_v1_gpu": _tensorflow_v1_gpu_deps,
