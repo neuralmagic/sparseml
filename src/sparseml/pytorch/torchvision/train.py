@@ -28,6 +28,7 @@ from typing import Callable, Optional
 import torch
 import torch.utils.data
 import torchvision
+from packaging import version
 from torch import nn
 from torch.utils.data.dataloader import DataLoader, default_collate
 from torchvision.transforms.functional import InterpolationMode
@@ -408,7 +409,15 @@ def main(args):
     if args.distributed and args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
 
-    criterion = nn.CrossEntropyLoss(label_smoothing=args.label_smoothing)
+    if version.parse(torch.__version__) >= version.parse("1.10"):
+        criterion = nn.CrossEntropyLoss(label_smoothing=args.label_smoothing)
+    elif args.label_smoothing > 0:
+        raise ValueError(
+            f"`label_smoothing` not supported for {torch.__version__}, "
+            f"try upgrading to at-least 1.10"
+        )
+    else:
+        criterion = nn.CrossEntropyLoss()
 
     custom_keys_weight_decay = []
     if args.bias_weight_decay is not None:
@@ -524,7 +533,14 @@ def main(args):
     # load params
     if checkpoint is not None:
         if "optimizer" in checkpoint and not args.test_only:
-            optimizer.load_state_dict(checkpoint["optimizer"])
+            if args.resume:
+                optimizer.load_state_dict(checkpoint["optimizer"])
+            else:
+                warnings.warn(
+                    "Optimizer state dict not loaded from checkpoint. Unless run is "
+                    "resumed with the --resume arg, the optimizer will start from a "
+                    "fresh state"
+                )
         if model_ema and "model_ema" in checkpoint:
             model_ema.load_state_dict(checkpoint["model_ema"])
         if scaler and "scaler" in checkpoint:
