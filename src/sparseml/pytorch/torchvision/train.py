@@ -399,7 +399,12 @@ def main(args):
             shuffle=True,
             transform={
                 "images": tform,
-                "labels": torchvision.transforms.Lambda(torch.squeeze),
+                "labels": torchvision.transforms.Compose(
+                    [
+                        torchvision.transforms.ToTensor(),
+                        torchvision.transforms.Lambda(torch.squeeze),
+                    ]
+                ),
             },
             batch_size=args.batch_size,
             decode_method={"images": "pil"},
@@ -411,7 +416,12 @@ def main(args):
             batch_size=args.batch_size,
             transform={
                 "images": tform,
-                "labels": torchvision.transforms.Lambda(torch.squeeze),
+                "labels": torchvision.transforms.Compose(
+                    [
+                        torchvision.transforms.ToTensor(),
+                        torchvision.transforms.Lambda(torch.squeeze),
+                    ]
+                ),
             },
             decode_method={"images": "pil"},
         )
