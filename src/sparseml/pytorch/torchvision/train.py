@@ -363,7 +363,7 @@ def main(args):
         def collate_fn(batch):
             return mixupcutmix(*default_collate(batch))
 
-    if args.dataset - path is not None:
+    if args.dataset-path is not None:
         data_loader = torch.utils.data.DataLoader(
             dataset,
             batch_size=args.batch_size,
