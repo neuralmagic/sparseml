@@ -205,7 +205,13 @@ class RecipeManagerTrainerInterface:
                     f"epoch {epoch}"
                 )
             else:
-                self.manager.apply(self.model)
+                self.manager.apply(
+                    self.model,
+                    grad_sampler={
+                        "data_loader_builder": self._data_loader_builder,
+                        "loss_function": self._loss_function,
+                    },
+                )
                 self.manager_applied = True
                 _LOGGER.info(f"Applied one shot recipe {self.recipe} to the manager")
                 return True

@@ -37,7 +37,7 @@ jobs:
           ((git diff --name-only origin/main HEAD | grep -E "[src|tests]/sparseml|setup.py|.github")
           || (echo $GITHUB_REF | grep -E "refs/heads/[release/|main]"))
           && echo "::set-output name=output::1" || echo "::set-output name=output::0"
-      - name: "Checking if sparseml.deepsaprse was changed"
+      - name: "Checking if sparseml.deepsparse was changed"
         id: deepsparse-check
         run: >
           ((git diff --name-only origin/main HEAD | grep -E "[src|tests]/sparseml/deepsparse|setup.py|.github")
