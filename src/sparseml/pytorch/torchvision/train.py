@@ -397,7 +397,10 @@ def main(args):
             return_index=False,
             num_workers=args.workers,
             shuffle=True,
-            transform={"images": tform, "labels": None},
+            transform={
+                "images": tform,
+                "labels": torchvision.transforms.Lambda(torch.squeeze),
+            },
             batch_size=args.batch_size,
             decode_method={"images": "pil"},
         )
@@ -406,7 +409,10 @@ def main(args):
             return_index=False,
             num_workers=args.workers,
             batch_size=args.batch_size,
-            transform={"images": tform, "labels": None},
+            transform={
+                "images": tform,
+                "labels": torchvision.transforms.Lambda(torch.squeeze),
+            },
             decode_method={"images": "pil"},
         )
         num_classes = len(ds_train.labels.info.class_names)
