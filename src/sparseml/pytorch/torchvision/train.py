@@ -387,8 +387,10 @@ def main(args):
                 deeplake_transforms.Normalize([0.5], [0.5]),
             ]
         )
-        ds_train = deeplake.load(args.deeplake_train_url)
-        ds_test = deeplake.load(args.deeplake_test_url)
+        ds_train = deeplake.load(
+            path=args.deeplake_train_url, token=args.deeplake_token
+        )
+        ds_test = deeplake.load(path=args.deeplake_test_url, token=args.deeplake_token)
         # Since torchvision transforms expect PIL images, we use the 'pil' decode_method for the 'images' tensor. This is much faster than running ToPILImage inside the transform
         data_loader = ds_train.pytorch(
             tensors=["images", "labels"],
@@ -1203,6 +1205,7 @@ def _deprecate_old_arguments(f):
     help=(
         "The architecture key for teacher image classification model; "
         "example: `resnet50`, `mobilenet`. "
+        "example: `resnet50`, `mobilenet`. "
         "Note: Will be read from the checkpoint if not specified"
     ),
 )
@@ -1214,6 +1217,9 @@ def _deprecate_old_arguments(f):
 )
 @click.option(
     "--use_deeplake", default=None, type=bool, help="Whether to use deeplake datasets"
+)
+@click.option(
+    "--deeplake_token", default=None, type=str, help="Token to authenticate download"
 )
 @click.pass_context
 def cli(ctx, **kwargs):
