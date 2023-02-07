@@ -401,7 +401,7 @@ def main(args):
                 "images": tform,
                 "labels": torchvision.transforms.Compose(
                     [
-                        torchvision.transforms.ToTensor(),
+                        torchvision.transforms.Lambda(torch.tensor),
                         torchvision.transforms.Lambda(torch.squeeze),
                     ]
                 ),
@@ -418,7 +418,7 @@ def main(args):
                 "images": tform,
                 "labels": torchvision.transforms.Compose(
                     [
-                        torchvision.transforms.ToTensor(),
+                        torchvision.transforms.Lambda(torch.tensor),
                         torchvision.transforms.Lambda(torch.squeeze),
                     ]
                 ),
