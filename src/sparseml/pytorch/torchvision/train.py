@@ -339,7 +339,7 @@ def main(args):
     else:
         torch.backends.cudnn.benchmark = True
 
-    if args.dataset - path is not None:
+    if args.dataset_path is not None:
         train_dir = os.path.join(args.dataset_path, "train")
         val_dir = os.path.join(args.dataset_path, "val")
         dataset, dataset_test, train_sampler, test_sampler = load_data(
@@ -363,7 +363,7 @@ def main(args):
         def collate_fn(batch):
             return mixupcutmix(*default_collate(batch))
 
-    if args.dataset-path is not None:
+    if args.dataset_path is not None:
         data_loader = torch.utils.data.DataLoader(
             dataset,
             batch_size=args.batch_size,
@@ -902,7 +902,7 @@ def _deprecate_old_arguments(f):
     type=str,
     help="json parsable dict of recipe variable names to values to overwrite with",
 )
-@click.option("--dataset-path", default=None, type=str, help="dataset path")
+@click.option("--dataset_path", default=None, type=str, help="dataset path")
 @click.option(
     "--arch-key",
     default=None,
