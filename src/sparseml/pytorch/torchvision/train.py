@@ -32,7 +32,7 @@ from packaging import version
 from torch import nn
 from torch.utils.data.dataloader import DataLoader, default_collate
 from torchvision.transforms.functional import InterpolationMode
-from torchvision import transforms
+from torchvision import transforms as deeplake_transforms
 import click
 from sparseml.optim.helpers import load_recipe_yaml_str
 from sparseml.pytorch.models.registry import ModelRegistry
@@ -380,11 +380,11 @@ def main(args):
             pin_memory=True,
         )
     elif args.use_deeplake:
-        tform = transforms.Compose(
+        tform = deeplake_transforms.Compose(
             [
-                transforms.RandomRotation(20),  # Image augmentation
-                transforms.ToTensor(),  # Must convert to pytorch tensor for subsequent operations to run
-                transforms.Normalize([0.5], [0.5]),
+                deeplake_transforms.RandomRotation(20),  # Image augmentation
+                deeplake_transforms.ToTensor(),  # Must convert to pytorch tensor for subsequent operations to run
+                deeplake_transforms.Normalize([0.5], [0.5]),
             ]
         )
         ds_train = deeplake.load(args.deeplake_train_url)
