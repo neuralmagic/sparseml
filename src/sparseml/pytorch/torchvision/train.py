@@ -379,8 +379,8 @@ def main(args):
             pin_memory=True,
         )
     elif args.use_deeplake:
-        ds_train = deeplake.load(args.datalake_train_url)
-        ds_test = deeplake.load(args.datalake_trest_url)
+        ds_train = deeplake.load(args.deeplake_train_url)
+        ds_test = deeplake.load(args.deeplake_test_url)
         # Since torchvision transforms expect PIL images, we use the 'pil' decode_method for the 'images' tensor. This is much faster than running ToPILImage inside the transform
         data_loader = ds_train.pytorch(num_workers=args.workers, shuffle=True, batch_size=args.batch_size,
                                        decode_method={'images': 'pil'})
