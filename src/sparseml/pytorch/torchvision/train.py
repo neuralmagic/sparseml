@@ -384,11 +384,15 @@ def main(args):
         ds_test = deeplake.load(args.deeplake_test_url)
         # Since torchvision transforms expect PIL images, we use the 'pil' decode_method for the 'images' tensor. This is much faster than running ToPILImage inside the transform
         data_loader = ds_train.pytorch(
+            tensors=["images", "labels"],
+            return_index=False,
             num_workers=args.workers,
             shuffle=True,
             batch_size=args.batch_size,
         )
         data_loader_test = ds_test.pytorch(
+            tensors=["images", "labels"],
+            return_index=False,
             num_workers=args.workers,
             batch_size=args.batch_size,
         )
