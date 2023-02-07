@@ -347,7 +347,8 @@ def main(args):
         )
 
     collate_fn = None
-    num_classes = len(dataset.classes)
+    # num_classes = len(dataset.classes)
+    num_classes = 2
     mixup_transforms = []
     if args.mixup_alpha > 0.0:
         mixup_transforms.append(
