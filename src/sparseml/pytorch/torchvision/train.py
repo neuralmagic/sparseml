@@ -32,7 +32,7 @@ from packaging import version
 from torch import nn
 from torch.utils.data.dataloader import DataLoader, default_collate
 from torchvision.transforms.functional import InterpolationMode
-
+from torchvision import transforms
 import click
 from sparseml.optim.helpers import load_recipe_yaml_str
 from sparseml.pytorch.models.registry import ModelRegistry
@@ -380,6 +380,13 @@ def main(args):
             pin_memory=True,
         )
     elif args.use_deeplake:
+        tform = transforms.Compose(
+            [
+                transforms.RandomRotation(20),  # Image augmentation
+                transforms.ToTensor(),  # Must convert to pytorch tensor for subsequent operations to run
+                transforms.Normalize([0.5], [0.5]),
+            ]
+        )
         ds_train = deeplake.load(args.deeplake_train_url)
         ds_test = deeplake.load(args.deeplake_test_url)
         # Since torchvision transforms expect PIL images, we use the 'pil' decode_method for the 'images' tensor. This is much faster than running ToPILImage inside the transform
@@ -388,6 +395,7 @@ def main(args):
             return_index=False,
             num_workers=args.workers,
             shuffle=True,
+            transform={"images": tform, "labels": None},
             batch_size=args.batch_size,
         )
         data_loader_test = ds_test.pytorch(
@@ -395,6 +403,7 @@ def main(args):
             return_index=False,
             num_workers=args.workers,
             batch_size=args.batch_size,
+            transform={"images": tform, "labels": None},
         )
         num_classes = len(ds_train.labels.info.class_names)
 
