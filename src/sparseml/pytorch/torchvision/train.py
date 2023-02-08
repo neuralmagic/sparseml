@@ -383,6 +383,7 @@ def main(args):
         tform = deeplake_transforms.Compose(
             [
                 deeplake_transforms.RandomRotation(20),  # Image augmentation
+                deeplake_transforms.Resize(args.deeplake_image_size),
                 deeplake_transforms.ToTensor(),  # Must convert to pytorch tensor for subsequent operations to run
                 deeplake_transforms.Normalize([0.5], [0.5]),
             ]
@@ -1248,6 +1249,12 @@ def _deprecate_old_arguments(f):
     default="labels",
     type=str,
     help="Label column of the dataset",
+)
+@click.option(
+    "--deeplake_image_size",
+    default=224,
+    type=int,
+    help="Resize image",
 )
 @click.pass_context
 def cli(ctx, **kwargs):
