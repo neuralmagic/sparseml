@@ -11,8 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import deeplake
+from torchvision import transforms as deeplake_transforms
 import json
+import torch
 import logging
 from pathlib import Path
 from typing import Dict, Optional, Union
@@ -53,13 +55,6 @@ _LOGGER = logging.getLogger(__name__)
     required=True,
     help="A path to a previous checkpoint to load the state from "
     "and resume the state for exporting, or a zoo stub.",
-)
-@click.option(
-    "--dataset-path",
-    type=click.Path(dir_okay=True, file_okay=False, exists=True, path_type=Path),
-    required=True,
-    help="The root dir path where the dataset is stored or should "
-    "be downloaded to if available",
 )
 @click.option(
     "--one-shot",
@@ -121,10 +116,27 @@ _LOGGER = logging.getLogger(__name__)
     type=int,
     help="the central crop size used for validation",
 )
+@click.option(
+    "--deeplake_data_url", default=None, type=str, help="deeplake train dataset url"
+)
+@click.option(
+    "--deeplake_image_column",
+    default="images",
+    type=str,
+    help="Image column of the dataset",
+)
+@click.option(
+    "--deeplake_label_column",
+    default="labels",
+    type=str,
+    help="Label column of the dataset",
+)
+@click.option(
+    "--deeplake_token", default=None, type=str, help="Token to authenticate download"
+)
 def main(
     arch_key: str,
     checkpoint_path: str,
-    dataset_path: Path,
     one_shot: Optional[str],
     labels_to_class_mapping: Optional[Path],
     num_samples: int,
@@ -134,6 +146,11 @@ def main(
     interpolation: str,
     img_resize_size: int,
     img_crop_size: int,
+    deeplake_image_size: Optional[int],
+    deeplake_data_url: Optional[str],
+    deeplake_token: Optional[str],
+    deeplake_label_column: Optional[str],
+    deeplake_image_column: Optional[str],
 ):
     """
     SparseML torchvision integration for exporting image classification models to
@@ -142,16 +159,33 @@ def main(
 
     save_dir.mkdir(parents=True, exist_ok=True)
 
-    dataset = torchvision.datasets.ImageFolder(
-        dataset_path / "val",
-        presets.ClassificationPresetEval(
-            crop_size=img_crop_size,
-            resize_size=img_resize_size,
-            interpolation=InterpolationMode(interpolation),
-        ),
+    tform = deeplake_transforms.Compose(
+        [
+            deeplake_transforms.RandomRotation(20),  # Image augmentation
+            deeplake_transforms.Resize(deeplake_image_size),
+            deeplake_transforms.ToTensor(),  # Must convert to pytorch tensor for subsequent operations to run
+            deeplake_transforms.Normalize([0.5], [0.5]),
+        ]
     )
-    num_classes = len(dataset.classes)
-    data_loader = DataLoader(dataset=dataset, batch_size=1, shuffle=False)
+    ds_train = deeplake.load(path=deeplake_data_url, token=deeplake_token)
+    num_classes = len(ds_train[deeplake_label_column].info.class_names)
+    data_loader = ds_train.pytorch(
+        tensors=[deeplake_image_column, deeplake_label_column],
+        return_index=False,
+        num_workers=0,
+        shuffle=False,
+        transform={
+            deeplake_image_column: tform,
+            deeplake_label_column: torchvision.transforms.Compose(
+                [
+                    torchvision.transforms.Lambda(torch.tensor),
+                    torchvision.transforms.Lambda(torch.squeeze),
+                ]
+            ),
+        },
+        batch_size=1,
+        decode_method={deeplake_image_column: "pil"},
+    )
 
     if arch_key in ModelRegistry.available_keys():
         model = ModelRegistry.create(key=arch_key, num_classes=num_classes)
