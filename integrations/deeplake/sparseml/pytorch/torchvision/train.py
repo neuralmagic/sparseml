@@ -382,9 +382,10 @@ def main(args):
     elif args.use_deeplake:
         mean = (0.485, 0.456, 0.406)
         std = (0.229, 0.224, 0.225)
+        interpolation = InterpolationMode.BILINEAR
         tform = deeplake_transforms.Compose(
             [
-                deeplake_transforms.Resize(args.train_crop_size),
+                deeplake_transforms.RandomResizedCrop(args.train_crop_size, interpolation=interpolation),
                 deeplake_transforms.ToTensor(),  # Must convert to pytorch tensor for subsequent operations to run
                 deeplake_transforms.Normalize(mean=mean, std=std),
             ]
