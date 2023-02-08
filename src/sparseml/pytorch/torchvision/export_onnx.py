@@ -120,6 +120,9 @@ _LOGGER = logging.getLogger(__name__)
     "--deeplake_data_url", default=None, type=str, help="deeplake train dataset url"
 )
 @click.option(
+    "--deeplake_image_size", default=None, type=int, help="Image size"
+)
+@click.option(
     "--deeplake_image_column",
     default="images",
     type=str,
