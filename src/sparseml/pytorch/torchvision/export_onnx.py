@@ -120,9 +120,6 @@ _LOGGER = logging.getLogger(__name__)
     "--deeplake_data_url", default=None, type=str, help="deeplake train dataset url"
 )
 @click.option(
-    "--deeplake_image_size", default=None, type=int, help="Image size"
-)
-@click.option(
     "--deeplake_image_column",
     default="images",
     type=str,
@@ -161,13 +158,17 @@ def main(
     """
 
     save_dir.mkdir(parents=True, exist_ok=True)
+    mean = (0.485, 0.456, 0.406)
+    std = (0.229, 0.224, 0.225)
+    resize_size = 256
+    interpolation = InterpolationMode.BILINEAR
 
     tform = deeplake_transforms.Compose(
         [
             deeplake_transforms.RandomRotation(20),  # Image augmentation
-            deeplake_transforms.Resize(deeplake_image_size),
+            deeplake_transforms.Resize(resize_size, interpolation=interpolation),
             deeplake_transforms.ToTensor(),  # Must convert to pytorch tensor for subsequent operations to run
-            deeplake_transforms.Normalize([0.5], [0.5]),
+            deeplake_transforms.Normalize(mean=mean, std=std),
         ]
     )
     ds_train = deeplake.load(path=deeplake_data_url, token=deeplake_token)
