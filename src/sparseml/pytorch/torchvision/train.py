@@ -425,7 +425,7 @@ def main(args):
             },
             decode_method={args.deeplake_image_column: "pil"},
         )
-        num_classes = len(ds_train.args.deeplake_label_column.info.class_names)
+        num_classes = len(ds_train[args.deeplake_label_column].info.class_names)
 
     _LOGGER.info("Creating model")
     local_rank = args.rank if args.distributed else None
