@@ -393,7 +393,7 @@ def main(args):
         ds_test = deeplake.load(path=args.deeplake_test_url, token=args.deeplake_token)
         # Since torchvision transforms expect PIL images, we use the 'pil' decode_method for the 'images' tensor. This is much faster than running ToPILImage inside the transform
         data_loader = ds_train.pytorch(
-            tensors=["images", "labels"],
+            tensors=[args.deeplake_image_column, args.deeplake_label_column],
             return_index=False,
             num_workers=args.workers,
             shuffle=True,
@@ -1236,6 +1236,12 @@ def _deprecate_old_arguments(f):
 )
 @click.option(
     "--deeplake_token", default=None, type=str, help="Token to authenticate download"
+)
+@click.option(
+    "--deeplake_image_column", default="images", type=str, help="Token to authenticate download"
+)
+@click.option(
+    "--deeplake_label_column", default="labels", type=str, help="Token to authenticate download"
 )
 @click.pass_context
 def cli(ctx, **kwargs):
