@@ -146,7 +146,6 @@ def main(
     interpolation: str,
     img_resize_size: int,
     img_crop_size: int,
-    deeplake_image_size: Optional[int],
     deeplake_data_url: Optional[str],
     deeplake_token: Optional[str],
     deeplake_label_column: Optional[str],
