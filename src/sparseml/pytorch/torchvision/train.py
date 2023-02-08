@@ -1238,10 +1238,10 @@ def _deprecate_old_arguments(f):
     "--deeplake_token", default=None, type=str, help="Token to authenticate download"
 )
 @click.option(
-    "--deeplake_image_column", default="images", type=str, help="Token to authenticate download"
+    "--deeplake_image_column", default=None, type=str, help="Image column of the dataset"
 )
 @click.option(
-    "--deeplake_label_column", default="labels", type=str, help="Token to authenticate download"
+    "--deeplake_label_column", default=None, type=str, help="Label column of the dataset"
 )
 @click.pass_context
 def cli(ctx, **kwargs):
