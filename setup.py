@@ -106,6 +106,8 @@ _dev_deps = [
     "tensorboardX>=1.0",
 ]
 
+_ultralytics_deps = ["ultralytics==8.0.11"]
+
 
 def _setup_packages() -> List:
     return find_packages(
@@ -133,6 +135,7 @@ def _setup_extras() -> Dict:
         "tf_v1": _tensorflow_v1_deps,
         "tf_v1_gpu": _tensorflow_v1_gpu_deps,
         "tf_keras": _keras_deps,
+        "ultralytics": _ultralytics_deps,
     }
 
 
@@ -225,6 +228,10 @@ def _setup_entry_points() -> Dict:
             "sparseml.openpifpaf.train=sparseml.openpifpaf.train:main",
             "sparseml.openpifpaf.export_onnx=sparseml.openpifpaf.export:main",
         ]
+    )
+
+    entry_points["console_scripts"].extend(
+        ["sparseml.ultralytics.train=sparseml.pytorch.yolov8.train:main"]
     )
 
     return entry_points
