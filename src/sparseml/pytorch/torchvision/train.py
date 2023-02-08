@@ -28,11 +28,13 @@ from typing import Callable, Optional
 import torch
 import torch.utils.data
 import torchvision
+from packaging import version
 from torch import nn
 from torch.utils.data.dataloader import DataLoader, default_collate
 from torchvision.transforms.functional import InterpolationMode
 
 import click
+from sparseml.optim.helpers import load_recipe_yaml_str
 from sparseml.pytorch.models.registry import ModelRegistry
 from sparseml.pytorch.optim import ScheduledModifierManager
 from sparseml.pytorch.torchvision import presets, transforms, utils
@@ -139,11 +141,17 @@ def train_one_epoch(
                 # Reset ema buffer to keep copying weights during warmup period
                 model_ema.n_averaged.fill_(0)
 
-        acc1, acc5 = utils.accuracy(output, target, topk=(1, 5))
+        acc1, num_correct_1, acc5, num_correct_5 = utils.accuracy(
+            output, target, topk=(1, 5)
+        )
         batch_size = image.shape[0]
         metric_logger.update(loss=loss.item(), lr=optimizer.param_groups[0]["lr"])
-        metric_logger.meters["acc1"].update(acc1.item(), n=batch_size)
-        metric_logger.meters["acc5"].update(acc5.item(), n=batch_size)
+        metric_logger.meters["acc1"].update(
+            acc1.item(), n=batch_size, total=num_correct_1
+        )
+        metric_logger.meters["acc5"].update(
+            acc5.item(), n=batch_size, total=num_correct_5
+        )
         metric_logger.meters["imgs_per_sec"].update(
             batch_size / (time.time() - start_time)
         )
@@ -181,13 +189,19 @@ def evaluate(
                 output = output[0]
             loss = criterion(output, target)
 
-            acc1, acc5 = utils.accuracy(output, target, topk=(1, 5))
+            acc1, num_correct_1, acc5, num_correct_5 = utils.accuracy(
+                output, target, topk=(1, 5)
+            )
             # FIXME need to take into account that the datasets
             # could have been padded in distributed setup
             batch_size = image.shape[0]
             metric_logger.update(loss=loss.item())
-            metric_logger.meters["acc1"].update(acc1.item(), n=batch_size)
-            metric_logger.meters["acc5"].update(acc5.item(), n=batch_size)
+            metric_logger.meters["acc1"].update(
+                acc1.item(), n=batch_size, total=num_correct_1
+            )
+            metric_logger.meters["acc5"].update(
+                acc5.item(), n=batch_size, total=num_correct_5
+            )
             num_processed_samples += batch_size
     # gather the stats from all processes
 
@@ -384,7 +398,7 @@ def main(args):
 
     if args.distill_teacher not in ["self", "disable", None]:
         _LOGGER.info("Instantiating teacher")
-        distill_teacher = _create_model(
+        distill_teacher, _ = _create_model(
             arch_key=args.teacher_arch_key,
             local_rank=local_rank,
             pretrained=True,  # teacher is always pretrained
@@ -399,7 +413,15 @@ def main(args):
     if args.distributed and args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
 
-    criterion = nn.CrossEntropyLoss(label_smoothing=args.label_smoothing)
+    if version.parse(torch.__version__) >= version.parse("1.10"):
+        criterion = nn.CrossEntropyLoss(label_smoothing=args.label_smoothing)
+    elif args.label_smoothing > 0:
+        raise ValueError(
+            f"`label_smoothing` not supported for {torch.__version__}, "
+            f"try upgrading to at-least 1.10"
+        )
+    else:
+        criterion = nn.CrossEntropyLoss()
 
     custom_keys_weight_decay = []
     if args.bias_weight_decay is not None:
@@ -515,7 +537,14 @@ def main(args):
     # load params
     if checkpoint is not None:
         if "optimizer" in checkpoint and not args.test_only:
-            optimizer.load_state_dict(checkpoint["optimizer"])
+            if args.resume:
+                optimizer.load_state_dict(checkpoint["optimizer"])
+            else:
+                warnings.warn(
+                    "Optimizer state dict not loaded from checkpoint. Unless run is "
+                    "resumed with the --resume arg, the optimizer will start from a "
+                    "fresh state"
+                )
         if model_ema and "model_ema" in checkpoint:
             model_ema.load_state_dict(checkpoint["model_ema"])
         if scaler and "scaler" in checkpoint:
@@ -562,7 +591,14 @@ def main(args):
         logger = LoggerManager(log_python=False)
 
     if args.recipe is not None:
-        logger.save(args.recipe)
+        base_path = os.path.join(args.output_dir, "original_recipe.yaml")
+        with open(base_path, "w") as fp:
+            fp.write(load_recipe_yaml_str(args.recipe))
+        logger.save(base_path)
+
+        full_path = os.path.join(args.output_dir, "final_recipe.yaml")
+        manager.save(full_path)
+        logger.save(full_path)
 
     steps_per_epoch = len(data_loader) / args.gradient_accum_steps
 
