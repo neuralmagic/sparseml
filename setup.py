@@ -52,7 +52,7 @@ _deps = [
     "toposort>=1.0",
     "GPUtil>=1.4.0",
     "protobuf>=3.12.2,<=3.20.1",
-    "click~=8.0.0",
+    "click>=7.1.2,!=8.0.0",  # latest version < 8.0 + blocked version with reported bug
 ]
 _nm_deps = [f"{'sparsezoo' if is_release else 'sparsezoo-nightly'}~={version_nm_deps}"]
 _deepsparse_deps = [
@@ -63,9 +63,12 @@ _deepsparse_ent_deps = [f"deepsparse-ent~={version_nm_deps}"]
 _onnxruntime_deps = ["onnxruntime>=1.0.0"]
 _pytorch_deps = [
     "torch>=1.1.0,<=1.12.1",
-    "tensorboard>=1.0,<2.9",
-    "tensorboardX>=1.0",
     "gputils",
+]
+_pytorch_all_deps = _pytorch_deps + [
+    "torchvision>=0.3.0,<=0.13",
+    "torchaudio<=0.12",
+    "torchvision>=0.3.0,<=0.13",
 ]
 _pytorch_vision_deps = _pytorch_deps + ["torchvision>=0.3.0,<=0.13"]
 _tensorflow_v1_deps = ["tensorflow<2.0.0", "tensorboard<2.0.0", "tf2onnx>=1.0.0,<1.6"]
@@ -99,7 +102,11 @@ _dev_deps = [
     "flaky~=3.7.0",
     "sphinx-rtd-theme",
     "docutils<0.17",
+    "tensorboard>=1.0,<2.9",
+    "tensorboardX>=1.0",
 ]
+
+_ultralytics_deps = ["ultralytics==8.0.11"]
 
 
 def _setup_packages() -> List:
@@ -123,10 +130,12 @@ def _setup_extras() -> Dict:
         "deepsparse-ent": _deepsparse_ent_deps,
         "onnxruntime": _onnxruntime_deps,
         "torch": _pytorch_deps,
+        "torch_all": _pytorch_all_deps,
         "torchvision": _pytorch_vision_deps,
         "tf_v1": _tensorflow_v1_deps,
         "tf_v1_gpu": _tensorflow_v1_gpu_deps,
         "tf_keras": _keras_deps,
+        "ultralytics": _ultralytics_deps,
     }
 
 
@@ -219,6 +228,10 @@ def _setup_entry_points() -> Dict:
             "sparseml.openpifpaf.train=sparseml.openpifpaf.train:main",
             "sparseml.openpifpaf.export_onnx=sparseml.openpifpaf.export:main",
         ]
+    )
+
+    entry_points["console_scripts"].extend(
+        ["sparseml.ultralytics.train=sparseml.pytorch.yolov8.train:main"]
     )
 
     return entry_points
