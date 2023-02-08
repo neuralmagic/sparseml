@@ -398,8 +398,8 @@ def main(args):
             num_workers=args.workers,
             shuffle=True,
             transform={
-                "images": tform,
-                "labels": torchvision.transforms.Compose(
+                args.deeplake_image_column: tform,
+                args.deeplake_label_column: torchvision.transforms.Compose(
                     [
                         torchvision.transforms.Lambda(torch.tensor),
                         torchvision.transforms.Lambda(torch.squeeze),
@@ -407,25 +407,25 @@ def main(args):
                 ),
             },
             batch_size=args.batch_size,
-            decode_method={"images": "pil"},
+            decode_method={args.deeplake_image_column: "pil"},
         )
         data_loader_test = ds_test.pytorch(
-            tensors=["images", "labels"],
+            tensors=[args.deeplake_image_column, args.deeplake_label_column],
             return_index=False,
             num_workers=args.workers,
             batch_size=args.batch_size,
             transform={
-                "images": tform,
-                "labels": torchvision.transforms.Compose(
+                args.deeplake_image_column: tform,
+                args.deeplake_label_column: torchvision.transforms.Compose(
                     [
                         torchvision.transforms.Lambda(torch.tensor),
                         torchvision.transforms.Lambda(torch.squeeze),
                     ]
                 ),
             },
-            decode_method={"images": "pil"},
+            decode_method={args.deeplake_image_column: "pil"},
         )
-        num_classes = len(ds_train.labels.info.class_names)
+        num_classes = len(ds_train.args.deeplake_label_column.info.class_names)
 
     _LOGGER.info("Creating model")
     local_rank = args.rank if args.distributed else None
@@ -1238,10 +1238,16 @@ def _deprecate_old_arguments(f):
     "--deeplake_token", default=None, type=str, help="Token to authenticate download"
 )
 @click.option(
-    "--deeplake_image_column", default=None, type=str, help="Image column of the dataset"
+    "--deeplake_image_column",
+    default="images",
+    type=str,
+    help="Image column of the dataset",
 )
 @click.option(
-    "--deeplake_label_column", default=None, type=str, help="Label column of the dataset"
+    "--deeplake_label_column",
+    default="labels",
+    type=str,
+    help="Label column of the dataset",
 )
 @click.pass_context
 def cli(ctx, **kwargs):
