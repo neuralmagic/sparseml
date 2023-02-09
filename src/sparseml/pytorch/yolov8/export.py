@@ -49,7 +49,7 @@ from sparseml.pytorch.yolov8.trainers import SparseYOLO
 )
 @click.option(
     "--one-shot",
-    default="funny_yaml.yaml",
+    default=None,
     type=str,
     help="Path to recipe to apply in a zero shot fashion. " "Defaults to None.",
 )
