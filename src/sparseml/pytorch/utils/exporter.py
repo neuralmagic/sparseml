@@ -251,7 +251,7 @@ class ModuleExporter(object):
         self,
         labels_to_class_mapping: Optional[Union[str, Dict[int, str]]] = None,
         onnx_model_name: Optional[str] = None,
-    ):
+    ) -> str:
         """
         Create a deployment folder inside the `self._output_dir` directory.
 
@@ -259,6 +259,8 @@ class ModuleExporter(object):
             from integer labels to string class names.
             Can be either a string (path to the .json serialized dictionary)
             or a dictionary. Default is None
+        :param onnx_model_name: name of the onnx model file. Default is None
+        :return path to the deployment folder
         """
         deployment_folder_dir = os.path.join(self._output_dir, "deployment")
 
@@ -286,6 +288,7 @@ class ModuleExporter(object):
                 labels_to_class_mapping=labels_to_class_mapping,
                 config_file_path=config_file_path,
             )
+        return deployment_folder_dir
 
     def export_pytorch(
         self,

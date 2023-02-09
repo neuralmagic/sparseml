@@ -489,12 +489,36 @@ class SparseYOLO(YOLO):
         Args:
             **kwargs : Any other args accepted by the exporter.
         """
+        if kwargs["imgsz"] is None:
+            # if imgsz is not specified, remove it from the kwargs
+            # so that it can be overridden by the model's default
+            del kwargs["imgsz"]
+
         args = self.overrides.copy()
         args.update(kwargs)
-        if args["imgsz"] is None:
-            args.update(
-                dict(imgsz=self.model.args["imgsz"])
-            )  # use trained imgsz unless custom value is passed
+
+        source = self.ckpt.get("source")
+        recipe = self.ckpt.get("recipe")
+        one_shot = args.get("one_shot")
+
+        if source == "sparseml":
+            LOGGER.info(
+                "Source: 'sparseml' detected; "
+                "Exporting model from SparseML checkpoint..."
+            )
+        else:
+            LOGGER.info(
+                "Source: 'sparseml' not detected; "
+                "Exporting model from vanilla checkpoint..."
+            )
+
+        if one_shot:
+            LOGGER.info(
+                f"Detected one-shot recipe: {one_shot}. "
+                "Applying it to the model to be exported..."
+            )
+            manager = ScheduledModifierManager.from_yaml(one_shot)
+            manager.apply(self.model)
 
         name = args.get("name", f"{type(self.model).__name__}.onnx")
         save_dir = args["save_dir"]
@@ -505,8 +529,8 @@ class SparseYOLO(YOLO):
             opset=args["opset"],
             name=name,
             input_names=["images"],
-            # WARNING: DNN inference with torch>=1.12
-            # may require do_constant_folding=False
+            convert_qat=True,
+            # ultralytics-specific argument
             do_constant_folding=True,
             output_names=["output0", "output1"]
             if isinstance(self.model, SegmentationModel)
@@ -514,7 +538,14 @@ class SparseYOLO(YOLO):
         )
 
         onnx.checker.check_model(os.path.join(save_dir, name))
-        exporter.create_deployment_folder(onnx_model_name=name)
+        deployment_folder = exporter.create_deployment_folder(onnx_model_name=name)
+        if recipe:
+            LOGGER.info(
+                f"Recipe checkpoint detected, saving the recipe to the deployment directory {deployment_folder}"
+            )
+            ScheduledModifierManager.from_yaml(recipe).save(
+                os.path.join(deployment_folder, "recipe.yaml")
+            )
 
     def train(self, **kwargs):
         # NOTE: Copied from base class and removed post-training validation

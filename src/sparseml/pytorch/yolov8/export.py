@@ -44,7 +44,14 @@ from sparseml.pytorch.yolov8.trainers import SparseYOLO
     default=None,
     type=int,
     help="Size of input images. If not specified, "
-    "the models' default input sized will be inferred.",
+    "the default input sized will be inferred from"
+    "the model.",
+)
+@click.option(
+    "--one-shot",
+    default="funny_yaml.yaml",
+    type=str,
+    help="Path to recipe to apply in a zero shot fashion. " "Defaults to None.",
 )
 def main(**kwargs):
     model = SparseYOLO(kwargs["model"])
