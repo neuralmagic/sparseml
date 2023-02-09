@@ -23,14 +23,16 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+import onnx
 import torch
 
 from sparseml.pytorch.optim.manager import ScheduledModifierManager
+from sparseml.pytorch.utils import ModuleExporter
 from sparseml.pytorch.utils.helpers import download_framework_model_by_recipe_type
 from sparseml.pytorch.utils.logger import LoggerManager, PythonLogger, WANDBLogger
 from sparsezoo import Model
 from ultralytics import __version__
-from ultralytics.nn.tasks import attempt_load_one_weight
+from ultralytics.nn.tasks import SegmentationModel, attempt_load_one_weight
 from ultralytics.yolo.engine.model import YOLO
 from ultralytics.yolo.engine.trainer import BaseTrainer
 from ultralytics.yolo.utils import LOGGER, yaml_load
@@ -40,7 +42,11 @@ from ultralytics.yolo.utils.dist import (
     ddp_cleanup,
     find_free_network_port,
 )
-from ultralytics.yolo.utils.torch_utils import ModelEMA, de_parallel
+from ultralytics.yolo.utils.torch_utils import (
+    ModelEMA,
+    de_parallel,
+    smart_inference_mode,
+)
 from ultralytics.yolo.v8.classify.train import ClassificationTrainer
 from ultralytics.yolo.v8.detect.train import DetectionTrainer
 from ultralytics.yolo.v8.segment.train import SegmentationTrainer
@@ -475,6 +481,40 @@ class SparseYOLO(YOLO):
             assert self.model.yaml == self.ckpt["model_yaml"]
         else:
             return super()._load(weights)
+
+    @smart_inference_mode()
+    def export(self, **kwargs):
+        """
+        Export model.
+        Args:
+            **kwargs : Any other args accepted by the exporter.
+        """
+        args = self.overrides.copy()
+        args.update(kwargs)
+        if args["imgsz"] is None:
+            args.update(
+                dict(imgsz=self.model.args["imgsz"])
+            )  # use trained imgsz unless custom value is passed
+
+        name = args.get("name", f"{type(self.model).__name__}.onnx")
+        save_dir = args["save_dir"]
+
+        exporter = ModuleExporter(self.model, save_dir)
+        exporter.export_onnx(
+            sample_batch=torch.randn(1, 3, args["imgsz"], args["imgsz"]),
+            opset=args["opset"],
+            name=name,
+            input_names=["images"],
+            # WARNING: DNN inference with torch>=1.12
+            # may require do_constant_folding=False
+            do_constant_folding=True,
+            output_names=["output0", "output1"]
+            if isinstance(self.model, SegmentationModel)
+            else ["output0"],
+        )
+
+        onnx.checker.check_model(os.path.join(save_dir, name))
+        exporter.create_deployment_folder(onnx_model_name=name)
 
     def train(self, **kwargs):
         # NOTE: Copied from base class and removed post-training validation

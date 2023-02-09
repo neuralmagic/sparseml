@@ -248,7 +248,9 @@ class ModuleExporter(object):
             script_model(path, self._module)
 
     def create_deployment_folder(
-        self, labels_to_class_mapping: Optional[Union[str, Dict[int, str]]] = None
+        self,
+        labels_to_class_mapping: Optional[Union[str, Dict[int, str]]] = None,
+        onnx_model_name: Optional[str] = None,
     ):
         """
         Create a deployment folder inside the `self._output_dir` directory.
@@ -266,11 +268,12 @@ class ModuleExporter(object):
         _LOGGER.info(f"Created deployment folder at {deployment_folder_dir}")
 
         # copy over model onnx
-        expected_onnx_model_dir = os.path.join(self._output_dir, MODEL_ONNX_NAME)
-        deployment_onnx_model_dir = os.path.join(deployment_folder_dir, MODEL_ONNX_NAME)
+        onnx_model_name = onnx_model_name or MODEL_ONNX_NAME
+        expected_onnx_model_dir = os.path.join(self._output_dir, onnx_model_name)
+        deployment_onnx_model_dir = os.path.join(deployment_folder_dir, onnx_model_name)
         _copy_file(src=expected_onnx_model_dir, target=deployment_onnx_model_dir)
         _LOGGER.info(
-            f"Saved {MODEL_ONNX_NAME} in the deployment "
+            f"Saved {onnx_model_name} in the deployment "
             f"folder at {deployment_onnx_model_dir}"
         )
 

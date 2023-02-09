@@ -60,7 +60,7 @@ vid_stride: 1 # video frame-rate stride
 line_thickness: 3 # bounding box thickness (pixels)
 visualize: False # visualize results
 augment: False # apply data augmentation to images
-agnostic_nms: False # class-agnostic NMS
+agnostic_nms: False # class-agnostiic NMS
 retina_masks: False # use retina masks for object detection
 
 # Export settings ------------------------------------------------------------------------------------------------------
