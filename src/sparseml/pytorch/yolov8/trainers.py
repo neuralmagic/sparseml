@@ -541,7 +541,8 @@ class SparseYOLO(YOLO):
         deployment_folder = exporter.create_deployment_folder(onnx_model_name=name)
         if recipe:
             LOGGER.info(
-                f"Recipe checkpoint detected, saving the recipe to the deployment directory {deployment_folder}"
+                "Recipe checkpoint detected, saving the "
+                f"recipe to the deployment directory {deployment_folder}"
             )
             ScheduledModifierManager.from_yaml(recipe).save(
                 os.path.join(deployment_folder, "recipe.yaml")
