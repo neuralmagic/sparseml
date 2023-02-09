@@ -91,7 +91,9 @@ def load_model(
     if recipe:
         from sparseml.pytorch.optim import ScheduledModifierManager
 
-        epoch = model_dict.get("epoch", float("inf"))
+        epoch = model_dict.get("epoch", -1)
+        if epoch == -1:
+            epoch = float("inf")
         checkpoint_manager = ScheduledModifierManager.from_yaml(recipe)
         checkpoint_manager.apply_structure(module=model, epoch=epoch)
 

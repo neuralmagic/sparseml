@@ -387,9 +387,8 @@ def main(
 
     if recipe is not None:
         ScheduledModifierManager.from_yaml(recipe).apply_structure(model)
-
-    if checkpoint_path:
-        load_model(checkpoint_path, model, strict=True)
+        if checkpoint_path:
+            load_model(checkpoint_path, model, strict=True)
 
     if one_shot is not None:
         ScheduledModifierManager.from_yaml(file_path=one_shot).apply(module=model)

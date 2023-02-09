@@ -18,6 +18,7 @@ Classes for tracking and scoring model parameters to generate pruning scores
 
 
 from abc import ABC, abstractmethod
+from datetime import timedelta
 from typing import Any, Dict, List, Optional
 
 import torch.distributed as dist
@@ -112,7 +113,7 @@ class PruningParamsGradScorer(PruningParamsScorer, ABC):
 
         # create group to broadcast gradients across processes
         self._dist_group = (
-            dist.new_group(backend=dist_backend)
+            dist.new_group(backend=dist_backend, timeout=timedelta(seconds=7200))
             if self._is_ddp and dist_backend is not None
             else None
         )

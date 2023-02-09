@@ -233,7 +233,11 @@ def add_output_activation_observers(module: Module):
     """
     # adapted from torch/ao/quantization/quantize.py::_add_observer_
     # source: https://github.com/pytorch/pytorch/blob/v1.13.0/torch/ao/quantization/quantize.py#L135  # noqa: E501
-    device = next(module.parameters()).device
+    try:
+        device = next(module.parameters()).device
+    except StopIteration:
+        # default to CPU if module has no parameters
+        device = "cpu"
 
     def _needs_observer(target_module: Module):
         # combines logic from multiple places of original implementation which

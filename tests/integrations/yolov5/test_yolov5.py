@@ -14,6 +14,7 @@
 
 import os
 import tempfile
+from pathlib import Path
 
 import onnx
 import pandas as pd
@@ -36,7 +37,7 @@ from tests.integrations.yolov5.args import (
     Yolov5ExportArgs,
     Yolov5TrainArgs,
 )
-from yolov5.export import load_checkpoint
+from yolov5.models.common import DetectMultiBackend
 
 
 METRIC_TO_COLUMN = {"map0.5": "metrics/mAP_0.5"}
@@ -65,6 +66,7 @@ class Yolov5Manager(BaseIntegrationManager):
         super().capture_pre_run_state()
         self._check_deploy_requirements(deepsparse_error)
 
+        self.save_dir = None
         # Setup temporary directory for train run
         if "train" in self.configs:
             train_args = self.configs["train"].run_args
@@ -76,33 +78,29 @@ class Yolov5Manager(BaseIntegrationManager):
                 train_args.project,
                 "exp",
                 "weights",
-                "checkpoint-one-shot.pt" if train_args.one_shot else "last.pt",
+                "last.pt",
             )
 
         # Either grab output directory from train run or setup new temporary directory
         # for export
         if "export" in self.configs:
             export_args = self.configs["export"].run_args
-            if not self.save_dir:
-                self.save_dir = tempfile.TemporaryDirectory()
-                export_args.save_dir = self.save_dir.name
-            else:
+            if self.save_dir:
                 export_args.weights = self.expected_checkpoint_path
 
         if "deploy" in self.configs:
             deploy_args = self.configs["deploy"].run_args
-            if self.save_dir:
-                export_args = self.configs["export"].run_args
-                deploy_args.model_path = export_args.weights.replace(".pt", ".onnx")
+            export_args = self.configs["export"].run_args
+            deploy_args.model_path = _get_onnx_file_path(
+                export_args.weights, export_args.one_shot
+            )
 
         # Turn on "_" -> "-" conversion for CLI args
         for stage, config in self.configs.items():
             config.dashed_keywords = True
 
     def add_abridged_configs(self):
-        if "train" in self.command_types:
-            self.configs["train"].run_args.max_train_steps = 2
-            self.configs["train"].run_args.max_eval_steps = 2
+        pass  # max train and eval steps phased out
 
     def teardown(self):
         if "train" in self.command_types:
@@ -131,12 +129,8 @@ class TestYolov5(BaseIntegrationTester):
         assert os.path.isfile(model_file)
 
         # Test that model file loadable
-        _, extras = load_checkpoint(
-            type_="val", weights=model_file, device=torch.device("cpu")
-        )
-
-        # Test that training ran to completion
-        assert extras["ckpt"]["epoch"] == -1
+        model = DetectMultiBackend(model_file, device=torch.device("cpu"))
+        assert model.model.sparsified
 
     @skip_inactive_stage
     def test_train_metrics(self, integration_manager):
@@ -161,8 +155,8 @@ class TestYolov5(BaseIntegrationTester):
     def test_export_onnx_graph(self, integration_manager):
         # Test that onnx model is loadable and passes onnx checker
         manager = integration_manager
-        export_args = manager.configs["export"]
-        onnx_file = export_args.run_args.weights.replace(".pt", ".onnx")
+        export_args = manager.configs["export"].run_args
+        onnx_file = _get_onnx_file_path(export_args.weights, export_args.one_shot)
 
         assert os.path.isfile(onnx_file)
 
@@ -180,14 +174,12 @@ class TestYolov5(BaseIntegrationTester):
         if not target_model_path:
             pytest.skip("No target model provided")
 
-        export_model_path = os.path.join(
-            os.path.dirname(export_args.run_args.weights), "last.onnx"
+        export_model_path = _get_onnx_file_path(
+            export_args.run_args.weights, export_args.run_args.one_shot
         )
 
         # Downloads model if zoo stubs and additionally tests that it can be loaded
-        _, *_ = load_checkpoint(
-            type_="val", weights=target_model_path, device=torch.device("cpu")
-        )
+        _ = DetectMultiBackend(target_model_path, device=torch.device("cpu"))
 
         model_op_counts_test(export_model_path, target_model_path)
 
@@ -204,3 +196,31 @@ class TestYolov5(BaseIntegrationTester):
         manager = integration_manager
         args = manager.configs["deploy"]
         _ = Pipeline.create("yolo", model_path=args.run_args.model_path)
+
+
+def _get_onnx_file_path(weights, one_shot):
+    weights = Path(weights)
+
+    if str(weights).startswith("zoo:") or not len(weights.parents):
+        sub_dir = (
+            str(weights).split("zoo:")[1].replace("/", "_")
+            if str(weights).startswith("zoo:")
+            else weights
+        )
+
+        if one_shot:
+            one_shot_str = str(weights).split("zoo:")[1].replace("/", "_")
+            sub_dir = f"{sub_dir}_one_shot_{one_shot_str}"
+
+        save_dir = Path(os.getcwd()) / "DeepSparse_Deployment" / sub_dir
+        onnx_file_name = "model.onnx"
+
+    else:
+        save_dir = (
+            weights.parents[1] / "DeepSparse_Deployment"
+            if weights.parent.stem == "weights"
+            else weights.parent / "DeepSparse_Deployment"
+        )
+        onnx_file_name = weights.name
+
+    return str(save_dir / onnx_file_name)
