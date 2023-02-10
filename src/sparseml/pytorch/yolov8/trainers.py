@@ -268,7 +268,7 @@ class SparseTrainer(BaseTrainer):
             self.steps_per_epoch = len(self.train_loader)  # / self.accumulate
 
             self.scaler = self.manager.modify(
-                self.model,
+                self.model.module if hasattr(self.model, "module") else self.model,
                 self.optimizer,
                 steps_per_epoch=self.steps_per_epoch,
                 epoch=self.start_epoch,
