@@ -268,7 +268,7 @@ class SparseTrainer(BaseTrainer):
             self.steps_per_epoch = len(self.train_loader)  # / self.accumulate
 
             self.scaler = self.manager.modify(
-                self.model,
+                self.model.module if hasattr(self.model, "module") else self.model,
                 self.optimizer,
                 steps_per_epoch=self.steps_per_epoch,
                 epoch=self.start_epoch,
@@ -293,7 +293,8 @@ class SparseTrainer(BaseTrainer):
         if model_is_quantized:
             if self.scaler is not None:
                 self.scaler._enabled = False
-            self.ema.enabled = False
+            if self.ema is not None:
+                self.ema.enabled = False
 
         self.epoch_step = 0
 
