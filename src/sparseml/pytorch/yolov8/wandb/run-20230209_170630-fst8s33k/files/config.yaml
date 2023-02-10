@@ -1,0 +1,321 @@
+wandb_version: 1
+
+_wandb:
+  desc: null
+  value:
+    cli_version: 0.13.10
+    code_path: code/src/sparseml/pytorch/yolov8/train.py
+    framework: huggingface
+    huggingface_version: 4.23.1
+    is_jupyter_run: false
+    is_kaggle_kernel: false
+    python_version: 3.8.10
+    start_time: 1675962390.111017
+    t:
+      1:
+      - 1
+      - 11
+      - 41
+      - 49
+      - 50
+      - 55
+      - 67
+      3:
+      - 16
+      - 23
+      4: 3.8.10
+      5: 0.13.10
+      6: 4.23.1
+      8:
+      - 5
+agnostic_nms:
+  desc: null
+  value: false
+augment:
+  desc: null
+  value: false
+batch:
+  desc: null
+  value: 16
+box:
+  desc: null
+  value: 7.5
+cache:
+  desc: null
+  value: false
+cfg:
+  desc: null
+  value: null
+close_mosaic:
+  desc: null
+  value: 10
+cls:
+  desc: null
+  value: 0.5
+conf:
+  desc: null
+  value: null
+copy_paste:
+  desc: null
+  value: 0.0
+cos_lr:
+  desc: null
+  value: false
+data:
+  desc: null
+  value: coco128.yaml
+degrees:
+  desc: null
+  value: 0.0
+deterministic:
+  desc: null
+  value: true
+device:
+  desc: null
+  value: null
+dfl:
+  desc: null
+  value: 1.5
+dnn:
+  desc: null
+  value: false
+dropout:
+  desc: null
+  value: 0.0
+dynamic:
+  desc: null
+  value: false
+epochs:
+  desc: null
+  value: 100
+exist_ok:
+  desc: null
+  value: false
+fl_gamma:
+  desc: null
+  value: 0.0
+fliplr:
+  desc: null
+  value: 0.5
+flipud:
+  desc: null
+  value: 0.0
+format:
+  desc: null
+  value: torchscript
+half:
+  desc: null
+  value: false
+hide_conf:
+  desc: null
+  value: false
+hide_labels:
+  desc: null
+  value: false
+hsv_h:
+  desc: null
+  value: 0.015
+hsv_s:
+  desc: null
+  value: 0.7
+hsv_v:
+  desc: null
+  value: 0.4
+hydra:
+  desc: null
+  value: '{''output_subdir'': None, ''run'': {''dir'': ''.''}}'
+image_weights:
+  desc: null
+  value: false
+imgsz:
+  desc: null
+  value: 640
+int8:
+  desc: null
+  value: false
+iou:
+  desc: null
+  value: 0.7
+keras:
+  desc: null
+  value: false
+label_smoothing:
+  desc: null
+  value: 0.0
+line_thickness:
+  desc: null
+  value: 3
+lr0:
+  desc: null
+  value: 0.01
+lrf:
+  desc: null
+  value: 0.01
+manager:
+  desc: null
+  value: "version: 1.1.0\n\n__metadata__:\n\nmodifiers:\n    - !GMPruningModifier\n\
+    \        end_epoch: 10.0\n        final_sparsity: 0.1\n        global_sparsity:\
+    \ False\n        init_sparsity: 0.05\n        inter_func: cubic\n        leave_enabled:\
+    \ True\n        mask_type: unstructured\n        params: ['model.0.conv.weight',\
+    \ 'model.1.conv.weight']\n        start_epoch: 5.0\n        update_frequency:\
+    \ 1.0\n\n    - !EpochRangeModifier\n        end_epoch: 15.0\n        start_epoch:\
+    \ 0.0\n\n    - !QuantizationModifier\n        disable_quantization_observer_epoch:\
+    \ 13.0\n        end_epoch: -1.0\n        freeze_bn_stats_epoch: 12.0\n       \
+    \ ignore: ['Upsample', 'Concat', 'SiLU']\n        model_fuse_fn_kwargs: {}\n \
+    \       scheme: {'input_activations': {'num_bits': 8, 'symmetric': False, 'kwargs':\
+    \ {}}, 'weights': {'num_bits': 8, 'symmetric': True, 'kwargs': {}}, 'output_activations':\
+    \ 'null', 'target_hardware': 'null'}\n        scheme_overrides: {}\n        start_epoch:\
+    \ 11.0\n        strict: True\n"
+mask_ratio:
+  desc: null
+  value: 4
+max_det:
+  desc: null
+  value: 300
+mixup:
+  desc: null
+  value: 0.0
+mode:
+  desc: null
+  value: train
+model:
+  desc: null
+  value: yolov8n.yaml
+momentum:
+  desc: null
+  value: 0.937
+mosaic:
+  desc: null
+  value: 1.0
+name:
+  desc: null
+  value: null
+nbs:
+  desc: null
+  value: 64.0
+nms:
+  desc: null
+  value: false
+opset:
+  desc: null
+  value: 17
+optimize:
+  desc: null
+  value: false
+optimizer:
+  desc: null
+  value: SGD
+overlap_mask:
+  desc: null
+  value: true
+patience:
+  desc: null
+  value: 50
+perspective:
+  desc: null
+  value: 0.0
+plots:
+  desc: null
+  value: true
+pretrained:
+  desc: null
+  value: false
+project:
+  desc: null
+  value: null
+recipe:
+  desc: null
+  value: funny_yaml.yaml
+recipe_args:
+  desc: null
+  value: null
+rect:
+  desc: null
+  value: false
+resume:
+  desc: null
+  value: false
+retina_masks:
+  desc: null
+  value: false
+save:
+  desc: null
+  value: true
+save_conf:
+  desc: null
+  value: false
+save_crop:
+  desc: null
+  value: false
+save_dir:
+  desc: null
+  value: /home/ubuntu/damian/sparseml/runs/detect/train67
+save_hybrid:
+  desc: null
+  value: false
+save_json:
+  desc: null
+  value: false
+save_txt:
+  desc: null
+  value: false
+scale:
+  desc: null
+  value: 0.5
+seed:
+  desc: null
+  value: 0
+shear:
+  desc: null
+  value: 0.0
+show:
+  desc: null
+  value: false
+simplify:
+  desc: null
+  value: false
+single_cls:
+  desc: null
+  value: false
+source:
+  desc: null
+  value: null
+task:
+  desc: null
+  value: detect
+translate:
+  desc: null
+  value: 0.1
+v5loader:
+  desc: null
+  value: false
+val:
+  desc: null
+  value: true
+verbose:
+  desc: null
+  value: false
+vid_stride:
+  desc: null
+  value: 1
+visualize:
+  desc: null
+  value: false
+warmup_bias_lr:
+  desc: null
+  value: 0.1
+warmup_epochs:
+  desc: null
+  value: 3.0
+warmup_momentum:
+  desc: null
+  value: 0.8
+weight_decay:
+  desc: null
+  value: 0.0005
+workers:
+  desc: null
+  value: 8
+workspace:
+  desc: null
+  value: 4

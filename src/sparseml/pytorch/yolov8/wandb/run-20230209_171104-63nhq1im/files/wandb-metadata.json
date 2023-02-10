@@ -1,0 +1,287 @@
+{
+    "os": "Linux-5.4.0-125-generic-x86_64-with-glibc2.29",
+    "python": "3.8.10",
+    "heartbeatAt": "2023-02-09T17:11:04.830107",
+    "startedAt": "2023-02-09T17:11:04.260063",
+    "docker": null,
+    "cuda": null,
+    "args": [],
+    "state": "running",
+    "program": "/home/ubuntu/damian/sparseml/src/sparseml/pytorch/yolov8/train.py",
+    "codePath": "src/sparseml/pytorch/yolov8/train.py",
+    "git": {
+        "remote": "https://github.com/neuralmagic/sparseml",
+        "commit": "4468f8f083a4da4199207e6e81101dbb526db205"
+    },
+    "email": "damian@neuralmagic.com",
+    "root": "/home/ubuntu/damian/sparseml",
+    "host": "quad-mle-1",
+    "username": "ubuntu",
+    "executable": "/home/ubuntu/damian/sparseml/venv/bin/python",
+    "cpu_count": 23,
+    "cpu_count_logical": 46,
+    "cpu_freq": {
+        "current": 3800.035999999996,
+        "min": 0.0,
+        "max": 0.0
+    },
+    "cpu_freq_per_core": [
+        {
+            "current": 3800.036,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 3800.036,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 3800.036,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 3800.036,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 3800.036,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 3800.036,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 3800.036,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 3800.036,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 3800.036,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 3800.036,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 3800.036,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 3800.036,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 3800.036,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 3800.036,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 3800.036,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 3800.036,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 3800.036,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 3800.036,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 3800.036,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 3800.036,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 3800.036,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 3800.036,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 3800.036,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 3800.036,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 3800.036,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 3800.036,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 3800.036,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 3800.036,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 3800.036,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 3800.036,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 3800.036,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 3800.036,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 3800.036,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 3800.036,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 3800.036,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 3800.036,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 3800.036,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 3800.036,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 3800.036,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 3800.036,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 3800.036,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 3800.036,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 3800.036,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 3800.036,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 3800.036,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 3800.036,
+            "min": 0.0,
+            "max": 0.0
+        }
+    ],
+    "disk": {
+        "total": 123.08510971069336,
+        "used": 34.31889343261719
+    },
+    "gpu": "NVIDIA RTX A4000",
+    "gpu_count": 4,
+    "gpu_devices": [
+        {
+            "name": "NVIDIA RTX A4000",
+            "memory_total": 17171480576
+        },
+        {
+            "name": "NVIDIA RTX A4000",
+            "memory_total": 17171480576
+        },
+        {
+            "name": "NVIDIA RTX A4000",
+            "memory_total": 17171480576
+        },
+        {
+            "name": "NVIDIA RTX A4000",
+            "memory_total": 17171480576
+        }
+    ],
+    "memory": {
+        "total": 86.31913757324219
+    }
+}

@@ -55,3 +55,18 @@ for dense training:
 ```bash
 sparseml.ultralytics.train --recipe yolov8-pq.yaml
 ```
+
+## ONNX export
+
+To export the trained model to ONNX format, execute the appropriate
+CLI command and specify the path to the `.pt` model (`--model`):
+
+```bash
+sparseml.ultralytics.export --model /.../model.pt
+```
+
+To look up optional arguments for the `export` command, run:
+
+```bash
+sparseml.ultralytics.export -h
+```

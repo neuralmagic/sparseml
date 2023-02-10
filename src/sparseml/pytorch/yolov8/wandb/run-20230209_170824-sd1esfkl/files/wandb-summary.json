@@ -1,0 +1,1 @@
+{"_timestamp": 1675962522.0794976, "train/box_loss": 3.30773, "train/cls_loss": 5.70632, "train/dfl_loss": 4.14232, "_runtime": 17.4257915019989, "_step": 71, "lr/pg0": 0.0403894, "lr/pg1": 0.0033894, "lr/pg2": 0.0033894, "ParamPruning/model.0.conv.weight": 0.0972222238779068, "ParamPruning/model.1.conv.weight": 0.0967881977558136}
