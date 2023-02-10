@@ -83,7 +83,7 @@ _open_pif_paf_deps = ["openpifpaf==0.13.6"]
 
 _dev_deps = [
     "beautifulsoup4==4.9.3",
-    "black==21.5b2",
+    "black==22.12.0",
     "flake8==3.9.2",
     "isort==5.8.0",
     "m2r2~=0.2.7",
