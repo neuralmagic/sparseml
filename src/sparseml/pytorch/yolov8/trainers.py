@@ -293,7 +293,8 @@ class SparseTrainer(BaseTrainer):
         if model_is_quantized:
             if self.scaler is not None:
                 self.scaler._enabled = False
-            self.ema.enabled = False
+            if self.ema is not None:
+                self.ema.enabled = False
 
         self.epoch_step = 0
 
