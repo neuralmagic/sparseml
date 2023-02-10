@@ -44,6 +44,10 @@ try:
 except Exception as err:
     wandb = None
     wandb_err = err
+    raise ModuleNotFoundError(
+        "Error: Failed to import wandb. "
+        "Please install the wandb library in order to use it."
+    ) from wandb_err
 
 from sparseml.utils import ALL_TOKEN, create_dirs
 

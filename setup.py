@@ -53,7 +53,6 @@ _deps = [
     "GPUtil>=1.4.0",
     "protobuf>=3.12.2,<=3.20.1",
     "click~=8.0.0",
-    "wandb>=v0.13.10",
 ]
 _nm_deps = [f"{'sparsezoo' if is_release else 'sparsezoo-nightly'}~={version_nm_deps}"]
 _deepsparse_deps = [
