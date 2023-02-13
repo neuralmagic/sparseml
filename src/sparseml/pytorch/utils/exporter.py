@@ -259,7 +259,7 @@ class ModuleExporter(object):
             from integer labels to string class names.
             Can be either a string (path to the .json serialized dictionary)
             or a dictionary. Default is None
-        :param onnx_model_name: name of the onnx model file. Default is None
+        :param onnx_model_name: name of the onnx model file. Defaults to `model.onnx`
         :return path to the deployment folder
         """
         deployment_folder_dir = os.path.join(self._output_dir, "deployment")
