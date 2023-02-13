@@ -269,7 +269,7 @@ def compute_range(dtype: torch.dtype, bits: int):
         quant_max = (2 ** (bits - 1)) - 1
     elif dtype == torch.quint8:
         quant_min = 0
-        quant_max = (2 ** bits) - 1
+        quant_max = (2**bits) - 1
 
     return quant_min, quant_max, is_custom
 

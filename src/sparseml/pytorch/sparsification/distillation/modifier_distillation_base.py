@@ -51,7 +51,7 @@ def kl_logsoftmax(
             log_target=True,
             reduction="sum",
         )
-        * (temperature ** 2)
+        * (temperature**2)
         / number_items
     )
 
@@ -321,17 +321,12 @@ class BaseDistillationModifier(ScheduledUpdateModifier):
                 teacher_inputs, self._teacher, check_feat_lab_inp=False
             )
 
-        if type(student_outputs) != type(teacher_outputs):
-            raise ValueError(
-                f"Student output type of {type(student_outputs)} must match "
-                f"teacher output type of {type(teacher_outputs)}"
-            )
-
         distillation_loss = self.compute_distillation_loss(
             student_outputs=student_outputs,
             teacher_outputs=teacher_outputs,
             student_labels=student_labels,
             teacher_labels=teacher_labels,
+            optimizer=optimizer,
         )
 
         total_loss = self.compute_total_loss(loss, distillation_loss)

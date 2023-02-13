@@ -15,10 +15,13 @@
 """
 Modifier classes implementing the blockwise version of the Optimal Brain Surgeon
 pruning framework, optimized for small blocks. The algorithm is described in details
-in the Optimal BERT Surgeon paper https://arxiv.org/abs/2203.07259
+in the Optimal BERT Surgeon paper https://arxiv.org/abs/2203.07259.
+For more details check FAQ section at
+https://github.com/eldarkurtic/sparseml/tree/improve-obs-docs/research/optimal_BERT_surgeon_oBERT
 """
 import logging
 import math
+import os
 from typing import Any, Dict, List, Optional, Union
 
 import torch
@@ -34,7 +37,7 @@ from sparseml.pytorch.sparsification.pruning.modifier_pruning_base import (
     BaseGradualPruningModifier,
 )
 from sparseml.pytorch.sparsification.pruning.scorer import PruningParamsGradScorer
-from sparseml.pytorch.utils import GradSampler
+from sparseml.pytorch.utils import MEMORY_BOUNDED, GradSampler
 from sparseml.pytorch.utils.logger import BaseLogger
 from sparseml.utils import interpolate
 
@@ -140,7 +143,7 @@ class OBSPruningModifier(BaseGradualPruningModifier):
         mask_type: str = "unstructured",
         num_grads: int = 1024,
         damp: float = 1e-7,
-        fisher_block_size: int = 50,
+        fisher_block_size: int = 1,
         grad_sampler_kwargs: Optional[Dict[str, Any]] = None,
         num_recomputations: int = 1,
     ):
@@ -232,7 +235,6 @@ class OBSPruningModifier(BaseGradualPruningModifier):
         :param kwargs: optional kwargs to support specific arguments
             for individual modifiers.
         """
-        _LOGGER.info("Initializing OBSPruningModifier")
         if (
             "grad_sampler" not in kwargs
             or "data_loader_builder" not in kwargs["grad_sampler"]
@@ -243,15 +245,12 @@ class OBSPruningModifier(BaseGradualPruningModifier):
                 "must be provided to initialize GradSampler"
             )
 
-        super().initialize(module, epoch, loggers, **kwargs)
+        self._grad_sampler = GradSampler(
+            kwargs["grad_sampler"]["data_loader_builder"](self._grad_sampler_kwargs),
+            kwargs["grad_sampler"]["loss_function"],
+        )
 
-        if self._scorer._is_main_proc:  # grads collected only in the main proc
-            self._grad_sampler = GradSampler(
-                kwargs["grad_sampler"]["data_loader_builder"](
-                    self._grad_sampler_kwargs
-                ),
-                kwargs["grad_sampler"]["loss_function"],
-            )
+        super().initialize(module, epoch, loggers, **kwargs)
 
     def check_mask_update(
         self, module: Module, epoch: float, steps_per_epoch: int, **kwargs
@@ -259,44 +258,46 @@ class OBSPruningModifier(BaseGradualPruningModifier):
         if steps_per_epoch == 1 and not math.isinf(epoch):
             return  # not a one-shot run
 
-        _LOGGER.info("Running OBS Pruning")
         torch.cuda.empty_cache()
         if self._scorer._is_main_proc:
-            self._pre_step_completed = True
+            _LOGGER.info("Running OBS Pruning")
             self._scorer._enabled_grad_buffering = True
-            to_apply_sparsities = self.get_applied_sparsity_for_epoch(
-                epoch, steps_per_epoch
-            )
-            last_applied_sparsities = (
-                self._last_applied_sparsity
-                if isinstance(self._last_applied_sparsity, List)
-                else [self._last_applied_sparsity] * len(to_apply_sparsities)
-            )
 
-            for i in range(1, self._num_recomputations + 1):
-                self._collect_grad_samples(module, self._grad_sampler)
-                recomputation_sparsity = [
-                    interpolate(
-                        i,
-                        0,
-                        self._num_recomputations,
-                        start_sparsity,
-                        target_sparsity,
-                    )
-                    for start_sparsity, target_sparsity in zip(
-                        last_applied_sparsities, to_apply_sparsities
-                    )
-                ]
-                super().check_mask_update(
-                    module,
-                    epoch,
-                    steps_per_epoch,
-                    recomputation_sparsity=recomputation_sparsity,
+        self._pre_step_completed = True
+        to_apply_sparsities = self.get_applied_sparsity_for_epoch(
+            epoch, steps_per_epoch
+        )
+        last_applied_sparsities = (
+            self._last_applied_sparsity
+            if isinstance(self._last_applied_sparsity, List)
+            else [self._last_applied_sparsity] * len(to_apply_sparsities)
+        )
+
+        for i in range(1, self._num_recomputations + 1):
+            self._collect_grad_samples(module, self._grad_sampler)
+            recomputation_sparsity = [
+                interpolate(
+                    i,
+                    0,
+                    self._num_recomputations,
+                    start_sparsity,
+                    target_sparsity,
                 )
+                for start_sparsity, target_sparsity in zip(
+                    last_applied_sparsities, to_apply_sparsities
+                )
+            ]
+            super().check_mask_update(
+                module,
+                epoch,
+                steps_per_epoch,
+                recomputation_sparsity=recomputation_sparsity,
+            )
 
-            torch.cuda.empty_cache()
+        torch.cuda.empty_cache()
+        self._last_applied_sparsity = to_apply_sparsities
+        if self._scorer._is_main_proc:
             self._scorer._enabled_grad_buffering = False
-            self._last_applied_sparsity = to_apply_sparsities
 
     def _get_mask_creator(
         self, param_names: List[str], params: List[Parameter]
@@ -361,6 +362,8 @@ class OBSPruningModifier(BaseGradualPruningModifier):
             raise ValueError(
                 "fisher_block_size must be divisible by 4 for block4 pruning"
             )
+        if MEMORY_BOUNDED not in os.environ:
+            os.environ[MEMORY_BOUNDED] = "True"  # more safe for most users
 
 
 class OBSPruningParamsScorer(PruningParamsGradScorer):
@@ -431,11 +434,13 @@ class OBSPruningParamsScorer(PruningParamsGradScorer):
             for i, finv in enumerate(self._finvs):
                 if self._mask_type == "unstructured":
                     scores[i] = (
-                        (self._params[i].data.view(-1) ** 2).to(self._devices[i])
+                        (self._params[i].data.reshape(-1) ** 2).to(self._devices[i])
                         / (2.0 * finv.diag() + self._eps)
-                    ).view(self._params[i].shape)
+                    ).reshape(self._params[i].shape)
                 else:  # self._mask_type == "block4":
-                    block_w = self._params[i].data.view(-1, 4).to(finv.dev)  # (d/Q, Q)
+                    block_w = (
+                        self._params[i].data.reshape(-1, 4).to(finv.dev)
+                    )  # (d/Q, Q)
                     block_finv = (
                         torch.cat(
                             [
@@ -488,7 +493,7 @@ class OBSPruningParamsScorer(PruningParamsGradScorer):
 
         for i, finv in enumerate(self._finvs):
             self._params[i].grad.mul_(masks[i])
-            finv.add_grad(self._params[i].grad.view(-1).to(self._devices[i]))
+            finv.add_grad(self._params[i].grad.reshape(-1).to(self._devices[i]))
 
     @torch.no_grad()
     def mask_update(self, masks: List[Tensor], mask_diffs: List[Tensor]):
@@ -508,20 +513,20 @@ class OBSPruningParamsScorer(PruningParamsGradScorer):
                         self._finvs[i]
                         .mul(
                             (param.data * (mask_diffs[i] == -1))
-                            .view(-1)
+                            .reshape(-1)
                             .to(self._devices[i])
                             / (self._finvs[i].diag() + self._eps)
                         )
-                        .view(param.data.shape)
+                        .reshape(param.data.shape)
                     )
                 else:  # self._mask_type == "block4":
                     obs_updates[i] = (
                         self._finvs[i]
                         .mul(
-                            self._block_finv_w[i].view(-1)
-                            * (mask_diffs[i] == -1).view(-1).to(self._devices[i])
+                            self._block_finv_w[i].reshape(-1)
+                            * (mask_diffs[i] == -1).reshape(-1).to(self._devices[i])
                         )
-                        .view(param.data.shape)
+                        .reshape(param.data.shape)
                     )
 
         self._broadcast_list_from_main(obs_updates)
@@ -590,7 +595,7 @@ class EmpiricalBlockFisherInverse:
             )
 
         # prepare grad for batch calculations
-        g = g.view(self.num_blocks, self.B)
+        g = g.reshape(self.num_blocks, self.B)
 
         # batched f_inv x g: (batch, B, B) x (batch, B) -> (batch, B)
         finv_g = torch.einsum("bij,bj->bi", self.f_inv, g)
@@ -619,5 +624,5 @@ class EmpiricalBlockFisherInverse:
                 [v, torch.zeros(self.num_blocks * self.B - v.numel(), device=v.device)]
             )
         return torch.bmm(
-            self.f_inv, v.view(self.num_blocks, self.B).unsqueeze_(2)
+            self.f_inv, v.reshape(self.num_blocks, self.B).unsqueeze_(2)
         ).flatten()[: self.d]

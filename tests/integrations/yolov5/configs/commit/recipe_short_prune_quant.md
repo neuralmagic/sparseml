@@ -39,7 +39,10 @@ pruning_modifiers:
 quantization_modifiers:
   - !QuantizationModifier
     start_epoch: *quantization_start_epoch
-    submodules: ['model']
-    
-    
+    submodules:
+      - model
+    custom_quantizable_module_types: ['SiLU']
+    exclude_module_types: ['SiLU']
+    quantize_conv_activations: False
+   
 ---
