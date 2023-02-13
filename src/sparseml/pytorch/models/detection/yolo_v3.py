@@ -178,7 +178,7 @@ class _YoloDetectionBlock(Module):
 
         # smart bias initialization
         b = self.conv.bias.view(3, -1).detach()
-        b[:, 4] += math.log(8 / 640 ** 2)  # 8 objects per 640 image
+        b[:, 4] += math.log(8 / 640**2)  # 8 objects per 640 image
         b[:, 5:] += math.log(0.6 / (self.num_classes - 0.99))
         self.conv.bias = Parameter(b.view(-1), requires_grad=True)
 
