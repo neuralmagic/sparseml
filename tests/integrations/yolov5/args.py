@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 from pathlib import Path
 from typing import List, Optional, Tuple, Union
 
@@ -20,7 +19,6 @@ from pydantic import BaseModel, Field
 
 
 FILE = Path(__file__).resolve()
-ROOT = Path(os.path.join(FILE.parents[3], "src", "sparseml", "yolov5"))
 
 
 class Yolov5TrainArgs(BaseModel):
@@ -29,24 +27,13 @@ class Yolov5TrainArgs(BaseModel):
     )
     cfg: Union[str, Path, None] = Field(default=None, description="model.yaml path")
     data: Union[str, Path] = Field(
-        default=ROOT / "data/coco128.yaml", description="dataset.yaml path"
+        default="coco128.yaml", description="dataset.yaml path"
     )
     hyp: Union[str, Path] = Field(
-        default=ROOT / "data/hyps/hyp.scratch-low.yaml",
+        default="hyp.scratch-low.yaml",
         description="hyperparameters path",
     )
     epochs: int = Field(default=300)
-    max_train_steps: int = Field(
-        default=-1,
-        description="Set the maximum number of training steps per epoch. if negative,"
-        "the entire training set will be used, default=-1",
-    )
-    max_eval_steps: int = Field(
-        default=-1,
-        description="Set the maximum number of eval steps per epoch. if negative,"
-        "the entire validation set will be used, default=-1",
-    )
-    one_shot: bool = Field(default=False, description="Apply recipe in one shot manner")
     batch_size: int = Field(
         default=16, description="total batch size for all GPUs, -1 for autobatch"
     )
@@ -81,7 +68,7 @@ class Yolov5TrainArgs(BaseModel):
         default=8, description="max dataloader workers (per RANK in DDP mode)"
     )
     project: Union[str, Path] = Field(
-        default=ROOT / "test_runs/train", description="save to project/name"
+        default="test_runs/train", description="save to project/name"
     )
     name: str = Field(default="exp", description="save to project/name")
     exist_ok: bool = Field(
@@ -130,7 +117,7 @@ class Yolov5TrainArgs(BaseModel):
 
 class Yolov5ExportArgs(BaseModel):
     weights: Union[str, Path] = Field(
-        default=ROOT / "yolov5s.pt", description="initial weights path"
+        default="yolov5s.pt", description="initial weights path"
     )
     imgsz: List[int] = Field(default=[640, 640], description="image (h, w)")
     batch_size: int = Field(default=16, description="batch size")
@@ -156,6 +143,7 @@ class Yolov5ExportArgs(BaseModel):
     remove_grid: bool = Field(
         default=False, description="remove export of Detect() layer grid"
     )
+    one_shot: str = Field(default=False, description="Apply recipe in one shot manner")
 
 
 class Yolov5DeployArgs(BaseModel):

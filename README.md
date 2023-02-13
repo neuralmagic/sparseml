@@ -142,9 +142,9 @@ The [GitHub repository](https://github.com/neuralmagic/sparseml) contains integr
 
 ## Installation
 
-This repository is tested on Python 3.7-3.9, and Linux/Debian systems.
+This repository is tested on Python 3.7-3.10, and Linux/Debian systems.
 It is recommended to install in a [virtual environment](https://docs.python.org/3/library/venv.html) to keep your system in order.
-Currently supported ML Frameworks are the following: `torch>=1.1.0,<=1.9.0`, `tensorflow>=1.8.0,<=2.0.0`, `tensorflow.keras >= 2.2.0`.
+Currently supported ML Frameworks are the following: `torch>=1.1.0,<=1.12.1`, `tensorflow>=1.8.0,<2.0.0`, `tensorflow.keras >= 2.2.0`.
 
 Install with pip using:
 
@@ -194,8 +194,8 @@ manager.apply(model)
 ```
 
 More information on the codebase and contained processes can be found in the SparseML docs:
-- [Sparsification Code](https://docs.neuralmagic.com/sparseml/source/code)
-- [Sparsification Recipes](https://docs.neuralmagic.com/sparseml/source/recipes)
+- [Sparsification Code](https://docs.neuralmagic.com/get-started/sparsify-a-model)
+- [Sparsification Recipes](https://docs.neuralmagic.com/user-guide/recipes)
 - [Exporting to ONNX](https://docs.neuralmagic.com/user-guide/onnx-export)
 
 ## Resources

@@ -25,8 +25,6 @@ from .helpers import *
 try:
     import yolov5 as _yolov5
 
-    # triggers error if neuralmagic/yolov5 is not installed
-    assert _yolov5.NM_INTEGRATED
     _yolov5_import_error = None
 except Exception as _yolov5_import_err:
     _yolov5_import_error = _yolov5_import_err
@@ -34,7 +32,7 @@ except Exception as _yolov5_import_err:
 _LOGGER = _logging.getLogger(__name__)
 _NM_YOLOV5_TAR_TEMPLATE = (
     "https://github.com/neuralmagic/yolov5/releases/download/"
-    "{version}/yolov5-6.1.0-py3-none-any.whl"
+    "{version}/yolov5-6.2.0-py3-none-any.whl"
 )
 _NM_YOLOV5_NIGHTLY = _NM_YOLOV5_TAR_TEMPLATE.format(version="nightly")
 
@@ -97,8 +95,6 @@ def _check_yolov5_install():
     # re check import after potential install
     try:
         import yolov5 as _yolov5
-
-        assert _yolov5.NM_INTEGRATED
     except Exception:
         _LOGGER.warning(
             "the neuralmagic fork of yolov5 may not be installed. it can be "

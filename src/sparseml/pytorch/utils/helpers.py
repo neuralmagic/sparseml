@@ -707,6 +707,9 @@ def get_layer(name: str, module: Module) -> Module:
     :param module: the module containing the layer to grab
     :return: the module representing the layer in the module
     """
+    if not name:
+        return module
+
     layers = name.split(".")
     layer = module
 
@@ -1146,17 +1149,15 @@ def download_framework_model_by_recipe_type(
     recipe_name = recipe_name or (
         zoo_model.stub_params.get("recipe_type") or zoo_model.stub_params.get("recipe")
     )
+
+    framework_model = None
     if recipe_name and "transfer" in recipe_name.lower():
         # fetching the model for transfer learning
         model_name = f"model.ckpt.{model_suffix}"
         framework_model = zoo_model.training.default.get_file(model_name)
-        if not framework_model:
-            raise ValueError(
-                f"Could not find saved checkpoint {model_name} in SparseZoo Model "
-                f"{zoo_model.source}"
-            )
-    else:
-        # fetching the model for inference
+
+    if framework_model is None:
+        # fetching the model for inference or fall back if model.ckpt.pth doesn't exist
         model_name = f"model.{model_suffix}"
         framework_model = zoo_model.training.default.get_file(model_name)
 

@@ -23,6 +23,7 @@ from sparseml.pytorch.recipe_template.description import DESCRIPTION
 from sparseml.pytorch.sparsification import (
     ACDCPruningModifier,
     ConstantPruningModifier,
+    DistillationModifier,
     EpochRangeModifier,
     GlobalMagnitudePruningModifier,
     LearningRateFunctionModifier,
@@ -30,6 +31,8 @@ from sparseml.pytorch.sparsification import (
     MFACPruningModifier,
     MovementPruningModifier,
     OBSPruningModifier,
+)
+from sparseml.pytorch.sparsification.quantization.legacy_modifier_quantization import (
     QuantizationModifier,
 )
 from sparseml.pytorch.utils import get_prunable_layers
@@ -56,6 +59,9 @@ def recipe_template(
     init_lr: float = 0.001,
     final_lr: float = 0.0,
     sparsity: float = 0.8,
+    distillation: bool = False,
+    hardness: float = 0.5,
+    temperature: float = 2.0,
 ) -> str:
     """
     Returns a valid yaml or md recipe based on specified arguments
@@ -83,6 +89,13 @@ def recipe_template(
     :param init_lr: target initial learning rate, default 0.001
     :param final_lr: target final learning rate, default 0.0
     :param sparsity: target model sparsity, default 0.8
+    :param distillation: add distillation support to the recipe. default is
+        `False`
+    :param hardness: [only used if distillation is set] how much to weight the
+        distillation loss vs the base loss (e.g. hardness of 0.6 will return
+        0.6 * distill_loss + 0.4 * base_loss). default is 0.5
+    :param temperature: [only used if distillation is set] temperature applied
+        to teacher and student softmax for distillation. default is 2.0
     :return: A valid string recipe based on the arguments
     """
 
@@ -105,6 +118,9 @@ def recipe_template(
         init_lr=init_lr,
         final_lr=final_lr,
         sparsity=sparsity,
+        distillation=distillation,
+        hardness=hardness,
+        temperature=temperature,
     )
 
     if file_name is not None:
@@ -167,6 +183,9 @@ def _build_recipe_template(
     init_lr: float = 0.001,
     final_lr: float = 0.0,
     sparsity: float = 0.8,
+    distillation: bool = False,
+    hardness: float = 0.5,
+    temperature: float = 2.0,
 ) -> str:
     pruning_was_applied: bool = pruning not in ["constant", ""]
     recipe_variables: Dict[str, Any] = _get_base_recipe_variables(
@@ -179,6 +198,9 @@ def _build_recipe_template(
         init_lr=init_lr,
         final_lr=final_lr,
         sparsity=sparsity,
+        distillation=distillation,
+        hardness=hardness,
+        temperature=temperature,
     )
 
     builder_groups = {"training_modifiers": _get_training_builders()}
@@ -198,6 +220,9 @@ def _build_recipe_template(
         )
         recipe_variables.update(quant_variables)
         builder_groups["quantization_modifiers"] = quant_builders
+
+    if distillation:
+        builder_groups["distillation_modifiers"] = _get_distillation_builders()
 
     recipe_builder = RecipeYAMLBuilder(
         variables=recipe_variables, modifier_groups=builder_groups
@@ -227,6 +252,9 @@ def _get_base_recipe_variables(
     init_lr: float = 0.001,
     final_lr: float = 0.0,
     sparsity: float = 0.8,
+    distillation: bool = False,
+    hardness: float = 0.5,
+    temperature: float = 2.0,
 ) -> Dict[str, Any]:
 
     recipe_variables = dict(
@@ -262,6 +290,14 @@ def _get_base_recipe_variables(
                 _num_pruning_epochs=(
                     "eval(num_pruning_active_epochs + num_pruning_finetuning_epochs)"
                 ),
+            )
+        )
+
+    if distillation:
+        recipe_variables.update(
+            dict(
+                distillation_hardness=hardness,
+                distillation_temperature=temperature,
             )
         )
 
@@ -411,3 +447,14 @@ def _get_quantization_builders_and_variables(
     quant_recipe_variables["quantization_submodules"] = "null"
 
     return [quant_modifier_builder], quant_recipe_variables
+
+
+def _get_distillation_builders():
+    distillation_modifier_builder = ModifierYAMLBuilder(
+        modifier_class=DistillationModifier,
+        start_epoch=0.0,
+        end_epoch="eval(num_epochs)",
+        hardness="eval(distillation_hardness)",
+        temperature="eval(distillation_temperature)",
+    )
+    return [distillation_modifier_builder]

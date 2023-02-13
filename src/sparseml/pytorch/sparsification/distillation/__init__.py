@@ -15,3 +15,4 @@
 # limitations under the License.
 
 from .modifier_distillation import *
+from .modifier_per_layer import *

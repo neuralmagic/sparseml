@@ -36,7 +36,7 @@ _deps = [
     "ipywidgets>=7.0.0",
     "pyyaml>=5.0.0",
     "progressbar2>=3.0.0",
-    "numpy>=1.0.0",
+    "numpy>=1.0.0,<=1.21.6",
     "matplotlib>=3.0.0",
     "merge-args>=0.1.0",
     "onnx>=1.5.0,<=1.12.0",
@@ -52,7 +52,7 @@ _deps = [
     "toposort>=1.0",
     "GPUtil>=1.4.0",
     "protobuf>=3.12.2,<=3.20.1",
-    "click~=8.0.0",
+    "click>=7.1.2,!=8.0.0",  # latest version < 8.0 + blocked version with reported bug
 ]
 _nm_deps = [f"{'sparsezoo' if is_release else 'sparsezoo-nightly'}~={version_nm_deps}"]
 _deepsparse_deps = [
@@ -62,12 +62,15 @@ _deepsparse_ent_deps = [f"deepsparse-ent~={version_nm_deps}"]
 
 _onnxruntime_deps = ["onnxruntime>=1.0.0"]
 _pytorch_deps = [
-    "torch>=1.1.0,<=1.13.0",
-    "tensorboard>=1.0,<2.9",
-    "tensorboardX>=1.0",
+    "torch>=1.1.0,<=1.13.1",
     "gputils",
 ]
-_pytorch_vision_deps = _pytorch_deps + ["torchvision>=0.3.0,<=0.14.0"]
+_pytorch_all_deps = _pytorch_deps + [
+    "torchvision>=0.3.0,<=0.13",
+    "torchaudio<=0.12",
+    "torchvision>=0.3.0,<=0.13",
+]
+_pytorch_vision_deps = _pytorch_deps + ["torchvision>=0.3.0,<=0.14"]
 _tensorflow_v1_deps = ["tensorflow<2.0.0", "tensorboard<2.0.0", "tf2onnx>=1.0.0,<1.6"]
 _tensorflow_v1_gpu_deps = [
     "tensorflow-gpu<2.0.0",
@@ -76,13 +79,15 @@ _tensorflow_v1_gpu_deps = [
 ]
 _keras_deps = ["tensorflow~=2.2.0", "keras2onnx>=1.0.0"]
 
+_open_pif_paf_deps = ["openpifpaf==0.13.6"]
+
 _dev_deps = [
     "beautifulsoup4==4.9.3",
-    "black==21.5b2",
+    "black==22.12.0",
     "flake8==3.9.2",
     "isort==5.8.0",
     "m2r2~=0.2.7",
-    "mistune==0.8.4",
+    "mistune<3,>=2.0.3",
     "myst-parser~=0.14.0",
     "rinohtype~=0.4.2",
     "sphinx~=3.5.0",
@@ -97,7 +102,11 @@ _dev_deps = [
     "flaky~=3.7.0",
     "sphinx-rtd-theme",
     "docutils<0.17",
+    "tensorboard>=1.0,<2.9",
+    "tensorboardX>=1.0",
 ]
+
+_ultralytics_deps = ["ultralytics==8.0.11"]
 
 
 def _setup_packages() -> List:
@@ -121,10 +130,12 @@ def _setup_extras() -> Dict:
         "deepsparse-ent": _deepsparse_ent_deps,
         "onnxruntime": _onnxruntime_deps,
         "torch": _pytorch_deps,
+        "torch_all": _pytorch_all_deps,
         "torchvision": _pytorch_vision_deps,
         "tf_v1": _tensorflow_v1_deps,
         "tf_v1_gpu": _tensorflow_v1_gpu_deps,
         "tf_keras": _keras_deps,
+        "ultralytics": _ultralytics_deps,
     }
 
 
@@ -187,7 +198,6 @@ def _setup_entry_points() -> Dict:
             "sparseml.yolov5.export_onnx=sparseml.yolov5.scripts:export",
             "sparseml.yolov5.train=sparseml.yolov5.scripts:train",
             "sparseml.yolov5.validation=sparseml.yolov5.scripts:val",
-            "sparseml.yolov5.val_onnx=sparseml.yolov5.scripts:val_onnx",
         ]
     )
 
@@ -209,6 +219,23 @@ def _setup_entry_points() -> Dict:
 
     entry_points["console_scripts"].append(
         "sparseml.recipe_template=sparseml.pytorch.recipe_template.cli:main"
+    )
+
+    # pose detection entrypoint
+
+    entry_points["console_scripts"].extend(
+        [
+            "sparseml.openpifpaf.train=sparseml.openpifpaf.train:main",
+            "sparseml.openpifpaf.export_onnx=sparseml.openpifpaf.export:main",
+        ]
+    )
+
+    entry_points["console_scripts"].extend(
+        [
+            "sparseml.ultralytics.train=sparseml.yolov8.train:main",
+            "sparseml.ultralytics.val=sparseml.yolov8.val:main",
+            "sparseml.ultralytics.export=sparseml.yolov8.export:main",
+        ]
     )
 
     return entry_points

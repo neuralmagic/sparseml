@@ -889,13 +889,13 @@ def test_lrs_with_manager(optim_lambda):
             elif epoch < 10:
                 expected = 0.01 * 0.9 ** (epoch - 5)
             elif epoch < 12:
-                expected = 0.01 * 0.9 ** 4
+                expected = 0.01 * 0.9**4
             elif epoch < 15:
                 expected = 0.05
             elif epoch < 18:
                 expected = 0.05 * 0.95
             else:
-                expected = 0.05 * 0.95 ** 2
+                expected = 0.05 * 0.95**2
 
             for step in range(steps_per_epoch):
                 gs = sess.run(global_step)

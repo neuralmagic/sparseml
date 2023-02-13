@@ -147,12 +147,13 @@ def _fold_conv_bn_bias(model: ModelProto, conv_node: NodeProto, bn_node: NodePro
     bn_params = get_batch_norm_params(model, bn_node)
 
     # get conv bias or initialize to zeros
-    conv_bias = None
+    conv_bias = numpy.zeros(bn_params.mean.shape)
     if len(conv_node.input) > 2:
         conv_bias_init = get_init_by_name(model, conv_node.input[2])
         if conv_bias_init is not None:
             conv_bias = numpy_helper.to_array(conv_bias_init)
-    conv_bias = conv_bias or numpy.zeros(bn_params.mean.shape)
+        else:
+            assert False
 
     # fold bias into conv from bn then delete bn node
     variance_term = 1 / numpy.sqrt(bn_params.var + bn_params.epsilon)
@@ -241,6 +242,28 @@ def _convert_single_constants_to_initializers(model: ModelProto):
     # bulk remove all converted constants by overwriting node list
     model.graph.ClearField("node")
     model.graph.node.extend(non_single_constant_nodes)
+
+
+def _convert_signed_to_unsigned(model: ModelProto):
+    # converts all int8 initializers to uint8 initializers for consistency
+    # between quantized op input/weights
+
+    def _cast_init_int8_to_uint8(int8_init):
+        arr_int8 = numpy_helper.to_array(int8_init)
+        arr_uint8 = (arr_int8.astype(numpy.int32) + 128).astype(numpy.uint8)
+        return numpy_helper.from_array(arr_uint8, name=int8_init.name)
+
+    to_append = []
+    to_remove = []
+    for init in model.graph.initializer:
+        if init.data_type == 3:  # int8 dtype
+            init_uint8 = _cast_init_int8_to_uint8(init)
+            to_append.append(init_uint8)
+            to_remove.append(init)
+
+    for init in to_remove:
+        model.graph.initializer.remove(init)
+    model.graph.initializer.extend(to_append)
 
 
 def _delete_repeated_qat_blocks(model: ModelProto):
@@ -1545,8 +1568,8 @@ def quantize_torch_qat_export(
     if not inplace:
         model = deepcopy(model)
 
-    _fold_qat_conv_bns(model)
     _convert_single_constants_to_initializers(model)
+    _fold_qat_conv_bns(model)
     _delete_repeated_qat_blocks(model)
     _quantize_qat_embedding(model)
     _propagate_mobilebert_embedding_quantization(model)
@@ -1562,6 +1585,7 @@ def quantize_torch_qat_export(
     _convert_quantizable_gemm_no_activations(model)
     quantize_resnet_identity_add_inputs(model)
     _remove_duplicate_quantize_ops(model)
+    _convert_signed_to_unsigned(model)
 
     graph = ONNXGraph(model)
     graph.sort_nodes_topologically()
