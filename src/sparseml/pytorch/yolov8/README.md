@@ -70,3 +70,14 @@ To look up optional arguments for the `export` command, run:
 ```bash
 sparseml.ultralytics.export -h
 ```
+
+The resulting exported model will be saved in the appropriate directory structure:
+```bash
+.
+├── deployment
+│    ├── config.json
+│    ├── model.onnx
+│    └── recipe.yaml # optionally, if model contains a sparse checkpoint
+└── model.onnx
+
+```
