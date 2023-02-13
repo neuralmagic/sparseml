@@ -79,5 +79,4 @@ The resulting exported model will be saved in the appropriate directory structur
 │    ├── model.onnx
 │    └── recipe.yaml # optionally, if model contains a sparse checkpoint
 └── model.onnx
-
 ```
