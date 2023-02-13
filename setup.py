@@ -234,6 +234,7 @@ def _setup_entry_points() -> Dict:
         [
             "sparseml.ultralytics.train=sparseml.pytorch.yolov8.train:main",
             "sparseml.ultralytics.val=sparseml.pytorch.yolov8.val:main",
+            "sparseml.ultralytics.export=sparseml.pytorch.yolov8.export:main",
         ]
     )
 
