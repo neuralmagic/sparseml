@@ -30,7 +30,7 @@ from sparseml.pytorch.optim.manager import ScheduledModifierManager
 from sparseml.pytorch.utils import ModuleExporter
 from sparseml.pytorch.utils.helpers import download_framework_model_by_recipe_type
 from sparseml.pytorch.utils.logger import LoggerManager, PythonLogger, WANDBLogger
-from sparseml.pytorch.yolov8.validators import (
+from sparseml.yolov8.validators import (
     SparseClassificationValidator,
     SparseDetectionValidator,
     SparseSegmentationValidator,
@@ -623,7 +623,7 @@ def generate_ddp_file(trainer):
         shutil.rmtree(trainer.save_dir)  # remove the save_dir
 
     content = f"""if __name__ == "__main__":
-    from sparseml.pytorch.yolov8.trainers import {trainer.__class__.__name__}
+    from sparseml.yolov8.trainers import {trainer.__class__.__name__}
     trainer = {trainer.__class__.__name__}(config={dict(trainer.args)})
     trainer.train()
 """
