@@ -233,6 +233,7 @@ def _setup_entry_points() -> Dict:
     entry_points["console_scripts"].extend(
         [
             "sparseml.ultralytics.train=sparseml.pytorch.yolov8.train:main",
+            "sparseml.ultralytics.val=sparseml.pytorch.yolov8.val:main",
             "sparseml.ultralytics.export=sparseml.pytorch.yolov8.export:main",
         ]
     )

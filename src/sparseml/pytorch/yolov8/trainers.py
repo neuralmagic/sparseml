@@ -30,9 +30,15 @@ from sparseml.pytorch.optim.manager import ScheduledModifierManager
 from sparseml.pytorch.utils import ModuleExporter
 from sparseml.pytorch.utils.helpers import download_framework_model_by_recipe_type
 from sparseml.pytorch.utils.logger import LoggerManager, PythonLogger, WANDBLogger
+from sparseml.pytorch.yolov8.validators import (
+    SparseClassificationValidator,
+    SparseDetectionValidator,
+    SparseSegmentationValidator,
+)
 from sparsezoo import Model
 from ultralytics import __version__
 from ultralytics.nn.tasks import SegmentationModel, attempt_load_one_weight
+from ultralytics.yolo.configs import get_config
 from ultralytics.yolo.engine.model import YOLO
 from ultralytics.yolo.engine.trainer import BaseTrainer
 from ultralytics.yolo.utils import LOGGER, yaml_load
@@ -47,9 +53,9 @@ from ultralytics.yolo.utils.torch_utils import (
     de_parallel,
     smart_inference_mode,
 )
-from ultralytics.yolo.v8.classify.train import ClassificationTrainer
-from ultralytics.yolo.v8.detect.train import DetectionTrainer
-from ultralytics.yolo.v8.segment.train import SegmentationTrainer
+from ultralytics.yolo.v8.classify import ClassificationTrainer, ClassificationValidator
+from ultralytics.yolo.v8.detect import DetectionTrainer, DetectionValidator
+from ultralytics.yolo.v8.segment import SegmentationTrainer, SegmentationValidator
 
 
 class _NullLRScheduler:
@@ -377,12 +383,6 @@ class SparseTrainer(BaseTrainer):
             torch.save(ckpt, self.best)
         del ckpt
 
-    def validate(self):
-        # skip validation if we are using a recipe
-        if self.manager is None and self.checkpoint_manager is None:
-            return super().validate()
-        return {}, None
-
     def final_eval(self):
         # skip final eval if we are using a recipe
         if self.manager is None and self.checkpoint_manager is None:
@@ -434,6 +434,13 @@ class SparseYOLO(YOLO):
             self.TrainerClass = SparseClassificationTrainer
         elif self.TrainerClass == SegmentationTrainer:
             self.TrainerClass = SparseSegmentationTrainer
+
+        if self.ValidatorClass == DetectionValidator:
+            self.ValidatorClass = SparseDetectionValidator
+        elif self.ValidatorClass == ClassificationValidator:
+            self.ValidatorClass = SparseClassificationValidator
+        elif self.ValidatorClass == SegmentationValidator:
+            self.ValidatorClass = SparseSegmentationValidator
 
     def _load(self, weights: str):
         if self.is_sparseml_checkpoint:
@@ -575,6 +582,18 @@ class SparseYOLO(YOLO):
             )
             self.model = self.trainer.model
         self.trainer.train()
+
+    @smart_inference_mode()
+    def val(self, data=None, **kwargs):
+        overrides = self.overrides.copy()
+        overrides.update(kwargs)
+        overrides["mode"] = "val"
+        args = get_config(config=DEFAULT_SPARSEML_CONFIG, overrides=overrides)
+        args.data = data or args.data
+        args.task = self.task
+
+        validator = self.ValidatorClass(args=args)
+        validator(model=self.model)
 
 
 def generate_ddp_command(world_size, trainer):
