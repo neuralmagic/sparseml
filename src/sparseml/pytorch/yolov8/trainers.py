@@ -23,14 +23,16 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+import onnx
 import torch
 
 from sparseml.pytorch.optim.manager import ScheduledModifierManager
+from sparseml.pytorch.utils import ModuleExporter
 from sparseml.pytorch.utils.helpers import download_framework_model_by_recipe_type
 from sparseml.pytorch.utils.logger import LoggerManager, PythonLogger, WANDBLogger
 from sparsezoo import Model
 from ultralytics import __version__
-from ultralytics.nn.tasks import attempt_load_one_weight
+from ultralytics.nn.tasks import SegmentationModel, attempt_load_one_weight
 from ultralytics.yolo.engine.model import YOLO
 from ultralytics.yolo.engine.trainer import BaseTrainer
 from ultralytics.yolo.utils import LOGGER, yaml_load
@@ -40,7 +42,11 @@ from ultralytics.yolo.utils.dist import (
     ddp_cleanup,
     find_free_network_port,
 )
-from ultralytics.yolo.utils.torch_utils import ModelEMA, de_parallel
+from ultralytics.yolo.utils.torch_utils import (
+    ModelEMA,
+    de_parallel,
+    smart_inference_mode,
+)
 from ultralytics.yolo.v8.classify.train import ClassificationTrainer
 from ultralytics.yolo.v8.detect.train import DetectionTrainer
 from ultralytics.yolo.v8.segment.train import SegmentationTrainer
@@ -476,6 +482,72 @@ class SparseYOLO(YOLO):
             assert self.model.yaml == self.ckpt["model_yaml"]
         else:
             return super()._load(weights)
+
+    @smart_inference_mode()
+    def export(self, **kwargs):
+        """
+        Export model.
+        Args:
+            **kwargs : Any other args accepted by the exporter.
+        """
+        if kwargs["imgsz"] is None:
+            # if imgsz is not specified, remove it from the kwargs
+            # so that it can be overridden by the model's default
+            del kwargs["imgsz"]
+
+        args = self.overrides.copy()
+        args.update(kwargs)
+
+        source = self.ckpt.get("source")
+        recipe = self.ckpt.get("recipe")
+        one_shot = args.get("one_shot")
+
+        if source == "sparseml":
+            LOGGER.info(
+                "Source: 'sparseml' detected; "
+                "Exporting model from SparseML checkpoint..."
+            )
+        else:
+            LOGGER.info(
+                "Source: 'sparseml' not detected; "
+                "Exporting model from vanilla checkpoint..."
+            )
+
+        if one_shot:
+            LOGGER.info(
+                f"Detected one-shot recipe: {one_shot}. "
+                "Applying it to the model to be exported..."
+            )
+            manager = ScheduledModifierManager.from_yaml(one_shot)
+            manager.apply(self.model)
+
+        name = args.get("name", f"{type(self.model).__name__}.onnx")
+        save_dir = args["save_dir"]
+
+        exporter = ModuleExporter(self.model, save_dir)
+        exporter.export_onnx(
+            sample_batch=torch.randn(1, 3, args["imgsz"], args["imgsz"]),
+            opset=args["opset"],
+            name=name,
+            input_names=["images"],
+            convert_qat=True,
+            # ultralytics-specific argument
+            do_constant_folding=True,
+            output_names=["output0", "output1"]
+            if isinstance(self.model, SegmentationModel)
+            else ["output0"],
+        )
+
+        onnx.checker.check_model(os.path.join(save_dir, name))
+        deployment_folder = exporter.create_deployment_folder(onnx_model_name=name)
+        if recipe:
+            LOGGER.info(
+                "Recipe checkpoint detected, saving the "
+                f"recipe to the deployment directory {deployment_folder}"
+            )
+            ScheduledModifierManager.from_yaml(recipe).save(
+                os.path.join(deployment_folder, "recipe.yaml")
+            )
 
     def train(self, **kwargs):
         # NOTE: Copied from base class and removed post-training validation
