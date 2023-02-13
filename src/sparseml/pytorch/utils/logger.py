@@ -44,10 +44,6 @@ try:
 except Exception as err:
     wandb = None
     wandb_err = err
-    raise ModuleNotFoundError(
-        "Error: Failed to import wandb. "
-        "Please install the wandb library in order to use it."
-    ) from wandb_err
 
 from sparseml.utils import ALL_TOKEN, create_dirs
 
@@ -538,7 +534,14 @@ class WANDBLogger(LambdaLogger):
         init_kwargs: Optional[Dict] = None,
         name: str = "wandb",
         enabled: bool = True,
+        wandb_err: Optional[Exception] = wandb_err,
     ):
+        if wandb_err:
+            raise ModuleNotFoundError(
+                "Error: Failed to import wandb. "
+                "Please install the wandb library in order to use it."
+            ) from wandb_err
+
         super().__init__(
             lambda_func=self._log_lambda,
             name=name,
