@@ -50,7 +50,7 @@ from sparseml.pytorch.yolov8.trainers import SparseYOLO
 )
 @click.option(
     "--conf",
-    default=None,
+    default=0.001,
     type=float,
     help="object confidence threshold for detection (default 0.25 predict, 0.001 val)",
 )
