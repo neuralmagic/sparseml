@@ -2,7 +2,7 @@ cadence: "commit"
 train:
   command_args:
     weights: "zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/base-none"
-    sparsification_recipe: "tests/integrations/yolov5/configs/commit/recipe_short_prune_quant.md"
+    recipe: "tests/integrations/yolov5/configs/commit/recipe_short_prune_quant.md"
     batch_size: 4
 export:
   command_args:
