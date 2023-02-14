@@ -106,7 +106,7 @@ _dev_deps = [
     "tensorboardX>=1.0",
 ]
 
-_ultralytics_deps = ["ultralytics==8.0.11"]
+_ultralytics_deps = ["ultralytics==8.0.30"]
 
 
 def _setup_packages() -> List:
