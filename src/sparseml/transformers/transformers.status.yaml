@@ -6,8 +6,8 @@
 # q: question - not sure, not tested, or to be investigated
 ###########################################################
 
-project_name: Torchvision IC
-project_description: Image classification torchvision native training integration
+project_name: Transformers
+project_description: Transformers NLP integration for tasks such as QA, text classification, and token classification
 
 base_training:
   cli: y

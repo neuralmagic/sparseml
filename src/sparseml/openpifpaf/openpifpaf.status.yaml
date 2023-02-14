@@ -6,8 +6,8 @@
 # q: question - not sure, not tested, or to be investigated
 ###########################################################
 
-project_name: Torchvision IC
-project_description: Image classification torchvision native training integration
+project_name: OpenPifPaf
+project_description: OpenPifPaf instance segmentation training integration
 
 base_training:
   cli: e

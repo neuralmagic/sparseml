@@ -6,8 +6,8 @@
 # q: question - not sure, not tested, or to be investigated
 ###########################################################
 
-project_name: Torchvision IC
-project_description: Image classification torchvision native training integration
+project_name: YOLOv5
+project_description: YOLOv5 integration for object detection
 
 base_training:
   cli: y
