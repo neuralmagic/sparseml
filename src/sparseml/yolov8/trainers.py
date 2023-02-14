@@ -23,14 +23,22 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+import onnx
 import torch
 
 from sparseml.pytorch.optim.manager import ScheduledModifierManager
+from sparseml.pytorch.utils import ModuleExporter
 from sparseml.pytorch.utils.helpers import download_framework_model_by_recipe_type
 from sparseml.pytorch.utils.logger import LoggerManager, PythonLogger, WANDBLogger
+from sparseml.yolov8.validators import (
+    SparseClassificationValidator,
+    SparseDetectionValidator,
+    SparseSegmentationValidator,
+)
 from sparsezoo import Model
 from ultralytics import __version__
-from ultralytics.nn.tasks import attempt_load_one_weight
+from ultralytics.nn.tasks import SegmentationModel, attempt_load_one_weight
+from ultralytics.yolo.configs import get_config
 from ultralytics.yolo.engine.model import YOLO
 from ultralytics.yolo.engine.trainer import BaseTrainer
 from ultralytics.yolo.utils import LOGGER, yaml_load
@@ -40,10 +48,14 @@ from ultralytics.yolo.utils.dist import (
     ddp_cleanup,
     find_free_network_port,
 )
-from ultralytics.yolo.utils.torch_utils import ModelEMA, de_parallel
-from ultralytics.yolo.v8.classify.train import ClassificationTrainer
-from ultralytics.yolo.v8.detect.train import DetectionTrainer
-from ultralytics.yolo.v8.segment.train import SegmentationTrainer
+from ultralytics.yolo.utils.torch_utils import (
+    ModelEMA,
+    de_parallel,
+    smart_inference_mode,
+)
+from ultralytics.yolo.v8.classify import ClassificationTrainer, ClassificationValidator
+from ultralytics.yolo.v8.detect import DetectionTrainer, DetectionValidator
+from ultralytics.yolo.v8.segment import SegmentationTrainer, SegmentationValidator
 
 
 class _NullLRScheduler:
@@ -268,7 +280,7 @@ class SparseTrainer(BaseTrainer):
             self.steps_per_epoch = len(self.train_loader)  # / self.accumulate
 
             self.scaler = self.manager.modify(
-                self.model,
+                self.model.module if hasattr(self.model, "module") else self.model,
                 self.optimizer,
                 steps_per_epoch=self.steps_per_epoch,
                 epoch=self.start_epoch,
@@ -293,7 +305,8 @@ class SparseTrainer(BaseTrainer):
         if model_is_quantized:
             if self.scaler is not None:
                 self.scaler._enabled = False
-            self.ema.enabled = False
+            if self.ema is not None:
+                self.ema.enabled = False
 
         self.epoch_step = 0
 
@@ -370,12 +383,6 @@ class SparseTrainer(BaseTrainer):
             torch.save(ckpt, self.best)
         del ckpt
 
-    def validate(self):
-        # skip validation if we are using a recipe
-        if self.manager is None and self.checkpoint_manager is None:
-            return super().validate()
-        return {}, None
-
     def final_eval(self):
         # skip final eval if we are using a recipe
         if self.manager is None and self.checkpoint_manager is None:
@@ -428,6 +435,13 @@ class SparseYOLO(YOLO):
         elif self.TrainerClass == SegmentationTrainer:
             self.TrainerClass = SparseSegmentationTrainer
 
+        if self.ValidatorClass == DetectionValidator:
+            self.ValidatorClass = SparseDetectionValidator
+        elif self.ValidatorClass == ClassificationValidator:
+            self.ValidatorClass = SparseClassificationValidator
+        elif self.ValidatorClass == SegmentationValidator:
+            self.ValidatorClass = SparseSegmentationValidator
+
     def _load(self, weights: str):
         if self.is_sparseml_checkpoint:
             """
@@ -476,6 +490,72 @@ class SparseYOLO(YOLO):
         else:
             return super()._load(weights)
 
+    @smart_inference_mode()
+    def export(self, **kwargs):
+        """
+        Export model.
+        Args:
+            **kwargs : Any other args accepted by the exporter.
+        """
+        if kwargs["imgsz"] is None:
+            # if imgsz is not specified, remove it from the kwargs
+            # so that it can be overridden by the model's default
+            del kwargs["imgsz"]
+
+        args = self.overrides.copy()
+        args.update(kwargs)
+
+        source = self.ckpt.get("source")
+        recipe = self.ckpt.get("recipe")
+        one_shot = args.get("one_shot")
+
+        if source == "sparseml":
+            LOGGER.info(
+                "Source: 'sparseml' detected; "
+                "Exporting model from SparseML checkpoint..."
+            )
+        else:
+            LOGGER.info(
+                "Source: 'sparseml' not detected; "
+                "Exporting model from vanilla checkpoint..."
+            )
+
+        if one_shot:
+            LOGGER.info(
+                f"Detected one-shot recipe: {one_shot}. "
+                "Applying it to the model to be exported..."
+            )
+            manager = ScheduledModifierManager.from_yaml(one_shot)
+            manager.apply(self.model)
+
+        name = args.get("name", f"{type(self.model).__name__}.onnx")
+        save_dir = args["save_dir"]
+
+        exporter = ModuleExporter(self.model, save_dir)
+        exporter.export_onnx(
+            sample_batch=torch.randn(1, 3, args["imgsz"], args["imgsz"]),
+            opset=args["opset"],
+            name=name,
+            input_names=["images"],
+            convert_qat=True,
+            # ultralytics-specific argument
+            do_constant_folding=True,
+            output_names=["output0", "output1"]
+            if isinstance(self.model, SegmentationModel)
+            else ["output0"],
+        )
+
+        onnx.checker.check_model(os.path.join(save_dir, name))
+        deployment_folder = exporter.create_deployment_folder(onnx_model_name=name)
+        if recipe:
+            LOGGER.info(
+                "Recipe checkpoint detected, saving the "
+                f"recipe to the deployment directory {deployment_folder}"
+            )
+            ScheduledModifierManager.from_yaml(recipe).save(
+                os.path.join(deployment_folder, "recipe.yaml")
+            )
+
     def train(self, **kwargs):
         # NOTE: Copied from base class and removed post-training validation
         overrides = self.overrides.copy()
@@ -502,6 +582,18 @@ class SparseYOLO(YOLO):
             )
             self.model = self.trainer.model
         self.trainer.train()
+
+    @smart_inference_mode()
+    def val(self, data=None, **kwargs):
+        overrides = self.overrides.copy()
+        overrides.update(kwargs)
+        overrides["mode"] = "val"
+        args = get_config(config=DEFAULT_SPARSEML_CONFIG, overrides=overrides)
+        args.data = data or args.data
+        args.task = self.task
+
+        validator = self.ValidatorClass(args=args)
+        validator(model=self.model)
 
 
 def generate_ddp_command(world_size, trainer):
@@ -531,7 +623,7 @@ def generate_ddp_file(trainer):
         shutil.rmtree(trainer.save_dir)  # remove the save_dir
 
     content = f"""if __name__ == "__main__":
-    from sparseml.pytorch.yolov8.trainers import {trainer.__class__.__name__}
+    from sparseml.yolov8.trainers import {trainer.__class__.__name__}
     trainer = {trainer.__class__.__name__}(config={dict(trainer.args)})
     trainer.train()
 """

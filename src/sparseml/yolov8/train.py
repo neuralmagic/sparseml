@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import click
-from sparseml.pytorch.yolov8.trainers import SparseYOLO
+from sparseml.yolov8.trainers import SparseYOLO
 
 
 # Options generated from

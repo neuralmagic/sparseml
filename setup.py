@@ -83,7 +83,7 @@ _open_pif_paf_deps = ["openpifpaf==0.13.6"]
 
 _dev_deps = [
     "beautifulsoup4==4.9.3",
-    "black==21.5b2",
+    "black==22.12.0",
     "flake8==3.9.2",
     "isort==5.8.0",
     "m2r2~=0.2.7",
@@ -231,7 +231,11 @@ def _setup_entry_points() -> Dict:
     )
 
     entry_points["console_scripts"].extend(
-        ["sparseml.ultralytics.train=sparseml.pytorch.yolov8.train:main"]
+        [
+            "sparseml.ultralytics.train=sparseml.yolov8.train:main",
+            "sparseml.ultralytics.val=sparseml.yolov8.val:main",
+            "sparseml.ultralytics.export=sparseml.yolov8.export:main",
+        ]
     )
 
     return entry_points
