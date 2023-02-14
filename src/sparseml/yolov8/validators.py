@@ -37,7 +37,7 @@ class SparseValidator(BaseValidator):
             self.device = trainer.device
             self.data = trainer.data
             model = trainer.ema.ema or trainer.model
-            # self.args.half = self.device.type != "cpu"  # force FP16 val during training
+            # self.args.half = self.device.type != "cpu"
             model = model.half() if self.args.half else model.float()
             self.model = model
             self.loss = torch.zeros_like(trainer.loss_items, device=trainer.device)
