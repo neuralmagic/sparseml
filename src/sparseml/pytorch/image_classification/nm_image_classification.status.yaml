@@ -6,53 +6,53 @@
 # q: question - not sure, not tested, or to be investigated
 ###########################################################
 
-project_name: project name
-project_description: description
+project_name: NM IC
+project_description: Deprecated (in favor of sparseml/pytorch/torchvision) IC training integration
 
 base_training:
-  cli: n
-  api: n
-  dense_training: n
+  cli: y
+  api: y
+  dense_training: y
   gradient_accumulation: n
-  DP: n
-  DDP: n
+  DP: y
+  DDP: y
 
 sparsification:
-  recipe: n
-  recipe_args: n
+  recipe: y
+  recipe_args: y
   EMA: n
-  AMP: n
+  AMP: y
   distillation: n
 
 datasets:
-  use_standard_datasets: n
-  train_val_test_datasets: n
-  auto_download_datasets: n
+  use_standard_datasets: y
+  train_val_test_datasets: y
+  auto_download_datasets: y
 
 checkpoints:
-  original_integration_checkpoints: n
-  sparsezoo_checkpoints: n
-  best_checkpoint: n
+  original_integration_checkpoints: y
+  sparsezoo_checkpoints: y
+  best_checkpoint: y
   best_pruned_checkpoint: n
   best_pruned_quantized_checkpoint: n
   recipe_saved_to_checkpoint: n
-  update_architecture_from_recipe: n
-  staged_recipes: n
+  update_architecture_from_recipe: y
+  staged_recipes: y
 
 logging:
-  stdout: n
+  stdout: y
   weights_and_biases: n
-  tensorboard: n
+  tensorboard: y
 
 export:
-  cli: n
-  api: n
-  one_shot: n
-  onnx: n
+  cli: y
+  api: y
+  one_shot: y
+  onnx: y
   torch_script: n
   static_batch_size: n
-  dynamic_batch_size: n
-  static_input_shape: n
+  dynamic_batch_size: y
+  static_input_shape: y
   dynamic_input_shape: n
-  save_to_simple_deployment_directory: n
+  save_to_simple_deployment_directory: y
   save_to_sparsezoo_directory: n

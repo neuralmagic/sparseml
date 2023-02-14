@@ -130,6 +130,7 @@ class ExportStatusTable(FeatureStatusTable):
     cli: FeatureStatus = Field()
     api: FeatureStatus = Field()
     one_shot: FeatureStatus = Field()
+    onnx: FeatureStatus = Field()
     torch_script: FeatureStatus = Field()
     static_batch_size: FeatureStatus = Field()
     dynamic_batch_size: FeatureStatus = Field()
