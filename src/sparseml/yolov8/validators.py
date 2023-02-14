@@ -18,9 +18,9 @@ import torch
 from tqdm import tqdm
 
 from ultralytics.nn.autobackend import AutoBackend
-from ultralytics.yolo.data.utils import check_dataset, check_dataset_yaml
+from ultralytics.yolo.data.utils import check_cls_dataset, check_det_dataset
 from ultralytics.yolo.engine.validator import BaseValidator
-from ultralytics.yolo.utils import TQDM_BAR_FORMAT, callbacks
+from ultralytics.yolo.utils import TQDM_BAR_FORMAT, callbacks, emojis
 from ultralytics.yolo.utils.checks import check_imgsz
 from ultralytics.yolo.utils.ops import Profile
 from ultralytics.yolo.utils.torch_utils import de_parallel, select_device
@@ -37,7 +37,7 @@ class SparseValidator(BaseValidator):
             self.device = trainer.device
             self.data = trainer.data
             model = trainer.ema.ema or trainer.model
-            self.args.half = self.device.type != "cpu"  # force FP16 val during training
+            # self.args.half = self.device.type != "cpu"
             model = model.half() if self.args.half else model.float()
             self.model = model
             self.loss = torch.zeros_like(trainer.loss_items, device=trainer.device)
@@ -50,7 +50,7 @@ class SparseValidator(BaseValidator):
             self.run_callbacks("on_val_start")
             assert model is not None, "Either trainer or model is needed for validation"
             self.device = select_device(self.args.device, self.args.batch)
-            self.args.half &= self.device.type != "cpu"
+            # self.args.half &= self.device.type != "cpu"
             model = AutoBackend(
                 model,
                 device=self.device,
@@ -73,14 +73,20 @@ class SparseValidator(BaseValidator):
                     )
 
             if isinstance(self.args.data, str) and self.args.data.endswith(".yaml"):
-                self.data = check_dataset_yaml(self.args.data)
+                self.data = check_det_dataset(self.args.data)
+            elif self.args.task == "classify":
+                self.data = check_cls_dataset(self.args.data)
             else:
-                self.data = check_dataset(self.args.data)
+                raise FileNotFoundError(
+                    emojis(f"Dataset '{self.args.data}' not found ❌")
+                )
 
             if self.device.type == "cpu":
                 self.args.workers = (
                     0  # faster CPU val as time dominated by inference, not dataloading
                 )
+            if not pt:
+                self.args.rect = False
             self.dataloader = self.dataloader or self.get_dataloader(
                 self.data.get("val") or self.data.set("test"), self.args.batch
             )
