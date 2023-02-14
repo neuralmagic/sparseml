@@ -66,9 +66,9 @@ _pytorch_deps = [
     "gputils",
 ]
 _pytorch_all_deps = _pytorch_deps + [
-    "torchvision>=0.3.0,<=0.13",
-    "torchaudio<=0.12",
-    "torchvision>=0.3.0,<=0.13",
+    "torchvision>=0.3.0,<=0.14",
+    "torchaudio<=0.13",
+    "torchvision>=0.3.0,<=0.14",
 ]
 _pytorch_vision_deps = _pytorch_deps + ["torchvision>=0.3.0,<=0.14"]
 _tensorflow_v1_deps = ["tensorflow<2.0.0", "tensorboard<2.0.0", "tf2onnx>=1.0.0,<1.6"]
