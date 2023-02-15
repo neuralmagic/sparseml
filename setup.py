@@ -62,15 +62,15 @@ _deepsparse_ent_deps = [f"deepsparse-ent~={version_nm_deps}"]
 
 _onnxruntime_deps = ["onnxruntime>=1.0.0"]
 _pytorch_deps = [
-    "torch>=1.1.0,<=1.12.1",
+    "torch>=1.1.0,<=1.13.1",
     "gputils",
 ]
 _pytorch_all_deps = _pytorch_deps + [
-    "torchvision>=0.3.0,<=0.13",
-    "torchaudio<=0.12",
-    "torchvision>=0.3.0,<=0.13",
+    "torchvision>=0.3.0,<=0.14",
+    "torchaudio<=0.13",
+    "torchvision>=0.3.0,<=0.14",
 ]
-_pytorch_vision_deps = _pytorch_deps + ["torchvision>=0.3.0,<=0.13"]
+_pytorch_vision_deps = _pytorch_deps + ["torchvision>=0.3.0,<=0.14"]
 _tensorflow_v1_deps = ["tensorflow<2.0.0", "tensorboard<2.0.0", "tf2onnx>=1.0.0,<1.6"]
 _tensorflow_v1_gpu_deps = [
     "tensorflow-gpu<2.0.0",
@@ -83,7 +83,7 @@ _open_pif_paf_deps = ["openpifpaf==0.13.6"]
 
 _dev_deps = [
     "beautifulsoup4==4.9.3",
-    "black==21.5b2",
+    "black==22.12.0",
     "flake8==3.9.2",
     "isort==5.8.0",
     "m2r2~=0.2.7",
@@ -106,7 +106,7 @@ _dev_deps = [
     "tensorboardX>=1.0",
 ]
 
-_ultralytics_deps = ["ultralytics==8.0.11"]
+_ultralytics_deps = ["ultralytics==8.0.30"]
 
 
 def _setup_packages() -> List:
@@ -231,7 +231,11 @@ def _setup_entry_points() -> Dict:
     )
 
     entry_points["console_scripts"].extend(
-        ["sparseml.ultralytics.train=sparseml.pytorch.yolov8.train:main"]
+        [
+            "sparseml.ultralytics.train=sparseml.yolov8.train:main",
+            "sparseml.ultralytics.val=sparseml.yolov8.val:main",
+            "sparseml.ultralytics.export=sparseml.yolov8.export:main",
+        ]
     )
 
     return entry_points
