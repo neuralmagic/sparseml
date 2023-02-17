@@ -54,10 +54,10 @@ from sparseml.yolov8.trainers import SparseYOLO
     help="Path to recipe to apply in a zero shot fashion. " "Defaults to None.",
 )
 @click.option(
-    "--num_samples",
-    default=20,
+    "--export-samples",
     type=int,
-    help="...",
+    default=20,
+    help="Number of samples to export with onnx",
 )
 def main(**kwargs):
     model = SparseYOLO(kwargs["model"])

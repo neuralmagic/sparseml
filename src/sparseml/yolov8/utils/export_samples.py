@@ -1,47 +1,59 @@
-from typing import Union
-import torch
-from pathlib import Path
-import numpy
-from ultralytics.yolo.utils import LOGGER
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import os
+
+import numpy
+import onnxruntime
+import torch
+from torch import device as device_class
+
+from ultralytics.yolo.utils import LOGGER
+
+
 __all__ = ["export_sample_inputs_outputs"]
 
-def _graph_has_uint8_inputs(onnx_path: Union[str, Path]) -> bool:
-    """
-    Load onnx model and check if it's input is type 2 (unit8)
-    """
-    import onnx
 
-    onnx_model = onnx.load(str(onnx_path))
-    return onnx_model.graph.input[0].type.tensor_type.elem_type == 2
-
-def preprocess(batch, device, half = False):
+def preprocess(batch, device, half=False):
+    """
+    Ported from
+    https://github.com/ultralytics/ultralytics/blob/main/ultralytics/yolo/v8/detect/val.py
+    """
     batch["img"] = batch["img"].to(device, non_blocking=True)
     batch["img"] = (batch["img"].half() if half else batch["img"].float()) / 255
     for k in ["batch_idx", "cls", "bboxes"]:
         batch[k] = batch[k].to(device)
-
-    nb = len(batch["img"])
-
     return batch
 
+
+@torch.no_grad()
 def export_sample_inputs_outputs(
-    data_loader,
+    data_loader: torch.utils.data.DataLoader,
     model: torch.nn.Module,
-    save_dir: Path,
-    device: str,
+    save_dir: str,
+    device: device_class,
     number_export_samples: int,
-    image_size: int,
-    onnx_path: Union[str, Path, None] = None,
+    onnx_path: str,
 ):
     """
     Export sample model input and output for testing with the DeepSparse Engine
-    :param dataset: path to dataset to take samples from
-    :param model: model to be exported. Used to generate outputs
+    :param data_loader: path to data loader to take samples from
+    :param model: model to be exported. Used to generate torch outputs
     :param save_dir: directory to save samples to
+    :param device: device to run the inference (output generation) on
     :param number_export_samples: number of samples to export
-    :param image_size: image size
-    :param onnx_path: Path to saved onnx model. Used to check if it uses uints8 inputs
+    :param onnx_path: path to onnx model. Used to generate ORT outputs
     """
 
     LOGGER.info(
@@ -53,41 +65,40 @@ def export_sample_inputs_outputs(
 
     # Sample export directories
     sample_in_dir = os.path.join(save_dir, "sample_inputs")
-    sample_out_dir = os.path.join(save_dir, "sample_outputs")
-    os.makedirs(sample_in_dir, exist_ok=True)
-    os.makedirs(sample_out_dir, exist_ok=True)
+    sample_out_dir_torch = os.path.join(save_dir, "sample_outputs_torch")
+    sample_out_dir_ort = os.path.join(save_dir, "sample_outputs_ort")
 
-    save_inputs_as_uint8 = _graph_has_uint8_inputs(onnx_path) if onnx_path else False
+    os.makedirs(sample_in_dir, exist_ok=True)
+    os.makedirs(sample_out_dir_torch, exist_ok=True)
+    os.makedirs(sample_out_dir_ort, exist_ok=True)
+
+    # Prepare model for inference
     model = model.to(device)
     model.eval()
 
+    # Prepare onnxruntime engine for inference
+    ort_session = onnxruntime.InferenceSession(onnx_path)
+
+    LOGGER.info(f"Exporting sample inputs to directory {sample_in_dir}")
+    LOGGER.info(f"Exporting sample torch outputs to directory {sample_out_dir_torch}")
+    LOGGER.info(
+        f"Exporting sample onnxruntime outputs to directory {sample_out_dir_ort}"
+    )
+
     for batch in data_loader:
-        # uint8 to float32, 0-255 to 0.0-1.0
-        preprocessed_batch = preprocess(batch=batch, device=device)
-        import matplotlib.pyplot as plt
-        import numpy as np
-        a = (preprocessed_batch["img"][0].detach().cpu().numpy() * 255).astype(np.uint8)
-        plt.imshow(a.transpose(1,2,0))
-        plt.show()
-        model_out = model(preprocessed_batch["img"])
-
-        # Move to cpu for exporting
-
-        out1, _ = model_out
-        sample_in = preprocessed_batch["img"].detach().to("cpu")
-        sample_out = out1.detach().to("cpu")
-
         file_idx = f"{exported_samples}".zfill(4)
+        preprocessed_batch = preprocess(batch=batch, device=device)
+        image = preprocessed_batch["img"]
 
         # Save inputs as numpy array
-        sample_input_filename = os.path.join(sample_in_dir,f"inp-{file_idx}.npz")
-        if save_inputs_as_uint8:
-            sample_in = (255 * sample_in).to(dtype=torch.uint8)
-        numpy.savez(sample_input_filename, sample_in)
+        _export_inputs(image, sample_in_dir, file_idx)
+        # Save torch outputs as numpy array
+        _export_torch_outputs(image, model, sample_out_dir_torch, file_idx)
+        # Save onnxruntime outputs as numpy array
+        _export_ort_outputs(
+            image.cpu().numpy(), ort_session, sample_out_dir_ort, file_idx
+        )
 
-        # Save outputs as numpy array
-        sample_output_filename = os.path.join(sample_out_dir, f"out-{file_idx}.npz")
-        numpy.savez(sample_output_filename, sample_out)
         exported_samples += 1
 
         if exported_samples >= number_export_samples:
@@ -100,4 +111,49 @@ def export_sample_inputs_outputs(
             level="warning",
         )
 
-    LOGGER.info(f"Complete export of {number_export_samples} to {save_dir}")
+    LOGGER.info(
+        f"Completed the export of {number_export_samples} "
+        f"input/output samples to {save_dir}"
+    )
+
+
+def _export_torch_outputs(
+    image: torch.Tensor, model: torch.nn.Module, sample_out_dir: str, file_idx: str
+):
+
+    # Run model to get torch outputs
+    model_out = model(image)
+    # preds, intermediate_outputs = model_out
+    preds, _ = model_out
+
+    # Move to cpu for exporting
+    preds = preds.detach().to("cpu")
+
+    sample_output_filename = os.path.join(sample_out_dir, f"inp-{file_idx}.npz")
+    numpy.savez(sample_output_filename, preds)
+
+
+def _export_ort_outputs(
+    image: numpy.ndarray,
+    session: onnxruntime.InferenceSession,
+    sample_out_dir: str,
+    file_idx: str,
+):
+
+    # Run model to get onnxruntime outputs
+    ort_inputs = {session.get_inputs()[0].name: image}
+    ort_outs = session.run(None, ort_inputs)
+    # preds, iterm_out1, interm_out2, interm_out3 = model_out
+    preds, *_ = ort_outs
+
+    sample_output_filename = os.path.join(sample_out_dir, f"inp-{file_idx}.npz")
+    numpy.savez(sample_output_filename, preds)
+
+
+def _export_inputs(image: torch.Tensor, sample_in_dir: str, file_idx: str):
+
+    # Move to cpu for exporting
+    sample_in = image.detach().to("cpu")
+
+    sample_input_filename = os.path.join(sample_in_dir, f"inp-{file_idx}.npz")
+    numpy.savez(sample_input_filename, sample_in)

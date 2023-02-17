@@ -30,6 +30,7 @@ from sparseml.pytorch.optim.manager import ScheduledModifierManager
 from sparseml.pytorch.utils import ModuleExporter
 from sparseml.pytorch.utils.helpers import download_framework_model_by_recipe_type
 from sparseml.pytorch.utils.logger import LoggerManager, PythonLogger, WANDBLogger
+from sparseml.yolov8.utils.export_samples import export_sample_inputs_outputs
 from sparseml.yolov8.validators import (
     SparseClassificationValidator,
     SparseDetectionValidator,
@@ -39,6 +40,7 @@ from sparsezoo import Model
 from ultralytics import __version__
 from ultralytics.nn.tasks import SegmentationModel, attempt_load_one_weight
 from ultralytics.yolo.cfg import get_cfg
+from ultralytics.yolo.data.dataloaders.v5loader import create_dataloader
 from ultralytics.yolo.engine.model import YOLO
 from ultralytics.yolo.engine.trainer import BaseTrainer
 from ultralytics.yolo.utils import LOGGER, IterableSimpleNamespace, yaml_load
@@ -48,13 +50,11 @@ from ultralytics.yolo.utils.dist import (
     ddp_cleanup,
     find_free_network_port,
 )
-from ultralytics.yolo.data.dataloaders.v5loader import create_dataloader
 from ultralytics.yolo.utils.files import get_latest_run
 from ultralytics.yolo.utils.torch_utils import de_parallel, smart_inference_mode
 from ultralytics.yolo.v8.classify import ClassificationTrainer, ClassificationValidator
 from ultralytics.yolo.v8.detect import DetectionTrainer, DetectionValidator
 from ultralytics.yolo.v8.segment import SegmentationTrainer, SegmentationValidator
-from sparseml.yolov8.utils.export_samples import export_sample_inputs_outputs
 
 
 class _NullLRScheduler:
@@ -568,17 +568,29 @@ class SparseYOLO(YOLO):
 
         onnx.checker.check_model(os.path.join(save_dir, name))
         deployment_folder = exporter.create_deployment_folder(onnx_model_name=name)
-        if True:
-            trainer = DetectionTrainer(get_cfg(cfg=DEFAULT_SPARSEML_CONFIG))
+        if args["export_samples"]:
+            trainer_config = get_cfg(cfg=DEFAULT_SPARSEML_CONFIG)
+
+            trainer_config.data = args["data"]
+            trainer_config.imgsz = args["imgsz"]
+
+            trainer = DetectionTrainer(trainer_config)
+            # inconsistency in name between
+            # validation and test sets
+            validation_set_path = trainer.testset
             device = trainer.device
-            data_loader, _ = create_dataloader(path=trainer.testset, rect=False, pad=0.0, imgsz=args['imgsz'], batch_size=1, stride=32)
-            export_sample_inputs_outputs(data_loader=data_loader,
-                                         model=self.model,
-                                         number_export_samples= args['num_samples'],
-                                         device = device,
-                                         save_dir=deployment_folder,
-                                         image_size=args['imgsz'],
-                                         onnx_path=os.path.join(deployment_folder, name))
+            data_loader, _ = create_dataloader(
+                path=validation_set_path, imgsz=args["imgsz"], batch_size=1, stride=32
+            )
+
+            export_sample_inputs_outputs(
+                data_loader=data_loader,
+                model=self.model,
+                number_export_samples=args["export_samples"],
+                device=device,
+                save_dir=deployment_folder,
+                onnx_path=os.path.join(deployment_folder, name),
+            )
 
         if recipe:
             LOGGER.info(
