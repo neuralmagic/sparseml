@@ -132,7 +132,7 @@ def _export_torch_outputs(
     # Move to cpu for exporting
     preds = preds.detach().to("cpu")
 
-    sample_output_filename = os.path.join(sample_out_dir, f"inp-{file_idx}.npz")
+    sample_output_filename = os.path.join(sample_out_dir, f"out-{file_idx}.npz")
     numpy.savez(sample_output_filename, preds)
 
 
