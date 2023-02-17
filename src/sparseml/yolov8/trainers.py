@@ -48,11 +48,13 @@ from ultralytics.yolo.utils.dist import (
     ddp_cleanup,
     find_free_network_port,
 )
+from ultralytics.yolo.data.dataloaders.v5loader import create_dataloader
 from ultralytics.yolo.utils.files import get_latest_run
 from ultralytics.yolo.utils.torch_utils import de_parallel, smart_inference_mode
 from ultralytics.yolo.v8.classify import ClassificationTrainer, ClassificationValidator
 from ultralytics.yolo.v8.detect import DetectionTrainer, DetectionValidator
 from ultralytics.yolo.v8.segment import SegmentationTrainer, SegmentationValidator
+from sparseml.yolov8.utils.export_samples import export_sample_inputs_outputs
 
 
 class _NullLRScheduler:
@@ -566,6 +568,18 @@ class SparseYOLO(YOLO):
 
         onnx.checker.check_model(os.path.join(save_dir, name))
         deployment_folder = exporter.create_deployment_folder(onnx_model_name=name)
+        if True:
+            trainer = DetectionTrainer(get_cfg(cfg=DEFAULT_SPARSEML_CONFIG))
+            device = trainer.device
+            data_loader, _ = create_dataloader(path=trainer.testset, rect=False, pad=0.0, imgsz=args['imgsz'], batch_size=1, stride=32)
+            export_sample_inputs_outputs(data_loader=data_loader,
+                                         model=self.model,
+                                         number_export_samples= args['num_samples'],
+                                         device = device,
+                                         save_dir=deployment_folder,
+                                         image_size=args['imgsz'],
+                                         onnx_path=os.path.join(deployment_folder, name))
+
         if recipe:
             LOGGER.info(
                 "Recipe checkpoint detected, saving the "
