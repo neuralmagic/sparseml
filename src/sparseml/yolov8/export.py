@@ -56,7 +56,7 @@ from sparseml.yolov8.trainers import SparseYOLO
 @click.option(
     "--export-samples",
     type=int,
-    default=20,
+    default=0,
     help="Number of samples to export with onnx",
 )
 def main(**kwargs):
