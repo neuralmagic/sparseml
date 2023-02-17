@@ -48,6 +48,7 @@ def export_sample_inputs_outputs(
 ):
     """
     Export sample model input and output for testing with the DeepSparse Engine
+
     :param data_loader: path to data loader to take samples from
     :param model: model to be exported. Used to generate torch outputs
     :param save_dir: directory to save samples to
