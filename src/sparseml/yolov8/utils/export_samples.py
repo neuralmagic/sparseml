@@ -148,7 +148,7 @@ def _export_ort_outputs(
     # preds, iterm_out1, interm_out2, interm_out3 = model_out
     preds, *_ = ort_outs
 
-    sample_output_filename = os.path.join(sample_out_dir, f"inp-{file_idx}.npz")
+    sample_output_filename = os.path.join(sample_out_dir, f"out-{file_idx}.npz")
     numpy.savez(sample_output_filename, preds)
 
 
