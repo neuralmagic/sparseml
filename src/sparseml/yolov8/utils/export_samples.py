@@ -66,11 +66,13 @@ def export_sample_inputs_outputs(
     # Sample export directories
     sample_in_dir = os.path.join(save_dir, "sample_inputs")
     sample_out_dir_torch = os.path.join(save_dir, "sample_outputs_torch")
-    sample_out_dir_ort = os.path.join(save_dir, "sample_outputs_ort")
+    sample_out_dir_ort = os.path.join(save_dir, "sample_outputs_onnxruntime")
 
     os.makedirs(sample_in_dir, exist_ok=True)
     os.makedirs(sample_out_dir_torch, exist_ok=True)
     os.makedirs(sample_out_dir_ort, exist_ok=True)
+
+    save_inputs_as_uint8 = _graph_has_uint8_inputs(onnx_path) if onnx_path else False
 
     # Prepare model for inference
     model = model.to(device)
@@ -91,7 +93,7 @@ def export_sample_inputs_outputs(
         image = preprocessed_batch["img"]
 
         # Save inputs as numpy array
-        _export_inputs(image, sample_in_dir, file_idx)
+        _export_inputs(image, sample_in_dir, file_idx, save_inputs_as_uint8)
         # Save torch outputs as numpy array
         _export_torch_outputs(image, model, sample_out_dir_torch, file_idx)
         # Save onnxruntime outputs as numpy array
@@ -150,10 +152,23 @@ def _export_ort_outputs(
     numpy.savez(sample_output_filename, preds)
 
 
-def _export_inputs(image: torch.Tensor, sample_in_dir: str, file_idx: str):
+def _export_inputs(
+    image: torch.Tensor, sample_in_dir: str, file_idx: str, save_inputs_as_uint8: bool
+):
 
-    # Move to cpu for exporting
     sample_in = image.detach().to("cpu")
+    if save_inputs_as_uint8:
+        sample_in = (255 * sample_in).to(dtype=torch.uint8)
 
     sample_input_filename = os.path.join(sample_in_dir, f"inp-{file_idx}.npz")
     numpy.savez(sample_input_filename, sample_in)
+
+
+def _graph_has_uint8_inputs(onnx_path: str) -> bool:
+    """
+    Load onnx model and check if it's input is type 2 (unit8)
+    """
+    import onnx
+
+    onnx_model = onnx.load(str(onnx_path))
+    return onnx_model.graph.input[0].type.tensor_type.elem_type == 2
