@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+from typing import Any, Dict
 
 import numpy
 import onnxruntime
@@ -25,7 +26,9 @@ from ultralytics.yolo.utils import LOGGER
 __all__ = ["export_sample_inputs_outputs"]
 
 
-def preprocess(batch, device, half=False):
+def preprocess(
+    batch: Dict[str, Any], device: device_class, half: bool = False
+) -> Dict[str, Any]:
     """
     Ported from
     https://github.com/ultralytics/ultralytics/blob/main/ultralytics/yolo/v8/detect/val.py
