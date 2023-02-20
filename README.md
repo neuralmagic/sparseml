@@ -53,7 +53,7 @@ limitations under the License.
 
 ## Overview
 
-SparseML is a toolkit that includes APIs, CLIs, scripts and libraries that apply state-of-the-art [sparsification](https://docs.neuralmagic.com/main/source/getstarted.html#sparsification) algorithms such as pruning and quantization to any neural network. 
+SparseML is a toolkit that includes APIs, CLIs, scripts and libraries that apply state-of-the-art [sparsification](https://docs.neuralmagic.com/user-guides/sparsification) algorithms such as pruning and quantization to any neural network. 
 General, recipe-driven approaches built around these algorithms enable the simplification of creating faster and smaller models for the ML performance community at large.
 
 The [GitHub repository](https://github.com/neuralmagic/sparseml) contains integrations within the PyTorch, Keras, and TensorFlow V1 ecosystems, allowing for seamless model sparsification.
@@ -195,8 +195,8 @@ manager.apply(model)
 
 More information on the codebase and contained processes can be found in the SparseML docs:
 - [Sparsification Code](https://docs.neuralmagic.com/get-started/sparsify-a-model)
-- [Sparsification Recipes](https://docs.neuralmagic.com/user-guide/recipes)
-- [Exporting to ONNX](https://docs.neuralmagic.com/user-guide/onnx-export)
+- [Sparsification Recipes](https://docs.neuralmagic.com/user-guides/recipes)
+- [Exporting to ONNX](https://docs.neuralmagic.com/user-guides/onnx-export)
 
 ## Resources
 
