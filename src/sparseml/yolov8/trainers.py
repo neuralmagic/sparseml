@@ -18,7 +18,7 @@ import subprocess
 import sys
 import tempfile
 import warnings
-from copy import deepcopy
+from copy import copy, deepcopy
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -30,6 +30,7 @@ from sparseml.pytorch.optim.manager import ScheduledModifierManager
 from sparseml.pytorch.utils import ModuleExporter
 from sparseml.pytorch.utils.helpers import download_framework_model_by_recipe_type
 from sparseml.pytorch.utils.logger import LoggerManager, PythonLogger, WANDBLogger
+from sparseml.yolov8.utils.export_samples import export_sample_inputs_outputs
 from sparseml.yolov8.validators import (
     SparseClassificationValidator,
     SparseDetectionValidator,
@@ -38,21 +39,19 @@ from sparseml.yolov8.validators import (
 from sparsezoo import Model
 from ultralytics import __version__
 from ultralytics.nn.tasks import SegmentationModel, attempt_load_one_weight
-from ultralytics.yolo.configs import get_config
+from ultralytics.yolo.cfg import get_cfg
+from ultralytics.yolo.data.dataloaders.v5loader import create_dataloader
 from ultralytics.yolo.engine.model import YOLO
 from ultralytics.yolo.engine.trainer import BaseTrainer
-from ultralytics.yolo.utils import LOGGER, yaml_load
-from ultralytics.yolo.utils.checks import check_yaml
+from ultralytics.yolo.utils import LOGGER, IterableSimpleNamespace, yaml_load
+from ultralytics.yolo.utils.checks import check_file, check_yaml
 from ultralytics.yolo.utils.dist import (
     USER_CONFIG_DIR,
     ddp_cleanup,
     find_free_network_port,
 )
-from ultralytics.yolo.utils.torch_utils import (
-    ModelEMA,
-    de_parallel,
-    smart_inference_mode,
-)
+from ultralytics.yolo.utils.files import get_latest_run
+from ultralytics.yolo.utils.torch_utils import de_parallel, smart_inference_mode
 from ultralytics.yolo.v8.classify import ClassificationTrainer, ClassificationValidator
 from ultralytics.yolo.v8.detect import DetectionTrainer, DetectionValidator
 from ultralytics.yolo.v8.segment import SegmentationTrainer, SegmentationValidator
@@ -61,24 +60,6 @@ from ultralytics.yolo.v8.segment import SegmentationTrainer, SegmentationValidat
 class _NullLRScheduler:
     def step(self):
         pass
-
-
-class _ToggleableEMA(ModelEMA):
-    def __init__(self, ema: ModelEMA):
-        self.ema = ema.ema
-        self.updates = ema.updates
-        self.decay = ema.decay
-        self.enabled = True
-
-    def update(self, model, **kwargs):
-        if not self.enabled:
-            return
-        return super().update(model, **kwargs)
-
-    def update_attr(self, model, **kwargs):
-        if not self.enabled:
-            return
-        return super().update_attr(model, **kwargs)
 
 
 DEFAULT_SPARSEML_CONFIG = Path(__file__).resolve().parent / "default.yaml"
@@ -125,6 +106,31 @@ class SparseTrainer(BaseTrainer):
             "on_train_batch_end", SparseTrainer.callback_on_train_batch_end
         )
         self.add_callback("teardown", SparseTrainer.callback_teardown)
+
+    def check_resume(self):
+        # see note for what is different
+        resume = self.args.resume
+        if resume:
+            try:
+                last = Path(
+                    check_file(resume)
+                    if isinstance(resume, (str, Path)) and Path(resume).exists()
+                    else get_latest_run()
+                )
+
+                # NOTE: here is the single change to this function
+                # self.args = get_cfg(attempt_load_weights(last).args)
+                self.args = torch.load(last)["train_args"]
+                self.args = IterableSimpleNamespace(**self.args)
+
+                self.args.model, resume = str(last), True  # reinstate
+            except Exception as e:
+                raise FileNotFoundError(
+                    "Resume checkpoint not found. "
+                    "Please pass a valid checkpoint to resume from, "
+                    "i.e. 'yolo train resume model=path/to/last.pt'"
+                ) from e
+        self.resume = resume
 
     def train(self):
         # NOTE: overriden to use our version of `generate_ddp_command`
@@ -249,9 +255,6 @@ class SparseTrainer(BaseTrainer):
         super()._setup_train(rank, world_size)
         # NOTE: self.resume_training() was called in ^
 
-        if self.ema is not None:
-            self.ema = _ToggleableEMA(self.ema)
-
         if rank in {0, -1}:
             config = dict(self.args)
             if self.manager is not None:
@@ -368,7 +371,7 @@ class SparseTrainer(BaseTrainer):
             "ema": deepcopy(self.ema.ema).state_dict(),
             "updates": self.ema.updates,
             "optimizer": self.optimizer.state_dict(),
-            "train_args": self.args,
+            "train_args": vars(self.args),
             "date": datetime.now().isoformat(),
             "version": __version__,
             "source": "sparseml",
@@ -395,15 +398,33 @@ class SparseTrainer(BaseTrainer):
 
 
 class SparseDetectionTrainer(SparseTrainer, DetectionTrainer):
-    pass
+    def get_validator(self):
+        self.loss_names = "box_loss", "cls_loss", "dfl_loss"
+        return SparseDetectionValidator(
+            self.test_loader,
+            save_dir=self.save_dir,
+            logger=self.console,
+            args=copy(self.args),
+        )
 
 
 class SparseClassificationTrainer(SparseTrainer, ClassificationTrainer):
-    pass
+    def get_validator(self):
+        self.loss_names = ["loss"]
+        return SparseClassificationValidator(
+            self.test_loader, self.save_dir, logger=self.console
+        )
 
 
 class SparseSegmentationTrainer(SparseTrainer, SegmentationTrainer):
-    pass
+    def get_validator(self):
+        self.loss_names = "box_loss", "seg_loss", "cls_loss", "dfl_loss"
+        return SparseSegmentationValidator(
+            self.test_loader,
+            save_dir=self.save_dir,
+            logger=self.console,
+            args=copy(self.args),
+        )
 
 
 class SparseYOLO(YOLO):
@@ -469,7 +490,7 @@ class SparseYOLO(YOLO):
                 self.TrainerClass,
                 self.ValidatorClass,
                 self.PredictorClass,
-            ) = self._guess_ops_from_task(self.task)
+            ) = self._assign_ops_from_task(self.task)
 
             self.model = self.ModelClass(dict(self.ckpt["model_yaml"]))
             if "recipe" in self.ckpt:
@@ -547,6 +568,30 @@ class SparseYOLO(YOLO):
 
         onnx.checker.check_model(os.path.join(save_dir, name))
         deployment_folder = exporter.create_deployment_folder(onnx_model_name=name)
+        if args["export_samples"]:
+            trainer_config = get_cfg(cfg=DEFAULT_SPARSEML_CONFIG)
+
+            trainer_config.data = args["data"]
+            trainer_config.imgsz = args["imgsz"]
+
+            trainer = DetectionTrainer(trainer_config)
+            # inconsistency in name between
+            # validation and test sets
+            validation_set_path = trainer.testset
+            device = trainer.device
+            data_loader, _ = create_dataloader(
+                path=validation_set_path, imgsz=args["imgsz"], batch_size=1, stride=32
+            )
+
+            export_sample_inputs_outputs(
+                data_loader=data_loader,
+                model=self.model,
+                number_export_samples=args["export_samples"],
+                device=device,
+                save_dir=deployment_folder,
+                onnx_path=os.path.join(deployment_folder, name),
+            )
+
         if recipe:
             LOGGER.info(
                 "Recipe checkpoint detected, saving the "
@@ -588,7 +633,7 @@ class SparseYOLO(YOLO):
         overrides = self.overrides.copy()
         overrides.update(kwargs)
         overrides["mode"] = "val"
-        args = get_config(config=DEFAULT_SPARSEML_CONFIG, overrides=overrides)
+        args = get_cfg(cfg=DEFAULT_SPARSEML_CONFIG, overrides=overrides)
         args.data = data or args.data
         args.task = self.task
 

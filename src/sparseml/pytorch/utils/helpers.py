@@ -1118,9 +1118,9 @@ def memory_aware_threshold(tensor: torch.Tensor, idx: int) -> Tensor:
             MEMORY_BOUNDED in os.environ
             and os.environ[MEMORY_BOUNDED].lower() == "true"
         ):
-            return torch.kthvalue(tensor.view(-1), idx + 1)[0]
+            return torch.kthvalue(tensor.reshape(-1), idx + 1)[0]
         else:
-            return torch.sort(tensor.view(-1))[0][idx]
+            return torch.sort(tensor.reshape(-1))[0][idx]
     except RuntimeError:
         _LOGGER.warning(
             "Finding threshold from sparsity failed due to lack of memory, "
