@@ -108,8 +108,8 @@ def test_vanilla(onnx_model: onnx.ModelProto):
     assert [n.name for n in onnx_model.graph.node] == [
         "matmul_quant",
         "matmul_bias_add_quant",
-        "matmul_bias_add_quant_output_cast",
-        "matmul_bias_add_quant_output_cast_rescale_mul",
+        "matmul_bias_add_quant_cast",
+        "matmul_bias_add_quant_rescale_mul",
     ]
     assert [n.op_type for n in onnx_model.graph.node] == [
         "MatMulInteger",
@@ -134,8 +134,8 @@ def test_without_transpose(onnx_model: onnx.ModelProto):
     assert [n.name for n in onnx_model.graph.node] == [
         "matmul_quant",
         "matmul_bias_add_quant",
-        "matmul_bias_add_quant_output_cast",
-        "matmul_bias_add_quant_output_cast_rescale_mul",
+        "matmul_bias_add_quant_cast",
+        "matmul_bias_add_quant_rescale_mul",
     ]
     assert [n.op_type for n in onnx_model.graph.node] == [
         "MatMulInteger",
