@@ -83,7 +83,7 @@ class DatasetsStatusTable(FeatureStatusTable):
 class CheckpointsStatusTable(FeatureStatusTable):
     original_integration_checkpoints: FeatureStatus = Field()
     sparsezoo_checkpoints: FeatureStatus = Field()
-    best_checkpoint: FeatureStatus = Field()
+    best_dense_checkpoint: FeatureStatus = Field()
     best_pruned_checkpoint: FeatureStatus = Field()
     best_pruned_quantized_checkpoint: FeatureStatus = Field()
     recipe_saved_to_checkpoint: FeatureStatus = Field()
