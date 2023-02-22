@@ -30,6 +30,7 @@ from sparseml.pytorch.optim.manager import ScheduledModifierManager
 from sparseml.pytorch.utils import ModuleExporter
 from sparseml.pytorch.utils.helpers import download_framework_model_by_recipe_type
 from sparseml.pytorch.utils.logger import LoggerManager, PythonLogger, WANDBLogger
+from sparseml.yolov8.utils.export_samples import export_sample_inputs_outputs
 from sparseml.yolov8.validators import (
     SparseClassificationValidator,
     SparseDetectionValidator,
@@ -39,10 +40,11 @@ from sparsezoo import Model
 from ultralytics import __version__
 from ultralytics.nn.tasks import SegmentationModel, attempt_load_one_weight
 from ultralytics.yolo.cfg import get_cfg
+from ultralytics.yolo.data.dataloaders.v5loader import create_dataloader
 from ultralytics.yolo.engine.model import YOLO
 from ultralytics.yolo.engine.trainer import BaseTrainer
 from ultralytics.yolo.utils import LOGGER, IterableSimpleNamespace, yaml_load
-from ultralytics.yolo.utils.checks import check_file, check_yaml
+from ultralytics.yolo.utils.checks import check_file, check_imgsz, check_yaml
 from ultralytics.yolo.utils.dist import (
     USER_CONFIG_DIR,
     ddp_cleanup,
@@ -60,7 +62,13 @@ class _NullLRScheduler:
         pass
 
 
-DEFAULT_SPARSEML_CONFIG = Path(__file__).resolve().parent / "default.yaml"
+DEFAULT_SPARSEML_CONFIG_PATH = Path(__file__).resolve().parent / "default.yaml"
+DEFAULT_CFG_DICT = yaml_load(DEFAULT_SPARSEML_CONFIG_PATH)
+for k, v in DEFAULT_CFG_DICT.items():
+    if isinstance(v, str) and v.lower() == "none":
+        DEFAULT_CFG_DICT[k] = None
+DEFAULT_CFG_KEYS = DEFAULT_CFG_DICT.keys()
+DEFAULT_CFG = IterableSimpleNamespace(**DEFAULT_CFG_DICT)
 
 
 class SparseTrainer(BaseTrainer):
@@ -78,7 +86,7 @@ class SparseTrainer(BaseTrainer):
     5. Override `save_model()` to add manager to checkpoints
     """
 
-    def __init__(self, config=DEFAULT_SPARSEML_CONFIG, overrides=None):
+    def __init__(self, config=DEFAULT_SPARSEML_CONFIG_PATH, overrides=None):
         super().__init__(config, overrides)
 
         if isinstance(self.model, str) and self.model.startswith("zoo:"):
@@ -566,6 +574,30 @@ class SparseYOLO(YOLO):
 
         onnx.checker.check_model(os.path.join(save_dir, name))
         deployment_folder = exporter.create_deployment_folder(onnx_model_name=name)
+        if args["export_samples"]:
+            trainer_config = get_cfg(cfg=DEFAULT_SPARSEML_CONFIG_PATH)
+
+            trainer_config.data = args["data"]
+            trainer_config.imgsz = args["imgsz"]
+
+            trainer = DetectionTrainer(trainer_config)
+            # inconsistency in name between
+            # validation and test sets
+            validation_set_path = trainer.testset
+            device = trainer.device
+            data_loader, _ = create_dataloader(
+                path=validation_set_path, imgsz=args["imgsz"], batch_size=1, stride=32
+            )
+
+            export_sample_inputs_outputs(
+                data_loader=data_loader,
+                model=self.model,
+                number_export_samples=args["export_samples"],
+                device=device,
+                save_dir=deployment_folder,
+                onnx_path=os.path.join(deployment_folder, name),
+            )
+
         if recipe:
             LOGGER.info(
                 "Recipe checkpoint detected, saving the "
@@ -605,11 +637,17 @@ class SparseYOLO(YOLO):
     @smart_inference_mode()
     def val(self, data=None, **kwargs):
         overrides = self.overrides.copy()
+        overrides["rect"] = True  # rect batches as default
         overrides.update(kwargs)
         overrides["mode"] = "val"
-        args = get_cfg(cfg=DEFAULT_SPARSEML_CONFIG, overrides=overrides)
+        args = get_cfg(cfg=DEFAULT_CFG, overrides=overrides)
         args.data = data or args.data
         args.task = self.task
+        if args.imgsz == DEFAULT_CFG.imgsz:
+            args.imgsz = self.model.args[
+                "imgsz"
+            ]  # use trained imgsz unless custom value is passed
+        args.imgsz = check_imgsz(args.imgsz, max_dim=1)
 
         validator = self.ValidatorClass(args=args)
         validator(model=self.model)

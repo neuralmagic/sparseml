@@ -152,7 +152,7 @@ Install with pip using:
 pip install sparseml
 ```
 
-More information on installation such as optional dependencies and requirements can be found [here.](https://docs.neuralmagic.com/sparseml/source/installation.html)
+More information on installation such as optional dependencies and requirements can be found [here](https://docs.neuralmagic.com/get-started/install/sparseml).
 
 ## Quick Tour
 

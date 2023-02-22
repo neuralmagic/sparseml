@@ -11,12 +11,5 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-import ultralytics
-
-
-if "8.0.30" not in ultralytics.__version__:
-    raise ValueError(
-        f"ultralytics==8.0.30 is required, found {ultralytics.__version__}. "
-        "To fix run `pip install sparseml[ultralytics]`."
-    )
+# flake8: noqa
+from .export_samples import *
