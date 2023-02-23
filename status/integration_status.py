@@ -13,7 +13,7 @@
 # limitations under the License.
 
 """
-Definition of integration status table and CLI util to udpate status tables and 
+Definition of integration status table and CLI util to udpate status tables and
 templates from yaml configs
 """
 
@@ -103,7 +103,8 @@ class CheckpointsStatusTable(FeatureStatusTable):
             "step completes\n"
             "* update_architecture_from_recipe requires a call to apply_structure() "
             "on a torch model before loading sparsified checkpoint\n"
-            "* staged_recipes requires manager.compose_staged(...) before checkpoint save"
+            "* staged_recipes requires manager.compose_staged(...) "
+            "before checkpoint save"
         )
 
 
