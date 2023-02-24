@@ -16,8 +16,8 @@ import onnx
 import pytest
 from onnx import helper
 
-from sparseml.exporters.transforms.matmul_to_matmulinteger_add_cast_mul import (
-    MatMulToMatMulIntegerAddCastMul,
+from sparseml.exporters.transforms.matmul_add_to_matmulinteger_add_cast_mul import (
+    MatMulAddToMatMulIntegerAddCastMul,
 )
 
 
@@ -97,7 +97,33 @@ def onnx_model() -> onnx.ModelProto:
 
 
 def test_vanilla(onnx_model: onnx.ModelProto):
-    onnx_model = MatMulToMatMulIntegerAddCastMul().apply(onnx_model)
+    onnx_model = MatMulAddToMatMulIntegerAddCastMul().apply(onnx_model)
+    onnx.checker.check_model(onnx_model)
+    assert [i.name for i in onnx_model.graph.initializer] == [
+        "zero_point",
+        "matmul.weight_quantized",
+        "add.bias_quantized",
+        "add.bias_quantized.scale",
+    ]
+    assert [n.name for n in onnx_model.graph.node] == [
+        "matmul_quant",
+        "matmul_bias_add_quant",
+        "matmul_bias_add_quant_cast",
+        "matmul_bias_add_quant_rescale_mul",
+    ]
+    assert [n.op_type for n in onnx_model.graph.node] == [
+        "MatMulInteger",
+        "Add",
+        "Cast",
+        "Mul",
+    ]
+
+
+def test_without_transpose(onnx_model: onnx.ModelProto):
+    onnx_model.graph.node[-2].input[1] = "weight_dequant_output"
+    onnx_model.graph.node.pop(-3)
+    onnx.checker.check_model(onnx_model)
+    onnx_model = MatMulAddToMatMulIntegerAddCastMul().apply(onnx_model)
     onnx.checker.check_model(onnx_model)
     assert [i.name for i in onnx_model.graph.initializer] == [
         "zero_point",
@@ -125,7 +151,7 @@ def test_no_bias_changes_nothing(onnx_model: onnx.ModelProto):
     assert onnx_model.graph.node.pop().name == "add"
     onnx.checker.check_model(onnx_model)
 
-    onnx_model = MatMulToMatMulIntegerAddCastMul().apply(onnx_model)
+    onnx_model = MatMulAddToMatMulIntegerAddCastMul().apply(onnx_model)
     onnx.checker.check_model(onnx_model)
     # NOTE: nothing changes
     assert [i.name for i in onnx_model.graph.initializer] == [

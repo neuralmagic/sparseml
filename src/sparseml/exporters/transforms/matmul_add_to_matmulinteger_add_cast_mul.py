@@ -22,14 +22,15 @@ from sparseml.exporters.transforms.utils import (
     any_of,
     get_quantization_params,
     get_structural_matches,
+    optional_node,
 )
 from sparseml.onnx.utils import ONNXGraph
 
 
-__all__ = ["MatMulToMatMulIntegerAddCastMul"]
+__all__ = ["MatMulAddToMatMulIntegerAddCastMul"]
 
 
-class MatMulToMatMulIntegerAddCastMul(OnnxTransform):
+class MatMulAddToMatMulIntegerAddCastMul(OnnxTransform):
     """
     A transform for converting a MatMul with kernel and bias into a
     quantized representation
@@ -41,7 +42,7 @@ class MatMulToMatMulIntegerAddCastMul(OnnxTransform):
     |         |
     | input   Dq
     |   |     |
-    |  Q/Dq   Transpose
+    |  Q/Dq   optional Transpose
     |     |   |
     |     MatMul  bias (initializer)
     |         |   |
@@ -74,7 +75,7 @@ class MatMulToMatMulIntegerAddCastMul(OnnxTransform):
                     INITIALIZER_MATCH,
                     "QuantizeLinear",
                     "DequantizeLinear",
-                    "Transpose",
+                    optional_node("Transpose"),
                 ],
             ],
             children_ops=[["Add"]],
@@ -100,7 +101,7 @@ class MatMulToMatMulIntegerAddCastMul(OnnxTransform):
     ):
         matmul = match.node
         (input_quant,) = match.parents[0]
-        weight_init, weight_quant, weight_dequant, transpose = match.parents[1]
+        weight_init, weight_quant, weight_dequant, opt_transpose = match.parents[1]
         (add,) = match.children[0]
 
         input_quantize_params = get_quantization_params(
@@ -122,13 +123,14 @@ class MatMulToMatMulIntegerAddCastMul(OnnxTransform):
             bias_initializer=bias_init,
             bias_add_name=add.name,
             target_output=add.output[0],
-            transpose_weight=True,
+            transpose_weight=opt_transpose is not None,
         )
 
         # Clean up
         self.delete_node_deferred(weight_dequant)
         self.delete_node_deferred(weight_quant)
-        self.delete_node_deferred(transpose)
+        if opt_transpose is not None:
+            self.delete_node_deferred(opt_transpose)
         if len(graph.get_node_children(input_quant)) == 1:
             self.delete_node_deferred(input_quant)
         self.delete_node_deferred(matmul)
