@@ -652,6 +652,7 @@ def main(**kwargs):
 
 def _get_label_info(data_args, raw_datasets):
     label_column = data_args.label_column_name
+    label_list = []
     if data_args.task_name is not None:
         is_regression = data_args.task_name == "stsb"
         is_multi_label_classification = False
