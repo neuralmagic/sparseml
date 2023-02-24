@@ -25,6 +25,10 @@ from ultralytics.yolo.utils import LOGGER
 
 __all__ = ["export_sample_inputs_outputs"]
 
+# define the priority order for the execution providers
+# prefer CUDA Execution Provider over CPU Execution Provider
+EP_list = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+
 
 def preprocess(
     batch: Dict[str, Any], device: device_class, half: bool = False
@@ -83,7 +87,7 @@ def export_sample_inputs_outputs(
     model.eval()
 
     # Prepare onnxruntime engine for inference
-    ort_session = onnxruntime.InferenceSession(onnx_path)
+    ort_session = onnxruntime.InferenceSession(onnx_path, providers=EP_list)
 
     LOGGER.info(f"Exporting sample inputs to directory {sample_in_dir}")
     LOGGER.info(f"Exporting sample torch outputs to directory {sample_out_dir_torch}")
