@@ -124,18 +124,16 @@ The resulting model achieves 92.9% validation accuracy.
 
 ### Run Sparse Transfer Learning
 
-With the dense teacher trained, we can start the sparse transfer learning.
-
-For the SST2 dataset, there is a [transfer learning recipe available in SparseZoo](https://sparsezoo.neuralmagic.com/models/nlp%2Fsentiment_analysis%2Fobert-base%2Fpytorch%2Fhuggingface%2Fsst2%2Fpruned90_quant-none), identified by the following SparseZoo stub:
+We can start the Sparse Transfer Learning by passing a recipe to the training script. 
+For Sparse Transfer, we will use a recipe that instructs SparseML to maintain sparsity during training and to quantize the model. For the SST2 dataset, there is a [transfer learning recipe available in SparseZoo](https://sparsezoo.neuralmagic.com/models/nlp%2Fsentiment_analysis%2Fobert-base%2Fpytorch%2Fhuggingface%2Fsst2%2Fpruned90_quant-none), identified by the following SparseZoo stub:
 ```
 zoo:nlp/sentiment_analysis/obert-base/pytorch/huggingface/sst2/pruned90_quant-none
 ```
 
-For Sparse Transfer, the recipe instructs SparseML to maintain sparsity during training and to quantize the model.
-
 <details>
    <summary>Click to see the recipe</summary>
 </br>
+
 SparseML parses the `Modifers` in the recipe and updates the training loop with logic encoded therein.
    
 The key `Modifiers` for sparse transfer learning are the following:
@@ -218,7 +216,7 @@ sparseml.transformers.text_classification \
   --save_strategy epoch --save_total_limit 1
 ```
 
-The resulting model is 90% pruned and quantized, and achieves 92% validation accuracy on SSt2!
+The resulting model is 90% pruned and quantized, and achieves 92% validation accuracy on SST2!
 
 Keep in mind that the `--distill_teacher` argument is set to pull a dense SST2 model from the SparseZoo. If you trained a dense teacher with the command from above, update the script to use `--distill_teacher ./dense_obert-text_classification_sst2`.
 
