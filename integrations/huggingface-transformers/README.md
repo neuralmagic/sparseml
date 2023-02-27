@@ -58,12 +58,19 @@ output:
 --dataset_name or --task_name: The dataset or task to load for training.
 ```
 
-Supported tasks include `masked_language_modeling`, `text_classification`, `token_classification`, and `question_answering`.
+Currently supported tasks include: 
+- `masked_language_modeling`
+- `text_classification`
+- `token_classification`
+- `question_answering`
 
 ## SparseML Python API
 
-Alternatively, SparseML offers a custom `Trainer` class that inherits from `transformers`'s [Trainer](https://huggingface.co/docs/transformers/main_classes/trainer). Beyond the native `transformers` functionality, the SparseML `Trainer` also accepts a `recipe` and `distill_teacher` as arguments
-and handles updating the training process with to apply sparsification algorithms or sparse transfer learning to the model.
+Alternatively, SparseML offers a custom `Trainer` class that inherits from `transformers`'s [Trainer](https://huggingface.co/docs/transformers/main_classes/trainer). 
+
+Beyond the native `transformers` functionality, the SparseML `Trainer` also accepts a 
+`recipe` and `distill_teacher` as arguments and handles updating the training process 
+with to apply sparsification algorithms or sparse transfer learning to the model. As such, you can apply sparsification algorithms from within the `transformers` framework, leveraging the friendly utilities such as `AutoConfigs`, `AutoTokenizers`, `AutoModels`, and `datasets` as well as the Hugging Face Hub.
 
 Check out the tutorials for examples using the `Trainer` class directly.
 
