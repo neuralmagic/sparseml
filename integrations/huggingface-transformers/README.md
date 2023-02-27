@@ -40,7 +40,7 @@ pip install sparseml[torch]
 
 ## SparseML CLI
 
-SparseML's CLI enables you to kick-off sparsification workflows with various utilities like dataset loading, checkpoint saving, metric reporting, and logging handled for you; appending the `--help` argument will provide a full list of options for training in SparseML:
+SparseML's CLI enables you to kick-off sparsification workflows with various utilities like creating training pipelines, dataset loading, checkpoint saving, metric reporting, and logging handled for you. Appending the `--help` argument will provide a full list of options for training in SparseML:
 
 ```bash
 sparseml.transformers.[task] --help
@@ -66,15 +66,12 @@ Currently supported tasks include:
 
 ## SparseML Python API
 
-Alternatively, SparseML offers a custom `Trainer` class that inherits from `transformers`'s [Trainer](https://huggingface.co/docs/transformers/main_classes/trainer). 
+For additional flexibility, SparseML also offers a `Trainer` class that inherits from the familiar [`transformers`'s Trainer](https://huggingface.co/docs/transformers/main_classes/trainer). 
 
-Beyond the native `transformers` functionality, the SparseML `Trainer` also accepts a `recipe` argument, which is a path to a local YAML file
-containing a configuration with sparsity-related algorithms and hyperparameters. The `Trainer` class parses the recipe and makes the adjustments
-to the training process to apply sparsification algorithms or sparse transfer learning to the model. 
+The SparseML `Trainer` inherits all of the functionality from the `transformers` repository, but also accepts a YAML file called a `recipe`. Recipes are configuration files that specify sparsity-related algorithms and hyperparameters. The `Trainer` class parses the recipe and adjusts
+the training loop to apply sparsification algorithms or sparse transfer learning to the model. 
 
-As such, you can apply sparsification algorithms from within the `transformers` framework, leveraging the friendly utilities such as 
-`AutoConfigs`, `AutoTokenizers`, `AutoModels`, and `datasets` as well as the Hugging Face Hub. For instance, in the example below, 
-the `model`, `teacher`, `dataset`, `tokenizer`, and `compute_metrics` are all native `transformers` objects. Becuase of the 
+As such, you can leverage Hugging Face's friendly utilities such as the model/dataset Hub, `AutoTokenizers`, `AutoModels`, and `datasets` in concert with SparseML's sparsity-related algorithms!
 
 We create the `Trainer` and kick of a run like this:
 
@@ -99,6 +96,7 @@ def run_training(model, model_path, recipe_path, teacher, training_args, dataset
     # run training
     trainer.train(resume_from_checkpoint=False)
 ```
+Note that the `model`, `teacher`, `dataset`, `tokenizer`, and `compute_metrics` are all native `transformers` objects
 
 Check out the tutorials for actual working examples using the `Trainer` class.
 
@@ -123,8 +121,9 @@ In this example, we will fine-tune the 90% pruned version of BERT onto the SST2 
 
 To support the transfer learning process, we can optionally apply model distillation.
 
-To enable distillation, we first create a dense teacher model. **If you already have a Transformers-compatible model, you can use this as the dense teacher in place of training one from scratch.** The following command will use the dense BERT base model from the SparseZoo and fine-tune it on the SS%2 dataset, resulting in a model that achieves 92.9% accuracy on the validation set: 
+To enable distillation, we first create a dense teacher model. **If you already have a Transformers-compatible model, you can use this as the dense teacher in place of training one from scratch.** 
 
+Run the following to fine-tune a dense BERT model from the SparseZoo on the SST2 dataset (the resulting model achieves 92.9% validation accuracy):
 ```bash
 sparseml.transformers.text_classification \
   --output_dir dense_obert-text_classification_sst2 \
@@ -139,8 +138,14 @@ Once the command has completed, you will have a sparse checkpoint located in `de
 
 ### Transfer Learn the Model
 
-The following command will use the 90% pruned BERT model from the SparseZoo and fine-tune it on the SST2 dataset, resulting in a model that achieves an accuracy of 92% on the validation set. Keep in mind that the `--distill_teacher` argument is set to pull a dense SST2 model from the SparseZoo. If you trained a dense teacher with the command from above, update the script to use `--distill_teacher ./dense_obert-text_classification_sst2`.
+Now, we can launch sparse transfer learning using the dense teacher to support the training process. For the SST2 dataset, there is a [transfer learning recipe available in SparseZoo](https://sparsezoo.neuralmagic.com/models/nlp%2Fsentiment_analysis%2Fobert-base%2Fpytorch%2Fhuggingface%2Fsst2%2Fpruned90_quant-none), identified by the following SparseZoo stub:
+```
+zoo:nlp/sentiment_analysis/obert-base/pytorch/huggingface/sst2/pruned90_quant-none
+```
 
+The transfer learning recipe includes a `ConstantPruningModifier`, which instructs SparseML to maintain the sparsity structure of the network during the fine-tuning process, and a `QuantizationModifier`, which instructs SparseML to apply quantization aware training to quantize the weights over the final epochs.
+
+Run the following to fine-tune a 90% pruned BERT model on the SST2 dataset using the recipe from the SparseZoo (the resulting model is 90% pruned and quantized, and achieves 92% validation accuracy):
 ```bash
 sparseml.transformers.text_classification \
   --output_dir pruned_quantized_obert-text_classification_sst2 \
@@ -152,9 +157,11 @@ sparseml.transformers.text_classification \
   --save_strategy epoch --save_total_limit 1
 ```
 
+Keep in mind that the `--distill_teacher` argument is set to pull a dense SST2 model from the SparseZoo. If you trained a dense teacher with the command from above, update the script to use `--distill_teacher ./dense_obert-text_classification_sst2`.
+
 ### Exporting to ONNX
 
-The DeepSparse Engine uses the ONNX format to load neural networks and then deliver breakthrough performance for CPUs by leveraging the sparsity and quantization within a network.
+DeepSparse uses the ONNX format to load neural networks and then deliver breakthrough performance for CPUs by leveraging the sparsity and quantization within a network.
 
 The SparseML installation provides a `sparseml.transformers.export_onnx` command that you can use to load the training model folder and create a new model.onnx file within. Be sure the `--model_path` argument points to your trained model:
 
@@ -179,8 +186,6 @@ pip install deepsparse
 #### DeepSparse Pipelines
 
 The Python code below gives an example for using the DeepSparse Pipeline API with sentiment analysis. Be sure to change out the `model_path` argument for the model folder of your trained model:
-
-Python Pipeline:
 
 ```python
 from deepsparse import Pipeline
