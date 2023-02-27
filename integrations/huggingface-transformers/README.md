@@ -68,11 +68,39 @@ Currently supported tasks include:
 
 Alternatively, SparseML offers a custom `Trainer` class that inherits from `transformers`'s [Trainer](https://huggingface.co/docs/transformers/main_classes/trainer). 
 
-Beyond the native `transformers` functionality, the SparseML `Trainer` also accepts a 
-`recipe` and `distill_teacher` as arguments and handles updating the training process 
-with to apply sparsification algorithms or sparse transfer learning to the model. As such, you can apply sparsification algorithms from within the `transformers` framework, leveraging the friendly utilities such as `AutoConfigs`, `AutoTokenizers`, `AutoModels`, and `datasets` as well as the Hugging Face Hub.
+Beyond the native `transformers` functionality, the SparseML `Trainer` also accepts a `recipe` argument, which is a path to a local YAML file
+containing a configuration with sparsity-related algorithms and hyperparameters. The `Trainer` class parses the recipe and makes the adjustments
+to the training process to apply sparsification algorithms or sparse transfer learning to the model. 
 
-Check out the tutorials for examples using the `Trainer` class directly.
+As such, you can apply sparsification algorithms from within the `transformers` framework, leveraging the friendly utilities such as 
+`AutoConfigs`, `AutoTokenizers`, `AutoModels`, and `datasets` as well as the Hugging Face Hub. For instance, in the example below, 
+the `model`, `teacher`, `dataset`, `tokenizer`, and `compute_metrics` are all native `transformers` objects. Becuase of the 
+
+We create the `Trainer` and kick of a run like this:
+
+```python
+from sparseml.transformers.sparsification import Trainer, TrainingArguments
+
+def run_training(model, model_path, recipe_path, teacher, training_args, dataset, tokenizer, compute_metrics):
+    # setup training loop based on recipe passed
+    trainer = Trainer(
+        recipe=recipe_path,
+        model=model,
+        model_state_path=model_path,
+        distill_teacher=teacher,
+        metadata_args=["per_device_train_batch_size","per_device_eval_batch_size","fp16"],
+        args=training_args,
+        train_dataset=dataset["train"],
+        eval_dataset=dataset["validation"],
+        tokenizer=tokenizer,
+        compute_metrics=compute_metrics
+    )
+
+    # run training
+    trainer.train(resume_from_checkpoint=False)
+```
+
+Check out the tutorials for actual working examples using the `Trainer` class.
 
 ## Sparse Transfer Learning Example - Sentiment Analysis
 
