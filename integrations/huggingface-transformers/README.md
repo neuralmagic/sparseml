@@ -139,7 +139,7 @@ Once the command has completed, you will have a sparse checkpoint located in `de
 
 ### Transfer Learn the Model
 
-The following command will use the 90% pruned BERT model from the SparseZoo and fine-tune it on the SST2 dataset, resulting in a model that achieves an F1 of 88.5% on the validation set. Keep in mind that the `--distill_teacher` argument is set to pull a dense SST2 model from the SparseZoo. If you trained a dense teacher with the command from above, update the script to use `--distill_teacher ./dense_obert-text_classification_sst2`.
+The following command will use the 90% pruned BERT model from the SparseZoo and fine-tune it on the SST2 dataset, resulting in a model that achieves an accuracy of 92% on the validation set. Keep in mind that the `--distill_teacher` argument is set to pull a dense SST2 model from the SparseZoo. If you trained a dense teacher with the command from above, update the script to use `--distill_teacher ./dense_obert-text_classification_sst2`.
 
 ```bash
 sparseml.transformers.text_classification \
@@ -164,7 +164,7 @@ sparseml.transformers.export_onnx \
     --task text_classification
 ```
 
-The command creates a deployment folder in your local directory, which contains the ONNX file and necessary Hugging Face tokenizer and configuration files.
+The command creates a `./deployment` folder in your local directory, which contains the ONNX file and necessary Hugging Face tokenizer and configuration files.
 
 ### DeepSparse Deployment
 
@@ -186,14 +186,13 @@ Python Pipeline:
 from deepsparse import Pipeline
 
 # create pipeline, compile model
-model_path = "deployment/"
+model_path = "./deployment"
 sa_pipeline = Pipeline.create(task="sentiment-analysis", model_path=model_path)
 
 # run inference with deepsparse making the predictions on the CPU!
-inference = sa_pipeline("I love using DeepSparse to deploy my models!")
+inference = sa_pipeline("I love using DeepSparse to speed up my inferences")
 print(inference)
-
-# >>
+# >> labels=['positive'] scores=[0.9972139000892639]
 ```
 
 #### Other Deployment Options
