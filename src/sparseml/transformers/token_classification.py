@@ -28,7 +28,7 @@ import os
 import sys
 from contextlib import nullcontext
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import datasets
 import numpy as np
@@ -382,6 +382,10 @@ def main(**kwargs):
         },
     )
 
+    if teacher:
+        # check whether teacher and student have the corresponding outputs
+        label_to_id, label_list = _check_teacher_student_outputs(teacher, label_to_id)
+
     tokenizer_src = (
         model_args.tokenizer_name
         if model_args.tokenizer_name
@@ -573,6 +577,39 @@ def main(**kwargs):
         trainer.save_sample_inputs_outputs(
             num_samples_to_export=data_args.num_export_samples
         )
+
+
+def _check_teacher_student_outputs(
+    teacher: Module, label_to_id: Dict[str, int]
+) -> Tuple[Dict[str, int], List[str]]:
+    # Check that the teacher and student have the same labels and if they do,
+    # check that the mapping between labels and ids is the same.
+
+    teacher_labels = list(teacher.config.label2id.keys())
+    teacher_ids = list(teacher.config.label2id.values())
+
+    student_labels = list(label_to_id.keys())
+    student_ids = list(label_to_id.values())
+
+    if set(teacher_labels) != set(student_labels):
+        _LOGGER.warning(
+            f"Teacher labels {teacher_labels} do not match "
+            f"student labels {student_labels}. Ignore this warning "
+            "if this is expected behavior."
+        )
+    else:
+        if student_ids != teacher_ids:
+            _LOGGER.warning(
+                "Teacher and student labels match, but the mapping "
+                "between teachers labels and ids does not match the "
+                "mapping between student labels and ids. "
+                "The student's mapping will be overwritten "
+                "by the teacher's mapping."
+            )
+            label_to_id = teacher.config.label2id
+            label_list = teacher_labels
+
+    return label_to_id, label_list
 
 
 def _get_label_list(labels):
