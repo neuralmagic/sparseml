@@ -121,7 +121,7 @@ sparseml.transformers.text_classification \
 
 The DeepSparse Engine uses the ONNX format to load neural networks and then deliver breakthrough performance for CPUs by leveraging the sparsity and quantization within a network.
 
-The SparseML installation provides a `sparseml.transformers.export_onnx` command that you can use to load the training model folder and create a new model.onnx file within. Be sure the `--model_path` argument points to your trained model. By default, it is set to the result from transfer learning a sparse-quantized BERT model:
+The SparseML installation provides a `sparseml.transformers.export_onnx` command that you can use to load the training model folder and create a new model.onnx file within. Be sure the `--model_path` argument points to your trained model:
 
 ```bash
 sparseml.transformers.export_onnx \
@@ -129,9 +129,11 @@ sparseml.transformers.export_onnx \
     --task text_classification
 ```
 
-### DeepSparse Engine Deployment
+The command creates a deployment folder in your local directory, which contains the ONNX file and necessary Hugging Face tokenizer and configuration files.
 
-Now that the model is in an ONNX format, it is ready for deployment with the DeepSparse Engine. 
+### DeepSparse Deployment
+
+Now that the model is in an ONNX format, it is ready for deployment with the DeepSparse. 
 
 Run the following command to install it:
 
@@ -139,46 +141,26 @@ Run the following command to install it:
 pip install deepsparse
 ```
 
-Once DeepSparse is installed on your deployment environment, two options are supported for deployment: 
-- A Python API that will fit into our current deployment pipelines.
-- The DeepSparse Server that enables a no-code CLI solution to run your model via FastAPIs HTTP server.
+#### DeepSparse Pipelines
 
-### 🐍 Python API
-
-The Python code below gives an example for using the DeepSparse Python pipeline API with different tasks. Be sure to change out the `model_path` argument for the model folder of your trained model:
+The Python code below gives an example for using the DeepSparse Pipeline API with sentiment analysis. Be sure to change out the `model_path` argument for the model folder of your trained model:
 
 Python Pipeline:
 
 ```python
 from deepsparse import Pipeline
 
-model_path = "zoo:nlp/question_answering/bert-base/pytorch/huggingface/squad/12layer_pruned80_quant-none-vnni"
+# create pipeline, compile model
+model_path = "deployment/"
+sa_pipeline = Pipeline.create(task="sentiment-analysis", model_path=model_path)
 
-sa_pipeline = Pipeline.create(
-  task="sentiment-analysis", 
-  model_path=model_path
-)
-
+# run inference with deepsparse making the predictions on the CPU!
 inference = sa_pipeline("I love using DeepSparse to deploy my models!")
 print(inference)
-```
-printout:
 
-    {'score': 0.9947717785835266, 'start': 11, 'end': 18, 'answer': 'Snorlax'}
-
-### 🔌DeepSparse Server
-
-To use the DeepSparse Server, first install the required dependencies using pip:
-
-```bash
-pip install deepsparse[server]
+# >>
 ```
 
-Once installed, the CLI command given below for serving a BERT model is available. The commands are set up to be able to run independently of the prior stages. Once launched, you can view info over the server and the available APIs at `http://0.0.0.0:5543` on the deployment machine. 
+#### Other Deployment Options
 
-```bash
-deepsparse.server \
-    --task sentiment_analysis \
-    --batch_size 1 \
-    --model_path "zoo:nlp/question_answering/bert-base/pytorch/huggingface/squad/12layer_pruned80_quant-none-vnni"
-```
+Checkout the DeepSparse GitHub repository for more details.
