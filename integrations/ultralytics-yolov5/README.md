@@ -159,12 +159,7 @@ The script uses the SparseZoo stubs to identify and download the starting checkp
 
 The resulting model is 75% pruned and quantized and is trained on VOC!
 
-To transfer learn this sparsified model to other datasets you may have to adjust certain hyperparameters in this recipe and/or training script. Some considerations:
-- For more complex datasets, increase the number of epochs, adjusting the learning rate step accordingly
-- Adding more learning rate step milestones can lead to more jumps in accuracy
-- Increase the learning rate when increasing batch size
-- Increase the number of epochs if using SGD instead of the Adam optimizer
-- Update the base learning rate based on the number of steps needed to train your dataset
+To transfer learn this sparsified model to other datasets you may have to adjust certain hyperparameters in this recipe and/or training script such as the Optimizer type, the number of epochs, and the learning rates.
 
 ### Export to ONNX
 
