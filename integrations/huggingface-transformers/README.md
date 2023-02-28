@@ -29,9 +29,10 @@ Once trained, SparseML enables you to export models to the ONNX format - such th
 ## Tutorials
 
 ### CLI Tutorials
-- Sparse Learning for Sentiment Analysis
-- Sparse Learning for Text Classification
-- Sparse Learning for Token Classification
+- [Sparse Transfer Learning for Sentiment Analysis](tutorials/sentiment-analysis/sentiment-analysis-cli.md)
+- [Sparse Transfer Learning for Text Classification](tutorials/text-classification/text-classification-cli.md)
+- [Sparse Transfer Learning for Token Classification](tutorials/token-classification/token-classification-cli.md)
+- Sparse Transfer Learning for Question Answering (coming soon!)
 
 ### Python API Tutorials
 
@@ -40,13 +41,13 @@ Once trained, SparseML enables you to export models to the ONNX format - such th
 - [Sparse Transfer with Custom Datasets (RottenTomatoes) and Custom Teacher for sentiment analysis](tutorials/sentiment-analysis/docs-sentiment-analysis-python-custom-teacher-rottentomatoes)
 
 #### Text Classification (Single / Multi Input Text Classification)
-- Sparse Transfer with GLUE Datasets (QQP) for multi-input text classificaiton
-- Sparse Transfer with Custom Datasets (SICK) for multi-input text classificaiton
-- Sparse Transfer with Custom Datasets (TweetEval) and Custom Teacher for single input text classificaiton
+- [Sparse Transfer with GLUE Datasets (QQP) for multi-input text classification](tutorials/text-classification/docs-text-classification-python-qqp.ipynb)
+- [Sparse Transfer with Custom Datasets (SICK) for multi-input text classification](tutorials/text-classification/docs-text-classification-python-sick.ipynb)
+- [Sparse Transfer with Custom Datasets (TweetEval) and Custom Teacher for single input text classificaiton](tutorials/text-classification/docs-text-classification-python-custom-teacher-tweeteval.ipynb)
 
 #### Token Classification 
-- Sparse Transfer Learning with Conll2003 for named-entity-recognition
-- Sparse Transfer Learning with Custom Datasets (WNUT_18) and Custom Teacher WNUT for named-entity-recognition
+- [Sparse Transfer with Conll2003 for named-entity-recognition](tutorials/token-classification/docs-token-classification-conll2003.ipynb)
+- [Sparse Transfer with Custom Datasets (WNUT_18) and Custom Teacher WNUT for named-entity-recognition](tutorials/token-classification/docs-token-classification-custom-teacher-wnut.ipynb)
 
 #### Question Answering
 
