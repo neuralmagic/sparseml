@@ -40,8 +40,8 @@ pip install sparseml[torch]
 - [Sparse Transfer Learning for Sentiment Analysis](tutorials/sentiment-analysis/sentiment-analysis-cli.md)
 - [Sparse Transfer Learning for Text Classification](tutorials/text-classification/text-classification-cli.md)
 - [Sparse Transfer Learning for Token Classification](tutorials/token-classification/token-classification-cli.md)
-- Sparse Transfer Learning for Question Answering (coming soon!)
-- Sparsifying from Scratch (coming soon)!
+- Sparse Transfer Learning for Question Answering (example coming soon!)
+- Sparsifying from Scratch (example coming soon)!
 
 ### Python API
 
