@@ -16,7 +16,7 @@ limitations under the License.
 
 # SparseML YOLOv5 Integration
 
-By integrating with robust training flows in the YOLOv5 repository, SparseML enables you to train inference-optimized sparse versions of YOLOv5 on your dataset.
+By integrating with robust training flows in the YOLOv5 repository, SparseML enables you to train inference-optimized sparse versions of YOLOv5 models on your dataset.
 
 There are two pathways:
 - **Sparse Transfer Learning** - fine-tune a pre-sparsified YOLOv5 checkpoint on your own dataset **[RECOMMENDED]**
