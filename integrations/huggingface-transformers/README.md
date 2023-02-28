@@ -128,7 +128,7 @@ def run_training(model, model_path, recipe_path, teacher, training_args, dataset
 
 Check out the tutorials for actual working examples using the `Trainer` class.
 
-## Quick Start: Sparse Transfer Learning a Sentiment Analysis Model
+## Quick Start: Sparse Transfer Learning
 
 ### Overview
 
