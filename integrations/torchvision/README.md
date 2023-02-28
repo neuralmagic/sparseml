@@ -23,10 +23,12 @@ By integrating the robust training flows in the `torchvision` repository, Sparse
 - Quantization
 - Sparse Transfer Learning
 
-
 ## Tutorials
 
-- XXX
+- ResNet-50: Sparse Transfer Learning with the CLI
+- ResNet-50: Sparsification From Scratch with the CLI
+- ResNet-50: Sparse Transfer Learning with the Python API (`.ipynb` notebook)
+- ResNet-50: Sparsification From Scratch with the Python API (`.ipynb` notebook)
 
 ## Installation
 
