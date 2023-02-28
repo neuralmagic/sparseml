@@ -161,7 +161,7 @@ The resulting model is 75% pruned and quantized and is trained on VOC!
 
 ### Export to ONNX
 
-The SparseML installation provides a `sparseml.yolov5.export_onnx` command that you can use to create an ONNX . The export process is modified such that the quantized and pruned models are corrected and folded properly. Be sure the `--weights` argument points to your trained model.
+The SparseML installation provides a `sparseml.yolov5.export_onnx` command that you can use to export the model to ONNX. Be sure the `--weights` argument points to your trained model.
 
 ```bash
 sparseml.yolov5.export_onnx \
