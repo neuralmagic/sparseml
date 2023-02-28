@@ -369,7 +369,7 @@ learning recipe to run for 30 epochs rather than 55 epochs. While you can always
 a custom recipe file and pass a local file to script, the `--recipe_args` enables you
 to modify on the fly.
 
-The example converges to 80% mAP@50.
+The model achieves ~80% mAP@50.
 
 ## Next Steps
 
