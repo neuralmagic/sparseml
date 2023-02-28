@@ -40,7 +40,7 @@ pip install sparseml[torchvision]
 
 SparseML's CLI enables you to kick-off sparsification workflows with various utilities like creating training pipelines, dataset loading, checkpoint saving, metric reporting, and logging handled for you.
 
-To get started, we just need to pass three required arguments: a starting checkpoint, a SparseML recipe, and a dataset.
+To get started, we just need to a couple key arguments: a starting checkpoint, a SparseML recipe, and a dataset.
 
 ```bash
 sparseml.image_classification.train \
@@ -187,10 +187,10 @@ The SparseML installation provides a `sparseml.image_classification.export_onnx`
 
 ```bash
 sparseml.image_classification.export_onnx \
-    --model_path ./pruned_quantized_obert-text_classification_sst2
+  --arch_key resnet50 \
+  --checkpoint_path ./checkpoint.pth \
+  --dataset-path ./imagenette2-320
 ```
-
-The command creates a `./deployment` folder in your local directory, which contains the ONNX file and necessary Hugging Face tokenizer and configuration files.
 
 ### Deploy with DeepSparse
 
