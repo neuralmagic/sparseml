@@ -13,187 +13,397 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 -->
-# Sparsifying YOLOv5 Using Recipes
 
-This tutorial shows how Neural Magic recipes simplify the sparsification process by encoding the hyperparameters and instructions needed to create highly accurate pruned and pruned-quantized YOLOv5 models, specifically for the s and l versions.
+# Sparsifying YOLOv5 From Scratch
+
+This page explains how to sparsify a YOLOv5 model from scratch with SparseML's CLI.
 
 ## Overview
 
-Neural Magic's ML team creates recipes that allow anyone to plug in their data and leverage SparseML's recipe-driven approach on top of Ultralytics' robust training pipelines.
-Sparsifying involves removing redundant information from neural networks using algoriths such as pruning and quantization, among others.
-This sparsification process results in many benefits for deployment environments, including faster inference and smaller file sizes.
-Unfortunately, many have not realized the benefits due to the complicated process and number of hyperparameters involved.
+Sparsifying a model involves removing redundant information from a 
+trained model using algorithms such as pruning and quantization. The sparse models can then be deployed with DeepSparse, which implements many optimizations to increase performance via sparsity, for GPU-class performance on CPUs.
 
-Working through this tutorial, you will experience how Neural Magic recipes simplify the sparsification process by:
+In this tutorial, we will demonstrate how to use recipes to create 
+sparse versions of YOLOv5.
 
-* Creating a pre-trained model to establish a baseline. You will set up your custom data and then train the model.
-* Applying a recipe to select the trade off between the amount of recovery to the baseline training performance with the amount of sparsification for inference performance.
-* Exporting for inference to run a file (that contains a checkpoint of the best weights measured on the validation set) through a compression algorithm to reduce its deployment size and run it in an inference engine such as [DeepSparse](https://github.com/neuralmagic/deepsparse).
+**Pro Tip**: For YOLOv5, there are pre-sparsified checkpoints of each version available in [SparseZoo](https://sparsezoo.neuralmagic.com/?domain=cv&sub_domain=detection&page=1). 
+As such, we highly recommend using the [Sparse Transfer Learning](sparse-transfer-learning.md) pathway to fine-tune one of these checkpoints onto your dataset 
+rather than sparsifying from scratch.
 
-The examples listed in this tutorial are all performed on the COCO dataset.
+## Sparsification Recipes
 
-Before diving in, be sure to go through setup as listed out in the [README](https://github.com/neuralmagic/sparseml/blob/main/src/sparseml/yolov5/README.md) for this integration.
+Recipes are SparseML's YAML-based declarative interface for specifying the sparsity-related algorithms and parameters that should be applied during the training 
+process. The SparseML CLI script parses the recipes and modifies the YOLOv5 training loop to implement the specified algorithms.
 
-## Need Help?
+The SparseZoo hosts the recipes that were used to create the sparse versions of YOLOv5.
 
-For Neural Magic Support, sign up or log in to our [**Deep Sparse Community Slack**](https://join.slack.com/t/discuss-neuralmagic/shared_invite/zt-q1a1cnvo-YBoICSIw3L1dmQpjBeDurQ). Bugs, feature requests, or additional questions can also be posted to our [GitHub Issue Queue.](https://github.com/neuralmagic/sparseml/issues)
+<details>
+   <summary> Click to see the recipe used to create the 75% pruned-quantized YOLOv5s</summary>
 
-## Creating a Pre-trained Model
+```yaml
+version: 1.1.0
 
-Before applying one of the recipes, you must first create the pre-trained model to sparsify further. 
-The pre-trained model enables pruning and other algorithms to remove the correct redundant information in place of random information. 
-Your goal after this is to create a smaller, faster model that recovers to the pre-trained baseline.
+# General Hyperparams
+num_epochs: 250
+init_lr: 0.01
+final_lr: 0.002
+weights_warmup_lr: 0
+biases_warmup_lr: 0.1
 
-**Note**: If using your custom data, the Ultralytics repo contains a walk-through for [training custom data](https://github.com/ultralytics/yolov5/wiki/Train-Custom-Data). 
-Otherwise, setup scripts for both [VOC](https://cs.stanford.edu/~roozbeh/pascal-context/) and [COCO](https://cocodataset.org/#home) can be found under the [yolov5/data/scripts path](https://github.com/neuralmagic/sparseml/tree/main/src/sparseml/yolov5/data/scripts).
+# Pruning Hyperparams
+init_sparsity: 0.05
+pruning_start_epoch: 4
+pruning_end_epoch: 150
+pruning_update_frequency: 1.0
 
-You are ready to train the model.
 
-### Training the Model
+# Quantization variables
+quantization_epochs: 10
+quantization_lr: 1.e-3
 
-The training command will take multiple hours to complete since it is training from scratch (anywhere from 12 hours for YOLOV5s to 48 hours for YOLOv5l on 4 A100's). 
-Afterward, you will have a model that achieves roughly 0.556 mAP@0.5 or 0.654 mAP@0.5 on the COCO dataset for YOLOv5s and YOLOv5l respectively ready for sparsifying.
+# Knowledge distillation variables
+per_layer_distillation_gain: 0.01
 
-1. To create a deployable model, you will train a YOLOv5 version with HardSwish activations from scratch.
-   To decide which version to use, consult the table below in the [Applying a Recipe](#applying-a-recipe) section. 
-   The training commands for both are given below.
+#Modifiers
+training_modifiers:
+  - !EpochRangeModifier
+    start_epoch: 0
+    end_epoch: eval(num_epochs)
+
+  - !LearningRateFunctionModifier
+    start_epoch: 3
+    end_epoch: eval(num_epochs - quantization_epochs)
+    lr_func: linear
+    init_lr: eval(init_lr)
+    final_lr: eval(final_lr)
+
+  - !LearningRateFunctionModifier
+    start_epoch: 0
+    end_epoch: 3
+    lr_func: linear
+    init_lr: eval(weights_warmup_lr)
+    final_lr: eval(init_lr)
+    param_groups: [0, 1]
+
+  - !LearningRateFunctionModifier
+    start_epoch: 0
+    end_epoch: 3
+    lr_func: linear
+    init_lr: eval(biases_warmup_lr)
+    final_lr: eval(init_lr)
+    param_groups: [2]
+
+  - !LearningRateFunctionModifier
+    start_epoch: eval(num_epochs - quantization_epochs)
+    end_epoch: eval(num_epochs)
+    lr_func: cosine
+    init_lr: eval(quantization_lr)
+    final_lr: 1.e-9
+ 
+pruning_modifiers:
+  - !GMPruningModifier
+    params:
+      - model.13.cv1.conv.weight
+      - model.13.cv2.conv.weight
+      - model.13.cv3.conv.weight
+      - model.13.m.0.cv1.conv.weight
+      - model.14.conv.weight
+      - model.17.cv1.conv.weight
+      - model.17.cv2.conv.weight
+      - model.17.cv3.conv.weight
+      - model.17.m.0.cv1.conv.weight
+      - model.2.cv1.conv.weight
+      - model.2.cv2.conv.weight
+      - model.2.cv3.conv.weight
+      - model.2.m.0.cv1.conv.weight
+      - model.20.cv1.conv.weight
+      - model.20.cv2.conv.weight
+      - model.20.cv3.conv.weight
+      - model.23.cv1.conv.weight
+      - model.23.cv2.conv.weight
+      - model.23.m.0.cv1.conv.weight
+      - model.24.m.2.weight
+      - model.4.cv1.conv.weight
+      - model.4.cv2.conv.weight
+      - model.4.cv3.conv.weight
+      - model.4.m.0.cv1.conv.weight
+      - model.4.m.1.cv1.conv.weight
+      - model.4.m.1.cv2.conv.weight
+      - model.6.cv1.conv.weight
+      - model.6.cv2.conv.weight
+      - model.6.cv3.conv.weight
+      - model.8.cv1.conv.weight
+      - model.8.cv2.conv.weight
+      - model.8.cv3.conv.weight
+      - model.8.m.0.cv1.conv.weight
+      - model.9.cv1.conv.weight    
+    init_sparsity: eval(init_sparsity)
+    final_sparsity: 0.4240  
+    start_epoch: eval(pruning_start_epoch)
+    end_epoch: eval(pruning_end_epoch)
+    update_frequency: eval(pruning_update_frequency)
+        
+  - !GMPruningModifier
+    params:
+      - model.20.m.0.cv1.conv.weight
+      - model.4.m.0.cv2.conv.weight
+      - model.9.cv2.conv.weight    
+    init_sparsity: eval(init_sparsity)
+    final_sparsity: 0.4838  
+    start_epoch: eval(pruning_start_epoch)
+    end_epoch: eval(pruning_end_epoch)
+    update_frequency: eval(pruning_update_frequency)
+        
+  - !GMPruningModifier
+    params:
+      - model.18.conv.weight
+      - model.2.m.0.cv2.conv.weight
+      - model.6.m.2.cv2.conv.weight
+    init_sparsity: eval(init_sparsity)
+    final_sparsity: 0.5374  
+    start_epoch: eval(pruning_start_epoch)
+    end_epoch: eval(pruning_end_epoch)
+    update_frequency: eval(pruning_update_frequency)
+
+  - !GMPruningModifier
+    params:
+      - model.0.conv.weight
+      - model.24.m.0.weight
+      - model.3.conv.weight
+    init_sparsity: eval(init_sparsity)
+    final_sparsity: 0.5854  
+    start_epoch: eval(pruning_start_epoch)
+    end_epoch: eval(pruning_end_epoch)
+    update_frequency: eval(pruning_update_frequency)
+
+  - !GMPruningModifier
+    params:
+      - model.13.m.0.cv2.conv.weight
+      - model.24.m.1.weight
+      - model.5.conv.weight
+      - model.6.m.1.cv2.conv.weight
+    init_sparsity: eval(init_sparsity)
+    final_sparsity: 0.6284  
+    start_epoch: eval(pruning_start_epoch)
+    end_epoch: eval(pruning_end_epoch)
+    update_frequency: eval(pruning_update_frequency) 
+
+  - !GMPruningModifier
+    params:
+      - model.1.conv.weight
+      - model.17.m.0.cv2.conv.weight
+      - model.20.m.0.cv2.conv.weight
+    init_sparsity: eval(init_sparsity)
+    final_sparsity: 0.7325  
+    start_epoch: eval(pruning_start_epoch)
+    end_epoch: eval(pruning_end_epoch)
+    update_frequency: eval(pruning_update_frequency)
+    
+  - !GMPruningModifier
+    params:
+      - model.23.cv3.conv.weight
+      - model.6.m.0.cv2.conv.weight
+      - model.7.conv.weight
+      - model.8.m.0.cv2.conv.weight 
+    init_sparsity: eval(init_sparsity)
+    final_sparsity: 0.7602  
+    start_epoch: eval(pruning_start_epoch)
+    end_epoch: eval(pruning_end_epoch)
+    update_frequency: eval(pruning_update_frequency)
    
-   YOLOv5s:
-   ```bash
-   sparseml.yolov5.train --cfg models_v5.0/yolov5s.yaml --weights "" --data coco.yaml --hyp data/hyps/hyp.scratch.yaml
-   ```    
+  - !GMPruningModifier
+    params:
+      - model.23.m.0.cv2.conv.weight
+    init_sparsity: eval(init_sparsity)
+    final_sparsity: 0.8453
+    start_epoch: eval(pruning_start_epoch)
+    end_epoch: eval(pruning_end_epoch)
+    update_frequency: eval(pruning_update_frequency) 
 
-   YOLOv5l:
-   ```bash
-   sparseml.yolov5.train --cfg models_v5.0/yolov5l.yaml --weights "" --data coco.yaml --hyp data/hyps/hyp.scratch.yaml
-   ```
-2. Validate that the training commands completed successfully by checking under the newly created `runs/train/exp` path for the trained weights.
-   The best trained weights will be found at `runs/train/exp/weights/best.pt` and will be used later for further sparsification.
-   The full results are also visible in this folder under multiple formats including TensorBoard runs, txt files, and png files.
-   Upon success, the results directory should look like the following:
-    ```
-    |-- data
-    |-- models
-    |-- recipes
-    |-- tutorials
-    |-- runs
-    |   `-- train
-    |   |   |-- exp
-    |   |   |-- weights
-    |   |       |-- best.pt
-    |   |       |`-- last.pt
-    |   |   |-- F1_curve.png
-    |   |   |-- PR_curve.png
-    |   |   |-- P_curve.png
-    |   |   |-- R_curve.png
-    |   |   |-- confusion_matrix.png
-    |   |   |   `-- ...
-    |-- __init__.py
-    |-- README.md
-    |-- scripts.py
-    ```
+  - !GMPruningModifier
+    params:
+      - model.21.conv.weight 
+    init_sparsity: eval(init_sparsity)
+    final_sparsity: 0.9002  
+    start_epoch: eval(pruning_start_epoch)
+    end_epoch: eval(pruning_end_epoch)
+    update_frequency: eval(pruning_update_frequency)
 
-You are ready to use the weights at `yolov5/runs/train/exp/weights/best.pt` with the Neural Magic recipes to create a sparsified model.
+knowledge_disitillation_modifiers:
+  - !PerLayerDistillationModifier
+    start_epoch: 0.0
+    end_epoch: eval(num_epochs - quantization_epochs)
+    gain: eval(per_layer_distillation_gain)
+    project_features: true
+    student_layer_names:
+    - model.0
+    - model.1
+    - model.2.cv1
+    - model.2.cv2
+    - model.2.cv3
+    - model.2.m.0.cv1
+    - model.2.m.0.cv2
+    - model.3
+    - model.4.cv1
+    - model.4.cv2
+    - model.4.cv3
+    - model.4.m.0.cv1
+    - model.4.m.0.cv2
+    - model.5
+    - model.6.cv1
+    - model.6.cv2
+    - model.6.cv3
+    - model.6.m.0.cv1
+    - model.6.m.0.cv2
+    - model.7
+    - model.8.cv1
+    - model.8.cv2
+    - model.8.cv3
+    - model.8.m.0.cv1
+    - model.8.m.0.cv2
+    - model.9.cv1
+    - model.9.cv2
+    - model.10
+    - model.13.cv1
+    - model.13.cv2
+    - model.13.cv3
+    - model.13.m.0.cv1
+    - model.13.m.0.cv2
+    - model.14
+    - model.17.cv1
+    - model.17.cv2
+    - model.17.cv3
+    - model.17.m.0.cv1
+    - model.17.m.0.cv2
+    - model.18
+    - model.20.cv1
+    - model.20.cv2
+    - model.20.cv3
+    - model.20.m.0.cv1
+    - model.20.m.0.cv2
+    - model.21
+    - model.23.cv1
+    - model.23.cv2
+    - model.23.cv3
+    - model.23.m.0.cv1
+    - model.23.m.0.cv2
+    - model.24.m.0
+    - model.24.m.1
+    - model.24.m.2
+
+quantization_modifiers:
+  - !QuantizationModifier
+    start_epoch: eval(num_epochs - quantization_epochs)
+    submodules:
+      - model
+    custom_quantizable_module_types: ['SiLU']
+    exclude_module_types: ['SiLU']
+    quantize_conv_activations: False
+    disable_quantization_observer_epoch: eval(num_epochs - quantization_epochs + 2)
+    freeze_bn_stats_epoch: eval(num_epochs - quantization_epochs + 1)
+```
+   
+There is is a lot here, but the important items are the `pruning_modifiers`, `distillation_modifiers`, and
+`quantization_modifiers`.
+
+The `pruning_modifiers` instruct SparseML to apply the Gradual Magnitude Pruning algorithm to various layers of
+the network. As you can see, the recipe specifies a target level of sparsity for each layer of the network.
+At the end of every epoch, the GMP algorithm iteratively removes the lowest magnitude weights gradually inducing
+sparsitty into the network.
+
+The `distillation_modifiers` instruct SparseML to apply model distillation from a teacher during the 
+pruning process. In this case, we perform per-layer distillation. The teacher model helps to improve
+accuracy during the pruning process.
+
+The `quantization_modifiers` instruct SparseML to apply Quantization Aware Training during the final
+few epochs, creating a sparse version of the model.
+
+</details>
 
 ## Applying a Recipe
 
-In general, recipes trade off the amount of recovery to the baseline training performance with the amount of sparsification for inference performance.
-The [`recipes` folder](https://github.com/neuralmagic/sparseml/blob/main/src/sparseml/yolov5/recipes) contains multiple files, each offering certain advantages over others. 
-The table below compares these tradeoffs and shows how to run them on the COCO dataset.
-1. Review this table, which lists recipes, commands, and results.
+We can use the SparseML CLI to apply this recipe to a YOLOv5 model.
 
-    | Recipe Name                                                                                                                                              | Description                                                                                                                     | Train Command                                                                                                                                                                               | COCO mAP@0.5 | Size on Disk | DeepSparse Performance** |
-    |----------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------|--------------|--------------------------|
-    | [YOLOv5s Baseline](https://sparsezoo.neuralmagic.com/models/cv%2Fdetection%2Fyolov5-s%2Fpytorch%2Fultralytics%2Fcoco%2Fbase-none)                                                                                                                                         | The baseline, small YOLOv5 model used as the starting point for sparsification.                                                 | ``` sparseml.yolov5.train --cfg models_v5.0/yolov5s.yaml --weights "" --data coco.yaml --hyp data/hyps/hyp.scratch.yaml ```                                                                              | 0.556        | 24.8 MB       | 135.8 img/sec             |
-    | [YOLOv5s Pruned](https://sparsezoo.neuralmagic.com/models/cv%2Fdetection%2Fyolov5-s%2Fpytorch%2Fultralytics%2Fcoco%2Fpruned-aggressive_96)                            | Creates a highly sparse, FP32 YOLOv5s model that recovers close to the baseline model.                                          | ``` sparseml.yolov5.train --cfg models_v5.0/yolov5s.yaml --weights PATH_TO_COCO_PRETRAINED_WEIGHTS --data coco.yaml --hyp data/hyps/hyp.scratch.yaml --recipe zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned-aggressive_96 ```           | 0.534        | 8.4 MB      | 199.1 img/sec            |
-    | [YOLOv5s Pruned Quantized](https://sparsezoo.neuralmagic.com/models/cv%2Fdetection%2Fyolov5-s%2Fpytorch%2Fultralytics%2Fcoco%2Fpruned_quant-aggressive_94)        | Creates a highly sparse, INT8 YOLOv5s model that recovers reasonably close to the baseline model.                               | ``` sparseml.yolov5.train --cfg models_v5.0/yolov5s.yaml --weights PATH_TO_COCO_PRETRAINED_WEIGHTS --data coco.yaml --hyp data/hyps/hyp.scratch.yaml --recipe zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned_quant-aggressive_94 ``` | 0.525        | 3.3 MB      | 396.7 img/sec            |
-    | [YOLOv5l Baseline](https://sparsezoo.neuralmagic.com/models/cv%2Fdetection%2Fyolov5-l%2Fpytorch%2Fultralytics%2Fcoco%2Fbase-none)                                                                                                                                         | The baseline, large YOLOv5 model used as the starting point for sparsification.                                                 | ``` sparseml.yolov5.train --cfg models_v5.0/yolov5l.yaml --weights "" --data coco.yaml --hyp data/hyps/hyp.scratch.yaml ```                                                                              | 0.654        | 154 MB      | 27.9 img/sec             |
-    | [YOLOv5l Pruned](https://sparsezoo.neuralmagic.com/models/cv%2Fdetection%2Fyolov5-l%2Fpytorch%2Fultralytics%2Fcoco%2Fpruned-aggressive_98)                            | Creates a highly sparse, FP32 YOLOv5l model that recovers close to the baseline model.                                          | ``` sparseml.yolov5.train --cfg models_v5.0/yolov5l.yaml --weights PATH_TO_COCO_PRETRAINED_WEIGHTS --data coco.yaml --hyp data/hyps/hyp.scratch.yaml --recipe zoo:cv/detection/yolov5-l/pytorch/ultralytics/coco/pruned-aggressive_98 ```           | 0.643        | 32.8 MB       | 63.7 img/sec             |
-    | [YOLOv5l Pruned Quantized](https://sparsezoo.neuralmagic.com/models/cv%2Fdetection%2Fyolov5-l%2Fpytorch%2Fultralytics%2Fcoco%2Fpruned_quant-aggressive_95)        | Creates a highly sparse, INT8 YOLOv5l model that recovers reasonably close to the baseline model.                               | ``` sparseml.yolov5.train --cfg models_v5.0/yolov5l.yaml --weights PATH_TO_COCO_PRETRAINED_WEIGHTS --data coco.yaml --hyp data/hyps/hyp.scratch.yaml --recipe zoo:cv/detection/yolov5-l/pytorch/ultralytics/coco/pruned_quant-aggressive_95 ``` | 0.623        | 12.7 MB       | 139.8 img/sec             |
+Run the following:
 
-   \*\* DeepSparse Performance measured on an AWS c5.12xlarge instance with 24 cores, batch size 64, and 640x640 input with version 0.12.0 of the DeepSparse Engine i.e. `deepsparse.benchmark --batch_size 64 --scenario sync [model_path]`
+```bash
+sparseml.yolov5.train \
+  --weights zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/base-none \
+  --recipe zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned75_quant-none \
+  --teacher-weights zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/base-none \
+  --data coco.yaml \
+  --hyp hyps/hyp.scratch-low.yaml --cfg yolov5s.yaml --batch-size 64 --patience 0 --gradient-accum-steps 4
+```
 
-2. Select a recipe to use on top of the pre-trained model you created.
+Let's discuss the key arguments:
 
-    ***Notes About Recipe Selection***
-    - The recipes are not interchangeable between model versions. For example, if you created a pre-trained YOLOv5l model then be sure to use a recipe listed for v5l.
-    - Check your CPU hardware support for quantized networks (VNNI instruction set) using the DeepSparse API:
-      ```python
-      from deepsparse.cpu import cpu_vnni_compatible
-      print(f"VNNI available: {cpu_vnni_compatible()}")
-      ```
-    - If your hardware does not support quantized networks for inference speedup or complete recovery is very important, then Neural Magic recommends using the  `pruned` recipe. The recipe to use depends on how long you are willing to train and how vital full recovery is. Consult the table above for this comparison.
-    - If your hardware does support quantized networks, we recommend using the `pruned quantized` recipe. The recipe to use depends on how long you are willing to train and how crucial full recovery is. Consult the table for this comparison.
-    - When running quantized models, the memory footprint for training will significantly increase (roughly 3x). It is recommended to train at a high batch size at first. This will fail with an out-of-memory exception once quantization starts. Once this happens, use the `last.pt` weights from that run to resume training with a lower batch size.
+- `--weights zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/base-none` specifies the starting checkpoint for the sparsification. Here, we passed a SparseZoo stub identifying the standard dense YOLOv5s model in SparseZoo. Alternatively, you can pass a path to a YOLOv5 PyTorch model.
 
-3. To begin applying one of the recipes, use the `--recipe` argument within the Ultralytics [train script](https://github.com/neuralmagic/yolov5/blob/master/train.py).
-   The recipe argument is combined with our previous training command and COCO pre-trained weights to run the recipes over the model. For example, a command for YOLOv5s would look like this:
-   ```bash
-   sparseml.yolov5.train --cfg models_v5.0/yolov5s.yaml --weights PATH_TO_COCO_PRETRAINED_WEIGHTS --data coco.yaml --hyp data/hyps/hyp.scratch.yaml --recipe PATH_TO_SPARSIFICATION_RECIPE
-   ```
-    After applying a recipe, you are ready to export for inference.
+- `--recipe zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned75_quant-none` specifies the sparsification recipe to be applied. Here, we passed a SparseZoo
+stub identifying the sparsification recipe shown above in the SparseZoo. Alternatively, you can pass a path to a local YAML-based recipe.
+
+- `--teacher-weights zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/base-none` specifies the teacher model to be used for model distillation. This is an
+optional argument (as pruning can be applied without model distillation as well). Here, we passed a SparseZoo stub identifying the standard dense YOLOv5s model in SparseZoo. Alternatively, you can pass a path to a YOLOv5 PyTorch model.
+
+- `--data coco.yaml` specifies dataset configuration file to use during the sparsification process. Here, we pass `coco.yaml`, which SparseML instructs SparseML to 
+automatically download the COCO dataset. Alternatively, you can pass a config file for your local dataset. Checkout the [Ultralytics Custom Data Tutorial Repo]
+(https://github.com/ultralytics/yolov5/wiki/Train-Custom-Data) for more details on how to structure your datasets. SparseML conforms to the Ultralytics 
+specification.
+
+At the end, you will have a 75% pruned and quantized version of YOLOv5s trained on COCO! This model achieves 54.69 mAP@0.5.
 
 ## Exporting for Inference
 
-This step loads a checkpoint file of the best weights measured on the validation set, and converts it into the more common inference formats. 
-Then, you can run the file through a compression algorithm to reduce its deployment size and run it in an inference engine such as [DeepSparse](https://github.com/neuralmagic/deepsparse).
+Once trained, you can export the model to ONNX for inference with DeepSparse. 
 
-When you applied a recipe in the previous step, the sparsification run created a new `exp` directory under the `yolov5/runs` directory:
+Run the following:
 
-```
-|-- data
-|-- models
-|-- recipes
-|-- tutorials
-|-- runs
-|   `-- train
-|   |   |-- exp
-|   |   |-- weights
-|   |       |-- best.pt
-|   |       |`-- last.pt
-|   |   |-- F1_curve.png
-|   |   |-- PR_curve.png
-|   |   |-- P_curve.png
-|   |   |-- R_curve.png
-|   |   |-- confusion_matrix.png
-|   |   |   `-- ...
-|-- __init__.py
-|-- README.md
-|-- scripts.py
+```bash 
+!sparseml.yolov5.export_onnx \
+  --weights yolov5_runs/train/exp/weights/last.pt \
+  --dynamic
 ```
 
-The `best.pt` file contains a checkpoint of the best weights measured on the validation set.
-These weights can be loaded into the `train.py` and `test.py` scripts now. 
-However, other formats are generally more friendly for other inference deployment platforms, such as [ONNX](https://onnx.ai/).
+The resulting ONNX file is saved in your local directory.
 
-The [`export.py` script](https://github.com/neuralmagic/yolov5/blob/master/export.py) handles the logic behind loading the checkpoint and converting it into the more common inference formats, as described here (`sparseml.yolov5.export_onnx` is a hook into export.py)
+## Other YOLOv5 Models
 
-1. Enter the following command to load the PyTorch graph, convert to ONNX, and correct any misformatted pieces of the graph for the pruned and quantized models.
+Here are some sample transfer learning commands for other versions of YOLOv5. Checkout the [SparseZoo](https://sparsezoo.neuralmagic.com/?page=1&domain=cv&sub_domain=detection) for the full repository of pre-sparsified checkpoints.
 
-    ```bash
-    sparseml.yolov5.export_onnx --weights PATH_TO_SPARSIFIED_WEIGHTS --dynamic
-    ```
-    
-    The result is a new file added next to the sparsified checkpoint with a `.onnx` extension:
-    ```
-    |-- exp
-    |-- exp1
-    |-- |-- weights
-    |   |   |-- best.pt
-    |   |   |-- best.onnx
-    |   |   `-- last.pt
-    `-- ...
-    ```
+   - YOLOv5n: Sparsification Recipe Coming Soon
+   
+   - YOLOv5s: 75% Pruned-Quantized
+```bash
+sparseml.yolov5.train \
+  --cfg yolov5s.yaml \
+  --teacher-weights zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/base-none \
+  --data coco.yaml \
+  --batch-size 64 \
+  --recipe zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned75_quant-none \
+  --hyp hyps/hyp.scratch-low.yaml \
+  --weights zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/base-none \
+  --patience 0 \
+  --gradient-accum-steps 4
+```
 
-2. Now you can run the `.onnx` file through a compression algorithm to reduce its deployment size and run it in ONNX-compatible inference engines such as [DeepSparse](https://github.com/neuralmagic/deepsparse).
-   The DeepSparse Engine is explicitly coded to support running sparsified models for significant improvements in inference performance. 
-   An example for benchmarking and deploying YOLOv5 models with DeepSparse can be found [here](https://github.com/neuralmagic/deepsparse/tree/main/examples/ultralytics-yolo).
+   - YOLOv5m: Sparsification Recipe Coming Soon
+   
+   - YOLOv5l: 90% Pruned-Quantized
 
-## Wrap-Up
+```bash
+sparseml.yolov5.train \
+  --cfg yolov5l.yaml \
+  --teacher-weights zoo:cv/detection/yolov5-l/pytorch/ultralytics/coco/base-none \
+  --data coco.yaml \
+  --batch-size 64 \
+  --recipe zoo:cv/detection/yolov5-l/pytorch/ultralytics/coco/pruned90_quant-none \
+  --hyp hyps/hyp.scratch-high.yaml \
+  --weights zoo:cv/detection/yolov5-l/pytorch/ultralytics/coco/base-none \
+  --patience 0 \
+  --gradient-accum-steps 4
+```
+   - YOLOv5x: Sparsification Recipe Coming Soon
 
-Neural Magic recipes simplify the sparsification process by encoding the hyperparameters and instructions needed to create highly accurate pruned and pruned-quantized YOLOv5 models. 
-In this tutorial, you created a pre-trained model to establish a baseline, applied a Neural Magic recipe for sparsification, and exported to ONNX to run through an inference engine.
+## Next Steps
 
-Now, refer [here](https://github.com/neuralmagic/deepsparse/tree/main/examples/ultralytics-yolo) for an example for benchmarking and deploying YOLOv5 models with DeepSparse.
-
-For Neural Magic Support, sign up or log in to our [**Deep Sparse Community Slack**](https://join.slack.com/t/discuss-neuralmagic/shared_invite/zt-q1a1cnvo-YBoICSIw3L1dmQpjBeDurQ). Bugs, feature requests, or additional questions can also be posted to our [GitHub Issue Queue.](https://github.com/neuralmagic/sparseml/issues)
+Checkout the DeepSparse repository for more information on deploying your sparse YOLOv5 models with DeepSparse for GPU class performance on CPUs.
