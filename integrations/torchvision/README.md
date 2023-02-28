@@ -25,9 +25,9 @@ By integrating the robust training flows in the `torchvision` repository, Sparse
 
 ## Tutorials
 
-- Torchvision CLI
-- [Sparse Transfer Learning with the Python API (`.ipynb` notebook)](tutorials/docs-torchvision-python-transfer-imagenette.ipynb)
-- ResNet-50: Sparsification From Scratch with the Python API (`.ipynb` notebook)
+- [Torchvision CLI](tutorials/torchvision-cli.md)
+- [Sparse Transfer Learning with the Python API](tutorials/docs-torchvision-python-transfer-imagenette.ipynb)
+- Sparsification from Scratch with the Python API (coming soon!)
 
 ## Installation
 
