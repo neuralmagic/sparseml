@@ -115,7 +115,7 @@ In this example, we will fine-tune a 95% pruned version of ResNet-50 ([available
 
 ### Kick off Training
 
-We can start Sparse Transfer Learning by passing a starting checkpoint and recipe to the training script. For Sparse Transfer, we will use a recipe that instructs SparseML to maintain sparsity during training and to quantize the model. The 95% pruned-quantized ResNet-50 has a transfer learning recipe available, identified by the following SparseZoo stub:
+We can start Sparse Transfer Learning by passing a starting checkpoint and recipe to the training script. For Sparse Transfer, we will use a recipe that instructs SparseML to maintain sparsity during training and to quantize the model. The starting checkpoitn and transfer recipe are specified by the following SparseZoo stub:
 ```
 zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/pruned95_quant-none?recipe_type=transfer-classification
 ```
