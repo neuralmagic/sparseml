@@ -1,4 +1,4 @@
-# Text Analysis: Sparse Transfer Learning with the CLI
+# Text Classification: Sparse Transfer Learning with the CLI
 
 In this example, you will sparse transfer learn a 90% pruned BERT model onto some text classification datasets using SparseML's CLI.
 
