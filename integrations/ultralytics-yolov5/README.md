@@ -91,7 +91,7 @@ In this example, we will fine-tune a [75% pruned-quantized version of YOLOv5s](h
 
 ### Kick off Training
 
-We can start the Sparse Transfer Learning by passing a starting checkpoint  and recipe to the training script. For Sparse Transfer, we will use a recipe that instructs SparseML to maintain sparsity during training and to quantize the model. The starting checkpoint and transfer recipe are specified by the following SparseZoo stub:
+We can start Sparse Transfer Learning by passing a starting checkpoint and recipe to the training script. For Sparse Transfer, we will use a recipe that instructs SparseML to maintain sparsity during training and to quantize the model. The starting checkpoint and transfer recipe are specified by the following SparseZoo stub:
 
 ```bash
 zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned75_quant-none?recipe_type=transfer_learn
@@ -146,7 +146,7 @@ quantization_modifiers:
    
 </details>
 
-Run the following:
+Run the following to transfer learn from the 75% pruned-quantized YOLOv5s onto VOC.
 ```bash
 sparseml.yolov5.train \
   --weights zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned75_quant-none?recipe_type=transfer_learn \
@@ -158,6 +158,13 @@ sparseml.yolov5.train \
 The script uses the SparseZoo stubs to identify and download the starting checkpoint and YAML-based recipe file from the SparseZoo. SparseML parses the transfer learning recipe and adjusts the trainign process to maintain sparsity during the fine-tuning process.
 
 The resulting model is 75% pruned and quantized and is trained on VOC!
+
+To transfer learn this sparsified model to other datasets you may have to adjust certain hyperparameters in this recipe and/or training script. Some considerations:
+- For more complex datasets, increase the number of epochs, adjusting the learning rate step accordingly
+- Adding more learning rate step milestones can lead to more jumps in accuracy
+- Increase the learning rate when increasing batch size
+- Increase the number of epochs if using SGD instead of the Adam optimizer
+- Update the base learning rate based on the number of steps needed to train your dataset
 
 ### Export to ONNX
 
