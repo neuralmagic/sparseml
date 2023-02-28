@@ -16,13 +16,22 @@ limitations under the License.
 
 # SparseML Torchvision Integration
 
-This directory demonstrates how to use SparseML's `torchvision` integration. 
+By integrating with robust training flows in the Torchvision repository, SparseML enables you to train inference-optimized sparse versions of popular image classification models likes ResNet-50 on your dataset.
 
 With SparseML, you can create a sparse model in two ways:
 
-- **Sparse Transfer Learning**: Fine-tune a pre-sparsified model checkpoint onto a downstream dataset, while maintaining the sparsity structure of the network. This process works just like typical fine-tuning and is recommended for use in any scenario where there are [checkpoints available in SparseZoo](https://sparsezoo.neuralmagic.com/?domain=cv&sub_domain=classification&page=1)).
+- **Sparse Transfer Learning**: fine-tune a pre-sparsified checkpoint on your own dataset **[RECOMMENDED]**
+- **Sparsification from Scratch**: Apply state-of-the-art training-aware pruning and quantization algorithms to arbitrary Torchvision models.
 
-- **Sparsification from Scratch**: Apply state-of-the-art training-aware pruning and quantization algorithms to arbitrary  models. This process enables you to create a sparse version of any model, but requires you to experiment with the pruning and quantization algorithms.
+Once trained, SparseML enables you to export models to the ONNX format, such that they can be deployed with DeepSparse for GPU-class performance on the CPU.
+
+## Installation
+
+Install with `pip`:
+
+```bash
+pip install sparseml[torchvision]
+```
 
 ## Tutorials
 
@@ -30,13 +39,19 @@ With SparseML, you can create a sparse model in two ways:
 - [Sparse Transfer Learning with the Python API](tutorials/docs-torchvision-python-transfer-imagenette.ipynb)
 - Sparsification from Scratch with the Python API (coming soon!)
 
-## Installation
+## Quick Tour
 
-```bash
-pip install sparseml[torchvision]
-```
+### SparseZoo
 
-## SparseML CLI
+Neural Magic has pre-sparsified versions of common Torchvision models such as ResNet-50. These models can be deployed directly or can be fine-tuned onto custom dataset via sparse transfer learning. This makes it easy to create a sparse image classification model trained on your dataset.
+
+Check out the model cards in the [SparseZoo](https://sparsezoo.neuralmagic.com/?repo=ultralytics&page=1).
+
+### Recipes
+
+SparseML Recipes are YAML files that encode the instructions for sparsifying a model or sparse transfer learning. The SparseML image classification training script accepts the recipes as inputs, parses the instructions, and applies the specified algorithms and hyperparameters during the training process.
+
+### SparseML CLI
 
 SparseML's CLI enables you to kick-off sparsification workflows with various utilities like creating training pipelines, dataset loading, checkpoint saving, metric reporting, and logging handled for you.
 
@@ -61,7 +76,7 @@ For full usage, run:
 sparseml.image_classification --help
 ```
 
-## SparseML Python API
+### SparseML Python API
 
 For additional flexibility, SparseML has a Python API that also enables you to add sparsification to a native PyTorch training loop.
 
@@ -91,7 +106,7 @@ manager.finalize(model)
 
 See the tutorials for full working examples of the Python API.
 
-## Sparse Transfer Learning Example - Image Classification with ResNet-50
+## Quick Start: Sparse Transfer Learning
 
 ### Overview
 
@@ -99,17 +114,15 @@ Sparse Transfer is quite similiar to the typical transfer learing process used t
 
 In this example, we will fine-tune a 95% pruned version of ResNet-50 ([available in SparseZoo](https://sparsezoo.neuralmagic.com/models/cv%2Fclassification%2Fresnet_v1-50%2Fpytorch%2Fsparseml%2Fimagenet%2Fpruned95_quant-none)) onto ImageNette.
 
-### Run Sparse Transfer Learning
+### Kick off Training
 
-We can start the Sparse Transfer Learning by passing a recipe to the training script. 
-For Sparse Transfer, we will use a recipe that instructs SparseML to maintain sparsity during training and to quantize the model. The 05% pruned-quantized ResNet-50 has a transfer learning recipe available, identified by the following SparseZoo stub:
+We can start Sparse Transfer Learning by passing a starting checkpoint and recipe to the training script. For Sparse Transfer, we will use a recipe that instructs SparseML to maintain sparsity during training and to quantize the model. The 95% pruned-quantized ResNet-50 has a transfer learning recipe available, identified by the following SparseZoo stub:
 ```
 zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/pruned95_quant-none?recipe_type=transfer-classification
 ```
 
 <details>
    <summary>Click to see the recipe</summary>
-</br>
 
 SparseML parses the `Modifers` in the recipe and updates the training loop with logic encoded therein.
    
@@ -158,7 +171,7 @@ wget https://s3.amazonaws.com/fast-ai-imageclas/imagenette2-320.tgz
 tar -xvf imagenette2-320.tgz
 ```
 
-Now, run the following to transfer learn from the 95% pruned ResNet-50
+Run the following to transfer learn from the 95% pruned-quantized ResNet-50
 onto ImageNette:
 ```bash
 sparseml.image_classification.train \
@@ -169,21 +182,22 @@ sparseml.image_classification.train \
     --batch-size 32
 ```
 
+The script uses the SparseZoo stubs to identify and download the starting checkpoint and YAML-based recipe file from the SparseZoo. SparseML parses the transfer learning recipe and adjusts the trainign process to maintain sparsity during the fine-tuning process.
+
 The resulting model is 95% pruned and quantized, and achieves 99% validation accuracy on ImageNette!
 
 To transfer learn this sparsified model to other datasets you may have to adjust certain hyperparameters in this recipe and/or training script. Some considerations:
-
 - For more complex datasets, increase the number of epochs, adjusting the learning rate step accordingly
 - Adding more learning rate step milestones can lead to more jumps in accuracy
 - Increase the learning rate when increasing batch size
 - Increase the number of epochs if using SGD instead of the Adam optimizer
 - Update the base learning rate based on the number of steps needed to train your dataset
 
-### Exporting to ONNX
+### Export to ONNX
 
 DeepSparse uses the ONNX format to load neural networks and then deliver breakthrough performance for CPUs by leveraging the sparsity and quantization within a network.
 
-The SparseML installation provides a `sparseml.image_classification.export_onnx` command that you can use to load the training model folder and create a new model.onnx file within. Be sure the `--model_path` argument points to your trained model:
+The SparseML installation provides a `sparseml.image_classification.export_onnx` command that you can use to export the model to ONNX. Be sure the `--weights` argument points to your trained model. Be sure the `--checkpoint_path` argument points to your trained model:
 
 ```bash
 sparseml.image_classification.export_onnx \
@@ -194,6 +208,4 @@ sparseml.image_classification.export_onnx \
 
 ### Deploy with DeepSparse
 
-Once exported to ONNX, you can deploy your models with DeepSparse.
-
-Checkout the DeepSparse repo for examples.
+Once exported to ONNX, you can deploy your models with DeepSparse. Checkout the DeepSparse repo for examples.
