@@ -121,7 +121,7 @@ Run the following:
 
 The resulting ONNX file is saved in your local directory.
 
-### Other YOLOv5 Models
+## Other YOLOv5 Models
 
 Here are some sample transfer learning commands for other versions of YOLOv5. Checkout the [SparseZoo](https://sparsezoo.neuralmagic.com/?page=1&domain=cv&sub_domain=detection) for the full repository of pre-sparsified checkpoints.
 
