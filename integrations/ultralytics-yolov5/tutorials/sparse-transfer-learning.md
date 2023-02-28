@@ -330,7 +330,7 @@ plt.axis("off")
 plt.imshow(im)
 ```
 
-![sample-image](images/aerial-image-example.png)
+![sample-image](images/aerial-data-example.png)
 
 #### Create a Config
 
