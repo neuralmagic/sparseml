@@ -288,7 +288,7 @@ Here is a sample label file for `aerial-dataset/train/labels/00001_frame000000_o
 
 Run the following to visualize:
 
-```
+```python
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
