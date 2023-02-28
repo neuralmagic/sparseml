@@ -183,7 +183,7 @@ sparseml.image_classification.train \
 
 The script uses the SparseZoo stubs to identify and download the starting checkpoint and YAML-based recipe file from the SparseZoo. SparseML parses the transfer learning recipe and adjusts the trainign process to maintain sparsity during the fine-tuning process.
 
-The resulting model is 95% pruned and quantized, and achieves 99% validation accuracy on ImageNette!
+The resulting model is 95% pruned and quantized and is trained on ImageNette!
 
 To transfer learn this sparsified model to other datasets you may have to adjust certain hyperparameters in this recipe and/or training script such as the Optimizer type, the number of epochs, and the learning rates.
 
