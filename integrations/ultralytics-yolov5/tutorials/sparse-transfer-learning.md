@@ -14,24 +14,26 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-# Sparse Transfer Learning With YOLOv5
+# Sparse Transfer Learning
 
 This page explains how to fine-tune a pre-sparsified YOLOv5 model with SparseML's CLI.
 
 ## Overview
 
-Sparse Transfer is quite similiar to the typical YOLOv5 training, where we fine-tune a checkpoint pretrained on COCO onto a smaller downstream dataset. 
+Sparse Transfer is quite similiar to the typical YOLOv5 training, where we fine-tune a checkpoint pretrained on COCO onto a smaller downstream dataset. However, with Sparse Transfer Learning, we simply start the fine-tuning process from a pre-sparsified YOLOv5 and maintain sparsity while the training process occurs.
 
-With Sparse Transfer Learning, we simply start the fine-tuning process from a pre-sparsified YOLOv5 and maintain sparsity while the training process occurs.
 [SparseZoo](https://sparsezoo.neuralmagic.com/?domain=cv&sub_domain=detection&page=1) contains pre-sparsified checkpoints for each version of YOLOv5, granting
 you maximum flexibility in training inference-optimized sparse models.
 
-Let's walk through a couple examples.
+Let's walk through some examples.
 
 ## Installations
 
 Install via `pip`:
-```pip install sparseml[torchvision]```
+
+```
+pip install sparseml[torchvision]
+```
 
 ## Sparse Transfer Learning with VOC
 
@@ -48,14 +50,16 @@ sparseml.yolov5.train \
   --hyp hyps/hyp.finetune.yaml
 ```
 
+When the script completes, you will have a 75% pruned-quantized version of YOLOv5s trained on VOC!
+
 Lets disucss the key arguments:
 - `--weights` specifies the starting checkpoint for the training process. Here, we passed a SparseZoo stub, which
 identifies the 75% pruned-quantized YOLOv5s model in the SparseZoo. The script downloads the PyTorch model to begin training.
 
 - `--recipe` specifies the transfer learning recipe. Recipes are YAML files that declare the sparsity related algorithms
- that SparseML should apply. For transfer learning, the recipe instructs SparseML to maintian sparsity during training
+ that SparseML should apply. For transfer learning, the recipe instructs SparseML to maintain sparsity during training
  and to apply quantization over the final epochs. In this case, we passed a SparseZoo stub, which instructs SparseML
- to download a premade YOLOv5s transfer learning recipe.
+ to download a premade YOLOv5s transfer learning recipe. See below for more details on what the transfer learning recipe looks like.
 
 - `--data` specifies the dataset. Here, the script automatically downloads the VOC dataset.
 
@@ -103,9 +107,7 @@ The "Modifiers" encode how SparseML should modify the training process for Spars
 - `ConstantPruningModifier` tells SparseML to pin weights at 0 over all epochs, maintaining the sparsity structure of the network
 - `QuantizationModifier` tells SparseML to quanitze the weights with quantization aware training over the last 5 epochs
 
-SparseML parses the instructions declared in the recipe, and modifies the YOLOv5 training loop accordingly.
-
-As a result, when the script completes, you will have a 75% pruned-quantized version of YOLOv5s trained on your data!
+SparseML parses the instructions declared in the recipe and modifies the YOLOv5 training loop accordingly before running the fine-tuning.
 
 ### Exporting for Inference
 
@@ -240,9 +242,8 @@ Let's try a real example with an aerial dataset.
 
 #### Download the Dataset
 
-Download the dataset from Google Drive:
+Run the following to download the dataset from Google Drive:
 
-TO BE UPDATED:
 ```python
 from google.colab import drive
 drive.mount('/content/drive')
@@ -250,7 +251,7 @@ drive.mount('/content/drive')
 !tar -xf aerial-dataset.tar.gz
 ```
 
-We can see that the dataset conforms to the Ultralytics format. After unzipping the directory looks as follows:
+After unzipping, we can see the directory conforms to the Ultralytics format:
 
 ```
 |-- aerial-dataset
@@ -286,7 +287,7 @@ Here is a sample label file for `aerial-dataset/train/labels/00001_frame000000_o
 0 0.461458 0.916204 0.037500 0.052778
 ```
 
-Run the following to visualize:
+Run the following to visualize the data:
 
 ```python
 import pandas as pd
@@ -332,6 +333,8 @@ plt.axis("off")
 plt.imshow(im)
 ```
 
+![sample-image](images/aerial-image-example.png)
+
 #### Create a Config
 
 Save the following configuration file as `aerial-dataset.yaml`:
@@ -368,6 +371,8 @@ You will notice that we added a `--recipe_args` argument, which updates the tran
 learning recipe to run for 30 epochs rather than 55 epochs. While you can always create
 a custom recipe file and pass a local file to script, the `--recipe_args` enables you
 to modify on the fly.
+
+The example converges to 80% mAP@50.
 
 ## Next Steps
 
