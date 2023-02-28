@@ -22,10 +22,7 @@ This page explains how to fine-tune a pre-sparsified YOLOv5 model with SparseML'
 
 Sparse Transfer is quite similiar to the typical YOLOv5 training, where we fine-tune a checkpoint pretrained on COCO onto a smaller downstream dataset. However, with Sparse Transfer Learning, we simply start the fine-tuning process from a pre-sparsified YOLOv5 and maintain sparsity while the training process occurs.
 
-[SparseZoo](https://sparsezoo.neuralmagic.com/?domain=cv&sub_domain=detection&page=1) contains pre-sparsified checkpoints for each version of YOLOv5, granting
-you maximum flexibility in training inference-optimized sparse models.
-
-Let's walk through some examples.
+[SparseZoo](https://sparsezoo.neuralmagic.com/?domain=cv&sub_domain=detection&page=1) contains pre-sparsified checkpoints for each version of YOLOv5, which can be used as the starting checkpoints for the training process.
 
 ## Installations
 
