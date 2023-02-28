@@ -276,6 +276,8 @@ sparseml.transformers.train.text_classification \
   --save_strategy epoch --save_total_limit 1
 ```
 
+The model converges to ~86.9% accuracy without any hyperparameter search.
+
 Note that used the dense version of BERT (the stub ends in `base-none`) as the starting point for the training 
 and passed a recipe from [SparseZoo](https://sparsezoo.neuralmagic.com/models/nlp%2Fsentiment_analysis%2Fbert-base%2Fpytorch%2Fhuggingface%2Fsst2%2Fbase-none) which was used to train the 
 dense teacher for the SST2 task. Since the SST2 task is similiar to the Rotten Tomatoes task, these parameters are a solid
@@ -323,3 +325,5 @@ sparseml.transformers.text_classification \
   --per_device_eval_batch_size 32 --preprocessing_num_workers 6 --do_train --do_eval --evaluation_strategy epoch --fp16  \
   --save_strategy epoch --save_total_limit 1
 ```
+
+The model converges to XX% accuracy.
