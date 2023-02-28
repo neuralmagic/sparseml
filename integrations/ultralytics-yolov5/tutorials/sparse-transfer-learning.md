@@ -298,9 +298,6 @@ from PIL import Image
 
 plt.figure(figsize=(15, 15), facecolor='white')
 
-SCENE = random.choice(val_scenes)
-FRAME = df[df['scene'] == SCENE].sample()["frame"].iloc[0]
-
 filename_image = f"aerial-dataset/val/images/00001_frame000000_original.jpg"
 filename_label = filename_image.replace('images','labels').replace('jpg','txt')
 data = pd.read_csv(filename_label, header=None, delimiter=' ', names=["class", "x_center", "y_center", "width", "height"])
