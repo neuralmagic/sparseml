@@ -34,7 +34,7 @@ pip install sparseml[torchvision]
 
 ## Sparse Transfer Learning with VOC
 
-Let's walk through some a quick example of Sparse Transfer Learning YOLOv5s onto the VOC dataset.
+Let's try a simple example of Sparse Transfer Learning YOLOv5s onto the VOC dataset.
 
 Run the following:
 ```
@@ -47,20 +47,20 @@ sparseml.yolov5.train \
   --hyp hyps/hyp.finetune.yaml
 ```
 
-When the script completes, you will have a 75% pruned-quantized version of YOLOv5s trained on VOC!
-
 Lets disucss the key arguments:
 - `--weights` specifies the starting checkpoint for the training process. Here, we passed a SparseZoo stub, which
-identifies the 75% pruned-quantized YOLOv5s model in the SparseZoo. The script downloads the PyTorch model to begin training.
+identifies the 75% pruned-quantized YOLOv5s model in the SparseZoo. The script downloads the PyTorch model to begin training. In addition to SparseZoo stubs, you can also pass a local path to a PyTorch checkpoint.
 
 - `--recipe` specifies the transfer learning recipe. Recipes are YAML files that declare the sparsity related algorithms
  that SparseML should apply. For transfer learning, the recipe instructs SparseML to maintain sparsity during training
  and to apply quantization over the final epochs. In this case, we passed a SparseZoo stub, which instructs SparseML
- to download a premade YOLOv5s transfer learning recipe. See below for more details on what the transfer learning recipe looks like.
+ to download a premade YOLOv5s transfer learning recipe. In addition to SparseZoo stubs, you can also pass a local path to a YAML recipe. 
+ See below for more details on what the transfer learning recipe looks like.
 
-- `--data` specifies the dataset. Here, the script automatically downloads the VOC dataset.
+- `--data` specifies the dataset configuration. Here, we specify the VOC dataset, which is automatically downloaded. See below for an example
+  using a custom dataset.
 
-Here's what the recipe looks like:
+Here's what the transfer learning recipe looks like:
 
 ```yaml
 version: 1.1.0
@@ -104,7 +104,9 @@ The "Modifiers" encode how SparseML should modify the training process for Spars
 - `ConstantPruningModifier` tells SparseML to pin weights at 0 over all epochs, maintaining the sparsity structure of the network
 - `QuantizationModifier` tells SparseML to quanitze the weights with quantization aware training over the last 5 epochs
 
-SparseML parses the instructions declared in the recipe and modifies the YOLOv5 training loop accordingly before running the fine-tuning. As a result, we maintain the sparsity structure of the original model as the fine-tuning occurs!
+SparseML parses the instructions declared in the recipe and modifies the YOLOv5 training loop accordingly before running the fine-tuning. 
+
+As a result, we end up with a 75% pruned and quantized YOLOv5s trained on VOC!
 
 ### Exporting for Inference
 
@@ -122,64 +124,68 @@ The resulting ONNX file is saved in your local directory.
 
 ## Other YOLOv5 Models
 
-Here are some sample transfer learning commands for other versions of YOLOv5. Checkout the [SparseZoo](https://sparsezoo.neuralmagic.com/?page=1&domain=cv&sub_domain=detection) for the full repository of pre-sparsified checkpoints.
+Here are some sample transfer learning commands for other versions of YOLOv5. 
 
    - YOLOv5n Pruned-Quantized:
-     ```bash
-     sparseml.yolov5.train \
-      --cfg yolov5n.yaml \
-      --weights zoo:cv/detection/yolov5-n/pytorch/ultralytics/coco/pruned40_quant-none?recipe_type=transfer_learn \
-      --recipe zoo:cv/detection/yolov5-n/pytorch/ultralytics/coco/pruned40_quant-none?recipe_type=transfer_learn \
-      --data VOC.yaml \
-      --patience 0 \
-      --hyp hyps/hyp.finetune.yaml
-     ```
+```bash
+sparseml.yolov5.train \
+   --cfg yolov5n.yaml \
+   --weights zoo:cv/detection/yolov5-n/pytorch/ultralytics/coco/pruned40_quant-none?recipe_type=transfer_learn \
+   --recipe zoo:cv/detection/yolov5-n/pytorch/ultralytics/coco/pruned40_quant-none?recipe_type=transfer_learn \
+   --data VOC.yaml \
+   --patience 0 \
+   --hyp hyps/hyp.finetune.yaml
+```
    - YOLOv5s Pruned-Quantized:
-     ```bash
-     sparseml.yolov5.train \
-        --cfg yolov5s.yaml \
-        --weights zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned75_quant-none?recipe_type=transfer_learn \
-        --recipe zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned75_quant-none?recipe_type=transfer_learn \
-        --data VOC.yaml \
-        --patience 0 \
-        --hyp hyps/hyp.finetune.yaml
-     ```
+```bash
+sparseml.yolov5.train \
+  --cfg yolov5s.yaml \
+  --weights zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned75_quant-none?recipe_type=transfer_learn \
+  --recipe zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned75_quant-none?recipe_type=transfer_learn \
+  --data VOC.yaml \
+  --patience 0 \
+  --hyp hyps/hyp.finetune.yaml
+```
    - YOLOv5m Pruned-Quantized:
-     ```bash
-     sparseml.yolov5.train \
-        --cfg yolov5m.yaml \
-        --weights zoo:cv/detection/yolov5-m/pytorch/ultralytics/coco/pruned70_quant-none?recipe_type=transfer_learn \
-        --recipe zoo:cv/detection/yolov5-m/pytorch/ultralytics/coco/pruned70_quant-none?recipe_type=transfer_learn \
-        --data VOC.yaml \
-        --patience 0 \
-        --hyp hyps/hyp.finetune.yaml
-     ```
+```bash
+sparseml.yolov5.train \
+  --cfg yolov5m.yaml \
+  --weights zoo:cv/detection/yolov5-m/pytorch/ultralytics/coco/pruned70_quant-none?recipe_type=transfer_learn \
+  --recipe zoo:cv/detection/yolov5-m/pytorch/ultralytics/coco/pruned70_quant-none?recipe_type=transfer_learn \
+  --data VOC.yaml \
+  --patience 0 \
+  --hyp hyps/hyp.finetune.yaml
+```
    - YOLOv5l Pruned-Quantized:
-     ```bash
-      sparseml.yolov5.train \
-        --cfg yolov5l.yaml \
-        --weights zoo:cv/detection/yolov5-l/pytorch/ultralytics/coco/pruned90_quant-none?recipe_type=transfer_learn \
-        --recipe zoo:cv/detection/yolov5-l/pytorch/ultralytics/coco/pruned90_quant-none?recipe_type=transfer_learn \
-        --data VOC.yaml \
-        --patience 0 \
-        --hyp hyps/hyp.finetune.yaml
-     ```
+```bash
+sparseml.yolov5.train \
+  --cfg yolov5l.yaml \
+  --weights zoo:cv/detection/yolov5-l/pytorch/ultralytics/coco/pruned90_quant-none?recipe_type=transfer_learn \
+  --recipe zoo:cv/detection/yolov5-l/pytorch/ultralytics/coco/pruned90_quant-none?recipe_type=transfer_learn \
+  --data VOC.yaml \
+  --patience 0 \
+  --hyp hyps/hyp.finetune.yaml
+```
    - YOLOv5x Pruned-Quantized
-     ```bash
-     sparseml.yolov5.train \
-        --cfg yolov5x.yaml \
-        --weights zoo:cv/detection/yolov5-x/pytorch/ultralytics/coco/pruned80_quant-none?recipe_type=transfer_learn \
-        --recipe zoo:cv/detection/yolov5-x/pytorch/ultralytics/coco/pruned80_quant-none?recipe_type=transfer_learn \
-        --data VOC.yaml \
-        --patience 0 \
-        --hyp hyps/hyp.finetune.yaml
-     ```
+```bash
+sparseml.yolov5.train \
+  --cfg yolov5x.yaml \
+  --weights zoo:cv/detection/yolov5-x/pytorch/ultralytics/coco/pruned80_quant-none?recipe_type=transfer_learn \
+  --recipe zoo:cv/detection/yolov5-x/pytorch/ultralytics/coco/pruned80_quant-none?recipe_type=transfer_learn \
+  --data VOC.yaml \
+  --patience 0 \
+  --hyp hyps/hyp.finetune.yaml
+```
+
+SparseZoo contains mutliple variants of each version of YOLOv5 at various levels of sparsity, which can be fine-tuned onto your dataset. 
+
+[Checkout the full list!](https://sparsezoo.neuralmagic.com/?page=1&domain=cv&sub_domain=detection) 
 
 ## Using a Custom Dataset
 
-Because SparseML is integrated with Ultralytics, we can easily pass custom datasets to the training flows.
+Because SparseML is integrated with YOLOv5, we can easily pass custom datasets to the training flows in the Ultralytics format.
 
-### Dataset Format 
+### Ultralytics Dataset Format 
 
 There are three steps to creating a custom dataset for YOLOv5.
 
