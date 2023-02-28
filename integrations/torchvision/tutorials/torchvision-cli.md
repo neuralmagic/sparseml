@@ -66,6 +66,7 @@ tar -xvf imagenette2-320.tgz
 ```
 
 #### Fine-Tune The Model
+
 We will fine-tune a 95% pruned version of ResNet-50 ([available in SparseZoo](https://sparsezoo.neuralmagic.com/models/cv%2Fclassification%2Fresnet_v1-50%2Fpytorch%2Fsparseml%2Fimagenet%2Fpruned95_quant-none)) onto Imagenette. The starting checkpoint is identified by the following SparseZoo stub:
 
 ```bash
@@ -207,4 +208,196 @@ represents one of the 10 classes in the Imagenette dataset) and each `.JPEG` fil
 
 ### Sparsify From Scratch with the CLI
 
-Stay tuned for an example sparsifying from scratch with the CLI!
+#### Overview 
+
+Sparsifying a model involves removing redundant information from a 
+trained model using algorithms such as pruning and quantization. The sparse models can then be deployed with DeepSparse, which implements many optimizations to increase performance via sparsity, for GPU-class performance on CPUs.
+
+Let's try an example using SparseML's recipe to create a sparse version of ResNet-50.
+
+#### Download ImageNet Dataset
+
+TO BE UPDATED
+
+#### Sparsify The Model
+
+Recipes are SparseML's YAML-based declarative interface for specifying the sparsity-related algorithms and parameters that should be applied during the training 
+process. SparseML then parses the recipes and modifies the training loop to implement the specified algorithms.
+
+In the case of ResNet-50, SparseZoo hosts a sparsification recipe created by the Neural Magic ML team, which was used to create a 95% pruned-quantized version. It is identified by the following SparseZoo stub:
+
+```bash
+zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/pruned95_quant-none
+```
+
+<details>
+   <summary> Click to see the recipe</summary>
+
+```yaml
+version: 1.1.0
+
+# General Variables
+num_epochs: 206
+lr_warmup_epochs: 5
+init_lr: 0.0512
+warmup_lr: 0.256
+weight_decay: 0.00001
+
+# Quantization variables
+quantization_epochs: 6
+quantization_start_epoch: eval(num_epochs - quantization_epochs)
+quantization_end_epoch: eval(num_epochs)
+quantization_constant_lr_epochs: 2
+quantization_init_lr: 0.00005
+quantization_observer_epochs: 1
+quantization_keep_bn_epochs: 2
+
+# Pruning Variables
+pruning_epochs_fraction: 0.925
+pruning_epochs: eval(int((num_epochs - quantization_epochs) * pruning_epochs_fraction))
+pruning_start_epoch: eval(lr_warmup_epochs)
+pruning_end_epoch: eval(pruning_start_epoch + pruning_epochs)
+pruning_update_frequency: 5
+pruning_sparsity: 0.95
+pruning_final_lr: 0.0
+
+training_modifiers:
+  - !EpochRangeModifier
+    start_epoch: 0
+    end_epoch: eval(num_epochs)
+
+  - !LearningRateFunctionModifier
+    start_epoch: 0
+    end_epoch: eval(lr_warmup_epochs)
+    lr_func: linear
+    init_lr: eval(init_lr)
+    final_lr: eval(warmup_lr)
+
+  - !LearningRateFunctionModifier
+    start_epoch: eval(lr_warmup_epochs)
+    end_epoch: eval(quantization_start_epoch)
+    lr_func: cosine
+    init_lr: eval(warmup_lr)
+    final_lr: eval(pruning_final_lr)
+
+  - !SetWeightDecayModifier
+    start_epoch: 0
+    end_epoch: eval(quantization_start_epoch)
+    weight_decay: eval(weight_decay)
+
+pruning_modifiers:
+  - !ACDCPruningModifier
+    compression_sparsity: eval(pruning_sparsity)
+    start_epoch: eval(pruning_start_epoch)
+    end_epoch: eval(pruning_end_epoch)
+    global_sparsity: True 
+    update_frequency: eval(pruning_update_frequency)
+    params:
+      - sections.0.0.conv1.weight
+      - sections.0.0.conv3.weight
+      - sections.0.0.identity.conv.weight
+      - sections.0.1.conv3.weight
+      - sections.0.2.conv3.weight
+      - sections.1.0.conv3.weight
+      - sections.0.0.conv2.weight
+      - sections.0.1.conv1.weight
+      - sections.0.2.conv1.weight
+      - sections.1.0.conv1.weight
+      - sections.1.0.identity.conv.weight
+      - sections.1.1.conv3.weight
+      - sections.1.2.conv3.weight
+      - sections.1.3.conv3.weight
+      - sections.2.0.conv3.weight
+      - sections.0.1.conv2.weight
+      - sections.0.2.conv2.weight
+      - sections.1.0.conv2.weight
+      - sections.1.1.conv1.weight
+      - sections.1.2.conv1.weight
+      - sections.1.3.conv1.weight
+      - sections.2.0.conv1.weight
+      - sections.2.0.identity.conv.weight
+      - sections.2.1.conv3.weight
+      - sections.2.2.conv3.weight
+      - sections.2.3.conv3.weight
+      - sections.2.4.conv3.weight
+      - sections.2.5.conv3.weight
+      - sections.3.0.conv3.weight
+      - sections.3.1.conv3.weight
+      - sections.3.2.conv3.weight
+      - sections.1.1.conv2.weight
+      - sections.1.2.conv2.weight
+      - sections.1.3.conv2.weight
+      - sections.2.0.conv2.weight
+      - sections.2.1.conv1.weight
+      - sections.2.2.conv1.weight
+      - sections.2.3.conv1.weight
+      - sections.2.4.conv1.weight
+      - sections.2.5.conv1.weight
+      - sections.3.0.conv1.weight
+      - sections.3.0.identity.conv.weight
+      - sections.3.1.conv1.weight
+      - sections.3.2.conv1.weight
+      - sections.1.1.conv2.weight
+      - sections.1.2.conv2.weight
+      - sections.1.3.conv2.weight
+      - sections.2.0.conv2.weight
+      - sections.2.1.conv1.weight
+      - sections.2.2.conv1.weight
+      - sections.2.3.conv1.weight
+      - sections.2.4.conv1.weight
+      - sections.2.5.conv1.weight
+      - sections.3.0.conv1.weight
+      - sections.3.0.identity.conv.weight
+      - sections.3.1.conv1.weight
+      - sections.3.2.conv1.weight
+      - sections.2.1.conv2.weight
+      - sections.2.2.conv2.weight
+      - sections.2.3.conv2.weight
+      - sections.2.4.conv2.weight
+      - sections.2.5.conv2.weight
+      - sections.3.0.conv2.weight
+      - sections.3.1.conv2.weight
+      - sections.3.2.conv2.weight
+
+quantization_modifiers:
+  - !SetLearningRateModifier
+    start_epoch: eval(quantization_start_epoch)
+    learning_rate: eval(quantization_init_lr)
+
+  - !LearningRateFunctionModifier
+    final_lr: 0.0
+    init_lr: eval(quantization_init_lr)
+    lr_func: cosine
+    start_epoch: eval(quantization_start_epoch + quantization_keep_bn_epochs)
+    end_epoch: eval(num_epochs)
+
+  - !QuantizationModifier
+    start_epoch: eval(quantization_start_epoch)
+    submodules:
+      - input
+      - sections
+    disable_quantization_observer_epoch: eval(quantization_start_epoch + quantization_observer_epochs)
+    freeze_bn_stats_epoch: eval(quantization_start_epoch + quantization_keep_bn_epochs)
+```
+
+Just like the Sparse Transfer Learning recipe above, the "Modifiers" encode how SparseML should modify the training process. 
+
+In this case, however, we swapped the `!ConstantPruningModifier` for the `!ACDCPruningModifier`. Rather than telling SparseML maintaining sparsity during the training process, this modifier declares that we should apply the [AC/DC pruning algorithm](https://arxiv.org/pdf/2106.12379.pdf) to iteratively prune weights from the network at the end of each epoch until it reaches 95% sparsity.
+
+Additionally, just like Sparsification from Scratch example, we use the `!QuantizationModifier` to apply quantization aware training (QAT) over the final epochs.
+
+</details>
+
+Run the following to apply the recipe:
+
+```bash
+sparseml.image_classification.train \
+    --recipe zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/pruned95_quant-none?recipe_type=original \
+    --arch-key resnet50 \
+    --dataset-path /PATH/TO/IMAGENET  \
+    --batch-size 256
+```
+
+SparseML downloads the starting checkpoint (specified by `arch-key`) and transfer learning recipe from the SparseZoo. It then parses the instructions in the recipe and modifies the training loop to apply the AC/DC and QAT algorithms based on the specifications in the recipe. As a result, the final checkpoint is trained on ImageNet, with 95% of weights pruned and quantization applied. 
+
+This model achieves 75.8% top1 validation accuracy, recovering over 99% of the top1 validation accuracy of baseline model (76.1%).
