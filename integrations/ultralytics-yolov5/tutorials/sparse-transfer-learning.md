@@ -107,7 +107,7 @@ The "Modifiers" encode how SparseML should modify the training process for Spars
 - `ConstantPruningModifier` tells SparseML to pin weights at 0 over all epochs, maintaining the sparsity structure of the network
 - `QuantizationModifier` tells SparseML to quanitze the weights with quantization aware training over the last 5 epochs
 
-SparseML parses the instructions declared in the recipe and modifies the YOLOv5 training loop accordingly before running the fine-tuning.
+SparseML parses the instructions declared in the recipe and modifies the YOLOv5 training loop accordingly before running the fine-tuning. As a result, we maintain the sparsity structure of the original model as the fine-tuning occurs!
 
 ### Exporting for Inference
 
@@ -116,7 +116,7 @@ Once trained, you can export the model to ONNX for inference with DeepSparse.
 Run the following:
 
 ```bash 
-!sparseml.yolov5.export_onnx \
+sparseml.yolov5.export_onnx \
   --weights yolov5_runs/train/exp/weights/last.pt \
   --dynamic
 ```
