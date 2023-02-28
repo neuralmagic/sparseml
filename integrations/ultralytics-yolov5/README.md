@@ -159,7 +159,7 @@ The script uses the SparseZoo stubs to identify and download the starting checkp
 
 The resulting model is 75% pruned and quantized and is trained on VOC!
 
-To transfer learn this sparsified model to other datasets you may have to adjust certain hyperparameters in this recipe and/or training script such as the Optimizer type, the number of epochs, and the learning rates.
+To transfer learn this sparsified model to other datasets you may have to adjust certain hyperparameters in this recipe and/or training script such as the optimizer type, the number of epochs, and the learning rates.
 
 ### Export to ONNX
 
