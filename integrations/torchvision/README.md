@@ -36,7 +36,7 @@ By integrating the robust training flows in the `torchvision` repository, Sparse
 pip install sparseml[torchvision]
 ```
 
-### SparseML CLI
+## SparseML CLI
 
 SparseML's CLI enables you to kick-off sparsification workflows with various utilities like creating training pipelines, dataset loading, checkpoint saving, metric reporting, and logging handled for you. Appending the `--help` argument will provide a full list of options for training in SparseML:
 
@@ -64,7 +64,7 @@ For full usage, run:
 sparseml.image_classification --help
 ```
 
-### SparseML Python API
+## SparseML Python API
 
 For additional flexibility, SparseML has a Python API that also enables you to add sparsification to a native PyTorch training loop.
 
