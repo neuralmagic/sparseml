@@ -18,10 +18,11 @@ limitations under the License.
 
 This directory demonstrates how to use SparseML's `torchvision` integration. 
 
-By integrating the robust training flows in the `torchvision` repository, SparseML enables you to create sparse versions of popular vision models like ResNet-50. The techniques include, but are not limited to:
-- Pruning
-- Quantization
-- Sparse Transfer Learning
+With SparseML, you can create a sparse model in two ways:
+
+- **Sparse Transfer Learning**: Fine-tune a pre-sparsified model checkpoint onto a downstream dataset, while maintaining the sparsity structure of the network. This process works just like typical fine-tuning and is recommended for use in any scenario where there are [checkpoints available in SparseZoo](https://sparsezoo.neuralmagic.com/?domain=cv&sub_domain=classification&page=1)).
+
+- **Sparsification from Scratch**: Apply state-of-the-art training-aware pruning and quantization algorithms to arbitrary  models. This process enables you to create a sparse version of any model, but requires you to experiment with the pruning and quantization algorithms.
 
 ## Tutorials
 
