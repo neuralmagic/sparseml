@@ -41,6 +41,7 @@ pip install sparseml[torch]
 - [Sparse Transfer Learning for Text Classification](tutorials/text-classification/text-classification-cli.md)
 - [Sparse Transfer Learning for Token Classification](tutorials/token-classification/token-classification-cli.md)
 - Sparse Transfer Learning for Question Answering (coming soon!)
+- Sparsifying from Scratch (coming soon)!
 
 ### Python API
 
@@ -55,11 +56,15 @@ pip install sparseml[torch]
 
 #### Token Classification 
 - [Sparse Transfer with Conll2003 for named-entity-recognition](tutorials/token-classification/docs-token-classification-conll2003.ipynb)
-- [Sparse Transfer with Custom Datasets (WNUT) and Custom Teacher WNUT for named-entity-recognition](tutorials/token-classification/docs-token-classification-custom-teacher-wnut.ipynb)
+- [Sparse Transfer with Custom Datasets (WNUT) and Custom Teacher for named-entity-recognition](tutorials/token-classification/docs-token-classification-custom-teacher-wnut.ipynb)
 
 #### Question Answering
 
-- Examples coming soon!
+- Sparse Transfer with SQuAD (Example coming soon!)
+
+#### General 
+
+- Sparsifying from Scratch (Example coming soon!)
 
 ## Quick Tour
 
