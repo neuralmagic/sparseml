@@ -189,8 +189,6 @@ To transfer learn this sparsified model to other datasets you may have to adjust
 
 ### Export to ONNX
 
-DeepSparse uses the ONNX format to load neural networks and then deliver breakthrough performance for CPUs by leveraging the sparsity and quantization within a network.
-
 The SparseML installation provides a `sparseml.image_classification.export_onnx` command that you can use to export the model to ONNX. Be sure the `--checkpoint_path` argument points to your trained model:
 
 ```bash
