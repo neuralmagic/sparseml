@@ -254,7 +254,7 @@ Keep in mind that the `--distill_teacher` argument is set to pull a dense SST2 m
 
 ### Export to ONNX
 
-The SparseML installation provides a `sparseml.transformers.export_onnx` command that you can use to load the training model folder and create a new model.onnx file within. Be sure the `--model_path` argument points to your trained model:
+The SparseML installation provides a `sparseml.transformers.export_onnx` command that you can use to export the model to ONNX. Be sure the `--model_path` argument points to your trained model:
 
 ```bash
 sparseml.transformers.export_onnx \
