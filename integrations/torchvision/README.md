@@ -38,7 +38,7 @@ pip install sparseml[torchvision]
 
 ## SparseML CLI
 
-SparseML's CLI enables you to kick-off sparsification workflows with various utilities like creating training pipelines, dataset loading, checkpoint saving, metric reporting, and logging handled for you. Appending the `--help` argument will provide a full list of options for training in SparseML:
+SparseML's CLI enables you to kick-off sparsification workflows with various utilities like creating training pipelines, dataset loading, checkpoint saving, metric reporting, and logging handled for you.
 
 To get started, we just need to pass three required arguments: a starting checkpoint, a SparseML recipe, and a dataset.
 
@@ -52,12 +52,9 @@ sparseml.image_classification.train \
 The key arguments are as follows:
 - `--checkpoint-path` specifies the starting model to use in the training process. It can either be a local path to a PyTorch checkpoint or a SparseZoo stub (which SparseML uses to download a PyTorch checkpoint).
 
-- `--dataset-path` specifies the dataset used for training. It can either be a keyword referencing built-in datasets (e.g. imagenet or imagenette) or a local path to a dataset in the ImageNet format (see Advanced Functionality for more details).
+- `--dataset-path` specifies the dataset used for training. It must be a local path to a dataset in the ImageNet format (see CLI tutorials for more details).
 
-- `--recipe` specifies the sparsity related parameters of the training process. It can either be a local path to a YAML recipe file
-or a SparseZoo stub (which SparseML uses to download a YAML recipe file). The `recipe` is the key to enabling the sparsity-related algorithms
-implemented by SparseML. The examples below will demonstrate what recipes looks like for Sparse Transfer and Sparsification from Scratch, and you
-can check out the [User Guide](/user-guide/recipes) for more detailed documentation.
+- `--recipe` specifies the sparsity related parameters of the training process. It can either be a local path to a YAML recipe file or a SparseZoo stub (which SparseML uses to download a YAML recipe file). The `recipe` is the key to enabling the sparsity-related algorithms implemented by SparseML (see the CLI tutorials for more details on recipes).
 
 For full usage, run:
 ```bash
@@ -71,7 +68,7 @@ For additional flexibility, SparseML has a Python API that also enables you to a
 Just like the CLI, the Python API uses YAML-based recipes to encode the parameters of the sparsification process, allowing youto add SparseML with just a few lines of code.
 
 The `ScheduleModifierManager` class is responsible for parsing the YAML recipes and overriding the standard PyTorch model and optimizer objects, 
-encoding the logic of the sparsity algorithms from the recipe. Once you have called `manager.modify`, you can then use the model and optimizer as usual, as SparseML abstracts away the complexity of the sparsification algorithms.
+encoding the logic of the sparsity algorithms from the recipe. Once you call `manager.modify`, you can then use the model and optimizer as usual, as SparseML abstracts away the complexity of the sparsification algorithms.
 
 The workflow looks like this:
 
@@ -91,6 +88,8 @@ optimizer = manager.modify(model, optimizer, len(train_data))
 # clean-up
 manager.finalize(model)
 ```
+
+See the tutorials for full working examples of the Python API.
 
 ## Sparse Transfer Learning Example - Image Classification with ResNet-50
 
