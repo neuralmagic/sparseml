@@ -61,7 +61,7 @@ from sparseml.yolov8.trainers import SparseYOLO
 )
 @click.option(
     "--save-one-shot-torch",
-    default=True,
+    default=False,
     help="If one-shot recipe is supplied and "
     "this flag is set to True,mthe torch model with "
     "the one-shot recipe applied will be exported.",
