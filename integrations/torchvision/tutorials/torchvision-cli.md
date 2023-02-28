@@ -54,7 +54,7 @@ Let's dive into some concrete examples.
 
 #### Overview 
 
-Sparse Transfer is quite similiar to the typical transfer learing process used to train NLP models, where we fine-tune a pretrained checkpoint onto a smaller downstream dataset. With Sparse Transfer Learning, we simply start the fine-tuning process from a pre-sparsified checkpoint and maintain sparsity while the training process occurs.
+Sparse Transfer is quite similiar to the typical transfer learing process used to train models, where we fine-tune a pretrained checkpoint onto a smaller downstream dataset. With Sparse Transfer Learning, we simply start the fine-tuning process from a pre-sparsified checkpoint and maintain sparsity while the training process occurs.
 
 #### Download Dataset
 
