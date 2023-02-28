@@ -181,8 +181,7 @@ print(rotten_tomatoes)
 print(rotten_tomatoes["train"][0])
 ```
 
-We can see that each row dataset contains a `text` field which is a string representing the sequence to be classified and a `label` field which is a `0` or `1` representing
-negative and positive labels.
+We can see that each row dataset contains a `text` field which is a string representing the sequence to be classified and a `label` field which is a `0` or `1` representing negative and positive labels.
 
 ### Using a Hugging Face Dataset Identifier
 
@@ -326,4 +325,4 @@ sparseml.transformers.text_classification \
   --save_strategy epoch --save_total_limit 1
 ```
 
-The model converges to XX% accuracy.
+The model converges to 85% accuracy.
