@@ -28,13 +28,13 @@ Once trained, SparseML enables you to export models to the ONNX format - such th
 
 ## Tutorials
 
-### CLI Tutorials
+### CLI
 - [Sparse Transfer Learning for Sentiment Analysis](tutorials/sentiment-analysis/sentiment-analysis-cli.md)
 - [Sparse Transfer Learning for Text Classification](tutorials/text-classification/text-classification-cli.md)
 - [Sparse Transfer Learning for Token Classification](tutorials/token-classification/token-classification-cli.md)
 - Sparse Transfer Learning for Question Answering (coming soon!)
 
-### Python API Tutorials
+### Python API
 
 #### Sentiment Analysis (Single Input Binary Text Classification)
 - [Sparse Transfer with GLUE Datasets (SST2) for sentiment analysis](tutorials/sentiment-analysis/docs-sentiment-analysis-python-sst2.ipynb)
@@ -51,7 +51,7 @@ Once trained, SparseML enables you to export models to the ONNX format - such th
 
 #### Question Answering
 
-Examples coming soon!
+- Examples coming soon!
 
 ## Installation
 
