@@ -34,8 +34,9 @@ pip install sparseml[torchvision]
 
 ## Tutorials
 
-- [Torchvision CLI](tutorials/torchvision-cli.md)
+- [Sparse Transfer Learning with the CLI](tutorials/sparse-transfer-learning.md)
 - [Sparse Transfer Learning with the Python API](tutorials/docs-torchvision-python-transfer-imagenette.ipynb)
+- Sparsification from Scratch with the CLI (coming soon!)
 - Sparsification from Scratch with the Python API (coming soon!)
 
 ## Quick Tour
