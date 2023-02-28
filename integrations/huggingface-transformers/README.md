@@ -47,7 +47,7 @@ Once trained, SparseML enables you to export models to the ONNX format - such th
 
 #### Token Classification 
 - [Sparse Transfer with Conll2003 for named-entity-recognition](tutorials/token-classification/docs-token-classification-conll2003.ipynb)
-- [Sparse Transfer with Custom Datasets (WNUT_18) and Custom Teacher WNUT for named-entity-recognition](tutorials/token-classification/docs-token-classification-custom-teacher-wnut.ipynb)
+- [Sparse Transfer with Custom Datasets (WNUT) and Custom Teacher WNUT for named-entity-recognition](tutorials/token-classification/docs-token-classification-custom-teacher-wnut.ipynb)
 
 #### Question Answering
 
