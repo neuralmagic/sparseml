@@ -29,12 +29,15 @@ To get started, we just need to pass three required arguments: a starting checkp
 ```bash
 sparseml.image_classification.train \
     --checkpoint-path [CHECKPOINT-PATH] \
+    --arch-key [ARCH-KEY] \
     --recipe [RECIPE-PATH] \
     --dataset-path [DATASET-PATH]
 ```
 
 The key arguments are as follows:
 - `--checkpoint-path` specifies the starting model to use in the training process. It can either be a local path to a PyTorch checkpoint or a SparseZoo stub (which SparseML uses to download a PyTorch checkpoint).
+
+- `--arch-key` specifies the torchvision architecture of the checkpoint. For example, `resnet50` or `mobilenet`.
 
 - `--dataset-path` specifies the dataset used for training. It must be a local path to a dataset in the ImageFolder format (we will describe the format below).
 
