@@ -51,7 +51,7 @@ from sparseml.yolov8.trainers import SparseYOLO
     "--one-shot",
     default=None,
     type=str,
-    help="Path to recipe to apply in a zero shot " "fashion. Defaults to None.",
+    help="Path to recipe to apply in a zero shot fashion. Defaults to None.",
 )
 @click.option(
     "--export-samples",
