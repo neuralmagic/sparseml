@@ -50,15 +50,13 @@ makes it easy to create a sparse YOLOv5 model trained on your dataset.
 
 Check out the model cards in the [SparseZoo](https://sparsezoo.neuralmagic.com/?repo=ultralytics&page=1).
 
+### Recipes
+
+SparseML Recipes are YAML files that encode the instructions for sparsifying a model or sparse transfer learning. The SparseML YOLOv5 training script accepts the recipes as inputs, parses the instructions, and applies the specified algorithms and hyperparameters during the training process.
+
 ### SparseML CLI
 
-The SparseML installation provides a CLI for running YOLOv5 scripts with SparseML capability. The full set of commands is included below
-
-```bash
-sparseml.yolov5.train
-sparseml.yolov5.validation
-sparseml.yolov5.export_onnx
-```
+The SparseML installation provides a CLI for training YOLOv5 models with SparseML capability.
 
 Appending the `--help` argument displays a full list of options for the command:
 ```bash
@@ -87,13 +85,6 @@ optional arguments:
 ...
 ```
 
-### Recipes
-
-Recipes are YAML files that encode the instructions and hyperparameters for sparsifying a model using modifiers to the training process. The modifiers can range from pruning and quantization to learning rate and weight decay.
-
-The SparseML system parses the declarative recipes as inputs and applies their
-instuctions during the training process.
-
 ## Quick Start: Sparse Transfer Learning
 
 Let's walk through a quick example fine-tuning a pre-sparsified YOLOv5 model onto
@@ -105,7 +96,7 @@ In SparseZoo, there is a [75% pruned-quantized YOLOv5s](https://sparsezoo.neural
 zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned75_quant-none
 ```
 
-Run the following:
+Run the following to fine-tune this model onto VOC while maintaining sparsity:
 ```bash
 sparseml.yolov5.train \
   --weights zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned75_quant-none?recipe_type=transfer_learn \
@@ -114,7 +105,7 @@ sparseml.yolov5.train \
   --hyp hyps/hyp.finetune.yaml --cfg yolov5s.yaml --patience 0
 ```
 
-The script uses the SparseZoo stubs to identify and download the starting checkpoint and YAML-based recipe file from the SparseZoo. SparseML uses YAML-based recipes to encode the  encode the sparsity related parameters. In this case, we used a transfer learning recipes, which instructs SparseML to maintain sparsity during the fine-tuning process.
+The script uses the SparseZoo stubs to identify and download the starting checkpoint and YAML-based recipe file from the SparseZoo. SparseML uses YAML-based recipes to encode the  encode the sparsity related parameters. In this case, we used a transfer learning recipe, which instructs SparseML to maintain sparsity during the fine-tuning process.
 
 At the end, we have a 75% pruned and quantized YOLOv5s trained on VOC!
 
