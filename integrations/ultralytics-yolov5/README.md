@@ -94,7 +94,7 @@ Recipes are YAML files that encode the instructions and hyperparameters for spar
 The SparseML system parses the declarative recipes as inputs and applies their
 instuctions during the training process.
 
-## Example: Sparse Transfer Learning
+## Quick Start: Sparse Transfer Learning
 
 Let's walk through a quick example fine-tuning a pre-sparsified YOLOv5 model onto
 a new dataset (VOC).
@@ -105,18 +105,18 @@ In SparseZoo, there is a [75% pruned-quantized YOLOv5s](https://sparsezoo.neural
 zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned75_quant-none
 ```
 
-Run the following to fine-tune the model onto the the `VOC` dataset.
+Run the following:
 ```bash
 sparseml.yolov5.train \
   --weights zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned75_quant-none?recipe_type=transfer_learn \
   --recipe zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned75_quant-none?recipe_type=transfer_learn \
   --data VOC.yaml \
-  --cfg yolov5s.yaml \
-  --patience 0 \
-  --hyp hyps/hyp.finetune.yaml
+  --hyp hyps/hyp.finetune.yaml --cfg yolov5s.yaml --patience 0
 ```
 
-At the end, you will have a 75% pruned and quantized YOLOv5s trained on VOC!
+The script uses the SparseZoo stubs to identify and download the starting checkpoint and YAML-based recipe file from the SparseZoo. SparseML uses YAML-based recipes to encode the  encode the sparsity related parameters. In this case, we used a transfer learning recipes, which instructs SparseML to maintain sparsity during the fine-tuning process.
+
+At the end, we have a 75% pruned and quantized YOLOv5s trained on VOC!
 
 ### Export to ONNX
 
