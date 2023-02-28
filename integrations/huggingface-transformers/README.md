@@ -36,8 +36,8 @@ Once trained, SparseML enables you to export models to the ONNX format - such th
 ### Python API Tutorials
 
 #### Sentiment Analysis (Single Input Binary Text Classification)
-- [Sparse Transfer with GLUE Datasets (SST2) for sentiment analysis](tutorials/docs-sentiment-analysis-python-sst2.ipynb)
-- [Sparse Transfer with Custom Datasets (RottenTomatoes) and Custom Teacher for sentiment analysis](tutorials/docs-sentiment-analysis-python-custom-teacher-rottentomatoes)
+- [Sparse Transfer with GLUE Datasets (SST2) for sentiment analysis](tutorials/sentiment-analysis/docs-sentiment-analysis-python-sst2.ipynb)
+- [Sparse Transfer with Custom Datasets (RottenTomatoes) and Custom Teacher for sentiment analysis](tutorials/sentiment-analysis/docs-sentiment-analysis-python-custom-teacher-rottentomatoes)
 
 #### Text Classification (Single / Multi Input Text Classification)
 - Sparse Transfer with GLUE Datasets (QQP) for multi-input text classificaiton
