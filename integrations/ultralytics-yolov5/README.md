@@ -37,7 +37,7 @@ Note: YOLOv5 will not immediately install with this command. Instead, a sparsifi
 
 ## Tutorials
 
-- [Sparse Transfer Learning](tutorials/sparse-transfer-learning.md)
+- [Sparse Transfer Learning](tutorials/sparse-transfer-learning.md) **[HIGHLY RECOMMENDED]**
 
 - [Sparsifying From Scratch](tutorials/sparsification-from-scratch.md)
 
