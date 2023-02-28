@@ -374,6 +374,6 @@ to modify on the fly.
 
 The model achieves ~80% mAP@50.
 
-## Next Steps
+## Wrapping Up
 
 Checkout the DeepSparse repository for more information on deploying your sparse YOLOv5 models with DeepSparse for GPU class performance on CPUs.
