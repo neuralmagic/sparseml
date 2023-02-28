@@ -16,7 +16,7 @@ limitations under the License.
 
 # SparseML Torchvision Integration
 
-By integrating with robust training flows in the Torchvision repository, SparseML enables you to train inference-optimized sparse versions of popular image classification models like ResNet-50 on your dataset.
+By integrating with Torchvision, SparseML enables you to train inference-optimized sparse versions of popular image classification models like ResNet-50 on your dataset.
 
 There are two pathways:
 - **Sparse Transfer Learning**: fine-tune a pre-sparsified checkpoint on your own dataset **[RECOMMENDED]**
