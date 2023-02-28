@@ -53,10 +53,9 @@ SparseML Recipes are YAML files that encode the instructions for sparsifying a m
 
 ### SparseML CLI
 
-SparseML's CLI enables you to kick-off sparsification workflows with various utilities like creating training pipelines, dataset loading, checkpoint saving, metric reporting, and logging handled for you.
+SparseML's CLI enables you to kick-off sparse training workflows with various utilities like creating training pipelines, dataset loading, checkpoint saving, metric reporting, and logging handled for you.
 
-To get started, we just need to a couple key arguments: a starting checkpoint, a SparseML recipe, and a dataset.
-
+To get started, we just need to a couple key arguments:
 ```bash
 sparseml.image_classification.train \
     --checkpoint-path [CHECKPOINT-PATH] \
@@ -64,7 +63,6 @@ sparseml.image_classification.train \
     --dataset-path [DATASET-PATH]
 ```
 
-The key arguments are as follows:
 - `--checkpoint-path` specifies the starting model to use in the training process. It can either be a local path to a PyTorch checkpoint or a SparseZoo stub (which SparseML uses to download a PyTorch checkpoint).
 
 - `--dataset-path` specifies the dataset used for training. It must be a local path to a dataset in the ImageNet format (see CLI tutorials for more details).
