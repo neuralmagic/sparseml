@@ -152,12 +152,11 @@ As a result, we end up with a 95% pruned and quantized BERT trained on SST2! It 
 
 #### Aside: Dense Teacher Creation (OPTIONAL)
 
-The SparseML training scripts allow us to pass a dense teacher to apply model distillation during the training process. This is an optional 
-parameter, but passing a dense teacher can help improve accuracy.
+By passing a `--distill_teacher` argument, we instruct SparseML to apply model distillation during the fine-tuning process. This is optional, but passing a dense teacher can help improve accuracy.
 
-In the example above, we used SparseZoo stubs to specify and download dense teachers from SparseZoo. If you already have a Transformers-compatible model, you can use this as the dense teacher in place of training one from scratch by passing a local path to you model and configuration files. Alternatively, you can use the SparseML training script.
+Above, we instructed SparseML to download the dense teacher from SparseZoo. You can also pass a path to a directory containing a your transformers model and configuration.
 
-Here is the command we used to create the dense teacher hosted in SparseZoo:
+Here is the command we used to train the dense teacher:
 
 ```bash
 sparseml.transformers.text_classification \
