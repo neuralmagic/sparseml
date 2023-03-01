@@ -36,14 +36,17 @@ pip install sparseml[torch]
 
 ## Tutorials
 
-### CLI
+- [Sparse Transfer Learning](sparse-transfer-learning-bert.md) [**RECOMMENDED**]
+- Sparsification from Scratch (example coming soon!)
+
+### Use Case Examples - CLI
 - [Sparse Transfer Learning for Sentiment Analysis](tutorials/sentiment-analysis/sentiment-analysis-cli.md)
 - [Sparse Transfer Learning for Text Classification](tutorials/text-classification/text-classification-cli.md)
 - [Sparse Transfer Learning for Token Classification](tutorials/token-classification/token-classification-cli.md)
 - Sparse Transfer Learning for Question Answering (example coming soon!)
 - Sparsifying from Scratch (example coming soon!)
 
-### Python API
+### Use Case Examples - Python
 
 #### Sentiment Analysis (Single Input Binary Text Classification)
 - [Sparse Transfer with GLUE Datasets (SST2) for sentiment analysis](tutorials/sentiment-analysis/docs-sentiment-analysis-python-sst2.ipynb)
