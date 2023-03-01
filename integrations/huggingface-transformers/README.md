@@ -22,7 +22,7 @@ There are two pathways:
 - **Sparse Transfer Learning** - fine-tune a pre-sparsified NLP checkpoint on your own dataset **[RECOMMENDED]**
 - **Sparsification from Scratch** - apply pruning and quantization to sparsify `transformer` models from scratch.
 
-Once trained, SparseML enables you to export models to the ONNX format, such that they can be deployed with DeepSparse for GPU-class performance on the CPU.
+Once trained, SparseML enables you to export models to the ONNX format, such that they can be deployed with DeepSparse.
 
 ## Installation
 
