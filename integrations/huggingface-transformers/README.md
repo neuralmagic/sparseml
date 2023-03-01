@@ -20,7 +20,7 @@ By integrating with robust training flows in the Transformers repository, Sparse
 
 There are two pathways:
 - **Sparse Transfer Learning** - fine-tune a pre-sparsified NLP checkpoint on your own dataset **[RECOMMENDED]**
-- **Sparsification from Sractch** - apply pruning and quantization to sparsify any of the `transformer` models from scratch.
+- **Sparsification from Scratch** - apply pruning and quantization to sparsify any of the `transformer` models from scratch.
 
 Once trained, SparseML enables you to export models to the ONNX format, such that they can be deployed with DeepSparse for GPU-class performance on the CPU.
 
