@@ -39,10 +39,7 @@ from sparseml.pytorch.utils.logger import BaseLogger
 from sparseml.pytorch.sparsification.pruning.scorer import PruningParamsGradScorer
 
 
-__all__ = [
-    "RigLPruningModifier",
-    "RigLPruningParamsScorer"
-]
+__all__ = ["RigLPruningModifier", "RigLPruningParamsScorer"]
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -58,22 +55,24 @@ def cosine_schedule(t: float, t_max: float, init_value: float, end_value: float)
     :param init_value: initial value
     :param end_value: final value at t_max
     """
-    return end_value + (init_value - end_value) * 0.5 * (1 + math.cos(math.pi * t / t_max))
+    return end_value + (init_value - end_value) * 0.5 * (
+        1 + math.cos(math.pi * t / t_max)
+    )
 
 
 def threshold_fraction(tensor: Tensor, fraction: float) -> None:
     """
-    A function returning the tensor with all but topk fraction 
+    A function returning the tensor with all but topk fraction
     elements set to 0.
 
     :param tensor: the input tensor
-    :param fraction: fraction of nonzero elements 
+    :param fraction: fraction of nonzero elements
     """
-    lookup_idx = round(fraction * tensor.numel()) 
+    lookup_idx = round(fraction * tensor.numel())
     if lookup_idx == 0:
         return tensor
     threshold, _ = torch.kthvalue(tensor.reshape(-1), k=lookup_idx)
-    return torch.where(tensor > threshold, tensor, 0.0) 
+    return torch.where(tensor > threshold, tensor, 0.0)
 
 
 @PyTorchModifierYAML()
@@ -84,9 +83,9 @@ class RigLPruningModifier(BaseGradualPruningModifier):
     Sparse training procedure that starts from a sparse model
     with (1 - init_update_fraction) * sparsity and gradually increases
     the sparsity with a cosine schedule up to sparsity.
-    At each update a fraction of weights 
-    init_update_fraction * cos(\pi (epoch - start_epoch) / (end_epoch - start_epoch)) 
-    with smallest magnitude is pruned and the same 
+    At each update a fraction of weights
+    init_update_fraction * cos(\pi (epoch - start_epoch) / (end_epoch - start_epoch))
+    with smallest magnitude is pruned and the same
     amount of weights are regrown according to
     the magnitude of the gradient.
 
@@ -138,7 +137,7 @@ class RigLPruningModifier(BaseGradualPruningModifier):
         pruned and regrown
     """
 
-    _supported_masks = ("unstructured")
+    _supported_masks = "unstructured"
     _sparsity_strategies = ("uniform", "erdos_renyi", "erdos_renyi_kernel")
 
     def __init__(
@@ -151,7 +150,7 @@ class RigLPruningModifier(BaseGradualPruningModifier):
         leave_enabled: bool = True,
         global_sparsity: bool = True,
         mask_type: str = "unstructured",
-        sparsity_strategy: str = 'erdos_renyi_kernel',
+        sparsity_strategy: str = "erdos_renyi_kernel",
         init_update_fraction: float = 0.3,
     ):
         super().__init__(
@@ -172,16 +171,19 @@ class RigLPruningModifier(BaseGradualPruningModifier):
         self._validate()
 
     def _validate(self):
-        assert (self._mask_type in self._supported_masks), \
-            f"{self._mask_type} mask_type not supported"
+        assert (
+            self._mask_type in self._supported_masks
+        ), f"{self._mask_type} mask_type not supported"
 
         if self._global_sparsity:
-            assert self._sparsity_strategy in ("erdos_renyi", "erdos_renyi_kernel"), \
-                "Global sparsity supports only `erdos_renyi`, `erdos_renyi_kernel`"
+            assert self._sparsity_strategy in (
+                "erdos_renyi",
+                "erdos_renyi_kernel",
+            ), "Global sparsity supports only `erdos_renyi`, `erdos_renyi_kernel`"
         else:
-            assert self._sparsity_strategy is "uniform", \
-                "Uniform sparsity support only `uniform`"
-                
+            assert (
+                self._sparsity_strategy is "uniform"
+            ), "Uniform sparsity support only `uniform`"
 
     @ModifierProp()
     def mask_type(self) -> str:
@@ -210,13 +212,13 @@ class RigLPruningModifier(BaseGradualPruningModifier):
             function
         """
         return [
-           cosine_schedule(
-               epoch - self._start_epoch, 
-               self._end_epoch - self._start_epoch,
-               self._final_sparsity * (1 - self._init_update_fraction),
-               self._final_sparsity,
+            cosine_schedule(
+                epoch - self._start_epoch,
+                self._end_epoch - self._start_epoch,
+                self._final_sparsity * (1 - self._init_update_fraction),
+                self._final_sparsity,
             )
-           for _ in range(len(self.module_masks.layers))
+            for _ in range(len(self.module_masks.layers))
         ]
 
     def initialize(
@@ -240,9 +242,8 @@ class RigLPruningModifier(BaseGradualPruningModifier):
             for individual modifiers.
         """
         if (
-            "data_loader_builder" not in kwargs["grad_sampler"] 
-            and 
-            "loss_fn" not in kwargs["grad_sampler"]
+            "data_loader_builder" not in kwargs["grad_sampler"]
+            and "loss_fn" not in kwargs["grad_sampler"]
         ):
             raise RuntimeError(
                 "grad_sampler dict with data_loader_builder and loss_fn "
@@ -256,26 +257,25 @@ class RigLPruningModifier(BaseGradualPruningModifier):
 
         super().initialize(module, epoch, loggers, **kwargs)
 
-
     def _get_scorer(self, params: List[Parameter]) -> PruningParamsGradScorer:
         """
         :param params: list of Parameters for scorer to track
         :return: param scorer object to be used by this pruning algorithm
         """
         return RigLPruningParamsScorer(
-            params=params, 
+            params=params,
             sparsity=self._final_sparsity,
-            sparsity_strategy=self._sparsity_strategy
+            sparsity_strategy=self._sparsity_strategy,
         )
 
     def _get_update_fraction(self, epoch):
         """
         Returns the fraction of params updated at the current epoch.
 
-        :param epoch: current epoch 
+        :param epoch: current epoch
         """
         return cosine_schedule(
-            epoch - self._start_epoch, 
+            epoch - self._start_epoch,
             self._end_epoch - self._start_epoch,
             self._final_sparsity * self._init_update_fraction,
             0.0,
@@ -301,7 +301,6 @@ class RigLPruningModifier(BaseGradualPruningModifier):
 
         self.scorer._update_fraction = self._get_update_fraction(epoch)
         super().check_mask_update(module, epoch, steps_per_epoch, **kwargs)
-
 
     def _collect_grad_samples(
         self,
@@ -338,15 +337,15 @@ class RigLPruningParamsScorer(PruningParamsGradScorer):
     according to the magnitude of the gradient criterion.
 
     :param params: list of model Parameters to track and score
-    :param sparsity: the final model sparsity 
-    :param sparsity_strategy: 
+    :param sparsity: the final model sparsity
+    :param sparsity_strategy:
     """
 
     def __init__(
         self,
         params: List[Parameter],
         sparsity: float,
-        sparsity_strategy: str = 'erdos_renyi_kernel',
+        sparsity_strategy: str = "erdos_renyi_kernel",
     ):
         super().__init__(params)
         self._params = params
@@ -362,16 +361,16 @@ class RigLPruningParamsScorer(PruningParamsGradScorer):
     def sparsity_scaler(self, score: Tensor) -> float:
         """
         Assigns the sparsity scale for a given parameter
-        according to the sparsity_strategy. The weights 
+        according to the sparsity_strategy. The weights
         with smaller scale are pruned more than those with larger.
         """
         assert len(score.shape) >= 2, "Pruned weight must be at least 2-dimensional."
-        if self._sparsity_strategy == 'uniform':
+        if self._sparsity_strategy == "uniform":
             return 1.0
-        elif self._sparsity_strategy == 'erdos_renyi':
+        elif self._sparsity_strategy == "erdos_renyi":
             c_out, c_in = score.shape[:2]
             return (c_in + c_out) / (c_in * c_out)
-        elif self._sparsity_strategy == 'erdos_renyi_kernel':
+        elif self._sparsity_strategy == "erdos_renyi_kernel":
             return np.sum(score.shape) / np.prod(score.shape)
         else:
             raise ValueError("Unknown sparsity distribution")
@@ -388,7 +387,10 @@ class RigLPruningParamsScorer(PruningParamsGradScorer):
             cumulative_sum += self.sparsity_scaler(param) * param.numel()
             total_params += param.numel()
         norm_factor = ((1 - self._sparsity) * total_params) / cumulative_sum
-        return [np.clip(1 - norm_factor * self.sparsity_scaler(param), 0.0, 1.0) for param in self._params]
+        return [
+            np.clip(1 - norm_factor * self.sparsity_scaler(param), 0.0, 1.0)
+            for param in self._params
+        ]
 
     @torch.no_grad()
     def pre_optim_step_update(self, masks: List[Tensor]):
@@ -416,7 +418,9 @@ class RigLPruningParamsScorer(PruningParamsGradScorer):
         magn_score = param.abs()
         magn_score = threshold_fraction(magn_score, param_sparsity)
         grad_score = param_grad.abs() * param.eq(0)
-        grad_score = threshold_fraction(grad_score, 1 - self._update_fraction * param_sparsity)
+        grad_score = threshold_fraction(
+            grad_score, 1 - self._update_fraction * param_sparsity
+        )
         score = magn_score + grad_score
         return score
 
@@ -429,11 +433,11 @@ class RigLPruningParamsScorer(PruningParamsGradScorer):
         scores = [None] * len(self._params)
         if self._is_main_proc:
             scores = [
-                self.get_param_score(param, param_grad, param_sparsity) 
-                for param, param_grad, param_sparsity 
-                in zip(self._params, self._param_grads, self._sparsity_distribution)
+                self.get_param_score(param, param_grad, param_sparsity)
+                for param, param_grad, param_sparsity in zip(
+                    self._params, self._param_grads, self._sparsity_distribution
+                )
             ]
-        
+
         self._broadcast_list_from_main(scores)
         return scores
-        
