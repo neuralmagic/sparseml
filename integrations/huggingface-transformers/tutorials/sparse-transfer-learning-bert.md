@@ -16,7 +16,7 @@ limitations under the License.
 
 # Sparse Transfer Learning
 
-This page explains how to fine-tune a pre-sparsified BERT model with SparseML.
+This page explains how to fine-tune a pre-sparsified BERT model onto a downstream dataset with SparseML.
 
 ## Overview
 
