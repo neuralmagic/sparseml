@@ -66,10 +66,6 @@ pip install sparseml[torch]
 
 - Sparse Transfer with SQuAD (Example coming soon!)
 
-#### General 
-
-- Sparsifying from Scratch (Example coming soon!)
-
 ## Quick Tour
 
 ### SparseZoo
