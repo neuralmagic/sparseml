@@ -20,9 +20,9 @@ This page explains how to fine-tune a pre-sparsified BERT model onto a downstrea
 
 ## Overview
 
-Sparse Transfer is quite similiar to the typical downstream NLP training, where we fine-tune a checkpoint pretrained on a large dataset like Wikipedia BookCorpus onto a smaller downstream dataset and task. However, with Sparse Transfer Learning, we simply start the fine-tuning process from a pre-sparsified model and maintain sparsity while the training process occurs.
+Sparse Transfer is quite similiar to the typical NLP transfer learning, where we fine-tune a checkpoint pretrained on a large dataset like Wikipedia BookCorpus onto a smaller downstream dataset and task. However, with Sparse Transfer Learning, we simply start the fine-tuning process from a pre-sparsified model and maintain sparsity while the training process occurs.
 
-[SparseZoo](https://sparsezoo.neuralmagic.com/?domain=nlp&sub_domain=masked_language_modeling&page=1) contains pre-sparsified checkpoints of common NLP models like BERT-base, BERT-large, and RoBERTa, which can be used as the starting checkpoints for the training process.
+[SparseZoo](https://sparsezoo.neuralmagic.com/?domain=nlp&sub_domain=masked_language_modeling&page=1), Neural Magic's open-source Model Zoo, contains pre-sparsified checkpoints of common NLP models like BERT-base, BERT-large, and RoBERTa. These models can be used as the starting checkpoint for the sparse transfer learning workflow.
 
 ## Installation
 
@@ -32,88 +32,25 @@ Install via `pip`:
 pip install sparseml[torch]
 ```
 
-## Sparse Transfer Learning with SST2
+## Sparse Transfer Learning onto SST2
 
-Let's try a simple example of Sparse Transfer Learning BERT-base onto the SST dataset. SST2 is a sentiment analysis
-dataset, with pairs of sentences and binary labels representing positive or negative sentiment ([SST2 Dataset Card](https://huggingface.co/datasets/glue/viewer/sst2/train)).
+Let's try a simple example of fine-tuning a pre-sparsified model onto the SST dataset. SST2 is a sentiment analysis
+dataset, with pairs of sentences and binary labels representing positive or negative sentiment.
+
+[SST2 Dataset Card](https://huggingface.co/datasets/glue/viewer/sst2/train)
 
 ### Selecting a Pre-sparsified Upstream Model
 
-We will fine-tune a 90% sparsified BERT model, which we call [oBERT](https://arxiv.org/abs/2203.07259).
-
-This model is hosted in [SparseZoo](https://sparsezoo.neuralmagic.com/models/nlp%2Fmasked_language_modeling%2Fobert-base%2Fpytorch%2Fhuggingface%2Fwikipedia_bookcorpus%2Fpruned90-none) and is identified by the following stub:
+We will fine-tune a [90% sparsified BERT-base](https://arxiv.org/abs/2203.07259). This model is hosted in [SparseZoo](https://sparsezoo.neuralmagic.com/models/nlp%2Fmasked_language_modeling%2Fobert-base%2Fpytorch%2Fhuggingface%2Fwikipedia_bookcorpus%2Fpruned90-none) and is identified by the following stub:
 ```bash
 zoo:nlp/masked_language_modeling/obert-base/pytorch/huggingface/wikipedia_bookcorpus/pruned90-none
 ```
 
-In the scripts below, we will pass the SparseZoo stub. SparseML uses the stub to download the model before starting training.
+SparseML uses the stub to download the model before starting training.
 
-#### Other Pre-Sparsified Models
+### Kick off Training
 
-Check out the [SparseZoo](https://sparsezoo.neuralmagic.com/?page=1&domain=nlp&sub_domain=masked_language_modeling) to see the full list of pruned upstream models for transfer learning, including:
-- BERT-large
-- RoBERTa
-- DistillBERT
-
-### Dense Teacher Creation (OPTIONAL)
-
-To support the transfer learning process, we can (optionally) apply model distillation. To enable distillation, we first create a dense teacher model. 
-
-If you already have a Transformers-compatible model, you can use this as the dense teacher in place of training one from scratch. Here, we use the SparseML
-`text_classification` script to fine-tune a dense BERT models (hosted in SparseZoo) onto SST2.
-
-Run the following:
-```bash
-sparseml.transformers.text_classification \
-  --output_dir dense_obert-text_classification_sst2 \
-  --model_name_or_path zoo:nlp/masked_language_modeling/obert-base/pytorch/huggingface/wikipedia_bookcorpus/base-none \
-  --recipe zoo:nlp/sentiment_analysis/obert-base/pytorch/huggingface/sst2/base-none \
-  --task_name sst2 --max_seq_length 128 --per_device_train_batch_size 32 --per_device_eval_batch_size 32 --preprocessing_num_workers 6 \
-  --do_train --do_eval --evaluation_strategy epoch --fp16 --seed 20811 \
-  --save_strategy epoch --save_total_limit 1
-```
-
-Note that the SparseZoo stubs passed to `--recipe` and `--model_name_or_path` here both end in `base-none`. 
-
-This identifies the standard dense versions of the models/recipes in [SparseZoo](https://sparsezoo.neuralmagic.com/models nlp%2Fmasked_language_modeling%2Fobert-base%2Fpytorch%2Fhuggingface%2Fwikipedia_bookcorpus%base-none).
-
-The SparseML script downloads the models and recipes from the Zoo, applies the instructions from the recipe to the training pipeline
-and fine-tunes the model onto dataset provided (here, `--task_name sst2`).
-
-Here is what the `recipe` looks like:
-
-```yaml
-version: 1.1.0
-
-# General Variables
-num_epochs: 2
-init_lr: 2e-5 
-final_lr: 0
-
-# Modifiers:
-training_modifiers:
-  - !EpochRangeModifier
-      end_epoch: eval(num_epochs)
-      start_epoch: 0.0
-    
-  - !LearningRateFunctionModifier
-    start_epoch: 0
-    end_epoch: eval(num_epochs)
-    lr_func: linear
-    init_lr: eval(init_lr)
-    final_lr: eval(final_lr)
-```
-
-As you can see, this recipe only has modifiers for the learning rate schedule and number of epochs. As such, during the training
-process, the model remains dense SparseML is not instructed to apply any pruning or quantization algorithms.
-
-The resulting model achieves ~92.9% validation accuracy.
-
-### Kick off Sparse Transfer Learning
-
-With the dense teacher trained, we can now fine-tune the pre-sparsified BERT onto SST2.
-
-Run the following:
+Run the following to fine-tune the pre-sparsified BERT onto SST2:
 
 ```bash
 sparseml.transformers.text_classification \
@@ -139,11 +76,11 @@ identifies the 90% pruned BERT model in the SparseZoo. The script downloads the 
  to download a premade SST2 transfer learning recipe. In addition to SparseZoo stubs, you can also pass a local path to a YAML recipe. 
  See below for more details on what the transfer learning recipe looks like.
 
-- `--distill_teacher` is an optional argument that allows you to apply model distillation during fine-tuning. Here, we specify SparseZoo stub which pulls a dense SST2 model from the SparseZoo. If you trained a dense teacher with the command from above, update the script to pass the local path to your teacher checkpoint. In our case: `--distill_teacher ./dense_obert-text_classification_sst2`.
+- `--distill_teacher` is an optional argument that allows you to apply model distillation during fine-tuning. Here, we pass SparseZoo stub (ending in `base_none`, specifying the dense version) which pulls a dense BERT model trained on SST2 from the SparseZoo.
 
-The SparseML script downloads the model, teacher, and dataset and recipe. It then parses the recipe and updates the training loop with the specified algorithms and hyperparameters encoded therein.
+The SparseML script downloads the model, teacher, and dataset and recipe. Recipes are critical to the SparseML system, as they declare the algorithms and hyperparameters applied by SparseML. In this case, the premade transfer learning recipe for SST2 controls the number of epochs, the learning rate, as well as instructions for how to apply pruning, quantization, and distillation. SparseML parses the recipe and updates the training loop with the specified algorithms and hyperparameters encoded therein before starting training.
 
-Here is what the `recipe` looks like:
+Here is what the recipe looks like:
 
 ```yaml
 version: 1.1.0
@@ -210,8 +147,58 @@ The key `Modifiers` for sparse transfer learning are the following:
 - `ConstantPruningModifier` instructs SparseML to maintain the sparsity structure of the network during the fine-tuning process
 - `QuantizationModifier` instructs SparseML to apply quantization aware training to quantize the weights over the final epochs
 - `DistillationModifier` instructs SparseML to apply model distillation at the logit layer
-
+   
 As a result, we end up with a 95% pruned and quantized BERT trained on SST2! It achieves ~92% accuracy.
+
+#### Aside: Dense Teacher Creation (OPTIONAL)
+
+The SparseML training scripts allow us to pass a dense teacher to apply model distillation during the training process. This is an optional 
+parameter, but passing a dense teacher can help improve accuracy.
+
+In the example above, we used SparseZoo stubs to specify and download dense teachers from SparseZoo. If you already have a Transformers-compatible model, you can use this as the dense teacher in place of training one from scratch by passing a local path to you model and configuration files. Alternatively, you can use the SparseML training script.
+
+Here is the command we used to create the dense teacher hosted in SparseZoo:
+
+```bash
+sparseml.transformers.text_classification \
+  --output_dir dense_obert-text_classification_sst2 \
+  --model_name_or_path zoo:nlp/masked_language_modeling/obert-base/pytorch/huggingface/wikipedia_bookcorpus/base-none \
+  --recipe zoo:nlp/sentiment_analysis/obert-base/pytorch/huggingface/sst2/base-none \
+  --task_name sst2 --max_seq_length 128 --per_device_train_batch_size 32 --per_device_eval_batch_size 32 --preprocessing_num_workers 6 \
+  --do_train --do_eval --evaluation_strategy epoch --fp16 --seed 20811 \
+  --save_strategy epoch --save_total_limit 1
+```
+
+Note that the SparseZoo stubs passed to `--recipe` and `--model_name_or_path` here both end in `base-none`. This identifies the standard dense versions of the models/recipes in [SparseZoo](zoo:nlp/masked_language_modeling/obert-base/pytorch/huggingface/wikipedia_bookcorpus/base-none).
+
+Here is what the `recipe` looks like:
+
+```yaml
+version: 1.1.0
+
+# General Variables
+num_epochs: 2
+init_lr: 2e-5 
+final_lr: 0
+
+# Modifiers:
+training_modifiers:
+  - !EpochRangeModifier
+      end_epoch: eval(num_epochs)
+      start_epoch: 0.0
+    
+  - !LearningRateFunctionModifier
+    start_epoch: 0
+    end_epoch: eval(num_epochs)
+    lr_func: linear
+    init_lr: eval(init_lr)
+    final_lr: eval(final_lr)
+```
+
+As you can see, this recipe only has modifiers for the learning rate schedule and number of epochs. As such, during the training
+process, the model remains dense SparseML is not instructed to apply any pruning or quantization algorithms.
+
+The dense teacher achieves ~92.9% validation accuracy.
 
 ### Exporting to ONNX
 
@@ -227,15 +214,7 @@ The command creates a `./deployment` folder in your local directory, which conta
 
 ## Other Dataset Examples
 
-Let's walk through  sample transfer learning commands for other use cases.
-
-Check out the use case guides for more details on each task, including using a custom dataset and task specific arguments:
-- [Sentiment Analysis](sentiment-analysis/sentiment-analysis-cli.md)
-- [Text Classification](text-classification/text-classification-cli.md)
-- [Token Classification](token-classification/token-classification-cli.md)
-- [Question Answering](question-answering/question-answering-cli.md)
-
-Here is an overview of some datasets we have transfered to:
+Let's walk through commands for other use cases. Here is an overview of some datasets we have transfered to:
 
 | Use Case                   | Dataset                                                                       | Description                                                                                                                                                                                                          | Sparse Transfer Results  |
 |----------------------------|-------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------|
@@ -249,7 +228,7 @@ Here is an overview of some datasets we have transfered to:
 
 ## Transfer Learning the Model
 
-Here are the transfer learning commands used to generate these models.
+The following commands were used to generate the models:
 
 - Question Answering (SQuAD)
 ```bash
@@ -265,7 +244,7 @@ sparseml.transformers.train.question_answering \
   --seed 42
 ```
 
-- Binary Classification (QQP)
+- Text Classification: Binary Classification (QQP)
 ```bash
 sparseml.transformers.train.text_classification \
   --output_dir obert_base_pruned90_quant_qqp \
@@ -279,7 +258,7 @@ sparseml.transformers.train.text_classification \
   --seed 10194
 ```
 
-- Multi-Class Classification (MNLI)
+- Text Classification: Multi-Class Classification (MNLI)
 ```bash
 sparseml.transformers.train.text_classification \
   --output_dir obert_base_pruned80_quant_mnli \
@@ -293,7 +272,7 @@ sparseml.transformers.train.text_classification \
   --seed 5114
 ```
 
-- Multi-Label Classification (GoEmotions)
+- Text Classification: Multi-Label Classification (GoEmotions)
 ```bash
 sparseml.transformers.train.text_classification \
   --output_dir pruned_bert-multilabel_classification-goemotions \
@@ -308,20 +287,7 @@ sparseml.transformers.train.text_classification \
   --seed 5550 \
 ```
 
-- Sentiment Analysis (SST2)
-```bash
-sparseml.transformers.train.text_classification \
-  --output_dir sparse_quantized_bert-text_classification_sst2 \
-  --model_name_or_path zoo:nlp/masked_language_modeling/obert-base/pytorch/huggingface/wikipedia_bookcorpus/pruned90-none \
-  --recipe zoo:nlp/sentiment_analysis/obert-base/pytorch/huggingface/sst2/pruned90_quant-none \
-  --distill_teacher zoo:nlp/sentiment_analysis/obert-base/pytorch/huggingface/sst2/base-none \
-  --task_name sst2 \
-  --max_seq_length 128 --per_device_train_batch_size 32 --per_device_eval_batch_size 32 --preprocessing_num_workers 6 \
-  --do_train --do_eval --evaluation_strategy epoch --fp16  \
-  --save_strategy epoch --save_total_limit 1
-```
-
-- Document Classification (IMBD)
+- Text Classification: Document Classification (IMBD)
 ```bash
 sparseml.transformers.train.text_classification \
   --output_dir obert-document_classification-imdb \
@@ -337,7 +303,20 @@ sparseml.transformers.train.text_classification \
   --seed 31222 \
 ```
 
-- Token Classifcation (Conll-NER)
+- Text Classification: Sentiment Analysis (SST2)
+```bash
+sparseml.transformers.train.text_classification \
+  --output_dir sparse_quantized_bert-text_classification_sst2 \
+  --model_name_or_path zoo:nlp/masked_language_modeling/obert-base/pytorch/huggingface/wikipedia_bookcorpus/pruned90-none \
+  --recipe zoo:nlp/sentiment_analysis/obert-base/pytorch/huggingface/sst2/pruned90_quant-none \
+  --distill_teacher zoo:nlp/sentiment_analysis/obert-base/pytorch/huggingface/sst2/base-none \
+  --task_name sst2 \
+  --max_seq_length 128 --per_device_train_batch_size 32 --per_device_eval_batch_size 32 --preprocessing_num_workers 6 \
+  --do_train --do_eval --evaluation_strategy epoch --fp16  \
+  --save_strategy epoch --save_total_limit 1
+```
+
+- Token Classifcation: NER (Conll2003)
 ```bash
 sparseml.transformers.train.token_classification \
   --output_dir sparse_bert-token_classification_connl2003 \
@@ -350,10 +329,16 @@ sparseml.transformers.train.token_classification \
   --save_strategy epoch --save_total_limit 1 
 ```
 
+Check out the use case guides for more details on each task, including using a custom dataset and task specific arguments:
+- [Sentiment Analysis](sentiment-analysis/sentiment-analysis-cli.md)
+- [Text Classification](text-classification/text-classification-cli.md)
+- [Token Classification](token-classification/token-classification-cli.md)
+- [Question Answering](question-answering/question-answering-cli.md)
+
 ## Wrap-Up
 
 Sparse transfer learning is just like typical fine-tuning - making it easy to create an inference-optimized 
 NLP model trained on your dataset!
 
 Checkout [DeepSparse](https://github.com/neuralmagic/deepsparse) for more details on reaching GPU-class performance by
-deploying the sparsemodels on CPUs!
+deploying the spars emodels on CPUs!
