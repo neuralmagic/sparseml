@@ -535,7 +535,6 @@ class SparseYOLO(YOLO):
         source = self.ckpt.get("source")
         recipe = self.ckpt.get("recipe")
         one_shot = args.get("one_shot")
-        save_one_shot_torch = args.get("save_one_shot_torch")
 
         if source == "sparseml":
             LOGGER.info(
@@ -560,16 +559,6 @@ class SparseYOLO(YOLO):
         save_dir = args["save_dir"]
 
         exporter = ModuleExporter(self.model, save_dir)
-        if save_one_shot_torch:
-            if not one_shot:
-                warnings.warn(
-                    "No one-shot recipe detected; skipping one-shot model torch export..."
-                )
-            else:
-                torch_name = name.replace(".onnx", ".pt")
-                LOGGER.info(f"Saving one-shot torch model to {torch_name}...")
-                exporter.export_pytorch(name=torch_name)
-
         exporter.export_onnx(
             sample_batch=torch.randn(1, 3, args["imgsz"], args["imgsz"]),
             opset=args["opset"],

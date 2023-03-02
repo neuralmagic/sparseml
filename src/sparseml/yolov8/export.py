@@ -51,20 +51,13 @@ from sparseml.yolov8.trainers import SparseYOLO
     "--one-shot",
     default=None,
     type=str,
-    help="Path to recipe to apply in a zero shot fashion. Defaults to None.",
+    help="Path to recipe to apply in a zero shot fashion. " "Defaults to None.",
 )
 @click.option(
     "--export-samples",
     type=int,
     default=0,
     help="Number of samples to export with onnx",
-)
-@click.option(
-    "--save-one-shot-torch",
-    default=False,
-    help="If one-shot recipe is supplied and "
-    "this flag is set to True,mthe torch model with "
-    "the one-shot recipe applied will be exported.",
 )
 def main(**kwargs):
     model = SparseYOLO(kwargs["model"])
