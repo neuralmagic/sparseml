@@ -269,10 +269,11 @@ Run the following:
 sparseml.transformers.train.question_answering \
   --output_dir obert_base_pruned90_quant_squadshifts \
   --recipe zoo:nlp/question_answering/obert-base/pytorch/huggingface/squad/pruned90_quant-none \
+  --recipe_args '{"num_epochs":8, "qat_start_epoch":4.0, "observer_epoch":7.0}' \
   --model_name_or_path zoo:nlp/masked_language_modeling/obert-base/pytorch/huggingface/wikipedia_bookcorpus/pruned90-none \
-  --distill_teacher disable \
+  --distill_teacher dense_tracher \
   --train_file squadshifts-train.json --validation_file squadshifts-val.json \
-  --do_train --do_eval --evaluation_strategy epoch --logging_steps 1000 --save_steps 1000 --preprocessing_num_workers 32 \
+  --do_train --do_eval --evaluation_strategy epoch --logging_strategy epoch --save_steps 1000 --preprocessing_num_workers 32 \
   --per_device_train_batch_size 8 --per_device_eval_batch_size 32 --gradient_accumulation_steps 2 \
   --max_seq_length 384 --doc_stride 128 \
   --seed 42
