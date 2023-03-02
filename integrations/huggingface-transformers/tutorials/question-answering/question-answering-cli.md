@@ -1,4 +1,4 @@
-# Question Answering: Sparse Transfer Learning with the CLI
+# **Question Answering: Sparse Transfer Learning with the CLI**
 
 In this example, you will sparse transfer learn a 90% pruned BERT model onto some extactive question answering datasets using SparseML's CLI.
 
