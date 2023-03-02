@@ -555,6 +555,11 @@ class SparseYOLO(YOLO):
             )
             manager = ScheduledModifierManager.from_yaml(one_shot)
             manager.apply(self.model)
+            recipe = (
+                ScheduledModifierManager.compose_staged(recipe, manager)
+                if recipe
+                else manager
+            )
 
         name = args.get("name", f"{type(self.model).__name__}.onnx")
         save_dir = args["save_dir"]
@@ -563,7 +568,8 @@ class SparseYOLO(YOLO):
         if save_one_shot_torch:
             if not one_shot:
                 warnings.warn(
-                    "No one-shot recipe detected; skipping one-shot model torch export..."
+                    "No one-shot recipe detected; "
+                    "skipping one-shot model torch export..."
                 )
             else:
                 torch_name = name.replace(".onnx", ".pt")
