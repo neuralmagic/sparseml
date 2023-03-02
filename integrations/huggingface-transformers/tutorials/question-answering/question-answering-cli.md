@@ -1,6 +1,6 @@
 # Question Answering: Sparse Transfer Learning with the CLI
 
-In this example, you will sparse transfer learn a 90% pruned BERT model onto some extraction question answering datasets using SparseML's CLI.
+In this example, you will sparse transfer learn a 90% pruned BERT model onto some extactive question answering datasets using SparseML's CLI.
 
 ### **Sparse Transfer Learning Overview**
 
@@ -20,29 +20,30 @@ Install SparseML via `pip`.
 pip install sparseml[torch]
 ```
 
-## Sparse Transfer Learning onto MNLI (GLUE Task)
+## Sparse Transfer Learning onto SQuAD
 
 SparseML's CLI enables you to kick-off sparsification workflows with various utilities like creating training pipelines, dataset loading, checkpoint saving, metric reporting, and logging handled for you. 
 
 All we have to do is pass a couple of key arguments: 
 - `--model_name_or_path` specifies the starting checkpoint to load for training
-- `--task` specifies a glue dataset to train with 
+- `--dataset_name` specifies the dataset to train with
 - `--recipe` specifies path a recipe to use to apply sparsification algorithms or sparse transfer learning to the model. For Sparse Transfer Learning, we will use a recipe that instructs SparseML to maintain sparsity during the training process and to apply quantization over the final few epochs. 
 
 ### Run Transfer Learning
 
-We will fine-tune a [90% pruned version of BERT](zoo:nlp/masked_language_modeling/obert-base/pytorch/huggingface/wikipedia_bookcorpus/pruned90-none) onto MNLI.
+We will fine-tune a [90% pruned version of BERT](zoo:nlp/masked_language_modeling/obert-base/pytorch/huggingface/wikipedia_bookcorpus/pruned90-none) onto SQuAD.
 
 Run the following:
 ```bash
 sparseml.transformers.train.question_answering \
-  --dataset_name squad \
   --model_name_or_path zoo:nlp/masked_language_modeling/obert-base/pytorch/huggingface/wikipedia_bookcorpus/pruned90-none \
   --recipe zoo:nlp/question_answering/obert-base/pytorch/huggingface/squad/pruned90_quant-none \
   --distill_teacher zoo:nlp/question_answering/obert-base/pytorch/huggingface/squad/base-none \
+  --dataset_name squad \
   --output_dir obert_base_pruned90_quant_squad \
   --do_train --do_eval --evaluation_strategy epoch --logging_steps 1000 --save_steps 1000 \
-  --per_device_train_batch_size 8 --per_device_eval_batch_size 32 --gradient_accumulation_steps 2 --preprocessing_num_workers 32 \
+  --per_device_train_batch_size 8 --per_device_eval_batch_size 32 --gradient_accumulation_steps 2 \
+  --preprocessing_num_workers 32 \
   --max_seq_length 384 --doc_stride 128 \
   --seed 42
 ```
@@ -60,20 +61,12 @@ The model trains for 13 epochs, converging to and F1 score ~88% on the validatio
 
 #### Transfer Learning Recipe
 
-SparseML's recipes are YAML files that specify the sparsity related algorithms and parameters. SparseML parses the recipes and updates the training loops to apply the 
-to apply sparsification algorithms or sparse transfer learning to the model.
+SparseML's recipes are YAML files that specify the sparsity related algorithms and parameters. SparseML parses the recipes and updates the training loops 
+with the instructions encoded there.
 
-In the case of SQuAD, we used a [premade recipe from the SparseZoo](https://sparsezoo.neuralmagic.com/models/nlp%2Fquestion_answering%2Fbert-large%2Fpytorch%2Fhuggingface%2Fsquad%2Fpruned90_quant-none). 
+In this case, we used a [premade recipe from the SparseZoo](https://sparsezoo.neuralmagic.com/models/nlp%2Fquestion_answering%2Fbert-large%2Fpytorch%2Fhuggingface%2Fsquad%2Fpruned90_quant-none) created by Neural Magic's ML team.
 
-<details>
-    <summary>Click to inspect the recipe</summary>
-
-The `Modifiers` are the important items that encode how SparseML should modify the training process for Sparse Transfer Learning:
-- `ConstantPruningModifier` tells SparseML to pin weights at 0 over all epochs, maintaining the sparsity structure of the network
-- `QuantizationModifier` tells SparseML to quanitze the weights with quantization aware training over the last 5 epochs
-- `DistillationModifier` tells SparseML how to apply distillation during the trainign process, targeting the logits
-
-SparseML parses the modifiers and updates the training process to implement the algorithms and hyperparameters specified in the recipes.
+Here's what the recipe looks like:
 
 ```yaml
 version: 1.1.0
@@ -136,7 +129,12 @@ regularization_modifiers:
       weight_decay: eval(weight_decay)
 ```
 
-</details>
+The `Modifiers` are the important items that encode how SparseML should modify the training process for Sparse Transfer Learning:
+- `ConstantPruningModifier` tells SparseML to pin weights at 0 over all epochs, maintaining the sparsity structure of the network
+- `QuantizationModifier` tells SparseML to quanitze the weights with quantization aware training over the last 5 epochs
+- `DistillationModifier` tells SparseML how to apply distillation during the trainign process, targeting the logits
+
+SparseML parses the modifiers and updates the training process with their instructions.
 
 You can download the recipe with the following code:
 
@@ -166,15 +164,15 @@ A `deployment` folder is created in your local directory, which has all of the f
 
 ## Sparse Transfer Learning with a Custom Dataset (SquadShifts Amazon)
 
-Beyond the SQuAD task, we can also pass a dataset from the Hugging Face Hub or pass via local files. Let's try an example with  for the extractive question answering using [Squadshifts Amazon Dataset](https://huggingface.co/datasets/squadshifts), which containing ~10,000 question answer pairs from the Amazon product reviews.
+We cab also pass a custom dataset from the Hugging Face Hub or via local files. 
 
-For simplicity, we will perform the fine-tuning without distillation. Although the transfer learning recipe contains distillation
-modifiers, by setting `--distill_teacher disable` we instruct SparseML to skip distillation.
+Let's try an example for the extractive question answering using [Squadshifts Amazon Dataset](https://huggingface.co/datasets/squadshifts), which contains ~10,000 question answer pairs from the Amazon product reviews.
 
-### Squadshifts Dataset Inspection
+For simplicity, we will first perform the fine-tuning without distillation by setting `--distill_teacher disable`.
 
-Run the following to inspect the Squadshifts Amazon dataset.
+### Squadshifts Dataset
 
+Let's check out the Squadshifts dataset:
 ```python
 from datasets import load_dataset
 from pprint import pprint 
@@ -206,16 +204,10 @@ Output:
 We can see that each row dataset contains the following:
 - A `context` field which is a string representing the text which contains the answer
 - A `question` field which is a string representing the query
-- An `answers` dictionary, which contains a `answers_start` (a list of ints) and `text` (a list of strings). `text` is the raw strings that are the correct answers
-and `answer_start` are the index of the first character in the `context`. For the example above, the `v` in `very large` is the 490th character of `context`.
+- An `answers` dictionary, which contains a `answers_start` (a list of ints) and `text` (a list of strings). `text` are the raw strings that are the correct answers
+and `answer_start` are the indexes of the first character in the `context`. For the example above, the `v` in `very large` is the 490th character of `context`.
 
-The `question_answering` training script accepts JSON files in the form:
-
-### Using Local JSON Files
-
-Let's walk through how to pass this dataset in JSON dataset to the CLI.
-
-#### Save Dataset as a JSON File
+### Passing Local JSON Files To The Training Script
 
 The `question_answering` training script accepts JSON files in the form:
 
@@ -230,8 +222,7 @@ The `question_answering` training script accepts JSON files in the form:
 }
 ```
 
-Run the following to convert the dataset to this format and dump to a json file.
-
+Run the following to download the squadshifts dataset and convert to this format:
 ```python
 # load dataset
 from datasets import load_dataset
@@ -259,7 +250,6 @@ dict_to_json_file("squadshifts-val.json", val_dict)
 
 To use the local files with the CLI, pass `--train_file squadshifts-train.json --validation_file squadshifts-val.json`:
 
-Run the following:
 ```bash
 sparseml.transformers.train.question_answering \
   --output_dir obert_base_pruned90_quant_squadshifts \
@@ -274,7 +264,7 @@ sparseml.transformers.train.question_answering \
   --seed 42
 ```
 
-Without doing any hyperparameter search, the script runs for 8 epochs and converges to ~68% F1 score.
+The script runs for 8 epochs and converges to ~68% F1 score without doing any hyperparameter search.
 
 Note that in this case, we used the SQuAD transfer learning recipe (identified by 
 `zoo:nlp/question_answering/obert-base/pytorch/huggingface/squad/pruned90_quant-none`). Since the Squadshifts dataset is similiar to the SQuAD dataset, 
@@ -283,13 +273,13 @@ we chose the same hyperparameters. While you are free to download and modify the
 In this case, we passed `--recipe_args '{"num_epochs":8, "qat_start_epoch":4.0, "observer_epoch":7.0}'`. This updates the recipe to run
 for 8 epochs with QAT running over the final 4 epochs.
 
-### Sparse Transfer Learning with a Custom Teacher
+## Sparse Transfer Learning with a Custom Teacher
 
 To support the transfer learning process, we can apply model distillation, just like we did for the SQuAD case.
 You are free to use the native Hugging Face workflows to train the dense teacher model (and can even
 pass a Hugging Face model identifier to the command), but you can also use the SparseML CLI as well. 
 
-#### Train The Dense Teacher
+### Train The Dense Teacher
 
 Run the following to train a dense teacher model on SquadShifts:
 
@@ -352,7 +342,7 @@ for 5 epochs instead of 3 and to use an initial learning rate of `0.0002` instea
 
 The model converges to ~70% accuracy without any hyperparameter search.
 
-#### Sparse Transfer Learning with a Custom Teacher
+### Sparse Transfer Learning with a Custom Teacher
 
 With the dense teacher trained, we can sparse transfer learn with the help of the teacher by passing
 `--distill_teacher ./dense_teacher`.
