@@ -173,46 +173,41 @@ modifiers, by setting `--distill_teacher disable` we instruct SparseML to skip d
 
 ### Squadshifts Dataset Inspection
 
-Run the following to inspect the Rotten Tomatoes dataset.
+Run the following to inspect the Squadshifts Amazon dataset.
 
 ```python
 from datasets import load_dataset
+from pprint import pprint 
 
-rotten_tomatoes = load_dataset("rotten_tomatoes")
-print(rotten_tomatoes)
-print(rotten_tomatoes["train"][0])
+squadshifts = load_dataset("squadshifts", "amazon")["test"].train_test_split(test_size=.2)
+pprint(squadshifts["train"][0])
 ```
 
 Output:
 ```bash
-{'answers': {'answer_start': [199, 196, 199],
-             'text': ['cleans the entire floor',
-                      'it cleans the entire floor.',
-                      'cleans the entire floor']},
- 'context': 'We are in love with our Roomba. The Roomba does as is promised. '
-            'Much like all of the reviews we read before purchasing, we '
-            'experience that the robot takes its own path appearing erratic; '
-            'however, it cleans the entire floor. For large rooms (like our '
-            'open floor plan living / dining kitchen) you should definitely '
-            'use the included virtual wall. It works well. The first 3-4 times '
-            'we used it, we just watched in awe as the Roomba cleaned our '
-            'floor. You should definitely clean the brushes once a week or so, '
-            "but that's an easy task compared to sweeping entire rooms. Roomba "
-            "will also easily encourage you to keep your rooms tidy. it's much "
-            'easier to concentrate on keeping big items off the floor than '
-            'sweeping the entire floor daily. Roomba has taught us tidier '
-            'habits and has keep our hardwoods grime free. We have several '
-            'friends who have their Roombas on order!',
- 'id': '5dd4980bcc027a086d65df4a',
- 'question': 'What does it do?',
- 'title': 'Amazon_Reviews_330'}
+{'answers': {'answer_start': [490, 490], 'text': ['very large', 'very large']},
+ 'context': 'This item is lightweight and very slim in design. In a '
+            'kitchen,where space is limited, we found the scale was easy to '
+            'use and quickly store, in an upright position, for instance. We '
+            'love that it is flat and easy to clean. For instance, if '
+            'something spills on it, it is very easy to wipe off-no nooks and '
+            "cranies to worry about. We've also used this for shipping the "
+            'occasional package,over the last week or so, and the flat surface '
+            'is excellent for balancing small packages. The readout is very '
+            'large and extremely crisp and clear, which makes assessing weight '
+            'a snap. It also fits in nicely with the design of many kitchens '
+            'and appliances on the market today (stainless steel, or '
+            'black/white appliances. Highly recommended, multi-use tool!',
+ 'id': '5dd4b482cc027a086d65f11b',
+ 'question': 'how large is the display according to the writer?',
+ 'title': 'Amazon_Reviews_1525'}
 ```
 
 We can see that each row dataset contains the following:
 - A `context` field which is a string representing the text which contains the answer
 - A `question` field which is a string representing the query
 - An `answers` dictionary, which contains a `answers_start` (a list of ints) and `text` (a list of strings). `text` is the raw strings that are the correct answers
-and `answer_start` are the index of the first character in the `context`. For the example above, the `c` in `cleans the entire floor` is the 199th character of `context`.
+and `answer_start` are the index of the first character in the `context`. For the example above, the `v` in `very large` is the 490th character of `context`.
 
 The `question_answering` training script accepts JSON files in the form:
 
@@ -271,7 +266,7 @@ sparseml.transformers.train.question_answering \
   --recipe zoo:nlp/question_answering/obert-base/pytorch/huggingface/squad/pruned90_quant-none \
   --recipe_args '{"num_epochs":8, "qat_start_epoch":4.0, "observer_epoch":7.0}' \
   --model_name_or_path zoo:nlp/masked_language_modeling/obert-base/pytorch/huggingface/wikipedia_bookcorpus/pruned90-none \
-  --distill_teacher dense_tracher \
+  --distill_teacher disable \
   --train_file squadshifts-train.json --validation_file squadshifts-val.json \
   --do_train --do_eval --evaluation_strategy epoch --logging_strategy epoch --save_steps 1000 --preprocessing_num_workers 32 \
   --per_device_train_batch_size 8 --per_device_eval_batch_size 32 --gradient_accumulation_steps 2 \
@@ -279,12 +274,14 @@ sparseml.transformers.train.question_answering \
   --seed 42
 ```
 
-Without doing any hyperparameter search, the script runs for 13 epochs and converges to ~70% F1 score.
+Without doing any hyperparameter search, the script runs for 8 epochs and converges to ~68% F1 score.
 
 Note that in this case, we used the SQuAD transfer learning recipe (identified by 
 `zoo:nlp/question_answering/obert-base/pytorch/huggingface/squad/pruned90_quant-none`). Since the Squadshifts dataset is similiar to the SQuAD dataset, 
-we chose the same hyperparameters. To adjust the hyperparameters, either download the recipe and modify directly (passing
-a local file to the CLI) or pass an argument to `--recipe_args`.
+we chose the same hyperparameters. While you are free to download and modify the recipe manually (and then pass to SparseML as a local file), you can also use `--recipe_args` to modify the recipe on the fly. 
+
+In this case, we passed `--recipe_args '{"num_epochs":8, "qat_start_epoch":4.0, "observer_epoch":7.0}'`. This updates the recipe to run
+for 8 epochs with QAT running over the final 4 epochs.
 
 ### Sparse Transfer Learning with a Custom Teacher
 
@@ -295,24 +292,24 @@ pass a Hugging Face model identifier to the command), but you can also use the S
 #### Train The Dense Teacher
 
 Run the following to train a dense teacher model on SquadShifts:
-```
-sparseml.transformers.train.text_classification \
-  --output_dir dense-teacher_rotten_tomatoes \
-  --model_name_or_path zoo:nlp/masked_language_modeling/bert-base/pytorch/huggingface/wikipedia_bookcorpus/base-none \
-  --recipe zoo:nlp/sentiment_analysis/bert-base/pytorch/huggingface/sst2/base-none \
-  --recipe_args '{"init_lr":0.00003}' \
-  --dataset_name rotten_tomatoes --input_column_names "text" --label_column_name "label" \
-  --max_seq_length 128 --per_device_train_batch_size 32 --per_device_eval_batch_size 32 --preprocessing_num_workers 6 \
-  --do_train --do_eval --evaluation_strategy epoch --fp16  \
-  --save_strategy epoch --save_total_limit 1
-```
 
-The model converges to ~72% accuracy without any hyperparameter search.
+```bash
+sparseml.transformers.train.question_answering \
+  --output_dir dense_teacher \
+  --recipe zoo:nlp/question_answering/obert-base/pytorch/huggingface/squad/base-none \
+  --recipe_args '{"num_epochs":5, "init_lr":0.0002}' \
+  --model_name_or_path zoo:nlp/masked_language_modeling/obert-base/pytorch/huggingface/wikipedia_bookcorpus/base-none \
+  --distill_teacher disable \
+  --train_file squadshifts-train.json --validation_file squadshifts-val.json \
+  --do_train --do_eval --evaluation_strategy epoch --logging_strategy epoch --save_steps 1000 --preprocessing_num_workers 32 \
+  --per_device_train_batch_size 8 --per_device_eval_batch_size 32 --gradient_accumulation_steps 2 \
+  --max_seq_length 384 --doc_stride 128 \
+  --seed 42
+```
 
 Note that used the dense version of BERT (the stub ends in `base-none`) as the starting point for the training 
-and passed a recipe from [SparseZoo](https://sparsezoo.neuralmagic.com/models/nlp%2Fsentiment_analysis%2Fbert-base%2Fpytorch%2Fhuggingface%2Fsst2%2Fbase-none) which was used to train the 
-dense teacher for the SST2 task. Since the SST2 task is similiar to the Rotten Tomatoes task, these parameters are a solid
-place to start. This recipe contains no sparsity related modifiers and only controls the learning rate and number of epochs. As such, the script
+and passed a recipe from [SparseZoo](https://sparsezoo.neuralmagic.com/models/nlp%2Fquestion_answering%2Fbert-large%2Fpytorch%2Fhuggingface%2Fsquad%2Fbase-none) which was used to train the 
+dense teacher for the SQuAD task. Since the SQuAD task is similiar to the Squadshifts Amazon task, these hyperparameters are a solid starting point. This recipe contains no sparsity related modifiers and only controls the learning rate and number of epochs. As such, the script
 will run typical fine-tuning, resulting in a dense model.
 
 Here's what the recipe looks like:
@@ -320,34 +317,40 @@ Here's what the recipe looks like:
 version: 1.1.0
 
 # General Variables
-num_epochs: 8
-init_lr: 0.00015
+num_epochs: 3
+init_lr: 5e-5 
+final_lr: 0
 
-# Distillation Variables
-temperature: 2.0
-hardness: 1.0
+warmup_epoch: 0.033
 
-# Modifiers
-modifiers:
-    - !LearningRateFunctionModifier
-        start_epoch: 0
-        end_epoch: eval(num_epochs)
-        lr_func: linear
-        init_lr: eval(init_lr)
-        final_lr: 0.0
+# Modifiers:
+training_modifiers:
+  - !EpochRangeModifier
+      end_epoch: eval(num_epochs)
+      start_epoch: 0.0
 
-    - !EpochRangeModifier
-        end_epoch: eval(num_epochs)
-        start_epoch: 0.0
+  - !LearningRateFunctionModifier
+    start_epoch: 0
+    end_epoch: eval(warmup_epoch)
+    lr_func: linear
+    init_lr: 0.0
+    final_lr: eval(init_lr)
+
+  - !LearningRateFunctionModifier
+    start_epoch: eval(warmup_epoch)
+    end_epoch: eval(num_epochs)
+    lr_func: linear
+    init_lr: eval(init_lr)
+    final_lr: eval(final_lr)
 ```
 
 While you are free to download and modify the recipe manually (and then pass to SparseML as a local file), you
 can also use `--recipe_args` to modify the recipe on the fly.
 
-In this case, we passed `--recipe_args '{"init_lr": 0.0005, "num_epochs":9}'`. This updates the recipe to run
-for 9 epochs instead of 8 and to use an initial learning rate of `0.0005` instead of `0.00015`.
+In this case, we passed `--recipe_args '{"num_epochs":5, "init_lr":0.0002}'`. This updates the recipe to run
+for 5 epochs instead of 3 and to use an initial learning rate of `0.0002` instead of `5e-5`.
 
-After running for 9 epochs, the model converges to XX% accuracy.
+The model converges to ~70% accuracy without any hyperparameter search.
 
 #### Sparse Transfer Learning with a Custom Teacher
 
@@ -358,10 +361,11 @@ Run the following to kick-off training with the teacher:
 
 ```bash
 sparseml.transformers.train.question_answering \
-  --output_dir dense_teacher \
-  --recipe zoo:nlp/question_answering/obert-base/pytorch/huggingface/squad/base-none \
-  --model_name_or_path bert-base-uncased \
-  --distill_teacher disable \
+  --output_dir obert_base_pruned90_quant_squadshifts \
+  --recipe zoo:nlp/question_answering/obert-base/pytorch/huggingface/squad/pruned90_quant-none \
+  --recipe_args '{"num_epochs":8, "qat_start_epoch":4.0, "observer_epoch":7.0}' \
+  --model_name_or_path zoo:nlp/masked_language_modeling/obert-base/pytorch/huggingface/wikipedia_bookcorpus/pruned90-none \
+  --distill_teacher ./dense_teacher \
   --train_file squadshifts-train.json --validation_file squadshifts-val.json \
   --do_train --do_eval --evaluation_strategy epoch --logging_strategy epoch --save_steps 1000 --preprocessing_num_workers 32 \
   --per_device_train_batch_size 8 --per_device_eval_batch_size 32 --gradient_accumulation_steps 2 \
@@ -369,4 +373,4 @@ sparseml.transformers.train.question_answering \
   --seed 42
 ```
 
-The model converges to ~71% accuracy without any hyperparameter search after 10 epochs.
+The model converges to ~69% F1 without any hyperparameter search after 8 epochs.
