@@ -597,6 +597,7 @@ def _check_teacher_student_outputs(
             f"student labels {student_labels}. Ignore this warning "
             "if this is expected behavior."
         )
+        label_list = student_labels
     else:
         if student_ids != teacher_ids:
             _LOGGER.warning(
