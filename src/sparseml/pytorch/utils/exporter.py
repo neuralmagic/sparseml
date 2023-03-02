@@ -538,7 +538,7 @@ def export_onnx(
 
     kwargs = dict(
         model=module,
-        args=sample_batch,
+        args=sample_batch[0],
         f=file_path,
         verbose=False,
         opset_version=opset,
