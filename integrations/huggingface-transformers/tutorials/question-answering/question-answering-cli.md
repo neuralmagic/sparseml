@@ -331,7 +331,7 @@ While you are free to download and modify the recipe manually (and then pass to 
 can also use `--recipe_args` to modify the recipe on the fly. In this case, we passed `--recipe_args '{"num_epochs":5, "init_lr":0.0002}'`. 
 This updates the recipe to run for 5 epochs instead of 3 and to use an initial learning rate of `0.0002` instead of `5e-5`.
 
-The model converges to ~70% accuracy without any hyperparameter search.
+The model converges to ~69% accuracy without any hyperparameter search.
 
 ### **Sparse Transfer Learning with a Custom Teacher**
 
