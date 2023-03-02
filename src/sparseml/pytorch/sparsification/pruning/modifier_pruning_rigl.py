@@ -165,6 +165,7 @@ class RigLPruningModifier(BaseGradualPruningModifier):
             parent_class_kwarg_names=[],
         )
         self._mask_type = mask_type
+        self._sparsity = sparsity
         self._sparsity_strategy = sparsity_strategy
         self._init_update_fraction = init_update_fraction
         # check arguments
@@ -191,6 +192,41 @@ class RigLPruningModifier(BaseGradualPruningModifier):
         :return: the mask type used
         """
         return self._mask_type
+
+    @ModifierProp(serializable=True)
+    def sparsity(self) -> float:
+        """
+        :return: The initial sparsity for the variable to start with at start_epoch
+        """
+        return self._sparsity
+
+    @ModifierProp(serializable=True)
+    def sparsity_strategy(self) -> str:
+        """
+        :return: the mask type used
+        """
+        return self._sparsity_strategy
+
+    @ModifierProp(serializable=True)
+    def init_update_fraction(self) -> float:
+        """
+        :return: the mask type used
+        """
+        return self._init_update_fraction
+
+    @ModifierProp(serializable=False)
+    def init_sparsity(self) -> float:
+        """
+        :return: The initial sparsity for the variable to start with at start_epoch
+        """
+        return self._init_sparsity
+
+    @ModifierProp(serializable=False)
+    def final_sparsity(self) -> float:
+        """
+        :return: The initial sparsity for the variable to start with at start_epoch
+        """
+        return self._init_sparsity
 
     def _get_mask_creator(
         self, param_names: List[str], params: List[Parameter]
