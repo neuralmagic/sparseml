@@ -20,9 +20,9 @@ By integrating with robust training flows in the Transformers repository, Sparse
 
 There are two pathways:
 - **Sparse Transfer Learning** - fine-tune a pre-sparsified NLP checkpoint on your own dataset **[RECOMMENDED]**
-- **Sparsification from Scratch** - apply pruning and quantization to sparsify any of the `transformer` models from scratch.
+- **Sparsification from Scratch** - apply pruning and quantization to sparsify `transformer` models from scratch.
 
-Once trained, SparseML enables you to export models to the ONNX format, such that they can be deployed with DeepSparse for GPU-class performance on the CPU.
+Once trained, SparseML enables you to export models to the ONNX format, such that they can be deployed with DeepSparse.
 
 ## Installation
 
@@ -36,14 +36,17 @@ pip install sparseml[torch]
 
 ## Tutorials
 
-### CLI
+- [Sparse Transfer Learning](sparse-transfer-learning-bert.md) [**RECOMMENDED**]
+- Sparsification from Scratch (example coming soon!)
+
+### Use Case Examples - CLI
 - [Sparse Transfer Learning for Sentiment Analysis](tutorials/sentiment-analysis/sentiment-analysis-cli.md)
 - [Sparse Transfer Learning for Text Classification](tutorials/text-classification/text-classification-cli.md)
 - [Sparse Transfer Learning for Token Classification](tutorials/token-classification/token-classification-cli.md)
 - [Sparse Transfer Learning for Question Answering](tutorials/question-answering/question-answering-cli.md)
 - Sparsifying from Scratch (example coming soon!)
 
-### Python API
+### Use Case Examples - Python
 
 #### Sentiment Analysis (Single Input Binary Text Classification)
 - [Sparse Transfer with GLUE Datasets (SST2) for sentiment analysis](tutorials/sentiment-analysis/docs-sentiment-analysis-python-sst2.ipynb)
@@ -56,17 +59,13 @@ pip install sparseml[torch]
 - [Sparse Transfer with Custom Datasets (GoEmotions) for multi-label text classification](tutorials/text-classification/docs-text-classification-python-multi-label-go_emotions.ipynb)
 
 #### Token Classification 
-- [Sparse Transfer with Conll2003 for named-entity-recognition](tutorials/token-classification/docs-token-classification-conll2003.ipynb)
-- [Sparse Transfer with Custom Datasets (WNUT) and Custom Teacher for named-entity-recognition](tutorials/token-classification/docs-token-classification-custom-teacher-wnut.ipynb)
+- [Sparse Transfer with Conll2003 for named entity recognition](tutorials/token-classification/docs-token-classification-conll2003.ipynb)
+- [Sparse Transfer with Custom Datasets (WNUT) and Custom Teacher for named entity recognition](tutorials/token-classification/docs-token-classification-custom-teacher-wnut.ipynb)
 
 #### Question Answering
 
 - Sparse Transfer with SQuAD (Example coming soon!)
 - Sparse Transfer with Squadshifts Amazon (Example coming soon!)
-
-#### General 
-
-- Sparsifying from Scratch (Example coming soon!)
 
 ## Quick Tour
 
