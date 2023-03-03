@@ -597,21 +597,7 @@ def _check_teacher_student_outputs(
             f"student labels {student_labels}. Ignore this warning "
             "if this is expected behavior."
         )
-        is_teacher_label_str = isinstance(teacher_labels[0], str)
-        is_student_label_str = isinstance(student_labels[0], str)
-
-        if is_teacher_label_str and not is_student_label_str:
-            # If the teacher labels are strings and the student labels are ints,
-            # we will assume that the teacher labels are the correct labels.
-            label_list = teacher_labels
-            models_labels_to_use = "teacher"
-        else:
-            label_list = student_labels
-            models_labels_to_use = "student"
-        _LOGGER.warning(
-            "From this point forward, the "
-            f"{models_labels_to_use}'s labels will be used."
-        )
+        label_list = student_labels
     else:
         if student_ids != teacher_ids:
             _LOGGER.warning(
@@ -780,7 +766,9 @@ def _get_tokenized_dataset(
     # Map that sends B-Xxx label to its I-Xxx counterpart
     b_to_i_label = []
     for idx, label in enumerate(label_list):
-        if label.startswith("B-") and label.replace("B-", "I-") in label_list:
+        if isinstance(label, str) and (
+            label.startswith("B-") and label.replace("B-", "I-") in label_list
+        ):
             b_to_i_label.append(label_list.index(label.replace("B-", "I-")))
         else:
             b_to_i_label.append(idx)
