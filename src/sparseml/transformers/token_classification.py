@@ -384,7 +384,9 @@ def main(**kwargs):
 
     if teacher and not isinstance(teacher, str):
         # check whether teacher and student have the corresponding outputs
-        label_to_id, label_list = _check_teacher_student_outputs(teacher, label_to_id)
+        label_to_id, label_list = _check_teacher_student_outputs(
+            teacher, label_to_id, label_list
+        )
 
     tokenizer_src = (
         model_args.tokenizer_name
@@ -580,7 +582,7 @@ def main(**kwargs):
 
 
 def _check_teacher_student_outputs(
-    teacher: Module, label_to_id: Dict[str, int]
+    teacher: Module, label_to_id: Dict[str, int], label_list: List[str]
 ) -> Tuple[Dict[str, int], List[str]]:
     # Check that the teacher and student have the same labels and if they do,
     # check that the mapping between labels and ids is the same.
@@ -597,7 +599,6 @@ def _check_teacher_student_outputs(
             f"student labels {student_labels}. Ignore this warning "
             "if this is expected behavior."
         )
-        label_list = student_labels
     else:
         if student_ids != teacher_ids:
             _LOGGER.warning(
