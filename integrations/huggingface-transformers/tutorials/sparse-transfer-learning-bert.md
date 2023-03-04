@@ -24,7 +24,7 @@ Sparse Transfer Learning is quite similiar to typical NLP transfer learning, whe
 
 SparseZoo contains pre-sparsified checkpoints of common NLP models like BERT and RoBERTa. These models can be used as the starting checkpoint for the sparse transfer learning workflow.
 
-[Check out the full list of pre-sparsified models]((https://sparsezoo.neuralmagic.com/?domain=nlp&sub_domain=masked_language_modeling&page=1)
+[Check out the full list of pre-sparsified models](https://sparsezoo.neuralmagic.com/?domain=nlp&sub_domain=masked_language_modeling&page=1)
 
 ## **Installation**
 
@@ -48,13 +48,11 @@ We will fine-tune a [90% pruned BERT-base](https://sparsezoo.neuralmagic.com/mod
 zoo:nlp/masked_language_modeling/obert-base/pytorch/huggingface/wikipedia_bookcorpus/pruned90-none
 ```
 
-[Checkout the full list of pre-sparsified upstream models in SparseZoo](https://sparsezoo.neuralmagic.com/?domain=nlp&sub_domain=masked_language_modeling&page=1)
-
 ### **Kick off Training**
 
-We will use SparseML's `sparseml.transformers.text_classification` training script.
+We will use SparseML's `sparseml.transformers.text_classification` training script. 
 
-To run sparse transfer learning, we first need to create/select a sparsification recipe. For sparse transfer, we need a recipe that instructs SparseML to maintain sparsity during training and to quantize the model. 
+To run sparse transfer learning, we first need to create/select a sparsification recipe. For sparse transfer, we need a recipe that instructs SparseML to maintain sparsity during training and to quantize the model over the final epochs. 
 
 For the SST2 dataset, there is a [transfer learning recipe available in SparseZoo](https://sparsezoo.neuralmagic.com/models/nlp%2Fsentiment_analysis%2Fobert-base%2Fpytorch%2Fhuggingface%2Fsst2%2Fpruned90_quant-none), identified by the following SparseZoo stub:
 ```
