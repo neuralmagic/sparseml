@@ -34,12 +34,12 @@ Install via `pip`:
 pip install sparseml[torch]
 ```
 
-## **Example: Sparse Transfer Learning onto SST2**
+## **Sparse Transfer Learning onto SST2**
 
 Let's try a simple example of fine-tuning a pre-sparsified model onto the SST dataset. SST2 is a sentiment analysis
 dataset, with each sentence labeled with a 0 or 1 representing negative or positive sentiment.
 
-### **Download Pre-sparsified Checkpoint**
+### **Step 1: Download Pre-Sparsified Checkpoint**
 
 We will fine-tune a [90% pruned BERT-base](https://sparsezoo.neuralmagic.com/models/nlp%2Fmasked_language_modeling%2Fobert-base%2Fpytorch%2Fhuggingface%2Fwikipedia_bookcorpus%2Fpruned90-none), identified by the following stub:
 ```bash
@@ -54,7 +54,9 @@ zoo_model = Model(model_stub, download_path="./model")
 model_path = zoo_model.training.path 
 ```
 
-Additionally, we will see that SparseML allows you to apply model distillation during the fine-tuning process, which can help increase accuracy. For SST2, there is a [dense BERT-base](https://sparsezoo.neuralmagic.com/models/nlp%2Fsentiment_analysis%2Fobert-base%2Fpytorch%2Fhuggingface%2Fsst2%2Fbase-none) trained on SST2, identified by the following stub:
+Additionally, SparseML allows you to apply model distillation from a dense teacher model during the fine-tuning process. This is an optional step, but it can help increase accuracy.
+
+For SST2, there is a [dense BERT-base](https://sparsezoo.neuralmagic.com/models/nlp%2Fsentiment_analysis%2Fobert-base%2Fpytorch%2Fhuggingface%2Fsst2%2Fbase-none) trained on SST2, identified by the following stub:
 
 ```bash
 zoo:nlp/sentiment_analysis/obert-base/pytorch/huggingface/sst2/base-none
@@ -68,9 +70,9 @@ zoo_model = Model(teacher_stub, download_path="./teacher")
 teacher_path = zoo_model.training.path 
 ```
 
-### **Setup Hugging Face Model Objects**
+### **Step 2: Setup Hugging Face Model Objects**
 
-With the models downloaded, we will set up the Hugging Face `tokenizer, config, and model`. These are all native Hugging Face objects, so check out the Hugging Face docs for more details on `AutoModel`, `AutoConfig`, and `AutoTokenizer` as needed. 
+With the models downloaded, we will set up the Hugging Face `tokenizer`, `config`, and `model`. These are all native Hugging Face objects, so check out the Hugging Face docs for more details on `AutoModel`, `AutoConfig`, and `AutoTokenizer` as needed. 
 
 We instantiate these classes by passing the local path to the directory containing the `pytorch_model.bin`, `tokenizer.json`, and `config.json` files from the SparseZoo download.
 
@@ -98,7 +100,7 @@ teacher_kwargs["state_dict"], t_delayed = SparseAutoModel._loadable_state_dict(t
 teacher = AutoModelForSequenceClassification.from_pretrained(teacher_path, **teacher_kwargs,)
 ```
 
-### **Prepare a Dataset**
+### **Step 3: Prepare a Dataset**
 
 Next, download a dataset and prepare it for training. We can use the Hugging Face [`datasets`](https://huggingface.co/docs/datasets/index) library.
 
@@ -129,7 +131,7 @@ def preprocess_fn(examples):
 tokenized_dataset = dataset.map(preprocess_fn, batched=True)
 ```
 
-### **Create a Recupe** 
+### **Step 4: Create a Recipe** 
 
 To run sparse transfer learning, we first need to create/select a sparsification recipe. For sparse transfer, we need a recipe that instructs SparseML to maintain sparsity during training and to quantize the model over the final epochs.
 
@@ -214,7 +216,7 @@ zoo_model = Model(transfer_stub, download_path="./transfer_recipe")
 recipe_path = zoo_model.recipes.default.path
 ```
 
-### **Evaluate**
+### **Step 5: Setup Evaluation Metric**
 
 We can use the [Evaluate](https://huggingface.co/docs/evaluate/index) library to compute and report metrics. 
 
@@ -229,7 +231,7 @@ def compute_metrics(p: EvalPrediction):
   return metric.compute(predictions=preds, references=p.label_ids)
 ```
 
-### **Train**
+### **Step 6: Train**
 
 With the recipe created, we are now ready to kick off transfer learning. 
 
@@ -276,15 +278,15 @@ trainer.save_state()
 trainer.save_optimizer_and_scheduler(training_args.output_dir)
 ```
 
-The `Trainer` class parses the recipes and `TrainingArguments` and sets up the training workflow with the instructions encoded therein. Since the recipe passed is a transfer learning recipe, the `Trainer` updates the loop to maintain sparsity while the fine-tuning process occurs.
+The `Trainer` class parses the transfer learning recipe and updates the training loop to maintain sparsity and apply quantization-aware training over the final epochs. After training for 13 epochs, the final model is 90% pruned and quantized reaching ~92% accuracy on the validation set.
 
-The model trains for 13 epochs and reaches ~92% accuracy on the validation set.
+Note that in this case, we passed the dense `teacher` we downloaded from SparseZoo to the `Trainer`. This is an optional argument (turn off by setting `teacher="disable"`), but can help to increase accuracy during the training process. You can specify the hyperparameters of the distillation process via the `DistillationModifiers`.
 
-Checkout the `Trainer` and `TrainingArguments` docs for more details.
+Checkout the `Trainer` and `TrainingArguments` API level docs for more details.
 
-### **Export to ONNX**
+### **Step 7: Export to ONNX**
 
-SparseML provides a `sparseml.transformers.export_onnx` command that you can use to export the model to ONNX. Be sure the `--model_path` argument points to your trained model:
+SparseML provides a `sparseml.transformers.export_onnx` command that you can use to export your trained model to ONNX. Be sure the `--model_path` argument points to your trained model:
 
 ```bash
 sparseml.transformers.export_onnx \
