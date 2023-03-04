@@ -297,7 +297,7 @@ sparseml.transformers.train.text_classification \
   --do_train --do_eval --validation_ratio 0.1 --fp16 \
   --evaluation_strategy steps --eval_steps 100 --logging_steps 100 --logging_first_step \
   --per_device_train_batch_size 8 --per_device_eval_batch_size 32 --gradient_accumulation_steps 5 \
-  --save_strategy steps --save_steps 100 --save_total_limit 1
+  --save_strategy steps --save_steps 100 --save_total_limit 1 \
   --preprocessing_num_workers 6 --max_seq_length 512 \
   --seed 31222
 ```
