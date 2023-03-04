@@ -35,7 +35,7 @@ We will fine-tune a [90% pruned version of BERT](zoo:nlp/masked_language_modelin
 
 Run the following:
 ```bash
-sparseml.transformers.train.text_classification \
+sparseml.transformers.text_classification \
   --task_name mnli \
   --model_name_or_path zoo:nlp/masked_language_modeling/obert-base/pytorch/huggingface/wikipedia_bookcorpus/pruned90-none \
   --recipe zoo:nlp/text_classification/obert-base/pytorch/huggingface/mnli/pruned90_quant-none \
