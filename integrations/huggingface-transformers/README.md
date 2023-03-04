@@ -64,9 +64,9 @@ pip install sparseml[torch]
 
 ### **SparseZoo**
 
-SparseZoo is an open-source repository of pre-sparsified models - including common NLP models like BERT-base, BERT-large, DistillBERT, and RoBERTa. You can either deploy the models directly, or fine-tune them onto custom dataset (while maintaining sparsity) via sparse transfer learning with SparseML.
+SparseZoo is an open-source repository of pre-sparsified models, including BERT-base, BERT-large, RoBERTa-base, RoBERTa-large, and DistillBERT. With SparseML, you can fine-tune these pre-sparsified checkpoints onto custom datasets (while maintaining sparsity) via sparse transfer learning. This makes training inference-optimized sparse models almost identical to your typical training workflows!
 
-[Check out the available models](https://sparsezoo.neuralmagic.com/?repo=huggingface&page=1).
+[Check out the available models](https://sparsezoo.neuralmagic.com/?repo=huggingface&page=1)
 
 ### **Recipes**
 
@@ -76,14 +76,13 @@ In such a way, recipes are the declarative interface for specifying which sparsi
 
 ### **SparseML Python API**
 
-SparseML's `Trainer` is the workhorse of the `transformers` integration.
+Because of the declarative, recipe-based approach, you can add SparseML to your `transformers` training pipelines via SparseML's `Trainer` class.
 
-Inheriting from the familiar [`Trainer`](https://huggingface.co/docs/transformers/main_classes/trainer) in the `transformers` repo, SparseML extends the functionality
-to enable passing a `recipe`, that allows you to specify sparsity-related algorithms and hyperparameters. SparseML's `Trainer` parses the recipe and adjusts the training loop to apply sparsification algorithms or sparse transfer learning. 
+Inheriting from the familiar [Hugging Face `Trainer`](https://huggingface.co/docs/transformers/main_classes/trainer), SparseML's `Trainer` extends the functionality to enable passing a `recipe`. This allows you to specify the sparsity related algorithms and hyperparameters that should be applied in the training process. SparseML's `Trainer` parses the recipe and adjusts the training loop to apply the specified algorithms.
 
-As such, you easily swap in the SparseML `Trainer` into your existing `transformers` training pipelines, leveraging Hugging Face's friendly utilities like Model Hub, `AutoTokenizers`, `AutoModels`, and `datasets` in concert with SparseML's sparsity-related algorithms!
+As such, you can swap the SparseML `Trainer` into your existing `transformers` training pipelines, leveraging Hugging Face's friendly utilities like Model Hub, `AutoTokenizers`, `AutoModels`, and `datasets` in concert with SparseML's sparsity-related algorithms!
 
-Below is a sample use case:
+The following demonstrates sample usage:
 
 ```python
 from sparseml.transformers.sparsification import Trainer, TrainingArguments
@@ -247,11 +246,9 @@ The script uses the SparseZoo stubs to identify and download the starting checkp
 
 The resulting model is 90% pruned and quantized, and achieves 92% validation accuracy on SST2!
 
-### **Dense Teacher Creation**
+### **Aside: Dense Teacher Creation**
 
-You will notice that we passed a `--distill_teacher` argument to the training loop above. This is an optional argument, but distillation can help to improve accuracy during the transfer learning process.
-
-In the example above, we used a SparseZoo stub to download a teacher model from the Zoo. However, you can also train your own teacher model. While you are free to train the teacher in whatever manner you
+You will notice that we passed a `--distill_teacher` argument to the training loop above. This is an optional argument, but distillation can help to improve accuracy during the transfer learning process. Above, we used a SparseZoo stub to download a teacher model from the Zoo. However, you can also train your own teacher model. While you are free to train the teacher in whatever manner you
 want, you can also use the SparseML training script.
 
 Run the following to fine-tune a dense BERT model from the SparseZoo on the SST2 dataset:
@@ -267,7 +264,7 @@ sparseml.transformers.text_classification \
 
 The resulting model achieves 92.9% validation accuracy.
 
-To use the locally trained dense teacher, update the script to use `--distill_teacher ./dense_obert-text_classification_sst2`.
+To use the locally trained dense teacher, update the sparse transfer command to use `--distill_teacher ./dense_obert-text_classification_sst2`.
 
 Note that we still passed `--recipe zoo:nlp/sentiment_analysis/obert-base/pytorch/huggingface/sst2/base-none` during dense training. You will notice that
 the SparseZoo stub ends in `base-none`. This identifies a transfer learning recipe that was used to train the dense model. 
