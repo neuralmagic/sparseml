@@ -22,7 +22,9 @@ This page explains how to fine-tune a pre-sparsified BERT model onto a downstrea
 
 Sparse Transfer Learning is quite similiar to typical NLP transfer learning, where we fine-tune a checkpoint pretrained on a large dataset like WikipediaBookCorpus onto a smaller downstream dataset and task. However, with Sparse Transfer Learning, we simply start the fine-tuning process from a pre-sparsified model and maintain sparsity while the training process occurs.
 
-[SparseZoo](https://sparsezoo.neuralmagic.com/?domain=nlp&sub_domain=masked_language_modeling&page=1) contains pre-sparsified checkpoints of common NLP models like BERT and RoBERTa. These models can be used as the starting checkpoint for the sparse transfer learning workflow.
+SparseZoo contains pre-sparsified checkpoints of common NLP models like BERT and RoBERTa. These models can be used as the starting checkpoint for the sparse transfer learning workflow.
+
+[Check out the full list of pre-sparsified models]((https://sparsezoo.neuralmagic.com/?domain=nlp&sub_domain=masked_language_modeling&page=1)
 
 ## **Installation**
 
