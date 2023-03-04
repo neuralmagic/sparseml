@@ -382,9 +382,11 @@ def main(**kwargs):
         },
     )
 
-    if teacher:
+    if teacher and not isinstance(teacher, str):
         # check whether teacher and student have the corresponding outputs
-        label_to_id, label_list = _check_teacher_student_outputs(teacher, label_to_id)
+        label_to_id, label_list = _check_teacher_student_outputs(
+            teacher, label_to_id, label_list
+        )
 
     tokenizer_src = (
         model_args.tokenizer_name
@@ -580,7 +582,7 @@ def main(**kwargs):
 
 
 def _check_teacher_student_outputs(
-    teacher: Module, label_to_id: Dict[str, int]
+    teacher: Module, label_to_id: Dict[str, int], label_list: List[str]
 ) -> Tuple[Dict[str, int], List[str]]:
     # Check that the teacher and student have the same labels and if they do,
     # check that the mapping between labels and ids is the same.
@@ -765,7 +767,9 @@ def _get_tokenized_dataset(
     # Map that sends B-Xxx label to its I-Xxx counterpart
     b_to_i_label = []
     for idx, label in enumerate(label_list):
-        if label.startswith("B-") and label.replace("B-", "I-") in label_list:
+        if isinstance(label, str) and (
+            label.startswith("B-") and label.replace("B-", "I-") in label_list
+        ):
             b_to_i_label.append(label_list.index(label.replace("B-", "I-")))
         else:
             b_to_i_label.append(idx)
