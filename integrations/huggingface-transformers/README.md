@@ -36,7 +36,7 @@ pip install sparseml[torch]
 
 ## Tutorials
 
-- [Sparse Transfer Learning](sparse-transfer-learning-bert.md) [**RECOMMENDED**]
+- [Sparse Transfer Learning](tutorials/sparse-transfer-learning-bert.md) [**RECOMMENDED**]
 - Sparsification from Scratch (example coming soon!)
 
 ### Use Case Examples - CLI
