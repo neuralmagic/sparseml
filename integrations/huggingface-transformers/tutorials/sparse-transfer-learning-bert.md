@@ -283,7 +283,7 @@ sparseml.transformers.train.text_classification \
   --logging_steps 200 --logging_first_step --per_device_train_batch_size 16 \
   --per_device_eval_batch_size 16 --preprocessing_num_workers 8 \
   --max_seq_length 30 --save_strategy epoch --save_total_limit 1 \
-  --seed 5550 \
+  --seed 5550
 ```
 
 - Text Classification: Document Classification (IMBD)
