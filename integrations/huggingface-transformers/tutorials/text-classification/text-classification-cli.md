@@ -173,7 +173,7 @@ We will fine-tune a [90% pruned version of BERT](zoo:nlp/masked_language_modelin
 
 Run the following:
 ```bash
-sparseml.transformers.train.text_classification \
+sparseml.transformers.text_classification \
   --task_name qqp \
   --model_name_or_path zoo:nlp/masked_language_modeling/obert-base/pytorch/huggingface/wikipedia_bookcorpus/pruned90-none \
   --recipe zoo:nlp/text_classification/obert-base/pytorch/huggingface/qqp/pruned90_quant-none \
@@ -497,7 +497,7 @@ pass a Hugging Face model identifier to the command), but you can also use the S
 
 Run the following to train a dense model on Rotten Tomatoes:
 ```
-sparseml.transformers.train.text_classification \
+sparseml.transformers.text_classification \
   --output_dir dense-teacher_rotten_tomatoes \
   --model_name_or_path zoo:nlp/masked_language_modeling/bert-base/pytorch/huggingface/wikipedia_bookcorpus/base-none \
   --recipe zoo:nlp/sentiment_analysis/bert-base/pytorch/huggingface/sst2/base-none \
