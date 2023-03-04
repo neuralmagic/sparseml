@@ -14,13 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-# Sparse Transfer Learning
+# Sparse Transfer Learning with BERT
 
 This page explains how to fine-tune a pre-sparsified BERT model onto a downstream dataset with SparseML.
 
 ## Overview
 
-Sparse Transfer is quite similiar to the typical NLP transfer learning, where we fine-tune a checkpoint pretrained on a large dataset like Wikipedia BookCorpus onto a smaller downstream dataset and task. However, with Sparse Transfer Learning, we simply start the fine-tuning process from a pre-sparsified model and maintain sparsity while the training process occurs.
+Sparse Transfer Learning is quite similiar to the typical NLP transfer learning, where we fine-tune a checkpoint pretrained on a large dataset like WikipediaBookCorpus onto a smaller downstream dataset and task. However, with Sparse Transfer Learning, we simply start the fine-tuning process from a pre-sparsified model and maintain sparsity while the training process occurs.
 
 [SparseZoo](https://sparsezoo.neuralmagic.com/?domain=nlp&sub_domain=masked_language_modeling&page=1), Neural Magic's open-source Model Zoo, contains pre-sparsified checkpoints of common NLP models like BERT-base, BERT-large, and RoBERTa. These models can be used as the starting checkpoint for the sparse transfer learning workflow.
 
@@ -286,7 +286,7 @@ sparseml.transformers.train.text_classification \
   --seed 5550
 ```
 
-- Text Classification: Document Classification (IMBD)
+- Text Classification: Document Classification (IMDB)
 ```bash
 sparseml.transformers.train.text_classification \
   --output_dir obert-document_classification-imdb \
@@ -299,7 +299,7 @@ sparseml.transformers.train.text_classification \
   --per_device_train_batch_size 8 --per_device_eval_batch_size 32 --gradient_accumulation_steps 5 \
   --save_strategy steps --save_steps 100 --save_total_limit 1
   --preprocessing_num_workers 6 --max_seq_length 512 \
-  --seed 31222 \
+  --seed 31222
 ```
 
 - Text Classification: Sentiment Analysis (SST2)
@@ -336,8 +336,4 @@ Check out the use case guides for more details on each task, including using a c
 
 ## Wrap-Up
 
-Sparse transfer learning is just like typical fine-tuning - making it easy to create an inference-optimized 
-NLP model trained on your dataset!
-
-Checkout [DeepSparse](https://github.com/neuralmagic/deepsparse) for more details on reaching GPU-class performance by
-deploying the spars emodels on CPUs!
+[Checkout DeepSparse](https://github.com/neuralmagic/deepsparse) for more details on deploying your sparse models with GPU-class performance on CPUs!
