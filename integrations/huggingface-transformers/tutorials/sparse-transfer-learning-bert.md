@@ -54,7 +54,7 @@ We will use SparseML's `sparseml.transformers.text_classification` training scri
 
 To run sparse transfer learning, we first need to create/select a sparsification recipe. For sparse transfer, we need a recipe that instructs SparseML to maintain sparsity during training and to quantize the model over the final epochs. 
 
-For the SST2 dataset, there is a [transfer learning recipe available in SparseZoo](https://sparsezoo.neuralmagic.com/models/nlp%2Fsentiment_analysis%2Fobert-base%2Fpytorch%2Fhuggingface%2Fsst2%2Fpruned90_quant-none), identified by the following SparseZoo stub:
+For the SST2 dataset, there is a [transfer learning recipe available in SparseZoo](https://sparsezoo.neuralmagic.com/models/nlp%2Fsentiment_analysis%2Fobert-base%2Fpytorch%2Fhuggingface%2Fsst2%2Fpruned90_quant-none), identified by the following stub:
 ```
 zoo:nlp/sentiment_analysis/obert-base/pytorch/huggingface/sst2/pruned90_quant-none
 ```
@@ -146,13 +146,13 @@ Let's discuss the key arguments:
 
 - `--recipe zoo:nlp/sentiment_analysis/obert-base/pytorch/huggingface/sst2/pruned90_quant-none` specifies the transfer learning recipe. In this case, we passed a SparseZoo stub, which instructs SparseML to download a premade SST2 transfer learning recipe. In addition to SparseZoo stubs, you can also pass a local path to a YAML recipe.
 
-- `--distill_teacher zoo:nlp/sentiment_analysis/obert-base/pytorch/huggingface/sst2/base-none` is an optional argument that allows you to apply model distillation during fine-tuning. Here, we pass SparseZoo stub (ending in base_none, specifying the dense version) which pulls a dense BERT model trained on SST2 from the SparseZoo. In addition to SpareseZoo stubs, you can also pass a local path to a PyTorch checkpoint.
+- `--distill_teacher zoo:nlp/sentiment_analysis/obert-base/pytorch/huggingface/sst2/base-none` is an optional argument that allows you to apply model distillation during fine-tuning. Here, we pass SparseZoo stub (ending in base_none, specifying the dense version) which pulls a dense BERT model trained on SST2 from the SparseZoo. In addition to SparseZoo stubs, you can also pass a local path to a PyTorch checkpoint.
 
 The script uses the SparseZoo stubs to identify and download the starting checkpoint and recipe file. SparseML then parses the transfer learning recipe and adjusts the training loop to maintain sparsity during the fine-tuning process. It then kicks off the transfer learning run.
 
 The resulting model is 90% pruned and quantized, and achieves 92% validation accuracy on SST2!
 
-#### **Aside: Dense Teacher Creation**
+### **Aside: Dense Teacher Creation**
 
 You will notice that we passed a `--distill_teacher` argument to the training loop above. This is an optional argument, but distillation can help to improve accuracy during the transfer learning process.
 
@@ -173,12 +173,11 @@ sparseml.transformers.text_classification \
 
 The resulting model achieves 92.9% validation accuracy.
 
-To use the locally trained dense teacher, update the script to use `--distill_teacher ./dense_obert-text_classification_sst2`.
+To use the locally trained teacher, update the sparse transfer command to use `--distill_teacher ./dense_obert-text_classification_sst2`.
 
-Note that we still passed `--recipe zoo:nlp/sentiment_analysis/obert-base/pytorch/huggingface/sst2/base-none` during dense training. You will notice that
-the SparseZoo stub ends in `base-none`. This identifies a transfer learning recipe that was used to train the dense model. 
+Note that we still passed `--recipe zoo:nlp/sentiment_analysis/obert-base/pytorch/huggingface/sst2/base-none` during dense training. The SparseZoo stub ends in `base-none`, which identifies a transfer learning recipe that was used to train the dense model. 
 
-You can see that this recipe contains only hyperparameters for the learing rate and number of epochs:
+Here's what the recipe for the dense model looks like:
 
 ```yaml
 version: 1.1.0
@@ -202,11 +201,11 @@ training_modifiers:
     final_lr: eval(final_lr)
 ```
 
-As such, SparseML does not apply any sparsity related algorithms, so the training occurs as usual.
+You will notice the modifiers only specify the learning rate schedule and number of epochs. As such, SparseML does not apply any sparsity related algorithms, so the training occurs as usual.
 
 ### **Export to ONNX**
 
-The SparseML installation provides a `sparseml.transformers.export_onnx` command that you can use to export the model to ONNX. Be sure the `--model_path` argument points to your trained model:
+SparseML provides a `sparseml.transformers.export_onnx` command that you can use to export the model to ONNX. Be sure the `--model_path` argument points to your trained model:
 
 ```bash
 sparseml.transformers.export_onnx \
@@ -214,7 +213,7 @@ sparseml.transformers.export_onnx \
  --task text_classification
 ```
 
-The command creates a `./deployment` folder in your local directory, which contains the ONNX file and necessary Hugging Face tokenizer and configuration files.
+The command creates a `./deployment` folder in your local directory, which contains the ONNX file and necessary Hugging Face tokenizer and configuration files for deployment with DeepSparse.
 
 ## **Other Dataset Examples**
 
