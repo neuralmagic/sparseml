@@ -222,6 +222,8 @@ We can use the [Evaluate](https://huggingface.co/docs/evaluate/index) library to
 
 ```python
 from transformers import EvalPrediction
+from datasets import load_metric
+import numpy as np
 
 metric = load_metric("accuracy")
 
