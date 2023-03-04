@@ -342,7 +342,7 @@ Run the following to kick-off training with distillation:
 
 ```bash
 sparseml.transformers.train.question_answering \
-  --output_dir obert_base_pruned90_quant_squadshifts \
+  --output_dir obert_base_pruned90_quant_squadshifts-with_teacher \
   --recipe zoo:nlp/question_answering/obert-base/pytorch/huggingface/squad/pruned90_quant-none \
   --recipe_args '{"num_epochs":8, "qat_start_epoch":4.0, "observer_epoch":7.0}' \
   --model_name_or_path zoo:nlp/masked_language_modeling/obert-base/pytorch/huggingface/wikipedia_bookcorpus/pruned90-none \
