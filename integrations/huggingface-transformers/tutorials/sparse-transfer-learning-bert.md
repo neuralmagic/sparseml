@@ -336,4 +336,4 @@ Check out the use case guides for more details on each task, including using a c
 
 ## Wrap-Up
 
-[Checkout DeepSparse](https://github.com/neuralmagic/deepsparse) for more details on deploying your sparse models with GPU-class performance on CPUs!
+[Checkout DeepSparse](https://github.com/neuralmagic/deepsparse) for details on deploying your sparse models on CPUs!
