@@ -31,7 +31,7 @@ All we have to do is pass a couple of key arguments:
 
 ### Run Transfer Learning
 
-We will fine-tune a [90% pruned version of BERT](zoo:nlp/masked_language_modeling/obert-base/pytorch/huggingface/wikipedia_bookcorpus/pruned90-none) onto SST2.
+We will fine-tune a [90% pruned version of BERT](zoo:nlp/masked_language_modeling/obert-base/pytorch/huggingface/wikipedia_bookcorpus/pruned90-none) onto Conll2003.
 
 Run the following:
 ```bash
