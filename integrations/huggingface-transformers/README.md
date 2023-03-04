@@ -264,8 +264,8 @@ The SparseML installation provides a `sparseml.transformers.export_onnx` command
 
 ```bash
 sparseml.transformers.export_onnx \
-    --model_path ./pruned_quantized_obert-text_classification_sst2 \
-    --task text_classification
+  --model_path ./pruned_quantized_obert-text_classification_sst2 \
+  --task text_classification
 ```
 
 The command creates a `./deployment` folder in your local directory, which contains the ONNX file and necessary Hugging Face tokenizer and configuration files.
