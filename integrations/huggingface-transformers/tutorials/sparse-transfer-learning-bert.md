@@ -205,8 +205,8 @@ The SparseML installation provides a `sparseml.transformers.export_onnx` command
 
 ```bash
 sparseml.transformers.export_onnx \
-    --model_path ./pruned_quantized_obert-text_classification_sst2 \
-    --task text_classification
+ --model_path ./pruned_quantized_obert-text_classification_sst2 \
+ --task text_classification
 ```
 
 The command creates a `./deployment` folder in your local directory, which contains the ONNX file and necessary Hugging Face tokenizer and configuration files.
@@ -260,7 +260,7 @@ sparseml.transformers.train.text_classification \
 - Text Classification: Multi-Class Classification (MNLI)
 ```bash
 sparseml.transformers.train.text_classification \
-  --output_dir obert_base_pruned80_quant_mnli \
+  --output_dir obert_base_pruned90_quant_mnli \
   --model_name_or_path zoo:nlp/masked_language_modeling/obert-base/pytorch/huggingface/wikipedia_bookcorpus/pruned90-none \
   --recipe zoo:nlp/text_classification/obert-base/pytorch/huggingface/mnli/pruned90_quant-none \
   --distill_teacher zoo:nlp/text_classification/obert-base/pytorch/huggingface/mnli/base-none \
