@@ -549,7 +549,7 @@ sparseml.transformers.text_classification \
   --model_name_or_path zoo:nlp/masked_language_modeling/obert-base/pytorch/huggingface/wikipedia_bookcorpus/pruned90-none \
   --recipe zoo:nlp/sentiment_analysis/obert-base/pytorch/huggingface/sst2/pruned90_quant-none \
   --recipe_args '{"num_epochs":12,"qat_start_epoch":7.0, "observer_epoch": 11.0}' \
-  --distill_teacher --distill_teacher ./dense-teacher_rotten_tomatoes \
+  --distill_teacher ./dense-teacher_rotten_tomatoes \
   --dataset_name rotten_tomatoes --input_column_names "text" --label_column_name "label" \
   --output_dir sparse_quantized_bert-text_classification_rotten_tomatoes-hf_dataset --max_seq_length 128 --per_device_train_batch_size 32 \
   --per_device_eval_batch_size 32 --preprocessing_num_workers 6 --do_train --do_eval --evaluation_strategy epoch --fp16  \
@@ -572,7 +572,7 @@ sparseml.transformers.text_classification \
   --use_teacher_tokenizer true \
   --dataset_name tweet_eval --dataset_config_name emotion \
   --input_column_names "text" --label_column_name "label" \
-  --output_dir sparse_quantized_bert-text_classification_tweet_eval_emotion \
+  --output_dir sparse_quantized_bert-text_classification_tweet_eval_emotion-hf_hub_teacher \
   --do_train --do_eval --max_seq_length 128 --evaluation_strategy epoch --logging_steps 1000 --save_steps 1000 \
   --per_device_train_batch_size 8 --per_device_eval_batch_size 32 --gradient_accumulation_steps 4 --preprocessing_num_workers 32 \
   --seed 5114
