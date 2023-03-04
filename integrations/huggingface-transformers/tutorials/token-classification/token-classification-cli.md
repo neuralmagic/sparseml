@@ -149,7 +149,7 @@ Run the following to convert your PyTorch checkpoint to ONNX:
 ```bash
 sparseml.transformers.export_onnx \
   --model_path ./sparse_bert-token_classification_conll2003 \
-  --task text_classification
+  --task token_classification
 ```
 
 A `deployment` folder is created in your local directory, which has all of the files needed for deployment with DeepSparse including the `model.onnx`, `config.json`, and `tokenizer.json` files.
