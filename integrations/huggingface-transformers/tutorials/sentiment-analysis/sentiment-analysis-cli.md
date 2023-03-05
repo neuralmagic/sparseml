@@ -39,7 +39,7 @@ All we have to do is pass a couple of key arguments:
 - `--task` specifies a glue task to train on
 - `--recipe` specifies path a recipe to use to apply sparsification algorithms or sparse transfer learning to the model. For Sparse Transfer Learning, we will use a recipe that instructs SparseML to maintain sparsity during the training process and to apply quantization over the final few epochs. 
 
-### Create a Transfer Learning Recupe
+### Create a Transfer Learning Recipe
 
 To launch a Sparse Transfer Learning run, we first need to create a Sparse Transfer Learning recipe.
 
