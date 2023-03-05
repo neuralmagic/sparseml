@@ -39,7 +39,7 @@ pip install sparseml[torchvision]
 - [Sparse Transfer Learning with the CLI](tutorials/sparse-transfer-learning.md) **[HIGHLY RECOMMENDED]**
 - [Sparsifying From Scratch with the CLI](tutorials/sparsification-from-scratch.md)
 
-## Quick Tour
+## Quick Tour: Sparse Transfer Learning with the CLI
 
 ### SparseZoo
 
