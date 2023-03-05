@@ -306,8 +306,6 @@ sparseml.transformers.token_classification \
   --save_strategy epoch --save_total_limit 1
 ```
 
-The model converges to ~59% F1 score without any hyperparameter search.
-
 Note that used the dense version of BERT (the stub ends in base-none) as the starting point for the training and passed a recipe from SparseZoo which was used to train the dense teacher for the Conll2003 task. Since the Conll2003 task is similiar to the WNUT task, these parameters are a solid place to start. This recipe contains no sparsity related modifiers and only controls the learning rate and number of epochs. As such, the script will run typical fine-tuning, resulting in a dense model.
 
 Here is what the recipe looks like:
@@ -354,4 +352,4 @@ sparseml.transformers.token_classification \
   --save_strategy epoch --save_total_limit 1
 ```
 
-The model is 90% pruned and quantized and converges to XX% accuracy.
+The resulting model is 90% pruned and quantized.
