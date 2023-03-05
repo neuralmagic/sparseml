@@ -30,7 +30,7 @@ pip install sparseml[torch]
 
 ## Sparse Transfer Learning onto Conll2003
 
-SparseML's CLI offers pre-made training pipelines for common NLP tasks, including text classification.
+SparseML's CLI offers pre-made training pipelines for common NLP tasks, including token classification.
 
 The CLI enables you to kick-off training runs with various utilities like dataset loading and pre-processing, checkpoint saving, metric reporting, and logging handled for you.
 
