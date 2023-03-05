@@ -17,8 +17,8 @@ SparseZoo, Neural Magic's open source repository of pre-sparsified models, conta
 
 In this tutorial, you will learn how to:
 - [Sparse Transfer Learn onto a GLUE task (SST2)](#sparse-transfer-learning-onto-sst2-glue-task)
-- [Sparse Transfer Learn onto a custom dataset (Rotten Tomatoes)](#sparse-transfer-learning-with-a-custom-dataset-rotten-tomatoes)
-- [Sparse Transfer Learn with a custom teacher (Rotten Tomatoes)](#sparse-transfer-learning-with-a-custom-teacher-rotten-tomatoes)
+- [Sparse Transfer Learn onto a Custom Dataset (Rotten Tomatoes)](#sparse-transfer-learning-with-a-custom-dataset-rotten-tomatoes)
+- [Sparse Transfer Learn with a Custom Teacher (Rotten Tomatoes)](#sparse-transfer-learning-with-a-custom-teacher-rotten-tomatoes)
 
 ## Installation
 
