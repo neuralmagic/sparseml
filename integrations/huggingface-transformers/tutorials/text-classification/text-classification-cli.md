@@ -16,12 +16,12 @@ SparseZoo, Neural Magic's open source repository of pre-sparsified models, conta
 ### Table of Contents
 
 In this tutorial, you will learn how to:
-- [Sparse Transfer Learning with a GLUE Dataset (Multi-Input Multi-Class - MNLI)]()
-- [Sparse Transfer Learning with a GLUE Dataset (Multi-Input Binary-Class - QQP)]()
-- [Sparse Transfer Learning with a Custom Dataset (Single-Input Multi-Class - TweetEval)]()
-- [Sparse Transfer Learning with a Custom Dataset (Multi-Input Multi-Class - SICK)]()
-- [Sparse Transfer Learning with a Custom Teacher (Singe-Input Binary-Class - Rotten Tomatoes)]()
-- [Sparse Transfer Learning with a Custom Teacher from HF Hub (Singe-Inpuut Multi-Class - TweetEval)]()
+- [Sparse Transfer Learning with a GLUE Dataset (Multi-Input Multi-Class - MNLI)](#sparse-transfer-learning-with-a-glue-dataset-multi-input-multi-class---mnli)
+- [Sparse Transfer Learning with a GLUE Dataset (Multi-Input Binary-Class - QQP)](#sparse-transfer-learning-with-a-glue-dataset-multi-input-binary-class---qqp)
+- [Sparse Transfer Learning with a Custom Dataset (Single-Input Multi-Class - TweetEval)](#sparse-transfer-learning-with-a-custom-dataset-single-input-multi-class---tweeteval)
+- [Sparse Transfer Learning with a Custom Dataset (Multi-Input Multi-Class - SICK)](#sparse-transfer-learning-with-a-custom-dataset-multi-input-multi-class---sick)
+- [Sparse Transfer Learning with a Custom Teacher (Singe-Input Binary-Class - Rotten Tomatoes)](#sparse-transfer-learning-with-a-custom-teacher-singe-input-binary-class---rotten-tomatoes)
+- [Sparse Transfer Learning with a Custom Teacher from HF Hub (Singe-Input Multi-Class - TweetEval)](#sparse-transfer-learning-with-a-custom-teacher-from-hf-hub-singe-input-multi-class---tweeteval)
 
 ## Installation
 
@@ -571,7 +571,7 @@ sparseml.transformers.text_classification \
   --save_strategy epoch --save_total_limit 1
 ```
 
-## Sparse Transfer Learning with a Custom Teacher from HF Hub (Singe-Inpuut Multi-Class - TweetEval)
+## Sparse Transfer Learning with a Custom Teacher from HF Hub (Singe-Input Multi-Class - TweetEval)
 
 In addition to passing models trained locally, we can also pass models from the Hugging 
 Face hub via model identifiers to the transfer learning script as the `--distill_teacher`.
