@@ -179,7 +179,7 @@ sparseml.yolov5.train \
 
 SparseZoo contains mutliple variants of each version of YOLOv5 at various levels of sparsity, which can be fine-tuned onto your dataset. 
 
-[Checkout the full list!](https://sparsezoo.neuralmagic.com/?page=1&domain=cv&sub_domain=detection) 
+[Checkout the full list](https://sparsezoo.neuralmagic.com/?page=1&domain=cv&sub_domain=detection) 
 
 ## Using a Custom Dataset
 
