@@ -4,13 +4,21 @@ In this example, you will sparse transfer learn a 90% pruned BERT model onto som
 
 ### **Sparse Transfer Learning Overview**
 
-Sparse Transfer Learning is very similiar to the typical transfer learning process used to train NLP models, where we fine-tune a pretrained checkpoint onto a smaller downstream dataset. With Sparse Transfer Learning, we simply start the fine-tuning process from a pre-sparsified checkpoint and maintain sparsity during training.
+Sparse Transfer Learning is very similiar to the typical transfer learning process used to train NLP models, where we fine-tune a pretrained checkpoint onto a smaller downstream dataset. With Sparse Transfer Learning, however, we simply start the fine-tuning process from a pre-sparsified checkpoint and maintain sparsity while the training process occurs.
 
-### **Pre-Sparsified BERT**
+### Pre-Sparsified BERT
 
-SparseZoo contains a 90% pruned version of BERT, which has been sparsified on the upstream Wikipedia and BookCorpus datasets with the masked language modeling objective. [Check out the model card](https://sparsezoo.neuralmagic.com/models/nlp%2Fmasked_language_modeling%2Fobert-base%2Fpytorch%2Fhuggingface%2Fwikipedia_bookcorpus%2Fpruned90-none). We will use this model as the starting point for the transfer learning process.
+SparseZoo, Neural Magic's open source repository of pre-sparsified models, contains a 90% pruned version of BERT, which has been sparsified on the upstream Wikipedia and BookCorpus datasets with the masked language modeling objective.  We will use this model as the starting point for the transfer learning process.
 
-**Let's dive in!**
+- [Check out 90% pruned BERT model card](https://sparsezoo.neuralmagic.com/models/nlp%2Fmasked_language_modeling%2Fobert-base%2Fpytorch%2Fhuggingface%2Fwikipedia_bookcorpus%2Fpruned90-none)
+- [Check out the full list of pre-sparsified NLP models](https://sparsezoo.neuralmagic.com/?domain=nlp&sub_domain=masked_language_modeling&page=1)
+
+### Table of Contents
+
+In this tutorial, you will learn how to:
+- [Sparse Transfer Learn onto SQUAD](#sparse-transfer-learning-onto-squad)
+- [Sparse Transfer Learn onto a Custom Dataset (Squadshifts)](#sparse-transfer-learning-onto-a-custom-dataset-squadshifts)
+- [Sparse Transfer Learn with a Custom Teacher (Squadshifts)](#sparse-transfer-learning-with-a-custom-teacher-squadshifts)
 
 ## **Installation**
 
@@ -22,49 +30,25 @@ pip install sparseml[torch]
 
 ## **Sparse Transfer Learning onto SQuAD**
 
-SparseML's CLI enables you to kick-off sparsification workflows with various utilities like creating training pipelines, dataset loading, checkpoint saving, metric reporting, and logging handled for you. 
+SparseML's CLI offers pre-made training pipelines for common NLP tasks, including extractive question answering.
+
+The CLI enables you to kick-off training runs with various utilities like dataset loading and pre-processing, checkpoint saving, metric reporting, and logging handled for you.
+
+All we have to do is pass a couple of key arguments:
 
 All we have to do is pass a couple of key arguments: 
 - `--model_name_or_path` specifies the path to the starting checkpoint to load for training
 - `--dataset_name` specifies the dataset to train with
 - `--recipe` specifies the path to a recipe to use to apply sparsification algorithms or sparse transfer learning to the model. For Sparse Transfer Learning, we will use a recipe that instructs SparseML to maintain sparsity during the training process and to apply quantization over the final few epochs. 
+ 
+### **Create a Transfer Learning Recipe**
 
-### **Run Transfer Learning**
+To launch a Sparse Transfer Learning run, we first need to create a Sparse Transfer Learning recipe.
 
-Run the following to fine-tune a [90% pruned version of BERT](zoo:nlp/masked_language_modeling/obert-base/pytorch/huggingface/wikipedia_bookcorpus/pruned90-none) onto SQuAD:
+Recipes are YAML files that specify sparsity related algorithms and hyper-parameters. SparseML parses the recipes and updates the training loops to apply the specified sparsification algorithms to the model.
 
-```bash
-sparseml.transformers.train.question_answering \
-  --model_name_or_path zoo:nlp/masked_language_modeling/obert-base/pytorch/huggingface/wikipedia_bookcorpus/pruned90-none \
-  --recipe zoo:nlp/question_answering/obert-base/pytorch/huggingface/squad/pruned90_quant-none \
-  --distill_teacher zoo:nlp/question_answering/obert-base/pytorch/huggingface/squad/base-none \
-  --dataset_name squad \
-  --output_dir obert_base_pruned90_quant_squad \
-  --do_train --do_eval --evaluation_strategy epoch --logging_steps 1000 --save_steps 1000 \
-  --per_device_train_batch_size 8 --per_device_eval_batch_size 32 --gradient_accumulation_steps 2 \
-  --preprocessing_num_workers 32 \
-  --max_seq_length 384 --doc_stride 128 \
-  --seed 42
-```
+In the case of SQUAD, there is a [premade transfer recipe in the SparseZoo](https://sparsezoo.neuralmagic.com/models/nlp%2Fquestion_answering%2Fbert-large%2Fpytorch%2Fhuggingface%2Fsquad%2Fpruned90_quant-none):
 
-Let's discuss the key arguments:
-- `--dataset_name squad` instructs SparseML to download and fine-tune onto the SQuAD dataset. The data is downloaded from the Hugging Face hub. You can pass any extractive QA dataset from the Hugging Face hub, provided it conforms to the SQuAD format (see below for details).
-
-- `--zoo:nlp/masked_language_modeling/obert-base/pytorch/huggingface/wikipedia_bookcorpus/pruned90-none` specifies the starting checkpoint for the fine tuning. Here, we passed a SparseZoo stub identifying the 90% pruned version of BERT trained with masked language modeling, which SparseML downloads when the script starts.
-
-- `--recipe zoo:nlp/question_answering/obert-base/pytorch/huggingface/squad/pruned90_quant-none` specifies the recipe to be applied by SparseML. Here, we passed a SparseZoo stub identifying the transfer learning recipe for the SQuAD dataset, which SparseML downloads when the script starts. See below for the details of what this recipe looks like.
-
-- `--distill_teacher zoo:nlp/question_answering/obert-base/pytorch/huggingface/squad/base-none` is an optional argument that specifies a model to use as a teacher to apply distillation during the training process. We passed a SparseZoo stub identifying a dense BERT model trained on SQuAD, which SparseML downloads when the script starts.
-
-The model trains for 13 epochs, converging to and F1 score ~88% on the validation set. Because we applied a sparse transfer recipe, which instructs SparseML to maintain the sparsity of the starting pruned checkpoint and apply quantization, the final model is 90% pruned and quantized!
-
-#### **Transfer Learning Recipe**
-
-Recipes are YAML files that specify sparsity related algorithms and parameters. SparseML parses the recipes and updates the training loops with the instructions specified in the recipe.
-
-For SQuAD, SparseZoo contains a [premade transfer recipe](https://sparsezoo.neuralmagic.com/models/nlp%2Fquestion_answering%2Fbert-large%2Fpytorch%2Fhuggingface%2Fsquad%2Fpruned90_quant-none) created by Neural Magic's ML team.
-
-Here's what the recipe looks like:
 
 ```yaml
 version: 1.1.0
@@ -132,7 +116,7 @@ The `Modifiers` are the important items that encode how SparseML should modify t
 - `QuantizationModifier` tells SparseML to quanitze the weights with quantization aware training over the last 5 epochs
 - `DistillationModifier` tells SparseML how to apply distillation during the trainign process, targeting the logits
 
-SparseML parses the modifiers and updates the training process with their instructions.
+SparseML parses the modifiers and updates the training process to implement the algorithms and hyperparameters specified in the recipes.
 
 You can download the recipe with the following code:
 
@@ -145,12 +129,37 @@ recipe_path = zoo_model.recipes.default.path
 print(recipe_path)
 ```
 
+### **Fine Tune the Model**
+
+With the recipe and starting sparse checkpoint identified, we can kick off the fine-tuning with the following:
+```bash
+sparseml.transformers.train.question_answering \
+  --model_name_or_path zoo:nlp/masked_language_modeling/obert-base/pytorch/huggingface/wikipedia_bookcorpus/pruned90-none \
+  --recipe zoo:nlp/question_answering/obert-base/pytorch/huggingface/squad/pruned90_quant-none \
+  --distill_teacher zoo:nlp/question_answering/obert-base/pytorch/huggingface/squad/base-none \
+  --dataset_name squad \
+  --output_dir obert_base_pruned90_quant_squad \
+  --do_train --do_eval --evaluation_strategy epoch --logging_steps 1000 --save_steps 1000 \
+  --per_device_train_batch_size 8 --per_device_eval_batch_size 32 --gradient_accumulation_steps 2 \
+  --preprocessing_num_workers 32 \
+  --max_seq_length 384 --doc_stride 128 \
+  --seed 42
+```
+
+Let's discuss the key arguments:
+- `--dataset_name squad` instructs SparseML to download and fine-tune onto the SQuAD dataset. The data is downloaded from the Hugging Face hub. You can pass any extractive QA dataset from the Hugging Face hub, provided it conforms to the SQuAD format (see below for details).
+
+- `--zoo:nlp/masked_language_modeling/obert-base/pytorch/huggingface/wikipedia_bookcorpus/pruned90-none` specifies the starting checkpoint for the fine tuning. Here, we passed a SparseZoo stub identifying the 90% pruned version of BERT trained with masked language modeling, which SparseML downloads when the script starts.
+
+- `--recipe zoo:nlp/question_answering/obert-base/pytorch/huggingface/squad/pruned90_quant-none` specifies the recipe to be applied by SparseML. Here, we passed a SparseZoo stub identifying the transfer learning recipe for the SQuAD dataset, which SparseML downloads when the script starts. See below for the details of what this recipe looks like.
+
+- `--distill_teacher zoo:nlp/question_answering/obert-base/pytorch/huggingface/squad/base-none` is an optional argument that specifies a model to use as a teacher to apply distillation during the training process. We passed a SparseZoo stub identifying a dense BERT model trained on SQuAD, which SparseML downloads when the script starts.
+
+The model trains for 13 epochs, converging to and F1 score ~88% on the validation set. Because we applied a sparse transfer recipe, which instructs SparseML to maintain the sparsity of the starting pruned checkpoint and apply quantization, the final model is 90% pruned and quantized!
+
 ### **Export to ONNX**
 
-Once you have trained your model, export to ONNX in order to deploy with DeepSparse. The artifacts of the training process 
-are saved to your local filesystem. 
-
-Run the following to convert your PyTorch checkpoint to ONNX:
+Once you have trained your model, export to ONNX in order to deploy with DeepSparse with the following:
 
 ```bash
 sparseml.transformers.export_onnx \
@@ -160,15 +169,18 @@ sparseml.transformers.export_onnx \
 
 A `deployment` folder is created in your local directory, which has all of the files needed for deployment with DeepSparse including the `model.onnx`, `config.json`, and `tokenizer.json` files.
 
-## **Sparse Transfer Learning with a Custom Dataset (SquadShifts Amazon)**
+## **Sparse Transfer Learning onto a Custom Dataset (SquadShifts)**
+
+Beyond SQUAD, we can also use a custom dataset from the local filesystem.
 
 Let's try an example with [Squadshifts Amazon Dataset](https://huggingface.co/datasets/squadshifts), which contains ~10,000 question answer pairs from the Amazon product reviews.
 
 For simplicity, we will first perform the fine-tuning without distillation by setting `--distill_teacher disable`.
 
-### **Squadshifts Dataset**
+### **Squadshifts Dataset Inspection**
 
-Let's check out the Squadshifts dataset:
+Run the following to inspect the Squadshifts dataset.
+
 ```python
 from datasets import load_dataset
 from pprint import pprint 
@@ -267,7 +279,7 @@ Note that in this case, we used the SQuAD transfer learning recipe (identified b
 we chose the same hyperparameters. While you are free to download and modify the recipe manually (and then pass to SparseML as a local file), you can also use `--recipe_args` to modify the recipe on the fly. In this case, we passed `--recipe_args '{"num_epochs":8, "qat_start_epoch":4.0, "observer_epoch":7.0}'`. This updates the recipe to run
 for 8 epochs with QAT running over the final 4 epochs.
 
-## **Sparse Transfer Learning with a Custom Teacher**
+## **Sparse Transfer Learning with a Custom Teacher (Squadshifts)**
 
 To support the transfer learning process, we can apply model distillation, just like we did for the SQuAD case.
 You are free to use the native Hugging Face workflows to train the dense teacher model (and can even
@@ -291,7 +303,7 @@ sparseml.transformers.train.question_answering \
   --seed 42
 ```
 
-Note that used the dense version of BERT (the stub ends in `base-none`) as the starting point for the training 
+Note that we used the dense version of BERT (the stub ends in `base-none`) as the starting point for the training 
 and passed a recipe from [SparseZoo](https://sparsezoo.neuralmagic.com/models/nlp%2Fquestion_answering%2Fbert-large%2Fpytorch%2Fhuggingface%2Fsquad%2Fbase-none) which was used to train the 
 dense teacher for the SQuAD task. Since the SQuAD task is similiar to the Squadshifts Amazon task, these hyperparameters are a solid starting point. This recipe contains no sparsity related modifiers and only controls the learning rate and number of epochs. As such, no pruning is applied, resulting in a dense model.
 
