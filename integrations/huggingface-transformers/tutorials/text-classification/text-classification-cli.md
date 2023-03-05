@@ -31,7 +31,7 @@ Install SparseML via `pip`:
 pip install sparseml[torch]
 ```
 
-## Sparse Transfer Learning with a GLUE Dataset (Multi-Input Multi-Class - MNLI)
+## SparseML CLI
 
 SparseML's CLI offers pre-made training pipelines for common NLP tasks, including text classification. 
 
@@ -42,11 +42,14 @@ All we have to do is pass a couple of key arguments:
 - `--task` specifies a glue task to train on
 - `--recipe` specifies path a recipe to use to apply sparsification algorithms or sparse transfer learning to the model. For Sparse Transfer Learning, we will use a recipe that instructs SparseML to maintain sparsity during the training process and to apply quantization over the final few epochs. 
 
+
+## Sparse Transfer Learning with a GLUE Dataset (Multi-Input Multi-Class - MNLI)
+
 ### MNLI Dataset
 
 The Multi-Genre Natural Language Inference (MNLI) Corpus is a crowdsourced collection of sentence pairs with textual entailment annotations. Given a premise sentence and a hypothesis sentence, the task is to predict whether the premise entails the hypothesis (entailment), contradicts the hypothesis (contradiction), or neither (neutral). The premise sentences are gathered from ten different sources, including transcribed speech, fiction, and government reports. The authors of the benchmark use the standard test set, for which they obtained private labels from the RTE authors, and evaluate on both the matched (in-domain) and mismatched (cross-domain) section. They also uses and recommend the SNLI corpus as 550k examples of auxiliary training data.
 
-[Check out the model card](https://huggingface.co/datasets/glue/viewer/mnli/train)
+[Check out the dataset card](https://huggingface.co/datasets/glue/viewer/mnli/train)
 
 ### Create a Transfer Learning Recipe
 
