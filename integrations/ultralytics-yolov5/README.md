@@ -21,7 +21,7 @@ This directory explains how to use SparseML's `ultralytics/yolov5` integration t
 There are two main workflows enabled by SparseML:
 - **Sparse Transfer Learning** - fine-tune a pre-sparsified YOLOv5 checkpoint on your own dataset **[RECOMMENDED]**
 
-- **Sparsification from Sractch** - apply pruning and quantization to sparsify any of the YOLOv5 models from scratch.
+- **Sparsification from Scratch** - apply pruning and quantization to sparsify any YOLOv5 model from scratch
 
 Once trained, SparseML enables you to export models to the ONNX format, such that they can be deployed with DeepSparse.
 
@@ -44,9 +44,9 @@ pip install sparseml[torchvision]
 
 ### SparseZoo
 
-SparseZoo is an open-source repository of pre-sparsified models, including each version of of YOLOv5. With SparseML, you can fine-tune these pre-sparsified checkpoints onto custom datasets (while maintaining sparsity) via sparse transfer learning. This makes training inference-optimized sparse models almost identical to your typical YOLOv5 training workflows!
+SparseZoo is an open-source repository of pre-sparsified models, including each version of of YOLOv5. With SparseML, you can fine-tune these pre-sparsified checkpoints onto custom datasets (while maintaining sparsity) via sparse transfer learning. This makes training inference-optimized sparse models almost identical to your typical YOLOv5 training workflow.
 
-[Check out the available models](https://sparsezoo.neuralmagic.com/?repo=ultralytics&page=1).
+[Check out the available models](https://sparsezoo.neuralmagic.com/?repo=ultralytics&page=1)
 
 ### Recipes
 
@@ -175,3 +175,10 @@ sparseml.yolov5.export_onnx \
 ### DeepSparse Deployment
 
 Once exported to ONNX, you can deploy your models with DeepSparse. Checkout the [DeepSparse Repository](https://github.com/neuralmagic/deepsparse) for more details.
+
+## Next Steps
+
+Check out the tutorials for more details on additional functionality like training with other YOLOv5 versions and using custom datasets:
+
+- [Sparse Transfer Learning with the CLI](tutorials/sparse-transfer-learning.md) **[HIGHLY RECOMMENDED]**
+- [Sparsifying From Scratch with the CLI](tutorials/sparsify-from-scratch.md)
