@@ -8,13 +8,21 @@ Sparse Transfer Learning is very similiar to the typical transfer learing proces
 
 ### Pre-Sparsified BERT
 
-SparseZoo, Neural Magic's open source repository of pre-sparsified models, contains a 90% pruned version of BERT, which has been sparsified on the upstream Wikipedia and BookCorpus datasets with the masked language modeling objective. [Check out the model card](https://sparsezoo.neuralmagic.com/models/nlp%2Fmasked_language_modeling%2Fobert-base%2Fpytorch%2Fhuggingface%2Fwikipedia_bookcorpus%2Fpruned90-none). We will use this model as the starting point for the transfer learning process.
+SparseZoo, Neural Magic's open source repository of pre-sparsified models, contains a 90% pruned version of BERT, which has been sparsified on the upstream Wikipedia and BookCorpus datasets with the masked language modeling objective.  We will use this model as the starting point for the transfer learning process.
 
-**Let's dive in!**
+- [Check out 90% pruned BERT model card](https://sparsezoo.neuralmagic.com/models/nlp%2Fmasked_language_modeling%2Fobert-base%2Fpytorch%2Fhuggingface%2Fwikipedia_bookcorpus%2Fpruned90-none)
+- [Check out the full list of pre-sparsified NLP models](https://sparsezoo.neuralmagic.com/?domain=nlp&sub_domain=masked_language_modeling&page=1)
+
+### Table of Contents
+
+In this tutorial, you will learn how to:
+- [Sparse Transfer Learn onto Conll2003](#sparse-transfer-learning-onto-conll2003)
+- [Sparse Transfer Learn onto a Custom Dataset (WNut17)](#sparse-transfer-learning-with-a-custom-dataset-wnut_17)
+- [Sparse Transfer Learn with a Custom Teacher](#sparse-transfer-learning-with-a-custom-teacher)
 
 ## Installation
 
-Install SparseML via `pip`.
+Install SparseML via `pip`:
 
 ```bash
 pip install sparseml[torch]
@@ -26,53 +34,16 @@ SparseML's CLI enables you to kick-off sparsification workflows with various uti
 
 All we have to do is pass a couple of key arguments: 
 - `--model_name_or_path` specifies the starting checkpoint to load for training
-- `--task` specifies a glue dataset to train with 
+- `--dataset_name` specifies a Hugging Face dataset to train with 
 - `--recipe` specifies path a recipe to use to apply sparsification algorithms or sparse transfer learning to the model. For Sparse Transfer Learning, we will use a recipe that instructs SparseML to maintain sparsity during the training process and to apply quantization over the final few epochs. 
 
-### Run Transfer Learning
+### Create a Transfer Learning Recipe
 
-We will fine-tune a [90% pruned version of BERT](zoo:nlp/masked_language_modeling/obert-base/pytorch/huggingface/wikipedia_bookcorpus/pruned90-none) onto Conll2003.
+To launch a Sparse Transfer Learning run, we first need to create a Sparse Transfer Learning recipe.
 
-Run the following:
-```bash
-sparseml.transformers.train.token_classification \
-  --model_name_or_path zoo:nlp/masked_language_modeling/obert-base/pytorch/huggingface/wikipedia_bookcorpus/pruned90-none \
-  --recipe zoo:nlp/token_classification/obert-base/pytorch/huggingface/conll2003/pruned90_quant-none \
-  --distill_teacher zoo:nlp/token_classification/obert-base/pytorch/huggingface/conll2003/base-none \
-  --dataset_name conll2003 \
-  --output_dir sparse_bert-token_classification_conll2003 \
-  --per_device_train_batch_size 32 --per_device_eval_batch_size 32 --preprocessing_num_workers 6 \
-  --do_train --do_eval --evaluation_strategy epoch --fp16 --seed 29204  \
-  --save_strategy epoch --save_total_limit 1
-```
+Recipes are YAML files that specify sparsity related algorithms and hyper-parameters. SparseML parses the recipes and updates the training loops to apply the specified sparsification algorithms to the model.
 
-Let's discuss the key arguments:
-- `--dataset_name conll2003` instructs SparseML to download and fine-tune onto the Conll2003 dataset. The script automatically downloads the dataset from the Hugging Face hub.
-
-- `--model_name_or_path zoo:nlp/masked_language_modeling/obert-base/pytorch/huggingface/wikipedia_bookcorpus/pruned90-none` specifies the starting checkpoint for the fine tuning. Here, we passed a SparseZoo stub identifying the 90% pruned version of BERT trained with masked language modeling, which SparseML downloads when the script starts.
-
-- `--recipe zoo:nlp/token_classification/obert-base/pytorch/huggingface/conll2003/pruned90_quant-none` specifies the recipe to be applied by SparseML. Here, we passed a SparseZoo stub identifying the transfer learning recipe for the Conll2003 dataset, which SparseML downloads when the script starts. See below for the details of what this recipe looks like.
-
-- `--distill_teacher zoo:nlp/token_classification/obert-base/pytorch/huggingface/conll2003/base-none` is an optional argument that specifies a model to use for as a teacher to apply distillation during the training process. We passed a SparseZoo stub identifying a dense BERT model trained on Conll2003, which SparseML downloads when the script starts.
-
-The model trains for 13 epochs, converging to ~98.5% accuracy on the validation set. Because we applied a sparse transfer recipe, which instructs SparseML to maintain the sparsity of the starting pruned checkpoint and apply quantization, the final model is 90% pruned and quantized!
-
-#### Transfer Learning Recipe
-
-SparseML's recipes are YAML files that specify the sparsity related algorithms and parameters. SparseML parses the recipes and updates the training loops to apply the 
-to apply sparsification algorithms or sparse transfer learning to the model.
-
-In the case of Conll2003, we used a [premade recipe from the SparseZoo](https://sparsezoo.neuralmagic.com/models/nlp%2Ftoken_classification%2Fobert-base%2Fpytorch%2Fhuggingface%2Fconll2003%2Fpruned90_quant-none). 
-
-<details>
-    <summary>Click to inspect the recipe</summary>
-
-The `Modifiers` are the important items that encode how SparseML should modify the training process for Sparse Transfer Learning:
-- `ConstantPruningModifier` tells SparseML to pin weights at 0 over all epochs, maintaining the sparsity structure of the network
-- `QuantizationModifier` tells SparseML to quanitze the weights with quantization aware training over the last 5 epochs
-- `DistillationModifier` tells SparseML how to apply distillation during the trainign process, targeting the logits
-
-SparseML parses the modifiers and updates the training process to implement the algorithms and hyperparameters specified in the recipes.
+In the case of Conll2003, there is a [premade recipe from the SparseZoo](https://sparsezoo.neuralmagic.com/models/nlp%2Ftoken_classification%2Fobert-base%2Fpytorch%2Fhuggingface%2Fconll2003%2Fpruned90_quant-none):
 
 ```yaml
 version: 1.1.0
@@ -127,7 +98,12 @@ constant_modifiers:
       params: __ALL_PRUNABLE__
 ```
 
-</details>
+The `Modifiers` are the important items that encode how SparseML should modify the training process for Sparse Transfer Learning:
+- `ConstantPruningModifier` tells SparseML to pin weights at 0 over all epochs, maintaining the sparsity structure of the network
+- `QuantizationModifier` tells SparseML to quanitze the weights with quantization aware training over the last 5 epochs
+- `DistillationModifier` tells SparseML how to apply distillation during the training process, targeting the logits
+
+SparseML parses the modifiers and updates the training process to implement the algorithms and hyperparameters specified in the recipes.
 
 You can download the recipe with the following code:
 
@@ -140,11 +116,36 @@ recipe_path = zoo_model.recipes.default.path
 print(recipe_path)
 ```
 
+### Fine Tune the Model
+
+With the recipe and starting sparse checkpoint identified, we can kick off the fine-tuning with the following:
+
+```bash
+sparseml.transformers.train.token_classification \
+  --model_name_or_path zoo:nlp/masked_language_modeling/obert-base/pytorch/huggingface/wikipedia_bookcorpus/pruned90-none \
+  --recipe zoo:nlp/token_classification/obert-base/pytorch/huggingface/conll2003/pruned90_quant-none \
+  --distill_teacher zoo:nlp/token_classification/obert-base/pytorch/huggingface/conll2003/base-none \
+  --dataset_name conll2003 \
+  --output_dir sparse_bert-token_classification_conll2003 \
+  --per_device_train_batch_size 32 --per_device_eval_batch_size 32 --preprocessing_num_workers 6 \
+  --do_train --do_eval --evaluation_strategy epoch --fp16 --seed 29204  \
+  --save_strategy epoch --save_total_limit 1
+```
+
+Let's discuss the key arguments:
+- `--dataset_name conll2003` instructs SparseML to download and fine-tune onto the Conll2003 dataset. The script automatically downloads the dataset from the Hugging Face hub.
+
+- `--model_name_or_path zoo:nlp/masked_language_modeling/obert-base/pytorch/huggingface/wikipedia_bookcorpus/pruned90-none` specifies the starting checkpoint for the fine tuning. Here, we passed a SparseZoo stub identifying the 90% pruned version of BERT trained with masked language modeling, which SparseML downloads when the script starts.
+
+- `--recipe zoo:nlp/token_classification/obert-base/pytorch/huggingface/conll2003/pruned90_quant-none` specifies the recipe to be applied by SparseML. Here, we passed a SparseZoo stub identifying the transfer learning recipe for the Conll2003 dataset, which SparseML downloads when the script starts. See below for the details of what this recipe looks like.
+
+- `--distill_teacher zoo:nlp/token_classification/obert-base/pytorch/huggingface/conll2003/base-none` is an optional argument that specifies a model to use for as a teacher to apply distillation during the training process. We passed a SparseZoo stub identifying a dense BERT model trained on Conll2003, which SparseML downloads when the script starts.
+
+The model trains for 13 epochs, converging to ~98.5% accuracy on the validation set. Because we applied a sparse transfer recipe, which instructs SparseML to maintain the sparsity of the starting pruned checkpoint and apply quantization, the final model is 90% pruned and quantized!
+
 ### **Export to ONNX**
 
-Once you have trained your model, export to ONNX in order to deploy with DeepSparse. The artifacts of the training process are saved to your local filesystem. 
-
-Run the following to convert your PyTorch checkpoint to ONNX:
+Once you have trained your model, export to ONNX in order to deploy with DeepSparse with th following:
 
 ```bash
 sparseml.transformers.export_onnx \
@@ -156,7 +157,7 @@ A `deployment` folder is created in your local directory, which has all of the f
 
 ## Sparse Transfer Learning with a Custom Dataset (WNUT_17)
 
-Beyond the Conll2003 dataset, we can also use a dataset from the Hugging Face Hub or pass via local files. Let's try an example of each for the sentiment analysis using [WNUT 17](wnut_17), which is also a NER task.
+Beyond the Conll2003 dataset, we can also use a dataset from the Hugging Face Hub or from local files. Let's try an example of each for the sentiment analysis using [WNUT 17](wnut_17), which is also a NER task.
 
 For simplicity, we will perform the fine-tuning without distillation. Although the transfer learning recipe contains distillation
 modifiers, by setting `--distill_teacher disable` we instruct SparseML to skip distillation.
@@ -171,9 +172,11 @@ from datasets import load_dataset
 wnut_17 = load_dataset("wnut_17")
 print(wnut_17)
 print(wnut_17["train"][0])
+
+# > {'id': '0', 'tokens': ['@paulwalk', 'It', "'s", 'the', 'view', 'from', 'where', 'I', "'m", 'living', 'for', 'two', 'weeks', '.', 'Empire', 'State', 'Building', '=', 'ESB', '.', 'Pretty', 'bad', 'storm', 'here', 'last', 'evening', '.'], 'ner_tags': [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 8, 8, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0]}
 ```
 
-We can see that each row dataset contains a `tokens` field which contains a list of strings representing each word the sentence and a corresponding `ner_tags` which is a list of integers representing the tag of each word in the sentence.
+We can see that each row contains a `tokens` field which contains a list of strings representing each word the sentence and a corresponding `ner_tags` which is a list of integers representing the tag of each word in the sentence.
 
 ### Using a Hugging Face Dataset Identifier
 
@@ -206,13 +209,15 @@ Alternatively, you can use `--recipe_args` to modify the recipe on the fly. In t
 
 ### Using Local CSV/JSON Files
 
-Let's walk through how to pass a CSV/JSON dataset to the CLI.
+Let's walk through how to pass a JSON dataset to the CLI.
 
-#### Save Dataset as a CSV File
+#### Save Dataset as a JSON File
 
-For this example, we use Hugging Face `datasets` to create a JSON file for WNUT_17 that can be passed to SparseML's CLI but you can use any framework you want. For the Token Classification CLI, the label column must contain actual tags (i.e. not indexes). As such, we need to map the NER ids to tags before saving to JSON.
+We use Hugging Face `datasets` to create a JSON file for WNUT_17 that can be passed to SparseML's CLI. 
 
-Run the following to create the CSV files:
+For the Token Classification CLI, the label column must contain actual tags (i.e. not indexes). As such, we need to map the NER ids to tags before saving to JSON.
+
+Run the following to create the JSON files:
 
 ```python
 from datasets import load_dataset
@@ -250,6 +255,16 @@ We can see that the data is a JSON file with `tokens` and `named_ner_tags`.
 head ./wnut_17-train.json --lines=5
 ```
 
+Output:
+
+```bash
+{"id":"0","tokens":["@paulwalk","It","'s","the","view","from","where","I","'m","living","for","two","weeks",".","Empire","State","Building","=","ESB",".","Pretty","bad","storm","here","last","evening","."],"named_ner_tags":["O","O","O","O","O","O","O","O","O","O","O","O","O","O","B-location","I-location","I-location","O","B-location","O","O","O","O","O","O","O","O"]}
+{"id":"1","tokens":["From","Green","Newsfeed",":","AHFA","extends","deadline","for","Sage","Award","to","Nov",".","5","http:\/\/tinyurl.com\/24agj38"],"named_ner_tags":["O","O","O","O","B-group","O","O","O","O","O","O","O","O","O","O"]}
+{"id":"2","tokens":["Pxleyes","Top","50","Photography","Contest","Pictures","of","August","2010","...","http:\/\/bit.ly\/bgCyZ0","#photography"],"named_ner_tags":["B-corporation","O","O","O","O","O","O","O","O","O","O","O"]}
+{"id":"3","tokens":["today","is","my","last","day","at","the","office","."],"named_ner_tags":["O","O","O","O","O","O","O","O","O"]}
+{"id":"4","tokens":["4Dbling","'s","place","til","monday",",","party","party","party",".","&lt;","3"],"named_ner_tags":["B-person","O","O","O","O","O","O","O","O","O","O","O"]}
+```
+
 #### **Kick off Training**
 
 To use the local files with the CLI, pass `--train_file ./wnut_17-train.json --validation_file ./wnut_17-validation.json  --text_column_name tokens --label_column_name named_ner_tags`.
@@ -270,4 +285,72 @@ sparseml.transformers.token_classification \
 
 ### Sparse Transfer Learning with a Custom Teacher
 
-Stay tuned for an example with a custom teacher.
+To increase accuracy, we can apply model distillation from a dense teacher model, just like we did for the Conll2003 case. You are free to use the native Hugging Face workflows to train the dense teacher model (and can even pass a Hugging Face model identifier to the --distill_teacher argument), but can also use the SparseML CLI.
+
+#### Train the Dense Teacher
+
+Run the follwing to train a dense model on WNUT (using the data files from above):
+
+```bash
+sparseml.transformers.token_classification \
+  --model_name_or_path zoo:nlp/masked_language_modeling/obert-base/pytorch/huggingface/wikipedia_bookcorpus/base-none \
+  --recipe zoo:nlp/token_classification/obert-base/pytorch/huggingface/conll2003/base-none \
+  --distill_teacher disable \
+  --train_file wnut_17-train.json --validation_file wnut_17-validation.json \
+  --text_column_name tokens --label_column_name named_ner_tags \
+  --output_dir wnut_dense_teacher \
+  --per_device_train_batch_size 32 --per_device_eval_batch_size 32 --preprocessing_num_workers 6 \
+  --do_train --do_eval --evaluation_strategy epoch --fp16 --seed 29204  \
+  --save_strategy epoch --save_total_limit 1
+```
+
+The model converges to ~59% F1 score without any hyperparameter search.
+
+Note that used the dense version of BERT (the stub ends in base-none) as the starting point for the training and passed a recipe from SparseZoo which was used to train the dense teacher for the Conll2003 task. Since the Conll2003 task is similiar to the WNUT task, these parameters are a solid place to start. This recipe contains no sparsity related modifiers and only controls the learning rate and number of epochs. As such, the script will run typical fine-tuning, resulting in a dense model.
+
+Here is what the recipe looks like:
+
+```yaml
+
+version: 1.1.0
+
+# General Variables
+num_epochs: 4
+init_lr: 5e-5
+final_lr: 0
+
+# Modifiers:
+training_modifiers:
+  - !EpochRangeModifier
+      end_epoch: eval(num_epochs)
+      start_epoch: 0.0
+    
+  - !LearningRateFunctionModifier
+    start_epoch: 0
+    end_epoch: eval(num_epochs)
+    lr_func: linear
+    init_lr: eval(init_lr)
+    final_lr: eval(final_lr)
+```
+
+#### Sparse Transfer Learning with a Custom Teacher
+
+With the dense teacher trained, we can sparse transfer learn with the help of the teacher by passing a local path to the model checkpoint. In this case, we use `--distill_teacher ./wnut_dense_teacher`.
+
+Run the following to kick off training:
+
+```bash
+sparseml.transformers.token_classification \
+  --model_name_or_path zoo:nlp/masked_language_modeling/obert-base/pytorch/huggingface/wikipedia_bookcorpus/pruned90-none \
+  --recipe zoo:nlp/token_classification/obert-base/pytorch/huggingface/conll2003/pruned90_quant-none \
+  --recipe_args '{"num_epochs": 10, "qat_start_epoch": 5.0, "observer_epoch": 9.0}' \
+  --distill_teacher ./wnut_dense_teacher \
+  --train_file wnut_17-train.json --validation_file wnut_17-validation.json \
+  --text_column_name tokens --label_column_name named_ner_tags \
+  --output_dir wnut_sparse_with_teacher \
+  --per_device_train_batch_size 32 --per_device_eval_batch_size 32 --preprocessing_num_workers 6 \
+  --do_train --do_eval --evaluation_strategy epoch --fp16 --seed 29204  \
+  --save_strategy epoch --save_total_limit 1
+```
+
+The model is 90% pruned and quantized and converges to XX% accuracy.
