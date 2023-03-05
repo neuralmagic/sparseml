@@ -166,10 +166,7 @@ The model trains for 13 epochs, converging to ~82.5% accuracy on the validation 
 
 ### **Export to ONNX**
 
-Once you have trained your model, export to ONNX in order to deploy with DeepSparse. The artifacts of the training process 
-are saved to your local filesystem. 
-
-Run the following to convert your PyTorch checkpoint to ONNX:
+Export your trained model to ONNX to deploy with DeepSparse:
 
 ```bash
 sparseml.transformers.export_onnx \
@@ -293,7 +290,7 @@ Let's discuss the key arguments:
 
 - `--distill_teacher zoo:nlp/text_classification/obert-base/pytorch/huggingface/qqp/base-none` is an optional argument that specifies a model to use for as a teacher to apply distillation during the training process. We passed a SparseZoo stub identifying a dense BERT model trained on QQP, which SparseML downloads when the script starts.
 
-The model trains for 3 epochs, converging to ~91% accuracy on the validation set. Because we applied a sparse transfer recipe, which instructs SparseML to maintain the sparsity of the starting pruned checkpoint and apply quantization, the final model is 90% pruned and quantized!
+The model trains for 13 epochs, converging to ~91% accuracy on the validation set. Because we applied a sparse transfer recipe, which instructs SparseML to maintain the sparsity of the starting pruned checkpoint and apply quantization, the final model is 90% pruned and quantized!
 
 ## Sparse Transfer Learning with a Custom Dataset (Single-Input Multi-Class - TweetEval)
 
@@ -306,7 +303,7 @@ For simplicity, we will perform the fine-tuning without distillation. Although t
 
 ### Inspecting TweetEval Dataset
 
-Run the following to inspect the TweetEval
+Run the following to inspect the TweetEval dataset:
 
 ```python
 from datasets import load_dataset
@@ -451,9 +448,9 @@ sparseml.transformers.text_classification \
 
 You will notice that we used the same recipe as we did in the MNLI case (identified by the SparseZoo stub `zoo:nlp/text_classification/obert-base/pytorch/huggingface/mnli/pruned90_quant-none`). 
 
-Since the MNLI dataset is a multi sentence multi-class classification problem (similiarly, it is an entailment problem), we used the transfer learning recipe from the sentiment analysis task (a single sentence binary classification problem) as the starting point.
+Since the MNLI dataset is a multi sentence multi-class classification problem (similiarly, it is an entailment problem), the hyperparameters used for MNLI are a solid starting point for SICK.
 
-To experiment with the hyperparameters, you can download the YAML file from SparseZoo, make updates to the YAML directly, and pass the local path to SparseML. Alternative, you can use `--recipe_args` to update on the fly.
+To experiment with the hyperparameters, you can download the YAML file from SparseZoo, make updates to the YAML directly, and pass the local path to SparseML. Alternatively, you can use `--recipe_args` to update on the fly.
 
 ### Using Local CSV Files
 
