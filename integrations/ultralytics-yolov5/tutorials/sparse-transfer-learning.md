@@ -129,7 +129,7 @@ quantization_modifiers:
 
 The "Modifiers" encode how SparseML should modify the training process for Sparse Transfer Learning.
 - `ConstantPruningModifier` tells SparseML to pin weights at 0 over all epochs, maintaining the sparsity structure of the network
-- `QuantizationModifier` tells SparseML to quanitze the weights with quantization aware training over the last 5 epochs
+- `QuantizationModifier` tells SparseML to quantize the weights with quantization aware training over the last 5 epochs
 
 SparseML parses the instructions declared in the recipe and modifies the YOLOv5 training loop accordingly before running the fine-tuning. 
 
@@ -268,7 +268,7 @@ names:
 #### 2. Create Labels
 
 After using a tool like [Roboflow Annotate](https://roboflow.com/annotate?ref=ultralytics) to label your data, export your labels to the YOLO Format, with one
-`*.txt` file per image (if not objects are in the image, no `*.txt` file is required).
+`*.txt` file per image (if no objects are in the image, no `*.txt` file is required).
 
 The `*.txt` file specifications are:
 - One row per object
@@ -294,17 +294,12 @@ Let's try a real example with an aerial dataset.
 
 #### Download the Dataset
 
-Download the dataset from Google Drive ([link to file](https://drive.google.com/file/d/1GWTv9s-H387X-6wxHf2lVllqEdIv2J7N/view?usp=share_link)).
+The dataset is hosted on Google Drive ([link to file](https://drive.google.com/file/d/1GWTv9s-H387X-6wxHf2lVllqEdIv2J7N/view?usp=share_link)).
 
-Install `gdown` and download the dataset:
+Install `gdown` and download/unzip the dataset:
 ```
 pip install --upgrade gdown
 gdown 1GWTv9s-H387X-6wxHf2lVllqEdIv2J7N
-```
-
-Unzip the tarball.
-Download file:
-```bash
 tar -xvf aerial-dataset.tar.gz
 ```
 
