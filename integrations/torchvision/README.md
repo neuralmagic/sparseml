@@ -16,13 +16,15 @@ limitations under the License.
 
 # SparseML Torchvision Integration
 
-By integrating with Torchvision, SparseML enables you to train inference-optimized sparse versions of popular image classification models like ResNet-50 on your dataset.
+This directory explains how to use SparseML's `torchvision` integration to train inference-optimized sparse NLP models on your dataset.
 
-There are two pathways:
-- **Sparse Transfer Learning**: fine-tune a pre-sparsified checkpoint on your own dataset **[RECOMMENDED]**
-- **Sparsification from Scratch**: Apply state-of-the-art training-aware pruning and quantization algorithms to arbitrary Torchvision models.
+There are two main workflows enabled by SparseML:
 
-Once trained, SparseML enables you to export models to the ONNX format, such that they can be deployed with DeepSparse for GPU-class performance on the CPU.
+- **Sparse Transfer Learning** - fine-tune a pre-sparsified checkpoint on your own dataset **[RECOMMENDED]**
+
+- **Sparsification from Scratch** - apply pruning and quantization to sparsify `torchvision` models from scratch
+
+Once trained, SparseML enables you to export models to the ONNX format, such that they can be deployed with DeepSparse.
 
 ## Installation
 
@@ -45,7 +47,7 @@ pip install sparseml[torchvision]
 
 Neural Magic has pre-sparsified versions of common Torchvision models such as ResNet-50. These models can be deployed directly or can be fine-tuned onto custom dataset via sparse transfer learning. This makes it easy to create a sparse image classification model trained on your dataset.
 
-Check out the model cards in the [SparseZoo](https://sparsezoo.neuralmagic.com/?repo=ultralytics&page=1).
+[Check out the available models](https://sparsezoo.neuralmagic.com/?domain=cv&sub_domain=classification&page=1)
 
 ### Recipes
 
