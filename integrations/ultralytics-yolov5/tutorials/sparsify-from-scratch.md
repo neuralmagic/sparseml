@@ -21,14 +21,14 @@ This page explains how to sparsify a YOLOv5 model from scratch with SparseML's C
 ## Overview
 
 Sparsifying a model involves removing redundant information from a 
-trained model using algorithms such as pruning and quantization. The sparse models can then be deployed with DeepSparse, which implements many optimizations to increase performance via sparsity, for GPU-class performance on CPUs.
+trained model using algorithms such as pruning and quantization. The sparse models can then be deployed with DeepSparse, which implements many optimizations to take advantage of sparsity to gain a performance speedup.
 
 In this tutorial, we will demonstrate how to use recipes to create 
 sparse versions of YOLOv5.
 
 **Pro Tip**: For YOLOv5, there are pre-sparsified checkpoints of each version available in [SparseZoo](https://sparsezoo.neuralmagic.com/?domain=cv&sub_domain=detection&page=1). 
-As such, we highly recommend using the [Sparse Transfer Learning](sparse-transfer-learning.md) pathway to fine-tune one of these checkpoints onto your dataset 
-rather than sparsifying from scratch.
+***We highly recommend using the [Sparse Transfer Learning](sparse-transfer-learning.md) pathway to fine-tune one of these checkpoints onto your dataset 
+rather than sparsifying from scratch.***
 
 ## Sparsification Recipes
 
@@ -306,7 +306,7 @@ quantization_modifiers:
 There is is a lot here, but the important items are the `pruning_modifiers`, `distillation_modifiers`, and
 `quantization_modifiers`.
 
-The `pruning_modifiers` instruct SparseML to apply the Gradual Magnitude Pruning algorithm to various layers of
+The `pruning_modifiers` instruct SparseML to apply the Global Magnitude Pruning algorithm to various layers of
 the network. As you can see, the recipe specifies a target level of sparsity for each layer of the network.
 At the end of every epoch, the GMP algorithm iteratively removes the lowest magnitude weights gradually inducing
 sparsitty into the network.
