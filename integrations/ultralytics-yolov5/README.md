@@ -16,13 +16,14 @@ limitations under the License.
 
 # SparseML YOLOv5 Integration
 
-By integrating with robust training flows in the YOLOv5 repository, SparseML enables you to train inference-optimized sparse versions of YOLOv5 models on your dataset.
+This directory explains how to use SparseML's `ultralytics/yolov5` integration to train inference-optimized sparse YOLOv5 models on your dataset.
 
-There are two pathways:
+There are two main workflows enabled by SparseML:
 - **Sparse Transfer Learning** - fine-tune a pre-sparsified YOLOv5 checkpoint on your own dataset **[RECOMMENDED]**
-- **Sparsification from Sractch** - apply pruning and quantization to sparsify any of the YOLOv5 and YOLOv5-P6 models from scratch.
+-
+- **Sparsification from Sractch** - apply pruning and quantization to sparsify any of the YOLOv5 models from scratch.
 
-Once trained, SparseML enables you to export models to the ONNX format, such that they can be deployed with DeepSparse for GPU-class performance on the CPU.
+Once trained, SparseML enables you to export models to the ONNX format, such that they can be deployed with DeepSparse.
 
 ## Installation
 
@@ -167,7 +168,7 @@ The SparseML installation provides a `sparseml.yolov5.export_onnx` command that 
 
 ```bash
 sparseml.yolov5.export_onnx \
-  --weights path/to/weights.pt \
+  --weights yolov5_runs/train/exp/weights/last.pt \
   --dynamic 
 ```
 
