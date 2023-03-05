@@ -8,7 +8,7 @@ Sparse Transfer Learning is very similiar to the typical transfer learning proce
 
 ### Pre-Sparsified BERT
 
-SparseZoo, Neural Magic's open source repository of pre-sparsified models, contains a 90% pruned version of BERT, which has been sparsified on the upstream Wikipedia and BookCorpus datasets with the masked language modeling objective. [Check out the model card](https://sparsezoo.neuralmagic.com/models/nlp%2Fmasked_language_modeling%2Fobert-base%2Fpytorch%2Fhuggingface%2Fwikipedia_bookcorpus%2Fpruned90-none). We will use this model as the starting point for the transfer learning process.
+SparseZoo, Neural Magic's open source repository of pre-sparsified models, contains a 90% pruned version of BERT, which has been sparsified on the upstream Wikipedia and BookCorpus datasets with the masked language modeling objective. We will use this model as the starting point for the transfer learning process.
 
 - [Check out 90% pruned BERT model card](https://sparsezoo.neuralmagic.com/models/nlp%2Fmasked_language_modeling%2Fobert-base%2Fpytorch%2Fhuggingface%2Fwikipedia_bookcorpus%2Fpruned90-none)
 - [Check out the full list of pre-sparsified NLP models](https://sparsezoo.neuralmagic.com/?domain=nlp&sub_domain=masked_language_modeling&page=1)
@@ -16,12 +16,12 @@ SparseZoo, Neural Magic's open source repository of pre-sparsified models, conta
 ### Table of Contents
 
 In this tutorial, you will learn how to:
-- [Sparse Transfer Learning with a GLUE Dataset (Multi-Input Multi-Class - MNLI)](#sparse-transfer-learning-with-a-glue-dataset-multi-input-multi-class---mnli)
-- [Sparse Transfer Learning with a GLUE Dataset (Multi-Input Binary-Class - QQP)](#sparse-transfer-learning-with-a-glue-dataset-multi-input-binary-class---qqp)
-- [Sparse Transfer Learning with a Custom Dataset (Single-Input Multi-Class - TweetEval)](#sparse-transfer-learning-with-a-custom-dataset-single-input-multi-class---tweeteval)
-- [Sparse Transfer Learning with a Custom Dataset (Multi-Input Multi-Class - SICK)](#sparse-transfer-learning-with-a-custom-dataset-multi-input-multi-class---sick)
-- [Sparse Transfer Learning with a Custom Teacher (Singe-Input Binary-Class - Rotten Tomatoes)](#sparse-transfer-learning-with-a-custom-teacher-singe-input-binary-class---rotten-tomatoes)
-- [Sparse Transfer Learning with a Custom Teacher from HF Hub (Singe-Input Multi-Class - TweetEval)](#sparse-transfer-learning-with-a-custom-teacher-from-hf-hub-singe-input-multi-class---tweeteval)
+- [Sparse Transfer Learn with a GLUE Dataset (Multi-Input Multi-Class - MNLI)](#sparse-transfer-learning-with-a-glue-dataset-multi-input-multi-class---mnli)
+- [Sparse Transfer Learn with a GLUE Dataset (Multi-Input Binary-Class - QQP)](#sparse-transfer-learning-with-a-glue-dataset-multi-input-binary-class---qqp)
+- [Sparse Transfer Learn with a Custom Dataset (Single-Input Multi-Class - TweetEval)](#sparse-transfer-learning-with-a-custom-dataset-single-input-multi-class---tweeteval)
+- [Sparse Transfer Learn with a Custom Dataset (Multi-Input Multi-Class - SICK)](#sparse-transfer-learning-with-a-custom-dataset-multi-input-multi-class---sick)
+- [Sparse Transfer Learn with a Custom Teacher (Singe-Input Binary-Class - Rotten Tomatoes)](#sparse-transfer-learning-with-a-custom-teacher-singe-input-binary-class---rotten-tomatoes)
+- [Sparse Transfer Learn with a Custom Teacher from HF Hub (Singe-Input Multi-Class - TweetEval)](#sparse-transfer-learning-with-a-custom-teacher-from-hf-hub-singe-input-multi-class---tweeteval)
 
 ## Installation
 
@@ -42,6 +42,7 @@ All we have to do is pass a couple of key arguments:
 - `--task` specifies a glue task to train on
 - `--recipe` specifies path a recipe to use to apply sparsification algorithms or sparse transfer learning to the model. For Sparse Transfer Learning, we will use a recipe that instructs SparseML to maintain sparsity during the training process and to apply quantization over the final few epochs. 
 
+Let's try some examples!
 
 ## Sparse Transfer Learning with a GLUE Dataset (Multi-Input Multi-Class - MNLI)
 
@@ -57,7 +58,7 @@ To launch a Sparse Transfer Learning run, we first need to create a Sparse Trans
 
 Recipes are YAML files that specify sparsity related algorithms and hyper-parameters. SparseML parses the recipes and updates the training loops to apply the specified sparsification algorithms to the model.
 
-In the case of MNLI, we used a [premade recipe from the SparseZoo](https://sparsezoo.neuralmagic.com/models/nlp%2Ftext_classification%2Fobert-base%2Fpytorch%2Fhuggingface%2Fmnli%2Fpruned90_quant-none). 
+In the case of MNLI, we used a [premade recipe from the SparseZoo](https://sparsezoo.neuralmagic.com/models/nlp%2Ftext_classification%2Fobert-base%2Fpytorch%2Fhuggingface%2Fmnli%2Fpruned90_quant-none) (shown here):
 
 ```yaml
 version: 1.1.0
@@ -122,9 +123,9 @@ regularization_modifiers:
 The `Modifiers` are the important items that encode how SparseML should modify the training process for Sparse Transfer Learning:
 - `ConstantPruningModifier` tells SparseML to pin weights at 0 over all epochs, maintaining the sparsity structure of the network
 - `QuantizationModifier` tells SparseML to quanitze the weights with quantization aware training over the last 5 epochs
-- `DistillationModifier` tells SparseML how to apply distillation during the trainign process, targeting the logits
+- `DistillationModifier` tells SparseML how to apply distillation during the training process, targeting the logits
 
-SparseML parses the modifiers and updates the training process to implement the algorithms and hyperparameters specified in the recipes.
+SparseML parses the modifiers and updates the training process to implement the algorithms and hyperparameters specified in the recipes. As such, when this recipe is passed, the sparsity structure of the network will be maintained while the fine-tuning occurs and the weights will be quantized over the final few epochs.
 
 You can download the recipe with the following code:
 
@@ -252,7 +253,7 @@ The `Modifiers` are the important items that encode how SparseML should modify t
 - `QuantizationModifier` tells SparseML to quanitze the weights with quantization aware training over the last 5 epochs
 - `DistillationModifier` tells SparseML how to apply distillation during the trainign process, targeting the logits
 
-SparseML parses the modifiers and updates the training process to implement the algorithms and hyperparameters specified in the recipes.
+SparseML parses the modifiers and updates the training process to implement the algorithms and hyperparameters specified in the recipes. As such, when this recipe is passed, the sparsity structure of the network will be maintained while the fine-tuning occurs and the weights will be quantized over the final few epochs.
 
 You can download the recipe with the following code:
 
