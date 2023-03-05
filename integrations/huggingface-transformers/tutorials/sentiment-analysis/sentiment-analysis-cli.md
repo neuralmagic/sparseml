@@ -8,9 +8,16 @@ Sparse Transfer Learning is very similiar to the typical transfer learing proces
 
 ### Pre-Sparsified BERT
 
-SparseZoo, Neural Magic's open source repository of pre-sparsified models, contains a 90% pruned version of BERT, which has been sparsified on the upstream Wikipedia and BookCorpus datasets with the masked language modeling objective. [Check out the model card](https://sparsezoo.neuralmagic.com/models/nlp%2Fmasked_language_modeling%2Fobert-base%2Fpytorch%2Fhuggingface%2Fwikipedia_bookcorpus%2Fpruned90-none). We will use this model as the starting point for the transfer learning process.
+SparseZoo, Neural Magic's open source repository of pre-sparsified models, contains a 90% pruned version of BERT, which has been sparsified on the upstream Wikipedia and BookCorpus datasets with the masked language modeling objective.  We will use this model as the starting point for the transfer learning process.
 
-**Let's dive in!**
+[Check out the model card](https://sparsezoo.neuralmagic.com/models/nlp%2Fmasked_language_modeling%2Fobert-base%2Fpytorch%2Fhuggingface%2Fwikipedia_bookcorpus%2Fpruned90-none).
+
+### Table of Contents
+
+In this tutorial, you will learn how to:
+- [Sparse transfer learn onto a GLUE task (SST2)](#sparse-transfer-learning-onto-sst2-glue-task)
+- [Sparse transfer learn onto a custom dataset (Rotten Tomatoes)](#sparse-transfer-learning-with-a-custom-dataset-rotten-tomatoes)
+- [Sparse transfer learn with a custom teacher (Rotten Tomatoes)](#sparse-transfer-learning-with-a-custom-dataset-rotten-tomatoes)
 
 ## Installation
 
@@ -22,11 +29,13 @@ pip install sparseml[torch]
 
 ## Sparse Transfer Learning onto SST2 (GLUE Task)
 
-SparseML's CLI enables you to kick-off sparsification workflows with various utilities like creating training pipelines, dataset loading, checkpoint saving, metric reporting, and logging handled for you. 
+SparseML's CLI offers pre-made training pipelines for common NLP tasks, including text classification. 
+
+The CLI enables you to kick-off training runs with various utilities like dataset loading and pre-processing, checkpoint saving, metric reporting, and logging handled for you.
 
 All we have to do is pass a couple of key arguments: 
 - `--model_name_or_path` specifies the starting checkpoint to load for training
-- `--task` specifies a glue dataset to train with 
+- `--task` specifies a glue task to train on
 - `--recipe` specifies path a recipe to use to apply sparsification algorithms or sparse transfer learning to the model. For Sparse Transfer Learning, we will use a recipe that instructs SparseML to maintain sparsity during the training process and to apply quantization over the final few epochs. 
 
 ### Run Transfer Learning
