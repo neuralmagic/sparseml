@@ -167,8 +167,8 @@ The SparseML installation provides a `sparseml.yolov5.export_onnx` command that 
 
 ```bash
 sparseml.yolov5.export_onnx \
-    --weights path/to/weights.pt \
-    --dynamic 
+  --weights path/to/weights.pt \
+  --dynamic 
 ```
 
 ### DeepSparse Deployment
