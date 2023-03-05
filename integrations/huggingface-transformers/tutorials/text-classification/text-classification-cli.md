@@ -4,7 +4,7 @@ In this example, you will sparse transfer learn a 90% pruned BERT model onto som
 
 ### **Sparse Transfer Learning Overview**
 
-Sparse Transfer Learning is very similiar to the typical transfer learing process used to train NLP models, where we fine-tune a pretrained checkpoint onto a smaller downstream dataset. With Sparse Transfer Learning, we simply start the fine-tuning process from a pre-sparsified checkpoint and maintain sparsity while the training process occurs.
+Sparse Transfer Learning is very similiar to the typical transfer learning process used to train NLP models, where we fine-tune a pretrained checkpoint onto a smaller downstream dataset. With Sparse Transfer Learning, we simply start the fine-tuning process from a pre-sparsified checkpoint and maintain sparsity while the training process occurs.
 
 ### Pre-Sparsified BERT
 
@@ -16,7 +16,12 @@ SparseZoo, Neural Magic's open source repository of pre-sparsified models, conta
 ### Table of Contents
 
 In this tutorial, you will learn how to:
-- XXX
+- [Sparse Transfer Learning onto GLUE Dataset (Multi-Input Multi-Class - MNLI)]()
+- [Sparse Transfer Learning onto GLUE Dataset (Multi-Input Binary-Class - QQP)]()
+- [Sparse Transfer Learning with Custom Dataset (Single-Input Multi-Class - TweetEval)]()
+- [Sparse Transfer Learning with a Custom Dataset (Multi-Input Multi-Class - SICK)]()
+- [Sparse Transfer Learning with a Custom Teacher (Singe-Input Binary-Class - Rotten Tomatoes)]()
+- [Sparse Transfer Learning with a Custom Teacher from HF Hub (Singe-Inpuut Multi-Class - TweetEval)]()
 
 ## Installation
 
@@ -26,7 +31,7 @@ Install SparseML via `pip`:
 pip install sparseml[torch]
 ```
 
-## Sparse Transfer Learning onto Multi-Input Multi-Class GLUE Task (MNLI)
+## Sparse Transfer Learning onto GLUE Dataset (Multi-Input Multi-Class - MNLI)
 
 SparseML's CLI offers pre-made training pipelines for common NLP tasks, including text classification. 
 
@@ -170,7 +175,7 @@ sparseml.transformers.export_onnx \
 
 A `deployment` folder is created in your local directory, which has all of the files needed for deployment with DeepSparse including the `model.onnx`, `config.json`, and `tokenizer.json` files.
 
-## Sparse Transfer Learning onto Multi-Input Binary-Class GLUE Task (QQP)
+## Sparse Transfer Learning onto GLUE Dataset (Multi-Input Binary-Class - QQP)
 
 ### QQP Dataset
 
@@ -286,7 +291,7 @@ Let's discuss the key arguments:
 
 The model trains for 3 epochs, converging to ~91% accuracy on the validation set. Because we applied a sparse transfer recipe, which instructs SparseML to maintain the sparsity of the starting pruned checkpoint and apply quantization, the final model is 90% pruned and quantized!
 
-## Sparse Transfer Learning with Custom Dataset (Single-Input Multi-Class) (TweetEval)
+## Sparse Transfer Learning with Custom Dataset (Single-Input Multi-Class - TweetEval)
 
 Beyond the built-in GLUE tasks, we can also use custom text classification datasets. The datasets can either be passed as Hugging Face hub dataset identifiers or via local CSV files.
 
@@ -398,7 +403,7 @@ sparseml.transformers.text_classification \
   --seed 5114
 ```
 
-## Sparse Transfer Learning with a Custom Dataset (Multi-Input Multi-Class) Custom Dataset (SICK)
+## Sparse Transfer Learning with a Custom Dataset (Multi-Input Multi-Class - SICK)
 
 Let's try to transfer onto the [SICK (Sentences Involving Compositional Knowledge) Dataset](https://huggingface.co/datasets/sick),
 which includes 10,000 pairs of sentences with entailment relationships (`0=entailment, 1=neural, 2=contradiction`).
@@ -480,7 +485,7 @@ Output:
 3,5,The kids are playing outdoors near a man with a smile,A group of kids is playing in a yard and an old man is standing in the background,1,3.4,A_neutral_B,B_neutral_A,"A group of children playing in a yard, a man in the background.","The children are playing outdoors, while a man smiles nearby.",FLICKR,FLICKR
 ```
 
-#### **Kick off Training**
+#### Kick off Training
 
 To use the local files with the CLI, pass `--train_file ./sick-train.csv --validation_file ./sick-validation.csv  --input_column_names 'sentence_A,sentence_B' --label_column_name label`.
 
@@ -497,13 +502,13 @@ sparseml.transformers.text_classification \
   --seed 5114
 ```
 
-### Sparse Transfer Learning with a Custom Teacher (Rotten Tomatoes)
+## Sparse Transfer Learning with a Custom Teacher (Singe-Input Binary-Class - Rotten Tomatoes)
 
 To support the transfer learning process, we can apply model distillation, just like we did for the GLUE task.
 You are free to use the native Hugging Face workflows to train the dense teacher model (and can even
 pass a Hugging Face model identifier to the command), but you can also use the SparseML CLI for the dense training.
 
-#### Train The Dense Teacher
+### Train The Dense Teacher
 
 Run the following to train a dense model on Rotten Tomatoes:
 ```
@@ -547,7 +552,7 @@ training_modifiers:
     final_lr: eval(final_lr)
 ```
 
-#### Sparse Transfer Learning with a Custom Teacher
+### Sparse Transfer Learning with a Custom Teacher
 
 With the dense teacher trained, we can sparse transfer learn with the help of the teacher by passing a local path to the model checkpoint (in this case, 
 `--distill_teacher ./dense-teacher_rotten_tomatoes`).
@@ -566,7 +571,7 @@ sparseml.transformers.text_classification \
   --save_strategy epoch --save_total_limit 1
 ```
 
-### Sparse Transfer Learning with a Custom Teacher from HF Hub (TweetEval)
+## Sparse Transfer Learning with a Custom Teacher from HF Hub (Singe-Inpuut Multi-Class - TweetEval)
 
 In addition to passing models trained locally, we can also pass models from the Hugging 
 Face hub via model identifiers to the transfer learning script as the `--distill_teacher`.
