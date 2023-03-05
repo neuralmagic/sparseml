@@ -346,9 +346,9 @@ stub identifying the sparsification recipe shown above in the SparseZoo. Alterna
 optional argument (as pruning can be applied without model distillation as well). Here, we passed a SparseZoo stub identifying the standard dense YOLOv5s model in SparseZoo. Alternatively, you can pass a path to a YOLOv5 PyTorch model.
 
 - `--data coco.yaml` specifies dataset configuration file to use during the sparsification process. Here, we pass `coco.yaml`, which SparseML instructs SparseML to 
-automatically download the COCO dataset. Alternatively, you can pass a config file for your local dataset. Checkout the [Ultralytics Custom Data Tutorial Repo]
-(https://github.com/ultralytics/yolov5/wiki/Train-Custom-Data) for more details on how to structure your datasets. SparseML conforms to the Ultralytics 
-specification.
+automatically download the COCO dataset. Alternatively, you can pass a config file for your local dataset. Checkout the [Ultralytics Custom Data Tutorial Repo](https://github.com/ultralytics/yolov5/wiki/Train-Custom-Data) for more details on how to structure your datasets. SparseML conforms to the Ultralytics specification.
+
+- `--hyp hyps/hyp.scratch-low.yaml` specifies a path to the hyperparameters for the training. Here, we use a [built in configuration](https://github.com/neuralmagic/yolov5/blob/master/data/hyps/hyp.scratch-low.yaml). Note that any hyperparameters specified in the `--recipe` (e.g. epochs or learning rate) will override anything passed to the `--hyps` argument. For instance, in this case, the recipe specifies the learning rate schedule. The specification in the recipe overrides the lr in the hyperparameter file.
 
 At the end, you will have a 75% pruned and quantized version of YOLOv5s trained on COCO! This model achieves 54.69 mAP@0.5.
 
@@ -359,7 +359,7 @@ Once trained, you can export the model to ONNX for inference with DeepSparse.
 Run the following:
 
 ```bash 
-!sparseml.yolov5.export_onnx \
+sparseml.yolov5.export_onnx \
   --weights yolov5_runs/train/exp/weights/last.pt \
   --dynamic
 ```
@@ -370,7 +370,7 @@ The resulting ONNX file is saved in your local directory.
 
 Here are some sample transfer learning commands for other versions of YOLOv5. Checkout the [SparseZoo](https://sparsezoo.neuralmagic.com/?page=1&domain=cv&sub_domain=detection) for the full repository of pre-sparsified checkpoints.
 
-   - YOLOv5n: Sparsification Recipe Coming Soon
+   - YOLOv5n: Recipe Coming Soon
    
    - YOLOv5s: 75% Pruned-Quantized
 ```bash
@@ -386,7 +386,7 @@ sparseml.yolov5.train \
   --gradient-accum-steps 4
 ```
 
-   - YOLOv5m: Sparsification Recipe Coming Soon
+   - YOLOv5m: Recipe Coming Soon
    
    - YOLOv5l: 90% Pruned-Quantized
 
@@ -402,7 +402,7 @@ sparseml.yolov5.train \
   --patience 0 \
   --gradient-accum-steps 4
 ```
-   - YOLOv5x: Sparsification Recipe Coming Soon
+   - YOLOv5x: Recipe Coming Soon
 
 ## Next Steps
 
