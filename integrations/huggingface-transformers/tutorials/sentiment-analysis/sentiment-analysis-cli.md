@@ -1,10 +1,10 @@
 # Sentiment Analysis: Sparse Transfer Learning with the CLI
 
-In this example, you will sparse transfer learn a 90% pruned BERT model onto some sentiment-analysis datasets using SparseML's CLI.
+In this example, you will fine-tune a 90% pruned BERT model onto some sentiment-analysis datasets using SparseML's CLI.
 
 ### **Sparse Transfer Learning Overview**
 
-Sparse Transfer Learning is very similiar to the typical transfer learing process used to train NLP models, where we fine-tune a pretrained checkpoint onto a smaller downstream dataset. With Sparse Transfer Learning, we simply start the fine-tuning process from a pre-sparsified checkpoint and maintain sparsity while the training process occurs.
+Sparse Transfer Learning is very similiar to the typical transfer learing process used to train NLP models, where we fine-tune a pretrained checkpoint onto a smaller downstream dataset. With Sparse Transfer Learning, however, we simply start the fine-tuning process from a pre-sparsified checkpoint and maintain sparsity while the training process occurs.
 
 ### Pre-Sparsified BERT
 
