@@ -30,7 +30,9 @@ pip install sparseml[torch]
 
 ## Sparse Transfer Learning onto Conll2003
 
-SparseML's CLI enables you to kick-off sparsification workflows with various utilities like creating training pipelines, dataset loading, checkpoint saving, metric reporting, and logging handled for you. 
+SparseML's CLI offers pre-made training pipelines for common NLP tasks, including text classification.
+
+The CLI enables you to kick-off training runs with various utilities like dataset loading and pre-processing, checkpoint saving, metric reporting, and logging handled for you.
 
 All we have to do is pass a couple of key arguments: 
 - `--model_name_or_path` specifies the starting checkpoint to load for training
@@ -207,7 +209,7 @@ Alternatively, you can use `--recipe_args` to modify the recipe on the fly. In t
 --recipe_args '{"num_epochs":12,"qat_start_epoch":7.0, "observer_epoch": 11.0}'
 ```
 
-### Using Local CSV/JSON Files
+### Using Local JSON Files
 
 Let's walk through how to pass a JSON dataset to the CLI.
 
@@ -283,11 +285,11 @@ sparseml.transformers.token_classification \
   --save_strategy epoch --save_total_limit 1
 ```
 
-### Sparse Transfer Learning with a Custom Teacher
+## Sparse Transfer Learning with a Custom Teacher
 
 To increase accuracy, we can apply model distillation from a dense teacher model, just like we did for the Conll2003 case. You are free to use the native Hugging Face workflows to train the dense teacher model (and can even pass a Hugging Face model identifier to the --distill_teacher argument), but can also use the SparseML CLI.
 
-#### Train the Dense Teacher
+### Train the Dense Teacher
 
 Run the follwing to train a dense model on WNUT (using the data files from above):
 
@@ -311,7 +313,6 @@ Note that used the dense version of BERT (the stub ends in base-none) as the sta
 Here is what the recipe looks like:
 
 ```yaml
-
 version: 1.1.0
 
 # General Variables
@@ -333,7 +334,7 @@ training_modifiers:
     final_lr: eval(final_lr)
 ```
 
-#### Sparse Transfer Learning with a Custom Teacher
+### Fine Tune with a Custom Teacher
 
 With the dense teacher trained, we can sparse transfer learn with the help of the teacher by passing a local path to the model checkpoint. In this case, we use `--distill_teacher ./wnut_dense_teacher`.
 
