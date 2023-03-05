@@ -10,7 +10,8 @@ Sparse Transfer Learning is very similiar to the typical transfer learing proces
 
 SparseZoo, Neural Magic's open source repository of pre-sparsified models, contains a 90% pruned version of BERT, which has been sparsified on the upstream Wikipedia and BookCorpus datasets with the masked language modeling objective.  We will use this model as the starting point for the transfer learning process.
 
-[Check out the model card](https://sparsezoo.neuralmagic.com/models/nlp%2Fmasked_language_modeling%2Fobert-base%2Fpytorch%2Fhuggingface%2Fwikipedia_bookcorpus%2Fpruned90-none).
+- [Check out 90% pruned BERT model card](https://sparsezoo.neuralmagic.com/models/nlp%2Fmasked_language_modeling%2Fobert-base%2Fpytorch%2Fhuggingface%2Fwikipedia_bookcorpus%2Fpruned90-none)
+- [Check out the full list of pre-sparsified NLP models](https://sparsezoo.neuralmagic.com/?domain=nlp&sub_domain=masked_language_modeling&page=1)
 
 ### Table of Contents
 
@@ -21,7 +22,7 @@ In this tutorial, you will learn how to:
 
 ## Installation
 
-Install SparseML via `pip`.
+Install SparseML via `pip`:
 
 ```bash
 pip install sparseml[torch]
@@ -38,49 +39,13 @@ All we have to do is pass a couple of key arguments:
 - `--task` specifies a glue task to train on
 - `--recipe` specifies path a recipe to use to apply sparsification algorithms or sparse transfer learning to the model. For Sparse Transfer Learning, we will use a recipe that instructs SparseML to maintain sparsity during the training process and to apply quantization over the final few epochs. 
 
-### Run Transfer Learning
+### Create a Transfer Learning Recupe
 
-We will fine-tune a [90% pruned version of BERT](zoo:nlp/masked_language_modeling/obert-base/pytorch/huggingface/wikipedia_bookcorpus/pruned90-none) onto SST2.
+To launch a Sparse Transfer Learning run, we first need to create a Sparse Transfer Learning recipe.
 
-Run the following:
-```bash
-sparseml.transformers.text_classification \
-  --task_name sst2 \
-  --model_name_or_path zoo:nlp/masked_language_modeling/obert-base/pytorch/huggingface/wikipedia_bookcorpus/pruned90-none \
-  --recipe zoo:nlp/sentiment_analysis/obert-base/pytorch/huggingface/sst2/pruned90_quant-none \
-  --distill_teacher zoo:nlp/sentiment_analysis/obert-base/pytorch/huggingface/sst2/base-none \
-  --output_dir sparse_quantized_bert-text_classification_sst2 \
-  --max_seq_length 128 --per_device_train_batch_size 32 --per_device_eval_batch_size 32 --preprocessing_num_workers 6 \
-  --do_train --do_eval --evaluation_strategy epoch --fp16 --save_strategy epoch --save_total_limit 1
-```
+Recipes are YAML files that specify sparsity related algorithms and hyper-parameters. SparseML parses the recipes and updates the training loops to apply the specified sparsification algorithms to the model.
 
-Let's discuss the key arguments:
-- `--task_name sst2` instructs SparseML to download and fine-tune onto the SST2 dataset. You can pass any GLUE task to this parameter.
-
-- `--model_name_or_path zoo:nlp/masked_language_modeling/obert-base/pytorch/huggingface/wikipedia_bookcorpus/pruned90-none` specifies the starting checkpoint for the fine tuning. Here, we passed a SparseZoo stub identifying the 90% pruned version of BERT trained with masked language modeling, which SparseML downloads when the script starts.
-
-- `--recipe zoo:nlp/sentiment_analysis/obert-base/pytorch/huggingface/sst2/pruned90_quant-none` specifies the recipe to be applied by SparseML. Here, we passed a SparseZoo stub identifying the transfer learning recipe for the SST2 dataset, which SparseML downloads when the script starts. See below for the details of what this recipe looks like.
-
-- `--distill_teacher zoo:nlp/sentiment_analysis/obert-base/pytorch/huggingface/sst2/base-none` is an optional argument that specifies a model to use for as a teacher to apply distillation during the training process. We passed a SparseZoo stub identifying a dense BERT model trained on SST2, which SparseML downloads when the script starts.
-
-The model trains for 13 epochs, converging to ~92% accuracy on the validation set. Because we applied a sparse transfer recipe, which instructs SparseML to maintain the sparsity of the starting pruned checkpoint and apply quantization, the final model is 90% pruned and quantized!
-
-#### Transfer Learning Recipe
-
-SparseML's recipes are YAML files that specify the sparsity related algorithms and parameters. SparseML parses the recipes and updates the training loops to apply the 
-to apply sparsification algorithms or sparse transfer learning to the model.
-
-In the case of SST2, we used a [premade recipe from the SparseZoo](https://sparsezoo.neuralmagic.com/models/nlp%2Fsentiment_analysis%2Fobert-base%2Fpytorch%2Fhuggingface%2Fsst2%2Fpruned90_quant-none). 
-
-<details>
-    <summary>Click to inspect the recipe</summary>
-
-The `Modifiers` are the important items that encode how SparseML should modify the training process for Sparse Transfer Learning:
-- `ConstantPruningModifier` tells SparseML to pin weights at 0 over all epochs, maintaining the sparsity structure of the network
-- `QuantizationModifier` tells SparseML to quanitze the weights with quantization aware training over the last 5 epochs
-- `DistillationModifier` tells SparseML how to apply distillation during the trainign process, targeting the logits
-
-SparseML parses the modifiers and updates the training process to implement the algorithms and hyperparameters specified in the recipes.
+In the case of SST2, there is a [premade recipe in the SparseZoo](https://sparsezoo.neuralmagic.com/models/nlp%2Fsentiment_analysis%2Fobert-base%2Fpytorch%2Fhuggingface%2Fsst2%2Fpruned90_quant-none):
 
 ```yaml
 version: 1.1.0
@@ -143,7 +108,12 @@ regularization_modifiers:
       weight_decay: eval(weight_decay)
 ```
 
-</details>
+The `Modifiers` are the important items that encode how SparseML should modify the training process for Sparse Transfer Learning:
+- `ConstantPruningModifier` tells SparseML to pin weights at 0 over all epochs, maintaining the sparsity structure of the network
+- `QuantizationModifier` tells SparseML to quanitze the weights with quantization aware training over the last 5 epochs
+- `DistillationModifier` tells SparseML how to apply distillation during the training process, targeting the logits
+
+SparseML parses the modifiers and updates the training process to implement the algorithms and hyperparameters specified in the recipes.
 
 You can download the recipe with the following code:
 
@@ -156,12 +126,34 @@ recipe_path = zoo_model.recipes.default.path
 print(recipe_path)
 ```
 
+### Fine Tune The Model
+
+With the recipe and starting sparse checkpoint identified, we can kick off the fine-tuning with the following:
+```bash
+sparseml.transformers.text_classification \
+  --task_name sst2 \
+  --model_name_or_path zoo:nlp/masked_language_modeling/obert-base/pytorch/huggingface/wikipedia_bookcorpus/pruned90-none \
+  --recipe zoo:nlp/sentiment_analysis/obert-base/pytorch/huggingface/sst2/pruned90_quant-none \
+  --distill_teacher zoo:nlp/sentiment_analysis/obert-base/pytorch/huggingface/sst2/base-none \
+  --output_dir sparse_quantized_bert-text_classification_sst2 \
+  --max_seq_length 128 --per_device_train_batch_size 32 --per_device_eval_batch_size 32 --preprocessing_num_workers 6 \
+  --do_train --do_eval --evaluation_strategy epoch --fp16 --save_strategy epoch --save_total_limit 1
+```
+
+Let's discuss the key arguments:
+- `--task_name sst2` instructs SparseML to download and fine-tune onto the SST2 dataset. You can pass any GLUE task to this parameter.
+
+- `--model_name_or_path zoo:nlp/masked_language_modeling/obert-base/pytorch/huggingface/wikipedia_bookcorpus/pruned90-none` specifies the starting checkpoint for the fine tuning. Here, we passed a SparseZoo stub identifying the 90% pruned version of BERT trained with masked language modeling, which SparseML downloads when the script starts.
+
+- `--recipe zoo:nlp/sentiment_analysis/obert-base/pytorch/huggingface/sst2/pruned90_quant-none` specifies the recipe to be applied by SparseML. Here, we passed a SparseZoo stub identifying the transfer learning recipe for the SST2 dataset, which SparseML downloads when the script starts.
+
+- `--distill_teacher zoo:nlp/sentiment_analysis/obert-base/pytorch/huggingface/sst2/base-none` is an optional argument that specifies a model to use for as a teacher to apply distillation during the training process. Here, we passed a SparseZoo stub identifying a dense BERT model trained on SST2, which SparseML downloads when the script starts.
+
+The model trains for 13 epochs, converging to ~92% accuracy on the validation set. Because we applied a sparse transfer recipe, which instructs SparseML to maintain the sparsity of the starting pruned checkpoint and apply quantization, the final model is 90% pruned and quantized!
+
 ### **Export to ONNX**
 
-Once you have trained your model, export to ONNX in order to deploy with DeepSparse. The artifacts of the training process 
-are saved to your local filesystem. 
-
-Run the following to convert your PyTorch checkpoint to ONNX:
+Once you have trained your model, export to ONNX in order to deploy with DeepSparse with the following:
 
 ```bash
 sparseml.transformers.export_onnx \
@@ -173,7 +165,9 @@ A `deployment` folder is created in your local directory, which has all of the f
 
 ## Sparse Transfer Learning with a Custom Dataset (Rotten Tomatoes)
 
-Beyond the built-in GLUE tasks, we can also use a dataset from the Hugging Face Hub or pass via local files. Let's try an example of each for the sentiment analysis using [Rotten Tomatoes Dataset](https://huggingface.co/datasets/rotten_tomatoes), which containing 5,331 positive and 5,331 negative processed sentences.
+Beyond the built-in GLUE tasks, we can also use a custom dataset from the Hugging Face Hub or from the local filesystem. 
+
+Let's try an example with the [Rotten Tomatoes Dataset](https://huggingface.co/datasets/rotten_tomatoes), which cointains 5,331 positive and 5,331 negative sentences.
 
 For simplicity, we will perform the fine-tuning without distillation. Although the transfer learning recipe contains distillation
 modifiers, by setting `--distill_teacher disable` we instruct SparseML to skip distillation.
@@ -188,13 +182,15 @@ from datasets import load_dataset
 rotten_tomatoes = load_dataset("rotten_tomatoes")
 print(rotten_tomatoes)
 print(rotten_tomatoes["train"][0])
+
+# {'text': 'the rock is destined to be the 21st century\'s new " conan " and that he\'s going to make a splash even greater than arnold schwarzenegger , jean-claud van damme or steven segal .', 'label': 1}
 ```
 
 We can see that each row dataset contains a `text` field which is a string representing the sequence to be classified and a `label` field which is a `0` or `1` representing negative and positive labels.
 
 ### Using a Hugging Face Dataset Identifier
 
-We can easily pass the `rotten_tomatoes` Hugging Face dataset identifier to train with this dataset instead of SST2. Simply replace the `--task_name sst2` argument with `--dataset_name rotten_tomatoes --input_column_names text --label_column_name label`. SparseML will then download the dataset from the Hugging Face hub and run training as before.
+We can pass the Hugging Face dataset identifier to the CLI. Simply replace the `--task_name sst2` argument with `--dataset_name rotten_tomatoes --input_column_names text --label_column_name label`:
 
 ```
 sparseml.transformers.text_classification \
@@ -214,7 +210,7 @@ You will notice that we used the same recipe as we did in the SST2 case (identif
 
 To update a recipe and experiment with hyperparameters, you can download the YAML file from SparseZoo, make updates to the YAML directly, and pass the local path to SparseML.
 
-Alternatively, you can use `--recipe_args` to modify the recipe on the fly. In this case, we used the following to run for 12 epochs instead of 13:
+Alternatively, you can use `--recipe_args` to modify the recipe on the fly. In this case, we used the following to run for 12 epochs instead of 13 (with QAT running over the final 5 epochs):
 
 ```bash
 --recipe_args '{"num_epochs":12,"qat_start_epoch":7.0, "observer_epoch": 11.0}'
@@ -226,10 +222,7 @@ Let's walk through how to pass a CSV/JSON dataset to the CLI.
 
 #### Save Dataset as a CSV File
 
-For this example, we use Hugging Face `datasets` to create a CSV file for Rotten Tomatoes that can be passed to SparseML's CLI but you can use any framework you want to create the CSV.
-
-Run the following to create the CSV files:
-
+We use Hugging Face `datasets` to create a CSV file for Rotten Tomatoes that can be passed to SparseML's CLI:
 ```python
 from datasets import load_dataset
 
@@ -247,11 +240,19 @@ We can see that the data is a CSV file with text and label as the columns:
 head ./rotten_tomatoes-train.csv --lines=5
 ```
 
+Output:
+```
+,text,label
+0,"the rock is destined to be the 21st century's new "" conan "" and that he's going to make a splash even greater than arnold schwarzenegger , jean-claud van damme or steven segal .",1
+1,"the gorgeously elaborate continuation of "" the lord of the rings "" trilogy is so huge that a column of words cannot adequately describe co-writer/director peter jackson's expanded vision of j . r . r . tolkien's middle-earth .",1
+2,effective but too-tepid biopic,1
+3,"if you sometimes like to go to the movies to have fun , wasabi is a good place to start .",1
+```
+
 #### **Kick off Training**
 
-To use the local files with the CLI, pass `--train_file ./rotten_tomatoes-train.csv --validation_file ./rotten_tomatoes-validation.csv  --input_column_names text --label_column_name label` in place 
+To use the local files with the CLI, pass `--train_file ./rotten_tomatoes-train.csv --validation_file ./rotten_tomatoes-validation.csv  --input_column_names text --label_column_name label`:
 
-Run the following:
 ```bash
 sparseml.transformers.text_classification \
   --model_name_or_path zoo:nlp/masked_language_modeling/obert-base/pytorch/huggingface/wikipedia_bookcorpus/pruned90-none \
@@ -265,9 +266,9 @@ sparseml.transformers.text_classification \
 
 ### Sparse Transfer Learning with a Custom Teacher (Rotten Tomatoes)
 
-To support the transfer learning process, we can apply model distillation, just like we did for the SST2 case.
+To increase accuracy, we can apply model distillation from a dense teacher model, just like we did for the SST2 case.
 You are free to use the native Hugging Face workflows to train the dense teacher model (and can even
-pass a Hugging Face model identifier to the command), but you can also use the SparseML CLI as well. 
+pass a Hugging Face model identifier to the `--distill_teacher` argument), but can also use the SparseML CLI.
 
 #### Train The Dense Teacher
 
@@ -317,8 +318,7 @@ training_modifiers:
 
 #### Sparse Transfer Learning with a Custom Teacher
 
-With the dense teacher trained, we can sparse transfer learn with the help of the teacher by passing
-`--distill_teacher ./dense-teacher_rotten_tomatoes`.
+With the dense teacher trained, we can sparse transfer learn with the help of the teacher by passing a local path to the model checkpoint. In this case, we use `--distill_teacher ./dense-teacher_rotten_tomatoes`.
 
 Run the following to kick-off training:
 
