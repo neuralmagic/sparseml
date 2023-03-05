@@ -298,8 +298,8 @@ Download the dataset from Google Drive ([link to file](https://drive.google.com/
 
 Install `gdown` and download the dataset:
 ```
-pip install gdown
-gdown 14tAZ5eCadM08mXMhum2PYw1kqvIr4-N4
+pip install --upgrade gdown
+gdown 1GWTv9s-H387X-6wxHf2lVllqEdIv2J7N
 ```
 
 Unzip the tarball.
@@ -354,7 +354,7 @@ from PIL import Image
 
 plt.figure(figsize=(15, 15), facecolor='white')
 
-filename_image = f"aerial-dataset/val/images/00001_frame000000_original.jpg"
+filename_image = f"aerial-dataset/train/images/00001_frame000000_original.jpg"
 filename_label = filename_image.replace('images','labels').replace('jpg','txt')
 data = pd.read_csv(filename_label, header=None, delimiter=' ', names=["class", "x_center", "y_center", "width", "height"])
 
