@@ -52,7 +52,7 @@ SparseZoo is an open-source repository of pre-sparsified models, including each 
 
 Recipes are YAML files that encode the instructions for sparsifying a model or sparse transfer learning. SparseML accepts the recipes as inputs, parses the instructions, and applies the specified algorithms and hyperparameters during the training process.
 
-In such a way, recipes are the declarative interface for specifying which sparsity-related algorithms to apply!
+In this way, recipes are the declarative interface for specifying which sparsity-related algorithms to apply, allowing you to apply sparsity related algorithms from the familiar YOLOv5 training script.
 
 ### SparseML CLI
 
@@ -83,6 +83,8 @@ optional arguments:
                         total batch size for all GPUs, -1 for autobatch
 ...
 ```
+
+SparseML inherits most arguments from the Ultralytics repository. [Check out the YOLOv5 documentation for usage](https://github.com/ultralytics/yolov5).
 
 ## Quick Start: Sparse Transfer Learning
 
