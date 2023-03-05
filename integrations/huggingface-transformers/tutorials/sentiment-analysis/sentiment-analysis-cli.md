@@ -264,13 +264,13 @@ sparseml.transformers.text_classification \
   --save_strategy epoch --save_total_limit 1
 ```
 
-### Sparse Transfer Learning with a Custom Teacher (Rotten Tomatoes)
+## Sparse Transfer Learning with a Custom Teacher (Rotten Tomatoes)
 
 To increase accuracy, we can apply model distillation from a dense teacher model, just like we did for the SST2 case.
 You are free to use the native Hugging Face workflows to train the dense teacher model (and can even
 pass a Hugging Face model identifier to the `--distill_teacher` argument), but can also use the SparseML CLI.
 
-#### Train The Dense Teacher
+### Train The Dense Teacher
 
 Run the following to train a dense model on Rotten Tomatoes:
 ```
@@ -316,7 +316,7 @@ training_modifiers:
     final_lr: eval(final_lr)
 ```
 
-#### Sparse Transfer Learning with a Custom Teacher
+### Fine Tune with a Custom Teacher
 
 With the dense teacher trained, we can sparse transfer learn with the help of the teacher by passing a local path to the model checkpoint. In this case, we use `--distill_teacher ./dense-teacher_rotten_tomatoes`.
 
