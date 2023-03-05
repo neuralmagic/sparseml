@@ -413,7 +413,7 @@ With the config file setup and data downloaded, we can simply swap in the datase
 sparseml.yolov5.train \
   --weights zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned75_quant-none?recipe_type=transfer_learn \
   --recipe zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned75_quant-none?recipe_type=transfer_learn \
-  --recipe_args '{"num_epochs":30}'
+  --recipe_args '{"num_epochs":30}' \
   --data aerial-daraset.yaml.yaml \
   --patience 0 \
   --cfg yolov5s.yaml \
