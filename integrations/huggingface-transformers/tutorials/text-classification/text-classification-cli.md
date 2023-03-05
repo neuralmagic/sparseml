@@ -16,9 +16,9 @@ SparseZoo, Neural Magic's open source repository of pre-sparsified models, conta
 ### Table of Contents
 
 In this tutorial, you will learn how to:
-- [Sparse Transfer Learning onto GLUE Dataset (Multi-Input Multi-Class - MNLI)]()
-- [Sparse Transfer Learning onto GLUE Dataset (Multi-Input Binary-Class - QQP)]()
-- [Sparse Transfer Learning with Custom Dataset (Single-Input Multi-Class - TweetEval)]()
+- [Sparse Transfer Learning with a GLUE Dataset (Multi-Input Multi-Class - MNLI)]()
+- [Sparse Transfer Learning with a GLUE Dataset (Multi-Input Binary-Class - QQP)]()
+- [Sparse Transfer Learning with a Custom Dataset (Single-Input Multi-Class - TweetEval)]()
 - [Sparse Transfer Learning with a Custom Dataset (Multi-Input Multi-Class - SICK)]()
 - [Sparse Transfer Learning with a Custom Teacher (Singe-Input Binary-Class - Rotten Tomatoes)]()
 - [Sparse Transfer Learning with a Custom Teacher from HF Hub (Singe-Inpuut Multi-Class - TweetEval)]()
@@ -31,7 +31,7 @@ Install SparseML via `pip`:
 pip install sparseml[torch]
 ```
 
-## Sparse Transfer Learning onto GLUE Dataset (Multi-Input Multi-Class - MNLI)
+## Sparse Transfer Learning with a GLUE Dataset (Multi-Input Multi-Class - MNLI)
 
 SparseML's CLI offers pre-made training pipelines for common NLP tasks, including text classification. 
 
@@ -175,7 +175,7 @@ sparseml.transformers.export_onnx \
 
 A `deployment` folder is created in your local directory, which has all of the files needed for deployment with DeepSparse including the `model.onnx`, `config.json`, and `tokenizer.json` files.
 
-## Sparse Transfer Learning onto GLUE Dataset (Multi-Input Binary-Class - QQP)
+## Sparse Transfer Learning with a GLUE Dataset (Multi-Input Binary-Class - QQP)
 
 ### QQP Dataset
 
@@ -291,7 +291,7 @@ Let's discuss the key arguments:
 
 The model trains for 3 epochs, converging to ~91% accuracy on the validation set. Because we applied a sparse transfer recipe, which instructs SparseML to maintain the sparsity of the starting pruned checkpoint and apply quantization, the final model is 90% pruned and quantized!
 
-## Sparse Transfer Learning with Custom Dataset (Single-Input Multi-Class - TweetEval)
+## Sparse Transfer Learning with a Custom Dataset (Single-Input Multi-Class - TweetEval)
 
 Beyond the built-in GLUE tasks, we can also use custom text classification datasets. The datasets can either be passed as Hugging Face hub dataset identifiers or via local CSV files.
 
