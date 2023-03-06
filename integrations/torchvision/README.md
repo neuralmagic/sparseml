@@ -16,7 +16,7 @@ limitations under the License.
 
 # SparseML Torchvision Integration
 
-This directory explains how to use SparseML's `torchvision` integration to train inference-optimized sparse NLP models on your dataset.
+This directory explains how to use SparseML's `torchvision` integration to train inference-optimized sparse image classification models on your dataset.
 
 There are two main workflows enabled by SparseML:
 
@@ -51,38 +51,15 @@ Neural Magic has pre-sparsified versions of common Torchvision models such as Re
 
 ### Recipes
 
-SparseML Recipes are YAML files that encode the instructions for sparsifying a model or sparse transfer learning. The SparseML image classification training script accepts the recipes as inputs, parses the instructions, and applies the specified algorithms and hyperparameters during the training process.
+Recipes are YAML files that encode the instructions for sparsifying a model or sparse transfer learning. SparseML accepts the recipes as inputs, parses the instructions, and applies the specified algorithms and hyperparameters during the training process.
 
-### SparseML CLI
-
-SparseML's CLI enables you to kick-off sparse training workflows with various utilities like creating training pipelines, dataset loading, checkpoint saving, metric reporting, and logging handled for you.
-
-To get started, we just need to a couple key arguments:
-```bash
-sparseml.image_classification.train \
-    --checkpoint-path [CHECKPOINT-PATH] \
-    --recipe [RECIPE-PATH] \
-    --dataset-path [DATASET-PATH]
-```
-
-- `--checkpoint-path` specifies the starting model to use in the training process. It can either be a local path to a PyTorch checkpoint or a SparseZoo stub (which SparseML uses to download a PyTorch checkpoint).
-
-- `--dataset-path` specifies the dataset used for training. It must be a local path to a dataset in the ImageNet format (see CLI tutorials for more details).
-
-- `--recipe` specifies the sparsity related parameters of the training process. It can either be a local path to a YAML recipe file or a SparseZoo stub (which SparseML uses to download a YAML recipe file). The `recipe` is the key to enabling the sparsity-related algorithms implemented by SparseML (see the CLI tutorials for more details on recipes).
-
-For full usage, run:
-```bash
-sparseml.image_classification --help
-```
+In such a way, recipes are the declarative interface for specifying which sparsity-related algorithms to apply.
 
 ### SparseML Python API
 
-For additional flexibility, SparseML has a Python API that also enables you to add sparsification to a native PyTorch training loop.
+Because of the declarative, recipe-based approach, you can add SparseML to your PyTorch training pipelines with just a couple lines of code.
 
-Just like the CLI, the Python API uses YAML-based recipes to encode the parameters of the sparsification process, allowing youto add SparseML with just a few lines of code.
-
-The `ScheduleModifierManager` class is responsible for parsing the YAML recipes and overriding the standard PyTorch model and optimizer objects, 
+SparseML's `ScheduleModifierManager` class is responsible for parsing the YAML recipes and overriding the standard PyTorch model and optimizer objects, 
 encoding the logic of the sparsity algorithms from the recipe. Once you call `manager.modify`, you can then use the model and optimizer as usual, as SparseML abstracts away the complexity of the sparsification algorithms.
 
 The workflow looks like this:
@@ -104,31 +81,57 @@ optimizer = manager.modify(model, optimizer, len(train_data))
 manager.finalize(model)
 ```
 
+Note that the `model`, `optimizer`, and `dataset` are all standard PyTorch objects. We simply pass a recipe to the SparseML `SchedulerModifierManager` and SparseML handles the rest!
+
 See the tutorials for full working examples of the Python API.
 
-## Quick Start: Sparse Transfer Learning
+### SparseML CLI
 
-### Overview
+In addition to the code-level API, SparseML offers pre-made training pipelines for image classification via the CLI interface.
 
-Sparse Transfer is quite similiar to the typical transfer learing process used to train NLP models, where we fine-tune a pretrained checkpoint onto a smaller downstream dataset. With Sparse Transfer Learning, we simply start the fine-tuning process from a pre-sparsified checkpoint and maintain sparsity while the training process occurs.
+The CLI enables you to kick-off training runs with various utilities like dataset loading and pre-processing, checkpoint saving, metric reporting, and logging handled for you.
+
+To get started, we just need to a couple key arguments:
+```bash
+sparseml.image_classification.train \
+    --checkpoint-path [CHECKPOINT-PATH] \
+    --recipe [RECIPE-PATH] \
+    --dataset-path [DATASET-PATH]
+```
+
+- `--checkpoint-path` specifies the starting model to use in the training process. It can either be a local path to a PyTorch checkpoint or a SparseZoo stub (which SparseML uses to download a PyTorch checkpoint).
+
+- `--dataset-path` specifies the dataset used for training. It must be a local path to a dataset in the ImageNet format (see CLI tutorials for more details).
+
+- `--recipe` specifies the sparsity related parameters of the training process. It can either be a local path to a YAML recipe file or a SparseZoo stub (which SparseML uses to download a YAML recipe file). The `recipe` is the key to enabling the sparsity-related algorithms implemented by SparseML (see the CLI tutorials for more details on recipes).
+
+For full usage, run:
+```bash
+sparseml.image_classification --help
+```
+
+## Quick Start: Sparse Transfer Learning with the CLI
+
+### Sparse Transfer Learning Overview
+
+Sparse Transfer is quite similiar to the typical transfer learning process used to train image classification models, where we fine-tune a checkpoint pretrained on ImageNet onto a smaller downstream dataset. With Sparse Transfer Learning, we simply start the fine-tuning process from a pre-sparsified checkpoint and maintain sparsity while the training process occurs.
 
 In this example, we will fine-tune a 95% pruned version of ResNet-50 ([available in SparseZoo](https://sparsezoo.neuralmagic.com/models/cv%2Fclassification%2Fresnet_v1-50%2Fpytorch%2Fsparseml%2Fimagenet%2Fpruned95_quant-none)) onto ImageNette.
 
 ### Kick off Training
 
-We can start Sparse Transfer Learning by passing a starting checkpoint and recipe to the training script. For Sparse Transfer, we will use a recipe that instructs SparseML to maintain sparsity during training and to quantize the model. The starting checkpoitn and transfer recipe are specified by the following SparseZoo stub:
+We will use SparseML's `sparseml.torchvision.train` training script.
+
+#### Sparse Transfer Recipe
+
+To run sparse transfer learning, we first need to create/select a sparsification recipe. For sparse transfer, we need a recipe that instructs SparseML to maintain sparsity during training and to quantize the model.
+
+For the Imagenette dataset, there is a transfer learning recipe available in SparseZoo, identified by the following SparseZoo stub:
 ```
 zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/pruned95_quant-none?recipe_type=transfer-classification
 ```
 
-<details>
-   <summary>Click to see the recipe</summary>
-
-SparseML parses the `Modifers` in the recipe and updates the training loop with logic encoded therein.
-   
-The key `Modifiers` for sparse transfer learning are the following:
-- `ConstantPruningModifier` instructs SparseML to maintain the sparsity structure of the network during the fine-tuning process
-- `QuantizationModifier` instructs SparseML to apply quantization aware training to quantize the weights over the final epochs
+Here is what the recipe looks like:
    
 ```yaml
 # Epoch and Learning-Rate variables
@@ -161,15 +164,23 @@ sparse_quantized_transfer_learning_modifiers:
   - !QuantizationModifier
     start_epoch: eval(num_epochs - quantization_epochs)
 ```
+   
+The key `Modifiers` for sparse transfer learning are the following:
+- `ConstantPruningModifier` instructs SparseML to maintain the sparsity structure of the network during the fine-tuning process
+- `QuantizationModifier` instructs SparseML to apply quantization aware training to quantize the weights over the final epochs
 
-</details>
+SparseML parses the `Modifers` in the recipe and updates the training loop with logic encoded therein.
 
-First, download and unzip the ImageNette dataset:
+#### Download Dataset
+
+Download and unzip the Imagenette dataset:
 
 ```bash
 wget https://s3.amazonaws.com/fast-ai-imageclas/imagenette2-320.tgz
 tar -xvf imagenette2-320.tgz
 ```
+
+#### Run the Training Script
 
 Run the following to transfer learn from the 95% pruned-quantized ResNet-50
 onto ImageNette:
@@ -182,7 +193,7 @@ sparseml.image_classification.train \
     --batch-size 32
 ```
 
-The script uses the SparseZoo stubs to identify and download the starting checkpoint and YAML-based recipe file from the SparseZoo. SparseML parses the transfer learning recipe and adjusts the trainign process to maintain sparsity during the fine-tuning process.
+The script uses the SparseZoo stubs to identify and download the starting checkpoint and YAML-based recipe file from the SparseZoo. SparseML parses the transfer learning recipe and adjusts the training logic to maintain sparsity during the fine-tuning process.
 
 The resulting model is 95% pruned and quantized and is trained on ImageNette!
 
