@@ -140,7 +140,7 @@ Alternatively, you can use `--recipe_args` to modify a recipe on the fly. The fo
 ```bash
 sparseml.image_classification.train \
     --recipe zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/pruned95_quant-none?recipe_type=transfer-classification \
-    --recipe_args '{"num_epochs": 15"}' \
+    --recipe_args '{"num_epochs": 15}' \
     --checkpoint-path zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/pruned95_quant-none?recipe_type=transfer-classification \
     --arch-key resnet50 \
     --dataset-path ./imagenette2-320\
