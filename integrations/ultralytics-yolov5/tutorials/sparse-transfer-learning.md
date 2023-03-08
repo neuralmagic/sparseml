@@ -249,7 +249,7 @@ an example small tutorial dataset composed of the first 128 images in COCO train
 
 ```yaml
 # Train/val/test sets as 1) dir: path/to/imgs, 2) file: path/to/imgs.txt, or 3) list: [path/to/imgs1, path/to/imgs2, ..]
-path: ../datasets/coco128  # dataset root dir
+path: ./datasets/coco128  # dataset root dir
 train: images/train2017  # train images (relative to 'path') 128 images
 val: images/train2017  # val images (relative to 'path') 128 images
 test:  # test images (optional)
@@ -279,11 +279,11 @@ The `*.txt` file specifications are:
 
 #### 3. Organize Directories 
 
-Organize your train and val images and labels according to the example below. For the demo COCO128 file above, YOLOv5 assumes `/coco128` is inside a `/datasets` directory next to the `/yolov5` directory. YOLOv5 locates labels automatically for each image by replacing the last instance of `/images/` in each image path with `/labels/`. For example:
+Organize your train and val images and labels according to the example below. For the demo COCO128 file above,  assumes `/coco128` is inside a `/datasets` directory in your current directory. YOLOv5 locates labels automatically for each image by replacing the last instance of `/images/` in each image path with `/labels/`. For example:
 
 ```
-../datasets/coco128/images/im0.jpg  # image
-../datasets/coco128/labels/im0.txt  # label
+./datasets/coco128/images/im0.jpg  # image
+./datasets/coco128/labels/im0.txt  # label
 ```
 
 For more details, checkout the [custom dataset set tutorial](https://github.com/ultralytics/yolov5/wiki/Train-Custom-Data) in the Ultralytics repository.
@@ -389,7 +389,7 @@ Save the following configuration file as `aerial-dataset.yaml`:
 
 ```yaml
 # aerial-dataset.yaml
-path: /content/aerial-dataset
+path: ./aerial-dataset
 train:
   - train/images
 val:
