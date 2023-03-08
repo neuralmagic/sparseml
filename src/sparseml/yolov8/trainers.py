@@ -26,6 +26,7 @@ from typing import Optional
 import onnx
 import torch
 
+from sparseml.optim.helpers import load_recipe_yaml_str
 from sparseml.pytorch.optim.manager import ScheduledModifierManager
 from sparseml.pytorch.utils import ModuleExporter
 from sparseml.pytorch.utils.helpers import download_framework_model_by_recipe_type
@@ -267,10 +268,25 @@ class SparseTrainer(BaseTrainer):
                 config["manager"] = str(self.manager)
             loggers = [PythonLogger(logger=LOGGER)]
             try:
-                loggers.append(WANDBLogger(init_kwargs=dict(config=config)))
+                init_kwargs = dict(config=config)
+                if self.args.project is not None:
+                    init_kwargs["project"] = self.args.project
+                if self.args.name is not None:
+                    init_kwargs["name"] = self.args.name
+                loggers.append(WANDBLogger(init_kwargs=init_kwargs))
             except ImportError:
                 warnings.warn("Unable to import wandb for logging")
             self.logger_manager = LoggerManager(loggers)
+
+        if self.args.recipe is not None:
+            base_path = os.path.join(self.save_dir, "original_recipe.yaml")
+            with open(base_path, "w") as fp:
+                fp.write(load_recipe_yaml_str(self.args.recipe))
+            self.logger_manager.save(base_path)
+
+            full_path = os.path.join(self.save_dir, "final_recipe.yaml")
+            self.manager.save(full_path)
+            self.logger_manager.save(full_path)
 
         if self.manager is not None:
             self.epochs = self.manager.max_epochs
