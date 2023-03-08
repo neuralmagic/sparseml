@@ -14,25 +14,22 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-# Sparsification Recipes
+# Recipes
 
-Recipes are SparseML's declarative interface for specifying sparisty related algorithms and hyperparameters that should be applied during training.
+Recipes are SparseML's declarative interface for specifying sparsity-related algorithms that should be applied during training.
 The SparseML system parses the recipes and modifies the model and/or training loop with the encoded instructions.
 
-This allows you to use SparseML's CLIs to run various experiments and to add SparseML to your existing training loops with a few lines of code.
+This allows you to add SparseML's algorithms to your existing training loops with a few lines of code.
 
 ## Modifiers
 
 SpareseML recipes are YAML files or markdown files with YAML front matter.
 
 The recipes contain a list of `modifiers`, which are the objects that specify how SparseML should update the training process. There are four types of modifiers:
-- `training_modifiers` - Training modifiers specify hyperparameters of the training process, such as the learning rate schedule
-- `pruning_modifiers` - Pruning modifiers specify how pruning should be applied to a model, such as the level of sparsity that should be applied to each layer
-- `quantization_modifiers` - Quantization modifiers specify how quantization should be applied to a model, such as the target layers for quantization
-- `distillation_modifiers` - Distillation modifiers specify how model distillation should be applied during training, such as which layers to target and hyperparameters like hardness and temperature
-
-The easiest ways to get or create recipes are by either using the pre-configured recipes in [SparseZoo](https://sparsezoo.neuralmagic.com/) or using `sparseml.recipe_template` scripe to automate creation of base recipes. However, power users may be inclined to create their own recipes by hand to enable more 
-fine-grained control or to add in custom modifiers.
+- [`training_modifiers`](#training-modifiers) specify hyperparameters of the training process, such as the learning rate schedule or number of epochs
+- [`pruning_modifiers`](#pruning-modifiers) specify how pruning should be applied to a model, such as the level of sparsity and pruning algorithms
+- [`quantization_modifiers`](#quantization-modifiers) specify how quantization-aware training should be applied to a model, such as which layers to target
+- [`distillation_modifiers`](#distillation-modifiers) specify how model distillation should be applied during training, such as which layers to target and hyperparameters like hardness and temperature
 
 A sample recipe for pruning a model generally looks like the following:
 
@@ -75,11 +72,15 @@ pruning_modifiers:
     inter_func: cubic
 ```
 
-## Training
+[Check out the SparseZoo](https://sparsezoo.neuralmagic.com/) to see examples of state-of-the-art recipes/
 
-### Epochs
+Below, we enumerate the available modifiers in SparseML.
 
-The Epoch Modifiers control how many epochs to run the training process for.
+## Training Modifiers
+
+### Hyperparameter Modifiers
+
+The hyperparameter modifiers control various aspects of the training process.
 
 #### EpochRangeModifier
 
@@ -99,16 +100,11 @@ training_modifiers:
     end_epoch: eval(num_epochs)
  ```
 
-[Source](https://github.com/neuralmagic/sparseml/blob/main/src/sparseml/pytorch/sparsification/training/modifier_epoch.py)
-
-### Learning Rate
-
-The learning rate modifiers set the learning rate (LR) for an optimizer during training. If you are using an Adam optimizer, then generally, these are not useful.
-If you are using a standard stochastic gradient descent optimizer, then these give a convenient way to control the LR.
+[Source Code](https://github.com/neuralmagic/sparseml/blob/main/src/sparseml/pytorch/sparsification/training/modifier_epoch.py)
 
 #### LearningRateFunctionModifier
 
-The `LearningRateFunctionModifier` sets the learning rate (LR) for the optimizer based on support math functions scaling between an `init_lr` and a `final_lr`.
+The `LearningRateFunctionModifier` sets the learning rate (LR) for the optimizer based on support math functions scaling between an `init_lr` and a `final_lr`. If you are using an Adam optimizer, then generally, these are not useful. If you are using a standard stochastic gradient descent optimizer, then these give a convenient way to control the LR.
 
 Parameters:
 - `lr_func`: The name of the learning rate function to use (options: `linear`, `cosine`, `cyclic_linear`)
@@ -136,42 +132,36 @@ training_modifiers:
     final_lr: eval(final_lr)
 ```
 
-[Source](https://github.com/neuralmagic/sparseml/blob/main/src/sparseml/pytorch/sparsification/training/modifier_lr.py#L223)
-
-### Regularization
-
-Regularization modifiers allow you to add weight decay to your optimizer.
+[Source Code](https://github.com/neuralmagic/sparseml/blob/main/src/sparseml/pytorch/sparsification/training/modifier_lr.py#L223)
 
 #### SetWeightDecayModifier
 
-The `SetWeightDecayModifier` sets the weight decay (L2 penalty) for the optimizer to a
-specific value at a specific point in the training process.
+The `SetWeightDecayModifier` sets the weight decay (L2 penalty) for the optimizer to a specific value.
 
 Parameters:
 
 - `start_epoch`: The epoch in the training process to set the `weight_decay` value for the optimizer.
 - `weight_decay`: The floating-point value to set as the weight decay for the optimizer at `start_epoch`.
-- `param_groups`: The indices of param groups in the optimizer to be modified. If None, all param groups will be modified. Default is None.
+- `param_groups`: The indices of param groups in the optimizer to be modified. If None, all param groups will be modified. Default: None.
 
 Example:
 
 ```yaml
 training_modifiers:
-    - !SetWeightDecayModifier
-        start_epoch: 5.0
-        weight_decay: 0.01
+   - !SetWeightDecayModifier
+      start_epoch: 5.0
+      weight_decay: 0.01
 ```
 
-[Source](https://github.com/neuralmagic/sparseml/blob/main/src/sparseml/pytorch/sparsification/training/modifier_regularizer.py)
+[Source Code](https://github.com/neuralmagic/sparseml/blob/main/src/sparseml/pytorch/sparsification/training/modifier_regularizer.py)
 
-## Pruning
+## Pruning Modifiers
 
-The pruning modifiers handle [pruning](https://neuralmagic.com/blog/pruning-overview/) the specified layer(s) in a given model.
+The pruning modifiers handle [pruning](https://neuralmagic.com/blog/pruning-overview/). Pruning is the process of removing weight connections in a network to increase inference speed and decrease model storage size. In general, neural networks are very over parameterized. Pruning a network can be thought of as removing unused parameters from the over parameterized network.
 
-SparseML implements several pruning-related algorithms, which are applicable to the workflows enabled:
-- For Sparse Transfer Learning, where we fine-tune a pre-sparsified model onto a downstream dataset, use `ConstantPruningModifier` to maintain sparsity during the fine-tuning.
-
-- For Sparsifying From Scratch, where we prune weights from a dense network from scratch, there are several choices. We recommend starting with `GlobalMagnitudePruningModifier` or `OBSPruningModifier` (especially for Transformers, try OBS).
+SparseML implements several pruning-related algorithms, which are uses to achieve the two main workflows:
+- For **Sparse Transfer Learning**, where we fine-tune a pre-sparsified model onto a downstream dataset, the `ConstantPruningModifier` instructs SparseML to maintain sparsity as the model fine-tunes..
+- For **Sparsifying From Scratch**, where we prune weights from a dense network, there are many options in SparseML. We recommend starting with [`GlobalMagnitudePruningModifier`](#globalmagnitudepruningmodifier) or [`OBSPruningModifier`](#obspruningmodifier). With Transformers models espeically, OBS is a great choice.
 
 ### Constant Pruning
 
@@ -179,35 +169,29 @@ Constant pruning modifiers are used to maintain sparsity while fine-tuning occur
 
 #### ConstantPruningModifier
 
-`ConstantPruningModifier` enforces the sparsity structure and level for an already pruned layer(s) in a model. The non-zero weights remain trainable in this setup; however, the sparsity is unchanged.
+`ConstantPruningModifier` enforces the sparsity structure and level for an already pruned layer(s) in a model. The non-zero weights remain trainable in this setup but weights that are 0 are pinned to 0, maintaining the sparsity structure of the network.
 
 Required Parameters:
 - `start_epoch`: The epoch to start the modifier at
 - `end_epoch`: The epoch to end the modifier at
-- `params`:  A list of full parameter names or regex patterns of names to apply the modifier to.  Regex patterns must be specified with the prefix 're:'. `__ALL__`
-    will match to all parameters. `__ALL_PRUNABLE__` will match to all ConvNd
-    and Linear layers' weights. You will generally want to use `__ALL_PRUNABLE__`.
+- `params`:  A list of full parameter names or regex patterns of names to apply the modifier to.  Regex patterns must be specified with the prefix 're:'. `__ALL__` will match to all parameters. `__ALL_PRUNABLE__` will match to all ConvNd and Linear layers' weights. You will generally want to use `__ALL_PRUNABLE__`.
 
 Example:
 
 ```yaml
 training_modifiers:
-    - !ConstantPruningModifier
-        start_epoch: 0.0
-        params: __ALL_PRUNABLE__
+   - !ConstantPruningModifier
+     start_epoch: 0.0
+     params: __ALL_PRUNABLE__
 ```
 
 [Source](https://github.com/neuralmagic/sparseml/blob/main/src/sparseml/pytorch/sparsification/pruning/modifier_pruning_constant.py)
 
 ### Gradual Magnitude Pruning
 
-The [Gradual magnitude pruning algorithm (GMP)](https://neuralmagic.com/blog/pruning-gmp/) is used to sparsify a dense networks from scratch. GMP is a relatively simple, but effective algorithm. It works as follows:
-- Start with a pretrained dense network
-- Fine-tune the nonzero weights on the dataset
-- At the end of each epoch, remove the weights closest to zero
-- Repeat
+The [gradual magnitude pruning algorithm (GMP)](https://neuralmagic.com/blog/pruning-gmp/) is used to sparsify a dense networks from scratch. GMP is a relatively simple, but effective algorithm. It works by starting with a pretrained network and fine-tuning non-zero weights further. At the end of each epoch, the weights closest to 0 are removed from the network. This process is repeated until the target level of sparsity is reached. 
 
-This process allows us to gradually induce sparsity into the network, while fine-tuning the non-zero weights to help the model recover to the new optimization space. 
+In such a way, we gradually induce sparsity into the network, while fine-tuning the non-zero weights to help the model recover to the new optimization space. 
 
 #### GlobalMagnitudePruningModifier
 
@@ -219,10 +203,10 @@ Parameters:
 - `start_epoch`: The epoch to start the GMP algorithm
 - `end_epoch`: The epoch to end the GMP algorithm
 - `update_frequency`: Frequency at which weights are pruned
-- `params`: A list of full parameter names or regest patters to apply pruning to. Regex pattens must be specified with the prefix `re:` (e.g. `"re:.*weight"`). `__ALL__` will match all parameters. `__ALL_PRUNABLE__` will match to all ConvNd and Linear layers' weights.
-- `inter_func`: The type of interpolation function to use, which determines how sparsity is added to the network. Options are `linear`, `cubic`, and `inverse_cubic`. `cubic` is the default.
-- `mask_type`: String to define the type of sparsity to apply. Options are `unstructured` for unstructured pruning or `4block` for four block pruning or a list of two integers for a custom block shape. In almost all cases, you should use `unstructured`.
-- `leave_enabled`: is a boolean value which specifies whether to maintain sparsity after the `end_epoch`. This should generally be set to `True` (the default).
+- `params`: A list of full parameter names or regest patters to apply pruning to. Regex pattens must be specified with the prefix `re:` (e.g. `"re:.*weight"`). `__ALL__` will match all parameters. `__ALL_PRUNABLE__` will match to all ConvNd and Linear layers' weights
+- `inter_func`: The type of interpolation function to use, which determines how sparsity is added to the network. Options are `linear`, `cubic`, and `inverse_cubic`. `cubic` is the default
+- `mask_type`: String to define the type of sparsity to apply. Options are `unstructured` for unstructured pruning or `4block` for four block pruning or a list of two integers for a custom block shape. In almost all cases, you should use `unstructured`
+- `leave_enabled`: is a boolean value which specifies whether to maintain sparsity after the `end_epoch`. This should generally be set to `True` (the default)
 
 Example:
 
@@ -232,16 +216,16 @@ mask_type: unstructured
 inter_func: cubic
 
 training_modifiers:
-    !MagnutidePruningModifier
-        init_sparsity: 0.05
-        final_sparsity: 0.8
-        start_epoch: 0.0
-        end_epoch: eval(num_pruning_epochs)
-        update_frequency: 1.0
-        params: __ALL_PRUNABLE__
-        leave_enabled: True
-        inter_func: eval(inter_func)
-        mask_type: eval(mask_type)
+   - !MagnutidePruningModifier
+     init_sparsity: 0.05
+     final_sparsity: 0.8
+     start_epoch: 0.0
+     end_epoch: eval(num_pruning_epochs)
+     update_frequency: 1.0
+     params: __ALL_PRUNABLE__
+     leave_enabled: True
+     inter_func: eval(inter_func)
+     mask_type: eval(mask_type)
 ```
 
 #### MagnitudePruningModifier
@@ -254,9 +238,9 @@ Parameters:
 - `start_epoch`: The epoch to start the GMP algorithm
 - `end_epoch`: The epoch to end the GMP algorithm
 - `update_frequency`: Frequency at which weights are pruned
-- `params`: A list of full parameter names or regest patters to apply pruning to. Regex patersn must be specified with the prefix `re:` (e.g. `"re:.*weight"`). `__ALL__` will match all parameters. `__ALL_PRUNABLE__` will match to all ConvNd and Linear layers' weights.
-- `inter_func`: The type of interpolation function to use, which determines how sparsity is added to the network. Options are `linear`, `cubic`, and `inverse_cubic`. `cubic` is the default.
-- `mask_type`: String to define the type of sparsity to apply. Options are `unstructured` for unstructured pruning or `4block` for four block pruning or a list of two integers for a custom block shape. In almost all cases, you should use `unstructured`.
+- `params`: A list of full parameter names or regest patters to apply pruning to. Regex patersn must be specified with the prefix `re:` (e.g. `"re:.*weight"`). `__ALL__` will match all parameters. `__ALL_PRUNABLE__` will match to all ConvNd and Linear layers' weights
+- `inter_func`: The type of interpolation function to use, which determines how sparsity is added to the network. Options are `linear`, `cubic`, and `inverse_cubic`. `cubic` is the default
+- `mask_type`: String to define the type of sparsity to apply. Options are `unstructured` for unstructured pruning or `4block` for four block pruning or a list of two integers for a custom block shape. In almost all cases, you should use `unstructured`
 
 Example:
 
@@ -266,27 +250,27 @@ mask_type: unstructured
 inter_func: cubic
 
 training_modifiers:
-    !MagnutidePruningModifier
-        init_sparsity: 0.05
-        final_sparsity: 0.8
-        start_epoch: 0.0
-        end_epoch: eval(num_pruning_epochs)
-        update_frequency: 1.0
-        params: __ALL_PRUNABLE__
-        leave_enabled: True
-        inter_func: eval(inter_func)
-        mask_type: eval(mask_type)
+   - !MagnutidePruningModifier
+     init_sparsity: 0.05
+     final_sparsity: 0.8
+     start_epoch: 0.0
+     end_epoch: eval(num_pruning_epochs)
+     update_frequency: 1.0
+     params: __ALL_PRUNABLE__
+     leave_enabled: True
+     inter_func: eval(inter_func)
+     mask_type: eval(mask_type)
 ```
 
-[Source](https://github.com/neuralmagic/sparseml/blob/main/src/sparseml/pytorch/sparsification/pruning/modifier_pruning_magnitude.py)
+[Source Code](https://github.com/neuralmagic/sparseml/blob/main/src/sparseml/pytorch/sparsification/pruning/modifier_pruning_magnitude.py)
 
 ### First and Second Order Methods
 
 Beyond gradual magnitude pruning, where weights that are closest to 0 are iteratively pruned at the end of every epoch, more advanced techniques have been developed to use first and second order methods to identify the least impactful weights. These methods are generally more compute intensive (as they can require approximating the Hessian matrix), but are helpful for reaching higher levels of sparsity without accuracy loss. 
 
-#### OBS Pruning Modifier
+#### OBSPruningModifier
 
-`OBSPruningModifier` implements the [OBS algorithm](https://arxiv.org/abs/2203.07259). Just like gradual magnitude pruning, the OBS algorithm iteratively prunes the least important weights at the end of each epoch. However, rather than removing weights closest to 0 (like GMP), the OBS algorithm is a second-order method that approximates the Hessian matrix to identify the least important weights. While OBS is compute-intensive, it is a generally a great place to start when pruning transformers models (in fact, this is what Neural Magic used to create the sparse versions of BERT in SparseZoo).
+`OBSPruningModifier` implements the [OBS algorithm](https://arxiv.org/abs/2203.07259). Just like gradual magnitude pruning, the OBS algorithm iteratively prunes the least important weights at the end of each epoch. However, rather than removing weights closest to 0 (like GMP), the OBS algorithm is a second-order method that approximates the Hessian matrix to identify the least important weights. While OBS is compute-intensive, it is a generally a great place to start when pruning transformers models (Neural Magic uses this method internally).
 
 Parameters:
 - `init_sparsity`: Initial sparsity for each layer at `start_epoch`
@@ -314,25 +298,20 @@ mask_type: "unstructured"
 global_sparsity: True
 
 training_modifiers:
-    !OBSPruningModifier
-        init_sparsity: 0.05
-        final_sparsity: 0.9
-        start_epoch: 0.0
-        end_epoch: eval(num_pruning_active_epochs)
-        update_frequency: 1.0
-        params: __ALL_PRUNABLE__
-        leave_enabled: True
-        inter_func: cubic
-        global_sparsity: eval(global_sparsity)
-        mask_type: eval(mask_type)
-        num_grads: 1024
-        damp: 1e-7
-        fisher_block_size: 50
-        grad_sampler_kwargs:
-            batch_size: 8
+   - !OBSPruningModifier
+     init_sparsity: 0.05
+     final_sparsity: 0.9
+     start_epoch: 0.0
+     end_epoch: eval(num_pruning_active_epochs)
+     update_frequency: 1.0
+     params: __ALL_PRUNABLE__
+     leave_enabled: True
+     inter_func: cubic
+     global_sparsity: eval(global_sparsity)
+     mask_type: eval(mask_type)
 ```
 
-[Source](https://github.com/neuralmagic/sparseml/blob/main/src/sparseml/pytorch/sparsification/pruning/modifier_pruning_obs.py)
+[Source Code](https://github.com/neuralmagic/sparseml/blob/main/src/sparseml/pytorch/sparsification/pruning/modifier_pruning_obs.py)
 
 #### MFAC Pruning Modifier
 
@@ -380,7 +359,7 @@ pruning_modifiers:
     fisher_block_size: 10000
 ```
 
-[Source](https://github.com/neuralmagic/sparseml/blob/main/src/sparseml/pytorch/sparsification/pruning/modifier_pruning_mfac.py)
+[Source Code](https://github.com/neuralmagic/sparseml/blob/main/src/sparseml/pytorch/sparsification/pruning/modifier_pruning_mfac.py)
 
 #### MovementPruning
 
@@ -401,19 +380,19 @@ Example:
 
 ```yaml
 training_modifiers:
-    !MovementPruningModifier
-        init_sparsity: 0.05
-        final_sparsity: 0.8
-        start_epoch: 0.0
-        end_epoch: 10.0
-        update_frequency: 1.0
-        params: __ALL_PRUNABLE__
-        leave_enabled: True
-        inter_func: cubic
-        mask_type: unstructured
+   - !MovementPruningModifier
+     init_sparsity: 0.05
+     final_sparsity: 0.8
+     start_epoch: 0.0
+     end_epoch: 10.0
+     update_frequency: 1.0
+     params: __ALL_PRUNABLE__
+     leave_enabled: True
+     inter_func: cubic
+     mask_type: unstructured
 ```
 
-[Source](https://github.com/neuralmagic/sparseml/blob/main/src/sparseml/pytorch/sparsification/pruning/modifier_pruning_movement.py)
+[Source Code](https://github.com/neuralmagic/sparseml/blob/main/src/sparseml/pytorch/sparsification/pruning/modifier_pruning_movement.py)
 
 
 ### Additional Methods
@@ -451,7 +430,7 @@ pruning_modifiers:
     compression_sparsity: 0.8
 ```
 
-[Source](https://github.com/neuralmagic/sparseml/blob/main/src/sparseml/pytorch/sparsification/pruning/modifier_pruning_acdc.py)
+[Source Code](https://github.com/neuralmagic/sparseml/blob/main/src/sparseml/pytorch/sparsification/pruning/modifier_pruning_acdc.py)
 
 
 ## Quantization
@@ -463,7 +442,7 @@ Quantization modifiers handle applying [quantization](https://pytorch.org/docs/s
 Quantization Aware Training (QAT) is a popular method that allows quantizing a model and applying fine-tuning to restore accuracy degradation caused by quantization. QAT emulates the precision loss of INT8 quantization during training so weights can be
 learned to limit any accuracy loss from quantization. 
 
-#### Quantization Modifier
+#### Quantization Modifiers
 
 `QuantizationModifier` sets the model to run with QAT. Once the `QuantizationModifier` is enabled, it cannot be disabled (no `end_epoch`). Quantization zero points are set to be asymmetric for activations and symmetric for weights.
 
@@ -478,13 +457,13 @@ Example:
 
 ```yaml
 quantization_modifiers:
-    - !QuantizationModifier
-        start_epoch: 0.0
+ - !QuantizationModifier
+     start_epoch: 0.0
 ```
 
-[Source](https://github.com/neuralmagic/sparseml/blob/main/src/sparseml/pytorch/sparsification/quantization/modifier_quantization.py)
+[Source Code](https://github.com/neuralmagic/sparseml/blob/main/src/sparseml/pytorch/sparsification/quantization/modifier_quantization.py)
 
-## Distillation
+## Distillation Modifiers
 
 The distillation modifiers handle adding model distillation to the pruning and quantization workflows enabled by SparseML. [Knowledge distillation](https://en.wikipedia.org/wiki/Knowledge_distillation) is the process of transfering knowledge from a large model to a smaller model by encouraging the smaller model to mimic the output from the teacher. Distillation can be applied in concert with pruning and quantization, helping to reach higher levels of sparsity without accuracy loss.
 
@@ -515,7 +494,7 @@ distillation_modifiers:
      distill_output_keys: [logits]
 ```
 
-[Source](https://github.com/neuralmagic/sparseml/blob/main/src/sparseml/pytorch/sparsification/distillation/modifier_distillation.py)
+[Source Code](https://github.com/neuralmagic/sparseml/blob/main/src/sparseml/pytorch/sparsification/distillation/modifier_distillation.py)
 
 #### PerLayerDistillationModifier
 
@@ -601,4 +580,4 @@ knowledge_disitillation_modifiers:
     - model.24.m.2
 ```
 
-[Source](https://github.com/neuralmagic/sparseml/blob/main/src/sparseml/pytorch/sparsification/distillation/modifier_per_layer.py)
+[Source Code](https://github.com/neuralmagic/sparseml/blob/main/src/sparseml/pytorch/sparsification/distillation/modifier_per_layer.py)
