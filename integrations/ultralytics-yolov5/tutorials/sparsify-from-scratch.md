@@ -332,7 +332,7 @@ sparseml.yolov5.train \
   --recipe zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned75_quant-none \
   --teacher-weights zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/base-none \
   --data coco.yaml \
-  --hyp hyps/hyp.scratch-low.yaml --cfg yolov5s.yaml --batch-size 64 --patience 0 --gradient-accum-steps 4
+  --hyp hyps/hyp.scratch-low.yaml --cfg yolov5s.yaml --patience 0 --gradient-accum-steps 4
 ```
 
 Let's discuss the key arguments:
@@ -378,7 +378,6 @@ sparseml.yolov5.train \
   --cfg yolov5s.yaml \
   --teacher-weights zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/base-none \
   --data coco.yaml \
-  --batch-size 64 \
   --recipe zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned75_quant-none \
   --hyp hyps/hyp.scratch-low.yaml \
   --weights zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/base-none \
@@ -395,7 +394,6 @@ sparseml.yolov5.train \
   --cfg yolov5l.yaml \
   --teacher-weights zoo:cv/detection/yolov5-l/pytorch/ultralytics/coco/base-none \
   --data coco.yaml \
-  --batch-size 64 \
   --recipe zoo:cv/detection/yolov5-l/pytorch/ultralytics/coco/pruned90_quant-none \
   --hyp hyps/hyp.scratch-high.yaml \
   --weights zoo:cv/detection/yolov5-l/pytorch/ultralytics/coco/base-none \
