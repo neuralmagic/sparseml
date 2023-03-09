@@ -29,7 +29,7 @@ huggingface-hub==0.0.8
 idna==2.10
 imageio==2.9.0
 ipykernel==5.5.5
-ipython==7.31.1
+ipython==8.10.0
 ipython-genutils==0.2.0
 ipywidgets==7.6.3
 jedi==0.18.0
