@@ -633,6 +633,9 @@ class SparseYOLO(YOLO):
             )
 
         if recipe:
+            if isinstance(recipe, str):
+                recipe = ScheduledModifierManager.from_yaml(recipe)
+
             LOGGER.info(
                 "Recipe checkpoint detected, saving the "
                 f"recipe to the deployment directory {deployment_folder}"
