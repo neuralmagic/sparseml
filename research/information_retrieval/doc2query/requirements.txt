@@ -58,7 +58,7 @@ networkx==2.5.1
 nltk==3.6.6
 notebook==6.4.12
 numpy==1.22.0
-onnx==1.7.0
+onnx==1.13.0
 onnxruntime==1.8.0
 packaging==20.9
 pandas==1.2.4
