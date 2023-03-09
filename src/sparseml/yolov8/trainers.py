@@ -533,7 +533,6 @@ class SparseYOLO(YOLO):
         else:
             return super()._load(weights)
 
-    @smart_inference_mode()
     def export(self, **kwargs):
         """
         Export model.
@@ -569,6 +568,8 @@ class SparseYOLO(YOLO):
                 f"Detected one-shot recipe: {one_shot}. "
                 "Applying it to the model to be exported..."
             )
+            for p in self.model.parameters():
+                p.requires_grad = True
             manager = ScheduledModifierManager.from_yaml(one_shot)
             manager.apply(self.model)
             recipe = (
@@ -632,13 +633,14 @@ class SparseYOLO(YOLO):
             )
 
         if recipe:
+            if isinstance(recipe, str):
+                recipe = ScheduledModifierManager.from_yaml(recipe)
+
             LOGGER.info(
                 "Recipe checkpoint detected, saving the "
                 f"recipe to the deployment directory {deployment_folder}"
             )
-            ScheduledModifierManager.from_yaml(recipe).save(
-                os.path.join(deployment_folder, "recipe.yaml")
-            )
+            recipe.save(os.path.join(deployment_folder, "recipe.yaml"))
 
     def train(self, **kwargs):
         # NOTE: Copied from base class and removed post-training validation
