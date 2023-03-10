@@ -24,7 +24,7 @@ import math
 from collections import OrderedDict
 from copy import deepcopy
 from functools import cmp_to_key
-from typing import Any, Dict, Generator, List, Optional, Union
+from typing import Any, Dict, Generator, List, Optional, Tuple, Union
 
 from sparseml.optim.modifier import BaseModifier, BaseObject, ModifierProp
 from sparseml.sparsification.types import SparsificationTypes
@@ -621,6 +621,45 @@ class BaseManager(BaseObject):
                 return "pruned_quantized"
             else:
                 return "quantized_pruned"
+
+    def get_start_end_epochs(self) -> Dict[str, Tuple[float, float]]:
+        """
+        Return an OrderedDict mapping each stage to its min and max epoch. If not a
+        staged manager, map 'all' to the the min and max epochs
+        """
+        if isinstance(self.modifiers, List):
+            return OrderedDict({"all": (self.min_epochs, self.max_epochs)})
+        else:
+            stage_max_min = OrderedDict()
+            for stage, mod_list in self.modifiers.items():
+                epoch_floors = [
+                    math.floor(mod.start_epoch)
+                    for mod in mod_list
+                    if mod.start_epoch > -1
+                ] + [
+                    math.floor(mod.end_epoch) for mod in mod_list if mod.end_epoch > -1
+                ]
+                epoch_min = min(epoch_floors) if epoch_floors else -1
+
+                epoch_ceils = [
+                    math.ceil(mod.start_epoch)
+                    for mod in mod_list
+                    if mod.start_epoch > -1
+                ] + [math.ceil(mod.end_epoch) for mod in mod_list if mod.end_epoch > -1]
+                epoch_max = max(epoch_ceils) if epoch_ceils else -1
+
+                stage_max_min[stage] = (epoch_min, epoch_max)
+
+            return stage_max_min
+
+    def get_last_start_epoch(self) -> float:
+        """
+        Return the start epoch of the last stage in the recipe. Useful for applying
+        recipes at the correct epoch in a staged run
+        """
+        stage_max_min = self.get_start_end_epochs()
+        last_stage_epochs = stage_max_min[next(reversed(stage_max_min))]
+        return last_stage_epochs[0]
 
     def _info_log_metadata(self):
         metadata_str = json.dumps(self._metadata, indent=1)
