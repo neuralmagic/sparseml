@@ -650,6 +650,14 @@ class BaseManager(BaseObject):
 
                 stage_max_min[stage] = (epoch_min, epoch_max)
 
+            # Post-process to replace -1's with their real values
+            epochs_list = list(stage_max_min.values())
+            for i, stage, epochs in enumerate(stage_max_min.items()):
+                if epochs[0] == -1:
+                    stage_max_min[stage][0] = epochs_list[i - 1][1] if i > 0 else 0
+                if epochs[1] == -1 and i < len(epochs_list) - 1:
+                    stage_max_min[stage][1] = epochs_list[i + 1][0]
+
             return stage_max_min
 
     def get_last_start_epoch(self) -> float:
