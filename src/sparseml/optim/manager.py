@@ -24,7 +24,7 @@ import math
 from collections import OrderedDict
 from copy import deepcopy
 from functools import cmp_to_key
-from typing import Any, Dict, Generator, List, Optional, Tuple, Union
+from typing import Any, Dict, Generator, Iterable, List, Optional, Tuple, Union
 
 from sparseml.optim.modifier import BaseModifier, BaseObject, ModifierProp
 from sparseml.sparsification.types import SparsificationTypes
@@ -343,23 +343,7 @@ class BaseManager(BaseObject):
         """
         :return: the minimum epochs required by any of the modifiers under the manager
         """
-        vals = []
-        vals.extend(
-            [
-                math.floor(mod.start_epoch)
-                for mod in self.iter_modifiers()
-                if mod.start_epoch > -1
-            ]
-        )
-        vals.extend(
-            [
-                math.floor(mod.end_epoch)
-                for mod in self.iter_modifiers()
-                if mod.end_epoch > -1
-            ]
-        )
-
-        return min(vals) if len(vals) > 0 else -1
+        return _min_modifier_epoch(self.iter_modifiers())
 
     @ModifierProp(serializable=False)
     def max_epochs(self) -> int:
@@ -367,23 +351,7 @@ class BaseManager(BaseObject):
         :return: the maximum number of epochs required by any of the modifiers
             under the manager
         """
-        vals = []
-        vals.extend(
-            [
-                math.ceil(mod.start_epoch)
-                for mod in self.iter_modifiers()
-                if mod.start_epoch > -1
-            ]
-        )
-        vals.extend(
-            [
-                math.ceil(mod.end_epoch)
-                for mod in self.iter_modifiers()
-                if mod.end_epoch > -1
-            ]
-        )
-
-        return max(vals) if len(vals) > 0 else -1
+        return _max_modifier_epoch(self.iter_modifiers())
 
     def save(self, file_path: str, include_metadata: bool = True):
         """
@@ -632,27 +600,13 @@ class BaseManager(BaseObject):
         else:
             stage_max_min = OrderedDict()
             for stage, mod_list in self.modifiers.items():
-                epoch_floors = [
-                    math.floor(mod.start_epoch)
-                    for mod in mod_list
-                    if mod.start_epoch > -1
-                ] + [
-                    math.floor(mod.end_epoch) for mod in mod_list if mod.end_epoch > -1
-                ]
-                epoch_min = min(epoch_floors) if epoch_floors else -1
-
-                epoch_ceils = [
-                    math.ceil(mod.start_epoch)
-                    for mod in mod_list
-                    if mod.start_epoch > -1
-                ] + [math.ceil(mod.end_epoch) for mod in mod_list if mod.end_epoch > -1]
-                epoch_max = max(epoch_ceils) if epoch_ceils else -1
-
+                epoch_min = _min_modifier_epoch(mod_list)
+                epoch_max = _max_modifier_epoch(mod_list)
                 stage_max_min[stage] = (epoch_min, epoch_max)
 
             # post-process to replace -1's with their real values
             epochs_list = list(stage_max_min.values())
-            for i, stage, epochs in enumerate(stage_max_min.items()):
+            for i, (stage, epochs) in enumerate(stage_max_min.items()):
                 # replace start epochs that are -1 with the last epoch of the previous
                 # stage, or 0 if it's the first stage
                 if epochs[0] == -1:
@@ -699,3 +653,25 @@ def _nested_dict_to_lines(
             # reached maximum nesting level.
             yaml_str_lines.append(indentation * nesting_depth + f"{key}: {value}")
     return yaml_str_lines
+
+
+def _min_modifier_epoch(modifiers: Iterable[BaseModifier]) -> float:
+    """
+    :return: the minimum epochs required by any of the modifiers provided
+    """
+    vals = [math.floor(mod.start_epoch) for mod in modifiers if mod.start_epoch > -1]
+
+    return min(vals) if len(vals) > 0 else -1
+
+
+def _max_modifier_epoch(modifiers: Iterable[BaseModifier]) -> float:
+    """
+    :return: the maximum number of epochs required by any of the modifiers provided
+    """
+    vals = []
+    vals.extend(
+        [math.ceil(mod.start_epoch) for mod in modifiers if mod.start_epoch > -1]
+    )
+    vals.extend([math.ceil(mod.end_epoch) for mod in modifiers if mod.end_epoch > -1])
+
+    return max(vals) if len(vals) > 0 else -1
