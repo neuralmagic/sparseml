@@ -668,10 +668,12 @@ def _max_modifier_epoch(modifiers: Iterable[BaseModifier]) -> float:
     """
     :return: the maximum number of epochs required by any of the modifiers provided
     """
+    # save modifiers as list so it can iterated over multiple times
+    modifiers = [mod for mod in modifiers]
+
     vals = []
     vals.extend(
         [math.ceil(mod.start_epoch) for mod in modifiers if mod.start_epoch > -1]
     )
     vals.extend([math.ceil(mod.end_epoch) for mod in modifiers if mod.end_epoch > -1])
-
     return max(vals) if len(vals) > 0 else -1
