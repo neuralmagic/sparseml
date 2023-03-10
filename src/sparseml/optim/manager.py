@@ -659,7 +659,8 @@ class BaseManager(BaseObject):
         """
         stage_max_min = self.get_start_end_epochs()
         last_stage_epochs = stage_max_min[next(reversed(stage_max_min))]
-        return last_stage_epochs[0]
+        last_start_epoch = last_stage_epochs[0]
+        return last_start_epoch if last_start_epoch > -1 else 0
 
     def _info_log_metadata(self):
         metadata_str = json.dumps(self._metadata, indent=1)
