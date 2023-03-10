@@ -676,4 +676,5 @@ def _max_modifier_epoch(modifiers: Iterable[BaseModifier]) -> float:
         [math.ceil(mod.start_epoch) for mod in modifiers if mod.start_epoch > -1]
     )
     vals.extend([math.ceil(mod.end_epoch) for mod in modifiers if mod.end_epoch > -1])
+
     return max(vals) if len(vals) > 0 else -1
