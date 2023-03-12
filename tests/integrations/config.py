@@ -58,14 +58,9 @@ class Config:
         # Construct explicit path from relative path, using sparseml base directory
         # as root
         recipe = getattr(self.run_args, "recipe", None)
-        sparsification_recipe = getattr(self.run_args, "sparsification_recipe", None)
         if recipe and not recipe.startswith("zoo:"):
             self.run_args.recipe = str(
                 Path(os.path.join(ROOT, self.run_args.recipe)).resolve()
-            )
-        elif sparsification_recipe and not sparsification_recipe.startswith("zoo:"):
-            self.run_args.sparsification_recipe = str(
-                Path(os.path.join(ROOT, self.run_args.sparsification_recipe)).resolve()
             )
 
         self._validate_config()

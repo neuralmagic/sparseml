@@ -75,7 +75,8 @@ class ONNXToDeepsparse(BaseExporter):
             sparseml_transforms.QuantizeQATEmbedding(),
             sparseml_transforms.PropagateEmbeddingQuantization(),
             sparseml_transforms.MatMulToQLinearMatMul(),
-            sparseml_transforms.MatMulToMatMulIntegerAddCastMul(),
+            sparseml_transforms.MatMulAddToMatMulIntegerAddCastMul(),
+            sparseml_transforms.MatMulToMatMulIntegerCastMul(),
             sparseml_transforms.FoldReLUQuants(),
             sparseml_transforms.ConvToQLinearConv()
             if use_qlinear_conv

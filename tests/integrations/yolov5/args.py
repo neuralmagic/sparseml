@@ -86,7 +86,7 @@ class Yolov5TrainArgs(BaseModel):
     save_period: int = Field(
         default=-1, description="Save checkpoint every x epochs (disabled if < 1)"
     )
-    sparsification_recipe: Union[str, Path, None] = Field(
+    recipe: Union[str, Path, None] = Field(
         default=None,
         description="Path to a sparsification recipe, "
         "see https://github.com/neuralmagic/sparseml for more information",

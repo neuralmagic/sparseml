@@ -1,3 +1,4 @@
 include LICENSE
 recursive-include src/sparseml/yolov5 *.yaml *.sh
 recursive-include src/sparseml/yolact *.sh
+recursive-include src/sparseml/yolov8 *.yaml
