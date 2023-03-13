@@ -14,7 +14,7 @@ FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu18.04 as base
 ARG VENV
 
 # metainformation
-LABEL org.opencontainers.image.version = "1.0.1"
+LABEL org.opencontainers.image.version = "1.4"
 LABEL org.opencontainers.image.authors = "Neuralmagic, Inc."
 LABEL org.opencontainers.image.source = "https://github.com/neuralmagic/sparseml"
 LABEL org.opencontainers.image.licenses = "Apache License 2.0"
@@ -29,9 +29,8 @@ RUN set -Eeuxo \
         git-all \
     && add-apt-repository -y ppa:deadsnakes \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        python3.8-dev \
         python3.8-venv \
-        python3-pip \
-        python3-dev \
         build-essential libssl-dev libffi-dev \
         ffmpeg libsm6 libxext6 \
     && apt-get clean \
