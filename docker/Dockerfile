@@ -67,7 +67,7 @@ RUN \
           && git clone https://github.com/neuralmagic/sparseml.git --depth 1 -b $BRANCH; \
       fi; \
     else echo VERSION is $VERSION \
-      &&  git clone https://github.com/neuralmagic/sparseml.git --depth 1 -b release/${VERSION}; \
+      &&  git clone https://github.com/neuralmagic/sparseml.git --depth 1 -b ${VERSION}; \
     fi;
 
 

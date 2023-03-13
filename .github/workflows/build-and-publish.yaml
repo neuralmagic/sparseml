@@ -6,7 +6,7 @@ on:
       - '*'
     branches:
       - 'release/*'
-      - 'update-docker-infra'
+      - 'docker-infra-test'
 
 jobs:
   build-and-push-docker-image:
