@@ -48,6 +48,9 @@ except Exception as err:
 from sparseml.utils import ALL_TOKEN, create_dirs
 
 
+_LOGGER = logging.getLogger(__name__)
+
+
 __all__ = [
     "BaseLogger",
     "LambdaLogger",
@@ -332,11 +335,16 @@ class PythonLogger(LambdaLogger):
             self._logger = logger
         else:
             self._logger = logging.getLogger(__name__)
+
             now = datetime.now()
             dt_string = now.strftime("%d-%m-%Y_%H.%M.%S")
+            log_path = os.path.join("sparse_logs", f"{dt_string}.log")
             os.makedirs("sparse_logs", exist_ok=True)
+
+            _LOGGER(f"Logging all SparseML modifier-level logs to {log_path}")
+
             handler = logging.FileHandler(
-                os.path.join("sparse_logs", f"{dt_string}.log"),
+                log_path,
                 delay=True,
             )
             self._logger.addHandler(handler)
