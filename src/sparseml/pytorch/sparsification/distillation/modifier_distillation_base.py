@@ -56,7 +56,7 @@ def kl_logsoftmax(
             log_target=True,
             reduction="sum",
         )
-        * (temperature ** 2)
+        * (temperature**2)
         / number_items
     )
 
