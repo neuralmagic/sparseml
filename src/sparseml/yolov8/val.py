@@ -70,6 +70,9 @@ from sparseml.yolov8.trainers import SparseYOLO
 @click.option("--plots", default=False, is_flag=True, help="show plots during training")
 def main(**kwargs):
     model = SparseYOLO(kwargs["model"])
+    # use imgsz from the trained model if available
+    if hasattr(model, "ckpt"):
+        kwargs["imgsz"] = model.ckpt["train_args"]["imgsz"]
     model.val(**kwargs)
 
 
