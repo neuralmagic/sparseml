@@ -48,6 +48,7 @@ jobs:
           build-args: |
             DEPS=all
             VERSION=${{ steps.extract-version.outputs.version }}
+          push: true
           tags: |
             ghcr.io/neuralmagic/sparseml-all:${{ steps.extract-version.outputs.version }}
             ghcr.io/neuralmagic/sparseml:${{ steps.extract-version.outputs.version }}
@@ -59,6 +60,7 @@ jobs:
           build-args: |
             DEPS=torchvision
             VERSION=${{ steps.extract-version.outputs.version }}
+          push: true
           tags: |
             ghcr.io/neuralmagic/sparseml-torchvision:${{ steps.extract-version.outputs.version }}
             
@@ -77,6 +79,7 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           context: ./docker
+          push: true
           build-args: |
             DEPS=ultralytics
             VERSION=${{ steps.extract-version.outputs.version }}
@@ -88,6 +91,7 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           context: ./docker
+          push: true
           build-args: |
             DEPS=yolov5
             VERSION=${{ steps.extract-version.outputs.version }}
@@ -98,6 +102,7 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           context: ./docker
+          push: true
           build-args: |
             DEPS=base
             VERSION=${{ steps.extract-version.outputs.version }}
