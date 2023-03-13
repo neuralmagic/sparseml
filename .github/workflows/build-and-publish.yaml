@@ -6,6 +6,7 @@ on:
       - '*'
     branches:
       - 'release/*'
+      - 'test-image-push/*'
 
 jobs:
   build-and-push-docker-image:
