@@ -14,9 +14,3 @@ training_modifiers:
     lr_func: cosine
     start_epoch: 0.0
     end_epoch: eval(num_epochs)
-
-# Phase 1 Sparse Transfer Learning / Recovery
-sparse_transfer_learning_modifiers:
-  - !ConstantPruningModifier
-    start_epoch: 0.0
-    params: __ALL_PRUNABLE__

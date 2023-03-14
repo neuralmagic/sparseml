@@ -33,8 +33,3 @@ pruning_modifiers:
     leave_enabled: True
     inter_func: eval(inter_func)
     mask_type: eval(mask_type)
-
-finetuning_modifiers:
-  - !ConstantPruningModifier
-    start_epoch: eval(pruning_epochs)
-    params: __ALL_PRUNABLE__

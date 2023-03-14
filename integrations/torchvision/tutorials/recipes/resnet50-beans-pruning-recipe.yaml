@@ -1,5 +1,6 @@
 # Epoch and Learning-Rate variables
-num_epochs: 10.0
+num_epochs: 13.0
+pruning_epochs: 10.0
 init_lr: 0.00025
 inter_func: cubic
 mask_type: unstructured
@@ -22,9 +23,10 @@ pruning_modifiers:
      init_sparsity: 0.05
      final_sparsity: 0.90
      start_epoch: 0.0
-     end_epoch: eval(num_epochs)
+     end_epoch: eval(pruning_epochs)
      update_frequency: 1.0
      params: 
+        - 'conv1.weight'
         - 're:layer1.*.conv1.weight'
         - 're:layer1.*.conv2.weight'
         - 're:layer1.*.conv3.weight'
