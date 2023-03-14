@@ -114,7 +114,7 @@ RUN sparseml.yolov5.train --help
 FROM container_branch_base as container_branch_dev
 ARG VENV
 ARG SPARSEML_INSTALLABLE=./sparseml[dev]
-RUN $VENV/bin/pip install -e --no-cache-dir "${SPARSEML_INSTALLABLE}"
+RUN $VENV/bin/pip install -e "${SPARSEML_INSTALLABLE}"
 
 
 FROM container_branch_${DEPS} AS build
