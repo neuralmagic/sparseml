@@ -1,11 +1,7 @@
 name: Build and Publish
 
 on:
-  create:
-    tags:
-      - '*'
-    branches:
-      - 'release/*'
+  create
 
 jobs:
   build-and-push-docker-image:
@@ -17,12 +13,14 @@ jobs:
 
     steps:
       - name: Set up Docker Buildx
+        if: ${{ contains(github.ref, 'refs/heads/releases/') }}
         id: buildx
         uses: docker/setup-buildx-action@v2
         with:
           buildkitd-flags: --debug
 
       - name: Login to Github Packages
+        if: ${{ contains(github.ref, 'refs/heads/releases/') }}
         uses: docker/login-action@v2
         with:
           registry: ghcr.io
@@ -30,15 +28,18 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout code
+        if: ${{ contains(github.ref, 'refs/heads/releases/') }}
         uses: actions/checkout@v3
         with:
           fetch-depth: 1
 
       - name: get-release-branch-version@v1
+        if: ${{ contains(github.ref, 'refs/heads/releases/') }}
         uses: valadas/get-release-branch-version@v1
         id: branchVersion
 
       - name: Extract version into env var
+        if: ${{ contains(github.ref, 'refs/heads/releases/') }}
         env:
           MAJOR: ${{ steps.branchVersion.major }}
           MINOR: ${{ steps.branchVersion.minor }}
@@ -47,9 +48,11 @@ jobs:
           echo "version=$MAJOR.$MINOR.$PATCH" >> $GITHUB_ENV
 
       - name: Current Version Name
+        if: ${{ contains(github.ref, 'refs/heads/releases/') }}
         run: echo "${{ env.version }}"
 
       - name: Build and  push sparseml-all
+        if: ${{ contains(github.ref, 'refs/heads/releases/') }}
         uses: docker/build-push-action@v2
         with:
           context: ./docker
@@ -58,9 +61,10 @@ jobs:
             VERSION=${{ env.version }}
           push: true
           tags: |
-          ghcr.io/neuralmagic/sparseml-all:${{ env.version }}
+            ghcr.io/neuralmagic/sparseml-all:${{ env.version }}
 
       - name: Build and push sparseml-torchvision
+        if: ${{ contains(github.ref, 'refs/heads/releases/') }}
         uses: docker/build-push-action@v2
         with:
           context: ./docker
@@ -73,6 +77,7 @@ jobs:
 
 
       - name: Build and push sparseml-transformers
+        if: ${{ contains(github.ref, 'refs/heads/releases/') }}
         uses: docker/build-push-action@v2
         with:
           context: ./docker
@@ -83,6 +88,7 @@ jobs:
             ghcr.io/neuralmagic/sparseml-transformers:${{ env.version }}
 
       - name: Build and push sparseml-ultralytics
+        if: ${{ contains(github.ref, 'refs/heads/releases/') }}
         uses: docker/build-push-action@v2
         with:
           context: ./docker
@@ -95,6 +101,7 @@ jobs:
 
 
       - name: Build and push sparseml-yolov5
+        if: ${{ contains(github.ref, 'refs/heads/releases/') }}
         uses: docker/build-push-action@v2
         with:
           context: ./docker
@@ -106,6 +113,7 @@ jobs:
             ghcr.io/neuralmagic/sparseml-yolov5:${{ env.version }}
 
       - name: Build and push sparseml-base
+        if: ${{ contains(github.ref, 'refs/heads/releases/') }}
         uses: docker/build-push-action@v2
         with:
           context: ./docker
@@ -117,4 +125,5 @@ jobs:
             ghcr.io/neuralmagic/sparseml-base:${{ env.version }}
 
       - name: Image digest
+        if: ${{ contains(github.ref, 'refs/heads/releases/') }}
         run: echo ${{ steps.docker_build.outputs.digest }}
