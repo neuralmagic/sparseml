@@ -55,7 +55,7 @@ jobs:
           push: true
           tags: |
             ghcr.io/neuralmagic/sparseml-all:${{ steps.extract-version.outputs.version }}
-            ghcr.io/neuralmagic/sparseml:${{ steps.extract-version.outputs.version }}
+#            ghcr.io/neuralmagic/sparseml:${{ steps.extract-version.outputs.version }}
 
       - name: Build and push sparseml-torchvision
         uses: docker/build-push-action@v2
