@@ -1,0 +1,40 @@
+# Epoch and Learning-Rate variables
+num_epochs: 13.0
+pruning_epochs: 10.0
+init_lr: 0.0005
+inter_func: cubic
+mask_type: unstructured
+
+training_modifiers:
+  - !EpochRangeModifier
+    start_epoch: 0.0
+    end_epoch: eval(num_epochs)
+
+  - !LearningRateFunctionModifier
+    final_lr: 0.0
+    init_lr: eval(init_lr)
+    lr_func: cosine
+    start_epoch: 0.0
+    end_epoch: eval(num_epochs)
+
+# Pruning
+pruning_modifiers:
+  - !GlobalMagnitudePruningModifier
+    init_sparsity: 0.05
+    final_sparsity: 0.90
+    start_epoch: 0.0
+    end_epoch: eval(pruning_epochs)
+    update_frequency: 1.0
+    params: 
+        - 'features.0.0.weight'
+        - 'features.18.0.weight'
+        - 're:features.*.conv.*.weight'
+        - 're:features.*.conv.*.*.weight'
+    leave_enabled: True
+    inter_func: eval(inter_func)
+    mask_type: eval(mask_type)
+
+finetuning_modifiers:
+  - !ConstantPruningModifier
+    start_epoch: eval(pruning_epochs)
+    params: __ALL_PRUNABLE__
