@@ -33,6 +33,7 @@ RUN set -Eeuxo \
         python3.8-venv \
         build-essential libssl-dev libffi-dev \
         ffmpeg libsm6 libxext6 \
+        curl \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
