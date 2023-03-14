@@ -66,8 +66,8 @@ def export_sample_inputs_outputs(
         import onnxruntime
     except (ImportError, ModuleNotFoundError) as exception:
         raise ValueError(
-            "onnxruntime is needed to export samples, but was  not found, "
-            "try `pip install sparseml[onnxruntime]`"
+            "onnxruntime is needed to export samples for validation, but the "
+            "module was  not found, try `pip install sparseml[onnxruntime]`"
         ) from exception
 
     LOGGER.info(
