@@ -1,5 +1,4 @@
 name: Build and Publish
-
 on:
   create
 
@@ -13,7 +12,6 @@ jobs:
 
     steps:
       - name: Set up Docker Buildx
-        if: ${{ contains(github.ref, 'refs/heads/releases/') }}
         id: buildx
         uses: docker/setup-buildx-action@v2
         with:
