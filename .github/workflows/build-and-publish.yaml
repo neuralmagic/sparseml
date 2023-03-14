@@ -12,7 +12,9 @@ jobs:
   build-and-push-docker-image:
     name: Build and Push Version Tagged Docker Images to GitHub Container Registry
     runs-on: ubuntu-latest
-
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -108,7 +110,6 @@ jobs:
             VERSION=${{ steps.extract-version.outputs.version }}
           tags: |
             ghcr.io/neuralmagic/sparseml-base:${{ steps.extract-version.outputs.version }}
-            
 
       - name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
