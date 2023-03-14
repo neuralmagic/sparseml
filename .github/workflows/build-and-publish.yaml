@@ -33,23 +33,14 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: get-release-branch-version@v1
-        if: ${{ contains(github.ref, 'refs/heads/release/') }}
-        uses: valadas/get-release-branch-version@v1
-        id: branchVersion
-
-      - name: Extract version into env var
-        if: ${{ contains(github.ref, 'refs/heads/release/') }}
-        env:
-          MAJOR: ${{ steps.branchVersion.major }}
-          MINOR: ${{ steps.branchVersion.minor }}
-          PATCH: ${{ steps.branchVersion.patch }}
-        run: |
-          echo "version=$MAJOR.$MINOR.$PATCH" >> $GITHUB_ENV
+      - name: Get Tag
+        id: extract_tag
+        run: echo "##[set-output name=tag;]$(echo ${GITHUB_REF_NAME#*/})"
 
       - name: Current Version Name
         if: ${{ contains(github.ref, 'refs/heads/release/') }}
-        run: echo "${{ env.version }}"
+        run: |
+          echo ${{ steps.extract_tag.outputs.tag }}
 
       - name: Build and  push sparseml-all
         if: ${{ contains(github.ref, 'refs/heads/release/') }}
@@ -58,10 +49,10 @@ jobs:
           context: ./docker
           build-args: |
             DEPS=all
-            VERSION=${{ env.version }}
+            VERSION=${{ steps.extract_tag.outputs.tag }}
           push: true
           tags: |
-            ghcr.io/neuralmagic/sparseml-all:${{ env.version }}
+            ghcr.io/neuralmagic/sparseml-all:${{ steps.extract_tag.outputs.tag }}
 
       - name: Build and push sparseml-torchvision
         if: ${{ contains(github.ref, 'refs/heads/release/') }}
@@ -70,10 +61,10 @@ jobs:
           context: ./docker
           build-args: |
             DEPS=torchvision
-            VERSION=${{ env.version }}
+            VERSION=${{ steps.extract_tag.outputs.tag }}
           push: true
           tags: |
-            ghcr.io/neuralmagic/sparseml-torchvision:${{ env.version }}
+            ghcr.io/neuralmagic/sparseml-torchvision:${{ steps.extract_tag.outputs.tag }}
 
 
       - name: Build and push sparseml-transformers
@@ -83,9 +74,9 @@ jobs:
           context: ./docker
           build-args: |
             DEPS=transformers
-            VERSION=${{ env.version }}
+            VERSION=${{ steps.extract_tag.outputs.tag }}
           tags: |
-            ghcr.io/neuralmagic/sparseml-transformers:${{ env.version }}
+            ghcr.io/neuralmagic/sparseml-transformers:${{ steps.extract_tag.outputs.tag }}
 
       - name: Build and push sparseml-ultralytics
         if: ${{ contains(github.ref, 'refs/heads/release/') }}
@@ -95,9 +86,9 @@ jobs:
           push: true
           build-args: |
             DEPS=ultralytics
-            VERSION=${{ env.version }}
+            VERSION=${{ steps.extract_tag.outputs.tag }}
           tags: |
-            ghcr.io/neuralmagic/sparseml-torchvision:${{ env.version }}
+            ghcr.io/neuralmagic/sparseml-torchvision:${{ steps.extract_tag.outputs.tag }}
 
 
       - name: Build and push sparseml-yolov5
@@ -108,9 +99,9 @@ jobs:
           push: true
           build-args: |
             DEPS=yolov5
-            VERSION=${{ env.version }}
+            VERSION=${{ steps.extract_tag.outputs.tag }}
           tags: |
-            ghcr.io/neuralmagic/sparseml-yolov5:${{ env.version }}
+            ghcr.io/neuralmagic/sparseml-yolov5:${{ steps.extract_tag.outputs.tag }}
 
       - name: Build and push sparseml-base
         if: ${{ contains(github.ref, 'refs/heads/release/') }}
@@ -120,9 +111,9 @@ jobs:
           push: true
           build-args: |
             DEPS=base
-            VERSION=${{ env.version }}
+            VERSION=${{ steps.extract_tag.outputs.tag }}
           tags: |
-            ghcr.io/neuralmagic/sparseml-base:${{ env.version }}
+            ghcr.io/neuralmagic/sparseml-base:${{ steps.extract_tag.outputs.tag }}
 
       - name: Image digest
         if: ${{ contains(github.ref, 'refs/heads/release/') }}
