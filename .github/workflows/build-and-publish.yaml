@@ -14,10 +14,8 @@ jobs:
     permissions:
       contents: read
       packages: write
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
 
+    steps:
       - name: Set up Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@v2
@@ -31,28 +29,36 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Get branch names
-        id: branch-name
-        uses: tj-actions/branch-names@v6
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
 
-      - name: Current branch name
+      - name: get-release-branch-version@v1
+        uses: valadas/get-release-branch-version@v1
+        id: branchVersion
+
+      - name: Extract version into env var
+        env:
+          MAJOR: ${{ steps.branchVersion.major }}
+          MINOR: ${{ steps.branchVersion.minor }}
+          PATCH: ${{ steps.branchVersion.patch }}
         run: |
-          echo "${{ steps.branch-name.outputs.current_branch }}"
+          echo "version=$MAJOR.$MINOR.$PATCH" >> $GITHUB_ENV
 
-      - name: Extract branch name
-        shell: bash
-        run: echo "##[set-output name=version;]$(echo ${GITHUB_REF#refs/heads/})"
-        id: extract-version
+      - name: Current Version Name
+        run: echo "${{ env.version }}"
 
-      - name: Build and  push sparseml/sparseml-all
+      - name: Build and  push sparseml-all
         uses: docker/build-push-action@v2
         with:
           context: ./docker
           build-args: |
             DEPS=all
-            VERSION=${{ steps.extract-version.outputs.version }}
+            VERSION=${{ env.version }}
           push: true
-          tags: ghcr.io/neuralmagic/sparseml-all:${{ steps.extract-version.outputs.version }}
+          tags: |
+          ghcr.io/neuralmagic/sparseml-all:${{ env.version }}
 
       - name: Build and push sparseml-torchvision
         uses: docker/build-push-action@v2
@@ -60,10 +66,10 @@ jobs:
           context: ./docker
           build-args: |
             DEPS=torchvision
-            VERSION=${{ steps.extract-version.outputs.version }}
+            VERSION=${{ env.version }}
           push: true
           tags: |
-            ghcr.io/neuralmagic/sparseml-torchvision:${{ steps.extract-version.outputs.version }}
+            ghcr.io/neuralmagic/sparseml-torchvision:${{ env.version }}
 
 
       - name: Build and push sparseml-transformers
@@ -72,9 +78,9 @@ jobs:
           context: ./docker
           build-args: |
             DEPS=transformers
-            VERSION=${{ steps.extract-version.outputs.version }}
+            VERSION=${{ env.version }}
           tags: |
-            ghcr.io/neuralmagic/sparseml-transformers:${{ steps.extract-version.outputs.version }}
+            ghcr.io/neuralmagic/sparseml-transformers:${{ env.version }}
 
       - name: Build and push sparseml-ultralytics
         uses: docker/build-push-action@v2
@@ -83,9 +89,9 @@ jobs:
           push: true
           build-args: |
             DEPS=ultralytics
-            VERSION=${{ steps.extract-version.outputs.version }}
+            VERSION=${{ env.version }}
           tags: |
-            ghcr.io/neuralmagic/sparseml-torchvision:${{ steps.extract-version.outputs.version }}
+            ghcr.io/neuralmagic/sparseml-torchvision:${{ env.version }}
 
 
       - name: Build and push sparseml-yolov5
@@ -95,9 +101,9 @@ jobs:
           push: true
           build-args: |
             DEPS=yolov5
-            VERSION=${{ steps.extract-version.outputs.version }}
+            VERSION=${{ env.version }}
           tags: |
-            ghcr.io/neuralmagic/sparseml-yolov5:${{ steps.extract-version.outputs.version }}
+            ghcr.io/neuralmagic/sparseml-yolov5:${{ env.version }}
 
       - name: Build and push sparseml-base
         uses: docker/build-push-action@v2
@@ -106,9 +112,9 @@ jobs:
           push: true
           build-args: |
             DEPS=base
-            VERSION=${{ steps.extract-version.outputs.version }}
+            VERSION=${{ env.version }}
           tags: |
-            ghcr.io/neuralmagic/sparseml-base:${{ steps.extract-version.outputs.version }}
+            ghcr.io/neuralmagic/sparseml-base:${{ env.version }}
 
       - name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
