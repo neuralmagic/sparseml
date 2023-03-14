@@ -1,7 +1,7 @@
 name: Build and Publish
 
 on:
-  push:
+  create:
     tags:
       - '*'
     branches:
@@ -11,7 +11,9 @@ jobs:
   build-and-push-docker-image:
     name: Build and Push Version Tagged Docker Images to GitHub Container Registry
     runs-on: ubuntu-latest
-
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -19,6 +21,8 @@ jobs:
       - name: Set up Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@v2
+        with:
+          buildkitd-flags: --debug
 
       - name: Login to Github Packages
         uses: docker/login-action@v2
@@ -47,9 +51,8 @@ jobs:
           build-args: |
             DEPS=all
             VERSION=${{ steps.extract-version.outputs.version }}
-          tags: |
-            ghcr.io/neuralmagic/sparseml-all:${{ steps.extract-version.outputs.version }}
-            ghcr.io/neuralmagic/sparseml:${{ steps.extract-version.outputs.version }}
+          push: true
+          tags: ghcr.io/neuralmagic/sparseml-all:${{ steps.extract-version.outputs.version }}
 
       - name: Build and push sparseml-torchvision
         uses: docker/build-push-action@v2
@@ -58,9 +61,10 @@ jobs:
           build-args: |
             DEPS=torchvision
             VERSION=${{ steps.extract-version.outputs.version }}
+          push: true
           tags: |
             ghcr.io/neuralmagic/sparseml-torchvision:${{ steps.extract-version.outputs.version }}
-            
+
 
       - name: Build and push sparseml-transformers
         uses: docker/build-push-action@v2
@@ -70,23 +74,25 @@ jobs:
             DEPS=transformers
             VERSION=${{ steps.extract-version.outputs.version }}
           tags: |
-            ghcr.io/neuralmagic/sparseml-transformers:${{ steps.extract-version.outputs.version }}            
+            ghcr.io/neuralmagic/sparseml-transformers:${{ steps.extract-version.outputs.version }}
 
       - name: Build and push sparseml-ultralytics
         uses: docker/build-push-action@v2
         with:
           context: ./docker
+          push: true
           build-args: |
             DEPS=ultralytics
             VERSION=${{ steps.extract-version.outputs.version }}
           tags: |
             ghcr.io/neuralmagic/sparseml-torchvision:${{ steps.extract-version.outputs.version }}
-            
+
 
       - name: Build and push sparseml-yolov5
         uses: docker/build-push-action@v2
         with:
           context: ./docker
+          push: true
           build-args: |
             DEPS=yolov5
             VERSION=${{ steps.extract-version.outputs.version }}
@@ -97,12 +103,12 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           context: ./docker
+          push: true
           build-args: |
             DEPS=base
             VERSION=${{ steps.extract-version.outputs.version }}
           tags: |
             ghcr.io/neuralmagic/sparseml-base:${{ steps.extract-version.outputs.version }}
-            
 
       - name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
