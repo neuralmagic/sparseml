@@ -1,0 +1,29 @@
+# Epoch and Learning-Rate variables
+num_epochs: 5.0
+init_lr: 0.0004
+
+# quantization variables
+quantization_epochs: 6.0
+
+training_modifiers:
+  - !EpochRangeModifier
+    start_epoch: 0.0
+    end_epoch: eval(num_epochs)
+
+  - !LearningRateFunctionModifier
+    final_lr: 0.0
+    init_lr: eval(init_lr)
+    lr_func: cosine
+    start_epoch: 0.0
+    end_epoch: eval(num_epochs)
+
+# Phase 1 Sparse Transfer Learning / Recovery
+sparse_transfer_learning_modifiers:
+  - !ConstantPruningModifier
+    start_epoch: 0.0
+    params: __ALL_PRUNABLE__
+
+# Phase 2 Apply quantization
+sparse_quantized_transfer_learning_modifiers:
+  - !QuantizationModifier
+    start_epoch: eval(num_epochs - quantization_epochs)
