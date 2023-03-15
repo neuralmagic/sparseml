@@ -53,7 +53,10 @@ limitations under the License.
 
 ## Overview
 
-SparseML is a model optimization toolkit that includes APIs, CLIs, scripts and libraries that apply state-of-the-art sparsification algorithms such as pruning and quantization to any neural network. Once sparsified, the models can be deployed with [DeepSparse](https://github.com/neuralmagic/deepsparse) for GPU-class performance on CPUs.
+SparseML is a model optimization toolkit that includes APIs, CLIs, scripts and libraries to apply state-of-the-art sparsification algorithms such as pruning and quantization to your PyTorch, Hugging Face, and Ultralytics models. Once optimized, SparseML enabled you to export to the ONNX format for deployment with [DeepSparse](https://github.com/neuralmagic/deepsparse).
+
+<img alt="SparseML Flow" src="docs/images/sparseml-flow.png" width="960px" />
+
 
 
 General, recipe-driven approaches built around these algorithms enable the simplification of creating faster and smaller models for the ML performance community at large.
