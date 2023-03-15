@@ -62,20 +62,20 @@ SparseML is an open-source model optimization toolkit that enables you to create
 ## Workflows
 
 SparseML enables you to create a sparse model trained on your dataset in two ways:
-- **Sparse Transfer Learning** enables you to fine-tune a pre-sparsified model from [SparseZoo, an open-source repository of sparse models such as BERT, YOLOv5, and ResNet-50](https://sparsezoo.neuralmagic.com/) onto your dataset, while maintaining sparsity. This pathway works just like typical fine-tuning you are used to in training CV and NLP models, and is strongly preferred for if your model architecture is availble in SparseZoo.
+- **Sparse Transfer Learning** enables you to fine-tune a pre-sparsified model from [SparseZoo](https://sparsezoo.neuralmagic.com/) (an open-source repository of sparse models such as BERT, YOLOv5, and ResNet-50) onto your dataset, while maintaining sparsity. This pathway works just like typical fine-tuning you are used to in training CV and NLP models, and is strongly preferred for if your model architecture is availble in SparseZoo.
 
 - **Sparsification from Scratch** enables you to apply state-of-the-art pruning (like gradual magnitude pruning or OBS pruning) and quantization (like quantization aware training) algorithms to arbitrary PyTorch and Hugging Face models. This pathway requires more experimentation, but allows you to create a sparse version of any model. 
 
 ## Integrations
 
 <p>
-    <a href="https://github.com/neuralmagic/sparseml/tree/main/integrations/torchvision">
+    <a href="integrations/torchvision">
         <img src="https://docs.neuralmagic.com/docs/source/highlights/sparseml/pytorch-torchvision.png" width="136px" />
     </a>
-    <a href="https://github.com/neuralmagic/sparseml/tree/main/integrations/ultralytics-yolov5">
+    <a href="integrations/ultralytics-yolov5">
         <img src="https://docs.neuralmagic.com/docs/source/highlights/sparseml/ultralytics-yolov5.png" width="136px" />
     </a>
-    <a href="https://github.com/neuralmagic/sparseml/tree/main/integrations/huggingface-transformers">
+    <a href="integrations/huggingface-transformers">
         <img src="https://docs.neuralmagic.com/docs/source/highlights/sparseml/huggingface-transformers.png" width="136px" />
     </a>
 </p>
