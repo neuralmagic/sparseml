@@ -83,8 +83,6 @@ manager.finalize(model)
 
 Note that the `model`, `optimizer`, and `dataset` are all standard PyTorch objects. We simply pass a recipe to the SparseML `SchedulerModifierManager` and SparseML handles the rest!
 
-See the tutorials for full working examples of the Python API.
-
 ### SparseML CLI
 
 In addition to the code-level API, SparseML offers pre-made training pipelines for image classification via the CLI interface.
