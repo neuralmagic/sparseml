@@ -48,6 +48,7 @@ __all__ = [
 
 logger = logging.getLogger()
 
+
 class ModuleSparsificationInfo:
     """
     Helper class for providing information related to torch Module parameters
@@ -256,7 +257,9 @@ class GradSampler:
                     if computed_grads >= num_grads:
                         break
                 if computed_grads < num_grads:
-                    logger.warning(f"The requested num_grads:{num_grads} is greater than allowed by the dataset. \
-                        Proceeding with less than requested. Please reduce num_grads to suppress the warning.")
+                    logger.warning(
+                        f"The requested num_grads:{num_grads} is greater than allowed by the dataset. \
+                        Proceeding with less than requested. Please reduce num_grads to suppress the warning."
+                    )
                     break
         module.zero_grad()
