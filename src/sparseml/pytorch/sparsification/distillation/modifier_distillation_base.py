@@ -44,6 +44,11 @@ def kl_logsoftmax(
     x: Tensor, y: Tensor, temperature: Union[float, Tensor], dim: int = -1
 ) -> Tensor:
     number_items = x.numel() / y.size(dim)
+    if x.shape != y.shape:
+        raise ValueError(
+            "The teacher/student outputs must be of the same shape for distilation"
+            f" but got Tensors of size {x.shape} and {y.shape}"
+        )
     return (
         TF.kl_div(
             input=TF.log_softmax(x / temperature, dim=dim),
