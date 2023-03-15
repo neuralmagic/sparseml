@@ -16,7 +16,6 @@ import os
 from typing import Any, Dict
 
 import numpy
-import onnxruntime
 import torch
 from torch import device as device_class
 
@@ -63,6 +62,13 @@ def export_sample_inputs_outputs(
     :param number_export_samples: number of samples to export
     :param onnx_path: path to onnx model. Used to generate ORT outputs
     """
+    try:
+        import onnxruntime
+    except (ImportError, ModuleNotFoundError) as exception:
+        raise ValueError(
+            "onnxruntime is needed to export samples for validation, but the "
+            "module was  not found, try `pip install sparseml[onnxruntime]`"
+        ) from exception
 
     LOGGER.info(
         f"Exporting {number_export_samples} sample model inputs and outputs for "
@@ -145,7 +151,7 @@ def _export_torch_outputs(
 
 def _export_ort_outputs(
     image: numpy.ndarray,
-    session: onnxruntime.InferenceSession,
+    session: "onnxruntime.InferenceSession",  # noqa: F821
     sample_out_dir: str,
     file_idx: str,
 ):
