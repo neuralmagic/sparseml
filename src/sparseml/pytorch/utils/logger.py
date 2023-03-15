@@ -341,7 +341,7 @@ class PythonLogger(LambdaLogger):
             log_path = os.path.join("sparse_logs", f"{dt_string}.log")
             os.makedirs("sparse_logs", exist_ok=True)
 
-            _LOGGER(f"Logging all SparseML modifier-level logs to {log_path}")
+            _LOGGER.info(f"Logging all SparseML modifier-level logs to {log_path}")
 
             handler = logging.FileHandler(
                 log_path,
