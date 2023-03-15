@@ -21,7 +21,6 @@ This directory explains how to use SparseML's `torchvision` integration to train
 There are two main workflows enabled by SparseML:
 
 - **Sparse Transfer Learning** - fine-tune a pre-sparsified checkpoint on your own dataset **[RECOMMENDED]**
-
 - **Sparsification from Scratch** - apply pruning and quantization to sparsify `torchvision` models from scratch
 
 Once trained, SparseML enables you to export models to the ONNX format, such that they can be deployed with DeepSparse.
@@ -36,12 +35,11 @@ pip install sparseml[torchvision]
 
 ## Tutorials
 
-- [Sparse Transfer Learning with the CLI](tutorials/sparse-transfer-learning.md)
-- [Sparse Transfer Learning with the Python API](tutorials/docs-torchvision-python-transfer-imagenette.ipynb)
-- Sparsification from Scratch with the CLI (coming soon!)
-- [Sparsification from Scratch with the Python API - ResNet-50](tutorials/docs-torchvision-sparsify-from-scatch-resnet50-beans.ipynb)
+- [Sparse Transfer Learning with the CLI - ResNet-50](tutorials/sparse-transfer-learning.md)
+- [Sparse Transfer Learning with the Python API - ResNet-50](tutorials/docs-torchvision-python-transfer-imagenette.ipynb)
+- [Sparsification from Scratch with the Python API - ResNet-50](tutorials/docs-torchvision-sparsify-from-scratch-resnet50-beans.ipynb)
 - [Sparsification from Scratch with the Python API - MobileNetv2](tutorials/docs-torchvision-sparsify-from-scratch-mobilenetv2-beans.ipynb)
-- [Sparsification from Scratch with the Python API - DenseNet-121](tutorials/docs-torchvision-sparsify-from-scratch-densenet-flowers.ipynb )
+- [Sparsification from Scratch with the Python API - DenseNet-121](tutorials/docs-torchvision-sparsify-from-scratch-densenet-flowers-pruned-quant.ipynb)
 
 ## Quick Tour
 
