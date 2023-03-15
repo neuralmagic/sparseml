@@ -680,9 +680,8 @@ class SparseYOLO(YOLO):
         args.data = data or args.data
         args.task = self.task
         if args.imgsz == DEFAULT_CFG.imgsz:
-            args.imgsz = self.model.args[
-                "imgsz"
-            ]  # use trained imgsz unless custom value is passed
+            # use trained imgsz unless custom value is passed
+            args.imgsz = self.ckpt["train_args"]["imgsz"]
         args.imgsz = check_imgsz(args.imgsz, max_dim=1)
 
         validator = self.ValidatorClass(args=args)
