@@ -1,0 +1,56 @@
+# Epoch and Learning-Rate variables
+num_epochs: 13.0
+pruning_epochs: 10.0
+init_lr: 0.0005
+final_lr: 0.0001
+inter_func: cubic
+mask_type: unstructured
+
+training_modifiers:
+  - !EpochRangeModifier
+    start_epoch: 0.0
+    end_epoch: eval(num_epochs)
+
+  - !LearningRateFunctionModifier
+    final_lr: eval(final_lr)
+    init_lr: eval(init_lr)
+    lr_func: cosine
+    start_epoch: 0.0
+    end_epoch: eval(pruning_epochs)
+    
+  - !LearningRateFunctionModifier
+    final_lr: eval(final_lr)
+    init_lr: eval(init_lr)
+    lr_func: cosine
+    start_epoch: eval(pruning_epochs)
+    end_epoch: eval(num_epochs)
+
+# Pruning
+pruning_modifiers:
+  - !GlobalMagnitudePruningModifier
+    init_sparsity: 0.05
+    final_sparsity: 0.9
+    start_epoch: 0.0
+    end_epoch: eval(pruning_epochs)
+    update_frequency: 0.5
+    params: 
+        - 'features.conv0.weight'
+        - 're:features.denseblock1.*.conv1.weight'
+        - 're:features.denseblock1.*.conv2.weight'
+        - 're:features.transition1.conv.weight'
+        - 're:features.denseblock2.*.conv1.weight'
+        - 're:features.denseblock2.*.conv2.weight'
+        - 're:features.transition2.conv.weight'
+        - 're:features.denseblock3.*.conv1.weight'
+        - 're:features.denseblock3.*.conv2.weight'
+        - 're:features.transition3.conv.weight'
+        - 're:features.denseblock4.*.conv1.weight'
+        - 're:features.denseblock4.*.conv2.weight'
+    leave_enabled: True
+    inter_func: eval(inter_func)
+    mask_type: eval(mask_type)
+
+finetuning_modifiers:
+  - !ConstantPruningModifier
+    start_epoch: eval(pruning_epochs)
+    params: __ALL_PRUNABLE__
