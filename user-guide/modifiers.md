@@ -16,8 +16,7 @@ limitations under the License.
 
 # Recipes
 
-Recipes are SparseML's declarative interface for specifying sparsity-related algorithms that should be applied during training.
-The SparseML system parses the recipes and modifies the model and/or training loop with the encoded instructions.
+Recipes are SparseML's declarative interface for specifying sparsity-related algorithms that should be applied during training. SparseML parses the recipes and modifies the model and/or training loop with the encoded instructions.
 
 This allows you to add SparseML's algorithms to your existing training loops with a few lines of code.
 
@@ -29,12 +28,13 @@ There are four types of modifiers:
 - [`training_modifiers`](#training-modifiers) specify hyperparameters of the training process, such as the learning rate schedule or number of epochs
 - [`pruning_modifiers`](#pruning-modifiers) specify how pruning should be applied to a model, such as the level of sparsity and pruning algorithms
 - [`quantization_modifiers`](#quantization-modifiers) specify how quantization-aware training should be applied to a model, such as which layers to target
-- [`distillation_modifiers`](#distillation-modifiers) specify how (or if) model distillation should be applied during training
+- [`distillation_modifiers`](#distillation-modifiers) specify how model distillation should be applied during training / pruning
 
-A sample recipe for pruning a model generally looks like the following:
+The following is a sample recipe for applying the gradual magnitude pruning algorithm to prune a model from scratch:
 
 ```yaml
-# Epoch and Learning-Rate variables
+# recipe.yaml
+
 num_epochs: 13.0
 pruning_epochs: 10.0
 init_lr: 0.00025
@@ -65,19 +65,17 @@ pruning_modifiers:
      mask_type: unstructured
 ```
 
-[Check out the SparseZoo](https://sparsezoo.neuralmagic.com/) to see examples of state-of-the-art recipes.
-
-Below, we enumerate the available modifiers in SparseML.
+[Check out the SparseZoo to see examples of state-of-the-art recipes](https://sparsezoo.neuralmagic.com/)
 
 ## Training Modifiers
 
-### Hyperparameter Modifiers
+### 1. Hyperparameter Modifiers
 
 The hyperparameter modifiers control various aspects of the training process.
 
 #### EpochRangeModifier
 
-The `EpochRangeModifier` is a simple modifier to control the range of epochs for training a model. Note that if other modifiers exceed the range of `EpochRangeModifier` for min or max epochs, this modifier will not have an effect.
+`EpochRangeModifier` is a simple modifier to control the range of epochs for training a model. Note that if other modifiers exceed the range of `EpochRangeModifier` for min or max epochs, this modifier will not have an effect.
 
 Parameters:
 - `start_epoch`: The start range for the epoch (0 indexed)
@@ -97,7 +95,7 @@ training_modifiers:
 
 #### LearningRateFunctionModifier
 
-The `LearningRateFunctionModifier` sets the learning rate (LR) for the optimizer based on support math functions scaling between an `init_lr` and a `final_lr`. If you are using an Adam optimizer, then generally, these are not useful. If you are using a standard stochastic gradient descent optimizer, then these give a convenient way to control the LR.
+`LearningRateFunctionModifier` sets the learning rate (LR) for the optimizer based on support math functions scaling between an `init_lr` and a `final_lr`.
 
 Parameters:
 - `lr_func`: The name of the learning rate function to use (options: `linear`, `cosine`, `cyclic_linear`)
@@ -129,7 +127,7 @@ training_modifiers:
 
 #### SetWeightDecayModifier
 
-The `SetWeightDecayModifier` sets the weight decay (L2 penalty) for the optimizer to a specific value.
+`SetWeightDecayModifier` sets the weight decay (L2 penalty) for the optimizer to a specific value.
 
 Parameters:
 
@@ -151,7 +149,7 @@ training_modifiers:
 
 #### TrainableParamsModifier
 
-The `TrainableParamsModifier` sets whether a group of parameters should be trainable. 
+`TrainableParamsModifier` sets whether a group of parameters should be trainable. 
 
 Parameters:
 - `params`: A list of full parameter names or regex patterns of names to apply pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__ will match to all parameters.
@@ -164,7 +162,7 @@ Example:
 
 ```yaml
 training_modifiers:
-  !TrainableParamsModifier:
+  - !TrainableParamsModifier:
     params: ["conv_net.conv1.weight"]
     trainable: True
     start_epoch: 0
@@ -175,15 +173,15 @@ training_modifiers:
 
 ## Pruning Modifiers
 
-The pruning modifiers handle [pruning](https://neuralmagic.com/blog/pruning-overview/). Pruning is the process of removing weight connections in a network. In general, neural networks are very over parameterized. Pruning a network can be thought of as removing unused parameters from the over parameterized network. The resulting models are smaller and faster (when deployed with a sparsity-aware inference runtime like DeepSparse)
+The pruning modifiers handle [pruning](https://neuralmagic.com/blog/pruning-overview/). Pruning is the process of removing weight connections in a network. The resulting models are faster when deployed with a sparsity-aware inference runtime like DeepSparse.
 
 SparseML implements several pruning-related algorithms, which are uses to achieve the two main workflows:
-- For **Sparse Transfer Learning**, where we fine-tune a pre-sparsified model onto a downstream dataset, the `ConstantPruningModifier` instructs SparseML to maintain sparsity as the model fine-tunes.
-- For **Sparsifying From Scratch**, where we prune weights from a dense network, there are many options in SparseML. For CNN models, we recommend using the [`GlobalMagnitudePruningModifier`](#globalmagnitudepruningmodifier). For Transformer models, we recommend starting with the [`MagnitudePruningModifier`](#magnitudepruningmodifier) and moving to the more compute-intensive [`OBSPruningModifier`](#obspruningmodifier) to reach higher levels of sparsity.
+- For **Sparse Transfer Learning**, where we fine-tune a pre-sparsified model onto a downstream dataset, the [`ConstantPruningModifier`](#constantpruningmodifier) instructs SparseML to maintain sparsity as the model fine-tunes.
+- For **Sparsifying From Scratch**, where we prune weights from a dense network, there are many options in SparseML. For CNN models, we recommend using the [`GlobalMagnitudePruningModifier`](#globalmagnitudepruningmodifier). For Transformer models, we recommend starting with the [`MagnitudePruningModifier`](#magnitudepruningmodifier) and moving to the more compute-intensive [`OBSPruningModifier`](#obspruningmodifier) to reach higher levels of sparsity without accuracy drop.
 
-### Constant Pruning MOdifiers
+### 1. Constant Pruning
 
-Constant pruning modifiers are used to maintain sparsity while fine-tuning occurs. This is useful for Sparse Transfer Learning, where we fine-tune a pre-sparsified model (such as the sparse checkpionts in Neural Magic's SparseZoo) onto a new task.
+Constant pruning modifiers are used to maintain sparsity while fine-tuning occurs. This is useful for Sparse Transfer Learning, where we fine-tune a pre-sparsified model (such as the sparse checkpoints in Neural Magic's SparseZoo) onto a new task.
 
 #### ConstantPruningModifier
 
@@ -203,19 +201,19 @@ training_modifiers:
      params: __ALL_PRUNABLE__
 ```
 
-[Source](https://github.com/neuralmagic/sparseml/blob/main/src/sparseml/pytorch/sparsification/pruning/modifier_pruning_constant.py)
+[Source Code](https://github.com/neuralmagic/sparseml/blob/main/src/sparseml/pytorch/sparsification/pruning/modifier_pruning_constant.py)
 
-### Gradual Magnitude Pruning
+### 2. Gradual Magnitude Pruning
 
 The [gradual magnitude pruning algorithm (GMP)](https://neuralmagic.com/blog/pruning-gmp/) is used to sparsify a dense networks from scratch. GMP is a relatively simple, but effective algorithm. It works by starting with a pretrained network and fine-tuning non-zero weights further. At the end of each epoch, the weights closest to 0 are removed from the network. This process is repeated until the target level of sparsity is reached. In such a way, GMP gradually induce sparsity into the network, while fine-tuning the non-zero weights to help the model recover to the new optimization space. 
 
 #### GlobalMagnitudePruningModifier
 
-`GlobalMagnitudePruningModifier` applies the GMP algorithm with global sparsity. That is, layers are pruned globally, such that average sparsity across layers is equal to `target_sparsity` (but each layer may have different sparsity levels). If applying GMP, you should default to global pruning over layerwise, especially for CNN models.
+`GlobalMagnitudePruningModifier` applies the GMP algorithm with global sparsity. That is, layers are pruned globally, such that average sparsity across layers is equal to the target sparsity (but each layer may have different sparsity levels). If applying GMP, you should default to global pruning over layerwise, especially for CNN models.
 
 Parameters:
 - `init_sparsity`: Initial sparsity for each layer at `start_epoch`
-- `final_sparsity`: Final sparisty for each layer at `end_epoch`
+- `final_sparsity`: Average final sparsity for each layer at `end_epoch`
 - `start_epoch`: The epoch to start the GMP algorithm
 - `end_epoch`: The epoch to end the GMP algorithm
 - `update_frequency`: Frequency at which weights are pruned
@@ -234,7 +232,7 @@ inter_func: cubic
 training_modifiers:
    - !MagnutidePruningModifier
      init_sparsity: 0.05
-     final_sparsity: 0.8
+     final_sparsity: 0.85
      start_epoch: 0.0
      end_epoch: eval(num_pruning_epochs)
      update_frequency: 1.0
@@ -246,7 +244,7 @@ training_modifiers:
 
 #### MagnitudePruningModifier
 
-`MagnitudePruningModifier` applies the GMP algorithm with layerwise sparsity. That is, each layer is pruned independently such that the final sparsity for each layer equals the `target_sparsity`.
+`MagnitudePruningModifier` applies the GMP algorithm with layerwise sparsity. That is, each layer is pruned independently such that the final sparsity for each layer equals the target_sparsity.
 
 Parameters:
 - `init_sparsity`: Initial sparsity for each layer at `start_epoch`
@@ -268,7 +266,7 @@ inter_func: cubic
 training_modifiers:
    - !MagnutidePruningModifier
      init_sparsity: 0.05
-     final_sparsity: 0.8
+     final_sparsity: 0.85
      start_epoch: 0.0
      end_epoch: eval(num_pruning_epochs)
      update_frequency: 1.0
@@ -280,13 +278,13 @@ training_modifiers:
 
 [Source Code](https://github.com/neuralmagic/sparseml/blob/main/src/sparseml/pytorch/sparsification/pruning/modifier_pruning_magnitude.py)
 
-### First and Second Order Methods
+### 3. First and Second Order Methods
 
 Beyond gradual magnitude pruning, where weights that are closest to 0 are iteratively pruned at the end of every epoch, more advanced techniques have been developed to use first and second order methods to identify the least impactful weights. These methods are generally more compute intensive (as they can require approximating the Hessian matrix), but are helpful for reaching higher levels of sparsity without accuracy loss. 
 
 #### OBSPruningModifier
 
-`OBSPruningModifier` implements the [OBS algorithm](https://arxiv.org/abs/2203.07259). Just like gradual magnitude pruning, the OBS algorithm iteratively prunes the least important weights at the end of each epoch. However, rather than removing weights closest to 0 (like GMP), the OBS algorithm is a second-order method that approximates the Hessian matrix to identify the least important weights. While OBS is compute-intensive, it is a generally a great place to start when pruning transformers models (Neural Magic uses this method internally).
+`OBSPruningModifier` implements the [OBS algorithm](https://arxiv.org/abs/2203.07259). Just like gradual magnitude pruning, the OBS algorithm iteratively prunes the least important weights at the end of each epoch. However, rather than removing weights closest to 0 (like GMP), the OBS algorithm is a second-order method that approximates the Hessian matrix to identify the least important weights. While OBS is compute-intensive, it is a generally has excellent results when pruning transformers models (Neural Magic uses this method internally).
 
 Parameters:
 - `init_sparsity`: Initial sparsity for each layer at `start_epoch`
@@ -409,9 +407,9 @@ training_modifiers:
 [Source Code](https://github.com/neuralmagic/sparseml/blob/main/src/sparseml/pytorch/sparsification/pruning/modifier_pruning_movement.py)
 
 
-### Additional Methods
+### 4. Additional Methods
 
-Beyond the iterative pruning methods described above, SparseML also implements other algorithsm for pruning models, such as AC/DC.
+Beyond the iterative pruning methods described above, SparseML also implements other algorithms for pruning models, such as AC/DC.
 
 #### ACDCPruningModifier
 
@@ -446,16 +444,15 @@ pruning_modifiers:
 
 [Source Code](https://github.com/neuralmagic/sparseml/blob/main/src/sparseml/pytorch/sparsification/pruning/modifier_pruning_acdc.py)
 
-## Quantization
+## Quantization Modifiers
 
-Quantization modifiers handle applying [quantization](https://pytorch.org/docs/stable/quantization.html) to models. With Quantization, we shift weights and activations from a high precision format used for training (typically FP32) to a low precision format (typically INT8). 
+Quantization modifiers handle applying [quantization](https://pytorch.org/docs/stable/quantization.html) to models. With Quantization, we shift weights and activations from a high precision format used for training (typically FP32) to a low precision format (typically INT8). Quantizing the model can create additional speedups when deploying with DeepSparse.
 
-### Quantization Aware Training
+### 1. Quantization Aware Training
 
-Quantization Aware Training (QAT) is a popular method that allows quantizing a model and applying fine-tuning to restore accuracy degradation caused by quantization. QAT emulates the precision loss of INT8 quantization during training so weights can be
-learned to limit any accuracy loss from quantization. 
+Quantization Aware Training (QAT) is a popular method that allows quantizing a model and applying fine-tuning to restore accuracy degradation caused by quantization. QAT emulates the precision loss of INT8 quantization during training so weights can be learned to limit any accuracy loss from quantization. 
 
-#### Quantization Modifiers
+#### QuantizationModifier
 
 `QuantizationModifier` sets the model to run with QAT. Once the `QuantizationModifier` is enabled, it cannot be disabled (no `end_epoch`). Quantization zero points are set to be asymmetric for activations and symmetric for weights.
 
@@ -477,9 +474,9 @@ quantization_modifiers:
 
 ## Distillation Modifiers
 
-The distillation modifiers handle adding model distillation to the pruning and quantization workflows enabled by SparseML. [Knowledge distillation](https://en.wikipedia.org/wiki/Knowledge_distillation) is the process of transfering knowledge from a large model to a smaller model by encouraging the smaller model to mimic the output from the teacher. Distillation can be applied in concert with pruning and quantization, helping to reach higher levels of sparsity without accuracy loss.
+### 1. Knowledge Distillation
 
-Neural Magic has had signficant success applying distillation with Transformers and has early success applying with YOLOv5 in object detection.
+[Knowledge distillation](https://en.wikipedia.org/wiki/Knowledge_distillation) is the process of transfering knowledge from a large model to a smaller model by encouraging the smaller model to mimic the output from the teacher. Distillation can be applied in concert with pruning and quantization, helping to reach higher levels of sparsity without accuracy loss.
 
 #### DistillationModifier
 
@@ -526,7 +523,7 @@ Parameters:
 The connection between layers in the student model and layers in the teacher model is controlled via the `teacher_layer_names` and `student_layer_names` fields. **These fields must be the same length!** The i'th item in both of these arrays are paired together. If either `teacher_layer_names` or `student_layer_names` is `None`, we use the same names for both.
 
 Example (from YOLOv5s):
-```
+```yaml
 per_layer_distillation_gain: 0.01
 num_epochs: 100
 knowledge_disitillation_modifiers:
