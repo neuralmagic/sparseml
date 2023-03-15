@@ -18,6 +18,8 @@ import subprocess
 import sys
 import tempfile
 import warnings
+import math
+import random
 from copy import copy, deepcopy
 from datetime import datetime
 from pathlib import Path
@@ -25,10 +27,11 @@ from typing import Optional
 
 import onnx
 import torch
+import torch.nn as nn
 
 from sparseml.optim.helpers import load_recipe_yaml_str
 from sparseml.pytorch.optim.manager import ScheduledModifierManager
-from sparseml.pytorch.utils import ModuleExporter
+from sparseml.pytorch.utils import ModuleExporter, GradSampler
 from sparseml.pytorch.utils.helpers import download_framework_model_by_recipe_type
 from sparseml.pytorch.utils.logger import LoggerManager, PythonLogger, WANDBLogger
 from sparseml.yolov8.utils.export_samples import export_sample_inputs_outputs
@@ -311,10 +314,33 @@ class SparseTrainer(BaseTrainer):
                 epoch=self.start_epoch,
                 wrap_optim=self.scaler,
                 loggers=self.logger_manager,
+                grad_sampler={
+                    "data_loader_builder": self._get_data_loader_builder(),
+                    "loss_function": lambda preds, batch: self.criterion(preds, batch)[0] / self.train_loader.batch_size
+                }
             )
         else:
             # initialize steps_per_epoch for logging when there's no recipe
             self.steps_per_epoch = len(self.train_loader)
+
+    def _get_data_loader_builder(self):
+        train_loader = self.train_loader
+        def _data_loader_builder(kwargs):
+            template = dict(train_loader.__dict__)
+            # drop attributes that will be auto-initialized
+            to_drop = [k for k in template if k.startswith("_") or k in ["batch_sampler", "iterator", "sampler"]]
+            for item in to_drop:
+                template.pop(item)
+
+            # override defaults if kwargs are given, for example via recipe
+            if kwargs:
+                template.update(kwargs)
+            
+            data_loader = type(train_loader)(**template)
+            for batch in data_loader:
+                batch = self.preprocess_batch(batch)
+                yield [batch['img']], {}, batch
+        return _data_loader_builder
 
     def callback_on_train_epoch_start(self):
         # NOTE: this callback is registered in __init__
