@@ -20,14 +20,14 @@ import pytest
 # Ignore submodules
 collect_ignore_glob = ["tensorflow_v1-onnx/*"]
 
-
-FAILURE_LOG = "test_logs/failures.log"
+LOG_DIR = os.environ["NM_TEST_LOG_DIR"] or "test_logs"
+FAILURE_LOG = os.path.join(LOG_DIR, "failures.log")
 
 
 def pytest_configure(config):
     if os.path.exists(FAILURE_LOG):
         os.remove(FAILURE_LOG)
-    os.makedirs("test_logs", exist_ok=True)
+    os.makedirs(LOG_DIR, exist_ok=True)
 
 
 def write_to_failure_log(node_id, long_repr):
