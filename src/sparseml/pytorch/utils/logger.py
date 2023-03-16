@@ -336,10 +336,15 @@ class PythonLogger(LambdaLogger):
         else:
             self._logger = logging.getLogger(__name__)
 
+            base_log_path = (
+                os.environ.get("NM_TEST_LOG_DIR")
+                if os.environ.get("NM_TEST_MODE")
+                else "sparse_logs"
+            )
             now = datetime.now()
             dt_string = now.strftime("%d-%m-%Y_%H.%M.%S")
-            log_path = os.path.join("sparse_logs", f"{dt_string}.log")
-            os.makedirs("sparse_logs", exist_ok=True)
+            log_path = os.path.join(base_log_path, f"{dt_string}.log")
+            os.makedirs(base_log_path, exist_ok=True)
 
             _LOGGER.info(f"Logging all SparseML modifier-level logs to {log_path}")
 
