@@ -12,25 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Generic code used as utilities and helpers for PyTorch
-"""
+import torch
 
-# flake8: noqa
-
-from ..base import check_torch_install as _check_torch_install
-from .benchmarker import *
-from .distributed import *
-from .exporter import *
-from .helpers import *
-from .log_sparsification_info import *
-from .logger import *
-from .loss import *
-from .model import *
-from .module import *
-from .sparsification import *
-from .ssd_helpers import *
-from .yolo_helpers import *
+from sparseml.pytorch.utils.logger import BaseLogger
+from sparseml.pytorch.utils.sparsification_info import ModuleSparsificationInfo
 
 
-_check_torch_install()  # TODO: remove once files within package load without installs
+__all__ = ["log_module_sparsification_info"]
+
+
+def log_module_sparsification_info(module: torch.nn.Module, logger: BaseLogger):
+    """
+    Todo
+    """
+    sparsification_info = ModuleSparsificationInfo.from_module(module)
+    for tag, value in sparsification_info.loggable_items():
+        logger.log_scalar(tag, value)
