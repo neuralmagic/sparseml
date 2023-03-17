@@ -45,7 +45,7 @@ from sparsezoo import File, Model
 
 try:
     import deepsparse
-    from deepsparse import model_debug_analysis, compile_model
+    from deepsparse import compile_model, model_debug_analysis
     from deepsparse.cpu import cpu_details
 except Exception:
     deepsparse = None
