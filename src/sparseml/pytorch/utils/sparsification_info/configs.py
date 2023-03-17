@@ -12,20 +12,52 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pydantic import BaseModel
+from typing import Any, Dict, Tuple
+
+from pydantic import BaseModel, Field
 
 
 class SparsificationSummaries(BaseModel):
-    pass
+    quantization: Tuple[int, float] = Field(
+        description="A tuple that displays of the number of "
+        "layers/the percent of layers that are quantized."
+    )
+    pruning: Tuple[int, float] = Field(
+        description="A tuple that displays of the number of "
+        "layers/the percent of layers that are pruned."
+    )
+    ops: Dict[str, int] = Field(
+        description="A dictionary that holds the counts for "
+        "each type of operation present in the module."
+    )
 
 
 class SparsificationPruning(BaseModel):
-    pass
+    zero_count_percent: Dict[str, float] = Field(
+        description="A dictionary that maps the name of a layer "
+        "to the percent of weights that are zeroed out "
+        "in that layer."
+    )
+    zero_count: Dict[str, int] = Field(
+        description="A dictionary that maps the name of a layer "
+        "to the number of weights that are zeroed out "
+        "in that layer."
+    )
 
 
 class SparsificationQuantization(BaseModel):
-    pass
+    enabled: Dict[str, bool] = Field(
+        description="A dictionary that maps the name of a layer "
+        "to whether or not that layer is quantized."
+    )
+    precision: Dict[str, Any] = Field(
+        description="A dictionary that maps the name of a layer "
+        "to the precision of that layer."
+    )
 
 
 class SparsificationDistillation(BaseModel):
-    pass
+    losses: Dict[str, str] = Field(
+        description="A dictionary that maps the name of a layer "
+        "to the loss function used for that layer."
+    )
