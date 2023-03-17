@@ -577,7 +577,7 @@ def main(args):
 
     if utils.is_main_process():
         loggers = [
-            PythonLogger(logger=_LOGGER),
+            PythonLogger(),
         ]
         try:
             loggers.append(TensorBoardLogger(log_path=args.output_dir))
@@ -762,8 +762,11 @@ def _create_model(
             model, arch_key = model
     elif arch_key in torchvision.models.__dict__:
         # fall back to torchvision
+        # load initial, untrained model with correct number of classes
         model = torchvision.models.__dict__[arch_key](num_classes=num_classes)
         if pretrained is not None:
+            # in transfer learning cases, final FC layer may not match dimensions
+            # load base pretrained model and laod state dict with strict=False
             pretrained_model = torchvision.models.__dict__[arch_key](
                 pretrained=pretrained
             )
@@ -774,21 +777,7 @@ def _create_model(
                 del pretrained_model.classifier
             model.load_state_dict(pretrained_model.state_dict(), strict=False)
         if checkpoint_path is not None:
-            load_model(
-                checkpoint_path,
-                model,
-                strict=True,
-                ignore_error_tensors=[
-                    "classifier.fc.weight",
-                    "classifier.fc.bias",
-                    "classifier.1.weight",
-                    "classifier.1.bias",
-                    "fc.weight",
-                    "fc.bias",
-                    "classifier.weight",
-                    "classifier.bias",
-                ],
-            )
+            load_model(checkpoint_path, model, strict=True)
     else:
         raise ValueError(
             f"Unable to find {arch_key} in ModelRegistry or in torchvision.models"
