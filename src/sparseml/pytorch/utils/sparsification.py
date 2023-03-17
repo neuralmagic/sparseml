@@ -46,8 +46,6 @@ __all__ = [
     "GradSampler",
 ]
 
-logger = logging.getLogger()
-
 
 class ModuleSparsificationInfo:
     """
@@ -256,10 +254,4 @@ class GradSampler:
                         pbar.update(1)
                     if computed_grads >= num_grads:
                         break
-                if computed_grads < num_grads:
-                    logger.warning(
-                        f"The requested num_grads:{num_grads} is greater than allowed by the dataset. \
-                        Proceeding with less than requested. Please reduce num_grads to suppress the warning."
-                    )
-                    break
         module.zero_grad()
