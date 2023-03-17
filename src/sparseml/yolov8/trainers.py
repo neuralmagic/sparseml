@@ -635,9 +635,10 @@ class SparseYOLO(YOLO):
                     "skipping one-shot model torch export..."
                 )
             else:
-                torch_name = name.replace(".onnx", ".pt")
-                LOGGER.info(f"Saving one-shot torch model to {torch_name}...")
-                exporter.export_pytorch(name=torch_name)
+                torch_path = os.path.join(save_dir, name.replace(".onnx", ".pt"))
+                LOGGER.info(f"Saving one-shot torch model to {torch_path}...")
+                self.ckpt["model"] = self.model
+                torch.save(self.ckpt, torch_path)
 
         exporter.export_onnx(
             sample_batch=torch.randn(1, 3, args["imgsz"], args["imgsz"]),
@@ -725,9 +726,8 @@ class SparseYOLO(YOLO):
         args.data = data or args.data
         args.task = self.task
         if args.imgsz == DEFAULT_CFG.imgsz:
-            args.imgsz = self.model.args[
-                "imgsz"
-            ]  # use trained imgsz unless custom value is passed
+            # use trained imgsz unless custom value is passed
+            args.imgsz = self.ckpt["train_args"]["imgsz"]
         args.imgsz = check_imgsz(args.imgsz, max_dim=1)
 
         validator = self.ValidatorClass(args=args)
