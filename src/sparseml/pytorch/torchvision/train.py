@@ -772,7 +772,21 @@ def _create_model(
                 del pretrained_model.classifier
             model.load_state_dict(pretrained_model.state_dict(), strict=False)
         if checkpoint_path is not None:
-            load_model(checkpoint_path, model, strict=True)
+            load_model(
+                checkpoint_path,
+                model,
+                strict=True,
+                ignore_error_tensors=[
+                    "classifier.fc.weight",
+                    "classifier.fc.bias",
+                    "classifier.1.weight",
+                    "classifier.1.bias",
+                    "fc.weight",
+                    "fc.bias",
+                    "classifier.weight",
+                    "classifier.bias",
+                ],
+            )
     else:
         raise ValueError(
             f"Unable to find {arch_key} in ModelRegistry or in torchvision.models"
