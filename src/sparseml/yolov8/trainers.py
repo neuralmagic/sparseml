@@ -18,8 +18,6 @@ import subprocess
 import sys
 import tempfile
 import warnings
-import math
-import random
 from copy import copy, deepcopy
 from datetime import datetime
 from pathlib import Path
@@ -27,15 +25,14 @@ from typing import List, Optional
 
 import onnx
 import torch
-import torch.nn as nn
 
 from sparseml.optim.helpers import load_recipe_yaml_str
 from sparseml.pytorch.optim.manager import ScheduledModifierManager
-from sparseml.pytorch.utils import ModuleExporter, GradSampler
+from sparseml.pytorch.utils import ModuleExporter
 from sparseml.pytorch.utils.helpers import download_framework_model_by_recipe_type
 from sparseml.pytorch.utils.logger import LoggerManager, PythonLogger, WANDBLogger
 from sparseml.yolov8.modules import Bottleneck, Conv
-from sparseml.yolov8.utils import check_coco128_segmentation
+from sparseml.yolov8.utils import check_coco128_segmentation, create_grad_sampler
 from sparseml.yolov8.utils.export_samples import export_sample_inputs_outputs
 from sparseml.yolov8.validators import (
     SparseClassificationValidator,
@@ -637,7 +634,20 @@ class SparseYOLO(YOLO):
             for p in self.model.parameters():
                 p.requires_grad = True
             manager = ScheduledModifierManager.from_yaml(one_shot)
-            manager.apply(self.model)
+
+            # TODO: I hate the fact that to scale this functionality to other tasks
+            # we might have to (worst case scenario) copy and paste many
+            # arguments from the train.py. This is not ideal.
+            overrides = self.overrides.copy()
+            overrides["data"] = "coco128.yaml"  # args["data"]
+            overrides["device"] = "cpu"
+            trainer = self.TrainerClass(overrides=overrides)
+
+            manager.apply(
+                self.model,
+                # maybe we could check whether OBS pruner is in the manager?
+                grad_sampler=create_grad_sampler(trainer, stride=32, model=self.model),
+            )
             recipe = (
                 ScheduledModifierManager.compose_staged(recipe, manager)
                 if recipe
