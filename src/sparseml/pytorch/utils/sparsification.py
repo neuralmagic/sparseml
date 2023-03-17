@@ -17,6 +17,7 @@ Helper functions for retrieving information related to model sparsification
 """
 
 import json
+import logging
 from typing import (
     Any,
     Callable,
@@ -32,7 +33,6 @@ from typing import (
 import torch
 from torch.nn import Module
 from tqdm import tqdm
-import logging
 
 from sparseml.pytorch.utils.helpers import (
     get_prunable_layers,
@@ -40,6 +40,7 @@ from sparseml.pytorch.utils.helpers import (
     get_quantized_layers,
     tensor_sparsity,
 )
+
 
 __all__ = [
     "ModuleSparsificationInfo",

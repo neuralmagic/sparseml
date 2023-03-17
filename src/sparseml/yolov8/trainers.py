@@ -18,8 +18,6 @@ import subprocess
 import sys
 import tempfile
 import warnings
-import math
-import random
 from copy import copy, deepcopy
 from datetime import datetime
 from pathlib import Path
@@ -27,13 +25,13 @@ from typing import Optional
 
 import onnx
 import torch
-import torch.nn as nn
 
 from sparseml.optim.helpers import load_recipe_yaml_str
 from sparseml.pytorch.optim.manager import ScheduledModifierManager
-from sparseml.pytorch.utils import ModuleExporter, GradSampler
+from sparseml.pytorch.utils import ModuleExporter
 from sparseml.pytorch.utils.helpers import download_framework_model_by_recipe_type
 from sparseml.pytorch.utils.logger import LoggerManager, PythonLogger, WANDBLogger
+from sparseml.yolov8.utils import create_grad_sampler
 from sparseml.yolov8.utils.export_samples import export_sample_inputs_outputs
 from sparseml.yolov8.validators import (
     SparseClassificationValidator,
@@ -607,7 +605,24 @@ class SparseYOLO(YOLO):
             for p in self.model.parameters():
                 p.requires_grad = True
             manager = ScheduledModifierManager.from_yaml(one_shot)
-            manager.apply(self.model)
+
+            # TODO: I hate the fact that to scale this functionality to other tasks
+            # we might have to (worst case scenario) copy and paste many
+            # arguments from the train.py. This is not ideal.
+            overrides = self.overrides.copy()
+            # overrides.update(kwargs)
+            # overrides["data"] = "coco128.yaml"  # args["data"]
+            device = "cuda:0"
+            overrides["device"] = device
+            overrides["deterministic"] = kwargs["deterministic"]
+            trainer = self.TrainerClass(overrides=overrides)
+            self.model = self.model.to(device)
+
+            manager.apply(
+                self.model,
+                # maybe we could check whether OBS pruner is in the manager?
+                grad_sampler=create_grad_sampler(trainer, stride=32, model=self.model),
+            )
             recipe = (
                 ScheduledModifierManager.compose_staged(recipe, manager)
                 if recipe
@@ -625,9 +640,10 @@ class SparseYOLO(YOLO):
                     "skipping one-shot model torch export..."
                 )
             else:
-                torch_name = name.replace(".onnx", ".pt")
-                LOGGER.info(f"Saving one-shot torch model to {torch_name}...")
-                exporter.export_pytorch(name=torch_name)
+                torch_path = os.path.join(save_dir, name.replace(".onnx", ".pt"))
+                LOGGER.info(f"Saving one-shot torch model to {torch_path}...")
+                self.ckpt["model"] = self.model
+                torch.save(self.ckpt, torch_path)
 
         exporter.export_onnx(
             sample_batch=torch.randn(1, 3, args["imgsz"], args["imgsz"]),
@@ -715,9 +731,8 @@ class SparseYOLO(YOLO):
         args.data = data or args.data
         args.task = self.task
         if args.imgsz == DEFAULT_CFG.imgsz:
-            args.imgsz = self.model.args[
-                "imgsz"
-            ]  # use trained imgsz unless custom value is passed
+            # use trained imgsz unless custom value is passed
+            args.imgsz = self.ckpt["train_args"]["imgsz"]
         args.imgsz = check_imgsz(args.imgsz, max_dim=1)
 
         validator = self.ValidatorClass(args=args)
