@@ -759,11 +759,33 @@ def _create_model(
             model, arch_key = model
     elif arch_key in torchvision.models.__dict__:
         # fall back to torchvision
-        model = torchvision.models.__dict__[arch_key](
-            pretrained=pretrained, num_classes=num_classes
-        )
+        model = torchvision.models.__dict__[arch_key](num_classes=num_classes)
+        if pretrained is not None:
+            pretrained_model = torchvision.models.__dict__[arch_key](
+                pretrained=pretrained
+            )
+            if (
+                getattr(pretrained_model, "classifier", None)
+                and pretrained_model.classifier.out_features != num_classes
+            ):
+                del pretrained_model.classifier
+            model.load_state_dict(pretrained_model.state_dict(), strict=False)
         if checkpoint_path is not None:
-            load_model(checkpoint_path, model, strict=True)
+            load_model(
+                checkpoint_path,
+                model,
+                strict=True,
+                ignore_error_tensors=[
+                    "classifier.fc.weight",
+                    "classifier.fc.bias",
+                    "classifier.1.weight",
+                    "classifier.1.bias",
+                    "fc.weight",
+                    "fc.bias",
+                    "classifier.weight",
+                    "classifier.bias",
+                ],
+            )
     else:
         raise ValueError(
             f"Unable to find {arch_key} in ModelRegistry or in torchvision.models"
