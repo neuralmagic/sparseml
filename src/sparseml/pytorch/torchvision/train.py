@@ -573,8 +573,11 @@ def main(args):
     if utils.is_main_process():
         loggers = [
             PythonLogger(logger=_LOGGER),
-            TensorBoardLogger(log_path=args.output_dir),
         ]
+        try:
+            loggers.append(TensorBoardLogger(log_path=args.output_dir))
+        except (ModuleNotFoundError, ImportError):
+            warnings.warn("Unable to import tensorboard for logging")
         try:
             config = vars(args)
             if manager is not None:
