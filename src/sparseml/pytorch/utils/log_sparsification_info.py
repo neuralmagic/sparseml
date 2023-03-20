@@ -15,7 +15,7 @@
 import torch
 
 from sparseml.pytorch.utils.logger import BaseLogger
-from sparseml.pytorch.utils.sparsification_info import ModuleSparsificationInfo
+from sparseml.pytorch.utils.sparsification_info.module_sparsification_info import ModuleSparsificationInfo
 
 
 __all__ = ["log_module_sparsification_info"]
@@ -28,3 +28,6 @@ def log_module_sparsification_info(module: torch.nn.Module, logger: BaseLogger):
     sparsification_info = ModuleSparsificationInfo.from_module(module)
     for tag, value in sparsification_info.loggable_items():
         logger.log_scalar(tag, value)
+
+
+

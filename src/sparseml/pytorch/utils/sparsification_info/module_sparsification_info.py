@@ -12,9 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Iterable, Tuple
-
+from typing import Iterable, Tuple, Dict, Any
+from collections import defaultdict
 import torch
+from torch.nn.parameter import Parameter
 from pydantic import BaseModel
 
 from sparseml.pytorch.utils.sparsification_info.configs import (
@@ -33,7 +34,30 @@ class ModuleSparsificationInfo(BaseModel):
 
     @classmethod
     def from_module(cls, module: torch.nn.Module) -> "ModuleSparsificationInfo":
-        raise NotImplementedError()
+        if not isinstance(module, torch.nn.Module):
+            raise ValueError(
+                "module must be a torch.nn.Module, not {}".format(type(module))
+            )
+        module_information = defaultdict()
+        # iterate over parameters of the module
+        for name, param in module.named_parameters():
+            module_information[name] = ModuleSparsificationInfo.get_param_info(param)
+
+        return cls(summary_info = None,
+                   pruning_info = SparsificationPruning.from_dict(module_information),
+                   quantization_info = SparsificationQuantization.from_dict(module_information),
+                   distillation_info = SparsificationDistillation.from_dict(module_information)
+                   )
 
     def loggable_items(self) -> Iterable[Tuple[str, float]]:
         raise NotImplementedError()
+
+    @staticmethod
+    def get_param_info(param: Parameter) -> Dict[str, Any]:
+        return {
+            "num_elements": param.numel(),
+            "num_zero_elements": param.numel() - torch.count_nonzero(param),
+            "is_sparse": param.is_sparse,
+            "is_quantized": param.is_quantized,
+            "dtype": param.dtype,
+        }
