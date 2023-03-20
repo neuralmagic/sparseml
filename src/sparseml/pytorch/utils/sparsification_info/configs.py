@@ -26,10 +26,40 @@ class SparsificationSummaries(BaseModel):
         description="A tuple that displays of the number of "
         "layers/the percent of layers that are pruned."
     )
-    ops: Dict[str, int] = Field(
-        description="A dictionary that holds the counts for "
-        "each type of operation present in the module."
-    )
+
+    @classmethod
+    def from_dict(cls, module_information: Dict[str, Any]):
+        quantization, pruning, ops = SparsificationSummaries.compute_summaries(
+            module_information
+        )
+        return cls(
+            quantization=quantization,
+            pruning=pruning,
+            ops=ops,
+        )
+
+    @staticmethod
+    def compute_summaries(
+        module_information: Dict[str, Any]
+    ) -> Tuple[Tuple[int, float], Tuple[int, float], Dict[str, int]]:
+        """ """
+        count_quantized_layers = 0
+        count_pruned_layers = 0
+        count_all_layers = 0
+        counts_ops = {}
+
+        for layer_name, layer_param in module_information.items():
+            count_all_layers += 1
+            if layer_param["is_quantized"]:
+                count_quantized_layers += 1
+            if layer_param["is_sparse"]:
+                count_pruned_layers += 1
+
+        return (
+            (count_quantized_layers, count_quantized_layers / count_all_layers),
+            (count_pruned_layers, count_pruned_layers / count_all_layers),
+            counts_ops,
+        )
 
 
 class SparsificationPruning(BaseModel):
@@ -44,16 +74,57 @@ class SparsificationPruning(BaseModel):
         "in that layer."
     )
 
+    @classmethod
+    def from_dict(cls, module_information: Dict[str, Any]):
+        zero_count, zero_count_percent = SparsificationPruning.zero_weight_count(
+            module_information
+        )
+        return cls(
+            zero_count=zero_count,
+            zero_count_percent=zero_count_percent,
+        )
+
+    @staticmethod
+    def zero_weight_count(module_information: Dict[str, Any]) -> Tuple[int, float]:
+        """ """
+        zero_count = {
+            layer_name: layer_info["num_zero_elements"]
+            for layer_name, layer_info in module_information.items()
+        }
+        zero_count_percent = {
+            layer_name: layer_info["num_zero_elements"] / layer_info["num_elements"]
+            for layer_name, layer_info in module_information.items()
+        }
+        return zero_count, zero_count_percent
+
 
 class SparsificationQuantization(BaseModel):
     enabled: Dict[str, bool] = Field(
         description="A dictionary that maps the name of a layer "
         "to whether or not that layer is quantized."
     )
-    precision: Dict[str, Any] = Field(
-        description="A dictionary that maps the name of a layer "
-        "to the precision of that layer."
+    dtype: Dict[str, Any] = Field(
+        description="A dictionary that maps the name of a layer"
+        "to the dtype (precision) of that layer."
     )
+
+    @classmethod
+    def from_dict(
+        cls, module_information: Dict[str, Any]
+    ) -> "SparsificationQuantization":
+        enabled = {
+            layer_name: layer_info["is_quantized"]
+            for layer_name, layer_info in module_information.items()
+        }
+        dtype = {
+            layer_name: layer_info["dtype"]
+            for layer_name, layer_info in module_information.items()
+        }
+
+        return cls(
+            enabled=enabled,
+            dtype=dtype,
+        )
 
 
 class SparsificationDistillation(BaseModel):

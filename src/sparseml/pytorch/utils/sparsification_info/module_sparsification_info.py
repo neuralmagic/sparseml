@@ -12,11 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Iterable, Tuple, Dict, Any
 from collections import defaultdict
+from typing import Any, Dict, Iterable, Optional, Tuple
+
 import torch
-from torch.nn.parameter import Parameter
 from pydantic import BaseModel
+from torch.nn.parameter import Parameter
 
 from sparseml.pytorch.utils.sparsification_info.configs import (
     SparsificationDistillation,
@@ -30,7 +31,7 @@ class ModuleSparsificationInfo(BaseModel):
     summary_info: SparsificationSummaries
     pruning_info: SparsificationPruning
     quantization_info: SparsificationQuantization
-    distillation_info: SparsificationDistillation
+    distillation_info: Optional[SparsificationDistillation]
 
     @classmethod
     def from_module(cls, module: torch.nn.Module) -> "ModuleSparsificationInfo":
@@ -41,13 +42,16 @@ class ModuleSparsificationInfo(BaseModel):
         module_information = defaultdict()
         # iterate over parameters of the module
         for name, param in module.named_parameters():
+            # param is a weight or bias
+            # op is conv/linear named_modules
             module_information[name] = ModuleSparsificationInfo.get_param_info(param)
 
-        return cls(summary_info = None,
-                   pruning_info = SparsificationPruning.from_dict(module_information),
-                   quantization_info = SparsificationQuantization.from_dict(module_information),
-                   distillation_info = SparsificationDistillation.from_dict(module_information)
-                   )
+        return cls(
+            summary_info=SparsificationSummaries.from_dict(module_information),
+            pruning_info=SparsificationPruning.from_dict(module_information),
+            quantization_info=SparsificationQuantization.from_dict(module_information),
+            distillation_info=None,
+        )
 
     def loggable_items(self) -> Iterable[Tuple[str, float]]:
         raise NotImplementedError()
@@ -56,7 +60,7 @@ class ModuleSparsificationInfo(BaseModel):
     def get_param_info(param: Parameter) -> Dict[str, Any]:
         return {
             "num_elements": param.numel(),
-            "num_zero_elements": param.numel() - torch.count_nonzero(param),
+            "num_zero_elements": param.numel() - param.count_nonzero().item(),
             "is_sparse": param.is_sparse,
             "is_quantized": param.is_quantized,
             "dtype": param.dtype,
