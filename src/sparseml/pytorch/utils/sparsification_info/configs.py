@@ -12,9 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Dict, Tuple
+from collections import Counter
+from typing import Any, Dict, List, Optional, Tuple
 
+import torch.nn
 from pydantic import BaseModel, Field
+
+
+def is_quantized(operation: torch.nn.Module) -> bool:
+    if hasattr(operation, "qconfig"):
+        return operation.qconfig is not None
+    return False
+
+
+def get_dtype(operation: torch.nn.Module) -> Any:
+    if hasattr(operation, "weight"):
+        return operation.weight.dtype
+    return None
 
 
 class SparsificationSummaries(BaseModel):
@@ -26,39 +40,43 @@ class SparsificationSummaries(BaseModel):
         description="A tuple that displays of the number of "
         "layers/the percent of layers that are pruned."
     )
+    ops: Dict[str, int] = Field(
+        description="A dictionary that maps the name of an operation "
+        "to the number of times that operation is used in the model."
+    )
 
     @classmethod
-    def from_dict(cls, module_information: Dict[str, Any]):
-        quantization, pruning, ops = SparsificationSummaries.compute_summaries(
-            module_information
-        )
+    def from_module_info(
+        cls,
+        param_information: Dict[str, Any],
+        operations: List[torch.nn.Module],
+        is_pruned_threshold: Tuple[float, float] = (0.1, 0.99),
+    ) -> "SparsificationSummaries":
+
+        # Compute quantization summary statistics
+        num_quantized_layers = len([op for op in operations if is_quantized(op)])
+        percentage_quantized_layers = num_quantized_layers / len(operations)
+
+        # Compute pruning summary statistics
+        lower_treshold = min(is_pruned_threshold)
+        upper_treshold = max(is_pruned_threshold)
+        num_pruned_layers = 0
+        for param_info in param_information.values():
+            if (
+                lower_treshold
+                <= param_info["percentage_zero_weights"]
+                <= upper_treshold
+            ):
+                num_pruned_layers += 1
+        percentage_pruned_layers = num_pruned_layers / len(param_information.keys())
+
+        # Compute ops summary statistics
+        operations = [op.__class__.__name__ for op in operations]
+
         return cls(
-            quantization=quantization,
-            pruning=pruning,
-            ops=ops,
-        )
-
-    @staticmethod
-    def compute_summaries(
-        module_information: Dict[str, Any]
-    ) -> Tuple[Tuple[int, float], Tuple[int, float], Dict[str, int]]:
-        """ """
-        count_quantized_layers = 0
-        count_pruned_layers = 0
-        count_all_layers = 0
-        counts_ops = {}
-
-        for layer_name, layer_param in module_information.items():
-            count_all_layers += 1
-            if layer_param["is_quantized"]:
-                count_quantized_layers += 1
-            if layer_param["is_sparse"]:
-                count_pruned_layers += 1
-
-        return (
-            (count_quantized_layers, count_quantized_layers / count_all_layers),
-            (count_pruned_layers, count_pruned_layers / count_all_layers),
-            counts_ops,
+            quantization=(num_quantized_layers, percentage_quantized_layers),
+            pruning=(num_pruned_layers, percentage_pruned_layers),
+            ops=Counter(operations),
         )
 
 
@@ -75,27 +93,19 @@ class SparsificationPruning(BaseModel):
     )
 
     @classmethod
-    def from_dict(cls, module_information: Dict[str, Any]):
-        zero_count, zero_count_percent = SparsificationPruning.zero_weight_count(
-            module_information
-        )
+    def from_module_info(cls, param_information: Dict[str, Any]):
+        zero_count = {
+            layer_name: layer_info["num_zero_elements"]
+            for layer_name, layer_info in param_information.items()
+        }
+        zero_count_percent = {
+            layer_name: layer_info["percentage_zero_weights"]
+            for layer_name, layer_info in param_information.items()
+        }
         return cls(
             zero_count=zero_count,
             zero_count_percent=zero_count_percent,
         )
-
-    @staticmethod
-    def zero_weight_count(module_information: Dict[str, Any]) -> Tuple[int, float]:
-        """ """
-        zero_count = {
-            layer_name: layer_info["num_zero_elements"]
-            for layer_name, layer_info in module_information.items()
-        }
-        zero_count_percent = {
-            layer_name: layer_info["num_zero_elements"] / layer_info["num_elements"]
-            for layer_name, layer_info in module_information.items()
-        }
-        return zero_count, zero_count_percent
 
 
 class SparsificationQuantization(BaseModel):
@@ -109,26 +119,15 @@ class SparsificationQuantization(BaseModel):
     )
 
     @classmethod
-    def from_dict(
-        cls, module_information: Dict[str, Any]
+    def from_module_info(
+        cls, operations: List[torch.nn.Module]
     ) -> "SparsificationQuantization":
-        enabled = {
-            layer_name: layer_info["is_quantized"]
-            for layer_name, layer_info in module_information.items()
-        }
-        dtype = {
-            layer_name: layer_info["dtype"]
-            for layer_name, layer_info in module_information.items()
-        }
 
-        return cls(
-            enabled=enabled,
-            dtype=dtype,
-        )
+        enabled = {op.__class__.__name__: is_quantized(op) for op in operations}
+        dtype = {op.__class__.__name__: get_dtype(op) for op in operations}
+
+        return cls(enabled=enabled, dtype=dtype)
 
 
 class SparsificationDistillation(BaseModel):
-    losses: Dict[str, str] = Field(
-        description="A dictionary that maps the name of a layer "
-        "to the loss function used for that layer."
-    )
+    losses: Optional[Any] = None

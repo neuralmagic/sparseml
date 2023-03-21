@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from collections import defaultdict
-from typing import Any, Dict, Iterable, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import torch
 from pydantic import BaseModel
@@ -39,17 +39,19 @@ class ModuleSparsificationInfo(BaseModel):
             raise ValueError(
                 "module must be a torch.nn.Module, not {}".format(type(module))
             )
-        module_information = defaultdict()
-        # iterate over parameters of the module
+
+        param_information = defaultdict()
         for name, param in module.named_parameters():
-            # param is a weight or bias
-            # op is conv/linear named_modules
-            module_information[name] = ModuleSparsificationInfo.get_param_info(param)
+            param_information[name] = ModuleSparsificationInfo.get_param_info(param)
+
+        operations = ModuleSparsificationInfo.get_leaf_operations(module)
 
         return cls(
-            summary_info=SparsificationSummaries.from_dict(module_information),
-            pruning_info=SparsificationPruning.from_dict(module_information),
-            quantization_info=SparsificationQuantization.from_dict(module_information),
+            summary_info=SparsificationSummaries.from_module_info(
+                param_information, operations
+            ),
+            pruning_info=SparsificationPruning.from_module_info(param_information),
+            quantization_info=SparsificationQuantization.from_module_info(operations),
             distillation_info=None,
         )
 
@@ -57,11 +59,29 @@ class ModuleSparsificationInfo(BaseModel):
         raise NotImplementedError()
 
     @staticmethod
+    def get_leaf_operations(model: torch.nn.Module) -> List[torch.nn.Module]:
+        """
+        Get the leaf operations in the model
+        (those that do not have operations as children)
+
+        :param model: the model to get the leaf operations from
+        :return: a list of the leaf operations
+        """
+        children = list(model.children())
+        return (
+            [model]
+            if len(children) == 0
+            else [
+                grandchild
+                for child in children
+                for grandchild in ModuleSparsificationInfo.get_leaf_operations(child)
+            ]
+        )
+
+    @staticmethod
     def get_param_info(param: Parameter) -> Dict[str, Any]:
         return {
             "num_elements": param.numel(),
             "num_zero_elements": param.numel() - param.count_nonzero().item(),
-            "is_sparse": param.is_sparse,
-            "is_quantized": param.is_quantized,
-            "dtype": param.dtype,
+            "percentage_zero_weights": 1 - param.count_nonzero().item() / param.numel(),
         }
