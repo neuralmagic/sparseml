@@ -311,6 +311,12 @@ class SparseTrainer(BaseTrainer):
             if self.manager.learning_rate_modifiers:
                 self.scheduler = _NullLRScheduler()
 
+            if self.manager.quantization_modifiers and self.ema is not None:
+                # Training loop upstream does not always check the validity of
+                # the EMA model at every callsites. We therefore cannot simply
+                # turn it into None without breaking the code.
+                self.ema.enabled = False
+
             # NOTE: we intentionally don't divide number of batches by gradient
             # accumulation.
             # This is because yolov8 changes size of gradient accumulation during
@@ -402,20 +408,20 @@ class SparseTrainer(BaseTrainer):
             manager = self.manager if self.manager is not None else None
 
         model = de_parallel(self.model)
+        is_quant = manager.quantization_modifiers
         ckpt = {
             "epoch": epoch,
             "best_fitness": self.best_fitness,
             "model": deepcopy(model).state_dict(),
             "model_yaml": dict(model.yaml),
-            "ema": deepcopy(self.ema.ema).state_dict(),
-            "updates": self.ema.updates,
             "optimizer": self.optimizer.state_dict(),
+            "ema": deepcopy(self.ema.ema).state_dict() if not is_quant else None,
+            "updates": self.ema.updates if not is_quant else None,
             "train_args": vars(self.args),
             "date": datetime.now().isoformat(),
             "version": __version__,
             "source": "sparseml",
         }
-
         if manager is not None:
             ckpt["recipe"] = str(manager)
 
