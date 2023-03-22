@@ -355,7 +355,8 @@ class PythonLogger(LambdaLogger):
         :return: logger
         """
         logger = logging.getLogger(__name__)
-        # File handler set up, for logging modifier debug statements
+
+        # File handler setup, for logging modifier debug statements
         base_log_path = (
             os.environ.get("NM_TEST_LOG_DIR")
             if os.environ.get("NM_TEST_MODE")
