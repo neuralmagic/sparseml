@@ -12,15 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import defaultdict
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Iterable, Tuple
 
 import torch
-from pydantic import BaseModel
-from torch.nn.parameter import Parameter
+from pydantic import BaseModel, Field
 
 from sparseml.pytorch.utils.sparsification_info.configs import (
-    SparsificationDistillation,
     SparsificationPruning,
     SparsificationQuantization,
     SparsificationSummaries,
@@ -28,60 +25,38 @@ from sparseml.pytorch.utils.sparsification_info.configs import (
 
 
 class ModuleSparsificationInfo(BaseModel):
-    summary_info: SparsificationSummaries
-    pruning_info: SparsificationPruning
-    quantization_info: SparsificationQuantization
-    distillation_info: Optional[SparsificationDistillation]
+    """
+    Pydantic model for storing sparsification information of a torch module.
+    """
+
+    summary_info: SparsificationSummaries = Field(
+        description="Model that holds the sparsification summary info of the module"
+    )
+    pruning_info: SparsificationPruning = Field(
+        description="Model that holds the pruning info of the module"
+    )
+    quantization_info: SparsificationQuantization = Field(
+        description="Model that holds the quantization info of the module"
+    )
 
     @classmethod
     def from_module(cls, module: torch.nn.Module) -> "ModuleSparsificationInfo":
+        """
+        Factory method to create a ModuleSparsificationInfo object from a torch module.
+
+        :param module: the module to create the ModuleSparsificationInfo object from
+        :return: the ModuleSparsificationInfo object created from the module
+        """
         if not isinstance(module, torch.nn.Module):
             raise ValueError(
-                "module must be a torch.nn.Module, not {}".format(type(module))
+                "Module must be a torch.nn.Module, not {}".format(type(module))
             )
 
-        param_information = defaultdict()
-        for name, param in module.named_parameters():
-            param_information[name] = ModuleSparsificationInfo.get_param_info(param)
-
-        operations = ModuleSparsificationInfo.get_leaf_operations(module)
-
         return cls(
-            summary_info=SparsificationSummaries.from_module_info(
-                param_information, operations
-            ),
-            pruning_info=SparsificationPruning.from_module_info(param_information),
-            quantization_info=SparsificationQuantization.from_module_info(operations),
-            distillation_info=None,
+            summary_info=SparsificationSummaries.from_module(module),
+            pruning_info=SparsificationPruning.from_module(module),
+            quantization_info=SparsificationQuantization.from_module(module),
         )
 
     def loggable_items(self) -> Iterable[Tuple[str, float]]:
         raise NotImplementedError()
-
-    @staticmethod
-    def get_leaf_operations(model: torch.nn.Module) -> List[torch.nn.Module]:
-        """
-        Get the leaf operations in the model
-        (those that do not have operations as children)
-
-        :param model: the model to get the leaf operations from
-        :return: a list of the leaf operations
-        """
-        children = list(model.children())
-        return (
-            [model]
-            if len(children) == 0
-            else [
-                grandchild
-                for child in children
-                for grandchild in ModuleSparsificationInfo.get_leaf_operations(child)
-            ]
-        )
-
-    @staticmethod
-    def get_param_info(param: Parameter) -> Dict[str, Any]:
-        return {
-            "num_elements": param.numel(),
-            "num_zero_elements": param.numel() - param.count_nonzero().item(),
-            "percentage_zero_weights": 1 - param.count_nonzero().item() / param.numel(),
-        }
