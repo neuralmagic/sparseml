@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Iterable, Tuple
+from typing import Any, Generator, Tuple
 
 import torch
 from pydantic import BaseModel, Field
@@ -22,6 +22,7 @@ from sparseml.pytorch.utils.sparsification_info.configs import (
     SparsificationQuantization,
     SparsificationSummaries,
 )
+from sparseml.pytorch.utils.sparsification_info.helpers import unpack_dictionary
 
 
 class ModuleSparsificationInfo(BaseModel):
@@ -58,5 +59,13 @@ class ModuleSparsificationInfo(BaseModel):
             quantization_info=SparsificationQuantization.from_module(module),
         )
 
-    def loggable_items(self) -> Iterable[Tuple[str, float]]:
-        raise NotImplementedError()
+    def loggable_items(self) -> Generator[Tuple[str, Any], None, None]:
+        """
+        A generator that yields the loggable items of
+        the ModuleSparsificationInfo object.
+
+        :return a generator that yields a tuple of:
+            - the name of the loggable item
+            - the value of the loggable item
+        """
+        yield from unpack_dictionary(dict(self))

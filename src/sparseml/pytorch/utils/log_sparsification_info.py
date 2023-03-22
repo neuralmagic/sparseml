@@ -25,7 +25,10 @@ __all__ = ["log_module_sparsification_info"]
 
 def log_module_sparsification_info(module: torch.nn.Module, logger: BaseLogger):
     """
-    Todo
+    Log the sparsification information for the given module to the given logger
+
+    :param module: the module to log the sparsification information for
+    :param logger: the logger to log the sparsification information to
     """
     sparsification_info = ModuleSparsificationInfo.from_module(module)
     for tag, value in sparsification_info.loggable_items():

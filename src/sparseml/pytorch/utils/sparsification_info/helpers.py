@@ -11,13 +11,33 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import List, Optional
+from typing import Any, Dict, Generator, List, Optional, Tuple
 
 import torch
 from pydantic import BaseModel, Field
 
 
-__all__ = ["get_leaf_operations", "is_quantized"]
+__all__ = ["get_leaf_operations", "is_quantized", "get_dtype", "unpack_dictionary"]
+
+
+def unpack_dictionary(
+    dictionary: Dict[str, Any], tag="", separator="/"
+) -> Generator[Tuple[str, Any], None, None]:
+    """
+    Given a dictionary, unpack it into a generator of tag, item pairs,
+    where tag is the string name of the item.
+
+    :param dictionary: the dictionary to unpack
+    :param tag: the tag to prepend to the item name
+    :param separator: the separator to separate tags on varying nesting depths
+    """
+    for name, item in dictionary.items():
+        if isinstance(item, BaseModel):
+            item = dict(item)
+        if isinstance(item, dict):
+            yield from unpack_dictionary(item, tag=f"{tag}{separator}{name}")
+        else:
+            yield f"{tag}{separator}{name}", item
 
 
 def get_leaf_operations(model: torch.nn.Module) -> List[torch.nn.Module]:
