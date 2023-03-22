@@ -23,25 +23,20 @@ from ultralytics.yolo.engine.validator import BaseValidator
 from ultralytics.yolo.utils import TQDM_BAR_FORMAT, callbacks, emojis
 from ultralytics.yolo.utils.checks import check_imgsz
 from ultralytics.yolo.utils.ops import Profile
-from ultralytics.yolo.utils.torch_utils import (
-    de_parallel,
-    select_device,
-    smart_inference_mode,
-)
+from ultralytics.yolo.utils.torch_utils import de_parallel, select_device
 from ultralytics.yolo.v8.classify.val import ClassificationValidator
 from ultralytics.yolo.v8.detect.val import DetectionValidator
 from ultralytics.yolo.v8.segment.val import SegmentationValidator
 
 
 class SparseValidator(BaseValidator):
-    @smart_inference_mode()
     def __call__(self, trainer=None, model=None):
         # the **only** difference in this call is that we pass fuse=False to AutoBackend
         self.training = trainer is not None
         if self.training:
             self.device = trainer.device
             self.data = trainer.data
-            model = de_parallel(trainer.model)
+            model = trainer.ema.ema or trainer.model
             # self.args.half = self.device.type != "cpu"
             model = model.half() if self.args.half else model.float()
             self.model = model
