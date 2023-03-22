@@ -48,9 +48,6 @@ except Exception as err:
 from sparseml.utils import ALL_TOKEN, create_dirs
 
 
-_LOGGER = logging.getLogger(__name__)
-
-
 __all__ = [
     "BaseLogger",
     "LambdaLogger",
@@ -331,34 +328,8 @@ class PythonLogger(LambdaLogger):
         name: str = "python",
         enabled: bool = True,
     ):
-        if logger:
-            self._logger = logger
-        else:
-            self._logger = logging.getLogger(__name__)
+        self._logger = logger or self._create_default_logger(log_level=log_level)
 
-            base_log_path = (
-                os.environ.get("NM_TEST_LOG_DIR")
-                if os.environ.get("NM_TEST_MODE")
-                else "sparse_logs"
-            )
-            now = datetime.now()
-            dt_string = now.strftime("%d-%m-%Y_%H.%M.%S")
-            log_path = os.path.join(base_log_path, f"{dt_string}.log")
-            os.makedirs(base_log_path, exist_ok=True)
-
-            _LOGGER.info(f"Logging all SparseML modifier-level logs to {log_path}")
-
-            handler = logging.FileHandler(
-                log_path,
-                delay=True,
-            )
-            self._logger.addHandler(handler)
-            self._logger.propagate = False
-
-        if log_level is None:
-            log_level = logging.getLogger("sparseml").level
-        self.logger.setLevel(log_level)
-        self._log_level = log_level
         super().__init__(
             lambda_func=self._log_lambda,
             name=name,
@@ -374,6 +345,42 @@ class PythonLogger(LambdaLogger):
         :return: a logger instance to log to, if None then will create it's own
         """
         return self._logger
+
+    def _create_default_logger(self, log_level: Optional[int] = None) -> logging.Logger:
+        """
+        Create a default modifier logger, with a file handler logging at the debug level
+        and a stream handler logging to console at the specified level
+
+        :param log_level: logging level for the console logger
+        :return: logger
+        """
+        logger = logging.getLogger(__name__)
+        # File handler set up, for logging modifier debug statements
+        base_log_path = (
+            os.environ.get("NM_TEST_LOG_DIR")
+            if os.environ.get("NM_TEST_MODE")
+            else "sparse_logs"
+        )
+        now = datetime.now()
+        dt_string = now.strftime("%d-%m-%Y_%H.%M.%S")
+        log_path = os.path.join(base_log_path, f"{dt_string}.log")
+        os.makedirs(base_log_path, exist_ok=True)
+        file_handler = logging.FileHandler(
+            log_path,
+            delay=True,
+        )
+        file_handler.setLevel(LOGGING_LEVELS["debug"])
+        logger.addHandler(file_handler)
+        logger.info(f"Logging all SparseML modifier-level logs to {log_path}")
+
+        # Console handler, for logging high level modifier logs
+        stream_handler = logging.StreamHandler()
+        stream_handler.setLevel(log_level or logging.getLogger("sparseml").level)
+
+        logger.setLevel(LOGGING_LEVELS["debug"])
+        logger.propagate = False
+
+        return logger
 
     def _log_lambda(
         self,
