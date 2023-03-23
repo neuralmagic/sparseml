@@ -4,8 +4,8 @@ pruning_epochs: 9.0
 finetuning_epochs: 5.0
 
 # Learning rate hyperparams
-init_lr: 0.0001
-final_lr: 0.00005
+init_lr: 0.0005
+final_lr: 0.00025
 
 # Pruning hyperparams
 init_sparsity: 0.05
