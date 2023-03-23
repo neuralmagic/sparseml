@@ -42,11 +42,11 @@ class SparsificationSummaries(BaseModel):
     A model that contains the sparsification summaries for a torch module.
     """
 
-    quantization: CountAndPercent = Field(
+    quantized: CountAndPercent = Field(
         description="A model that contains the number of "
         "operations/the percent of operations that are quantized."
     )
-    pruning: CountAndPercent = Field(
+    pruned: CountAndPercent = Field(
         description="A tuple that displays of the number of "
         "parameters/the percent of parameters that are pruned."
     )
@@ -97,15 +97,15 @@ class SparsificationSummaries(BaseModel):
             count_parameters[param_name] = num_parameters
 
         return cls(
-            pruning=CountAndPercent(
+            pruned=CountAndPercent(
                 count=total_num_params_pruned,
                 percent=total_num_params_pruned / total_num_params,
             ),
-            quantization=CountAndPercent(
+            quantized=CountAndPercent(
                 count=num_quantized_ops, percent=num_quantized_ops / len(operations)
             ),
-            count_parameters=count_parameters,
-            count_operations=Counter([op.__class__.__name__ for op in operations]),
+            parameter_counts=count_parameters,
+            operation_counts=Counter([op.__class__.__name__ for op in operations]),
         )
 
 
@@ -173,7 +173,13 @@ class SparsificationQuantization(BaseModel):
         enabled = defaultdict(bool)
         dtype = defaultdict(str)
         for op in operations:
-            enabled[op.__class__.__name__] = is_quantized(op)
-            dtype[op.__class__.__name__] = get_dtype(op)
+            operation_name = op.__class__.__name__
+            operation_counter = 0
+            while enabled.get(operation_name) is not None:
+                operation_counter += 1
+                operation_name = f"{op.__class__.__name__}_{operation_counter}"
+
+            enabled[operation_name] = is_quantized(op)
+            dtype[operation_name] = get_dtype(op)
 
         return cls(enabled=enabled, dtype=dtype)
