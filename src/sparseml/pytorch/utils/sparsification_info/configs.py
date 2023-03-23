@@ -50,11 +50,11 @@ class SparsificationSummaries(BaseModel):
         description="A tuple that displays of the number of "
         "parameters/the percent of parameters that are pruned."
     )
-    count_parameters: Dict[str, int] = Field(
+    parameter_counts: Dict[str, int] = Field(
         description="A dictionary that maps the name of a parameter "
         "to the number of elements in that parameter."
     )
-    count_operations: Dict[str, int] = Field(
+    operation_counts: Dict[str, int] = Field(
         description="A dictionary that maps the name of an operation "
         "to the number of times that operation is used in the model."
     )
