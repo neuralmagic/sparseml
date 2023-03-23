@@ -63,7 +63,7 @@ class SparsificationSummaries(BaseModel):
     def from_module(
         cls,
         module=torch.nn.Module,
-        pruning_thresholds: Tuple[float, float] = (0.05, 0.99),
+        pruning_thresholds: Tuple[float, float] = (0.05, 1 - 1e-9),
     ) -> "SparsificationSummaries":
         """
         Factory method to create a SparsificationSummaries object from a module.
