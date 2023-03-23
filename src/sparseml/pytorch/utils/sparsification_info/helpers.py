@@ -14,10 +14,10 @@
 from typing import List, Optional
 
 import torch
-from pydantic import BaseModel, Field
+from torch.quantization import QuantWrapper
 
 
-__all__ = ["get_leaf_operations", "is_quantized"]
+__all__ = ["get_leaf_operations", "is_quantized", "get_quantization_scheme"]
 
 
 def get_leaf_operations(model: torch.nn.Module) -> List[torch.nn.Module]:
@@ -28,56 +28,43 @@ def get_leaf_operations(model: torch.nn.Module) -> List[torch.nn.Module]:
     :param model: the model to get the leaf operations from
     :return: a list of the leaf operations
     """
-    return [
-        submodule
-        for submodule in model.modules()
-        if len(list(submodule.children())) == 0
-    ]
+    leaf_operations = []
+    children = list(model.children())
+
+    if children == []:
+        return model
+    else:
+        for child in children:
+            if isinstance(child, QuantWrapper):
+                # if QuantWrapper encountered, treat the wrapped
+                # module as a leaf operation
+                leaf_operations.append(child.module)
+                continue
+            try:
+                leaf_operations.extend(get_leaf_operations(child))
+            except TypeError:
+                leaf_operations.append(get_leaf_operations(child))
+    return leaf_operations
 
 
 def is_quantized(operation: torch.nn.Module) -> bool:
     """
-    Check whether the operation is quantized
+    Check whether the operation is quantized (contains
+    a quantization scheme)
     """
-    if hasattr(operation, "qscheme"):
-        return operation.qscheme is not None
-    return False
+    return hasattr(operation, "quantization_scheme")
 
 
-class QuantizationDtype(BaseModel):
+def get_quantization_scheme(
+    operation: torch.nn.Module,
+) -> Optional["QuantizationScheme"]:  # noqa F821
     """
-    Model for the quantization dtype of a model
+    Get the quantization scheme of the operation.
+    If the operation is not quantized, return None.
+
+    :param operation: the operation to get the quantization scheme from
+    :return: the quantization scheme of the operation or None if not quantized
     """
-
-    activation: Optional[torch.dtype] = Field(
-        default=None, description="The quantization dtype of activation function"
-    )
-    weight: Optional[torch.dtype] = Field(
-        default=None, description="The quantization dtype of weight function"
-    )
-
-    class Config:
-        arbitrary_types_allowed = True
-
-
-def get_dtype(operation: torch.nn.Module) -> QuantizationDtype:
-    """
-    Get the quantization dtype of the operation (both activation and weight).
-    If the operation is not quantized, return None for activation dtype and
-    original dtype of weight.
-
-    :param operation: the operation to get the quantization dtype from
-    :return: the quantization dtype of the operation
-    """
-    if hasattr(operation, "qconfig"):
-        if operation.qconfig is None:
-            pass
-        else:
-            return QuantizationDtype(
-                activation=operation.qconfig.activation.p.keywords["dtype"],
-                weight=operation.qconfig.weight.p.keywords["dtype"],
-            )
-    elif hasattr(operation, "weight"):
-        return QuantizationDtype(weight=operation.weight.dtype)
-
-    return QuantizationDtype()
+    if hasattr(operation, "quantization_scheme"):
+        return operation.quantization_scheme
+    return None

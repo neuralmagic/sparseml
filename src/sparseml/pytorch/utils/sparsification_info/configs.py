@@ -13,14 +13,14 @@
 # limitations under the License.
 
 from collections import Counter, defaultdict
-from typing import Any, Dict, Tuple
+from typing import Dict, Tuple, Union
 
 import torch.nn
 from pydantic import BaseModel, Field
 
 from sparseml.pytorch.utils.sparsification_info.helpers import (
-    get_dtype,
     get_leaf_operations,
+    get_quantization_scheme,
     is_quantized,
 )
 
@@ -47,12 +47,12 @@ class SparsificationSummaries(BaseModel):
         "operations/the percent of operations that are quantized."
     )
     pruned: CountAndPercent = Field(
-        description="A tuple that displays of the number of "
+        description="A model that contains the number of "
         "parameters/the percent of parameters that are pruned."
     )
     parameter_counts: Dict[str, int] = Field(
         description="A dictionary that maps the name of a parameter "
-        "to the number of elements in that parameter."
+        "to the number of elements (weights) in that parameter."
     )
     operation_counts: Dict[str, int] = Field(
         description="A dictionary that maps the name of an operation "
@@ -153,7 +153,7 @@ class SparsificationQuantization(BaseModel):
         "operation to a boolean flag that indicates whether "
         "the operation is quantized or not."
     )
-    dtype: Dict[str, Any] = Field(
+    quantization_schema: Dict[str, Union[BaseModel, None]] = Field(
         description="A dictionary that maps the name of a layer"
         "to the dtype (precision) of that layer."
     )
@@ -171,15 +171,16 @@ class SparsificationQuantization(BaseModel):
         """
         operations = get_leaf_operations(module)
         enabled = defaultdict(bool)
-        dtype = defaultdict(str)
+        quantization_schema = defaultdict(str)
         for op in operations:
             operation_name = op.__class__.__name__
             operation_counter = 0
+            # make sure that the operation name is unique
             while enabled.get(operation_name) is not None:
                 operation_counter += 1
                 operation_name = f"{op.__class__.__name__}_{operation_counter}"
 
             enabled[operation_name] = is_quantized(op)
-            dtype[operation_name] = get_dtype(op)
+            quantization_schema[operation_name] = get_quantization_scheme(op)
 
-        return cls(enabled=enabled, dtype=dtype)
+        return cls(enabled=enabled, quantization_schema=quantization_schema)
