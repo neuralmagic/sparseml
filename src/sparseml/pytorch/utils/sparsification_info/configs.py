@@ -13,14 +13,14 @@
 # limitations under the License.
 
 from collections import Counter, defaultdict
-from typing import Any, Dict, Tuple
+from typing import Dict, Tuple, Union
 
 import torch.nn
 from pydantic import BaseModel, Field
 
 from sparseml.pytorch.utils.sparsification_info.helpers import (
-    get_dtype,
     get_leaf_operations,
+    get_quantization_scheme,
     is_quantized,
 )
 
@@ -42,19 +42,19 @@ class SparsificationSummaries(BaseModel):
     A model that contains the sparsification summaries for a torch module.
     """
 
-    quantization: CountAndPercent = Field(
+    quantized: CountAndPercent = Field(
         description="A model that contains the number of "
         "operations/the percent of operations that are quantized."
     )
-    pruning: CountAndPercent = Field(
-        description="A tuple that displays of the number of "
+    pruned: CountAndPercent = Field(
+        description="A model that contains the number of "
         "parameters/the percent of parameters that are pruned."
     )
-    count_parameters: Dict[str, int] = Field(
+    parameter_counts: Dict[str, int] = Field(
         description="A dictionary that maps the name of a parameter "
-        "to the number of elements in that parameter."
+        "to the number of elements (weights) in that parameter."
     )
-    count_operations: Dict[str, int] = Field(
+    operation_counts: Dict[str, int] = Field(
         description="A dictionary that maps the name of an operation "
         "to the number of times that operation is used in the model."
     )
@@ -63,7 +63,7 @@ class SparsificationSummaries(BaseModel):
     def from_module(
         cls,
         module=torch.nn.Module,
-        pruning_thresholds: Tuple[float, float] = (0.05, 0.99),
+        pruning_thresholds: Tuple[float, float] = (0.05, 1 - 1e-9),
     ) -> "SparsificationSummaries":
         """
         Factory method to create a SparsificationSummaries object from a module.
@@ -97,15 +97,15 @@ class SparsificationSummaries(BaseModel):
             count_parameters[param_name] = num_parameters
 
         return cls(
-            pruning=CountAndPercent(
+            pruned=CountAndPercent(
                 count=total_num_params_pruned,
                 percent=total_num_params_pruned / total_num_params,
             ),
-            quantization=CountAndPercent(
+            quantized=CountAndPercent(
                 count=num_quantized_ops, percent=num_quantized_ops / len(operations)
             ),
-            count_parameters=count_parameters,
-            count_operations=Counter([op.__class__.__name__ for op in operations]),
+            parameter_counts=count_parameters,
+            operation_counts=Counter([op.__class__.__name__ for op in operations]),
         )
 
 
@@ -153,7 +153,7 @@ class SparsificationQuantization(BaseModel):
         "operation to a boolean flag that indicates whether "
         "the operation is quantized or not."
     )
-    dtype: Dict[str, Any] = Field(
+    quantization_schema: Dict[str, Union[BaseModel, None]] = Field(
         description="A dictionary that maps the name of a layer"
         "to the dtype (precision) of that layer."
     )
@@ -171,9 +171,16 @@ class SparsificationQuantization(BaseModel):
         """
         operations = get_leaf_operations(module)
         enabled = defaultdict(bool)
-        dtype = defaultdict(str)
+        quantization_schema = defaultdict(str)
         for op in operations:
-            enabled[op.__class__.__name__] = is_quantized(op)
-            dtype[op.__class__.__name__] = get_dtype(op)
+            operation_name = op.__class__.__name__
+            operation_counter = 0
+            # make sure that the operation name is unique
+            while enabled.get(operation_name) is not None:
+                operation_counter += 1
+                operation_name = f"{op.__class__.__name__}_{operation_counter}"
 
-        return cls(enabled=enabled, dtype=dtype)
+            enabled[operation_name] = is_quantized(op)
+            quantization_schema[operation_name] = get_quantization_scheme(op)
+
+        return cls(enabled=enabled, quantization_schema=quantization_schema)
