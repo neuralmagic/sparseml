@@ -635,13 +635,13 @@ class SparseYOLO(YOLO):
                 p.requires_grad = True
             manager = ScheduledModifierManager.from_yaml(one_shot)
 
-            # TODO: I hate the fact that to scale this functionality to other tasks
-            # we might have to (worst case scenario) copy and paste many
-            # arguments from the train.py. This is not ideal.
             overrides = self.overrides.copy()
-            overrides["data"] = "coco128.yaml"  # args["data"]
-            overrides["device"] = "cpu"
+            #TODO: multi-GPU changes? can leave that out for one-shot
+            if 'cpu' not in kwargs['device']:
+                overrides["device"] = "cuda:" + kwargs["device"]
+            overrides["deterministic"] = kwargs["deterministic"]
             trainer = self.TrainerClass(overrides=overrides)
+            self.model = self.model.to(trainer.device)
 
             manager.apply(
                 self.model,
