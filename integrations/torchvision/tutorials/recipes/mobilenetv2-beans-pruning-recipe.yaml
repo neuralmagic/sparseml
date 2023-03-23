@@ -1,35 +1,53 @@
-# Epoch and Learning-Rate variables
-num_epochs: 13.0
-pruning_epochs: 10.0
-init_lr: 0.0005
-inter_func: cubic
-mask_type: unstructured
+# Epoch hyperparams
+stabilization_epochs: 1.0
+pruning_epochs: 9.0
+finetuning_epochs: 5.0
 
+# Learning rate hyperparams
+init_lr: 0.0001
+final_lr: 0.00005
+
+# Pruning hyperparams
+init_sparsity: 0.05
+final_sparsity: 0.9
+
+# Stabalization Stage
 training_modifiers:
   - !EpochRangeModifier
     start_epoch: 0.0
-    end_epoch: eval(num_epochs)
-
-  - !LearningRateFunctionModifier
-    final_lr: 0.0
-    init_lr: eval(init_lr)
-    lr_func: cosine
+    end_epoch: eval(stabilization_epochs + pruning_epochs + finetuning_epochs)
+  
+  - !SetLearningRateModifier
     start_epoch: 0.0
-    end_epoch: eval(num_epochs)
+    learning_rate: eval(init_lr)
 
-# Pruning
+# Pruning Stage
 pruning_modifiers:
+  - !LearningRateFunctionModifier
+    init_lr: eval(init_lr)
+    final_lr: eval(final_lr)
+    lr_func: cosine
+    start_epoch: eval(stabilization_epochs)
+    end_epoch: eval(stabilization_epochs + pruning_epochs)
+    
   - !GlobalMagnitudePruningModifier
-    init_sparsity: 0.05
-    final_sparsity: 0.90
-    start_epoch: 0.0
-    end_epoch: eval(pruning_epochs)
-    update_frequency: 1.0
-    params: 
+    init_sparsity: eval(init_sparsity)
+    final_sparsity: eval(final_sparsity)
+    start_epoch: eval(stabilization_epochs)
+    end_epoch: eval(stabilization_epochs + pruning_epochs)
+    update_frequency: 0.5
+    params:        
         - 'features.0.0.weight'
         - 'features.18.0.weight'
         - 're:features.*.conv.*.weight'
         - 're:features.*.conv.*.*.weight'
     leave_enabled: True
-    inter_func: eval(inter_func)
-    mask_type: eval(mask_type)
+
+# Finetuning Stage
+finetuning_modifiers:
+  - !LearningRateFunctionModifier
+    init_lr: eval(init_lr)
+    final_lr: eval(final_lr)
+    lr_func: cosine
+    start_epoch: eval(stabilization_epochs + pruning_epochs)
+    end_epoch: eval(stabilization_epochs + pruning_epochs + finetuning_epochs)
