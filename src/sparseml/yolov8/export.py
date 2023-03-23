@@ -72,6 +72,12 @@ from sparseml.yolov8.trainers import SparseYOLO
     is_flag=True,
     help="whether to enable deterministic mode",
 )
+@click.option(
+    "--device",
+    default=None,
+    type=str,
+    help="cuda device, i.e. 0 or 0,1,2,3 or cpu. Device to run on",
+)
 def main(**kwargs):
     model = SparseYOLO(kwargs["model"])
     model.export(**kwargs)
