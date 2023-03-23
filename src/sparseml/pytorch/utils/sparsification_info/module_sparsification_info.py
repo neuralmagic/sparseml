@@ -22,7 +22,10 @@ from sparseml.pytorch.utils.sparsification_info.configs import (
     SparsificationQuantization,
     SparsificationSummaries,
 )
-from sparseml.pytorch.utils.sparsification_info.helpers import unpack_dictionary
+from sparseml.pytorch.utils.sparsification_info.helpers import (
+    reformat,
+    unpack_dictionary,
+)
 
 
 class ModuleSparsificationInfo(BaseModel):
@@ -68,4 +71,7 @@ class ModuleSparsificationInfo(BaseModel):
             - the name of the loggable item
             - the value of the loggable item
         """
-        yield from unpack_dictionary(dict(self))
+        for tag, item in list(unpack_dictionary(dict(self))):
+            tag = reformat(tag)
+            if tag:
+                yield tag, item
