@@ -1245,7 +1245,7 @@ def override_model_input_shape(model: Union[str, onnx.ModelProto], shape: List[i
     :param shape: shape as list of integers to override with. must match
         existing dimensions
     """
-    if isinstance(model, str):
+    if not isinstance(model, onnx.ModelProto):
         model_path = model
         model = onnx.load(model)
     else:
