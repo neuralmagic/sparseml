@@ -39,7 +39,6 @@ pip install sparseml[torchvision]
 - [Sparse Transfer Learning with the Python API - ResNet-50](tutorials/docs-torchvision-python-transfer-imagenette.ipynb)
 - [Sparsification from Scratch with the Python API - ResNet-50](tutorials/docs-torchvision-sparsify-from-scratch-resnet50-beans.ipynb)
 - [Sparsification from Scratch with the Python API - MobileNetv2](tutorials/docs-torchvision-sparsify-from-scratch-mobilenetv2-beans.ipynb)
-- [Sparsification from Scratch with the Python API - DenseNet-121](tutorials/docs-torchvision-sparsify-from-scratch-densenet-flowers-pruned-quant.ipynb)
 
 ## Quick Tour
 
