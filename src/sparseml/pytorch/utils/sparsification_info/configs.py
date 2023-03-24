@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from collections import Counter, defaultdict
-from typing import Dict, Tuple, Union
+from typing import Dict, Generator, Tuple, Union
 
 import torch.nn
 from pydantic import BaseModel, Field
@@ -108,6 +108,22 @@ class SparsificationSummaries(BaseModel):
             operation_counts=Counter([op.__class__.__name__ for op in operations]),
         )
 
+    def loggable_items(
+        self,
+    ) -> Generator[Tuple[str, Union[Dict[str, int], float, int]], None, None]:
+        """
+        Yield the loggable items for SparsificationSummaries object.
+
+        :return: A generator that yields the loggable items for this object.
+        """
+        main_tag = self.__class__.__name__
+        yield f"{main_tag}/OperationCounts", self.operation_counts
+        yield f"{main_tag}/ParameterCounts", self.parameter_counts
+        yield f"{main_tag}/QuantizedOperations/count", self.quantized.count
+        yield f"{main_tag}/QuantizedOperations/percent", self.quantized.percent
+        yield f"{main_tag}/PrunedParameters/count", self.pruned.count
+        yield f"{main_tag}/PrunedParameters/percent", self.pruned.percent
+
 
 class SparsificationPruning(BaseModel):
     """
@@ -141,6 +157,19 @@ class SparsificationPruning(BaseModel):
             )
 
         return cls(zero_parameters=zero_parameters_count)
+
+    def loggable_items(
+        self,
+    ) -> Generator[Tuple[str, Union[Dict[str, int], float, int]], None, None]:
+        """
+        Yield the loggable items for SparsificationPruning object.
+
+        :return: A generator that yields the loggable items for this object.
+        """
+        main_tag = self.__class__.__name__
+        for param_name, count_and_percent in self.zero_parameters.items():
+            yield f"{main_tag}/ZeroParameters/{param_name}/count", count_and_percent.count  # noqa: E501
+            yield f"{main_tag}/ZeroParameters/{param_name}/percent", count_and_percent.percent  # noqa: E501
 
 
 class SparsificationQuantization(BaseModel):
@@ -184,3 +213,22 @@ class SparsificationQuantization(BaseModel):
             quantization_schema[operation_name] = get_quantization_scheme(op)
 
         return cls(enabled=enabled, quantization_schema=quantization_schema)
+
+    def loggable_items(
+        self,
+    ) -> Generator[Tuple[str, Union[Dict[str, int], float, int]], None, None]:
+        """
+        Yield the loggable items for SparsificationQuantization object.
+
+        :return: A generator that yields the loggable items for this object.
+        """
+        main_tag = self.__class__.__name__
+        for operation in self.enabled.keys():
+            yield f"{main_tag}/{operation}/enabled", self.enabled[operation]
+
+            quantization_schema = self.quantization_schema[operation]
+            if quantization_schema is None:
+                yield f"{main_tag}/{operation}/precision", None
+            else:
+                yield f"{main_tag}/{operation}/precision/weights/num_bits", quantization_schema.weights.num_bits  # noqa: E501
+                yield f"{main_tag}/{operation}/precision/input_activations/num_bits", quantization_schema.input_activations.num_bits  # noqa: E501

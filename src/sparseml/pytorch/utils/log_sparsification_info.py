@@ -32,4 +32,7 @@ def log_module_sparsification_info(module: torch.nn.Module, logger: BaseLogger):
     """
     sparsification_info = ModuleSparsificationInfo.from_module(module)
     for tag, value in sparsification_info.loggable_items():
-        logger.log_scalar(tag, value)
+        if isinstance(value, dict):
+            logger.log_scalars(tag, value)
+        else:
+            logger.log_scalar(tag, value)
