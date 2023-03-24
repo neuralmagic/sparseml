@@ -16,28 +16,38 @@ from typing import List, Optional
 import torch
 from torch.quantization import QuantWrapper
 
+from sparseml.pytorch.nn import Identity
+
 
 __all__ = ["get_leaf_operations", "is_quantized", "get_quantization_scheme"]
 
 
-def get_leaf_operations(model: torch.nn.Module) -> List[torch.nn.Module]:
+def get_leaf_operations(
+    model: torch.nn.Module,
+    operations_to_skip: List[torch.nn.Module] = [Identity],
+    operations_to_unwrap: List[torch.nn.Module] = [QuantWrapper],
+) -> List[torch.nn.Module]:
     """
     Get the leaf operations in the model
     (those that do not have operations as children)
 
     :param model: the model to get the leaf operations from
+    :param operations_to_skip: a list of leaf operations that will be
+        omitted when getting the leaf operations
+    :param operations_to_unwrap: a list of operations that will be unwrapped
+        when getting the leaf operations. Unwrapping means that we directly
+        add the module(s) that is/are wrapped by the operation to the list
+        of leaf operations
     :return: a list of the leaf operations
     """
     leaf_operations = []
     children = list(model.children())
 
-    if children == []:
+    if children == [] and model not in operations_to_skip:
         return model
     else:
         for child in children:
-            if isinstance(child, QuantWrapper):
-                # if QuantWrapper encountered, treat the wrapped
-                # module as a leaf operation
+            if isinstance(child, tuple(operations_to_unwrap)):
                 leaf_operations.append(child.module)
                 continue
             try:
