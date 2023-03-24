@@ -31,7 +31,8 @@ def _create_console_stream(level: int, format_: str, datefmt: str):
     return stream
 
 
-DEFAULT_LOG_LEVEL = logging.INFO
+# DEFAULT_LOG_LEVEL = logging.INFO
+DEFAULT_LOG_LEVEL = logging.DEBUG
 
 NM_ROOT_LOGGER = logging.getLogger("sparseml")
 NM_ROOT_LOGGER.setLevel(DEFAULT_LOG_LEVEL)

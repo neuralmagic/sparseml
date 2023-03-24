@@ -15,6 +15,8 @@
 import click
 from sparseml.yolov8.trainers import SparseYOLO
 
+import logging
+logger = logging.getLogger()
 
 # Options generated from
 # https://github.com/ultralytics/ultralytics/blob/main/ultralytics/yolo/configs/default.yaml

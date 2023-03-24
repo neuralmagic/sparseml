@@ -389,6 +389,8 @@ class OBSPruningParamsScorer(PruningParamsGradScorer):
         mask_type: str,
     ):
         super().__init__(params)
+        super().__init__(params, dist_backend="nccl")
+        # super().__init__(params, dist_backend="gloo")
         self._num_grads = num_grads
         self._damp = damp
         self._fisher_block_size = fisher_block_size
