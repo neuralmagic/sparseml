@@ -357,22 +357,23 @@ class PythonLogger(LambdaLogger):
         logger = logging.getLogger(__name__)
 
         # File handler setup, for logging modifier debug statements
-        base_log_path = (
-            os.environ.get("NM_TEST_LOG_DIR")
-            if os.environ.get("NM_TEST_MODE")
-            else "sparse_logs"
-        )
-        now = datetime.now()
-        dt_string = now.strftime("%d-%m-%Y_%H.%M.%S")
-        log_path = os.path.join(base_log_path, f"{dt_string}.log")
-        os.makedirs(base_log_path, exist_ok=True)
-        file_handler = logging.FileHandler(
-            log_path,
-            delay=True,
-        )
-        file_handler.setLevel(LOGGING_LEVELS["debug"])
-        logger.addHandler(file_handler)
-        logger.info(f"Logging all SparseML modifier-level logs to {log_path}")
+        if not any(isinstance(handler, logging.FileHandler) for handler in logger.handlers):
+            base_log_path = (
+                os.environ.get("NM_TEST_LOG_DIR")
+                if os.environ.get("NM_TEST_MODE")
+                else "sparse_logs"
+            )
+            now = datetime.now()
+            dt_string = now.strftime("%d-%m-%Y_%H.%M.%S")
+            log_path = os.path.join(base_log_path, f"{dt_string}.log")
+            os.makedirs(base_log_path, exist_ok=True)
+            file_handler = logging.FileHandler(
+                log_path,
+                delay=True,
+            )
+            file_handler.setLevel(LOGGING_LEVELS["debug"])
+            logger.addHandler(file_handler)
+            logger.info(f"Logging all SparseML modifier-level logs to {log_path}")
 
         # Console handler, for logging high level modifier logs
         stream_handler = logging.StreamHandler()
