@@ -22,6 +22,7 @@ from copy import copy, deepcopy
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
+from datetime import timedelta
 
 import onnx
 import torch
@@ -43,6 +44,7 @@ from ultralytics import __version__
 from ultralytics.nn.tasks import SegmentationModel, attempt_load_one_weight
 from ultralytics.yolo.cfg import get_cfg
 from ultralytics.yolo.data.dataloaders.v5loader import create_dataloader
+from ultralytics.yolo.data import build_dataloader
 from ultralytics.yolo.engine.model import YOLO
 from ultralytics.yolo.engine.trainer import BaseTrainer
 from ultralytics.yolo.utils import LOGGER, IterableSimpleNamespace, yaml_load
@@ -314,6 +316,7 @@ class SparseTrainer(BaseTrainer):
                 loggers=self.logger_manager,
                 grad_sampler={
                     "data_loader_builder": self._get_data_loader_builder(),
+                    # "data_loader_builder": self._get_data_loader_builder2(rank=rank),
                     "loss_function": lambda preds, batch: self.criterion(preds, batch)[
                         0
                     ]
@@ -324,8 +327,30 @@ class SparseTrainer(BaseTrainer):
             # initialize steps_per_epoch for logging when there's no recipe
             self.steps_per_epoch = len(self.train_loader)
 
+    def _setup_ddp(self, rank, world_size):
+        # os.environ['MASTER_ADDR'] = 'localhost'
+        # os.environ['MASTER_PORT'] = '9020'
+        torch.cuda.set_device(rank)
+        self.device = torch.device('cuda', rank)
+        LOGGER.info(f'DDP settings: RANK {rank}, WORLD_SIZE {world_size}, DEVICE {self.device}')
+        torch.distributed.init_process_group('nccl' if torch.distributed.is_nccl_available() else 'gloo', rank=rank, world_size=world_size,
+                                            timeout=timedelta(seconds=7200))
+
+    def _get_data_loader_builder2(self, mode='train', rank=0):
+        def _data_loader_builder(kwargs):
+            data_loader = build_dataloader(self.args, self.args.batch, img_path=self.trainset, stride=32, rank=rank, mode=self.args.mode,
+                             rect=mode == 'val')[0]
+            while True:
+                for batch in data_loader:
+                    batch = self.preprocess_batch(batch)
+                    assert(batch['img'].device.index == self.device.index)
+                    yield [batch["img"]], {}, batch
+        return _data_loader_builder
+    
     def _get_data_loader_builder(self):
         train_loader = self.train_loader
+        # args = self.overrides.copy()
+        # args = self.args
 
         def _data_loader_builder(kwargs):
             template = dict(train_loader.__dict__)
@@ -341,11 +366,22 @@ class SparseTrainer(BaseTrainer):
             # override defaults if kwargs are given, for example via recipe
             if kwargs:
                 template.update(kwargs)
-
             data_loader = type(train_loader)(**template)
+
+            # train_set_path = self.trainset
+            # data_loader, _ = create_dataloader(
+            #     path=train_set_path,
+            #     imgsz=self.args.imgsz,
+            #     batch_size=self.args.batch,
+            #     stride=32,
+            # )
+            # self.train_loader = data_loader
+            # data_loader = self.train_loader
+
             while True:
                 for batch in data_loader:
                     batch = self.preprocess_batch(batch)
+                    assert(batch['img'].device.index == self.device.index)
                     yield [batch["img"]], {}, batch
 
         return _data_loader_builder

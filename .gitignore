@@ -1,3 +1,9 @@
+cache/
+wandb/
+MODELS_DIR/
+pytorch_vision/
+pytorch_vision_train/
+
 # Packaging
 *.tar.gz
 tensorboard/*
