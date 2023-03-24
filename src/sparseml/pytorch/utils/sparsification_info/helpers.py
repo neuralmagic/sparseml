@@ -14,9 +14,8 @@
 from typing import List, Optional
 
 import torch
+from torch.nn.modules.linear import Identity
 from torch.quantization import QuantWrapper
-
-from sparseml.pytorch.nn import Identity
 
 
 __all__ = ["get_leaf_operations", "is_quantized", "get_quantization_scheme"]
@@ -43,7 +42,7 @@ def get_leaf_operations(
     leaf_operations = []
     children = list(model.children())
 
-    if children == [] and model not in operations_to_skip:
+    if children == []:
         return model
     else:
         for child in children:
@@ -54,6 +53,9 @@ def get_leaf_operations(
                 leaf_operations.extend(get_leaf_operations(child))
             except TypeError:
                 leaf_operations.append(get_leaf_operations(child))
+    leaf_operations = [
+        op for op in leaf_operations if not isinstance(op, tuple(operations_to_skip))
+    ]
     return leaf_operations
 
 
