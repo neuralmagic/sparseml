@@ -1224,7 +1224,7 @@ def get_tensor_dim_shape(tensor: onnx.TensorProto, dim: Union[int, str]) -> int:
     """
     return (
         tensor.type.tensor_type.shape.dim[dim].dim_value
-        or tensor.type.tensor_type.shape.dim[dim].dim_value
+        or tensor.type.tensor_type.shape.dim[dim].dim_param
     )
 
 
