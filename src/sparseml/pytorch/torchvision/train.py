@@ -716,7 +716,7 @@ def main(args):
                 )
             else:
                 checkpoint["epoch"] = -1 if epoch == max_epochs - 1 else epoch
-                if str(manager) is not None:
+                if manager is not None:
                     checkpoint["recipe"] = str(manager)
 
             file_names = ["checkpoint.pth"]
