@@ -74,6 +74,7 @@ __all__ = [
     "get_tensor_shape",
     "get_tensor_dim_shape",
     "set_tensor_dim_shape",
+    "override_model_input_shape",
 ]
 
 
@@ -1233,3 +1234,25 @@ def set_tensor_dim_shape(tensor: onnx.TensorProto, dim: int, value: int):
     :param value: new shape for the given dimension
     """
     tensor.type.tensor_type.shape.dim[dim].dim_value = value
+
+
+def override_model_input_shape(model: Union[str, onnx.ModelProto], shape: List[int]):
+    """
+    Set the shape of the first input of the given model to the given shape.
+    If given a file, the file will be overwritten
+
+    :param model: ONNX model or model path to overrwrite
+    :param shape: shape as list of integers to override with. must match
+        existing dimensions
+    """
+    if not isinstance(model, onnx.ModelProto):
+        model_path = model
+        model = onnx.load(model)
+    else:
+        model_path = None
+
+    for dim, dim_size in enumerate(shape):
+        set_tensor_dim_shape(model.graph.input[0], dim, dim_size)
+
+    if model_path:
+        onnx.save(model, model_path)
