@@ -151,7 +151,7 @@ class PruningParamsGradScorer(PruningParamsScorer, ABC):
             dist.destroy_process_group(self._dist_group)
 
     def _broadcast_list_from_main(self, val: Any) -> Any:
-        if not self._is_ddp:
+        if not self._is_ddp and self._dist_group is None:
             return val
         dist.broadcast_object_list(val, src=0, group=self._dist_group)
         return val

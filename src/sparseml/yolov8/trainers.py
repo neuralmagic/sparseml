@@ -343,12 +343,15 @@ class SparseTrainer(BaseTrainer):
         torch.cuda.set_device(rank)
         self.device = torch.device('cuda', rank)
         LOGGER.info(f'DDP settings: RANK {rank}, WORLD_SIZE {world_size}, DEVICE {self.device}')
-        torch.distributed.init_process_group('nccl' if torch.distributed.is_nccl_available() else 'gloo', rank=rank, world_size=world_size,
-                                            timeout=timedelta(seconds=7200))
-
+        torch.distributed.init_process_group('nccl' if torch.distributed.is_nccl_available() else 'gloo', rank=rank,
+                                             world_size=world_size, timeout=timedelta(seconds=7200))
+    
     def _get_data_loader_builder2(self, mode='train', rank=0):
         def _data_loader_builder(kwargs):
-            data_loader = build_dataloader(self.args, self.args.batch, img_path=self.trainset, stride=32, rank=rank, mode=self.args.mode,
+            # print(kwargs)
+            # exit()
+            # TODO: batch hardcoded to 16
+            data_loader = build_dataloader(self.args, 16, img_path=self.trainset, stride=32, rank=rank, mode=self.args.mode,
                              rect=mode == 'val')[0]
             while True:
                 for batch in data_loader:
