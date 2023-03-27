@@ -15,10 +15,9 @@
 from typing import Iterable, Tuple
 
 import torch
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from sparseml.pytorch.utils.sparsification_info.configs import (
-    SparsificationDistillation,
     SparsificationPruning,
     SparsificationQuantization,
     SparsificationSummaries,
@@ -26,14 +25,38 @@ from sparseml.pytorch.utils.sparsification_info.configs import (
 
 
 class ModuleSparsificationInfo(BaseModel):
-    summary_info: SparsificationSummaries
-    pruning_info: SparsificationPruning
-    quantization_info: SparsificationQuantization
-    distillation_info: SparsificationDistillation
+    """
+    Pydantic model for storing sparsification information of a torch module.
+    """
+
+    summary_info: SparsificationSummaries = Field(
+        description="Model that holds the sparsification summary info of the module"
+    )
+    pruning_info: SparsificationPruning = Field(
+        description="Model that holds the pruning info of the module"
+    )
+    quantization_info: SparsificationQuantization = Field(
+        description="Model that holds the quantization info of the module"
+    )
 
     @classmethod
     def from_module(cls, module: torch.nn.Module) -> "ModuleSparsificationInfo":
-        raise NotImplementedError()
+        """
+        Factory method to create a ModuleSparsificationInfo object from a torch module.
+
+        :param module: the module to create the ModuleSparsificationInfo object from
+        :return: the ModuleSparsificationInfo object created from the module
+        """
+        if not isinstance(module, torch.nn.Module):
+            raise ValueError(
+                "Module must be a torch.nn.Module, not {}".format(type(module))
+            )
+
+        return cls(
+            summary_info=SparsificationSummaries.from_module(module),
+            pruning_info=SparsificationPruning.from_module(module),
+            quantization_info=SparsificationQuantization.from_module(module),
+        )
 
     def loggable_items(self) -> Iterable[Tuple[str, float]]:
         raise NotImplementedError()
