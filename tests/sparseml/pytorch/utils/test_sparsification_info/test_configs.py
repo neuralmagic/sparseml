@@ -169,10 +169,9 @@ class TestSparsificationModels:
             module=setup
         )
         for tag, item in sparsification_quantization.loggable_items():
-            print(tag)
-            # assert (
-            #     self.expected_quantization[
-            #         tag.replace("SparsificationQuantization/", "")
-            #     ]
-            #     == item
-            # )
+            assert (
+                self.expected_quantization[
+                    tag.replace("SparsificationQuantization/", "")
+                ]
+                == item
+            )
