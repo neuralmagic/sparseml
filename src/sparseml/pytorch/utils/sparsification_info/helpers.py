@@ -77,6 +77,4 @@ def get_quantization_scheme(
     :param operation: the operation to get the quantization scheme from
     :return: the quantization scheme of the operation or None if not quantized
     """
-    if hasattr(operation, "quantization_scheme"):
-        return operation.quantization_scheme
-    return None
+    return getattr(operation, "quantization_scheme", None)
