@@ -114,7 +114,7 @@ class SparsificationPruning(BaseModel):
     A model that contains the pruning information for a torch module.
     """
 
-    zero_parameters: Dict[str, CountAndPercent] = Field(
+    sparse_parameters: Dict[str, CountAndPercent] = Field(
         description="A dictionary that maps the name of a parameter "
         "to the number/percent of weights that are zeroed out "
         "in that layer."
@@ -128,7 +128,7 @@ class SparsificationPruning(BaseModel):
         :param module: The module to create the SparsificationPruning object from.
         :return: A SparsificationPruning object.
         """
-        zero_parameters_count = defaultdict(CountAndPercent)
+        sparse_parameters_count = defaultdict(CountAndPercent)
         for param_name, param in module.named_parameters():
             num_parameters = param.numel()
             num_zero_parameters = param.numel() - param.count_nonzero().item()
@@ -136,11 +136,11 @@ class SparsificationPruning(BaseModel):
             zero_count = num_zero_parameters
             zero_count_percent = num_zero_parameters / num_parameters
 
-            zero_parameters_count[param_name] = CountAndPercent(
+            sparse_parameters_count[param_name] = CountAndPercent(
                 count=zero_count, percent=zero_count_percent
             )
 
-        return cls(zero_parameters=zero_parameters_count)
+        return cls(sparse_parameters=sparse_parameters_count)
 
 
 class SparsificationQuantization(BaseModel):
@@ -153,7 +153,7 @@ class SparsificationQuantization(BaseModel):
         "operation to a boolean flag that indicates whether "
         "the operation is quantized or not."
     )
-    quantization_schema: Dict[str, Union[BaseModel, None]] = Field(
+    quantization_scheme: Dict[str, Union[BaseModel, None]] = Field(
         description="A dictionary that maps the name of a layer"
         "to the dtype (precision) of that layer."
     )
@@ -171,7 +171,7 @@ class SparsificationQuantization(BaseModel):
         """
         operations = get_leaf_operations(module)
         enabled = defaultdict(bool)
-        quantization_schema = defaultdict(str)
+        quantization_scheme = defaultdict(str)
         for op in operations:
             operation_name = op.__class__.__name__
             operation_counter = 0
@@ -181,6 +181,6 @@ class SparsificationQuantization(BaseModel):
                 operation_name = f"{op.__class__.__name__}_{operation_counter}"
 
             enabled[operation_name] = is_quantized(op)
-            quantization_schema[operation_name] = get_quantization_scheme(op)
+            quantization_scheme[operation_name] = get_quantization_scheme(op)
 
-        return cls(enabled=enabled, quantization_schema=quantization_schema)
+        return cls(enabled=enabled, quantization_scheme=quantization_scheme)

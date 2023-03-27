@@ -105,11 +105,11 @@ class TestSparsificationModels:
         sparsification_pruning = SparsificationPruning.from_module(module=setup)
         for name, _ in setup.named_parameters():
             if name == "1.1.module.weight":
-                assert sparsification_pruning.zero_parameters[name].count == 31360
-                assert sparsification_pruning.zero_parameters[name].percent == 0.5
+                assert sparsification_pruning.sparse_parameters[name].count == 31360
+                assert sparsification_pruning.sparse_parameters[name].percent == 0.5
             else:
-                assert sparsification_pruning.zero_parameters[name].count == 0
-                assert sparsification_pruning.zero_parameters[name].percent == 0.0
+                assert sparsification_pruning.sparse_parameters[name].count == 0
+                assert sparsification_pruning.sparse_parameters[name].percent == 0.0
 
     def test_sparsification_quantization(self, setup):
         sparsification_quantization = SparsificationQuantization.from_module(
@@ -126,17 +126,17 @@ class TestSparsificationModels:
         for operation in is_quantization_enabled.keys():
             if operation == "Flatten":
                 assert (
-                    sparsification_quantization.quantization_schema[operation] is None
+                    sparsification_quantization.quantization_scheme[operation] is None
                 )
             else:
                 assert (
-                    sparsification_quantization.quantization_schema[
+                    sparsification_quantization.quantization_scheme[
                         operation
                     ].weights.num_bits
                     == 4
                 )
                 assert (
-                    sparsification_quantization.quantization_schema[
+                    sparsification_quantization.quantization_scheme[
                         operation
                     ].input_activations.num_bits
                     == 8
