@@ -209,6 +209,7 @@ from sparseml.pytorch.utils.distributed import record
 
 CURRENT_TASK = helpers.Tasks.TRAIN
 LOGGER = get_main_logger()
+
 METADATA_ARGS = [
     "arch_key",
     "dataset",
