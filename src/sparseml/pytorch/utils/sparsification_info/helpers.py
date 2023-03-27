@@ -23,8 +23,8 @@ __all__ = ["get_leaf_operations", "is_quantized", "get_quantization_scheme"]
 
 def get_leaf_operations(
     model: torch.nn.Module,
-    operations_to_skip: List[torch.nn.Module] = [Identity],
-    operations_to_unwrap: List[torch.nn.Module] = [QuantWrapper],
+    operations_to_skip: Optional[List[torch.nn.Module]] = None,
+    operations_to_unwrap: Optional[List[torch.nn.Module]] = None,
 ) -> List[torch.nn.Module]:
     """
     Get the leaf operations in the model
@@ -32,13 +32,22 @@ def get_leaf_operations(
 
     :param model: the model to get the leaf operations from
     :param operations_to_skip: a list of leaf operations that will be
-        omitted when getting the leaf operations
+        omitted when getting the leaf operations. If None passed, by
+        default the Identity operation will be skipped
     :param operations_to_unwrap: a list of operations that will be unwrapped
         when getting the leaf operations. Unwrapping means that we directly
-        add the module(s) that is/are wrapped by the operation to the list
-        of leaf operations
+        add the module(s) that is/are wrapped by the operation (i.e. operation's
+        `module` attribute) to the list
+        of leaf operations. If None passed, by default the QuantWrapper
+        operation will be unwrapped
     :return: a list of the leaf operations
     """
+    if operations_to_skip is None:
+        operations_to_skip = [Identity]
+
+    if operations_to_unwrap is None:
+        operations_to_unwrap = [QuantWrapper]
+
     leaf_operations = []
     children = list(model.children())
 
@@ -77,6 +86,4 @@ def get_quantization_scheme(
     :param operation: the operation to get the quantization scheme from
     :return: the quantization scheme of the operation or None if not quantized
     """
-    if hasattr(operation, "quantization_scheme"):
-        return operation.quantization_scheme
-    return None
+    return getattr(operation, "quantization_scheme", None)

@@ -74,6 +74,7 @@ __all__ = [
     "get_tensor_shape",
     "get_tensor_dim_shape",
     "set_tensor_dim_shape",
+    "override_model_input_shape",
 ]
 
 
@@ -1215,16 +1216,19 @@ def get_tensor_shape(tensor: onnx.TensorProto) -> List[int]:
     return [dim.dim_value for dim in tensor.type.tensor_type.shape.dim]
 
 
-def get_tensor_dim_shape(tensor: onnx.TensorProto, dim: int) -> int:
+def get_tensor_dim_shape(tensor: onnx.TensorProto, dim: Union[int, str]) -> int:
     """
     :param tensor: ONNX tensor to get the shape of a dimension of
     :param dim: dimension index of the tensor to get the shape of
     :return: shape of the tensor at the given dimension
     """
-    return tensor.type.tensor_type.shape.dim[dim].dim_value
+    return (
+        tensor.type.tensor_type.shape.dim[dim].dim_value
+        or tensor.type.tensor_type.shape.dim[dim].dim_param
+    )
 
 
-def set_tensor_dim_shape(tensor: onnx.TensorProto, dim: int, value: int):
+def set_tensor_dim_shape(tensor: onnx.TensorProto, dim: int, value: Union[int, str]):
     """
     Sets the shape of the tensor at the given dimension to the given value
 
@@ -1232,4 +1236,29 @@ def set_tensor_dim_shape(tensor: onnx.TensorProto, dim: int, value: int):
     :param dim: dimension index of the tensor to modify the shape of
     :param value: new shape for the given dimension
     """
-    tensor.type.tensor_type.shape.dim[dim].dim_value = value
+    if isinstance(value, str):
+        tensor.type.tensor_type.shape.dim[dim].dim_param = value
+    else:
+        tensor.type.tensor_type.shape.dim[dim].dim_value = value
+
+
+def override_model_input_shape(model: Union[str, onnx.ModelProto], shape: List[int]):
+    """
+    Set the shape of the first input of the given model to the given shape.
+    If given a file, the file will be overwritten
+
+    :param model: ONNX model or model path to overrwrite
+    :param shape: shape as list of integers to override with. must match
+        existing dimensions
+    """
+    if not isinstance(model, onnx.ModelProto):
+        model_path = model
+        model = onnx.load(model)
+    else:
+        model_path = None
+
+    for dim, dim_size in enumerate(shape):
+        set_tensor_dim_shape(model.graph.input[0], dim, dim_size)
+
+    if model_path:
+        onnx.save(model, model_path)

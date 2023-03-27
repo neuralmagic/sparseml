@@ -58,6 +58,12 @@ class ModuleSparsificationInfo(BaseModel):
             quantization_info=SparsificationQuantization.from_module(module),
         )
 
+        return cls(
+            summary_info=SparsificationSummaries.from_module(module),
+            pruning_info=SparsificationPruning.from_module(module),
+            quantization_info=SparsificationQuantization.from_module(module),
+        )
+
     def loggable_items(self) -> Generator[Tuple[str, Any], None, None]:
         """
         A generator that yields the loggable items of
