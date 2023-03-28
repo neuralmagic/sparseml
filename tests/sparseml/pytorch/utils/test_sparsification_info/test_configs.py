@@ -159,7 +159,7 @@ class TestSparsificationModels:
         for tag, item in sparsification_pruning.loggable_items():
             assert (
                 self.expected_pruning[
-                    tag.replace("SparsificationPruning/ZeroParameters/", "")
+                    tag.replace("SparsificationPruning/SparseParameters/", "")
                 ]
                 == item
             )

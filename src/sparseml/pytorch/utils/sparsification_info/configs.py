@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from abc import ABC, abstractmethod
 from collections import Counter, defaultdict
 from typing import Dict, Generator, Tuple, Union
 
@@ -20,7 +21,7 @@ from pydantic import BaseModel, Field
 
 from sparseml.pytorch.utils.sparsification_info.helpers import (
     get_leaf_operations,
-    get_quantization_scheme,
+    get_precision_information,
     is_quantized,
 )
 
@@ -29,7 +30,37 @@ __all__ = [
     "SparsificationSummaries",
     "SparsificationPruning",
     "SparsificationQuantization",
+    "SparsificationInfo",
 ]
+
+
+class SparsificationInfo(BaseModel, ABC):
+    @classmethod
+    @abstractmethod
+    def from_module(
+        cls,
+        module: torch.nn.Module,
+        **kwargs,
+    ) -> "SparsificationInfo":
+        """
+        Factory method to create SparsificationInfo object from a module.
+
+        :param module: The module to create the SparsificationInfo object from.
+        :param kwargs: Additional arguments to pass to the SparsificationInfo object.
+        :return: A SparsificationInfo object.
+        """
+        raise NotImplementedError()
+
+    @abstractmethod
+    def loggable_items(
+        self,
+    ) -> Generator[Tuple[str, Union[Dict[str, int], float, int]], None, None]:
+        """
+        Yield the loggable items for SparsificationInfo object.
+
+        :return: A generator that yields the loggable items for this object.
+        """
+        raise NotImplementedError()
 
 
 class CountAndPercent(BaseModel):
@@ -37,7 +68,7 @@ class CountAndPercent(BaseModel):
     percent: float = Field(description="The percentage of those items out of the total")
 
 
-class SparsificationSummaries(BaseModel):
+class SparsificationSummaries(SparsificationInfo):
     """
     A model that contains the sparsification summaries for a torch module.
     """
@@ -125,12 +156,12 @@ class SparsificationSummaries(BaseModel):
         yield f"{main_tag}/PrunedParameters/percent", self.pruned.percent
 
 
-class SparsificationPruning(BaseModel):
+class SparsificationPruning(SparsificationInfo):
     """
     A model that contains the pruning information for a torch module.
     """
 
-    zero_parameters: Dict[str, CountAndPercent] = Field(
+    sparse_parameters: Dict[str, CountAndPercent] = Field(
         description="A dictionary that maps the name of a parameter "
         "to the number/percent of weights that are zeroed out "
         "in that layer."
@@ -144,7 +175,7 @@ class SparsificationPruning(BaseModel):
         :param module: The module to create the SparsificationPruning object from.
         :return: A SparsificationPruning object.
         """
-        zero_parameters_count = defaultdict(CountAndPercent)
+        sparse_parameters_count = defaultdict(CountAndPercent)
         for param_name, param in module.named_parameters():
             num_parameters = param.numel()
             num_zero_parameters = param.numel() - param.count_nonzero().item()
@@ -152,11 +183,11 @@ class SparsificationPruning(BaseModel):
             zero_count = num_zero_parameters
             zero_count_percent = num_zero_parameters / num_parameters
 
-            zero_parameters_count[param_name] = CountAndPercent(
+            sparse_parameters_count[param_name] = CountAndPercent(
                 count=zero_count, percent=zero_count_percent
             )
 
-        return cls(zero_parameters=zero_parameters_count)
+        return cls(sparse_parameters=sparse_parameters_count)
 
     def loggable_items(
         self,
@@ -167,12 +198,12 @@ class SparsificationPruning(BaseModel):
         :return: A generator that yields the loggable items for this object.
         """
         main_tag = self.__class__.__name__
-        for param_name, count_and_percent in self.zero_parameters.items():
-            yield f"{main_tag}/ZeroParameters/{param_name}/count", count_and_percent.count  # noqa: E501
-            yield f"{main_tag}/ZeroParameters/{param_name}/percent", count_and_percent.percent  # noqa: E501
+        for param_name, count_and_percent in self.sparse_parameters.items():
+            yield f"{main_tag}/SparseParameters/{param_name}/count", count_and_percent.count  # noqa: E501
+            yield f"{main_tag}/SparseParameters/{param_name}/percent", count_and_percent.percent  # noqa: E501
 
 
-class SparsificationQuantization(BaseModel):
+class SparsificationQuantization(SparsificationInfo):
     """
     A model that contains the quantization information for a torch module.
     """
@@ -182,10 +213,13 @@ class SparsificationQuantization(BaseModel):
         "operation to a boolean flag that indicates whether "
         "the operation is quantized or not."
     )
-    quantization_schema: Dict[str, Union[BaseModel, None]] = Field(
+    precision: Dict[str, Union[BaseModel, None, int]] = Field(
         description="A dictionary that maps the name of a layer"
-        "to the dtype (precision) of that layer."
+        "to the precision of that layer."
     )
+
+    class Config:
+        arbitrary_types_allowed = True
 
     @classmethod
     def from_module(
@@ -200,7 +234,7 @@ class SparsificationQuantization(BaseModel):
         """
         operations = get_leaf_operations(module)
         enabled = defaultdict(bool)
-        quantization_schema = defaultdict(str)
+        precision = defaultdict(str)
         for op in operations:
             operation_name = op.__class__.__name__
             operation_counter = 0
@@ -210,9 +244,9 @@ class SparsificationQuantization(BaseModel):
                 operation_name = f"{op.__class__.__name__}_{operation_counter}"
 
             enabled[operation_name] = is_quantized(op)
-            quantization_schema[operation_name] = get_quantization_scheme(op)
+            precision[operation_name] = get_precision_information(op)
 
-        return cls(enabled=enabled, quantization_schema=quantization_schema)
+        return cls(enabled=enabled, precision=precision)
 
     def loggable_items(
         self,
@@ -226,9 +260,15 @@ class SparsificationQuantization(BaseModel):
         for operation in self.enabled.keys():
             yield f"{main_tag}/{operation}/enabled", self.enabled[operation]
 
-            quantization_schema = self.quantization_schema[operation]
-            if quantization_schema is None:
-                yield f"{main_tag}/{operation}/precision", None
+            precision = self.precision[operation]
+            if precision is None:
+                yield f"{main_tag}/{operation}/precision", precision
+            elif isinstance(precision, int):
+                yield f"{main_tag}/{operation}/precision.weights/num_bits", precision
+            elif isinstance(precision, BaseModel):
+                yield f"{main_tag}/{operation}/precision/weights/num_bits", precision.weights.num_bits  # noqa: E501
+                yield f"{main_tag}/{operation}/precision/input_activations/num_bits", precision.input_activations.num_bits  # noqa: E501
             else:
-                yield f"{main_tag}/{operation}/precision/weights/num_bits", quantization_schema.weights.num_bits  # noqa: E501
-                yield f"{main_tag}/{operation}/precision/input_activations/num_bits", quantization_schema.input_activations.num_bits  # noqa: E501
+                raise ValueError(
+                    f"The precision is not a valid type {type(precision)}."
+                )
