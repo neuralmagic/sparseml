@@ -341,25 +341,39 @@ class SparseTrainer(BaseTrainer):
         # os.environ['MASTER_ADDR'] = 'localhost'
         # os.environ['MASTER_PORT'] = '9020'
         torch.cuda.set_device(rank)
-        self.device = torch.device('cuda', rank)
-        LOGGER.info(f'DDP settings: RANK {rank}, WORLD_SIZE {world_size}, DEVICE {self.device}')
-        torch.distributed.init_process_group('nccl' if torch.distributed.is_nccl_available() else 'gloo', rank=rank,
-                                             world_size=world_size, timeout=timedelta(seconds=7200))
-    
-    def _get_data_loader_builder2(self, mode='train', rank=0):
+        self.device = torch.device("cuda", rank)
+        LOGGER.info(
+            f"DDP settings: RANK {rank}, WORLD_SIZE {world_size}, DEVICE {self.device}"
+        )
+        torch.distributed.init_process_group(
+            "nccl" if torch.distributed.is_nccl_available() else "gloo",
+            rank=rank,
+            world_size=world_size,
+            timeout=timedelta(seconds=7200),
+        )
+
+    def _get_data_loader_builder2(self, mode="train", rank=0):
         def _data_loader_builder(kwargs):
             # print(kwargs)
             # exit()
-            # TODO: batch hardcoded to 16
-            data_loader = build_dataloader(self.args, 16, img_path=self.trainset, stride=32, rank=rank, mode=self.args.mode,
-                             rect=mode == 'val')[0]
+            # batch hardcoded to 16
+            data_loader = build_dataloader(
+                self.args,
+                16,
+                img_path=self.trainset,
+                stride=32,
+                rank=rank,
+                mode=self.args.mode,
+                rect=mode == "val",
+            )[0]
             while True:
                 for batch in data_loader:
                     batch = self.preprocess_batch(batch)
-                    assert(batch['img'].device.index == self.device.index)
+                    assert batch["img"].device.index == self.device.index
                     yield [batch["img"]], {}, batch
+
         return _data_loader_builder
-    
+
     def _get_data_loader_builder(self):
         train_loader = self.train_loader
         # args = self.overrides.copy()
@@ -675,8 +689,8 @@ class SparseYOLO(YOLO):
             manager = ScheduledModifierManager.from_yaml(one_shot)
 
             overrides = self.overrides.copy()
-            #TODO: multi-GPU changes? can leave that out for one-shot
-            if 'cpu' not in kwargs['device']:
+            # TODO: multi-GPU changes? can leave that out for one-shot
+            if "cpu" not in kwargs["device"]:
                 overrides["device"] = "cuda:" + kwargs["device"]
             overrides["deterministic"] = kwargs["deterministic"]
             trainer = self.TrainerClass(overrides=overrides)
