@@ -1,7 +1,6 @@
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 
-from sparseml.sparsification import LearningRateModifier as BaseLearningRateModifier
 from sparseml.pytorch.utils import log_module_sparsification_info
 from sparseml.pytorch.sparsification.modifier import (
     PyTorchModifierYAML,
@@ -75,27 +74,5 @@ class SparsificationLoggingModifier(ScheduledUpdateModifier):
             (calculate batch number using this and epoch)
         """
         super().update(module, optimizer, epoch, steps_per_epoch)
-        log_module_sparsification_info(module=module, logger=self.loggers)
-
-
-    def log_update(
-        self,
-        module: Module,
-        optimizer: Optimizer,
-        epoch: float,
-        steps_per_epoch: int,
-    ):
-        """
-        Check whether to log an update for the learning rate of the modifier
-        If constant logging is enabled, then will always log
-        Otherwise checks for a change in the LR before logging
-
-        :param module: module to modify
-        :param optimizer: optimizer to modify
-        :param epoch: current epoch and progress within the current epoch
-        :param steps_per_epoch: number of steps taken within each epoch
-            (calculate batch number using this and epoch)
-        """
-        super().log_update(module, optimizer, epoch, steps_per_epoch)
         log_module_sparsification_info(module=module, logger=self.loggers)
 
