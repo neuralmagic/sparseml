@@ -53,7 +53,7 @@ class SparsificationLoggingModifier(ScheduledUpdateModifier):
         self,
         start_epoch: float,
         end_epoch: float = -1.0,
-        update_frequency: float = -1.0,
+        update_frequency: float = 1.0,
     ):
         super(SparsificationLoggingModifier, self).__init__(
             start_epoch=start_epoch,
