@@ -11,14 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import List, Optional
+from typing import List, Optional, Union
 
 import torch
 from torch.nn.modules.linear import Identity
 from torch.quantization import QuantWrapper
 
 
-__all__ = ["get_leaf_operations", "is_quantized", "get_quantization_scheme"]
+__all__ = ["get_leaf_operations", "is_quantized", "get_precision_information"]
 
 
 def get_leaf_operations(
@@ -76,14 +76,48 @@ def is_quantized(operation: torch.nn.Module) -> bool:
     return hasattr(operation, "quantization_scheme")
 
 
-def get_quantization_scheme(
+def get_precision_information(
     operation: torch.nn.Module,
-) -> Optional["QuantizationScheme"]:  # noqa F821
+) -> Union[None, int, "QuantizationScheme"]:  # noqa F821
     """
-    Get the quantization scheme of the operation.
-    If the operation is not quantized, return None.
+    Get the information about the precision of the operation.
+
+    1)  If operation is quantized, returns the quantization
+        scheme of the operation.
+    2)  If operation is not quantized, returns the numer of bits
+        of the operation's weights.
+    3)  If operation is not quantized and does not have a weights,
+        returns None.
 
     :param operation: the operation to get the quantization scheme from
-    :return: the quantization scheme of the operation or None if not quantized
+    :return: the quantization scheme of the operation, the number of bits
+        of the operation's weights, or None if the operation is not quantized
+        and does not have a weight
     """
-    return getattr(operation, "quantization_scheme", None)
+
+    if hasattr(operation, "quantization_scheme"):
+        return getattr(operation, "quantization_scheme")
+    elif hasattr(operation, "weight"):
+        return _get_num_bits(operation.weight.dtype)
+    else:
+        return None
+
+
+def _get_num_bits(dtype: torch.dtype) -> int:
+    # Get the number of bits of a torch dtype
+    if dtype == torch.float16:
+        return 16
+    elif dtype == torch.float32:
+        return 32
+    elif dtype == torch.float64:
+        return 64
+    elif dtype == torch.int8:
+        return 8
+    elif dtype == torch.int16:
+        return 16
+    elif dtype == torch.int32:
+        return 32
+    elif dtype == torch.int64:
+        return 64
+    else:
+        raise ValueError("Unknown dtype: {}".format(dtype))

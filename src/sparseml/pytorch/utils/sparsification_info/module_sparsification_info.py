@@ -15,16 +15,17 @@
 from typing import Any, Generator, Tuple
 
 import torch
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from sparseml.pytorch.utils.sparsification_info.configs import (
+    SparsificationInfo,
     SparsificationPruning,
     SparsificationQuantization,
     SparsificationSummaries,
 )
 
 
-class ModuleSparsificationInfo(BaseModel):
+class ModuleSparsificationInfo(SparsificationInfo):
     """
     Pydantic model for storing sparsification information of a torch module.
     """
