@@ -341,6 +341,15 @@ class SparseTrainer(BaseTrainer):
 
     def optimizer_step(self):
         super().optimizer_step()
+        if self.ema is not None and self.ema.enabled and self.manager is not None:
+            # ema update was just called in super().optimizer_step()
+            # we need to update ema's mask
+            ema_state_dict = self.ema.ema.state_dict()
+            for pruning_modifier in self.manager.pruning_modifiers:
+                if pruning_modifier.enabled:
+                    for key, mask in pruning_modifier.state_dict().items():
+                        param_name = key.replace(".sparsity_mask", "")
+                        ema_state_dict[param_name] *= mask
         self.do_emulated_step = False
 
     def callback_on_train_batch_end(self):
