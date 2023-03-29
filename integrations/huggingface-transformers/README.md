@@ -20,7 +20,6 @@ This directory explains how to use SparseML's `transformers` integration to trai
 
 There are two main workflows enabled by SparseML:
 - **Sparse Transfer Learning** - fine-tune a pre-sparsified checkpoint on your own dataset **[RECOMMENDED]**
-
 - **Sparsification from Scratch** - apply pruning and quantization to sparsify `transformer` models from scratch
 
 Once trained, SparseML enables you to export models to the ONNX format, such that they can be deployed with DeepSparse.
