@@ -29,7 +29,7 @@ from sparseml.yolov8.trainers import SparseYOLO
 )
 @click.option(
     "--model",
-    default="yolov8n.pt",
+    default="yolov8n.yaml",
     type=str,
     help="i.e. yolov8n.pt, yolov8n.yaml. Path to model file",
 )
