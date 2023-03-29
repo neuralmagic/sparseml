@@ -22,7 +22,7 @@ import torch
 from click.testing import CliRunner
 from sparseml.pytorch.image_classification.export import main
 from sparseml.pytorch.models import resnet18
-from sparsezoo.analysis import ModelAnalysis
+from sparsezoo.analyze import ModelAnalysis
 
 
 @pytest.fixture()
