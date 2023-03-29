@@ -32,7 +32,6 @@ from ultralytics.yolo.v8.segment.val import SegmentationValidator
 
 class SparseValidator(BaseValidator):
     def __call__(self, trainer=None, model=None, training=True):
-        # the **only** difference in this call is that we pass fuse=False to AutoBackend
         self.training = trainer is not None and training
         if self.training:
             self.device = trainer.device
