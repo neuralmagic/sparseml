@@ -685,7 +685,11 @@ class SparseYOLO(YOLO):
         args.imgsz = check_imgsz(args.imgsz, max_dim=1)
 
         validator = self.ValidatorClass(args=args)
-        validator(model=self.model)
+        validator(
+            model=self.model,
+            trainer=self.TrainerClass(overrides=overrides),
+            training=False,
+        )
 
 
 def generate_ddp_command(world_size, trainer):
