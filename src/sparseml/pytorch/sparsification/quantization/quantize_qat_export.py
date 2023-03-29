@@ -1573,6 +1573,7 @@ def quantize_torch_qat_export(
     _delete_repeated_qat_blocks(model)
     _quantize_qat_embedding(model)
     _propagate_mobilebert_embedding_quantization(model)
+    _propagate_through_split(model)
     _convert_quantizable_matmul(model)
     _convert_quantizable_matmul_and_add(model)
     _fold_relu_quants(model)
@@ -1835,4 +1836,68 @@ def _propagate_mobilebert_embedding_quantization(model: ModelProto):
     if converted_nodes > 0:
         _LOGGER.info(
             f"Propagated {converted_nodes} DequantizeLinear node(s) through Concat"
+        )
+
+
+def _propagate_through_split(model: ModelProto):
+    """
+    A pass for propagating dequantization down through a split node
+    so if there are quantized operations after the split they can
+    be properly converted
+
+    Starting with:
+    |         INPUT
+    |              |
+    |       DequantizeLinear
+    |             |
+    |           Split
+    |         |   |   |
+
+    Converts to:
+    |                     INPUT
+    |                         |
+    |                       Split
+    |                |         |           |
+    | DequantizeLinear  DequantizeLinear  DequantizeLinear
+    |         |                |                |
+    """
+    new_nodes = []
+    to_remove = []
+    split_nodes = [n for n in model.graph.node if n.op_type in ["Split"]]
+    graph = ONNXGraph(model)
+    for split_node in split_nodes:
+        dequant_node = graph.get_node_single_parent(split_node, 0)
+        if not dequant_node or dequant_node.op_type != "DequantizeLinear":
+            continue
+
+        # Make input to dequantize linear node input to split node
+        split_node.input[0] = dequant_node.input[0]
+
+        # For every output of split create a dequantize linear node
+        new_output = []
+        for id, out in enumerate(split_node.output):
+            new_output.append(split_node.name + f'_output.{id}')
+            new_nodes.append(
+                onnx.helper.make_node(
+                    "DequantizeLinear",
+                    [
+                        new_output[-1],  # input
+                        dequant_node.input[1],  # scale
+                        dequant_node.input[2],  # zero point
+                    ],
+                    [out],
+                    split_node.name + f'_dequant{id}',
+                )
+            )
+        split_node.output[:] = new_output[:]
+        to_remove.append(dequant_node)
+
+    model.graph.node.extend(new_nodes)
+    for node in to_remove:
+        model.graph.node.remove(node)
+
+
+    if len(to_remove) > 0:
+        _LOGGER.info(
+            f"Propagated {len(to_remove)} DequantizeLinear node(s) through Split"
         )
