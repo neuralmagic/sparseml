@@ -18,6 +18,11 @@ Functionality for working with and sparsifying Models in the TensorFlow 1.x fram
 
 # flake8: noqa
 
+from sparseml.analytics import sparseml_analytics
+
 from .base import *
 from .framework import detect_framework, framework_info, is_supported
 from .sparsification import sparsification_info
+
+
+sparseml_analytics.send_event("python.tensorflow_v1.init")

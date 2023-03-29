@@ -12,7 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from sparseml.analytics import sparseml_analytics
+from sparseml.version import version as sparseml_version
+from sparsezoo.analytics import GoogleAnalytics
 
 
-sparseml_analytics.send_event("python.pytorch.image_classification.init")
+__all__ = ["sparseml_analytics"]
+
+
+# analytics client for sparseml, to disable set NM_DISABLE_ANALYTICS=1
+sparseml_analytics = GoogleAnalytics("sparseml", sparseml_version)
