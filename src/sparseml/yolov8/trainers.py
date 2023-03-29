@@ -685,7 +685,7 @@ class SparseYOLO(YOLO):
             args.imgsz = self.ckpt["train_args"]["imgsz"]
         args.imgsz = check_imgsz(args.imgsz, max_dim=1)
         if args.task == "segment":
-            check_coco128_segmentation(args)
+            args = check_coco128_segmentation(args)
 
         validator = self.ValidatorClass(args=args)
         validator(model=self.model)
