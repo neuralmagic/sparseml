@@ -19,12 +19,12 @@ Tools for integrating SparseML with yolov5 training flows
 
 import logging as _logging
 
-from sparseml.analytics import sparseml_analytics
+from sparseml.analytics import sparseml_analytics as _analytics
 
 from .helpers import *
 
 
-sparseml_analytics.send_event("python.yolov5.init")
+_analytics.send_event("python.yolov5.init")
 
 try:
     import yolov5 as _yolov5

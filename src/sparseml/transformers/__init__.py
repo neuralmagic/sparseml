@@ -21,10 +21,10 @@ Tools for integrating SparseML with transformers training flows
 import logging as _logging
 
 import pkg_resources
-from sparseml.analytics import sparseml_analytics
+from sparseml.analytics import sparseml_analytics as _analytics
 
 
-sparseml_analytics.send_event("python.transformers.init")
+_analytics.send_event("python.transformers.init")
 
 _EXPECTED_VERSION = "4.23.1"
 

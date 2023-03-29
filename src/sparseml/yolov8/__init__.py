@@ -13,10 +13,10 @@
 # limitations under the License.
 
 import ultralytics
-from sparseml.analytics import sparseml_analytics
+from sparseml.analytics import sparseml_analytics as _analytics
 
 
-sparseml_analytics.send_event("python.yolov8.init")
+_analytics.send_event("python.yolov8.init")
 
 if "8.0.30" not in ultralytics.__version__:
     raise ValueError(

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from sparseml.analytics import sparseml_analytics
+from sparseml.analytics import sparseml_analytics as _analytics
 
 
-sparseml_analytics.send_event("openpifpaf.init")
+_analytics.send_event("openpifpaf.init")

@@ -20,10 +20,10 @@ import importlib
 import logging as _logging
 from collections import namedtuple
 
-from sparseml.analytics import sparseml_analytics
+from sparseml.analytics import sparseml_analytics as _analytics
 
 
-sparseml_analytics.send_event("python.yolact.init")
+_analytics.send_event("python.yolact.init")
 
 _LOGGER = _logging.getLogger(__name__)
 _NM_YOLACT_LINK_TEMPLATE = (

@@ -18,11 +18,11 @@ Functionality for working with and sparsifying Models in the Keras framework
 
 # flake8: noqa
 
-from sparseml.analytics import sparseml_analytics
+from sparseml.analytics import sparseml_analytics as _analytics
 
 from .base import *
 from .framework import detect_framework, framework_info, is_supported
 from .sparsification import sparsification_info
 
 
-sparseml_analytics.send_event("keras.init")
+_analytics.send_event("keras.init")
