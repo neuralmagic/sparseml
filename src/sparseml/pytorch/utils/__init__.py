@@ -23,6 +23,7 @@ from .benchmarker import *
 from .distributed import *
 from .exporter import *
 from .helpers import *
+from .log_sparsification_info import *
 from .logger import *
 from .loss import *
 from .model import *
