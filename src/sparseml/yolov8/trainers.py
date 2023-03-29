@@ -18,6 +18,7 @@ import subprocess
 import sys
 import tempfile
 import warnings
+import collections
 from copy import copy, deepcopy
 from datetime import datetime
 from pathlib import Path
@@ -405,9 +406,9 @@ class SparseTrainer(BaseTrainer):
         ckpt = {
             "epoch": epoch,
             "best_fitness": self.best_fitness,
-            "model": deepcopy(model).state_dict(),
+            "model": deepcopy(model),
             "model_yaml": dict(model.yaml),
-            "ema": deepcopy(self.ema.ema).state_dict(),
+            "ema": deepcopy(self.ema.ema),
             "updates": self.ema.updates,
             "optimizer": self.optimizer.state_dict(),
             "train_args": vars(self.args),
@@ -424,11 +425,6 @@ class SparseTrainer(BaseTrainer):
         if self.best_fitness == self.fitness:
             torch.save(ckpt, self.best)
         del ckpt
-
-    def final_eval(self):
-        # skip final eval if we are using a recipe
-        if self.manager is None and self.checkpoint_manager is None:
-            return super().final_eval()
 
     def callback_teardown(self):
         # NOTE: this callback is registered in __init__
@@ -544,7 +540,10 @@ class SparseYOLO(YOLO):
                 manager.apply_structure(self.model, epoch=epoch)
             else:
                 LOGGER.info("No recipe from in sparseml checkpoint")
-            self.model.load_state_dict(self.ckpt["model"])
+            if type(self.ckpt["model"]) == collections.OrderedDict:
+                self.model.load_state_dict(self.ckpt["model"])
+            else:
+                self.model.load_state_dict(self.ckpt["model"].state_dict())
             LOGGER.info("Loaded previous weights from checkpoint")
             assert self.model.yaml == self.ckpt["model_yaml"]
         else:
