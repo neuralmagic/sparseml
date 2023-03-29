@@ -1874,22 +1874,32 @@ def _propagate_through_split(model: ModelProto):
         split_node.input[0] = dequant_node.input[0]
 
         # For every output of split create a dequantize linear node
-        new_output = []
-        for id, out in enumerate(split_node.output):
-            new_output.append(split_node.name + f'_output.{id}')
-            new_nodes.append(
-                onnx.helper.make_node(
-                    "DequantizeLinear",
-                    [
-                        new_output[-1],  # input
-                        dequant_node.input[1],  # scale
-                        dequant_node.input[2],  # zero point
-                    ],
-                    [out],
-                    split_node.name + f'_dequant{id}',
+        dequant_id = 0
+        for other_node in get_node_output_nodes(model, split_node):
+            split_node_output = []
+            for out in split_node.output:
+                if out in other_node.input:
+                    split_node_output.append(out)
+            for out in split_node_output:
+                dequant_node_name = split_node.name + f'_dequant.{dequant_id}'
+                dequant_id += 1
+                dequant_node_output = dequant_node_name + '_output'
+                new_nodes.append(
+                    onnx.helper.make_node(
+                        "DequantizeLinear",
+                        [
+                            out,  # input
+                            dequant_node.input[1],  # scale
+                            dequant_node.input[2],  # zero point
+                        ],
+                        [dequant_node_output],
+                        dequant_node_name,
+                    )
                 )
-            )
-        split_node.output[:] = new_output[:]
+                for other_node_input_index, other_node_input in enumerate(other_node.input):
+                    if other_node_input == out:
+                        break
+                other_node.input[other_node_input_index] = dequant_node_output
         to_remove.append(dequant_node)
 
     model.graph.node.extend(new_nodes)
