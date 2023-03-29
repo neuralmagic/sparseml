@@ -475,7 +475,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
         super().initialize_loggers(loggers)
 
         for mod in self.iter_modifiers():
-            mod.initialize_loggers(loggers)
+            mod.initialize_loggers(self.loggers)
 
     def modify(
         self,
