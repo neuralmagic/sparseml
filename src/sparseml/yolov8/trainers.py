@@ -12,13 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import collections
 import os
 import shutil
 import subprocess
 import sys
 import tempfile
 import warnings
-import collections
 from copy import copy, deepcopy
 from datetime import datetime
 from pathlib import Path
@@ -26,21 +26,6 @@ from typing import List, Optional
 
 import onnx
 import torch
-
-from sparseml.optim.helpers import load_recipe_yaml_str
-from sparseml.pytorch.optim.manager import ScheduledModifierManager
-from sparseml.pytorch.utils import ModuleExporter
-from sparseml.pytorch.utils.helpers import download_framework_model_by_recipe_type
-from sparseml.pytorch.utils.logger import LoggerManager, PythonLogger, WANDBLogger
-from sparseml.yolov8.modules import Bottleneck, Conv
-from sparseml.yolov8.utils import check_coco128_segmentation
-from sparseml.yolov8.utils.export_samples import export_sample_inputs_outputs
-from sparseml.yolov8.validators import (
-    SparseClassificationValidator,
-    SparseDetectionValidator,
-    SparseSegmentationValidator,
-)
-from sparsezoo import Model
 from ultralytics import __version__
 from ultralytics.nn.tasks import SegmentationModel, attempt_load_one_weight
 from ultralytics.yolo.cfg import get_cfg
@@ -59,6 +44,20 @@ from ultralytics.yolo.utils.torch_utils import de_parallel, smart_inference_mode
 from ultralytics.yolo.v8.classify import ClassificationTrainer, ClassificationValidator
 from ultralytics.yolo.v8.detect import DetectionTrainer, DetectionValidator
 from ultralytics.yolo.v8.segment import SegmentationTrainer, SegmentationValidator
+
+from sparseml.optim.helpers import load_recipe_yaml_str
+from sparseml.pytorch.optim.manager import ScheduledModifierManager
+from sparseml.pytorch.utils import ModuleExporter
+from sparseml.pytorch.utils.helpers import download_framework_model_by_recipe_type
+from sparseml.pytorch.utils.logger import LoggerManager, PythonLogger, WANDBLogger
+from sparseml.yolov8.modules import Bottleneck, Conv
+from sparseml.yolov8.utils.export_samples import export_sample_inputs_outputs
+from sparseml.yolov8.validators import (
+    SparseClassificationValidator,
+    SparseDetectionValidator,
+    SparseSegmentationValidator,
+)
+from sparsezoo import Model
 
 
 class _NullLRScheduler:
