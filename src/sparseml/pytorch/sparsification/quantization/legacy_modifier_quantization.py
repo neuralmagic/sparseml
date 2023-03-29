@@ -504,6 +504,8 @@ class QuantizationModifier(ScheduledModifier):
         if self._submodules is not None:
             found_submodules = []
             for name, submodule in module.named_modules():
+                if name.startswith('module.'):
+                    name = name[7:]
                 if name in self._submodules:
                     self._modules_to_quantize.append(_ModuleToQuantize(name, submodule))
                     found_submodules.append(name)
