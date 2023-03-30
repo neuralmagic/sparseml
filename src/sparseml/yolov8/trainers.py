@@ -427,10 +427,6 @@ class SparseTrainer(BaseTrainer):
             else None,
             "updates": self.ema.updates if self.ema and self.ema.enabled else None,
             "optimizer": self.optimizer.state_dict(),
-            "ema": deepcopy(self.ema.ema).state_dict()
-            if self.ema and self.ema.enabled
-            else None,
-            "updates": self.ema.updates if self.ema and self.ema.enabled else None,
             "train_args": vars(self.args),
             "date": datetime.now().isoformat(),
             "version": __version__,
