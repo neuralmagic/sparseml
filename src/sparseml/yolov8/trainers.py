@@ -31,8 +31,8 @@ from sparseml.pytorch.optim.manager import ScheduledModifierManager
 from sparseml.pytorch.utils import ModuleExporter
 from sparseml.pytorch.utils.helpers import download_framework_model_by_recipe_type
 from sparseml.pytorch.utils.logger import LoggerManager, PythonLogger, WANDBLogger
-from sparseml.yolov8.utils import check_coco128_segmentation
 from sparseml.yolov8.modules import Bottleneck, Conv
+from sparseml.yolov8.utils import check_coco128_segmentation
 from sparseml.yolov8.utils.export_samples import export_sample_inputs_outputs
 from sparseml.yolov8.validators import (
     SparseClassificationValidator,
