@@ -311,12 +311,6 @@ class SparseTrainer(BaseTrainer):
             if self.manager.learning_rate_modifiers:
                 self.scheduler = _NullLRScheduler()
 
-            if self.manager.quantization_modifiers and self.ema is not None:
-                # Training loop upstream does not always check the validity of
-                # the EMA model at every callsites. We therefore cannot simply
-                # turn it into None without breaking the code.
-                self.ema.enabled = False
-
             # NOTE: we intentionally don't divide number of batches by gradient
             # accumulation.
             # This is because yolov8 changes size of gradient accumulation during
