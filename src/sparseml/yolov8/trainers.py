@@ -21,7 +21,7 @@ import warnings
 from copy import copy, deepcopy
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 import onnx
 import torch
@@ -31,6 +31,7 @@ from sparseml.pytorch.optim.manager import ScheduledModifierManager
 from sparseml.pytorch.utils import ModuleExporter
 from sparseml.pytorch.utils.helpers import download_framework_model_by_recipe_type
 from sparseml.pytorch.utils.logger import LoggerManager, PythonLogger, WANDBLogger
+from sparseml.yolov8.modules import Bottleneck, Conv
 from sparseml.yolov8.utils.export_samples import export_sample_inputs_outputs
 from sparseml.yolov8.validators import (
     SparseClassificationValidator,
@@ -200,11 +201,22 @@ class SparseTrainer(BaseTrainer):
         LOGGER.info("Loaded previous weights from sparseml checkpoint")
         return ckpt
 
+    def _modify_arch_for_quantization(self):
+        layer_map = {"Bottleneck": Bottleneck, "Conv": Conv}
+        for name, layer in self.model.named_modules():
+            cls_name = layer.__class__.__name__
+            if cls_name in layer_map:
+                submodule_path = name.split(".")
+                parent_module = _get_submodule(self.model, submodule_path[:-1])
+                setattr(parent_module, submodule_path[-1], layer_map[cls_name](layer))
+
     def _build_managers(self, ckpt: Optional[dict]):
         if self.args.recipe is not None:
             self.manager = ScheduledModifierManager.from_yaml(
                 self.args.recipe, recipe_variables=self.args.recipe_args
             )
+            if self.manager.quantization_modifiers:
+                self._modify_arch_for_quantization()
 
         if ckpt is None:
             return
@@ -218,6 +230,8 @@ class SparseTrainer(BaseTrainer):
                 f"at epoch {ckpt['epoch']}"
             )
             self.checkpoint_manager = ScheduledModifierManager.from_yaml(ckpt["recipe"])
+            if self.checkpoint_manager.quantization_modifiers:
+                self._modify_arch_for_quantization()
             self.checkpoint_manager.apply_structure(self.model, epoch=float("inf"))
 
         else:
@@ -228,6 +242,8 @@ class SparseTrainer(BaseTrainer):
                 "Applying structure from un-finished recipe in checkpoint "
                 f"at epoch {ckpt['epoch']}"
             )
+            if self.manager.quantization_modifiers:
+                self._modify_arch_for_quantization()
             self.manager.apply_structure(self.model, epoch=ckpt["epoch"])
 
     def resume_training(self, ckpt):
@@ -739,3 +755,9 @@ def generate_ddp_file(trainer):
     ) as file:
         file.write(content)
     return file.name
+
+
+def _get_submodule(module: torch.nn.Module, path: List[str]) -> torch.nn.Module:
+    if not path:
+        return module
+    return _get_submodule(getattr(module, path[0]), path[1:])
