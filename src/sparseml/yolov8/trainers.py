@@ -417,15 +417,16 @@ class SparseTrainer(BaseTrainer):
             manager = self.manager if self.manager is not None else None
 
         model = de_parallel(self.model)
-        is_quant = manager.quantization_modifiers
         ckpt = {
             "epoch": epoch,
             "best_fitness": self.best_fitness,
             "model": deepcopy(model).state_dict(),
             "model_yaml": dict(model.yaml),
             "optimizer": self.optimizer.state_dict(),
-            "ema": deepcopy(self.ema.ema).state_dict() if not is_quant else None,
-            "updates": self.ema.updates if not is_quant else None,
+            "ema": deepcopy(self.ema.ema).state_dict()
+            if self.ema and self.ema.enabled
+            else None,
+            "updates": self.ema.updates if self.ema and self.ema.enabled else None,
             "train_args": vars(self.args),
             "date": datetime.now().isoformat(),
             "version": __version__,
