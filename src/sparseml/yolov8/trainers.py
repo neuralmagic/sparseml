@@ -406,7 +406,9 @@ class SparseTrainer(BaseTrainer):
             "best_fitness": self.best_fitness,
             "model": deepcopy(model).state_dict(),
             "model_yaml": dict(model.yaml),
-            "ema": deepcopy(self.ema.ema).state_dict() if self.ema and self.ema.enabled else None,
+            "ema": deepcopy(self.ema.ema).state_dict()
+            if self.ema and self.ema.enabled
+            else None,
             "updates": self.ema.updates if self.ema and self.ema.enabled else None,
             "optimizer": self.optimizer.state_dict(),
             "train_args": vars(self.args),
@@ -543,7 +545,7 @@ class SparseYOLO(YOLO):
                 manager.apply_structure(self.model, epoch=epoch)
             else:
                 LOGGER.info("No recipe from in sparseml checkpoint")
-            
+
             if self.ckpt["ema"]:
                 self.model.load_state_dict(self.ckpt["ema"])
             else:
