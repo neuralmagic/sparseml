@@ -423,7 +423,6 @@ class SparseTrainer(BaseTrainer):
             "version": __version__,
             "source": "sparseml",
         }
-
         if manager is not None:
             ckpt["recipe"] = str(manager)
 
