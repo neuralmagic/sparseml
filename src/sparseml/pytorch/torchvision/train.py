@@ -21,6 +21,7 @@ import os
 import sys
 import time
 import warnings
+from collections import defaultdict
 from functools import update_wrapper
 from types import SimpleNamespace
 from typing import Callable, Optional
@@ -641,7 +642,7 @@ def main(args):
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
         model_without_ddp = model.module
 
-    best_top1_acc = -math.inf
+    best_top1_accs = defaultdict(lambda: -math.inf)
 
     _LOGGER.info("Start training")
 
@@ -688,9 +689,6 @@ def main(args):
             )
             log_metrics("Test/EMA", ema_eval_metrics, epoch, steps_per_epoch)
 
-        is_new_best = epoch >= args.save_best_after and top1_acc > best_top1_acc
-        if is_new_best:
-            best_top1_acc = top1_acc
         if args.output_dir:
             checkpoint = {
                 "state_dict": model_without_ddp.state_dict(),
@@ -705,23 +703,33 @@ def main(args):
             if scaler:
                 checkpoint["scaler"] = scaler.state_dict()
 
+            phase = None
             if checkpoint_manager is not None:
-                checkpoint["epoch"] = (
-                    -1
-                    if epoch == max_epochs - 1
-                    else epoch + checkpoint_manager.max_epochs
+                staged_manager = ScheduledModifierManager.compose_staged(
+                    checkpoint_manager, manager
                 )
-                checkpoint["recipe"] = str(
-                    ScheduledModifierManager.compose_staged(checkpoint_manager, manager)
-                )
+                staged_epoch = epoch + checkpoint_manager.max_epochs
+                phase = staged_manager.phase_at_end_of(staged_epoch)
+                checkpoint["epoch"] = -1 if epoch == max_epochs - 1 else staged_epoch
+                checkpoint["recipe"] = str(staged_manager)
             else:
                 checkpoint["epoch"] = -1 if epoch == max_epochs - 1 else epoch
                 if manager is not None:
+                    phase = manager.phase_at_end_of(epoch)
                     checkpoint["recipe"] = str(manager)
 
-            file_names = ["checkpoint.pth"]
-            if is_new_best:
-                file_names.append("checkpoint-best.pth")
+            _LOGGER.info(f"Finished epoch {epoch} in phase {phase}")
+
+            file_names = ["last.pth"]
+            if phase is not None:
+                logger.log_string(
+                    "Phase", phase, step=int((epoch + 1) * steps_per_epoch)
+                )
+                file_names.append(f"last_{phase}.pth")
+                if epoch >= args.save_best_after and top1_acc > best_top1_accs[phase]:
+                    best_top1_accs[phase] = top1_acc
+                    file_names.append(f"best_{phase}.pth")
+
             _save_checkpoints(
                 epoch,
                 args.output_dir,
