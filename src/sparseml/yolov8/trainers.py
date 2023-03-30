@@ -112,6 +112,9 @@ class SparseTrainer(BaseTrainer):
         self.add_callback(
             "on_train_batch_end", SparseTrainer.callback_on_train_batch_end
         )
+        self.add_callback(
+            "on_train_epoch_end", SparseTrainer.callback_on_train_epoch_end
+        )
         self.add_callback("teardown", SparseTrainer.callback_teardown)
 
     def check_resume(self):
@@ -341,15 +344,6 @@ class SparseTrainer(BaseTrainer):
 
     def optimizer_step(self):
         super().optimizer_step()
-        if self.ema is not None and self.ema.enabled and self.manager is not None:
-            # ema update was just called in super().optimizer_step()
-            # we need to update ema's mask
-            ema_state_dict = self.ema.ema.state_dict()
-            for pruning_modifier in self.manager.pruning_modifiers:
-                if pruning_modifier.enabled:
-                    for key, mask in pruning_modifier.state_dict().items():
-                        param_name = key.replace(".sparsity_mask", "")
-                        ema_state_dict[param_name] *= mask
         self.do_emulated_step = False
 
     def callback_on_train_batch_end(self):
@@ -363,6 +357,18 @@ class SparseTrainer(BaseTrainer):
             self.logger_manager.log_scalar(key, value, step=step)
 
         self.epoch_step += 1
+
+    def callback_on_train_epoch_end(self):
+        # NOTE: this is called right before  validation occurs
+        if self.ema is not None and self.ema.enabled and self.manager is not None:
+            # ema update was just called in super().optimizer_step()
+            # we need to update ema's mask
+            ema_state_dict = self.ema.ema.state_dict()
+            for pruning_modifier in self.manager.pruning_modifiers:
+                if pruning_modifier.enabled:
+                    for key, mask in pruning_modifier.state_dict().items():
+                        param_name = key.replace(".sparsity_mask", "")
+                        ema_state_dict[param_name] *= mask
 
     def save_metrics(self, metrics):
         super().save_metrics(metrics)
