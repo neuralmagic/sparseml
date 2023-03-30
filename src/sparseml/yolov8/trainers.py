@@ -32,6 +32,7 @@ from sparseml.pytorch.utils import ModuleExporter
 from sparseml.pytorch.utils.helpers import download_framework_model_by_recipe_type
 from sparseml.pytorch.utils.logger import LoggerManager, PythonLogger, WANDBLogger
 from sparseml.yolov8.modules import Bottleneck, Conv
+from sparseml.yolov8.utils import check_coco128_segmentation
 from sparseml.yolov8.utils.export_samples import export_sample_inputs_outputs
 from sparseml.yolov8.validators import (
     SparseClassificationValidator,
@@ -714,6 +715,8 @@ class SparseYOLO(YOLO):
             # use trained imgsz unless custom value is passed
             args.imgsz = self.ckpt["train_args"]["imgsz"]
         args.imgsz = check_imgsz(args.imgsz, max_dim=1)
+        if args.task == "segment":
+            args = check_coco128_segmentation(args)
 
         validator = self.ValidatorClass(args=args)
         validator(model=self.model)
