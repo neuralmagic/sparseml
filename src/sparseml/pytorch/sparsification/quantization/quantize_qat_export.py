@@ -1881,9 +1881,9 @@ def _propagate_through_split(model: ModelProto):
                 if out in other_node.input:
                     split_node_output.append(out)
             for out in split_node_output:
-                dequant_node_name = split_node.name + f'_dequant.{dequant_id}'
+                dequant_node_name = split_node.name + f"_dequant.{dequant_id}"
                 dequant_id += 1
-                dequant_node_output = dequant_node_name + '_output'
+                dequant_node_output = dequant_node_name + "_output"
                 new_nodes.append(
                     onnx.helper.make_node(
                         "DequantizeLinear",
@@ -1896,7 +1896,9 @@ def _propagate_through_split(model: ModelProto):
                         dequant_node_name,
                     )
                 )
-                for other_node_input_index, other_node_input in enumerate(other_node.input):
+                for other_node_input_index, other_node_input in enumerate(
+                    other_node.input
+                ):
                     if other_node_input == out:
                         break
                 other_node.input[other_node_input_index] = dequant_node_output
@@ -1905,7 +1907,6 @@ def _propagate_through_split(model: ModelProto):
     model.graph.node.extend(new_nodes)
     for node in to_remove:
         model.graph.node.remove(node)
-
 
     if len(to_remove) > 0:
         _LOGGER.info(
