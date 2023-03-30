@@ -796,7 +796,11 @@ def get_node_output_nodes(model: ModelProto, node: NodeProto) -> List[NodeProto]
     for output_id in get_node_outputs(model, node):
         nodes.extend(get_nodes_by_input_id(model, output_id))
 
-    return list(set(nodes))
+    unique_nodes = []
+    for node in nodes:
+        if node not in unique_nodes:
+            unique_nodes.append(node)
+    return unique_nodes
 
 
 def is_prunable_node(model: ModelProto, node: NodeProto) -> bool:
