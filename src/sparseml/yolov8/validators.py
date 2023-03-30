@@ -36,7 +36,7 @@ class SparseValidator(BaseValidator):
         if self.training:
             self.device = trainer.device
             self.data = trainer.data
-            if trainer.manager.quantization_modifiers:
+            if trainer.manager and trainer.manager.quantization_modifiers:
                 # Since we disable the EMA model for QAT, we validate the non-averaged
                 # QAT model
                 model = de_parallel(trainer.model)
