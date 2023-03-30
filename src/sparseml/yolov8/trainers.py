@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import collections
 import os
 import shutil
 import subprocess
@@ -405,10 +404,10 @@ class SparseTrainer(BaseTrainer):
         ckpt = {
             "epoch": epoch,
             "best_fitness": self.best_fitness,
-            "model": deepcopy(model),
+            "model": deepcopy(model).state_dict(),
             "model_yaml": dict(model.yaml),
-            "ema": deepcopy(self.ema.ema),
-            "updates": self.ema.updates,
+            "ema": deepcopy(self.ema.ema).state_dict() if self.ema and self.ema.enabled else None,
+            "updates": self.ema.updates if self.ema and self.ema.enabled else None,
             "optimizer": self.optimizer.state_dict(),
             "train_args": vars(self.args),
             "date": datetime.now().isoformat(),
@@ -424,6 +423,11 @@ class SparseTrainer(BaseTrainer):
         if self.best_fitness == self.fitness:
             torch.save(ckpt, self.best)
         del ckpt
+
+    def final_eval(self):
+        # skip final eval if we are using a recipe
+        if self.manager is None and self.checkpoint_manager is None:
+            return super().final_eval()
 
     def callback_teardown(self):
         # NOTE: this callback is registered in __init__
@@ -539,10 +543,11 @@ class SparseYOLO(YOLO):
                 manager.apply_structure(self.model, epoch=epoch)
             else:
                 LOGGER.info("No recipe from in sparseml checkpoint")
-            if type(self.ckpt["model"]) == collections.OrderedDict:
-                self.model.load_state_dict(self.ckpt["model"])
+            
+            if self.ckpt["ema"]:
+                self.model.load_state_dict(self.ckpt["ema"])
             else:
-                self.model.load_state_dict(self.ckpt["model"].state_dict())
+                self.model.load_state_dict(self.ckpt["model"])
             LOGGER.info("Loaded previous weights from checkpoint")
             assert self.model.yaml == self.ckpt["model_yaml"]
         else:
