@@ -114,6 +114,9 @@ class SparseTrainer(BaseTrainer):
         self.add_callback(
             "on_train_batch_end", SparseTrainer.callback_on_train_batch_end
         )
+        self.add_callback(
+            "on_train_epoch_end", SparseTrainer.callback_on_train_epoch_end
+        )
         self.add_callback("teardown", SparseTrainer.callback_teardown)
 
     def check_resume(self):
@@ -202,22 +205,13 @@ class SparseTrainer(BaseTrainer):
         LOGGER.info("Loaded previous weights from sparseml checkpoint")
         return ckpt
 
-    def _modify_arch_for_quantization(self):
-        layer_map = {"Bottleneck": Bottleneck, "Conv": Conv}
-        for name, layer in self.model.named_modules():
-            cls_name = layer.__class__.__name__
-            if cls_name in layer_map:
-                submodule_path = name.split(".")
-                parent_module = _get_submodule(self.model, submodule_path[:-1])
-                setattr(parent_module, submodule_path[-1], layer_map[cls_name](layer))
-
     def _build_managers(self, ckpt: Optional[dict]):
         if self.args.recipe is not None:
             self.manager = ScheduledModifierManager.from_yaml(
                 self.args.recipe, recipe_variables=self.args.recipe_args
             )
             if self.manager.quantization_modifiers:
-                self._modify_arch_for_quantization()
+                _modify_arch_for_quantization(self.model)
 
         if ckpt is None:
             return
@@ -372,6 +366,18 @@ class SparseTrainer(BaseTrainer):
 
         self.epoch_step += 1
 
+    def callback_on_train_epoch_end(self):
+        # NOTE: this is called right before  validation occurs
+        if self.ema is not None and self.ema.enabled and self.manager is not None:
+            # ema update was just called in super().optimizer_step()
+            # we need to update ema's mask
+            ema_state_dict = self.ema.ema.state_dict()
+            for pruning_modifier in self.manager.pruning_modifiers:
+                if pruning_modifier.enabled:
+                    for key, mask in pruning_modifier.state_dict().items():
+                        param_name = key.replace(".sparsity_mask", "")
+                        ema_state_dict[param_name] *= mask
+
     def save_metrics(self, metrics):
         super().save_metrics(metrics)
 
@@ -407,15 +413,16 @@ class SparseTrainer(BaseTrainer):
             "best_fitness": self.best_fitness,
             "model": deepcopy(model).state_dict(),
             "model_yaml": dict(model.yaml),
-            "ema": deepcopy(self.ema.ema).state_dict(),
-            "updates": self.ema.updates,
+            "ema": deepcopy(self.ema.ema).state_dict()
+            if self.ema and self.ema.enabled
+            else None,
+            "updates": self.ema.updates if self.ema and self.ema.enabled else None,
             "optimizer": self.optimizer.state_dict(),
             "train_args": vars(self.args),
             "date": datetime.now().isoformat(),
             "version": __version__,
             "source": "sparseml",
         }
-
         if manager is not None:
             ckpt["recipe"] = str(manager)
 
@@ -541,10 +548,16 @@ class SparseYOLO(YOLO):
                     "Applying structure from sparseml checkpoint "
                     f"at epoch {self.ckpt['epoch']}"
                 )
+                if manager.quantization_modifiers:
+                    _modify_arch_for_quantization(self.model)
                 manager.apply_structure(self.model, epoch=epoch)
             else:
                 LOGGER.info("No recipe from in sparseml checkpoint")
-            self.model.load_state_dict(self.ckpt["model"])
+
+            if self.ckpt["ema"]:
+                self.model.load_state_dict(self.ckpt["ema"])
+            else:
+                self.model.load_state_dict(self.ckpt["model"])
             LOGGER.info("Loaded previous weights from checkpoint")
             assert self.model.yaml == self.ckpt["model_yaml"]
         else:
@@ -759,3 +772,13 @@ def _get_submodule(module: torch.nn.Module, path: List[str]) -> torch.nn.Module:
     if not path:
         return module
     return _get_submodule(getattr(module, path[0]), path[1:])
+
+
+def _modify_arch_for_quantization(model):
+    layer_map = {"Bottleneck": Bottleneck, "Conv": Conv}
+    for name, layer in model.named_modules():
+        cls_name = layer.__class__.__name__
+        if cls_name in layer_map:
+            submodule_path = name.split(".")
+            parent_module = _get_submodule(model, submodule_path[:-1])
+            setattr(parent_module, submodule_path[-1], layer_map[cls_name](layer))
