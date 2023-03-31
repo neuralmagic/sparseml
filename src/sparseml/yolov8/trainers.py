@@ -205,22 +205,13 @@ class SparseTrainer(BaseTrainer):
         LOGGER.info("Loaded previous weights from sparseml checkpoint")
         return ckpt
 
-    def _modify_arch_for_quantization(self):
-        layer_map = {"Bottleneck": Bottleneck, "Conv": Conv}
-        for name, layer in self.model.named_modules():
-            cls_name = layer.__class__.__name__
-            if cls_name in layer_map:
-                submodule_path = name.split(".")
-                parent_module = _get_submodule(self.model, submodule_path[:-1])
-                setattr(parent_module, submodule_path[-1], layer_map[cls_name](layer))
-
     def _build_managers(self, ckpt: Optional[dict]):
         if self.args.recipe is not None:
             self.manager = ScheduledModifierManager.from_yaml(
                 self.args.recipe, recipe_variables=self.args.recipe_args
             )
             if self.manager.quantization_modifiers:
-                self._modify_arch_for_quantization()
+                _modify_arch_for_quantization(self.model)
 
         if ckpt is None:
             return
@@ -432,7 +423,6 @@ class SparseTrainer(BaseTrainer):
             "version": __version__,
             "source": "sparseml",
         }
-
         if manager is not None:
             ckpt["recipe"] = str(manager)
 
@@ -558,6 +548,8 @@ class SparseYOLO(YOLO):
                     "Applying structure from sparseml checkpoint "
                     f"at epoch {self.ckpt['epoch']}"
                 )
+                if manager.quantization_modifiers:
+                    _modify_arch_for_quantization(self.model)
                 manager.apply_structure(self.model, epoch=epoch)
             else:
                 LOGGER.info("No recipe from in sparseml checkpoint")
@@ -725,7 +717,11 @@ class SparseYOLO(YOLO):
             args = check_coco128_segmentation(args)
 
         validator = self.ValidatorClass(args=args)
-        validator(model=self.model)
+        validator(
+            model=self.model,
+            trainer=self.TrainerClass(overrides=overrides),
+            training=False,
+        )
 
 
 def generate_ddp_command(world_size, trainer):
@@ -776,3 +772,13 @@ def _get_submodule(module: torch.nn.Module, path: List[str]) -> torch.nn.Module:
     if not path:
         return module
     return _get_submodule(getattr(module, path[0]), path[1:])
+
+
+def _modify_arch_for_quantization(model):
+    layer_map = {"Bottleneck": Bottleneck, "Conv": Conv}
+    for name, layer in model.named_modules():
+        cls_name = layer.__class__.__name__
+        if cls_name in layer_map:
+            submodule_path = name.split(".")
+            parent_module = _get_submodule(model, submodule_path[:-1])
+            setattr(parent_module, submodule_path[-1], layer_map[cls_name](layer))

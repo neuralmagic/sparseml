@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+from argparse import Namespace
 
 import torch
 from tqdm import tqdm
@@ -30,13 +31,18 @@ from ultralytics.yolo.v8.segment.val import SegmentationValidator
 
 
 class SparseValidator(BaseValidator):
-    def __call__(self, trainer=None, model=None):
-        # the **only** difference in this call is that we pass fuse=False to AutoBackend
-        self.training = trainer is not None
+    def __call__(self, trainer=None, model=None, training=True):
+        self.training = trainer is not None and training
         if self.training:
             self.device = trainer.device
             self.data = trainer.data
-            model = trainer.ema.ema or trainer.model
+            if trainer.manager and trainer.manager.quantization_modifiers:
+                # Since we disable the EMA model for QAT, we validate the non-averaged
+                # QAT model
+                model = de_parallel(trainer.model)
+            else:
+                model = trainer.ema.ema or trainer.model
+
             # self.args.half = self.device.type != "cpu"
             model = model.half() if self.args.half else model.float()
             self.model = model
@@ -95,6 +101,8 @@ class SparseValidator(BaseValidator):
             model.warmup(
                 imgsz=(1 if pt else self.args.batch, 3, imgsz, imgsz)
             )  # warmup
+            trainer.model = model.model
+            trainer.model.args = Namespace(**model.model.args)
 
         dt = Profile(), Profile(), Profile(), Profile()
         n_batches = len(self.dataloader)
@@ -121,17 +129,27 @@ class SparseValidator(BaseValidator):
 
             # loss
             with dt[2]:
-                if self.training:
-                    self.loss += trainer.criterion(preds, batch)[1]
+                if not hasattr(self, "loss"):
+                    self.loss = trainer.criterion(
+                        preds if self.training else preds[1], batch
+                    )[1]
+                else:
+                    self.loss += trainer.criterion(
+                        preds if self.training else preds[1], batch
+                    )[1]
 
             # pre-process predictions
             with dt[3]:
                 preds = self.postprocess(preds)
 
-            self.update_metrics(preds, batch)
+            # During QAT the resulting preds are grad required, breaking
+            # the update metrics function.
+            detached_preds = [p.detach() for p in preds]
+            self.update_metrics(detached_preds, batch)
+
             if self.args.plots and batch_i < 3:
                 self.plot_val_samples(batch, batch_i)
-                self.plot_predictions(batch, preds, batch_i)
+                self.plot_predictions(batch, detached_preds, batch_i)
 
             self.run_callbacks("on_val_batch_end")
         stats = self.get_stats()
@@ -141,16 +159,16 @@ class SparseValidator(BaseValidator):
             x.t / len(self.dataloader.dataset) * 1e3 for x in dt
         )  # speeds per image
         self.run_callbacks("on_val_end")
+        model.float()
+        stats = {
+            **stats,
+            **trainer.label_loss_items(
+                self.loss.cpu() / len(self.dataloader), prefix="val"
+            ),
+        }
         if self.training:
-            model.float()
-            results = {
-                **stats,
-                **trainer.label_loss_items(
-                    self.loss.cpu() / len(self.dataloader), prefix="val"
-                ),
-            }
             return {
-                k: round(float(v), 5) for k, v in results.items()
+                k: round(float(v), 5) for k, v in stats.items()
             }  # return results as 5 decimal place floats
         else:
             self.logger.info(
@@ -160,6 +178,7 @@ class SparseValidator(BaseValidator):
                 ),
                 *self.speed,
             )
+            self.logger.info(f"Validation loss: {stats['val/Loss']}")
             if self.args.save_json and self.jdict:
                 with open(str(self.save_dir / "predictions.json"), "w") as f:
                     self.logger.info(f"Saving {f.name}...")
