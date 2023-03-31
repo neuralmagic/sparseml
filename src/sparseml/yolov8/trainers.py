@@ -12,12 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import math
 import os
 import shutil
 import subprocess
 import sys
 import tempfile
 import warnings
+from collections import defaultdict
 from copy import copy, deepcopy
 from datetime import datetime
 from pathlib import Path
@@ -118,6 +120,8 @@ class SparseTrainer(BaseTrainer):
             "on_train_epoch_end", SparseTrainer.callback_on_train_epoch_end
         )
         self.add_callback("teardown", SparseTrainer.callback_teardown)
+
+        self.fitness_by_phase = defaultdict(lambda: -math.inf)
 
     def check_resume(self):
         # see note for what is different
@@ -392,11 +396,10 @@ class SparseTrainer(BaseTrainer):
         # NOTE: identical to super().save_model() with the addition of recipe key
         # in the checkpoint
 
-        epoch = -1 if self.epoch == self.epochs - 1 else self.epoch
-
+        is_final_epoch = self.epoch == self.epochs - 1
+        epoch = self.epoch
         if self.checkpoint_manager is not None:
-            if epoch >= 0:
-                epoch += self.checkpoint_manager.max_epochs
+            epoch += self.checkpoint_manager.max_epochs
 
             if self.manager is not None:
                 manager = ScheduledModifierManager.compose_staged(
@@ -407,10 +410,26 @@ class SparseTrainer(BaseTrainer):
         else:
             manager = self.manager if self.manager is not None else None
 
+        phase = manager.phase_at_end_of(epoch)
+
+        is_new_best = self.best_fitness > self.fitness_by_phase[phase]
+        if is_new_best:
+            self.fitness_by_phase[phase] = self.best_fitness
+
+        checkpoint_paths = [self.last]
+        if phase is not None:
+            self.logger_manager.log_string(
+                "phase", phase, self.epoch * self.steps_per_epoch + self.epoch_step
+            )
+            checkpoint_paths.append(self.wdir / f"last_{phase}.pt")
+            if is_new_best:
+                checkpoint_paths.append(self.wdir / f"best_{phase}.pt")
+
         model = de_parallel(self.model)
         ckpt = {
-            "epoch": epoch,
-            "best_fitness": self.best_fitness,
+            "epoch": -1 if is_final_epoch else epoch,
+            "best_fitness": self.fitness_by_phase[phase],
+            "phase": phase,
             "model": deepcopy(model).state_dict(),
             "model_yaml": dict(model.yaml),
             "ema": deepcopy(self.ema.ema).state_dict()
@@ -427,9 +446,8 @@ class SparseTrainer(BaseTrainer):
             ckpt["recipe"] = str(manager)
 
         # Save last, best and delete
-        torch.save(ckpt, self.last)
-        if self.best_fitness == self.fitness:
-            torch.save(ckpt, self.best)
+        for path in checkpoint_paths:
+            torch.save(ckpt, path)
         del ckpt
 
     def final_eval(self):
