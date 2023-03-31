@@ -33,7 +33,6 @@ from typing import (
 import torch
 from torch.nn import Module
 from tqdm import tqdm
-import logging
 
 from sparseml.pytorch.utils.helpers import (
     get_prunable_layers,
@@ -41,6 +40,7 @@ from sparseml.pytorch.utils.helpers import (
     get_quantized_layers,
     tensor_sparsity,
 )
+
 
 __all__ = [
     "ModuleSparsificationInfo",
@@ -260,7 +260,8 @@ class GradSampler:
                 if computed_grads < num_grads:
                     logger.warning(
                         f"The requested num_grads:{num_grads} is greater than allowed by the dataset. \
-                        Proceeding with less than requested. Please reduce num_grads to suppress the warning."
+                        Proceeding with less than requested. \
+                        Please reduce num_grads to suppress the warning."
                     )
                     break
         module.zero_grad()

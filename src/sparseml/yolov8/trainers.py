@@ -19,10 +19,9 @@ import sys
 import tempfile
 import warnings
 from copy import copy, deepcopy
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional
-from datetime import timedelta
+from typing import List, Optional
 
 import onnx
 import torch
@@ -44,8 +43,8 @@ from sparsezoo import Model
 from ultralytics import __version__
 from ultralytics.nn.tasks import SegmentationModel, attempt_load_one_weight
 from ultralytics.yolo.cfg import get_cfg
-from ultralytics.yolo.data.dataloaders.v5loader import create_dataloader
 from ultralytics.yolo.data import build_dataloader
+from ultralytics.yolo.data.dataloaders.v5loader import create_dataloader
 from ultralytics.yolo.engine.model import YOLO
 from ultralytics.yolo.engine.trainer import BaseTrainer
 from ultralytics.yolo.utils import LOGGER, IterableSimpleNamespace, yaml_load
@@ -408,7 +407,7 @@ class SparseTrainer(BaseTrainer):
             while True:
                 for batch in data_loader:
                     batch = self.preprocess_batch(batch)
-                    assert(batch['img'].device.index == self.device.index)
+                    assert batch["img"].device.index == self.device.index
                     yield [batch["img"]], {}, batch
 
         return _data_loader_builder
