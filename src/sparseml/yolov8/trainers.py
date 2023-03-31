@@ -663,7 +663,9 @@ class SparseYOLO(YOLO):
             manager.apply(
                 self.model,
                 # maybe we could check whether OBS pruner is in the manager?
-                grad_sampler=create_grad_sampler(trainer, stride=32, model=self.model),
+                grad_sampler = create_grad_sampler(trainer, stride=32, model=self.model) if
+                any(map(lambda mod: hasattr(mod, "_grad_sampler"), manager.pruning_modifiers))
+                else None,
             )
             recipe = (
                 ScheduledModifierManager.compose_staged(recipe, manager)
