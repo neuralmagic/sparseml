@@ -294,7 +294,6 @@ class OBSPruningModifier(BaseGradualPruningModifier):
                 recomputation_sparsity=recomputation_sparsity,
             )
 
-        torch.cuda.empty_cache()
         self._last_applied_sparsity = to_apply_sparsities
         if self._scorer._is_main_proc:
             self._scorer._enabled_grad_buffering = False
