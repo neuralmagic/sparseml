@@ -43,7 +43,6 @@ from sparsezoo import Model
 from ultralytics import __version__
 from ultralytics.nn.tasks import SegmentationModel, attempt_load_one_weight
 from ultralytics.yolo.cfg import get_cfg
-from ultralytics.yolo.data import build_dataloader
 from ultralytics.yolo.data.dataloaders.v5loader import create_dataloader
 from ultralytics.yolo.engine.model import YOLO
 from ultralytics.yolo.engine.trainer import BaseTrainer
@@ -663,8 +662,13 @@ class SparseYOLO(YOLO):
             manager.apply(
                 self.model,
                 # maybe we could check whether OBS pruner is in the manager?
-                grad_sampler = create_grad_sampler(trainer, stride=32, model=self.model) if
-                any(map(lambda mod: hasattr(mod, "_grad_sampler"), manager.pruning_modifiers))
+                grad_sampler=create_grad_sampler(trainer, stride=32, model=self.model)
+                if any(
+                    map(
+                        lambda mod: hasattr(mod, "_grad_sampler"),
+                        manager.pruning_modifiers,
+                    )
+                )
                 else None,
             )
             recipe = (
