@@ -53,96 +53,59 @@ limitations under the License.
 
 ## Overview
 
-SparseML is a toolkit that includes APIs, CLIs, scripts and libraries that apply state-of-the-art [sparsification](https://docs.neuralmagic.com/user-guides/sparsification) algorithms such as pruning and quantization to any neural network. 
-General, recipe-driven approaches built around these algorithms enable the simplification of creating faster and smaller models for the ML performance community at large.
+SparseML is an open-source model optimization toolkit that enables you to create inference-optimized sparse models using pruning, quantization, and distillation algorithms. Models optimized with SparseML can then be exported to the ONNX and deployed with [DeepSparse](https://github.com/neuralmagic/deepsparse/) for GPU-class performance on CPU hardware.
 
-The [GitHub repository](https://github.com/neuralmagic/sparseml) contains integrations within the PyTorch, Keras, and TensorFlow V1 ecosystems, allowing for seamless model sparsification.
+<p align="center">
+   <img alt="SparseML Flow" src="docs/images/sparseml-workflow.png" width="60%" />
+</p>
 
-<img alt="SparseML Flow" src="https://docs.neuralmagic.com/docs/source/infographics/sparseml.png" width="960px" />
+## Workflows
 
-## Highlights
+SparseML enables you to create a sparse model trained on your dataset in two ways:
+- **Sparse Transfer Learning** enables you to fine-tune a pre-sparsified model from [SparseZoo](https://sparsezoo.neuralmagic.com/) (an open-source repository of sparse models such as BERT, YOLOv5, and ResNet-50) onto your dataset, while maintaining sparsity. This pathway works just like typical fine-tuning you are used to in training CV and NLP models, and is strongly preferred for if your model architecture is availble in SparseZoo.
 
-### Integrations
+- **Sparsification from Scratch** enables you to apply state-of-the-art pruning (like gradual magnitude pruning or OBS pruning) and quantization (like quantization aware training) algorithms to arbitrary PyTorch and Hugging Face models. This pathway requires more experimentation, but allows you to create a sparse version of any model. 
+
+## Integrations
 
 <p>
-    <a href="https://github.com/neuralmagic/sparseml/tree/main/integrations/pytorch">
+    <a href="integrations/torchvision">
         <img src="https://docs.neuralmagic.com/docs/source/highlights/sparseml/pytorch-torchvision.png" width="136px" />
     </a>
-    <a href="https://github.com/neuralmagic/sparseml/tree/main/integrations/ultralytics-yolov3">
-        <img src="https://docs.neuralmagic.com/docs/source/highlights/sparseml/ultralytics-yolov3.png" width="136px" />
-    </a>
-    <a href="https://github.com/neuralmagic/sparseml/tree/main/integrations/ultralytics-yolov5">
+    <a href="integrations/ultralytics-yolov5">
         <img src="https://docs.neuralmagic.com/docs/source/highlights/sparseml/ultralytics-yolov5.png" width="136px" />
     </a>
-    <a href="https://github.com/neuralmagic/sparseml/tree/main/integrations/huggingface-transformers">
+    <a href="integrations/huggingface-transformers">
         <img src="https://docs.neuralmagic.com/docs/source/highlights/sparseml/huggingface-transformers.png" width="136px" />
     </a>
-    <a href="https://github.com/neuralmagic/sparseml/tree/main/integrations/rwightman-timm">
-        <img src="https://docs.neuralmagic.com/docs/source/highlights/sparseml/rwightman-timm.png" width="136px" />
-    </a>
 </p>
-
-### Creating Sparse Models
-
-<p>
-    <a href="https://github.com/neuralmagic/sparseml/tree/main/integrations/pytorch/notebooks/classification.ipynb">
-        <img src="https://docs.neuralmagic.com/docs/source/tutorials/classification_resnet-50.png" width="136px" />
-    </a>
-    <a href="https://github.com/neuralmagic/sparseml/tree/main/integrations/ultralytics-yolov3/tutorials/sparsifying_yolov3_using_recipes.md">
-        <img src="https://docs.neuralmagic.com/docs/source/tutorials/detection_yolov3.png" width="136px" />
-    </a>
-    <a href="https://github.com/neuralmagic/sparseml/tree/main/integrations/ultralytics-yolov5/tutorials/sparsifying_yolov5_using_recipes.md">
-        <img src="https://docs.neuralmagic.com/docs/source/tutorials/detection_yolov5.png" width="136px" />
-    </a>
-    <a href="https://github.com/neuralmagic/sparseml/tree/main/integrations/huggingface-transformers/tutorials/sparsifying_bert_using_recipes.md">
-        <img src="https://docs.neuralmagic.com/docs/source/tutorials/nlp_bert.png" width="136px" />
-    </a>
-</p>
-
-### Transfer Learning from Sparse Models
-
-<p>
-    <a href="https://github.com/neuralmagic/sparseml/tree/main/integrations/pytorch/notebooks/sparse_quantized_transfer_learning.ipynb">
-        <img src="https://docs.neuralmagic.com/docs/source/tutorials/classification_resnet-50.png" width="136px" />
-    </a>
-    <a href="https://github.com/neuralmagic/sparseml/blob/main/integrations/ultralytics-yolov3/tutorials/yolov3_sparse_transfer_learning.md">
-        <img src="https://docs.neuralmagic.com/docs/source/tutorials/detection_yolov3.png" width="136px" />
-    </a>
-    <a href="https://github.com/neuralmagic/sparseml/blob/main/integrations/ultralytics-yolov5/tutorials/yolov5_sparse_transfer_learning.md">
-        <img src="https://docs.neuralmagic.com/docs/source/tutorials/detection_yolov5.png" width="136px" />
-    </a>
-</p>
-
 
 ## Tutorials
 
-### 🖼️ Computer Vision
+### PyTorch
+- [Sparse Transfer Learning with the CLI](integrations/torchvision/tutorials/sparse-transfer-learning.md)
+- [Sparse Transfer Learning with the Python API](integrations/torchvision/tutorials/docs-torchvision-python-transfer-imagenette.ipynb)
+- [Sparsify From Scratch with the Python API](integrations/torchvision/tutorials/docs-torchvision-sparsify-from-scratch-resnet50-beans.ipynb)
 
-- [Sparsifying PyTorch Models Using Recipes](https://github.com/neuralmagic/sparseml/blob/main/integrations/pytorch/tutorials/sparsifying_pytorch_models_using_recipes.md)
-- [Sparsifying YOLOv3 Using Recipes](https://github.com/neuralmagic/sparseml/blob/main/integrations/ultralytics-yolov3/tutorials/sparsifying_yolov3_using_recipes.md)
-- [Sparsifying YOLOv5 Using Recipes](https://github.com/neuralmagic/sparseml/blob/main/integrations/ultralytics-yolov5/tutorials/sparsifying_yolov5_using_recipes.md)
-- [Sparsifying YOLACT Using Recipes](https://github.com/neuralmagic/sparseml/blob/main/integrations/dbolya-yolact/tutorials/sparsifying_yolact_using_recipes.md)
-- [Sparse Transfer Learning for Image Classification](https://github.com/neuralmagic/sparseml/blob/main/integrations/pytorch/tutorials/classification_sparse_transfer_learning_tutorial.md)
-- [Sparse Transfer Learning With YOLOv3](https://github.com/neuralmagic/sparseml/blob/main/integrations/ultralytics-yolov3/tutorials/yolov3_sparse_transfer_learning.md)
-- [Sparse Transfer Learning With YOLOv5](https://github.com/neuralmagic/sparseml/blob/main/integrations/ultralytics-yolov5/tutorials/yolov5_sparse_transfer_learning.md)
+### Hugging Face Transformers
+- [Sparse Transfer Learning Overview with the Python API](integrations/huggingface-transformers/tutorials/sparse-transfer-learning-bert-python.md)
+- [Sparse Transfer Learning Overview with the CLI](integrations/huggingface-transformers/tutorials/sparse-transfer-learning-bert.md)
+- [Sparse Transfer Learning for Sentiment Analysis](integrations/huggingface-transformers/tutorials/sentiment-analysis/sentiment-analysis-cli.md), [for Text Classification](integrations/huggingface-transformers/tutorials/text-classification/text-classification-cli.md), [for Token Classification](integrations/huggingface-transformers/tutorials/token-classification/token-classification-cli.md), [for Question Answering](integrations/huggingface-transformers/tutorials/question-answering/question-answering-cli.md)
 
-&emsp; **Notebooks**
+### Ultralytics YOLOv5
+- [Sparse Transfer Learning with the CLI](integrations/ultralytics-yolov5/tutorials/sparse-transfer-learning.md)
+- [Sparsify From Scatch with the CLI](integrations/ultralytics-yolov5/tutorials/sparsify-from-scratch.md)
 
-- [Keras Image Classification Model Pruning Using SparseML](https://github.com/neuralmagic/sparseml/blob/main/integrations/keras/notebooks/classification.ipynb)
-- [PyTorch Image Classification Model Pruning Using SparseML](https://github.com/neuralmagic/sparseml/blob/main/integrations/pytorch/notebooks/classification.ipynb)
-- [PyTorch Image Detection Model Pruning Using SparseML](https://github.com/neuralmagic/sparseml/blob/main/integrations/pytorch/notebooks/detection.ipynb)
-- [Sparse-Quantized Transfer Learning in PyTorch Using SparseML](https://github.com/neuralmagic/sparseml/blob/main/integrations/pytorch/notebooks/sparse_quantized_transfer_learning.ipynb)
-- [Torchvision Classification Model Pruning Using SparseML](https://github.com/neuralmagic/sparseml/blob/main/integrations/pytorch/notebooks/torchvision.ipynb)
-- [TensorFlow v1 Classification Model Pruning Using SparseML](https://github.com/neuralmagic/sparseml/blob/main/integrations/tensorflow_v1/notebooks/classification.ipynb)
+### Links to Additional Examples
 
-### 📰 NLP
-- [Sparsifying BERT Models Using Recipes](https://github.com/neuralmagic/sparseml/blob/main/integrations/huggingface-transformers/tutorials/sparsifying_bert_using_recipes.md)
-- [Sparse Transfer Learning With BERT](https://github.com/neuralmagic/sparseml/blob/main/integrations/huggingface-transformers/tutorials/bert_sparse_transfer_learning.md)
-
+- [PyTorch](integrations/torchvision#tutorials)
+- [Hugging Face Transformers](integrations/huggingface-transformers#tutorials)
+- [Ultralytics YOLOv5](integrations/ultralytics-yolov5#tutorials)
 
 ## Installation
 
 This repository is tested on Python 3.7-3.10, and Linux/Debian systems.
+
 It is recommended to install in a [virtual environment](https://docs.python.org/3/library/venv.html) to keep your system in order.
 Currently supported ML Frameworks are the following: `torch>=1.1.0,<=1.12.1`, `tensorflow>=1.8.0,<2.0.0`, `tensorflow.keras >= 2.2.0`.
 
@@ -156,44 +119,59 @@ More information on installation such as optional dependencies and requirements 
 
 ## Quick Tour
 
-To enable flexibility, ease of use, and repeatability, sparsifying a model is done using a recipe.
-The recipes encode the instructions needed for modifying the model and/or training process as a list of modifiers.
-Example modifiers can be anything from setting the learning rate for the optimizer to gradual magnitude pruning.
-The files are written in [YAML](https://yaml.org/) and stored in YAML or [markdown](https://www.markdownguide.org/) files using [YAML front matter.](https://assemble.io/docs/YAML-front-matter.html) The rest of the SparseML system is coded to parse the recipes into a native format for the desired framework and apply the modifications to the model and training pipeline.
+### Recipes
 
-`ScheduledModifierManager` classes can be created from recipes in all supported ML frameworks.
-The manager classes handle overriding the training graphs to apply the modifiers as described in the desired recipe.
-Managers can apply recipes in one shot or training aware ways. 
-One shot is invoked by calling `.apply(...)` on the manager while training aware requires calls into `initialize(...)` (optional), `modify(...)`, and `finalize(...)`.
+To enable flexibility, ease of use, and repeatability, SparseML uses a declarative interface called `recipes` for specifying the sparsity-related algorithms and hyperparamters that should be applied by SparseML.
 
-For the frameworks, this means only a few lines of code need to be added to begin supporting pruning, quantization, and other modifications to most training pipelines.
-For example, the following applies a recipe in a training aware manner:
+`Recipes` are YAML-files formatted as a list of `modifiers`, which encode the instructions for SparseML. Example `modifiers` can be anything from setting the learning rate to encoding the hyperparameters of the gradual magnitude pruning algorithm. The SparseML system parses the `recipes` into a native format for each framework and applies the modifications to the model and training pipeline.
+
+### Python API
+
+Because of the declarative, recipe-based approach, you can add SparseML to your existing PyTorch traing pipelines. The `ScheduleModifierManager` class is responsible for parsing the YAML `recipes` and overriding standard PyTorch model and optimizer objects, encoding the logic of the sparsity algorithms from the recipe. Once you call `manager.modify`, you can then use the model and optimizer as usual, as SparseML abstracts away the complexity of the sparsification algorithms.
+
+The workflow looks like this:
+
 ```python
-model = Model()  # model definition
-optimizer = Optimizer()  # optimizer definition
-train_data = TrainData()  # train data definition
-batch_size = BATCH_SIZE  # training batch size
+model = Model()            # model definition
+optimizer = Optimizer()    # optimizer definition
+train_data = TrainData()   # train data definition
+batch_size = BATCH_SIZE    # training batch size
 steps_per_epoch = len(train_data) // batch_size
 
 from sparseml.pytorch.optim import ScheduledModifierManager
 manager = ScheduledModifierManager.from_yaml(PATH_TO_RECIPE)
 optimizer = manager.modify(model, optimizer, steps_per_epoch)
 
-# PyTorch training code
+# typical PyTorch training loop, using your model/optimizer as usual
 
 manager.finalize(model)
 ```
 
-Instead of training aware, the following example code shows how to execute a recipe in a one shot manner:
-```python
-model = Model()  # model definition
+- Check out the [PyTorch integration docs](integrations/torchvision) for full usage examples of the Python API.
+- Check out the [Hugging Face integration docs](integrations/huggingface-transformers) for details of using SparseML with the Hugging Face `Trainer`.
 
-from sparseml.pytorch.optim import ScheduledModifierManager
-manager = ScheduledModifierManager.from_yaml(PATH_TO_RECIPE)
-manager.apply(model)
+### SparseML CLI
+
+In addition to the code-level API, SparseML offers pre-made training pipelines for common NLP and CV tasks via the CLI interface. The CLI enables you to kick-off training runs with various utilities like dataset loading and pre-processing, checkpoint saving, metric reporting, and logging handled for you. This makes it easy to get up and running in common training pathways.
+
+For instance, we can use the following to kick off a YOLOv5 sparse transfer learning run onto the VOC dataset (using SparseZoo stubs to pull down a sparse model checkpoint and transfer learning recipe):
+
+```bash
+sparseml.yolov5.train \
+  --weights zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned75_quant-none?recipe_type=transfer_learn \
+  --recipe zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned75_quant-none?recipe_type=transfer_learn \
+  --data VOC.yaml \
+  --hyp hyps/hyp.finetune.yaml --cfg yolov5s.yaml --patience 0
 ```
 
+- Check out the [YOLOv5 CLI example](ultralytics-yolov5/tutorials/sparse-transfer-learning.md) for more details on the YOLOv5 training pipeline
+- Check out the [Hugging Face CLI example](integrations/huggingface-transformers/tutorials/sparse-transfer-learning-bert.md) for more details on the available NLP training pipelines
+- Check out the [Torchvision CLI example](integrations/torchvision/tutorials/sparse-transfer-learning.md) for more details on the image classification training pipelines
+
+### Additional Resources 
+
 More information on the codebase and contained processes can be found in the SparseML docs:
+- [Examples and Tutorials](integrations)
 - [Sparsification Code](https://docs.neuralmagic.com/get-started/sparsify-a-model)
 - [Sparsification Recipes](https://docs.neuralmagic.com/user-guides/recipes)
 - [Exporting to ONNX](https://docs.neuralmagic.com/user-guides/onnx-export)

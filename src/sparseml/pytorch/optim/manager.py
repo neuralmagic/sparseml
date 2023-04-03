@@ -27,6 +27,7 @@ from torch import Tensor
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 
+from sparseml.analytics import sparseml_analytics
 from sparseml.optim import (
     BaseManager,
     add_framework_metadata,
@@ -303,6 +304,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
         modifiers: List[ScheduledModifier],
         metadata: Optional[Dict[str, Any]] = None,
     ):
+        sparseml_analytics.send_event("python.pytorch.manager")
         super().__init__(modifiers=modifiers, metadata=metadata)
         self._initialize_epoch = 0
 
