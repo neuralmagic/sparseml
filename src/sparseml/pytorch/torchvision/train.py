@@ -70,6 +70,7 @@ def train_one_epoch(
     manager=None,
     model_ema=None,
     scaler=None,
+    num_classes=None,
 ) -> utils.MetricLogger:
     accum_steps = args.gradient_accum_steps
 
@@ -81,7 +82,8 @@ def train_one_epoch(
     )
     metric_logger.add_meter("loss", utils.SmoothedValue(window_size=accum_steps))
     metric_logger.add_meter("acc1", utils.SmoothedValue(window_size=accum_steps))
-    metric_logger.add_meter("acc5", utils.SmoothedValue(window_size=accum_steps))
+    if not num_classes or num_classes > 4:
+        metric_logger.add_meter("acc5", utils.SmoothedValue(window_size=accum_steps))
 
     steps_accumulated = 0
     num_optim_steps = 0
@@ -141,23 +143,31 @@ def train_one_epoch(
                 # Reset ema buffer to keep copying weights during warmup period
                 model_ema.n_averaged.fill_(0)
 
-        acc1, num_correct_1, acc5, num_correct_5 = utils.accuracy(
-            output, target, topk=(1, 5)
-        )
+        if not num_classes or num_classes > 4:
+            acc1, num_correct_1, acc5, num_correct_5 = utils.accuracy(
+                output, target, topk=(1, 5)
+            )
+        else:
+            acc1, num_correct_1 = utils.accuracy(output, target, topk=(1,))
+            acc5 = num_correct_5 = None
         batch_size = image.shape[0]
         metric_logger.update(loss=loss.item(), lr=optimizer.param_groups[0]["lr"])
         metric_logger.meters["acc1"].update(
             acc1.item(), n=batch_size, total=num_correct_1
         )
-        metric_logger.meters["acc5"].update(
-            acc5.item(), n=batch_size, total=num_correct_5
-        )
+
+        if not num_classes or num_classes > 4:
+            metric_logger.meters["acc5"].update(
+                acc5.item(), n=batch_size, total=num_correct_5
+            )
         metric_logger.meters["imgs_per_sec"].update(
             batch_size / (time.time() - start_time)
         )
 
         if args.eval_steps is not None and num_optim_steps % args.eval_steps == 0:
-            eval_metrics = evaluate(model, criterion, data_loader_test, device)
+            eval_metrics = evaluate(
+                model, criterion, data_loader_test, device, num_classes=num_classes
+            )
             model.train()
             log_metrics_fn("Test", eval_metrics, epoch, num_optim_steps)
 
@@ -174,6 +184,7 @@ def evaluate(
     device,
     print_freq=100,
     log_suffix="",
+    num_classes=None,
 ) -> utils.MetricLogger:
     model.eval()
     metric_logger = utils.MetricLogger(_LOGGER, delimiter="  ")
@@ -189,19 +200,26 @@ def evaluate(
                 output = output[0]
             loss = criterion(output, target)
 
-            acc1, num_correct_1, acc5, num_correct_5 = utils.accuracy(
-                output, target, topk=(1, 5)
-            )
+            if not num_classes or num_classes >= 5:
+                acc1, num_correct_1, acc5, num_correct_5 = utils.accuracy(
+                    output, target, topk=(1, 5)
+                )
+
+            else:
+                acc1, num_correct_1 = utils.accuracy(output, target, topk=(1,))
+                acc5 = num_correct_5 = None
             # FIXME need to take into account that the datasets
-            # could have been padded in distributed setup
+            #  could have been padded in distributed setup
             batch_size = image.shape[0]
             metric_logger.update(loss=loss.item())
             metric_logger.meters["acc1"].update(
                 acc1.item(), n=batch_size, total=num_correct_1
             )
-            metric_logger.meters["acc5"].update(
-                acc5.item(), n=batch_size, total=num_correct_5
-            )
+
+            if not num_classes or num_classes >= 4:
+                metric_logger.meters["acc5"].update(
+                    acc5.item(), n=batch_size, total=num_correct_5
+                )
             num_processed_samples += batch_size
     # gather the stats from all processes
 
@@ -222,11 +240,11 @@ def evaluate(
 
     metric_logger.synchronize_between_processes()
 
-    _LOGGER.info(
-        header
-        + f"Acc@1 {metric_logger.acc1.global_avg:.3f}"
-        + f"Acc@5 {metric_logger.acc5.global_avg:.3f}"
-    )
+    log_message = header + f"Acc@1 {metric_logger.acc1.global_avg:.3f}"
+    if not num_classes or num_classes >= 4:
+        log_message += f"Acc@5 {metric_logger.acc5.global_avg:.3f}"
+
+    _LOGGER.info(log_message)
     return metric_logger
 
 
@@ -564,6 +582,7 @@ def main(args):
                 device,
                 print_freq=args.logging_steps,
                 log_suffix="EMA",
+                num_classes=num_classes,
             )
         else:
             evaluate(
@@ -572,6 +591,7 @@ def main(args):
                 data_loader_test,
                 device,
                 print_freq=args.logging_steps,
+                num_classes=num_classes,
             )
         return
 
@@ -644,6 +664,10 @@ def main(args):
     best_top1_acc = -math.inf
 
     _LOGGER.info("Start training")
+    _LOGGER.info(
+        f"Expected dataset to have more than 5 classes but found "
+        f"{num_classes} only top1 metrics will be reported during eval"
+    )
 
     start_time = time.time()
     max_epochs = manager.max_epochs if manager is not None else args.epochs
@@ -668,13 +692,16 @@ def main(args):
             manager=manager,
             model_ema=model_ema,
             scaler=scaler,
+            num_classes=num_classes,
         )
         log_metrics("Train", train_metrics, epoch, steps_per_epoch)
 
         if lr_scheduler:
             lr_scheduler.step()
 
-        eval_metrics = evaluate(model, criterion, data_loader_test, device)
+        eval_metrics = evaluate(
+            model, criterion, data_loader_test, device, num_classes=num_classes
+        )
         log_metrics("Test", eval_metrics, epoch, steps_per_epoch)
 
         top1_acc = eval_metrics.acc1.global_avg
@@ -685,6 +712,7 @@ def main(args):
                 data_loader_test,
                 device,
                 log_suffix="EMA",
+                num_classes=num_classes,
             )
             log_metrics("Test/EMA", ema_eval_metrics, epoch, steps_per_epoch)
 
@@ -869,14 +897,16 @@ def _load_checkpoint(path):
 def _save_checkpoints(
     epoch, output_dir, file_names, checkpoint, train_metrics, eval_metrics
 ):
-    metrics = "\n".join(
-        [
-            f"epoch: {epoch}",
-            f"__loss__: {train_metrics.loss.global_avg}",
-            f"top1acc: {eval_metrics.acc1.global_avg}",
-            f"top5acc: {eval_metrics.acc5.global_avg}",
-        ]
-    )
+    metric_values = [
+        f"epoch: {epoch}",
+        f"__loss__: {train_metrics.loss.global_avg}",
+        f"top1acc: {eval_metrics.acc1.global_avg}",
+    ]
+
+    if hasattr(eval_metrics, "acc5"):
+        metric_values.append(f"top5acc: {eval_metrics.acc5.global_avg}")
+
+    metrics = "\n".join(metric_values)
     for fname in file_names:
         utils.save_on_master(checkpoint, os.path.join(output_dir, fname))
         if utils.is_main_process():
