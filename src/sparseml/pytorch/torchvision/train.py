@@ -82,7 +82,7 @@ def train_one_epoch(
     )
     metric_logger.add_meter("loss", utils.SmoothedValue(window_size=accum_steps))
     metric_logger.add_meter("acc1", utils.SmoothedValue(window_size=accum_steps))
-    if not num_classes or num_classes > 4:
+    if not num_classes or num_classes >= 5:
         metric_logger.add_meter("acc5", utils.SmoothedValue(window_size=accum_steps))
 
     steps_accumulated = 0
@@ -143,7 +143,7 @@ def train_one_epoch(
                 # Reset ema buffer to keep copying weights during warmup period
                 model_ema.n_averaged.fill_(0)
 
-        if not num_classes or num_classes > 4:
+        if not num_classes or num_classes >= 5:
             acc1, num_correct_1, acc5, num_correct_5 = utils.accuracy(
                 output, target, topk=(1, 5)
             )
@@ -156,7 +156,7 @@ def train_one_epoch(
             acc1.item(), n=batch_size, total=num_correct_1
         )
 
-        if not num_classes or num_classes > 4:
+        if not num_classes or num_classes >= 5:
             metric_logger.meters["acc5"].update(
                 acc5.item(), n=batch_size, total=num_correct_5
             )
@@ -216,7 +216,7 @@ def evaluate(
                 acc1.item(), n=batch_size, total=num_correct_1
             )
 
-            if not num_classes or num_classes >= 4:
+            if not num_classes or num_classes >= 5:
                 metric_logger.meters["acc5"].update(
                     acc5.item(), n=batch_size, total=num_correct_5
                 )
@@ -241,7 +241,7 @@ def evaluate(
     metric_logger.synchronize_between_processes()
 
     log_message = header + f"Acc@1 {metric_logger.acc1.global_avg:.3f}"
-    if not num_classes or num_classes >= 4:
+    if not num_classes or num_classes >= 5:
         log_message += f"Acc@5 {metric_logger.acc5.global_avg:.3f}"
 
     _LOGGER.info(log_message)
