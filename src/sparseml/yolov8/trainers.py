@@ -349,8 +349,6 @@ class SparseTrainer(BaseTrainer):
 
     def _get_data_loader_builder(self):
         train_loader = self.train_loader
-        # args = self.overrides.copy()
-        # args = self.args
 
         def _data_loader_builder(kwargs):
             template = dict(train_loader.__dict__)
