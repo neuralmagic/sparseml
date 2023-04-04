@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import json
-from argparse import Namespace
 
 import torch
 from tqdm import tqdm
@@ -31,8 +30,9 @@ from ultralytics.yolo.v8.segment.val import SegmentationValidator
 
 
 class SparseValidator(BaseValidator):
-    def __call__(self, trainer=None, model=None, training=True):
-        self.training = trainer is not None and training
+    def __call__(self, trainer=None, model=None):
+        # the **only** difference in this call is that we pass fuse=False to AutoBackend
+        self.training = trainer is not None
         if self.training:
             self.device = trainer.device
             self.data = trainer.data
@@ -101,8 +101,6 @@ class SparseValidator(BaseValidator):
             model.warmup(
                 imgsz=(1 if pt else self.args.batch, 3, imgsz, imgsz)
             )  # warmup
-            trainer.model = model.model
-            trainer.model.args = Namespace(**model.model.args)
 
         dt = Profile(), Profile(), Profile(), Profile()
         n_batches = len(self.dataloader)
@@ -129,14 +127,8 @@ class SparseValidator(BaseValidator):
 
             # loss
             with dt[2]:
-                if not hasattr(self, "loss"):
-                    self.loss = trainer.criterion(
-                        preds if self.training else preds[1], batch
-                    )[1]
-                else:
-                    self.loss += trainer.criterion(
-                        preds if self.training else preds[1], batch
-                    )[1]
+                if self.training:
+                    self.loss += trainer.criterion(preds, batch)[1]
 
             # pre-process predictions
             with dt[3]:
@@ -159,16 +151,16 @@ class SparseValidator(BaseValidator):
             x.t / len(self.dataloader.dataset) * 1e3 for x in dt
         )  # speeds per image
         self.run_callbacks("on_val_end")
-        model.float()
-        stats = {
-            **stats,
-            **trainer.label_loss_items(
-                self.loss.cpu() / len(self.dataloader), prefix="val"
-            ),
-        }
         if self.training:
+            model.float()
+            results = {
+                **stats,
+                **trainer.label_loss_items(
+                    self.loss.cpu() / len(self.dataloader), prefix="val"
+                ),
+            }
             return {
-                k: round(float(v), 5) for k, v in stats.items()
+                k: round(float(v), 5) for k, v in results.items()
             }  # return results as 5 decimal place floats
         else:
             self.logger.info(
@@ -178,7 +170,6 @@ class SparseValidator(BaseValidator):
                 ),
                 *self.speed,
             )
-            self.logger.info(f"Validation loss: {stats['val/Loss']}")
             if self.args.save_json and self.jdict:
                 with open(str(self.save_dir / "predictions.json"), "w") as f:
                     self.logger.info(f"Saving {f.name}...")
