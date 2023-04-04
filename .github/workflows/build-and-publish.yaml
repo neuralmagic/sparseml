@@ -1,7 +1,8 @@
-name: Build and Publish
+name: Build and Publish Docker Images
 
 on:
-  create
+  release:
+    types: [published]
 
 jobs:
   build-and-push-docker-image:
