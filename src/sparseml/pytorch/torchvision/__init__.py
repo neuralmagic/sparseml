@@ -11,3 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+from sparseml.analytics import sparseml_analytics as _analytics
+
+
+_analytics.send_event("python__pytorch__torchvision__init")
