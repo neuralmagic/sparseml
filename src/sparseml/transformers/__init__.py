@@ -24,7 +24,7 @@ import pkg_resources
 from sparseml.analytics import sparseml_analytics as _analytics
 
 
-_analytics.send_event("python.transformers.init")
+_analytics.send_event("python__transformers__init")
 
 _EXPECTED_VERSION = "4.23.1"
 

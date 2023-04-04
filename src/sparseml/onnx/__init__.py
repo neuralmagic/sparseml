@@ -26,4 +26,4 @@ from .framework import detect_framework, framework_info, is_supported
 from .sparsification import ModelInfo, get_analyzer_impls, sparsification_info
 
 
-_analytics.send_event("onnx.init")
+_analytics.send_event("python__onnx__init")

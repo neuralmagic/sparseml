@@ -23,7 +23,7 @@ from collections import namedtuple
 from sparseml.analytics import sparseml_analytics as _analytics
 
 
-_analytics.send_event("python.yolact.init")
+_analytics.send_event("python__yolact__init")
 
 _LOGGER = _logging.getLogger(__name__)
 _NM_YOLACT_LINK_TEMPLATE = (

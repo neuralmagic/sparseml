@@ -16,7 +16,7 @@ import ultralytics
 from sparseml.analytics import sparseml_analytics as _analytics
 
 
-_analytics.send_event("python.yolov8.init")
+_analytics.send_event("python__yolov8__init")
 
 if "8.0.30" not in ultralytics.__version__:
     raise ValueError(
