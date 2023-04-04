@@ -25,4 +25,4 @@ from .framework import detect_framework, framework_info, is_supported
 from .sparsification import sparsification_info
 
 
-_analytics.send_event("keras.init")
+_analytics.send_event("python__keras__init")

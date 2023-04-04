@@ -24,7 +24,7 @@ from sparseml.analytics import sparseml_analytics as _analytics
 from .helpers import *
 
 
-_analytics.send_event("python.yolov5.init")
+_analytics.send_event("python__yolov5__init")
 
 try:
     import yolov5 as _yolov5

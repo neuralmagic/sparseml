@@ -46,7 +46,7 @@ from .sparsification import (
 from .analytics import sparseml_analytics as _analytics
 
 
-_analytics.send_event("python.import")
+_analytics.send_event("python__init")
 
 try:
     from sparsezoo.package import check_package_version as _check_package_version
