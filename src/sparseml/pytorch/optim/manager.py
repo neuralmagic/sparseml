@@ -304,7 +304,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
         modifiers: List[ScheduledModifier],
         metadata: Optional[Dict[str, Any]] = None,
     ):
-        sparseml_analytics.send_event("python.pytorch.manager")
+        sparseml_analytics.send_event("python__pytorch__manager__init")
         super().__init__(modifiers=modifiers, metadata=metadata)
         self._initialize_epoch = 0
 

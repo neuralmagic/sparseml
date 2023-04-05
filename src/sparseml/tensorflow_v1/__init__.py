@@ -25,4 +25,4 @@ from .framework import detect_framework, framework_info, is_supported
 from .sparsification import sparsification_info
 
 
-_analytics.send_event("python.tensorflow_v1.init")
+_analytics.send_event("python__tensorflow_v1__init")
