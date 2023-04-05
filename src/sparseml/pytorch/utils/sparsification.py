@@ -47,7 +47,7 @@ __all__ = [
     "GradSampler",
 ]
 
-logger = logging.getLogger()
+_LOGGER = logging.getLogger(__name__)
 
 
 class ModuleSparsificationInfo:
@@ -258,7 +258,7 @@ class GradSampler:
                     if computed_grads >= num_grads:
                         break
                 if computed_grads < num_grads:
-                    logger.warning(
+                    _LOGGER.warning(
                         f"The requested num_grads:{num_grads} is greater than allowed by the dataset. \
                         Proceeding with less than requested. \
                         Please reduce num_grads to suppress the warning."

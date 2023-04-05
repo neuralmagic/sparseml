@@ -335,6 +335,7 @@ class SparseTrainer(BaseTrainer):
             self.steps_per_epoch = len(self.train_loader)
 
     def _setup_ddp(self, rank, world_size):
+        # increases the timeout for DDP processes
         torch.cuda.set_device(rank)
         self.device = torch.device("cuda", rank)
         LOGGER.info(
