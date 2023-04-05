@@ -71,6 +71,7 @@ jobs:
     runs-on: ubuntu-22.04
     env:
       SPARSEZOO_TEST_MODE: "true"
+      NM_DISABLE_ANALYTICS: "true"
     needs: test-setup
     if: ${{needs.test-setup.outputs.base == 1}}
     steps:
@@ -97,6 +98,7 @@ jobs:
     runs-on: ubuntu-22.04
     env:
       SPARSEZOO_TEST_MODE: "true"
+      NM_DISABLE_ANALYTICS: "true"
     needs: test-setup
     if: ${{needs.test-setup.outputs.deepsparse == 1}}
     steps:
@@ -123,6 +125,7 @@ jobs:
     runs-on: ubuntu-22.04
     env:
       SPARSEZOO_TEST_MODE: "true"
+      NM_DISABLE_ANALYTICS: "true"
     needs: test-setup
     if:  ${{needs.test-setup.outputs.keras == 1}}
     steps:
@@ -147,6 +150,7 @@ jobs:
     runs-on: ubuntu-22.04
     env:
       SPARSEZOO_TEST_MODE: "true"
+      NM_DISABLE_ANALYTICS: "true"
     needs: test-setup
     if: ${{needs.test-setup.outputs.onnx == 1}}
     steps:
@@ -171,6 +175,7 @@ jobs:
     runs-on: ubuntu-22.04
     env:
       SPARSEZOO_TEST_MODE: "true"
+      NM_DISABLE_ANALYTICS: "true"
     needs: test-setup
     if: ${{needs.test-setup.outputs.pytorch == 1}}
     steps:
@@ -195,6 +200,7 @@ jobs:
     runs-on: ubuntu-22.04
     env:
       SPARSEZOO_TEST_MODE: "true"
+      NM_DISABLE_ANALYTICS: "true"
     needs: test-setup
     if:  ${{needs.test-setup.outputs.tensorflow_v1 == 1}}
     steps:
@@ -219,6 +225,7 @@ jobs:
     runs-on: ubuntu-22.04
     env:
       SPARSEZOO_TEST_MODE: "true"
+      NM_DISABLE_ANALYTICS: "true"
     needs: test-setup
     if: ${{needs.test-setup.outputs.pytorch == 1}}
     steps:
@@ -243,6 +250,7 @@ jobs:
     runs-on: ubuntu-22.04
     env:
       SPARSEZOO_TEST_MODE: "true"
+      NM_DISABLE_ANALYTICS: "true"
     needs: test-setup
     if: ${{needs.test-setup.outputs.onnx == 1}}
     steps:
