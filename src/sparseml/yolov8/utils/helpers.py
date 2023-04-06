@@ -15,9 +15,14 @@
 import os
 import warnings
 from argparse import Namespace
+from typing import Any, Dict
+
+from ultralytics.yolo.data.dataloaders.v5loader import create_dataloader
+from ultralytics.yolo.engine.model import DetectionModel
+from ultralytics.yolo.engine.trainer import BaseTrainer
 
 
-__all__ = ["check_coco128_segmentation"]
+__all__ = ["check_coco128_segmentation", "create_grad_sampler"]
 
 
 def check_coco128_segmentation(args: Namespace) -> Namespace:
@@ -36,3 +41,31 @@ def check_coco128_segmentation(args: Namespace) -> Namespace:
         )
         args.data = dataset_yaml
     return args
+
+
+def create_grad_sampler(
+    trainer: BaseTrainer, stride: int, model: DetectionModel
+) -> Dict[str, Any]:
+    if not hasattr(trainer, "train_loader"):
+        # initialize train loader (if not already initialized)
+        # and set it as the trainer's attribute
+        train_set_path = trainer.trainset
+        train_loader, _ = create_dataloader(
+            path=train_set_path,
+            imgsz=trainer.args.imgsz,
+            batch_size=trainer.args.batch,
+            stride=stride,
+        )
+        trainer.train_loader = train_loader
+
+    # convert model's arg to a namespace,
+    # this is expected by the trainer's criterion
+    model.args = Namespace(**model.args)
+    trainer.model = model
+
+    grad_sampler = dict(
+        data_loader_builder=trainer._get_data_loader_builder(),
+        loss_function=lambda preds, batch: trainer.criterion(preds, batch)[0]
+        / train_loader.batch_size,
+    )
+    return grad_sampler
