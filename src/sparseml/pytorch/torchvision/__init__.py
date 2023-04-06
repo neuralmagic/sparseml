@@ -15,4 +15,4 @@
 from sparseml.analytics import sparseml_analytics as _analytics
 
 
-_analytics.send_event("python.pytorch.torchvision.init")
+_analytics.send_event("python__pytorch__torchvision__init")

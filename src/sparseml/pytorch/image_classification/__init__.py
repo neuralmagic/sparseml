@@ -15,4 +15,4 @@
 from sparseml.analytics import sparseml_analytics as _analytics
 
 
-_analytics.send_event("python.pytorch.image_classification.init")
+_analytics.send_event("python__pytorch__image_classification__init")
