@@ -66,21 +66,23 @@ ENV PIP_DEFAULT_TIMEOUT=200
 ARG VERSION
 ARG MODE=""
 RUN \
-    if [[ -n "$BRANCH" ]] ; then \
+    if [ -n "$BRANCH" ] ; then \
       echo Installing from BRANCH && \
       $VENV/bin/pip install --no-cache-dir "./sparseml"; \
-    elif [[ $MODE == "nightly" ]] ; then \
+    elif [ "$MODE" = "nightly" ] ; then \
       echo Installing nightlies ... && \
-      if [ -z $VERSION] ; then \
+      if [ -z "$VERSION" ] ; then \
+        echo Installing latest nightlies ...  && \
         $VENV/bin/pip install --no-cache-dir "sparseml-nightly"; \
       else \
+        echo Installing nightlies ... with $VERSION && \
         $VENV/bin/pip install --no-cache-dir "sparseml-nightly==$VERSION"; \
       fi; \
-    elif [ -z $VERSION] ; then \
+    elif [ -z "$VERSION" ] ; then \
       echo Installing latest sparseml ... from pypi && \
       $VENV/bin/pip install --no-cache-dir "sparseml"; \
     else \
-      echo Installing latest sparseml version=$VERSION from pypi && \
+      echo Installing latest sparseml version="$VERSION" from pypi && \
       $VENV/bin/pip install --no-cache-dir "sparseml==$VERSION"; \
     fi;
 
@@ -91,10 +93,10 @@ ENV PIP_DEFAULT_TIMEOUT=200
 ARG VERSION
 ARG MODE
 RUN \
-    if [[ -n "$BRANCH" ]] ; then \
+    if [ -n "$BRANCH" ] ; then \
       echo Installing from BRANCH && \
       $VENV/bin/pip install --no-cache-dir "./sparseml[onnxruntime,torchvision,ultralytics]"; \
-    elif [[ $MODE == "nightly" ]] ; then \
+    elif [ "$MODE" = "nightly" ] ; then \
       if [ -z $VERSION] ; then \
         $VENV/bin/pip install --no-cache-dir "sparseml-nightly[onnxruntime,torchvision,ultralytics]"; \
       else \
@@ -106,9 +108,9 @@ RUN \
       $VENV/bin/pip install --no-cache-dir "sparseml[onnxruntime,torchvision,ultralytics]==$VERSION"; \
     fi;
 
-#RUN sparseml.transformers.question_answering --help \
-#    && sparseml.yolov5.train --help \
-#    && sparseml.ultralytics.train --help
+RUN sparseml.transformers.question_answering --help \
+    && sparseml.yolov5.train --help \
+    && sparseml.ultralytics.train --help
 
 FROM container_branch_${DEPS} AS build
 RUN echo Build complete, going onto prod
