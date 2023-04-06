@@ -66,8 +66,20 @@ from ultralytics.yolo.utils import USER_CONFIG_DIR, get_settings, yaml_save
     "--save-one-shot-torch",
     default=False,
     help="If one-shot recipe is supplied and "
-    "this flag is set to True,mthe torch model with "
+    "this flag is set to True,the torch model with "
     "the one-shot recipe applied will be exported.",
+)
+@click.option(
+    "--deterministic",
+    default=True,
+    is_flag=True,
+    help="whether to enable deterministic mode",
+)
+@click.option(
+    "--device",
+    default=None,
+    type=str,
+    help="cuda device, i.e. 0 or 0,1,2,3 or cpu. Device to run on",
 )
 @click.option(
     "--datasets-dir",

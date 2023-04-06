@@ -13,11 +13,14 @@
 # limitations under the License.
 
 import os
+import logging
 
 import click
 from sparseml.yolov8.trainers import SparseYOLO
 from ultralytics.yolo.utils import USER_CONFIG_DIR, get_settings, yaml_save
 
+
+logger = logging.getLogger()
 
 # Options generated from
 # https://github.com/ultralytics/ultralytics/blob/main/ultralytics/yolo/configs/default.yaml
