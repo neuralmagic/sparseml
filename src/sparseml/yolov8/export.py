@@ -12,8 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+
 import click
 from sparseml.yolov8.trainers import SparseYOLO
+from ultralytics.yolo.utils import USER_CONFIG_DIR, get_settings, yaml_save
 
 
 # Options generated from
@@ -78,7 +81,20 @@ from sparseml.yolov8.trainers import SparseYOLO
     type=str,
     help="cuda device, i.e. 0 or 0,1,2,3 or cpu. Device to run on",
 )
+@click.option(
+    "--datasets-dir",
+    type=str,
+    default=None,
+    help="Path to override default datasets dir.",
+)
 def main(**kwargs):
+    if kwargs["datasets_dir"] is not None:
+        settings = get_settings()
+        settings["datasets_dir"] = os.path.abspath(
+            os.path.expanduser(kwargs["datasets_dir"])
+        )
+        yaml_save(USER_CONFIG_DIR / "settings.yaml", settings)
+
     model = SparseYOLO(kwargs["model"])
     model.export(**kwargs)
 
