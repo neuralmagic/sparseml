@@ -66,7 +66,7 @@ jobs:
             CUDA=10.2
           push: true
           tags: |
-            ghcr.io/neuralmagic/sparseml:${{ steps.extract_tag.outputs.tag }}+cu102
+            ghcr.io/neuralmagic/sparseml:${{ steps.extract_tag.outputs.tag }}-cu102
 
       - name: Build and push sparseml-base cu11.1.1
         if: ${{ contains(github.ref, 'refs/heads/release/') }}
@@ -91,7 +91,7 @@ jobs:
             CUDA=10.2
           push: true
           tags: |
-            ghcr.io/neuralmagic/sparseml-base:${{ steps.extract_tag.outputs.tag }}+cu10.2
+            ghcr.io/neuralmagic/sparseml-base:${{ steps.extract_tag.outputs.tag }}-cu10.2
 
 
       - name: Image digest
