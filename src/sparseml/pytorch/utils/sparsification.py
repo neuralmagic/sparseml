@@ -17,6 +17,7 @@ Helper functions for retrieving information related to model sparsification
 """
 
 import json
+import logging
 from typing import (
     Any,
     Callable,
@@ -45,6 +46,8 @@ __all__ = [
     "ModuleSparsificationInfo",
     "GradSampler",
 ]
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class ModuleSparsificationInfo:
@@ -254,4 +257,11 @@ class GradSampler:
                         pbar.update(1)
                     if computed_grads >= num_grads:
                         break
+                if computed_grads < num_grads:
+                    _LOGGER.warning(
+                        f"The requested num_grads:{num_grads} is greater than allowed by the dataset. \
+                        Proceeding with less than requested. \
+                        Please reduce num_grads to suppress the warning."
+                    )
+                    break
         module.zero_grad()

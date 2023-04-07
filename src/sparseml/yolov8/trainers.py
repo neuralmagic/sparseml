@@ -19,7 +19,7 @@ import sys
 import tempfile
 import warnings
 from copy import copy, deepcopy
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List, Optional
 
@@ -32,7 +32,7 @@ from sparseml.pytorch.utils import ModuleExporter
 from sparseml.pytorch.utils.helpers import download_framework_model_by_recipe_type
 from sparseml.pytorch.utils.logger import LoggerManager, PythonLogger, WANDBLogger
 from sparseml.yolov8.modules import Bottleneck, Conv
-from sparseml.yolov8.utils import check_coco128_segmentation
+from sparseml.yolov8.utils import check_coco128_segmentation, create_grad_sampler
 from sparseml.yolov8.utils.export_samples import export_sample_inputs_outputs
 from sparseml.yolov8.validators import (
     SparseClassificationValidator,
@@ -322,10 +322,58 @@ class SparseTrainer(BaseTrainer):
                 epoch=self.start_epoch,
                 wrap_optim=self.scaler,
                 loggers=self.logger_manager,
+                grad_sampler={
+                    "data_loader_builder": self._get_data_loader_builder(),
+                    "loss_function": lambda preds, batch: self.criterion(preds, batch)[
+                        0
+                    ]
+                    / self.train_loader.batch_size,
+                },
             )
         else:
             # initialize steps_per_epoch for logging when there's no recipe
             self.steps_per_epoch = len(self.train_loader)
+
+    def _setup_ddp(self, rank, world_size):
+        # increases the timeout for DDP processes
+        torch.cuda.set_device(rank)
+        self.device = torch.device("cuda", rank)
+        LOGGER.info(
+            f"DDP settings: RANK {rank}, WORLD_SIZE {world_size}, DEVICE {self.device}"
+        )
+        torch.distributed.init_process_group(
+            "nccl" if torch.distributed.is_nccl_available() else "gloo",
+            rank=rank,
+            world_size=world_size,
+            timeout=timedelta(seconds=7200),
+        )
+
+    def _get_data_loader_builder(self):
+        train_loader = self.train_loader
+
+        def _data_loader_builder(kwargs):
+            template = dict(train_loader.__dict__)
+            # drop attributes that will be auto-initialized
+            to_drop = [
+                k
+                for k in template
+                if k.startswith("_") or k in ["batch_sampler", "iterator", "sampler"]
+            ]
+            for item in to_drop:
+                template.pop(item)
+
+            # override defaults if kwargs are given, for example via recipe
+            if kwargs:
+                template.update(kwargs)
+            data_loader = type(train_loader)(**template)
+
+            while True:
+                for batch in data_loader:
+                    batch = self.preprocess_batch(batch)
+                    assert batch["img"].device.index == self.device.index
+                    yield [batch["img"]], {}, batch
+
+        return _data_loader_builder
 
     def callback_on_train_epoch_start(self):
         # NOTE: this callback is registered in __init__
@@ -601,7 +649,27 @@ class SparseYOLO(YOLO):
             for p in self.model.parameters():
                 p.requires_grad = True
             manager = ScheduledModifierManager.from_yaml(one_shot)
-            manager.apply(self.model)
+
+            overrides = self.overrides.copy()
+            # assumes single-GPU or CPU one-shot pathway
+            if kwargs["device"] is not None and "cpu" not in kwargs["device"]:
+                overrides["device"] = "cuda:" + kwargs["device"]
+            overrides["deterministic"] = kwargs["deterministic"]
+            trainer = self.TrainerClass(overrides=overrides)
+            self.model = self.model.to(trainer.device)
+
+            manager.apply(
+                self.model,
+                # maybe we could check whether OBS pruner is in the manager?
+                grad_sampler=create_grad_sampler(trainer, stride=32, model=self.model)
+                if any(
+                    map(
+                        lambda mod: hasattr(mod, "_grad_sampler"),
+                        manager.pruning_modifiers,
+                    )
+                )
+                else None,
+            )
             recipe = (
                 ScheduledModifierManager.compose_staged(recipe, manager)
                 if recipe
