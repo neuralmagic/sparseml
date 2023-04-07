@@ -1,6 +1,6 @@
 ARG TORCH_VERSION=1.9.1
 ARG TORCHVISION_VERSION=0.10.1
-ARG CUDA_VERSION=10.2
+ARG CUDA_VERSION=11.1.1
 ARG VERSION
 ARG DEPS="all"
 ARG VENV="/venv"
@@ -112,8 +112,33 @@ RUN sparseml.transformers.question_answering --help \
     && sparseml.yolov5.train --help \
     && sparseml.ultralytics.train --help
 
+
+FROM cuda_builder AS container_branch_dev
+ARG VENV
+ENV PATH="${VENV}/bin:$PATH"
+ENV PIP_DEFAULT_TIMEOUT=200
+ARG VERSION
+ARG MODE
+RUN \
+    if [ -n "$BRANCH" ] ; then \
+      echo Installing from BRANCH with editable mode && \
+      $VENV/bin/pip install -e  "./sparseml[dev]"; \
+    else \
+      echo Installing from main  with editable mode && \
+      git clone https://github.com/neuralmagic/sparseml.git --depth 1 -b main && \
+      $VENV/bin/pip install -e "./sparseml[dev]"; \
+    fi;
+
 FROM container_branch_${DEPS} AS build
 RUN echo Build complete, going onto prod
+
+FROM base as dev
+ARG VENV
+COPY --from=build $VENV $VENV
+COPY --from=build sparseml sparseml
+ENV PATH="${VENV}/bin:$PATH"
+HEALTHCHECK CMD python -c 'import sparseml'
+ENTRYPOINT bash
 
 FROM base as prod
 ARG VENV
