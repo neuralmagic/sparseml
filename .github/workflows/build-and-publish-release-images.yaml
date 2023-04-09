@@ -1,7 +1,8 @@
-name: Build and Publish
+name: Build and Publish Docker Images
 
 on:
-  create
+  release:
+    types: [published]
 
 jobs:
   build-and-push-docker-image:
@@ -42,7 +43,7 @@ jobs:
         run: |
           echo ${{ steps.extract_tag.outputs.tag }}
 
-      - name: Build and  push sparseml-all
+      - name: Build and  push sparseml with all dependencies and default cuda 11.1.1
         if: ${{ contains(github.ref, 'refs/heads/release/') }}
         uses: docker/build-push-action@v2
         with:
@@ -52,68 +53,46 @@ jobs:
             VERSION=${{ steps.extract_tag.outputs.tag }}
           push: true
           tags: |
-            ghcr.io/neuralmagic/sparseml-all:${{ steps.extract_tag.outputs.tag }}
+            ghcr.io/neuralmagic/sparseml:${{ steps.extract_tag.outputs.tag }}
 
-      - name: Build and push sparseml-torchvision
+      - name: Build and  push sparseml with all dependencies and cuda 10.2
         if: ${{ contains(github.ref, 'refs/heads/release/') }}
         uses: docker/build-push-action@v2
         with:
           context: ./docker
           build-args: |
-            DEPS=torchvision
+            DEPS=all
             VERSION=${{ steps.extract_tag.outputs.tag }}
+            CUDA=10.2
           push: true
           tags: |
-            ghcr.io/neuralmagic/sparseml-torchvision:${{ steps.extract_tag.outputs.tag }}
+            ghcr.io/neuralmagic/sparseml:${{ steps.extract_tag.outputs.tag }}-cu102
 
-
-      - name: Build and push sparseml-transformers
+      - name: Build and push sparseml-base cu11.1.1
         if: ${{ contains(github.ref, 'refs/heads/release/') }}
         uses: docker/build-push-action@v2
         with:
           context: ./docker
-          build-args: |
-            DEPS=transformers
-            VERSION=${{ steps.extract_tag.outputs.tag }}
-          tags: |
-            ghcr.io/neuralmagic/sparseml-transformers:${{ steps.extract_tag.outputs.tag }}
-
-      - name: Build and push sparseml-ultralytics
-        if: ${{ contains(github.ref, 'refs/heads/release/') }}
-        uses: docker/build-push-action@v2
-        with:
-          context: ./docker
-          push: true
-          build-args: |
-            DEPS=ultralytics
-            VERSION=${{ steps.extract_tag.outputs.tag }}
-          tags: |
-            ghcr.io/neuralmagic/sparseml-torchvision:${{ steps.extract_tag.outputs.tag }}
-
-
-      - name: Build and push sparseml-yolov5
-        if: ${{ contains(github.ref, 'refs/heads/release/') }}
-        uses: docker/build-push-action@v2
-        with:
-          context: ./docker
-          push: true
-          build-args: |
-            DEPS=yolov5
-            VERSION=${{ steps.extract_tag.outputs.tag }}
-          tags: |
-            ghcr.io/neuralmagic/sparseml-yolov5:${{ steps.extract_tag.outputs.tag }}
-
-      - name: Build and push sparseml-base
-        if: ${{ contains(github.ref, 'refs/heads/release/') }}
-        uses: docker/build-push-action@v2
-        with:
-          context: ./docker
-          push: true
           build-args: |
             DEPS=base
             VERSION=${{ steps.extract_tag.outputs.tag }}
+          push: true
           tags: |
             ghcr.io/neuralmagic/sparseml-base:${{ steps.extract_tag.outputs.tag }}
+
+      - name: Build and push sparseml-base cu10.2
+        if: ${{ contains(github.ref, 'refs/heads/release/') }}
+        uses: docker/build-push-action@v2
+        with:
+          context: ./docker
+          build-args: |
+            DEPS=base
+            VERSION=${{ steps.extract_tag.outputs.tag }}
+            CUDA=10.2
+          push: true
+          tags: |
+            ghcr.io/neuralmagic/sparseml-base:${{ steps.extract_tag.outputs.tag }}-cu10.2
+
 
       - name: Image digest
         if: ${{ contains(github.ref, 'refs/heads/release/') }}
