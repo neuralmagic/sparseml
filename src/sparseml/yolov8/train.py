@@ -12,9 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
+import os
+
 import click
 from sparseml.yolov8.trainers import SparseYOLO
+from ultralytics.yolo.utils import USER_CONFIG_DIR, get_settings, yaml_save
 
+
+logger = logging.getLogger()
 
 # Options generated from
 # https://github.com/ultralytics/ultralytics/blob/main/ultralytics/yolo/configs/default.yaml
@@ -205,7 +211,20 @@ from sparseml.yolov8.trainers import SparseYOLO
 @click.option(
     "--copy-paste", type=float, default=0.0, help="segment copy-paste (probability)"
 )
+@click.option(
+    "--datasets-dir",
+    type=str,
+    default=None,
+    help="Path to override default datasets dir.",
+)
 def main(**kwargs):
+    if kwargs["datasets_dir"] is not None:
+        settings = get_settings()
+        settings["datasets_dir"] = os.path.abspath(
+            os.path.expanduser(kwargs["datasets_dir"])
+        )
+        yaml_save(USER_CONFIG_DIR / "settings.yaml", settings)
+
     model = SparseYOLO(kwargs["model"])
     model.train(**kwargs)
 

@@ -27,6 +27,9 @@ class Conv(nn.Module):
         super().__init__()
         self.conv = layer.conv
         self.bn = layer.bn
+        for attr in ["i", "f", "type"]:
+            if hasattr(layer, attr):
+                setattr(self, attr, getattr(layer, attr))
         is_silu = isinstance(layer.act, nn.SiLU)
         self.act = nn.SiLU() if is_silu else layer.act
 
@@ -57,6 +60,9 @@ class Bottleneck(nn.Module):
         self.cv1 = layer.cv1
         self.cv2 = layer.cv2
         self.add = layer.add
+        for attr in ["i", "f", "type"]:
+            if hasattr(layer, attr):
+                setattr(self, attr, getattr(layer, attr))
         self.add_input_0 = AddInput()
         self.add_input_1 = AddInput()
 

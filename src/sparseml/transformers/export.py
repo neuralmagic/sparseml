@@ -115,8 +115,8 @@ def load_task_model(task: str, model_path: str, config: Any) -> Module:
             model_name_or_path=model_path,
             config=config,
         )
-    if task == "text-generation" or task == "codegen" or task == "opt":
-        if task == "codegen":
+    if task == "text-generation" or task == "codegen" or task == "opt" or task=="bloom":
+        if task not in ["text-generation", "opt"]:
             raise NotImplementedError()
         return SparseAutoModel.text_generation_from_pretrained(
             model_name_or_path=model_path, config=config
