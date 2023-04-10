@@ -20,6 +20,7 @@ from typing import Any, Dict, Optional, Tuple, Union
 import torch
 from torch.nn import Module
 from transformers import (
+    AutoModelForCausalLM,
     AutoModelForMaskedLM,
     AutoModelForQuestionAnswering,
     AutoModelForSequenceClassification,
@@ -110,6 +111,18 @@ class SparseAutoModel:
         )
 
         return model, teacher
+
+    @staticmethod
+    def text_generation_from_pretrained(
+        model_name_or_path: str,
+        config: Optional[Any] = None,
+        **kwargs,
+    ) -> Module:
+        """ """
+        model = AutoModelForCausalLM.from_pretrained(
+            model_name_or_path, config=config, **kwargs
+        )
+        return model
 
     @staticmethod
     def question_answering_from_pretrained(

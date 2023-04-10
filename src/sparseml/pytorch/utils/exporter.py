@@ -570,7 +570,23 @@ def export_onnx(
 
         # clean up graph from any injected / wrapped operations
         _delete_trivial_onnx_adds(onnx_model)
-    onnx.save(onnx_model, file_path)
+
+    try:
+        # alternatively we can just check the size of the onnx file on disk
+        onnx.save(onnx_model, file_path)
+
+    except Exception as e:
+        _LOGGER.info(
+            "Attempted to save ONNX model without external data."
+            f"Results in error: {e}. Saving with external data instead."
+        )
+        onnx.save(
+            onnx_model,
+            file_path,
+            location=os.path.basename(file_path).replace("onnx", "data"),
+            save_as_external_data=True,
+            all_tensors_to_one_file=True,
+        )
 
     if convert_qat and is_quant_module:
         # overwrite exported model with fully quantized version
