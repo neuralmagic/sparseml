@@ -94,7 +94,6 @@ MODEL_ONNX_NAME = "model.onnx"
 EXTERNAL_ONNX_DATA_NAME = "model.data"
 MANDATORY_DEPLOYMENT_FILES: List[str] = [
     MODEL_ONNX_NAME,
-    EXTERNAL_ONNX_DATA_NAME,
     "tokenizer_config.json",
     "config.json",
 ]
