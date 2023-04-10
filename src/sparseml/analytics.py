@@ -12,17 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Functionality for working with and sparsifying Models in the TensorFlow 1.x framework
-"""
-
-# flake8: noqa
-
-from sparseml.analytics import sparseml_analytics as _analytics
-
-from .base import *
-from .framework import detect_framework, framework_info, is_supported
-from .sparsification import sparsification_info
+from sparseml.version import version as sparseml_version
+from sparsezoo.analytics import GoogleAnalytics
 
 
-_analytics.send_event("python__tensorflow_v1__init")
+__all__ = ["sparseml_analytics"]
+
+
+# analytics client for sparseml, to disable set NM_DISABLE_ANALYTICS=1
+sparseml_analytics = GoogleAnalytics("sparseml", sparseml_version)
