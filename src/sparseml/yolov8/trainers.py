@@ -527,7 +527,7 @@ class SparseYOLO(YOLO):
 
         if model_str.startswith("zoo:"):
             model = download_framework_model_by_recipe_type(
-                Model(model_str), model_suffix=".pt"
+                Model(model_str), model_suffix="pt"
             )
             self.is_sparseml_checkpoint = True
         elif model_str.endswith(".pt"):
