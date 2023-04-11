@@ -530,7 +530,8 @@ class SparseYOLO(YOLO):
                 Model(model_str), model_suffix="pt"
             )
             self.is_sparseml_checkpoint = True
-        elif model_str.endswith(".pt"):
+
+        if model_str.endswith(".pt"):
             if os.path.exists(model_str):
                 ckpt = torch.load(model_str)
                 self.is_sparseml_checkpoint = (
