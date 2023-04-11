@@ -36,7 +36,13 @@ class SparseValidator(BaseValidator):
         if self.training:
             self.device = trainer.device
             self.data = trainer.data
-            model = trainer.ema.ema or trainer.model
+            if trainer.manager and trainer.manager.quantization_modifiers:
+                # Since we disable the EMA model for QAT, we validate the non-averaged
+                # QAT model
+                model = de_parallel(trainer.model)
+            else:
+                model = trainer.ema.ema or trainer.model
+
             # self.args.half = self.device.type != "cpu"
             model = model.half() if self.args.half else model.float()
             self.model = model
@@ -136,10 +142,14 @@ class SparseValidator(BaseValidator):
             with dt[3]:
                 preds = self.postprocess(preds)
 
-            self.update_metrics(preds, batch)
+            # During QAT the resulting preds are grad required, breaking
+            # the update metrics function.
+            detached_preds = [p.detach() for p in preds]
+            self.update_metrics(detached_preds, batch)
+
             if self.args.plots and batch_i < 3:
                 self.plot_val_samples(batch, batch_i)
-                self.plot_predictions(batch, preds, batch_i)
+                self.plot_predictions(batch, detached_preds, batch_i)
 
             self.run_callbacks("on_val_batch_end")
         stats = self.get_stats()

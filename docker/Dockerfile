@@ -1,6 +1,6 @@
 ARG TORCH_VERSION=1.9.1
 ARG TORCHVISION_VERSION=0.10.1
-ARG CUDA_VERSION=10.2
+ARG CUDA_VERSION=11.1.1
 ARG VERSION
 ARG DEPS="all"
 ARG VENV="/venv"
@@ -12,13 +12,6 @@ FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu18.04 as base
 # Source: https://github.com/NVIDIA/nvidia-docker/issues/1632
 
 ARG VENV
-
-# metainformation
-LABEL org.opencontainers.image.version = "1.4"
-LABEL org.opencontainers.image.authors = "Neuralmagic, Inc."
-LABEL org.opencontainers.image.source = "https://github.com/neuralmagic/sparseml"
-LABEL org.opencontainers.image.licenses = "Apache License 2.0"
-
 RUN if [ -f /etc/apt/sources.list.d/cuda.list ] ; then rm /etc/apt/sources.list.d/cuda.list ; fi
 RUN if [ -f /etc/apt/sources.list.d/nvidia-ml.list ] ; then rm /etc/apt/sources.list.d/nvidia-ml.list ; fi
 
@@ -57,68 +50,95 @@ FROM cuda-$CUDA_VERSION as cuda_builder
 ARG VENV
 RUN $VENV/bin/pip install --upgrade setuptools wheel
 ARG BRANCH
-ARG VERSION
 RUN \
-    if [ -z "${VERSION}" ] ; then  \
-    echo VERSION not provided && \
-      if [ -z "${BRANCH}" ]; then  \
-        echo cloning main \
-          && git clone https://github.com/neuralmagic/sparseml.git --depth 1 -b main; \
-      else echo cloning $BRANCH \
-          && git clone https://github.com/neuralmagic/sparseml.git --depth 1 -b $BRANCH; \
-      fi; \
-    else echo VERSION is $VERSION \
-      &&  git clone https://github.com/neuralmagic/sparseml.git --depth 1 -b release/${VERSION}; \
-    fi;
+   if [ -z "${BRANCH}"] ; then  \
+    echo Will install from pypi based on mode and version ; \
+  else  \
+    echo cloning from "${BRANCH}" &&  \
+    git clone https://github.com/neuralmagic/sparseml.git --depth 1 -b "${BRANCH}" ; \
+  fi;
 
 
 FROM cuda_builder AS container_branch_base
 ARG VENV
 ENV PATH="${VENV}/bin:$PATH"
 ENV PIP_DEFAULT_TIMEOUT=200
-ARG SPARSEML_INSTALLABLE=./sparseml
-RUN $VENV/bin/pip install --no-cache-dir "${SPARSEML_INSTALLABLE}"
+ARG VERSION
+ARG MODE=""
+RUN \
+    if [ -n "$BRANCH" ] ; then \
+      echo Installing from BRANCH && \
+      $VENV/bin/pip install --no-cache-dir "./sparseml"; \
+    elif [ "$MODE" = "nightly" ] ; then \
+      echo Installing nightlies ... && \
+      if [ -z "$VERSION" ] ; then \
+        echo Installing latest nightlies ...  && \
+        $VENV/bin/pip install --no-cache-dir "sparseml-nightly"; \
+      else \
+        echo Installing nightlies ... with $VERSION && \
+        $VENV/bin/pip install --no-cache-dir "sparseml-nightly==$VERSION"; \
+      fi; \
+    elif [ -z "$VERSION" ] ; then \
+      echo Installing latest sparseml ... from pypi && \
+      $VENV/bin/pip install --no-cache-dir "sparseml"; \
+    else \
+      echo Installing latest sparseml version="$VERSION" from pypi && \
+      $VENV/bin/pip install --no-cache-dir "sparseml==$VERSION"; \
+    fi;
 
-
-FROM container_branch_base as container_branch_all
+FROM cuda_builder AS container_branch_all
 ARG VENV
-ARG SPARSEML_INSTALLABLE=./sparseml[onnxruntime,torchvision,ultralytics]
-RUN $VENV/bin/pip install --no-cache-dir "${SPARSEML_INSTALLABLE}"
+ENV PATH="${VENV}/bin:$PATH"
+ENV PIP_DEFAULT_TIMEOUT=200
+ARG VERSION
+ARG MODE
+RUN \
+    if [ -n "$BRANCH" ] ; then \
+      echo Installing from BRANCH && \
+      $VENV/bin/pip install --no-cache-dir "./sparseml[onnxruntime,torchvision,ultralytics]"; \
+    elif [ "$MODE" = "nightly" ] ; then \
+      if [ -z $VERSION] ; then \
+        $VENV/bin/pip install --no-cache-dir "sparseml-nightly[onnxruntime,torchvision,ultralytics]"; \
+      else \
+        $VENV/bin/pip install --no-cache-dir "sparseml-nightly[onnxruntime,torchvision,ultralytics]==$VERSION"; \
+      fi; \
+    elif [ -z $VERSION] ; then \
+      $VENV/bin/pip install --no-cache-dir "sparseml[onnxruntime,torchvision,ultralytics]"; \
+    else \
+      $VENV/bin/pip install --no-cache-dir "sparseml[onnxruntime,torchvision,ultralytics]==$VERSION"; \
+    fi;
+
 RUN sparseml.transformers.question_answering --help \
     && sparseml.yolov5.train --help \
     && sparseml.ultralytics.train --help
 
-FROM container_branch_base as container_branch_transformers
-RUN sparseml.transformers.question_answering --help
 
-
-FROM container_branch_base as container_branch_torchvision
+FROM cuda_builder AS container_branch_dev
 ARG VENV
-ARG SPARSEML_INSTALLABLE=./sparseml[torchvision]
-RUN $VENV/bin/pip install --no-cache-dir "${SPARSEML_INSTALLABLE}"
-
-FROM container_branch_base as container_branch_ultralytics
-ARG VENV
-ARG SPARSEML_INSTALLABLE=./sparseml[onnxruntime,ultralytics]
-RUN $VENV/bin/pip install --no-cache-dir "${SPARSEML_INSTALLABLE}"
-RUN sparseml.ultralytics.train --help
-
-
-FROM container_branch_base as container_branch_yolov5
-ARG VENV
-ARG SPARSEML_INSTALLABLE=./sparseml
-RUN $VENV/bin/pip install --no-cache-dir "${SPARSEML_INSTALLABLE}"
-RUN sparseml.yolov5.train --help
-
-
-FROM container_branch_base as container_branch_dev
-ARG VENV
-ARG SPARSEML_INSTALLABLE=./sparseml[dev]
-RUN $VENV/bin/pip install -e "${SPARSEML_INSTALLABLE}"
-
+ENV PATH="${VENV}/bin:$PATH"
+ENV PIP_DEFAULT_TIMEOUT=200
+ARG VERSION
+ARG MODE
+RUN \
+    if [ -n "$BRANCH" ] ; then \
+      echo Installing from BRANCH with editable mode && \
+      $VENV/bin/pip install -e  "./sparseml[dev]"; \
+    else \
+      echo Installing from main  with editable mode && \
+      git clone https://github.com/neuralmagic/sparseml.git --depth 1 -b main && \
+      $VENV/bin/pip install -e "./sparseml[dev]"; \
+    fi;
 
 FROM container_branch_${DEPS} AS build
 RUN echo Build complete, going onto prod
+
+FROM base as dev
+ARG VENV
+COPY --from=build $VENV $VENV
+COPY --from=build sparseml sparseml
+ENV PATH="${VENV}/bin:$PATH"
+HEALTHCHECK CMD python -c 'import sparseml'
+ENTRYPOINT bash
 
 FROM base as prod
 ARG VENV

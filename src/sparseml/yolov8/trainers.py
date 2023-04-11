@@ -19,9 +19,9 @@ import sys
 import tempfile
 import warnings
 from copy import copy, deepcopy
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 import onnx
 import torch
@@ -31,6 +31,8 @@ from sparseml.pytorch.optim.manager import ScheduledModifierManager
 from sparseml.pytorch.utils import ModuleExporter
 from sparseml.pytorch.utils.helpers import download_framework_model_by_recipe_type
 from sparseml.pytorch.utils.logger import LoggerManager, PythonLogger, WANDBLogger
+from sparseml.yolov8.modules import Bottleneck, Conv
+from sparseml.yolov8.utils import check_coco128_segmentation, create_grad_sampler
 from sparseml.yolov8.utils.export_samples import export_sample_inputs_outputs
 from sparseml.yolov8.validators import (
     SparseClassificationValidator,
@@ -111,6 +113,9 @@ class SparseTrainer(BaseTrainer):
         )
         self.add_callback(
             "on_train_batch_end", SparseTrainer.callback_on_train_batch_end
+        )
+        self.add_callback(
+            "on_train_epoch_end", SparseTrainer.callback_on_train_epoch_end
         )
         self.add_callback("teardown", SparseTrainer.callback_teardown)
 
@@ -205,6 +210,8 @@ class SparseTrainer(BaseTrainer):
             self.manager = ScheduledModifierManager.from_yaml(
                 self.args.recipe, recipe_variables=self.args.recipe_args
             )
+            if self.manager.quantization_modifiers:
+                _modify_arch_for_quantization(self.model)
 
         if ckpt is None:
             return
@@ -218,6 +225,8 @@ class SparseTrainer(BaseTrainer):
                 f"at epoch {ckpt['epoch']}"
             )
             self.checkpoint_manager = ScheduledModifierManager.from_yaml(ckpt["recipe"])
+            if self.checkpoint_manager.quantization_modifiers:
+                self._modify_arch_for_quantization()
             self.checkpoint_manager.apply_structure(self.model, epoch=float("inf"))
 
         else:
@@ -228,6 +237,8 @@ class SparseTrainer(BaseTrainer):
                 "Applying structure from un-finished recipe in checkpoint "
                 f"at epoch {ckpt['epoch']}"
             )
+            if self.manager.quantization_modifiers:
+                self._modify_arch_for_quantization()
             self.manager.apply_structure(self.model, epoch=ckpt["epoch"])
 
     def resume_training(self, ckpt):
@@ -311,10 +322,58 @@ class SparseTrainer(BaseTrainer):
                 epoch=self.start_epoch,
                 wrap_optim=self.scaler,
                 loggers=self.logger_manager,
+                grad_sampler={
+                    "data_loader_builder": self._get_data_loader_builder(),
+                    "loss_function": lambda preds, batch: self.criterion(preds, batch)[
+                        0
+                    ]
+                    / self.train_loader.batch_size,
+                },
             )
         else:
             # initialize steps_per_epoch for logging when there's no recipe
             self.steps_per_epoch = len(self.train_loader)
+
+    def _setup_ddp(self, rank, world_size):
+        # increases the timeout for DDP processes
+        torch.cuda.set_device(rank)
+        self.device = torch.device("cuda", rank)
+        LOGGER.info(
+            f"DDP settings: RANK {rank}, WORLD_SIZE {world_size}, DEVICE {self.device}"
+        )
+        torch.distributed.init_process_group(
+            "nccl" if torch.distributed.is_nccl_available() else "gloo",
+            rank=rank,
+            world_size=world_size,
+            timeout=timedelta(seconds=7200),
+        )
+
+    def _get_data_loader_builder(self):
+        train_loader = self.train_loader
+
+        def _data_loader_builder(kwargs):
+            template = dict(train_loader.__dict__)
+            # drop attributes that will be auto-initialized
+            to_drop = [
+                k
+                for k in template
+                if k.startswith("_") or k in ["batch_sampler", "iterator", "sampler"]
+            ]
+            for item in to_drop:
+                template.pop(item)
+
+            # override defaults if kwargs are given, for example via recipe
+            if kwargs:
+                template.update(kwargs)
+            data_loader = type(train_loader)(**template)
+
+            while True:
+                for batch in data_loader:
+                    batch = self.preprocess_batch(batch)
+                    assert batch["img"].device.index == self.device.index
+                    yield [batch["img"]], {}, batch
+
+        return _data_loader_builder
 
     def callback_on_train_epoch_start(self):
         # NOTE: this callback is registered in __init__
@@ -355,6 +414,18 @@ class SparseTrainer(BaseTrainer):
 
         self.epoch_step += 1
 
+    def callback_on_train_epoch_end(self):
+        # NOTE: this is called right before  validation occurs
+        if self.ema is not None and self.ema.enabled and self.manager is not None:
+            # ema update was just called in super().optimizer_step()
+            # we need to update ema's mask
+            ema_state_dict = self.ema.ema.state_dict()
+            for pruning_modifier in self.manager.pruning_modifiers:
+                if pruning_modifier.enabled:
+                    for key, mask in pruning_modifier.state_dict().items():
+                        param_name = key.replace(".sparsity_mask", "")
+                        ema_state_dict[param_name] *= mask
+
     def save_metrics(self, metrics):
         super().save_metrics(metrics)
 
@@ -390,15 +461,16 @@ class SparseTrainer(BaseTrainer):
             "best_fitness": self.best_fitness,
             "model": deepcopy(model).state_dict(),
             "model_yaml": dict(model.yaml),
-            "ema": deepcopy(self.ema.ema).state_dict(),
-            "updates": self.ema.updates,
+            "ema": deepcopy(self.ema.ema).state_dict()
+            if self.ema and self.ema.enabled
+            else None,
+            "updates": self.ema.updates if self.ema and self.ema.enabled else None,
             "optimizer": self.optimizer.state_dict(),
             "train_args": vars(self.args),
             "date": datetime.now().isoformat(),
             "version": __version__,
             "source": "sparseml",
         }
-
         if manager is not None:
             ckpt["recipe"] = str(manager)
 
@@ -524,10 +596,16 @@ class SparseYOLO(YOLO):
                     "Applying structure from sparseml checkpoint "
                     f"at epoch {self.ckpt['epoch']}"
                 )
+                if manager.quantization_modifiers:
+                    _modify_arch_for_quantization(self.model)
                 manager.apply_structure(self.model, epoch=epoch)
             else:
                 LOGGER.info("No recipe from in sparseml checkpoint")
-            self.model.load_state_dict(self.ckpt["model"])
+
+            if self.ckpt["ema"]:
+                self.model.load_state_dict(self.ckpt["ema"])
+            else:
+                self.model.load_state_dict(self.ckpt["model"])
             LOGGER.info("Loaded previous weights from checkpoint")
             assert self.model.yaml == self.ckpt["model_yaml"]
         else:
@@ -571,7 +649,27 @@ class SparseYOLO(YOLO):
             for p in self.model.parameters():
                 p.requires_grad = True
             manager = ScheduledModifierManager.from_yaml(one_shot)
-            manager.apply(self.model)
+
+            overrides = self.overrides.copy()
+            # assumes single-GPU or CPU one-shot pathway
+            if kwargs["device"] is not None and "cpu" not in kwargs["device"]:
+                overrides["device"] = "cuda:" + kwargs["device"]
+            overrides["deterministic"] = kwargs["deterministic"]
+            trainer = self.TrainerClass(overrides=overrides)
+            self.model = self.model.to(trainer.device)
+
+            manager.apply(
+                self.model,
+                # maybe we could check whether OBS pruner is in the manager?
+                grad_sampler=create_grad_sampler(trainer, stride=32, model=self.model)
+                if any(
+                    map(
+                        lambda mod: hasattr(mod, "_grad_sampler"),
+                        manager.pruning_modifiers,
+                    )
+                )
+                else None,
+            )
             recipe = (
                 ScheduledModifierManager.compose_staged(recipe, manager)
                 if recipe
@@ -683,6 +781,8 @@ class SparseYOLO(YOLO):
             # use trained imgsz unless custom value is passed
             args.imgsz = self.ckpt["train_args"]["imgsz"]
         args.imgsz = check_imgsz(args.imgsz, max_dim=1)
+        if args.task == "segment":
+            args = check_coco128_segmentation(args)
 
         validator = self.ValidatorClass(args=args)
         validator(
@@ -734,3 +834,19 @@ def generate_ddp_file(trainer):
     ) as file:
         file.write(content)
     return file.name
+
+
+def _get_submodule(module: torch.nn.Module, path: List[str]) -> torch.nn.Module:
+    if not path:
+        return module
+    return _get_submodule(getattr(module, path[0]), path[1:])
+
+
+def _modify_arch_for_quantization(model):
+    layer_map = {"Bottleneck": Bottleneck, "Conv": Conv}
+    for name, layer in model.named_modules():
+        cls_name = layer.__class__.__name__
+        if cls_name in layer_map:
+            submodule_path = name.split(".")
+            parent_module = _get_submodule(model, submodule_path[:-1])
+            setattr(parent_module, submodule_path[-1], layer_map[cls_name](layer))
