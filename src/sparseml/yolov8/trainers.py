@@ -589,12 +589,12 @@ class SparseYOLO(YOLO):
 
             if "yaml" in self.ckpt:
                 self.model = self.ModelClass(dict(self.ckpt["yaml"]))
+            elif "model_yaml" in self.ckpt:
+                self.model = self.ModelClass(dict(self.ckpt["model_yaml"]))
             else:
                 self.model = self.ModelClass(dict(self.ckpt["model"].yaml))
             if "recipe" in self.ckpt:
-                manager = ScheduledModifierManager.from_yaml(
-                    self.ckpt["model"]["recipe"]
-                )
+                manager = ScheduledModifierManager.from_yaml(self.ckpt["recipe"])
                 epoch = self.ckpt.get("epoch", -1)
                 if epoch < 0:
                     epoch = float("inf")
