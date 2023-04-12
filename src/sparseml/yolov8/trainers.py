@@ -527,10 +527,11 @@ class SparseYOLO(YOLO):
 
         if model_str.startswith("zoo:"):
             model = download_framework_model_by_recipe_type(
-                Model(model_str), model_suffix=".pt"
+                Model(model_str), model_suffix="pt"
             )
             self.is_sparseml_checkpoint = True
-        elif model_str.endswith(".pt"):
+
+        if model_str.endswith(".pt"):
             if os.path.exists(model_str):
                 ckpt = torch.load(model_str)
                 self.is_sparseml_checkpoint = (
@@ -586,7 +587,12 @@ class SparseYOLO(YOLO):
                 self.PredictorClass,
             ) = self._assign_ops_from_task(self.task)
 
-            self.model = self.ModelClass(dict(self.ckpt["model_yaml"]))
+            if "yaml" in self.ckpt:
+                self.model = self.ModelClass(dict(self.ckpt["yaml"]))
+            elif "model_yaml" in self.ckpt:
+                self.model = self.ModelClass(dict(self.ckpt["model_yaml"]))
+            else:
+                self.model = self.ModelClass(dict(self.ckpt["model"].yaml))
             if "recipe" in self.ckpt:
                 manager = ScheduledModifierManager.from_yaml(self.ckpt["recipe"])
                 epoch = self.ckpt.get("epoch", -1)
