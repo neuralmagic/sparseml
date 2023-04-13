@@ -15,14 +15,16 @@
 import os
 import warnings
 from argparse import Namespace
-from typing import Any, Dict
+from typing import Any, Dict, List, Tuple, Union
+
+import torch
 
 from ultralytics.yolo.data.dataloaders.v5loader import create_dataloader
 from ultralytics.yolo.engine.model import DetectionModel
 from ultralytics.yolo.engine.trainer import BaseTrainer
 
 
-__all__ = ["check_coco128_segmentation", "create_grad_sampler"]
+__all__ = ["check_coco128_segmentation", "create_grad_sampler", "detach"]
 
 
 def check_coco128_segmentation(args: Namespace) -> Namespace:
@@ -69,3 +71,14 @@ def create_grad_sampler(
         / train_loader.batch_size,
     )
     return grad_sampler
+
+
+def detach(x: Union[torch.Tensor, List, Tuple]):
+    if isinstance(x, torch.Tensor):
+        return x.detach()
+    elif isinstance(x, List):
+        return [detach(e) for e in x]
+    elif isinstance(x, Tuple):
+        return tuple([detach(e) for e in x])
+    else:
+        raise ValueError("Unexpected type to detach")
