@@ -106,10 +106,15 @@ def export_sample_inputs_outputs(
         preprocessed_batch = preprocess(batch=batch, device=device)
         image = preprocessed_batch["img"]
 
-        # Save inputs as numpy array
-        _export_inputs(image, sample_in_dir, file_idx, save_inputs_as_uint8)
         # Save torch outputs as numpy array
         _export_torch_outputs(image, model, sample_out_dir_torch, file_idx)
+
+        # Convert input data type if needed
+        if save_inputs_as_uint8:
+            image = (255 * image).to(dtype=torch.uint8)
+
+        # Save inputs as numpy array
+        _export_inputs(image, sample_in_dir, file_idx)
         # Save onnxruntime outputs as numpy array
         _export_ort_outputs(
             image.cpu().numpy(), ort_session, sample_out_dir_ort, file_idx
@@ -167,12 +172,9 @@ def _export_ort_outputs(
 
 
 def _export_inputs(
-    image: torch.Tensor, sample_in_dir: str, file_idx: str, save_inputs_as_uint8: bool
-):
+    image: torch.Tensor, sample_in_dir: str, file_idx: str):
 
     sample_in = image.detach().to("cpu")
-    if save_inputs_as_uint8:
-        sample_in = (255 * sample_in).to(dtype=torch.uint8)
 
     sample_input_filename = os.path.join(sample_in_dir, f"inp-{file_idx}.npz")
     numpy.savez(sample_input_filename, sample_in)
