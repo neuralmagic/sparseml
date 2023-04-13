@@ -715,7 +715,7 @@ class SparseYOLO(YOLO):
         complete_path = os.path.join(save_dir, name)
         try:
             skip_onnx_input_quantize(complete_path, complete_path)
-        except:
+        except Exception:
             pass
 
         onnx.checker.check_model(complete_path)
