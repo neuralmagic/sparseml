@@ -13,11 +13,10 @@
 # limitations under the License.
 
 import logging
-import os
 
 import click
 from sparseml.yolov8.trainers import SparseYOLO
-from ultralytics.yolo.utils import USER_CONFIG_DIR, get_settings, yaml_save
+from sparseml.yolov8.utils import data_from_datasets_dir
 
 
 logger = logging.getLogger()
@@ -219,11 +218,7 @@ logger = logging.getLogger()
 )
 def main(**kwargs):
     if kwargs["datasets_dir"] is not None:
-        settings = get_settings()
-        settings["datasets_dir"] = os.path.abspath(
-            os.path.expanduser(kwargs["datasets_dir"])
-        )
-        yaml_save(USER_CONFIG_DIR / "settings.yaml", settings)
+        kwargs["data"] = data_from_datasets_dir(kwargs["data"], kwargs["datasets_dir"])
 
     model = SparseYOLO(kwargs["model"])
     model.train(**kwargs)

@@ -32,7 +32,11 @@ from sparseml.pytorch.utils import ModuleExporter
 from sparseml.pytorch.utils.helpers import download_framework_model_by_recipe_type
 from sparseml.pytorch.utils.logger import LoggerManager, PythonLogger, WANDBLogger
 from sparseml.yolov8.modules import Bottleneck, Conv
-from sparseml.yolov8.utils import check_coco128_segmentation, create_grad_sampler
+from sparseml.yolov8.utils import (
+    check_coco128_segmentation,
+    create_grad_sampler,
+    data_from_datasets_dir,
+)
 from sparseml.yolov8.utils.export_samples import export_sample_inputs_outputs
 from sparseml.yolov8.validators import (
     SparseClassificationValidator,
@@ -655,6 +659,11 @@ class SparseYOLO(YOLO):
             if kwargs["device"] is not None and "cpu" not in kwargs["device"]:
                 overrides["device"] = "cuda:" + kwargs["device"]
             overrides["deterministic"] = kwargs["deterministic"]
+            if kwargs["datasets_dir"] is not None:
+                overrides["data"] = data_from_datasets_dir(
+                    overrides["data"], kwargs["datasets_dir"]
+                )
+
             trainer = self.TrainerClass(overrides=overrides)
             self.model = self.model.to(trainer.device)
 
@@ -710,9 +719,12 @@ class SparseYOLO(YOLO):
         if args["export_samples"]:
             trainer_config = get_cfg(cfg=DEFAULT_SPARSEML_CONFIG_PATH)
 
+            if args["datasets_dir"] is not None:
+                args["data"] = data_from_datasets_dir(
+                    args["data"], args["datasets_dir"]
+                )
             trainer_config.data = args["data"]
             trainer_config.imgsz = args["imgsz"]
-
             trainer = DetectionTrainer(trainer_config)
             # inconsistency in name between
             # validation and test sets
