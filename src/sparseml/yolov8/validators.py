@@ -17,7 +17,7 @@ import json
 import torch
 from tqdm import tqdm
 
-from sparseml.yolov8.utils import detach
+from sparseml.pytorch.utils import detach
 from ultralytics.nn.autobackend import AutoBackend
 from ultralytics.yolo.data.utils import check_cls_dataset, check_det_dataset
 from ultralytics.yolo.engine.validator import BaseValidator
