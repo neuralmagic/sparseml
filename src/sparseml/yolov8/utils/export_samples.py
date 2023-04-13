@@ -171,8 +171,7 @@ def _export_ort_outputs(
     numpy.savez(sample_output_filename, preds)
 
 
-def _export_inputs(
-    image: torch.Tensor, sample_in_dir: str, file_idx: str):
+def _export_inputs(image: torch.Tensor, sample_in_dir: str, file_idx: str):
 
     sample_in = image.detach().to("cpu")
 
