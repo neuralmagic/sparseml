@@ -71,7 +71,7 @@ from sparseml.yolov8.utils import data_from_dataset_path
 )
 @click.option("--plots", default=False, is_flag=True, help="show plots during training")
 @click.option(
-    "--dataset_path",
+    "--dataset-path",
     type=str,
     default=None,
     help="Path to override default datasets path.",

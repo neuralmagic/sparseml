@@ -211,7 +211,7 @@ logger = logging.getLogger()
     "--copy-paste", type=float, default=0.0, help="segment copy-paste (probability)"
 )
 @click.option(
-    "--dataset_path",
+    "--dataset-path",
     type=str,
     default=None,
     help="Path to override default dataset path.",
