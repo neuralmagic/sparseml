@@ -100,6 +100,7 @@ __all__ = [
     "MEMORY_BOUNDED",
     "memory_aware_threshold",
     "download_framework_model_by_recipe_type",
+    "detach",
 ]
 
 
@@ -1162,3 +1163,14 @@ def download_framework_model_by_recipe_type(
         framework_model = zoo_model.training.default.get_file(model_name)
 
     return framework_model.path
+
+
+def detach(x: Union[torch.Tensor, List, Tuple]):
+    if isinstance(x, torch.Tensor):
+        return x.detach()
+    elif isinstance(x, List):
+        return [detach(e) for e in x]
+    elif isinstance(x, Tuple):
+        return tuple([detach(e) for e in x])
+    else:
+        raise ValueError("Unexpected type to detach")

@@ -18,6 +18,7 @@ from argparse import Namespace
 import torch
 from tqdm import tqdm
 
+from sparseml.pytorch.utils import detach
 from ultralytics.nn.autobackend import AutoBackend
 from ultralytics.yolo.data.utils import check_cls_dataset, check_det_dataset
 from ultralytics.yolo.engine.validator import BaseValidator
@@ -144,7 +145,7 @@ class SparseValidator(BaseValidator):
 
             # During QAT the resulting preds are grad required, breaking
             # the update metrics function.
-            detached_preds = [p.detach() for p in preds]
+            detached_preds = detach(preds)
             self.update_metrics(detached_preds, batch)
 
             if self.args.plots and batch_i < 3:
