@@ -15,7 +15,7 @@
 
 import click
 from sparseml.yolov8.trainers import SparseYOLO
-from sparseml.yolov8.utils import data_from_datasets_dir
+from sparseml.yolov8.utils import data_from_dataset_path
 
 
 @click.command(
@@ -71,14 +71,15 @@ from sparseml.yolov8.utils import data_from_datasets_dir
 )
 @click.option("--plots", default=False, is_flag=True, help="show plots during training")
 @click.option(
-    "--datasets-dir",
+    "--dataset_path",
     type=str,
-    default="/home/ubuntu/damian/sparseml/funny_dir",
-    help="Path to override default datasets dir.",
+    default=None,
+    help="Path to override default datasets path.",
 )
 def main(**kwargs):
-    if kwargs["datasets_dir"] is not None:
-        kwargs["data"] = data_from_datasets_dir(kwargs["data"], kwargs["datasets_dir"])
+    if kwargs["dataset_path"] is not None:
+        kwargs["data"] = data_from_dataset_path(kwargs["data"], kwargs["dataset_path"])
+    del kwargs["dataset_path"]
 
     model = SparseYOLO(kwargs["model"])
     model.val(**kwargs)

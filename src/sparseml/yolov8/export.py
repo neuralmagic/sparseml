@@ -80,10 +80,10 @@ from sparseml.yolov8.trainers import SparseYOLO
     help="cuda device, i.e. 0 or 0,1,2,3 or cpu. Device to run on",
 )
 @click.option(
-    "--datasets-dir",
+    "--dataset_path",
     type=str,
     default=None,
-    help="Path to override default datasets dir.",
+    help="Path to override default dataset path.",
 )
 def main(**kwargs):
 

@@ -16,7 +16,7 @@ import logging
 
 import click
 from sparseml.yolov8.trainers import SparseYOLO
-from sparseml.yolov8.utils import data_from_datasets_dir
+from sparseml.yolov8.utils import data_from_dataset_path
 
 
 logger = logging.getLogger()
@@ -211,14 +211,15 @@ logger = logging.getLogger()
     "--copy-paste", type=float, default=0.0, help="segment copy-paste (probability)"
 )
 @click.option(
-    "--datasets-dir",
+    "--dataset_path",
     type=str,
     default=None,
-    help="Path to override default datasets dir.",
+    help="Path to override default dataset path.",
 )
 def main(**kwargs):
-    if kwargs["datasets_dir"] is not None:
-        kwargs["data"] = data_from_datasets_dir(kwargs["data"], kwargs["datasets_dir"])
+    if kwargs["dataset_path"] is not None:
+        kwargs["data"] = data_from_dataset_path(kwargs["data"], kwargs["dataset_path"])
+    del kwargs["dataset_path"]
 
     model = SparseYOLO(kwargs["model"])
     model.train(**kwargs)

@@ -35,7 +35,7 @@ from sparseml.yolov8.modules import Bottleneck, Conv
 from sparseml.yolov8.utils import (
     check_coco128_segmentation,
     create_grad_sampler,
-    data_from_datasets_dir,
+    data_from_dataset_path,
 )
 from sparseml.yolov8.utils.export_samples import export_sample_inputs_outputs
 from sparseml.yolov8.validators import (
@@ -659,9 +659,9 @@ class SparseYOLO(YOLO):
             if kwargs["device"] is not None and "cpu" not in kwargs["device"]:
                 overrides["device"] = "cuda:" + kwargs["device"]
             overrides["deterministic"] = kwargs["deterministic"]
-            if kwargs["datasets_dir"] is not None:
-                overrides["data"] = data_from_datasets_dir(
-                    overrides["data"], kwargs["datasets_dir"]
+            if kwargs["dataset_path"] is not None:
+                overrides["data"] = data_from_dataset_path(
+                    overrides["data"], kwargs["dataset_path"]
                 )
 
             trainer = self.TrainerClass(overrides=overrides)
@@ -719,9 +719,9 @@ class SparseYOLO(YOLO):
         if args["export_samples"]:
             trainer_config = get_cfg(cfg=DEFAULT_SPARSEML_CONFIG_PATH)
 
-            if args["datasets_dir"] is not None:
-                args["data"] = data_from_datasets_dir(
-                    args["data"], args["datasets_dir"]
+            if args["dataset_path"] is not None:
+                args["data"] = data_from_dataset_path(
+                    args["data"], args["dataset_path"]
                 )
             trainer_config.data = args["data"]
             trainer_config.imgsz = args["imgsz"]

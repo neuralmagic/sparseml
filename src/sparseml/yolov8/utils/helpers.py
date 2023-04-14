@@ -29,7 +29,7 @@ from ultralytics.yolo.engine.trainer import BaseTrainer
 __all__ = [
     "check_coco128_segmentation",
     "create_grad_sampler",
-    "data_from_datasets_dir",
+    "data_from_dataset_path",
 ]
 
 
@@ -79,21 +79,25 @@ def create_grad_sampler(
     return grad_sampler
 
 
-def data_from_datasets_dir(data: str, datasets_dir: str) -> str:
+def data_from_dataset_path(data: str, dataset_path: str) -> str:
     """
     Given a dataset name, fetch the yaml config for the dataset
     from the Ultralytics dataset repo, overwrite its 'path'
-    attribute (dataset root dir) to point to the `datasets_dir`
-    and finally save it to the `datasets_dir` directory.
+    attribute (dataset root dir) to point to the `dataset_path`
+    and finally save it to the current working directory.
     This allows to create load data yaml config files that point
     to the arbitrary directories on the disk.
 
-
      :param data: name of the dataset (e.g. "coco.yaml")
-     :param datasets_dir: path to the directory where the dataset is expected to be
-        (and where the new yaml config will be saved)
+     :param dataset_path: path to the dataset directory
      :return: a path to the new yaml config file
+        (saved in the current working directory)
     """
+    if os.path.basename(dataset_path) != os.path.splitext(data)[0]:
+        raise ValueError(
+            f"Dataset name (`data` argument): {data} "
+            f"does not match the `dataset_path` argument: {dataset_path}"
+        )
     ultralytics_dataset_path = glob.glob(os.path.join(ROOT, "**", data), recursive=True)
     if len(ultralytics_dataset_path) != 1:
         raise ValueError(
@@ -103,13 +107,9 @@ def data_from_datasets_dir(data: str, datasets_dir: str) -> str:
     ultralytics_dataset_path = ultralytics_dataset_path[0]
     with open(ultralytics_dataset_path, "r") as f:
         yaml_config = yaml.safe_load(f)
+        yaml_config["path"] = dataset_path
 
-        local_dataset_path = os.path.join(
-            datasets_dir, os.path.basename(yaml_config["path"])
-        )
-        yaml_config["path"] = local_dataset_path
-
-        yaml_save_path = os.path.join(datasets_dir, data)
+        yaml_save_path = os.path.join(os.getcwd(), data)
 
         # save the new dataset yaml file
         with open(yaml_save_path, "w") as outfile:
