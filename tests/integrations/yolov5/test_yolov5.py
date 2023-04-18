@@ -221,6 +221,6 @@ def _get_onnx_file_path(weights, one_shot):
             if weights.parent.stem == "weights"
             else weights.parent / "DeepSparse_Deployment"
         )
-        onnx_file_name = weights.name
+        onnx_file_name = str(Path(weights.name).with_suffix(".onnx"))
 
     return str(save_dir / onnx_file_name)
