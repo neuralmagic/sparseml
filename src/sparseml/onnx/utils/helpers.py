@@ -87,7 +87,14 @@ def validate_onnx_file(path: str):
     """
     try:
         onnx_model = check_load_model(path)
-        onnx.checker.check_model(onnx_model)
+
+        if onnx_model.ByteSize() < onnx.checker.MAXIMUM_PROTOBUF:
+            onnx.checker.check_model(onnx_model)
+        else:
+            _LOGGER.warning(
+                "onnx check_model skipped as model exceeds maximum protobuf size of 2GB"
+            )
+
         if not onnx_model.opset_import:
             raise ValueError("could not parse opset_import")
     except Exception as err:
