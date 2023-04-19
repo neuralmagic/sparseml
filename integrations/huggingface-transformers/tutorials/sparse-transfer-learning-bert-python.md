@@ -309,6 +309,6 @@ Take a look at the tutorials for more examples in other use cases:
 - [Sparse Transfer with Custom Datasets (TweetEval) and Custom Teacher for single input text classification](text-classification/docs-text-classification-python-custom-teacher-tweeteval.ipynb)
 - [Sparse Transfer with Custom Datasets (GoEmotions) for multi-label text classification](text-classification/docs-text-classification-python-multi-label-go_emotions.ipynb)
 - [Sparse Transfer with Conll2003 for named entity recognition](token-classification/docs-token-classification-python-conll2003.ipynb)
-- [Sparse Transfer with Custom Datasets (WNUT) and Custom Teacher for named entity recognition](token-classification/docs-token-classification-custom-teacher-wnut.ipynb)
+- [Sparse Transfer with Custom Datasets (WNUT) and Custom Teacher for named entity recognition](token-classification/docs-token-classification-python-custom-teacher-wnut.ipynb)
 - Sparse Transfer with SQuAD (example coming soon!)
 - Sparse Transfer with Squadshifts Amazon (example coming soon!)

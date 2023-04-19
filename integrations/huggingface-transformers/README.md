@@ -56,7 +56,7 @@ pip install sparseml[torch]
 - [Sparse Transfer with Custom Datasets (TweetEval) and Custom Teacher for single input text classificaiton](tutorials/text-classification/docs-text-classification-python-custom-teacher-tweeteval.ipynb)
 - [Sparse Transfer with Custom Datasets (GoEmotions) for multi-label text classification](tutorials/text-classification/docs-text-classification-python-multi-label-go_emotions.ipynb)
 - [Sparse Transfer with Conll2003 for named entity recognition](tutorials/token-classification/docs-token-classification-python-conll2003.ipynb)
-- [Sparse Transfer with Custom Datasets (WNUT) and Custom Teacher for named entity recognition](tutorials/token-classification/token-classification/docs-token-classification-python-custom-teacher-wnut.ipynb)
+- [Sparse Transfer with Custom Datasets (WNUT) and Custom Teacher for named entity recognition](tutorials/token-classification/docs-token-classification-python-custom-teacher-wnut.ipynb)
 - Sparse Transfer with SQuAD (example coming soon!)
 - Sparse Transfer with Squadshifts Amazon (example coming soon!)
 
