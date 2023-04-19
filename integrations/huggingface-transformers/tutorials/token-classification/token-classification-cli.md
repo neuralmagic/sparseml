@@ -175,7 +175,7 @@ A `deployment` folder is created in your local directory, which has all of the f
 
 ## Sparse Transfer Learning with a Custom Dataset (WNUT_17)
 
-Beyond the Conll2003 dataset, we can also use a dataset from the Hugging Face Hub or from local files. Let's try an example of each for the sentiment analysis using [WNUT 17](wnut_17), which is also a NER task.
+Beyond the Conll2003 dataset, we can also use a dataset from the Hugging Face Hub or from local files. Let's try an example of each for the sentiment analysis using WNUT_17, which is also a NER task.
 
 For simplicity, we will perform the fine-tuning without distillation. Although the transfer learning recipe contains distillation
 modifiers, by setting `--distill_teacher disable` we instruct SparseML to skip distillation.

@@ -50,13 +50,13 @@ pip install sparseml[torch]
 ### **Use Case Examples - Python**
 
 - [Sparse Transfer with GLUE Datasets (SST2) for sentiment analysis](tutorials/sentiment-analysis/docs-sentiment-analysis-python-sst2.ipynb)
-- [Sparse Transfer with Custom Datasets (RottenTomatoes) and Custom Teacher from HF Hub for sentiment analysis](tutorials/sentiment-analysis/docs-sentiment-analysis-python-custom-teacher-rottentomatoes)
+- [Sparse Transfer with Custom Datasets (RottenTomatoes) and Custom Teacher from HF Hub for sentiment analysis](tutorials/sentiment-analysis/docs-sentiment-analysis-python-custom-teacher-rottentomatoes.ipynb)
 - [Sparse Transfer with GLUE Datasets (QQP) for multi-input text classification](tutorials/text-classification/docs-text-classification-python-qqp.ipynb)
 - [Sparse Transfer with Custom Datasets (SICK) for multi-input text classification](tutorials/text-classification/docs-text-classification-python-sick.ipynb)
 - [Sparse Transfer with Custom Datasets (TweetEval) and Custom Teacher for single input text classificaiton](tutorials/text-classification/docs-text-classification-python-custom-teacher-tweeteval.ipynb)
 - [Sparse Transfer with Custom Datasets (GoEmotions) for multi-label text classification](tutorials/text-classification/docs-text-classification-python-multi-label-go_emotions.ipynb)
 - [Sparse Transfer with Conll2003 for named entity recognition](tutorials/token-classification/docs-token-classification-python-conll2003.ipynb)
-- [Sparse Transfer with Custom Datasets (WNUT) and Custom Teacher for named entity recognition](tutorials/token-classification/docs-token-classification-custom-teacher-wnut.ipynb)
+- [Sparse Transfer with Custom Datasets (WNUT) and Custom Teacher for named entity recognition](tutorials/token-classification/token-classification/docs-token-classification-python-custom-teacher-wnut.ipynb)
 - Sparse Transfer with SQuAD (example coming soon!)
 - Sparse Transfer with Squadshifts Amazon (example coming soon!)
 

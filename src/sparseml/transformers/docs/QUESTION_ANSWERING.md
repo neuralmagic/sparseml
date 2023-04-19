@@ -19,8 +19,8 @@ Note: Transformers will not immediately install with this command. Instead, a sp
 
 ## Tutorials
 
-- [Sparsifying BERT Models Using Recipes](https://github.com/neuralmagic/sparseml/blob/main/integrations/huggingface-transformers/tutorials/sparsifying_bert_using_recipes.md)
-- [Sparse Transfer Learning With BERT](https://github.com/neuralmagic/sparseml/blob/main/integrations/huggingface-transformers/tutorials/bert_sparse_transfer_learning.md)
+- [Sparse Transfer Learning CLI With BERT](https://github.com/neuralmagic/sparseml/blob/main/integrations/huggingface-transformers/tutorials/sparse-transfer-learning-bert.md)
+- [Sparse Transfer Learning Python API With BERT](https://github.com/neuralmagic/sparseml/blob/main/integrations/huggingface-transformers/tutorials/sparse-transfer-learning-bert-python.md)
 
 ## Getting Started
 
