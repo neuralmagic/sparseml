@@ -12,11 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 
 import click
 from sparseml.yolov8.trainers import SparseYOLO
-from ultralytics.yolo.utils import USER_CONFIG_DIR, get_settings, yaml_save
+from sparseml.yolov8.utils import data_from_dataset_path
 
 
 @click.command(
@@ -72,18 +71,15 @@ from ultralytics.yolo.utils import USER_CONFIG_DIR, get_settings, yaml_save
 )
 @click.option("--plots", default=False, is_flag=True, help="show plots during training")
 @click.option(
-    "--datasets-dir",
+    "--dataset-path",
     type=str,
     default=None,
-    help="Path to override default datasets dir.",
+    help="Path to override default datasets path.",
 )
 def main(**kwargs):
-    if kwargs["datasets_dir"] is not None:
-        settings = get_settings()
-        settings["datasets_dir"] = os.path.abspath(
-            os.path.expanduser(kwargs["datasets_dir"])
-        )
-        yaml_save(USER_CONFIG_DIR / "settings.yaml", settings)
+    if kwargs["dataset_path"] is not None:
+        kwargs["data"] = data_from_dataset_path(kwargs["data"], kwargs["dataset_path"])
+    del kwargs["dataset_path"]
 
     model = SparseYOLO(kwargs["model"])
     if hasattr(model, "overrides"):
