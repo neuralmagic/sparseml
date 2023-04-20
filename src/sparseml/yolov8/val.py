@@ -82,6 +82,8 @@ def main(**kwargs):
     del kwargs["dataset_path"]
 
     model = SparseYOLO(kwargs["model"])
+    if hasattr(model, "overrides"):
+        model.model.args = model.overrides
     model.val(**kwargs)
 
 

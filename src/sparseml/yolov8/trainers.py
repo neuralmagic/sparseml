@@ -804,7 +804,11 @@ class SparseYOLO(YOLO):
             args = check_coco128_segmentation(args)
 
         validator = self.ValidatorClass(args=args)
-        validator(model=self.model)
+        validator(
+            model=self.model,
+            trainer=self.TrainerClass(overrides=overrides),
+            training=False,
+        )
 
 
 def generate_ddp_command(world_size, trainer):
