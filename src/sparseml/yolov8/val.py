@@ -86,6 +86,8 @@ def main(**kwargs):
         yaml_save(USER_CONFIG_DIR / "settings.yaml", settings)
 
     model = SparseYOLO(kwargs["model"])
+    if hasattr(model, "overrides"):
+        model.model.args = model.overrides
     model.val(**kwargs)
 
 
