@@ -94,7 +94,7 @@ class SparseTrainer(BaseTrainer):
 
         if isinstance(self.model, str) and self.model.startswith("zoo:"):
             self.model = download_framework_model_by_recipe_type(
-                Model(self.model), model_suffix=".pt"
+                Model(self.model), model_suffix="pt"
             )
 
         self.manager: Optional[ScheduledModifierManager] = None
