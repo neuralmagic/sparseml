@@ -88,8 +88,8 @@ class SparseValidator(BaseValidator):
                 raise FileNotFoundError(
                     emojis(f"Dataset '{self.args.data}' not found ❌")
                 )
-            if isinstance(self.data['path'], str):
-                self.data['path'] = Path(self.data['path'])
+            if isinstance(self.data["path"], str):
+                self.data["path"] = Path(self.data["path"])
 
             if self.device.type == "cpu":
                 self.args.workers = (
