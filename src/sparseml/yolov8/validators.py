@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import json
-from argparse import Namespace
 from pathlib import Path
 
 import torch
