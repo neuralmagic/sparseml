@@ -278,6 +278,9 @@ class SparseTrainer(BaseTrainer):
         # NOTE: self.resume_training() was called in ^
 
         if rank in {0, -1}:
+            self.test_loader = self.get_dataloader(self.testset, batch_size=self.train_loader.batch_size // 4, rank=-1, mode='val')
+
+        if rank in {0, -1}:
             config = dict(self.args)
             if self.manager is not None:
                 config["manager"] = str(self.manager)
