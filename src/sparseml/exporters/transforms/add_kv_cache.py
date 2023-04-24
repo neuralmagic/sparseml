@@ -3,7 +3,8 @@ import onnx.helper
 from sparseml.exporters.transforms import OnnxTransform
 from sparseml.exporters.transforms.utils import get_structural_matches
 from onnx import ModelProto
-from sparseml.onnx.utils import ONNXGraph, get_node_input_nodes, extract_node_shapes
+from sparseml.onnx.utils import ONNXGraph, get_node_input_nodes, model_inputs
+
 
 __all__ = ["AddKeyValueCache"]
 
@@ -12,6 +13,13 @@ class AddKeyValueCache(OnnxTransform):
     def transform(self, model: ModelProto) -> ModelProto:
         self.pre_validate(model)
         graph = ONNXGraph(model)
+
+        # overwrite mask input
+        inputs = model_inputs(model)
+        attention_mask_input = inputs[1]
+
+        # overwrite the lenght of mask input
+        attention_mask_input.type.tensor_type.shape.dim[1].dim_param = "sequence_len + 1"
 
         value_matches = get_structural_matches(
             graph,
@@ -41,11 +49,11 @@ class AddKeyValueCache(OnnxTransform):
 
             # create input node
             new_input = onnx.helper.make_tensor_value_info(
-                f"past_key_{i}", onnx.TensorProto.FLOAT, ["batch", "num_heads", "sequence_len", "hidden_dims"]
+                f"past_key_{i}", onnx.TensorProto.FLOAT, ["batch * num_heads", "hidden_dims", "sequence_len"]
             )
 
             new_node = onnx.helper.make_node(op_type="Concat",
-                                             inputs=[f"past_key_{i}", key_node.output[0]],
+                                             inputs=[key_node.output[0], f"past_key_{i}", ],
                                              outputs=[f"placeholder_key_{i}"],
                                              axis=2,
                                              name=f"concat_key_{i}")
@@ -66,13 +74,13 @@ class AddKeyValueCache(OnnxTransform):
 
             # create input node
             new_input = onnx.helper.make_tensor_value_info(
-                f"past_value_{i}", onnx.TensorProto.FLOAT, ["batch", "num_heads", "sequence_len", "hidden_dims"]
+                f"past_value_{i}", onnx.TensorProto.FLOAT, ["batch * num_heads", "sequence_len", "hidden_dims"]
             )
 
             new_node = onnx.helper.make_node(op_type="Concat",
                                              inputs=[f"past_value_{i}", value_node.output[0]],
                                              outputs=[f"placeholder_value_{i}"],
-                                             axis=2,
+                                             axis=1,
                                              name=f"concat_value_{i}")
 
             model.graph.node.insert([i for i,n in enumerate(graph._model.graph.node) if n.name ==match.node.name][0], new_node)

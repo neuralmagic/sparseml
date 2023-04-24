@@ -316,7 +316,7 @@ def export_transformer_to_onnx(
 
     # create fake model input
     inputs = tokenizer(
-        "", return_tensors="pt", padding=PaddingStrategy.MAX_LENGTH.value
+        "in", return_tensors="pt",
     ).data  # Dict[Tensor]
 
     # Rearrange inputs' keys to match those defined by model foward func, which
@@ -357,7 +357,7 @@ def export_transformer_to_onnx(
     # run export
     model = model.eval()
     onnx_file_path = os.path.join(model_path, onnx_file_name)
-
+    del inputs['attention_mask']
     export_onnx(
         model,
         inputs,
@@ -474,7 +474,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--sequence_length",
         type=int,
-        default=384,
+        default=1,
         help="Sequence length to use. Default is 384. Can be overwritten later",
     )
     parser.add_argument(
