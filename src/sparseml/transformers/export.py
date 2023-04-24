@@ -116,8 +116,6 @@ def load_task_model(task: str, model_path: str, config: Any) -> Module:
             config=config,
         )
     if task == "text-generation" or task == "codegen" or task == "opt" or task=="bloom":
-        if task not in ["text-generation", "opt"]:
-            raise NotImplementedError()
         return SparseAutoModel.text_generation_from_pretrained(
             model_name_or_path=model_path, config=config
         )
@@ -268,6 +266,7 @@ def export_transformer_to_onnx(
     tokenizer = AutoTokenizer.from_pretrained(
         model_path, model_max_length=sequence_length
     )
+    tokenizer.pad_token = tokenizer.eos_token
     model = load_task_model(task, model_path, config)
     _LOGGER.info(f"loaded model, config, and tokenizer from {model_path}")
 

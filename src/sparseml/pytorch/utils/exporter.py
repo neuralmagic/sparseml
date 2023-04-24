@@ -553,7 +553,6 @@ def export_onnx(
         kwargs["training"] = torch.onnx.TrainingMode.PRESERVE
         kwargs["do_constant_folding"] = not module.training
         kwargs["keep_initializers_as_inputs"] = False
-
     torch.onnx.export(**kwargs)
 
     # re-enable disabled quantization observers

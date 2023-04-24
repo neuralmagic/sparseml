@@ -118,7 +118,7 @@ class SparseAutoModel:
         config: Optional[Any] = None,
         **kwargs,
     ) -> Module:
-        """ """
+        config.use_past=False
         model = AutoModelForCausalLM.from_pretrained(
             model_name_or_path, config=config, **kwargs
         )
