@@ -6,10 +6,10 @@ import onnxruntime as rt
 import numpy as np
 
 #### EDIT THE EXPORTED MODEL ####
-onnx_model = onnx.load("deployment/model.onnx")
-onnx_model = AddKeyValueCache().transform(onnx_model)
-onnx.checker.check_model(onnx_model)
-onnx.save(onnx_model, "small_codegen.onnx", save_as_external_data=True, all_tensors_to_one_file=True)
+# onnx_model = onnx.load("deployment/model.onnx")
+# onnx_model = AddKeyValueCache().transform(onnx_model)
+# onnx.checker.check_model(onnx_model)
+# onnx.save(onnx_model, "small_codegen.onnx", save_as_external_data=True, all_tensors_to_one_file=True)
 
 #### RUN ONNX MODEL ####
 
@@ -25,11 +25,11 @@ seq_length = 1
 input_ids = np.random.randint(0, 100, (batch_size, seq_length)).astype(np.int64)
 kv_cache = defaultdict(np.ndarray)
 for i in range(20):
-    kv_cache[f"past_value_{i}"] = np.random.randn(batch_size, num_heads, past_length, head_dim).astype(np.float32)
-    kv_cache[f"past_key_{i}"] = np.random.randn(batch_size, num_heads, head_dim, past_length).astype(np.float32)
+    kv_cache[f"present.value.{i}"] = np.random.randn(batch_size, num_heads, past_length, head_dim).astype(np.float32)
+    kv_cache[f"present.key.{i}"] = np.random.randn(batch_size, num_heads, head_dim, past_length).astype(np.float32)
 
 out = sess.run(None, {"input_ids": input_ids, **kv_cache})
-
+pass
 #### PYTORCH SANITY CHECK ####
 # from transformers import AutoTokenizer, AutoModelForCausalLM
 #

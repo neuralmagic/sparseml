@@ -113,19 +113,6 @@ class SparseAutoModel:
         return model, teacher
 
     @staticmethod
-    def text_generation_from_pretrained(
-        model_name_or_path: str,
-        config: Optional[Any] = None,
-        **kwargs,
-    ) -> Module:
-        config.use_past = False
-        config.use_cache = False
-        model = AutoModelForCausalLM.from_pretrained(
-            model_name_or_path, config=config, **kwargs
-        )
-        return model
-
-    @staticmethod
     def question_answering_from_pretrained(
         model_name_or_path: str,
         model_type: str,
@@ -168,11 +155,11 @@ class SparseAutoModel:
         :param kwargs: keyword arguments to pass through to the AutoModel call
         :return: the created model for question answering
         """
-        SparseAutoModel._check_tf(model_name_or_path)
         if not kwargs:
             kwargs = {}
-        kwargs["from_tf"] = False
         delayed = False
+        kwargs["config"].use_past = False
+        kwargs["config"].use_cache = False
         model = AutoModelForCausalLM.from_pretrained(
             model_name_or_path,
             **kwargs,

@@ -115,14 +115,13 @@ def load_task_model(task: str, model_path: str, config: Any) -> Module:
             model_name_or_path=model_path,
             config=config,
         )
-    if (
-        task == "text-generation"
-        or task == "codegen"
-        or task == "opt"
-        or task == "bloom"
-    ):
+    if task == "codegen" or task == "opt" or task == "bloom":
+        if task != "codegen":
+            raise NotImplementedError(
+                f"task {task} is not supported for export to onnx"
+            )
         return SparseAutoModel.text_generation_from_pretrained(
-            model_name_or_path=model_path, config=config
+            model_name_or_path=model_path, config=config, model_type="model"
         )
 
     if (
@@ -277,7 +276,6 @@ def export_transformer_to_onnx(
     tokenizer = AutoTokenizer.from_pretrained(
         model_path, model_max_length=sequence_length
     )
-    tokenizer.pad_token = tokenizer.eos_token
     model = load_task_model(task, model_path, config)
     _LOGGER.info(f"loaded model, config, and tokenizer from {model_path}")
 
@@ -329,8 +327,7 @@ def export_transformer_to_onnx(
     if tokenizer.pad_token is None:
         tokenizer.add_special_tokens({"pad_token": "[PAD]"})
     inputs = tokenizer(
-        "in",
-        return_tensors="pt",
+        "", return_tensors="pt", padding=PaddingStrategy.MAX_LENGTH.value
     ).data  # Dict[Tensor]
 
     # Rearrange inputs' keys to match those defined by model foward func, which
@@ -488,7 +485,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--sequence_length",
         type=int,
-        default=1,
+        default=384,
         help="Sequence length to use. Default is 384. Can be overwritten later",
     )
     parser.add_argument(

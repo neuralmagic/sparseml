@@ -32,7 +32,7 @@ parent branches: Softmax and Cast, as well as a Transpose node that generates va
 CODEGEN_MATCHING_RULE_VALUE = dict(
     op_type="MatMul", parent_ops=[["Softmax", "Cast"], ["Transpose"]]
 )
-CODEGEN_VALUE_CACHE_DIMS = ["batch", "num_heads", "hidden_dims", "past_sequence_len"]
+CODEGEN_VALUE_CACHE_DIMS = ["batch", "num_heads", "past_sequence_len", "hidden_dims"]
 CODEGEN_VALUE_CONCAT_AXIS = CODEGEN_VALUE_CACHE_DIMS.index("past_sequence_len")
 """
 In CodeGen architecture, the MatMul that performs the Q x K^T operation is 
