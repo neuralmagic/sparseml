@@ -143,6 +143,12 @@ def load_task_model(task: str, model_path: str, config: Any) -> Module:
             config=config,
             model_type="model",
         )
+    if task == "codegen":
+        return SparseAutoModel.text_generation_from_pretrained(
+            model_name_or_path=model_path,
+            config=config,
+            model_type="model",
+        )
 
     raise ValueError(f"unrecognized task given of {task}")
 
@@ -320,6 +326,8 @@ def export_transformer_to_onnx(
         _LOGGER.info(f"Applied {msg} to the model at {model_path}")
 
     # create fake model input
+    if tokenizer.pad_token is None:
+        tokenizer.add_special_tokens({"pad_token": "[PAD]"})
     inputs = tokenizer(
         "in",
         return_tensors="pt",

@@ -156,6 +156,32 @@ class SparseAutoModel:
         return model
 
     @staticmethod
+    def text_generation_from_pretrained(
+        model_name_or_path: str,
+        model_type: str,
+        **kwargs,
+    ) -> Module:
+        """
+        :param model_name_or_path: the name of or path to the model to load
+        :param model_type: specify the type of model loaded for logging;
+            ex one of [model, student, teacher]
+        :param kwargs: keyword arguments to pass through to the AutoModel call
+        :return: the created model for question answering
+        """
+        SparseAutoModel._check_tf(model_name_or_path)
+        if not kwargs:
+            kwargs = {}
+        kwargs["from_tf"] = False
+        delayed = False
+        model = AutoModelForCausalLM.from_pretrained(
+            model_name_or_path,
+            **kwargs,
+        )
+        SparseAutoModel.log_model_load(model, model_name_or_path, model_type, delayed)
+
+        return model
+
+    @staticmethod
     def question_answering_from_pretrained_distil(
         model_name_or_path: str,
         teacher_name_or_path: Optional[str],
