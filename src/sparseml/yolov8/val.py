@@ -12,8 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 import click
 from sparseml.yolov8.trainers import SparseYOLO
+from sparseml.yolov8.utils import data_from_dataset_path
 
 
 @click.command(
@@ -68,8 +70,20 @@ from sparseml.yolov8.trainers import SparseYOLO
     "--dnn", default=False, is_flag=True, help="use OpenCV DNN for ONNX inference"
 )
 @click.option("--plots", default=False, is_flag=True, help="show plots during training")
+@click.option(
+    "--dataset-path",
+    type=str,
+    default=None,
+    help="Path to override default datasets path.",
+)
 def main(**kwargs):
+    if kwargs["dataset_path"] is not None:
+        kwargs["data"] = data_from_dataset_path(kwargs["data"], kwargs["dataset_path"])
+    del kwargs["dataset_path"]
+
     model = SparseYOLO(kwargs["model"])
+    if hasattr(model, "overrides"):
+        model.model.args = model.overrides
     model.val(**kwargs)
 
 

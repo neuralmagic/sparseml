@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 import click
 from sparseml.yolov8.trainers import SparseYOLO
 
@@ -51,7 +52,7 @@ from sparseml.yolov8.trainers import SparseYOLO
     "--one-shot",
     default=None,
     type=str,
-    help="Path to recipe to apply in a zero shot fashion. " "Defaults to None.",
+    help="Path to recipe to apply in a zero shot fashion. Defaults to None.",
 )
 @click.option(
     "--export-samples",
@@ -59,7 +60,33 @@ from sparseml.yolov8.trainers import SparseYOLO
     default=0,
     help="Number of samples to export with onnx",
 )
+@click.option(
+    "--save-one-shot-torch",
+    default=False,
+    help="If one-shot recipe is supplied and "
+    "this flag is set to True,the torch model with "
+    "the one-shot recipe applied will be exported.",
+)
+@click.option(
+    "--deterministic",
+    default=True,
+    is_flag=True,
+    help="whether to enable deterministic mode",
+)
+@click.option(
+    "--device",
+    default=None,
+    type=str,
+    help="cuda device, i.e. 0 or 0,1,2,3 or cpu. Device to run on",
+)
+@click.option(
+    "--dataset-path",
+    type=str,
+    default=None,
+    help="Path to override default dataset path.",
+)
 def main(**kwargs):
+
     model = SparseYOLO(kwargs["model"])
     model.export(**kwargs)
 
