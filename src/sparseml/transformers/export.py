@@ -368,7 +368,8 @@ def export_transformer_to_onnx(
     # run export
     model = model.eval()
     onnx_file_path = os.path.join(model_path, onnx_file_name)
-    del inputs["attention_mask"]
+    import torch
+    # del inputs["attention_mask"]
     export_onnx(
         model,
         inputs,

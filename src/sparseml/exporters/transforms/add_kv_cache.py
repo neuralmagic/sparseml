@@ -42,7 +42,7 @@ Transpose node preceding the MatMul
 CODEGEN_MATCHING_RULE_KEY = dict(
     op_type="MatMul",
     parent_ops=[["Cast"], ["Transpose"]],
-    children_ops=[["Div", "Where", "Softmax"]],
+    children_ops=[["Div", "Where", "Add", "Softmax"]],
 )
 CODEGEN_KEY_CACHE_DIMS = ["batch", "num_heads", "hidden_dims", "past_sequence_len"]
 CODEGEN_KEY_CONCAT_AXIS = CODEGEN_KEY_CACHE_DIMS.index("past_sequence_len")
@@ -122,8 +122,8 @@ class AddKeyValueCache(OnnxTransform):
                 graph=graph,
                 concat_axis=concat_axis,
                 cache_dims=cache_dims,
-                input_to_concat_name=f"present.value.{match_index}",
-                output_from_concat_name=f"past_key_values.value.{match_index}",
+                input_to_concat_name=f"past_key_values.{match_index}.value",
+                output_from_concat_name=f"present.{match_index}.value",
             )
 
     def add_key_cache(
@@ -164,8 +164,8 @@ class AddKeyValueCache(OnnxTransform):
                 graph=graph,
                 concat_axis=concat_axis,
                 cache_dims=cache_dims,
-                input_to_concat_name=f"present.key.{match_index}",
-                output_from_concat_name=f"past_key_values.key.{match_index}",
+                input_to_concat_name=f"past_key_values.{match_index}.key",
+                output_from_concat_name=f"present.{match_index}.key",
             )
 
     def concatenate_cache_with_model_outputs(
@@ -206,7 +206,7 @@ class AddKeyValueCache(OnnxTransform):
             cache_dims,
         )
 
-        is_key = input_to_concat_name.startswith("present.key")
+        is_key = input_to_concat_name.endswith("key")
 
         concat_node = onnx.helper.make_node(
             op_type="Concat",

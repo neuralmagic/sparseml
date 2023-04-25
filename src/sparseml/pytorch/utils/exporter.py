@@ -553,6 +553,12 @@ def export_onnx(
         kwargs["training"] = torch.onnx.TrainingMode.PRESERVE
         kwargs["do_constant_folding"] = not module.training
         kwargs["keep_initializers_as_inputs"] = False
+
+    kwargs['args'] = dict(input_ids = kwargs['args'][0],
+                    attention_mask = kwargs['args'][1])
+    dynamic_axes['input_ids'] = {0: 'batch'}
+    dynamic_axes['attention_mask'] = {0: 'batch', 1: 'past_sequence_len + sequence_len'}
+
     torch.onnx.export(**kwargs)
 
     # re-enable disabled quantization observers
