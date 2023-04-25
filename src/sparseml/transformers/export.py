@@ -115,7 +115,12 @@ def load_task_model(task: str, model_path: str, config: Any) -> Module:
             model_name_or_path=model_path,
             config=config,
         )
-    if task == "text-generation" or task == "codegen" or task == "opt" or task=="bloom":
+    if (
+        task == "text-generation"
+        or task == "codegen"
+        or task == "opt"
+        or task == "bloom"
+    ):
         return SparseAutoModel.text_generation_from_pretrained(
             model_name_or_path=model_path, config=config
         )
@@ -316,7 +321,8 @@ def export_transformer_to_onnx(
 
     # create fake model input
     inputs = tokenizer(
-        "in", return_tensors="pt",
+        "in",
+        return_tensors="pt",
     ).data  # Dict[Tensor]
 
     # Rearrange inputs' keys to match those defined by model foward func, which
@@ -357,7 +363,7 @@ def export_transformer_to_onnx(
     # run export
     model = model.eval()
     onnx_file_path = os.path.join(model_path, onnx_file_name)
-    del inputs['attention_mask']
+    del inputs["attention_mask"]
     export_onnx(
         model,
         inputs,
