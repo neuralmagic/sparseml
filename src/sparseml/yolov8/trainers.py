@@ -32,7 +32,11 @@ from sparseml.pytorch.utils import ModuleExporter
 from sparseml.pytorch.utils.helpers import download_framework_model_by_recipe_type
 from sparseml.pytorch.utils.logger import LoggerManager, PythonLogger, WANDBLogger
 from sparseml.yolov8.modules import Bottleneck, Conv
-from sparseml.yolov8.utils import check_coco128_segmentation, create_grad_sampler
+from sparseml.yolov8.utils import (
+    check_coco128_segmentation,
+    create_grad_sampler,
+    data_from_dataset_path,
+)
 from sparseml.yolov8.utils.export_samples import export_sample_inputs_outputs
 from sparseml.yolov8.validators import (
     SparseClassificationValidator,
@@ -94,7 +98,7 @@ class SparseTrainer(BaseTrainer):
 
         if isinstance(self.model, str) and self.model.startswith("zoo:"):
             self.model = download_framework_model_by_recipe_type(
-                Model(self.model), model_suffix=".pt"
+                Model(self.model), model_suffix="pt"
             )
 
         self.manager: Optional[ScheduledModifierManager] = None
@@ -527,10 +531,11 @@ class SparseYOLO(YOLO):
 
         if model_str.startswith("zoo:"):
             model = download_framework_model_by_recipe_type(
-                Model(model_str), model_suffix=".pt"
+                Model(model_str), model_suffix="pt"
             )
             self.is_sparseml_checkpoint = True
-        elif model_str.endswith(".pt"):
+
+        if model_str.endswith(".pt"):
             if os.path.exists(model_str):
                 ckpt = torch.load(model_str)
                 self.is_sparseml_checkpoint = (
@@ -586,8 +591,14 @@ class SparseYOLO(YOLO):
                 self.PredictorClass,
             ) = self._assign_ops_from_task(self.task)
 
-            self.model = self.ModelClass(dict(self.ckpt["model_yaml"]))
-            if "recipe" in self.ckpt:
+            if "yaml" in self.ckpt:
+                self.model = self.ModelClass(dict(self.ckpt["yaml"]))
+            elif "model_yaml" in self.ckpt:
+                self.model = self.ModelClass(dict(self.ckpt["model_yaml"]))
+            else:
+                self.model = self.ModelClass(dict(self.ckpt["model"].yaml))
+
+            if "recipe" in self.ckpt and self.ckpt["recipe"]:
                 manager = ScheduledModifierManager.from_yaml(self.ckpt["recipe"])
                 epoch = self.ckpt.get("epoch", -1)
                 if epoch < 0:
@@ -655,6 +666,11 @@ class SparseYOLO(YOLO):
             if kwargs["device"] is not None and "cpu" not in kwargs["device"]:
                 overrides["device"] = "cuda:" + kwargs["device"]
             overrides["deterministic"] = kwargs["deterministic"]
+            if kwargs["dataset_path"] is not None:
+                overrides["data"] = data_from_dataset_path(
+                    overrides["data"], kwargs["dataset_path"]
+                )
+
             trainer = self.TrainerClass(overrides=overrides)
             self.model = self.model.to(trainer.device)
 
@@ -710,9 +726,12 @@ class SparseYOLO(YOLO):
         if args["export_samples"]:
             trainer_config = get_cfg(cfg=DEFAULT_SPARSEML_CONFIG_PATH)
 
+            if args["dataset_path"] is not None:
+                args["data"] = data_from_dataset_path(
+                    args["data"], args["dataset_path"]
+                )
             trainer_config.data = args["data"]
             trainer_config.imgsz = args["imgsz"]
-
             trainer = DetectionTrainer(trainer_config)
             # inconsistency in name between
             # validation and test sets
@@ -785,7 +804,11 @@ class SparseYOLO(YOLO):
             args = check_coco128_segmentation(args)
 
         validator = self.ValidatorClass(args=args)
-        validator(model=self.model)
+        validator(
+            model=self.model,
+            trainer=self.TrainerClass(overrides=overrides),
+            training=False,
+        )
 
 
 def generate_ddp_command(world_size, trainer):
