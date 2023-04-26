@@ -13,8 +13,8 @@
 # limitations under the License.
 
 import json
-from pathlib import Path
 from argparse import Namespace
+from pathlib import Path
 
 import torch
 from tqdm import tqdm
