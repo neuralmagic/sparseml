@@ -142,12 +142,6 @@ def load_task_model(task: str, model_path: str, config: Any) -> Module:
             config=config,
             model_type="model",
         )
-    if task == "codegen":
-        return SparseAutoModel.text_generation_from_pretrained(
-            model_name_or_path=model_path,
-            config=config,
-            model_type="model",
-        )
 
     raise ValueError(f"unrecognized task given of {task}")
 
@@ -368,8 +362,7 @@ def export_transformer_to_onnx(
     # run export
     model = model.eval()
     onnx_file_path = os.path.join(model_path, onnx_file_name)
-    import torch
-    # del inputs["attention_mask"]
+
     export_onnx(
         model,
         inputs,

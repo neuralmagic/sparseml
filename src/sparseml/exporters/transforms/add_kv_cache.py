@@ -27,13 +27,12 @@ __all__ = ["AddKeyValueCache"]
 """
 In CodeGen architecture, the MatMul that performs the V x Softmax(QK^T) operation is 
 preceded by two nodes: Cast and Softmax, Thus, we want to find a MatMul node that has two
-parent branches: Softmax and Cast, as well as a Transpose node that generates values.
+parent branches: Softmax and Cast, as well as a Transpose node that outputs values.
 """
 CODEGEN_MATCHING_RULE_VALUE = dict(
     op_type="MatMul", parent_ops=[["Softmax", "Cast"], ["Transpose"]]
 )
 CODEGEN_VALUE_CACHE_DIMS = ["batch", "num_heads", "past_sequence_len", "hidden_dims"]
-CODEGEN_VALUE_CONCAT_AXIS = CODEGEN_VALUE_CACHE_DIMS.index("past_sequence_len")
 """
 In CodeGen architecture, the MatMul that performs the Q x K^T operation is 
 followed by four nodes: Matmul, Div, Where and Softmax. Thus, K values are coming from the
@@ -45,7 +44,6 @@ CODEGEN_MATCHING_RULE_KEY = dict(
     children_ops=[["Div", "Where", "Add", "Softmax"]],
 )
 CODEGEN_KEY_CACHE_DIMS = ["batch", "num_heads", "hidden_dims", "past_sequence_len"]
-CODEGEN_KEY_CONCAT_AXIS = CODEGEN_KEY_CACHE_DIMS.index("past_sequence_len")
 
 
 class AddKeyValueCache(OnnxTransform):
@@ -73,13 +71,6 @@ class AddKeyValueCache(OnnxTransform):
     def transform(self, model: ModelProto) -> ModelProto:
         graph = ONNXGraph(model)
 
-        # hack, keeping this for now until I figure out how to remove those on export
-        [
-            model.graph.output.remove(out)
-            for out in model.graph.output
-            if out.name != "logits"
-        ]
-
         self.add_value_cache(model, graph)
         self.add_key_cache(model, graph)
 
@@ -90,12 +81,12 @@ class AddKeyValueCache(OnnxTransform):
         model: ModelProto,
         graph: ONNXGraph,
         matching_rule: Dict[str, Any] = CODEGEN_MATCHING_RULE_VALUE,
-        concat_axis: List[str] = CODEGEN_VALUE_CONCAT_AXIS,
+        concat_axis: List[str] = CODEGEN_VALUE_CACHE_DIMS.index("past_sequence_len"),
         cache_dims: int = CODEGEN_VALUE_CACHE_DIMS,
     ):
         """
-        Adds a value cache to the model. This means that a Concat node is added
-        to the model that concatenates the value of the token that is currently
+        Adds a value cache to the model. This means that a Concat node is added,
+        which concatenates the value of the token that is currently
         being processed with the value cache.
 
         :param model: The model to add the value cache to
@@ -105,7 +96,6 @@ class AddKeyValueCache(OnnxTransform):
         :param concat_axis: The axis to concatenate the cache with values on
         :param cache_dims: The dimensions of the cache
         """
-
         value_matches = get_structural_matches(graph, **matching_rule)
         if not value_matches:
             raise ValueError("Could not find matching nodes for the key cache. ")
@@ -131,12 +121,12 @@ class AddKeyValueCache(OnnxTransform):
         model: ModelProto,
         graph: ONNXGraph,
         matching_rule: Dict[str, Any] = CODEGEN_MATCHING_RULE_KEY,
-        concat_axis: List[str] = CODEGEN_KEY_CONCAT_AXIS,
+        concat_axis: List[str] = CODEGEN_KEY_CACHE_DIMS.index("past_sequence_len"),
         cache_dims: int = CODEGEN_KEY_CACHE_DIMS,
     ):
         """
-        Adds a key cache to the model. This means that a Concat node is added
-        to the model that concatenates the key of the token that is currently
+        Adds a key cache to the model. This means that a Concat node is added,
+        that concatenates the key of the token that is currently
         being processed with the key cache.
 
         :param model: The model to add the key cache to
@@ -187,6 +177,15 @@ class AddKeyValueCache(OnnxTransform):
          - adds the concatenation as an output to the model
          - replaces the input of the MatMul node with the output of the Concat node
 
+        :param matmul_node: The MatMul node to replace the input of
+        :param target_node: The node whose output should be concatenated with the cache
+        :param index: The index of the cache
+        :param model: The model to add the Concat node to
+        :param graph: The graph of the model
+        :param concat_axis: The axis to concatenate the cache with values on
+        :param cache_dims: The dimensions of the cache
+        :param input_to_concat_name: The name of the input to the Concat node
+        :param output_from_concat_name: The name of the output from the Concat node
         """
 
         input_to_matmul = target_node.output[0]

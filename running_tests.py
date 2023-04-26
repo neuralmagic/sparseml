@@ -10,11 +10,15 @@ DEBUG_NODE_BASELINE = "query.7"
 
 
 def add_debug_node(model_path: str, new_model_path: str, intermediate_tensor_name:str):
+    """
+    Add a debug node to the model to inspect the intermediate tensor
+    """
     model = onnx.load(model_path)
 
     debug = onnx.helper.make_tensor_value_info(
         intermediate_tensor_name,
         onnx.TensorProto.FLOAT,
+        # hacky
         shape= [None, None, None, None],
     )
 
@@ -22,29 +26,41 @@ def add_debug_node(model_path: str, new_model_path: str, intermediate_tensor_nam
     onnx.save(model, new_model_path)
 
 #### EDIT THE EXPORTED MODEL ####
-# onnx_model = onnx.load("deployment/model.onnx")
-# onnx_model = AddKeyValueCache().transform(onnx_model)
-# onnx.checker.check_model(onnx_model)
-# onnx.save(onnx_model, "small_codegen.onnx", save_as_external_data=True, all_tensors_to_one_file=True, location='file')
+"""
+To obtain the `deployment/model.onnx run transformers export with the following arguments:
+--task codegen --model_path codegen-350M-multi --sequence_length 1
+(codegen-350-multi directory is obtained by cloning the original HF repository:
+git clone https://huggingface.co/Salesforce/codegen-350M-multi
+)
+"""
+onnx_model = onnx.load("deployment/model.onnx")
+onnx_model = AddKeyValueCache().transform(onnx_model)
+onnx.checker.check_model(onnx_model)
+onnx.save(onnx_model, "small_codegen.onnx", save_as_external_data=True, all_tensors_to_one_file=True)
 
 #### RUN ONNX MODEL ####
 # Setup the tested model
+
 model_path = "small_codegen.onnx"
-add_debug_node(model_path, "test_1.onnx", DEBUG_NODE)
-model_path = "test_1.onnx"
-sess = rt.InferenceSession(model_path)
-output_names = [out.name for out in onnx.load(model_path).graph.output]
+model_path_debug = "small_codegen_debug.onnx"
+
+add_debug_node(model_path, model_path_debug, DEBUG_NODE)
+sess = rt.InferenceSession(model_path_debug)
+output_names = [out.name for out in onnx.load(model_path_debug).graph.output]
 
 # Setup the baseline model (optimum exported)
+"""
+To obtain the `decoder_with_past_model.onnx` run optimum export:
+optimum-cli export onnx --model Salesforce/codegen-350M-multi codegen-350M-multi
+"""
 baseline_model_path = "/home/ubuntu/damian/deepsparse/codegen-350M-multi/decoder_with_past_model.onnx"
-add_debug_node(baseline_model_path, "test.onnx", DEBUG_NODE_BASELINE)
-baseline_model_path = "test.onnx"
-sess_baseline = rt.InferenceSession(baseline_model_path)
-output_names_baseline = [out.name for out in onnx.load(baseline_model_path).graph.output]
+baseline_model_path_debug = "debug.onnx"
+add_debug_node(baseline_model_path, baseline_model_path_debug, DEBUG_NODE_BASELINE)
+sess_baseline = rt.InferenceSession(baseline_model_path_debug)
+output_names_baseline = [out.name for out in onnx.load(baseline_model_path_debug).graph.output]
 
 # Setup the input
-input_sequence = "def hello_world():" \
-                 "  print('hello world')"
+input_sequence = "def hello_world():"
 tokenizer = AutoTokenizer.from_pretrained("Salesforce/codegen-350M-multi")
 model_input = tokenizer(input_sequence, return_tensors='np').data
 input_ids = model_input['input_ids']
@@ -67,11 +83,11 @@ for i in range(20):
     kv_cache_baseline[f"past_key_values.{i}.value"] = np.zeros((batch_size, num_heads, past_length, head_dim)).astype(np.float32)
     kv_cache_baseline[f"past_key_values.{i}.key"] = np.zeros((batch_size, num_heads, past_length, head_dim)).astype(np.float32)
 
-token = 10
-#for i, token in enumerate(input_ids[0]):
-for i in range(100):
+
+for i, token in enumerate(input_ids[0]):
     attention_mask = np.ones((batch_size, seq_length + past_length)).astype(np.int64)
     input_ids = np.array([[token]])
+
     # Inference tested model
     out = sess.run(None, {"input_ids": input_ids,"attention_mask": attention_mask, **kv_cache})
     *kv_cache, logits, debug_node = out
