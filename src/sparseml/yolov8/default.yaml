@@ -2,7 +2,6 @@
 
 recipe: null
 recipe_args: null
-datasets_dir: null
 
 task: "detect" # choices=['detect', 'segment', 'classify', 'init'] # init is a special case. Specify task to run.
 mode: "train" # choices=['train', 'val', 'predict'] # mode to run task in.
