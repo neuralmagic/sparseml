@@ -1805,12 +1805,13 @@ def _propagate_mobilebert_embedding_quantization(model: ModelProto):
         # switch position of dequantize node
         for branch_node in graph.get_node_children(dequant_node):
             if branch_node.op_type == "Slice":
+                zero_point = graph.get_init_by_name(dequant_node.input[2])
+                zero_point_array = numpy_helper.to_array(zero_point)
                 branch_node.input[0] = gather_node.output[0]
                 pad_node = graph.get_node_single_child(branch_node)
                 pad_value = graph.get_init_by_name(pad_node.input[2])
                 pad_value_array = numpy_helper.to_array(pad_value)
-                pad_value_array = pad_value_array + 128
-                pad_value_array = pad_value_array.astype(numpy.uint8)
+                pad_value_array = pad_value_array.astype(zero_point_array.dtype) + zero_point_array
                 model.graph.initializer.remove(pad_value)
                 pad_value = numpy_helper.from_array(
                     pad_value_array, name=pad_value.name
