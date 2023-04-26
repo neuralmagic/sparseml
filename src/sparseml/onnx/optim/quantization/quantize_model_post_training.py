@@ -24,6 +24,7 @@ from tqdm.auto import tqdm
 from sparseml.onnx.optim.quantization.calibration import CalibrationSession
 from sparseml.onnx.optim.quantization.quantize import QuantizationMode, quantize
 from sparseml.onnx.utils import DataLoader, quantize_resnet_identity_add_inputs
+from sparsezoo.utils import save_onnx
 
 
 __all__ = ["quantize_model_post_training"]
@@ -105,4 +106,4 @@ def quantize_model_post_training(
     if output_model_path is None:
         return calibrated_quantized_model
     else:
-        onnx.save(calibrated_quantized_model, output_model_path)
+        save_onnx(calibrated_quantized_model, output_model_path)

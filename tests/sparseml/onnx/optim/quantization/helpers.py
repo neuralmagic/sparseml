@@ -22,6 +22,8 @@ import numpy as np
 import onnx
 from onnx import ModelProto, TensorProto, numpy_helper
 
+from sparsezoo.utils import save_onnx
+
 
 __all__ = [
     "make_tmp_onnx_file",
@@ -39,7 +41,7 @@ def _random_float_tensor(name, *shape):
 
 def make_tmp_onnx_file(model: ModelProto) -> str:
     path = tempfile.NamedTemporaryFile(suffix=".onnx", delete=False).name
-    onnx.save(model, path)
+    save_onnx(model, path)
     return path
 
 

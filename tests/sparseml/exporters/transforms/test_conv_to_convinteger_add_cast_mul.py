@@ -14,6 +14,7 @@
 import onnx
 
 from sparseml.exporters.transforms import ConvToConvIntegerAddCastMul
+from sparsezoo.utils import validate_onnx
 from tests.sparseml.exporters.transforms.test_onnx_transform import (
     _create_model as _create_model_no_conv,
 )
@@ -95,7 +96,7 @@ def _create_test_model():
     )
 
     model = onnx.helper.make_model(graph)
-    onnx.checker.check_model(model)
+    validate_onnx(model)
     return model
 
 
@@ -103,7 +104,7 @@ def test_convert_quantizable_conv_integer():
     model = _create_test_model()
     transform = ConvToConvIntegerAddCastMul()
     model = transform(model)
-    onnx.checker.check_model(model)
+    validate_onnx(model)
     assert [node.name for node in model.graph.node] == [
         "quantize_linear_node_0",
         "conv_node_quant",
@@ -125,5 +126,5 @@ def test_convert_quantizable_conv_integer_no_conv():
     nodes_in = [node.name for node in model_in.graph.node]
     transform = ConvToConvIntegerAddCastMul()
     model_out = transform(model_in)
-    onnx.checker.check_model(model_out)
+    validate_onnx(model_out)
     assert [node.name for node in model_out.graph.node] == nodes_in

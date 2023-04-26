@@ -19,6 +19,7 @@ from onnx import ModelProto, numpy_helper
 from sparseml.exporters.transforms.remove_duplicate_qconv_weights import (
     RemoveDuplicateQConvWeights,
 )
+from sparsezoo.utils import validate_onnx
 
 
 @pytest.fixture
@@ -103,13 +104,13 @@ def onnx_model():
     )
 
     model = onnx.helper.make_model(graph)
-    onnx.checker.check_model(model)
+    validate_onnx(model)
     return model
 
 
 def test_vanilla(onnx_model: ModelProto):
     onnx_model = RemoveDuplicateQConvWeights().apply(onnx_model)
-    onnx.checker.check_model(onnx_model)
+    validate_onnx(onnx_model)
     assert [n.name for n in onnx_model.graph.node] == [
         "conv1",
         "conv2",
