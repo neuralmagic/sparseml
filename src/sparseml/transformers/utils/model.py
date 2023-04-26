@@ -158,7 +158,7 @@ class SparseAutoModel:
         if not kwargs:
             kwargs = {}
         delayed = False
-        kwargs["config"].use_past = False
+        kwargs["config"].use_past = True
         kwargs["config"].use_cache = False
         kwargs["config"].output_attention=True
         model = AutoModelForCausalLM.from_pretrained(

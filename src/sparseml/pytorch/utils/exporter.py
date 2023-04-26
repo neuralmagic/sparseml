@@ -562,19 +562,19 @@ def export_onnx(
     torch.onnx.export(**kwargs)
 
     # re-enable disabled quantization observers
-    for submodule in disabled_observers:
-        submodule.observer_enabled[0] = 1
+    #for submodule in disabled_observers:
+    #    submodule.observer_enabled[0] = 1
 
     # onnx file fixes
     onnx_model = onnx.load(file_path)
-    _fold_identity_initializers(onnx_model)
-    _flatten_qparams(onnx_model)
-    if batch_norms_wrapped:
-        # fix changed batch norm names
-        _unwrap_batchnorms(onnx_model)
+    #_fold_identity_initializers(onnx_model)
+    #_flatten_qparams(onnx_model)
+    #if batch_norms_wrapped:
+    #    # fix changed batch norm names
+    #    _unwrap_batchnorms(onnx_model)
 
-        # clean up graph from any injected / wrapped operations
-        _delete_trivial_onnx_adds(onnx_model)
+    #    # clean up graph from any injected / wrapped operations
+    #    _delete_trivial_onnx_adds(onnx_model)
 
     try:
         # alternatively we can just check the size of the onnx file on disk
@@ -593,35 +593,35 @@ def export_onnx(
             all_tensors_to_one_file=True,
         )
 
-    if convert_qat and is_quant_module:
-        # overwrite exported model with fully quantized version
-        # import here to avoid cyclic dependency
-        from sparseml.pytorch.sparsification.quantization import (
-            quantize_torch_qat_export,
-        )
-
-        use_qlinearconv = hasattr(module, "export_with_qlinearconv") and (
-            module.export_with_qlinearconv
-        )
-
-        quantize_torch_qat_export(
-            model=file_path,
-            output_file_path=file_path,
-            use_qlinearconv=use_qlinearconv,
-        )
-
-    if skip_input_quantize:
-        try:
-            # import here to avoid cyclic dependency
-            from sparseml.pytorch.sparsification.quantization import (
-                skip_onnx_input_quantize,
-            )
-
-            skip_onnx_input_quantize(file_path, file_path)
-        except Exception as e:
-            _LOGGER.warning(
-                f"Unable to skip input QuantizeLinear op with exception {e}"
-            )
+    # if convert_qat and is_quant_module:
+    #     # overwrite exported model with fully quantized version
+    #     # import here to avoid cyclic dependency
+    #     from sparseml.pytorch.sparsification.quantization import (
+    #         quantize_torch_qat_export,
+    #     )
+    #
+    #     use_qlinearconv = hasattr(module, "export_with_qlinearconv") and (
+    #         module.export_with_qlinearconv
+    #     )
+    #
+    #     quantize_torch_qat_export(
+    #         model=file_path,
+    #         output_file_path=file_path,
+    #         use_qlinearconv=use_qlinearconv,
+    #     )
+    #
+    # if skip_input_quantize:
+    #     try:
+    #         # import here to avoid cyclic dependency
+    #         from sparseml.pytorch.sparsification.quantization import (
+    #             skip_onnx_input_quantize,
+    #         )
+    #
+    #         skip_onnx_input_quantize(file_path, file_path)
+    #     except Exception as e:
+    #         _LOGGER.warning(
+    #             f"Unable to skip input QuantizeLinear op with exception {e}"
+    #         )
 
 
 def _copy_file(src: str, target: str):
