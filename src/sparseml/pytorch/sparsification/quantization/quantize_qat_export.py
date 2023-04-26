@@ -1761,7 +1761,7 @@ def _propagate_mobilebert_embedding_quantization(model: ModelProto):
             continue
 
         embedding_array = numpy_helper.to_array(embedding_initializer)
-        if embedding_array.dtype != numpy.uint8:
+        if embedding_array.dtype not in [numpy.uint8, numpy.int8]:
             continue
 
         dequant_node = graph.get_node_single_child(gather_node)
