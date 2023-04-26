@@ -25,6 +25,7 @@ import numpy as np
 import onnx
 
 from sparseml.onnx.utils import ORTModelRunner, fold_conv_bns, get_node_output_nodes
+from sparsezoo.utils import save_onnx, validate_onnx
 
 
 __all__ = ["CalibrationSession"]
@@ -68,7 +69,7 @@ class CalibrationSession:
                 suffix=".onnx", delete=True
             )
             self._augmented_model_path = self._augmented_model_tmp_file.name
-        onnx.save(self._model_augmented, self._augmented_model_path)
+        save_onnx(self._model_augmented, self._augmented_model_path)
 
         self._sessions = {}  # batch_size -> session
         self._quantization_thresholds = {}  # Dict[node.name, Tuple(min_val, max_val)]
@@ -101,13 +102,11 @@ class CalibrationSession:
             if model_optimized is None:
                 # no optimization performed, skip the rest of this block
                 raise Exception()
-            onnx.checker.check_model(
-                model_optimized
-            )  # should raise exception if broken
+            validate_onnx(model_optimized)  # should raise exception if broken
             optimized_model_path = tempfile.NamedTemporaryFile(
                 suffix=".onnx", delete=False
             )
-            onnx.save(model_optimized, optimized_model_path.name)
+            save_onnx(model_optimized, optimized_model_path.name)
             self._model = model_optimized
             print("Optimization successful")
             return optimized_model_path.name

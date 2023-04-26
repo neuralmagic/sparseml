@@ -39,6 +39,7 @@ from sparseml.onnx.utils import (
     swap_node_output,
     update_model_param,
 )
+from sparsezoo.utils import save_onnx
 
 
 __all__ = [
@@ -1593,7 +1594,7 @@ def quantize_torch_qat_export(
     graph.delete_unused_initializers()
 
     if output_file_path:
-        onnx.save(model, output_file_path)
+        save_onnx(model, output_file_path)
 
     return model
 
@@ -1718,7 +1719,7 @@ def skip_onnx_input_quantize(
         raise RuntimeError(optim_error_message)
 
     if output_file_path:
-        onnx.save(model, output_file_path)
+        save_onnx(model, output_file_path)
 
 
 def _propagate_mobilebert_embedding_quantization(model: ModelProto):
