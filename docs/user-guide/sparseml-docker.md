@@ -28,10 +28,6 @@ docker pull ghcr.io/neuralmagic/sparseml:1.4.4-cu111
 docker tag ghcr.io/neuralmagic/sparseml:1.4.4-cu111 sparseml_docker
 docker container run -it sparseml_docker
 ```
-You can also run the container using the [old Docker CLI syntax](https://www.docker.com/blog/whats-new-in-docker-1-13/) but using the new commands is encouraged: 
-```bash
-docker container -it sparseml_docker
-```
 ### NLP NER Example
 You can train various CV or NLP models inside the SparseML container. To use GPUs when training, add the `gpus` flag when starting the container.
 
