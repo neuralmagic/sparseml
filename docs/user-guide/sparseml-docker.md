@@ -34,7 +34,7 @@ docker pull ghcr.io/neuralmagic/sparseml:1.4.4-cu111
 docker tag ghcr.io/neuralmagic/sparseml:1.4.4-cu111 sparseml_docker
 docker container run -it sparseml_docker
 ```
-### NLP NER Example
+## NLP NER Example
 You can train various CV or NLP models inside the SparseML container. To use GPUs when training, add the `gpus` flag when starting the container.
 
 The command below starts the container with all the available GPUs: 
@@ -103,7 +103,7 @@ $ nvidia-smi
 ```
 Lower the `batch_size` in case you get any CUDA error messages.
 
-### Image Classification
+## Image Classification
 
 The `sparseml.image_classification.train` command is used to train image classification models with SparseML. 
 
