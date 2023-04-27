@@ -22,6 +22,8 @@ Apart from installing SparseML via `pip` you can set it up quickly using Docker.
 ## Prerequisites
 Before you begin, make sure you have Docker installed on your machine. You can download and install it from the [official Docker website](https://www.docker.com/products/docker-desktop).
 
+## Pull The Official SparseML Image
+
 The following lines of code will: 
 - Pull the official SparseML image from GitHub Container Registry 
 - Tag the image as `sparseml_docker` 
