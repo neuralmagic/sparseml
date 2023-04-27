@@ -20,8 +20,8 @@ SparseML provides libraries for applying sparsification recipes to neural networ
 Apart from installing SparseML via `pip` you can set it up quickly using Docker. 
 
 The following lines of code will: 
-- Pull the SparseML `Image` from GitHub Container Registry 
-- Tag the `Image` as `sparseml_docker` 
+- Pull the official SparseML image from GitHub Container Registry 
+- Tag the image as `sparseml_docker` 
 - Start the `sparseml_docker` in interactive mode
 ```bash
 docker pull ghcr.io/neuralmagic/sparseml:1.4.4-cu111
