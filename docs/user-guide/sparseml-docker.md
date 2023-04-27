@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-# How to Use SparseML with Docker 
+# How to Use SparseML With Docker 
 SparseML provides libraries for applying sparsification recipes to neural networks with a few lines of code, enabling faster and smaller models. 
 
 Apart from installing SparseML via `pip` you can set it up quickly using Docker. 
