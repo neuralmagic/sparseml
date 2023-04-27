@@ -591,8 +591,14 @@ class SparseYOLO(YOLO):
                 self.PredictorClass,
             ) = self._assign_ops_from_task(self.task)
 
-            self.model = self.ModelClass(dict(self.ckpt["model_yaml"]))
-            if "recipe" in self.ckpt:
+            if "yaml" in self.ckpt:
+                self.model = self.ModelClass(dict(self.ckpt["yaml"]))
+            elif "model_yaml" in self.ckpt:
+                self.model = self.ModelClass(dict(self.ckpt["model_yaml"]))
+            else:
+                self.model = self.ModelClass(dict(self.ckpt["model"].yaml))
+
+            if "recipe" in self.ckpt and self.ckpt["recipe"]:
                 manager = ScheduledModifierManager.from_yaml(self.ckpt["recipe"])
                 epoch = self.ckpt.get("epoch", -1)
                 if epoch < 0:
