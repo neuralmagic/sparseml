@@ -11,27 +11,33 @@ This `Dockerfile` is tested on the Ubuntu 20.04.2 LTS with CUDA Version: 11.4.
 You can access the already built image detailed at https://github.com/orgs/neuralmagic/packages/container/package/sparseml:
 
 ```bash
-docker pull ghcr.io/neuralmagic/sparseml:1.0.1-ubuntu18.04-cu11.1
-docker tag ghcr.io/neuralmagic/sparseml:1.0.1-ubuntu18.04-cu11.1 sparseml_docker
+docker pull ghcr.io/neuralmagic/sparseml:1.4.4-cu111
+docker tag ghcr.io/neuralmagic/sparseml:1.4.4-cu111 sparseml_docker
 ```
 
 ## Extend
 If you would like to customize the docker image, you can use the pre-built images as a base in your own `Dockerfile`:
 
 ```Dockerfile
-from ghcr.io/neuralmagic/sparseml:1.0.1-ubuntu18.04-cu11.1
+docker pull ghcr.io/neuralmagic/sparseml:1.4.4-cu111
 
 ...
 ```
 
 ## Build
-To build and launch this image with the tag `sparseml_docker`, run from the root directory:
-- for compute platform CUDA 10.2: `docker build --build-arg CUDA_VERSION=10.2 -t sparseml_docker .`
-- for compute platform CUDA 11.1: `docker build --build-arg CUDA_VERSION=11.1 -t sparseml_docker .` 
+To build and launch this image with the tag `sparseml_docker`, run from the root directory: `docker build -t sparseml_docker . && docker run -it sparseml_docker ${python_command},` for example`docker build -t sparseml_docker . && docker container run --gpus all --shm-size=256m -it sparseml_docker sparseml.transformers.train.token_classification \
+  --model_name_or_path zoo:nlp/masked_language_modeling/obert-base/pytorch/huggingface/wikipedia_bookcorpus/pruned90-none \
+  --recipe zoo:nlp/token_classification/obert-base/pytorch/huggingface/conll2003/pruned90_quant-none \
+  --distill_teacher zoo:nlp/token_classification/obert-base/pytorch/huggingface/conll2003/base-none \
+  --dataset_name conll2003 \
+  --output_dir sparse_bert-token_classification_conll2003 \
+  --per_device_train_batch_size 32 --per_device_eval_batch_size 32 --preprocessing_num_workers 6 \
+  --do_train --do_eval --evaluation_strategy epoch --fp16 --seed 29204  \
+  --save_strategy epoch --save_total_limit 1`  
 
 If you want to use a specific branch from sparseml you can use the `GIT_CHECKOUT` build arg:
-```
-docker build --build-arg CUDA_VERSION=11.1 --build-arg GIT_CHECKOUT=main -t sparseml_nightly .`
+```bash
+docker build --build-arg BRANCH=main -t sparseml_docker .
 ```
 
 ## Run
