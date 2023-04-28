@@ -147,3 +147,5 @@ sparseml.yolov5.train \
   --recipe zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned-aggressive_96
 
 ```
+## How to Build Your Own SparseML Image
+To build your own SparseML image [follow these instructions](https://github.com/neuralmagic/sparseml/blob/main/docker/README.md)
