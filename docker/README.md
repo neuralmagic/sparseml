@@ -19,7 +19,7 @@ docker tag ghcr.io/neuralmagic/sparseml:1.4.4-cu111 sparseml_docker
 If you would like to customize the docker image, you can use the pre-built images as a base in your own `Dockerfile`:
 
 ```Dockerfile
-from docker pull ghcr.io/neuralmagic/sparseml:1.4.4-cu111
+from ghcr.io/neuralmagic/sparseml:1.4.4-cu111
 
 ...
 ```
