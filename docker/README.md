@@ -1,4 +1,4 @@
-# SparseML docker image
+# SparseML Docker Image
 This directory contains the Dockerfile to create a minimal SparseML docker image.
 
 The included `Dockerfile` builds an image on top of the official NVIDIA development Ubuntu 18.04.5 LTS 
@@ -57,16 +57,16 @@ sparseml.image_classification.train \
 
 ### Example 2: Transformers Question Answering Pipeline:
 
-```python
+```bash
 sparseml.transformers.question_answering \
-  --model_name_or_path bert-base-uncased \          
-  --dataset_name squad \                            
-  --do_train \                                      
-  --do_eval \                                       
-  --output_dir './output' \                         
-  --cache_dir cache \                               
-  --distill_teacher disable \                       
-  --recipe zoo:nlp/question_answering/bert-base/pytorch/huggingface/squad/pruned-aggressive_98   
+  --model_name_or_path bert-base-uncased \
+  --dataset_name squad \
+  --do_train \
+  --do_eval \
+  --output_dir './output' \
+  --cache_dir cache \
+  --distill_teacher disable \
+  --recipe zoo:nlp/question_answering/bert-base/pytorch/huggingface/squad/pruned-aggressive_98 
 ```
 
 Note: 
