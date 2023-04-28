@@ -25,15 +25,7 @@ from ghcr.io/neuralmagic/sparseml:1.4.4-cu111
 ```
 
 ## Build
-To build and launch this image with the tag `sparseml_docker`, run from the root directory: `docker build -t sparseml_docker . && docker run -it sparseml_docker ${python_command},` for example`docker build -t sparseml_docker . && docker container run --gpus all --shm-size=256m -it sparseml_docker sparseml.transformers.train.token_classification \
-  --model_name_or_path zoo:nlp/masked_language_modeling/obert-base/pytorch/huggingface/wikipedia_bookcorpus/pruned90-none \
-  --recipe zoo:nlp/token_classification/obert-base/pytorch/huggingface/conll2003/pruned90_quant-none \
-  --distill_teacher zoo:nlp/token_classification/obert-base/pytorch/huggingface/conll2003/base-none \
-  --dataset_name conll2003 \
-  --output_dir sparse_bert-token_classification_conll2003 \
-  --per_device_train_batch_size 32 --per_device_eval_batch_size 32 --preprocessing_num_workers 6 \
-  --do_train --do_eval --evaluation_strategy epoch --fp16 --seed 29204  \
-  --save_strategy epoch --save_total_limit 1`  
+To build and launch this image with the tag `sparseml_docker`, run from the root directory: `docker build -t sparseml_docker`
 
 If you want to use a specific branch from sparseml you can use the `GIT_CHECKOUT` build arg:
 ```bash
