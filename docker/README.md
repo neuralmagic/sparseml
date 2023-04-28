@@ -43,16 +43,17 @@ Note: RuntimeError: DataLoader worker (pid 1388) is killed by signal: Bus error.
 
 ### Example 1: Image Classification Pipeline:
 
-```
-sparseml.image_classification.train \ 
---recipe-path zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/pruned85_quant-none-vnni \
---arch-key resnet50 \  
---pretrained pruned-moderate \   
---dataset imagenette \
---dataset-path dataset \     
---train-batch-size 4 \ 
---test-batch-size 8 
-```
+Download a subset of the ImageNet dataset and use it to train a ResNet-50 model. 
+```bash 
+curl https://s3.amazonaws.com/fast-ai-imageclas/imagenette2-320.tgz --output imagenette2-320.tgz
+tar -xvf imagenette2-320.tgz
+sparseml.image_classification.train \
+    --recipe zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/pruned95_quant-none?recipe_type=transfer-classification \
+    --checkpoint-path zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/pruned95_quant-none?recipe_type=transfer-classification \
+    --arch-key resnet50 \
+    --dataset-path ./imagenette2-320 \
+    --batch-size 32
+ ```
 
 ### Example 2: Transformers Question Answering Pipeline:
 
