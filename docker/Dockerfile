@@ -134,12 +134,12 @@ COPY --from=build $VENV $VENV
 COPY --from=build sparseml sparseml
 ENV PATH="${VENV}/bin:$PATH"
 HEALTHCHECK CMD python -c 'import sparseml'
-ENTRYPOINT bash
+CMD bash
 
 FROM base as prod
 ARG VENV
 COPY --from=build $VENV $VENV
 ENV PATH="${VENV}/bin:$PATH"
 HEALTHCHECK CMD python -c 'import sparseml'
-ENTRYPOINT bash
+CMD bash
 
