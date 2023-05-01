@@ -21,6 +21,7 @@ import logging as _logging
 
 from sparseml.analytics import sparseml_analytics as _analytics
 
+
 _analytics.send_event("python__yolov5__init")
 
 _LOGGER = _logging.getLogger(__name__)
