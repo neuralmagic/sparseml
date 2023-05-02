@@ -687,7 +687,7 @@ def _get_label_info(data_args, raw_datasets):
 def _get_tokenized_and_preprocessed_raw_datasets(
     config,
     data_args: DataTrainingArguments,
-    model: Module,
+    model: Optional[Module],
     raw_datasets,
     tokenizer: transformers.PreTrainedTokenizerBase,
     teacher_tokenizer=None,
@@ -705,6 +705,7 @@ def _get_tokenized_and_preprocessed_raw_datasets(
     ) = _get_label_info(data_args, raw_datasets)
 
     train_dataset = predict_dataset = eval_dataset = None
+    config = model.config if model else config
     if not main_process_func:
         main_process_func = lambda desc: nullcontext(desc)  # noqa: E731
 
@@ -757,11 +758,11 @@ def _get_tokenized_and_preprocessed_raw_datasets(
     )
 
     if label_to_id is not None:
-        model.config.label2id = label_to_id
-        model.config.id2label = {id: label for label, id in config.label2id.items()}
+        config.label2id = label_to_id
+        config.id2label = {id: label for label, id in config.label2id.items()}
     elif data_args.task_name is not None and not is_regression:
-        model.config.label2id = {l: i for i, l in enumerate(label_list)}
-        model.config.id2label = {id: label for label, id in config.label2id.items()}
+        config.label2id = {l: i for i, l in enumerate(label_list)}
+        config.id2label = {id: label for label, id in config.label2id.items()}
 
     max_seq_length = data_args.max_seq_length
     if max_seq_length > tokenizer.model_max_length:
