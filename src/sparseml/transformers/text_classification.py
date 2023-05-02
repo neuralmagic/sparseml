@@ -705,7 +705,7 @@ def _get_tokenized_and_preprocessed_raw_datasets(
     ) = _get_label_info(data_args, raw_datasets)
 
     train_dataset = predict_dataset = eval_dataset = None
-    config = config if model else config
+    config = model.config if model else config
     if not main_process_func:
         main_process_func = lambda desc: nullcontext(desc)  # noqa: E731
 
