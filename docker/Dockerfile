@@ -95,18 +95,22 @@ ARG MODE
 RUN \
     if [ -n "$BRANCH" ] ; then \
       echo Installing from BRANCH && \
-      $VENV/bin/pip install --no-cache-dir "./sparseml[onnxruntime,torchvision,transformers,yolov5,ultralytics]"; \
+      $VENV/bin/pip install --no-cache-dir "./sparseml[onnxruntime,torchvision,ultralytics]"; \
     elif [ "$MODE" = "nightly" ] ; then \
       if [ -z $VERSION] ; then \
-        $VENV/bin/pip install --no-cache-dir "sparseml-nightly[onnxruntime,torchvision,transformers,yolov5,ultralytics]"; \
+        $VENV/bin/pip install --no-cache-dir "sparseml-nightly[onnxruntime,torchvision,ultralytics]"; \
       else \
-        $VENV/bin/pip install --no-cache-dir "sparseml-nightly[onnxruntime,torchvision,transformers,yolov5,ultralytics]==$VERSION"; \
+        $VENV/bin/pip install --no-cache-dir "sparseml-nightly[onnxruntime,torchvision,ultralytics]==$VERSION"; \
       fi; \
     elif [ -z $VERSION] ; then \
-      $VENV/bin/pip install --no-cache-dir "sparseml[onnxruntime,torchvision,transformers,yolov5,ultralytics]"; \
+      $VENV/bin/pip install --no-cache-dir "sparseml[onnxruntime,torchvision,ultralytics]"; \
     else \
-      $VENV/bin/pip install --no-cache-dir "sparseml[onnxruntime,torchvision,transformers,yolov5,ultralytics]==$VERSION"; \
+      $VENV/bin/pip install --no-cache-dir "sparseml[onnxruntime,torchvision,ultralytics]==$VERSION"; \
     fi;
+
+RUN sparseml.transformers.question_answering --help \
+    && sparseml.yolov5.train --help \
+    && sparseml.ultralytics.train --help
 
 
 FROM cuda_builder AS container_branch_dev
