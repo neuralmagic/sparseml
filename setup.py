@@ -71,6 +71,16 @@ _pytorch_all_deps = _pytorch_deps + [
     "torchvision>=0.3.0,<=0.14",
 ]
 _pytorch_vision_deps = _pytorch_deps + ["torchvision>=0.3.0,<=0.14"]
+_transformers_deps = _pytorch_deps + [
+    f"{'nm-transformers' if is_release else 'nm-transformers-nightly'}"
+    f"~={version_nm_deps}",
+    "datasets<=1.18.4",
+    "scikit-learn",
+    "seqeval",
+]
+_yolov5_deps = _pytorch_vision_deps + [
+    f"{'nm-yolov5' if is_release else 'nm-yolov5-nightly'}~={version_nm_deps}"
+]
 _tensorflow_v1_deps = ["tensorflow<2.0.0", "tensorboard<2.0.0", "tf2onnx>=1.0.0,<1.6"]
 _tensorflow_v1_gpu_deps = [
     "tensorflow-gpu<2.0.0",
@@ -132,10 +142,12 @@ def _setup_extras() -> Dict:
         "torch": _pytorch_deps,
         "torch_all": _pytorch_all_deps,
         "torchvision": _pytorch_vision_deps,
+        "transformers": _transformers_deps,
         "tf_v1": _tensorflow_v1_deps,
         "tf_v1_gpu": _tensorflow_v1_gpu_deps,
         "tf_keras": _keras_deps,
         "ultralytics": _ultralytics_deps,
+        "yolov5": _yolov5_deps,
     }
 
 
