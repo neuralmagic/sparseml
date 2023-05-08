@@ -186,7 +186,7 @@ def load_task_dataset(
 
         data_training_args = DataTrainingArguments(**data_args)
         return get_tokenized_token_classification_dataset(
-            data_args=data_training_args, tokenizer=tokenizer, model=model
+            data_args=data_training_args, tokenizer=tokenizer, model=model or config
         )
 
     if (
