@@ -73,13 +73,13 @@ _pytorch_all_deps = _pytorch_deps + [
 _pytorch_vision_deps = _pytorch_deps + ["torchvision>=0.3.0,<=0.14"]
 _transformers_deps = _pytorch_deps + [
     f"{'nm-transformers' if is_release else 'nm-transformers-nightly'}"
-    f"~={version_base}",
+    f"~={version_nm_deps}",
     "datasets<=1.18.4",
     "scikit-learn",
     "seqeval",
 ]
 _yolov5_deps = _pytorch_vision_deps + [
-    f"{'nm-yolov5' if is_release else 'nm-yolov5-nightly'}~={version_base}"
+    f"{'nm-yolov5' if is_release else 'nm-yolov5-nightly'}~={version_nm_deps}"
 ]
 _tensorflow_v1_deps = ["tensorflow<2.0.0", "tensorboard<2.0.0", "tf2onnx>=1.0.0,<1.6"]
 _tensorflow_v1_gpu_deps = [
