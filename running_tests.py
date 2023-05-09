@@ -1,12 +1,15 @@
+import copy
+
 import onnx
+from onnx.utils import extract_model
 from collections import defaultdict
 from sparseml.exporters.transforms import AddKeyValueCache
 from transformers import AutoTokenizer
 import onnxruntime as rt
 import numpy as np
 
-DEBUG_NODE = "query.7"
-DEBUG_NODE_BASELINE = "query.7"
+DEBUG_NODE = "onnx::Gather_392"
+DEBUG_NODE_BASELINE = "onnx::Gather_459"
 
 
 def add_debug_node(model_path: str, new_model_path: str, intermediate_tensor_name:str):
@@ -17,13 +20,18 @@ def add_debug_node(model_path: str, new_model_path: str, intermediate_tensor_nam
 
     debug = onnx.helper.make_tensor_value_info(
         intermediate_tensor_name,
-        onnx.TensorProto.FLOAT,
+        onnx.TensorProto.INT64,
         # hacky
         shape= [None, None, None, None],
     )
-
     model.graph.output.extend([debug])
     onnx.save(model, new_model_path)
+
+    # input_names = [x.name for x in model.graph.input]
+    # output_names = [intermediate_tensor_name]
+    # extract_model(model_path, new_model_path, input_names, output_names)
+    # model = onnx.load(new_model_path)
+    # onnx.save(model, new_model_path, save_as_external_data=True, all_tensors_to_one_file=True)
 
 #### EDIT THE EXPORTED MODEL ####
 """
@@ -76,6 +84,7 @@ seq_length = 1
 # Setup the cache (tested and baseline)
 kv_cache = defaultdict(np.ndarray)
 kv_cache_baseline = defaultdict(np.ndarray)
+
 for i in range(20):
     kv_cache[f"past_key_values.{i}.value"] = np.zeros((batch_size, num_heads, past_length, head_dim)).astype(np.float32)
     kv_cache[f"past_key_values.{i}.key"] = np.zeros((batch_size, num_heads, head_dim, past_length)).astype(np.float32)
