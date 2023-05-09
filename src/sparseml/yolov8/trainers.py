@@ -27,6 +27,7 @@ import torch
 
 from sparseml.optim.helpers import load_recipe_yaml_str
 from sparseml.pytorch.optim.manager import ScheduledModifierManager
+from sparseml.pytorch.sparsification.quantization import skip_onnx_input_quantize
 from sparseml.pytorch.utils import ModuleExporter
 from sparseml.pytorch.utils.helpers import download_framework_model_by_recipe_type
 from sparseml.pytorch.utils.logger import LoggerManager, PythonLogger, WANDBLogger
@@ -721,7 +722,14 @@ class SparseYOLO(YOLO):
             else ["output0"],
         )
 
-        validate_onnx(os.path.join(save_dir, name))
+        complete_path = os.path.join(save_dir, name)
+        try:
+            skip_onnx_input_quantize(complete_path, complete_path)
+        except Exception:
+            pass
+
+        onnx.checker.check_model(complete_path)
+
         deployment_folder = exporter.create_deployment_folder(onnx_model_name=name)
         if args["export_samples"]:
             trainer_config = get_cfg(cfg=DEFAULT_SPARSEML_CONFIG_PATH)
