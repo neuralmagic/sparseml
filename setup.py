@@ -66,11 +66,10 @@ _pytorch_deps = [
     "gputils",
 ]
 _pytorch_all_deps = _pytorch_deps + [
-    "torchvision>=0.3.0,<=0.14",
+    "torchvision>=0.3.0,<0.15",
     "torchaudio<=0.13",
-    "torchvision>=0.3.0,<=0.14",
 ]
-_pytorch_vision_deps = _pytorch_deps + ["torchvision>=0.3.0,<=0.14"]
+_pytorch_vision_deps = _pytorch_deps + ["torchvision>=0.3.0,<0.15"]
 _transformers_deps = _pytorch_deps + [
     f"{'nm-transformers' if is_release else 'nm-transformers-nightly'}"
     f"~={version_nm_deps}",
