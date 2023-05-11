@@ -729,7 +729,6 @@ class SparseYOLO(YOLO):
             pass
 
         validate_onnx(complete_path)
-
         deployment_folder = exporter.create_deployment_folder(onnx_model_name=name)
         if args["export_samples"]:
             trainer_config = get_cfg(cfg=DEFAULT_SPARSEML_CONFIG_PATH)

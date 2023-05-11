@@ -114,6 +114,7 @@ def load_task_model(task: str, model_path: str, config: Any) -> Module:
         return SparseAutoModel.question_answering_from_pretrained(
             model_name_or_path=model_path,
             config=config,
+            model_type="model",
         )
 
     if (
