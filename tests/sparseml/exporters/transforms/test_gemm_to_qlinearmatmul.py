@@ -17,6 +17,7 @@ import pytest
 from onnx import helper
 
 from sparseml.exporters.transforms.gemm_to_qlinearmatmul import GemmToQLinearMatMul
+from sparsezoo.utils import validate_onnx
 
 
 @pytest.fixture
@@ -76,7 +77,7 @@ def onnx_model() -> onnx.ModelProto:
         initializer=[x_scale, y_scale, zero_point, weight_init],
     )
     model = helper.make_model(graph)
-    onnx.checker.check_model(model)
+    validate_onnx(model)
     assert [i.name for i in model.graph.initializer] == [
         "x_scale",
         "y_scale",
@@ -98,7 +99,7 @@ def test_vanilla(onnx_model: onnx.ModelProto):
     See variant 1 in docstring of transform
     """
     onnx_model = GemmToQLinearMatMul().apply(onnx_model)
-    onnx.checker.check_model(onnx_model)
+    validate_onnx(onnx_model)
     assert [i.name for i in onnx_model.graph.initializer] == [
         "x_scale",
         "y_scale",
@@ -121,10 +122,10 @@ def test_gemm_with_bias_inserts_dequant(onnx_model: onnx.ModelProto):
     gemm.input.append("bias")
     onnx_model.graph.initializer.append(bias)
 
-    onnx.checker.check_model(onnx_model)
+    validate_onnx(onnx_model)
 
     onnx_model = GemmToQLinearMatMul().apply(onnx_model)
-    onnx.checker.check_model(onnx_model)
+    validate_onnx(onnx_model)
     assert [i.name for i in onnx_model.graph.initializer] == [
         "x_scale",
         "y_scale",
@@ -158,10 +159,10 @@ def test_gemm_with_bias_dequant_after(onnx_model: onnx.ModelProto):
             name="output_dequant",
         )
     )
-    onnx.checker.check_model(onnx_model)
+    validate_onnx(onnx_model)
 
     onnx_model = GemmToQLinearMatMul().apply(onnx_model)
-    onnx.checker.check_model(onnx_model)
+    validate_onnx(onnx_model)
     assert [i.name for i in onnx_model.graph.initializer] == [
         "x_scale",
         "y_scale",
@@ -200,9 +201,9 @@ def test_gemm_after_changes_nothing(onnx_model: onnx.ModelProto):
             name="gemm2",
         )
     )
-    onnx.checker.check_model(onnx_model)
+    validate_onnx(onnx_model)
     onnx_model = GemmToQLinearMatMul().apply(onnx_model)
-    onnx.checker.check_model(onnx_model)
+    validate_onnx(onnx_model)
 
     # NOTE: nothing should've changed
     assert [i.name for i in onnx_model.graph.initializer] == [
@@ -223,9 +224,8 @@ def test_gemm_after_changes_nothing(onnx_model: onnx.ModelProto):
 
     # remove the gemm2 node and now things should change
     onnx_model.graph.node.pop()
-    onnx.checker.check_model(onnx_model)
+    validate_onnx(onnx_model)
     onnx_model = GemmToQLinearMatMul().apply(onnx_model)
-    # onnx.checker.check_model(onnx_model)
 
     assert [i.name for i in onnx_model.graph.initializer] == [
         "x_scale",
@@ -245,7 +245,7 @@ def test_non_default_attributes_changes_nothing(onnx_model: onnx.ModelProto):
     gemm_node.attribute.append(helper.make_attribute("alpha", 0.0))
 
     onnx_model = GemmToQLinearMatMul().apply(onnx_model)
-    onnx.checker.check_model(onnx_model)
+    validate_onnx(onnx_model)
 
     # NOTE: nothing should've changed
     assert [i.name for i in onnx_model.graph.initializer] == [

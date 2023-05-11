@@ -18,6 +18,7 @@ import pytest
 from onnx import ModelProto, numpy_helper
 
 from sparseml.exporters.transforms.initializers_to_uint8 import InitializersToUint8
+from sparsezoo.utils import validate_onnx
 
 
 @pytest.fixture
@@ -50,13 +51,13 @@ def onnx_model():
     )
 
     model = onnx.helper.make_model(graph)
-    onnx.checker.check_model(model)
+    validate_onnx(model)
     return model
 
 
 def test_vanilla(onnx_model: ModelProto):
     onnx_model = InitializersToUint8().apply(onnx_model)
-    onnx.checker.check_model(onnx_model)
+    validate_onnx(onnx_model)
     assert [n.name for n in onnx_model.graph.node] == ["add"]
     assert [i.name for i in onnx_model.graph.initializer] == ["init1"]
     a = numpy_helper.to_array(onnx_model.graph.initializer[0])

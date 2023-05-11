@@ -25,13 +25,13 @@ import numpy
 from onnx import ModelProto
 
 from sparseml.onnx.utils.helpers import (
-    check_load_model,
     extract_shape,
     get_numpy_dtype,
     model_inputs,
     model_outputs,
 )
 from sparseml.utils import NumpyArrayBatcher, load_labeled_data
+from sparsezoo.utils import load_model
 
 
 __all__ = ["DataLoader"]
@@ -171,7 +171,7 @@ class DataLoader(object):
             and outputs, typically the batch dimension
         :return: the created DataLoader instance with the random data
         """
-        model = check_load_model(model)
+        model = load_model(model)
         inputs = model_inputs(model)
         outputs = model_outputs(model)
         data_shapes = OrderedDict(

@@ -23,7 +23,6 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List, Optional
 
-import onnx
 import torch
 
 from sparseml.optim.helpers import load_recipe_yaml_str
@@ -45,6 +44,7 @@ from sparseml.yolov8.validators import (
     SparseSegmentationValidator,
 )
 from sparsezoo import Model
+from sparsezoo.utils import validate_onnx
 from ultralytics import __version__
 from ultralytics.nn.tasks import SegmentationModel, attempt_load_one_weight
 from ultralytics.yolo.cfg import get_cfg
@@ -728,7 +728,7 @@ class SparseYOLO(YOLO):
         except Exception:
             pass
 
-        onnx.checker.check_model(complete_path)
+        validate_onnx(complete_path)
         deployment_folder = exporter.create_deployment_folder(onnx_model_name=name)
         if args["export_samples"]:
             trainer_config = get_cfg(cfg=DEFAULT_SPARSEML_CONFIG_PATH)

@@ -17,6 +17,7 @@ import pytest
 from onnx import ModelProto
 
 from sparseml.exporters.transforms.delete_repeated_qdq import DeleteRepeatedQdq
+from sparsezoo.utils import validate_onnx
 
 
 @pytest.fixture
@@ -55,12 +56,12 @@ def onnx_model():
         initializer=[scale],
     )
     model = onnx.helper.make_model(graph)
-    onnx.checker.check_model(model)
+    validate_onnx(model)
     return model
 
 
 def test_vanilla(onnx_model: ModelProto):
     onnx_model = DeleteRepeatedQdq().apply(onnx_model)
-    onnx.checker.check_model(onnx_model)
+    validate_onnx(onnx_model)
     assert [n.name for n in onnx_model.graph.node] == ["quant2", "dequant2"]
     assert [i.name for i in onnx_model.graph.initializer] == ["scale"]

@@ -26,6 +26,7 @@ from sparseml.pytorch.utils.exporter import (
     _flatten_qparams,
     _fold_identity_initializers,
 )
+from sparsezoo.utils import validate_onnx
 from tests.sparseml.pytorch.helpers import MLPNet
 
 
@@ -72,7 +73,7 @@ def test_fold_identity_initializers():
         initializer=[init1],
     )
     model = onnx.helper.make_model(graph)
-    onnx.checker.check_model(model)
+    validate_onnx(model)
 
     assert len(model.graph.node) == 2
     assert len(model.graph.initializer) == 1
@@ -84,7 +85,7 @@ def test_fold_identity_initializers():
     assert [node.name for node in model.graph.node] == ["add"]
     assert model.graph.node[0].input == ["init1", "input"]
 
-    onnx.checker.check_model(model)
+    validate_onnx(model)
 
 
 def test_flatten_params():
@@ -113,7 +114,7 @@ def test_flatten_params():
         initializer=[zp, scale],
     )
     model = onnx.helper.make_model(graph)
-    onnx.checker.check_model(model)
+    validate_onnx(model)
 
     assert len(model.graph.initializer) == 2
     assert [init.name for init in model.graph.initializer] == ["zero_point", "scale"]
@@ -135,4 +136,4 @@ def test_flatten_params():
     assert scale.shape == ()
     assert scale.dtype == numpy.float32
 
-    onnx.checker.check_model(model)
+    validate_onnx(model)
