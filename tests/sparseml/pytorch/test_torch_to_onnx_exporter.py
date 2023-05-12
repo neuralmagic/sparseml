@@ -26,6 +26,7 @@ from sparseml.pytorch.models.registry import ModelRegistry
 from sparseml.pytorch.sparsification.quantization import QuantizationModifier
 from sparseml.pytorch.torch_to_onnx_exporter import TorchToONNX
 from sparseml.pytorch.utils import ModuleExporter
+from sparsezoo.utils import validate_onnx
 from tests.sparseml.pytorch.helpers import ConvNet, LinearNet, MLPNet
 
 
@@ -228,8 +229,8 @@ def _assert_onnx_models_are_equal(
     sample_batch: torch.Tensor,
     expect_op_types=None,
 ):
-    onnx.checker.check_model(old_model_path)
-    onnx.checker.check_model(new_model_path)
+    validate_onnx(old_model_path)
+    validate_onnx(new_model_path)
 
     old_model = onnx.load(old_model_path)
     new_model = onnx.load(new_model_path)

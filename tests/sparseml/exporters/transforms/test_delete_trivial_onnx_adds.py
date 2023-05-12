@@ -16,6 +16,7 @@ import onnx
 import pytest
 
 from sparseml.exporters.transforms import DeleteTrivialOnnxAdds
+from sparsezoo.utils import validate_onnx
 
 
 def _create_test_model(initializer_set_to_nonzero=False):
@@ -84,8 +85,8 @@ def _test_initializer_nonzero(model):
 )
 def test_delete_trivial_onnx_adds(initializer_set_to_nonzero, test_function):
     model = _create_test_model(initializer_set_to_nonzero=initializer_set_to_nonzero)
-    onnx.checker.check_model(model)
+    validate_onnx(model)
     transform = DeleteTrivialOnnxAdds()
     model = transform(model)
-    onnx.checker.check_model(model)
+    validate_onnx(model)
     test_function(model)

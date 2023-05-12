@@ -30,6 +30,7 @@ from sparseml.pytorch import _PARSED_TORCH_VERSION
 from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
 from sparseml.pytorch.utils.helpers import tensors_module_forward, tensors_to_device
 from sparseml.pytorch.utils.model import is_parallel_model
+from sparsezoo.utils import save_onnx
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -101,7 +102,7 @@ class TorchToONNX(BaseExporter):
 
     def export(self, pre_transforms_model: torch.nn.Module, file_path: str):
         post_transforms_model: onnx.ModelProto = self.apply(pre_transforms_model)
-        onnx.save(post_transforms_model, file_path)
+        save_onnx(post_transforms_model, file_path)
 
 
 class _TorchOnnxExport(BaseTransform):

@@ -17,6 +17,7 @@ import pytest
 from onnx import ModelProto
 
 from sparseml.exporters.transforms.quantize_residuals import QuantizeResiduals
+from sparsezoo.utils import validate_onnx
 
 
 @pytest.fixture
@@ -55,13 +56,13 @@ def onnx_model():
     )
 
     model = onnx.helper.make_model(graph)
-    onnx.checker.check_model(model)
+    validate_onnx(model)
     return model
 
 
 def test_relu_input(onnx_model: ModelProto):
     onnx_model = QuantizeResiduals().apply(onnx_model)
-    onnx.checker.check_model(onnx_model)
+    validate_onnx(onnx_model)
     assert [(n.name, n.op_type) for n in onnx_model.graph.node] == [
         ("relu", "Relu"),
         ("quant", "QuantizeLinear"),
@@ -79,10 +80,10 @@ def test_relu_input(onnx_model: ModelProto):
 def test_add_input(onnx_model: ModelProto):
     onnx_model.graph.node[0].op_type = "Add"
     onnx_model.graph.node[0].input.append("input")
-    onnx.checker.check_model(onnx_model)
+    validate_onnx(onnx_model)
 
     onnx_model = QuantizeResiduals().apply(onnx_model)
-    onnx.checker.check_model(onnx_model)
+    validate_onnx(onnx_model)
 
     assert [(n.name, n.op_type) for n in onnx_model.graph.node] == [
         ("relu", "Add"),
