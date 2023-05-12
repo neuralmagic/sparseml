@@ -15,7 +15,8 @@
 import logging
 from typing import List, Optional, Set, Tuple
 
-from onnx import ModelProto, NodeProto
+import onnx
+from onnx import ModelProto, NodeProto, ValueInfoProto
 
 from sparseml.exporters.transforms.onnx_transform import OnnxTransform
 from sparseml.onnx.utils import ONNXGraph
@@ -75,6 +76,9 @@ class CacheKeysAndValues(OnnxTransform):
         )
 
         # INJECT - cache inputs/outputs + concatenation to the matmuls
+        nodes_to_add = []
+        inputs_to_add = []
+        outputs_to_add = []
         for idx, (attention_scores_matmul, context_layer_matmul) in enumerate(
             attention_scores_context_layer_matmul_pairs
         ):
@@ -85,8 +89,72 @@ class CacheKeysAndValues(OnnxTransform):
 
             # TODO: inject concat node, input, and output for the matmuls for
             # their respective keys and values
+            key_concat_node, key_input_tensor, key_output_tensor = _create_cache(
+                node=attention_scores_matmul,
+                graph=graph,
+                cache_input_idx=key_input_idx,
+                cache_input_name=f"{cache_layer_name}.key",
+            )
+            value_concat_node, value_input_tensor, value_output_tensor = _create_cache(
+                node=context_layer_matmul,
+                graph=graph,
+                cache_input_idx=value_input_idx,
+                cache_input_name=f"{cache_layer_name}.value",
+            )
+            nodes_to_add.extend([key_concat_node, value_concat_node])
+            inputs_to_add.extend([key_input_tensor, value_input_tensor])
+            outputs_to_add.extend([key_output_tensor, value_output_tensor])
 
-        return _find_attention_scores_context_layer_matmul_pairs(graph)
+        # update model with cache nodes, inputs, and outputs
+        model.graph.node.extend(nodes_to_add)
+        model.graph.input.extend(inputs_to_add)
+        model.graph.output.extend(outputs_to_add)
+
+        return model
+
+
+def _create_cache(
+    node: NodeProto, graph: ONNXGraph, cache_input_idx: int, cache_input_name: str
+) -> Tuple[NodeProto, ValueInfoProto, ValueInfoProto]:
+    """
+    :param node: node with an input to be cached
+    :param graph: model graph object
+    :param cache_input_idx: input of the node to be cached
+    :param name: name of cache input, cache output will be named {name}.updated
+    :return: tuple of concat node to add, cache input to add, and cache output to add,
+        updates existing nodes in-place
+    """
+    pre_cache_input_id = node.input[cache_input_idx]
+    cache_output_name = f"{cache_input_name}.updated"
+
+    # create concat node
+    concat_node = onnx.helper.make_node(
+        op_type="Concat",
+        inputs=[pre_cache_input_id, cache_input_name],
+        outputs=[cache_output_name],
+        axis=-1,  # eyeballing concat on the last axis for now, TODO: determine correctness
+        name=f"concat.{cache_input_name}",
+    )
+
+    # create graph input/output info protos
+    cache_input_info = onnx.helper.make_tensor_value_info(
+        cache_input_name,
+        onnx.TensorProto.FLOAT,
+        ["batch_size", "hidden_dims", "cache_length"],
+    )
+    cache_output_info = onnx.helper.make_tensor_value_info(
+        cache_output_name,
+        onnx.TensorProto.FLOAT,
+        ["batch_size", "hidden_dims", "cache_length+1"],
+    )
+
+    # update all uses of the pre_cache_input_id to now reference cache output
+    for node in graph.nodes:
+        for input_idx, input_id in enumerate(node.input):
+            if input_id == pre_cache_input_id:
+                node.input[input_idx] = cache_output_name
+
+    return concat_node, cache_input_info, cache_output_info
 
 
 def _find_attention_scores_context_layer_matmul_pairs(
@@ -200,12 +268,3 @@ def is_matmul(node: NodeProto):
 def _is_parameterized_node(node: NodeProto, graph: ONNXGraph) -> bool:
     # returns true if any input to the node is a parameter (initializer) of the graph
     return any(graph.get_init_by_name(node_input) for node_input in node.input)
-
-
-"""
-import onnx
-from sparseml.exporters.transforms.kv_cache import *
-model = onnx.load("/home/benjamin/tmp-models/small_decoder_opt.onnx", load_external_data=False)
-pairs = CacheKeysAndValues().transform(model)
-len(pairs)
-"""
