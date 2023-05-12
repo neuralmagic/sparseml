@@ -82,7 +82,7 @@ class OPTCacheLengthAdjustment(CacheLengthAdjustment):
         )
         slice_steps_initializer = numpy_helper.from_array(
             numpy.ones(1, dtype=numpy.int64),
-            f"{slice_node_name}.stpes",
+            f"{slice_node_name}.steps",
         )
 
         # unsqueeze dim 0 of cache length to align for slicing the right dim
