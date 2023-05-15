@@ -261,6 +261,7 @@ class SparseAutoModel:
         # Export decoder model without kv cache support
         kwargs["config"].is_decoder = True
         kwargs["config"].use_cache = False
+        kwargs["config"].use_past = False
 
         model = AutoModelForCausalLM.from_pretrained(
             model_name_or_path,
