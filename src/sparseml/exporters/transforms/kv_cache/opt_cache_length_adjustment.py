@@ -73,7 +73,7 @@ class OPTCacheLengthAdjustment(CacheLengthAdjustment):
         # create initializer helpers for slice
         slice_node_name = "embed_positions_slice"
         slice_ends_initializer = numpy_helper.from_array(
-            numpy.array(numpy.iinfo(numpy.int64).max),  # do not cap end of slice
+            numpy.array([numpy.iinfo(numpy.int64).max]),  # do not cap end of slice
             f"{slice_node_name}.ends",
         )
         slice_axes_initializer = numpy_helper.from_array(
@@ -85,21 +85,25 @@ class OPTCacheLengthAdjustment(CacheLengthAdjustment):
             f"{slice_node_name}.steps",
         )
 
+        axes = numpy_helper.from_array(
+            numpy.array([0], dtype=numpy.int64),
+            f"axes",
+        )
+
         # unsqueeze dim 0 of cache length to align for slicing the right dim
-        unsqueeze_ouptut_name = "cache_length_unsqueezed"
+        unsqueeze_output_name = "cache_length_unsqueezed"
         unsqueeze_node = onnx.helper.make_node(
             op_type="Unsqueeze",
-            inputs=[self.CACHE_LENGTH_NAME],
-            outputs=[unsqueeze_ouptut_name],
-            axes=0,
-            name=unsqueeze_ouptut_name,
+            inputs=[self.CACHE_LENGTH_NAME, axes.name],
+            outputs=[unsqueeze_output_name],
+            name="unsqueeze_output_name.node",
         )
         # create slice node to select only from cache length
         slice_node = onnx.helper.make_node(
             op_type="Slice",
             inputs=[
                 embed_positions_gather_node.input[1],  # rewire gather input to slice
-                unsqueeze_ouptut_name,  # start from cache length (unsqueezed)
+                unsqueeze_output_name,  # start from cache length (unsqueezed)
                 slice_ends_initializer.name,
                 slice_axes_initializer.name,
                 slice_steps_initializer.name,
@@ -112,9 +116,26 @@ class OPTCacheLengthAdjustment(CacheLengthAdjustment):
         embed_positions_gather_node.input[1] = slice_node.output[0]
 
         # add nodes and initializers to model
-        model.graph.node.extend([unsqueeze_node, slice_node])
+        #model.graph.node.extend([unsqueeze_node, slice_node])
         model.graph.initializer.extend(
-            [slice_ends_initializer, slice_axes_initializer, slice_steps_initializer]
+            [slice_ends_initializer, slice_axes_initializer, slice_steps_initializer,  axes]
+        )
+        model.graph.node.insert(
+            [
+                i
+                for i, n in enumerate(model.graph.node)
+                if n.name == embed_positions_gather_node.name
+            ][0],
+            slice_node,
+        )
+
+        model.graph.node.insert(
+            [
+                i
+                for i, n in enumerate(model.graph.node)
+                if n.name == slice_node.name
+            ][0],
+            unsqueeze_node,
         )
 
         return model

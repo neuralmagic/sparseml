@@ -54,7 +54,7 @@ class CacheLengthAdjustment(OnnxTransform):
         cache_length_input = onnx.helper.make_tensor_value_info(
             cls.CACHE_LENGTH_NAME,
             onnx.TensorProto.INT64,
-            [1],
+            (),
         )
         model.graph.input.append(cache_length_input)
         return model
