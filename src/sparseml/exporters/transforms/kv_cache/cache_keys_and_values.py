@@ -93,6 +93,8 @@ class CacheKeysAndValues(OnnxTransform):
         model.graph.input.extend(inputs_to_add)
         model.graph.output.extend(outputs_to_add)
 
+        model.graph.input[1].type.tensor_type.shape.dim[1].dim_param = "past_sequence_len + 1"
+
         return model
 
 
@@ -132,11 +134,11 @@ def create_cache(
         name=f"concat.{cache_input_name}",
     )
     if concat_axis== -1:
-        cache_input_dims = ["num_heads", "hidden_dims", "past_sequence_len - 1"]
-        cache_output_dims = ["num_heads", "hidden_dims", "past_sequence_len"]
+        cache_input_dims = ["num_heads", "hidden_dims", "past_sequence_len"]
+        cache_output_dims = ["num_heads", "hidden_dims", "past_sequence_len + 1"]
     else:
-        cache_input_dims = ["num_heads", "past_sequence_len - 1", "hidden_dims"]
-        cache_output_dims = ["num_heads", "past_sequence_len", "hidden_dims"]
+        cache_input_dims = ["num_heads", "past_sequence_len", "hidden_dims"]
+        cache_output_dims = ["num_heads", "past_sequence_len + 1", "hidden_dims"]
 
     # create graph input info proto
     cache_input_info = onnx.helper.make_tensor_value_info(
