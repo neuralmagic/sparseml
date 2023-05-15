@@ -128,7 +128,7 @@ def create_cache(
         # from the key tensor before the transpose is applied
         pre_cache_input_id = cache_parent.input[0]
         # update concat axis
-        concat_axis = -1 if concat_axis == -2 else -2
+        node = cache_parent
     else:
         pre_cache_input_id = node.input[cache_input_idx]
 
@@ -141,15 +141,12 @@ def create_cache(
         op_type="Concat",
         inputs=[cache_input_name, pre_cache_input_id],
         outputs=[cache_output_name],
-        axis=concat_axis,
+        axis=-2,
         name=f"concat.{cache_input_name}",
     )
-    if concat_axis == -1:
-        cache_input_dims = ["num_heads", "hidden_dims", "past_sequence_len"]
-        cache_output_dims = ["num_heads", "hidden_dims", "past_sequence_len + 1"]
-    else:
-        cache_input_dims = ["num_heads", "past_sequence_len", "hidden_dims"]
-        cache_output_dims = ["num_heads", "past_sequence_len + 1", "hidden_dims"]
+
+    cache_input_dims = ["num_heads", "past_sequence_len", "hidden_dims"]
+    cache_output_dims = ["num_heads", "past_sequence_len + 1", "hidden_dims"]
 
     # create graph input info proto
     cache_input_info = onnx.helper.make_tensor_value_info(
