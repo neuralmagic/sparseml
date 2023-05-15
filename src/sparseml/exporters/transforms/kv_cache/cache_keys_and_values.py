@@ -31,7 +31,6 @@ OUTPUT_CACHE_NAME = """present.{attention_layer_idx}.{cache_type}"""
 INPUT_CACHE_NAME = """past_key_values.{attention_layer_idx}.{cache_type}"""
 
 
-
 class CacheKeysAndValues(OnnxTransform):
     """
     Inject the key and value caches into the graph for the attention layers.
@@ -53,18 +52,17 @@ class CacheKeysAndValues(OnnxTransform):
 
         # Inject kv cache to the graph as the model input,
         # Inject kv cache concatenated with the current keys/values as the output
-        nodes_to_add = []
+        # nodes_to_add = []
         inputs_to_add = []
         outputs_to_add = []
 
         for idx, (key_matmul, value_matmul) in enumerate(key_value_matmul_pairs):
-            value_input_idx = _value_input_idx(value_matmul, graph)
+            value_input_idx = _value_input_idx(value_matmul, model)
 
             key_concat_node, key_input_tensor, key_output_tensor = create_cache(
-                model = model,
+                model=model,
                 node=key_matmul,
                 concat_axis=-1,
-                graph=graph,
                 cache_input_idx=1,
                 cache_input_name=INPUT_CACHE_NAME.format(
                     attention_layer_idx=idx, cache_type="key"
@@ -74,10 +72,9 @@ class CacheKeysAndValues(OnnxTransform):
                 ),
             )
             value_concat_node, value_input_tensor, value_output_tensor = create_cache(
-                model = model,
+                model=model,
                 node=value_matmul,
-                concat_axis = -2,
-                graph=graph,
+                concat_axis=-2,
                 cache_input_idx=value_input_idx,
                 cache_input_name=INPUT_CACHE_NAME.format(
                     attention_layer_idx=idx, cache_type="value"
@@ -86,14 +83,18 @@ class CacheKeysAndValues(OnnxTransform):
                     attention_layer_idx=idx, cache_type="value"
                 ),
             )
+            # nodes_to_add.extend([key_concat_node, value_concat_node])
             inputs_to_add.extend([key_input_tensor, value_input_tensor])
             outputs_to_add.extend([key_output_tensor, value_output_tensor])
 
         # update model with cache nodes, inputs, and outputs
+        # model.graph.node.extend(nodes_to_add)
         model.graph.input.extend(inputs_to_add)
         model.graph.output.extend(outputs_to_add)
 
-        model.graph.input[1].type.tensor_type.shape.dim[1].dim_param = "past_sequence_len + 1"
+        model.graph.input[1].type.tensor_type.shape.dim[
+            1
+        ].dim_param = "past_sequence_len + 1"
 
         return model
 
@@ -101,7 +102,6 @@ class CacheKeysAndValues(OnnxTransform):
 def create_cache(
     model: ModelProto,
     node: NodeProto,
-    graph: ONNXGraph,
     concat_axis: int,
     cache_input_idx: int,
     cache_input_name: str,
@@ -110,8 +110,9 @@ def create_cache(
     """
     Injects a cache (value or key) into the graph for a given Matmul node.
 
+    :param model: Model to update
     :param node: MatMul node that follows the cache injection point
-    :param graph: Model graph
+    :param concat_axis: axis to apply the concat operation on
     :param cache_input_idx: Index of the input (where the cache will be injected) to the MatMul
     :param cache_input_name: Name of cache input
     :param cache_output_name: Name of cache output
@@ -119,7 +120,17 @@ def create_cache(
     :return: tuple of concat node to add, cache input to add, and cache output to add,
         updates existing nodes in-place
     """
-    pre_cache_input_id = node.input[cache_input_idx]
+    graph = ONNXGraph(model)
+    cache_parent = graph.get_node_single_parent(node, index=cache_input_idx)
+    if isinstance(cache_parent, NodeProto) and cache_parent.op_type == "Transpose":
+        # move cache to before a transpose if applicable
+        # this is due to pytorch operations potentially extracting shape values
+        # from the key tensor before the transpose is applied
+        pre_cache_input_id = cache_parent.input[0]
+        # update concat axis
+        concat_axis = -1 if concat_axis == -2 else -2
+    else:
+        pre_cache_input_id = node.input[cache_input_idx]
 
     # create concat node
     # hidden dimension must be on inside of matmul
@@ -133,7 +144,7 @@ def create_cache(
         axis=concat_axis,
         name=f"concat.{cache_input_name}",
     )
-    if concat_axis== -1:
+    if concat_axis == -1:
         cache_input_dims = ["num_heads", "hidden_dims", "past_sequence_len"]
         cache_output_dims = ["num_heads", "hidden_dims", "past_sequence_len + 1"]
     else:
@@ -154,16 +165,12 @@ def create_cache(
     )
 
     model.graph.node.insert(
-                    [
-                        i
-                        for i, n in enumerate(graph._model.graph.node)
-                        if n.name == node.name
-                    ][0],
-                    concat_node,
-                )
+        [i for i, n in enumerate(model.graph.node) if n.name == node.name][0],
+        concat_node,
+    )
 
     # update all uses of the pre_cache_input_id to now reference cache output
-    for node in graph.nodes:
+    for node in model.graph.node:
         for input_idx, input_id in enumerate(node.input):
             if input_id == pre_cache_input_id and node.name != concat_node.name:
                 node.input[input_idx] = cache_output_name
@@ -272,7 +279,8 @@ def _find_key_matmul_from_value_matmul(
     return None
 
 
-def _value_input_idx(value_matmul: NodeProto, graph: ONNXGraph) -> int:
+def _value_input_idx(value_matmul: NodeProto, model: ModelProto) -> int:
+    graph = ONNXGraph(model)
     # get idx of matmul that the value node is an input of
     if len(value_matmul.input) != 2:
         raise ValueError(

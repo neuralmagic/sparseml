@@ -116,9 +116,14 @@ class OPTCacheLengthAdjustment(CacheLengthAdjustment):
         embed_positions_gather_node.input[1] = slice_node.output[0]
 
         # add nodes and initializers to model
-        #model.graph.node.extend([unsqueeze_node, slice_node])
+        # model.graph.node.extend([unsqueeze_node, slice_node])
         model.graph.initializer.extend(
-            [slice_ends_initializer, slice_axes_initializer, slice_steps_initializer,  axes]
+            [
+                slice_ends_initializer,
+                slice_axes_initializer,
+                slice_steps_initializer,
+                axes,
+            ]
         )
         model.graph.node.insert(
             [
@@ -130,11 +135,7 @@ class OPTCacheLengthAdjustment(CacheLengthAdjustment):
         )
 
         model.graph.node.insert(
-            [
-                i
-                for i, n in enumerate(model.graph.node)
-                if n.name == slice_node.name
-            ][0],
+            [i for i, n in enumerate(model.graph.node) if n.name == slice_node.name][0],
             unsqueeze_node,
         )
 
