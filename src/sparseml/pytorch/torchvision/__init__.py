@@ -15,4 +15,11 @@
 from sparseml.analytics import sparseml_analytics as _analytics
 
 
+try:
+    import cv2 as _cv2
+    import torchvision as _torchvision
+except ImportError:
+    raise ImportError("Please install sparseml[torchvision] to use this pathway")
+
+
 _analytics.send_event("python__pytorch__torchvision__init")

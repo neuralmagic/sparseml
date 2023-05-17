@@ -15,4 +15,12 @@
 from sparseml.analytics import sparseml_analytics as _analytics
 
 
+try:
+    import cv2 as _cv2
+
+    import openpifpaf as _openpifpaf
+except ImportError:
+    raise ImportError("Please install sparseml[openpifpaf] to use this pathway")
+
+
 _analytics.send_event("python__openpifpaf__init")
