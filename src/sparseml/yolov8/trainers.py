@@ -533,6 +533,7 @@ class SparseYOLO(YOLO):
             model = download_framework_model_by_recipe_type(
                 Model(model_str), model_suffix="pt"
             )
+            model_str = str(model)
             self.is_sparseml_checkpoint = True
 
         if model_str.endswith(".pt"):
@@ -793,6 +794,7 @@ class SparseYOLO(YOLO):
         overrides["rect"] = True  # rect batches as default
         overrides.update(kwargs)
         overrides["mode"] = "val"
+        overrides["data"] = data or overrides["data"]
         args = get_cfg(cfg=DEFAULT_CFG, overrides=overrides)
         args.data = data or args.data
         args.task = self.task
