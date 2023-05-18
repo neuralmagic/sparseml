@@ -897,6 +897,12 @@ def get_named_layers_and_params_by_regex(
             if "." in param_name:  # skip parameters of nested layers
                 continue
             full_param_name = "{}.{}".format(layer_name, param_name)
+            if full_param_name.startswith("module."):
+                # When the training is run on myltiple GPUs in DDP mode, "module." is prepended
+                # to layer names. This can throw off recipe's layer name matching if not removed.
+                # It does not seem to affect anytning whether the actual layer name that is
+                # returned by this function contains the "module." prefix or not.
+                full_param_name = full_param_name[len("module.") :]
             if any_str_or_regex_matches_param_name(full_param_name, param_names):
                 named_layers_and_params.append(
                     NamedLayerParam(layer_name, layer, param_name, param)
