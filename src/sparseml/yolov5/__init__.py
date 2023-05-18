@@ -22,6 +22,14 @@ import logging as _logging
 from sparseml.analytics import sparseml_analytics as _analytics
 
 
+try:
+    import cv2 as _cv2
+    import torchvision as _torchvision
+
+    import yolov5 as _yolov5
+except ImportError:
+    raise ImportError("Please install sparseml[yolov5] to use this pathway")
+
 _analytics.send_event("python__yolov5__init")
 
 _LOGGER = _logging.getLogger(__name__)
