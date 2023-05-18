@@ -16,9 +16,9 @@ from sparseml.analytics import sparseml_analytics as _analytics
 
 
 try:
-    import cv2 as _cv2
+    import cv2 as _cv2  # noqa: F401
 
-    import openpifpaf as _openpifpaf
+    import openpifpaf as _openpifpaf  # noqa: F401
 except ImportError:
     raise ImportError("Please install sparseml[openpifpaf] to use this pathway")
 

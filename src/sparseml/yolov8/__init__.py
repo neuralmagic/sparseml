@@ -17,7 +17,7 @@ from sparseml.analytics import sparseml_analytics as _analytics
 
 
 try:
-    import ultralytics as _ultralytics
+    import ultralytics as _ultralytics  # noqa: F401
 except ImportError:
     raise ImportError("Please install sparseml[yolov8] to use this pathway")
 
