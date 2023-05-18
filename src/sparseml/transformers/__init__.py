@@ -23,6 +23,13 @@ import logging as _logging
 from sparseml.analytics import sparseml_analytics as _analytics
 
 
+try:
+    import datasets as _datasets
+    import transformers as _transformers
+except ImportError:
+    raise ImportError("Please install sparseml[transformers] to use this pathway")
+
+
 _analytics.send_event("python__transformers__init")
 
 
