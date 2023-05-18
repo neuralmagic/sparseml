@@ -76,6 +76,7 @@ from sparseml.yolov8.utils import data_from_dataset_path
     default=None,
     help="Path to override default datasets path.",
 )
+@click.option("--batch", default=16, type=int, help="number of images per batch")
 def main(**kwargs):
     if kwargs["dataset_path"] is not None:
         kwargs["data"] = data_from_dataset_path(kwargs["data"], kwargs["dataset_path"])
