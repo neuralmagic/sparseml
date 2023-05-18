@@ -16,8 +16,8 @@ from sparseml.analytics import sparseml_analytics as _analytics
 
 
 try:
-    import cv2 as _cv2
-    import torchvision as _torchvision
+    import cv2 as _cv2  # noqa: F401
+    import torchvision as _torchvision  # noqa: F401
 except ImportError:
     raise ImportError("Please install sparseml[torchvision] to use this pathway")
 
