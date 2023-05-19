@@ -16,7 +16,7 @@ import logging
 from typing import List, Optional, Set, Tuple
 
 import onnx
-from onnx import ModelProto, NodeProto, ValueInfoProto
+from onnx import ModelProto, NodeProto, TensorProto, ValueInfoProto
 
 from sparseml.exporters.transforms.onnx_transform import OnnxTransform
 from sparseml.onnx.utils import ONNXGraph
@@ -56,6 +56,9 @@ class CacheKeysAndValues(OnnxTransform):
         inputs_to_add = []
         outputs_to_add = []
 
+        # get default int8 type to use if graph is quantized
+        use_uint8_if_quantized = _use_uint8_if_quantized(graph)
+
         for idx, (key_matmul, value_matmul) in enumerate(key_value_matmul_pairs):
             value_input_idx = _value_input_idx(value_matmul, model)
 
@@ -70,6 +73,7 @@ class CacheKeysAndValues(OnnxTransform):
                 cache_output_name=OUTPUT_CACHE_NAME.format(
                     attention_layer_idx=idx, cache_type="key"
                 ),
+                use_uint8_if_quantized=use_uint8_if_quantized,
             )
             value_concat_node, value_input_tensor, value_output_tensor = create_cache(
                 model=model,
@@ -82,6 +86,7 @@ class CacheKeysAndValues(OnnxTransform):
                 cache_output_name=OUTPUT_CACHE_NAME.format(
                     attention_layer_idx=idx, cache_type="value"
                 ),
+                use_uint8_if_quantized=use_uint8_if_quantized,
             )
             # nodes_to_add.extend([key_concat_node, value_concat_node])
             inputs_to_add.extend([key_input_tensor, value_input_tensor])
@@ -106,6 +111,7 @@ def create_cache(
     cache_input_idx: int,
     cache_input_name: str,
     cache_output_name: str,
+    use_uint8_if_quantized: bool = True,
 ) -> Tuple[NodeProto, ValueInfoProto, ValueInfoProto]:
     """
     Injects a cache (value or key) into the graph for a given Matmul node.
@@ -116,11 +122,16 @@ def create_cache(
     :param cache_input_idx: Index of the input (where the cache will be injected) to the MatMul
     :param cache_input_name: Name of cache input
     :param cache_output_name: Name of cache output
-
+    :param use_uint8_if_quantized: True if quantized matmuls should have uint8
+        inputs, if False, uses int8
     :return: tuple of concat node to add, cache input to add, and cache output to add,
         updates existing nodes in-place
     """
     graph = ONNXGraph(model)
+
+    if node.op_type == "QLinearMatMul" and cache_input_idx == 1:
+        cache_input_idx = 3  # QLinearMatMul B matrix is at idx 3, not 1
+
     cache_parent = graph.get_node_single_parent(node, index=cache_input_idx)
     if isinstance(cache_parent, NodeProto) and cache_parent.op_type == "Transpose":
         # move cache to before a transpose if applicable
@@ -148,16 +159,24 @@ def create_cache(
     cache_input_dims = ["num_heads", "past_sequence_len", "hidden_dims"]
     cache_output_dims = ["num_heads", "past_sequence_len + 1", "hidden_dims"]
 
+    cache_data_type = (
+        TensorProto.FLOAT
+        if node.op_type not in ["MatMulInteger", "QLinearMatMul"]
+        else TensorProto.UINT8
+        if use_uint8_if_quantized
+        else TensorProto.INT8
+    )
+
     # create graph input info proto
     cache_input_info = onnx.helper.make_tensor_value_info(
         cache_input_name,
-        onnx.TensorProto.FLOAT,
+        cache_data_type,
         cache_input_dims,
     )
     # create graph output info proto
     cache_output_info = onnx.helper.make_tensor_value_info(
         cache_output_name,
-        onnx.TensorProto.FLOAT,
+        cache_data_type,
         cache_output_dims,
     )
 
@@ -210,7 +229,7 @@ def _is_value_matmul(node: NodeProto, graph: ONNXGraph) -> bool:
     #   - have no parameters
     #   - have a single parent node: a Softmax
 
-    if not is_matmul(node) or _is_parameterized_node(node, graph):
+    if not is_matmul(node) or _is_parameterized_matmul(node, graph):
         # not a matmul or MatMul op has a parameter
         return False
 
@@ -248,7 +267,7 @@ def _find_key_matmul_from_value_matmul(
         if (
             is_matmul(current_node)
             and (current_node.name != value_matmul.name)
-            and not _is_parameterized_node(current_node, graph)
+            and not _is_parameterized_matmul(current_node, graph)
         ):
             # treat root node as regular, non MatMul node
             if current_node.name in value_matmul_names:
@@ -296,6 +315,29 @@ def is_matmul(node: NodeProto) -> bool:
     return node.op_type in ["MatMul", "MatMulInteger", "Gemm", "QLinearMatMul"]
 
 
-def _is_parameterized_node(node: NodeProto, graph: ONNXGraph) -> bool:
-    # returns True if any input to the node is a parameter (initializer) of the graph
-    return any(graph.get_init_by_name(node_input) for node_input in node.input)
+def _is_parameterized_matmul(node: NodeProto, graph: ONNXGraph) -> bool:
+    # returns True if any matrix input to the node is a parameter
+    # (initializer) of the graph
+
+    # QLinearMatMul has the A,B matricies in different indices
+    matrix_indices = (0, 1) if node.op_type != "QLinearMatMul" else (0, 3)
+
+    for idx in matrix_indices:
+        if graph.get_init_by_name(node.input[idx]):
+            return True  # matrix input is a model weight
+    return False
+
+
+def _use_uint8_if_quantized(graph: ONNXGraph) -> bool:
+    use_uint8_if_quantized = True  # default to True
+    quantize_nodes = [
+        node for node in graph.nodes if node.op_type == "QuantizeLinear"
+    ]
+    if quantize_nodes:
+        zero_point_example = graph.get_init_by_name(quantize_nodes[0].input[2])
+        if zero_point_example and zero_point_example.data_type == (
+                TensorProto.INT8
+        ):
+            # quantize node exists and has INT8 input
+            use_uint8_if_quantized = False
+    return use_uint8_if_quantized
