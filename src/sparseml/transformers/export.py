@@ -136,6 +136,13 @@ def load_task_model(task: str, model_path: str, config: Any) -> Module:
             model_type="model",
         )
 
+    if task == "text-generation":
+        return SparseAutoModel.text_generation_from_pretrained(
+            model_name_or_path=model_path,
+            config=config,
+            model_type="model",
+        )
+
     raise ValueError(f"unrecognized task given of {task}")
 
 
@@ -263,6 +270,9 @@ def export_transformer_to_onnx(
     tokenizer = AutoTokenizer.from_pretrained(
         model_path, model_max_length=sequence_length
     )
+    if task == "text-generation":
+        tokenizer.pad_token = tokenizer.eos_token
+
     model = load_task_model(task, model_path, config)
     _LOGGER.info(f"loaded model, config, and tokenizer from {model_path}")
 
@@ -353,12 +363,14 @@ def export_transformer_to_onnx(
     # run export
     model = model.eval()
     onnx_file_path = os.path.join(model_path, onnx_file_name)
+    kwargs = {"input_names": list(inputs.keys())} if task == "text-generation" else {}
 
     export_onnx(
         model,
         inputs,
         onnx_file_path,
         convert_qat=convert_qat,
+        **kwargs,
     )
     _LOGGER.info(f"ONNX exported to {onnx_file_path}")
 
