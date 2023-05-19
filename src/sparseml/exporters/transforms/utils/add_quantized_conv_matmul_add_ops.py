@@ -35,7 +35,7 @@ def add_quantized_conv_matmul_add_ops(
     weight_quantize_node: NodeProto,
     input_quantize_params: QuantizationParams,
     weight_quantize_params: QuantizationParams,
-    bias_initializer: TensorProto,
+    bias_initializer: Optional[TensorProto],
     bias_add_name: str,
     target_output: str,
     transpose_weight: bool,
@@ -49,6 +49,7 @@ def add_quantized_conv_matmul_add_ops(
     Adds new quantized ops to graph, does not perform any checks or deletions
     (should be called by the operator main conversion function)
     """
+    node_output_orig = node.output[0]
 
     # Quantize weights and add to graph
     quantized_weight_initializer = _quantize_weight_initializer(
@@ -65,30 +66,43 @@ def add_quantized_conv_matmul_add_ops(
     )
     model.graph.node.append(integer_op_node)
 
-    # Add bias + zero point correction; quantize bias and add it to graph
-    (
-        quantized_bias_initializer,
-        quantized_bias_scale,
-        quantize_bias_zero_point,
-    ) = _quantize_bias(
-        node,
-        bias_initializer,
-        input_quantize_params,
-        weight_quantize_params,
-        bias_add_name,
-    )
-    model.graph.initializer.append(quantized_bias_initializer)
-    model.graph.initializer.append(quantized_bias_scale)
-    model.graph.initializer.append(quantize_bias_zero_point)
+    if bias_initializer is not None:
+        # Add bias + zero point correction; quantize bias and add it to graph
+        (
+            quantized_bias_initializer,
+            quantized_bias_scale,
+            quantize_bias_zero_point,
+        ) = _quantize_bias(
+            node,
+            bias_initializer,
+            input_quantize_params,
+            weight_quantize_params,
+            bias_add_name,
+        )
+        model.graph.initializer.append(quantized_bias_initializer)
+        model.graph.initializer.append(quantized_bias_scale)
+        model.graph.initializer.append(quantize_bias_zero_point)
 
-    # Create Quantized Bias Add node and add it to graph
-    qadd_node = _create_qadd_node(
-        node,
-        integer_op_output="{}_quant".format(node.output[0]),
-        quantized_bias_name=quantized_bias_initializer.name,
-        output_quantize_node=output_quantize_node,
-    )
-    model.graph.node.append(qadd_node)
+        # Create Quantized Bias Add node and add it to graph
+        qadd_node = _create_qadd_node(
+            node,
+            integer_op_output="{}_quant".format(node.output[0]),
+            quantized_bias_name=quantized_bias_initializer.name,
+            output_quantize_node=output_quantize_node,
+        )
+        model.graph.node.append(qadd_node)
+
+        # bias has same scale as future rescale op
+        rescale_scale = bias_scale
+        mul_input_node_name = qadd_node.name
+    else:
+        rescale_scale = _create_rescale_init(
+            node, input_quantize_params, weight_quantize_params
+        )
+        model.graph.initializer.append(rescale_scale)
+        # cast node should come directly after quantize op output instead of add
+        output_quantize_node = output_quantize_node or integer_op_node
+        mul_input_node_name = output_quantize_node.name
 
     # create Cast node and add it to graph
     cast_node = _create_cast_node(
@@ -100,9 +114,11 @@ def add_quantized_conv_matmul_add_ops(
     # create Mul node for rescale
     mul_node = _create_mul_node(
         cast_node_output=cast_node.output[0],
-        quantized_bias_scale_name=quantized_bias_scale.name,
-        quant_add_name=qadd_node.name,
+        rescale_scale_name=rescale_scale.name,
+        input_node_name=mul_input_node_name,
         target_output=target_output,
+        model=model,
+        node_output_orig=node_output_orig,
     )
     model.graph.node.append(mul_node)
 
@@ -111,15 +127,22 @@ def add_quantized_conv_matmul_add_ops(
 
 def _create_mul_node(
     cast_node_output: str,
-    quantized_bias_scale_name: str,
-    quant_add_name: str,
+    rescale_scale_name: str,
+    input_node_name: str,
     target_output: str,
+    model: ModelProto,
+    node_output_orig: str,
 ) -> NodeProto:
     mul_node_inputs = [
         cast_node_output,  # a
-        quantized_bias_scale_name,  # b -> rescale factor
+        rescale_scale_name,  # b -> rescale factor
     ]
-    mul_node_name = "{}_rescale_mul".format(quant_add_name)
+    mul_node_name = "{}_rescale_mul".format(input_node_name)
+    if target_output is None:
+        target_output = mul_node_name
+        # since we skip the add conversion,
+        # update model to point all outputs of matmul/conv to the rescale mul
+        _update_model_input_id(model, node_output_orig, target_output)
     mul_node = onnx.helper.make_node(
         "Mul",
         mul_node_inputs,
@@ -127,6 +150,13 @@ def _create_mul_node(
         mul_node_name,
     )
     return mul_node
+
+
+def _update_model_input_id(model: ModelProto, old_id: str, new_id: str):
+    for node in model.graph.node:
+        for idx, input_name in enumerate(node.input):
+            if input_name == old_id:
+                node.input[idx] = new_id
 
 
 def _create_cast_node(
@@ -250,6 +280,15 @@ def _quantize_bias(
             numpy.asarray(bias_zero_point, dtype=numpy.uint8),
             name=quantized_bias_zero_point_name,
         ),
+    )
+
+
+def _create_rescale_init(
+    node, input_quantize_params, weight_quantize_params
+) -> TensorProto:
+    output_scale = input_quantize_params.scale * weight_quantize_params.scale
+    return numpy_helper.from_array(
+        numpy.asarray(output_scale), name=f"{node.name}_quant.rescale.scale"
     )
 
 
