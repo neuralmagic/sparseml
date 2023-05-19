@@ -97,7 +97,14 @@ MANDATORY_DEPLOYMENT_FILES: List[str] = [
     "tokenizer_config.json",
     "config.json",
 ]
-OPTIONAL_DEPLOYMENT_FILES: List[str] = [EXTERNAL_ONNX_DATA_NAME, "tokenizer.json"]
+
+OPTIONAL_DEPLOYMENT_FILES: List[str] = [
+    EXTERNAL_ONNX_DATA_NAME,
+    "tokenizer.json",
+    "special_tokens_map.json",
+    "vocab.json",
+    "merges.txt",
+]
 
 _LOGGER = logging.getLogger(__name__)
 
