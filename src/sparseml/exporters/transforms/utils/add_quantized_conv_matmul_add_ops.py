@@ -93,7 +93,7 @@ def add_quantized_conv_matmul_add_ops(
         model.graph.node.append(qadd_node)
 
         # bias has same scale as future rescale op
-        rescale_scale = bias_scale
+        rescale_scale = quantized_bias_scale
         mul_input_node_name = qadd_node.name
     else:
         rescale_scale = _create_rescale_init(

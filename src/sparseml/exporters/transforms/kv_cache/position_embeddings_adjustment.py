@@ -14,7 +14,6 @@
 
 from copy import deepcopy
 
-import onnx
 from onnx import ModelProto, NodeProto
 
 from sparseml.exporters.transforms.onnx_transform import OnnxTransform

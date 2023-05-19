@@ -119,7 +119,8 @@ def create_cache(
     :param model: Model to update
     :param node: MatMul node that follows the cache injection point
     :param concat_axis: axis to apply the concat operation on
-    :param cache_input_idx: Index of the input (where the cache will be injected) to the MatMul
+    :param cache_input_idx: Index of the input (where the cache will be injected) to
+        the MatMul
     :param cache_input_name: Name of cache input
     :param cache_output_name: Name of cache output
     :param use_uint8_if_quantized: True if quantized matmuls should have uint8
@@ -330,14 +331,10 @@ def _is_parameterized_matmul(node: NodeProto, graph: ONNXGraph) -> bool:
 
 def _use_uint8_if_quantized(graph: ONNXGraph) -> bool:
     use_uint8_if_quantized = True  # default to True
-    quantize_nodes = [
-        node for node in graph.nodes if node.op_type == "QuantizeLinear"
-    ]
+    quantize_nodes = [node for node in graph.nodes if node.op_type == "QuantizeLinear"]
     if quantize_nodes:
         zero_point_example = graph.get_init_by_name(quantize_nodes[0].input[2])
-        if zero_point_example and zero_point_example.data_type == (
-                TensorProto.INT8
-        ):
+        if zero_point_example and zero_point_example.data_type == (TensorProto.INT8):
             # quantize node exists and has INT8 input
             use_uint8_if_quantized = False
     return use_uint8_if_quantized
