@@ -38,10 +38,66 @@ class CacheKeysAndValues(OnnxTransform):
 
     1.  Find all the MatMuls that are preceded by a Softmax operation.
         Those are the MatMuls that perform V x Softmax(QK^T) operation
+        (the "value" MatMuls).
     2.  Given the "value" MatMuls found in step 1, perform a Breadth First Search
         to find the "key" MatMuls that perform K x Q^T operation.
+    3.  Before each pair of "key" and "value" MatMuls, inject a cache node that
+        concatenates the current keys/values with the cached keys/values.
+    4.  For the key cache, the concatenation happens before the Transpose node, that
+        precedes the "key" MatMul.
+    5.  For the value cache, the concatenation happens directly before the "value"
+        MatMul.
 
-    # TODO Add Diagram
+        Transforms
+    ```
+    |
+    |     Key
+    |      |    Query
+    |  Transpose |
+    |      |    |
+    |       | |
+    |        |
+    |   "key" MatMul
+    |        |
+    |       ...    Value
+    |        |      |
+    |     Softmax  |
+    |        |    |
+    |       ...  |
+    |        |  |
+    |         |
+    |   "value" MatMul
+    |        |
+    |       ...
+    ```
+    to
+
+    ```
+    |
+    | KeyCache  Key
+    |    |      |
+    |     |    |
+    |      | |
+    |       |
+    |   Concat
+    |      |    Query
+    |  Transpose |
+    |      |    | Value ValueCache
+    |       | |     |    |
+    |        |       |  |
+    |   "key" MatMul  |
+    |        |       |
+    |       ...   Concat
+    |        |      |
+    |     Softmax  |
+    |        |    |
+    |       ...  |
+    |        |  |
+    |         |
+    |   "value" MatMul
+    |        |
+    |       ...
+    ```
 
     """
 
@@ -60,12 +116,12 @@ class CacheKeysAndValues(OnnxTransform):
         use_uint8_if_quantized = _use_uint8_if_quantized(graph)
 
         for idx, (key_matmul, value_matmul) in enumerate(key_value_matmul_pairs):
+
             value_input_idx = _value_input_idx(value_matmul, model)
 
             key_concat_node, key_input_tensor, key_output_tensor = create_cache(
                 model=model,
                 node=key_matmul,
-                concat_axis=-1,
                 cache_input_idx=1,
                 cache_input_name=INPUT_CACHE_NAME.format(
                     attention_layer_idx=idx, cache_type="key"
@@ -78,7 +134,6 @@ class CacheKeysAndValues(OnnxTransform):
             value_concat_node, value_input_tensor, value_output_tensor = create_cache(
                 model=model,
                 node=value_matmul,
-                concat_axis=-2,
                 cache_input_idx=value_input_idx,
                 cache_input_name=INPUT_CACHE_NAME.format(
                     attention_layer_idx=idx, cache_type="value"
@@ -88,18 +143,18 @@ class CacheKeysAndValues(OnnxTransform):
                 ),
                 use_uint8_if_quantized=use_uint8_if_quantized,
             )
-            # nodes_to_add.extend([key_concat_node, value_concat_node])
+
             inputs_to_add.extend([key_input_tensor, value_input_tensor])
             outputs_to_add.extend([key_output_tensor, value_output_tensor])
 
-        # update model with cache nodes, inputs, and outputs
-        # model.graph.node.extend(nodes_to_add)
+            self.log_match(key_matmul)
+            self.log_match(value_matmul)
+
+        # update model with cache inputs, and outputs
         model.graph.input.extend(inputs_to_add)
         model.graph.output.extend(outputs_to_add)
 
-        model.graph.input[1].type.tensor_type.shape.dim[
-            1
-        ].dim_param = "past_sequence_len + 1"
+        _set_attention_mask_to_dynamic(model)
 
         return model
 
@@ -107,10 +162,10 @@ class CacheKeysAndValues(OnnxTransform):
 def create_cache(
     model: ModelProto,
     node: NodeProto,
-    concat_axis: int,
     cache_input_idx: int,
     cache_input_name: str,
     cache_output_name: str,
+    concat_axis: int = -2,
     use_uint8_if_quantized: bool = True,
 ) -> Tuple[NodeProto, ValueInfoProto, ValueInfoProto]:
     """
@@ -118,10 +173,12 @@ def create_cache(
 
     :param model: Model to update
     :param node: MatMul node that follows the cache injection point
-    :param concat_axis: axis to apply the concat operation on
-    :param cache_input_idx: Index of the input (where the cache will be injected) to the MatMul
+    :param cache_input_idx: Index of the input
+        (where the cache will be injected) to the MatMul
     :param cache_input_name: Name of cache input
     :param cache_output_name: Name of cache output
+    :param concat_axis: axis to apply the concat operation on. By default, t
+        this is -2, which corresponds to the sequence length axis.
     :param use_uint8_if_quantized: True if quantized matmuls should have uint8
         inputs, if False, uses int8
     :return: tuple of concat node to add, cache input to add, and cache output to add,
@@ -143,16 +200,11 @@ def create_cache(
     else:
         pre_cache_input_id = node.input[cache_input_idx]
 
-    # create concat node
-    # hidden dimension must be on inside of matmul
-    # select concat axis to be -2 if cache is on LHS, -1 if RHS
-    # TODO: Validate here
-
     concat_node = onnx.helper.make_node(
         op_type="Concat",
         inputs=[cache_input_name, pre_cache_input_id],
         outputs=[cache_output_name],
-        axis=-2,
+        axis=concat_axis,
         name=f"concat.{cache_input_name}",
     )
 
@@ -180,6 +232,8 @@ def create_cache(
         cache_output_dims,
     )
 
+    # insert concat node into graph (before the MatMul node or the Transpose node
+    # that precedes the MatMul node)
     model.graph.node.insert(
         [i for i, n in enumerate(model.graph.node) if n.name == node.name][0],
         concat_node,
@@ -198,9 +252,9 @@ def _find_key_value_matmul_pairs(
     graph: ONNXGraph,
 ) -> List[Tuple[NodeProto, NodeProto]]:
     # Find pairs of "key" and "value" MatMuls.
-    # Each attention layer contains a pair of MatMuls:
+    # Each attention block contains a pair of MatMuls:
     #    - key MatMul that computes Q x K^T
-    #    - value MatMul that computes Softmax(...) x V
+    #    - value MatMul that computes Softmax(Q x K^T) x V
     # The function returns:
     #   [(key_matmul_0, value_matmul_0), (key_matmul_1, value_matmul_1), ...]
 
@@ -224,7 +278,7 @@ def _find_key_value_matmul_pairs(
 
 
 def _is_value_matmul(node: NodeProto, graph: ONNXGraph) -> bool:
-    # A valid value MatMul needs to:
+    # A valid value MatMul needs to meet the following criteria:
     #   - is_matmul(node) is True
     #   - have no parameters
     #   - have a single parent node: a Softmax
@@ -319,7 +373,7 @@ def _is_parameterized_matmul(node: NodeProto, graph: ONNXGraph) -> bool:
     # returns True if any matrix input to the node is a parameter
     # (initializer) of the graph
 
-    # QLinearMatMul has the A,B matricies in different indices
+    # QLinearMatMul has the A,B matrices in different indices
     matrix_indices = (0, 1) if node.op_type != "QLinearMatMul" else (0, 3)
 
     for idx in matrix_indices:
@@ -330,14 +384,28 @@ def _is_parameterized_matmul(node: NodeProto, graph: ONNXGraph) -> bool:
 
 def _use_uint8_if_quantized(graph: ONNXGraph) -> bool:
     use_uint8_if_quantized = True  # default to True
-    quantize_nodes = [
-        node for node in graph.nodes if node.op_type == "QuantizeLinear"
-    ]
+    quantize_nodes = [node for node in graph.nodes if node.op_type == "QuantizeLinear"]
     if quantize_nodes:
         zero_point_example = graph.get_init_by_name(quantize_nodes[0].input[2])
-        if zero_point_example and zero_point_example.data_type == (
-                TensorProto.INT8
-        ):
+        if zero_point_example and zero_point_example.data_type == (TensorProto.INT8):
             # quantize node exists and has INT8 input
             use_uint8_if_quantized = False
     return use_uint8_if_quantized
+
+
+def _set_attention_mask_to_dynamic(model: ModelProto) -> ModelProto:
+    # set the attention mask to be of the dynamic shape
+    attention_mask_input = [
+        input.name for input in model.graph.input if input.name == "attention_mask"
+    ]
+    if not attention_mask_input:
+        raise ValueError("Could not find `attention_mask` input in model")
+    if len(attention_mask_input) > 1:
+        raise ValueError(
+            "Found multiple `attention_mask` inputs in model, expected only one"
+        )
+
+    model.graph.input[1].type.tensor_type.shape.dim[
+        1
+    ].dim_param = "past_sequence_len + 1"
+    return model

@@ -14,7 +14,6 @@
 
 from copy import deepcopy
 
-import onnx
 from onnx import ModelProto, NodeProto
 
 from sparseml.exporters.transforms.onnx_transform import OnnxTransform
@@ -35,11 +34,11 @@ class PositionEmbeddingsAdjustment(OnnxTransform):
     based on input. This provides a better source of truth rather than
     computing in a static graph where factors such as number of tokens,
     cache size, and padding may affect accurate, efficient static
-    computation of the position idxs
+    computation of the position indices.
 
     Positions should be the same shape as input_ids where each value
     is the corresponding integer position of the token id in the overall
-    sequence.  Padding tokens are not counted towards positions and
+    sequence. Padding tokens are not counted towards positions and
     should be inputted as 0.
 
     When running a model for a single input id with `n` previously
@@ -83,7 +82,7 @@ class PositionEmbeddingsAdjustment(OnnxTransform):
     @classmethod
     def add_positions_input(cls, model: ModelProto) -> ModelProto:
         """
-        adds positions as an input to the model
+        Adds positions as an input to the model
 
         :param model: model to update
         :return: updated model
@@ -146,6 +145,7 @@ class PositionEmbeddingsAdjustment(OnnxTransform):
         old_positions_input = target_update_node.input[target_input_idx]
         target_update_node.input[target_input_idx] = self.POSITIONS_NAME
         graph.update()
+        self.log_match(target_update_node)
 
         # traverse graph upwards to delete any nodes that are now orphaned
         nodes_to_delete = []
@@ -164,6 +164,7 @@ class PositionEmbeddingsAdjustment(OnnxTransform):
                 continue
             else:
                 nodes_to_delete.append(current_node)
+                self.log_match(current_node)
                 for parent in graph.get_node_parents(current_node):
                     if isinstance(parent, NodeProto) and (
                         parent.name not in seen_node_names
