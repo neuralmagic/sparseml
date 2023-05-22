@@ -91,20 +91,18 @@ from sparseml.transformers.utils import SparseAutoModel
 __all__ = ["export_transformer_to_onnx", "load_task_model"]
 
 MODEL_ONNX_NAME = "model.onnx"
-EXTERNAL_ONNX_DATA_NAME = "model.data"
-MANDATORY_DEPLOYMENT_FILES: List[str] = [
+MANDATORY_DEPLOYMENT_FILES = [
     MODEL_ONNX_NAME,
     "tokenizer_config.json",
     "config.json",
 ]
+EXTERNAL_ONNX_DATA_NAME = ["model.data"]
+OPT_TOKENIZER_FILES = ["special_tokens_map.json", "vocab.json", "merges.txt"]
 
-OPTIONAL_DEPLOYMENT_FILES: List[str] = [
-    EXTERNAL_ONNX_DATA_NAME,
-    "tokenizer.json",
-    "special_tokens_map.json",
-    "vocab.json",
-    "merges.txt",
-]
+OPTIONAL_DEPLOYMENT_FILES: List[str] = []
+OPTIONAL_DEPLOYMENT_FILES.extend(EXTERNAL_ONNX_DATA_NAME)
+OPTIONAL_DEPLOYMENT_FILES.extend(OPT_TOKENIZER_FILES)
+
 
 _LOGGER = logging.getLogger(__name__)
 
