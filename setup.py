@@ -137,6 +137,7 @@ def _setup_extras() -> Dict:
         "dev": _dev_deps,
         "deepsparse": _deepsparse_deps,
         "deepsparse-ent": _deepsparse_ent_deps,
+        "openpifpaf": _open_pif_paf_deps,
         "onnxruntime": _onnxruntime_deps,
         "torch": _pytorch_deps,
         "torch_all": _pytorch_all_deps,
