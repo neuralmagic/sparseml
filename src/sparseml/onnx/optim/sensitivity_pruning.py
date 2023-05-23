@@ -30,7 +30,6 @@ from sparseml.onnx.utils import (
     DeepSparseAnalyzeModelRunner,
     DeepSparseModelRunner,
     ORTModelRunner,
-    check_load_model,
     extract_node_id,
     get_node_params,
     get_prunable_nodes,
@@ -46,6 +45,7 @@ from sparseml.optim import (
     default_pruning_sparsities_perf,
 )
 from sparseml.utils import flatten_iterable
+from sparsezoo.utils import load_model
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -142,7 +142,7 @@ def pruning_loss_sens_magnitude_iter(
     :return: the analysis results for the model with an additional layer at each
         iteration along with a float representing the iteration progress
     """
-    model = check_load_model(model)
+    model = load_model(model)
     prunable = get_prunable_nodes(model)
     analysis = PruningLossSensitivityAnalysis()
     num_layers = len(prunable)
@@ -251,7 +251,7 @@ def pruning_loss_sens_one_shot_iter(
     :return: the sensitivity results for every node that is prunable,
         yields update at each layer along with iteration progress
     """
-    model = check_load_model(model)
+    model = load_model(model)
     prunable_nodes = get_prunable_nodes(model)
     analysis = PruningLossSensitivityAnalysis()
     num_updates = len(prunable_nodes) * len(sparsity_levels) + 1

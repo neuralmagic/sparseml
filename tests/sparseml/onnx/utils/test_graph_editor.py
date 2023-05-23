@@ -15,7 +15,6 @@
 from typing import List
 
 import numpy
-import onnx
 import pytest
 from onnx import load_model
 
@@ -25,6 +24,7 @@ from sparseml.onnx.utils import (
     prune_model_one_shot,
     prune_unstructured,
 )
+from sparsezoo.utils import validate_onnx
 from tests.sparseml.onnx.helpers import OnnxRepoModelFixture
 
 
@@ -117,7 +117,7 @@ def test_sort_nodes_topologically(
 ):
     model_path = onnx_repo_models.model_path
     model = load_model(model_path)
-    onnx.checker.check_model(model)  # assert that starting model is valid
+    validate_onnx(model)  # assert that starting model is valid
 
     # create invalid model by changing node ordering
     nodes = list(model.graph.node)
@@ -127,7 +127,7 @@ def test_sort_nodes_topologically(
             numpy.random.shuffle(nodes)
             model.graph.ClearField("node")
             model.graph.node.extend(nodes)
-            onnx.checker.check_model(model)
+            validate_onnx(model)
         except Exception:
             # checker failed due to node topo ordering
             checker_failed = True
@@ -137,4 +137,4 @@ def test_sort_nodes_topologically(
     graph = ONNXGraph(model)
     graph.sort_nodes_topologically()
     # check that sorted model is valid
-    onnx.checker.check_model(model)
+    validate_onnx(model)

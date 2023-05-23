@@ -34,13 +34,13 @@ from sparseml.onnx.base import require_onnxruntime
 from sparseml.onnx.utils.data import DataLoader
 from sparseml.onnx.utils.graph_editor import override_model_batch_size
 from sparseml.onnx.utils.helpers import (
-    check_load_model,
     extract_node_id,
     get_node_by_id,
     get_prunable_node_from_foldable,
     is_foldable_node,
 )
 from sparsezoo import File, Model
+from sparsezoo.utils import load_model
 
 
 try:
@@ -464,7 +464,7 @@ class ORTModelRunner(ModelRunner):
         import onnxruntime  # import protected by @require_onnxruntime()
 
         super().__init__(loss)
-        self._model = check_load_model(model)
+        self._model = load_model(model)
 
         if batch_size is not None:
             override_model_batch_size(self._model, batch_size)
@@ -712,7 +712,7 @@ def correct_nm_analyze_model_node_ids(nm_result: Dict, model: Union[str, ModelPr
     :param model: the onnx model proto or path to the onnx file that the
         nm_result was for
     """
-    model = check_load_model(model)
+    model = load_model(model)
 
     for layer in nm_result["layer_info"]:
         node_id = (

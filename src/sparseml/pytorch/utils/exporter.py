@@ -48,6 +48,7 @@ from sparseml.pytorch.utils.model import (
     trace_model,
 )
 from sparseml.utils import clean_path, create_parent_dirs
+from sparsezoo.utils import save_onnx, validate_onnx
 
 
 __all__ = [
@@ -570,7 +571,7 @@ def export_onnx(
 
         # clean up graph from any injected / wrapped operations
         _delete_trivial_onnx_adds(onnx_model)
-    onnx.save(onnx_model, file_path)
+    save_onnx(onnx_model, file_path)
 
     if convert_qat and is_quant_module:
         # overwrite exported model with fully quantized version
@@ -819,4 +820,4 @@ def _unwrap_batchnorms(model: onnx.ModelProto):
         for idx in range(len(node.output)):
             node.output[idx] = node.output[idx].replace(".bn_wrapper_replace_me", "")
 
-    onnx.checker.check_model(model)
+    validate_onnx(model)

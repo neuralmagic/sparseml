@@ -267,6 +267,8 @@ def load_data(traindir, valdir, args):
             traindir,
             presets.ClassificationPresetTrain(
                 crop_size=train_crop_size,
+                mean=args.rgb_mean,
+                std=args.rgb_std,
                 interpolation=interpolation,
                 auto_augment_policy=auto_augment_policy,
                 random_erase_prob=random_erase_prob,
@@ -289,6 +291,8 @@ def load_data(traindir, valdir, args):
     else:
         preprocessing = presets.ClassificationPresetEval(
             crop_size=val_crop_size,
+            mean=args.rgb_mean,
+            std=args.rgb_std,
             resize_size=val_resize_size,
             interpolation=interpolation,
         )
@@ -1210,6 +1214,26 @@ def _deprecate_old_arguments(f):
         "The architecture key for teacher image classification model; "
         "example: `resnet50`, `mobilenet`. "
         "Note: Will be read from the checkpoint if not specified"
+    ),
+)
+@click.option(
+    "--rgb-mean",
+    nargs=3,
+    default=(0.485, 0.456, 0.406),
+    type=float,
+    help=(
+        "RGB mean values used to shift input RGB values; "
+        "Note: Will use ImageNet values if not specified."
+    ),
+)
+@click.option(
+    "--rgb-std",
+    default=(0.229, 0.224, 0.225),
+    nargs=3,
+    type=float,
+    help=(
+        "RGB standard-deviation values used to normalize input RGB values; "
+        "Note: Will use ImageNet values if not specified."
     ),
 )
 @click.pass_context

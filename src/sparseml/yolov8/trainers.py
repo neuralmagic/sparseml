@@ -23,11 +23,11 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List, Optional
 
-import onnx
 import torch
 
 from sparseml.optim.helpers import load_recipe_yaml_str
 from sparseml.pytorch.optim.manager import ScheduledModifierManager
+from sparseml.pytorch.sparsification.quantization import skip_onnx_input_quantize
 from sparseml.pytorch.utils import ModuleExporter
 from sparseml.pytorch.utils.helpers import download_framework_model_by_recipe_type
 from sparseml.pytorch.utils.logger import LoggerManager, PythonLogger, WANDBLogger
@@ -44,6 +44,7 @@ from sparseml.yolov8.validators import (
     SparseSegmentationValidator,
 )
 from sparsezoo import Model
+from sparsezoo.utils import validate_onnx
 from ultralytics import __version__
 from ultralytics.nn.tasks import SegmentationModel, attempt_load_one_weight
 from ultralytics.yolo.cfg import get_cfg
@@ -533,6 +534,7 @@ class SparseYOLO(YOLO):
             model = download_framework_model_by_recipe_type(
                 Model(model_str), model_suffix="pt"
             )
+            model_str = str(model)
             self.is_sparseml_checkpoint = True
 
         if model_str.endswith(".pt"):
@@ -721,7 +723,13 @@ class SparseYOLO(YOLO):
             else ["output0"],
         )
 
-        onnx.checker.check_model(os.path.join(save_dir, name))
+        complete_path = os.path.join(save_dir, name)
+        try:
+            skip_onnx_input_quantize(complete_path, complete_path)
+        except Exception:
+            pass
+
+        validate_onnx(complete_path)
         deployment_folder = exporter.create_deployment_folder(onnx_model_name=name)
         if args["export_samples"]:
             trainer_config = get_cfg(cfg=DEFAULT_SPARSEML_CONFIG_PATH)
@@ -793,6 +801,7 @@ class SparseYOLO(YOLO):
         overrides["rect"] = True  # rect batches as default
         overrides.update(kwargs)
         overrides["mode"] = "val"
+        overrides["data"] = data or overrides["data"]
         args = get_cfg(cfg=DEFAULT_CFG, overrides=overrides)
         args.data = data or args.data
         args.task = self.task

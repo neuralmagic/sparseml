@@ -18,6 +18,7 @@ import pytest
 from onnx import ModelProto, numpy_helper
 
 from sparseml.exporters.transforms.flatten_qparams import FlattenQParams
+from sparsezoo.utils import validate_onnx
 
 
 @pytest.fixture
@@ -57,7 +58,7 @@ def onnx_model():
         initializer=[zp, scale],
     )
     model = onnx.helper.make_model(graph)
-    onnx.checker.check_model(model)
+    validate_onnx(model)
 
     return model
 
@@ -77,7 +78,7 @@ def test_vanilla(onnx_model: ModelProto):
 
     onnx_model = FlattenQParams().apply(onnx_model)
 
-    onnx.checker.check_model(onnx_model)
+    validate_onnx(onnx_model)
     assert len(onnx_model.graph.initializer) == 2
     assert [init.name for init in onnx_model.graph.initializer] == [
         "zero_point",

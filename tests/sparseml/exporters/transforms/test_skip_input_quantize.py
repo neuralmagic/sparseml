@@ -18,6 +18,7 @@ import pytest
 from onnx import numpy_helper
 
 from sparseml.exporters.transforms.skip_input_quantize import SkipInputQuantize
+from sparsezoo.utils import validate_onnx
 
 
 def onnx_model(input_fp32=False, add_quantize_node=False):
@@ -74,7 +75,7 @@ def onnx_model(input_fp32=False, add_quantize_node=False):
     )
 
     model = onnx.helper.make_model(graph)
-    onnx.checker.check_model(model)
+    validate_onnx(model)
     return model
 
 
@@ -109,5 +110,5 @@ def test_skip_input_quantize(input_fp32, add_quantize_node, testing_func):
     model = onnx_model(input_fp32, add_quantize_node)
     transform = SkipInputQuantize()
     model = transform.apply(model)
-    onnx.checker.check_model(model)
+    validate_onnx(model)
     testing_func(model)
