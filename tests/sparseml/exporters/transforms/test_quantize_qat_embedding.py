@@ -16,6 +16,7 @@ import onnx
 import pytest
 
 from sparseml.exporters.transforms import QuantizeQATEmbedding
+from sparsezoo.utils import validate_onnx
 
 
 def _create_test_model(with_qdq=False):
@@ -79,7 +80,7 @@ def _create_test_model(with_qdq=False):
         graph = _add_qdq_nodes(graph)
 
     model = onnx.helper.make_model(graph)
-    onnx.checker.check_model(model)
+    validate_onnx(model)
     return model
 
 
@@ -143,4 +144,4 @@ def test_quantize_qat_embedding(with_qdq, testing_function):
     transform = QuantizeQATEmbedding()
     model = transform(model)
     testing_function(model)
-    onnx.checker.check_model(model)
+    validate_onnx(model)

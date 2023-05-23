@@ -19,6 +19,7 @@ from onnx import helper
 from sparseml.exporters.transforms.gemm_to_matmulinteger_add_cast_mul import (
     GemmToMatMulIntegerAddCastMul,
 )
+from sparsezoo.utils import validate_onnx
 
 
 @pytest.fixture
@@ -73,7 +74,7 @@ def onnx_model() -> onnx.ModelProto:
         initializer=[x_scale, y_scale, zero_point, weight, bias],
     )
     model = helper.make_model(graph)
-    onnx.checker.check_model(model)
+    validate_onnx(model)
     assert [i.name for i in model.graph.initializer] == [
         "x_scale",
         "y_scale",
@@ -92,7 +93,7 @@ def onnx_model() -> onnx.ModelProto:
 
 def test_vanilla(onnx_model: onnx.ModelProto):
     onnx_model = GemmToMatMulIntegerAddCastMul().apply(onnx_model)
-    onnx.checker.check_model(onnx_model)
+    validate_onnx(onnx_model)
     assert [i.name for i in onnx_model.graph.initializer] == [
         "zero_point",
         "gemm.weight_quantized",
@@ -117,10 +118,10 @@ def test_gemm_no_bias_changes_nothing(onnx_model: onnx.ModelProto):
     # remove bias
     assert onnx_model.graph.initializer.pop().name == "bias"
     assert onnx_model.graph.node[-1].input.pop() == "bias"
-    onnx.checker.check_model(onnx_model)
+    validate_onnx(onnx_model)
 
     onnx_model = GemmToMatMulIntegerAddCastMul().apply(onnx_model)
-    onnx.checker.check_model(onnx_model)
+    validate_onnx(onnx_model)
     # NOTE: nothing changes
     assert [i.name for i in onnx_model.graph.initializer] == [
         "x_scale",
@@ -141,10 +142,10 @@ def test_non_default_attributes_changes_nothing(onnx_model: onnx.ModelProto):
     Tests that any attributes on the gemm node make no changes occur
     """
     onnx_model.graph.node[-1].attribute.append(helper.make_attribute("alpha", 0.0))
-    onnx.checker.check_model(onnx_model)
+    validate_onnx(onnx_model)
 
     onnx_model = GemmToMatMulIntegerAddCastMul().apply(onnx_model)
-    onnx.checker.check_model(onnx_model)
+    validate_onnx(onnx_model)
 
     # NOTE: nothing should've changed
     assert [i.name for i in onnx_model.graph.initializer] == [

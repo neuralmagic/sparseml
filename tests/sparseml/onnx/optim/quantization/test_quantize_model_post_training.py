@@ -29,6 +29,7 @@ from sparseml.onnx.utils import (
 )
 from sparseml.pytorch.datasets import ImagenetteDataset, ImagenetteSize
 from sparsezoo import Model
+from sparsezoo.utils import save_onnx
 
 
 def _test_model_is_quantized(
@@ -79,7 +80,7 @@ def _test_resnet_identity_quant(model_path, has_resnet_block, save_optimized):
     # check that running the optimization has no affect even if its already been run
     assert not quantize_resnet_identity_add_inputs(quant_model)
     if save_optimized:
-        onnx.save(quant_model, model_path)
+        save_onnx(quant_model, model_path)
 
 
 @pytest.mark.skipif(
