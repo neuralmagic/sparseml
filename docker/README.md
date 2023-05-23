@@ -27,7 +27,7 @@ from ghcr.io/neuralmagic/sparseml:1.4.4-cu111
 ## Build
 To build and launch this image with the tag `sparseml_docker`, run from the root directory: `docker build -t sparseml_docker`
 
-If you want to use a specific branch from sparseml you can use the `GIT_CHECKOUT` build arg:
+If you want to use a specific branch from sparseml you can use the `BRANCH` build arg:
 ```bash
 docker build --build-arg BRANCH=main -t sparseml_docker .
 ```
