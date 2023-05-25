@@ -809,9 +809,7 @@ def _add_quantized_conv_matmul_add_ops(
     output_scale = input_quantize_params.scale * weight_quantize_params.scale
     output_scale_name = "{}_output.scale".format(node.name)
     model.graph.initializer.append(
-        numpy_helper.from_array(
-            numpy.asarray(output_scale), name=output_scale_name
-        )
+        numpy_helper.from_array(numpy.asarray(output_scale), name=output_scale_name)
     )
 
     last_output = integer_op_output
@@ -1186,7 +1184,7 @@ def _convert_quantizable_conv_integer(model: ModelProto):
     conv_nodes = [n for n in model.graph.node if n.op_type in ["Conv"]]
     orig_conv_weight_name_to_node_ids = defaultdict(list)
     for conv_node in conv_nodes:
-        #if len(conv_node.input) != 3:
+        # if len(conv_node.input) != 3:
         #    # this function currently only converts Conv nodes with bias param
         #    # (i.e. from folded batch norm value)
         #    continue
