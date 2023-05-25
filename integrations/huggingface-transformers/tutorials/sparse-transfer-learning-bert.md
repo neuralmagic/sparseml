@@ -31,7 +31,7 @@ SparseZoo contains pre-sparsified checkpoints of common NLP models like BERT and
 Install via `pip`:
 
 ```
-pip install sparseml[torch]
+pip install sparseml[transformers]
 ```
 
 ## **Example: Sparse Transfer Learning onto SST2**
