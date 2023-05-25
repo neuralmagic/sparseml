@@ -67,7 +67,26 @@ _LOGGER = logging.getLogger(__name__)
 def _select_quantization_modifier(state: Dict[str, Any]) -> Type:
     # if kwargs for the legacy quantization modifier are provided,
     # route YAML loading to that class
-    return LegacyQuantizationModifier if "submodules" in state else QuantizationModifier
+    legacy_props = set(
+        [
+            str(prop)
+            for prop in dir(LegacyQuantizationModifier)
+            if isinstance(getattr(LegacyQuantizationModifier, prop), ModifierProp)
+        ]
+    )
+    current_props = set(
+        [
+            str(prop)
+            for prop in dir(QuantizationModifier)
+            if isinstance(getattr(QuantizationModifier, prop), ModifierProp)
+        ]
+    )
+    legacy_only_props = legacy_props - current_props
+    return (
+        LegacyQuantizationModifier
+        if any(field in state for field in legacy_only_props)
+        else QuantizationModifier
+    )
 
 
 @PyTorchModifierYAML(swap_class_by_state_fn=_select_quantization_modifier)
