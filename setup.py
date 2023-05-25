@@ -246,7 +246,7 @@ def _setup_entry_points() -> Dict:
         [
             "sparseml.ultralytics.train=sparseml.yolov8.train:main",
             "sparseml.ultralytics.val=sparseml.yolov8.val:main",
-            "sparseml.ultralytics.export=sparseml.yolov8.export:main",
+            "sparseml.ultralytics.export_onnx=sparseml.yolov8.export:main",
         ]
     )
 
