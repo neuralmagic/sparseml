@@ -104,7 +104,7 @@ sparseml.image_classification.train \
 
 For full usage, run:
 ```bash
-sparseml.image_classification --help
+sparseml.image_classification.train --help
 ```
 
 ## Quick Start: Sparse Transfer Learning with the CLI
