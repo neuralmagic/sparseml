@@ -46,7 +46,7 @@ pip install sparseml[torchvision]
 
 Neural Magic has pre-sparsified versions of common Torchvision models such as ResNet-50. These models can be deployed directly or can be fine-tuned onto custom dataset via sparse transfer learning. This makes it easy to create a sparse image classification model trained on your dataset.
 
-[Check out the available models](https://sparsezoo.neuralmagic.com/?domain=cv&sub_domain=classification&page=1)
+[Check out the available models](https://sparsezoo.neuralmagic.com/?useCase=classification)
 
 ### Recipes
 
@@ -104,7 +104,7 @@ sparseml.image_classification.train \
 
 For full usage, run:
 ```bash
-sparseml.image_classification --help
+sparseml.image_classification.train --help
 ```
 
 ## Quick Start: Sparse Transfer Learning with the CLI
@@ -113,7 +113,7 @@ sparseml.image_classification --help
 
 Sparse Transfer is quite similiar to the typical transfer learning process used to train image classification models, where we fine-tune a checkpoint pretrained on ImageNet onto a smaller downstream dataset. With Sparse Transfer Learning, we simply start the fine-tuning process from a pre-sparsified checkpoint and maintain sparsity while the training process occurs.
 
-In this example, we will fine-tune a 95% pruned version of ResNet-50 ([available in SparseZoo](https://sparsezoo.neuralmagic.com/models/cv%2Fclassification%2Fresnet_v1-50%2Fpytorch%2Fsparseml%2Fimagenet%2Fpruned95_quant-none)) onto ImageNette.
+In this example, we will fine-tune a 95% pruned version of ResNet-50 ([available in SparseZoo](https://sparsezoo.neuralmagic.com/models/resnet_v1-50-imagenet-pruned95_quantized?comparison=resnet_v1-50-imagenet-base)) onto ImageNette.
 
 ### Kick off Training
 
