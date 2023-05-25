@@ -37,10 +37,10 @@ class CacheKeysAndValues(OnnxTransform):
     The logic for pattern matching is as follows:
 
     1.  Find all the MatMuls that are preceded by a Softmax operation.
-        Those are the MatMuls that perform V x Softmax(QK^T) operation
+        Those are the MatMuls that perform V x Softmax(Q x K^T) operation
         (the "value" MatMuls).
     2.  Given the "value" MatMuls found in step 1, perform a Breadth First Search
-        to find the "key" MatMuls that perform K x Q^T operation.
+        to find the "key" MatMuls that perform Q x K^T operation.
     3.  Before each pair of "key" and "value" MatMuls, inject a cache node that
         concatenates the current keys/values with the cached keys/values.
     4.  For the key cache, the concatenation happens before the Transpose node, that
@@ -79,7 +79,8 @@ class CacheKeysAndValues(OnnxTransform):
     |     |    |
     |      | |
     |       |
-    |   Concat
+    |   Concat ------------> OutputKeyCache
+    |      |
     |      |    Query
     |  Transpose |
     |      |    | Value ValueCache
@@ -87,7 +88,7 @@ class CacheKeysAndValues(OnnxTransform):
     |        |       |  |
     |   "key" MatMul  |
     |        |       |
-    |       ...   Concat
+    |       ...   Concat --> OutputValueCache
     |        |      |
     |     Softmax  |
     |        |    |
@@ -108,7 +109,6 @@ class CacheKeysAndValues(OnnxTransform):
 
         # Inject kv cache to the graph as the model input,
         # Inject kv cache concatenated with the current keys/values as the output
-        # nodes_to_add = []
         inputs_to_add = []
         outputs_to_add = []
 
@@ -179,7 +179,7 @@ def create_cache(
     :param cache_output_name: Name of cache output
     :param concat_axis: axis to apply the concat operation on. By default, t
         this is -2, which corresponds to the sequence length axis.
-    :param use_uint8_if_quantized: True if quantized matmuls should have uint8
+    :param use_uint8_if_quantized: True if quantized MatMuls should have uint8
         inputs, if False, uses int8
     :return: tuple of concat node to add, cache input to add, and cache output to add,
         updates existing nodes in-place
