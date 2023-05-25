@@ -29,10 +29,8 @@ Once trained, SparseML enables you to export models to the ONNX format, such tha
 Install with `pip`:
 
 ```bash
-pip install sparseml[torch]
+pip install sparseml[transformers]
 ```
-
-**Note**: Transformers will not immediately install with this command. Instead, a sparsification-compatible version of Transformers will install on the first invocation of the Transformers code in SparseML.
 
 ## **Tutorials**
 
@@ -50,13 +48,13 @@ pip install sparseml[torch]
 ### **Use Case Examples - Python**
 
 - [Sparse Transfer with GLUE Datasets (SST2) for sentiment analysis](tutorials/sentiment-analysis/docs-sentiment-analysis-python-sst2.ipynb)
-- [Sparse Transfer with Custom Datasets (RottenTomatoes) and Custom Teacher from HF Hub for sentiment analysis](tutorials/sentiment-analysis/docs-sentiment-analysis-python-custom-teacher-rottentomatoes)
+- [Sparse Transfer with Custom Datasets (RottenTomatoes) and Custom Teacher from HF Hub for sentiment analysis](tutorials/sentiment-analysis/docs-sentiment-analysis-python-custom-teacher-rottentomatoes.ipynb)
 - [Sparse Transfer with GLUE Datasets (QQP) for multi-input text classification](tutorials/text-classification/docs-text-classification-python-qqp.ipynb)
 - [Sparse Transfer with Custom Datasets (SICK) for multi-input text classification](tutorials/text-classification/docs-text-classification-python-sick.ipynb)
 - [Sparse Transfer with Custom Datasets (TweetEval) and Custom Teacher for single input text classificaiton](tutorials/text-classification/docs-text-classification-python-custom-teacher-tweeteval.ipynb)
 - [Sparse Transfer with Custom Datasets (GoEmotions) for multi-label text classification](tutorials/text-classification/docs-text-classification-python-multi-label-go_emotions.ipynb)
 - [Sparse Transfer with Conll2003 for named entity recognition](tutorials/token-classification/docs-token-classification-python-conll2003.ipynb)
-- [Sparse Transfer with Custom Datasets (WNUT) and Custom Teacher for named entity recognition](tutorials/token-classification/docs-token-classification-custom-teacher-wnut.ipynb)
+- [Sparse Transfer with Custom Datasets (WNUT) and Custom Teacher for named entity recognition](tutorials/token-classification/docs-token-classification-python-custom-teacher-wnut.ipynb)
 - Sparse Transfer with SQuAD (example coming soon!)
 - Sparse Transfer with Squadshifts Amazon (example coming soon!)
 
@@ -66,7 +64,7 @@ pip install sparseml[torch]
 
 SparseZoo is an open-source repository of pre-sparsified models, including BERT-base, BERT-large, RoBERTa-base, RoBERTa-large, and DistillBERT. With SparseML, you can fine-tune these pre-sparsified checkpoints onto custom datasets (while maintaining sparsity) via sparse transfer learning. This makes training inference-optimized sparse models almost identical to your typical training workflows!
 
-[Check out the available models](https://sparsezoo.neuralmagic.com/?repo=huggingface&page=1)
+[Check out the available models](https://sparsezoo.neuralmagic.com/?repos=huggingface)
 
 ### **Recipes**
 
@@ -140,7 +138,7 @@ Currently supported tasks include:
 
 Sparse Transfer is very similiar to the typical transfer learing process used to train NLP models, where we fine-tune a checkpoint pretrained on a large upstream dataset using masked language modeling onto a smaller downstream dataset. With Sparse Transfer Learning, however, we simply start the fine-tuning process from a pre-sparsified checkpoint and maintain sparsity while the training process occurs.
 
-Here, we will fine-tune a [90% pruned version of BERT](https://sparsezoo.neuralmagic.com/models/nlp%2Fmasked_language_modeling%2Fobert-base%2Fpytorch%2Fhuggingface%2Fwikipedia_bookcorpus%2Fpruned90-none) from the SparseZoo onto SST2.
+Here, we will fine-tune a [90% pruned version of BERT](https://sparsezoo.neuralmagic.com/models/obert-base-wikipedia_bookcorpus-pruned90?comparison=obert-base-wikipedia_bookcorpus-base) from the SparseZoo onto SST2.
 
 ### **Kick off Training**
 
@@ -148,7 +146,7 @@ We will use SparseML's `sparseml.transformers.text_classification` training scri
 
 To run sparse transfer learning, we first need to create/select a sparsification recipe. For sparse transfer, we need a recipe that instructs SparseML to maintain sparsity during training and to quantize the model. 
 
-For the SST2 dataset, there is a [transfer learning recipe available in SparseZoo](https://sparsezoo.neuralmagic.com/models/nlp%2Fsentiment_analysis%2Fobert-base%2Fpytorch%2Fhuggingface%2Fsst2%2Fpruned90_quant-none), identified by the following SparseZoo stub:
+For the SST2 dataset, there is a [transfer learning recipe available in SparseZoo](https://sparsezoo.neuralmagic.com/models/obert-base-sst2_wikipedia_bookcorpus-pruned90_quantized?comparison=obert-base-sst2_wikipedia_bookcorpus-base&tab=0), identified by the following SparseZoo stub:
 ```
 zoo:nlp/sentiment_analysis/obert-base/pytorch/huggingface/sst2/pruned90_quant-none
 ```
