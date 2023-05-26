@@ -12,10 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
+import json
 from copy import deepcopy
 from pathlib import Path
-from typing import Union
+from typing import Any, Dict, Union
 
 import onnx
 
@@ -34,7 +34,7 @@ _SUPPORTED_ARCHITECTURES = ["opt"]
 class KeyValueCacheInjector(BaseExporter):
     def __init__(
         self,
-        model_type: str,
+        model_path: str,
         inplace: bool = True,
     ):
         """
@@ -44,6 +44,9 @@ class KeyValueCacheInjector(BaseExporter):
         autoregressive generation process (reduce the compute of key/value pairs
         by storing the results of previous computations in memory).
 
+        The exporter will look for a `config.json` file in the `model_path` directory
+        to determine the static dimensions of the kv cache input/output.
+
         This transformation not only injects the cache support, but also adjusts
         the model to account for the cache support. This means altering the input
         to the model, such as adding "position" input to the model.
@@ -51,36 +54,71 @@ class KeyValueCacheInjector(BaseExporter):
         Usage:
         ```python
         onnx_model: onnx.ModelProto = ...
-        exporter = KeyValueCacheInjector()
+        exporter = KeyValueCacheInjector(model_path="path/to/model")
         exporter.export(onnx_model, "model.onnx")
         ```
 
         You can also just optimize the model directly without saving to disk:
         ```python
         onnx_model: onnx.ModelProto = ...
-        exporter = KeyValueCacheInjector()
+        exporter = KeyValueCacheInjector(model_path="path/to/model")
         optimized_model = exporter.apply(onnx_model)
         ```
 
-        :param model_type: The type of model to inject the cache support into.
+        :param model_path: The path to the directory containing the model.
         :param inplace: If True, the model will be modified in place.
             If False, a copy of the model will be made and modified.
         """
         self.inplace = inplace
-        if model_type.lower() not in _SUPPORTED_ARCHITECTURES:
+        self.config = self.get_config(model_path)
+
+        if not self.config["model_type"] in _SUPPORTED_ARCHITECTURES:
             raise ValueError(
-                f"`model_type` must be one of {_SUPPORTED_ARCHITECTURES}, "
-                f"found {model_type}"
+                f"Model type {self.config.model_type} is not supported. "
+                f"Supported model types: {_SUPPORTED_ARCHITECTURES}"
             )
 
+        num_attention_heads = self.config["num_attention_heads"]
+        hidden_size_kv_cache = self.config["hidden_size"] // num_attention_heads
+
         transforms = [
-            CacheKeysAndValues(),
+            CacheKeysAndValues(
+                num_attention_heads=num_attention_heads,
+                hidden_size_kv_cache=hidden_size_kv_cache,
+            ),
             # PositionEmbeddingAdjustment is specific for
             # OPT model, let's make it more generic in future
             PositionEmbeddingsAdjustment(),
         ]
 
         super().__init__(transforms)
+
+    def get_config(self, model_path: Union[str, Path]) -> Dict[str, Any]:
+        """
+        From the model path, get the config.json file and return it as a dict.
+
+        :param model_path: The path to the directory containing the model.
+        :return: The config.json file as a dict.
+        """
+        model_path = Path(model_path) if isinstance(model_path, str) else model_path
+
+        if not model_path.is_dir():
+            raise ValueError(
+                f"`model_path` is expected to be a directory, found {model_path}"
+            )
+        config_file = [
+            file for file in model_path.iterdir() if file.name == "config.json"
+        ]
+        if len(config_file) != 1:
+            raise ValueError(
+                f"Expected to find exactly one config.json file in {model_path}, "
+                f"found {len(config_file)}"
+            )
+
+        with open(config_file[0]) as f:
+            config = json.load(f)
+
+        return config
 
     def pre_validate(self, model: Union[onnx.ModelProto, str, Path]) -> onnx.ModelProto:
         if isinstance(model, (str, Path)):
