@@ -629,7 +629,6 @@ def _convert_quantizable_matmuls_with_nonquantized_outputs(model: ModelProto):
         ):
             continue
 
-        current_output = matmul_node
         _LOGGER.debug(f"Matched quantizable MatMul: {matmul_node.name}")
 
         # Create MatMulInteger node
@@ -670,7 +669,8 @@ def _convert_quantizable_matmuls_with_nonquantized_outputs(model: ModelProto):
 
     if matmul_nodes:
         _LOGGER.info(
-            f"Converted {conversion_count} quantizable MatMul (A8A8 inputs, FP output) ops to MatMulInteger"
+            f"Converted {conversion_count} quantizable MatMul "
+            "(A8A8 inputs, FP output) ops to MatMulInteger"
         )
         graph = ONNXGraph(model)
         graph.delete_unused_initializers()
