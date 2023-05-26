@@ -86,7 +86,7 @@ from sparseml.pytorch.optim import ScheduledModifierManager
 from sparseml.pytorch.utils import export_onnx
 from sparseml.transformers.sparsification import Trainer
 from sparseml.transformers.utils import SparseAutoModel
-
+from sparsezoo.utils.onnx import EXTERNAL_ONNX_DATA_NAME
 
 __all__ = ["export_transformer_to_onnx", "load_task_model"]
 
@@ -96,11 +96,10 @@ MANDATORY_DEPLOYMENT_FILES = [
     "tokenizer_config.json",
     "config.json",
 ]
-EXTERNAL_ONNX_DATA_NAME = ["model.data"]
 OPT_TOKENIZER_FILES = ["special_tokens_map.json", "vocab.json", "merges.txt"]
 
 OPTIONAL_DEPLOYMENT_FILES: List[str] = ["tokenizer.json"]
-OPTIONAL_DEPLOYMENT_FILES.extend(EXTERNAL_ONNX_DATA_NAME)
+OPTIONAL_DEPLOYMENT_FILES.append(EXTERNAL_ONNX_DATA_NAME)
 OPTIONAL_DEPLOYMENT_FILES.extend(OPT_TOKENIZER_FILES)
 
 
