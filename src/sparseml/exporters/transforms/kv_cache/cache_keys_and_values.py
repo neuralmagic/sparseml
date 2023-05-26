@@ -14,9 +14,9 @@
 
 import logging
 from typing import List, Optional, Set, Tuple
-
+import numpy
 import onnx
-from onnx import ModelProto, NodeProto, TensorProto, ValueInfoProto
+from onnx import ModelProto, NodeProto, TensorProto, ValueInfoProto, numpy_helper
 
 from sparseml.exporters.transforms.onnx_transform import OnnxTransform
 from sparseml.onnx.utils import ONNXGraph
@@ -184,32 +184,13 @@ def create_cache(
     :return: tuple of concat node to add, cache input to add, and cache output to add,
         updates existing nodes in-place
     """
-    graph = ONNXGraph(model)
+    cache_input_dims = ["batch_size", "num_heads", "past_sequence_len", "hidden_dims"]
+    cache_input_dims_reshaped = ["batch_size x num_heads", "past_sequence_len", "hidden_dims"]
 
-    if node.op_type == "QLinearMatMul" and cache_input_idx == 1:
-        cache_input_idx = 3  # QLinearMatMul B matrix is at idx 3, not 1
+    cache_output_dims = ["batch_size", "num_heads", "past_sequence_len + 1", "hidden_dims"]
 
-    cache_parent = graph.get_node_single_parent(node, index=cache_input_idx)
-    if isinstance(cache_parent, NodeProto) and cache_parent.op_type == "Transpose":
-        # move cache to before a transpose if applicable
-        # this is due to pytorch operations potentially extracting shape values
-        # from the key tensor before the transpose is applied
-        pre_cache_input_id = cache_parent.input[0]
-        # update concat axis
-        node = cache_parent
-    else:
-        pre_cache_input_id = node.input[cache_input_idx]
-
-    concat_node = onnx.helper.make_node(
-        op_type="Concat",
-        inputs=[cache_input_name, pre_cache_input_id],
-        outputs=[cache_output_name],
-        axis=concat_axis,
-        name=f"concat.{cache_input_name}",
-    )
-
-    cache_input_dims = ["num_heads", "past_sequence_len", "hidden_dims"]
-    cache_output_dims = ["num_heads", "past_sequence_len + 1", "hidden_dims"]
+    cache_input_name_reshaped = f"{cache_input_name}_reshaped"
+    cache_output_name_reshaped = f"{cache_output_name}_reshaped"
 
     cache_data_type = (
         TensorProto.FLOAT
@@ -232,6 +213,51 @@ def create_cache(
         cache_output_dims,
     )
 
+    graph = ONNXGraph(model)
+
+    if node.op_type == "QLinearMatMul" and cache_input_idx == 1:
+        cache_input_idx = 3  # QLinearMatMul B matrix is at idx 3, not 1
+
+    cache_parent = graph.get_node_single_parent(node, index=cache_input_idx)
+    if isinstance(cache_parent, NodeProto) and cache_parent.op_type == "Transpose":
+        # move cache to before a transpose if applicable
+        # this is due to pytorch operations potentially extracting shape values
+        # from the key tensor before the transpose is applied
+        pre_cache_input_id = cache_parent.input[0]
+        # update concat axis
+        node = cache_parent
+    else:
+        pre_cache_input_id = node.input[cache_input_idx]
+
+
+    reshape_in_init = numpy_helper.from_array(numpy.array([16, -1, 64], dtype=numpy.int64),
+                                                   "reshape_in")
+
+    reshape_node_in = onnx.helper.make_node(
+        op_type="Reshape",
+        inputs = [cache_input_name, "reshape_in"],
+        outputs = [cache_input_name_reshaped],
+        name=f"reshape.{cache_input_name}",
+    )
+
+    concat_node = onnx.helper.make_node(
+        op_type="Concat",
+        inputs=[cache_input_name_reshaped, pre_cache_input_id],
+        outputs=[cache_output_name_reshaped],
+        axis=concat_axis,
+        name=f"concat.reshape.{cache_input_name}",
+    )
+
+    reshape_in_init = numpy_helper.from_array(numpy.array([1, 16, -1, 64], dtype=numpy.int64),
+                                                   "reshape_out")
+
+    reshape_node_out = onnx.helper.make_node(
+        op_type="Reshape",
+        inputs = [cache_output_name_reshaped, "reshape_out"],
+        outputs = [cache_output_name],
+        name=f"reshape.{cache_output_name}",
+    )
+
     # insert concat node into graph (before the MatMul node or the Transpose node
     # that precedes the MatMul node)
     model.graph.node.insert(
@@ -239,11 +265,19 @@ def create_cache(
         concat_node,
     )
 
-    # update all uses of the pre_cache_input_id to now reference cache output
+    # insert reshape nodes into graph (before the concat node)
+    model.graph.node.insert(
+        [i for i, n in enumerate(model.graph.node) if n.name == concat_node.name][0],
+        reshape_node_in,
+    )
+
+    model.graph.node.append(reshape_node_out)
+
+    # update all uses of the pre_cache_input_id to now reference cache_output_reshaped
     for node in model.graph.node:
         for input_idx, input_id in enumerate(node.input):
             if input_id == pre_cache_input_id and node.name != concat_node.name:
-                node.input[input_idx] = cache_output_name
+                node.input[input_idx] = cache_output_name_reshaped
 
     return concat_node, cache_input_info, cache_output_info
 
