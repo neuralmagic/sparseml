@@ -185,6 +185,7 @@ def create_cache(
     hidden_size_kv_cache: int,
     concat_axis: int = -2,
     use_uint8_if_quantized: bool = True,
+    batch_size: int = 1,
 ) -> Tuple[NodeProto, ValueInfoProto, ValueInfoProto]:
     """
     Injects a cache (value or key) into the graph for a given Matmul node.
@@ -201,17 +202,18 @@ def create_cache(
         this is -2, which corresponds to the sequence length axis.
     :param use_uint8_if_quantized: True if quantized MatMuls should have uint8
         inputs, if False, uses int8
+    :param batch_size: batch size of the kv cache. By default, this is 1.
     :return: tuple of concat node to add, cache input to add, and cache output to add,
         updates existing nodes in-place
     """
     cache_input_dims = [
-        "batch_size",
+        batch_size,
         num_attention_heads,
         "past_sequence_len",
         hidden_size_kv_cache,
     ]
     cache_output_dims = [
-        "batch_size",
+        batch_size,
         num_attention_heads,
         "past_sequence_len + 1",
         hidden_size_kv_cache,
@@ -219,6 +221,26 @@ def create_cache(
 
     cache_input_name_reshaped = f"{cache_input_name}_reshaped"
     cache_output_name_reshaped = f"{cache_output_name}_reshaped"
+
+    reshape_in_initializer_name = f"reshape_in.{cache_input_name}"
+    reshape_out_initializer_name = f"reshape_out.{cache_output_name}"
+
+    # create reshape initializers
+    reshape_in_initializer = numpy_helper.from_array(
+        numpy.array(
+            [num_attention_heads * batch_size, -1, hidden_size_kv_cache],
+            dtype=numpy.int64,
+        ),
+        reshape_in_initializer_name,
+    )
+
+    reshape_out_initializer = numpy_helper.from_array(
+        numpy.array(
+            [batch_size, num_attention_heads, -1, hidden_size_kv_cache],
+            dtype=numpy.int64,
+        ),
+        reshape_out_initializer_name,
+    )
 
     cache_data_type = (
         TensorProto.FLOAT
@@ -257,20 +279,9 @@ def create_cache(
     else:
         pre_cache_input_id = node.input[cache_input_idx]
 
-    reshape_in_initializer = numpy_helper.from_array(
-        numpy.array([num_attention_heads, -1, hidden_size_kv_cache], dtype=numpy.int64),
-        f"reshape_in.{cache_input_name}",
-    )
-    reshape_out_initializer = numpy_helper.from_array(
-        numpy.array(
-            [1, num_attention_heads, -1, hidden_size_kv_cache], dtype=numpy.int64
-        ),
-        f"reshape_out.{cache_output_name}",
-    )
-
     reshape_node_in = onnx.helper.make_node(
         op_type="Reshape",
-        inputs=[cache_input_name, f"reshape_in.{cache_input_name}"],
+        inputs=[cache_input_name, reshape_in_initializer_name],
         outputs=[cache_input_name_reshaped],
         name=f"reshape.{cache_input_name}",
     )
@@ -285,7 +296,7 @@ def create_cache(
 
     reshape_node_out = onnx.helper.make_node(
         op_type="Reshape",
-        inputs=[cache_output_name_reshaped, f"reshape_out.{cache_output_name}"],
+        inputs=[cache_output_name_reshaped, reshape_out_initializer_name],
         outputs=[cache_output_name],
         name=f"reshape.{cache_output_name}",
     )
@@ -303,6 +314,8 @@ def create_cache(
         reshape_node_in,
     )
     model.graph.node.append(reshape_node_out)
+
+    # insert reshape initializers into graph
     model.graph.initializer.extend([reshape_in_initializer, reshape_out_initializer])
 
     # update all uses of the pre_cache_input_id to now reference cache_output_reshaped
