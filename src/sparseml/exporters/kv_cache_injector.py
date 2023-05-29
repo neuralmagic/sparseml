@@ -83,8 +83,9 @@ class KeyValueCacheInjector(BaseExporter):
         super().__init__(transforms)
 
     def pre_validate(self, model: Union[onnx.ModelProto, str, Path]) -> onnx.ModelProto:
+        validate_onnx(str(model) if isinstance(model, Path) else model)
+
         if isinstance(model, (str, Path)):
-            validate_onnx(str(model))
             model = onnx.load(str(model))
 
         if not isinstance(model, onnx.ModelProto):
@@ -94,6 +95,7 @@ class KeyValueCacheInjector(BaseExporter):
     def post_validate(self, model: onnx.ModelProto) -> onnx.ModelProto:
         if not isinstance(model, onnx.ModelProto):
             raise TypeError(f"Expected onnx.ModelProto, found {type(model)}")
+        validate_onnx(model)
         return model
 
     def export(self, pre_transforms_model: onnx.ModelProto, file_path: str):
