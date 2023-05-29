@@ -24,7 +24,6 @@ from sparseml.exporters.transforms.kv_cache import (
     CacheKeysAndValues,
     PositionEmbeddingsAdjustment,
 )
-from sparsezoo import validate_onnx
 from sparsezoo.utils import save_onnx
 
 
@@ -83,8 +82,6 @@ class KeyValueCacheInjector(BaseExporter):
         super().__init__(transforms)
 
     def pre_validate(self, model: Union[onnx.ModelProto, str, Path]) -> onnx.ModelProto:
-        validate_onnx(str(model) if isinstance(model, Path) else model)
-
         if isinstance(model, (str, Path)):
             model = onnx.load(str(model))
 
@@ -95,7 +92,6 @@ class KeyValueCacheInjector(BaseExporter):
     def post_validate(self, model: onnx.ModelProto) -> onnx.ModelProto:
         if not isinstance(model, onnx.ModelProto):
             raise TypeError(f"Expected onnx.ModelProto, found {type(model)}")
-        validate_onnx(model)
         return model
 
     def export(self, pre_transforms_model: onnx.ModelProto, file_path: str):
