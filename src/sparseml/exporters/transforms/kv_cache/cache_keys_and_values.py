@@ -14,6 +14,7 @@
 
 import logging
 from typing import List, Optional, Set, Tuple
+
 import numpy
 import onnx
 from onnx import ModelProto, NodeProto, TensorProto, ValueInfoProto, numpy_helper
@@ -203,8 +204,18 @@ def create_cache(
     :return: tuple of concat node to add, cache input to add, and cache output to add,
         updates existing nodes in-place
     """
-    cache_input_dims = ["batch_size", num_attention_heads, "past_sequence_len", hidden_size_kv_cache]
-    cache_output_dims = ["batch_size", num_attention_heads, "past_sequence_len + 1", hidden_size_kv_cache]
+    cache_input_dims = [
+        "batch_size",
+        num_attention_heads,
+        "past_sequence_len",
+        hidden_size_kv_cache,
+    ]
+    cache_output_dims = [
+        "batch_size",
+        num_attention_heads,
+        "past_sequence_len + 1",
+        hidden_size_kv_cache,
+    ]
 
     cache_input_name_reshaped = f"{cache_input_name}_reshaped"
     cache_output_name_reshaped = f"{cache_output_name}_reshaped"
@@ -246,13 +257,21 @@ def create_cache(
     else:
         pre_cache_input_id = node.input[cache_input_idx]
 
-
-    numpy_helper.from_array(numpy.array([num_attention_heads, -1, hidden_size_kv_cache], dtype=numpy.int64), "reshape_in")
+    reshape_in_initializer = numpy_helper.from_array(
+        numpy.array([num_attention_heads, -1, hidden_size_kv_cache], dtype=numpy.int64),
+        f"reshape_in.{cache_input_name}",
+    )
+    reshape_out_initializer = numpy_helper.from_array(
+        numpy.array(
+            [1, num_attention_heads, -1, hidden_size_kv_cache], dtype=numpy.int64
+        ),
+        f"reshape_out.{cache_output_name}",
+    )
 
     reshape_node_in = onnx.helper.make_node(
         op_type="Reshape",
-        inputs = [cache_input_name, "reshape_in"],
-        outputs = [cache_input_name_reshaped],
+        inputs=[cache_input_name, f"reshape_in.{cache_input_name}"],
+        outputs=[cache_input_name_reshaped],
         name=f"reshape.{cache_input_name}",
     )
 
@@ -264,12 +283,10 @@ def create_cache(
         name=f"concat.reshape.{cache_input_name}",
     )
 
-    numpy_helper.from_array(numpy.array([1, num_attention_heads, -1, hidden_size_kv_cache], dtype=numpy.int64), "reshape_out")
-
     reshape_node_out = onnx.helper.make_node(
         op_type="Reshape",
-        inputs = [cache_output_name_reshaped, "reshape_out"],
-        outputs = [cache_output_name],
+        inputs=[cache_output_name_reshaped, f"reshape_out.{cache_output_name}"],
+        outputs=[cache_output_name],
         name=f"reshape.{cache_output_name}",
     )
 
@@ -285,8 +302,8 @@ def create_cache(
         [i for i, n in enumerate(model.graph.node) if n.name == concat_node.name][0],
         reshape_node_in,
     )
-
     model.graph.node.append(reshape_node_out)
+    model.graph.initializer.extend([reshape_in_initializer, reshape_out_initializer])
 
     # update all uses of the pre_cache_input_id to now reference cache_output_reshaped
     for node in model.graph.node:
