@@ -88,6 +88,7 @@ from sparseml.transformers.sparsification import Trainer
 from sparseml.transformers.utils import SparseAutoModel
 from sparsezoo.utils.onnx import EXTERNAL_ONNX_DATA_NAME
 
+
 __all__ = ["export_transformer_to_onnx", "load_task_model"]
 
 MODEL_ONNX_NAME = "model.onnx"
