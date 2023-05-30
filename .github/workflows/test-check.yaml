@@ -117,6 +117,10 @@ jobs:
         run: pip3 install --upgrade protobuf
       - name: "⚙️ Install dependencies"
         run: pip3 install .[dev,deepsparse,onnxruntime]
+      - name: "Echo sparsezoo version"
+        run: pip show sparsezoo || pip show sparsezoo-nightly
+      - name: "Echo deepsparse version"
+        run: pip show deepsparse || pip show deepsparse-nightly
       - name: "🔬 Running deepsparse tests"
         run: make test TARGETS=deepsparse
   keras-tests:
