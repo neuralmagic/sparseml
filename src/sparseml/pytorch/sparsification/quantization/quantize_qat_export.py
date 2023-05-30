@@ -841,8 +841,11 @@ def _convert_quantizable_matmul_with_quantized_outputs(model: ModelProto):
 
     if matmul_nodes:
         _LOGGER.info(
-            f"Converted {conversion_count} quantizable MatMul ops " "to QLinearMatMul"
+            f"Converted {conversion_count} quantizable MatMul with quantized outputs "
+            "to QLinearMatMul"
         )
+
+    return conversion_count
 
 
 def _convert_quantizable_matmul(model: ModelProto):
