@@ -98,7 +98,7 @@ jobs:
     env:
       SPARSEZOO_TEST_MODE: "true"
     needs: test-setup
-    if: ${{needs.test-setup.outputs.deepsparse == 1}}
+#    if: ${{needs.test-setup.outputs.deepsparse == 1}}
     steps:
       - uses: actions/setup-python@v4
         with:
