@@ -25,6 +25,7 @@ jobs:
     needs: test-setup
     env:
       SPARSEZOO_TEST_MODE: "true"
+      NM_DISABLE_ANALYTICS: "true"
       SPARSEML_TEST_CADENCE: "commit"
     steps:
       - uses: actions/checkout@v2

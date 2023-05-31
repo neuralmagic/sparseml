@@ -78,7 +78,7 @@ test:
 # run integration tests
 testinteg:
 	@echo "Running integration tests";
-	SPARSEZOO_TEST_MODE="true" pytest -x -ls tests/integrations $(PYTEST_INTEGRATION_ARGS)
+	SPARSEZOO_TEST_MODE="true" NM_DISABLE_ANALYTICS="true" pytest -x -ls tests/integrations $(PYTEST_INTEGRATION_ARGS)
 
 # create docs
 docs:
