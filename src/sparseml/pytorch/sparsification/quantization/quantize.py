@@ -425,10 +425,10 @@ def _validate_set_module_schemes(
         for type_or_name in types_or_names:
             matched = False
             for submodule_name, submodule in model.named_modules():
-                name_to_match = submodule_name[:]
-                if name_to_match.startswith("module."):
-                    name_to_match = name_to_match[7:]
-                if name_to_match.startswith(type_or_name) or (
+                name_to_compare = submodule_name[:]
+                if name_to_compare.startswith("module."):
+                    name_to_compare = name_to_compare[7:]
+                if name_to_compare.startswith(type_or_name) or (
                     submodule.__class__.__name__ == type_or_name
                 ):
                     matched = True
