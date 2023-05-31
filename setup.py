@@ -70,7 +70,10 @@ _pytorch_all_deps = _pytorch_deps + [
     "torchvision>=0.3.0,<0.15",
     "torchaudio<=0.13",
 ]
-_pytorch_vision_deps = _pytorch_deps + ["torchvision>=0.3.0,<0.15"]
+_pytorch_vision_deps = _pytorch_deps + [
+    "torchvision>=0.3.0,<0.15",
+    "opencv-python<=4.6.0.66",
+]
 _transformers_deps = _pytorch_deps + [
     f"{'nm-transformers' if is_release else 'nm-transformers-nightly'}"
     f"~={version_nm_deps}",
@@ -251,7 +254,7 @@ def _setup_entry_points() -> Dict:
         [
             "sparseml.ultralytics.train=sparseml.yolov8.train:main",
             "sparseml.ultralytics.val=sparseml.yolov8.val:main",
-            "sparseml.ultralytics.export=sparseml.yolov8.export:main",
+            "sparseml.ultralytics.export_onnx=sparseml.yolov8.export:main",
         ]
     )
 
