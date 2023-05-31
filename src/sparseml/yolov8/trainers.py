@@ -20,6 +20,7 @@ import tempfile
 import warnings
 from copy import copy, deepcopy
 from datetime import datetime, timedelta
+from functools import partial
 from pathlib import Path
 from typing import List, Optional
 
@@ -487,6 +488,10 @@ class SparseTrainer(BaseTrainer):
     def final_eval(self):
         # skip final eval if we are using a recipe
         if self.manager is None and self.checkpoint_manager is None:
+            # need access to trainer in validator when recipe is not used
+            #  but we can't touch original ultralytics code that makes this call
+            #  without the trainer, so we create a partial with the trainer set
+            self.validator = partial(self.validator, trainer=self)
             return super().final_eval()
 
     def callback_teardown(self):
