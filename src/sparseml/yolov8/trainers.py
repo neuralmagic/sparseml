@@ -20,6 +20,7 @@ import tempfile
 import warnings
 from copy import copy, deepcopy
 from datetime import datetime, timedelta
+from functools import partial
 from pathlib import Path
 from typing import List, Optional
 
@@ -487,6 +488,12 @@ class SparseTrainer(BaseTrainer):
     def final_eval(self):
         # skip final eval if we are using a recipe
         if self.manager is None and self.checkpoint_manager is None:
+            # patch the validator, so it always has access to the
+            #  trainer object, which is needed to circumvent original ultralytics
+            #  call that ignores the trainer object
+            #  https://github.com/ultralytics/ultralytics/blob/
+            #  6c65934b555e64bf26edd699865754b5ff651d0c/ultralytics/yolo/engine/trainer.py#L551
+            self.validator = partial(self.validator, trainer=self)
             return super().final_eval()
 
     def callback_teardown(self):
