@@ -16,7 +16,6 @@ jobs:
       branch: ${{ steps.get-branch.outputs.branch }}
       base: ${{ steps.base-check.outputs.output }}
       deepsparse: ${{ steps.deepsparse-check.outputs.output }}
-      keras: ${{ steps.keras-check.outputs.output }}
       onnx: ${{ steps.onnx-check.outputs.output }}
       pytorch: ${{ steps.pytorch-check.outputs.output }}
       tensorflow_v1: ${{ steps.tensorflow_v1-check.outputs.output }}
@@ -41,12 +40,6 @@ jobs:
         id: deepsparse-check
         run: >
           ((git diff --name-only origin/main HEAD | grep -E "[src|tests]/sparseml/deepsparse|setup.py|.github")
-          || (echo $GITHUB_REF | grep -E "refs/heads/[release/|main]"))
-          && echo "::set-output name=output::1" || echo "::set-output name=output::0"
-      - name: "Checking if sparseml.keras was changed"
-        id: keras-check
-        run: >
-          ((git diff --name-only origin/main HEAD | grep -E "[src|tests]/sparseml/keras|setup.py|.github")
           || (echo $GITHUB_REF | grep -E "refs/heads/[release/|main]"))
           && echo "::set-output name=output::1" || echo "::set-output name=output::0"
       - name: "Checking if sparseml.onnx was changed"
@@ -119,30 +112,6 @@ jobs:
         run: pip3 install .[dev,deepsparse,onnxruntime]
       - name: "🔬 Running deepsparse tests"
         run: make test TARGETS=deepsparse
-  keras-tests:
-    runs-on: ubuntu-22.04
-    env:
-      SPARSEZOO_TEST_MODE: "true"
-    needs: test-setup
-    if:  ${{needs.test-setup.outputs.keras == 1}}
-    steps:
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.8'
-      - uses: actions/checkout@v2
-      - uses: actions/checkout@v2
-        with:
-          repository: "neuralmagic/sparsezoo"
-          path: "sparsezoo"
-          ref: ${{needs.test-setup.outputs.branch}}
-      - name: "⚙️ Install sparsezoo dependencies"
-        run: pip3 install -U pip && pip3 install setuptools sparsezoo/
-      - name: "Clean sparsezoo directory"
-        run: rm -r sparsezoo/
-      - name: "⚙️ Install dependencies"
-        run: pip3 install .[dev,tf_keras,onnxruntime]
-      - name: "🔬 Running keras tests"
-        run: make test TARGETS=keras
   onnx-tests:
     runs-on: ubuntu-22.04
     env:
