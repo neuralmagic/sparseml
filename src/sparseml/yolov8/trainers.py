@@ -488,9 +488,11 @@ class SparseTrainer(BaseTrainer):
     def final_eval(self):
         # skip final eval if we are using a recipe
         if self.manager is None and self.checkpoint_manager is None:
-            # need access to trainer in validator when recipe is not used
-            #  but we can't touch original ultralytics code that makes this call
-            #  without the trainer, so we create a partial with the trainer set
+            # patch the validator, so it always has access to the
+            #  trainer object, which is needed to circumvent original ultralytics
+            #  call that ignores the trainer object
+            #  https://github.com/ultralytics/ultralytics/blob/
+            #  6c65934b555e64bf26edd699865754b5ff651d0c/ultralytics/yolo/engine/trainer.py#L551
             self.validator = partial(self.validator, trainer=self)
             return super().final_eval()
 
