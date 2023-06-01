@@ -75,10 +75,12 @@ import logging
 import math
 import os
 import shutil
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
 
 from torch.nn import Module
 from transformers import AutoConfig, AutoTokenizer
+from transformers import TrainingArguments as HFTrainingArgs
 from transformers.tokenization_utils_base import PaddingStrategy
 
 from sparseml.optim import parse_recipe_variables
@@ -91,15 +93,28 @@ from sparseml.transformers.utils import SparseAutoModel
 __all__ = ["export_transformer_to_onnx", "load_task_model"]
 
 MODEL_ONNX_NAME = "model.onnx"
-EXTERNAL_ONNX_DATA_NAME = "model.data"
-MANDATORY_DEPLOYMENT_FILES: List[str] = [
+MANDATORY_DEPLOYMENT_FILES = [
     MODEL_ONNX_NAME,
     "tokenizer_config.json",
     "config.json",
 ]
-OPTIONAL_DEPLOYMENT_FILES: List[str] = [EXTERNAL_ONNX_DATA_NAME, "tokenizer.json"]
+EXTERNAL_ONNX_DATA_NAME = ["model.data"]
+OPT_TOKENIZER_FILES = ["special_tokens_map.json", "vocab.json", "merges.txt"]
+
+OPTIONAL_DEPLOYMENT_FILES: List[str] = ["tokenizer.json"]
+OPTIONAL_DEPLOYMENT_FILES.extend(EXTERNAL_ONNX_DATA_NAME)
+OPTIONAL_DEPLOYMENT_FILES.extend(OPT_TOKENIZER_FILES)
+
 
 _LOGGER = logging.getLogger(__name__)
+
+
+@dataclass
+class DeviceCPUTrainingArgs(HFTrainingArgs):
+    @property
+    def place_model_on_device(self):
+        # Ensure model remains in CPU during ONNX export
+        return False
 
 
 def load_task_model(task: str, model_path: str, config: Any) -> Module:
@@ -289,15 +304,18 @@ def export_transformer_to_onnx(
         _LOGGER.info(f"loaded validation dataset for args {data_args}")
 
     model = model.train()
+
+    args = DeviceCPUTrainingArgs(output_dir="tmp_trainer")
     trainer = Trainer(
         model=model,
+        args=args,
         model_state_path=model_path,
         eval_dataset=eval_dataset,
         recipe=None,
         recipe_args=None,
         teacher=None,
     )
-    model = model.cpu()
+
     applied = trainer.apply_manager(epoch=math.inf, checkpoint=None)
 
     if not applied:
