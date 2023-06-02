@@ -47,7 +47,8 @@ _deps = [
     "requests>=2.0.0",
     "scikit-image>=0.15.0",
     "scikit-learn>=0.24.2",
-    "scipy>=1.0.0",
+    "scipy<1.9.2,>=1.8; python_version <= '3.9'",
+    "scipy>=1.0.0; python_version > '3.9'",
     "tqdm>=4.0.0",
     "toposort>=1.0",
     "GPUtil>=1.4.0",
@@ -61,8 +62,9 @@ _deepsparse_deps = [
 _deepsparse_ent_deps = [f"deepsparse-ent~={version_nm_deps}"]
 
 _onnxruntime_deps = ["onnxruntime>=1.0.0"]
+supported_torch_version = "torch>=1.7.0,<1.14"
 _pytorch_deps = [
-    "torch>=1.1.0,<=1.13.1",
+    supported_torch_version,
     "gputils",
 ]
 _pytorch_all_deps = _pytorch_deps + [
@@ -118,7 +120,11 @@ _dev_deps = [
     "tensorboardX>=1.0",
 ]
 
-_ultralytics_deps = ["ultralytics==8.0.30"]
+
+_ultralytics_deps = [
+    "ultralytics==8.0.30",
+    supported_torch_version,
+]
 
 
 def _setup_packages() -> List:
