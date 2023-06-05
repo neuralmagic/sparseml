@@ -11,3 +11,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+from sparseml.analytics import sparseml_analytics as _analytics
+
+
+try:
+    import cv2 as _cv2  # noqa: F401
+
+    import openpifpaf as _openpifpaf  # noqa: F401
+except ImportError:
+    raise ImportError("Please install sparseml[openpifpaf] to use this pathway")
+
+
+_analytics.send_event("python__openpifpaf__init")

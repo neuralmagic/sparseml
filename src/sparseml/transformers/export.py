@@ -75,10 +75,12 @@ import logging
 import math
 import os
 import shutil
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
 
 from torch.nn import Module
 from transformers import AutoConfig, AutoTokenizer
+from transformers import TrainingArguments as HFTrainingArgs
 from transformers.tokenization_utils_base import PaddingStrategy
 
 from sparseml.optim import parse_recipe_variables
@@ -91,14 +93,28 @@ from sparseml.transformers.utils import SparseAutoModel
 __all__ = ["export_transformer_to_onnx", "load_task_model"]
 
 MODEL_ONNX_NAME = "model.onnx"
-DEPLOYMENT_FILES: List[str] = [
+MANDATORY_DEPLOYMENT_FILES = [
     MODEL_ONNX_NAME,
-    "tokenizer.json",
     "tokenizer_config.json",
     "config.json",
 ]
+EXTERNAL_ONNX_DATA_NAME = ["model.data"]
+OPT_TOKENIZER_FILES = ["special_tokens_map.json", "vocab.json", "merges.txt"]
+
+OPTIONAL_DEPLOYMENT_FILES: List[str] = ["tokenizer.json"]
+OPTIONAL_DEPLOYMENT_FILES.extend(EXTERNAL_ONNX_DATA_NAME)
+OPTIONAL_DEPLOYMENT_FILES.extend(OPT_TOKENIZER_FILES)
+
 
 _LOGGER = logging.getLogger(__name__)
+
+
+@dataclass
+class DeviceCPUTrainingArgs(HFTrainingArgs):
+    @property
+    def place_model_on_device(self):
+        # Ensure model remains in CPU during ONNX export
+        return False
 
 
 def load_task_model(task: str, model_path: str, config: Any) -> Module:
@@ -130,6 +146,13 @@ def load_task_model(task: str, model_path: str, config: Any) -> Module:
 
     if task == "token-classification" or task == "ner":
         return SparseAutoModel.token_classification_from_pretrained(
+            model_name_or_path=model_path,
+            config=config,
+            model_type="model",
+        )
+
+    if task == "text-generation":
+        return SparseAutoModel.text_generation_from_pretrained(
             model_name_or_path=model_path,
             config=config,
             model_type="model",
@@ -178,7 +201,7 @@ def load_task_dataset(
 
         data_training_args = DataTrainingArguments(**data_args)
         return get_tokenized_token_classification_dataset(
-            data_args=data_training_args, tokenizer=tokenizer, model=model
+            data_args=data_training_args, tokenizer=tokenizer, model=model or config
         )
 
     if (
@@ -262,6 +285,9 @@ def export_transformer_to_onnx(
     tokenizer = AutoTokenizer.from_pretrained(
         model_path, model_max_length=sequence_length
     )
+    if task == "text-generation":
+        tokenizer.pad_token = tokenizer.eos_token
+
     model = load_task_model(task, model_path, config)
     _LOGGER.info(f"loaded model, config, and tokenizer from {model_path}")
 
@@ -278,15 +304,18 @@ def export_transformer_to_onnx(
         _LOGGER.info(f"loaded validation dataset for args {data_args}")
 
     model = model.train()
+
+    args = DeviceCPUTrainingArgs(output_dir="tmp_trainer")
     trainer = Trainer(
         model=model,
+        args=args,
         model_state_path=model_path,
         eval_dataset=eval_dataset,
         recipe=None,
         recipe_args=None,
         teacher=None,
     )
-    model = model.cpu()
+
     applied = trainer.apply_manager(epoch=math.inf, checkpoint=None)
 
     if not applied:
@@ -352,12 +381,14 @@ def export_transformer_to_onnx(
     # run export
     model = model.eval()
     onnx_file_path = os.path.join(model_path, onnx_file_name)
+    kwargs = {"input_names": list(inputs.keys())} if task == "text-generation" else {}
 
     export_onnx(
         model,
         inputs,
         onnx_file_path,
         convert_qat=convert_qat,
+        **kwargs,
     )
     _LOGGER.info(f"ONNX exported to {onnx_file_path}")
 
@@ -403,7 +434,9 @@ def create_deployment_folder(
 
     if deployment_files is None:
         # set deployment files to default values
-        deployment_files = copy.deepcopy(DEPLOYMENT_FILES)
+        deployment_files = copy.deepcopy(
+            MANDATORY_DEPLOYMENT_FILES + OPTIONAL_DEPLOYMENT_FILES
+        )
         if onnx_file_name != MODEL_ONNX_NAME:
             # replace the default onnx model name with the custom one
             deployment_files[deployment_files.index(MODEL_ONNX_NAME)] = onnx_file_name
@@ -418,6 +451,12 @@ def create_deployment_folder(
         expected_file_path = os.path.join(training_directory, file_name)
         deployment_file_path = os.path.join(deployment_folder_dir, file_name)
         if not os.path.exists(expected_file_path):
+            if file_name in OPTIONAL_DEPLOYMENT_FILES:
+                _LOGGER.warning(
+                    f"Optional file {file_name} not found in {training_directory}. "
+                    f"Skipping copying to deployment folder."
+                )
+                continue
             raise ValueError(
                 f"Attempting to copy {file_name} file from {expected_file_path},"
                 f"but the file does not exits. Make sure that {training_directory} "
@@ -425,6 +464,9 @@ def create_deployment_folder(
             )
         if file_name == MODEL_ONNX_NAME:
             # moving onnx file from training to deployment directory
+            shutil.move(expected_file_path, deployment_file_path)
+        elif file_name == EXTERNAL_ONNX_DATA_NAME:
+            # moving external onnx tensors from training to deployment directory
             shutil.move(expected_file_path, deployment_file_path)
         else:
             # copying remaining `deployment_files` from training to deployment directory

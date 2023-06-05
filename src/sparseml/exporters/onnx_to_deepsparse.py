@@ -21,6 +21,7 @@ import onnx
 
 from sparseml.exporters import transforms as sparseml_transforms
 from sparseml.exporters.base_exporter import BaseExporter
+from sparsezoo import save_onnx
 
 
 class ONNXToDeepsparse(BaseExporter):
@@ -75,7 +76,8 @@ class ONNXToDeepsparse(BaseExporter):
             sparseml_transforms.QuantizeQATEmbedding(),
             sparseml_transforms.PropagateEmbeddingQuantization(),
             sparseml_transforms.MatMulToQLinearMatMul(),
-            sparseml_transforms.MatMulToMatMulIntegerAddCastMul(),
+            sparseml_transforms.MatMulAddToMatMulIntegerAddCastMul(),
+            sparseml_transforms.MatMulToMatMulIntegerCastMul(),
             sparseml_transforms.FoldReLUQuants(),
             sparseml_transforms.ConvToQLinearConv()
             if use_qlinear_conv
@@ -108,7 +110,7 @@ class ONNXToDeepsparse(BaseExporter):
 
     def export(self, pre_transforms_model: onnx.ModelProto, file_path: str):
         if self.export_input_model or os.getenv("SAVE_PREQAT_ONNX", False):
-            onnx.save(pre_transforms_model, file_path.replace(".onnx", ".preqat.onnx"))
+            save_onnx(pre_transforms_model, file_path.replace(".onnx", ".preqat.onnx"))
 
         post_transforms_model: onnx.ModelProto = self.apply(pre_transforms_model)
-        onnx.save(post_transforms_model, file_path)
+        save_onnx(post_transforms_model, file_path)

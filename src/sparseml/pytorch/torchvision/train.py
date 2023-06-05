@@ -180,7 +180,7 @@ def evaluate(
     header = f"Test: {log_suffix}"
 
     num_processed_samples = 0
-    with torch.inference_mode():
+    with torch.no_grad():
         for image, target in metric_logger.log_every(data_loader, print_freq, header):
             image = image.to(device, non_blocking=True)
             target = target.to(device, non_blocking=True)
@@ -267,6 +267,8 @@ def load_data(traindir, valdir, args):
             traindir,
             presets.ClassificationPresetTrain(
                 crop_size=train_crop_size,
+                mean=args.rgb_mean,
+                std=args.rgb_std,
                 interpolation=interpolation,
                 auto_augment_policy=auto_augment_policy,
                 random_erase_prob=random_erase_prob,
@@ -289,6 +291,8 @@ def load_data(traindir, valdir, args):
     else:
         preprocessing = presets.ClassificationPresetEval(
             crop_size=val_crop_size,
+            mean=args.rgb_mean,
+            std=args.rgb_std,
             resize_size=val_resize_size,
             interpolation=interpolation,
         )
@@ -577,9 +581,12 @@ def main(args):
 
     if utils.is_main_process():
         loggers = [
-            PythonLogger(logger=_LOGGER),
-            TensorBoardLogger(log_path=args.output_dir),
+            PythonLogger(),
         ]
+        try:
+            loggers.append(TensorBoardLogger(log_path=args.output_dir))
+        except (ModuleNotFoundError, ImportError):
+            warnings.warn("Unable to import tensorboard for logging")
         try:
             config = vars(args)
             if manager is not None:
@@ -713,7 +720,7 @@ def main(args):
                 )
             else:
                 checkpoint["epoch"] = -1 if epoch == max_epochs - 1 else epoch
-                if str(manager) is not None:
+                if manager is not None:
                     checkpoint["recipe"] = str(manager)
 
             file_names = ["checkpoint.pth"]
@@ -759,11 +766,36 @@ def _create_model(
             model, arch_key = model
     elif arch_key in torchvision.models.__dict__:
         # fall back to torchvision
-        model = torchvision.models.__dict__[arch_key](
-            pretrained=pretrained, num_classes=num_classes
-        )
+        # load initial, untrained model with correct number of classes
+        model = torchvision.models.__dict__[arch_key](num_classes=num_classes)
+        if pretrained is not None:
+            # in transfer learning cases, final FC layer may not match dimensions
+            # load base pretrained model and laod state dict with strict=False
+            pretrained_model = torchvision.models.__dict__[arch_key](
+                pretrained=pretrained
+            )
+            if (
+                getattr(pretrained_model, "classifier", None)
+                and pretrained_model.classifier.out_features != num_classes
+            ):
+                del pretrained_model.classifier
+            model.load_state_dict(pretrained_model.state_dict(), strict=False)
         if checkpoint_path is not None:
-            load_model(checkpoint_path, model, strict=True)
+            load_model(
+                checkpoint_path,
+                model,
+                strict=True,
+                ignore_error_tensors=[
+                    "classifier.fc.weight",
+                    "classifier.fc.bias",
+                    "classifier.1.weight",
+                    "classifier.1.bias",
+                    "fc.weight",
+                    "fc.bias",
+                    "classifier.weight",
+                    "classifier.bias",
+                ],
+            )
     else:
         raise ValueError(
             f"Unable to find {arch_key} in ModelRegistry or in torchvision.models"
@@ -1182,6 +1214,26 @@ def _deprecate_old_arguments(f):
         "The architecture key for teacher image classification model; "
         "example: `resnet50`, `mobilenet`. "
         "Note: Will be read from the checkpoint if not specified"
+    ),
+)
+@click.option(
+    "--rgb-mean",
+    nargs=3,
+    default=(0.485, 0.456, 0.406),
+    type=float,
+    help=(
+        "RGB mean values used to shift input RGB values; "
+        "Note: Will use ImageNet values if not specified."
+    ),
+)
+@click.option(
+    "--rgb-std",
+    default=(0.229, 0.224, 0.225),
+    nargs=3,
+    type=float,
+    help=(
+        "RGB standard-deviation values used to normalize input RGB values; "
+        "Note: Will use ImageNet values if not specified."
     ),
 )
 @click.pass_context

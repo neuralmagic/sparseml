@@ -47,7 +47,8 @@ _deps = [
     "requests>=2.0.0",
     "scikit-image>=0.15.0",
     "scikit-learn>=0.24.2",
-    "scipy>=1.0.0",
+    "scipy<1.9.2,>=1.8; python_version <= '3.9'",
+    "scipy>=1.0.0; python_version > '3.9'",
     "tqdm>=4.0.0",
     "toposort>=1.0",
     "GPUtil>=1.4.0",
@@ -61,16 +62,29 @@ _deepsparse_deps = [
 _deepsparse_ent_deps = [f"deepsparse-ent~={version_nm_deps}"]
 
 _onnxruntime_deps = ["onnxruntime>=1.0.0"]
+supported_torch_version = "torch>=1.7.0,<1.14"
 _pytorch_deps = [
-    "torch>=1.1.0,<=1.13.1",
+    supported_torch_version,
     "gputils",
 ]
 _pytorch_all_deps = _pytorch_deps + [
-    "torchvision>=0.3.0,<=0.14",
+    "torchvision>=0.3.0,<0.15",
     "torchaudio<=0.13",
-    "torchvision>=0.3.0,<=0.14",
 ]
-_pytorch_vision_deps = _pytorch_deps + ["torchvision>=0.3.0,<=0.14"]
+_pytorch_vision_deps = _pytorch_deps + [
+    "torchvision>=0.3.0,<0.15",
+    "opencv-python<=4.6.0.66",
+]
+_transformers_deps = _pytorch_deps + [
+    f"{'nm-transformers' if is_release else 'nm-transformers-nightly'}"
+    f"~={version_nm_deps}",
+    "datasets<=1.18.4",
+    "scikit-learn",
+    "seqeval",
+]
+_yolov5_deps = _pytorch_vision_deps + [
+    f"{'nm-yolov5' if is_release else 'nm-yolov5-nightly'}~={version_nm_deps}"
+]
 _tensorflow_v1_deps = ["tensorflow<2.0.0", "tensorboard<2.0.0", "tf2onnx>=1.0.0,<1.6"]
 _tensorflow_v1_gpu_deps = [
     "tensorflow-gpu<2.0.0",
@@ -106,7 +120,11 @@ _dev_deps = [
     "tensorboardX>=1.0",
 ]
 
-_ultralytics_deps = ["ultralytics==8.0.30"]
+
+_ultralytics_deps = [
+    "ultralytics==8.0.30",
+    supported_torch_version,
+]
 
 
 def _setup_packages() -> List:
@@ -128,14 +146,17 @@ def _setup_extras() -> Dict:
         "dev": _dev_deps,
         "deepsparse": _deepsparse_deps,
         "deepsparse-ent": _deepsparse_ent_deps,
+        "openpifpaf": _open_pif_paf_deps,
         "onnxruntime": _onnxruntime_deps,
         "torch": _pytorch_deps,
         "torch_all": _pytorch_all_deps,
         "torchvision": _pytorch_vision_deps,
+        "transformers": _transformers_deps,
         "tf_v1": _tensorflow_v1_deps,
         "tf_v1_gpu": _tensorflow_v1_gpu_deps,
         "tf_keras": _keras_deps,
         "ultralytics": _ultralytics_deps,
+        "yolov5": _yolov5_deps,
     }
 
 
@@ -234,7 +255,7 @@ def _setup_entry_points() -> Dict:
         [
             "sparseml.ultralytics.train=sparseml.yolov8.train:main",
             "sparseml.ultralytics.val=sparseml.yolov8.val:main",
-            "sparseml.ultralytics.export=sparseml.yolov8.export:main",
+            "sparseml.ultralytics.export_onnx=sparseml.yolov8.export:main",
         ]
     )
 

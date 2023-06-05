@@ -19,88 +19,33 @@ Tools for integrating SparseML with yolov5 training flows
 
 import logging as _logging
 
-from .helpers import *
+from sparseml.analytics import sparseml_analytics as _analytics
 
 
 try:
-    import yolov5 as _yolov5
+    import cv2 as _cv2
+    import torchvision as _torchvision
 
-    _yolov5_import_error = None
-except Exception as _yolov5_import_err:
-    _yolov5_import_error = _yolov5_import_err
+    import yolov5 as _yolov5
+except ImportError:
+    raise ImportError("Please install sparseml[yolov5] to use this pathway")
+
+_analytics.send_event("python__yolov5__init")
 
 _LOGGER = _logging.getLogger(__name__)
-_NM_YOLOV5_TAR_TEMPLATE = (
-    "https://github.com/neuralmagic/yolov5/releases/download/"
-    "{version}/yolov5-6.2.0-py3-none-any.whl"
-)
-_NM_YOLOV5_NIGHTLY = _NM_YOLOV5_TAR_TEMPLATE.format(version="nightly")
-
-
-def _install_yolov5_and_deps():
-
-    import subprocess as _subprocess
-    import sys as _sys
-
-    import sparseml as _sparseml
-
-    nm_yolov5_release = (
-        "nightly" if not _sparseml.is_release else f"v{_sparseml.version_major_minor}"
-    )
-
-    yolov5_requirement = _NM_YOLOV5_TAR_TEMPLATE.format(version=nm_yolov5_release)
-
-    try:
-        _subprocess.check_call(
-            [
-                _sys.executable,
-                "-m",
-                "pip",
-                "install",
-                yolov5_requirement,
-            ]
-        )
-
-        import yolov5 as _yolov5
-
-        _LOGGER.info("sparseml-yolov5 and dependencies successfully installed")
-    except Exception:
-        raise ValueError(
-            "Unable to install and import sparseml-yolov5 dependencies check "
-            "that yolov5 is installed, if not, install via "
-            f"`pip install {_NM_YOLOV5_NIGHTLY}`"
-        )
 
 
 def _check_yolov5_install():
-    if _yolov5_import_error is not None:
-        import os
-
-        if os.getenv("NM_NO_AUTOINSTALL_YOLOV5", False):
-            _LOGGER.warning(
-                "Unable to import, skipping auto installation "
-                "due to NM_NO_AUTOINSTALL_YOLOV5"
-            )
-            # skip any further checks
-            return
-        else:
-            _LOGGER.warning(
-                "sparseml-yolov5 installation not detected. Installing "
-                "sparseml-yolov5 dependencies if yolov5 is already "
-                "installed in the environment, it will be overwritten. Set "
-                "environment variable NM_NO_AUTOINSTALL_YOLOV5 to disable"
-            )
-            _install_yolov5_and_deps()
-
-    # re check import after potential install
+    # check nm-yolov5 is installed
     try:
         import yolov5 as _yolov5
     except Exception:
-        _LOGGER.warning(
-            "the neuralmagic fork of yolov5 may not be installed. it can be "
-            "installed via "
-            f"`pip install {_NM_YOLOV5_NIGHTLY}`"
+        raise ImportError(
+            "Unable to import the neuralmagic fork of yolov5 may not be installed. "
+            f"it can be installed via `pip install nn-yolov5`"
         )
 
 
 _check_yolov5_install()
+
+from .helpers import *

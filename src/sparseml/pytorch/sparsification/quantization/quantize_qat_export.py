@@ -39,6 +39,7 @@ from sparseml.onnx.utils import (
     swap_node_output,
     update_model_param,
 )
+from sparsezoo.utils import save_onnx
 
 
 __all__ = [
@@ -1573,6 +1574,7 @@ def quantize_torch_qat_export(
     _delete_repeated_qat_blocks(model)
     _quantize_qat_embedding(model)
     _propagate_mobilebert_embedding_quantization(model)
+    _propagate_through_split(model)
     _convert_quantizable_matmul(model)
     _convert_quantizable_matmul_and_add(model)
     _fold_relu_quants(model)
@@ -1592,7 +1594,7 @@ def quantize_torch_qat_export(
     graph.delete_unused_initializers()
 
     if output_file_path:
-        onnx.save(model, output_file_path)
+        save_onnx(model, output_file_path)
 
     return model
 
@@ -1717,7 +1719,7 @@ def skip_onnx_input_quantize(
         raise RuntimeError(optim_error_message)
 
     if output_file_path:
-        onnx.save(model, output_file_path)
+        save_onnx(model, output_file_path)
 
 
 def _propagate_mobilebert_embedding_quantization(model: ModelProto):
@@ -1760,7 +1762,7 @@ def _propagate_mobilebert_embedding_quantization(model: ModelProto):
             continue
 
         embedding_array = numpy_helper.to_array(embedding_initializer)
-        if embedding_array.dtype != numpy.uint8:
+        if embedding_array.dtype not in [numpy.uint8, numpy.int8]:
             continue
 
         dequant_node = graph.get_node_single_child(gather_node)
@@ -1804,12 +1806,15 @@ def _propagate_mobilebert_embedding_quantization(model: ModelProto):
         # switch position of dequantize node
         for branch_node in graph.get_node_children(dequant_node):
             if branch_node.op_type == "Slice":
+                zero_point = graph.get_init_by_name(dequant_node.input[2])
+                zero_point_array = numpy_helper.to_array(zero_point)
                 branch_node.input[0] = gather_node.output[0]
                 pad_node = graph.get_node_single_child(branch_node)
                 pad_value = graph.get_init_by_name(pad_node.input[2])
                 pad_value_array = numpy_helper.to_array(pad_value)
-                pad_value_array = pad_value_array + 128
-                pad_value_array = pad_value_array.astype(numpy.uint8)
+                pad_value_array = (
+                    pad_value_array.astype(zero_point_array.dtype) + zero_point_array
+                )
                 model.graph.initializer.remove(pad_value)
                 pad_value = numpy_helper.from_array(
                     pad_value_array, name=pad_value.name
@@ -1835,4 +1840,79 @@ def _propagate_mobilebert_embedding_quantization(model: ModelProto):
     if converted_nodes > 0:
         _LOGGER.info(
             f"Propagated {converted_nodes} DequantizeLinear node(s) through Concat"
+        )
+
+
+def _propagate_through_split(model: ModelProto):
+    """
+    A pass for propagating dequantization down through a split node
+    so if there are quantized operations after the split they can
+    be properly converted
+
+    Starting with:
+    |         INPUT
+    |              |
+    |       DequantizeLinear
+    |             |
+    |           Split
+    |         |   |   |
+
+    Converts to:
+    |                     INPUT
+    |                         |
+    |                       Split
+    |                |         |           |
+    | DequantizeLinear  DequantizeLinear  DequantizeLinear
+    |         |                |                |
+    """
+    new_nodes = []
+    to_remove = []
+    split_nodes = [n for n in model.graph.node if n.op_type in ["Split"]]
+    graph = ONNXGraph(model)
+    for split_node in split_nodes:
+        dequant_node = graph.get_node_single_parent(split_node, 0)
+        if not dequant_node or dequant_node.op_type != "DequantizeLinear":
+            continue
+
+        # Make input to dequantize linear node input to split node
+        split_node.input[0] = dequant_node.input[0]
+
+        # For every output of split create a dequantize linear node
+        dequant_id = 0
+        for other_node in get_node_output_nodes(model, split_node):
+            split_node_output = []
+            for out in split_node.output:
+                if out in other_node.input:
+                    split_node_output.append(out)
+            for out in split_node_output:
+                dequant_node_name = split_node.name + f"_dequant.{dequant_id}"
+                dequant_id += 1
+                dequant_node_output = dequant_node_name + "_output"
+                new_nodes.append(
+                    onnx.helper.make_node(
+                        "DequantizeLinear",
+                        [
+                            out,  # input
+                            dequant_node.input[1],  # scale
+                            dequant_node.input[2],  # zero point
+                        ],
+                        [dequant_node_output],
+                        dequant_node_name,
+                    )
+                )
+                for other_node_input_index, other_node_input in enumerate(
+                    other_node.input
+                ):
+                    if other_node_input == out:
+                        break
+                other_node.input[other_node_input_index] = dequant_node_output
+        to_remove.append(dequant_node)
+
+    model.graph.node.extend(new_nodes)
+    for node in to_remove:
+        model.graph.node.remove(node)
+
+    if len(to_remove) > 0:
+        _LOGGER.info(
+            f"Propagated {len(to_remove)} DequantizeLinear node(s) through Split"
         )

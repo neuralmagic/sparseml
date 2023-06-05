@@ -28,7 +28,7 @@ import os
 import sys
 from contextlib import nullcontext
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import datasets
 import numpy as np
@@ -48,17 +48,12 @@ from transformers import (
     set_seed,
 )
 from transformers.trainer_utils import get_last_checkpoint
-from transformers.utils import check_min_version
 from transformers.utils.versions import require_version
 
 from sparseml.pytorch.utils.distributed import record
 from sparseml.transformers.sparsification import Trainer, TrainingArguments
 from sparseml.transformers.utils import SparseAutoModel, get_shared_tokenizer_src
 
-
-# Will error if the minimal version of Transformers is not installed.
-# Remove at your own risks
-check_min_version("4.18.0.dev0")
 
 require_version(
     "datasets>=1.18.0",
@@ -382,6 +377,12 @@ def main(**kwargs):
         },
     )
 
+    if teacher and not isinstance(teacher, str):
+        # check whether teacher and student have the corresponding outputs
+        label_to_id, label_list = _check_teacher_student_outputs(
+            teacher, label_to_id, label_list
+        )
+
     tokenizer_src = (
         model_args.tokenizer_name
         if model_args.tokenizer_name
@@ -575,6 +576,39 @@ def main(**kwargs):
         )
 
 
+def _check_teacher_student_outputs(
+    teacher: Module, label_to_id: Dict[str, int], label_list: List[str]
+) -> Tuple[Dict[str, int], List[str]]:
+    # Check that the teacher and student have the same labels and if they do,
+    # check that the mapping between labels and ids is the same.
+
+    teacher_labels = list(teacher.config.label2id.keys())
+    teacher_ids = list(teacher.config.label2id.values())
+
+    student_labels = list(label_to_id.keys())
+    student_ids = list(label_to_id.values())
+
+    if set(teacher_labels) != set(student_labels):
+        _LOGGER.warning(
+            f"Teacher labels {teacher_labels} do not match "
+            f"student labels {student_labels}. Ignore this warning "
+            "if this is expected behavior."
+        )
+    else:
+        if student_ids != teacher_ids:
+            _LOGGER.warning(
+                "Teacher and student labels match, but the mapping "
+                "between teachers labels and ids does not match the "
+                "mapping between student labels and ids. "
+                "The student's mapping will be overwritten "
+                "by the teacher's mapping."
+            )
+            label_to_id = teacher.config.label2id
+            label_list = teacher_labels
+
+    return label_to_id, label_list
+
+
 def _get_label_list(labels):
     # In the event the labels are not a `Sequence[ClassLabel]`, we will need to go
     # through the dataset to get the unique labels.
@@ -689,7 +723,7 @@ def _get_tokenized_dataset(
     data_args: DataTrainingArguments,
     label_list: List,
     labels_are_int: bool,
-    model: Module,
+    model: Module,  # model config object can be passed in as well
     num_labels: int,
     raw_datasets: Union[Dataset, DatasetDict, IterableDatasetDict, IterableDataset],
     tokenizer: transformers.PreTrainedTokenizerBase,
@@ -702,33 +736,36 @@ def _get_tokenized_dataset(
     do_predict: bool = False,
 ) -> Dict[str, Any]:
     train_dataset = predict_dataset = eval_dataset = None
+    config = model.config if isinstance(model, Module) else model
     # Model has labels -> use them.
-    if model.config.label2id != PretrainedConfig(num_labels=num_labels).label2id:
-        if list(sorted(model.config.label2id.keys())) == list(sorted(label_list)):
+    if config.label2id != PretrainedConfig(num_labels=num_labels).label2id:
+        if list(sorted(config.label2id.keys())) == list(sorted(label_list)):
             # Reorganize `label_list` to match the ordering of the model.
             if labels_are_int:
                 label_to_id = {
-                    i: int(model.config.label2id[l]) for i, l in enumerate(label_list)
+                    i: int(config.label2id[l]) for i, l in enumerate(label_list)
                 }
-                label_list = [model.config.id2label[i] for i in range(num_labels)]
+                label_list = [config.id2label[i] for i in range(num_labels)]
             else:
-                label_list = [model.config.id2label[i] for i in range(num_labels)]
+                label_list = [config.id2label[i] for i in range(num_labels)]
                 label_to_id = {l: i for i, l in enumerate(label_list)}
         else:
             _LOGGER.warning(
                 "Your model seems to have been trained with labels, but they don't "
                 "match the dataset: ",
-                f"model labels: {list(sorted(model.config.label2id.keys()))}, dataset "
+                f"model labels: {list(sorted(config.label2id.keys()))}, dataset "
                 f"labels: {list(sorted(label_list))}."
                 "\nIgnoring the model labels as a result.",
             )
     # Set the correspondences label/ID inside the model config
-    model.config.label2id = {l: i for i, l in enumerate(label_list)}
-    model.config.id2label = {i: l for i, l in enumerate(label_list)}
+    config.label2id = {l: i for i, l in enumerate(label_list)}
+    config.id2label = {i: l for i, l in enumerate(label_list)}
     # Map that sends B-Xxx label to its I-Xxx counterpart
     b_to_i_label = []
     for idx, label in enumerate(label_list):
-        if label.startswith("B-") and label.replace("B-", "I-") in label_list:
+        if isinstance(label, str) and (
+            label.startswith("B-") and label.replace("B-", "I-") in label_list
+        ):
             b_to_i_label.append(label_list.index(label.replace("B-", "I-")))
         else:
             b_to_i_label.append(idx)

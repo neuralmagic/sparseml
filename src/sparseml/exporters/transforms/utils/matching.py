@@ -378,7 +378,13 @@ def _match_parents(
         # NOTE: explicitly only matching against a single parent input here
         #       even though it could have multiple inputs
         sub_match = _match_structure(
-            graph, node=parent, op_type=tail, parent_ops=[head] if head else None
+            graph,
+            # NOTE: here's where we handle optional parent via the match.node is None
+            #       if we are on an optional node that didn't match, we keep using
+            #       `node` instead of recursing on `parent`.
+            node=node if match.node is None else parent,
+            op_type=tail,
+            parent_ops=[head] if head else None,
         )
         if sub_match is None:
             return False

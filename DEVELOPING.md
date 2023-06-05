@@ -16,10 +16,10 @@ limitations under the License.
 
 # Developing SparseML
 
-SparseML is developed and tested using Python 3.6-3.9.
+SparseML is developed and tested using Python 3.7-3.10.
 To develop SparseML, you will also need the development dependencies and to follow the styling guidelines.
 
-Here's some details to get started.
+Here are some details to get started.
 
 ## Basic Commands
 

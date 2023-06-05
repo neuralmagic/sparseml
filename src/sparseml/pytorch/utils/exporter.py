@@ -48,6 +48,7 @@ from sparseml.pytorch.utils.model import (
     trace_model,
 )
 from sparseml.utils import clean_path, create_parent_dirs
+from sparsezoo.utils import save_onnx, validate_onnx
 
 
 __all__ = [
@@ -498,19 +499,20 @@ def export_onnx(
     if "output_names" not in export_kwargs:
         export_kwargs["output_names"] = _get_output_names(out)
 
+    # Set all batch sizes to be dynamic
     if dynamic_axes is not None:
-        warnings.warn(
-            "`dynamic_axes` is deprecated and does not affect anything. "
-            "The 0th axis is always treated as dynamic.",
-            category=DeprecationWarning,
-        )
-
-    dynamic_axes = {
-        tensor_name: {0: "batch"}
-        for tensor_name in (
-            export_kwargs["input_names"] + export_kwargs["output_names"]
-        )
-    }
+        for tensor_name in export_kwargs["input_names"] + export_kwargs["output_names"]:
+            if tensor_name not in dynamic_axes:
+                dynamic_axes[tensor_name] = {0: "batch"}
+            else:
+                dynamic_axes[tensor_name][0] = "batch"
+    else:
+        dynamic_axes = {
+            tensor_name: {0: "batch"}
+            for tensor_name in (
+                export_kwargs["input_names"] + export_kwargs["output_names"]
+            )
+        }
 
     # disable active quantization observers because they cannot be exported
     disabled_observers = []
@@ -569,7 +571,7 @@ def export_onnx(
 
         # clean up graph from any injected / wrapped operations
         _delete_trivial_onnx_adds(onnx_model)
-    onnx.save(onnx_model, file_path)
+    save_onnx(onnx_model, file_path)
 
     if convert_qat and is_quant_module:
         # overwrite exported model with fully quantized version
@@ -818,4 +820,4 @@ def _unwrap_batchnorms(model: onnx.ModelProto):
         for idx in range(len(node.output)):
             node.output[idx] = node.output[idx].replace(".bn_wrapper_replace_me", "")
 
-    onnx.checker.check_model(model)
+    validate_onnx(model)

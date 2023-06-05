@@ -34,23 +34,23 @@ from sparseml.onnx.base import require_onnxruntime
 from sparseml.onnx.utils.data import DataLoader
 from sparseml.onnx.utils.graph_editor import override_model_batch_size
 from sparseml.onnx.utils.helpers import (
-    check_load_model,
     extract_node_id,
     get_node_by_id,
     get_prunable_node_from_foldable,
     is_foldable_node,
 )
 from sparsezoo import File, Model
+from sparsezoo.utils import load_model
 
 
 try:
     import deepsparse
-    from deepsparse import analyze_model, compile_model
+    from deepsparse import compile_model, model_debug_analysis
     from deepsparse.cpu import cpu_details
 except Exception:
     deepsparse = None
     compile_model = None
-    analyze_model = None
+    model_debug_analysis = None
     cpu_details = None
 
 
@@ -464,7 +464,7 @@ class ORTModelRunner(ModelRunner):
         import onnxruntime  # import protected by @require_onnxruntime()
 
         super().__init__(loss)
-        self._model = check_load_model(model)
+        self._model = load_model(model)
 
         if batch_size is not None:
             override_model_batch_size(self._model, batch_size)
@@ -712,7 +712,7 @@ def correct_nm_analyze_model_node_ids(nm_result: Dict, model: Union[str, ModelPr
     :param model: the onnx model proto or path to the onnx file that the
         nm_result was for
     """
-    model = check_load_model(model)
+    model = load_model(model)
 
     for layer in nm_result["layer_info"]:
         node_id = (
@@ -728,7 +728,7 @@ def correct_nm_analyze_model_node_ids(nm_result: Dict, model: Union[str, ModelPr
         if node is None:
             _LOGGER.warning(
                 (
-                    "node returned from deepsparse.analyze_model "
+                    "node returned from deepsparse.model_debug_analysis "
                     "was not found in the model graph; node id {}"
                 ).format(node_id)
             )
@@ -737,7 +737,7 @@ def correct_nm_analyze_model_node_ids(nm_result: Dict, model: Union[str, ModelPr
         if is_foldable_node(node):
             _LOGGER.debug(
                 "foldable node of id {} returned from "
-                "deepsparse.analyze_model api, matching to prunable node"
+                "deepsparse.model_debug_analysis api, matching to prunable node"
             )
             # traverse previous because incorrect node id will only be returned
             # for following foldable layers, not previous
@@ -747,7 +747,7 @@ def correct_nm_analyze_model_node_ids(nm_result: Dict, model: Union[str, ModelPr
                 _LOGGER.warning(
                     (
                         "could not find prunable node from a foldable node "
-                        "returned in the deepsparse.analyze_model api; "
+                        "returned in the deepsparse.model_debug_analysis api; "
                         "node id: {}"
                     ).format(node_id)
                 )
@@ -756,7 +756,7 @@ def correct_nm_analyze_model_node_ids(nm_result: Dict, model: Union[str, ModelPr
                 _LOGGER.debug(
                     (
                         "matched prunable node of id {} to foldable node {} as "
-                        "returned from deepsparse.analyze_model api"
+                        "returned from deepsparse.model_debug_analysis api"
                     ).format(prunable_node_id, node_id)
                 )
                 layer["canonical_name"] = prunable_node_id
@@ -769,7 +769,7 @@ def split_canonical_names(nm_result: Dict):
 
     Will split on any canonical_name that includes ','.
 
-    :param nm_result: the result from the deepsparse.analyze_model api
+    :param nm_result: the result from the deepsparse.model_debug_analysis api
     """
     split_layer_infos = []
     for layer in nm_result["layer_info"]:
@@ -788,7 +788,7 @@ def split_canonical_names(nm_result: Dict):
 class DeepSparseAnalyzeModelRunner(_DeepSparseBaseModelRunner):
     """
     Class for handling running inference for an ONNX model through Neural Magic's
-    analyze_model api
+    model_debug_analysis api
 
     :param model: the path to the ONNX model file or the loaded onnx.ModelProto
     :param batch_size: the size of the batch to create the model for
@@ -838,7 +838,7 @@ class DeepSparseAnalyzeModelRunner(_DeepSparseBaseModelRunner):
         :param imposed_ks: kernel sparsity value to impose on all the prunable
             layers in the model. None or no imposed sparsity
         :return: a tuple containing the performance results for the run as returned
-            from the analyze_model function, total time to run them
+            from the model_debug_analysis function, total time to run them
         """
         _check_args(args, kwargs)
 
@@ -879,7 +879,7 @@ class DeepSparseAnalyzeModelRunner(_DeepSparseBaseModelRunner):
         _check_args(args, kwargs)
         nm_batch = list(batch.values())
         pred_time = time.time()
-        nm_pred = analyze_model(
+        nm_pred = model_debug_analysis(
             self._model,
             nm_batch,
             self._batch_size,

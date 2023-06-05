@@ -15,6 +15,7 @@
 import onnx
 
 from sparseml.exporters.transforms import FoldIdentityInitializers
+from sparsezoo.utils import validate_onnx
 
 
 def _create_test_model():
@@ -64,8 +65,8 @@ def _test_result(model):
 
 def test_fold_identity_initializers():
     model = _create_test_model()
-    onnx.checker.check_model(model)
+    validate_onnx(model)
     transform = FoldIdentityInitializers()
     model = transform(model)
-    onnx.checker.check_model(model)
+    validate_onnx(model)
     _test_result(model)

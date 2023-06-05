@@ -16,6 +16,7 @@ import onnx
 import pytest
 
 from sparseml.exporters.transforms.matmul_to_qlinearmatmul import MatMulToQLinearMatMul
+from sparsezoo.utils import validate_onnx
 from tests.sparseml.exporters.transforms.test_onnx_transform import (
     _create_model as _create_model_no_matmul,
 )
@@ -145,7 +146,7 @@ def _create_test_model(with_transpose=False, with_reshape=False):
         graph = _add_reshape_and_transpose_node(graph)
 
     model = onnx.helper.make_model(graph)
-    onnx.checker.check_model(model)
+    validate_onnx(model)
     return model
 
 
@@ -281,7 +282,7 @@ def test_convert_quantizable_matmul(with_transpose, with_reshape, testing_functi
     transform = MatMulToQLinearMatMul()
     model = transform(model)
     testing_function(model)
-    onnx.checker.check_model(model)
+    validate_onnx(model)
 
 
 def test_convert_quantizable_matmul_without_matmul():
@@ -289,5 +290,5 @@ def test_convert_quantizable_matmul_without_matmul():
     nodes_in = [node.name for node in model_in.graph.node]
     transform = MatMulToQLinearMatMul()
     model_out = transform(model_in)
-    onnx.checker.check_model(model_out)
+    validate_onnx(model_out)
     assert [node.name for node in model_out.graph.node] == nodes_in

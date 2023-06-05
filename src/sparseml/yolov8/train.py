@@ -12,9 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
+
 import click
 from sparseml.yolov8.trainers import SparseYOLO
+from sparseml.yolov8.utils import data_from_dataset_path
 
+
+logger = logging.getLogger()
 
 # Options generated from
 # https://github.com/ultralytics/ultralytics/blob/main/ultralytics/yolo/configs/default.yaml
@@ -205,7 +210,17 @@ from sparseml.yolov8.trainers import SparseYOLO
 @click.option(
     "--copy-paste", type=float, default=0.0, help="segment copy-paste (probability)"
 )
+@click.option(
+    "--dataset-path",
+    type=str,
+    default=None,
+    help="Path to override default dataset path.",
+)
 def main(**kwargs):
+    if kwargs["dataset_path"] is not None:
+        kwargs["data"] = data_from_dataset_path(kwargs["data"], kwargs["dataset_path"])
+    del kwargs["dataset_path"]
+
     model = SparseYOLO(kwargs["model"])
     model.train(**kwargs)
 

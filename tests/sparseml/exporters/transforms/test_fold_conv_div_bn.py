@@ -17,6 +17,7 @@ import pytest
 from onnx import ModelProto
 
 from sparseml.exporters.transforms.fold_conv_div_bn import FoldConvDivBn
+from sparsezoo.utils import validate_onnx
 
 
 @pytest.fixture
@@ -64,13 +65,13 @@ def onnx_model():
     )
 
     model = onnx.helper.make_model(graph)
-    onnx.checker.check_model(model)
+    validate_onnx(model)
     return model
 
 
 def test_vanilla(onnx_model: ModelProto):
     onnx_model = FoldConvDivBn().apply(onnx_model)
-    onnx.checker.check_model(onnx_model)
+    validate_onnx(onnx_model)
     assert [n.name for n in onnx_model.graph.node] == ["conv"]
     assert [i.name for i in onnx_model.graph.initializer] == ["weight", "conv.bias"]
     assert onnx_model.graph.node[0].op_type == "Conv"
@@ -83,9 +84,9 @@ def test_overwrites_existing_bias(onnx_model: ModelProto):
         )
     )
     onnx_model.graph.node[0].input.append("test_bias")
-    onnx.checker.check_model(onnx_model)
+    validate_onnx(onnx_model)
 
     onnx_model = FoldConvDivBn().apply(onnx_model)
-    onnx.checker.check_model(onnx_model)
+    validate_onnx(onnx_model)
     assert [n.name for n in onnx_model.graph.node] == ["conv"]
     assert [i.name for i in onnx_model.graph.initializer] == ["weight", "conv.bias"]
