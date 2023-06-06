@@ -30,70 +30,12 @@ os.environ["NM_TEST_MODE"] = "True"
 os.environ["NM_TEST_LOG_DIR"] = "nm_temp_test_logs"
 
 
-def _check_for_created_files(directory: str):
-    start_files = []
-    print(directory)
-    for folder, subfolders, files in os.walk(directory):
-        for file in files:
-            start_files.append(os.path.join(os.path.abspath(folder), file))
-    start_file_count = len(start_files)
-    yield
-
-    if wandb:
-        wandb.finish()
-    log_dir = os.environ.get("NM_TEST_LOG_DIR")
-    if os.path.isdir(log_dir):
-        shutil.rmtree(log_dir)
-    end_files = []
-
-    for folder, subfolders, files in os.walk(directory):
-        for file in files:
-            end_files.append(os.path.join(os.path.abspath(folder), file))
-    end_file_count = len(end_files)
-
-    assert start_file_count >= end_file_count, (
-        f"{end_file_count - start_file_count} files created during pytest run,"
-        f"the created files are: {set(end_files) - set(start_files)}."
-    )
-
-    print(f"Directory: {directory}: {set(end_files) - set(start_files)}")
-
-
-@pytest.fixture(scope="session", autouse=True)
-def check_for_created_files_1():
-    start_files = []
-    for folder, subfolders, files in os.walk(r"."):
-        for file in files:
-            start_files.append(os.path.join(os.path.abspath(folder), file))
-    start_file_count = len(start_files)
-    yield
-
-    if wandb:
-        wandb.finish()
-    log_dir = os.environ.get("NM_TEST_LOG_DIR")
-    if os.path.isdir(log_dir):
-        shutil.rmtree(log_dir)
-    end_files = []
-
-    for folder, subfolders, files in os.walk(r"."):
-        for file in files:
-            end_files.append(os.path.join(os.path.abspath(folder), file))
-    end_file_count = len(end_files)
-
-    assert start_file_count >= end_file_count, (
-        f"{end_file_count - start_file_count} files created during pytest run,"
-        f"the created files are: {set(end_files) - set(start_files)}."
-    )
-
-    print(f"Directory: {set(end_files) - set(start_files)}")
-
-
 def _get_file_count(directory: str) -> List[str]:
     return sum(len(files) for _, _, files in os.walk(directory))
 
 
 @pytest.fixture(scope="session", autouse=True)
-def check_for_created_temp_files():
+def check_for_created_files():
     start_file_count_root = _get_file_count(directory=r".")
     start_file_count_temp = _get_file_count(directory=tempfile.gettempdir())
     yield
