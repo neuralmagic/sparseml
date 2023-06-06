@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import tempfile
 import os
+import tempfile
+
 import pytest
 
 from sparseml.base import Framework
