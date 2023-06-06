@@ -356,3 +356,5 @@ class CalibrationSession:
         """
         if self._optimized_model_path is not None:
             os.remove(self._optimized_model_path)
+        if self._augmented_model_path is not None:
+            os.remove(self._augmented_model_path)
