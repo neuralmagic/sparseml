@@ -30,14 +30,20 @@ os.environ["NM_TEST_LOG_DIR"] = "nm_temp_test_logs"
 
 @pytest.fixture(scope="session", autouse=True)
 def check_for_created_files():
-    start_file_count = sum(len(files) for _, _, files in os.walk(r"."))
+    files = [files for _, _, files in os.walk(r".")]
+    files = [file for sublist in files for file in sublist]
+    start_file_count = len(files)
+
     yield
     if wandb:
         wandb.finish()
     log_dir = os.environ.get("NM_TEST_LOG_DIR")
     if os.path.isdir(log_dir):
         shutil.rmtree(log_dir)
-    end_file_count = sum(len(files) for _, _, files in os.walk(r"."))
+    files_ = [files_ for _, _, files_ in os.walk(r".")]
+    files_ = [file for sublist in files_ for file in sublist]
+    end_file_count = len(files_)
     assert (
         start_file_count >= end_file_count
-    ), f"{end_file_count - start_file_count} files created during pytest run"
+    ), f"{end_file_count - start_file_count} files created during pytest run," \
+       f"the created files are: {set(files_) - set(files)}."
