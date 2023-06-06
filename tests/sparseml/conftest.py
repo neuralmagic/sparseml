@@ -88,20 +88,14 @@ def check_for_created_files_1():
     print(f"Directory: {set(end_files) - set(start_files)}")
 
 
-def _get_file_list(directory: str) -> List[str]:
-    # get list of files in directory and its nested
-    # subdirectories
-    files = []
-    for folder, subfolders, files in os.walk(directory):
-        for file in files:
-            files.append(os.path.join(os.path.abspath(folder), file))
-    return files
+def _get_file_count(directory: str) -> List[str]:
+    return sum(len(files) for _, _, files in os.walk(directory))
 
 
 @pytest.fixture(scope="session", autouse=True)
 def check_for_created_temp_files():
-    start_root_files = _get_file_list(directory=r".")
-    start_temp_files = _get_file_list(directory=tempfile.gettempdir())
+    start_file_count_root = _get_file_count(directory=r".")
+    start_file_count_temp = _get_file_count(directory=tempfile.gettempdir())
     yield
     if wandb:
         wandb.finish()
@@ -109,27 +103,17 @@ def check_for_created_temp_files():
     if os.path.isdir(log_dir):
         shutil.rmtree(log_dir)
 
-    end_root_files = _get_file_list(directory=r".")
-    end_temp_files = _get_file_list(directory=tempfile.gettempdir())
+    end_file_count_root = _get_file_count(directory=r".")
+    end_file_count_temp = _get_file_count(directory=tempfile.gettempdir())
 
-    start_file_count_root, end_file_count_root = len(start_root_files), len(
-        end_root_files
-    )
     assert start_file_count_root >= end_file_count_root, (
         f"{end_file_count_root - start_file_count_root} "
         f"files created in current working "
-        f"directory during pytest run, "
-        f"the created files are: "
-        f"{set(end_root_files) - set(start_root_files)}."
-    )
-
-    start_file_count_temp, end_file_count_temp = len(start_temp_files), len(
-        end_temp_files
+        f"directory during pytest run."
     )
     max_allowed_temp_files = 5
     assert start_file_count_temp + max_allowed_temp_files >= end_file_count_temp, (
         f"{end_file_count_temp - start_file_count_temp} "
         f"files created in /tmp "
-        f"directory during pytest run, "
-        f"the created files are: {set(end_temp_files) - set(start_temp_files)}."
+        f"directory during pytest run."
     )
