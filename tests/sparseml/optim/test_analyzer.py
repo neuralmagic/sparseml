@@ -23,7 +23,8 @@ def test_layer_descs():
         AnalyzedLayerDesc("layer1", "Linear"),
         AnalyzedLayerDesc("layer2", "Conv2d"),
     ]
-    save_path = os.path.join(tempfile.gettempdir(), "layer_descs.json")
+    tempdir = tempfile.gettempdir()
+    save_path = os.path.join(tempdir, "layer_descs.json")
 
     AnalyzedLayerDesc.save_descs(descs, save_path)
     loaded_descs = AnalyzedLayerDesc.load_descs(save_path)
@@ -31,3 +32,4 @@ def test_layer_descs():
     for desc, loaded_desc in zip(descs, loaded_descs):
         assert desc.name == loaded_desc.name
         assert desc.type_ == loaded_desc.type_
+    tempdir.cleanup()

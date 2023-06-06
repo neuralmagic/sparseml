@@ -36,8 +36,10 @@ from tests.sparseml.pytorch.helpers import MLPNet
 )
 def test_exporter_onnx():
     sample_batch = torch.randn(1, 8)
-    exporter = ModuleExporter(MLPNet(), tempfile.gettempdir())
+    tempdir = tempfile.gettempdir()
+    exporter = ModuleExporter(MLPNet(), tempdir)
     exporter.export_onnx(sample_batch)
+    tempdir.cleanup()
 
 
 @pytest.mark.skipif(
@@ -47,8 +49,10 @@ def test_exporter_onnx():
 @pytest.mark.parametrize("batch_size", [1, 64])
 def test_export_batches(batch_size):
     sample_batch = torch.randn(batch_size, 8)
-    exporter = ModuleExporter(MLPNet(), tempfile.gettempdir())
+    tempdir = tempfile.gettempdir()
+    exporter = ModuleExporter(MLPNet(), tempdir)
     exporter.export_samples([sample_batch])
+    tempdir.cleanup()
 
 
 def test_fold_identity_initializers():

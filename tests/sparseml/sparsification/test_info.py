@@ -162,3 +162,4 @@ def test_save_load_sparsification_info():
     save_sparsification_info(info, test_path)
     loaded_path = load_sparsification_info(test_path)
     assert info == loaded_path
+    test_path.cleanup()

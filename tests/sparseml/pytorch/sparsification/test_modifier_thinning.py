@@ -237,3 +237,4 @@ def test_structured_pruning_one_shot_e2e(
         assert abs(applied_compression - sparsity) < 5e-2
     # validate forward pass
     assert module(torch.randn(2, 3, 224, 224)) is not None
+    tmp_fp.cleanup()
