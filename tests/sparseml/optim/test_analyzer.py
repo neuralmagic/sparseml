@@ -32,4 +32,4 @@ def test_layer_descs():
     for desc, loaded_desc in zip(descs, loaded_descs):
         assert desc.name == loaded_desc.name
         assert desc.type_ == loaded_desc.type_
-    tempdir.cleanup()
+    os.remove(save_path)

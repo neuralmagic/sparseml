@@ -36,8 +36,8 @@ from tests.sparseml.pytorch.helpers import MLPNet
 )
 def test_exporter_onnx():
     sample_batch = torch.randn(1, 8)
-    tempdir = tempfile.gettempdir()
-    exporter = ModuleExporter(MLPNet(), tempdir)
+    tempdir = tempfile.TemporaryDirectory()
+    exporter = ModuleExporter(MLPNet(), tempdir.name)
     exporter.export_onnx(sample_batch)
     tempdir.cleanup()
 
@@ -49,8 +49,9 @@ def test_exporter_onnx():
 @pytest.mark.parametrize("batch_size", [1, 64])
 def test_export_batches(batch_size):
     sample_batch = torch.randn(batch_size, 8)
-    tempdir = tempfile.gettempdir()
-    exporter = ModuleExporter(MLPNet(), tempdir)
+    # create a directory in tempdir
+    tempdir = tempfile.TemporaryDirectory()
+    exporter = ModuleExporter(MLPNet(), tempdir.name)
     exporter.export_samples([sample_batch])
     tempdir.cleanup()
 
