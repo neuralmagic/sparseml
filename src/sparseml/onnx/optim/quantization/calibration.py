@@ -71,7 +71,7 @@ class CalibrationSession:
                 os.getcwd(), "model_augmented.onnx"
             )
         save_onnx(self._model_augmented, self._augmented_model_path)
-        _LOGGER.debug("Created an augmented model at: " f"{self._augmented_model_path}")
+        _LOGGER.debug(f"Created an augmented model at: {self._augmented_model_path}")
 
         self._sessions = {}  # batch_size -> session
         self._quantization_thresholds = {}  # Dict[node.name, Tuple(min_val, max_val)]
