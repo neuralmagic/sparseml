@@ -665,9 +665,11 @@ def _convert_quantizable_matmuls_with_nonquantized_outputs(model: ModelProto):
         # Check if is followed by Add node (bias)
         bias_add_node = graph.get_node_single_child(matmul_node)
         if bias_add_node is not None and bias_add_node.op_type == "Add":
-            bias_initializer = get_init_by_name(model, bias_add_node.input[1]) or get_init_by_name(model, bias_add_node.input[0])
+            bias_initializer = get_init_by_name(
+                model, bias_add_node.input[1]
+            ) or get_init_by_name(model, bias_add_node.input[0])
             if bias_initializer is not None:
-                #check if bias is finite
+                # check if bias is finite
                 bias_initializer = numpy_helper.to_array(bias_initializer)
                 if numpy.all(numpy.isfinite(bias_initializer)):
                     # Create initializer for quantized bias
@@ -676,7 +678,10 @@ def _convert_quantizable_matmuls_with_nonquantized_outputs(model: ModelProto):
 
                     bias_zero_point = 0
                     quantized_bias = _quantize_array(
-                        bias_initializer, output_scale, bias_zero_point, dtype=numpy.int32
+                        bias_initializer,
+                        output_scale,
+                        bias_zero_point,
+                        dtype=numpy.int32,
                     )
                     quantized_bias_initializer = numpy_helper.from_array(
                         quantized_bias,
@@ -697,7 +702,9 @@ def _convert_quantizable_matmuls_with_nonquantized_outputs(model: ModelProto):
         # Casting MatMulInteger INT32 output to FP32
 
         cast_node_name = f"{matmul_node.name}_cast"
-        cast_node_input = quantized_add_node.output if has_bias else matmul_int_op_node.output
+        cast_node_input = (
+            quantized_add_node.output if has_bias else matmul_int_op_node.output
+        )
         cast_node = onnx.helper.make_node(
             "Cast",
             cast_node_input,
