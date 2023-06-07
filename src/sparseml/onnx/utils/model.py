@@ -18,6 +18,7 @@ Utilities for ONNX models and running inference with them
 import logging
 import os
 import re
+import tempfile
 import time
 from abc import ABC, abstractmethod
 from collections import OrderedDict
@@ -597,15 +598,10 @@ class _DeepSparseBaseModelRunner(ModelRunner):
             or isinstance(self._model, File)
             or isinstance(self._model, Model)
         ):
-            # this looks like an ancient pathway that is still using
-            # pieces of told sparsezoo. To be investigated whether we need this
-            import tempfile
-
             self._model_tmp = tempfile.NamedTemporaryFile(delete=True)
             self._model_tmp.write(self._model.SerializeToString())
             self._model_tmp.flush()
             self._model = self._model_tmp.name
-
         else:
             self._model_tmp = None
 
