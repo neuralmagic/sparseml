@@ -236,6 +236,7 @@ class GradSampler:
             total=num_grads, desc="Collecting gradients", disable=not progress_bar
         )
 
+
         with pbar:
             while computed_grads < num_grads:
                 data_loader = (
@@ -247,6 +248,10 @@ class GradSampler:
                     module.zero_grad()
                     # run sample forward and backwards pass
                     model_outputs = module(*forward_args, **forward_kwargs)
+                    # Image classification models have been overridden to compute both
+                    # the logit values and the probabilities, returning a tuple. No other models do this.
+                    if model_outputs.__class__ == tuple:
+                        model_outputs = model_outputs[0]
                     loss = self._loss_fn(model_outputs, loss_target)
                     loss.backward()
 
