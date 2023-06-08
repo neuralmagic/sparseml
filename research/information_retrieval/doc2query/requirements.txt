@@ -94,7 +94,7 @@ pyzmq==22.1.0
 qtconsole==5.1.0
 QtPy==1.9.0
 regex==2021.4.4
-requests==2.25.1
+requests==2.31.0
 rouge-score==0.0.4
 sacremoses==0.0.45
 scikit-image==0.18.1
