@@ -49,7 +49,7 @@ __all__ = [
 
 
 _TORCH_MIN_VERSION = "1.0.0"
-_TORCH_MAX_VERSION = "1.13.100"  # set bug to 100 to support all future 1.9.X versions
+_TORCH_MAX_VERSION = "2.0.0"  # set bug to 100 to support all future 1.9.X versions
 
 
 def check_torch_install(
