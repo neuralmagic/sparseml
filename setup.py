@@ -68,11 +68,11 @@ _pytorch_deps = [
     "gputils",
 ]
 _pytorch_all_deps = _pytorch_deps + [
-    "torchvision>=0.3.0,<=0.15",
+    "torchvision>=0.3.0,<=0.15.1",
     "torchaudio<=0.13",
 ]
 _pytorch_vision_deps = _pytorch_deps + [
-    "torchvision>=0.3.0,<=0.15",
+    "torchvision>=0.3.0,<=0.15.1",
     "opencv-python<=4.6.0.66",
 ]
 _transformers_deps = _pytorch_deps + [
