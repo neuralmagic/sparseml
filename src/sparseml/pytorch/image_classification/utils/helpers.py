@@ -19,7 +19,7 @@ Helper methods for image classification/detection based tasks
 import logging
 import os
 import warnings
-from contextlib import contextmanager
+from contextlib import nullcontext
 from enum import Enum, auto, unique
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -262,7 +262,7 @@ def get_dataset_and_dataloader(
     download_context = (
         torch_distributed_zero_first(local_rank)  # only download once locally
         if training
-        else _nullcontext()
+        else nullcontext()
     )
     dataset_kwargs = dataset_kwargs or {}
 
@@ -620,12 +620,3 @@ def _download_model_from_zoo_using_recipe(
         Model(recipe_stub),
         recipe_name=recipe_type,
     )
-
-
-@contextmanager
-def _nullcontext(enter_result=None):
-    """
-    A context manager that does nothing. For compatibility with Python 3.6
-    Update usages to use contextlib.nullcontext on Python 3.7+
-    """
-    yield enter_result
