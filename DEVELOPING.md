@@ -40,6 +40,9 @@ Those can be installed by adding the framework name to the install extras. Frame
 python3 -m pip install -e "./[dev,torch]"
 ```
 
+Note: Running all pytorch tests using `make test TARGETS=torch`, also requires `torchvision`
+and `onnxruntime` install all these dependencies using `python3 -m pip install "./[dev, torch, torchvision, onnxruntime]"`
+
 **Code Styling and Formatting checks**
 
 ```bash
