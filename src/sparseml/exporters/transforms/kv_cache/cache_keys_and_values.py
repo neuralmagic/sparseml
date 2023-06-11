@@ -109,7 +109,7 @@ class CacheKeysAndValues(OnnxTransform):
 
     """
 
-    def __init__(self, num_attention_heads: int, hidden_size_kv_cache: int):
+    def __init__(self, num_attention_heads: int = 16, hidden_size_kv_cache: int = 64):
         super().__init__()
         self.num_attention_heads = num_attention_heads
         self.hidden_size_kv_cache = hidden_size_kv_cache
