@@ -54,6 +54,16 @@ class CacheKeysAndValues(OnnxTransform):
 
     :param num_attention_heads: number of attention heads of the model
     :param hidden_size_kv_cache: hidden size of the key and value cache
+    :param internally_multiply_batch_by_num_attention_heads: every model created by
+        this transformation, will have kv_cache inputs/outputs that have dimensions:
+
+        [`batch_size`,`num_attention_heads`,`past_sequence_len`,`hidden_size_kv_cache`]
+
+        However, internally, there may be a need of reshaping the kv_cache
+        inputs/outputs ("merging" the `batch_size` and `num_attention_heads`
+        dimensions) so that it is compatible with the attention layer.
+        If True, the batch size will be multiplied
+        by the number of attention heads just before the appropriate concatenation node.
 
     Transforms
     ```
@@ -109,10 +119,18 @@ class CacheKeysAndValues(OnnxTransform):
 
     """
 
-    def __init__(self, num_attention_heads: int = 16, hidden_size_kv_cache: int = 64):
+    def __init__(
+        self,
+        num_attention_heads: int = 16,
+        hidden_size_kv_cache: int = 64,
+        internally_multiply_batch_by_num_attention_heads: bool = True,
+    ):
         super().__init__()
         self.num_attention_heads = num_attention_heads
         self.hidden_size_kv_cache = hidden_size_kv_cache
+        self.internally_multiply_batch_by_num_attention_heads = (
+            internally_multiply_batch_by_num_attention_heads
+        )
 
     def transform(self, model: ModelProto) -> ModelProto:
         graph = ONNXGraph(model)
@@ -144,6 +162,7 @@ class CacheKeysAndValues(OnnxTransform):
                 use_uint8_if_quantized=use_uint8_if_quantized,
                 num_attention_heads=self.num_attention_heads,
                 hidden_size_kv_cache=self.hidden_size_kv_cache,
+                multiply_batch_by_num_attention_heads=self.internally_multiply_batch_by_num_attention_heads,  # noqa E501
             )
             value_concat_node, value_input_tensor, value_output_tensor = create_cache(
                 model=model,
@@ -158,6 +177,7 @@ class CacheKeysAndValues(OnnxTransform):
                 use_uint8_if_quantized=use_uint8_if_quantized,
                 num_attention_heads=self.num_attention_heads,
                 hidden_size_kv_cache=self.hidden_size_kv_cache,
+                multiply_batch_by_num_attention_heads=self.internally_multiply_batch_by_num_attention_heads,  # noqa E501
             )
 
             inputs_to_add.extend([key_input_tensor, value_input_tensor])
@@ -175,49 +195,31 @@ class CacheKeysAndValues(OnnxTransform):
         return model
 
 
-def create_cache(
-    model: ModelProto,
-    node: NodeProto,
-    cache_input_idx: int,
+def reshape_kv_cache_inputs_outputs(
     cache_input_name: str,
     cache_output_name: str,
+    batch_size: int,
     num_attention_heads: int,
     hidden_size_kv_cache: int,
-    concat_axis: int = -2,
-    use_uint8_if_quantized: bool = True,
-    batch_size: int = 1,
-) -> Tuple[NodeProto, ValueInfoProto, ValueInfoProto]:
-    """
-    Injects a cache (value or key) into the graph for a given Matmul node.
+) -> Tuple[str, str, NodeProto, NodeProto, List[TensorProto, TensorProto]]:
 
-    :param model: Model to update
-    :param node: MatMul node that follows the cache injection point
-    :param cache_input_idx: Index of the input
-        (where the cache will be injected) to the MatMul
-    :param cache_input_name: Name of cache input
-    :param cache_output_name: Name of cache output
-    :param num_attention_heads: number of attention heads of the model
-    :param hidden_size_kv_cache: hidden size of the key/value cache
-    :param concat_axis: axis to apply the concat operation on. By default, t
-        this is -2, which corresponds to the sequence length axis.
-    :param use_uint8_if_quantized: True if quantized MatMuls should have uint8
-        inputs, if False, uses int8
-    :param batch_size: batch size of the kv cache. By default, this is 1.
-    :return: tuple of concat node to add, cache input to add, and cache output to add,
-        updates existing nodes in-place
     """
-    cache_input_dims = [
-        batch_size,
-        num_attention_heads,
-        "past_sequence_len",
-        hidden_size_kv_cache,
-    ]
-    cache_output_dims = [
-        batch_size,
-        num_attention_heads,
-        "past_sequence_len + 1",
-        hidden_size_kv_cache,
-    ]
+    Reshape the input and output of the cache by "merging" the
+    batch and num_attention_heads dimensions into a single dimension.
+    Create the nodes and initializers needed to do this.
+
+    :param cache_input_name: The name of the input cache
+    :param cache_output_name: The name of the output cache
+    :param batch_size: The batch size
+    :param num_attention_heads: The number of attention heads
+    :param hidden_size_kv_cache: The hidden size of the key/value cache
+    :return: A tuple that contains:
+        - The name of the reshaped input cache
+        - The name of the reshaped output cache
+        - The reshape node for the input cache
+        - The reshape node for the output cache
+        - The initializers for the reshape nodes (input and output)
+    """
 
     cache_input_name_reshaped = f"{cache_input_name}_reshaped"
     cache_output_name_reshaped = f"{cache_output_name}_reshaped"
@@ -225,7 +227,6 @@ def create_cache(
     reshape_in_initializer_name = f"reshape_in.{cache_input_name}"
     reshape_out_initializer_name = f"reshape_out.{cache_output_name}"
 
-    # create reshape initializers
     reshape_in_initializer = numpy_helper.from_array(
         numpy.array(
             [num_attention_heads * batch_size, -1, hidden_size_kv_cache],
@@ -242,6 +243,76 @@ def create_cache(
         reshape_out_initializer_name,
     )
 
+    reshape_node_in = onnx.helper.make_node(
+        op_type="Reshape",
+        inputs=[cache_input_name, reshape_in_initializer_name],
+        outputs=[cache_input_name_reshaped],
+        name=f"reshape.{cache_input_name}",
+    )
+
+    reshape_node_out = onnx.helper.make_node(
+        op_type="Reshape",
+        inputs=[cache_output_name_reshaped, reshape_out_initializer_name],
+        outputs=[cache_output_name],
+        name=f"reshape.{cache_output_name}",
+    )
+
+    return (
+        cache_input_name_reshaped,
+        cache_output_name_reshaped,
+        reshape_node_in,
+        reshape_node_out,
+        [reshape_in_initializer, reshape_out_initializer],
+    )
+
+
+def create_cache(
+    model: ModelProto,
+    node: NodeProto,
+    cache_input_idx: int,
+    cache_input_name: str,
+    cache_output_name: str,
+    num_attention_heads: int,
+    hidden_size_kv_cache: int,
+    use_uint8_if_quantized: bool = True,
+    batch_size: int = 1,
+    multiply_batch_by_num_attention_heads: bool = True,
+) -> Tuple[NodeProto, ValueInfoProto, ValueInfoProto]:
+    """
+    Injects a cache (value or key) into the graph for a given Matmul node.
+
+    :param model: Model to update
+    :param node: MatMul node that follows the cache injection point
+    :param cache_input_idx: Index of the input
+        (where the cache will be injected) to the MatMul
+    :param cache_input_name: Name of cache input
+    :param cache_output_name: Name of cache output
+    :param num_attention_heads: number of attention heads of the model
+    :param hidden_size_kv_cache: hidden size of the key/value cache
+    :param use_uint8_if_quantized: True if quantized MatMuls should have uint8
+        inputs, if False, uses int8
+    :param batch_size: batch size of the kv cache. By default, this is 1.
+    :param multiply_batch_by_num_attention_heads: If True, the batch size of the
+        kv cache is multiplied by the number of attention heads before the
+        concat node.
+    :return: tuple of concat node to add, cache input to add, and cache output to add,
+        updates existing nodes in-place
+    """
+    CACHE_INPUT_DIMS = [
+        batch_size,
+        num_attention_heads,
+        "past_sequence_len",
+        hidden_size_kv_cache,
+    ]
+    CACHE_OUTPUT_DIMS = [
+        batch_size,
+        num_attention_heads,
+        "past_sequence_len + 1",
+        hidden_size_kv_cache,
+    ]
+
+    graph = ONNXGraph(model)
+
     cache_data_type = (
         TensorProto.FLOAT
         if node.op_type not in ["MatMulInteger", "QLinearMatMul"]
@@ -254,16 +325,14 @@ def create_cache(
     cache_input_info = onnx.helper.make_tensor_value_info(
         cache_input_name,
         cache_data_type,
-        cache_input_dims,
+        CACHE_INPUT_DIMS,
     )
     # create graph output info proto
     cache_output_info = onnx.helper.make_tensor_value_info(
         cache_output_name,
         cache_data_type,
-        cache_output_dims,
+        CACHE_OUTPUT_DIMS,
     )
-
-    graph = ONNXGraph(model)
 
     if node.op_type == "QLinearMatMul" and cache_input_idx == 1:
         cache_input_idx = 3  # QLinearMatMul B matrix is at idx 3, not 1
@@ -279,26 +348,36 @@ def create_cache(
     else:
         pre_cache_input_id = node.input[cache_input_idx]
 
-    reshape_node_in = onnx.helper.make_node(
-        op_type="Reshape",
-        inputs=[cache_input_name, reshape_in_initializer_name],
-        outputs=[cache_input_name_reshaped],
-        name=f"reshape.{cache_input_name}",
-    )
+    reshape_node_in = None
+    reshape_node_out = None
+    concat_axis = [
+        idx for (idx, dim) in enumerate(CACHE_INPUT_DIMS) if isinstance(dim, str)
+    ][0]
+
+    if multiply_batch_by_num_attention_heads:
+        (
+            cache_input_name,
+            cache_output_name,
+            reshape_node_in,
+            reshape_node_out,
+            initializers_to_add,
+        ) = reshape_kv_cache_inputs_outputs(
+            cache_input_name,
+            cache_output_name,
+            batch_size,
+            num_attention_heads,
+            hidden_size_kv_cache,
+        )
+
+        model.graph.initializer.extend(initializers_to_add)
+        concat_axis -= 1
 
     concat_node = onnx.helper.make_node(
         op_type="Concat",
-        inputs=[cache_input_name_reshaped, pre_cache_input_id],
-        outputs=[cache_output_name_reshaped],
+        inputs=[cache_input_name, pre_cache_input_id],
+        outputs=[cache_output_name],
         axis=concat_axis,
         name=f"concat.reshape.{cache_input_name}",
-    )
-
-    reshape_node_out = onnx.helper.make_node(
-        op_type="Reshape",
-        inputs=[cache_output_name_reshaped, reshape_out_initializer_name],
-        outputs=[cache_output_name],
-        name=f"reshape.{cache_output_name}",
     )
 
     # insert concat node into graph (before the MatMul node or the Transpose node
@@ -308,21 +387,22 @@ def create_cache(
         concat_node,
     )
 
-    # insert reshape nodes into graph (before the concat node)
-    model.graph.node.insert(
-        [i for i, n in enumerate(model.graph.node) if n.name == concat_node.name][0],
-        reshape_node_in,
-    )
-    model.graph.node.append(reshape_node_out)
-
-    # insert reshape initializers into graph
-    model.graph.initializer.extend([reshape_in_initializer, reshape_out_initializer])
+    # insert reshape nodes into graph
+    if reshape_node_in:
+        model.graph.node.insert(
+            [i for i, n in enumerate(model.graph.node) if n.name == concat_node.name][
+                0
+            ],
+            reshape_node_in,
+        )
+    if reshape_node_out:
+        model.graph.node.append(reshape_node_out)
 
     # update all uses of the pre_cache_input_id to now reference cache_output_reshaped
     for node in model.graph.node:
         for input_idx, input_id in enumerate(node.input):
             if input_id == pre_cache_input_id and node.name != concat_node.name:
-                node.input[input_idx] = cache_output_name_reshaped
+                node.input[input_idx] = cache_output_name
 
     return concat_node, cache_input_info, cache_output_info
 

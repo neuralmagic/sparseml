@@ -76,8 +76,8 @@ class KeyValueCacheInjector(BaseExporter):
 
         if not self.config["model_type"] in _SUPPORTED_ARCHITECTURES:
             _LOGGER.warn(
-                f"Model type {self.config.model_type} is currently not supported. "
-                f"Supported model types: {_SUPPORTED_ARCHITECTURES}."
+                f"Model type {self.config['model_type']} is currently not supported. "
+                f"Supported model types: {_SUPPORTED_ARCHITECTURES}. "
                 f"Proceeding with transformation, but may require additional "
                 f"customization..."
             )
