@@ -23,6 +23,7 @@ import json
 import logging
 import os
 import sys
+import warnings
 from collections import OrderedDict
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Tuple, Union
@@ -64,6 +65,7 @@ __all__ = [
     "tensors_export",
     "parse_optimization_str",
     "json_to_jsonl",
+    "deprecation_warning",
 ]
 
 
@@ -820,3 +822,12 @@ def json_to_jsonl(json_file_path: str, overwrite: bool = True):
         for json_line in json_data:
             json.dump(json_line, jsonl_file)  # append json line
             jsonl_file.write("\n")  # newline
+
+
+def deprecation_warning(message: str):
+    warnings.simplefilter("always", DeprecationWarning)
+    warnings.warn(
+        message,
+        category=DeprecationWarning,
+        stacklevel=2,
+    )
