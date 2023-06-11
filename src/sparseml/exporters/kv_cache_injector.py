@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+import logging
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, Union
@@ -26,6 +27,8 @@ from sparseml.exporters.transforms.kv_cache import (
 )
 from sparsezoo.utils import save_onnx
 
+
+_LOGGER = logging.getLogger(__name__)
 
 _SUPPORTED_ARCHITECTURES = ["opt"]
 
@@ -72,9 +75,11 @@ class KeyValueCacheInjector(BaseExporter):
         self.config = self.get_config(model_path)
 
         if not self.config["model_type"] in _SUPPORTED_ARCHITECTURES:
-            raise ValueError(
-                f"Model type {self.config.model_type} is not supported. "
-                f"Supported model types: {_SUPPORTED_ARCHITECTURES}"
+            _LOGGER.warn(
+                f"Model type {self.config.model_type} is currently not supported. "
+                f"Supported model types: {_SUPPORTED_ARCHITECTURES}."
+                f"Proceeding with transformation, but may require additional "
+                f"customization..."
             )
 
         num_attention_heads = self.config["num_attention_heads"]
@@ -85,8 +90,6 @@ class KeyValueCacheInjector(BaseExporter):
                 num_attention_heads=num_attention_heads,
                 hidden_size_kv_cache=hidden_size_kv_cache,
             ),
-            # PositionEmbeddingAdjustment is specific for
-            # OPT model, let's make it more generic in future
             PositionEmbeddingsAdjustment(),
         ]
 
@@ -108,13 +111,11 @@ class KeyValueCacheInjector(BaseExporter):
         config_file = [
             file for file in model_path.iterdir() if file.name == "config.json"
         ]
-        if len(config_file) != 1:
-            raise ValueError(
-                f"Expected to find exactly one config.json file in {model_path}, "
-                f"found {len(config_file)}"
-            )
+        config_file = config_file[0]
 
-        with open(config_file[0]) as f:
+        _LOGGER.warn(f"Found config file {config_file}")
+
+        with open(config_file) as f:
             config = json.load(f)
 
         return config
