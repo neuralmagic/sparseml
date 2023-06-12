@@ -126,7 +126,7 @@ class CacheKeysAndValues(OnnxTransform):
         self,
         num_attention_heads: int,
         hidden_size_kv_cache: int,
-        internally_multiply_batch_by_num_attention_heads: bool,
+        internally_multiply_batch_by_num_attention_heads: bool = True,
     ):
         super().__init__()
         self.num_attention_heads = num_attention_heads
