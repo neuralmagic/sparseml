@@ -62,13 +62,13 @@ To export the trained model to ONNX format, execute the appropriate
 CLI command and specify the path to the `.pt` model (`--model`):
 
 ```bash
-sparseml.ultralytics.export --model /.../model.pt
+sparseml.ultralytics.export_onnx --model /.../model.pt
 ```
 
 To look up optional arguments for the `export` command, run:
 
 ```bash
-sparseml.ultralytics.export -h
+sparseml.ultralytics.export_onnx --help
 ```
 
 The resulting exported model will be saved in the appropriate directory structure:

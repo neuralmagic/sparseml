@@ -125,7 +125,7 @@ class RecipeManagerTrainerInterface:
                 training_args_dict=training_args.to_dict(),
                 data_args_dict=asdict(data_args) if data_args else {},
             )
-            if training_args
+            if training_args and metadata_args
             else None
         )
 
@@ -762,7 +762,6 @@ class RecipeManagerTrainerInterface:
         num_samples: int,
         tokenizer: "PreTrainedTokenizerBase",  # noqa: F821
     ):
-
         # Rearrange inputs' keys to match those defined by model foward func, which
         # seem to define how the order of inputs is determined in the exported model
         forward_args_spec = inspect.getfullargspec(self.model.__class__.forward)
@@ -820,7 +819,6 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         teacher: Optional[Union[Module, str]] = None,
         **kwargs,
     ):
-
         super().__init__(
             model=model,
             model_state_path=model_state_path,
