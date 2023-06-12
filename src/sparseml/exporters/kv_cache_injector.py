@@ -16,7 +16,7 @@ import json
 import logging
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, Union
+from typing import Any, Dict, Optional, Union
 
 import onnx
 
@@ -36,8 +36,9 @@ _SUPPORTED_ARCHITECTURES = ["opt"]
 class KeyValueCacheInjector(BaseExporter):
     def __init__(
         self,
-        model_path: str,
+        model_path: Optional[str] = None,
         inplace: bool = True,
+        **kwargs: Any,
     ):
         """
         A transformation that injects Key Value cache support into the model.
@@ -47,16 +48,25 @@ class KeyValueCacheInjector(BaseExporter):
         by storing the results of previous computations in memory).
 
         The exporter will look for a `config.json` file in the `model_path` directory
-        to determine the static dimensions of the kv cache input/output.
+        to determine the values:
+        - num_attention_heads
+        - hidden_size_kv_cache
+        required to enforce static dimensions of the kv cache input/output.
+        If `model_path` is not provided, the two aforementioned values must
+        be provided in the `kwargs`.
 
         This transformation not only injects the cache support, but also adjusts
         the model to account for the cache support. This means altering the input
-        to the model, such as adding "position" input to the model.
+        to the model, such as altering the positions to account for the injected
+        key/value pairs.
 
         Usage:
         ```python
         onnx_model: onnx.ModelProto = ...
         exporter = KeyValueCacheInjector(model_path="path/to/model")
+        # alternatively
+        # exporter = KeyValueCacheInjector(num_attention_heads = 16,
+        #                                  hidden_size_dim = 64)
         exporter.export(onnx_model, "model.onnx")
         ```
 
@@ -72,18 +82,26 @@ class KeyValueCacheInjector(BaseExporter):
             If False, a copy of the model will be made and modified.
         """
         self.inplace = inplace
-        self.config = self.get_config(model_path)
+        if model_path:
+            self.config = self.get_config(model_path)
+            if not self.config["model_type"] in _SUPPORTED_ARCHITECTURES:
+                raise ValueError(
+                    f"Model type {self.config.model_type} is currently not supported. "
+                    f"Supported model types: {_SUPPORTED_ARCHITECTURES}."
+                    f"Proceeding with transformation, but may require additional "
+                    f"customization..."
+                )
 
-        if not self.config["model_type"] in _SUPPORTED_ARCHITECTURES:
-            _LOGGER.warn(
-                f"Model type {self.config.model_type} is currently not supported. "
-                f"Supported model types: {_SUPPORTED_ARCHITECTURES}."
-                f"Proceeding with transformation, but may require additional "
-                f"customization..."
+            num_attention_heads = self.config["num_attention_heads"]
+            hidden_size_kv_cache = self.config["hidden_size"] // num_attention_heads
+        elif kwargs:
+            num_attention_heads = kwargs.get("num_attention_heads")
+            hidden_size_kv_cache = kwargs.get("hidden_size_kv_cache")
+        else:
+            raise ValueError(
+                "Either `model_path` or `kwargs` must be provided to the "
+                "KeyValueCacheInjector."
             )
-
-        num_attention_heads = self.config["num_attention_heads"]
-        hidden_size_kv_cache = self.config["hidden_size"] // num_attention_heads
 
         transforms = [
             CacheKeysAndValues(
@@ -113,7 +131,7 @@ class KeyValueCacheInjector(BaseExporter):
         ]
         config_file = config_file[0]
 
-        _LOGGER.warn(f"Found config file {config_file}")
+        _LOGGER.info(f"Found config file {config_file}")
 
         with open(config_file) as f:
             config = json.load(f)
