@@ -48,7 +48,13 @@ class CacheKeysAndValues(OnnxTransform):
     5.  For the value cache, the concatenation happens directly before the "value"
         MatMul.
 
-        Transforms
+    This transform also sets the subset of kv cache inputs/outputs dimensions (
+    num_attention_heads and hidden_size_kv_cache ) to the appropriate static values.
+
+    :param num_attention_heads: number of attention heads of the model
+    :param hidden_size_kv_cache: hidden size of the key and value cache
+
+    Transforms
     ```
     |
     |     Key
@@ -102,6 +108,11 @@ class CacheKeysAndValues(OnnxTransform):
 
     """
 
+    def __init__(self, num_attention_heads: int, hidden_size_kv_cache: int):
+        super().__init__()
+        self.num_attention_heads = num_attention_heads
+        self.hidden_size_kv_cache = hidden_size_kv_cache
+
     def transform(self, model: ModelProto) -> ModelProto:
         graph = ONNXGraph(model)
 
@@ -130,6 +141,8 @@ class CacheKeysAndValues(OnnxTransform):
                     attention_layer_idx=idx, cache_type="key"
                 ),
                 use_uint8_if_quantized=use_uint8_if_quantized,
+                num_attention_heads=self.num_attention_heads,
+                hidden_size_kv_cache=self.hidden_size_kv_cache,
             )
             value_concat_node, value_input_tensor, value_output_tensor = create_cache(
                 model=model,
@@ -142,6 +155,8 @@ class CacheKeysAndValues(OnnxTransform):
                     attention_layer_idx=idx, cache_type="value"
                 ),
                 use_uint8_if_quantized=use_uint8_if_quantized,
+                num_attention_heads=self.num_attention_heads,
+                hidden_size_kv_cache=self.hidden_size_kv_cache,
             )
 
             inputs_to_add.extend([key_input_tensor, value_input_tensor])
@@ -165,6 +180,8 @@ def create_cache(
     cache_input_idx: int,
     cache_input_name: str,
     cache_output_name: str,
+    num_attention_heads: int,
+    hidden_size_kv_cache: int,
     concat_axis: int = -2,
     use_uint8_if_quantized: bool = True,
 ) -> Tuple[NodeProto, ValueInfoProto, ValueInfoProto]:
@@ -177,6 +194,8 @@ def create_cache(
         (where the cache will be injected) to the MatMul
     :param cache_input_name: Name of cache input
     :param cache_output_name: Name of cache output
+    :param num_attention_heads: number of attention heads of the model
+    :param hidden_size_kv_cache: hidden size of the key/value cache
     :param concat_axis: axis to apply the concat operation on. By default, t
         this is -2, which corresponds to the sequence length axis.
     :param use_uint8_if_quantized: True if quantized MatMuls should have uint8
@@ -208,8 +227,12 @@ def create_cache(
         name=f"concat.{cache_input_name}",
     )
 
-    cache_input_dims = ["num_heads", "past_sequence_len", "hidden_dims"]
-    cache_output_dims = ["num_heads", "past_sequence_len + 1", "hidden_dims"]
+    cache_input_dims = [num_attention_heads, "past_sequence_len", hidden_size_kv_cache]
+    cache_output_dims = [
+        num_attention_heads,
+        "past_sequence_len + 1",
+        hidden_size_kv_cache,
+    ]
 
     cache_data_type = (
         TensorProto.FLOAT
