@@ -69,7 +69,7 @@ _pytorch_deps = [
 ]
 _pytorch_all_deps = _pytorch_deps + [
     "torchvision>=0.3.0,<=0.15.1",
-    "torchaudio<=0.13",
+    "torchaudio<=2.0.1",
 ]
 _pytorch_vision_deps = _pytorch_deps + [
     "torchvision>=0.3.0,<=0.15.1",
