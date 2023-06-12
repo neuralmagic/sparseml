@@ -148,7 +148,7 @@ class _TorchOnnxExport(BaseTransform):
         return model
 
     def transform(
-        self, module: torch.nn.Module, file_name: str
+        self, module: torch.nn.Module, file_name: str = "model.onnx"
     ) -> onnx.ModelProto:
         file_path = os.path.join(os.getcwd(), file_name)
 
