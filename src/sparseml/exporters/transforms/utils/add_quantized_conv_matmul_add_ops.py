@@ -50,6 +50,12 @@ def add_quantized_conv_matmul_add_ops(
     (should be called by the operator main conversion function)
     """
     node_output_orig = node.output[0]
+    if not target_output and (
+        any(output.name == node_output_orig for output in model.graph.output)
+    ):
+        # original node output is a graph output, make that the quant block
+        # output target id
+        target_output = node_output_orig
 
     # Quantize weights and add to graph
     quantized_weight_initializer = _quantize_weight_initializer(
