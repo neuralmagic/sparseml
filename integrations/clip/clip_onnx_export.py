@@ -35,7 +35,7 @@ from sparseml.pytorch.utils import export_onnx
 def _export_onnx(
     module: torch.nn.Module,
     sample_batch: Any,
-    file_path: Path,
+    file_path: Union[Path, str],
     opset: int = 14,
     **export_kwargs,
 ):
@@ -115,19 +115,42 @@ def _export_text(
 
 
 def main():
+    """
+    Given a model name and pretraining (see OpenClip for available options), the text
+    and visual branches for CLIP are exported to onnx using sparseml's exporting
+    functionality. Commandline tools are provided to export a specific model/
+    pretraining however, by default, the visual and text branches of the ViT-B-32 model
+    will be exported and saved to a directory called `clip_onnx`. A custom path can
+    also be provided using the `export-path` argument. Custom names for the input and
+    output nodes of the graph can also be assigned, using the `input_name` and
+    `output_name` arguments.
+
+    Example:
+        python clip_onnx_export.py --model convnext_base_w_320 \
+            --pretrained laion_aesthetic_s13b_b82k --export-path convnext_onnx
+
+        ======== Diagnostic Run torch.onnx.export version 2.1.0.dev20230613+cpu ========
+        verbose: False, log level: 40
+        ======================= 0 NONE 0 NOTE 0 WARNING 0 ERROR ========================
+
+        ======== Diagnostic Run torch.onnx.export version 2.1.0.dev20230613+cpu ========
+        verbose: False, log level: 40
+        ======================= 0 NONE 0 NOTE 0 WARNING 0 ERROR ========================
+
+    """
     parser = argparse.ArgumentParser(
         description="Fetch CLIP models and export to onnx using sparseml"
     )
     parser.add_argument(
         "--model",
         type=str,
-        default="convnext_base_w_320",
+        default="ViT-B-32",
         help="Name of CLIP model. See OpenClip docs for a list of available models",
     )
     parser.add_argument(
         "--pretrained",
         type=str,
-        default="laion_aesthetic_s13b_b82k",
+        default="laion2b_s34b_b79k",
         help="Name of the pretraining to use. See OpenClip docs for a list of options.",
     )
     parser.add_argument(
