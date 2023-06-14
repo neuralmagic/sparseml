@@ -62,7 +62,7 @@ _deepsparse_deps = [
 _deepsparse_ent_deps = [f"deepsparse-ent~={version_nm_deps}"]
 
 _onnxruntime_deps = ["onnxruntime>=1.0.0"]
-_clip_deps = ["open_clip_torch"]
+_clip_deps = ["open_clip_torch==2.20.0"]
 supported_torch_version = "torch>=1.7.0,<=2.0"
 _pytorch_deps = [
     supported_torch_version,
