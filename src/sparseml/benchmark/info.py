@@ -91,6 +91,7 @@ sparseml.benchmark --framework onnx --model ~/downloads/model.onnx \
 import argparse
 import logging
 import os
+import warnings
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Iterable, Iterator, Optional
 
@@ -544,6 +545,11 @@ def _parse_args():
 
 
 def _main():
+    warnings.warn(
+        f"{__file__} is scheduled for deprecation in a future version",
+        DeprecationWarning,
+        2,
+    )
     args = _parse_args()
     save_benchmark_results(
         model=args.model,
