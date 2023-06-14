@@ -59,6 +59,6 @@ class TextModel(nn.Module):
         x = self.transformer(x, attn_mask=self.attn_mask)
         x = x.permute(1, 0, 2)  # LND -> NLD
         x = self.ln_final(x)  # [batch_size, n_ctx, transformer.width]
-        # take features from the eot embedding (eot_token is the highest number in each sequence)
+        # take features from the eot embedding (eot_token = highest in each sequence)
         x = x[torch.arange(x.shape[0]), input_ids.argmax(dim=-1)] @ self.text_projection
         return x

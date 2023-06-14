@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-""" 
-Examples on how to use sparsemls's onnx export functionality to export CLIP visual and text models
-using the OpenCLIP API.
+"""
+Examples on how to use sparsemls's onnx export functionality to export CLIP visual
+and text models using the OpenCLIP API.
 
 Note: This requires torch nightly and openclip to be installed:
 https://github.com/mlfoundations/open_clip
@@ -53,11 +53,14 @@ def _export_visual(
     device: str,
     export_path: Union[str, Path],
     transformations: Compose,
+    is_coca: bool,
     **export_kwargs,
 ):
     module_name = "clip_visual.onnx"
     visual_model = VisualModel(
-        visual_model=model.visual, transformations=transformations
+        visual_model=model.visual,
+        transformations=transformations,
+        output_tokens=is_coca,
     )
 
     image_shape = visual_model.visual_model.image_size[0]
@@ -79,23 +82,30 @@ def _export_text(
     device: str,
     export_path: Union[str, Path],
     tokenizer,
+    is_coca: bool,
     **export_kwargs,
 ):
     module_name = "clip_text.onnx"
-    text_model = TextModel(
-        token_embedding=model.token_embedding,
-        tokenizer=tokenizer,
-        positional_embedding=model.positional_embedding,
-        transformer=model.transformer,
-        ln_final=model.ln_final,
-        text_projection=model.text_projection,
-        attn_mask=model.attn_mask,
-    )
+    if is_coca:
+        text_model = model.text
+    else:
+        text_model = TextModel(
+            token_embedding=model.token_embedding,
+            tokenizer=tokenizer,
+            positional_embedding=model.positional_embedding,
+            transformer=model.transformer,
+            ln_final=model.ln_final,
+            text_projection=model.text_projection,
+            attn_mask=model.attn_mask,
+        )
 
     text_model = text_model.to(device)
     text_model.eval()
-
     sample_batch = tokenizer(["a diagram", "a dog", "a cat"])
+
+    if is_coca:
+        sample_batch = sample_batch[:, :-1]
+
     _export_onnx(
         module=text_model,
         sample_batch=sample_batch,
@@ -111,20 +121,20 @@ def main():
     parser.add_argument(
         "--model",
         type=str,
-        default="ViT-B-16-plus-240",
-        help="Name of CLIP model. See open_clip docs for a list of available models",
+        default="convnext_base_w_320",
+        help="Name of CLIP model. See OpenClip docs for a list of available models",
     )
     parser.add_argument(
         "--pretrained",
         type=str,
-        default="laion400m_e32",
-        help="Name of the pretraining to use. See open_clip docs for a list of available options.",
+        default="laion_aesthetic_s13b_b82k",
+        help="Name of the pretraining to use. See OpenClip docs for a list of options.",
     )
     parser.add_argument(
         "--export-path",
         type=str,
         default="clip_onnx",
-        help="Path of the directory to which the onnx outputs will be exported to",
+        help="Path of the directory to which the onnx outputs will be saved.",
     )
     parser.add_argument(
         "--input_name",
@@ -157,9 +167,10 @@ def main():
     )
 
     tokenizer = open_clip.get_tokenizer(args.model)
+    is_coca = "coca" in args.model
 
-    _export_visual(model, device, clip_onnx_path, transform, **export_kwargs)
-    _export_text(model, device, clip_onnx_path, tokenizer, **export_kwargs)
+    _export_visual(model, device, clip_onnx_path, transform, is_coca, **export_kwargs)
+    _export_text(model, device, clip_onnx_path, tokenizer, is_coca, **export_kwargs)
 
 
 if __name__ == "__main__":
