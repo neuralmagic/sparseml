@@ -35,6 +35,8 @@ class MatMulAddToMatMulIntegerAddCastMul(OnnxTransform):
     A transform for converting a MatMul with kernel and bias into a
     quantized representation
 
+    If add or bias initializer does not exist, the bias is skipped
+
     ```
     |     weight (initializer)
     |         |
@@ -44,9 +46,9 @@ class MatMulAddToMatMulIntegerAddCastMul(OnnxTransform):
     |   |     |
     |  Q/Dq   optional Transpose
     |     |   |
-    |     MatMul  bias (initializer)
+    |     MatMul  bias (initializer) (optional)
     |         |   |
-    |         Add
+    |         Add (optional)
     ```
     (where `Q` is QuantizeLinear, and `Dq` is DequantizeLinear)
     into
@@ -55,7 +57,7 @@ class MatMulAddToMatMulIntegerAddCastMul(OnnxTransform):
     |     |
     | MatMulInteger (with constant uint8 kernel)
     |     |
-    | Add (constant bias + zero point correction)
+    | Add (constant bias + zero point correction) (optional)
     |     |
     | Cast (INT32 -> FP32)
     |     |
@@ -78,16 +80,18 @@ class MatMulAddToMatMulIntegerAddCastMul(OnnxTransform):
                     optional_node("Transpose"),
                 ],
             ],
-            children_ops=[["Add"]],
+            children_ops=[[optional_node("Add")]],
         )
         for match in matches:
-            # NOTE: bias could be either input 0 or 1 of add node
-            bias_init = graph.get_init_by_name(match.children[0][0].input[1])
-            if bias_init is None:
-                bias_init = graph.get_init_by_name(match.children[0][0].input[0])
+            add_node = match.children[0][0]
+            bias_init = None
+            if add_node:
+                # NOTE: bias could be either input 0 or 1 of add node
+                # if add does not have a bias initializer,
+                # still do conversion, but do not fold the bias add to rescale
+                bias_init = graph.get_init_by_name(match.children[0][0].input[1])
                 if bias_init is None:
-                    # bias initializer for add not present
-                    continue
+                    bias_init = graph.get_init_by_name(match.children[0][0].input[0])
             self.log_match(match)
             self._transform_match(graph, model, match, bias_init)
         return model
@@ -121,8 +125,8 @@ class MatMulAddToMatMulIntegerAddCastMul(OnnxTransform):
             input_quantize_params=input_quantize_params,
             weight_quantize_params=weight_quantize_params,
             bias_initializer=bias_init,
-            bias_add_name=add.name,
-            target_output=add.output[0],
+            bias_add_name=add.name if add else None,
+            target_output=add.output[0] if add and bias_init else None,
             transpose_weight=opt_transpose is not None,
         )
 
@@ -134,4 +138,6 @@ class MatMulAddToMatMulIntegerAddCastMul(OnnxTransform):
         if len(graph.get_node_children(input_quant)) == 1:
             self.delete_node_deferred(input_quant)
         self.delete_node_deferred(matmul)
-        self.delete_node_deferred(add)
+        if bias_init is not None:
+            # add converted to quantized - delete previous add node
+            self.delete_node_deferred(add)

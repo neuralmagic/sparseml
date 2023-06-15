@@ -49,7 +49,6 @@ from transformers import (
     set_seed,
 )
 from transformers.trainer_utils import get_last_checkpoint
-from transformers.utils import check_min_version
 from transformers.utils.versions import require_version
 
 from sparseml.pytorch.utils.distributed import record
@@ -60,10 +59,6 @@ from sparseml.transformers.utils import (
     multi_label_precision_recall_f1,
 )
 
-
-# Will error if the minimal version of Transformers is not installed.
-# Remove at your own risks.
-check_min_version("4.18.0.dev0")
 
 require_version(
     "datasets>=1.18.0",
@@ -497,6 +492,7 @@ def main(**kwargs):
                 label_list=label_list,
                 model=model,
                 num_labels=num_labels,
+                config=config,
             )
             id_to_label = {id_: label for label, id_ in label_to_id.items()}
 
@@ -687,7 +683,7 @@ def _get_label_info(data_args, raw_datasets):
 def _get_tokenized_and_preprocessed_raw_datasets(
     config,
     data_args: DataTrainingArguments,
-    model: Module,
+    model: Optional[Module],
     raw_datasets,
     tokenizer: transformers.PreTrainedTokenizerBase,
     teacher_tokenizer=None,
@@ -705,6 +701,7 @@ def _get_tokenized_and_preprocessed_raw_datasets(
     ) = _get_label_info(data_args, raw_datasets)
 
     train_dataset = predict_dataset = eval_dataset = None
+    config = model.config if model else config
     if not main_process_func:
         main_process_func = lambda desc: nullcontext(desc)  # noqa: E731
 
@@ -753,15 +750,15 @@ def _get_tokenized_and_preprocessed_raw_datasets(
     # Some models have set the order of the labels to use, so let's make sure
     # we do use it
     label_to_id = _get_label_to_id(
-        data_args, is_regression, label_list, model, num_labels
+        data_args, is_regression, label_list, model, num_labels, config=config
     )
 
     if label_to_id is not None:
-        model.config.label2id = label_to_id
-        model.config.id2label = {id: label for label, id in config.label2id.items()}
+        config.label2id = label_to_id
+        config.id2label = {id: label for label, id in config.label2id.items()}
     elif data_args.task_name is not None and not is_regression:
-        model.config.label2id = {l: i for i, l in enumerate(label_list)}
-        model.config.id2label = {id: label for label, id in config.label2id.items()}
+        config.label2id = {l: i for i, l in enumerate(label_list)}
+        config.id2label = {id: label for label, id in config.label2id.items()}
 
     max_seq_length = data_args.max_seq_length
     if max_seq_length > tokenizer.model_max_length:
@@ -841,15 +838,16 @@ def _get_tokenized_and_preprocessed_raw_datasets(
     return tokenized_datasets, raw_datasets
 
 
-def _get_label_to_id(data_args, is_regression, label_list, model, num_labels):
+def _get_label_to_id(data_args, is_regression, label_list, model, num_labels, config):
     label_to_id = None
+    config = model.config if model else config
     if (
-        model.config.label2id != PretrainedConfig(num_labels=num_labels).label2id
+        config.label2id != PretrainedConfig(num_labels=num_labels).label2id
         and data_args.task_name is not None
         and not is_regression
     ):
         # Some have all caps in their config, some don't.
-        label_name_to_id = {k.lower(): v for k, v in model.config.label2id.items()}
+        label_name_to_id = {k.lower(): v for k, v in config.label2id.items()}
         if list(sorted(label_name_to_id.keys())) == list(sorted(label_list)):
             label_to_id = {
                 i: int(label_name_to_id[label_list[i]]) for i in range(num_labels)

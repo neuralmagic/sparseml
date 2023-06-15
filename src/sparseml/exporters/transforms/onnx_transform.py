@@ -20,7 +20,8 @@ from onnx import ModelProto, NodeProto, TensorProto
 
 from sparseml.exporters.transforms import BaseTransform
 from sparseml.exporters.transforms.utils import MatchResult
-from sparseml.onnx.utils import ONNXGraph, check_load_model, validate_onnx_file
+from sparseml.onnx.utils import ONNXGraph
+from sparsezoo.utils import load_model, validate_onnx
 
 
 __all__ = ["OnnxTransform"]
@@ -80,8 +81,8 @@ class OnnxTransform(BaseTransform):
                 f"Invalid model type: {type(model)}. "
                 "Must be a string (path to the .onnx file) or ONNX ModelProto"
             )
-        model = check_load_model(model)
-        validate_onnx_file(model)
+        model = load_model(model)
+        validate_onnx(model)
         self._nodes_to_delete.clear()
         self._nodes_to_add.clear()
         self._num_matches = 0
@@ -102,5 +103,5 @@ class OnnxTransform(BaseTransform):
         graph = ONNXGraph(model)
         graph.delete_unused_initializers()
         graph.sort_nodes_topologically()
-        validate_onnx_file(model)
+        validate_onnx(model)
         return model

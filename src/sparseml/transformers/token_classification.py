@@ -48,17 +48,12 @@ from transformers import (
     set_seed,
 )
 from transformers.trainer_utils import get_last_checkpoint
-from transformers.utils import check_min_version
 from transformers.utils.versions import require_version
 
 from sparseml.pytorch.utils.distributed import record
 from sparseml.transformers.sparsification import Trainer, TrainingArguments
 from sparseml.transformers.utils import SparseAutoModel, get_shared_tokenizer_src
 
-
-# Will error if the minimal version of Transformers is not installed.
-# Remove at your own risks
-check_min_version("4.18.0.dev0")
 
 require_version(
     "datasets>=1.18.0",
@@ -728,7 +723,7 @@ def _get_tokenized_dataset(
     data_args: DataTrainingArguments,
     label_list: List,
     labels_are_int: bool,
-    model: Module,
+    model: Module,  # model config object can be passed in as well
     num_labels: int,
     raw_datasets: Union[Dataset, DatasetDict, IterableDatasetDict, IterableDataset],
     tokenizer: transformers.PreTrainedTokenizerBase,
@@ -741,29 +736,30 @@ def _get_tokenized_dataset(
     do_predict: bool = False,
 ) -> Dict[str, Any]:
     train_dataset = predict_dataset = eval_dataset = None
+    config = model.config if isinstance(model, Module) else model
     # Model has labels -> use them.
-    if model.config.label2id != PretrainedConfig(num_labels=num_labels).label2id:
-        if list(sorted(model.config.label2id.keys())) == list(sorted(label_list)):
+    if config.label2id != PretrainedConfig(num_labels=num_labels).label2id:
+        if list(sorted(config.label2id.keys())) == list(sorted(label_list)):
             # Reorganize `label_list` to match the ordering of the model.
             if labels_are_int:
                 label_to_id = {
-                    i: int(model.config.label2id[l]) for i, l in enumerate(label_list)
+                    i: int(config.label2id[l]) for i, l in enumerate(label_list)
                 }
-                label_list = [model.config.id2label[i] for i in range(num_labels)]
+                label_list = [config.id2label[i] for i in range(num_labels)]
             else:
-                label_list = [model.config.id2label[i] for i in range(num_labels)]
+                label_list = [config.id2label[i] for i in range(num_labels)]
                 label_to_id = {l: i for i, l in enumerate(label_list)}
         else:
             _LOGGER.warning(
                 "Your model seems to have been trained with labels, but they don't "
                 "match the dataset: ",
-                f"model labels: {list(sorted(model.config.label2id.keys()))}, dataset "
+                f"model labels: {list(sorted(config.label2id.keys()))}, dataset "
                 f"labels: {list(sorted(label_list))}."
                 "\nIgnoring the model labels as a result.",
             )
     # Set the correspondences label/ID inside the model config
-    model.config.label2id = {l: i for i, l in enumerate(label_list)}
-    model.config.id2label = {i: l for i, l in enumerate(label_list)}
+    config.label2id = {l: i for i, l in enumerate(label_list)}
+    config.id2label = {i: l for i, l in enumerate(label_list)}
     # Map that sends B-Xxx label to its I-Xxx counterpart
     b_to_i_label = []
     for idx, label in enumerate(label_list):

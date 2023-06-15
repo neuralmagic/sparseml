@@ -16,10 +16,10 @@ limitations under the License.
 
 # Developing SparseML
 
-SparseML is developed and tested using Python 3.6-3.9.
+SparseML is developed and tested using Python 3.8-3.10.
 To develop SparseML, you will also need the development dependencies and to follow the styling guidelines.
 
-Here's some details to get started.
+Here are some details to get started.
 
 ## Basic Commands
 
@@ -39,6 +39,9 @@ Those can be installed by adding the framework name to the install extras. Frame
 ```bash
 python3 -m pip install -e "./[dev,torch]"
 ```
+
+Note: Running all pytorch tests using `make test TARGETS=torch`, also requires `torchvision`
+and `onnxruntime` install all these dependencies using `python3 -m pip install -e "./[dev, torch, torchvision, onnxruntime]"`
 
 **Code Styling and Formatting checks**
 

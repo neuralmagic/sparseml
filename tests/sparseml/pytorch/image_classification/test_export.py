@@ -23,6 +23,7 @@ from click.testing import CliRunner
 from sparseml.pytorch.image_classification.export import main
 from sparseml.pytorch.models import resnet18
 from sparsezoo.analyze import ModelAnalysis
+from sparsezoo.utils import validate_onnx
 
 
 @pytest.fixture()
@@ -83,7 +84,7 @@ def test_export_one_shot(resnet_checkpoint, recipe_path, temp_dir):
 
     # exported file is valid onnx
     model = onnx.load(expected_onnx_path)
-    onnx.checker.check_model(model)
+    validate_onnx(model)
 
     # check onnx model is sparse
     model_analysis = ModelAnalysis.from_onnx(onnx_file_path=expected_onnx_path)

@@ -17,6 +17,7 @@ import pytest
 from onnx import ModelProto
 
 from sparseml.exporters.transforms.fold_relu_quants import FoldReLUQuants
+from sparsezoo.utils import validate_onnx
 
 
 @pytest.fixture
@@ -43,7 +44,7 @@ def onnx_model():
     )
 
     model = onnx.helper.make_model(graph)
-    onnx.checker.check_model(model)
+    validate_onnx(model)
     return model
 
 
@@ -52,7 +53,7 @@ def onnx_model_with_nonzero_zero_point(onnx_model):
     zp = onnx.helper.make_tensor("zero_point", onnx.TensorProto.UINT8, (1,), [1])
     onnx_model.graph.initializer.append(zp)
     onnx_model.graph.node[-1].input.append("zero_point")
-    onnx.checker.check_model(onnx_model)
+    validate_onnx(onnx_model)
     return onnx_model
 
 
@@ -61,26 +62,26 @@ def onnx_model_with_zero_zero_point(onnx_model):
     zp = onnx.helper.make_tensor("zero_point", onnx.TensorProto.UINT8, (1,), [0])
     onnx_model.graph.initializer.append(zp)
     onnx_model.graph.node[-1].input.append("zero_point")
-    onnx.checker.check_model(onnx_model)
+    validate_onnx(onnx_model)
     return onnx_model
 
 
 def test_vanilla(onnx_model: ModelProto):
     onnx_model = FoldReLUQuants().apply(onnx_model)
-    onnx.checker.check_model(onnx_model)
+    validate_onnx(onnx_model)
     assert [n.name for n in onnx_model.graph.node] == ["quant"]
     assert [i.name for i in onnx_model.graph.initializer] == ["scale"]
 
 
 def test_zero_zp(onnx_model_with_zero_zero_point: ModelProto):
     onnx_model = FoldReLUQuants().apply(onnx_model_with_zero_zero_point)
-    onnx.checker.check_model(onnx_model)
+    validate_onnx(onnx_model)
     assert [n.name for n in onnx_model.graph.node] == ["quant"]
     assert [i.name for i in onnx_model.graph.initializer] == ["scale", "zero_point"]
 
 
 def test_nonzero_zp_does_nothing(onnx_model_with_nonzero_zero_point: ModelProto):
     onnx_model = FoldReLUQuants().apply(onnx_model_with_nonzero_zero_point)
-    onnx.checker.check_model(onnx_model)
+    validate_onnx(onnx_model)
     assert [n.name for n in onnx_model.graph.node] == ["relu", "quant"]
     assert [i.name for i in onnx_model.graph.initializer] == ["scale", "zero_point"]

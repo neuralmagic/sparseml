@@ -1,4 +1,4 @@
-# SparseML docker image
+# SparseML Docker Image
 This directory contains the Dockerfile to create a minimal SparseML docker image.
 
 The included `Dockerfile` builds an image on top of the official NVIDIA development Ubuntu 18.04.5 LTS 
@@ -11,27 +11,25 @@ This `Dockerfile` is tested on the Ubuntu 20.04.2 LTS with CUDA Version: 11.4.
 You can access the already built image detailed at https://github.com/orgs/neuralmagic/packages/container/package/sparseml:
 
 ```bash
-docker pull ghcr.io/neuralmagic/sparseml:1.0.1-ubuntu18.04-cu11.1
-docker tag ghcr.io/neuralmagic/sparseml:1.0.1-ubuntu18.04-cu11.1 sparseml_docker
+docker pull ghcr.io/neuralmagic/sparseml:1.4.4-cu111
+docker tag ghcr.io/neuralmagic/sparseml:1.4.4-cu111 sparseml_docker
 ```
 
 ## Extend
 If you would like to customize the docker image, you can use the pre-built images as a base in your own `Dockerfile`:
 
 ```Dockerfile
-from ghcr.io/neuralmagic/sparseml:1.0.1-ubuntu18.04-cu11.1
+from ghcr.io/neuralmagic/sparseml:1.4.4-cu111
 
 ...
 ```
 
 ## Build
-To build and launch this image with the tag `sparseml_docker`, run from the root directory:
-- for compute platform CUDA 10.2: `docker build --build-arg CUDA_VERSION=10.2 -t sparseml_docker .`
-- for compute platform CUDA 11.1: `docker build --build-arg CUDA_VERSION=11.1 -t sparseml_docker .` 
+To build and launch this image with the tag `sparseml_docker`, run from the root directory: `docker build -t sparseml_docker`
 
-If you want to use a specific branch from sparseml you can use the `GIT_CHECKOUT` build arg:
-```
-docker build --build-arg CUDA_VERSION=11.1 --build-arg GIT_CHECKOUT=main -t sparseml_nightly .`
+If you want to use a specific branch from sparseml you can use the `BRANCH` build arg:
+```bash
+docker build --build-arg BRANCH=main -t sparseml_docker .
 ```
 
 ## Run
@@ -45,29 +43,30 @@ Note: RuntimeError: DataLoader worker (pid 1388) is killed by signal: Bus error.
 
 ### Example 1: Image Classification Pipeline:
 
-```
-sparseml.image_classification.train \ 
---recipe-path zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/pruned85_quant-none-vnni \
---arch-key resnet50 \  
---pretrained pruned-moderate \   
---dataset imagenette \
---dataset-path dataset \     
---train-batch-size 4 \ 
---test-batch-size 8 
-```
+Download a subset of the ImageNet dataset and use it to train a ResNet-50 model. 
+```bash 
+curl https://s3.amazonaws.com/fast-ai-imageclas/imagenette2-320.tgz --output imagenette2-320.tgz
+tar -xvf imagenette2-320.tgz
+sparseml.image_classification.train \
+    --recipe zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/pruned95_quant-none?recipe_type=transfer-classification \
+    --checkpoint-path zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/pruned95_quant-none?recipe_type=transfer-classification \
+    --arch-key resnet50 \
+    --dataset-path ./imagenette2-320 \
+    --batch-size 32
+ ```
 
 ### Example 2: Transformers Question Answering Pipeline:
 
-```python
+```bash
 sparseml.transformers.question_answering \
-  --model_name_or_path bert-base-uncased \          
-  --dataset_name squad \                            
-  --do_train \                                      
-  --do_eval \                                       
-  --output_dir './output' \                         
-  --cache_dir cache \                               
-  --distill_teacher disable \                       
-  --recipe zoo:nlp/question_answering/bert-base/pytorch/huggingface/squad/pruned-aggressive_98   
+  --model_name_or_path bert-base-uncased \
+  --dataset_name squad \
+  --do_train \
+  --do_eval \
+  --output_dir './output' \
+  --cache_dir cache \
+  --distill_teacher disable \
+  --recipe zoo:nlp/question_answering/bert-base/pytorch/huggingface/squad/pruned-aggressive_98 
 ```
 
 Note: 
