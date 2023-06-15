@@ -148,7 +148,7 @@ def main():
     output nodes of the graph can also be assigned, using the `input_name` and
     `output_name` arguments.
 
-    Specifically fo CoCa models, an additional text-decoder is also exported and saved 
+    Specifically fo CoCa models, an additional text-decoder is also exported and saved
     in the same folder. Currently, only coca_ViT-B-32 and coca_ViT-L-14 are supported.
 
     Example:
