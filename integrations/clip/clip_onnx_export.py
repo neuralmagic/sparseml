@@ -21,6 +21,7 @@ https://github.com/mlfoundations/open_clip
 
 """
 import argparse
+from collections import OrderedDict
 from pathlib import Path
 from typing import Any, Union
 
@@ -101,7 +102,7 @@ def _export_text(
 
     text_model = text_model.to(device)
     text_model.eval()
-    sample_batch = tokenizer(["a diagram", "a dog", "a cat"])
+    sample_batch = tokenizer(["a dog"])
 
     if is_coca:
         sample_batch = sample_batch[:, :-1]
@@ -114,16 +115,41 @@ def _export_text(
     )
 
 
+def _export_text_decoder(
+    model: torch.nn.Module, device: str, export_path: Union[str, Path], **export_kwargs
+):
+
+    module_name = "clip_text_decoder.onnx"
+    decoder = model.text_decoder.to(device)
+    decoder.eval()
+
+    sample_batch = OrderedDict()
+    sample_batch["image_embs"] = torch.randn(1, 255, model.text.output_dim)
+    sample_batch["text_embs"] = torch.randn(
+        1, model.text.context_length, model.text.output_dim
+    )
+
+    _export_onnx(
+        module=decoder,
+        sample_batch=sample_batch,
+        file_path=export_path / module_name,
+        **export_kwargs,
+    )
+
+
 def main():
     """
-    Given a model name and pretraining (see OpenClip for available options), the text
-    and visual branches for CLIP are exported to onnx using sparseml's exporting
-    functionality. Commandline tools are provided to export a specific model/
+    Given a model name and pretrained weights (see OpenClip for available options),
+    the text and visual branches for CLIP are exported to onnx using sparseml's
+    exporting functionality. Commandline tools are provided to export a specific model/
     pretraining however, by default, the visual and text branches of the ViT-B-32 model
     will be exported and saved to a directory called `clip_onnx`. A custom path can
     also be provided using the `export-path` argument. Custom names for the input and
     output nodes of the graph can also be assigned, using the `input_name` and
     `output_name` arguments.
+
+    Specifically fo CoCa models, an additional text-decoder is also exported and saved 
+    in the same folder. Currently, only coca_ViT-B-32 and coca_ViT-L-14 are supported.
 
     Example:
         python clip_onnx_export.py --model convnext_base_w_320 \
@@ -194,6 +220,9 @@ def main():
 
     _export_visual(model, device, clip_onnx_path, transform, is_coca, **export_kwargs)
     _export_text(model, device, clip_onnx_path, tokenizer, is_coca, **export_kwargs)
+
+    if is_coca:
+        _export_text_decoder(model, device, clip_onnx_path, **export_kwargs)
 
 
 if __name__ == "__main__":
