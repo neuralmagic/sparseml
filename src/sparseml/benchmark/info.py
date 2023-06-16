@@ -91,7 +91,6 @@ sparseml.benchmark --framework onnx --model ~/downloads/model.onnx \
 import argparse
 import logging
 import os
-import warnings
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Iterable, Iterator, Optional
 
@@ -105,7 +104,7 @@ from sparseml.benchmark.serialization import (
     BenchmarkResult,
 )
 from sparseml.framework.info import FrameworkInferenceProviderInfo, FrameworkInfo
-from sparseml.utils import clean_path, create_parent_dirs
+from sparseml.utils import clean_path, create_parent_dirs, deprecation_warning
 from sparseml.utils.helpers import convert_to_bool
 
 
@@ -545,10 +544,8 @@ def _parse_args():
 
 
 def _main():
-    warnings.warn(
-        f"{__file__} is scheduled for deprecation in a future version",
-        DeprecationWarning,
-        2,
+    deprecation_warning(
+        message=f"{__file__} is scheduled for deprecation in a future version",
     )
     args = _parse_args()
     save_benchmark_results(
