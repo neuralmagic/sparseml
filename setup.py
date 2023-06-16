@@ -62,17 +62,17 @@ _deepsparse_deps = [
 _deepsparse_ent_deps = [f"deepsparse-ent~={version_nm_deps}"]
 
 _onnxruntime_deps = ["onnxruntime>=1.0.0"]
-supported_torch_version = "torch>=1.7.0,<1.14"
+supported_torch_version = "torch>=1.7.0,<=2.0"
 _pytorch_deps = [
     supported_torch_version,
     "gputils",
 ]
 _pytorch_all_deps = _pytorch_deps + [
-    "torchvision>=0.3.0,<0.15",
-    "torchaudio<=0.13",
+    "torchvision>=0.3.0,<=0.15.1",
+    "torchaudio<=2.0.1",
 ]
 _pytorch_vision_deps = _pytorch_deps + [
-    "torchvision>=0.3.0,<0.15",
+    "torchvision>=0.3.0,<=0.15.1",
     "opencv-python<=4.6.0.66",
 ]
 _transformers_deps = _pytorch_deps + [
