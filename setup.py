@@ -39,7 +39,7 @@ _deps = [
     "numpy>=1.0.0,<=1.21.6",
     "matplotlib>=3.0.0",
     "merge-args>=0.1.0",
-    "onnx>=1.5.0,<=1.12.0",
+    "onnx>=1.5.0,<1.15.0",
     "pandas>=0.25.0",
     "packaging>=20.0",
     "psutil>=5.0.0",
