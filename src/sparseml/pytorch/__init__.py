@@ -26,6 +26,17 @@ try:
     import torch
 
     _PARSED_TORCH_VERSION = version.parse(torch.__version__)
+
+    if _PARSED_TORCH_VERSION.major >= 2:
+
+        def raise_torch_compile_error():
+            raise RuntimeError(
+                "torch.compile is not supported by sparseml for \
+            torch 2.0.x"
+            )
+
+        torch.compile = raise_torch_compile_error
+
     _BYPASS = bool(int(os.environ.get("NM_BYPASS_TORCH_VERSION", "0")))
     if _PARSED_TORCH_VERSION.major == 1 and _PARSED_TORCH_VERSION.minor in [10, 11]:
         if not _BYPASS:
