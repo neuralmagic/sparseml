@@ -81,6 +81,7 @@ _transformers_deps = _pytorch_deps + [
     "datasets<=1.18.4",
     "scikit-learn",
     "seqeval",
+    "einops",
 ]
 _yolov5_deps = _pytorch_vision_deps + [
     f"{'nm-yolov5' if is_release else 'nm-yolov5-nightly'}~={version_nm_deps}"
