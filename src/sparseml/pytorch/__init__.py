@@ -29,7 +29,7 @@ try:
 
     if _PARSED_TORCH_VERSION.major >= 2:
 
-        def raise_torch_compile_error(*args):
+        def raise_torch_compile_error(*args, **kwargs):
             raise RuntimeError(
                 "torch.compile is not supported by sparseml for torch 2.0.x"
             )
