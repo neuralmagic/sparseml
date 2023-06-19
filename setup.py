@@ -39,7 +39,7 @@ _deps = [
     "numpy>=1.0.0,<=1.21.6",
     "matplotlib>=3.0.0",
     "merge-args>=0.1.0",
-    "onnx>=1.5.0,<=1.12.0",
+    "onnx>=1.5.0,<1.15.0",
     "pandas>=0.25.0",
     "packaging>=20.0",
     "psutil>=5.0.0",
@@ -81,6 +81,7 @@ _transformers_deps = _pytorch_deps + [
     "datasets<=1.18.4",
     "scikit-learn",
     "seqeval",
+    "accelerate>=0.20.3",
 ]
 _yolov5_deps = _pytorch_vision_deps + [
     f"{'nm-yolov5' if is_release else 'nm-yolov5-nightly'}~={version_nm_deps}"
