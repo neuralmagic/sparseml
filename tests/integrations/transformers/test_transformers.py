@@ -142,7 +142,9 @@ class TransformersManager(BaseIntegrationManager):
         return command_stubs_final
 
     def teardown(self):
-        pass  # not yet implemented
+        # clean up temporary directory
+        if "train" in self.command_types:
+            self.save_dir.cleanup()
 
 
 @flaky(max_runs=2, min_passes=1)

@@ -17,8 +17,8 @@ Provides a class for performing quantization calibration on an Onnx model.
 """
 
 
+import logging
 import os
-import tempfile
 from typing import Dict, Generator, Iterable, List, Tuple, Union
 
 import numpy as np
@@ -27,6 +27,8 @@ import onnx
 from sparseml.onnx.utils import ORTModelRunner, fold_conv_bns, get_node_output_nodes
 from sparsezoo.utils import save_onnx, validate_onnx
 
+
+_LOGGER = logging.getLogger(__name__)
 
 __all__ = ["CalibrationSession"]
 
@@ -65,11 +67,11 @@ class CalibrationSession:
         self._model_augmented = self.generate_augmented_model()
 
         if self._augmented_model_path is None:
-            self._augmented_model_tmp_file = tempfile.NamedTemporaryFile(
-                suffix=".onnx", delete=True
+            self._augmented_model_path = os.path.join(
+                os.getcwd(), "model_augmented.onnx"
             )
-            self._augmented_model_path = self._augmented_model_tmp_file.name
         save_onnx(self._model_augmented, self._augmented_model_path)
+        _LOGGER.debug(f"Created an augmented model at: {self._augmented_model_path}")
 
         self._sessions = {}  # batch_size -> session
         self._quantization_thresholds = {}  # Dict[node.name, Tuple(min_val, max_val)]
@@ -103,13 +105,15 @@ class CalibrationSession:
                 # no optimization performed, skip the rest of this block
                 raise Exception()
             validate_onnx(model_optimized)  # should raise exception if broken
-            optimized_model_path = tempfile.NamedTemporaryFile(
-                suffix=".onnx", delete=False
-            )
-            save_onnx(model_optimized, optimized_model_path.name)
+            optimized_model_path = os.path.join(os.getcwd(), "model_optimized.onnx")
+            save_onnx(model_optimized, optimized_model_path)
             self._model = model_optimized
-            print("Optimization successful")
-            return optimized_model_path.name
+            _LOGGER.debug(
+                "Optimization successful. "
+                "Created an optimized model at: "
+                f"{optimized_model_path}"
+            )
+            return optimized_model_path
         except Exception as e:
             print(e)
             print(
@@ -352,3 +356,5 @@ class CalibrationSession:
         """
         if self._optimized_model_path is not None:
             os.remove(self._optimized_model_path)
+        if self._augmented_model_path is not None:
+            os.remove(self._augmented_model_path)
