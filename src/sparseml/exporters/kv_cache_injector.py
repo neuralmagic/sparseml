@@ -93,7 +93,6 @@ class KeyValueCacheInjector(BaseExporter):
             if no `model_path` is provided.
         """
         self.inplace = inplace
-        self.config = get_kv_cache_config(model_path)
 
         if model_path is not None:
             # get the parameters from the config
@@ -109,7 +108,7 @@ class KeyValueCacheInjector(BaseExporter):
             positions_adjustment = self.config.positions_adjustment_transform
 
         elif kwargs:
-            # get the parameters from the kwargs
+            _LOGGER.info("Configuration for KV cache injection provided via kwargs")
             num_attention_heads = kwargs.get("num_attention_heads")
             hidden_size_kv_cache_dim = kwargs.get("hidden_size_kv_cache_dim")
             multiply_batch_by_num_att_heads = kwargs.get(
