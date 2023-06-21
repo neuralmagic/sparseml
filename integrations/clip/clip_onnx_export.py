@@ -26,7 +26,6 @@ from pathlib import Path
 from typing import Any, Union
 
 import torch
-from torchvision.transforms.transforms import Compose
 
 import open_clip
 from clip_models import TextModel, VisualModel
@@ -53,14 +52,12 @@ def _export_visual(
     model: torch.nn.Module,
     device: str,
     export_path: Union[str, Path],
-    transformations: Compose,
     is_coca: bool,
     **export_kwargs,
 ):
     module_name = "clip_visual.onnx"
     visual_model = VisualModel(
         visual_model=model.visual,
-        transformations=transformations,
         output_tokens=is_coca,
     )
 
@@ -92,7 +89,6 @@ def _export_text(
     else:
         text_model = TextModel(
             token_embedding=model.token_embedding,
-            tokenizer=tokenizer,
             positional_embedding=model.positional_embedding,
             transformer=model.transformer,
             ln_final=model.ln_final,
@@ -211,14 +207,14 @@ def main():
         "do_constant_folding": True,
     }
 
-    model, _, transform = open_clip.create_model_and_transforms(
+    model, _, _ = open_clip.create_model_and_transforms(
         model_name=args.model, pretrained=args.pretrained
     )
 
     tokenizer = open_clip.get_tokenizer(args.model)
     is_coca = "coca" in args.model
 
-    _export_visual(model, device, clip_onnx_path, transform, is_coca, **export_kwargs)
+    _export_visual(model, device, clip_onnx_path, is_coca, **export_kwargs)
     _export_text(model, device, clip_onnx_path, tokenizer, is_coca, **export_kwargs)
 
     if is_coca:

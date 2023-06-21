@@ -17,12 +17,11 @@ import torch.nn as nn
 
 
 class VisualModel(nn.Module):
-    def __init__(self, visual_model, transformations, output_tokens):
+    def __init__(self, visual_model, output_tokens):
 
         super().__init__()
 
         self.visual_model = visual_model
-        self.transformations = transformations
         self.visual_model.output_tokens = output_tokens
 
     def forward(self, x):
@@ -33,7 +32,6 @@ class TextModel(nn.Module):
     def __init__(
         self,
         token_embedding,
-        tokenizer,
         positional_embedding,
         transformer,
         ln_final,
@@ -44,7 +42,6 @@ class TextModel(nn.Module):
         super().__init__()
 
         self.token_embedding = token_embedding
-        self.tokenizer = tokenizer
         self.positional_embedding = positional_embedding
         self.transformer = transformer
         self.ln_final = ln_final
