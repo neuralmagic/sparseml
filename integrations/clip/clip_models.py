@@ -17,7 +17,7 @@ import torch.nn as nn
 
 
 class VisualModel(nn.Module):
-    def __init__(self, visual_model, output_tokens):
+    def __init__(self, visual_model: torch.nn.Module, output_tokens: bool):
 
         super().__init__()
 
@@ -31,12 +31,12 @@ class VisualModel(nn.Module):
 class TextModel(nn.Module):
     def __init__(
         self,
-        token_embedding,
-        positional_embedding,
-        transformer,
-        ln_final,
-        text_projection,
-        attn_mask,
+        token_embedding: torch.nn.Embedding,
+        positional_embedding: torch.nn.parameter.Parameter,
+        transformer: torch.nn.Module,
+        ln_final: torch.nn.LayerNorm,
+        text_projection: torch.nn.parameter.Parameter,
+        attn_mask: torch.Tensor,
     ):
 
         super().__init__()
