@@ -69,7 +69,7 @@ class ConvToConvIntegerAddCastMul(OnnxTransform):
         matches = get_structural_matches(
             graph,
             parent_ops=[
-                ["QuantizeLinear", "DequantizeLinear"],
+                ["DequantizeLinear"],
                 [
                     # weight should be initializer
                     INITIALIZER_MATCH,
@@ -89,7 +89,7 @@ class ConvToConvIntegerAddCastMul(OnnxTransform):
         return model
 
     def _transform_match(self, graph: ONNXGraph, model: ModelProto, match: MatchResult):
-        input_quant, input_dequant = match.parents[0]
+        (input_dequant,) = match.parents[0]
         weight_init, weight_quantize_node, weight_dequantize_node = match.parents[1]
         (bias_init,) = match.parents[2]
 
