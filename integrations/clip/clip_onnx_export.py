@@ -39,6 +39,11 @@ def _export_onnx(
     opset: int = 14,
     **export_kwargs,
 ):
+    # _export_onnx by default uses opset = 14 as required by CLIP and will fail
+    # for opset < 14 as certain operators are not supported.
+    if opset < 14:
+        raise ValueError("CLIP onnx export requires a minimum opset of 14")
+
     export_onnx(
         module=module,
         sample_batch=sample_batch,
