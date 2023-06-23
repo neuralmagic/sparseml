@@ -29,7 +29,7 @@ from sparseml.exporters.transforms.kv_cache.positions_adjustment_opt import (
 
 _LOGGER = logging.getLogger(__name__)
 
-__all__ = ["get_kv_cache_config"]
+__all__ = ["get_kv_cache_config", "KeyValueCacheConfig"]
 
 
 class KeyValueCacheConfig(BaseModel):

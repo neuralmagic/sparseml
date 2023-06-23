@@ -15,13 +15,15 @@
 import logging
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import onnx
 
 from sparseml.exporters.base_exporter import BaseExporter
+from sparseml.exporters.transforms import OnnxTransform
 from sparseml.exporters.transforms.kv_cache import (
     CacheKeysAndValues,
+    KeyValueCacheConfig,
     get_kv_cache_config,
 )
 from sparsezoo.utils import save_onnx
@@ -93,31 +95,14 @@ class KeyValueCacheInjector(BaseExporter):
             if no `model_path` is provided.
         """
         self.inplace = inplace
-        self.config = get_kv_cache_config(model_path)
 
-        if model_path is not None:
-            # get the parameters from the config
-            self.config = get_kv_cache_config(model_path)
+        config = get_kv_cache_config(model_path)
 
-            num_attention_heads = self.config.num_attention_heads
-            hidden_size_kv_cache_dim = self.config.hidden_size_kv_cache
-            multiply_batch_by_num_att_heads = (
-                self.config.multiply_batch_by_num_att_heads
-            )
-            transpose_value_input = self.config.transpose_value_input
-            transpose_key_input = self.config.transpose_key_input
-            positions_adjustment = self.config.positions_adjustment_transform
+        if config is not None:
+            transforms = self._get_transforms_from_config(config)
 
         elif kwargs:
-            # get the parameters from the kwargs
-            num_attention_heads = kwargs.get("num_attention_heads")
-            hidden_size_kv_cache_dim = kwargs.get("hidden_size_kv_cache_dim")
-            multiply_batch_by_num_att_heads = kwargs.get(
-                "multiply_batch_by_num_att_heads", False
-            )
-            transpose_value_input = kwargs.get("transpose_value_input")
-            transpose_key_input = kwargs.get("transpose_key_input")
-            positions_adjustment = None
+            transforms = self._get_transforms_from_kwargs(kwargs)
 
         else:
             raise ValueError(
@@ -125,17 +110,6 @@ class KeyValueCacheInjector(BaseExporter):
                 "KeyValueCacheInjector"
             )
 
-        transforms = [
-            CacheKeysAndValues(
-                num_attention_heads=num_attention_heads,
-                hidden_size_kv_cache=hidden_size_kv_cache_dim,
-                multiply_batch_by_num_att_heads=multiply_batch_by_num_att_heads,
-                transpose_value_input=transpose_value_input,
-                transpose_key_input=transpose_key_input,
-            )
-        ]
-        if positions_adjustment is not None:
-            transforms += [positions_adjustment()]
         super().__init__(transforms)
 
     def pre_validate(self, model: Union[onnx.ModelProto, str, Path]) -> onnx.ModelProto:
@@ -154,3 +128,36 @@ class KeyValueCacheInjector(BaseExporter):
     def export(self, pre_transforms_model: onnx.ModelProto, file_path: str):
         post_transforms_model: onnx.ModelProto = self.apply(pre_transforms_model)
         save_onnx(post_transforms_model, file_path)
+
+    @staticmethod
+    def _get_transforms_from_config(config: KeyValueCacheConfig) -> List[OnnxTransform]:
+        positions_adjustment = config.positions_adjustment_transform
+
+        transforms = [
+            CacheKeysAndValues(
+                num_attention_heads=config.num_attention_heads,
+                hidden_size_kv_cache=config.hidden_size_kv_cache,
+                multiply_batch_by_num_att_heads=config.multiply_batch_by_num_att_heads,
+                transpose_value_input=config.transpose_value_input,
+                transpose_key_input=config.transpose_key_input,
+            )
+        ]
+        if positions_adjustment is not None:
+            transforms += [positions_adjustment()]
+
+        return transforms
+
+    @staticmethod
+    def _get_transforms_from_kwargs(kwargs: Dict[str, Any]) -> List[OnnxTransform]:
+        transforms = [
+            CacheKeysAndValues(
+                num_attention_heads=kwargs.get("num_attention_heads"),
+                hidden_size_kv_cache=kwargs.get("hidden_size_kv_cache"),
+                multiply_batch_by_num_att_heads=kwargs.get(
+                    "multiply_batch_by_num_att_heads", False
+                ),
+                transpose_value_input=kwargs.get("transpose_value_input", None),
+                transpose_key_input=kwargs.get("transpose_key_input", None),
+            )
+        ]
+        return transforms
