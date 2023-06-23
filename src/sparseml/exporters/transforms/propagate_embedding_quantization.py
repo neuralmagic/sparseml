@@ -92,7 +92,10 @@ class PropagateEmbeddingQuantization(OnnxTransform):
 
             # check for uint8 initializer
             indices = graph.get_init_by_name(gather.input[0])
-            if indices is None or numpy_helper.to_array(indices).dtype not in [numpy.uint8, numpy.int8]:
+            if indices is None or numpy_helper.to_array(indices).dtype not in [
+                numpy.uint8,
+                numpy.int8,
+            ]:
                 continue
 
             # check that all concats are the same
