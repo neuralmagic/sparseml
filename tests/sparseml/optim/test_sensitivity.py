@@ -143,7 +143,8 @@ def test_ks_loss_sensitivity_analysis():
         assert abs(test["sparse_integral"] - comp.sparse_integral) < 1e-5
         assert abs(test["sparse_comparison"] - comp.sparse_comparison()) < 1e-5
 
-    path = os.path.join(tempfile.gettempdir(), "ks-sens-analysis.json")
+    tempdir = tempfile.TemporaryDirectory()
+    path = os.path.join(tempdir.name, "ks-sens-analysis.json")
     analysis.save_json(path)
 
     json_analysis = analysis.load_json(path)
@@ -160,26 +161,24 @@ def test_ks_loss_sensitivity_analysis():
         assert abs(test["sparse_integral"] - comp.sparse_integral) < 1e-5
         assert abs(test["sparse_comparison"] - comp.sparse_comparison()) < 1e-5
 
-    path = os.path.join(
-        tempfile.gettempdir(), "ks-sens-analysis-integral-normalized.png"
-    )
+    path = os.path.join(tempdir.name, "ks-sens-analysis-integral-normalized.png")
     analysis.plot(path, plot_integral=True)
     assert os.path.exists(path)
 
-    path = os.path.join(
-        tempfile.gettempdir(), "ks-sens-analysis-integral-normalized.png"
-    )
+    path = os.path.join(tempdir.name, "ks-sens-analysis-integral-normalized.png")
     analysis.plot(path, plot_integral=True)
     assert os.path.exists(path)
 
-    path = os.path.join(tempfile.gettempdir(), "ks-sens-analysis-integral.png")
+    path = os.path.join(tempdir.name, "ks-sens-analysis-integral.png")
     analysis.plot(path, plot_integral=True, normalize=False)
     assert os.path.exists(path)
 
-    path = os.path.join(tempfile.gettempdir(), "ks-sens-analysis-avg-normalized.png")
+    path = os.path.join(tempdir.name, "ks-sens-analysis-avg-normalized.png")
     analysis.plot(path, plot_integral=False)
     assert os.path.exists(path)
 
-    path = os.path.join(tempfile.gettempdir(), "ks-sens-analysis-avg.png")
+    path = os.path.join(tempdir.name, "ks-sens-analysis-avg.png")
     analysis.plot(path, plot_integral=False, normalize=False)
     assert os.path.exists(path)
+
+    tempdir.cleanup()

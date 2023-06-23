@@ -280,6 +280,15 @@ class SparseTrainer(BaseTrainer):
         # NOTE: self.resume_training() was called in ^
 
         if rank in {0, -1}:
+            self.test_loader = self.get_dataloader(
+                self.testset,
+                batch_size=max(1, self.train_loader.batch_size // 4),
+                rank=-1,
+                mode="val",
+            )
+            self.validator = self.get_validator()
+
+        if rank in {0, -1}:
             config = dict(self.args)
             if self.manager is not None:
                 config["manager"] = str(self.manager)
@@ -546,7 +555,7 @@ class SparseYOLO(YOLO):
 
         if model_str.endswith(".pt"):
             if os.path.exists(model_str):
-                ckpt = torch.load(model_str)
+                ckpt = torch.load(model_str, map_location="cpu")
                 self.is_sparseml_checkpoint = (
                     "source" in ckpt and ckpt["source"] == "sparseml"
                 )

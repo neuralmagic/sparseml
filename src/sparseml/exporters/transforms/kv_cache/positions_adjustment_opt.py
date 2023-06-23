@@ -17,7 +17,7 @@ from onnx import ModelProto, NodeProto
 from sparseml.exporters.transforms.kv_cache.positions_adjustment_base import (
     PositionsAdjustmentBase,
 )
-from sparseml.onnx.utils import ONNXGraph, find_orphaned_nodes
+from sparseml.onnx.utils import ONNXGraph
 
 
 __all__ = ["PositionsAdjustmentOPT"]
@@ -121,8 +121,8 @@ class PositionsAdjustmentOPT(PositionsAdjustmentBase):
         graph.update()
         self.log_match(target_update_node)
 
-        nodes_to_delete = find_orphaned_nodes(
-            model, graph.get_node_by_output_id(old_positions_input)
+        nodes_to_delete = graph.find_orphaned_nodes(
+            graph.get_node_by_output_id(old_positions_input)
         )
         [self.log_match(node) for node in nodes_to_delete]
 

@@ -18,7 +18,7 @@ from sparseml.exporters.transforms.kv_cache.positions_adjustment_base import (
     PositionsAdjustmentBase,
 )
 from sparseml.exporters.transforms.utils.matching import get_structural_matches
-from sparseml.onnx.utils import ONNXGraph, find_orphaned_nodes
+from sparseml.onnx.utils import ONNXGraph
 
 
 __all__ = ["PositionsAdjustmentCodeGen"]
@@ -80,7 +80,7 @@ class PositionsAdjustmentCodeGen(PositionsAdjustmentBase):
             if input_name == output_to_replace:
                 graph.update_node_input(child_node, self.POSITIONS_NAME, idx)
 
-        orphaned_nodes = find_orphaned_nodes(model, node)
+        orphaned_nodes = graph.find_orphaned_nodes(node)
         [self.log_match(node) for node in orphaned_nodes]
         graph.delete_nodes(orphaned_nodes)
         graph.update()
