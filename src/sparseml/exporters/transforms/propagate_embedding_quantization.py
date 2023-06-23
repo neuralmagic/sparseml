@@ -15,6 +15,7 @@
 import logging
 
 import numpy
+import onnx.numpy_helper
 from onnx import ModelProto, numpy_helper
 
 from sparseml.exporters.transforms.onnx_transform import OnnxTransform
@@ -79,16 +80,19 @@ class PropagateEmbeddingQuantization(OnnxTransform):
                 ["Concat"],
             ],
         )
+
+        initializer_dict = {i.name: i for i in model.graph.initializer}
+
         for match in matches:
             (gather,) = match.parents[0]
             dequant = match.node
-            slice1, _, concat1 = match.children[0]
-            slice2, _, concat2 = match.children[1]
+            slice1, pad1, concat1 = match.children[0]
+            slice2, pad2, concat2 = match.children[1]
             (concat,) = match.children[2]
 
             # check for uint8 initializer
             indices = graph.get_init_by_name(gather.input[0])
-            if indices is None or numpy_helper.to_array(indices).dtype != numpy.uint8:
+            if indices is None or numpy_helper.to_array(indices).dtype not in [numpy.uint8, numpy.int8]:
                 continue
 
             # check that all concats are the same
@@ -97,10 +101,34 @@ class PropagateEmbeddingQuantization(OnnxTransform):
 
             self.log_match(match)
 
-            assert concat.input[2] == dequant.output[0]
-            concat.input[2] = gather.output[0]
+            for id, input_name in enumerate(concat.input):
+                if input_name == dequant.output[0]:
+                    break
+
+            concat.input[id] = gather.output[0]
             slice1.input[0] = gather.output[0]
             slice2.input[0] = gather.output[0]
+
+            zero_point_initializer = initializer_dict[match.node.input[2]]
+            zero_point = onnx.numpy_helper.to_array(zero_point_initializer)
+
+            pad1_value_initializer = initializer_dict[pad1.input[2]]
+            pad1_value = onnx.numpy_helper.to_array(pad1_value_initializer)
+            pad1_value = pad1_value.astype(zero_point.dtype) + zero_point
+            new_pad1_value_initializer = numpy_helper.from_array(
+                pad1_value, name=pad1_value_initializer.name
+            )
+            model.graph.initializer.remove(pad1_value_initializer)
+            model.graph.initializer.append(new_pad1_value_initializer)
+
+            pad2_value_initializer = initializer_dict[pad2.input[2]]
+            pad2_value = onnx.numpy_helper.to_array(pad2_value_initializer)
+            pad2_value = pad2_value.astype(zero_point.dtype) + zero_point
+            new_pad2_value_initializer = numpy_helper.from_array(
+                pad2_value, name=pad2_value_initializer.name
+            )
+            model.graph.initializer.remove(pad2_value_initializer)
+            model.graph.initializer.append(new_pad2_value_initializer)
 
             tmp = concat.output[0]
             concat.output[0] = dequant.output[0]
