@@ -62,6 +62,7 @@ _deepsparse_deps = [
 _deepsparse_ent_deps = [f"deepsparse-ent~={version_nm_deps}"]
 
 _onnxruntime_deps = ["onnxruntime>=1.0.0"]
+_clip_deps = ["open_clip_torch==2.20.0"]
 supported_torch_version = "torch>=1.7.0,<=2.0"
 _pytorch_deps = [
     supported_torch_version,
@@ -81,6 +82,7 @@ _transformers_deps = _pytorch_deps + [
     "datasets<=1.18.4",
     "scikit-learn",
     "seqeval",
+    "accelerate>=0.20.3",
 ]
 _yolov5_deps = _pytorch_vision_deps + [
     f"{'nm-yolov5' if is_release else 'nm-yolov5-nightly'}~={version_nm_deps}"
@@ -143,6 +145,7 @@ def _setup_install_requires() -> List:
 
 def _setup_extras() -> Dict:
     return {
+        "clip": _clip_deps,
         "dev": _dev_deps,
         "deepsparse": _deepsparse_deps,
         "deepsparse-ent": _deepsparse_ent_deps,

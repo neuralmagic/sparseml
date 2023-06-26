@@ -11,6 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import shutil
+
 import pytest
 
 from sparseml.pytorch.image_classification.utils.helpers import save_zoo_directory
@@ -41,3 +43,5 @@ def test_save_zoo_directory(stub, tmp_path_factory):
     )
     new_zoo_model = Model(str(save_dir))
     assert new_zoo_model.validate(minimal_validation=True, validate_onnxruntime=False)
+    shutil.rmtree(path_to_training_outputs)
+    shutil.rmtree(save_dir)
