@@ -62,6 +62,7 @@ _deepsparse_deps = [
 _deepsparse_ent_deps = [f"deepsparse-ent~={version_nm_deps}"]
 
 _onnxruntime_deps = ["onnxruntime>=1.0.0"]
+_clip_deps = ["open_clip_torch==2.20.0"]
 supported_torch_version = "torch>=1.7.0,<=2.0"
 _pytorch_deps = [
     supported_torch_version,
@@ -144,6 +145,7 @@ def _setup_install_requires() -> List:
 
 def _setup_extras() -> Dict:
     return {
+        "clip": _clip_deps,
         "dev": _dev_deps,
         "deepsparse": _deepsparse_deps,
         "deepsparse-ent": _deepsparse_ent_deps,
@@ -165,7 +167,6 @@ def _setup_entry_points() -> Dict:
     entry_points = {
         "console_scripts": [
             # sparsification
-            "sparseml.benchmark=sparseml.benchmark.info:_main",
             "sparseml.framework=sparseml.framework.info:_main",
             "sparseml.sparsification=sparseml.sparsification.info:_main",
         ]
