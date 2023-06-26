@@ -167,7 +167,6 @@ def _setup_entry_points() -> Dict:
     entry_points = {
         "console_scripts": [
             # sparsification
-            "sparseml.benchmark=sparseml.benchmark.info:_main",
             "sparseml.framework=sparseml.framework.info:_main",
             "sparseml.sparsification=sparseml.sparsification.info:_main",
         ]
