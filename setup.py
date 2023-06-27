@@ -36,7 +36,7 @@ _deps = [
     "ipywidgets>=7.0.0",
     "pyyaml>=5.0.0",
     "progressbar2>=3.0.0",
-    "numpy>=1.0.0,<=1.21.6",
+    "numpy>=1.0.0",
     "matplotlib>=3.0.0",
     "merge-args>=0.1.0",
     "onnx>=1.5.0,<1.15.0",
@@ -167,7 +167,6 @@ def _setup_entry_points() -> Dict:
     entry_points = {
         "console_scripts": [
             # sparsification
-            "sparseml.benchmark=sparseml.benchmark.info:_main",
             "sparseml.framework=sparseml.framework.info:_main",
             "sparseml.sparsification=sparseml.sparsification.info:_main",
         ]
