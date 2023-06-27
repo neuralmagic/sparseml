@@ -82,7 +82,16 @@ def onnx_model():
         name="g",
         inputs=[model_input],
         outputs=[model_output],
-        initializer=[scale, zero_point, starts, ends, embeddings, pads, padding1_value, padding2_value],
+        initializer=[
+            scale,
+            zero_point,
+            starts,
+            ends,
+            embeddings,
+            pads,
+            padding1_value,
+            padding2_value,
+        ],
     )
 
     model = onnx.helper.make_model(graph)
