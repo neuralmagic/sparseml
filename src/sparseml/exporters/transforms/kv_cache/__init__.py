@@ -19,4 +19,7 @@ Transforms for adding KV caching mechanism into language models
 # isort:skip_file
 
 from .cache_keys_and_values import *
-from .position_embeddings_adjustment import *
+from .positions_adjustment_base import *
+from .positions_adjustment_opt import *
+from .positions_adjustment_codegen import *
+from .configs import *
