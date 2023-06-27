@@ -32,7 +32,7 @@ def onnx_model():
         "output", onnx.TensorProto.FLOAT, (1,)
     )
     scale = onnx.helper.make_tensor("scale", onnx.TensorProto.FLOAT, (1,), [1.0])
-    zero_point = onnx.helper.make_tensor("zero point", onnx.TensorProto.INT8, (1,), [0.0])
+    zero_point = onnx.helper.make_tensor("zero_point", onnx.TensorProto.INT8, (1,), [0.0])
     starts = onnx.helper.make_tensor("starts", onnx.TensorProto.INT64, (1,), [0])
     ends = onnx.helper.make_tensor("ends", onnx.TensorProto.INT64, (1,), [1])
     pads = onnx.helper.make_tensor("pads", onnx.TensorProto.INT64, (1,), [1])
@@ -74,7 +74,7 @@ def onnx_model():
         name="g",
         inputs=[model_input],
         outputs=[model_output],
-        initializer=[scale, starts, ends, embeddings, pads],
+        initializer=[scale, zero_point, starts, ends, embeddings, pads],
     )
 
     model = onnx.helper.make_model(graph)
