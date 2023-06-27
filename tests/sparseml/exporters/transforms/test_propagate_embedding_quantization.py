@@ -32,10 +32,15 @@ def onnx_model():
         "output", onnx.TensorProto.FLOAT, (1,)
     )
     scale = onnx.helper.make_tensor("scale", onnx.TensorProto.FLOAT, (1,), [1.0])
-    zero_point = onnx.helper.make_tensor("zero_point", onnx.TensorProto.INT8, (1,), [0])
+    zero_point = onnx.helper.make_tensor(
+        "zero_point", onnx.TensorProto.UINT8, (1,), [128]
+    )
     starts = onnx.helper.make_tensor("starts", onnx.TensorProto.INT64, (1,), [0])
     ends = onnx.helper.make_tensor("ends", onnx.TensorProto.INT64, (1,), [1])
     pads = onnx.helper.make_tensor("pads", onnx.TensorProto.INT64, (1,), [1])
+    padding_value = onnx.helper.make_tensor(
+        "padding_value", onnx.TensorProto.FLOAT, (1,), [0.0]
+    )
     embeddings = onnx.helper.make_tensor(
         "embeddings", onnx.TensorProto.UINT8, (1,), [0]
     )
@@ -53,13 +58,13 @@ def onnx_model():
         "Slice", ["dequant_output", "starts", "ends"], ["slice1_output"], name="slice1"
     )
     pad1 = onnx.helper.make_node(
-        "Pad", ["slice1_output", "pads"], ["pad1_output"], name="pad1"
+        "Pad", ["slice1_output", "pads", "padding_value"], ["pad1_output"], name="pad1"
     )
     slice2 = onnx.helper.make_node(
         "Slice", ["dequant_output", "starts", "ends"], ["slice2_output"], name="slice2"
     )
     pad2 = onnx.helper.make_node(
-        "Pad", ["slice2_output", "pads"], ["pad2_output"], name="pad2"
+        "Pad", ["slice2_output", "pads", "padding_value"], ["pad2_output"], name="pad2"
     )
     concat = onnx.helper.make_node(
         "Concat",
@@ -74,7 +79,7 @@ def onnx_model():
         name="g",
         inputs=[model_input],
         outputs=[model_output],
-        initializer=[scale, zero_point, starts, ends, embeddings, pads],
+        initializer=[scale, zero_point, starts, ends, embeddings, pads, padding_value],
     )
 
     model = onnx.helper.make_model(graph)
