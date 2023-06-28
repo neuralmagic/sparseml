@@ -118,7 +118,7 @@ _dev_deps = [
     "flaky~=3.7.0",
     "sphinx-rtd-theme",
     "docutils<0.17",
-    "tensorboard>=1.0,<2.9",
+    "tensorboard>=1.0,<2.13",
     "tensorboardX>=1.0",
 ]
 
