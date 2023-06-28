@@ -48,6 +48,7 @@ from sparsezoo import Model
 from sparsezoo.utils import validate_onnx
 from ultralytics import __version__
 from ultralytics.nn.tasks import SegmentationModel, attempt_load_one_weight
+from ultralytics.nn.modules import Detect, Segment
 from ultralytics.yolo.cfg import get_cfg
 from ultralytics.yolo.data.dataloaders.v5loader import create_dataloader
 from ultralytics.yolo.engine.model import YOLO
@@ -712,6 +713,10 @@ class SparseYOLO(YOLO):
 
         name = args.get("name", f"{type(self.model).__name__}.onnx")
         save_dir = args["save_dir"]
+
+        for _, m in self.model.named_modules():
+            if isinstance(m, (Detect, Segment)):
+                m.export = True
 
         exporter = ModuleExporter(self.model, save_dir)
         if save_one_shot_torch:
