@@ -29,6 +29,7 @@ __all__ = ["CacheKeysAndValues"]
 
 _LOGGER = logging.getLogger(__name__)
 
+ALLOWED_NODES_BEFORE_SOFTMAX = ["Cast"]
 OUTPUT_CACHE_NAME = """present.{attention_layer_idx}.{cache_type}"""
 INPUT_CACHE_NAME = """past_key_values.{attention_layer_idx}.{cache_type}"""
 
@@ -45,26 +46,37 @@ class CacheKeysAndValues(OnnxTransform):
         to find the "key" MatMuls that perform Q x K^T operation.
     3.  Before each pair of "key" and "value" MatMuls, inject a cache node that
         concatenates the current keys/values with the cached keys/values.
-    4.  For the key cache, the concatenation happens before the Transpose node, that
-        precedes the "key" MatMul.
-    5.  For the value cache, the concatenation happens directly before the "value"
-        MatMul.
+    4.  For the key or value cache, if there is a Transpose node present before
+        the MatMul, the concatenation will be performed before the Transpose node
+    6. (Optional) To account for the variance in the operations in the vicinity
+        of the "key" and "value" MatMuls, the user can specify whether to additionally
+        inject a Reshape or Transpose node, so that the dimensions of the cache
+        inputs/outputs are compatible with the values they are concatenated with.
 
     This transform also sets the subset of kv cache inputs/outputs dimensions (
-    num_attention_heads and hidden_size_kv_cache ) to the appropriate static values.
+    num_attention_heads and hidden_size_kv_cache) to the appropriate static values.
 
     :param num_attention_heads: number of attention heads of the model
     :param hidden_size_kv_cache: hidden size of the key and value cache
-    :param internally_multiply_batch_by_num_attention_heads: every model created by
+    :param multiply_batch_by_num_att_heads: every model created by
         this transformation, will have kv_cache inputs/outputs that have dimensions:
-
         [`batch_size`,`num_attention_heads`,`past_sequence_len`,`hidden_size_kv_cache`]
 
         However, internally, there may be a need of reshaping the kv_cache
         inputs/outputs ("merging" the `batch_size` and `num_attention_heads`
-        dimensions) so that it is compatible with the attention layer.
-        If True, the batch size will be multiplied
-        by the number of attention heads just before the appropriate concatenation node.
+        dimensions) so that it is compatible with the values it is concatenated with.
+        If True, the batch size will be multiplied by the number of attention
+        heads just before the appropriate concatenation node (as reflected by
+        the "Reshape" nodes in the diagram below).
+    :param transpose_value_input: if not None, transpose the kv cache value
+        input before the "value" MatMul. The argument needs to be a tuple of
+        4 integers that represent the permutation of the input dimensions.
+        This will insert a Transpose node before the "value" MatMul. If
+        multiply_batch_by_num_att_heads is True, the Transpose node will be
+        inserted before the Reshape node.
+    :param transpose_key_input: works analogously to transpose_value_input,
+        but for the key input.
+
 
     Transforms
     ```
@@ -81,7 +93,7 @@ class CacheKeysAndValues(OnnxTransform):
     |        |      |
     |     Softmax  |
     |        |    |
-    |       ...  |
+    |       ...  ...
     |        |  |
     |         |
     |   "value" MatMul
@@ -92,26 +104,40 @@ class CacheKeysAndValues(OnnxTransform):
 
     ```
     |
-    | KeyCache  Key
-    |    |      |
-    | Reshape   |
-    |(optional)|
+    | KeyCache
+    |    |
+    | Transpose
+    |(optional)
+    |    |
+    |    |         Key
+    | Reshape      |
+    |(optional)   |
+    |    |       |
+    |     |    |
     |      | |
-    |       |
+    |      |
     |   Concat ------------> OutputKeyCache
     |      |
-    |      |    Query
-    |  Transpose |      ValueCache
-    |      |    | Value     |
-    |       | |     |    Reshape
-    |        |      |  (optional)
-    |        |       |  |
-    |   "key" MatMul  |
-    |        |       |
+    |      |     Query
+    |     ...      |
+    |      |      |
+    |      |      |
+    |      |      |       ValueCache
+    |      |      |          |
+    |      |      |      Transpose
+    |      |      |      (optional)
+    |      |     |          |
+    |      |    |        Reshape
+    |      |   |         (optional)
+    |       |  |    Value  |
+    |       | |       |   |
+    |        |        |  |
+    |   "key" MatMul  | |
+    |        |        |
     |       ...   Concat --> OutputValueCache
     |        |      |
     |     Softmax  |
-    |        |    |
+    |        |   ...
     |       ...  |
     |        |  |
     |         |
@@ -126,14 +152,16 @@ class CacheKeysAndValues(OnnxTransform):
         self,
         num_attention_heads: int,
         hidden_size_kv_cache: int,
-        internally_multiply_batch_by_num_attention_heads: bool = True,
+        multiply_batch_by_num_att_heads: bool,
+        transpose_value_input: Optional[Tuple[int, int, int, int]] = None,
+        transpose_key_input: Optional[Tuple[int, int, int, int]] = None,
     ):
         super().__init__()
         self.num_attention_heads = num_attention_heads
         self.hidden_size_kv_cache = hidden_size_kv_cache
-        self.internally_multiply_batch_by_num_attention_heads = (
-            internally_multiply_batch_by_num_attention_heads
-        )
+        self.multiply_batch_by_num_att_heads = multiply_batch_by_num_att_heads
+        self.transpose_value_input = transpose_value_input
+        self.transpose_key_input = transpose_key_input
 
     def transform(self, model: ModelProto) -> ModelProto:
         graph = ONNXGraph(model)
@@ -165,7 +193,8 @@ class CacheKeysAndValues(OnnxTransform):
                 use_uint8_if_quantized=use_uint8_if_quantized,
                 num_attention_heads=self.num_attention_heads,
                 hidden_size_kv_cache=self.hidden_size_kv_cache,
-                multiply_batch_by_num_attention_heads=self.internally_multiply_batch_by_num_attention_heads,  # noqa E501
+                transpose_input=self.transpose_key_input,
+                multiply_batch_by_num_att_heads=self.multiply_batch_by_num_att_heads,  # noqa E501
             )
             value_concat_node, value_input_tensor, value_output_tensor = create_cache(
                 model=model,
@@ -180,7 +209,8 @@ class CacheKeysAndValues(OnnxTransform):
                 use_uint8_if_quantized=use_uint8_if_quantized,
                 num_attention_heads=self.num_attention_heads,
                 hidden_size_kv_cache=self.hidden_size_kv_cache,
-                multiply_batch_by_num_attention_heads=self.internally_multiply_batch_by_num_attention_heads,  # noqa E501
+                transpose_input=self.transpose_value_input,
+                multiply_batch_by_num_att_heads=self.multiply_batch_by_num_att_heads,  # noqa E501
             )
 
             inputs_to_add.extend([key_input_tensor, value_input_tensor])
@@ -208,7 +238,8 @@ def create_cache(
     hidden_size_kv_cache: int,
     use_uint8_if_quantized: bool = True,
     batch_size: int = 1,
-    multiply_batch_by_num_attention_heads: bool = True,
+    multiply_batch_by_num_att_heads: bool = True,
+    transpose_input: Optional[Tuple[int, int, int, int]] = None,
 ) -> Tuple[NodeProto, ValueInfoProto, ValueInfoProto]:
     """
     Injects a cache (value or key) into the graph for a given Matmul node.
@@ -224,9 +255,13 @@ def create_cache(
     :param use_uint8_if_quantized: True if quantized MatMuls should have uint8
         inputs, if False, uses int8
     :param batch_size: batch size of the kv cache. By default, this is 1.
-    :param multiply_batch_by_num_attention_heads: If True, the batch size of the
+    :param multiply_batch_by_num_att_heads: If True, the batch size of the
         kv cache is multiplied by the number of attention heads before the
         concat node.
+    :param transpose_input: If not None, transpose the input to the cache
+        before the concat node. If `multiply_batch_by_num_att_heads` is True,
+        the transpose is applied after the batch size is multiplied by the
+        number of attention heads.
     :return: tuple of concat node to add, cache input to add, and cache output to add,
         updates existing nodes in-place
     """
@@ -284,7 +319,21 @@ def create_cache(
     cache_output_name_concat = cache_output_name
     cache_input_dims_concat = CACHE_INPUT_DIMS
 
-    if multiply_batch_by_num_attention_heads:
+    if transpose_input:
+        (
+            graph,
+            cache_input_dims_concat,
+            cache_input_name_concat,
+            cache_output_name_concat,
+        ) = transpose_kv_cache_inputs_outputs(
+            graph=graph,
+            cache_input_name=cache_input_name_concat,
+            cache_output_name=cache_output_name_concat,
+            cache_input_dims=cache_input_dims_concat,
+            transpose_input=transpose_input,
+        )
+
+    if multiply_batch_by_num_att_heads:
         (
             model,
             cache_input_dims_concat,
@@ -432,6 +481,76 @@ def reshape_kv_cache_inputs_outputs(
     )
 
 
+def transpose_kv_cache_inputs_outputs(
+    graph: ONNXGraph,
+    cache_input_name: str,
+    cache_output_name: str,
+    cache_input_dims: List[Union[int, str]],
+    transpose_input: Tuple[int, int, int, int],
+) -> Tuple[ModelProto, List[Union[int, str]], str, str]:
+    """
+    Transposes the input and output of a kv cache in the model
+    according to the transpose_input sequence
+
+    Transform:
+    ```
+    |      cache_input_name
+    |            |
+    |           ...
+    |            |
+    |      cache_output_name
+    ```
+    to:
+    ```
+    |      cache_input_name
+    |            |
+    |      cache_input_name_transposed
+    |            |
+    |           ...
+    |            |
+    |      cache_output_name_transposed
+    |            |
+    |      cache_output_name
+
+    :param graph: The graph to update
+    :param cache_input_name: The name of the input to the submodel
+    :param cache_output_name: The name of the output from the submodel
+    :param transpose_input: The permutation of the input dimensions
+    :param cache_input_dims: The dimensions of the input to the submodel
+    :return: The updated model, the updated input dimensions,
+        the updated input name, and the updated output name
+    """
+
+    cache_input_name_transposed = f"{cache_input_name}_transposed"
+    cache_output_name_transposed = f"{cache_output_name}_transposed"
+
+    transpose_node_in = onnx.helper.make_node(
+        op_type="Transpose",
+        inputs=[cache_input_name],
+        outputs=[cache_input_name_transposed],
+        name=f"transpose.{cache_input_name}",
+        perm=transpose_input,
+    )
+    transpose_node_out = onnx.helper.make_node(
+        op_type="Transpose",
+        inputs=[cache_output_name_transposed],
+        outputs=[cache_output_name],
+        name=f"transpose.{cache_output_name}",
+        perm=transpose_input,
+    )
+    transposed_input_dims = [cache_input_dims[i] for i in transpose_input]
+
+    graph.add_node(transpose_node_in)
+    graph.add_node(transpose_node_out)
+
+    return (
+        graph,
+        transposed_input_dims,
+        cache_input_name_transposed,
+        cache_output_name_transposed,
+    )
+
+
 def _find_key_value_matmul_pairs(
     graph: ONNXGraph,
 ) -> List[Tuple[NodeProto, NodeProto]]:
@@ -443,7 +562,7 @@ def _find_key_value_matmul_pairs(
     #   [(key_matmul_0, value_matmul_0), (key_matmul_1, value_matmul_1), ...]
 
     key_value_matmul_pairs = []
-    value_matmuls = [node for node in graph.nodes if _is_value_matmul(node, graph)]
+    value_matmuls = [node for node in graph.nodes if is_value_matmul(node, graph)]
     value_matmul_names = {node.name for node in value_matmuls}
 
     # for every value matmul, find the corresponding key matmul
@@ -461,22 +580,52 @@ def _find_key_value_matmul_pairs(
     return key_value_matmul_pairs
 
 
-def _is_value_matmul(node: NodeProto, graph: ONNXGraph) -> bool:
-    # A valid value MatMul needs to meet the following criteria:
-    #   - is_matmul(node) is True
-    #   - have no parameters
-    #   - have a single parent node: a Softmax
+def is_value_matmul(
+    node: NodeProto,
+    graph: ONNXGraph,
+    allowed_nodes_before_softmax: Set[str] = ALLOWED_NODES_BEFORE_SOFTMAX,
+) -> bool:
+    """
+    Returns True if the node is a "value" MatMul, i.e. a MatMul that meets
+    the following criteria:
+        -   is_matmul(node) is True
+        -   node has no parameters
+        -   node has a single `Softmax` parent node
+                or
+            the parent node `Softmax` is preceded by
+            a set of nodes that are specified in the
+            `allowed_nodes_before_softmax` set
+
+    :param node: node to check
+    :param graph: graph containing the node
+    :param allowed_nodes_before_softmax: set of node types that are allowed
+        to be located between the node in question a Softmax node, so that
+        the node can still be considered a "value" MatMul
+    """
 
     if not is_matmul(node) or _is_parameterized_matmul(node, graph):
         # not a matmul or MatMul op has a parameter
         return False
 
-    for parent in graph.get_node_parents(node):
+    parent = graph.get_node_single_parent(node, index=0)
+    while parent.op_type in allowed_nodes_before_softmax:
         if not isinstance(parent, NodeProto):
-            continue
-        if parent.op_type == "Softmax":
-            # a parent is a Softmax node, assume this is a "value" MatMul
-            return True
+            break
+        parent = graph.get_node_single_parent(parent, index=0)
+        if parent is None:
+            raise ValueError(
+                "While traversing the graph to find a Softmax that precedes "
+                f"the candidate for a `value` MatMul: {node.name}, found a node "
+                f"with multiple parents {parent.name}. "
+                "It is assumed that the graph that connects the Softmax "
+                "node and the `value` MatMul node is a linear chain of nodes "
+                "and thus none of the encountered nodes should have multiple "
+                "parents"
+            )
+
+    if parent.op_type == "Softmax":
+        # a parent is a Softmax node, assume this is a "value" MatMul
+        return True
 
     # no parents are a softmax node
     return False

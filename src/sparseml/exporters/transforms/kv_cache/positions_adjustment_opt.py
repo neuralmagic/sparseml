@@ -12,22 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from copy import deepcopy
-
 from onnx import ModelProto, NodeProto
 
-from sparseml.exporters.transforms.onnx_transform import OnnxTransform
+from sparseml.exporters.transforms.kv_cache.positions_adjustment_base import (
+    PositionsAdjustmentBase,
+)
 from sparseml.onnx.utils import ONNXGraph
 
 
-__all__ = ["PositionEmbeddingsAdjustment"]
+__all__ = ["PositionsAdjustmentOPT"]
 
 
 # name position embeddings weights
 _EMBED_POSITIONS_ID = "model.decoder.embed_positions.weight"
 
 
-class PositionEmbeddingsAdjustment(OnnxTransform):
+class PositionsAdjustmentOPT(PositionsAdjustmentBase):
     """
     Base class for model architecture specific transforms to adjust graph
     to take input_id positions as an argument rather than computing them
@@ -69,38 +69,12 @@ class PositionEmbeddingsAdjustment(OnnxTransform):
 
     """
 
-    POSITIONS_NAME = "positions"  # matches intermediate var name in torch
-
     def transform(self, model: ModelProto) -> ModelProto:
         model = self.add_positions_input(model)
         position_embeddings_node = self.find_embed_positions_gather_node(model)
         model = self._update_position_embeddings_for_graph_input(
             model, position_embeddings_node
         )
-        return model
-
-    @classmethod
-    def add_positions_input(cls, model: ModelProto) -> ModelProto:
-        """
-        Adds positions as an input to the model
-
-        :param model: model to update
-        :return: updated model
-        """
-        # positions tensor should have shape equal to input_ids
-        input_ids_info = [
-            input_info
-            for input_info in model.graph.input
-            if input_info.name == "input_ids"
-        ][0]
-        if not input_ids_info:
-            raise RuntimeError(
-                f"{cls.__name__} - unable to find 'input_ids' in model input"
-            )
-
-        positions_input_info = deepcopy(input_ids_info)
-        positions_input_info.name = cls.POSITIONS_NAME
-        model.graph.input.append(positions_input_info)
         return model
 
     @classmethod
@@ -147,30 +121,10 @@ class PositionEmbeddingsAdjustment(OnnxTransform):
         graph.update()
         self.log_match(target_update_node)
 
-        # traverse graph upwards to delete any nodes that are now orphaned
-        nodes_to_delete = []
-        # start queue with previous positions input node
-        queue = [graph.get_node_by_output_id(old_positions_input)]
-        seen_node_names = {queue[0].name}
-        while queue:
-            current_node = queue.pop(0)
-            if not isinstance(current_node, NodeProto):
-                continue
-
-            node_children = graph.get_node_children(current_node)
-            if any(child not in nodes_to_delete for child in node_children):
-                # node has a child that is not on the orphaned branch
-                # do not remove and do not traverse further
-                continue
-            else:
-                nodes_to_delete.append(current_node)
-                self.log_match(current_node)
-                for parent in graph.get_node_parents(current_node):
-                    if isinstance(parent, NodeProto) and (
-                        parent.name not in seen_node_names
-                    ):
-                        seen_node_names.add(parent.name)
-                        queue.append(parent)
+        nodes_to_delete = graph.find_orphaned_nodes(
+            graph.get_node_by_output_id(old_positions_input)
+        )
+        [self.log_match(node) for node in nodes_to_delete]
 
         graph.delete_nodes(nodes_to_delete)
         graph.update()

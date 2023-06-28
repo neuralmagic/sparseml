@@ -12,25 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
 import logging
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import onnx
 
 from sparseml.exporters.base_exporter import BaseExporter
+from sparseml.exporters.transforms import OnnxTransform
 from sparseml.exporters.transforms.kv_cache import (
     CacheKeysAndValues,
-    PositionEmbeddingsAdjustment,
+    KeyValueCacheConfig,
+    get_kv_cache_config,
 )
 from sparsezoo.utils import save_onnx
 
 
 _LOGGER = logging.getLogger(__name__)
-
-_SUPPORTED_ARCHITECTURES = ["opt"]
 
 
 class KeyValueCacheInjector(BaseExporter):
@@ -42,31 +41,43 @@ class KeyValueCacheInjector(BaseExporter):
     ):
         """
         A transformation that injects Key Value cache support into the model.
-        This means that the autoregressive model takes as an input / returns
-        as an output a cache of key value pairs that are used to speed up the
-        autoregressive generation process (reduce the compute of key/value pairs
-        by storing the results of previous computations in memory).
+        This means that the
+        - autoregressive model that
+            * takes input_ids and attention_mask as INPUT
+            * returns logits as OUTPUT
+        - is transformed into a model that
+            * takes input_ids, attention_mask, and kv_cache as INPUT
+            * returns logits and updated kv_cache as OUTPUT
 
-        The exporter will look for a `config.json` file in the `model_path` directory
-        to determine the values:
-        - num_attention_heads
-        - hidden_size_kv_cache
-        required to enforce static dimensions of the kv cache input/output.
-        If `model_path` is not provided, the two aforementioned values must
-        be provided in the `kwargs`.
+        The goal of the KV cache injection is speed up the autoregressive
+        generation process (reduce the compute of key/value pairs by storing
+        the results of previous computations in memory).
 
-        This transformation not only injects the cache support, but also adjusts
-        the model to account for the cache support. This means altering the input
-        to the model, such as altering the positions to account for the injected
-        key/value pairs.
+        The exporter will look for a `config.json` file in the `model_path`
+        directory to determine the parameters for KV cache injection.
+        If `model_path` is not provided, the requested parameters can be
+        provided in the `kwargs`.
+
+        This transformation not only solely injects the kv cache
+        inputs/outputs, but also adjusts the original ONNX graph to
+        account for the necessary changes. This involves e.g. adding
+        the 'position' input to the model, so that the positional
+        embeddings of the new model are compatible with the past kv
+        cache information.
 
         Usage:
         ```python
         onnx_model: onnx.ModelProto = ...
         exporter = KeyValueCacheInjector(model_path="path/to/model")
-        # alternatively
-        # exporter = KeyValueCacheInjector(num_attention_heads = 16,
-        #                                  hidden_size_dim = 64)
+        exporter.export(onnx_model, "model.onnx")
+        ```
+
+        Alternatively:
+        ```python
+        onnx_model: onnx.ModelProto = ...
+        exporter = KeyValueCacheInjector(model_path="path/to/model")
+        exporter = KeyValueCacheInjector(num_attention_heads = 16,
+                                         hidden_size_dim = 64)
         exporter.export(onnx_model, "model.onnx")
         ```
 
@@ -80,63 +91,26 @@ class KeyValueCacheInjector(BaseExporter):
         :param model_path: The path to the directory containing the model.
         :param inplace: If True, the model will be modified in place.
             If False, a copy of the model will be made and modified.
+        :param kwargs: (Optionally) the parameters for the KV cache injection
+            if no `model_path` is provided.
         """
         self.inplace = inplace
-        if model_path:
-            self.config = self.get_config(model_path)
-            if not self.config["model_type"] in _SUPPORTED_ARCHITECTURES:
-                raise ValueError(
-                    f"Model type {self.config.model_type} is currently not supported. "
-                    f"Supported model types: {_SUPPORTED_ARCHITECTURES}."
-                    f"Proceeding with transformation, but may require additional "
-                    f"customization..."
-                )
 
-            num_attention_heads = self.config["num_attention_heads"]
-            hidden_size_kv_cache = self.config["hidden_size"] // num_attention_heads
+        config = get_kv_cache_config(model_path)
+
+        if config is not None:
+            transforms = self._get_transforms_from_config(config)
+
         elif kwargs:
-            num_attention_heads = kwargs.get("num_attention_heads")
-            hidden_size_kv_cache = kwargs.get("hidden_size_kv_cache")
+            transforms = self._get_transforms_from_kwargs(kwargs)
+
         else:
             raise ValueError(
-                "Either `model_path` or `kwargs` must be provided to the "
-                "KeyValueCacheInjector."
+                "Either `model_path` or kwargs must be provided to "
+                "KeyValueCacheInjector"
             )
-
-        transforms = [
-            CacheKeysAndValues(
-                num_attention_heads=num_attention_heads,
-                hidden_size_kv_cache=hidden_size_kv_cache,
-            ),
-            PositionEmbeddingsAdjustment(),
-        ]
 
         super().__init__(transforms)
-
-    def get_config(self, model_path: Union[str, Path]) -> Dict[str, Any]:
-        """
-        From the model path, get the config.json file and return it as a dict.
-
-        :param model_path: The path to the directory containing the model.
-        :return: The config.json file as a dict.
-        """
-        model_path = Path(model_path) if isinstance(model_path, str) else model_path
-
-        if not model_path.is_dir():
-            raise ValueError(
-                f"`model_path` is expected to be a directory, found {model_path}"
-            )
-        config_file = [
-            file for file in model_path.iterdir() if file.name == "config.json"
-        ]
-        config_file = config_file[0]
-
-        _LOGGER.info(f"Found config file {config_file}")
-
-        with open(config_file) as f:
-            config = json.load(f)
-
-        return config
 
     def pre_validate(self, model: Union[onnx.ModelProto, str, Path]) -> onnx.ModelProto:
         if isinstance(model, (str, Path)):
@@ -154,3 +128,36 @@ class KeyValueCacheInjector(BaseExporter):
     def export(self, pre_transforms_model: onnx.ModelProto, file_path: str):
         post_transforms_model: onnx.ModelProto = self.apply(pre_transforms_model)
         save_onnx(post_transforms_model, file_path)
+
+    @staticmethod
+    def _get_transforms_from_config(config: KeyValueCacheConfig) -> List[OnnxTransform]:
+        positions_adjustment = config.positions_adjustment_transform
+
+        transforms = [
+            CacheKeysAndValues(
+                num_attention_heads=config.num_attention_heads,
+                hidden_size_kv_cache=config.hidden_size_kv_cache,
+                multiply_batch_by_num_att_heads=config.multiply_batch_by_num_att_heads,
+                transpose_value_input=config.transpose_value_input,
+                transpose_key_input=config.transpose_key_input,
+            )
+        ]
+        if positions_adjustment is not None:
+            transforms += [positions_adjustment()]
+
+        return transforms
+
+    @staticmethod
+    def _get_transforms_from_kwargs(kwargs: Dict[str, Any]) -> List[OnnxTransform]:
+        transforms = [
+            CacheKeysAndValues(
+                num_attention_heads=kwargs.get("num_attention_heads"),
+                hidden_size_kv_cache=kwargs.get("hidden_size_kv_cache"),
+                multiply_batch_by_num_att_heads=kwargs.get(
+                    "multiply_batch_by_num_att_heads", False
+                ),
+                transpose_value_input=kwargs.get("transpose_value_input", None),
+                transpose_key_input=kwargs.get("transpose_key_input", None),
+            )
+        ]
+        return transforms
