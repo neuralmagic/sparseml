@@ -134,11 +134,11 @@ class SparseValidator(BaseValidator):
             # loss
             with dt[2]:
                 if not hasattr(self, "loss"):
-                    self.loss = trainer.criterion(
+                    self.loss = model.loss(
                         preds if self.training else preds[1], batch
                     )[1]
                 else:
-                    self.loss += trainer.criterion(
+                    self.loss += model.loss(
                         preds if self.training else preds[1], batch
                     )[1]
 

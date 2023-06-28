@@ -51,7 +51,7 @@ from ultralytics.nn.modules import Detect, Segment
 from ultralytics.nn.tasks import SegmentationModel, attempt_load_one_weight
 from ultralytics.yolo.cfg import get_cfg
 from ultralytics.yolo.data.dataloaders.v5loader import create_dataloader
-from ultralytics.yolo.engine.model import YOLO
+from ultralytics.yolo.engine.model import YOLO, TASK_MAP
 from ultralytics.yolo.engine.trainer import BaseTrainer
 from ultralytics.yolo.utils import LOGGER, IterableSimpleNamespace, yaml_load
 from ultralytics.yolo.utils.checks import check_file, check_imgsz, check_yaml
@@ -65,7 +65,6 @@ from ultralytics.yolo.utils.torch_utils import de_parallel, smart_inference_mode
 from ultralytics.yolo.v8.classify import ClassificationTrainer, ClassificationValidator
 from ultralytics.yolo.v8.detect import DetectionTrainer, DetectionValidator
 from ultralytics.yolo.v8.segment import SegmentationTrainer, SegmentationValidator
-
 
 class _NullLRScheduler:
     def step(self):
@@ -159,11 +158,11 @@ class SparseTrainer(BaseTrainer):
             try:
                 subprocess.run(command)
             except Exception as e:
-                self.console(e)
+                raise e
             finally:
                 ddp_cleanup(command, self)
         else:
-            self._do_train(int(os.getenv("RANK", -1)), world_size)
+            self._do_train(world_size)
 
     def setup_model(self):
         # NOTE: override to handle pickled checkpoints and our own checkpoints
@@ -276,8 +275,9 @@ class SparseTrainer(BaseTrainer):
                 self.ema.enabled = False
             self.ema.updates = ckpt["updates"]
 
-    def _setup_train(self, rank, world_size):
-        super()._setup_train(rank, world_size)
+    def _setup_train(self, world_size):
+        rank = int(os.getenv("RANK", -1))
+        super()._setup_train(world_size)
         # NOTE: self.resume_training() was called in ^
 
         if rank in {0, -1}:
@@ -340,7 +340,7 @@ class SparseTrainer(BaseTrainer):
                 loggers=self.logger_manager,
                 grad_sampler={
                     "data_loader_builder": self._get_data_loader_builder(),
-                    "loss_function": lambda preds, batch: self.criterion(preds, batch)[
+                    "loss_function": lambda preds, batch: self.model.loss(preds, batch)[
                         0
                     ]
                     / self.train_loader.batch_size,
@@ -350,8 +350,9 @@ class SparseTrainer(BaseTrainer):
             # initialize steps_per_epoch for logging when there's no recipe
             self.steps_per_epoch = len(self.train_loader)
 
-    def _setup_ddp(self, rank, world_size):
+    def _setup_ddp(self, world_size):
         # increases the timeout for DDP processes
+        rank = int(os.getenv("RANK", -1))
         torch.cuda.set_device(rank)
         self.device = torch.device("cuda", rank)
         LOGGER.info(
@@ -519,7 +520,6 @@ class SparseDetectionTrainer(SparseTrainer, DetectionTrainer):
         return SparseDetectionValidator(
             self.test_loader,
             save_dir=self.save_dir,
-            logger=self.console,
             args=copy(self.args),
         )
 
@@ -528,7 +528,7 @@ class SparseClassificationTrainer(SparseTrainer, ClassificationTrainer):
     def get_validator(self):
         self.loss_names = ["loss"]
         return SparseClassificationValidator(
-            self.test_loader, self.save_dir, logger=self.console
+            self.test_loader, self.save_dir
         )
 
 
@@ -538,13 +538,13 @@ class SparseSegmentationTrainer(SparseTrainer, SegmentationTrainer):
         return SparseSegmentationValidator(
             self.test_loader,
             save_dir=self.save_dir,
-            logger=self.console,
             args=copy(self.args),
         )
 
 
 class SparseYOLO(YOLO):
-    def __init__(self, model="yolov8n.yaml", type="v8") -> None:
+    # TODO: Remove this input type
+    def __init__(self, model="yolov8n.yaml", task="detect") -> None:
         model_str = str(model)
 
         if model_str.startswith("zoo:"):
@@ -565,7 +565,14 @@ class SparseYOLO(YOLO):
         else:
             self.is_sparseml_checkpoint = False
 
-        super().__init__(model, type)
+        # This now sets self.overrides['model'] = model config
+        # Sets self.model.args, self.model.task
+        super().__init__(model, task)
+
+        self.ModelClass = TASK_MAP[self.task][0]
+        self.TrainerClass = TASK_MAP[self.task][1]
+        self.ValidatorClass = TASK_MAP[self.task][2]
+        self.PredictorClass = TASK_MAP[self.task][3]
 
         if self.TrainerClass == DetectionTrainer:
             self.TrainerClass = SparseDetectionTrainer
@@ -580,8 +587,10 @@ class SparseYOLO(YOLO):
             self.ValidatorClass = SparseClassificationValidator
         elif self.ValidatorClass == SegmentationValidator:
             self.ValidatorClass = SparseSegmentationValidator
-
+        
+        
     def _load(self, weights: str):
+        print("IN _LOAD")
         if self.is_sparseml_checkpoint:
             """
             NOTE: the model is given to the trainer class with this snippet
@@ -822,6 +831,7 @@ class SparseYOLO(YOLO):
         if overrides.get("resume"):
             overrides["resume"] = self.ckpt_path
 
+        overrides["nbs"] = int(overrides["nbs"])
         self.trainer = self.TrainerClass(overrides=overrides)
         if not overrides.get("resume"):  # manually set model only if not resuming
             self.trainer.model = self.trainer.get_model(

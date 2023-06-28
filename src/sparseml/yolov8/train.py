@@ -221,6 +221,9 @@ def main(**kwargs):
         kwargs["data"] = data_from_dataset_path(kwargs["data"], kwargs["dataset_path"])
     del kwargs["dataset_path"]
 
+    # Now we can pass in the task and checks if taks passed or tries to guess
+    # what the task was based on the yaml --> need a check to make sure they work 
+    # together? Or let the user know. Can just not provide an input
     model = SparseYOLO(kwargs["model"])
     model.train(**kwargs)
 
