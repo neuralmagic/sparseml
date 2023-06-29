@@ -283,6 +283,7 @@ class SparseTrainer(BaseTrainer):
 
     def _setup_train(self, world_size):
         rank = int(os.getenv("RANK", -1))
+
         super()._setup_train(world_size)
         # NOTE: self.resume_training() was called in ^
 
@@ -346,7 +347,7 @@ class SparseTrainer(BaseTrainer):
                 loggers=self.logger_manager,
                 grad_sampler={
                     "data_loader_builder": self._get_data_loader_builder(),
-                    "loss_function": lambda preds, batch: self.model.loss(preds, batch)[
+                    "loss_function": lambda preds, batch: self.model.loss(batch, preds)[
                         0
                     ]
                     / self.train_loader.batch_size,
@@ -593,7 +594,6 @@ class SparseYOLO(YOLO):
             self.ValidatorClass = SparseSegmentationValidator
 
     def _load(self, weights: str):
-        print("IN _LOAD")
         if self.is_sparseml_checkpoint:
             """
             NOTE: the model is given to the trainer class with this snippet
