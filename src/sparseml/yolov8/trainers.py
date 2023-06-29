@@ -47,8 +47,8 @@ from sparseml.yolov8.validators import (
 from sparsezoo import Model
 from sparsezoo.utils import validate_onnx
 from ultralytics import __version__
-from ultralytics.nn.tasks import SegmentationModel, attempt_load_one_weight
 from ultralytics.nn.modules import Detect, Segment
+from ultralytics.nn.tasks import SegmentationModel, attempt_load_one_weight
 from ultralytics.yolo.cfg import get_cfg
 from ultralytics.yolo.data.dataloaders.v5loader import create_dataloader
 from ultralytics.yolo.engine.model import YOLO
