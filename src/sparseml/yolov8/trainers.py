@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -51,7 +52,7 @@ from ultralytics.nn.modules import Detect, Segment
 from ultralytics.nn.tasks import SegmentationModel, attempt_load_one_weight
 from ultralytics.yolo.cfg import get_cfg
 from ultralytics.yolo.data.dataloaders.v5loader import create_dataloader
-from ultralytics.yolo.engine.model import YOLO, TASK_MAP
+from ultralytics.yolo.engine.model import TASK_MAP, YOLO
 from ultralytics.yolo.engine.trainer import BaseTrainer
 from ultralytics.yolo.utils import LOGGER, IterableSimpleNamespace, yaml_load
 from ultralytics.yolo.utils.checks import check_file, check_imgsz, check_yaml
@@ -61,10 +62,15 @@ from ultralytics.yolo.utils.dist import (
     find_free_network_port,
 )
 from ultralytics.yolo.utils.files import get_latest_run
-from ultralytics.yolo.utils.torch_utils import de_parallel, smart_inference_mode
+from ultralytics.yolo.utils.torch_utils import (
+    TORCH_1_9,
+    de_parallel,
+    smart_inference_mode,
+)
 from ultralytics.yolo.v8.classify import ClassificationTrainer, ClassificationValidator
 from ultralytics.yolo.v8.detect import DetectionTrainer, DetectionValidator
 from ultralytics.yolo.v8.segment import SegmentationTrainer, SegmentationValidator
+
 
 class _NullLRScheduler:
     def step(self):
@@ -154,13 +160,13 @@ class SparseTrainer(BaseTrainer):
         # NOTE: overriden to use our version of `generate_ddp_command`
         world_size = torch.cuda.device_count()
         if world_size > 1 and "LOCAL_RANK" not in os.environ:
-            command = generate_ddp_command(world_size, self)
+            command, file = generate_ddp_command(world_size, self)
             try:
-                subprocess.run(command)
+                subprocess.run(command, check=True)
             except Exception as e:
                 raise e
             finally:
-                ddp_cleanup(command, self)
+                ddp_cleanup(command, str(file))
         else:
             self._do_train(world_size)
 
@@ -527,9 +533,7 @@ class SparseDetectionTrainer(SparseTrainer, DetectionTrainer):
 class SparseClassificationTrainer(SparseTrainer, ClassificationTrainer):
     def get_validator(self):
         self.loss_names = ["loss"]
-        return SparseClassificationValidator(
-            self.test_loader, self.save_dir
-        )
+        return SparseClassificationValidator(self.test_loader, self.save_dir)
 
 
 class SparseSegmentationTrainer(SparseTrainer, SegmentationTrainer):
@@ -587,8 +591,7 @@ class SparseYOLO(YOLO):
             self.ValidatorClass = SparseClassificationValidator
         elif self.ValidatorClass == SegmentationValidator:
             self.ValidatorClass = SparseSegmentationValidator
-        
-        
+
     def _load(self, weights: str):
         print("IN _LOAD")
         if self.is_sparseml_checkpoint:
@@ -867,29 +870,36 @@ class SparseYOLO(YOLO):
 
 def generate_ddp_command(world_size, trainer):
     # NOTE: copied from ultralytics.yolo.utils.dist.generate_ddp_command
+    """Generates and returns command for distributed training."""
     import __main__  # noqa local import to avoid https://github.com/Lightning-AI/lightning/issues/15218
 
-    file_name = os.path.abspath(sys.argv[0])
-    using_cli = not file_name.endswith(".py")
-    if using_cli:
-        file_name = generate_ddp_file(trainer)
-    return [
+    if not trainer.resume:
+        shutil.rmtree(trainer.save_dir)  # remove the save_dir
+    file = str(Path(sys.argv[0]).resolve())
+    safe_pattern = re.compile(
+        r"^[a-zA-Z0-9_. /\\-]{1,128}$"
+    )  # allowed characters and maximum of 100 characters
+    if not (
+        safe_pattern.match(file) and Path(file).exists() and file.endswith(".py")
+    ):  # using CLI
+        file = generate_ddp_file(trainer)
+    dist_cmd = "torch.distributed.run" if TORCH_1_9 else "torch.distributed.launch"
+    port = find_free_network_port()
+    cmd = [
         sys.executable,
         "-m",
-        "torch.distributed.run",
+        dist_cmd,
         "--nproc_per_node",
         f"{world_size}",
         "--master_port",
-        f"{find_free_network_port()}",
-        file_name,
-    ] + sys.argv[1:]
+        f"{port}",
+        file,
+    ]
+    return cmd, file
 
 
 def generate_ddp_file(trainer):
     # NOTE: adapted from ultralytics.yolo.utils.dist.generate_ddp_file
-
-    if not trainer.resume:
-        shutil.rmtree(trainer.save_dir)  # remove the save_dir
 
     content = f"""if __name__ == "__main__":
     from sparseml.yolov8.trainers import {trainer.__class__.__name__}

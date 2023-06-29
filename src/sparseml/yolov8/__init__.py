@@ -23,10 +23,9 @@ except ImportError:
 
 
 _analytics.send_event("python__yolov8__init")
-"""
-if "8.0.30" not in ultralytics.__version__:
+
+if "8.0.124" not in ultralytics.__version__:
     raise ValueError(
-        f"ultralytics==8.0.30 is required, found {ultralytics.__version__}. "
+        f"ultralytics==8.0.124 is required, found {ultralytics.__version__}. "
         "To fix run `pip install sparseml[ultralytics]`."
     )
-"""

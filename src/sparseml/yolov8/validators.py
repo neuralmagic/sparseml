@@ -63,6 +63,7 @@ class SparseValidator(BaseValidator):
                 model,
                 device=self.device,
                 dnn=self.args.dnn,
+                data=self.args.data,
                 fp16=self.args.half,
                 fuse=False,
             )
@@ -83,7 +84,7 @@ class SparseValidator(BaseValidator):
             if isinstance(self.args.data, str) and self.args.data.endswith(".yaml"):
                 self.data = check_det_dataset(self.args.data)
             elif self.args.task == "classify":
-                self.data = check_cls_dataset(self.args.data)
+                self.data = check_cls_dataset(self.args.data, split=self.args.split)
             else:
                 raise FileNotFoundError(
                     emojis(f"Dataset '{self.args.data}' not found ❌")
@@ -129,18 +130,18 @@ class SparseValidator(BaseValidator):
 
             # inference
             with dt[1]:
-                preds = model(batch["img"])
+                preds = model(batch["img"], augment=self.args.augment)
 
             # loss
             with dt[2]:
                 if not hasattr(self, "loss"):
-                    self.loss = model.loss(
-                        preds if self.training else preds[1], batch
+                    self.loss += model.loss(
+                        batch, preds if self.training else preds[1]
                     )[1]
                 else:
-                    self.loss += model.loss(
-                        preds if self.training else preds[1], batch
-                    )[1]
+                    self.loss = model.loss(batch, preds if self.training else preds[1])[
+                        1
+                    ]
 
             # pre-process predictions
             with dt[3]:
@@ -159,9 +160,13 @@ class SparseValidator(BaseValidator):
         stats = self.get_stats()
         self.check_stats(stats)
         self.print_results()
-        self.speed = tuple(
-            x.t / len(self.dataloader.dataset) * 1e3 for x in dt
-        )  # speeds per image
+        self.speed = dict(
+            zip(
+                self.speed.keys(),
+                (x.t / len(self.dataloader.dataset) * 1e3 for x in dt),
+            )
+        )
+        self.finalize_metrics()
         self.run_callbacks("on_val_end")
         model.float()
         stats = {
