@@ -23,7 +23,7 @@ from sparseml.pytorch.utils import detach
 from ultralytics.nn.autobackend import AutoBackend
 from ultralytics.yolo.data.utils import check_cls_dataset, check_det_dataset
 from ultralytics.yolo.engine.validator import BaseValidator
-from ultralytics.yolo.utils import TQDM_BAR_FORMAT, callbacks, emojis
+from ultralytics.yolo.utils import LOGGER, TQDM_BAR_FORMAT, callbacks, emojis
 from ultralytics.yolo.utils.checks import check_imgsz
 from ultralytics.yolo.utils.ops import Profile
 from ultralytics.yolo.utils.torch_utils import de_parallel, select_device
@@ -76,7 +76,7 @@ class SparseValidator(BaseValidator):
                 self.device = model.device
                 if not pt and not jit:
                     self.args.batch = 1  # export.py models default to batch-size 1
-                    self.logger.info(
+                    LOGGER.info(
                         "Forcing --batch-size 1 square inference (1,3,"
                         f"{imgsz},{imgsz}) for non-PyTorch models"
                     )
@@ -135,13 +135,13 @@ class SparseValidator(BaseValidator):
             # loss
             with dt[2]:
                 if not hasattr(self, "loss"):
-                    self.loss += model.loss(
-                        batch, preds if self.training else preds[1]
-                    )[1]
-                else:
                     self.loss = model.loss(batch, preds if self.training else preds[1])[
                         1
                     ]
+                else:
+                    self.loss += model.loss(
+                        batch, preds if self.training else preds[1]
+                    )[1]
 
             # pre-process predictions
             with dt[3]:
@@ -180,17 +180,17 @@ class SparseValidator(BaseValidator):
                 k: round(float(v), 5) for k, v in stats.items()
             }  # return results as 5 decimal place floats
         else:
-            self.logger.info(
+            LOGGER.info(
                 (
                     "Speed: %.1fms pre-process, %.1fms inference, %.1fms loss, %.1fms "
                     "post-process per image"
                 ),
                 *self.speed,
             )
-            self.logger.info(f"Validation loss: {stats['val/Loss']}")
+            LOGGER.info(f"Validation loss: {stats['val/Loss']}")
             if self.args.save_json and self.jdict:
                 with open(str(self.save_dir / "predictions.json"), "w") as f:
-                    self.logger.info(f"Saving {f.name}...")
+                    LOGGER.info(f"Saving {f.name}...")
                     json.dump(self.jdict, f)  # flatten and save
                 stats = self.eval_json(stats)  # update stats
             return stats
