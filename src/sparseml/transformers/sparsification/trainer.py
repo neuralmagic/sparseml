@@ -653,6 +653,10 @@ class RecipeManagerTrainerInterface:
         return manager, arch_manager
 
     def _reload_model_state(self, load_path: str, orig_state_dict: Dict[str, Any]):
+        """
+        Reload the weights after model arch changes due to recipe application
+        Return True if weights are successfully reloaded; False otherwise
+        """
         invalid_load_path = not load_path or not os.path.isdir(load_path)
         files = os.listdir(load_path) if not invalid_load_path else []
         weight_files = [
