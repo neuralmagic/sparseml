@@ -134,14 +134,12 @@ class SparseValidator(BaseValidator):
 
             # loss
             with dt[2]:
+                x = preds if self.training else preds[1]
                 if not hasattr(self, "loss"):
-                    self.loss = model.loss(batch, preds if self.training else preds[1])[
-                        1
-                    ]
+                    self.loss = trainer.model.loss(batch=batch, preds=x)[1]
                 else:
-                    self.loss += model.loss(
-                        batch, preds if self.training else preds[1]
-                    )[1]
+                    self.loss += trainer.model.loss(
+                        batch=batch, preds=x)[1]
 
             # pre-process predictions
             with dt[3]:
@@ -175,11 +173,13 @@ class SparseValidator(BaseValidator):
                 self.loss.cpu() / len(self.dataloader), prefix="val"
             ),
         }
+        print("Training?", self.training)
         if self.training:
             return {
                 k: round(float(v), 5) for k, v in stats.items()
             }  # return results as 5 decimal place floats
         else:
+            """
             LOGGER.info(
                 (
                     "Speed: %.1fms pre-process, %.1fms inference, %.1fms loss, %.1fms "
@@ -187,6 +187,7 @@ class SparseValidator(BaseValidator):
                 ),
                 *self.speed,
             )
+            """
             LOGGER.info(f"Validation loss: {stats['val/Loss']}")
             if self.args.save_json and self.jdict:
                 with open(str(self.save_dir / "predictions.json"), "w") as f:

@@ -347,7 +347,7 @@ class SparseTrainer(BaseTrainer):
                 loggers=self.logger_manager,
                 grad_sampler={
                     "data_loader_builder": self._get_data_loader_builder(),
-                    "loss_function": lambda preds, batch: self.model.loss(batch, preds)[
+                    "loss_function": lambda preds, batch: self.model.loss(batch=batch, preds=preds)[
                         0
                     ]
                     / self.train_loader.batch_size,
@@ -593,7 +593,7 @@ class SparseYOLO(YOLO):
         elif self.ValidatorClass == SegmentationValidator:
             self.ValidatorClass = SparseSegmentationValidator
 
-    def _load(self, weights: str):
+    def _load(self, weights: str, task=None):
         if self.is_sparseml_checkpoint:
             """
             NOTE: the model is given to the trainer class with this snippet
@@ -651,7 +651,7 @@ class SparseYOLO(YOLO):
             LOGGER.info("Loaded previous weights from checkpoint")
             assert self.model.yaml == self.ckpt["model_yaml"]
         else:
-            return super()._load(weights)
+            return super()._load(weights, task)
 
     def export(self, **kwargs):
         """
