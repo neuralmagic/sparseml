@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import math
+import shutil
 from pathlib import Path
 
 import onnx
@@ -96,3 +97,4 @@ def test_export_one_shot(resnet_checkpoint, recipe_path, temp_dir):
             node_sparsity = node.parameter_summary.block_structure["single"].sparsity
             assert math.isclose(node_sparsity, 0.9, abs_tol=0.01)
     assert found_prunable_node
+    shutil.rmtree(temp_dir)

@@ -104,7 +104,7 @@ from sparseml.benchmark.serialization import (
     BenchmarkResult,
 )
 from sparseml.framework.info import FrameworkInferenceProviderInfo, FrameworkInfo
-from sparseml.utils import clean_path, create_parent_dirs
+from sparseml.utils import clean_path, create_parent_dirs, deprecation_warning
 from sparseml.utils.helpers import convert_to_bool
 
 
@@ -544,6 +544,9 @@ def _parse_args():
 
 
 def _main():
+    deprecation_warning(
+        message=f"{__file__} is scheduled for deprecation in a future version",
+    )
     args = _parse_args()
     save_benchmark_results(
         model=args.model,

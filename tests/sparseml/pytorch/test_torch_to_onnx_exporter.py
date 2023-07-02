@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+import shutil
 from collections import Counter
 
 import numpy
@@ -53,6 +54,7 @@ def test_simple_models_against_module_exporter(tmp_path, model, sample_batch):
         str(tmp_path / "new_exporter" / "model.onnx"),
         sample_batch,
     )
+    shutil.rmtree(tmp_path)
 
 
 @pytest.mark.skipif(
@@ -105,6 +107,7 @@ def test_resnet50_exporters_are_equivalent(tmp_path, quantize: bool, convert_qat
         sample_batch,
         expect_op_types=["QuantizeLinear", "DequantizeLinear"] if quantize else None,
     )
+    shutil.rmtree(tmp_path)
 
 
 @pytest.mark.skipif(
