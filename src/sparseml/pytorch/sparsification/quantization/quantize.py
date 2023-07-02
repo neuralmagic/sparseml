@@ -362,8 +362,7 @@ def _match_submodule_name_or_type(
     submodule_match = ""
     for name_or_type in names_or_types:
         name_to_compare = submodule_name[:]
-        if name_to_compare.startswith("module."):
-            name_to_compare = name_to_compare[7:]
+        name_to_compare = _maybe_discard_prefix(name_to_compare)
         if name_or_type == submodule.__class__.__name__:
             # type match, return type name
             return name_or_type
@@ -426,8 +425,7 @@ def _validate_set_module_schemes(
             matched = False
             for submodule_name, submodule in model.named_modules():
                 name_to_compare = submodule_name[:]
-                if name_to_compare.startswith("module."):
-                    name_to_compare = name_to_compare[7:]
+                name_to_compare = _maybe_discard_prefix(name_to_compare)
                 if name_to_compare.startswith(type_or_name) or (
                     submodule.__class__.__name__ == type_or_name
                 ):
@@ -453,3 +451,10 @@ def _validate_set_module_schemes(
     unmatched_ignore = _get_unmatched_types_or_names(ignore)
     if unmatched_ignore:
         raise ValueError(_build_error_str("ignore", unmatched_ignore))
+
+
+def _maybe_discard_prefix(name: str) -> str:
+    for prefix in ["module.", "model."]:
+        if name.startswith(prefix):
+            name = name.replace(prefix, "", 1)
+    return name
