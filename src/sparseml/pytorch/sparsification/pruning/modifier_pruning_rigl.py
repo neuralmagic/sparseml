@@ -230,7 +230,7 @@ class RigLPruningModifier(BaseGradualPruningModifier):
     # Fortunately, this will likely not become an issue anytime soon, and even if
     # something does change, the impact on model quality is not likely to be at all
     # significant. Therefore, left as TODO.
-    def optimizer_post_step(
+    def optimizer_pre_step(
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
     ):
         """
@@ -243,17 +243,15 @@ class RigLPruningModifier(BaseGradualPruningModifier):
             (calculate batch number using this and epoch)
         """
 
-        super().optimizer_post_step(module, optimizer, epoch, steps_per_epoch)
+        super().optimizer_pre_step(module, optimizer, epoch, steps_per_epoch)
 
-        # be sure to apply mask again after optimizer update because
-        # weights may have changed (optimizer with momentum, not masking gradient)
 
         if (
             self._momentum_buffer_reset
         ):
             """
             This condition is only evaluated when `momentum_buffer_reset`
-            strategy is True. We  set the momentum o all masked weights to zero,
+            strategy is True. We set the momentum of all masked weights to zero,
             so that if the weights get reintroduced, they truly start from 0.
             """
             self._reset_momentum_buffer(optimizer)
@@ -355,7 +353,7 @@ class RigLPruningModifier(BaseGradualPruningModifier):
         :return: sparsity level that should be applied based on the given interpolation
             function
         """
-        _LOGGER.info(f"RIGL applied sparsity { self._final_sparsity}")
+        _LOGGER.info(f"RigL applied sparsity {self._final_sparsity}")
         return [
            self._final_sparsity  for _ in range(len(self.module_masks.layers))
         ]
@@ -380,6 +378,7 @@ class RigLPruningModifier(BaseGradualPruningModifier):
         :param kwargs: optional kwargs to support specific arguments
             for individual modifiers.
         """
+        print(kwargs)
         if (
             "data_loader_builder" not in kwargs["grad_sampler"] 
             and 
@@ -589,7 +588,6 @@ class RigLPruningParamsScorer(PruningParamsGradScorer):
         # as the criterion..
         grad_score = param_grad.abs() * magn_score.eq(0)
         grad_score = threshold_fraction(grad_score, 1-updated_number)
-        #grad_score = (grad_score > 0).type(torch.float)
         score = magn_score + grad_score
         return score
 
