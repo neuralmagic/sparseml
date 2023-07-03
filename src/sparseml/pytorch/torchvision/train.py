@@ -32,7 +32,6 @@ from packaging import version
 from torch import nn
 from torch.utils.data.dataloader import DataLoader, default_collate
 from torchvision.transforms.functional import InterpolationMode
-import torch.nn.functional as F
 
 import click
 from sparseml.optim.helpers import load_recipe_yaml_str
@@ -57,28 +56,6 @@ from sparsezoo import Model
 
 _LOGGER = logging.getLogger(__name__)
 
-def create_grad_sampler_loader(train_dataset, num_workers=16, grad_sampler_batch_size=10):
-    # res = self.get_resolution(epoch=0)
-    # self.grad_sampler_decoder = RandomResizedCropRGBImageDecoder((res, res))
-    # image_pipeline: List[Operation] = [
-    #     self.grad_sampler_decoder,
-    #     RandomHorizontalFlip(),
-    #     ToTensor(),
-    #     ToDevice(ch.device(this_device), non_blocking=True),
-    #     ToTorchImage(),
-    #     NormalizeImage(IMAGENET_MEAN, IMAGENET_STD, np.float16)
-    # ]
-
-    # label_pipeline: List[Operation] = [
-    #     IntDecoder(),
-    #     ToTensor(),
-    #     Squeeze(),
-    #     ToDevice(ch.device(this_device), non_blocking=True)
-    # ]
-
-    loader = DataLoader(train_dataset, batch_size=grad_sampler_batch_size, shuffle=True, pin_memory=True, num_workers=16)
-
-    return loader
 
 def train_one_epoch(
     model: torch.nn.Module,
@@ -640,39 +617,12 @@ def main(args):
                 f"{tag}/{metric_name}", smoothed_value.global_avg, step=step
             )
 
-    # if manager is not None:
-    #     manager.initialize(
-    #         model,
-    #         epoch=args.start_epoch,
-    #         loggers=logger,
-    #         distillation_teacher=distill_teacher,
-    #     )
-    recipe_kwargs = {}
-    print("#$$$$$$$$$$$$$$$$$$$$$$$$#######################", recipe_kwargs)
-    if True or  use_grad_sampler:
-        print("########################", recipe_kwargs)
-        grad_sampler_loader = create_grad_sampler_loader(dataset)
-
-        #def data_loader_builder(dummy=None, **kwargs):
-        def data_loader_builder(**kwargs):
-            print("%%%%%%%%%%%%%%%%%%%%%%%%%%kwargs", kwargs)
-            while True:
-                for input, target in grad_sampler_loader:
-                    input, target = input.to(device).float(), target.to(device)
-                    yield [input], {}, target
-
-        recipe_kwargs['grad_sampler'] =  {
-            'data_loader_builder' : data_loader_builder,
-            'loss_function' : criterion
-        }
-        print("########################", recipe_kwargs)
     if manager is not None:
         manager.initialize(
             model,
             epoch=args.start_epoch,
             loggers=logger,
             distillation_teacher=distill_teacher,
-            **recipe_kwargs,
         )
         step_wrapper = manager.modify(
             model,
@@ -680,7 +630,6 @@ def main(args):
             steps_per_epoch=steps_per_epoch,
             epoch=args.start_epoch,
             wrap_optim=scaler,
-            **recipe_kwargs,
         )
         if scaler is None:
             optimizer = step_wrapper
