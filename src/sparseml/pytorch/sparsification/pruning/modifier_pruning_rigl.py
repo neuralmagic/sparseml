@@ -472,7 +472,7 @@ class RigLPruningModifier(BaseGradualPruningModifier):
     ):
         if not isinstance(grad_sampler, GradSampler):
             raise ValueError(
-                "RigL  pruning requires an initialized GradSampler object."
+                "RigL pruning requires an initialized GradSampler object."
                 f"`The given object is of type {type(grad_sampler)}"
             )
 
@@ -563,7 +563,6 @@ class RigLPruningParamsScorer(PruningParamsGradScorer):
             # this ignores calls invoked by manager during training
             return
 
-        print("@@@@@@@@@@@@@@@@@@@2 definitely buffering gradients")
         for i, param_grad in enumerate(self._param_grads):
             if param_grad is None:
                 self._param_grads[i] = self._params[i].grad.clone()
