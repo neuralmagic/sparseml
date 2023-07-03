@@ -47,6 +47,7 @@ from sparseml.yolov8.validators import (
 from sparsezoo import Model
 from sparsezoo.utils import validate_onnx
 from ultralytics import __version__
+from ultralytics.nn.modules import Detect, Segment
 from ultralytics.nn.tasks import SegmentationModel, attempt_load_one_weight
 from ultralytics.yolo.cfg import get_cfg
 from ultralytics.yolo.data.dataloaders.v5loader import create_dataloader
@@ -278,6 +279,15 @@ class SparseTrainer(BaseTrainer):
     def _setup_train(self, rank, world_size):
         super()._setup_train(rank, world_size)
         # NOTE: self.resume_training() was called in ^
+
+        if rank in {0, -1}:
+            self.test_loader = self.get_dataloader(
+                self.testset,
+                batch_size=max(1, self.train_loader.batch_size // 4),
+                rank=-1,
+                mode="val",
+            )
+            self.validator = self.get_validator()
 
         if rank in {0, -1}:
             config = dict(self.args)
@@ -546,7 +556,7 @@ class SparseYOLO(YOLO):
 
         if model_str.endswith(".pt"):
             if os.path.exists(model_str):
-                ckpt = torch.load(model_str)
+                ckpt = torch.load(model_str, map_location="cpu")
                 self.is_sparseml_checkpoint = (
                     "source" in ckpt and ckpt["source"] == "sparseml"
                 )
@@ -704,6 +714,10 @@ class SparseYOLO(YOLO):
         name = args.get("name", f"{type(self.model).__name__}.onnx")
         save_dir = args["save_dir"]
 
+        for _, m in self.model.named_modules():
+            if isinstance(m, (Detect, Segment)):
+                m.export = True
+
         exporter = ModuleExporter(self.model, save_dir)
         if save_one_shot_torch:
             if not one_shot:
@@ -740,12 +754,26 @@ class SparseYOLO(YOLO):
         deployment_folder = exporter.create_deployment_folder(onnx_model_name=name)
         if args["export_samples"]:
             trainer_config = get_cfg(cfg=DEFAULT_SPARSEML_CONFIG_PATH)
+            # First check if the yaml exists locally
+            if os.path.exists(args["data"]):
+                trainer_config.data = args["data"]
+            else:
+                # If it does not exist, may be a uralytics provided yaml. Try
+                # downloading and updating path to dataset_path
+                # Does this case actually happen? I.e. is args["data"] ever not a
+                # checkpointed local yaml path?
+                try:
+                    if args["dataset_path"] is not None:
+                        args["data"] = data_from_dataset_path(
+                            args["data"], args["dataset_path"]
+                        )
+                        trainer_config.data = args["data"]
+                except ValueError:
+                    LOGGER.info(
+                        f"yaml in {args['data']} could not be found. "
+                        "Using default config"
+                    )
 
-            if args["dataset_path"] is not None:
-                args["data"] = data_from_dataset_path(
-                    args["data"], args["dataset_path"]
-                )
-            trainer_config.data = args["data"]
             trainer_config.imgsz = args["imgsz"]
             trainer = DetectionTrainer(trainer_config)
             # inconsistency in name between

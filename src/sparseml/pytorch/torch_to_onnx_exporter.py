@@ -14,7 +14,7 @@
 
 import collections
 import logging
-import tempfile
+import os
 import warnings
 from copy import deepcopy
 from typing import Any, Dict, Iterable, List
@@ -147,9 +147,10 @@ class _TorchOnnxExport(BaseTransform):
             raise TypeError(f"Expected onnx.ModelProto, found {type(model)}")
         return model
 
-    def transform(self, module: torch.nn.Module) -> onnx.ModelProto:
-        tmp = tempfile.NamedTemporaryFile("w")
-        file_path = tmp.name
+    def transform(
+        self, module: torch.nn.Module, file_name: str = "model.onnx"
+    ) -> onnx.ModelProto:
+        file_path = os.path.join(os.getcwd(), file_name)
 
         _LOGGER.debug(f"Saving onnx model to {file_path}")
 
