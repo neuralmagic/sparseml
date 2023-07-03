@@ -63,7 +63,18 @@ class MatMulAddToMatMulIntegerAddCastMul(OnnxTransform):
     |     |
     | Mul (Rescale from bias scale)
     ```
+
+    :param bit_width: the bit width to use for the quantization
     """
+
+    def __init__(self, bit_width: int = 8) -> None:
+        super().__init__()
+        self.bit_width = bit_width
+        if bit_width <= 0 or bit_width > 8:
+            raise ValueError(
+                "only [1, 8] bit quantization currently supported. Received "
+                f"{bit_width}"
+            )
 
     def transform(self, model: ModelProto) -> ModelProto:
         graph = ONNXGraph(model)
@@ -128,6 +139,7 @@ class MatMulAddToMatMulIntegerAddCastMul(OnnxTransform):
             bias_add_name=add.name if add else None,
             target_output=add.output[0] if add and bias_init else None,
             transpose_weight=opt_transpose is not None,
+            bit_width=self.bit_width,
         )
 
         # Clean up

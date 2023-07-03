@@ -56,7 +56,7 @@ class ONNXToDeepsparse(BaseExporter):
         optimized model.
     :param quant_bit_width: The bit width to use for weight quantization. Note that
         quantized weights will be stored as uint8 regardless. This only affects the
-        zero-point shift applied.
+        zero-point shift and clipping applied.
     """
 
     def __init__(

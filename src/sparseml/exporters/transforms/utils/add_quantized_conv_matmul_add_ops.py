@@ -39,6 +39,7 @@ def add_quantized_conv_matmul_add_ops(
     bias_add_name: str,
     target_output: str,
     transpose_weight: bool,
+    bit_width: int = 8,
     output_quantize_node: Optional[NodeProto] = None,
     output_dequantize_node: Optional[NodeProto] = None,
 ) -> ModelProto:
@@ -84,6 +85,7 @@ def add_quantized_conv_matmul_add_ops(
             input_quantize_params,
             weight_quantize_params,
             bias_add_name,
+            bit_width,
         )
         model.graph.initializer.append(quantized_bias_initializer)
         model.graph.initializer.append(quantized_bias_scale)
@@ -257,13 +259,22 @@ def _create_integer_op_node(
 
 
 def _quantize_bias(
-    node, bias_initializer, input_quantize_params, weight_quantize_params, bias_add_name
+    node,
+    bias_initializer,
+    input_quantize_params,
+    weight_quantize_params,
+    bias_add_name,
+    bit_width=8,
 ) -> Tuple[TensorProto, TensorProto, TensorProto]:
     bias_initializer = numpy_helper.to_array(bias_initializer)
     bias_scale = input_quantize_params.scale * weight_quantize_params.scale
     bias_zero_point = 0
     quantized_bias = quantize_array(
-        bias_initializer, bias_scale, bias_zero_point, dtype=numpy.int32
+        bias_initializer,
+        bias_scale,
+        bias_zero_point,
+        dtype=numpy.int32,
+        bit_width=bit_width,
     )
     if node.op_type == "Conv" and len(quantized_bias.shape) == 1:
         # reshape for bias add broadcasting
@@ -302,12 +313,14 @@ def _quantize_weight_initializer(
     node: NodeProto,
     weight_quantize_params: QuantizationParams,
     transpose_weight: bool = False,
+    bit_width=8,
 ) -> TensorProto:
     quantized_weight = quantize_array(
         weight_quantize_params.target,
         weight_quantize_params.scale,
         weight_quantize_params.zero_point,
         weight_quantize_params.zero_point.dtype,
+        bit_width=bit_width,
     )
     if transpose_weight:
         quantized_weight = quantized_weight.transpose()

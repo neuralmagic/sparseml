@@ -55,7 +55,18 @@ class ConvToQLinearConv(OnnxTransform):
     |   |
     | QLinearConv
     ```
+
+    :param bit_width: the bit width to use for the quantization
     """
+
+    def __init__(self, bit_width: int = 8) -> None:
+        super().__init__()
+        self.bit_width = bit_width
+        if bit_width <= 0 or bit_width > 8:
+            raise ValueError(
+                "only [1, 8] bit quantization currently supported. Received "
+                f"{bit_width}"
+            )
 
     def transform(self, model: ModelProto) -> ModelProto:
         graph = ONNXGraph(model)
@@ -95,6 +106,7 @@ class ConvToQLinearConv(OnnxTransform):
             weight_quantize_params.scale,
             weight_quantize_params.zero_point,
             weight_quantize_params.zero_point.dtype,
+            self.bit_width,
         )
         quantized_weight_name = "{}.weight_quantized".format(conv_node.name)
         quantized_weight_initializer = numpy_helper.from_array(
@@ -124,7 +136,9 @@ class ConvToQLinearConv(OnnxTransform):
                     model, input_quant, include_target=False
                 )
                 bias_scale = input_quantize_params.scale * weight_quantize_params.scale
-                quantized_bias = quantize_array(bias, bias_scale, 0, numpy.int32)
+                quantized_bias = quantize_array(
+                    bias, bias_scale, 0, numpy.int32, self.bit_width
+                )
                 quantized_bias_name = f"{conv_node.name}.bias_quantized"
                 quantized_bias_initializer = numpy_helper.from_array(
                     quantized_bias, name=quantized_bias_name

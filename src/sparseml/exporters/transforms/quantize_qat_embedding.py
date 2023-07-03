@@ -52,7 +52,18 @@ class QuantizeQATEmbedding(OnnxTransform):
     |        |
     |        Dq
     ```
+
+    :param bit_width: the bit width to use for the quantization
     """
+
+    def __init__(self, bit_width: int = 8) -> None:
+        super().__init__()
+        self.bit_width = bit_width
+        if bit_width <= 0 or bit_width > 8:
+            raise ValueError(
+                "only [1, 8] bit quantization currently supported. Received "
+                f"{bit_width}"
+            )
 
     def transform(self, model: ModelProto) -> ModelProto:
         graph = ONNXGraph(model)
@@ -94,7 +105,9 @@ class QuantizeQATEmbedding(OnnxTransform):
         scale = numpy_helper.to_array(scale_initializer)
         zero_point = numpy_helper.to_array(zero_point_initializer)
 
-        embedding_quant = quantize_array(embedding, scale, zero_point, zero_point.dtype)
+        embedding_quant = quantize_array(
+            embedding, scale, zero_point, zero_point.dtype, self.bit_width
+        )
         embedding_quant_initializer = numpy_helper.from_array(
             embedding_quant, name=f"{embedding_initializer.name}_quant"
         )

@@ -126,8 +126,25 @@ def assert_node_type(node: NodeProto, op: Union[List[str], Set[str], str]) -> bo
 
 
 def quantize_array(
-    array: numpy.ndarray, scale: float, zero_point: int, dtype: Any = numpy.uint8
+    array: numpy.ndarray,
+    scale: float,
+    zero_point: int,
+    dtype: Any = numpy.uint8,
+    bit_width: int = 8,
 ) -> numpy.ndarray:
+    if 1 <= bit_width <= 8:
+        raise ValueError(
+            "only [1, 8] bit quantization currently supported. Received " f"{bit_width}"
+        )
+    if isinstance(zero_point, int) and 0 <= zero_point < 2**bit_width:
+        raise ValueError(
+            f"For bit_width {bit_width}, zero_point must be in [0, {2**bit_width}). "
+            f"Received {zero_point}"
+        )
+
+    dmin = max(0, zero_point - 2 ** (bit_width - 1))
+    dmax = min(2**bit_width - 1, zero_point + 2 ** (bit_width - 1) - 1)
+
     try:
         import torch  # noqa: F401
 
@@ -144,14 +161,15 @@ def quantize_array(
         if isinstance(zero_point, numpy.ndarray):
             zero_point = zero_point.item()
 
-        quant_tensor = torch.quantize_per_tensor(
-            tensor, scale, zero_point, tensor_dtype
+        clamped_tensor = torch.clamp(
+            tensor, min=float(dmin * scale), max=float(dmax * scale)
         )
+        # Quantize the clamped tensor using the provided scale and zero_point
+        quant_tensor = torch.round(clamped_tensor / scale + zero_point).to(tensor_dtype)
+
         return quant_tensor.int_repr().numpy()
     except ModuleNotFoundError as err:
         _LOGGER.debug(f"Error: {err}. Defaulting to numpy implementation.")
-        dmin = numpy.iinfo(dtype).min
-        dmax = numpy.iinfo(dtype).max
         return ((array / scale).round() + zero_point).clip(dmin, dmax).astype(dtype)
 
 
@@ -192,3 +210,16 @@ def attribute_to_kwarg(attribute: AttributeProto):
         )
 
     return {attribute.name: value}
+
+
+def bit_width_to_numpy_type(bit_width: int):  # type: ignore
+    if bit_width == 8:
+        return numpy.uint8
+    elif bit_width == 16:
+        return numpy.uint16
+    elif bit_width == 32:
+        return numpy.uint32
+    elif bit_width == 64:
+        return numpy.uint64
+    else:
+        raise ValueError("Unsupported bit width: {}".format(bit_width))
