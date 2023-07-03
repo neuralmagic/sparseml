@@ -33,6 +33,11 @@ class InitializersToUint8(OnnxTransform):
     def __init__(self, bit_width: int = 8) -> None:
         super().__init__()
         self.bit_width = bit_width
+        if bit_width <= 0 or bit_width > 8:
+            raise ValueError(
+                "only [1, 8] bit quantization currently supported. received "
+                f"QuantizationArgs with num_bits={bit_width}"
+            )
 
     def transform(self, model: ModelProto) -> ModelProto:
         initializers_to_add = []
