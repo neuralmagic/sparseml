@@ -24,6 +24,7 @@ import numpy as np
 
 from torch import Tensor
 from torch.nn import Module, Parameter
+from torch.optim.optimizer import Optimizer
 from typing import Any, Dict, List, Optional, Union
 
 from sparseml.pytorch.sparsification.modifier import ModifierProp, PyTorchModifierYAML
@@ -126,6 +127,9 @@ class RigLPruningModifier(BaseGradualPruningModifier):
         will match to all parameters. __ALL_PRUNABLE__ will match to all ConvNd
         and Linear layers' weights. If a sparsity to param mapping is defined by
         final_sparsity, then params should be set to []
+    :param momentum_buffer_reset: set True to reset momentum buffer
+        for pruned weights at every optimizer step, so that reintroduced
+        weights start with an empty momentum buffer.
     :param leave_enabled: True to continue masking the weights after end_epoch,
         False to stop masking. Should be set to False if exporting the result
         immediately after or doing some other prune
@@ -160,14 +164,13 @@ class RigLPruningModifier(BaseGradualPruningModifier):
         num_grads: int = 1,
         inter_func: str = "cubic",
         leave_enabled: bool = True,
+        momentum_buffer_reset: bool = True,
         global_sparsity: bool = True,
         mask_type: str = "unstructured",
         sparsity_strategy: str = 'erdos_renyi_kernel',
         init_update_fraction: float = 0.3,
 	grad_sampler_kwargs: Optional[Dict[str, Any]] = {},
     ):
-        if sparsity == FROM_PARAM_TOKEN:
-            raise ValueError(f"{FROM_PARAM_TOKEN} is not supported for RigL Pruning.") 
         super().__init__(
             params=params,
             init_sparsity=sparsity,
@@ -180,16 +183,25 @@ class RigLPruningModifier(BaseGradualPruningModifier):
             leave_enabled=leave_enabled,
             parent_class_kwarg_names=[],
         )
-        #raise ValueError(self._init_sparsity)
         self._mask_type = mask_type
         self._sparsity = self._init_sparsity
         self._sparsity_strategy = sparsity_strategy
+        self._momentum_buffer_reset = momentum_buffer_reset
         self._init_update_fraction = init_update_fraction
         self._grad_sampler_kwargs = grad_sampler_kwargs
         self._num_grads = num_grads
         self._validate()
 
     def _validate(self):
+        # The momentum buffer reset code depends on parameters being explicitly
+        # set to 0 by the pruning_masks, which does not happen if _allow_reintroduction
+        # is set to True. This is an artifact of the implementation, see TODO below.
+        assert not (self._allow_reintroduction  and self._momentum_buffer_reset), \
+            'Allow_reintroduction and momentum_buffer_reset cannot both be true.'
+
+        if self._sparsity == FROM_PARAM_TOKEN:
+            raise ValueError(f"{FROM_PARAM_TOKEN} is not supported for RigL Pruning.") 
+
         assert (self._mask_type in self._supported_masks), \
             f"{self._mask_type} mask_type not supported"
 
@@ -199,6 +211,52 @@ class RigLPruningModifier(BaseGradualPruningModifier):
         else:
             assert self._sparsity_strategy == "uniform", \
                 "Uniform sparsity supports only `uniform`"
+
+    
+    # Override te optimizer_post_step method to reset the momentum of pruned weights.
+    # TODO: this implementation has some  dependencies that may be better handled
+    # a different way in the future:
+    # First:
+    # we rely on the BasePruningModifier method to apply the mask to the weights in its
+    # own optimizer_post_step method. If this logic is moved or skipped (as it is today
+    # when allow_reintroduction is true), then the trick of zeroing out momentum where
+    # the weights are 0 won't work.
+    # Second:
+    # we explicitly zero out the optimizer momentum-related buffers here, which also
+    # zeros out some very specific ones, like the ones for Adam. If future optimizers
+    # have other ways of storing this information, then this code won't know about it/
+    # zero them out.
+    # Unfortunately this may not be easy to fix without a larger code restructuring;
+    # Fortunately, this will likely not become an issue anytime soon, and even if
+    # something does change, the impact on model quality is not likely to be at all
+    # significant. Therefore, left as TODO.
+    def optimizer_post_step(
+        self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
+    ):
+        """
+        Reset momentum buffer if mask was just updated.
+
+        :param module: module to modify
+        :param optimizer: optimizer to modify
+        :param epoch: current epoch and progress within the current epoch
+        :param steps_per_epoch: number of steps taken within each epoch
+            (calculate batch number using this and epoch)
+        """
+
+        super().optimizer_post_step(module, optimizer, epoch, steps_per_epoch)
+
+        # be sure to apply mask again after optimizer update because
+        # weights may have changed (optimizer with momentum, not masking gradient)
+
+        if (
+            self._momentum_buffer_reset
+        ):
+            """
+            This condition is only evaluated when `momentum_buffer_reset`
+            strategy is True. We  set the momentum o all masked weights to zero,
+            so that if the weights get reintroduced, they truly start from 0.
+            """
+            self._reset_momentum_buffer(optimizer)
                 
     @ModifierProp()
     def mask_type(self) -> str:
@@ -246,7 +304,7 @@ class RigLPruningModifier(BaseGradualPruningModifier):
     @ModifierProp(serializable=False)
     def final_sparsity(self) -> float:
         """
-        :return: the initial sparsity for the variable to start with at start_epoch
+        :return: the final sparsity for the variable to start with at end_epoch
         """
         return self._init_sparsity
 
@@ -256,6 +314,13 @@ class RigLPruningModifier(BaseGradualPruningModifier):
         :return: the sparsification strategy for the pruner (uniform, ER, ERK)
         """
         return self._sparsity_strategy
+
+    @ModifierProp(serializable=True)
+    def momentum_buffer_reset(self) -> bool:
+        """
+        :return: whether the momentum buffer should be reset for pruned weights
+        """
+        return self._momentum_buffer_reset
 
     @ModifierProp(serializable=True)
     def num_grads(self) -> int:
@@ -290,6 +355,7 @@ class RigLPruningModifier(BaseGradualPruningModifier):
         :return: sparsity level that should be applied based on the given interpolation
             function
         """
+        _LOGGER.info(f"RIGL applied sparsity { self._final_sparsity}")
         return [
            self._final_sparsity  for _ in range(len(self.module_masks.layers))
         ]
@@ -344,18 +410,39 @@ class RigLPruningModifier(BaseGradualPruningModifier):
             sparsity_strategy=self._sparsity_strategy
         )
 
+    @staticmethod
+    def _reset_momentum_buffer(optimizer):
+        # multiply momentum buffer my param mask
+        if "state" in optimizer.state_dict():
+            for param_group in optimizer.param_groups:
+                for param in param_group['params']:
+                    state = optimizer.state[param]
+                    param_mask = param.ne(0)
+                    if "momentum_buffer" in state:
+                        state["momentum_buffer"].mul_(param_mask)
+                    # Adam-specific additional buffers.
+                    if 'exp_avg' in state:
+                        state['exp_avg'].mul_(param_mask)
+                    if 'exp_avg_sq' in state:
+                        state['exp_avg'].mul_(param_mask)
+                    if 'max_exp_avg_sq' in state:
+                        state['exp_avg'].mul_(param_mask)
+
+
     def _get_update_fraction(self, epoch):
         """
         Returns the fraction of params updated at the current epoch.
 
         :param epoch: current epoch 
         """
-        return cosine_schedule(
+        update_fraction =  cosine_schedule(
             epoch - self._start_epoch, 
             self._end_epoch - self._start_epoch,
-            (1 - self._final_sparsity) * self._init_update_fraction,
+            self._init_update_fraction,
             0.0,
         )
+        _LOGGER.info(f"RigL mask Update fraction {update_fraction}")
+        return update_fraction
 
     def check_mask_update(
         self, module: Module, epoch: float, steps_per_epoch: int, **kwargs
@@ -476,8 +563,13 @@ class RigLPruningParamsScorer(PruningParamsGradScorer):
             # this ignores calls invoked by manager during training
             return
 
-        for i, _ in enumerate(self._param_grads):
-            self._param_grads[i] = self._params[i].grad.clone()
+        print("@@@@@@@@@@@@@@@@@@@2 definitely buffering gradients")
+        for i, param_grad in enumerate(self._param_grads):
+            if param_grad is None:
+                self._param_grads[i] = self._params[i].grad.clone()
+            else:
+                self._param_grads[i].add_(self._params[i].grad)
+
 
     def get_param_score(self, param: Tensor, param_grad: Tensor, param_sparsity: float):
         """
@@ -496,7 +588,7 @@ class RigLPruningParamsScorer(PruningParamsGradScorer):
         # We fill in the mask by also adding the updated_number weights
         # of the ones that are currently masked, using the gradient magnitude
         # as the criterion..
-        grad_score = param_grad.abs() * param.eq(0)
+        grad_score = param_grad.abs() * magn_score.eq(0)
         grad_score = threshold_fraction(grad_score, 1-updated_number)
         #grad_score = (grad_score > 0).type(torch.float)
         score = magn_score + grad_score
@@ -516,6 +608,9 @@ class RigLPruningParamsScorer(PruningParamsGradScorer):
                 in zip(self._params, self._param_grads, self._sparsity_distribution)
             ]
         
+	# free memory
+        for i, _ in enumerate(self._param_grads):
+            self._param_grads[i] = None
         self._broadcast_list_from_main(scores)
         return scores
         

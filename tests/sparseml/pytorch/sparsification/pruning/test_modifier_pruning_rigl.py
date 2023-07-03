@@ -82,6 +82,7 @@ def _get_dataloader_builder(
             start_epoch=2.0,
             end_epoch=5.0,
             update_frequency=1.0,
+            momentum_buffer_reset=True,
             params=["re:.*weight"],
             inter_func="cubic",
             mask_type="unstructured",
@@ -94,6 +95,7 @@ def _get_dataloader_builder(
             start_epoch=2.0,
             end_epoch=5.0,
             update_frequency=1.0,
+            momentum_buffer_reset=True,
             params=["re:.*weight"],
             inter_func="linear",
             mask_type="unstructured",
@@ -105,6 +107,7 @@ def _get_dataloader_builder(
             sparsity=0.5,
             global_sparsity=True,
             sparsity_strategy='erdos_renyi',
+            momentum_buffer_reset=False,
             start_epoch=2.0,
             end_epoch=5.0,
             update_frequency=1.0,
@@ -297,6 +300,7 @@ def test_rigl_pruning_yaml(params, init_sparsity, final_sparsity):
     update_frequency = 1.0
     inter_func = "cubic"
     global_sparsity = True
+    momentum_buffer_reset = False
     sparsity_strategy='erdos_renyi'
     num_grads = 64
     mask_type = "unstructured"
@@ -310,6 +314,7 @@ def test_rigl_pruning_yaml(params, init_sparsity, final_sparsity):
         end_epoch: {end_epoch}
         update_frequency: {update_frequency}
         params: {params}
+        momentum_buffer_reset: {momentum_buffer_reset}
         inter_func: {inter_func}
         global_sparsity: {global_sparsity}
         sparsity_strategy: {sparsity_strategy}
@@ -331,6 +336,7 @@ def test_rigl_pruning_yaml(params, init_sparsity, final_sparsity):
         inter_func=inter_func,
         global_sparsity=global_sparsity,
         sparsity_strategy=sparsity_strategy,
+        momentum_buffer_reset=momentum_buffer_reset,
         mask_type=mask_type,
         num_grads=num_grads,
         grad_sampler_kwargs={
@@ -356,6 +362,11 @@ def test_rigl_pruning_yaml(params, init_sparsity, final_sparsity):
         str(yaml_modifier.num_grads)
         == str(serialized_modifier.num_grads)
         == str(obj_modifier.num_grads)
+    )
+    assert (
+        str(yaml_modifier.momentum_buffer_reset)
+        == str(serialized_modifier.momentum_buffer_reset)
+        == str(obj_modifier.momentum_buffer_reset)
     )
     assert (
         str(yaml_modifier.mask_type)
