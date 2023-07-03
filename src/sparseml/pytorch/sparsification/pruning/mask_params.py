@@ -59,6 +59,8 @@ class ModuleParamPruningMask(object):
         sparsity ranking values within each individual tensor. Default is False
     :param allow_reintroduction: set True to not mask weights and gradients between
         forward passes (forward mask hooks will remain). Default is False
+    :param mask_gradients_only: Apply the mask to the gradients only and not to
+        the weights (at any point). Default is False.
     """
 
     def __init__(
@@ -69,6 +71,7 @@ class ModuleParamPruningMask(object):
         param_names: Union[str, List[str]] = "weight",
         store_init: bool = False,
         store_unmasked: bool = False,
+        mask_gradients_only: bool = False,
         track_grad_mom: float = -1.0,
         layer_names: Optional[List[str]] = None,
         global_sparsity: bool = False,
@@ -86,6 +89,7 @@ class ModuleParamPruningMask(object):
         self._layer_names = layer_names
         self._store_init = store_init
         self._store_unmasked = store_unmasked
+        self._mask_gradients_only = mask_gradients_only
         self._track_grad_mom = track_grad_mom
         self._global_sparsity = global_sparsity
 
@@ -299,7 +303,7 @@ class ModuleParamPruningMask(object):
         self._params_unmasked[param_idx] = None
         self._setup_params_unmasked(param_idx)
 
-        if not self._allow_reintroduction:
+        if not self._allow_reintroduction and not self._mask_gradients_only:
             self.apply(param_idx)
 
     def set_param_masks(self, masks: List[Tensor]):
@@ -330,7 +334,7 @@ class ModuleParamPruningMask(object):
         if self._scorer:
             self._scorer.mask_update(masks, mask_diffs)
 
-        if not self._allow_reintroduction:
+        if not self._allow_reintroduction and not self._mask_gradients_only:
             self.apply()
 
         return mask_diffs
@@ -429,7 +433,8 @@ class ModuleParamPruningMask(object):
         if not leave_enabled:
             self.enabled = False
         self._allow_reintroduction = False
-        self.apply()  # ensure that weights are pruned to final level
+        if not self._mask_gradients_only:
+            self.apply()  # ensure that weights are pruned to final level
         if self._scorer:
             self._scorer.on_pruning_end()
 
@@ -501,15 +506,18 @@ class ModuleParamPruningMask(object):
 
     def _create_hooks(self):
         for idx, (param, layer) in enumerate(zip(self._params, self._layers)):
-            if self._forward_hooks[idx] is None:
-                self._forward_hooks[idx] = layer.register_forward_pre_hook(
-                    partial(self._hook_mask_forward, idx)
-                )
-
-            if self._allow_reintroduction and self._undo_mask_hooks[idx] is None:
-                self._undo_mask_hooks[idx] = layer.register_forward_hook(
-                    partial(self._hook_undo_mask, idx)
-                )
+            if not self._mask_gradients_only:
+                if self._forward_hooks[idx] is None:
+                    self._forward_hooks[idx] = layer.register_forward_pre_hook(
+                        partial(self._hook_mask_forward, idx)
+                    )
+    
+                if self._allow_reintroduction and self._undo_mask_hooks[idx] is None \
+                      and not self._mask_gradients_only:
+                    print("############################ adding undo mask hooks")
+                    self._undo_mask_hooks[idx] = layer.register_forward_hook(
+                        partial(self._hook_undo_mask, idx)
+                    )
 
             if self._gradient_hooks[idx] is None:
                 self._gradient_hooks[idx] = param.register_hook(
@@ -549,9 +557,10 @@ class ModuleParamPruningMask(object):
                 (1.0 - self._track_grad_mom) * grad
             )
 
+        #print("@@@@@@@@@@@@@@@@@@@@@@@@@@ grad mask", self._param_masks[param_idx].mean())
         return (
             grad.mul_(self._param_masks[param_idx])
-            if not self._allow_reintroduction
+            if self._mask_gradients_only or not self._allow_reintroduction
             else grad  # do not mask gradient for movement pruning
         )
 
