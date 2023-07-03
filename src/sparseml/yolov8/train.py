@@ -224,7 +224,7 @@ def main(**kwargs):
     # Now we can pass in the task and checks if taks passed or tries to guess
     # what the task was based on the yaml --> need a check to make sure they work 
     # together? Or let the user know. Can just not provide an input
-    model = SparseYOLO(kwargs["model"])
+    model = SparseYOLO(kwargs["model"], kwargs["task"])
     model.train(**kwargs)
 
 
