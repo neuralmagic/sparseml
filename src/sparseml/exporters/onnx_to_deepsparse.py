@@ -54,6 +54,9 @@ class ONNXToDeepsparse(BaseExporter):
     :param inplace: If true, does conversion of model in place. Default is true
     :param export_input_model: If true, saves the input onnx model alongside the
         optimized model.
+    :param quant_bit_width: The bit width to use for weight quantization. Note that
+        quantized weights will be stored as uint8 regardless. This only affects the
+        zero-point shift applied.
     """
 
     def __init__(
@@ -62,6 +65,7 @@ class ONNXToDeepsparse(BaseExporter):
         skip_input_quantize: bool = False,
         inplace: bool = True,
         export_input_model: bool = False,
+        quant_bit_width: int = 8,
     ):
         self.inplace = inplace
         self.export_input_model = export_input_model
@@ -69,7 +73,7 @@ class ONNXToDeepsparse(BaseExporter):
         transforms = [
             sparseml_transforms.ConstantsToInitializers(),
             sparseml_transforms.FoldIdentityInitializers(),
-            sparseml_transforms.InitializersToUint8(),
+            sparseml_transforms.InitializersToUint8(bit_width=quant_bit_width),
             sparseml_transforms.FlattenQParams(),
             sparseml_transforms.FoldConvDivBn(),
             sparseml_transforms.DeleteRepeatedQdq(),

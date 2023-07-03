@@ -24,17 +24,26 @@ __all__ = ["InitializersToUint8"]
 class InitializersToUint8(OnnxTransform):
     """
     Converts any initializers with int8 dtype to uint8
+
+    :param bit_width: the bit width of the data represented, used to calculate the zero
+        point shift. Although quantized initializers will be stored as dtype uint8,
+        they can represent lower bit-width weights.
     """
+
+    def __init__(self, bit_width: int = 8) -> None:
+        super().__init__()
+        self.bit_width = bit_width
 
     def transform(self, model: ModelProto) -> ModelProto:
         initializers_to_add = []
         initializers_to_del = []
+        zero_point = 2 ** (self.bit_width - 1)
         for init in model.graph.initializer:
             arr_int8 = numpy_helper.to_array(init)
             if arr_int8.dtype != numpy.int8:
                 continue
             self.log_match(init)
-            arr_uint8 = (arr_int8.astype(numpy.int32) + 128).astype(numpy.uint8)
+            arr_uint8 = (arr_int8.astype(numpy.int32) + zero_point).astype(numpy.uint8)
             init_uint8 = numpy_helper.from_array(arr_uint8, name=init.name)
             initializers_to_del.append(init)
             initializers_to_add.append(init_uint8)
