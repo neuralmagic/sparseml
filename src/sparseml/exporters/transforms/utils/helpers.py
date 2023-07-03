@@ -132,7 +132,7 @@ def quantize_array(
     dtype: Any = numpy.uint8,
     bit_width: int = 8,
 ) -> numpy.ndarray:
-    if 1 <= bit_width <= 8:
+    if bit_width <= 0 or bit_width > 8:
         raise ValueError(
             "only [1, 8] bit quantization currently supported. Received " f"{bit_width}"
         )

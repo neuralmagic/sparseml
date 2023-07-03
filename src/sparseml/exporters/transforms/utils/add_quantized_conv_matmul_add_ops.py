@@ -60,7 +60,7 @@ def add_quantized_conv_matmul_add_ops(
 
     # Quantize weights and add to graph
     quantized_weight_initializer = _quantize_weight_initializer(
-        node, weight_quantize_params, transpose_weight
+        node, weight_quantize_params, transpose_weight, bit_width
     )
     model.graph.initializer.append(quantized_weight_initializer)
 
