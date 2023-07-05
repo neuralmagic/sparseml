@@ -347,9 +347,9 @@ class SparseTrainer(BaseTrainer):
                 loggers=self.logger_manager,
                 grad_sampler={
                     "data_loader_builder": self._get_data_loader_builder(),
-                    "loss_function": lambda preds, batch: self.model.loss(batch=batch, preds=preds)[
-                        0
-                    ]
+                    "loss_function": lambda preds, batch: self.model.loss(
+                        batch=batch, preds=preds
+                    )[0]
                     / self.train_loader.batch_size,
                 },
             )
@@ -570,8 +570,6 @@ class SparseYOLO(YOLO):
         else:
             self.is_sparseml_checkpoint = False
 
-        # This now sets self.overrides['model'] = model config
-        # Sets self.model.args, self.model.task
         super().__init__(model, task)
 
         self.ModelClass = TASK_MAP[self.task][0]
@@ -615,12 +613,7 @@ class SparseYOLO(YOLO):
             self.task = config["task"]
             self.overrides = deepcopy(config)
             self._reset_ckpt_args(self.overrides)
-            (
-                self.ModelClass,
-                self.TrainerClass,
-                self.ValidatorClass,
-                self.PredictorClass,
-            ) = self._assign_ops_from_task(self.task)
+            self.ModelClass = TASK_MAP[self.task][0]
 
             if "yaml" in self.ckpt:
                 self.model = self.ModelClass(dict(self.ckpt["yaml"]))
@@ -650,8 +643,12 @@ class SparseYOLO(YOLO):
                 self.model.load_state_dict(self.ckpt["model"])
             LOGGER.info("Loaded previous weights from checkpoint")
             assert self.model.yaml == self.ckpt["model_yaml"]
+
+            self.overrides["model"] = weights
+            self.overrides["task"] = self.task
+
         else:
-            return super()._load(weights, task)
+            super()._load(weights, task)
 
     def export(self, **kwargs):
         """
@@ -723,13 +720,21 @@ class SparseYOLO(YOLO):
                 else manager
             )
 
-        name = args.get("name", f"{type(self.model).__name__}.onnx")
+        if args.get("name") and args["name"]:
+            name = args["name"]
+        else:
+            name = f"{type(self.model).__name__}.onnx"
+
         save_dir = args["save_dir"]
+        if not os.path.exists(save_dir):
+            os.mkdir(save_dir)
 
         for _, m in self.model.named_modules():
             if isinstance(m, (Detect, Segment)):
                 m.export = True
 
+        # What is the the format? Can't find this variable
+        self.model.model[-1].format = "saved_model"
         exporter = ModuleExporter(self.model, save_dir)
         if save_one_shot_torch:
             if not one_shot:

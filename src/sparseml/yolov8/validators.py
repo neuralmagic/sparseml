@@ -138,8 +138,7 @@ class SparseValidator(BaseValidator):
                 if not hasattr(self, "loss"):
                     self.loss = trainer.model.loss(batch=batch, preds=x)[1]
                 else:
-                    self.loss += trainer.model.loss(
-                        batch=batch, preds=x)[1]
+                    self.loss += trainer.model.loss(batch=batch, preds=x)[1]
 
             # pre-process predictions
             with dt[3]:
@@ -173,7 +172,7 @@ class SparseValidator(BaseValidator):
                 self.loss.cpu() / len(self.dataloader), prefix="val"
             ),
         }
-        print("Training?", self.training)
+
         if self.training:
             return {
                 k: round(float(v), 5) for k, v in stats.items()

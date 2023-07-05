@@ -147,10 +147,20 @@ def _export_torch_outputs(
     preds = model_out
 
     # Move to cpu for exporting
-    preds = preds.detach().to("cpu")
+    # Segmentation currently supports two outputs
+    if isinstance(preds, tuple):
+        pred_0 = preds[0].detach().to("cpu")
+        pred_1 = preds[1].detach().to("cpu")
 
-    sample_output_filename = os.path.join(sample_out_dir, f"out-{file_idx}.npz")
-    numpy.savez(sample_output_filename, preds)
+        sample_output_filename = os.path.join(sample_out_dir, f"out-{file_idx}-0.npz")
+        numpy.savez(sample_output_filename, pred_0)
+
+        sample_output_filename = os.path.join(sample_out_dir, f"out-{file_idx}-1.npz")
+        numpy.savez(sample_output_filename, pred_1)
+    else:
+        preds = preds.detach().to("cpu")
+        sample_output_filename = os.path.join(sample_out_dir, f"out-{file_idx}.npz")
+        numpy.savez(sample_output_filename, preds)
 
 
 def _export_ort_outputs(
@@ -166,8 +176,16 @@ def _export_ort_outputs(
     preds = numpy.squeeze(ort_outs, axis=0)
     preds = numpy.squeeze(preds, axis=0)
 
-    sample_output_filename = os.path.join(sample_out_dir, f"out-{file_idx}.npz")
-    numpy.savez(sample_output_filename, preds)
+    if len(preds) > 1:
+        sample_output_filename = os.path.join(sample_out_dir, f"out-{file_idx}-0.npz")
+        numpy.savez(sample_output_filename, preds[0])
+
+        sample_output_filename = os.path.join(sample_out_dir, f"out-{file_idx}-1.npz")
+        numpy.savez(sample_output_filename, preds[1])
+
+    else:
+        sample_output_filename = os.path.join(sample_out_dir, f"out-{file_idx}.npz")
+        numpy.savez(sample_output_filename, preds)
 
 
 def _export_inputs(image: torch.Tensor, sample_in_dir: str, file_idx: str):
