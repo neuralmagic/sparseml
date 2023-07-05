@@ -21,7 +21,6 @@ from sparseml.exporters.transforms.utils import (
     add_quantized_conv_matmul_add_ops,
     get_quantization_params,
     get_structural_matches,
-    optional_node,
 )
 from sparseml.onnx.utils import ONNXGraph
 
