@@ -628,7 +628,6 @@ def main(args):
     #         distillation_teacher=distill_teacher,
     #     )
     recipe_kwargs = {}
-    print("#$$$$$$$$$$$$$$$$$$$$$$$$#######################", recipe_kwargs)
     # TODO: What is the right logic to check if we need a grad sampler here? It seems
     # that for YOLO the grad sampler is always created, whether or not it's needed. See
     # https://github.com/neuralmagic/sparseml/blob/b73a173ff89c3bb524dcc0a1f7a16a3109a234a1/src/sparseml/yolov8/trainers.py#L699
@@ -636,7 +635,6 @@ def main(args):
         grad_sampler_loader = create_grad_sampler_loader(dataset)
 
         def data_loader_builder(**kwargs):
-            print("%%%%%%%%%%%%%%%%%%%%%%%%%%kwargs", kwargs)
             while True:
                 for input, target in grad_sampler_loader:
                     input, target = input.to(device).float(), target.to(device)
@@ -646,7 +644,6 @@ def main(args):
             'data_loader_builder' : data_loader_builder,
             'loss_function' : criterion
         }
-        print("########################", recipe_kwargs)
     if manager is not None:
         manager.initialize(
             model,
