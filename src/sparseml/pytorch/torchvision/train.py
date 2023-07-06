@@ -620,13 +620,6 @@ def main(args):
                 f"{tag}/{metric_name}", smoothed_value.global_avg, step=step
             )
 
-    # if manager is not None:
-    #     manager.initialize(
-    #         model,
-    #         epoch=args.start_epoch,
-    #         loggers=logger,
-    #         distillation_teacher=distill_teacher,
-    #     )
     recipe_kwargs = {}
     # TODO: What is the right logic to check if we need a grad sampler here? It seems
     # that for YOLO the grad sampler is always created, whether or not it's needed. See
