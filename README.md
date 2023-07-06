@@ -75,6 +75,9 @@ SparseML enables you to create a sparse model trained on your dataset in two way
     <a href="integrations/ultralytics-yolov5">
         <img src="https://docs.neuralmagic.com/docs/source/highlights/sparseml/ultralytics-yolov5.png" width="136px" />
     </a>
+    <a href="integrations/ultralytics-yolov8">
+        <img src="docs/images/ultralytics-yolov8.png" width="136px" />
+    </a>
     <a href="integrations/huggingface-transformers">
         <img src="https://docs.neuralmagic.com/docs/source/highlights/sparseml/huggingface-transformers.png" width="136px" />
     </a>
@@ -96,11 +99,16 @@ SparseML enables you to create a sparse model trained on your dataset in two way
 - [Sparse Transfer Learning with the CLI](integrations/ultralytics-yolov5/tutorials/sparse-transfer-learning.md)
 - [Sparsify From Scatch with the CLI](integrations/ultralytics-yolov5/tutorials/sparsify-from-scratch.md)
 
+### Ultralytics YOLOv8
+- [Sparse Transfer Learning with the CLI](integrations/ultralytics-yolov5/tutorials/sparse-transfer-learning.md)
+- [Sparsify From Scatch with the CLI](integrations/ultralytics-yolov5/tutorials/sparsify-from-scratch.md)
+
 ### Links to Additional Examples
 
 - [PyTorch](integrations/torchvision#tutorials)
 - [Hugging Face Transformers](integrations/huggingface-transformers#tutorials)
 - [Ultralytics YOLOv5](integrations/ultralytics-yolov5#tutorials)
+- [Ultralytics YOLOv8](integrations/ultralytics-yolov8#tutorials)
 
 ## Installation
 
@@ -165,6 +173,7 @@ sparseml.yolov5.train \
 ```
 
 - Check out the [YOLOv5 CLI example](ultralytics-yolov5/tutorials/sparse-transfer-learning.md) for more details on the YOLOv5 training pipeline
+- Check out the [YOLOv8 CLI example](ultralytics-yolov8/tutorials/sparse-transfer-learning.md) for more details on the YOLOv8 training pipeline
 - Check out the [Hugging Face CLI example](integrations/huggingface-transformers/tutorials/sparse-transfer-learning-bert.md) for more details on the available NLP training pipelines
 - Check out the [Torchvision CLI example](integrations/torchvision/tutorials/sparse-transfer-learning.md) for more details on the image classification training pipelines
 
