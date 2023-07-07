@@ -21,7 +21,6 @@ from torch.utils.data import DataLoader
 from flaky import flaky
 from sparseml.pytorch.sparsification.pruning import RigLPruningModifier
 from sparseml.pytorch.utils import tensor_sparsity
-from sparseml.utils import FROM_PARAM_TOKEN
 from tests.sparseml.pytorch.helpers import MLPDataset, MLPNet
 from tests.sparseml.pytorch.sparsification.pruning.helpers import (
     pruning_modifier_serialization_vals_test,
@@ -305,11 +304,10 @@ def test_rigl_pruning_yaml(params, init_sparsity, final_sparsity):
     num_grads = 64
     mask_type = "unstructured"
     batch_size = 4
-    sparsity: {init_sparsity}
-    final_sparsity: {final_sparsity}
+    sparsity = init_sparsity
     yaml_str = f"""
     !RigLPruningModifier
-        sparsity: {init_sparsity}
+        sparsity: {sparsity}
         start_epoch: {start_epoch}
         end_epoch: {end_epoch}
         update_frequency: {update_frequency}

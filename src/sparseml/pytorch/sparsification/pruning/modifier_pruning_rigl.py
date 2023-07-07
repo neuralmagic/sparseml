@@ -14,7 +14,7 @@
 
 """
 Modifier classes implementing the RigL sparse training procedure.
-The algorithm is described in details in the 
+The algorithm is described in details in the
 Rigging the Lottery: Making All Tickets Winners paper https://arxiv.org/abs/1911.11134.
 """
 import logging
@@ -50,7 +50,7 @@ _LOGGER = logging.getLogger(__name__)
 def cosine_schedule(t: float, t_max: float, init_value: float, end_value: float):
     """
     Cosine interpolation from init_value to end_value given by the law:
-    f(t) = end_value + (1/2) * (init_value - end_value) (1 + cos(\pi t / t_max))
+    f(t) = end_value + (1/2) * (init_value - end_value) (1 + cos(pi t / t_max))
 
     :param t: current timestep
     :param t_max: maximal timestep
@@ -86,7 +86,7 @@ class RigLPruningModifier(BaseGradualPruningModifier):
     with (1 - init_update_fraction) * sparsity and gradually increases
     the sparsity with a cosine schedule up to sparsity.
     At each update a fraction of weights
-    init_update_fraction * cos(\pi (epoch - start_epoch) / (end_epoch - start_epoch))
+    init_update_fraction * cos(pi (epoch - start_epoch) / (end_epoch - start_epoch))
     with smallest magnitude is pruned and the same
     amount of weights are regrown according to
     the magnitude of the gradient.
@@ -277,16 +277,9 @@ class RigLPruningModifier(BaseGradualPruningModifier):
         return self._global_sparsity
 
     @ModifierProp(serializable=True)
-    def sparsity_strategy(self) -> str:
-        """
-        :return: the mask type used
-        """
-        return self._sparsity_strategy
-
-    @ModifierProp(serializable=True)
     def init_update_fraction(self) -> float:
         """
-        :return: the mask type used
+        :return: the initial maks update fraction
         """
         return self._init_update_fraction
 
@@ -321,7 +314,7 @@ class RigLPruningModifier(BaseGradualPruningModifier):
     @ModifierProp(serializable=True)
     def num_grads(self) -> int:
         """
-        :return: The initial sparsity for the variable to start with at start_epoch
+        :return: The number of gradient batches to collect for sampling
         """
         return self._num_grads
 
@@ -470,7 +463,7 @@ class RigLPruningModifier(BaseGradualPruningModifier):
         _LOGGER.debug("Setting the model in the eval mode")
         module.eval()
 
-        _LOGGER.debug(f"Collecting grad with GradSampler")
+        _LOGGER.debug("Collecting grad with GradSampler")
         for _ in grad_sampler.iter_module_backwards(module, self._num_grads):
             self._module_masks.pre_optim_step_update()
 
