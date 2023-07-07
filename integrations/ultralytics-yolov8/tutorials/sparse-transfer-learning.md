@@ -495,7 +495,7 @@ Save the following configuration file as `aerial-dataset.yaml` in a folder calle
 
 ```yaml
 # aerial-dataset.yaml
-path: ./aerial-dataset
+path: ./datasets/aerial-dataset
 train:
   - train/images
 val:
