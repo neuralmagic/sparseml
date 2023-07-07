@@ -35,7 +35,7 @@ pip install sparseml[ultralytics]
 ## **Tutorials**
 
 - [Sparse Transfer Learning with the CLI](tutorials/sparse-transfer-learning.md) **[HIGHLY RECOMMENDED]**
-- [Sparsifying From Scratch with the CLI](tutorials/sparsify-from-scratch.md)
+- Sparsifying From Scratch with the CLI (coming soon!)
 
 ## **Quick Tour**
 
