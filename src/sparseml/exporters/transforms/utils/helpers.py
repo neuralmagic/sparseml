@@ -136,7 +136,7 @@ def quantize_array(
         raise ValueError(
             "only [1, 8] bit quantization currently supported. Received " f"{bit_width}"
         )
-    if isinstance(zero_point, int) and (zero_point <= 0 or zero_point > 2**bit_width):
+    if isinstance(zero_point, int) and (zero_point < 0 or zero_point > 2**bit_width):
         raise ValueError(
             f"For bit_width {bit_width}, zero_point must be in [0, {2**bit_width}). "
             f"Received {zero_point}"
