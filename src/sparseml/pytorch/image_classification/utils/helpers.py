@@ -267,14 +267,37 @@ def get_dataset_and_dataloader(
     dataset_kwargs = dataset_kwargs or {}
 
     with download_context:
-        dataset = DatasetRegistry.create(
-            dataset_name,
-            root=dataset_path,
-            train=training,
-            rand_trans=training,
-            image_size=image_size,
-            **dataset_kwargs,
-        )
+        try:
+            dataset = DatasetRegistry.create(
+                key=dataset_name,
+                root=dataset_path,
+                train=training,
+                rand_trans=training,
+                image_size=image_size,
+                **dataset_kwargs,
+            )
+        except Exception as registry_exception:
+            if dataset_name == "imagefolder" and (
+                dataset_path in DatasetRegistry.registered_datasets
+            ):
+                # user attempting to run imagefolder of pre-supported
+                # dataset, without a local copy,
+                # use the dataset_path as registry key instead to attempt
+                # auto download
+                dataset = DatasetRegistry.create(
+                    key=dataset_path,
+                    train=training,
+                    rand_trans=training,
+                    image_size=image_size,
+                    **dataset_kwargs,
+                )
+                # still treated as image folder dataset, so num_classes attr
+                # should be set at the object level instead of registry
+                dataset.num_classes = DatasetRegistry.attributes(dataset_path).get(
+                    "num_classes"
+                )
+            else:
+                raise registry_exception
 
     sampler = (
         torch.utils.data.distributed.DistributedSampler(dataset)
