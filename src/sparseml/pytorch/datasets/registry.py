@@ -32,6 +32,14 @@ class DatasetRegistry(object):
     _CONSTRUCTORS = {}
     _ATTRIBUTES = {}
 
+    @classmethod
+    @property
+    def registered_datasets(cls) -> List[str]:
+        """
+        :return: valid dataset names registered to this registry
+        """
+        return list(cls._CONSTRUCTORS.keys())
+
     @staticmethod
     def create(key: str, *args, **kwargs) -> Dataset:
         """
