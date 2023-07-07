@@ -74,7 +74,7 @@ zoo:cv/detection/yolov8-m/pytorch/ultralytics/voc/pruned80_quant-none
 We can tell this is a transfer learning stub because the dataset is `voc`.
 
 <details>
-<summary>CLick to see what the recipe looks like:<summary>
+<summary>CLick to see what the recipe looks like:</summary>
 
 ```yaml
 version: 1.1.0
@@ -259,8 +259,7 @@ quantization_modifiers:
       model.22.cv3.0.0.conv:
         input_activations: null
 ```
-
-<details>
+</details>
 
 
 The "Modifiers" encode how SparseML should modify the training process for Sparse Transfer Learning.
