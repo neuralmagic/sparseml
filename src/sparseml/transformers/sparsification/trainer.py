@@ -683,11 +683,11 @@ class RecipeManagerTrainerInterface:
             dd = torch.load(os.path.join(load_path, f), map_location="cpu")
             loaded_state_dict.update(dd)
 
-        _, missing, unexpected, _, _ = self.model._load_pretrained_model(
+        _, missing, unexpected, mismatched, _, _ = self.model._load_pretrained_model(
             model=self.model,
             state_dict=loaded_state_dict,
             loaded_keys=list(loaded_state_dict.keys()),
-            resolved_archive_file=[],
+            resolved_archive_file=None,
             pretrained_model_name_or_path=load_path,
             _fast_init=False,
         )
@@ -702,6 +702,12 @@ class RecipeManagerTrainerInterface:
             _LOGGER.warning(
                 f"Unexpected keys found when reloading model state for SparseML recipe:"
                 f"{unexpected}"
+            )
+
+        if mismatched:
+            _LOGGER.warning(
+                f"Mismatched keys found when reloading model state for SparseML recipe:"
+                f"{mismatched}"
             )
 
         total_loaded = len(current_state_dict) - (len(missing) if len(missing) else 0)
