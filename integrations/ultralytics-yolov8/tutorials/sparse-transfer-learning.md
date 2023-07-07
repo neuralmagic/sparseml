@@ -24,7 +24,7 @@ Sparse Transfer is quite similiar to the typical YOLOv8 training, where we fine-
 
 SparseZoo contains pre-sparsified checkpoints of each YOLOv8 model. These models can be used as the starting checkpoint for the sparse transfer learning workflow.
 
-[Check out the full list of pre-sparsified YOLOv8 models]([https://sparsezoo.neuralmagic.com/?domain=cv&sub_domain=detection&page=1](https://sparsezoo.neuralmagic.com/?useCase=detection&architectures=yolov8&sort=null&datasets=coco)
+[Check out the full list of pre-sparsified YOLOv8 models](https://sparsezoo.neuralmagic.com/?useCase=detection&architectures=yolov8&sort=null&datasets=coco)
 
 ## Installations
 
