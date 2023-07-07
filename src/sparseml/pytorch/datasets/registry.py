@@ -33,7 +33,6 @@ class DatasetRegistry(object):
     _ATTRIBUTES = {}
 
     @classmethod
-    @property
     def registered_datasets(cls) -> List[str]:
         """
         :return: valid dataset names registered to this registry

@@ -278,7 +278,7 @@ def get_dataset_and_dataloader(
             )
         except Exception as registry_exception:
             if dataset_name == "imagefolder" and (
-                dataset_path in DatasetRegistry.registered_datasets
+                dataset_path in DatasetRegistry.registered_datasets()
             ):
                 # user attempting to run imagefolder of pre-supported
                 # dataset, without a local copy,
