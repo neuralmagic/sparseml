@@ -74,7 +74,7 @@ zoo:cv/detection/yolov8-m/pytorch/ultralytics/voc/pruned80_quant-none
 We can tell this is a transfer learning stub because the dataset is `voc`.
 
 <details>
-<summary>CLick to see what the recipe looks like:</summary>
+<summary>Click to see the recipe:</summary>
 
 ```yaml
 version: 1.1.0
