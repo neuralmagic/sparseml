@@ -16,13 +16,13 @@ limitations under the License.
 
 # Sparse Transfer Learning
 
-This page explains how to fine-tune a pre-sparsified YOLOv5 model with SparseML's CLI.
+This page explains how to fine-tune a pre-sparsified YOLOv8 model with SparseML's CLI.
 
 ## Overview
 
-Sparse Transfer is quite similiar to the typical YOLOv5 training, where we fine-tune a checkpoint pretrained on COCO onto a smaller downstream dataset. However, with Sparse Transfer Learning, we simply start the fine-tuning process from a pre-sparsified YOLOv5 and maintain sparsity while the training process occurs.
+Sparse Transfer is quite similiar to the typical YOLOv8 training, where we fine-tune a checkpoint pretrained on COCO onto a smaller downstream dataset. However, with Sparse Transfer Learning, we simply start the fine-tuning process from a pre-sparsified YOLOv8 and maintain sparsity while the training process occurs.
 
-SparseZoo contains pre-sparsified checkpoints of each YOLOv5 model. These models can be used as the starting checkpoint for the sparse transfer learning workflow.
+SparseZoo contains pre-sparsified checkpoints of each YOLOv8 model. These models can be used as the starting checkpoint for the sparse transfer learning workflow.
 
 [Check out the full list of pre-sparsified YOLOv5 models](https://sparsezoo.neuralmagic.com/?domain=cv&sub_domain=detection&page=1)
 
@@ -31,72 +31,63 @@ SparseZoo contains pre-sparsified checkpoints of each YOLOv5 model. These models
 Install via `pip`:
 
 ```
-pip install "sparseml[yolov5]"
+pip install "sparseml[ultralytics]"
 ```
 
 ## Table of Contents
 
 In this page, you will:
-- [Sparse Transfer Learn YOLOv5s onto VOC](#sparse-transfer-learning-yolov5s-onto-voc)
-- [Sparse Transfer Learn Other YOLOv5 Models](#sparse-transfer-learning-other-yolov5-models)
+- [Sparse Transfer Learn YOLOv8m onto COCO128](#sparse-transfer-learning-yolov8m-onto-coco128)
+- [Sparse Transfer Learn Other YOLOv8 Models](#sparse-transfer-learning-other-yolov8-models)
 - [Sparse Transfer Learn with a Custom Dataset](#sparse-transfer-learning-with-a-custom-dataset)
 
 ## SparseML CLI
 
-The examples below will use SparseML's CLI, which is built on top of YOLOv5's [`train.py`](https://github.com/ultralytics/yolov5/wiki/Train-Custom-Data) script. 
-
-This enables you to kick-off sparse training workflows with all of the friendly utilities from the friendly Ultralytics repo like dataset loading and preprocessing, checkpoint saving, metric reporting, and logging handled for you. Appending the `--help` argument will provide a full list of options for training in SparseML:
+SparseML's CLI is built on top of YOLOv8's [`train` cli](https://docs.ultralytics.com/usage/cli/) script. This enables you to kick-off sparse training workflows with all of the friendly utilities from the Ultralytics repo like dataset loading and preprocessing, checkpoint saving, metric reporting, and logging handled for you. Appending the `--help` argument will provide a full list of options for training in SparseML:
 
 ```bash
-sparseml.yolov5.train --help
+sparseml.ultralytics.train --help
 ```
 
 output:
 ```
-usage: sparseml.yolov5.train [-h] [--weights WEIGHTS] [--cfg CFG] [--data DATA] [--hyp HYP] [--epochs EPOCHS] [--batch-size BATCH_SIZE] [--imgsz IMGSZ] [--rect]
-                             [--resume [RESUME]] [--nosave] [--noval] [--noautoanchor] [--evolve [EVOLVE]] [--bucket BUCKET] [--cache [CACHE]] [--image-weights]
-                             [--device DEVICE] [--multi-scale] [--single-cls] [--optimizer {SGD,Adam,AdamW}] [--sync-bn] [--workers WORKERS] [--project PROJECT]
-                             [--name NAME] [--exist-ok] [--quad] [--cos-lr] [--label-smoothing LABEL_SMOOTHING] [--patience PATIENCE] [--freeze FREEZE [FREEZE ...]]
-                             [--save-period SAVE_PERIOD] [--local_rank LOCAL_RANK] [--entity ENTITY] [--upload_dataset [UPLOAD_DATASET]]
-                             [--bbox_interval BBOX_INTERVAL] [--artifact_alias ARTIFACT_ALIAS] [--recipe RECIPE] [--disable-ema] [--max-train-steps MAX_TRAIN_STEPS]
-                             [--max-eval-steps MAX_EVAL_STEPS] [--one-shot] [--num-export-samples NUM_EXPORT_SAMPLES]
-
-optional arguments:
-  -h, --help            show this help message and exit
-  --weights WEIGHTS     initial weights path
-  --cfg CFG             model.yaml path
-  --data DATA           dataset.yaml path
-  --hyp HYP             hyperparameters path
-  --epochs EPOCHS
-  --batch-size BATCH_SIZE
-                        total batch size for all GPUs, -1 for autobatch
-...
+usage: sparseml.yolov5.train [-h] [--model MODEL] [--data DATA] [--recipe RECIPE] [--recipe-args RECIPE_ARGS] [--batch BATCH_SIZE] [--epochs EPOCHS] [--imgsz IMGSZ]
+                             [--resume] [--patience PAIENCE] [--save] [--cache] [--device [DEVICE]] [--workers WORKERS] [--project [PROJECT]]
+                             ...
+                            
 ```
 
-SparseML inherits most arguments from the Ultralytics repository. [For more details, check out the YOLOv5 documentation](https://github.com/ultralytics/yolov5).
+SparseML inherits most arguments from the Ultralytics repository. [Check out the YOLOv8 documentation for usage](https://docs.ultralytics.com/usage/cli/).
 
-## Sparse Transfer Learning YOLOv5s onto VOC
+## Sparse Transfer Learning YOLOv5m onto COCO128
 
-Let's try a step-by-step example of Sparse Transfer Learning YOLOv5s onto the VOC dataset.
+Let's try a step-by-step example of Sparse Transfer Learning YOLOv8m onto the COCO128 dataset.
 
 To run sparse transfer learning, we first need to create/select a sparsification recipe. For sparse transfer, we need a recipe that instructs SparseML to maintain sparsity during training and to quantize the model over the final epochs.
 
-For the VOC dataset, there is a [transfer learning recipe available in SparseZoo](https://sparsezoo.neuralmagic.com/models/cv%2Fdetection%2Fyolov5-s%2Fpytorch%2Fultralytics%2Fcoco%2Fpruned75_quant-none), identified by the following stub:
+Here is a [transfer learning recipe available in SparseZoo for YOLOv8m](https://sparsezoo.neuralmagic.com/models/yolov8-m-voc_coco-pruned80_quantized?hardware=deepsparse-c6i.12xlarge), identified by the following stub:
 
 ```
-zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned75_quant-none?recipe_type=transfer_learn
+zoo:cv/detection/yolov8-m/pytorch/ultralytics/voc/pruned80_quant-none
 ```
 
-Here's what the transfer learning recipe looks like:
+We can tell this is a transfer learning stub because the dataset is `voc`.
+
+<details>
+<summary>CLick to see what the recipe looks like:<summary>
 
 ```yaml
 version: 1.1.0
 
 # General variables
-num_epochs: 55
-quantization_epochs: 5
-quantization_lr: 1.e-5
-final_lr: 1.e-9
+num_epochs: 56
+init_lr: 1.e-6
+final_lr: 1.e-8
+
+# Quantization variables
+qat_start_epoch: 50
+observer_freeze_epoch: 51
+bn_freeze_epoch: 51
 
 training_modifiers:
   - !EpochRangeModifier
@@ -104,58 +95,198 @@ training_modifiers:
     end_epoch: eval(num_epochs)
 
   - !LearningRateFunctionModifier
-    start_epoch: eval(num_epochs - quantization_epochs)
+    start_epoch: eval(qat_start_epoch)
     end_epoch: eval(num_epochs)
     lr_func: cosine
-    init_lr: eval(quantization_lr)
+    init_lr: eval(init_lr)
     final_lr: eval(final_lr)
-
+ 
 pruning_modifiers:
   - !ConstantPruningModifier
-    start_epoch: 0.0
-    params: __ALL_PRUNABLE__
+    start_epoch: 0
+    params: ["re:^((?!dfl).)*$"] 
 
 quantization_modifiers:
   - !QuantizationModifier
-    start_epoch: eval(num_epochs - quantization_epochs)
-    submodules:
-      - model
-    custom_quantizable_module_types: ['SiLU']
-    exclude_module_types: ['SiLU']
-    quantize_conv_activations: False
-    disable_quantization_observer_epoch: eval(num_epochs - quantization_epochs + 2)
-    freeze_bn_stats_epoch: eval(num_epochs - quantization_epochs + 1)
+    start_epoch: eval(qat_start_epoch)
+    disable_quantization_observer_epoch: eval(observer_freeze_epoch)
+    freeze_bn_stats_epoch: eval(bn_freeze_epoch)
+    ignore: ['Upsample', 'Concat', 'model.22.dfl.conv']
+    scheme_overrides:
+      model.2.cv1.act:
+        output_activations:
+          num_bits: 8
+          symmetric: False
+      model.2.m.0.cv1.conv:
+        input_activations: null
+      model.2.m.0.add_input_0:
+        input_activations: null
+      model.4.cv1.act:
+        output_activations:
+          num_bits: 8
+          symmetric: False
+      model.4.m.0.cv1.conv:
+        input_activations: null
+      model.4.m.0.add_input_0:
+        input_activations: null
+      model.4.cv2.act:
+        output_activations:
+          num_bits: 8
+          symmetric: False
+      model.5.conv:
+        input_activations: null
+      model.6.cv1.act:
+        output_activations:
+          num_bits: 8
+          symmetric: False
+      model.6.m.0.cv1.conv:
+        input_activations: null
+      model.6.m.0.add_input_0:
+        input_activations: null
+      model.6.cv2.act:
+        output_activations:
+          num_bits: 8
+          symmetric: False
+      model.7.conv:
+        input_activations: null
+        output_activations:
+          num_bits: 8
+          symmetric: False
+      model.8.cv1.act:
+        output_activations:
+          num_bits: 8
+          symmetric: False
+      model.8.m.0.cv1.conv:
+        input_activations: null
+      model.8.m.0.add_input_0:
+        input_activations: null
+      model.8.cv2.act:
+        output_activations:
+          num_bits: 8
+          symmetric: False
+      model.9.cv1.act:
+        output_activations:
+          num_bits: 8
+          symmetric: False
+      model.9.cv2.act:
+        output_activations:
+          num_bits: 8
+          symmetric: False
+      model.12.cv1.act:
+        output_activations:
+          num_bits: 8
+          symmetric: False
+      model.12.m.0.cv1.conv:
+        input_activations: null
+      model.12.m.0.cv2.act:
+        output_activations:
+          num_bits: 8
+          symmetric: False
+      model.12.m.1.cv1.conv:
+        input_activations: null
+      model.12.m.1.cv2.act:
+        output_activations:
+          num_bits: 8
+          symmetric: False
+      model.12.cv2.act:
+        output_activations:
+          num_bits: 8
+          symmetric: False
+      model.15.cv1.act:
+        output_activations:
+          num_bits: 8
+          symmetric: False
+      model.15.m.0.cv1.conv:
+        input_activations: null
+      model.15.m.0.cv2.act:
+        output_activations:
+          num_bits: 8
+          symmetric: False
+      model.15.cv2.act:
+        output_activations:
+          num_bits: 8
+          symmetric: False
+      model.15.m.1.cv1.conv:
+        input_activations: null
+      model.15.m.1.cv2.act:
+        output_activations:
+          num_bits: 8
+          symmetric: False
+      model.16.conv:
+        input_activations: null
+      model.16.act:
+        output_activations:
+          num_bits: 8
+          symmetric: False
+      model.18.cv1.act:
+        output_activations:
+          num_bits: 8
+          symmetric: false
+      model.18.m.0.cv1.conv:
+        input_activations: null
+      model.18.m.0.cv2.act:
+        output_activations:
+          num_bits: 8
+          symmetric: False
+      model.18.m.1.cv1.conv:
+        input_activations: null
+      model.18.m.1.cv2.act:
+        output_activations:
+          num_bits: 8
+          symmetric: False
+      model.19.act:
+        output_activations:
+          num_bits: 8
+          symmetric: False
+      model.21.cv1.act:
+        output_activations:
+          num_bits: 8
+          symmetric: false
+      model.21.m.0.cv1.conv:
+        input_activations: null
+      model.21.m.0.cv2.act:
+        output_activations:
+          num_bits: 8
+          symmetric: False
+      model.21.m.1.cv1.conv:
+        input_activations: null
+      model.21.m.1.cv2.act:
+        output_activations:
+          num_bits: 8
+          symmetric: False
+      model.22.cv2.0.0.conv:
+        input_activations: null
+      model.22.cv3.0.0.conv:
+        input_activations: null
 ```
+
+<details>
+
 
 The "Modifiers" encode how SparseML should modify the training process for Sparse Transfer Learning.
 - `ConstantPruningModifier` tells SparseML to pin weights at 0 over all epochs, maintaining the sparsity structure of the network
-- `QuantizationModifier` tells SparseML to quantize the weights with quantization aware training over the last 5 epochs
+- `QuantizationModifier` tells SparseML to quantize the weights with quantization aware training over the last 5 epochs. The `scheme_overrides` are a bit complicated here to handle the GeLU activations followed by the C2f module introduced in YOLOv8, but you do not need to worry too much about this.
 
 SparseML parses the instructions declared in the recipe and modifies the YOLOv5 training loop accordingly before running the fine-tuning. 
 
-Run the following:
-```
-sparseml.yolov5.train \
-  --weights zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned75_quant-none?recipe_type=transfer_learn \
-  --recipe zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned75_quant-none?recipe_type=transfer_learn \
-  --data VOC.yaml \
-  --patience 0 \
-  --cfg yolov5s.yaml \
-  --hyp hyps/hyp.finetune.yaml
+Run the following to transfer learn from the 80% pruned YOLOv8m onto the COCO128 dataset:
+```bash
+sparseml.ultralytics.train \
+  --model "zoo:cv/detection/yolov8-m/pytorch/ultralytics/coco/pruned80-none" \
+  --recipe "zoo:cv/detection/yolov8-m/pytorch/ultralytics/voc/pruned80_quant-none" \
+  --data "coco128.yaml" \
+  --batch 2
 ```
 
 Lets discuss the key arguments:
-- `--weights` specifies the starting checkpoint for the training process. Here, we passed a SparseZoo stub, which
-identifies the 75% pruned-quantized YOLOv5s model in the SparseZoo. The script downloads the PyTorch model to begin training. In addition to SparseZoo stubs, you can also pass a local path to a PyTorch checkpoint.
+- `--model` specifies the starting checkpoint for the training process. Here, we passed a SparseZoo stub, which
+identifies the 80% pruned YOLOv8m model in the SparseZoo trained on `coco` (which can be seen in the stub). The script downloads the PyTorch model to begin training. In addition to SparseZoo stubs, you can also pass a local path to a PyTorch checkpoint.
 
-- `--recipe` specifies the transfer learning recipe. In this case, we passed a SparseZoo stub, which instructs SparseML to download the premade YOLOv5s transfer learning recipe shown above. In addition to SparseZoo stubs, you can also pass a local path to a YAML recipe. 
+- `--recipe` specifies the transfer learning recipe. In this case, we passed a SparseZoo stub, which instructs SparseML to download the premade YOLOv8m transfer learning recipe shown above. Note that the stub contains the `voc` term, indicating it was created to sparse transfer learn onto the VOC dataset. In addition to SparseZoo stubs, you can also pass a local path to a YAML recipe. 
 
-- `--data` specifies the dataset configuration. Here, we specify the VOC dataset, which is automatically downloaded. See below for an example
-  using a custom dataset.
-  
-- `--hyps` specifies a path to the hyperparameters for the training. Here, we use a [built in configuration](https://github.com/neuralmagic/yolov5/blob/master/data/hyps/hyp.finetune.yaml) for fine-tuning. Note that any hyperparameters specified in the `--recipe` (e.g. epochs or learning rate) will override anything passed to the `--hyps` argument. For instance, in this case, the recipe specifies the learning rate schedule for QAT. The specification in the recipe overrides the `lr` in the hyperparameter file.
+- `--data` specifies the dataset configuration. Here, we specify the `coco128` dataset, which is automatically downloaded (it is built into YOLOv8). See below for an example using a custom dataset.
 
-As a result, sparsity is maintained while the training occurs and we quantize the model over the final few epochs. In the end, we have a 75% pruned and quantized YOLOv5s trained on VOC!
+As a result, sparsity is maintained while the training occurs and we quantize the model over the final few epochs. In the end, we have a 80% pruned and quantized YOLOv8m trained on VOC!
 
 ### Exporting for Inference
 
@@ -163,80 +294,54 @@ Once trained, you can export the model to ONNX for inference with DeepSparse.
 
 Run the following:
 
-```bash 
-sparseml.yolov5.export_onnx \
-  --weights yolov5_runs/train/exp/weights/last.pt \
-  --dynamic
+```bash
+sparseml.ultralytics.export_onnx \
+  --model ./runs/detect/train/weights/last.pt \
+  --save_dir yolov8-m
 ```
 
 The resulting ONNX file is saved in your local directory.
 
-## Sparse Transfer Learning Other YOLOv5 Models
+## Sparse Transfer Learning Other YOLOv8 Models
 
 Here are some sample transfer learning commands for other versions of YOLOv5. 
 
-   - YOLOv5n Pruned-Quantized:
+   - YOLOv8n Pruned-Quantized:
 ```bash
-sparseml.yolov5.train \
-   --cfg yolov5n.yaml \
-   --weights zoo:cv/detection/yolov5-n/pytorch/ultralytics/coco/pruned40_quant-none?recipe_type=transfer_learn \
-   --recipe zoo:cv/detection/yolov5-n/pytorch/ultralytics/coco/pruned40_quant-none?recipe_type=transfer_learn \
-   --data VOC.yaml \
-   --patience 0 \
-   --hyp hyps/hyp.finetune.yaml
+sparseml.ultralytics.train \
+  --model "zoo:cv/detection/yolov8-n/pytorch/ultralytics/coco/pruned49-none" \
+  --recipe "zoo:cv/detection/yolov8-n/pytorch/ultralytics/voc/pruned49_quant-none" \
+  --data "coco128.yaml" \
+  --batch 8
 ```
-   - YOLOv5s Pruned-Quantized:
+   - YOLOv8m Pruned-Quantized:
 ```bash
-sparseml.yolov5.train \
-  --cfg yolov5s.yaml \
-  --weights zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned75_quant-none?recipe_type=transfer_learn \
-  --recipe zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned75_quant-none?recipe_type=transfer_learn \
-  --data VOC.yaml \
-  --patience 0 \
-  --hyp hyps/hyp.finetune.yaml
+sparseml.ultralytics.train \
+  --model "zoo:cv/detection/yolov8-m/pytorch/ultralytics/coco/pruned80-none" \
+  --recipe "zoo:cv/detection/yolov8-m/pytorch/ultralytics/voc/pruned80_quant-none" \
+  --data "coco128.yaml" \
+  --batch 2
 ```
-   - YOLOv5m Pruned-Quantized:
+   - YOLOv8l Pruned-Quantized:
 ```bash
-sparseml.yolov5.train \
-  --cfg yolov5m.yaml \
-  --weights zoo:cv/detection/yolov5-m/pytorch/ultralytics/coco/pruned70_quant-none?recipe_type=transfer_learn \
-  --recipe zoo:cv/detection/yolov5-m/pytorch/ultralytics/coco/pruned70_quant-none?recipe_type=transfer_learn \
-  --data VOC.yaml \
-  --patience 0 \
-  --hyp hyps/hyp.finetune.yaml
-```
-   - YOLOv5l Pruned-Quantized:
-```bash
-sparseml.yolov5.train \
-  --cfg yolov5l.yaml \
-  --weights zoo:cv/detection/yolov5-l/pytorch/ultralytics/coco/pruned90_quant-none?recipe_type=transfer_learn \
-  --recipe zoo:cv/detection/yolov5-l/pytorch/ultralytics/coco/pruned90_quant-none?recipe_type=transfer_learn \
-  --data VOC.yaml \
-  --patience 0 \
-  --hyp hyps/hyp.finetune.yaml
-```
-   - YOLOv5x Pruned-Quantized
-```bash
-sparseml.yolov5.train \
-  --cfg yolov5x.yaml \
-  --weights zoo:cv/detection/yolov5-x/pytorch/ultralytics/coco/pruned80_quant-none?recipe_type=transfer_learn \
-  --recipe zoo:cv/detection/yolov5-x/pytorch/ultralytics/coco/pruned80_quant-none?recipe_type=transfer_learn \
-  --data VOC.yaml \
-  --patience 0 \
-  --hyp hyps/hyp.finetune.yaml
+sparseml.ultralytics.train \
+  --model "zoo:cv/detection/yolov8-l/pytorch/ultralytics/coco/pruned85-none" \
+  --recipe "zoo:cv/detection/yolov8-l/pytorch/ultralytics/voc/pruned85_quant-none" \
+  --data "coco128.yaml" \
+  --batch 1
 ```
 
-SparseZoo contains mutliple variants of each version of YOLOv5 at various levels of sparsity, which can be fine-tuned onto your dataset. 
+SparseZoo contains mutliple variants of each version of YOLOv8 at various levels of sparsity, which can be fine-tuned onto your dataset. 
 
-[Checkout the full list](https://sparsezoo.neuralmagic.com/?page=1&domain=cv&sub_domain=detection) 
+[Checkout the full list](https://sparsezoo.neuralmagic.com/?sort=null&useCase=detection&architectures=yolov8) 
 
 ## Sparse Transfer Learning with a Custom Dataset
 
-Because SparseML is integrated with YOLOv5, we can easily pass custom datasets to the training flows in the Ultralytics format.
+Because SparseML is integrated with YOLOv8, we can easily pass custom datasets to the training flows in the Ultralytics format. Check out the [Ultralytics documentation](https://docs.ultralytics.com/datasets/detect/) for more details.
 
 ### Ultralytics Dataset Format 
 
-There are three steps to creating a custom dataset for YOLOv5.
+There are three steps to creating a custom dataset for YOLOv8.
 
 #### 1. Create `dataset.yaml`
 
@@ -296,11 +401,13 @@ Let's try a real example with an aerial dataset.
 
 The dataset is hosted on Google Drive ([link to file](https://drive.google.com/file/d/1GWTv9s-H387X-6wxHf2lVllqEdIv2J7N/view?usp=share_link)).
 
-Install `gdown` and download/unzip the dataset:
+Install `gdown` and download/unzip the dataset saving in a folder called `datasets`:
 ```
 pip install --upgrade gdown
 gdown 1GWTv9s-H387X-6wxHf2lVllqEdIv2J7N
 tar -xvf aerial-dataset.tar.gz
+mkdir datasets
+mv aerial-dataset datasets/
 ```
 
 After unzipping, we can see the directory conforms to the Ultralytics format:
@@ -385,7 +492,7 @@ plt.imshow(im)
 
 #### Create a Config
 
-Save the following configuration file as `aerial-dataset.yaml`:
+Save the following configuration file as `aerial-dataset.yaml` in a folder called `datasets`:
 
 ```yaml
 # aerial-dataset.yaml
@@ -402,21 +509,34 @@ names: ['object']
 
 #### Run Transfer Learning
 
-With the config file setup and data downloaded, we can simply swap in the dataset configuration file in place of the `VOC.yaml`.
+With the config file setup and data downloaded, we can simply swap in the dataset configuration file in place of the `coco128.yaml`.
 
+Your directory should look like the following:
+
+```bash
+|--datasets
+    |--aerial-dataset.yaml
+    |--aerial-dataset
+        |--train
+            |--images
+            |--labels
+        |--val
+            |--images
+            |--labels
 ```
-sparseml.yolov5.train \
-  --weights zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned75_quant-none?recipe_type=transfer_learn \
-  --recipe zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned75_quant-none?recipe_type=transfer_learn \
-  --recipe-args '{"num_epochs":30}' \
-  --data aerial-dataset.yaml \
-  --patience 0 \
-  --cfg yolov5s.yaml \
-  --hyp hyps/hyp.finetune.yaml
+
+Kick off the transfer learning:
+```bash
+sparseml.ultralytics.train \
+  --model "zoo:cv/detection/yolov8-m/pytorch/ultralytics/coco/pruned80-none" \
+  --recipe "zoo:cv/detection/yolov8-m/pytorch/ultralytics/voc/pruned80_quant-none" \
+  --data datasets/aerial-dataset.yaml \
+  --recipe_args '{"num_epochs":15, "qat_start_epoch": 10, "observer_freeze_epoch": 12, "bn_freeze_epoch": 12}' \
+  --batch 2
 ```
 
 You will notice that we added a `--recipe_args` argument, which updates the transfer 
-learning recipe to run for 30 epochs rather than 55 epochs. While you can always create
+learning recipe to run for 15 epochs. While you can always create
 a custom recipe file and pass a local file to script, the `--recipe_args` enables you
 to modify on the fly.
 

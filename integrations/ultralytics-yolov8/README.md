@@ -275,7 +275,7 @@ quantization_modifiers:
    
 The key `Modifiers` for sparse transfer learning are the following:
 - `ConstantPruningModifier` instructs SparseML to maintain the sparsity structure of the network during the fine-tuning process
-- `QuantizationModifier` instructs SparseML to apply quantization aware training to quantize the weights over the final epochs
+- `QuantizationModifier` tells SparseML to quantize the weights with quantization aware training over the last 5 epochs. The `scheme_overrides` are a bit complicated here to handle the GeLU activations followed by the C2f module introduced in YOLOv8, but you do not need to worry too much about this.
 
 SparseML parses the `Modifers` in the recipe and updates the training loop with logic encoded therein.
 
@@ -310,7 +310,6 @@ Once exported to ONNX, you can deploy your models with DeepSparse. Checkout the 
 
 ## **Next Steps**
 
-Check out the tutorials for more details on additional functionality like training with other YOLOv5 versions and using custom datasets:
+Check out the tutorials for more details on additional functionality like training with other YOLOv8 versions and using custom datasets:
 
 - [Sparse Transfer Learning with the CLI](tutorials/sparse-transfer-learning.md) **[HIGHLY RECOMMENDED]**
-- [Sparsifying From Scratch with the CLI](tutorials/sparsify-from-scratch.md)
