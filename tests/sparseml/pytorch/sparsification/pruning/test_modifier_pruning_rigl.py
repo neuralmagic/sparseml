@@ -76,9 +76,9 @@ def _get_dataloader_builder(
     "modifier_lambda",
     [
         lambda: RigLPruningModifier(
-            sparsity=0.9, 
-            global_sparsity= True,
-            sparsity_strategy='erdos_renyi_kernel',
+            sparsity=0.9,
+            global_sparsity=True,
+            sparsity_strategy="erdos_renyi_kernel",
             start_epoch=2.0,
             end_epoch=5.0,
             update_frequency=1.0,
@@ -91,7 +91,7 @@ def _get_dataloader_builder(
         lambda: RigLPruningModifier(
             sparsity=0.7,
             global_sparsity=False,
-            sparsity_strategy='uniform',
+            sparsity_strategy="uniform",
             start_epoch=2.0,
             end_epoch=5.0,
             update_frequency=1.0,
@@ -106,7 +106,7 @@ def _get_dataloader_builder(
             params=["seq.fc1.weight", "seq.fc2.weight"],
             sparsity=0.5,
             global_sparsity=True,
-            sparsity_strategy='erdos_renyi',
+            sparsity_strategy="erdos_renyi",
             momentum_buffer_reset=False,
             start_epoch=2.0,
             end_epoch=5.0,
@@ -291,9 +291,9 @@ class TestRigLPruningModifier(ScheduledUpdateModifierTest):
     ],
 )
 @pytest.mark.skipif(
-  os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-  reason="Skipping pytorch tests",
- )
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
+)
 def test_rigl_pruning_yaml(params, init_sparsity, final_sparsity):
     start_epoch = 5.0
     end_epoch = 15.0
@@ -301,7 +301,7 @@ def test_rigl_pruning_yaml(params, init_sparsity, final_sparsity):
     inter_func = "cubic"
     global_sparsity = True
     momentum_buffer_reset = False
-    sparsity_strategy='erdos_renyi'
+    sparsity_strategy = "erdos_renyi"
     num_grads = 64
     mask_type = "unstructured"
     batch_size = 4
@@ -343,7 +343,6 @@ def test_rigl_pruning_yaml(params, init_sparsity, final_sparsity):
             "batch_size": batch_size,
         },
     )
-    #raise ValueError(yaml_modifier)
     assert isinstance(yaml_modifier, RigLPruningModifier)
     pruning_modifier_serialization_vals_test(
         yaml_modifier, serialized_modifier, obj_modifier
