@@ -303,7 +303,7 @@ The resulting ONNX file is saved in your local directory.
 
 ## Sparse Transfer Learning Other YOLOv8 Models
 
-Here are some sample transfer learning commands for other versions of YOLOv5. 
+Here are some sample transfer learning commands for other versions of YOLOv8. 
 
    - YOLOv8n Pruned-Quantized:
 ```bash
