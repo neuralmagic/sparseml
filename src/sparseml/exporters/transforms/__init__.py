@@ -41,6 +41,7 @@ from .initializers_to_uint8 import InitializersToUint8
 from .matmul_add_to_matmulinteger_add_cast_mul import MatMulAddToMatMulIntegerAddCastMul
 from .matmul_to_matmulinteger_cast_mul import MatMulToMatMulIntegerCastMul
 from .propagate_embedding_quantization import PropagateEmbeddingQuantization
+from .propagate_dequant_through_split import PropagateDequantThroughSplit
 from .quantize_qat_embedding import QuantizeQATEmbedding
 from .quantize_residuals import QuantizeResiduals
 from .remove_duplicate_qconv_weights import RemoveDuplicateQConvWeights
