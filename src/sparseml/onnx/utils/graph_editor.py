@@ -15,7 +15,7 @@
 """
 Helper functions to edit ONNX Graphs.
 """
-
+import copy
 from collections import defaultdict
 from typing import Iterable, List, Optional, Union
 
@@ -241,6 +241,22 @@ class ONNXGraph(object):
                 and (init.name not in output_names)
             ]
         )  # delete inits that have no edge
+
+    def swap_nodes(self, child: NodeProto, parent: NodeProto):
+        """
+        Given a child and parent node, swap the position of the child node
+        with the parent node. It is assumed that the child node has only one
+        parent node and the parent node has only one child node.
+
+        :param child: One of the nodes to swap
+        :param parent: Second node to swap
+        """
+
+        # swap inputs
+        child.input[0], parent.input[0] = parent.input[0], child.input[0]
+        # swap outputs
+        child.output[0], parent.output[0] = parent.output[0], child.output[0]
+
 
     def find_orphaned_nodes(self, node: NodeProto) -> List[NodeProto]:
         """

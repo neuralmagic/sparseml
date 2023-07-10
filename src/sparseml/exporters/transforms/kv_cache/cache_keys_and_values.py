@@ -305,6 +305,12 @@ def create_cache(
         cache_input_idx = 3  # QLinearMatMul B matrix is at idx 3, not 1
 
     cache_parent = graph.get_node_single_parent(node, index=cache_input_idx)
+    if cache_parent.op_type == "QuantizeLinear":
+        cache_grandparents = [_node for _node in graph.get_node_parents(cache_parent) if isinstance(_node, NodeProto)]
+        if len(cache_grandparents) == 1 and cache_grandparents[0].op_type == "Transpose":
+            graph.swap_nodes(child=cache_parent, parent=cache_grandparents[0])
+            cache_parent = cache_grandparents[0]
+
     if isinstance(cache_parent, NodeProto) and cache_parent.op_type == "Transpose":
         # move cache to before a transpose if applicable
         # this is due to pytorch operations potentially extracting shape values
