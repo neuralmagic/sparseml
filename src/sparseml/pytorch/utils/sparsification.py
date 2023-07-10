@@ -236,7 +236,6 @@ class GradSampler:
             total=num_grads, desc="Collecting gradients", disable=not progress_bar
         )
 
-
         with pbar:
             while computed_grads < num_grads:
                 data_loader = (

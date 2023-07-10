@@ -26,13 +26,13 @@ from types import SimpleNamespace
 from typing import Callable, Optional
 
 import torch
+import torch.nn.functional as F
 import torch.utils.data
 import torchvision
 from packaging import version
 from torch import nn
 from torch.utils.data.dataloader import DataLoader, default_collate
 from torchvision.transforms.functional import InterpolationMode
-import torch.nn.functional as F
 
 import click
 from sparseml.optim.helpers import load_recipe_yaml_str
@@ -57,8 +57,18 @@ from sparsezoo import Model
 
 _LOGGER = logging.getLogger(__name__)
 
-def create_grad_sampler_loader(train_dataset, num_workers=16, grad_sampler_batch_size=10):
-    return DataLoader(train_dataset, batch_size=grad_sampler_batch_size, shuffle=True, pin_memory=True, num_workers=16)
+
+def create_grad_sampler_loader(
+    train_dataset, num_workers=16, grad_sampler_batch_size=10
+):
+    return DataLoader(
+        train_dataset,
+        batch_size=grad_sampler_batch_size,
+        shuffle=True,
+        pin_memory=True,
+        num_workers=16,
+    )
+
 
 def train_one_epoch(
     model: torch.nn.Module,
@@ -633,9 +643,9 @@ def main(args):
                     input, target = input.to(device).float(), target.to(device)
                     yield [input], {}, target
 
-        recipe_kwargs['grad_sampler'] =  {
-            'data_loader_builder' : data_loader_builder,
-            'loss_function' : criterion
+        recipe_kwargs["grad_sampler"] = {
+            "data_loader_builder": data_loader_builder,
+            "loss_function": criterion,
         }
     if manager is not None:
         manager.initialize(
