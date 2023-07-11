@@ -29,10 +29,8 @@ Once trained, SparseML enables you to export models to the ONNX format, such tha
 Install with `pip`:
 
 ```bash
-pip install sparseml[torchvision]
+pip install sparseml[yolov5]
 ```
-
-**Note**: YOLOv5 will not immediately install with this command. Instead, a sparsification-compatible version of YOLOv5 will install on the first invocation of the YOLOv5 code in SparseML.
 
 ## Tutorials
 
@@ -91,7 +89,7 @@ SparseML inherits most arguments from the Ultralytics repository. [Check out the
 
 Sparse Transfer is very similiar to the typical transfer learing process used to train YOLOv5 models, where we fine-tune a checkpoint pretrained on COCO onto a smaller downstream dataset. With Sparse Transfer Learning, however, we simply start the fine-tuning process from a pre-sparsified checkpoint and maintain sparsity while the training process occurs.
 
-Here, we will fine-tune a [75% pruned-quantized version of YOLOv5s](https://sparsezoo.neuralmagic.com/models/cv%2Fdetection%2Fyolov5-s%2Fpytorch%2Fultralytics%2Fcoco%2Fpruned75_quant-none) onto VOC. 
+Here, we will fine-tune a [75% pruned-quantized version of YOLOv5s](https://sparsezoo.neuralmagic.com/models/yolov5-s-coco-pruned75_quantized?comparison=yolov5-s-coco-base&tab=0) onto VOC. 
 
 ### Kick off Training
 
@@ -99,7 +97,7 @@ We will use SparseML's `sparseml.yolov5.train` training script.
 
 To run sparse transfer learning, we first need to create/select a sparsification recipe. For sparse transfer, we need a recipe that instructs SparseML to maintain sparsity during training and to quantize the model over the final epochs.
 
-For the VOC dataset, there is a [transfer learning recipe available in SparseZoo](https://sparsezoo.neuralmagic.com/models/cv%2Fdetection%2Fyolov5-s%2Fpytorch%2Fultralytics%2Fcoco%2Fpruned75_quant-none), identified by the following SparseZoo stub:
+For the VOC dataset, there is a [transfer learning recipe available in SparseZoo](https://sparsezoo.neuralmagic.com/models/yolov5-s-coco-pruned75_quantized?comparison=yolov5-s-coco-base&tab=0), found under the recipes tab and identified by the following SparseZoo stub:
 ```bash
 zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned75_quant-none?recipe_type=transfer_learn
 ```
