@@ -217,6 +217,16 @@ class ModuleExporter(object):
                     sample_batch, module, check_feat_lab_inp=False
                 )
                 export_kwargs["output_names"] = self.get_output_names(out)
+
+        fake_quant_modules = [module for module in self._module.modules() if module.__class__.__name__ == "FakeQuantize"]
+        for quant in fake_quant_modules: # original ranges preserved in quant.quant_min and quant.quant_max, deprecated by torch
+            quant_range = quant.activation_post_process.quant_min, quant.activation_post_process.quant_max
+            if quant_range == (-8,7): # convert int4 range to int8
+                quant.activation_post_process.quant_min = -128
+                quant.activation_post_process.quant_max = 127
+            elif quant_range == (0, 15): # convert uint4 to uint8
+                quant.activation_post_process.quant_max = 255
+
         export_onnx(
             module=self._module,
             sample_batch=sample_batch,
