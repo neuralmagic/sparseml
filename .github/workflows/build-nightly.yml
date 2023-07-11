@@ -2,10 +2,10 @@ name: build-nightly
 run-name: ${{ github.workflow }} is to create nightly wheel file for pypi
 on:
   push:
-  #  branches:
-  #    - 'main'
-  #schedule:
-  #  - cron: '0 0 * * *'
+    branches:
+      - 'main'
+  schedule:
+    - cron: '0 1 * * *'
   workflow_dispatch:
 jobs:
   build-nightly:
