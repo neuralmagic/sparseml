@@ -29,6 +29,7 @@ __all__ = ["CacheKeysAndValues"]
 
 _LOGGER = logging.getLogger(__name__)
 
+ALLOWED_NODES_FOLLOWING_CONCAT = ["Transpose", "QuantizeLinear"]
 ALLOWED_NODES_BEFORE_SOFTMAX = ["Cast", "QuantizeLinear"]
 OUTPUT_CACHE_NAME = """present.{attention_layer_idx}.{cache_type}"""
 INPUT_CACHE_NAME = """past_key_values.{attention_layer_idx}.{cache_type}"""
@@ -305,19 +306,12 @@ def create_cache(
         cache_input_idx = 3  # QLinearMatMul B matrix is at idx 3, not 1
 
     cache_parent = graph.get_node_single_parent(node, index=cache_input_idx)
-    if cache_parent.op_type == "QuantizeLinear":
-        cache_grandparents = [_node for _node in graph.get_node_parents(cache_parent) if isinstance(_node, NodeProto)]
-        if len(cache_grandparents) == 1 and cache_grandparents[0].op_type == "Transpose":
-            graph.swap_nodes(child=cache_parent, parent=cache_grandparents[0])
-            cache_parent = cache_grandparents[0]
 
-    if isinstance(cache_parent, NodeProto) and cache_parent.op_type == "Transpose":
-        # move cache to before a transpose if applicable
-        # this is due to pytorch operations potentially extracting shape values
-        # from the key tensor before the transpose is applied
-        pre_cache_input_id = cache_parent.input[0]
-        # update concat axis
-        node = cache_parent
+    if isinstance(cache_parent, NodeProto) and cache_parent.op_type in ALLOWED_NODES_FOLLOWING_CONCAT:
+        while cache_parent.op_type in ALLOWED_NODES_FOLLOWING_CONCAT:
+            pre_cache_input_id = cache_parent.input[0]
+            cache_parent = graph.get_node_single_parent(cache_parent, index= 0)
+
     else:
         pre_cache_input_id = node.input[cache_input_idx]
 
@@ -368,12 +362,18 @@ def create_cache(
         name=f"concat.{cache_input_name_concat}",
     )
 
-    for node in model.graph.node:
+    for _node in model.graph.node:
         for input_idx, input_id in enumerate(node.input):
-            if input_id == pre_cache_input_id and node.name != concat_node.name:
-                node.input[input_idx] = cache_output_name_concat
+            if input_id == pre_cache_input_id and _node.name != concat_node.name:
+                _node.input[input_idx] = cache_output_name_concat
 
     graph.add_node(concat_node)
+
+    if node.op_type == "MatMulInteger":
+        node_parent = graph.get_node_single_parent(node, index=cache_input_idx)
+        node_grandparent = graph.get_node_single_parent(node_parent, index=0)
+        if node_parent.op_type == "QuantizeLinear" and node_grandparent.op_type == "Transpose":
+            pass
 
     return concat_node, cache_input_info, cache_output_info
 
