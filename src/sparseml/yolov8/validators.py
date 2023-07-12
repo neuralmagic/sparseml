@@ -134,11 +134,22 @@ class SparseValidator(BaseValidator):
 
             # loss
             with dt[2]:
-                x = preds if self.training else preds[1]
-                if not hasattr(self, "loss"):
-                    self.loss = trainer.model.loss(batch=batch, preds=x)[1]
+                if self.training:
+                    if not hasattr(self, "loss"):
+                        self.loss = model.loss(batch=batch, preds=x)[1]
+                    else:
+                        self.loss += model.loss(batch=batch, preds=x)[1]
+                """
+                if self.training:
+                    x = preds 
+                    
                 else:
-                    self.loss += trainer.model.loss(batch=batch, preds=x)[1]
+                    x = preds[1]
+                    if not hasattr(self, "loss"):
+                        self.loss = model.model.loss(batch=batch, preds=x)[1]
+                    else:
+                        self.loss += model.model.loss(batch=batch, preds=x)[1]
+                """
 
             # pre-process predictions
             with dt[3]:
@@ -156,7 +167,6 @@ class SparseValidator(BaseValidator):
             self.run_callbacks("on_val_batch_end")
         stats = self.get_stats()
         self.check_stats(stats)
-        self.print_results()
         self.speed = dict(
             zip(
                 self.speed.keys(),
@@ -165,34 +175,21 @@ class SparseValidator(BaseValidator):
         )
         self.finalize_metrics()
         self.run_callbacks("on_val_end")
-        model.float()
-        stats = {
-            **stats,
-            **trainer.label_loss_items(
-                self.loss.cpu() / len(self.dataloader), prefix="val"
-            ),
-        }
 
         if self.training:
-            return {
-                k: round(float(v), 5) for k, v in stats.items()
-            }  # return results as 5 decimal place floats
+            model.float()
+            results = {**stats, **trainer.label_loss_items(self.loss.cpu() / len(self.dataloader), prefix='val')}
+            return {k: round(float(v), 5) for k, v in results.items()} # return results as 5 decimal place floats
         else:
-            """
-            LOGGER.info(
-                (
-                    "Speed: %.1fms pre-process, %.1fms inference, %.1fms loss, %.1fms "
-                    "post-process per image"
-                ),
-                *self.speed,
-            )
-            """
-            LOGGER.info(f"Validation loss: {stats['val/Loss']}")
+            LOGGER.info('Speed: %.1fms preprocess, %.1fms inference, %.1fms loss, %.1fms postprocess per image' %
+                        tuple(self.speed.values()))
             if self.args.save_json and self.jdict:
                 with open(str(self.save_dir / "predictions.json"), "w") as f:
                     LOGGER.info(f"Saving {f.name}...")
                     json.dump(self.jdict, f)  # flatten and save
                 stats = self.eval_json(stats)  # update stats
+            if self.args.plots or self.args.save_json:
+                LOGGER.info(f"Results saved to {self.save_dir}")
             return stats
 
 
