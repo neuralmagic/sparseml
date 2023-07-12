@@ -5,7 +5,7 @@ recipe_args: null
 datasets_dir: null
 
 task: "detect" # choices=['detect', 'segment', 'classify', 'init'] # init is a special case. Specify task to run.
-mode: "val" # choices=['train', 'val', 'predict'] # mode to run task in.
+mode: "train" # choices=['train', 'val', 'predict'] # mode to run task in.
 
 # Train settings -------------------------------------------------------------------------------------------------------
 model: "yolov8n.yaml" # i.e. yolov8n.pt, yolov8n.yaml. Path to model file
@@ -36,7 +36,7 @@ resume: False # resume training from last checkpoint
 amp: True # (bool) Automatic Mixed Precision (AMP) training, choices=[True, False], True runs AMP check
 fraction: 1.0  # (float) dataset fraction to train on (default is 1.0, all images in train set)
 profile: False # (bool) profile ONNX and TensorRT speeds during training for loggers
-# min_memory: False  # minimize memory footprint loss function, choices=[False, True, <roll_out_thr>]
+min_memory: False  # minimize memory footprint loss function, choices=[False, True, <roll_out_thr>]
 
 # Segmentation
 overlap_mask: True # masks should overlap during training

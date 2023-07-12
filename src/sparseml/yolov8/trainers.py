@@ -556,7 +556,6 @@ class SparseSegmentationTrainer(SparseTrainer, SegmentationTrainer):
 
 
 class SparseYOLO(YOLO):
-    # TODO: Remove this input type
     def __init__(self, model="yolov8n.yaml", task="detect") -> None:
         model_str = str(model)
 
@@ -741,7 +740,9 @@ class SparseYOLO(YOLO):
             if isinstance(m, (Detect, Segment)):
                 m.export = True
 
-        # What is the the format? Can't find this variable
+        # format attribute seems to not exist within this ultralytics update
+        # This is a workaround. Should be one of
+        # ('saved_model', 'pb', 'tflite', 'edgetpu', 'tfjs')
         self.model.model[-1].format = "saved_model"
         exporter = ModuleExporter(self.model, save_dir)
         if save_one_shot_torch:
