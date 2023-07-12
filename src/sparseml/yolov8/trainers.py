@@ -160,8 +160,16 @@ class SparseTrainer(BaseTrainer):
         # NOTE: overriden to use our version of `generate_ddp_command`
         world_size = torch.cuda.device_count()
         if world_size > 1 and "LOCAL_RANK" not in os.environ:
+            if self.args.rect:
+                LOGGER.warning(
+                    "WARNING ⚠️ 'rect=True' is incompatible with Multi-GPU training, "
+                    "setting rect=False"
+                )
+                self.args.rect = False
+
             command, file = generate_ddp_command(world_size, self)
             try:
+                LOGGER.info(f"DDP command: {command}")
                 subprocess.run(command, check=True)
             except Exception as e:
                 raise e
@@ -855,6 +863,7 @@ class SparseYOLO(YOLO):
         overrides.update(kwargs)
         overrides["mode"] = "val"
         overrides["data"] = data or overrides["data"]
+        overrides["plots"] = False
         args = get_cfg(cfg=DEFAULT_CFG, overrides=overrides)
         args.data = data or args.data
         args.task = self.task

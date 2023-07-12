@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import json
-from argparse import Namespace
 from pathlib import Path
 
 import torch
@@ -49,23 +48,24 @@ class SparseValidator(BaseValidator):
             model = model.half() if self.args.half else model.float()
             self.model = model
             self.loss = torch.zeros_like(trainer.loss_items, device=trainer.device)
+
             self.args.plots = (
-                trainer.epoch == trainer.epochs - 1
+                trainer.stopper.possible_stop or trainer.epoch == trainer.epochs - 1
             )  # always plot final epoch
+
             model.eval()
         else:
             callbacks.add_integration_callbacks(self)
             self.run_callbacks("on_val_start")
             assert model is not None, "Either trainer or model is needed for validation"
             self.device = select_device(self.args.device, self.args.batch)
-            # self.args.half &= self.device.type != "cpu"
+            self.args.half &= self.device.type != "cpu"
             model = AutoBackend(
                 model,
                 device=self.device,
                 dnn=self.args.dnn,
                 data=self.args.data,
                 fp16=self.args.half,
-                fuse=False,
             )
             self.model = model
             stride, pt, jit, engine = model.stride, model.pt, model.jit, model.engine
@@ -99,15 +99,13 @@ class SparseValidator(BaseValidator):
             if not pt:
                 self.args.rect = False
             self.dataloader = self.dataloader or self.get_dataloader(
-                self.data.get("val") or self.data.set("test"), self.args.batch
+                self.data.get(self.args.split), self.args.batch
             )
 
             model.eval()
             model.warmup(
                 imgsz=(1 if pt else self.args.batch, 3, imgsz, imgsz)
             )  # warmup
-            trainer.model = model.model
-            trainer.model.args = Namespace(**model.model.args)
 
         dt = Profile(), Profile(), Profile(), Profile()
         n_batches = len(self.dataloader)
@@ -135,21 +133,7 @@ class SparseValidator(BaseValidator):
             # loss
             with dt[2]:
                 if self.training:
-                    if not hasattr(self, "loss"):
-                        self.loss = model.loss(batch=batch, preds=x)[1]
-                    else:
-                        self.loss += model.loss(batch=batch, preds=x)[1]
-                """
-                if self.training:
-                    x = preds 
-                    
-                else:
-                    x = preds[1]
-                    if not hasattr(self, "loss"):
-                        self.loss = model.model.loss(batch=batch, preds=x)[1]
-                    else:
-                        self.loss += model.model.loss(batch=batch, preds=x)[1]
-                """
+                    self.loss += model.loss(batch=batch, preds=preds)[1]
 
             # pre-process predictions
             with dt[3]:
@@ -178,11 +162,20 @@ class SparseValidator(BaseValidator):
 
         if self.training:
             model.float()
-            results = {**stats, **trainer.label_loss_items(self.loss.cpu() / len(self.dataloader), prefix='val')}
-            return {k: round(float(v), 5) for k, v in results.items()} # return results as 5 decimal place floats
+            results = {
+                **stats,
+                **trainer.label_loss_items(
+                    self.loss.cpu() / len(self.dataloader), prefix="val"
+                ),
+            }
+            return {
+                k: round(float(v), 5) for k, v in results.items()
+            }  # return results as 5 decimal place floats
         else:
-            LOGGER.info('Speed: %.1fms preprocess, %.1fms inference, %.1fms loss, %.1fms postprocess per image' %
-                        tuple(self.speed.values()))
+            LOGGER.info(
+                "Speed: %.1fms preprocess, %.1fms inference, %.1fms loss, %.1fms "
+                "postprocess per image" % tuple(self.speed.values())
+            )
             if self.args.save_json and self.jdict:
                 with open(str(self.save_dir / "predictions.json"), "w") as f:
                     LOGGER.info(f"Saving {f.name}...")
