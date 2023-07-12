@@ -926,7 +926,7 @@ def _get_raw_dataset(data_args, cache_dir: Optional[str] = None):
                 cache_dir=cache_dir,
             )
         except json.JSONDecodeError:
-            # run without `field="data"` - JSONL files will not be nested uner
+            # run without `field="data"` - JSONL files will not always have each line nested under
             # a top level field
             raw_datasets = load_dataset(
                 extension,
