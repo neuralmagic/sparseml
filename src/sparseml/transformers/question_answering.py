@@ -20,10 +20,7 @@
 """
 Fine-tuning the library models for question answering integrated with sparseml
 """
-
-# You can also adapt this script on your own question answering task.
-# Pointers for this are left as comments.
-
+import json
 import logging
 import os
 import sys
@@ -54,6 +51,13 @@ from sparseml.transformers.sparsification import (
     postprocess_qa_predictions,
 )
 from sparseml.transformers.utils import SparseAutoModel, get_shared_tokenizer_src
+
+
+# You can also adapt this script on your own question answering task.
+# Pointers for this are left as comments.
+
+
+
 
 
 require_version(
@@ -913,12 +917,22 @@ def _get_raw_dataset(data_args, cache_dir: Optional[str] = None):
         if data_args.test_file is not None:
             data_files["test"] = data_args.test_file
             extension = data_args.test_file.split(".")[-1]
-        raw_datasets = load_dataset(
-            extension,
-            data_files=data_files,
-            field="data",
-            cache_dir=cache_dir,
-        )
+
+        try:
+            raw_datasets = load_dataset(
+                extension,
+                data_files=data_files,
+                field="data",
+                cache_dir=cache_dir,
+            )
+        except json.JSONDecodeError:
+            # run without `field="data"` - JSONL files will not be nested uner
+            # a top level field
+            raw_datasets = load_dataset(
+                extension,
+                data_files=data_files,
+                cache_dir=cache_dir,
+            )
     # See more about loading any type of standard or custom dataset
     # (from files, python dict, pandas DataFrame, etc) at
     # https://huggingface.co/docs/datasets/loading_datasets.html.
