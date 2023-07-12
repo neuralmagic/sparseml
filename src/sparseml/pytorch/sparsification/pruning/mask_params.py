@@ -22,7 +22,7 @@ from typing import Iterable, List, Optional, Tuple, Union
 
 import torch
 from torch import Tensor
-from torch.nn import Module, Parameter
+from torch.nn import Module
 
 from sparseml.pytorch.sparsification.pruning.mask_creator import PruningMaskCreator
 from sparseml.pytorch.sparsification.pruning.scorer import PruningParamsScorer
@@ -512,9 +512,12 @@ class ModuleParamPruningMask(object):
                     self._forward_hooks[idx] = layer.register_forward_pre_hook(
                         partial(self._hook_mask_forward, idx)
                     )
-    
-                if self._allow_reintroduction and self._undo_mask_hooks[idx] is None \
-                      and not self._mask_gradients_only:
+
+                if (
+                    self._allow_reintroduction
+                    and self._undo_mask_hooks[idx] is None
+                    and not self._mask_gradients_only
+                ):
                     self._undo_mask_hooks[idx] = layer.register_backward_hook(
                         partial(self._hook_undo_mask, idx)
                     )
@@ -544,13 +547,13 @@ class ModuleParamPruningMask(object):
     def _hook_mask_forward(
         self, param_idx: int, mod: Module, inp: Union[Tensor, Tuple[Tensor]]
     ):
-         with torch.no_grad():
-             self.apply(param_idx)
+        with torch.no_grad():
+            self.apply(param_idx)
 
     def _hook_undo_mask(self, param_idx, module, inp, out):
         if self._allow_reintroduction:
             with torch.no_grad():
-                self._params[param_idx].data.add_(1*self._params_unmasked[param_idx])
+                self._params[param_idx].data.add_(1 * self._params_unmasked[param_idx])
 
     def _hook_mask_gradient(self, param_idx, grad):
         if 0.0 <= self._track_grad_mom < 1.0:
