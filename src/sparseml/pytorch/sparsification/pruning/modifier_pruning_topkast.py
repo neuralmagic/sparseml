@@ -16,6 +16,8 @@ import math
 from typing import Dict, List, Optional, OrderedDict, Union
 
 from torch import Tensor
+from torch import abs as tabs
+from torch.linalg import norm
 from torch.nn import Module, Parameter
 from torch.optim.optimizer import Optimizer
 
@@ -27,6 +29,11 @@ from sparseml.pytorch.sparsification.pruning.mask_creator import (
 from sparseml.pytorch.sparsification.pruning.modifier_pruning_base import (
     BasePruningModifier,
 )
+from sparseml.pytorch.sparsification.modifier import (
+    ScheduledModifier,
+    ScheduledUpdateModifier,
+)
+
 from sparseml.pytorch.sparsification.pruning.modifier_pruning_magnitude import (
     MagnitudePruningParamsScorer,
 )
@@ -42,43 +49,49 @@ __all__ = ["TopKASTPruningModifier"]
 class TopKASTPruningModifier(BasePruningModifier):
     """
     Implementation of
-    Alternating Compressed/DeCompressed Training of Deep Neural Networks:
-    https://arxiv.org/pdf/2106.12379.pdf.
+    Top-KAST: Top-K Always Sparse Training:
+    https://arxiv.org/pdf/2106.03517.pdf.
     AC/DC performs co-training of sparse and dense models, and can return both an
     accurate sparse model, and a dense model.
+    Top-KAST uses two masks: a forward mask which is applied during inference and
+    the forward pass of training, and a backward mask which is applied to sparsify
+    the (otherwise dense) gradient. Both masks are magnitude-based, with the former
+    being more restrictive than the latter.
+    In addition, unmasked weights are decayed by adding an L2 regularization term
+    to the loss.
+    Note that in the original paper, top-Kast is used with SGD with NO momentum
+    and masks are recomputed every step (though the authors also test mask
+    recomputation every 100 steps with no change in accuracy.)
     | Sample yaml:
     |   !TopKASTPruningModifier
     |       compression_sparsity: 0.9
     |       start_epoch: 0
     |       end_epoch: 100
-    |       update_frequency: 5
+    |       update_frequency: -1
     |       params: __ALL_PRUNABLE__
     |       global_sparsity: True
 
-    :param compression_sparsity: The sparsity enforced during the compression phase.
     :param forward_sparsity: The sparsity of the weights during the forward pass.
     :param backward sparsity: The sparsity of the gradients during the backward pass.
         Should be at least as high as the forward sparsity.
     :param start_epoch: The epoch to start the modifier at
     :param end_epoch: The epoch to end the modifier at
     :param update_frequency: The length (in epochs) between the forward and backward
-        masks are computed.
+        masks are computed. Can and likely should be fractional or -1 to recompute
+        at every epoch.
     :param params: A list of full parameter names or regex patterns of names to apply
         pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
         will match to all parameters. __ALL_PRUNABLE__ will match to all ConvNd
         and Linear layers' weights. If a sparsity to param mapping is defined by
         final_sparsity, then params should be set to []
     :param global_sparsity: set True to enable global pruning. if False, pruning will
-        be layer-wise. Default is True
+        be layer-wise. Default is True.
     :param leave_enabled: True to continue masking the weights after end_epoch,
         False to stop masking. Should be set to False if exporting the result
         immediately after or doing some other prune. Default is True
     :param mask_type: String to define type of sparsity to apply. May be 'unstructred'
         for unstructured pruning or 'block4' for four block pruning or a list of two
         integers for a custom block shape. Default is 'unstructured'
-    :param momentum_buffer_reset: set True to reset momentum buffer
-        before algorithm enters a consecutive decompression phase.
-        Default is True
     """
 
     def __init__(
@@ -91,14 +104,9 @@ class TopKASTPruningModifier(BasePruningModifier):
         params: Union[str, List[str]],
         global_sparsity: bool = True,  # TODO: in the top-KAST paper, the default is False
         leave_enabled: bool = True, 
-        momentum_buffer_reset: bool = True,
         mask_type: str = "unstructured",
     ):
-        start_epoch = self._assert_is_integer(start_epoch)
-        end_epoch = self._assert_is_integer(end_epoch)
-        update_frequency = self._assert_is_integer(update_frequency)
 
-        self._momentum_buffer_reset = momentum_buffer_reset
         self._mask_type = mask_type
 
         super(TopKASTPruningModifier, self).__init__(
@@ -111,7 +119,6 @@ class TopKASTPruningModifier(BasePruningModifier):
             allow_reintroduction=True,
         )
 
-        self._momentum_buffer_empty = True
         self._forward_sparsity = forward_sparsity
         self._backward_sparsity = backward_sparsity
 
@@ -131,13 +138,11 @@ class TopKASTPruningModifier(BasePruningModifier):
             for layer_name, param_name in zip(layer_names, param_names)
         ]
 
-	# We will need a whole separate set of masks for gradients,
+	# We  need a whole separate set of masks for gradients,
         # since they will be pruned to a smaller sparsity than weights.
         self._grad_mask_creator = self._get_mask_creator(full_param_names, params)
         self._grad_scorer = self._get_scorer(params)
         self._grad_module_masks = self._create_grad_pruning_mask(layers, layer_names, param_names)
-        # TODO: do we need grad analyzers?
-        #self._analyzers = self._create_analyzers(layers, layer_names, param_names)
         
 
     def get_applied_sparsity_for_epoch(
@@ -173,34 +178,26 @@ class TopKASTPruningModifier(BasePruningModifier):
         return self._mask_type
 
     @ModifierProp(serializable=True)
-    def momentum_buffer_reset(self) -> bool:
-        """
-        :return: True to reset the gradient momentum
-                 (momentum buffer) term of the optimizer
-                 to zero before every decompression phase.
-        """
-        return self._momentum_buffer_reset
-
-    @momentum_buffer_reset.setter
-    def momentum_buffer_reset(self, value: bool):
-        """
-        :param value: whether we use momentum buffer reset strategy or not.
-        """
-        self._momentum_buffer_reset = value
-
-    @ModifierProp(serializable=True)
     def forward_sparsity(self) -> float:
         """
-        :return: The sparsity enforced during the compression phase.
+        :return: The sparsity enforced during inference.
         """
         return self._forward_sparsity
 
     @ModifierProp(serializable=True)
     def backward_sparsity(self) -> float:
         """
-        :return: The sparsity enforced during the compression phase.
+        :return: The sparsity enforced on the gradients during the backward pass.
         """
         return self._backward_sparsity
+
+    @ModifierProp(serializable=False)
+    def applied_sparsity(self) -> float:
+        """
+        :return: The applied forward sparsity.
+        """
+        return self._applied_sparsity
+
 
     def _get_scorer(self, params: List[Parameter]) -> PruningParamsScorer:
         """
@@ -221,38 +218,6 @@ class TopKASTPruningModifier(BasePruningModifier):
         :return: mask creator object to be used by this pruning algorithm
         """
         return get_mask_creator_default(self.mask_type)
-
-
-    # TODO: this should actually resemble the RigL mask creator, probably?
-    @staticmethod
-    def _reset_momentum_buffer(optimizer):
-        if "state" in optimizer.state_dict():
-            for param_buffer in optimizer.state_dict()["state"].values():
-                if "momentum_buffer" not in param_buffer:
-                    continue
-                param_buffer["momentum_buffer"].mul_(0.0)
-
-    @staticmethod
-    def _assert_is_integer(x):
-        """
-        Check if x, which is expected to be either a float or int,
-        can be evaluated as int.
-        If True, return and integer, else, raise ValueError.
-
-        :param x: an integer or a float.
-        :return: an integer
-        """
-        if isinstance(x, float) and not x.is_integer():
-            raise ValueError(
-                "The TopKASTPruningModifier assumes that attributes"
-                "`start_epoch`, `end epoch` and `update frequency` "
-                "are integers, or floats which evaluate to integers."
-                "However: type(x)==float and x.is_integer() == False."
-            )
-        return int(x)
-
-
-
 
 
 
@@ -365,7 +330,7 @@ class TopKASTPruningModifier(BasePruningModifier):
         diff = grad_mask_names.symmetric_difference(state_dict_grad_mask_keys)
         if diff and strict:
             raise IndexError(
-                f"Found extra keys: {state_dict_grad_maskkeys - grad_mask_names} "
+                f"Found extra keys: {state_dict_grad_mask_keys - grad_mask_names} "
                 f"and missing keys: {grad_mask_names - state_dict_grad_mask_keys}"
             )
 
@@ -380,7 +345,6 @@ class TopKASTPruningModifier(BasePruningModifier):
     def _create_pruning_mask(
         self, layers: List[Module], layer_names: List[str], param_names: List[str]
     ) -> ModuleParamPruningMask:
-        print("#################################3", "creating pruning mask")
         return ModuleParamPruningMask(
             layers,
             mask_creator=self._mask_creator,
@@ -394,7 +358,6 @@ class TopKASTPruningModifier(BasePruningModifier):
     def _create_grad_pruning_mask(
         self, layers: List[Module], layer_names: List[str], param_names: List[str]
     ) -> ModuleParamPruningMask:
-        print("#################################3", "creating grad pruning mask")
         return ModuleParamPruningMask(
             layers,
             mask_creator=self._grad_mask_creator,
@@ -404,3 +367,44 @@ class TopKASTPruningModifier(BasePruningModifier):
             global_sparsity=self._global_sparsity,
             mask_gradients_only=True,
         )
+
+    @BasePruningModifier.log_call
+    def loss_update(
+        self,
+        loss: Tensor,
+        module: Module,
+        optimizer: Optimizer,
+        epoch: float,
+        steps_per_epoch: int,
+        **kwargs
+    ) -> Tensor:
+        """
+        Updates the loss with the distillation loss
+
+        :param loss: The calculated loss tensor
+        :param module: module to modify
+        :param optimizer: optimizer to modify
+        :param epoch: current epoch and progress within the current epoch
+        :param steps_per_epoch: number of steps taken within each epoch
+            (calculate batch number using this and epoch)
+        :return: loss tensor with knowledge distillation loss added
+        """
+        loss = super().loss_update(
+            loss, module, optimizer, epoch, steps_per_epoch, **kwargs
+        )
+
+        forward_weights_norm_sum = 0
+        backward_weights_norm_sum = 0
+
+        # Per the paper, the regularization loss term of the unmasked weights
+        # should simply be L_2. Conversely, the reg loss term of the parameters
+        # with masked weights but unmasked gradients should be L_2/sparsity
+        # things that are masked by the 2nd one but not the first one
+        for i, param  in enumerate(self._module_masks._params):
+            forward_weights_norm_sum += (norm(param.data*self._module_masks.param_masks[i])).sum()
+            backward_weights_norm_sum += (norm(param.data*(1-self._module_masks.param_masks[i]) *self._grad_module_masks.param_masks[i])).sum()
+
+
+        total_loss = loss + (forward_weights_norm_sum + 1/self.forward_sparsity * backward_weights_norm_sum)
+
+        return total_loss

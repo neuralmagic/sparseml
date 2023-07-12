@@ -92,6 +92,7 @@ class ModuleParamPruningMask(object):
         self._mask_gradients_only = mask_gradients_only
         self._track_grad_mom = track_grad_mom
         self._global_sparsity = global_sparsity
+        self._jen_var = 0
 
         self._enabled = False
         self._forward_hooks = [None] * len(self._layers)
@@ -514,8 +515,7 @@ class ModuleParamPruningMask(object):
     
                 if self._allow_reintroduction and self._undo_mask_hooks[idx] is None \
                       and not self._mask_gradients_only:
-                    print("############################ adding undo mask hooks")
-                    self._undo_mask_hooks[idx] = layer.register_forward_hook(
+                    self._undo_mask_hooks[idx] = layer.register_backward_hook(
                         partial(self._hook_undo_mask, idx)
                     )
 
@@ -544,20 +544,19 @@ class ModuleParamPruningMask(object):
     def _hook_mask_forward(
         self, param_idx: int, mod: Module, inp: Union[Tensor, Tuple[Tensor]]
     ):
-        self.apply(param_idx)
+         with torch.no_grad():
+             self.apply(param_idx)
 
     def _hook_undo_mask(self, param_idx, module, inp, out):
         if self._allow_reintroduction:
             with torch.no_grad():
-                self._params[param_idx].data.add_(self._params_unmasked[param_idx])
+                self._params[param_idx].data.add_(1*self._params_unmasked[param_idx])
 
     def _hook_mask_gradient(self, param_idx, grad):
         if 0.0 <= self._track_grad_mom < 1.0:
             self._params_grad[param_idx].mul_(self._track_grad_mom).add_(
                 (1.0 - self._track_grad_mom) * grad
             )
-
-        #print("@@@@@@@@@@@@@@@@@@@@@@@@@@ grad mask", self._param_masks[param_idx].mean())
         return (
             grad.mul_(self._param_masks[param_idx])
             if self._mask_gradients_only or not self._allow_reintroduction
