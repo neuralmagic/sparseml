@@ -29,7 +29,7 @@ __all__ = ["CacheKeysAndValues"]
 
 _LOGGER = logging.getLogger(__name__)
 
-ALLOWED_NODES_BEFORE_SOFTMAX = ["Cast"]
+ALLOWED_NODES_BEFORE_SOFTMAX = ["Cast", "Reshape"]
 OUTPUT_CACHE_NAME = """present.{attention_layer_idx}.{cache_type}"""
 INPUT_CACHE_NAME = """past_key_values.{attention_layer_idx}.{cache_type}"""
 
