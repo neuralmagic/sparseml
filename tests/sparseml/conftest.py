@@ -50,7 +50,9 @@ def check_for_created_files():
         shutil.rmtree(log_dir)
 
     # allow creation of __pycache__ directories
-    end_files_root = [f_path for f_path in _get_files(directory=r".") if "__pycache__" not in f_path]
+    end_files_root = [
+        f_path for f_path in _get_files(directory=r".") if "__pycache__" not in f_path
+    ]
     end_files_temp = _get_files(directory=tempfile.gettempdir())
 
     # assert no files created in root directory while running
