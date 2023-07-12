@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+from argparse import Namespace
 from pathlib import Path
 
 import torch
@@ -59,7 +60,7 @@ class SparseValidator(BaseValidator):
             self.run_callbacks("on_val_start")
             assert model is not None, "Either trainer or model is needed for validation"
             self.device = select_device(self.args.device, self.args.batch)
-            self.args.half &= self.device.type != "cpu"
+            # self.args.half &= self.device.type != "cpu"
             model = AutoBackend(
                 model,
                 device=self.device,
@@ -106,6 +107,8 @@ class SparseValidator(BaseValidator):
             model.warmup(
                 imgsz=(1 if pt else self.args.batch, 3, imgsz, imgsz)
             )  # warmup
+            trainer.model = model.model
+            trainer.model.args = Namespace(**model.model.args)
 
         dt = Profile(), Profile(), Profile(), Profile()
         n_batches = len(self.dataloader)
@@ -134,6 +137,11 @@ class SparseValidator(BaseValidator):
             with dt[2]:
                 if self.training:
                     self.loss += model.loss(batch=batch, preds=preds)[1]
+                else:
+                    if hasattr(self, "loss"):
+                        self.loss += model.model.loss(batch=batch, preds=preds[1])[1]
+                    else:
+                        self.loss = model.model.loss(batch=batch, preds=preds[1])[1]
 
             # pre-process predictions
             with dt[3]:
@@ -159,15 +167,14 @@ class SparseValidator(BaseValidator):
         )
         self.finalize_metrics()
         self.run_callbacks("on_val_end")
-
+        model.float()
+        results = {
+            **stats,
+            **trainer.label_loss_items(
+                self.loss.cpu() / len(self.dataloader), prefix="val"
+            ),
+        }
         if self.training:
-            model.float()
-            results = {
-                **stats,
-                **trainer.label_loss_items(
-                    self.loss.cpu() / len(self.dataloader), prefix="val"
-                ),
-            }
             return {
                 k: round(float(v), 5) for k, v in results.items()
             }  # return results as 5 decimal place floats
@@ -176,6 +183,7 @@ class SparseValidator(BaseValidator):
                 "Speed: %.1fms preprocess, %.1fms inference, %.1fms loss, %.1fms "
                 "postprocess per image" % tuple(self.speed.values())
             )
+            LOGGER.info(f"Validation loss: {results['val/Loss']}")
             if self.args.save_json and self.jdict:
                 with open(str(self.save_dir / "predictions.json"), "w") as f:
                     LOGGER.info(f"Saving {f.name}...")
