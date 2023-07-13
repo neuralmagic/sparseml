@@ -235,7 +235,7 @@ class ModuleExporter(object):
                 quant.activation_post_process.quant_max = 255
 
         export_onnx(
-            module=self._module,
+            module=module,
             sample_batch=sample_batch,
             file_path=os.path.join(self._output_dir, name),
             opset=opset,

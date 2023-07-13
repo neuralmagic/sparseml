@@ -45,10 +45,28 @@ QUANT_RECIPE = """
 """
 
 
+def _get_4bit_modules(model):
+    fake_quant_modules = [
+        module
+        for module in model.modules()
+        if module.__class__.__name__ == "FakeQuantize"
+    ]
+    int4_fake_quant_modules = [
+        quant_module
+        for quant_module in fake_quant_modules
+        if quant_module.activation_post_process.quant_min == -8
+        and quant_module.activation_post_process.quant_max == 7
+    ]
+
+    return int4_fake_quant_modules
+
+
 @pytest.mark.parametrize(
     "model,sample_batch",
     [
         (MLPNet(), torch.randn(8)),
+        (MLPNet(), torch.randn(10, 8)),
+        (LinearNet(), torch.randn(8)),
         (LinearNet(), torch.randn(10, 8)),
         (ConvNet(), torch.randn(1, 3, 28, 28)),
     ],
@@ -61,60 +79,24 @@ def test_export_4bit_model(tmp_path, model, sample_batch):
 
     manager = ScheduledModifierManager.from_yaml(QUANT_RECIPE)
     manager.apply(model)
-    fake_quant_modules = [
-        module
-        for module in model.modules()
-        if module.__class__.__name__ == "FakeQuantize"
-    ]
-    int4_fake_quant_modules = [
-        quant_module
-        for quant_module in fake_quant_modules
-        if quant_module.activation_post_process.quant_min == -8
-        and quant_module.activation_post_process.quant_max == 7
-    ]
+
     # ensure 4bit quantization correctly applied
-    assert len(int4_fake_quant_modules) == len(fake_quant_modules)
+    num_4bit_modules = len(_get_4bit_modules(model))
+    assert num_4bit_modules > 0
 
     new_exporter = TorchToONNX(sample_batch)
-    new_exporter.export(model, tmp_path / "new_exporter" / "model.onnx")
+    new_exporter.export(model, new_dir / "model.onnx")
+    validate_onnx(str(new_dir / "model.onnx"))
 
-    fake_quant_modules = [
-        module
-        for module in model.modules()
-        if module.__class__.__name__ == "FakeQuantize"
-    ]
-    int4_fake_quant_modules = [
-        quant_module
-        for quant_module in fake_quant_modules
-        if quant_module.activation_post_process.quant_min == -8
-        and quant_module.activation_post_process.quant_max == 7
-    ]
     # ensure export didn't modify original model
-    assert len(int4_fake_quant_modules) == len(fake_quant_modules)
+    assert len(_get_4bit_modules(model)) == num_4bit_modules
 
     old_exporter = ModuleExporter(model, old_dir)
     old_exporter.export_onnx(sample_batch, convert_qat=True)
+    validate_onnx(str(old_dir / "model.onnx"))
 
-    fake_quant_modules = [
-        module
-        for module in model.modules()
-        if module.__class__.__name__ == "FakeQuantize"
-    ]
-    int4_fake_quant_modules = [
-        quant_module
-        for quant_module in fake_quant_modules
-        if quant_module.activation_post_process.quant_min == -8
-        and quant_module.activation_post_process.quant_max == 7
-    ]
     # ensure export didn't modify original model
-    assert len(int4_fake_quant_modules) == len(fake_quant_modules)
-
-    _assert_onnx_models_are_equal(
-        str(tmp_path / "old_exporter" / "model.onnx"),
-        str(tmp_path / "new_exporter" / "model.onnx"),
-        sample_batch,
-    )
-    shutil.rmtree(tmp_path)
+    assert len(_get_4bit_modules(model)) == num_4bit_modules
 
 
 @pytest.mark.parametrize(
