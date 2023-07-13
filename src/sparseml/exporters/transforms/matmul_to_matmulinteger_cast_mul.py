@@ -76,9 +76,12 @@ class MatMulToMatMulIntegerCastMul(OnnxTransform):
             op_type="MatMul",
         )
         for match in matches:
+            is_parameterized = False
             for quantize_linear_parent in [match.parents[0][0], match.parents[1][0]]:
                 if graph.get_init_by_name(quantize_linear_parent.input[0]):
-                    continue
+                    is_parameterized = True
+            if is_parameterized:
+                continue
             self.log_match(match)
             self._do_transform(model, match)
         return model

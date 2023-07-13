@@ -36,14 +36,14 @@ _deps = [
     "ipywidgets>=7.0.0",
     "pyyaml>=5.0.0",
     "progressbar2>=3.0.0",
-    "numpy>=1.0.0,<=1.21.6",
+    "numpy>=1.0.0",
     "matplotlib>=3.0.0",
     "merge-args>=0.1.0",
-    "onnx>=1.5.0,<=1.12.0",
+    "onnx>=1.5.0,<1.15.0",
     "pandas>=0.25.0",
     "packaging>=20.0",
     "psutil>=5.0.0",
-    "pydantic>=1.5.0",
+    "pydantic>=1.8.2,<2.0.0",
     "requests>=2.0.0",
     "scikit-image>=0.15.0",
     "scikit-learn>=0.24.2",
@@ -52,7 +52,7 @@ _deps = [
     "tqdm>=4.0.0",
     "toposort>=1.0",
     "GPUtil>=1.4.0",
-    "protobuf>=3.12.2,<=3.20.1",
+    "protobuf>=3.12.2,<=3.20.3",
     "click>=7.1.2,!=8.0.0",  # latest version < 8.0 + blocked version with reported bug
 ]
 _nm_deps = [f"{'sparsezoo' if is_release else 'sparsezoo-nightly'}~={version_nm_deps}"]
@@ -62,26 +62,28 @@ _deepsparse_deps = [
 _deepsparse_ent_deps = [f"deepsparse-ent~={version_nm_deps}"]
 
 _onnxruntime_deps = ["onnxruntime>=1.0.0"]
-supported_torch_version = "torch>=1.7.0,<1.14"
+_clip_deps = ["open_clip_torch==2.20.0"]
+supported_torch_version = "torch>=1.7.0,<=2.0"
 _pytorch_deps = [
     supported_torch_version,
     "gputils",
 ]
 _pytorch_all_deps = _pytorch_deps + [
-    "torchvision>=0.3.0,<0.15",
-    "torchaudio<=0.13",
+    "torchvision>=0.3.0,<=0.15.1",
+    "torchaudio<=2.0.1",
 ]
 _pytorch_vision_deps = _pytorch_deps + [
-    "torchvision>=0.3.0,<0.15",
+    "torchvision>=0.3.0,<=0.15.1",
     "opencv-python<=4.6.0.66",
 ]
 _transformers_deps = _pytorch_deps + [
     f"{'nm-transformers' if is_release else 'nm-transformers-nightly'}"
     f"~={version_nm_deps}",
-    "datasets<=1.18.4",
+    "datasets<=2.11",
     "scikit-learn",
     "seqeval",
     "einops",
+    "accelerate>=0.20.3",
 ]
 _yolov5_deps = _pytorch_vision_deps + [
     f"{'nm-yolov5' if is_release else 'nm-yolov5-nightly'}~={version_nm_deps}"
@@ -144,6 +146,7 @@ def _setup_install_requires() -> List:
 
 def _setup_extras() -> Dict:
     return {
+        "clip": _clip_deps,
         "dev": _dev_deps,
         "deepsparse": _deepsparse_deps,
         "deepsparse-ent": _deepsparse_ent_deps,
@@ -165,7 +168,6 @@ def _setup_entry_points() -> Dict:
     entry_points = {
         "console_scripts": [
             # sparsification
-            "sparseml.benchmark=sparseml.benchmark.info:_main",
             "sparseml.framework=sparseml.framework.info:_main",
             "sparseml.sparsification=sparseml.sparsification.info:_main",
         ]
@@ -291,7 +293,7 @@ setup(
     install_requires=_setup_install_requires(),
     extras_require=_setup_extras(),
     entry_points=_setup_entry_points(),
-    python_requires=">=3.7.0,<3.11",
+    python_requires=">=3.8.0,<3.11",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Programming Language :: Python :: 3",

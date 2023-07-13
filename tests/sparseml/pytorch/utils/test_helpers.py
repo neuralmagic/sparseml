@@ -558,6 +558,7 @@ def test_tensor_export_npy(tensor, name):
 
     for s1, s2 in zip(exported.shape, tensor.shape):
         assert s1 == s2
+    os.remove(path)
 
 
 @pytest.mark.skipif(
@@ -579,6 +580,7 @@ def test_tensor_export_npz(tensor, name):
 
     for s1, s2 in zip(exported.shape, tensor.shape):
         assert s1 == s2
+    os.remove(path)
 
 
 @pytest.mark.skipif(
@@ -602,6 +604,7 @@ def test_tensor_export_cuda(tensor, name):
 
     for s1, s2 in zip(exported.shape, tensor.shape):
         assert s1 == s2
+    os.remove(path)
 
 
 @pytest.mark.skipif(
@@ -627,6 +630,7 @@ def test_tensors_export(tensors, name):
         exported = numpy.load(path)
         exported = exported[exported.files[0]]
         assert numpy.sum(exported.shape) > 1
+        os.remove(path)
 
 
 @flaky(max_runs=2, min_passes=1)

@@ -107,7 +107,8 @@ class ImageClassificationManager(BaseIntegrationManager):
         """
         Cleanup environment after test completion
         """
-        pass
+        if "train" in self.command_types:
+            self.save_dir.cleanup()
 
 
 class TestImageClassification(BaseIntegrationTester):

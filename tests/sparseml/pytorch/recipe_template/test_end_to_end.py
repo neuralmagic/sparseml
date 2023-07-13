@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import shutil
 
 import pytest
 
@@ -45,3 +46,4 @@ def test_docstring_cli_examples(command, tmp_path):
     command.extend(["--file_name", str(tmp_path / "temp.md")])
     result = runner.invoke(main, command)
     assert result.exit_code == 0
+    shutil.rmtree(tmp_path)

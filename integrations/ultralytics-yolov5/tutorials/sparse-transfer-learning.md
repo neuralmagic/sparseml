@@ -31,7 +31,7 @@ SparseZoo contains pre-sparsified checkpoints of each YOLOv5 model. These models
 Install via `pip`:
 
 ```
-pip install sparseml[torchvision]
+pip install "sparseml[yolov5]"
 ```
 
 ## Table of Contents

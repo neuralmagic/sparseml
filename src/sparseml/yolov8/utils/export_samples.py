@@ -144,8 +144,7 @@ def _export_torch_outputs(
 
     # Run model to get torch outputs
     model_out = model(image)
-    # preds, intermediate_outputs = model_out
-    preds, _ = model_out
+    preds = model_out
 
     # Move to cpu for exporting
     preds = preds.detach().to("cpu")
@@ -164,8 +163,7 @@ def _export_ort_outputs(
     # Run model to get onnxruntime outputs
     ort_inputs = {session.get_inputs()[0].name: image}
     ort_outs = session.run(None, ort_inputs)
-    # preds, interm_out1, interm_out2, interm_out3 = model_out
-    preds, *_ = ort_outs
+    preds = ort_outs
 
     sample_output_filename = os.path.join(sample_out_dir, f"out-{file_idx}.npz")
     numpy.savez(sample_output_filename, preds)

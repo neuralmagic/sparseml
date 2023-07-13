@@ -18,7 +18,6 @@ jobs:
       deepsparse: ${{ steps.deepsparse-check.outputs.output }}
       onnx: ${{ steps.onnx-check.outputs.output }}
       pytorch: ${{ steps.pytorch-check.outputs.output }}
-      tensorflow_v1: ${{ steps.tensorflow_v1-check.outputs.output }}
     steps:
       - uses: actions/checkout@v2
         with:
@@ -54,12 +53,6 @@ jobs:
           ((git diff --name-only origin/main HEAD | grep -E "[src|tests]/sparseml/pytorch|setup.py|.github")
           || (echo $GITHUB_REF | grep -E "refs/heads/[release/|main]"))
           && echo "::set-output name=output::1" || echo "::set-output name=output::0"
-      - name: "Checking if sparseml.tensorflow_v1 was changed"
-        id: tensorflow_v1-check
-        run: >
-          ((git diff --name-only origin/main HEAD | grep -E "[src|tests]/sparseml/tensorflow_v1|setup.py|.github")
-          || (echo $GITHUB_REF | grep -E "refs/heads/[release/|main]"))
-          && echo "::set-output name=output::1" || echo "::set-output name=output::0"
   base-tests:
     runs-on: ubuntu-22.04
     env:
@@ -80,8 +73,6 @@ jobs:
         run: pip3 install -U pip && pip3 install setuptools sparsezoo/
       - name: "Clean sparsezoo directory"
         run: rm -r sparsezoo/
-      - name: "Upgrade protobuf version"
-        run: pip3 install --upgrade protobuf
       - name: "⚙️ Install dependencies"
         run: pip3 install .[dev,onnxruntime]
       - name: "🔬 Running base tests"
@@ -106,8 +97,6 @@ jobs:
         run: pip3 install -U pip && pip3 install setuptools sparsezoo/
       - name: "Clean sparsezoo directory"
         run: rm -r sparsezoo/
-      - name: "Upgrade protobuf version"
-        run: pip3 install --upgrade protobuf
       - name: "⚙️ Install dependencies"
         run: pip3 install .[dev,deepsparse,onnxruntime]
       - name: "🔬 Running deepsparse tests"
@@ -160,30 +149,6 @@ jobs:
         run: pip3 install .[dev,torchvision,onnxruntime]
       - name: "🔬 Running pytorch tests"
         run: make test TARGETS=pytorch
-  tensorflow-v1-tests:
-    runs-on: ubuntu-22.04
-    env:
-      SPARSEZOO_TEST_MODE: "true"
-    needs: test-setup
-    if:  ${{needs.test-setup.outputs.tensorflow_v1 == 1}}
-    steps:
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.7'
-      - uses: actions/checkout@v2
-      - uses: actions/checkout@v2
-        with:
-          repository: "neuralmagic/sparsezoo"
-          path: "sparsezoo"
-          ref: ${{needs.test-setup.outputs.branch}}
-      - name: "⚙️ Install sparsezoo dependencies"
-        run: pip3 install -U pip && pip3 install setuptools sparsezoo/
-      - name: "Clean sparsezoo directory"
-        run: rm -r sparsezoo/
-      - name: "⚙️ Install dependencies"
-        run: pip3 install .[dev,tf_v1,onnxruntime]
-      - name: "🔬 Running tensorflow_v1 tests"
-        run: make test TARGETS=tensorflow_v1
   compat-pytorch-1_9-pytorch-tests:
     runs-on: ubuntu-22.04
     env:

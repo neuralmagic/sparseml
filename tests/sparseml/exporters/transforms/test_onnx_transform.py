@@ -64,3 +64,4 @@ def test_onnx_transform_from_path(tmp_path):
     path = os.path.join(str(tmp_path), "model.onnx")
     save_onnx(model, path)
     assert transform(path)
+    os.remove(path)

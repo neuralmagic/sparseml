@@ -19,7 +19,7 @@ Helper methods for image classification/detection based tasks
 import logging
 import os
 import warnings
-from contextlib import contextmanager
+from contextlib import nullcontext
 from enum import Enum, auto, unique
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -262,19 +262,42 @@ def get_dataset_and_dataloader(
     download_context = (
         torch_distributed_zero_first(local_rank)  # only download once locally
         if training
-        else _nullcontext()
+        else nullcontext()
     )
     dataset_kwargs = dataset_kwargs or {}
 
     with download_context:
-        dataset = DatasetRegistry.create(
-            dataset_name,
-            root=dataset_path,
-            train=training,
-            rand_trans=training,
-            image_size=image_size,
-            **dataset_kwargs,
-        )
+        try:
+            dataset = DatasetRegistry.create(
+                key=dataset_name,
+                root=dataset_path,
+                train=training,
+                rand_trans=training,
+                image_size=image_size,
+                **dataset_kwargs,
+            )
+        except Exception as registry_exception:
+            if dataset_name == "imagefolder" and (
+                dataset_path in DatasetRegistry.registered_datasets()
+            ):
+                # user attempting to run imagefolder of pre-supported
+                # dataset, without a local copy,
+                # use the dataset_path as registry key instead to attempt
+                # auto download
+                dataset = DatasetRegistry.create(
+                    key=dataset_path,
+                    train=training,
+                    rand_trans=training,
+                    image_size=image_size,
+                    **dataset_kwargs,
+                )
+                # still treated as image folder dataset, so num_classes attr
+                # should be set at the object level instead of registry
+                dataset.num_classes = DatasetRegistry.attributes(dataset_path).get(
+                    "num_classes"
+                )
+            else:
+                raise registry_exception
 
     sampler = (
         torch.utils.data.distributed.DistributedSampler(dataset)
@@ -620,12 +643,3 @@ def _download_model_from_zoo_using_recipe(
         Model(recipe_stub),
         recipe_name=recipe_type,
     )
-
-
-@contextmanager
-def _nullcontext(enter_result=None):
-    """
-    A context manager that does nothing. For compatibility with Python 3.6
-    Update usages to use contextlib.nullcontext on Python 3.7+
-    """
-    yield enter_result
