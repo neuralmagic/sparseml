@@ -208,9 +208,10 @@ class ModuleExporter(object):
         """
         if not export_kwargs:
             export_kwargs = {}
+
+        module = deepcopy(self._module).cpu()  # don't modify the original model
         if "output_names" not in export_kwargs:
             sample_batch = tensors_to_device(sample_batch, "cpu")
-            module = deepcopy(self._module).cpu()
             module.eval()
             with torch.no_grad():
                 out = tensors_module_forward(
@@ -218,13 +219,19 @@ class ModuleExporter(object):
                 )
                 export_kwargs["output_names"] = self.get_output_names(out)
 
-        fake_quant_modules = [module for module in self._module.modules() if module.__class__.__name__ == "FakeQuantize"]
-        for quant in fake_quant_modules: # original ranges preserved in quant.quant_min and quant.quant_max, deprecated by torch
-            quant_range = quant.activation_post_process.quant_min, quant.activation_post_process.quant_max
-            if quant_range == (-8,7): # convert int4 range to int8
+        fake_quant_modules = [
+            m for m in module.modules() if m.__class__.__name__ == "FakeQuantize"
+        ]
+        for quant in fake_quant_modules:
+            # original ranges preserved in quant.quant_min and quant.quant_max
+            quant_range = (
+                quant.activation_post_process.quant_min,
+                quant.activation_post_process.quant_max,
+            )
+            if quant_range == (-8, 7):  # convert int4 range to int8
                 quant.activation_post_process.quant_min = -128
                 quant.activation_post_process.quant_max = 127
-            elif quant_range == (0, 15): # convert uint4 to uint8
+            elif quant_range == (0, 15):  # convert uint4 to uint8
                 quant.activation_post_process.quant_max = 255
 
         export_onnx(

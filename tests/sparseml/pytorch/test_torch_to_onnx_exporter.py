@@ -24,11 +24,97 @@ import torch
 
 from sparseml.exporters.onnx_to_deepsparse import ONNXToDeepsparse
 from sparseml.pytorch.models.registry import ModelRegistry
+from sparseml.pytorch.optim import ScheduledModifierManager
 from sparseml.pytorch.sparsification.quantization import QuantizationModifier
 from sparseml.pytorch.torch_to_onnx_exporter import TorchToONNX
 from sparseml.pytorch.utils import ModuleExporter
 from sparsezoo.utils import validate_onnx
 from tests.sparseml.pytorch.helpers import ConvNet, LinearNet, MLPNet
+
+
+QUANT_RECIPE = """
+!QuantizationModifier
+    start_epoch: 0.0
+    scheme:
+        input_activations:
+            num_bits: 4
+            symmetric: False
+        weights:
+            num_bits: 4
+            symmetric: True
+"""
+
+
+@pytest.mark.parametrize(
+    "model,sample_batch",
+    [
+        (MLPNet(), torch.randn(8)),
+        (LinearNet(), torch.randn(10, 8)),
+        (ConvNet(), torch.randn(1, 3, 28, 28)),
+    ],
+)
+def test_export_4bit_model(tmp_path, model, sample_batch):
+    old_dir = tmp_path / "old_exporter"
+    old_dir.mkdir()
+    new_dir = tmp_path / "new_exporter"
+    new_dir.mkdir()
+
+    manager = ScheduledModifierManager.from_yaml(QUANT_RECIPE)
+    manager.apply(model)
+    fake_quant_modules = [
+        module
+        for module in model.modules()
+        if module.__class__.__name__ == "FakeQuantize"
+    ]
+    int4_fake_quant_modules = [
+        quant_module
+        for quant_module in fake_quant_modules
+        if quant_module.activation_post_process.quant_min == -8
+        and quant_module.activation_post_process.quant_max == 7
+    ]
+    # ensure 4bit quantization correctly applied
+    assert len(int4_fake_quant_modules) == len(fake_quant_modules)
+
+    new_exporter = TorchToONNX(sample_batch)
+    new_exporter.export(model, tmp_path / "new_exporter" / "model.onnx")
+
+    fake_quant_modules = [
+        module
+        for module in model.modules()
+        if module.__class__.__name__ == "FakeQuantize"
+    ]
+    int4_fake_quant_modules = [
+        quant_module
+        for quant_module in fake_quant_modules
+        if quant_module.activation_post_process.quant_min == -8
+        and quant_module.activation_post_process.quant_max == 7
+    ]
+    # ensure export didn't modify original model
+    assert len(int4_fake_quant_modules) == len(fake_quant_modules)
+
+    old_exporter = ModuleExporter(model, old_dir)
+    old_exporter.export_onnx(sample_batch, convert_qat=True)
+
+    fake_quant_modules = [
+        module
+        for module in model.modules()
+        if module.__class__.__name__ == "FakeQuantize"
+    ]
+    int4_fake_quant_modules = [
+        quant_module
+        for quant_module in fake_quant_modules
+        if quant_module.activation_post_process.quant_min == -8
+        and quant_module.activation_post_process.quant_max == 7
+    ]
+    # ensure export didn't modify original model
+    assert len(int4_fake_quant_modules) == len(fake_quant_modules)
+
+    _assert_onnx_models_are_equal(
+        str(tmp_path / "old_exporter" / "model.onnx"),
+        str(tmp_path / "new_exporter" / "model.onnx"),
+        sample_batch,
+    )
+    shutil.rmtree(tmp_path)
 
 
 @pytest.mark.parametrize(
