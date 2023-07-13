@@ -922,7 +922,7 @@ def _get_raw_dataset(data_args, cache_dir: Optional[str] = None):
                 field="data",
                 cache_dir=cache_dir,
             )
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, datasets.builder.DatasetGenerationError):
             # run without `field="data"` - JSONL files will not always have each
             # line nested under a top level field
             raw_datasets = load_dataset(
