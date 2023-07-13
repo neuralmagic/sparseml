@@ -73,8 +73,6 @@ jobs:
         run: pip3 install -U pip && pip3 install setuptools sparsezoo/
       - name: "Clean sparsezoo directory"
         run: rm -r sparsezoo/
-      - name: "Upgrade protobuf version"
-        run: pip3 install --upgrade protobuf
       - name: "⚙️ Install dependencies"
         run: pip3 install .[dev,onnxruntime]
       - name: "🔬 Running base tests"
@@ -99,8 +97,6 @@ jobs:
         run: pip3 install -U pip && pip3 install setuptools sparsezoo/
       - name: "Clean sparsezoo directory"
         run: rm -r sparsezoo/
-      - name: "Upgrade protobuf version"
-        run: pip3 install --upgrade protobuf
       - name: "⚙️ Install dependencies"
         run: pip3 install .[dev,deepsparse,onnxruntime]
       - name: "🔬 Running deepsparse tests"

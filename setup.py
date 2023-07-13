@@ -52,7 +52,7 @@ _deps = [
     "tqdm>=4.0.0",
     "toposort>=1.0",
     "GPUtil>=1.4.0",
-    "protobuf>=3.12.2",
+    "protobuf>=3.12.2,<=3.20.3",
     "click>=7.1.2,!=8.0.0",  # latest version < 8.0 + blocked version with reported bug
 ]
 _nm_deps = [f"{'sparsezoo' if is_release else 'sparsezoo-nightly'}~={version_nm_deps}"]
@@ -79,7 +79,7 @@ _pytorch_vision_deps = _pytorch_deps + [
 _transformers_deps = _pytorch_deps + [
     f"{'nm-transformers' if is_release else 'nm-transformers-nightly'}"
     f"~={version_nm_deps}",
-    "datasets<=1.18.4",
+    "datasets<=2.11",
     "scikit-learn",
     "seqeval",
     "accelerate>=0.20.3",
