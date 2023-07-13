@@ -37,6 +37,9 @@ jobs:
              oldDate=`date --date='-2 month' +%Y%m%d`
              oldWhl=`(aws s3 ls s3://nm-github-actions/${{ github.event.repository.name }}/ | grep nightly | grep "${oldDate}") || echo "notfound"`
              if [[ "${oldWhl}" != 'notfound' ]]; then
-                 echo "Remove old build ${oldWhl}"
-                 aws s3 rm s3://nm-github-actions/${{ github.event.repository.name }}/${oldWhl}
+                 for oldwhl in $(echo "${oldWhl}" | awk '{print $4}')
+                 do
+                     echo "Remove old build ${oldwhl}"
+                     aws s3 rm s3://nm-github-actions/${{ github.event.repository.name }}/${oldwhl}
+                 done
              fi
