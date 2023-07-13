@@ -37,6 +37,7 @@ from torch.utils.data import DataLoader
 from sparseml.onnx.utils import ONNXGraph
 from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
 from sparseml.pytorch.utils.helpers import (
+    adjust_quantization_for_onnx_export,
     tensors_export,
     tensors_module_forward,
     tensors_to_device,
@@ -219,20 +220,7 @@ class ModuleExporter(object):
                 )
                 export_kwargs["output_names"] = self.get_output_names(out)
 
-        fake_quant_modules = [
-            m for m in module.modules() if m.__class__.__name__ == "FakeQuantize"
-        ]
-        for quant in fake_quant_modules:
-            # original ranges preserved in quant.quant_min and quant.quant_max
-            quant_range = (
-                quant.activation_post_process.quant_min,
-                quant.activation_post_process.quant_max,
-            )
-            if quant_range == (-8, 7):  # convert int4 range to int8
-                quant.activation_post_process.quant_min = -128
-                quant.activation_post_process.quant_max = 127
-            elif quant_range == (0, 15):  # convert uint4 to uint8
-                quant.activation_post_process.quant_max = 255
+        adjust_quantization_for_onnx_export(module)  # in-place operation
 
         export_onnx(
             module=module,
