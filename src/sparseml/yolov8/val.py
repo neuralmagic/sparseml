@@ -42,6 +42,9 @@ from sparseml.yolov8.utils import data_from_dataset_path
     help="i.e. coco128.yaml. Path to data file",
 )
 @click.option(
+    "--save-json", default=False, is_flag=True, help="save results to JSON file"
+)
+@click.option(
     "--save-hybrid",
     default=False,
     is_flag=True,
@@ -66,6 +69,7 @@ from sparseml.yolov8.utils import data_from_dataset_path
 @click.option(
     "--dnn", default=False, is_flag=True, help="use OpenCV DNN for ONNX inference"
 )
+@click.option("--plots", default=False, is_flag=True, help="show plots during training")
 @click.option(
     "--dataset-path",
     type=str,

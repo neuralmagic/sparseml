@@ -184,6 +184,7 @@ class SparseValidator(BaseValidator):
                 "postprocess per image" % tuple(self.speed.values())
             )
             LOGGER.info(f"Validation loss: {results['val/Loss']}")
+            LOGGER.info(f"Metrics: {results}")
             if self.args.save_json and self.jdict:
                 with open(str(self.save_dir / "predictions.json"), "w") as f:
                     LOGGER.info(f"Saving {f.name}...")

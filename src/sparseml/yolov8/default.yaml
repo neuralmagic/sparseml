@@ -54,7 +54,7 @@ iou: 0.7 # intersection over union (IoU) threshold for NMS
 max_det: 300 # maximum number of detections per image
 half: False # use half precision (FP16)
 dnn: False # use OpenCV DNN for ONNX inferences
-plots: False # show plots during training
+plots: True # show plots during training
 
 # Prediction settings --------------------------------------------------------------------------------------------------
 source: null # source directory for images or videos
