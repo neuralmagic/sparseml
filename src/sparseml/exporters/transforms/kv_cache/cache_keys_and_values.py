@@ -365,6 +365,11 @@ def create_cache(
         name=f"concat.{cache_input_name_concat}",
     )
 
+    for node in model.graph.node:
+        for input_idx, input_id in enumerate(node.input):
+            if input_id == pre_cache_input_id and node.name != concat_node.name:
+                node.input[input_idx] = cache_output_name_concat
+
     graph.add_node(concat_node)
 
     return concat_node, cache_input_info, cache_output_info
