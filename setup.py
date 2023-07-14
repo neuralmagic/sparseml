@@ -82,6 +82,7 @@ _transformers_deps = _pytorch_deps + [
     "datasets<=2.11",
     "scikit-learn",
     "seqeval",
+    "einops",
     "accelerate>=0.20.3",
 ]
 _yolov5_deps = _pytorch_vision_deps + [
