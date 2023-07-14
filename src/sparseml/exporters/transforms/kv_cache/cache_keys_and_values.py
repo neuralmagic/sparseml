@@ -307,10 +307,13 @@ def create_cache(
 
     cache_parent = graph.get_node_single_parent(node, index=cache_input_idx)
 
-    if isinstance(cache_parent, NodeProto) and cache_parent.op_type in ALLOWED_NODES_FOLLOWING_CONCAT:
+    if (
+        isinstance(cache_parent, NodeProto)
+        and cache_parent.op_type in ALLOWED_NODES_FOLLOWING_CONCAT
+    ):
         while cache_parent.op_type in ALLOWED_NODES_FOLLOWING_CONCAT:
             pre_cache_input_id = cache_parent.input[0]
-            cache_parent = graph.get_node_single_parent(cache_parent, index= 0)
+            cache_parent = graph.get_node_single_parent(cache_parent, index=0)
 
     else:
         pre_cache_input_id = node.input[cache_input_idx]
@@ -362,18 +365,7 @@ def create_cache(
         name=f"concat.{cache_input_name_concat}",
     )
 
-    for _node in model.graph.node:
-        for input_idx, input_id in enumerate(node.input):
-            if input_id == pre_cache_input_id and _node.name != concat_node.name:
-                _node.input[input_idx] = cache_output_name_concat
-
     graph.add_node(concat_node)
-
-    if node.op_type == "MatMulInteger":
-        node_parent = graph.get_node_single_parent(node, index=cache_input_idx)
-        node_grandparent = graph.get_node_single_parent(node_parent, index=0)
-        if node_parent.op_type == "QuantizeLinear" and node_grandparent.op_type == "Transpose":
-            pass
 
     return concat_node, cache_input_info, cache_output_info
 
