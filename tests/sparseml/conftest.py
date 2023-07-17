@@ -38,6 +38,19 @@ def _get_files(directory: str) -> List[str]:
     return list_filepaths
 
 
+def _files_size_mb(path_list: List[str]) -> int:
+    files_size = 0
+    for file_path in path_list:
+        try:
+            files_size += os.path.getsize(file_path)
+        # if file is deleted between the time we get the list of files
+        # and the time we get the size of the file, ignore it
+        except FileNotFoundError:
+            pass
+
+    return files_size / 1024 / 1024
+
+
 @pytest.fixture(scope="session", autouse=True)
 def check_for_created_files():
     start_files_root = _get_files(directory=r".")
@@ -54,7 +67,6 @@ def check_for_created_files():
         f_path for f_path in _get_files(directory=r".") if "__pycache__" not in f_path
     ]
     end_files_temp = _get_files(directory=tempfile.gettempdir())
-
     # assert no files created in root directory while running
     # the pytest suite
     assert len(start_files_root) >= len(end_files_root), (
@@ -63,20 +75,18 @@ def check_for_created_files():
         f"directory during pytest run. "
         f"Created files: {set(end_files_root) - set(start_files_root)}"
     )
-    max_allowed_sized_temp_files_megabytes = 1
-    created_temp_files = set(end_files_temp) - set(start_files_temp)
-    size_of_temp_files_bytes = 0
-    for file_path in created_temp_files:
-        try:
-            size_of_temp_files_bytes += os.path.getsize(file_path)
-        # if file is deleted between the time we get the list of files
-        # and the time we get the size of the file, ignore it
-        except FileNotFoundError:
-            pass
 
-    size_of_temp_files_megabytes = size_of_temp_files_bytes / 1024 / 1024
+    max_allowed_sized_temp_files_megabytes = 1
+    end_files_temp = _get_files(directory=tempfile.gettempdir())
+    created_temp_files = set(end_files_temp) - set(start_files_temp)
+    # pytest temp files are automatically deleted, exclude from size calculation
+    created_temp_files = [
+        f_path for f_path in created_temp_files if "pytest-of" not in f_path
+    ]
+
     # assert no more than 1 megabyte of temp files created in temp directory
-    # while running the pytest suite
+    # while running the pytest suite (excluding files created by pytest)
+    size_of_temp_files_megabytes = _files_size_mb(created_temp_files)
     assert max_allowed_sized_temp_files_megabytes >= size_of_temp_files_megabytes, (
         f"{size_of_temp_files_megabytes} "
         f"megabytes of temp files created in temp directory during pytest run. "
