@@ -863,7 +863,8 @@ class SparseYOLO(YOLO):
         overrides["rect"] = True  # rect batches as default
         overrides.update(kwargs)
         overrides["mode"] = "val"
-        overrides["nbs"] = int(overrides["nbs"])
+        if overrides.get("nbs"):
+            overrides["nbs"] = int(overrides["nbs"])
         overrides["data"] = data or overrides["data"]
         args = get_cfg(cfg=DEFAULT_CFG, overrides=overrides)
         args.data = data or args.data

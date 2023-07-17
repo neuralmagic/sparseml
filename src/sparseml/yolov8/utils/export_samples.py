@@ -145,22 +145,18 @@ def _export_torch_outputs(
     # Run model to get torch outputs
     model_out = model(image)
     preds = model_out
+    sample_output_filename = os.path.join(sample_out_dir, f"out-{file_idx}.npz")
+    seg_prediction = None
 
     # Move to cpu for exporting
     # Segmentation currently supports two outputs
     if isinstance(preds, tuple):
-        pred_0 = preds[0].detach().to("cpu")
-        pred_1 = preds[1].detach().to("cpu")
-
-        sample_output_filename = os.path.join(sample_out_dir, f"out-{file_idx}-0.npz")
-        numpy.savez(sample_output_filename, pred_0)
-
-        sample_output_filename = os.path.join(sample_out_dir, f"out-{file_idx}-1.npz")
-        numpy.savez(sample_output_filename, pred_1)
+        preds_out = preds[0].detach().to("cpu")
+        seg_prediction = preds[1].detach().to("cpu")
     else:
-        preds = preds.detach().to("cpu")
-        sample_output_filename = os.path.join(sample_out_dir, f"out-{file_idx}.npz")
-        numpy.savez(sample_output_filename, preds)
+        preds_out = preds.detach().to("cpu")
+
+    numpy.savez(sample_output_filename, preds_out, seg_prediction=seg_prediction)
 
 
 def _export_ort_outputs(
@@ -177,15 +173,13 @@ def _export_ort_outputs(
     preds = numpy.squeeze(preds, axis=0)
 
     if len(preds) > 1:
-        sample_output_filename = os.path.join(sample_out_dir, f"out-{file_idx}-0.npz")
-        numpy.savez(sample_output_filename, preds[0])
-
-        sample_output_filename = os.path.join(sample_out_dir, f"out-{file_idx}-1.npz")
-        numpy.savez(sample_output_filename, preds[1])
-
+        preds_out = preds[0]
+        seg_prediction = preds[1]
     else:
-        sample_output_filename = os.path.join(sample_out_dir, f"out-{file_idx}.npz")
-        numpy.savez(sample_output_filename, preds)
+        preds_out = preds
+
+    sample_output_filename = os.path.join(sample_out_dir, f"out-{file_idx}.npz")
+    numpy.savez(sample_output_filename, preds_out, seg_prediction=seg_prediction)
 
 
 def _export_inputs(image: torch.Tensor, sample_in_dir: str, file_idx: str):
