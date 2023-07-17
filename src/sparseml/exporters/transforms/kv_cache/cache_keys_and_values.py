@@ -29,8 +29,8 @@ __all__ = ["CacheKeysAndValues"]
 
 _LOGGER = logging.getLogger(__name__)
 
+ALLOWED_NODES_BEFORE_SOFTMAX = ["Cast", "Reshape", "QuantizeLinear"]
 ALLOWED_NODES_FOLLOWING_CONCAT = ["Transpose", "QuantizeLinear"]
-ALLOWED_NODES_BEFORE_SOFTMAX = ["Cast", "QuantizeLinear"]
 OUTPUT_CACHE_NAME = """present.{attention_layer_idx}.{cache_type}"""
 INPUT_CACHE_NAME = """past_key_values.{attention_layer_idx}.{cache_type}"""
 
@@ -288,7 +288,6 @@ def create_cache(
             take some time, we aggregate the list of nodes to remove and
             return them to deal with them later)
     """
-
     CACHE_INPUT_DIMS = [
         batch_size,
         num_attention_heads,

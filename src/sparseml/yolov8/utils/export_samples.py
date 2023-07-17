@@ -163,7 +163,8 @@ def _export_ort_outputs(
     # Run model to get onnxruntime outputs
     ort_inputs = {session.get_inputs()[0].name: image}
     ort_outs = session.run(None, ort_inputs)
-    preds = ort_outs
+    preds = numpy.squeeze(ort_outs, axis=0)
+    preds = numpy.squeeze(preds, axis=0)
 
     sample_output_filename = os.path.join(sample_out_dir, f"out-{file_idx}.npz")
     numpy.savez(sample_output_filename, preds)
@@ -171,7 +172,7 @@ def _export_ort_outputs(
 
 def _export_inputs(image: torch.Tensor, sample_in_dir: str, file_idx: str):
 
-    sample_in = image.detach().to("cpu")
+    sample_in = image.detach().to("cpu").squeeze(0)
 
     sample_input_filename = os.path.join(sample_in_dir, f"inp-{file_idx}.npz")
     numpy.savez(sample_input_filename, sample_in)
