@@ -1196,3 +1196,5 @@ def adjust_quantization_for_onnx_export(module: torch.nn.Module) -> torch.nn.Mod
             else:  # convert unsigned range to uint8
                 quant.activation_post_process.quant_min = 0
                 quant.activation_post_process.quant_max = 255
+        # don't update observer since ranges are artificially modified
+        quant.observer_enabled[0] = 0
