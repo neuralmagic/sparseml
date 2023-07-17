@@ -324,6 +324,11 @@ class ONNXGraph(object):
             seen_ids.update(node.output)
 
         # update model node list with topo sorted list
+        print(
+            set(i.name for i in self._model.graph.node).difference(
+                set(i.name for i in updated_node_list)
+            )
+        )
         assert len(updated_node_list) == len(self._model.graph.node)
         self._model.graph.ClearField("node")
         self._model.graph.node.extend(updated_node_list)

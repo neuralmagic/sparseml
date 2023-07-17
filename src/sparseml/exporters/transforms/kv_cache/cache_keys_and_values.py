@@ -364,11 +364,70 @@ def create_cache(
         axis=concat_axis,
         name=f"concat.{cache_input_name_concat}",
     )
+    matmul_node = copy.deepcopy(node)
+
+    def move_ql_node(
+        quantize_linear: NodeProto,
+        concat: NodeProto,
+        pre_cache_input_id: str,
+        model,
+        quantize_linear_parent=None,
+    ):
+        """
+        Moves a QuantizeLinear node to be before the Concat node.
+        """
+        ql_input, scale, zero_point = quantize_linear.input
+        ql_name = quantize_linear.name
+
+        # remove the QuantizeLinear node and fix up the graph
+        quantize_linear_parent = quantize_linear_parent or graph.get_node_single_parent(
+            quantize_linear, 0
+        )
+        quantize_linear_child = graph.get_node_single_child(quantize_linear)
+        quantize_linear_child.input[1] = quantize_linear_parent.output[0]
+
+        # insert the QuantizeLinear node before the Concat node
+        from sparseml.onnx.utils.graph_editor import swap_node_output
+        from sparseml.onnx.utils.helpers import get_nodes_by_output_id
+
+        # # insert the QuantizeLinear node before the Concat node
+        concate_node_parent = get_nodes_by_output_id(model, pre_cache_input_id)[0]
+
+        new_quantize_linear = onnx.helper.make_node(
+            op_type="QuantizeLinear",
+            inputs=[concate_node_parent.output[0], scale, zero_point],
+            outputs=[f"{ql_name}.quantized"],
+            name=f"{ql_name}.quantized",
+        )
+        concat.input[1] = f"{ql_name}.quantized"
+        graph.add_node(new_quantize_linear)
+        graph.update()
+        print("test")
+        return concat
 
     for node in model.graph.node:
         for input_idx, input_id in enumerate(node.input):
             if input_id == pre_cache_input_id and node.name != concat_node.name:
                 node.input[input_idx] = cache_output_name_concat
+    from sparseml.onnx.utils.helpers import get_nodes_by_input_id
+
+    if cache_input_name.endswith("key"):
+        concat_node = move_ql_node(
+            quantize_linear=graph.get_node_single_parent(matmul_node, cache_input_idx),
+            concat=concat_node,
+            pre_cache_input_id=pre_cache_input_id,
+            model=model,
+        )
+    else:
+        concat_node = move_ql_node(
+            quantize_linear=graph.get_node_single_parent(matmul_node, cache_input_idx),
+            concat=concat_node,
+            pre_cache_input_id=pre_cache_input_id,
+            model=model,
+            quantize_linear_parent=concat_node,
+        )
+    graph.delete_nodes([graph.get_node_single_parent(matmul_node, cache_input_idx)])
+    graph.update()
 
     graph.add_node(concat_node)
 
