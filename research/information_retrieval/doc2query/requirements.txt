@@ -99,7 +99,7 @@ rouge-score==0.0.4
 sacremoses==0.0.45
 scikit-image==0.18.1
 scikit-learn==0.24.2
-scipy==1.6.3
+scipy==1.10.0
 Send2Trash==1.5.0
 sentencepiece==0.1.96
 sentry-sdk==1.1.0
