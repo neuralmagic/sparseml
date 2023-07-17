@@ -361,10 +361,12 @@ def _match_submodule_name_or_type(
     #   2. match the submodule prefix (longest first)
     submodule_match = ""
     for name_or_type in names_or_types:
+        name_to_compare = submodule_name[:]
+        name_to_compare = _maybe_discard_prefix(name_to_compare)
         if name_or_type == submodule.__class__.__name__:
             # type match, return type name
             return name_or_type
-        if submodule_name.startswith(name_or_type) and (
+        if name_to_compare.startswith(name_or_type) and (
             len(name_or_type) > len(submodule_match)
         ):
             # match to most specific submodule name
@@ -422,7 +424,9 @@ def _validate_set_module_schemes(
         for type_or_name in types_or_names:
             matched = False
             for submodule_name, submodule in model.named_modules():
-                if submodule_name.startswith(type_or_name) or (
+                name_to_compare = submodule_name[:]
+                name_to_compare = _maybe_discard_prefix(name_to_compare)
+                if name_to_compare.startswith(type_or_name) or (
                     submodule.__class__.__name__ == type_or_name
                 ):
                     matched = True
@@ -447,3 +451,10 @@ def _validate_set_module_schemes(
     unmatched_ignore = _get_unmatched_types_or_names(ignore)
     if unmatched_ignore:
         raise ValueError(_build_error_str("ignore", unmatched_ignore))
+
+
+def _maybe_discard_prefix(name: str) -> str:
+    for prefix in ["module.", "model."]:
+        if name.startswith(prefix):
+            name = name.replace(prefix, "", 1)
+    return name

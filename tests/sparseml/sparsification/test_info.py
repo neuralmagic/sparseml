@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import tempfile
 
 import pytest
@@ -162,3 +163,4 @@ def test_save_load_sparsification_info():
     save_sparsification_info(info, test_path)
     loaded_path = load_sparsification_info(test_path)
     assert info == loaded_path
+    os.remove(test_path)

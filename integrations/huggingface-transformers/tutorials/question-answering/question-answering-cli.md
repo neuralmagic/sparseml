@@ -41,7 +41,7 @@ In this tutorial, you will learn how to:
 Install SparseML via `pip`:
 
 ```bash
-pip install sparseml[torch]
+pip install sparseml[transformers]
 ```
 
 ## **Sparse Transfer Learning onto SQuAD**

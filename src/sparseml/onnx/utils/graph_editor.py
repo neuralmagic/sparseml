@@ -195,10 +195,10 @@ class ONNXGraph(object):
         deletes the given nodes from the graph
         :param nodes: list of nodes to delete
         """
-        node_ouptut_ids_to_delete = {node.output[0] for node in nodes}
+        node_output_ids_to_delete = {node.output[0] for node in nodes}
         nodes_to_keep = []
         for node in self._model.graph.node:
-            if node.output[0] in node_ouptut_ids_to_delete:
+            if node.output[0] in node_output_ids_to_delete:
                 self._delete_node_edges(node)
             else:
                 nodes_to_keep.append(node)
@@ -241,6 +241,58 @@ class ONNXGraph(object):
                 and (init.name not in output_names)
             ]
         )  # delete inits that have no edge
+
+    def find_orphaned_nodes(self, node: NodeProto) -> List[NodeProto]:
+        """
+        Given a node, that is to be removed from the graph, find all nodes that
+        will be orphaned as a result of the removal. Orphaned nodes are nodes
+        that will have no inputs after the removal of the given node.
+        The method traverses the graph upwards from the given node until
+        a node with multiple outputs is found. All nodes that are traversed
+        are considered orphaned and will be removed.
+
+        :param node: The node to remove
+        :return: A tuple of the model and a list of orphaned nodes
+        """
+        nodes_to_delete = [node]
+        # start queue with previous positions input node
+        queue = [node]
+        while queue:
+            current_node = queue.pop(0)
+            if not isinstance(current_node, NodeProto):
+                continue
+            node_parents = self.get_node_parents(current_node)
+            # if node parent has only one output (current child)
+            # than it is orphaned and will be removed.
+            # continue traversing the graph upwards until
+            # a node with output that is not current child is found
+            for parent in node_parents:
+
+                if not isinstance(parent, NodeProto):
+                    # if parent is not a node, it is a graph input
+                    # and should not be removed
+                    continue
+                elif parent.op_type == "Constant":
+                    # if constant node is found,
+                    # automatically remove it and continue traversing
+                    nodes_to_delete.append(parent)
+
+                parent_output_node_names = set(
+                    n.name for n in self.get_node_parents(node=parent)
+                )
+                if len(parent_output_node_names) == 1:
+                    # if parent has only one output, it is orphaned
+                    queue.append(parent)
+                    nodes_to_delete.append(parent)
+                elif not parent_output_node_names.difference(
+                    set(n.name for n in nodes_to_delete)
+                ):
+                    # if parent has multiple outputs, but they are all already in the
+                    # nodes_to_delete list, it is orphaned
+                    queue.append(parent)
+                    nodes_to_delete.append(parent)
+
+        return nodes_to_delete
 
     def sort_nodes_topologically(self):
         """
