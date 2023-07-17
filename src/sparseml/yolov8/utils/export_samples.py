@@ -169,14 +169,16 @@ def _export_ort_outputs(
     # Run model to get onnxruntime outputs
     ort_inputs = {session.get_inputs()[0].name: image}
     ort_outs = session.run(None, ort_inputs)
-    preds = numpy.squeeze(ort_outs, axis=0)
-    preds = numpy.squeeze(preds, axis=0)
+    preds = ort_outs
+    seg_prediction = None
 
     if len(preds) > 1:
         preds_out = preds[0]
         seg_prediction = preds[1]
     else:
-        preds_out = preds
+        preds_out = preds[0]
+
+    preds_out = numpy.squeeze(preds_out, axis=0)
 
     sample_output_filename = os.path.join(sample_out_dir, f"out-{file_idx}.npz")
     numpy.savez(sample_output_filename, preds_out, seg_prediction=seg_prediction)
