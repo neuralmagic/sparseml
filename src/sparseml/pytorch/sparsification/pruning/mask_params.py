@@ -92,7 +92,6 @@ class ModuleParamPruningMask(object):
         self._mask_gradients_only = mask_gradients_only
         self._track_grad_mom = track_grad_mom
         self._global_sparsity = global_sparsity
-        self._jen_var = 0
 
         self._enabled = False
         self._forward_hooks = [None] * len(self._layers)
@@ -550,7 +549,7 @@ class ModuleParamPruningMask(object):
     def _hook_undo_mask(self, param_idx, module, inp, out):
         if self._allow_reintroduction:
             with torch.no_grad():
-                self._params[param_idx].data.add_(1*self._params_unmasked[param_idx])
+                self._params[param_idx].data.add_(self._params_unmasked[param_idx])
 
     def _hook_mask_gradient(self, param_idx, grad):
         if 0.0 <= self._track_grad_mom < 1.0:
@@ -560,7 +559,7 @@ class ModuleParamPruningMask(object):
         return (
             grad.mul_(self._param_masks[param_idx])
             if self._mask_gradients_only or not self._allow_reintroduction
-            else grad  # do not mask gradient for movement pruning
+            else grad
         )
 
     def _setup_params_init(self):
