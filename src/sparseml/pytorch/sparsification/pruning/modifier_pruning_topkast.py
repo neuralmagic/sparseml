@@ -12,11 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import math
 from typing import Dict, List, Optional, OrderedDict, Union
 
 from torch import Tensor
-from torch import abs as tabs
 from torch.linalg import norm
 from torch.nn import Module, Parameter
 from torch.optim.optimizer import Optimizer
@@ -26,21 +24,15 @@ from sparseml.pytorch.sparsification.pruning.mask_creator import (
     PruningMaskCreator,
     get_mask_creator_default,
 )
+from sparseml.pytorch.sparsification.pruning.mask_params import ModuleParamPruningMask
 from sparseml.pytorch.sparsification.pruning.modifier_pruning_base import (
     BasePruningModifier,
 )
-from sparseml.pytorch.sparsification.modifier import (
-    ScheduledModifier,
-    ScheduledUpdateModifier,
-)
-
 from sparseml.pytorch.sparsification.pruning.modifier_pruning_magnitude import (
     MagnitudePruningParamsScorer,
 )
 from sparseml.pytorch.sparsification.pruning.scorer import PruningParamsScorer
 
-from sparseml.pytorch.sparsification.pruning.mask_creator import PruningMaskCreator
-from sparseml.pytorch.sparsification.pruning.mask_params import ModuleParamPruningMask
 
 __all__ = ["TopKASTPruningModifier"]
 
@@ -102,8 +94,9 @@ class TopKASTPruningModifier(BasePruningModifier):
         end_epoch: Union[int, float],
         update_frequency: Union[int, float],
         params: Union[str, List[str]],
-        global_sparsity: bool = True,  # TODO: in the top-KAST paper, the default is False
-        leave_enabled: bool = True, 
+        global_sparsity: bool = True,  # TODO: in the top-KAST paper,
+        # the default is False
+        leave_enabled: bool = True,
         mask_type: str = "unstructured",
     ):
 
@@ -122,7 +115,6 @@ class TopKASTPruningModifier(BasePruningModifier):
         self._forward_sparsity = forward_sparsity
         self._backward_sparsity = backward_sparsity
 
-
     def initialize_extras(self, module):
         named_layers_and_params = self._create_named_layers_and_params(module)
         layers = [nlp.layer for nlp in named_layers_and_params]
@@ -138,12 +130,13 @@ class TopKASTPruningModifier(BasePruningModifier):
             for layer_name, param_name in zip(layer_names, param_names)
         ]
 
-	# We  need a whole separate set of masks for gradients,
+        # We  need a whole separate set of masks for gradients,
         # since they will be pruned to a smaller sparsity than weights.
         self._grad_mask_creator = self._get_mask_creator(full_param_names, params)
         self._grad_scorer = self._get_scorer(params)
-        self._grad_module_masks = self._create_grad_pruning_mask(layers, layer_names, param_names)
-        
+        self._grad_module_masks = self._create_grad_pruning_mask(
+            layers, layer_names, param_names
+        )
 
     def get_applied_sparsity_for_epoch(
         self, epoch: float, steps_per_epoch: int
@@ -163,12 +156,12 @@ class TopKASTPruningModifier(BasePruningModifier):
         """
         :param epoch: current epoch
         :param steps_per_epoch: number of steps per epoch
-        :return: **gradient** sparsity level that should be applied at the given epoch. If parameters
-            should be set to different sparsities, should return a list of those values
-            in the order the parameters appear in the mask manager for this object
+        :return: **gradient** sparsity level that should be applied at the given
+            epoch. If parameters should be set to different sparsities, should
+            return a list of those values in the order the parameters appear in
+            the mask manager for this object
         """
         return self._backward_sparsity
-
 
     @ModifierProp()
     def mask_type(self) -> str:
@@ -198,7 +191,6 @@ class TopKASTPruningModifier(BasePruningModifier):
         """
         return self._applied_sparsity
 
-
     def _get_scorer(self, params: List[Parameter]) -> PruningParamsScorer:
         """
         :param params: list of Parameters for scorer to track
@@ -218,8 +210,6 @@ class TopKASTPruningModifier(BasePruningModifier):
         :return: mask creator object to be used by this pruning algorithm
         """
         return get_mask_creator_default(self.mask_type)
-
-
 
     def check_mask_update(
         self,
@@ -270,12 +260,7 @@ class TopKASTPruningModifier(BasePruningModifier):
             self._module_masks.pruning_end(leave_enabled=self._leave_enabled)
             self._grad_module_masks.pruning_end(leave_enabled=False)
 
-
-
-    def finalize(
-
-        self, module: Optional[Module] = None, reset_loggers: bool = True
-    ):
+    def finalize(self, module: Optional[Module] = None, reset_loggers: bool = True):
         """
         Cleans up any remaining hooks
 
@@ -289,20 +274,24 @@ class TopKASTPruningModifier(BasePruningModifier):
         self._grad_module_masks.enabled = False
         self._grad_module_masks = None
 
-
     def state_dict(self) -> Dict[str, Tensor]:
         """
         :return: PyTorch state dictionary to store any variables from this modifier.
             The mapping is param_name -> mask
         """
-        return OrderedDict({
-		"param_masks": OrderedDict(
-		    zip(self._module_masks.names, self._module_masks.param_masks)
-		),
-		"grad_masks": OrderedDict(
-		    zip(self._grad_module_masks.names, self._grad_module_masks.param_masks)
-		),
-        })
+        return OrderedDict(
+            {
+                "param_masks": OrderedDict(
+                    zip(self._module_masks.names, self._module_masks.param_masks)
+                ),
+                "grad_masks": OrderedDict(
+                    zip(
+                        self._grad_module_masks.names,
+                        self._grad_module_masks.param_masks,
+                    )
+                ),
+            }
+        )
 
     def load_state_dict(self, state_dict: Dict[str, Tensor], strict: bool = True):
         """
@@ -319,14 +308,14 @@ class TopKASTPruningModifier(BasePruningModifier):
 
         mask_names = {key for key in self._module_masks.names}
         grad_mask_names = {key for key in self._grad_module_masks.names}
-        state_dict_mask_keys = {key for key in state_dict[param_masks].keys()}
+        state_dict_mask_keys = {key for key in state_dict["param_masks"].keys()}
         diff = mask_names.symmetric_difference(state_dict_mask_keys)
         if diff and strict:
             raise IndexError(
                 f"Found extra keys: {state_dict_mask_keys - mask_names} "
                 f"and missing keys: {mask_names - state_dict_mask_keys}"
             )
-        state_dict_grad_mask_keys = {key for key in state_dict[grad_masks].keys()}
+        state_dict_grad_mask_keys = {key for key in state_dict["grad_masks"].keys()}
         diff = grad_mask_names.symmetric_difference(state_dict_grad_mask_keys)
         if diff and strict:
             raise IndexError(
@@ -340,7 +329,6 @@ class TopKASTPruningModifier(BasePruningModifier):
         self._grad_module_masks.set_param_masks(
             [state_dict["grad_masks"][name] for name in self._grad_module_masks.names]
         )
-
 
     def _create_pruning_mask(
         self, layers: List[Module], layer_names: List[str], param_names: List[str]
@@ -376,7 +364,7 @@ class TopKASTPruningModifier(BasePruningModifier):
         optimizer: Optimizer,
         epoch: float,
         steps_per_epoch: int,
-        **kwargs
+        **kwargs,
     ) -> Tensor:
         """
         Updates the loss with the distillation loss
@@ -400,11 +388,21 @@ class TopKASTPruningModifier(BasePruningModifier):
         # should simply be L_2. Conversely, the reg loss term of the parameters
         # with masked weights but unmasked gradients should be L_2/sparsity
         # things that are masked by the 2nd one but not the first one
-        for i, param  in enumerate(self._module_masks._params):
-            forward_weights_norm_sum += (norm(param.data*self._module_masks.param_masks[i])).sum()
-            backward_weights_norm_sum += (norm(param.data*(1-self._module_masks.param_masks[i]) *self._grad_module_masks.param_masks[i])).sum()
+        for i, param in enumerate(self._module_masks._params):
+            forward_weights_norm_sum += (
+                norm(param.data * self._module_masks.param_masks[i])
+            ).sum()
+            backward_weights_norm_sum += (
+                norm(
+                    param.data
+                    * (1 - self._module_masks.param_masks[i])
+                    * self._grad_module_masks.param_masks[i]
+                )
+            ).sum()
 
-
-        total_loss = loss + (forward_weights_norm_sum + 1/self.forward_sparsity * backward_weights_norm_sum)
+        total_loss = loss + (
+            forward_weights_norm_sum
+            + 1 / self.forward_sparsity * backward_weights_norm_sum
+        )
 
         return total_loss

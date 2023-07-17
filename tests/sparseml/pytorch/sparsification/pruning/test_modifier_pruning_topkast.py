@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import pytest
-import torch
 from torch.nn import Module
 from torch.optim import SGD
 
@@ -118,8 +117,6 @@ class TestTopKASTPruningModifier(ScheduledModifierTest):
             assert not modifier.update_ready(epoch, test_steps_per_epoch)
             _test_compression_sparsity_applied()
 
-
-
     def test_state_dict_save_load(
         self,
         modifier_lambda,
@@ -161,7 +158,9 @@ def test_topkast_pruning_yaml():
         leave_enabled: {leave_enabled}
         mask_type: {mask_type}
         """
-    yaml_modifier = TopKASTPruningModifier.load_obj(yaml_str)  # type: TopKASTPruningModifier
+    yaml_modifier = TopKASTPruningModifier.load_obj(
+        yaml_str
+    )  # type: TopKASTPruningModifier
     serialized_modifier = TopKASTPruningModifier.load_obj(
         str(yaml_modifier)
     )  # type: TopKASTPruningModifier
