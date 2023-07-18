@@ -18,6 +18,9 @@ More info for the dataset can be found
 `here <https://www.cs.toronto.edu/~kriz/cifar.html>`__.
 """
 
+import logging
+
+
 try:
     from torchvision import transforms
     from torchvision.datasets import CIFAR10, CIFAR100
@@ -35,6 +38,8 @@ from sparseml.utils.datasets import default_dataset_path
 
 __all__ = ["CIFAR10Dataset", "CIFAR100Dataset"]
 
+
+_LOGGER = logging.getLogger(__file__)
 
 _CIFAR10_RGB_MEANS = [0.491, 0.482, 0.447]
 _CIFAR10_RGB_STDS = [0.247, 0.243, 0.262]
@@ -64,7 +69,12 @@ class CIFAR10Dataset(CIFAR10):
         root: str = default_dataset_path("cifar10"),
         train: bool = True,
         rand_trans: bool = False,
+        image_size: None = None,
     ):
+        if image_size is not None:
+            _LOGGER.warning(
+                "image_size not supported for CIFAR dataset, using default size"
+            )
         if torchvision_import_error is not None:
             raise torchvision_import_error
 
@@ -114,7 +124,12 @@ class CIFAR100Dataset(CIFAR100):
         root: str = default_dataset_path("cifar100"),
         train: bool = True,
         rand_trans: bool = False,
+        image_size: None = None,
     ):
+        if image_size is not None:
+            _LOGGER.warning(
+                "image_size not supported for CIFAR dataset, using default size"
+            )
         normalize = transforms.Normalize(
             mean=_CIFAR100_RGB_MEANS, std=_CIFAR100_RGB_STDS
         )

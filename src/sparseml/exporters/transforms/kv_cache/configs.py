@@ -102,9 +102,20 @@ CODEGEN_CONFIG = KeyValueCacheConfig(
     multiply_batch_by_num_att_heads=False,
 )
 
+BLOOM_CONFIG = KeyValueCacheConfig(
+    model_name="bloom",
+    positional_embedding_transform=None,
+    key_num_attention_heads="num_attention_heads",
+    key_num_embedding_hidden_size="n_embed",
+    transpose_value_input=None,
+    transpose_key_input=(0, 1, 3, 2),
+    multiply_batch_by_num_att_heads=True,
+)
+
 
 def get_kv_cache_config(
-    model_path: str, supported_configs: List[BaseModel] = [OPT_CONFIG, CODEGEN_CONFIG]
+    model_path: str,
+    supported_configs: List[BaseModel] = [OPT_CONFIG, CODEGEN_CONFIG, BLOOM_CONFIG],
 ) -> KeyValueCacheConfig:
     """
     Get the kv cache config for the model at the given path.
