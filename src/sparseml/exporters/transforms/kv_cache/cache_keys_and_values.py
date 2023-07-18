@@ -178,8 +178,10 @@ class CacheKeysAndValues(OnnxTransform):
         use_uint8_if_quantized = _use_uint8_if_quantized(graph)
 
         for idx, (key_matmul, value_matmul) in enumerate(key_value_matmul_pairs):
+
             value_input_idx = _value_input_idx(value_matmul, model)
-            (key_concat_node, key_input_tensor, key_output_tensor,) = create_cache(
+
+            key_concat_node, key_input_tensor, key_output_tensor = create_cache(
                 model=model,
                 node=key_matmul,
                 cache_input_idx=1,
@@ -195,11 +197,8 @@ class CacheKeysAndValues(OnnxTransform):
                 transpose_input=self.transpose_key_input,
                 multiply_batch_by_num_att_heads=self.multiply_batch_by_num_att_heads,  # noqa E501
             )
-            (
-                value_concat_node,
-                value_input_tensor,
-                value_output_tensor,
-            ) = create_cache(
+
+            value_concat_node, value_input_tensor, value_output_tensor = create_cache(
                 model=model,
                 node=value_matmul,
                 cache_input_idx=value_input_idx,
@@ -223,6 +222,7 @@ class CacheKeysAndValues(OnnxTransform):
             self.log_match(value_matmul)
 
         # update model with cache inputs, and outputs
+
         model.graph.input.extend(inputs_to_add)
         model.graph.output.extend(outputs_to_add)
 
@@ -265,10 +265,8 @@ def create_cache(
         before the concat node. If `multiply_batch_by_num_att_heads` is True,
         the transpose is applied after the batch size is multiplied by the
         number of attention heads.
-    :return: tuple of:
-        - concat node to add
-        - cache input to add
-        - cache output to add
+    :return: tuple of concat node to add, cache input to add, and cache output to add,
+        updates existing nodes in-place
     """
     CACHE_INPUT_DIMS = [
         batch_size,
@@ -390,11 +388,7 @@ def create_cache(
 
     graph.add_node(concat_node)
 
-    return (
-        concat_node,
-        cache_input_info,
-        cache_output_info,
-    )
+    return concat_node, cache_input_info, cache_output_info
 
 
 def reshape_kv_cache_inputs_outputs(
