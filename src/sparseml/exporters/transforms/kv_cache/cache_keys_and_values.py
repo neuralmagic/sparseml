@@ -173,19 +173,13 @@ class CacheKeysAndValues(OnnxTransform):
         # Inject kv cache concatenated with the current keys/values as the output
         inputs_to_add = []
         outputs_to_add = []
-        nodes_to_remove = []
 
         # get default int8 type to use if graph is quantized
         use_uint8_if_quantized = _use_uint8_if_quantized(graph)
 
         for idx, (key_matmul, value_matmul) in enumerate(key_value_matmul_pairs):
             value_input_idx = _value_input_idx(value_matmul, model)
-            (
-                key_concat_node,
-                key_input_tensor,
-                key_output_tensor,
-                key_nodes_to_remove,
-            ) = create_cache(
+            (key_concat_node, key_input_tensor, key_output_tensor,) = create_cache(
                 model=model,
                 node=key_matmul,
                 cache_input_idx=1,
@@ -205,7 +199,6 @@ class CacheKeysAndValues(OnnxTransform):
                 value_concat_node,
                 value_input_tensor,
                 value_output_tensor,
-                value_nodes_to_remove,
             ) = create_cache(
                 model=model,
                 node=value_matmul,
@@ -225,7 +218,6 @@ class CacheKeysAndValues(OnnxTransform):
 
             inputs_to_add.extend([key_input_tensor, value_input_tensor])
             outputs_to_add.extend([key_output_tensor, value_output_tensor])
-            nodes_to_remove.extend(key_nodes_to_remove + value_nodes_to_remove)
 
             self.log_match(key_matmul)
             self.log_match(value_matmul)
@@ -233,11 +225,6 @@ class CacheKeysAndValues(OnnxTransform):
         # update model with cache inputs, and outputs
         model.graph.input.extend(inputs_to_add)
         model.graph.output.extend(outputs_to_add)
-
-        # update the graph
-        graph.update()
-        # remove nodes that were deleted from the graph
-        graph.delete_nodes(nodes_to_remove)
 
         _set_attention_mask_to_dynamic(model)
 
@@ -256,7 +243,7 @@ def create_cache(
     batch_size: int = 1,
     multiply_batch_by_num_att_heads: bool = True,
     transpose_input: Optional[Tuple[int, int, int, int]] = None,
-) -> Tuple[NodeProto, ValueInfoProto, ValueInfoProto, List[NodeProto]]:
+) -> Tuple[NodeProto, ValueInfoProto, ValueInfoProto]:
     """
     Injects a cache (value or key) into the graph for a given Matmul node.
 
@@ -282,11 +269,6 @@ def create_cache(
         - concat node to add
         - cache input to add
         - cache output to add
-        - list of output nodes to remove (wile one can add nodes to the
-            graphs on the fly, one may not be able to remove nodes from
-            the model until the graph is updated. Since the update may
-            take some time, we aggregate the list of nodes to remove and
-            return them to deal with them later)
     """
     CACHE_INPUT_DIMS = [
         batch_size,
@@ -392,22 +374,19 @@ def create_cache(
             if input_id == pre_cache_input_id and _node.name != concat_node.name:
                 _node.input[input_idx] = cache_output_name_concat
 
-    nodes_to_remove = []
-
     if node.op_type == "MatMulInteger":
         quantize_linear = graph.get_node_single_parent(node, cache_input_idx)
         quantize_linear_parent = graph.get_node_single_parent(quantize_linear, 0)
         if quantize_linear_parent is None:
             quantize_linear_parent = concat_node
 
-        concat_node, old_quantize_linear_node = move_quantize_linear_node(
+        concat_node = move_quantize_linear_node(
             quantize_linear=quantize_linear,
             quantize_linear_parent=quantize_linear_parent,
             concat=concat_node,
             cache_input_idx=cache_input_idx,
             graph=graph,
         )
-        nodes_to_remove.append(old_quantize_linear_node)
 
     graph.add_node(concat_node)
 
@@ -415,7 +394,6 @@ def create_cache(
         concat_node,
         cache_input_info,
         cache_output_info,
-        nodes_to_remove,
     )
 
 
@@ -604,7 +582,7 @@ def move_quantize_linear_node(
     concat: NodeProto,
     cache_input_idx: str,
     graph: ONNXGraph,
-) -> Tuple[ModelProto, NodeProto]:
+) -> NodeProto:
     """
     Moves a QuantizeLinear node before the `concat` node, so
     that the data that arrives from `ConcatNodeParent` to `concat`
@@ -662,9 +640,7 @@ def move_quantize_linear_node(
     :param concat: The concat node to move the QuantizeLinear node before.
     :param cache_input_idx: The index of the cache input in the concat node.
     :param graph: The graph to update.
-    :return: The updated Concat and the old QuantizeLinear node.
-        The old QuantizeLinear node should be removed from the graph (the
-        deletion is being done outside of this function for efficiency).
+    :return: The updated Concat node.
     """
     if quantize_linear.op_type != "QuantizeLinear":
         raise ValueError(
@@ -679,26 +655,16 @@ def move_quantize_linear_node(
             f"op_type: {quantize_linear_child.op_type}"
         )
 
-    ql_input, scale, zero_point = quantize_linear.input
-    new_ql_name = f"{quantize_linear.name}.moved"
-
-    # remove the dependency of the model graph on the QuantizeLinear node
-    # by connecting output of its parent to its child
+    # remove the dependency on the QuantizeLinear node from its
+    # neighbouring nodes by connecting output of its parent to its child
     quantize_linear_child.input[cache_input_idx] = quantize_linear_parent.output[0]
 
     # get the node precedes the concat node and does not come from
-    # the kv cache input
+    # the kv cache input. Then place the QuantizeLinear node after it
     concate_node_parent = graph.get_node_parents(concat)[1]
-
-    new_quantize_linear = onnx.helper.make_node(
-        op_type="QuantizeLinear",
-        inputs=[concate_node_parent.output[0], scale, zero_point],
-        outputs=[new_ql_name],
-        name=new_ql_name,
-    )
-    concat.input[1] = new_ql_name
-    graph.add_node(new_quantize_linear)
-    return concat, quantize_linear
+    quantize_linear.input[0] = concate_node_parent.output[0]
+    concat.input[1] = quantize_linear.output[0]
+    return concat
 
 
 def _find_key_value_matmul_pairs(
