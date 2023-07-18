@@ -19,11 +19,11 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 from pydantic import BaseModel, Field
 
-from sparseml.exporters.transforms.kv_cache.positions_adjustment_codegen import (
-    PositionsAdjustmentCodeGen,
-)
 from sparseml.exporters.transforms.kv_cache.positions_adjustment_opt import (
     PositionsAdjustmentOPT,
+)
+from sparseml.exporters.transforms.kv_cache.transforms_codegen import (
+    AdditionalTransformsCodeGen,
 )
 
 
@@ -37,12 +37,9 @@ class KeyValueCacheConfig(BaseModel):
         description="The name of the model type. This should correspond to "
         "the `model_type` field in the transformer's `config.json` file."
     )
-    positions_adjustment_transform: Any = Field(
-        description="The class to use to transform the positional embeddings. "
-        "This should be a subclass of `PositionsAdjustmentBase`. Note: In the "
-        "future, when we encounter models that are more complex than just "
-        "editing the positions in the model, we can make this transformation more "
-        "general."
+    additional_transforms: Any = Field(
+        description="The transformer class to use for additional transforms "
+        "to the model to finalize the full kv cache injection"
     )
     key_num_attention_heads: str = Field(
         description="The key to use to get the number of attention heads from the "
@@ -84,7 +81,7 @@ class KeyValueCacheConfig(BaseModel):
 
 OPT_CONFIG = KeyValueCacheConfig(
     model_name="opt",
-    positions_adjustment_transform=PositionsAdjustmentOPT,
+    additional_transforms=PositionsAdjustmentOPT,
     key_num_attention_heads="num_attention_heads",
     key_num_embedding_hidden_size="hidden_size",
     transpose_value_input=None,
@@ -94,7 +91,7 @@ OPT_CONFIG = KeyValueCacheConfig(
 
 CODEGEN_CONFIG = KeyValueCacheConfig(
     model_name="codegen",
-    positions_adjustment_transform=PositionsAdjustmentCodeGen,
+    additional_transforms=AdditionalTransformsCodeGen,
     key_num_attention_heads="n_head",
     key_num_embedding_hidden_size="n_embd",
     transpose_value_input=(0, 2, 1, 3),
@@ -104,7 +101,7 @@ CODEGEN_CONFIG = KeyValueCacheConfig(
 
 BLOOM_CONFIG = KeyValueCacheConfig(
     model_name="bloom",
-    positional_embedding_transform=None,
+    additional_transforms=None,
     key_num_attention_heads="num_attention_heads",
     key_num_embedding_hidden_size="n_embed",
     transpose_value_input=None,

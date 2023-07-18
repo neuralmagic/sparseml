@@ -131,7 +131,7 @@ class KeyValueCacheInjector(BaseExporter):
 
     @staticmethod
     def _get_transforms_from_config(config: KeyValueCacheConfig) -> List[OnnxTransform]:
-        positions_adjustment = config.positions_adjustment_transform
+        additional_transforms = config.additional_transforms
 
         transforms = [
             CacheKeysAndValues(
@@ -142,8 +142,8 @@ class KeyValueCacheInjector(BaseExporter):
                 transpose_key_input=config.transpose_key_input,
             )
         ]
-        if positions_adjustment is not None:
-            transforms += [positions_adjustment()]
+        if additional_transforms is not None:
+            transforms += [additional_transforms()]
 
         return transforms
 

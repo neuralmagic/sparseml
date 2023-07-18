@@ -14,8 +14,8 @@
 
 from onnx import ModelProto, NodeProto
 
-from sparseml.exporters.transforms.kv_cache.positions_adjustment_base import (
-    PositionsAdjustmentBase,
+from sparseml.exporters.transforms.kv_cache.transforms_base import (
+    AdditionalTransformsBase,
 )
 from sparseml.onnx.utils import ONNXGraph
 
@@ -27,7 +27,7 @@ __all__ = ["PositionsAdjustmentOPT"]
 _EMBED_POSITIONS_ID = "model.decoder.embed_positions.weight"
 
 
-class PositionsAdjustmentOPT(PositionsAdjustmentBase):
+class PositionsAdjustmentOPT(AdditionalTransformsBase):
     """
     Base class for model architecture specific transforms to adjust graph
     to take input_id positions as an argument rather than computing them
