@@ -104,8 +104,9 @@ def test_export_4bit_model(tmp_path, model, sample_batch):
 
     new_exporter = TorchToONNX(sample_batch)
     new_exporter.export(model, new_dir / "model.onnx")
+    onnx_model_new = onnx.load(new_dir / "model.onnx")
     ONNXToDeepsparse(use_qlinear_conv=True).export(
-        new_dir / "model.onnx", new_dir / "model.onnx"
+        onnx_model_new, new_dir / "model.onnx"
     )
     validate_onnx(str(new_dir / "model.onnx"))
 
@@ -132,20 +133,21 @@ def test_export_4bit_model_range(tmp_path):
 
     new_exporter = TorchToONNX(sample_batch)
     new_exporter.export(model, new_dir / "model.onnx")
+    onnx_model_new = onnx.load(new_dir / "model.onnx")
     ONNXToDeepsparse(use_qlinear_conv=True).export(
-        new_dir / "model.onnx", new_dir / "model.onnx"
+        onnx_model_new, new_dir / "model.onnx"
     )
     onnx_model_new = onnx.load(new_dir / "model.onnx")
     conv_quant_ranges = _get_conv_quant_ranges(onnx_model_new)
     # all ConvInteger blocks should be quantized to int4
-    assert all([conv_range <= 16 for name, conv_range in conv_quant_ranges.items()])
+    assert all(conv_range <= 16 for name, conv_range in conv_quant_ranges.items())
 
     old_exporter = ModuleExporter(model, old_dir)
     old_exporter.export_onnx(sample_batch, convert_qat=True)
     onnx_model_old = onnx.load(old_dir / "model.onnx")
     conv_quant_ranges = _get_conv_quant_ranges(onnx_model_old)
     # all ConvInteger blocks should be quantized to int4
-    assert all([conv_range <= 16 for name, conv_range in conv_quant_ranges.items()])
+    assert all(conv_range <= 16 for name, conv_range in conv_quant_ranges.items())
 
 
 @pytest.mark.parametrize(
