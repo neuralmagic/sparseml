@@ -78,6 +78,10 @@ class QuantizationArgs(BaseModel):
         default=False,
         description="set True to use symmetric quantization. Default False",
     )
+    per_channel: bool = Field(
+        default=False,
+        description="set True to quantize by channel. Default False",
+    )
     kwargs: Dict[str, Any] = Field(
         default_factory=dict,
         description=(
@@ -106,6 +110,7 @@ class QuantizationArgs(BaseModel):
         """
         return get_observer(
             symmetric=self.symmetric,
+            per_channel=self.per_channel,
             dtype=torch.qint8,
             bits=self.num_bits,
             reduce_range=self.kwargs.get("reduce_range", False),
@@ -276,21 +281,31 @@ def compute_range(dtype: torch.dtype, bits: int):
 
 def get_observer(
     symmetric: bool,
+    per_channel: bool,
     dtype: torch.dtype,
     bits: int,
     reduce_range: bool,
     qconfig_kwargs: Dict[str, Any],
 ):
-    qscheme = torch.per_tensor_symmetric if symmetric else torch.per_tensor_affine
     quant_min, quant_max, is_custom_qrange = compute_range(dtype, bits)
 
-    observer_cls = torch_quantization.MovingAverageMinMaxObserver
-    observer_kwargs = dict(
-        dtype=dtype,
-        qscheme=qscheme,
-        reduce_range=reduce_range,
-    )
-
+    if per_channel:
+        qscheme = torch.per_channel_symmetric if symmetric else torch.per_channel_affine
+        observer_cls = torch_quantization.MovingAveragePerChannelMinMaxObserver
+        observer_kwargs = dict(
+            ch_axis=1, # Sara TODO: check this   
+            dtype=dtype,
+            qscheme=qscheme,
+            reduce_range=reduce_range,
+        )
+    else:
+        qscheme = torch.per_tensor_symmetric if symmetric else torch.per_tensor_affine
+        observer_cls = torch_quantization.MovingAverageMinMaxObserver
+        observer_kwargs = dict(
+            dtype=dtype,
+            qscheme=qscheme,
+            reduce_range=reduce_range,
+        )
     """
     in torch 1.9.1, quant_min and quant_max are not passed to observer:
     https://github.com/pytorch/pytorch/blob/v1.9.1/torch/quantization/fake_quantize.py#L109

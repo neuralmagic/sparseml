@@ -350,12 +350,18 @@ def _quantize_array(
         tensor_dtype = torch.qint32
 
     tensor = torch.Tensor(array.copy()).to(torch.float32)
-    if isinstance(scale, numpy.ndarray):
+    if isinstance(scale, numpy.ndarray) and scale.size == 1:
         scale = scale.item()
-    if isinstance(zero_point, numpy.ndarray):
+    if isinstance(zero_point, numpy.ndarray) and zero_point.size == 1:
         zero_point = zero_point.item()
 
-    quant_tensor = torch.quantize_per_tensor(tensor, scale, zero_point, tensor_dtype)
+    if isinstance(scale, numpy.ndarray): #per_channel quantization
+        # Sara TODO: need to determine channel axis
+        scale = torch.Tensor(scale.copy()).to(torch.float32)
+        zero_point = torch.Tensor(zero_point.copy()).to(torch.int32)
+        quant_tensor = torch.quantize_per_channel(tensor, scale, zero_point, 1, tensor_dtype)
+    else:
+        quant_tensor = torch.quantize_per_tensor(tensor, scale, zero_point, tensor_dtype)
     return quant_tensor.int_repr().numpy()
 
 
@@ -999,7 +1005,7 @@ def _add_quantized_conv_matmul_add_ops(
         )
     model.graph.node.append(integer_op_node)
 
-    output_scale = input_quantize_params.scale * weight_quantize_params.scale
+    output_scale = input_quantize_params.scale #* weight_quantize_params.scale Sara TODO fix
     output_scale_name = "{}_output.scale".format(node.name)
     model.graph.initializer.append(
         numpy_helper.from_array(numpy.asarray(output_scale), name=output_scale_name)
