@@ -50,13 +50,13 @@ logger = logging.getLogger()
     "--model",
     default="yolov8n.yaml",
     type=str,
-    help="i.e. yolov8n.pt, yolov8n.yaml. Path to model file",
+    help="i.e. yolov8n.pt, yolov8n.yaml, yolov8n-seg.yaml. Path to model file",
 )
 @click.option(
     "--data",
     default="coco128.yaml",
     type=str,
-    help="i.e. coco128.yaml. Path to data file",
+    help="i.e. coco128.yaml, coco128-seg.yaml. Path to data file",
 )
 @click.option("--epochs", default=100, type=int, help="number of epochs to train for")
 @click.option(
@@ -221,7 +221,9 @@ def main(**kwargs):
         kwargs["data"] = data_from_dataset_path(kwargs["data"], kwargs["dataset_path"])
     del kwargs["dataset_path"]
 
-    model = SparseYOLO(kwargs["model"])
+    # NOTE: the task, model, and data kwargs will override the values in default.yaml
+    # They should be provided or default values will be used.
+    model = SparseYOLO(kwargs["model"], kwargs["task"])
     model.train(**kwargs)
 
 
