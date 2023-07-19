@@ -104,8 +104,9 @@ def test_export_4bit_model(tmp_path, model, sample_batch):
 
     new_exporter = TorchToONNX(sample_batch)
     new_exporter.export(model, new_dir / "model.onnx")
+    onnx_model_new = onnx.load(new_dir / "model.onnx")
     ONNXToDeepsparse(use_qlinear_conv=True).export(
-        new_dir / "model.onnx", new_dir / "model.onnx"
+        onnx_model_new, new_dir / "model.onnx"
     )
     validate_onnx(str(new_dir / "model.onnx"))
 
