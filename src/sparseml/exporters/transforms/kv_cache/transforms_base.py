@@ -42,7 +42,7 @@ class AdditionalTransformsBase(OnnxTransform):
 
         batch_size = input_ids.type.tensor_type.shape.dim[0].dim_param
         input_ids_length = input_ids.type.tensor_type.shape.dim[1].dim_value
-        sequence_length = attention_mask.type.tensor_type.shape.dim[1].dim_value
+        sequence_length = attention_mask.type.tensor_type.shape.dim[1].dim_param
         causal_mask_input = helper.make_tensor_value_info(
             name=self.CAUSAL_MASK_NAME,
             elem_type=TensorProto.BOOL,
