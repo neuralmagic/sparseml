@@ -21,7 +21,7 @@ from typing import Any, Dict, Optional, Union
 
 import torch
 from packaging import version
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 from torch.nn import Identity
 
 
@@ -78,9 +78,11 @@ class QuantizationArgs(BaseModel):
         default=False,
         description="set True to use symmetric quantization. Default False",
     )
-    per_channel: bool = Field(
-        default=False,
-        description="set True to quantize by channel. Default False",
+    strategy: str = Field(
+        default="tensor",
+        description=(
+            "scope of the quantization to be applied. can be 'tensor' or 'channel'",
+        ),
     )
     kwargs: Dict[str, Any] = Field(
         default_factory=dict,
@@ -110,12 +112,19 @@ class QuantizationArgs(BaseModel):
         """
         return get_observer(
             symmetric=self.symmetric,
-            per_channel=self.per_channel,
+            strategy=self.strategy,
             dtype=torch.qint8,
             bits=self.num_bits,
             reduce_range=self.kwargs.get("reduce_range", False),
             qconfig_kwargs=self.kwargs,
         )
+
+    @validator("strategy")
+    def validate_strategy(cls, value):
+        valid_scopes = ["tensor", "channel"]
+        if value not in valid_scopes:
+            raise ValueError(f"`strategy` must be one of {valid_scopes}, got {value}")
+        return value
 
 
 class QuantizationScheme(BaseModel):
@@ -281,7 +290,7 @@ def compute_range(dtype: torch.dtype, bits: int):
 
 def get_observer(
     symmetric: bool,
-    per_channel: bool,
+    strategy: str,
     dtype: torch.dtype,
     bits: int,
     reduce_range: bool,
@@ -289,16 +298,16 @@ def get_observer(
 ):
     quant_min, quant_max, is_custom_qrange = compute_range(dtype, bits)
 
-    if per_channel:
+    if strategy == "channel":
         qscheme = torch.per_channel_symmetric if symmetric else torch.per_channel_affine
         observer_cls = torch_quantization.MovingAveragePerChannelMinMaxObserver
         observer_kwargs = dict(
-            ch_axis=1, # Sara TODO: check this   
+            ch_axis=0,  # Sara TODO: check this
             dtype=dtype,
             qscheme=qscheme,
             reduce_range=reduce_range,
         )
-    else:
+    else:  # default to tensor strategy
         qscheme = torch.per_tensor_symmetric if symmetric else torch.per_tensor_affine
         observer_cls = torch_quantization.MovingAverageMinMaxObserver
         observer_kwargs = dict(
