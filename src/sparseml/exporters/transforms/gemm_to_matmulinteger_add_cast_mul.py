@@ -60,7 +60,18 @@ class GemmToMatMulIntegerAddCastMul(OnnxTransform):
     |     |
     | Mul (Rescale from bias scale)
     ```
+
+    :param bit_width: the bit width to use for the quantization
     """
+
+    def __init__(self, bit_width: int = 8) -> None:
+        super().__init__()
+        self.bit_width = bit_width
+        if bit_width <= 0 or bit_width > 8:
+            raise ValueError(
+                "only [1, 8] bit quantization currently supported. Received "
+                f"{bit_width}"
+            )
 
     def transform(self, model: ModelProto) -> ModelProto:
         graph = ONNXGraph(model)
@@ -130,6 +141,7 @@ class GemmToMatMulIntegerAddCastMul(OnnxTransform):
             bias_add_name=f"{gemm.name}_bias_add",
             target_output=gemm.output[0],
             transpose_weight=transpose_weight,
+            bit_width=self.bit_width,
         )
 
         # Cleanup
