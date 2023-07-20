@@ -23,7 +23,7 @@ from sparseml.pytorch.utils import detach
 from ultralytics.nn.autobackend import AutoBackend
 from ultralytics.yolo.data.utils import check_cls_dataset, check_det_dataset
 from ultralytics.yolo.engine.validator import BaseValidator
-from ultralytics.yolo.utils import LOGGER, TQDM_BAR_FORMAT, callbacks, emojis
+from ultralytics.yolo.utils import TQDM_BAR_FORMAT, callbacks, emojis
 from ultralytics.yolo.utils.checks import check_imgsz
 from ultralytics.yolo.utils.ops import Profile
 from ultralytics.yolo.utils.torch_utils import de_parallel, select_device
@@ -49,11 +49,9 @@ class SparseValidator(BaseValidator):
             model = model.half() if self.args.half else model.float()
             self.model = model
             self.loss = torch.zeros_like(trainer.loss_items, device=trainer.device)
-
             self.args.plots = (
-                trainer.stopper.possible_stop or trainer.epoch == trainer.epochs - 1
+                trainer.epoch == trainer.epochs - 1
             )  # always plot final epoch
-
             model.eval()
         else:
             callbacks.add_integration_callbacks(self)
@@ -65,8 +63,8 @@ class SparseValidator(BaseValidator):
                 model,
                 device=self.device,
                 dnn=self.args.dnn,
-                data=self.args.data,
                 fp16=self.args.half,
+                fuse=False,
             )
             self.model = model
             stride, pt, jit, engine = model.stride, model.pt, model.jit, model.engine
@@ -77,7 +75,7 @@ class SparseValidator(BaseValidator):
                 self.device = model.device
                 if not pt and not jit:
                     self.args.batch = 1  # export.py models default to batch-size 1
-                    LOGGER.info(
+                    self.logger.info(
                         "Forcing --batch-size 1 square inference (1,3,"
                         f"{imgsz},{imgsz}) for non-PyTorch models"
                     )
@@ -85,7 +83,7 @@ class SparseValidator(BaseValidator):
             if isinstance(self.args.data, str) and self.args.data.endswith(".yaml"):
                 self.data = check_det_dataset(self.args.data)
             elif self.args.task == "classify":
-                self.data = check_cls_dataset(self.args.data, split=self.args.split)
+                self.data = check_cls_dataset(self.args.data)
             else:
                 raise FileNotFoundError(
                     emojis(f"Dataset '{self.args.data}' not found ❌")
@@ -100,7 +98,7 @@ class SparseValidator(BaseValidator):
             if not pt:
                 self.args.rect = False
             self.dataloader = self.dataloader or self.get_dataloader(
-                self.data.get(self.args.split), self.args.batch
+                self.data.get("val") or self.data.set("test"), self.args.batch
             )
 
             model.eval()
@@ -131,17 +129,18 @@ class SparseValidator(BaseValidator):
 
             # inference
             with dt[1]:
-                preds = model(batch["img"], augment=self.args.augment)
+                preds = model(batch["img"])
 
             # loss
             with dt[2]:
-                if self.training:
-                    self.loss += model.loss(batch=batch, preds=preds)[1]
+                if not hasattr(self, "loss"):
+                    self.loss = trainer.criterion(
+                        preds if self.training else preds[1], batch
+                    )[1]
                 else:
-                    if hasattr(self, "loss"):
-                        self.loss += model.model.loss(batch=batch, preds=preds[1])[1]
-                    else:
-                        self.loss = model.model.loss(batch=batch, preds=preds[1])[1]
+                    self.loss += trainer.criterion(
+                        preds if self.training else preds[1], batch
+                    )[1]
 
             # pre-process predictions
             with dt[3]:
@@ -159,16 +158,13 @@ class SparseValidator(BaseValidator):
             self.run_callbacks("on_val_batch_end")
         stats = self.get_stats()
         self.check_stats(stats)
-        self.speed = dict(
-            zip(
-                self.speed.keys(),
-                (x.t / len(self.dataloader.dataset) * 1e3 for x in dt),
-            )
-        )
-        self.finalize_metrics()
+        self.print_results()
+        self.speed = tuple(
+            x.t / len(self.dataloader.dataset) * 1e3 for x in dt
+        )  # speeds per image
         self.run_callbacks("on_val_end")
         model.float()
-        results = {
+        stats = {
             **stats,
             **trainer.label_loss_items(
                 self.loss.cpu() / len(self.dataloader), prefix="val"
@@ -176,22 +172,22 @@ class SparseValidator(BaseValidator):
         }
         if self.training:
             return {
-                k: round(float(v), 5) for k, v in results.items()
+                k: round(float(v), 5) for k, v in stats.items()
             }  # return results as 5 decimal place floats
         else:
-            LOGGER.info(
-                "Speed: %.1fms preprocess, %.1fms inference, %.1fms loss, %.1fms "
-                "postprocess per image" % tuple(self.speed.values())
+            self.logger.info(
+                (
+                    "Speed: %.1fms pre-process, %.1fms inference, %.1fms loss, %.1fms "
+                    "post-process per image"
+                ),
+                *self.speed,
             )
-            LOGGER.info(f"Validation loss: {results['val/Loss']}")
-            LOGGER.info(f"Metrics: {results}")
+            self.logger.info(f"Validation loss: {stats['val/Loss']}")
             if self.args.save_json and self.jdict:
                 with open(str(self.save_dir / "predictions.json"), "w") as f:
-                    LOGGER.info(f"Saving {f.name}...")
+                    self.logger.info(f"Saving {f.name}...")
                     json.dump(self.jdict, f)  # flatten and save
                 stats = self.eval_json(stats)  # update stats
-            if self.args.plots or self.args.save_json:
-                LOGGER.info(f"Results saved to {self.save_dir}")
             return stats
 
 
