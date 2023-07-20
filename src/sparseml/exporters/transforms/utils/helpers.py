@@ -149,7 +149,7 @@ def quantize_array(
                 tensor,
                 scale,
                 zero_point,
-                0, # channel axis
+                0,  # channel axis
                 tensor_dtype,
             )
         else:  # per-tensor quantization
