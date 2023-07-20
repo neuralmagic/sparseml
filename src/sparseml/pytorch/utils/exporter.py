@@ -37,6 +37,7 @@ from torch.utils.data import DataLoader
 from sparseml.onnx.utils import ONNXGraph
 from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
 from sparseml.pytorch.utils.helpers import (
+    adjust_quantization_for_onnx_export,
     tensors_export,
     tensors_module_forward,
     tensors_to_device,
@@ -208,17 +209,21 @@ class ModuleExporter(object):
         """
         if not export_kwargs:
             export_kwargs = {}
+
+        module = deepcopy(self._module).cpu()  # don't modify the original model
         if "output_names" not in export_kwargs:
             sample_batch = tensors_to_device(sample_batch, "cpu")
-            module = deepcopy(self._module).cpu()
             module.eval()
             with torch.no_grad():
                 out = tensors_module_forward(
                     sample_batch, module, check_feat_lab_inp=False
                 )
                 export_kwargs["output_names"] = self.get_output_names(out)
+
+        adjust_quantization_for_onnx_export(module)  # in-place operation
+
         export_onnx(
-            module=self._module,
+            module=module,
             sample_batch=sample_batch,
             file_path=os.path.join(self._output_dir, name),
             opset=opset,
