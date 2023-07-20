@@ -97,6 +97,7 @@ def add_quantized_conv_matmul_add_ops(
             output_quantize_node=output_quantize_node,
         )
         model.graph.node.append(qadd_node)
+        mul_input_node_name = qadd_node.name
 
         # bias has same scale as future rescale op, unless scale is channel-wise
         if (
@@ -106,9 +107,9 @@ def add_quantized_conv_matmul_add_ops(
             rescale_scale = _create_rescale_init(
                 node, input_quantize_params, weight_quantize_params
             )
+            model.graph.initializer.append(rescale_scale)
         else:  # tensor-wise
             rescale_scale = quantized_bias_scale
-        mul_input_node_name = qadd_node.name
     else:
         rescale_scale = _create_rescale_init(
             node, input_quantize_params, weight_quantize_params

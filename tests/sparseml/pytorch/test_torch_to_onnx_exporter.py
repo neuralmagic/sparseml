@@ -175,10 +175,8 @@ def test_export_per_channel_conv_4bit_model(tmp_path):
     new_exporter = TorchToONNX(sample_batch)
     new_exporter.export(model, new_dir / "model.onnx")
     onnx_model = onnx.load(new_dir / "model.onnx")
-    ONNXToDeepsparse(use_qlinear_conv=False).export(
-        onnx_model, "/home/sadkins/model.onnx"
-    )
-    onnx_model = onnx.load("/home/sadkins/model.onnx")
+    ONNXToDeepsparse(use_qlinear_conv=False).export(onnx_model, new_dir / "model.onnx")
+    onnx_model = onnx.load(new_dir / "model.onnx")
 
     add_value = get_init_by_name(
         onnx_model, "/seq/conv1/module/Conv_bias_add.bias_quantized"
