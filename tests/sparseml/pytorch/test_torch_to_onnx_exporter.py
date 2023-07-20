@@ -204,7 +204,10 @@ def test_export_per_channel_conv_4bit_model(tmp_path):
     # don't call session.run() b/c ort doesn't support channel-wise for ConvInteger
     ort.InferenceSession("/home/sadkins/model.onnx")
 
-
+@pytest.mark.skipif(
+    version.parse(torch.__version__) < version.parse("2.0"),
+    reason="Channel-wise quantization only supported for ONNX opset version 13+",
+)
 @pytest.mark.parametrize(
     "model,sample_batch",
     [
