@@ -202,7 +202,8 @@ def test_export_per_channel_conv_4bit_model(tmp_path):
 
     # this checks all the I/O shapes check out
     # don't call session.run() b/c ort doesn't support channel-wise for ConvInteger
-    ort.InferenceSession("/home/sadkins/model.onnx")
+    ort.InferenceSession(new_dir / "model.onnx")
+
 
 @pytest.mark.skipif(
     version.parse(torch.__version__) < version.parse("2.0"),
@@ -227,13 +228,11 @@ def test_export_and_load_per_channel_model(tmp_path, model, sample_batch):
     new_exporter = TorchToONNX(sample_batch)
     new_exporter.export(model, new_dir / "model.onnx")
     onnx_model = onnx.load(new_dir / "model.onnx")
-    ONNXToDeepsparse(use_qlinear_conv=False).export(
-        onnx_model, "/home/sadkins/model.onnx"
-    )
-    onnx_model = onnx.load("/home/sadkins/model.onnx")
+    ONNXToDeepsparse(use_qlinear_conv=False).export(onnx_model, new_dir / "model.onnx")
+    onnx_model = onnx.load(new_dir / "model.onnx")
     validate_onnx(onnx_model)
 
-    session = ort.InferenceSession("/home/sadkins/model.onnx")
+    session = ort.InferenceSession(new_dir / "model.onnx")
     input_name = session.get_inputs()[0].name
     output_name = session.get_outputs()[0].name
     session.run(
