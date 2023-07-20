@@ -149,8 +149,8 @@ def quantize_array(
                 tensor,
                 scale,
                 zero_point,
-                0,
-                tensor_dtype,  # Sara TODO: confirm channel axis
+                0, # channel axis
+                tensor_dtype,
             )
         else:  # per-tensor quantization
             quant_tensor = torch.quantize_per_tensor(
