@@ -302,7 +302,7 @@ def get_observer(
         qscheme = torch.per_channel_symmetric if symmetric else torch.per_channel_affine
         observer_cls = torch_quantization.MovingAveragePerChannelMinMaxObserver
         observer_kwargs = dict(
-            ch_axis=0,  # Sara TODO: check this
+            ch_axis=0,
             dtype=dtype,
             qscheme=qscheme,
             reduce_range=reduce_range,

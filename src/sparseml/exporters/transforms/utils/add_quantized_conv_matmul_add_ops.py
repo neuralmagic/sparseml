@@ -103,7 +103,7 @@ def add_quantized_conv_matmul_add_ops(
         if weight_quantize_params.scale.size > 1 and node.op_type == "Conv":
             # channel-wise Conv
             rescale_scale = _create_rescale_init(
-                node, input_quantize_params, weight_quantize_params
+                node, input_quantize_params, weight_quantize_params, reshape=True
             )
             model.graph.initializer.append(rescale_scale)
         else:
@@ -297,10 +297,10 @@ def _quantize_bias(
 
 
 def _create_rescale_init(
-    node, input_quantize_params, weight_quantize_params
+    node, input_quantize_params, weight_quantize_params, reshape=False
 ) -> TensorProto:
     output_scale = input_quantize_params.scale * weight_quantize_params.scale
-    if output_scale.size > 1:  # per-channel
+    if reshape:  # for channel-wise Conv
         output_scale = output_scale.reshape(1, output_scale.shape[0], 1, 1)
     return numpy_helper.from_array(
         numpy.asarray(output_scale), name=f"{node.name}_quant.rescale.scale"
