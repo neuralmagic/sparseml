@@ -182,6 +182,7 @@ def test_export_per_channel_conv_4bit_model(tmp_path):
     onnx_model = onnx.load(new_dir / "model.onnx")
     ONNXToDeepsparse(use_qlinear_conv=False).export(onnx_model, new_dir / "model.onnx")
     onnx_model = onnx.load(new_dir / "model.onnx")
+    validate_onnx(onnx_model)
 
     add_value = get_init_by_name(
         onnx_model, "/seq/conv1/module/Conv_bias_add.bias_quantized"
@@ -198,6 +199,46 @@ def test_export_per_channel_conv_4bit_model(tmp_path):
     zero_value = get_init_by_name(onnx_model, w_zero_point)
     zero_point = onnx.numpy_helper.to_array(zero_value)
     assert zero_point.size == 16 and zero_point.ndim == 1
+
+    # this checks all the I/O shapes check out
+    # don't call session.run() b/c ort doesn't support channel-wise for ConvInteger
+    ort.InferenceSession("/home/sadkins/model.onnx")
+
+
+@pytest.mark.parametrize(
+    "model,sample_batch",
+    [
+        (MLPNet(), torch.randn(8)),
+        (MLPNet(), torch.randn(10, 8)),
+        (LinearNet(), torch.randn(8)),
+        (LinearNet(), torch.randn(10, 8)),
+    ],
+)
+def test_export_and_load_per_channel_model(tmp_path, model, sample_batch):
+    new_dir = tmp_path / "new_exporter"
+    new_dir.mkdir()
+
+    manager = ScheduledModifierManager.from_yaml(CHANNEL_QUANT_RECIPE)
+    manager.apply(model)
+
+    new_exporter = TorchToONNX(sample_batch)
+    new_exporter.export(model, new_dir / "model.onnx")
+    onnx_model = onnx.load(new_dir / "model.onnx")
+    ONNXToDeepsparse(use_qlinear_conv=False).export(
+        onnx_model, "/home/sadkins/model.onnx"
+    )
+    onnx_model = onnx.load("/home/sadkins/model.onnx")
+    validate_onnx(onnx_model)
+
+    session = ort.InferenceSession("/home/sadkins/model.onnx")
+    input_name = session.get_inputs()[0].name
+    output_name = session.get_outputs()[0].name
+    session.run(
+        [output_name],
+        sample_batch
+        if isinstance(sample_batch, dict)
+        else {input_name: sample_batch.numpy()},
+    )
 
 
 @pytest.mark.parametrize(
