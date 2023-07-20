@@ -125,7 +125,7 @@ _dev_deps = [
 
 
 _ultralytics_deps = [
-    "ultralytics==8.0.30",
+    "ultralytics==8.0.124",
     supported_torch_version,
 ]
 
