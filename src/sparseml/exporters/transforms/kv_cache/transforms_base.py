@@ -19,7 +19,10 @@ from onnx import ModelProto
 from sparseml.exporters.transforms.onnx_transform import OnnxTransform
 
 
-class PositionsAdjustmentBase(OnnxTransform):
+__all__ = ["AdditionalTransformsBase"]
+
+
+class AdditionalTransformsBase(OnnxTransform):
 
     POSITIONS_NAME = "positions"  # matches intermediate var name in torch
 

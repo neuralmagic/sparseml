@@ -14,17 +14,17 @@
 
 from onnx import ModelProto, NodeProto
 
-from sparseml.exporters.transforms.kv_cache.positions_adjustment_base import (
-    PositionsAdjustmentBase,
+from sparseml.exporters.transforms.kv_cache.transforms_base import (
+    AdditionalTransformsBase,
 )
 from sparseml.exporters.transforms.utils.matching import get_structural_matches
 from sparseml.onnx.utils import ONNXGraph
 
 
-__all__ = ["PositionsAdjustmentCodeGen"]
+__all__ = ["AdditionalTransformsCodeGen"]
 
 
-class PositionsAdjustmentCodeGen(PositionsAdjustmentBase):
+class AdditionalTransformsCodeGen(AdditionalTransformsBase):
 
     # The pattern that matches the node that creates
     # the `position_ids` tensor
