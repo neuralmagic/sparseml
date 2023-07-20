@@ -28,7 +28,11 @@ from sparseml.exporters.base_exporter import BaseExporter
 from sparseml.exporters.transforms.base_transform import BaseTransform
 from sparseml.pytorch import _PARSED_TORCH_VERSION
 from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
-from sparseml.pytorch.utils.helpers import tensors_module_forward, tensors_to_device
+from sparseml.pytorch.utils.helpers import (
+    adjust_quantization_for_onnx_export,
+    tensors_module_forward,
+    tensors_to_device,
+)
 from sparseml.pytorch.utils.model import is_parallel_model
 from sparsezoo.utils import save_onnx
 
@@ -189,6 +193,8 @@ class _TorchOnnxExport(BaseTransform):
                 export_kwargs["input_names"] + export_kwargs["output_names"]
             )
         }
+
+        adjust_quantization_for_onnx_export(module)  # in-place operation
 
         # disable active quantization observers because they cannot be exported
         disabled_observers = []
