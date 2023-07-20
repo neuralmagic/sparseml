@@ -350,25 +350,12 @@ def _quantize_array(
         tensor_dtype = torch.qint32
 
     tensor = torch.Tensor(array.copy()).to(torch.float32)
-    if isinstance(scale, numpy.ndarray) and scale.size == 1:
+    if isinstance(scale, numpy.ndarray):
         scale = scale.item()
-    if isinstance(zero_point, numpy.ndarray) and zero_point.size == 1:
+    if isinstance(zero_point, numpy.ndarray):
         zero_point = zero_point.item()
 
-    if isinstance(scale, numpy.ndarray):  # per_channel quantization
-        scale = torch.Tensor(scale.copy()).to(torch.float32)
-        zero_point = torch.Tensor(zero_point.copy()).to(torch.int32)
-        quant_tensor = torch.quantize_per_channel(
-            tensor,
-            scale,
-            zero_point,
-            0,
-            tensor_dtype,  # Sara TODO: confirm channel axis
-        )
-    else:
-        quant_tensor = torch.quantize_per_tensor(
-            tensor, scale, zero_point, tensor_dtype
-        )
+    quant_tensor = torch.quantize_per_tensor(tensor, scale, zero_point, tensor_dtype)
     return quant_tensor.int_repr().numpy()
 
 
@@ -1013,6 +1000,11 @@ def _add_quantized_conv_matmul_add_ops(
     model.graph.node.append(integer_op_node)
 
     output_scale = input_quantize_params.scale * weight_quantize_params.scale
+    output_scale_name = "{}_output.scale".format(node.name)
+    model.graph.initializer.append(
+        numpy_helper.from_array(numpy.asarray(output_scale), name=output_scale_name)
+    )
+
     last_output = integer_op_output
 
     # Add bias + zero point correction
@@ -1020,7 +1012,7 @@ def _add_quantized_conv_matmul_add_ops(
     if bias_initializer is not None:
         bias_initializer = numpy_helper.to_array(bias_initializer)
 
-        bias_zero_point = numpy.zeros(output_scale.shape, dtype=numpy.int32)
+        bias_zero_point = 0
         quantized_bias = _quantize_array(
             bias_initializer, output_scale, bias_zero_point, dtype=numpy.int32
         )
@@ -1070,12 +1062,6 @@ def _add_quantized_conv_matmul_add_ops(
     model.graph.node.append(cast_node)
 
     # create Mul node for rescale
-    if isinstance(output_scale, numpy.ndarray) and output_scale.size > 1:  # per-channel
-        output_scale = output_scale.reshape(1, output_scale.shape[0], 1, 1)
-    output_scale_name = "{}_output.scale".format(node.name)
-    model.graph.initializer.append(
-        numpy_helper.from_array(numpy.asarray(output_scale), name=output_scale_name)
-    )
     mul_node_inputs = [
         cast_node_output,  # a
         output_scale_name,  # b -> rescale factor

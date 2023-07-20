@@ -99,12 +99,9 @@ def add_quantized_conv_matmul_add_ops(
         model.graph.node.append(qadd_node)
         mul_input_node_name = qadd_node.name
 
-        # bias has same scale as future rescale op, unless scale is channel-wise Conv
-        if (
-            isinstance(weight_quantize_params.scale, numpy.ndarray)
-            and weight_quantize_params.scale.size > 1
-            and node.op_type == "Conv"
-        ):  # channel-wise Conv
+        # bias has same scale as future rescale op, unless doing channel-wise Conv
+        if weight_quantize_params.scale.size > 1 and node.op_type == "Conv":
+            # channel-wise Conv
             rescale_scale = _create_rescale_init(
                 node, input_quantize_params, weight_quantize_params
             )
@@ -303,7 +300,7 @@ def _create_rescale_init(
     node, input_quantize_params, weight_quantize_params
 ) -> TensorProto:
     output_scale = input_quantize_params.scale * weight_quantize_params.scale
-    if isinstance(output_scale, numpy.ndarray) and output_scale.size > 1:  # per-channel
+    if output_scale.size > 1:  # per-channel
         output_scale = output_scale.reshape(1, output_scale.shape[0], 1, 1)
     return numpy_helper.from_array(
         numpy.asarray(output_scale), name=f"{node.name}_quant.rescale.scale"

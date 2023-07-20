@@ -126,7 +126,10 @@ def assert_node_type(node: NodeProto, op: Union[List[str], Set[str], str]) -> bo
 
 
 def quantize_array(
-    array: numpy.ndarray, scale: float, zero_point: int, dtype: Any = numpy.uint8
+    array: numpy.ndarray,
+    scale: numpy.ndarray,
+    zero_point: numpy.ndarray,
+    dtype: Any = numpy.uint8,
 ) -> numpy.ndarray:
     try:
         import torch  # noqa: F401
@@ -139,12 +142,7 @@ def quantize_array(
             tensor_dtype = torch.qint32
 
         tensor = torch.Tensor(array.copy()).to(torch.float32)
-        if isinstance(scale, numpy.ndarray) and scale.size == 1:
-            scale = scale.item()
-        if isinstance(zero_point, numpy.ndarray) and zero_point.size == 1:
-            zero_point = zero_point.item()
-
-        if isinstance(scale, numpy.ndarray):  # per_channel quantization
+        if scale.size > 1 and zero_point.size > 1:  # per-channel quantization
             scale = torch.Tensor(scale.copy()).to(torch.float32)
             zero_point = torch.Tensor(zero_point.copy()).to(torch.int32)
             quant_tensor = torch.quantize_per_channel(
@@ -154,9 +152,9 @@ def quantize_array(
                 0,
                 tensor_dtype,  # Sara TODO: confirm channel axis
             )
-        else:
+        else:  # per-tensor quantization
             quant_tensor = torch.quantize_per_tensor(
-                tensor, scale, zero_point, tensor_dtype
+                tensor, scale.item(), zero_point.item(), tensor_dtype
             )
         return quant_tensor.int_repr().numpy()
     except ModuleNotFoundError as err:
