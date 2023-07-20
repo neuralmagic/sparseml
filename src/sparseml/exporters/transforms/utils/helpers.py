@@ -139,14 +139,25 @@ def quantize_array(
             tensor_dtype = torch.qint32
 
         tensor = torch.Tensor(array.copy()).to(torch.float32)
-        if isinstance(scale, numpy.ndarray):
+        if isinstance(scale, numpy.ndarray) and scale.size == 1:
             scale = scale.item()
-        if isinstance(zero_point, numpy.ndarray):
+        if isinstance(zero_point, numpy.ndarray) and zero_point.size == 1:
             zero_point = zero_point.item()
 
-        quant_tensor = torch.quantize_per_tensor(
-            tensor, scale, zero_point, tensor_dtype
-        )
+        if isinstance(scale, numpy.ndarray):  # per_channel quantization
+            scale = torch.Tensor(scale.copy()).to(torch.float32)
+            zero_point = torch.Tensor(zero_point.copy()).to(torch.int32)
+            quant_tensor = torch.quantize_per_channel(
+                tensor,
+                scale,
+                zero_point,
+                0,
+                tensor_dtype,  # Sara TODO: confirm channel axis
+            )
+        else:
+            quant_tensor = torch.quantize_per_tensor(
+                tensor, scale, zero_point, tensor_dtype
+            )
         return quant_tensor.int_repr().numpy()
     except ModuleNotFoundError as err:
         _LOGGER.debug(f"Error: {err}. Defaulting to numpy implementation.")

@@ -359,7 +359,11 @@ def _quantize_array(
         scale = torch.Tensor(scale.copy()).to(torch.float32)
         zero_point = torch.Tensor(zero_point.copy()).to(torch.int32)
         quant_tensor = torch.quantize_per_channel(
-            tensor, scale, zero_point, 0, tensor_dtype # Sara TODO: confirm channel axis
+            tensor,
+            scale,
+            zero_point,
+            0,
+            tensor_dtype,  # Sara TODO: confirm channel axis
         )
     else:
         quant_tensor = torch.quantize_per_tensor(
@@ -1016,7 +1020,7 @@ def _add_quantized_conv_matmul_add_ops(
     if bias_initializer is not None:
         bias_initializer = numpy_helper.to_array(bias_initializer)
 
-        bias_zero_point = numpy.zeros(output_scale.shape,dtype=numpy.int32)
+        bias_zero_point = numpy.zeros(output_scale.shape, dtype=numpy.int32)
         quantized_bias = _quantize_array(
             bias_initializer, output_scale, bias_zero_point, dtype=numpy.int32
         )
@@ -1066,7 +1070,7 @@ def _add_quantized_conv_matmul_add_ops(
     model.graph.node.append(cast_node)
 
     # create Mul node for rescale
-    if isinstance(output_scale, numpy.ndarray) and output_scale.size > 1: # per-channel
+    if isinstance(output_scale, numpy.ndarray) and output_scale.size > 1:  # per-channel
         output_scale = output_scale.reshape(1, output_scale.shape[0], 1, 1)
     output_scale_name = "{}_output.scale".format(node.name)
     model.graph.initializer.append(
