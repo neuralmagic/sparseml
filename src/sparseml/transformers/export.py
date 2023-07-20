@@ -30,6 +30,7 @@ usage: sparseml.transformers.export_onnx [-h] --task TASK --model_path
                                          [--finetuning_task FINETUNING_TASK]
                                          [--onnx_file_name ONNX_FILE_NAME]
                                          [--one_shot ONE_SHOT]
+                                         [--branch BRANCH]
 
 Export a trained transformers model to an ONNX file
 
@@ -59,6 +60,8 @@ optional arguments:
                         Valid json loadable args used to instantiate a
                         `DataTrainingArguments` instance while exporting
                         samples
+  --branch [encoder, decoder]
+                        Set branch to be exported for encoder-decoder models
 
 example usage:
 sparseml.transformers.export_onnx \
@@ -118,7 +121,11 @@ class DeviceCPUTrainingArgs(HFTrainingArgs):
 
 
 def load_task_model(
-    task: str, model_path: str, config: Any, trust_remote_code: bool = False
+    task: str,
+    model_path: str,
+    config: Any,
+    trust_remote_code: bool = False,
+    branch: str = None,
 ) -> Module:
     if task == "masked-language-modeling" or task == "mlm":
         return SparseAutoModel.masked_language_modeling_from_pretrained(
@@ -165,6 +172,25 @@ def load_task_model(
             trust_remote_code=trust_remote_code,
         )
 
+    if task == "text2text-generation":
+        if branch == "encoder":
+            return SparseAutoModel.text2text_generation_from_pretrained(
+                model_name_or_path=model_path,
+                config=config,
+                model_type="model",
+                trust_remote_code=trust_remote_code,
+            ).encoder
+        elif branch == "decoder":
+            return SparseAutoModel.text2text_generation_from_pretrained(
+                model_name_or_path=model_path,
+                config=config,
+                model_type="model",
+                trust_remote_code=trust_remote_code,
+            ).decoder
+        else:
+            raise ValueError(
+                f"unrecognized branch {branch} for {task}. Please specify encoder or decoder."
+            )
     raise ValueError(f"unrecognized task given of {task}")
 
 
@@ -246,6 +272,7 @@ def export_transformer_to_onnx(
     trust_remote_code: bool = False,
     data_args: Optional[Union[Dict[str, Any], str]] = None,
     one_shot: Optional[str] = None,
+    branch: Optional[str] = None,
 ) -> str:
     """
     Exports the saved transformers file to ONNX at batch size 1 using
@@ -298,7 +325,7 @@ def export_transformer_to_onnx(
     if task == "text-generation":
         tokenizer.pad_token = tokenizer.eos_token
 
-    model = load_task_model(task, model_path, config, trust_remote_code)
+    model = load_task_model(task, model_path, config, trust_remote_code, branch)
     _LOGGER.info(f"loaded model, config, and tokenizer from {model_path}")
 
     eval_dataset = None
@@ -562,7 +589,12 @@ def _parse_args() -> argparse.Namespace:
         action="store_true",
         help=("Set flag to allow custom models in HF-transformers"),
     )
-
+    parser.add_argument(
+        "--branch",
+        choices=["encoder", "decoder"],
+        default=None,
+        help=("Specify the branch to export for encoder-decoder models"),
+    )
     return parser.parse_args()
 
 
@@ -577,6 +609,7 @@ def export(
     trust_remote_code: bool = False,
     data_args: Optional[str] = None,
     one_shot: Optional[str] = None,
+    branch: Optional[str] = None,
 ):
     export_transformer_to_onnx(
         task=task,
@@ -589,6 +622,7 @@ def export(
         trust_remote_code=trust_remote_code,
         data_args=data_args,
         one_shot=one_shot,
+        branch=branch,
     )
 
     deployment_folder_dir = create_deployment_folder(
@@ -613,6 +647,7 @@ def main():
         trust_remote_code=args.trust_remote_code,
         data_args=args.data_args,
         one_shot=args.one_shot,
+        branch=args.branch,
     )
 
 
