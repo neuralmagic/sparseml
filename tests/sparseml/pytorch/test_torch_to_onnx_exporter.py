@@ -21,6 +21,7 @@ import onnx
 import onnxruntime as ort
 import pytest
 import torch
+from packaging import version
 
 from sparseml.exporters.onnx_to_deepsparse import ONNXToDeepsparse
 from sparseml.onnx.utils.helpers import get_init_by_name, get_node_by_id
@@ -164,6 +165,10 @@ def test_export_4bit_model_range(tmp_path):
     assert all(conv_range <= 16 for name, conv_range in conv_quant_ranges.items())
 
 
+@pytest.mark.skipif(
+    version.parse(torch.__version__) < version.parse("2.0"),
+    reason="Channel-wise quantization only supported for ONNX opset version 13+",
+)
 def test_export_per_channel_conv_4bit_model(tmp_path):
     model, sample_batch = ConvNet(), torch.randn(1, 3, 28, 28)
     new_dir = tmp_path / "new_exporter"
