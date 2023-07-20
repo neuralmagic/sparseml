@@ -60,10 +60,8 @@ class KeyValueCacheInjector(BaseExporter):
 
         This transformation not only solely injects the kv cache
         inputs/outputs, but also adjusts the original ONNX graph to
-        account for the necessary changes. This involves e.g. adding
-        the 'position' input to the model, so that the positional
-        embeddings of the new model are compatible with the past kv
-        cache information.
+        account for the necessary changes. This is done by the
+        optional `additional_transforms` variable.
 
         Usage:
         ```python

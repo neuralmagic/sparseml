@@ -19,11 +19,11 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 from pydantic import BaseModel, Field
 
-from sparseml.exporters.transforms.kv_cache.positions_adjustment_opt import (
-    PositionsAdjustmentOPT,
-)
 from sparseml.exporters.transforms.kv_cache.transforms_codegen import (
     AdditionalTransformsCodeGen,
+)
+from sparseml.exporters.transforms.kv_cache.transforms_opt import (
+    AdditionalTransformsOPT,
 )
 
 
@@ -38,8 +38,8 @@ class KeyValueCacheConfig(BaseModel):
         "the `model_type` field in the transformer's `config.json` file."
     )
     additional_transforms: Any = Field(
-        description="The transformer class to use for additional transforms "
-        "to the model to finalize the full kv cache injection"
+        description="A transform class to use for additional transforms "
+        "to the model required for finalizing the kv cache injection."
     )
     key_num_attention_heads: str = Field(
         description="The key to use to get the number of attention heads from the "
@@ -81,7 +81,7 @@ class KeyValueCacheConfig(BaseModel):
 
 OPT_CONFIG = KeyValueCacheConfig(
     model_name="opt",
-    additional_transforms=PositionsAdjustmentOPT,
+    additional_transforms=AdditionalTransformsOPT,
     key_num_attention_heads="num_attention_heads",
     key_num_embedding_hidden_size="hidden_size",
     transpose_value_input=None,
