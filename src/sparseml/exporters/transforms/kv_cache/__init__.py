@@ -20,6 +20,6 @@ Transforms for adding KV caching mechanism into language models
 
 from .cache_keys_and_values import *
 from .transforms_base import *
-from .positions_adjustment_opt import *
+from .transforms_opt import *
 from .transforms_codegen import *
 from .configs import *
