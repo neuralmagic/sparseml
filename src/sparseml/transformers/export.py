@@ -81,6 +81,7 @@ import shutil
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
 
+import torch
 from torch.nn import Module
 from transformers import AutoConfig, AutoTokenizer
 from transformers import TrainingArguments as HFTrainingArgs
@@ -379,7 +380,7 @@ def export_transformer_to_onnx(
     inputs = tokenizer(
         "", return_tensors="pt", padding=PaddingStrategy.MAX_LENGTH.value
     ).data  # Dict[Tensor]
-
+        
     # Rearrange inputs' keys to match those defined by model foward func, which
     # seem to define how the order of inputs is determined in the exported model
     forward_args_spec = inspect.getfullargspec(model.__class__.forward)
@@ -395,6 +396,11 @@ def export_transformer_to_onnx(
             if func_input_arg_name in inputs
         ]
     )
+
+    # if decoder branch, add in encoder_hidden_state as inputs
+    if branch == 'decoder':
+        inputs['encoder_hidden_states'] = torch.rand((*inputs['input_ids'].shape, model.config.d_model))
+        
     if dropped:
         _LOGGER.warning(
             "The following inputs were not present in the model forward function "
