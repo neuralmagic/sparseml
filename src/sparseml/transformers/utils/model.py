@@ -295,6 +295,9 @@ class SparseAutoModel:
                 model_name_or_path
             )
 
+        # Export decoder model without kv cache support
+        kwargs["config"].use_cache = False
+
         model = AutoModelForSeq2SeqLM.from_pretrained(
             model_name_or_path,
             **kwargs,
