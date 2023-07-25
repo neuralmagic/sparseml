@@ -75,7 +75,7 @@ def _get_dataloader_builder(
     "modifier_lambda",
     [
         lambda: RigLPruningModifier(
-            sparsity=0.9,
+            final_sparsity=0.9,
             global_sparsity=True,
             sparsity_strategy="erdos_renyi_kernel",
             start_epoch=2.0,
@@ -88,7 +88,7 @@ def _get_dataloader_builder(
             num_grads=8,
         ),
         lambda: RigLPruningModifier(
-            sparsity=0.7,
+            final_sparsity=0.7,
             global_sparsity=False,
             sparsity_strategy="uniform",
             start_epoch=2.0,
@@ -103,7 +103,7 @@ def _get_dataloader_builder(
         ),
         lambda: RigLPruningModifier(
             params=["seq.fc1.weight", "seq.fc2.weight"],
-            sparsity=0.5,
+            final_sparsity=0.5,
             global_sparsity=True,
             sparsity_strategy="erdos_renyi",
             momentum_buffer_reset=False,
@@ -275,16 +275,16 @@ class TestRigLPruningModifier(ScheduledUpdateModifierTest):
 @pytest.mark.parametrize(
     "params,init_sparsity,final_sparsity",
     [
-        (["re:.*weight"], 0.05, 0.8),
+        (["re:.*weight"], 0.8, 0.8),
         (
             [],
-            0.05,
+            {0.7: ["param1"], 0.8: ["param2", "param3"], 0.9: ["param4", "param5"]},
             {0.7: ["param1"], 0.8: ["param2", "param3"], 0.9: ["param4", "param5"]},
         ),
-        (["re:.*weight"], 0.3, 0.8),
+        (["re:.*weight"], 0.6, 0.6),
         (
             [],
-            0.3,
+            {0.7: ["param1"], 0.8: ["param2", "param3"], 0.9: ["param4", "param5"]},
             {0.7: ["param1"], 0.8: ["param2", "param3"], 0.9: ["param4", "param5"]},
         ),
     ],
@@ -304,10 +304,9 @@ def test_rigl_pruning_yaml(params, init_sparsity, final_sparsity):
     num_grads = 64
     mask_type = "unstructured"
     batch_size = 4
-    sparsity = init_sparsity
     yaml_str = f"""
     !RigLPruningModifier
-        sparsity: {sparsity}
+        final_sparsity: {final_sparsity}
         start_epoch: {start_epoch}
         end_epoch: {end_epoch}
         update_frequency: {update_frequency}
@@ -326,7 +325,7 @@ def test_rigl_pruning_yaml(params, init_sparsity, final_sparsity):
         str(yaml_modifier)
     )  # type: RigLPruningModifier
     obj_modifier = RigLPruningModifier(
-        sparsity=init_sparsity,
+        final_sparsity=final_sparsity,
         start_epoch=start_epoch,
         end_epoch=end_epoch,
         update_frequency=update_frequency,
@@ -344,6 +343,11 @@ def test_rigl_pruning_yaml(params, init_sparsity, final_sparsity):
     assert isinstance(yaml_modifier, RigLPruningModifier)
     pruning_modifier_serialization_vals_test(
         yaml_modifier, serialized_modifier, obj_modifier
+    )
+    assert (
+        str(yaml_modifier.final_sparsity)
+        == str(serialized_modifier.final_sparsity)
+        == str(obj_modifier.final_sparsity)
     )
     assert (
         str(yaml_modifier.global_sparsity)

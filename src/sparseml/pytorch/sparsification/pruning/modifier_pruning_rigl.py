@@ -100,7 +100,7 @@ class RigLPruningModifier(BaseGradualPruningModifier):
 
     | Sample yaml:
     |   !RigLPruningModifier
-    |       sparsity: 0.7
+    |       final_sparsity: 0.7
     |       start_epoch: 2.0
     |       end_epoch: 26.0
     |       update_frequency: 4.0
@@ -115,8 +115,9 @@ class RigLPruningModifier(BaseGradualPruningModifier):
     |       grad_sampler_kwargs:
     |           batch_size: 256
 
-    :param sparsity: the final sparsity for the param to end with at end_epoch.
-        A single float for the whole model.
+    :param final_sparsity: the final sparsity for the param to end with at end_epoch.
+        A single float for the whole model. Note that with RigL, init_sparsity is
+        always automatically set to final_sparsity.
     :param start_epoch: The epoch to start the modifier at
     :param end_epoch: The epoch to end the modifier at
     :param update_frequency: The number of epochs or fraction of epochs to update at
@@ -154,7 +155,7 @@ class RigLPruningModifier(BaseGradualPruningModifier):
 
     def __init__(
         self,
-        sparsity: float,
+        final_sparsity: float,
         start_epoch: float,
         end_epoch: float,
         update_frequency: float,
@@ -171,8 +172,8 @@ class RigLPruningModifier(BaseGradualPruningModifier):
     ):
         super().__init__(
             params=params,
-            init_sparsity=sparsity,
-            final_sparsity=sparsity,
+            final_sparsity=final_sparsity,
+            init_sparsity=final_sparsity,
             start_epoch=start_epoch,
             end_epoch=end_epoch,
             global_sparsity=global_sparsity,
@@ -182,7 +183,6 @@ class RigLPruningModifier(BaseGradualPruningModifier):
             parent_class_kwarg_names=[],
         )
         self._mask_type = mask_type
-        self._sparsity = self._init_sparsity
         self._sparsity_strategy = sparsity_strategy
         self._momentum_buffer_reset = momentum_buffer_reset
         self._init_update_fraction = init_update_fraction
@@ -198,7 +198,7 @@ class RigLPruningModifier(BaseGradualPruningModifier):
             self._allow_reintroduction and self._momentum_buffer_reset
         ), "Allow_reintroduction and momentum_buffer_reset cannot both be true."
 
-        if self._sparsity == FROM_PARAM_TOKEN:
+        if self._final_sparsity == FROM_PARAM_TOKEN:
             raise ValueError(f"{FROM_PARAM_TOKEN} is not supported for RigL Pruning.")
 
         assert (
@@ -263,13 +263,6 @@ class RigLPruningModifier(BaseGradualPruningModifier):
         return self._mask_type
 
     @ModifierProp(serializable=True)
-    def sparsity(self) -> float:
-        """
-        :return: The initial sparsity for the variable to start with at start_epoch
-        """
-        return self._sparsity
-
-    @ModifierProp(serializable=True)
     def global_sparsity(self) -> str:
         """
         :return: the mask type used
@@ -288,14 +281,14 @@ class RigLPruningModifier(BaseGradualPruningModifier):
         """
         :return: The initial sparsity for the variable to start with at start_epoch
         """
-        return self._init_sparsity
+        return self._final_sparsity
 
-    @ModifierProp(serializable=False)
+    @ModifierProp(serializable=True)
     def final_sparsity(self) -> float:
         """
         :return: the final sparsity for the variable to start with at end_epoch
         """
-        return self._init_sparsity
+        return self._final_sparsity
 
     @ModifierProp(serializable=True)
     def sparsity_strategy(self) -> str:
@@ -445,7 +438,7 @@ class RigLPruningModifier(BaseGradualPruningModifier):
         if self._scorer._is_main_proc:
             self._scorer._enabled_grad_buffering = False
 
-        self.scorer._update_fraction = self._get_update_fraction(epoch)
+        self.scorer.set_update_fraction(self._get_update_fraction(epoch))
         super().check_mask_update(module, epoch, steps_per_epoch, **kwargs)
 
     def _collect_grad_samples(
@@ -503,20 +496,28 @@ class RigLPruningParamsScorer(PruningParamsGradScorer):
         self._param_grads = [None] * len(params)
         self._enabled_grad_buffering = False
 
-    def sparsity_scaler(self, score: Tensor) -> float:
+    def set_update_fraction(self, value: float):
         """
-        Assigns the sparsity scale for a given parameter
-        according to the sparsity_strategy. The weights
-        with smaller scale are pruned more than those with larger.
+        :params value: the new value of _update_fraction
         """
-        assert len(score.shape) >= 2, "Pruned weight must be at least 2-dimensional."
+        self._update_fraction = value
+
+
+    def density_scaler(self, param: Tensor) -> float:
+        """
+        Assigns the density weights for a given parameter
+        according to the sparsity_strategy. The layers
+        with larger weights are pruned less (the density
+        will be proportional to the weight).
+        """
+        assert len(param.shape) >= 2, "Pruned weight must be at least 2-dimensional."
         if self._sparsity_strategy == "uniform":
             return 1.0
         elif self._sparsity_strategy == "erdos_renyi":
-            c_out, c_in = score.shape[:2]
+            c_out, c_in = param.shape[:2]
             return (c_in + c_out) / (c_in * c_out)
         elif self._sparsity_strategy == "erdos_renyi_kernel":
-            return np.sum(score.shape) / np.prod(score.shape)
+            return np.sum(param.shape) / np.prod(param.shape)
         else:
             raise ValueError("Unknown sparsity distribution")
 
@@ -529,11 +530,11 @@ class RigLPruningParamsScorer(PruningParamsGradScorer):
         total_params = 0
         cumulative_sum = 0
         for param in self._params:
-            cumulative_sum += self.sparsity_scaler(param) * param.numel()
+            cumulative_sum += self.density_scaler(param) * param.numel()
             total_params += param.numel()
         norm_factor = ((1 - self._sparsity) * total_params) / cumulative_sum
         return [
-            np.clip(1 - norm_factor * self.sparsity_scaler(param), 0.0, 1.0)
+            np.clip(1 - norm_factor * self.density_scaler(param), 0.0, 1.0)
             for param in self._params
         ]
 
@@ -563,17 +564,17 @@ class RigLPruningParamsScorer(PruningParamsGradScorer):
         :param param_grad: gradient of the parameters
         :param param_sparsity: the sparsity for a given parameter
         """
-        # We drop and replace update_fraction of nonzero elements
-        updated_number = (1 - param_sparsity) * self._update_fraction
+        # We drop and replace mask_update_fraction of nonzero elements
+        mask_update_fraction = (1 - param_sparsity) * self._update_fraction
         magn_score = param.abs()
-        # Of the existing mask, we keep the top 1-param_sparsity-updated_number
+        # Of the existing mask, we keep the top 1-param_sparsity-mask_update_fraction
         # elements by magnitude.
-        magn_score = threshold_fraction(magn_score, param_sparsity + updated_number)
-        # We fill in the mask by also adding the updated_number weights
+        magn_score = threshold_fraction(magn_score, param_sparsity + mask_update_fraction)
+        # We fill in the mask by also adding the mask_update_fraction weights
         # of the ones that are currently masked, using the gradient magnitude
-        # as the criterion..
+        # as the criterion.
         grad_score = param_grad.abs() * magn_score.eq(0)
-        grad_score = threshold_fraction(grad_score, 1 - updated_number)
+        grad_score = threshold_fraction(grad_score, 1 - mask_update_fraction)
         score = magn_score + grad_score
         return score
 
