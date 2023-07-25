@@ -66,7 +66,7 @@ def create_grad_sampler_loader(
         batch_size=grad_sampler_batch_size,
         shuffle=True,
         pin_memory=True,
-        num_workers=16,
+        num_workers=num_workers,
     )
 
 
