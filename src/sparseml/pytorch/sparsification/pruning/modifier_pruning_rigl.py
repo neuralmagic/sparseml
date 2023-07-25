@@ -110,7 +110,7 @@ class RigLPruningModifier(BaseGradualPruningModifier):
     |       inter_func: cubic
     |       global_sparsity: True
     |       mask_type: unstructured
-    |       sparsity_strategy: erdos_renyi_kernel
+    |       sparsity_strategy: "erdos_renyi_kernel"
     |       init_update_fraction: 0.3
     |       grad_sampler_kwargs:
     |           batch_size: 256
