@@ -31,6 +31,7 @@ from sparseml.pytorch.sparsification import (
     MFACPruningModifier,
     MovementPruningModifier,
     OBSPruningModifier,
+    PowerpropagationModifier,
 )
 from sparseml.pytorch.sparsification.quantization.legacy_modifier_quantization import (
     QuantizationModifier,
