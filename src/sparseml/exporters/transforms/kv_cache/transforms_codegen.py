@@ -12,13 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from onnx import ModelProto, NodeProto
+
+from onnx import ModelProto
 
 from sparseml.exporters.transforms.kv_cache.transforms_base import (
     AdditionalTransformsBase,
 )
-from sparseml.exporters.transforms.utils.matching import get_structural_matches
-from sparseml.onnx.utils import ONNXGraph
 
 
 __all__ = ["AdditionalTransformsCodeGen"]
@@ -26,64 +25,42 @@ __all__ = ["AdditionalTransformsCodeGen"]
 
 class AdditionalTransformsCodeGen(AdditionalTransformsBase):
 
-    # The pattern that matches the node that creates
-    # the `position_ids` tensor
-    POSITION_IDS_MATCHING_PATTERN = dict(op_type="Range")
+    # The patterns that match nodes that create
+    # the `position_ids` and `causal_mask` tensors
+    POSITION_IDS_MATCHING_PATTERN = dict(op_type="Range", children_ops=[["Unsqueeze"]])
+    CAUSAL_MASK_MATCHING_PATTERN = dict(op_type="Slice", children_ops=[["Where"]])
 
     def transform(self, model: ModelProto) -> ModelProto:
         """
         1. Adds `positions` as an input to the model
+        2. Adds `causal_mask` as an input to the model
         2. Finds the node that initially creates the `position_ids` tensor
         3. Updates the node to use the positions input instead of
            computing it from the Range op
+        4. Finds the nodes that initially create the `causal_mask` tensors
+        5. Updates the nodes to use the causal_mask input instead of
+              computing it from the Slice op
 
         :param model: model to update
         :return: updated model
         """
         model = self.add_positions_input(model)
-        position_ids_node = self.find_position_ids_range_node(model)
-        model = self._update_position_embeddings_for_graph_input(
-            model, position_ids_node
-        )
-        return model
+        model = self.add_causal_mask_input(model)
 
-    def find_position_ids_range_node(self, model: ModelProto) -> NodeProto:
-        """
-        Find the node that creates the `position_ids` tensor
-        :param model: the ONNX model
-        :return: the node that creates the `position_ids` tensor
-        """
-        graph = ONNXGraph(model)
-        position_ids_node = get_structural_matches(
-            graph, **self.POSITION_IDS_MATCHING_PATTERN
+        position_ids_nodes = self.find_nodes_by_pattern(
+            model, pattern=self.POSITION_IDS_MATCHING_PATTERN
         )
-        if len(position_ids_node) != 1:
+        if len(position_ids_nodes) != 1:
             raise ValueError(
-                f"Expected to find 1 position node, found {len(position_ids_node)}"
+                "Expected to find exactly one node matching "
+                f"the pattern {self.POSITION_IDS_MATCHING_PATTERN}, "
+                f"found {len(position_ids_nodes)}"
             )
-        return position_ids_node[0].node
 
-    def _update_position_embeddings_for_graph_input(
-        self, model: ModelProto, position_embeddings_ids_node: NodeProto
-    ) -> ModelProto:
+        model = self.inject_positions(model, position_ids_nodes, "Unsqueeze")
 
-        graph = ONNXGraph(model)
-        node = position_embeddings_ids_node
-        child_node = graph.get_node_children(node)[0]
-        # child_node is the `Unsqueeze` node
-        assert (
-            child_node.op_type == "Unsqueeze"
-        ), f"Expected to find `Unsqueeze` node, found {child_node.op_type}"
-        output_to_replace = node.output[0]
-        self.log_match(child_node)
-        for idx, input_name in enumerate(child_node.input):
-            if input_name == output_to_replace:
-                graph.update_node_input(child_node, self.POSITIONS_NAME, idx)
-
-        orphaned_nodes = graph.find_orphaned_nodes(node)
-        [self.log_match(node) for node in orphaned_nodes]
-        graph.delete_nodes(orphaned_nodes)
-        graph.update()
-        graph.delete_unused_initializers()
-
+        causal_mask_nodes = self.find_nodes_by_pattern(
+            model, pattern=self.CAUSAL_MASK_MATCHING_PATTERN
+        )
+        model = self.inject_causal_mask(model, causal_mask_nodes, "Where")
         return model
