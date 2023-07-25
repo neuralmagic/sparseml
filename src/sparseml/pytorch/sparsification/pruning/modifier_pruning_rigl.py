@@ -107,7 +107,7 @@ class RigLPruningModifier(BaseGradualPruningModifier):
     |       num_grads: 100
     |       params: ["re:.*weight"]
     |       leave_enabled: True
-    |       inter_func: cubic
+    |       inter_func: "cosine"
     |       global_sparsity: True
     |       mask_type: unstructured
     |       sparsity_strategy: "erdos_renyi_kernel"
