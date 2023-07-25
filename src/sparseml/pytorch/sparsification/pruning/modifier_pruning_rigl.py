@@ -98,7 +98,7 @@ class RigLPruningModifier(BaseGradualPruningModifier):
 
     Supported mask types: unstructured.
 
-    | Sampl' yaml:
+    | Sample yaml:
     |   !RigLPruningModifier
     |       sparsity: 0.7
     |       start_epoch: 2.0
