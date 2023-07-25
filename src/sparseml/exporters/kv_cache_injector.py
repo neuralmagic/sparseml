@@ -132,13 +132,13 @@ class KeyValueCacheInjector(BaseExporter):
         additional_transforms = config.additional_transforms
 
         transforms = [
-            # CacheKeysAndValues(
-            #     num_attention_heads=config.num_attention_heads,
-            #     hidden_size_kv_cache=config.hidden_size_kv_cache,
-            #     multiply_batch_by_num_att_heads=config.multiply_batch_by_num_att_heads,
-            #     transpose_value_input=config.transpose_value_input,
-            #     transpose_key_input=config.transpose_key_input,
-            # )
+            CacheKeysAndValues(
+                num_attention_heads=config.num_attention_heads,
+                hidden_size_kv_cache=config.hidden_size_kv_cache,
+                multiply_batch_by_num_att_heads=config.multiply_batch_by_num_att_heads,
+                transpose_value_input=config.transpose_value_input,
+                transpose_key_input=config.transpose_key_input,
+            )
         ]
         if additional_transforms is not None:
             transforms += [additional_transforms()]
