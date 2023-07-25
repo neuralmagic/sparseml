@@ -75,8 +75,8 @@ class KeyValueCacheInjector(BaseExporter):
         Alternatively:
         ```python
         onnx_model: onnx.ModelProto = ...
-        exporter = KeyValueCacheInjector(model_path="path/to/model")
-        exporter = KeyValueCacheInjector(num_attention_heads = 16,
+        exporter = KeyValueCacheInjector(model_path="path/to/model",
+                                         num_attention_heads = 16,
                                          hidden_size_dim = 64)
         exporter.export(onnx_model, "model.onnx")
         ```
@@ -106,8 +106,10 @@ class KeyValueCacheInjector(BaseExporter):
 
         else:
             raise ValueError(
-                "Either `model_path` or kwargs must be provided to "
-                "KeyValueCacheInjector"
+                f"Unable to find KeyValueCacheConfig for model_path='{model_path}'. "
+                "Either kwargs must be provided to KeyValueCacheInjector to construct "
+                "OnnxTransform, or a new config should be registered in "
+                "`sparseml/src/sparseml/exporters/transforms/kv_cache/configs.py`"
             )
 
         super().__init__(transforms)

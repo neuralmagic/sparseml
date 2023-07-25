@@ -246,7 +246,7 @@ class SparseTrainer(BaseTrainer):
             )
             self.checkpoint_manager = ScheduledModifierManager.from_yaml(ckpt["recipe"])
             if self.checkpoint_manager.quantization_modifiers:
-                self._modify_arch_for_quantization()
+                _modify_arch_for_quantization(self.model)
             self.checkpoint_manager.apply_structure(self.model, epoch=float("inf"))
 
         else:
@@ -258,7 +258,7 @@ class SparseTrainer(BaseTrainer):
                 f"at epoch {ckpt['epoch']}"
             )
             if self.manager.quantization_modifiers:
-                self._modify_arch_for_quantization()
+                _modify_arch_for_quantization(self.model)
             self.manager.apply_structure(self.model, epoch=ckpt["epoch"])
 
     def resume_training(self, ckpt):
