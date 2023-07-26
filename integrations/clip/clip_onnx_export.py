@@ -107,10 +107,11 @@ def _export_text(
 
     text_model = text_model.to(device)
     text_model.eval()
-    sample_batch = tokenizer(["a dog"])
 
     if is_coca:
-        sample_batch = sample_batch[:, :-1]
+        sample_batch = torch.ones(6, 30, dtype=torch.long)
+    else:
+        sample_batch = tokenizer(["a dog"])
 
     _export_onnx(
         module=text_model,
@@ -131,7 +132,7 @@ def _export_text_decoder(
     sample_batch = OrderedDict()
     sample_batch["image_embs"] = torch.randn(1, 255, model.text.output_dim)
     sample_batch["text_embs"] = torch.randn(
-        1, model.text.context_length, model.text.output_dim
+        1, 30, model.text.output_dim
     )
 
     _export_onnx(
