@@ -71,9 +71,8 @@ class AdditionalTransformsOPT(AdditionalTransformsBase):
 
     def adjust_causal_mask(self, model: ModelProto) -> ModelProto:
         """
-        Insert a `Where`` node after the causal mask input to change
-        the initial boolean mask, to a mask of floats expected by the model.
-
+        Insert a `Cast`, `Sub` and `Mul` nodes after the causal mask input to change
+        the initial int64, to a mask of floats expected by the model.
 
         Transform:
         ```
@@ -83,24 +82,27 @@ class AdditionalTransformsOPT(AdditionalTransformsBase):
         ```
         to:
         ```
-        |       causal_mask
+        |       causal_mask (1 and 0)
         |            |
-        |          Where
+        |          Cast  (output -> 1.0 and 0.0)
+        |            |
+        |           Sub (output -> 0.0 and -1.0)
+        |            |
+        |           Mul (output -> 0.0 and numpy.finfo(numpy.float32).min)
         |            |
         |   causal_mask_input_child
 
-        The resulting node will change the input boolean mask
+        The resulting node will change the input int64 mask
         e.g.
         ```
         causal_mask =
-            [[[[True, True, True, False, False, False],
-               [True, True, True, True, False, False],
-               [True, True, True, True, True, False],
-               [True, True, True, True, True, True]]]]
+            [[[[1, 1, 1, 0, 0, 0],
+                [1, 1, 1, 1, 0, 0],
+                [1, 1, 1, 1, 1, 0],
+                [1, 1, 1, 1, 1, 1]]]]
         ```
 
         to a mask of floats:
-
         ```
         x = numpy.finfo(numpy.float32).min
         causal_mask_adjusted =
@@ -116,37 +118,43 @@ class AdditionalTransformsOPT(AdditionalTransformsBase):
 
         graph = ONNXGraph(model)
 
-        condition_true = 0.0
-        condition_false = numpy.finfo(numpy.float32).min
-
-        condition_true_initializer = onnx.helper.make_tensor(
-            name="condition_true",
+        ones_initializer = onnx.helper.make_tensor(
+            name="ones_initializer",
             data_type=onnx.TensorProto.FLOAT,
-            # TODO: how to set proper dims?
-            #  This works, but is kinda ugly
-            dims=[1, 1, 1, 1],
-            vals=[condition_true],
+            dims=[1],
+            vals=[1.0],
         )
 
-        condition_false_initializer = onnx.helper.make_tensor(
-            name="condition_false",
+        floating_point_limit_initializer = onnx.helper.make_tensor(
+            name="floating_point_limit_initializer",
             data_type=onnx.TensorProto.FLOAT,
-            dims=[1, 1, 1, 1],
-            vals=[condition_false],
+            dims=[1],
+            vals=[-numpy.finfo(numpy.float32).min],
         )
 
-        where_node_output = f"{self.CAUSAL_MASK_NAME} adjusted"
-
-        where_node = onnx.helper.make_node(
-            "Where",
-            inputs=[self.CAUSAL_MASK_NAME, "condition_true", "condition_false"],
-            outputs=[where_node_output],
+        cast_node = onnx.helper.make_node(
+            "Cast",
+            inputs=[self.CAUSAL_MASK_NAME],
+            outputs=[f"{self.CAUSAL_MASK_NAME}_cast"],
+            to=onnx.TensorProto.FLOAT,
         )
 
-        graph.add_node(where_node)
-        model.graph.initializer.extend(
-            [condition_false_initializer, condition_true_initializer]
+        sub_node = onnx.helper.make_node(
+            "Sub",
+            inputs=[f"{self.CAUSAL_MASK_NAME}_cast", ones_initializer.name],
+            outputs=[f"{self.CAUSAL_MASK_NAME}_sub"],
         )
+
+        mul_node = onnx.helper.make_node(
+            "Mul",
+            inputs=[
+                f"{self.CAUSAL_MASK_NAME}_sub",
+                floating_point_limit_initializer.name,
+            ],
+            outputs=[f"{self.CAUSAL_MASK_NAME}_mul"],
+        )
+
+        new_nodes = [cast_node, sub_node, mul_node]
 
         # get the node that takes the causal mask as input
         # and replace the input with the adjusted causal mask input
@@ -154,6 +162,14 @@ class AdditionalTransformsOPT(AdditionalTransformsBase):
 
         for idx, input_name in enumerate(causal_mask_input_child.input):
             if input_name == self.CAUSAL_MASK_NAME:
-                causal_mask_input_child.input[idx] = where_node_output
+                causal_mask_input_child.input[idx] = f"{self.CAUSAL_MASK_NAME}_mul"
+
+        for node in new_nodes:
+            graph.add_node(node)
+            self.log_match(node)
+
+        model.graph.initializer.extend(
+            [ones_initializer, floating_point_limit_initializer]
+        )
 
         return model

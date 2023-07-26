@@ -34,9 +34,9 @@ class AdditionalTransformsBase(OnnxTransform):
         """
         Adds causal mask as an input to the model.
 
-        Causal mask is a boolean tensor of shape
+        Causal mask is an int64 tensor of shape
         [batch_size, 1, input_ids_length, sequence_length]
-        where the value is False if the position is masked and True
+        where the value is 0 if the position is masked and 1
         otherwise.
 
         :param model: model to update
@@ -51,7 +51,7 @@ class AdditionalTransformsBase(OnnxTransform):
 
         causal_mask_input = helper.make_tensor_value_info(
             name=self.CAUSAL_MASK_NAME,
-            elem_type=TensorProto.BOOL,
+            elem_type=TensorProto.INT64,
             shape=[batch_size, 1, input_ids_length, sequence_length],
         )
         model.graph.input.append(causal_mask_input)

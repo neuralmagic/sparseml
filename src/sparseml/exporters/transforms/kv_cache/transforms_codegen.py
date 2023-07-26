@@ -12,12 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
-from onnx import ModelProto
+import onnx
+from onnx import ModelProto, TensorProto
 
 from sparseml.exporters.transforms.kv_cache.transforms_base import (
     AdditionalTransformsBase,
 )
+from sparseml.onnx.utils.graph_editor import ONNXGraph
+from sparseml.onnx.utils.helpers import get_nodes_by_input_id
 
 
 __all__ = ["AdditionalTransformsCodeGen"]
@@ -63,4 +65,73 @@ class AdditionalTransformsCodeGen(AdditionalTransformsBase):
             model, pattern=self.CAUSAL_MASK_MATCHING_PATTERN
         )
         model = self.inject_causal_mask(model, causal_mask_nodes, "Where")
+        model = self.adjust_causal_mask(model)
+        return model
+
+    def adjust_causal_mask(self, model: ModelProto) -> ModelProto:
+        """
+        Insert a `Cast` node after the causal mask input to change
+        the initial int64, to a mask of bools expected by the model.
+
+        Transform:
+        ```
+        |       causal_mask
+        |            |
+        |   causal_mask_input_child
+        ```
+        to:
+        ```
+        |       causal_mask
+        |            |
+        |          Cast
+        |        (to bool)
+        |            |
+        |            |
+        |   causal_mask_input_child
+
+        The resulting node will change the input boolean mask
+        e.g.
+        ```
+        causal_mask =
+            [[[[1, 1, 1, 0, 0, 0],
+                [1, 1, 1, 1, 0, 0],
+                [1, 1, 1, 1, 1, 0],
+                [1, 1, 1, 1, 1, 1]]]]
+        ```
+
+        to a mask of bools:
+        ```
+        causal_mask_adjusted =
+            [[[[True, True, True, False, False, False],
+                [True, True, True, True, False, False],
+                [True, True, True, True, True, False],
+                [True, True, True, True, True, True]]]]
+        ```
+
+        :param model: the model to update
+        :return: the updated model
+        """
+
+        graph = ONNXGraph(model)
+
+        cast_node_output = f"{self.CAUSAL_MASK_NAME}_adjusted"
+
+        cast_node = onnx.helper.make_node(
+            "Cast",
+            inputs=[self.CAUSAL_MASK_NAME],
+            outputs=[cast_node_output],
+            to=TensorProto.BOOL,
+        )
+
+        # get the nodes that take the causal mask as input
+        # and replace the input with the adjusted causal mask input
+        causal_mask_input_children = get_nodes_by_input_id(model, self.CAUSAL_MASK_NAME)
+        for causal_mask_input_child in causal_mask_input_children:
+            for idx, input_name in enumerate(causal_mask_input_child.input):
+                if input_name == self.CAUSAL_MASK_NAME:
+                    causal_mask_input_child.input[idx] = cast_node_output
+
+        graph.add_node(cast_node)
+        self.log_match(cast_node)
+
         return model
