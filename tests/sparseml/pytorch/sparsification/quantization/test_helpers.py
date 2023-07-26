@@ -305,14 +305,14 @@ def test_zero_point_is_128():
 def test_standard_qrange_zero_points():
     bits = 8
 
-    fake_quantize = get_observer(True, torch.qint8, bits, False, {})()
+    fake_quantize = get_observer(True, "tensor", torch.qint8, bits, False, {})()
     fake_quantize(torch.randn(10, 10))
     assert fake_quantize.quant_min == -128
     assert fake_quantize.quant_max == 127
     _, zero_point = fake_quantize.calculate_qparams()
     assert zero_point[0] == 0
 
-    fake_quantize = get_observer(True, torch.quint8, bits, False, {})()
+    fake_quantize = get_observer(True, "tensor", torch.quint8, bits, False, {})()
     fake_quantize(torch.randn(10, 10))
     assert fake_quantize.quant_min == 0
     assert fake_quantize.quant_max == 255
@@ -324,7 +324,7 @@ def test_custom_qrange_zero_points():
     # non 8 bits is what makes it a custom qrange
     bits = 4
 
-    fake_quantize = get_observer(True, torch.qint8, bits, False, {})()
+    fake_quantize = get_observer(True, "tensor", torch.qint8, bits, False, {})()
     fake_quantize(torch.randn(10, 10))
     assert fake_quantize.quant_min == -8
     assert fake_quantize.quant_max == 7
@@ -333,7 +333,7 @@ def test_custom_qrange_zero_points():
     _, zero_point = fake_quantize.calculate_qparams()
     assert zero_point[0] == 0
 
-    fake_quantize = get_observer(True, torch.quint8, bits, False, {})()
+    fake_quantize = get_observer(True, "tensor", torch.quint8, bits, False, {})()
     fake_quantize(torch.randn(10, 10))
     assert fake_quantize.quant_min == 0
     assert fake_quantize.quant_max == 15
