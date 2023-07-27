@@ -129,9 +129,6 @@ class KeyValueCacheInjector(BaseExporter):
             raise TypeError(f"Expected onnx.ModelProto, found {type(model)}")
         return model
 
-    def __repr__(self):
-        return "dupa"
-
     def export(self, pre_transforms_model: onnx.ModelProto, file_path: str):
         post_transforms_model: onnx.ModelProto = self.apply(pre_transforms_model)
         save_onnx(post_transforms_model, file_path)
