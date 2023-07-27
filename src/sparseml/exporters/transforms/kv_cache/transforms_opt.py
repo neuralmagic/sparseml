@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
+
 import numpy
 import onnx
 from onnx import ModelProto
@@ -24,6 +26,8 @@ from sparseml.onnx.utils.helpers import get_nodes_by_input_id
 
 
 __all__ = ["AdditionalTransformsOPT"]
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class AdditionalTransformsOPT(AdditionalTransformsBase):
@@ -171,5 +175,6 @@ class AdditionalTransformsOPT(AdditionalTransformsBase):
         model.graph.initializer.extend(
             [ones_initializer, floating_point_limit_initializer]
         )
+        _LOGGER.info(f"Successfully adjusted the {self.CAUSAL_MASK_NAME} input")
 
         return model

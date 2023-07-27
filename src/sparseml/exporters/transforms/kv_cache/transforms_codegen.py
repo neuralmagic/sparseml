@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
+
 import onnx
 from onnx import ModelProto, TensorProto
 
@@ -21,6 +23,8 @@ from sparseml.exporters.transforms.kv_cache.transforms_base import (
 from sparseml.onnx.utils.graph_editor import ONNXGraph
 from sparseml.onnx.utils.helpers import get_nodes_by_input_id
 
+
+_LOGGER = logging.getLogger(__name__)
 
 __all__ = ["AdditionalTransformsCodeGen"]
 
@@ -133,5 +137,7 @@ class AdditionalTransformsCodeGen(AdditionalTransformsBase):
 
         graph.add_node(cast_node)
         self.log_match(cast_node)
+
+        _LOGGER.info(f"Successfully adjusted the {self.CAUSAL_MASK_NAME} input")
 
         return model

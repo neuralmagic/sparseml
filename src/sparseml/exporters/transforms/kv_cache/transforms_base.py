@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 from copy import deepcopy
 from typing import Any, Dict, List, Optional
 
@@ -23,6 +24,8 @@ from sparseml.onnx.utils.graph_editor import ONNXGraph
 
 
 __all__ = ["AdditionalTransformsBase"]
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class AdditionalTransformsBase(OnnxTransform):
@@ -55,6 +58,7 @@ class AdditionalTransformsBase(OnnxTransform):
             shape=[batch_size, 1, input_ids_length, sequence_length],
         )
         model.graph.input.append(causal_mask_input)
+        _LOGGER.info(f"Inserted {self.CAUSAL_MASK_NAME} input to the ONNX model")
         return model
 
     def add_positions_input(self, model: ModelProto) -> ModelProto:
@@ -71,6 +75,7 @@ class AdditionalTransformsBase(OnnxTransform):
         positions_input = deepcopy(input_ids)
         positions_input.name = self.POSITIONS_NAME
         model.graph.input.append(positions_input)
+        _LOGGER.info(f"Inserted {self.POSITIONS_NAME} input to the ONNX model")
         return model
 
     def find_nodes_by_pattern(
@@ -172,6 +177,10 @@ class AdditionalTransformsBase(OnnxTransform):
         graph.delete_nodes(orphaned_nodes)
         graph.update()
         graph.delete_unused_initializers()
+
+        _LOGGER.info(
+            f"Successfully swapped {len(nodes)} nodes for input '{input_name}'"
+        )
 
         return model
 
