@@ -24,6 +24,11 @@ sparseml.transformers.export_onnx --model_path torch_model_path --sequence_lengt
 ```
 this will save the exported model to a `model_path` directory.
 
+Note: The KV cache injection is currently only supported for the models that are exported using one of the following libraries:
+- [Neural Magic Transformers fork](https://github.com/neuralmagic/transformers) 
+- [HuggingFace Transformers Version 4.30.2](https://pypi.org/project/transformers/4.30.2/)
+
+We can not guarantee that the KV cache injection will work for the models exported using other versions of the HuggingFace Transformers library.
 
 #### KV cache injection
 Once the model has been exported to ONNX, you can use the KV Cache Injector to transform the model to support the KV cache optimization.
