@@ -581,12 +581,12 @@ def export_onnx(
 
     if convert_qat and is_quant_module:
 
-        use_qlinearconv = hasattr(module, "export_with_qlinearconv") and (
+        use_qlinear_conv = hasattr(module, "export_with_qlinearconv") and (
             module.export_with_qlinearconv
         )
 
         exporter = ONNXToDeepsparse(
-            use_qlinearconv=use_qlinearconv,
+            use_qlinear_conv=use_qlinear_conv,
             skip_input_quantize=skip_input_quantize,
         )
         exporter.export(pre_transforms_model=file_path, file_path=file_path)
