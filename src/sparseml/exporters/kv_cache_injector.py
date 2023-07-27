@@ -143,7 +143,9 @@ class KeyValueCacheInjector(BaseExporter):
             )
         ]
         if additional_transforms is not None:
-            transforms += [additional_transforms()]
+            if not isinstance(additional_transforms, list):
+                additional_transforms = [additional_transforms]
+            transforms += [transform() for transform in additional_transforms]
 
         return transforms
 
