@@ -34,6 +34,7 @@ from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 from torch.utils.data import DataLoader
 
+from sparseml.exporters.onnx_to_deepsparse import ONNXToDeepsparse
 from sparseml.onnx.utils import ONNXGraph
 from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
 from sparseml.pytorch.utils.helpers import (
@@ -200,7 +201,7 @@ class ModuleExporter(object):
             compilation.
         :param convert_qat: if True and quantization aware training is detected in
             the module being exported, the resulting QAT ONNX model will be converted
-            to a fully quantized ONNX model using `quantize_torch_qat_export`. Default
+            to a fully quantized ONNX model using `ONNXToDeepsparse`. Default
             is False.
         :param export_kwargs: kwargs to be passed as is to the torch.onnx.export api
             call. Useful to pass in dyanmic_axes, input_names, output_names, etc.
@@ -444,7 +445,7 @@ def export_onnx(
         compilation.
     :param convert_qat: if True and quantization aware training is detected in
         the module being exported, the resulting QAT ONNX model will be converted
-        to a fully quantized ONNX model using `quantize_torch_qat_export`. Default
+        to a fully quantized ONNX model using `ONNXToDeepsparse`. Default
         is False.
     :param dynamic_axes: dictionary of input or output names to list of dimensions
         of those tensors that should be exported as dynamic. May input 'batch'
@@ -579,34 +580,16 @@ def export_onnx(
     save_onnx(onnx_model, file_path)
 
     if convert_qat and is_quant_module:
-        # overwrite exported model with fully quantized version
-        # import here to avoid cyclic dependency
-        from sparseml.pytorch.sparsification.quantization import (
-            quantize_torch_qat_export,
-        )
 
         use_qlinearconv = hasattr(module, "export_with_qlinearconv") and (
             module.export_with_qlinearconv
         )
 
-        quantize_torch_qat_export(
-            model=file_path,
-            output_file_path=file_path,
+        exporter = ONNXToDeepsparse(
             use_qlinearconv=use_qlinearconv,
+            skip_input_quantize=skip_input_quantize,
         )
-
-    if skip_input_quantize:
-        try:
-            # import here to avoid cyclic dependency
-            from sparseml.pytorch.sparsification.quantization import (
-                skip_onnx_input_quantize,
-            )
-
-            skip_onnx_input_quantize(file_path, file_path)
-        except Exception as e:
-            _LOGGER.warning(
-                f"Unable to skip input QuantizeLinear op with exception {e}"
-            )
+        exporter.export(pre_transforms_model=file_path, file_path=file_path)
 
 
 def _copy_file(src: str, target: str):
