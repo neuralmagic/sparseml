@@ -22,6 +22,7 @@ import onnx
 from sparseml.exporters.base_exporter import BaseExporter
 from sparseml.exporters.transforms import OnnxTransform
 from sparseml.exporters.transforms.kv_cache import (
+    SUPPORTED_CONFIGS,
     CacheKeysAndValues,
     KeyValueCacheConfig,
     get_kv_cache_config,
@@ -33,6 +34,9 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class KeyValueCacheInjector(BaseExporter):
+
+    supported_models = [config.model_name for config in SUPPORTED_CONFIGS]
+
     def __init__(
         self,
         model_path: Optional[str] = None,
@@ -124,6 +128,9 @@ class KeyValueCacheInjector(BaseExporter):
         if not isinstance(model, onnx.ModelProto):
             raise TypeError(f"Expected onnx.ModelProto, found {type(model)}")
         return model
+
+    def __repr__(self):
+        return "dupa"
 
     def export(self, pre_transforms_model: onnx.ModelProto, file_path: str):
         post_transforms_model: onnx.ModelProto = self.apply(pre_transforms_model)
