@@ -174,6 +174,15 @@ class AdditionalTransformsBase(OnnxTransform):
 
             orphaned_nodes.extend(graph.find_orphaned_nodes(node))
 
+        # Hack to combat the imperfect orphaned node detection
+        if input_name == self.CAUSAL_MASK_NAME:
+            names_nodes_to_remove = [
+                f"/transformer/blocks.{i}/attn/Reshape_6" for i in range(100)
+            ]
+            for node in model.graph.node:
+                if node.name in names_nodes_to_remove:
+                    orphaned_nodes.append(node)
+
         graph.delete_nodes(orphaned_nodes)
         graph.update()
         graph.delete_unused_initializers()

@@ -96,7 +96,7 @@ class AdditionalTransformsOPT(AdditionalTransformsBase):
         |            |
         |   causal_mask_input_child
 
-        The resulting node will change the input int64 mask
+        The resulting node will change the input int64 mask,
         e.g.
         ```
         causal_mask =

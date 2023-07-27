@@ -26,55 +26,29 @@ from sparseml.onnx.utils.helpers import get_nodes_by_input_id
 
 _LOGGER = logging.getLogger(__name__)
 
-__all__ = ["AdditionalTransformsCodeGen"]
 
+class AdditionalTransformsMPT(AdditionalTransformsBase):
 
-class AdditionalTransformsCodeGen(AdditionalTransformsBase):
-
-    # The patterns that match nodes that create
-    # the `position_ids` and `causal_mask` tensors
-    POSITION_IDS_MATCHING_PATTERN = dict(op_type="Range", children_ops=[["Unsqueeze"]])
-    CAUSAL_MASK_MATCHING_PATTERN = dict(op_type="Slice", children_ops=[["Where"]])
+    CAUSAL_MASK_MATCHING_PATTERN = dict(op_type="Cast", children_ops=[["Where"]])
 
     def transform(self, model: ModelProto) -> ModelProto:
         """
-        1. Adds `positions` as an input to the model
-        2. Adds `causal_mask` as an input to the model
-        2. Finds the node that initially creates the `position_ids` tensor
-        3. Updates the node to use the positions input instead of
-           computing it from the Range op
-        4. Finds the nodes that initially create the `causal_mask` tensors
-        5. Updates the nodes to use the causal_mask input instead of
-              computing it from the Slice op
-
         :param model: model to update
         :return: updated model
         """
-        model = self.add_positions_input(model)
+
         model = self.add_causal_mask_input(model)
-
-        position_ids_nodes = self.find_nodes_by_pattern(
-            model, pattern=self.POSITION_IDS_MATCHING_PATTERN
-        )
-        if len(position_ids_nodes) != 1:
-            raise ValueError(
-                "Expected to find exactly one node matching "
-                f"the pattern {self.POSITION_IDS_MATCHING_PATTERN}, "
-                f"found {len(position_ids_nodes)}"
-            )
-
-        model = self.inject_positions(model, position_ids_nodes, "Unsqueeze")
-
         causal_mask_nodes = self.find_nodes_by_pattern(
             model, pattern=self.CAUSAL_MASK_MATCHING_PATTERN
         )
         model = self.inject_causal_mask(model, causal_mask_nodes, "Where")
         model = self.adjust_causal_mask(model)
+
         return model
 
     def adjust_causal_mask(self, model: ModelProto) -> ModelProto:
         """
-        Insert a `Cast` node after the causal mask input to change
+        Insert a `Cast` and `Not` node after the causal mask input to change
         the initial int64, to a mask of bools expected by the model.
 
         Transform:
@@ -89,6 +63,9 @@ class AdditionalTransformsCodeGen(AdditionalTransformsBase):
         |            |
         |          Cast
         |        (to bool)
+        |            |
+        |           Not
+        |        (to negate)
         |            |
         |            |
         |   causal_mask_input_child
@@ -106,10 +83,10 @@ class AdditionalTransformsCodeGen(AdditionalTransformsBase):
         to a mask of bools:
         ```
         causal_mask_adjusted =
-            [[[[True, True, True, False, False, False],
-                [True, True, True, True, False, False],
-                [True, True, True, True, True, False],
-                [True, True, True, True, True, True]]]]
+            [[[[False, False, False, True, True, True],
+                [False, False, False, False, True, True],
+                [False, False, False, False, False, True],
+                [False, False, False, False, False, False]]]]
         ```
 
         :param model: the model to update
@@ -118,13 +95,17 @@ class AdditionalTransformsCodeGen(AdditionalTransformsBase):
 
         graph = ONNXGraph(model)
 
-        cast_node_output = f"{self.CAUSAL_MASK_NAME}_adjusted"
-
         cast_node = onnx.helper.make_node(
             "Cast",
             inputs=[self.CAUSAL_MASK_NAME],
-            outputs=[cast_node_output],
+            outputs=[f"{self.CAUSAL_MASK_NAME}_cast"],
             to=TensorProto.BOOL,
+        )
+
+        not_node = onnx.helper.make_node(
+            "Not",
+            inputs=[f"{self.CAUSAL_MASK_NAME}_cast"],
+            outputs=[f"{self.CAUSAL_MASK_NAME}_not"],
         )
 
         # get the nodes that take the causal mask as input
@@ -133,10 +114,11 @@ class AdditionalTransformsCodeGen(AdditionalTransformsBase):
         for causal_mask_input_child in causal_mask_input_children:
             for idx, input_name in enumerate(causal_mask_input_child.input):
                 if input_name == self.CAUSAL_MASK_NAME:
-                    causal_mask_input_child.input[idx] = cast_node_output
+                    causal_mask_input_child.input[idx] = f"{self.CAUSAL_MASK_NAME}_not"
 
-        graph.add_node(cast_node)
-        self.log_match(cast_node)
+        for node in [cast_node, not_node]:
+            graph.add_node(node)
+            self.log_match(node)
 
         _LOGGER.info(f"Successfully adjusted the {self.CAUSAL_MASK_NAME} input")
 
