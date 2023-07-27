@@ -76,6 +76,6 @@ out = tg_pipeline(sequences="Who is the president of the United States?")
 print(out)
 ```
 
-For more information on how to run LLMs in DeepSparse Engine, please refer to the [DeepSparse Transformers documentation](...)
+For more information on how to run LLMs in DeepSparse Engine, please refer to the [DeepSparse Transformers documentation](https://github.com/neuralmagic/deepsparse/src/deepsparse/transformers/README.md)
 
 
