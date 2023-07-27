@@ -26,7 +26,7 @@ this will save the exported model to a `model_path` directory.
 
 Note: The KV cache injection is currently only supported for the models that are exported using one of the following libraries:
 - [Neural Magic Transformers fork](https://github.com/neuralmagic/transformers) 
-- [HuggingFace Transformers Version 4.30.2](https://pypi.org/project/transformers/4.30.2/)
+- [HuggingFace Transformers (transformers==4.30.2)](https://pypi.org/project/transformers/4.30.2/)
 
 We can not guarantee that the KV cache injection will work for the models exported using other versions of the HuggingFace Transformers library.
 
@@ -76,6 +76,6 @@ out = tg_pipeline(sequences="Who is the president of the United States?")
 print(out)
 ```
 
-For more information on how to run LLMs in DeepSparse Engine, please refer to the [DeepSparse Transformers documentation](https://github.com/neuralmagic/deepsparse/src/deepsparse/transformers/README.md)
+For more information on how to run LLMs in DeepSparse Engine, please refer to the [DeepSparse Transformers documentation](https://github.com/neuralmagic/deepsparse/src/deepsparse/transformers/README.md).
 
 
