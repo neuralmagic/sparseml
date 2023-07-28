@@ -20,8 +20,6 @@ from onnx import ModelProto, TensorProto
 from sparseml.exporters.transforms.kv_cache.transforms_base import (
     AdditionalTransformsBase,
 )
-from sparseml.onnx.utils.graph_editor import ONNXGraph
-from sparseml.onnx.utils.helpers import get_nodes_by_input_id
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -116,28 +114,10 @@ class AdditionalTransformsCodeGen(AdditionalTransformsBase):
         :return: the updated model
         """
 
-        graph = ONNXGraph(model)
-
-        cast_node_output = f"{self.CAUSAL_MASK_NAME}_adjusted"
-
         cast_node = onnx.helper.make_node(
             "Cast",
             inputs=[self.CAUSAL_MASK_NAME],
-            outputs=[cast_node_output],
+            outputs=[f"{self.CAUSAL_MASK_NAME}_cast"],
             to=TensorProto.BOOL,
         )
-
-        # get the nodes that take the causal mask as input
-        # and replace the input with the adjusted causal mask input
-        causal_mask_input_children = get_nodes_by_input_id(model, self.CAUSAL_MASK_NAME)
-        for causal_mask_input_child in causal_mask_input_children:
-            for idx, input_name in enumerate(causal_mask_input_child.input):
-                if input_name == self.CAUSAL_MASK_NAME:
-                    causal_mask_input_child.input[idx] = cast_node_output
-
-        graph.add_node(cast_node)
-        self.log_match(cast_node)
-
-        _LOGGER.info(f"Successfully adjusted the {self.CAUSAL_MASK_NAME} input")
-
-        return model
+        return super().adjust_causal_mask(model, nodes_to_add=[cast_node])

@@ -21,6 +21,7 @@ from onnx import ModelProto, NodeProto, TensorProto, ValueInfoProto, helper
 from sparseml.exporters.transforms.onnx_transform import OnnxTransform
 from sparseml.exporters.transforms.utils.matching import get_structural_matches
 from sparseml.onnx.utils.graph_editor import ONNXGraph
+from sparseml.onnx.utils.helpers import get_nodes_by_input_id
 
 
 __all__ = ["AdditionalTransformsBase"]
@@ -96,6 +97,76 @@ class AdditionalTransformsBase(OnnxTransform):
         if not matches:
             raise ValueError(f"Unable to find pattern:\n{pattern}\nin model")
         return [match.node for match in matches]
+
+    def adjust_causal_mask(
+        self,
+        model: ModelProto,
+        nodes_to_add: List[NodeProto],
+        initializers_to_add: Optional[List[TensorProto]] = None,
+    ) -> ModelProto:
+        """
+        Insert series of nodes after the causal mask input to change
+        the initial int64 mask, to a mask expected by the model.
+
+        Transform:
+        ```
+        |       causal_mask
+        |            |
+        |   causal_mask_input_child
+        ```
+        to:
+        ```
+        |       causal_mask
+        |            |
+        |       nodes_to_add[0]
+        |            |
+        |       nodes_to_add[1]
+        |            |
+        |           ...
+        |            |
+        |       nodes_to_add[k]
+        |            |
+        |            |
+        |   causal_mask_input_child
+        ```
+
+        :param model: the ONNX model
+        :param nodes_to_add: a list of nodes to add after the causal mask
+            input. The ordering of nodes is important. The first node in the list
+            must take the causal mask as input. The last node in the list will be
+            connected to the `causal_mask_input_child`.
+        :param initializers_to_add: an optional list of initializers to add to the model
+        :return: model with the causal mask adjusted
+        """
+
+        graph = ONNXGraph(model)
+
+        if nodes_to_add[0].input[0] != self.CAUSAL_MASK_NAME:
+            raise ValueError(
+                "First input of the first node in `nodes_to_add` "
+                f"must be {self.CAUSAL_MASK_NAME}"
+            )
+
+        output_from_last_node_to_add = nodes_to_add[-1].output[0]
+
+        # get the node that takes the causal mask as input
+        # and replace the input with the adjusted causal mask input
+        causal_mask_input_children = get_nodes_by_input_id(model, self.CAUSAL_MASK_NAME)
+        for child in causal_mask_input_children:
+            for idx, input_name in enumerate(child.input):
+                if input_name == self.CAUSAL_MASK_NAME:
+                    child.input[idx] = output_from_last_node_to_add
+
+        for node in nodes_to_add:
+            graph.add_node(node)
+            self.log_match(node)
+
+        if initializers_to_add is not None:
+            model.graph.initializer.extend(initializers_to_add)
+
+        _LOGGER.info(f"Successfully adjusted the {self.CAUSAL_MASK_NAME} input")
+
+        return model
 
     def inject_causal_mask(
         self,
@@ -173,15 +244,6 @@ class AdditionalTransformsBase(OnnxTransform):
                     graph.update_node_input(child_node, input_name, idx)
 
             orphaned_nodes.extend(graph.find_orphaned_nodes(node))
-
-        # Hack to combat the imperfect orphaned node detection
-        if input_name == self.CAUSAL_MASK_NAME:
-            names_nodes_to_remove = [
-                f"/transformer/blocks.{i}/attn/Reshape_6" for i in range(100)
-            ]
-            for node in model.graph.node:
-                if node.name in names_nodes_to_remove:
-                    orphaned_nodes.append(node)
 
         graph.delete_nodes(orphaned_nodes)
         graph.update()
