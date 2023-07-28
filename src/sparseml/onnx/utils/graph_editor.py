@@ -353,7 +353,7 @@ class ONNXGraph(object):
                 orphaned_nodes.append(node)
         return orphaned_nodes
 
-    def delete_orphaned_nodes(self):
+    def delete_orphaned_node_branches(self):
         """
         Deletes all nodes in the graph that are not inputs to other nodes or outputs of
         the graph. Additionally deletes all nodes that would become orphaned
