@@ -56,6 +56,7 @@ from sparsezoo.utils import save_onnx, validate_onnx
 __all__ = [
     "ModuleExporter",
     "export_onnx",
+    "FlanT5DecoderWithLMHeadWrapper"
 ]
 
 _PARSED_TORCH_VERSION = version.parse(torch.__version__)
@@ -809,3 +810,44 @@ def _unwrap_batchnorms(model: onnx.ModelProto):
             node.output[idx] = node.output[idx].replace(".bn_wrapper_replace_me", "")
 
     validate_onnx(model)
+
+class FlanT5DecoderWithLMHeadWrapper(Module):
+    # Pull LMHead inside Decoder
+
+    def __init__(self, decoder, lm_head):
+        super().__init__()
+        self.decoder = decoder
+        self.lm_head = lm_head
+
+        self.config = self.decoder.config 
+    
+    def forward(
+        self,
+        input_ids=None,
+        attention_mask=None,
+        encoder_hidden_states=None,
+        encoder_attention_mask=None,
+        inputs_embeds=None,
+        head_mask=None,
+        cross_attn_head_mask=None,
+        past_key_values=None,
+        use_cache=None,
+        output_attentions=None,
+        output_hidden_states=None,
+        return_dict=None,
+    ):
+        decoder_hidden_state = self.decoder(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            encoder_hidden_states=encoder_hidden_states,
+            encoder_attention_mask=encoder_attention_mask,
+            inputs_embeds=inputs_embeds,
+            head_mask=head_mask,
+            cross_attn_head_mask=cross_attn_head_mask,
+            past_key_values=past_key_values,
+            use_cache=use_cache,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+        )
+        return self.lm_head(decoder_hidden_state[0])

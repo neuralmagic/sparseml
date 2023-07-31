@@ -29,7 +29,7 @@ from transformers import (
 )
 from transformers.file_utils import WEIGHTS_NAME
 
-from sparseml.pytorch.utils import ModuleSparsificationInfo
+from sparseml.pytorch.utils import ModuleSparsificationInfo, FlanT5DecoderWithLMHeadWrapper
 
 
 __all__ = ["SparseAutoModel", "get_shared_tokenizer_src"]
@@ -304,7 +304,11 @@ class SparseAutoModel:
         )
         SparseAutoModel.log_model_load(model, model_name_or_path, model_type, delayed)
 
-        return model
+        if model_type == 'encoder':
+            return model.encoder
+        else:
+            return FlanT5DecoderWithLMHeadWrapper(model.decoder, model.lm_head)
+
 
     @staticmethod
     def token_classification_from_pretrained(

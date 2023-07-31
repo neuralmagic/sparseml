@@ -178,16 +178,16 @@ def load_task_model(
             return SparseAutoModel.text2text_generation_from_pretrained(
                 model_name_or_path=model_path,
                 config=config,
-                model_type="model",
+                model_type=branch,
                 trust_remote_code=trust_remote_code,
-            ).encoder
+            )
         elif branch == "decoder":
             return SparseAutoModel.text2text_generation_from_pretrained(
                 model_name_or_path=model_path,
                 config=config,
-                model_type="model",
+                model_type=branch,
                 trust_remote_code=trust_remote_code,
-            ).decoder
+            )
         else:
             raise ValueError(
                 f"unrecognized branch {branch} for {task}. Please specify encoder or decoder."
