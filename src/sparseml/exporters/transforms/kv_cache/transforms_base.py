@@ -228,7 +228,6 @@ class AdditionalTransformsBase(OnnxTransform):
         """
 
         graph = ONNXGraph(model)
-        orphaned_nodes = []
         for node in nodes:
             child_node = graph.get_node_children(node)[0]
 
@@ -243,11 +242,7 @@ class AdditionalTransformsBase(OnnxTransform):
                 if input_name_child_node == output_to_replace:
                     graph.update_node_input(child_node, input_name, idx)
 
-            orphaned_nodes.extend(graph.find_orphaned_nodes(node))
-
-        graph.delete_nodes(orphaned_nodes)
-        graph.update()
-        graph.delete_unused_initializers()
+        graph.delete_orphaned_node_branches()
 
         _LOGGER.info(
             f"Successfully swapped {len(nodes)} nodes for input '{input_name}'"
