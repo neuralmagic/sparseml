@@ -20,7 +20,6 @@ from onnx import ModelProto, TensorProto
 from sparseml.exporters.transforms.kv_cache.transforms_base import (
     AdditionalTransformsBase,
 )
-from sparseml.onnx.utils.graph_editor import ONNXGraph
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -44,9 +43,6 @@ class AdditionalTransformsMPT(AdditionalTransformsBase):
         causal_mask_nodes = self.find_nodes_by_pattern(
             model, pattern=self.CAUSAL_MASK_MATCHING_PATTERN
         )
-        # Hack to combat the imperfect orphaned node detection
-        # To be removed once the orphaned node detection is improved
-        model = self._remove_dangling_nodes(model)
 
         model = self.inject_causal_mask(model, causal_mask_nodes, "Where")
         model = self.adjust_causal_mask(model)
@@ -114,19 +110,3 @@ class AdditionalTransformsMPT(AdditionalTransformsBase):
         )
 
         return super().adjust_causal_mask(model, nodes_to_add=[cast_node, not_node])
-
-    def _remove_dangling_nodes(self, model: ModelProto) -> ModelProto:
-        graph = ONNXGraph(model)
-        nodes_to_remove = []
-        names_nodes_to_remove = [
-            f"/transformer/blocks.{i}/attn/Reshape_6" for i in range(100)
-        ]
-        for node in model.graph.node:
-            if node.name in names_nodes_to_remove:
-                nodes_to_remove.append(node)
-
-        graph.delete_nodes(nodes_to_remove)
-        graph.update()
-        graph.delete_unused_initializers()
-
-        return model
