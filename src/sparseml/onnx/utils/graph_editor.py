@@ -365,6 +365,8 @@ class ONNXGraph(object):
         while orphaned_nodes:
             # no need to refresh self, delete nodes should update internal graph edges
             self.delete_nodes(orphaned_nodes)
+            self.update()
+            self.delete_unused_initializers()
             # update now orphaned nodes, can only run up to len(nodes) times
             orphaned_nodes = self.get_orphaned_nodes(graph_output_ids=graph_output_ids)
 
