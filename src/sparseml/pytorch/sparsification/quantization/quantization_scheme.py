@@ -81,7 +81,7 @@ class QuantizationArgs(BaseModel):
     strategy: str = Field(
         default="tensor",
         description=(
-            "scope of the quantization to be applied. can be 'tensor' or 'channel'",
+            "scope of the quantization to be applied. can be 'tensor' or 'channel'"
         ),
     )
     kwargs: Dict[str, Any] = Field(
