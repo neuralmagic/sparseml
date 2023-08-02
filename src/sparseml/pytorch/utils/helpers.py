@@ -28,6 +28,7 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple, Union
 
 import numpy
 import torch
+from packaging import version
 from torch import Tensor
 from torch.nn import Linear, Module, Parameter
 from torch.nn.modules.conv import Conv2d, Conv3d, _ConvNd
@@ -101,10 +102,12 @@ __all__ = [
     "memory_aware_threshold",
     "download_framework_model_by_recipe_type",
     "detach",
+    "adjust_quantization_for_onnx_export",
 ]
 
 
 _LOGGER = logging.getLogger(__name__)
+_PARSED_TORCH_VERSION = version.parse(torch.__version__)
 
 
 ##############################
@@ -1180,3 +1183,41 @@ def detach(x: Union[torch.Tensor, List, Tuple]):
         return tuple([detach(e) for e in x])
     else:
         raise ValueError("Unexpected type to detach")
+
+
+def adjust_quantization_for_onnx_export(module: torch.nn.Module) -> torch.nn.Module:
+    # supported pytorch ranges are int8 or uint8
+    allowed_ranges = [(0, 127), (0, 255), (-128, 127)]
+    fake_quant_modules = [
+        m for m in module.modules() if m.__class__.__name__ == "FakeQuantize"
+    ]
+
+    if _PARSED_TORCH_VERSION >= version.parse("1.12"):
+        for quant in fake_quant_modules:
+            # original ranges preserved in quant.quant_min and quant.quant_max
+            quant_range = (
+                quant.activation_post_process.quant_min,
+                quant.activation_post_process.quant_max,
+            )
+            if quant_range not in allowed_ranges:
+                if quant_range[0] < 0:  # convert signed range to int8
+                    quant.activation_post_process.quant_min = -128
+                    quant.activation_post_process.quant_max = 127
+                else:  # convert unsigned range to uint8
+                    quant.activation_post_process.quant_min = 0
+                    quant.activation_post_process.quant_max = 255
+            # don't update observer since ranges are artificially modified
+            quant.observer_enabled[0] = 0
+
+    else:  # backwards compatibility for torch <= 1.11
+        for quant in fake_quant_modules:
+            quant_range = (quant.quant_min, quant.quant_max)
+            if quant_range not in allowed_ranges:
+                if quant_range[0] < 0:  # convert signed range to int8
+                    quant.quant_min = -128
+                    quant.quant_max = 127
+                else:  # convert unsigned range to uint8
+                    quant.quant_min = 0
+                    quant.quant_max = 255
+            # don't update observer since ranges are artificially modified
+            quant.observer_enabled[0] = 0
