@@ -174,54 +174,59 @@ class PowerpropagationModifier(ScheduledUpdateModifier):
     def _enable_module_powerpropagation(self, module: Module):
         for name, layer, param in self._powerpropagated_layers:
             print(name)
-            self._replace_with_powerprop(layer, param)
+            self._enable_powerprop(layer, param)
         self._powerpropagation_enabled = True
 
     def _disable_module_powerpropagation(self, module: Module):
         if not self._powerpropagation_enabled:
             return
         for name, layer, param in self._powerpropagated_layers:
-            self._undo_replace_with_powerprop(layer, param)
+            self._undo_enable_powerprop(layer, param)
         self._powerpropagation_enabled = False
 
 
-    def _replace_with_powerprop(self, module: Module, param: Parameter):
-        alpha = self._alpha
-        def powerpropagated_convolution(self, input):
-            powerpropagated_weight = self.weight *pow(abs(self.weight), alpha-1)
-            return self._conv_forward(input, powerpropagated_weight, self.bias)
-        def powerpropagated_linear(self, input):
-            powerpropagated_weight = self.weight *pow(abs(self.weight), alpha-1)
-            return F.linear(input, powerpropagated_weight, self.bias)
-        if isinstance(module, Conv2d):
-            bound_method = powerpropagated_convolution.__get__(module, module.__class__)
-            setattr(module, 'forward', bound_method)
-        elif isinstance(module, Linear):
-            bound_method = powerpropagated_linear.__get__(module, module.__class__)
-            setattr(module, 'forward', bound_method)
+    def _enable_powerprop(self, module: Module, param: Parameter):
+        if isinstance(module, PowerPropagatedConv2d) or isinstance(module, PowerPropagatedLinear):
+            module.set_alpha(self._alpha)
         else:
-            raise RuntimeError(f"don't know how do do powerpropagation for {module.__class__()}")
+           raise RuntimeError(f"don't know how do do powerpropagation for {module.__class__()}")
+        # def powerpropagated_convolution(self, input):
+        #     powerpropagated_weight = self.weight *pow(abs(self.weight), alpha-1)
+        #     return self._conv_forward(input, powerpropagated_weight, self.bias)
+        # def powerpropagated_linear(self, input):
+        #     powerpropagated_weight = self.weight *pow(abs(self.weight), alpha-1)
+        #     return F.linear(input, powerpropagated_weight, self.bias)
+        # if isinstance(module, Conv2d):
+        #     bound_method = powerpropagated_convolution.__get__(module, module.__class__)
+        #     setattr(module, 'forward', bound_method)
+        # elif isinstance(module, Linear):
+        #     bound_method = powerpropagated_linear.__get__(module, module.__class__)
+        #     setattr(module, 'forward', bound_method)
         
-        with torch.no_grad():
-            param = param*pow(abs(param), 1/alpha - 1)
+        # with torch.no_grad():
+        #     param = param*pow(abs(param), 1/alpha - 1)
         return
 
-    def _undo_replace_with_powerprop(self, module: Module, param: Parameter):
-        def normal_convolution(self, input):
-            return self._conv_forward(input, self.weight, self.bias)
-        def normal_linear(self, input):
-            return F.linear(input, self.weight, self.bias)
-        if isinstance(module, Conv2d):
-            bound_method = normal_convolution.__get__(module, module.__class__)
-            setattr(module, 'forward', bound_method)
-        elif isinstance(module, Linear):
-            bound_method = normal_linear.__get__(module, module.__class__)
-            setattr(module, 'forward', bound_method)
-        else:
-            raise RuntimeError(f"don't know how to undo powerpropagation for {module.__class__()}")
-        
-        with torch.no_grad():
-            param = param*pow(abs(param), self._alpha - 1)
+    def _undo_enable_powerprop(self, module: Module, param: Parameter):
+        if isinstance(module, PowerPropagatedConv2d) or isinstance(module, PowerPropagatedLinear):
+            module.set_alpha(1)
+        # else:
+        #    raise RuntimeError(f"don't know how do do powerpropagation for {module.__class__()}")
+        # def normal_convolution(self, input):
+        #     return self._conv_forward(input, self.weight, self.bias)
+        # def normal_linear(self, input):
+        #     return F.linear(input, self.weight, self.bias)
+        # if isinstance(module, Conv2d):
+        #     bound_method = normal_convolution.__get__(module, module.__class__)
+        #     setattr(module, 'forward', bound_method)
+        # elif isinstance(module, Linear):
+        #     bound_method = normal_linear.__get__(module, module.__class__)
+        #     setattr(module, 'forward', bound_method)
+        # else:
+        #     raise RuntimeError(f"don't know how to undo powerpropagation for {module.__class__()}")
+        # 
+        # with torch.no_grad():
+        #     param = param*pow(abs(param), self._alpha - 1)
         return
 
     def _validate_params(self):

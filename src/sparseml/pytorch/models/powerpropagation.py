@@ -53,9 +53,10 @@ class PowerPropagatedConv2d(Conv2d):
                 self.weight * pow(abs(self.weight), self.alpha-1),
                 self.bias)
 
-    def update_alpha(new_alpha):
+    def set_alpha(new_alpha):
         with torch.no_grad():
             self.weight = self.weight*pow(abs(self.weight), new_alpha/self.alpha-1)
+            self.alpha = new_alpha
 
 
 class PowerPropagatedLinear(Linear):
@@ -72,9 +73,10 @@ class PowerPropagatedLinear(Linear):
     def forward(self, input:Tensor) -> Tensor:
         return F.linear(input, self.weight * pow(abs(self.weight), self.alpha-1), self.bias)
 
-    def update_alpha(new_alpha):
+    def set_alpha(new_alpha):
         with torch.no_grad():
             self.weight = self.weight*pow(abs(self.weight), new_alpha/self.alpha-1)
+            self.alpha = new_alpha
 
 
 def convert_to_powerpropagation(module, device):
