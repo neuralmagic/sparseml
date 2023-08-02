@@ -15,12 +15,14 @@
 # Adapted from https://github.com/pytorch/vision
 
 
- # Template command for running training with this script on multiple GPUs using
- # `DistributedDataParallel.
- # python -m torch.distributed.launch \
- # --nproc_per_node <NUM GPUs> \
- # sparseml.torchvision.train \
- # <TRAIN.PY ARGUMENTS>
+# Note that Distributed-Data-Parallel (DDP) mode cannot be
+# activated when running this code  using the CLI (ie, by using sparseml.image_classification.train).
+# Rather, Data-Parallel (DP) mode will be used.
+# Please run as follows to run in DDP mode:
+# CUDA_VISIBLE_DEVICES=<GPUs> python -m torch.distributed.launch \
+# --nproc_per_node <NUM GPUs> \
+# sparseml.torchvision.train \
+# <TRAIN.PY ARGUMENTS>
 
 import datetime
 import logging
@@ -809,6 +811,7 @@ def _create_model(
         raise ValueError(
             f"Unable to find {arch_key} in ModelRegistry or in torchvision.models"
         )
+    ddp = False
     if local_rank is not None:
         torch.cuda.set_device(local_rank)
         device = local_rank
