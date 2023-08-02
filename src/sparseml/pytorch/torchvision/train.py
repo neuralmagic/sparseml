@@ -772,7 +772,6 @@ def _create_model(
                 num_classes=num_classes,
             )
 
-
         if isinstance(model, tuple):
             model, arch_key = model
     elif arch_key in torchvision.models.__dict__:
