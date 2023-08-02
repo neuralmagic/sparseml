@@ -519,7 +519,7 @@ def export_onnx(
                 export_kwargs["input_names"] + export_kwargs["output_names"]
             )
         }
-
+    print("DYNAMIC AXES", dynamic_axes)
     # disable active quantization observers because they cannot be exported
     disabled_observers = []
     for submodule in module.modules():
@@ -544,6 +544,7 @@ def export_onnx(
         # batch norm layer
         batch_norms_wrapped = _wrap_batch_norms(module)
 
+    print(sample_batch, dynamic_axes)
     kwargs = dict(
         model=module,
         args=sample_batch,
