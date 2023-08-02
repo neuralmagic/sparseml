@@ -60,10 +60,8 @@ class KeyValueCacheInjector(BaseExporter):
 
         This transformation not only solely injects the kv cache
         inputs/outputs, but also adjusts the original ONNX graph to
-        account for the necessary changes. This involves e.g. adding
-        the 'position' input to the model, so that the positional
-        embeddings of the new model are compatible with the past kv
-        cache information.
+        account for the necessary changes. This is done by the
+        optional `additional_transforms` variable.
 
         Usage:
         ```python
@@ -75,8 +73,8 @@ class KeyValueCacheInjector(BaseExporter):
         Alternatively:
         ```python
         onnx_model: onnx.ModelProto = ...
-        exporter = KeyValueCacheInjector(model_path="path/to/model")
-        exporter = KeyValueCacheInjector(num_attention_heads = 16,
+        exporter = KeyValueCacheInjector(model_path="path/to/model",
+                                         num_attention_heads = 16,
                                          hidden_size_dim = 64)
         exporter.export(onnx_model, "model.onnx")
         ```
@@ -106,8 +104,10 @@ class KeyValueCacheInjector(BaseExporter):
 
         else:
             raise ValueError(
-                "Either `model_path` or kwargs must be provided to "
-                "KeyValueCacheInjector"
+                f"Unable to find KeyValueCacheConfig for model_path='{model_path}'. "
+                "Either kwargs must be provided to KeyValueCacheInjector to construct "
+                "OnnxTransform, or a new config should be registered in "
+                "`sparseml/src/sparseml/exporters/transforms/kv_cache/configs.py`"
             )
 
         super().__init__(transforms)
@@ -131,7 +131,7 @@ class KeyValueCacheInjector(BaseExporter):
 
     @staticmethod
     def _get_transforms_from_config(config: KeyValueCacheConfig) -> List[OnnxTransform]:
-        positions_adjustment = config.positions_adjustment_transform
+        additional_transforms = config.additional_transforms
 
         transforms = [
             CacheKeysAndValues(
@@ -142,8 +142,10 @@ class KeyValueCacheInjector(BaseExporter):
                 transpose_key_input=config.transpose_key_input,
             )
         ]
-        if positions_adjustment is not None:
-            transforms += [positions_adjustment()]
+        if additional_transforms is not None:
+            if not isinstance(additional_transforms, list):
+                additional_transforms = [additional_transforms]
+            transforms += [transform() for transform in additional_transforms]
 
         return transforms
 

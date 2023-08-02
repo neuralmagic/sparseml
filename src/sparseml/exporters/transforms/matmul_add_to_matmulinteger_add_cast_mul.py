@@ -67,6 +67,37 @@ class MatMulAddToMatMulIntegerAddCastMul(OnnxTransform):
 
     def transform(self, model: ModelProto) -> ModelProto:
         graph = ONNXGraph(model)
+
+        # Weight on input 0
+        matches = get_structural_matches(
+            graph,
+            op_type="MatMul",
+            parent_ops=[
+                [
+                    # weight should be initializer
+                    INITIALIZER_MATCH,
+                    "QuantizeLinear",
+                    "DequantizeLinear",
+                    optional_node("Transpose"),
+                ],
+                [any_of("QuantizeLinear", "DequantizeLinear")],
+            ],
+            children_ops=[[optional_node("Add")]],
+        )
+        for match in matches:
+            add_node = match.children[0][0]
+            bias_init = None
+            if add_node:
+                # NOTE: bias could be either input 0 or 1 of add node
+                # if add does not have a bias initializer,
+                # still do conversion, but do not fold the bias add to rescale
+                bias_init = graph.get_init_by_name(match.children[0][0].input[1])
+                if bias_init is None:
+                    bias_init = graph.get_init_by_name(match.children[0][0].input[0])
+            self.log_match(match)
+            self._transform_match(graph, model, match, bias_init, 0)
+
+        # Weight on input 1
         matches = get_structural_matches(
             graph,
             op_type="MatMul",
@@ -93,7 +124,8 @@ class MatMulAddToMatMulIntegerAddCastMul(OnnxTransform):
                 if bias_init is None:
                     bias_init = graph.get_init_by_name(match.children[0][0].input[0])
             self.log_match(match)
-            self._transform_match(graph, model, match, bias_init)
+            self._transform_match(graph, model, match, bias_init, 1)
+
         return model
 
     def _transform_match(
@@ -102,10 +134,15 @@ class MatMulAddToMatMulIntegerAddCastMul(OnnxTransform):
         model: ModelProto,
         match: MatchResult,
         bias_init: TensorProto,
+        weight_parent: int,
     ):
         matmul = match.node
-        (input_quant,) = match.parents[0]
-        weight_init, weight_quant, weight_dequant, opt_transpose = match.parents[1]
+        if weight_parent == 0:
+            (input_quant,) = match.parents[1]
+            weight_init, weight_quant, weight_dequant, opt_transpose = match.parents[0]
+        else:
+            (input_quant,) = match.parents[0]
+            weight_init, weight_quant, weight_dequant, opt_transpose = match.parents[1]
         (add,) = match.children[0]
 
         input_quantize_params = get_quantization_params(
