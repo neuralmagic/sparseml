@@ -16,7 +16,8 @@
 
 
 # Note that Distributed-Data-Parallel (DDP) mode cannot be
-# activated when running this code  using the CLI (ie, by using sparseml.image_classification.train).
+# activated when running this code  using the CLI
+# (ie, by using sparseml.image_classification.train).
 # Rather, Data-Parallel (DP) mode will be used.
 # Please run as follows to run in DDP mode:
 # CUDA_VISIBLE_DEVICES=<GPUs> python -m torch.distributed.launch \
