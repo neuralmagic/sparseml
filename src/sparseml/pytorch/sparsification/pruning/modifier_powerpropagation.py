@@ -25,15 +25,30 @@ from itertools import cycle
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Type, Union
 
 import torch
-from torch.nn import Module, Conv2d, Linear, Parameter
+from torch.nn import Conv2d, Linear, Module, Parameter
+from torch.nn import functional as F
 from torch.optim.optimizer import Optimizer
 
 from sparseml.optim import BaseModifier, ModifierProp
+from sparseml.pytorch.models.powerpropagation import (
+    PowerPropagatedConv2d,
+    PowerPropagatedLinear,
+)
 from sparseml.pytorch.sparsification.modifier import (
     PyTorchModifierYAML,
     ScheduledModifier,
     ScheduledUpdateModifier,
 )
+from sparseml.pytorch.utils import (
+    BaseLogger,
+    NamedLayerParam,
+    get_named_layers_and_params_by_regex,
+    get_prunable_layers,
+    tensors_module_forward,
+    tensors_to_device,
+)
+from sparseml.pytorch.utils.logger import LoggerManager
+from sparseml.sparsification import SparsificationTypes
 from sparseml.utils import (
     ALL_PRUNABLE_TOKEN,
     ALL_TOKEN,
@@ -41,11 +56,6 @@ from sparseml.utils import (
     interpolate,
     validate_str_iterable,
 )
-
-from sparseml.pytorch.utils import BaseLogger, NamedLayerParam, get_named_layers_and_params_by_regex, get_prunable_layers,  tensors_module_forward, tensors_to_device
-from sparseml.sparsification import SparsificationTypes
-from sparseml.pytorch.utils.logger import LoggerManager
-from torch.nn import functional as F
 
 
 __all__ = [
@@ -56,9 +66,8 @@ __all__ = [
 _LOGGER = logging.getLogger(__name__)
 
 
-
 @PyTorchModifierYAML()
-class PowerpropagationModifier(ScheduledUpdateModifier):
+class PowerpropagationModifier(ScheduledModifier):
     """
     Does powerpropagation. TODO: more here.
 
@@ -95,8 +104,9 @@ class PowerpropagationModifier(ScheduledUpdateModifier):
         alpha: float = 1.0,
         strict: bool = True,
     ):
-        super(PowerpropagationModifier, self).__init__(start_epoch=start_epoch,
-               end_epoch=end_epoch, end_comparator=-1)
+        super(PowerpropagationModifier, self).__init__(
+            start_epoch=start_epoch, end_epoch=end_epoch, end_comparator=-1
+        )
 
         self._alpha = alpha
         self._strict = strict
@@ -126,8 +136,6 @@ class PowerpropagationModifier(ScheduledUpdateModifier):
         super().initialize(module, epoch, loggers, **kwargs)
         self._powerpropagated_layers = self._create_named_layers_and_params(module)
 
-
-
     @ModifierProp()
     def alpha(self) -> Optional[float]:
         """
@@ -142,6 +150,15 @@ class PowerpropagationModifier(ScheduledUpdateModifier):
         """
         self._alpha = value
 
+    @ModifierProp()
+    def params(self) -> Union[str, List[str], None]:
+        """
+        :return: A list of full parameter names or regex patterns of names to apply
+            pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
+            will match to all parameters. __ALL_PRUNABLE__ will match to all ConvNd
+            and Linear layers' weights
+        """
+        return self._params
 
     def update(
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
@@ -170,7 +187,6 @@ class PowerpropagationModifier(ScheduledUpdateModifier):
         # TODO: Make this do something useful
         self._log_powerpropagation(module, epoch, steps_per_epoch)
 
-
     def _enable_module_powerpropagation(self, module: Module):
         for name, layer, param in self._powerpropagated_layers:
             print(name)
@@ -184,12 +200,13 @@ class PowerpropagationModifier(ScheduledUpdateModifier):
             self._undo_enable_powerprop(layer, param)
         self._powerpropagation_enabled = False
 
-
     def _enable_powerprop(self, module: Module, param: Parameter):
-        if isinstance(module, PowerPropagatedConv2d) or isinstance(module, PowerPropagatedLinear):
+        if isinstance(module, PowerPropagatedConv2d) or isinstance(
+            module, PowerPropagatedLinear
+        ):
             module.set_alpha(self._alpha)
         else:
-           raise RuntimeError(f"don't know how do do powerpropagation for {module.__class__()}")
+            raise RuntimeError(f"don't know how do do powerpropagation for {module}")
         # def powerpropagated_convolution(self, input):
         #     powerpropagated_weight = self.weight *pow(abs(self.weight), alpha-1)
         #     return self._conv_forward(input, powerpropagated_weight, self.bias)
@@ -202,13 +219,15 @@ class PowerpropagationModifier(ScheduledUpdateModifier):
         # elif isinstance(module, Linear):
         #     bound_method = powerpropagated_linear.__get__(module, module.__class__)
         #     setattr(module, 'forward', bound_method)
-        
+
         # with torch.no_grad():
         #     param = param*pow(abs(param), 1/alpha - 1)
         return
 
     def _undo_enable_powerprop(self, module: Module, param: Parameter):
-        if isinstance(module, PowerPropagatedConv2d) or isinstance(module, PowerPropagatedLinear):
+        if isinstance(module, PowerPropagatedConv2d) or isinstance(
+            module, PowerPropagatedLinear
+        ):
             module.set_alpha(1)
         # else:
         #    raise RuntimeError(f"don't know how do do powerpropagation for {module.__class__()}")
@@ -224,7 +243,7 @@ class PowerpropagationModifier(ScheduledUpdateModifier):
         #     setattr(module, 'forward', bound_method)
         # else:
         #     raise RuntimeError(f"don't know how to undo powerpropagation for {module.__class__()}")
-        # 
+        #
         # with torch.no_grad():
         #     param = param*pow(abs(param), self._alpha - 1)
         return
@@ -256,13 +275,11 @@ class PowerpropagationModifier(ScheduledUpdateModifier):
                 steps_per_epoch=steps_per_epoch,
             )
 
-
         print("!!!!!!!!!!!!!!! did a fake log for now")
         _log(
             tag=f"PowerpropagationModifier/something",
             value=1337,
         )
-
 
     def _create_named_layers_and_params(self, module: Module) -> List[NamedLayerParam]:
         if self._check_params_match(ALL_TOKEN):
@@ -274,13 +291,12 @@ class PowerpropagationModifier(ScheduledUpdateModifier):
         else:
             param_names = self._params
 
-        chosen =  get_named_layers_and_params_by_regex(
+        chosen = get_named_layers_and_params_by_regex(
             module,
             param_names,
             params_strict=True,
         )
-        return ([(x[0 ], x[1], x[3]) for x in chosen])
-
+        return [(x[0], x[1], x[3]) for x in chosen]
 
     def _check_params_match(self, token: Union[str, List[str]]):
         if isinstance(token, str):
