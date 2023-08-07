@@ -117,12 +117,15 @@ class DeviceCPUTrainingArgs(HFTrainingArgs):
         return False
 
 
-def load_task_model(task: str, model_path: str, config: Any) -> Module:
+def load_task_model(
+    task: str, model_path: str, config: Any, trust_remote_code: bool = False
+) -> Module:
     if task == "masked-language-modeling" or task == "mlm":
         return SparseAutoModel.masked_language_modeling_from_pretrained(
             model_name_or_path=model_path,
             config=config,
             model_type="model",
+            trust_remote_code=trust_remote_code,
         )
 
     if task == "question-answering" or task == "qa":
@@ -130,6 +133,7 @@ def load_task_model(task: str, model_path: str, config: Any) -> Module:
             model_name_or_path=model_path,
             config=config,
             model_type="model",
+            trust_remote_code=trust_remote_code,
         )
 
     if (
@@ -142,6 +146,7 @@ def load_task_model(task: str, model_path: str, config: Any) -> Module:
             model_name_or_path=model_path,
             config=config,
             model_type="model",
+            trust_remote_code=trust_remote_code,
         )
 
     if task == "token-classification" or task == "ner":
@@ -149,6 +154,7 @@ def load_task_model(task: str, model_path: str, config: Any) -> Module:
             model_name_or_path=model_path,
             config=config,
             model_type="model",
+            trust_remote_code=trust_remote_code,
         )
 
     if task == "text-generation":
@@ -156,6 +162,7 @@ def load_task_model(task: str, model_path: str, config: Any) -> Module:
             model_name_or_path=model_path,
             config=config,
             model_type="model",
+            trust_remote_code=trust_remote_code,
         )
 
     raise ValueError(f"unrecognized task given of {task}")
@@ -210,7 +217,6 @@ def load_task_dataset(
         or task == "sentiment-analysis"
         or task == "text-classification"
     ):
-
         from sparseml.transformers.text_classification import (
             DataTrainingArguments,
             get_tokenized_text_classification_dataset,
@@ -236,6 +242,7 @@ def export_transformer_to_onnx(
     finetuning_task: Optional[str] = None,
     onnx_file_name: str = MODEL_ONNX_NAME,
     num_export_samples: int = 0,
+    trust_remote_code: bool = False,
     data_args: Optional[Union[Dict[str, Any], str]] = None,
     one_shot: Optional[str] = None,
 ) -> str:
@@ -255,6 +262,7 @@ def export_transformer_to_onnx(
         is model.onnx. Note that when loading a model directory to a deepsparse
         pipeline, it will look only for 'model.onnx'
     :param num_export_samples: number of samples (inputs/outputs) to export
+    :param trust_remote_code: set True to allow custom models in HF-transformers
     :param data_args: additional args to instantiate a `DataTrainingArguments`
         instance for exporting samples
     :param one_shot: one shot recipe to be applied before exporting model
@@ -280,6 +288,7 @@ def export_transformer_to_onnx(
     config_args = {"finetuning_task": finetuning_task} if finetuning_task else {}
     config = AutoConfig.from_pretrained(
         model_path,
+        trust_remote_code=trust_remote_code,
         **config_args,
     )
     tokenizer = AutoTokenizer.from_pretrained(
@@ -288,7 +297,7 @@ def export_transformer_to_onnx(
     if task == "text-generation":
         tokenizer.pad_token = tokenizer.eos_token
 
-    model = load_task_model(task, model_path, config)
+    model = load_task_model(task, model_path, config, trust_remote_code)
     _LOGGER.info(f"loaded model, config, and tokenizer from {model_path}")
 
     eval_dataset = None
@@ -305,7 +314,8 @@ def export_transformer_to_onnx(
 
     model = model.train()
 
-    args = DeviceCPUTrainingArgs(output_dir="tmp_trainer")
+    trainer_output_dir = os.path.dirname(model_path)
+    args = DeviceCPUTrainingArgs(output_dir=trainer_output_dir)
     trainer = Trainer(
         model=model,
         args=args,
@@ -547,6 +557,11 @@ def _parse_args() -> argparse.Namespace:
         help="local path or SparseZoo stub to a recipe that should be applied "
         "in a one-shot manner before exporting",
     )
+    parser.add_argument(
+        "--trust_remote_code",
+        action="store_true",
+        help=("Set flag to allow custom models in HF-transformers"),
+    )
 
     return parser.parse_args()
 
@@ -559,6 +574,7 @@ def export(
     finetuning_task: str,
     onnx_file_name: str,
     num_export_samples: int = 0,
+    trust_remote_code: bool = False,
     data_args: Optional[str] = None,
     one_shot: Optional[str] = None,
 ):
@@ -570,6 +586,7 @@ def export(
         finetuning_task=finetuning_task,
         onnx_file_name=onnx_file_name,
         num_export_samples=num_export_samples,
+        trust_remote_code=trust_remote_code,
         data_args=data_args,
         one_shot=one_shot,
     )
@@ -593,6 +610,7 @@ def main():
         finetuning_task=args.finetuning_task,
         onnx_file_name=args.onnx_file_name,
         num_export_samples=args.num_export_samples,
+        trust_remote_code=args.trust_remote_code,
         data_args=args.data_args,
         one_shot=args.one_shot,
     )

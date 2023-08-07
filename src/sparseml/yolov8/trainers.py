@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -51,7 +52,7 @@ from ultralytics.nn.modules import Detect, Segment
 from ultralytics.nn.tasks import SegmentationModel, attempt_load_one_weight
 from ultralytics.yolo.cfg import get_cfg
 from ultralytics.yolo.data.dataloaders.v5loader import create_dataloader
-from ultralytics.yolo.engine.model import YOLO
+from ultralytics.yolo.engine.model import TASK_MAP, YOLO
 from ultralytics.yolo.engine.trainer import BaseTrainer
 from ultralytics.yolo.utils import LOGGER, IterableSimpleNamespace, yaml_load
 from ultralytics.yolo.utils.checks import check_file, check_imgsz, check_yaml
@@ -61,7 +62,11 @@ from ultralytics.yolo.utils.dist import (
     find_free_network_port,
 )
 from ultralytics.yolo.utils.files import get_latest_run
-from ultralytics.yolo.utils.torch_utils import de_parallel, smart_inference_mode
+from ultralytics.yolo.utils.torch_utils import (
+    TORCH_1_9,
+    de_parallel,
+    smart_inference_mode,
+)
 from ultralytics.yolo.v8.classify import ClassificationTrainer, ClassificationValidator
 from ultralytics.yolo.v8.detect import DetectionTrainer, DetectionValidator
 from ultralytics.yolo.v8.segment import SegmentationTrainer, SegmentationValidator
@@ -155,15 +160,23 @@ class SparseTrainer(BaseTrainer):
         # NOTE: overriden to use our version of `generate_ddp_command`
         world_size = torch.cuda.device_count()
         if world_size > 1 and "LOCAL_RANK" not in os.environ:
-            command = generate_ddp_command(world_size, self)
+            if self.args.rect:
+                LOGGER.warning(
+                    "WARNING ⚠️ 'rect=True' is incompatible with Multi-GPU training, "
+                    "setting rect=False"
+                )
+                self.args.rect = False
+
+            command, file = generate_ddp_command(world_size, self)
             try:
-                subprocess.run(command)
+                LOGGER.info(f"DDP command: {command}")
+                subprocess.run(command, check=True)
             except Exception as e:
-                self.console(e)
+                raise e
             finally:
-                ddp_cleanup(command, self)
+                ddp_cleanup(command, str(file))
         else:
-            self._do_train(int(os.getenv("RANK", -1)), world_size)
+            self._do_train(world_size)
 
     def setup_model(self):
         # NOTE: override to handle pickled checkpoints and our own checkpoints
@@ -233,7 +246,7 @@ class SparseTrainer(BaseTrainer):
             )
             self.checkpoint_manager = ScheduledModifierManager.from_yaml(ckpt["recipe"])
             if self.checkpoint_manager.quantization_modifiers:
-                self._modify_arch_for_quantization()
+                _modify_arch_for_quantization(self.model)
             self.checkpoint_manager.apply_structure(self.model, epoch=float("inf"))
 
         else:
@@ -245,7 +258,7 @@ class SparseTrainer(BaseTrainer):
                 f"at epoch {ckpt['epoch']}"
             )
             if self.manager.quantization_modifiers:
-                self._modify_arch_for_quantization()
+                _modify_arch_for_quantization(self.model)
             self.manager.apply_structure(self.model, epoch=ckpt["epoch"])
 
     def resume_training(self, ckpt):
@@ -276,8 +289,10 @@ class SparseTrainer(BaseTrainer):
                 self.ema.enabled = False
             self.ema.updates = ckpt["updates"]
 
-    def _setup_train(self, rank, world_size):
-        super()._setup_train(rank, world_size)
+    def _setup_train(self, world_size):
+        rank = int(os.getenv("RANK", -1))
+
+        super()._setup_train(world_size)
         # NOTE: self.resume_training() was called in ^
 
         if rank in {0, -1}:
@@ -340,9 +355,9 @@ class SparseTrainer(BaseTrainer):
                 loggers=self.logger_manager,
                 grad_sampler={
                     "data_loader_builder": self._get_data_loader_builder(),
-                    "loss_function": lambda preds, batch: self.criterion(preds, batch)[
-                        0
-                    ]
+                    "loss_function": lambda preds, batch: self.model.loss(
+                        batch=batch, preds=preds
+                    )[0]
                     / self.train_loader.batch_size,
                 },
             )
@@ -350,8 +365,9 @@ class SparseTrainer(BaseTrainer):
             # initialize steps_per_epoch for logging when there's no recipe
             self.steps_per_epoch = len(self.train_loader)
 
-    def _setup_ddp(self, rank, world_size):
+    def _setup_ddp(self, world_size):
         # increases the timeout for DDP processes
+        rank = int(os.getenv("RANK", -1))
         torch.cuda.set_device(rank)
         self.device = torch.device("cuda", rank)
         LOGGER.info(
@@ -519,7 +535,6 @@ class SparseDetectionTrainer(SparseTrainer, DetectionTrainer):
         return SparseDetectionValidator(
             self.test_loader,
             save_dir=self.save_dir,
-            logger=self.console,
             args=copy(self.args),
         )
 
@@ -527,9 +542,7 @@ class SparseDetectionTrainer(SparseTrainer, DetectionTrainer):
 class SparseClassificationTrainer(SparseTrainer, ClassificationTrainer):
     def get_validator(self):
         self.loss_names = ["loss"]
-        return SparseClassificationValidator(
-            self.test_loader, self.save_dir, logger=self.console
-        )
+        return SparseClassificationValidator(self.test_loader, self.save_dir)
 
 
 class SparseSegmentationTrainer(SparseTrainer, SegmentationTrainer):
@@ -538,13 +551,12 @@ class SparseSegmentationTrainer(SparseTrainer, SegmentationTrainer):
         return SparseSegmentationValidator(
             self.test_loader,
             save_dir=self.save_dir,
-            logger=self.console,
             args=copy(self.args),
         )
 
 
 class SparseYOLO(YOLO):
-    def __init__(self, model="yolov8n.yaml", type="v8") -> None:
+    def __init__(self, model="yolov8n.yaml", task="detect") -> None:
         model_str = str(model)
 
         if model_str.startswith("zoo:"):
@@ -565,7 +577,12 @@ class SparseYOLO(YOLO):
         else:
             self.is_sparseml_checkpoint = False
 
-        super().__init__(model, type)
+        super().__init__(model, task)
+
+        self.ModelClass = TASK_MAP[self.task][0]
+        self.TrainerClass = TASK_MAP[self.task][1]
+        self.ValidatorClass = TASK_MAP[self.task][2]
+        self.PredictorClass = TASK_MAP[self.task][3]
 
         if self.TrainerClass == DetectionTrainer:
             self.TrainerClass = SparseDetectionTrainer
@@ -581,7 +598,7 @@ class SparseYOLO(YOLO):
         elif self.ValidatorClass == SegmentationValidator:
             self.ValidatorClass = SparseSegmentationValidator
 
-    def _load(self, weights: str):
+    def _load(self, weights: str, task=None):
         if self.is_sparseml_checkpoint:
             """
             NOTE: the model is given to the trainer class with this snippet
@@ -603,12 +620,7 @@ class SparseYOLO(YOLO):
             self.task = config["task"]
             self.overrides = deepcopy(config)
             self._reset_ckpt_args(self.overrides)
-            (
-                self.ModelClass,
-                self.TrainerClass,
-                self.ValidatorClass,
-                self.PredictorClass,
-            ) = self._assign_ops_from_task(self.task)
+            self.ModelClass = TASK_MAP[self.task][0]
 
             if "yaml" in self.ckpt:
                 self.model = self.ModelClass(dict(self.ckpt["yaml"]))
@@ -638,8 +650,12 @@ class SparseYOLO(YOLO):
                 self.model.load_state_dict(self.ckpt["model"])
             LOGGER.info("Loaded previous weights from checkpoint")
             assert self.model.yaml == self.ckpt["model_yaml"]
+
+            self.overrides["model"] = weights
+            self.overrides["task"] = self.task
+
         else:
-            return super()._load(weights)
+            super()._load(weights, task)
 
     def export(self, **kwargs):
         """
@@ -711,13 +727,23 @@ class SparseYOLO(YOLO):
                 else manager
             )
 
-        name = args.get("name", f"{type(self.model).__name__}.onnx")
+        if args.get("name") and args["name"]:
+            name = args["name"]
+        else:
+            name = f"{type(self.model).__name__}.onnx"
+
         save_dir = args["save_dir"]
+        if not os.path.exists(save_dir):
+            os.mkdir(save_dir)
 
         for _, m in self.model.named_modules():
             if isinstance(m, (Detect, Segment)):
                 m.export = True
 
+        # format attribute seems to not exist within this ultralytics update
+        # This is a workaround. Should be one of
+        # ('saved_model', 'pb', 'tflite', 'edgetpu', 'tfjs')
+        self.model.model[-1].format = "saved_model"
         exporter = ModuleExporter(self.model, save_dir)
         if save_one_shot_torch:
             if not one_shot:
@@ -822,6 +848,7 @@ class SparseYOLO(YOLO):
         if overrides.get("resume"):
             overrides["resume"] = self.ckpt_path
 
+        overrides["nbs"] = int(overrides["nbs"])
         self.trainer = self.TrainerClass(overrides=overrides)
         if not overrides.get("resume"):  # manually set model only if not resuming
             self.trainer.model = self.trainer.get_model(
@@ -836,6 +863,8 @@ class SparseYOLO(YOLO):
         overrides["rect"] = True  # rect batches as default
         overrides.update(kwargs)
         overrides["mode"] = "val"
+        if overrides.get("nbs"):
+            overrides["nbs"] = int(overrides["nbs"])
         overrides["data"] = data or overrides["data"]
         args = get_cfg(cfg=DEFAULT_CFG, overrides=overrides)
         args.data = data or args.data
@@ -857,29 +886,36 @@ class SparseYOLO(YOLO):
 
 def generate_ddp_command(world_size, trainer):
     # NOTE: copied from ultralytics.yolo.utils.dist.generate_ddp_command
+    """Generates and returns command for distributed training."""
     import __main__  # noqa local import to avoid https://github.com/Lightning-AI/lightning/issues/15218
 
-    file_name = os.path.abspath(sys.argv[0])
-    using_cli = not file_name.endswith(".py")
-    if using_cli:
-        file_name = generate_ddp_file(trainer)
-    return [
+    if not trainer.resume:
+        shutil.rmtree(trainer.save_dir)  # remove the save_dir
+    file = str(Path(sys.argv[0]).resolve())
+    safe_pattern = re.compile(
+        r"^[a-zA-Z0-9_. /\\-]{1,128}$"
+    )  # allowed characters and maximum of 100 characters
+    if not (
+        safe_pattern.match(file) and Path(file).exists() and file.endswith(".py")
+    ):  # using CLI
+        file = generate_ddp_file(trainer)
+    dist_cmd = "torch.distributed.run" if TORCH_1_9 else "torch.distributed.launch"
+    port = find_free_network_port()
+    cmd = [
         sys.executable,
         "-m",
-        "torch.distributed.run",
+        dist_cmd,
         "--nproc_per_node",
         f"{world_size}",
         "--master_port",
-        f"{find_free_network_port()}",
-        file_name,
-    ] + sys.argv[1:]
+        f"{port}",
+        file,
+    ]
+    return cmd, file
 
 
 def generate_ddp_file(trainer):
     # NOTE: adapted from ultralytics.yolo.utils.dist.generate_ddp_file
-
-    if not trainer.resume:
-        shutil.rmtree(trainer.save_dir)  # remove the save_dir
 
     content = f"""if __name__ == "__main__":
     from sparseml.yolov8.trainers import {trainer.__class__.__name__}
