@@ -118,6 +118,7 @@ class ModuleParamPruningMask(object):
         self._params_grad = [None] * len(self._layers)  # type: List[Tensor]
         self._params_movement = [None] * len(self._layers)  # type: List[Tensor]
         self._params_applied_thinning = [0.0] * len(self._layers)  # type: List[float]
+        self._mask_applied =  [False] * len(self._layers) # type: Bool
 
         # movement pruning requires weight reintroduction
         self._allow_reintroduction = allow_reintroduction
@@ -400,10 +401,16 @@ class ModuleParamPruningMask(object):
 
             with torch.no_grad():
                 if self._store_unmasked:
-                    self._params_unmasked[idx] = self._params[idx].data.mul(
-                        1 - self._param_masks[idx]  # inverted mask
-                    )
+                    if self._mask_applied[idx]:
+                        print("clumsily avoiding double-setting the mask")
+                    else:
+                        #if idx == 0:
+                        #    print(self._param_masks[idx].device, "masking")
+                        self._params_unmasked[idx] = self._params[idx].data.mul(
+                            1 - self._param_masks[idx]  # inverted mask
+                        )
                 self._params[idx].data.mul_(self._param_masks[idx])
+                self._mask_applied[idx] = True
 
     def reset(self):
         """
@@ -517,7 +524,7 @@ class ModuleParamPruningMask(object):
                     and self._undo_mask_hooks[idx] is None
                     and not self._mask_gradients_only
                 ):
-                    self._undo_mask_hooks[idx] = layer.register_backward_hook(
+                    self._undo_mask_hooks[idx] = layer.register_full_backward_hook(
                         partial(self._hook_undo_mask, idx)
                     )
 
@@ -546,13 +553,18 @@ class ModuleParamPruningMask(object):
     def _hook_mask_forward(
         self, param_idx: int, mod: Module, inp: Union[Tensor, Tuple[Tensor]]
     ):
+        #if str(inp[0].device) != 'cuda:0':
+        #    return
         with torch.no_grad():
             self.apply(param_idx)
 
     def _hook_undo_mask(self, param_idx, module, inp, out):
+        #if str(inp[0].device) != 'cuda:0':
+        #    return
         if self._allow_reintroduction:
             with torch.no_grad():
                 self._params[param_idx].data.add_(self._params_unmasked[param_idx])
+            self._mask_applied[param_idx] = False
 
     def _hook_mask_gradient(self, param_idx, grad):
         if 0.0 <= self._track_grad_mom < 1.0:

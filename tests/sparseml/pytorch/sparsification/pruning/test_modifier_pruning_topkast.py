@@ -51,6 +51,7 @@ def create_optim_sgd(
             update_frequency=5,
             params=["re:.*weight"],
             leave_enabled=True,
+            active_weight_decay=0.0002,
         ),
         lambda: TopKASTPruningModifier(
             forward_sparsity=0.9,
@@ -59,6 +60,7 @@ def create_optim_sgd(
             end_epoch=20,
             update_frequency=5,
             params=["re:.*weight"],
+            active_weight_decay=0.0002,
         ),
         lambda: TopKASTPruningModifier(
             forward_sparsity=0.8,
@@ -67,6 +69,7 @@ def create_optim_sgd(
             end_epoch=26.0,
             update_frequency=1,
             params=["re:.*weight"],
+            active_weight_decay=0.0002,
         ),
     ],
     scope="function",
@@ -145,6 +148,7 @@ def test_topkast_pruning_yaml():
     global_sparsity = True
     mask_type = "unstructured"
     leave_enabled = False
+    active_weight_decay = 0.0002
 
     yaml_str = f"""
     !TopKASTPruningModifier
@@ -157,6 +161,7 @@ def test_topkast_pruning_yaml():
         global_sparsity: {global_sparsity}
         leave_enabled: {leave_enabled}
         mask_type: {mask_type}
+        active_weight_decay: {active_weight_decay}
         """
     yaml_modifier = TopKASTPruningModifier.load_obj(
         yaml_str
@@ -174,6 +179,7 @@ def test_topkast_pruning_yaml():
         global_sparsity=global_sparsity,
         leave_enabled=leave_enabled,
         mask_type=mask_type,
+        active_weight_decay = active_weight_decay
     )
     assert isinstance(yaml_modifier, TopKASTPruningModifier)
     assert (

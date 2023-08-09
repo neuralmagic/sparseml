@@ -14,6 +14,7 @@
 
 from typing import Dict, List, Optional, OrderedDict, Union
 
+import torch
 from torch import Tensor
 from torch.linalg import norm
 from torch.nn import Module, Parameter
@@ -56,12 +57,14 @@ class TopKASTPruningModifier(BasePruningModifier):
     recomputation every 100 steps with no change in accuracy.)
     | Sample yaml:
     |   !TopKASTPruningModifier
-    |       compression_sparsity: 0.9
+    |       forward_sparsity: 0.9
+    |       backward_sparsity: 0.5
     |       start_epoch: 0
     |       end_epoch: 100
     |       update_frequency: -1
     |       params: __ALL_PRUNABLE__
     |       global_sparsity: True
+    |       acive_param_decay: 0.0001
 
     :param forward_sparsity: The sparsity of the weights during the forward pass.
     :param backward sparsity: The sparsity of the gradients during the backward pass.
@@ -84,6 +87,11 @@ class TopKASTPruningModifier(BasePruningModifier):
     :param mask_type: String to define type of sparsity to apply. May be 'unstructred'
         for unstructured pruning or 'block4' for four block pruning or a list of two
         integers for a custom block shape. Default is 'unstructured'
+    :param active_weight_decay: How much to decay active (not masked-out) params at
+        every step. Note that this value is also multiplied by the learning rate.
+        Parameters that are fully active are decayed by active_weight_decay*lr;
+        Params that are inactive for the forward pass but updated in the backward
+        pass are decayed by active_weight_decay*lr*(1-sparsity).
     """
 
     def __init__(
@@ -98,6 +106,7 @@ class TopKASTPruningModifier(BasePruningModifier):
         # the default is False
         leave_enabled: bool = True,
         mask_type: str = "unstructured",
+        active_weight_decay: float = 0.0001,
     ):
 
         self._mask_type = mask_type
@@ -114,6 +123,7 @@ class TopKASTPruningModifier(BasePruningModifier):
 
         self._forward_sparsity = forward_sparsity
         self._backward_sparsity = backward_sparsity
+        self._active_weight_decay = active_weight_decay
 
     def initialize_extras(self, module):
         named_layers_and_params = self._create_named_layers_and_params(module)
@@ -129,6 +139,7 @@ class TopKASTPruningModifier(BasePruningModifier):
             f"{layer_name}.{param_name}"
             for layer_name, param_name in zip(layer_names, param_names)
         ]
+        print(full_param_names)
 
         # We  need a whole separate set of masks for gradients,
         # since they will be pruned to a smaller sparsity than weights.
@@ -190,6 +201,13 @@ class TopKASTPruningModifier(BasePruningModifier):
         :return: The applied forward sparsity.
         """
         return self._applied_sparsity
+
+    @ModifierProp(serializable=True)
+    def active_weight_decay(self) -> float:
+        """
+        :return: The magnitude of the weight decay on active parameters.
+        """
+        return self._active_weight_decay
 
     def _get_scorer(self, params: List[Parameter]) -> PruningParamsScorer:
         """
@@ -356,8 +374,67 @@ class TopKASTPruningModifier(BasePruningModifier):
             mask_gradients_only=True,
         )
 
+
+    def optimizer_pre_step(
+        self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
+    ):
+        """
+        Performs any tracking or updates before the optimizer step is applied. Useful
+        for tracking gradient values between backwards pass and optimizer step if
+        optimizer clips gradients
+
+        :param module: module to modify
+        :param optimizer: optimizer to modify
+        :param epoch: current epoch and progress within the current epoch
+        :param steps_per_epoch: number of steps taken within each epoch
+            (calculate batch number using this and epoch)
+        """
+        super().optimizer_pre_step(module, optimizer, epoch, steps_per_epoch)
+        #print(len(optimizer.state_dict()['param_groups']))
+        lr = optimizer.state_dict()['param_groups'][0]['lr']
+        # Weight decay the updating parameters.
+        with torch.no_grad():
+            for i, param in enumerate(self._module_masks._params):
+                param -= self._active_weight_decay*lr*self._module_masks._param_masks[i]*param
+                param -= self._active_weight_decay*lr*(1/self.forward_sparsity)*(1-self._module_masks.param_masks[i])*self._grad_module_masks.param_masks[i]*param
+        return
+        # forward_weights_norm_sum = 0
+        # backward_weights_norm_sum = 0
+       
+
+
+        # # Per the paper, the regularization loss term of the unmasked weights
+        # # should simply be L_2. Conversely, the reg loss term of the parameters
+        # # with masked weights but unmasked gradients should be L_2/sparsity
+        # # things that are masked by the 2nd one but not the first one
+        # for i, param in enumerate(self._module_masks._params):
+        #     # forward_weights_norm_sum += (
+        #     #     norm(param.data * self._module_masks.param_masks[i])
+        #     # ).sum()
+        #     # backward_weights_norm_sum += (
+        #     #     norm(
+        #     #         param.data
+        #     #         * (1 - self._module_masks.param_masks[i])
+        #     #         * self._grad_module_masks.param_masks[i]
+        #     #     )
+        #     # ).sum()
+        # 
+        #     with torch.no_grad():
+        #         norm_partials = param.data/torch.sqrt(param.data.sum())
+        #         norm_partials=1
+        #         #forward_weights_norm_sum += norm_partials*self._module_masks.param_masks[i]
+        #         #backward_weights_norm_sum += norm_partials*(1-self._module_masks.param_masks[i])*self._grad_module_masks.param_masks[i])
+
+        #         total_loss = loss + (
+        #             forward_weights_norm_sum
+        #             + 1 / self.forward_sparsity * backward_weights_norm_sum
+        #         )
+        # 
+
+        # print("LOSSES", loss, forward_weights_norm_sum, backward_weights_norm_sum)
+
     @BasePruningModifier.log_call
-    def loss_update(
+    def gloss_update(
         self,
         loss: Tensor,
         module: Module,
@@ -380,6 +457,7 @@ class TopKASTPruningModifier(BasePruningModifier):
         loss = super().loss_update(
             loss, module, optimizer, epoch, steps_per_epoch, **kwargs
         )
+        return loss
 
         forward_weights_norm_sum = 0
         backward_weights_norm_sum = 0
@@ -399,7 +477,14 @@ class TopKASTPruningModifier(BasePruningModifier):
                     * self._grad_module_masks.param_masks[i]
                 )
             ).sum()
+        
+            with torch.no_grad():
+                norm_partials = param.data/torch.sqrt(param.data.sum())
+                #forward_weights_norm_sum += norm_partials*self._module_masks.param_masks[i]
+                #backward_weights_norm_sum = norm_partials*(1-self._module_masks.param_masks[i])*self._grad_module_masks.param_masks[i])
+        
 
+        print("LOSSES", loss, forward_weights_norm_sum, backward_weights_norm_sum)
         total_loss = loss + (
             forward_weights_norm_sum
             + 1 / self.forward_sparsity * backward_weights_norm_sum

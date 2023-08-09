@@ -155,8 +155,10 @@ class UnstructuredPruningMaskCreator(PruningMaskCreator):
 
             # too many zeros so will go over the already given sparsity
             # and choose which zeros to not keep in mask at random
+            print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ we're here and we shouldn't be")
             zero_indices = (tensor == min_val).nonzero(as_tuple=False)
             rand_indices = list(range(zero_indices.shape[0]))
+            print(len(rand_indices))
             local_rng = random.Random(42)
             local_rng.shuffle(rand_indices)
             rand_indices = rand_indices[:target_num_mask]
