@@ -36,7 +36,6 @@ from torchvision.transforms.functional import InterpolationMode
 import click
 from sparseml.optim.helpers import load_recipe_yaml_str
 from sparseml.pytorch.models.registry import ModelRegistry
-from sparseml.pytorch.models.powerpropagation import convert_to_powerpropagation
 from sparseml.pytorch.optim import ScheduledModifierManager
 from sparseml.pytorch.torchvision import presets, transforms, utils
 from sparseml.pytorch.torchvision.sampler import RASampler
@@ -419,10 +418,6 @@ def main(args):
 
     if args.distributed and args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
-
-    if args.powerpropagation:
-        model = convert_to_powerpropagation(model, device)
-        print(model)
 
     if version.parse(torch.__version__) >= version.parse("1.10"):
         criterion = nn.CrossEntropyLoss(label_smoothing=args.label_smoothing)
@@ -807,6 +802,7 @@ def _create_model(
         raise ValueError(
             f"Unable to find {arch_key} in ModelRegistry or in torchvision.models"
         )
+    ddp = False
     if local_rank is not None:
         torch.cuda.set_device(local_rank)
         device = local_rank
@@ -1183,12 +1179,6 @@ def _deprecate_old_arguments(f):
     is_flag=True,
     default=False,
     help="whether to use Repeated Augmentation in training",
-)
-@click.option(
-    "--powerpropagation",
-    is_flag=True,
-    default=False,
-    help="whether to enable powerpropagation in pruned modules",
 )
 @click.option(
     "--ra-reps",

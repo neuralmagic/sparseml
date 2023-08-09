@@ -25,30 +25,15 @@ from itertools import cycle
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Type, Union
 
 import torch
-from torch.nn import Conv2d, Linear, Module, Parameter
-from torch.nn import functional as F
+from torch.nn import Module, Conv2d, Linear, Parameter
 from torch.optim.optimizer import Optimizer
 
 from sparseml.optim import BaseModifier, ModifierProp
-from sparseml.pytorch.models.powerpropagation import (
-    PowerPropagatedConv2d,
-    PowerPropagatedLinear,
-)
 from sparseml.pytorch.sparsification.modifier import (
     PyTorchModifierYAML,
     ScheduledModifier,
     ScheduledUpdateModifier,
 )
-from sparseml.pytorch.utils import (
-    BaseLogger,
-    NamedLayerParam,
-    get_named_layers_and_params_by_regex,
-    get_prunable_layers,
-    tensors_module_forward,
-    tensors_to_device,
-)
-from sparseml.pytorch.utils.logger import LoggerManager
-from sparseml.sparsification import SparsificationTypes
 from sparseml.utils import (
     ALL_PRUNABLE_TOKEN,
     ALL_TOKEN,
@@ -57,6 +42,13 @@ from sparseml.utils import (
     validate_str_iterable,
 )
 
+from sparseml.pytorch.utils import BaseLogger, NamedLayerParam, get_named_layers_and_params_by_regex, get_prunable_layers,  tensors_module_forward, tensors_to_device
+from sparseml.sparsification import SparsificationTypes
+from sparseml.pytorch.utils.logger import LoggerManager
+from torch.nn import functional as F
+
+#from sparseml.pytorch.models.powerpropagation import PowerPropagationdConv2d, PowerPropagationdLinear
+
 
 __all__ = [
     "PowerpropagationModifier",
@@ -64,6 +56,73 @@ __all__ = [
 
 
 _LOGGER = logging.getLogger(__name__)
+
+import torch
+from torch.nn import Module, Linear, Parameter
+import torch.nn.functional as F
+
+
+class PowerPropagationWrapper(Module):
+    def __init__(self, layer: Module, alpha: float = 1.0):
+        super(PowerPropagationWrapper, self).__init__()
+
+        if not isinstance(layer, Conv2d) and not isinstance(layer, Linear):
+            raise ValueError("PowerPropagation only works with Linear and Conv layers")
+
+        self.layer = layer
+        #self.alpha = Parameter(torch.tensor(alpha, requires_grad=False))
+        self.register_buffer('alpha', torch.tensor(alpha, requires_grad=False))
+
+    def forward(self, x):
+        weight = self.layer.weight * pow(abs(self.layer.weight), self.alpha - 1)
+
+        if isinstance(self.layer, Conv2d):
+            return F.conv2d(x, weight, self.layer.bias, self.layer.stride,
+                            self.layer.padding, self.layer.dilation, self.layer.groups)
+        elif isinstance(self.layer, Linear):
+            return F.linear(x, weight, self.layer.bias)
+        else:
+            raise ValueError("PowerPropagation only works with Linear and Conv layers")
+    def set_alpha(self, new_alpha):        
+        with torch.no_grad():
+            self.layer.weight *= pow(abs(self.layer.weight), new_alpha / self.alpha - 1)
+            # If there are any zeros in the weights, these may now be nan,
+            # depending on the old and new values of alpha.
+            self.layer.weight.data = torch.nan_to_num(self.layer.weight)
+            self.alpha = torch.tensor(float(new_alpha))
+
+
+    # def propagate_weight(self):
+    #     self.layer.weight.data = self.layer.weight.data * pow(abs(self.layer.weight.data), self.alpha - 1)
+
+    # def state_dict(self, *args, **kwargs):
+    #     state_dict = {}
+    #     print("the layer is", self.layer)
+
+    #     for key, value in self.layer.state_dict().items():
+    #         if "weight" in key:
+    #             state_dict[key+ "HELLLLLLLLOOO"] = value * pow(abs(value), self.alpha - 1)
+    #             #state_dict["original_" + key] = value
+    #         else:
+    #             state_dict[key] = value
+
+    #     for key, value in super().state_dict(*args, **kwargs).items():
+    #         if "layer" in key:
+    #             continue
+    #         state_dict[key] = value
+
+    #     #print("THE FANCY ONE", state_dict.keys())
+    #     return state_dict
+
+    # def load_state_dict(self, state_dict: Dict[str, Any], *args, **kwargs):
+    #     layer_state_dict = {key: val for key, val in state_dict.items() if "alpha" not in key}
+    #     prop_state_dict = {key: val for key, val in state_dict.items() if "alpha" in key}
+
+    #     layer_state_dict["weight"] = layer_state_dict["original_weight"]
+    #     del layer_state_dict["original_weight"]
+
+    #     self.layer.load_state_dict(layer_state_dict, *args, **kwargs)
+
 
 
 @PyTorchModifierYAML()
@@ -104,15 +163,15 @@ class PowerpropagationModifier(ScheduledModifier):
         alpha: float = 1.0,
         strict: bool = True,
     ):
-        super(PowerpropagationModifier, self).__init__(
-            start_epoch=start_epoch, end_epoch=end_epoch, end_comparator=-1
-        )
+        super(PowerpropagationModifier, self).__init__(start_epoch=start_epoch,
+               end_epoch=end_epoch, end_comparator=-1)
 
         self._alpha = alpha
         self._strict = strict
         self._params = validate_str_iterable(
             params, "{} for params".format(self.__class__.__name__)
         )
+        self._propagated_layers = {}
 
         self._validate_params()
 
@@ -135,6 +194,8 @@ class PowerpropagationModifier(ScheduledModifier):
         """
         super().initialize(module, epoch, loggers, **kwargs)
         self._powerpropagated_layers = self._create_named_layers_and_params(module)
+
+
 
     @ModifierProp()
     def alpha(self) -> Optional[float]:
@@ -160,6 +221,7 @@ class PowerpropagationModifier(ScheduledModifier):
         """
         return self._params
 
+
     def update(
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
     ):
@@ -176,6 +238,7 @@ class PowerpropagationModifier(ScheduledModifier):
         super().update(module, optimizer, epoch, steps_per_epoch)
         self._check_powerpropagation_update(module, epoch, steps_per_epoch)
 
+
     def _check_powerpropagation_update(
         self, module: Module, epoch: float, steps_per_epoch: int
     ):
@@ -187,26 +250,44 @@ class PowerpropagationModifier(ScheduledModifier):
         # TODO: Make this do something useful
         self._log_powerpropagation(module, epoch, steps_per_epoch)
 
+
     def _enable_module_powerpropagation(self, module: Module):
+        print(module.state_dict().keys())
         for name, layer, param in self._powerpropagated_layers:
-            print(name)
-            self._enable_powerprop(layer, param)
+            self._enable_powerprop(module, name, layer, param)
+        print("\n\n\n", module.state_dict().keys())
         self._powerpropagation_enabled = True
 
     def _disable_module_powerpropagation(self, module: Module):
         if not self._powerpropagation_enabled:
             return
-        for name, layer, param in self._powerpropagated_layers:
-            self._undo_enable_powerprop(layer, param)
+        for name, layer in self._propagated_layers.items():
+            self._undo_enable_powerprop(module, name, layer)
+        print("\n\n\n", module.state_dict().keys())
         self._powerpropagation_enabled = False
 
-    def _enable_powerprop(self, module: Module, param: Parameter):
-        if isinstance(module, PowerPropagatedConv2d) or isinstance(
-            module, PowerPropagatedLinear
-        ):
-            module.set_alpha(self._alpha)
+
+    # from https://pytorch.org/docs/stable/_modules/torch/ao/quantization/fuse_modules.html#fuse_modules
+    # Generalization of setattr
+    def _set_module(self, model, submodule_key, module):
+	    tokens = submodule_key.split('.')
+	    sub_tokens = tokens[:-1]
+	    cur_mod = model
+	    for s in sub_tokens:
+	        cur_mod = getattr(cur_mod, s)
+
+	    setattr(cur_mod, tokens[-1], module)
+
+
+    def _enable_powerprop(self, model: Module, name: str, layer: Module, param: Parameter):
+        if isinstance(layer, Conv2d) or isinstance(layer, Linear):
+            powerpropagated_layer = PowerPropagationWrapper(layer, self._alpha)
+            powerpropagated_layer = powerpropagated_layer.to(torch.get_device(param))
+            self._propagated_layers[name] = powerpropagated_layer
+            self._set_module(model, name, powerpropagated_layer)
+            #print("just the little guy", powerpropagated_layer.state_dict().keys())
         else:
-            raise RuntimeError(f"don't know how do do powerpropagation for {module}")
+           raise RuntimeError(f"don't know how do do powerpropagation for {module}")
         # def powerpropagated_convolution(self, input):
         #     powerpropagated_weight = self.weight *pow(abs(self.weight), alpha-1)
         #     return self._conv_forward(input, powerpropagated_weight, self.bias)
@@ -219,16 +300,25 @@ class PowerpropagationModifier(ScheduledModifier):
         # elif isinstance(module, Linear):
         #     bound_method = powerpropagated_linear.__get__(module, module.__class__)
         #     setattr(module, 'forward', bound_method)
-
+        
         # with torch.no_grad():
         #     param = param*pow(abs(param), 1/alpha - 1)
         return
 
-    def _undo_enable_powerprop(self, module: Module, param: Parameter):
-        if isinstance(module, PowerPropagatedConv2d) or isinstance(
-            module, PowerPropagatedLinear
-        ):
-            module.set_alpha(1)
+    def _undo_enable_powerprop(self, model: Module, name: str, layer: Module):
+        if isinstance(layer, PowerPropagationWrapper):
+            # Setting alpha to 1 automatically updates the innerl layer
+            # weights.
+            print("before", layer.layer.weight.max())
+            cache = layer.layer.weight.view(-1).clone().detach()
+            layer.set_alpha(1)
+            print("after", layer.layer.weight.max(), layer.layer.weight.numel()-layer.layer.weight.count_nonzero(), )
+            if torch.nonzero(torch.isnan(layer.layer.weight.view(-1))).numel() > 10:
+                print(cache[torch.nonzero(torch.isnan(layer.layer.weight.view(-1)))[:10]])
+            self._set_module(model, name, layer.layer)
+            #self._propagated_layers[name] = powerpropagated_layer
+        else:
+           raise RuntimeError(f"don't know how to undo powerpropagation for {layer}")
         # else:
         #    raise RuntimeError(f"don't know how do do powerpropagation for {module.__class__()}")
         # def normal_convolution(self, input):
@@ -243,7 +333,7 @@ class PowerpropagationModifier(ScheduledModifier):
         #     setattr(module, 'forward', bound_method)
         # else:
         #     raise RuntimeError(f"don't know how to undo powerpropagation for {module.__class__()}")
-        #
+        # 
         # with torch.no_grad():
         #     param = param*pow(abs(param), self._alpha - 1)
         return
@@ -275,11 +365,13 @@ class PowerpropagationModifier(ScheduledModifier):
                 steps_per_epoch=steps_per_epoch,
             )
 
+
         print("!!!!!!!!!!!!!!! did a fake log for now")
         _log(
             tag=f"PowerpropagationModifier/something",
             value=1337,
         )
+
 
     def _create_named_layers_and_params(self, module: Module) -> List[NamedLayerParam]:
         if self._check_params_match(ALL_TOKEN):
@@ -291,12 +383,13 @@ class PowerpropagationModifier(ScheduledModifier):
         else:
             param_names = self._params
 
-        chosen = get_named_layers_and_params_by_regex(
+        chosen =  get_named_layers_and_params_by_regex(
             module,
             param_names,
-            params_strict=True,
+            params_strict=self._strict,
         )
-        return [(x[0], x[1], x[3]) for x in chosen]
+        return ([(x[0 ], x[1], x[3]) for x in chosen])
+
 
     def _check_params_match(self, token: Union[str, List[str]]):
         if isinstance(token, str):
