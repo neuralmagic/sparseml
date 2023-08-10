@@ -578,6 +578,9 @@ def export(
     data_args: Optional[str] = None,
     one_shot: Optional[str] = None,
 ):
+    if os.path.exists(model_path):
+        # expand to absolute path to support downstream logic
+        model_path = os.path.abspath(model_path)
     export_transformer_to_onnx(
         task=task,
         model_path=model_path,
