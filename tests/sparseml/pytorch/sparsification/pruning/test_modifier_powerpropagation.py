@@ -13,14 +13,15 @@
 # limitations under the License.
 
 import os
-from collections import OrderedDict, namedtuple
-from typing import List
 
 import pytest
-from torch import Tensor
-from torch.nn import Module, ReLU, Sequential, Sigmoid, Linear
+import torch
+from torch.nn import Linear
 
-from sparseml.pytorch.sparsification.pruning import PowerpropagationModifier, PowerpropagationWrapper
+from sparseml.pytorch.sparsification.pruning import (
+    PowerpropagationModifier,
+    PowerpropagationWrapper,
+)
 from tests.sparseml.pytorch.helpers import LinearNet
 from tests.sparseml.pytorch.sparsification.pruning.helpers import (
     state_dict_save_load_test,
@@ -36,13 +37,6 @@ from tests.sparseml.pytorch.helpers import (  # noqa isort:skip
     test_epoch,
     test_loss,
     test_steps_per_epoch,
-)
-
-import torch
-
-
-LayerDesc = namedtuple(
-    "LayerDesc", ["name", "input_size", "output_size", "bias", "alpha"]
 )
 
 
@@ -134,7 +128,7 @@ class TestPowerpropagationModifier(ScheduledModifierTest):
         epoch = int(modifier.start_epoch)
 
         # We check that when the powerpropagation modifier is activated,
-        # the model architecture changes to wrap the linear layers in 
+        # the model architecture changes to wrap the linear layers in
         # PowerpropagationWrapper modules. Further, the weights of the layer
         # are adjusted so that new_weight^alpha = previous_weight.
         # Then, once the modifier is deactivated, the architecture should
@@ -145,7 +139,6 @@ class TestPowerpropagationModifier(ScheduledModifierTest):
             model(torch.randn(batch_shape, *input_shape)).mean().backward()
             optimizer.step()
 
-            
             first_module = next(next(model.children()).children())
             if epoch == modifier.start_epoch:
                 layer_weights_pre = first_module.weight.clone()
@@ -155,13 +148,20 @@ class TestPowerpropagationModifier(ScheduledModifierTest):
             if modifier.update_ready(epoch, test_steps_per_epoch):
                 modifier.scheduled_update(model, optimizer, epoch, test_steps_per_epoch)
 
-
+            assert isinstance(
+                next(next(model.children()).children()), PowerpropagationWrapper
+            )
             first_powerpropagated_module = next(next(model.children()).children())
             layer_weights_post = first_powerpropagated_module.layer.weight.clone()
 
-
             if epoch == modifier.start_epoch:
-                assert torch.allclose(layer_weights_post * pow(abs(layer_weights_post), first_powerpropagated_module.alpha-1), layer_weights_pre)
+                assert torch.allclose(
+                    layer_weights_post
+                    * pow(
+                        abs(layer_weights_post), first_powerpropagated_module.alpha - 1
+                    ),
+                    layer_weights_pre,
+                )
             else:
                 assert torch.allclose(layer_weights_pre, layer_weights_post)
 
@@ -181,8 +181,11 @@ class TestPowerpropagationModifier(ScheduledModifierTest):
         first_unpowerpropagated_module = next(next(model.children()).children())
         layer_weights_post = first_unpowerpropagated_module.weight.clone()
 
-        assert isinstance(next(next(model.children()).children()), Linear) 
-        assert torch.allclose(layer_weights_pre * pow(abs(layer_weights_pre), alpha-1), layer_weights_post)
+        assert isinstance(next(next(model.children()).children()), Linear)
+        assert torch.allclose(
+            layer_weights_pre * pow(abs(layer_weights_pre), alpha - 1),
+            layer_weights_post,
+        )
 
 
 @pytest.mark.skipif(
