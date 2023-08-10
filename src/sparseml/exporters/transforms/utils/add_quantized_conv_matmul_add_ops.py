@@ -28,6 +28,44 @@ from sparseml.exporters.transforms.utils.helpers import (
 __all__ = ["add_quantized_conv_matmul_add_ops"]
 
 
+def _get_axis(node, input_quantize_node):
+    """
+    return: the axis to be used for channel-wise QDQ -> Quantized
+        folding for Gemm, MatMul and Conv Ops
+    """
+    gemm_input_index_to_attribute = {
+        0: "transA",
+        1: "transB",
+    }
+
+    if node.op_type == "Conv":
+        return 0
+
+    if node.op_type == "MatMul":
+        # axis is always 1 for MatMul
+        return 1
+
+    axis = 1  # default axis is 1
+    target_id_index = int(input_quantize_node.name.split(".")[-2])
+    is_input = "input" in input_quantize_node.name
+
+    if (
+        node.op_type == "Gemm"
+        and is_input
+        and target_id_index in gemm_input_index_to_attribute
+    ):
+
+        attribute_name = gemm_input_index_to_attribute[target_id_index]
+
+        attr = next(
+            (attr for attr in node.attribute if attr.name == attribute_name), None
+        )
+        if attr is None:
+            return 0
+        axis = int(not bool(attr.i if attr else 0))
+    return axis
+
+
 def add_quantized_conv_matmul_add_ops(
     model: ModelProto,
     node: NodeProto,
@@ -59,7 +97,10 @@ def add_quantized_conv_matmul_add_ops(
 
     # Quantize weights and add to graph
     quantized_weight_initializer = _quantize_weight_initializer(
-        node, weight_quantize_params, transpose_weight
+        node,
+        weight_quantize_params,
+        transpose_weight,
+        axis=_get_axis(node, input_quantize_node=input_quantize_node),
     )
     model.graph.initializer.append(quantized_weight_initializer)
 
@@ -311,12 +352,14 @@ def _quantize_weight_initializer(
     node: NodeProto,
     weight_quantize_params: QuantizationParams,
     transpose_weight: bool = False,
+    axis=0,
 ) -> TensorProto:
     quantized_weight = quantize_array(
         weight_quantize_params.target,
         weight_quantize_params.scale,
         weight_quantize_params.zero_point,
         weight_quantize_params.zero_point.dtype,
+        axis=axis,
     )
     if transpose_weight:
         quantized_weight = quantized_weight.transpose()

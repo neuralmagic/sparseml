@@ -130,6 +130,7 @@ def quantize_array(
     scale: numpy.ndarray,
     zero_point: numpy.ndarray,
     dtype: Any = numpy.uint8,
+    axis: int = 0,
 ) -> numpy.ndarray:
     try:
         import torch  # noqa: F401
@@ -149,7 +150,7 @@ def quantize_array(
                 tensor,
                 scale,
                 zero_point,
-                0,  # channel axis
+                axis,
                 tensor_dtype,
             )
         else:  # per-tensor quantization
