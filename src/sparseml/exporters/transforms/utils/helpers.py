@@ -30,10 +30,12 @@ __all__ = [
     "quantize_array",
     "assert_node_type",
     "QUANTIZE_OP_NAMES",
+    "COMMON_QUANTIZABLE_OP_TYPES",
     "attribute_to_kwarg",
 ]
 
 QUANTIZE_OP_NAMES = ["QuantizeLinear", "DequantizeLinear"]
+COMMON_QUANTIZABLE_OP_TYPES = ["Add", "Conv", "Gemm", "MatMul"]
 
 QuantizationParams = NamedTuple(
     "QuantizationParams",

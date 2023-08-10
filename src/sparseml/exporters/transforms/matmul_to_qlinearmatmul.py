@@ -17,6 +17,7 @@ from onnx import ModelProto
 
 from sparseml.exporters.transforms import OnnxTransform
 from sparseml.exporters.transforms.utils import (
+    COMMON_QUANTIZABLE_OP_TYPES,
     MatchResult,
     get_structural_matches,
     optional_node,
@@ -95,6 +96,12 @@ class MatMulToQLinearMatMul(OnnxTransform):
         for match in matches:
             for quantize_linear_parent in [match.parents[0][0], match.parents[1][0]]:
                 if graph.get_init_by_name(quantize_linear_parent.input[0]):
+                    continue
+                next_node = graph.get_node_single_child(match.children[-1])
+                if next_node.op_type in COMMON_QUANTIZABLE_OP_TYPES:
+                    # the Q/DQ block after this matmul directly feeds into another
+                    # quantizable op, it is more likely that this Q/DQ is relevant
+                    # to that block - ignore match
                     continue
             self.log_match(match)
             self._do_transform(model, match)
