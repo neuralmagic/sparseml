@@ -18,14 +18,9 @@ from typing import List
 
 import pytest
 from torch import Tensor
-from torch.nn import Module, ReLU, Sequential, Sigmoid
+from torch.nn import Module, ReLU, Sequential, Sigmoid, Linear
 
-from sparseml.pytorch.models import (
-    PowerPropagatedConv2d,
-    PowerPropagatedLinear,
-    convert_to_powerpropagation,
-)
-from sparseml.pytorch.sparsification.pruning import PowerpropagationModifier
+from sparseml.pytorch.sparsification.pruning import PowerpropagationModifier, PowerpropagationWrapper
 from tests.sparseml.pytorch.helpers import LinearNet
 from tests.sparseml.pytorch.sparsification.pruning.helpers import (
     state_dict_save_load_test,
@@ -43,67 +38,14 @@ from tests.sparseml.pytorch.helpers import (  # noqa isort:skip
     test_steps_per_epoch,
 )
 
+import torch
+
 
 LayerDesc = namedtuple(
     "LayerDesc", ["name", "input_size", "output_size", "bias", "alpha"]
 )
 
 
-class PowerPropagatedLinearNet(Module):
-    _LAYER_DESCS = None
-
-    @staticmethod
-    def layer_descs() -> List[LayerDesc]:
-        if PowerPropagatedLinearNet._LAYER_DESCS is None:
-            PowerPropagatedLinearNet._LAYER_DESCS = []
-            model = PowerPropagatedLinearNet()
-
-            for name, layer in model.named_modules():
-                if not isinstance(layer, Linear):
-                    continue
-
-                PowerPropagatedLinearNet._LAYER_DESCS.append(
-                    LayerDesc(
-                        name,
-                        [layer.in_features],
-                        [layer.out_features],
-                        layer.bias is not None,
-                        layer.alpha,
-                    )
-                )
-
-        return PowerPropagatedLinearNet._LAYER_DESCS
-
-    def __init__(self):
-        super().__init__()
-        self.seq = Sequential(
-            OrderedDict(
-                [
-                    ("fc1", PowerPropagatedLinear(8, 16, bias=True)),
-                    ("fc2", PowerPropagatedLinear(16, 32, bias=True)),
-                    (
-                        "block1",
-                        Sequential(
-                            OrderedDict(
-                                [
-                                    ("fc1", PowerPropagatedLinear(32, 16, bias=True)),
-                                    ("fc2", PowerPropagatedLinear(16, 8, bias=True)),
-                                ]
-                            )
-                        ),
-                    ),
-                ]
-            )
-        )
-
-    def forward(self, inp: Tensor):
-        return self.seq(inp)
-
-
-@pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
-)
 @pytest.mark.parametrize(
     "modifier_lambda",
     [
@@ -122,7 +64,7 @@ class PowerPropagatedLinearNet(Module):
     ],
     scope="function",
 )
-@pytest.mark.parametrize("model_lambda", [PowerPropagatedLinearNet], scope="function")
+@pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
 @pytest.mark.parametrize(
     "optim_lambda",
     [create_optim_sgd, create_optim_adam],
@@ -141,7 +83,6 @@ class TestPowerpropagationModifier(ScheduledModifierTest):
         optimizer = optim_lambda(model)
         self.initialize_helper(modifier, model)
 
-        # check sparsity is not set before
         if modifier.start_epoch >= 0:
             for epoch in range(int(modifier.start_epoch)):
                 assert not modifier.update_ready(epoch, test_steps_per_epoch)
@@ -175,6 +116,73 @@ class TestPowerpropagationModifier(ScheduledModifierTest):
             test_steps_per_epoch,
             False,
         )
+
+    def test_powerprop_mechanism(
+        self,
+        modifier_lambda,
+        model_lambda,
+        optim_lambda,
+        test_steps_per_epoch,  # noqa: F811
+    ):
+        modifier = modifier_lambda()
+        model = model_lambda()
+        optimizer = optim_lambda(model)
+        self.initialize_helper(modifier, model)
+
+        batch_shape = 10
+        input_shape = model_lambda.layer_descs()[0].input_size
+        epoch = int(modifier.start_epoch)
+
+        # We check that when the powerpropagation modifier is activated,
+        # the model architecture changes to wrap the linear layers in 
+        # PowerpropagationWrapper modules. Further, the weights of the layer
+        # are adjusted so that new_weight^alpha = previous_weight.
+        # Then, once the modifier is deactivated, the architecture should
+        # revert, and the weights are exponentiated in-place to reflect
+        # the fact that they are no longer exponentiated in the forward pass.
+        while epoch < modifier.end_epoch:
+            optimizer.zero_grad()
+            model(torch.randn(batch_shape, *input_shape)).mean().backward()
+            optimizer.step()
+
+            
+            first_module = next(next(model.children()).children())
+            if epoch == modifier.start_epoch:
+                layer_weights_pre = first_module.weight.clone()
+            else:
+                layer_weights_pre = first_module.layer.weight.clone()
+
+            if modifier.update_ready(epoch, test_steps_per_epoch):
+                modifier.scheduled_update(model, optimizer, epoch, test_steps_per_epoch)
+
+
+            first_powerpropagated_module = next(next(model.children()).children())
+            layer_weights_post = first_powerpropagated_module.layer.weight.clone()
+
+
+            if epoch == modifier.start_epoch:
+                assert torch.allclose(layer_weights_post * pow(abs(layer_weights_post), first_powerpropagated_module.alpha-1), layer_weights_pre)
+            else:
+                assert torch.allclose(layer_weights_pre, layer_weights_post)
+
+            epoch += 1
+
+        # Now check what happens when the powerpropagation is removed,
+        # i.e., the epoch is the modifier end_epoch.
+        optimizer.zero_grad()
+        model(torch.randn(batch_shape, *input_shape)).mean().backward()
+        optimizer.step()
+        first_module = next(next(model.children()).children())
+        layer_weights_pre = first_module.layer.weight.clone()
+        alpha = first_module.alpha
+
+        if modifier.update_ready(epoch, test_steps_per_epoch):
+            modifier.scheduled_update(model, optimizer, epoch, test_steps_per_epoch)
+        first_unpowerpropagated_module = next(next(model.children()).children())
+        layer_weights_post = first_unpowerpropagated_module.weight.clone()
+
+        assert isinstance(next(next(model.children()).children()), Linear) 
+        assert torch.allclose(layer_weights_pre * pow(abs(layer_weights_pre), alpha-1), layer_weights_post)
 
 
 @pytest.mark.skipif(
