@@ -37,7 +37,7 @@ pruning_modifiers:
     end_epoch: eval(stabilization_epochs + pruning_epochs)
     update_frequency: 0.5
     params:        
-    #- 'conv1.weight'
+        - 'conv1.weight'
         - 're:layer1.*.conv1.weight'
         - 're:layer1.*.conv2.weight'
         - 're:layer1.*.conv3.weight'

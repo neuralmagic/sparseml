@@ -22,7 +22,6 @@ from ..base import check_torch_install as _check_torch_install
 from .classification import *
 from .detection import *
 from .external import *
-from .powerpropagation import *
 from .recommendation import *
 from .registry import *
 
