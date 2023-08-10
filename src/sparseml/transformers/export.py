@@ -217,7 +217,6 @@ def load_task_dataset(
         or task == "sentiment-analysis"
         or task == "text-classification"
     ):
-
         from sparseml.transformers.text_classification import (
             DataTrainingArguments,
             get_tokenized_text_classification_dataset,
@@ -315,7 +314,8 @@ def export_transformer_to_onnx(
 
     model = model.train()
 
-    args = DeviceCPUTrainingArgs(output_dir="tmp_trainer")
+    trainer_output_dir = os.path.dirname(model_path)
+    args = DeviceCPUTrainingArgs(output_dir=trainer_output_dir)
     trainer = Trainer(
         model=model,
         args=args,
