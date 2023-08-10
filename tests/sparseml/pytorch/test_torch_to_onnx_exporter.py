@@ -21,14 +21,226 @@ import onnx
 import onnxruntime as ort
 import pytest
 import torch
+from packaging import version
 
 from sparseml.exporters.onnx_to_deepsparse import ONNXToDeepsparse
+from sparseml.onnx.utils.helpers import get_init_by_name, get_node_by_id
 from sparseml.pytorch.models.registry import ModelRegistry
+from sparseml.pytorch.optim import ScheduledModifierManager
 from sparseml.pytorch.sparsification.quantization import QuantizationModifier
 from sparseml.pytorch.torch_to_onnx_exporter import TorchToONNX
 from sparseml.pytorch.utils import ModuleExporter
 from sparsezoo.utils import validate_onnx
 from tests.sparseml.pytorch.helpers import ConvNet, LinearNet, MLPNet
+
+
+QUANT_RECIPE = """
+!QuantizationModifier
+    start_epoch: 0.0
+    scheme:
+        input_activations:
+            num_bits: 8
+            symmetric: False
+        weights:
+            num_bits: 4
+            symmetric: True
+"""
+
+CHANNEL_QUANT_RECIPE = """
+!QuantizationModifier
+    start_epoch: 0.0
+    scheme:
+        input_activations:
+            num_bits: 8
+            symmetric: False
+        weights:
+            num_bits: 4
+            symmetric: True
+            strategy: "channel"
+"""
+
+
+def _get_4bit_modules(model):
+    fake_quant_modules = [
+        module
+        for module in model.modules()
+        if module.__class__.__name__ == "FakeQuantize"
+    ]
+    int4_fake_quant_modules = [
+        quant_module
+        for quant_module in fake_quant_modules
+        if quant_module.activation_post_process.quant_min == -8
+        and quant_module.activation_post_process.quant_max == 7
+    ]
+
+    return int4_fake_quant_modules
+
+
+def _get_conv_quant_ranges(onnx_model):
+    conv_ranges = {}
+    for node in onnx_model.graph.node:
+        if node.op_type == "ConvInteger":
+            x, w, x_zero_point, w_zero_point = node.input
+            zero_value = get_init_by_name(onnx_model, w_zero_point)
+            zero = onnx.numpy_helper.to_array(zero_value)
+            weights_value = get_init_by_name(onnx_model, w)
+            weights = onnx.numpy_helper.to_array(weights_value)
+            converted = (weights - zero).astype("int8")
+            cmin, cmax = converted.min(), converted.max()
+            range = cmax - cmin
+            conv_ranges[node.name] = range
+
+    return conv_ranges
+
+
+@pytest.mark.parametrize(
+    "model,sample_batch",
+    [
+        (MLPNet(), torch.randn(8)),
+        (MLPNet(), torch.randn(10, 8)),
+        (LinearNet(), torch.randn(8)),
+        (LinearNet(), torch.randn(10, 8)),
+        (ConvNet(), torch.randn(1, 3, 28, 28)),
+    ],
+)
+def test_export_4bit_model(tmp_path, model, sample_batch):
+    old_dir = tmp_path / "old_exporter"
+    old_dir.mkdir()
+    new_dir = tmp_path / "new_exporter"
+    new_dir.mkdir()
+
+    manager = ScheduledModifierManager.from_yaml(QUANT_RECIPE)
+    manager.apply(model)
+
+    # ensure 4bit quantization correctly applied
+    num_4bit_modules = len(_get_4bit_modules(model))
+    assert num_4bit_modules > 0
+
+    new_exporter = TorchToONNX(sample_batch)
+    new_exporter.export(model, new_dir / "model.onnx")
+    onnx_model_new = onnx.load(new_dir / "model.onnx")
+    ONNXToDeepsparse(use_qlinear_conv=True).export(
+        onnx_model_new, new_dir / "model.onnx"
+    )
+    onnx_model_new = onnx.load(new_dir / "model.onnx")
+    validate_onnx(str(new_dir / "model.onnx"))
+
+    # ensure export didn't modify original model
+    assert len(_get_4bit_modules(model)) == num_4bit_modules
+
+    old_exporter = ModuleExporter(model, old_dir)
+    old_exporter.export_onnx(sample_batch, convert_qat=True)
+    validate_onnx(str(old_dir / "model.onnx"))
+
+    # ensure export didn't modify original model
+    assert len(_get_4bit_modules(model)) == num_4bit_modules
+
+
+def test_export_4bit_model_range(tmp_path):
+    model, sample_batch = ConvNet(), torch.randn(1, 3, 28, 28)
+    old_dir = tmp_path / "old_exporter"
+    old_dir.mkdir()
+    new_dir = tmp_path / "new_exporter"
+    new_dir.mkdir()
+
+    manager = ScheduledModifierManager.from_yaml(QUANT_RECIPE)
+    manager.apply(model)
+
+    new_exporter = TorchToONNX(sample_batch)
+    new_exporter.export(model, new_dir / "model.onnx")
+    onnx_model_new = onnx.load(new_dir / "model.onnx")
+    ONNXToDeepsparse(use_qlinear_conv=True).export(
+        onnx_model_new, new_dir / "model.onnx"
+    )
+    onnx_model_new = onnx.load(new_dir / "model.onnx")
+    conv_quant_ranges = _get_conv_quant_ranges(onnx_model_new)
+    # all ConvInteger blocks should be quantized to int4
+    assert all(conv_range <= 16 for name, conv_range in conv_quant_ranges.items())
+
+    old_exporter = ModuleExporter(model, old_dir)
+    old_exporter.export_onnx(sample_batch, convert_qat=True)
+    onnx_model_old = onnx.load(old_dir / "model.onnx")
+    conv_quant_ranges = _get_conv_quant_ranges(onnx_model_old)
+    # all ConvInteger blocks should be quantized to int4
+    assert all(conv_range <= 16 for name, conv_range in conv_quant_ranges.items())
+
+
+@pytest.mark.skipif(
+    version.parse(torch.__version__) < version.parse("2.0"),
+    reason="Channel-wise quantization only supported for ONNX opset version 13+",
+)
+def test_export_per_channel_conv_4bit_model(tmp_path):
+    model, sample_batch = ConvNet(), torch.randn(1, 3, 28, 28)
+    new_dir = tmp_path / "new_exporter"
+    new_dir.mkdir()
+
+    manager = ScheduledModifierManager.from_yaml(CHANNEL_QUANT_RECIPE)
+    manager.apply(model)
+
+    new_exporter = TorchToONNX(sample_batch)
+    new_exporter.export(model, new_dir / "model.onnx")
+    onnx_model = onnx.load(new_dir / "model.onnx")
+    ONNXToDeepsparse(use_qlinear_conv=False).export(onnx_model, new_dir / "model.onnx")
+    onnx_model = onnx.load(new_dir / "model.onnx")
+    validate_onnx(onnx_model)
+
+    add_value = get_init_by_name(
+        onnx_model, "/seq/conv1/module/Conv_bias_add.bias_quantized"
+    )
+    bias = onnx.numpy_helper.to_array(add_value)
+    mul_value = get_init_by_name(
+        onnx_model, "/seq/conv1/module/Conv_quant.rescale.scale"
+    )
+    rescale = onnx.numpy_helper.to_array(mul_value)
+    assert bias.shape == rescale.shape == (1, 16, 1, 1)
+
+    conv_int_node = get_node_by_id(onnx_model, "/seq/conv1/module/Conv_output_0_quant")
+    _, _, _, w_zero_point = conv_int_node.input
+    zero_value = get_init_by_name(onnx_model, w_zero_point)
+    zero_point = onnx.numpy_helper.to_array(zero_value)
+    assert zero_point.size == 16 and zero_point.ndim == 1
+
+    # this checks all the I/O shapes check out
+    # don't call session.run() b/c ort doesn't support channel-wise for ConvInteger
+    ort.InferenceSession(new_dir / "model.onnx")
+
+
+@pytest.mark.skipif(
+    version.parse(torch.__version__) < version.parse("2.0"),
+    reason="Channel-wise quantization only supported for ONNX opset version 13+",
+)
+@pytest.mark.parametrize(
+    "model,sample_batch",
+    [
+        (MLPNet(), torch.randn(8)),
+        (MLPNet(), torch.randn(10, 8)),
+        (LinearNet(), torch.randn(8)),
+        (LinearNet(), torch.randn(10, 8)),
+    ],
+)
+def test_export_and_load_per_channel_model(tmp_path, model, sample_batch):
+    new_dir = tmp_path / "new_exporter"
+    new_dir.mkdir()
+
+    manager = ScheduledModifierManager.from_yaml(CHANNEL_QUANT_RECIPE)
+    manager.apply(model)
+
+    new_exporter = TorchToONNX(sample_batch)
+    new_exporter.export(model, new_dir / "model.onnx")
+    onnx_model = onnx.load(new_dir / "model.onnx")
+    ONNXToDeepsparse(use_qlinear_conv=False).export(onnx_model, new_dir / "model.onnx")
+    onnx_model = onnx.load(new_dir / "model.onnx")
+    validate_onnx(onnx_model)
+
+    session = ort.InferenceSession(new_dir / "model.onnx")
+    input_name = session.get_inputs()[0].name
+    output_name = session.get_outputs()[0].name
+    session.run(
+        [output_name],
+        sample_batch
+        if isinstance(sample_batch, dict)
+        else {input_name: sample_batch.numpy()},
+    )
 
 
 @pytest.mark.parametrize(
