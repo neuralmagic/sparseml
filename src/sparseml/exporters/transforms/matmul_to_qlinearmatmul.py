@@ -98,7 +98,7 @@ class MatMulToQLinearMatMul(OnnxTransform):
                 if graph.get_init_by_name(quantize_linear_parent.input[0]):
                     continue
                 next_node = graph.get_node_single_child(match.children[0][-1])
-                if next_node.op_type in COMMON_QUANTIZABLE_OP_TYPES:
+                if next_node and next_node.op_type in COMMON_QUANTIZABLE_OP_TYPES:
                     # the Q/DQ block after this matmul directly feeds into another
                     # quantizable op, it is more likely that this Q/DQ is relevant
                     # to that block - ignore match
