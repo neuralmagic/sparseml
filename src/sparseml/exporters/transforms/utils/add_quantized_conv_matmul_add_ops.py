@@ -33,37 +33,50 @@ def _get_axis(node, input_quantize_node):
     return: the axis to be used for channel-wise QDQ -> Quantized
         folding for Gemm, MatMul and Conv Ops
     """
-    gemm_input_index_to_attribute = {
-        0: "transA",
-        1: "transB",
-    }
 
     if node.op_type == "Conv":
+        # axis is always 0 for Conv
         return 0
 
     if node.op_type == "MatMul":
         # axis is always 1 for MatMul
         return 1
 
-    axis = 1  # default axis is 1
-    target_id_index = int(input_quantize_node.name.split(".")[-2])
-    is_input = "input" in input_quantize_node.name
+    node_inputs = [inp for inp in node.input]
+    is_input = input_quantize_node.name in node_inputs
+    gemm_input_index_to_attribute = {
+        0: "transA",
+        1: "transB",
+    }
 
     if (
         node.op_type == "Gemm"
         and is_input
-        and target_id_index in gemm_input_index_to_attribute
+        and node_inputs.index(input_quantize_node.name) in gemm_input_index_to_attribute
     ):
+        # get the attribute name for the input index
+        input_index = node_inputs.index(input_quantize_node.name)
 
-        attribute_name = gemm_input_index_to_attribute[target_id_index]
+        attribute_name = gemm_input_index_to_attribute[input_index]
 
         attr = next(
             (attr for attr in node.attribute if attr.name == attribute_name), None
         )
+
+        # only B matrix is quantized for Gemm nodes, but this block works for both
+        #  A and B; we use this block to return 0 as axis when
+        #  transB or transA are not present in the node attributes
+
         if attr is None:
             return 0
-        axis = int(not bool(attr.i if attr else 0))
-    return axis
+
+        # axis is 0 if transB is 1
+        #  else 1
+        return int(not bool(attr.i))
+
+    # default axis is 1 based on ONNX spec
+    #  https://github.com/onnx/onnx/blob/main/docs/Operators.md#QuantizeLinear
+    return 1
 
 
 def add_quantized_conv_matmul_add_ops(
