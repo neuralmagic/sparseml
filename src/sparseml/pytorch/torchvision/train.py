@@ -14,14 +14,6 @@
 
 # Adapted from https://github.com/pytorch/vision
 
-
- # Template command for running training with this script on multiple GPUs using
- # `DistributedDataParallel.
- # python -m torch.distributed.launch \
- # --nproc_per_node <NUM GPUs> \
- # sparseml.torchvision.train \
- # <TRAIN.PY ARGUMENTS>
-
 import datetime
 import logging
 import math
@@ -397,7 +389,7 @@ def main(args):
     )
 
     _LOGGER.info("Creating model")
-    local_rank = args.local_rank if args.distributed else None
+    local_rank = args.rank if args.distributed else None
     model, arch_key, maybe_dp_device = _create_model(
         arch_key=args.arch_key,
         local_rank=local_rank,
@@ -770,7 +762,6 @@ def _create_model(
                 num_classes=num_classes,
             )
 
-
         if isinstance(model, tuple):
             model, arch_key = model
     elif arch_key in torchvision.models.__dict__:
@@ -809,15 +800,7 @@ def _create_model(
         raise ValueError(
             f"Unable to find {arch_key} in ModelRegistry or in torchvision.models"
         )
-    if local_rank is not None:
-        torch.cuda.set_device(local_rank)
-        device = local_rank
-        ddp = True
-    model, device, _ = model_to_device(
-        model=model,
-        device=device,
-        ddp=ddp,
-    )
+    model, device, _ = model_to_device(model=model, device=device)
     return model, arch_key, device
 
 
@@ -1252,14 +1235,6 @@ def _deprecate_old_arguments(f):
         "RGB standard-deviation values used to normalize input RGB values; "
         "Note: Will use ImageNet values if not specified."
     ),
-)
-@click.option(
-    "--local_rank",
-    "--local-rank",
-    type=int,
-    default=None,
-    help="Local rank for distributed training",
-    hidden=True,  # should not be modified by user
 )
 @click.pass_context
 def cli(ctx, **kwargs):
