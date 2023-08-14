@@ -12,19 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
+
 import pytest
+import torch
 from torch.nn import Module
-from torch.optim import SGD
+from torch.optim import SGD, Adam
 
 from sparseml.pytorch.sparsification.pruning import TopKASTPruningModifier
 from tests.sparseml.pytorch.helpers import LinearNet
 from tests.sparseml.pytorch.sparsification.pruning.helpers import (
     state_dict_save_load_test,
 )
-from tests.sparseml.pytorch.sparsification.test_modifier import (
-    ScheduledModifierTest,
-    create_optim_adam,
-)
+from tests.sparseml.pytorch.sparsification.test_modifier import ScheduledModifierTest
 
 
 from tests.sparseml.pytorch.helpers import (  # noqa isort:skip
@@ -35,9 +35,13 @@ from tests.sparseml.pytorch.helpers import (  # noqa isort:skip
 
 
 def create_optim_sgd(
-    model: Module, lr: float = 1e-3, momentum: float = 0.9, weight_decay: float = 0
+    model: Module, lr: float = 0.25, momentum: float = 0.9, weight_decay: float = 0
 ) -> SGD:
     return SGD(model.parameters(), lr=lr, momentum=momentum, weight_decay=weight_decay)
+
+
+def create_optim_adam(model: Module, lr: float = 0.25) -> Adam:
+    return Adam(model.parameters(), lr=lr)
 
 
 @pytest.mark.parametrize(
@@ -120,6 +124,62 @@ class TestTopKASTPruningModifier(ScheduledModifierTest):
             assert not modifier.update_ready(epoch, test_steps_per_epoch)
             _test_compression_sparsity_applied()
 
+    def test_weight_decay(
+        self,
+        modifier_lambda,
+        model_lambda,
+        optim_lambda,
+        test_steps_per_epoch,  # noqa: F811
+    ):
+        modifier = modifier_lambda()
+        model = model_lambda()
+        optimizer = optim_lambda(model)
+        self.initialize_helper(modifier, model)
+
+        batch_shape = 10
+        input_shape = model_lambda.layer_descs()[0].input_size
+        epoch = int(modifier.start_epoch)
+
+        while epoch < modifier.end_epoch:
+            if modifier.update_ready(epoch, test_steps_per_epoch):
+                modifier.scheduled_update(model, optimizer, epoch, test_steps_per_epoch)
+            # Cache the model's weights before optimizer step.
+
+            layer_weights_pre = copy.deepcopy(modifier._module_masks)
+            optimizer.zero_grad()
+            model(torch.randn(batch_shape, *input_shape)).mean().backward()
+            modifier.optimizer_pre_step(model, optimizer, epoch, test_steps_per_epoch)
+
+            for i, param in enumerate(modifier._module_masks._params):
+                unchanged_mask = (1 - modifier._grad_module_masks.param_masks[i]).bool()
+                forward_mask = (modifier._module_masks.param_masks[i]).bool()
+                backward_mask = (
+                    (1 - modifier._module_masks.param_masks[i])
+                    * modifier._grad_module_masks.param_masks[i]
+                ).bool()
+                # Check that the three masks fully covert the space
+                assert torch.all(unchanged_mask + forward_mask + backward_mask)
+                assert torch.equal((~unchanged_mask), forward_mask + backward_mask)
+                assert torch.equal((~forward_mask), backward_mask + unchanged_mask)
+                assert torch.equal((~backward_mask), forward_mask + unchanged_mask)
+
+                assert torch.equal(
+                    modifier._module_masks._params[i][unchanged_mask],
+                    layer_weights_pre._params[i][unchanged_mask],
+                )
+                assert torch.allclose(
+                    modifier._module_masks._params[i][forward_mask],
+                    layer_weights_pre._params[i][forward_mask] * (1 - 0.0002 * 0.25),
+                )
+                assert torch.allclose(
+                    modifier._module_masks._params[i][backward_mask],
+                    layer_weights_pre._params[i][backward_mask]
+                    * (1 - 0.0002 * 0.25 * 1 / modifier._forward_sparsity),
+                )
+
+            optimizer.step()
+            epoch += 1
+
     def test_state_dict_save_load(
         self,
         modifier_lambda,
@@ -179,7 +239,7 @@ def test_topkast_pruning_yaml():
         global_sparsity=global_sparsity,
         leave_enabled=leave_enabled,
         mask_type=mask_type,
-        active_weight_decay = active_weight_decay
+        active_weight_decay=active_weight_decay,
     )
     assert isinstance(yaml_modifier, TopKASTPruningModifier)
     assert (

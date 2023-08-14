@@ -16,7 +16,6 @@ from typing import Dict, List, Optional, OrderedDict, Union
 
 import torch
 from torch import Tensor
-from torch.linalg import norm
 from torch.nn import Module, Parameter
 from torch.optim.optimizer import Optimizer
 
@@ -102,8 +101,7 @@ class TopKASTPruningModifier(BasePruningModifier):
         end_epoch: Union[int, float],
         update_frequency: Union[int, float],
         params: Union[str, List[str]],
-        global_sparsity: bool = True,  # TODO: in the top-KAST paper,
-        # the default is False
+        global_sparsity: bool = True,
         leave_enabled: bool = True,
         mask_type: str = "unstructured",
         active_weight_decay: float = 0.0001,
@@ -139,7 +137,6 @@ class TopKASTPruningModifier(BasePruningModifier):
             f"{layer_name}.{param_name}"
             for layer_name, param_name in zip(layer_names, param_names)
         ]
-        print(full_param_names)
 
         # We  need a whole separate set of masks for gradients,
         # since they will be pruned to a smaller sparsity than weights.
@@ -374,7 +371,7 @@ class TopKASTPruningModifier(BasePruningModifier):
             mask_gradients_only=True,
         )
 
-
+    @BasePruningModifier.log_call
     def optimizer_pre_step(
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
     ):
@@ -382,6 +379,22 @@ class TopKASTPruningModifier(BasePruningModifier):
         Performs any tracking or updates before the optimizer step is applied. Useful
         for tracking gradient values between backwards pass and optimizer step if
         optimizer clips gradients
+        Weights are decayed according to the following formula:
+        For weights active in the forward pass:
+          w_i = w_i - w_i * self._active_weight_decay * current learning rate
+        For weights inactive in the forward pass but active in
+        the backward pass:
+          w_i = w_i - w_i * 1/forward_sparsity * self._active_weight_decay * \
+                  current learning rate
+
+        The reason that we multiply by the learning rate is that in the original
+        paper, this weight decay is presented as an L2 regularization
+        term in the loss, and so is subject to the learning rate. It also
+        keeps the magnitude of this term even with the impact of learing.
+        Note that unlike computing L2 as a loss term, this implementation
+        does not factor into the optimizer momentum. This is a deliberate
+        choice, both because it seems to make sense in the context of
+        Top-KAST, and because this is far simpler and cleaner to implement.
 
         :param module: module to modify
         :param optimizer: optimizer to modify
@@ -390,104 +403,22 @@ class TopKASTPruningModifier(BasePruningModifier):
             (calculate batch number using this and epoch)
         """
         super().optimizer_pre_step(module, optimizer, epoch, steps_per_epoch)
-        #print(len(optimizer.state_dict()['param_groups']))
-        lr = optimizer.state_dict()['param_groups'][0]['lr']
-        # Weight decay the updating parameters.
+
+        lr = optimizer.state_dict()["param_groups"][0]["lr"]
         with torch.no_grad():
             for i, param in enumerate(self._module_masks._params):
-                param -= self._active_weight_decay*lr*self._module_masks._param_masks[i]*param
-                param -= self._active_weight_decay*lr*(1/self.forward_sparsity)*(1-self._module_masks.param_masks[i])*self._grad_module_masks.param_masks[i]*param
-        return
-        # forward_weights_norm_sum = 0
-        # backward_weights_norm_sum = 0
-       
+                param -= (
+                    self._active_weight_decay
+                    * lr
+                    * self._module_masks._param_masks[i]
+                    * param
+                )
 
-
-        # # Per the paper, the regularization loss term of the unmasked weights
-        # # should simply be L_2. Conversely, the reg loss term of the parameters
-        # # with masked weights but unmasked gradients should be L_2/sparsity
-        # # things that are masked by the 2nd one but not the first one
-        # for i, param in enumerate(self._module_masks._params):
-        #     # forward_weights_norm_sum += (
-        #     #     norm(param.data * self._module_masks.param_masks[i])
-        #     # ).sum()
-        #     # backward_weights_norm_sum += (
-        #     #     norm(
-        #     #         param.data
-        #     #         * (1 - self._module_masks.param_masks[i])
-        #     #         * self._grad_module_masks.param_masks[i]
-        #     #     )
-        #     # ).sum()
-        # 
-        #     with torch.no_grad():
-        #         norm_partials = param.data/torch.sqrt(param.data.sum())
-        #         norm_partials=1
-        #         #forward_weights_norm_sum += norm_partials*self._module_masks.param_masks[i]
-        #         #backward_weights_norm_sum += norm_partials*(1-self._module_masks.param_masks[i])*self._grad_module_masks.param_masks[i])
-
-        #         total_loss = loss + (
-        #             forward_weights_norm_sum
-        #             + 1 / self.forward_sparsity * backward_weights_norm_sum
-        #         )
-        # 
-
-        # print("LOSSES", loss, forward_weights_norm_sum, backward_weights_norm_sum)
-
-    @BasePruningModifier.log_call
-    def gloss_update(
-        self,
-        loss: Tensor,
-        module: Module,
-        optimizer: Optimizer,
-        epoch: float,
-        steps_per_epoch: int,
-        **kwargs,
-    ) -> Tensor:
-        """
-        Updates the loss with the distillation loss
-
-        :param loss: The calculated loss tensor
-        :param module: module to modify
-        :param optimizer: optimizer to modify
-        :param epoch: current epoch and progress within the current epoch
-        :param steps_per_epoch: number of steps taken within each epoch
-            (calculate batch number using this and epoch)
-        :return: loss tensor with knowledge distillation loss added
-        """
-        loss = super().loss_update(
-            loss, module, optimizer, epoch, steps_per_epoch, **kwargs
-        )
-        return loss
-
-        forward_weights_norm_sum = 0
-        backward_weights_norm_sum = 0
-
-        # Per the paper, the regularization loss term of the unmasked weights
-        # should simply be L_2. Conversely, the reg loss term of the parameters
-        # with masked weights but unmasked gradients should be L_2/sparsity
-        # things that are masked by the 2nd one but not the first one
-        for i, param in enumerate(self._module_masks._params):
-            forward_weights_norm_sum += (
-                norm(param.data * self._module_masks.param_masks[i])
-            ).sum()
-            backward_weights_norm_sum += (
-                norm(
-                    param.data
+                param -= (
+                    self._active_weight_decay
+                    * lr
+                    * (1 / self.forward_sparsity)
                     * (1 - self._module_masks.param_masks[i])
                     * self._grad_module_masks.param_masks[i]
+                    * param
                 )
-            ).sum()
-        
-            with torch.no_grad():
-                norm_partials = param.data/torch.sqrt(param.data.sum())
-                #forward_weights_norm_sum += norm_partials*self._module_masks.param_masks[i]
-                #backward_weights_norm_sum = norm_partials*(1-self._module_masks.param_masks[i])*self._grad_module_masks.param_masks[i])
-        
-
-        print("LOSSES", loss, forward_weights_norm_sum, backward_weights_norm_sum)
-        total_loss = loss + (
-            forward_weights_norm_sum
-            + 1 / self.forward_sparsity * backward_weights_norm_sum
-        )
-
-        return total_loss

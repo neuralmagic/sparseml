@@ -118,7 +118,7 @@ class ModuleParamPruningMask(object):
         self._params_grad = [None] * len(self._layers)  # type: List[Tensor]
         self._params_movement = [None] * len(self._layers)  # type: List[Tensor]
         self._params_applied_thinning = [0.0] * len(self._layers)  # type: List[float]
-        self._mask_applied =  [False] * len(self._layers) # type: Bool
+        self._mask_applied = [False] * len(self._layers)  # type: Bool
 
         # movement pruning requires weight reintroduction
         self._allow_reintroduction = allow_reintroduction
@@ -400,12 +400,22 @@ class ModuleParamPruningMask(object):
             self._check_regen_param_vals(idx)
 
             with torch.no_grad():
+                # In the case of forward-pass-only masks (Top-KAST, Movement
+                # pruning), the mask is applied on the forward pass and
+                # reverted on the backward pass. At the same time, every time the
+                # mask is applied, we store the previous values in
+                # _params_unmasked. So long as we alternate forward and backward
+                # passes (i.e., during training), this works fine. However, if
+                # we only do forward passes (i.e., during testing/validation),
+                # we can override the unmasked parameters with sparse ones. To
+                # prevent this, only update the unmasked params cache when the
+                # mask is applied for the first time since it was removed.
+                #
+                # Note that there is an assumption here that the weights do not
+                # change when the mask is applied (which is satisfied during
+                # training, since the mask is removed on every backward pass).
                 if self._store_unmasked:
-                    if self._mask_applied[idx]:
-                        print("clumsily avoiding double-setting the mask")
-                    else:
-                        #if idx == 0:
-                        #    print(self._param_masks[idx].device, "masking")
+                    if not self._mask_applied[idx]:
                         self._params_unmasked[idx] = self._params[idx].data.mul(
                             1 - self._param_masks[idx]  # inverted mask
                         )
@@ -553,14 +563,10 @@ class ModuleParamPruningMask(object):
     def _hook_mask_forward(
         self, param_idx: int, mod: Module, inp: Union[Tensor, Tuple[Tensor]]
     ):
-        #if str(inp[0].device) != 'cuda:0':
-        #    return
         with torch.no_grad():
             self.apply(param_idx)
 
     def _hook_undo_mask(self, param_idx, module, inp, out):
-        #if str(inp[0].device) != 'cuda:0':
-        #    return
         if self._allow_reintroduction:
             with torch.no_grad():
                 self._params[param_idx].data.add_(self._params_unmasked[param_idx])
