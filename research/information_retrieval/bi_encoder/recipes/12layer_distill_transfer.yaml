@@ -1,0 +1,17 @@
+
+
+version: 1.1.0
+distill_temperature: &distill_temperature 2.0
+distill_hardness: &distill_hardness 0.5
+
+constant_modifiers:
+
+  - !ConstantPruningModifier
+      start_epoch: 0.0
+      params: __ALL_PRUNABLE__
+
+distillation_modifiers:
+  - !DistillationModifier
+     hardness: eval(distill_hardness)
+     temperature: eval(distill_temperature)
+     distill_output_keys: [logits]
