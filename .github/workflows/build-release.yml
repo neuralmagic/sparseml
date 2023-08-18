@@ -2,8 +2,8 @@ name: build-release
 run-name: ${{ github.workflow }} is to create release wheel file for pypi
 on:
   push:
-  #  branches:
-  #    - 'release/[0-9]+.[0-9]+'
+    branches:
+      - 'release/[0-9]+.[0-9]+'
     workflow_dispatch:
 
 jobs:
