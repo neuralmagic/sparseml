@@ -140,14 +140,17 @@ class _IdentityModifier(Module):
         return in_channels != out_channels or stride > 1
 
 
-class AddInputConv(Module):
+class AddInput(Module):
     def forward(self, x):
         return x
 
 
-class AddInputIdentity(Module):
-    def forward(self, x):
-        return x
+class AddInputConv(AddInput):
+    pass
+
+
+class AddInputIdentity(AddInput):
+    pass
 
 
 class _BasicBlock(Module):
