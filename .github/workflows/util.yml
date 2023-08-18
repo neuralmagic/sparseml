@@ -107,6 +107,7 @@ jobs:
           echo "========== Build info ==========="
           echo "name: ${name}"
           echo "build status: ${{ needs.BUILD.outputs.status }}"
+          echo "GHA job: https://github.com/neuralmagic/${{ github.event.repository.name }}/actions/runs/${{ inputs.run_id }}" | tee result.xml
           echo "========== Report to testmo ==========="
           echo "testmo automation:run:submit \\"
           echo "  --instance ${TESTMO_URL} \\"
