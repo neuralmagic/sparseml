@@ -144,9 +144,11 @@ class AddInputConv(Module):
     def forward(self, x):
         return x
 
+
 class AddInputIdentity(Module):
     def forward(self, x):
         return x
+
 
 class _BasicBlock(Module):
     def __init__(self, in_channels: int, out_channels: int, stride: int = 1):
