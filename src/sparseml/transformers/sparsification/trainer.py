@@ -677,7 +677,7 @@ class RecipeManagerTrainerInterface:
             model=self.model,
             state_dict=loaded_state_dict,
             loaded_keys=list(loaded_state_dict.keys()),
-            resolved_archive_file=[],
+            resolved_archive_file=None,
             pretrained_model_name_or_path=load_path,
             _fast_init=False,
         )
