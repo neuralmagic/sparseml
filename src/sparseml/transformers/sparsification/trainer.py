@@ -673,7 +673,7 @@ class RecipeManagerTrainerInterface:
         loaded_state_dict = torch.load(
             os.path.join(load_path, WEIGHTS_NAME), map_location="cpu"
         )
-        _, missing, unexpected, _, _ = self.model._load_pretrained_model(
+        _, missing, unexpected, _, _, _ = self.model._load_pretrained_model(
             model=self.model,
             state_dict=loaded_state_dict,
             loaded_keys=list(loaded_state_dict.keys()),
