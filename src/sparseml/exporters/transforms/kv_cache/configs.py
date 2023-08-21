@@ -23,6 +23,9 @@ from sparseml.exporters.transforms import OnnxTransform
 from sparseml.exporters.transforms.kv_cache.transforms_codegen import (
     AdditionalTransformsCodeGen,
 )
+from sparseml.exporters.transforms.kv_cache.transforms_llama import (
+    AdditionalTransformsLLAMA,
+)
 from sparseml.exporters.transforms.kv_cache.transforms_opt import (
     AdditionalTransformsOPT,
 )
@@ -112,10 +115,25 @@ BLOOM_CONFIG = KeyValueCacheConfig(
     multiply_batch_by_num_att_heads=True,
 )
 
+LLAMA_CONFIG = KeyValueCacheConfig(
+    model_name="llama",
+    additional_transforms=AdditionalTransformsLLAMA,
+    key_num_attention_heads="num_attention_heads",
+    key_num_embedding_hidden_size="hidden_size",
+    transpose_value_input=(0, 2, 1, 3),
+    transpose_key_input=None,
+    multiply_batch_by_num_att_heads=False,
+)
+
 
 def get_kv_cache_config(
     model_path: str,
-    supported_configs: List[BaseModel] = [OPT_CONFIG, CODEGEN_CONFIG, BLOOM_CONFIG],
+    supported_configs: List[BaseModel] = [
+        OPT_CONFIG,
+        CODEGEN_CONFIG,
+        BLOOM_CONFIG,
+        LLAMA_CONFIG,
+    ],
 ) -> KeyValueCacheConfig:
     """
     Get the kv cache config for the model at the given path.
