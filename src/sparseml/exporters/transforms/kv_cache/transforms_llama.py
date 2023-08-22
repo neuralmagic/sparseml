@@ -15,7 +15,7 @@ import logging
 
 import numpy
 import onnx
-from onnx import ModelProto
+from onnx import ModelProto, numpy_helper
 
 from sparseml.exporters.transforms.kv_cache.transforms_base import (
     AdditionalTransformsBase,
@@ -50,6 +50,7 @@ class AdditionalTransformsLLAMA(AdditionalTransformsBase):
         :return: updated model
         """
 
+        model = self.update_slice_nodes_for_positions_input(model)
         model = self.add_positions_input(model)
         model = self.add_causal_mask_input(model)
 
@@ -71,6 +72,32 @@ class AdditionalTransformsLLAMA(AdditionalTransformsBase):
         )
         model = self.inject_causal_mask(model, causal_mask_nodes, "Add")
         model = self.adjust_causal_mask(model)
+        return model
+
+    def update_slice_nodes_for_positions_input(self, model: ModelProto) -> ModelProto:
+        """
+        Update the Slice nodes in the attention heads such that ends attribute is set
+        to the max int value. This value is missing from the export and is required
+        for the position ids injection.
+        """
+        SLICE_MAX_INT_NAME = "slice_max_int"
+        arr = numpy.array(numpy.iinfo(numpy.intp).max).reshape(
+            1,
+        )
+        max_int_tensor = numpy_helper.from_array(arr, name=SLICE_MAX_INT_NAME)
+
+        nodes_found = 0
+        for node in model.graph.node:
+            if node.op_type == "Slice":
+                data = node.input[0]
+                if "onnx::" in data:
+                    node.input[2] = SLICE_MAX_INT_NAME
+                    nodes_found += 1
+
+        _LOGGER.info(f"Found {nodes_found} slice nodes to update")
+
+        model.graph.initializer.append(max_int_tensor)
+        ONNXGraph(model).delete_orphaned_node_branches()
         return model
 
     def adjust_causal_mask(self, model: ModelProto) -> ModelProto:
