@@ -1,0 +1,22 @@
+name: build-nightly
+run-name: ${{ github.workflow }} is to create nightly wheel file for pypi
+on:
+  push:
+    branches:
+      - 'main'
+  schedule:
+    - cron: '30 0 * * *'
+  workflow_dispatch:
+
+
+jobs:
+
+    BUILD-SPARSEML-NIGHTLY:
+
+      uses: ./.github/workflows/util.yml
+      with:
+        runs_on: ubuntu-22.04
+        run_id: ${{ github.run_id }}
+        build_type: nightly
+        testmo_project_id: 9
+      secrets: inherit
