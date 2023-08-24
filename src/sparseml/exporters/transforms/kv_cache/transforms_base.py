@@ -16,11 +16,14 @@ import logging
 from copy import deepcopy
 from typing import Any, Dict, List, Optional
 
+import numpy
+import onnx
 from onnx import ModelProto, NodeProto, TensorProto, ValueInfoProto, helper
 
 from sparseml.exporters.transforms.onnx_transform import OnnxTransform
 from sparseml.exporters.transforms.utils.matching import get_structural_matches
 from sparseml.onnx.utils.graph_editor import ONNXGraph
+from sparseml.onnx.utils.helpers import get_nodes_by_input_id
 
 
 __all__ = ["AdditionalTransformsBase"]
@@ -196,3 +199,109 @@ class AdditionalTransformsBase(OnnxTransform):
                 f"{self.__name__} - unable to find '{input_name}' in model input"
             )
         return input_proto
+
+    def adjust_causal_mask(self, model: ModelProto) -> ModelProto:
+        """
+        Insert a `Cast`, `Sub` and `Mul` nodes after the causal mask input to change
+        the initial int64, to a mask of floats expected by the model.
+
+        Transform:
+        ```
+        |       causal_mask
+        |            |
+        |   causal_mask_input_child
+        ```
+        to:
+        ```
+        |       causal_mask (1 and 0)
+        |            |
+        |          Cast  (output -> 1.0 and 0.0)
+        |            |
+        |           Sub (output -> 0.0 and -1.0)
+        |            |
+        |           Mul (output -> 0.0 and numpy.finfo(numpy.float32).min)
+        |            |
+        |   causal_mask_input_child
+
+        The resulting node will change the input int64 mask
+        e.g.
+        ```
+        causal_mask =
+            [[[[1, 1, 1, 0, 0, 0],
+                [1, 1, 1, 1, 0, 0],
+                [1, 1, 1, 1, 1, 0],
+                [1, 1, 1, 1, 1, 1]]]]
+        ```
+
+        to a mask of floats:
+        ```
+        x = numpy.finfo(numpy.float32).min
+        causal_mask_adjusted =
+            [[[[0.0, 0.0, 0.0, x, x, x],
+                [0.0, 0.0, 0.0, 0.0, x, x],
+                [0.0, 0.0, 0.0, 0.0, 0.0, x],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]]]
+        ```
+
+        :param model: the model to update
+        :return: the updated model
+        """
+
+        graph = ONNXGraph(model)
+
+        ones_initializer = onnx.helper.make_tensor(
+            name="ones_initializer",
+            data_type=onnx.TensorProto.FLOAT,
+            dims=[1],
+            vals=[1.0],
+        )
+
+        floating_point_limit_initializer = onnx.helper.make_tensor(
+            name="floating_point_limit_initializer",
+            data_type=onnx.TensorProto.FLOAT,
+            dims=[1],
+            vals=[-numpy.finfo(numpy.float32).min],
+        )
+
+        cast_node = onnx.helper.make_node(
+            "Cast",
+            inputs=[self.CAUSAL_MASK_NAME],
+            outputs=[f"{self.CAUSAL_MASK_NAME}_cast"],
+            to=onnx.TensorProto.FLOAT,
+        )
+
+        sub_node = onnx.helper.make_node(
+            "Sub",
+            inputs=[f"{self.CAUSAL_MASK_NAME}_cast", ones_initializer.name],
+            outputs=[f"{self.CAUSAL_MASK_NAME}_sub"],
+        )
+
+        mul_node = onnx.helper.make_node(
+            "Mul",
+            inputs=[
+                f"{self.CAUSAL_MASK_NAME}_sub",
+                floating_point_limit_initializer.name,
+            ],
+            outputs=[f"{self.CAUSAL_MASK_NAME}_mul"],
+        )
+
+        new_nodes = [cast_node, sub_node, mul_node]
+
+        # get the node that takes the causal mask as input
+        # and replace the input with the adjusted causal mask input
+        causal_mask_input_child = get_nodes_by_input_id(model, self.CAUSAL_MASK_NAME)[0]
+
+        for idx, input_name in enumerate(causal_mask_input_child.input):
+            if input_name == self.CAUSAL_MASK_NAME:
+                causal_mask_input_child.input[idx] = f"{self.CAUSAL_MASK_NAME}_mul"
+
+        for node in new_nodes:
+            graph.add_node(node)
+            self.log_match(node)
+
+        model.graph.initializer.extend(
+            [ones_initializer, floating_point_limit_initializer]
+        )
+        _LOGGER.info(f"Successfully adjusted the {self.CAUSAL_MASK_NAME} input")
+
+        return model

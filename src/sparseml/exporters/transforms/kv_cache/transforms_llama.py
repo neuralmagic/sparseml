@@ -14,14 +14,12 @@
 import logging
 
 import numpy
-import onnx
 from onnx import ModelProto, numpy_helper
 
 from sparseml.exporters.transforms.kv_cache.transforms_base import (
     AdditionalTransformsBase,
 )
 from sparseml.onnx.utils.graph_editor import ONNXGraph
-from sparseml.onnx.utils.helpers import get_nodes_by_input_id
 
 
 __all__ = ["AdditionalTransformsLLAMA"]
@@ -36,15 +34,17 @@ class AdditionalTransformsLLAMA(AdditionalTransformsBase):
 
     def transform(self, model: ModelProto) -> ModelProto:
         """
-        1. Adds `positions` as an input to the model
-        2. Adds `causal_mask` as an input to the model
-        2. Finds the node that initially creates the `position_ids` tensor
-        3. Updates the node to use the positions input instead of
+        1  Updates the Slice nodes in the attention heads by extending the `ends`
+        operator
+        2. Adds `positions` as an input to the model
+        3. Adds `causal_mask` as an input to the model
+        4. Finds the node that initially creates the `position_ids` tensor
+        5. Updates the node to use the positions input instead of
            computing it from the Range op
-        4. Finds the nodes that initially create the `causal_mask` tensors
-        5. Updates the nodes to use the causal_mask input instead of
+        6. Finds the nodes that initially create the `causal_mask` tensors
+        7. Updates the nodes to use the causal_mask input instead of
               computing it from the Expand op
-        6. Update the masks to be floats, as expected by the model
+        8. Update the masks to be floats, as expected by the model
 
         :param model: model to update
         :return: updated model
@@ -76,9 +76,24 @@ class AdditionalTransformsLLAMA(AdditionalTransformsBase):
 
     def update_slice_nodes_for_positions_input(self, model: ModelProto) -> ModelProto:
         """
-        Update the Slice nodes in the attention heads such that ends attribute is set
-        to the max int value. This value is missing from the export and is required
-        for the position ids injection.
+        Update the Slice nodes in the attention heads such that the `ends` operator is
+        set to the max int value. This value is missing from the export and is required
+        for the position ids injection. This is because the onnx export limits access to
+        the entire sin_cached and cos_cached tables, which results in an index error
+        with the position ids:
+
+        https://github.com/huggingface/transformers/blob/
+        7a6efe1e9f756f585f2ffe5ada22cf6b15edd23b/src/transformers/models/llama/
+        modeling_llama.py#L180.
+
+        By updating the `ends` operator, access is allowed to the entire tables.
+        The Slice nodes are identified based on if they contain the `data` operator
+        as an input, which have the name `onnx::Slice_...`. Nodes with this name have
+        their `ends` operator updated to point to a 1x1 tensor containing the max
+        int value.
+
+        :param model: model to update
+        :return: updated model with Slice nodes in the attention heads updated
         """
         SLICE_MAX_INT_NAME = "slice_max_int"
         arr = numpy.array(numpy.iinfo(numpy.intp).max).reshape(
@@ -93,115 +108,10 @@ class AdditionalTransformsLLAMA(AdditionalTransformsBase):
                 if "onnx::" in data:
                     node.input[2] = SLICE_MAX_INT_NAME
                     nodes_found += 1
+                    self.log_match(node)
 
         _LOGGER.info(f"Found {nodes_found} slice nodes to update")
 
         model.graph.initializer.append(max_int_tensor)
         ONNXGraph(model).delete_orphaned_node_branches()
-        return model
-
-    def adjust_causal_mask(self, model: ModelProto) -> ModelProto:
-        """
-        Insert a `Cast`, `Sub` and `Mul` nodes after the causal mask input to change
-        the initial int64, to a mask of floats expected by the model.
-
-        Transform:
-        ```
-        |       causal_mask
-        |            |
-        |   causal_mask_input_child
-        ```
-        to:
-        ```
-        |       causal_mask (1 and 0)
-        |            |
-        |          Cast  (output -> 1.0 and 0.0)
-        |            |
-        |           Sub (output -> 0.0 and -1.0)
-        |            |
-        |           Mul (output -> 0.0 and numpy.finfo(numpy.float32).min)
-        |            |
-        |   causal_mask_input_child
-
-        The resulting node will change the input int64 mask
-        e.g.
-        ```
-        causal_mask =
-            [[[[1, 1, 1, 0, 0, 0],
-                [1, 1, 1, 1, 0, 0],
-                [1, 1, 1, 1, 1, 0],
-                [1, 1, 1, 1, 1, 1]]]]
-        ```
-
-        to a mask of floats:
-        ```
-        x = numpy.finfo(numpy.float32).min
-        causal_mask_adjusted =
-            [[[[0.0, 0.0, 0.0, x, x, x],
-               [0.0, 0.0, 0.0, 0.0, x, x],
-               [0.0, 0.0, 0.0, 0.0, 0.0, x],
-               [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]]]
-        ```
-
-        :param model: the model to update
-        :return: the updated model
-        """
-
-        graph = ONNXGraph(model)
-
-        ones_initializer = onnx.helper.make_tensor(
-            name="ones_initializer",
-            data_type=onnx.TensorProto.FLOAT,
-            dims=[1],
-            vals=[1.0],
-        )
-
-        floating_point_limit_initializer = onnx.helper.make_tensor(
-            name="floating_point_limit_initializer",
-            data_type=onnx.TensorProto.FLOAT,
-            dims=[1],
-            vals=[-numpy.finfo(numpy.float32).min],
-        )
-
-        cast_node = onnx.helper.make_node(
-            "Cast",
-            inputs=[self.CAUSAL_MASK_NAME],
-            outputs=[f"{self.CAUSAL_MASK_NAME}_cast"],
-            to=onnx.TensorProto.FLOAT,
-        )
-
-        sub_node = onnx.helper.make_node(
-            "Sub",
-            inputs=[f"{self.CAUSAL_MASK_NAME}_cast", ones_initializer.name],
-            outputs=[f"{self.CAUSAL_MASK_NAME}_sub"],
-        )
-
-        mul_node = onnx.helper.make_node(
-            "Mul",
-            inputs=[
-                f"{self.CAUSAL_MASK_NAME}_sub",
-                floating_point_limit_initializer.name,
-            ],
-            outputs=[f"{self.CAUSAL_MASK_NAME}_mul"],
-        )
-
-        new_nodes = [cast_node, sub_node, mul_node]
-
-        # get the node that takes the causal mask as input
-        # and replace the input with the adjusted causal mask input
-        causal_mask_input_child = get_nodes_by_input_id(model, self.CAUSAL_MASK_NAME)[0]
-
-        for idx, input_name in enumerate(causal_mask_input_child.input):
-            if input_name == self.CAUSAL_MASK_NAME:
-                causal_mask_input_child.input[idx] = f"{self.CAUSAL_MASK_NAME}_mul"
-
-        for node in new_nodes:
-            graph.add_node(node)
-            self.log_match(node)
-
-        model.graph.initializer.extend(
-            [ones_initializer, floating_point_limit_initializer]
-        )
-        _LOGGER.info(f"Successfully adjusted the {self.CAUSAL_MASK_NAME} input")
-
         return model
