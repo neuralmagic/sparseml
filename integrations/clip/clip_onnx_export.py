@@ -28,7 +28,7 @@ from typing import Any, Union
 import torch
 
 import open_clip
-from clip_models import TextModel, VisualModel
+from clip_models import TextModel
 from sparseml.pytorch.utils import export_onnx
 
 
@@ -61,15 +61,8 @@ def _export_visual(
     **export_kwargs,
 ):
     module_name = "clip_visual.onnx"
-    """
-    visual_model = VisualModel(
-        visual_model=model.visual,
-        output_tokens=is_coca,
-    )
-    """
     visual_model = model.visual
 
-    #image_shape = visual_model.visual_model.image_size[0]
     image_shape = visual_model.image_size[0]
     sample_input = torch.randn(1, 3, image_shape, image_shape, requires_grad=True)
 
@@ -115,7 +108,7 @@ def _export_text(
     if is_coca:
         sample_batch = torch.ones(6, 15, dtype=torch.long)
     else:
-        sample_batch = tokenizer(["a dog"])
+        sample_batch = tokenizer(["a dog"]).to(torch.int32)
 
     _export_onnx(
         module=text_model,
