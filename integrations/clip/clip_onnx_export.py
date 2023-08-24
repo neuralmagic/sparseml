@@ -47,7 +47,7 @@ def _export_onnx(
     export_onnx(
         module=module,
         sample_batch=sample_batch,
-        opset=14,
+        opset=opset,
         file_path=file_path,
         **export_kwargs,
     )
@@ -128,9 +128,7 @@ def _export_text_decoder(
 
     sample_batch = OrderedDict()
     sample_batch["image_embs"] = torch.randn(1, 255, model.text.output_dim)
-    sample_batch["text_embs"] = torch.randn(
-        1, 15, model.text.output_dim
-    )
+    sample_batch["text_embs"] = torch.randn(1, 15, model.text.output_dim)
 
     _export_onnx(
         module=decoder,
