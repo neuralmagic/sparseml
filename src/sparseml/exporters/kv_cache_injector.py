@@ -22,6 +22,7 @@ import onnx
 from sparseml.exporters.base_exporter import BaseExporter
 from sparseml.exporters.transforms import OnnxTransform
 from sparseml.exporters.transforms.kv_cache import (
+    SUPPORTED_CONFIGS,
     CacheKeysAndValues,
     KeyValueCacheConfig,
     get_kv_cache_config,
@@ -33,6 +34,9 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class KeyValueCacheInjector(BaseExporter):
+
+    supported_models = [config.model_name for config in SUPPORTED_CONFIGS]
+
     def __init__(
         self,
         model_path: Optional[str] = None,

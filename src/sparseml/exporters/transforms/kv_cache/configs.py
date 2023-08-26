@@ -30,7 +30,7 @@ from sparseml.exporters.transforms.kv_cache.transforms_opt import (
 
 _LOGGER = logging.getLogger(__name__)
 
-__all__ = ["get_kv_cache_config", "KeyValueCacheConfig"]
+__all__ = ["get_kv_cache_config", "KeyValueCacheConfig", "SUPPORTED_CONFIGS"]
 
 
 class KeyValueCacheConfig(BaseModel):
@@ -112,10 +112,12 @@ BLOOM_CONFIG = KeyValueCacheConfig(
     multiply_batch_by_num_att_heads=True,
 )
 
+SUPPORTED_CONFIGS = [OPT_CONFIG, CODEGEN_CONFIG, BLOOM_CONFIG]
+
 
 def get_kv_cache_config(
     model_path: str,
-    supported_configs: List[BaseModel] = [OPT_CONFIG, CODEGEN_CONFIG, BLOOM_CONFIG],
+    supported_configs: List[BaseModel] = SUPPORTED_CONFIGS,
 ) -> KeyValueCacheConfig:
     """
     Get the kv cache config for the model at the given path.
