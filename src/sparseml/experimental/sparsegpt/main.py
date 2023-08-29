@@ -21,7 +21,7 @@ DEV = torch.device("cuda:0")
 @torch.no_grad()
 def sequential(model, dataloader, dev, args):
     sequential_sparsegpt = prepare_sparsegpt(model, dataloader, args, dev=dev)
-    sequential_sparsegpt.compress(dev)
+    sequential_sparsegpt.compress(dataloader=dataloader, dev=dev)
 
 
 def _save(model, tokenizer, save_path):

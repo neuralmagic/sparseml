@@ -35,7 +35,7 @@ class SequentialSparseGPT:
                 "Derived class should override to provide list of compressible layers"
             )
 
-    def pre_compress(self, dev: str = "cuda:0", **kwargs):
+    def pre_compress(self, args, dev: str = "cuda:0", **kwargs):
         model = self.model
         all_extras = {}
         for processor in self.model_preprocessors:
@@ -45,7 +45,7 @@ class SequentialSparseGPT:
             all_extras.update(extras)
         return model, all_extras
 
-    def compress(self, dev: str = "cuda:0", **kwargs):
+    def compress(self, args, dev: str = "cuda:0", **kwargs):
         accum_kwargs = deepcopy(kwargs)
 
         import pdb; pdb.set_trace()
@@ -62,6 +62,7 @@ class SequentialSparseGPT:
 
         # Step 1: Sequentially prune/quantize decoder layers
 
+        inputs = None
         for idx, layer in enumerate(self.compressible_layers):
             if "outputs" not in accum_kwargs:
                 raise RuntimeError("The 'outputs' key is expected but not found from the "
