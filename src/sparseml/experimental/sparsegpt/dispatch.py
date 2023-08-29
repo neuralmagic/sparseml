@@ -1,33 +1,36 @@
 SUPPORTED_MODELS = ["opt", "mpt"]
 
 
-def load_model(args):
-    key = _get_model_key(args)
-    if key == "opt":
+def load_model(args, model_key: str = None):
+    model_key = _get_model_key(args) if model_key is None else model_key
+    if model_key == "opt":
         from opt import load_model as _load_model
-    else:
+    elif model_key == "mpt":
         from mpt import load_model as _load_model
-
+    else:
+        raise ValueError(f"Unrecognized model key. Supported: {SUPPORTED_MODELS}")
     return _load_model(args)
 
 
-def load_data(args):
-    key = _get_model_key(args)
-    if key == "opt":
+def load_data(args, model_key: str = None):
+    model_key = _get_model_key(args) if model_key is None else model_key
+    if model_key == "opt":
         from opt import load_data as _load_data
-    else:
+    elif model_key == "mpt":
         from mpt import load_data as _load_data
-
+    else:
+        raise ValueError(f"Unrecognized model key. Supported: {SUPPORTED_MODELS}")
     return _load_data(args)
 
 
-def prepare_sparsegpt(model, dataloader, args, **kwargs):
-    key = _get_model_key(args)
-    if key == "opt":
+def prepare_sparsegpt(model, dataloader, args, model_key: str = None, **kwargs):
+    model_key = _get_model_key(args) if model_key is None else model_key
+    if model_key == "opt":
         from opt import prepare_sparsegpt as _prepare_sparsegpt
-    else:
+    elif model_key == "mpt":
         from mpt import prepare_sparsegpt as _prepare_sparsegpt
-
+    else:
+        raise ValueError(f"Unrecognized model key. Supported: {SUPPORTED_MODELS}")
     return _prepare_sparsegpt(model, dataloader, args, **kwargs)
 
 

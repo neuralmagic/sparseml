@@ -12,7 +12,7 @@ from sequential import SequentialSparseGPT
 
 class SequentialSparseGPT_OPT(SequentialSparseGPT):
     def compressible_layers(self):
-        return self.model.model.decoders.layers
+        return self.model.model.decoder.layers
 
 
 class OPTBottomCompressor(BaseCompressor):
@@ -259,7 +259,7 @@ def load_model(args):
 def load_data(args):
     name = args.dataset
     nsamples = args.nsamples
-    seqlen = args.max_seq_len
+    seqlen = args.data_sequence_length
     model = args.model
     seed = args.seed
 
