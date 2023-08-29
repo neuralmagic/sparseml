@@ -37,7 +37,7 @@ class QuantizationModelPreprocessor(ModelPreProcessor):
         self.data_loader = data_loader
         self.observer_batches = observer_batches
 
-    def __call__(self, model, dev: str = "cuda:0") -> Tuple[nn.Module, Dict]:
+    def __call__(self, model, dev: str = "cuda:0", **kwargs) -> Tuple[nn.Module, Dict]:
         manager = ScheduledModifierManager.from_yaml(self.recipe)
         model.train()
         manager.apply_structure(model, epoch=0.1)

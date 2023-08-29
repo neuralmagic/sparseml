@@ -20,7 +20,7 @@ class OPTBottomCompressor(BaseCompressor):
     OPT specific
     """
 
-    def post_compress(
+    def compress(
         self, dataloader=None, nsamples: int = None, dev: str = "cuda:0", **kwargs
     ):
         model = self.model
