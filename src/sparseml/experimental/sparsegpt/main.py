@@ -49,6 +49,7 @@ if __name__ == "__main__":
         choices=["wikitext2", "ptb", "c4"],
         help="Where to extract calibration data from.",
     )
+    parser.add_argument("--data-sequence-length", type=int, default=2048)
     parser.add_argument("--recipe", type=str, default=None)
     parser.add_argument("--observer-batches", type=int, default=100)
     parser.add_argument(
@@ -135,8 +136,8 @@ if __name__ == "__main__":
     if args.log_wandb:
         assert has_wandb, "wandb not installed try `pip install wandb`"
         wandb.init(config=args)
-
     model = load_model(args)
+    import pdb; pdb.set_trace()
     dataloader, testloader, tokenizer = load_data(args)
 
     if args.wbits < 16 or ((args.sparsity or args.prunen) and not args.gmp):

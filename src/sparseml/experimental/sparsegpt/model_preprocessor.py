@@ -4,7 +4,6 @@ from typing import Dict, Tuple
 import torch
 import torch.nn as nn
 
-from smoothquant.smooth import smooth_lm
 from sparseml.pytorch.optim.manager import ScheduledModifierManager
 
 
@@ -23,6 +22,7 @@ class SmoothQuantModelPreprocessor(ModelPreProcessor):
         self.alpha = alpha
 
     def __call__(self, dev: str = "cuda:0", **kwargs) -> Tuple[nn.Module, Dict]:
+        from smoothquant.smooth import smooth_lm
         self.model.to(dev)
         act_scales = torch.load(self.smooth_activation_file)
         smooth_lm(self.model, act_scales, 0.5)
@@ -42,10 +42,12 @@ class QuantizationModelPreprocessor(ModelPreProcessor):
         model.train()
         manager.apply_structure(model, epoch=0.1)
         model.eval()
-        model = self.initialize_scales_from_batches(model, dev)
+        model = self._initialize_scales_from_batches(model, dev)
         return model, {"manager": manager}
 
-    def initialize_scales_from_batches_whole(self, model, dev):
+    def _initialize_scales_from_batches(self, model, dev):
+        # TODO: have another version with layer-wise execution to save memory on
+        # very large models
         print("Collecting data statistics for quantization scales...")
         model.train()
         model.to(dev)
