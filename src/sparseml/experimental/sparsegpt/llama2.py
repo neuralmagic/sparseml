@@ -103,7 +103,7 @@ def load_model(args):
 def load_data(args):
     name = args.dataset
     nsamples = args.nsamples
-    seqlen = args.max_seq_len
+    seqlen = args.model.max_seq_len
     model = args.model
     seed = args.seed
 
