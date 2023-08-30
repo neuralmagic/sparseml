@@ -136,8 +136,8 @@ if __name__ == "__main__":
         assert has_wandb, "wandb not installed try `pip install wandb`"
         wandb.init(config=args)
 
-    model = load_model(args)
-    dataloader, testloader, tokenizer = load_data(args)
+    model, sqelen = load_model(args)
+    dataloader, testloader, tokenizer = load_data(args, seqlen)
 
     if args.wbits < 16 or ((args.sparsity or args.prunen) and not args.gmp):
         tick = time.time()

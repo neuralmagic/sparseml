@@ -98,12 +98,11 @@ def load_model(args):
 
     model = LlamaForCausalLM.from_pretrained(model, torch_dtype="auto")
     model.seqlen = model.config.max_position_embeddings
-    return model
+    return model, seqlen
 
-def load_data(args):
+def load_data(args, seqlen):
     name = args.dataset
     nsamples = args.nsamples
-    seqlen = args.model.max_seq_len
     model = args.model
     seed = args.seed
 
