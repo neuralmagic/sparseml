@@ -4,7 +4,6 @@ from typing import Dict, Tuple
 import torch
 import torch.nn as nn
 
-from smoothquant.smooth import smooth_lm
 from sparseml.pytorch.optim.manager import ScheduledModifierManager
 
 
@@ -15,18 +14,21 @@ class ModelPreProcessor:
     def __call__(self, dev: str = "cuda:0", **kwargs) -> Tuple[nn.Module, Dict]:
         return self.model, {}
 
+try:
+    from smoothquant.smooth import smooth_lm
+    class SmoothQuantModelPreprocessor(ModelPreProcessor):
+        def __init__(self, model, smooth_activation_file, alpha: float = 0.5):
+            super().__init__(model)
+            self.smooth_activation_file = smooth_activation_file
+            self.alpha = alpha
 
-class SmoothQuantModelPreprocessor(ModelPreProcessor):
-    def __init__(self, model, smooth_activation_file, alpha: float = 0.5):
-        super().__init__(model)
-        self.smooth_activation_file = smooth_activation_file
-        self.alpha = alpha
-
-    def __call__(self, dev: str = "cuda:0", **kwargs) -> Tuple[nn.Module, Dict]:
-        self.model.to(dev)
-        act_scales = torch.load(self.smooth_activation_file)
-        smooth_lm(self.model, act_scales, 0.5)
-        return self.model
+        def __call__(self, dev: str = "cuda:0", **kwargs) -> Tuple[nn.Module, Dict]:
+            self.model.to(dev)
+            act_scales = torch.load(self.smooth_activation_file)
+            smooth_lm(self.model, act_scales, 0.5)
+            return self.model
+except:
+    print("SmoothQuant not supported")
 
 
 class QuantizationModelPreprocessor(ModelPreProcessor):
