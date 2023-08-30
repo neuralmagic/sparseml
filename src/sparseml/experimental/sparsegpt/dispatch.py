@@ -1,7 +1,7 @@
 SUPPORTED_MODELS = ["opt", "mpt", "llama-2"]
 
 
-def load_model(args):
+def load_model(args, *gargs, **kwargs):
     key = _get_model_key(args)
     if key == "opt":
         from opt import load_model as _load_model
@@ -10,10 +10,10 @@ def load_model(args):
     else:
         from mpt import load_model as _load_model
 
-    return _load_model(args)
+    return _load_model(args, *gargs, **kwargs)
 
 
-def load_data(args):
+def load_data(args, *gargs, **kwargs):
     key = _get_model_key(args)
     if key == "opt":
         from opt import load_data as _load_data
@@ -22,7 +22,7 @@ def load_data(args):
     else:
         from mpt import load_data as _load_data
 
-    return _load_data(args)
+    return _load_data(args, *gargs, **kwargs)
 
 
 def prepare_sparsegpt(model, dataloader, args, **kwargs):
