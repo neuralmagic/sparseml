@@ -1,10 +1,12 @@
-SUPPORTED_MODELS = ["opt", "mpt"]
+SUPPORTED_MODELS = ["opt", "mpt", "llama2"]
 
 
 def load_model(args):
     key = _get_model_key(args)
     if key == "opt":
         from opt import load_model as _load_model
+    elif key == "llama2":
+        from llama2 import load_model as _load_model
     else:
         from mpt import load_model as _load_model
 
@@ -15,6 +17,8 @@ def load_data(args):
     key = _get_model_key(args)
     if key == "opt":
         from opt import load_data as _load_data
+    elif key == "llama2":
+        from llama2 import load_data as _load_data
     else:
         from mpt import load_data as _load_data
 
@@ -39,6 +43,6 @@ def _get_model_key(args):
             break
     if key is None:
         raise ValueError(
-            f"Model {model} is not supported. Supported models: {SUPPORTED_MODELS.keys()}"
+            f"Model {args.model} is not supported. Supported models: {SUPPORTED_MODELS.keys()}"
         )
     return key
