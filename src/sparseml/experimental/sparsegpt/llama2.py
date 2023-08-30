@@ -97,7 +97,7 @@ def load_model(args):
     from transformers import LlamaForCausalLM, LlamaTokenizer
 
     model = LlamaForCausalLM.from_pretrained(model, torch_dtype="auto")
-    model.seqlen = model.config.max_position_embeddings
+    seqlen = model.config.max_position_embeddings
     return model, seqlen
 
 def load_data(args, seqlen):
