@@ -1,7 +1,7 @@
 from typing import Any, Dict, List, Optional, Union
 
-import onnx
-from onnx import ModelProto
+from torch.utils.data import DataLoader
+from torch.nn import Module
 
 from sparseml.optim import (
     BaseManager,
@@ -10,9 +10,9 @@ from sparseml.optim import (
     parse_recipe_variables,
     validate_metadata,
 )
+from sparseml.pytorch.sparsification import Modifier
 from sparsezoo.objects import File
-from sparsifyml.one_shot.sparsification import Modifier
-from sparsifyml.one_shot.utils import DataLoader
+from sparseml.pytorch.optim import ScheduledModifierManager
 
 
 __all__ = ["RecipeManagerOneShot"]
@@ -59,16 +59,14 @@ class RecipeManagerOneShot(BaseManager):
         validated_metadata = validate_metadata(metadata, yaml_str)
 
         if metadata is not None:
-            validated_metadata = add_framework_metadata(
-                validated_metadata, onnx_version=onnx.__version__
-            )
+            validated_metadata = add_framework_metadata(validated_metadata)
 
-        manager = RecipeManager(modifiers=modifiers, metadata=validated_metadata)
+        manager = ScheduledModifierManager(modifiers=modifiers, metadata=validated_metadata)
         return manager
 
     def one_shot(
         self,
-        model: Any,
+        module: Module,
         data_loader: List,
         initialize_kwargs: Optional[dict] = None,
         finalize_kwargs: Optional[dict] = None,
@@ -86,7 +84,7 @@ class RecipeManagerOneShot(BaseManager):
 
         for mod in self.iter_modifiers():
             mod.one_shot(
-                model,
+                module,
                 data_loader,
                 initialize_kwargs or {},
                 finalize_kwargs or {},
@@ -94,7 +92,7 @@ class RecipeManagerOneShot(BaseManager):
 
     def initialize(
         self,
-        model: ModelProto,
+        module: Module,
         **kwargs,
     ):
         """
@@ -106,11 +104,11 @@ class RecipeManagerOneShot(BaseManager):
         """
 
         for mod in self.iter_modifiers():
-            mod.initialize(model, **kwargs)
+            mod.initialize(module, **kwargs)
 
     def update(
         self,
-        model: ModelProto,
+        module: Module,
         data_loader: Optional[DataLoader] = None,
     ):
         """
@@ -124,9 +122,9 @@ class RecipeManagerOneShot(BaseManager):
             if not mod.enabled:
                 continue
 
-            mod.update(model, data_loader)
+            mod.update(module, data_loader)
 
-    def finalize(self, model: Optional[ModelProto] = None, **kwargs):
+    def finalize(self, module: Module = None, **kwargs):
         """
         Handles any finalization of the modifier for the given model.
         Applies any remaining logic and cleans up any hooks or attachments to the model.
@@ -139,7 +137,7 @@ class RecipeManagerOneShot(BaseManager):
         """
 
         for mod in self.iter_modifiers():
-            mod.finalize(model, **kwargs)
+            mod.finalize(module, **kwargs)
 
     @staticmethod
     def _sort_modifiers_list(modifiers: List[Modifier]) -> List[Modifier]:
