@@ -7,6 +7,8 @@ from sparseml.pytorch.sparsification.obcq.layer_compressor import BaseCompressor
 
 _LOGGER = logging.getLogger(__name__)
 
+__all__ = ["SparseOPTModifier"]
+
 class OPTBottomCompressor(BaseCompressor):
     """
     OPT specific
@@ -112,7 +114,7 @@ class SparseOPTModifier(SparseGPTModifier):
         )
 
     def compressible_layers(self):
-        return self.model.model.decoders.layers
+        return self.model.model.decoder.layers
     
     def bottom_compressor(self):
         return OPTBottomCompressor(self.model)

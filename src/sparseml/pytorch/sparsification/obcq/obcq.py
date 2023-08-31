@@ -1,8 +1,11 @@
 import logging
 from typing import Optional
+import argparse
+import os
+from pathlib import Path
 
 from transformers import OPTForCausalLM
-from sparseml.pytorch.sparsification.obcq.manager import RecipeManagerOneShot
+#from sparseml.pytorch.sparsification.obcq.sparse_opt_modifier import SparseOPTModifier
 from sparseml.pytorch.sparsification.obcq.manager import RecipeManagerOneShot
 from sparseml.pytorch.sparsification.obcq.data import (
     get_wikitext2,
@@ -32,7 +35,8 @@ def one_shot(
     :param num_samples: Number of samples to extract from the dataset
     :param recipe_file: recipe containing SparseGPT configuration
     """
-    deploy_dir = deploy_dir / "deployment"
+    deploy_dir = Path(os.path.join(deploy_dir, "deployment"))
+
     if deploy_dir.exists():
         raise RuntimeError(f"deploy_dir={deploy_dir} already exists")
     
@@ -50,7 +54,44 @@ def one_shot(
     else:
         raise ValueError(f"dataset_name={dataset_name} should be one of {SUPPORTED_DATASETS}")
     
-    calibration_data, test_encoder, tokenizer = data_loader_fn(num_samples, 0, model.seqlen, model)
+    calibration_data, test_encoder, tokenizer = data_loader_fn(num_samples, 0, model.seqlen, model_path)
 
     recipe = RecipeManagerOneShot.from_yaml(recipe_file)
+    """
+    sparse_opt_mod = SparseOPTModifier(
+        sparsity=0.5,
+        block_size=128,
+        quantize=True,
+        num_bits=8
+    )
+    recipe = RecipeManagerOneShot([sparse_opt_mod])
+    """
     recipe.one_shot(model, calibration_data)
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        "model", type=str, help="OPT model to load; pass `facebook/opt-X`."
+    )
+    parser.add_argument(
+        "dataset",
+        type=str,
+        choices=["wikitext2", "ptb", "c4"],
+        help="Where to extract calibration data from.",
+    )
+    parser.add_argument(
+        "--nsamples", type=int, default=128, help="Number of calibration data samples."
+    )
+    parser.add_argument("--deploy-dir", type=str, default=".")
+    parser.add_argument("--recipe", type=str, default=None)
+
+    args = parser.parse_args()
+
+    one_shot(
+        model_path=args.model,
+        dataset_name=args.dataset,
+        deploy_dir=args.deploy_dir,
+        num_samples=args.nsamples,
+        recipe_file=args.recipe
+    )
