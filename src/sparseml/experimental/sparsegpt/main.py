@@ -20,7 +20,7 @@ DEV = torch.device("cuda:0")
 
 @torch.no_grad()
 def sequential(model, dataloader, dev, args):
-    sequential_sparsegpt = prepare_sparsegpt(model, dataloader, args, dev=dev)
+    sequential_sparsegpt = prepare_sparsegpt(model, dataloader, args=args, dev=dev)
     sequential_sparsegpt.compress(dataloader=dataloader, dev=dev)
 
 
@@ -137,16 +137,11 @@ if __name__ == "__main__":
         assert has_wandb, "wandb not installed try `pip install wandb`"
         wandb.init(config=args)
     model = load_model(args)
-    import pdb; pdb.set_trace()
     dataloader, testloader, tokenizer = load_data(args)
 
     if args.wbits < 16 or ((args.sparsity or args.prunen) and not args.gmp):
         tick = time.time()
         sequential(model, dataloader, DEV, args)
-        for n, p in model.named_parameters():
-            print(n, torch.mean((p == 0).float()))
-            if "fc2" in n:
-                break
         print(time.time() - tick)
 
     if args.save:
