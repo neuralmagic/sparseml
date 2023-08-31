@@ -20,8 +20,8 @@ DEV = torch.device("cuda:0")
 
 @torch.no_grad()
 def sequential(model, dataloader, dev, args):
-    sequential_sparsegpt = prepare_sparsegpt(model, dataloader, args, dev=dev)
-    sequential_sparsegpt.compress(dev)
+    sequential_sparsegpt = prepare_sparsegpt(model, dataloader, args=args, dev=dev)
+    sequential_sparsegpt.compress(dataloader=dataloader, dev=dev)
 
 
 def _save(model, tokenizer, save_path):
@@ -49,6 +49,7 @@ if __name__ == "__main__":
         choices=["wikitext2", "ptb", "c4"],
         help="Where to extract calibration data from.",
     )
+    parser.add_argument("--data-sequence-length", type=int, default=2048)
     parser.add_argument("--recipe", type=str, default=None)
     parser.add_argument("--observer-batches", type=int, default=100)
     parser.add_argument(
@@ -135,17 +136,12 @@ if __name__ == "__main__":
     if args.log_wandb:
         assert has_wandb, "wandb not installed try `pip install wandb`"
         wandb.init(config=args)
-
     model = load_model(args)
     dataloader, testloader, tokenizer = load_data(args)
 
     if args.wbits < 16 or ((args.sparsity or args.prunen) and not args.gmp):
         tick = time.time()
         sequential(model, dataloader, DEV, args)
-        for n, p in model.named_parameters():
-            print(n, torch.mean((p == 0).float()))
-            if "fc2" in n:
-                break
         print(time.time() - tick)
 
     if args.save:

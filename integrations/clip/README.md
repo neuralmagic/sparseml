@@ -16,11 +16,21 @@ limitations under the License.
 
 # CLIP Export Examples
 
-The examples in `clip_onnx_export.py` provide the steps needed to export a CLIP model using sparseml's onnx exporting functionality. The models and pretrained weights are pulled in from [OpenClip](https://github.com/mlfoundations/open_clip/tree/main) and the command line tools provided allow exporting of a given model's Text and Visual branches. See the OpenClip repository for a full list of available models. For the CoCa models available in OpenClip, an additional text-decoder is also exported.
+The examples in `clip_onnx_export.py` provide the steps needed to export a CLIP model using sparseml's onnx exporting functionality. The models and pretrained weights are pulled in from [OpenClip](https://github.com/mlfoundations/open_clip/tree/main) and the command line tools provided allow exporting of a given model's Text and Visual branches. See the OpenClip repository for a full list of available models. For the CoCa/Caption models available in OpenClip, an additional text-decoder is also exported.
 
 ## Installation
 
-The examples provided require torch nighly and `open_clip_torch==2.20.0` to be installed. To work within the `sparseml` environment, be sure to set the environment variable `MAX_TORCH` to your installed version when 
+The examples provided require `open_clip_torch==2.20.0` to be installed along with **torch nighly**. To work within the `sparseml` environment, be sure to set the environment variable `MAX_TORCH` to your installed version when 
 installing torch nightly.
 
-Example: `MAX_TORCH="2.1.0.dev20230613+cpu"`
+Steps:
+- Install `sparseml[clip]`. This will ensure open_clip_torch is installed
+- Uninstall torch by running:  
+```
+   pip uninstall torch
+```
+- Install torch nightly:  
+```   
+   pip install --pre torch --index-url https://download.pytorch.org/whl/nightly/
+```
+- Set your environment variable to the correct torch version: Example: `export MAX_TORCH="2.1.0.dev20230613+cpu"`
