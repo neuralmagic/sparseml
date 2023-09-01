@@ -178,10 +178,6 @@ def cache_attention_mask(model, data_loader, device, nsamples):
 
 
 def llam2_eval(model, data_loader, device, nsamples=None):
-    offloaded_model = OffLoadedModule(model)
-    for sample in data_loader:
-        offloaded_model(sample)
-
     # Catch attention mask
     cached_inputs = cache_attention_mask(model, data_loader, device, nsamples)
 

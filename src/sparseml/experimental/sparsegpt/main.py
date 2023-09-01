@@ -140,16 +140,11 @@ if __name__ == "__main__":
         wandb.init(config=args)
 
     model, seqlen = load_model(args)
-    model = OffLoadedModule(model, DEV)
     dataloader, testloader, tokenizer = load_data(args, seqlen)
 
     if args.wbits < 16 or ((args.sparsity or args.prunen) and not args.gmp):
         tick = time.time()
         sequential(model, dataloader, DEV, args)
-        for n, p in model.named_parameters():
-            print(n, torch.mean((p == 0).float()))
-            if "fc2" in n:
-                break
         print(time.time() - tick)
 
     if args.save:

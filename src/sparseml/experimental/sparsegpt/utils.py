@@ -1,7 +1,7 @@
-import torch.nn as nn
+import torch
 
 
-class Catcher(nn.Module):
+class Catcher(torch.nn.Module):
     def __init__(self, module, target_keys):
         super().__init__()
         self.module = module
@@ -59,6 +59,7 @@ def execute_offloaded_module(
             new_buffer.append(output)
 
     module.cpu()
+    torch.cuda.empty_cache()
     if overwrite_buffer:
         return buffer
     else:
@@ -74,16 +75,17 @@ class OffLoadedModule(torch.nn.Module):
         for name, child in module.named_modules():
             setattr(self._module, name, OffLoadedModule(child, device))
 
-    def forward(self, inputs, args, **kwargs):
+    def forward(self, inputs, *args, **kwargs):
         if isinstance(self._module, torch.nn.Linear): # Is this a leaf of the graph?
             self._module.to(self.device)
             if self.compression_strategy is not None:
                 self._module = self.compression_strategy(self._module)
 
-        output = self._module.forward(*args, **kwargs)
+        output = self._module.forward(inputs, *args, **kwargs)
 
         if isinstance(self._module, torch.nn.Linear):
             self._module.cpu()
+            torch.cuda.empty_cache()
 
         return output
 
