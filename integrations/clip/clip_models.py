@@ -16,18 +16,6 @@ import torch
 import torch.nn as nn
 
 
-class VisualModel(nn.Module):
-    def __init__(self, visual_model: torch.nn.Module, output_tokens: bool):
-
-        super().__init__()
-
-        self.visual_model = visual_model
-        self.visual_model.output_tokens = output_tokens
-
-    def forward(self, x):
-        return self.visual_model(x)
-
-
 class TextModel(nn.Module):
     def __init__(
         self,

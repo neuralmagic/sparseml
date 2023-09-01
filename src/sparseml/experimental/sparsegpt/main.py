@@ -23,8 +23,8 @@ DEV = torch.device("cuda:0")
 
 @torch.no_grad()
 def sequential(model, dataloader, dev, args):
-    sequential_sparsegpt = prepare_sparsegpt(model, dataloader, args)
-    sequential_sparsegpt.compress(dev)
+    sequential_sparsegpt = prepare_sparsegpt(model, dataloader, args=args, dev=dev)
+    sequential_sparsegpt.compress(dataloader=dataloader, dev=dev)
 
 
 def _save(model, tokenizer, save_path):
@@ -52,6 +52,7 @@ if __name__ == "__main__":
         choices=["wikitext2", "ptb", "c4", "open_platypus", "platypus"],
         help="Where to extract calibration data from.",
     )
+    parser.add_argument("--data-sequence-length", type=int, default=2048)
     parser.add_argument("--recipe", type=str, default=None)
     parser.add_argument("--observer-batches", type=int, default=100)
     parser.add_argument(
