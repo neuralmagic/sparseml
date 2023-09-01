@@ -39,6 +39,7 @@ from sparseml.onnx.utils import (
     swap_node_output,
     update_model_param,
 )
+from sparsezoo.utils import save_onnx
 
 
 __all__ = [
@@ -567,10 +568,195 @@ def _convert_quantizable_gemm(
         remove_node_and_params_from_graph(model, gemm_node)
 
 
-def _convert_quantizable_matmul(model: ModelProto):
+def _convert_quantizable_matmuls_with_nonquantized_outputs(model: ModelProto):
     """
-    A pass for converting a MatMul into a quantized representation
-    This MatMul is the result of quantizing native torch.matmul using QATMatMul
+    A pass for converting a MatMul with quantized inputs into
+    a MatMulInteger
+
+    | Starting with:
+    |          INPUT_0           INPUT_1
+    |            |               |
+    |     QuantizeLinear     QuantizeLinear
+    |            |               |
+    |     DequantizeLinear   DequantizeLinear
+    |                  |      |
+    |                   MatMul
+    |                     |
+    |                    Add (optional)
+    |                     |
+    |                  OUTPUT
+    | We end up converting to:
+    |          INPUT_0           INPUT_1
+    |            |               |
+    |     QuantizeLinear     QuantizeLinear
+    |                  |      |
+    |                  |      |
+    |                MatMulInteger
+    |                     |
+    |                    Add (Optional)
+    |                     |
+    |                    Cast (Int32 --> FP32)
+    |                     |
+    |                    Mul
+    |                     |
+    |                  OUTPUT
+    """
+
+    conversion_count = 0
+    matmul_nodes = [n for n in model.graph.node if n.op_type in ["MatMul"]]
+    graph = ONNXGraph(model)
+    for matmul_node in matmul_nodes:
+        #############
+        # Matching
+        #############
+
+        input_dequantize_nodes = [
+            graph.get_node_single_parent(matmul_node, i) for i in range(2)
+        ]
+
+        # Make sure these input nodes are DequantizeLinear
+        if numpy.any(
+            [
+                (node is None or node.op_type != "DequantizeLinear")
+                for node in input_dequantize_nodes
+            ]
+        ):
+            continue
+
+        # Make sure their parents are QuantizeLinear
+        parents = [
+            graph.get_node_single_parent(node, 0) for node in input_dequantize_nodes
+        ]
+        if numpy.any(
+            [
+                (parent is None or parent.op_type != "QuantizeLinear")
+                for parent in parents
+            ]
+        ):
+            continue
+
+        _LOGGER.debug(f"Matched quantizable MatMul: {matmul_node.name}")
+
+        # Create MatMulInteger node
+        node_0, node_1 = input_dequantize_nodes
+
+        input_nodes = [
+            node_0.input[0],  # a
+            node_1.input[0],  # b
+            node_0.input[2],  # a_zero_point
+            node_1.input[2],  # b_zero_point
+        ]
+
+        matmul_int_op_node = onnx.helper.make_node(
+            "MatMulInteger",
+            input_nodes,
+            [f"{matmul_node.name}_quant_out"],
+            f"{matmul_node.name}_quant",
+        )
+        model.graph.node.append(matmul_int_op_node)
+
+        node_0_parameters = get_quantization_params(model, node_0)
+        node_1_parameters = get_quantization_params(model, node_1)
+
+        output_scale = node_0_parameters.scale * node_1_parameters.scale
+
+        has_bias = False
+
+        # Check if is followed by Add node (bias)
+        bias_add_node = graph.get_node_single_child(matmul_node)
+        if bias_add_node is not None and bias_add_node.op_type == "Add":
+            bias_initializer = get_init_by_name(
+                model, bias_add_node.input[1]
+            ) or get_init_by_name(model, bias_add_node.input[0])
+            if bias_initializer is not None:
+                # check if bias is finite
+                bias_initializer = numpy_helper.to_array(bias_initializer)
+                if numpy.all(numpy.isfinite(bias_initializer)):
+                    # Create initializer for quantized bias
+                    quantized_bias_initializer_name = f"{bias_initializer.name}_quant"
+                    has_bias = True
+
+                    bias_zero_point = 0
+                    quantized_bias = _quantize_array(
+                        bias_initializer,
+                        output_scale,
+                        bias_zero_point,
+                        dtype=numpy.int32,
+                    )
+                    quantized_bias_initializer = numpy_helper.from_array(
+                        quantized_bias,
+                        name=quantized_bias_initializer_name,
+                    )
+                    model.graph.initializer.append(quantized_bias_initializer)
+
+                    # Create new Add node for quantized bias
+                    quantized_add_node_name = f"{bias_add_node.name}_quant"
+                    quantized_add_node = onnx.helper.make_node(
+                        "Add",
+                        [matmul_int_op_node.output[0], quantized_bias_initializer_name],
+                        [f"{quantized_add_node_name}_output"],
+                        quantized_add_node_name,
+                    )
+                    model.graph.node.append(quantized_add_node)
+
+        # Casting MatMulInteger INT32 output to FP32
+
+        cast_node_name = f"{matmul_node.name}_cast"
+        cast_node_input = (
+            quantized_add_node.output if has_bias else matmul_int_op_node.output
+        )
+        cast_node = onnx.helper.make_node(
+            "Cast",
+            cast_node_input,
+            [f"{cast_node_name}_output"],
+            cast_node_name,
+            to=getattr(onnx.TensorProto, "FLOAT"),  # get Float32 enum id
+        )
+        model.graph.node.append(cast_node)
+
+        output_scale_initializer_name = f"{matmul_node.name}.output_scale"
+        model.graph.initializer.append(
+            numpy_helper.from_array(
+                numpy.asarray(output_scale),
+                name=output_scale_initializer_name,
+            )
+        )
+
+        mul_node_output = bias_add_node.output if has_bias else matmul_node.output
+        mul_node = onnx.helper.make_node(
+            "Mul",
+            [cast_node.output[0], output_scale_initializer_name],
+            mul_node_output,
+            f"{matmul_node.name}_scale",
+        )
+        model.graph.node.append(mul_node)
+
+        for node in input_dequantize_nodes:
+            delete_quant_node(model, node)
+
+        # delete original MatMul node
+        remove_node_and_params_from_graph(model, matmul_node)
+
+        # delete original Add node
+        if has_bias:
+            remove_node_and_params_from_graph(model, bias_add_node)
+
+        conversion_count += 1
+
+    if matmul_nodes:
+        _LOGGER.info(
+            f"Converted {conversion_count} quantizable MatMul "
+            "(A8A8 inputs, FP output) ops to MatMulInteger"
+        )
+        graph = ONNXGraph(model)
+        graph.delete_unused_initializers()
+
+
+def _convert_quantizable_matmul_with_quantized_outputs(model: ModelProto):
+    """
+    A pass for converting a MatMul with quantized inputs and outputs into
+    a QLinearMatMul. This MatMul is the result of quantizing native
+    torch.matmul using QATMatMul
 
     | Starting with:
     |          INPUT_0           INPUT_1
@@ -731,8 +917,16 @@ def _convert_quantizable_matmul(model: ModelProto):
 
     if matmul_nodes:
         _LOGGER.info(
-            f"Converted {conversion_count} quantizable MatMul ops " "to QLinearMatMul"
+            f"Converted {conversion_count} quantizable MatMul with quantized outputs "
+            "to QLinearMatMul"
         )
+
+    return conversion_count
+
+
+def _convert_quantizable_matmul(model: ModelProto):
+    _convert_quantizable_matmul_with_quantized_outputs(model)
+    _convert_quantizable_matmuls_with_nonquantized_outputs(model)
 
 
 def _add_quantized_conv_matmul_add_ops(
@@ -742,10 +936,10 @@ def _add_quantized_conv_matmul_add_ops(
     weight_quantize_node: NodeProto,
     input_quantize_params: QuantizationParams,
     weight_quantize_params: QuantizationParams,
-    bias_initializer: onnx.TensorProto,
-    bias_add_name: str,
     target_output: str,
     transpose_weight: bool,
+    bias_add_name: str,
+    bias_initializer: Optional[onnx.TensorProto] = None,
     output_quantize_node: Optional[NodeProto] = None,
     output_dequantize_node: Optional[NodeProto] = None,
 ):
@@ -805,65 +999,62 @@ def _add_quantized_conv_matmul_add_ops(
         )
     model.graph.node.append(integer_op_node)
 
+    output_scale = input_quantize_params.scale * weight_quantize_params.scale
+    output_scale_name = "{}_output.scale".format(node.name)
+    model.graph.initializer.append(
+        numpy_helper.from_array(numpy.asarray(output_scale), name=output_scale_name)
+    )
+
+    last_output = integer_op_output
+
     # Add bias + zero point correction
     # quantize bias
-    bias_initializer = numpy_helper.to_array(bias_initializer)
-    bias_scale = input_quantize_params.scale * weight_quantize_params.scale
-    bias_zero_point = 0
-    quantized_bias = _quantize_array(
-        bias_initializer, bias_scale, bias_zero_point, dtype=numpy.int32
-    )
-    if node.op_type == "Conv" and len(quantized_bias.shape) == 1:
-        # reshape for bias add broadcasting
-        quantized_bias = quantized_bias.reshape(1, quantized_bias.shape[0], 1, 1)
+    if bias_initializer is not None:
+        bias_initializer = numpy_helper.to_array(bias_initializer)
 
-    quantized_bias_name = "{}.bias_quantized".format(bias_add_name)
-    quantized_bias_initializer = numpy_helper.from_array(
-        quantized_bias, name=quantized_bias_name
-    )
-    model.graph.initializer.append(quantized_bias_initializer)
-    quantized_bias_scale_name = "{}.scale".format(quantized_bias_name)
-    model.graph.initializer.append(
-        numpy_helper.from_array(
-            numpy.asarray(bias_scale), name=quantized_bias_scale_name
+        bias_zero_point = 0
+        quantized_bias = _quantize_array(
+            bias_initializer, output_scale, bias_zero_point, dtype=numpy.int32
         )
-    )
-    quantized_bias_zero_point_name = "{}.zero_point".format(quantized_bias_name)
-    model.graph.initializer.append(
-        numpy_helper.from_array(
-            numpy.asarray(bias_zero_point, dtype=numpy.uint8),
-            name=quantized_bias_zero_point_name,
+        if node.op_type == "Conv" and len(quantized_bias.shape) == 1:
+            # reshape for bias add broadcasting
+            quantized_bias = quantized_bias.reshape(1, quantized_bias.shape[0], 1, 1)
+
+        quantized_bias_name = "{}.bias_quantized".format(bias_add_name)
+        quantized_bias_initializer = numpy_helper.from_array(
+            quantized_bias, name=quantized_bias_name
         )
-    )
+        model.graph.initializer.append(quantized_bias_initializer)
 
-    # get INT32 Add inputs and outputs
-    quant_add_inputs = [
-        integer_op_output,  # MatMul/Conv integer outputs (INT32)
-        quantized_bias_name,  # Quantized bias (INT32)
-    ]
+        # get INT32 Add inputs and outputs
+        quant_add_inputs = [
+            last_output,  # MatMul/Conv integer outputs (INT32)
+            quantized_bias_name,  # Quantized bias (INT32)
+        ]
 
-    quant_add_name = "{}_bias_add_quant".format(node.name)
-    quant_add_output = (
-        output_quantize_node.output[0]
-        if output_quantize_node
-        else f"{quant_add_name}_output"
-    )
+        quant_add_name = "{}_bias_add_quant".format(node.name)
+        quant_add_output = (
+            output_quantize_node.output[0]
+            if output_quantize_node
+            else f"{quant_add_name}_output"
+        )
 
-    # create Add node and add it to graph
-    qadd_node = onnx.helper.make_node(
-        "Add",
-        quant_add_inputs,
-        [quant_add_output],
-        quant_add_name,
-    )
-    model.graph.node.append(qadd_node)
+        # create Add node and add it to graph
+        qadd_node = onnx.helper.make_node(
+            "Add",
+            quant_add_inputs,
+            [quant_add_output],
+            quant_add_name,
+        )
+        model.graph.node.append(qadd_node)
+        last_output = quant_add_output
 
     # create Cast node and add it to graph
-    cast_node_name = "{}_cast".format(quant_add_name)
-    cast_node_output = "{}_cast".format(quant_add_output)
+    cast_node_name = "{}_cast".format(node.name)
+    cast_node_output = "{}_output".format(cast_node_name)
     cast_node = onnx.helper.make_node(
         "Cast",
-        [quant_add_output],
+        [last_output],
         [cast_node_output],
         cast_node_name,
         to=getattr(onnx.TensorProto, "FLOAT"),  # get Float32 enum id
@@ -873,9 +1064,9 @@ def _add_quantized_conv_matmul_add_ops(
     # create Mul node for rescale
     mul_node_inputs = [
         cast_node_output,  # a
-        quantized_bias_scale_name,  # b -> rescale factor
+        output_scale_name,  # b -> rescale factor
     ]
-    mul_node_name = "{}_rescale_mul".format(quant_add_name)
+    mul_node_name = "{}_rescale_mul".format(cast_node_name)
     mul_node = onnx.helper.make_node(
         "Mul",
         mul_node_inputs,
@@ -978,10 +1169,10 @@ def _convert_quantizable_gemm_no_activations(model: ModelProto):
             weight_quantize_node=weight_quantize_node,
             input_quantize_params=input_quantize_params,
             weight_quantize_params=weight_quantize_params,
-            bias_initializer=bias_initializer,
-            bias_add_name="{}_bias_add".format(gemm_node.name),
             target_output=gemm_node.output[0],
             transpose_weight=transpose_weight,
+            bias_add_name="{}_bias_add".format(gemm_node.name),
+            bias_initializer=bias_initializer,
         )
 
         # Cleanup
@@ -1107,14 +1298,14 @@ def _convert_quantizable_matmul_and_add(model: ModelProto):
             weight_quantize_node=weight_quantize_node,
             input_quantize_params=input_quantize_params,
             weight_quantize_params=weight_quantize_params,
-            bias_initializer=bias_initializer,
-            bias_add_name=bias_add_node.name,
             target_output=(
                 output_dequantize_node.output[0]
                 if output_dequantize_node
                 else bias_add_node.output[0]
             ),
             transpose_weight=True,
+            bias_add_name=bias_add_node.name,
+            bias_initializer=bias_initializer,
             output_quantize_node=output_quantize_node,
             output_dequantize_node=output_dequantize_node,
         )
@@ -1163,7 +1354,7 @@ def _convert_quantizable_conv_integer(model: ModelProto):
     |            |               |
     |     DequantizeLinear      |
     |                  |      |
-    |                   Conv (with bias)
+    |                   Conv (with optional bias)
     |                     |
     |                  OUTPUT
     | We end up converting to:
@@ -1173,7 +1364,7 @@ def _convert_quantizable_conv_integer(model: ModelProto):
     |         |
     |     ConvInteger (with constant uint8 kernel)
     |         |
-    |     Add (constant bias + zero point correction)
+    |     Add (optional, constant bias + zero point correction)
     |         |
     |     Cast (INT32 -> FP32)
     |         |
@@ -1186,10 +1377,10 @@ def _convert_quantizable_conv_integer(model: ModelProto):
     conv_nodes = [n for n in model.graph.node if n.op_type in ["Conv"]]
     orig_conv_weight_name_to_node_ids = defaultdict(list)
     for conv_node in conv_nodes:
-        if len(conv_node.input) != 3:
-            # this function currently only converts Conv nodes with bias param
-            # (i.e. from folded batch norm value)
-            continue
+        # if len(conv_node.input) != 3:
+        #    # this function currently only converts Conv nodes with bias param
+        #    # (i.e. from folded batch norm value)
+        #    continue
 
         graph = ONNXGraph(model)
 
@@ -1225,12 +1416,15 @@ def _convert_quantizable_conv_integer(model: ModelProto):
         if input_quantize_node.op_type != "DequantizeLinear":
             continue
 
-        bias_initializer = graph.get_init_by_name(conv_node.input[2])
-        if bias_initializer is None:
-            _LOGGER.debug(f"Unable to find bias initializer: {conv_node.input[2]}")
-            continue
+        if len(conv_node.input) == 3:
+            bias_initializer = graph.get_init_by_name(conv_node.input[2])
+        else:
+            bias_initializer = None
 
-        _LOGGER.debug(f"Matched quantizable Conv weight and bias: {conv_node.name}")
+        if bias_initializer is None:
+            _LOGGER.debug(f"Matched quantizable Conv weight: {conv_node.name}")
+        else:
+            _LOGGER.debug(f"Matched quantizable Conv weight and bias: {conv_node.name}")
 
         # Conversion
         _add_quantized_conv_matmul_add_ops(
@@ -1240,10 +1434,10 @@ def _convert_quantizable_conv_integer(model: ModelProto):
             weight_quantize_node=weight_quantize_node,
             input_quantize_params=input_quantize_params,
             weight_quantize_params=weight_quantize_params,
-            bias_initializer=bias_initializer,
-            bias_add_name="{}_bias_add".format(conv_node.name),
             target_output=conv_node.output[0],
             transpose_weight=False,
+            bias_add_name="{}_bias_add".format(conv_node.name),
+            bias_initializer=bias_initializer,
         )
         orig_conv_weight_name_to_node_ids[input_quantize_node.input[0]].append(
             "{}_quant".format(conv_node.output[0])
@@ -1593,7 +1787,7 @@ def quantize_torch_qat_export(
     graph.delete_unused_initializers()
 
     if output_file_path:
-        onnx.save(model, output_file_path)
+        save_onnx(model, output_file_path)
 
     return model
 
@@ -1718,7 +1912,7 @@ def skip_onnx_input_quantize(
         raise RuntimeError(optim_error_message)
 
     if output_file_path:
-        onnx.save(model, output_file_path)
+        save_onnx(model, output_file_path)
 
 
 def _propagate_mobilebert_embedding_quantization(model: ModelProto):
@@ -1761,7 +1955,7 @@ def _propagate_mobilebert_embedding_quantization(model: ModelProto):
             continue
 
         embedding_array = numpy_helper.to_array(embedding_initializer)
-        if embedding_array.dtype != numpy.uint8:
+        if embedding_array.dtype not in [numpy.uint8, numpy.int8]:
             continue
 
         dequant_node = graph.get_node_single_child(gather_node)
@@ -1805,12 +1999,15 @@ def _propagate_mobilebert_embedding_quantization(model: ModelProto):
         # switch position of dequantize node
         for branch_node in graph.get_node_children(dequant_node):
             if branch_node.op_type == "Slice":
+                zero_point = graph.get_init_by_name(dequant_node.input[2])
+                zero_point_array = numpy_helper.to_array(zero_point)
                 branch_node.input[0] = gather_node.output[0]
                 pad_node = graph.get_node_single_child(branch_node)
                 pad_value = graph.get_init_by_name(pad_node.input[2])
                 pad_value_array = numpy_helper.to_array(pad_value)
-                pad_value_array = pad_value_array + 128
-                pad_value_array = pad_value_array.astype(numpy.uint8)
+                pad_value_array = (
+                    pad_value_array.astype(zero_point_array.dtype) + zero_point_array
+                )
                 model.graph.initializer.remove(pad_value)
                 pad_value = numpy_helper.from_array(
                     pad_value_array, name=pad_value.name

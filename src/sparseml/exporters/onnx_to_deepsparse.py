@@ -18,9 +18,11 @@ from pathlib import Path
 from typing import Union
 
 import onnx
+from onnx import ModelProto
 
 from sparseml.exporters import transforms as sparseml_transforms
 from sparseml.exporters.base_exporter import BaseExporter
+from sparsezoo import save_onnx
 
 
 class ONNXToDeepsparse(BaseExporter):
@@ -74,6 +76,7 @@ class ONNXToDeepsparse(BaseExporter):
             sparseml_transforms.DeleteRepeatedQdq(),
             sparseml_transforms.QuantizeQATEmbedding(),
             sparseml_transforms.PropagateEmbeddingQuantization(),
+            sparseml_transforms.PropagateDequantThroughSplit(),
             sparseml_transforms.MatMulToQLinearMatMul(),
             sparseml_transforms.MatMulAddToMatMulIntegerAddCastMul(),
             sparseml_transforms.MatMulToMatMulIntegerCastMul(),
@@ -107,9 +110,11 @@ class ONNXToDeepsparse(BaseExporter):
             raise TypeError(f"Expected onnx.ModelProto, found {type(model)}")
         return model
 
-    def export(self, pre_transforms_model: onnx.ModelProto, file_path: str):
+    def export(self, pre_transforms_model: Union[ModelProto, str], file_path: str):
+        if not isinstance(pre_transforms_model, ModelProto):
+            pre_transforms_model = onnx.load(pre_transforms_model)
         if self.export_input_model or os.getenv("SAVE_PREQAT_ONNX", False):
-            onnx.save(pre_transforms_model, file_path.replace(".onnx", ".preqat.onnx"))
+            save_onnx(pre_transforms_model, file_path.replace(".onnx", ".preqat.onnx"))
 
         post_transforms_model: onnx.ModelProto = self.apply(pre_transforms_model)
-        onnx.save(post_transforms_model, file_path)
+        save_onnx(post_transforms_model, file_path)

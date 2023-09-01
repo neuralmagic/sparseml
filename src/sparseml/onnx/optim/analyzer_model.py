@@ -27,7 +27,6 @@ from sparseml.onnx.optim.sensitivity_pruning import pruning_loss_sens_approx
 from sparseml.onnx.utils import (
     NodeShape,
     calculate_flops,
-    check_load_model,
     extract_node_id,
     extract_node_shapes,
     get_kernel_shape,
@@ -38,6 +37,7 @@ from sparseml.onnx.utils import (
     is_prunable_node,
 )
 from sparseml.utils import clean_path, create_parent_dirs
+from sparsezoo.utils import load_model
 
 
 __all__ = ["NodeAnalyzer", "ModelAnalyzer"]
@@ -358,7 +358,7 @@ class ModelAnalyzer(object):
             raise ValueError("model or nodes must be None, both cannot be passed")
 
         if model is not None:
-            model = check_load_model(model)
+            model = load_model(model)
             node_shapes = extract_node_shapes(model)
             self._nodes = [
                 NodeAnalyzer(

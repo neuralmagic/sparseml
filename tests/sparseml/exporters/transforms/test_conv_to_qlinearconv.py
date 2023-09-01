@@ -17,6 +17,7 @@ import pytest
 from onnx import helper
 
 from sparseml.exporters.transforms.conv_to_qlinearconv import ConvToQLinearConv
+from sparsezoo.utils import validate_onnx
 
 
 @pytest.fixture
@@ -74,7 +75,7 @@ def onnx_model() -> onnx.ModelProto:
         initializer=[x_scale, y_scale, zero_point, weight_init],
     )
     model = helper.make_model(graph)
-    onnx.checker.check_model(model)
+    validate_onnx(model)
     assert [i.name for i in model.graph.initializer] == [
         "x_scale",
         "y_scale",
@@ -93,7 +94,7 @@ def onnx_model() -> onnx.ModelProto:
 
 def test_vanilla(onnx_model: onnx.ModelProto):
     onnx_model = ConvToQLinearConv().apply(onnx_model)
-    onnx.checker.check_model(onnx_model)
+    validate_onnx(onnx_model)
     assert [i.name for i in onnx_model.graph.initializer] == [
         "x_scale",
         "y_scale",
@@ -111,10 +112,10 @@ def test_with_bias(onnx_model: onnx.ModelProto):
     gemm = [n for n in onnx_model.graph.node if n.op_type == "Conv"][0]
     gemm.input.append("bias")
     onnx_model.graph.initializer.append(bias)
-    onnx.checker.check_model(onnx_model)
+    validate_onnx(onnx_model)
 
     onnx_model = ConvToQLinearConv().apply(onnx_model)
-    onnx.checker.check_model(onnx_model)
+    validate_onnx(onnx_model)
     assert [i.name for i in onnx_model.graph.initializer] == [
         "x_scale",
         "y_scale",

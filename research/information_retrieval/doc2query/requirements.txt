@@ -94,12 +94,12 @@ pyzmq==22.1.0
 qtconsole==5.1.0
 QtPy==1.9.0
 regex==2021.4.4
-requests==2.25.1
+requests==2.31.0
 rouge-score==0.0.4
 sacremoses==0.0.45
 scikit-image==0.18.1
 scikit-learn==0.24.2
-scipy==1.6.3
+scipy==1.10.0
 Send2Trash==1.5.0
 sentencepiece==0.1.96
 sentry-sdk==1.1.0
@@ -121,7 +121,7 @@ tifffile==2021.6.14
 tokenizers==0.10.3
 toposort==1.6
 torch==1.8.0
-tornado==6.1
+tornado==6.3.2
 tqdm==4.61.1
 traitlets==5.0.5
 transformers==4.7.0

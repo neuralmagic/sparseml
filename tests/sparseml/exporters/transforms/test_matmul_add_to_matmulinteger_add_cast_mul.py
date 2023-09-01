@@ -19,6 +19,7 @@ from onnx import helper
 from sparseml.exporters.transforms.matmul_add_to_matmulinteger_add_cast_mul import (
     MatMulAddToMatMulIntegerAddCastMul,
 )
+from sparsezoo.utils import validate_onnx
 
 
 @pytest.fixture
@@ -77,7 +78,7 @@ def onnx_model() -> onnx.ModelProto:
         initializer=[x_scale, y_scale, zero_point, weight, bias],
     )
     model = helper.make_model(graph)
-    onnx.checker.check_model(model)
+    validate_onnx(model)
     assert [i.name for i in model.graph.initializer] == [
         "x_scale",
         "y_scale",
@@ -98,7 +99,7 @@ def onnx_model() -> onnx.ModelProto:
 
 def test_vanilla(onnx_model: onnx.ModelProto):
     onnx_model = MatMulAddToMatMulIntegerAddCastMul().apply(onnx_model)
-    onnx.checker.check_model(onnx_model)
+    validate_onnx(onnx_model)
     assert [i.name for i in onnx_model.graph.initializer] == [
         "zero_point",
         "matmul.weight_quantized",
@@ -122,9 +123,9 @@ def test_vanilla(onnx_model: onnx.ModelProto):
 def test_without_transpose(onnx_model: onnx.ModelProto):
     onnx_model.graph.node[-2].input[1] = "weight_dequant_output"
     onnx_model.graph.node.pop(-3)
-    onnx.checker.check_model(onnx_model)
+    validate_onnx(onnx_model)
     onnx_model = MatMulAddToMatMulIntegerAddCastMul().apply(onnx_model)
-    onnx.checker.check_model(onnx_model)
+    validate_onnx(onnx_model)
     assert [i.name for i in onnx_model.graph.initializer] == [
         "zero_point",
         "matmul.weight_quantized",
@@ -145,25 +146,22 @@ def test_without_transpose(onnx_model: onnx.ModelProto):
     ]
 
 
-def test_no_bias_changes_nothing(onnx_model: onnx.ModelProto):
+def test_matmul_no_bias_converts(onnx_model: onnx.ModelProto):
     # remove "bias" initializer and "add" node
     assert onnx_model.graph.initializer.pop().name == "bias"
     assert onnx_model.graph.node.pop().name == "add"
-    onnx.checker.check_model(onnx_model)
+    validate_onnx(onnx_model)
 
     onnx_model = MatMulAddToMatMulIntegerAddCastMul().apply(onnx_model)
-    onnx.checker.check_model(onnx_model)
-    # NOTE: nothing changes
+    validate_onnx(onnx_model)
+    # converted model should have matmulinteger + rescale mul without bias add
     assert [i.name for i in onnx_model.graph.initializer] == [
-        "x_scale",
-        "y_scale",
         "zero_point",
-        "weight",
+        "matmul.weight_quantized",
+        "matmul_quant.rescale.scale",
     ]
     assert [n.name for n in onnx_model.graph.node] == [
-        "input_dequant",
-        "weight_quant",
-        "weight_dequant",
-        "transpose",
-        "matmul",
+        "matmul_quant",
+        "matmul_bias_add_quant_cast",
+        "matmul_quant_rescale_mul",
     ]

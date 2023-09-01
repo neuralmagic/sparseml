@@ -106,10 +106,15 @@ def export_sample_inputs_outputs(
         preprocessed_batch = preprocess(batch=batch, device=device)
         image = preprocessed_batch["img"]
 
-        # Save inputs as numpy array
-        _export_inputs(image, sample_in_dir, file_idx, save_inputs_as_uint8)
         # Save torch outputs as numpy array
         _export_torch_outputs(image, model, sample_out_dir_torch, file_idx)
+
+        # Convert input data type if needed
+        if save_inputs_as_uint8:
+            image = (255 * image).to(dtype=torch.uint8)
+
+        # Save inputs as numpy array
+        _export_inputs(image, sample_in_dir, file_idx)
         # Save onnxruntime outputs as numpy array
         _export_ort_outputs(
             image.cpu().numpy(), ort_session, sample_out_dir_ort, file_idx
@@ -139,14 +144,19 @@ def _export_torch_outputs(
 
     # Run model to get torch outputs
     model_out = model(image)
-    # preds, intermediate_outputs = model_out
-    preds, _ = model_out
+    preds = model_out
+    sample_output_filename = os.path.join(sample_out_dir, f"out-{file_idx}.npz")
+    seg_prediction = None
 
     # Move to cpu for exporting
-    preds = preds.detach().to("cpu")
+    # Segmentation currently supports two outputs
+    if isinstance(preds, tuple):
+        preds_out = preds[0].detach().to("cpu")
+        seg_prediction = preds[1].detach().to("cpu")
+    else:
+        preds_out = preds.detach().to("cpu")
 
-    sample_output_filename = os.path.join(sample_out_dir, f"out-{file_idx}.npz")
-    numpy.savez(sample_output_filename, preds)
+    numpy.savez(sample_output_filename, preds_out, seg_prediction=seg_prediction)
 
 
 def _export_ort_outputs(
@@ -159,20 +169,24 @@ def _export_ort_outputs(
     # Run model to get onnxruntime outputs
     ort_inputs = {session.get_inputs()[0].name: image}
     ort_outs = session.run(None, ort_inputs)
-    # preds, interm_out1, interm_out2, interm_out3 = model_out
-    preds, *_ = ort_outs
+    preds = ort_outs
+    seg_prediction = None
+
+    if len(preds) > 1:
+        preds_out = preds[0]
+        seg_prediction = preds[1]
+    else:
+        preds_out = preds[0]
+
+    preds_out = numpy.squeeze(preds_out, axis=0)
 
     sample_output_filename = os.path.join(sample_out_dir, f"out-{file_idx}.npz")
-    numpy.savez(sample_output_filename, preds)
+    numpy.savez(sample_output_filename, preds_out, seg_prediction=seg_prediction)
 
 
-def _export_inputs(
-    image: torch.Tensor, sample_in_dir: str, file_idx: str, save_inputs_as_uint8: bool
-):
+def _export_inputs(image: torch.Tensor, sample_in_dir: str, file_idx: str):
 
-    sample_in = image.detach().to("cpu")
-    if save_inputs_as_uint8:
-        sample_in = (255 * sample_in).to(dtype=torch.uint8)
+    sample_in = image.detach().to("cpu").squeeze(0)
 
     sample_input_filename = os.path.join(sample_in_dir, f"inp-{file_idx}.npz")
     numpy.savez(sample_input_filename, sample_in)

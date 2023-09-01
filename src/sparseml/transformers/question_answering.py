@@ -20,10 +20,7 @@
 """
 Fine-tuning the library models for question answering integrated with sparseml
 """
-
-# You can also adapt this script on your own question answering task.
-# Pointers for this are left as comments.
-
+import json
 import logging
 import os
 import sys
@@ -45,7 +42,6 @@ from transformers import (
     set_seed,
 )
 from transformers.trainer_utils import get_last_checkpoint
-from transformers.utils import check_min_version
 from transformers.utils.versions import require_version
 
 from sparseml.pytorch.utils.distributed import record
@@ -57,9 +53,9 @@ from sparseml.transformers.sparsification import (
 from sparseml.transformers.utils import SparseAutoModel, get_shared_tokenizer_src
 
 
-# Will error if the minimal version of Transformers is not installed. Remove at your
-# own risks.
-check_min_version("4.18.0.dev0")
+# You can also adapt this script on your own question answering task.
+# Pointers for this are left as comments.
+
 
 require_version(
     "datasets>=1.18.0",
@@ -918,12 +914,22 @@ def _get_raw_dataset(data_args, cache_dir: Optional[str] = None):
         if data_args.test_file is not None:
             data_files["test"] = data_args.test_file
             extension = data_args.test_file.split(".")[-1]
-        raw_datasets = load_dataset(
-            extension,
-            data_files=data_files,
-            field="data",
-            cache_dir=cache_dir,
-        )
+
+        try:
+            raw_datasets = load_dataset(
+                extension,
+                data_files=data_files,
+                field="data",
+                cache_dir=cache_dir,
+            )
+        except (json.JSONDecodeError, datasets.builder.DatasetGenerationError):
+            # run without `field="data"` - JSONL files will not always have each
+            # line nested under a top level field
+            raw_datasets = load_dataset(
+                extension,
+                data_files=data_files,
+                cache_dir=cache_dir,
+            )
     # See more about loading any type of standard or custom dataset
     # (from files, python dict, pandas DataFrame, etc) at
     # https://huggingface.co/docs/datasets/loading_datasets.html.

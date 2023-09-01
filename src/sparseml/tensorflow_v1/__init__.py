@@ -18,6 +18,13 @@ Functionality for working with and sparsifying Models in the TensorFlow 1.x fram
 
 # flake8: noqa
 
+from sparseml.utils import deprecation_warning as _deprecation_warning
+
+
+_deprecation_warning(
+    "sparseml.tensorflow_v1 is deprecated and will be removed in a future version",
+)
+
 from sparseml.analytics import sparseml_analytics as _analytics
 
 from .base import *

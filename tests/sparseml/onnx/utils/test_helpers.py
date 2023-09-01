@@ -24,7 +24,6 @@ from sparseml.onnx.utils import (
     NodeParam,
     SparsityMeasurement,
     calculate_flops,
-    check_load_model,
     conv_node_params,
     extract_node_id,
     extract_node_shapes,
@@ -152,13 +151,6 @@ def get_prunable_onnx_model():
 @pytest.fixture
 def prunable_onnx_model():
     return get_prunable_onnx_model()
-
-
-def test_check_load_model(onnx_repo_models):  # noqa: F811
-    model_path = onnx_repo_models.model_path
-    loaded_model = load_model(model_path)
-    assert loaded_model == check_load_model(model_path)
-    assert loaded_model == check_load_model(loaded_model)
 
 
 @pytest.mark.parametrize(

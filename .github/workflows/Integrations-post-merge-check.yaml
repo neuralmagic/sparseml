@@ -41,13 +41,7 @@ jobs:
         run: pip3 install -U pip && pip3 install setuptools sparsezoo/
       - name: "Clean sparsezoo directory"
         run: rm -r sparsezoo/
-      - name: "Upgrade protobuf version"
-        run: pip3 install --upgrade protobuf
       - name: "⚙️ Install dependencies"
-        run: pip3 install .[dev,torchvision,deepsparse,onnxruntime]
-      - name: "Install transformers integration"
-        run: sparseml.transformers.question_answering --help
-      - name: "Install yolov5 integration"
-        run: sparseml.yolov5.train --help
+        run: pip3 install .[dev,torchvision,deepsparse,onnxruntime,transformers,yolov5]
       - name: "🔬 Running integrations tests (cadence: commit}})"
         run: make testinteg TARGETS=yolov5,transformers,image_classification

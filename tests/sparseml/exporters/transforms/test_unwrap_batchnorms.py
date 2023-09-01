@@ -18,6 +18,7 @@ import pytest
 from onnx import ModelProto, numpy_helper
 
 from sparseml.exporters.transforms.unwrap_batchnorms import UnwrapBatchNorms
+from sparsezoo.utils import validate_onnx
 
 
 @pytest.fixture
@@ -53,7 +54,7 @@ def onnx_model():
     )
 
     model = onnx.helper.make_model(graph)
-    onnx.checker.check_model(model)
+    validate_onnx(model)
     return model
 
 
@@ -66,7 +67,7 @@ def test_vanilla(onnx_model: ModelProto):
     assert onnx_model.graph.node[0].output == ["output"]
 
     onnx_model = UnwrapBatchNorms().apply(onnx_model)
-    onnx.checker.check_model(onnx_model)
+    validate_onnx(onnx_model)
     assert [n.name for n in onnx_model.graph.node] == ["add"]
     assert [i.name for i in onnx_model.graph.initializer] == ["init1"]
     assert onnx_model.graph.node[0].input == ["input", "init1"]

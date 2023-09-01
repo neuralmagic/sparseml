@@ -26,6 +26,7 @@ from sparseml.pytorch.utils.exporter import (
     _flatten_qparams,
     _fold_identity_initializers,
 )
+from sparsezoo.utils import validate_onnx
 from tests.sparseml.pytorch.helpers import MLPNet
 
 
@@ -35,8 +36,10 @@ from tests.sparseml.pytorch.helpers import MLPNet
 )
 def test_exporter_onnx():
     sample_batch = torch.randn(1, 8)
-    exporter = ModuleExporter(MLPNet(), tempfile.gettempdir())
+    tempdir = tempfile.TemporaryDirectory()
+    exporter = ModuleExporter(MLPNet(), tempdir.name)
     exporter.export_onnx(sample_batch)
+    tempdir.cleanup()
 
 
 @pytest.mark.skipif(
@@ -46,8 +49,11 @@ def test_exporter_onnx():
 @pytest.mark.parametrize("batch_size", [1, 64])
 def test_export_batches(batch_size):
     sample_batch = torch.randn(batch_size, 8)
-    exporter = ModuleExporter(MLPNet(), tempfile.gettempdir())
+    # create a directory in tempdir
+    tempdir = tempfile.TemporaryDirectory()
+    exporter = ModuleExporter(MLPNet(), tempdir.name)
     exporter.export_samples([sample_batch])
+    tempdir.cleanup()
 
 
 def test_fold_identity_initializers():
@@ -72,7 +78,7 @@ def test_fold_identity_initializers():
         initializer=[init1],
     )
     model = onnx.helper.make_model(graph)
-    onnx.checker.check_model(model)
+    validate_onnx(model)
 
     assert len(model.graph.node) == 2
     assert len(model.graph.initializer) == 1
@@ -84,7 +90,7 @@ def test_fold_identity_initializers():
     assert [node.name for node in model.graph.node] == ["add"]
     assert model.graph.node[0].input == ["init1", "input"]
 
-    onnx.checker.check_model(model)
+    validate_onnx(model)
 
 
 def test_flatten_params():
@@ -113,7 +119,7 @@ def test_flatten_params():
         initializer=[zp, scale],
     )
     model = onnx.helper.make_model(graph)
-    onnx.checker.check_model(model)
+    validate_onnx(model)
 
     assert len(model.graph.initializer) == 2
     assert [init.name for init in model.graph.initializer] == ["zero_point", "scale"]
@@ -135,4 +141,4 @@ def test_flatten_params():
     assert scale.shape == ()
     assert scale.dtype == numpy.float32
 
-    onnx.checker.check_model(model)
+    validate_onnx(model)

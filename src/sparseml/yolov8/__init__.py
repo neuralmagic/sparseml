@@ -16,10 +16,16 @@ import ultralytics
 from sparseml.analytics import sparseml_analytics as _analytics
 
 
+try:
+    import ultralytics as _ultralytics  # noqa: F401
+except ImportError:
+    raise ImportError("Please install sparseml[yolov8] to use this pathway")
+
+
 _analytics.send_event("python__yolov8__init")
 
-if "8.0.30" not in ultralytics.__version__:
+if "8.0.124" not in ultralytics.__version__:
     raise ValueError(
-        f"ultralytics==8.0.30 is required, found {ultralytics.__version__}. "
+        f"ultralytics==8.0.124 is required, found {ultralytics.__version__}. "
         "To fix run `pip install sparseml[ultralytics]`."
     )

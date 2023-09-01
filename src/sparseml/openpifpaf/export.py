@@ -19,12 +19,12 @@ import logging
 import os
 from typing import Optional
 
-import onnx
 import torch
 
 import openpifpaf
 from sparseml.pytorch.optim.manager import ScheduledModifierManager
 from sparseml.pytorch.utils import ModuleExporter
+from sparsezoo.utils import validate_onnx
 
 
 LOG = logging.getLogger(__name__)
@@ -115,7 +115,7 @@ def export(
         input_names=["input_batch"],
         output_names=[meta.name for meta in datamodule.head_metas],
     )
-    onnx.checker.check_model(os.path.join(save_dir, name))
+    validate_onnx(os.path.join(save_dir, name))
     exporter.create_deployment_folder()
 
 

@@ -14,6 +14,17 @@
 
 # Adapted from https://github.com/pytorch/vision
 
+
+# Note that Distributed-Data-Parallel (DDP) mode cannot be
+# activated when running this code  using the CLI
+# (ie, by using sparseml.image_classification.train).
+# Rather, Data-Parallel (DP) mode will be used.
+# Please run as follows to run in DDP mode:
+# CUDA_VISIBLE_DEVICES=<GPUs> python -m torch.distributed.launch \
+# --nproc_per_node <NUM GPUs> \
+# sparseml.torchvision.train \
+# <TRAIN.PY ARGUMENTS>
+
 import datetime
 import logging
 import math
@@ -267,6 +278,8 @@ def load_data(traindir, valdir, args):
             traindir,
             presets.ClassificationPresetTrain(
                 crop_size=train_crop_size,
+                mean=args.rgb_mean,
+                std=args.rgb_std,
                 interpolation=interpolation,
                 auto_augment_policy=auto_augment_policy,
                 random_erase_prob=random_erase_prob,
@@ -289,6 +302,8 @@ def load_data(traindir, valdir, args):
     else:
         preprocessing = presets.ClassificationPresetEval(
             crop_size=val_crop_size,
+            mean=args.rgb_mean,
+            std=args.rgb_std,
             resize_size=val_resize_size,
             interpolation=interpolation,
         )
@@ -385,7 +400,7 @@ def main(args):
     )
 
     _LOGGER.info("Creating model")
-    local_rank = args.rank if args.distributed else None
+    local_rank = args.local_rank if args.distributed else None
     model, arch_key, maybe_dp_device = _create_model(
         arch_key=args.arch_key,
         local_rank=local_rank,
@@ -796,7 +811,16 @@ def _create_model(
         raise ValueError(
             f"Unable to find {arch_key} in ModelRegistry or in torchvision.models"
         )
-    model, device, _ = model_to_device(model=model, device=device)
+    ddp = False
+    if local_rank is not None:
+        torch.cuda.set_device(local_rank)
+        device = local_rank
+        ddp = True
+    model, device, _ = model_to_device(
+        model=model,
+        device=device,
+        ddp=ddp,
+    )
     return model, arch_key, device
 
 
@@ -1211,6 +1235,34 @@ def _deprecate_old_arguments(f):
         "example: `resnet50`, `mobilenet`. "
         "Note: Will be read from the checkpoint if not specified"
     ),
+)
+@click.option(
+    "--rgb-mean",
+    nargs=3,
+    default=(0.485, 0.456, 0.406),
+    type=float,
+    help=(
+        "RGB mean values used to shift input RGB values; "
+        "Note: Will use ImageNet values if not specified."
+    ),
+)
+@click.option(
+    "--rgb-std",
+    default=(0.229, 0.224, 0.225),
+    nargs=3,
+    type=float,
+    help=(
+        "RGB standard-deviation values used to normalize input RGB values; "
+        "Note: Will use ImageNet values if not specified."
+    ),
+)
+@click.option(
+    "--local_rank",
+    "--local-rank",
+    type=int,
+    default=None,
+    help="Local rank for distributed training",
+    hidden=True,  # should not be modified by user
 )
 @click.pass_context
 def cli(ctx, **kwargs):

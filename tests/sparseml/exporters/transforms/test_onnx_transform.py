@@ -14,11 +14,11 @@
 
 import os
 
-import onnx
 import pytest
 from onnx import AttributeProto, TensorProto, helper
 
 from sparseml.exporters.transforms import OnnxTransform
+from sparsezoo.utils import save_onnx
 
 
 def _create_model():
@@ -62,5 +62,6 @@ def test_onnx_transform_from_path(tmp_path):
     model = _create_model()
     transform = _TestOnnxTransform()
     path = os.path.join(str(tmp_path), "model.onnx")
-    onnx.save(model, path)
+    save_onnx(model, path)
     assert transform(path)
+    os.remove(path)
