@@ -1,8 +1,9 @@
-from collections.abc import Mapping
 from typing import Dict, Tuple
 
 import torch
 import torch.nn as nn
+
+from math import ceil
 
 from sparseml.pytorch.optim.manager import ScheduledModifierManager
 
@@ -32,44 +33,36 @@ except:
 
 
 class QuantizationModelPreprocessor(ModelPreProcessor):
-    def __init__(self, recipe: str, data_loader, observer_batches):
+    def __init__(
+            self,
+            recipe: str,
+            dataloader,
+            observer_batches,
+            model_eval,
+            device,
+    ):
         self.recipe = recipe
         if self.recipe is None:
             raise ValueError("Recipe must not be None")
-        self.data_loader = data_loader
+        self.dataloader = dataloader
         self.observer_batches = observer_batches
+        self.model_eval = model_eval
+        self.device = device
 
-    def __call__(self, model, dev: str = "cuda:0") -> Tuple[nn.Module, Dict]:
+    def __call__(self, model) -> Tuple[nn.Module, Dict]:
         manager = ScheduledModifierManager.from_yaml(self.recipe)
         model.train()
         manager.apply_structure(model, epoch=0.1)
         model.eval()
-        model = self.initialize_scales_from_batches(model, dev)
+        model = self.initialize_scales_from_batches(model)
         return model, {"manager": manager}
 
-    def initialize_scales_from_batches_whole(self, model, dev):
+    def initialize_scales_from_batches(self, model):
         print("Collecting data statistics for quantization scales...")
         model.train()
-        model.to(dev)
         with torch.no_grad():
-            batches = 0
-            while batches < self.observer_batches:
-                for batch in self.data_loader:
-                    if batches == self.observer_batches:
-                        break
-                    print(f"Batch {batches + 1}/{self.observer_batches}")
-                    if isinstance(batch, tuple):
-                        inp, _ = batch  # Ignore target
-                        inp = inp.to(dev)
-                    elif isinstance(batch, Mapping):
-                        if "labels" in batch:
-                            batch.pop("labels")
-                        inp = {k: v.to(dev) for k, v in batch.items()}
-                    else:
-                        raise ValueError(
-                            f"Dont know how to process given batch type: {type(batch)}"
-                        )
-                    model(inp)
-                    batches += 1
+            for _ in range(int(ceil(self.observer_batches / len(self.dataloader)))):
+                self.model_eval(self.model, self.dataloader, self.device)
         model.apply(torch.quantization.disable_observer)
+        model.eval()
         return model

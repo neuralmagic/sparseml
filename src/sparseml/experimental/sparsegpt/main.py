@@ -3,9 +3,12 @@ import time
 
 import torch
 
-from dispatch import load_data, load_model, prepare_sparsegpt
 from sparseml.optim.helpers import load_recipe_yaml_str
-
+from sparseml.experimental.sparsegpt.dispatch import (
+    load_data,
+    load_model,
+    prepare_sparsegpt,
+)
 
 try:
     import wandb
@@ -20,7 +23,7 @@ DEV = torch.device("cuda:0")
 
 @torch.no_grad()
 def sequential(model, dataloader, dev, args):
-    sequential_sparsegpt = prepare_sparsegpt(model, dataloader, args, dev=dev)
+    sequential_sparsegpt = prepare_sparsegpt(model, dataloader, args)
     sequential_sparsegpt.compress(dev)
 
 
@@ -46,7 +49,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "dataset",
         type=str,
-        choices=["wikitext2", "ptb", "c4"],
+        choices=["wikitext2", "ptb", "c4", "open_platypus", "platypus"],
         help="Where to extract calibration data from.",
     )
     parser.add_argument("--recipe", type=str, default=None)
@@ -137,6 +140,7 @@ if __name__ == "__main__":
         wandb.init(config=args)
 
     model, seqlen = load_model(args)
+    model = OffLoadedModule(model, DEV)
     dataloader, testloader, tokenizer = load_data(args, seqlen)
 
     if args.wbits < 16 or ((args.sparsity or args.prunen) and not args.gmp):

@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import transformers
 
-from quant import WeightFakeQuantizer
+from sparseml.experimental.sparsegpt.quant import WeightFakeQuantizer
 
 
 DEBUG = False
