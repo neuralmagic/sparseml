@@ -115,7 +115,7 @@ def prepare_sparsegpt(model, dataloader, args, **kwargs) -> SequentialSparseGPT:
     if args.recipe:
         model_preprocessors.append(
             QuantizationModelPreprocessor(
-                args.recipe, dataloader, args.observer_batches
+                model, args.recipe, dataloader, args.observer_batches
             )
         )
     bottom_compressor = OPTBottomCompressor(model)

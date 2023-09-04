@@ -1,9 +1,10 @@
 from typing import Dict, List, Tuple
 
+import inspect
 import torch
 import torch.nn as nn
 
-from quant import Quantizer, WeightFakeQuantizer
+from quant import WeightFakeQuantizer
 from sparsegpt import SparseGPT
 
 
@@ -33,7 +34,7 @@ class LayerCompressor(BaseCompressor):
         self.manager = manager
         self.args = args
 
-    def compressible_modules(self):
+    def compressible_modules(self, **kwargs):
         if self.manager is not None and self.manager.quantization_modifiers:
             # The layer names are changed due to quantization modifiers, therefore
             # we need a slightly different func to retrieve layers
@@ -46,7 +47,7 @@ class LayerCompressor(BaseCompressor):
         """
         Set up SparseGPT objects, compute Hessian
         """
-        subset = self.compressible_modules()
+        subset = self.compressible_modules(**kwargs)
 
         gpts = {}
         for name in subset:
@@ -70,14 +71,16 @@ class LayerCompressor(BaseCompressor):
 
         # Run through the samples in order to compute Hessian matrix
         nsamples = self.inputs.shape[0]
-        attention_mask = kwargs.get("attention_mask", None)
+        forward_args_spec = inspect.getfullargspec(self.layer.__class__.forward)
+        passed_in_args = [arg for arg in forward_args_spec.args if arg in kwargs]
         for j in range(nsamples):
-            attn_mask = (
-                attention_mask[j]
-                if isinstance(attention_mask, List)
-                else attention_mask
-            )
-            self.layer(self.inputs[j].unsqueeze(0), attention_mask=attn_mask)[0]
+            passed_in_kwargs = {}
+            for arg in passed_in_args:
+                if isinstance(kwargs[arg], List):
+                    passed_in_kwargs[arg] = kwargs[arg][j]
+                else:
+                    passed_in_kwargs[arg] = kwargs[arg]
+            self.layer(self.inputs[j].unsqueeze(0), **passed_in_kwargs)[0]
         for h in handles:
             h.remove()
 
