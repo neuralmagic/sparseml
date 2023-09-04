@@ -706,7 +706,7 @@ def prepare_embeddings_qat(
     for submodule in module.modules():
         submodule_qconfig = getattr(submodule, "qconfig", None)
         submodule_qconfig = submodule_qconfig or qconfig
-        if type(submodule) is Embedding and submodule_qconfig is not None:
+        if isinstance(submodule, Embedding) and submodule_qconfig is not None:
             _prepare_qat_embedding(submodule, submodule_qconfig)
 
 
