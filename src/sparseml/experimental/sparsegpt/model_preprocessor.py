@@ -7,7 +7,7 @@ import torch.nn as nn
 from sparseml.pytorch.optim.manager import ScheduledModifierManager
 
 
-class ModelPreProcessor:
+class ModelPreprocessor:
     def __init__(self, model):
         self.model = model
 
@@ -15,7 +15,7 @@ class ModelPreProcessor:
         return self.model, {}
 
 
-class SmoothQuantModelPreprocessor(ModelPreProcessor):
+class SmoothQuantModelPreprocessor(ModelPreprocessor):
     def __init__(self, model, smooth_activation_file, alpha: float = 0.5):
         super().__init__(model)
         self.smooth_activation_file = smooth_activation_file
@@ -23,34 +23,36 @@ class SmoothQuantModelPreprocessor(ModelPreProcessor):
 
     def __call__(self, dev: str = "cuda:0", **kwargs) -> Tuple[nn.Module, Dict]:
         from smoothquant.smooth import smooth_lm
+
         self.model.to(dev)
         act_scales = torch.load(self.smooth_activation_file)
         smooth_lm(self.model, act_scales, 0.5)
         return self.model
 
 
-class QuantizationModelPreprocessor(ModelPreProcessor):
-    def __init__(self, recipe: str, data_loader, observer_batches):
+class QuantizationModelPreprocessor(ModelPreprocessor):
+    def __init__(self, model, recipe: str, data_loader, observer_batches):
+        super().__init__(model)
         self.recipe = recipe
         if self.recipe is None:
             raise ValueError("Recipe must not be None")
         self.data_loader = data_loader
         self.observer_batches = observer_batches
 
-    def __call__(self, model, dev: str = "cuda:0", **kwargs) -> Tuple[nn.Module, Dict]:
+    def __call__(self, dev: str = "cuda:0", **kwargs) -> Tuple[nn.Module, Dict]:
         manager = ScheduledModifierManager.from_yaml(self.recipe)
-        model.train()
-        manager.apply_structure(model, epoch=0.1)
-        model.eval()
-        model = self._initialize_scales_from_batches(model, dev)
-        return model, {"manager": manager}
+        self.model.train()
+        manager.apply_structure(self.model, epoch=0.1)
+        self.model.eval()
+        self.model = self._initialize_scales_from_batches(dev)
+        return self.model, {"manager": manager}
 
-    def _initialize_scales_from_batches(self, model, dev):
+    def _initialize_scales_from_batches(self, dev):
         # TODO: have another version with layer-wise execution to save memory on
         # very large models
         print("Collecting data statistics for quantization scales...")
-        model.train()
-        model.to(dev)
+        self.model.train()
+        self.model.to(dev)
         with torch.no_grad():
             batches = 0
             while batches < self.observer_batches:
@@ -69,7 +71,7 @@ class QuantizationModelPreprocessor(ModelPreProcessor):
                         raise ValueError(
                             f"Dont know how to process given batch type: {type(batch)}"
                         )
-                    model(inp)
+                    self.model(inp)
                     batches += 1
-        model.apply(torch.quantization.disable_observer)
-        return model
+        self.model.apply(torch.quantization.disable_observer)
+        return self.model

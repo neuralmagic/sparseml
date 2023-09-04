@@ -4,7 +4,7 @@ from typing import List, Optional
 import torch
 
 from layer_compressor import LayerCompressor
-from model_preprocessor import ModelPreProcessor
+from model_preprocessor import ModelPreprocessor
 
 
 class SequentialSparseGPT:
@@ -12,7 +12,7 @@ class SequentialSparseGPT:
         self,
         model,
         recipe: Optional[str] = None,
-        model_preprocessors: Optional[List[ModelPreProcessor]] = None,
+        model_preprocessors: Optional[List[ModelPreprocessor]] = None,
         bottom_compressor: Optional[LayerCompressor] = None,
         head_compressor: Optional[LayerCompressor] = None,
         args=None,
@@ -43,12 +43,16 @@ class SequentialSparseGPT:
         for processor in self.model_preprocessors:
             # We assume the processors are independent, and therefore
             # pass in the initial kwargs into each of them
-            model, extras = processor(model, dev=dev, **kwargs)
+            model, extras = processor(dev=dev, **kwargs)
             all_extras.update(extras)
         return model, all_extras
 
     def compress(self, dev: str = "cuda:0", **kwargs):
         accum_kwargs = deepcopy(kwargs)
+
+        if "args" not in kwargs:
+            # Ensure that all CLI arguments are also passed down to all the steps
+            kwargs["args"] = self.args
 
         self.model, extras = self.pre_compress(dev=dev, **kwargs)
 
