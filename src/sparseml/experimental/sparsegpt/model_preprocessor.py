@@ -27,7 +27,7 @@ class SmoothQuantModelPreprocessor(ModelPreprocessor):
         self.model.to(dev)
         act_scales = torch.load(self.smooth_activation_file)
         smooth_lm(self.model, act_scales, 0.5)
-        return self.model
+        return self.model, {}
 
 
 class QuantizationModelPreprocessor(ModelPreprocessor):
