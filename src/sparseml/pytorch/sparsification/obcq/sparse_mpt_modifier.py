@@ -1,14 +1,32 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import logging
 from typing import Optional
+
 import torch
 from torch import nn
+
 from sparseml.pytorch.sparsification.modifier import PyTorchModifierYAML
-from sparseml.pytorch.sparsification.obcq.sparse_gpt_modifier import SparseGPTModifier
 from sparseml.pytorch.sparsification.obcq.layer_compressor import BaseCompressor
+from sparseml.pytorch.sparsification.obcq.sparse_gpt_modifier import SparseGPTModifier
+
 
 _LOGGER = logging.getLogger(__name__)
 
 __all__ = ["SparseMPTModifier"]
+
 
 class MPTBottomCompressor(BaseCompressor):
     def compress(self, dev: str = "cuda:0", **kwargs):
@@ -64,10 +82,11 @@ class MPTBottomCompressor(BaseCompressor):
 
         self.model = model
         return model, extras
-    
+
+
 class SparseMPTModifier(SparseGPTModifier):
-    """
-    """
+    """ """
+
     def __init__(
         self,
         sparsity: float = 0.5,
@@ -83,15 +102,14 @@ class SparseMPTModifier(SparseGPTModifier):
             quantize=quantize,
             num_bits=num_bits,
             dampening_frac=dampening_frac,
-            sequential_update=sequential_update
+            sequential_update=sequential_update,
         )
 
     def compressible_layers(self):
         return self.model.model.transformer.blocks
-    
+
     def bottom_compressor(self):
         return MPTBottomCompressor(self.model)
-    
+
     def head_compressor(self):
-        return None #no head compressor for MPT
-    
+        return None  # no head compressor for MPT

@@ -1,14 +1,34 @@
-from datasets import load_dataset
-from transformers import AutoTokenizer
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import random
 
-__all__ = [
-    "get_wikitext2",
-    "get_ptb",
-    "get_c4"
-]
+import numpy as np
+import torch
+from datasets import load_dataset
+from transformers import AutoTokenizer
+
+
+__all__ = ["get_wikitext2", "get_ptb", "get_c4"]
 
 # TODO: update these to PyTorch dataloaders
+
+
+def set_seed(seed):
+    np.random.seed(seed)
+    torch.random.manual_seed(seed)
+
 
 def get_wikitext2(nsamples, seed, seqlen, model):
     traindata = load_dataset("wikitext", "wikitext-2-raw-v1", split="train")
@@ -17,6 +37,8 @@ def get_wikitext2(nsamples, seed, seqlen, model):
     tokenizer = AutoTokenizer.from_pretrained(model, use_fast=False)
     trainenc = tokenizer(" ".join(traindata["text"]), return_tensors="pt")
     testenc = tokenizer("\n\n".join(testdata["text"]), return_tensors="pt")
+
+    import random
 
     random.seed(seed)
     trainloader = []
