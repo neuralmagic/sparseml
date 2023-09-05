@@ -34,8 +34,6 @@ class LayerCompressor(BaseCompressor):
         self.manager = manager
         self.args = args
 
-        self.sequential_hessian_within_layer = True
-
     def compressible_modules(self, **kwargs):
         if self.manager is not None and self.manager.quantization_modifiers:
             # The layer names are changed due to quantization modifiers, therefore
@@ -44,52 +42,6 @@ class LayerCompressor(BaseCompressor):
         else:
             modules = _find_layers(self.layer)
         return modules
-
-    def pre_compress(self, **kwargs):
-        """
-        Set up SparseGPT objects, compute Hessian
-        """
-        if not self.sequential_hessian_within_layer:
-            subset = self.compressible_modules(**kwargs)
-
-            gpts = {}
-            for name in subset:
-                gpts[name] = SparseGPT(subset[name])
-                if (
-                    self.args.wbits < 16
-                    and self.manager is not None
-                    and self.manager.quantization_modifiers
-                ):
-                    gpts[name].quantizer = WeightFakeQuantizer(subset[name])
-
-            def add_batch(name):
-                def tmp(_, inp, out):
-                    gpts[name].add_batch(inp[0].data, out.data)
-
-                return tmp
-
-            handles = []
-            for name in gpts:
-                handles.append(subset[name].register_forward_hook(add_batch(name)))
-
-            # Run through the samples in order to compute Hessian matrix
-            nsamples = self.inputs.shape[0]
-            forward_args_spec = inspect.getfullargspec(self.layer.__class__.forward)
-            passed_in_args = [arg for arg in forward_args_spec.args if arg in kwargs]
-            for j in range(nsamples):
-                passed_in_kwargs = {}
-                for arg in passed_in_args:
-                    if isinstance(kwargs[arg], List):
-                        passed_in_kwargs[arg] = kwargs[arg][j]
-                    else:
-                        passed_in_kwargs[arg] = kwargs[arg]
-                self.layer(self.inputs[j].unsqueeze(0), **passed_in_kwargs)[0]
-            for h in handles:
-                h.remove()
-
-            return self.model, {"gpts": gpts}
-        else:
-            return self.model, {}
 
     def compress(self, dev: str = "cuda:0", **kwargs):
         self.layer.to(dev)
