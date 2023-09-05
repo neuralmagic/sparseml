@@ -110,7 +110,7 @@ def prepare_sparsegpt(model, dataloader, args, **kwargs) -> SequentialSparseGPT:
     model_preprocessors = []
     if args.smoothquant and args.smooth_activation_file is not None:
         model_preprocessors.append(
-            SmoothQuantModelPreprocessor(args.smooth_activation_file)
+            SmoothQuantModelPreprocessor(model, args.smooth_activation_file)
         )
     if args.recipe:
         model_preprocessors.append(
