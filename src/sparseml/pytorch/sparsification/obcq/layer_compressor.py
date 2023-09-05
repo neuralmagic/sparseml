@@ -12,16 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 from typing import Dict, List, Tuple
 
 import torch
 import torch.nn as nn
 
-from sparseml.pytorch.sparsification.obcq.quant import Quantizer, WeightFakeQuantizer
 from sparseml.pytorch.sparsification.obcq.sparsegpt import SparseGPT
 
 
-DEFAULT_WBITS = 16
+_LOGGER = logging.getLogger(__name__)
 
 
 class BaseCompressor:
@@ -48,7 +48,8 @@ class LayerCompressor(BaseCompressor):
         self.args = args
 
     def compressible_modules(self):
-        if self.manager is not None and self.manager.quantization_modifiers:
+        quantize = self.args.get("quantize", False)
+        if quantize:
             # The layer names are changed due to quantization modifiers, therefore
             # we need a slightly different func to retrieve layers
             modules = _find_quant_layers(self.layer)
@@ -65,12 +66,6 @@ class LayerCompressor(BaseCompressor):
         gpts = {}
         for name in subset:
             gpts[name] = SparseGPT(subset[name])
-            if (
-                self.args["wbits"] < 16
-                and self.manager is not None
-                and self.manager.quantization_modifiers
-            ):
-                gpts[name].quantizer = WeightFakeQuantizer(subset[name])
 
         def add_batch(name):
             def tmp(_, inp, out):
@@ -103,7 +98,7 @@ class LayerCompressor(BaseCompressor):
 
         gpts = extras["gpts"]
         for name in gpts:
-            print(f"Compressing {name}...")
+            _LOGGER.info(f"Compressing {name}...")
             sparsity = self.args["sparsity"]
             gpts[name].fasterprune(
                 sparsity,

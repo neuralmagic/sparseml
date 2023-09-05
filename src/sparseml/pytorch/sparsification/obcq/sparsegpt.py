@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import math
 import time
 
@@ -19,10 +20,9 @@ import torch
 import torch.nn as nn
 import transformers
 
-from sparseml.pytorch.sparsification.obcq.quant import WeightFakeQuantizer
-
 
 DEBUG = False
+_LOGGER = logging.getLogger(__name__)
 
 torch.backends.cuda.matmul.allow_tf32 = False
 torch.backends.cudnn.allow_tf32 = False
@@ -67,12 +67,6 @@ class SparseGPT:
         if isinstance(self.layer, transformers.Conv1D):
             W = W.t()
         W = W.float()
-
-        if hasattr(self, "quantizer") and not isinstance(
-            self.quantizer, WeightFakeQuantizer
-        ):
-            if not self.quantizer.ready():
-                self.quantizer.find_params(W, weight=True)
 
         tick = time.time()
 
@@ -130,9 +124,6 @@ class SparseGPT:
                 q = w.clone()
                 q[mask1[:, i]] = 0
 
-                if hasattr(self, "quantizer"):
-                    q = self.quantizer.quantize(q.unsqueeze(1)).flatten()
-
                 Q1[:, i] = q
                 Losses1[:, i] = (w - q) ** 2 / d**2
 
@@ -148,12 +139,12 @@ class SparseGPT:
             if DEBUG:
                 self.layer.weight.data[:, :i2] = W[:, :i2]
                 self.layer.weight.data[:, i2:] = W[:, i2:]
-                print(torch.sum((self.layer(self.inp1) - self.out1) ** 2))
-                print(torch.sum(Losses))
+                _LOGGER.debug(torch.sum((self.layer(self.inp1) - self.out1) ** 2))
+                _LOGGER.debug(torch.sum(Losses))
 
         torch.cuda.synchronize()
-        print("time %.2f" % (time.time() - tick))
-        print("error", torch.sum(Losses).item())
+        _LOGGER.info("time %.2f" % (time.time() - tick))
+        _LOGGER.info("error %.2f" % torch.sum(Losses).item())
 
         if isinstance(self.layer, transformers.Conv1D):
             W = W.t()
@@ -161,7 +152,7 @@ class SparseGPT:
             self.layer.weight.data.dtype
         )
         if DEBUG:
-            print(torch.sum((self.layer(self.inp1) - self.out1) ** 2))
+            _LOGGER.debug(torch.sum((self.layer(self.inp1) - self.out1) ** 2))
 
     def free(self):
         if DEBUG:

@@ -20,8 +20,8 @@ from typing import Optional
 
 from transformers import OPTForCausalLM
 
-from sparseml.pytorch.sparsification.obcq.data import get_c4, get_ptb, get_wikitext2
 from sparseml.optim.helpers import load_recipe_yaml_str
+from sparseml.pytorch.sparsification.obcq.data import get_c4, get_ptb, get_wikitext2
 
 # from sparseml.pytorch.sparsification.obcq.sparse_opt_modifier import SparseOPTModifier
 from sparseml.pytorch.sparsification.obcq.manager import RecipeManagerOneShot
@@ -32,11 +32,12 @@ __all__ = ["one_shot"]
 _LOGGER = logging.getLogger(__name__)
 SUPPORTED_DATASETS = ["wikitext2", "ptb", "c4"]
 
+
 def _save(model, tokenizer, save_path, recipe_path):
     model.save_pretrained(save_path)
     tokenizer.save_pretrained(save_path)
 
-    
+    _LOGGER.info("Saving output to {}".format(os.path.abspath(save_path)))
     recipe_output_path = os.path.join(save_path, "recipe.yaml")
     with open(recipe_output_path, "w") as fp:
         fp.write(load_recipe_yaml_str(recipe_path))

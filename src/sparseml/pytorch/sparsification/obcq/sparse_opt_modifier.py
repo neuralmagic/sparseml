@@ -12,25 +12,45 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
-from typing import Optional, Union
+from typing import Optional
 
 import torch
+from torch import nn
 
-from sparseml.optim import BaseModifier, ModifierProp
-from sparseml.pytorch.sparsification.modifier import (
-    BaseModifier,
-    PyTorchModifierYAML,
-    ScheduledModifier,
-)
+from sparseml.pytorch.sparsification.modifier import PyTorchModifierYAML
 from sparseml.pytorch.sparsification.obcq.layer_compressor import BaseCompressor
 from sparseml.pytorch.sparsification.obcq.sparse_gpt_modifier import SparseGPTModifier
-from sparseml.sparsification import SparsificationTypes
 
-
-_LOGGER = logging.getLogger(__name__)
 
 __all__ = ["SparseOPTModifier"]
+
+
+@PyTorchModifierYAML()
+class SparseOPTModifier(SparseGPTModifier):
+    def __init__(
+        self,
+        sparsity: float = 0.5,
+        block_size: int = 128,
+        quantize: bool = True,
+        dampening_frac: Optional[float] = 0.01,
+        sequential_update: Optional[bool] = True,
+    ):
+        super().__init__(
+            sparsity=sparsity,
+            block_size=block_size,
+            quantize=quantize,
+            dampening_frac=dampening_frac,
+            sequential_update=sequential_update,
+        )
+
+    def compressible_layers(self):
+        return self.model.model.decoder.layers
+
+    def bottom_compressor(self):
+        return OPTBottomCompressor(self.model)
+
+    def head_compressor(self):
+        return None  # no head compressor for OPT
 
 
 class OPTBottomCompressor(BaseCompressor):
@@ -38,7 +58,7 @@ class OPTBottomCompressor(BaseCompressor):
     OPT specific
     """
 
-    def post_compress(
+    def compress(
         self, dataloader=None, nsamples: int = None, dev: str = "cuda:0", **kwargs
     ):
         model = self.model
@@ -114,35 +134,3 @@ class OPTBottomCompressor(BaseCompressor):
         }
         self.model = model
         return model, extras
-
-
-@PyTorchModifierYAML
-class SparseOPTModifier(SparseGPTModifier):
-    """ """
-
-    def __init__(
-        self,
-        sparsity: float = 0.5,
-        block_size: int = 128,
-        quantize: bool = True,
-        num_bits: int = 16,
-        dampening_frac: Optional[float] = 0.001,
-        sequential_update: Optional[bool] = True,
-    ):
-        super().__init__(
-            sparsity=sparsity,
-            block_size=block_size,
-            quantize=quantize,
-            num_bits=num_bits,
-            dampening_frac=dampening_frac,
-            sequential_update=sequential_update,
-        )
-
-    def compressible_layers(self):
-        return self.model.model.decoder.layers
-
-    def bottom_compressor(self):
-        return OPTBottomCompressor(self.model)
-
-    def head_compressor(self):
-        return None  # no head compressor for OPT

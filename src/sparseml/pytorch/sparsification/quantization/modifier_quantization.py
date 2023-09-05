@@ -367,6 +367,9 @@ class QuantizationModifier(ScheduledModifier):
         """
         self._strict = value
 
+    def one_shot(self, model, dataloader, initializer_kwargs, finalize_kwargs):
+        self.initialize(model, 0, None, calibration_dataloader=dataloader)
+
     def initialize(
         self,
         module: Module,

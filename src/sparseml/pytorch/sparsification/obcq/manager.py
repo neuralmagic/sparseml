@@ -24,7 +24,6 @@ from sparseml.optim import (
     parse_recipe_variables,
     validate_metadata,
 )
-from sparseml.pytorch.optim import ScheduledModifierManager
 from sparseml.pytorch.sparsification import Modifier
 from sparsezoo.objects import File
 
@@ -96,6 +95,7 @@ class RecipeManagerOneShot(BaseManager):
             for finalizing individual modifiers.
         """
 
+        module.to("cuda:0")
         for mod in self.iter_modifiers():
             mod.one_shot(
                 module,

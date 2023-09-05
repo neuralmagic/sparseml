@@ -1,6 +1,40 @@
 modifiers:
-  - !SparseGPTModifier
+  - !QuantizationModifier
+    ignore: ["lm_head", "Embedding", "OPTLearnedPositionalEmbedding", "QuantizableBatchMatMul"]
+    scheme_overrides:
+      BMMLeftInput_QK:
+        input_activations:
+          num_bits: 8
+          symmetric: True
+        output_activations: null
+      BMMRightInput_QK:
+        input_activations:
+          num_bits: 8
+          symmetric: False
+        output_activations: null
+      BMMOutput_QK:
+        input_activations: null
+        output_activations: null
+      BMMLeftInput_PV:
+        input_activations:
+          num_bits: 8
+          symmetric: False
+        output_activations: null
+      BMMRightInput_PV:
+        input_activations:
+          num_bits: 8
+          symmetric: True
+        output_activations: null
+      BMMOutput_PV:
+        input_activations: null
+        output_activations: null
+      ReLU:
+        input_activations: null
+        output_activations: null
+      LayerNorm:
+        input_activations: null
+        output_activations: null
+  - !SparseOPTModifier
     sparsity: 0.5
     block_size: 128
     quantize: True
-    num_bits: 16

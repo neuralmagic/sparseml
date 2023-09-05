@@ -25,7 +25,7 @@ from .distillation import *
 from .info import *
 from .modifier import *
 from .modifier_thinning import *
+from .obcq import *
 from .pruning import *
 from .quantization.modifier_quantization import *
 from .training import *
-from .obcq import *
