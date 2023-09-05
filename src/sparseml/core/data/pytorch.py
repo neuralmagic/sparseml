@@ -12,11 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Mapping, Sequence
+
 import torch
+from torch.utils.data import DataLoader
 
 from sparseml.core.data.base import ModifiableData
-from torch.utils.data import DataLoader
-from typing import Mapping, Sequence
+
 
 __all__ = ["ModifiableDataPyTorch", "DynamicBatchSizeDataLoader"]
 

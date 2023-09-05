@@ -14,22 +14,26 @@
 
 import threading
 from contextlib import contextmanager
-from typing import Callable, Any, Union, List, Dict, Tuple
 from dataclasses import dataclass
+from typing import Any, Callable, Dict, List, Union
 
-from sparseml.core.state import State
-from sparseml.core.event import EventType, Event
-from sparseml.core.recipe import Recipe
+from sparseml.core.event import (
+    CallbacksEventLifecycle,
+    EventType,
+    WrappedOptimEventLifecycle,
+)
 from sparseml.core.framework import Framework
 from sparseml.core.modifier import StageModifiers
+from sparseml.core.recipe import Recipe
+from sparseml.core.state import ModifiedState, State
 
 
 __all__ = [
     "SparseSession",
     "create_session",
     "active_session",
-    "apply_structure",
-    "init",
+    "pre_initialize_structure",
+    "initialize",
     "finalize",
     "apply",
     "callbacks",
@@ -49,6 +53,10 @@ class SparseSession:
     def __init__(self):
         self._state: State = State()
         self._modifiers: List[StageModifiers] = []
+        self._initialized_structure = False
+        self._initialized = False
+        self._finalized = False
+        self._event_called = False
 
     @property
     def state(self) -> State:
@@ -58,8 +66,21 @@ class SparseSession:
     def modifiers(self) -> List[StageModifiers]:
         return self._modifiers
 
-    def last_event(self) -> Event:
-        return self._state.last_event
+    @property
+    def initialized_structure(self) -> bool:
+        return self._initialized_structure
+
+    @property
+    def initialized(self) -> bool:
+        return self._initialized
+
+    @property
+    def finalized(self) -> bool:
+        return self._finalized
+
+    @property
+    def event_called(self) -> bool:
+        return self._event_called
 
     def pre_initialize_structure(
         self,
@@ -67,18 +88,27 @@ class SparseSession:
         recipe: Union[Recipe, List[Recipe]],
         framework: Framework = None,
         **kwargs,
-    ) -> Any:
+    ) -> ModifiedState:
         self.state.update_framework(framework)
         self.state.update_model(model)
         self.state.update_recipe(recipe)
 
         self._check_compile_recipe()
+        modifier_data = []
 
-        if self._modifiers:
-            for modifier in self._modifiers:
-                modifier.pre_initialize_structure(state=self.state, **kwargs)
+        for modifier in self._modifiers:
+            data = modifier.pre_initialize_structure(state=self.state, **kwargs)
+            if data:
+                modifier_data.append(data)
 
-        return self.state.model.model
+        self._initialized_structure = True
+
+        return ModifiedState(
+            model=self.state.model.model,
+            optimizer=None,
+            loss=None,
+            modifier_data=modifier_data,
+        )
 
     def initialize(
         self,
@@ -98,7 +128,13 @@ class SparseSession:
         steps_per_epoch: int = None,
         batches_per_step: int = None,
         **kwargs,
-    ) -> Tuple[Any, Any]:
+    ) -> ModifiedState:
+        if self.event_called:
+            raise ValueError("Cannot initialize after invoking an event")
+
+        if self.finalized:
+            raise ValueError("Cannot initialize after finalizing")
+
         self.state.update_framework(framework)
         self.state.update_recipe(recipe, recipe_stage, recipe_args)
         self.state.update_model(model)
@@ -107,44 +143,129 @@ class SparseSession:
         self.state.update_start(start, steps_per_epoch, batches_per_step)
 
         self._check_compile_recipe()
+        modifier_data = []
 
         if self._modifiers:
             for modifier in self._modifiers:
-                modifier.initialize(state=self.state, **kwargs)
+                data = modifier.initialize(state=self.state, **kwargs)
+                if data:
+                    modifier_data.append(data)
 
-        model_return = None
-        optim_return = None
+        self._initialized = True
 
-        if model:
-            model_return = self.state.model.model
-        if optimizer:
-            optim_return = self.state.optimizer.optimizer
+        return ModifiedState(
+            model=self.state.model.model,
+            optimizer=self.state.optimizer.optimizer,
+            loss=self.state.loss.loss,
+            modifier_data=modifier_data,
+        )
 
-        return model_return, optim_return
+    def finalize(self, **kwargs) -> ModifiedState:
+        if not self.initialized:
+            raise ValueError("Cannot finalize before initializing")
 
-    def finalize(self, **kwargs):
-        pass
+        if self.finalized:
+            raise ValueError("Cannot finalize more than once")
+
+        modifier_data = []
+
+        for modifier in self._modifiers:
+            data = modifier.finalize(state=self.state, **kwargs)
+            if data:
+                modifier_data.append(data)
+
+        self._finalized = True
+
+        return ModifiedState(
+            model=self.state.model.model,
+            optimizer=self.state.optimizer.optimizer,
+            loss=self.state.loss.loss,
+            modifier_data=modifier_data,
+        )
 
     def apply(self, **kwargs):
         self.initialize(**kwargs)
-        self.finalize(**kwargs)
 
-    def apply_structure(
-        self, model: Any, recipe: Union[Recipe, List[Recipe]], **kwargs
-    ):
-        pass
+        return self.finalize(**kwargs)
 
-    def event(self, event_type: EventType, **kwargs):
-        pass
+    def event(
+        self, event_type: EventType, batch_data: Any = None, loss: Any = None, **kwargs
+    ) -> ModifiedState:
+        if not self.initialized:
+            raise ValueError("Cannot invoke event before initializing")
+
+        if self.finalized:
+            raise ValueError("Cannot invoke event after finalizing")
+
+        if event_type in [EventType.PRE_INIT, EventType.INITIALIZE, EventType.FINALIZE]:
+            raise ValueError(
+                f"Cannot invoke {event_type} event. "
+                f"Use the corresponding method instead."
+            )
+
+        if event_type == EventType.LOSS_CALCULATED and loss is None:
+            raise ValueError("Loss must be provided for loss calculated event")
+
+        if self.state.event_lifecycle is None:
+            if event_type == EventType.BATCH_START:
+                # utilizing callbacks pathway, ensure optim is not wrapped
+                if self.state.optim_wrapped:
+                    raise ValueError(
+                        "Cannot use batch callbacks with wrapped optimizer, "
+                        "set attach_optim_callbacks to False when initializing "
+                    )
+                self.state.event_lifecycle = CallbacksEventLifecycle(event_type)
+            elif self.state.optim_wrapped:
+                # utilizing wrapped optimizer for callbacks
+                self.state.event_lifecycle = WrappedOptimEventLifecycle(event_type)
+            else:
+                raise ValueError(
+                    "First event must be batch_start or "
+                    "attach_optim_callbacks must be True"
+                )
+
+        event = None
+        modifier_data = []
+        for event in self.state.event_lifecycle.events_from_type(event_type):
+            for modifier in self._modifiers:
+                data = modifier.update_event(
+                    state=self.state,
+                    event=event,
+                    batch_data=batch_data,
+                    loss=loss,
+                    **kwargs,
+                )
+                if data:
+                    modifier_data.append(data)
+
+        assert event is not None, f"No events generated for event type {event_type}"
+        self.state.last_event = event
+        self._event_called = True
+
+        return ModifiedState(
+            model=self.state.model.model,
+            optimizer=self.state.optimizer.optimizer,
+            loss=self.state.loss.loss,
+            modifier_data=modifier_data,
+        )
 
     def reset(self):
         if self._state:
             del self._state
         self._state = State()
 
-        if self._recipe_modifier:
-            del self._recipe_modifier
-        self._recipe_modifier = None
+        if self._modifiers:
+            if self.initialized and not self.finalized:
+                for modifier in self._modifiers:
+                    modifier.finalize(self.state)
+
+            del self._modifiers
+
+        self._modifiers = []
+        self._initialized_structure = False
+        self._initialized = False
+        self._finalized = False
+        self._event_called = False
 
     def _check_compile_recipe(self):
         if not self.state.should_recompile_recipe():
@@ -153,7 +274,7 @@ class SparseSession:
         # clear out the modifiers to reinitialize from newly compiled recipe
         if self._modifiers:
             for modifier in self._modifiers:
-                if modifier.initialized:
+                if modifier._initialized:
                     modifier.finalize(self.state)
             del self._modifiers
 
@@ -185,26 +306,89 @@ def active_session() -> SparseSession:
     return getattr(_local_storage, "session", _global_session)
 
 
-def apply_structure(**kwargs):
-    active_session().apply_structure(**kwargs)
+def pre_initialize_structure(**kwargs):
+    active_session().pre_initialize_structure(**kwargs)
 
 
-def init(**kwargs):
-    active_session().initialize(**kwargs)
+def initialize(
+    framework: Framework = None,
+    recipe: Union[str, List[str], Recipe, List[Recipe]] = None,
+    recipe_stage: str = None,
+    recipe_args: Dict[str, Any] = None,
+    model: Any = None,
+    optimizer: Any = None,
+    attach_optim_callbacks: bool = True,
+    train_data: Any = None,
+    val_data: Any = None,
+    test_data: Any = None,
+    calib_data: Any = None,
+    copy_data: bool = True,
+    start: float = None,
+    steps_per_epoch: int = None,
+    batches_per_step: int = None,
+    **kwargs,
+) -> ModifiedState:
+    return active_session().initialize(
+        framework=framework,
+        recipe=recipe,
+        recipe_stage=recipe_stage,
+        recipe_args=recipe_args,
+        model=model,
+        optimizer=optimizer,
+        attach_optim_callbacks=attach_optim_callbacks,
+        train_data=train_data,
+        val_data=val_data,
+        test_data=test_data,
+        calib_data=calib_data,
+        copy_data=copy_data,
+        start=start,
+        steps_per_epoch=steps_per_epoch,
+        batches_per_step=batches_per_step,
+        **kwargs,
+    )
 
 
-def finalize(**kwargs):
-    active_session().finalize(**kwargs)
+def finalize(**kwargs) -> ModifiedState:
+    return active_session().finalize(**kwargs)
 
 
-def apply(**kwargs):
-    init(**kwargs)
-    finalize(**kwargs)
+def apply(
+    framework: Framework = None,
+    recipe: Union[str, List[str], Recipe, List[Recipe]] = None,
+    recipe_stage: str = None,
+    recipe_args: Dict[str, Any] = None,
+    model: Any = None,
+    train_data: Any = None,
+    val_data: Any = None,
+    test_data: Any = None,
+    calib_data: Any = None,
+    copy_data: bool = True,
+    start: float = None,
+    steps_per_epoch: int = None,
+    batches_per_step: int = None,
+    **kwargs,
+) -> ModifiedState:
+    return active_session().apply(
+        framework=framework,
+        recipe=recipe,
+        recipe_stage=recipe_stage,
+        recipe_args=recipe_args,
+        model=model,
+        train_data=train_data,
+        val_data=val_data,
+        test_data=test_data,
+        calib_data=calib_data,
+        copy_data=copy_data,
+        start=start,
+        steps_per_epoch=steps_per_epoch,
+        batches_per_step=batches_per_step,
+        **kwargs,
+    )
 
 
 class LifecycleCallbacks:
     @classmethod
-    def event(cls, event_type: EventType, **kwargs) -> Any:
+    def event(cls, event_type: EventType, **kwargs) -> ModifiedState:
         if event_type in [EventType.PRE_INIT, EventType.INITIALIZE, EventType.FINALIZE]:
             raise ValueError(
                 f"Cannot invoke {event_type} event. "
@@ -214,20 +398,24 @@ class LifecycleCallbacks:
         return active_session().event(event_type, **kwargs)
 
     @classmethod
-    def batch_start(cls, **kwargs) -> Any:
-        return cls.event(EventType.BATCH_START, **kwargs)
+    def batch_start(cls, batch_data: Any = None, **kwargs) -> ModifiedState:
+        return cls.event(EventType.BATCH_START, batch_data=batch_data, **kwargs)
 
     @classmethod
-    def batch_end(cls, **kwargs) -> Any:
-        return cls.event(EventType.BATCH_END, **kwargs)
+    def loss_calculated(cls, loss: Any = None, **kwargs) -> ModifiedState:
+        return cls.event(EventType.LOSS_CALCULATED, loss=loss, **kwargs)
 
     @classmethod
-    def optim_stepped(cls, **kwargs) -> Any:
+    def optim_pre_step(cls, **kwargs) -> ModifiedState:
+        return cls.event(EventType.OPTIM_PRE_STEP, **kwargs)
+
+    @classmethod
+    def optim_stepped(cls, **kwargs) -> ModifiedState:
         return cls.event(EventType.OPTIM_POST_STEP, **kwargs)
 
     @classmethod
-    def loss_calculated(cls, **kwargs) -> Any:
-        return cls.event(EventType.LOSS_CALCULATED, **kwargs)
+    def batch_end(cls, **kwargs) -> ModifiedState:
+        return cls.event(EventType.BATCH_END, **kwargs)
 
 
 callbacks = LifecycleCallbacks

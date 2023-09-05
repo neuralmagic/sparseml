@@ -13,8 +13,9 @@
 # limitations under the License.
 
 
-from enum import Enum
 import importlib
+from enum import Enum
+
 
 __all__ = ["Framework", "MultiFrameworkObject"]
 

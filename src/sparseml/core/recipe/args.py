@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import re
-from typing import Dict, Any, Optional
 import math
+import re
+from typing import Any, Dict, Optional, Union
 
 
 __all__ = ["RecipeArgs"]
@@ -25,7 +25,7 @@ class RecipeArgs(Dict[str, Any]):
         super().__init__(*args, **kwargs)
         self._evaluated: "Optional[RecipeArgs]" = None
 
-    def combine(self, other: "RecipeArgs") -> "RecipeArgs":
+    def combine(self, other: Union["RecipeArgs", Dict[str, Any]]) -> "RecipeArgs":
         combined = RecipeArgs()
         combined.update(self)
 

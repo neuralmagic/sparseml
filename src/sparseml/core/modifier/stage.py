@@ -13,12 +13,13 @@
 # limitations under the License.
 
 
-from pydantic import BaseModel, Field
 from typing import List
 
+from pydantic import BaseModel, Field
 
 from sparseml.core.modifier.base import ModifierInterface
 from sparseml.core.modifier.modifier import Modifier
+from sparseml.core.state import Event, State
 
 
 class StageModifiers(ModifierInterface, BaseModel):
@@ -26,11 +27,25 @@ class StageModifiers(ModifierInterface, BaseModel):
     index: int = None
     group: str = None
 
-    def initialize(self, **kwargs):
-        raise NotImplementedError()
+    _initialized_structure: bool = False
+    _initialized: bool = False
+    _finalized: bool = False
 
-    def finalize(self, **kwargs):
-        raise NotImplementedError()
+    def pre_initialize_structure(self, state: State, **kwargs):
+        for modifier in self.modifiers:
+            modifier.pre_initialize_structure(state, **kwargs)
+        self._initialized_structure = True
 
-    def update_event(self, **kwargs):
-        raise NotImplementedError()
+    def initialize(self, state: State, **kwargs):
+        for modifier in self.modifiers:
+            modifier.initialize(state, **kwargs)
+        self._initialized = True
+
+    def finalize(self, state: State, **kwargs):
+        for modifier in self.modifiers:
+            modifier.finalize(state, **kwargs)
+        self._finalized = True
+
+    def update_event(self, state: State, event: Event, **kwargs):
+        for modifier in self.modifiers:
+            modifier.update_event(state, event, **kwargs)

@@ -13,13 +13,14 @@
 # limitations under the License.
 
 
-from pydantic import BaseModel
+from abc import abstractmethod
 from typing import Optional
 
-from abc import abstractmethod
+from pydantic import BaseModel
+
+from sparseml.core.event import Event, EventType
 from sparseml.core.framework import MultiFrameworkObject
 from sparseml.core.modifier.base import ModifierInterface
-from sparseml.core.event import Event, EventType
 from sparseml.core.state import State
 
 
@@ -33,10 +34,15 @@ class Modifier(ModifierInterface, MultiFrameworkObject, BaseModel):
     end: Optional[float] = None
     update: Optional[float] = None
 
+    _initialized_structure: bool = False
     _initialized: bool = False
     _finalized: bool = False
     _started: bool = False
     _ended: bool = False
+
+    def pre_initialize_structure(self, state: State, **kwargs):
+        self.on_initialize_structure(state, **kwargs)
+        self._initialized_structure = True
 
     def initialize(self, state: State, **kwargs):
         if self._initialized:
@@ -115,6 +121,10 @@ class Modifier(ModifierInterface, MultiFrameworkObject, BaseModel):
         current = event.current_index()
 
         return self.end is not None and current >= self.end
+
+    @abstractmethod
+    def on_initialize_structure(self, state: State, **kwargs):
+        raise NotImplementedError()
 
     @abstractmethod
     def on_initialize(self, state: State, event: Event, **kwargs) -> bool:

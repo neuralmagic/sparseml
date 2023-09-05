@@ -12,17 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Union, List, Dict, Tuple
-from torch.nn import Module, Parameter
+from typing import Dict, List, Tuple, Union
 
+from torch.nn import Module, Parameter
 
 from sparseml.core.model.base import ModifiableModel
 from sparseml.utils.pytorch import (
-    get_layers,
     get_layer,
-    set_layer,
-    get_params,
+    get_layers,
     get_param,
+    get_params,
+    set_layer,
     set_param,
 )
 

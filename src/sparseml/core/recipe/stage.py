@@ -12,13 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Dict, Any, List
+from typing import Any, Dict, List
+
 from pydantic import BaseModel, Field, root_validator
 
-from sparseml.core.recipe.args import RecipeArgs
-from sparseml.core.recipe.modifier import RecipeModifier
 from sparseml.core.framework import Framework
 from sparseml.core.modifier import StageModifiers
+from sparseml.core.recipe.args import RecipeArgs
+from sparseml.core.recipe.modifier import RecipeModifier
 
 
 __all__ = ["RecipeStage"]
@@ -31,11 +32,11 @@ class RecipeStage(BaseModel):
     modifiers: List[RecipeModifier] = Field(default_factory=list)
     _args_evaluated: RecipeArgs = None
 
-    def evaluate(self, parent_args: RecipeArgs):
+    def evaluate(self, parent_args: RecipeArgs = None, shift: int = None):
         merged_args = self.args.combine(parent_args)
         self._args_evaluated = merged_args.evaluate()
         for modifier in self.modifiers:
-            modifier.evaluate(merged_args)
+            modifier.evaluate(self._args_evaluated, shift)
 
     def create_modifiers(
         self, framework: Framework, parent_args: RecipeArgs = None

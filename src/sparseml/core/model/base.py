@@ -12,10 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Dict, Generic, List, TypeVar, Union
+
 from pydantic import BaseModel
-from typing import TypeVar, Generic, Union, List, Dict
 
 from sparseml.core.framework import MultiFrameworkObject
+
 
 __all__ = ["ModifiableModel"]
 

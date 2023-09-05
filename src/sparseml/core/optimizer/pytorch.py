@@ -12,11 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Union, List, Any, Dict
+from typing import Any, Dict, List, Union
+
+from torch.optim import Optimizer
 
 from sparseml.core.optimizer.base import ModifiableOptimizer
 
-from torch.optim import Optimizer
 
 __all__ = ["ModifiableOptimizerPyTorch"]
 
