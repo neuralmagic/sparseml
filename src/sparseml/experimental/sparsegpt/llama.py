@@ -273,6 +273,7 @@ def MatMulQuantizationPreprocessor(ModelPreprocessor):
                     mod.attn_weights_matmul, mod.attn_output_matmul
                 ).__get__(mod, mod.__class__)
                 setattr(mod, "forward", bound_method)
+        return self.model, {}
 
 
 def prepare_sparsegpt(model, dataloader, args, **kwargs) -> SequentialSparseGPT:
