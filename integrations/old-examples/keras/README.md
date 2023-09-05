@@ -31,7 +31,7 @@ The techniques include, but are not limited to:
 
 ## Tutorials
 
-- [Classification](https://github.com/neuralmagic/sparseml/blob/main/integrations/keras/notebooks/classification.ipynb)
+- [Classification](https://github.com/neuralmagic/sparseml/blob/main/integrations/old-examples/keras/notebooks/classification.ipynb)
 
 ## Installation
 
