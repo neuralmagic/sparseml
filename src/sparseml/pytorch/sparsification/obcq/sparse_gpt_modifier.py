@@ -78,7 +78,8 @@ class SparseGPTModifier(BaseModifier):
 
     def one_shot(self, model, dataloader, initializer_kwargs, finalize_kwargs):
         self.initialize(model, **initializer_kwargs)
-        self.compress(dataloader)
+        extras = self.compress(dataloader)
+        finalize_kwargs.update(extras)
         self.finalize(**finalize_kwargs)
 
     @torch.no_grad()
@@ -128,6 +129,8 @@ class SparseGPTModifier(BaseModifier):
             self.model, extras = self._head_compressor.compress(
                 dev=self._device, **accum_kwargs
             )
+
+        return extras
 
     def initialize(self, model, **kwargs):
         self.model = model
