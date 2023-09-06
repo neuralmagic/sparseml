@@ -18,8 +18,8 @@ import torch
 from torch import nn
 
 from sparseml.pytorch.sparsification.modifier import PyTorchModifierYAML
-from sparseml.pytorch.sparsification.obcq.layer_compressor import BaseCompressor
-from sparseml.pytorch.sparsification.obcq.sparse_gpt_modifier import SparseGPTModifier
+from sparseml.transformers.sparsification.obcq.layer_compressor import BaseCompressor
+from sparseml.transformers.sparsification.obcq.sparse_gpt_modifier import SparseGPTModifier
 
 
 __all__ = ["SparseOPTModifier"]

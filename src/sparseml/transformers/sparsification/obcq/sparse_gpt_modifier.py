@@ -18,7 +18,7 @@ from typing import Optional
 import torch
 
 from sparseml.pytorch.sparsification.modifier import BaseModifier, PyTorchModifierYAML
-from sparseml.pytorch.sparsification.obcq.layer_compressor import LayerCompressor
+from sparseml.transformers.sparsification.obcq.layer_compressor import LayerCompressor
 
 
 __all__ = ["SparseGPTModifier"]

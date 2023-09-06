@@ -21,10 +21,10 @@ from typing import Optional
 from transformers import OPTForCausalLM
 
 from sparseml.optim.helpers import load_recipe_yaml_str
-from sparseml.pytorch.sparsification.obcq.data import get_c4, get_ptb, get_wikitext2
+from sparseml.transformers.sparsification.obcq.data import get_c4, get_ptb, get_wikitext2
 
 # from sparseml.pytorch.sparsification.obcq.sparse_opt_modifier import SparseOPTModifier
-from sparseml.pytorch.sparsification.obcq.manager import RecipeManagerOneShot
+from sparseml.transformers.sparsification.obcq.manager import RecipeManagerOneShot
 
 
 __all__ = ["one_shot"]

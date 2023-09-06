@@ -18,7 +18,7 @@ from typing import Dict, List, Tuple
 import torch
 import torch.nn as nn
 
-from sparseml.pytorch.sparsification.obcq.sparsegpt import SparseGPT
+from sparseml.transformers.sparsification.obcq.sparsegpt import SparseGPT
 
 
 _LOGGER = logging.getLogger(__name__)
