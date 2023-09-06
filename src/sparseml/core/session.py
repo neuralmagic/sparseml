@@ -271,7 +271,7 @@ class SparseSession:
                 del self._modifiers
 
         if self.state.recipe_modifier_ready:
-            self._modifiers = self.state.compiled_recipe.create_modifiers(
+            self._modifiers = self.state.compiled_recipe.create_modifier(
                 self.state.framework
             )
 

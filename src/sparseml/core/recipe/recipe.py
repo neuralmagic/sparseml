@@ -121,7 +121,7 @@ class Recipe(RecipeBase):
         for stage in self.stages:
             stage.evaluate(self._args_evaluated, shift)
 
-    def create_modifiers(self, framework: Framework) -> List[StageModifiers]:
+    def create_modifier(self, framework: Framework) -> List[StageModifiers]:
         if self._args_evaluated is None:
             self.evaluate()
         modifiers = []
