@@ -206,23 +206,7 @@ class SparseSession:
         if event_type == EventType.LOSS_CALCULATED and loss is None:
             raise ValueError("Loss must be provided for loss calculated event")
 
-        if self.state.event_lifecycle is None:
-            if event_type == EventType.BATCH_START:
-                # utilizing callbacks pathway, ensure optim is not wrapped
-                if self.state.optim_wrapped:
-                    raise ValueError(
-                        "Cannot use batch callbacks with wrapped optimizer, "
-                        "set attach_optim_callbacks to False when initializing "
-                    )
-                self.state.event_lifecycle = CallbacksEventLifecycle(event_type)
-            elif self.state.optim_wrapped:
-                # utilizing wrapped optimizer for callbacks
-                self.state.event_lifecycle = WrappedOptimEventLifecycle(event_type)
-            else:
-                raise ValueError(
-                    "First event must be batch_start or "
-                    "attach_optim_callbacks must be True"
-                )
+        self._check_setup_lifecycle(event_type)
 
         event = None
         modifier_data = []
@@ -268,20 +252,62 @@ class SparseSession:
         self._event_called = False
 
     def _check_compile_recipe(self):
-        if not self.state.should_recompile_recipe():
+        if not self.state.recipe_changed and self._modifiers is not None:
+            # recipe hasn't changed and modifiers set, no need to recompile
             return
 
-        # clear out the modifiers to reinitialize from newly compiled recipe
-        if self._modifiers:
-            for modifier in self._modifiers:
-                if modifier._initialized:
-                    modifier.finalize(self.state)
-            del self._modifiers
+        if self.state.recipes is None:
+            # no recipes currently, return
+            return
 
-        self.state.recompile_recipe()
-        self._modifiers = self.state.compiled_recipe.create_modifiers(
-            self.state.framework
-        )
+        if self.state.recipe_changed:
+            self.state.recompile_recipe()
+
+            if self._modifiers:
+                # clear out the modifiers to reinitialize from newly compiled recipe
+                for modifier in self._modifiers:
+                    if modifier._initialized:
+                        modifier.finalize(self.state)
+                del self._modifiers
+
+        if self.state.recipe_modifier_ready:
+            self._modifiers = self.state.compiled_recipe.create_modifiers(
+                self.state.framework
+            )
+
+    def _check_setup_lifecycle(self, event_type: EventType):
+        if self.state.event_lifecycle is not None:
+            return
+
+        # first event call, setup lifecycle and make sure everything is initialized
+        if not self.state.recipe_modifier_ready:
+            raise ValueError(
+                "Cannot invoke event before recipe, model, and start are set"
+            )
+
+        for modifier in self._modifiers:
+            modifier.check_initialized()
+
+        if event_type == EventType.BATCH_START:
+            # utilizing callbacks pathway, ensure optim is not wrapped
+            if self.state.optim_wrapped:
+                raise ValueError(
+                    "Cannot use batch callbacks with wrapped optimizer, "
+                    "set attach_optim_callbacks to False when initializing "
+                )
+            self.state.event_lifecycle = CallbacksEventLifecycle(
+                event_type, self.state.start_event
+            )
+        elif self.state.optim_wrapped:
+            # utilizing wrapped optimizer for callbacks
+            self.state.event_lifecycle = WrappedOptimEventLifecycle(
+                event_type, self.state.start_event
+            )
+        else:
+            raise ValueError(
+                "First event must be batch_start or "
+                "attach_optim_callbacks must be True"
+            )
 
 
 _global_session = SparseSession()

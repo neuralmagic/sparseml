@@ -14,23 +14,37 @@
 
 from typing import Any, Dict, List
 
-from pydantic import BaseModel, Field, root_validator
+from pydantic import Field, root_validator
 
 from sparseml.core.framework import Framework
 from sparseml.core.modifier import StageModifiers
 from sparseml.core.recipe.args import RecipeArgs
+from sparseml.core.recipe.base import RecipeBase
 from sparseml.core.recipe.modifier import RecipeModifier
 
 
 __all__ = ["RecipeStage"]
 
 
-class RecipeStage(BaseModel):
+class RecipeStage(RecipeBase):
     group: str = None
     args: RecipeArgs = None
     enabled: bool = True
     modifiers: List[RecipeModifier] = Field(default_factory=list)
+    exclude_default: bool = False
     _args_evaluated: RecipeArgs = None
+
+    def calculate_start(self) -> int:
+        return min(
+            mod.calculate_start()
+            for mod in self.modifiers
+            if mod.calculate_start() >= 0
+        )
+
+    def calculate_end(self) -> int:
+        return max(
+            mod.calculate_end() for mod in self.modifiers if mod.calculate_end() >= 0
+        )
 
     def evaluate(self, parent_args: RecipeArgs = None, shift: int = None):
         merged_args = self.args.combine(parent_args)

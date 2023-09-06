@@ -14,27 +14,40 @@
 
 from typing import Any, Dict
 
-from pydantic import BaseModel, root_validator
+from pydantic import root_validator
 
 from sparseml.core.framework import Framework
 from sparseml.core.modifier import Modifier, ModifierFactory
 from sparseml.core.recipe.args import RecipeArgs
+from sparseml.core.recipe.base import RecipeBase
 
 
 __all__ = ["RecipeModifier"]
 
 
-class RecipeModifier(BaseModel):
+class RecipeModifier(RecipeBase):
     type: str
     group: str = None
     args: Dict[str, Any] = None
     _args_evaluated: Dict[str, Any] = None
 
-    def evaluate(self, parent_args: RecipeArgs = None, shift: int = None):
+    def calculate_start(self) -> int:
+        if not self._args_evaluated:
+            raise ValueError("args must be evaluated before calculating start")
+
+        return self._args_evaluated.get("start", -1)
+
+    def calculate_end(self) -> int:
+        if not self._args_evaluated:
+            raise ValueError("args must be evaluated before calculating start")
+
+        return self._args_evaluated.get("end", -1)
+
+    def evaluate(self, args: RecipeArgs = None, shift: int = None):
         if not self.args:
             raise ValueError("args must be set before evaluating")
 
-        comb_args = parent_args or RecipeArgs()
+        comb_args = args or RecipeArgs()
         self._args_evaluated = comb_args.evaluate_ext(self.args)
 
         if shift is not None and "start" in self._args_evaluated:

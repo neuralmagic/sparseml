@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any, Dict, List, Tuple, Union
 
@@ -62,7 +63,21 @@ class State:
     data = Data()
     hardware = Hardware()
     event_lifecycle: EventLifecycle = None
+    start_event: Event = None
     last_event: Event = None
+    _recipe_changed: bool = False
+
+    @property
+    def recipe_changed(self) -> bool:
+        return self._recipe_changed
+
+    @property
+    def recipe_modifier_ready(self) -> bool:
+        return (
+            self.compiled_recipe is not None
+            and self.model is not None
+            and self.start_event is not None
+        )
 
     def update_framework(self, framework: Framework):
         self.framework = framework if framework else Framework.pytorch
@@ -73,13 +88,31 @@ class State:
         recipe_stage: str = None,
         recipe_args: Dict[str, Any] = None,
     ):
-        pass
+        if not isinstance(recipe, list):
+            recipe = [recipe]
+
+        for rec in recipe:
+            if isinstance(rec, str):
+                rec = Recipe.create_instance(rec)
+
+            self.recipes.append((rec, recipe_stage, recipe_args))
+
+        self._recipe_changed = True
 
     def update_model(self, model: Any):
-        pass
+        if self.framework is None:
+            raise RuntimeError("framework must be set before updating model")
+
+        self.model = ModifiableModel(framework=self.framework, model=model)
 
     def update_optimizer(self, optimizer: Any, attach_callbacks: bool = True):
-        pass
+        if self.framework is None:
+            raise RuntimeError("framework must be set before updating optimizer")
+
+        self.optim_wrapped = attach_callbacks
+        self.optimizer = ModifiableOptimizer(
+            framework=self.framework, optimizer=optimizer
+        )
 
     def update_data(
         self,
@@ -89,7 +122,22 @@ class State:
         calib_data: Any = None,
         copy_data: bool = True,
     ):
-        pass
+        if self.framework is None:
+            raise RuntimeError("framework must be set before updating data")
+
+        self.data = ModifiableData(framework=self.framework)
+
+        if train_data is not None:
+            self.data.train = train_data if not copy_data else deepcopy(train_data)
+
+        if val_data is not None:
+            self.data.val = val_data if not copy_data else deepcopy(val_data)
+
+        if test_data is not None:
+            self.data.test = test_data if not copy_data else deepcopy(test_data)
+
+        if calib_data is not None:
+            self.data.calib = calib_data if not copy_data else deepcopy(calib_data)
 
     def update_start(
         self,
@@ -97,13 +145,18 @@ class State:
         steps_per_epoch: int = None,
         batches_per_step: int = None,
     ):
-        pass
+        self.start_event = Event()
+        self.start_event.steps_per_epoch = steps_per_epoch
+        self.start_event.batches_per_step = batches_per_step
+        self.start_event.current_index = start if start is not None else 0
 
-    def should_recompile_recipe(self) -> bool:
-        pass
+    def recompile_recipe(self):
+        self._recipe_changed = False
 
-    def recompile_recipe(self) -> Recipe:
-        pass
+        if not self.recipes:
+            raise RuntimeError("No recipes to compile")
+
+        self.compiled_recipe = Recipe.simplify_combine_recipes(self.recipes)
 
 
 @dataclass

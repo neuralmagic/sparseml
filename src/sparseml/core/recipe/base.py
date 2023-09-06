@@ -12,44 +12,32 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 from abc import ABC, abstractmethod
+from typing import Any, Dict
 
-from sparseml.core.event import Event
-from sparseml.core.state import State
+from pydantic import BaseModel, root_validator
+
+from sparseml.core.framework import Framework
+from sparseml.core.modifier import Modifier, ModifierFactory
+from sparseml.core.recipe.args import RecipeArgs
 
 
-__all__ = ["ModifierInterface"]
+__all__ = ["RecipeBase"]
 
 
-class ModifierInterface(ABC):
-    def __init__(self, **kwargs):
-        pass
-
+class RecipeBase(BaseModel, ABC):
     @abstractmethod
-    def check_initialized(self):
+    def calculate_start(self) -> int:
         raise NotImplementedError()
 
     @abstractmethod
-    def calculate_start(self) -> float:
+    def calculate_end(self) -> int:
         raise NotImplementedError()
 
     @abstractmethod
-    def calculate_end(self) -> float:
+    def evaluate(self, args: RecipeArgs = None, shift: int = None):
         raise NotImplementedError()
 
     @abstractmethod
-    def pre_initialize_structure(self, state: State, **kwargs):
-        raise NotImplementedError()
-
-    @abstractmethod
-    def initialize(self, state: State, **kwargs):
-        raise NotImplementedError()
-
-    @abstractmethod
-    def finalize(self, state: State, **kwargs):
-        raise NotImplementedError()
-
-    @abstractmethod
-    def update_event(self, state: State, event: Event, **kwargs):
+    def create_modifier(self, framework: Framework) -> Any:
         raise NotImplementedError()

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from abc import ABC, abstractmethod
+from copy import deepcopy
 from dataclasses import dataclass
 from enum import Enum
 from typing import List
@@ -67,13 +68,16 @@ class EventType(Enum):
 class Event:
     type_: EventType = None
 
-    epoch_based: bool = None
     steps_per_epoch: int = None
     batches_per_step: int = None
     invocations_per_step: int = None
 
     global_step: int = 0
     global_batch: int = 0
+
+    @property
+    def epoch_based(self) -> bool:
+        return self.steps_per_epoch is not None
 
     @property
     def epoch(self) -> int:
@@ -97,6 +101,7 @@ class Event:
 
         return self.global_batch % batches_per_epoch
 
+    @property
     def current_index(self) -> float:
         if not self.epoch_based:
             return self.global_step
@@ -106,15 +111,26 @@ class Event:
 
         return self.epoch_full
 
-    def new_instance(self, **kwargs) -> "Event":
-        instance = Event(
-            type_=self.type_,
-            epoch_based=self.epoch_based,
-            steps_per_epoch=self.steps_per_epoch,
-            batches_per_step=self.batches_per_step,
-            global_step=self.global_step,
-            global_batch=self.global_batch,
+    @current_index.setter
+    def current_index(self, value: float):
+        if not self.epoch_based:
+            self.global_step = int(value)
+            self.global_batch = (
+                self.global_step
+                if self.batches_per_step is None or self.batches_per_step < 2
+                else self.global_step * self.batches_per_step
+            )
+            return
+
+        self.global_step = int(value * self.steps_per_epoch)
+        self.global_batch = (
+            self.global_step
+            if self.batches_per_step is None or self.batches_per_step < 2
+            else self.global_step * self.batches_per_step
         )
+
+    def new_instance(self, **kwargs) -> "Event":
+        instance = deepcopy(self)
         for key, value in kwargs.items():
             setattr(instance, key, value)
 
@@ -123,13 +139,16 @@ class Event:
 
 class EventLifecycle(ABC, Event):
     type_first: EventType = None
-    batches_step_counter: int = 0
-    steps_epoch_counter: int = 0
     step_count: int = 0
     batch_count: int = 0
 
-    def __init__(self, type_first: EventType):
+    def __init__(self, type_first: EventType, start: Event):
         self.type_first = type_first
+        self.steps_per_epoch = start.steps_per_epoch
+        self.batches_per_step = start.batches_per_step
+        self.invocations_per_step = start.invocations_per_step
+        self.global_step = start.global_step
+        self.global_batch = start.global_batch
 
     def events_from_type(self, type_: EventType) -> List[Event]:
         if type_ == EventType.BATCH_START:
@@ -148,6 +167,30 @@ class EventLifecycle(ABC, Event):
             return self.batch_end_events()
 
         raise ValueError(f"invalid event type {type_}")
+
+    def check_step_batches_count(self, increment: bool) -> bool:
+        if self.batches_per_step is None or self.batches_per_step < 2:
+            return True
+
+        compare_batch = self.batch_count + 1
+        at_step = compare_batch % self.batches_per_step == 0
+
+        if increment:
+            self.batch_count = compare_batch if not at_step else 0
+
+        return at_step
+
+    def check_step_invocations_count(self, increment: bool) -> bool:
+        if self.invocations_per_step is None or self.invocations_per_step < 2:
+            return True
+
+        compare_step = self.step_count + 1
+        at_step = compare_step % self.invocations_per_step == 0
+
+        if increment:
+            self.step_count = compare_step if not at_step else 0
+
+        return at_step
 
     @abstractmethod
     def batch_start_events(self) -> List[Event]:
@@ -168,33 +211,6 @@ class EventLifecycle(ABC, Event):
     @abstractmethod
     def batch_end_events(self) -> List[Event]:
         raise NotImplementedError()
-
-    def check_step_batches_count(self, increment: bool) -> bool:
-        if self.batches_per_step is None or self.batches_per_step < 2:
-            return True
-
-        compare_batch = self.batches_step_counter + 1
-        at_step = compare_batch % self.batches_per_step == 0
-
-        if increment:
-            self.batches_step_counter = compare_batch if not at_step else 0
-
-        return at_step
-
-    def check_step_invocations_count(self, increment: bool) -> bool:
-        if self.invocations_per_step is None or self.invocations_per_step < 2:
-            return True
-
-        compare_step = self.step_count + 1
-        at_step = compare_step % self.invocations_per_step == 0
-
-        if increment:
-            self.step_count = compare_step if not at_step else 0
-
-        return at_step
-
-    def reset_step_count(self):
-        self.step_count = 0
 
 
 class WrappedOptimEventLifecycle(EventLifecycle):

@@ -30,7 +30,7 @@ __all__ = ["Modifier"]
 class Modifier(ModifierInterface, MultiFrameworkObject, BaseModel):
     index: int = None
     group: str = None
-    start: float
+    start: float = None
     end: Optional[float] = None
     update: Optional[float] = None
 
@@ -39,6 +39,16 @@ class Modifier(ModifierInterface, MultiFrameworkObject, BaseModel):
     _finalized: bool = False
     _started: bool = False
     _ended: bool = False
+
+    def check_initialized(self):
+        if not self._initialized:
+            raise RuntimeError("modifier has not been initialized")
+
+    def calculate_start(self) -> float:
+        return self.start if self.start is not None else -1
+
+    def calculate_end(self) -> float:
+        return self.end if self.end is not None else -1
 
     def pre_initialize_structure(self, state: State, **kwargs):
         self.on_initialize_structure(state, **kwargs)
@@ -113,12 +123,12 @@ class Modifier(ModifierInterface, MultiFrameworkObject, BaseModel):
             self.on_update(state, event, **kwargs)
 
     def should_start(self, event: Event):
-        current = event.current_index()
+        current = event.current_index
 
         return self.start <= current and (self.end is None or current < self.end)
 
     def should_end(self, event: Event):
-        current = event.current_index()
+        current = event.current_index
 
         return self.end is not None and current >= self.end
 
