@@ -109,7 +109,7 @@ class AdditionalTransformsLLAMA(AdditionalTransformsBase):
                 init = get_init_by_name(model, node.input[0])
                 data_parent = ONNXGraph(model).get_node_single_parent(node, 0)
 
-                # The Slice nodes may be initializers or constants
+                # The Slice nodes may have data which are initializers or constants
                 if init is not None:
                     valid_node = True
                 elif data_parent is not None and len(data_parent.input) == 0:
