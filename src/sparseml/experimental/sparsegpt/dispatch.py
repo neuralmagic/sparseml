@@ -29,6 +29,8 @@ def prepare_sparsegpt(model, dataloader, args, **kwargs):
     key = _get_model_key(args)
     if key == "opt":
         from opt import prepare_sparsegpt as _prepare_sparsegpt
+    elif key == "llama-2":
+        from llama2 import prepare_sparsegpt as _prepare_sparsegpt
     else:
         from mpt import prepare_sparsegpt as _prepare_sparsegpt
 
