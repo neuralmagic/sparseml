@@ -1,10 +1,10 @@
+import inspect
 from typing import Dict, List, Tuple
 
 import torch
 import torch.nn as nn
 
-import modelutils
-from quant import Quantizer, WeightFakeQuantizer
+from quant import WeightFakeQuantizer
 from sparsegpt import SparseGPT
 
 
@@ -26,103 +26,155 @@ class BaseCompressor:
 
 
 class LayerCompressor(BaseCompressor):
-    def __init__(self, model, layer, layer_index, inputs, manager, **kwargs):
+    def __init__(self, model, layer, layer_index, inputs, manager, args):
         super().__init__(model=model)
         self.layer = layer
         self.layer_index = layer_index
         self.inputs = inputs
         self.manager = manager
+        self.args = args
 
-        self.attention_mask = kwargs.get("attention_mask", None)
-        self.wbits = kwargs.get("wbits", DEFAULT_WBITS)
-        self.perchannel = kwargs.get("perchannel", False)
-        self.sparsity = kwargs["sparsity"]
-        self.prunen = kwargs["prunen"]
-        self.prunem = kwargs["prunem"]
-        self.percdamp = kwargs["percdamp"]
-        self.blocksize = kwargs["blocksize"]
-
-        self.gpts = {}
-
-    def compressible_modules(self):
+    def compressible_modules(self, **kwargs):
         if self.manager is not None and self.manager.quantization_modifiers:
             # The layer names are changed due to quantization modifiers, therefore
             # we need a slightly different func to retrieve layers
-            modules = modelutils.find_quant_layers(self.layer)
+            modules = _find_quant_layers(self.layer)
         else:
-            modules = modelutils.find_layers(self.layer)
+            modules = _find_layers(self.layer)
         return modules
 
-    def pre_compress(self, **kwargs):
-        """
-        Set up SparseGPT objects, compute Hessian
-        """
-        manager = self.manger
-        subset = self.compressible_modules()
+    def compress(self, dev: str = "cuda:0", **kwargs):
+        self.layer.to(dev)
+        self.model, extras = self.pre_compress(**kwargs)
 
-        gpts = self.gpts
-        for name in subset:
-            gpts[name] = SparseGPT(subset[name])
-            if self.wbits < 16:
-                if manager is not None and manager.quantization_modifiers:
-                    gpts[name].quantizer = WeightFakeQuantizer(subset[name])
-                else:
-                    gpts[name].quantizer = Quantizer()
-                    gpts[name].quantizer.configure(
-                        self.wbits, perchannel=self.perchannel, sym=False, mse=False
-                    )
+        if not self.sequential_hessian_within_layer:
+            gpts = extras["gpts"]
+            for name in gpts:
+                print(f"Compressing {name}...")
+                sparsity = self.args.sparsity
+                gpts[name].fasterprune(
+                    sparsity,
+                    prunen=self.args.prunen,
+                    prunem=self.args.prunem,
+                    percdamp=self.args.percdamp,
+                    blocksize=self.args.blocksize,
+                )
+                gpts[name].free()
+        else:
+            self._sequentially_compress(**kwargs)
 
-        def add_batch(name):
-            def tmp(_, inp, out):
-                gpts[name].add_batch(inp[0].data, out.data)
+        self.model, extras = self.post_compress(**kwargs)
 
-            return tmp
+        return self.model, {"outputs": extras["outputs"]}
 
-        handles = []
-        for name in gpts:
-            handles.append(subset[name].register_forward_hook(add_batch(name)))
-
-        # Run through the samples in order to compute Hessian matrix
-        nsamples = self.inputs.shape[0]
-        for j in range(nsamples):
-            attn_mask = (
-                self.attention_mask[j]
-                if isinstance(self.attention_mask, List)
-                else self.attention_mask
-            )
-            self.layer(self.inputs[j].unsqueeze(0), attention_mask=attn_mask)[0]
-        for h in handles:
-            h.remove()
-
-        return self.model, {}
-
-    def compress(self, **kwargs):
-        gpts = self.gpts
-        for name in gpts:
-            print(f"Compressing {name}...")
-            sparsity = self.sparsity
-            gpts[name].fasterprune(
-                sparsity,
-                prunen=self.prunen,
-                prunem=self.prunem,
-                percdamp=self.percdamp,
-                blocksize=self.blocksize,
-            )
-            gpts[name].free()
-
-        return self.model, kwargs
-
-    def post_compress(self, model, **kwargs):
+    def post_compress(self, **kwargs):
         outputs = torch.zeros_like(self.inputs)
         nsamples = self.inputs.shape[0]
+        attention_mask = kwargs.get("attention_mask", None)
         for j in range(nsamples):
             attn_mask = (
-                self.attention_mask[j]
-                if isinstance(self.attention_mask, List)
-                else self.attention_mask
+                attention_mask[j]
+                if isinstance(attention_mask, List)
+                else attention_mask
             )
             outputs[j] = self.layer(
                 self.inputs[j].unsqueeze(0), attention_mask=attn_mask
             )[0]
 
-        return self.model, kwargs.update({"outputs": outputs})
+        return self.model, {"outputs": outputs}
+
+    def _sequentially_compress(self, **kwargs):
+        subset = self.compressible_modules(**kwargs)
+
+        forward_args_spec = inspect.getfullargspec(self.layer.__class__.forward)
+        passed_in_args = [arg for arg in forward_args_spec.args if arg in kwargs]
+
+        passed_in_kwargs = {}
+        for arg in passed_in_args:
+            if isinstance(kwargs[arg], List):
+                passed_in_kwargs[arg] = kwargs[arg][0]
+            else:
+                passed_in_kwargs[arg] = kwargs[arg]
+        order = _find_dependency_order(
+            self.layer, subset, self.inputs[0].unsqueeze(0), **passed_in_kwargs
+        )
+
+        nsamples = self.inputs.shape[0]
+        for name in order:
+            gpts = SparseGPT(subset[name])
+            if self.args.wbits < 16:
+                if self.manager is not None and self.manager.quantization_modifiers:
+                    gpts.quantizer = WeightFakeQuantizer(subset[name])
+
+            def add_batch(name):
+                def tmp(_, inp, out):
+                    gpts.add_batch(inp[0].data, out.data)
+
+                return tmp
+
+            handle = subset[name].register_forward_hook(add_batch(name))
+            for j in range(nsamples):
+                passed_in_kwargs = {}
+                for arg in passed_in_args:
+                    if isinstance(kwargs[arg], List):
+                        passed_in_kwargs[arg] = kwargs[arg][0]
+                    else:
+                        passed_in_kwargs[arg] = kwargs[arg]
+                self.layer(self.inputs[j].unsqueeze(0), **passed_in_kwargs)[0]
+            handle.remove()
+
+            print(f"Compressing module {name} of layer {self.layer_index}")
+            gpts.fasterprune(
+                self.args.sparsity,
+                prunen=self.args.prunen,
+                prunem=self.args.prunem,
+                percdamp=self.args.percdamp,
+                blocksize=self.args.blocksize,
+            )
+            gpts.free()
+
+
+def _find_dependency_order(layer, subset, an_input, **kwargs):
+    order = []
+
+    def exe_input(name):
+        def _exe_input(_, inp, out):
+            if name in subset:
+                order.append(name)
+
+        return _exe_input
+
+    handles = [subset[name].register_forward_hook(exe_input(name)) for name in subset]
+    layer(an_input, **kwargs)
+    for h in handles:
+        h.remove()
+    return order
+
+
+def _find_quant_layers(module, layers=[torch.nn.qat.Linear], name=""):
+    if type(module) in layers:
+        pieces = name.split(".")
+        if pieces[-1] == "module":
+            name = ".".join(pieces[:-1])
+        return {name: module}
+    res = {}
+    for name1, child in module.named_children():
+        res.update(
+            _find_layers(
+                child, layers=layers, name=name + "." + name1 if name != "" else name1
+            )
+        )
+    return res
+
+
+def _find_layers(module, layers=[nn.Conv2d, nn.Linear], name=""):
+    if type(module) in layers:
+        return {name: module}
+    res = {}
+    for name1, child in module.named_children():
+        res.update(
+            _find_layers(
+                child, layers=layers, name=name + "." + name1 if name != "" else name1
+            )
+        )
+    return res

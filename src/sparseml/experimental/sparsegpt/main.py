@@ -55,6 +55,7 @@ if __name__ == "__main__":
         choices=["wikitext2", "ptb", "c4", "open_platypus", "platypus"],
         help="Where to extract calibration data from.",
     )
+    parser.add_argument("--data-sequence-length", type=int, default=2048)
     parser.add_argument("--recipe", type=str, default=None)
     parser.add_argument("--observer-batches", type=int, default=100)
     parser.add_argument(
