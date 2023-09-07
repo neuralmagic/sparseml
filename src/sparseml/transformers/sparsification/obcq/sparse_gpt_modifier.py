@@ -17,7 +17,7 @@ from typing import Optional
 
 import torch
 
-from sparseml.pytorch.sparsification.modifier import BaseModifier, PyTorchModifierYAML
+from sparseml.pytorch.sparsification.modifier import Modifier, PyTorchModifierYAML
 from sparseml.transformers.sparsification.obcq.layer_compressor import LayerCompressor
 
 
@@ -27,7 +27,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 @PyTorchModifierYAML()
-class SparseGPTModifier(BaseModifier):
+class SparseGPTModifier(Modifier):
     def __init__(
         self,
         sparsity: float = 0.5,
