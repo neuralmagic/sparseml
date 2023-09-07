@@ -436,7 +436,7 @@ class LifecycleCallbacks:
         return cls.event(EventType.OPTIM_PRE_STEP, **kwargs)
 
     @classmethod
-    def optim_stepped(cls, **kwargs) -> ModifiedState:
+    def optim_post_step(cls, **kwargs) -> ModifiedState:
         return cls.event(EventType.OPTIM_POST_STEP, **kwargs)
 
     @classmethod
