@@ -24,7 +24,7 @@ class Llama2BottomCompressor(BaseCompressor):
         device: str = "cuda:0",
         **kwargs,
     ):
-        cached_inputs = cache_attention_mask(self.model, dataloader, device, nsamples)
+        cached_inputs = cache_attention_inputs(self.model, dataloader, device, nsamples)
 
         outputs = execute_offloaded_module(
             self.model.model.embed_tokens,
@@ -33,10 +33,9 @@ class Llama2BottomCompressor(BaseCompressor):
             nsamples,
             overwrite_buffer=False,
         )
-        torch.cuda.empty_cache()
 
-        extras = {"outputs": outputs}.update(cached_inputs)
-        return self.model, extras
+        cached_inputs.update({"outputs": outputs})
+        return self.model, cached_inputs
 
 
 def prepare_sparsegpt(model, dataloader, args, dev) -> SequentialSparseGPT:
@@ -56,7 +55,6 @@ def prepare_sparsegpt(model, dataloader, args, dev) -> SequentialSparseGPT:
         recipe=args.recipe,
         model_preprocessors=model_preprocessors,
         bottom_compressor=bottom_compressor,
-        args=args,
     )
 
     return sequential_sparsegpt

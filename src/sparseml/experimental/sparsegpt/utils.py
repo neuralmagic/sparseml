@@ -5,11 +5,11 @@ class Catcher(torch.nn.Module):
     def __init__(self, module, target_keys):
         super().__init__()
         self.module = module
-        self.target_keys = target_keys
-        self.cache = []
+        self.cache = {key: [] for key in target_keys}
 
     def forward(self, *args, **kwargs):
-        self.cache.append({key: kwargs[key] for key in self.target_keys})
+        for key in self.cache:
+            self.cache[key].append(kwargs[key])
         raise ValueError
 
     def get_cache(self):
@@ -61,7 +61,7 @@ def execute_offloaded_module(
         if cached_inputs is None:
             module_kwargs = kwargs
         else:
-            module_kwargs = cached_inputs[input_index]
+            module_kwargs = {key: cached_inputs[key][input_index] for key in cached_inputs}
             module_kwargs.update(kwargs)
         output = module(inp.to(dev), **module_kwargs)
         if overwrite_buffer:

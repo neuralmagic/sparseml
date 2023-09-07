@@ -37,7 +37,7 @@ class SequentialSparseGPT:
     def pre_compress(self, dev: str = "cuda:0", **kwargs):
         model = self.model
         for processor in self.model_preprocessors:
-            model, extras = processor.pre_process(model, dev=dev, **kwargs)
+            model, extras = processor(model, dev=dev, **kwargs)
             kwargs.update(extras)
         return model, kwargs
 
@@ -52,6 +52,9 @@ class SequentialSparseGPT:
         # Also return attention_mask as part of kwargs
         self.model, extras = self.bottom_compressor.compress(dev=dev, **kwargs)
         kwargs.update(extras)
+        self.model, extras = self.bottom_compressor.post_compress(dev=dev, **kwargs)
+        kwargs.update(extras)
+
 
         # Step 1: Sequentially prune/quantize decoder layers
         inputs = kwargs["outputs"]
