@@ -26,7 +26,6 @@ from sparseml.transformers.sparsification.obcq.data import (
     get_ptb,
     get_wikitext2,
 )
-
 from sparseml.transformers.sparsification.obcq.manager import RecipeManagerOneShot
 
 
@@ -90,7 +89,7 @@ def one_shot(
     )
 
     recipe = RecipeManagerOneShot.from_yaml(recipe_file)
-    recipe.one_shot(model, calibration_data, initialize_kwargs={"device": device})
+    recipe.one_shot(model, calibration_data, device)
 
     _save(model, tokenizer, deploy_dir, recipe_file)
 

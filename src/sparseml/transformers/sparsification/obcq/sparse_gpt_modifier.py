@@ -13,11 +13,16 @@
 # limitations under the License.
 
 import logging
-from typing import Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import torch
+from torch.nn import Module
 
-from sparseml.pytorch.sparsification.modifier import Modifier, ModifierProp, PyTorchModifierYAML
+from sparseml.pytorch.sparsification.modifier import (
+    Modifier,
+    ModifierProp,
+    PyTorchModifierYAML,
+)
 from sparseml.transformers.sparsification.obcq.layer_compressor import LayerCompressor
 
 
@@ -51,6 +56,7 @@ class SparseGPTModifier(Modifier):
         self._sequential_update = sequential_update
 
         self._device = self._set_device("cuda:0")
+        self._finalization_kwargs = {}
 
     @ModifierProp()
     def sparsity(self) -> float:
@@ -59,11 +65,11 @@ class SparseGPTModifier(Modifier):
     @ModifierProp()
     def block_size(self) -> int:
         return self._block_size
-    
+
     @ModifierProp()
     def quantize(self) -> bool:
         return self._quantize
-    
+
     @ModifierProp()
     def dampening_frac(self) -> float:
         return self._dampening_frac
@@ -86,12 +92,6 @@ class SparseGPTModifier(Modifier):
 
     def head_compressor(self):
         raise NotImplementedError
-
-    def one_shot(self, model, dataloader, initializer_kwargs, finalize_kwargs):
-        self.initialize(model, **initializer_kwargs)
-        extras = self.compress(dataloader)
-        finalize_kwargs.update(extras)
-        self.finalize(**finalize_kwargs)
 
     @torch.no_grad()
     def compress(self, dataloader):
@@ -144,16 +144,22 @@ class SparseGPTModifier(Modifier):
 
         return extras
 
-    def initialize(self, model, **kwargs):
+    def initialize(
+        self,
+        model: Module,
+        calibration_dataloader: Optional[Iterable[Tuple[List, Dict[str, Any]]]] = None,
+        device: Optional[str] = "cuda:0",
+    ):
         self.model = model
         self._compressible_layers = self.compressible_layers()
         self._bottom_compressor = self.bottom_compressor()
         self._head_compressor = self.head_compressor()
+        self._set_device(device)
 
-        if "device" in kwargs:
-            self._set_device(kwargs["device"])
+        extras = self.compress(calibration_dataloader)
+        self._finalization_kwargs.update(extras)
 
-    def finalize(self, **kwargs):
-        use_cache = kwargs.get("use_cache", False)
+    def finalize(self, model: Module):
+        use_cache = self._finalization_kwargs.get("use_cache", False)
         self.model.apply(torch.quantization.disable_observer)
         self.model.config.use_cache = use_cache

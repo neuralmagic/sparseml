@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 from typing import Any, Dict, List, Optional, Union
 
-import logging
 import torch
 from torch.nn import Module
 from torch.utils.data import DataLoader
@@ -46,7 +46,7 @@ class RecipeManagerOneShot(BaseManager):
         file_path: Union[str, File],
         add_modifiers: Optional[List[Modifier]] = None,
         recipe_variables: Optional[Union[Dict[str, Any], str]] = None,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
     ):
         """
         Convenience function used to create the manager of multiple modifiers from a
@@ -105,13 +105,11 @@ class RecipeManagerOneShot(BaseManager):
             device = "cpu"
             _LOGGER.warning("No GPU available, falling back to CPU")
         module.to(device)
-        for mod in self.iter_modifiers():
-            mod.one_shot(
-                module,
-                data_loader,
-                initialize_kwargs or {},
-                finalize_kwargs or {},
-            )
+
+        initialize_kwargs = {"calibration_dataloader": data_loader, "device": device}
+
+        self.initialize(module, **initialize_kwargs)
+        self.finalize(module)
 
     def initialize(
         self,
@@ -147,7 +145,7 @@ class RecipeManagerOneShot(BaseManager):
 
             mod.update(module, data_loader)
 
-    def finalize(self, module: Module = None, **kwargs):
+    def finalize(self, module: Module = None):
         """
         Handles any finalization of the modifier for the given model.
         Applies any remaining logic and cleans up any hooks or attachments to the model.
@@ -155,12 +153,10 @@ class RecipeManagerOneShot(BaseManager):
         :param model: The model to finalize the modifier for.
             Marked optional so state can still be cleaned up on delete,
             but generally should always be passed in.
-        :param kwargs: Optional kwargs to support specific arguments
-            for individual modifiers.
         """
 
         for mod in self.iter_modifiers():
-            mod.finalize(module, **kwargs)
+            mod.finalize(module)
 
     @staticmethod
     def _sort_modifiers_list(modifiers: List[Modifier]) -> List[Modifier]:
