@@ -15,7 +15,6 @@ class SequentialSparseGPT:
         model_preprocessors: Optional[List[ModelPreProcessor]] = None,
         bottom_compressor: Optional[LayerCompressor] = None,
         head_compressor: Optional[LayerCompressor] = None,
-        args=None,
     ):
         self.model = model
         self.model_preprocessors = model_preprocessors
@@ -24,7 +23,6 @@ class SequentialSparseGPT:
         self.recipe = recipe
         self.manager = None
         self.compressible_layers = self.compressible_layers()
-        self.args = args
 
     def compressible_layers(self):
         """
@@ -39,61 +37,56 @@ class SequentialSparseGPT:
 
     def pre_compress(self, dev: str = "cuda:0", **kwargs):
         model = self.model
-        all_extras = {}
         for processor in self.model_preprocessors:
-            # We assume the processors are independent, and therefore
-            # pass in the initial kwargs into each of them
-            model, extras = processor(model, dev=dev, **kwargs)
-            all_extras.update(extras)
-        return model, all_extras
+            model, extras = processor.pre_process(model, dev=dev, **kwargs)
+            kwargs.update(extras)
+        return model, kwargs
 
     def compress(self, dev: str = "cuda:0", **kwargs):
-        accum_kwargs = deepcopy(kwargs)
 
-        self.model, extras = self.pre_compress(dev=dev, **kwargs)
-
-        self.manager = extras.pop("manager", self.manager)
+        self.model, kwargs = self.pre_compress(**kwargs)
 
         # Step 0: BottomCompressor accomplishes two things:
         # 1) Compress the embedding if needed
-        # 2) Pass the calibration data through the (compressed) bottom part
-        # of the network, capturing the output which will become the inputs
-        # to the first decoder layer
+        # 2) Pass the calibration data through the (compressed) bottom part of the network, capturing the outputs
+        # which will become the inputs to the first decoder layer
         # Also return attention_mask as part of kwargs
-        accum_kwargs.update(extras)
-        self.model, extras = self.bottom_compressor.compress(dev=dev, **accum_kwargs)
-        accum_kwargs.update(extras)
+        self.model, extras = self.bottom_compressor.compress(dev=dev, **kwargs)
+        kwargs.update(extras)
 
         # Step 1: Sequentially prune/quantize decoder layers
-        inputs = None
-        num_layers = len(self.compressible_layers)
+        inputs = kwargs["outputs"]
         for idx, layer in enumerate(self.compressible_layers):
-            if "outputs" not in accum_kwargs:
-                raise RuntimeError(
-                    "The 'outputs' key is expected but not found from the "
-                    "return of the bottom compressor"
-                )
-            inputs = accum_kwargs["outputs"]
-            print(f"\n===== Compressing layer {idx}/{num_layers} =====")
+            layer_kwargs = kwargs.deepcopy()
             layer_compressor = LayerCompressor(
-                self.model, layer, idx, inputs, self.manager, self.args
+                self.model, layer, idx, inputs, self.manager, **layer_kwargs
             )
-            # Prune/quantize using SparseGPT
-            self.model, layer_kwargs = layer_compressor.compress(
-                dev=dev, **accum_kwargs
-            )
-            accum_kwargs.update(layer_kwargs)
+
+            # Set up SparseGPT object, compute Hessian
+            self.model, layer_kwargs = layer_compressor.pre_compress(**layer_kwargs)
+
+            # Joinly prune/quantize using SparseGPT
+            self.model, layer_kwargs = layer_compressor.compress(**layer_kwargs)
+
+            # Compute outputs given compressed layer, memory clean up etc
+            (
+                self.model,
+                layer_kwargs,
+            ) = layer_compressor.post_compress(**layer_kwargs)
+            inputs = layer_kwargs["outputs"]
 
         # Step 2: Prune/quantize head
         # TODO: Need update here -- see MPT for head quantization example
-        if self.head_compressor is not None:
-            self.model, extras = self.head_compressor.compress(dev=dev, **accum_kwargs)
+        head_compressor = LayerCompressor(model.head, inputs)
+        head_compressor.pre_compress()
+        head_compressor.compress()
+        model, extras = head_compressor.post_compress()
 
-        return self.model, {}
+        return model, extras
 
-    def post_compress(self, dev: str = "cuda:0", **kwargs):
+    def post_compress(self, **kwargs):
         use_cache = kwargs["use_cache"]
         self.model.apply(torch.quantization.disable_observer)
         self.model.config.use_cache = use_cache
 
-        return self.model, {}
+        return (self.model,)
