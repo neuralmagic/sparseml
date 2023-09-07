@@ -21,7 +21,7 @@ from sparseml.exporters.transforms.kv_cache.transforms_base import (
     AdditionalTransformsBase,
 )
 from sparseml.onnx.utils.graph_editor import ONNXGraph
-from sparseml.onnx.utils.helpers import get_nodes_by_input_id
+from sparseml.onnx.utils.helpers import get_init_by_name, get_nodes_by_input_id
 
 
 __all__ = ["AdditionalTransformsLLAMA"]
@@ -103,13 +103,24 @@ class AdditionalTransformsLLAMA(AdditionalTransformsBase):
 
         nodes_found = 0
         for node in model.graph.node:
+            valid_node = False
+
             if node.op_type == "Slice":
+                init = get_init_by_name(model, node.input[0])
                 data_parent = ONNXGraph(model).get_node_single_parent(node, 0)
-                if data_parent is not None and len(data_parent.input) == 0:
+
+                # The Slice nodes may be initializers or constants
+                if init is not None:
+                    valid_node = True
+                elif data_parent is not None and len(data_parent.input) == 0:
+                    valid_node = True
+
+                if valid_node:
                     nodes_found += 1
                     node.input[2] = self.SLICE_MAX_INT_NAME
                     self.log_match(node)
 
+        assert nodes_found == 64
         _LOGGER.info(f"Found {nodes_found} slice nodes to update")
 
         model.graph.initializer.append(max_int_tensor)
