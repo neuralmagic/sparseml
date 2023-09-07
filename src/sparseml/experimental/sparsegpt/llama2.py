@@ -39,7 +39,7 @@ class Llama2BottomCompressor(BaseCompressor):
         return self.model, extras
 
 
-def prepare_sparsegpt(model, dataloader, args) -> SequentialSparseGPT:
+def prepare_sparsegpt(model, dataloader, args, dev) -> SequentialSparseGPT:
     model_preprocessors = []
     if args.recipe:
         model_preprocessors.append(
@@ -56,6 +56,7 @@ def prepare_sparsegpt(model, dataloader, args) -> SequentialSparseGPT:
         recipe=args.recipe,
         model_preprocessors=model_preprocessors,
         bottom_compressor=bottom_compressor,
+        args=args,
     )
 
     return sequential_sparsegpt
@@ -67,6 +68,7 @@ def load_model(args):
     from transformers import LlamaForCausalLM
 
     model = LlamaForCausalLM.from_pretrained(model, torch_dtype="auto")
+    model.eval()
     seqlen = model.config.max_position_embeddings
     return model, seqlen
 
@@ -122,7 +124,7 @@ def get_openplatypus(nsamples, seed, seqlen, model, split):
     number_test_samples = max(1, int(split * len(traindata)))
     testdata = traindata[-number_test_samples:]
     traindata = traindata[:-number_test_samples]
-    if nsamples is not None and nsamples > len(traindata):
+    if nsamples is not None and nsamples < len(traindata):
         traindata = traindata[:nsamples]
 
     alpaca_template = {
@@ -159,6 +161,8 @@ def get_openplatypus(nsamples, seed, seqlen, model, split):
                     (tokenized_sample, torch.tensor((tokenizer.eos_token_id,))),
                 )
 
+        tokenized_sample = torch.unsqueeze(tokenized_sample, dim=0)
+
         return tokenized_sample
 
     trainenc = [_process_sample(sample) for sample in traindata]
@@ -167,10 +171,10 @@ def get_openplatypus(nsamples, seed, seqlen, model, split):
     return trainenc, testenc, tokenizer
 
 
-def cache_attention_mask(model, data_loader, device, nsamples):
+def cache_attention_inputs(model, data_loader, device, nsamples):
     model.model.embed_tokens.to(device)
     model.model.layers[0].to(device)
-    cached_inputs = catch(model, model.model.layers[0], "attention_mask", data_loader, nsamples)
+    cached_inputs = catch(model, model.model.layers[0], ["attention_mask", "position_ids"], data_loader, nsamples)
     model.model.embed_tokens.cpu()
     model.model.layers[0].cpu()
     torch.cuda.empty_cache()
@@ -179,8 +183,7 @@ def cache_attention_mask(model, data_loader, device, nsamples):
 
 def llam2_eval(model, data_loader, device, nsamples=None):
     # Catch attention mask
-    cached_inputs = cache_attention_mask(model, data_loader, device, nsamples)
-
+    cached_inputs = cache_attention_inputs(model, data_loader, device, nsamples)
     buffer = execute_offloaded_module(
         model.model.embed_tokens,
         data_loader,
@@ -196,6 +199,7 @@ def llam2_eval(model, data_loader, device, nsamples=None):
             cached_inputs=cached_inputs,
             use_cache=False,
         )
+        buffer = [b[0] for b in buffer]
 
     del cached_inputs
     torch.cuda.empty_cache()
