@@ -36,33 +36,31 @@ class QuantizationModelPreprocessor(ModelPreProcessor):
     def __init__(
             self,
             recipe: str,
-            dataloader,
+            data_loader,
             observer_batches,
             model_eval,
-            device,
     ):
         self.recipe = recipe
         if self.recipe is None:
             raise ValueError("Recipe must not be None")
-        self.dataloader = dataloader
+        self.data_loader = data_loader
         self.observer_batches = observer_batches
         self.model_eval = model_eval
-        self.device = device
 
-    def __call__(self, model) -> Tuple[nn.Module, Dict]:
+    def __call__(self, model, dev: str = "cuda:0", **kwargs) -> Tuple[nn.Module, Dict]:
         manager = ScheduledModifierManager.from_yaml(self.recipe)
         model.train()
         manager.apply_structure(model, epoch=0.1)
         model.eval()
-        model = self.initialize_scales_from_batches(model)
+        model = self.initialize_scales_from_batches(model, dev)
         return model, {"manager": manager}
 
-    def initialize_scales_from_batches(self, model):
+    def initialize_scales_from_batches(self, model, dev):
         print("Collecting data statistics for quantization scales...")
         model.train()
         with torch.no_grad():
             for _ in range(int(ceil(self.observer_batches / len(self.dataloader)))):
-                self.model_eval(self.model, self.dataloader, self.device)
+                self.model_eval(model, self.dataloader, dev)
         model.apply(torch.quantization.disable_observer)
         model.eval()
         return model
