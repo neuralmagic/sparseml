@@ -27,7 +27,6 @@ from sparseml.transformers.sparsification.obcq.data import (
     get_wikitext2,
 )
 
-# from sparseml.pytorch.sparsification.obcq.sparse_opt_modifier import SparseOPTModifier
 from sparseml.transformers.sparsification.obcq.manager import RecipeManagerOneShot
 
 
@@ -52,6 +51,7 @@ def one_shot(
     dataset_name: str,
     deploy_dir: str = ".",
     num_samples: int = 128,
+    device: str = "cuda:0",
     recipe_file: Optional[str] = None,
 ) -> None:
     """
@@ -61,6 +61,7 @@ def one_shot(
     :param dataset_name: Dataset to extract calibration data from
     :param deploy_dir: The output directory to save the model to
     :param num_samples: Number of samples to extract from the dataset
+    :param device: Device (cuda:index or cpu) to use for computation
     :param recipe_file: recipe containing SparseGPT configuration
     """
     deploy_dir = Path(os.path.join(deploy_dir, "deployment"))
@@ -89,16 +90,7 @@ def one_shot(
     )
 
     recipe = RecipeManagerOneShot.from_yaml(recipe_file)
-    """
-    sparse_opt_mod = SparseOPTModifier(
-        sparsity=0.5,
-        block_size=128,
-        quantize=True,
-        num_bits=8
-    )
-    recipe = RecipeManagerOneShot([sparse_opt_mod])
-    """
-    recipe.one_shot(model, calibration_data)
+    recipe.one_shot(model, calibration_data, initialize_kwargs={"device": device})
 
     _save(model, tokenizer, deploy_dir, recipe_file)
 
@@ -118,6 +110,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--nsamples", type=int, default=128, help="Number of calibration data samples."
     )
+    parser.add_argument("--device", type=str, default="cuda:0")
     parser.add_argument("--deploy-dir", type=str, default=".")
     parser.add_argument("--recipe", type=str, default=None)
 
@@ -128,5 +121,6 @@ if __name__ == "__main__":
         dataset_name=args.dataset,
         deploy_dir=args.deploy_dir,
         num_samples=args.nsamples,
+        device=args.device,
         recipe_file=args.recipe,
     )

@@ -17,7 +17,7 @@ from typing import Optional
 
 import torch
 
-from sparseml.pytorch.sparsification.modifier import Modifier, PyTorchModifierYAML
+from sparseml.pytorch.sparsification.modifier import Modifier, ModifierProp, PyTorchModifierYAML
 from sparseml.transformers.sparsification.obcq.layer_compressor import LayerCompressor
 
 
@@ -32,7 +32,7 @@ class SparseGPTModifier(Modifier):
         self,
         sparsity: float = 0.5,
         block_size: int = 128,
-        quantize: bool = True,
+        quantize: bool = False,
         dampening_frac: Optional[float] = 0.01,
         sequential_update: Optional[bool] = True,
     ):
@@ -50,7 +50,33 @@ class SparseGPTModifier(Modifier):
         self._dampening_frac = dampening_frac
         self._sequential_update = sequential_update
 
-        self._device = "cuda:0"
+        self._device = self._set_device("cuda:0")
+
+    @ModifierProp()
+    def sparsity(self) -> float:
+        return self._sparsity
+
+    @ModifierProp()
+    def block_size(self) -> int:
+        return self._block_size
+    
+    @ModifierProp()
+    def quantize(self) -> bool:
+        return self._quantize
+    
+    @ModifierProp()
+    def dampening_frac(self) -> float:
+        return self._dampening_frac
+
+    @ModifierProp()
+    def sequential_update(self) -> bool:
+        return self._sequential_update
+
+    def _set_device(self, device: str):
+        if "cuda" in device and not torch.cuda.is_available():
+            self._device = "cpu"
+        else:
+            self._device = device
 
     def compressible_layers(self):
         raise NotImplementedError
@@ -123,6 +149,9 @@ class SparseGPTModifier(Modifier):
         self._compressible_layers = self.compressible_layers()
         self._bottom_compressor = self.bottom_compressor()
         self._head_compressor = self.head_compressor()
+
+        if "device" in kwargs:
+            self._set_device(kwargs["device"])
 
     def finalize(self, **kwargs):
         use_cache = kwargs.get("use_cache", False)

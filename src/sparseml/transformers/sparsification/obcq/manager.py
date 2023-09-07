@@ -14,6 +14,8 @@
 
 from typing import Any, Dict, List, Optional, Union
 
+import logging
+import torch
 from torch.nn import Module
 from torch.utils.data import DataLoader
 
@@ -30,6 +32,8 @@ from sparsezoo.objects import File
 
 __all__ = ["RecipeManagerOneShot"]
 
+_LOGGER = logging.getLogger(__name__)
+
 
 class RecipeManagerOneShot(BaseManager):
     """
@@ -42,7 +46,7 @@ class RecipeManagerOneShot(BaseManager):
         file_path: Union[str, File],
         add_modifiers: Optional[List[Modifier]] = None,
         recipe_variables: Optional[Union[Dict[str, Any], str]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[Dict[str, Any]] = None
     ):
         """
         Convenience function used to create the manager of multiple modifiers from a
@@ -81,6 +85,7 @@ class RecipeManagerOneShot(BaseManager):
         self,
         module: Module,
         data_loader: List,
+        device: Optional[str] = "cuda:0",
         initialize_kwargs: Optional[dict] = None,
         finalize_kwargs: Optional[dict] = None,
     ):
@@ -89,13 +94,17 @@ class RecipeManagerOneShot(BaseManager):
 
         :param model: model to be modified
         :param data_loader: data loader to be used by modifier
+        :param device: device to compute on, cpu or cuda:index
         :param initialize_kwargs: Optional kwargs to support specific arguments
             for initializing individual modifiers.
         :param finalize_kwargs: Optional kwargs to support specific arguments
             for finalizing individual modifiers.
         """
 
-        module.to("cuda:0")
+        if not torch.cuda.is_available():
+            device = "cpu"
+            _LOGGER.warning("No GPU available, falling back to CPU")
+        module.to(device)
         for mod in self.iter_modifiers():
             mod.one_shot(
                 module,
