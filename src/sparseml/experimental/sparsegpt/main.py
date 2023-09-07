@@ -24,7 +24,10 @@ DEV = torch.device("cuda:0")
 @torch.no_grad()
 def sequential(model, dataloader, dev, args):
     sequential_sparsegpt = prepare_sparsegpt(model, dataloader, args=args, dev=dev)
-    sequential_sparsegpt.compress(dataloader=dataloader, dev=dev)
+    if args.ptq_only:
+        sequential_sparsegpt.pre_compress(dev=dev)
+    else:
+        sequential_sparsegpt.compress(dataloader=dataloader, dev=dev)
 
 
 def _save(model, tokenizer, save_path):
@@ -52,7 +55,6 @@ if __name__ == "__main__":
         choices=["wikitext2", "ptb", "c4", "open_platypus", "platypus"],
         help="Where to extract calibration data from.",
     )
-    parser.add_argument("--data-sequence-length", type=int, default=2048)
     parser.add_argument("--recipe", type=str, default=None)
     parser.add_argument("--observer-batches", type=int, default=100)
     parser.add_argument(
@@ -69,7 +71,10 @@ if __name__ == "__main__":
         help="Activation file to be used with SmoothQuant",
         default=None,
     )
-    parser.add_argument("--ptq", type=int, default=0, help="Whether to run PTQ.")
+    parser.add_argument(
+        "--ptq-only",
+        action="store_true",
+        help="Flag to perform only PTQ step.")
     parser.add_argument(
         "--ptq-init",
         type=int,
@@ -140,7 +145,10 @@ if __name__ == "__main__":
         assert has_wandb, "wandb not installed try `pip install wandb`"
         wandb.init(config=args)
 
+    print("Load model", flush=True)
     model, seqlen = load_model(args)
+
+    print("Load data", flush=True)
     dataloader, testloader, tokenizer = load_data(args, seqlen)
 
     if args.wbits < 16 or ((args.sparsity or args.prunen) and not args.gmp):
