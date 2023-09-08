@@ -86,12 +86,11 @@ class OPTBottomCompressor(BaseCompressor):
             model.model.decoder.project_in = model.model.decoder.project_in.cpu()
         torch.cuda.empty_cache()
 
-        outs = torch.zeros_like(inps)
         attention_mask = cache["attention_mask"]
 
         extras = {
             "use_cache": use_cache,
-            "outputs": outs,
+            "outputs": inps,
             "attention_mask": attention_mask,
         }
         self.model = model

@@ -55,7 +55,9 @@ class SequentialSparseGPT:
             kwargs["args"] = self.args
 
         self.model, extras = self.pre_compress(dev=dev, **kwargs)
-
+        self.model = self.model.cpu()
+        torch.cuda.empty_cache()
+        
         self.manager = extras.pop("manager", self.manager)
 
         # Step 0: BottomCompressor accomplishes two things:
