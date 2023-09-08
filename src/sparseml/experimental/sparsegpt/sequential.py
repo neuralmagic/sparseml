@@ -55,6 +55,8 @@ class SequentialSparseGPT:
             kwargs["args"] = self.args
 
         self.model, extras = self.pre_compress(dev=dev, **kwargs)
+        self.model = self.model.cpu()
+        torch.cuda.empty_cache()
 
         self.manager = extras.pop("manager", self.manager)
 
@@ -82,19 +84,11 @@ class SequentialSparseGPT:
             layer_compressor = LayerCompressor(
                 self.model, layer, idx, inputs, self.manager, self.args
             )
-
-            # Set up SparseGPT object, compute Hessian
-            self.model, layer_kwargs = layer_compressor.pre_compress(**layer_kwargs)
-
-            # Joinly prune/quantize using SparseGPT
-            self.model, layer_kwargs = layer_compressor.compress(**layer_kwargs)
-
-            # Compute outputs given compressed layer, memory clean up etc
-            (
-                self.model,
-                layer_kwargs,
-            ) = layer_compressor.post_compress(**layer_kwargs)
-            inputs = layer_kwargs["outputs"]
+            # Prune/quantize using SparseGPT
+            self.model, layer_kwargs = layer_compressor.compress(
+                dev=dev, **accum_kwargs
+            )
+            accum_kwargs.update(layer_kwargs)
 
         # Step 2: Prune/quantize head
         # TODO: Need update here -- see MPT for head quantization example
