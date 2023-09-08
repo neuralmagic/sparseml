@@ -92,8 +92,7 @@ class LayerCompressor(BaseCompressor):
     def compress(self, dev: str = "cuda:0", **kwargs):
         self.layer.to(dev)
         self.model, extras = self.pre_compress(**kwargs)
-
-        if not self.sequential_hessian_within_layer:
+        if not self.args.sequential_hessian_within_layer:
             gpts = extras["gpts"]
             for name in gpts:
                 print(f"Compressing {name}...")
