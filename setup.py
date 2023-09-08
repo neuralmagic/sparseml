@@ -187,9 +187,11 @@ def _setup_entry_points() -> Dict:
             ]
         )
 
-    entry_points["console_scripts"].append(
-        "sparseml.transformers.export_onnx=sparseml.transformers.export:main",
-        "sparseml.llama_export=sparseml.transformers.llama_export:main"
+    entry_points["console_scripts"].extend(
+        [
+            "sparseml.transformers.export_onnx=sparseml.transformers.export:main",
+            "sparseml.llama_export=sparseml.transformers.llama_export:main",
+        ]
     )
 
     # image classification integration

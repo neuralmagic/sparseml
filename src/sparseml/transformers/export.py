@@ -565,6 +565,7 @@ def _parse_args() -> argparse.Namespace:
 
     return parser.parse_args()
 
+
 def export(
     task: str,
     model_path: str,
@@ -617,13 +618,14 @@ def main():
         one_shot=args.one_shot,
     )
 
+
 def export_llama():
     args = _parse_args()
     export(
         task="text_generation",
         model_path=args.model_path,
         sequence_length=args.sequence_length,
-        no_convert_qat=args.no_convert_qat,  
+        no_convert_qat=args.no_convert_qat,
         finetuning_task=args.finetuning_task,
         onnx_file_name=args.onnx_file_name,
         num_export_samples=args.num_export_samples,

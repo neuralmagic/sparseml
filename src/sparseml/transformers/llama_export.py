@@ -1,4 +1,20 @@
-from sparseml.transformers.export import export
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import argparse
+
+from sparseml.transformers.export import export, MODEL_ONNX_NAME
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -39,13 +55,14 @@ def _parse_args() -> argparse.Namespace:
 
     return parser.parse_args()
 
+
 def main():
     args = _parse_args()
     export(
-        task="text-generation"
+        task="text-generation",
         model_path=args.model_path,
         sequence_length=args.sequence_length,
-        no_convert_qat=True, 
+        no_convert_qat=True,
         finetuning_task=None,
         onnx_file_name=args.onnx_file_name,
         num_export_samples=0,
@@ -53,6 +70,7 @@ def main():
         data_args=None,
         one_shot=None,
     )
+
 
 if __name__ == "__main__":
     main()
