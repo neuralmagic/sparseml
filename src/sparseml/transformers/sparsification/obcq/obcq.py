@@ -27,12 +27,14 @@ from sparseml.transformers.sparsification.obcq.data import (
     get_wikitext2,
 )
 from sparseml.transformers.sparsification.obcq.manager import RecipeManagerOneShot
+from sparseml.transformers.sparsification.obcq.models import load_opt_model
 
 
 __all__ = ["one_shot"]
 
 _LOGGER = logging.getLogger(__name__)
 SUPPORTED_DATASETS = ["wikitext2", "ptb", "c4"]
+SUPPORTED_MODELS = ["opt"]
 
 
 def _save(model, tokenizer, save_path, recipe_path):
@@ -69,8 +71,14 @@ def one_shot(
         raise RuntimeError(f"deploy_dir={deploy_dir} already exists")
 
     # TODO: don't hardcode this for OPT
-    model = OPTForCausalLM.from_pretrained(model_path, torch_dtype="auto")
-    model.seqlen = model.config.max_position_embeddings
+    model_loader_fn = None
+    if "opt" in model_path:
+        model_loader_fn = load_opt_model
+    else:
+        raise ValueError(
+            f"model_path={model_path} should be one of {SUPPORTED_DATASETS}"
+        )
+    model = model_loader_fn(model_path)
 
     data_loader_fn = None
     if dataset_name == "wikitext2":

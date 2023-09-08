@@ -124,6 +124,7 @@ class SparseGPTModifier(Modifier):
                 "prunem": 0,
                 "blocksize": self._block_size,
                 "percdamp": self._dampening_frac,
+                "sequential_update": self._sequential_update,
                 "quantize": self._quantize,
             }
             layer_compressor = LayerCompressor(

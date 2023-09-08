@@ -1,28 +1,14 @@
-# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing,
-# software distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-import logging
 import inspect
 from typing import Dict, List, Tuple
 
 import torch
 import torch.nn as nn
 
-from sparseml.transformers.sparsification.obcq.sparsegpt import SparseGPT
+from quant import WeightFakeQuantizer
+from sparsegpt import SparseGPT
 
 
-_LOGGER = logging.getLogger(__name__)
+DEFAULT_WBITS = 16
 
 
 class BaseCompressor:
@@ -48,9 +34,8 @@ class LayerCompressor(BaseCompressor):
         self.manager = manager
         self.args = args
 
-    def compressible_modules(self):
-        quantize = self.args.get("quantize", False)
-        if quantize:
+    def compressible_modules(self, **kwargs):
+        if self.manager is not None and self.manager.quantization_modifiers:
             # The layer names are changed due to quantization modifiers, therefore
             # we need a slightly different func to retrieve layers
             modules = _find_quant_layers(self.layer)
@@ -62,12 +47,18 @@ class LayerCompressor(BaseCompressor):
         """
         Set up SparseGPT objects, compute Hessian
         """
-        if not self.args["sequential_update"]:
-            subset = self.compressible_modules()
+        if not self.args.sequential_hessian_within_layer:
+            subset = self.compressible_modules(**kwargs)
 
             gpts = {}
             for name in subset:
                 gpts[name] = SparseGPT(subset[name])
+                if (
+                    self.args.wbits < 16
+                    and self.manager is not None
+                    and self.manager.quantization_modifiers
+                ):
+                    gpts[name].quantizer = WeightFakeQuantizer(subset[name])
 
             def add_batch(name):
                 def tmp(_, inp, out):
@@ -101,17 +92,17 @@ class LayerCompressor(BaseCompressor):
     def compress(self, dev: str = "cuda:0", **kwargs):
         self.layer.to(dev)
         self.model, extras = self.pre_compress(**kwargs)
-        if not self.args["sequential_update"]:
+        if not self.args.sequential_hessian_within_layer:
             gpts = extras["gpts"]
             for name in gpts:
                 print(f"Compressing {name}...")
-                sparsity = self.args["sparsity"]
+                sparsity = self.args.sparsity
                 gpts[name].fasterprune(
                     sparsity,
-                    prunen=self.args["prunen"],
-                    prunem=self.args["prunem"],
-                    percdamp=self.args["percdamp"],
-                    blocksize=self.args["blocksize"],
+                    prunen=self.args.prunen,
+                    prunem=self.args.prunem,
+                    percdamp=self.args.percdamp,
+                    blocksize=self.args.blocksize,
                 )
                 gpts[name].free()
         else:
@@ -139,7 +130,7 @@ class LayerCompressor(BaseCompressor):
         return self.model, {"outputs": outputs}
 
     def _sequentially_compress(self, **kwargs):
-        subset = self.compressible_modules()
+        subset = self.compressible_modules(**kwargs)
 
         forward_args_spec = inspect.getfullargspec(self.layer.__class__.forward)
         passed_in_args = [arg for arg in forward_args_spec.args if arg in kwargs]
@@ -157,6 +148,10 @@ class LayerCompressor(BaseCompressor):
         nsamples = self.inputs.shape[0]
         for name in order:
             gpts = SparseGPT(subset[name])
+            if self.args.wbits < 16:
+                if self.manager is not None and self.manager.quantization_modifiers:
+                    gpts.quantizer = WeightFakeQuantizer(subset[name])
+
             def add_batch(name):
                 def tmp(_, inp, out):
                     gpts.add_batch(inp[0].data, out.data)
@@ -176,11 +171,11 @@ class LayerCompressor(BaseCompressor):
 
             print(f"Compressing module {name} of layer {self.layer_index}")
             gpts.fasterprune(
-                self.args["sparsity"],
-                prunen=self.args["prunen"],
-                prunem=self.args["prunem"],
-                percdamp=self.args["percdamp"],
-                blocksize=self.args["blocksize"],
+                self.args.sparsity,
+                prunen=self.args.prunen,
+                prunem=self.args.prunem,
+                percdamp=self.args.percdamp,
+                blocksize=self.args.blocksize,
             )
             gpts.free()
 
