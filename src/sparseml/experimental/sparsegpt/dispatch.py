@@ -2,38 +2,42 @@ SUPPORTED_MODELS = ["opt", "mpt", "llama-2"]
 
 
 def load_model(args, *gargs, **kwargs):
-    key = _get_model_key(args)
-    if key == "opt":
+    model_key = _get_model_key(args)
+    if model_key == "opt":
         from opt import load_model as _load_model
-    elif key == "llama-2":
+    elif model_key == "mpt":
+        from mpt import load_model as _load_model
+    elif model_key == "llama-2":
         from llama2 import load_model as _load_model
     else:
-        from mpt import load_model as _load_model
+        raise ValueError(f"Unrecognized model key. Supported: {SUPPORTED_MODELS}")
+    return _load_model(args)
 
     return _load_model(args, *gargs, **kwargs)
 
 
 def load_data(args, *gargs, **kwargs):
-    key = _get_model_key(args)
-    if key == "opt":
+    model_key = _get_model_key(args)
+    if model_key == "opt":
         from opt import load_data as _load_data
-    elif key == "llama-2":
+    elif model_key == "mpt":
+        from mpt import load_data as _load_data
+    elif model_key == "llama-2":
         from llama2 import load_data as _load_data
     else:
-        from mpt import load_data as _load_data
+        raise ValueError(f"Unrecognized model key. Supported: {SUPPORTED_MODELS}")
 
     return _load_data(args, *gargs, **kwargs)
 
 
 def prepare_sparsegpt(model, dataloader, args, **kwargs):
-    key = _get_model_key(args)
-    if key == "opt":
+    model_key = _get_model_key(args)
+    if model_key == "opt":
         from opt import prepare_sparsegpt as _prepare_sparsegpt
-    elif key == "llama-2":
+    elif model_key == "llama-2":
         from llama2 import prepare_sparsegpt as _prepare_sparsegpt
     else:
-        from mpt import prepare_sparsegpt as _prepare_sparsegpt
-
+        raise ValueError(f"Unrecognized model key. Supported: {SUPPORTED_MODELS}")
     return _prepare_sparsegpt(model, dataloader, args, **kwargs)
 
 
