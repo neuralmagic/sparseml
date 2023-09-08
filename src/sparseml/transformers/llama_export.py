@@ -14,7 +14,8 @@
 
 import argparse
 
-from sparseml.transformers.export import export, MODEL_ONNX_NAME
+from sparseml.transformers.export import MODEL_ONNX_NAME, export
+
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
