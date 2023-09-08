@@ -74,6 +74,12 @@ if __name__ == "__main__":
         help="Whether to initialize quantization parameters using PTQ",
     )
     parser.add_argument(
+        "--sequential_hessian_within_layer",
+        type=int,
+        default=1,
+        help="Whether to initialize quantization parameters using PTQ",
+    )
+    parser.add_argument(
         "--seed", type=int, default=0, help="Seed for sampling the calibration data."
     )
     parser.add_argument(
