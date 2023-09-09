@@ -12,14 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from dataclasses import dataclass
 from typing import Dict, Generic, List, TypeVar, Union
-
-from pydantic import BaseModel
 
 from sparseml.core.framework import MultiFrameworkObject
 
 
-__all__ = ["ModifiableModel"]
+__all__ = ["ModifiableModel", "ModelParameterizedLayer"]
 
 
 MT = TypeVar("MT")
@@ -27,8 +26,22 @@ LT = TypeVar("LT")
 PT = TypeVar("PT")
 
 
-class ModifiableModel(Generic[MT, LT, PT], MultiFrameworkObject, BaseModel):
+@dataclass
+class ModelParameterizedLayer(Generic[LT, PT]):
+    layer_name: str
+    layer: LT
+    param_name: str
+    param: PT
+
+
+@dataclass
+class ModifiableModel(Generic[MT, LT, PT], MultiFrameworkObject):
     model: MT = None
+
+    def get_layers_params(
+        self, targets: Union[str, List[str]]
+    ) -> Dict[str, ModelParameterizedLayer[LT, PT]]:
+        raise NotImplementedError()
 
     def get_layers(self, targets: Union[str, List[str]]) -> Dict[str, LT]:
         raise NotImplementedError()

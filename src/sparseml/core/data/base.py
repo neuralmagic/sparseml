@@ -12,9 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from dataclasses import dataclass
 from typing import Generic, TypeVar
-
-from pydantic import BaseModel
 
 from sparseml.core.framework import MultiFrameworkObject
 
@@ -24,7 +23,8 @@ __all__ = ["ModifiableData"]
 DT = TypeVar("DT")  # Dataset Type
 
 
-class ModifiableData(Generic[DT], MultiFrameworkObject, BaseModel):
+@dataclass
+class ModifiableData(Generic[DT], MultiFrameworkObject):
     data: DT = None
     num_samples: int = None
 

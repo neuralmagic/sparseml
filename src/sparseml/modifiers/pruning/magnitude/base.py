@@ -12,4 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .base import ConstantPruningModifier
+from typing import Any, Dict, List, Union
+
+from sparseml.core import Modifier, State
+
+
+__all__ = ["MagnitudePruningModifier"]
+
+
+class MagnitudePruningModifier(Modifier):
+    targets: Union[str, List[str]]
+    init_sparsity: float
+    final_sparsity: float
+    update_scheduler: str = "cubic"
+    scheduler_args: Dict[str, Any] = {}
+    mask_structure: str = "unstructured"
+    leave_enabled: bool = False
+    apply_globally: bool = False
+
+    def on_initialize_structure(self, state: State, **kwargs):
+        pass  # nothing needed for this modifier

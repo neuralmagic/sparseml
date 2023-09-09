@@ -13,7 +13,6 @@
 # limitations under the License.
 
 
-from abc import abstractmethod
 from typing import Optional
 
 from pydantic import BaseModel
@@ -61,6 +60,9 @@ class Modifier(ModifierInterface, MultiFrameworkObject, BaseModel):
         if self._finalized:
             raise RuntimeError("cannot initialize a finalized modifier")
 
+        if state.start_event is None:
+            return
+
         initialized = self.on_initialize(**kwargs)
 
         if not isinstance(initialized, bool):
@@ -70,6 +72,10 @@ class Modifier(ModifierInterface, MultiFrameworkObject, BaseModel):
             )
 
         self._initialized = initialized
+
+        if self.should_start(state.start_event):
+            self.on_start(state, state.start_event, **kwargs)
+            self._started = True
 
     def finalize(self, state: State, **kwargs):
         if self._finalized:
@@ -132,26 +138,20 @@ class Modifier(ModifierInterface, MultiFrameworkObject, BaseModel):
 
         return self.end is not None and current >= self.end
 
-    @abstractmethod
     def on_initialize_structure(self, state: State, **kwargs):
         raise NotImplementedError()
 
-    @abstractmethod
     def on_initialize(self, state: State, event: Event, **kwargs) -> bool:
         raise NotImplementedError()
 
-    @abstractmethod
     def on_finalize(self, state: State, event: Event, **kwargs) -> bool:
         raise NotImplementedError()
 
-    @abstractmethod
     def on_start(self, state: State, event: Event, **kwargs):
         raise NotImplementedError()
 
-    @abstractmethod
     def on_update(self, state: State, event: Event, **kwargs):
         raise NotImplementedError()
 
-    @abstractmethod
     def on_end(self, state: State, event: Event, **kwargs):
         raise NotImplementedError()

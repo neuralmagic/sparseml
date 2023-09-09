@@ -12,9 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from dataclasses import dataclass
 from typing import Any, Generic, List, TypeVar, Union
-
-from pydantic import BaseModel
 
 from sparseml.core.framework import MultiFrameworkObject
 
@@ -26,7 +25,8 @@ OT = TypeVar("OT")
 PGT = TypeVar("PGT")
 
 
-class ModifiableOptimizer(Generic[OT, PGT], MultiFrameworkObject, BaseModel):
+@dataclass
+class ModifiableOptimizer(Generic[OT, PGT], MultiFrameworkObject):
     optimizer: OT = None
 
     def get_param_groups(self) -> List[PGT]:

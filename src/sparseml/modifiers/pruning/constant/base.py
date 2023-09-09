@@ -17,6 +17,9 @@ from typing import List, Union
 from sparseml.core import Modifier, State
 
 
+__all__ = ["ConstantPruningModifier"]
+
+
 class ConstantPruningModifier(Modifier):
     targets: Union[str, List[str]]
     _epsilon: float = 10e-9
