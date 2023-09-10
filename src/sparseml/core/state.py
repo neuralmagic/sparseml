@@ -56,6 +56,7 @@ class State:
     loggers = Field(default_factory=list)
     framework: Framework = None
     model: ModifiableModel = None
+    teacher_model: ModifiableModel = None
     optimizer: ModifiableOptimizer = None
     optim_wrapped: bool = None
     loss = None
@@ -104,6 +105,12 @@ class State:
             raise RuntimeError("framework must be set before updating model")
 
         self.model = ModifiableModel(framework=self.framework, model=model)
+
+    def update_teacher_model(self, model: Any):
+        if self.framework is None:
+            raise RuntimeError("framework must be set before updating model")
+
+        self.teacher_model = ModifiableModel(framework=self.framework, model=model)
 
     def update_optimizer(self, optimizer: Any, attach_callbacks: bool = True):
         if self.framework is None:

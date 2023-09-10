@@ -16,7 +16,7 @@ from typing import Dict
 
 from sparseml.core import Event, EventType, ModelParameterizedLayer, State
 from sparseml.modifiers.pruning.constant.base import ConstantPruningModifier
-from sparseml.utils.pytorch.pruning import LayerParamMasking
+from sparseml.modifiers.pruning.utils.pytorch import LayerParamMasking
 
 
 class ConstantPruningModifierPyTorch(ConstantPruningModifier, LayerParamMasking):

@@ -117,6 +117,7 @@ class SparseSession:
         recipe_stage: str = None,
         recipe_args: Dict[str, Any] = None,
         model: Any = None,
+        teacher_model: Any = None,
         optimizer: Any = None,
         attach_optim_callbacks: bool = True,
         train_data: Any = None,
@@ -138,6 +139,7 @@ class SparseSession:
         self.state.update_framework(framework)
         self.state.update_recipe(recipe, recipe_stage, recipe_args)
         self.state.update_model(model)
+        self.state.update_teacher_model(teacher_model)
         self.state.update_optimizer(optimizer, attach_optim_callbacks)
         self.state.update_data(train_data, val_data, test_data, calib_data, copy_data)
         self.state.update_start(start, steps_per_epoch, batches_per_step)
@@ -342,6 +344,7 @@ def initialize(
     recipe_stage: str = None,
     recipe_args: Dict[str, Any] = None,
     model: Any = None,
+    teacher_model: Any = None,
     optimizer: Any = None,
     attach_optim_callbacks: bool = True,
     train_data: Any = None,
@@ -360,6 +363,7 @@ def initialize(
         recipe_stage=recipe_stage,
         recipe_args=recipe_args,
         model=model,
+        teacher_model=teacher_model,
         optimizer=optimizer,
         attach_optim_callbacks=attach_optim_callbacks,
         train_data=train_data,
@@ -384,6 +388,7 @@ def apply(
     recipe_stage: str = None,
     recipe_args: Dict[str, Any] = None,
     model: Any = None,
+    teacher_model: Any = None,
     train_data: Any = None,
     val_data: Any = None,
     test_data: Any = None,
@@ -400,6 +405,7 @@ def apply(
         recipe_stage=recipe_stage,
         recipe_args=recipe_args,
         model=model,
+        teacher_model=teacher_model,
         train_data=train_data,
         val_data=val_data,
         test_data=test_data,

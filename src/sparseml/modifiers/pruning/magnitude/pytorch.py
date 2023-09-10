@@ -21,7 +21,7 @@ from sparseml.modifiers.pruning.helpers import (
     SchedulerCalculationType,
 )
 from sparseml.modifiers.pruning.magnitude.base import MagnitudePruningModifier
-from sparseml.utils.pytorch.pruning import (
+from sparseml.modifiers.pruning.utils.pytorch import (
     LayerParamMasking,
     MaskCreatorType,
     PruningMaskCreatorArgs,
@@ -38,6 +38,9 @@ class MagnitudePruningModifierPyTorch(MagnitudePruningModifier, LayerParamMaskin
     _current_sparsity: float = None
 
     def on_initialize(self, state: State, event: Event, **kwargs) -> bool:
+        if self.apply_globally:
+            raise NotImplementedError("global pruning not implemented yet for PyTorch")
+
         if "save_masks" in kwargs:
             self._save_masks = kwargs["save_masks"]
         if "use_hooks" in kwargs:
@@ -113,15 +116,10 @@ class MagnitudePruningModifierPyTorch(MagnitudePruningModifier, LayerParamMaskin
                         )
                     )
                     self.update_mask(layer_param_name, mask)
-
-        if self._use_hooks:
-            # hooks are used to update, so nothing to do here
-            return
-
-        if event.type_ == EventType.OPTIM_PRE_STEP:
+        elif event.type_ == EventType.OPTIM_PRE_STEP and not self._use_hooks:
             for layer_param_name, _ in self._parameterized_layers.items():
                 self.apply_mask_gradient(layer_param_name)
-        elif event.type_ == EventType.OPTIM_POST_STEP:
+        elif event.type_ == EventType.OPTIM_POST_STEP and not self._use_hooks:
             for layer_param_name, _ in self._parameterized_layers.items():
                 self.apply_mask_weight(layer_param_name)
 

@@ -16,7 +16,7 @@ from abc import ABC, abstractmethod
 from copy import deepcopy
 from dataclasses import dataclass
 from enum import Enum
-from typing import List
+from typing import List, Optional
 
 
 __all__ = [
@@ -128,6 +128,19 @@ class Event:
             if self.batches_per_step is None or self.batches_per_step < 2
             else self.global_step * self.batches_per_step
         )
+
+    def should_update(
+        self, start: Optional[float], end: Optional[float], update: float
+    ):
+        current = self.current_index
+
+        if start is not None and current < start:
+            return False
+
+        if end is not None and current > end:
+            return False
+
+        return update is None or update <= 0.0 or current % update < 1e-10
 
     def new_instance(self, **kwargs) -> "Event":
         instance = deepcopy(self)
