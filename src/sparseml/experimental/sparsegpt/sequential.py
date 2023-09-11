@@ -84,12 +84,13 @@ class SequentialSparseGPT:
             layer_compressor = LayerCompressor(
                 self.model, layer, idx, inputs, self.manager, self.args
             )
+            import pdb; pdb.set_trace()
             # Prune/quantize using SparseGPT
             self.model, layer_kwargs = layer_compressor.compress(
                 dev=dev, **accum_kwargs
             )
             accum_kwargs.update(layer_kwargs)
-
+            import pdb; pdb.set_trace()
         # Step 2: Prune/quantize head
         # TODO: Need update here -- see MPT for head quantization example
         if self.head_compressor is not None:

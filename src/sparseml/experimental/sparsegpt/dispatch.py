@@ -14,7 +14,7 @@ def load_model(args, model_key: str = None):
     return _load_model(args)
 
 
-def load_data(args, model_key: str = None):
+def load_data(args, model_key: str = None, dataset: str = None):
     model_key = _get_model_key(args) if model_key is None else model_key
     if model_key == "opt":
         from opt import load_data as _load_data
@@ -24,7 +24,7 @@ def load_data(args, model_key: str = None):
         from llama import load_data as _load_data
     else:
         raise ValueError(f"Unrecognized model key. Supported: {SUPPORTED_MODELS}")
-    return _load_data(args)
+    return _load_data(args, dataset=dataset)
 
 
 def prepare_sparsegpt(model, dataloader, args, model_key: str = None, **kwargs):

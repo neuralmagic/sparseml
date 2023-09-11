@@ -23,6 +23,7 @@ class SmoothQuantModelPreprocessor(ModelPreprocessor):
 
     def __call__(self, dev: str = "cuda:0", **kwargs) -> Tuple[nn.Module, Dict]:
         from smoothquant.smooth import smooth_lm
+        import pdb; pdb.set_trace()
         self.model.to(dev)
         act_scales = torch.load(self.smooth_activation_file)
         smooth_lm(self.model, act_scales, 0.5)
@@ -45,6 +46,8 @@ class QuantizationModelPreprocessor(ModelPreprocessor):
         self.model.train()
         manager.apply_structure(self.model, epoch=0.1)
         self.model.eval()
+
+        import pdb; pdb.set_trace()
         self.model = self._initialize_scales_from_batches(dev)
         return self.model, {"manager": manager}
 
