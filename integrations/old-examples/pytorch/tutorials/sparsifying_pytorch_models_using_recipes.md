@@ -49,7 +49,7 @@ pip install "sparseml[torchvision, dev]"
 Recipes are YAML or Markdown files that SparseML uses to easily define and control the sparsification of a model.
 Recipes consist of a series of `Modifiers` that can influence the training process in different ways. A list of
 common modifiers and their uses is provided
-[here](../../../docs/source/recipes.md#modifiers-intro).
+[here](https://github.com/neuralmagic/sparseml/tree/main/docs/source/recipes.md#modifiers-intro).
 
 SparseML provides a recipe for sparsifying a ResNet-50 model trained on the tiny Imagenette dataset. The recipe can
 be viewed in the browser
@@ -71,7 +71,7 @@ of the parameters list for a single `GMPruningModifier`.
 
 Recipes can integrated into training flows with a couple of lines of code by using a `ScheduledModifierManager`
 that wraps the PyTorch `Optimizer` step.  An example of how this is done can be found
-[here](../../../docs/source/code.md#pytorch-sparsification).
+[here](https://github.com/neuralmagic/sparseml/tree/main/docs/source/code.md#pytorch-sparsification).
 
 For this example, we can use the `sparseml.image_classification.train` utility.  This utility runs a
 PyTorch training flow that is modified by a `ScheduledModifierManager` and takes a recipe as an input.
