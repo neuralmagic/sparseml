@@ -165,7 +165,8 @@ class SparseOPTModifier(SparseGPTModifier):
 
     def bottom_compressor(self) -> OPTBottomCompressor:
         """
-        :return
+        :return: model used for calibration, outputs from bottom part of network,
+        attention mask, and kv-cache state
         """
         return OPTBottomCompressor(self.model)
 
