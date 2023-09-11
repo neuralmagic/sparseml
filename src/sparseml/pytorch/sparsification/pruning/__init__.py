@@ -32,5 +32,4 @@ from .modifier_pruning_mfac import *
 from .modifier_pruning_movement import *
 from .modifier_pruning_obs import *
 from .modifier_pruning_structured import *
-from .modifier_pruning_topkast import *
 from .scorer import *

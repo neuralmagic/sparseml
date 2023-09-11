@@ -22,7 +22,7 @@ from typing import Iterable, List, Optional, Tuple, Union
 
 import torch
 from torch import Tensor
-from torch.nn import Module
+from torch.nn import Module, Parameter
 
 from sparseml.pytorch.sparsification.pruning.mask_creator import PruningMaskCreator
 from sparseml.pytorch.sparsification.pruning.scorer import PruningParamsScorer
@@ -59,8 +59,6 @@ class ModuleParamPruningMask(object):
         sparsity ranking values within each individual tensor. Default is False
     :param allow_reintroduction: set True to not mask weights and gradients between
         forward passes (forward mask hooks will remain). Default is False
-    :param mask_gradients_only: Apply the mask to the gradients only and not to
-        the weights (at any point). Default is False.
     """
 
     def __init__(
@@ -71,7 +69,6 @@ class ModuleParamPruningMask(object):
         param_names: Union[str, List[str]] = "weight",
         store_init: bool = False,
         store_unmasked: bool = False,
-        mask_gradients_only: bool = False,
         track_grad_mom: float = -1.0,
         layer_names: Optional[List[str]] = None,
         global_sparsity: bool = False,
@@ -89,7 +86,6 @@ class ModuleParamPruningMask(object):
         self._layer_names = layer_names
         self._store_init = store_init
         self._store_unmasked = store_unmasked
-        self._mask_gradients_only = mask_gradients_only
         self._track_grad_mom = track_grad_mom
         self._global_sparsity = global_sparsity
 
@@ -118,7 +114,6 @@ class ModuleParamPruningMask(object):
         self._params_grad = [None] * len(self._layers)  # type: List[Tensor]
         self._params_movement = [None] * len(self._layers)  # type: List[Tensor]
         self._params_applied_thinning = [0.0] * len(self._layers)  # type: List[float]
-        self._mask_applied = [False] * len(self._layers)  # type: Bool
 
         # movement pruning requires weight reintroduction
         self._allow_reintroduction = allow_reintroduction
@@ -304,7 +299,7 @@ class ModuleParamPruningMask(object):
         self._params_unmasked[param_idx] = None
         self._setup_params_unmasked(param_idx)
 
-        if not self._allow_reintroduction and not self._mask_gradients_only:
+        if not self._allow_reintroduction:
             self.apply(param_idx)
 
     def set_param_masks(self, masks: List[Tensor]):
@@ -335,7 +330,7 @@ class ModuleParamPruningMask(object):
         if self._scorer:
             self._scorer.mask_update(masks, mask_diffs)
 
-        if not self._allow_reintroduction and not self._mask_gradients_only:
+        if not self._allow_reintroduction:
             self.apply()
 
         return mask_diffs
@@ -400,27 +395,11 @@ class ModuleParamPruningMask(object):
             self._check_regen_param_vals(idx)
 
             with torch.no_grad():
-                # In the case of forward-pass-only masks (Top-KAST, Movement
-                # pruning), the mask is applied on the forward pass and
-                # reverted on the backward pass. At the same time, every time the
-                # mask is applied, we store the previous values in
-                # _params_unmasked. So long as we alternate forward and backward
-                # passes (i.e., during training), this works fine. However, if
-                # we only do forward passes (i.e., during testing/validation),
-                # we can override the unmasked parameters with sparse ones. To
-                # prevent this, only update the unmasked params cache when the
-                # mask is applied for the first time since it was removed.
-                #
-                # Note that there is an assumption here that the weights do not
-                # change when the mask is applied (which is satisfied during
-                # training, since the mask is removed on every backward pass).
                 if self._store_unmasked:
-                    if not self._mask_applied[idx]:
-                        self._params_unmasked[idx] = self._params[idx].data.mul(
-                            1 - self._param_masks[idx]  # inverted mask
-                        )
+                    self._params_unmasked[idx] = self._params[idx].data.mul(
+                        1 - self._param_masks[idx]  # inverted mask
+                    )
                 self._params[idx].data.mul_(self._param_masks[idx])
-                self._mask_applied[idx] = True
 
     def reset(self):
         """
@@ -450,8 +429,7 @@ class ModuleParamPruningMask(object):
         if not leave_enabled:
             self.enabled = False
         self._allow_reintroduction = False
-        if not self._mask_gradients_only:
-            self.apply()  # ensure that weights are pruned to final level
+        self.apply()  # ensure that weights are pruned to final level
         if self._scorer:
             self._scorer.on_pruning_end()
 
@@ -523,20 +501,15 @@ class ModuleParamPruningMask(object):
 
     def _create_hooks(self):
         for idx, (param, layer) in enumerate(zip(self._params, self._layers)):
-            if not self._mask_gradients_only:
-                if self._forward_hooks[idx] is None:
-                    self._forward_hooks[idx] = layer.register_forward_pre_hook(
-                        partial(self._hook_mask_forward, idx)
-                    )
+            if self._forward_hooks[idx] is None:
+                self._forward_hooks[idx] = layer.register_forward_pre_hook(
+                    partial(self._hook_mask_forward, idx)
+                )
 
-                if (
-                    self._allow_reintroduction
-                    and self._undo_mask_hooks[idx] is None
-                    and not self._mask_gradients_only
-                ):
-                    self._undo_mask_hooks[idx] = layer.register_full_backward_hook(
-                        partial(self._hook_undo_mask, idx)
-                    )
+            if self._allow_reintroduction and self._undo_mask_hooks[idx] is None:
+                self._undo_mask_hooks[idx] = layer.register_forward_hook(
+                    partial(self._hook_undo_mask, idx)
+                )
 
             if self._gradient_hooks[idx] is None:
                 self._gradient_hooks[idx] = param.register_hook(
@@ -563,24 +536,23 @@ class ModuleParamPruningMask(object):
     def _hook_mask_forward(
         self, param_idx: int, mod: Module, inp: Union[Tensor, Tuple[Tensor]]
     ):
-        with torch.no_grad():
-            self.apply(param_idx)
+        self.apply(param_idx)
 
     def _hook_undo_mask(self, param_idx, module, inp, out):
         if self._allow_reintroduction:
             with torch.no_grad():
                 self._params[param_idx].data.add_(self._params_unmasked[param_idx])
-            self._mask_applied[param_idx] = False
 
     def _hook_mask_gradient(self, param_idx, grad):
         if 0.0 <= self._track_grad_mom < 1.0:
             self._params_grad[param_idx].mul_(self._track_grad_mom).add_(
                 (1.0 - self._track_grad_mom) * grad
             )
+
         return (
             grad.mul_(self._param_masks[param_idx])
-            if self._mask_gradients_only or not self._allow_reintroduction
-            else grad
+            if not self._allow_reintroduction
+            else grad  # do not mask gradient for movement pruning
         )
 
     def _setup_params_init(self):
