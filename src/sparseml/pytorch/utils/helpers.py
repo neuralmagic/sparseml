@@ -1150,9 +1150,10 @@ def download_framework_model_by_recipe_type(
     """
 
     # default to model query params if available
-    recipe_name = recipe_name or (
-        zoo_model.stub_params.get("recipe_type") or zoo_model.stub_params.get("recipe")
-    )
+    model_recipe_name = zoo_model.recipes
+    if model_recipe_name is not None:
+        model_recipe_name = model_recipe_name[0]
+    recipe_name = recipe_name or (model_recipe_name)
 
     framework_model = None
     if recipe_name and "transfer" in recipe_name.lower():
@@ -1162,7 +1163,7 @@ def download_framework_model_by_recipe_type(
 
     if framework_model is None:
         # fetching the model for inference or fall back if model.ckpt.pth doesn't exist
-        model_name = f"model.{model_suffix}"
+        model_name = f"training/model.{model_suffix}"
         framework_model = zoo_model.training.default.get_file(model_name)
 
     return framework_model.path
