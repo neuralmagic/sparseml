@@ -13,32 +13,31 @@
 # limitations under the License.
 
 import random
+from typing import List, Tuple
 
-import numpy as np
-import torch
 from datasets import load_dataset
-from transformers import AutoTokenizer
+from torch.nn import Module
+from transformers import AutoTokenizer, GPT2Tokenizer
 
 
 __all__ = ["get_wikitext2", "get_ptb", "get_c4"]
 
-# TODO: update these to PyTorch dataloaders
 
+def get_wikitext2(
+    nsamples: int, seed: int, seqlen: int, model: Module
+) -> Tuple[List, GPT2Tokenizer]:
+    """
+    load nsamples of tokenized data from the wikitext2 dataset of length seqlen
 
-def set_seed(seed):
-    np.random.seed(seed)
-    torch.random.manual_seed(seed)
-
-
-def get_wikitext2(nsamples, seed, seqlen, model):
+    :param nsamples: number of samples to load
+    :param seed: seed to use for selecting random samples from dataset
+    :param seqlen: sequence length of each sample
+    :param model: trained pytorch module to load tokenizer from
+    :return: list of random samples from wikitext and tokenizer
+    """
     traindata = load_dataset("wikitext", "wikitext-2-raw-v1", split="train")
-    testdata = load_dataset("wikitext", "wikitext-2-raw-v1", split="test")
-
     tokenizer = AutoTokenizer.from_pretrained(model, use_fast=False)
     trainenc = tokenizer(" ".join(traindata["text"]), return_tensors="pt")
-    testenc = tokenizer("\n\n".join(testdata["text"]), return_tensors="pt")
-
-    import random
 
     random.seed(seed)
     trainloader = []
@@ -49,16 +48,24 @@ def get_wikitext2(nsamples, seed, seqlen, model):
         tar = inp.clone()
         tar[:, :-1] = -100
         trainloader.append((inp, tar))
-    return trainloader, testenc, tokenizer
+    return trainloader, tokenizer
 
 
-def get_ptb(nsamples, seed, seqlen, model):
+def get_ptb(
+    nsamples: int, seed: int, seqlen: int, model: Module
+) -> Tuple[List, GPT2Tokenizer]:
+    """
+    load nsamples of tokenized data from the ptb dataset of length seqlen
+
+    :param nsamples: number of samples to load
+    :param seed: seed to use for selecting random samples from dataset
+    :param seqlen: sequence length of each sample
+    :param model: trained pytorch module to load tokenizer from
+    :return: list of random samples from ptb and tokenizer
+    """
     traindata = load_dataset("ptb_text_only", "penn_treebank", split="train")
-    testdata = load_dataset("ptb_text_only", "penn_treebank", split="test")
-
     tokenizer = AutoTokenizer.from_pretrained(model, use_fast=False)
     trainenc = tokenizer(" ".join(traindata["sentence"]), return_tensors="pt")
-    testenc = tokenizer(" ".join(testdata["sentence"]), return_tensors="pt")
 
     random.seed(seed)
     trainloader = []
@@ -69,10 +76,21 @@ def get_ptb(nsamples, seed, seqlen, model):
         tar = inp.clone()
         tar[:, :-1] = -100
         trainloader.append((inp, tar))
-    return trainloader, testenc, tokenizer
+    return trainloader, tokenizer
 
 
-def get_c4(nsamples, seed, seqlen, model):
+def get_c4(
+    nsamples: int, seed: int, seqlen: int, model: Module
+) -> Tuple[List, GPT2Tokenizer]:
+    """
+    load nsamples of tokenized data from the c4 dataset of length seqlen
+
+    :param nsamples: number of samples to load
+    :param seed: seed to use for selecting random samples from dataset
+    :param seqlen: sequence length of each sample
+    :param model: trained pytorch module to load tokenizer from
+    :return: list of random samples from c4 and tokenizer
+    """
     traindata = load_dataset(
         "allenai/c4",
         "allenai--c4",
@@ -112,4 +130,4 @@ def get_c4(nsamples, seed, seqlen, model):
 
     valenc = TokenizerWrapper(valenc)
 
-    return trainloader, valenc, tokenizer
+    return trainloader, tokenizer

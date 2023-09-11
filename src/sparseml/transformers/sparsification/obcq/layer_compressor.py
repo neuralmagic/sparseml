@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
 import inspect
+import logging
 from typing import Dict, List, Tuple
 
 import torch
@@ -157,6 +157,7 @@ class LayerCompressor(BaseCompressor):
         nsamples = self.inputs.shape[0]
         for name in order:
             gpts = SparseGPT(subset[name])
+
             def add_batch(name):
                 def tmp(_, inp, out):
                     gpts.add_batch(inp[0].data, out.data)

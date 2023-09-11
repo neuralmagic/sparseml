@@ -18,8 +18,6 @@ import os
 from pathlib import Path
 from typing import Optional
 
-from transformers import OPTForCausalLM
-
 from sparseml.optim.helpers import load_recipe_yaml_str
 from sparseml.transformers.sparsification.obcq.data import (
     get_c4,
@@ -35,16 +33,6 @@ __all__ = ["one_shot"]
 _LOGGER = logging.getLogger(__name__)
 SUPPORTED_DATASETS = ["wikitext2", "ptb", "c4"]
 SUPPORTED_MODELS = ["opt"]
-
-
-def _save(model, tokenizer, save_path, recipe_path):
-    model.save_pretrained(save_path)
-    tokenizer.save_pretrained(save_path)
-
-    _LOGGER.info("Saving output to {}".format(os.path.abspath(save_path)))
-    recipe_output_path = os.path.join(save_path, "recipe.yaml")
-    with open(recipe_output_path, "w") as fp:
-        fp.write(load_recipe_yaml_str(recipe_path))
 
 
 def one_shot(
@@ -70,7 +58,6 @@ def one_shot(
     if deploy_dir.exists():
         raise RuntimeError(f"deploy_dir={deploy_dir} already exists")
 
-    # TODO: don't hardcode this for OPT
     model_loader_fn = None
     if "opt" in model_path:
         model_loader_fn = load_opt_model
@@ -92,7 +79,7 @@ def one_shot(
             f"dataset_name={dataset_name} should be one of {SUPPORTED_DATASETS}"
         )
 
-    calibration_data, test_encoder, tokenizer = data_loader_fn(
+    calibration_data, tokenizer = data_loader_fn(
         num_samples, 0, model.seqlen, model_path
     )
 
@@ -102,20 +89,28 @@ def one_shot(
     _save(model, tokenizer, deploy_dir, recipe_file)
 
 
+def _save(model, tokenizer, save_path, recipe_path):
+    model.save_pretrained(save_path)
+    tokenizer.save_pretrained(save_path)
+
+    _LOGGER.info("Saving output to {}".format(os.path.abspath(save_path)))
+    recipe_output_path = os.path.join(save_path, "recipe.yaml")
+    with open(recipe_output_path, "w") as fp:
+        fp.write(load_recipe_yaml_str(recipe_path))
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
-    parser.add_argument(
-        "model", type=str, help="OPT model to load; pass `facebook/opt-X`."
-    )
+    parser.add_argument("model", type=str, help="Hugging Face stub of model to load")
     parser.add_argument(
         "dataset",
         type=str,
         choices=["wikitext2", "ptb", "c4"],
-        help="Where to extract calibration data from.",
+        help="Name of dataset to extract calibration data from",
     )
     parser.add_argument(
-        "--nsamples", type=int, default=128, help="Number of calibration data samples."
+        "--nsamples", type=int, default=128, help="Number of calibration data samples"
     )
     parser.add_argument("--device", type=str, default="cuda:0")
     parser.add_argument("--deploy-dir", type=str, default=".")

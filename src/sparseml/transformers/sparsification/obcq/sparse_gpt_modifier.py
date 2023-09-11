@@ -33,6 +33,25 @@ _LOGGER = logging.getLogger(__name__)
 
 @PyTorchModifierYAML()
 class SparseGPTModifier(Modifier):
+    """
+    Modifier for applying the one-shot OBCQ algorithm to a model. This modifier should
+    not be run directly and instead is instantiated from one of the child classes:
+    SparseOPTModifier, SparseMPTModifier or SparseLlamaModifier.
+
+    Life-cycle:
+        - initialze
+            - compress
+        - finalize
+
+    :param sparsity: Sparsity to compress model to
+    :param block_size: Used to determine number of columns to compress in one pass
+    :param quantize: Whether or not model is quantized (affects layer names)
+    :param dampening_frac: Amount of dampening to apply to H, as a fraction of the
+        diagonal norm
+    :param sequential_update: Whether or not to update weights sequentially by layer,
+        True saves on GPU memory
+    """
+
     def __init__(
         self,
         sparsity: float = 0.5,
@@ -43,11 +62,10 @@ class SparseGPTModifier(Modifier):
     ):
         super().__init__()
 
-        self._compressible_layers = None
         self._model = None
+        self._compressible_layers = None
         self._bottom_compressor = None
         self._head_compressor = None
-        self._compressible_layers = None
 
         self._sparsity = sparsity
         self._block_size = block_size
@@ -60,42 +78,92 @@ class SparseGPTModifier(Modifier):
 
     @ModifierProp()
     def sparsity(self) -> float:
+        """
+        :return: Sparsity to compress model to
+        """
         return self._sparsity
 
     @ModifierProp()
     def block_size(self) -> int:
+        """
+        :return: Used to determine number of columns to compress in one pass
+        """
         return self._block_size
 
     @ModifierProp()
     def quantize(self) -> bool:
+        """
+        :return: Whether or not model is quantized (affects layer names)
+        """
         return self._quantize
 
     @ModifierProp()
     def dampening_frac(self) -> float:
+        """
+        :return: Amount of dampening to apply to H, as a fraction of the diagonal norm
+        """
         return self._dampening_frac
 
     @ModifierProp()
     def sequential_update(self) -> bool:
+        """
+        :return: Whether or not to update weights sequentially by layer, True saves on
+            GPU memory
+        """
         return self._sequential_update
 
-    def _set_device(self, device: str):
-        if "cuda" in device and not torch.cuda.is_available():
-            self._device = "cpu"
-        else:
-            self._device = device
-
     def compressible_layers(self):
-        raise NotImplementedError
+        raise NotImplementedError  # must be implemented by child class
 
     def bottom_compressor(self):
-        raise NotImplementedError
+        raise NotImplementedError  # must be implemented by child class
 
     def head_compressor(self):
-        raise NotImplementedError
+        raise NotImplementedError  # must should be implemented by child class
+
+    def initialize(
+        self,
+        model: Module,
+        calibration_dataloader: Optional[Iterable[Tuple[List, Dict[str, Any]]]] = None,
+        device: Optional[str] = "cuda:0",
+    ):
+        """
+        Initializes the compressible layers of model(architecture-specific), sets the
+        device and runs sparsification on model
+
+        :param model: PyTorch model to sparsify
+        :param calibration_dataloader: data to use for calibration during sparsification
+        :param device: device to run sparsification on, preferably a GPU
+        """
+        self.model = model
+        self._compressible_layers = self.compressible_layers()
+        self._bottom_compressor = self.bottom_compressor()
+        self._head_compressor = self.head_compressor()
+        self._set_device(device)
+
+        extras = self.compress(calibration_dataloader)
+        self._finalization_kwargs.update(extras)
+
+    def finalize(self, model: Module):
+        """
+        disable the observers used by the OBCQ algorithm and set kv-cache configuration
+
+        :param model: un-used, for matching spec of other modifiers
+        """
+        use_cache = self._finalization_kwargs.get("use_cache", False)
+        self.model.apply(torch.quantization.disable_observer)
+        self.model.config.use_cache = use_cache
 
     @torch.no_grad()
-    def compress(self, dataloader):
+    def compress(self, dataloader) -> Dict:
+        """
+        Run OBCQ on the loaded model, using dataloader as calibration data
+
+        :param dataloader: calibration data for OBCQ
+        :return: compression outputs used for finalization
+        """
         accum_kwargs = {"dataloader": dataloader}
+
         # Step 0: BottomCompressor accomplishes two things:
         # 1) Compress the embedding if needed
         # 2) Pass the calibration data through the (compressed) bottom part of the
@@ -137,7 +205,6 @@ class SparseGPTModifier(Modifier):
             accum_kwargs.update(layer_kwargs)
 
         # Step 2: Prune/quantize head
-        # TODO: Need update here -- see MPT for head quantization example
         if self._head_compressor is not None:
             self.model, extras = self._head_compressor.compress(
                 dev=self._device, **accum_kwargs
@@ -145,22 +212,8 @@ class SparseGPTModifier(Modifier):
 
         return extras
 
-    def initialize(
-        self,
-        model: Module,
-        calibration_dataloader: Optional[Iterable[Tuple[List, Dict[str, Any]]]] = None,
-        device: Optional[str] = "cuda:0",
-    ):
-        self.model = model
-        self._compressible_layers = self.compressible_layers()
-        self._bottom_compressor = self.bottom_compressor()
-        self._head_compressor = self.head_compressor()
-        self._set_device(device)
-
-        extras = self.compress(calibration_dataloader)
-        self._finalization_kwargs.update(extras)
-
-    def finalize(self, model: Module):
-        use_cache = self._finalization_kwargs.get("use_cache", False)
-        self.model.apply(torch.quantization.disable_observer)
-        self.model.config.use_cache = use_cache
+    def _set_device(self, device: str):
+        if "cuda" in device and not torch.cuda.is_available():
+            self._device = "cpu"
+        else:
+            self._device = device

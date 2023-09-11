@@ -16,6 +16,7 @@ from typing import Optional
 
 import torch
 from torch import nn
+from torch.nn import ModuleList
 
 from sparseml.pytorch.sparsification.modifier import PyTorchModifierYAML
 from sparseml.transformers.sparsification.obcq.layer_compressor import BaseCompressor
@@ -27,41 +28,26 @@ from sparseml.transformers.sparsification.obcq.sparse_gpt_modifier import (
 __all__ = ["SparseOPTModifier"]
 
 
-@PyTorchModifierYAML()
-class SparseOPTModifier(SparseGPTModifier):
-    def __init__(
-        self,
-        sparsity: float = 0.5,
-        block_size: int = 128,
-        quantize: bool = True,
-        dampening_frac: Optional[float] = 0.01,
-        sequential_update: Optional[bool] = True,
-    ):
-        super().__init__(
-            sparsity=sparsity,
-            block_size=block_size,
-            quantize=quantize,
-            dampening_frac=dampening_frac,
-            sequential_update=sequential_update,
-        )
-
-    def compressible_layers(self):
-        return self.model.model.decoder.layers
-
-    def bottom_compressor(self):
-        return OPTBottomCompressor(self.model)
-
-    def head_compressor(self):
-        return None  # no head compressor for OPT
-
 class OPTBottomCompressor(BaseCompressor):
     """
-    OPT specific
+    The OPT-specific BottomCompressor accomplishes three things:
+        1) Compress the embedding if needed
+        2) Pass the calibration data through the (compressed) bottom part of the
+        network, capturing the outputs which will become the inputs to the first
+        decoder layer
+        3) Return attention_mask as part of kwargs
     """
 
     def compress(
         self, dataloader=None, nsamples: int = None, dev: str = "cuda:0", **kwargs
     ):
+        """
+        :param dataloader: calibration data to pass through the model
+        :nsamples: number of samples to use for calibration, or None to use it all
+        :dev: device to use
+        :return: model used for calibration, outputs from bottom part of network,
+        attention mask, and kv-cache state
+        """
         model = self.model
         layers = model.model.decoder.layers
         nsamples = len(dataloader) if nsamples is None else nsamples
@@ -134,3 +120,54 @@ class OPTBottomCompressor(BaseCompressor):
         }
         self.model = model
         return model, extras
+
+
+@PyTorchModifierYAML()
+class SparseOPTModifier(SparseGPTModifier):
+    """
+    OPT-specific functions for applying the one-shot OBCQ algorithm to a model
+
+    Life-cycle:
+        - initialze
+            - compress
+        - finalize
+
+    :param sparsity: Sparsity to compress model to
+    :param block_size: Used to determine number of columns to compress in one pass
+    :param quantize: Whether or not model is quantized (affects layer names)
+    :param dampening_frac: Amount of dampening to apply to H, as a fraction of the
+        diagonal norm
+    :param sequential_update: Whether or not to update weights sequentially by layer,
+        True saves on GPU memory
+    """
+
+    def __init__(
+        self,
+        sparsity: float = 0.5,
+        block_size: int = 128,
+        quantize: bool = True,
+        dampening_frac: Optional[float] = 0.01,
+        sequential_update: Optional[bool] = True,
+    ):
+        super().__init__(
+            sparsity=sparsity,
+            block_size=block_size,
+            quantize=quantize,
+            dampening_frac=dampening_frac,
+            sequential_update=sequential_update,
+        )
+
+    def compressible_layers(self) -> ModuleList:
+        """
+        :return: list of OPT submodules that can be sparsified
+        """
+        return self.model.model.decoder.layers
+
+    def bottom_compressor(self) -> OPTBottomCompressor:
+        """
+        :return
+        """
+        return OPTBottomCompressor(self.model)
+
+    def head_compressor(self) -> None:
+        return None  # no head compressor for OPT

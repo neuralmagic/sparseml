@@ -17,7 +17,6 @@ from typing import Any, Dict, List, Optional, Union
 
 import torch
 from torch.nn import Module
-from torch.utils.data import DataLoader
 
 from sparseml.optim import (
     BaseManager,
@@ -37,8 +36,15 @@ _LOGGER = logging.getLogger(__name__)
 
 class RecipeManagerOneShot(BaseManager):
     """
-    The base recipe manager, handles managing multiple Modifiers.
-    Entire current lifecycle is contained within a call to one_shot()
+    Recipe manager for handling multiple Modifiers called in a one-shot fashion. Call
+    one_shot() to run initialize() for each modifier in recipe.yaml, followed
+    by finalize() for each initialized modifier
+
+    Life-cycle:
+        - from_yaml(recipe.yaml)
+        - one_shot(model, dataloader)
+            - initialize
+            - finalize
     """
 
     @staticmethod
@@ -65,7 +71,7 @@ class RecipeManagerOneShot(BaseManager):
             in the recipe with (i.e. num_epochs, init_lr)
         :metadata: additional (to the information provided in the recipe) data to be
             preserved and utilized in the future - for reproducibility and completeness.
-        :return: ScheduledModifierManager() created from the recipe file
+        :return: RecipeManagerOneShot() created from the recipe file
         """
         recipe_variables = parse_recipe_variables(recipe_variables)
         yaml_str = load_recipe_yaml_str(file_path, **recipe_variables)
@@ -106,6 +112,7 @@ class RecipeManagerOneShot(BaseManager):
             _LOGGER.warning("No GPU available, falling back to CPU")
         module.to(device)
 
+        # used by SparseGPTModifier for OBCQ algorithm
         initialize_kwargs = {"calibration_dataloader": data_loader, "device": device}
 
         self.initialize(module, **initialize_kwargs)
@@ -117,33 +124,15 @@ class RecipeManagerOneShot(BaseManager):
         **kwargs,
     ):
         """
-        Handles any initialization of the manager for the given model.
+        Initializes all modifiers for the given model.
 
-        :param model: the ONNX model to modify
+        :param model: the model to modify
         :param kwargs: Optional kwargs to support specific arguments
             for individual modifiers.
         """
 
         for mod in self.iter_modifiers():
             mod.initialize(module, **kwargs)
-
-    def update(
-        self,
-        module: Module,
-        data_loader: Optional[DataLoader] = None,
-    ):
-        """
-        Handles updating the contained modifiers' states or model
-
-        :param model: model to modify
-        :param data_loader": data loader to be used by modifier
-        """
-
-        for mod in self.iter_modifiers():
-            if not mod.enabled:
-                continue
-
-            mod.update(module, data_loader)
 
     def finalize(self, module: Module = None):
         """
