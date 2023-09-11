@@ -1154,6 +1154,8 @@ def download_framework_model_by_recipe_type(
     if model_recipe_name is not None:
         model_recipe_name = model_recipe_name[0]
     recipe_name = recipe_name or (model_recipe_name)
+    print("RECIPE NAME: {} SUFFIX: {}".format(recipe_name, model_suffix))
+    print("FILES: {}".format(zoo_model.training.files))
 
     framework_model = None
     if recipe_name and "transfer" in recipe_name.lower():
