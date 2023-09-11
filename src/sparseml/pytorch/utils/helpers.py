@@ -1152,7 +1152,7 @@ def download_framework_model_by_recipe_type(
     # default to model query params if available
     model_recipe_name = zoo_model.recipes
     if model_recipe_name is not None:
-        model_recipe_name = model_recipe_name[0]
+        model_recipe_name = model_recipe_name[0].path
     recipe_name = recipe_name or (model_recipe_name)
     print("RECIPE NAME: {} SUFFIX: {}".format(recipe_name, model_suffix))
     print("FILES: {}".format(zoo_model.training.files))
@@ -1162,14 +1162,14 @@ def download_framework_model_by_recipe_type(
         # fetching the model for transfer learning
         model_name = f"training/model.ckpt.{model_suffix}"
         print("MODEL NAME: {}".format(model_name))
-        framework_model = zoo_model.training.default.get_file(model_name)
+        framework_model = zoo_model.training.get_file(model_name)
         print("FRAMEWORK MODEL: {}".format(framework_model))
 
     if framework_model is None:
         # fetching the model for inference or fall back if model.ckpt.pth doesn't exist
         model_name = f"training/model.{model_suffix}"
         print("MODEL NAME: {}".format(model_name))
-        framework_model = zoo_model.training.default.get_file(model_name)
+        framework_model = zoo_model.training.get_file(model_name)
         print("FRAMEWORK MODEL: {}".format(framework_model))
 
     return framework_model.path
