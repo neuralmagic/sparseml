@@ -1160,13 +1160,17 @@ def download_framework_model_by_recipe_type(
     framework_model = None
     if recipe_name and "transfer" in recipe_name.lower():
         # fetching the model for transfer learning
-        model_name = f"model.ckpt.{model_suffix}"
+        model_name = f"training/model.ckpt.{model_suffix}"
+        print("MODEL NAME: {}".format(model_name))
         framework_model = zoo_model.training.default.get_file(model_name)
+        print("FRAMEWORK MODEL: {}".format(framework_model))
 
     if framework_model is None:
         # fetching the model for inference or fall back if model.ckpt.pth doesn't exist
         model_name = f"training/model.{model_suffix}"
+        print("MODEL NAME: {}".format(model_name))
         framework_model = zoo_model.training.default.get_file(model_name)
+        print("FRAMEWORK MODEL: {}".format(framework_model))
 
     return framework_model.path
 
