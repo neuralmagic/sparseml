@@ -1169,6 +1169,9 @@ def download_framework_model_by_recipe_type(
         # fetching the model for inference or fall back if model.ckpt.pth doesn't exist
         model_name = f"training/model.{model_suffix}"
         print("MODEL NAME: {}".format(model_name))
+        print("FILES: {}".format(zoo_model.training.files))
+        for file in zoo_model.training.files:
+            print("NAME: {} {}".format(file.name, model_name == file.name))
         framework_model = zoo_model.training.get_file(model_name)
         print("FRAMEWORK MODEL: {}".format(framework_model))
 
