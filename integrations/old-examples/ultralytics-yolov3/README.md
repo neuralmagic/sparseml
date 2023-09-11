@@ -35,8 +35,8 @@ The techniques include, but are not limited to:
 
 ## Tutorials
 
-- [Sparsifying YOLOv3 Using Recipes](https://github.com/neuralmagic/sparseml/blob/main/integrations/ultralytics-yolov3/tutorials/sparsifying_yolov3_using_recipes.md)
-- [Sparse Transfer Learning With YOLOv3](https://github.com/neuralmagic/sparseml/blob/main/integrations/ultralytics-yolov3/tutorials/yolov3_sparse_transfer_learning.md)
+- [Sparsifying YOLOv3 Using Recipes](https://github.com/neuralmagic/sparseml/blob/main/integrations/old-examples/ultralytics-yolov3/tutorials/sparsifying_yolov3_using_recipes.md)
+- [Sparse Transfer Learning With YOLOv3](https://github.com/neuralmagic/sparseml/blob/main/integrations/old-examples/ultralytics-yolov3/tutorials/yolov3_sparse_transfer_learning.md)
 
 ## Installation
 
