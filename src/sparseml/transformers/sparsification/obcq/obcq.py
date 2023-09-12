@@ -25,14 +25,14 @@ from sparseml.transformers.sparsification.obcq.data import (
     get_wikitext2,
 )
 from sparseml.transformers.sparsification.obcq.manager import RecipeManagerOneShot
-from sparseml.transformers.sparsification.obcq.models import load_opt_model
+from sparseml.transformers.sparsification.obcq.models import load_opt_model, load_llama_model
 
 
 __all__ = ["one_shot"]
 
 _LOGGER = logging.getLogger(__name__)
 SUPPORTED_DATASETS = ["wikitext2", "ptb", "c4"]
-SUPPORTED_MODELS = ["opt"]
+SUPPORTED_MODELS = ["opt", "llama"]
 
 
 def one_shot(
@@ -59,11 +59,13 @@ def one_shot(
         raise RuntimeError(f"deploy_dir={deploy_dir} already exists")
 
     model_loader_fn = None
-    if "opt" in model_path:
+    if "opt" in model_path.lower():
         model_loader_fn = load_opt_model
+    elif "llama" in model_path.lower():
+        model_loader_fn = load_llama_model
     else:
         raise ValueError(
-            f"model_path={model_path} should be one of {SUPPORTED_DATASETS}"
+            f"model_path={model_path} should be one of {SUPPORTED_MODELS}"
         )
     model = model_loader_fn(model_path)
 
