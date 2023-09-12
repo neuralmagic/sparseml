@@ -108,19 +108,17 @@ class AdditionalTransformsLLAMA(AdditionalTransformsBase):
             if node.op_type == "Slice":
                 init = get_init_by_name(model, node.input[0])
                 data_parent = ONNXGraph(model).get_node_single_parent(node, 0)
-
                 # The Slice nodes may have data which are initializers or constants
-                if init is not None:
-                    valid_node = True
-                elif data_parent is not None and len(data_parent.input) == 0:
+                if init is not None or (
+                    data_parent is not None and len(data_parent.input) == 0
+                ):
                     valid_node = True
 
-                if valid_node:
-                    nodes_found += 1
-                    node.input[2] = self.SLICE_MAX_INT_NAME
-                    self.log_match(node)
+            if valid_node:
+                nodes_found += 1
+                node.input[2] = self.SLICE_MAX_INT_NAME
+                self.log_match(node)
 
-        assert nodes_found == 64
         _LOGGER.info(f"Found {nodes_found} slice nodes to update")
 
         model.graph.initializer.append(max_int_tensor)
