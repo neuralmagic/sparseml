@@ -58,7 +58,7 @@ class QuantizationModelPreprocessor(ModelPreprocessor):
         model = self.initialize_scales_from_batches(dev)
         return model, {"manager": manager}
 
-    def initialize_scales_from_batches(self, model, dev):
+    def initialize_scales_from_batches(self, dev):
         print("Collecting data statistics for quantization scales...")
         self.model.train()
         with torch.no_grad():
