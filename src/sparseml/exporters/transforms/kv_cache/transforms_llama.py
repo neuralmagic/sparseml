@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
+import warnings
 
 import numpy
 import onnx
@@ -119,7 +120,15 @@ class AdditionalTransformsLLAMA(AdditionalTransformsBase):
                 node.input[2] = self.SLICE_MAX_INT_NAME
                 self.log_match(node)
 
-        _LOGGER.info(f"Found {nodes_found} slice nodes to update")
+        valid_node_counts = [64, 80]
+        if nodes_found not in valid_node_counts:
+            warnings.warn(
+                f"Number of Slice nodes updated {nodes_found} does not match the "
+                f"expected values {valid_node_counts} for the 7 billion and 13 billion "
+                "parameter models."
+            )
+
+        _LOGGER.info(f"Found {nodes_found} Slice nodes to update")
 
         model.graph.initializer.append(max_int_tensor)
         ONNXGraph(model).delete_orphaned_node_branches()
