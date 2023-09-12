@@ -125,6 +125,15 @@ LLAMA_CONFIG = KeyValueCacheConfig(
     multiply_batch_by_num_att_heads=False,
 )
 
+GPT_NEO_CONFIG = KeyValueCacheConfig(
+    model_name="gpt_neo",
+    additional_transforms=AdditionalTransformsCodeGen,
+    key_num_attention_heads="num_heads",
+    key_num_embedding_hidden_size="hidden_size",
+    transpose_value_input=(0, 2, 1, 3),
+    transpose_key_input=None,
+    multiply_batch_by_num_att_heads=False,
+)
 
 def get_kv_cache_config(
     model_path: str,
@@ -133,6 +142,7 @@ def get_kv_cache_config(
         CODEGEN_CONFIG,
         BLOOM_CONFIG,
         LLAMA_CONFIG,
+        GPT_NEO_CONFIG,
     ],
 ) -> KeyValueCacheConfig:
     """
