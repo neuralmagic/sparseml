@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from math import ceil
 
 from sparseml.experimental.sparsegpt.layer_compressor import BaseCompressor
 from sparseml.experimental.sparsegpt.model_preprocessor import QuantizationModelPreprocessor
@@ -17,7 +18,7 @@ class Llama2BottomCompressor(BaseCompressor):
     Llama2 specific
     """
 
-    def post_compress(
+    def compress(
         self,
         dataloader=None,
         nsamples: int = None,
@@ -34,6 +35,7 @@ class Llama2BottomCompressor(BaseCompressor):
             overwrite_buffer=False,
         )
 
+        outputs = torch.concatenate(outputs, dim=0)
         cached_inputs.update({"outputs": outputs})
         return self.model, cached_inputs
 
@@ -43,6 +45,7 @@ def prepare_sparsegpt(model, dataloader, args, dev) -> SequentialSparseGPT:
     if args.recipe:
         model_preprocessors.append(
             QuantizationModelPreprocessor(
+                model,
                 args.recipe,
                 dataloader,
                 args.observer_batches,
@@ -55,6 +58,7 @@ def prepare_sparsegpt(model, dataloader, args, dev) -> SequentialSparseGPT:
         recipe=args.recipe,
         model_preprocessors=model_preprocessors,
         bottom_compressor=bottom_compressor,
+        args=args,
     )
 
     return sequential_sparsegpt
@@ -92,8 +96,8 @@ def get_wikitext2(nsamples, seed, seqlen, model):
     from transformers import AutoTokenizer
 
     tokenizer = AutoTokenizer.from_pretrained(model, use_fast=False)
-    trainenc = tokenizer(" ".join(traindata["text"]), return_tensors="pt")
-    testenc = tokenizer("\n\n".join(testdata["text"]), return_tensors="pt")
+    trainenc = tokenizer(" ".join(traindata["text"]), return_tensors="pt")["input_ids"]
+    testenc = tokenizer("\n\n".join(testdata["text"]), return_tensors="pt")["input_ids"]
 
     import random
 
@@ -102,11 +106,15 @@ def get_wikitext2(nsamples, seed, seqlen, model):
     for _ in range(nsamples):
         i = random.randint(0, trainenc.input_ids.shape[1] - seqlen - 1)
         j = i + seqlen
-        inp = trainenc.input_ids[:, i:j]
+        inp = trainenc[:, i:j]
         tar = inp.clone()
         tar[:, :-1] = -100
         trainloader.append((inp, tar))
-    return trainloader, testenc, tokenizer
+
+    testloader = [testenc[:, (i*seqlen):((i+1)*seqlen)] for i in range(testenc.numel() // seqlen)]
+    testloader.append(testenc[:, (testenc.numel() // seqlen)*seqlen:])
+
+    return trainloader, testloader, tokenizer
 
 
 def get_openplatypus(nsamples, seed, seqlen, model, split):
@@ -219,29 +227,91 @@ def llam2_eval(model, data_loader, device, nsamples=None):
 @torch.no_grad()
 def perplexity_eval(
         model,
-        testenc,
+        dataloader,
         dev,
         nsamples,
         dataset: str,
         log_wandb: bool = False,
+        max_samples_per_iteration=128,
 ):
     print("Evaluating perplexity...")
 
-    logits = llam2_eval(model, testenc, dev, nsamples)
-
+    number_iterations = int(ceil(len(dataloader) / max_samples_per_iteration))
     neg_log_likelihood = 0.
     number_tokens = 0
-    for label, logit in logits:
-        shift_logits = logit[:-1, :].contiguous()
-        shift_labels = label[1:].to(dev)
+    for iteration in range(number_iterations):
+        if iteration < number_iterations - 1:
+            samples = dataloader[iteration*max_samples_per_iteration:(iteration+1)*max_samples_per_iteration]
+        else:
+            samples = dataloader[iteration * max_samples_per_iteration:]
+
+        logits = llam2_eval(model, samples, dev, nsamples)
+
+        vocabulary_size = logits[0].shape[-1]
+        logits = [logit[:, :-1, :].view(-1, vocabulary_size) for logit in logits]
+        logits = torch.concatenate(logits, dim=0).contiguous().to(torch.float32)
+
+        labels = [sample[:, 1:].view(-1) for sample in samples]
+        labels = torch.concatenate(labels, dim=0).to(dev)
         neg_log_likelihood += nn.functional.cross_entropy(
-            shift_logits.view(-1, shift_logits.size(-1)),
-            shift_labels.view(-1),
+            logits,
+            labels,
             reduction="sum",
         )
-        number_tokens += shift_labels.numel()
+
+        number_tokens += labels.numel()
+        print(torch.exp(neg_log_likelihood / number_tokens), flush=True)
 
     ppl = torch.exp(neg_log_likelihood / number_tokens)
     print(f"Perplexity: {ppl.item():3f}")
     if log_wandb:
         wandb.log({f"{dataset}/perplexity": ppl.item()})
+
+
+def get_c4(nsamples, seed, seqlen, model):
+    from datasets import load_dataset
+
+    traindata = load_dataset(
+        "allenai/c4",
+        "allenai--c4",
+        data_files={"train": "en/c4-train.00000-of-01024.json.gz"},
+        split="train",
+    )
+    valdata = load_dataset(
+        "allenai/c4",
+        "allenai--c4",
+        data_files={"validation": "en/c4-validation.00000-of-00008.json.gz"},
+        split="validation",
+    )
+
+    from transformers import AutoTokenizer
+
+    tokenizer = AutoTokenizer.from_pretrained(model, use_fast=False)
+
+    import random
+
+    random.seed(seed)
+    trainloader = []
+    for _ in range(nsamples):
+        while True:
+            i = random.randint(0, len(traindata) - 1)
+            trainenc = tokenizer(traindata[i]["text"], return_tensors="pt")
+            if trainenc.input_ids.shape[1] >= seqlen:
+                break
+        i = random.randint(0, trainenc.input_ids.shape[1] - seqlen - 1)
+        j = i + seqlen
+        inp = trainenc.input_ids[:, i:j]
+        tar = inp.clone()
+        tar[:, :-1] = -100
+        trainloader.append((inp, tar))
+
+    valenc = tokenizer(" ".join(valdata[:1100]["text"]), return_tensors="pt")
+    valenc = valenc.input_ids[:, : (256 * seqlen)]
+
+    class TokenizerWrapper:
+        def __init__(self, input_ids):
+            self.input_ids = input_ids
+
+    valenc = TokenizerWrapper(valenc)
+
+    return trainloader, valenc, tokenizer
