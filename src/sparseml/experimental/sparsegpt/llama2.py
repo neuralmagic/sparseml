@@ -35,7 +35,6 @@ class Llama2BottomCompressor(BaseCompressor):
             overwrite_buffer=False,
         )
 
-        outputs = torch.concatenate(outputs, dim=0)
         cached_inputs.update({"outputs": outputs})
         return self.model, cached_inputs
 
