@@ -1,4 +1,4 @@
-SUPPORTED_MODELS = ["opt", "mpt", "llama-2"]
+SUPPORTED_MODELS = ["opt", "mpt", "llama2"]
 
 
 def load_model(args, model_key: str = None, *gargs, **kwargs):
@@ -7,7 +7,7 @@ def load_model(args, model_key: str = None, *gargs, **kwargs):
         from opt import load_model as _load_model
     elif model_key == "mpt":
         from mpt import load_model as _load_model
-    elif model_key == "llama-2":
+    elif model_key == "llama2":
         from llama2 import load_model as _load_model
     else:
         raise ValueError(f"Unrecognized model key. Supported: {SUPPORTED_MODELS}")
@@ -20,7 +20,7 @@ def load_data(args, model_key: str = None, dataset: str = None, *gargs, **kwargs
         from opt import load_data as _load_data
     elif model_key == "mpt":
         from mpt import load_data as _load_data
-    elif model_key == "llama-2":
+    elif model_key == "llama2":
         from llama2 import load_data as _load_data
     else:
         raise ValueError(f"Unrecognized model key. Supported: {SUPPORTED_MODELS}")
@@ -33,7 +33,7 @@ def prepare_sparsegpt(model, dataloader, args, model_key: str = None, **kwargs):
         from opt import prepare_sparsegpt as _prepare_sparsegpt
     elif model_key == "mpt":
         from mpt import prepare_sparsegpt as _prepare_sparsegpt
-    elif model_key == "llama-2":
+    elif model_key == "llama2":
         from llama2 import prepare_sparsegpt as _prepare_sparsegpt
     else:
         raise ValueError(f"Unrecognized model key. Supported: {SUPPORTED_MODELS}")
