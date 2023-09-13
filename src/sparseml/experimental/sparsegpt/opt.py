@@ -276,7 +276,7 @@ def get_c4(nsamples, seed, seqlen, model):
 
 
 @torch.no_grad()
-def opt_eval(model, testenc, dev, dataset: str, log_wandb: bool = False):
+def ppl_eval(args, model, testenc, dev):
     print("Evaluating ...")
 
     testenc = testenc.input_ids
@@ -336,14 +336,14 @@ def opt_eval(model, testenc, dev, dataset: str, log_wandb: bool = False):
         print(i)
         layer = layers[i].to(dev)
 
-        # if args.gmp:
-        #     subset = find_layers(layer)
-        #     for name in subset:
-        #         W = subset[name].weight.data
-        #         thresh = torch.sort(torch.abs(W.flatten()))[0][
-        #             int(W.numel() * args.sparsity)
-        #         ]
-        #         W.data[torch.abs(W.data) <= thresh] = 0
+        if args.gmp:
+            subset = find_layers(layer)
+            for name in subset:
+                W = subset[name].weight.data
+                thresh = torch.sort(torch.abs(W.flatten()))[0][
+                    int(W.numel() * args.sparsity)
+                ]
+                W.data[torch.abs(W.data) <= thresh] = 0
 
         for j in range(nsamples):
             outs[j] = layer(inps[j].unsqueeze(0), attention_mask=attention_mask)[0]
@@ -379,16 +379,5 @@ def opt_eval(model, testenc, dev, dataset: str, log_wandb: bool = False):
         nlls.append(neg_log_likelihood)
     ppl = torch.exp(torch.stack(nlls).sum() / (nsamples * model.seqlen))
     print(f"Perplexity: {ppl.item():3f}")
-    if log_wandb:
-        wandb.log({f"{dataset}/perplexity": ppl.item()})
 
     model.config.use_cache = use_cache
-
-
-def _eval(model, datasets, args):
-    for dataset in datasets:
-        dataloader, testloader, _ = get_loaders_and_tokenizer(
-            dataset, seed=args.seed, model=args.model, seqlen=model.seqlen
-        )
-        print(dataset)
-        opt_eval(model, testloader, DEV, dataset, args.log_wandb)

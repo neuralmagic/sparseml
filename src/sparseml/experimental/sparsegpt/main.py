@@ -3,7 +3,7 @@ import time
 
 import torch
 
-from dispatch import load_data, load_model, prepare_sparsegpt
+from dispatch import evaluate_perplexity, load_data, load_model, prepare_sparsegpt
 from sparseml.optim.helpers import load_recipe_yaml_str
 
 
@@ -41,7 +41,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        "model", type=str, help="OPT model to load; pass `facebook/opt-X`."
+        "model", type=str, help="Model to load; e.g., `facebook/opt-1.3b`."
     )
     parser.add_argument(
         "dataset",
@@ -76,8 +76,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--sequential_hessian_within_layer",
         type=int,
-        default=1,
-        help="Whether to initialize quantization parameters using PTQ",
+        default=0,
+        help="Whether to compute Hessian for modules with sequential "
+        "compression within layer",
     )
     parser.add_argument(
         "--seed", type=int, default=0, help="Seed for sampling the calibration data."
@@ -153,6 +154,5 @@ if __name__ == "__main__":
     if args.save:
         _save(model, tokenizer, args.save)
 
-    from opt import opt_eval
-    _, testloader,_ = load_data(args, dataset="wikitext2")
-    opt_eval(model, testloader, DEV, "wikitext2")
+    _, testloader, _ = load_data(args, dataset="wikitext2")
+    evaluate_perplexity(args, model, testloader, DEV)

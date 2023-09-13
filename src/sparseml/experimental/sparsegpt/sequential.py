@@ -57,7 +57,7 @@ class SequentialSparseGPT:
         self.model, extras = self.pre_compress(dev=dev, **kwargs)
         self.model = self.model.cpu()
         torch.cuda.empty_cache()
-        
+
         self.manager = extras.pop("manager", self.manager)
 
         # Step 0: BottomCompressor accomplishes two things:
@@ -84,15 +84,14 @@ class SequentialSparseGPT:
             layer_compressor = LayerCompressor(
                 self.model, layer, idx, inputs, self.manager, self.args
             )
-            import pdb; pdb.set_trace()
+
             # Prune/quantize using SparseGPT
             self.model, layer_kwargs = layer_compressor.compress(
                 dev=dev, **accum_kwargs
             )
             accum_kwargs.update(layer_kwargs)
-            import pdb; pdb.set_trace()
+
         # Step 2: Prune/quantize head
-        # TODO: Need update here -- see MPT for head quantization example
         if self.head_compressor is not None:
             self.model, extras = self.head_compressor.compress(dev=dev, **accum_kwargs)
 

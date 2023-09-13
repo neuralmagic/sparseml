@@ -27,6 +27,15 @@ def load_data(args, model_key: str = None, dataset: str = None):
     return _load_data(args, dataset=dataset)
 
 
+def evaluate_perplexity(args, model, dataloader, dev, model_key: str = None):
+    model_key = _get_model_key(args) if model_key is None else model_key
+    if model_key == "opt":
+        from opt import ppl_eval as _ppl_eval
+    else:
+        raise ValueError(f"Unrecognized model key. Supported: {SUPPORTED_MODELS}")
+    return _ppl_eval(args, model, dataloader, dev)
+
+
 def prepare_sparsegpt(model, dataloader, args, model_key: str = None, **kwargs):
     model_key = _get_model_key(args) if model_key is None else model_key
     if model_key == "opt":

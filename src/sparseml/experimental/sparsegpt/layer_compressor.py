@@ -127,6 +127,7 @@ class LayerCompressor(BaseCompressor):
             )[0]
         self.inputs = None
         torch.cuda.empty_cache()
+
         return self.model, {"outputs": outputs}
 
     def _sequentially_compress(self, **kwargs):
