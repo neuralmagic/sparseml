@@ -124,7 +124,7 @@ class AdditionalTransformsLLAMA(AdditionalTransformsBase):
         if nodes_found not in valid_node_counts:
             warnings.warn(
                 f"Number of Slice nodes updated {nodes_found} does not match the "
-                f"expected values {valid_node_counts} for the 7 billion and 13 billion "
+                f"expected values {valid_node_counts} for the 7 billion or 13 billion "
                 "parameter models."
             )
 
