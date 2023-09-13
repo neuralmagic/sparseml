@@ -125,7 +125,7 @@ LLAMA_CONFIG = KeyValueCacheConfig(
     multiply_batch_by_num_att_heads=False,
 )
 
-# reusing the transforms for codegen, because it happens to match what we need for gpt neo
+# Reusing the CodeGen transforms because it happens to match what we need for GPTNeo
 additional_transforms_gpt_neo = AdditionalTransformsCodeGen
 
 GPT_NEO_CONFIG = KeyValueCacheConfig(
