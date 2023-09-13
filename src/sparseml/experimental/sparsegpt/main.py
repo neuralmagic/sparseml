@@ -165,3 +165,7 @@ if __name__ == "__main__":
 
     if args.save:
         _save(model, tokenizer, args.save)
+
+    from opt import opt_eval
+    _, testloader,_ = load_data(args, dataset="wikitext2")
+    opt_eval(model, testloader, DEV, "wikitext2")
