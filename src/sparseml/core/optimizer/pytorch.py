@@ -23,6 +23,9 @@ __all__ = ["ModifiableOptimizerPyTorch"]
 
 
 class ModifiableOptimizerPyTorch(ModifiableOptimizer[Optimizer, Dict[str, Any]]):
+    def __init__(self, optimizer=None, attach_optim_callbacks=False, framework=None):
+        super().__init__(optimizer=optimizer, attach_optim_callbacks=attach_optim_callbacks, framework=framework)
+
     def get_param_groups(self) -> List[Dict[str, Any]]:
         return self.optimizer.param_groups
 

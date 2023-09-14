@@ -18,7 +18,6 @@ from typing import Any, Dict
 from pydantic import BaseModel, root_validator
 
 from sparseml.core.framework import Framework
-from sparseml.core.modifier import Modifier, ModifierFactory
 from sparseml.core.recipe.args import RecipeArgs
 
 

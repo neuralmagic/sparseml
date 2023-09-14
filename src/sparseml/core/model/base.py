@@ -38,6 +38,9 @@ class ModelParameterizedLayer(Generic[LT, PT]):
 class ModifiableModel(Generic[MT, LT, PT], MultiFrameworkObject):
     model: MT = None
 
+    def __init__(self, framework=None, model=None):
+        self.model = model
+
     def get_layers_params(
         self, targets: Union[str, List[str]]
     ) -> Dict[str, ModelParameterizedLayer[LT, PT]]:

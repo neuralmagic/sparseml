@@ -17,7 +17,7 @@ from typing import Any, Dict
 from pydantic import root_validator
 
 from sparseml.core.framework import Framework
-from sparseml.core.modifier import Modifier, ModifierFactory
+from sparseml.core.modifier import ModifierFactory
 from sparseml.core.recipe.args import RecipeArgs
 from sparseml.core.recipe.base import RecipeBase
 
@@ -56,7 +56,7 @@ class RecipeModifier(RecipeBase):
         if shift is not None and "end" in self._args_evaluated:
             self._args_evaluated["end"] += shift
 
-    def create_modifier(self, framework: Framework) -> Modifier:
+    def create_modifier(self, framework: Framework) -> "Modifier":
         return ModifierFactory.create(self.type, framework, **self._args_evaluated)
 
     @root_validator(pre=True)

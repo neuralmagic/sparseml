@@ -12,9 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from sparseml.core.framework import Framework
-from sparseml.core.modifier.modifier import Modifier
-
 
 __all__ = ["ModifierFactory"]
 
@@ -25,5 +22,5 @@ class ModifierFactory:
         raise NotImplementedError()
 
     @staticmethod
-    def create(type_: str, framework: Framework, **kwargs) -> Modifier:
+    def create(type_: str, framework: "Framework", **kwargs) -> "Modifier":
         raise NotImplementedError()

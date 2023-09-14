@@ -18,12 +18,14 @@ from typing import List
 from pydantic import BaseModel, Field
 
 from sparseml.core.modifier.base import ModifierInterface
-from sparseml.core.modifier.modifier import Modifier
-from sparseml.core.state import Event, State
+
+__all__ = [
+    "StageModifier"
+]
 
 
 class StageModifiers(ModifierInterface, BaseModel):
-    modifiers: List[Modifier] = Field(default_factory=list)
+    modifiers: List["Modifier"] = Field(default_factory=list)
     index: int = None
     group: str = None
 
@@ -47,21 +49,21 @@ class StageModifiers(ModifierInterface, BaseModel):
             mod.calculate_end() for mod in self.modifiers if mod.calculate_end() >= 0
         )
 
-    def pre_initialize_structure(self, state: State, **kwargs):
+    def pre_initialize_structure(self, state: "State", **kwargs):
         for modifier in self.modifiers:
             modifier.pre_initialize_structure(state, **kwargs)
         self._initialized_structure = True
 
-    def initialize(self, state: State, **kwargs):
+    def initialize(self, state: "State", **kwargs):
         for modifier in self.modifiers:
             modifier.initialize(state, **kwargs)
         self._initialized = True
 
-    def finalize(self, state: State, **kwargs):
+    def finalize(self, state: "State", **kwargs):
         for modifier in self.modifiers:
             modifier.finalize(state, **kwargs)
         self._finalized = True
 
-    def update_event(self, state: State, event: Event, **kwargs):
+    def update_event(self, state: "State", event: "Event", **kwargs):
         for modifier in self.modifiers:
             modifier.update_event(state, event, **kwargs)
