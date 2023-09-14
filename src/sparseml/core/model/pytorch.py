@@ -31,6 +31,10 @@ __all__ = ["ModifiableModelPyTorch"]
 
 
 class ModifiableModelPyTorch(ModifiableModel[Module, Module, Parameter]):
+
+    def __init__(self, framework=None, model=None):
+        super().__init__(framework=framework, model=model)
+
     def get_layers(self, targets: Union[str, List[str]]) -> Dict[str, Module]:
         return get_layers(targets, self.model)
 

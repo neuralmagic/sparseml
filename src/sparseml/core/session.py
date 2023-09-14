@@ -23,8 +23,6 @@ from sparseml.core.event import (
     WrappedOptimEventLifecycle,
 )
 from sparseml.core.framework import Framework
-from sparseml.core.modifier import StageModifiers
-from sparseml.core.recipe import Recipe
 from sparseml.core.state import ModifiedState, State
 
 
@@ -52,7 +50,7 @@ class _CallbackContainer:
 class SparseSession:
     def __init__(self):
         self._state: State = State()
-        self._modifiers: List[StageModifiers] = []
+        self._modifiers: List["StageModifiers"] = []
         self._initialized_structure = False
         self._initialized = False
         self._finalized = False
@@ -63,7 +61,7 @@ class SparseSession:
         return self._state
 
     @property
-    def modifiers(self) -> List[StageModifiers]:
+    def modifiers(self) -> List["StageModifiers"]:
         return self._modifiers
 
     @property
@@ -85,7 +83,7 @@ class SparseSession:
     def pre_initialize_structure(
         self,
         model: Any,
-        recipe: Union[Recipe, List[Recipe]],
+        recipe: Union["Recipe", List["Recipe"]],
         framework: Framework = None,
         **kwargs,
     ) -> ModifiedState:
@@ -113,7 +111,7 @@ class SparseSession:
     def initialize(
         self,
         framework: Framework = None,
-        recipe: Union[str, List[str], Recipe, List[Recipe]] = None,
+        recipe: Union[str, List[str], "Recipe", List["Recipe"]] = None,
         recipe_stage: str = None,
         recipe_args: Dict[str, Any] = None,
         model: Any = None,
@@ -340,7 +338,7 @@ def pre_initialize_structure(**kwargs):
 
 def initialize(
     framework: Framework = None,
-    recipe: Union[str, List[str], Recipe, List[Recipe]] = None,
+    recipe: Union[str, List[str], "Recipe", List["Recipe"]] = None,
     recipe_stage: str = None,
     recipe_args: Dict[str, Any] = None,
     model: Any = None,
@@ -384,7 +382,7 @@ def finalize(**kwargs) -> ModifiedState:
 
 def apply(
     framework: Framework = None,
-    recipe: Union[str, List[str], Recipe, List[Recipe]] = None,
+    recipe: Union[str, List[str], "Recipe", List["Recipe"]] = None,
     recipe_stage: str = None,
     recipe_args: Dict[str, Any] = None,
     model: Any = None,

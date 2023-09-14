@@ -89,6 +89,9 @@ class State:
         recipe_stage: str = None,
         recipe_args: Dict[str, Any] = None,
     ):
+        if recipe is None:
+            return 
+        
         if not isinstance(recipe, list):
             recipe = [recipe]
 

@@ -77,7 +77,7 @@ class MultiFrameworkObject:
         if cls is MultiFrameworkObject:
             raise TypeError("MultiFrameworkObject cannot be instantiated directly")
 
-        instance = super(MultiFrameworkObject, cls).__new__(cls, **kwargs)
+        instance = super(MultiFrameworkObject, cls).__new__(cls)
 
         package = instance.__class__.__module__.rsplit(".", 1)[0]
         class_name = instance.__class__.__name__

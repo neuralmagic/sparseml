@@ -28,6 +28,9 @@ PGT = TypeVar("PGT")
 @dataclass
 class ModifiableOptimizer(Generic[OT, PGT], MultiFrameworkObject):
     optimizer: OT = None
+    
+    def __init__(self, optimizer=None, attach_optim_callbacks=False, framework=None):
+        self.optimizer = optimizer
 
     def get_param_groups(self) -> List[PGT]:
         raise NotImplementedError()
