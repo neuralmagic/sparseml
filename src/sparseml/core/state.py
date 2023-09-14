@@ -135,19 +135,21 @@ class State:
         if self.framework is None:
             raise RuntimeError("framework must be set before updating data")
 
-        self.data = ModifiableData(framework=self.framework)
-
         if train_data is not None:
-            self.data.train = train_data if not copy_data else deepcopy(train_data)
+            train_loader = train_data if not copy_data else deepcopy(train_data)
+            self.train_data = ModifiableData(framework=self.framework, data_loader=train_loader)
 
         if val_data is not None:
-            self.data.val = val_data if not copy_data else deepcopy(val_data)
+            val_loader = val_data if not copy_data else deepcopy(val_data)
+            self.val_data = ModifiableData(framework=self.framework, data_loader=val_loader)
 
         if test_data is not None:
-            self.data.test = test_data if not copy_data else deepcopy(test_data)
+            test_loader = test_data if not copy_data else deepcopy(test_data)
+            self.test_data = ModifiableData(framework=self.framework, data_loader=test_loader)
 
         if calib_data is not None:
-            self.data.calib = calib_data if not copy_data else deepcopy(calib_data)
+            calib_loader = calib_data if not copy_data else deepcopy(calib_data)
+            self.calib_data = ModifiableData(framework=self.framework, data_loader=calib_loader)
 
     def update_start(
         self,

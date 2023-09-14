@@ -156,7 +156,7 @@ class SparseSession:
         return ModifiedState(
             model=self.state.model.model,
             optimizer=self.state.optimizer.optimizer,
-            loss=self.state.loss.loss,
+            loss=self.state.loss,
             modifier_data=modifier_data,
         )
 
@@ -179,7 +179,7 @@ class SparseSession:
         return ModifiedState(
             model=self.state.model.model,
             optimizer=self.state.optimizer.optimizer,
-            loss=self.state.loss.loss,
+            loss=self.state.loss,
             modifier_data=modifier_data,
         )
 
@@ -229,7 +229,7 @@ class SparseSession:
         return ModifiedState(
             model=self.state.model.model,
             optimizer=self.state.optimizer.optimizer,
-            loss=self.state.loss.loss,
+            loss=self.state.loss,
             modifier_data=modifier_data,
         )
 

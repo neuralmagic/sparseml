@@ -125,7 +125,7 @@ class DynamicBatchSizeDataLoader:
 
 
 class ModifiableDataPyTorch(ModifiableData[DynamicBatchSizeDataLoader]):
-    def __init__(self, data_loader: DataLoader):
+    def __init__(self, data_loader: DataLoader, framework=None):
         super().__init__()
         self.data = DynamicBatchSizeDataLoader(data_loader)
 
