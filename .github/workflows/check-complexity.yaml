@@ -8,7 +8,7 @@ jobs:
 
   evaluate-complexity:
     name: Evaluate Code complexity
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout repository
@@ -16,10 +16,6 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.ref }}
-      - name: Set up Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: 3.10.0
       - name: Install Wily
         run: pip install wily==1.20.0
       - name: Build cache and diff
