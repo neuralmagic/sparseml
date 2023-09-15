@@ -74,6 +74,8 @@ def execute_offloaded_module(
     if overwrite_buffer:
         return buffer
     else:
+        del buffer
+        torch.cuda.empty_cache()
         return new_buffer
 
 
