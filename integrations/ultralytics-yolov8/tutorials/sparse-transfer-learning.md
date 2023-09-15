@@ -281,7 +281,7 @@ Lets discuss the key arguments:
 - `--model` specifies the starting checkpoint for the training process. Here, a SparseZoo stub is passed, which
 identifies the 80% pruned YOLOv8m model in the SparseZoo trained on `coco` (which can be seen in the stub). The script downloads the PyTorch model to begin training. In addition to SparseZoo stubs, you can also pass a local path to a PyTorch checkpoint.
 
-- `--recipe` specifies the transfer learning recipe. In this case, we passed a SparseZoo stub, which instructs SparseML to download the premade YOLOv8m transfer learning recipe shown above. Note that the stub contains the `voc` term, indicating it was created to sparse transfer learn onto the VOC dataset. In addition to SparseZoo stubs, you can also pass a local path to a YAML recipe. 
+- `--recipe` specifies the transfer learning recipe. In this case, a SparseZoo stub is passed, which instructs SparseML to download the premade YOLOv8m transfer learning recipe shown above. Note that the stub contains the `voc` term, indicating it was created to sparse transfer learn onto the VOC dataset. In addition to SparseZoo stubs, you can also pass a local path to a YAML recipe. 
 
 - `--data` specifies the dataset configuration. Here, we specify the `coco128` dataset, which is automatically downloaded (it is built into YOLOv8). See below for an example using a custom dataset.
 
