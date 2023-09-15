@@ -1,0 +1,7 @@
+modifiers:
+  - !QuantizationModifier
+    ignore: ["lm_head", "Embedding", "LlamaRotaryEmbedding"]
+  - !SparseLlamaModifier
+    sparsity: 0.5
+    block_size: 128
+    quantize: True

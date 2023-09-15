@@ -13,9 +13,9 @@
 # limitations under the License.
 
 import torch
+from transformers import LlamaForCausalLM
 
-
-__all__ = ["load_opt_model"]
+__all__ = ["load_opt_model", "load_llama_model"]
 
 
 def load_opt_model(model_path: str) -> torch.nn.Module:
@@ -35,5 +35,16 @@ def load_opt_model(model_path: str) -> torch.nn.Module:
     from transformers import OPTForCausalLM
 
     model = OPTForCausalLM.from_pretrained(model_path, torch_dtype="auto")
+    model.seqlen = model.config.max_position_embeddings
+    return model
+
+def load_llama_model(model_path: str) -> torch.nn.Module:
+    """
+    Load a pretrained Llama model from the specified hugging face path
+
+    :param model_path: hugging face path to model
+    :return: loaded pretrained model
+    """
+    model = LlamaForCausalLM.from_pretrained(model_path, torch_dtype="auto")
     model.seqlen = model.config.max_position_embeddings
     return model

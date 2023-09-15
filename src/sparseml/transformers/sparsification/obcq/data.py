@@ -20,7 +20,7 @@ from torch.nn import Module
 from transformers import AutoTokenizer, GPT2Tokenizer
 
 
-__all__ = ["get_wikitext2", "get_ptb", "get_c4"]
+__all__ = ["get_wikitext2", "get_ptb", "get_c4", "cache_attention_inputs"]
 
 
 def get_wikitext2(
@@ -131,3 +131,4 @@ def get_c4(
     valenc = TokenizerWrapper(valenc)
 
     return trainloader, tokenizer
+    
