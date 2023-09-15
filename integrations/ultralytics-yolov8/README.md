@@ -73,7 +73,7 @@ SparseML inherits most arguments from the Ultralytics repository. [Check out the
 
 Sparse Transfer is very similar to the typical transfer learning process used to train YOLOv8 models, where  a checkpoint pre-trained on COCO is fine-tuned onto a smaller downstream dataset. With Sparse Transfer Learning, however, the fine-tuning process is started from a pre-sparsified checkpoint and maintains sparsity while the training process occurs.
 
-Here, we will fine-tune a [80% pruned version of YOLOv8m](zoo:cv/detection/yolov8-m/pytorch/ultralytics/coco/pruned80-none) trained and sparsified on COCO onto the smaller COCO128 dataset.
+Here, you will fine-tune a [80% pruned version of YOLOv8m](zoo:cv/detection/yolov8-m/pytorch/ultralytics/coco/pruned80-none) trained and sparsified on COCO onto the smaller COCO128 dataset.
 
 ### **Kick off Training**
 
