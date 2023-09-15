@@ -175,7 +175,7 @@ sparseml.yolov5.train \
 - [YOLOv5 CLI](ultralytics-yolov5/tutorials/sparse-transfer-learning.md)
 -[YOLOv8 CLI](ultralytics-yolov8/tutorials/sparse-transfer-learning.md)
 - [Hugging Face CLI](integrations/huggingface-transformers/tutorials/sparse-transfer-learning-bert.md)
-- Check out the [Torchvision CLI example](integrations/torchvision/tutorials/sparse-transfer-learning.md) for more details on the image classification training pipelines
+-[Torchvision CLI](integrations/torchvision/tutorials/sparse-transfer-learning.md)
 
 ### Additional Resources 
 
