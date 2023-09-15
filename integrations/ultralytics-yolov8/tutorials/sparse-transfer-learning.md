@@ -534,7 +534,7 @@ sparseml.ultralytics.train \
   --batch 2
 ```
 
-You will notice that we added a `--recipe_args` argument, which updates the transfer 
+You will notice that a `--recipe_args` argument is added, which updates the transfer 
 learning recipe to run for 15 epochs. While you can always create
 a custom recipe file and pass a local file to script, the `--recipe_args` enables you
 to modify on the fly.
