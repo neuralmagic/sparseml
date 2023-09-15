@@ -508,7 +508,7 @@ names: ['object']
 
 #### Run Transfer Learning
 
-With the config file setup and data downloaded, we can simply swap in the dataset configuration file in place of the `coco128.yaml`.
+With the configuration file setup and data downloaded, simply swap in the dataset configuration file in place of the `coco128.yaml`.
 
 Your directory should look like the following:
 
