@@ -394,7 +394,7 @@ For more details, check out the [custom dataset set tutorial](https://github.com
 
 ### Example
 
-Let's try a real example with an aerial dataset.
+The following is a real example with an aerial dataset.
 
 #### Download the Dataset
 
