@@ -43,7 +43,7 @@ In this page, you will:
 
 ## SparseML CLI
 
-SparseML's CLI is built on top of YOLOv8's [`train` cli](https://docs.ultralytics.com/usage/cli/) script. This enables you to kick-off sparse training workflows with all of the friendly utilities from the Ultralytics repo like dataset loading and preprocessing, checkpoint saving, metric reporting, and logging handled for you. Appending the `--help` argument will provide a full list of options for training in SparseML:
+SparseML's CLI is built on top of YOLOv8's [`train` cli](https://docs.ultralytics.com/usage/cli/) script. This enables you to kick off sparse training workflows with all of the friendly utilities from the Ultralytics repository like dataset loading and preprocessing, checkpoint saving, metric reporting, and logging handled for you. Appending the `--help` argument will provide a full list of options for training in SparseML:
 
 ```bash
 sparseml.ultralytics.train --help
