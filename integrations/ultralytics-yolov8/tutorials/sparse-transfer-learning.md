@@ -332,7 +332,7 @@ sparseml.ultralytics.train \
 
 SparseZoo contains mutliple variants of each version of YOLOv8 at various levels of sparsity, which can be fine-tuned onto your dataset. 
 
-[Checkout the full list](https://sparsezoo.neuralmagic.com/?sort=null&useCase=detection&architectures=yolov8) 
+[Check out the full list](https://sparsezoo.neuralmagic.com/?sort=null&useCase=detection&architectures=yolov8). 
 
 ## Sparse Transfer Learning with a Custom Dataset
 
