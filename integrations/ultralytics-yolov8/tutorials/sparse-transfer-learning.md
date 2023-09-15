@@ -390,7 +390,7 @@ Organize your train and val images and labels according to the example below. Fo
 ./datasets/coco128/labels/im0.txt  # label
 ```
 
-For more details, checkout the [custom dataset set tutorial](https://github.com/ultralytics/yolov5/wiki/Train-Custom-Data) in the Ultralytics repository.
+For more details, check out the [custom dataset set tutorial](https://github.com/ultralytics/yolov5/wiki/Train-Custom-Data) in the Ultralytics repository.
 
 ### Example
 
