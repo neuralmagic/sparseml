@@ -349,7 +349,7 @@ Ultralytics uses a YAML file to pass a dataset configuration that defines:
 - A class names dictionary
 
 Here is an example for [COCO128](https://www.kaggle.com/datasets/ultralytics/coco128),
-an example small tutorial dataset composed of the first 128 images in COCO train2017. These same 128 images are used for both training and validation to verify our training pipeline is capable of overfitting.
+a small tutorial dataset composed of the first 128 images in COCO train2017. These same 128 images are used for both training and validation to verify our training pipeline is capable of overfitting.
 
 ```yaml
 # Train/val/test sets as 1) dir: path/to/imgs, 2) file: path/to/imgs.txt, or 3) list: [path/to/imgs1, path/to/imgs2, ..]
