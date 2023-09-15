@@ -334,7 +334,7 @@ SparseZoo contains mutliple variants of each version of YOLOv8 at various levels
 
 [Check out the full list](https://sparsezoo.neuralmagic.com/?sort=null&useCase=detection&architectures=yolov8). 
 
-## Sparse Transfer Learning with a Custom Dataset
+## Sparse Transfer Learning With a Custom Dataset
 
 Because SparseML is integrated with YOLOv8, you can easily pass custom datasets to the training flows in the Ultralytics format. Check out the [Ultralytics documentation](https://docs.ultralytics.com/datasets/detect/) for more details.
 
