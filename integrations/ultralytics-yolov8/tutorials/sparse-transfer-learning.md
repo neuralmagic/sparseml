@@ -278,7 +278,7 @@ sparseml.ultralytics.train \
 ```
 
 Lets discuss the key arguments:
-- `--model` specifies the starting checkpoint for the training process. Here, we passed a SparseZoo stub, which
+- `--model` specifies the starting checkpoint for the training process. Here, a SparseZoo stub is passed, which
 identifies the 80% pruned YOLOv8m model in the SparseZoo trained on `coco` (which can be seen in the stub). The script downloads the PyTorch model to begin training. In addition to SparseZoo stubs, you can also pass a local path to a PyTorch checkpoint.
 
 - `--recipe` specifies the transfer learning recipe. In this case, we passed a SparseZoo stub, which instructs SparseML to download the premade YOLOv8m transfer learning recipe shown above. Note that the stub contains the `voc` term, indicating it was created to sparse transfer learn onto the VOC dataset. In addition to SparseZoo stubs, you can also pass a local path to a YAML recipe. 
