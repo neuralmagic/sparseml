@@ -20,7 +20,7 @@ This page explains how to fine-tune a pre-sparsified YOLOv8 model with SparseML'
 
 ## Overview
 
-Sparse Transfer is quite similiar to the typical YOLOv8 training, where we fine-tune a checkpoint pretrained on COCO onto a smaller downstream dataset. However, with Sparse Transfer Learning, we simply start the fine-tuning process from a pre-sparsified YOLOv8 and maintain sparsity while the training process occurs.
+Sparse Transfer is quite similar to the typical YOLOv8 training, where a checkpoint pre-trained on COCO is fine-tuned onto a smaller downstream dataset. However, with Sparse Transfer Learning, the fine-tuning process is started from a pre-sparsified YOLOv8 and maintains sparsity during the training process.
 
 SparseZoo contains pre-sparsified checkpoints of each YOLOv8 model. These models can be used as the starting checkpoint for the sparse transfer learning workflow.
 
