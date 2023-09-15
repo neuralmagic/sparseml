@@ -77,7 +77,7 @@ Here, you will fine-tune a [80% pruned version of YOLOv8m](zoo:cv/detection/yolo
 
 ### **Kick off Training**
 
-We will use SparseML's `sparseml.ultralytics.train` training script.
+You will use SparseML's `sparseml.ultralytics.train` training script.
 
 To run sparse transfer learning, you first need to create/select a sparsification recipe. For sparse transfer, you need a recipe that instructs SparseML to maintain sparsity during training and to quantize the model over the final epochs. In the SparseZoo, there are several sparse versions of YOLOv8 which were fine-tuned on the VOC dataset. The [80% pruned-quantized version of YOLOv8m](https://sparsezoo.neuralmagic.com/models/yolov8-m-voc_coco-pruned80_quantized) is identified by the following stub:
 
