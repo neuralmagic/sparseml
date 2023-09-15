@@ -277,7 +277,7 @@ sparseml.ultralytics.train \
   --batch 2
 ```
 
-Lets discuss the key arguments:
+Key arguments are:
 - `--model` specifies the starting checkpoint for the training process. Here, a SparseZoo stub is passed, which
 identifies the 80% pruned YOLOv8m model in the SparseZoo trained on `coco` (which can be seen in the stub). The script downloads the PyTorch model to begin training. In addition to SparseZoo stubs, you can also pass a local path to a PyTorch checkpoint.
 
