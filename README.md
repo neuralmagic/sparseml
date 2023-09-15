@@ -173,9 +173,9 @@ sparseml.yolov5.train \
 ```
 
 - [YOLOv5 CLI](ultralytics-yolov5/tutorials/sparse-transfer-learning.md)
--[YOLOv8 CLI](ultralytics-yolov8/tutorials/sparse-transfer-learning.md)
+- [YOLOv8 CLI](ultralytics-yolov8/tutorials/sparse-transfer-learning.md)
 - [Hugging Face CLI](integrations/huggingface-transformers/tutorials/sparse-transfer-learning-bert.md)
--[Torchvision CLI](integrations/torchvision/tutorials/sparse-transfer-learning.md)
+- [Torchvision CLI](integrations/torchvision/tutorials/sparse-transfer-learning.md)
 
 ### Additional Resources 
 

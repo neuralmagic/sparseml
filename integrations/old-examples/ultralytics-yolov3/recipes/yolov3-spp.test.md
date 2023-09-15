@@ -224,7 +224,7 @@ quantization_modifiers:
 This is a test recipe useful for quickly evaluating the time and resources needed for pruning and quantizing a model.
 In addition, it offers a quick integration tests pathway.
 This recipe creates a sparse-quantized [YOLOv3-SPP](https://arxiv.org/abs/1804.02767) model that will not be accurate.
-Use the following [SparseML integration with ultralytics/yolov3](https://github.com/neuralmagic/sparseml/tree/main/integrations/ultralytics-yolov3) to run.
+Use the following [SparseML integration with ultralytics/yolov3](https://github.com/neuralmagic/sparseml/tree/main/integrations/old-examples/ultralytics-yolov3) to run.
 
 Note that half-precision, EMA, and pickling are not supported for quantization.
 Therefore, once quantization is run, all three will be disabled for the training pipeline.
@@ -236,7 +236,7 @@ This additionally means that the checkpoints are saved using state_dicts rather 
 
 ## Training
 
-To set up the training environment, follow the instructions on the [integration README](https://github.com/neuralmagic/sparseml/blob/main/integrations/ultralytics-yolov3/README.md).
+To set up the training environment, follow the instructions on the [integration README](https://github.com/neuralmagic/sparseml/blob/main/integrations/old-examples/ultralytics-yolov3/README.md).
 Using the given training script from the `yolov3` directory the following command can be used to launch this recipe.  
 The contents of the `hyp.pruned_quantized.yaml` hyperparameters file is given below.
 Adjust the script command for your GPU device setup. 

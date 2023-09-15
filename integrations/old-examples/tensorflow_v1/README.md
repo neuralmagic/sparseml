@@ -31,7 +31,7 @@ The techniques include, but are not limited to:
 
 ## Tutorials
 
-- [Classification](https://github.com/neuralmagic/sparseml/blob/main/integrations/tensorflow_v1/notebooks/classification.ipynb)
+- [Classification](https://github.com/neuralmagic/sparseml/blob/main/integrations/old-examples/tensorflow_v1/notebooks/classification.ipynb)
 
 ## Installation
 
