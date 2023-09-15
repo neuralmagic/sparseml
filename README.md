@@ -100,7 +100,7 @@ SparseML enables you to create a sparse model trained on your dataset in two way
 - [Sparsify From Scratch With the CLI](integrations/ultralytics-yolov5/tutorials/sparsify-from-scratch.md)
 
 ### Ultralytics YOLOv8
-- [Sparse Transfer Learning with the CLI](integrations/ultralytics-yolov5/tutorials/sparse-transfer-learning.md)
+- [Sparse Transfer Learning With the CLI](integrations/ultralytics-yolov5/tutorials/sparse-transfer-learning.md)
 - [Sparsify From Scatch with the CLI](integrations/ultralytics-yolov5/tutorials/sparsify-from-scratch.md)
 
 ### Links to Additional Examples
