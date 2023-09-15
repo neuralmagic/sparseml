@@ -67,7 +67,7 @@ usage: sparseml.ultralytics.train [-h] [--model MODEL] [--data DATA] [--recipe R
 
 SparseML inherits most arguments from the Ultralytics repository. [Check out the YOLOv8 documentation for usage](https://docs.ultralytics.com/usage/cli/).
 
-## **Quick Start: Sparse Transfer Learning**
+## **Quickstart: Sparse Transfer Learning**
 
 ### **Sparse Transfer Learning Overview**
 
