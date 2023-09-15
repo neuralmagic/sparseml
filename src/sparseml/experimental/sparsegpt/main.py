@@ -25,7 +25,7 @@ try:
     import wandb
 
     has_wandb = True
-except:
+except Exception:
     has_wandb = False
 
 

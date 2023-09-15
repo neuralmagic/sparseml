@@ -350,14 +350,15 @@ def ppl_eval(args, model, testenc, dev):
         print(i)
         layer = layers[i].to(dev)
 
-        if args.gmp:
-            subset = find_layers(layer)
-            for name in subset:
-                W = subset[name].weight.data
-                thresh = torch.sort(torch.abs(W.flatten()))[0][
-                    int(W.numel() * args.sparsity)
-                ]
-                W.data[torch.abs(W.data) <= thresh] = 0
+        # Todo: Check and clean up the commented block below
+        # if args.gmp:
+        #     subset = find_layers(layer)
+        #     for name in subset:
+        #         W = subset[name].weight.data
+        #         thresh = torch.sort(torch.abs(W.flatten()))[0][
+        #             int(W.numel() * args.sparsity)
+        #         ]
+        #         W.data[torch.abs(W.data) <= thresh] = 0
 
         for j in range(nsamples):
             outs[j] = layer(inps[j].unsqueeze(0), attention_mask=attention_mask)[0]

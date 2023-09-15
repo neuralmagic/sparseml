@@ -46,7 +46,7 @@ class SequentialSparseGPT:
         """
         try:
             return self.model.model.decoders.layers
-        except:
+        except Exception:
             raise RuntimeError(
                 "Derived class should override to provide list of compressible layers"
             )

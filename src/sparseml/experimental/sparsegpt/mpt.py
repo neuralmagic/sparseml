@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import contextlib
+import math
 import warnings
 from typing import Dict, Tuple
 
@@ -254,7 +255,8 @@ def mpt_get_attn_with_quantized_matmuls(attn_weights_matmul, attn_output_matmul)
                 or (attn_bias.size(-2) != 1 and attn_bias.size(-2) != s_q)
             ):
                 raise RuntimeError(
-                    f"attn_bias (shape: {attn_bias.shape}) is expected to broadcast to shape: {attn_weight.shape}."
+                    f"attn_bias (shape: {attn_bias.shape}) is expected to "
+                    "broadcast to shape: {attn_weight.shape}."
                 )
             attn_weight = attn_weight + attn_bias
         min_val = torch.finfo(q.dtype).min

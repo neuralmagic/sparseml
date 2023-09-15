@@ -71,6 +71,6 @@ def _get_model_key(args):
             break
     if key is None:
         raise ValueError(
-            f"Model {model} is not supported. Supported models: {SUPPORTED_MODELS.keys()}"
+            f"Model {args.model} is not supported. Supported: {SUPPORTED_MODELS.keys()}"
         )
     return key

@@ -68,7 +68,8 @@ class QuantizationModelPreprocessor(ModelPreprocessor):
         # Tuan: If the model does not fit into the device,
         # we need a different version of this func to forward
         # the batches through the model layer by layer
-        # See: https://github.com/neuralmagic/neuralmagicml/blob/tuan-falcon/research/sparsegpt/falcon/FalconPress-main/modelutils.py
+        # See: https://github.com/neuralmagic/neuralmagicml/blob/
+        # tuan-falcon/research/sparsegpt/falcon/FalconPress-main/modelutils.py
         self.model.to(dev)
         num_batches = self.observer_batches
         with torch.no_grad():
@@ -89,7 +90,7 @@ class QuantizationModelPreprocessor(ModelPreprocessor):
                         raise ValueError(
                             f"Dont know how to process given batch type: {type(batch)}"
                         )
-                    res = self.model(inp)
+                    self.model(inp)
                     del inp
                     batches += 1
         self.model.apply(torch.quantization.disable_observer)
