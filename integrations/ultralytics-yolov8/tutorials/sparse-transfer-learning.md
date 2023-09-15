@@ -285,7 +285,7 @@ identifies the 80% pruned YOLOv8m model in the SparseZoo trained on `coco` (whic
 
 - `--data` specifies the dataset configuration. Here, the `coco128` dataset is specified, which is automatically downloaded (it is built into YOLOv8). See below for an example using a custom dataset.
 
-As a result, sparsity is maintained while the training occurs and we quantize the model over the final few epochs. In the end, we have a 80% pruned and quantized YOLOv8m trained on VOC!
+As a result, sparsity is maintained while the training occurs, and you quantize the model over the final few epochs. In the end, you have an 80% pruned and quantized YOLOv8m trained on VOC!
 
 ### Exporting for Inference
 
