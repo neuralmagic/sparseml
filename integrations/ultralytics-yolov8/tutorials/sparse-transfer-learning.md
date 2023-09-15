@@ -545,4 +545,4 @@ The model achieves ~80% mAP@50.
 
 ## Wrapping Up
 
-Checkout [DeepSparse](https://github.com/neuralmagic/deepsparse) for more details on deploying your sparse models with GPU-class performance.
+Check out [DeepSparse](https://github.com/neuralmagic/deepsparse) for more details on deploying your sparse models with GPU-class performance.
