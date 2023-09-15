@@ -61,7 +61,7 @@ SparseML inherits most arguments from the Ultralytics repository. [Check out the
 
 ## Sparse Transfer Learning YOLOv8m Onto COCO128
 
-Let's try a step-by-step example of Sparse Transfer Learning YOLOv8m onto the COCO128 dataset.
+The following is a step-by-step example of Sparse Transfer Learning YOLOv8m onto the COCO128 dataset.
 
 To run sparse transfer learning, you first need to create/select a sparsification recipe. For sparse transfer, you need a recipe that instructs SparseML to maintain sparsity during training and to quantize the model over the final epochs.
 
