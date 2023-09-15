@@ -40,7 +40,7 @@ class QuantizationModelPreprocessor(ModelPreprocessor):
             recipe: str,
             data_loader,
             observer_batches,
-            model_eval,
+            model_forward,
     ):
         super().__init__(model)
         self.recipe = recipe
@@ -48,7 +48,7 @@ class QuantizationModelPreprocessor(ModelPreprocessor):
             raise ValueError("Recipe must not be None")
         self.data_loader = data_loader
         self.observer_batches = observer_batches
-        self.model_eval = model_eval
+        self.model_forward = model_forward
 
     def __call__(self, dev: str = "cuda:0", **kwargs) -> Tuple[nn.Module, Dict]:
         manager = ScheduledModifierManager.from_yaml(self.recipe)
@@ -63,6 +63,6 @@ class QuantizationModelPreprocessor(ModelPreprocessor):
         self.model.eval()
         with torch.no_grad():
             for _ in range(int(ceil(self.observer_batches / len(self.data_loader)))):
-                self.model_eval(self.model, self.data_loader, dev)
+                self.model_forward(self.model, self.data_loader, dev)
         self.model.apply(torch.quantization.disable_observer)
         return self.model

@@ -48,7 +48,7 @@ def prepare_sparsegpt(model, dataloader, args, dev) -> SequentialSparseGPT:
                 args.recipe,
                 dataloader,
                 args.observer_batches,
-                llam2_eval,
+                llama2_forward,
             )
         )
     bottom_compressor = Llama2BottomCompressor(model)
@@ -186,7 +186,7 @@ def cache_attention_inputs(model, data_loader, device, nsamples):
     return cached_inputs
 
 
-def llam2_eval(model, data_loader, device, nsamples=None):
+def llama2_forward(model, data_loader, device, nsamples=None):
     # Catch attention mask
     cached_inputs = cache_attention_inputs(model, data_loader, device, nsamples)
     buffer = execute_offloaded_module(
@@ -244,7 +244,7 @@ def perplexity_eval(
         else:
             samples = dataloader[iteration * max_samples_per_iteration:]
 
-        logits = llam2_eval(model, samples, dev, nsamples)
+        logits = llama2_forward(model, samples, dev, nsamples)
 
         vocabulary_size = logits[0].shape[-1]
         logits = [logit[:, :-1, :].view(-1, vocabulary_size) for logit in logits]
