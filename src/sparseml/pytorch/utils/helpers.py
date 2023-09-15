@@ -1150,10 +1150,9 @@ def download_framework_model_by_recipe_type(
     """
 
     # default to model query params if available
-    model_recipe_name = zoo_model.recipes
-    if model_recipe_name is not None:
-        model_recipe_name = model_recipe_name[0].path
-    recipe_name = recipe_name or (model_recipe_name)
+    recipe_name = recipe_name or (
+        zoo_model.stub_params.get("recipe_type") or zoo_model.stub_params.get("recipe")
+    )
 
     framework_model = None
     if recipe_name and "transfer" in recipe_name.lower():

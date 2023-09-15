@@ -21,7 +21,7 @@ import platform
 import re
 from contextlib import suppress
 from copy import deepcopy
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Union
 
 import yaml
 
@@ -401,10 +401,7 @@ def _load_yaml_str_from_file(file_path: Union[str, File]) -> str:
     if file_path.startswith("zoo:"):
         # download from zoo stub
         model = Model(file_path)
-        recipe = model.recipes
-        if isinstance(recipe, List):
-            recipe = recipe[0]
-        file_path = recipe.path
+        file_path = model.recipes.default.path
 
     # load the yaml string
     if "\n" in file_path or "\r" in file_path:
