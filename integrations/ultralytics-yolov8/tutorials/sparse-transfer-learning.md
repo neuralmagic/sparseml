@@ -59,7 +59,7 @@ usage: sparseml.yolov5.train [-h] [--model MODEL] [--data DATA] [--recipe RECIPE
 
 SparseML inherits most arguments from the Ultralytics repository. [Check out the YOLOv8 documentation for usage](https://docs.ultralytics.com/usage/cli/).
 
-## Sparse Transfer Learning YOLOv8m onto COCO128
+## Sparse Transfer Learning YOLOv8m Onto COCO128
 
 Let's try a step-by-step example of Sparse Transfer Learning YOLOv8m onto the COCO128 dataset.
 
