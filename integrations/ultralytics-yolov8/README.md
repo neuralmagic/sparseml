@@ -19,7 +19,7 @@ limitations under the License.
 This directory explains how to use SparseML's `ultralytics/ultralytics` integration to train inference-optimized sparse YOLOv8 models on your dataset.
 
 There are two main workflows enabled by SparseML:
-- **Sparse Transfer Learning** - fine-tune a pre-sparsified YOLOv8 checkpoint on your own dataset **[RECOMMENDED]**
+- **Sparse Transfer Learning** - fine-tune a pre-sparsified YOLOv8 checkpoint on your own dataset. **[RECOMMENDED]**
 - **Sparsification from Scratch** - apply pruning and quantization to sparsify any YOLOv8 model from scratch
 
 Once trained, SparseML enables you to export models to the ONNX format, such that they can be deployed with DeepSparse.
