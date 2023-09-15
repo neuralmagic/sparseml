@@ -409,7 +409,7 @@ mkdir datasets
 mv aerial-dataset datasets/
 ```
 
-After unzipping, we can see the directory conforms to the Ultralytics format:
+After unzipping, observe that the directory conforms to the Ultralytics format:
 ```
 |-- aerial-dataset
   |--train
