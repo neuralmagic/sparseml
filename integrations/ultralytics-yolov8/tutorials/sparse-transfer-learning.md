@@ -489,7 +489,7 @@ plt.imshow(im)
 
 ![sample-image](images/aerial-data-example.png)
 
-#### Create a Config
+#### Create a Configuration
 
 Save the following configuration file as `aerial-dataset.yaml` in a folder called `datasets`:
 
