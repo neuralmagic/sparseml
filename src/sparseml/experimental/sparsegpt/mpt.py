@@ -174,7 +174,9 @@ class EmbeddingAndHeadWeightSeparator(ModelPreprocessor):
             )
 
             # [ELDAR] this is from the original implementation
-            # logits = self.transformer.wte(outputs.last_hidden_state.to(self.transformer.wte.weight.device), True)
+            # logits = self.transformer.wte(
+            #     outputs.last_hidden_state.to(self.transformer.wte.weight.device), True
+            # )
             # [ELDAR] this is our new version
             logits = self.lm_head(
                 outputs.last_hidden_state.to(self.transformer.wte.weight.device)
