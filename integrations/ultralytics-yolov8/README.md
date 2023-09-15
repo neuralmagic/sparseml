@@ -275,7 +275,7 @@ quantization_modifiers:
    
 The key `Modifiers` for sparse transfer learning are the following:
 - `ConstantPruningModifier` instructs SparseML to maintain the sparsity structure of the network during the fine-tuning process
-- `QuantizationModifier` tells SparseML to quantize the weights with quantization aware training over the last 5 epochs. The `scheme_overrides` are a bit complicated here to handle the GeLU activations followed by the C2f module introduced in YOLOv8, but you do not need to worry too much about this.
+- `QuantizationModifier` tells SparseML to quantize the weights with quantization-aware training over the last 5 epochs. The `scheme_overrides` are a bit complicated here to handle the GeLU activations followed by the C2f module introduced in YOLOv8, but you do not need to worry too much about this.
 
 SparseML parses the `Modifers` in the recipe and updates the training loop with logic encoded therein.
 
