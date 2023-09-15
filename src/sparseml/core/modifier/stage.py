@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field
 from sparseml.core.modifier.base import ModifierInterface
 
 __all__ = [
-    "StageModifier"
+    "StageModifiers"
 ]
 
 

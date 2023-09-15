@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import inspect
+#import sparseml.modifiers as modifiers
 
 __all__ = ["ModifierFactory"]
 
@@ -24,3 +26,5 @@ class ModifierFactory:
     @staticmethod
     def create(type_: str, framework: "Framework", **kwargs) -> "Modifier":
         raise NotImplementedError()
+        #for name, obj in inspect.getmembers(modifiers):
+        #    print(name, obj)

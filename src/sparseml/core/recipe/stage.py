@@ -32,7 +32,7 @@ class RecipeStage(RecipeBase):
     enabled: bool = True
     modifiers: List[RecipeModifier] = Field(default_factory=list)
     exclude_default: bool = False
-    _args_evaluated: RecipeArgs = None
+    args_evaluated: RecipeArgs = None
 
     def calculate_start(self) -> int:
         return min(
@@ -47,12 +47,14 @@ class RecipeStage(RecipeBase):
         )
 
     def evaluate(self, parent_args: RecipeArgs = None, shift: int = None):
+        if self.args is None:
+            self.args = RecipeArgs({})
         merged_args = self.args.combine(parent_args)
-        self._args_evaluated = merged_args.evaluate()
+        self.args_evaluated = merged_args.evaluate()
         for modifier in self.modifiers:
-            modifier.evaluate(self._args_evaluated, shift)
+            modifier.evaluate(self.args_evaluated, shift)
 
-    def create_modifiers(
+    def create_modifier(
         self, framework: Framework, parent_args: RecipeArgs = None
     ) -> StageModifiers:
         if parent_args is not None:
@@ -99,16 +101,19 @@ class RecipeStage(RecipeBase):
     @staticmethod
     def _combine_modifiers(values: Dict[str, Any]) -> List[Dict[str, Any]]:
         modifiers = []
+        keys = []
 
         for key, value in list(values.items()):
             if key.endswith("_modifiers") or key == "modifiers":
+                keys.append(key)
                 group = (
                     key.rsplit("_modifiers", 1)[0]
                     if key.endswith("_modifiers")
                     else "default"
                 )
-                for modifier in value:
+                for mod_key, mod_value in value.items():
+                    modifier = {mod_key: mod_value}
                     modifier["group"] = group
                     modifiers.append(modifier)
 
-        return modifiers
+        return modifiers, keys

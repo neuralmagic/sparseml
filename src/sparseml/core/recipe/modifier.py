@@ -29,42 +29,45 @@ class RecipeModifier(RecipeBase):
     type: str
     group: str = None
     args: Dict[str, Any] = None
-    _args_evaluated: Dict[str, Any] = None
+    args_evaluated: Dict[str, Any] = None
 
     def calculate_start(self) -> int:
-        if not self._args_evaluated:
+        if not self.args_evaluated:
             raise ValueError("args must be evaluated before calculating start")
 
-        return self._args_evaluated.get("start", -1)
+        return self.args_evaluated.get("start", -1)
 
     def calculate_end(self) -> int:
-        if not self._args_evaluated:
-            raise ValueError("args must be evaluated before calculating start")
+        if not self.args_evaluated:
+            raise ValueError("args must be evaluated before calculating end")
 
-        return self._args_evaluated.get("end", -1)
+        return self.args_evaluated.get("end", -1)
 
     def evaluate(self, args: RecipeArgs = None, shift: int = None):
         if not self.args:
             raise ValueError("args must be set before evaluating")
 
         comb_args = args or RecipeArgs()
-        self._args_evaluated = comb_args.evaluate_ext(self.args)
+        self.args_evaluated = comb_args.evaluate_ext(self.args)
 
-        if shift is not None and "start" in self._args_evaluated:
-            self._args_evaluated["start"] += shift
+        if shift is not None and "start" in self.args_evaluated:
+            self.args_evaluated["start"] += shift
 
-        if shift is not None and "end" in self._args_evaluated:
-            self._args_evaluated["end"] += shift
+        if shift is not None and "end" in self.args_evaluated:
+            self.args_evaluated["end"] += shift
 
     def create_modifier(self, framework: Framework) -> "Modifier":
-        return ModifierFactory.create(self.type, framework, **self._args_evaluated)
+        return ModifierFactory.create(self.type, framework, **self.args_evaluated)
 
     @root_validator(pre=True)
     def extract_modifier_type(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+        modifier = {"group": values.pop("group")}
         assert len(values) == 1, "multiple key pairs found for modifier"
         modifier_type, args = list(values.items())[0]
 
-        return {"type": modifier_type, "args": args}
+        modifier["type"] = modifier_type
+        modifier["args"] = args
+        return modifier
 
     def dict(self, *args, **kwargs) -> Dict[str, Any]:
         return {self.type: self.args}

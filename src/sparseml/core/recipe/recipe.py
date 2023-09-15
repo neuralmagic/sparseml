@@ -20,7 +20,6 @@ import yaml
 from pydantic import Field, root_validator
 
 from sparseml.core.framework import Framework
-from sparseml.core.modifier import StageModifiers
 from sparseml.core.recipe.args import RecipeArgs
 from sparseml.core.recipe.base import RecipeBase
 from sparseml.core.recipe.metadata import RecipeMetaData
@@ -76,6 +75,10 @@ class Recipe(RecipeBase):
     def simplify_combine_recipes(
         recipes: List[Union["Recipe", Tuple["Recipe", str, Dict[str, Any]]]]
     ) -> "Recipe":
+        
+        if len(recipes) == 1:
+            return recipes[0]
+        
         simplified = Recipe()
 
         for recipe_tuple in recipes:
@@ -101,7 +104,7 @@ class Recipe(RecipeBase):
     args: RecipeArgs = None
     stages: List[RecipeStage] = Field(default_factory=list)
     metadata: RecipeMetaData = None
-    _args_evaluated: RecipeArgs = None
+    args_evaluated: RecipeArgs = None
 
     def calculate_start(self) -> int:
         return min(
@@ -117,17 +120,17 @@ class Recipe(RecipeBase):
 
     def evaluate(self, args: Dict[str, Any] = None, shift: int = None):
         args = self.args.combine(args) if self.args else RecipeArgs(**(args or {}))
-        self._args_evaluated = args.evaluate()
+        self.args_evaluated = args.evaluate()
         for stage in self.stages:
-            stage.evaluate(self._args_evaluated, shift)
+            stage.evaluate(self.args_evaluated, shift)
 
-    def create_modifier(self, framework: Framework) -> List[StageModifiers]:
-        if self._args_evaluated is None:
+    def create_modifier(self, framework: Framework) -> List["StageModifiers"]:
+        if self.args_evaluated is None:
             self.evaluate()
         modifiers = []
 
         for index, stage in enumerate(self.stages):
-            stage_modifiers = stage.create_modifiers(framework)
+            stage_modifiers = stage.create_modifier(framework)
             stage_modifiers.index = index
             stage_modifiers.group = stage.group
             modifiers.append(stage_modifiers)
@@ -136,15 +139,14 @@ class Recipe(RecipeBase):
 
     @root_validator(pre=True)
     def remap_stages(cls, values: Dict[str, Any]) -> Dict[str, Any]:
-        modifiers = RecipeStage._combine_modifiers(values)
-        stages = [{"modifiers": modifiers, "group": "default"}] if modifiers else []
+        stages = []
         add_stages, remove_keys = Recipe._combine_stages(values)
         stages.extend(add_stages)
 
         for key in remove_keys:
             del values[key]
 
-        values["stages"] = Recipe._combine_stages(values)
+        values["stages"] = stages
 
         return values
 

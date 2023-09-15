@@ -1,0 +1,28 @@
+test_stage:
+  pruning_modifiers:
+    MagnitudePruningModifier:
+      init_sparsity: 0.0
+      final_sparsity: 0.5
+      start_epoch: 1.0
+      end_epoch: 10.0
+      update_frequency: 0.5
+      params:        
+          - 'features.0.0.weight'
+          - 'features.18.0.weight'
+          - 're:features.*.conv.*.weight'
+          - 're:features.*.conv.*.*.weight'
+      leave_enabled: True
+test2_stage:
+  pruning_modifiers:
+    MagnitudePruningModifier:
+      init_sparsity: 0.0
+      final_sparsity: 0.5
+      start_epoch: 1.0
+      end_epoch: 10.0
+      update_frequency: 0.5
+      params:        
+          - 'features.0.0.weight'
+          - 'features.18.0.weight'
+          - 're:features.*.conv.*.weight'
+          - 're:features.*.conv.*.*.weight'
+      leave_enabled: True

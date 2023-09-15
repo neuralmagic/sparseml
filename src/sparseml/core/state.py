@@ -98,8 +98,12 @@ class State:
         for rec in recipe:
             if isinstance(rec, str):
                 rec = Recipe.create_instance(rec)
-
-            self.recipes.append((rec, recipe_stage, recipe_args))
+            if not isinstance(self.recipes, List):
+                self.recipes = []
+                if recipe_stage is None and recipe_args is None:
+                    self.recipes.append(rec)
+                else:
+                    self.recipes.append((rec, recipe_stage, recipe_args))
 
         self._recipe_changed = True
 
