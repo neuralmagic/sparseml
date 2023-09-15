@@ -38,7 +38,7 @@ pip install "sparseml[ultralytics]"
 
 In this page, you will:
 - [Sparse Transfer Learn YOLOv8m Onto COCO128](#sparse-transfer-learning-yolov8m-onto-coco128).
-- [Sparse Transfer Learn Other YOLOv8 Models](#sparse-transfer-learning-other-yolov8-models)
+- [Sparse Transfer Learn Other YOLOv8 Models](#sparse-transfer-learning-other-yolov8-models).
 - [Sparse Transfer Learn With a Custom Dataset](#sparse-transfer-learning-with-a-custom-dataset).
 
 ## SparseML CLI
