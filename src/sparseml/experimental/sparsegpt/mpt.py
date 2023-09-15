@@ -1,4 +1,19 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import contextlib
+import math
 import warnings
 from typing import Dict, Tuple
 
@@ -159,7 +174,9 @@ class EmbeddingAndHeadWeightSeparator(ModelPreprocessor):
             )
 
             # [ELDAR] this is from the original implementation
-            # logits = self.transformer.wte(outputs.last_hidden_state.to(self.transformer.wte.weight.device), True)
+            # logits = self.transformer.wte(
+            #     outputs.last_hidden_state.to(self.transformer.wte.weight.device), True
+            # )
             # [ELDAR] this is our new version
             logits = self.lm_head(
                 outputs.last_hidden_state.to(self.transformer.wte.weight.device)
@@ -240,7 +257,8 @@ def mpt_get_attn_with_quantized_matmuls(attn_weights_matmul, attn_output_matmul)
                 or (attn_bias.size(-2) != 1 and attn_bias.size(-2) != s_q)
             ):
                 raise RuntimeError(
-                    f"attn_bias (shape: {attn_bias.shape}) is expected to broadcast to shape: {attn_weight.shape}."
+                    f"attn_bias (shape: {attn_bias.shape}) is expected to "
+                    "broadcast to shape: {attn_weight.shape}."
                 )
             attn_weight = attn_weight + attn_bias
         min_val = torch.finfo(q.dtype).min

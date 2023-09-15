@@ -1,9 +1,23 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import os
 import time
 
 import torch
 
-from dispatch import load_data, load_model, prepare_sparsegpt
+from dispatch import evaluate_perplexity, load_data, load_model, prepare_sparsegpt
 from sparseml.optim.helpers import load_recipe_yaml_str
 
 
@@ -11,7 +25,7 @@ try:
     import wandb
 
     has_wandb = True
-except:
+except Exception:
     has_wandb = False
 
 
@@ -41,7 +55,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        "model", type=str, help="OPT model to load; pass `facebook/opt-X`."
+        "model", type=str, help="Model to load; e.g., `facebook/opt-1.3b`."
     )
     parser.add_argument(
         "dataset",
@@ -76,8 +90,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--sequential_hessian_within_layer",
         type=int,
-        default=1,
-        help="Whether to initialize quantization parameters using PTQ",
+        default=0,
+        help="Whether to compute Hessian for modules with sequential "
+        "compression within layer",
     )
     parser.add_argument(
         "--seed", type=int, default=0, help="Seed for sampling the calibration data."
@@ -152,3 +167,6 @@ if __name__ == "__main__":
 
     if args.save:
         _save(model, tokenizer, args.save)
+
+    _, testloader, _ = load_data(args, dataset="wikitext2")
+    evaluate_perplexity(args, model, testloader, DEV)

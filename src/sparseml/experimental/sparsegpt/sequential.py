@@ -1,3 +1,17 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from copy import deepcopy
 from typing import List, Optional
 
@@ -32,7 +46,7 @@ class SequentialSparseGPT:
         """
         try:
             return self.model.model.decoders.layers
-        except:
+        except Exception:
             raise RuntimeError(
                 "Derived class should override to provide list of compressible layers"
             )
@@ -57,7 +71,6 @@ class SequentialSparseGPT:
         self.model, extras = self.pre_compress(dev=dev, **kwargs)
         self.model = self.model.cpu()
         torch.cuda.empty_cache()
-        
         self.manager = extras.pop("manager", self.manager)
 
         # Step 0: BottomCompressor accomplishes two things:
@@ -91,7 +104,6 @@ class SequentialSparseGPT:
             accum_kwargs.update(layer_kwargs)
 
         # Step 2: Prune/quantize head
-        # TODO: Need update here -- see MPT for head quantization example
         if self.head_compressor is not None:
             self.model, extras = self.head_compressor.compress(dev=dev, **accum_kwargs)
 

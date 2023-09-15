@@ -1,3 +1,17 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from collections.abc import Mapping
 from typing import Dict, Tuple
 
@@ -27,7 +41,7 @@ class SmoothQuantModelPreprocessor(ModelPreprocessor):
         act_scales = torch.load(self.smooth_activation_file)
         smooth_lm(self.model, act_scales, 0.5)
         del act_scales
-        torch.cuda.empty_cache()        
+        torch.cuda.empty_cache()
         return self.model, {}
 
 
@@ -42,7 +56,6 @@ class QuantizationModelPreprocessor(ModelPreprocessor):
 
     def __call__(self, dev: str = "cuda:0", **kwargs) -> Tuple[nn.Module, Dict]:
         manager = ScheduledModifierManager.from_yaml(self.recipe)
-        self.model.train()
         manager.apply_structure(self.model, epoch=0.1)
         self.model.eval()
         self.model = self._initialize_scales_from_batches(dev)
@@ -50,17 +63,17 @@ class QuantizationModelPreprocessor(ModelPreprocessor):
 
     def _initialize_scales_from_batches(self, dev):
         print("Collecting data statistics for quantization scales...")
-        self.model.train()
 
         # Tuan: If the model does not fit into the device,
         # we need a different version of this func to forward
         # the batches through the model layer by layer
-        # See: https://github.com/neuralmagic/neuralmagicml/blob/tuan-falcon/research/sparsegpt/falcon/FalconPress-main/modelutils.py
+        # See: https://github.com/neuralmagic/neuralmagicml/blob/
+        # tuan-falcon/research/sparsegpt/falcon/FalconPress-main/modelutils.py
         self.model.to(dev)
-
+        num_batches = self.observer_batches
         with torch.no_grad():
             batches = 0
-            while batches < self.observer_batches:
+            while batches < num_batches:
                 for batch in self.data_loader:
                     if batches == self.observer_batches:
                         break
