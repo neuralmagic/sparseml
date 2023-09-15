@@ -96,7 +96,7 @@ SparseML enables you to create a sparse model trained on your dataset in two way
 - [Sparse Transfer Learning for Sentiment Analysis](integrations/huggingface-transformers/tutorials/sentiment-analysis/sentiment-analysis-cli.md), [for Text Classification](integrations/huggingface-transformers/tutorials/text-classification/text-classification-cli.md), [for Token Classification](integrations/huggingface-transformers/tutorials/token-classification/token-classification-cli.md), [for Question Answering](integrations/huggingface-transformers/tutorials/question-answering/question-answering-cli.md)
 
 ### Ultralytics YOLOv5
-- [Sparse Transfer Learning with the CLI](integrations/ultralytics-yolov5/tutorials/sparse-transfer-learning.md)
+- [Sparse Transfer Learning With the CLI](integrations/ultralytics-yolov5/tutorials/sparse-transfer-learning.md)
 - [Sparsify From Scatch with the CLI](integrations/ultralytics-yolov5/tutorials/sparsify-from-scratch.md)
 
 ### Ultralytics YOLOv8
