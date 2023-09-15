@@ -312,4 +312,4 @@ Once exported to ONNX, you can deploy your models with DeepSparse. Checkout the 
 
 Check out the tutorials for more details on additional functionality like training with other YOLOv8 versions and using custom datasets:
 
-- [Sparse Transfer Learning with the CLI](tutorials/sparse-transfer-learning.md) **[HIGHLY RECOMMENDED]**
+- [Sparse Transfer Learning With the CLI](tutorials/sparse-transfer-learning.md). **[HIGHLY RECOMMENDED]**
