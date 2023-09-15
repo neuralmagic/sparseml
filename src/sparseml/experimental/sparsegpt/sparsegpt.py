@@ -5,9 +5,6 @@ import torch
 import torch.nn as nn
 import transformers
 
-from quant import WeightFakeQuantizer
-
-
 DEBUG = False
 
 torch.backends.cuda.matmul.allow_tf32 = False
@@ -53,12 +50,6 @@ class SparseGPT:
         if isinstance(self.layer, transformers.Conv1D):
             W = W.t()
         W = W.float()
-
-        if hasattr(self, "quantizer") and not isinstance(
-            self.quantizer, WeightFakeQuantizer
-        ):
-            if not self.quantizer.ready():
-                self.quantizer.find_params(W, weight=True)
 
         tick = time.time()
 
@@ -117,7 +108,7 @@ class SparseGPT:
                 q[mask1[:, i]] = 0
 
                 if hasattr(self, "quantizer"):
-                    q = self.quantizer.quantize(q.unsqueeze(1)).flatten()
+                    q = self.quantizer.quantize(q)
 
                 Q1[:, i] = q
                 Losses1[:, i] = (w - q) ** 2 / d ** 2

@@ -113,9 +113,6 @@ if __name__ == "__main__":
         "--gmp", action="store_true", help="Whether to run the GMP baseline."
     )
     parser.add_argument(
-        "--wbits", type=int, default=16, help="Whether to quantize as well."
-    )
-    parser.add_argument(
         "--minlayer", type=int, default=-1, help="Prune all layers with id >= this."
     )
     parser.add_argument(
@@ -158,10 +155,9 @@ if __name__ == "__main__":
     print("Load data", flush=True)
     dataloader, testloader, tokenizer = load_data(args, None, seqlen)
 
-    if args.wbits < 16 or ((args.sparsity or args.prunen) and not args.gmp):
-        tick = time.time()
-        sequential(model, dataloader, DEV, args)
-        print(time.time() - tick)
+    tick = time.time()
+    sequential(model, dataloader, DEV, args)
+    print(time.time() - tick)
 
     if args.save:
         _save(model, tokenizer, args.save)

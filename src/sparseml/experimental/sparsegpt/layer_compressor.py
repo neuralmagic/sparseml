@@ -1,15 +1,12 @@
 import inspect
 from typing import Dict, List, Tuple
 
+import numpy
 import torch
 import torch.nn as nn
 
 from quant import WeightFakeQuantizer
 from sparseml.experimental.sparsegpt.sparsegpt import SparseGPT
-
-
-DEFAULT_WBITS = 16
-
 
 class BaseCompressor:
     def __init__(self, model):
@@ -54,8 +51,7 @@ class LayerCompressor(BaseCompressor):
             for name in subset:
                 gpts[name] = SparseGPT(subset[name])
                 if (
-                    self.args.wbits < 16
-                    and self.manager is not None
+                    self.manager is not None
                     and self.manager.quantization_modifiers
                 ):
                     gpts[name].quantizer = WeightFakeQuantizer(subset[name])
@@ -65,6 +61,7 @@ class LayerCompressor(BaseCompressor):
                     gpts[name].add_batch(inp[0].data, out.data)
 
                 return tmp
+
 
             handles = []
             for name in gpts:
@@ -148,11 +145,9 @@ class LayerCompressor(BaseCompressor):
 
         nsamples = len(self.inputs)
         for name in order:
-            print(name)
             gpts = SparseGPT(subset[name])
-            if self.args.wbits < 16:
-                if self.manager is not None and self.manager.quantization_modifiers:
-                    gpts.quantizer = WeightFakeQuantizer(subset[name])
+            if self.manager is not None and self.manager.quantization_modifiers:
+                gpts.quantizer = WeightFakeQuantizer(subset[name])
 
             def add_batch(name):
                 def tmp(_, inp, out):
