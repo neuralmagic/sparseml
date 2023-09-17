@@ -14,16 +14,15 @@
 
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List
 
 from pydantic import Field
 
 from sparseml.core.data import ModifiableData
-from sparseml.core.event import Event, EventLifecycle
+from sparseml.core.event import Event
 from sparseml.core.framework import Framework
 from sparseml.core.model import ModifiableModel
 from sparseml.core.optimizer import ModifiableOptimizer
-from sparseml.core.recipe import Recipe
 
 
 __all__ = ["State", "Data", "Hardware", "ModifiedState"]
@@ -51,122 +50,81 @@ class Hardware:
 
 @dataclass
 class State:
-    compiled_recipe: Recipe = None
-    recipes: List[Tuple[Recipe, str, Dict[str, Any]]] = Field(default_factory=list)
-    loggers = Field(default_factory=list)
-    framework: Framework = None
+    framework: Framework
     model: ModifiableModel = None
     teacher_model: ModifiableModel = None
     optimizer: ModifiableOptimizer = None
     optim_wrapped: bool = None
-    loss = None
-    batch_data = None
+    loss: Any = None
+    batch_data: Any = None
     data = Data()
     hardware = Hardware()
-    event_lifecycle: EventLifecycle = None
     start_event: Event = None
     last_event: Event = None
-    _recipe_changed: bool = False
+    loggers = Field(default_factory=list)
 
     @property
-    def recipe_changed(self) -> bool:
-        return self._recipe_changed
-
-    @property
-    def recipe_modifier_ready(self) -> bool:
+    def sparsification_ready(self) -> bool:
         return (
-            self.compiled_recipe is not None
-            and self.model is not None
-            and self.start_event is not None
+            self.model is not None
+            and self.optimizer is not None
+            and self.loss is not None
+            and self.batch_data is not None
         )
 
-    def update_framework(self, framework: Framework):
-        self.framework = framework if framework else Framework.pytorch
-
-    def update_recipe(
+    def update(
         self,
-        recipe: Union[str, List[str], Recipe, List[Recipe]] = None,
-        recipe_stage: str = None,
-        recipe_args: Dict[str, Any] = None,
-    ):
-        if recipe is None:
-            return 
-        
-        if not isinstance(recipe, list):
-            recipe = [recipe]
-
-        for rec in recipe:
-            if isinstance(rec, str):
-                rec = Recipe.create_instance(rec)
-
-            self.recipes.append((rec, recipe_stage, recipe_args))
-
-        self._recipe_changed = True
-
-    def update_model(self, model: Any):
-        if self.framework is None:
-            raise RuntimeError("framework must be set before updating model")
-
-        self.model = ModifiableModel(framework=self.framework, model=model)
-
-    def update_teacher_model(self, model: Any):
-        if self.framework is None:
-            raise RuntimeError("framework must be set before updating model")
-
-        self.teacher_model = ModifiableModel(framework=self.framework, model=model)
-
-    def update_optimizer(self, optimizer: Any, attach_callbacks: bool = True):
-        if self.framework is None:
-            raise RuntimeError("framework must be set before updating optimizer")
-
-        self.optim_wrapped = attach_callbacks
-        self.optimizer = ModifiableOptimizer(
-            framework=self.framework, optimizer=optimizer
-        )
-
-    def update_data(
-        self,
+        model: Any = None,
+        teacher_model: Any = None,
+        optimizer: Any = None,
+        attach_optim_callbacks: bool = True,
         train_data: Any = None,
         val_data: Any = None,
         test_data: Any = None,
         calib_data: Any = None,
         copy_data: bool = True,
-    ):
-        if self.framework is None:
-            raise RuntimeError("framework must be set before updating data")
-
-        self.data = ModifiableData(framework=self.framework)
-
-        if train_data is not None:
-            self.data.train = train_data if not copy_data else deepcopy(train_data)
-
-        if val_data is not None:
-            self.data.val = val_data if not copy_data else deepcopy(val_data)
-
-        if test_data is not None:
-            self.data.test = test_data if not copy_data else deepcopy(test_data)
-
-        if calib_data is not None:
-            self.data.calib = calib_data if not copy_data else deepcopy(calib_data)
-
-    def update_start(
-        self,
         start: float = None,
         steps_per_epoch: int = None,
         batches_per_step: int = None,
-    ):
-        self.start_event = Event()
-        self.start_event.steps_per_epoch = steps_per_epoch
-        self.start_event.batches_per_step = batches_per_step
-        self.start_event.current_index = start if start is not None else 0
+        **kwargs,
+    ) -> Dict:
+        if model is not None:
+            self.model = ModifiableModel(framework=self.framework, model=model)
+        if teacher_model is not None:
+            self.teacher_model = ModifiableModel(
+                framework=self.framework, model=teacher_model
+            )
+        if optimizer is not None:
+            self.optim_wrapped = attach_optim_callbacks
+            self.optimizer = ModifiableOptimizer(
+                framework=self.framework, optimizer=optimizer
+            )
 
-    def recompile_recipe(self):
-        self._recipe_changed = False
+        if train_data is not None:
+            self.data.train = train_data if not copy_data else deepcopy(train_data)
+        if val_data is not None:
+            self.data.val = val_data if not copy_data else deepcopy(val_data)
+        if test_data is not None:
+            self.data.test = test_data if not copy_data else deepcopy(test_data)
+        if calib_data is not None:
+            self.data.calib = calib_data if not copy_data else deepcopy(calib_data)
 
-        if not self.recipes:
-            raise RuntimeError("No recipes to compile")
+        if (
+            start is not None
+            or steps_per_epoch is not None
+            or batches_per_step is not None
+        ):
+            if self.start_event is None:
+                self.start_event = Event()
 
-        self.compiled_recipe = Recipe.simplify_combine_recipes(self.recipes)
+            if start is not None:
+                self.start_event.current_index = start
+            if steps_per_epoch is not None:
+                self.start_event.steps_per_epoch = steps_per_epoch
+            if batches_per_step is not None:
+                self.start_event.batches_per_step = batches_per_step
+
+        return kwargs
 
 
 @dataclass

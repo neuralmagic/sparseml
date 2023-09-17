@@ -15,7 +15,7 @@
 from dataclasses import dataclass
 from typing import Dict, Generic, List, TypeVar, Union
 
-from sparseml.core.framework import MultiFrameworkObject
+from sparseml.core.framework_object import MultiFrameworkObject
 
 
 __all__ = ["ModifiableModel", "ModelParameterizedLayer"]

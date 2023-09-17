@@ -52,7 +52,7 @@ class RecipeStage(RecipeBase):
         for modifier in self.modifiers:
             modifier.evaluate(self._args_evaluated, shift)
 
-    def create_modifiers(
+    def create_modifier(
         self, framework: Framework, parent_args: RecipeArgs = None
     ) -> StageModifiers:
         if parent_args is not None:
@@ -68,47 +68,74 @@ class RecipeStage(RecipeBase):
 
     @root_validator(pre=True)
     def remap_modifiers(cls, values: Dict[str, Any]) -> Dict[str, Any]:
-        modifiers = []
-        add_modifiers, remove_keys = RecipeStage._combine_modifiers(values)
-        modifiers.extend(add_modifiers)
-        for key in remove_keys:
-            del values[key]
+        modifiers = RecipeStage.extract_dict_modifiers(values)
         values["modifiers"] = modifiers
 
         return values
 
+    @staticmethod
+    def extract_dict_modifiers(values: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """
+        Accepted formats:
+        - modifiers:
+          - ModifierTypeOne
+            ...
+          - ModifierTypeTwo
+            ...
+
+        - first_modifiers:
+          - ModifierTypeOne
+            ...
+          - ModifierTypeTwo
+            ...
+        """
+
+        modifiers = []
+        remove_keys = []
+
+        if "modifiers" in values and values["modifiers"]:
+            assert isinstance(
+                values["modifiers"], list
+            ), f"modifiers must be a list, given {values['modifiers']}"
+            remove_keys.append("modifiers")
+
+            for modifier in values["stages"]:
+                assert isinstance(
+                    modifier, dict
+                ), f"stage must be a dict, given {modifier}"
+                modifier["group"] = "default"
+                modifiers.append(modifier)
+
+        for key, value in list(values.items()):
+            if key.endswith("_modifiers"):
+                assert isinstance(
+                    value, list
+                ), f"modifier must be a list, given {value}"
+                remove_keys.append(key)
+                group = key.rsplit("_modifiers", 1)[0]
+                for modifier in value:
+                    assert isinstance(
+                        modifier, dict
+                    ), f"modifier must be a dict, given {modifier}"
+                    modifier["group"] = group
+                    modifiers.append(modifier)
+
+        for key in remove_keys:
+            del values[key]
+
+        return modifiers
+
     def dict(self, *args, **kwargs) -> Dict[str, Any]:
         dict_ = super().dict(*args, **kwargs)
-        modifier_groups = dict()
+        modifiers = {}
 
         for modifier in dict_["modifiers"]:
             group = modifier["group"]
             del modifier["group"]
-            if group not in modifier_groups:
-                modifier_groups[group] = []
-            modifier_groups[group].append(modifier)
+            if group not in modifiers:
+                modifiers[group] = []
+            modifiers[group].append(modifier)
 
-        for group, modifiers in modifier_groups.items():
-            name = f"{group}_modifiers" if group != "default" else "modifiers"
-            dict_[name] = modifiers
-
-        del dict_["modifiers"]
+        dict_["modifiers"] = modifiers
 
         return dict_
-
-    @staticmethod
-    def _combine_modifiers(values: Dict[str, Any]) -> List[Dict[str, Any]]:
-        modifiers = []
-
-        for key, value in list(values.items()):
-            if key.endswith("_modifiers") or key == "modifiers":
-                group = (
-                    key.rsplit("_modifiers", 1)[0]
-                    if key.endswith("_modifiers")
-                    else "default"
-                )
-                for modifier in value:
-                    modifier["group"] = group
-                    modifiers.append(modifier)
-
-        return modifiers

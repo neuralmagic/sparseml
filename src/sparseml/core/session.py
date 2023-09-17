@@ -17,12 +17,10 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Union
 
-from sparseml.core.event import (
-    CallbacksEventLifecycle,
-    EventType,
-    WrappedOptimEventLifecycle,
-)
+from sparseml.core.event import EventType
 from sparseml.core.framework import Framework
+from sparseml.core.lifecycle import SparsificationLifecycle
+from sparseml.core.recipe import Recipe
 from sparseml.core.state import ModifiedState, State
 
 
@@ -49,69 +47,45 @@ class _CallbackContainer:
 
 class SparseSession:
     def __init__(self):
-        self._state: State = State()
-        self._modifiers: List["StageModifiers"] = []
-        self._initialized_structure = False
-        self._initialized = False
-        self._finalized = False
-        self._event_called = False
+        self._lifecycle = SparsificationLifecycle()
+
+    @property
+    def lifecycle(self) -> SparsificationLifecycle:
+        return self._lifecycle
 
     @property
     def state(self) -> State:
-        return self._state
-
-    @property
-    def modifiers(self) -> List["StageModifiers"]:
-        return self._modifiers
-
-    @property
-    def initialized_structure(self) -> bool:
-        return self._initialized_structure
-
-    @property
-    def initialized(self) -> bool:
-        return self._initialized
-
-    @property
-    def finalized(self) -> bool:
-        return self._finalized
-
-    @property
-    def event_called(self) -> bool:
-        return self._event_called
+        return self._lifecycle.state
 
     def pre_initialize_structure(
         self,
         model: Any,
-        recipe: Union["Recipe", List["Recipe"]],
+        recipe: Union[str, List[str], Recipe, List[Recipe]] = None,
+        recipe_stage: Union[str, List[str]] = None,
+        recipe_args: Union[Dict[str, Any], List[Dict[str, Any]]] = None,
         framework: Framework = None,
         **kwargs,
     ) -> ModifiedState:
-        self.state.update_framework(framework)
-        self.state.update_model(model)
-        self.state.update_recipe(recipe)
-
-        self._check_compile_recipe()
-        modifier_data = []
-
-        for modifier in self._modifiers:
-            data = modifier.pre_initialize_structure(state=self.state, **kwargs)
-            if data:
-                modifier_data.append(data)
-
-        self._initialized_structure = True
+        mod_data = self._lifecycle.pre_initialize_structure(
+            model=model,
+            recipe=recipe,
+            recipe_stage=recipe_stage,
+            recipe_args=recipe_args,
+            framework=framework,
+            **kwargs,
+        )
 
         return ModifiedState(
-            model=self.state.model.model,
+            model=self.state.model.model if self.state.model else None,
             optimizer=None,
             loss=None,
-            modifier_data=modifier_data,
+            modifier_data=mod_data,
         )
 
     def initialize(
         self,
         framework: Framework = None,
-        recipe: Union[str, List[str], "Recipe", List["Recipe"]] = None,
+        recipe: Union[str, List[str], Recipe, List[Recipe]] = None,
         recipe_stage: str = None,
         recipe_args: Dict[str, Any] = None,
         model: Any = None,
@@ -128,59 +102,41 @@ class SparseSession:
         batches_per_step: int = None,
         **kwargs,
     ) -> ModifiedState:
-        if self.event_called:
-            raise ValueError("Cannot initialize after invoking an event")
-
-        if self.finalized:
-            raise ValueError("Cannot initialize after finalizing")
-
-        self.state.update_framework(framework)
-        self.state.update_recipe(recipe, recipe_stage, recipe_args)
-        self.state.update_model(model)
-        self.state.update_teacher_model(teacher_model)
-        self.state.update_optimizer(optimizer, attach_optim_callbacks)
-        self.state.update_data(train_data, val_data, test_data, calib_data, copy_data)
-        self.state.update_start(start, steps_per_epoch, batches_per_step)
-
-        self._check_compile_recipe()
-        modifier_data = []
-
-        if self._modifiers:
-            for modifier in self._modifiers:
-                data = modifier.initialize(state=self.state, **kwargs)
-                if data:
-                    modifier_data.append(data)
-
-        self._initialized = True
+        mod_data = self._lifecycle.initialize(
+            framework=framework,
+            recipe=recipe,
+            recipe_stage=recipe_stage,
+            recipe_args=recipe_args,
+            model=model,
+            teacher_model=teacher_model,
+            optimizer=optimizer,
+            attach_optim_callbacks=attach_optim_callbacks,
+            train_data=train_data,
+            val_data=val_data,
+            test_data=test_data,
+            calib_data=calib_data,
+            copy_data=copy_data,
+            start=start,
+            steps_per_epoch=steps_per_epoch,
+            batches_per_step=batches_per_step,
+            **kwargs,
+        )
 
         return ModifiedState(
-            model=self.state.model.model,
-            optimizer=self.state.optimizer.optimizer,
-            loss=self.state.loss.loss,
-            modifier_data=modifier_data,
+            model=self.state.model.model if self.state.model else None,
+            optimizer=self.state.optimizer.optimizer if self.state.optimizer else None,
+            loss=self.state.loss.loss if self.state.loss else None,
+            modifier_data=mod_data,
         )
 
     def finalize(self, **kwargs) -> ModifiedState:
-        if not self.initialized:
-            raise ValueError("Cannot finalize before initializing")
-
-        if self.finalized:
-            raise ValueError("Cannot finalize more than once")
-
-        modifier_data = []
-
-        for modifier in self._modifiers:
-            data = modifier.finalize(state=self.state, **kwargs)
-            if data:
-                modifier_data.append(data)
-
-        self._finalized = True
+        mod_data = self._lifecycle.finalize(**kwargs)
 
         return ModifiedState(
-            model=self.state.model.model,
-            optimizer=self.state.optimizer.optimizer,
-            loss=self.state.loss.loss,
-            modifier_data=modifier_data,
+            model=self.state.model.model if self.state.model else None,
+            optimizer=self.state.optimizer.optimizer if self.state.optimizer else None,
+            loss=self.state.loss.loss if self.state.loss else None,
+            modifier_data=mod_data,
         )
 
     def apply(self, **kwargs):
@@ -191,123 +147,19 @@ class SparseSession:
     def event(
         self, event_type: EventType, batch_data: Any = None, loss: Any = None, **kwargs
     ) -> ModifiedState:
-        if not self.initialized:
-            raise ValueError("Cannot invoke event before initializing")
-
-        if self.finalized:
-            raise ValueError("Cannot invoke event after finalizing")
-
-        if event_type in [EventType.PRE_INIT, EventType.INITIALIZE, EventType.FINALIZE]:
-            raise ValueError(
-                f"Cannot invoke {event_type} event. "
-                f"Use the corresponding method instead."
-            )
-
-        if event_type == EventType.LOSS_CALCULATED and loss is None:
-            raise ValueError("Loss must be provided for loss calculated event")
-
-        self._check_setup_lifecycle(event_type)
-
-        event = None
-        modifier_data = []
-        for event in self.state.event_lifecycle.events_from_type(event_type):
-            for modifier in self._modifiers:
-                data = modifier.update_event(
-                    state=self.state,
-                    event=event,
-                    batch_data=batch_data,
-                    loss=loss,
-                    **kwargs,
-                )
-                if data:
-                    modifier_data.append(data)
-
-        assert event is not None, f"No events generated for event type {event_type}"
-        self.state.last_event = event
-        self._event_called = True
+        mod_data = self._lifecycle.event(
+            event_type=event_type, batch_data=batch_data, loss=loss, **kwargs
+        )
 
         return ModifiedState(
-            model=self.state.model.model,
-            optimizer=self.state.optimizer.optimizer,
-            loss=self.state.loss.loss,
-            modifier_data=modifier_data,
+            model=self.state.model.model if self.state.model else None,
+            optimizer=self.state.optimizer.optimizer if self.state.optimizer else None,
+            loss=self.state.loss.loss if self.state.loss else None,
+            modifier_data=mod_data,
         )
 
     def reset(self):
-        if self._state:
-            del self._state
-        self._state = State()
-
-        if self._modifiers:
-            if self.initialized and not self.finalized:
-                for modifier in self._modifiers:
-                    modifier.finalize(self.state)
-
-            del self._modifiers
-
-        self._modifiers = []
-        self._initialized_structure = False
-        self._initialized = False
-        self._finalized = False
-        self._event_called = False
-
-    def _check_compile_recipe(self):
-        if not self.state.recipe_changed and self._modifiers is not None:
-            # recipe hasn't changed and modifiers set, no need to recompile
-            return
-
-        if self.state.recipes is None:
-            # no recipes currently, return
-            return
-
-        if self.state.recipe_changed:
-            self.state.recompile_recipe()
-
-            if self._modifiers:
-                # clear out the modifiers to reinitialize from newly compiled recipe
-                for modifier in self._modifiers:
-                    if modifier._initialized:
-                        modifier.finalize(self.state)
-                del self._modifiers
-
-        if self.state.recipe_modifier_ready:
-            self._modifiers = self.state.compiled_recipe.create_modifier(
-                self.state.framework
-            )
-
-    def _check_setup_lifecycle(self, event_type: EventType):
-        if self.state.event_lifecycle is not None:
-            return
-
-        # first event call, setup lifecycle and make sure everything is initialized
-        if not self.state.recipe_modifier_ready:
-            raise ValueError(
-                "Cannot invoke event before recipe, model, and start are set"
-            )
-
-        for modifier in self._modifiers:
-            modifier.check_initialized()
-
-        if event_type == EventType.BATCH_START:
-            # utilizing callbacks pathway, ensure optim is not wrapped
-            if self.state.optim_wrapped:
-                raise ValueError(
-                    "Cannot use batch callbacks with wrapped optimizer, "
-                    "set attach_optim_callbacks to False when initializing "
-                )
-            self.state.event_lifecycle = CallbacksEventLifecycle(
-                event_type, self.state.start_event
-            )
-        elif self.state.optim_wrapped:
-            # utilizing wrapped optimizer for callbacks
-            self.state.event_lifecycle = WrappedOptimEventLifecycle(
-                event_type, self.state.start_event
-            )
-        else:
-            raise ValueError(
-                "First event must be batch_start or "
-                "attach_optim_callbacks must be True"
-            )
+        self._lifecycle.reset()
 
 
 _global_session = SparseSession()
@@ -338,7 +190,7 @@ def pre_initialize_structure(**kwargs):
 
 def initialize(
     framework: Framework = None,
-    recipe: Union[str, List[str], "Recipe", List["Recipe"]] = None,
+    recipe: Union[str, List[str], Recipe, List[Recipe]] = None,
     recipe_stage: str = None,
     recipe_args: Dict[str, Any] = None,
     model: Any = None,
@@ -382,7 +234,7 @@ def finalize(**kwargs) -> ModifiedState:
 
 def apply(
     framework: Framework = None,
-    recipe: Union[str, List[str], "Recipe", List["Recipe"]] = None,
+    recipe: Union[str, List[str], Recipe, List[Recipe]] = None,
     recipe_stage: str = None,
     recipe_args: Dict[str, Any] = None,
     model: Any = None,

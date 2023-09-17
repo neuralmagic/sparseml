@@ -13,9 +13,9 @@
 # limitations under the License.
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict
+from typing import Any
 
-from pydantic import BaseModel, root_validator
+from pydantic import BaseModel
 
 from sparseml.core.framework import Framework
 from sparseml.core.recipe.args import RecipeArgs

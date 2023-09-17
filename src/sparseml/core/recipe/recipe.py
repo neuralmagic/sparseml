@@ -14,6 +14,7 @@
 
 import json
 import os
+from dataclasses import dataclass
 from typing import Any, Dict, List, Tuple, Union
 
 import yaml
@@ -27,7 +28,7 @@ from sparseml.core.recipe.metadata import RecipeMetaData
 from sparseml.core.recipe.stage import RecipeStage
 
 
-__all__ = ["Recipe"]
+__all__ = ["Recipe", "RecipeTuple"]
 
 
 class Recipe(RecipeBase):
@@ -57,8 +58,11 @@ class Recipe(RecipeBase):
 
     @staticmethod
     def simplify_recipe(
-        recipe: "Recipe", stages: List[str], args: Dict[str, Any], shift: int = None
+        recipe: Union["Recipe", "RecipeTuple"], shift: int = None
     ) -> "Recipe":
+        stages = recipe.target_stages if isinstance(recipe, RecipeTuple) else []
+        args = recipe.override_args if isinstance(recipe, RecipeTuple) else {}
+
         simplified = Recipe()
         simplified.version = recipe.version
         simplified.args = recipe.args
@@ -74,28 +78,19 @@ class Recipe(RecipeBase):
 
     @staticmethod
     def simplify_combine_recipes(
-        recipes: List[Union["Recipe", Tuple["Recipe", str, Dict[str, Any]]]]
+        recipes: List[Union["Recipe", "RecipeTuple"]]
     ) -> "Recipe":
-        simplified = Recipe()
+        combined = Recipe()
 
-        for recipe_tuple in recipes:
-            recipe = (
-                recipe_tuple[0] if isinstance(recipe_tuple, tuple) else recipe_tuple
-            )
-            stages = (
-                recipe_tuple[1].split(",") if isinstance(recipe_tuple, tuple) else None
-            )
-            args = recipe_tuple[2] if isinstance(recipe_tuple, tuple) else None
-            recipe_simple = Recipe.simplify_recipe(
+        for recipe in recipes:
+            simplified = Recipe.simplify_recipe(
                 recipe=recipe,
-                stages=stages,
-                args=args,
-                shift=simplified.calculate_end(),
+                shift=combined.calculate_end(),
             )
-            simplified.version = recipe_simple.version
-            simplified.stages.extend(recipe_simple.stages)
+            combined.version = simplified.version
+            combined.stages.extend(simplified.stages)
 
-        return simplified
+        return combined
 
     version: str = None
     args: RecipeArgs = None
@@ -127,7 +122,7 @@ class Recipe(RecipeBase):
         modifiers = []
 
         for index, stage in enumerate(self.stages):
-            stage_modifiers = stage.create_modifiers(framework)
+            stage_modifiers = stage.create_modifier(framework)
             stage_modifiers.index = index
             stage_modifiers.group = stage.group
             modifiers.append(stage_modifiers)
@@ -136,41 +131,98 @@ class Recipe(RecipeBase):
 
     @root_validator(pre=True)
     def remap_stages(cls, values: Dict[str, Any]) -> Dict[str, Any]:
-        modifiers = RecipeStage._combine_modifiers(values)
-        stages = [{"modifiers": modifiers, "group": "default"}] if modifiers else []
-        add_stages, remove_keys = Recipe._combine_stages(values)
-        stages.extend(add_stages)
+        stages = []
+
+        modifiers = RecipeStage.extract_dict_modifiers(values)
+        if modifiers:
+            default_stage = {"modifiers": modifiers, "group": "default"}
+            stages.append(default_stage)
+
+        extracted = Recipe.extract_dict_stages(values)
+        stages.extend(extracted)
+        values["stages"] = stages
+
+        return values
+
+    @staticmethod
+    def extract_dict_stages(values: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """
+        Accepted stage formats:
+        - stages:
+          first_stage:
+            modifiers: ...
+          second_stage:
+            modifiers: ...
+
+        - first_stage:
+          modifiers: ...
+        - second_stage:
+          modifiers: ...
+
+        Accepted modifier formats default stage:
+        - modifiers:
+          - ModifierTypeOne
+            ...
+          - ModifierTypeTwo
+            ...
+
+        - first_modifiers:
+          - ModifierTypeOne
+            ...
+          - ModifierTypeTwo
+            ...
+        """
+
+        stages = []
+        remove_keys = []
+
+        default_modifiers = RecipeStage.extract_dict_modifiers(values)
+        if default_modifiers:
+            default_stage = {"modifiers": default_modifiers, "group": "default"}
+            stages.append(default_stage)
+
+        if "stages" in values and values["stages"]:
+            assert isinstance(
+                values["stages"], dict
+            ), f"stages must be a dict, given {values['stages']}"
+            remove_keys.append("stages")
+
+            for key, value in values["stages"].items():
+                assert isinstance(value, dict), f"stage must be a dict, given {value}"
+                value["group"] = key
+                stages.append(value)
+
+        for key, value in list(values.items()):
+            if key.endswith("_stage"):
+                remove_keys.append(key)
+                value["group"] = key.rsplit("_stage", 1)[0]
+                stages.append(value)
 
         for key in remove_keys:
             del values[key]
 
-        values["stages"] = Recipe._combine_stages(values)
-
-        return values
+        return stages
 
     def dict(self, *args, **kwargs) -> Dict[str, Any]:
         dict_ = super().dict(*args, **kwargs)
+        stages = {}
 
         for stage in dict_["stages"]:
-            name = f"{stage['group']}_stage"
+            name = stage["group"]
             del stage["group"]
-            dict_[name] = stage["args"]
 
-        del dict_["stages"]
+            if name not in stages:
+                stages[name] = []
+
+            stages[name].append(stage)
+
+        dict_["stages"] = stages
 
         return dict_
 
-    @staticmethod
-    def _combine_stages(
-        values: Dict[str, Any]
-    ) -> Tuple[List[Dict[str, Any]], List[str]]:
-        stages = []
-        keys = []
 
-        for key, value in list(values.items()):
-            if key.endswith("_stage"):
-                keys.append(key)
-                value["group"] = key.rsplit("_stage", 1)[0]
-                stages.append(value)
-
-        return stages, keys
+@dataclass
+class RecipeTuple:
+    recipe: Recipe
+    target_stages: Union[str, List[str]]
+    override_args: Dict[str, Any]

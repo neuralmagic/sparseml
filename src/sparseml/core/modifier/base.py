@@ -15,12 +15,31 @@
 
 from abc import ABC, abstractmethod
 
+from sparseml.core.event import Event
+from sparseml.core.state import State
+
+
 __all__ = ["ModifierInterface"]
 
 
 class ModifierInterface(ABC):
     def __init__(self, **kwargs):
         pass
+
+    @property
+    @abstractmethod
+    def initialized_structure(self) -> bool:
+        raise NotImplementedError()
+
+    @property
+    @abstractmethod
+    def initialized(self) -> bool:
+        raise NotImplementedError()
+
+    @property
+    @abstractmethod
+    def finalized(self) -> bool:
+        raise NotImplementedError()
 
     @abstractmethod
     def check_initialized(self):
@@ -35,17 +54,17 @@ class ModifierInterface(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def pre_initialize_structure(self, state: "State", **kwargs):
+    def pre_initialize_structure(self, state: State, **kwargs):
         raise NotImplementedError()
 
     @abstractmethod
-    def initialize(self, state: "State", **kwargs):
+    def initialize(self, state: State, **kwargs):
         raise NotImplementedError()
 
     @abstractmethod
-    def finalize(self, state: "State", **kwargs):
+    def finalize(self, state: State, **kwargs):
         raise NotImplementedError()
 
     @abstractmethod
-    def update_event(self, state: "State", event: "Event", **kwargs):
+    def update_event(self, state: State, event: Event, **kwargs):
         raise NotImplementedError()
