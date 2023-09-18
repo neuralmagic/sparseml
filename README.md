@@ -100,8 +100,7 @@ SparseML enables you to create a sparse model trained on your dataset in two way
 - [Sparsify From Scratch With the CLI](integrations/ultralytics-yolov5/tutorials/sparsify-from-scratch.md)
 
 ### Ultralytics YOLOv8
-- [Sparse Transfer Learning With the CLI](integrations/ultralytics-yolov5/tutorials/sparse-transfer-learning.md)
-- [Sparsify From Scratch With the CLI](integrations/ultralytics-yolov5/tutorials/sparsify-from-scratch.md)
+- [Sparse Transfer Learning With the CLI](integrations/ultralytics-yolov8/tutorials/sparse-transfer-learning.md)
 
 ### Additional Examples
 
@@ -172,8 +171,8 @@ sparseml.yolov5.train \
   --hyp hyps/hyp.finetune.yaml --cfg yolov5s.yaml --patience 0
 ```
 
-- [YOLOv5 CLI](ultralytics-yolov5/tutorials/sparse-transfer-learning.md)
-- [YOLOv8 CLI](ultralytics-yolov8/tutorials/sparse-transfer-learning.md)
+- [YOLOv5 CLI](integrations/ultralytics-yolov5/tutorials/sparse-transfer-learning.md)
+- [YOLOv8 CLI](integrations/ultralytics-yolov8/tutorials/sparse-transfer-learning.md)
 - [Hugging Face CLI](integrations/huggingface-transformers/tutorials/sparse-transfer-learning-bert.md)
 - [Torchvision CLI](integrations/torchvision/tutorials/sparse-transfer-learning.md)
 
