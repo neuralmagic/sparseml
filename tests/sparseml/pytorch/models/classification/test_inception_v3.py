@@ -35,7 +35,7 @@ from tests.sparseml.pytorch.models.utils import compare_model
     [
         ("inception_v3", False, True),
         ("inception_v3", True, False),
-        ("inception_v3", "pruned-conservative", False),
+        ("inception_v3", "pruned-moderate", False),
     ],
 )
 def test_inception_v3s(key: str, pretrained: Union[bool, str], test_input: bool):
