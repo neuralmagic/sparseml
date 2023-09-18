@@ -36,8 +36,10 @@ def get_wikitext2(
     :return: list of random samples from wikitext and tokenizer
     """
     traindata = load_dataset("wikitext", "wikitext-2-raw-v1", split="train")
+    testdata = load_dataset("wikitext", "wikitext-2-raw-v1", split="test")
     tokenizer = AutoTokenizer.from_pretrained(model, use_fast=False)
     trainenc = tokenizer(" ".join(traindata["text"]), return_tensors="pt")
+    testenc = tokenizer("\n\n".join(testdata["text"]), return_tensors="pt")
 
     random.seed(seed)
     trainloader = []
@@ -48,7 +50,7 @@ def get_wikitext2(
         tar = inp.clone()
         tar[:, :-1] = -100
         trainloader.append((inp, tar))
-    return trainloader, tokenizer
+    return trainloader, testenc, tokenizer
 
 
 def get_ptb(
@@ -64,8 +66,10 @@ def get_ptb(
     :return: list of random samples from ptb and tokenizer
     """
     traindata = load_dataset("ptb_text_only", "penn_treebank", split="train")
+    testdata = load_dataset("ptb_text_only", "penn_treebank", split="test")
     tokenizer = AutoTokenizer.from_pretrained(model, use_fast=False)
     trainenc = tokenizer(" ".join(traindata["sentence"]), return_tensors="pt")
+    testenc = tokenizer(" ".join(testdata["sentence"]), return_tensors="pt")
 
     random.seed(seed)
     trainloader = []
@@ -76,7 +80,7 @@ def get_ptb(
         tar = inp.clone()
         tar[:, :-1] = -100
         trainloader.append((inp, tar))
-    return trainloader, tokenizer
+    return trainloader, testenc, tokenizer
 
 
 def get_c4(
@@ -130,5 +134,5 @@ def get_c4(
 
     valenc = TokenizerWrapper(valenc)
 
-    return trainloader, tokenizer
+    return trainloader, valenc, tokenizer
     

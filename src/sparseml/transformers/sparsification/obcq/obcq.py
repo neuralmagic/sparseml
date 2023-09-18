@@ -25,7 +25,7 @@ from sparseml.transformers.sparsification.obcq.data import (
     get_wikitext2,
 )
 from sparseml.transformers.sparsification.obcq.manager import RecipeManagerOneShot
-from sparseml.transformers.sparsification.obcq.models import load_opt_model, load_llama_model
+from sparseml.transformers.sparsification.obcq.models import load_opt_model, load_llama_model, perplexity_eval_opt
 
 
 __all__ = ["one_shot"]
@@ -53,7 +53,7 @@ def one_shot(
     :param device: Device (cuda:index or cpu) to use for computation
     :param recipe_file: recipe containing SparseGPT configuration
     """
-    deploy_dir = Path(os.path.join(deploy_dir, "deployment"))
+    deploy_dir = Path(os.path.join(deploy_dir, "obcq_deployment"))
 
     if deploy_dir.exists():
         raise RuntimeError(f"deploy_dir={deploy_dir} already exists")
@@ -81,7 +81,7 @@ def one_shot(
             f"dataset_name={dataset_name} should be one of {SUPPORTED_DATASETS}"
         )
 
-    calibration_data, tokenizer = data_loader_fn(
+    calibration_data, _, tokenizer = data_loader_fn(
         num_samples, 0, model.seqlen, model_path
     )
 
@@ -89,6 +89,10 @@ def one_shot(
     recipe.one_shot(model, calibration_data, device)
 
     _save(model, tokenizer, deploy_dir, recipe_file)
+    if "opt" in model_path.lower():
+        _, testloader, _ = get_wikitext2(num_samples, 0, model.seqlen, model_path)
+        perplexity_eval_opt(model, testloader)
+
 
 
 def _save(model, tokenizer, save_path, recipe_path):
