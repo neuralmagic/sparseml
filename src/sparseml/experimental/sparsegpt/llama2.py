@@ -7,13 +7,27 @@ from sparseml.experimental.sparsegpt.model_preprocessor import QuantizationModel
 from sparseml.experimental.sparsegpt.sequential import SequentialSparseGPT
 from sparseml.experimental.sparsegpt.utils import catch, execute_offloaded_module
 
+'''
 smoothquant_subgraph_keys = [
-    {"module_to_balance": "q_proj", "module_to_merge_scale": "input_layernorm", "merge_scale": True},
-    {"module_to_balance": "k_proj", "module_to_merge_scale": "input_layernorm", "merge_scale": False},
-    {"module_to_balance": "v_proj", "module_to_merge_scale": "input_layernorm", "merge_scale": False},
-    {"module_to_balance": "gate_proj", "module_to_merge_scale": "post_attention_layernorm", "merge_scale": True},
-    {"module_to_balance": "up_proj", "module_to_merge_scale": "post_attention_layernorm", "merge_scale": False},
-    {"module_to_balance": "down_proj", "module_to_merge_scale": "up_proj", "merge_scale": True},
+    {
+        "module_to_balance": ["q_proj", "k_proj", "v_proj"],
+        "module_to_merge_scale": ["input_layernorm", "llamarmsnorm"]
+    },
+    {
+        "module_to_balance": ["gate_proj", "up_proj"],
+        "module_to_merge_scale": ["post_attention_layernorm", "llamarmsnorm"]
+    },
+    {
+        "module_to_balance": ["down_proj"],
+        "module_to_merge_scale": ["up_proj", "linear"],
+    },
+]
+'''
+smoothquant_subgraph_keys = [
+    {
+        "module_to_balance": ["down_proj"],
+        "module_to_merge_scale": ["up_proj", "linear"],
+    },
 ]
 
 
