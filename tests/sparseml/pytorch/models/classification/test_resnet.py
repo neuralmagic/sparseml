@@ -64,15 +64,21 @@ from tests.sparseml.pytorch.models.utils import compare_model
         ("resnet50", True, False, resnet50),
         ("resnet50", "base", False, resnet50),
         ("resnet50_2xwidth", False, True, resnet50_2xwidth),
+        ("resnet50_2xwidth", True, False, resnet50_2xwidth), # corr
+        ("resnet50_2xwidth", "base", False, resnet50_2xwidth), # corr
         ("resnetv2_50", False, True, resnetv2_50),
         ("resnext50", False, True, resnext50),
         ("resnet101", False, True, resnet101),
         ("resnet101", True, False, resnet101),
         ("resnet101", "base", False, resnet101),
         ("resnet101_2xwidth", False, True, resnet101_2xwidth),
+        ("resnet101_2xwidth", True, False, resnet101_2xwidth), # cor, resnet_v1-101_2xwidth-imagenet-base
+        ("resnet101_2xwidth", "base", False, resnet101_2xwidth), # cor, resnet_v1-101_2xwidth-imagenet-base
         ("resnetv2_101", False, True, resnetv2_101),
         ("resnext101", False, True, resnext101),
         ("resnet152", False, True, resnet152),
+        ("resnet152", True, False, resnet152), # cor, resnet_v1-152_2xwidth-imagenet-base
+        ("resnet152", "base", False, resnet152), # cor, resnet_v1-101_2xwidth-imagenet-base
         ("resnetv2_152", False, True, resnetv2_152),
         ("resnext152", False, True, resnext152),
     ],
