@@ -70,6 +70,8 @@ class SmoothQuant:
     def apply_smoothing(self, layer):
         for subgraph_keys in self.subgraph_keys:
             modules_to_balance, module_to_merge_scale = self.get_smoothquant_subgraph(layer, subgraph_keys)
+            if len(modules_to_balance) == 0:
+                continue
             activation_scale = modules_to_balance[0].quant.activation_post_process.scale * 256
             if self.logarithmic_equalization:
                 scales = activation_scale / torch.log2(2 + activation_scale)
