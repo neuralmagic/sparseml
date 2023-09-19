@@ -14,15 +14,20 @@
 
 import torch
 
+from math import ceil
+
 
 class Catcher(torch.nn.Module):
     def __init__(self, module, target_keys):
         super().__init__()
         self.module = module
         self.cache = {key: [] for key in target_keys}
+        self.target_keys = target_keys
+        self.cache["inputs"] = []
 
     def forward(self, *args, **kwargs):
-        for key in self.cache:
+        self.cache["inputs"].append(args)
+        for key in self.target_keys:
             self.cache[key].append(kwargs[key])
         raise ValueError
 
@@ -171,3 +176,47 @@ class SequentialCompressor(OffLoadedModule):
         else:
             for child in self._module.modules():
                 child.compress(*args, **kwargs)
+
+
+@torch.no_grad()
+def ppl_eval_general(
+        eval_logits,
+        model,
+        dataloader,
+        dev,
+        nsamples=None,
+        max_samples_per_iteration=128,
+):
+    print("Evaluating perplexity...")
+
+    if nsamples is None:
+        nsamples = len(dataloader)
+
+    number_iterations = int(ceil(nsamples / max_samples_per_iteration))
+    neg_log_likelihood = 0.
+    number_tokens = 0
+    for iteration in range(number_iterations):
+        if iteration < number_iterations - 1:
+            samples = dataloader[iteration*max_samples_per_iteration:(iteration+1)*max_samples_per_iteration]
+        else:
+            samples = dataloader[iteration * max_samples_per_iteration:]
+
+        logits = eval_logits(model, samples, dev)
+
+        vocabulary_size = logits[0].shape[-1]
+        logits = [logit[:, :-1, :].view(-1, vocabulary_size) for logit in logits]
+        logits = torch.concatenate(logits, dim=0).contiguous().to(torch.float32)
+
+        labels = [sample[:, 1:].view(-1) for sample in samples]
+        labels = torch.concatenate(labels, dim=0).to(dev)
+        neg_log_likelihood += torch.nn.functional.cross_entropy(
+            logits,
+            labels,
+            reduction="sum",
+        )
+
+        number_tokens += labels.numel()
+        print(torch.exp(neg_log_likelihood / number_tokens), flush=True)
+
+    ppl = torch.exp(neg_log_likelihood / number_tokens)
+    print(f"Perplexity: {ppl.item():3f}")
