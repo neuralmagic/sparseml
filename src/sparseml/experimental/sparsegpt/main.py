@@ -1,3 +1,17 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import os
 import time
 
@@ -8,17 +22,15 @@ from sparseml.experimental.sparsegpt.dispatch import (
     load_data,
     load_model,
     prepare_sparsegpt,
+    evaluate_perplexity,
 )
 
 try:
     import wandb
 
     has_wandb = True
-except:
+except Exception:
     has_wandb = False
-
-
-DEV = torch.device("cuda:0")
 
 
 @torch.no_grad()
@@ -47,7 +59,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        "model", type=str, help="OPT model to load; pass `facebook/opt-X`."
+        "model", type=str, help="Model to load; e.g., `facebook/opt-1.3b`."
     )
     parser.add_argument(
         "dataset",
@@ -64,13 +76,16 @@ if __name__ == "__main__":
         help="Whether to perform per-channel quantization.",
     )
     parser.add_argument(
-        "--smoothquant", type=int, default=0, help="Whether to run SmoothQuant."
+        "--smoothquant", action="store_true", help="Whether to run SmoothQuant."
     )
     parser.add_argument(
-        "--smooth-activation-file",
-        type=str,
-        help="Activation file to be used with SmoothQuant",
-        default=None,
+        "--logarithmic-equalization", action="store_true", help="Whether to run logarithmic activation equalization."
+    )
+    parser.add_argument(
+        "--smoothquant_alpha",
+        type=float,
+        help="Value of parameter used to balance activation and weight scaling in SmoothQuant",
+        default=0.5,
     )
     parser.add_argument(
         "--ptq-only",
@@ -85,8 +100,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--sequential_hessian_within_layer",
         type=int,
-        default=1,
-        help="Whether to initialize quantization parameters using PTQ",
+        default=0,
+        help="Whether to compute Hessian for modules with sequential "
+        "compression within layer",
     )
     parser.add_argument(
         "--seed", type=int, default=0, help="Seed for sampling the calibration data."
@@ -112,18 +128,6 @@ if __name__ == "__main__":
     parser.add_argument(
         "--gmp", action="store_true", help="Whether to run the GMP baseline."
     )
-    parser.add_argument(
-        "--minlayer", type=int, default=-1, help="Prune all layers with id >= this."
-    )
-    parser.add_argument(
-        "--maxlayer", type=int, default=1000, help="Prune all layers with id < this."
-    )
-    parser.add_argument(
-        "--prune_only",
-        type=str,
-        default="",
-        help="Prune only layers that contain this text.",
-    )
     parser.add_argument("--invert", action="store_true", help="Invert subset.")
     parser.add_argument("--save", type=str, default="", help="Path to saved model.")
     parser.add_argument(
@@ -133,16 +137,20 @@ if __name__ == "__main__":
         "--log_wandb", action="store_true", help="Whether to log to wandb."
     )
     parser.add_argument(
-        "--eval-dense", type=int, default=0, help="Whether to evaluate dense model."
+        "--eval", action="store_true", help="Whether to evaluate perplexity at the end."
+    )
+    parser.add_argument(
+        "--device", type=str, default="cuda:0", help="Whether to evaluate perplexity at the end."
     )
 
-    # For MPT
+   # For MPT
     parser.add_argument(
         "--yaml-path", type=str, default="", help="Path to recipe yaml."
     )
     parser.add_argument("--args-list", type=str, default="", help="Args list.")
 
     args = parser.parse_args()
+    DEV = torch.device(args.device)
 
     # init W&B logging
     if args.log_wandb:
@@ -162,6 +170,6 @@ if __name__ == "__main__":
     if args.save:
         _save(model, tokenizer, args.save)
 
-    #from opt import opt_eval
-    #_, testloader,_ = load_data(args, dataset="wikitext2")
-    #opt_eval(model, testloader, DEV, "wikitext2")
+    if args.eval:
+        _, testloader, _ = load_data(args, dataset="wikitext2")
+        evaluate_perplexity(model, testloader, DEV)
