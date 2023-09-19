@@ -1,3 +1,17 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -276,7 +290,7 @@ def get_c4(nsamples, seed, seqlen, model):
 
 
 @torch.no_grad()
-def opt_eval(model, testenc, dev, dataset: str, log_wandb: bool = False):
+def ppl_eval(args, model, testenc, dev):
     print("Evaluating ...")
 
     testenc = testenc.input_ids
@@ -336,6 +350,7 @@ def opt_eval(model, testenc, dev, dataset: str, log_wandb: bool = False):
         print(i)
         layer = layers[i].to(dev)
 
+        # Todo: Check and clean up the commented block below
         # if args.gmp:
         #     subset = find_layers(layer)
         #     for name in subset:
@@ -379,16 +394,5 @@ def opt_eval(model, testenc, dev, dataset: str, log_wandb: bool = False):
         nlls.append(neg_log_likelihood)
     ppl = torch.exp(torch.stack(nlls).sum() / (nsamples * model.seqlen))
     print(f"Perplexity: {ppl.item():3f}")
-    if log_wandb:
-        wandb.log({f"{dataset}/perplexity": ppl.item()})
 
     model.config.use_cache = use_cache
-
-
-def _eval(model, datasets, args):
-    for dataset in datasets:
-        dataloader, testloader, _ = get_loaders_and_tokenizer(
-            dataset, seed=args.seed, model=args.model, seqlen=model.seqlen
-        )
-        print(dataset)
-        opt_eval(model, testloader, DEV, dataset, args.log_wandb)
