@@ -6,7 +6,7 @@ test_stage:
       start_epoch: 1.0
       end_epoch: 10.0
       update_frequency: 0.5
-      params:        
+      targets:        
           - 'features.0.0.weight'
           - 'features.18.0.weight'
           - 're:features.*.conv.*.weight'
@@ -20,7 +20,7 @@ test2_stage:
       start_epoch: 1.0
       end_epoch: 10.0
       update_frequency: 0.5
-      params:        
+      targets:        
           - 'features.0.0.weight'
           - 'features.18.0.weight'
           - 're:features.*.conv.*.weight'
