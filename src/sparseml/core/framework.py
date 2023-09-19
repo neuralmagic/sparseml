@@ -18,7 +18,7 @@ from enum import Enum
 from pydantic import ValidationError
 
 
-__all__ = ["Framework", "MultiFrameworkObject"]
+__all__ = ["Framework"]
 
 
 class Framework(Enum):
@@ -66,55 +66,3 @@ class Framework(Enum):
 
     def class_name(self) -> str:
         return self.formatted() if self != self.general else ""
-
-
-class MultiFrameworkObject:
-    def __new__(
-        cls,
-        framework: Framework = None,
-        enable_experimental: bool = False,
-        **kwargs,
-    ):
-        if cls is MultiFrameworkObject:
-            raise TypeError("MultiFrameworkObject cannot be instantiated directly")
-
-        instance = super(MultiFrameworkObject, cls).__new__(cls)
-
-        package = instance.__class__.__module__.rsplit(".", 1)[0]
-        class_name = instance.__class__.__name__
-
-        if framework is None or framework == Framework.general:
-            return instance
-
-        if enable_experimental:
-            # check under the experimental package first
-            try:
-                return MultiFrameworkObject.load_framework_class(
-                    f"{package}.experimental.{str(framework)}",
-                    f"{class_name}{framework.class_name()}",
-                )(**kwargs)
-            except ImportError:
-                pass
-
-        # next check under the main package for the framework version
-        try:
-            return MultiFrameworkObject.load_framework_class(
-                f"{package}.{str(framework)}", f"{class_name}{framework.class_name()}"
-            )(**kwargs)
-        except ImportError as e:
-            print(e)
-            pass
-        except ValidationError as e:
-            print(e)
-            print(e.errors())
-
-
-        # fall back on the class that was requested and
-        # fail later if it doesn't support that framework
-        return instance
-
-    @staticmethod
-    def load_framework_class(package: str, class_name: str):
-        module = importlib.import_module(package)
-
-        return getattr(module, class_name)

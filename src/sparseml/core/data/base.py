@@ -15,7 +15,7 @@
 from dataclasses import dataclass
 from typing import Generic, TypeVar
 
-from sparseml.core.framework import MultiFrameworkObject
+from sparseml.core.framework_object import MultiFrameworkObject
 
 
 __all__ = ["ModifiableData"]

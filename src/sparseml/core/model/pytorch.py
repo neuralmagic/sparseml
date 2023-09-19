@@ -31,7 +31,6 @@ __all__ = ["ModifiableModelPyTorch"]
 
 
 class ModifiableModelPyTorch(ModifiableModel[Module, Module, Parameter]):
-
     def __init__(self, framework=None, model=None):
         super().__init__(framework=framework, model=model)
 

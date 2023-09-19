@@ -14,6 +14,7 @@
 
 import json
 import os
+from dataclasses import dataclass
 from typing import Any, Dict, List, Tuple, Union
 
 import yaml
@@ -26,7 +27,7 @@ from sparseml.core.recipe.metadata import RecipeMetaData
 from sparseml.core.recipe.stage import RecipeStage
 
 
-__all__ = ["Recipe"]
+__all__ = ["Recipe", "RecipeTuple"]
 
 
 class Recipe(RecipeBase):
@@ -56,14 +57,18 @@ class Recipe(RecipeBase):
 
     @staticmethod
     def simplify_recipe(
-        recipe: "Recipe", stages: List[str], args: Dict[str, Any], shift: int = None
+        recipe: Union["Recipe", "RecipeTuple"], shift: int = None
     ) -> "Recipe":
+        stages = recipe.target_stages if isinstance(recipe, RecipeTuple) else []
+        args = recipe.override_args if isinstance(recipe, RecipeTuple) else {}
+        version = recipe.version if isinstance(recipe, Recipe) else None
+
         simplified = Recipe()
-        simplified.version = recipe.version
-        simplified.args = recipe.args
+        simplified.version = version
+        simplified.args = args
         simplified.stages = [
             stage
-            for stage in recipe.stages
+            for stage in stages
             if ((not stages or "default" in stages) and not stage.exclude_default)
             or stage.group in stages
         ]
@@ -73,32 +78,20 @@ class Recipe(RecipeBase):
 
     @staticmethod
     def simplify_combine_recipes(
-        recipes: List[Union["Recipe", Tuple["Recipe", str, Dict[str, Any]]]]
+        recipes: List[Union["Recipe", "RecipeTuple"]]
     ) -> "Recipe":
-        
-        if len(recipes) == 1:
-            return recipes[0]
-        
-        simplified = Recipe()
 
-        for recipe_tuple in recipes:
-            recipe = (
-                recipe_tuple[0] if isinstance(recipe_tuple, tuple) else recipe_tuple
-            )
-            stages = (
-                recipe_tuple[1].split(",") if isinstance(recipe_tuple, tuple) else None
-            )
-            args = recipe_tuple[2] if isinstance(recipe_tuple, tuple) else None
-            recipe_simple = Recipe.simplify_recipe(
+        combined = Recipe()
+
+        for recipe in recipes:
+            simplified = Recipe.simplify_recipe(
                 recipe=recipe,
-                stages=stages,
-                args=args,
-                shift=simplified.calculate_end(),
+                shift=combined.calculate_end(),
             )
-            simplified.version = recipe_simple.version
-            simplified.stages.extend(recipe_simple.stages)
+            combined.version = simplified.version
+            combined.stages.extend(simplified.stages)
 
-        return simplified
+        return combined
 
     version: str = None
     args: RecipeArgs = None
@@ -114,6 +107,8 @@ class Recipe(RecipeBase):
         )
 
     def calculate_end(self) -> int:
+        if len(self.stages) == 0:
+            return 0
         return max(
             stage.calculate_end() for stage in self.stages if stage.calculate_end() >= 0
         )
@@ -140,39 +135,97 @@ class Recipe(RecipeBase):
     @root_validator(pre=True)
     def remap_stages(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         stages = []
-        add_stages, remove_keys = Recipe._combine_stages(values)
-        stages.extend(add_stages)
 
-        for key in remove_keys:
-            del values[key]
+        modifiers = RecipeStage.extract_dict_modifiers(values)
+        if modifiers:
+            default_stage = {"modifiers": modifiers, "group": "default"}
+            stages.append(default_stage)
 
+        extracted = Recipe.extract_dict_stages(values)
+        stages.extend(extracted)
         values["stages"] = stages
 
         return values
 
-    def dict(self, *args, **kwargs) -> Dict[str, Any]:
-        dict_ = super().dict(*args, **kwargs)
-
-        for stage in dict_["stages"]:
-            name = f"{stage['group']}_stage"
-            del stage["group"]
-            dict_[name] = stage["args"]
-
-        del dict_["stages"]
-
-        return dict_
-
     @staticmethod
-    def _combine_stages(
-        values: Dict[str, Any]
-    ) -> Tuple[List[Dict[str, Any]], List[str]]:
+    def extract_dict_stages(values: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """
+        Accepted stage formats:
+        - stages:
+          first_stage:
+            modifiers: ...
+          second_stage:
+            modifiers: ...
+
+        - first_stage:
+          modifiers: ...
+        - second_stage:
+          modifiers: ...
+
+        Accepted modifier formats default stage:
+        - modifiers:
+          - ModifierTypeOne
+            ...
+          - ModifierTypeTwo
+            ...
+
+        - first_modifiers:
+          - ModifierTypeOne
+            ...
+          - ModifierTypeTwo
+            ...
+        """
+
         stages = []
-        keys = []
+        remove_keys = []
+
+        default_modifiers = RecipeStage.extract_dict_modifiers(values)
+        if default_modifiers:
+            default_stage = {"modifiers": default_modifiers, "group": "default"}
+            stages.append(default_stage)
+
+        if "stages" in values and values["stages"]:
+            assert isinstance(
+                values["stages"], dict
+            ), f"stages must be a dict, given {values['stages']}"
+            remove_keys.append("stages")
+
+            for key, value in values["stages"].items():
+                assert isinstance(value, dict), f"stage must be a dict, given {value}"
+                value["group"] = key
+                stages.append(value)
 
         for key, value in list(values.items()):
             if key.endswith("_stage"):
-                keys.append(key)
+                remove_keys.append(key)
                 value["group"] = key.rsplit("_stage", 1)[0]
                 stages.append(value)
 
-        return stages, keys
+        for key in remove_keys:
+            del values[key]
+
+        return stages
+
+    def dict(self, *args, **kwargs) -> Dict[str, Any]:
+        dict_ = super().dict(*args, **kwargs)
+        stages = {}
+
+        for stage in dict_["stages"]:
+            name = stage["group"]
+            del stage["group"]
+
+            if name not in stages:
+                stages[name] = []
+
+            stages[name].append(stage)
+
+        dict_["stages"] = stages
+
+        return dict_
+
+
+@dataclass
+class RecipeTuple:
+    recipe: Recipe
+    target_stages: List[str]
+    override_args: Dict[str, Any]

@@ -70,50 +70,63 @@ class RecipeStage(RecipeBase):
 
     @root_validator(pre=True)
     def remap_modifiers(cls, values: Dict[str, Any]) -> Dict[str, Any]:
-        modifiers = []
-        add_modifiers, remove_keys = RecipeStage._combine_modifiers(values)
-        modifiers.extend(add_modifiers)
-        for key in remove_keys:
-            del values[key]
+        modifiers = RecipeStage.extract_dict_modifiers(values)
         values["modifiers"] = modifiers
 
         return values
 
-    def dict(self, *args, **kwargs) -> Dict[str, Any]:
-        dict_ = super().dict(*args, **kwargs)
-        modifier_groups = dict()
-
-        for modifier in dict_["modifiers"]:
-            group = modifier["group"]
-            del modifier["group"]
-            if group not in modifier_groups:
-                modifier_groups[group] = []
-            modifier_groups[group].append(modifier)
-
-        for group, modifiers in modifier_groups.items():
-            name = f"{group}_modifiers" if group != "default" else "modifiers"
-            dict_[name] = modifiers
-
-        del dict_["modifiers"]
-
-        return dict_
-
     @staticmethod
-    def _combine_modifiers(values: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def extract_dict_modifiers(values: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """
+        Accepted formats:
+        - modifiers:
+          - ModifierTypeOne
+            ...
+          - ModifierTypeTwo
+            ...
+
+        - first_modifiers:
+          - ModifierTypeOne
+            ...
+          - ModifierTypeTwo
+            ...
+        """
+
         modifiers = []
-        keys = []
+        remove_keys = []
+
+        if "modifiers" in values and values["modifiers"]:
+            remove_keys.append("modifiers")
+            for mod_key, mod_value in values["stages"].items():
+                modifier = {mod_key: mod_value}
+                modifier["group"] = "default"
+                modifiers.append(modifier)
 
         for key, value in list(values.items()):
-            if key.endswith("_modifiers") or key == "modifiers":
-                keys.append(key)
-                group = (
-                    key.rsplit("_modifiers", 1)[0]
-                    if key.endswith("_modifiers")
-                    else "default"
-                )
+            if key.endswith("_modifiers"):
+                remove_keys.append(key)
+                group = key.rsplit("_modifiers", 1)[0]
                 for mod_key, mod_value in value.items():
                     modifier = {mod_key: mod_value}
                     modifier["group"] = group
                     modifiers.append(modifier)
 
-        return modifiers, keys
+        for key in remove_keys:
+            del values[key]
+
+        return modifiers
+
+    def dict(self, *args, **kwargs) -> Dict[str, Any]:
+        dict_ = super().dict(*args, **kwargs)
+        modifiers = {}
+
+        for modifier in dict_["modifiers"]:
+            group = modifier["group"]
+            del modifier["group"]
+            if group not in modifiers:
+                modifiers[group] = []
+            modifiers[group].append(modifier)
+
+        dict_["modifiers"] = modifiers
+
+        return dict_

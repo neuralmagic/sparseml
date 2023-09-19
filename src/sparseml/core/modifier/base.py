@@ -19,6 +19,21 @@ __all__ = ["ModifierInterface"]
 
 
 class ModifierInterface(ABC):
+    @property
+    @abstractmethod
+    def initialized_structure(self) -> bool:
+        raise NotImplementedError()
+
+    @property
+    @abstractmethod
+    def initialized(self) -> bool:
+        raise NotImplementedError()
+
+    @property
+    @abstractmethod
+    def finalized(self) -> bool:
+        raise NotImplementedError()
+
     @abstractmethod
     def check_initialized(self):
         raise NotImplementedError()

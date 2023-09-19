@@ -18,13 +18,13 @@ from typing import Optional
 from pydantic import BaseModel
 
 from sparseml.core.event import Event, EventType
-from sparseml.core.framework import MultiFrameworkObject
+from sparseml.core.framework_object import MultiFrameworkObject
 from sparseml.core.modifier.base import ModifierInterface
 
 __all__ = ["Modifier"]
 
 
-class Modifier(ModifierInterface, MultiFrameworkObject, BaseModel):
+class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
     index: int = None
     group: str = None
     start: float = None
@@ -32,13 +32,25 @@ class Modifier(ModifierInterface, MultiFrameworkObject, BaseModel):
     update: Optional[float] = None
 
     initialized_structure_: bool = False
-    initialized: bool = False
+    initialized_: bool = False
     finalized_: bool = False
     started_: bool = False
     ended_: bool = False
 
+    @property
+    def initialized_structure(self) -> bool:
+        return self._initialized_structure
+
+    @property
+    def initialized(self) -> bool:
+        return self.initialized_
+
+    @property
+    def finalized(self) -> bool:
+        return self.finalized_
+
     def check_initialized(self):
-        if not self.initialized:
+        if not self.initialized_:
             raise RuntimeError("modifier has not been initialized")
 
     def calculate_start(self) -> float:
@@ -52,7 +64,7 @@ class Modifier(ModifierInterface, MultiFrameworkObject, BaseModel):
         self.initialized_structure_ = True
 
     def initialize(self, state: "State", **kwargs):
-        if self.initialized:
+        if self.initialized_:
             return
 
         if self.finalized_:
@@ -69,7 +81,7 @@ class Modifier(ModifierInterface, MultiFrameworkObject, BaseModel):
                 "True for success, False for not initialized"
             )
 
-        self.initialized = initialized
+        self.initialized_ = initialized
 
         if self.should_start(state.start_event):
             self.on_start(state, state.start_event, **kwargs)
@@ -79,7 +91,7 @@ class Modifier(ModifierInterface, MultiFrameworkObject, BaseModel):
         if self.finalized_:
             return
 
-        if not self.initialized:
+        if not self.initialized_:
             raise RuntimeError("cannot finalize an uninitialized modifier")
 
         finalized = self.on_finalize(**kwargs)
@@ -93,7 +105,7 @@ class Modifier(ModifierInterface, MultiFrameworkObject, BaseModel):
         self.finalized_ = finalized
 
     def update_event(self, state: "State", event: Event, **kwargs):
-        if not self.initialized:
+        if not self.initialized_:
             raise RuntimeError("cannot update an uninitialized modifier")
 
         if self.finalized_:

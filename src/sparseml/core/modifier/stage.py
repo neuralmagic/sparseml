@@ -17,11 +17,13 @@ from typing import List
 
 from pydantic import BaseModel, Field
 
+from sparseml.core.event import Event
 from sparseml.core.modifier.base import ModifierInterface
+from sparseml.core.modifier.modifier import Modifier
+from sparseml.core.state import State
 
-__all__ = [
-    "StageModifiers"
-]
+
+__all__ = ["StageModifiers"]
 
 
 class StageModifiers(ModifierInterface, BaseModel):
@@ -29,9 +31,17 @@ class StageModifiers(ModifierInterface, BaseModel):
     index: int = None
     group: str = None
 
-    initialized_structure_: bool = False
-    initialized_: bool = False
-    finalized_: bool = False
+    @property
+    def initialized_structure(self) -> bool:
+        return any(mod.initialized_structure for mod in self.modifiers)
+
+    @property
+    def initialized(self) -> bool:
+        return all(mod.initialized for mod in self.modifiers)
+
+    @property
+    def finalized(self) -> bool:
+        return all(mod.finalized for mod in self.modifiers)
 
     def check_initialized(self):
         for modifier in self.modifiers:
@@ -52,17 +62,14 @@ class StageModifiers(ModifierInterface, BaseModel):
     def pre_initialize_structure(self, state: "State", **kwargs):
         for modifier in self.modifiers:
             modifier.pre_initialize_structure(state, **kwargs)
-        self.initialized_structure_ = True
 
     def initialize(self, state: "State", **kwargs):
         for modifier in self.modifiers:
             modifier.initialize(state, **kwargs)
-        self.initialized_ = True
 
     def finalize(self, state: "State", **kwargs):
         for modifier in self.modifiers:
             modifier.finalize(state, **kwargs)
-        self.finalized_ = True
 
     def update_event(self, state: "State", event: "Event", **kwargs):
         for modifier in self.modifiers:

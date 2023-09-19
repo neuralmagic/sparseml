@@ -15,7 +15,7 @@
 from dataclasses import dataclass
 from typing import Any, Generic, List, TypeVar, Union
 
-from sparseml.core.framework import MultiFrameworkObject
+from sparseml.core.framework_object import MultiFrameworkObject
 
 
 __all__ = ["ModifiableOptimizer"]
@@ -29,6 +29,9 @@ PGT = TypeVar("PGT")
 class ModifiableOptimizer(Generic[OT, PGT], MultiFrameworkObject):
     optimizer: OT = None
     
+    def __init__(self, optimizer=None, attach_optim_callbacks=False, framework=None):
+        self.optimizer = optimizer
+
     def __init__(self, optimizer=None, attach_optim_callbacks=False, framework=None):
         self.optimizer = optimizer
 
