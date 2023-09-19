@@ -16,8 +16,9 @@ from typing import Any, Dict
 
 from pydantic import root_validator
 
+from sparseml.core.factory import ModifierFactory
 from sparseml.core.framework import Framework
-from sparseml.core.modifier import ModifierFactory
+from sparseml.core.modifier import Modifier
 from sparseml.core.recipe.args import RecipeArgs
 from sparseml.core.recipe.base import RecipeBase
 
@@ -57,7 +58,15 @@ class RecipeModifier(RecipeBase):
             self.args_evaluated["end"] += shift
 
     def create_modifier(self, framework: Framework) -> "Modifier":
-        return ModifierFactory.create(self.type, framework, **self.args_evaluated)
+        if not ModifierFactory._loaded:
+            ModifierFactory.refresh()
+        return ModifierFactory.create(
+            self.type,
+            framework=framework,
+            allow_registered=True,
+            allow_experimental=True,
+            **self.args_evaluated,
+        )
 
     @root_validator(pre=True)
     def extract_modifier_type(cls, values: Dict[str, Any]) -> Dict[str, Any]:

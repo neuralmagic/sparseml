@@ -13,6 +13,5 @@
 # limitations under the License.
 
 from .base import *
-from .factory import *
 from .modifier import *
 from .stage import *
