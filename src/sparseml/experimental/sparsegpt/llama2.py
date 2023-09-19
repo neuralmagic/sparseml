@@ -7,7 +7,6 @@ from sparseml.experimental.sparsegpt.model_preprocessor import QuantizationModel
 from sparseml.experimental.sparsegpt.sequential import SequentialSparseGPT
 from sparseml.experimental.sparsegpt.utils import catch, execute_offloaded_module
 
-'''
 smoothquant_subgraph_keys = [
     {
         "module_to_balance": ["q_proj", "k_proj", "v_proj"],
@@ -17,13 +16,6 @@ smoothquant_subgraph_keys = [
         "module_to_balance": ["gate_proj", "up_proj"],
         "module_to_merge_scale": ["post_attention_layernorm", "llamarmsnorm"]
     },
-    {
-        "module_to_balance": ["down_proj"],
-        "module_to_merge_scale": ["up_proj", "linear"],
-    },
-]
-'''
-smoothquant_subgraph_keys = [
     {
         "module_to_balance": ["down_proj"],
         "module_to_merge_scale": ["up_proj", "linear"],
@@ -77,8 +69,8 @@ def prepare_sparsegpt(model, dataloader, args, dev) -> SequentialSparseGPT:
                 dataloader,
                 args.observer_batches,
                 llama2_forward,
-                smoothquant=True,
-                smoothquant_kwargs={"subgraph_keys": smoothquant_subgraph_keys}
+                smoothquant=args.smoothquant or args.logarithmic_equalization,
+                smoothquant_kwargs={"subgraph_keys": smoothquant_subgraph_keys, "alpha": args.smoothquant_alpha, "logarithmic_equalization": args.logarithmic_equalization},
             )
         )
     bottom_compressor = Llama2BottomCompressor(model)
@@ -254,12 +246,13 @@ def llama2_forward(model, data_loader, device, nsamples=None):
 
 
 @torch.no_grad()
-def perplexity_eval(
+def ppl_eval(
+        args,
         model,
         dataloader,
         dev,
         nsamples,
-        dataset: str,
+        dataset: str = "wikitext2",
         log_wandb: bool = False,
         max_samples_per_iteration=128,
 ):
