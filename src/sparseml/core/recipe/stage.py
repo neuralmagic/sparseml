@@ -65,6 +65,7 @@ class RecipeStage(RecipeBase):
             modifier = modifier.create_modifier(framework)
             modifier.group = self.group
             modifier.index = index
+            stage_modifiers.modifiers.append(modifier)
 
         return stage_modifiers
 

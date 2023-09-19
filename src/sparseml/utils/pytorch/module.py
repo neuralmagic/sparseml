@@ -23,6 +23,7 @@ import torch
 from packaging import version
 from torch.nn import Linear, Module, Parameter
 from torch.nn.modules.conv import _ConvNd
+from sparseml.core.model.base import ModelParameterizedLayer
 
 
 try:
@@ -63,6 +64,7 @@ __all__ = [
     "get_terminal_layers",
     "get_prunable_layers",
     "get_quantizable_layers",
+    "get_layers_params"
 ]
 
 
@@ -236,3 +238,20 @@ def get_quantizable_layers(module: Module) -> Dict[str, Module]:
             quantizable[name] = layer
 
     return quantizable
+
+def get_layers_params(targets: Union[str, List[str]], module: Module) -> Dict[str, ModelParameterizedLayer[Parameter, Module]]:
+    params = get_params(targets, module)
+    layers = get_layers(targets, module)
+
+    parameterized_layers = {}
+    for name, param in params.items():
+        param_layer = ModelParameterizedLayer(
+            layer_name=name,
+            layer=layers[name],
+            param_name=name,
+            param=param
+        )
+        parameterized_layers[name] = param_layer
+
+    return parameterized_layers
+        

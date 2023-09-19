@@ -20,13 +20,15 @@ from torch.nn import Module, Parameter
 from torch.utils.hooks import RemovableHandle
 
 from sparseml.core import ModelParameterizedLayer
+from pydantic import BaseModel
 
 
 __all__ = ["LayerParamMasking"]
 
 
 def param_mask_name(param_name: str) -> str:
-    return f"{param_name}_mask"
+    valid_name = param_name.replace(".", "_")
+    return f"{valid_name}_mask"
 
 
 def setup_mask_for_param(param: Parameter, mask: torch.Tensor) -> torch.Tensor:
@@ -50,15 +52,12 @@ class ParameterizedLayerMaskSettings:
     use_hooks: bool = False
 
 
-class LayerParamMasking:
-    def __init__(self):
-        self._mask_settings: Dict[str, ParameterizedLayerMaskSettings] = {}
-        self._masked_layer_params: Dict[
-            str, ModelParameterizedLayer[Module, Parameter]
-        ] = {}
-        self._forward_hooks: Dict[str, RemovableHandle] = {}
-        self._backward_hooks: Dict[str, RemovableHandle] = {}
-        self._enabled = False
+class LayerParamMasking(BaseModel):
+    _mask_settings: Dict[str, ParameterizedLayerMaskSettings] = {}
+    _masked_layer_params: Dict[str, ModelParameterizedLayer[Module, Parameter]] = {}
+    _forward_hooks: Dict[str, RemovableHandle] = {}
+    _backward_hooks: Dict[str, RemovableHandle] = {}
+    enabled_: bool = False
 
     def add_mask(
         self,
@@ -96,7 +95,7 @@ class LayerParamMasking:
         if add_hooks:
 
             def _forward_hook_fn(module, input, output):
-                if not self._enabled:
+                if not self.enabled_:
                     return output
 
                 mask = module.get_buffer(mask_name)
@@ -105,7 +104,7 @@ class LayerParamMasking:
                 return output
 
             def _backward_hook_fn(gradients):
-                if not self._enabled:
+                if not self.enabled_:
                     return
 
                 mask = parameterized_layer.layer.get_buffer(mask_name)
@@ -129,7 +128,7 @@ class LayerParamMasking:
         parameterized_layer = self._masked_layer_params[layer_param_name]
         mask_name = param_mask_name(parameterized_layer.param_name)
         mask_tensor = parameterized_layer.layer.get_buffer(mask_name)
-        mask_tensor.fill_(setup_mask_for_param(parameterized_layer.param, mask))
+        mask_tensor[:] = setup_mask_for_param(parameterized_layer.param, mask)
 
     def remove_mask(self, layer_param_name: str):
         mask_settings = self._mask_settings[layer_param_name]
@@ -151,7 +150,7 @@ class LayerParamMasking:
             del self._backward_hooks[layer_param_name]
 
     def apply_mask_weight(self, layer_param_name: str):
-        if not self._enabled:
+        if not self.enabled_:
             return
 
         parameterized_layer = self._masked_layer_params[layer_param_name]
@@ -160,7 +159,7 @@ class LayerParamMasking:
         parameterized_layer.param.data = parameterized_layer.param.data * mask
 
     def apply_mask_gradient(self, layer_param_name: str):
-        if not self._enabled:
+        if not self.enabled_:
             return
 
         parameterized_layer = self._masked_layer_params[layer_param_name]
@@ -171,7 +170,7 @@ class LayerParamMasking:
             parameterized_layer.param.grad = parameterized_layer.param.grad * mask
 
     def enable_masks(self):
-        self._enabled = True
+        self.enabled_ = True
 
     def disable_masks(self):
-        self._enabled = False
+        self.enabled_ = False

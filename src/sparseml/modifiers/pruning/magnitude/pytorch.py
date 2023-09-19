@@ -30,12 +30,12 @@ from sparseml.modifiers.pruning.utils.pytorch import (
 
 
 class MagnitudePruningModifierPyTorch(MagnitudePruningModifier, LayerParamMasking):
-    _parameterized_layers: Dict[str, ModelParameterizedLayer] = None
+    parameterized_layers_: Dict[str, ModelParameterizedLayer] = None
     _save_masks: bool = False
     _use_hooks: bool = False
-    _scheduler_function: SchedulerCalculationType = None
-    _mask_creator_function: MaskCreatorType = None
-    _current_sparsity: float = None
+    scheduler_function_: SchedulerCalculationType = None
+    mask_creator_function_: MaskCreatorType = None
+    current_sparsity_: float = None
 
     def on_initialize(self, state: State, event: Event, **kwargs) -> bool:
         if self.apply_globally:
@@ -49,7 +49,7 @@ class MagnitudePruningModifierPyTorch(MagnitudePruningModifier, LayerParamMaskin
         if not state.model or not state.start_event:
             return False
 
-        self._scheduler_function = PruningSchedulerFactory.create_scheduler(
+        self.scheduler_function_ = PruningSchedulerFactory.create_scheduler(
             self.update_scheduler,
             PruningCreateSettings(
                 self.start,
@@ -60,13 +60,13 @@ class MagnitudePruningModifierPyTorch(MagnitudePruningModifier, LayerParamMaskin
                 self.scheduler_args,
             ),
         )
-        self._mask_creator_function = PruningMaskFactory.create_mask_creator(
+        self.mask_creator_function_ = PruningMaskFactory.create_mask_creator(
             self.mask_structure
         )
 
-        self._parameterized_layers = state.model.get_layers_params(self.targets)
+        self.parameterized_layers_ = state.model.get_layers_params(self.targets)
 
-        for layer_param_name, parameterized_layer in self._parameterized_layers.items():
+        for layer_param_name, parameterized_layer in self.parameterized_layers_.items():
             self.add_mask(
                 layer_param_name,
                 parameterized_layer,
@@ -77,17 +77,17 @@ class MagnitudePruningModifierPyTorch(MagnitudePruningModifier, LayerParamMaskin
         return True
 
     def on_finalize(self, state: State, event: Event, **kwargs) -> bool:
-        for layer_param_name, _ in self._parameterized_layers.items():
+        for layer_param_name, _ in self.parameterized_layers_.items():
             self.remove_mask(layer_param_name)
 
         return True
 
     def on_start(self, state: State, event: Event, **kwargs):
-        sparsity = self._scheduler_function(event, state)
-        self._current_sparsity = sparsity
+        sparsity = self.scheduler_function_(event, state)
+        self.current_sparsity_ = sparsity
 
-        for layer_param_name, parameterized_layer in self._parameterized_layers.items():
-            mask = self._mask_creator_function(
+        for layer_param_name, parameterized_layer in self.parameterized_layers_.items():
+            mask = self.mask_creator_function_(
                 PruningMaskCreatorArgs(
                     parameter=parameterized_layer.param,
                     sparsity=sparsity,
@@ -100,15 +100,15 @@ class MagnitudePruningModifierPyTorch(MagnitudePruningModifier, LayerParamMaskin
 
     def on_update(self, state: State, event: Event, **kwargs):
         if event.type_ == EventType.BATCH_START:
-            sparsity = self._scheduler_function(event, state)
-            if sparsity != self._current_sparsity:
-                self._current_sparsity = sparsity
+            sparsity = self.scheduler_function_(event, state)
+            if sparsity != self.current_sparsity_:
+                self.current_sparsity_ = sparsity
 
                 for (
                     layer_param_name,
                     parameterized_layer,
-                ) in self._parameterized_layers.items():
-                    mask = self._mask_creator_function(
+                ) in self.parameterized_layers_.items():
+                    mask = self.mask_creator_function_(
                         PruningMaskCreatorArgs(
                             parameter=parameterized_layer.param,
                             sparsity=sparsity,
@@ -117,10 +117,10 @@ class MagnitudePruningModifierPyTorch(MagnitudePruningModifier, LayerParamMaskin
                     )
                     self.update_mask(layer_param_name, mask)
         elif event.type_ == EventType.OPTIM_PRE_STEP and not self._use_hooks:
-            for layer_param_name, _ in self._parameterized_layers.items():
+            for layer_param_name, _ in self.parameterized_layers_.items():
                 self.apply_mask_gradient(layer_param_name)
         elif event.type_ == EventType.OPTIM_POST_STEP and not self._use_hooks:
-            for layer_param_name, _ in self._parameterized_layers.items():
+            for layer_param_name, _ in self.parameterized_layers_.items():
                 self.apply_mask_weight(layer_param_name)
 
     def on_end(self, state: State, event: Event, **kwargs):

@@ -53,7 +53,6 @@ class RecipeContainer:
 
             if not isinstance(recipe, list):
                 recipe = [recipe]
-
             if recipe_stage is None:
                 recipe_stage = [None] * len(recipe)
             elif not isinstance(recipe_stage, list):
@@ -72,10 +71,6 @@ class RecipeContainer:
             for rec, stage, args in zip(recipe, recipe_stage, recipe_args):
                 if isinstance(rec, str):
                     rec = Recipe.create_instance(rec)
-                if isinstance(stage, str):
-                    stage = [stage]
-                elif stage is None:
-                    stage = []
                 self.recipes.append(RecipeTuple(rec, stage, args))
 
         return kwargs

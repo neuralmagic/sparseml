@@ -23,6 +23,7 @@ from sparseml.core.event import Event
 from sparseml.core.framework import Framework
 from sparseml.core.model import ModifiableModel
 from sparseml.core.optimizer import ModifiableOptimizer
+from sparseml.core.event import EventType
 
 
 __all__ = ["State", "Data", "Hardware", "ModifiedState"]
@@ -68,8 +69,8 @@ class State:
         return (
             self.model is not None
             and self.optimizer is not None
-            and self.loss is not None
-            and self.batch_data is not None
+            #and self.loss is not None
+            #and self.batch_data is not None
         )
 
     def update(
@@ -116,7 +117,7 @@ class State:
             or batches_per_step is not None
         ):
             if self.start_event is None:
-                self.start_event = Event()
+                self.start_event = Event(type_=EventType.BATCH_START)
 
             if start is not None:
                 self.start_event.current_index = start

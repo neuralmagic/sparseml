@@ -75,7 +75,7 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
 
     def on_start(self, state: State, event: Event, **kwargs):
         for wrapper in self._wrappers.values():
-            wrapper.kd_enabled = True
+            wrapper.kdenabled_ = True
 
     def on_update(self, state: State, event: Event, **kwargs):
         if event.type_ == EventType.LOSS_CALCULATED and event.should_update(
@@ -88,7 +88,7 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
 
     def on_end(self, state: State, event: Event, **kwargs):
         for wrapper in self._wrappers.values():
-            wrapper.kd_enabled = False
+            wrapper.kdenabled_ = False
 
     def _create_wrapper(
         self, student_layer: Module, teacher_layer: Module, state: State

@@ -176,7 +176,7 @@ class SparsificationLifecycle:
         if (
             self.state is None
             or self.state.model is None
-            or self.state.start_event
+            or self.state.start_event is None
             or self.recipe_container.compiled_recipe is None
         ):
             raise ValueError(
@@ -192,12 +192,20 @@ class SparsificationLifecycle:
             mod.check_initialized()
 
         if event_type == EventType.BATCH_START:
-            self.event_lifecycle = WrappedOptimEventLifecycle(
+            self.event_lifecycle = CallbacksEventLifecycle(
                 type_first=EventType.BATCH_START, start=self.state.start_event
             )
         elif event_type == EventType.LOSS_CALCULATED:
             self.event_lifecycle = CallbacksEventLifecycle(
                 type_first=EventType.LOSS_CALCULATED, start=self.state.start_event
+            )
+        elif event_type == EventType.OPTIM_PRE_STEP:
+            self.event_lifecycle = CallbacksEventLifecycle(
+                type_first=EventType.OPTIM_PRE_STEP, start=self.state.start_event
+            )
+        elif event_type == EventType.OPTIM_POST_STEP:
+            self.event_lifecycle = CallbacksEventLifecycle(
+                type_first=EventType.OPTIM_POST_STEP, start=self.state.start_event
             )
         else:
             raise ValueError(f"invalid event type {event_type}")

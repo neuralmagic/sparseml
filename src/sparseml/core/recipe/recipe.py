@@ -59,19 +59,22 @@ class Recipe(RecipeBase):
     def simplify_recipe(
         recipe: Union["Recipe", "RecipeTuple"], shift: int = None
     ) -> "Recipe":
-        stages = recipe.target_stages if isinstance(recipe, RecipeTuple) else []
+        stages = []
+        if isinstance(recipe, RecipeTuple):
+            stage_names = recipe.target_stages
+            if stage_names is None:
+                stages = recipe.recipe.stages
+            else:
+                for stage in recipe.recipe.stages:
+                    if stage.group in stage_names:
+                        stages.append(stage)
         args = recipe.override_args if isinstance(recipe, RecipeTuple) else {}
         version = recipe.version if isinstance(recipe, Recipe) else None
 
         simplified = Recipe()
         simplified.version = version
         simplified.args = args
-        simplified.stages = [
-            stage
-            for stage in stages
-            if ((not stages or "default" in stages) and not stage.exclude_default)
-            or stage.group in stages
-        ]
+        simplified.stages = stages
         simplified.evaluate(args=args, shift=shift)
 
         return simplified

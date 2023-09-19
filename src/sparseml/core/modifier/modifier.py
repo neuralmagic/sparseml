@@ -73,7 +73,7 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
         if state.start_event is None:
             return
 
-        initialized = self.on_initialize(**kwargs)
+        initialized = self.on_initialize(state=state, event=state.start_event, **kwargs)
 
         if not isinstance(initialized, bool):
             raise ValueError(

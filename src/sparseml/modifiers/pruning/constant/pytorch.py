@@ -20,7 +20,7 @@ from sparseml.modifiers.pruning.utils.pytorch import LayerParamMasking
 
 
 class ConstantPruningModifierPyTorch(ConstantPruningModifier, LayerParamMasking):
-    _parameterized_layers: Dict[str, ModelParameterizedLayer] = None
+    parameterized_layers_: Dict[str, ModelParameterizedLayer] = None
     _save_masks: bool = False
     _use_hooks: bool = False
 
@@ -33,9 +33,9 @@ class ConstantPruningModifierPyTorch(ConstantPruningModifier, LayerParamMasking)
         if not state.model or not state.start_event:
             return False
 
-        self._parameterized_layers = state.model.get_layers_params(self.targets)
+        self.parameterized_layers_ = state.model.get_layers_params(self.targets)
 
-        for layer_param_name, parameterized_layer in self._parameterized_layers.items():
+        for layer_param_name, parameterized_layer in self.parameterized_layers_.items():
             self.add_mask(
                 layer_param_name,
                 parameterized_layer,
@@ -46,13 +46,13 @@ class ConstantPruningModifierPyTorch(ConstantPruningModifier, LayerParamMasking)
         return True
 
     def on_finalize(self, state: State, event: Event, **kwargs) -> bool:
-        for layer_param_name, _ in self._parameterized_layers.items():
+        for layer_param_name, _ in self.parameterized_layers_.items():
             self.remove_mask(layer_param_name)
 
         return True
 
     def on_start(self, state: State, event: Event, **kwargs):
-        for layer_param_name, parameterized_layer in self._parameterized_layers.items():
+        for layer_param_name, parameterized_layer in self.parameterized_layers_.items():
             self.update_mask(
                 layer_param_name, parameterized_layer.param.data.abs() < self._epsilon
             )
@@ -65,10 +65,10 @@ class ConstantPruningModifierPyTorch(ConstantPruningModifier, LayerParamMasking)
             return
 
         if event.type_ == EventType.OPTIM_PRE_STEP:
-            for layer_param_name, _ in self._parameterized_layers.items():
+            for layer_param_name, _ in self.parameterized_layers_.items():
                 self.apply_mask_gradient(layer_param_name)
         elif event.type_ == EventType.OPTIM_POST_STEP:
-            for layer_param_name, _ in self._parameterized_layers.items():
+            for layer_param_name, _ in self.parameterized_layers_.items():
                 self.apply_mask_weight(layer_param_name)
 
     def on_end(self, state: State, event: Event, **kwargs):

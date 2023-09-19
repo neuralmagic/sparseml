@@ -57,7 +57,7 @@ class RecipeModifier(RecipeBase):
             self.args_evaluated["end"] += shift
 
     def create_modifier(self, framework: Framework) -> "Modifier":
-        return ModifierFactory.create(self.type, framework, **self._args_evaluated)
+        return ModifierFactory.create(self.type, framework, **self.args_evaluated)
 
     @root_validator(pre=True)
     def extract_modifier_type(cls, values: Dict[str, Any]) -> Dict[str, Any]:
