@@ -13,13 +13,12 @@
 # limitations under the License.
 
 import torch
-import torch.nn as nn
-from math import ceil
 
 from sparseml.experimental.sparsegpt.layer_compressor import BaseCompressor
 from sparseml.experimental.sparsegpt.model_preprocessor import QuantizationModelPreprocessor
 from sparseml.experimental.sparsegpt.sequential import SequentialSparseGPT
-from sparseml.experimental.sparsegpt.utils import catch, execute_offloaded_module
+from sparseml.experimental.sparsegpt.utils import catch, execute_offloaded_module, ppl_eval_general
+
 
 smoothquant_subgraph_keys = [
     {
@@ -56,19 +55,13 @@ class Llama2BottomCompressor(BaseCompressor):
         self,
         dataloader=None,
         nsamples: int = None,
-        device: str = "cuda:0",
+        dev: str = "cuda:0",
         **kwargs,
     ):
-        cached_inputs = cache_attention_inputs(self.model, dataloader, device, nsamples)
+        cached_inputs = cache_attention_inputs(self.model, dataloader, dev, nsamples)
 
-        outputs = execute_offloaded_module(
-            self.model.model.embed_tokens,
-            dataloader,
-            device,
-            nsamples,
-            overwrite_buffer=False,
-        )
-
+        outputs = cached_inputs.pop("inputs")
+        outputs = [o[0] for o in outputs]
         cached_inputs.update({"outputs": outputs})
         return self.model, cached_inputs
 
@@ -225,13 +218,7 @@ def cache_attention_inputs(model, data_loader, device, nsamples):
 def llama2_forward(model, data_loader, device, nsamples=None):
     # Catch attention mask
     cached_inputs = cache_attention_inputs(model, data_loader, device, nsamples)
-    buffer = execute_offloaded_module(
-        model.model.embed_tokens,
-        data_loader,
-        device,
-        nsamples,
-        overwrite_buffer=False,
-    )
+    buffer = [b[0] for b in cached_inputs.pop("inputs")]
     for layer in model.model.layers:
         buffer = execute_offloaded_module(
             layer,
@@ -259,49 +246,7 @@ def llama2_forward(model, data_loader, device, nsamples=None):
     return logits
 
 
-@torch.no_grad()
-def ppl_eval(
-        args,
-        model,
-        dataloader,
-        dev,
-        nsamples,
-        dataset: str = "wikitext2",
-        log_wandb: bool = False,
-        max_samples_per_iteration=128,
-):
-    print("Evaluating perplexity...")
 
-    number_iterations = int(ceil(len(dataloader) / max_samples_per_iteration))
-    neg_log_likelihood = 0.
-    number_tokens = 0
-    for iteration in range(number_iterations):
-        if iteration < number_iterations - 1:
-            samples = dataloader[iteration*max_samples_per_iteration:(iteration+1)*max_samples_per_iteration]
-        else:
-            samples = dataloader[iteration * max_samples_per_iteration:]
-
-        logits = llama2_forward(model, samples, dev, nsamples)
-
-        vocabulary_size = logits[0].shape[-1]
-        logits = [logit[:, :-1, :].view(-1, vocabulary_size) for logit in logits]
-        logits = torch.concatenate(logits, dim=0).contiguous().to(torch.float32)
-
-        labels = [sample[:, 1:].view(-1) for sample in samples]
-        labels = torch.concatenate(labels, dim=0).to(dev)
-        neg_log_likelihood += nn.functional.cross_entropy(
-            logits,
-            labels,
-            reduction="sum",
-        )
-
-        number_tokens += labels.numel()
-        print(torch.exp(neg_log_likelihood / number_tokens), flush=True)
-
-    ppl = torch.exp(neg_log_likelihood / number_tokens)
-    print(f"Perplexity: {ppl.item():3f}")
-    if log_wandb:
-        wandb.log({f"{dataset}/perplexity": ppl.item()})
 
 
 def get_c4(nsamples, seed, seqlen, model):
@@ -351,3 +296,20 @@ def get_c4(nsamples, seed, seqlen, model):
     valenc = TokenizerWrapper(valenc)
 
     return trainloader, valenc, tokenizer
+
+def ppl_eval(
+        args,
+        model,
+        dataloader,
+        dev,
+        nsamples=None,
+        max_samples_per_iteration=128,
+):
+    return ppl_eval_general(
+        llama2_forward,
+        model,
+        dataloader,
+        dev,
+        nsamples,
+        max_samples_per_iteration,
+    )
