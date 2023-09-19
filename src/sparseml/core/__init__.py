@@ -14,6 +14,7 @@
 
 from .data import *
 from .event import *
+from .factory import *
 from .framework import *
 from .framework_object import *
 from .lifecycle import *
