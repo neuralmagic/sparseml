@@ -29,9 +29,9 @@ class StageModifiers(ModifierInterface, BaseModel):
     index: int = None
     group: str = None
 
-    _initialized_structure: bool = False
-    _initialized: bool = False
-    _finalized: bool = False
+    initialized_structure_: bool = False
+    initialized_: bool = False
+    finalized_: bool = False
 
     def check_initialized(self):
         for modifier in self.modifiers:
@@ -52,17 +52,17 @@ class StageModifiers(ModifierInterface, BaseModel):
     def pre_initialize_structure(self, state: "State", **kwargs):
         for modifier in self.modifiers:
             modifier.pre_initialize_structure(state, **kwargs)
-        self._initialized_structure = True
+        self.initialized_structure_ = True
 
     def initialize(self, state: "State", **kwargs):
         for modifier in self.modifiers:
             modifier.initialize(state, **kwargs)
-        self._initialized = True
+        self.initialized_ = True
 
     def finalize(self, state: "State", **kwargs):
         for modifier in self.modifiers:
             modifier.finalize(state, **kwargs)
-        self._finalized = True
+        self.finalized_ = True
 
     def update_event(self, state: "State", event: "Event", **kwargs):
         for modifier in self.modifiers:

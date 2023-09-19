@@ -15,6 +15,7 @@
 
 import importlib
 from enum import Enum
+from pydantic import ValidationError
 
 
 __all__ = ["Framework", "MultiFrameworkObject"]
@@ -100,8 +101,13 @@ class MultiFrameworkObject:
             return MultiFrameworkObject.load_framework_class(
                 f"{package}.{str(framework)}", f"{class_name}{framework.class_name()}"
             )(**kwargs)
-        except ImportError:
+        except ImportError as e:
+            print(e)
             pass
+        except ValidationError as e:
+            print(e)
+            print(e.errors())
+
 
         # fall back on the class that was requested and
         # fail later if it doesn't support that framework

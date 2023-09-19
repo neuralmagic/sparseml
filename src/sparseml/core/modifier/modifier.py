@@ -31,14 +31,14 @@ class Modifier(ModifierInterface, MultiFrameworkObject, BaseModel):
     end: Optional[float] = None
     update: Optional[float] = None
 
-    _initialized_structure: bool = False
-    _initialized: bool = False
-    _finalized: bool = False
-    _started: bool = False
-    _ended: bool = False
+    initialized_structure_: bool = False
+    initialized: bool = False
+    finalized_: bool = False
+    started_: bool = False
+    ended_: bool = False
 
     def check_initialized(self):
-        if not self._initialized:
+        if not self.initialized:
             raise RuntimeError("modifier has not been initialized")
 
     def calculate_start(self) -> float:
@@ -49,13 +49,13 @@ class Modifier(ModifierInterface, MultiFrameworkObject, BaseModel):
 
     def pre_initialize_structure(self, state: "State", **kwargs):
         self.on_initialize_structure(state, **kwargs)
-        self._initialized_structure = True
+        self.initialized_structure_ = True
 
     def initialize(self, state: "State", **kwargs):
-        if self._initialized:
+        if self.initialized:
             return
 
-        if self._finalized:
+        if self.finalized_:
             raise RuntimeError("cannot initialize a finalized modifier")
 
         if state.start_event is None:
@@ -69,17 +69,17 @@ class Modifier(ModifierInterface, MultiFrameworkObject, BaseModel):
                 "True for success, False for not initialized"
             )
 
-        self._initialized = initialized
+        self.initialized = initialized
 
         if self.should_start(state.start_event):
             self.on_start(state, state.start_event, **kwargs)
-            self._started = True
+            self.started_ = True
 
     def finalize(self, state: "State", **kwargs):
-        if self._finalized:
+        if self.finalized_:
             return
 
-        if not self._initialized:
+        if not self.initialized:
             raise RuntimeError("cannot finalize an uninitialized modifier")
 
         finalized = self.on_finalize(**kwargs)
@@ -90,23 +90,23 @@ class Modifier(ModifierInterface, MultiFrameworkObject, BaseModel):
                 "True for success, False for not finalized"
             )
 
-        self._finalized = finalized
+        self.finalized_ = finalized
 
     def update_event(self, state: "State", event: Event, **kwargs):
-        if not self._initialized:
+        if not self.initialized:
             raise RuntimeError("cannot update an uninitialized modifier")
 
-        if self._finalized:
+        if self.finalized_:
             raise RuntimeError("cannot update a finalized modifier")
 
         # handle starting the modifier if needed
         if (
             event.type_ == EventType.BATCH_START
-            and not self._started
+            and not self.started_
             and self.should_start(event)
         ):
             self.on_start(state, event, **kwargs)
-            self._started = True
+            self.started_ = True
             self.on_update(state, event, **kwargs)
 
             return
@@ -114,16 +114,16 @@ class Modifier(ModifierInterface, MultiFrameworkObject, BaseModel):
         # handle ending the modifier if needed
         if (
             event.type_ == EventType.BATCH_END
-            and not self._ended
+            and not self.ended_
             and self.should_end(event)
         ):
             self.on_end(state, event, **kwargs)
-            self._ended = True
+            self.ended_ = True
             self.on_update(state, event, **kwargs)
 
             return
 
-        if self._started and not self._ended:
+        if self.started_ and not self.ended_:
             self.on_update(state, event, **kwargs)
 
     def should_start(self, event: Event):

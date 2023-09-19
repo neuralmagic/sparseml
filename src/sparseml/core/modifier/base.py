@@ -19,9 +19,6 @@ __all__ = ["ModifierInterface"]
 
 
 class ModifierInterface(ABC):
-    def __init__(self, **kwargs):
-        pass
-
     @abstractmethod
     def check_initialized(self):
         raise NotImplementedError()

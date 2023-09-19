@@ -14,3 +14,4 @@
 
 from .stage import StageModifiers
 from .factory import ModifierFactory
+from .modifier import Modifier
