@@ -11,15 +11,18 @@ MERGING_MODULES = [
     torch.nn.Linear,
 ]
 
+
 class SmoothQuant:
     def __init__(
             self,
             layers,
             subgraph_keys,
             alpha: float = 0.5,
+            logarithmic_equalization=False,
     ):
         self.layers = layers
         self.alpha = alpha
+        self.logarithmic_equalization = logarithmic_equalization
         self.subgraph_keys = subgraph_keys
 
     def is_balance_module(self, module):
@@ -53,14 +56,17 @@ class SmoothQuant:
     def apply_smoothing(self, layer):
         for subgraph_keys in self.subgraph_keys:
             modules_to_balance, module_to_merge_scale = self.get_smoothquant_subgraph(layer, subgraph_keys)
-            activation_scale = modules_to_balance[0].quant.activation_post_process.scale
-            weight_scales = []
-            for b in modules_to_balance:
-                weight_scales.append(torch.max(torch.abs(b.module.weight), keepdim=True, dim=0)[0])
-            weight_scales = torch.cat(weight_scales, dim=0)
-            weight_scales = torch.max(weight_scales, dim=0)[0] / 128.
+            activation_scale = modules_to_balance[0].quant.activation_post_process.scale * 256
+            if self.logarithmic_equalization:
+                scales = activation_scale / torch.log2(2 + activation_scale)
+            else:
+                weight_scales = []
+                for b in modules_to_balance:
+                    weight_scales.append(torch.max(torch.abs(b.module.weight), keepdim=True, dim=0)[0])
+                weight_scales = torch.cat(weight_scales, dim=0)
+                weight_scales = torch.max(weight_scales, dim=0)[0] / 128.
 
-            scales = activation_scale.pow(self.alpha) / weight_scales.pow(1.0 - self.alpha)
+                scales = activation_scale.pow(self.alpha) / weight_scales.pow(1.0 - self.alpha)
 
             for b in modules_to_balance:
                 b.module.weight.mul_(scales.view(1, -1))
