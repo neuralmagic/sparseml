@@ -15,15 +15,17 @@ sml.create_session()
 session = sml.active_session()
 
 NUM_LABELS = 3
+device = "cuda:0"
+BATCH_SIZE = 32
+
 model = torchvision.models.mobilenet_v2(weights=torchvision.models.MobileNet_V2_Weights.DEFAULT)
 model.classifier[1] = torch.nn.Linear(model.classifier[1].in_features, NUM_LABELS)
+model.to(device)
 optimizer = Adam(model.parameters(), lr=8e-3)
 
 train_path = "/home/sadkins/.cache/huggingface/datasets/downloads/extracted/dbf92bfb2c3766fb3083a51374ad94d8a3690f53cdf0f9113a231c2351c9ff33/train"
 val_path = "/home/sadkins/.cache/huggingface/datasets/downloads/extracted/510ede718de2aeaa2f9d88b0d81d88c449beeb7d074ea594bdf25a0e6a9d51d0/validation"
 
-NUM_LABELS = 3
-BATCH_SIZE = 32
 
 # imagenet transforms
 imagenet_transform = transforms.Compose([
@@ -72,22 +74,18 @@ session_data = session.initialize(
     steps_per_epoch= len(train_loader) # number of times steps in called per epoch (total_data / batch_size in normal cases)
 )
 
-running_loss = 0.0
-total_correct = 0
-total_predictions = 0
-
-NUM_EPOCHS = 15
-device = "cuda:0"
-
-session.state.model.model.to(device)
+NUM_EPOCHS = 2
 
 # loop through batches
 for epoch in range(NUM_EPOCHS):
+    running_loss = 0.0
+    total_correct = 0
+    total_predictions = 0
     for step, (inputs, labels) in enumerate(session.state.data.train):
         inputs = inputs.to(device)
         labels = labels.to(device)
-        session.event(event_type=EventType.BATCH_START, batch_data=(input, labels))
         session.state.optimizer.optimizer.zero_grad()
+        session.event(event_type=EventType.BATCH_START, batch_data=(input, labels))
 
         outputs = session.state.model.model(inputs)
         loss = criterion(outputs, labels)
@@ -109,6 +107,8 @@ for epoch in range(NUM_EPOCHS):
     loss = running_loss / (step + 1.0)
     accuracy = total_correct / total_predictions
     print("Epoch: {} Loss: {} Accuracy: {}".format(epoch, loss, accuracy))
+
+#session.finalize()
 
 for (name, layer) in get_prunable_layers(session.state.model.model):
     print(f"{name}.weight: {tensor_sparsity(layer.weight).item():.4f}")

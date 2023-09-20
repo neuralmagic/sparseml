@@ -140,10 +140,7 @@ def polynomial_decay_scheduler(
             settings.end - settings.start
         )
 
-        if exponent % 2 == 0:
-            scaled_complete = -1 * np.exp(per_complete - 1) + 1
-        else:
-            scaled_complete = np.exp(per_complete - 1) - 1
+        scaled_complete = pow(per_complete - 1, exponent) + 1
 
         return (
             settings.init_sparsity

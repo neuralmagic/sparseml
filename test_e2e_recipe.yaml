@@ -3,8 +3,8 @@ test_stage:
     MagnitudePruningModifier:
       init_sparsity: 0.0
       final_sparsity: 0.5
-      start: 5.0
-      end: 10.0
+      start: 0.0
+      end: 1.0
       update_frequency: 0.5
       targets:        
           - features.0.0.weight

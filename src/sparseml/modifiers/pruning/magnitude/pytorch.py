@@ -124,4 +124,5 @@ class MagnitudePruningModifierPyTorch(MagnitudePruningModifier, LayerParamMaskin
                 self.apply_mask_weight(layer_param_name)
 
     def on_end(self, state: State, event: Event, **kwargs):
-        self.disable_masks()
+        if not self.leave_enabled:
+            self.disable_masks()
