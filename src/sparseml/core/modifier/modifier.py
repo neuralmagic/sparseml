@@ -73,7 +73,7 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
         if state.start_event is None:
             return
 
-        initialized = self.on_initialize(state=state, event=state.start_event, **kwargs)
+        initialized = self.on_initialize(state=state, **kwargs)
 
         if not isinstance(initialized, bool):
             raise ValueError(
@@ -94,7 +94,7 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
         if not self.initialized_:
             raise RuntimeError("cannot finalize an uninitialized modifier")
 
-        finalized = self.on_finalize(**kwargs)
+        finalized = self.on_finalize(state=state, **kwargs)
 
         if not isinstance(finalized, bool):
             raise ValueError(
@@ -153,10 +153,10 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
     def on_initialize_structure(self, state: "State", **kwargs):
         raise NotImplementedError()
 
-    def on_initialize(self, state: "State", event: Event, **kwargs) -> bool:
+    def on_initialize(self, state: "State", **kwargs) -> bool:
         raise NotImplementedError()
 
-    def on_finalize(self, state: "State", event: Event, **kwargs) -> bool:
+    def on_finalize(self, state: "State", **kwargs) -> bool:
         raise NotImplementedError()
 
     def on_start(self, state: "State", event: Event, **kwargs):

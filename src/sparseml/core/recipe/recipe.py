@@ -73,7 +73,7 @@ class Recipe(RecipeBase):
 
         simplified = Recipe()
         simplified.version = version
-        simplified.args = args
+        simplified.args = RecipeArgs(args)
         simplified.stages = stages
         simplified.evaluate(args=args, shift=shift)
 
@@ -93,14 +93,15 @@ class Recipe(RecipeBase):
             )
             combined.version = simplified.version
             combined.stages.extend(simplified.stages)
+            combined.args.combine(simplified.args)
 
         return combined
 
     version: str = None
-    args: RecipeArgs = None
+    args: RecipeArgs = Field(default_factory=RecipeArgs)
     stages: List[RecipeStage] = Field(default_factory=list)
     metadata: RecipeMetaData = None
-    args_evaluated: RecipeArgs = None
+    args_evaluated: RecipeArgs = Field(default_factory=RecipeArgs)
 
     def calculate_start(self) -> int:
         return min(

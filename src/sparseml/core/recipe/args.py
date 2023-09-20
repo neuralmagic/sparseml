@@ -49,7 +49,7 @@ class RecipeArgs(Dict[str, Any]):
         return resolved
 
     @staticmethod
-    def eval_str(target: str, args: Dict[str, Any] = None) -> str:
+    def eval_str(target: str, args: Dict[str, Any] = None) -> Union[str,float]:
         if "eval(" not in target:
             return target
 
@@ -62,8 +62,10 @@ class RecipeArgs(Dict[str, Any]):
         inner_expr = match.group(1)
         result = eval(inner_expr, {"math": math}, args if args else {})
         new_target = target.replace(match.group(0), str(result))
-
-        return RecipeArgs.eval_str(new_target, args)
+        try:
+            return float(new_target)
+        except ValueError:
+            return RecipeArgs.eval_str(new_target, args)
 
     @staticmethod
     def eval_args(args: Dict[str, Any]) -> "RecipeArgs":

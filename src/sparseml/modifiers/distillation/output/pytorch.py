@@ -28,7 +28,7 @@ __all__ = ["OutputDistillationModifierPyTorch"]
 class OutputDistillationModifierPyTorch(OutputDistillationModifier):
     _wrappers: Dict[str, KDModuleWrapper] = None
 
-    def on_initialize(self, state: State, event: Event, **kwargs) -> bool:
+    def on_initialize(self, state: State, **kwargs) -> bool:
         if (
             state.framework is None
             or state.model is None
@@ -66,7 +66,7 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
 
         return True
 
-    def on_finalize(self, state: State, event: Event, **kwargs) -> bool:
+    def on_finalize(self, state: State, **kwargs) -> bool:
         for key, wrapper in self._wrappers.items():
             state.model.set_layer(key, wrapper.student_layer)
             del wrapper

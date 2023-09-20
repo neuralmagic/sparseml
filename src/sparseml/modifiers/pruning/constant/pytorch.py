@@ -24,7 +24,7 @@ class ConstantPruningModifierPyTorch(ConstantPruningModifier, LayerParamMasking)
     _save_masks: bool = False
     _use_hooks: bool = False
 
-    def on_initialize(self, state: State, event: Event, **kwargs) -> bool:
+    def on_initialize(self, state: State, **kwargs) -> bool:
         if "save_masks" in kwargs:
             self._save_masks = kwargs["save_masks"]
         if "use_hooks" in kwargs:
@@ -45,7 +45,7 @@ class ConstantPruningModifierPyTorch(ConstantPruningModifier, LayerParamMasking)
 
         return True
 
-    def on_finalize(self, state: State, event: Event, **kwargs) -> bool:
+    def on_finalize(self, state: State, **kwargs) -> bool:
         for layer_param_name, _ in self.parameterized_layers_.items():
             self.remove_mask(layer_param_name)
 

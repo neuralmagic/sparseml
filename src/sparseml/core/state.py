@@ -117,7 +117,7 @@ class State:
             or batches_per_step is not None
         ):
             if self.start_event is None:
-                self.start_event = Event(type_=EventType.BATCH_START)
+                self.start_event = Event()
 
             if start is not None:
                 self.start_event.current_index = start
