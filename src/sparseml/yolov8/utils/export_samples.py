@@ -78,7 +78,7 @@ def export_sample_inputs_outputs(
     exported_samples = 0
 
     # Sample export directories
-    sample_in_dir = os.path.join(save_dir, "sample_inputs")
+    sample_in_dir = os.path.join(save_dir, "sample-inputs")
     sample_out_dir_torch = os.path.join(save_dir, "sample_outputs_torch")
     sample_out_dir_ort = os.path.join(save_dir, "sample_outputs_onnxruntime")
 
@@ -145,12 +145,18 @@ def _export_torch_outputs(
     # Run model to get torch outputs
     model_out = model(image)
     preds = model_out
+    sample_output_filename = os.path.join(sample_out_dir, f"out-{file_idx}.npz")
+    seg_prediction = None
 
     # Move to cpu for exporting
-    preds = preds.detach().to("cpu")
+    # Segmentation currently supports two outputs
+    if isinstance(preds, tuple):
+        preds_out = preds[0].detach().to("cpu")
+        seg_prediction = preds[1].detach().to("cpu")
+    else:
+        preds_out = preds.detach().to("cpu")
 
-    sample_output_filename = os.path.join(sample_out_dir, f"out-{file_idx}.npz")
-    numpy.savez(sample_output_filename, preds)
+    numpy.savez(sample_output_filename, preds_out, seg_prediction=seg_prediction)
 
 
 def _export_ort_outputs(
@@ -163,11 +169,19 @@ def _export_ort_outputs(
     # Run model to get onnxruntime outputs
     ort_inputs = {session.get_inputs()[0].name: image}
     ort_outs = session.run(None, ort_inputs)
-    preds = numpy.squeeze(ort_outs, axis=0)
-    preds = numpy.squeeze(preds, axis=0)
+    preds = ort_outs
+    seg_prediction = None
+
+    if len(preds) > 1:
+        preds_out = preds[0]
+        seg_prediction = preds[1]
+    else:
+        preds_out = preds[0]
+
+    preds_out = numpy.squeeze(preds_out, axis=0)
 
     sample_output_filename = os.path.join(sample_out_dir, f"out-{file_idx}.npz")
-    numpy.savez(sample_output_filename, preds)
+    numpy.savez(sample_output_filename, preds_out, seg_prediction=seg_prediction)
 
 
 def _export_inputs(image: torch.Tensor, sample_in_dir: str, file_idx: str):

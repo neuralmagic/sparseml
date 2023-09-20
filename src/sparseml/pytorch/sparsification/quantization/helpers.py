@@ -139,6 +139,10 @@ class QConfigProperties:
         Default is torch.qint8.
     :param activation_bits: number of bits for activations. Default is 8.
     :param weight_bits: number of bits for weights. Default is 8.
+    :param activation_strategy: "tensor" to quantize over the whole activation tensor,
+        or "channel" to quantize per channel. Default is "tensor"
+    :param weight_strategy: "tensor" to quantize over the whole weight tensor, or
+        "channel" to quantize per channel. Default is "tensor"
     :param tensorrt: if True sets quantization configuration for compatibility with
        explict quantization as supported by TensorRT 8.2.
     """
@@ -150,6 +154,8 @@ class QConfigProperties:
     weight_dtype: torch.dtype = torch.qint8
     activation_bits: int = 8
     weight_bits: int = 8
+    activation_strategy: str = "tensor"
+    weight_strategy: str = "tensor"
     activation_qconfig_kwargs: Dict[str, Any] = field(default_factory=dict)
     weight_qconfig_kwargs: Dict[str, Any] = field(default_factory=dict)
     tensorrt: bool = False
@@ -552,6 +558,7 @@ def get_qat_qconfig(qproperties: QConfigProperties) -> "torch.quantization.QConf
     """
     activation_observer = get_observer(
         qproperties.symmetric_activations,
+        qproperties.activation_strategy,
         qproperties.activation_dtype,
         qproperties.activation_bits,
         qproperties.reduce_range,
@@ -560,6 +567,7 @@ def get_qat_qconfig(qproperties: QConfigProperties) -> "torch.quantization.QConf
 
     weight_observer = get_observer(
         qproperties.symmetric_weights,
+        qproperties.weight_strategy,
         qproperties.weight_dtype,
         qproperties.weight_bits,
         False,
@@ -698,7 +706,7 @@ def prepare_embeddings_qat(
     for submodule in module.modules():
         submodule_qconfig = getattr(submodule, "qconfig", None)
         submodule_qconfig = submodule_qconfig or qconfig
-        if type(submodule) is Embedding and submodule_qconfig is not None:
+        if isinstance(submodule, Embedding) and submodule_qconfig is not None:
             _prepare_qat_embedding(submodule, submodule_qconfig)
 
 

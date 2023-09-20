@@ -97,10 +97,17 @@ def add_quantized_conv_matmul_add_ops(
             output_quantize_node=output_quantize_node,
         )
         model.graph.node.append(qadd_node)
-
-        # bias has same scale as future rescale op
-        rescale_scale = quantized_bias_scale
         mul_input_node_name = qadd_node.name
+
+        # bias has same scale as future rescale op, unless doing channel-wise Conv
+        if weight_quantize_params.scale.size > 1 and node.op_type == "Conv":
+            # channel-wise Conv
+            rescale_scale = _create_rescale_init(
+                node, input_quantize_params, weight_quantize_params, reshape=True
+            )
+            model.graph.initializer.append(rescale_scale)
+        else:
+            rescale_scale = quantized_bias_scale
     else:
         rescale_scale = _create_rescale_init(
             node, input_quantize_params, weight_quantize_params
@@ -261,7 +268,7 @@ def _quantize_bias(
 ) -> Tuple[TensorProto, TensorProto, TensorProto]:
     bias_initializer = numpy_helper.to_array(bias_initializer)
     bias_scale = input_quantize_params.scale * weight_quantize_params.scale
-    bias_zero_point = 0
+    bias_zero_point = numpy.zeros(bias_scale.shape, dtype=numpy.int32)
     quantized_bias = quantize_array(
         bias_initializer, bias_scale, bias_zero_point, dtype=numpy.int32
     )
@@ -290,9 +297,11 @@ def _quantize_bias(
 
 
 def _create_rescale_init(
-    node, input_quantize_params, weight_quantize_params
+    node, input_quantize_params, weight_quantize_params, reshape=False
 ) -> TensorProto:
     output_scale = input_quantize_params.scale * weight_quantize_params.scale
+    if reshape:  # for channel-wise Conv
+        output_scale = output_scale.reshape(1, output_scale.shape[0], 1, 1)
     return numpy_helper.from_array(
         numpy.asarray(output_scale), name=f"{node.name}_quant.rescale.scale"
     )

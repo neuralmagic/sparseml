@@ -91,9 +91,9 @@ def save_zoo_directory(
     """
     for root_file in [
         "model.onnx",
-        "sample_inputs",
-        "sample_outputs",
-        "sample_labels",
+        "sample-inputs",
+        "sample-outputs",
+        "sample-labels",
         "deployment",
     ]:
         root_file_path = os.path.join(training_outputs_dir, root_file)
@@ -109,9 +109,9 @@ def save_zoo_directory(
         training=os.path.join(training_outputs_dir, "training"),
         deployment=os.path.join(training_outputs_dir, "deployment"),
         onnx_model=os.path.join(training_outputs_dir, "model.onnx"),
-        sample_inputs=os.path.join(training_outputs_dir, "sample_inputs"),
-        sample_outputs=os.path.join(training_outputs_dir, "sample_outputs"),
-        sample_labels=os.path.join(training_outputs_dir, "sample_labels"),
+        sample_inputs=os.path.join(training_outputs_dir, "sample-inputs"),
+        sample_outputs=os.path.join(training_outputs_dir, "sample-outputs"),
+        sample_labels=os.path.join(training_outputs_dir, "sample-labels"),
         model_card=os.path.join(training_outputs_dir, "model.md"),
         logs=logs_path,
         sample_originals=None,
