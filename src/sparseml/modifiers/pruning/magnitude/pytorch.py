@@ -116,13 +116,22 @@ class MagnitudePruningModifierPyTorch(MagnitudePruningModifier, LayerParamMaskin
                         )
                     )
                     self.update_mask(layer_param_name, mask)
-        elif event.type_ == EventType.OPTIM_PRE_STEP and not self._use_hooks:
+        else:
+            self._update_masks(event)
+
+    def on_end(self, state: State, event: Event, **kwargs):
+        if not self.leave_enabled:
+            self.disable_masks()
+
+    def on_event(self, state: State, event: Event, **kwargs):
+        if event.current_index >= self.end and self.leave_enabled:
+            self._update_masks(event)
+
+    def _update_masks(self, event: Event):
+        if event.type_ == EventType.OPTIM_PRE_STEP and not self._use_hooks:
             for layer_param_name, _ in self.parameterized_layers_.items():
                 self.apply_mask_gradient(layer_param_name)
         elif event.type_ == EventType.OPTIM_POST_STEP and not self._use_hooks:
             for layer_param_name, _ in self.parameterized_layers_.items():
                 self.apply_mask_weight(layer_param_name)
 
-    def on_end(self, state: State, event: Event, **kwargs):
-        if not self.leave_enabled:
-            self.disable_masks()

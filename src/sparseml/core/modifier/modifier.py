@@ -111,6 +111,8 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
         if self.finalized_:
             raise RuntimeError("cannot update a finalized modifier")
 
+        self.on_event(state, event, **kwargs)
+
         # handle starting the modifier if needed
         if (
             event.type_ == EventType.BATCH_START
@@ -165,3 +167,6 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
 
     def on_end(self, state: "State", event: Event, **kwargs):
         raise NotImplementedError()
+
+    def on_event(self, state: State, event: Event, **kwargs):
+        pass
