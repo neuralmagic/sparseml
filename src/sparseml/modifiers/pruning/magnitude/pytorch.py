@@ -77,8 +77,9 @@ class MagnitudePruningModifierPyTorch(MagnitudePruningModifier, LayerParamMaskin
         return True
 
     def on_finalize(self, state: State, event: Event, **kwargs) -> bool:
-        for layer_param_name, _ in self.parameterized_layers_.items():
-            self.remove_mask(layer_param_name)
+        if not self.leave_enabled:
+            for layer_param_name, _ in self.parameterized_layers_.items():
+                self.remove_mask(layer_param_name)
 
         return True
 

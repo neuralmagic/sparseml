@@ -27,7 +27,7 @@ class MagnitudePruningModifier(Modifier):
     update_scheduler: str = "cubic"
     scheduler_args: Dict[str, Any] = {}
     mask_structure: str = "unstructured"
-    leave_enabled: bool = False
+    leave_enabled: bool = True
     apply_globally: bool = False
 
     def on_initialize_structure(self, state: State, **kwargs):

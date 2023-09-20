@@ -168,5 +168,5 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
     def on_end(self, state: "State", event: Event, **kwargs):
         raise NotImplementedError()
 
-    def on_event(self, state: State, event: Event, **kwargs):
+    def on_event(self, state: "State", event: Event, **kwargs):
         pass
