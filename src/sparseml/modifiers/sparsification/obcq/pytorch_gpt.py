@@ -141,6 +141,8 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
         self.model.apply(torch.quantization.disable_observer)
         self.model.config.use_cache = use_cache
 
+        return True
+
     def _set_device(self, device: str):
         if "cuda" in device and not torch.cuda.is_available():
             self._device = "cpu"

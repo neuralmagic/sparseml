@@ -13,16 +13,16 @@
 # limitations under the License.
 
 import inspect
+import logging
 from typing import Dict, List, Tuple
 
 import torch
 import torch.nn as nn
 
-from quant import WeightFakeQuantizer
-from sparsegpt import SparseGPT
+from sparseml.modifiers.sparsification.obcq.sparsegpt import SparseGPT
 
 
-DEFAULT_WBITS = 16
+_LOGGER = logging.getLogger(__name__)
 
 
 class BaseCompressor:
@@ -32,8 +32,24 @@ class BaseCompressor:
     def pre_compress(self, dev: str = "cuda:0", **kwargs) -> Tuple[nn.Module, Dict]:
         return self.model, {}
 
-    def compress(self, dev: str = "cuda:0", **kwargs) -> Tuple[nn.Module, Dict]:
-        return self.model, {}
+    def compress(
+        self, dataloader=None, nsamples: int = None, dev: str = "cuda:0", **kwargs
+    ):
+        """
+        :param dataloader: calibration data to pass through the model
+        :nsamples: number of samples to use for calibration, or None to use it all
+        :dev: device to use
+        :return: model used for calibration, outputs from bottom part of network,
+        attention mask, and kv-cache state
+        """
+        cached_inputs = self._cache_attention_inputs(
+            self.model, dataloader, dev, nsamples
+        )
+
+        outputs = cached_inputs.pop("inputs")
+        outputs = [o[0] for o in outputs]
+        cached_inputs.update({"outputs": outputs})
+        return self.model, cached_inputs
 
     def post_compress(self, dev: str = "cuda:0", **kwargs) -> Tuple[nn.Module, Dict]:
         return self.model, {}
@@ -48,8 +64,9 @@ class LayerCompressor(BaseCompressor):
         self.manager = manager
         self.args = args
 
-    def compressible_modules(self, **kwargs):
-        if self.manager is not None and self.manager.quantization_modifiers:
+    def compressible_modules(self):
+        quantize = self.args.get("quantize", False)
+        if quantize:
             # The layer names are changed due to quantization modifiers, therefore
             # we need a slightly different func to retrieve layers
             modules = _find_quant_layers(self.layer)
@@ -61,18 +78,12 @@ class LayerCompressor(BaseCompressor):
         """
         Set up SparseGPT objects, compute Hessian
         """
-        if not self.args.sequential_hessian_within_layer:
-            subset = self.compressible_modules(**kwargs)
+        if not self.args["sequential_update"]:
+            subset = self.compressible_modules()
 
             gpts = {}
             for name in subset:
                 gpts[name] = SparseGPT(subset[name])
-                if (
-                    self.args.wbits < 16
-                    and self.manager is not None
-                    and self.manager.quantization_modifiers
-                ):
-                    gpts[name].quantizer = WeightFakeQuantizer(subset[name])
 
             def add_batch(name):
                 def tmp(_, inp, out):
@@ -85,7 +96,7 @@ class LayerCompressor(BaseCompressor):
                 handles.append(subset[name].register_forward_hook(add_batch(name)))
 
             # Run through the samples in order to compute Hessian matrix
-            nsamples = self.inputs.shape[0]
+            nsamples = len(self.inputs)
             forward_args_spec = inspect.getfullargspec(self.layer.__class__.forward)
             passed_in_args = [arg for arg in forward_args_spec.args if arg in kwargs]
             for j in range(nsamples):
@@ -95,7 +106,7 @@ class LayerCompressor(BaseCompressor):
                         passed_in_kwargs[arg] = kwargs[arg][j]
                     else:
                         passed_in_kwargs[arg] = kwargs[arg]
-                self.layer(self.inputs[j].unsqueeze(0), **passed_in_kwargs)[0]
+                self.layer(self.inputs[j], **passed_in_kwargs)
             for h in handles:
                 h.remove()
 
@@ -106,17 +117,17 @@ class LayerCompressor(BaseCompressor):
     def compress(self, dev: str = "cuda:0", **kwargs):
         self.layer.to(dev)
         self.model, extras = self.pre_compress(**kwargs)
-        if not self.args.sequential_hessian_within_layer:
+        if not self.args["sequential_update"]:
             gpts = extras["gpts"]
             for name in gpts:
                 print(f"Compressing {name}...")
-                sparsity = self.args.sparsity
+                sparsity = self.args["sparsity"]
                 gpts[name].fasterprune(
                     sparsity,
-                    prunen=self.args.prunen,
-                    prunem=self.args.prunem,
-                    percdamp=self.args.percdamp,
-                    blocksize=self.args.blocksize,
+                    prunen=self.args["prunen"],
+                    prunem=self.args["prunem"],
+                    percdamp=self.args["percdamp"],
+                    blocksize=self.args["blocksize"],
                 )
                 gpts[name].free()
         else:
@@ -127,24 +138,25 @@ class LayerCompressor(BaseCompressor):
         return self.model, {"outputs": extras["outputs"]}
 
     def post_compress(self, **kwargs):
-        outputs = torch.zeros_like(self.inputs)
-        nsamples = self.inputs.shape[0]
-        attention_mask = kwargs.get("attention_mask", None)
+        nsamples = len(self.inputs)
+        outputs = []
+        forward_args_spec = inspect.getfullargspec(self.layer.__class__.forward)
+        passed_in_args = [arg for arg in forward_args_spec.args if arg in kwargs]
         for j in range(nsamples):
-            attn_mask = (
-                attention_mask[j]
-                if isinstance(attention_mask, List)
-                else attention_mask
-            )
-            outputs[j] = self.layer(
-                self.inputs[j].unsqueeze(0), attention_mask=attn_mask
-            )[0]
+            passed_in_kwargs = {}
+            for arg in passed_in_args:
+                if isinstance(kwargs[arg], List):
+                    passed_in_kwargs[arg] = kwargs[arg][j]
+                else:
+                    passed_in_kwargs[arg] = kwargs[arg]
+            outputs.append(self.layer(self.inputs[j], **passed_in_kwargs)[0])
+
         self.inputs = None
         torch.cuda.empty_cache()
         return self.model, {"outputs": outputs}
 
     def _sequentially_compress(self, **kwargs):
-        subset = self.compressible_modules(**kwargs)
+        subset = self.compressible_modules()
 
         forward_args_spec = inspect.getfullargspec(self.layer.__class__.forward)
         passed_in_args = [arg for arg in forward_args_spec.args if arg in kwargs]
@@ -156,15 +168,12 @@ class LayerCompressor(BaseCompressor):
             else:
                 passed_in_kwargs[arg] = kwargs[arg]
         order = _find_dependency_order(
-            self.layer, subset, self.inputs[0].unsqueeze(0), **passed_in_kwargs
+            self.layer, subset, self.inputs[0], **passed_in_kwargs
         )
 
-        nsamples = self.inputs.shape[0]
+        nsamples = len(self.inputs)
         for name in order:
             gpts = SparseGPT(subset[name])
-            if self.args.wbits < 16:
-                if self.manager is not None and self.manager.quantization_modifiers:
-                    gpts.quantizer = WeightFakeQuantizer(subset[name])
 
             def add_batch(name):
                 def tmp(_, inp, out):
@@ -177,19 +186,19 @@ class LayerCompressor(BaseCompressor):
                 passed_in_kwargs = {}
                 for arg in passed_in_args:
                     if isinstance(kwargs[arg], List):
-                        passed_in_kwargs[arg] = kwargs[arg][0]
+                        passed_in_kwargs[arg] = kwargs[arg][j]
                     else:
                         passed_in_kwargs[arg] = kwargs[arg]
-                self.layer(self.inputs[j].unsqueeze(0), **passed_in_kwargs)[0]
+                self.layer(self.inputs[j], **passed_in_kwargs)
             handle.remove()
 
             print(f"Compressing module {name} of layer {self.layer_index}")
             gpts.fasterprune(
-                self.args.sparsity,
-                prunen=self.args.prunen,
-                prunem=self.args.prunem,
-                percdamp=self.args.percdamp,
-                blocksize=self.args.blocksize,
+                self.args["sparsity"],
+                prunen=self.args["prunen"],
+                prunem=self.args["prunem"],
+                percdamp=self.args["percdamp"],
+                blocksize=self.args["blocksize"],
             )
             gpts.free()
 

@@ -18,7 +18,7 @@ from typing import Optional
 from sparseml.core import Modifier
 
 
-__all__ = ["SparseGPTModifier"]
+__all__ = ["SparseGPTModifier", "SparseOPTModifier", "SparseLlamaModifier"]
 
 
 class SparseGPTModifier(Modifier):
@@ -49,3 +49,9 @@ class SparseGPTModifier(Modifier):
 
     def on_initialize_structure(self, state: "State", **kwargs):
         pass  # nothing needed for this modifier
+
+class SparseOPTModifier(SparseGPTModifier):
+    pass
+
+class SparseLlamaModifier(SparseGPTModifier):
+    pass

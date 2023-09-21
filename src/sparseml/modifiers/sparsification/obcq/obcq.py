@@ -19,23 +19,22 @@ from pathlib import Path
 from typing import Optional
 
 from sparseml.optim.helpers import load_recipe_yaml_str
-from sparseml.transformers.sparsification.obcq.data import (
+from sparseml.modifiers.sparsification.obcq.utils.data import (
     get_c4,
     get_ptb,
     get_wikitext2,
 )
-from sparseml.transformers.sparsification.obcq.manager import RecipeManagerOneShot
-from sparseml.transformers.sparsification.obcq.models import (
+
+from sparseml.modifiers.sparsification.obcq.utils.models import (
     load_llama_model,
     load_opt_model,
 )
-from sparseml.transformers.sparsification.obcq.sparse_llama_modifier import (
-    LlamaBottomCompressor,
-)
-from sparseml.transformers.sparsification.obcq.sparse_opt_modifier import (
-    OPTBottomCompressor,
-)
-from sparseml.transformers.sparsification.obcq.utils import ppl_eval_general
+from sparseml.modifiers.sparsification.obcq.utils.utils import ppl_eval_general
+from sparseml.modifiers.sparsification.obcq.pytorch_opt import OPTBottomCompressor
+from sparseml.modifiers.sparsification.obcq.pytorch_llama import LlamaBottomCompressor
+
+import sparseml.core.session as sml
+from sparseml.core.framework import Framework
 
 
 __all__ = ["one_shot"]
@@ -98,8 +97,15 @@ def one_shot(
         num_samples, 0, model.seqlen, model_path
     )
 
-    recipe = RecipeManagerOneShot.from_yaml(recipe_file)
-    recipe.one_shot(model, calibration_data, device)
+    sml.create_session()
+    session = sml.active_session()
+    session.apply(
+        framework=Framework.pytorch,
+        recipe=recipe_file,
+        model=model,
+        calib_data=calibration_data,
+        device=device
+    )
 
     _save(model, tokenizer, deploy_dir, recipe_file)
     if do_eval:

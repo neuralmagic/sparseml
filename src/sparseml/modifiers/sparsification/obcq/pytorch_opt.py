@@ -12,23 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional
-
 import torch
 from torch.nn import ModuleList
 
-from sparseml.pytorch.sparsification.modifier import PyTorchModifierYAML
-from sparseml.transformers.sparsification.obcq.layer_compressor import BaseCompressor
+from sparseml.modifiers.sparsification.obcq.utils.layer_compressor import BaseCompressor
 from sparseml.transformers.sparsification.obcq.sparse_gpt_modifier import (
     SparseGPTModifier,
 )
-from sparseml.transformers.sparsification.obcq.utils import (
+from sparseml.modifiers.sparsification.obcq.utils.utils import (
     catch,
     execute_offloaded_module,
 )
 
 
-__all__ = ["SparseOPTModifier"]
+__all__ = ["SparseOPTModifierPyTorch", "OPTBottomCompressor"]
 
 
 class OPTBottomCompressor(BaseCompressor):
@@ -123,41 +120,10 @@ class OPTBottomCompressor(BaseCompressor):
         return logits
 
 
-@PyTorchModifierYAML()
 class SparseOPTModifier(SparseGPTModifier):
     """
     OPT-specific functions for applying the one-shot OBCQ algorithm to a model
-
-    Life-cycle:
-        - initialze
-            - compress
-        - finalize
-
-    :param sparsity: Sparsity to compress model to
-    :param block_size: Used to determine number of columns to compress in one pass
-    :param quantize: Whether or not model is quantized (affects layer names)
-    :param dampening_frac: Amount of dampening to apply to H, as a fraction of the
-        diagonal norm
-    :param sequential_update: Whether or not to update weights sequentially by layer,
-        True saves on GPU memory
     """
-
-    def __init__(
-        self,
-        sparsity: float = 0.5,
-        block_size: int = 128,
-        quantize: bool = True,
-        dampening_frac: Optional[float] = 0.01,
-        sequential_update: Optional[bool] = True,
-    ):
-        super().__init__(
-            sparsity=sparsity,
-            block_size=block_size,
-            quantize=quantize,
-            dampening_frac=dampening_frac,
-            sequential_update=sequential_update,
-        )
-
     def compressible_layers(self) -> ModuleList:
         """
         :return: list of OPT submodules that can be sparsified
