@@ -25,7 +25,17 @@ from sparseml.transformers.sparsification.obcq.data import (
     get_wikitext2,
 )
 from sparseml.transformers.sparsification.obcq.manager import RecipeManagerOneShot
-from sparseml.transformers.sparsification.obcq.models import load_opt_model, load_llama_model, perplexity_eval_opt
+from sparseml.transformers.sparsification.obcq.models import (
+    load_llama_model,
+    load_opt_model,
+)
+from sparseml.transformers.sparsification.obcq.sparse_llama_modifier import (
+    LlamaBottomCompressor,
+)
+from sparseml.transformers.sparsification.obcq.sparse_opt_modifier import (
+    OPTBottomCompressor,
+)
+from sparseml.transformers.sparsification.obcq.utils import ppl_eval_general
 
 
 __all__ = ["one_shot"]
@@ -42,6 +52,7 @@ def one_shot(
     num_samples: int = 128,
     device: str = "cuda:0",
     recipe_file: Optional[str] = None,
+    do_eval: Optional[bool] = False,
 ) -> None:
     """
     Performs in place one shot sparsification/quantization of a model based on:
@@ -52,6 +63,7 @@ def one_shot(
     :param num_samples: Number of samples to extract from the dataset
     :param device: Device (cuda:index or cpu) to use for computation
     :param recipe_file: recipe containing SparseGPT configuration
+    :param do_eval: whether to run perplexity evaluation on output model
     """
     deploy_dir = Path(os.path.join(deploy_dir, "obcq_deployment"))
 
@@ -59,14 +71,15 @@ def one_shot(
         raise RuntimeError(f"deploy_dir={deploy_dir} already exists")
 
     model_loader_fn = None
+    forward_fn = None
     if "opt" in model_path.lower():
         model_loader_fn = load_opt_model
+        forward_fn = OPTBottomCompressor.forward
     elif "llama" in model_path.lower():
         model_loader_fn = load_llama_model
+        forward_fn = LlamaBottomCompressor.forward
     else:
-        raise ValueError(
-            f"model_path={model_path} should be one of {SUPPORTED_MODELS}"
-        )
+        raise ValueError(f"model_path={model_path} should be one of {SUPPORTED_MODELS}")
     model = model_loader_fn(model_path)
 
     data_loader_fn = None
@@ -89,10 +102,9 @@ def one_shot(
     recipe.one_shot(model, calibration_data, device)
 
     _save(model, tokenizer, deploy_dir, recipe_file)
-    if "opt" in model_path.lower():
-        _, testloader, _ = get_wikitext2(num_samples, 0, model.seqlen, model_path)
-        perplexity_eval_opt(model, testloader)
-
+    if do_eval:
+        test_dataloader, _, _ = get_wikitext2(num_samples, 0, model.seqlen, model_path)
+        ppl_eval_general(forward_fn, model, test_dataloader, device, None, num_samples)
 
 
 def _save(model, tokenizer, save_path, recipe_path):
@@ -121,6 +133,9 @@ if __name__ == "__main__":
     parser.add_argument("--device", type=str, default="cuda:0")
     parser.add_argument("--deploy-dir", type=str, default=".")
     parser.add_argument("--recipe", type=str, default=None)
+    parser.add_argument(
+        "--eval", type=bool, default=False, help="Run perplexity evaluation"
+    )
 
     args = parser.parse_args()
 
@@ -131,4 +146,5 @@ if __name__ == "__main__":
         num_samples=args.nsamples,
         device=args.device,
         recipe_file=args.recipe,
+        do_eval=args.eval,
     )

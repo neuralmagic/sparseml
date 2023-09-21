@@ -15,13 +15,16 @@
 from typing import Optional
 
 import torch
-from torch import nn
 from torch.nn import ModuleList
 
 from sparseml.pytorch.sparsification.modifier import PyTorchModifierYAML
 from sparseml.transformers.sparsification.obcq.layer_compressor import BaseCompressor
 from sparseml.transformers.sparsification.obcq.sparse_gpt_modifier import (
     SparseGPTModifier,
+)
+from sparseml.transformers.sparsification.obcq.utils import (
+    catch,
+    execute_offloaded_module,
 )
 
 
@@ -38,88 +41,86 @@ class OPTBottomCompressor(BaseCompressor):
         3) Return attention_mask as part of kwargs
     """
 
-    def compress(
-        self, dataloader=None, nsamples: int = None, dev: str = "cuda:0", **kwargs
-    ):
-        """
-        :param dataloader: calibration data to pass through the model
-        :nsamples: number of samples to use for calibration, or None to use it all
-        :dev: device to use
-        :return: model used for calibration, outputs from bottom part of network,
-        attention mask, and kv-cache state
-        """
-        model = self.model
-        layers = model.model.decoder.layers
-        nsamples = len(dataloader) if nsamples is None else nsamples
-
-        use_cache = model.config.use_cache
-        model.config.use_cache = False
-
-        model.model.decoder.embed_tokens = model.model.decoder.embed_tokens.to(dev)
-        model.model.decoder.embed_positions = model.model.decoder.embed_positions.to(
-            dev
-        )
+    @staticmethod
+    def _cache_attention_inputs(model, dataloader, device, nsamples):
+        model.model.decoder.embed_tokens.to(device)
+        model.model.decoder.embed_positions.to(device)
         if (
             hasattr(model.model.decoder, "project_out")
             and model.model.decoder.project_out
         ):
-            model.model.decoder.project_out = model.model.decoder.project_out.to(dev)
+            model.model.decoder.project_out.to(device)
         if (
             hasattr(model.model.decoder, "project_in")
             and model.model.decoder.project_in
         ):
-            model.model.decoder.project_in = model.model.decoder.project_in.to(dev)
-        layers[0] = layers[0].to(dev)
+            model.model.decoder.project_in.to(device)
 
-        dtype = next(iter(model.parameters())).dtype
-        inps = torch.zeros(
-            (nsamples, model.seqlen, model.config.hidden_size), dtype=dtype, device=dev
+        model.model.decoder.layers[0].to(device)
+        cached_inputs = catch(
+            model,
+            model.model.decoder.layers[0],
+            ["attention_mask"],
+            dataloader,
+            nsamples,
         )
-        cache = {"i": 0, "attention_mask": None}
 
-        class Catcher(nn.Module):
-            def __init__(self, module):
-                super().__init__()
-                self.module = module
-
-            def forward(self, inp, **kwargs):
-                inps[cache["i"]] = inp
-                cache["i"] += 1
-                cache["attention_mask"] = kwargs["attention_mask"]
-                raise ValueError
-
-        layers[0] = Catcher(layers[0])
-        for batch in dataloader:
-            try:
-                model(batch[0].to(dev))
-            except ValueError:
-                pass
-        layers[0] = layers[0].module
-
-        layers[0] = layers[0].cpu()
-        model.model.decoder.embed_tokens = model.model.decoder.embed_tokens.cpu()
-        model.model.decoder.embed_positions = model.model.decoder.embed_positions.cpu()
+        model.model.decoder.embed_tokens.cpu()
+        model.model.decoder.embed_positions.cpu()
         if (
             hasattr(model.model.decoder, "project_out")
             and model.model.decoder.project_out
         ):
-            model.model.decoder.project_out = model.model.decoder.project_out.cpu()
+            model.model.decoder.project_out.cpu()
         if (
             hasattr(model.model.decoder, "project_in")
             and model.model.decoder.project_in
         ):
-            model.model.decoder.project_in = model.model.decoder.project_in.cpu()
+            model.model.decoder.project_in.cpu()
+
+        model.model.decoder.layers[0].cpu()
+        torch.cuda.empty_cache()
+        return cached_inputs
+
+    @staticmethod
+    def forward(model, data_loader, device, nsamples=None):
+        # Catch attention mask
+        cached_inputs = OPTBottomCompressor._cache_attention_inputs(
+            model, data_loader, device, nsamples
+        )
+        buffer = [b[0] for b in cached_inputs.pop("inputs")]
+        for layer in model.model.layers:
+            buffer = execute_offloaded_module(
+                layer,
+                buffer,
+                device,
+                cached_inputs=cached_inputs,
+                use_cache=False,
+            )
+            buffer = [b[0] for b in buffer]
+
+        del cached_inputs
         torch.cuda.empty_cache()
 
-        attention_mask = cache["attention_mask"]
+        if model.model.decoder.final_layer_norm is not None:
+            buffer = execute_offloaded_module(
+                model.model.decoder.final_layer_norm,
+                buffer,
+                device,
+            )
+        if model.model.decoder.project_out is not None:
+            buffer = execute_offloaded_module(
+                model.model.decoder.project_out,
+                buffer,
+                device,
+            )
+        logits = execute_offloaded_module(
+            model.lm_head,
+            buffer,
+            device,
+        )
 
-        extras = {
-            "use_cache": use_cache,
-            "outputs": inps,
-            "attention_mask": attention_mask,
-        }
-        self.model = model
-        return model, extras
+        return logits
 
 
 @PyTorchModifierYAML()

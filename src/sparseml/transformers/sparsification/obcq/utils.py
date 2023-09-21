@@ -1,22 +1,33 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+from math import ceil
+
 import torch
 
-def cache_attention_inputs(model, data_loader, device, nsamples):
-    model.model.embed_tokens.to(device)
-    model.model.layers[0].to(device)
-    cached_inputs = catch(model, model.model.layers[0], ["attention_mask", "position_ids"], data_loader, nsamples)
-    model.model.embed_tokens.cpu()
-    model.model.layers[0].cpu()
-    torch.cuda.empty_cache()
-    return cached_inputs
 
 class Catcher(torch.nn.Module):
     def __init__(self, module, target_keys):
         super().__init__()
         self.module = module
         self.cache = {key: [] for key in target_keys}
+        self.target_keys = target_keys
+        self.cache["inputs"] = []
 
     def forward(self, *args, **kwargs):
-        for key in self.cache:
+        self.cache["inputs"].append(args)
+        for key in self.target_keys:
             self.cache[key].append(kwargs[key])
         raise ValueError
 
@@ -69,7 +80,9 @@ def execute_offloaded_module(
         if cached_inputs is None:
             module_kwargs = kwargs
         else:
-            module_kwargs = {key: cached_inputs[key][input_index] for key in cached_inputs}
+            module_kwargs = {
+                key: cached_inputs[key][input_index] for key in cached_inputs
+            }
             module_kwargs.update(kwargs)
         output = module(inp[0].to(dev), **module_kwargs)
         if overwrite_buffer:
@@ -82,6 +95,8 @@ def execute_offloaded_module(
     if overwrite_buffer:
         return buffer
     else:
+        del buffer
+        torch.cuda.empty_cache()
         return new_buffer
 
 
@@ -121,7 +136,13 @@ class SequentialCompressor(OffLoadedModule):
         self.cache_inputs = False
 
         for name, child in module.named_modules():
-            setattr(self._module, name, SequentialCompressor(child, device, compression_algorithm, self._module))
+            setattr(
+                self._module,
+                name,
+                SequentialCompressor(
+                    child, device, compression_algorithm, self._module
+                ),
+            )
 
     def is_compressible(self):
         if self.compression_algorithm is not None:
@@ -163,3 +184,51 @@ class SequentialCompressor(OffLoadedModule):
         else:
             for child in self._module.modules():
                 child.compress(*args, **kwargs)
+
+
+@torch.no_grad()
+def ppl_eval_general(
+    eval_logits,
+    model,
+    dataloader,
+    dev,
+    nsamples=None,
+    max_samples_per_iteration=128,
+):
+    print("Evaluating perplexity...")
+
+    if nsamples is None:
+        nsamples = len(dataloader)
+
+    number_iterations = int(ceil(nsamples / max_samples_per_iteration))
+    neg_log_likelihood = 0.0
+    number_tokens = 0
+    for iteration in range(number_iterations):
+        if iteration < number_iterations - 1:
+            samples = dataloader[
+                iteration
+                * max_samples_per_iteration : (iteration + 1)
+                * max_samples_per_iteration
+            ]
+        else:
+            samples = dataloader[iteration * max_samples_per_iteration :]
+
+        logits = eval_logits(model, samples, dev)
+
+        vocabulary_size = logits[0].shape[-1]
+        logits = [logit[:, :-1, :].view(-1, vocabulary_size) for logit in logits]
+        logits = torch.concatenate(logits, dim=0).contiguous().to(torch.float32)
+
+        labels = [sample[:, 1:].view(-1) for sample in samples]
+        labels = torch.concatenate(labels, dim=0).to(dev)
+        neg_log_likelihood += torch.nn.functional.cross_entropy(
+            logits,
+            labels,
+            reduction="sum",
+        )
+
+        number_tokens += labels.numel()
+        print(torch.exp(neg_log_likelihood / number_tokens), flush=True)
+
+    ppl = torch.exp(neg_log_likelihood / number_tokens)
+    print(f"Perplexity: {ppl.item():3f}")

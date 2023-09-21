@@ -15,5 +15,5 @@
 # flake8: noqa
 
 from .sparse_gpt_modifier import SparseGPTModifier
-from .sparse_opt_modifier import SparseOPTModifier
 from .sparse_llama_modifier import SparseLlamaModifier
+from .sparse_opt_modifier import SparseOPTModifier

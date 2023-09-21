@@ -15,14 +15,16 @@
 from typing import Optional
 
 import torch
-from torch import nn
 from torch.nn import ModuleList
 
 from sparseml.pytorch.sparsification.modifier import PyTorchModifierYAML
-from sparseml.transformers.sparsification.obcq.utils import execute_offloaded_module, cache_attention_inputs
 from sparseml.transformers.sparsification.obcq.layer_compressor import BaseCompressor
 from sparseml.transformers.sparsification.obcq.sparse_gpt_modifier import (
     SparseGPTModifier,
+)
+from sparseml.transformers.sparsification.obcq.utils import (
+    catch,
+    execute_offloaded_module,
 )
 
 
@@ -34,22 +36,54 @@ class LlamaBottomCompressor(BaseCompressor):
     Llama2 specific
     """
 
-    def compress(
-        self, dataloader=None, nsamples: int = None, dev: str = "cuda:0", **kwargs
-    ):
-        cached_inputs = cache_attention_inputs(self.model, dataloader, dev, nsamples)
-
-        outputs = execute_offloaded_module(
-            self.model.model.embed_tokens,
+    @staticmethod
+    def _cache_attention_inputs(model, dataloader, device, nsamples):
+        model.model.embed_tokens.to(device)
+        model.model.layers[0].to(device)
+        cached_inputs = catch(
+            model,
+            model.model.layers[0],
+            ["attention_mask", "position_ids"],
             dataloader,
-            dev,
             nsamples,
-            overwrite_buffer=False,
+        )
+        model.model.embed_tokens.cpu()
+        model.model.layers[0].cpu()
+        torch.cuda.empty_cache()
+        return cached_inputs
+
+    @staticmethod
+    def forward(model, data_loader, device, nsamples=None):
+        # Catch attention mask
+        cached_inputs = LlamaBottomCompressor._cache_attention_inputs(
+            model, data_loader, device, nsamples
+        )
+        buffer = [b[0] for b in cached_inputs.pop("inputs")]
+        for layer in model.model.layers:
+            buffer = execute_offloaded_module(
+                layer,
+                buffer,
+                device,
+                cached_inputs=cached_inputs,
+                use_cache=False,
+            )
+            buffer = [b[0] for b in buffer]
+
+        del cached_inputs
+        torch.cuda.empty_cache()
+
+        buffer = execute_offloaded_module(
+            model.model.norm,
+            buffer,
+            device,
+        )
+        logits = execute_offloaded_module(
+            model.lm_head,
+            buffer,
+            device,
         )
 
-        outputs = torch.concatenate(outputs, dim=0)
-        cached_inputs.update({"outputs": outputs})
-        return self.model, cached_inputs
+        return logits
 
 
 @PyTorchModifierYAML()

@@ -32,8 +32,24 @@ class BaseCompressor:
     def pre_compress(self, dev: str = "cuda:0", **kwargs) -> Tuple[nn.Module, Dict]:
         return self.model, {}
 
-    def compress(self, dev: str = "cuda:0", **kwargs) -> Tuple[nn.Module, Dict]:
-        return self.model, {}
+    def compress(
+        self, dataloader=None, nsamples: int = None, dev: str = "cuda:0", **kwargs
+    ):
+        """
+        :param dataloader: calibration data to pass through the model
+        :nsamples: number of samples to use for calibration, or None to use it all
+        :dev: device to use
+        :return: model used for calibration, outputs from bottom part of network,
+        attention mask, and kv-cache state
+        """
+        cached_inputs = self._cache_attention_inputs(
+            self.model, dataloader, dev, nsamples
+        )
+
+        outputs = cached_inputs.pop("inputs")
+        outputs = [o[0] for o in outputs]
+        cached_inputs.update({"outputs": outputs})
+        return self.model, cached_inputs
 
     def post_compress(self, dev: str = "cuda:0", **kwargs) -> Tuple[nn.Module, Dict]:
         return self.model, {}
@@ -80,7 +96,7 @@ class LayerCompressor(BaseCompressor):
                 handles.append(subset[name].register_forward_hook(add_batch(name)))
 
             # Run through the samples in order to compute Hessian matrix
-            nsamples = self.inputs.shape[0]
+            nsamples = len(self.inputs)
             forward_args_spec = inspect.getfullargspec(self.layer.__class__.forward)
             passed_in_args = [arg for arg in forward_args_spec.args if arg in kwargs]
             for j in range(nsamples):
@@ -90,7 +106,7 @@ class LayerCompressor(BaseCompressor):
                         passed_in_kwargs[arg] = kwargs[arg][j]
                     else:
                         passed_in_kwargs[arg] = kwargs[arg]
-                self.layer(self.inputs[j].unsqueeze(0), **passed_in_kwargs)[0]
+                self.layer(self.inputs[j], **passed_in_kwargs)
             for h in handles:
                 h.remove()
 
@@ -122,18 +138,19 @@ class LayerCompressor(BaseCompressor):
         return self.model, {"outputs": extras["outputs"]}
 
     def post_compress(self, **kwargs):
-        outputs = torch.zeros_like(self.inputs)
-        nsamples = self.inputs.shape[0]
-        attention_mask = kwargs.get("attention_mask", None)
+        nsamples = len(self.inputs)
+        outputs = []
+        forward_args_spec = inspect.getfullargspec(self.layer.__class__.forward)
+        passed_in_args = [arg for arg in forward_args_spec.args if arg in kwargs]
         for j in range(nsamples):
-            attn_mask = (
-                attention_mask[j]
-                if isinstance(attention_mask, List)
-                else attention_mask
-            )
-            outputs[j] = self.layer(
-                self.inputs[j].unsqueeze(0), attention_mask=attn_mask
-            )[0]
+            passed_in_kwargs = {}
+            for arg in passed_in_args:
+                if isinstance(kwargs[arg], List):
+                    passed_in_kwargs[arg] = kwargs[arg][j]
+                else:
+                    passed_in_kwargs[arg] = kwargs[arg]
+            outputs.append(self.layer(self.inputs[j], **passed_in_kwargs)[0])
+
         self.inputs = None
         torch.cuda.empty_cache()
         return self.model, {"outputs": outputs}
@@ -151,10 +168,10 @@ class LayerCompressor(BaseCompressor):
             else:
                 passed_in_kwargs[arg] = kwargs[arg]
         order = _find_dependency_order(
-            self.layer, subset, self.inputs[0].unsqueeze(0), **passed_in_kwargs
+            self.layer, subset, self.inputs[0], **passed_in_kwargs
         )
 
-        nsamples = self.inputs.shape[0]
+        nsamples = len(self.inputs)
         for name in order:
             gpts = SparseGPT(subset[name])
 
@@ -169,10 +186,10 @@ class LayerCompressor(BaseCompressor):
                 passed_in_kwargs = {}
                 for arg in passed_in_args:
                     if isinstance(kwargs[arg], List):
-                        passed_in_kwargs[arg] = kwargs[arg][0]
+                        passed_in_kwargs[arg] = kwargs[arg][j]
                     else:
                         passed_in_kwargs[arg] = kwargs[arg]
-                self.layer(self.inputs[j].unsqueeze(0), **passed_in_kwargs)[0]
+                self.layer(self.inputs[j], **passed_in_kwargs)
             handle.remove()
 
             print(f"Compressing module {name} of layer {self.layer_index}")
