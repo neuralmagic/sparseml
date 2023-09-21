@@ -20,11 +20,11 @@ from sparseml.core.model.base import ModelParameterizedLayer, ModifiableModel
 from sparseml.utils.pytorch import (
     get_layer,
     get_layers,
+    get_layers_params,
     get_param,
     get_params,
     set_layer,
     set_param,
-    get_layers_params
 )
 
 
@@ -35,7 +35,9 @@ class ModifiableModelPyTorch(ModifiableModel[Module, Module, Parameter]):
     def __init__(self, framework=None, model=None):
         super().__init__(framework=framework, model=model)
 
-    def get_layers_params(self, targets: Union[str, List[str]]) -> Dict[str, ModelParameterizedLayer[Module, Parameter]]:
+    def get_layers_params(
+        self, targets: Union[str, List[str]]
+    ) -> Dict[str, ModelParameterizedLayer[Module, Parameter]]:
         return get_layers_params(targets, self.model)
 
     def get_layers(self, targets: Union[str, List[str]]) -> Dict[str, Module]:

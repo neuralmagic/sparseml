@@ -21,6 +21,7 @@ from sparseml.core.event import Event, EventType
 from sparseml.core.framework_object import MultiFrameworkObject
 from sparseml.core.modifier.base import ModifierInterface
 
+
 __all__ = ["Modifier"]
 
 

@@ -19,11 +19,10 @@ from typing import Any, Dict, List
 from pydantic import Field
 
 from sparseml.core.data import ModifiableData
-from sparseml.core.event import Event
+from sparseml.core.event import Event, EventType
 from sparseml.core.framework import Framework
 from sparseml.core.model import ModifiableModel
 from sparseml.core.optimizer import ModifiableOptimizer
-from sparseml.core.event import EventType
 
 
 __all__ = ["State", "Data", "Hardware", "ModifiedState"]
@@ -69,8 +68,8 @@ class State:
         return (
             self.model is not None
             and self.optimizer is not None
-            #and self.loss is not None
-            #and self.batch_data is not None
+            # and self.loss is not None
+            # and self.batch_data is not None
         )
 
     def update(
@@ -109,7 +108,9 @@ class State:
             self.data.test = test_data if not copy_data else deepcopy(test_data)
         if calib_data is not None:
             calib_loader = calib_data if not copy_data else deepcopy(calib_data)
-            self.calib_data = ModifiableData(framework=self.framework, data_loader=calib_loader)
+            self.calib_data = ModifiableData(
+                framework=self.framework, data_loader=calib_loader
+            )
 
         if (
             start is not None

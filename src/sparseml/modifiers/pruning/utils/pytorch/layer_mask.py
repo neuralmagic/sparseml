@@ -16,11 +16,11 @@ from dataclasses import dataclass
 from typing import Dict
 
 import torch
+from pydantic import BaseModel
 from torch.nn import Module, Parameter
 from torch.utils.hooks import RemovableHandle
 
 from sparseml.core import ModelParameterizedLayer
-from pydantic import BaseModel
 
 
 __all__ = ["LayerParamMasking"]

@@ -14,3 +14,4 @@
 
 from .distillation import *
 from .pruning import *
+from .sparsification import *
