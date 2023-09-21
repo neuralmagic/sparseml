@@ -33,12 +33,25 @@ __all__ = ["Recipe", "RecipeTuple"]
 class Recipe(RecipeBase):
     @staticmethod
     def create_instance(path: str) -> "Recipe":
+        """
+        Create a recipe instance from a file, or string
+
+        :param path: The path to the recipe file or
+            SparseZoo stub or the recipe string, must be a valid
+            json/yaml file or a valid json/yaml string
+        """
         if not os.path.isfile(path):
-            # not a local file, load from SparseZoo
-            raise NotImplementedError()
+            # not a local file
+            if path.startswith("zoo:"):
+                # download from SparseZoo
+                raise NotImplementedError("Using SparseZoo stubs is not yet supported")
+            else:
+                # assume it's a string
+                obj = _load_json_or_yaml_string(path)
+                return Recipe.parse_obj(obj)
 
         with open(path, "r") as file:
-            content = file.read()
+            content = file.read().strip()
 
             if path.lower().endswith(".json"):
                 obj = json.loads(content)
@@ -46,13 +59,9 @@ class Recipe(RecipeBase):
                 obj = yaml.safe_load(content)
             else:
                 try:
-                    obj = json.loads(content)
-                except json.JSONDecodeError:
-                    try:
-                        obj = yaml.safe_load(content)
-                    except yaml.YAMLError:
-                        raise ValueError(f"Could not parse recipe from path {path}")
-
+                    obj = _load_json_or_yaml_string(content)
+                except ValueError:
+                    raise ValueError(f"Could not parse recipe from path {path}")
             return Recipe.parse_obj(obj)
 
     @staticmethod
@@ -233,3 +242,15 @@ class RecipeTuple:
     recipe: Recipe
     target_stages: List[str]
     override_args: Dict[str, Any]
+
+
+def _load_json_or_yaml_string(content: str) -> Dict[str, Any]:
+    # try loading as json first, then yaml
+    # if both fail, raise a ValueError
+    try:
+        return json.loads(content)
+    except json.JSONDecodeError:
+        try:
+            return yaml.safe_load(content)
+        except yaml.YAMLError as err:
+            raise ValueError(f"Could not parse recipe from string {content}") from err
