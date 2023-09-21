@@ -18,23 +18,23 @@ import os
 from pathlib import Path
 from typing import Optional
 
-from sparseml.optim.helpers import load_recipe_yaml_str
+import sparseml.core.session as sml
+from sparseml.core.framework import Framework
+from sparseml.modifiers.sparsification.obcq.utils.bottom_compressors import (
+    LlamaBottomCompressor,
+    OPTBottomCompressor,
+)
 from sparseml.modifiers.sparsification.obcq.utils.data import (
     get_c4,
     get_ptb,
     get_wikitext2,
 )
-
 from sparseml.modifiers.sparsification.obcq.utils.models import (
     load_llama_model,
     load_opt_model,
 )
 from sparseml.modifiers.sparsification.obcq.utils.utils import ppl_eval_general
-from sparseml.modifiers.sparsification.obcq.pytorch_opt import OPTBottomCompressor
-from sparseml.modifiers.sparsification.obcq.pytorch_llama import LlamaBottomCompressor
-
-import sparseml.core.session as sml
-from sparseml.core.framework import Framework
+from sparseml.optim.helpers import load_recipe_yaml_str
 
 
 __all__ = ["one_shot"]
@@ -104,7 +104,9 @@ def one_shot(
         recipe=recipe_file,
         model=model,
         calib_data=calibration_data,
-        device=device
+        start=0.0,
+        device=device,
+        copy_data=False,
     )
 
     _save(model, tokenizer, deploy_dir, recipe_file)

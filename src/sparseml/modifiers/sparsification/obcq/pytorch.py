@@ -17,18 +17,30 @@ import logging
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import torch
+from torch.nn import ModuleList
 
-from sparseml.modifiers.sparsification.obcq.base import SparseGPTModifier
+from sparseml.modifiers.sparsification.obcq.base import (
+    SparseGPTModifier,
+    SparseLlamaModifier,
+    SparseOPTModifier,
+)
+from sparseml.modifiers.sparsification.obcq.utils.bottom_compressors import (
+    LlamaBottomCompressor,
+    OPTBottomCompressor,
+)
+from sparseml.modifiers.sparsification.obcq.utils.layer_compressor import (
+    LayerCompressor,
+)
 
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class SparseGPTModifierPyTorch(SparseGPTModifier):
-    model_: "Module" = None
-    compressible_layers_: "ModuleList" = None
-    bottom_compressor_: "BaseCompressor" = None
-    head_compressor_: "BaseCompressor" = None
+    model: Any = None
+    compressible_layers_: Any = None
+    bottom_compressor_: Any = None
+    head_compressor_: Any = None
     device_: str = "cuda:0"
     finalization_kwargs_: Dict = None
 
@@ -42,11 +54,12 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
         raise NotImplementedError  # must should be implemented by child class
 
     def on_initialize(self, state: "State", **kwargs) -> bool:
+        self.finalization_kwargs_ = {}
         model = state.model.model
-        calibration_dataloader = state.data.calib.data
+        calibration_dataloader = state.data.calib
         device = state.hardware.device
 
-        self.initialize_obcq(model, calibration_dataloader, device)
+        self.initialize_obcq(model, device)
         extras = self.apply_obcq(calibration_dataloader)
         self.finalization_kwargs_.update(extras)
 
@@ -90,7 +103,7 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
         # which will become the inputs to the first decoder layer
         # Also return attention_mask as part of kwargs
         self.model, extras = self.bottom_compressor_.compress(
-            dev=self._device, **accum_kwargs
+            dev=self.device_, **accum_kwargs
         )
         accum_kwargs.update(extras)
 
@@ -106,27 +119,27 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
             inputs = accum_kwargs["outputs"]
             _LOGGER.info(f"\n===== Compressing layer {idx}/{num_layers} =====")
             args = {
-                "sparsity": self._sparsity,
+                "sparsity": self.sparsity,
                 "prunen": 0,
                 "prunem": 0,
-                "blocksize": self._block_size,
-                "percdamp": self._dampening_frac,
-                "sequential_update": self._sequential_update,
-                "quantize": self._quantize,
+                "blocksize": self.block_size,
+                "percdamp": self.dampening_frac,
+                "sequential_update": self.sequential_update,
+                "quantize": self.quantize,
             }
             layer_compressor = LayerCompressor(
                 self.model, layer, idx, inputs, None, args
             )
             # Prune/quantize using SparseGPT
             self.model, layer_kwargs = layer_compressor.compress(
-                dev=self._device, **accum_kwargs
+                dev=self.device_, **accum_kwargs
             )
             accum_kwargs.update(layer_kwargs)
 
         # Step 2: Prune/quantize head
         if self.head_compressor_ is not None:
             self.model, extras = self.head_compressor_.compress(
-                dev=self._device, **accum_kwargs
+                dev=self.device_, **accum_kwargs
             )
 
         return extras
@@ -137,7 +150,7 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
 
         :param model: un-used, for matching spec of other modifiers
         """
-        use_cache = self._finalization_kwargs.get("use_cache", False)
+        use_cache = self.finalization_kwargs_.get("use_cache", False)
         self.model.apply(torch.quantization.disable_observer)
         self.model.config.use_cache = use_cache
 
@@ -145,6 +158,39 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
 
     def _set_device(self, device: str):
         if "cuda" in device and not torch.cuda.is_available():
-            self._device = "cpu"
+            self.device_ = "cpu"
         else:
-            self._device = device
+            self.device_ = device
+
+
+class SparseLlamaModifierPyTorch(SparseGPTModifierPyTorch, SparseLlamaModifier):
+    def compressible_layers(self) -> ModuleList:
+        return self.model.model.layers
+
+    def bottom_compressor(self) -> LlamaBottomCompressor:
+        return LlamaBottomCompressor(self.model)
+
+    def head_compressor(self) -> None:
+        return None  # no head compressor for OPT
+
+
+class SparseOPTModifierPyTorch(SparseGPTModifierPyTorch, SparseOPTModifier):
+    """
+    OPT-specific functions for applying the one-shot OBCQ algorithm to a model
+    """
+
+    def compressible_layers(self) -> ModuleList:
+        """
+        :return: list of OPT submodules that can be sparsified
+        """
+        return self.model.model.decoder.layers
+
+    def bottom_compressor(self) -> OPTBottomCompressor:
+        """
+        :return: model used for calibration, outputs from bottom part of network,
+        attention mask, and kv-cache state
+        """
+        return OPTBottomCompressor(self.model)
+
+    def head_compressor(self) -> None:
+        return None  # no head compressor for OPT

@@ -107,10 +107,10 @@ class State:
         if test_data is not None:
             self.data.test = test_data if not copy_data else deepcopy(test_data)
         if calib_data is not None:
-            calib_loader = calib_data if not copy_data else deepcopy(calib_data)
-            self.calib_data = ModifiableData(
-                framework=self.framework, data_loader=calib_loader
-            )
+            self.data.calib = calib_data if not copy_data else deepcopy(calib_data)
+
+        if "device" in kwargs:
+            self.hardware.device = kwargs["device"]
 
         if (
             start is not None

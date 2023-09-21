@@ -50,8 +50,10 @@ class SparseGPTModifier(Modifier):
     def on_initialize_structure(self, state: "State", **kwargs):
         pass  # nothing needed for this modifier
 
-class SparseOPTModifier(SparseGPTModifier):
+
+class SparseOPTModifier(Modifier):
     pass
 
-class SparseLlamaModifier(SparseGPTModifier):
+
+class SparseLlamaModifier(Modifier):
     pass

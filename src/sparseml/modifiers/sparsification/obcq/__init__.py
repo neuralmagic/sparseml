@@ -13,6 +13,4 @@
 # limitations under the License.
 
 from .base import *
-from .pytorch_gpt import *
-from .pytorch_opt import *
-from .pytorch_llama import *
+from .pytorch import *

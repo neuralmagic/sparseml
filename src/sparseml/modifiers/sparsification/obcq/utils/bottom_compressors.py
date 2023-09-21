@@ -13,19 +13,70 @@
 # limitations under the License.
 
 import torch
-from torch.nn import ModuleList
 
 from sparseml.modifiers.sparsification.obcq.utils.layer_compressor import BaseCompressor
-from sparseml.transformers.sparsification.obcq.sparse_gpt_modifier import (
-    SparseGPTModifier,
-)
 from sparseml.modifiers.sparsification.obcq.utils.utils import (
     catch,
     execute_offloaded_module,
 )
 
 
-__all__ = ["SparseOPTModifierPyTorch", "OPTBottomCompressor"]
+__all__ = ["LlamaBottomCompressor", "OPTBottomCompressor"]
+
+
+class LlamaBottomCompressor(BaseCompressor):
+    """
+    Llama2 specific
+    """
+
+    @staticmethod
+    def _cache_attention_inputs(model, dataloader, device, nsamples):
+        model.model.embed_tokens.to(device)
+        model.model.layers[0].to(device)
+        cached_inputs = catch(
+            model,
+            model.model.layers[0],
+            ["attention_mask", "position_ids"],
+            dataloader,
+            nsamples,
+        )
+        model.model.embed_tokens.cpu()
+        model.model.layers[0].cpu()
+        torch.cuda.empty_cache()
+        return cached_inputs
+
+    @staticmethod
+    def forward(model, data_loader, device, nsamples=None):
+        # Catch attention mask
+        cached_inputs = LlamaBottomCompressor._cache_attention_inputs(
+            model, data_loader, device, nsamples
+        )
+        buffer = [b[0] for b in cached_inputs.pop("inputs")]
+        for layer in model.model.layers:
+            buffer = execute_offloaded_module(
+                layer,
+                buffer,
+                device,
+                cached_inputs=cached_inputs,
+                use_cache=False,
+            )
+            buffer = [b[0] for b in buffer]
+
+        del cached_inputs
+        torch.cuda.empty_cache()
+
+        buffer = execute_offloaded_module(
+            model.model.norm,
+            buffer,
+            device,
+        )
+        logits = execute_offloaded_module(
+            model.lm_head,
+            buffer,
+            device,
+        )
+
+        return logits
 
 
 class OPTBottomCompressor(BaseCompressor):
@@ -118,24 +169,3 @@ class OPTBottomCompressor(BaseCompressor):
         )
 
         return logits
-
-
-class SparseOPTModifier(SparseGPTModifier):
-    """
-    OPT-specific functions for applying the one-shot OBCQ algorithm to a model
-    """
-    def compressible_layers(self) -> ModuleList:
-        """
-        :return: list of OPT submodules that can be sparsified
-        """
-        return self.model.model.decoder.layers
-
-    def bottom_compressor(self) -> OPTBottomCompressor:
-        """
-        :return: model used for calibration, outputs from bottom part of network,
-        attention mask, and kv-cache state
-        """
-        return OPTBottomCompressor(self.model)
-
-    def head_compressor(self) -> None:
-        return None  # no head compressor for OPT
