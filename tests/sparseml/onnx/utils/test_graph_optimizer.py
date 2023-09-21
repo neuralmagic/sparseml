@@ -61,12 +61,16 @@ def test_fold_conv_bn(model_lambda, inputs_dtype):
     assert not _model_has_conv_bn(model_folded)
 
     # Check that the outputs of the original and optimized graphs are equal
-    base_sess = rt.InferenceSession(base_model_path)
+    base_sess = rt.InferenceSession(
+        base_model_path, providers=["CPUExecutionProvider"]
+    )
     base_input_names = [inp.name for inp in base_sess.get_inputs()]
     base_input_shapes = [inp.shape for inp in base_sess.get_inputs()]
     base_output_names = [out.name for out in base_sess.get_outputs()]
 
-    folded_sess = rt.InferenceSession(folded_model_path)
+    folded_sess = rt.InferenceSession(
+        folded_model_path, providers=["CPUExecutionProvider"]
+    )
     folded_input_names = [inp.name for inp in folded_sess.get_inputs()]
     folded_input_shapes = [inp.shape for inp in folded_sess.get_inputs()]
     folded_output_names = [out.name for out in folded_sess.get_outputs()]
