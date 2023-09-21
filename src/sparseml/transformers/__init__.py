@@ -40,11 +40,10 @@ def _check_transformers_install():
     # check for NM integration in transformers version
     import transformers as _transformers
 
-    if not _transformers.NM_INTEGRATED:
+    if not getattr(_transformers, "NM_INTEGRATED", False):
         _LOGGER.warning(
-            "the neuralmagic fork of transformers may not be installed. it can be "
-            "installed via "
-            f"`pip install {_NM_TRANSFORMERS_NIGHTLY}`"
+            "The neuralmagic fork of transformers may not be installed. It can be "
+            "installed via `pip install nm_transformers`"
         )
 
 
