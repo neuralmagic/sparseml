@@ -81,7 +81,7 @@ python train.py \
 ```  
 
 Documentation on the original script can be found
-[here](https://rwightman.github.io/pytorch-image-models/scripts/).
+[here](https://huggingface.co/docs/timm/training_script).
 The latest commit hash that `train.py` is based on is included in the docstring.
 
 
@@ -112,5 +112,5 @@ python export.py \
     --config ./path/to/checkpoint/args.yaml
 ```
 
-The DeepSparse Engine [accepts ONNX formats](https://docs.neuralmagic.com/sparseml/source/onnx_export.html) and is engineered to significantly speed up inference on CPUs for the sparsified models from this integration.
+The DeepSparse Engine [accepts ONNX formats](https://docs.neuralmagic.com/archive/sparseml/source/onnx_export.html) and is engineered to significantly speed up inference on CPUs for the sparsified models from this integration.
 Examples for loading, benchmarking, and deploying can be found in the [DeepSparse repository here](https://github.com/neuralmagic/deepsparse).
