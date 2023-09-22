@@ -133,7 +133,7 @@ LLAMA_CONFIG = KeyValueCacheConfig(
     additional_transforms=AdditionalTransformsLLAMA,
     key_num_attention_heads="num_attention_heads",
     key_num_embedding_hidden_size="hidden_size",
-    transpose_value_input=(0, 2, 1, 3),
+    transpose_value_input=None,
     transpose_key_input=None,
     multiply_batch_by_num_att_heads=False,
 )
