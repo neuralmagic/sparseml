@@ -86,7 +86,7 @@ class SparseSession:
         self,
         framework: Framework = None,
         recipe: Union[str, List[str], "Recipe", List["Recipe"]] = None,
-        recipe_stage: str = None,
+        recipe_stage: Union[str, List[str]] = None,
         recipe_args: Dict[str, Any] = None,
         model: Any = None,
         teacher_model: Any = None,
@@ -191,7 +191,7 @@ def pre_initialize_structure(**kwargs):
 def initialize(
     framework: Framework = None,
     recipe: Union[str, List[str], "Recipe", List["Recipe"]] = None,
-    recipe_stage: str = None,
+    recipe_stage: Union[str, List[str]] = None,
     recipe_args: Dict[str, Any] = None,
     model: Any = None,
     teacher_model: Any = None,
@@ -235,7 +235,7 @@ def finalize(**kwargs) -> ModifiedState:
 def apply(
     framework: Framework = None,
     recipe: Union[str, List[str], "Recipe", List["Recipe"]] = None,
-    recipe_stage: str = None,
+    recipe_stage: Union[str, List[str]] = None,
     recipe_args: Dict[str, Any] = None,
     model: Any = None,
     teacher_model: Any = None,
