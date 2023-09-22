@@ -49,7 +49,7 @@ class RecipeArgs(Dict[str, Any]):
         return resolved
 
     @staticmethod
-    def eval_str(target: str, args: Dict[str, Any] = None) -> Union[str,float]:
+    def eval_str(target: str, args: Dict[str, Any] = None) -> Union[str, float]:
         if "eval(" not in target:
             return target
 

@@ -135,4 +135,3 @@ class MagnitudePruningModifierPyTorch(MagnitudePruningModifier, LayerParamMaskin
         elif event.type_ == EventType.OPTIM_POST_STEP and not self._use_hooks:
             for layer_param_name, _ in self.parameterized_layers_.items():
                 self.apply_mask_weight(layer_param_name)
-
