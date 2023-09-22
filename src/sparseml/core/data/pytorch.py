@@ -81,7 +81,8 @@ class DynamicBatchSizeDataLoader:
     @staticmethod
     def split_batch(batch, start_idx, end_idx):
         """
-        Splits a batch based on its type (Tensor, Mapping, Sequence) and the provided indices.
+        Splits a batch based on its type (Tensor, Mapping, Sequence) and the provided
+        indices.
         """
         if isinstance(batch, torch.Tensor):
             return batch[start_idx:end_idx]

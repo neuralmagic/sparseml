@@ -20,6 +20,7 @@ from pydantic import BaseModel
 from sparseml.core.event import Event, EventType
 from sparseml.core.framework_object import MultiFrameworkObject
 from sparseml.core.modifier.base import ModifierInterface
+from sparseml.core.state import State
 
 
 __all__ = ["Modifier"]
@@ -60,11 +61,11 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
     def calculate_end(self) -> float:
         return self.end if self.end is not None else -1
 
-    def pre_initialize_structure(self, state: "State", **kwargs):
+    def pre_initialize_structure(self, state: State, **kwargs):
         self.on_initialize_structure(state, **kwargs)
         self.initialized_structure_ = True
 
-    def initialize(self, state: "State", **kwargs):
+    def initialize(self, state: State, **kwargs):
         if self.initialized_:
             return
 
@@ -88,7 +89,7 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
             self.on_start(state, state.start_event, **kwargs)
             self.started_ = True
 
-    def finalize(self, state: "State", **kwargs):
+    def finalize(self, state: State, **kwargs):
         if self.finalized_:
             return
 
@@ -105,7 +106,7 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
 
         self.finalized_ = finalized
 
-    def update_event(self, state: "State", event: Event, **kwargs):
+    def update_event(self, state: State, event: Event, **kwargs):
         if not self.initialized_:
             raise RuntimeError("cannot update an uninitialized modifier")
 
@@ -151,23 +152,23 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
 
         return self.end is not None and current >= self.end
 
-    def on_initialize_structure(self, state: "State", **kwargs):
+    def on_initialize_structure(self, state: State, **kwargs):
         raise NotImplementedError()
 
-    def on_initialize(self, state: "State", **kwargs) -> bool:
+    def on_initialize(self, state: State, **kwargs) -> bool:
         raise NotImplementedError()
 
-    def on_finalize(self, state: "State", **kwargs) -> bool:
+    def on_finalize(self, state: State, **kwargs) -> bool:
         raise NotImplementedError()
 
-    def on_start(self, state: "State", event: Event, **kwargs):
+    def on_start(self, state: State, event: Event, **kwargs):
         raise NotImplementedError()
 
-    def on_update(self, state: "State", event: Event, **kwargs):
+    def on_update(self, state: State, event: Event, **kwargs):
         raise NotImplementedError()
 
-    def on_end(self, state: "State", event: Event, **kwargs):
+    def on_end(self, state: State, event: Event, **kwargs):
         raise NotImplementedError()
 
-    def on_event(self, state: "State", event: Event, **kwargs):
+    def on_event(self, state: State, event: Event, **kwargs):
         pass

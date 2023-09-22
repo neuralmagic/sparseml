@@ -17,8 +17,6 @@ import re
 from dataclasses import dataclass
 from typing import Any, Callable, Dict
 
-import numpy as np
-
 from sparseml.core import Event, State
 
 

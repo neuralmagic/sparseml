@@ -123,9 +123,9 @@ class ModifierFactory:
     def register(type_: str, modifier_class: Type[Modifier]):
         if not issubclass(modifier_class, Modifier):
             raise ValueError(
-                f"The provided class does not subclass the Modifier base class."
+                "The provided class does not subclass the Modifier base class."
             )
         if not isinstance(modifier_class, type):
-            raise ValueError(f"The provided class is not a type.")
+            raise ValueError("The provided class is not a type.")
 
         ModifierFactory._registered_registry[type_] = modifier_class

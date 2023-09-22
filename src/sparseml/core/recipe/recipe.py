@@ -15,12 +15,13 @@
 import json
 import os
 from dataclasses import dataclass
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Union
 
 import yaml
 from pydantic import Field, root_validator
 
 from sparseml.core.framework import Framework
+from sparseml.core.modifier import StageModifiers
 from sparseml.core.recipe.args import RecipeArgs
 from sparseml.core.recipe.base import RecipeBase
 from sparseml.core.recipe.metadata import RecipeMetaData
