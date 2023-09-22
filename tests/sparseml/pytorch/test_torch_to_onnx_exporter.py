@@ -202,7 +202,7 @@ def test_export_per_channel_conv_4bit_model(tmp_path):
 
     # this checks all the I/O shapes check out
     # don't call session.run() b/c ort doesn't support channel-wise for ConvInteger
-    ort.InferenceSession(new_dir / "model.onnx")
+    ort.InferenceSession(new_dir / "model.onnx", providers=["CPUExecutionProvider"])
 
 
 @pytest.mark.skipif(
@@ -232,7 +232,9 @@ def test_export_and_load_per_channel_model(tmp_path, model, sample_batch):
     onnx_model = onnx.load(new_dir / "model.onnx")
     validate_onnx(onnx_model)
 
-    session = ort.InferenceSession(new_dir / "model.onnx")
+    session = ort.InferenceSession(
+        new_dir / "model.onnx", providers=["CPUExecutionProvider"]
+    )
     input_name = session.get_inputs()[0].name
     output_name = session.get_outputs()[0].name
     session.run(
@@ -461,7 +463,9 @@ def _assert_onnx_models_are_equal(
     assert len(old_model.graph.node) == len(new_model.graph.node)
     assert len(old_model.graph.initializer) == len(new_model.graph.initializer)
 
-    old_session = ort.InferenceSession(old_model_path)
+    old_session = ort.InferenceSession(
+        old_model_path, providers=["CPUExecutionProvider"]
+    )
     input_name = old_session.get_inputs()[0].name
     output_name = old_session.get_outputs()[0].name
     old_output = old_session.run(
@@ -471,7 +475,9 @@ def _assert_onnx_models_are_equal(
         else {input_name: sample_batch.numpy()},
     )
 
-    new_session = ort.InferenceSession(new_model_path)
+    new_session = ort.InferenceSession(
+        new_model_path, providers=["CPUExecutionProvider"]
+    )
     new_output = new_session.run(
         [output_name],
         sample_batch
