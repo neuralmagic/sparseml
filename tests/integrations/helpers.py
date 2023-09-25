@@ -149,8 +149,8 @@ def model_inputs_outputs_test(
         output_names.append(output_a.name)
 
     # run sample forward and test absolute max diff
-    ort_sess_a = InferenceSession(model_path_a)
-    ort_sess_b = InferenceSession(model_path_b)
+    ort_sess_a = InferenceSession(model_path_a, providers=["CPUExecutionProvider"])
+    ort_sess_b = InferenceSession(model_path_b, providers=["CPUExecutionProvider"])
     forward_output_a = ort_sess_a.run(output_names, sample_input)
     forward_output_b = ort_sess_b.run(output_names, sample_input)
     for out_a, out_b in zip(forward_output_a, forward_output_b):

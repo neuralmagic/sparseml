@@ -41,7 +41,7 @@ def setup_mask_for_param(param: Parameter, mask: torch.Tensor) -> torch.Tensor:
         )
 
     if mask.dtype != torch.bool:
-        raise ValueError(f"Mask must be a boolean tensor")
+        raise ValueError("Mask must be a boolean tensor")
 
     return param.data.new_tensor(mask, dtype=torch.bool)
 

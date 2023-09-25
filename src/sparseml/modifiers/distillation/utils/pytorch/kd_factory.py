@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import re
-from typing import Callable, Dict, List, Sequence, Tuple, Union
+from typing import Callable, Dict, Sequence, Tuple, Union
 
 import torch
 import torch.nn.functional as TF

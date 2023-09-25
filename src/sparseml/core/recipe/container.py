@@ -44,7 +44,7 @@ class RecipeContainer:
     def update(
         self,
         recipe: Union[str, List[str], Recipe, List[Recipe]] = None,
-        recipe_stage: Union[str, List[str]] = None,
+        recipe_stage: Union[str, List[str], List[List[str]]] = None,
         recipe_args: Union[Dict[str, Any], List[Dict[str, Any]]] = None,
         **kwargs,
     ) -> Dict:
@@ -55,8 +55,11 @@ class RecipeContainer:
                 recipe = [recipe]
             if recipe_stage is None:
                 recipe_stage = [None] * len(recipe)
-            elif not isinstance(recipe_stage, list):
-                recipe_stage = [recipe_stage] * len(recipe)
+            else:
+                if not isinstance(recipe_stage, list):
+                    recipe_stage = [[recipe_stage]] * len(recipe)
+                if not isinstance(recipe_stage[0], list):
+                    recipe_stage = [recipe_stage] * len(recipe)
 
             if recipe_args is None:
                 recipe_args = [{}] * len(recipe)
