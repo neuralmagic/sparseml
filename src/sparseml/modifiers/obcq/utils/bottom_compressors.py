@@ -14,8 +14,8 @@
 
 import torch
 
-from sparseml.modifiers.sparsification.obcq.utils.layer_compressor import BaseCompressor
-from sparseml.modifiers.sparsification.obcq.utils.utils import (
+from sparseml.modifiers.obcq.utils.layer_compressor import BaseCompressor
+from sparseml.modifiers.obcq.utils.utils import (
     catch,
     execute_offloaded_module,
 )

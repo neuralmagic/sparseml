@@ -19,16 +19,16 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 import torch
 from torch.nn import ModuleList
 
-from sparseml.modifiers.sparsification.obcq.base import (
+from sparseml.modifiers.obcq.base import (
     SparseGPTModifier,
     SparseLlamaModifier,
     SparseOPTModifier,
 )
-from sparseml.modifiers.sparsification.obcq.utils.bottom_compressors import (
+from sparseml.modifiers.obcq.utils.bottom_compressors import (
     LlamaBottomCompressor,
     OPTBottomCompressor,
 )
-from sparseml.modifiers.sparsification.obcq.utils.layer_compressor import (
+from sparseml.modifiers.obcq.utils.layer_compressor import (
     LayerCompressor,
 )
 

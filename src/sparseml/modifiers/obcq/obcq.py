@@ -20,20 +20,20 @@ from typing import Optional
 
 import sparseml.core.session as sml
 from sparseml.core.framework import Framework
-from sparseml.modifiers.sparsification.obcq.utils.bottom_compressors import (
+from sparseml.modifiers.obcq.utils.bottom_compressors import (
     LlamaBottomCompressor,
     OPTBottomCompressor,
 )
-from sparseml.modifiers.sparsification.obcq.utils.data import (
+from sparseml.modifiers.obcq.utils.data import (
     get_c4,
     get_ptb,
     get_wikitext2,
 )
-from sparseml.modifiers.sparsification.obcq.utils.models import (
+from sparseml.modifiers.obcq.utils.models import (
     load_llama_model,
     load_opt_model,
 )
-from sparseml.modifiers.sparsification.obcq.utils.utils import ppl_eval_general
+from sparseml.modifiers.obcq.utils.utils import ppl_eval_general
 from sparseml.optim.helpers import load_recipe_yaml_str
 
 
