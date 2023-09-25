@@ -24,15 +24,8 @@ from sparseml.modifiers.obcq.utils.bottom_compressors import (
     LlamaBottomCompressor,
     OPTBottomCompressor,
 )
-from sparseml.modifiers.obcq.utils.data import (
-    get_c4,
-    get_ptb,
-    get_wikitext2,
-)
-from sparseml.modifiers.obcq.utils.models import (
-    load_llama_model,
-    load_opt_model,
-)
+from sparseml.modifiers.obcq.utils.data import get_c4, get_ptb, get_wikitext2
+from sparseml.modifiers.obcq.utils.models import load_llama_model, load_opt_model
 from sparseml.modifiers.obcq.utils.utils import ppl_eval_general
 from sparseml.optim.helpers import load_recipe_yaml_str
 

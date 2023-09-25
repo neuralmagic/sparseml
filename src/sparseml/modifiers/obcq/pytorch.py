@@ -28,9 +28,7 @@ from sparseml.modifiers.obcq.utils.bottom_compressors import (
     LlamaBottomCompressor,
     OPTBottomCompressor,
 )
-from sparseml.modifiers.obcq.utils.layer_compressor import (
-    LayerCompressor,
-)
+from sparseml.modifiers.obcq.utils.layer_compressor import LayerCompressor
 
 
 _LOGGER = logging.getLogger(__name__)

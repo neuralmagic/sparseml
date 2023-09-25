@@ -13,4 +13,4 @@ test_stage:
       sparsity: 0.5
       block_size: 128
       sequential_update: True
-      quantize: False
+      quantize: True

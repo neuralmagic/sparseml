@@ -15,10 +15,7 @@
 import torch
 
 from sparseml.modifiers.obcq.utils.layer_compressor import BaseCompressor
-from sparseml.modifiers.obcq.utils.utils import (
-    catch,
-    execute_offloaded_module,
-)
+from sparseml.modifiers.obcq.utils.utils import catch, execute_offloaded_module
 
 
 __all__ = ["LlamaBottomCompressor", "OPTBottomCompressor"]
