@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Mapping
+from sparseml.pytorch.optim.manager import ScheduledModifierManager
+from sparseml.experimental.sparsegpt.dynamic_quantization import add_dynamic_quantization
+
 from typing import Dict, Tuple
 
 import torch
@@ -20,9 +22,7 @@ import torch.nn as nn
 
 from math import ceil
 
-from sparseml.pytorch.optim.manager import ScheduledModifierManager
 from sparseml.experimental.sparsegpt.smoothquant import SmoothQuant
-
 
 class ModelPreprocessor:
     def __init__(self, model):
@@ -37,6 +37,17 @@ def reset_observers(module):
         module.reset_min_max_vals()
 
 
+def apply_recipe(model, recipe, dynamic_quantization_modules):
+    manager = ScheduledModifierManager.from_yaml(recipe)
+    model.train()
+    manager.apply_structure(model, epoch=0.1)
+    model.eval()
+    if dynamic_quantization_modules is not None:
+        add_dynamic_quantization(model, dynamic_quantization_modules)
+
+    return manager
+
+
 class QuantizationModelPreprocessor(ModelPreprocessor):
     def __init__(
             self,
@@ -47,6 +58,7 @@ class QuantizationModelPreprocessor(ModelPreprocessor):
             model_forward,
             smoothquant=False,
             smoothquant_kwargs=None,
+            dynamic_quantization_modules=None
     ):
         super().__init__(model)
         self.recipe = recipe
@@ -58,19 +70,19 @@ class QuantizationModelPreprocessor(ModelPreprocessor):
         self.smoothquant = smoothquant
         if smoothquant:
             self.smoothquant_instance = SmoothQuant(self.smoothquant_layers(), **smoothquant_kwargs)
+        self.dynamic_quantization_modules = dynamic_quantization_modules
 
     def __call__(self, dev: str = "cuda:0", **kwargs) -> Tuple[nn.Module, Dict]:
-        manager = ScheduledModifierManager.from_yaml(self.recipe)
-        self.model.train()
-        manager.apply_structure(self.model, epoch=0.1)
-        self.model.eval()
+        manager = apply_recipe(self.model, self.recipe, self.dynamic_quantization_modules)
         self.initialize_scales_from_batches(dev)
         if self.smoothquant:
             self.smoothquant_instance(dev)
             self.model.apply(reset_observers)
             self.initialize_scales_from_batches(dev)
         self.model.apply(torch.quantization.disable_observer)
+
         return self.model, {"manager": manager}
+
 
     def initialize_scales_from_batches(self, dev):
         print("Collecting data statistics for quantization scales...")

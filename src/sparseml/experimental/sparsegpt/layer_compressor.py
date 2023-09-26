@@ -215,7 +215,7 @@ def _find_quant_layers(module, layers=[torch.nn.qat.Linear], name=""):
     res = {}
     for name1, child in module.named_children():
         res.update(
-            _find_layers(
+            _find_quant_layers(
                 child, layers=layers, name=name + "." + name1 if name != "" else name1
             )
         )
