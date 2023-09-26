@@ -53,12 +53,18 @@ class QuantizationModifierPyTorch(QuantizationModifier):
         self.calibration_dataloader_ = state.data.calib
         module = state.model.model
         device = state.hardware.device
-        module.to(device)
+        state.model.model.to(device)
+        module = state.model.model
         self._enable_module_qat(module)
 
         return True
 
     def on_finalize(self, state: State, **kwargs) -> bool:
+        if self.post_oneshot_calibration:
+            state.model.model.to(state.hardware.device)
+            state.model.model.apply(torch.quantization.enable_observer)
+            self._calibrate_if_possible(state.model.model)
+        state.model.model.apply(torch.quantization.disable_observer)
         return True
 
     def on_start(self, state: State, event: Event, **kwargs):
@@ -159,3 +165,5 @@ class QuantizationModifierPyTorch(QuantizationModifier):
 
         if module_training:
             module.train()
+        else:
+            module.apply(torch.quantization.disable_observer)

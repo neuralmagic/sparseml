@@ -3,5 +3,5 @@ test_stage:
     SparseLlamaModifier:
       sparsity: 0.5
       block_size: 128
-      sequential_update: True
+      sequential_update: False
       quantize: False

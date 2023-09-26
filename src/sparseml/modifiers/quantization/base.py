@@ -85,27 +85,25 @@ class QuantizationModifier(Modifier):
         scheme_overrides or ignore are not found in a given module. Default True
     """
 
-    scheme: Optional[QuantizationSchemeLoadable] = (None,)
-    scheme_overrides: Optional[Dict[str, QuantizationSchemeLoadable]] = (None,)
-    ignore: Optional[List[str]] = (None,)
-    disable_quantization_observer_epoch: Optional[float] = (None,)
-    freeze_bn_stats_epoch: Optional[float] = (None,)
-    model_fuse_fn_name: Optional[str] = (None,)
-    model_fuse_fn_kwargs: Optional[Dict[str, Any]] = (None,)
-    num_calibration_steps: Optional[int] = (None,)
-    strict: bool = (True,)
+    scheme: Optional[QuantizationSchemeLoadable] = None
+    scheme_overrides: Optional[Dict[str, QuantizationSchemeLoadable]] = None
+    ignore: Optional[List[str]] = None
+    disable_quantization_observer_epoch: Optional[float] = None
+    freeze_bn_stats_epoch: Optional[float] = None
+    model_fuse_fn_name: Optional[str] = None
+    model_fuse_fn_kwargs: Optional[Dict[str, Any]] = None
+    num_calibration_steps: Optional[int] = None
+    post_oneshot_calibration: Optional[bool] = False
+    strict: bool = True
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        scheme = kwargs.get("scheme", None)
-        scheme_overrides = kwargs.get("scheme_overrides", None)
-        self.scheme = QuantizationScheme.load(scheme)
+        self.scheme = QuantizationScheme.load(self.scheme)
         self.scheme_overrides = _load_quantization_schemes_dict(
-            scheme_overrides, scheme
+            self.scheme_overrides, self.scheme
         )
-        self.num_calibration_steps = kwargs.get("num_calibration_steps", None)
-        self.model_fuse_fn_name = kwargs.get("model_fuse_fn_name", None)
-        self.model_fuse_fn_kwargs = kwargs.get("model_fuse_fn_kwargs", {})
+        if self.model_fuse_fn_kwargs is None:
+            self.model_fuse_fn_kwargs = {}
 
     def on_initialize_structure(self, state: State, **kwargs):
         pass  # nothing needed for this modifier

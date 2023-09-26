@@ -53,11 +53,11 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
 
     def on_initialize(self, state: "State", **kwargs) -> bool:
         self.finalization_kwargs_ = {}
-        model = state.model.model
+        module = state.model.model
         calibration_dataloader = state.data.calib
         device = state.hardware.device
 
-        self.initialize_obcq(model, device)
+        self.initialize_obcq(module, device)
         extras = self.apply_obcq(calibration_dataloader)
         self.finalization_kwargs_.update(extras)
 
