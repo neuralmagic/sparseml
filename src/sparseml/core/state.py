@@ -19,7 +19,7 @@ from typing import Any, Dict, List
 from pydantic import Field
 
 from sparseml.core.data import ModifiableData
-from sparseml.core.event import Event
+from sparseml.core.event import Event, EventType
 from sparseml.core.framework import Framework
 from sparseml.core.model import ModifiableModel
 from sparseml.core.optimizer import ModifiableOptimizer
@@ -107,10 +107,11 @@ class State:
         if test_data is not None:
             self.data.test = test_data if not copy_data else deepcopy(test_data)
         if calib_data is not None:
-            calib_loader = calib_data if not copy_data else deepcopy(calib_data)
-            self.calib_data = ModifiableData(
-                framework=self.framework, data_loader=calib_loader
-            )
+            self.data.calib = calib_data if not copy_data else deepcopy(calib_data)
+
+        if "device" in kwargs:
+            self.hardware.device = kwargs["device"]
+            self.model.model.to(self.hardware.device)
 
         if (
             start is not None
