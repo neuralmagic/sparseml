@@ -171,5 +171,6 @@ if __name__ == "__main__":
         _save(model, tokenizer, args.save)
 
     if args.eval:
-        _, testloader, _ = load_data(args, dataset="wikitext2")
-        evaluate_perplexity(model, testloader, DEV)
+        args.dataset = "wikitext2"
+        _, testloader, _ = load_data(args, None, seqlen)
+        evaluate_perplexity(args, model, testloader, DEV)
