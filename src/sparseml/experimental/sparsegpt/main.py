@@ -79,13 +79,10 @@ if __name__ == "__main__":
         "--smoothquant", action="store_true", help="Whether to run SmoothQuant."
     )
     parser.add_argument(
-        "--logarithmic-equalization", action="store_true", help="Whether to run logarithmic activation equalization."
-    )
-    parser.add_argument(
-        "--smoothquant_alpha",
-        type=float,
-        help="Value of parameter used to balance activation and weight scaling in SmoothQuant",
-        default=0.5,
+        "--smooth-activation-file",
+        type=str,
+        help="Activation file to be used with SmoothQuant",
+        default=None,
     )
     parser.add_argument(
         "--ptq-only",

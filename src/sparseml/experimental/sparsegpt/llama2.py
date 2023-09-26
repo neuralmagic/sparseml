@@ -20,27 +20,6 @@ from sparseml.experimental.sparsegpt.sequential import SequentialSparseGPT
 from sparseml.experimental.sparsegpt.utils import catch, execute_offloaded_module, ppl_eval_general
 
 
-smoothquant_subgraph_keys = [
-    {
-        "module_to_balance": ["q_proj", "k_proj", "v_proj"],
-        "module_to_merge_scale": ["input_layernorm", "llamarmsnorm"]
-    },
-    {
-        "module_to_balance": ["gate_proj", "up_proj"],
-        "module_to_merge_scale": ["post_attention_layernorm", "llamarmsnorm"]
-    },
-    {
-        "module_to_balance": ["down_proj"],
-        "module_to_merge_scale": ["up_proj", "linear"],
-    },
-]
-
-
-class QuantizationModelPreprocessor_Llama2(QuantizationModelPreprocessor):
-    def smoothquant_layers(self):
-        return self.model.model.layers
-
-
 class SequentialSparseGPT_Llama2(SequentialSparseGPT):
     def compressible_layers(self):
         return self.model.model.layers
@@ -70,14 +49,12 @@ def prepare_sparsegpt(model, dataloader, args, dev) -> SequentialSparseGPT:
     model_preprocessors = []
     if args.recipe:
         model_preprocessors.append(
-            QuantizationModelPreprocessor_Llama2(
+            QuantizationModelPreprocessor(
                 model,
                 args.recipe,
                 dataloader,
                 args.observer_batches,
                 llama2_forward,
-                smoothquant=args.smoothquant or args.logarithmic_equalization,
-                smoothquant_kwargs={"subgraph_keys": smoothquant_subgraph_keys, "alpha": args.smoothquant_alpha, "logarithmic_equalization": args.logarithmic_equalization},
             )
         )
     bottom_compressor = Llama2BottomCompressor(model)

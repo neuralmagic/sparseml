@@ -21,7 +21,6 @@ import torch.nn as nn
 from math import ceil
 
 from sparseml.pytorch.optim.manager import ScheduledModifierManager
-from sparseml.experimental.sparsegpt.smoothquant import SmoothQuant
 
 
 class ModelPreprocessor:
@@ -32,9 +31,21 @@ class ModelPreprocessor:
         return self.model, {}
 
 
-def reset_observers(module):
-    if hasattr(module, "reset_min_max_vals"):
-        module.reset_min_max_vals()
+class SmoothQuantModelPreprocessor(ModelPreprocessor):
+    def __init__(self, model, smooth_activation_file, alpha: float = 0.5):
+        super().__init__(model)
+        self.smooth_activation_file = smooth_activation_file
+        self.alpha = alpha
+
+    def __call__(self, dev: str = "cuda:0", **kwargs) -> Tuple[nn.Module, Dict]:
+        from smoothquant.smooth import smooth_lm
+
+        self.model.to(dev)
+        act_scales = torch.load(self.smooth_activation_file)
+        smooth_lm(self.model, act_scales, 0.5)
+        del act_scales
+        torch.cuda.empty_cache()
+        return self.model, {}
 
 
 class QuantizationModelPreprocessor(ModelPreprocessor):
@@ -45,8 +56,6 @@ class QuantizationModelPreprocessor(ModelPreprocessor):
             data_loader,
             observer_batches,
             model_forward,
-            smoothquant=False,
-            smoothquant_kwargs=None,
     ):
         super().__init__(model)
         self.recipe = recipe
@@ -55,9 +64,6 @@ class QuantizationModelPreprocessor(ModelPreprocessor):
         self.data_loader = data_loader
         self.observer_batches = observer_batches
         self.model_forward = model_forward
-        self.smoothquant = smoothquant
-        if smoothquant:
-            self.smoothquant_instance = SmoothQuant(self.smoothquant_layers(), **smoothquant_kwargs)
 
     def __call__(self, dev: str = "cuda:0", **kwargs) -> Tuple[nn.Module, Dict]:
         manager = ScheduledModifierManager.from_yaml(self.recipe)
@@ -65,10 +71,6 @@ class QuantizationModelPreprocessor(ModelPreprocessor):
         manager.apply_structure(self.model, epoch=0.1)
         self.model.eval()
         self.initialize_scales_from_batches(dev)
-        if self.smoothquant:
-            self.smoothquant_instance(dev)
-            self.model.apply(reset_observers)
-            self.initialize_scales_from_batches(dev)
         self.model.apply(torch.quantization.disable_observer)
         return self.model, {"manager": manager}
 
@@ -78,7 +80,4 @@ class QuantizationModelPreprocessor(ModelPreprocessor):
         with torch.no_grad():
             for _ in range(int(ceil(self.observer_batches / len(self.data_loader)))):
                 self.model_forward(self.model, self.data_loader, dev)
-
-    def smoothquant_layers(self):
-        pass
 
