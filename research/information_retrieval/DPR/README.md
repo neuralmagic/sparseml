@@ -32,11 +32,6 @@ val_av_rank_other_neg: 30
 val_av_rank_bsz: 128
 val_av_rank_max_qs: 10000
 
-https://www.dropbox.com/s/lvvpsx0cjk4vemv/collection.tar.gz?dl=1
-https://www.dropbox.com/s/hq6xjhswiz60siu/queries.dev.small.tsv?dl=1
-https://www.dropbox.com/s/khsplt2fhqwjs0v/qrels.dev.small.tsv?dl=1
-https://www.dropbox.com/s/uzkvv4gpj3a596a/predicted_queries_topk_sampling.zip?dl=1
-https://www.dropbox.com/s/nc1drdkjpxxsngg/run.dev.small.tsv?dl=1
 ## Results
 
 | Top-k passages        | Original DPR NQ model           | New DPR model  |

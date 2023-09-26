@@ -362,9 +362,9 @@ class ModuleExporter(object):
         :param exp_counter: the counter to start exporting the tensor files at
         """
         sample_batches = [tensors_to_device(batch, "cpu") for batch in sample_batches]
-        inputs_dir = os.path.join(self._output_dir, "sample_inputs")
-        outputs_dir = os.path.join(self._output_dir, "sample_outputs")
-        labels_dir = os.path.join(self._output_dir, "sample_labels")
+        inputs_dir = os.path.join(self._output_dir, "sample-inputs")
+        outputs_dir = os.path.join(self._output_dir, "sample-outputs")
+        labels_dir = os.path.join(self._output_dir, "sample-labels")
         originals_dir = os.path.join(self._output_dir, "sample_originals")
 
         with torch.no_grad():

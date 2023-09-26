@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
+import warnings
 
 import numpy
 import onnx
@@ -21,7 +22,7 @@ from sparseml.exporters.transforms.kv_cache.transforms_base import (
     AdditionalTransformsBase,
 )
 from sparseml.onnx.utils.graph_editor import ONNXGraph
-from sparseml.onnx.utils.helpers import get_nodes_by_input_id
+from sparseml.onnx.utils.helpers import get_init_by_name, get_nodes_by_input_id
 
 
 __all__ = ["AdditionalTransformsLLAMA"]
@@ -103,14 +104,31 @@ class AdditionalTransformsLLAMA(AdditionalTransformsBase):
 
         nodes_found = 0
         for node in model.graph.node:
-            if node.op_type == "Slice":
-                data_parent = ONNXGraph(model).get_node_single_parent(node, 0)
-                if data_parent is not None and len(data_parent.input) == 0:
-                    nodes_found += 1
-                    node.input[2] = self.SLICE_MAX_INT_NAME
-                    self.log_match(node)
+            valid_node = False
 
-        _LOGGER.info(f"Found {nodes_found} slice nodes to update")
+            if node.op_type == "Slice":
+                init = get_init_by_name(model, node.input[0])
+                data_parent = ONNXGraph(model).get_node_single_parent(node, 0)
+                # The Slice nodes may have data which are initializers or constants
+                if init is not None or (
+                    data_parent is not None and len(data_parent.input) == 0
+                ):
+                    valid_node = True
+
+            if valid_node:
+                nodes_found += 1
+                node.input[2] = self.SLICE_MAX_INT_NAME
+                self.log_match(node)
+
+        valid_node_counts = [64, 80]
+        if nodes_found not in valid_node_counts:
+            warnings.warn(
+                f"Number of Slice nodes updated {nodes_found} does not match the "
+                f"expected values {valid_node_counts} for the 7 billion or 13 billion "
+                "parameter models."
+            )
+
+        _LOGGER.info(f"Found {nodes_found} Slice nodes to update")
 
         model.graph.initializer.append(max_int_tensor)
         ONNXGraph(model).delete_orphaned_node_branches()

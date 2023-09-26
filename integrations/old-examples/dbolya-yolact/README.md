@@ -106,7 +106,7 @@ The following table lays out the root-level files and folders along with a descr
 | Folder/File Name                                | Description                                                                                                           |
 |-------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------|
 | [recipes](./recipes)                            | Typical recipes for sparsifying YOLACT models along with any downloaded recipes from the SparseZoo.                   |
-| [yolact](./yolact)                              | Integration repository folder used to train and sparsify YOLACT models (`setup_integration.sh` must run first).       |
+| yolact                                          | Integration repository folder used to train and sparsify YOLACT models (`setup_integration.sh` must run first).       |
 | [README.md](./README.md)                        | Readme file.                                                                                                          |
 | [tutorials](./tutorials)                        | Easy to follow sparsification tutorials for YOLACT  models.                                                            |
 

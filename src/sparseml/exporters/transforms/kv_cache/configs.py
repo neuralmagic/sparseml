@@ -26,6 +26,9 @@ from sparseml.exporters.transforms.kv_cache.transforms_codegen import (
 from sparseml.exporters.transforms.kv_cache.transforms_llama import (
     AdditionalTransformsLLAMA,
 )
+from sparseml.exporters.transforms.kv_cache.transforms_mpt import (
+    AdditionalTransformsMPT,
+)
 from sparseml.exporters.transforms.kv_cache.transforms_opt import (
     AdditionalTransformsOPT,
 )
@@ -105,6 +108,16 @@ CODEGEN_CONFIG = KeyValueCacheConfig(
     multiply_batch_by_num_att_heads=False,
 )
 
+MPT_CONFIG = KeyValueCacheConfig(
+    model_name="mpt",
+    additional_transforms=AdditionalTransformsMPT,
+    key_num_attention_heads="n_heads",
+    key_num_embedding_hidden_size="d_model",
+    transpose_value_input=None,
+    transpose_key_input=(0, 1, 3, 2),
+    multiply_batch_by_num_att_heads=False,
+)
+
 BLOOM_CONFIG = KeyValueCacheConfig(
     model_name="bloom",
     additional_transforms=None,
@@ -125,6 +138,19 @@ LLAMA_CONFIG = KeyValueCacheConfig(
     multiply_batch_by_num_att_heads=False,
 )
 
+# Reusing the CodeGen transforms because it happens to match what we need for GPTNeo
+additional_transforms_gpt_neo = AdditionalTransformsCodeGen
+
+GPT_NEO_CONFIG = KeyValueCacheConfig(
+    model_name="gpt_neo",
+    additional_transforms=additional_transforms_gpt_neo,
+    key_num_attention_heads="num_heads",
+    key_num_embedding_hidden_size="hidden_size",
+    transpose_value_input=(0, 2, 1, 3),
+    transpose_key_input=None,
+    multiply_batch_by_num_att_heads=False,
+)
+
 
 def get_kv_cache_config(
     model_path: str,
@@ -132,7 +158,9 @@ def get_kv_cache_config(
         OPT_CONFIG,
         CODEGEN_CONFIG,
         BLOOM_CONFIG,
+        MPT_CONFIG,
         LLAMA_CONFIG,
+        GPT_NEO_CONFIG,
     ],
 ) -> KeyValueCacheConfig:
     """
