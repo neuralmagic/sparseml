@@ -48,6 +48,7 @@ __all__ = [
     "freeze_bn_stats",
     "fuse_module_conv_bn_relus",
     "prepare_embeddings_qat",
+    "initialize_channel_wise_scale_zp",
     "QConfigProperties",
     "LINEAR_ACTIVATION_NAMES",
     "CONV_ACTIVATION_NAMES",
@@ -708,6 +709,45 @@ def prepare_embeddings_qat(
         submodule_qconfig = submodule_qconfig or qconfig
         if isinstance(submodule, Embedding) and submodule_qconfig is not None:
             _prepare_qat_embedding(submodule, submodule_qconfig)
+
+
+def initialize_channel_wise_scale_zp(module: Module):
+    """
+    On torch channel-wise quantization, zero points and scales are
+    initialized to a default size of (1,) instead of their true size
+    of (num_output_channels,). This can cause issues on reloading
+    of saved checkpoints due to shape mismatch. This function expands
+    these initial scales and zero points to match the true expected
+    shape
+
+    :param module: qat ready, uncalibrated model
+    """
+    for name, submodule in module.named_modules():
+        weight_fake_quant = getattr(submodule, "weight_fake_quant", None)
+        if not weight_fake_quant or (
+            getattr(weight_fake_quant, "qscheme", None) is not torch.per_channel_affine
+        ):
+            # only consider modules with channel-wise quantized weights
+            continue
+        num_channels = None
+        if hasattr(submodule, "out_features"):
+            # matmul layers
+            num_channels = submodule.out_features
+        elif hasattr(submodule, "out_channels"):
+            num_channels = submodule.out_channels
+
+        if not num_channels:
+            # unable to infer num_channels or num_channels is 0
+            continue
+
+        # update scale and zero point if they are initialized to a size of 1
+        scale = weight_fake_quant.scale
+        if scale.numel() == 1:
+            weight_fake_quant.scale = scale.reshape(-1).expand(num_channels)
+
+        zero_point = weight_fake_quant.zero_point
+        if zero_point.numel() == 1:
+            weight_fake_quant.zero_point = zero_point.reshape(-1).expand(num_channels)
 
 
 def _delete_get_block_hooks(
