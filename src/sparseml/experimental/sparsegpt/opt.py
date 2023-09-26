@@ -14,12 +14,18 @@
 
 import numpy as np
 import torch
-import torch.nn as nn
 
 from sparseml.experimental.sparsegpt.layer_compressor import BaseCompressor, LayerCompressor
 from sparseml.experimental.sparsegpt.model_preprocessor import QuantizationModelPreprocessor
 from sparseml.experimental.sparsegpt.sequential import SequentialSparseGPT
-from sparseml.experimental.sparsegpt.utils import catch, execute_offloaded_module, ppl_eval_general
+from sparseml.experimental.sparsegpt.utils import (
+    catch,
+    execute_offloaded_module,
+    ppl_eval_general,
+    get_ptb,
+    get_c4,
+    get_wikitext2,
+)
 
 
 smoothquant_subgraph_keys = [
@@ -220,105 +226,7 @@ def set_seed(seed):
     torch.random.manual_seed(seed)
 
 
-def get_wikitext2(nsamples, seed, seqlen, model):
-    from datasets import load_dataset
 
-    traindata = load_dataset("wikitext", "wikitext-2-raw-v1", split="train")
-    testdata = load_dataset("wikitext", "wikitext-2-raw-v1", split="test")
-
-    from transformers import AutoTokenizer
-
-    tokenizer = AutoTokenizer.from_pretrained(model, use_fast=False)
-    trainenc = tokenizer(" ".join(traindata["text"]), return_tensors="pt")
-    testenc = tokenizer("\n\n".join(testdata["text"]), return_tensors="pt")
-
-    import random
-
-    random.seed(seed)
-    trainloader = []
-    for _ in range(nsamples):
-        i = random.randint(0, trainenc.input_ids.shape[1] - seqlen - 1)
-        j = i + seqlen
-        inp = trainenc.input_ids[:, i:j]
-        tar = inp.clone()
-        tar[:, :-1] = -100
-        trainloader.append((inp, tar))
-    return trainloader, testenc, tokenizer
-
-
-def get_ptb(nsamples, seed, seqlen, model):
-    from datasets import load_dataset
-
-    traindata = load_dataset("ptb_text_only", "penn_treebank", split="train")
-    testdata = load_dataset("ptb_text_only", "penn_treebank", split="test")
-
-    from transformers import AutoTokenizer
-
-    tokenizer = AutoTokenizer.from_pretrained(model, use_fast=False)
-    trainenc = tokenizer(" ".join(traindata["sentence"]), return_tensors="pt")
-    testenc = tokenizer(" ".join(testdata["sentence"]), return_tensors="pt")
-
-    import random
-
-    random.seed(seed)
-    trainloader = []
-    for _ in range(nsamples):
-        i = random.randint(0, trainenc.input_ids.shape[1] - seqlen - 1)
-        j = i + seqlen
-        inp = trainenc.input_ids[:, i:j]
-        tar = inp.clone()
-        tar[:, :-1] = -100
-        trainloader.append((inp, tar))
-    return trainloader, testenc, tokenizer
-
-
-def get_c4(nsamples, seed, seqlen, model):
-    from datasets import load_dataset
-
-    traindata = load_dataset(
-        "allenai/c4",
-        "allenai--c4",
-        data_files={"train": "en/c4-train.00000-of-01024.json.gz"},
-        split="train",
-    )
-    valdata = load_dataset(
-        "allenai/c4",
-        "allenai--c4",
-        data_files={"validation": "en/c4-validation.00000-of-00008.json.gz"},
-        split="validation",
-    )
-
-    from transformers import AutoTokenizer
-
-    tokenizer = AutoTokenizer.from_pretrained(model, use_fast=False)
-
-    import random
-
-    random.seed(seed)
-    trainloader = []
-    for _ in range(nsamples):
-        while True:
-            i = random.randint(0, len(traindata) - 1)
-            trainenc = tokenizer(traindata[i]["text"], return_tensors="pt")
-            if trainenc.input_ids.shape[1] >= seqlen:
-                break
-        i = random.randint(0, trainenc.input_ids.shape[1] - seqlen - 1)
-        j = i + seqlen
-        inp = trainenc.input_ids[:, i:j]
-        tar = inp.clone()
-        tar[:, :-1] = -100
-        trainloader.append((inp, tar))
-
-    valenc = tokenizer(" ".join(valdata[:1100]["text"]), return_tensors="pt")
-    valenc = valenc.input_ids[:, : (256 * seqlen)]
-
-    class TokenizerWrapper:
-        def __init__(self, input_ids):
-            self.input_ids = input_ids
-
-    valenc = TokenizerWrapper(valenc)
-
-    return trainloader, valenc, tokenizer
 
 
 def ppl_eval(
