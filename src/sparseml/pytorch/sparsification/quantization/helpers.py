@@ -749,6 +749,16 @@ def initialize_channel_wise_scale_zp(module: Module):
         if zero_point.numel() == 1:
             weight_fake_quant.zero_point = zero_point.reshape(-1).expand(num_channels)
 
+        # update the observer min and max vals
+        if weight_fake_quant.activation_post_process.min_val.numel() == 0:
+            weight_fake_quant.activation_post_process.min_val = torch.empty_like(
+                weight_fake_quant.scale
+            )
+        if weight_fake_quant.activation_post_process.min_val.numel() == 0:
+            weight_fake_quant.activation_post_process.max_val = torch.empty_like(
+                weight_fake_quant.scale
+            )
+
 
 def _delete_get_block_hooks(
     module: Module,
