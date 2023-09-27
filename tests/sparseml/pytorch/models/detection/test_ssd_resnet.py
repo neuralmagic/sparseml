@@ -29,9 +29,7 @@ from sparseml.pytorch.models import (
 from tests.sparseml.pytorch.models.utils import compare_model
 
 
-@pytest.mark.skip(
-    reason="SSD Resnet models deprecated"
-)
+@pytest.mark.skip(reason="SSD Resnet models deprecated")
 @pytest.mark.parametrize(
     "key,pretrained,pretrained_backbone,test_input,match_const",
     [
