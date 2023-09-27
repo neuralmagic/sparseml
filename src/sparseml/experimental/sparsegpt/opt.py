@@ -16,12 +16,15 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from layer_compressor import BaseCompressor, LayerCompressor
-from model_preprocessor import (
+from sparseml.experimental.sparsegpt.layer_compressor import (
+    BaseCompressor,
+    LayerCompressor,
+)
+from sparseml.experimental.sparsegpt.model_preprocessor import (
     QuantizationModelPreprocessor,
     SmoothQuantModelPreprocessor,
 )
-from sequential import SequentialSparseGPT
+from sparseml.experimental.sparsegpt.sequential import SequentialSparseGPT
 
 
 class SequentialSparseGPT_OPT(SequentialSparseGPT):

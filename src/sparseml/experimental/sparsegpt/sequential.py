@@ -17,8 +17,8 @@ from typing import List, Optional
 
 import torch
 
-from layer_compressor import LayerCompressor
-from model_preprocessor import ModelPreprocessor
+from sparseml.experimental.sparsegpt.layer_compressor import LayerCompressor
+from sparseml.experimental.sparsegpt.model_preprocessor import ModelPreprocessor
 
 
 class SequentialSparseGPT:

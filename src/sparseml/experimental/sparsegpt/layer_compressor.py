@@ -18,8 +18,8 @@ from typing import Dict, List, Tuple
 import torch
 import torch.nn as nn
 
-from quant import WeightFakeQuantizer
-from sparsegpt import SparseGPT
+from sparseml.experimental.sparsegpt.quant import WeightFakeQuantizer
+from sparseml.experimental.sparsegpt.sparsegpt import SparseGPT
 
 
 DEFAULT_WBITS = 16

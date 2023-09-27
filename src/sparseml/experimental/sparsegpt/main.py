@@ -17,7 +17,12 @@ import time
 
 import torch
 
-from dispatch import evaluate_perplexity, load_data, load_model, prepare_sparsegpt
+from sparseml.experimental.sparsegpt.dispatch import (
+    evaluate_perplexity,
+    load_data,
+    load_model,
+    prepare_sparsegpt,
+)
 from sparseml.optim.helpers import load_recipe_yaml_str
 
 
