@@ -124,6 +124,16 @@ class SparseGPT:
                 q = w.clone()
                 q[mask1[:, i]] = 0
 
+                if hasattr(self.layer, "weight_fake_quant"):
+                    scale = self.layer.weight_fake_quant.scale
+                    zero_point = self.layer.weight_fake_quant.zero_point
+                    dtype = self.layer.weight_fake_quant.dtype
+                    q = torch.dequantize(
+                        torch.quantize_per_tensor(
+                            q.unsqueeze(1), scale, zero_point, dtype
+                        )
+                    ).flatten()
+
                 Q1[:, i] = q
                 Losses1[:, i] = (w - q) ** 2 / d**2
 

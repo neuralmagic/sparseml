@@ -118,8 +118,8 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
             _LOGGER.info(f"\n===== Compressing layer {idx}/{num_layers} =====")
             args = {
                 "sparsity": self.sparsity,
-                "prunen": 0,
-                "prunem": 0,
+                "prunen": self.prunen,
+                "prunem": self.prunem,
                 "blocksize": self.block_size,
                 "percdamp": self.dampening_frac,
                 "sequential_update": self.sequential_update,

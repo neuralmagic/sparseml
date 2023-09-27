@@ -40,11 +40,12 @@ SUPPORTED_MODELS = ["opt", "llama"]
 def one_shot(
     model_path: str,
     dataset_name: str,
-    deploy_dir: str = ".",
     num_samples: int = 128,
     device: str = "cuda:0",
+    deploy_dir: Optional[str] = ".",
     recipe_file: Optional[str] = None,
     do_eval: Optional[bool] = False,
+    do_save: Optional[bool] = False,
 ) -> None:
     """
     Performs in place one shot sparsification/quantization of a model based on:
@@ -56,11 +57,14 @@ def one_shot(
     :param device: Device (cuda:index or cpu) to use for computation
     :param recipe_file: recipe containing SparseGPT configuration
     :param do_eval: whether to run perplexity evaluation on output model
+    :param do_save: whether to save the output model to disk
     """
-    deploy_dir = Path(os.path.join(deploy_dir, "obcq_deployment"))
 
-    if deploy_dir.exists():
-        raise RuntimeError(f"deploy_dir={deploy_dir} already exists")
+    if do_save:
+        deploy_dir = Path(os.path.join(deploy_dir, "obcq_deployment"))
+
+        if deploy_dir.exists():
+            raise RuntimeError(f"deploy_dir={deploy_dir} already exists")
 
     model_loader_fn = None
     forward_fn = None
@@ -102,10 +106,13 @@ def one_shot(
         copy_data=False,
     )
 
-    _save(model, tokenizer, deploy_dir, recipe_file)
+    if do_save:
+        _save(model, tokenizer, deploy_dir, recipe_file)
     if do_eval:
         test_dataloader, _, _ = get_wikitext2(num_samples, 0, model.seqlen, model_path)
         ppl_eval_general(forward_fn, model, test_dataloader, device, None, num_samples)
+
+    return model
 
 
 def _save(model, tokenizer, save_path, recipe_path):
@@ -137,6 +144,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--eval", type=bool, default=False, help="Run perplexity evaluation"
     )
+    parser.add_argument(
+        "--save", type=bool, default=False, help="Save output model to disk"
+    )
 
     args = parser.parse_args()
 
@@ -148,4 +158,5 @@ if __name__ == "__main__":
         device=args.device,
         recipe_file=args.recipe,
         do_eval=args.eval,
+        do_save=args.save,
     )

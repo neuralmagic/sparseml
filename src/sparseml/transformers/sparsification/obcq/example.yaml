@@ -15,3 +15,5 @@ test_stage:
       block_size: 128
       sequential_update: False
       quantize: True
+      prunen: 0
+      prunem: 0
