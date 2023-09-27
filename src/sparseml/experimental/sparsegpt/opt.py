@@ -399,3 +399,4 @@ def ppl_eval(args, model, testenc, dev):
     print(f"Perplexity: {ppl.item():3f}")
 
     model.config.use_cache = use_cache
+    return ppl.item()
