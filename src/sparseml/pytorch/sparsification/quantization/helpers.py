@@ -754,7 +754,7 @@ def initialize_channel_wise_scale_zp(module: Module):
             weight_fake_quant.activation_post_process.min_val = torch.empty_like(
                 weight_fake_quant.scale
             )
-        if weight_fake_quant.activation_post_process.min_val.numel() == 0:
+        if weight_fake_quant.activation_post_process.max_val.numel() == 0:
             weight_fake_quant.activation_post_process.max_val = torch.empty_like(
                 weight_fake_quant.scale
             )
