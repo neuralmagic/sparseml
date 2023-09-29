@@ -309,9 +309,7 @@ def get_c4(nsamples, seed, seqlen, model):
         i = random.randint(0, trainenc.shape[1] - seqlen - 1)
         j = i + seqlen
         inp = trainenc[:, i:j]
-        tar = inp.clone()
-        tar[:, :-1] = -100
-        trainloader.append((inp, tar))
+        trainloader.append(inp)
 
     valenc = tokenizer(" ".join(valdata[:1100]["text"]), return_tensors="pt")
     valenc = valenc.input_ids[:, : (256 * seqlen)]
