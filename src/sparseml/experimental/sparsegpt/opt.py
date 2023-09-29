@@ -72,7 +72,7 @@ def cache_attention_inputs(model, data_loader, device, nsamples):
     ):
         model.model.decoder.project_in.to(device)
 
-    model.model.decode.layers[0].to(device)
+    model.model.decoder.layers[0].to(device)
     cached_inputs = catch(model, model.model.decoder.layers[0], ["attention_mask"], data_loader, nsamples)
 
     model.model.decoder.embed_tokens.cpu()
@@ -88,7 +88,7 @@ def cache_attention_inputs(model, data_loader, device, nsamples):
     ):
         model.model.decoder.project_in.cpu()
 
-    model.model.decode.layers[0].cpu()
+    model.model.decoder.layers[0].cpu()
     torch.cuda.empty_cache()
     return cached_inputs
 
@@ -172,11 +172,9 @@ def load_model(args):
     return model, seqlen
 
 
-def load_data(args, **kwargs):
-    name = kwargs.get("dataset", None)
-    name = args.dataset if name is None else name
+def load_data(args, seqlen, split=0.1):
+    name = args.dataset
     nsamples = args.nsamples
-    seqlen = args.data_sequence_length
     model = args.model
     seed = args.seed
 
