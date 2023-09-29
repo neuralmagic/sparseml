@@ -128,11 +128,12 @@ class SparseGPT:
                     scale = self.layer.weight_fake_quant.scale
                     zero_point = self.layer.weight_fake_quant.zero_point
                     dtype = self.layer.weight_fake_quant.dtype
-                    q = torch.dequantize(
-                        torch.quantize_per_tensor(
-                            q.unsqueeze(1), scale, zero_point, dtype
-                        )
-                    ).flatten()
+                    qscheme = self.layer.weight_fake_quant.qscheme
+                    if qscheme in [torch.per_tensor_affine, torch.per_tensor_symmetric]:
+                        q = torch.quantize_per_tensor(q, scale, zero_point, dtype)
+                    else:
+                        q = torch.quantize_per_channel(q, scale, zero_point, 0, dtype)
+                    q = torch.dequantize(q)
 
                 Q1[:, i] = q
                 Losses1[:, i] = (w - q) ** 2 / d**2

@@ -24,7 +24,12 @@ from sparseml.modifiers.obcq.utils.bottom_compressors import (
     LlamaBottomCompressor,
     OPTBottomCompressor,
 )
-from sparseml.modifiers.obcq.utils.data import get_c4, get_ptb, get_wikitext2
+from sparseml.modifiers.obcq.utils.data import (
+    get_c4,
+    get_openplatypus,
+    get_ptb,
+    get_wikitext2,
+)
 from sparseml.modifiers.obcq.utils.models import load_llama_model, load_opt_model
 from sparseml.modifiers.obcq.utils.utils import ppl_eval_general
 from sparseml.optim.helpers import load_recipe_yaml_str
@@ -33,7 +38,7 @@ from sparseml.optim.helpers import load_recipe_yaml_str
 __all__ = ["one_shot"]
 
 _LOGGER = logging.getLogger(__name__)
-SUPPORTED_DATASETS = ["wikitext2", "ptb", "c4"]
+SUPPORTED_DATASETS = ["wikitext2", "ptb", "c4", "open_platypus"]
 SUPPORTED_MODELS = ["opt", "llama"]
 
 
@@ -85,6 +90,8 @@ def one_shot(
         data_loader_fn = get_ptb
     elif dataset_name == "c4":
         data_loader_fn = get_c4
+    elif dataset_name == "open_platypus":
+        data_loader_fn = get_openplatypus
     else:
         raise ValueError(
             f"dataset_name={dataset_name} should be one of {SUPPORTED_DATASETS}"
@@ -109,7 +116,9 @@ def one_shot(
     if do_save:
         _save(model, tokenizer, deploy_dir, recipe_file)
     if do_eval:
-        test_dataloader, _, _ = get_wikitext2(num_samples, 0, model.seqlen, model_path)
+        _, test_dataloader, _ = get_openplatypus(
+            num_samples, 0, model.seqlen, model_path
+        )
         ppl_eval_general(forward_fn, model, test_dataloader, device, None, num_samples)
 
     return model
@@ -132,7 +141,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "dataset",
         type=str,
-        choices=["wikitext2", "ptb", "c4"],
+        choices=["wikitext2", "ptb", "c4", "open_platypus"],
         help="Name of dataset to extract calibration data from",
     )
     parser.add_argument(

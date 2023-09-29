@@ -48,5 +48,6 @@ def load_llama_model(model_path: str) -> torch.nn.Module:
     :return: loaded pretrained model
     """
     model = LlamaForCausalLM.from_pretrained(model_path, torch_dtype="auto")
+    model.eval()
     model.seqlen = model.config.max_position_embeddings
     return model

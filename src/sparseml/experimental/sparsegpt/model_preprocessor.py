@@ -87,9 +87,7 @@ class QuantizationModelPreprocessor(ModelPreprocessor):
                             batch.pop("labels")
                         inp = {k: v.to(dev) for k, v in batch.items()}
                     else:
-                        raise ValueError(
-                            f"Dont know how to process given batch type: {type(batch)}"
-                        )
+                        inp = batch.to(dev)
                     self.model(inp)
                     del inp
                     batches += 1

@@ -12,19 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import torch
+import torch 
 
 from sparseml.experimental.sparsegpt.dispatch import (
     evaluate_perplexity,
-    load_data,
     load_model,
 )
 from sparseml.experimental.sparsegpt.main import sequential
 from sparseml.transformers.sparsification.obcq.obcq import one_shot
+from sparseml.modifiers.obcq.utils.data import get_openplatypus
 
 
-dataset = "c4"
-model_name = "facebook/opt-1.3b"
+dataset = "open_platypus"
+model_name = "/home/sadkins/ml-experiments/nlg-text_generation/llama_chat-llama_7b_chat-base/dense/training"
 sparsity = 0.5
 nbits = 8
 smooth_quant = 0
@@ -32,16 +32,16 @@ observer_batches = 128
 nsamples = 128
 data_sequence_length = 2048
 sequential_hessian = 0
-experimental_recipe = "src/sparseml/experimental/sparsegpt/examples/opt/recipes/"
-experimental_recipe += "opt-1.3b-opt_pretrain-pruned50_quantW8A8.md"
-prod_recipe = "src/sparseml/transformers/sparsification/obcq/example.yaml"
+experimental_recipe = "src/sparseml/experimental/sparsegpt/examples/llama2/recipes/"
+experimental_recipe += "llama_recipe.yaml"
+prod_recipe = "src/sparseml/transformers/sparsification/obcq/example_llama.yaml"
 device = "cuda:0"
 seed = 0
 prunen = 0
 prunem = 0
 percdamp = 0.01
 blocksize = 128
-ptq_only = 0 
+ptq_only = 0
 
 
 class ExperimentalArgs:
@@ -75,7 +75,7 @@ class ProdArgs:
 
 def run_experimental_obcq(experimental_args):
     model = load_model(experimental_args)
-    dataloader, _, _ = load_data(experimental_args)
+    dataloader, _, _ = get_openplatypus(nsamples, seed, data_sequence_length, model_name)
     sequential(model, dataloader, device, experimental_args)
 
     del dataloader
@@ -85,11 +85,11 @@ def run_experimental_obcq(experimental_args):
 if __name__ == "__main__":
     experimental_args = ExperimentalArgs()
     exp_model = run_experimental_obcq(experimental_args)
-    _, testloader, _ = load_data(experimental_args, dataset="wikitext2")
+
+    _, testloader, _ = get_openplatypus(nsamples, seed, data_sequence_length, model_name)
     exp_perplexity = evaluate_perplexity(
         experimental_args, exp_model, testloader, device
     )
-
     del testloader
     del exp_model
     torch.cuda.empty_cache()
@@ -104,7 +104,7 @@ if __name__ == "__main__":
         do_eval=False,
     )
 
-    _, testloader, _ = load_data(experimental_args, dataset="wikitext2")
+    _, testloader, _ = get_openplatypus(nsamples, seed, data_sequence_length, model_name)
     prod_perplexity = evaluate_perplexity(prod_args, prod_model, testloader, device)
     print(
         f"Experimental Perplexity: {exp_perplexity},"

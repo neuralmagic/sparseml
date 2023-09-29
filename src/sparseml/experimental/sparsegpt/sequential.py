@@ -94,7 +94,7 @@ class SequentialSparseGPT:
                     "return of the bottom compressor"
                 )
             inputs = accum_kwargs["outputs"]
-            print(f"\n===== Compressing layer {idx}/{num_layers} =====")
+            print(f"\n===== Compressing layer {idx}/{num_layers-1} =====")
             layer_compressor = LayerCompressor(
                 self.model, layer, idx, inputs, self.manager, self.args
             )

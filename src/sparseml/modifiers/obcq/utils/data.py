@@ -15,12 +15,13 @@
 import random
 from typing import List, Tuple
 
+import torch
 from datasets import load_dataset
 from torch.nn import Module
 from transformers import AutoTokenizer, GPT2Tokenizer
 
 
-__all__ = ["get_wikitext2", "get_ptb", "get_c4"]
+__all__ = ["get_wikitext2", "get_ptb", "get_c4", "get_openplatypus"]
 
 
 def get_wikitext2(
@@ -38,18 +39,19 @@ def get_wikitext2(
     traindata = load_dataset("wikitext", "wikitext-2-raw-v1", split="train")
     testdata = load_dataset("wikitext", "wikitext-2-raw-v1", split="test")
     tokenizer = AutoTokenizer.from_pretrained(model, use_fast=False)
-    trainenc = tokenizer(" ".join(traindata["text"]), return_tensors="pt")
-    testenc = tokenizer("\n\n".join(testdata["text"]), return_tensors="pt")
+    trainenc = tokenizer(" ".join(traindata["text"]), return_tensors="pt").input_ids
+    testenc = tokenizer("\n\n".join(testdata["text"]), return_tensors="pt").input_ids
 
     random.seed(seed)
     trainloader = []
     for _ in range(nsamples):
-        i = random.randint(0, trainenc.input_ids.shape[1] - seqlen - 1)
+        i = random.randint(0, trainenc.shape[1] - seqlen - 1)
         j = i + seqlen
-        inp = trainenc.input_ids[:, i:j]
+        inp = trainenc[:, i:j]
         tar = inp.clone()
         tar[:, :-1] = -100
         trainloader.append((inp, tar))
+
     return trainloader, testenc, tokenizer
 
 
@@ -135,3 +137,61 @@ def get_c4(
     valenc = TokenizerWrapper(valenc)
 
     return trainloader, valenc, tokenizer
+
+
+def get_openplatypus(nsamples, seed, seqlen, model, split=0.1):
+    traindata = load_dataset("garage-bAInd/Open-Platypus", split="train")
+
+    random.seed(seed)
+    traindata = list(traindata)
+    random.shuffle(traindata)
+    number_test_samples = max(1, int(split * len(traindata)))
+    testdata = traindata[-number_test_samples:]
+    traindata = traindata[:-number_test_samples]
+    if nsamples is not None and nsamples < len(traindata):
+        traindata = traindata[:nsamples]
+
+    alpaca_template = {
+        "prompt_input": "Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.\n\n### Instruction:\n{instruction}\n\n### Input:\n{input}\n\n### Response:\n",
+        "prompt_no_input": "Below is an instruction that describes a task. Write a response that appropriately completes the request.\n\n### Instruction:\n{instruction}\n\n### Response:\n",
+    }
+
+    tokenizer = AutoTokenizer.from_pretrained(model)
+
+    def _process_sample(sample):
+        if "input" in sample:
+            processed_sample = alpaca_template["prompt_input"].format(
+                instruction=sample["instruction"], input=sample["input"]
+            )
+        else:
+            processed_sample = alpaca_template["prompt_no_input"].format(
+                instruction=sample["instruction"]
+            )
+
+        if "output" in sample:
+            processed_sample += sample["output"]
+
+        tokenized_sample = tokenizer(
+            processed_sample,
+            truncation=True,
+            max_length=seqlen,
+            return_tensors="pt",
+            padding=False,
+        )["input_ids"][0]
+
+        if tokenized_sample[-1] != tokenizer.eos_token_id:
+            if len(tokenized_sample) == seqlen:
+                tokenized_sample[-1] = tokenizer.eos_token_id
+            else:
+                tokenized_sample = torch.concatenate(
+                    (tokenized_sample, torch.tensor((tokenizer.eos_token_id,))),
+                )
+
+        tokenized_sample = torch.unsqueeze(tokenized_sample, dim=0)
+
+        return tokenized_sample
+
+    trainenc = [_process_sample(sample) for sample in traindata]
+    testenc = [_process_sample(sample) for sample in testdata]
+
+    return trainenc, testenc, tokenizer

@@ -107,7 +107,7 @@ class OPTBottomCompressor(BaseCompressor):
 
         extras = {
             "use_cache": use_cache,
-            "outputs": inps,
+            "outputs": inps.unsqueeze(1),
             "attention_mask": attention_mask,
         }
         self.model = model
