@@ -97,7 +97,7 @@ def opt_forward(model, data_loader, device, nsamples=None):
     # Catch attention mask
     cached_inputs = cache_attention_inputs(model, data_loader, device, nsamples)
     buffer = [b[0] for b in cached_inputs.pop("inputs")]
-    for layer in model.model.layers:
+    for layer in model.model.decoder.layers:
         buffer = execute_offloaded_module(
             layer,
             buffer,
