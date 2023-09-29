@@ -197,3 +197,13 @@ jobs:
         run: pip3 install .[dev,torchvision,onnxruntime] torch==1.9.1
       - name: "🔬 Running onnx tests"
         run: make test TARGETS=onnx
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - run: pytest --cov=src --cov-report=xml:coverage.xml
+
+      - name: Report Coverage 
+        uses: orgoro/coverage@v3.1
+        with:
+            coverageFile: coverage.xml
+            token: ${{ secrets.GITHUB_TOKEN }}
