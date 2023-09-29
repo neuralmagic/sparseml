@@ -56,10 +56,7 @@ def prepare_sparsegpt(model, dataloader, args, dev) -> SequentialSparseGPT:
     if args.recipe:
         model_preprocessors.append(
             QuantizationModelPreprocessor(
-                model,
-                args.recipe,
-                dataloader,
-                args.observer_batches
+                model, args.recipe, dataloader, args.observer_batches
             )
         )
     bottom_compressor = Llama2BottomCompressor(model)

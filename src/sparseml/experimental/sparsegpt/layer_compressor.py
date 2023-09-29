@@ -136,9 +136,7 @@ class LayerCompressor(BaseCompressor):
                 if isinstance(attention_mask, List)
                 else attention_mask
             )
-            outputs.append(self.layer(
-                self.inputs[j], attention_mask=attn_mask
-            )[0])
+            outputs.append(self.layer(self.inputs[j], attention_mask=attn_mask)[0])
         self.inputs = None
         torch.cuda.empty_cache()
 

@@ -41,7 +41,7 @@ prunen = 0
 prunem = 0
 percdamp = 0.01
 blocksize = 128
-ptq_only = 0 
+ptq_only = 0
 
 
 class ExperimentalArgs:

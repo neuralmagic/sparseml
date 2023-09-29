@@ -12,15 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import torch 
+import torch
 
-from sparseml.experimental.sparsegpt.dispatch import (
-    evaluate_perplexity,
-    load_model,
-)
+from sparseml.experimental.sparsegpt.dispatch import evaluate_perplexity, load_model
 from sparseml.experimental.sparsegpt.main import sequential
-from sparseml.transformers.sparsification.obcq.obcq import one_shot
 from sparseml.modifiers.obcq.utils.data import get_openplatypus
+from sparseml.transformers.sparsification.obcq.obcq import one_shot
 
 
 dataset = "open_platypus"
@@ -75,7 +72,9 @@ class ProdArgs:
 
 def run_experimental_obcq(experimental_args):
     model = load_model(experimental_args)
-    dataloader, _, _ = get_openplatypus(nsamples, seed, data_sequence_length, model_name)
+    dataloader, _, _ = get_openplatypus(
+        nsamples, seed, data_sequence_length, model_name
+    )
     sequential(model, dataloader, device, experimental_args)
 
     del dataloader
@@ -86,7 +85,9 @@ if __name__ == "__main__":
     experimental_args = ExperimentalArgs()
     exp_model = run_experimental_obcq(experimental_args)
 
-    _, testloader, _ = get_openplatypus(nsamples, seed, data_sequence_length, model_name)
+    _, testloader, _ = get_openplatypus(
+        nsamples, seed, data_sequence_length, model_name
+    )
     exp_perplexity = evaluate_perplexity(
         experimental_args, exp_model, testloader, device
     )
@@ -104,7 +105,9 @@ if __name__ == "__main__":
         do_eval=False,
     )
 
-    _, testloader, _ = get_openplatypus(nsamples, seed, data_sequence_length, model_name)
+    _, testloader, _ = get_openplatypus(
+        nsamples, seed, data_sequence_length, model_name
+    )
     prod_perplexity = evaluate_perplexity(prod_args, prod_model, testloader, device)
     print(
         f"Experimental Perplexity: {exp_perplexity},"
