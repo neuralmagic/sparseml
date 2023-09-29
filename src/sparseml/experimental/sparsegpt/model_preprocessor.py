@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections.abc import Mapping
 from typing import Dict, Tuple
 
 import torch
@@ -21,12 +22,23 @@ from math import ceil
 
 from sparseml.pytorch.optim.manager import ScheduledModifierManager
 
+
 class ModelPreprocessor:
     def __init__(self, model):
         self.model = model
 
     def __call__(self, dev: str = "cuda:0", **kwargs) -> Tuple[nn.Module, Dict]:
         return self.model, {}
+
+
+def apply_recipe(model, recipe):
+    manager = ScheduledModifierManager.from_yaml(recipe)
+    model.train()
+    manager.apply_structure(model, epoch=0.1)
+    model.eval()
+
+    return manager
+
 
 class QuantizationModelPreprocessor(ModelPreprocessor):
     def __init__(
@@ -46,10 +58,7 @@ class QuantizationModelPreprocessor(ModelPreprocessor):
         self.model_forward = model_forward
 
     def __call__(self, dev: str = "cuda:0", **kwargs) -> Tuple[nn.Module, Dict]:
-        manager = ScheduledModifierManager.from_yaml(self.recipe)
-        self.model.train()
-        manager.apply_structure(self.model, epoch=0.1)
-        self.model.eval()
+        manager = apply_recipe(self.model, self.recipe)
         self.initialize_scales_from_batches(dev)
         self.model.apply(torch.quantization.disable_observer)
         return self.model, {"manager": manager}
