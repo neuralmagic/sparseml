@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Mapping
 from typing import Dict, Tuple
 
 import torch
@@ -22,31 +21,12 @@ from math import ceil
 
 from sparseml.pytorch.optim.manager import ScheduledModifierManager
 
-
 class ModelPreprocessor:
     def __init__(self, model):
         self.model = model
 
     def __call__(self, dev: str = "cuda:0", **kwargs) -> Tuple[nn.Module, Dict]:
         return self.model, {}
-
-
-class SmoothQuantModelPreprocessor(ModelPreprocessor):
-    def __init__(self, model, smooth_activation_file, alpha: float = 0.5):
-        super().__init__(model)
-        self.smooth_activation_file = smooth_activation_file
-        self.alpha = alpha
-
-    def __call__(self, dev: str = "cuda:0", **kwargs) -> Tuple[nn.Module, Dict]:
-        from smoothquant.smooth import smooth_lm
-
-        self.model.to(dev)
-        act_scales = torch.load(self.smooth_activation_file)
-        smooth_lm(self.model, act_scales, 0.5)
-        del act_scales
-        torch.cuda.empty_cache()
-        return self.model, {}
-
 
 class QuantizationModelPreprocessor(ModelPreprocessor):
     def __init__(
