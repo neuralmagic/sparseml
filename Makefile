@@ -74,11 +74,13 @@ style:
 test:
 	@echo "Running python tests";
 	SPARSEZOO_TEST_MODE="true" pytest tests $(PYTEST_ARGS) --ignore tests/integrations
+	pytest --cov=src --cov-report=xml:coverage.xml
 
 # run integration tests
 testinteg:
 	@echo "Running integration tests";
 	SPARSEZOO_TEST_MODE="true" pytest -x -ls tests/integrations $(PYTEST_INTEGRATION_ARGS)
+	pytest --cov=src --cov-report=xml:coverage.xml
 
 # create docs
 docs:
