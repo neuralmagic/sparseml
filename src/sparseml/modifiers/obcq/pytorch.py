@@ -19,6 +19,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 import torch
 from torch.nn import ModuleList
 
+from sparseml.core.model import ModifiableModel
 from sparseml.modifiers.obcq.base import (
     SparseGPTModifier,
     SparseLlamaModifier,
@@ -43,21 +44,23 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
     finalization_kwargs_: Dict = None
 
     def compressible_layers(self):
-        raise NotImplementedError  # must be implemented by child class
+        all_layers = self.model.get_layers("__ALL__")
+        compressible_dict = self.model.get_layers(self.compress_layers)
+        return [v for _, v in compressible_dict.items()]
 
     def bottom_compressor(self):
         raise NotImplementedError  # must be implemented by child class
 
     def head_compressor(self):
-        raise NotImplementedError  # must should be implemented by child class
+        return None
 
     def on_initialize(self, state: "State", **kwargs) -> bool:
         self.finalization_kwargs_ = {}
-        module = state.model.model
+        modifiable_model = state.model
         calibration_dataloader = state.data.calib
         device = state.hardware.device
 
-        self.initialize_obcq(module, device)
+        self.initialize_obcq(modifiable_model, device)
         extras = self.apply_obcq(calibration_dataloader)
         self.finalization_kwargs_.update(extras)
 
@@ -65,7 +68,7 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
 
     def initialize_obcq(
         self,
-        model: "Module",
+        model: "ModifiableModel",
         device: Optional[str] = "cuda:0",
     ):
         """
@@ -78,6 +81,7 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
         """
         self.model = model
         self.compressible_layers_ = self.compressible_layers()
+        self.model = self.model.model
         self.bottom_compressor_ = self.bottom_compressor()
         self.head_compressor_ = self.head_compressor()
         self._set_device(device)
@@ -162,14 +166,8 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
 
 
 class SparseLlamaModifierPyTorch(SparseGPTModifierPyTorch, SparseLlamaModifier):
-    def compressible_layers(self) -> ModuleList:
-        return self.model.model.layers
-
     def bottom_compressor(self) -> LlamaBottomCompressor:
         return LlamaBottomCompressor(self.model)
-
-    def head_compressor(self) -> None:
-        return None  # no head compressor for OPT
 
 
 class SparseOPTModifierPyTorch(SparseGPTModifierPyTorch, SparseOPTModifier):
@@ -177,18 +175,9 @@ class SparseOPTModifierPyTorch(SparseGPTModifierPyTorch, SparseOPTModifier):
     OPT-specific functions for applying the one-shot OBCQ algorithm to a model
     """
 
-    def compressible_layers(self) -> ModuleList:
-        """
-        :return: list of OPT submodules that can be sparsified
-        """
-        return self.model.model.decoder.layers
-
     def bottom_compressor(self) -> OPTBottomCompressor:
         """
         :return: model used for calibration, outputs from bottom part of network,
         attention mask, and kv-cache state
         """
         return OPTBottomCompressor(self.model)
-
-    def head_compressor(self) -> None:
-        return None  # no head compressor for OPT
