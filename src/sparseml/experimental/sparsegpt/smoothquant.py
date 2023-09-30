@@ -2,6 +2,7 @@ import torch
 from sparseml.experimental.sparsegpt.model_preprocessor import ModelPreprocessor
 import difflib
 
+
 class SmoothQuantModelPreprocessor(ModelPreprocessor):
     def __init__(
             self,
