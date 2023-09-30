@@ -136,6 +136,7 @@ class SmoothQuantModelPreprocessor(ModelPreprocessor):
                 module_to_merge.cpu()
 
     def __call__(self, dev: str = "cuda:0", **kwargs) -> Tuple[nn.Module, Dict]:
+        print("Collecting data statistics for smoothquant scales...")
         self.compute_scales(dev)
         self.apply_smoothing(dev)
         self.cleanup()
