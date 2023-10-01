@@ -407,7 +407,7 @@ class SparseAutoModel:
             f"after SparseML recipes have been applied {model_name_or_path}"
         )
 
-        return {}, True
+        return None, True
 
     @staticmethod
     def _check_tf(model_name_or_path: str):

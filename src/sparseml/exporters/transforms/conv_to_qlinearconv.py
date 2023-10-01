@@ -124,7 +124,10 @@ class ConvToQLinearConv(OnnxTransform):
                     model, input_quant, include_target=False
                 )
                 bias_scale = input_quantize_params.scale * weight_quantize_params.scale
-                quantized_bias = quantize_array(bias, bias_scale, 0, numpy.int32)
+                bias_zero_point = numpy.zeros(bias_scale.shape, dtype=numpy.int32)
+                quantized_bias = quantize_array(
+                    bias, bias_scale, bias_zero_point, numpy.int32
+                )
                 quantized_bias_name = f"{conv_node.name}.bias_quantized"
                 quantized_bias_initializer = numpy_helper.from_array(
                     quantized_bias, name=quantized_bias_name

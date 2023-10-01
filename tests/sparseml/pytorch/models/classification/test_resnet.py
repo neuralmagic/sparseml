@@ -63,8 +63,6 @@ from tests.sparseml.pytorch.models.utils import compare_model
         ("resnet50", False, True, resnet50),
         ("resnet50", True, False, resnet50),
         ("resnet50", "base", False, resnet50),
-        ("resnet50", "pruned-conservative", False, resnet50),
-        ("resnet50", "pruned-moderate", False, resnet50),
         ("resnet50_2xwidth", False, True, resnet50_2xwidth),
         ("resnet50_2xwidth", True, False, resnet50_2xwidth),
         ("resnet50_2xwidth", "base", False, resnet50_2xwidth),

@@ -627,10 +627,7 @@ def test_evaluate_recipe_yaml_str_equations_invalid(recipe):
             "zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenette/"
             "pruned-conservative"
         ),
-        (
-            "zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenette/"
-            "pruned-conservative?recipe=original"
-        ),
+        ("zoo:bert-base-wikipedia_bookcorpus-pruned90?recipe=transfer_question"),
     ],
 )
 def test_load_recipe_yaml_str_zoo(zoo_path):

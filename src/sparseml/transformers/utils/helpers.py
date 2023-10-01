@@ -45,7 +45,7 @@ def save_zoo_directory(
         with the saved training artifacts
     :param logs_path: Optional directory where the training logs reside
     """
-    for root_file in ["sample_inputs", "sample_outputs"]:
+    for root_file in ["sample-inputs", "sample-outputs"]:
         root_file_path = os.path.join(training_outputs_dir, root_file)
         if not os.path.exists(root_file_path):
             logging.warning(
@@ -67,8 +67,8 @@ def save_zoo_directory(
         training=os.path.join(training_outputs_dir, "training"),
         deployment=os.path.join(training_outputs_dir, "deployment"),
         onnx_model=os.path.join(training_outputs_dir, "model.onnx"),
-        sample_inputs=os.path.join(training_outputs_dir, "sample_inputs"),
-        sample_outputs=os.path.join(training_outputs_dir, "sample_outputs"),
+        sample_inputs=os.path.join(training_outputs_dir, "sample-inputs"),
+        sample_outputs=os.path.join(training_outputs_dir, "sample-outputs"),
         model_card=os.path.join(training_outputs_dir, "model.md"),
         logs=logs_path,
         sample_labels=None,
