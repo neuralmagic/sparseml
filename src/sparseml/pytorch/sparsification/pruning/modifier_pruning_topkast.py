@@ -43,8 +43,6 @@ class TopKASTPruningModifier(BasePruningModifier):
     Implementation of
     Top-KAST: Top-K Always Sparse Training:
     https://arxiv.org/pdf/2106.03517.pdf.
-    AC/DC performs co-training of sparse and dense models, and can return both an
-    accurate sparse model, and a dense model.
     Top-KAST uses two masks: a forward mask which is applied during inference and
     the forward pass of training, and a backward mask which is applied to sparsify
     the (otherwise dense) gradient. Both masks are magnitude-based, with the former
@@ -241,6 +239,7 @@ class TopKASTPruningModifier(BasePruningModifier):
         :param epoch: current epoch and progress within the current epoch
         :param steps_per_epoch: number of steps taken within each epoch
             (calculate batch number using this and epoch)
+        :param recomputation_sparsity: target sparsity for masks
         """
         started = self.started
         if self.start_pending(epoch, steps_per_epoch):
