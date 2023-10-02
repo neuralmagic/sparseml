@@ -23,6 +23,19 @@ from sparseml.experimental.sparsegpt.utils import (
     ppl_eval_general,
     get_wikitext2,
 )
+from sparseml.experimental.sparsegpt.smoothquant import SmoothQuantModelPreprocessor
+
+smoothquant_layer_mappings = [
+    {
+        "module_to_balance": ["q_proj", "k_proj", "v_proj"],
+        "module_to_merge": "input_layernorm",
+    },
+    {
+        "module_to_balance": ["gate_proj", "up_proj"],
+        "module_to_merge": "post_attention_layernorm",
+    },
+]
+
 
 class SequentialSparseGPT_Llama2(SequentialSparseGPT):
     def compressible_layers(self):
@@ -51,6 +64,17 @@ class Llama2BottomCompressor(BaseCompressor):
 
 def prepare_sparsegpt(model, dataloader, args, dev) -> SequentialSparseGPT:
     model_preprocessors = []
+    if args.smoothquant or args.logarithmic_equalization:
+        model_preprocessors.append(
+            SmoothQuantModelPreprocessor(
+                model,
+                dataloader,
+                llama2_forward,
+                smoothquant_layer_mappings,
+                alpha=args.smooth_alpha,
+                logarithmic_equalization=args.logarithmic_equalization,
+            )
+        )
     if args.recipe:
         model_preprocessors.append(
             QuantizationModelPreprocessor(

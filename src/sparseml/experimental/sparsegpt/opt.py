@@ -26,7 +26,20 @@ from sparseml.experimental.sparsegpt.utils import (
     get_c4,
     get_wikitext2,
 )
+from sparseml.experimental.sparsegpt.smoothquant import SmoothQuantModelPreprocessor
 
+smoothquant_layer_mappings = [
+    {
+        "module_to_balance": ["q_proj", "k_proj", "v_proj"],
+        "module_to_merge": "self_attn_layer_norm",
+    },
+    {
+        "module_to_balance": ["fc1"],
+        "module_to_merge": "final_layer_norm",
+    },
+]
+
+smoothquant_ignore = "model.decoder.final_layer_norm"
 
 class SequentialSparseGPT_OPT(SequentialSparseGPT):
     def compressible_layers(self):
@@ -131,9 +144,20 @@ def opt_forward(model, data_loader, device, nsamples=None):
     return logits
 
 
-
 def prepare_sparsegpt(model, dataloader, args, **kwargs) -> SequentialSparseGPT:
     model_preprocessors = []
+    if args.smoothquant or args.logarithmic_equalization:
+        model_preprocessors.append(
+            SmoothQuantModelPreprocessor(
+                model,
+                dataloader,
+                opt_forward,
+                smoothquant_layer_mappings,
+                smoothquant_ignore,
+                args.smooth_alpha,
+                args.logarithmic_equalization,
+            )
+        )
     if args.recipe:
         model_preprocessors.append(
             QuantizationModelPreprocessor(

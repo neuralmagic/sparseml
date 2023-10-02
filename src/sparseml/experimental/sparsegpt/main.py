@@ -71,18 +71,16 @@ if __name__ == "__main__":
     parser.add_argument("--recipe", type=str, default=None)
     parser.add_argument("--observer-batches", type=int, default=100)
     parser.add_argument(
-        "--perchannel",
-        action="store_true",
-        help="Whether to perform per-channel quantization.",
-    )
-    parser.add_argument(
         "--smoothquant", action="store_true", help="Whether to run SmoothQuant."
     )
     parser.add_argument(
-        "--smooth-activation-file",
-        type=str,
-        help="Activation file to be used with SmoothQuant",
-        default=None,
+        "--smooth-alpha",
+        type=float,
+        help="Value for SmoothQuant alpha parameter.",
+        default=0.5,
+    )
+    parser.add_argument(
+        "--logarithmic-equalization", action="store_true", help="Whether to run Logarithmic Activation Equalization."
     )
     parser.add_argument(
         "--ptq-only",

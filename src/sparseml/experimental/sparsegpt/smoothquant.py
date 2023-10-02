@@ -1,3 +1,4 @@
+from typing import Dict, Tuple
 import torch
 from sparseml.experimental.sparsegpt.model_preprocessor import ModelPreprocessor
 import difflib
@@ -10,6 +11,7 @@ class SmoothQuantModelPreprocessor(ModelPreprocessor):
             data_loader,
             model_forward,
             layer_mappings,
+            ignore=None,
             alpha: float = 0.5,
             logarithmic_equalization: bool = False,
     ):
@@ -17,6 +19,7 @@ class SmoothQuantModelPreprocessor(ModelPreprocessor):
         self.data_loader = data_loader
         self.model_forward = model_forward
         self.layer_mappings = layer_mappings
+        self.ignore = ignore
         self.alpha = alpha
         self.logarithmic_equalization = logarithmic_equalization
         self.resolved_mappings = None
@@ -26,37 +29,38 @@ class SmoothQuantModelPreprocessor(ModelPreprocessor):
     def resolve_layer_mappings(self):
         self.resolved_mappings = []
         for mapping in self.layer_mappings:
-            for module_suffix in mapping["module_to_merge"]:
-                if module_suffix is not None:
-                    modules_to_merge = self._get_modules_by_suffix(module_suffix)
-                    for name, module in modules_to_merge:
-                        modules_to_balance = []
-                        for balance_suffix in mapping["module_to_balance"]:
-                            modules_to_balance.append(self.get_module_by_suffix(balance_suffix, name))
-                        mapping = {
-                            "module_to_merge": (name, module),
-                            "modules_to_balance": modules_to_balance,
-                        }
-                        self.resolved_mappings.append(mapping)
-
+            module_suffix = mapping["module_to_merge"]
+            if module_suffix is not None:
+                modules_to_merge = self.get_modules_by_suffix(module_suffix)
+                for name, module in modules_to_merge:
+                    if self.ignore is not None and name in self.ignore:
+                        continue
+                    modules_to_balance = []
+                    for balance_suffix in mapping["module_to_balance"]:
+                        modules_to_balance.append(self.get_module_by_suffix(balance_suffix, name))
+                    resolved_mapping = {
+                        "module_to_merge": (name, module),
+                        "module_to_balance": modules_to_balance,
+                    }
+                    self.resolved_mappings.append(resolved_mapping)
 
     def get_modules_by_suffix(self, module_suffix):
         matches = []
         for name, module in self.model.named_modules():
             if name.endswith(module_suffix):
-                matches.append([(name, module)])
+                matches.append((name, module))
         return matches
 
     def get_module_by_suffix(self, module_suffix, name_to_match):
-        named_modules = self._get_modules_by_suffix(module_suffix)
+        named_modules = self.get_modules_by_suffix(module_suffix)
         highest_len_match = 0
         match = None
         for name, module in named_modules:
             s = difflib.SequenceMatcher(None, name, name_to_match)
-            match_start, match_end, size = s.find_longest_match(0, len(name), 0, len(name_to_match))
-            if match_end - match_start > highest_len_match:
+            _, _, len_match = s.find_longest_match(0, len(name), 0, len(name_to_match))
+            if len_match > highest_len_match:
                 match = (name, module)
-                highest_len_match = match_end - match_start
+                highest_len_match = len_match
 
         return match
 
@@ -65,16 +69,26 @@ class SmoothQuantModelPreprocessor(ModelPreprocessor):
 
         def create_hook_fn(name):
             def hook_fn(m, inp, out):
-                detached_input = inp.deatch()
-                _min = min(detached_input.max().item(), self.scales[name][0])
-                _max = max(detached_input.max().item(), self.scales[name][1])
-                self.scales[name] = [_min, _max, _max - _min]
+                if isinstance(out, tuple):
+                    out = out[0]
+
+                hidden_dim = out.shape[-1]
+                detached_output = out.detach()
+                detached_output = detached_output.view(-1, hidden_dim).abs().detach()
+                coming_min = torch.min(detached_output, dim=0)[0]
+                coming_max = torch.max(detached_output, dim=0)[0]
+                if name in self.scales:
+                    self.scales[name][0] = torch.minimum(self.scales[name][0], coming_min)
+                    self.scales[name][1] = torch.maximum(self.scales[name][1], coming_max)
+                    self.scales[name][2] = self.scales[name][1] - self.scales[name][0]
+                else:
+                    self.scales[name] = [coming_min, coming_max, coming_max - coming_min]
             return hook_fn
 
         hooks = []
         for mapping in self.resolved_mappings:
-            for name, module in mapping["modules_to_balance"]:
-                hooks.append(module.register_forward_hook(create_hook_fn(name)))
+            name, module = mapping["module_to_merge"]
+            hooks.append(module.register_forward_hook(create_hook_fn(name)))
 
         self.model.eval()
         with torch.no_grad():
@@ -82,31 +96,27 @@ class SmoothQuantModelPreprocessor(ModelPreprocessor):
 
         del hooks
 
-    def cleanup(self):
-        self.scales.clear()
-        self.resolved_mappings.clear()
-        torch.cuda.empty_cache()
-
     def apply_smoothing(self, dev):
+        print(self.resolved_mappings)
         for mapping in self.resolved_mappings:
-            activation_scale = None
-            for name, module in mapping["modules_to_balance"]:
-                if activation_scale is None:
-                    activation_scale = torch.Tensor(self.scales[name][2].to(dev))
-                else:
-                    activation_scale = torch.maximum(max(self.scales[name][2].to(dev), activation_scale))
+            name, module_to_merge = mapping["module_to_merge"]
+            activation_scales = self.scales[name][2].to(dev)
 
             if self.logarithmic_equalization:
-                scales = activation_scale / torch.log2(2 + activation_scale)
+                scales = activation_scales / torch.log2(2 + activation_scales)
             else:
                 weight_scales = []
-                for name, module in mapping["modules_to_balance"]:
+                for name, module in mapping["module_to_balance"]:
                     if hasattr(module, "weight"):
                         weight_scales.append(module.weight.abs().max(dim=0, keepdim=True)[0].to(dev))
-                weight_scales = torch.cat(weight_scales, dim=0).max(dim=0)[0]
-                scales = activation_scale.pow(self.alpha) / weight_scales.pow(1. - self.alpha)
+                weight_scales = 2. * torch.cat(weight_scales, dim=0).max(dim=0)[0]
+                scales = activation_scales.pow(self.alpha) / weight_scales.pow(1. - self.alpha)
 
-            module_to_merge = mapping["module_to_merge"][1]
+            for _, module in mapping["module_to_balance"]:
+                if hasattr(module, "weight"):
+                    module.to(dev)
+                    module.weight.mul_(scales.view(1, -1))
+                    module.cpu()
 
             if module_to_merge is not None:
                 module_to_merge.to(dev)
@@ -115,27 +125,16 @@ class SmoothQuantModelPreprocessor(ModelPreprocessor):
                         module_to_merge.weight.div_(scales)
                     else:
                         module_to_merge.weight.div_(scales.view(-1, 1))
-                elif (
-                        hasattr(module_to_merge, "module")
-                        and hasattr(module_to_merge.module, "weight")
-                        and module_to_merge.module.weight is not None
-                ):
-                    if module_to_merge.module.weight.ndim == 1:
-                        module_to_merge.module.weight.div_(scales)
-                    else:
-                        module_to_merge.module.weight.div_(scales.view(-1, 1))
-
                 if hasattr(module_to_merge, "bias") and module_to_merge.bias is not None:
                     module_to_merge.bias.div_(scales)
-                elif (
-                        hasattr(module_to_merge, "module")
-                        and hasattr(module_to_merge.module, "bias")
-                        and module_to_merge.module.bias is not None
-                ):
-                    module_to_merge.module.bias.div_(scales)
                 module_to_merge.cpu()
 
-    def __call__(self, dev: str = "cuda:0", **kwargs) -> Tuple[nn.Module, Dict]:
+    def cleanup(self):
+        self.scales.clear()
+        self.resolved_mappings.clear()
+        torch.cuda.empty_cache()
+
+    def __call__(self, dev: str = "cuda:0", **kwargs) -> Tuple[torch.nn.Module, Dict]:
         print("Collecting data statistics for smoothquant scales...")
         self.compute_scales(dev)
         self.apply_smoothing(dev)
