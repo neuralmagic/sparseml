@@ -80,7 +80,9 @@ class ONNXToDeepsparse(BaseExporter):
             sparseml_transforms.PropagateDequantThroughSplit(),
         ]
         if use_qlinear_matmul:
-            transforms.append(sparseml_transforms.MatMulToQLinearMatMul(),)
+            transforms.append(
+                sparseml_transforms.MatMulToQLinearMatMul(),
+            )
 
         transforms.extend(
             [
