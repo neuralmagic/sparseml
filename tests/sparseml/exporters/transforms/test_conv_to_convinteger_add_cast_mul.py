@@ -76,7 +76,7 @@ def _create_test_model():
     conv_node = onnx.helper.make_node(
         "Conv",
         inputs=["dequant_linear_0_output", "dequant_linear_1_output", "bias"],
-        outputs=["conv_node_output"],
+        outputs=["output"],
         kernel_shape=[3, 3],
         name="conv_node",
     )

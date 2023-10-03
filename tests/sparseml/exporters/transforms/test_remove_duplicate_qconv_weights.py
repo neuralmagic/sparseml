@@ -27,8 +27,23 @@ def onnx_model():
     model_input = onnx.helper.make_tensor_value_info(
         "input", onnx.TensorProto.FLOAT, (1,)
     )
-    model_output = onnx.helper.make_tensor_value_info(
-        "output", onnx.TensorProto.FLOAT, (1,)
+    model_output_1 = onnx.helper.make_tensor_value_info(
+        "add1_output", onnx.TensorProto.FLOAT, (1,)
+    )
+    model_output_2 = onnx.helper.make_tensor_value_info(
+        "add2_output", onnx.TensorProto.FLOAT, (1,)
+    )
+    model_output_3 = onnx.helper.make_tensor_value_info(
+        "add3_output", onnx.TensorProto.FLOAT, (1,)
+    )
+    model_output_4 = onnx.helper.make_tensor_value_info(
+        "conv4_output", onnx.TensorProto.FLOAT, (1,)
+    )
+    model_output_5 = onnx.helper.make_tensor_value_info(
+        "conv5_output", onnx.TensorProto.FLOAT, (1,)
+    )
+    model_output_6 = onnx.helper.make_tensor_value_info(
+        "conv6_output", onnx.TensorProto.FLOAT, (1,)
     )
     zp = onnx.helper.make_tensor("zp", onnx.TensorProto.UINT8, (1,), [0])
     scale = onnx.helper.make_tensor("scale", onnx.TensorProto.FLOAT, (1,), [1.0])
@@ -90,7 +105,14 @@ def onnx_model():
         nodes=[conv1, conv2, conv3, conv4, conv5, conv6, add1, add2, add3],
         name="g",
         inputs=[model_input],
-        outputs=[model_output],
+        outputs=[
+            model_output_1,
+            model_output_2,
+            model_output_3,
+            model_output_4,
+            model_output_5,
+            model_output_6,
+        ],
         initializer=[
             weight1_a,
             weight1_b,
