@@ -83,6 +83,8 @@ def run_experimental_obcq(experimental_args):
 
 if __name__ == "__main__":
     experimental_args = ExperimentalArgs()
+
+    """
     exp_model = run_experimental_obcq(experimental_args)
 
     _, testloader, _ = get_openplatypus(
@@ -94,6 +96,7 @@ if __name__ == "__main__":
     del testloader
     del exp_model
     torch.cuda.empty_cache()
+    """
 
     prod_args = ProdArgs()
     prod_model = one_shot(
@@ -110,6 +113,6 @@ if __name__ == "__main__":
     )
     prod_perplexity = evaluate_perplexity(prod_args, prod_model, testloader, device)
     print(
-        f"Experimental Perplexity: {exp_perplexity},"
+        # f"Experimental Perplexity: {exp_perplexity},"
         f"Production Perplexity: {prod_perplexity}"
     )

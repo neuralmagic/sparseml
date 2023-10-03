@@ -20,6 +20,7 @@ import torch
 import torch.nn as nn
 
 from sparseml.modifiers.obcq.utils.sparsegpt import SparseGPT
+from sparseml.modifiers.obcq.utils.utils import catch
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -33,7 +34,13 @@ class BaseCompressor:
         return self.model, {}
 
     def compress(
-        self, dataloader=None, nsamples: int = None, dev: str = "cuda:0", **kwargs
+        self,
+        dataloader=None,
+        nsamples: int = None,
+        dev: str = "cuda:0",
+        target_ids: List[str] = None,
+        layer_prefix: str = None,
+        **kwargs,
     ):
         """
         :param dataloader: calibration data to pass through the model
@@ -43,7 +50,7 @@ class BaseCompressor:
         attention mask, and kv-cache state
         """
         cached_inputs = self._cache_attention_inputs(
-            self.model, dataloader, dev, nsamples
+            self.model, dataloader, dev, nsamples, target_ids, layer_prefix
         )
 
         outputs = cached_inputs.pop("inputs")
@@ -53,6 +60,30 @@ class BaseCompressor:
 
     def post_compress(self, dev: str = "cuda:0", **kwargs) -> Tuple[nn.Module, Dict]:
         return self.model, {}
+
+    @staticmethod
+    def _cache_attention_inputs(
+        model, dataloader, device, nsamples, target_ids, layer_prefix
+    ):
+        if layer_prefix is not None:
+            embed_tokens = getattr(model.model, layer_prefix).embed_tokens
+            first_layer = getattr(model.model, layer_prefix).layers[0]
+        else:
+            embed_tokens = model.model.embed_tokens
+            first_layer = model.model.layers[0]
+        embed_tokens.to(device)
+        first_layer.to(device)
+        cached_inputs = catch(
+            model,
+            first_layer,
+            target_ids,  # ["attention_mask"],
+            dataloader,
+            nsamples,
+        )
+        embed_tokens.cpu()
+        first_layer.cpu()
+        torch.cuda.empty_cache()
+        return cached_inputs
 
 
 class LayerCompressor(BaseCompressor):

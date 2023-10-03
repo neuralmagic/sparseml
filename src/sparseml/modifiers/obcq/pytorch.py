@@ -44,7 +44,6 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
     finalization_kwargs_: Dict = None
 
     def compressible_layers(self):
-        all_layers = self.model.get_layers("__ALL__")
         compressible_dict = self.model.get_layers(self.compress_layers)
         return [v for _, v in compressible_dict.items()]
 
@@ -105,7 +104,10 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
         # which will become the inputs to the first decoder layer
         # Also return attention_mask as part of kwargs
         self.model, extras = self.bottom_compressor_.compress(
-            dev=self.device_, **accum_kwargs
+            dev=self.device_,
+            target_ids=self.target_ids,
+            layer_prefix=self.layer_prefix,
+            **accum_kwargs,
         )
         accum_kwargs.update(extras)
 

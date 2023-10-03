@@ -51,6 +51,8 @@ class SparseGPTModifier(Modifier):
     prunen: Optional[int] = 0
     prunem: Optional[int] = 0
     compress_layers: Optional[List[str]] = None
+    target_ids: Optional[List[str]] = None
+    layer_prefix: Optional[str] = None
 
     def on_initialize_structure(self, state: "State", **kwargs):
         pass  # nothing needed for this modifier

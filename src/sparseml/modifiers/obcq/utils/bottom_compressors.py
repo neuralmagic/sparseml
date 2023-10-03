@@ -27,22 +27,6 @@ class LlamaBottomCompressor(BaseCompressor):
     """
 
     @staticmethod
-    def _cache_attention_inputs(model, dataloader, device, nsamples):
-        model.model.embed_tokens.to(device)
-        model.model.layers[0].to(device)
-        cached_inputs = catch(
-            model,
-            model.model.layers[0],
-            ["attention_mask", "position_ids"],
-            dataloader,
-            nsamples,
-        )
-        model.model.embed_tokens.cpu()
-        model.model.layers[0].cpu()
-        torch.cuda.empty_cache()
-        return cached_inputs
-
-    @staticmethod
     def forward(model, data_loader, device, nsamples=None):
         # Catch attention mask
         cached_inputs = LlamaBottomCompressor._cache_attention_inputs(
@@ -85,47 +69,6 @@ class OPTBottomCompressor(BaseCompressor):
         decoder layer
         3) Return attention_mask as part of kwargs
     """
-
-    @staticmethod
-    def _cache_attention_inputs(model, dataloader, device, nsamples):
-        model.model.decoder.embed_tokens.to(device)
-        model.model.decoder.embed_positions.to(device)
-        if (
-            hasattr(model.model.decoder, "project_out")
-            and model.model.decoder.project_out
-        ):
-            model.model.decoder.project_out.to(device)
-        if (
-            hasattr(model.model.decoder, "project_in")
-            and model.model.decoder.project_in
-        ):
-            model.model.decoder.project_in.to(device)
-
-        model.model.decoder.layers[0].to(device)
-        cached_inputs = catch(
-            model,
-            model.model.decoder.layers[0],
-            ["attention_mask"],
-            dataloader,
-            nsamples,
-        )
-
-        model.model.decoder.embed_tokens.cpu()
-        model.model.decoder.embed_positions.cpu()
-        if (
-            hasattr(model.model.decoder, "project_out")
-            and model.model.decoder.project_out
-        ):
-            model.model.decoder.project_out.cpu()
-        if (
-            hasattr(model.model.decoder, "project_in")
-            and model.model.decoder.project_in
-        ):
-            model.model.decoder.project_in.cpu()
-
-        model.model.decoder.layers[0].cpu()
-        torch.cuda.empty_cache()
-        return cached_inputs
 
     @staticmethod
     def forward(model, data_loader, device, nsamples=None):
