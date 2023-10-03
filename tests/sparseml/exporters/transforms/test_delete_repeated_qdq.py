@@ -44,7 +44,7 @@ def onnx_model():
     dequant2 = onnx.helper.make_node(
         "DequantizeLinear",
         ["quant2_output", "scale"],
-        ["dequant2_output"],
+        ["output"],
         name="dequant2",
     )
 
