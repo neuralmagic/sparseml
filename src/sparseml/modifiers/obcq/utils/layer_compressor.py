@@ -65,7 +65,7 @@ class BaseCompressor:
     def _cache_attention_inputs(
         model, dataloader, device, nsamples, target_ids, layer_prefix
     ):
-        if layer_prefix is not None:
+        if layer_prefix:
             embed_tokens = getattr(model.model, layer_prefix).embed_tokens
             first_layer = getattr(model.model, layer_prefix).layers[0]
         else:
