@@ -13,19 +13,18 @@
 # limitations under the License.
 
 
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from sparseml.core import Modifier
+from sparseml.core.state import State
 
 
-__all__ = ["SparseGPTModifier", "SparseOPTModifier", "SparseLlamaModifier"]
+__all__ = ["SparseGPTModifier"]
 
 
 class SparseGPTModifier(Modifier):
     """
-    Modifier for applying the one-shot OBCQ algorithm to a model. This modifier should
-    not be run directly and instead is instantiated from one of the child classes:
-    SparseOPTModifier, SparseMPTModifier or SparseLlamaModifier.
+    Modifier for applying the one-shot OBCQ algorithm to a model
 
     Life-cycle:
         - initialze
@@ -40,7 +39,12 @@ class SparseGPTModifier(Modifier):
     :param sequential_update: Whether or not to update weights sequentially by layer,
         True saves on GPU memory
     :param prunen: N for N:M pruning
-    param prunem: M for N:M pruning
+    :param prunem: M for N:M pruning
+    :param compress_layers: list of layer names to compress during OBCQ, or __ALL__ to
+        compress every layer in the model
+    :param target_ids: list of keys in model output to cache
+    :param layer_prefix: name of model attribute that contains the list of layers, i.e.
+        model.decoder for OPT or just model for Llama
     """
 
     sparsity: float
@@ -50,17 +54,9 @@ class SparseGPTModifier(Modifier):
     sequential_update: Optional[bool] = True
     prunen: Optional[int] = 0
     prunem: Optional[int] = 0
-    compress_layers: Optional[List[str]] = None
+    compress_layers: Union[str, List[str], None] = "__ALL__"
     target_ids: Optional[List[str]] = None
     layer_prefix: Optional[str] = None
 
     def on_initialize_structure(self, state: "State", **kwargs):
         pass  # nothing needed for this modifier
-
-
-class SparseOPTModifier(Modifier):
-    pass
-
-
-class SparseLlamaModifier(Modifier):
-    pass

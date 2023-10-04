@@ -21,7 +21,8 @@ from sparseml.transformers.sparsification.obcq.obcq import one_shot
 
 
 dataset = "open_platypus"
-model_name = "/home/sadkins/ml-experiments/nlg-text_generation/llama_chat-llama_7b_chat-base/dense/training"
+model_name = "/home/sadkins/ml-experiments/nlg-text_generation/llama_chat-llama_7b_chat"
+"-base/dense/training"
 sparsity = 0.5
 nbits = 8
 smooth_quant = 0

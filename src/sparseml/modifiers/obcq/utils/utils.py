@@ -190,6 +190,30 @@ class SequentialCompressor(OffLoadedModule):
                 child.compress(*args, **kwargs)
 
 
+def cache_attention_inputs(
+    model, dataloader, device, nsamples, target_ids, layer_prefix
+):
+    if layer_prefix:
+        embed_tokens = getattr(model.model, layer_prefix).embed_tokens
+        first_layer = getattr(model.model, layer_prefix).layers[0]
+    else:
+        embed_tokens = model.model.embed_tokens
+        first_layer = model.model.layers[0]
+    embed_tokens.to(device)
+    first_layer.to(device)
+    cached_inputs = catch(
+        model,
+        first_layer,
+        target_ids,  # ["attention_mask"],
+        dataloader,
+        nsamples,
+    )
+    embed_tokens.cpu()
+    first_layer.cpu()
+    torch.cuda.empty_cache()
+    return cached_inputs
+
+
 @torch.no_grad()
 def ppl_eval_general(
     eval_logits,

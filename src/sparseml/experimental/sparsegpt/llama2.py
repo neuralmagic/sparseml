@@ -78,7 +78,6 @@ def load_model(args):
 
     model = LlamaForCausalLM.from_pretrained(model, torch_dtype="auto")
     model.eval()
-    seqlen = model.config.max_position_embeddings
     return model
 
 
@@ -138,8 +137,13 @@ def get_openplatypus(nsamples, seed, seqlen, model, split):
         traindata = traindata[:nsamples]
 
     alpaca_template = {
-        "prompt_input": "Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.\n\n### Instruction:\n{instruction}\n\n### Input:\n{input}\n\n### Response:\n",
-        "prompt_no_input": "Below is an instruction that describes a task. Write a response that appropriately completes the request.\n\n### Instruction:\n{instruction}\n\n### Response:\n",
+        "prompt_input": "Below is an instruction that describes a task, paired with an "
+        "input that provides further context. Write a response that appropriately "
+        "completes the request.\n\n### Instruction:\n{instruction}\n\n### Input:\n"
+        "{input}\n\n### Response:\n",
+        "prompt_no_input": "Below is an instruction that describes a task. Write a "
+        "response that appropriately completes the request.\n\n### Instruction:\n"
+        "{instruction}\n\n### Response:\n",
     }
 
     from transformers import AutoTokenizer

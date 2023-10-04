@@ -10,7 +10,7 @@ test_stage:
         LayerNorm:
           input_activations: null
           output_activations: null
-    SparseOPTModifier:
+    SparseGPTModifier:
       sparsity: 0.5
       block_size: 128
       sequential_update: False

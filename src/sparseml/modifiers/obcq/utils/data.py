@@ -139,7 +139,19 @@ def get_c4(
     return trainloader, valenc, tokenizer
 
 
-def get_openplatypus(nsamples, seed, seqlen, model, split=0.1):
+def get_openplatypus(
+    nsamples: int, seed: int, seqlen: int, model: Module, split: float = 0.1
+) -> Tuple[List, GPT2Tokenizer]:
+    """
+    load nsamples of tokenized data from the wikitext2 dataset of length seqlen
+
+    :param nsamples: number of samples to load
+    :param seed: seed to use for selecting random samples from dataset
+    :param seqlen: sequence length of each sample
+    :param model: trained pytorch module to load tokenizer from
+    :param split: train/test split
+    :return: list of random samples from wikitext and tokenizer
+    """
     traindata = load_dataset("garage-bAInd/Open-Platypus", split="train")
 
     random.seed(seed)
@@ -152,8 +164,13 @@ def get_openplatypus(nsamples, seed, seqlen, model, split=0.1):
         traindata = traindata[:nsamples]
 
     alpaca_template = {
-        "prompt_input": "Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.\n\n### Instruction:\n{instruction}\n\n### Input:\n{input}\n\n### Response:\n",
-        "prompt_no_input": "Below is an instruction that describes a task. Write a response that appropriately completes the request.\n\n### Instruction:\n{instruction}\n\n### Response:\n",
+        "prompt_input": "Below is an instruction that describes a task, paired with an "
+        "input that provides further context. Write a response that appropriately "
+        "completes the request.\n\n### Instruction:\n{instruction}\n\n### Input:\n"
+        "{input}\n\n### Response:\n",
+        "prompt_no_input": "Below is an instruction that describes a task. Write a "
+        "response that appropriately completes the request.\n\n### Instruction:\n{"
+        "instruction}\n\n### Response:\n",
     }
 
     tokenizer = AutoTokenizer.from_pretrained(model)

@@ -23,7 +23,6 @@ from sparseml.core import Event, State
 from sparseml.modifiers.quantization.base import QuantizationModifier
 from sparseml.modifiers.quantization.utils.helpers import (
     configure_module_bn_wrappers,
-    freeze_bn_stats,
     fuse_module_conv_bn_relus,
 )
 from sparseml.modifiers.quantization.utils.quantize import (

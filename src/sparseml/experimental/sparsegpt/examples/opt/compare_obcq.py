@@ -107,6 +107,6 @@ if __name__ == "__main__":
     _, testloader, _ = load_data(experimental_args, dataset="wikitext2")
     prod_perplexity = evaluate_perplexity(prod_args, prod_model, testloader, device)
     print(
-        f"Experimental Perplexity: {exp_perplexity},"
+        # f"Experimental Perplexity: {exp_perplexity},"
         f"Production Perplexity: {prod_perplexity}"
     )

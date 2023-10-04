@@ -18,19 +18,22 @@ import os
 from pathlib import Path
 from typing import Optional
 
+from torch import Module
+
 import sparseml.core.session as sml
 from sparseml.core.framework import Framework
-from sparseml.modifiers.obcq.utils.bottom_compressors import (
-    LlamaBottomCompressor,
-    OPTBottomCompressor,
-)
 from sparseml.modifiers.obcq.utils.data import (
     get_c4,
     get_openplatypus,
     get_ptb,
     get_wikitext2,
 )
-from sparseml.modifiers.obcq.utils.models import load_llama_model, load_opt_model
+from sparseml.modifiers.obcq.utils.models import (
+    llama_forward,
+    load_llama_model,
+    load_opt_model,
+    opt_forward,
+)
 from sparseml.modifiers.obcq.utils.utils import ppl_eval_general
 from sparseml.optim.helpers import load_recipe_yaml_str
 
@@ -51,18 +54,20 @@ def one_shot(
     recipe_file: Optional[str] = None,
     do_eval: Optional[bool] = False,
     do_save: Optional[bool] = False,
-) -> None:
+) -> Module:
     """
     Performs in place one shot sparsification/quantization of a model based on:
 
     :param model_path: path to Hugging Face stub
     :param dataset_name: Dataset to extract calibration data from
-    :param deploy_dir: The output directory to save the model to
     :param num_samples: Number of samples to extract from the dataset
     :param device: Device (cuda:index or cpu) to use for computation
+    :param deploy_dir: The output directory to save the model to
     :param recipe_file: recipe containing SparseGPT configuration
     :param do_eval: whether to run perplexity evaluation on output model
     :param do_save: whether to save the output model to disk
+
+    :return: Pytorch module with OBCQ applied
     """
 
     if do_save:
@@ -75,10 +80,10 @@ def one_shot(
     forward_fn = None
     if "opt" in model_path.lower():
         model_loader_fn = load_opt_model
-        forward_fn = OPTBottomCompressor.forward
+        forward_fn = opt_forward
     elif "llama" in model_path.lower():
         model_loader_fn = load_llama_model
-        forward_fn = LlamaBottomCompressor.forward
+        forward_fn = llama_forward
     else:
         raise ValueError(f"model_path={model_path} should be one of {SUPPORTED_MODELS}")
     model = model_loader_fn(model_path)
