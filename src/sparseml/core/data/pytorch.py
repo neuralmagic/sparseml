@@ -24,6 +24,13 @@ __all__ = ["ModifiableDataPyTorch", "DynamicBatchSizeDataLoader"]
 
 
 class DynamicBatchSizeDataLoader:
+    """
+    A wrapper for a PyTorch data loader that allows for dynamic batch sizes.
+    This is useful for modifiers that need to change the batch size of a data loader
+
+    :param data_loader: The instantiated torch data loader to wrap
+    """
+
     def __init__(self, data_loader: DataLoader):
         self.data_loader = data_loader
         self.current_batch_size = data_loader.batch_size
@@ -37,9 +44,15 @@ class DynamicBatchSizeDataLoader:
             yield from self._data_merge_iter()
 
     def set_batch_size(self, batch_size: int):
+        """
+        :param batch_size: The new batch size to use
+        """
         self.current_batch_size = batch_size
 
     def get_batch_size(self) -> int:
+        """
+        :return: The current batch size
+        """
         return self.current_batch_size
 
     def _data_split_iter(self):
@@ -83,6 +96,12 @@ class DynamicBatchSizeDataLoader:
         """
         Splits a batch based on its type (Tensor, Mapping, Sequence) and the provided
         indices.
+
+        :raises TypeError: If the batch type is not supported
+        :param batch: The batch to split
+        :param start_idx: The start index to split at
+        :param end_idx: The end index to split at
+        :return: The split batch as a Tensor, Mapping, or Sequence based on the type
         """
         if isinstance(batch, torch.Tensor):
             return batch[start_idx:end_idx]
@@ -103,6 +122,11 @@ class DynamicBatchSizeDataLoader:
     def merge_batches(batches):
         """
         Merges a sequence of batches into a single batch.
+
+        :raises TypeError: If the batch type is not supported
+        :param batches: The batches to merge
+        :return: The merged batch as a Tensor, Mapping, or Sequence
+            based on the type
         """
         sample_batch = batches[0]
         if isinstance(sample_batch, torch.Tensor):
@@ -126,15 +150,31 @@ class DynamicBatchSizeDataLoader:
 
 
 class ModifiableDataPyTorch(ModifiableData[DynamicBatchSizeDataLoader]):
+    """
+    A ModifiableData implementation for PyTorch data loaders.
+
+    :param data_loader: The data loader to wrap
+    :param framework: The framework the data loader is for
+    """
+
     def __init__(self, data_loader: DataLoader, framework=None):
         super().__init__()
         self.data = DynamicBatchSizeDataLoader(data_loader)
 
     def get_num_batches(self) -> int:
+        """
+        :return: The number of batches in the data
+        """
         return self.num_samples // self.data.get_batch_size()
 
     def set_batch_size(self, batch_size: int):
+        """
+        :param batch_size: The new batch size to use
+        """
         self.data.set_batch_size(batch_size)
 
     def get_batch_size(self) -> int:
+        """
+        :return: The current batch size
+        """
         return self.data.get_batch_size()

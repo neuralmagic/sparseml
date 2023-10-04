@@ -25,6 +25,11 @@ __all__ = ["RecipeBase"]
 
 
 class RecipeBase(BaseModel, ABC):
+    """ "
+    Base class that defines the contract for a Recipe,
+    RecipeStage, and RecipeModifier
+    """
+
     @abstractmethod
     def calculate_start(self) -> int:
         raise NotImplementedError()

@@ -15,7 +15,7 @@
 import json
 import os
 from dataclasses import dataclass
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Union
 
 import yaml
 from pydantic import Field, root_validator
@@ -32,10 +32,34 @@ __all__ = ["Recipe", "RecipeTuple"]
 
 
 class Recipe(RecipeBase):
+    """
+    A class to represent a recipe for a model. A
+    recipe can be used to prune and/or quantize a model.
+    """
+
     @staticmethod
     def create_instance(path: str) -> "Recipe":
         """
         Create a recipe instance from a file, or string
+
+        Using SparseZoo recipe stubs is not yet supported:
+        >>> stub = "zoo:cv/classification/mobilenet_v2-1.0/\
+        ... pytorch/sparseml/imagenet/base-none"
+        >>> Recipe.create_instance(stub)
+        Traceback (most recent call last):
+        ...
+        NotImplementedError: Using SparseZoo stubs is not yet supported
+
+        Using a recipe string or file is supported:
+        >>> recipe_str = '''
+        ... test_stage:
+        ...     pruning_modifiers:
+        ...         ConstantPruningModifier:
+        ...             start: 0.0
+        ...             end: 2.0
+        ...             targets: ['re:.*weight']
+        ... '''
+        >>> recipe = Recipe.create_instance(recipe_str)
 
         :param path: The path to the recipe file or
             SparseZoo stub or the recipe string, must be a valid
@@ -67,8 +91,33 @@ class Recipe(RecipeBase):
 
     @staticmethod
     def simplify_recipe(
-        recipe: Union["Recipe", "RecipeTuple"], shift: int = None
+        recipe: Union["Recipe", "RecipeTuple"], shift: Optional[int] = None
     ) -> "Recipe":
+        """
+        Simplify a RecipeTuple by removing stages that are not in the target_stages
+        and shifting the start and end of the recipe by the shift amount
+
+
+        Using a RecipeTuple instance with shift:
+        >>> recipe_str = '''
+        ... test_stage:
+        ...     pruning_modifiers:
+        ...         ConstantPruningModifier:
+        ...             start: 0.0
+        ...             end: 2.0
+        ...             targets: ['re:.*weight']
+        ... '''
+        >>> recipe = Recipe.create_instance(recipe_str)
+        >>> recipe_tuple = RecipeTuple(recipe, ["test"], {})
+        >>> simplified = Recipe.simplify_recipe(recipe_tuple, shift=2)
+        >>> simplified.stages[0].modifiers[0].args_evaluated["start"]
+        2.0
+
+        :param recipe: The Recipe or RecipeTuple instance to simplify
+        :param shift: The amount to shift the start and end of the recipe by,
+            defaults to None (No shift)
+        :return: The simplified Recipe instance
+        """
         stages = []
         if isinstance(recipe, RecipeTuple):
             stage_names = recipe.target_stages
@@ -93,6 +142,38 @@ class Recipe(RecipeBase):
     def simplify_combine_recipes(
         recipes: List[Union["Recipe", "RecipeTuple"]]
     ) -> "Recipe":
+        """
+        A method to combine multiple recipes into one recipe
+        Automatically calculates the start and end of the combined recipe
+        and shifts the start and end of the recipes accordingly
+
+        Using two RecipeTuple instances:
+        >>> recipe_str_1 = '''
+        ... test_stage:
+        ...     pruning_modifiers:
+        ...         ConstantPruningModifier:
+        ...             start: 0.0
+        ...             end: 2.0
+        ...             targets: ['re:.*weight']
+        ... '''
+        >>> recipe_str_2 = '''
+        ... test_stage:
+        ...     pruning_modifiers:
+        ...         ConstantPruningModifier:
+        ...             start: 3.0
+        ...             end: 5.0
+        ...             targets: ['re:.*weight']
+        ... '''
+        >>> recipe_1, recipe_2 = (Recipe.create_instance(recipe_str_1),
+        ... Recipe.create_instance(recipe_str_2))
+        >>> combined = Recipe.simplify_combine_recipes(
+        ... [RecipeTuple(recipe_1, ["test"], {}), RecipeTuple(recipe_2, ["test"], {})])
+        >>> len(combined.stages)
+        2
+
+        :param recipes: The list of Recipe/RecipeTuple instances to combine
+        :return: The combined Recipe instance
+        """
 
         combined = Recipe()
 
@@ -114,6 +195,9 @@ class Recipe(RecipeBase):
     args_evaluated: RecipeArgs = Field(default_factory=RecipeArgs)
 
     def calculate_start(self) -> int:
+        """
+        :return: The start of the recipe, the minimum start of all stages
+        """
         return min(
             stage.calculate_start()
             for stage in self.stages
@@ -121,20 +205,74 @@ class Recipe(RecipeBase):
         )
 
     def calculate_end(self) -> int:
+        """
+        :return: The end of the recipe, the maximum end of all stages. If no stages
+            found, returns 0
+        """
         if len(self.stages) == 0:
             return 0
         return max(
             stage.calculate_end() for stage in self.stages if stage.calculate_end() >= 0
         )
 
-    def evaluate(self, args: Dict[str, Any] = None, shift: int = None):
+    def evaluate(
+        self, args: Optional[Dict[str, Any]] = None, shift: Optional[int] = None
+    ):
+        """
+        Evaluate the recipe by evaluating all stages and combining the args
+        with existing recipe_args
+
+        Evaluate with no shift:
+        >>> recipe_str = '''
+        ... test_stage:
+        ...     pruning_modifiers:
+        ...         ConstantPruningModifier:
+        ...             start: eval(start_epoch)
+        ...             end: 2.0
+        ...             targets: ['re:.*weight']
+        ... '''
+        >>> recipe = Recipe.create_instance(recipe_str)
+        >>> recipe.evaluate({"start_epoch": 1})
+        >>> recipe.stages[0].modifiers[0].args_evaluated["start"]
+        1.0
+
+        Evaluate with shift:
+        >>> recipe.evaluate({"start_epoch": 2}, shift=2)
+        >>> recipe.stages[0].modifiers[0].args_evaluated["start"]
+        4.0
+
+        :param args: The args to evaluate the recipe with
+        :param shift: The amount to shift the start and end of the recipe by,
+            defaults to None (No shift)
+        """
         args = self.args.combine(args) if self.args else RecipeArgs(**(args or {}))
         self.args_evaluated = args.evaluate()
         for stage in self.stages:
             stage.evaluate(self.args_evaluated, shift)
 
     def create_modifier(self, framework: Framework) -> List["StageModifiers"]:
-        if self.args_evaluated is None:
+        """
+        Create and return a list of StageModifiers for each stage in the recipe
+
+        >>> recipe_str = '''
+        ... test_stage:
+        ...     pruning_modifiers:
+        ...         ConstantPruningModifier:
+        ...             start: 0.0
+        ...             end: 2.0
+        ...             targets: ['re:.*weight']
+        ... '''
+        >>> recipe = Recipe.create_instance(recipe_str)
+        >>> stage_modifiers = recipe.create_modifier(Framework.pytorch)
+        >>> len(stage_modifiers) == 1
+        True
+        >>> len(stage_modifiers[0].modifiers) == 1
+        True
+
+        :param framework: The framework to create the modifiers for
+        :return: A list of StageModifiers for each stage in the recipe
+        """
+        if not self.args_evaluated:
             self.evaluate()
         modifiers = []
 
@@ -148,6 +286,7 @@ class Recipe(RecipeBase):
 
     @root_validator(pre=True)
     def remap_stages(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+
         stages = []
 
         modifiers = RecipeStage.extract_dict_modifiers(values)
@@ -164,6 +303,9 @@ class Recipe(RecipeBase):
     @staticmethod
     def extract_dict_stages(values: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
+        Extract stages from a dict of values, acceptable dictionary structures
+        are shown below
+
         Accepted stage formats:
         - stages:
           first_stage:
@@ -188,6 +330,26 @@ class Recipe(RecipeBase):
             ...
           - ModifierTypeTwo
             ...
+
+        >>> values = {
+        ... "stages": {
+        ...     "first_stage": {
+        ...         "modifiers": {
+        ...             "ModifierTypeOne": {
+        ...                 "start": 0.0,
+        ...                 "end": 2.0,
+        ...                 }
+        ...         }
+        ...     }
+        ... }
+        ... }
+        >>> Recipe.extract_dict_stages(values) # doctest: +NORMALIZE_WHITESPACE
+        [{'modifiers': {'ModifierTypeOne': {'start': 0.0, 'end': 2.0}},
+        'group': 'first_stage'}]
+
+        :param values: The values dict to extract stages from
+        :return: A list of stages, where each stage is a dict of
+            modifiers and their group
         """
 
         stages = []
@@ -221,6 +383,23 @@ class Recipe(RecipeBase):
         return stages
 
     def dict(self, *args, **kwargs) -> Dict[str, Any]:
+        """
+        >>> recipe_str = '''
+        ... test_stage:
+        ...     pruning_modifiers:
+        ...         ConstantPruningModifier:
+        ...             start: 0.0
+        ...             end: 2.0
+        ...             targets: ['re:.*weight']
+        ... '''
+        >>> recipe = Recipe.create_instance(recipe_str)
+        >>> recipe.dict()
+        Traceback (most recent call last):
+        ...
+        KeyError: 'group'
+
+        :return: A dictionary representation of the recipe
+        """
         dict_ = super().dict(*args, **kwargs)
         stages = {}
 
@@ -240,6 +419,14 @@ class Recipe(RecipeBase):
 
 @dataclass
 class RecipeTuple:
+    """
+    A simple dataclass to hold a recipe, it's target_stages, and override_args
+
+    :param recipe: The Recipe instance to hold
+    :param target_stages: The target stages to use when simplifying the recipe
+    :param override_args: The override args to use when simplifying the recipe
+    """
+
     recipe: Recipe
     target_stages: List[str]
     override_args: Dict[str, Any]
@@ -255,3 +442,9 @@ def _load_json_or_yaml_string(content: str) -> Dict[str, Any]:
             return yaml.safe_load(content)
         except yaml.YAMLError as err:
             raise ValueError(f"Could not parse recipe from string {content}") from err
+
+
+if __name__ == "__main__":
+    import doctest
+
+    doctest.testmod()

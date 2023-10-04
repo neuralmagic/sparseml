@@ -22,6 +22,13 @@ __all__ = ["MultiFrameworkObject"]
 
 
 class MultiFrameworkObject:
+    """
+    A base class for objects that can be instantiated for different frameworks.
+    Subclassing this will allow loading framework specific implementations
+    of the subclassed object, if they exist. If they do not exist, the subclass
+    instance will be returned directly.
+    """
+
     def __new__(
         cls,
         framework: Framework = None,
@@ -63,6 +70,13 @@ class MultiFrameworkObject:
 
     @staticmethod
     def load_framework_class(package: str, class_name: str):
+        """
+        Load the class from the given package and class name.
+
+        :param package: The package to load the class from
+        :param class_name: The name of the class to load
+        :return: The loaded class module
+        """
         module = importlib.import_module(package)
 
         return getattr(module, class_name)

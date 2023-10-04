@@ -20,6 +20,10 @@ __all__ = ["Framework"]
 
 
 class Framework(Enum):
+    """
+    An Enum for the different frameworks supported by SparseML
+    """
+
     general = "general"
     pytorch = "pytorch"
     tensorflow = "tensorflow"
@@ -29,6 +33,10 @@ class Framework(Enum):
 
     @classmethod
     def from_str(cls, framework: str) -> "Framework":
+        """
+        :param framework: The string to convert to a framework
+        :return: The corresponding framework enum for the given string
+        """
         framework = framework.lower().strip()
         if framework == "general":
             return cls.general
@@ -45,9 +53,15 @@ class Framework(Enum):
         raise ValueError(f"Unknown framework: {framework}")
 
     def __str__(self):
+        """
+        :return: The string representation of the framework
+        """
         return self.value
 
     def formatted(self) -> str:
+        """
+        :return: The formatted string representation of the framework
+        """
         if self == self.general:
             return "General"
         if self == self.pytorch:
@@ -63,4 +77,7 @@ class Framework(Enum):
         raise ValueError(f"Unknown framework: {self}")
 
     def class_name(self) -> str:
+        """
+        :return: The class name for the framework
+        """
         return self.formatted() if self != self.general else ""

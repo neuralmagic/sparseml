@@ -15,7 +15,7 @@
 import threading
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 from sparseml.core.event import EventType
 from sparseml.core.framework import Framework
@@ -38,6 +38,16 @@ __all__ = [
 
 @dataclass
 class _CallbackContainer:
+    """
+    A container for a callback and its deregister function
+
+    :param id_: the id of the callback
+    :param callback: the callback to invoke
+    :param deregister: the function to call to deregister the callback
+    :param event_type: the event type the callback is registered for
+    :param kwargs: the kwargs the callback was registered with
+    """
+
     id_: int
     callback: Callable
     deregister: Callable
@@ -46,26 +56,53 @@ class _CallbackContainer:
 
 
 class SparseSession:
+    """
+    A session for sparsification that holds the current state of the sparsification
+    """
+
     def __init__(self):
         self._lifecycle = SparsificationLifecycle()
 
     @property
     def lifecycle(self) -> SparsificationLifecycle:
+        """
+        :return: the lifecycle for the session
+        """
         return self._lifecycle
 
     @property
     def state(self) -> State:
+        """
+        :return: the current state of the session
+        """
         return self._lifecycle.state
 
     def pre_initialize_structure(
         self,
         model: Any,
-        recipe: Union[str, List[str], Recipe, List[Recipe]] = None,
-        recipe_stage: Union[str, List[str]] = None,
-        recipe_args: Union[Dict[str, Any], List[Dict[str, Any]]] = None,
-        framework: Framework = None,
+        recipe: Union[str, List[str], Recipe, List[Recipe], None] = None,
+        recipe_stage: Union[str, List[str], None] = None,
+        recipe_args: Union[Dict[str, Any], List[Dict[str, Any]], None] = None,
+        framework: Optional[Framework] = None,
         **kwargs,
     ) -> ModifiedState:
+        """
+        A method to pre-initialize the structure of the model for sparsification.
+        This will run the pre-initialize structure method for each modifier in the
+        session's lifecycle. This will also set the session's state to the
+        pre-initialized state. Takes care of cases when the model(s) structure
+        has been previosuly modified by a modifier.
+
+        :param model: the model to pre-initialize the structure for
+        :param recipe: the recipe to use for the sparsification, can be a path to a
+            recipe file, a raw recipe string, a recipe object, or a list
+            of recipe objects.
+        :param recipe_stage: the stage to use for the sparsification
+        :param recipe_args: the args to use for overriding the recipe defaults
+        :param framework: the framework to use for the sparsification
+        :return: the modified state of the session after pre-initializing the
+            structure
+        """
         mod_data = self._lifecycle.pre_initialize_structure(
             model=model,
             recipe=recipe,
@@ -84,24 +121,54 @@ class SparseSession:
 
     def initialize(
         self,
-        framework: Framework = None,
-        recipe: Union[str, List[str], "Recipe", List["Recipe"]] = None,
-        recipe_stage: Union[str, List[str]] = None,
-        recipe_args: Dict[str, Any] = None,
-        model: Any = None,
-        teacher_model: Any = None,
-        optimizer: Any = None,
+        framework: Optional[Framework] = None,
+        recipe: Union[str, List[str], "Recipe", List["Recipe"], None] = None,
+        recipe_stage: Union[str, List[str], None] = None,
+        recipe_args: Union[Dict[str, Any], None] = None,
+        model: Optional[Any] = None,
+        teacher_model: Optional[Any] = None,
+        optimizer: Optional[Any] = None,
         attach_optim_callbacks: bool = True,
-        train_data: Any = None,
-        val_data: Any = None,
-        test_data: Any = None,
-        calib_data: Any = None,
+        train_data: Optional[Any] = None,
+        val_data: Optional[Any] = None,
+        test_data: Optional[Any] = None,
+        calib_data: Optional[Any] = None,
         copy_data: bool = True,
-        start: float = None,
-        steps_per_epoch: int = None,
-        batches_per_step: int = None,
+        start: Optional[float] = None,
+        steps_per_epoch: Optional[int] = None,
+        batches_per_step: Optional[int] = None,
         **kwargs,
     ) -> ModifiedState:
+        """
+        Initialize the session for sparsification. This will run the initialize method
+        for each modifier in the session's lifecycle. This will also set the session's
+        state to the initialized state.
+
+        :param framework: the framework to use for the sparsification
+        :param recipe: the recipe to use for the sparsification, can be a path to a
+            recipe file, a raw recipe string, a recipe object, or a list
+            of recipe objects.
+        :param recipe_stage: the stage to target for the sparsification
+        :param recipe_args: the args to use for overriding the recipe defaults
+        :param model: the model to sparsify
+        :param teacher_model: the teacher model to use for knowledge distillation
+        :param optimizer: the optimizer to use for the sparsification
+        :param attach_optim_callbacks: True to attach the optimizer callbacks to the
+            sparsification lifecycle, False otherwise
+        :param train_data: the training data to use for the sparsification
+        :param val_data: the validation data to use for the sparsification
+        :param test_data: the testing data to use for the sparsification
+        :param calib_data: the calibration data to use for the sparsification
+        :param copy_data: True to copy the data, False otherwise
+        :param start: the start epoch to use for the sparsification
+        :param steps_per_epoch: the number of steps per epoch to use for the
+            sparsification
+        :param batches_per_step: the number of batches per step to use for
+            sparsification
+        :param kwargs: additional kwargs to pass to the lifecycle's initialize method
+        :return: the modified state of the session after initializing
+        """
+
         mod_data = self._lifecycle.initialize(
             framework=framework,
             recipe=recipe,
@@ -130,6 +197,14 @@ class SparseSession:
         )
 
     def finalize(self, **kwargs) -> ModifiedState:
+        """
+        Finalize the session for sparsification. This will run the finalize method
+        for each modifier in the session's lifecycle. This will also set the session's
+        state to the finalized state.
+
+        :param kwargs: additional kwargs to pass to the lifecycle's finalize method
+        :return: the modified state of the session after finalizing
+        """
         mod_data = self._lifecycle.finalize(**kwargs)
 
         return ModifiedState(
@@ -140,13 +215,34 @@ class SparseSession:
         )
 
     def apply(self, **kwargs):
+        """
+        Apply the recipe in one-shot manner. This will invoke the initialize
+        and then finalize methods for each modifier in the session's lifecycle.
+        This will also set the session's state to the finalized state.
+
+        :param kwargs: additional kwargs to pass to the lifecycle's initialize and
+            finalize methods
+        """
         self.initialize(**kwargs)
 
         return self.finalize(**kwargs)
 
     def event(
-        self, event_type: EventType, batch_data: Any = None, loss: Any = None, **kwargs
+        self,
+        event_type: EventType,
+        batch_data: Optional[Any] = None,
+        loss: Optional[Any] = None,
+        **kwargs,
     ) -> ModifiedState:
+        """
+        Invoke an event for current SparseSession.
+
+        :param event_type: the event type to invoke
+        :param batch_data: the batch data to use for the event
+        :param loss: the loss to use for the event if any
+        :param kwargs: additional kwargs to pass to the lifecycle's event method
+        :return: the modified state of the session after invoking the event
+        """
         mod_data = self._lifecycle.event(
             event_type=event_type, batch_data=batch_data, loss=loss, **kwargs
         )
@@ -159,6 +255,9 @@ class SparseSession:
         )
 
     def reset(self):
+        """
+        Reset the session to its initial state
+        """
         self._lifecycle.reset()
 
 
@@ -169,6 +268,13 @@ _local_storage.session = _global_session
 
 @contextmanager
 def create_session() -> SparseSession:
+    """
+    Context manager to create and yield a new session for sparsification.
+    This will set the active session to the new session for the duration
+    of the context.
+
+    :return: the new session
+    """
     global _local_storage
     orig_session = getattr(_local_storage, "session", None)
     new_session = SparseSession()
@@ -180,33 +286,68 @@ def create_session() -> SparseSession:
 
 
 def active_session() -> SparseSession:
+    """
+    :return: the active session for sparsification
+    """
     global _local_storage
     return getattr(_local_storage, "session", _global_session)
 
 
 def pre_initialize_structure(**kwargs):
+    """
+    A method to pre-initialize the structure of the model for the active session
+
+    :param kwargs: the kwargs to pass to the active session's pre-initialize-structure
+        method
+    """
     active_session().pre_initialize_structure(**kwargs)
 
 
 def initialize(
-    framework: Framework = None,
-    recipe: Union[str, List[str], "Recipe", List["Recipe"]] = None,
-    recipe_stage: Union[str, List[str]] = None,
-    recipe_args: Dict[str, Any] = None,
-    model: Any = None,
-    teacher_model: Any = None,
-    optimizer: Any = None,
+    framework: Optional[Framework] = None,
+    recipe: Union[str, List[str], "Recipe", List["Recipe"], None] = None,
+    recipe_stage: Union[str, List[str], None] = None,
+    recipe_args: Optional[Dict[str, Any]] = None,
+    model: Optional[Any] = None,
+    teacher_model: Optional[Any] = None,
+    optimizer: Optional[Any] = None,
     attach_optim_callbacks: bool = True,
-    train_data: Any = None,
-    val_data: Any = None,
-    test_data: Any = None,
-    calib_data: Any = None,
+    train_data: Optional[Any] = None,
+    val_data: Optional[Any] = None,
+    test_data: Optional[Any] = None,
+    calib_data: Optional[Any] = None,
     copy_data: bool = True,
-    start: float = None,
-    steps_per_epoch: int = None,
-    batches_per_step: int = None,
+    start: Optional[float] = None,
+    steps_per_epoch: Optional[int] = None,
+    batches_per_step: Optional[int] = None,
     **kwargs,
 ) -> ModifiedState:
+    """
+    A method to initialize the active session for sparsification
+
+    :param framework: the framework to use for the sparsification
+    :param recipe: the recipe to use for the sparsification, can be a path to a
+        recipe file, a raw recipe string, a recipe object, or a list of recipe objects.
+    :param recipe_stage: the stage to target for the sparsification
+    :param recipe_args: the args to use for overriding the recipe defaults
+    :param model: the model to sparsify
+    :param teacher_model: the teacher model to use for knowledge distillation
+    :param optimizer: the optimizer to use for the sparsification
+    :param attach_optim_callbacks: True to attach the optimizer callbacks to the
+        sparsification lifecycle, False otherwise
+    :param train_data: the training data to use for the sparsification
+    :param val_data: the validation data to use for the sparsification
+    :param test_data: the testing data to use for the sparsification
+    :param calib_data: the calibration data to use for the sparsification
+    :param copy_data: True to copy the data, False otherwise
+    :param start: the start epoch to use for the sparsification
+    :param steps_per_epoch: the number of steps per epoch to use for the
+        sparsification
+    :param batches_per_step: the number of batches per step to use for
+        sparsification
+    :param kwargs: additional kwargs to pass to the lifecycle's initialize method
+    :return: the modified state of the active session after initializing
+    """
     return active_session().initialize(
         framework=framework,
         recipe=recipe,
@@ -229,26 +370,55 @@ def initialize(
 
 
 def finalize(**kwargs) -> ModifiedState:
+    """
+    Method to finalize the active session for sparsification
+
+    :param kwargs: additional kwargs to pass to the lifecycle's finalize method
+    :return: the modified state of the active session after finalizing
+    """
     return active_session().finalize(**kwargs)
 
 
 def apply(
-    framework: Framework = None,
-    recipe: Union[str, List[str], "Recipe", List["Recipe"]] = None,
-    recipe_stage: Union[str, List[str]] = None,
-    recipe_args: Dict[str, Any] = None,
-    model: Any = None,
-    teacher_model: Any = None,
-    train_data: Any = None,
-    val_data: Any = None,
-    test_data: Any = None,
-    calib_data: Any = None,
+    framework: Optional[Framework] = None,
+    recipe: Union[str, List[str], "Recipe", List["Recipe"], None] = None,
+    recipe_stage: Union[str, List[str], None] = None,
+    recipe_args: Optional[Dict[str, Any]] = None,
+    model: Optional[Any] = None,
+    teacher_model: Optional[Any] = None,
+    train_data: Optional[Any] = None,
+    val_data: Optional[Any] = None,
+    test_data: Optional[Any] = None,
+    calib_data: Optional[Any] = None,
     copy_data: bool = True,
-    start: float = None,
-    steps_per_epoch: int = None,
-    batches_per_step: int = None,
+    start: Optional[float] = None,
+    steps_per_epoch: Optional[int] = None,
+    batches_per_step: Optional[int] = None,
     **kwargs,
 ) -> ModifiedState:
+    """
+    A method to apply the recipe in one-shot manner. This will invoke the initialize
+    and then finalize methods for each modifier in the active session's lifecycle.
+
+    :param framework: the framework to use for the sparsification
+    :param recipe: the recipe to use for the sparsification, can be a path to a
+        recipe file, a raw recipe string, a recipe object, or a list of recipe objects.
+    :param recipe_stage: the stage to target for the sparsification
+    :param recipe_args: the args to use for overriding the recipe defaults
+    :param model: the model to sparsify
+    :param teacher_model: the teacher model to use for knowledge distillation
+    :param train_data: the training data to use for the sparsification
+    :param val_data: the validation data to use for the sparsification
+    :param test_data: the testing data to use for the sparsification
+    :param calib_data: the calibration data to use for the sparsification
+    :param copy_data: True to copy the data, False otherwise
+    :param start: the start epoch to use for the sparsification
+    :param steps_per_epoch: the number of steps per epoch to use for the
+        sparsification
+    :param batches_per_step: the number of batches per step to use for
+    :param kwargs: additional kwargs to pass to the current session's apply method
+    :return: the modified state of the active session after applying the recipe
+    """
     return active_session().apply(
         framework=framework,
         recipe=recipe,
@@ -269,8 +439,19 @@ def apply(
 
 
 class LifecycleCallbacks:
+    """
+    A class for invoking lifecycle events for the active session
+    """
+
     @classmethod
     def event(cls, event_type: EventType, **kwargs) -> ModifiedState:
+        """
+        Invoke an event for the active session
+
+        :param event_type: the event type to invoke
+        :param kwargs: additional kwargs to pass to the current session's event method
+        :return: the modified state of the active session after invoking the event
+        """
         if event_type in [EventType.PRE_INIT, EventType.INITIALIZE, EventType.FINALIZE]:
             raise ValueError(
                 f"Cannot invoke {event_type} event. "
@@ -280,23 +461,55 @@ class LifecycleCallbacks:
         return active_session().event(event_type, **kwargs)
 
     @classmethod
-    def batch_start(cls, batch_data: Any = None, **kwargs) -> ModifiedState:
+    def batch_start(cls, batch_data: Optional[Any] = None, **kwargs) -> ModifiedState:
+        """
+        Invoke a batch start event for the active session
+
+        :param batch_data: the batch data to use for the event
+        :param kwargs: additional kwargs to pass to the current session's event method
+        :return: the modified state of the active session after invoking the event
+        """
         return cls.event(EventType.BATCH_START, batch_data=batch_data, **kwargs)
 
     @classmethod
-    def loss_calculated(cls, loss: Any = None, **kwargs) -> ModifiedState:
+    def loss_calculated(cls, loss: Optional[Any] = None, **kwargs) -> ModifiedState:
+        """
+        Invoke a loss calculated event for the active session
+
+        :param loss: the loss to use for the event
+        :param kwargs: additional kwargs to pass to the current session's event method
+        :return: the modified state of the active session after invoking the event
+        """
         return cls.event(EventType.LOSS_CALCULATED, loss=loss, **kwargs)
 
     @classmethod
     def optim_pre_step(cls, **kwargs) -> ModifiedState:
+        """
+        Invoke an optimizer pre-step event for the active session
+
+        :param kwargs: additional kwargs to pass to the current session's event method
+        :return: the modified state of the active session after invoking the event
+        """
         return cls.event(EventType.OPTIM_PRE_STEP, **kwargs)
 
     @classmethod
     def optim_post_step(cls, **kwargs) -> ModifiedState:
+        """
+        Invoke an optimizer post-step event for the active session
+
+        :param kwargs: additional kwargs to pass to the current session's event method
+        :return: the modified state of the active session after invoking the event
+        """
         return cls.event(EventType.OPTIM_POST_STEP, **kwargs)
 
     @classmethod
     def batch_end(cls, **kwargs) -> ModifiedState:
+        """
+        Invoke a batch end event for the active session
+
+        :param kwargs: additional kwargs to pass to the current session's event method
+        :return: the modified state of the active session after invoking the event
+        """
         return cls.event(EventType.BATCH_END, **kwargs)
 
 
