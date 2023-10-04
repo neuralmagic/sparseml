@@ -19,7 +19,7 @@ from typing import Any, Dict, List
 from pydantic import Field
 
 from sparseml.core.data import ModifiableData
-from sparseml.core.event import Event, EventType
+from sparseml.core.event import Event
 from sparseml.core.framework import Framework
 from sparseml.core.model import ModifiableModel
 from sparseml.core.optimizer import ModifiableOptimizer
