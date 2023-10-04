@@ -97,7 +97,6 @@ class SmoothQuantModelPreprocessor(ModelPreprocessor):
         del hooks
 
     def apply_smoothing(self, dev):
-        print(self.resolved_mappings)
         for mapping in self.resolved_mappings:
             name, module_to_merge = mapping["module_to_merge"]
             activation_scales = self.scales[name][2].to(dev)
