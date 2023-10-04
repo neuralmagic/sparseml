@@ -22,6 +22,7 @@ from sparseml.experimental.sparsegpt.utils import (
     execute_offloaded_module,
     ppl_eval_general,
     get_wikitext2,
+    get_openplatypus,
 )
 from sparseml.experimental.sparsegpt.smoothquant import SmoothQuantModelPreprocessor
 
