@@ -46,7 +46,6 @@ class LayerCompressor:
     def __init__(
         self, model: Module, layer: Module, layer_index: int, inputs: List, args: Dict
     ):
-        super().__init__(model=model)
         self.model = model
         self.layer = layer
         self.layer_index = layer_index
