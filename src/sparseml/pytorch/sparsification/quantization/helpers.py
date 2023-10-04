@@ -725,7 +725,8 @@ def initialize_channel_wise_scale_zp(module: Module):
     for name, submodule in module.named_modules():
         weight_fake_quant = getattr(submodule, "weight_fake_quant", None)
         if not weight_fake_quant or (
-            getattr(weight_fake_quant, "qscheme", None) not in [torch.per_channel_affine, torch.per_channel_symmetric]
+            getattr(weight_fake_quant, "qscheme", None)
+            not in [torch.per_channel_affine, torch.per_channel_symmetric]
         ):
             # only consider modules with channel-wise quantized weights
             continue
@@ -747,7 +748,9 @@ def initialize_channel_wise_scale_zp(module: Module):
 
         zero_point = weight_fake_quant.zero_point
         if zero_point.numel() == 1:
-            weight_fake_quant.scale = torch.ones(num_channels, dtype=zero_point.dtype)
+            weight_fake_quant.zero_point = torch.ones(
+                num_channels, dtype=zero_point.dtype
+            )
 
         # update the observer min and max vals
         if weight_fake_quant.activation_post_process.min_val.numel() == 0:
