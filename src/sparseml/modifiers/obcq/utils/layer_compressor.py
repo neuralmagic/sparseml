@@ -14,64 +14,51 @@
 
 import inspect
 import logging
-from typing import Dict, List, Tuple
+from typing import Dict, List
 
 import torch
 import torch.nn as nn
+from torch.nn import Module
 
 from sparseml.modifiers.obcq.utils.sparsegpt import SparseGPT
-from sparseml.modifiers.obcq.utils.utils import cache_attention_inputs
 
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class BaseCompressor:
-    def __init__(self, model):
-        self.model = model
+class LayerCompressor:
+    """
+    Runs the SparseGPT algorithm on a single layer using calibration data inputs
 
-    def pre_compress(self, dev: str = "cuda:0", **kwargs) -> Tuple[nn.Module, Dict]:
-        return self.model, {}
+    Lifecycle:
+        - compress
+            - pre_compress
+            - fasterprune
+            - post_compress
 
-    def compress(
-        self,
-        dataloader=None,
-        nsamples: int = None,
-        dev: str = "cuda:0",
-        target_ids: List[str] = None,
-        layer_prefix: str = None,
-        **kwargs,
+    :param model: model containing the layer we are running compression on
+    :param layer: layer to run compression on
+    :param layer_index: index of layer in the model
+    :param inputs: calibration data to pass through the layer
+    :param args: additional keyword arguments
+    """
+
+    def __init__(
+        self, model: Module, layer: Module, layer_index: int, inputs: List, args: Dict
     ):
-        """
-        :param dataloader: calibration data to pass through the model
-        :nsamples: number of samples to use for calibration, or None to use it all
-        :dev: device to use
-        :return: model used for calibration, outputs from bottom part of network,
-        attention mask, and kv-cache state
-        """
-        cached_inputs = cache_attention_inputs(
-            self.model, dataloader, dev, nsamples, target_ids, layer_prefix
-        )
-
-        outputs = cached_inputs.pop("inputs")
-        outputs = [o[0] for o in outputs]
-        cached_inputs.update({"outputs": outputs})
-        return self.model, cached_inputs
-
-    def post_compress(self, dev: str = "cuda:0", **kwargs) -> Tuple[nn.Module, Dict]:
-        return self.model, {}
-
-
-class LayerCompressor(BaseCompressor):
-    def __init__(self, model, layer, layer_index, inputs, manager, args):
         super().__init__(model=model)
+        self.model = model
         self.layer = layer
         self.layer_index = layer_index
         self.inputs = inputs
-        self.manager = manager
         self.args = args
 
-    def compressible_modules(self):
+    def compressible_modules(self) -> Dict:
+        """
+        Get the list of modules in the layer that can be compressed
+
+        :return: dictionary of compressible modules
+        """
         quantize = self.args.get("quantize", False)
         if quantize:
             # The layer names are changed due to quantization modifiers, therefore
@@ -81,9 +68,13 @@ class LayerCompressor(BaseCompressor):
             modules = _find_layers(self.layer)
         return modules
 
-    def pre_compress(self, **kwargs):
+    def pre_compress(self, **kwargs) -> Dict:
         """
-        Set up SparseGPT objects, compute Hessian
+        Sets up the SparseGPT objects for each compressible module, computes the Hessian
+        for each using the calibration data.
+
+        :return: gpt objects for each module if not updating sequentially, otherwise
+        a blank dictionary
         """
         if not self.args["sequential_update"]:
             subset = self.compressible_modules()
@@ -117,17 +108,22 @@ class LayerCompressor(BaseCompressor):
             for h in handles:
                 h.remove()
 
-            return self.model, {"gpts": gpts}
+            return {"gpts": gpts}
         else:
-            return self.model, {}
+            return {}
 
-    def compress(self, dev: str = "cuda:0", **kwargs):
+    def compress(self, dev: str = "cuda:0", **kwargs) -> Dict:
+        """
+        Run SparseGPT compression on all compressible modules in the layer
+
+        :param dev: device to run computation on
+        """
         self.layer.to(dev)
-        self.model, extras = self.pre_compress(**kwargs)
+        extras = self.pre_compress(**kwargs)
         if not self.args["sequential_update"]:
             gpts = extras["gpts"]
             for name in gpts:
-                print(f"Compressing {name}...")
+                _LOGGER.info(f"Compressing {name}...")
                 sparsity = self.args["sparsity"]
                 gpts[name].fasterprune(
                     sparsity,
@@ -138,13 +134,18 @@ class LayerCompressor(BaseCompressor):
                 )
                 gpts[name].free()
         else:
-            self._sequentially_compress(**kwargs)
+            self.sequentially_compress(**kwargs)
 
-        self.model, extras = self.post_compress(**kwargs)
+        extras = self.post_compress(**kwargs)
 
-        return self.model, {"outputs": extras["outputs"]}
+        return {"outputs": extras["outputs"]}
 
-    def post_compress(self, **kwargs):
+    def post_compress(self, **kwargs) -> Dict:
+        """
+        Clean up after compression
+
+        :return: outputs of the layer
+        """
         nsamples = len(self.inputs)
         outputs = []
         forward_args_spec = inspect.getfullargspec(self.layer.__class__.forward)
@@ -160,9 +161,12 @@ class LayerCompressor(BaseCompressor):
 
         self.inputs = None
         torch.cuda.empty_cache()
-        return self.model, {"outputs": outputs}
+        return {"outputs": outputs}
 
-    def _sequentially_compress(self, **kwargs):
+    def sequentially_compress(self, **kwargs):
+        """
+        Run compression module by module, in dependency order
+        """
         subset = self.compressible_modules()
 
         forward_args_spec = inspect.getfullargspec(self.layer.__class__.forward)
@@ -199,7 +203,7 @@ class LayerCompressor(BaseCompressor):
                 self.layer(self.inputs[j], **passed_in_kwargs)
             handle.remove()
 
-            print(f"Compressing module {name} of layer {self.layer_index}")
+            _LOGGER.info(f"Compressing module {name} of layer {self.layer_index}")
             gpts.fasterprune(
                 self.args["sparsity"],
                 prunen=self.args["prunen"],

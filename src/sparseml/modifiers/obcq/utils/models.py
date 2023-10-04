@@ -15,7 +15,7 @@
 from typing import List
 
 import torch
-from torch import Module
+from torch.nn import Module
 from transformers import LlamaForCausalLM, OPTForCausalLM
 
 from sparseml.modifiers.obcq.utils.utils import (
@@ -71,7 +71,6 @@ def opt_forward(model: Module, data_loader: List, device: str, nsamples: int = N
 
     :return: logits output of the model
     """
-    # Catch attention mask
     cached_inputs = cache_attention_inputs(model, data_loader, device, nsamples)
     buffer = [b[0] for b in cached_inputs.pop("inputs")]
     for layer in model.model.layers:
@@ -119,7 +118,6 @@ def llama_forward(model: Module, data_loader: List, device: str, nsamples: int =
 
     :return: logits output of the model
     """
-    # Catch attention mask
     cached_inputs = cache_attention_inputs(model, data_loader, device, nsamples)
     buffer = [b[0] for b in cached_inputs.pop("inputs")]
     for layer in model.model.layers:

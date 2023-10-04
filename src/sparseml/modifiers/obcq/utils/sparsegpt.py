@@ -29,6 +29,18 @@ torch.backends.cudnn.allow_tf32 = False
 
 
 class SparseGPT:
+    """
+    Runs SparseGPT on a single module that contains no sub-modules
+
+    Lifecycle:
+        - add_batch
+        - fasterprune
+        - free
+
+
+    :param layer: module to run SparseGPT on
+    """
+
     def __init__(self, layer):
         self.layer = layer
         self.dev = self.layer.weight.device
@@ -42,7 +54,13 @@ class SparseGPT:
         self.H = torch.zeros((self.columns, self.columns), device=self.dev)
         self.nsamples = 0
 
-    def add_batch(self, inp, out, blocksize=1024):
+    def add_batch(self, inp: torch.Tensor, out: torch.Tensor):
+        """
+        Add a batch of layer input and output data to the Hessian calculation
+
+        :param inp: tensor containing layer input
+        :param out: tensor containing layer our
+        """
         if DEBUG:
             self.inp1 = inp
             self.out1 = out
@@ -60,7 +78,25 @@ class SparseGPT:
         inp = math.sqrt(2 / self.nsamples) * inp.float()
         self.H += inp.matmul(inp.t())
 
-    def fasterprune(self, sparsity, prunen=0, prunem=0, blocksize=128, percdamp=0.01):
+    def fasterprune(
+        self,
+        sparsity: float,
+        prunen: int = 0,
+        prunem: int = 0,
+        blocksize: int = 128,
+        percdamp: float = 0.01,
+    ):
+        """
+        Run pruning and quantization(if applicable) on the layer up to the target
+        sparsity value
+
+        :param sparsity: target sparsity to reach for layer
+        :param prunen: N for N:M pruning
+        :param prunem: M for N:M pruning
+        :param blocksize: Number of columns to compress in one pass
+        :param percdamp: Amount of dampening to apply to H, as a fraction of the
+        diagonal norm
+        """
         W = self.layer.weight.data.clone()
         if isinstance(self.layer, nn.Conv2d):
             W = W.flatten(1)
@@ -166,6 +202,9 @@ class SparseGPT:
             _LOGGER.debug(torch.sum((self.layer(self.inp1) - self.out1) ** 2))
 
     def free(self):
+        """
+        Free the Hessian memory after the layer is complete
+        """
         if DEBUG:
             self.inp1 = None
             self.out1 = None

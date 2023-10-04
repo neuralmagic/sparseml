@@ -18,7 +18,7 @@ import os
 from pathlib import Path
 from typing import Optional
 
-from torch import Module
+from torch.nn import Module
 
 import sparseml.core.session as sml
 from sparseml.core.framework import Framework

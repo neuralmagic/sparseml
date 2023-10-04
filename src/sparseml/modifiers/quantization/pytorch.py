@@ -155,7 +155,6 @@ class QuantizationModifierPyTorch(QuantizationModifier):
         )
 
         for batch_idx, batch in enumerate(_dataloader):
-            print(batch_idx)
             if self.num_calibration_steps and batch_idx >= self.num_calibration_steps:
                 break
             batch = tensors_to_device(batch, model_device)

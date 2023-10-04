@@ -22,10 +22,8 @@ from torch.nn import Module
 from sparseml.core.model import ModifiableModel
 from sparseml.core.state import State
 from sparseml.modifiers.obcq.base import SparseGPTModifier
-from sparseml.modifiers.obcq.utils.layer_compressor import (
-    BaseCompressor,
-    LayerCompressor,
-)
+from sparseml.modifiers.obcq.utils.layer_compressor import LayerCompressor
+from sparseml.modifiers.obcq.utils.utils import cache_attention_inputs
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -44,9 +42,8 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
     :param model: Pytorch model to perform OBCQ on, in-place
     """
 
-    model: Module = None
-    compressible_layers_: List[Module] = None
-    bottom_compressor_: BaseCompressor = None
+    model: Any = None
+    compressible_layers_: List = None
     device_: str = "cuda:0"
     finalization_kwargs_: Dict = None
 
@@ -59,14 +56,31 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
         compressible_dict = self.model.get_layers(self.compress_layers)
         return [v for _, v in compressible_dict.items()]
 
-    def bottom_compressor(self) -> BaseCompressor:
+    def compress_bottom(
+        self,
+        dataloader: List = None,
+        nsamples: int = None,
+        dev: str = "cuda:0",
+        target_ids: List[str] = None,
+        layer_prefix: str = None,
+    ) -> Dict:
         """
-        Get a bottom compressor for the module, which runs everything up to the first
-        decoder layer
+        Runs calibration data through the bottom part of the network (everything up
+        to the first decoder layer) and return the captured outputs
 
-        :return: compressor for bottom part of the network, feeds into first decoder
+        :param dataloader: calibration data to pass through the model
+        :nsamples: number of samples to use for calibration, or None to use it all
+        :dev: device to use
+        :return: outputs from bottom part of network, attention mask, and kv-cache state
         """
-        return BaseCompressor(self.model)
+        cached_inputs = cache_attention_inputs(
+            self.model, dataloader, dev, nsamples, target_ids, layer_prefix
+        )
+
+        outputs = cached_inputs.pop("inputs")
+        outputs = [o[0] for o in outputs]
+        cached_inputs.update({"outputs": outputs})
+        return cached_inputs
 
     def on_initialize(self, state: "State", **kwargs) -> bool:
         """
@@ -91,8 +105,8 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
         device: Optional[str] = "cuda:0",
     ):
         """
-        Setup for SparseGPT, initialize the the compressible layers of model, set the
-        device, and initialize the bottom compressor
+        Setup for SparseGPT, initialize the the compressible layers of model, and set
+        the device
 
         :param model: PyTorch model to sparsify
         :param device: device to run sparsification on, preferably a GPU
@@ -100,7 +114,6 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
         self.model = model
         self.compressible_layers_ = self.compressible_layers()
         self.model = self.model.model
-        self.bottom_compressor_ = self.bottom_compressor()
         self._set_device(device)
 
     @torch.no_grad()
@@ -115,13 +128,10 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
         """
         accum_kwargs = {"dataloader": dataloader}
 
-        # Step 0: BottomCompressor accomplishes two things:
-        # 1) Compress the embedding if needed
-        # 2) Pass the calibration data through the (compressed) bottom part of the
-        # network, capturing the outputs
-        # which will become the inputs to the first decoder layer
-        # Also return attention_mask as part of kwargs
-        self.model, extras = self.bottom_compressor_.compress(
+        # Step 0: Pass the calibration data through the (compressed) bottom part of the
+        # network, capturing the outputs which will become the inputs to the first
+        # decoder layer. Also return attention_mask as part of kwargs
+        extras = self.compress_bottom(
             dev=self.device_,
             target_ids=self.target_ids,
             layer_prefix=self.layer_prefix,
@@ -149,13 +159,10 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
                 "sequential_update": self.sequential_update,
                 "quantize": self.quantize,
             }
-            layer_compressor = LayerCompressor(
-                self.model, layer, idx, inputs, None, args
-            )
+            layer_compressor = LayerCompressor(self.model, layer, idx, inputs, args)
+
             # Prune/quantize using SparseGPT
-            self.model, layer_kwargs = layer_compressor.compress(
-                dev=self.device_, **accum_kwargs
-            )
+            layer_kwargs = layer_compressor.compress(dev=self.device_, **accum_kwargs)
             accum_kwargs.update(layer_kwargs)
 
         return extras

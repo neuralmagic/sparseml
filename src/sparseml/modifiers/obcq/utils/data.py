@@ -45,9 +45,9 @@ def get_wikitext2(
     random.seed(seed)
     trainloader = []
     for _ in range(nsamples):
-        i = random.randint(0, trainenc.shape[1] - seqlen - 1)
-        j = i + seqlen
-        inp = trainenc[:, i:j]
+        start = random.randint(0, trainenc.shape[1] - seqlen - 1)
+        end = start + seqlen
+        inp = trainenc[:, start:end]
         tar = inp.clone()
         tar[:, :-1] = -100
         trainloader.append((inp, tar))
@@ -76,9 +76,9 @@ def get_ptb(
     random.seed(seed)
     trainloader = []
     for _ in range(nsamples):
-        i = random.randint(0, trainenc.input_ids.shape[1] - seqlen - 1)
-        j = i + seqlen
-        inp = trainenc.input_ids[:, i:j]
+        start = random.randint(0, trainenc.input_ids.shape[1] - seqlen - 1)
+        end = start + seqlen
+        inp = trainenc.input_ids[:, start:end]
         tar = inp.clone()
         tar[:, :-1] = -100
         trainloader.append((inp, tar))
@@ -116,13 +116,13 @@ def get_c4(
     trainloader = []
     for _ in range(nsamples):
         while True:
-            i = random.randint(0, len(traindata) - 1)
-            trainenc = tokenizer(traindata[i]["text"], return_tensors="pt")
+            start_idx = random.randint(0, len(traindata) - 1)
+            trainenc = tokenizer(traindata[start_idx]["text"], return_tensors="pt")
             if trainenc.input_ids.shape[1] >= seqlen:
                 break
-        i = random.randint(0, trainenc.input_ids.shape[1] - seqlen - 1)
-        j = i + seqlen
-        inp = trainenc.input_ids[:, i:j]
+        start = random.randint(0, trainenc.input_ids.shape[1] - seqlen - 1)
+        end = start + seqlen
+        inp = trainenc.input_ids[:, start:end]
         tar = inp.clone()
         tar[:, :-1] = -100
         trainloader.append((inp, tar))

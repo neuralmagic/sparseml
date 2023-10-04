@@ -12,9 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 from math import ceil
 
 import torch
+
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class Catcher(torch.nn.Module):
@@ -104,92 +108,6 @@ def execute_offloaded_module(
         return new_buffer
 
 
-class OffLoadedModule(torch.nn.Module):
-    def __init__(self, module, device):
-        self._module = module
-        self.device = device
-
-        for name, child in module.named_modules():
-            setattr(self._module, name, OffLoadedModule(child, device))
-
-    def load_parameters(self):
-        [p.to(self.device) for p in self._module.parameters(recurse=False)]
-
-    def offload_parameters(self):
-        [p.cpu() for p in self._module.parameters(recurse=False)]
-        torch.cuda.empty_cache()
-
-    def offloaded_forward(self, *args, **kwargs):
-        self.load_parameters()
-        output = self._module.forward(*args, **kwargs)
-        self.offload_parameters()
-
-        return output
-
-    def forward(self, *args, **kwargs):
-        return self.offloaded_forward(*args, **kwargs)
-
-
-class SequentialCompressor(OffLoadedModule):
-    def __init__(self, module, device, compression_algorithm=None, parent_module=None):
-        self._module = module
-        self.device = device
-        self.compression_algorithm = compression_algorithm
-        self.parent_module = parent_module
-        self.cache = None
-        self.cache_inputs = False
-
-        for name, child in module.named_modules():
-            setattr(
-                self._module,
-                name,
-                SequentialCompressor(
-                    child, device, compression_algorithm, self._module
-                ),
-            )
-
-    def is_compressible(self):
-        if self.compression_algorithm is not None:
-            return self.compression_algorithm.is_compressible(self._module)
-        else:
-            return False
-
-    def evaluate_cached_inputs(self, inputs, *args, **kwargs):
-        if self.cache is None:
-            if self.parent_module is None:
-                for inp in inputs:
-                    self._module(inp, *args, **kwargs)
-            else:
-                self.cache_inputs = True
-                self.parent_module.evaluate_cached_inputs(inputs, *args, **kwargs)
-
-    def clear_cached(self):
-        del self.cache
-        self.cache = None
-        self.cache_inputs = False
-        torch.cuda.empty_cache()
-
-    def forward(self, *args, **kwargs):
-        if self.cache_inputs:
-            if self.cache is None:
-                self.cache["args"] = [args]
-                self.cache["kwargs"] = [kwargs]
-            else:
-                self.cache["args"].append(args)
-                self.cache["kwargs"].append(kwargs)
-        return self.offloaded_forward(*args, **kwargs)
-
-    def compress(self, *args, **kwargs):
-        if self.is_comporessible():
-            self.cache_inputs = True
-            self.parent_module.evaluate_cached_inputs(*args, **kwargs)
-            self._module = self.compression_strategy(self._module, self.cached_inputs)
-            self.clear_cache()
-        else:
-            for child in self._module.modules():
-                child.compress(*args, **kwargs)
-
-
 def cache_attention_inputs(
     model, dataloader, device, nsamples, target_ids, layer_prefix
 ):
@@ -223,7 +141,7 @@ def ppl_eval_general(
     nsamples=None,
     max_samples_per_iteration=128,
 ):
-    print("Evaluating perplexity...")
+    _LOGGER.info("Evaluating perplexity...")
 
     if nsamples is None:
         nsamples = len(dataloader)
@@ -256,9 +174,9 @@ def ppl_eval_general(
         )
 
         number_tokens += labels.numel()
-        print(torch.exp(neg_log_likelihood / number_tokens), flush=True)
+        _LOGGER.info(torch.exp(neg_log_likelihood / number_tokens), flush=True)
 
     ppl = torch.exp(neg_log_likelihood / number_tokens)
-    print(f"Perplexity: {ppl.item():3f}")
+    _LOGGER.info(f"Perplexity: {ppl.item():3f}")
 
     return ppl.item()
