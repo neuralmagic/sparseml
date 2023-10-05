@@ -33,8 +33,15 @@ __all__ = ["Recipe", "RecipeTuple"]
 
 class Recipe(RecipeBase):
     """
-    A class to represent a recipe for a model. A
-    recipe can be used to prune and/or quantize a model.
+    A class to represent a recipe for a model.
+    Recipes encode the instructions needed for modifying
+    the model and/or training process as a list of modifiers.
+    (More information on supported modifiers can be found at
+    https://docs.neuralmagic.com/products/sparseml)
+
+    Recipes can be created from a file, string, or SparseZoo stub.
+    Acceptable file formats include both json and yaml, however,
+    when serializing a recipe, yaml will be used by default.
     """
 
     @staticmethod
@@ -42,13 +49,6 @@ class Recipe(RecipeBase):
         """
         Create a recipe instance from a file, or string
 
-        Using SparseZoo recipe stubs is not yet supported:
-        >>> stub = "zoo:cv/classification/mobilenet_v2-1.0/\
-        ... pytorch/sparseml/imagenet/base-none"
-        >>> Recipe.create_instance(stub)
-        Traceback (most recent call last):
-        ...
-        NotImplementedError: Using SparseZoo stubs is not yet supported
 
         Using a recipe string or file is supported:
         >>> recipe_str = '''
@@ -286,7 +286,6 @@ class Recipe(RecipeBase):
 
     @root_validator(pre=True)
     def remap_stages(cls, values: Dict[str, Any]) -> Dict[str, Any]:
-
         stages = []
 
         modifiers = RecipeStage.extract_dict_modifiers(values)
@@ -423,8 +422,11 @@ class RecipeTuple:
     A simple dataclass to hold a recipe, it's target_stages, and override_args
 
     :param recipe: The Recipe instance to hold
-    :param target_stages: The target stages to use when simplifying the recipe
-    :param override_args: The override args to use when simplifying the recipe
+    :param target_stages: The stages to target when simplifying the recipe
+        (Note: Stages not in the target_stages will be removed during
+        simplification)
+    :param override_args: The args used to override existing recipe args
+        associated with the supplied `recipe`
     """
 
     recipe: Recipe
@@ -442,9 +444,3 @@ def _load_json_or_yaml_string(content: str) -> Dict[str, Any]:
             return yaml.safe_load(content)
         except yaml.YAMLError as err:
             raise ValueError(f"Could not parse recipe from string {content}") from err
-
-
-if __name__ == "__main__":
-    import doctest
-
-    doctest.testmod()
