@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import torch
-
 from math import ceil
+
+import torch
 
 
 class Catcher(torch.nn.Module):
@@ -80,7 +80,9 @@ def execute_offloaded_module(
         if cached_inputs is None:
             module_kwargs = kwargs
         else:
-            module_kwargs = {key: cached_inputs[key][input_index] for key in cached_inputs}
+            module_kwargs = {
+                key: cached_inputs[key][input_index] for key in cached_inputs
+            }
             module_kwargs.update(kwargs)
         output = module(inp.to(dev), **module_kwargs)
         if overwrite_buffer:
@@ -134,7 +136,13 @@ class SequentialCompressor(OffLoadedModule):
         self.cache_inputs = False
 
         for name, child in module.named_modules():
-            setattr(self._module, name, SequentialCompressor(child, device, compression_algorithm, self._module))
+            setattr(
+                self._module,
+                name,
+                SequentialCompressor(
+                    child, device, compression_algorithm, self._module
+                ),
+            )
 
     def is_compressible(self):
         if self.compression_algorithm is not None:
@@ -180,12 +188,12 @@ class SequentialCompressor(OffLoadedModule):
 
 @torch.no_grad()
 def ppl_eval_general(
-        eval_logits,
-        model,
-        dataloader,
-        dev,
-        nsamples=None,
-        max_samples_per_iteration=128,
+    eval_logits,
+    model,
+    dataloader,
+    dev,
+    nsamples=None,
+    max_samples_per_iteration=128,
 ):
     print("Evaluating perplexity...")
 
@@ -193,13 +201,17 @@ def ppl_eval_general(
         nsamples = len(dataloader)
 
     number_iterations = int(ceil(nsamples / max_samples_per_iteration))
-    neg_log_likelihood = 0.
+    neg_log_likelihood = 0.0
     number_tokens = 0
     for iteration in range(number_iterations):
         if iteration < number_iterations - 1:
-            samples = dataloader[iteration*max_samples_per_iteration:(iteration+1)*max_samples_per_iteration]
+            samples = dataloader[
+                iteration
+                * max_samples_per_iteration : (iteration + 1)
+                * max_samples_per_iteration
+            ]
         else:
-            samples = dataloader[iteration * max_samples_per_iteration:]
+            samples = dataloader[iteration * max_samples_per_iteration :]
 
         logits = eval_logits(model, samples, dev)
 
@@ -220,6 +232,7 @@ def ppl_eval_general(
 
     ppl = torch.exp(neg_log_likelihood / number_tokens)
     print(f"Perplexity: {ppl.item():3f}")
+
 
 def get_wikitext2(nsamples, seed, seqlen, model):
     from datasets import load_dataset
@@ -245,10 +258,14 @@ def get_wikitext2(nsamples, seed, seqlen, model):
         tar[:, :-1] = -100
         trainloader.append((inp, tar))
 
-    testloader = [testenc[:, (i*seqlen):((i+1)*seqlen)] for i in range(testenc.numel() // seqlen)]
-    testloader.append(testenc[:, (testenc.numel() // seqlen)*seqlen:])
+    testloader = [
+        testenc[:, (i * seqlen) : ((i + 1) * seqlen)]
+        for i in range(testenc.numel() // seqlen)
+    ]
+    testloader.append(testenc[:, (testenc.numel() // seqlen) * seqlen :])
 
     return trainloader, testloader, tokenizer
+
 
 def get_ptb(nsamples, seed, seqlen, model):
     from datasets import load_dataset
@@ -313,7 +330,10 @@ def get_c4(nsamples, seed, seqlen, model):
 
     valenc = tokenizer(" ".join(valdata[:1100]["text"]), return_tensors="pt")
     valenc = valenc.input_ids[:, : (256 * seqlen)]
-    testloader = [valenc[:, (i*seqlen):((i+1)*seqlen)] for i in range(valenc.numel() // seqlen)]
+    testloader = [
+        valenc[:, (i * seqlen) : ((i + 1) * seqlen)]
+        for i in range(valenc.numel() // seqlen)
+    ]
 
     return trainloader, testloader, tokenizer
 
@@ -335,8 +355,17 @@ def get_openplatypus(nsamples, seed, seqlen, model, split):
         traindata = traindata[:nsamples]
 
     alpaca_template = {
-        "prompt_input": "Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.\n\n### Instruction:\n{instruction}\n\n### Input:\n{input}\n\n### Response:\n",
-        "prompt_no_input": "Below is an instruction that describes a task. Write a response that appropriately completes the request.\n\n### Instruction:\n{instruction}\n\n### Response:\n",
+        "prompt_input": "Below is an instruction that describes a task, "
+        "paired with an input that provides further context. "
+        "Write a response that appropriately completes the request."
+        "\n\n### Instruction:\n{instruction}"
+        "\n\n### Input:\n{input}"
+        "\n\n### Response:\n",
+        "prompt_no_input": "Below is an instruction that describes a task. "
+        "Write a response that appropriately "
+        "completes the request."
+        "\n\n### Instruction:\n{instruction}"
+        "\n\n### Response:\n",
     }
 
     from transformers import AutoTokenizer
@@ -345,9 +374,13 @@ def get_openplatypus(nsamples, seed, seqlen, model, split):
 
     def _process_sample(sample):
         if "input" in sample:
-            processed_sample = alpaca_template["prompt_input"].format(instruction=sample["instruction"], input=sample["input"])
+            processed_sample = alpaca_template["prompt_input"].format(
+                instruction=sample["instruction"], input=sample["input"]
+            )
         else:
-            processed_sample = alpaca_template["prompt_no_input"].format(instruction=sample["instruction"])
+            processed_sample = alpaca_template["prompt_no_input"].format(
+                instruction=sample["instruction"]
+            )
 
         if "output" in sample:
             processed_sample += sample["output"]
@@ -367,7 +400,6 @@ def get_openplatypus(nsamples, seed, seqlen, model, split):
                 tokenized_sample = torch.concatenate(
                     (tokenized_sample, torch.tensor((tokenizer.eos_token_id,))),
                 )
-
         tokenized_sample = torch.unsqueeze(tokenized_sample, dim=0)
 
         return tokenized_sample
