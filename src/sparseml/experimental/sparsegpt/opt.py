@@ -23,6 +23,7 @@ from sparseml.experimental.sparsegpt.model_preprocessor import (
     QuantizationModelPreprocessor,
 )
 from sparseml.experimental.sparsegpt.sequential import SequentialSparseGPT
+from sparseml.experimental.sparsegpt.smoothquant import SmoothQuantModelPreprocessor
 from sparseml.experimental.sparsegpt.utils import (
     catch,
     execute_offloaded_module,
@@ -31,7 +32,7 @@ from sparseml.experimental.sparsegpt.utils import (
     get_wikitext2,
     ppl_eval_general,
 )
-from sparseml.experimental.sparsegpt.smoothquant import SmoothQuantModelPreprocessor
+
 
 smoothquant_layer_mappings = [
     {
@@ -45,6 +46,7 @@ smoothquant_layer_mappings = [
 ]
 
 smoothquant_ignore = "model.decoder.final_layer_norm"
+
 
 class SequentialSparseGPT_OPT(SequentialSparseGPT):
     def compressible_layers(self):

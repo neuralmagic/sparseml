@@ -81,12 +81,13 @@ if __name__ == "__main__":
         default=0.5,
     )
     parser.add_argument(
-        "--logarithmic-equalization", action="store_true", help="Whether to run Logarithmic Activation Equalization."
+        "--logarithmic-equalization",
+        action="store_true",
+        help="Whether to run Logarithmic Activation Equalization.",
     )
     parser.add_argument(
-        "--ptq-only",
-        action="store_true",
-        help="Flag to perform only PTQ step.")
+        "--ptq-only", action="store_true", help="Flag to perform only PTQ step."
+    )
     parser.add_argument(
         "--ptq-init",
         type=int,
