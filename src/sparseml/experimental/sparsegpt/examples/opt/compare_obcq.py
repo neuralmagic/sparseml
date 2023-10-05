@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import torch
+from sparseml.transformers.data import TransformersDataset
 
 from sparseml.experimental.sparsegpt.dispatch import (
     evaluate_perplexity,
@@ -75,10 +76,18 @@ class ProdArgs:
 
 def run_experimental_obcq(experimental_args):
     model = load_model(experimental_args)
-    dataloader, _, _ = load_data(experimental_args)
-    sequential(model, dataloader, device, experimental_args)
+    dataset = TransformersDataset.load_from_registry(
+        experimental_args.dataset,
+        model=experimental_args.model,
+        seqlen=model.seqlen,
+        nsamples=experimental_args.nsamples,
+        seed=0,
+        split="train"
+    )
+    calibration_data = dataset.loader
+    sequential(model, calibration_data, device, experimental_args)
 
-    del dataloader
+    del calibration_data
     return model
 
 

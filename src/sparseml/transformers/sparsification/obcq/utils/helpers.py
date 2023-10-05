@@ -16,48 +16,14 @@ from typing import List
 
 import torch
 from torch.nn import Module
-from transformers import LlamaForCausalLM, OPTForCausalLM
 
-from sparseml.modifiers.obcq.utils.utils import (
+from sparseml.modifiers.obcq.utils.helpers import (
     cache_attention_inputs,
     execute_offloaded_module,
 )
 
 
-__all__ = ["load_opt_model", "load_llama_model", "opt_forward", "llama_forward"]
-
-
-def load_opt_model(model_path: str) -> torch.nn.Module:
-    """
-    Load a pretrained OPT model from the specified hugging face path
-
-    :param model_path: hugging face path to model
-    :return: loaded pretrained model
-    """
-
-    def skip(*args, **kwargs):
-        pass
-
-    torch.nn.init.kaiming_uniform_ = skip
-    torch.nn.init.uniform_ = skip
-    torch.nn.init.normal_ = skip
-
-    model = OPTForCausalLM.from_pretrained(model_path, torch_dtype="auto")
-    model.seqlen = model.config.max_position_embeddings
-    return model
-
-
-def load_llama_model(model_path: str) -> torch.nn.Module:
-    """
-    Load a pretrained Llama model from the specified hugging face path
-
-    :param model_path: hugging face path to model
-    :return: loaded pretrained model
-    """
-    model = LlamaForCausalLM.from_pretrained(model_path, torch_dtype="auto")
-    model.eval()
-    model.seqlen = model.config.max_position_embeddings
-    return model
+__all__ = ["opt_forward", "llama_forward"]
 
 
 def opt_forward(model: Module, data_loader: List, device: str, nsamples: int = None):
@@ -75,7 +41,7 @@ def opt_forward(model: Module, data_loader: List, device: str, nsamples: int = N
         model, data_loader, device, nsamples, ["attention_mask"], "decoder"
     )
     buffer = [b[0] for b in cached_inputs.pop("inputs")]
-    for layer in model.model.layers:
+    for layer in model.model.decoder.layers:
         buffer = execute_offloaded_module(
             layer,
             buffer,

@@ -22,8 +22,8 @@ from torch.nn import Module
 from sparseml.core.model import ModifiableModel
 from sparseml.core.state import State
 from sparseml.modifiers.obcq.base import SparseGPTModifier
+from sparseml.modifiers.obcq.utils.helpers import cache_attention_inputs
 from sparseml.modifiers.obcq.utils.layer_compressor import LayerCompressor
-from sparseml.modifiers.obcq.utils.utils import cache_attention_inputs
 
 
 _LOGGER = logging.getLogger(__name__)

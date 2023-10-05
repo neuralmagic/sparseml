@@ -11,12 +11,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 import torch
 
-from sparseml.experimental.sparsegpt.dispatch import evaluate_perplexity, load_model
+from sparseml.experimental.sparsegpt.dispatch import (
+    evaluate_perplexity,
+    load_data,
+    load_model,
+)
 from sparseml.experimental.sparsegpt.main import sequential
-from sparseml.modifiers.obcq.utils.data import get_openplatypus
+from sparseml.experimental.sparsegpt.llama2 import load_data
 from sparseml.transformers.sparsification.obcq.obcq import one_shot
 
 
@@ -73,9 +76,7 @@ class ProdArgs:
 
 def run_experimental_obcq(experimental_args):
     model = load_model(experimental_args)
-    dataloader, _, _ = get_openplatypus(
-        nsamples, seed, data_sequence_length, model_name
-    )
+    dataloader, _, _ = load_data(experimental_args, experimental_args.data_sequence_length)
     sequential(model, dataloader, device, experimental_args)
 
     del dataloader
@@ -84,17 +85,16 @@ def run_experimental_obcq(experimental_args):
 
 if __name__ == "__main__":
     experimental_args = ExperimentalArgs()
+    """
     exp_model = run_experimental_obcq(experimental_args)
-
-    _, testloader, _ = get_openplatypus(
-        nsamples, seed, data_sequence_length, model_name
-    )
+    _, testloader, _ = load_data(experimental_args, experimental_args.data_sequence_length)
     exp_perplexity = evaluate_perplexity(
         experimental_args, exp_model, testloader, device
     )
     del testloader
     del exp_model
     torch.cuda.empty_cache()
+    """
 
     prod_args = ProdArgs()
     prod_model = one_shot(
@@ -106,11 +106,9 @@ if __name__ == "__main__":
         do_eval=False,
     )
 
-    _, testloader, _ = get_openplatypus(
-        nsamples, seed, data_sequence_length, model_name
-    )
+    _, testloader, _ = load_data(experimental_args, experimental_args.data_sequence_length)
     prod_perplexity = evaluate_perplexity(prod_args, prod_model, testloader, device)
     print(
-        f"Experimental Perplexity: {exp_perplexity},"
+        #f"Experimental Perplexity: {exp_perplexity},"
         f"Production Perplexity: {prod_perplexity}"
     )

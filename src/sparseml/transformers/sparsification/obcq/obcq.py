@@ -22,20 +22,14 @@ from torch.nn import Module
 
 import sparseml.core.session as sml
 from sparseml.core.framework import Framework
-from sparseml.modifiers.obcq.utils.data import (
-    get_c4,
-    get_openplatypus,
-    get_ptb,
-    get_wikitext2,
-)
-from sparseml.modifiers.obcq.utils.models import (
+from sparseml.modifiers.obcq.utils.helpers import ppl_eval_general
+from sparseml.optim.helpers import load_recipe_yaml_str
+from sparseml.transformers.data import TransformersDataset
+from sparseml.transformers.sparsification.obcq.utils.helpers import (
     llama_forward,
-    load_llama_model,
-    load_opt_model,
     opt_forward,
 )
-from sparseml.modifiers.obcq.utils.utils import ppl_eval_general
-from sparseml.optim.helpers import load_recipe_yaml_str
+from sparseml.transformers.utils.model import SparseCasualLM
 
 
 __all__ = ["one_shot"]
@@ -79,32 +73,29 @@ def one_shot(
     model_loader_fn = None
     forward_fn = None
     if "opt" in model_path.lower():
-        model_loader_fn = load_opt_model
+        model_loader_fn = SparseCasualLM.opt_model_from_pretrained
         forward_fn = opt_forward
     elif "llama" in model_path.lower():
-        model_loader_fn = load_llama_model
+        model_loader_fn = SparseCasualLM.llama_model_from_pretrained
         forward_fn = llama_forward
     else:
         raise ValueError(f"model_path={model_path} should be one of {SUPPORTED_MODELS}")
     model = model_loader_fn(model_path)
 
-    data_loader_fn = None
-    if dataset_name == "wikitext2":
-        data_loader_fn = get_wikitext2
-    elif dataset_name == "ptb":
-        data_loader_fn = get_ptb
-    elif dataset_name == "c4":
-        data_loader_fn = get_c4
-    elif dataset_name == "open_platypus":
-        data_loader_fn = get_openplatypus
-    else:
+    if dataset_name not in SUPPORTED_DATASETS:
         raise ValueError(
             f"dataset_name={dataset_name} should be one of {SUPPORTED_DATASETS}"
         )
-
-    calibration_data, _, tokenizer = data_loader_fn(
-        num_samples, 0, model.seqlen, model_path
+    dataset = TransformersDataset.load_from_registry(
+        dataset_name,
+        model=model_path,
+        seqlen=model.seqlen,
+        nsamples=num_samples,
+        seed=0,
+        split="train",
     )
+    calibration_data = dataset.loader
+    tokenizer = dataset.tokenizer
 
     sml.create_session()
     session = sml.active_session()
@@ -121,10 +112,17 @@ def one_shot(
     if do_save:
         _save(model, tokenizer, deploy_dir, recipe_file)
     if do_eval:
-        _, test_dataloader, _ = get_openplatypus(
-            num_samples, 0, model.seqlen, model_path
+        dataset = TransformersDataset.load_from_registry(
+            dataset_name,
+            model=model_path,
+            seqlen=model.seqlen,
+            nsamples=num_samples,
+            seed=0,
+            split="test",
         )
-        ppl_eval_general(forward_fn, model, test_dataloader, device, None, num_samples)
+        test_data = dataset.loader
+
+        ppl_eval_general(forward_fn, model, test_data, device, None, num_samples)
 
     return model
 
