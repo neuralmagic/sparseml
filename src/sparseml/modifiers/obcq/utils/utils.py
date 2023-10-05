@@ -174,7 +174,7 @@ def ppl_eval_general(
         )
 
         number_tokens += labels.numel()
-        _LOGGER.info(torch.exp(neg_log_likelihood / number_tokens), flush=True)
+        _LOGGER.info(torch.exp(neg_log_likelihood / number_tokens))
 
     ppl = torch.exp(neg_log_likelihood / number_tokens)
     _LOGGER.info(f"Perplexity: {ppl.item():3f}")
