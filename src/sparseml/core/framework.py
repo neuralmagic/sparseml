@@ -13,15 +13,16 @@
 # limitations under the License.
 
 
-from enum import Enum
+from enum import Enum, unique
 
 
 __all__ = ["Framework"]
 
 
+@unique
 class Framework(Enum):
     """
-    An Enum for the different frameworks supported by SparseML
+    An Enum to represent different frameworks recognized by SparseML
     """
 
     general = "general"
@@ -34,6 +35,10 @@ class Framework(Enum):
     @classmethod
     def from_str(cls, framework: str) -> "Framework":
         """
+        Factory method for creating a framework enum from a string.
+        The string is case insensitive and whitespace is stripped before
+        checking for a match.
+
         :param framework: The string to convert to a framework
         :return: The corresponding framework enum for the given string
         """
@@ -78,6 +83,10 @@ class Framework(Enum):
 
     def class_name(self) -> str:
         """
+        Get the class name for the framework.
+        This is the formatted string representation of the framework.
+        If the framework is `general`, an empty string is returned
+
         :return: The class name for the framework
         """
         return self.formatted() if self != self.general else ""
