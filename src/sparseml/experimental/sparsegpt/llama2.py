@@ -22,8 +22,8 @@ from sparseml.experimental.sparsegpt.sequential import SequentialSparseGPT
 from sparseml.experimental.sparsegpt.utils import (
     catch,
     execute_offloaded_module,
-    get_wikitext2,
     get_openplatypus,
+    get_wikitext2,
     ppl_eval_general,
 )
 
