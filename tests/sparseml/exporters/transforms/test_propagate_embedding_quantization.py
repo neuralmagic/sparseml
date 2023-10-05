@@ -72,7 +72,7 @@ def onnx_model():
     concat = onnx.helper.make_node(
         "Concat",
         ["pad1_output", "pad2_output", "dequant_output"],
-        ["concat_output"],
+        ["output"],
         name="concat",
         axis=0,
     )
