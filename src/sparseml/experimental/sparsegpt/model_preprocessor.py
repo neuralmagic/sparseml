@@ -38,6 +38,15 @@ def apply_recipe(model, recipe):
     return manager
 
 
+def apply_recipe(model, recipe):
+    manager = ScheduledModifierManager.from_yaml(recipe)
+    model.train()
+    manager.apply_structure(model, epoch=0.1)
+    model.eval()
+
+    return manager
+
+
 class QuantizationModelPreprocessor(ModelPreprocessor):
     def __init__(
         self,

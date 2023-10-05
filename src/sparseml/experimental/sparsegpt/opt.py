@@ -91,7 +91,7 @@ def cache_attention_inputs(model, data_loader, device, nsamples):
         model, model.model.decoder.layers[0], ["attention_mask"], data_loader, nsamples
     )
 
-    model.model.decoder.embed_tokens.cpu()
+    model.model.decoder.embed_tokens.cpu 
     model.model.decoder.embed_positions.cpu()
     if hasattr(model.model.decoder, "project_out") and model.model.decoder.project_out:
         model.model.decoder.project_out.cpu()
