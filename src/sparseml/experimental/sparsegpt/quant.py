@@ -30,7 +30,9 @@ class WeightFakeQuantizer(nn.Module):
         if self.qscheme in [torch.per_tensor_affine, torch.per_tensor_symmetric]:
             q = torch.quantize_per_tensor(w, self.scale, self.zero_point, self.dtype)
         else:
-            q = torch.quantize_per_channel(w, self.scale, self.zero_point, 0, self.dtype)
+            q = torch.quantize_per_channel(
+                w, self.scale, self.zero_point, 0, self.dtype
+            )
         return torch.dequantize(q)
 
 

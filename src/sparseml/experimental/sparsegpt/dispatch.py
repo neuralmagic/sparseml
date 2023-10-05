@@ -41,7 +41,9 @@ def load_data(args, model_key: str = None, *gargs, **kwargs):
     return _load_data(args, *gargs, **kwargs)
 
 
-def evaluate_perplexity(args, model, dataloader, dev, model_key: str = None, *gargs, **kwargs):
+def evaluate_perplexity(
+    args, model, dataloader, dev, model_key: str = None, *gargs, **kwargs
+):
     model_key = _get_model_key(args) if model_key is None else model_key
     if model_key == "opt":
         from opt import ppl_eval as _ppl_eval
