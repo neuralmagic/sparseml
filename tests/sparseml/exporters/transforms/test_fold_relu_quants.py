@@ -32,7 +32,7 @@ def onnx_model():
     scale = onnx.helper.make_tensor("scale", onnx.TensorProto.FLOAT, (1,), [1])
     relu = onnx.helper.make_node("Relu", ["input"], ["relu_output"], name="relu")
     quant = onnx.helper.make_node(
-        "QuantizeLinear", ["relu_output", "scale"], ["quant_output"], name="quant"
+        "QuantizeLinear", ["relu_output", "scale"], ["output"], name="quant"
     )
 
     graph = onnx.helper.make_graph(
