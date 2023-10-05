@@ -15,16 +15,21 @@
 import numpy as np
 import torch
 
-from sparseml.experimental.sparsegpt.layer_compressor import BaseCompressor, LayerCompressor
-from sparseml.experimental.sparsegpt.model_preprocessor import QuantizationModelPreprocessor
+from sparseml.experimental.sparsegpt.layer_compressor import (
+    BaseCompressor,
+    LayerCompressor,
+)
+from sparseml.experimental.sparsegpt.model_preprocessor import (
+    QuantizationModelPreprocessor,
+)
 from sparseml.experimental.sparsegpt.sequential import SequentialSparseGPT
 from sparseml.experimental.sparsegpt.utils import (
     catch,
     execute_offloaded_module,
-    ppl_eval_general,
-    get_ptb,
     get_c4,
+    get_ptb,
     get_wikitext2,
+    ppl_eval_general,
 )
 from sparseml.experimental.sparsegpt.smoothquant import SmoothQuantModelPreprocessor
 
@@ -74,31 +79,21 @@ class OPTHeadCompressor(BaseCompressor):
 def cache_attention_inputs(model, data_loader, device, nsamples):
     model.model.decoder.embed_tokens.to(device)
     model.model.decoder.embed_positions.to(device)
-    if (
-            hasattr(model.model.decoder, "project_out")
-            and model.model.decoder.project_out
-    ):
+    if hasattr(model.model.decoder, "project_out") and model.model.decoder.project_out:
         model.model.decoder.project_out.to(device)
-    if (
-            hasattr(model.model.decoder, "project_in")
-            and model.model.decoder.project_in
-    ):
+    if hasattr(model.model.decoder, "project_in") and model.model.decoder.project_in:
         model.model.decoder.project_in.to(device)
 
     model.model.decoder.layers[0].to(device)
-    cached_inputs = catch(model, model.model.decoder.layers[0], ["attention_mask"], data_loader, nsamples)
+    cached_inputs = catch(
+        model, model.model.decoder.layers[0], ["attention_mask"], data_loader, nsamples
+    )
 
     model.model.decoder.embed_tokens.cpu()
     model.model.decoder.embed_positions.cpu()
-    if (
-            hasattr(model.model.decoder, "project_out")
-            and model.model.decoder.project_out
-    ):
+    if hasattr(model.model.decoder, "project_out") and model.model.decoder.project_out:
         model.model.decoder.project_out.cpu()
-    if (
-            hasattr(model.model.decoder, "project_in")
-            and model.model.decoder.project_in
-    ):
+    if hasattr(model.model.decoder, "project_in") and model.model.decoder.project_in:
         model.model.decoder.project_in.cpu()
 
     model.model.decoder.layers[0].cpu()
@@ -223,12 +218,12 @@ def set_seed(seed):
 
 
 def ppl_eval(
-        args,
-        model,
-        dataloader,
-        dev,
-        nsamples=None,
-        max_samples_per_iteration=128,
+    args,
+    model,
+    dataloader,
+    dev,
+    nsamples=None,
+    max_samples_per_iteration=128,
 ):
     return ppl_eval_general(
         opt_forward,
@@ -238,4 +233,3 @@ def ppl_eval(
         nsamples,
         max_samples_per_iteration,
     )
-
