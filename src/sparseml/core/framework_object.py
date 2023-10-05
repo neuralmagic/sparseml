@@ -14,6 +14,7 @@
 
 
 import importlib
+from typing import Optional
 
 from sparseml.core.framework import Framework
 
@@ -23,15 +24,16 @@ __all__ = ["MultiFrameworkObject"]
 
 class MultiFrameworkObject:
     """
-    A base class for objects that can be instantiated for different frameworks.
+    A base class for objects that can be instantiated for different ML frameworks.
+
     Subclassing this will allow loading framework specific implementations
     of the subclassed object, if they exist. If they do not exist, the subclass
-    instance will be returned directly.
+    instance will be returned directly
     """
 
     def __new__(
         cls,
-        framework: Framework = None,
+        framework: Optional[Framework] = None,
         enable_experimental: bool = False,
         **kwargs,
     ):
