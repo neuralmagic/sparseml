@@ -71,7 +71,9 @@ def opt_forward(model: Module, data_loader: List, device: str, nsamples: int = N
 
     :return: logits output of the model
     """
-    cached_inputs = cache_attention_inputs(model, data_loader, device, nsamples)
+    cached_inputs = cache_attention_inputs(
+        model, data_loader, device, nsamples, ["attention_mask"], "decoder"
+    )
     buffer = [b[0] for b in cached_inputs.pop("inputs")]
     for layer in model.model.layers:
         buffer = execute_offloaded_module(
@@ -118,7 +120,9 @@ def llama_forward(model: Module, data_loader: List, device: str, nsamples: int =
 
     :return: logits output of the model
     """
-    cached_inputs = cache_attention_inputs(model, data_loader, device, nsamples)
+    cached_inputs = cache_attention_inputs(
+        model, data_loader, device, nsamples, ["attention_mask", "position_ids"], None
+    )
     buffer = [b[0] for b in cached_inputs.pop("inputs")]
     for layer in model.model.layers:
         buffer = execute_offloaded_module(

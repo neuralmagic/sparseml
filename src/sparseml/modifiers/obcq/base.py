@@ -17,6 +17,7 @@ from typing import List, Optional, Union
 
 from sparseml.core import Modifier
 from sparseml.core.state import State
+from sparseml.utils import ALL_TOKEN
 
 
 __all__ = ["SparseGPTModifier"]
@@ -40,8 +41,8 @@ class SparseGPTModifier(Modifier):
         True saves on GPU memory
     :param prunen: N for N:M pruning
     :param prunem: M for N:M pruning
-    :param compress_layers: list of layer names to compress during OBCQ, or __ALL__ to
-        compress every layer in the model
+    :param compress_layers: list of layer names to compress during OBCQ, or ALL_TOKEN
+        to compress every layer in the model
     :param target_ids: list of keys in model output to cache
     :param layer_prefix: name of model attribute that contains the list of layers, i.e.
         model.decoder for OPT or just model for Llama
@@ -54,7 +55,7 @@ class SparseGPTModifier(Modifier):
     sequential_update: Optional[bool] = True
     prunen: Optional[int] = 0
     prunem: Optional[int] = 0
-    compress_layers: Union[str, List[str], None] = "__ALL__"
+    compress_layers: Union[str, List[str], None] = ALL_TOKEN
     target_ids: Optional[List[str]] = None
     layer_prefix: Optional[str] = None
 

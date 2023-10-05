@@ -62,7 +62,7 @@ class SparseGPT:
         :param out: tensor containing layer our
         """
         if DEBUG:
-            self.inp1 = inp
+            self._inp1 = inp
             self.out1 = out
         if len(inp.shape) == 2:
             inp = inp.unsqueeze(0)
@@ -88,7 +88,7 @@ class SparseGPT:
     ):
         """
         Run pruning and quantization(if applicable) on the layer up to the target
-        sparsity value
+        sparsity value.
 
         :param sparsity: target sparsity to reach for layer
         :param prunen: N for N:M pruning
@@ -124,6 +124,7 @@ class SparseGPT:
 
         mask = None
 
+        # See section 3.4 of https://arxiv.org/pdf/2301.00774.pdf
         for i1 in range(0, self.columns, blocksize):
             i2 = min(i1 + blocksize, self.columns)
             count = i2 - i1
@@ -186,7 +187,7 @@ class SparseGPT:
             if DEBUG:
                 self.layer.weight.data[:, :i2] = W[:, :i2]
                 self.layer.weight.data[:, i2:] = W[:, i2:]
-                _LOGGER.debug(torch.sum((self.layer(self.inp1) - self.out1) ** 2))
+                _LOGGER.debug(torch.sum((self.layer(self._inp1) - self.out1) ** 2))
                 _LOGGER.debug(torch.sum(Losses))
 
         torch.cuda.synchronize()
@@ -199,14 +200,14 @@ class SparseGPT:
             self.layer.weight.data.dtype
         )
         if DEBUG:
-            _LOGGER.debug(torch.sum((self.layer(self.inp1) - self.out1) ** 2))
+            _LOGGER.debug(torch.sum((self.layer(self._inp1) - self.out1) ** 2))
 
     def free(self):
         """
         Free the Hessian memory after the layer is complete
         """
         if DEBUG:
-            self.inp1 = None
+            self._inp1 = None
             self.out1 = None
         self.H = None
         torch.cuda.empty_cache()

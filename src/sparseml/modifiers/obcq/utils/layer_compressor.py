@@ -21,6 +21,7 @@ import torch.nn as nn
 from torch.nn import Module
 
 from sparseml.modifiers.obcq.utils.sparsegpt import SparseGPT
+from sparseml.pytorch.utils.helpers import get_dependency_order
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -32,7 +33,8 @@ class LayerCompressor:
 
     Lifecycle:
         - compress
-            - pre_compress
+            - pre_compress_parallel (optional)
+            - add_batch
             - fasterprune
             - post_compress
 
@@ -67,49 +69,45 @@ class LayerCompressor:
             modules = _find_layers(self.layer)
         return modules
 
-    def pre_compress(self, **kwargs) -> Dict:
+    def pre_compress_parallel(self, **kwargs) -> Dict:
         """
         Sets up the SparseGPT objects for each compressible module, computes the Hessian
         for each using the calibration data.
 
-        :return: gpt objects for each module if not updating sequentially, otherwise
-        a blank dictionary
+        :return: SparseGPT objects for each module
         """
-        if not self.args["sequential_update"]:
-            subset = self.compressible_modules()
+        subset = self.compressible_modules()
 
-            gpts = {}
-            for name in subset:
-                gpts[name] = SparseGPT(subset[name])
+        gpts = {}
+        for name in subset:
+            gpts[name] = SparseGPT(subset[name])
 
-            def add_batch(name):
-                def tmp(_, inp, out):
-                    gpts[name].add_batch(inp[0].data, out.data)
+        def add_batch(name):
+            def tmp(_, inp, out):
+                gpts[name].add_batch(inp[0].data, out.data)
 
-                return tmp
+            return tmp
 
-            handles = []
-            for name in gpts:
-                handles.append(subset[name].register_forward_hook(add_batch(name)))
+        handles = []
+        for name in gpts:
+            handles.append(subset[name].register_forward_hook(add_batch(name)))
 
-            # Run through the samples in order to compute Hessian matrix
-            nsamples = len(self.inputs)
-            forward_args_spec = inspect.getfullargspec(self.layer.__class__.forward)
-            passed_in_args = [arg for arg in forward_args_spec.args if arg in kwargs]
-            for j in range(nsamples):
-                passed_in_kwargs = {}
-                for arg in passed_in_args:
-                    if isinstance(kwargs[arg], List):
-                        passed_in_kwargs[arg] = kwargs[arg][j]
-                    else:
-                        passed_in_kwargs[arg] = kwargs[arg]
-                self.layer(self.inputs[j], **passed_in_kwargs)
-            for h in handles:
-                h.remove()
+        # Run through the samples in order to compute Hessian matrix for each module
+        nsamples = len(self.inputs)
+        forward_args_spec = inspect.getfullargspec(self.layer.__class__.forward)
+        passed_in_args = [arg for arg in forward_args_spec.args if arg in kwargs]
+        for sample_idx in range(nsamples):
+            passed_in_kwargs = {}
+            for arg in passed_in_args:
+                if isinstance(kwargs[arg], List):
+                    passed_in_kwargs[arg] = kwargs[arg][sample_idx]
+                else:
+                    passed_in_kwargs[arg] = kwargs[arg]
+            self.layer(self.inputs[sample_idx], **passed_in_kwargs)
+        for h in handles:
+            h.remove()
 
-            return {"gpts": gpts}
-        else:
-            return {}
+        return {"gpts": gpts}
 
     def compress(self, dev: str = "cuda:0", **kwargs) -> Dict:
         """
@@ -118,8 +116,9 @@ class LayerCompressor:
         :param dev: device to run computation on
         """
         self.layer.to(dev)
-        extras = self.pre_compress(**kwargs)
         if not self.args["sequential_update"]:
+            # compute Hessians ahead of time
+            extras = self.pre_compress_parallel(**kwargs)
             gpts = extras["gpts"]
             for name in gpts:
                 _LOGGER.info(f"Compressing {name}...")
@@ -133,6 +132,7 @@ class LayerCompressor:
                 )
                 gpts[name].free()
         else:
+            # Hessians computed layer by layer
             self.sequentially_compress(**kwargs)
 
         extras = self.post_compress(**kwargs)
@@ -164,25 +164,29 @@ class LayerCompressor:
 
     def sequentially_compress(self, **kwargs):
         """
-        Run compression module by module, in dependency order
+        Run compression module by module, in dependency order. Unlike in parallel
+        compression, we compute the Hessians layer by layer instead of computing them
+        all up front. This saves on memory and means compression in earlier layers
+        affects the inputs to later layers
         """
         subset = self.compressible_modules()
 
+        # filter kwargs that are expected as layer inputs
         forward_args_spec = inspect.getfullargspec(self.layer.__class__.forward)
         passed_in_args = [arg for arg in forward_args_spec.args if arg in kwargs]
 
         passed_in_kwargs = {}
         for arg in passed_in_args:
-            if isinstance(kwargs[arg], List):
+            if isinstance(kwargs[arg], List):  # take the first batch
                 passed_in_kwargs[arg] = kwargs[arg][0]
             else:
                 passed_in_kwargs[arg] = kwargs[arg]
-        order = _find_dependency_order(
+        order = get_dependency_order(
             self.layer, subset, self.inputs[0], **passed_in_kwargs
         )
 
         nsamples = len(self.inputs)
-        for name in order:
+        for name in order:  # create SparseGPT object for each compressible module
             gpts = SparseGPT(subset[name])
 
             def add_batch(name):
@@ -191,19 +195,21 @@ class LayerCompressor:
 
                 return tmp
 
+            # add SparseGPT hook for current module
             handle = subset[name].register_forward_hook(add_batch(name))
-            for j in range(nsamples):
+            for sample_idx in range(nsamples):
                 passed_in_kwargs = {}
                 for arg in passed_in_args:
                     if isinstance(kwargs[arg], List):
-                        passed_in_kwargs[arg] = kwargs[arg][j]
+                        passed_in_kwargs[arg] = kwargs[arg][sample_idx]
                     else:
                         passed_in_kwargs[arg] = kwargs[arg]
-                self.layer(self.inputs[j], **passed_in_kwargs)
+                # run layer, triggering SparseGPT add_batch for current module
+                self.layer(self.inputs[sample_idx], **passed_in_kwargs)
             handle.remove()
 
             _LOGGER.info(f"Compressing module {name} of layer {self.layer_index}")
-            gpts.fasterprune(
+            gpts.fasterprune(  # run SparseGPT algorithm on current module
                 self.args["sparsity"],
                 prunen=self.args["prunen"],
                 prunem=self.args["prunem"],
@@ -213,30 +219,11 @@ class LayerCompressor:
             gpts.free()
 
 
-def _find_dependency_order(layer, subset, an_input, **kwargs):
-    order = []
-
-    def exe_input(name):
-        def _exe_input(_, inp, out):
-            if name in subset:
-                order.append(name)
-
-        return _exe_input
-
-    handles = [subset[name].register_forward_hook(exe_input(name)) for name in subset]
-    layer(an_input, **kwargs)
-    for h in handles:
-        h.remove()
-    return order
-
-
-def _find_quant_layers(module, layers=[torch.nn.qat.Linear], name=""):
-    if type(module) in layers:
-        pieces = name.split(".")
-        if pieces[-1] == "module":
-            name = ".".join(pieces[:-1])
-        return {name: module}
+def _find_quant_layers(
+    module, layers=[torch.nn.qat.Conv2d, torch.nn.qat.Linear], name=""
+):
     res = {}
+    # search for QAT versions of layers
     for name1, child in module.named_children():
         res.update(
             _find_layers(

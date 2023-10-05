@@ -38,7 +38,7 @@ def get_wikitext2(
     """
     traindata = load_dataset("wikitext", "wikitext-2-raw-v1", split="train")
     testdata = load_dataset("wikitext", "wikitext-2-raw-v1", split="test")
-    tokenizer = AutoTokenizer.from_pretrained(model, use_fast=False)
+    tokenizer = AutoTokenizer.from_pretrained(model, use_fast=True)
     trainenc = tokenizer(" ".join(traindata["text"]), return_tensors="pt").input_ids
     testenc = tokenizer("\n\n".join(testdata["text"]), return_tensors="pt").input_ids
 
@@ -69,7 +69,7 @@ def get_ptb(
     """
     traindata = load_dataset("ptb_text_only", "penn_treebank", split="train")
     testdata = load_dataset("ptb_text_only", "penn_treebank", split="test")
-    tokenizer = AutoTokenizer.from_pretrained(model, use_fast=False)
+    tokenizer = AutoTokenizer.from_pretrained(model, use_fast=True)
     trainenc = tokenizer(" ".join(traindata["sentence"]), return_tensors="pt")
     testenc = tokenizer(" ".join(testdata["sentence"]), return_tensors="pt")
 
@@ -110,7 +110,7 @@ def get_c4(
         split="validation",
     )
 
-    tokenizer = AutoTokenizer.from_pretrained(model, use_fast=False)
+    tokenizer = AutoTokenizer.from_pretrained(model, use_fast=True)
 
     random.seed(seed)
     trainloader = []

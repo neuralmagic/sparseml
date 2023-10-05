@@ -36,7 +36,10 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
     Lifecycle:
         - on_initialize
             - initialize_obcq
+                - compressible_layers
             - apply_obcq
+                - compress_bottom
+                - LayerCompressor.compress
         - on_finalize
 
     :param model: Pytorch model to perform OBCQ on, in-place
@@ -55,32 +58,6 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
         """
         compressible_dict = self.model.get_layers(self.compress_layers)
         return [v for _, v in compressible_dict.items()]
-
-    def compress_bottom(
-        self,
-        dataloader: List = None,
-        nsamples: int = None,
-        dev: str = "cuda:0",
-        target_ids: List[str] = None,
-        layer_prefix: str = None,
-    ) -> Dict:
-        """
-        Runs calibration data through the bottom part of the network (everything up
-        to the first decoder layer) and return the captured outputs
-
-        :param dataloader: calibration data to pass through the model
-        :nsamples: number of samples to use for calibration, or None to use it all
-        :dev: device to use
-        :return: outputs from bottom part of network, attention mask, and kv-cache state
-        """
-        cached_inputs = cache_attention_inputs(
-            self.model, dataloader, dev, nsamples, target_ids, layer_prefix
-        )
-
-        outputs = cached_inputs.pop("inputs")
-        outputs = [o[0] for o in outputs]
-        cached_inputs.update({"outputs": outputs})
-        return cached_inputs
 
     def on_initialize(self, state: "State", **kwargs) -> bool:
         """
@@ -178,6 +155,32 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
         self.model.config.use_cache = use_cache
 
         return True
+
+    def compress_bottom(
+        self,
+        dataloader: List = None,
+        nsamples: int = None,
+        dev: str = "cuda:0",
+        target_ids: List[str] = None,
+        layer_prefix: str = None,
+    ) -> Dict:
+        """
+        Runs calibration data through the bottom part of the network (everything up
+        to the first decoder layer) and return the captured outputs
+
+        :param dataloader: calibration data to pass through the model
+        :nsamples: number of samples to use for calibration, or None to use it all
+        :dev: device to use
+        :return: outputs from bottom part of network, attention mask, and kv-cache state
+        """
+        cached_inputs = cache_attention_inputs(
+            self.model, dataloader, dev, nsamples, target_ids, layer_prefix
+        )
+
+        outputs = cached_inputs.pop("inputs")
+        outputs = [o[0] for o in outputs]
+        cached_inputs.update({"outputs": outputs})
+        return cached_inputs
 
     def _set_device(self, device: str):
         if "cuda" in device and not torch.cuda.is_available():
