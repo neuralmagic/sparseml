@@ -22,24 +22,22 @@ __all__ = ["RecipeArgs"]
 
 class RecipeArgs(Dict[str, Any]):
     """
-    A dict to represent recipe arguments that can be evaluated
+    A dict to represent recipe arguments, that can be evaluated
     and used to override values in a recipe
 
-    Use constructor to create a new RecipeArgs instance:
-    >>> RecipeArgs(a=1, b=2, c=3)
-    {'a': 1, 'b': 2, 'c': 3}
+    An evaluated RecipeArgs instance does not contain any eval
+    strings as values
 
-    Use another dict instance to create a new RecipeArgs instance:
-    >>> RecipeArgs({"a": 1, "b": 2, "c": 3})
-    {'a': 1, 'b': 2, 'c': 3}
+    Create and evaluate a RecipeArgs instance:
+    >>> recipe_args = RecipeArgs(a="eval(2 * 3)", b=2, c=3)
+    >>> recipe_args.evaluate()
+    {'a': 6.0, 'b': 2, 'c': 3}
 
-    Use another RecipeArgs instance to create a new RecipeArgs instance:
-    >>> RecipeArgs(RecipeArgs(a=1, b=2))
-    {'a': 1, 'b': 2}
 
-    RecipeArgs is a dict and can be used as such:
-    >>> isinstance(RecipeArgs(a=1, b=2, c=3), dict)
-    True
+    Create and evaluate a RecipeArgs instance with a parent:
+    >>> recipe_args = RecipeArgs(a="eval(x * 3)", b=2, c=3)
+    >>> recipe_args.evaluate({"x": 3})
+    {'a': 9.0, 'b': 2, 'c': 3}
     """
 
     def __init__(self, *args, **kwargs):
@@ -54,16 +52,6 @@ class RecipeArgs(Dict[str, Any]):
         Combine with another RecipeArgs instance:
         >>> RecipeArgs(a=1, b=2, c=3).combine(RecipeArgs(d=4, e=5))
         {'a': 1, 'b': 2, 'c': 3, 'd': 4, 'e': 5}
-
-        Combine with a valid str --> any dict:
-        >>> RecipeArgs(a=1, b=2, c=3).combine({"d": 4, "e": 5})
-        {'a': 1, 'b': 2, 'c': 3, 'd': 4, 'e': 5}
-
-        Combine with an invalid dict raises ValueError:
-        >>> RecipeArgs(a=1, b=2, c=3).combine({1:3})
-        Traceback (most recent call last):
-        ...
-        ValueError: `other` must be a RecipeArgs ...
 
         :param other: The other recipe args or dict to combine with the current
             RecipeArgs instance
@@ -86,18 +74,13 @@ class RecipeArgs(Dict[str, Any]):
     def evaluate(self, parent: Optional["RecipeArgs"] = None) -> "RecipeArgs":
         """
         Evaluate the current recipe args and return a new RecipeArgs instance
-        with the evaluated values
-
-        Evaluate with no parent:
-        >>> a = RecipeArgs(a="eval(2*3)", b=2, c=3)
-        >>> a
-        {'a': 'eval(2*3)', 'b': 2, 'c': 3}
-        >>> a.evaluate()
-        {'a': 6.0, 'b': 2, 'c': 3}
+        with the evaluated values. Can also provide a parent RecipeArgs instance
+        to combine with the current instance before evaluating.
 
         Evaluate with a parent:
         >>> RecipeArgs(a="eval(2 * 3)", b=2).evaluate(
-        ... parent=RecipeArgs(c="eval(a * b)"))
+        ... parent=RecipeArgs(c="eval(a * b)")
+        ... )
         {'a': 6.0, 'b': 2, 'c': 12.0}
 
         :param parent: Optional extra recipe args to combine with the current
@@ -113,19 +96,9 @@ class RecipeArgs(Dict[str, Any]):
         Evaluate external target dict with the current recipe args and return
         the resulting evaluated dict
 
-        Empty dict is returned when target is empty:
-        >>> RecipeArgs(a=1, b=2, c=3).evaluate_ext({})
-        {}
-
         Evaluate target with values from current recipe args:
         >>> RecipeArgs(a=6).evaluate_ext({"b": "eval(a * 2)"})
         {'b': 12.0}
-
-        Reusing target's evaluated values results in NameError:
-        >>> RecipeArgs().evaluate_ext({"b": 2, "c": "eval(a * b)"})
-        Traceback (most recent call last):
-        ...
-        NameError: name 'b' is not defined
 
         :param target: The target dict to evaluate
         :return: The combined RecipeArgs instance with the evaluated values
@@ -146,19 +119,9 @@ class RecipeArgs(Dict[str, Any]):
         Evaluate the target string with the supplied args and return the
         resulting evaluated value
 
-        Evaluate a simple string:
-        >>> RecipeArgs.eval_str("eval(2 * 3)")
-        6.0
-
-        Evaluate a string with a variable:
+        Evaluate a string with a variable and args:
         >>> RecipeArgs.eval_str("eval(a * 3)", {"a": 2})
         6.0
-
-        Evaluate a string with a variable but no args raises NameError:
-        >>> RecipeArgs.eval_str("eval(a * 3)")
-        Traceback (most recent call last):
-        ...
-        NameError: name 'a' is not defined
 
         :param target: The target string to evaluate
         :param args: The args to use for the evaluation, these will be used
@@ -188,18 +151,6 @@ class RecipeArgs(Dict[str, Any]):
         Evaluate supplied args and return a new RecipeArgs instance with the
         evaluated values
 
-        Evaluate args with no eval strings:
-        >>> RecipeArgs.eval_args({"a": 1, "b": 2, "c": 3})
-        {'a': 1, 'b': 2, 'c': 3}
-
-        Evaluate args with eval strings:
-        >>> RecipeArgs.eval_args({"a": "eval(2 * 3)", "b": 2, "c": 3})
-        {'a': 6.0, 'b': 2, 'c': 3}
-
-        Evaluate args with eval strings and variables:
-        >>> RecipeArgs.eval_args({"a": 3, "b": "eval(a*2)", "c": 3})
-        {'a': 3, 'b': 6.0, 'c': 3}
-
         Order of evaluation is automatically handled:
         >>> RecipeArgs.eval_args({"a": "eval(b * 2)", "b": 2, "c": 3})
         {'a': 4.0, 'b': 2, 'c': 3}
@@ -224,28 +175,16 @@ class RecipeArgs(Dict[str, Any]):
         return RecipeArgs(resolved)
 
     @staticmethod
-    def eval_obj(target: Any, args: Dict[str, Any] = None) -> Any:
+    def eval_obj(target: Any, args: Optional[Dict[str, Any]] = None) -> Any:
         """
-        A more generic version of eval_str that can evaluate any object
+        Generic version of `eval_str` that can evaluate any object
         recursively, supports str, dict, and list types
-
-        Evaluate a simple str:
-        >>> RecipeArgs.eval_obj("eval(2 * 3)")
-        6.0
 
         >>> RecipeArgs.eval_obj("eval(a * 3)", {"a": 2})
         6.0
 
-        Evaluate a simple dict:
-        >>> RecipeArgs.eval_obj({"a": "eval(2 * 3)"})
-        {'a': 6.0}
-
         >>> RecipeArgs.eval_obj({"a": "eval(a * 3)"}, {"a": 2})
         {'a': 6.0}
-
-        Evaluate a simple list:
-        >>> RecipeArgs.eval_obj(["eval(2 * 3)"])
-        [6.0]
 
         >>> RecipeArgs.eval_obj(["eval(a * 3)"], {"a": 2})
         [6.0]

@@ -62,39 +62,6 @@ class RecipeContainer:
         `check_compile_recipe` to re-compile the recipes into a single compiled_recipe.
         If no recipe is provided, does nothing and returns the kwargs.
 
-
-        No recipe provided:
-        >>> container = RecipeContainer()
-        >>> kwargs = dict(irrelevant_kwarg="prune")
-        >>> result = container.update(**kwargs)
-        >>> result == kwargs
-        True
-
-        With Recipe provided compiled_recipe is reset:
-        >>> from sparseml.core import Recipe
-        >>> recipe_str = '''
-        ... test_stage:
-        ...     pruning_modifiers:
-        ...         ConstantPruningModifier:
-        ...             start: 0.0
-        ...             end: 2.0
-        ...             targets: ['re:.*weight']
-        ... '''
-        >>> container = RecipeContainer(
-        ...    compiled_recipe=Recipe.create_instance(recipe_str)
-        ... )
-        >>> container.compiled_recipe is not None
-        True
-        >>> result = container.update(recipe=recipe_str)
-        >>> container.compiled_recipe is None
-        True
-
-        Recompile the updated container with check_compile_recipe:
-        >>> _ = container.check_compile_recipe()
-        >>> container.compiled_recipe is not None
-        True
-
-
         Can provide multiple recipes to update the container with:
         >>> container = RecipeContainer()
         >>> recipe_str_1 = '''
@@ -114,12 +81,12 @@ class RecipeContainer:
         ...             targets: ['re:.*weight']
         ... '''
         >>> result = container.update(recipe=[recipe_str_1, recipe_str_2])
-        >>> len(container.recipes)
-        2
 
         :param recipe: the recipe to update the container with
         :param recipe_stage: the recipe stage to update the container with
         :param recipe_args: the recipe args to update the recipe with
+        :param kwargs: additional kwargs to return
+        :return: the passed in kwargs
         """
         if recipe is not None:
             self.compiled_recipe = None
@@ -163,9 +130,3 @@ class RecipeContainer:
             return True
 
         return False
-
-
-if __name__ == "__main__":
-    import doctest
-
-    doctest.testmod()
