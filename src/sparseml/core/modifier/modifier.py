@@ -161,11 +161,13 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
 
     def update_event(self, state: State, event: Event, **kwargs):
         """
-        Update modifier based on the given event.
+        Update modifier based on the given event. In turn calls
+        on_start, on_update, and on_end based on the event and
+        modifier settings.
 
         :raises RuntimeError: if the modifier has not been initialized
         :raises RuntimeError: if the modifier has been finalized
-        :param state: The current state of the model
+        :param state: The current state of sparsification
         :param event: The event to update the modifier with
         :param kwargs: Additional arguments for updating the modifier
         """

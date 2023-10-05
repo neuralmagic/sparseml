@@ -28,8 +28,11 @@ __all__ = [
 class EventLifecycle(ABC, Event):
     """
     A lifecycle for events to be used in a SparseML session.
-    Handles the logic for when events should be called and what
-    events should be called
+    Provides base utilities and also defines the contract that
+    all inheritors must follow.
+
+    The order in which the events are called is determined by
+    the inheritors of this class.
 
     :param type_first: The first event type to be called
     :param start: The start event to base the lifecycle off of
@@ -137,7 +140,7 @@ class EventLifecycle(ABC, Event):
 
 class WrappedOptimEventLifecycle(EventLifecycle):
     """
-    An event lifecycle for when the optimizer is wrapped and no batch or optim
+    An event lifecycle for when the optimizer is wrapped and no batch or optimizer
     callbacks are used.
         - batch_start: must not be invoked, auto triggered
           from loss calculated if that is called, otherwise from pre_step
