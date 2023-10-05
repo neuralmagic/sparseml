@@ -63,7 +63,7 @@ def onnx_model() -> onnx.ModelProto:
     output_quant = helper.make_node(
         "QuantizeLinear",
         ["conv_output", "y_scale", "zero_point"],
-        ["output_quant_output"],
+        ["output"],
         name="output_quant",
     )
 
