@@ -299,7 +299,7 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
 
     def on_event(self, state: State, event: Event, **kwargs):
         """
-        on_event is called whenever an update event is triggered
+        on_event is called whenever an event is triggered
 
         :param state: The current state of the model
         :param event: The event that triggered the update
