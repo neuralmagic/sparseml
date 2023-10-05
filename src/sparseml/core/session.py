@@ -57,7 +57,8 @@ class _CallbackContainer:
 
 class SparseSession:
     """
-    A session for sparsification that holds the current state of the sparsification
+    A session for sparsification that holds the lifecycle
+    and state for the current sparsification session
     """
 
     def __init__(self):
@@ -66,6 +67,10 @@ class SparseSession:
     @property
     def lifecycle(self) -> SparsificationLifecycle:
         """
+        Lifecycle is used to keep track of where we are in the sparsification
+        process and what modifiers are active. It also provides the ability
+        to invoke events on the lifecycle.
+
         :return: the lifecycle for the session
         """
         return self._lifecycle
@@ -73,6 +78,10 @@ class SparseSession:
     @property
     def state(self) -> State:
         """
+        State of the current sparsification session. State instance
+        is used to store all information such as the recipe, model
+        optimizer, data, etc. that is needed for sparsification.
+
         :return: the current state of the session
         """
         return self._lifecycle.state
@@ -100,8 +109,8 @@ class SparseSession:
         :param recipe_stage: the stage to use for the sparsification
         :param recipe_args: the args to use for overriding the recipe defaults
         :param framework: the framework to use for the sparsification
-        :return: the modified state of the session after pre-initializing the
-            structure
+        :return: A ModifiedState instance holding the modified model and modifier_data
+            after pre-initializing the structure
         """
         mod_data = self._lifecycle.pre_initialize_structure(
             model=model,
