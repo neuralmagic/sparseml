@@ -14,7 +14,7 @@
 
 from copy import deepcopy
 from dataclasses import dataclass
-from enum import Enum
+from enum import Enum, unique
 from typing import Optional
 
 
@@ -24,9 +24,12 @@ __all__ = [
 ]
 
 
+@unique
 class EventType(Enum):
     """
     An Enum for defining the different types of events that can be triggered
+    Purpose of each EventType is to trigger coresponding Modifier callback
+    during sparsification
     """
 
     # training lifecycle
@@ -45,8 +48,12 @@ class EventType(Enum):
 
     def order(self) -> int:
         """
+        Returns the priority order of the current EventType,
+        lower has higher priority
+
         :raises ValueError: if the event type is invalid
-        :return: The order of the event type, lower is earlier
+        :return: The order of the event type, lower has
+            higher priority
         """
         if self == EventType.PRE_INIT:
             return 0
@@ -71,7 +78,8 @@ class EventType(Enum):
 @dataclass
 class Event:
     """
-    A class for defining an event that can be triggered during training.
+    A class for defining an event that can be triggered during
+    sparsification
 
     :param type_: The type of event
     :param steps_per_epoch: The number of steps per epoch
@@ -172,12 +180,21 @@ class Event:
         )
 
     def should_update(
-        self, start: Optional[float], end: Optional[float], update: float
+        self, start: Optional[float], end: Optional[float], update: Optional[float]
     ):
         """
-        :param start: The start index to update at
-        :param end: The end index to update at
-        :param update: The update interval
+        Returns True if the event should trigger update, False otherwise.
+        Update should be triggered if the current index is within the start
+        and end and the current index is close (acceptable error is 1e-10)
+        to a multiple of the update interval
+
+
+        :param start: The start index to check against, set to None to
+            ignore start
+        :param end: The end index to check against, set to None to ignore
+            end
+        :param update: The update interval, set to None or 0.0 to always
+            update, otherwise must be greater than 0.0, defaults to None
         :return: True if the event should be updated, False otherwise
         """
         current = self.current_index
