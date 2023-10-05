@@ -47,7 +47,14 @@ class ModelParameterizedLayer(Generic[LT, PT]):
 @dataclass
 class ModifiableModel(Generic[MT, LT, PT], MultiFrameworkObject):
     """
-    A dataclass for holding a model and utility methods for modifying it
+    A MultiFrameWorkObject for holding a model. Also defines the
+    contract that must be followed for framework specific implementations.
+
+    Automatically instantiates the correct subclass object based on the
+    specified framework if it exists. If the framework is not specified,
+    the default "general" framework will be used. The inheritors of this class
+    must be named in the following format: ModifiableModel{framework.class_name()}
+    to be searchable by the MultiFrameworkObject factory method.
 
     :param framework: the framework the model is in
     :param model: the model object

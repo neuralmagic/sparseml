@@ -196,7 +196,11 @@ class Recipe(RecipeBase):
 
     def calculate_start(self) -> int:
         """
-        :return: The start of the recipe, the minimum start of all stages
+        Calculate and return the start epoch of the recipe.
+        The start epoch is the minimum start epoch of all stages.
+        Must have at least one stage to calculate the start epoch
+
+        :return: The start epoch of the stage
         """
         return min(
             stage.calculate_start()
@@ -206,6 +210,9 @@ class Recipe(RecipeBase):
 
     def calculate_end(self) -> int:
         """
+        Calculate and return the end epoch of the recipe.
+        The end epoch is the maximum end epoch of all stages.
+
         :return: The end of the recipe, the maximum end of all stages. If no stages
             found, returns 0
         """

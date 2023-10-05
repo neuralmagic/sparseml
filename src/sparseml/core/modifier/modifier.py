@@ -83,13 +83,15 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
 
     def calculate_start(self) -> float:
         """
-        :return: the start step for the modifier if set, else -1
+        Calculate and return the start epoch for the modifier.
+
+        :return: the start epoch for the modifier if set, else -1
         """
         return self.start if self.start is not None else -1
 
     def calculate_end(self) -> float:
         """
-        :return: the end step for the modifier if set, else -1
+        :return: the end epoch for the modifier if set, else -1
         """
         return self.end if self.end is not None else -1
 
