@@ -355,11 +355,17 @@ def get_openplatypus(nsamples, seed, seqlen, model, split):
         traindata = traindata[:nsamples]
 
     alpaca_template = {
-        "prompt_input": "Below is an instruction that describes a task, paired with an input that provides further "
-                        "context. Write a response that appropriately completes the request.\n\n### Instruction:\n{"
-                        "instruction}\n\n### Input:\n{input}\n\n### Response:\n",
-        "prompt_no_input": "Below is an instruction that describes a task. Write a response that appropriately "
-                           "completes the request.\n\n### Instruction:\n{instruction}\n\n### Response:\n",
+        "prompt_input": "Below is an instruction that describes a task, "
+        "paired with an input that provides further context. "
+        "Write a response that appropriately completes the request."
+        "\n\n### Instruction:\n{instruction}"
+        "\n\n### Input:\n{input}"
+        "\n\n### Response:\n",
+        "prompt_no_input": "Below is an instruction that describes a task. "
+        "Write a response that appropriately "
+        "completes the request."
+        "\n\n### Instruction:\n{instruction}"
+        "\n\n### Response:\n",
     }
 
     from transformers import AutoTokenizer
@@ -394,7 +400,6 @@ def get_openplatypus(nsamples, seed, seqlen, model, split):
                 tokenized_sample = torch.concatenate(
                     (tokenized_sample, torch.tensor((tokenizer.eos_token_id,))),
                 )
-
         tokenized_sample = torch.unsqueeze(tokenized_sample, dim=0)
 
         return tokenized_sample
