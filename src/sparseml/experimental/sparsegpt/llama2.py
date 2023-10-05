@@ -15,14 +15,16 @@
 import torch
 
 from sparseml.experimental.sparsegpt.layer_compressor import BaseCompressor
-from sparseml.experimental.sparsegpt.model_preprocessor import QuantizationModelPreprocessor
+from sparseml.experimental.sparsegpt.model_preprocessor import (
+    QuantizationModelPreprocessor,
+)
 from sparseml.experimental.sparsegpt.sequential import SequentialSparseGPT
 from sparseml.experimental.sparsegpt.utils import (
     catch,
     execute_offloaded_module,
-    ppl_eval_general,
-    get_wikitext2,
     get_openplatypus,
+    get_wikitext2,
+    ppl_eval_general,
 )
 from sparseml.experimental.sparsegpt.smoothquant import SmoothQuantModelPreprocessor
 
@@ -124,7 +126,13 @@ def load_data(args, seqlen, split=0.1):
 def cache_attention_inputs(model, data_loader, device, nsamples):
     model.model.embed_tokens.to(device)
     model.model.layers[0].to(device)
-    cached_inputs = catch(model, model.model.layers[0], ["attention_mask", "position_ids"], data_loader, nsamples)
+    cached_inputs = catch(
+        model,
+        model.model.layers[0],
+        ["attention_mask", "position_ids"],
+        data_loader,
+        nsamples,
+    )
     model.model.embed_tokens.cpu()
     model.model.layers[0].cpu()
     torch.cuda.empty_cache()
@@ -163,12 +171,12 @@ def llama2_forward(model, data_loader, device, nsamples=None):
 
 
 def ppl_eval(
-        args,
-        model,
-        dataloader,
-        dev,
-        nsamples=None,
-        max_samples_per_iteration=128,
+    args,
+    model,
+    dataloader,
+    dev,
+    nsamples=None,
+    max_samples_per_iteration=128,
 ):
     return ppl_eval_general(
         llama2_forward,

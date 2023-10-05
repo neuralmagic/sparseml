@@ -17,13 +17,14 @@ import time
 
 import torch
 
-from sparseml.optim.helpers import load_recipe_yaml_str
 from sparseml.experimental.sparsegpt.dispatch import (
+    evaluate_perplexity,
     load_data,
     load_model,
     prepare_sparsegpt,
-    evaluate_perplexity,
 )
+from sparseml.optim.helpers import load_recipe_yaml_str
+
 
 try:
     import wandb
@@ -135,10 +136,13 @@ if __name__ == "__main__":
         "--eval", action="store_true", help="Whether to evaluate perplexity at the end."
     )
     parser.add_argument(
-        "--device", type=str, default="cuda:0", help="Whether to evaluate perplexity at the end."
+        "--device",
+        type=str,
+        default="cuda:0",
+        help="Whether to evaluate perplexity at the end.",
     )
 
-   # For MPT
+    # For MPT
     parser.add_argument(
         "--yaml-path", type=str, default="", help="Path to recipe yaml."
     )

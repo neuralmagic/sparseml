@@ -12,12 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from math import ceil
 from typing import Dict, Tuple
 
 import torch
 import torch.nn as nn
-
-from math import ceil
 
 from sparseml.pytorch.optim.manager import ScheduledModifierManager
 
@@ -41,12 +40,12 @@ def apply_recipe(model, recipe):
 
 class QuantizationModelPreprocessor(ModelPreprocessor):
     def __init__(
-            self,
-            model,
-            recipe: str,
-            data_loader,
-            observer_batches,
-            model_forward,
+        self,
+        model,
+        recipe: str,
+        data_loader,
+        observer_batches,
+        model_forward,
     ):
         super().__init__(model)
         self.recipe = recipe
@@ -68,4 +67,3 @@ class QuantizationModelPreprocessor(ModelPreprocessor):
         with torch.no_grad():
             for _ in range(int(ceil(self.observer_batches / len(self.data_loader)))):
                 self.model_forward(self.model, self.data_loader, dev)
-
