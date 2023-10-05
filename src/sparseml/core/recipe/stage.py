@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from pydantic import Field, root_validator
 
@@ -30,21 +30,21 @@ class RecipeStage(RecipeBase):
     """
     Represents a stage in a recipe.
 
-    :param group: the group to assign the stage to
+    :param group: Name of the current stage
     :param args: Optional RecipeArgs to use for this stage
     :param enabled: True to enable the stage, False otherwise
-    :param modifiers: list of RecipeModifiers to apply to the stage
+    :param modifiers: list of RecipeModifiers that are a part of this stage
     :param exclude_default: True to exclude the default modifiers from the stage,
         False otherwise
     :param args_evaluated: the evaluated RecipeArgs for the stage
     """
 
-    group: str = None
-    args: RecipeArgs = None
+    group: Optional[str] = None
+    args: Optional[RecipeArgs] = None
     enabled: bool = True
     modifiers: List[RecipeModifier] = Field(default_factory=list)
     exclude_default: bool = False
-    args_evaluated: RecipeArgs = None
+    args_evaluated: Optional[RecipeArgs] = None
 
     def calculate_start(self) -> int:
         """
@@ -66,7 +66,9 @@ class RecipeStage(RecipeBase):
             mod.calculate_end() for mod in self.modifiers if mod.calculate_end() >= 0
         )
 
-    def evaluate(self, parent_args: RecipeArgs = None, shift: int = None):
+    def evaluate(
+        self, parent_args: Optional[RecipeArgs] = None, shift: Optional[int] = None
+    ):
         """
         Evaluate the args for the stage with parent_args if any and shift
         the start and end if provided
@@ -86,6 +88,20 @@ class RecipeStage(RecipeBase):
         self, framework: Framework, parent_args: RecipeArgs = None
     ) -> StageModifiers:
         """
+        Evaluate curent stage with parent_args if any and return
+        StageModifiers instance.
+
+        The StageModifiers instance will contain instantiated Framework
+        specific modifiers for the stage with the group and index set
+
+        evaluate(...)
+            | evaluate stage with parent_args if any
+            | for each recipe_modifier in stage
+            |   | instantiate Framework specific modifier
+            |   | set group and index of modifier
+            |   | append modifier to StageModifiers.modifiers
+            | return StageModifiers instance
+
         :param framework: the framework to create the modifiers for
         :param parent_args: Optional RecipeArgs to use for evaluation
         :return: the StageModifiers for the stage
