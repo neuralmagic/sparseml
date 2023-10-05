@@ -23,6 +23,7 @@ from sparseml.experimental.sparsegpt.utils import (
     catch,
     execute_offloaded_module,
     get_wikitext2,
+    get_openplatypus,
     ppl_eval_general,
 )
 
