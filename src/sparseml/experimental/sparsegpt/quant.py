@@ -23,14 +23,17 @@ class WeightFakeQuantizer(nn.Module):
             raise ValueError("WeightFakeQuantizer expects Linear weight only")
         [
             setattr(self, attr, getattr(layer.weight_fake_quant, attr))
-            for attr in ["scale", "zero_point", "dtype"]
+            for attr in ["scale", "zero_point", "dtype", "qscheme"]
         ]
 
     def quantize(self, w: torch.Tensor):
-        q = torch.dequantize(
-            torch.quantize_per_tensor(w, self.scale, self.zero_point, self.dtype)
-        )
-        return q
+        if self.qscheme in [torch.per_tensor_affine, torch.per_tensor_symmetric]:
+            q = torch.quantize_per_tensor(w, self.scale, self.zero_point, self.dtype)
+        else:
+            q = torch.quantize_per_channel(
+                w, self.scale, self.zero_point, 0, self.dtype
+            )
+        return torch.dequantize(q)
 
 
 class MatMulLeftInput_QK(nn.Identity):
