@@ -23,13 +23,6 @@ import torch
 from packaging import version
 from pydantic import BaseModel, Field, validator
 from torch.nn import Identity
-from torch.ao.quantization.observer import ObserverBase
-from torch.ao.quantization.FakeQuantize import FakeQuantizeBase
-from torch.ao.quantization.utils import (
-    validate_qmin_qmax,
-    calculate_qmin_qmax,
-    check_min_max_valid,
-)
 
 try:
     from torch import quantization as torch_quantization
@@ -401,7 +394,7 @@ def _fake_quantize_per_token_affine(x, scale, zero_point, qmin, qmax):
     return (q - zero_point) * scale
 
 
-class PerTokenDynamicObserver(ObserverBase):
+class PerTokenDynamicObserver(torch_quantization.ObserverBase):
     r"""Observer module for computing the quantization parameters for per token
     dynamic quantization. It uses current min/max values to determine quantization
     parameters. Differently from standard PyTorch observes, this observer does
@@ -475,9 +468,23 @@ class PerTokenDynamicObserver(ObserverBase):
             )
         self.has_customized_qrange = (quant_min is not None) and (quant_max is not None)
         if self.has_customized_qrange:
-            validate_qmin_qmax(quant_min, quant_max)
-        self.quant_min, self.quant_max = \
-            calculate_qmin_qmax(quant_min, quant_max, self.has_customized_qrange, self.dtype, self.reduce_range)
+            assert (
+                    quant_min <= 0 <= quant_max
+            ), "Used-specified quantization range must include 0."
+            assert (
+                    quant_min < quant_max
+            ), "qmin must be strictly less than qmax for user-specified quantization range."
+        else:
+            if dtype in [torch.qint8, torch.int8]:
+                if reduce_range:
+                    self.quant_min, self.quant_max = -64, 63
+                else:
+                    self.quant_min, quant_max = -128, 127
+            elif dtype in [torch.quint8, torch.uint8]:
+                if reduce_range:
+                    self.quant_min, self.quant_max = 0, 127
+                else:
+                    self.quant_min, self.quant_max = 0, 255
 
     def forward(self, x_orig):
         r"""Records the running minimum and maximum of ``x``."""
@@ -498,7 +505,7 @@ class PerTokenDynamicObserver(ObserverBase):
             scales: Scales tensor of shape (#channels,)
             zero_points: Zero points tensor of shape (#channels,)
         """
-        if not check_min_max_valid(self.min_val, self.max_val):
+        if not torch.all(self.min_val < self.max_val):
             scale = torch.ones_like(self.min_val, device=self.min_val.device.type)
             if self.dtype in [torch.qint8, torch.int8]:
                 zero_point = torch.zeros_like(self.min_val, device=self.dtype)
@@ -526,7 +533,7 @@ class PerTokenDynamicObserver(ObserverBase):
         return scale, zero_point
 
 
-class DynamicFakeQuantize(FakeQuantizeBase):
+class DynamicFakeQuantize(torch_quantization.FakeQuantizeBase):
     r""" Simulate the quantize and dequantize operations in training time.
     The output of this module is given by::
 
