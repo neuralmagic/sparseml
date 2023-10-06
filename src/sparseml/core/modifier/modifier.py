@@ -211,7 +211,7 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
         :param event: The event to check if the modifier should start
         :return: True if the modifier should start based on the given event
         """
-        if not self.start:
+        if self.start is None:
             return False
 
         current = event.current_index
