@@ -17,7 +17,7 @@ from torch.nn import Module
 from sparseml.transformers.data.base_llm import TransformersDataset
 
 
-@TransformersDataset.register(name="wikitext")
+@TransformersDataset.register(name="wikitext2")
 class WikiText(TransformersDataset):
     def __init__(
         self,
@@ -38,4 +38,4 @@ class WikiText(TransformersDataset):
         )
 
         processed_data = [sample["text"] for sample in self._data]
-        self.create_dataloader(processed_data)
+        self.create_dataloader(processed_data, join_on=" ")

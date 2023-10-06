@@ -126,7 +126,7 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
                     "return of the bottom compressor"
                 )
             inputs = accum_kwargs["outputs"]
-            _LOGGER.info(f"\n===== Compressing layer {idx}/{num_layers} =====")
+            _LOGGER.info(f"\n===== Compressing layer {idx}/{num_layers-1} =====")
             args = {
                 "sparsity": self.sparsity,
                 "prunen": self.prunen,

@@ -46,7 +46,7 @@ def one_shot(
     device: str = "cuda:0",
     deploy_dir: Optional[str] = ".",
     recipe_file: Optional[str] = None,
-    do_eval: Optional[bool] = False,
+    eval_data: Optional[str] = None,
     do_save: Optional[bool] = False,
 ) -> Module:
     """
@@ -58,7 +58,7 @@ def one_shot(
     :param device: Device (cuda:index or cpu) to use for computation
     :param deploy_dir: The output directory to save the model to
     :param recipe_file: recipe containing SparseGPT configuration
-    :param do_eval: whether to run perplexity evaluation on output model
+    :param eval_data: dataset to use for perplexity evalaution, or none to skip
     :param do_save: whether to save the output model to disk
 
     :return: Pytorch module with OBCQ applied
@@ -111,18 +111,20 @@ def one_shot(
 
     if do_save:
         _save(model, tokenizer, deploy_dir, recipe_file)
-    if do_eval:
+    if eval_data:
         dataset = TransformersDataset.load_from_registry(
-            dataset_name,
+            eval_data,
             model=model_path,
             seqlen=model.seqlen,
-            nsamples=num_samples,
+            nsamples=None,
             seed=0,
             split="test",
+            split_percent_to_use=0.1 if eval_data == "open_platypus" else 0.1,
         )
         test_data = dataset.loader
-
-        ppl_eval_general(forward_fn, model, test_data, device, None, num_samples)
+        ppl_eval_general(
+            forward_fn, model, test_data, device, max_samples_per_iteration=8
+        )
 
     return model
 
@@ -154,7 +156,7 @@ if __name__ == "__main__":
     parser.add_argument("--deploy-dir", type=str, default=".")
     parser.add_argument("--recipe", type=str, default=None)
     parser.add_argument(
-        "--eval", type=bool, default=False, help="Run perplexity evaluation"
+        "--eval", type=str, default=None, help="Optional dataset for perplexity eval"
     )
     parser.add_argument(
         "--save", type=bool, default=False, help="Save output model to disk"
@@ -169,6 +171,6 @@ if __name__ == "__main__":
         num_samples=args.nsamples,
         device=args.device,
         recipe_file=args.recipe,
-        do_eval=args.eval,
+        eval_data=args.eval,
         do_save=args.save,
     )

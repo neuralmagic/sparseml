@@ -45,6 +45,8 @@ class OpenPlatypus(TransformersDataset):
             name=None,
             seed=seed,
             split=split,
+            use_max_tokens=False,
+            split_percent_to_use=1.0,
         )
 
         processed_data = []

@@ -134,12 +134,7 @@ def cache_attention_inputs(
 
 @torch.no_grad()
 def ppl_eval_general(
-    eval_logits,
-    model,
-    dataloader,
-    dev,
-    nsamples=None,
-    max_samples_per_iteration=128,
+    eval_logits, model, dataloader, dev, nsamples=None, max_samples_per_iteration=128
 ):
     _LOGGER.info("Evaluating perplexity...")
 

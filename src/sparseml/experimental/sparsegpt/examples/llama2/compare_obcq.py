@@ -13,14 +13,13 @@
 # limitations under the License.
 import torch
 
-from sparseml.experimental.sparsegpt.dispatch import (
-    evaluate_perplexity,
-    load_data,
-    load_model,
-)
-from sparseml.experimental.sparsegpt.main import sequential
+from sparseml.experimental.sparsegpt.dispatch import evaluate_perplexity, load_model
 from sparseml.experimental.sparsegpt.llama2 import load_data
+from sparseml.experimental.sparsegpt.main import sequential
+from sparseml.modifiers.obcq.utils.helpers import ppl_eval_general
+from sparseml.transformers.data import TransformersDataset
 from sparseml.transformers.sparsification.obcq.obcq import one_shot
+from sparseml.transformers.sparsification.obcq.utils.helpers import llama_forward
 
 
 dataset = "open_platypus"
@@ -76,25 +75,23 @@ class ProdArgs:
 
 def run_experimental_obcq(experimental_args):
     model = load_model(experimental_args)
-    dataloader, _, _ = load_data(experimental_args, experimental_args.data_sequence_length)
-    sequential(model, dataloader, device, experimental_args)
+    calibration_data, _, _ = load_data(experimental_args, data_sequence_length)
+    sequential(model, calibration_data, device, experimental_args)
 
-    del dataloader
+    del calibration_data
     return model
 
 
 if __name__ == "__main__":
     experimental_args = ExperimentalArgs()
-    """
     exp_model = run_experimental_obcq(experimental_args)
-    _, testloader, _ = load_data(experimental_args, experimental_args.data_sequence_length)
+    _, testloader, _ = load_data(experimental_args, data_sequence_length)
     exp_perplexity = evaluate_perplexity(
         experimental_args, exp_model, testloader, device
     )
     del testloader
     del exp_model
     torch.cuda.empty_cache()
-    """
 
     prod_args = ProdArgs()
     prod_model = one_shot(
@@ -105,10 +102,21 @@ if __name__ == "__main__":
         recipe_file=prod_args.recipe,
         do_eval=False,
     )
+    torch.cuda.empty_cache()
 
-    _, testloader, _ = load_data(experimental_args, experimental_args.data_sequence_length)
-    prod_perplexity = evaluate_perplexity(prod_args, prod_model, testloader, device)
+    dataset = TransformersDataset.load_from_registry(
+        "open_platypus",
+        model=prod_args.model,
+        seqlen=prod_model.seqlen,
+        nsamples=None,
+        seed=0,
+        split="test",
+        split_percent_to_use=0.1,
+    )
+    test_data = dataset.loader
+
+    prod_perplexity = ppl_eval_general(llama_forward, prod_model, test_data, device)
     print(
-        #f"Experimental Perplexity: {exp_perplexity},"
+        f"Experimental Perplexity: {exp_perplexity}, "
         f"Production Perplexity: {prod_perplexity}"
     )

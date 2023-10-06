@@ -13,15 +13,14 @@
 # limitations under the License.
 
 import torch
-from sparseml.transformers.data import TransformersDataset
 
-from sparseml.experimental.sparsegpt.dispatch import (
-    evaluate_perplexity,
-    load_data,
-    load_model,
-)
+from sparseml.experimental.sparsegpt.dispatch import evaluate_perplexity, load_model
 from sparseml.experimental.sparsegpt.main import sequential
+from sparseml.experimental.sparsegpt.opt import load_data
+from sparseml.modifiers.obcq.utils.helpers import ppl_eval_general
+from sparseml.transformers.data import TransformersDataset
 from sparseml.transformers.sparsification.obcq.obcq import one_shot
+from sparseml.transformers.sparsification.obcq.utils.helpers import opt_forward
 
 
 dataset = "c4"
@@ -70,21 +69,12 @@ class ProdArgs:
     nsamples = nsamples
     device = device
     recipe = prod_recipe
-    eval = False
     save = False
 
 
 def run_experimental_obcq(experimental_args):
     model = load_model(experimental_args)
-    dataset = TransformersDataset.load_from_registry(
-        experimental_args.dataset,
-        model=experimental_args.model,
-        seqlen=model.seqlen,
-        nsamples=experimental_args.nsamples,
-        seed=0,
-        split="train"
-    )
-    calibration_data = dataset.loader
+    calibration_data, _, _ = load_data(experimental_args)
     sequential(model, calibration_data, device, experimental_args)
 
     del calibration_data
@@ -110,12 +100,22 @@ if __name__ == "__main__":
         num_samples=prod_args.nsamples,
         device=prod_args.device,
         recipe_file=prod_args.recipe,
-        do_eval=False,
     )
 
-    _, testloader, _ = load_data(experimental_args, dataset="wikitext2")
-    prod_perplexity = evaluate_perplexity(prod_args, prod_model, testloader, device)
+    dataset = TransformersDataset.load_from_registry(
+        prod_args.dataset,
+        model=prod_args.model,
+        seqlen=prod_model.seqlen,
+        nsamples=None,
+        seed=0,
+        split="test",
+    )
+    test_data = dataset.loader
+
+    prod_perplexity = ppl_eval_general(
+        opt_forward, prod_model, test_data, device, max_samples_per_iteration=8
+    )
     print(
-        f"Experimental Perplexity: {exp_perplexity},"
+        f"Experimental Perplexity: {exp_perplexity}, "
         f"Production Perplexity: {prod_perplexity}"
     )

@@ -38,4 +38,4 @@ class Ptb(TransformersDataset):
         )
 
         processed_data = [sample["sentence"] for sample in self._data]
-        self.create_dataloader(processed_data)
+        self.create_dataloader(processed_data, join_on=" ")
