@@ -71,7 +71,7 @@ class ProdArgs:
 
 def run_experimental_obcq(experimental_args):
     model = load_model(experimental_args)
-    calibration_data, _, _ = load_data(experimental_args)
+    calibration_data, _, _ = load_data(experimental_args, data_sequence_length)
     sequential(model, calibration_data, device, experimental_args)
 
     del calibration_data
@@ -81,7 +81,8 @@ def run_experimental_obcq(experimental_args):
 if __name__ == "__main__":
     experimental_args = ExperimentalArgs()
     exp_model = run_experimental_obcq(experimental_args)
-    _, testloader, _ = load_data(experimental_args, dataset="wikitext2")
+    experimental_args.dataset = "wikitext2"
+    _, testloader, _ = load_data(experimental_args, data_sequence_length)
     exp_perplexity = evaluate_perplexity(
         experimental_args, exp_model, testloader, device
     )

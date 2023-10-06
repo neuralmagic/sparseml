@@ -22,6 +22,8 @@ from sparseml.experimental.sparsegpt.sequential import SequentialSparseGPT
 from sparseml.experimental.sparsegpt.utils import (
     catch,
     execute_offloaded_module,
+    get_openplatypus,
+    get_wikitext2,
     ppl_eval_general,
 )
 
@@ -56,7 +58,11 @@ def prepare_sparsegpt(model, dataloader, args, dev) -> SequentialSparseGPT:
     if args.recipe:
         model_preprocessors.append(
             QuantizationModelPreprocessor(
-                model, args.recipe, dataloader, args.observer_batches
+                model,
+                args.recipe,
+                dataloader,
+                args.observer_batches,
+                llama2_forward,
             )
         )
     bottom_compressor = Llama2BottomCompressor(model)
@@ -78,6 +84,8 @@ def load_model(args):
 
     model = LlamaForCausalLM.from_pretrained(model, torch_dtype="auto")
     model.eval()
+    seqlen = model.config.max_position_embeddings
+    model.seqlen = seqlen
     return model
 
 
@@ -91,102 +99,6 @@ def load_data(args, seqlen, split=0.1):
         return get_wikitext2(nsamples, seed, seqlen, model)
     elif "platypus" in name:
         return get_openplatypus(nsamples, seed, seqlen, model, split)
-
-
-def get_wikitext2(nsamples, seed, seqlen, model):
-    from datasets import load_dataset
-
-    traindata = load_dataset("wikitext", "wikitext-2-raw-v1", split="train")
-    testdata = load_dataset("wikitext", "wikitext-2-raw-v1", split="test")
-
-    from transformers import AutoTokenizer
-
-    tokenizer = AutoTokenizer.from_pretrained(model, use_fast=False)
-    trainenc = tokenizer(" ".join(traindata["text"]), return_tensors="pt")["input_ids"]
-    testenc = tokenizer("\n\n".join(testdata["text"]), return_tensors="pt")["input_ids"]
-
-    import random
-
-    random.seed(seed)
-    trainloader = []
-    for _ in range(nsamples):
-        i = random.randint(0, trainenc.input_ids.shape[1] - seqlen - 1)
-        j = i + seqlen
-        inp = trainenc[:, i:j]
-        tar = inp.clone()
-        tar[:, :-1] = -100
-        trainloader.append((inp, tar))
-
-    return trainloader, testenc, tokenizer
-
-
-def get_openplatypus(nsamples, seed, seqlen, model, split):
-    from datasets import load_dataset
-
-    traindata = load_dataset("garage-bAInd/Open-Platypus", split="train")
-
-    import random
-
-    random.seed(seed)
-    traindata = list(traindata)
-    random.shuffle(traindata)
-    number_test_samples = max(1, int(split * len(traindata)))
-    testdata = traindata[-number_test_samples:]
-    traindata = traindata[:-number_test_samples]
-    if nsamples is not None and nsamples < len(traindata):
-        traindata = traindata[:nsamples]
-
-    alpaca_template = {
-        "prompt_input": "Below is an instruction that describes a task, paired with an "
-        "input that provides further context. Write a response that appropriately "
-        "completes the request.\n\n### Instruction:\n{instruction}\n\n### Input:\n"
-        "{input}\n\n### Response:\n",
-        "prompt_no_input": "Below is an instruction that describes a task. Write a "
-        "response that appropriately completes the request.\n\n### Instruction:\n"
-        "{instruction}\n\n### Response:\n",
-    }
-
-    from transformers import AutoTokenizer
-
-    tokenizer = AutoTokenizer.from_pretrained(model)
-
-    def _process_sample(sample):
-        if "input" in sample:
-            processed_sample = alpaca_template["prompt_input"].format(
-                instruction=sample["instruction"], input=sample["input"]
-            )
-        else:
-            processed_sample = alpaca_template["prompt_no_input"].format(
-                instruction=sample["instruction"]
-            )
-
-        if "output" in sample:
-            processed_sample += sample["output"]
-
-        tokenized_sample = tokenizer(
-            processed_sample,
-            truncation=True,
-            max_length=seqlen,
-            return_tensors="pt",
-            padding=False,
-        )["input_ids"][0]
-
-        if tokenized_sample[-1] != tokenizer.eos_token_id:
-            if len(tokenized_sample) == seqlen:
-                tokenized_sample[-1] = tokenizer.eos_token_id
-            else:
-                tokenized_sample = torch.concatenate(
-                    (tokenized_sample, torch.tensor((tokenizer.eos_token_id,))),
-                )
-
-        tokenized_sample = torch.unsqueeze(tokenized_sample, dim=0)
-
-        return tokenized_sample
-
-    trainenc = [_process_sample(sample) for sample in traindata]
-    testenc = [_process_sample(sample) for sample in testdata]
-
-    return trainenc, testenc, tokenizer
 
 
 def cache_attention_inputs(model, data_loader, device, nsamples):
@@ -234,55 +146,6 @@ def llama2_forward(model, data_loader, device, nsamples=None):
     )
 
     return logits
-
-
-def get_c4(nsamples, seed, seqlen, model):
-    from datasets import load_dataset
-
-    traindata = load_dataset(
-        "allenai/c4",
-        "allenai--c4",
-        data_files={"train": "en/c4-train.00000-of-01024.json.gz"},
-        split="train",
-    )
-    valdata = load_dataset(
-        "allenai/c4",
-        "allenai--c4",
-        data_files={"validation": "en/c4-validation.00000-of-00008.json.gz"},
-        split="validation",
-    )
-
-    from transformers import AutoTokenizer
-
-    tokenizer = AutoTokenizer.from_pretrained(model, use_fast=False)
-
-    import random
-
-    random.seed(seed)
-    trainloader = []
-    for _ in range(nsamples):
-        while True:
-            i = random.randint(0, len(traindata) - 1)
-            trainenc = tokenizer(traindata[i]["text"], return_tensors="pt")
-            if trainenc.input_ids.shape[1] >= seqlen:
-                break
-        i = random.randint(0, trainenc.input_ids.shape[1] - seqlen - 1)
-        j = i + seqlen
-        inp = trainenc.input_ids[:, i:j]
-        tar = inp.clone()
-        tar[:, :-1] = -100
-        trainloader.append((inp, tar))
-
-    valenc = tokenizer(" ".join(valdata[:1100]["text"]), return_tensors="pt")
-    valenc = valenc.input_ids[:, : (256 * seqlen)]
-
-    class TokenizerWrapper:
-        def __init__(self, input_ids):
-            self.input_ids = input_ids
-
-    valenc = TokenizerWrapper(valenc)
-
-    return trainloader, valenc, tokenizer
 
 
 def ppl_eval(

@@ -158,11 +158,11 @@ if __name__ == "__main__":
         wandb.init(config=args)
 
     print("Load model", flush=True)
-    model, seqlen = load_model(args)
+    model = load_model(args)
+    seqlen = model.seqlen
 
     print("Load data", flush=True)
     dataloader, testloader, tokenizer = load_data(args, None, seqlen)
-    print(len(dataloader), dataloader[0].shape)
 
     tick = time.time()
     sequential(model, dataloader, DEV, args)
@@ -172,5 +172,5 @@ if __name__ == "__main__":
         _save(model, tokenizer, args.save)
 
     if args.eval:
-        _, testloader, _ = load_data(args, None, seqlen)
-        evaluate_perplexity(args, model, testloader, DEV, model_key="llama")
+        _, testloader, _ = load_data(args, dataset="wikitext2")
+        evaluate_perplexity(model, testloader, DEV)

@@ -67,11 +67,7 @@ class LayerCompressor(BaseCompressor):
             gpts = {}
             for name in subset:
                 gpts[name] = SparseGPT(subset[name])
-                if (
-                    self.args.wbits < 16
-                    and self.manager is not None
-                    and self.manager.quantization_modifiers
-                ):
+                if self.manager is not None and self.manager.quantization_modifiers:
                     gpts[name].quantizer = WeightFakeQuantizer(subset[name])
 
             def add_batch(name):
@@ -95,7 +91,7 @@ class LayerCompressor(BaseCompressor):
                         passed_in_kwargs[arg] = kwargs[arg][j]
                     else:
                         passed_in_kwargs[arg] = kwargs[arg]
-                self.layer(self.inputs[j], **passed_in_kwargs)[0]
+                self.layer(self.inputs[j], **passed_in_kwargs)
             for h in handles:
                 h.remove()
 
@@ -127,19 +123,21 @@ class LayerCompressor(BaseCompressor):
         return self.model, {"outputs": extras["outputs"]}
 
     def post_compress(self, **kwargs):
-        outputs = []
         nsamples = len(self.inputs)
-        attention_mask = kwargs.get("attention_mask", None)
+        outputs = []
+        forward_args_spec = inspect.getfullargspec(self.layer.__class__.forward)
+        passed_in_args = [arg for arg in forward_args_spec.args if arg in kwargs]
         for j in range(nsamples):
-            attn_mask = (
-                attention_mask[j]
-                if isinstance(attention_mask, List)
-                else attention_mask
-            )
-            outputs.append(self.layer(self.inputs[j], attention_mask=attn_mask)[0])
+            passed_in_kwargs = {}
+            for arg in passed_in_args:
+                if isinstance(kwargs[arg], List):
+                    passed_in_kwargs[arg] = kwargs[arg][j]
+                else:
+                    passed_in_kwargs[arg] = kwargs[arg]
+            outputs.append(self.layer(self.inputs[j], **passed_in_kwargs)[0])
+
         self.inputs = None
         torch.cuda.empty_cache()
-
         return self.model, {"outputs": outputs}
 
     def _sequentially_compress(self, **kwargs):
@@ -161,9 +159,8 @@ class LayerCompressor(BaseCompressor):
         nsamples = len(self.inputs)
         for name in order:
             gpts = SparseGPT(subset[name])
-            if self.args.wbits < 16:
-                if self.manager is not None and self.manager.quantization_modifiers:
-                    gpts.quantizer = WeightFakeQuantizer(subset[name])
+            if self.manager is not None and self.manager.quantization_modifiers:
+                gpts.quantizer = WeightFakeQuantizer(subset[name])
 
             def add_batch(name):
                 def tmp(_, inp, out):
@@ -176,10 +173,10 @@ class LayerCompressor(BaseCompressor):
                 passed_in_kwargs = {}
                 for arg in passed_in_args:
                     if isinstance(kwargs[arg], List):
-                        passed_in_kwargs[arg] = kwargs[arg][0]
+                        passed_in_kwargs[arg] = kwargs[arg][j]
                     else:
                         passed_in_kwargs[arg] = kwargs[arg]
-                self.layer(self.inputs[j], **passed_in_kwargs)[0]
+                self.layer(self.inputs[j], **passed_in_kwargs)
             handle.remove()
 
             print(f"Compressing module {name} of layer {self.layer_index}")

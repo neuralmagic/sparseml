@@ -55,8 +55,6 @@ def catch(model, attention_layer, target_keys, data_loader, nsamples):
         if nsamples is not None and input_id == nsamples:
             break
         try:
-            if isinstance(inp, tuple):
-                inp = inp[0]
             model(inp.to(device), use_cache=False)
         except ValueError:
             pass
@@ -86,8 +84,6 @@ def execute_offloaded_module(
                 key: cached_inputs[key][input_index] for key in cached_inputs
             }
             module_kwargs.update(kwargs)
-        if isinstance(inp, tuple):
-            inp = inp[0]
         output = module(inp.to(dev), **module_kwargs)
         if overwrite_buffer:
             buffer[input_index] = output
@@ -237,4 +233,178 @@ def ppl_eval_general(
     ppl = torch.exp(neg_log_likelihood / number_tokens)
     print(f"Perplexity: {ppl.item():3f}")
 
-    return ppl.item()
+
+def get_wikitext2(nsamples, seed, seqlen, model):
+    from datasets import load_dataset
+
+    traindata = load_dataset("wikitext", "wikitext-2-raw-v1", split="train")
+    testdata = load_dataset("wikitext", "wikitext-2-raw-v1", split="test")
+
+    from transformers import AutoTokenizer
+
+    tokenizer = AutoTokenizer.from_pretrained(model, use_fast=False)
+    trainenc = tokenizer(" ".join(traindata["text"]), return_tensors="pt")["input_ids"]
+    testenc = tokenizer("\n\n".join(testdata["text"]), return_tensors="pt")["input_ids"]
+
+    import random
+
+    random.seed(seed)
+    trainloader = []
+    for _ in range(nsamples):
+        i = random.randint(0, trainenc.shape[1] - seqlen - 1)
+        j = i + seqlen
+        inp = trainenc[:, i:j]
+        tar = inp.clone()
+        tar[:, :-1] = -100
+        trainloader.append((inp, tar))
+
+    testloader = [
+        testenc[:, (i * seqlen) : ((i + 1) * seqlen)]
+        for i in range(testenc.numel() // seqlen)
+    ]
+    testloader.append(testenc[:, (testenc.numel() // seqlen) * seqlen :])
+
+    return trainloader, testloader, tokenizer
+
+
+def get_ptb(nsamples, seed, seqlen, model):
+    from datasets import load_dataset
+
+    traindata = load_dataset("ptb_text_only", "penn_treebank", split="train")
+    testdata = load_dataset("ptb_text_only", "penn_treebank", split="test")
+
+    from transformers import AutoTokenizer
+
+    tokenizer = AutoTokenizer.from_pretrained(model, use_fast=False)
+    trainenc = tokenizer(" ".join(traindata["sentence"]), return_tensors="pt")
+    testenc = tokenizer(" ".join(testdata["sentence"]), return_tensors="pt")
+
+    import random
+
+    random.seed(seed)
+    trainloader = []
+    for _ in range(nsamples):
+        i = random.randint(0, trainenc.input_ids.shape[1] - seqlen - 1)
+        j = i + seqlen
+        inp = trainenc.input_ids[:, i:j]
+        tar = inp.clone()
+        tar[:, :-1] = -100
+        trainloader.append((inp, tar))
+    return trainloader, testenc, tokenizer
+
+
+def get_c4(nsamples, seed, seqlen, model):
+    from datasets import load_dataset
+
+    traindata = load_dataset(
+        "allenai/c4",
+        "allenai--c4",
+        data_files={"train": "en/c4-train.00000-of-01024.json.gz"},
+        split="train",
+    )
+    valdata = load_dataset(
+        "allenai/c4",
+        "allenai--c4",
+        data_files={"validation": "en/c4-validation.00000-of-00008.json.gz"},
+        split="validation",
+    )
+
+    from transformers import AutoTokenizer
+
+    tokenizer = AutoTokenizer.from_pretrained(model, use_fast=False)
+
+    import random
+
+    random.seed(seed)
+    trainloader = []
+    for _ in range(nsamples):
+        while True:
+            i = random.randint(0, len(traindata) - 1)
+            trainenc = tokenizer(traindata[i]["text"], return_tensors="pt")["input_ids"]
+            if trainenc.shape[1] >= seqlen:
+                break
+        i = random.randint(0, trainenc.shape[1] - seqlen - 1)
+        j = i + seqlen
+        inp = trainenc[:, i:j]
+        trainloader.append(inp)
+
+    valenc = tokenizer(" ".join(valdata[:1100]["text"]), return_tensors="pt")
+    valenc = valenc.input_ids[:, : (256 * seqlen)]
+    testloader = [
+        valenc[:, (i * seqlen) : ((i + 1) * seqlen)]
+        for i in range(valenc.numel() // seqlen)
+    ]
+
+    return trainloader, testloader, tokenizer
+
+
+def get_openplatypus(nsamples, seed, seqlen, model, split):
+    from datasets import load_dataset
+
+    traindata = load_dataset("garage-bAInd/Open-Platypus", split="train")
+
+    import random
+
+    random.seed(seed)
+    traindata = list(traindata)
+    random.shuffle(traindata)
+    number_test_samples = max(1, int(split * len(traindata)))
+    testdata = traindata[-number_test_samples:]
+    traindata = traindata[:-number_test_samples]
+    if nsamples is not None and nsamples < len(traindata):
+        traindata = traindata[:nsamples]
+
+    alpaca_template = {
+        "prompt_input": "Below is an instruction that describes a task, "
+        "paired with an input that provides further context. "
+        "Write a response that appropriately completes the request."
+        "\n\n### Instruction:\n{instruction}"
+        "\n\n### Input:\n{input}"
+        "\n\n### Response:\n",
+        "prompt_no_input": "Below is an instruction that describes a task. "
+        "Write a response that appropriately "
+        "completes the request."
+        "\n\n### Instruction:\n{instruction}"
+        "\n\n### Response:\n",
+    }
+
+    from transformers import AutoTokenizer
+
+    tokenizer = AutoTokenizer.from_pretrained(model)
+
+    def _process_sample(sample):
+        if "input" in sample:
+            processed_sample = alpaca_template["prompt_input"].format(
+                instruction=sample["instruction"], input=sample["input"]
+            )
+        else:
+            processed_sample = alpaca_template["prompt_no_input"].format(
+                instruction=sample["instruction"]
+            )
+
+        if "output" in sample:
+            processed_sample += sample["output"]
+
+        tokenized_sample = tokenizer(
+            processed_sample,
+            truncation=True,
+            max_length=seqlen,
+            return_tensors="pt",
+            padding=False,
+        )["input_ids"][0]
+
+        if tokenized_sample[-1] != tokenizer.eos_token_id:
+            if len(tokenized_sample) == seqlen:
+                tokenized_sample[-1] = tokenizer.eos_token_id
+            else:
+                tokenized_sample = torch.concatenate(
+                    (tokenized_sample, torch.tensor((tokenizer.eos_token_id,))),
+                )
+        tokenized_sample = torch.unsqueeze(tokenized_sample, dim=0)
+
+        return tokenized_sample
+
+    trainenc = [_process_sample(sample) for sample in traindata]
+    testenc = [_process_sample(sample) for sample in testdata]
+
+    return trainenc, testenc, tokenizer
