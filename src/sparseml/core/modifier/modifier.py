@@ -143,7 +143,7 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
             self.on_update(state, event, **kwargs)
 
     def should_start(self, event: Event):
-        if not self.start:
+        if self.start is None:
             return False
 
         current = event.current_index
