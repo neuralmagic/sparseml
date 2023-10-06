@@ -84,7 +84,7 @@ if __name__ == "__main__":
     exp_model = run_experimental_obcq(experimental_args)
     _, testloader, _ = load_data(experimental_args, data_sequence_length)
     exp_perplexity = evaluate_perplexity(
-        experimental_args, exp_model, testloader, device
+        experimental_args, exp_model, testloader, device, max_samples_per_iteration=8
     )
     del testloader
     del exp_model
@@ -102,7 +102,7 @@ if __name__ == "__main__":
 
     _, testloader, _ = load_data(experimental_args, data_sequence_length)
     prod_perplexity = evaluate_perplexity(
-        experimental_args, prod_model, testloader, device
+        experimental_args, prod_model, testloader, device, max_samples_per_iteration=8
     )
     print(
         f"Experimental Perplexity: {exp_perplexity}, "
