@@ -54,7 +54,7 @@ class ConstantPruningModifierPyTorch(ConstantPruningModifier, LayerParamMasking)
     def on_start(self, state: State, event: Event, **kwargs):
         for layer_param_name, parameterized_layer in self.parameterized_layers_.items():
             self.update_mask(
-                layer_param_name, parameterized_layer.param.data.abs() < self._epsilon
+                layer_param_name, parameterized_layer.param.data.abs() > self._epsilon
             )
 
         self.enable_masks()
