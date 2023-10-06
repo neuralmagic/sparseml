@@ -1,0 +1,7 @@
+test_stage:
+  pruning_modifiers:
+    ConstantPruningModifier:
+      start: eval(warm_up_epochs)
+      end: eval(warm_up_epochs + pruning_epochs)
+      targets: ['re:.*weight']
+      leave_enabled: True
