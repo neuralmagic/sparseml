@@ -166,12 +166,12 @@ for epoch in range(NUM_EPOCHS):
     print("Epoch: {} Loss: {} Accuracy: {}".format(epoch + 1, loss, accuracy))
     actual_sparsity = get_layer_sparsities(model=session.state.model.model)
     match_sparsities(expected_sparsity, actual_sparsity, avg=True)
-    # match_sparsities(expected_sparsity, actual_sparsity, avg=False) # will fail uncomment to see
+    match_sparsities(expected_sparsity, actual_sparsity, avg=False)
     
 
 
 # finalize session
 session.finalize()
 final_sparsity = get_layer_sparsities(model=session.state.model.model)
-match_sparsities(expected_sparsity, final_sparsity, avg=True) # will pass
-match_sparsities(expected_sparsity, final_sparsity, avg=False) # will fail
+match_sparsities(expected_sparsity, final_sparsity, avg=True)
+match_sparsities(expected_sparsity, final_sparsity, avg=False)
