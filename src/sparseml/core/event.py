@@ -195,7 +195,7 @@ class Event:
             end
         :param update: The update interval, set to None or 0.0 to always
             update, otherwise must be greater than 0.0, defaults to None
-        :return: True if the event should be updated, False otherwise
+        :return: True if the event should trigger an update, False otherwise
         """
         current = self.current_index
 
