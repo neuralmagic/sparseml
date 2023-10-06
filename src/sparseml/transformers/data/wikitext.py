@@ -26,6 +26,7 @@ class WikiText(TransformersDataset):
         nsamples: int,
         seed: int = 0,
         split: str = "train",
+        split_percent_to_use: float = 1.0,
     ):
         super().__init__(
             model=model,
@@ -35,6 +36,7 @@ class WikiText(TransformersDataset):
             name="wikitext-2-raw-v1",
             seed=seed,
             split=split,
+            split_percent_to_use=split_percent_to_use,
         )
 
         join_on = "\n\n" if split == "test" else " "

@@ -119,7 +119,7 @@ def one_shot(
             nsamples=None,
             seed=0,
             split="test",
-            split_percent_to_use=0.1 if eval_data == "open_platypus" else 0.1,
+            split_percent_to_use=0.1 if eval_data == "open_platypus" else 1.0,
         )
         test_data = dataset.loader
         ppl_eval_general(

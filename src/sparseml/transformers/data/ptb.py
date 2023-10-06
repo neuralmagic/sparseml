@@ -26,6 +26,7 @@ class Ptb(TransformersDataset):
         nsamples: int,
         seed: int = 0,
         split: str = "train",
+        split_percent_to_use: float = 1.0,
     ):
         super().__init__(
             model=model,
@@ -35,6 +36,7 @@ class Ptb(TransformersDataset):
             name="penn_treebank",
             seed=seed,
             split=split,
+            split_percent_to_use=split_percent_to_use,
         )
 
         processed_data = [sample["sentence"] for sample in self._data]

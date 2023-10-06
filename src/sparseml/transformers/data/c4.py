@@ -26,6 +26,7 @@ class C4(TransformersDataset):
         nsamples: int,
         seed: int = 0,
         split: str = "train",
+        split_percent_to_use: float = 1.0,
     ):
         kwargs = {"data_files": {split: "en/c4-train.00000-of-01024.json.gz"}}
         super().__init__(
@@ -36,6 +37,7 @@ class C4(TransformersDataset):
             name="allenai--c4",
             seed=seed,
             split=split,
+            split_percent_to_use=split_percent_to_use,
             **kwargs,
         )
 
