@@ -48,14 +48,14 @@ class TransformersDataset(RegistryMixin, Dataset):
         except ValueError:
             dataset = load_dataset(path, name, **kwargs, split="train")
             self._split_from_end = True
-        if not self._nsamples:
-            self._nsamples = len(dataset)
 
         random.seed(seed)
         data = list(dataset)
         random.shuffle(data)
         data_to_use = int(split_percent_to_use * len(data))
         data = data[-data_to_use:] if self._split_from_end else data[:data_to_use]
+        if not self._nsamples:
+            self._nsamples = len(dataset)
 
         if use_max_tokens:
             data_length = int(min(len(data), self._seqlen * self._nsamples / 50))

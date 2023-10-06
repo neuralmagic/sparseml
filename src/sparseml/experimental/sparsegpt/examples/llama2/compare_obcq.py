@@ -16,10 +16,7 @@ import torch
 from sparseml.experimental.sparsegpt.dispatch import evaluate_perplexity, load_model
 from sparseml.experimental.sparsegpt.llama2 import load_data
 from sparseml.experimental.sparsegpt.main import sequential
-from sparseml.modifiers.obcq.utils.helpers import ppl_eval_general
-from sparseml.transformers.data import TransformersDataset
 from sparseml.transformers.sparsification.obcq.obcq import one_shot
-from sparseml.transformers.sparsification.obcq.utils.helpers import llama_forward
 
 
 dataset = "open_platypus"
@@ -100,22 +97,13 @@ if __name__ == "__main__":
         num_samples=prod_args.nsamples,
         device=prod_args.device,
         recipe_file=prod_args.recipe,
-        do_eval=False,
     )
     torch.cuda.empty_cache()
 
-    dataset = TransformersDataset.load_from_registry(
-        "open_platypus",
-        model=prod_args.model,
-        seqlen=prod_model.seqlen,
-        nsamples=None,
-        seed=0,
-        split="test",
-        split_percent_to_use=0.1,
+    _, testloader, _ = load_data(experimental_args, data_sequence_length)
+    prod_perplexity = evaluate_perplexity(
+        experimental_args, prod_model, testloader, device
     )
-    test_data = dataset.loader
-
-    prod_perplexity = ppl_eval_general(llama_forward, prod_model, test_data, device)
     print(
         f"Experimental Perplexity: {exp_perplexity}, "
         f"Production Perplexity: {prod_perplexity}"

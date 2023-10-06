@@ -36,6 +36,7 @@ class OpenPlatypus(TransformersDataset):
         nsamples: int,
         seed: int = 0,
         split: str = "train",
+        split_percent_to_use: float = 1.0,
     ):
         super().__init__(
             model=model,
@@ -46,7 +47,7 @@ class OpenPlatypus(TransformersDataset):
             seed=seed,
             split=split,
             use_max_tokens=False,
-            split_percent_to_use=1.0,
+            split_percent_to_use=split_percent_to_use,
         )
 
         processed_data = []
