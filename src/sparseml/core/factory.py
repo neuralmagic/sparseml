@@ -25,6 +25,18 @@ __all__ = ["ModifierFactory"]
 
 
 class ModifierFactory:
+    """
+    A factory for loading and registering modifiers
+
+    :param _MAIN_PACKAGE_PATH: The path to the main modifiers package
+    :param _EXPERIMENTAL_PACKAGE_PATH: The path to the experimental modifiers package
+    :param _loaded: Whether or not the factory has been loaded
+    :param _main_registry: The registry of main modifiers
+    :param _experimental_registry: The registry of experimental modifiers
+    :param _registered_registry: The registry of registered modifiers
+    :param _errors: The errors that occurred when loading the modifiers
+    """
+
     _MAIN_PACKAGE_PATH = "sparseml.modifiers"
     _EXPERIMENTAL_PACKAGE_PATH = "sparseml.modifiers.experimental"
 
@@ -36,6 +48,10 @@ class ModifierFactory:
 
     @staticmethod
     def refresh():
+        """
+        A method to refresh the factory by reloading the modifiers
+        Note: this will clear any previously registered modifiers
+        """
         ModifierFactory._main_registry = ModifierFactory.load_from_package(
             ModifierFactory._MAIN_PACKAGE_PATH
         )
@@ -46,6 +62,10 @@ class ModifierFactory:
 
     @staticmethod
     def load_from_package(package_path: str) -> Dict[str, Type[Modifier]]:
+        """
+        :param package_path: The path to the package to load modifiers from
+        :return: The loaded modifiers, as a mapping of name to class
+        """
         loaded = {}
         main_package = importlib.import_module(package_path)
 
@@ -93,6 +113,18 @@ class ModifierFactory:
         allow_experimental: bool,
         **kwargs,
     ) -> Modifier:
+        """
+        Instantiate a modifier of the given type from registered modifiers.
+
+        :raises ValueError: If no modifier of the given type is found
+        :param type_: The type of modifier to create
+        :param framework: The framework the modifier is for
+        :param allow_registered: Whether or not to allow registered modifiers
+        :param allow_experimental: Whether or not to allow experimental modifiers
+        :param kwargs: Additional keyword arguments to pass to the modifier
+            during instantiation
+        :return: The instantiated modifier
+        """
         if type_ in ModifierFactory._errors:
             raise ModifierFactory._errors[type_]
 
@@ -121,6 +153,15 @@ class ModifierFactory:
 
     @staticmethod
     def register(type_: str, modifier_class: Type[Modifier]):
+        """
+        Register a modifier class to be used by the factory.
+
+        :raises ValueError: If the provided class does not subclass the Modifier
+            base class or is not a type
+        :param type_: The type of modifier to register
+        :param modifier_class: The class of the modifier to register, must subclass
+            the Modifier base class
+        """
         if not issubclass(modifier_class, Modifier):
             raise ValueError(
                 "The provided class does not subclass the Modifier base class."

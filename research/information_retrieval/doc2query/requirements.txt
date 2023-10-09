@@ -68,7 +68,7 @@ pathtools==0.1.2
 pathy==0.5.2
 pexpect==4.8.0
 pickleshare==0.7.5
-Pillow==9.3.0
+Pillow==10.0.1
 preshed==3.0.5
 progressbar2==3.53.1
 prometheus-client==0.11.0
@@ -127,7 +127,7 @@ traitlets==5.0.5
 transformers==4.7.0
 typer==0.3.2
 typing-extensions==3.10.0.0
-urllib3==1.26.5
+urllib3==1.26.17
 wandb==0.10.32
 wasabi==0.8.2
 wcwidth==0.2.5
