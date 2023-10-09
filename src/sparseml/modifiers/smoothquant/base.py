@@ -12,10 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# flake8: noqa
 
-from .distillation import *
-from .obcq import *
-from .pruning import *
-from .quantization import *
-from .smoothquant import *
+from typing import List, Tuple
+
+from sparseml.core import Modifier
+from sparseml.core.state import State
+
+
+__all__ = ["SmoothQuantModifier"]
+
+
+class SmoothQuantModifier(Modifier):
+    """ """
+
+    migration_strength: float
+    ignore: List[str]
+    mappings: List[Tuple]
+
+    def on_initialize_structure(self, state: "State", **kwargs):
+        pass  # nothing needed for this modifier
