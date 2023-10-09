@@ -113,4 +113,4 @@ class RecipeModifier(RecipeBase):
         """
         :return: the dictionary representation of the modifier
         """
-        return {self.type: self.args}
+        return {self.type: self.args, "group": self.group}
