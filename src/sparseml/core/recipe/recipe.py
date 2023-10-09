@@ -446,23 +446,21 @@ class Recipe(RecipeBase):
     def _get_yaml_dict(self) -> Dict[str, Any]:
         """
         Get a dictionary representation of the recipe for yaml serialization
-        The returned dict will only contain information necessary for yaml 
-        serialization (ignores metadata, version, etc), and must not be used 
+        The returned dict will only contain information necessary for yaml
+        serialization (ignores metadata, version, etc), and must not be used
         in place of the dict method
 
         :return: A dictionary representation of the recipe for yaml serialization
         """
         yaml_dict = {}
-
         for stage_name, stage in self.dict()["stages"].items():
             stage_key = f"{stage_name}_stage"
             yaml_dict[stage_key] = {}
-            for elements in stage:
-                for modifier_group_name, group_modifiers in elements[
-                    "modifiers"
-                ].items():
-                    new_modifier_key = f"{modifier_group_name}_modifiers"
-                    yaml_dict[stage_key][new_modifier_key] = {
+            for stage_mods in stage:
+                modifier_groups = stage_mods["modifiers"].items()
+                for modifier_group_name, group_modifiers in modifier_groups:
+                    modifier_group_key = f"{modifier_group_name}_modifiers"
+                    yaml_dict[stage_key][modifier_group_key] = {
                         key: value
                         for modifier in group_modifiers
                         for key, value in modifier.items()
