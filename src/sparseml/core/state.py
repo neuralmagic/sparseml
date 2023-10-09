@@ -14,7 +14,7 @@
 
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from pydantic import Field
 
@@ -30,26 +30,67 @@ __all__ = ["State", "Data", "Hardware", "ModifiedState"]
 
 @dataclass
 class Data:
-    train: ModifiableData = None
-    val: ModifiableData = None
-    test: ModifiableData = None
-    calib: ModifiableData = None
+    """
+    A dataclass to hold different data sets for training, validation,
+    testing, and/or calibration. Each data set is a ModifiableData instance.
+
+    :param train: The training data set
+    :param val: The validation data set
+    :param test: The testing data set
+    :param calib: The calibration data set
+    """
+
+    train: Optional[ModifiableData] = None
+    val: Optional[ModifiableData] = None
+    test: Optional[ModifiableData] = None
+    calib: Optional[ModifiableData] = None
 
 
 @dataclass
 class Hardware:
-    device: str = None
-    devices: List[str] = None
-    rank: int = None
-    world_size: int = None
-    local_rank: int = None
-    local_world_size: int = None
-    distributed: bool = None
-    distributed_strategy: str = None
+    """
+    A dataclass to hold information about the hardware being used
+
+    :param device: The current device being used for training
+    :param devices: List of all devices to be used for training
+    :param rank: The rank of the current device
+    :param world_size: The total number of devices being used
+    :param local_rank: The local rank of the current device
+    :param local_world_size: The total number of devices being used on the local machine
+    :param distributed: Whether or not distributed training is being used
+    :param distributed_strategy: The distributed strategy being used
+    """
+
+    device: Optional[str] = None
+    devices: Optional[List[str]] = None
+    rank: Optional[int] = None
+    world_size: Optional[int] = None
+    local_rank: Optional[int] = None
+    local_world_size: Optional[int] = None
+    distributed: Optional[bool] = None
+    distributed_strategy: Optional[str] = None
 
 
 @dataclass
 class State:
+    """
+    State class holds information about the current sparsification state
+
+    :param framework: The framework being used
+    :param model: The model being used for training
+    :param teacher_model: The teacher model being used for training
+    :param optimizer: The optimizer being used for training
+    :param optim_wrapped: Whether or not the optimizer has been wrapped
+    :param loss: The loss function being used for training
+    :param batch_data: The current batch of data being used for training
+    :param data: The data sets being used for training, validation, testing,
+        and/or calibration, wrapped in a Data instance
+    :param hardware: Hardware Instance holding info about the target hardware being used
+    :param start_event: The start event to begin training
+    :param last_event: The last event to stop training
+    :param loggers: List of loggers to use for logging training information
+    """
+
     framework: Framework
     model: ModifiableModel = None
     teacher_model: ModifiableModel = None
@@ -88,6 +129,23 @@ class State:
         batches_per_step: int = None,
         **kwargs,
     ) -> Dict:
+        """
+        Update the state with the given parameters
+
+        :param model: The model to update the state with
+        :param teacher_model: The teacher model to update the state with
+        :param optimizer: The optimizer to update the state with
+        :param attach_optim_callbacks: Whether or not to attach optimizer callbacks
+        :param train_data: The training data to update the state with
+        :param val_data: The validation data to update the state with
+        :param test_data: The testing data to update the state with
+        :param calib_data: The calibration data to update the state with
+        :param copy_data: Whether or not to copy the data
+        :param start: The start index to update the state with
+        :param steps_per_epoch: The steps per epoch to update the state with
+        :param batches_per_step: The batches per step to update the state with
+        :param kwargs: Additional keyword arguments to update the state with
+        """
         if model is not None:
             self.model = ModifiableModel(framework=self.framework, model=model)
         if teacher_model is not None:
@@ -133,10 +191,21 @@ class State:
 
 @dataclass
 class ModifiedState:
-    model: Any = None
-    optimizer: Any = None
-    loss: Any = None
-    modifier_data: List[Dict[str, Any]] = None
+    """
+    A dataclass to represent a modified model,
+    optimizer, and loss
+
+    :param model: The modified model
+    :param optimizer: The modified optimizer
+    :param loss: The modified loss
+    :param modifier_data: The modifier data used to modify the
+        model, optimizer, and loss
+    """
+
+    model: Optional[Any] = None
+    optimizer: Optional[Any] = None
+    loss: Optional[Any] = None
+    modifier_data: Optional[List[Dict[str, Any]]] = None
 
     def __init__(self, model, optimizer, loss, modifier_data):
         self.model = model

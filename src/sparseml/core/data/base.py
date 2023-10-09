@@ -25,14 +25,30 @@ DT = TypeVar("DT")  # Dataset Type
 
 @dataclass
 class ModifiableData(Generic[DT], MultiFrameworkObject):
+    """
+    A base class for data that can be modified by modifiers.
+
+    :param data: The data to be modified
+    :param num_samples: The number of samples in the data
+    """
+
     data: DT = None
     num_samples: int = None
 
     def get_num_batches(self) -> int:
+        """
+        :return: The number of batches in the data
+        """
         raise NotImplementedError()
 
     def set_batch_size(self, batch_size: int):
+        """
+        :param batch_size: The new batch size to use
+        """
         raise NotImplementedError()
 
     def get_batch_size(self) -> int:
+        """
+        :return: The current batch size
+        """
         raise NotImplementedError()
