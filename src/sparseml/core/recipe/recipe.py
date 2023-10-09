@@ -424,6 +424,51 @@ class Recipe(RecipeBase):
 
         return dict_
 
+    def yaml(self, file_path: Optional[str] = None) -> str:
+        """
+        Return a yaml string representation of the recipe.
+
+        :param file_path: optional file path to save yaml to
+        :return: The yaml string representation of the recipe
+        """
+        file_stream = None if file_path is None else open(file_path, "w")
+        yaml_dict = self._get_yaml_dict()
+
+        ret = yaml.dump(
+            yaml_dict, stream=file_stream, allow_unicode=True, sort_keys=False
+        )
+
+        if file_stream is not None:
+            file_stream.close()
+
+        return ret
+
+    def _get_yaml_dict(self) -> Dict[str, Any]:
+        """
+        Get a dictionary representation of the recipe for yaml serialization
+        The returned dict will only contain information necessary for yaml 
+        serialization (ignores metadata, version, etc), and must not be used 
+        in place of the dict method
+
+        :return: A dictionary representation of the recipe for yaml serialization
+        """
+        yaml_dict = {}
+
+        for stage_name, stage in self.dict()["stages"].items():
+            stage_key = f"{stage_name}_stage"
+            yaml_dict[stage_key] = {}
+            for elements in stage:
+                for modifier_group_name, group_modifiers in elements[
+                    "modifiers"
+                ].items():
+                    new_modifier_key = f"{modifier_group_name}_modifiers"
+                    yaml_dict[stage_key][new_modifier_key] = {
+                        key: value
+                        for modifier in group_modifiers
+                        for key, value in modifier.items()
+                    }
+        return yaml_dict
+
 
 @dataclass
 class RecipeTuple:
