@@ -399,10 +399,12 @@ class Recipe(RecipeBase):
         ...             targets: ['re:.*weight']
         ... '''
         >>> recipe = Recipe.create_instance(recipe_str)
-        >>> recipe.dict()
-        Traceback (most recent call last):
-        ...
-        KeyError: 'group'
+        >>> recipe_dict = recipe.dict()
+        >>> stage = recipe_dict["stages"]["test"]
+        >>> pruning_mods = stage[0]['modifiers']['pruning']
+        >>> modifier_args = pruning_mods[0]['ConstantPruningModifier']
+        >>> modifier_args == {'start': 0.0, 'end': 2.0, 'targets': ['re:.*weight']}
+        True
 
         :return: A dictionary representation of the recipe
         """
