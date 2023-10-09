@@ -453,29 +453,3 @@ def _load_json_or_yaml_string(content: str) -> Dict[str, Any]:
             return yaml.safe_load(content)
         except yaml.YAMLError as err:
             raise ValueError(f"Could not parse recipe from string {content}") from err
-
-
-def t():
-    recipe_str = """
-    test_stage:
-        pruning_modifiers:
-            ConstantPruningModifier:
-                start: 0.0
-                end: 2.0
-                targets: ['re:.*weight']
-    """
-    recipe = Recipe.create_instance(recipe_str)
-    d = recipe.dict()
-    pruning_mods = d["stages"]["test"][0]["modifiers"]["pruning"]
-    assert len(pruning_mods) == 1
-
-    modifier_args = pruning_mods[0]["ConstantPruningModifier"]
-    assert modifier_args == {"start": 0.0, "end": 2.0, "targets": ["re:.*weight"]}
-
-
-if __name__ == "__main__":
-    import doctest
-
-    doctest.testmod()
-
-    t()
