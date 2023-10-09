@@ -15,6 +15,15 @@
 import os
 
 import pytest
+import torch
+
+from sparseml.core import State
+from sparseml.core.event import Event, EventType
+from sparseml.core.factory import ModifierFactory
+from sparseml.core.framework import Framework
+from sparseml.modifiers.pruning.constant.pytorch import ConstantPruningModifierPyTorch
+from sparseml.pytorch.utils import tensor_sparsity
+from tests.sparseml.pytorch.helpers import ConvNet, LinearNet
 
 
 def _induce_sparsity(model, sparsity=0.5):
@@ -26,7 +35,6 @@ def _induce_sparsity(model, sparsity=0.5):
     :param sparsity: the probability of zeroing out a weight
     :return: the model with sparsity introduced
     """
-    import torch
 
     with torch.no_grad():
         for name, param in model.named_parameters():
@@ -52,7 +60,6 @@ def _make_dense(model):
 
 
 def _test_models():
-    from tests.sparseml.pytorch.helpers import ConvNet, LinearNet
 
     return [
         _induce_sparsity(LinearNet()),
@@ -61,8 +68,6 @@ def _test_models():
 
 
 def _test_optims():
-    import torch
-
     return [
         torch.optim.Adam,
         torch.optim.SGD,
@@ -76,17 +81,6 @@ def _test_optims():
 @pytest.mark.parametrize("model", _test_models())
 @pytest.mark.parametrize("optimizer", _test_optims())
 def test_constant_pruning_modifier_e2e(model, optimizer):
-    
-    # imports placed here to allow pytest --collect-only
-    #  to run without requiring torch
-
-    from sparseml.core import State
-    from sparseml.core.event import Event, EventType
-    from sparseml.core.framework import Framework
-    from sparseml.modifiers.pruning.constant.pytorch import (
-        ConstantPruningModifierPyTorch,
-    )
-    from sparseml.pytorch.utils import tensor_sparsity
 
     expected_sparsities = {
         name: tensor_sparsity(param.data)
@@ -95,7 +89,7 @@ def test_constant_pruning_modifier_e2e(model, optimizer):
     }
 
     # init modifier with model
-    
+
     state = State(framework=Framework.pytorch)
     state.update(
         model=model,
@@ -111,7 +105,7 @@ def test_constant_pruning_modifier_e2e(model, optimizer):
     modifier.initialize(state)
 
     # mess up model sparsity
-    
+
     model = _make_dense(model)
     manipulated_sparsities = {
         name: tensor_sparsity(param.data)
@@ -121,17 +115,46 @@ def test_constant_pruning_modifier_e2e(model, optimizer):
     assert manipulated_sparsities != expected_sparsities, "Sparsity manipulation failed"
 
     # apply modifier
-    
+
     modifier.on_update(state, event=Event(type_=EventType.OPTIM_PRE_STEP))
     modifier.on_update(state, event=Event(type_=EventType.OPTIM_POST_STEP))
     modifier.finalize(state)
     modifier.on_end(state, None)
 
     # sparsity should restored by ConstantPruningModifierPyTorch
-    
+
     actual_sparsities = {
         name: tensor_sparsity(param.data)
         for name, param in model.named_parameters()
         if "weight" in name
     }
     assert actual_sparsities == expected_sparsities, "Sparsity was not constant"
+
+
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
+)
+def test_constant_pruning_pytorch_is_registered():
+    kwargs = dict(
+        start_epoch=5.0,
+        end_epoch=15.0,
+        targets="__ALL_PRUNABLE__",
+    )
+    _setup_modifier_factory()
+    type_ = ModifierFactory.create(
+        type_="ConstantPruningModifier",
+        framework=Framework.pytorch,
+        allow_experimental=False,
+        allow_registered=True,
+        **kwargs,
+    )
+
+    assert isinstance(
+        type_, ConstantPruningModifierPyTorch
+    ), "PyTorch ConstantPruningModifier not registered"
+
+
+def _setup_modifier_factory():
+    ModifierFactory.refresh()
+    assert ModifierFactory._loaded, "ModifierFactory not loaded"
