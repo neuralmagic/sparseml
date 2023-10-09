@@ -462,7 +462,7 @@ class Recipe(RecipeBase):
             }
 
         def _stage_to_dict(stage: List[Dict[str, Any]]):
-            # convert a list of stages to a dict of stages
+            # convert a list of stages to a dict of modifier groups
             return {
                 modifier_group_name: _modifier_group_to_dict(modifier_group)
                 for stage_modifiers in stage
