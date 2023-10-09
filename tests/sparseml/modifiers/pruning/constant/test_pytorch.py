@@ -15,15 +15,6 @@
 import os
 
 import pytest
-import torch
-
-from sparseml.core import State
-from sparseml.core.event import Event, EventType
-from sparseml.core.factory import ModifierFactory
-from sparseml.core.framework import Framework
-from sparseml.modifiers.pruning.constant.pytorch import ConstantPruningModifierPyTorch
-from sparseml.pytorch.utils import tensor_sparsity
-from tests.sparseml.pytorch.helpers import ConvNet, LinearNet
 
 
 def _induce_sparsity(model, sparsity=0.5):
@@ -35,6 +26,7 @@ def _induce_sparsity(model, sparsity=0.5):
     :param sparsity: the probability of zeroing out a weight
     :return: the model with sparsity introduced
     """
+    import torch
 
     with torch.no_grad():
         for name, param in model.named_parameters():
@@ -60,6 +52,7 @@ def _make_dense(model):
 
 
 def _test_models():
+    from tests.sparseml.pytorch.helpers import ConvNet, LinearNet
 
     return [
         _induce_sparsity(LinearNet()),
@@ -68,6 +61,8 @@ def _test_models():
 
 
 def _test_optims():
+    import torch
+
     return [
         torch.optim.Adam,
         torch.optim.SGD,
@@ -81,6 +76,16 @@ def _test_optims():
 @pytest.mark.parametrize("model", _test_models())
 @pytest.mark.parametrize("optimizer", _test_optims())
 def test_constant_pruning_modifier_e2e(model, optimizer):
+    # move imports inside so that pytorch is not required unless
+    # running this test
+
+    from sparseml.core import State
+    from sparseml.core.event import Event, EventType
+    from sparseml.core.framework import Framework
+    from sparseml.modifiers.pruning.constant.pytorch import (
+        ConstantPruningModifierPyTorch,
+    )
+    from sparseml.pytorch.utils import tensor_sparsity
 
     expected_sparsities = {
         name: tensor_sparsity(param.data)
@@ -136,6 +141,12 @@ def test_constant_pruning_modifier_e2e(model, optimizer):
     reason="Skipping pytorch tests",
 )
 def test_constant_pruning_pytorch_is_registered():
+    from sparseml.core.factory import ModifierFactory
+    from sparseml.core.framework import Framework
+    from sparseml.modifiers.pruning.constant.pytorch import (
+        ConstantPruningModifierPyTorch,
+    )
+
     kwargs = dict(
         start_epoch=5.0,
         end_epoch=15.0,
@@ -156,5 +167,7 @@ def test_constant_pruning_pytorch_is_registered():
 
 
 def _setup_modifier_factory():
+    from sparseml.core.factory import ModifierFactory
+
     ModifierFactory.refresh()
     assert ModifierFactory._loaded, "ModifierFactory not loaded"
