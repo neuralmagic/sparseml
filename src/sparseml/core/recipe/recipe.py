@@ -412,7 +412,7 @@ class Recipe(RecipeBase):
         stages = {}
 
         for stage in dict_["stages"]:
-            name = stage["group"]
+            name = f"{stage['group']}_stage"
             del stage["group"]
 
             if name not in stages:
@@ -452,20 +452,29 @@ class Recipe(RecipeBase):
 
         :return: A dictionary representation of the recipe for yaml serialization
         """
-        yaml_dict = {}
-        for stage_name, stage in self.dict()["stages"].items():
-            stage_key = f"{stage_name}_stage"
-            yaml_dict[stage_key] = {}
-            for stage_mods in stage:
-                modifier_groups = stage_mods["modifiers"].items()
-                for modifier_group_name, group_modifiers in modifier_groups:
-                    modifier_group_key = f"{modifier_group_name}_modifiers"
-                    yaml_dict[stage_key][modifier_group_key] = {
-                        key: value
-                        for modifier in group_modifiers
-                        for key, value in modifier.items()
-                    }
-        return yaml_dict
+
+        def _modifier_group_to_dict(modifier_group: List[Dict[str, Any]]):
+            # convert a list of modifiers to a dict of modifiers
+            return {
+                key: value
+                for modifier in modifier_group
+                for key, value in modifier.items()
+            }
+
+        def _stage_to_dict(stage: List[Dict[str, Any]]):
+            # convert a list of stages to a dict of stages
+            return {
+                modifier_group_name: _modifier_group_to_dict(modifier_group)
+                for stage_modifiers in stage
+                for modifier_group_name, modifier_group in stage_modifiers[
+                    "modifiers"
+                ].items()
+            }
+
+        return {
+            stage_name: _stage_to_dict(stage=stage)
+            for stage_name, stage in self.dict()["stages"].items()
+        }
 
 
 @dataclass
