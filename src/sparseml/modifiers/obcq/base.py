@@ -41,7 +41,7 @@ class SparseGPTModifier(Modifier):
         True saves on GPU memory
     :param prunen: N for N:M pruning
     :param prunem: M for N:M pruning
-    :param compress_layers: list of layer names to compress during OBCQ, or ALL_TOKEN
+    :param compress_layers: list of layer names to compress during OBCQ, or '__ALL__'
         to compress every layer in the model
     :param target_ids: list of keys in model output to cache
     :param layer_prefix: name of model attribute that contains the list of layers, i.e.
