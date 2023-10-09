@@ -14,30 +14,78 @@
 
 import tempfile
 
+import pytest
 import yaml
 
 from sparseml.core.recipe import Recipe
 
 
-def _valid_recipe():
-    return """
+def _valid_recipes():
+    return [
+        """
         test_stage:
             pruning_modifiers:
                 ConstantPruningModifier:
                     start: 0
                     end: 5
+        """,
         """
+        test_stage:
+            pruning_modifiers:
+                ConstantPruningModifier:
+                    start: 0
+                    end: 5
+                MagnitudePruningModifier:
+                    start: 5
+                    end: 10
+        """,
+        """
+        test1_stage:
+            pruning_modifiers:
+                ConstantPruningModifier:
+                    start: 0
+                    end: 5
+        test2_stage:
+                MagnitudePruningModifier:
+                    start: 5
+                    end: 10
+        """,
+        """
+        test1_stage:
+            constant_modifiers:
+                ConstantPruningModifier:
+                    start: 0
+                    end: 5
+            magnitude_modifiers:
+                MagnitudePruningModifier:
+                    start: 5
+                    end: 10
+        """,
+    ]
 
 
-def test_recipe_create_instance_accepts_valid_recipe_string():
-    test_recipe = _valid_recipe()
-    recipe = Recipe.create_instance(test_recipe)
+@pytest.mark.parametrize("recipe_str", _valid_recipes())
+def test_recipe_create_instance_accepts_valid_recipe_string(recipe_str):
+    recipe = Recipe.create_instance(recipe_str)
     assert recipe is not None, "Recipe could not be created from string"
 
 
-def test_recipe_create_instance_accepts_valid_recipe_file():
-    content = yaml.safe_load(_valid_recipe())
+@pytest.mark.parametrize("recipe_str", _valid_recipes())
+def test_recipe_create_instance_accepts_valid_recipe_file(recipe_str):
+    content = yaml.safe_load(recipe_str)
     with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml") as f:
         yaml.dump(content, f)
         recipe = Recipe.create_instance(f.name)
         assert recipe is not None, "Recipe could not be created from file"
+
+
+@pytest.mark.parametrize("recipe_str", _valid_recipes())
+def test_serialization(recipe_str):
+    recipe_instance = Recipe.create_instance(recipe_str)
+    serialized_recipe_str = recipe_instance.yaml()
+    recipe_from_serialized = Recipe.create_instance(serialized_recipe_str)
+
+    expected_dict = recipe_instance.dict()
+    actual_dict = recipe_from_serialized.dict()
+
+    assert expected_dict == actual_dict

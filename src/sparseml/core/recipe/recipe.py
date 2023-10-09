@@ -412,7 +412,7 @@ class Recipe(RecipeBase):
         stages = {}
 
         for stage in dict_["stages"]:
-            name = stage["group"]
+            name = f"{stage['group']}_stage"
             del stage["group"]
 
             if name not in stages:
@@ -423,6 +423,58 @@ class Recipe(RecipeBase):
         dict_["stages"] = stages
 
         return dict_
+
+    def yaml(self, file_path: Optional[str] = None) -> str:
+        """
+        Return a yaml string representation of the recipe.
+
+        :param file_path: optional file path to save yaml to
+        :return: The yaml string representation of the recipe
+        """
+        file_stream = None if file_path is None else open(file_path, "w")
+        yaml_dict = self._get_yaml_dict()
+
+        ret = yaml.dump(
+            yaml_dict, stream=file_stream, allow_unicode=True, sort_keys=False
+        )
+
+        if file_stream is not None:
+            file_stream.close()
+
+        return ret
+
+    def _get_yaml_dict(self) -> Dict[str, Any]:
+        """
+        Get a dictionary representation of the recipe for yaml serialization
+        The returned dict will only contain information necessary for yaml
+        serialization (ignores metadata, version, etc), and must not be used
+        in place of the dict method
+
+        :return: A dictionary representation of the recipe for yaml serialization
+        """
+
+        def _modifier_group_to_dict(modifier_group: List[Dict[str, Any]]):
+            # convert a list of modifiers to a dict of modifiers
+            return {
+                key: value
+                for modifier in modifier_group
+                for key, value in modifier.items()
+            }
+
+        def _stage_to_dict(stage: List[Dict[str, Any]]):
+            # convert a list of stages to a dict of modifiers
+            return {
+                modifier_group_name: _modifier_group_to_dict(modifier_group)
+                for stage_modifiers in stage
+                for modifier_group_name, modifier_group in stage_modifiers[
+                    "modifiers"
+                ].items()
+            }
+
+        return {
+            stage_name: _stage_to_dict(stage=stage)
+            for stage_name, stage in self.dict()["stages"].items()
+        }
 
 
 @dataclass
