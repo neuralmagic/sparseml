@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from sparseml.core import Modifier
 from sparseml.core.state import State
@@ -26,8 +26,10 @@ class SmoothQuantModifier(Modifier):
     """ """
 
     migration_strength: float
-    ignore: List[str]
     mappings: List[Tuple]
+    ignore: Optional[List[str]] = None
+    logarithmic_equalization: Optional[bool] = False
+    num_calibration_steps: Optional[int] = None
 
     def on_initialize_structure(self, state: "State", **kwargs):
         pass  # nothing needed for this modifier

@@ -16,6 +16,7 @@
 Utility / helper functions
 """
 
+import difflib
 import re
 from typing import Dict, List, Tuple, Union
 
@@ -66,6 +67,7 @@ __all__ = [
     "get_prunable_layers",
     "get_quantizable_layers",
     "get_layers_params",
+    "get_matching_layer",
 ]
 
 
@@ -255,3 +257,21 @@ def get_layers_params(
         parameterized_layers[name] = param_layer
 
     return parameterized_layers
+
+
+def get_matching_layer(
+    target: str, name_to_match: str, module: Module
+) -> Tuple[str, Module]:
+    potential_matches = get_layers(target, module)
+    largest_substring = 0
+    match = None
+    for name, module in potential_matches.items():
+        seq_matcher = difflib.SequenceMatcher(None, name, name_to_match)
+        _, _, match_length = seq_matcher.find_longest_match(
+            0, len(name), 0, len(name_to_match)
+        )
+        if match_length > largest_substring:
+            match = (name, module)
+            largest_substring = match_length
+
+    return match
