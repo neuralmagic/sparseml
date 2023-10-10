@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from abc import ABC, abstractmethod
-from typing import List
+from typing import List, Optional
 
 from sparseml.core.event import Event, EventType
 
@@ -26,7 +26,19 @@ __all__ = [
 
 
 class EventLifecycle(ABC, Event):
-    type_first: EventType = None
+    """
+    A lifecycle for events to be used in a SparseML session.
+    Provides base utilities and also defines the contract that
+    all inheritors must follow.
+
+    The order in which the events are called is determined by
+    the inheritors of this class.
+
+    :param type_first: The first event type to be called
+    :param start: The start event to base the lifecycle off of
+    """
+
+    type_first: Optional[EventType] = None
     step_count: int = 0
     batch_count: int = 0
 
@@ -39,6 +51,10 @@ class EventLifecycle(ABC, Event):
         self.global_batch = start.global_batch
 
     def events_from_type(self, type_: EventType) -> List[Event]:
+        """
+        :param type_: The event type to get the events for
+        :return: The list of events for the given type
+        """
         if type_ == EventType.BATCH_START:
             return self.batch_start_events()
 
@@ -57,6 +73,9 @@ class EventLifecycle(ABC, Event):
         raise ValueError(f"invalid event type {type_}")
 
     def check_step_batches_count(self, increment: bool) -> bool:
+        """
+        :return: True if the batch count is at the step count, False otherwise
+        """
         if self.batches_per_step is None or self.batches_per_step < 2:
             return True
 
@@ -69,6 +88,9 @@ class EventLifecycle(ABC, Event):
         return at_step
 
     def check_step_invocations_count(self, increment: bool) -> bool:
+        """
+        :return: True if the invocation count is at the step count, False otherwise
+        """
         if self.invocations_per_step is None or self.invocations_per_step < 2:
             return True
 
@@ -82,28 +104,44 @@ class EventLifecycle(ABC, Event):
 
     @abstractmethod
     def batch_start_events(self) -> List[Event]:
+        """
+        :return: The list of events to be called for the batch start
+        """
         raise NotImplementedError()
 
     @abstractmethod
     def loss_calculated_events(self) -> List[Event]:
+        """
+        :return: The list of events to be called for the loss calculated
+        """
         raise NotImplementedError()
 
     @abstractmethod
     def optim_pre_step_events(self) -> List[Event]:
+        """
+        :return: The list of events to be called for the optim pre step
+        """
         raise NotImplementedError()
 
     @abstractmethod
     def optim_post_step_events(self) -> List[Event]:
+        """
+        :return: The list of events to be called for the optim post step
+        """
         raise NotImplementedError()
 
     @abstractmethod
     def batch_end_events(self) -> List[Event]:
+        """
+        :return: The list of events to be called for the batch end
+        """
         raise NotImplementedError()
 
 
 class WrappedOptimEventLifecycle(EventLifecycle):
     """
-    Optimizer is wrapped and no batch or optim callbacks
+    An event lifecycle for when the optimizer is wrapped and no batch or optimizer
+    callbacks are used.
         - batch_start: must not be invoked, auto triggered
           from loss calculated if that is called, otherwise from pre_step
         - loss_calculated: must be called before batch_end and optim_pre_step
@@ -113,9 +151,16 @@ class WrappedOptimEventLifecycle(EventLifecycle):
     """
 
     def batch_start_events(self) -> List[Event]:
+        """
+        :raises ValueError: if invoked as this should not be called
+        """
         raise ValueError("batch start should not be invoked when only wrapped optim")
 
     def loss_calculated_events(self) -> List[Event]:
+        """
+        :raises ValueError: if invoked before loss calculation
+        :return: The list of events to be called for the loss calculated
+        """
         if self.type_first != EventType.LOSS_CALCULATED:
             raise ValueError("loss calculated must be called first for wrapped optim")
 
@@ -145,6 +190,9 @@ class WrappedOptimEventLifecycle(EventLifecycle):
             ]
 
     def optim_pre_step_events(self) -> List[Event]:
+        """
+        :return: The list of events to be called for the optim pre step
+        """
         if (
             self.type_first == EventType.OPTIM_PRE_STEP
             and self.type_ is not None
@@ -178,6 +226,9 @@ class WrappedOptimEventLifecycle(EventLifecycle):
         ]
 
     def optim_post_step_events(self) -> List[Event]:
+        """
+        :return: The list of events to be called for the optim post step
+        """
         if self.type_ != EventType.OPTIM_PRE_STEP:
             raise ValueError("optim post step must be called after optim pre step")
 
@@ -196,12 +247,15 @@ class WrappedOptimEventLifecycle(EventLifecycle):
         ]
 
     def batch_end_events(self) -> List[Event]:
+        """
+        :return: The list of events to be called for the batch end
+        """
         raise ValueError("batch end should not be invoked when only wrapped optim")
 
 
 class CallbacksEventLifecycle(EventLifecycle):
     """
-    Optimizer is not wrapped, callbacks must be used
+    An event lifecycle for when the optimizer is not wrapped and callbacks are used.
         - batch_start: must be called first
         - loss_calculated: must be called before batch_end and optim_post_step
         - batch_end: must be called before next batch start
@@ -210,6 +264,9 @@ class CallbacksEventLifecycle(EventLifecycle):
     """
 
     def batch_start_events(self) -> List[Event]:
+        """
+        :return: The list of events to be called for the batch start
+        """
         if self.type_first != EventType.BATCH_START:
             raise ValueError("batch start must be called first for callbacks")
 
@@ -222,6 +279,9 @@ class CallbacksEventLifecycle(EventLifecycle):
         return [self.new_instance(type_=EventType.BATCH_START)]
 
     def loss_calculated_events(self) -> List[Event]:
+        """
+        :return: The list of events to be called for the loss calculated
+        """
         if self.type_ != EventType.BATCH_START:
             raise ValueError("loss calculated must be called after batch start")
 
@@ -230,6 +290,9 @@ class CallbacksEventLifecycle(EventLifecycle):
         return [self.new_instance(type_=EventType.LOSS_CALCULATED)]
 
     def optim_pre_step_events(self) -> List[Event]:
+        """
+        :return: The list of events to be called for the optim pre step
+        """
         if (
             self.type_ != EventType.BATCH_START
             and self.type_ != EventType.LOSS_CALCULATED
@@ -248,6 +311,9 @@ class CallbacksEventLifecycle(EventLifecycle):
         ]
 
     def optim_post_step_events(self) -> List[Event]:
+        """
+        :return: The list of events to be called for the optim post step
+        """
         if self.type_ != EventType.OPTIM_PRE_STEP:
             raise ValueError("optim post step must be called after optim pre step")
 
@@ -263,6 +329,9 @@ class CallbacksEventLifecycle(EventLifecycle):
         ]
 
     def batch_end_events(self) -> List[Event]:
+        """
+        :return: The list of events to be called for the batch end
+        """
         if (
             self.type_ != EventType.OPTIM_POST_STEP
             and self.type_ != EventType.LOSS_CALCULATED
