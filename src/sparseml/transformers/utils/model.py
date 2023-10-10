@@ -23,12 +23,13 @@ from transformers import (
     AutoModelForCausalLM,
     AutoModelForMaskedLM,
     AutoModelForQuestionAnswering,
+    AutoModelForSeq2SeqLM,
     AutoModelForSequenceClassification,
     AutoModelForTokenClassification,
 )
 from transformers.file_utils import WEIGHTS_NAME
 
-from sparseml.pytorch.utils import ModuleSparsificationInfo
+from sparseml.pytorch.utils import ModuleSparsificationInfo, FlanT5DecoderWithLMHeadWrapper
 
 
 __all__ = ["SparseAutoModel", "get_shared_tokenizer_src"]
@@ -270,6 +271,44 @@ class SparseAutoModel:
         SparseAutoModel.log_model_load(model, model_name_or_path, model_type, delayed)
 
         return model
+
+    @staticmethod
+    def text2text_generation_from_pretrained(
+        model_name_or_path: str,
+        model_type: str,
+        **kwargs,
+    ) -> Module:
+        """
+        :param model_name_or_path: the name of or path to the model to load
+        :param model_type: specify the type of model loaded for logging;
+            ex one of [model, student, teacher]
+        :param kwargs: keyword arguments to pass through to the AutoModel call
+        :return: the created model for text generation
+        """
+        SparseAutoModel._check_tf(model_name_or_path)
+        if not kwargs:
+            kwargs = {}
+        kwargs["from_tf"] = False
+        delayed = False
+        if "state_dict" not in kwargs:
+            kwargs["state_dict"], delayed = SparseAutoModel._loadable_state_dict(
+                model_name_or_path
+            )
+
+        # Export decoder model without kv cache support
+        kwargs["config"].use_cache = False
+
+        model = AutoModelForSeq2SeqLM.from_pretrained(
+            model_name_or_path,
+            **kwargs,
+        )
+        SparseAutoModel.log_model_load(model, model_name_or_path, model_type, delayed)
+
+        if model_type == 'encoder':
+            return model.encoder
+        else:
+            return FlanT5DecoderWithLMHeadWrapper(model.decoder, model.lm_head)
+
 
     @staticmethod
     def token_classification_from_pretrained(
