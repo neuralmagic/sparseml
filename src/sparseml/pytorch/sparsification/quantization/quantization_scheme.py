@@ -17,12 +17,13 @@ Schemas and types to support quantization
 """
 from copy import deepcopy
 from functools import partial
-from typing import Any, Dict, Optional, Union, Tuple
+from typing import Any, Dict, Optional, Tuple, Union
 
 import torch
 from packaging import version
 from pydantic import BaseModel, Field, validator
 from torch.nn import Identity
+
 
 try:
     from torch import quantization as torch_quantization
@@ -80,7 +81,8 @@ class QuantizationArgs(BaseModel):
     strategy: str = Field(
         default="tensor",
         description=(
-            "scope of the quantization to be applied. can be 'tensor', 'channel', or 'dynamic_token'"
+            "scope of the quantization to be applied."
+            "Can be 'tensor', 'channel', or 'dynamic_token'"
         ),
     )
     kwargs: Dict[str, Any] = Field(
@@ -390,7 +392,25 @@ def _parse_quantization_arg(arg: Any):
     return arg
 
 
-def _fake_quantize_per_token_affine(x, scale, zero_point, qmin, qmax):
+def _fake_quantize_per_token_affine(
+    x: torch.Tensor,
+    scale: torch.Tensor,
+    zero_point: torch.Tensor,
+    qmin: int,
+    qmax: int,
+):
+    """
+    Quantize tensor per token using scale and zero point.
+
+    Args:
+    :param x: Tensor to be quantized
+    :param scale: Per-token quantization scale
+    :param zero_point: Per-token zero point
+    :param qmin: minimum quantized value
+    :param qmax: maximum quantized value
+
+    :return: Quantized tensor
+    """
     scale = scale.to(x.dtype).to(x.device)
     zero_point = zero_point.to(x.dtype).to(x.device)
     q = torch.clip(torch.round((x / scale) + zero_point), min=qmin, max=qmax)
@@ -398,20 +418,23 @@ def _fake_quantize_per_token_affine(x, scale, zero_point, qmin, qmax):
 
 
 class PerTokenDynamicObserver(torch_quantization.ObserverBase):
-    r"""Observer module for computing the quantization parameters for per token
+    r"""
+    Observer module for computing the quantization parameters for per token
     dynamic quantization. It uses current min/max values to determine quantization
     parameters. Differently from standard PyTorch observes, this observer does
     not create parameters since all computation depends on the current instance
     alone.
 
-    Args:
-        ch_axis: Channel axis
-        dtype: dtype argument to the `quantize` node needed to implement the
-               reference model spec.
-        reduce_range: Reduces the range of the quantized data type by 1 bit
-        quant_min: Minimum quantization value. If unspecified, it will follow the 8-bit setup.
-        quant_max: Maximum quantization value. If unspecified, it will follow the 8-bit setup.
-        eps: Epsilon value for float32, Defaults to `torch.finfo(torch.float32).eps`.
+    :param ch_axis: Channel axis
+    :param dtype: dtype of quantized tensors
+    :param reduce_range: Boolean that determines whether to reduces the
+        range of the quantized data type by 1 bit. Default is False.
+    :param quant_min: Minimum quantized value.
+        If unspecified, it will follow the 8-bit setup.
+    :param quant_max: Maximum quantized value.
+        If unspecified, it will follow the 8-bit setup.
+    :param eps: Epsilon value for float32.
+        Defaults to `torch.finfo(torch.float32).eps`.
 
     Given current min/max as :math:`x_\text{min}` and :math:`x_\text{max}`,
     scale :math:`s` and zero point :math:`z` are computed as:
@@ -462,23 +485,19 @@ class PerTokenDynamicObserver(torch_quantization.ObserverBase):
         self.eps = torch.tensor((eps,))
         self.min_val = None
         self.max_val = None
-        if (
-            self.symmetric
-            and self.reduce_range
-            and self.dtype == torch.quint8
-        ):
+        if self.symmetric and self.reduce_range and self.dtype == torch.quint8:
             raise NotImplementedError(
-                "Cannot reduce range for symmetric "
-                "quantization for quint8"
+                "Cannot reduce range for symmetric " "quantization for quint8"
             )
         self.has_customized_qrange = (quant_min is not None) and (quant_max is not None)
         if self.has_customized_qrange:
             assert (
-                    quant_min <= 0 <= quant_max
+                quant_min <= 0 <= quant_max
             ), "Used-specified quantization range must include 0."
             assert (
-                    quant_min < quant_max
-            ), "qmin must be strictly less than qmax for user-specified quantization range."
+                quant_min < quant_max
+            ), "qmin must be strictly less than qmax for user-specified " \
+               "quantization range."
         else:
             if dtype in [torch.qint8, torch.int8]:
                 if reduce_range:
@@ -492,7 +511,13 @@ class PerTokenDynamicObserver(torch_quantization.ObserverBase):
                     self.quant_min, self.quant_max = 0, 255
 
     def forward(self, x_orig):
-        r"""Records the running minimum and maximum of ``x``."""
+        """
+        Records the per-token minimum and maximum values.
+
+        :param x_orig: torch.Tensor
+
+        :return: same tensor as input
+        """
         if x_orig.numel() == 0:
             return x_orig
         x = x_orig.detach()  # avoid keeping autograd tape
@@ -501,12 +526,14 @@ class PerTokenDynamicObserver(torch_quantization.ObserverBase):
 
     @torch.jit.export
     def calculate_qparams(self) -> Tuple[torch.Tensor, torch.Tensor]:
-        r"""Calculates the quantization parameters, given min and max
-        value tensors. Works for both per tensor and per channel cases
+        """
+        Calculates the quantization parameters, given min and max
+        value tensors. Works for both symmetric and asymmetric cases.
 
-        Returns:
-            scales: Scales tensor of shape (#channels,)
-            zero_points: Zero points tensor of shape (#channels,)
+        :return: scales: Per-token scales tensor of shape
+            (batch_size, tokens, 1)
+        :return: zero_points: Per-token zero points tensor of shape
+            (batch_size, tokens, 1)
         """
         if self.symmetric:
             max_val = torch.maximum(self.min_val.abs(), self.max_val.abs())
@@ -514,59 +541,75 @@ class PerTokenDynamicObserver(torch_quantization.ObserverBase):
             scale = torch.maximum(scale, self.eps.to(scale.device))
             if self.dtype in [torch.quint8, torch.uint8]:
                 if self.has_customized_qrange:
-                    # When customized quantization range is used, down-rounded midpoint of the range is chosen.
+                    # When customized quantization range is used,
+                    # down-rounded midpoint of the range is chosen.
                     zero_point = (self.quant_min + self.quant_max) // 2
                 else:
                     zero_point = 128 * torch.ones_like(self.min_val, device=self.dtype)
         else:
-            scale = (self.max_val - self.min_val) / float(self.quant_max - self.quant_min)
+            scale = (self.max_val - self.min_val) / float(
+                self.quant_max - self.quant_min
+            )
             scale = torch.maximum(scale, self.eps.to(scale.device))
-            zero_point = self.quant_min - torch.round(self.min_val / scale).to(torch.int)
+            zero_point = self.quant_min - torch.round(self.min_val / scale).to(
+                torch.int
+            )
             zero_point = torch.clamp(zero_point, self.quant_min, self.quant_max)
 
         return scale, zero_point
 
 
 class DynamicFakeQuantize(torch_quantization.FakeQuantizeBase):
-    r""" Simulate the quantize and dequantize operations in training time.
+    """
+    Simulate the quantize and dequantize operations in training time.
     The output of this module is given by::
 
-        x_out = (
-          clamp(round(x/scale + zero_point), quant_min, quant_max) - zero_point
-        ) * scale
+    x_out = (
+        clamp(
+            round(x/scale + zero_point), quant_min, quant_max)
+        - zero_point
+    ) * scale
 
     * :attr:`scale` defines the scale factor used for quantization.
 
-    * :attr:`zero_point` specifies the quantized value to which 0 in floating point maps to
+    * :attr:`zero_point` specifies the quantized value to which 0
+        in floating point maps to
 
-    * :attr:`fake_quant_enabled` controls the application of fake quantization on tensors, note that
-      statistics can still be updated.
+    * :attr:`fake_quant_enabled` controls the application of fake
+        quantization on tensors.
 
-    * :attr:`dtype` specifies the quantized dtype that is being emulated with fake-quantization,
-        allowable values are torch.qint8 and torch.quint8.
+    * :attr:`dtype` specifies the quantized dtype that is being
+        emulated with fake-quantization.
+        Allowable values are torch.qint8 and torch.quint8.
 
-    Args:
-
-        observer (module): Module for observing statistics on input tensors and calculating scale
-          and zero-point.
-        observer_kwargs (optional): Arguments for the observer module
+    :param observer: Module for observing statistics on input tensors
+        and calculating scale and zero-point.
+    :param: observer_kwargs (optional): Arguments for the observer module
 
     Attributes:
 
-        activation_post_process (Module): User provided module that collects statistics on the input tensor and
-          provides a method to calculate scale and zero-point.
+        activation_post_process (Module): User provided module that collects
+          statistics on the input tensor and provides a method to calculate
+          scale and zero-point.
 
     """
 
     scale: torch.Tensor
     zero_point: torch.Tensor
 
-    def __init__(self, observer=PerTokenDynamicObserver, quant_min=None, quant_max=None, **observer_kwargs):
+    def __init__(
+        self,
+        observer=PerTokenDynamicObserver,
+        quant_min=None,
+        quant_max=None,
+        **observer_kwargs,
+    ):
         super().__init__()
         # Populate quant_min/quant_max to observer_kwargs if valid
         if quant_min is not None and quant_max is not None:
-            assert quant_min <= quant_max, \
-                'quant_min must be less than or equal to quant_max'
+            assert (
+                quant_min <= quant_max
+            ), "quant_min must be less than or equal to quant_max"
             dtype = observer_kwargs.get("dtype", torch.quint8)
             if hasattr(observer, "p"):
                 # In case observer is _PartialWrapper, dtype can be stored in
@@ -574,16 +617,19 @@ class DynamicFakeQuantize(torch_quantization.FakeQuantizeBase):
                 dtype = getattr(getattr(observer, "p", {}), "keywords", {}).get(
                     "dtype", dtype
                 )
-            assert torch.iinfo(dtype).min <= quant_min, 'quant_min out of bound'
-            assert quant_max <= torch.iinfo(dtype).max, 'quant_max out of bound'
+            assert torch.iinfo(dtype).min <= quant_min, "quant_min out of bound"
+            assert quant_max <= torch.iinfo(dtype).max, "quant_max out of bound"
             observer_kwargs.update({"quant_min": quant_min, "quant_max": quant_max})
         self.activation_post_process = observer(**observer_kwargs)
 
         self.quant_min = self.activation_post_process.quant_min
         self.quant_max = self.activation_post_process.quant_max
         self.dtype = self.activation_post_process.dtype
-        self.ch_axis = self.activation_post_process.ch_axis \
-            if hasattr(self.activation_post_process, 'ch_axis') else -1
+        self.ch_axis = (
+            self.activation_post_process.ch_axis
+            if hasattr(self.activation_post_process, "ch_axis")
+            else -1
+        )
 
     @torch.jit.export
     def calculate_qparams(self):
@@ -605,8 +651,13 @@ class DynamicFakeQuantize(torch_quantization.FakeQuantizeBase):
 
     @torch.jit.export
     def extra_repr(self):
-        return 'fake_quant_enabled={}, ' \
-               'quant_min={}, quant_max={}, dtype={}, ch_axis={}'.format(
-                   self.fake_quant_enabled,
-                   self.activation_post_process.quant_min, self.activation_post_process.quant_max,
-                   self.dtype, self.ch_axis)
+        return (
+            "fake_quant_enabled={}, "
+            "quant_min={}, quant_max={}, dtype={}, ch_axis={}".format(
+                self.fake_quant_enabled,
+                self.activation_post_process.quant_min,
+                self.activation_post_process.quant_max,
+                self.dtype,
+                self.ch_axis,
+            )
+        )
