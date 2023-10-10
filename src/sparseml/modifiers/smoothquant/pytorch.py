@@ -46,8 +46,8 @@ class SmoothQuantMapping:
 class SmoothQuantModifierPyTorch(SmoothQuantModifier):
     calibration_dataloader_: Any = None
     calibration_function_: Any = None
-    scales_: Dict = (None,)
-    hooks_: List = (None,)
+    scales_: Dict = None
+    hooks_: List = None
     resolved_mappings_: Dict = None
 
     def on_initialize(self, state: State, **kwargs) -> bool:
@@ -76,8 +76,7 @@ class SmoothQuantModifierPyTorch(SmoothQuantModifier):
 
     def on_finalize(self, state: State, **kwargs) -> bool:
         self.scales_.clear()
-        self._resolve_mappings.clear()
-        self._to_balance.clear()
+        self.resolved_mappings_.clear()
         torch.cuda.empty_cache()
 
         return True
