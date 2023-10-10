@@ -16,7 +16,9 @@ import torch
 from sparseml.experimental.sparsegpt.dispatch import evaluate_perplexity, load_model
 from sparseml.experimental.sparsegpt.llama2 import load_data
 from sparseml.experimental.sparsegpt.main import sequential
+from sparseml.modifiers.obcq.utils.helpers import ppl_eval_general
 from sparseml.transformers.sparsification.obcq.obcq import one_shot
+from sparseml.transformers.sparsification.obcq.utils.helpers import llama_forward
 
 
 dataset = "open_platypus"
@@ -101,8 +103,8 @@ if __name__ == "__main__":
     torch.cuda.empty_cache()
 
     _, testloader, _ = load_data(experimental_args, data_sequence_length)
-    prod_perplexity = evaluate_perplexity(
-        experimental_args, prod_model, testloader, device, max_samples_per_iteration=8
+    prod_perplexity = ppl_eval_general(
+        llama_forward, prod_model, testloader, device, max_samples_per_iteration=8
     )
     print(
         f"Experimental Perplexity: {exp_perplexity}, "
