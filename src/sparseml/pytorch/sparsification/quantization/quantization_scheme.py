@@ -80,7 +80,7 @@ class QuantizationArgs(BaseModel):
     strategy: str = Field(
         default="tensor",
         description=(
-            "scope of the quantization to be applied. can be 'tensor' or 'channel'"
+            "scope of the quantization to be applied. can be 'tensor', 'channel', or 'dynamic_token'"
         ),
     )
     kwargs: Dict[str, Any] = Field(
@@ -120,7 +120,7 @@ class QuantizationArgs(BaseModel):
 
     @validator("strategy")
     def validate_strategy(cls, value):
-        valid_scopes = ["tensor", "channel"]
+        valid_scopes = ["tensor", "channel", "dynamic_token"]
         if value not in valid_scopes:
             raise ValueError(f"`strategy` must be one of {valid_scopes}, got {value}")
         return value
@@ -300,6 +300,7 @@ def get_observer(
     if strategy == "channel":
         qscheme = torch.per_channel_symmetric if symmetric else torch.per_channel_affine
         observer_cls = torch_quantization.MovingAveragePerChannelMinMaxObserver
+        fake_quantization_cls = torch_quantization.FakeQuantize
         observer_kwargs = dict(
             ch_axis=0,
             dtype=dtype,
@@ -308,8 +309,9 @@ def get_observer(
         )
     elif strategy == "dynamic_token":
         observer_cls = PerTokenDynamicObserver
+        fake_quantization_cls = DynamicFakeQuantize
         observer_kwargs = dict(
-            ch_axis=0,
+            ch_axis=-1,
             dtype=dtype,
             reduce_range=reduce_range,
             symmetric=symmetric,
@@ -317,6 +319,7 @@ def get_observer(
     else:  # default to tensor strategy
         qscheme = torch.per_tensor_symmetric if symmetric else torch.per_tensor_affine
         observer_cls = torch_quantization.MovingAverageMinMaxObserver
+        fake_quantization_cls = torch_quantization.FakeQuantize
         observer_kwargs = dict(
             dtype=dtype,
             qscheme=qscheme,
@@ -367,9 +370,7 @@ def get_observer(
 
     observer_kwargs["observer"] = observer_cls
     observer_kwargs.update(qconfig_kwargs or {})
-    observer = torch_quantization.FakeQuantize.with_args(
-        **observer_kwargs,
-    )
+    observer = fake_quantization_cls.with_args(**observer_kwargs)
 
     return observer
 
@@ -390,6 +391,8 @@ def _parse_quantization_arg(arg: Any):
 
 
 def _fake_quantize_per_token_affine(x, scale, zero_point, qmin, qmax):
+    scale = scale.to(x.dtype).to(x.device)
+    zero_point = zero_point.to(x.dtype).to(x.device)
     q = torch.clip(torch.round((x / scale) + zero_point), min=qmin, max=qmax)
     return (q - zero_point) * scale
 
@@ -456,7 +459,9 @@ class PerTokenDynamicObserver(torch_quantization.ObserverBase):
         self.reduce_range = reduce_range
         self.quant_min = quant_min
         self.quant_max = quant_max
-        self.eps = eps
+        self.eps = torch.tensor((eps,))
+        self.min_val = None
+        self.max_val = None
         if (
             self.symmetric
             and self.reduce_range
@@ -479,7 +484,7 @@ class PerTokenDynamicObserver(torch_quantization.ObserverBase):
                 if reduce_range:
                     self.quant_min, self.quant_max = -64, 63
                 else:
-                    self.quant_min, quant_max = -128, 127
+                    self.quant_min, self.quant_max = -128, 127
             elif dtype in [torch.quint8, torch.uint8]:
                 if reduce_range:
                     self.quant_min, self.quant_max = 0, 127
@@ -491,9 +496,7 @@ class PerTokenDynamicObserver(torch_quantization.ObserverBase):
         if x_orig.numel() == 0:
             return x_orig
         x = x_orig.detach()  # avoid keeping autograd tape
-        min_val, max_val = torch.aminmax(x, dim=self.ch_axis, keepdim=True)
-        self.min_val.copy_(min_val)
-        self.max_val.copy_(max_val)
+        self.min_val, self.max_val = torch.aminmax(x, dim=self.ch_axis, keepdim=True)
         return x_orig
 
     @torch.jit.export
@@ -505,19 +508,10 @@ class PerTokenDynamicObserver(torch_quantization.ObserverBase):
             scales: Scales tensor of shape (#channels,)
             zero_points: Zero points tensor of shape (#channels,)
         """
-        if not torch.all(self.min_val < self.max_val):
-            scale = torch.ones_like(self.min_val, device=self.min_val.device.type)
-            if self.dtype in [torch.qint8, torch.int8]:
-                zero_point = torch.zeros_like(self.min_val, device=self.dtype)
-            else:
-                zero_point = 128 * torch.ones_like(self.min_val, device=self.dtype)
-
-            return scale, zero_point
-
         if self.symmetric:
             max_val = torch.maximum(self.min_val.abs(), self.max_val.abs())
             scale = max_val / (float(self.quant_max - self.quant_min) / 2)
-            scale = torch.max(scale, self.eps)
+            scale = torch.maximum(scale, self.eps.to(scale.device))
             if self.dtype in [torch.quint8, torch.uint8]:
                 if self.has_customized_qrange:
                     # When customized quantization range is used, down-rounded midpoint of the range is chosen.
@@ -525,8 +519,8 @@ class PerTokenDynamicObserver(torch_quantization.ObserverBase):
                 else:
                     zero_point = 128 * torch.ones_like(self.min_val, device=self.dtype)
         else:
-            scale = (self.max_val - self.min) / float(self.quant_max - self.quant_min)
-            scale = torch.maximum(scale, self.eps)
+            scale = (self.max_val - self.min_val) / float(self.quant_max - self.quant_min)
+            scale = torch.maximum(scale, self.eps.to(scale.device))
             zero_point = self.quant_min - torch.round(self.min_val / scale).to(torch.int)
             zero_point = torch.clamp(zero_point, self.quant_min, self.quant_max)
 
@@ -588,7 +582,6 @@ class DynamicFakeQuantize(torch_quantization.FakeQuantizeBase):
         self.quant_min = self.activation_post_process.quant_min
         self.quant_max = self.activation_post_process.quant_max
         self.dtype = self.activation_post_process.dtype
-        self.qscheme = self.activation_post_process.qscheme
         self.ch_axis = self.activation_post_process.ch_axis \
             if hasattr(self.activation_post_process, 'ch_axis') else -1
 
@@ -600,17 +593,11 @@ class DynamicFakeQuantize(torch_quantization.FakeQuantizeBase):
         if self.fake_quant_enabled[0] == 1:
             self.activation_post_process(X.detach())
             scale, zero_point = self.calculate_qparams()
-            scale, zero_point = scale.to(self.scale.device), zero_point.to(self.zero_point.device)
-            if self.scale.shape != scale.shape:
-                self.scale.resize_(scale.shape)
-                self.zero_point.resize_(zero_point.shape)
-            self.scale.copy_(scale)
-            self.zero_point.copy_(zero_point)
 
             X = _fake_quantize_per_token_affine(
                 X,
-                self.scale,
-                self.zero_point,
+                scale,
+                zero_point,
                 self.activation_post_process.quant_min,
                 self.activation_post_process.quant_max,
             )
@@ -619,8 +606,7 @@ class DynamicFakeQuantize(torch_quantization.FakeQuantizeBase):
     @torch.jit.export
     def extra_repr(self):
         return 'fake_quant_enabled={}, ' \
-               'quant_min={}, quant_max={}, dtype={}, ch_axis={}, ' \
-               'scale={}, zero_point={}'.format(
+               'quant_min={}, quant_max={}, dtype={}, ch_axis={}'.format(
                    self.fake_quant_enabled,
                    self.activation_post_process.quant_min, self.activation_post_process.quant_max,
-                   self.dtype, self.ch_axis, self.scale, self.zero_point)
+                   self.dtype, self.ch_axis)
