@@ -29,6 +29,8 @@ class C4(TransformersDataset):
         split_percent_to_use: float = 1.0,
     ):
         kwargs = {"data_files": {split: "en/c4-train.00000-of-01024.json.gz"}}
+        if split_percent_to_use > 0.2:
+            split_percent_to_use = 0.2
         super().__init__(
             model=model,
             seqlen=seqlen,

@@ -17,7 +17,6 @@ from typing import Optional
 
 import torch
 from datasets import load_dataset
-from torch.nn import Module
 from torch.utils.data import Dataset
 from transformers import AutoTokenizer
 
@@ -27,7 +26,7 @@ from sparsezoo.utils.registry import RegistryMixin
 class TransformersDataset(RegistryMixin, Dataset):
     def __init__(
         self,
-        model: Module,
+        model: str,
         seqlen: int,
         nsamples: int,
         path: str,
@@ -36,6 +35,7 @@ class TransformersDataset(RegistryMixin, Dataset):
         split: str = "train",
         use_max_tokens: bool = True,
         split_percent_to_use: float = 1.0,
+        shuffle: bool = True,
         **kwargs,
     ):
         self.tokenizer = AutoTokenizer.from_pretrained(model, use_fast=True)
@@ -51,38 +51,37 @@ class TransformersDataset(RegistryMixin, Dataset):
 
         random.seed(seed)
         data = list(dataset)
-        random.shuffle(data)
         data_to_use = int(split_percent_to_use * len(data))
-        data = data[-data_to_use:] if self._split_from_end else data[:data_to_use]
+        self._data = data[-data_to_use:] if self._split_from_end else data[:data_to_use]
         if not self._nsamples:
             self._nsamples = len(dataset)
-
-        if use_max_tokens:
-            data_length = int(min(len(data), self._seqlen * self._nsamples / 50))
-        else:
-            data_length = self._nsamples
-
-        if self._split_from_end:
-            self._data = data[-data_length:]
-        else:
-            self._data = data[:data_length]
+        if shuffle:
+            random.shuffle(self._data)
+        self._data = self._data[: self._nsamples]
 
     def create_dataloader(self, data, join_on=None):
         self.loader = []
         if self._use_max_tokens:
-            full_encoded = self.tokenizer(join_on.join(data), return_tensors="pt")[
+            data_idx = 0
+            encoder = self.tokenizer(join_on.join(data), return_tensors="pt")[
                 "input_ids"
             ][0]
-            for sample_idx in range(self._nsamples):
-                start_idx = sample_idx * self._seqlen
+            while self._nsamples is None or len(self.loader) < self._nsamples:
+                start_idx = data_idx * self._seqlen
                 end_idx = start_idx + self._seqlen
-                if end_idx > len(full_encoded):
-                    self._nsamples = sample_idx
+                if start_idx >= len(encoder):
                     break
-                tokenized_sample = self._add_end_token(full_encoded[start_idx:end_idx])
-                tokenized_sample = self._add_end_token(tokenized_sample)
+                elif end_idx >= len(encoder):
+                    sequence = encoder[start_idx:]
+                else:
+                    sequence = encoder[start_idx:end_idx]
+                data_idx += 1
+
+                tokenized_sample = self._add_end_token(sequence)
                 tokenized_sample = torch.unsqueeze(tokenized_sample, dim=0)
                 self.loader.append(tokenized_sample)
+                if data_idx >= len(data):
+                    break
         else:
             for sample in data:
                 tokenized_sample = self.tokenizer(
@@ -111,7 +110,7 @@ class TransformersDataset(RegistryMixin, Dataset):
         return tokenized_sample
 
     def __len__(self):
-        return self._nsamples
+        return len(self.loader)
 
     def __item__(self, idx):
         return self.loader[idx]

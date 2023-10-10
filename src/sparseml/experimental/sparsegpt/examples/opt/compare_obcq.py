@@ -17,7 +17,9 @@ import torch
 from sparseml.experimental.sparsegpt.dispatch import evaluate_perplexity, load_model
 from sparseml.experimental.sparsegpt.main import sequential
 from sparseml.experimental.sparsegpt.opt import load_data
+from sparseml.modifiers.obcq.utils.helpers import ppl_eval_general
 from sparseml.transformers.sparsification.obcq.obcq import one_shot
+from sparseml.transformers.sparsification.obcq.utils.helpers import opt_forward
 
 
 dataset = "c4"
@@ -99,10 +101,10 @@ if __name__ == "__main__":
         device=prod_args.device,
         recipe_file=prod_args.recipe,
     )
-
+    experimental_args.dataset = "wikitext2"
     _, testloader, _ = load_data(experimental_args, data_sequence_length)
-    prod_perplexity = evaluate_perplexity(
-        experimental_args, prod_model, testloader, device, max_samples_per_iteration=8
+    prod_perplexity = ppl_eval_general(
+        opt_forward, prod_model, testloader, device, max_samples_per_iteration=8
     )
     print(
         f"Experimental Perplexity: {exp_perplexity}, "

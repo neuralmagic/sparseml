@@ -37,8 +37,9 @@ class WikiText(TransformersDataset):
             seed=seed,
             split=split,
             split_percent_to_use=split_percent_to_use,
+            shuffle=False,
         )
 
         join_on = "\n\n" if split == "test" else " "
-        processed_data = [sample["text"] for sample in self._data]
+        processed_data = [str(sample["text"]) for sample in self._data]
         self.create_dataloader(processed_data, join_on=join_on)
