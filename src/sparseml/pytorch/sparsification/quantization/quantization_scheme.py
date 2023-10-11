@@ -494,10 +494,10 @@ class PerTokenDynamicObserver(torch_quantization.ObserverBase):
             assert (
                 quant_min <= 0 <= quant_max
             ), "Used-specified quantization range must include 0."
-            assert (
-                quant_min < quant_max
-            ), "qmin must be strictly less than qmax for user-specified " \
-               "quantization range."
+            assert quant_min < quant_max, (
+                "qmin must be strictly less than qmax for user-specified "
+                "quantization range."
+            )
         else:
             if dtype in [torch.qint8, torch.int8]:
                 if reduce_range:
@@ -556,7 +556,11 @@ class PerTokenDynamicObserver(torch_quantization.ObserverBase):
             zero_point = torch.clamp(zero_point, self.quant_min, self.quant_max)
 
             # If scale is close to 0, set scale to min_val and zero point to zero
-            zero_point = torch.where(scale > self.eps.to(scale.device), zero_point, torch.zeros_like(zero_point))
+            zero_point = torch.where(
+                scale > self.eps.to(scale.device),
+                zero_point,
+                torch.zeros_like(zero_point),
+            )
             scale = torch.where(scale > self.eps.to(scale.device), scale, self.min_val)
 
         return scale, zero_point
@@ -596,6 +600,7 @@ class DynamicFakeQuantize(torch_quantization.FakeQuantizeBase):
           scale and zero-point.
 
     """
+
     def __init__(
         self,
         observer=PerTokenDynamicObserver,
