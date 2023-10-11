@@ -15,4 +15,6 @@
 # flake8: noqa
 
 from .distillation import *
+from .obcq import *
 from .pruning import *
+from .quantization import *
