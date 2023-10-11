@@ -103,6 +103,7 @@ __all__ = [
     "download_framework_model_by_recipe_type",
     "detach",
     "adjust_quantization_for_onnx_export",
+    "get_dependency_order",
 ]
 
 
@@ -1215,3 +1216,34 @@ def adjust_quantization_for_onnx_export(module: torch.nn.Module) -> torch.nn.Mod
                     quant.quant_max = 255
             # don't update observer since ranges are artificially modified
             quant.observer_enabled[0] = 0
+
+
+def get_dependency_order(
+    layer: Module, subset: Dict, an_input: Tensor, **kwargs
+) -> List[str]:
+    """
+    Get a list of a subset of modules in layer ordered by execution order, which honors
+    the dependencies in the graph
+
+    :param layer: pytorch module to calculate dependencies for
+    :param subset: subset of modules in the layer to include in the ordering
+    :param an_input: example input to pass through the layer forward pass, used to
+        determine execution order
+
+    :return: list of module names in execution order
+    """
+    order = []
+
+    def exe_input(name):
+        def _exe_input(_, inp, out):
+            if name in subset:
+                order.append(name)
+
+        return _exe_input
+
+    # register a hook for each module of interest, will be triggered in exeuction order
+    handles = [subset[name].register_forward_hook(exe_input(name)) for name in subset]
+    layer(an_input, **kwargs)
+    for h in handles:
+        h.remove()
+    return order

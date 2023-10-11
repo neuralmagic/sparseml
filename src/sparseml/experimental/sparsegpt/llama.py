@@ -26,7 +26,6 @@ from transformers.models.llama.modeling_llama import (
     repeat_kv,
 )
 
-from layer_compressor import BaseCompressor, LayerCompressor
 from llmfoundry import (
     COMPOSER_MODEL_REGISTRY,
     build_finetuning_dataloader,
@@ -36,7 +35,11 @@ from llmfoundry.data.text_data import build_text_dataloader
 from llmfoundry.utils.builders import build_tokenizer
 from model_preprocessor import QuantizationModelPreprocessor
 from omegaconf import OmegaConf as om
-from quant import (
+from sparseml.experimental.sparsegpt.layer_compressor import (
+    BaseCompressor,
+    LayerCompressor,
+)
+from sparseml.experimental.sparsegpt.quant import (
     MatMulLeftInput_PV,
     MatMulLeftInput_QK,
     MatMulOutput_PV,
@@ -45,7 +48,7 @@ from quant import (
     MatMulRightInput_QK,
     QuantizableMatMul,
 )
-from sequential import SequentialSparseGPT
+from sparseml.experimental.sparsegpt.sequential import SequentialSparseGPT
 
 
 class SequentialSparseGPT_LLAMA(SequentialSparseGPT):
