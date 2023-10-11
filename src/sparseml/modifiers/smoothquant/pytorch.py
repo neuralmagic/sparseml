@@ -223,6 +223,8 @@ class SmoothQuantModifierPyTorch(SmoothQuantModifier):
                 forward_fn(batch, module=model.model)
 
         # remove the hooks now that we are done calibrating
+        for hook in self.hooks_:
+            hook.remove()
         del self.hooks_
 
     @torch.no_grad()
