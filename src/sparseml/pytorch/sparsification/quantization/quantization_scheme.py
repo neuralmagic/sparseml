@@ -487,7 +487,7 @@ class PerTokenDynamicObserver(torch_quantization.ObserverBase):
         self.max_val = None
         if self.symmetric and self.reduce_range and self.dtype == torch.quint8:
             raise NotImplementedError(
-                "Cannot reduce range for symmetric " "quantization for quint8"
+                "Cannot reduce range for symmetric quantization for quint8"
             )
         self.has_customized_qrange = (quant_min is not None) and (quant_max is not None)
         if self.has_customized_qrange:
@@ -550,11 +550,14 @@ class PerTokenDynamicObserver(torch_quantization.ObserverBase):
             scale = (self.max_val - self.min_val) / float(
                 self.quant_max - self.quant_min
             )
-            scale = torch.maximum(scale, self.eps.to(scale.device))
             zero_point = self.quant_min - torch.round(self.min_val / scale).to(
                 torch.int
             )
             zero_point = torch.clamp(zero_point, self.quant_min, self.quant_max)
+
+            # If scale is close to 0, set scale to min_val and zero point to zero
+            zero_point = torch.where(scale > self.eps.to(scale.device), zero_point, torch.zeros_like(zero_point))
+            scale = torch.where(scale > self.eps.to(scale.device), scale, self.min_val)
 
         return scale, zero_point
 
@@ -593,10 +596,6 @@ class DynamicFakeQuantize(torch_quantization.FakeQuantizeBase):
           scale and zero-point.
 
     """
-
-    scale: torch.Tensor
-    zero_point: torch.Tensor
-
     def __init__(
         self,
         observer=PerTokenDynamicObserver,
@@ -638,12 +637,11 @@ class DynamicFakeQuantize(torch_quantization.FakeQuantizeBase):
     def forward(self, X):
         if self.fake_quant_enabled[0] == 1:
             self.activation_post_process(X.detach())
-            scale, zero_point = self.calculate_qparams()
-
+            _scale, _zero_point = self.calculate_qparams()
             X = _fake_quantize_per_token_affine(
                 X,
-                scale,
-                zero_point,
+                _scale,
+                _zero_point,
                 self.activation_post_process.quant_min,
                 self.activation_post_process.quant_max,
             )
