@@ -158,7 +158,8 @@ if __name__ == "__main__":
         wandb.init(config=args)
 
     print("Load model", flush=True)
-    model, seqlen = load_model(args)
+    model = load_model(args)
+    seqlen = model.seqlen
 
     print("Load data", flush=True)
     dataloader, testloader, tokenizer = load_data(args, None, seqlen)
