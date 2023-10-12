@@ -14,7 +14,6 @@
 
 import logging
 from dataclasses import dataclass
-from itertools import cycle
 from typing import Callable, Dict, List, Optional
 
 import torch
@@ -23,7 +22,7 @@ from torch.nn import Module
 from sparseml.core import State
 from sparseml.core.model.pytorch import ModifiableModelPyTorch
 from sparseml.modifiers.smoothquant.base import SmoothQuantModifier
-from sparseml.pytorch.utils import tensors_module_forward, tensors_to_device
+from sparseml.modifiers.utils.pytorch_helpers import run_calibration_forward
 from sparseml.utils.pytorch import get_matching_layer
 
 
@@ -201,26 +200,12 @@ class SmoothQuantModifierPyTorch(SmoothQuantModifier):
 
         model.model.eval()
 
-        forward_fn: Callable = (
-            self.calibration_function
-            if self.calibration_function
-            else tensors_module_forward
+        run_calibration_forward(
+            model.model,
+            calibration_dataloader,
+            self.num_calibration_steps,
+            self.calibration_function,
         )
-
-        model_device = next(model.model.parameters()).device
-        _dataloader = (
-            calibration_dataloader
-            if self.num_calibration_steps is None
-            else cycle(calibration_dataloader)
-        )
-
-        # run through the calibration data, triggering the hooks
-        for batch_idx, batch in enumerate(_dataloader):
-            if self.num_calibration_steps and batch_idx >= self.num_calibration_steps:
-                break
-            batch = tensors_to_device(batch, model_device)
-            with torch.no_grad():
-                forward_fn(batch, module=model.model)
 
         # remove the hooks now that we are done calibrating
         for hook in self.hooks_:
@@ -233,7 +218,10 @@ class SmoothQuantModifierPyTorch(SmoothQuantModifier):
         After calibration, apply smoothing to the activations and push the transform
         into the following weights by applying the inverse to each balance weight.
 
-        This modifies the weights of the model in-place
+        Y = (Xdiag(scales)^(-1) * diag(scales)W) where W is the to_balance weights and
+        X is the to_smooth weights
+
+        This modifies the weights of the model in-place.
         """
         _LOGGER.info("Smoothing activation scales...")
         for mapping in self.resolved_mappings_:
@@ -252,6 +240,8 @@ class SmoothQuantModifierPyTorch(SmoothQuantModifier):
             weight_scales = 2.0 * torch.cat(weight_scales, dim=0).max(dim=0)[0]
 
             # calculate the amount of smoothing to apply
+            # s_j = max(|X_j|)^alpha / max(|W_j|)^(1-alpha)
+            # where j is the input channel, alpha is migration strength
             scales = activation_scales.pow(self.migration_strength) / weight_scales.pow(
                 1 - self.migration_strength
             )
