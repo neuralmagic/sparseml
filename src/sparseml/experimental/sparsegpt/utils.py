@@ -232,7 +232,6 @@ def ppl_eval_general(
 
     ppl = torch.exp(neg_log_likelihood / number_tokens)
     print(f"Perplexity: {ppl.item():3f}")
-    return ppl.item()
 
 
 def get_wikitext2(nsamples, seed, seqlen, model):
