@@ -85,8 +85,7 @@ def load_model(args):
     model = LlamaForCausalLM.from_pretrained(model, torch_dtype="auto")
     model.eval()
     seqlen = model.config.max_position_embeddings
-    model.seqlen = seqlen
-    return model
+    return model, seqlen
 
 
 def load_data(args, seqlen, split=0.1):

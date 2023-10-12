@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-SUPPORTED_MODELS = ["opt", "mpt", "llama"]
+SUPPORTED_MODELS = ["opt", "mpt", "llama-2"]
 
 
 def load_model(args, model_key: str = None, *gargs, **kwargs):
@@ -21,7 +21,7 @@ def load_model(args, model_key: str = None, *gargs, **kwargs):
         from sparseml.experimental.sparsegpt.opt import load_model as _load_model
     elif model_key == "mpt":
         from sparseml.experimental.sparsegpt.mpt import load_model as _load_model
-    elif model_key == "llama":
+    elif model_key == "llama-2":
         from sparseml.experimental.sparsegpt.llama2 import load_model as _load_model
     else:
         raise ValueError(f"Unrecognized model key. Supported: {SUPPORTED_MODELS}")
@@ -34,7 +34,7 @@ def load_data(args, model_key: str = None, *gargs, **kwargs):
         from sparseml.experimental.sparsegpt.opt import load_data as _load_data
     elif model_key == "mpt":
         from sparseml.experimental.sparsegpt.mpt import load_data as _load_data
-    elif model_key == "llama":
+    elif model_key == "llama-2":
         from sparseml.experimental.sparsegpt.llama2 import load_data as _load_data
     else:
         raise ValueError(f"Unrecognized model key. Supported: {SUPPORTED_MODELS}")
@@ -47,7 +47,7 @@ def evaluate_perplexity(
     model_key = _get_model_key(args) if model_key is None else model_key
     if model_key == "opt":
         from sparseml.experimental.sparsegpt.opt import ppl_eval as _ppl_eval
-    elif model_key == "llama":
+    elif model_key == "llama-2":
         from sparseml.experimental.sparsegpt.llama2 import ppl_eval as _ppl_eval
     else:
         raise ValueError(f"Unrecognized model key. Supported: {SUPPORTED_MODELS}")
@@ -64,7 +64,7 @@ def prepare_sparsegpt(model, dataloader, args, model_key: str = None, **kwargs):
         from sparseml.experimental.sparsegpt.mpt import (
             prepare_sparsegpt as _prepare_sparsegpt,
         )
-    elif model_key == "llama":
+    elif model_key == "llama-2":
         from sparseml.experimental.sparsegpt.llama2 import (
             prepare_sparsegpt as _prepare_sparsegpt,
         )
