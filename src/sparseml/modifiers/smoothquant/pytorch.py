@@ -13,51 +13,24 @@
 # limitations under the License.
 
 import logging
-from dataclasses import dataclass
-from typing import Callable, Dict, List, Optional
+from typing import Callable, List, Optional
 
 import torch
-from torch.nn import Module
 
 from sparseml.core import State
 from sparseml.core.model.pytorch import ModifiableModelPyTorch
-from sparseml.modifiers.smoothquant.base import SmoothQuantModifier
+from sparseml.modifiers.smoothquant.base import (
+    SmoothQuantMapping,
+    SmoothQuantModifier,
+    SmoothQuantScale,
+)
 from sparseml.modifiers.utils.pytorch_helpers import run_calibration_forward
 from sparseml.utils.pytorch import get_matching_layer
 
 
 _LOGGER = logging.getLogger(__name__)
 
-
-@dataclass
-class SmoothQuantScale:
-    """
-    Dataclass for storing the channel-wise minimum and maximum values for a layer. This
-    is updated each forward pass during calibration
-
-    :param min_channel_vals: minimum output value seen so far, per channel
-    :param max_channel_vals: maximum output value seen so far, per channel
-    """
-
-    min_channel_vals: torch.Tensor
-    max_channel_vals: torch.Tensor
-
-
-@dataclass
-class SmoothQuantMapping:
-    """
-    Dataclass for storing the mapping between an activation layer and the following
-    weights that must be balanced during smoothing
-
-    :param smooth_name: name of the activation layer
-    :param smooth_layer: PyTorch module storing the activation layer
-    :param balance_layers: list of PyTorch modules that smooth_layer feeds into, must be
-    balanced to offset the smoothing of smooth_layer
-    """
-
-    smooth_name: str
-    smooth_layer: Module
-    balance_layers: List[Module]
+__all__ = ["SmoothQuantModifierPyTorch"]
 
 
 class SmoothQuantModifierPyTorch(SmoothQuantModifier):
@@ -69,9 +42,7 @@ class SmoothQuantModifierPyTorch(SmoothQuantModifier):
     """
 
     calibration_function: Optional[Callable] = None
-    scales_: Dict = None
     hooks_: List = None
-    resolved_mappings_: Dict = None
 
     def on_initialize(self, state: State, **kwargs) -> bool:
         """
@@ -80,23 +51,11 @@ class SmoothQuantModifierPyTorch(SmoothQuantModifier):
         :param state: state to run SmoothQuant on
         :return: True on a successful run, False otherwise
         """
-        if self.end and self.end != -1:
-            raise ValueError(
-                "SmoothQuantModifier can only be applied during one-shot. Expected end"
-                " to be None or -1, got {}".format(self.end)
-            )
-        if self.start and self.start != -1:
-            raise ValueError(
-                "SmoothQuantModifier can only be applied during one-shot. Expected "
-                "start to be None or -1, got {}".format(self.start)
-            )
+        super(SmoothQuantModifierPyTorch, self).on_initialize(state, **kwargs)
 
         calibration_dataloader = state.data.calib
-        self.ignore = [] if not self.ignore else self.ignore
-        self.scales_ = {}
         self.hooks_ = []
 
-        self.resolved_mappings_ = self._resolve_mappings(state.model)
         self._setup_scale_hooks()
         self._calibrate(state.model, calibration_dataloader)
         self._apply_smoothing()
@@ -105,13 +64,12 @@ class SmoothQuantModifierPyTorch(SmoothQuantModifier):
 
     def on_finalize(self, state: State, **kwargs) -> bool:
         """
-        Clean up by clearing the scale and mapping data
+        Clean up by clearing the CUDA cache
 
         :param state: unused
         :return: True
         """
-        self.scales_.clear()
-        self.resolved_mappings_.clear()
+        super(SmoothQuantModifierPyTorch, self).on_finalize(state, **kwargs)
         torch.cuda.empty_cache()
 
         return True

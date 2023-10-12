@@ -13,13 +13,49 @@
 # limitations under the License.
 
 
-from typing import List, Optional, Tuple
+from dataclasses import dataclass
+from typing import Dict, Generic, List, Optional, Tuple, TypeVar
 
 from sparseml.core import Modifier
+from sparseml.core.model import ModifiableModel
+from sparseml.core.model.base import LT
 from sparseml.core.state import Event, State
 
 
-__all__ = ["SmoothQuantModifier"]
+VT = TypeVar("VT")  # represents a generic vector
+
+__all__ = ["SmoothQuantScale", "SmoothQuantMapping", "SmoothQuantModifier"]
+
+
+@dataclass
+class SmoothQuantScale(Generic[VT]):
+    """
+    Dataclass for storing the channel-wise minimum and maximum values for a layer. This
+    is updated each forward pass during calibration
+
+    :param min_channel_vals: minimum output value seen so far, per channel
+    :param max_channel_vals: maximum output value seen so far, per channel
+    """
+
+    min_channel_vals: VT
+    max_channel_vals: VT
+
+
+@dataclass
+class SmoothQuantMapping(Generic[LT]):
+    """
+    Dataclass for storing the mapping between an activation layer and the following
+    weights that must be balanced during smoothing
+
+    :param smooth_name: name of the activation layer
+    :param smooth_layer: PyTorch module storing the activation layer
+    :param balance_layers: list of PyTorch modules that smooth_layer feeds into, must be
+    balanced to offset the smoothing of smooth_layer
+    """
+
+    smooth_name: str
+    smooth_layer: LT
+    balance_layers: List[LT]
 
 
 class SmoothQuantModifier(Modifier):
@@ -49,8 +85,65 @@ class SmoothQuantModifier(Modifier):
     logarithmic_equalization: Optional[bool] = False
     num_calibration_steps: Optional[int] = None
 
+    resolved_mappings_: Dict = None
+    scales_: Dict = None
+
     def on_initialize_structure(self, state: "State", **kwargs):
         pass  # nothing needed for this modifier
+
+    def on_initialize(self, state: State, **kwargs) -> bool:
+        """
+        Initialize and run SmoothQuant on the given state
+
+        :param state: state to run SmoothQuant on
+        :return: True on a successful run, False otherwise
+        """
+        if self.end and self.end != -1:
+            raise ValueError(
+                "SmoothQuantModifier can only be applied during one-shot. Expected end"
+                " to be None or -1, got {}".format(self.end)
+            )
+        if self.start and self.start != -1:
+            raise ValueError(
+                "SmoothQuantModifier can only be applied during one-shot. Expected "
+                "start to be None or -1, got {}".format(self.start)
+            )
+
+        self.ignore = [] if not self.ignore else self.ignore
+        self.resolved_mappings_ = self._resolve_mappings(state.model)
+        self.scales_ = {}
+
+    def _resolve_mappings(self, model: ModifiableModel):
+        """
+        Transforms the list of activations to smooth and their corresponding weights
+        into SmoothQuantMapping objects, resolving regular expressions.
+
+        For each activation in the mapping list, we find the corresponding weight to
+        balance by searching for the longest substring. For instance, if our balance
+        weight is ".*re:.*q_proj" and the activation is "re:.*self_attn_layer_norm" we
+        would match model.layer.0.p_proj to model.layer.0.self_attn_layer_norm and
+        repeat for model.layer.1 and so on
+        """
+        resolved_mappings = []
+        for to_balance, to_smooth in self.mappings:
+            to_smooth_layers = model.get_layers(to_smooth)
+            for layer_name, smooth_layer in to_smooth_layers.items():
+                if layer_name not in self.ignore:
+                    balance_layers = []
+                    for balance_suffix in to_balance:
+                        # find the submodule that matches the activation layer
+                        _, balance_layer = model.get_matching_layer(
+                            balance_suffix, layer_name, model.model
+                        )
+                        if balance_layer:
+                            balance_layers.append(balance_layer)
+                    # each mapping can contain multiple layers to balance, but only
+                    # one layer to smooth
+                    mapping = SmoothQuantMapping(
+                        layer_name, smooth_layer, balance_layers
+                    )
+                    resolved_mappings.append(mapping)
+        return resolved_mappings
 
     def on_start(self, state: State, event: Event, **kwargs):
         pass
@@ -63,3 +156,15 @@ class SmoothQuantModifier(Modifier):
 
     def on_event(self, state: State, event: Event, **kwargs):
         pass
+
+    def on_finalize(self, state: State, **kwargs) -> bool:
+        """
+        Clean up by clearing the scale and mapping data
+
+        :param state: unused
+        :return: True
+        """
+        self.scales_.clear()
+        self.resolved_mappings_.clear()
+
+        return True
