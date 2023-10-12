@@ -40,6 +40,9 @@ from transformers.trainer_pt_utils import reissue_pt_warnings
 from transformers.trainer_utils import ShardedDDPOption, get_last_checkpoint
 
 from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
+from sparseml.pytorch.sparsification.quantization.helpers import (
+    initialize_channel_wise_scale_zp,
+)
 from sparseml.pytorch.utils import (
     LoggerManager,
     ModuleSparsificationInfo,
@@ -48,7 +51,7 @@ from sparseml.pytorch.utils import (
 )
 from sparseml.transformers.utils import SparseAutoModel
 from sparseml.transformers.utils.helpers import RECIPE_NAME
-from sparseml.pytorch.sparsification.quantization.helpers import initialize_channel_wise_scale_zp
+
 
 __all__ = [
     "RecipeManagerTrainerInterface",
