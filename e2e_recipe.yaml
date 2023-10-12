@@ -1,0 +1,12 @@
+test_stage:
+  quantization_modifiers:
+    QuantizationModifier:
+      start: 2.0
+      scheme:
+        input_activations:
+            num_bits: 8
+            symmetric: False
+        weights:
+            num_bits: 8
+            symmetric: True
+      ignore: ['Softmax','classifier']

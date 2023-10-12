@@ -14,7 +14,7 @@
 
 from typing import Any, Dict, List, Optional
 
-from sparseml.core import Modifier, State
+from sparseml.core import Modifier, State, Event
 from sparseml.modifiers.quantization.utils.quantization_scheme import (
     QuantizationScheme,
     QuantizationSchemeLoadable,
@@ -104,6 +104,49 @@ class QuantizationModifier(Modifier):
         )
         if self.model_fuse_fn_kwargs is None:
             self.model_fuse_fn_kwargs = {}
+
+    def calculate_freeze_bn_stats_epoch(self) -> float:
+        """
+        Get the epoch at which we want to stop updating batch normalization stats
+
+        :return: freeze_bn_stats_epoch if set, else -1
+        """
+        return self.freeze_bn_stats_epoch if self.freeze_bn_stats_epoch is not None else -1 
+
+    def check_should_freeze_bn_stats(self, event: Event) -> bool:
+        """
+        Given the current index, determine if we should freeze batch normalization stats
+        
+        :param event: Event to get index from
+        :return: True if stats should be frozen, False otherwise
+        """
+        freeze_epoch = self.calculate_freeze_bn_stats_epoch()
+        if freeze_epoch == -1:
+            return False
+        if event.current_index >= freeze_epoch:
+            return True
+        return False
+    
+    def calculate_disable_observer_epoch(self) -> float:
+        """
+        Get the epoch at which we want to disable to quantization observer
+        :return epoch to disable at, or -1 if it is not set
+        """
+        return self.disable_quantization_observer_epoch if self.disable_quantization_observer_epoch is not None else -1
+    
+    def check_should_disable_observer(self, event: Event) -> bool:
+        """
+        Given the current index, determine if we should disable the observer
+
+        :param event: Event to get index from
+        :return: True if observer should be disabled, False otherwise
+        """
+        disable_epoch = self.calculate_disable_observer_epoch()
+        if disable_epoch == -1:
+            return False
+        if event.current_index >= disable_epoch:
+            return True
+        return False
 
     def on_initialize_structure(self, state: State, **kwargs):
         pass  # nothing needed for this modifier
