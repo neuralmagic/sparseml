@@ -22,9 +22,6 @@ from sparseml.experimental.sparsegpt.quant import WeightFakeQuantizer
 from sparseml.experimental.sparsegpt.sparsegpt import SparseGPT
 
 
-DEFAULT_WBITS = 16
-
-
 class BaseCompressor:
     def __init__(self, model):
         self.model = model

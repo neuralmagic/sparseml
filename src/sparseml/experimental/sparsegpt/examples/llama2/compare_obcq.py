@@ -23,7 +23,7 @@ from sparseml.transformers.sparsification.obcq.utils.helpers import llama_forwar
 
 dataset = "open_platypus"
 model_name = "/home/sadkins/ml-experiments/nlg-text_generation/"
-model_name += "llama_chat-llama_7b_chat-base/dense/training"
+model_name += "llama_chat-llama_7b_chat-base/dense_llama-2/training"
 sparsity = 0.5
 nbits = 8
 smooth_quant = 0
@@ -73,7 +73,7 @@ class ProdArgs:
 
 
 def run_experimental_obcq(experimental_args):
-    model = load_model(experimental_args)
+    model, _ = load_model(experimental_args)
     calibration_data, _, _ = load_data(experimental_args, data_sequence_length)
     sequential(model, calibration_data, device, experimental_args)
 

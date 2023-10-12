@@ -72,7 +72,7 @@ class ProdArgs:
 
 
 def run_experimental_obcq(experimental_args):
-    model = load_model(experimental_args)
+    model, _ = load_model(experimental_args)
     calibration_data, _, _ = load_data(experimental_args, data_sequence_length)
     sequential(model, calibration_data, device, experimental_args)
 

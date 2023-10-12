@@ -2,11 +2,11 @@
 
 export CUDA_VISIBLE_DEVICES=0
 
-ROOT=$HOME/sparseml/src/sparseml/experimental/sparsegpt
+ROOT=$HOME/src/neuralmagic/sparseml/src/sparseml/experimental/sparsegpt
 
 DATASET=c4
 
-RECIPE_DIR=$ROOT/examples/opt/recipes
+RECIPE_DIR=$ROOT/recipes
 RECIPE_NAME=opt-1.3b-opt_pretrain-pruned50_quantW8A8
 
 SRC_MODEL_ORG=facebook

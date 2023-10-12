@@ -28,11 +28,13 @@ class SequentialSparseGPT:
         recipe: Optional[str] = None,
         model_preprocessors: Optional[List[ModelPreprocessor]] = None,
         bottom_compressor: Optional[LayerCompressor] = None,
+        head_compressor: Optional[LayerCompressor] = None,
         args=None,
     ):
         self.model = model
         self.model_preprocessors = model_preprocessors
         self.bottom_compressor = bottom_compressor
+        self.head_compressor = head_compressor
         self.recipe = recipe
         self.manager = None
         self.compressible_layers = self.compressible_layers()
@@ -102,6 +104,10 @@ class SequentialSparseGPT:
                 dev=dev, **accum_kwargs
             )
             accum_kwargs.update(layer_kwargs)
+
+        # Step 2: Prune/quantize head
+        if self.head_compressor is not None:
+            self.model, extras = self.head_compressor.compress(dev=dev, **accum_kwargs)
 
         return self.model, {}
 
