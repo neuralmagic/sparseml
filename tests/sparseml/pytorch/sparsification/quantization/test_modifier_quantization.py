@@ -74,8 +74,12 @@ def _test_quantized_module(base_model, modifier, module, name):
     assert qconfig is not None
 
     # if module type is overwritten in by scheme_overrides, check scheme set correctly
+    # name takes precedence over class
     module_type_name = module.__class__.__name__
-    if module_type_name in modifier.scheme_overrides:
+    if name in modifier.scheme_overrides:
+        expected_scheme = modifier.scheme_overrides[name]
+        assert quantization_scheme == expected_scheme
+    elif module_type_name in modifier.scheme_overrides:
         expected_scheme = modifier.scheme_overrides[module_type_name]
         assert quantization_scheme == expected_scheme
 
