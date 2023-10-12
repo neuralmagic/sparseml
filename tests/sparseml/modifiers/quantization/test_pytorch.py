@@ -23,7 +23,7 @@ from sparseml.pytorch.sparsification.quantization.quantize import (
     is_qat_helper_module,
     is_quantizable_module,
 )
-from tests.sparseml.modifiers.conf import setup_modifier_factory
+from tests.sparseml.modifiers.conf import LifecyleTestingHarness, setup_modifier_factory
 from tests.sparseml.pytorch.helpers import ConvNet, LinearNet
 from tests.sparseml.pytorch.sparsification.quantization.test_modifier_quantization import (  # noqa E501
     _test_qat_wrapped_module,
@@ -86,7 +86,7 @@ def test_quantization_oneshot(model_class):
 
     scheme = dict(
         input_activations=dict(num_bits=8, symmetric=True),
-        weights=dict(num_bits=4, symmetric=False),
+        weights=dict(num_bits=4, symmetric=False, strategy="channel"),
     )
     kwargs = dict(scheme=scheme)
 
@@ -107,3 +107,31 @@ def test_quantization_oneshot(model_class):
 
     modifier.finalize(state)
     assert modifier.finalized
+
+
+@pytest.mark.parametrize("model_class", [ConvNet, LinearNet])
+def test_quantization_training(model_class):
+    start_epoch = 2
+
+    model = model_class()
+    kwargs = dict(
+        start=start_epoch,
+        scheme=dict(
+            input_activations=dict(num_bits=8, symmetric=True),
+            weights=dict(num_bits=4, symmetric=False),
+        ),
+    )
+
+    modifier = QuantizationModifierPyTorch(**kwargs)
+
+    testing_harness = LifecyleTestingHarness(model=model)
+    modifier.initialize(testing_harness.get_state())
+    assert not modifier.qat_enabled_
+
+    testing_harness.trigger_modifier_for_epochs(modifier, start_epoch)
+    assert not modifier.qat_enabled_
+    testing_harness.trigger_modifier_for_epochs(modifier, start_epoch + 1)
+    _test_qat_applied(modifier, model)
+
+    modifier.finalize(testing_harness.get_state())
+    assert modifier.quantization_observer_disabled_
