@@ -19,7 +19,7 @@ from typing import Any, Callable
 import torch
 from torch.nn import Module
 
-from sparseml.core import Event, State, EventType
+from sparseml.core import Event, EventType, State
 from sparseml.modifiers.quantization.base import QuantizationModifier
 from sparseml.modifiers.quantization.utils.helpers import (
     configure_module_bn_wrappers,
@@ -53,21 +53,19 @@ class QuantizationModifierPyTorch(QuantizationModifier):
             )
 
         self.calibration_dataloader_ = state.data.calib
-        device = state.hardware.device
-        state.model.model.to(device)
         module = state.model.model
 
-        if self.calculate_start == -1: # one-shot
+        if self.calculate_start() == -1:  # one-shot
             self._enable_module_qat(module)
+            self._disable_quantization_observer(module)
 
         return True
 
     def on_finalize(self, state: State, **kwargs) -> bool:
         if self.post_oneshot_calibration:
-            state.model.model.to(state.hardware.device)
             state.model.model.apply(torch.quantization.enable_observer)
             self._calibrate_if_possible(state.model.model)
-        state.model.model.apply(torch.quantization.disable_observer)
+        self._disable_quantization_observer(state.model.model)
         return True
 
     def on_start(self, state: State, event: Event, **kwargs):
@@ -94,7 +92,7 @@ class QuantizationModifierPyTorch(QuantizationModifier):
     def _disable_quantization_observer(self, model: Module):
         model.apply(torch.quantization.disable_observer)
         self.quantization_observer_disabled_ = True
-        
+
     def _enable_module_qat(self, module: Module):
         # fuse conv-bn-relu blocks prior to quantization emulation
         self._fuse(module)
@@ -181,4 +179,4 @@ class QuantizationModifierPyTorch(QuantizationModifier):
         if module_training:
             module.train()
         else:
-            module.apply(torch.quantization.disable_observer)
+            self._disable_quantization_observer(module)

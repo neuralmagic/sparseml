@@ -14,7 +14,7 @@
 
 from typing import Any, Dict, List, Optional
 
-from sparseml.core import Modifier, State, Event
+from sparseml.core import Event, Modifier, State
 from sparseml.modifiers.quantization.utils.quantization_scheme import (
     QuantizationScheme,
     QuantizationSchemeLoadable,
@@ -104,6 +104,8 @@ class QuantizationModifier(Modifier):
         )
         if self.model_fuse_fn_kwargs is None:
             self.model_fuse_fn_kwargs = {}
+        if self.ignore is None:
+            self.ignore = []
 
     def calculate_freeze_bn_stats_epoch(self) -> float:
         """
@@ -111,12 +113,14 @@ class QuantizationModifier(Modifier):
 
         :return: freeze_bn_stats_epoch if set, else -1
         """
-        return self.freeze_bn_stats_epoch if self.freeze_bn_stats_epoch is not None else -1 
+        return (
+            self.freeze_bn_stats_epoch if self.freeze_bn_stats_epoch is not None else -1
+        )
 
     def check_should_freeze_bn_stats(self, event: Event) -> bool:
         """
         Given the current index, determine if we should freeze batch normalization stats
-        
+
         :param event: Event to get index from
         :return: True if stats should be frozen, False otherwise
         """
@@ -126,14 +130,18 @@ class QuantizationModifier(Modifier):
         if event.current_index >= freeze_epoch:
             return True
         return False
-    
+
     def calculate_disable_observer_epoch(self) -> float:
         """
         Get the epoch at which we want to disable to quantization observer
         :return epoch to disable at, or -1 if it is not set
         """
-        return self.disable_quantization_observer_epoch if self.disable_quantization_observer_epoch is not None else -1
-    
+        return (
+            self.disable_quantization_observer_epoch
+            if self.disable_quantization_observer_epoch is not None
+            else -1
+        )
+
     def check_should_disable_observer(self, event: Event) -> bool:
         """
         Given the current index, determine if we should disable the observer
