@@ -76,6 +76,8 @@ def _test_quantized_module(base_model, modifier, module, name):
     # if module type is overwritten in by scheme_overrides, check scheme set correctly
     # name takes precedence over class
     module_type_name = module.__class__.__name__
+    print(name, module_type_name)
+    print(modifier.scheme_overrides.keys())
     if name in modifier.scheme_overrides:
         expected_scheme = modifier.scheme_overrides[name]
         assert quantization_scheme == expected_scheme
