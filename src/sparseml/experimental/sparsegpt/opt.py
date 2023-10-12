@@ -163,8 +163,7 @@ def load_model(args):
 
     model = OPTForCausalLM.from_pretrained(model, torch_dtype="auto")
     seqlen = model.config.max_position_embeddings
-    model.seqlen = seqlen
-    return model
+    return model, seqlen
 
 
 def load_data(args, seqlen, split=0.1):
