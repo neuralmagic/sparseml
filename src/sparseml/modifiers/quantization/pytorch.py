@@ -63,6 +63,7 @@ class QuantizationModifierPyTorch(QuantizationModifier):
 
     def on_finalize(self, state: State, **kwargs) -> bool:
         if self.post_oneshot_calibration:
+            state.model.model.to(state.hardware.device)
             state.model.model.apply(torch.quantization.enable_observer)
             self._calibrate_if_possible(state.model.model)
         self._disable_quantization_observer(state.model.model)
