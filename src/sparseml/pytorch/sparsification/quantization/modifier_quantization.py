@@ -38,7 +38,6 @@ from sparseml.pytorch.sparsification.quantization.helpers import (
     configure_module_bn_wrappers,
     freeze_bn_stats,
     fuse_module_conv_bn_relus,
-    initialize_channel_wise_scale_zp,
 )
 from sparseml.pytorch.sparsification.quantization.legacy_modifier_quantization import (
     QuantizationModifier as LegacyQuantizationModifier,
@@ -516,10 +515,6 @@ class QuantizationModifier(ScheduledModifier):
         self._qat_enabled = True
 
         self._calibrate_if_possible(module)
-
-        # if channel-wise quantization is targeted, properly initialize
-        # the scale and zp shapes
-        initialize_channel_wise_scale_zp(module)
 
     def _fuse(self, module: Module):
         if self.model_fuse_fn_name in [None, "conv_bn_relus"]:
