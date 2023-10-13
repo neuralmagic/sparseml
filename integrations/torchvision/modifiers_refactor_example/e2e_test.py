@@ -92,7 +92,7 @@ def main():
 
     # initialize session
     recipe_args = {"warm_up_epochs": 5, "start_quant_epoch": 3, "pruning_epochs": 5}
-    session_data = session.initialize(
+    _ = session.initialize(
         framework=Framework.pytorch,
         recipe=recipe,
         recipe_args=recipe_args,
