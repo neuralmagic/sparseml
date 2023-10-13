@@ -31,8 +31,8 @@ from sparseml.pytorch.utils import ModuleExporter, get_prunable_layers, tensor_s
 NUM_LABELS = 3
 BATCH_SIZE = 32
 NUM_EPOCHS = 12
-recipe = "tests/sparseml/core/e2e_example/e2e_recipe.yaml"
-device = "cuda:2"
+recipe = "e2e_recipe.yaml"
+device = "cuda:0"
 
 # set up SparseML session
 sml.create_session()
