@@ -38,6 +38,10 @@ smoothquant_layer_mappings = [
         "module_to_balance": ["gate_proj", "up_proj"],
         "module_to_merge": "post_attention_layernorm",
     },
+    {
+        "module_to_balance": ["down_proj"],
+        "module_to_merge": "up_proj",
+    },
 ]
 
 
