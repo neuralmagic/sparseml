@@ -25,9 +25,9 @@ from sparseml.pytorch.sparsification.quantization.quantization_scheme import (
     QuantizationScheme,
 )
 from sparseml.pytorch.sparsification.quantization.quantize import (
+    _match_submodule_name_or_type,
     is_qat_helper_module,
     is_quantizable_module,
-    _match_submodule_name_or_type,
 )
 from tests.sparseml.pytorch.helpers import (
     ConvNet,
@@ -149,7 +149,9 @@ def _test_qat_applied(modifier, model):
             elif is_quantizable:
                 # check each target module is quantized
                 override_key = _match_submodule_name_or_type(
-                    module, name, list(modifier.scheme_overrides.keys()),
+                    module,
+                    name,
+                    list(modifier.scheme_overrides.keys()),
                 )
                 _test_quantized_module(model, modifier, module, name, override_key)
         else:
