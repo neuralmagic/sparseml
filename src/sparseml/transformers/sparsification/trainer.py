@@ -32,13 +32,14 @@ import torch
 from torch import distributed as dist
 from torch.nn import Module
 from transformers import Trainer as HFTransformersTrainer
-from transformers import TrainerCallback, TrainerControl, TrainingArguments
+from transformers import TrainerControl, TrainingArguments
 from transformers.file_utils import PaddingStrategy
 from transformers.integrations import TensorBoardCallback
 from transformers.trainer_callback import TrainerState
 from transformers.trainer_pt_utils import reissue_pt_warnings
 from transformers.trainer_utils import ShardedDDPOption, get_last_checkpoint
 
+import sparseml.core.session as sml
 from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
 from sparseml.pytorch.sparsification.quantization.helpers import (
     initialize_channel_wise_scale_zp,
@@ -51,6 +52,8 @@ from sparseml.pytorch.utils import (
 )
 from sparseml.transformers.utils import SparseAutoModel
 from sparseml.transformers.utils.helpers import RECIPE_NAME
+from sparseml.transformers.sparsification.trainer_callback import TrainerCallback
+from sparseml.core.framework import Framework
 
 
 __all__ = [
@@ -154,16 +157,19 @@ class RecipeManagerTrainerInterface:
             self.logger_manager = LoggerManager(log_python=False)
 
         self.one_shot = data_args.one_shot if hasattr(data_args, "one_shot") else False
-        self.manager, self.arch_manager = self._setup_manager(kwargs)
-        self.manager_applied = False
-        self.manager_initialized = False
-        self.manager_finalized = False
-        self.manager_steps_per_epoch = 0
+        sml.create_session()
+        self.session = sml.active_active()
+        
+        #self.manager, self.arch_manager = self._setup_manager(kwargs)
+        #self.manager_applied = False
+        #self.manager_initialized = False
+        #self.manager_finalized = False
+        #self.manager_steps_per_epoch = 0
 
         super().__init__(model=model, **kwargs)
         self.criterion = torch.nn.CrossEntropyLoss()
-        self.callback_disable_fp16 = DisableHalfPrecisionCallback(self)
-        self.callback_handler.add_callback(self.callback_disable_fp16)
+        self.sparseml_callbacks = TrainerCallback(self)
+        self.callback_handler.add_callback(self.sparseml_callbacks)
         self._add_tensorboard_logger_if_available()
 
         model_signature = inspect.signature(self.model.forward)
@@ -174,6 +180,13 @@ class RecipeManagerTrainerInterface:
             self._teacher_signature_columns = list(teacher_signature.parameters.keys())
         else:
             self._teacher_signature_columns = None
+
+        sml.pre_initialize_structure(
+            model=self.model,
+            recipe=recipe,
+            recipe_args=recipe_args,
+            framework=Framework.pytorch
+        )
 
     def apply_manager(self, epoch: float, checkpoint: Optional[str]) -> bool:
         """
@@ -259,9 +272,6 @@ class RecipeManagerTrainerInterface:
         """
         self._check_super_defined("create_optimizer")
         super().create_optimizer()
-
-        if not self.manager:
-            return
 
         n_gpu = (
             torch.distributed.get_world_size()
@@ -615,45 +625,6 @@ class RecipeManagerTrainerInterface:
             raise NotImplementedError(
                 f"The super class for SparseMLTrainer must define a {func} function"
             )
-
-    def _setup_manager(
-        self, kwargs
-    ) -> Tuple[Optional[ScheduledModifierManager], List[ScheduledModifierManager]]:
-        manager = None
-        arch_manager = None
-
-        if self.recipe is not None:
-            manager = ScheduledModifierManager.from_yaml(
-                self.recipe,
-                recipe_variables=self.recipe_args,
-                metadata=self.metadata,
-            )
-            _LOGGER.info(
-                "Loaded SparseML recipe variable into manager for recipe: "
-                f"{self.recipe}, recipe_variables: {self.recipe_args} "
-                f"and metadata {self.metadata}"
-            )
-
-        arch_recipe = os.path.join(self.model_state_path, RECIPE_NAME)
-        if os.path.isfile(arch_recipe):
-            arch_manager = ScheduledModifierManager.from_yaml(arch_recipe)
-            _LOGGER.info(
-                f"Loaded {arch_manager.num_stages()} SparseML checkpoint recipe "
-                f"stage(s) from {arch_recipe} to replicate model sparse state"
-            )
-
-        if (
-            manager is not None
-            and manager.max_epochs
-            and "args" in kwargs
-            and (hasattr(kwargs["args"], "num_train_epochs"))
-        ):
-            _LOGGER.warning(
-                f"Overriding num_train_epochs from Recipe to {manager.max_epochs}"
-            )
-            kwargs["args"].num_train_epochs = manager.max_epochs
-
-        return manager, arch_manager
 
     def _reload_model_state(self, load_path: str, orig_state_dict: Dict[str, Any]):
         """
