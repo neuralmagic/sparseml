@@ -138,6 +138,11 @@ LLAMA_CONFIG = KeyValueCacheConfig(
     multiply_batch_by_num_att_heads=False,
 )
 
+# Mistral has a new config/model definition "MistralForCausalLM" but is heavily based off Llama2.
+# It contains these additions to Llama2-7b:
+# * Sliding Window Attention - Trained with 8k context length and fixed cache size, with a theoretical attention span of 128K tokens
+# * GQA (Grouped Query Attention) - allowing faster inference and lower cache size.
+# * Byte-fallback BPE tokenizer - ensures that characters are never mapped to out of vocabulary tokens.
 MISTRAL_CONFIG = KeyValueCacheConfig(
     model_name="mistral",
     additional_transforms=AdditionalTransformsLLAMA,
