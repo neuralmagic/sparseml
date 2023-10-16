@@ -44,6 +44,7 @@ class QuantizationModifierPyTorch(QuantizationModifier):
     def on_initialize_structure(self, state: State, **kwargs):
         module = state.model.model
         self._enable_module_qat(module)
+        state.model.model.apply(torch.quantization.disable_observer)
 
     def on_initialize(self, state: State, **kwargs) -> bool:
         raise_if_torch_quantization_not_available()
@@ -84,6 +85,8 @@ class QuantizationModifierPyTorch(QuantizationModifier):
         pass
 
     def _enable_module_qat(self, module: Module):
+        module.apply(torch.quantization.enable_observer)
+
         if not self.qat_enabled_:
             # fuse conv-bn-relu blocks prior to quantization emulation
             self._fuse(module)

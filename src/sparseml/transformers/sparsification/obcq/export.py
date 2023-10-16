@@ -67,10 +67,8 @@ import collections
 import copy
 import inspect
 import logging
-import math
 import os
 import shutil
-from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
 
 from torch.nn import Module
@@ -282,21 +280,8 @@ def export_transformer_to_onnx(
     model = load_task_model(task, model_path, config, trust_remote_code)
     _LOGGER.info(f"loaded model, config, and tokenizer from {model_path}")
 
-    eval_dataset = None
-    if num_export_samples > 0 and data_args:
-        tokenized_dataset = load_task_dataset(
-            task=task,
-            tokenizer=tokenizer,
-            data_args=data_args,
-            model=model,
-            config=config,
-        )
-        eval_dataset = tokenized_dataset.get("validation")
-        _LOGGER.info(f"loaded validation dataset for args {data_args}")
-
     model = model.train()
 
-    trainer_output_dir = os.path.dirname(model_path)
     recipe_path = os.path.join(model_path, RECIPE_NAME)
     if not os.path.exists(recipe_path):
         _LOGGER.warning(
@@ -309,12 +294,10 @@ def export_transformer_to_onnx(
     sml.pre_initialize_structure(
         model=model, recipe=recipe_path, framework=Framework.pytorch
     )
-    orig_state_dict = model.state_dict()
 
     if recipe_path:
-        sml.finalize()
-
-        num_stages = sml.state().recipe.compiled_recipe.stages
+        session = sml.active_session()
+        num_stages = len(session.lifecycle.recipe_container.compiled_recipe.stages)
         msg = (
             "an unstaged recipe"
             if num_stages == 1
