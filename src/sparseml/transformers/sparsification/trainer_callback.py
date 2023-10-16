@@ -49,7 +49,7 @@ class TrainerCallback(HFTrainerCallback):
         Event called after a successful prediction.
         """
         super().on_predict(args, state, control, **kwargs)
-        callbacks.loss_calculated()
+        # callbacks.loss_calculated()
 
     def on_prediction_step(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
         """

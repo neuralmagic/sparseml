@@ -54,6 +54,7 @@ from sparseml.transformers.utils import SparseAutoModel
 from sparseml.transformers.utils.helpers import RECIPE_NAME
 from sparseml.transformers.sparsification.trainer_callback import TrainerCallback
 from sparseml.core.framework import Framework
+from sparseml.core.data import ModifiableData
 
 
 __all__ = [
@@ -159,12 +160,6 @@ class RecipeManagerTrainerInterface:
         self.one_shot = data_args.one_shot if hasattr(data_args, "one_shot") else False
         sml.create_session()
         self.session = sml.active_active()
-        
-        #self.manager, self.arch_manager = self._setup_manager(kwargs)
-        #self.manager_applied = False
-        #self.manager_initialized = False
-        #self.manager_finalized = False
-        #self.manager_steps_per_epoch = 0
 
         super().__init__(model=model, **kwargs)
         self.criterion = torch.nn.CrossEntropyLoss()
@@ -188,49 +183,29 @@ class RecipeManagerTrainerInterface:
             framework=Framework.pytorch
         )
 
-    def apply_manager(self, epoch: float, checkpoint: Optional[str]) -> bool:
-        """
-        Apply the recipe(s) to the model and training/validation process.
-
-        :param epoch: the training epoch to apply the recipe(s) at.
-            If loading after training, set epoch=math.inf
-        :param checkpoint: the optional checkpoint to use to reload model state
-            from after the model's architecture has been modified.
-            If not supplied, falls back to self.model_state_path
-        :return: True if recipes were applied, False otherwise
-        """
-
-        if (not self.arch_manager and self.manager is None) or self.manager_applied:
-            return False
-
+    def initialize_session(self, epoch: float, checkpoint: Optional[str]):
         orig_state_dict = self.model.state_dict()
 
-        if self.arch_manager:
-            self.arch_manager.apply_structure(self.model, epoch=epoch)
-            _LOGGER.info(
-                f"Applied structure from {self.arch_manager.num_stages()} "
-                "previous recipe stage(s) to model and finalized "
-                "(recipes saved with model_path)"
-            )
+        train_data = None
+        if not self.one_shot:
+            train_data = self.get_train_dataloader()
 
-        if self.manager is not None:
-            if not self.one_shot:
-                self.manager.apply_structure(self.model, epoch=epoch)
-                _LOGGER.info(
-                    "Applied structure from SparseML recipe argument to model at "
-                    f"epoch {epoch}"
-                )
-            else:
-                self.manager.apply(
-                    self.model,
-                    grad_sampler={
-                        "data_loader_builder": self._data_loader_builder,
-                        "loss_function": self._loss_function,
-                    },
-                )
-                self.manager_applied = True
-                _LOGGER.info(f"Applied one shot recipe {self.recipe} to the manager")
-                return True
+        calibration_data = None
+        try:
+            calibration_data = self.get_eval_dataloader()
+        except Exception:
+            with suppress(ValueError):
+                calibration_data = self.get_train_dataloader()
+
+        sml.initialize(
+            model=self.model,
+            recipe=self.recipe,
+            recipe_args=self.recipe_args,
+            framework=Framework.pytorch,
+            train_data=train_data,
+            calib_data=calibration_data,
+            start = epoch
+        )
 
         # reload the state dict for the model now that architecture matches expected
         load_path = checkpoint or self.model_state_path
@@ -240,28 +215,17 @@ class RecipeManagerTrainerInterface:
                 f"from {load_path}"
             )
 
-        self.manager_applied = True
-
         return True
+    
 
-    def finalize_manager(self) -> bool:
-        """
-        Finalize the current recipes to wrap up any held state.
-
-        :return: True if recipes were finalized, False otherwise
-        """
-        if (
-            self.manager is None
-            or not self.manager_initialized
-            or self.manager_finalized
-        ):
+    def finalize_session(self):
+        session = sml.active_session()
+        if not session.initialized or session.finalized:
             return False
-
-        self.manager.finalize(self.model)
-        self.manager_finalized = True
+        
+        sml.finalize()
         _LOGGER.info("Finalized SparseML recipe argument applied to the model")
 
-        return True
 
     def create_optimizer(self):
         """
@@ -270,6 +234,9 @@ class RecipeManagerTrainerInterface:
         self.optimizer to the optimizer state and optionally set self.scaler
         if using amp.
         """
+
+        #TODO do we still need to wrap the optimizer in the new framework?
+
         self._check_super_defined("create_optimizer")
         super().create_optimizer()
 
@@ -284,55 +251,12 @@ class RecipeManagerTrainerInterface:
             * n_device
             * self.args.gradient_accumulation_steps
         )
-        self.manager_steps_per_epoch = math.ceil(
+        self.total_steps_per_epoch = math.ceil(
             len(self.train_dataset) / total_batch_size
         )
-        if hasattr(self, "scaler"):
-            wrap_optim_key = "scaler"
-            self.scaler = self.manager.modify(
-                self.model,
-                self.optimizer,
-                steps_per_epoch=self.manager_steps_per_epoch,
-                allow_parallel_module=False,
-                wrap_optim=self.scaler,
-                loggers=self.logger_manager,
-                distillation_teacher=self.teacher,
-                grad_sampler={
-                    "data_loader_builder": self._data_loader_builder,
-                    "loss_function": self._loss_function,
-                },
-            )
-        else:
-            wrap_optim_key = "optimizer"
-            self.optimizer = ScheduledOptimizer(
-                self.optimizer,
-                self.model,
-                self.manager,
-                steps_per_epoch=self.manager_steps_per_epoch,
-                loggers=self.logger_manager,
-                initialize_kwargs={
-                    "distillation_teacher": self.teacher,
-                    "grad_sampler": {
-                        "data_loader_builder": self._data_loader_builder,
-                        "loss_function": self._loss_function,
-                    },
-                },
-            )
-            if not self.manager.initialized:
-                self.manager.initialize(
-                    self.model,
-                    loggers=self.logger_manager,
-                    distillation_teacher=self.teacher,
-                    grad_sampler={
-                        "data_loader_builder": self._data_loader_builder,
-                        "loss_function": self._loss_function,
-                    },
-                )
-        self.manager_initialized = True
-        _LOGGER.info(
-            f"Modified the {wrap_optim_key} from the recipe for training with "
-            f"total_batch_size: {total_batch_size} and "
-            f"steps_per_epoch: {self.manager_steps_per_epoch}"
+        sml.initialize(
+            optimizer=self.optimizer,
+            steps_per_epoch=self.total_steps_per_epoch
         )
 
     def create_scheduler(
@@ -348,11 +272,12 @@ class RecipeManagerTrainerInterface:
         :param num_training_steps: the total number of training steps
         :param optimizer: pre-initialized optimizer
         """
+
+        # TODO: we don't currently have a LR scheduler in the new modifier framework
         self._check_super_defined("create_scheduler")
         if (
             self.lr_scheduler is not None
-            or self.manager is None
-            or not self.manager.learning_rate_modifiers
+            or sml.active_session() is None
         ):
             super().create_scheduler(num_training_steps, optimizer)
             return
@@ -379,11 +304,11 @@ class RecipeManagerTrainerInterface:
         """
         self._check_super_defined("compute_loss")
 
+        session = sml.active_session()
         if (
-            self.manager is None
-            or not self.manager.initialized
-            or not self.manager.enabled
-            or not self.manager.distillation_modifiers
+            session is None
+            or not session.lifecyle.initialized_
+            or not session.state.teacher_model
         ):
             inputs = {
                 k: inputs[k] for k in inputs if k in self._model_signature_columns
@@ -417,16 +342,7 @@ class RecipeManagerTrainerInterface:
         loss = student_outputs["loss"]
         if self.args.n_gpu > 1:  # DataParallel
             loss = loss.mean()
-        loss = self.manager.loss_update(
-            loss,
-            model,
-            self.optimizer,
-            self.state.epoch,
-            self.manager_steps_per_epoch,
-            student_outputs=student_outputs,
-            student_inputs=student_inputs,
-            teacher_inputs=teacher_inputs,
-        )
+        sml.callbacks.loss_calculated(loss=loss)
 
         return (loss, student_outputs) if return_outputs else loss
 
@@ -468,13 +384,15 @@ class RecipeManagerTrainerInterface:
         self._check_super_defined("save_model")
         super().save_model(output_dir=output_dir, _internal_call=_internal_call)
 
-        if self.manager is None:
+        if sml.active_session() is None:
             return
 
         if output_dir is None:
             output_dir = self.args.output_dir
 
         recipe_path = os.path.join(output_dir, RECIPE_NAME)
+        #TODO: saving in new framework
+        """
         if self.arch_manager:
             composed_manager = ScheduledModifierManager.compose_staged(
                 base_recipe=str(self.arch_manager),
@@ -483,6 +401,7 @@ class RecipeManagerTrainerInterface:
             composed_manager.save(recipe_path)
         else:
             self.manager.save(recipe_path)
+        """
 
         _LOGGER.info(f"Saved SparseML recipe with model state to {recipe_path}")
 
@@ -838,13 +757,13 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         :return: the output from super.train()
         """
         checkpoint, epoch = self._generate_apply_manager_params(kwargs)
-        applied = self.apply_manager(epoch=epoch, checkpoint=checkpoint)
+        applied = self.initialize_session(epoch=epoch, checkpoint=checkpoint)
         self.callback_disable_fp16.check_disable(epoch, force=True)
         output = None
         if not self.one_shot:
             output = super().train(*args, **kwargs)
             if applied:
-                self.finalize_manager()
+                self.finalize_session()
         else:
             _LOGGER.info(f"Skipping Training due to one-shot: {self.one_shot}")
         self.log_model_sparsification()
@@ -861,7 +780,7 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         :param kwargs: keyword args to pass to super().evaluate()
         :return: the output from super.evaluate()
         """
-        applied = self.apply_manager(epoch=math.inf, checkpoint=None)
+        applied = self.initialize_session(epoch=math.inf, checkpoint=None)
 
         # Always evaluate w/ fp32 to be closer to DeepSparse
         use_cuda_amp = self.use_cuda_amp
@@ -871,7 +790,7 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         output = super().evaluate(*args, **kwargs)
         self.use_cuda_amp = use_cuda_amp
         if applied:
-            self.finalize_manager()
+            self.finalize_session()
 
         return output
 
@@ -885,10 +804,10 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         :param kwargs: keyword args to pass to super().predict()
         :return: the output from super.predict()
         """
-        applied = self.apply_manager(epoch=math.inf, checkpoint=None)
+        applied = self.initialize_session(epoch=math.inf, checkpoint=None)
         output = super().predict(*args, **kwargs)
         if applied:
-            self.finalize_manager()
+            self.finalize_session()
 
         return output
 
@@ -981,11 +900,12 @@ class TransformersTrainer(HFTransformersTrainer):
 
         super()._load_optimizer_and_scheduler(model_folder)
 
-        if self.manager.learning_rate_modifiers:
+        # TODO: not yet implemented
+        #if self.manager.learning_rate_modifiers:
             # If LR modifiers are present in the recipe, SparseML willl take
             # control of the learning rate schedule. Therefore, set the built-in
             # scheduler to a dummy
-            self.lr_scheduler = self._dummy_lr_scheduler()
+            #self.lr_scheduler = self._dummy_lr_scheduler()
 
     def _dummy_lr_scheduler(self):
         return torch.optim.lr_scheduler.MultiplicativeLR(
@@ -1086,6 +1006,7 @@ class DisableHalfPrecisionCallback(TrainerCallback):
             self.disable_amp(epoch)
 
     def qat_active(self, epoch: float) -> bool:
+        # TODO: refactor to not use manager
         manager_q_active = arch_manager_q_active = False
         if self.trainer.manager:
             manager_q_active = bool(self.trainer.manager.qat_active(epoch))
