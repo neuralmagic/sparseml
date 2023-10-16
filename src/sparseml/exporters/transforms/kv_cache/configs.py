@@ -138,6 +138,16 @@ LLAMA_CONFIG = KeyValueCacheConfig(
     multiply_batch_by_num_att_heads=False,
 )
 
+MISTRAL_CONFIG = KeyValueCacheConfig(
+    model_name="mistral",
+    additional_transforms=AdditionalTransformsLLAMA,
+    key_num_attention_heads="num_attention_heads",
+    key_num_embedding_hidden_size="hidden_size",
+    transpose_value_input=None,
+    transpose_key_input=None,
+    multiply_batch_by_num_att_heads=False,
+)
+
 # Reusing the CodeGen transforms because it happens to match what we need for GPTNeo
 additional_transforms_gpt_neo = AdditionalTransformsCodeGen
 
@@ -160,6 +170,7 @@ def get_kv_cache_config(
         BLOOM_CONFIG,
         MPT_CONFIG,
         LLAMA_CONFIG,
+        MISTRAL_CONFIG,
         GPT_NEO_CONFIG,
     ],
 ) -> KeyValueCacheConfig:
