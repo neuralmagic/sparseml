@@ -31,7 +31,7 @@ __all__ = [
 @dataclass
 class SparsificationLifecycle:
     state: Optional[State] = None
-    recipe_container: RecipeContainer = RecipeContainer()
+    recipe_container: RecipeContainer = field(default_factory=RecipeContainer)
     modifiers: List[ModifierInterface] = field(default_factory=list)
     event_lifecycle: Optional[EventLifecycle] = None
 
