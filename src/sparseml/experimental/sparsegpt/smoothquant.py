@@ -29,7 +29,6 @@ class SmoothQuantModelPreprocessor(ModelPreprocessor):
         layer_mappings,
         ignore=None,
         alpha: float = 0.5,
-        logarithmic_equalization: bool = False,
     ):
         super().__init__(model)
         self.data_loader = data_loader
@@ -37,7 +36,6 @@ class SmoothQuantModelPreprocessor(ModelPreprocessor):
         self.layer_mappings = layer_mappings
         self.ignore = ignore
         self.alpha = alpha
-        self.logarithmic_equalization = logarithmic_equalization
         self.resolved_mappings = None
         self.scales = None
         self.resolve_layer_mappings()
@@ -123,24 +121,25 @@ class SmoothQuantModelPreprocessor(ModelPreprocessor):
 
         del hooks
 
+    def compute_balancing_scales(self, mapping, dev):
+        name, module_to_merge = mapping["module_to_merge"]
+        activation_scales = self.scales[name][2].to(dev)
+
+        weight_scales = []
+        for name, module in mapping["module_to_balance"]:
+            if hasattr(module, "weight"):
+                weight_scales.append(
+                    module.weight.abs().max(dim=0, keepdim=True)[0].to(dev)
+                )
+        weight_scales = 2.0 * torch.cat(weight_scales, dim=0).max(dim=0)[0]
+        return activation_scales.pow(self.alpha) / weight_scales.pow(
+            1.0 - self.alpha
+        )
+
     def apply_smoothing(self, dev):
         for mapping in self.resolved_mappings:
-            name, module_to_merge = mapping["module_to_merge"]
-            activation_scales = self.scales[name][2].to(dev)
-
-            if self.logarithmic_equalization:
-                scales = activation_scales / torch.log2(2 + activation_scales)
-            else:
-                weight_scales = []
-                for name, module in mapping["module_to_balance"]:
-                    if hasattr(module, "weight"):
-                        weight_scales.append(
-                            module.weight.abs().max(dim=0, keepdim=True)[0].to(dev)
-                        )
-                weight_scales = 2.0 * torch.cat(weight_scales, dim=0).max(dim=0)[0]
-                scales = activation_scales.pow(self.alpha) / weight_scales.pow(
-                    1.0 - self.alpha
-                )
+            scales = self.compute_balancing_scales(mapping, dev)
+            module_to_merge = mapping["module_to_merge"][1]
 
             for _, module in mapping["module_to_balance"]:
                 if hasattr(module, "weight"):
@@ -176,3 +175,10 @@ class SmoothQuantModelPreprocessor(ModelPreprocessor):
         self.apply_smoothing(dev)
         self.cleanup()
         return self.model, {}
+
+
+class LogarithmicEqualizationPreprocessor(SmoothQuantModelPreprocessor):
+    def compute_balancing_scales(self, mapping, dev):
+        name, module_to_merge = mapping["module_to_merge"]
+        activation_scales = self.scales[name][2].to(dev)
+        return activation_scales / torch.log2(2 + activation_scales)
