@@ -25,7 +25,10 @@ from sparseml.core.lifecycle.event import (
 )
 
 
-def test_event_lifecycle_can_not_be_instantiated():
+def test_event_lifecycle_abstract_class_can_not_be_instantiated():
+    # tests event lifecycle abstract class can not be instantiated
+    # directly, without implementing the abstract methods
+
     with pytest.raises(TypeError):
         EventLifecycle(type_first=EventType.BATCH_START, start=Event())
 
@@ -57,10 +60,21 @@ def _get_event_lifecycle(
 
 
 class TestEventLifecycle:
-    def test_init(self):
-        start = Event()
-        type_first = EventType.BATCH_START
-
+    @pytest.mark.parametrize("type_first", [EventType.BATCH_START, EventType.BATCH_END])
+    @pytest.mark.parametrize(
+        "start",
+        [
+            Event(),
+            Event(
+                global_step=1,
+                global_batch=1,
+                steps_per_epoch=1,
+                batches_per_step=1,
+                invocations_per_step=1,
+            ),
+        ],
+    )
+    def test_init(self, type_first, start):
         lifecycle = _get_event_lifecycle(type_first=type_first, start=start)
         assert lifecycle.type_first == type_first
         assert lifecycle.steps_per_epoch == start.steps_per_epoch
@@ -155,9 +169,11 @@ class TestWrappedOptimEventLifecycle:
             "batch_end_events",
         ],
     )
-    def test_wrapped_lifecycle_raises_value_error_on_erroneous_invocation(
-        self, method_name
-    ):
+    def test_batch_start_and_batch_end_events_are_invalid(self, method_name):
+        # batch_start_events and batch_end_events must not be
+        # called on WrappedOptimEventLifecycle explicitly
+        # since they are auto-triggered when optim is wrapped
+
         lifecycle = _get_event_lifecycle(lifecycle_class=WrappedOptimEventLifecycle)
         with pytest.raises(ValueError, match="batch"):
             method = getattr(lifecycle, method_name)
@@ -167,9 +183,16 @@ class TestWrappedOptimEventLifecycle:
         "type_first",
         [
             EventType.BATCH_START,
+            EventType.BATCH_END,
+            EventType.OPTIM_PRE_STEP,
+            EventType.OPTIM_POST_STEP,
         ],
     )
-    def test_loss_calculated_events_with_wrong_type_first(self, type_first):
+    def test_loss_calculated_events_with_invalid_first_event_type(self, type_first):
+        # type_first must be EventType.LOSS_CALCULATED to get
+        # loss_calculated_events on an
+        # WrappedOptimEventLifecycle instance
+
         lifecycle = _get_event_lifecycle(
             type_first=type_first, lifecycle_class=WrappedOptimEventLifecycle
         )
@@ -184,7 +207,11 @@ class TestWrappedOptimEventLifecycle:
             EventType.BATCH_END,
         ],
     )
-    def test_loss_calculated_events_with_wrong_type_(self, type_):
+    def test_loss_calculated_events_with_invalid_event_type(self, type_):
+        # type_ must be EventType.LOSS_CALCULATED or
+        # EventType.OPITM_POST_STEP to get loss_calculated_events
+        # on an WrappedOptimEventLifecycle instance
+
         lifecycle = _get_event_lifecycle(
             lifecycle_class=WrappedOptimEventLifecycle,
             type_first=EventType.LOSS_CALCULATED,
@@ -230,7 +257,12 @@ class TestWrappedOptimEventLifecycle:
             (EventType.LOSS_CALCULATED, EventType.OPTIM_POST_STEP),
         ],
     )
-    def test_optim_pre_step_events_raises_value_error(self, type_first, type_):
+    def test_optim_pre_step_events_raises_value_error_with_invalid_event_invocation(
+        self, type_first, type_
+    ):
+        # optim pre step  must be called before optim post step
+        # and loss calculated must be called after loss calculation
+
         lifecycle = _get_event_lifecycle(
             lifecycle_class=WrappedOptimEventLifecycle, type_first=type_first
         )
@@ -283,7 +315,11 @@ class TestWrappedOptimEventLifecycle:
             EventType.PRE_INIT,
         ],
     )
-    def test_optim_post_step_events_raises_value_error(self, type_):
+    def test_optim_post_step_events_raises_value_error_with_invalid_event_type(
+        self, type_
+    ):
+        # optim post step must be called after optim pre step
+
         lifecycle = _get_event_lifecycle(lifecycle_class=WrappedOptimEventLifecycle)
         lifecycle.type_ = type_
 
@@ -345,7 +381,14 @@ class TestCallbackEventLifecycle:
             (EventType.BATCH_START, EventType.OPTIM_POST_STEP),
         ],
     )
-    def test_batch_start_events_raises_value_error(self, type_first, type_):
+    def test_batch_start_events_raises_value_error_with_invalid_event_invocation(
+        self, type_first, type_
+    ):
+        # batch start must be called first for CallbacksEventLifecycle
+
+        # batch start must be called after batch end for
+        # CallbacksEventLifecycle
+
         lifecycle = _get_event_lifecycle(
             lifecycle_class=CallbacksEventLifecycle, type_first=type_first
         )
@@ -385,7 +428,11 @@ class TestCallbackEventLifecycle:
             EventType.OPTIM_PRE_STEP,
         ],
     )
-    def test_loss_calculated_event_raises_value_error_with_wrong_type_(self, type_):
+    def test_loss_calculated_event_raises_value_error_with_invalid_event_type(
+        self, type_
+    ):
+        # loss calculated must be called after batch start
+
         lifecycle = _get_event_lifecycle(lifecycle_class=CallbacksEventLifecycle)
         lifecycle.type_ = type_
 
@@ -420,7 +467,12 @@ class TestCallbackEventLifecycle:
             EventType.OPTIM_POST_STEP,
         ],
     )
-    def test_optim_pre_step_events_raises_value_error(self, type_):
+    def test_optim_pre_step_events_raises_value_error_with_invalid_event_type(
+        self, type_
+    ):
+        # optim pre step must be called after batch start or
+        # loss calculation for CallbacksEventLifecycle
+
         lifecycle = _get_event_lifecycle(
             lifecycle_class=CallbacksEventLifecycle,
         )
@@ -477,7 +529,11 @@ class TestCallbackEventLifecycle:
             EventType.OPTIM_POST_STEP,
         ],
     )
-    def test_optim_post_step_events_raises_value_error(self, type_):
+    def test_optim_post_step_events_raises_value_error_with_invalid_event_type(
+        self, type_
+    ):
+        # optim post step must be called after optim pre step
+
         lifecycle = _get_event_lifecycle(lifecycle_class=CallbacksEventLifecycle)
         lifecycle.type_ = type_
 
@@ -535,7 +591,10 @@ class TestCallbackEventLifecycle:
             EventType.PRE_INIT,
         ],
     )
-    def test_batch_end_events_raises_value_error(self, type_):
+    def test_batch_end_events_raises_value_error_with_invalid_event_type(self, type_):
+        # batch end must be called after batch start or optim post step
+        #  or loss calculation for CallbacksEventLifecycle
+
         lifecycle = _get_event_lifecycle(lifecycle_class=CallbacksEventLifecycle)
         lifecycle.type_ = type_
 
