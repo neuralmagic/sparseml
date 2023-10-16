@@ -19,10 +19,11 @@ from typing import Any, Callable
 import torch
 from torch.nn import Module
 
-from sparseml.core import Event, State
+from sparseml.core import Event, EventType, State
 from sparseml.modifiers.quantization.base import QuantizationModifier
 from sparseml.modifiers.quantization.utils.helpers import (
     configure_module_bn_wrappers,
+    freeze_bn_stats,
     fuse_module_conv_bn_relus,
 )
 from sparseml.modifiers.quantization.utils.quantize import (
@@ -40,6 +41,8 @@ class QuantizationModifierPyTorch(QuantizationModifier):
     calibration_dataloader_: Any = None
     calibration_function_: Any = None
     qat_enabled_: bool = False
+    quantization_observer_disabled_: bool = False
+    bn_stats_frozen_: bool = False
 
     def on_initialize(self, state: State, **kwargs) -> bool:
         raise_if_torch_quantization_not_available()
@@ -51,10 +54,10 @@ class QuantizationModifierPyTorch(QuantizationModifier):
 
         self.calibration_dataloader_ = state.data.calib
         module = state.model.model
-        device = state.hardware.device
-        state.model.model.to(device)
-        module = state.model.model
-        self._enable_module_qat(module)
+
+        if self.calculate_start() == -1:  # one-shot
+            self._enable_module_qat(module)
+            self._disable_quantization_observer(module)
 
         return True
 
@@ -63,20 +66,33 @@ class QuantizationModifierPyTorch(QuantizationModifier):
             state.model.model.to(state.hardware.device)
             state.model.model.apply(torch.quantization.enable_observer)
             self._calibrate_if_possible(state.model.model)
-        state.model.model.apply(torch.quantization.disable_observer)
+        self._disable_quantization_observer(state.model.model)
         return True
 
     def on_start(self, state: State, event: Event, **kwargs):
-        pass
+        if not self.qat_enabled_:
+            self._enable_module_qat(state.model.model)
 
     def on_update(self, state: State, event: Event, **kwargs):
-        pass
+        if event.type_ == EventType.BATCH_START:
+            if self.check_should_freeze_bn_stats(event):
+                self._freeze_bn_stats(state.model.model)
+            if self.check_should_disable_observer(event):
+                self._disable_quantization_observer(state.model.model)
 
     def on_end(self, state: State, event: Event, **kwargs):
-        pass
+        self._disable_quantization_observer(state.model.model)
 
     def on_event(self, state: State, event: Event, **kwargs):
         pass
+
+    def _freeze_bn_stats(self, model: Module):
+        model.apply(freeze_bn_stats)
+        self.bn_stats_frozen_ = True
+
+    def _disable_quantization_observer(self, model: Module):
+        model.apply(torch.quantization.disable_observer)
+        self.quantization_observer_disabled_ = True
 
     def _enable_module_qat(self, module: Module):
         # fuse conv-bn-relu blocks prior to quantization emulation
@@ -164,4 +180,4 @@ class QuantizationModifierPyTorch(QuantizationModifier):
         if module_training:
             module.train()
         else:
-            module.apply(torch.quantization.disable_observer)
+            self._disable_quantization_observer(module)
