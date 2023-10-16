@@ -159,7 +159,6 @@ class RecipeManagerTrainerInterface:
 
         self.one_shot = data_args.one_shot if hasattr(data_args, "one_shot") else False
         sml.create_session()
-        self.session = sml.active_active()
 
         super().__init__(model=model, **kwargs)
         self.criterion = torch.nn.CrossEntropyLoss()
@@ -176,12 +175,14 @@ class RecipeManagerTrainerInterface:
         else:
             self._teacher_signature_columns = None
 
+        """
         sml.pre_initialize_structure(
             model=self.model,
             recipe=recipe,
             recipe_args=recipe_args,
             framework=Framework.pytorch
         )
+        """
 
     def initialize_session(self, epoch: float, checkpoint: Optional[str]):
         orig_state_dict = self.model.state_dict()
@@ -236,6 +237,7 @@ class RecipeManagerTrainerInterface:
         """
 
         #TODO do we still need to wrap the optimizer in the new framework?
+        # this should be fine since its in the callbacks
 
         self._check_super_defined("create_optimizer")
         super().create_optimizer()
@@ -274,6 +276,7 @@ class RecipeManagerTrainerInterface:
         """
 
         # TODO: we don't currently have a LR scheduler in the new modifier framework
+        # can ignore if its not part of the recipe
         self._check_super_defined("create_scheduler")
         if (
             self.lr_scheduler is not None
@@ -758,7 +761,7 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         """
         checkpoint, epoch = self._generate_apply_manager_params(kwargs)
         applied = self.initialize_session(epoch=epoch, checkpoint=checkpoint)
-        self.callback_disable_fp16.check_disable(epoch, force=True)
+        #self.callback_disable_fp16.check_disable(epoch, force=True)
         output = None
         if not self.one_shot:
             output = super().train(*args, **kwargs)
@@ -1007,6 +1010,7 @@ class DisableHalfPrecisionCallback(TrainerCallback):
 
     def qat_active(self, epoch: float) -> bool:
         # TODO: refactor to not use manager
+        # would be nice to have helper functions for noting if quantization and/or LR modifiers are applied
         manager_q_active = arch_manager_q_active = False
         if self.trainer.manager:
             manager_q_active = bool(self.trainer.manager.qat_active(epoch))

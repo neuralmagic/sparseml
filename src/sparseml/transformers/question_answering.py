@@ -348,7 +348,7 @@ def main(**kwargs):
     ):
         last_checkpoint = get_last_checkpoint(training_args.output_dir)
         if last_checkpoint is None and len(os.listdir(training_args.output_dir)) > 0:
-            raise ValueError(
+                raise ValueError(
                 f"Output directory ({training_args.output_dir}) already exists and is "
                 "not empty. Use --overwrite_output_dir to overcome."
             )
