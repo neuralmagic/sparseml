@@ -199,9 +199,9 @@ class SmoothQuantModifierPyTorch(SmoothQuantModifier):
 
             # calculate the amount of smoothing to apply
             # s_j = max(|X_j|)^alpha / max(|W_j|)^(1-alpha)
-            # where j is the input channel, alpha is migration strength
-            scales = activation_scales.pow(self.migration_strength) / weight_scales.pow(
-                1 - self.migration_strength
+            # where j is the input channel, alpha is smoothing strength
+            scales = activation_scales.pow(self.smoothing_strength) / weight_scales.pow(
+                1 - self.smoothing_strength
             )
 
             # invert the smoothing in the following layers

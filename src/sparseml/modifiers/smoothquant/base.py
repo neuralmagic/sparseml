@@ -16,6 +16,8 @@
 from dataclasses import dataclass
 from typing import Dict, Generic, List, Optional, Tuple, TypeVar
 
+from pydantic import Field
+
 from sparseml.core import Modifier
 from sparseml.core.model import ModifiableModel
 from sparseml.core.model.base import LT
@@ -70,7 +72,7 @@ class SmoothQuantModifier(Modifier):
     in one-shot and not during training. Activation ranges are determined by running a
     small set of calibration data through the model.
 
-    :param migration_strength: Intensity of smoothing to perform (0-1 range)
+    :param smoothing_strength: alpha, intensity of smoothing to perform (0-1 range)
     :param mappings: list activation layers to smooth, and the which layers to offset
     the smoothing to for each activation
     :param ignore: list of layers to ignore, even if they match a regex in mappings
@@ -79,7 +81,7 @@ class SmoothQuantModifier(Modifier):
     use the whole dataset
     """
 
-    migration_strength: float
+    smoothing_strength: float = Field(..., alias="alpha")
     mappings: List[Tuple]
     ignore: Optional[List[str]] = None
     logarithmic_equalization: Optional[bool] = False
