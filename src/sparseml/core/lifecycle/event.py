@@ -198,7 +198,7 @@ class WrappedOptimEventLifecycle(EventLifecycle):
             and self.type_ is not None
             and self.type_ != EventType.OPTIM_POST_STEP
         ):
-            raise ValueError("optim pre step must be called after optim post step")
+            raise ValueError("optim pre step must be called before optim post step")
 
         if (
             self.type_first == EventType.LOSS_CALCULATED

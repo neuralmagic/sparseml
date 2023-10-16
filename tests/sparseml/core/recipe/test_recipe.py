@@ -18,59 +18,16 @@ import pytest
 import yaml
 
 from sparseml.core.recipe import Recipe
+from tests.sparseml.helpers import valid_recipe_strings
 
 
-def _valid_recipes():
-    return [
-        """
-        test_stage:
-            pruning_modifiers:
-                ConstantPruningModifier:
-                    start: 0
-                    end: 5
-        """,
-        """
-        test_stage:
-            pruning_modifiers:
-                ConstantPruningModifier:
-                    start: 0
-                    end: 5
-                MagnitudePruningModifier:
-                    start: 5
-                    end: 10
-        """,
-        """
-        test1_stage:
-            pruning_modifiers:
-                ConstantPruningModifier:
-                    start: 0
-                    end: 5
-        test2_stage:
-                MagnitudePruningModifier:
-                    start: 5
-                    end: 10
-        """,
-        """
-        test1_stage:
-            constant_modifiers:
-                ConstantPruningModifier:
-                    start: 0
-                    end: 5
-            magnitude_modifiers:
-                MagnitudePruningModifier:
-                    start: 5
-                    end: 10
-        """,
-    ]
-
-
-@pytest.mark.parametrize("recipe_str", _valid_recipes())
+@pytest.mark.parametrize("recipe_str", valid_recipe_strings())
 def test_recipe_create_instance_accepts_valid_recipe_string(recipe_str):
     recipe = Recipe.create_instance(recipe_str)
     assert recipe is not None, "Recipe could not be created from string"
 
 
-@pytest.mark.parametrize("recipe_str", _valid_recipes())
+@pytest.mark.parametrize("recipe_str", valid_recipe_strings())
 def test_recipe_create_instance_accepts_valid_recipe_file(recipe_str):
     content = yaml.safe_load(recipe_str)
     with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml") as f:
@@ -79,7 +36,7 @@ def test_recipe_create_instance_accepts_valid_recipe_file(recipe_str):
         assert recipe is not None, "Recipe could not be created from file"
 
 
-@pytest.mark.parametrize("recipe_str", _valid_recipes())
+@pytest.mark.parametrize("recipe_str", valid_recipe_strings())
 def test_serialization(recipe_str):
     recipe_instance = Recipe.create_instance(recipe_str)
     serialized_recipe_str = recipe_instance.yaml()
