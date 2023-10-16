@@ -41,6 +41,10 @@ class QuantizationModifierPyTorch(QuantizationModifier):
     calibration_function_: Any = None
     qat_enabled_: bool = False
 
+    def on_initialize_structure(self, state: State, **kwargs):
+        module = state.model.model
+        self._enable_module_qat(module)
+
     def on_initialize(self, state: State, **kwargs) -> bool:
         raise_if_torch_quantization_not_available()
         if self.end and self.end != -1:
@@ -55,6 +59,7 @@ class QuantizationModifierPyTorch(QuantizationModifier):
         state.model.model.to(device)
         module = state.model.model
         self._enable_module_qat(module)
+        self._calibrate_if_possible(module)
 
         return True
 
@@ -79,30 +84,29 @@ class QuantizationModifierPyTorch(QuantizationModifier):
         pass
 
     def _enable_module_qat(self, module: Module):
-        # fuse conv-bn-relu blocks prior to quantization emulation
-        self._fuse(module)
+        if not self.qat_enabled_:
+            # fuse conv-bn-relu blocks prior to quantization emulation
+            self._fuse(module)
 
-        # add quantization_schemes to target submodules
-        set_quantization_schemes(
-            module,
-            scheme=self.scheme,
-            scheme_overrides=self.scheme_overrides,
-            ignore=self.ignore,
-            strict=self.strict,
-        )
+            # add quantization_schemes to target submodules
+            set_quantization_schemes(
+                module,
+                scheme=self.scheme,
+                scheme_overrides=self.scheme_overrides,
+                ignore=self.ignore,
+                strict=self.strict,
+            )
 
-        # fix for freezing batchnorm statistics when not fusing BN with convs.
-        # pytorch only supports freezing batchnorm statistics for fused modules.
-        # this fix wraps BN modules adding with a new module class that supports
-        # methods related to freezing/unfreezing BN statistics.
-        configure_module_bn_wrappers(module)
+            # fix for freezing batchnorm statistics when not fusing BN with convs.
+            # pytorch only supports freezing batchnorm statistics for fused modules.
+            # this fix wraps BN modules adding with a new module class that supports
+            # methods related to freezing/unfreezing BN statistics.
+            configure_module_bn_wrappers(module)
 
-        # convert target qconfig layers to QAT modules with FakeQuantize
-        convert_module_qat_from_schemes(module)
+            # convert target qconfig layers to QAT modules with FakeQuantize
+            convert_module_qat_from_schemes(module)
 
         self.qat_enabled_ = True
-
-        self._calibrate_if_possible(module)
 
     def _fuse(self, module: Module):
         if self.model_fuse_fn_name in [None, "conv_bn_relus"]:

@@ -14,7 +14,7 @@
 
 from typing import Any, Dict, List, Optional
 
-from sparseml.core import Modifier, State
+from sparseml.core import Modifier
 from sparseml.modifiers.quantization.utils.quantization_scheme import (
     QuantizationScheme,
     QuantizationSchemeLoadable,
@@ -104,9 +104,6 @@ class QuantizationModifier(Modifier):
         )
         if self.model_fuse_fn_kwargs is None:
             self.model_fuse_fn_kwargs = {}
-
-    def on_initialize_structure(self, state: State, **kwargs):
-        pass  # nothing needed for this modifier
 
 
 class _QuantizationSchemesDict(dict):
