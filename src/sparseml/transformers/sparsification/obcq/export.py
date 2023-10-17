@@ -70,8 +70,8 @@ import logging
 import os
 import shutil
 from typing import Any, Dict, List, Optional, Union
-import torch
 
+import torch
 from torch.nn import Module
 from transformers import AutoConfig, AutoTokenizer
 from transformers.tokenization_utils_base import PaddingStrategy
@@ -79,13 +79,13 @@ from transformers.tokenization_utils_base import PaddingStrategy
 import sparseml.core.session as sml
 from sparseml.core.framework import Framework
 from sparseml.optim import parse_recipe_variables
+from sparseml.pytorch.sparsification.quantization.helpers import (
+    initialize_channel_wise_scale_zp,
+)
 from sparseml.pytorch.utils import export_onnx
 from sparseml.transformers.utils import SparseAutoModel
 from sparseml.transformers.utils.helpers import RECIPE_NAME
 from sparsezoo.utils.onnx import EXTERNAL_ONNX_DATA_NAME
-from sparseml.pytorch.sparsification.quantization.helpers import (
-    initialize_channel_wise_scale_zp,
-)
 
 
 __all__ = ["export_transformer_to_onnx", "load_task_model"]
@@ -104,6 +104,7 @@ OPTIONAL_DEPLOYMENT_FILES.extend(OPT_TOKENIZER_FILES)
 
 
 _LOGGER = logging.getLogger(__name__)
+
 
 def _reload_model_state(model, load_path: str, orig_state_dict: Dict[str, Any]):
     """
