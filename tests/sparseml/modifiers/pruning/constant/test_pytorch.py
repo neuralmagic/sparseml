@@ -123,8 +123,8 @@ def test_constant_pruning_modifier_e2e(model, optimizer):
 
     modifier.on_update(state, event=Event(type_=EventType.OPTIM_PRE_STEP))
     modifier.on_update(state, event=Event(type_=EventType.OPTIM_POST_STEP))
-    modifier.finalize(state)
     modifier.on_end(state, None)
+    modifier.finalize(state)
 
     # sparsity should restored by ConstantPruningModifierPyTorch
 
