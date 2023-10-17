@@ -20,8 +20,8 @@ import torch
 import torch.nn as nn
 from torch.nn import Module
 
+from sparseml.modifiers.obcq.utils.sparsegpt import SparseGPT
 from sparseml.pytorch.utils.helpers import get_dependency_order
-from sparseml.transformers.sparsification.obcq.utils.sparsegpt import SparseGPT
 
 
 _LOGGER = logging.getLogger(__name__)

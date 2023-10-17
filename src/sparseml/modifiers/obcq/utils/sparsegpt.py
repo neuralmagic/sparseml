@@ -18,7 +18,6 @@ import time
 
 import torch
 import torch.nn as nn
-import transformers
 
 
 DEBUG = False
@@ -42,6 +41,8 @@ class SparseGPT:
     """
 
     def __init__(self, layer):
+        import transformers
+
         self.layer = layer
         self.dev = self.layer.weight.device
         W = layer.weight.data.clone()
@@ -61,6 +62,8 @@ class SparseGPT:
         :param inp: tensor containing layer input
         :param out: tensor containing layer our
         """
+        import transformers
+
         if DEBUG:
             self._inp1 = inp
             self.out1 = out
