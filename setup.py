@@ -190,7 +190,7 @@ def _setup_entry_points() -> Dict:
     entry_points["console_scripts"].extend(
         [
             "sparseml.transformers.export_onnx=sparseml.transformers.export:main",
-            "sparseml.transformers.export_onnx_refactor=sparseml.transformers.sparsification.obcq.export:main"  # noqa 501
+            "sparseml.transformers.export_onnx_refactor=sparseml.transformers.sparsification.obcq.export:main",  # noqa 501
         ]
     )
 
