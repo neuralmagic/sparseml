@@ -13,12 +13,14 @@
 # limitations under the License.
 
 import pytest
+import torch
+from packaging import version
 
 from sparseml.core import State
 from sparseml.core.event import Event, EventType
 from sparseml.core.factory import ModifierFactory
 from sparseml.core.framework import Framework
-from sparseml.modifiers.quantization import QuantizationModifierPyTorch
+from sparseml.modifiers.quantization.pytorch import QuantizationModifierPyTorch
 from sparseml.pytorch.sparsification.quantization.quantize import (
     is_qat_helper_module,
     is_quantizable_module,
@@ -90,9 +92,13 @@ def test_quantization_oneshot(model_class):
     state = State(framework=Framework.pytorch, start_event=Event())
     state.update(model=model)
 
+    strategy = "channel"
+    TORCH_VERSION = version.parse(torch.__version__)
+    if TORCH_VERSION.major < 2:  # per channel quant only supported in 2+
+        strategy = "tensor"
     scheme = dict(
         input_activations=dict(num_bits=8, symmetric=True),
-        weights=dict(num_bits=4, symmetric=False, strategy="channel"),
+        weights=dict(num_bits=4, symmetric=False, strategy=strategy),
     )
     kwargs = dict(scheme=scheme)
 
