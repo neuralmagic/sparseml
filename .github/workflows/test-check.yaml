@@ -146,7 +146,7 @@ jobs:
       - name: "Clean sparsezoo directory"
         run: rm -r sparsezoo/
       - name: "⚙️ Install dependencies"
-        run: pip3 install .[dev,torchvision,onnxruntime]
+        run: pip3 install .[dev,torchvision,onnxruntime,transformers]
       - name: "🔬 Running pytorch tests"
         run: make test TARGETS=pytorch,modifiers
   compat-pytorch-1_9-pytorch-tests:
@@ -170,7 +170,7 @@ jobs:
       - name: "Clean sparsezoo directory"
         run: rm -r sparsezoo/
       - name: "⚙️ Install dependencies"
-        run: pip3 install .[dev,torchvision,onnxruntime] torch==1.9.1
+        run: pip3 install .[dev,torchvision,onnxruntime,transformers] torch==1.9.1
       - name: "🔬 Running pytorch tests"
         run: make test TARGETS=pytorch,modifiers
   compat-pytorch-1_9-onnx-tests:
