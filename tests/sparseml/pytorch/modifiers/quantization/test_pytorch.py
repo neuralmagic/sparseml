@@ -13,8 +13,6 @@
 # limitations under the License.
 
 import pytest
-import torch
-from packaging import version
 
 from sparseml.core import State
 from sparseml.core.event import Event, EventType
@@ -25,8 +23,11 @@ from sparseml.pytorch.sparsification.quantization.quantize import (
     is_qat_helper_module,
     is_quantizable_module,
 )
-from tests.sparseml.pytorch.modifiers.conf import LifecyleTestingHarness, setup_modifier_factory
 from tests.sparseml.pytorch.helpers import ConvNet, LinearNet
+from tests.sparseml.pytorch.modifiers.conf import (
+    LifecyleTestingHarness,
+    setup_modifier_factory,
+)
 from tests.sparseml.pytorch.sparsification.quantization.test_modifier_quantization import (  # noqa E501
     _match_submodule_name_or_type,
     _test_qat_wrapped_module,
@@ -92,13 +93,9 @@ def test_quantization_oneshot(model_class):
     state = State(framework=Framework.pytorch, start_event=Event())
     state.update(model=model)
 
-    strategy = "channel"
-    TORCH_VERSION = version.parse(torch.__version__)
-    if TORCH_VERSION.major < 2:  # per channel quant only supported in 2+
-        strategy = "tensor"
     scheme = dict(
         input_activations=dict(num_bits=8, symmetric=True),
-        weights=dict(num_bits=4, symmetric=False, strategy=strategy),
+        weights=dict(num_bits=4, symmetric=False, strategy="channel"),
     )
     kwargs = dict(scheme=scheme)
 

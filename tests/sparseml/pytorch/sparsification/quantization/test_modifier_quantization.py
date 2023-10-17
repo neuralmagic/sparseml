@@ -15,6 +15,8 @@
 import os
 
 import pytest
+import torch
+from packaging import version
 from torch.nn import Identity
 
 from sparseml.pytorch.sparsification.quantization.helpers import QATWrapper
@@ -57,7 +59,15 @@ def _assert_qconfigs_equal(qconfig_1, qconfig_2):
 
         if hasattr(observer_1, "p"):
             # assume observer is a partial, test by properties dict
-            assert observer_1.p.keywords == observer_2.p.keywords
+            observer_1_keywords = observer_1.p.keywords
+            observer_2_keywords = observer_2.p.keywords
+            TORCH_VERSION = version.parse(torch.__version__)
+            if (
+                TORCH_VERSION.major < 2
+            ):  # can't match observer class instances before 2.0
+                del observer_1_keywords["observer"]
+                del observer_2_keywords["observer"]
+            assert observer_1_keywords == observer_2_keywords
         else:
             # default to plain `==`
             assert observer_1 == observer_2
