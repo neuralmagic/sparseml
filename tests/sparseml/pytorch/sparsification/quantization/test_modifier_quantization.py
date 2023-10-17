@@ -65,8 +65,9 @@ def _assert_qconfigs_equal(qconfig_1, qconfig_2):
             if (
                 TORCH_VERSION.major < 2
             ):  # can't match observer class instances before 2.0
-                del observer_1_keywords["observer"]
-                del observer_2_keywords["observer"]
+                if "observer" in observer_1_keywords:
+                    del observer_1_keywords["observer"]
+                    del observer_2_keywords["observer"]
             assert observer_1_keywords == observer_2_keywords
         else:
             # default to plain `==`
