@@ -26,6 +26,7 @@ from sparseml.pytorch.sparsification.quantization.quantize import (
 from tests.sparseml.modifiers.conf import LifecyleTestingHarness, setup_modifier_factory
 from tests.sparseml.pytorch.helpers import ConvNet, LinearNet
 from tests.sparseml.pytorch.sparsification.quantization.test_modifier_quantization import (  # noqa E501
+    _match_submodule_name_or_type,
     _test_qat_wrapped_module,
     _test_quantized_module,
 )
@@ -56,7 +57,12 @@ def _test_qat_applied(modifier, model):
                 _test_qat_wrapped_module(model, name)
             elif is_quantizable:
                 # check each target module is quantized
-                _test_quantized_module(model, modifier, module, name)
+                override_key = _match_submodule_name_or_type(
+                    module,
+                    name,
+                    list(modifier.scheme_overrides.keys()),
+                )
+                _test_quantized_module(model, modifier, module, name, override_key)
         else:
             # check all non-target modules are not quantized
             assert not hasattr(module, "quantization_scheme")
