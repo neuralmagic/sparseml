@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 from sparseml.core import Modifier
 from sparseml.core.state import State
@@ -50,7 +50,7 @@ class SparseGPTModifier(Modifier):
 
     sparsity: float
     block_size: int
-    quantize: bool
+    quantize: Union[bool, Dict]
     dampening_frac: Optional[float] = 0.01
     sequential_update: Optional[bool] = True
     prunen: Optional[int] = 0
