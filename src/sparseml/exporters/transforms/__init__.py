@@ -47,7 +47,6 @@ from .propagate_embedding_quantization import PropagateEmbeddingQuantization
 from .propagate_dequant_through_split import PropagateDequantThroughSplit
 from .quantize_qat_embedding import QuantizeQATEmbedding
 from .quantize_residuals import QuantizeResiduals
-from .remove_duplicate_cast_ops import RemoveDuplicateCastOps
 from .remove_duplicate_qconv_weights import RemoveDuplicateQConvWeights
 from .remove_duplicate_quantize_ops import RemoveDuplicateQuantizeOps
 from .skip_input_quantize import SkipInputQuantize
