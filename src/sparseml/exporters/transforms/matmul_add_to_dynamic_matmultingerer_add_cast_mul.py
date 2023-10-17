@@ -30,6 +30,31 @@ from sparseml.onnx.utils import ONNXGraph
 __all__ = ["MatMulAddToDynamicMatMulIntegerAddCastMul"]
 
 
+def find_input_to_cast(graph, cast_node):
+    parent_nodes = graph.get_node_parents(cast_node)
+    if len(parent_nodes) == 1 and parent_nodes[0].op_type == "Cast":
+        return find_input_to_cast(graph, parent_nodes[0])
+    else:
+        return cast_node.input[0]
+
+
+def find_zero_point(graph, zero_point_add_node, scale_div_node):
+    # Check if zero point goes through Cast node before being added
+    for parent in graph.get_node_parents(zero_point_add_node):
+        if parent == scale_div_node:
+            continue
+
+        if parent.op_type == "Cast":
+            return find_input_to_cast(graph, parent)
+
+    # If here there is no Cast node that is a parent to
+    # zero point add.
+    # This means the data type is not correct.
+    raise Exception(
+        f"At least one parent to {zero_point_add_node.name} must be a Cast node"
+    )
+
+
 class MatMulAddToDynamicMatMulIntegerAddCastMul(OnnxTransform):
     """
     A transform that attempts, if possible, to convert MatMul nodes into
@@ -44,7 +69,9 @@ class MatMulAddToDynamicMatMulIntegerAddCastMul(OnnxTransform):
     ```
     |   scale   input   zero_point
     |       |    |       |
-    |       |   Div    Cast
+    |       |    |     Cast (optional)
+    |       |    |       |
+    |       |   Div    Cast (optional)
     |       |     |   |
     |       |      Add
     |       |       |
@@ -120,33 +147,21 @@ class MatMulAddToDynamicMatMulIntegerAddCastMul(OnnxTransform):
 
         processed_div_nodes = []
         for match in matches:
-            zero_point_add_node = match.parents[0][1]
-            found_zero_point = False
-            for parent in graph.get_node_parents(zero_point_add_node):
-                if parent.op_type == "Cast":
-                    zero_point = parent.input[0]
-                    self.log_match(match)
-                    if match.parents[0][0] in processed_div_nodes:
-                        new_quantization = False
-                    else:
-                        new_quantization = True
-                        processed_div_nodes.append(match.parents[0][0])
-                    self._transform_match(model, match, zero_point, new_quantization)
-                    found_zero_point = True
-                    break
-
-            if not found_zero_point:
-                zero_point = match.parents[0][1].input[0]
-                self.log_match(match)
-                self._transform_match(model, match, zero_point)
-
+            scale_div_node = match.parents[0][0]
+            if scale_div_node in processed_div_nodes:
+                new_quantization = False
+            else:
+                new_quantization = True
+                processed_div_nodes.append(scale_div_node)
+            self.log_match(match)
+            self._transform_match(model, graph, match, new_quantization)
         return model
 
     def _transform_match(
         self,
         model: ModelProto,
+        graph: ONNXGraph,
         match: MatchResult,
-        zero_point: str,
         new_quantization: bool,
     ):
         (
@@ -157,7 +172,6 @@ class MatMulAddToDynamicMatMulIntegerAddCastMul(OnnxTransform):
             sub_node,
             scale_mul,
         ) = match.parents[0]
-
         weight_init, weight_quant, weight_dequant, opt_transpose = match.parents[1]
 
         # Find scale and input tensor
@@ -167,6 +181,9 @@ class MatMulAddToDynamicMatMulIntegerAddCastMul(OnnxTransform):
                 scale = inp
             else:
                 input_tensor = inp
+
+        # Find zero point
+        zero_point = find_zero_point(graph, zero_point_add, scale_div)
 
         # Find weight quantization parameters
         weight_quantize_params = get_quantization_params(
@@ -184,7 +201,7 @@ class MatMulAddToDynamicMatMulIntegerAddCastMul(OnnxTransform):
         )
         if opt_transpose is not None:
             quantized_weight = quantized_weight.transpose()
-        quantized_weight_name = "f{match.node.name}.weight_quantized"
+        quantized_weight_name = f"{match.node.name}.weight_quantized"
         quantized_weight_initializer = numpy_helper.from_array(
             quantized_weight, name=quantized_weight_name
         )

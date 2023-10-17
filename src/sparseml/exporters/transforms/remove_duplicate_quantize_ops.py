@@ -50,7 +50,9 @@ class RemoveDuplicateQuantizeOps(OnnxTransform):
         quantize_ops_by_input = defaultdict(list)
         for node in model.graph.node:
             if node.op_type == "QuantizeLinear":
-                quantize_ops_by_input[node.input[0]].append(node)
+                # Check if this is static or dynamic quantization (expect scale to be an initializer)
+                if node.input[1] in model.graph.initializer:
+                    quantize_ops_by_input[node.input[0]].append(node)
 
         # search for nodes to delete
         input_replacements = {}
