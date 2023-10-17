@@ -23,11 +23,8 @@ from sparseml.pytorch.sparsification.quantization.quantize import (
     is_qat_helper_module,
     is_quantizable_module,
 )
+from tests.sparseml.modifiers.conf import LifecyleTestingHarness, setup_modifier_factory
 from tests.sparseml.pytorch.helpers import ConvNet, LinearNet
-from tests.sparseml.pytorch.modifiers.conf import (
-    LifecyleTestingHarness,
-    setup_modifier_factory,
-)
 from tests.sparseml.pytorch.sparsification.quantization.test_modifier_quantization import (  # noqa E501
     _match_submodule_name_or_type,
     _test_qat_wrapped_module,

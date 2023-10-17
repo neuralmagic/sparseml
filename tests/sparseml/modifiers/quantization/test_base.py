@@ -16,7 +16,7 @@ from sparseml.core.event import Event
 from sparseml.core.factory import ModifierFactory
 from sparseml.core.framework import Framework
 from sparseml.modifiers.quantization import QuantizationModifier
-from tests.sparseml.pytorch.modifiers.conf import setup_modifier_factory
+from tests.sparseml.modifiers.conf import setup_modifier_factory
 
 
 def test_quantization_registered():
