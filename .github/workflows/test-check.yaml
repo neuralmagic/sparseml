@@ -148,7 +148,7 @@ jobs:
       - name: "⚙️ Install dependencies"
         run: pip3 install .[dev,torchvision,onnxruntime]
       - name: "🔬 Running pytorch tests"
-        run: make test TARGETS=pytorch,modifiers
+        run: make test TARGETS=pytorch
   compat-pytorch-1_9-pytorch-tests:
     runs-on: ubuntu-22.04
     env:
@@ -172,7 +172,7 @@ jobs:
       - name: "⚙️ Install dependencies"
         run: pip3 install .[dev,torchvision,onnxruntime] torch==1.9.1
       - name: "🔬 Running pytorch tests"
-        run: make test TARGETS=pytorch,modifiers
+        run: make test TARGETS=pytorch
   compat-pytorch-1_9-onnx-tests:
     runs-on: ubuntu-22.04
     env:

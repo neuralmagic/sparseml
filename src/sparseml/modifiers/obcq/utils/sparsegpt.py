@@ -100,6 +100,8 @@ class SparseGPT:
         :param percdamp: Amount of dampening to apply to H, as a fraction of the
         diagonal norm
         """
+        import transformers
+
         W = self.layer.weight.data.clone()
         if isinstance(self.layer, nn.Conv2d):
             W = W.flatten(1)
