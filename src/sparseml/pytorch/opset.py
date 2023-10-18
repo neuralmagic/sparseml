@@ -22,7 +22,7 @@ def _default_opset() -> int:
         return 9
     if torch_version < version.parse("1.10.0"):
         return 11
-    return 13
+    return 14
 
 
 TORCH_DEFAULT_ONNX_OPSET = _default_opset()

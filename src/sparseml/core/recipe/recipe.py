@@ -184,7 +184,7 @@ class Recipe(RecipeBase):
             )
             combined.version = simplified.version
             combined.stages.extend(simplified.stages)
-            combined.args.combine(simplified.args)
+            combined.args.update(simplified.args)
 
         return combined
 
