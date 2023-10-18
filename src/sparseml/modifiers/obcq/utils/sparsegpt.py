@@ -20,6 +20,13 @@ import torch
 import torch.nn as nn
 
 
+try:
+    import transformers
+except ImportError as err:
+    transformers = None
+    transformers_err = err
+
+
 DEBUG = False
 _LOGGER = logging.getLogger(__name__)
 
@@ -41,7 +48,8 @@ class SparseGPT:
     """
 
     def __init__(self, layer):
-        import transformers
+        if transformers is None:
+            raise transformers_err
 
         self.layer = layer
         self.dev = self.layer.weight.device
@@ -62,8 +70,6 @@ class SparseGPT:
         :param inp: tensor containing layer input
         :param out: tensor containing layer our
         """
-        import transformers
-
         if DEBUG:
             self._inp1 = inp
             self.out1 = out
@@ -100,8 +106,6 @@ class SparseGPT:
         :param percdamp: Amount of dampening to apply to H, as a fraction of the
         diagonal norm
         """
-        import transformers
-
         W = self.layer.weight.data.clone()
         if isinstance(self.layer, nn.Conv2d):
             W = W.flatten(1)
