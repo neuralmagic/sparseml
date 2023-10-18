@@ -68,7 +68,7 @@ def _test_optims():
 
     return [
         torch.optim.Adam,
-        # torch.optim.SGD,
+        torch.optim.SGD,
     ]
 
 
