@@ -18,7 +18,13 @@ import time
 
 import torch
 import torch.nn as nn
-import transformers
+
+
+try:
+    import transformers
+except ImportError as err:
+    transformers = None
+    transformers_err = err
 
 
 DEBUG = False

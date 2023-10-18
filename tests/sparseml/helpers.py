@@ -13,6 +13,9 @@
 # limitations under the License.
 
 
+import os
+
+
 def valid_recipe_strings():
     return [
         """
@@ -68,3 +71,12 @@ def valid_recipe_strings():
                     targets: __ALL_PRUNABLE__
         """,
     ]
+
+
+def should_skip_pytorch_tests():
+    try:
+        import torch  # noqa: F401
+    except ImportError:
+        return True
+
+    return os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False)

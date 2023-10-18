@@ -13,7 +13,6 @@
 # limitations under the License.
 
 
-import os
 from collections import defaultdict
 from functools import partial
 from types import SimpleNamespace
@@ -23,6 +22,7 @@ import pytest
 import sparseml.core.session as session_module
 from sparseml.core.event import EventType
 from sparseml.core.framework import Framework
+from tests.sparseml.helpers import should_skip_pytorch_tests
 
 
 class LifeCycleMock:
@@ -83,8 +83,9 @@ class TestSparseSession:
         ), "SparseSession.lifecycle is not a SparsificationLifecycle"
 
     @pytest.mark.skipif(
-        os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-        reason="Skipping pytorch tests",
+        should_skip_pytorch_tests(),
+        reason="Skipping pytorch tests either torch is not installed or "
+        "NM_ML_SKIP_PYTORCH_TESTS is set",
     )
     def test_initialize_can_be_called_multiple_times_to_set_state(self, setup_session):
         session_module.initialize(framework=Framework.pytorch)
@@ -102,12 +103,17 @@ class TestSparseSession:
         # assert model was not overwritten
         assert state.model.model is model
 
+    @pytest.mark.skipif(
+        should_skip_pytorch_tests(),
+        reason="Skipping pytorch tests either torch is not installed or "
+        "NM_ML_SKIP_PYTORCH_TESTS is set",
+    )
     @pytest.mark.parametrize(
         "method_name, kwargs",
         [
             (
                 "pre_initialize_structure",
-                {"model": get_linear_net(), "framework": Framework.pytorch},
+                {"model": get_linear_net, "framework": Framework.pytorch},
             ),
             ("initialize", {"framework": Framework.pytorch}),
             ("finalize", {}),
@@ -118,6 +124,8 @@ class TestSparseSession:
     def test_session_methods_invoke_lifecycle_methods(
         self, method_name, kwargs, monkeypatch, setup_active_session
     ):
+        if "model" in kwargs:
+            kwargs["model"] = kwargs["model"]()
 
         monkeypatch.setattr(
             setup_active_session,

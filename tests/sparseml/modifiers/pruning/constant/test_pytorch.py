@@ -16,6 +16,9 @@ import os
 
 import pytest
 
+from sparseml.modifiers.pruning.utils.pytorch.layer_mask import param_mask_name
+from tests.sparseml.modifiers.helpers import setup_modifier_factory
+
 
 def _induce_sparsity(model, sparsity=0.5):
     """
@@ -78,6 +81,7 @@ def _test_optims():
 def test_constant_pruning_modifier_e2e(model, optimizer):
     # move imports inside so that pytorch is not required unless
     # running this test
+    import torch
 
     from sparseml.core import State
     from sparseml.core.event import Event, EventType
@@ -109,6 +113,15 @@ def test_constant_pruning_modifier_e2e(model, optimizer):
     )
     modifier.initialize(state)
 
+    # check mask is added and has correct sparsity
+
+    for _, parameterized_layer in modifier.parameterized_layers_.items():
+        mask_name = param_mask_name(parameterized_layer.param_name)
+        mask_tensor = parameterized_layer.layer.get_buffer(mask_name)
+        data_tensor = parameterized_layer.param.data
+        # check mask and data tensors have 0 in the same places
+        assert torch.all(mask_tensor == (data_tensor != 0))
+
     # mess up model sparsity
 
     model = _make_dense(model)
@@ -125,6 +138,15 @@ def test_constant_pruning_modifier_e2e(model, optimizer):
     modifier.on_update(state, event=Event(type_=EventType.OPTIM_POST_STEP))
     modifier.on_end(state, None)
     modifier.finalize(state)
+
+    # check mask is removed
+    for _, parameterized_layer in modifier.parameterized_layers_.items():
+        mask_name = param_mask_name(parameterized_layer.param_name)
+
+        # mask name should not be in _mask_settings or
+        #  _masked_layer_params
+        assert mask_name not in modifier._mask_settings
+        assert mask_name not in modifier._masked_layer_params
 
     # sparsity should restored by ConstantPruningModifierPyTorch
 
@@ -152,7 +174,7 @@ def test_constant_pruning_pytorch_is_registered():
         end_epoch=15.0,
         targets="__ALL_PRUNABLE__",
     )
-    _setup_modifier_factory()
+    setup_modifier_factory()
     type_ = ModifierFactory.create(
         type_="ConstantPruningModifier",
         framework=Framework.pytorch,
@@ -164,10 +186,3 @@ def test_constant_pruning_pytorch_is_registered():
     assert isinstance(
         type_, ConstantPruningModifierPyTorch
     ), "PyTorch ConstantPruningModifier not registered"
-
-
-def _setup_modifier_factory():
-    from sparseml.core.factory import ModifierFactory
-
-    ModifierFactory.refresh()
-    assert ModifierFactory._loaded, "ModifierFactory not loaded"

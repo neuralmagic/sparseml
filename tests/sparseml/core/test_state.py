@@ -13,13 +13,12 @@
 # limitations under the License.
 
 
-import os
-
 import pytest
 
 from sparseml.core.framework import Framework
 from sparseml.core.model.base import ModifiableModel
 from sparseml.core.state import State
+from tests.sparseml.helpers import should_skip_pytorch_tests
 
 
 def get_linear_net_with_device(device="cpu"):
@@ -109,8 +108,9 @@ class TestState:
         assert state.teacher_model.model == 1
 
     @pytest.mark.skipif(
-        os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-        reason="Skipping pytorch tests",
+        should_skip_pytorch_tests(),
+        reason="Skipping pytorch tests either torch is not installed or "
+        "NM_ML_SKIP_PYTORCH_TESTS is set",
     )
     def test_update_auto_moves_model_to_device(self):
         state = State(framework=Framework.pytorch)
