@@ -25,7 +25,7 @@ ifneq ($(findstring onnx,$(TARGETS)),onnx)
     PYTEST_ARGS := $(PYTEST_ARGS) --ignore tests/sparseml/onnx
 endif
 ifneq ($(findstring pytorch,$(TARGETS)),pytorch)
-    PYTEST_ARGS := $(PYTEST_ARGS) --ignore tests/sparseml/pytorch --ignore tests/sparseml/modifiers/*pytorch.py
+    PYTEST_ARGS := $(PYTEST_ARGS) --ignore tests/sparseml/pytorch --ignore-glob 'tests/sparseml/modifiers/*pytorch.py'
 endif
 ifneq ($(findstring pytorch_models,$(TARGETS)),pytorch_models)
     PYTEST_ARGS := $(PYTEST_ARGS) --ignore tests/sparseml/pytorch/models
