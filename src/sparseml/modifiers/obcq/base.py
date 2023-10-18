@@ -12,15 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
-from typing import Dict, List, Optional, Union
+import logging
+from typing import Any, Dict, List, Optional, Union
 
 from sparseml.core import Modifier
+from sparseml.core.factory import ModifierFactory
 from sparseml.core.state import State
 from sparseml.utils import ALL_TOKEN
 
 
 __all__ = ["SparseGPTModifier"]
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class SparseGPTModifier(Modifier):
@@ -59,5 +62,74 @@ class SparseGPTModifier(Modifier):
     target_ids: Optional[List[str]] = None
     layer_prefix: Optional[str] = None
 
-    def on_initialize_structure(self, state: "State", **kwargs):
-        pass  # nothing needed for this modifier
+    compressible_layers_: List = None
+    quantization_modifier_: Any = None
+
+    def compressible_layers(self) -> List:
+        """
+        Retrieves the modules corresponding to a list of compressible layer names
+
+        :return: list of Pytorch modules to compress
+        """
+        compressible_dict = self.model.get_layers(self.compress_layers)
+        return [v for _, v in compressible_dict.items()]
+
+    def pre_initialize_structure(self, state: State, **kwargs):
+        quantization_already_active = state.model.qat_active()
+        if isinstance(self.quantize, bool):
+            if not self.quantize and quantization_already_active:
+                _LOGGER.warning(
+                    "SparseGPT quantization is set to False, but a "
+                    "quantization modifier is already active on the model "
+                    "resetting quantize to True"
+                )
+                self.quantize = True
+            elif self.quantize and not quantization_already_active:
+                _LOGGER.warning(
+                    "SparseGPT quantization is set to True without an "
+                    "active quantization modifier. Creating a default "
+                    "8-bit quantization modifier"
+                )
+                default_quant_config = {"QuantizationModifier": {}}
+                self._build_quant_modifier_from_dict(
+                    default_quant_config, state.framework
+                )
+            return  # use existing quantization modifier if there is one
+        else:
+            if not isinstance(self.quantize, Dict):
+                raise ValueError(
+                    "SparseGPTModifier.quantize accepts only a single "
+                    "quantization modifier or a boolean. Found "
+                    f"type {type(self.quantize)}"
+                )
+            if len(self.quantize) != 1:
+                raise ValueError(
+                    "SparseGPTModifier.quantize accepts only a single "
+                    "quantization modifier or a boolean. Found "
+                    f"{len(self.quantize)} modifiers"
+                )
+            if quantization_already_active:
+                _LOGGER.warning(
+                    "Attempting to initialize quantization for SparseGPT "
+                    "but a quantization modifier has already been applied. "
+                    "The quantization configuration defined under the "
+                    "SparseGPT modifier will be ignored."
+                )
+                self.quantize = True
+                return
+            self._build_quant_modifier_from_dict(self.quantize, state.framework)
+            self.quantize = True
+
+        if self.quantization_modifier_:
+            self.quantization_modifier_.pre_initialize_structure(state, **kwargs)
+
+    def _build_quant_modifier_from_dict(self, quant_config, framework):
+        modifier_type = list(quant_config.keys())[0]
+        modifier_args = quant_config[modifier_type]
+        self.quantization_modifier_ = ModifierFactory.create(
+            modifier_type,
+            framework=framework,
+            allow_registered=True,
+            allow_experimental=True,
+            **modifier_args,
+        )

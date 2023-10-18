@@ -17,10 +17,7 @@ import logging
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import torch
-from torch.nn import Module
 
-from sparseml.core.factory import ModifierFactory
-from sparseml.core.framework import Framework
 from sparseml.core.model import ModifiableModel
 from sparseml.core.state import State
 from sparseml.modifiers.obcq.base import SparseGPTModifier
@@ -48,51 +45,8 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
     """
 
     model: Any = None
-    compressible_layers_: List = None
     device_: str = "cuda:0"
     finalization_kwargs_: Dict = None
-    quantization_modifier_: Any = None
-
-    def compressible_layers(self) -> List[Module]:
-        """
-        Retrieves the modules corresponding to a list of compressible layer names
-
-        :return: list of Pytorch modules to compress
-        """
-        compressible_dict = self.model.get_layers(self.compress_layers)
-        return [v for _, v in compressible_dict.items()]
-
-    def pre_initialize_structure(self, state: State, **kwargs):
-        if isinstance(self.quantize, bool):
-            if not self.quantize:
-                return
-
-        else:
-            if not isinstance(self.quantize, Dict):
-                raise ValueError(
-                    "SparseGPTModifier.quantize accepts only a single "
-                    "quantization modifier or a boolean. Found "
-                    f"type {type(self.quantize)}"
-                )
-            if len(self.quantize) != 1:
-                raise ValueError(
-                    "SparseGPTModifier.quantize accepts only a single "
-                    "quantization modifier or a boolean. Found "
-                    f"{len(self.quantize)} modifiers"
-                )
-            modifier_type = list(self.quantize.keys())[0]
-            modifier_args = self.quantize[modifier_type]
-            self.quantization_modifier_ = ModifierFactory.create(
-                modifier_type,
-                framework=Framework.pytorch,
-                allow_registered=True,
-                allow_experimental=True,
-                **modifier_args,
-            )
-            self.quantize = True
-
-        if self.quantization_modifier_:
-            self.quantization_modifier_.pre_initialize_structure(state, **kwargs)
 
     def on_initialize(self, state: "State", **kwargs) -> bool:
         """
