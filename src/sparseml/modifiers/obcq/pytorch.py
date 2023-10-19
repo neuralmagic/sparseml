@@ -56,7 +56,7 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
 
         :return: list of Pytorch modules to compress
         """
-        compressible_dict = self.model.get_layers(self.compress_layers)
+        compressible_dict = self.model.get_layers(self.targets)
         return [v for _, v in compressible_dict.items()]
 
     def on_initialize(self, state: "State", **kwargs) -> bool:
