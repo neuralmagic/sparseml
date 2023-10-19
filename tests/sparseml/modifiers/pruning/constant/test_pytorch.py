@@ -137,16 +137,24 @@ def test_constant_pruning_modifier_e2e(model, optimizer):
     modifier.on_update(state, event=Event(type_=EventType.OPTIM_PRE_STEP))
     modifier.on_update(state, event=Event(type_=EventType.OPTIM_POST_STEP))
     modifier.on_end(state, None)
+
+    # copy old mask settings as finalize will remove them
+    #  this is needed to check if a mask was persistent
+
+    old_mask_settings = modifier._mask_settings.copy()
     modifier.finalize(state)
 
     # check mask is removed
-    for _, parameterized_layer in modifier.parameterized_layers_.items():
+    for layer_param_name, parameterized_layer in modifier.parameterized_layers_.items():
         mask_name = param_mask_name(parameterized_layer.param_name)
+
+        if not old_mask_settings[layer_param_name].persistent:
+            assert not hasattr(parameterized_layer.layer, mask_name)
 
         # mask name should not be in _mask_settings or
         #  _masked_layer_params
-        assert mask_name not in modifier._mask_settings
-        assert mask_name not in modifier._masked_layer_params
+        assert layer_param_name not in modifier._mask_settings
+        assert layer_param_name not in modifier._masked_layer_params
 
     # sparsity should restored by ConstantPruningModifierPyTorch
 
