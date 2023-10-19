@@ -46,7 +46,3 @@ test_stage:
       ]
       target_ids: ["attention_mask"]
       layer_prefix: "decoder"
-
-# Llama model.model.layer.0
-# OPT model model.model.decoder.layer.0
-# other model model.model.encoder.extra.for.some.reason.layer.0
