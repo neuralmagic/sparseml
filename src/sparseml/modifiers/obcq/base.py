@@ -80,7 +80,7 @@ class SparseGPTModifier(Modifier):
             )
 
         for layer_name in self.compress_layers:
-            if "re:" in layer_name:
+            if layer_name.startswith("re:"):
                 raise ValueError(
                     "Using regular expressions for layer-wise sparsity "
                     f"profiles is not permitted. Found {layer_name}"
