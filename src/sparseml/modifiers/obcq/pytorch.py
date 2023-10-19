@@ -57,6 +57,18 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
         :return: list of Pytorch modules to compress
         """
         compressible_dict = self.model.get_layers(self.compress_layers)
+
+        # Compare length to sparsities again in case one of the provided layers was
+        # invalid or not compressible
+        if isinstance(self.sparsity, List) and len(self.sparsity) != len(
+            compressible_dict
+        ):
+            raise ValueError(
+                "Number of compressible layers must match the number of "
+                f"sparsities. Got {len(compressible_dict)} layers and "
+                f"{len(self.sparsity)} sparsities"
+            )
+
         return [v for _, v in compressible_dict.items()]
 
     def on_initialize(self, state: "State", **kwargs) -> bool:
@@ -65,6 +77,8 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
 
         :param state: session state storing input model and calibration data
         """
+        self._validate_layerwise_sparisity()
+
         self.finalization_kwargs_ = {}
         modifiable_model = state.model
         calibration_dataloader = state.data.calib
@@ -125,10 +139,17 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
                     "The 'outputs' key is expected but not found from the "
                     "return of the bottom compressor"
                 )
+
             inputs = accum_kwargs["outputs"]
-            _LOGGER.info(f"\n===== Compressing layer {idx}/{num_layers-1} =====")
+            layer_sparsity = (
+                self.sparsity[idx] if isinstance(self.sparsity, List) else self.sparsity
+            )
+            _LOGGER.info(
+                f"\n===== Compressing layer {idx+1}/{num_layers} "
+                f"to sparsity {layer_sparsity} ====="
+            )
             args = {
-                "sparsity": self.sparsity,
+                "sparsity": layer_sparsity,
                 "prunen": self.prunen,
                 "prunem": self.prunem,
                 "blocksize": self.block_size,

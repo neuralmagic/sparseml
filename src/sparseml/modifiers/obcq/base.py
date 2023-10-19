@@ -48,7 +48,7 @@ class SparseGPTModifier(Modifier):
         model.decoder for OPT or just model for Llama
     """
 
-    sparsity: float
+    sparsity: Union[float, List[float]]
     block_size: int
     quantize: bool
     dampening_frac: Optional[float] = 0.01
@@ -61,3 +61,27 @@ class SparseGPTModifier(Modifier):
 
     def on_initialize_structure(self, state: "State", **kwargs):
         pass  # nothing needed for this modifier
+
+    def _validate_layerwise_sparisity(self):
+        if isinstance(self.sparsity, float):
+            return  # single sparsity will be applied to all layers
+
+        if not isinstance(self.compress_layers, List):
+            raise ValueError(
+                "Layer targets must be a list when specifying layer-wise"
+                f" sparsity. Got {self.compress_layers}"
+            )
+
+        if len(self.compress_layers) != len(self.sparsity):
+            raise ValueError(
+                "Number of layer targets must match the number of "
+                f"sparsities. Got {len(self.compress_layers)} layers and "
+                f"{len(self.sparsity)} sparsities"
+            )
+
+        for layer_name in self.compress_layers:
+            if "re:" in layer_name:
+                raise ValueError(
+                    "Using regular expressions for layer-wise sparsity "
+                    f"profiles is not permitted. Found {layer_name}"
+                )
