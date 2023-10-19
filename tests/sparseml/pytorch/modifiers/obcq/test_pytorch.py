@@ -20,14 +20,14 @@ from tests.sparseml.pytorch.helpers import LinearNet
 
 
 @pytest.mark.parametrize(
-    "sparsity,compress_layers",
+    "sparsity,targets",
     [
         ([0.5, 0.2], "__ALL__"),  # type mismatch
         ([0.2, 0.1, 0.3], ["seq.fc1", "seq.fc2"]),  # length mismatch
         ([0.3, 0.4], ["re:.*fc1", "re:.*fc2"]),  # regex not supported
     ],
 )
-def test_invalid_layerwise_recipes_raise_exceptions(sparsity, compress_layers):
+def test_invalid_layerwise_recipes_raise_exceptions(sparsity, targets):
     setup_modifier_factory()
     model = LinearNet()
 
@@ -35,7 +35,7 @@ def test_invalid_layerwise_recipes_raise_exceptions(sparsity, compress_layers):
         sparsity=sparsity,
         block_size=128,
         quantize=False,
-        compress_layers=compress_layers,
+        targets=targets,
     )
     modifier = SparseGPTModifierPyTorch(**kwargs)
     testing_harness = LifecyleTestingHarness(model=model)

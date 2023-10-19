@@ -41,7 +41,7 @@ class SparseGPTModifier(Modifier):
         True saves on GPU memory
     :param prunen: N for N:M pruning
     :param prunem: M for N:M pruning
-    :param compress_layers: list of layer names to compress during OBCQ, or '__ALL__'
+    :param targets: list of layer names to compress during OBCQ, or '__ALL__'
         to compress every layer in the model
     :param target_ids: list of keys in model output to cache
     :param layer_prefix: name of model attribute that contains the list of layers, i.e.
@@ -55,7 +55,7 @@ class SparseGPTModifier(Modifier):
     sequential_update: Optional[bool] = True
     prunen: Optional[int] = 0
     prunem: Optional[int] = 0
-    compress_layers: Union[str, List[str], None] = ALL_TOKEN
+    targets: Union[str, List[str], None] = ALL_TOKEN
     target_ids: Optional[List[str]] = None
     layer_prefix: Optional[str] = None
 
@@ -66,20 +66,20 @@ class SparseGPTModifier(Modifier):
         if isinstance(self.sparsity, float):
             return  # single sparsity will be applied to all layers
 
-        if not isinstance(self.compress_layers, List):
+        if not isinstance(self.targets, List):
             raise ValueError(
                 "Layer targets must be a list when specifying layer-wise"
-                f" sparsity. Got {self.compress_layers}"
+                f" sparsity. Got {self.targets}"
             )
 
-        if len(self.compress_layers) != len(self.sparsity):
+        if len(self.targets) != len(self.sparsity):
             raise ValueError(
                 "Number of layer targets must match the number of "
-                f"sparsities. Got {len(self.compress_layers)} layers and "
+                f"sparsities. Got {len(self.targets)} layers and "
                 f"{len(self.sparsity)} sparsities"
             )
 
-        for layer_name in self.compress_layers:
+        for layer_name in self.targets:
             if layer_name.startswith("re:"):
                 raise ValueError(
                     "Using regular expressions for layer-wise sparsity "

@@ -56,7 +56,7 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
 
         :return: list of Pytorch modules to compress
         """
-        compressible_dict = self.model.get_layers(self.compress_layers)
+        compressible_dict = self.model.get_layers(self.targets)
 
         # Compare length to sparsities again in case one of the provided layers was
         # invalid or not compressible
