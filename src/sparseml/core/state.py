@@ -21,6 +21,7 @@ from pydantic import Field
 from sparseml.core.data import ModifiableData
 from sparseml.core.event import Event
 from sparseml.core.framework import Framework
+from sparseml.core.logger import BaseLogger
 from sparseml.core.model import ModifiableModel
 from sparseml.core.optimizer import ModifiableOptimizer
 
@@ -127,6 +128,7 @@ class State:
         start: float = None,
         steps_per_epoch: int = None,
         batches_per_step: int = None,
+        loggers: List[BaseLogger] = None,
         **kwargs,
     ) -> Dict:
         """
@@ -144,6 +146,7 @@ class State:
         :param start: The start index to update the state with
         :param steps_per_epoch: The steps per epoch to update the state with
         :param batches_per_step: The batches per step to update the state with
+        :param loggers: list of BaseLogger instances to use for logging
         :param kwargs: Additional keyword arguments to update the state with
         """
         if model is not None:
@@ -186,6 +189,8 @@ class State:
             if batches_per_step is not None:
                 self.start_event.batches_per_step = batches_per_step
 
+        if loggers is not None:
+            self.loggers = loggers
         return kwargs
 
 

@@ -13,12 +13,13 @@
 # limitations under the License.
 
 
-from typing import Optional
+from typing import List, Optional, Union
 
 from pydantic import BaseModel
 
 from sparseml.core.event import Event, EventType
 from sparseml.core.framework_object import MultiFrameworkObject
+from sparseml.core.logger import BaseLogger, LoggerManager
 from sparseml.core.modifier.base import ModifierInterface
 from sparseml.core.state import State
 
@@ -31,6 +32,20 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
     A base class for all modifiers to inherit from.
     Modifiers are used to modify the training process for a model.
     Defines base attributes and methods available to all modifiers
+
+    | Lifecycle:
+    |   - pre_initialize_structure
+    |       - on_initialize_structure
+    |   - initialize
+    |       - on_initialize
+    |       - initialize_loggers
+    |       - on_start
+    |    - update_event
+    |        - on_event
+    |        - on_start or on_end
+    |        - on_update
+    |   - finalize
+    |       - on_finalize
 
     :param index: The index of the modifier in the list of modifiers
         for the model
@@ -51,6 +66,12 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
     finalized_: bool = False
     started_: bool = False
     ended_: bool = False
+
+    loggers_initialized_: bool = True
+    loggers_: Optional[LoggerManager] = None
+
+    class Config:
+        arbitrary_types_allowed = True
 
     @property
     def initialized_structure(self) -> bool:
@@ -130,17 +151,20 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
             )
 
         self.initialized_ = initialized
+        self.initialize_loggers(state.loggers)
 
         if self.should_start(state.start_event):
             self.on_start(state, state.start_event, **kwargs)
             self.started_ = True
 
-    def finalize(self, state: State, **kwargs):
+    def finalize(self, state: State, reset_loggers: bool = True, **kwargs):
         """
         Finalize the modifier for the given model and state.
 
         :raises RuntimeError: if the modifier has not been initialized
         :param state: The current state of the model
+        :param reset_loggers: True to remove any currently attached loggers (default),
+            False to keep the loggers attached.
         :param kwargs: Additional arguments for finalizing the modifier
         """
         if self.finalized_:
@@ -158,6 +182,9 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
             )
 
         self.finalized_ = finalized
+        if reset_loggers:
+            self.loggers_ = None
+            self.loggers_initialized_ = False
 
     def update_event(self, state: State, event: Event, **kwargs):
         """
@@ -226,6 +253,19 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
         current = event.current_index
 
         return self.end is not None and current >= self.end
+
+    def initialize_loggers(self, loggers: Union[None, LoggerManager, List[BaseLogger]]):
+        """
+        Handles initializing and setting up the loggers for the modifier.
+
+        :param loggers: the logger maanger to setup this modifier with for logging
+            important info and milestones to, also accepts a list of BaseLogger(s).
+        """
+        loggers = loggers or []
+        if isinstance(loggers, List):
+            loggers = LoggerManager(loggers)
+        self.loggers_initialized_ = True
+        self.loggers_ = loggers
 
     def on_initialize_structure(self, state: State, **kwargs):
         """

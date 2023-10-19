@@ -20,6 +20,7 @@ from typing import Any, Callable, Dict, List, Optional, Union
 from sparseml.core.event import EventType
 from sparseml.core.framework import Framework
 from sparseml.core.lifecycle import SparsificationLifecycle
+from sparseml.core.logger import BaseLogger
 from sparseml.core.recipe import Recipe
 from sparseml.core.state import ModifiedState, State
 
@@ -146,6 +147,7 @@ class SparseSession:
         start: Optional[float] = None,
         steps_per_epoch: Optional[int] = None,
         batches_per_step: Optional[int] = None,
+        loggers: Optional[List[BaseLogger]] = None,
         **kwargs,
     ) -> ModifiedState:
         """
@@ -175,6 +177,7 @@ class SparseSession:
         :param batches_per_step: the number of batches per step to use for
             sparsification
         :param kwargs: additional kwargs to pass to the lifecycle's initialize method
+        :param loggers: list of BaseLogger instances to use for logging
         :return: the modified state of the session after initializing
         """
 
@@ -195,6 +198,7 @@ class SparseSession:
             start=start,
             steps_per_epoch=steps_per_epoch,
             batches_per_step=batches_per_step,
+            loggers=loggers,
             **kwargs,
         )
 
