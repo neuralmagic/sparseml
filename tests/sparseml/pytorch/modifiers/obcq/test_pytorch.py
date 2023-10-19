@@ -14,7 +14,10 @@
 
 import pytest
 
+from sparseml.core.framework import Framework
+from sparseml.core.model import ModifiableModel
 from sparseml.modifiers.obcq.pytorch import SparseGPTModifierPyTorch
+from sparseml.transformers.utils.model import SparseCasualLM
 from tests.sparseml.modifiers.conf import LifecyleTestingHarness, setup_modifier_factory
 from tests.sparseml.pytorch.helpers import LinearNet
 
@@ -43,3 +46,26 @@ def test_invalid_layerwise_recipes_raise_exceptions(sparsity, targets):
     # confirm invalid layerwise recipes fail at initialization
     with pytest.raises(ValueError):
         modifier.initialize(testing_harness.get_state())
+
+
+def test_successful_layerwise_recipe():
+    setup_modifier_factory()
+    model = SparseCasualLM.opt_model_from_pretrained("facebook/opt-350m")
+
+    sparsities = [0.5, 0.2]
+    targets = ["model.decoder.layers.0", "model.decoder.layers.1"]
+    kwargs = dict(
+        sparsity=sparsities,
+        block_size=128,
+        quantize=False,
+        targets=targets,
+        target_ids=["attention_mask"],
+        layer_prefix="decoder",
+    )
+    modifier = SparseGPTModifierPyTorch(**kwargs)
+    modifier._validate_layerwise_sparisity()
+    modifier.model = ModifiableModel(framework=Framework.pytorch, model=model)
+    found_compressible_layers = modifier.compressible_layers()
+
+    # ensure layers names successfully match up with model
+    assert len(found_compressible_layers) == len(targets)
