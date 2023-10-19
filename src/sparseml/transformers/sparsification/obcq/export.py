@@ -76,7 +76,7 @@ from torch.nn import Module
 from transformers import AutoConfig, AutoTokenizer
 from transformers.tokenization_utils_base import PaddingStrategy
 
-import sparseml.core.session as sml
+import sparseml.core.session as session_manager
 from sparseml.core.framework import Framework
 from sparseml.optim import parse_recipe_variables
 from sparseml.pytorch.sparsification.quantization.helpers import (
@@ -374,13 +374,13 @@ def export_transformer_to_onnx(
 
     orig_state_dict = model.state_dict()
 
-    sml.create_session()
-    sml.pre_initialize_structure(
+    session_manager.create_session()
+    session_manager.pre_initialize_structure(
         model=model, recipe=recipe_path, framework=Framework.pytorch
     )
 
     if recipe_path:
-        session = sml.active_session()
+        session = session_manager.active_session()
         num_stages = len(session.lifecycle.recipe_container.compiled_recipe.stages)
         msg = (
             "an unstaged recipe"

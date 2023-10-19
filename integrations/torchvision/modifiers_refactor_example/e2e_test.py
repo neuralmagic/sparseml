@@ -24,7 +24,7 @@ def main():
     from torch.utils.data import DataLoader
     from torchvision import transforms
 
-    import sparseml.core.session as sml
+    import sparseml.core.session as session_manager
     from sparseml.core.event import EventType
     from sparseml.core.framework import Framework
     from sparseml.pytorch.utils import (
@@ -40,8 +40,8 @@ def main():
     device = "cuda:0"
 
     # set up SparseML session
-    sml.create_session()
-    session = sml.active_session()
+    session_manager.create_session()
+    session = session_manager.active_session()
 
     # download model
     model = torchvision.models.mobilenet_v2(
