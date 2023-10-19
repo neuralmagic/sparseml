@@ -19,7 +19,7 @@ from abc import ABC
 
 import pytest
 
-from sparseml.pytorch.utils import (
+from sparseml.core.logger import (
     LambdaLogger,
     LoggerManager,
     PythonLogger,
