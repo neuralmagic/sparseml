@@ -11,32 +11,7 @@ test_stage:
           input_activations: null
           output_activations: null
     SparseGPTModifier:
-      sparsity: [
-        0.5,
-        0.5,
-        0.5,
-        0.5,
-        0.5,
-        0.5,
-        0.5,
-        0.5,
-        0.5,
-        0.8,
-        0.4,
-        0.4,
-        0.4,
-        0.4,
-        0.4,
-        0.4,
-        0.4,
-        0.4,
-        0.4,
-        0.4,
-        0.25,
-        0.8,
-        0.5,
-        0.5
-      ]
+      sparsity: 0.5
       block_size: 128
       sequential_update: False
       quantize: True
