@@ -14,7 +14,7 @@
 
 import logging
 from itertools import cycle
-from typing import Any, Callable
+from typing import Any, Callable, Dict, Optional
 
 import torch
 from torch.nn import Module
@@ -25,6 +25,10 @@ from sparseml.modifiers.quantization.utils.helpers import (
     configure_module_bn_wrappers,
     freeze_bn_stats,
     fuse_module_conv_bn_relus,
+)
+from sparseml.modifiers.quantization.utils.quantization_scheme import (
+    QuantizationScheme,
+    QuantizationSchemeLoadable,
 )
 from sparseml.modifiers.quantization.utils.quantize import (
     convert_module_qat_from_schemes,
@@ -38,11 +42,34 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class QuantizationModifierPyTorch(QuantizationModifier):
+    """
+    Pytorch-specific implementation of quantization modifier
+
+    :param scheme: Default QuantizationScheme to use when enabling quantization
+        in a module. May also be a dictionary to be loaded into the QuantizationScheme
+        class. A string alias may also be used, supported aliases:
+        ['default', 'deepsparse', 'tensorrt'].
+        If None, the default scheme (`QuantizationScheme()`) will be used.
+        Default is None
+    :param scheme_overrides: optional mapping of module type names or submodule type
+        names to quantization schemes to override them with. If a scheme is mapped to
+        'default', then it will use the scheme set in the modifier scheme property
+    """
+
+    scheme: Optional[QuantizationSchemeLoadable] = None
+    scheme_overrides: Optional[Dict[str, QuantizationSchemeLoadable]] = None
     calibration_dataloader_: Any = None
     calibration_function_: Any = None
     qat_enabled_: bool = False
     quantization_observer_disabled_: bool = False
     bn_stats_frozen_: bool = False
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.scheme = QuantizationScheme.load(self.scheme)
+        self.scheme_overrides = _load_quantization_schemes_dict(
+            self.scheme_overrides, self.scheme
+        )
 
     def on_initialize_structure(self, state: State, **kwargs):
         module = state.model.model
@@ -188,3 +215,24 @@ class QuantizationModifierPyTorch(QuantizationModifier):
             module.train()
         else:
             self._disable_quantization_observer(module)
+
+
+class _QuantizationSchemesDict(dict):
+    # wrapper class for dict to override the __str__ method for yaml serialization
+
+    def __str__(self):
+        return str({submodule: scheme.dict() for submodule, scheme in self.items()})
+
+
+def _load_quantization_schemes_dict(
+    schemes_dict: Optional[Dict[str, QuantizationSchemeLoadable]],
+    default_scheme: QuantizationScheme,
+) -> Dict[str, QuantizationScheme]:
+    if schemes_dict is None:
+        return {}
+    return _QuantizationSchemesDict(
+        {
+            submodule: QuantizationScheme.load(scheme, default=default_scheme)
+            for submodule, scheme in schemes_dict.items()
+        }
+    )
