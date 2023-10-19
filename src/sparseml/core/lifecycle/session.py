@@ -84,6 +84,7 @@ class SparsificationLifecycle:
         extras = self.recipe_container.update(**extras)
 
         self._check_compile_recipe()
+        self._set_model_layer_prefix()
         mod_data = []
         for mod in self.modifiers:
             data = mod.initialize(state=self.state, **extras)
@@ -205,3 +206,14 @@ class SparsificationLifecycle:
             )
         else:
             raise ValueError(f"invalid event type {event_type}")
+
+    def _set_model_layer_prefix(self):
+        if (
+            (compiled_recipe := self.recipe_container.compiled_recipe) is None
+            or (metadata := compiled_recipe.metadata) is None
+            or (model_metadata := metadata.target_model) is None
+        ):
+            return False
+
+        self.state.model.layer_prefix = model_metadata.layer_prefix
+        return True

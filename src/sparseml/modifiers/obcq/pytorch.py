@@ -49,6 +49,7 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
     compressible_layers_: List = None
     device_: str = "cuda:0"
     finalization_kwargs_: Dict = None
+    layer_prefix_: Optional[str] = None
 
     def compressible_layers(self) -> List[Module]:
         """
@@ -90,6 +91,7 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
         """
         self.model = model
         self.compressible_layers_ = self.compressible_layers()
+        self.layer_prefix_ = model.layer_prefix
         self.model = self.model.model
         self._set_device(device)
 
@@ -111,7 +113,7 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
         extras = self.compress_bottom(
             dev=self.device_,
             target_ids=self.target_ids,
-            layer_prefix=self.layer_prefix,
+            layer_prefix=self.layer_prefix_,
             **accum_kwargs,
         )
         accum_kwargs.update(extras)
@@ -173,6 +175,7 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
         :dev: device to use
         :return: outputs from bottom part of network, attention mask, and kv-cache state
         """
+        layer_prefix = layer_prefix or self.layer_prefix_
         cached_inputs = cache_attention_inputs(
             self.model, dataloader, dev, nsamples, target_ids, layer_prefix
         )

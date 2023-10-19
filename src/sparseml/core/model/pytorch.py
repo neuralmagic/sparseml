@@ -41,9 +41,12 @@ class ModifiableModelPyTorch(ModifiableModel[Module, Module, Parameter]):
     """
 
     def __init__(
-        self, framework: Optional[Framework] = None, model: Optional[Module] = None
+        self,
+        framework: Optional[Framework] = None,
+        model: Optional[Module] = None,
+        layer_prefix: str = "",
     ):
-        super().__init__(framework=framework, model=model)
+        super().__init__(framework=framework, model=model, layer_prefix=layer_prefix)
 
     def get_layers_params(
         self, targets: Union[str, List[str]]
