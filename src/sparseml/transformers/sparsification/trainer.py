@@ -222,7 +222,7 @@ class RecipeManagerTrainerInterface:
 
     def finalize_session(self):
         session = sml.active_session()
-        if not session.initialized or session.finalized:
+        if not session.lifecycle.initialized_ or session.lifecycle.finalized:
             return False
         
         sml.finalize()
@@ -295,6 +295,7 @@ class RecipeManagerTrainerInterface:
 
         sml.callbacks.batch_start(batch_data=inputs)
         model_outputs = super().training_step(model, inputs)
+        sml.callbacks.optim_post_step()
         sml.callbacks.batch_end()
 
         return model_outputs
@@ -326,7 +327,10 @@ class RecipeManagerTrainerInterface:
             inputs = {
                 k: inputs[k] for k in inputs if k in self._model_signature_columns
             }
-            return super().compute_loss(model, inputs, return_outputs=return_outputs)
+            loss = super().compute_loss(model, inputs, return_outputs=return_outputs)
+            sml.callbacks.loss_calculated(loss=loss)
+            sml.callbacks.optim_pre_step()
+            return loss
 
         student_inputs = {
             k: inputs[k] for k in inputs if k in self._model_signature_columns
@@ -377,10 +381,7 @@ class RecipeManagerTrainerInterface:
 
         inputs = {k: inputs[k] for k in inputs if k in self._model_signature_columns}
         
-        sml.callbacks.batch_start(batch_data=inputs)
         model_outputs = super().prediction_step(model, inputs, prediction_loss_only, ignore_keys)
-        sml.callbacks.optim_post_step()
-        sml.callbacks.batch_end()
         return model_outputs
 
     def save_model(

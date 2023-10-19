@@ -2,9 +2,14 @@ test_stage:
   pruning_modifiers:
     MagnitudePruningModifier:
       targets:
-        - "re:model.decoder.layers.*.weight"
-      start: 0.5
-      end: 2.0
-      init_sparsity: 0.0
-      final_sparsity: 0.5
+        - re:bert.encoder.layer.*.attention.self.query.weight
+        - re:bert.encoder.layer.*.attention.self.key.weight
+        - re:bert.encoder.layer.*.attention.self.value.weight
+        - re:bert.encoder.layer.*.attention.output.dense.weight
+        - re:bert.encoder.layer.*.intermediate.dense.weight
+        - re:bert.encoder.layer.*.output.dense.weight
+      start: eval(pruning_start_epoch)
+      end: eval(pruning_end_epoch)
+      init_sparsity: eval(pruning_init_sparsity)
+      final_sparsity: eval(pruning_final_sparsity)
       update_scheduler: cubic

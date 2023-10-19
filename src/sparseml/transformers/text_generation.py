@@ -61,6 +61,10 @@ def main(
         raise ValueError(
             f"dataset_name={dataset_name} should be one of {SUPPORTED_DATASETS}"
         )
+    
+    from datasets import load_dataset
+    raw_dataset = load_dataset(dataset_name)
+
     dataset = TransformersDataset.load_from_registry(
         dataset_name,
         model=model_path,

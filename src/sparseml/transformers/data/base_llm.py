@@ -89,10 +89,10 @@ class TransformersDataset(RegistryMixin, Dataset):
                     truncation=True,
                     max_length=self._seqlen,
                     return_tensors="pt",
-                    padding=False,
-                )["input_ids"][0]
-                tokenized_sample = self._add_end_token(tokenized_sample)
-                tokenized_sample = torch.unsqueeze(tokenized_sample, dim=0)
+                    padding=True,
+                ) #["input_ids"][0]
+                #tokenized_sample = self._add_end_token(tokenized_sample)
+                #tokenized_sample = torch.unsqueeze(tokenized_sample, dim=0)
                 self.loader.append(tokenized_sample)
 
     def _add_end_token(self, tokenized_sample):
