@@ -393,6 +393,13 @@ class Recipe(RecipeBase):
         return stages
 
     def combine_metadata(self, metadata: Optional[RecipeMetaData]):
+        """
+        Combines the metadata of the recipe with the supplied metadata
+        If the recipe already has metadata, the supplied metadata will
+        be used to update missing metadata
+
+        :param metadata: The metadata to combine with the recipe
+        """
         if metadata is None:
             return
 
