@@ -901,6 +901,8 @@ def get_named_layers_and_params_by_regex(
             if "." in param_name:  # skip parameters of nested layers
                 continue
             full_param_name = "{}.{}".format(layer_name, param_name)
+            if full_param_name.startswith("module."):
+                full_param_name = full_param_name[7:]
             if any_str_or_regex_matches_param_name(full_param_name, param_names):
                 named_layers_and_params.append(
                     NamedLayerParam(layer_name, layer, param_name, param)
