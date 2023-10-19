@@ -55,6 +55,7 @@ from sparseml.transformers.utils.helpers import RECIPE_NAME
 from sparseml.transformers.sparsification.trainer_callback import TrainerCallback
 from sparseml.core.framework import Framework
 from sparseml.core.data import ModifiableData
+from sparseml.core.session import callbacks
 
 
 __all__ = [
@@ -162,8 +163,8 @@ class RecipeManagerTrainerInterface:
 
         super().__init__(model=model, **kwargs)
         self.criterion = torch.nn.CrossEntropyLoss()
-        self.sparseml_callbacks = TrainerCallback(self)
-        self.callback_handler.add_callback(self.sparseml_callbacks)
+        #self.sparseml_callbacks = TrainerCallback(self)
+        #self.callback_handler.add_callback(self.sparseml_callbacks)
         self._add_tensorboard_logger_if_available()
 
         model_signature = inspect.signature(self.model.forward)
@@ -289,6 +290,15 @@ class RecipeManagerTrainerInterface:
         self.lr_scheduler = self._dummy_lr_scheduler()
         _LOGGER.warning("Overrode the lr_scheduler from SparseML recipe")
 
+    def training_step(self, model: Module, inputs: Dict[str, Union[torch.Tensor, Any]]) -> torch.Tensor:
+        self._check_super_defined("training_step")
+
+        sml.callbacks.batch_start(batch_data=inputs)
+        model_outputs = super().training_step(model, inputs)
+        sml.callbacks.batch_end()
+
+        return model_outputs
+
     def compute_loss(
         self, model: Module, inputs: Dict[str, Any], return_outputs: bool = False
     ) -> Union[torch.Tensor, Tuple[torch.Tensor, Any]]:
@@ -310,7 +320,7 @@ class RecipeManagerTrainerInterface:
         session = sml.active_session()
         if (
             session is None
-            or not session.lifecyle.initialized_
+            or not session.lifecycle.initialized_
             or not session.state.teacher_model
         ):
             inputs = {
@@ -346,6 +356,7 @@ class RecipeManagerTrainerInterface:
         if self.args.n_gpu > 1:  # DataParallel
             loss = loss.mean()
         sml.callbacks.loss_calculated(loss=loss)
+        sml.callbacks.optim_pre_step()
 
         return (loss, student_outputs) if return_outputs else loss
 
@@ -365,8 +376,12 @@ class RecipeManagerTrainerInterface:
         self._check_super_defined("prediction_step")
 
         inputs = {k: inputs[k] for k in inputs if k in self._model_signature_columns}
-
-        return super().prediction_step(model, inputs, prediction_loss_only, ignore_keys)
+        
+        sml.callbacks.batch_start(batch_data=inputs)
+        model_outputs = super().prediction_step(model, inputs, prediction_loss_only, ignore_keys)
+        sml.callbacks.optim_post_step()
+        sml.callbacks.batch_end()
+        return model_outputs
 
     def save_model(
         self,
