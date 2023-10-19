@@ -39,8 +39,8 @@ from .gemm_to_matmulinteger_add_cast_mul import GemmToMatMulIntegerAddCastMul
 from .gemm_to_qlinearmatmul import GemmToQLinearMatMul
 from .initializers_to_uint8 import InitializersToUint8
 from .matmul_add_to_matmulinteger_add_cast_mul import MatMulAddToMatMulIntegerAddCastMul
-from .matmul_add_to_dynamic_matmultingerer_add_cast_mul import (
-    MatMulAddToDynamicMatMulIntegerAddCastMul,
+from .matmul_to_dynamic_matmultingerer_add_cast_mul import (
+    MatMulToDynamicMatMulIntegerAddCastMul,
 )
 from .matmul_to_matmulinteger_cast_mul import MatMulToMatMulIntegerCastMul
 from .propagate_embedding_quantization import PropagateEmbeddingQuantization
