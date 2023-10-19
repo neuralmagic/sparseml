@@ -14,16 +14,21 @@
 
 import logging
 from itertools import cycle
-from typing import Any, Callable
+from typing import Any, Callable, Dict, Optional
 
 import torch
 from torch.nn import Module
 
-from sparseml.core import Event, State
+from sparseml.core import Event, EventType, State
 from sparseml.modifiers.quantization.base import QuantizationModifier
 from sparseml.modifiers.quantization.utils.helpers import (
     configure_module_bn_wrappers,
+    freeze_bn_stats,
     fuse_module_conv_bn_relus,
+)
+from sparseml.modifiers.quantization.utils.quantization_scheme import (
+    QuantizationScheme,
+    QuantizationSchemeLoadable,
 )
 from sparseml.modifiers.quantization.utils.quantize import (
     convert_module_qat_from_schemes,
@@ -37,9 +42,34 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class QuantizationModifierPyTorch(QuantizationModifier):
+    """
+    Pytorch-specific implementation of quantization modifier
+
+    :param scheme: Default QuantizationScheme to use when enabling quantization
+        in a module. May also be a dictionary to be loaded into the QuantizationScheme
+        class. A string alias may also be used, supported aliases:
+        ['default', 'deepsparse', 'tensorrt'].
+        If None, the default scheme (`QuantizationScheme()`) will be used.
+        Default is None
+    :param scheme_overrides: optional mapping of module type names or submodule type
+        names to quantization schemes to override them with. If a scheme is mapped to
+        'default', then it will use the scheme set in the modifier scheme property
+    """
+
+    scheme: Optional[QuantizationSchemeLoadable] = None
+    scheme_overrides: Optional[Dict[str, QuantizationSchemeLoadable]] = None
     calibration_dataloader_: Any = None
     calibration_function_: Any = None
     qat_enabled_: bool = False
+    quantization_observer_disabled_: bool = False
+    bn_stats_frozen_: bool = False
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.scheme = QuantizationScheme.load(self.scheme)
+        self.scheme_overrides = _load_quantization_schemes_dict(
+            self.scheme_overrides, self.scheme
+        )
 
     def on_initialize(self, state: State, **kwargs) -> bool:
         raise_if_torch_quantization_not_available()
@@ -51,10 +81,10 @@ class QuantizationModifierPyTorch(QuantizationModifier):
 
         self.calibration_dataloader_ = state.data.calib
         module = state.model.model
-        device = state.hardware.device
-        state.model.model.to(device)
-        module = state.model.model
-        self._enable_module_qat(module)
+
+        if self.calculate_start() == -1:  # one-shot
+            self._enable_module_qat(module)
+            self._disable_quantization_observer(module)
 
         return True
 
@@ -63,20 +93,33 @@ class QuantizationModifierPyTorch(QuantizationModifier):
             state.model.model.to(state.hardware.device)
             state.model.model.apply(torch.quantization.enable_observer)
             self._calibrate_if_possible(state.model.model)
-        state.model.model.apply(torch.quantization.disable_observer)
+        self._disable_quantization_observer(state.model.model)
         return True
 
     def on_start(self, state: State, event: Event, **kwargs):
-        pass
+        if not self.qat_enabled_:
+            self._enable_module_qat(state.model.model)
 
     def on_update(self, state: State, event: Event, **kwargs):
-        pass
+        if event.type_ == EventType.BATCH_START:
+            if self.check_should_freeze_bn_stats(event):
+                self._freeze_bn_stats(state.model.model)
+            if self.check_should_disable_observer(event):
+                self._disable_quantization_observer(state.model.model)
 
     def on_end(self, state: State, event: Event, **kwargs):
-        pass
+        self._disable_quantization_observer(state.model.model)
 
     def on_event(self, state: State, event: Event, **kwargs):
         pass
+
+    def _freeze_bn_stats(self, model: Module):
+        model.apply(freeze_bn_stats)
+        self.bn_stats_frozen_ = True
+
+    def _disable_quantization_observer(self, model: Module):
+        model.apply(torch.quantization.disable_observer)
+        self.quantization_observer_disabled_ = True
 
     def _enable_module_qat(self, module: Module):
         # fuse conv-bn-relu blocks prior to quantization emulation
@@ -164,4 +207,25 @@ class QuantizationModifierPyTorch(QuantizationModifier):
         if module_training:
             module.train()
         else:
-            module.apply(torch.quantization.disable_observer)
+            self._disable_quantization_observer(module)
+
+
+class _QuantizationSchemesDict(dict):
+    # wrapper class for dict to override the __str__ method for yaml serialization
+
+    def __str__(self):
+        return str({submodule: scheme.dict() for submodule, scheme in self.items()})
+
+
+def _load_quantization_schemes_dict(
+    schemes_dict: Optional[Dict[str, QuantizationSchemeLoadable]],
+    default_scheme: QuantizationScheme,
+) -> Dict[str, QuantizationScheme]:
+    if schemes_dict is None:
+        return {}
+    return _QuantizationSchemesDict(
+        {
+            submodule: QuantizationScheme.load(scheme, default=default_scheme)
+            for submodule, scheme in schemes_dict.items()
+        }
+    )
