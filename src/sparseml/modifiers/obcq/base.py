@@ -44,7 +44,7 @@ class SparseGPTModifier(Modifier):
         True saves on GPU memory
     :param prunen: N for N:M pruning
     :param prunem: M for N:M pruning
-    :param compress_layers: list of layer names to compress during OBCQ, or '__ALL__'
+    :param targets: list of layer names to compress during OBCQ, or '__ALL__'
         to compress every layer in the model
     :param target_ids: list of keys in model output to cache
     :param layer_prefix: name of model attribute that contains the list of layers, i.e.
@@ -58,7 +58,7 @@ class SparseGPTModifier(Modifier):
     sequential_update: Optional[bool] = True
     prunen: Optional[int] = 0
     prunem: Optional[int] = 0
-    compress_layers: Union[str, List[str], None] = ALL_TOKEN
+    targets: Union[str, List[str], None] = ALL_TOKEN
     target_ids: Optional[List[str]] = None
     layer_prefix: Optional[str] = None
 
@@ -71,7 +71,7 @@ class SparseGPTModifier(Modifier):
 
         :return: list of Pytorch modules to compress
         """
-        compressible_dict = self.model.get_layers(self.compress_layers)
+        compressible_dict = self.model.get_layers(self.targets)
         return [v for _, v in compressible_dict.items()]
 
     def pre_initialize_structure(self, state: State, **kwargs):
