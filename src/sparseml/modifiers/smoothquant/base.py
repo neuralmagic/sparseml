@@ -85,7 +85,7 @@ class SmoothQuantModifier(Modifier):
     ignore: Optional[List[str]] = None
     num_calibration_steps: Optional[int] = None
 
-    resolved_mappings_: Dict = None
+    resolved_mappings_: Optional[Dict] = None
     scales_: Optional[Dict] = None
 
     def on_initialize_structure(self, state: "State", **kwargs):
