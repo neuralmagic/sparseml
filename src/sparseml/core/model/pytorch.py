@@ -100,7 +100,7 @@ class ModifiableModelPyTorch(ModifiableModel[Module, Module, Parameter]):
         self, target: str, name_to_match: str, model: Module
     ) -> Optional[Tuple[str, Module]]:
         """
-        :param target: layer name to target when searching model
+        :param target: regex layer name to target when searching model
         :param name_to_match: name to match targets to
         :param model: model to search for targets
         """

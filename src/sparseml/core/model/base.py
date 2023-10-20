@@ -121,7 +121,7 @@ class ModifiableModel(Generic[MT, LT, PT], MultiFrameworkObject):
         self, target: str, name_to_match: str, model: LT
     ) -> Optional[Tuple[str, LT]]:
         """
-        :param target: layer name to target when searching model
+        :param target: regex layer name to target when searching model
         :param name_to_match: name to match targets to
         :param model: model to search for targets
         """
