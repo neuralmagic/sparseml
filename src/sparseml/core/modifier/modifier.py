@@ -48,11 +48,10 @@ class ModelLoggingMixin_:
             return
         self._log_epoch(logger_manager=state.loggers, epoch=int(event.current_index))
         self._log_model_loggable_items(
-            logger_manager=state.loggers, 
-            loggable_items=state.model.loggable_items(), 
+            logger_manager=state.loggers,
+            loggable_items=state.model.loggable_items(),
             epoch=event.current_index,
-            )
-
+        )
 
     def _should_log_model_info(self, state: State, event: Event) -> bool:
         """
@@ -62,7 +61,7 @@ class ModelLoggingMixin_:
             - event is of type BATCH_END
             - event is at the end of an epoch
             - state has a logger manager
-            
+
 
         :param state: The current state of sparsification
         :param event: The event to update the modifier with
@@ -72,35 +71,32 @@ class ModelLoggingMixin_:
             hasattr(state.model, "loggable_items")
             and event.type_ == EventType.BATCH_END
             and isinstance(state.loggers, LoggerManager)
-            and (
-                state.loggers.epoch_to_step(
-                    epoch=event.current_index, steps_per_epoch=event.steps_per_epoch
-                ) % event.steps_per_epoch == 0
+            and state.loggers.epoch_to_step(
+                epoch=event.current_index, steps_per_epoch=event.steps_per_epoch
             )
+            % event.steps_per_epoch
+            == 0
         )
-        
+
     def _log_epoch(self, logger_manager: LoggerManager, epoch: int):
         """
         Log the epoch to the logger_manager
-        
+
         :param logger_manager: The logger manager to log to
         :param epoch: The epoch to log
         """
         epoch_str = f"Epoch: #{epoch}"
-        logger_manager.log_string(
-            tag="Epoch", string=f"{epoch_str:=^20}", step=epoch
-        )
-    
-    
+        logger_manager.log_string(tag="Epoch", string=f"{epoch_str:=^20}", step=epoch)
+
     def _log_model_loggable_items(
-        self, 
-        logger_manager: LoggerManager, 
-        loggable_items: Generator[Tuple[str, Any], None, None] ,
+        self,
+        logger_manager: LoggerManager,
+        loggable_items: Generator[Tuple[str, Any], None, None],
         epoch: float,
-        ):
+    ):
         """
         Log the model level loggable items to the logger_manager
-        
+
         :param logger_manager: The logger manager to log to
         :param loggable_items: The loggable items to log, must be a generator of tuples
             of the loggable item name and value
@@ -109,13 +105,9 @@ class ModelLoggingMixin_:
         for loggable_item in loggable_items:
             log_tag, log_value = loggable_item
             if isinstance(log_value, dict):
-                logger_manager.log_scalars(
-                    tag=log_tag, values=log_value, step=epoch
-                )
+                logger_manager.log_scalars(tag=log_tag, values=log_value, step=epoch)
             else:
-                logger_manager.log_string(
-                    tag=log_tag, string=log_value, step=epoch
-                )
+                logger_manager.log_string(tag=log_tag, string=log_value, step=epoch)
 
 
 class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject, ModelLoggingMixin_):
