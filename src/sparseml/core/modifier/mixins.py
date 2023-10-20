@@ -67,11 +67,7 @@ class ModelLoggingMixin:
             hasattr(state.model, "loggable_items")
             and event.type_ == EventType.BATCH_END
             and isinstance(state.loggers, LoggerManager)
-            and state.loggers.epoch_to_step(
-                epoch=event.current_index, steps_per_epoch=event.steps_per_epoch
-            )
-            % event.steps_per_epoch
-            == 0
+            and event.current_index == int(event.current_index)
         )
 
     def _log_epoch(self, logger_manager: LoggerManager, epoch: int):
