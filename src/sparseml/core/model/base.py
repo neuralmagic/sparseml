@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from dataclasses import dataclass
-from typing import Dict, Generic, List, Optional, TypeVar, Union
+from typing import Any, Dict, Generator, Generic, List, Optional, Tuple, TypeVar, Union
 
 from sparseml.core.framework import Framework
 from sparseml.core.framework_object import MultiFrameworkObject
@@ -114,5 +114,15 @@ class ModifiableModel(Generic[MT, LT, PT], MultiFrameworkObject):
         """
         :param target: the target to set the param for
         :param param: the param instance to set
+        """
+        raise NotImplementedError()
+
+    def loggable_items(self) -> Generator[Tuple[str, Any], None, None]:
+        """
+        Model level information to be logged for the model
+
+        :return a generator that yields a tuple of:
+            - the name of the loggable item
+            - the value of the loggable item
         """
         raise NotImplementedError()

@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-from typing import Optional
+from typing import Iterable, Optional
 
 from pydantic import BaseModel
 
@@ -178,6 +178,7 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
             raise RuntimeError("cannot update a finalized modifier")
 
         self.on_event(state, event, **kwargs)
+        self.log_model_info(state, event)
 
         # handle starting the modifier if needed
         if (
@@ -205,6 +206,55 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
 
         if self.started_ and not self.ended_:
             self.on_update(state, event, **kwargs)
+
+    def log_model_info(self, state, event):
+        """
+        Log model level info to the logger
+        Relies on the model having a loggable_items method
+        that returns a generator of tuples of the loggable item
+        name and value. Only logs on BATCH_END type events at the
+        end of an epoch.
+
+        :param state: The current state of sparsification
+        :param event: The event to update the modifier with
+        """
+
+        if event.type_ != EventType.BATCH_END:
+            # only log on BATCH_END type events
+            # to avoid logging the same info multiple
+            # times per epoch
+            return
+
+        steps_so_far = state.loggers.epoch_to_step(
+            epoch=event.current_index, steps_per_epoch=event.steps_per_epoch
+        )
+
+        if steps_so_far % event.steps_per_epoch != 0:
+            # only log model info on epoch end
+            return
+
+        # log epoch
+        epoch_str = f"Epoch: #{int(steps_so_far / event.steps_per_epoch)}"
+        state.loggers.log_string(
+            tag="Epoch", string=f"{epoch_str:=^20}", step=event.current_index
+        )
+
+        if not isinstance(model_log_info := state.model.loggable_items(), Iterable):
+            raise ValueError(
+                f"Model loggable items must be iterable, but got {type(model_log_info)}"
+            )
+
+        # log model level info
+        for loggable_item in model_log_info:
+            log_tag, log_value = loggable_item
+            if isinstance(log_value, dict):
+                state.loggers.log_scalars(
+                    tag=log_tag, values=log_value, step=event.current_index
+                )
+            else:
+                state.loggers.log_string(
+                    tag=log_tag, string=log_value, step=event.current_index
+                )
 
     def should_start(self, event: Event) -> bool:
         """

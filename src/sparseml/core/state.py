@@ -14,13 +14,12 @@
 
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
-
-from pydantic import Field
+from typing import Any, Dict, List, Optional, Union
 
 from sparseml.core.data import ModifiableData
 from sparseml.core.event import Event
 from sparseml.core.framework import Framework
+from sparseml.core.logger import BaseLogger, LoggerManager
 from sparseml.core.model import ModifiableModel
 from sparseml.core.optimizer import ModifiableOptimizer
 
@@ -88,7 +87,7 @@ class State:
     :param hardware: Hardware Instance holding info about the target hardware being used
     :param start_event: The start event to begin training
     :param last_event: The last event to stop training
-    :param loggers: List of loggers to use for logging training information
+    :param loggers: LoggerManager instance holding all the loggers to log
     """
 
     framework: Framework
@@ -102,7 +101,7 @@ class State:
     hardware = Hardware()
     start_event: Event = None
     last_event: Event = None
-    loggers = Field(default_factory=list)
+    loggers: Optional[LoggerManager] = None
 
     @property
     def sparsification_ready(self) -> bool:
@@ -127,6 +126,7 @@ class State:
         start: float = None,
         steps_per_epoch: int = None,
         batches_per_step: int = None,
+        loggers: Union[None, LoggerManager, List[BaseLogger]] = None,
         **kwargs,
     ) -> Dict:
         """
@@ -144,6 +144,8 @@ class State:
         :param start: The start index to update the state with
         :param steps_per_epoch: The steps per epoch to update the state with
         :param batches_per_step: The batches per step to update the state with
+        :param loggers: the logger manager to setup logging important info and
+            milestones to, also accepts a list of BaseLogger(s)
         :param kwargs: Additional keyword arguments to update the state with
         """
         if model is not None:
@@ -186,6 +188,10 @@ class State:
             if batches_per_step is not None:
                 self.start_event.batches_per_step = batches_per_step
 
+        loggers = loggers or []
+        if isinstance(loggers, List):
+            loggers = LoggerManager(loggers)
+        self.loggers = loggers
         return kwargs
 
 
