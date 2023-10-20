@@ -1,7 +1,7 @@
 test_stage:
   obcq_modifiers:
     SmoothQuantModifier:
-      migration_strength: 0.5
+      smoothing_strength: 0.5
       mappings: [
         [["re:.*q_proj", "re:.*k_proj", "re:.*v_proj"], "re:.*self_attn_layer_norm"],
         [["re:.*fc1"], "re:.*final_layer_norm"]

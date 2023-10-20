@@ -16,6 +16,7 @@ import logging
 from typing import Callable, List, Optional
 
 import torch
+from torch.nn import Module
 
 from sparseml.core import State
 from sparseml.core.model.pytorch import ModifiableModelPyTorch
@@ -190,19 +191,7 @@ class SmoothQuantModifierPyTorch(SmoothQuantModifier):
             smooth_layer = mapping.smooth_layer
             balance_layers = mapping.balance_layers
 
-            # get the channel-wise dynamic range for each layer to be balanced
-            weight_scales = []
-            for layer in balance_layers:
-                scale = layer.weight.abs().max(dim=0, keepdim=True)[0]
-                weight_scales.append(scale)
-            weight_scales = 2.0 * torch.cat(weight_scales, dim=0).max(dim=0)[0]
-
-            # calculate the amount of smoothing to apply
-            # s_j = max(|X_j|)^alpha / max(|W_j|)^(1-alpha)
-            # where j is the input channel, alpha is smoothing strength
-            scales = activation_scales.pow(self.smoothing_strength) / weight_scales.pow(
-                1 - self.smoothing_strength
-            )
+            scales = self._calculate_smoothing_scales(balance_layers, activation_scales)
 
             # invert the smoothing in the following layers
             for layer in balance_layers:
@@ -215,3 +204,29 @@ class SmoothQuantModifierPyTorch(SmoothQuantModifier):
                 smooth_layer.weight.div_(scales.view(-1, 1))
             if hasattr(smooth_layer, "bias"):
                 smooth_layer.bias.div_(scales)
+
+    def _calculate_smoothing_scales(
+        self, balance_layers: List[Module], activation_scales: torch.Tensor
+    ) -> List[float]:
+        """
+        Calculate how much smoothing to apply to each channel based on the dynamic
+        range of the activation and the following weights
+
+        :param balance_layers: layers to offset activation smoothing to
+        :param activation_scales: channel-wise dynamic range of activation to smooth
+        :return: channel-wise scales to use for smoothing activation
+        """
+        # get the channel-wise dynamic range for each layer to be balanced
+        weight_scales = []
+        for layer in balance_layers:
+            scale = layer.weight.abs().max(dim=0, keepdim=True)[0]
+            weight_scales.append(scale)
+        weight_scales = 2.0 * torch.cat(weight_scales, dim=0).max(dim=0)[0]
+
+        # calculate the amount of smoothing to apply
+        # s_j = max(|X_j|)^alpha / max(|W_j|)^(1-alpha)
+        # where j is the input channel, alpha is smoothing strength
+        scales = activation_scales.pow(self.smoothing_strength) / weight_scales.pow(
+            1 - self.smoothing_strength
+        )
+        return scales

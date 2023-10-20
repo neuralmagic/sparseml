@@ -76,15 +76,13 @@ class SmoothQuantModifier(Modifier):
     :param mappings: list activation layers to smooth, and the which layers to offset
     the smoothing to for each activation
     :param ignore: list of layers to ignore, even if they match a regex in mappings
-    :param logarithmic_equalization: Whether to use a logarithmic scale for smoothing
     :param num_calibration_steps: number of samples to use for calibration, or None to
     use the whole dataset
     """
 
-    smoothing_strength: float = Field(..., alias="alpha")
+    smoothing_strength: float = Field(..., validation_alias="alpha")
     mappings: List[Tuple]
     ignore: Optional[List[str]] = None
-    logarithmic_equalization: Optional[bool] = False
     num_calibration_steps: Optional[int] = None
 
     resolved_mappings_: Dict = None
