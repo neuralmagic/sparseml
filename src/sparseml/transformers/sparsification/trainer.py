@@ -176,15 +176,6 @@ class RecipeManagerTrainerInterface:
         else:
             self._teacher_signature_columns = None
 
-        """
-        sml.pre_initialize_structure(
-            model=self.model,
-            recipe=recipe,
-            recipe_args=recipe_args,
-            framework=Framework.pytorch
-        )
-        """
-
     def initialize_session(self, epoch: float, checkpoint: Optional[str]):
         orig_state_dict = self.model.state_dict()
 
@@ -219,6 +210,13 @@ class RecipeManagerTrainerInterface:
 
         return True
     
+    def initialize_structure(self):
+        session = sml.active_session()
+        if session.lifecycle.initialized_ or session.lifecycle.pre_initialize_structure:
+            return False
+        
+        sml.pre_initialize_structure()
+        _LOGGER.info("Initialized SparseML structure from recipe argument")
 
     def finalize_session(self):
         session = sml.active_session()
@@ -799,7 +797,7 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         :param kwargs: keyword args to pass to super().evaluate()
         :return: the output from super.evaluate()
         """
-        applied = self.initialize_session(epoch=math.inf, checkpoint=None)
+        self.initialize_structure()
 
         # Always evaluate w/ fp32 to be closer to DeepSparse
         use_cuda_amp = self.use_cuda_amp
@@ -808,8 +806,7 @@ class TrainerInterface(RecipeManagerTrainerInterface):
 
         output = super().evaluate(*args, **kwargs)
         self.use_cuda_amp = use_cuda_amp
-        if applied:
-            self.finalize_session()
+        self.finalize_session()
 
         return output
 
@@ -823,10 +820,9 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         :param kwargs: keyword args to pass to super().predict()
         :return: the output from super.predict()
         """
-        applied = self.initialize_session(epoch=math.inf, checkpoint=None)
+        self.initialize_structure()
         output = super().predict(*args, **kwargs)
-        if applied:
-            self.finalize_session()
+        self.finalize_session()
 
         return output
 
@@ -1054,7 +1050,7 @@ class DisableHalfPrecisionCallback(TrainerCallback):
         state: TrainerState,
         control: TrainerControl,
         **kwargs,
-    ):
+   ):
         """
         Event called at the beginning of an epoch. Disables
         """
