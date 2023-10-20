@@ -176,7 +176,7 @@ class SparseSession:
             sparsification
         :param batches_per_step: the number of batches per step to use for
             sparsification
-        :param loggers: the logger manager to setup logging important info 
+        :param loggers: the logger manager to setup logging important info
             and milestones to, also accepts a list of BaseLogger(s)
         :param kwargs: additional kwargs to pass to the lifecycle's initialize method
         :return: the modified state of the session after initializing

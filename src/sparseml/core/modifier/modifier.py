@@ -178,34 +178,33 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
             raise RuntimeError("cannot update a finalized modifier")
 
         self.on_event(state, event, **kwargs)
-        self.log_model_info(state, event)
 
-        # handle starting the modifier if needed
         if (
             event.type_ == EventType.BATCH_START
             and not self.started_
             and self.should_start(event)
         ):
+            # handle starting the modifier
+
             self.on_start(state, event, **kwargs)
             self.started_ = True
             self.on_update(state, event, **kwargs)
 
-            return
-
-        # handle ending the modifier if needed
-        if (
+        elif (
             event.type_ == EventType.BATCH_END
             and not self.ended_
             and self.should_end(event)
         ):
+            # handle ending the modifier
+
             self.on_end(state, event, **kwargs)
             self.ended_ = True
             self.on_update(state, event, **kwargs)
 
-            return
-
-        if self.started_ and not self.ended_:
+        elif self.started_ and not self.ended_:
             self.on_update(state, event, **kwargs)
+
+        self.log_model_info(state, event)
 
     def log_model_info(self, state, event):
         """
