@@ -16,7 +16,8 @@ from collections import defaultdict
 
 import pytest
 
-from sparseml.core.event import Event, EventType
+from sparseml.core.event import EventType
+from sparseml.core.logger import LoggerManager
 from sparseml.core.modifier.mixins import ModelLoggingMixin
 
 
@@ -39,6 +40,10 @@ class LoggerManagerMock:
 
     def log_scalars(self, tag, values, step):
         self.hit_count["log_scalars"] += 1
+
+    @property
+    def __class__(self):
+        return LoggerManager
 
 
 class StateMock:
@@ -67,6 +72,41 @@ def state_mock():
 
 
 class TestModelLoggingMixin:
-    def test__log_epoch(self, model_logging_mixin, state_mock):
-        model_logging_mixin._log_epoch(state_mock.logger_manager, state_mock.epoch)
-        assert state_mock.logger_manager.hit_count["log_string"] == 1
+    def test__log_epoch(self, model_logging_mixin):
+        logger_manager = LoggerManagerMock()
+        model_logging_mixin._log_epoch(
+            logger_manager=logger_manager,
+            epoch=1,
+        )
+        assert logger_manager.hit_count["log_string"] == 1
+
+    @pytest.mark.parametrize(
+        "type_, current_index, expected",
+        [
+            (EventType.BATCH_END, 1, True),
+            (EventType.BATCH_END, 10, True),
+            (EventType.BATCH_END, 1.3, False),
+            (EventType.BATCH_START, 1, False),
+            (EventType.OPTIM_POST_STEP, 1, False),
+            (EventType.OPTIM_PRE_STEP, 1, False),
+        ],
+    )
+    def test__should_log_model_info(
+        self, model_logging_mixin, type_, current_index, expected
+    ):
+        state = StateMock()
+        event = EventMock(type_=type_, current_index=current_index)
+        assert model_logging_mixin._should_log_model_info(state, event) == expected
+
+    def test_log_model_info(self, model_logging_mixin, monkeypatch):
+        state = StateMock()
+        event = EventMock()
+        monkeypatch.setattr(
+            model_logging_mixin, "_should_log_model_info", lambda *args, **kwargs: True
+        )
+        monkeypatch.setattr(
+            model_logging_mixin, "_log_epoch", lambda *args, **kwargs: None
+        )
+
+        model_logging_mixin.log_model_info(state, event)
+        assert state.loggers.hit_count["log_string"] == 3
