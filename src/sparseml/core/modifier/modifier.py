@@ -13,12 +13,13 @@
 # limitations under the License.
 
 
-from typing import Iterable, Optional
+from typing import Any, Generator, Optional, Tuple
 
 from pydantic import BaseModel
 
 from sparseml.core.event import Event, EventType
 from sparseml.core.framework_object import MultiFrameworkObject
+from sparseml.core.logger import LoggerManager
 from sparseml.core.modifier.base import ModifierInterface
 from sparseml.core.state import State
 
@@ -26,7 +27,98 @@ from sparseml.core.state import State
 __all__ = ["Modifier"]
 
 
-class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
+class ModelLoggingMixin_:
+    """
+    A mixin that adds model level logging functionality
+    """
+
+    def log_model_info(self, state: State, event: Event):
+        """
+        Log model level info to the logger
+        Relies on `state.model` having a `loggable_items` method
+        that returns a generator of tuples of the loggable item
+        name and value. Only logs on BATCH_END type events at the
+        end of an epoch. Also assumes that
+
+        :param state: The current state of sparsification
+        :param event: The event to update the modifier with
+        """
+
+        if not self._should_log_model_info(state, event):
+            return
+        self._log_epoch(logger_manager=state.loggers, epoch=int(event.current_index))
+        self._log_model_loggable_items(
+            logger_manager=state.loggers, 
+            loggable_items=state.model.loggable_items(), 
+            epoch=event.current_index,
+            )
+
+
+    def _should_log_model_info(self, state: State, event: Event) -> bool:
+        """
+        Check if we should log model level info
+        Criteria:
+            - model has a loggable_items method
+            - event is of type BATCH_END
+            - event is at the end of an epoch
+            - state has a logger manager
+            
+
+        :param state: The current state of sparsification
+        :param event: The event to update the modifier with
+        :return: True if we should log model level info, False otherwise
+        """
+        return (
+            hasattr(state.model, "loggable_items")
+            and event.type_ == EventType.BATCH_END
+            and isinstance(state.loggers, LoggerManager)
+            and (
+                state.loggers.epoch_to_step(
+                    epoch=event.current_index, steps_per_epoch=event.steps_per_epoch
+                ) % event.steps_per_epoch == 0
+            )
+        )
+        
+    def _log_epoch(self, logger_manager: LoggerManager, epoch: int):
+        """
+        Log the epoch to the logger_manager
+        
+        :param logger_manager: The logger manager to log to
+        :param epoch: The epoch to log
+        """
+        epoch_str = f"Epoch: #{epoch}"
+        logger_manager.log_string(
+            tag="Epoch", string=f"{epoch_str:=^20}", step=epoch
+        )
+    
+    
+    def _log_model_loggable_items(
+        self, 
+        logger_manager: LoggerManager, 
+        loggable_items: Generator[Tuple[str, Any], None, None] ,
+        epoch: float,
+        ):
+        """
+        Log the model level loggable items to the logger_manager
+        
+        :param logger_manager: The logger manager to log to
+        :param loggable_items: The loggable items to log, must be a generator of tuples
+            of the loggable item name and value
+        :param epoch: The epoch to log
+        """
+        for loggable_item in loggable_items:
+            log_tag, log_value = loggable_item
+            if isinstance(log_value, dict):
+                logger_manager.log_scalars(
+                    tag=log_tag, values=log_value, step=epoch
+                )
+            else:
+                logger_manager.log_string(
+                    tag=log_tag, string=log_value, step=epoch
+                )
+
+
+class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject, ModelLoggingMixin_):
     """
     A base class for all modifiers to inherit from.
     Modifiers are used to modify the training process for a model.
@@ -205,55 +297,6 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
             self.on_update(state, event, **kwargs)
 
         self.log_model_info(state, event)
-
-    def log_model_info(self, state, event):
-        """
-        Log model level info to the logger
-        Relies on the model having a loggable_items method
-        that returns a generator of tuples of the loggable item
-        name and value. Only logs on BATCH_END type events at the
-        end of an epoch.
-
-        :param state: The current state of sparsification
-        :param event: The event to update the modifier with
-        """
-
-        if event.type_ != EventType.BATCH_END:
-            # only log on BATCH_END type events
-            # to avoid logging the same info multiple
-            # times per epoch
-            return
-
-        steps_so_far = state.loggers.epoch_to_step(
-            epoch=event.current_index, steps_per_epoch=event.steps_per_epoch
-        )
-
-        if steps_so_far % event.steps_per_epoch != 0:
-            # only log model info on epoch end
-            return
-
-        # log epoch
-        epoch_str = f"Epoch: #{int(steps_so_far / event.steps_per_epoch)}"
-        state.loggers.log_string(
-            tag="Epoch", string=f"{epoch_str:=^20}", step=event.current_index
-        )
-
-        if not isinstance(model_log_info := state.model.loggable_items(), Iterable):
-            raise ValueError(
-                f"Model loggable items must be iterable, but got {type(model_log_info)}"
-            )
-
-        # log model level info
-        for loggable_item in model_log_info:
-            log_tag, log_value = loggable_item
-            if isinstance(log_value, dict):
-                state.loggers.log_scalars(
-                    tag=log_tag, values=log_value, step=event.current_index
-                )
-            else:
-                state.loggers.log_string(
-                    tag=log_tag, string=log_value, step=event.current_index
-                )
 
     def should_start(self, event: Event) -> bool:
         """
