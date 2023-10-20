@@ -47,7 +47,7 @@ class ModifiableModelPyTorch(ModifiableModel[Module, Module, Parameter]):
 
     def get_layers_params(
         self, targets: Union[str, List[str]]
-    ) -> Dict[str, ModelParameterizedLayer[Module, Parameter]]:
+    ) -> Dict[str, ModelParameterizedLayer[Parameter, Module]]:
         """
         :param targets: the target layers to get the parameters for
         :return: a dictionary of layer name to ModelParameterizedLayer
@@ -70,6 +70,7 @@ class ModifiableModelPyTorch(ModifiableModel[Module, Module, Parameter]):
     def set_layer(self, target: str, layer: Module) -> Module:
         """
         :param target: the target to set the layer for
+        :param layer: the layer to set
         """
         return set_layer(target, layer, self.model)
 
