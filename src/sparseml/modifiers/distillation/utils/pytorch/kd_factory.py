@@ -408,9 +408,7 @@ def cross_entropy_comparison(
 
 
 @KDFactory.register_comparison_decorator("square_head")
-def square_head_comparison(
-    name: str, **kwargs
-):
+def square_head_comparison(name: str, **kwargs):
     if name != "square_head":
         raise ValueError(f"Invalid projection name: {name}")
 

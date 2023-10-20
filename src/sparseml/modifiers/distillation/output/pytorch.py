@@ -84,7 +84,10 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
             comparisons = [
                 wrapper.kd_last_comparison for wrapper in self._wrappers.values()
             ]
-            state.loss = self.orig_scale * state.loss + self.distill_scale * torch.Stack(comparisons).mean()
+            state.loss = (
+                self.orig_scale * state.loss
+                + self.distill_scale * torch.Stack(comparisons).mean()
+            )
 
     def on_end(self, state: State, event: Event, **kwargs):
         for wrapper in self._wrappers.values():
