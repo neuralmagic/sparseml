@@ -62,30 +62,41 @@ class SmoothQuantMapping(Generic[LT]):
 
 class SmoothQuantModifier(Modifier):
     """
-    Implements the SmoothQuant algorithm from https://arxiv.org/abs/2211.10438. This
-    modifier performs a channel-wise smoothing of outliers in activations, making them
-    easier to quantize by reducing the dynamic range. The smoothing is offset by
-    applying the inverse operation to the next layer of weights, making the weights
-    slightly more difficult to quantize.
+     Implements the SmoothQuant algorithm from https://arxiv.org/abs/2211.10438. This
+     modifier performs a channel-wise smoothing of outliers in activations, making them
+     easier to quantize by reducing the dynamic range. The smoothing is offset by
+     applying the inverse operation to the next layer of weights, making the weights
+     slightly more difficult to quantize.
 
-    Because this modifier manipulates the weights of the model, it can only be used in
-    in one-shot and not during training. Activation ranges are determined by running a
-    small set of calibration data through the model.
+     Because this modifier manipulates the weights of the model, it can only be used in
+     in one-shot and not during training. Activation ranges are determined by running a
+     small set of calibration data through the model.
 
-    :param smoothing_strength: alpha, intensity of smoothing to perform (0-1 range)
-    :param mappings: list activation layers to smooth, and the which layers to offset
-    the smoothing to for each activation
-    :param ignore: list of layers to ignore, even if they match a regex in mappings
-    :param num_calibration_steps: number of samples to use for calibration, or None to
-    use the whole dataset
+    example recipe:
+     ```yaml
+     SmoothQuantModifier:
+       smoothing_strength: 0.5
+       mappings: [
+         [["re:.*q_proj", "re:.*k_proj", "re:.*v_proj"], "re:.*self_attn_layer_norm"],
+         [["re:.*fc1"], "re:.*final_layer_norm"]
+       ]
+       ignore: ["model.decoder.final_layer_norm"]
+     ```
+
+     :param smoothing_strength: alpha, intensity of smoothing to perform (0-1 range)
+     :param mappings: list activation layers to smooth, and the which layers to offset
+     the smoothing to for each activation
+     :param ignore: list of layers to ignore, even if they match a regex in mappings
+     :param num_calibration_steps: number of samples to use for calibration, or None to
+     use the whole dataset
     """
 
-    smoothing_strength: float = Field(..., validation_alias="alpha")
+    smoothing_strength: float = Field(validation_alias="alpha")
     mappings: List[Tuple]
     ignore: Optional[List[str]] = None
     num_calibration_steps: Optional[int] = None
 
-    resolved_mappings_: Dict = None
+    resolved_mappings_: List = None
     scales_: Dict = None
 
     def on_initialize_structure(self, state: "State", **kwargs):
@@ -113,7 +124,7 @@ class SmoothQuantModifier(Modifier):
         self.resolved_mappings_ = self._resolve_mappings(state.model)
         self.scales_ = {}
 
-    def _resolve_mappings(self, model: ModifiableModel):
+    def _resolve_mappings(self, model: ModifiableModel) -> List:
         """
         Transforms the list of activations to smooth and their corresponding weights
         into SmoothQuantMapping objects, resolving regular expressions.
@@ -164,7 +175,9 @@ class SmoothQuantModifier(Modifier):
         :param state: unused
         :return: True
         """
-        self.scales_.clear()
-        self.resolved_mappings_.clear()
+        if self.scales_ is not None:
+            self.scales_.clear()
+        if self.resolved_mappings_ is not None:
+            self.resolved_mappings_.clear()
 
         return True

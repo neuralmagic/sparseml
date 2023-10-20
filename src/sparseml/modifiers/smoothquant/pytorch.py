@@ -20,13 +20,8 @@ from torch.nn import Module
 
 from sparseml.core import State
 from sparseml.core.model.pytorch import ModifiableModelPyTorch
-from sparseml.modifiers.smoothquant.base import (
-    SmoothQuantMapping,
-    SmoothQuantModifier,
-    SmoothQuantScale,
-)
+from sparseml.modifiers.smoothquant.base import SmoothQuantModifier, SmoothQuantScale
 from sparseml.modifiers.utils.pytorch_helpers import run_calibration_forward
-from sparseml.utils.pytorch import get_matching_layer
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -74,39 +69,6 @@ class SmoothQuantModifierPyTorch(SmoothQuantModifier):
         torch.cuda.empty_cache()
 
         return True
-
-    @torch.no_grad()
-    def _resolve_mappings(self, model: ModifiableModelPyTorch):
-        """
-        Transforms the list of activations to smooth and their corresponding weights
-        into SmoothQuantMapping objects, resolving regular expressions.
-
-        For each activation in the mapping list, we find the corresponding weight to
-        balance by searching for the longest substring. For instance, if our balance
-        weight is ".*re:.*q_proj" and the activation is "re:.*self_attn_layer_norm" we
-        would match model.layer.0.p_proj to model.layer.0.self_attn_layer_norm and
-        repeat for model.layer.1 and so on
-        """
-        resolved_mappings = []
-        for to_balance, to_smooth in self.mappings:
-            to_smooth_layers = model.get_layers(to_smooth)
-            for layer_name, smooth_layer in to_smooth_layers.items():
-                if layer_name not in self.ignore:
-                    balance_layers = []
-                    for balance_suffix in to_balance:
-                        # find the submodule that matches the activation layer
-                        _, balance_layer = get_matching_layer(
-                            balance_suffix, layer_name, model.model
-                        )
-                        if balance_layer:
-                            balance_layers.append(balance_layer)
-                    # each mapping can contain multiple layers to balance, but only
-                    # one layer to smooth
-                    mapping = SmoothQuantMapping(
-                        layer_name, smooth_layer, balance_layers
-                    )
-                    resolved_mappings.append(mapping)
-        return resolved_mappings
 
     def _setup_scale_hooks(self):
         """
