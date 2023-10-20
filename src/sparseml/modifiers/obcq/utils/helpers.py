@@ -158,10 +158,10 @@ def ppl_eval_general(
 
         vocabulary_size = logits[0].shape[-1]
         logits = [logit[:, :-1, :].view(-1, vocabulary_size) for logit in logits]
-        logits = torch.concatenate(logits, dim=0).contiguous().to(torch.float32)
+        logits = torch.cat(logits, dim=0).contiguous().to(torch.float32)
 
         labels = [sample[:, 1:].view(-1) for sample in samples]
-        labels = torch.concatenate(labels, dim=0).to(dev)
+        labels = torch.cat(labels, dim=0).to(dev)
         neg_log_likelihood += torch.nn.functional.cross_entropy(
             logits,
             labels,
