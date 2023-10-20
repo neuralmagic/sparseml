@@ -88,7 +88,7 @@ class SmoothQuantModifier(Modifier):
     resolved_mappings_: Optional[Dict] = None
     scales_: Optional[Dict] = None
 
-    def on_initialize_structure(self, state: "State", **kwargs):
+    def on_initialize_structure(self, state: State, **kwargs):
         pass  # nothing needed for this modifier
 
     def on_initialize(self, state: State, **kwargs) -> bool:
