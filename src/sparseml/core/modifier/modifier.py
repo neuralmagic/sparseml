@@ -38,7 +38,8 @@ class ModelLoggingMixin_:
         Relies on `state.model` having a `loggable_items` method
         that returns a generator of tuples of the loggable item
         name and value. Only logs on BATCH_END type events at the
-        end of an epoch. Also assumes that
+        end of an epoch. Also relies on `state.loggers` being a
+        `LoggerManager` instance.
 
         :param state: The current state of sparsification
         :param event: The event to update the modifier with
