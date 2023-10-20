@@ -22,7 +22,7 @@ __all__ = ["ConstantPruningModifier"]
 
 class ConstantPruningModifier(Modifier):
     targets: Union[str, List[str]]
-    _epsilon: float = 10e-9
+    epsilon_: float = 10e-9
 
     def on_initialize_structure(self, state: State, **kwargs):
         pass  # nothing needed for this modifier
