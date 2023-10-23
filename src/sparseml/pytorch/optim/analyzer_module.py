@@ -68,7 +68,7 @@ class ModuleAnalyzer(object):
         False to disable and not track
     """
 
-    def __init__(self, module: Module, enabled: bool = False):
+    def __init__(self, module: Module, layer_name: str,  enabled: bool = False):
         super(ModuleAnalyzer, self).__init__()
         self._module = module
         self._hooks = None  # type: List[RemovableHandle]
@@ -76,6 +76,8 @@ class ModuleAnalyzer(object):
         self._enabled = False
         self._call_count = -1
         self.enabled = enabled
+        self._layer_name = layer_name
+        print("initialized one", self._layer_name)
 
     def __del__(self):
         self._delete_hooks()
@@ -154,6 +156,7 @@ class ModuleAnalyzer(object):
         self._hooks = []
 
         for name, mod in self._module.named_modules():
+            print("creating high-level hook for", name)
             self._hooks.extend(
                 self._create_mod_hooks(mod, name if mod != self._module else None)
             )
@@ -168,10 +171,12 @@ class ModuleAnalyzer(object):
     def _create_mod_hooks(self, mod: Module, name: str) -> List[RemovableHandle]:
         mod._analyzed_layer_desc = None
         mod._analyzed_layer_name = name
+        print("creating low-level hook for", name)
 
         forward_pre_hook = mod.register_forward_pre_hook(self._forward_pre_hook)
 
         if isinstance(mod, _ConvNd):
+            print("making a forward hook!")
             forward_hook = mod.register_forward_hook(self._conv_hook)
         elif isinstance(mod, Linear):
             forward_hook = mod.register_forward_hook(self._linear_hook)
@@ -197,6 +202,8 @@ class ModuleAnalyzer(object):
             or isinstance(mod, Sigmoid)
             or isinstance(mod, LogSigmoid)
         ):
+            
+            print("making an activation hook!")
             forward_hook = mod.register_forward_hook(self._activation_hook)
         elif isinstance(mod, Softmax) or isinstance(mod, Softmax2d):
             forward_hook = mod.register_forward_hook(self._softmax_hook)
@@ -216,7 +223,10 @@ class ModuleAnalyzer(object):
             name=mod._analyzed_layer_name,
             type_=mod.__class__.__name__,
             execution_order=self._call_count,
+            flops=0,
         )
+        # if False and mod._analyzed_layer_desc.flops > 0:
+        #     print(mod._analyzed_layer_desc)
 
     def _init_forward_hook(
         self,
@@ -250,6 +260,7 @@ class ModuleAnalyzer(object):
     ):
         desc, inp, out = self._init_forward_hook(mod, inp, out)
 
+    list_conv = []
     def _conv_hook(
         self,
         mod: _ConvNd,
@@ -287,6 +298,26 @@ class ModuleAnalyzer(object):
         # most implementations and papers do not include this cost
         desc.flops = (mult_per_out_pix + add_per_out_pix) * out_pix
         desc.total_flops = (mult_per_out_pix * 2 + add_per_out_pix) * out_pix
+        #print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!", desc)
+        #list_conv.append(desc)
+        #AnalyzedLayerDesc({'name': 'sections.3.2.conv3', 'type': 'Conv2d', 'params': 0, 'zeroed_params': 0, 'prunable_params': 0, 'params_dims': None, 'prunable_params_dims': None, 'execution_order': 2181, 'input_shape': None, 'output_shape': None, 'stride': None, 'flops': 51380224.0, 'total_flops': 102760448.0, 'terminal': False, 'prunable': False}) 
+        mod._analyzed_layer_desc = AnalyzedLayerDesc(
+            name=mod._analyzed_layer_desc.name,
+            type_=mod._analyzed_layer_desc.type_,
+            execution_order=mod._analyzed_layer_desc.execution_order,
+            params = desc.params,
+            zeroed_params = desc.zeroed_params,
+            prunable_params = desc.prunable_params,
+            params_dims = desc.params_dims,
+            prunable_params_dims = desc.prunable_params_dims,
+            input_shape = desc.input_shape,
+            output_shape = desc.output_shape,
+            stride = desc.stride,
+            flops = desc.flops,
+            total_flops = desc.total_flops,
+        )
+        # if mod._analyzed_layer_desc.flops > 0:
+        #     print(mod._analyzed_layer_desc)
 
     def _linear_hook(
         self,

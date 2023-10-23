@@ -27,6 +27,7 @@ from torch.optim.optimizer import Optimizer
 
 from sparseml.optim.modifier import BaseModifier
 from sparseml.pytorch.optim.analyzer_pruning import ModulePruningAnalyzer
+from sparseml.pytorch.optim.analyzer_module import ModuleAnalyzer
 from sparseml.pytorch.sparsification.modifier import (
     ModifierProp,
     ScheduledModifier,
@@ -238,7 +239,7 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         return self._module_masks
 
     @property
-    def analyzers(self) -> Optional[List[ModulePruningAnalyzer]]:
+    def analyzers(self):# -> Optional[List[ModulePruningAnalyzer]]:
         """
         :return: The analyzer instances corresponding to the desired params passed in
             to the current pruning modifier that contain the analyzing information
@@ -314,7 +315,7 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         self._scorer = self._get_scorer(params)
 
         self._module_masks = self._create_pruning_mask(layers, layer_names, param_names)
-        self._analyzers = self._create_analyzers(layers, layer_names, param_names)
+        self._analyzers = self._create_analyzers(layers, layer_names, param_names, module)
 
         if len(self._analyzers) == 0:
             raise ValueError(
@@ -420,6 +421,15 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
                 self.log_scalar(
                     tag=f"ParamPruning/{layer_sparsity[0]}",
                     value=layer_sparsity[1],
+                    epoch=epoch,
+                    steps_per_epoch=steps_per_epoch,
+                )
+            elif True or isinstance(layer_sparsity, ModuleAnalyzer):
+                layer_sparsity = ModuleAnalyzer._mod_desc(module)
+                print("??????????", layer_sparsity)
+                self.log_scalar(
+                    tag=f"TotalFlops",
+                    value=layer_sparsity.flops,
                     epoch=epoch,
                     steps_per_epoch=steps_per_epoch,
                 )
@@ -560,12 +570,20 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         )
 
     def _create_analyzers(
-        self, layers: List[Module], layer_names: List[str], param_names: List[str]
+        self, layers: List[Module], layer_names: List[str], param_names: List[str], module
     ):
-        return [
+        pruning_analyzers = [
             ModulePruningAnalyzer(layer, layer_name, param_name)
             for (layer, layer_name, param_name) in zip(layers, layer_names, param_names)
         ]
+        # flop_analyzers = [
+        #     ModuleAnalyzer(layer, layer_name, enabled=True)
+        #     #for layer in layers
+        #     for (layer, layer_name) in zip(layers, layer_names)
+        # ]
+        final_boss = ModuleAnalyzer(module, "blahblah", enabled=True)
+        return pruning_analyzers + [final_boss]
+
 
 
 class BaseGradualPruningModifier(BasePruningModifier):
