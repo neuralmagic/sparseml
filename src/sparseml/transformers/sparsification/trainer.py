@@ -663,9 +663,7 @@ class RecipeManagerTrainerInterface:
         invalid_load_path = not load_path or not os.path.isdir(load_path)
         files = os.listdir(load_path) if not invalid_load_path else []
         weight_files = [
-            f
-            for f in files
-            if f.startswith("pytorch_model") and f.endswith("bin")
+            f for f in files if f.startswith("pytorch_model") and f.endswith("bin")
         ]
         if not weight_files:
             _LOGGER.warning(
