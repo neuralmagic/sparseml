@@ -119,8 +119,6 @@ class SmoothQuantModifierPyTorch(SmoothQuantModifier):
                 " SparseSession to run the SmoothQuant modifier"
             )
 
-        model.model.eval()
-
         run_calibration_forward(
             model.model,
             calibration_dataloader,

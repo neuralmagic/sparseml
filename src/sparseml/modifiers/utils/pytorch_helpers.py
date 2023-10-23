@@ -56,4 +56,4 @@ def run_calibration_forward(
             break
         batch = tensors_to_device(batch, model_device)
         with torch.no_grad():
-            forward_fn(batch, module=model.model)
+            forward_fn(batch, module=model)
