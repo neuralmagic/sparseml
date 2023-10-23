@@ -1,0 +1,5 @@
+test_stage:
+  pruning_modifiers:
+    ConstantPruningModifier:
+      targets: '__ALL_PRUNABLE__'
+      start: 0

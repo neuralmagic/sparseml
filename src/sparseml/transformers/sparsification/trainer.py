@@ -40,7 +40,8 @@ from transformers.trainer_pt_utils import reissue_pt_warnings
 from transformers.trainer_utils import ShardedDDPOption, get_last_checkpoint
 
 import sparseml.core.session as sml
-from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
+from sparseml.core.framework import Framework
+from sparseml.core.session import callbacks
 from sparseml.pytorch.sparsification.quantization.helpers import (
     initialize_channel_wise_scale_zp,
 )
@@ -50,12 +51,9 @@ from sparseml.pytorch.utils import (
     TensorBoardLogger,
     WANDBLogger,
 )
+from sparseml.transformers.sparsification.trainer_callback import TrainerCallback
 from sparseml.transformers.utils import SparseAutoModel
 from sparseml.transformers.utils.helpers import RECIPE_NAME
-from sparseml.transformers.sparsification.trainer_callback import TrainerCallback
-from sparseml.core.framework import Framework
-from sparseml.core.data import ModifiableData
-from sparseml.core.session import callbacks
 
 
 __all__ = [
@@ -163,8 +161,8 @@ class RecipeManagerTrainerInterface:
 
         super().__init__(model=model, **kwargs)
         self.criterion = torch.nn.CrossEntropyLoss()
-        #self.sparseml_callbacks = TrainerCallback(self)
-        #self.callback_handler.add_callback(self.sparseml_callbacks)
+        # self.sparseml_callbacks = TrainerCallback(self)
+        # self.callback_handler.add_callback(self.sparseml_callbacks)
         self._add_tensorboard_logger_if_available()
 
         model_signature = inspect.signature(self.model.forward)
@@ -197,7 +195,7 @@ class RecipeManagerTrainerInterface:
             framework=Framework.pytorch,
             train_data=train_data,
             calib_data=calibration_data,
-            start = epoch
+            start=epoch,
         )
 
         # reload the state dict for the model now that architecture matches expected
@@ -209,12 +207,12 @@ class RecipeManagerTrainerInterface:
             )
 
         return True
-    
+
     def initialize_structure(self):
         session = sml.active_session()
         if session.lifecycle.initialized_ or session.lifecycle.pre_initialize_structure:
             return False
-        
+
         sml.pre_initialize_structure()
         _LOGGER.info("Initialized SparseML structure from recipe argument")
 
@@ -222,10 +220,9 @@ class RecipeManagerTrainerInterface:
         session = sml.active_session()
         if not session.lifecycle.initialized_ or session.lifecycle.finalized:
             return False
-        
+
         sml.finalize()
         _LOGGER.info("Finalized SparseML recipe argument applied to the model")
-
 
     def create_optimizer(self):
         """
@@ -235,7 +232,7 @@ class RecipeManagerTrainerInterface:
         if using amp.
         """
 
-        #TODO do we still need to wrap the optimizer in the new framework?
+        # TODO do we still need to wrap the optimizer in the new framework?
         # this should be fine since its in the callbacks
 
         self._check_super_defined("create_optimizer")
@@ -256,8 +253,7 @@ class RecipeManagerTrainerInterface:
             len(self.train_dataset) / total_batch_size
         )
         sml.initialize(
-            optimizer=self.optimizer,
-            steps_per_epoch=self.total_steps_per_epoch
+            optimizer=self.optimizer, steps_per_epoch=self.total_steps_per_epoch
         )
 
     def create_scheduler(
@@ -277,10 +273,7 @@ class RecipeManagerTrainerInterface:
         # TODO: we don't currently have a LR scheduler in the new modifier framework
         # can ignore if its not part of the recipe
         self._check_super_defined("create_scheduler")
-        if (
-            self.lr_scheduler is not None
-            or sml.active_session() is None
-        ):
+        if self.lr_scheduler is not None or sml.active_session() is None:
             super().create_scheduler(num_training_steps, optimizer)
             return
 
@@ -288,7 +281,9 @@ class RecipeManagerTrainerInterface:
         self.lr_scheduler = self._dummy_lr_scheduler()
         _LOGGER.warning("Overrode the lr_scheduler from SparseML recipe")
 
-    def training_step(self, model: Module, inputs: Dict[str, Union[torch.Tensor, Any]]) -> torch.Tensor:
+    def training_step(
+        self, model: Module, inputs: Dict[str, Union[torch.Tensor, Any]]
+    ) -> torch.Tensor:
         self._check_super_defined("training_step")
 
         sml.callbacks.batch_start(batch_data=inputs)
@@ -378,8 +373,10 @@ class RecipeManagerTrainerInterface:
         self._check_super_defined("prediction_step")
 
         inputs = {k: inputs[k] for k in inputs if k in self._model_signature_columns}
-        
-        model_outputs = super().prediction_step(model, inputs, prediction_loss_only, ignore_keys)
+
+        model_outputs = super().prediction_step(
+            model, inputs, prediction_loss_only, ignore_keys
+        )
         return model_outputs
 
     def save_model(
@@ -408,7 +405,7 @@ class RecipeManagerTrainerInterface:
             output_dir = self.args.output_dir
 
         recipe_path = os.path.join(output_dir, RECIPE_NAME)
-        #TODO: saving in new framework
+        # TODO: saving in new framework
         """
         if self.arch_manager:
             composed_manager = ScheduledModifierManager.compose_staged(
@@ -775,7 +772,7 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         """
         checkpoint, epoch = self._generate_apply_manager_params(kwargs)
         applied = self.initialize_session(epoch=epoch, checkpoint=checkpoint)
-        #self.callback_disable_fp16.check_disable(epoch, force=True)
+        # self.callback_disable_fp16.check_disable(epoch, force=True)
         output = None
         if not self.one_shot:
             output = super().train(*args, **kwargs)
@@ -916,11 +913,11 @@ class TransformersTrainer(HFTransformersTrainer):
         super()._load_optimizer_and_scheduler(model_folder)
 
         # TODO: not yet implemented
-        #if self.manager.learning_rate_modifiers:
-            # If LR modifiers are present in the recipe, SparseML willl take
-            # control of the learning rate schedule. Therefore, set the built-in
-            # scheduler to a dummy
-            #self.lr_scheduler = self._dummy_lr_scheduler()
+        # if self.manager.learning_rate_modifiers:
+        # If LR modifiers are present in the recipe, SparseML willl take
+        # control of the learning rate schedule. Therefore, set the built-in
+        # scheduler to a dummy
+        # self.lr_scheduler = self._dummy_lr_scheduler()
 
     def _dummy_lr_scheduler(self):
         return torch.optim.lr_scheduler.MultiplicativeLR(
@@ -1050,7 +1047,7 @@ class DisableHalfPrecisionCallback(TrainerCallback):
         state: TrainerState,
         control: TrainerControl,
         **kwargs,
-   ):
+    ):
         """
         Event called at the beginning of an epoch. Disables
         """

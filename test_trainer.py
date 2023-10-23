@@ -1,13 +1,13 @@
-from sparseml.transformers.question_answering import main
+from sparseml.transformers.text_generation import main
 
-model = "bert-base-uncased"
-dataset_name = "squad"
+model = "facebook/opt-350m"
+dataset_name = "wikitext"
+dataset_config_name = "wikitext-2-raw-v1"
 do_train = True
-do_eval = True
+do_eval = False
 output_dir = "./output"
 cache_dir = "cache"
-distill_teacher = "disable"
-recipe = "test_qa_recipe.yaml"
+recipe = "test_trainer_recipe.yaml"
 recipe_args = {
     "num_epochs": 7,
     "pruning_init_sparsity": 0.0,
@@ -20,11 +20,11 @@ num_train_epochs=7
 main(
     model_name_or_path=model,
     dataset_name=dataset_name,
+    dataset_config_name=dataset_config_name,
     do_train=do_train,
     do_eval=do_eval,
     output_dir=output_dir,
     cache_dir=cache_dir,
-    distill_teacher=distill_teacher,
     recipe=recipe,
     recipe_args=recipe_args,
     max_train_samples = 1024,
