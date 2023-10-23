@@ -109,4 +109,9 @@ class ModifiableModelPyTorch(ModifiableModel[Module, Module, Parameter]):
             - the value of the loggable item
         """
         sparsification_info = ModuleSparsificationInfo.from_module(self.model)
-        yield from sparsification_info.loggable_items()
+
+        yield from sparsification_info.loggable_items(
+            percentages_only=True,
+            non_zero_only=True,
+            enabled_only=True,
+        )

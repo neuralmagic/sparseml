@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 from typing import Optional
 
 from pydantic import BaseModel
@@ -19,11 +20,13 @@ from pydantic import BaseModel
 from sparseml.core.event import Event, EventType
 from sparseml.core.framework_object import MultiFrameworkObject
 from sparseml.core.modifier.base import ModifierInterface
-from sparseml.core.modifier.mixins import ModelLoggingMixin
 from sparseml.core.state import State
 
 
-class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject, ModelLoggingMixin):
+__all__ = ["Modifier"]
+
+
+class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
     """
     A base class for all modifiers to inherit from.
     Modifiers are used to modify the training process for a model.
@@ -176,32 +179,32 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject, ModelLoggingM
 
         self.on_event(state, event, **kwargs)
 
+        # handle starting the modifier if needed
         if (
             event.type_ == EventType.BATCH_START
             and not self.started_
             and self.should_start(event)
         ):
-            # handle starting the modifier
-
             self.on_start(state, event, **kwargs)
             self.started_ = True
             self.on_update(state, event, **kwargs)
 
-        elif (
+            return
+
+        # handle ending the modifier if needed
+        if (
             event.type_ == EventType.BATCH_END
             and not self.ended_
             and self.should_end(event)
         ):
-            # handle ending the modifier
-
             self.on_end(state, event, **kwargs)
             self.ended_ = True
             self.on_update(state, event, **kwargs)
 
-        elif self.started_ and not self.ended_:
-            self.on_update(state, event, **kwargs)
+            return
 
-        self.log_model_info(state, event)
+        if self.started_ and not self.ended_:
+            self.on_update(state, event, **kwargs)
 
     def should_start(self, event: Event) -> bool:
         """

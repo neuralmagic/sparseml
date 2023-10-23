@@ -19,6 +19,7 @@ from typing import Any, Callable, Dict, List, Optional, Union
 
 from sparseml.core.event import EventType
 from sparseml.core.framework import Framework
+from sparseml.core.helpers import log_model_info
 from sparseml.core.lifecycle import SparsificationLifecycle
 from sparseml.core.logger import BaseLogger, LoggerManager
 from sparseml.core.recipe import Recipe
@@ -259,6 +260,13 @@ class SparseSession:
         """
         mod_data = self._lifecycle.event(
             event_type=event_type, batch_data=batch_data, loss=loss, **kwargs
+        )
+        epoch = self._lifecycle.event_lifecycle.current_index
+
+        log_model_info(
+            state=self.state,
+            event_type=event_type,
+            epoch=epoch,
         )
 
         return ModifiedState(
