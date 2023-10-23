@@ -97,7 +97,9 @@ def test_quantization_oneshot(model_class):
     kwargs = dict(scheme=scheme)
 
     modifier = QuantizationModifierPyTorch(**kwargs)
-
+    
+    assert modifier.calibration_dataloader_ is None
+    
     modifier.initialize(state)
 
     # for one-shot, we set up quantization on initialization
