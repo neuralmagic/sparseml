@@ -20,7 +20,7 @@ from typing import Optional
 
 from torch.nn import Module
 
-import sparseml.core.session as sml
+import sparseml.core.session as session_manager
 from sparseml.core.framework import Framework
 from sparseml.modifiers.obcq.utils.helpers import ppl_eval_general
 from sparseml.optim.helpers import load_recipe_yaml_str
@@ -97,8 +97,8 @@ def one_shot(
     calibration_data = dataset.loader
     tokenizer = dataset.tokenizer
 
-    sml.create_session()
-    session = sml.active_session()
+    session_manager.create_session()
+    session = session_manager.active_session()
     session.apply(
         framework=Framework.pytorch,
         recipe=recipe_file,
