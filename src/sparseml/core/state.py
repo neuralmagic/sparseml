@@ -88,6 +88,8 @@ class State:
     :param start_event: The start event to begin training
     :param last_event: The last event to stop training
     :param loggers: LoggerManager instance holding all the loggers to log
+    :param model_log_cadence: The cadence to log model information w.r.t epochs.
+        If 1, logs every epoch. If 2, logs every other epoch, etc. Default is 1.
     """
 
     framework: Framework
@@ -102,6 +104,8 @@ class State:
     start_event: Event = None
     last_event: Event = None
     loggers: Optional[LoggerManager] = None
+    model_log_cadence: Optional[float] = None
+    _last_log_epoch: Optional[float] = None
 
     @property
     def sparsification_ready(self) -> bool:
@@ -127,6 +131,7 @@ class State:
         steps_per_epoch: int = None,
         batches_per_step: int = None,
         loggers: Union[None, LoggerManager, List[BaseLogger]] = None,
+        model_log_cadence: Optional[float] = None,
         **kwargs,
     ) -> Dict:
         """
@@ -146,6 +151,8 @@ class State:
         :param batches_per_step: The batches per step to update the state with
         :param loggers: the logger manager to setup logging important info and
             milestones to, also accepts a list of BaseLogger(s)
+        :param model_log_cadence: The cadence to log model information w.r.t epochs.
+            If 1, logs every epoch. If 2, logs every other epoch, etc. Default is 1.
         :param kwargs: Additional keyword arguments to update the state with
         """
         if model is not None:
@@ -192,6 +199,9 @@ class State:
         if isinstance(loggers, List):
             loggers = LoggerManager(loggers)
         self.loggers = loggers
+
+        if model_log_cadence is not None:
+            self.model_log_cadence = model_log_cadence
         return kwargs
 
 

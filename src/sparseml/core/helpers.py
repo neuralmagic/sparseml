@@ -13,14 +13,51 @@
 # limitations under the License.
 
 
-from typing import Any, Generator, Tuple
+from typing import Any, Generator, Optional, Tuple
 
 from sparseml.core.event import EventType
 from sparseml.core.logger import LoggerManager
+from sparseml.core.model.base import ModifiableModel
 from sparseml.core.state import State
 
 
-def log_model_info(state: State, event_type, epoch):
+__all__ = [
+    "should_log_model_info",
+    "log_model_info",
+]
+
+
+def should_log_model_info(
+    model: ModifiableModel,
+    loggers: LoggerManager,
+    event_type: EventType,
+    epoch: float,
+    last_log_epoch: Optional[float] = None,
+) -> bool:
+    """
+    Check if we should log model level info
+    Criteria:
+        - model has a loggable_items method
+        - event is of type BATCH_END
+        - state has a logger manager
+        - logger manager is ready to log based on cadence and last log epoch
+
+    :param model: The model whose info we want to log
+    :param loggers: The logger manager to log to
+    :param event_type: The event type to check
+    :param epoch: The current epoch
+    :param last_log_epoch: The last epoch we logged model info at
+    :return: True if we should log model level info, False otherwise
+    """
+    return (
+        hasattr(model, "loggable_items")
+        and event_type == EventType.BATCH_END
+        and isinstance(loggers, LoggerManager)
+        and loggers.log_ready(epoch=epoch, last_log_epoch=last_log_epoch)
+    )
+
+
+def log_model_info(state: State, epoch):
     """
     Log model level info to the logger
     Relies on `state.model` having a `loggable_items` method
@@ -32,38 +69,11 @@ def log_model_info(state: State, event_type, epoch):
     :param state: The current state of sparsification
     :param event: The event to update the modifier with
     """
-
-    if not _should_log_model_info(
-        model=state.model, loggers=state.loggers, event_type=event_type, epoch=epoch
-    ):
-        return
-    _log_epoch(logger_manager=state.loggers, epoch=int(epoch))
+    _log_epoch(logger_manager=state.loggers, epoch=epoch)
     _log_model_loggable_items(
         logger_manager=state.loggers,
         loggable_items=state.model.loggable_items(),
         epoch=epoch,
-    )
-
-
-def _should_log_model_info(model, loggers, event_type, epoch) -> bool:
-    """
-    Check if we should log model level info
-    Criteria:
-        - model has a loggable_items method
-        - event is of type BATCH_END
-        - event is at the end of an epoch
-        - state has a logger manager
-
-
-    :param state: The current state of sparsification
-    :param event: The event to update the modifier with
-    :return: True if we should log model level info, False otherwise
-    """
-    return (
-        hasattr(model, "loggable_items")
-        and event_type == EventType.BATCH_END
-        and isinstance(loggers, LoggerManager)
-        and epoch == int(epoch)
     )
 
 
