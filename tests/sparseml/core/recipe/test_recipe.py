@@ -71,7 +71,7 @@ def test_recipe_creates_correct_modifier():
 
     stage_modifiers = recipe_instance.create_modifier(framework=Framework.pytorch)
     assert len(stage_modifiers) == 1
-    assert len(modifiers:=stage_modifiers[0].modifiers) == 1
+    assert len(modifiers := stage_modifiers[0].modifiers) == 1
     from sparseml.modifiers.pruning.constant.pytorch import (
         ConstantPruningModifierPyTorch,
     )

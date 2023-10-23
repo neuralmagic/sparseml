@@ -15,9 +15,16 @@
 import os
 
 import pytest
+import torch
 
+from sparseml.core import State
+from sparseml.core.event import Event, EventType
+from sparseml.core.framework import Framework
+from sparseml.modifiers.pruning.constant.pytorch import ConstantPruningModifierPyTorch
 from sparseml.modifiers.pruning.utils.pytorch.layer_mask import param_mask_name
-from tests.sparseml.modifiers.helpers import setup_modifier_factory
+from sparseml.pytorch.utils import tensor_sparsity
+from tests.sparseml.modifiers.conf import setup_modifier_factory
+from tests.sparseml.pytorch.helpers import ConvNet, LinearNet
 
 
 def _induce_sparsity(model, sparsity=0.5):
@@ -29,8 +36,6 @@ def _induce_sparsity(model, sparsity=0.5):
     :param sparsity: the probability of zeroing out a weight
     :return: the model with sparsity introduced
     """
-    import torch
-
     with torch.no_grad():
         for name, param in model.named_parameters():
             if "weight" in name:
@@ -45,8 +50,6 @@ def _make_dense(model):
     :param model: the model to make dense
     :return: the model with all dense params
     """
-    import torch
-
     with torch.no_grad():
         for name, param in model.named_parameters():
             if "weight" in name:
@@ -55,7 +58,6 @@ def _make_dense(model):
 
 
 def _test_models():
-    from tests.sparseml.pytorch.helpers import ConvNet, LinearNet
 
     return [
         _induce_sparsity(LinearNet()),
@@ -64,8 +66,6 @@ def _test_models():
 
 
 def _test_optims():
-    import torch
-
     return [
         torch.optim.Adam,
         torch.optim.SGD,
@@ -79,18 +79,6 @@ def _test_optims():
 @pytest.mark.parametrize("model", _test_models())
 @pytest.mark.parametrize("optimizer", _test_optims())
 def test_constant_pruning_modifier_e2e(model, optimizer):
-    # move imports inside so that pytorch is not required unless
-    # running this test
-    import torch
-
-    from sparseml.core import State
-    from sparseml.core.event import Event, EventType
-    from sparseml.core.framework import Framework
-    from sparseml.modifiers.pruning.constant.pytorch import (
-        ConstantPruningModifierPyTorch,
-    )
-    from sparseml.pytorch.utils import tensor_sparsity
-
     expected_sparsities = {
         name: tensor_sparsity(param.data)
         for name, param in model.named_parameters()
