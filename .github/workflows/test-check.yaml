@@ -147,6 +147,8 @@ jobs:
         run: rm -r sparsezoo/
       - name: "⚙️ Install dependencies"
         run: pip3 install .[dev,torchvision,onnxruntime]
+      - name: "🔬 Installed versions"
+        run: pip show torch torchvision onnxruntime
       - name: "🔬 Running pytorch tests"
         run: make test TARGETS=pytorch
   compat-pytorch-1_9-pytorch-tests:
@@ -171,6 +173,8 @@ jobs:
         run: rm -r sparsezoo/
       - name: "⚙️ Install dependencies"
         run: pip3 install .[dev,torchvision,onnxruntime] torch==1.9.1
+      - name: "🔬 Installed versions"
+        run: pip show torch torchvision onnxruntime
       - name: "🔬 Running pytorch tests"
         run: make test TARGETS=pytorch
   compat-pytorch-1_9-onnx-tests:
