@@ -62,7 +62,7 @@ def onnx_model() -> onnx.ModelProto:
     gemm = helper.make_node(
         "Gemm",
         ["input_dequant_output", "weight_dequant_output", "bias"],
-        ["gemm_output"],
+        ["output"],
         name="gemm",
     )
 
