@@ -102,6 +102,7 @@ class OnnxTransform(BaseTransform):
             model.graph.node.remove(node)
         graph = ONNXGraph(model)
         graph.delete_unused_initializers()
+        graph.delete_orphaned_node_branches()
         graph.sort_nodes_topologically()
         validate_onnx(model)
         return model

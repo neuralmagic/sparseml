@@ -148,7 +148,7 @@ pruning_modifiers:
 
 This recipe creates a sparse [YOLOv3-SPP](https://arxiv.org/abs/1804.02767) model in a shortened schedule as compared to the original pruned recipe.
 It will train faster, but will recover slightly worse.
-Use the following [SparseML integration with ultralytics/yolov3](https://github.com/neuralmagic/sparseml/tree/main/integrations/ultralytics-yolov3) to run.
+Use the following [SparseML integration with ultralytics/yolov3](https://github.com/neuralmagic/sparseml/tree/main/integrations/old-examples/ultralytics-yolov3) to run.
 
 When running, adjust hyperparameters based on training environment and dataset.
 
@@ -158,7 +158,7 @@ When running, adjust hyperparameters based on training environment and dataset.
 
 ## Training
 
-To set up the training environment, follow the instructions on the [integration README](https://github.com/neuralmagic/sparseml/blob/main/integrations/ultralytics-yolov3/README.md).
+To set up the training environment, follow the instructions on the [integration README](https://github.com/neuralmagic/sparseml/blob/main/integrations/old-examples/ultralytics-yolov3/README.md).
 Using the given training script from the `yolov3` directory the following command can be used to launch this recipe.  
 The contents of the `hyp.pruned.yaml` hyperparameters file is given below.
 Adjust the script command for your GPU device setup. 

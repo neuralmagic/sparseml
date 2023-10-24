@@ -400,7 +400,7 @@ def main(args):
     )
 
     _LOGGER.info("Creating model")
-    local_rank = args.local_rank if args.distributed else None
+    local_rank = int(os.environ["LOCAL_RANK"]) if args.distributed else None
     model, arch_key, maybe_dp_device = _create_model(
         arch_key=args.arch_key,
         local_rank=local_rank,
@@ -1255,14 +1255,6 @@ def _deprecate_old_arguments(f):
         "RGB standard-deviation values used to normalize input RGB values; "
         "Note: Will use ImageNet values if not specified."
     ),
-)
-@click.option(
-    "--local_rank",
-    "--local-rank",
-    type=int,
-    default=None,
-    help="Local rank for distributed training",
-    hidden=True,  # should not be modified by user
 )
 @click.pass_context
 def cli(ctx, **kwargs):

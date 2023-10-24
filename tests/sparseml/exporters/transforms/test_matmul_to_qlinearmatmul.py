@@ -116,7 +116,7 @@ def _create_test_model(with_transpose=False, with_reshape=False):
     dequantize_linear_node_2 = onnx.helper.make_node(
         "DequantizeLinear",
         ["quant_linear_2_output", "x_scale", "zero_point"],
-        ["dequant_linear_2_output"],
+        ["output"],
         name="dequantize_linear_node_2",
     )
 

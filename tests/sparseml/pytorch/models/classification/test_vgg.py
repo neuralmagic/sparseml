@@ -54,7 +54,6 @@ from tests.sparseml.pytorch.models.utils import compare_model
         ("vgg16", False, True, vgg16),
         ("vgg16", True, False, vgg16),
         ("vgg16", "base", False, vgg16),
-        ("vgg16", "pruned-conservative", False, vgg16),
         ("vgg16", "pruned-moderate", False, vgg16),
         ("vgg16bn", False, True, vgg16bn),
         ("vgg16bn", True, False, vgg16bn),

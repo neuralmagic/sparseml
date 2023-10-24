@@ -28,7 +28,7 @@ from typing import Any, Union
 import torch
 
 import open_clip
-from clip_models import TextModel, VisualModel
+from clip_models import TextModel
 from sparseml.pytorch.utils import export_onnx
 
 
@@ -61,12 +61,9 @@ def _export_visual(
     **export_kwargs,
 ):
     module_name = "clip_visual.onnx"
-    visual_model = VisualModel(
-        visual_model=model.visual,
-        output_tokens=is_coca,
-    )
+    visual_model = model.visual
 
-    image_shape = visual_model.visual_model.image_size[0]
+    image_shape = visual_model.image_size[0]
     sample_input = torch.randn(1, 3, image_shape, image_shape, requires_grad=True)
 
     visual_model = visual_model.to(device)
@@ -107,10 +104,11 @@ def _export_text(
 
     text_model = text_model.to(device)
     text_model.eval()
-    sample_batch = tokenizer(["a dog"])
 
     if is_coca:
-        sample_batch = sample_batch[:, :-1]
+        sample_batch = torch.ones(6, 15, dtype=torch.long)
+    else:
+        sample_batch = tokenizer(["a dog"]).to(torch.int32)
 
     _export_onnx(
         module=text_model,
@@ -130,9 +128,7 @@ def _export_text_decoder(
 
     sample_batch = OrderedDict()
     sample_batch["image_embs"] = torch.randn(1, 255, model.text.output_dim)
-    sample_batch["text_embs"] = torch.randn(
-        1, model.text.context_length, model.text.output_dim
-    )
+    sample_batch["text_embs"] = torch.randn(1, 15, model.text.output_dim)
 
     _export_onnx(
         module=decoder,
@@ -175,13 +171,13 @@ def main():
     parser.add_argument(
         "--model",
         type=str,
-        default="ViT-B-32",
+        default="coca_ViT-B-32",
         help="Name of CLIP model. See OpenClip docs for a list of available models",
     )
     parser.add_argument(
         "--pretrained",
         type=str,
-        default="laion2b_s34b_b79k",
+        default="mscoco_finetuned_laion2b_s13b_b90k",
         help="Name of the pretraining to use. See OpenClip docs for a list of options.",
     )
     parser.add_argument(
