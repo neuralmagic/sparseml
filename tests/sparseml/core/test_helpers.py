@@ -81,7 +81,7 @@ def test__log_epoch():
 def test_log_model_info():
     state = StateMock()
     event = EventMock()
-    log_model_info(state, event)
+    log_model_info(state, epoch=3)
     assert state.loggers.hit_count["log_string"] == 4
 
 
