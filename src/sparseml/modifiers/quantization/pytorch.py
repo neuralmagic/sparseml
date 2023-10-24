@@ -14,7 +14,7 @@
 
 import logging
 from itertools import cycle
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Iterable, Optional
 
 import torch
 from torch.nn import Module
@@ -180,7 +180,12 @@ class QuantizationModifierPyTorch(QuantizationModifier):
                 "calibration_data_loader with initialize(...) method."
             )
 
-        elif not self.calibration_dataloader_:
+        elif not isinstance(self.calibration_dataloader_, Iterable):
+            _LOGGER.debug(
+                "Expected calibration_dataloader_ to be an Iterable."
+                " But got %s, skipping quantization calibration",
+                type(self.calibration_dataloader_),
+            )
             return
 
         self._calibrate(module)
