@@ -1,8 +1,9 @@
-from sparseml.transformers.text_generation import main
+from sparseml.transformers.finetune.text_generation import main
 
-model = "facebook/opt-350m"
+model = "./obcq_deployment_tiny_llama"
 dataset_name = "wikitext"
 dataset_config_name = "wikitext-2-raw-v1"
+concatenate_data = True
 do_train = True
 do_eval = False
 output_dir = "./output"
@@ -16,6 +17,7 @@ recipe_args = {
     "pruning_end_epoch": 5
 }
 num_train_epochs=7
+overwrite_output_dir = True
 
 main(
     model_name_or_path=model,
@@ -29,5 +31,7 @@ main(
     recipe_args=recipe_args,
     max_train_samples = 1024,
     max_eval_samples = 256,
-    num_train_epochs=num_train_epochs
+    num_train_epochs=num_train_epochs,
+    overwrite_output_dir=overwrite_output_dir,
+    concatenate_data = concatenate_data
 )

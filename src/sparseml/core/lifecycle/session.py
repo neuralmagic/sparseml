@@ -18,7 +18,7 @@ from typing import Any, List, Optional
 from sparseml.core.event import EventType
 from sparseml.core.framework import Framework
 from sparseml.core.lifecycle.event import CallbacksEventLifecycle, EventLifecycle
-from sparseml.core.modifier import ModifierInterface
+from sparseml.core.modifier import StageModifiers
 from sparseml.core.recipe import RecipeContainer
 from sparseml.core.state import State
 
@@ -32,7 +32,7 @@ __all__ = [
 class SparsificationLifecycle:
     state: Optional[State] = None
     recipe_container: RecipeContainer = field(default_factory=RecipeContainer)
-    modifiers: List[ModifierInterface] = field(default_factory=list)
+    modifiers: List[StageModifiers] = field(default_factory=list)
     event_lifecycle: Optional[EventLifecycle] = None
 
     initialized_structure: bool = False
@@ -41,14 +41,15 @@ class SparsificationLifecycle:
     event_called: bool = False
 
     def reset(self):
-        for mod in self.modifiers:
-            if not mod.initialized_ or mod.finalized:
-                continue
+        for stage_modifiers in self.modifiers:
+            for mod in stage_modifiers.modifiers:
+                if not mod.initialized_ or mod.finalized_:
+                    continue
 
-            try:
-                mod.finalize(self.state)
-            except Exception:
-                pass
+                try:
+                    mod.finalize(self.state)
+                except Exception:
+                    pass
 
         self.state = None
         self.recipe_container = RecipeContainer()

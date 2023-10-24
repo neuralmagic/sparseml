@@ -1,5 +1,12 @@
 test_stage:
   pruning_modifiers:
     ConstantPruningModifier:
-      targets: '__ALL_PRUNABLE__'
+      targets: [
+        "re:.*self_attn.q_proj",
+        "re:.*self_attn.k_proj",
+        "re:.*self_attn.v_proj",
+        "re:.*self_attn.o_proj",
+        "re:.*mlp.gate_proj",
+        "re:.*mlp.up_proj"
+      ]
       start: 0

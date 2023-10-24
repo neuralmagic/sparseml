@@ -29,7 +29,8 @@ import os
 import random
 from contextlib import nullcontext
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, Dict, Any
+import torch
 
 import datasets
 import transformers
@@ -50,7 +51,14 @@ from transformers.trainer_utils import get_last_checkpoint
 from sparseml.pytorch.utils.distributed import record
 from sparseml.transformers.sparsification import Trainer, TrainingArguments
 from sparseml.transformers.utils import SparseAutoModel, get_shared_tokenizer_src
-
+import sparseml.core.session as session_manager
+from sparseml.core.framework import Framework
+from sparseml.pytorch.sparsification.quantization.helpers import (
+    initialize_channel_wise_scale_zp,
+)
+from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
+from sparseml.transformers.finetune.data import TextGenerationDataset
+from sparseml.transformers.finetune.model_args import ModelArguments
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -59,166 +67,6 @@ metadata_args = [
     "per_device_eval_batch_size",
     "fp16",
 ]
-
-
-@dataclass
-class DataTrainingArguments:
-    """
-    Arguments pertaining to what data we are going to input our model for
-    training and eval
-
-    Using `HfArgumentParser` we can turn this class into argparse
-    arguments to be able to specify them on the command line
-    """
-
-    dataset_name: Optional[str] = field(
-        default=None,
-        metadata={"help": "The name of the dataset to use (via the datasets library)"},
-    )
-    dataset_config_name: Optional[str] = field(
-        default=None,
-        metadata={
-            "help": ("The configuration name of the dataset to use"),
-        },
-    )
-    max_seq_length: int = field(
-        default=384,
-        metadata={
-            "help": "The maximum total input sequence length after tokenization. "
-            "Sequences longer  than this will be truncated, sequences shorter will "
-            "be padded."
-        },
-    )
-    overwrite_cache: bool = field(
-        default=False,
-        metadata={"help": "Overwrite the cached preprocessed datasets or not."},
-    )
-    preprocessing_num_workers: Optional[int] = field(
-        default=None,
-        metadata={"help": "The number of processes to use for the preprocessing."},
-    )
-    pad_to_max_length: bool = field(
-        default=True,
-        metadata={
-            "help": "Whether to pad all samples to `max_seq_length`. If False, "
-            "will pad the samples dynamically when batching to the maximum length "
-            "in the batch (which can be faster on GPU but will be slower on TPU)."
-        },
-    )
-    max_train_samples: Optional[int] = field(
-        default=None,
-        metadata={
-            "help": "For debugging purposes or quicker training, truncate the number "
-            "of training examples to this value if set."
-        },
-    )
-    max_eval_samples: Optional[int] = field(
-        default=None,
-        metadata={
-            "help": "For debugging purposes or quicker training, truncate the number "
-            "of evaluation examples to this value if set."
-        },
-    )
-    max_predict_samples: Optional[int] = field(
-        default=None,
-        metadata={
-            "help": (
-                "For debugging purposes or quicker training, truncate the number of "
-                "prediction examples to this value if set."
-            ),
-        },
-    )
-    train_file: Optional[str] = field(
-        default=None,
-        metadata={"help": "A csv or a json file containing the training data."},
-    )
-    validation_file: Optional[str] = field(
-        default=None,
-        metadata={"help": "A csv or a json file containing the validation data."},
-    )
-    test_file: Optional[str] = field(
-        default=None,
-        metadata={"help": "A csv or a json file containing the test data."},
-    )
-    validation_ratio: Optional[float] = field(
-        default=None,
-        metadata={"help": "Percentage of the training data to be used as validation."},
-    )
-    eval_on_test: bool = field(
-        default=False,
-        metadata={"help": "Evaluate the test dataset."},
-    )
-    input_column_names: Optional[str] = field(
-        default=None,
-        metadata={
-            "help": (
-                "name of column to read model input data from. May also be comma "
-                "separated list of two columns to use as inputs. Examples include "
-                "'sentence' for single column and 'sentence_1,sentence_2' for two. "
-                "Default behavior is to read columns based on task name or infer from "
-                "non 'label' columns if sentence_column_names and task name not"
-                "provided"
-            )
-        },
-    )
-    one_shot: bool = field(
-        default=False,
-        metadata={"help": "Whether to apply recipe in a one shot manner."},
-    )
-    num_export_samples: int = field(
-        default=0,
-        metadata={"help": "Number of samples (inputs/outputs) to export during eval."},
-    )
-
-
-@dataclass
-class ModelArguments:
-    """
-    Arguments pertaining to which model/config/tokenizer we are going to fine-tune from
-    """
-
-    model_name_or_path: str = field(
-        metadata={
-            "help": (
-                "Path to pretrained model, sparsezoo stub. or model identifier from "
-                "huggingface.co/models"
-            )
-        }
-    )
-    config_name: Optional[str] = field(
-        default=None,
-        metadata={
-            "help": "Pretrained config name or path if not the same as model_name"
-        },
-    )
-    tokenizer_name: Optional[str] = field(
-        default=None,
-        metadata={
-            "help": "Pretrained tokenizer name or path if not the same as model_name"
-        },
-    )
-    cache_dir: Optional[str] = field(
-        default=None,
-        metadata={"help": "Where to store the pretrained data from huggingface.co"},
-    )
-    use_fast_tokenizer: bool = field(
-        default=True,
-        metadata={"help": "Whether to use one of the fast tokenizers. Default True"},
-    )
-    model_revision: str = field(
-        default="main",
-        metadata={
-            "help": "The specific model version to use "
-            "(can be a branch name, tag name or commit id)"
-        },
-    )
-    use_auth_token: bool = field(
-        default=False,
-        metadata={
-            "help": "Will use token generated when running `transformers-cli login` "
-            "(necessary to use this script with private models)"
-        },
-    )
 
 
 @record
@@ -275,10 +123,6 @@ def main(**kwargs):
     # Set seed before initializing model.
     set_seed(training_args.seed)
 
-    raw_datasets = _get_raw_dataset(
-        data_args, cache_dir=model_args.cache_dir, do_predict=training_args.do_predict
-    )
-
     # Load pretrained model and tokenizer
     #
     # Distributed training:
@@ -305,6 +149,38 @@ def main(**kwargs):
         **model_kwargs,
     )
 
+    model = model.train()
+    model_path = model_args.model_name_or_path
+    recipe_path = os.path.join(model_path, "recipe.yaml")
+    if not os.path.exists(recipe_path):
+        _LOGGER.warning(
+            f"No recipes were applied for {model_path}."
+        )
+    else:
+        orig_state_dict = model.state_dict()
+
+        session_manager.create_session()
+        session_manager.pre_initialize_structure(
+            model=model, recipe=recipe_path, framework=Framework.pytorch
+        )
+
+        session = session_manager.active_session()
+        num_stages = len(session.lifecycle.recipe_container.compiled_recipe.stages)
+        msg = (
+            "an unstaged recipe"
+            if num_stages == 1
+            else f"a staged recipe with {num_stages} stages"
+        )
+        _LOGGER.info(f"Applied {msg} to the model at {model_path}")
+
+        # reload the state dict for the model now that architecture matches expected
+        if _reload_model_state(model, model_path, orig_state_dict):
+            _LOGGER.info(
+                "Reloaded model state after SparseML recipe structure modifications "
+                f"from {model_path}"
+            )
+        session_manager.active_session().reset()
+
     tokenizer_src = (
         model_args.tokenizer_name
         if model_args.tokenizer_name
@@ -318,18 +194,16 @@ def main(**kwargs):
         use_auth_token=True if model_args.use_auth_token else None,
     )
 
-    make_eval_dataset = training_args.do_eval or data_args.num_export_samples > 0
-    tokenized_datasets, raw_datasets = _get_tokenized_and_preprocessed_raw_datasets(
-        config=config,
+    do_eval = training_args.do_eval or data_args.num_export_samples > 0
+
+    dataset_manager = TextGenerationDataset.load_from_registry(
+        data_args.dataset_name,
         data_args=data_args,
-        model=model,
-        raw_datasets=raw_datasets,
-        tokenizer=tokenizer,
-        make_eval_dataset=make_eval_dataset,
-        main_process_func=training_args.main_process_first,
-        do_train=training_args.do_train,
-        do_predict=training_args.do_predict,
+        tokenizer=tokenizer
     )
+    raw_dataset = dataset_manager.get_raw_dataset(model_args.cache_dir)
+    tokenized_datasets = dataset_manager.tokenize_and_process(raw_dataset)
+    tokenized_datasets = dataset_manager.make_dataset_splits(tokenized_datasets, training_args.do_train, do_eval, training_args.do_predict)
 
     train_dataset = tokenized_datasets.get("train")
     eval_dataset = tokenized_datasets.get("validation")
@@ -366,7 +240,7 @@ def main(**kwargs):
         args=training_args,
         data_args=data_args,
         train_dataset=train_dataset if training_args.do_train else None,
-        eval_dataset=eval_dataset if make_eval_dataset else None,
+        eval_dataset=eval_dataset if do_eval else None,
         tokenizer=tokenizer,
         data_collator=data_collator,
         compute_metrics=compute_metrics,
@@ -660,6 +534,83 @@ def get_tokenized_text_classification_dataset(
     )
 
     return tokenized_datasets
+
+def _reload_model_state(model, load_path: str, orig_state_dict: Dict[str, Any]):
+    """
+    Reload the weights after model arch changes due to recipe application
+    Return True if weights are successfully reloaded; False otherwise
+    """
+    invalid_load_path = not load_path or not os.path.isdir(load_path)
+    files = os.listdir(load_path) if not invalid_load_path else []
+    weight_files = [
+        os.path.join(load_path, os.path.basename(f))
+        for f in files
+        if f.startswith("pytorch_model") and f.endswith("bin")
+    ]
+    if not weight_files:
+        _LOGGER.warning(
+            "Model state was not reloaded for SparseML: "
+            f"could not find model weights for {load_path}"
+        )
+        return False
+
+    # PerChannel quantization observers initialize variables
+    # to dummy shapes that do not match the ones saved in
+    # state_dict.
+    # Need to reshape these variables in order to load state_dict
+    # properly.
+    initialize_channel_wise_scale_zp(model)
+
+    current_state_dict = model.state_dict()
+
+    if set(orig_state_dict.keys()) == set(current_state_dict):
+        # no change in keys, ignore reload
+        return False
+
+    # change in keys due to architecture changes, reload statedict
+    loaded_state_dict = {}
+    for f in weight_files:
+        dd = torch.load(f, map_location="cpu")
+        loaded_state_dict.update(dd)
+
+    _, missing, unexpected, mismatched, _, _ = model._load_pretrained_model(
+        model=model,
+        state_dict=loaded_state_dict,
+        loaded_keys=list(loaded_state_dict.keys()),
+        resolved_archive_file=None,
+        pretrained_model_name_or_path=load_path,
+        _fast_init=False,
+    )
+
+    if missing:
+        _LOGGER.warning(
+            "Missing keys found when reloading model state for SparseML recipe:"
+            f"{missing}"
+        )
+
+    if unexpected:
+        _LOGGER.warning(
+            f"Unexpected keys found when reloading model state for SparseML recipe:"
+            f"{unexpected}"
+        )
+
+    if mismatched:
+        _LOGGER.warning(
+            f"Mismatched keys found when reloading model state for SparseML recipe:"
+            f"{mismatched}"
+        )
+
+    total_loaded = len(current_state_dict) - (len(missing) if len(missing) else 0)
+    _LOGGER.info(
+        f"Reloaded {total_loaded} model params for SparseML Recipe from {load_path}"
+    )
+    SparseAutoModel.log_model_load(
+        model,
+        load_path,
+        model_type="student",
+        delayed_load=False,
+    )
+    return True
 
 
 if __name__ == "__main__":
