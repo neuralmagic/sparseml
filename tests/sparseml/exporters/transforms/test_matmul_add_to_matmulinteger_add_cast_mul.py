@@ -68,7 +68,7 @@ def onnx_model() -> onnx.ModelProto:
         ["matmul_output"],
         name="matmul",
     )
-    add = helper.make_node("Add", ["matmul_output", "bias"], ["add_output"], name="add")
+    add = helper.make_node("Add", ["matmul_output", "bias"], ["output"], name="add")
 
     graph = helper.make_graph(
         nodes=[input_dequant, weight_quant, weight_dequant, transpose, matmul, add],
@@ -150,6 +150,7 @@ def test_matmul_no_bias_converts(onnx_model: onnx.ModelProto):
     # remove "bias" initializer and "add" node
     assert onnx_model.graph.initializer.pop().name == "bias"
     assert onnx_model.graph.node.pop().name == "add"
+    onnx_model.graph.output[0].name = "matmul_output"  # update graph output name
     validate_onnx(onnx_model)
 
     onnx_model = MatMulAddToMatMulIntegerAddCastMul().apply(onnx_model)

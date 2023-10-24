@@ -47,7 +47,7 @@ def onnx_model():
         name="scale", data_type=onnx.TensorProto.FLOAT, dims=(1,), vals=[1.0]
     )
     quantize = onnx.helper.make_node(
-        "QuantizeLinear", ["input", "scale", "zero_point"], ["id1_output"], name="id1"
+        "QuantizeLinear", ["input", "scale", "zero_point"], ["output"], name="id1"
     )
 
     graph = onnx.helper.make_graph(

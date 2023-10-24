@@ -32,8 +32,11 @@ def onnx_model():
     model_input = onnx.helper.make_tensor_value_info(
         "input", onnx.TensorProto.FLOAT, (1,)
     )
-    model_output = onnx.helper.make_tensor_value_info(
-        "output", onnx.TensorProto.FLOAT, (1,)
+    model_output_1 = onnx.helper.make_tensor_value_info(
+        "quant1_output", onnx.TensorProto.FLOAT, (1,)
+    )
+    model_output_2 = onnx.helper.make_tensor_value_info(
+        "quant2_output", onnx.TensorProto.FLOAT, (1,)
     )
     zp = onnx.helper.make_tensor("zp", onnx.TensorProto.UINT8, (1,), [0])
     scale1 = onnx.helper.make_tensor("scale1", onnx.TensorProto.FLOAT, (1,), [1.0])
@@ -50,7 +53,7 @@ def onnx_model():
         nodes=[quant1, quant2],
         name="g",
         inputs=[model_input],
-        outputs=[model_output],
+        outputs=[model_output_1, model_output_2],
         initializer=[scale1, zp],
     )
 
