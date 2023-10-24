@@ -11,16 +11,3 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
-from sparseml.modifiers.pruning.magnitude.base import MagnitudePruningModifier
-
-
-class WandaPruningModifier(MagnitudePruningModifier):
-    """
-    Prunes a model using the Wanda algorithm.
-    Implements the Wanda algorithm from the paper:
-        - https://arxiv.org/abs/2306.11695: "A Simple
-        and Effective Pruning Approach for
-        Large Language Models"
-    """
