@@ -78,7 +78,7 @@ def export_sample_inputs_outputs(
     exported_samples = 0
 
     # Sample export directories
-    sample_in_dir = os.path.join(save_dir, "sample_inputs")
+    sample_in_dir = os.path.join(save_dir, "sample-inputs")
     sample_out_dir_torch = os.path.join(save_dir, "sample_outputs_torch")
     sample_out_dir_ort = os.path.join(save_dir, "sample_outputs_onnxruntime")
 
