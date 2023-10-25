@@ -63,7 +63,7 @@ def model():
 )
 def test_session_initialize_propagates_layer_prefix_to_model(
     recipe, expected_layer_prefix, model
-):  
+):
     session = sml.active_session()
     session.initialize(framework=Framework.general, model=model, recipe=recipe)
     print(f"{session.state.model.layer_prefix=}, {expected_layer_prefix=}")
