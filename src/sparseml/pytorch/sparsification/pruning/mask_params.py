@@ -18,11 +18,11 @@ aka model pruning
 """
 
 from functools import partial
-from typing import Iterable, List, Optional, Tuple, Union
+from typing import Bool, Iterable, List, Optional, Tuple, Union
 
 import torch
 from torch import Tensor
-from torch.nn import Module
+from torch.nn import Module, Parameter
 
 from sparseml.pytorch.sparsification.pruning.mask_creator import PruningMaskCreator
 from sparseml.pytorch.sparsification.pruning.scorer import PruningParamsScorer
