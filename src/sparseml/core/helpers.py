@@ -105,5 +105,7 @@ def _log_model_loggable_items(
         log_tag, log_value = loggable_item
         if isinstance(log_value, dict):
             logger_manager.log_scalars(tag=log_tag, values=log_value, step=epoch)
+        elif isinstance(log_value, (int, float)):
+            logger_manager.log_scalar(tag=log_tag, value=log_value, step=epoch)
         else:
             logger_manager.log_string(tag=log_tag, string=log_value, step=epoch)

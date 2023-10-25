@@ -41,6 +41,9 @@ class LoggerManagerMock:
     def log_scalars(self, tag, values, step):
         self.hit_count["log_scalars"] += 1
 
+    def log_scalar(self, tag, value, step):
+        self.hit_count["log_scalar"] += 1
+
     def log_ready(self, *args, **kwargs):
         pass
 
@@ -69,26 +72,54 @@ def state_mock():
     yield StateMock()
 
 
-def test__log_epoch():
+def test__log_epoch_invokes_log_string():
     logger_manager = LoggerManagerMock()
     _log_epoch(
         logger_manager=logger_manager,
         epoch=1,
     )
+    # log epoch should invoke log_string
     assert logger_manager.hit_count["log_string"] == 1
 
 
-def test_log_model_info():
+def test_log_model_info_logs_epoch_and_loggable_items():
     state = StateMock()
-    event = EventMock()
     log_model_info(state, epoch=3)
-    assert state.loggers.hit_count["log_string"] == 4
+    # epoch logging will invoke log_string
+    assert state.loggers.hit_count["log_string"] == 1
+
+    # loggable items will invoke log_scalar for each
+    # int/float value
+    assert state.loggers.hit_count["log_scalar"] == 3
 
 
-def test__log_model_loggable_items():
+@pytest.mark.parametrize(
+    "loggable_items", [ModelMock().loggable_items(), [("a", {}), ("b", 2), ("c", {})]]
+)
+def test__log_model_loggable_items_routes_appropriately(loggable_items, monkeypatch):
     logger_manager = LoggerManagerMock()
-    loggable_items = ModelMock().loggable_items()
+    loggable_items = list(loggable_items)
+
+    scalar_count = scalars_count = string_count = 0
+    for _, value in loggable_items:
+        if isinstance(value, (int, float)):
+            scalar_count += 1
+        elif isinstance(value, dict):
+            scalars_count += 1
+        else:
+            string_count += 1
+
     _log_model_loggable_items(
         logger_manager=logger_manager, loggable_items=loggable_items, epoch=1
     )
-    assert logger_manager.hit_count["log_string"] == 3
+
+    # loggable items will invoke log_scalar for each
+    # int/float value
+    assert logger_manager.hit_count["log_scalar"] == scalar_count
+
+    # loggable items will invoke log_scalars for each
+    # dict value
+    assert logger_manager.hit_count["log_scalars"] == scalars_count
+
+    # All other value types will invoke log_string
+    assert logger_manager.hit_count["log_string"] == string_count

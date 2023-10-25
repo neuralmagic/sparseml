@@ -104,6 +104,12 @@ class ModifiableModelPyTorch(ModifiableModel[Module, Module, Parameter]):
         loggable items are defined in the `ModuleSparsificationInfo` class,
         and include sparsity, quantization, and pruning information.
 
+        This includes:
+            - Total operation counts
+            - Total parameter counts
+            - sparsity percentages per layer (with non-zero sparsity only)
+            - quantization bitwidth (for quantized layers)
+
         :return a generator that yields a tuple of:
             - the name of the loggable item
             - the value of the loggable item
