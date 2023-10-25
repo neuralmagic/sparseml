@@ -158,6 +158,9 @@ class LayerParamMasking(BaseModel):
         mask = parameterized_layer.layer.get_buffer(mask_name)
         parameterized_layer.param.data = parameterized_layer.param.data * mask
 
+        if parameterized_layer.param.grad is not None:
+            parameterized_layer.param.grad = parameterized_layer.param.grad * mask
+
     def apply_mask_gradient(self, layer_param_name: str):
         if not self.enabled_:
             return

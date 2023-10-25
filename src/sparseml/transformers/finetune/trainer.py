@@ -50,7 +50,6 @@ from sparseml.pytorch.utils import (
     TensorBoardLogger,
     WANDBLogger,
 )
-from sparseml.transformers.sparsification.trainer_callback import TrainerCallback
 from sparseml.transformers.utils import SparseAutoModel
 from sparseml.transformers.utils.helpers import RECIPE_NAME
 
@@ -165,8 +164,6 @@ class RecipeManagerTrainerInterface:
 
         super().__init__(model=model, **kwargs)
         self.criterion = torch.nn.CrossEntropyLoss()
-        # self.sparseml_callbacks = TrainerCallback(self)
-        # self.callback_handler.add_callback(self.sparseml_callbacks)
         self._add_tensorboard_logger_if_available()
 
         model_signature = inspect.signature(self.model.forward)
@@ -794,7 +791,16 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         # self.callback_disable_fp16.check_disable(epoch, force=True)
         output = None
         if not self.one_shot:
+            print("BEFORE TRAIN")
+            self.log_model_sparsification()
             output = super().train(*args, **kwargs)
+            print("RIGHT AFTER TRAIN")
+            self.accelerator.wait_for_everyone()
+            print("WAITING")
+            if self.accelerator.is_main_process:
+                print("MAIN")
+                #self.model = self.accelerator.unwrap_model(self.model)
+                self.log_model_sparsification()
             print("waiting for everyone!")
             self.accelerator.wait_for_everyone()
             if applied:

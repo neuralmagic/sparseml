@@ -10,14 +10,7 @@ def run():
     output_dir = "./output"
     cache_dir = "cache"
     recipe = "test_trainer_recipe.yaml"
-    recipe_args = {
-        "num_epochs": 7,
-        "pruning_init_sparsity": 0.0,
-        "pruning_final_sparsity": 0.5,
-        "pruning_start_epoch": 2,
-        "pruning_end_epoch": 5
-    }
-    num_train_epochs=7
+    num_train_epochs=1
     overwrite_output_dir = True
 
     main(
@@ -29,7 +22,6 @@ def run():
         output_dir=output_dir,
         cache_dir=cache_dir,
         recipe=recipe,
-        recipe_args=recipe_args,
         max_train_samples = 32,
         max_eval_samples = 16,
         num_train_epochs=num_train_epochs,
