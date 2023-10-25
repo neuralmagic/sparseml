@@ -30,13 +30,11 @@ PyTorch License https://github.com/pytorch/pytorch/blob/master/LICENSE
 
 PyTorch torchvision and models License https://github.com/pytorch/vision/blob/master/LICENSE
 
-Pytorch Image Models (timm) License https://github.com/rwightman/pytorch-image-models/blob/master/LICENSE
+PyTorch Image Models (timm) License https://github.com/rwightman/pytorch-image-models/blob/master/LICENSE
 
 TensorFlow License https://github.com/tensorflow/tensorflow/blob/master/LICENSE
 
-Ultralytics YOLOv3 License https://github.com/ultralytics/yolov3/blob/master/LICENSE
-
-Ultralytics YOLOv5 License https://github.com/ultralytics/yolov5/blob/master/LICENSE
+Ultralytics YOLOv* License https://github.com/neuralmagic/sparseml/blob/master/LICENSE-ULTRALYTICS
 
 YOLACT License https://github.com/dbolya/yolact/blob/master/LICENSE
 

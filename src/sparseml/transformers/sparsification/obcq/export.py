@@ -20,16 +20,16 @@ The export incorporates:
     inference pipeline)
 - creating an ONNX file representing a trained transformers model
 
-script accessible from sparseml.transformers.export_onnx
+script accessible from sparseml.transformers.export_onnx_refactor
 
 command help:
 usage: sparseml.transformers.export_onnx [-h] --task TASK --model_path
                                          MODEL_PATH
                                          [--sequence_length SEQUENCE_LENGTH]
                                          [--no_convert_qat]
-                                         [--finetuning_task FINETUNING_TASK]
                                          [--onnx_file_name ONNX_FILE_NAME]
-                                         [--one_shot ONE_SHOT]
+                                         [--num_exported_samples NUM_EXPORTED_SAMPLES]
+                                         [--data_args DATA_ARGS]
 
 Export a trained transformers model to an ONNX file
 
@@ -44,15 +44,10 @@ optional arguments:
                         overwritten later
   --no_convert_qat      Set flag to not perform QAT to fully quantized
                         conversion after export
-  --finetuning_task FINETUNING_TASK
-                        Optional finetuning task for text classification and
-                        token classification exports
   --onnx_file_name ONNX_FILE_NAME
                         Name for exported ONNX file in the model directory.
                         Default and recommended value for pipeline
                         compatibility is model.onnx
-  --one_shot ONE_SHOT   local path or SparseZoo stub to a recipe that should
-                        be applied in a one-shot manner before exporting
   --num_export_samples NUM_EXPORT_SAMPLES
                         Number of samples (inputs/outputs) to export
   --data_args DATA_ARGS
@@ -61,8 +56,8 @@ optional arguments:
                         samples
 
 example usage:
-sparseml.transformers.export_onnx \
-  --task question-answering \
+sparseml.transformers.export_onnx_refactor \
+  --task text_generation \
   --model_path /PATH/TO/SPARSIFIED/MODEL/DIRECTORY \
   --sequence_length 128
 """
@@ -72,23 +67,24 @@ import collections
 import copy
 import inspect
 import logging
-import math
 import os
 import shutil
-from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
 
+import torch
 from torch.nn import Module
 from transformers import AutoConfig, AutoTokenizer
-from transformers import TrainingArguments as HFTrainingArgs
 from transformers.tokenization_utils_base import PaddingStrategy
 
+import sparseml.core.session as session_manager
+from sparseml.core.framework import Framework
 from sparseml.optim import parse_recipe_variables
-from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
-from sparseml.pytorch.optim import ScheduledModifierManager
+from sparseml.pytorch.sparsification.quantization.helpers import (
+    initialize_channel_wise_scale_zp,
+)
 from sparseml.pytorch.utils import export_onnx
-from sparseml.transformers.sparsification import Trainer
 from sparseml.transformers.utils import SparseAutoModel
+from sparseml.transformers.utils.helpers import RECIPE_NAME
 from sparsezoo.utils.onnx import EXTERNAL_ONNX_DATA_NAME
 
 
@@ -110,12 +106,82 @@ OPTIONAL_DEPLOYMENT_FILES.extend(OPT_TOKENIZER_FILES)
 _LOGGER = logging.getLogger(__name__)
 
 
-@dataclass
-class DeviceCPUTrainingArgs(HFTrainingArgs):
-    @property
-    def place_model_on_device(self):
-        # Ensure model remains in CPU during ONNX export
+def _reload_model_state(model, load_path: str, orig_state_dict: Dict[str, Any]):
+    """
+    Reload the weights after model arch changes due to recipe application
+    Return True if weights are successfully reloaded; False otherwise
+    """
+    invalid_load_path = not load_path or not os.path.isdir(load_path)
+    files = os.listdir(load_path) if not invalid_load_path else []
+    weight_files = [
+        os.path.join(load_path, f)
+        for f in files
+        if f.startswith("pytorch_model") and f.endswith("bin")
+    ]
+    if not weight_files:
+        _LOGGER.warning(
+            "Model state was not reloaded for SparseML: "
+            f"could not find model weights for {load_path}"
+        )
         return False
+
+    # PerChannel quantization observers initialize variables
+    # to dummy shapes that do not match the ones saved in
+    # state_dict.
+    # Need to reshape these variables in order to load state_dict
+    # properly.
+    initialize_channel_wise_scale_zp(model)
+
+    current_state_dict = model.state_dict()
+
+    if set(orig_state_dict.keys()) == set(current_state_dict):
+        # no change in keys, ignore reload
+        return False
+
+    # change in keys due to architecture changes, reload statedict
+    loaded_state_dict = {}
+    for f in weight_files:
+        dd = torch.load(os.path.join(load_path, f), map_location="cpu")
+        loaded_state_dict.update(dd)
+
+    _, missing, unexpected, mismatched, _, _ = model._load_pretrained_model(
+        model=model,
+        state_dict=loaded_state_dict,
+        loaded_keys=list(loaded_state_dict.keys()),
+        resolved_archive_file=None,
+        pretrained_model_name_or_path=load_path,
+        _fast_init=False,
+    )
+
+    if missing:
+        _LOGGER.warning(
+            "Missing keys found when reloading model state for SparseML recipe:"
+            f"{missing}"
+        )
+
+    if unexpected:
+        _LOGGER.warning(
+            f"Unexpected keys found when reloading model state for SparseML recipe:"
+            f"{unexpected}"
+        )
+
+    if mismatched:
+        _LOGGER.warning(
+            f"Mismatched keys found when reloading model state for SparseML recipe:"
+            f"{mismatched}"
+        )
+
+    total_loaded = len(current_state_dict) - (len(missing) if len(missing) else 0)
+    _LOGGER.info(
+        f"Reloaded {total_loaded} model params for SparseML Recipe from {load_path}"
+    )
+    SparseAutoModel.log_model_load(
+        model,
+        load_path,
+        model_type="student",
+        delayed_load=False,
+    )
+    return True
 
 
 def load_task_model(
@@ -240,13 +306,10 @@ def export_transformer_to_onnx(
     model_path: str,
     sequence_length: int = 384,
     convert_qat: bool = True,
-    finetuning_task: Optional[str] = None,
     onnx_file_name: str = MODEL_ONNX_NAME,
     num_export_samples: int = 0,
     trust_remote_code: bool = False,
     data_args: Optional[Union[Dict[str, Any], str]] = None,
-    one_shot: Optional[str] = None,
-    opset: int = TORCH_DEFAULT_ONNX_OPSET,
 ) -> str:
     """
     Exports the saved transformers file to ONNX at batch size 1 using
@@ -258,8 +321,6 @@ def export_transformer_to_onnx(
     :param sequence_length: model sequence length to use for export
     :param convert_qat: set True to convert a QAT model to fully quantized
         ONNX model. Default is True
-    :param finetuning_task: optional string finetuning task for text classification
-        and token classification exports
     :param onnx_file_name: name to save the exported ONNX file as. Default
         is model.onnx. Note that when loading a model directory to a deepsparse
         pipeline, it will look only for 'model.onnx'
@@ -267,8 +328,6 @@ def export_transformer_to_onnx(
     :param trust_remote_code: set True to allow custom models in HF-transformers
     :param data_args: additional args to instantiate a `DataTrainingArguments`
         instance for exporting samples
-    :param one_shot: one shot recipe to be applied before exporting model
-    :param opset: ONNX opset to export with
     :return: path to the exported ONNX file
     """
     task = task.replace("_", "-").replace(" ", "-")
@@ -288,7 +347,7 @@ def export_transformer_to_onnx(
     data_args: Dict[str, Any] = _parse_data_args(data_args)
 
     _LOGGER.info(f"Attempting onnx export for model at {model_path} for task {task}")
-    config_args = {"finetuning_task": finetuning_task} if finetuning_task else {}
+    config_args = {}
     config = AutoConfig.from_pretrained(
         model_path,
         trust_remote_code=trust_remote_code,
@@ -303,53 +362,39 @@ def export_transformer_to_onnx(
     model = load_task_model(task, model_path, config, trust_remote_code)
     _LOGGER.info(f"loaded model, config, and tokenizer from {model_path}")
 
-    eval_dataset = None
-    if num_export_samples > 0 and data_args:
-        tokenized_dataset = load_task_dataset(
-            task=task,
-            tokenizer=tokenizer,
-            data_args=data_args,
-            model=model,
-            config=config,
-        )
-        eval_dataset = tokenized_dataset.get("validation")
-        _LOGGER.info(f"loaded validation dataset for args {data_args}")
-
     model = model.train()
 
-    trainer_output_dir = os.path.dirname(model_path)
-    args = DeviceCPUTrainingArgs(output_dir=trainer_output_dir)
-    trainer = Trainer(
-        model=model,
-        args=args,
-        model_state_path=model_path,
-        eval_dataset=eval_dataset,
-        recipe=None,
-        recipe_args=None,
-        teacher=None,
-    )
-
-    applied = trainer.apply_manager(epoch=math.inf, checkpoint=None)
-
-    if not applied:
+    recipe_path = os.path.join(model_path, RECIPE_NAME)
+    if not os.path.exists(recipe_path):
         _LOGGER.warning(
             f"No recipes were applied for {model_path}, "
             "check to make sure recipe(s) are stored in the model_path"
         )
-    else:
-        trainer.finalize_manager()
-        num_stages = 0
-        if trainer.manager:
-            num_stages += trainer.manager.num_stages()
-        if trainer.arch_manager:
-            num_stages += trainer.arch_manager.num_stages()
+        recipe_path = None
 
+    orig_state_dict = model.state_dict()
+
+    session_manager.create_session()
+    session_manager.pre_initialize_structure(
+        model=model, recipe=recipe_path, framework=Framework.pytorch
+    )
+
+    if recipe_path:
+        session = session_manager.active_session()
+        num_stages = len(session.lifecycle.recipe_container.compiled_recipe.stages)
         msg = (
             "an unstaged recipe"
             if num_stages == 1
             else f"a staged recipe with {num_stages} stages"
         )
         _LOGGER.info(f"Applied {msg} to the model at {model_path}")
+
+    # reload the state dict for the model now that architecture matches expected
+    if _reload_model_state(model, model_path, orig_state_dict):
+        _LOGGER.info(
+            "Reloaded model state after SparseML recipe structure modifications "
+            f"from {model_path}"
+        )
 
     # create fake model input
     inputs = tokenizer(
@@ -387,10 +432,6 @@ def export_transformer_to_onnx(
 
     _LOGGER.info(f"Created sample inputs for the ONNX export process: {inputs_shapes}")
 
-    if one_shot:
-        one_shot_manager = ScheduledModifierManager.from_yaml(file_path=one_shot)
-        one_shot_manager.apply(module=model)
-
     # run export
     model = model.eval()
     onnx_file_path = os.path.join(model_path, onnx_file_name)
@@ -401,21 +442,9 @@ def export_transformer_to_onnx(
         inputs,
         onnx_file_path,
         convert_qat=convert_qat,
-        opset=opset,
         **kwargs,
     )
     _LOGGER.info(f"ONNX exported to {onnx_file_path}")
-
-    # export sample inputs/outputs
-
-    if num_export_samples > 0:
-        _LOGGER.info(f"Exporting {num_export_samples} sample inputs/outputs")
-        trainer.save_sample_inputs_outputs(
-            num_samples_to_export=num_export_samples,
-            tokenizer=tokenizer,
-        )
-
-    _LOGGER.info(f"{num_export_samples} sample inputs/outputs exported")
     return onnx_file_path
 
 
@@ -523,15 +552,6 @@ def _parse_args() -> argparse.Namespace:
         help=("Set flag to not perform QAT to fully quantized conversion after export"),
     )
     parser.add_argument(
-        "--finetuning_task",
-        type=str,
-        default=None,
-        help=(
-            "Optional finetuning task for text classification and token "
-            "classification exports"
-        ),
-    )
-    parser.add_argument(
         "--onnx_file_name",
         type=str,
         default=MODEL_ONNX_NAME,
@@ -555,22 +575,9 @@ def _parse_args() -> argparse.Namespace:
         " instance while exporting samples",
     )
     parser.add_argument(
-        "--one_shot",
-        type=str,
-        default=None,
-        help="local path or SparseZoo stub to a recipe that should be applied "
-        "in a one-shot manner before exporting",
-    )
-    parser.add_argument(
         "--trust_remote_code",
         action="store_true",
         help=("Set flag to allow custom models in HF-transformers"),
-    )
-    parser.add_argument(
-        "--opset",
-        type=int,
-        default=TORCH_DEFAULT_ONNX_OPSET,
-        help=f"ONNX opset to export with, default: {TORCH_DEFAULT_ONNX_OPSET}",
     )
 
     return parser.parse_args()
@@ -581,13 +588,10 @@ def export(
     model_path: str,
     sequence_length: int,
     no_convert_qat: bool,
-    finetuning_task: str,
     onnx_file_name: str,
     num_export_samples: int = 0,
     trust_remote_code: bool = False,
     data_args: Optional[str] = None,
-    one_shot: Optional[str] = None,
-    opset: int = TORCH_DEFAULT_ONNX_OPSET,
 ):
     if os.path.exists(model_path):
         # expand to absolute path to support downstream logic
@@ -597,13 +601,10 @@ def export(
         model_path=model_path,
         sequence_length=sequence_length,
         convert_qat=(not no_convert_qat),  # False if flagged
-        finetuning_task=finetuning_task,
         onnx_file_name=onnx_file_name,
         num_export_samples=num_export_samples,
         trust_remote_code=trust_remote_code,
         data_args=data_args,
-        one_shot=one_shot,
-        opset=opset,
     )
 
     deployment_folder_dir = create_deployment_folder(
@@ -622,13 +623,10 @@ def main():
         model_path=args.model_path,
         sequence_length=args.sequence_length,
         no_convert_qat=args.no_convert_qat,  # False if flagged
-        finetuning_task=args.finetuning_task,
         onnx_file_name=args.onnx_file_name,
         num_export_samples=args.num_export_samples,
         trust_remote_code=args.trust_remote_code,
         data_args=args.data_args,
-        one_shot=args.one_shot,
-        opset=args.opset,
     )
 
 
