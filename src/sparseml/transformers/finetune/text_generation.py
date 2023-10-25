@@ -29,10 +29,10 @@ import os
 import random
 from contextlib import nullcontext
 from dataclasses import dataclass, field
-from typing import Optional, Dict, Any
-import torch
+from typing import Any, Dict, Optional
 
 import datasets
+import torch
 import transformers
 from datasets import load_dataset
 from sklearn.model_selection import StratifiedShuffleSplit
@@ -48,17 +48,18 @@ from transformers import (
 )
 from transformers.trainer_utils import get_last_checkpoint
 
-from sparseml.pytorch.utils.distributed import record
-from sparseml.transformers.sparsification import Trainer, TrainingArguments
-from sparseml.transformers.utils import SparseAutoModel, get_shared_tokenizer_src
 import sparseml.core.session as session_manager
+from accelerate import Accelerator
 from sparseml.core.framework import Framework
 from sparseml.pytorch.sparsification.quantization.helpers import (
     initialize_channel_wise_scale_zp,
 )
-from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
+from sparseml.transformers.finetune import Trainer, TrainingArguments
 from sparseml.transformers.finetune.data import TextGenerationDataset
+from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
 from sparseml.transformers.finetune.model_args import ModelArguments
+from sparseml.transformers.utils import SparseAutoModel, get_shared_tokenizer_src
+from accelerate import FullyShardedDataParallelPlugin
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -69,12 +70,13 @@ metadata_args = [
 ]
 
 
-@record
 def main(**kwargs):
     # See all possible arguments in
     # src/sparseml/transformers/sparsification/training_args.py
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
+
+    #accelerator = Accelerator()
 
     parser = HfArgumentParser(
         (ModelArguments, DataTrainingArguments, TrainingArguments)
@@ -153,10 +155,9 @@ def main(**kwargs):
     model_path = model_args.model_name_or_path
     recipe_path = os.path.join(model_path, "recipe.yaml")
     if not os.path.exists(recipe_path):
-        _LOGGER.warning(
-            f"No recipes were applied for {model_path}."
-        )
+        _LOGGER.warning(f"No recipes were applied for {model_path}.")
     else:
+        _LOGGER.warning(f"applying recipe")
         orig_state_dict = model.state_dict()
 
         session_manager.create_session()
@@ -181,6 +182,8 @@ def main(**kwargs):
             )
         session_manager.active_session().reset()
 
+    #model = accelerator.prepare(model)
+
     tokenizer_src = (
         model_args.tokenizer_name
         if model_args.tokenizer_name
@@ -197,13 +200,13 @@ def main(**kwargs):
     do_eval = training_args.do_eval or data_args.num_export_samples > 0
 
     dataset_manager = TextGenerationDataset.load_from_registry(
-        data_args.dataset_name,
-        data_args=data_args,
-        tokenizer=tokenizer
+        data_args.dataset_name, data_args=data_args, tokenizer=tokenizer
     )
     raw_dataset = dataset_manager.get_raw_dataset(model_args.cache_dir)
     tokenized_datasets = dataset_manager.tokenize_and_process(raw_dataset)
-    tokenized_datasets = dataset_manager.make_dataset_splits(tokenized_datasets, training_args.do_train, do_eval, training_args.do_predict)
+    tokenized_datasets = dataset_manager.make_dataset_splits(
+        tokenized_datasets, training_args.do_train, do_eval, training_args.do_predict
+    )
 
     train_dataset = tokenized_datasets.get("train")
     eval_dataset = tokenized_datasets.get("validation")
@@ -244,6 +247,7 @@ def main(**kwargs):
         tokenizer=tokenizer,
         data_collator=data_collator,
         compute_metrics=compute_metrics,
+        #accelerator=accelerator,
     )
 
     # Training
@@ -501,39 +505,6 @@ def _make_dataset_splits(
             predict_split = predict_split.select(range(data_args.max_predict_samples))
 
     return train_split, eval_split, predict_split
-
-
-def get_tokenized_text_classification_dataset(
-    data_args: DataTrainingArguments,
-    tokenizer: transformers.PreTrainedTokenizerBase,
-    model: Module,
-    config,
-    cache_dir: Optional[str] = None,
-):
-    """
-    Utility method to get tokenized text classification dataset given at-least
-    the tokenizer, model, and data_arguments
-
-    :param data_args: Arguments pertaining to what data we are going to input
-        our model for training and eval
-    :param tokenizer: The tokenizer to use for tokenizing raw dataset
-    :param config: The pretrained config used to load this model
-    :param cache_dir: Local path to store the pretrained data from huggingface.co
-    :returns: A dictionary containing tokenized_datasets
-    """
-
-    raw_datasets = _get_raw_dataset(data_args, cache_dir=cache_dir, do_predict=True)
-
-    tokenized_datasets, _ = _get_tokenized_and_preprocessed_raw_datasets(
-        config=config,
-        data_args=data_args,
-        model=model,
-        raw_datasets=raw_datasets,
-        tokenizer=tokenizer,
-        make_eval_dataset=True,
-    )
-
-    return tokenized_datasets
 
 def _reload_model_state(model, load_path: str, orig_state_dict: Dict[str, Any]):
     """
