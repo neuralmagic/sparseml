@@ -12,10 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-SparseML transformers trainer classes and interfaces to be plugged in with
-existing or similiar HF trainer flows
-"""
 import collections
 import inspect
 import logging
@@ -31,7 +27,7 @@ import numpy
 import torch
 from torch.nn import Module
 from transformers import Trainer as HFTransformersTrainer
-from transformers import TrainerControl, TrainingArguments
+from transformers import TrainerControl, TrainingArguments, TrainerCallback
 from transformers.file_utils import PaddingStrategy
 from transformers.integrations import TensorBoardCallback
 from transformers.trainer_callback import TrainerState
@@ -55,7 +51,7 @@ from sparseml.transformers.utils.helpers import RECIPE_NAME
 
 
 __all__ = [
-    "RecipeManagerTrainerInterface",
+    "SessionManagerMixIn",
     "TrainerInterface",
     "Trainer",
     "DisableHalfPrecisionCallback",
@@ -69,41 +65,7 @@ SCHEDULER_NAME = "scheduler.pt"
 SCALER_NAME = "scaler.pt"
 
 
-class RecipeManagerTrainerInterface:
-    """
-    Training base interface for running sparsification recipes with transformers flows.
-    Defines its own lifecycle that is compatible with transformers flows.
-    Can additionally be used outside of transformers flows provided
-    they match reasonably closely.
-
-    Should be instantiated with multi-inheritance with a custom trainer class.
-    RecipeManagerTrainerInterface must be provided
-    before Trainer for proper class dependency.
-    i.e. class MyCustomTrainer(RecipeManagerTrainerInterface, Trainer)
-
-    Expected lifecycle:
-    1. apply_manager
-    2. create_optimizer (only for training)
-    3. create_scheduler (only for training)
-    4. compute_loss (only for training, called before each step)
-    5. save_model (only for training)
-    6. finalize_manager
-
-    :param model: the model to use with the trainer and apply sparsification to
-    :param model_state_path: the state path to the model,
-        used to load config and tokenizer settings
-    :param recipe: the recipe, if any, to apply to the model and training
-        process
-    :param recipe_args: A json string, csv key=value string, or dictionary containing
-        arguments to override the root arguments within the recipe such as
-        learning rate or num epochs
-    :param metadata_args A list of arguments to be extracted from training_args
-        and passed as metadata for the final, saved recipe.
-    :param teacher: teacher model for distillation. Set to 'self' to distill
-        from the loaded model or 'disable' to turn off distillation
-    :param kwargs: key word arguments passed to the parent class
-    """
-
+class SessionManagerMixIn:
     def __init__(
         self,
         model: Module,
@@ -732,7 +694,7 @@ class RecipeManagerTrainerInterface:
         return inputs
 
 
-class TrainerInterface(RecipeManagerTrainerInterface):
+class TrainerInterface(SessionManagerMixIn):
     """
     Training interface for running sparsification recipes with transformers flows.
     Mimics the lifecycle of transformers Trainer classes.
@@ -1035,7 +997,7 @@ class DisableHalfPrecisionCallback(TrainerCallback):
     :param kwargs: key word arguments to be passed to base TrainerCallback
     """
 
-    def __init__(self, trainer: RecipeManagerTrainerInterface, *args, **kwargs):
+    def __init__(self, trainer: SessionManagerMixIn, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.trainer = trainer
         self.on_begin_called = False

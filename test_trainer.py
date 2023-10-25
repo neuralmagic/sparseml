@@ -10,7 +10,7 @@ def run():
     output_dir = "./output"
     cache_dir = "cache"
     recipe = "test_trainer_recipe.yaml"
-    num_train_epochs=1
+    num_train_epochs=3
     overwrite_output_dir = True
 
     main(
