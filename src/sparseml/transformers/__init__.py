@@ -40,12 +40,16 @@ def _check_transformers_install():
     # check for NM integration in transformers version
     import transformers as _transformers
 
-    if not _transformers.NM_INTEGRATED:
-        _LOGGER.warning(
-            "the neuralmagic fork of transformers may not be installed. it can be "
-            "installed via "
-            f"`pip install {_NM_TRANSFORMERS_NIGHTLY}`"
+    if not getattr(_transformers, "NM_INTEGRATED", False):
+        message = (
+            "****************************************************************\n"
+            "WARNING: It appears that the Neural Magic fork of Transformers is not installed!\n"
+            "This is CRITICAL for the proper application of quantization in SparseML flows.\n\n"
+            "To resolve this, please run: `pip uninstall transformers;pip install nm-transformers`\n"
+            "Failing to do so is UNSUPPORTED and may significantly affect model performance.\n"
+            "****************************************************************"
         )
+        _LOGGER.warning(message)
 
 
 _check_transformers_install()

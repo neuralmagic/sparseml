@@ -36,7 +36,9 @@ def onnx_model() -> onnx.ModelProto:
     model_input_1 = helper.make_tensor_value_info(
         "input_1", onnx.TensorProto.FLOAT, (1,)
     )
-    model_output = helper.make_tensor_value_info("output", onnx.TensorProto.FLOAT, (1,))
+    model_output = helper.make_tensor_value_info(
+        "output_quant_output", onnx.TensorProto.FLOAT, (1,)
+    )
 
     input_dequant = helper.make_node(
         "DequantizeLinear",
@@ -159,6 +161,7 @@ def test_gemm_with_bias_dequant_after(onnx_model: onnx.ModelProto):
             name="output_dequant",
         )
     )
+    onnx_model.graph.output[0].name = "output_dequant_output"
     validate_onnx(onnx_model)
 
     onnx_model = GemmToQLinearMatMul().apply(onnx_model)
@@ -201,6 +204,7 @@ def test_gemm_after_changes_nothing(onnx_model: onnx.ModelProto):
             name="gemm2",
         )
     )
+    onnx_model.graph.output[0].name = "gemm2_output"  # update graph output
     validate_onnx(onnx_model)
     onnx_model = GemmToQLinearMatMul().apply(onnx_model)
     validate_onnx(onnx_model)
@@ -224,6 +228,7 @@ def test_gemm_after_changes_nothing(onnx_model: onnx.ModelProto):
 
     # remove the gemm2 node and now things should change
     onnx_model.graph.node.pop()
+    onnx_model.graph.output[0].name = "output_dequant_output"  # update graph output
     validate_onnx(onnx_model)
     onnx_model = GemmToQLinearMatMul().apply(onnx_model)
 
