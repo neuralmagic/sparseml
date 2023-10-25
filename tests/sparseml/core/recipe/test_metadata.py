@@ -46,7 +46,7 @@ class TestRecipeMetaData:
 
         all_keys = set(self_metadata.keys()).union(other_metadata.keys())
 
-        # keys should not be overwritten 
+        # keys should not be overwritten
         # if they already exist
         for key in all_keys:
             if key in self_metadata:

@@ -1,6 +1,22 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import pytest
-from sparseml.core.framework import Framework
+
 import sparseml.core.session as sml
+from sparseml.core.framework import Framework
+
 
 def recipe_with_layer_prefix():
     layer_prefix = "decoder"
@@ -19,6 +35,7 @@ def recipe_with_layer_prefix():
     """
     return recipe, layer_prefix
 
+
 def recipe_without_layer_prefix():
     recipe = """
     metadata:
@@ -34,6 +51,7 @@ def recipe_without_layer_prefix():
     """
     return recipe, None
 
+
 @pytest.fixture
 def model():
     # identity model
@@ -44,10 +62,12 @@ def model():
     "recipe, expected_layer_prefix",
     [
         recipe_with_layer_prefix(),
-        recipe_without_layer_prefix(), # layer prefix should be none
+        recipe_without_layer_prefix(),  # layer prefix should be none
     ],
 )
-def test_session_initialize_propagates_layer_prefix_to_model(recipe, expected_layer_prefix, model):
+def test_session_initialize_propagates_layer_prefix_to_model(
+    recipe, expected_layer_prefix, model
+):
     session = sml.active_session()
-    session.initialize(framework=Framework.general ,model=model, recipe=recipe)
+    session.initialize(framework=Framework.general, model=model, recipe=recipe)
     assert session.state.model.layer_prefix == expected_layer_prefix
