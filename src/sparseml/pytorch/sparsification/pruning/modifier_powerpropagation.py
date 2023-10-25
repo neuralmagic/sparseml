@@ -35,7 +35,6 @@ from sparseml.pytorch.utils import (
     NamedLayerParam,
     get_named_layers_and_params_by_regex,
     get_prunable_layers,
-    tensors_to_device,
 )
 from sparseml.pytorch.utils.logger import LoggerManager
 from sparseml.utils import ALL_PRUNABLE_TOKEN, ALL_TOKEN, validate_str_iterable
