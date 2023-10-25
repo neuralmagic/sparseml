@@ -164,15 +164,17 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
         nsamples: int = None,
         dev: str = "cuda:0",
         target_ids: List[str] = None,
-        layer_prefix: str = None,
+        layer_prefix: Optional[str] = None,
     ) -> Dict:
         """
         Runs calibration data through the bottom part of the network (everything up
         to the first decoder layer) and return the captured outputs
 
         :param dataloader: calibration data to pass through the model
-        :nsamples: number of samples to use for calibration, or None to use it all
-        :dev: device to use
+        :param nsamples: number of samples to use for calibration, or None to use it all
+        :param dev: device to use
+        :param layer_prefix: name of model attribute that contains the list of layers,
+            i.e. model.decoder for OPT or just model for Llama
         :return: outputs from bottom part of network, attention mask, and kv-cache state
         """
         layer_prefix = layer_prefix or self.layer_prefix_
