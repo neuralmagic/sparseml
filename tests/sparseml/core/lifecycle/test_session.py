@@ -38,10 +38,6 @@ def recipe_with_layer_prefix():
 
 def recipe_without_layer_prefix():
     recipe = """
-    metadata:
-        target_model:
-            architecture: "opt"
-
     test_stage:
         pruning_modifiers:
             ConstantPruningModifier:
@@ -61,13 +57,14 @@ def model():
 @pytest.mark.parametrize(
     "recipe, expected_layer_prefix",
     [
+        recipe_without_layer_prefix(),
         recipe_with_layer_prefix(),
-        recipe_without_layer_prefix(),  # layer prefix should be none
     ],
 )
 def test_session_initialize_propagates_layer_prefix_to_model(
     recipe, expected_layer_prefix, model
-):
+):  
     session = sml.active_session()
     session.initialize(framework=Framework.general, model=model, recipe=recipe)
+    print(f"{session.state.model.layer_prefix=}, {expected_layer_prefix=}")
     assert session.state.model.layer_prefix == expected_layer_prefix
