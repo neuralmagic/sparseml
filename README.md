@@ -62,7 +62,7 @@ SparseML is an open-source model optimization toolkit that enables you to create
 ## Workflows
 
 SparseML enables you to create a sparse model trained on your dataset in two ways:
-- **Sparse Transfer Learning** enables you to fine-tune a pre-sparsified model from [SparseZoo](https://sparsezoo.neuralmagic.com/) (an open-source repository of sparse models such as BERT, YOLOv5, and ResNet-50) onto your dataset, while maintaining sparsity. This pathway works just like typical fine-tuning you are used to in training CV and NLP models, and is strongly preferred for if your model architecture is availble in SparseZoo.
+- **Sparse Transfer Learning** enables you to fine-tune a pre-sparsified model from [SparseZoo](https://sparsezoo.neuralmagic.com/) (an open-source repository of sparse models such as BERT, YOLOv5, and ResNet-50) onto your dataset, while maintaining sparsity. This pathway works just like typical fine-tuning you are used to in training CV and NLP models, and is strongly preferred for if your model architecture is available in SparseZoo.
 
 - **Sparsification from Scratch** enables you to apply state-of-the-art pruning (like gradual magnitude pruning or OBS pruning) and quantization (like quantization aware training) algorithms to arbitrary PyTorch and Hugging Face models. This pathway requires more experimentation, but allows you to create a sparse version of any model. 
 
@@ -134,7 +134,7 @@ To enable flexibility, ease of use, and repeatability, SparseML uses a declarati
 
 ### Python API
 
-Because of the declarative, recipe-based approach, you can add SparseML to your existing PyTorch traing pipelines. The `ScheduleModifierManager` class is responsible for parsing the YAML `recipes` and overriding standard PyTorch model and optimizer objects, encoding the logic of the sparsity algorithms from the recipe. Once you call `manager.modify`, you can then use the model and optimizer as usual, as SparseML abstracts away the complexity of the sparsification algorithms.
+Because of the declarative, recipe-based approach, you can add SparseML to your existing PyTorch training pipelines. The `ScheduleModifierManager` class is responsible for parsing the YAML `recipes` and overriding standard PyTorch model and optimizer objects, encoding the logic of the sparsity algorithms from the recipe. Once you call `manager.modify`, you can then use the model and optimizer as usual, as SparseML abstracts away the complexity of the sparsification algorithms.
 
 The workflow looks like this:
 
