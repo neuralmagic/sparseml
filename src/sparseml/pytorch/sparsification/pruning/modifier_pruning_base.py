@@ -581,8 +581,8 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         #     #for layer in layers
         #     for (layer, layer_name) in zip(layers, layer_names)
         # ]
-        final_boss = ModuleAnalyzer(module, "blahblah", enabled=True)
-        return pruning_analyzers + [final_boss]
+        flops_analyzer = ModuleAnalyzer(module, "", enabled=True)
+        return pruning_analyzers + [flops_analyzer]
 
 
 

@@ -68,7 +68,7 @@ class ModuleAnalyzer(object):
         False to disable and not track
     """
 
-    def __init__(self, module: Module, layer_name: str,  enabled: bool = False):
+    def __init__(self, module: Module, layer_name: str,  enabled: bool = False, ignore_zero=True, ignore_bias=False, multiply_adds=True):
         super(ModuleAnalyzer, self).__init__()
         self._module = module
         self._hooks = None  # type: List[RemovableHandle]
@@ -77,7 +77,9 @@ class ModuleAnalyzer(object):
         self._call_count = -1
         self.enabled = enabled
         self._layer_name = layer_name
-        print("initialized one", self._layer_name)
+        self._ignore_zero = ignore_zero
+        self._ignore_bias = ignore_bias
+        self._multiply_adds = multiply_adds
 
     def __del__(self):
         self._delete_hooks()
@@ -171,12 +173,10 @@ class ModuleAnalyzer(object):
     def _create_mod_hooks(self, mod: Module, name: str) -> List[RemovableHandle]:
         mod._analyzed_layer_desc = None
         mod._analyzed_layer_name = name
-        print("creating low-level hook for", name)
 
         forward_pre_hook = mod.register_forward_pre_hook(self._forward_pre_hook)
 
         if isinstance(mod, _ConvNd):
-            print("making a forward hook!")
             forward_hook = mod.register_forward_hook(self._conv_hook)
         elif isinstance(mod, Linear):
             forward_hook = mod.register_forward_hook(self._linear_hook)
@@ -203,7 +203,6 @@ class ModuleAnalyzer(object):
             or isinstance(mod, LogSigmoid)
         ):
             
-            print("making an activation hook!")
             forward_hook = mod.register_forward_hook(self._activation_hook)
         elif isinstance(mod, Softmax) or isinstance(mod, Softmax2d):
             forward_hook = mod.register_forward_hook(self._softmax_hook)
@@ -219,11 +218,15 @@ class ModuleAnalyzer(object):
     ):
         self._call_count += 1
 
+        if mod._analyzed_layer_desc is not None:
+           return
+
         mod._analyzed_layer_desc = AnalyzedLayerDesc(
             name=mod._analyzed_layer_name,
             type_=mod.__class__.__name__,
             execution_order=self._call_count,
             flops=0,
+            total_flops=0,
         )
         # if False and mod._analyzed_layer_desc.flops > 0:
         #     print(mod._analyzed_layer_desc)
@@ -289,33 +292,56 @@ class ModuleAnalyzer(object):
         }
         desc.stride = mod.stride
 
-        mult_per_out_pix = float(numpy.prod(mod.kernel_size)) * mod.in_channels
+        #mult_per_out_pix = float(numpy.prod(mod.kernel_size)) * mod.in_channels
+        #print("!!!!!!!!!!!!!!!!!!!!", mult_per_out_pix, mod.kernel_size, mod.in_channels)
+        batch_size, input_channels, input_height, input_width = inp[0].size()
+        #print(out[0].size())
+        batch_size, output_channels, output_height, output_width = out[0].size()
+        bias_ops = 1 if not self._ignore_bias and mod.bias is not None else 0
+        num_weight_params = (
+            (mod.weight.data != 0.).float().sum()
+            if self._ignore_zero
+            else mod.weight.data.nelement()
+        )
+        flops = (
+                (
+                        num_weight_params * (2 if self._multiply_adds else 1)
+                        + bias_ops * output_channels
+                )
+                * output_height
+                * output_width
+                * batch_size
+        )
         add_per_out_pix = 1 if mod.bias is not None else 0
         out_pix = float(numpy.prod(out[0].shape[1:]))
 
         # total flops counts the cost of summing the
         # multiplications together as well
         # most implementations and papers do not include this cost
-        desc.flops = (mult_per_out_pix + add_per_out_pix) * out_pix
-        desc.total_flops = (mult_per_out_pix * 2 + add_per_out_pix) * out_pix
+        #desc.flops = (mult_per_out_pix + add_per_out_pix) * out_pix
+        desc.flops = flops
+        #desc.total_flops += desc.flops
+        #desc.total_flops = (mult_per_out_pix * 2 + add_per_out_pix) * out_pix
         #print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!", desc)
         #list_conv.append(desc)
         #AnalyzedLayerDesc({'name': 'sections.3.2.conv3', 'type': 'Conv2d', 'params': 0, 'zeroed_params': 0, 'prunable_params': 0, 'params_dims': None, 'prunable_params_dims': None, 'execution_order': 2181, 'input_shape': None, 'output_shape': None, 'stride': None, 'flops': 51380224.0, 'total_flops': 102760448.0, 'terminal': False, 'prunable': False}) 
-        mod._analyzed_layer_desc = AnalyzedLayerDesc(
-            name=mod._analyzed_layer_desc.name,
-            type_=mod._analyzed_layer_desc.type_,
-            execution_order=mod._analyzed_layer_desc.execution_order,
-            params = desc.params,
-            zeroed_params = desc.zeroed_params,
-            prunable_params = desc.prunable_params,
-            params_dims = desc.params_dims,
-            prunable_params_dims = desc.prunable_params_dims,
-            input_shape = desc.input_shape,
-            output_shape = desc.output_shape,
-            stride = desc.stride,
-            flops = desc.flops,
-            total_flops = desc.total_flops,
-        )
+        #print(mod._analyzed_layer_desc)
+        #print(desc)
+        #mod._analyzed_layer_desc = AnalyzedLayerDesc(
+        #    name=mod._analyzed_layer_desc.name,
+        #    type_=mod._analyzed_layer_desc.type_,
+        #    execution_order=mod._analyzed_layer_desc.execution_order,
+        #    params = desc.params,
+        #    zeroed_params = desc.zeroed_params,
+        #    prunable_params = desc.prunable_params,
+        #    params_dims = desc.params_dims,
+        #    prunable_params_dims = desc.prunable_params_dims,
+        #    input_shape = desc.input_shape,
+        #    output_shape = desc.output_shape,
+        #    stride = desc.stride,
+        #    flops = desc.flops,
+        #    total_flops =  mod._analyzed_layer_desc.total_flops + desc.flops,
+        #)
         # if mod._analyzed_layer_desc.flops > 0:
         #     print(mod._analyzed_layer_desc)
 
@@ -349,12 +375,39 @@ class ModuleAnalyzer(object):
         mult_per_out_pix = mod.in_features
         add_per_out_pix = 1 if mod.bias is not None else 0
         out_pix = float(numpy.prod(out[0].shape[1:]))
+        batch_size = inp[0].size(0) if inp[0].dim() == 2 else 1
+
+        num_weight_params = (
+            (mod.weight.data != 0.).float().sum()
+            if self._ignore_zero
+            else mod.weight.data.nelement()
+        )
+        weight_ops = num_weight_params * (2 if self._multiply_adds else 1)
+        bias_ops = mod.bias.nelement() if not self._ignore_bias else 0
+
+        flops = batch_size * (weight_ops + bias_ops)
 
         # total flops counts the cost of summing the
         # multiplications together as well
         # most implementations and papers do not include this cost
-        desc.flops = (mult_per_out_pix + add_per_out_pix) * out_pix
+        #desc.flops = (mult_per_out_pix + add_per_out_pix) * out_pix
+        desc.flops = flops
         desc.total_flops = (mult_per_out_pix * 2 + add_per_out_pix) * out_pix
+        # mod._analyzed_layer_desc = AnalyzedLayerDesc(
+        #     name=mod._analyzed_layer_desc.name,
+        #     type_=mod._analyzed_layer_desc.type_,
+        #     execution_order=mod._analyzed_layer_desc.execution_order,
+        #     params = desc.params,
+        #     zeroed_params = desc.zeroed_params,
+        #     prunable_params = desc.prunable_params,
+        #     params_dims = desc.params_dims,
+        #     prunable_params_dims = desc.prunable_params_dims,
+        #     input_shape = desc.input_shape,
+        #     output_shape = desc.output_shape,
+        #     stride = desc.stride,
+        #     flops = desc.flops,
+        #     total_flops = mod._analyzed_layer_desc.total_flops + desc.flops,
+        # )
 
     def _bn_hook(
         self,
@@ -384,8 +437,24 @@ class ModuleAnalyzer(object):
         }
 
         # 4 elementwise operations on the output space, just need to add all of them up
-        desc.flops = 4 * float(numpy.prod(out[0].shape[1:]))
-        desc.total_flops = desc.flops
+        #desc.flops = 4 * float(numpy.prod(out[0].shape[1:]))
+        desc.flops = 2 * float(inp[0].nelement())
+        desc.total_flops += desc.flops
+        # mod._analyzed_layer_desc = AnalyzedLayerDesc(
+        #     name=mod._analyzed_layer_desc.name,
+        #     type_=mod._analyzed_layer_desc.type_,
+        #     execution_order=mod._analyzed_layer_desc.execution_order,
+        #     params = desc.params,
+        #     zeroed_params = desc.zeroed_params,
+        #     prunable_params = desc.prunable_params,
+        #     params_dims = desc.params_dims,
+        #     prunable_params_dims = desc.prunable_params_dims,
+        #     input_shape = desc.input_shape,
+        #     output_shape = desc.output_shape,
+        #     stride = desc.stride,
+        #     flops = desc.flops,
+        #     total_flops = mod._analyzed_layer_desc.total_flops + desc.flops,
+        # )
 
     def _pool_hook(
         self,
@@ -411,11 +480,41 @@ class ModuleAnalyzer(object):
         }
         desc.stride = mod.stride
 
-        flops_per_out_pix = float(numpy.prod(mod.kernel_size) + 1)
-        out_pix = float(numpy.prod(out[0].shape[1:]))
+        #flops_per_out_pix = float(numpy.prod(mod.kernel_size) + 1)
+        #out_pix = float(numpy.prod(out[0].shape[1:]))
+        batch_size, input_channels, input_height, input_width = inp[0].size()
+        batch_size, output_channels, output_height, output_width = out[0].size()
 
-        desc.flops = flops_per_out_pix * out_pix
-        desc.total_flops = desc.flops
+        kernel_ops = mod.kernel_size * mod.kernel_size
+        bias_ops = 0
+        params = 0
+        flops = (
+                (kernel_ops + bias_ops)
+                * output_channels
+                * output_height
+                * output_width
+                * batch_size
+        )
+
+        desc.flops = flops
+        #desc.flops = flops_per_out_pix * out_pix
+        desc.total_flops += desc.flops
+
+        # mod._analyzed_layer_desc = AnalyzedLayerDesc(
+        #     name=mod._analyzed_layer_desc.name,
+        #     type_=mod._analyzed_layer_desc.type_,
+        #     execution_order=mod._analyzed_layer_desc.execution_order,
+        #     params = desc.params,
+        #     zeroed_params = desc.zeroed_params,
+        #     prunable_params = desc.prunable_params,
+        #     params_dims = desc.params_dims,
+        #     prunable_params_dims = desc.prunable_params_dims,
+        #     input_shape = desc.input_shape,
+        #     output_shape = desc.output_shape,
+        #     stride = desc.stride,
+        #     flops = desc.flops,
+        #     total_flops = mod._analyzed_layer_desc.total_flops + desc.flops,
+        # )
 
     def _adaptive_pool_hook(
         self,
@@ -448,11 +547,44 @@ class ModuleAnalyzer(object):
             inp[0].shape[i] - (out[0].shape[i] - 1) * stride[i - 2]
             for i in range(2, len(inp[0].shape))
         )
-        flops_per_out_pix = float(numpy.prod(kernel_size))
-        out_pix = float(numpy.prod(out[0].shape[1:]))
+        kernel_size = numpy.prod(kernel_size)
+        # flops_per_out_pix = float(numpy.prod(kernel_size))
+        # out_pix = float(numpy.prod(out[0].shape[1:]))
 
-        desc.flops = flops_per_out_pix * out_pix
-        desc.total_flops = desc.flops
+        # desc.flops = flops_per_out_pix * out_pix
+        # desc.total_flops = desc.flops
+        batch_size, input_channels, input_height, input_width = inp[0].size()
+        batch_size, output_channels, output_height, output_width = out[0].size()
+
+        kernel_ops = kernel_size * kernel_size
+        bias_ops = 0
+        params = 0
+        flops = (
+                (kernel_ops + bias_ops)
+                * output_channels
+                * output_height
+                * output_width
+                * batch_size
+        )
+
+        desc.flops = flops
+        #desc.flops = flops_per_out_pix * out_pix
+        desc.total_flops += desc.flops
+        # mod._analyzed_layer_desc = AnalyzedLayerDesc(
+        #     name=mod._analyzed_layer_desc.name,
+        #     type_=mod._analyzed_layer_desc.type_,
+        #     execution_order=mod._analyzed_layer_desc.execution_order,
+        #     params = desc.params,
+        #     zeroed_params = desc.zeroed_params,
+        #     prunable_params = desc.prunable_params,
+        #     params_dims = desc.params_dims,
+        #     prunable_params_dims = desc.prunable_params_dims,
+        #     input_shape = desc.input_shape,
+        #     output_shape = desc.output_shape,
+        #     stride = desc.stride,
+        #     flops = desc.flops,
+        #     total_flops = mod._analyzed_layer_desc.total_flops + desc.flops,
+        # )
 
     def _activation_hook(
         self,
@@ -479,8 +611,24 @@ class ModuleAnalyzer(object):
 
         # making assumption that flops spent is one per element
         # (so swish is counted the same activation ReLU)
-        desc.flops = float(numpy.prod(out[0].shape[1:]))
-        desc.total_flops = desc.flops
+        #desc.flops = float(numpy.prod(out[0].shape[1:]))
+        desc.flops = float(inp[0].nelement())
+        desc.total_flops += desc.flops
+        # mod._analyzed_layer_desc = AnalyzedLayerDesc(
+        #     name=mod._analyzed_layer_desc.name,
+        #     type_=mod._analyzed_layer_desc.type_,
+        #     execution_order=mod._analyzed_layer_desc.execution_order,
+        #     params = desc.params,
+        #     zeroed_params = desc.zeroed_params,
+        #     prunable_params = desc.prunable_params,
+        #     params_dims = desc.params_dims,
+        #     prunable_params_dims = desc.prunable_params_dims,
+        #     input_shape = desc.input_shape,
+        #     output_shape = desc.output_shape,
+        #     stride = desc.stride,
+        #     flops = desc.flops,
+        #     total_flops = mod._analyzed_layer_desc.total_flops + desc.flops,
+        # )
 
     def _softmax_hook(
         self,
@@ -510,6 +658,22 @@ class ModuleAnalyzer(object):
         )
         desc.flops = flops_per_channel * out[0].shape[1]
         desc.total_flops = desc.flops
+
+        mod._analyzed_layer_desc = AnalyzedLayerDesc(
+            name=mod._analyzed_layer_desc.name,
+            type_=mod._analyzed_layer_desc.type_,
+            execution_order=mod._analyzed_layer_desc.execution_order,
+            params = desc.params,
+            zeroed_params = desc.zeroed_params,
+            prunable_params = desc.prunable_params,
+            params_dims = desc.params_dims,
+            prunable_params_dims = desc.prunable_params_dims,
+            input_shape = desc.input_shape,
+            output_shape = desc.output_shape,
+            stride = desc.stride,
+            flops = desc.flops,
+            total_flops = mod._analyzed_layer_desc.total_flops + desc.flops,
+        )
 
     @staticmethod
     def _mod_desc(mod: Module) -> AnalyzedLayerDesc:
