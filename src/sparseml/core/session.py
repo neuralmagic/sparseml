@@ -292,7 +292,6 @@ class SparseSession:
         if should_log_model_info(
             model=self.state.model,
             loggers=self.state.loggers,
-            event_type=event_type,
             epoch=epoch,
             last_log_epoch=self.state._last_log_epoch,
         ):

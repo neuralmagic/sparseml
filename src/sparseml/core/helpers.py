@@ -15,7 +15,6 @@
 
 from typing import Any, Generator, Optional, Tuple
 
-from sparseml.core.event import EventType
 from sparseml.core.logger import LoggerManager
 from sparseml.core.model.base import ModifiableModel
 from sparseml.core.state import State
@@ -30,7 +29,6 @@ __all__ = [
 def should_log_model_info(
     model: ModifiableModel,
     loggers: LoggerManager,
-    event_type: EventType,
     epoch: float,
     last_log_epoch: Optional[float] = None,
 ) -> bool:
@@ -38,20 +36,17 @@ def should_log_model_info(
     Check if we should log model level info
     Criteria:
         - model has a loggable_items method
-        - event is of type BATCH_END
         - state has a logger manager
         - logger manager is ready to log based on cadence and last log epoch
 
     :param model: The model whose info we want to log
     :param loggers: The logger manager to log to
-    :param event_type: The event type to check
     :param epoch: The current epoch
     :param last_log_epoch: The last epoch we logged model info at
     :return: True if we should log model level info, False otherwise
     """
     return (
         hasattr(model, "loggable_items")
-        and event_type == EventType.BATCH_END
         and isinstance(loggers, LoggerManager)
         and loggers.log_ready(epoch=epoch, last_log_epoch=last_log_epoch)
     )
