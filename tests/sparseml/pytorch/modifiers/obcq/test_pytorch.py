@@ -73,7 +73,7 @@ def test_create_default_quant_modifier():
     assert modifier.quantization_modifier_ is None
 
     testing_harness = LifecyleTestingHarness(model=LinearNet())
-    modifier.pre_initialize_structure(testing_harness.get_state())
+    modifier.on_initialize_structure(testing_harness.get_state())
     assert modifier.quantize
     assert isinstance(modifier.quantization_modifier_, QuantizationModifier)
 
@@ -105,7 +105,7 @@ def test_set_quant_if_modifer_already_exists():
     kwargs = dict(sparsity=0.5, block_size=128, quantize=False)
     modifier = SparseGPTModifierPyTorch(**kwargs)
     assert not modifier.quantize
-    modifier.pre_initialize_structure(testing_harness.get_state())
+    modifier.on_initialize_structure(testing_harness.get_state())
 
     # quantization modifier not owned by SparseGPT
     assert modifier.quantization_modifier_ is None
@@ -141,7 +141,7 @@ def test_set_quant_in_sparsegpt():
     assert modifier.quantization_modifier_ is None
 
     testing_harness = LifecyleTestingHarness(model=LinearNet())
-    modifier.pre_initialize_structure(testing_harness.get_state())
+    modifier.on_initialize_structure(testing_harness.get_state())
     assert modifier.quantize
     assert isinstance(modifier.quantization_modifier_, QuantizationModifier)
 

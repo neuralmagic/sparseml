@@ -75,7 +75,7 @@ class SparseGPTModifier(Modifier):
         compressible_dict = self.model.get_layers(self.targets)
         return [v for _, v in compressible_dict.items()]
 
-    def on_intialize_structure(self, state: State, **kwargs):
+    def on_initialize_structure(self, state: State, **kwargs):
         quantization_already_active = state.model.qat_active()
         if isinstance(self.quantize, bool):
             if not self.quantize and quantization_already_active:
@@ -122,7 +122,7 @@ class SparseGPTModifier(Modifier):
             self.quantize = True
 
         if self.quantization_modifier_:
-            self.quantization_modifier_.on_intialize_structure(state, **kwargs)
+            self.quantization_modifier_.on_initialize_structure(state, **kwargs)
 
     def _build_quant_modifier_from_dict(self, quant_config, framework):
         modifier_type = list(quant_config.keys())[0]

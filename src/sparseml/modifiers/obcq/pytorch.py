@@ -57,7 +57,7 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
         self._validate_layerwise_sparisity()
 
         if not self.initialized_structure_:
-            self.on_intialize_structure(state, **kwargs)
+            self.on_initialize_structure(state, **kwargs)
         if self.quantization_modifier_:
             self.quantization_modifier_.initialize(state, **kwargs)
         self.finalization_kwargs_ = {}
