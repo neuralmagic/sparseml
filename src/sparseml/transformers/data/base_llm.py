@@ -100,7 +100,7 @@ class TransformersDataset(RegistryMixin, Dataset):
             if len(tokenized_sample) == self._seqlen:
                 tokenized_sample[-1] = self.tokenizer.eos_token_id
             else:
-                tokenized_sample = torch.concatenate(
+                tokenized_sample = torch.cat(
                     (
                         tokenized_sample,
                         torch.tensor((self.tokenizer.eos_token_id,)),

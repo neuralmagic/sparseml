@@ -14,7 +14,7 @@
 
 from typing import Any, Dict, List, Optional
 
-from sparseml.core import Event, Modifier, State
+from sparseml.core import Event, Modifier
 
 
 __all__ = ["QuantizationModifier"]
@@ -136,6 +136,3 @@ class QuantizationModifier(Modifier):
         if event.current_index >= disable_epoch:
             return True
         return False
-
-    def on_initialize_structure(self, state: State, **kwargs):
-        pass  # nothing needed for this modifier
