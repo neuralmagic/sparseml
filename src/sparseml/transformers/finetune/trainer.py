@@ -18,12 +18,9 @@ import logging
 import math
 import os
 import warnings
-from contextlib import suppress
 from dataclasses import asdict
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-import datasets
-import numpy
 import torch
 from torch.nn import Module
 from transformers import Trainer as HFTransformersTrainer
@@ -37,17 +34,13 @@ from transformers.trainer_utils import get_last_checkpoint
 import sparseml.core.session as sml
 from sparseml.core.framework import Framework
 from sparseml.core.session import callbacks
-from sparseml.pytorch.sparsification.quantization.helpers import (
-    initialize_channel_wise_scale_zp,
-)
 from sparseml.pytorch.utils import (
     LoggerManager,
     ModuleSparsificationInfo,
-    TensorBoardLogger,
-    WANDBLogger,
+    TensorBoardLogger
 )
-from sparseml.transformers.utils import SparseAutoModel
 from sparseml.transformers.utils.helpers import RECIPE_NAME
+from sparseml.transformers.finetune.helpers import _reload_model_state
 
 
 __all__ = [
@@ -75,7 +68,6 @@ class SessionManagerMixIn:
         metadata_args: Optional[List[str]] = None,
         data_args: Optional["DataTrainingArguments"] = None,  # noqa: F821
         teacher: Optional[Union[Module, str]] = None,
-        #accelerator=None,
         **kwargs,
     ):
         # instantiate necessary state, like managers, so we can override args
@@ -84,7 +76,6 @@ class SessionManagerMixIn:
         self.recipe = recipe
         self.recipe_args = recipe_args
         self.teacher = teacher
-        #self.accelerator = accelerator
 
         training_args = kwargs.get("args")
         self.metadata = (
@@ -97,31 +88,7 @@ class SessionManagerMixIn:
             else None
         )
 
-        report_to = (
-            ""
-            if "args" not in kwargs
-            or not kwargs["args"]
-            or not kwargs["args"].report_to
-            else kwargs["args"].report_to
-        )
-
-        """
-        if not dist.is_initialized() or dist.get_rank() == 0:
-            loggers = [WANDBLogger()] if "wandb" in report_to else None
-            if "modifier_log_frequency" in kwargs:
-                self.logger_manager = LoggerManager(
-                    loggers, log_frequency=kwargs["modifier_log_frequency"]
-                )
-            else:
-                self.logger_manager = LoggerManager(loggers)
-
-            if recipe:
-                self.logger_manager.save(recipe)
-        else:
-        """
         self.logger_manager = LoggerManager(log_python=False)
-
-        self.one_shot = data_args.one_shot if hasattr(data_args, "one_shot") else False
         sml.create_session()
 
         super().__init__(model=model, **kwargs)
@@ -133,25 +100,10 @@ class SessionManagerMixIn:
         model_signature = inspect.signature(self.model.forward)
         self._model_signature_columns = list(model_signature.parameters.keys())
 
-        if self.teacher is not None and teacher not in ("disable", "self"):
-            teacher_signature = inspect.signature(self.teacher.forward)
-            self._teacher_signature_columns = list(teacher_signature.parameters.keys())
-        else:
-            self._teacher_signature_columns = None
-
     def initialize_session(self, epoch: float, checkpoint: Optional[str]):
         orig_state_dict = self.model.state_dict()
 
-        train_data = None
-        if not self.one_shot:
-            train_data = self.get_train_dataloader()
-
-        calibration_data = None
-        try:
-            calibration_data = self.get_eval_dataloader()
-        except Exception:
-            with suppress(ValueError):
-                calibration_data = self.get_train_dataloader()
+        train_data = self.get_train_dataloader()
 
         sml.initialize(
             model=self.model,
@@ -159,14 +111,15 @@ class SessionManagerMixIn:
             recipe_args=self.recipe_args,
             framework=Framework.pytorch,
             train_data=train_data,
-            calib_data=calibration_data,
             start=epoch,
             copy_data=False
         )
 
         # reload the state dict for the model now that architecture matches expected
+        # TODO: what if there is a quant modifier in the original recipe and we want to
+        # continue adjusting its zero point and range?
         load_path = checkpoint or self.model_state_path
-        if self._reload_model_state(load_path, orig_state_dict):
+        if _reload_model_state(self.model, load_path, orig_state_dict):
             _LOGGER.info(
                 "Reloaded model state after SparseML recipe structure modifications "
                 f"from {load_path}"
@@ -198,24 +151,12 @@ class SessionManagerMixIn:
         if using amp.
         """
 
-        # TODO do we still need to wrap the optimizer in the new framework?
-        # this should be fine since its in the callbacks
-
         self._check_super_defined("create_optimizer")
         super().create_optimizer()
 
-        # TODO: setting batch sizes with fsdp?
-        # for fsdp we pass the device batch size https://huggingface.co/docs/accelerate/concept_guides/performance#observed-batch-sizes 
-        #n_gpu = (
-        #    torch.distributed.get_world_size()
-        #    if torch.distributed.is_initialized()
-        #    else self.args._n_gpu
-        #)
-        #n_device = n_gpu if n_gpu > 0 else 1
-        n_device = 1
+        # see https://huggingface.co/docs/accelerate/concept_guides/performance#observed-batch-sizes
         total_batch_size = (
             self.args.per_device_train_batch_size
-            * n_device
             * self.args.gradient_accumulation_steps
         )
         self.total_steps_per_epoch = math.ceil(
@@ -240,36 +181,22 @@ class SessionManagerMixIn:
         """
 
         # TODO: we don't currently have a LR scheduler in the new modifier framework
-        # can ignore if its not part of the recipe
         self._check_super_defined("create_scheduler")
         if self.lr_scheduler is not None or sml.active_session() is None:
             super().create_scheduler(num_training_steps, optimizer)
             return
 
         # allow SparseML to manage LR and set a dummy scheduler
+        # TODO: remove this and just using the HF one?
         self.lr_scheduler = self._dummy_lr_scheduler()
-        _LOGGER.warning("Overrode the lr_scheduler from SparseML recipe")
-
-        """
-        (
-            self.optimizer,
-            self.train_datset,
-            self.eval_dataset,
-            self.lr_scheduler,
-        ) = self.accelerator.prepare(
-            self.optimizer, self.train_dataset, self.eval_dataset, self.lr_scheduler
-        )
-        """
 
     def training_step(
         self, model: Module, inputs: Dict[str, Union[torch.Tensor, Any]]
     ) -> torch.Tensor:
         self._check_super_defined("training_step")
 
-        sml.callbacks.batch_start(batch_data=inputs)
+        callbacks.batch_start(batch_data=inputs)
         model_outputs = super().training_step(model, inputs)
-        #sml.callbacks.optim_post_step()
-        #sml.callbacks.batch_end()
 
         return model_outputs
 
@@ -277,10 +204,7 @@ class SessionManagerMixIn:
         self, model: Module, inputs: Dict[str, Any], return_outputs: bool = False
     ) -> Union[torch.Tensor, Tuple[torch.Tensor, Any]]:
         """
-        Override for the compute_loss to factor in distillation modifiers.
-        If distillation modifiers are present in the recipe, then will
-        add the distillation loss to the normal loss function.
-        Expects compute_loss to be defined in the suepr class.
+        Override for the compute_loss to factor trigger callbacks and filter columns
 
         :param model: the model to compute the loss for
         :param inputs: the inputs to pass through the model for calculating the loss
@@ -291,51 +215,13 @@ class SessionManagerMixIn:
         """
         self._check_super_defined("compute_loss")
 
-        session = sml.active_session()
-        if (
-            session is None
-            or not session.lifecycle.initialized_
-            or not session.state.teacher_model
-        ):
-            inputs = {
-                k: inputs[k] for k in inputs if k in self._model_signature_columns
-            }
-            loss = super().compute_loss(model, inputs, return_outputs=return_outputs)
-            sml.callbacks.loss_calculated(loss=loss)
-            sml.callbacks.optim_pre_step()
-            return loss
-
-        student_inputs = {
+        inputs = {
             k: inputs[k] for k in inputs if k in self._model_signature_columns
         }
-        student_outputs = model(**student_inputs)
-        if any(_get_teacher_base_column_name(column) for column in inputs):
-            # inputs from teacher tokenizer available
-            teacher_inputs = {}
-            for column_name, column_data in inputs.items():
-                teacher_column_name = _get_teacher_base_column_name(column_name)
-                if not teacher_column_name or (
-                    self._teacher_signature_columns
-                    and teacher_column_name not in self._teacher_signature_columns
-                ):
-                    continue  # not valid teacher column name or no forward match
-                teacher_inputs[teacher_column_name] = column_data
-        elif self._teacher_signature_columns is not None:
-            # select from main student inputs
-            teacher_inputs = {
-                k: inputs[k] for k in inputs if k in self._teacher_signature_columns
-            }
-        else:
-            # pass all inputs
-            teacher_inputs = None
-
-        loss = student_outputs["loss"]
-        if self.args.n_gpu > 1:  # DataParallel
-            loss = loss.mean()
-        sml.callbacks.loss_calculated(loss=loss)
-        sml.callbacks.optim_pre_step()
-
-        return (loss, student_outputs) if return_outputs else loss
+        loss = super().compute_loss(model, inputs, return_outputs=return_outputs)
+        callbacks.loss_calculated(loss=loss)
+        callbacks.optim_pre_step()
+        return loss
 
     def prediction_step(
         self,
@@ -385,17 +271,12 @@ class SessionManagerMixIn:
             output_dir = self.args.output_dir
 
         recipe_path = os.path.join(output_dir, RECIPE_NAME)
-        # TODO: saving in new framework
-        """
-        if self.arch_manager:
-            composed_manager = ScheduledModifierManager.compose_staged(
-                base_recipe=str(self.arch_manager),
-                additional_recipe=str(self.manager),
-            )
-            composed_manager.save(recipe_path)
-        else:
-            self.manager.save(recipe_path)
-        """
+        session = sml.active_session()
+        recipe = session.lifecycle.recipe_container.compiled_recipe
+        recipe_yaml_str = recipe.yaml()
+        recipe_path = os.path.join(output_dir(output_dir, "recipe.yaml"))
+        with open(recipe_path, "w") as fp:
+            fp.write(recipe_yaml_str)
 
         _LOGGER.info(f"Saved SparseML recipe with model state to {recipe_path}")
 
@@ -421,90 +302,6 @@ class SessionManagerMixIn:
             f"{model_type} model detected, "
             f"all sparsification info: {sparsification_info}"
         )
-
-    def save_sample_inputs_outputs(
-        self,
-        num_samples_to_export: int = 100,
-        output_dir: Optional[str] = None,
-        tokenizer: Optional[Any] = None,
-    ):
-        """
-        Save sample inputs/outputs/labels in save_dir as .npz arrays
-
-        :param num_samples_to_export: Number of samples to export.
-            Defaults to 100
-        :param output_dir: The directory to store sample inputs and outputs in
-        :param tokenizer: if eval and train dataset cannot be generated, then
-            the tokenizer is used to generate fake inputs
-        """
-        num_samples = 0
-
-        if output_dir is None:
-            output_dir = (
-                self.args.output_dir if hasattr(self.args, "output_dir") else ""
-            )
-
-        sample_in_dir = os.path.join(output_dir, "sample-inputs")
-        sample_out_dir = os.path.join(output_dir, "sample-outputs")
-
-        os.makedirs(sample_in_dir, exist_ok=True)
-        os.makedirs(sample_out_dir, exist_ok=True)
-        device = self.model.device
-
-        dataloader = None
-        try:
-            dataloader = self.get_eval_dataloader()
-        except Exception:
-            with suppress(ValueError):
-                dataloader = self.get_train_dataloader()
-
-        if not dataloader and not tokenizer:
-            raise ValueError(
-                "tokenizer is needed to generate fake sample inputs when Trainer is "
-                "not initialized with a train or eval dataset"
-            )
-        if dataloader is None:
-            # we have the tokenizer so use it
-            dataloader = self._get_fake_dataloader(
-                num_samples=num_samples_to_export, tokenizer=tokenizer
-            )
-
-        _LOGGER.info(
-            f"Exporting {num_samples_to_export} samples to "
-            f"{os.path.abspath(output_dir)}"
-        )
-        for _, sample_batch in enumerate(dataloader):
-            sample_batch.pop("labels", None)
-            input_names = list(sample_batch.keys())
-
-            for input_vals in zip(*sample_batch.values()):
-                input_feed = {k: v.to("cpu") for k, v in zip(input_names, input_vals)}
-                model_inputs = {
-                    k: input_feed[k].to(device).reshape(1, -1) for k in input_feed
-                }
-                output_vals = self.model(**model_inputs)
-                output_dict = {
-                    name: torch.squeeze(val).detach().to("cpu")
-                    for name, val in output_vals.items()
-                }
-                file_idx = f"{num_samples}".zfill(4)
-
-                sample_input_filename = os.path.join(
-                    f"{sample_in_dir}", f"inp-{file_idx}.npz"
-                )
-                numpy.savez(sample_input_filename, **input_feed)
-
-                sample_output_filename = os.path.join(
-                    f"{sample_out_dir}", f"out-{file_idx}.npz"
-                )
-                numpy.savez(sample_output_filename, **output_dict)
-                num_samples += 1
-
-                if num_samples >= num_samples_to_export:
-                    break
-            if num_samples >= num_samples_to_export:
-                break
-        _LOGGER.info(f"Exported {num_samples_to_export} samples to {output_dir}")
 
     def _extract_metadata(
         self,
@@ -538,117 +335,6 @@ class SessionManagerMixIn:
             raise NotImplementedError(
                 f"The super class for SparseMLTrainer must define a {func} function"
             )
-
-    def _reload_model_state(self, load_path: str, orig_state_dict: Dict[str, Any]):
-        """
-        Reload the weights after model arch changes due to recipe application
-        Return True if weights are successfully reloaded; False otherwise
-        """
-        invalid_load_path = not load_path or not os.path.isdir(load_path)
-        files = os.listdir(load_path) if not invalid_load_path else []
-        weight_files = [
-            os.path.join(load_path, f)
-            for f in files
-            if f.startswith("pytorch_model") and f.endswith("bin")
-        ]
-        if not weight_files:
-            _LOGGER.warning(
-                "Model state was not reloaded for SparseML: "
-                f"could not find model weights for {load_path}"
-            )
-            return False
-
-        # PerChannel quantization observers initialize variables
-        # to dummy shapes that do not match the ones saved in
-        # state_dict.
-        # Need to reshape these variables in order to load state_dict
-        # properly.
-        initialize_channel_wise_scale_zp(self.model)
-
-        current_state_dict = self.model.state_dict()
-
-        if set(orig_state_dict.keys()) == set(current_state_dict):
-            # no change in keys, ignore reload
-            return False
-
-        # change in keys due to architecture changes, reload statedict
-        loaded_state_dict = {}
-        for f in weight_files:
-            dd = torch.load(os.path.join(load_path, f), map_location="cpu")
-            loaded_state_dict.update(dd)
-
-        _, missing, unexpected, mismatched, _, _ = self.model._load_pretrained_model(
-            model=self.model,
-            state_dict=loaded_state_dict,
-            loaded_keys=list(loaded_state_dict.keys()),
-            resolved_archive_file=None,
-            pretrained_model_name_or_path=load_path,
-            _fast_init=False,
-        )
-
-        if missing:
-            _LOGGER.warning(
-                "Missing keys found when reloading model state for SparseML recipe:"
-                f"{missing}"
-            )
-
-        if unexpected:
-            _LOGGER.warning(
-                f"Unexpected keys found when reloading model state for SparseML recipe:"
-                f"{unexpected}"
-            )
-
-        if mismatched:
-            _LOGGER.warning(
-                f"Mismatched keys found when reloading model state for SparseML recipe:"
-                f"{mismatched}"
-            )
-
-        total_loaded = len(current_state_dict) - (len(missing) if len(missing) else 0)
-        _LOGGER.info(
-            f"Reloaded {total_loaded} model params for SparseML Recipe from {load_path}"
-        )
-        SparseAutoModel.log_model_load(
-            self.model,
-            self.model_state_path,
-            model_type="student" if self.teacher else "model",
-            delayed_load=False,
-        )
-        return True
-
-    def _data_loader_builder(self, kwargs: Optional[Dict[str, Any]] = None):
-        default_loader = self.get_train_dataloader()
-        template = dict(default_loader.__dict__)
-
-        # drop attributes that will be auto-initialized
-        to_drop = [k for k in template if k.startswith("_") or k == "batch_sampler"]
-        for item in to_drop:
-            template.pop(item)
-
-        # override defaults if kwargs are given, for example via recipe
-        if kwargs:
-            template.update(kwargs)
-        data_loader = type(default_loader)(**template)
-
-        while True:  # infinite dataloading
-            for sample in data_loader:
-                if self.label_smoother is not None and "labels" in sample:
-                    label = sample.pop("labels")
-                else:
-                    label = None
-                sample = self._prepare_inputs(sample)
-                yield [], sample, label
-
-    def _loss_function(self, model_outputs, loss_target):
-        if loss_target is not None:
-            loss = self.label_smoother(model_outputs, loss_target)
-        else:
-            loss = (
-                model_outputs["loss"]
-                if isinstance(model_outputs, dict)
-                else model_outputs[0]
-            )
-        return loss
 
     def _add_tensorboard_logger_if_available(self):
         tensorboard_callback = None
@@ -753,15 +439,11 @@ class TrainerInterface(SessionManagerMixIn):
         checkpoint, epoch = self._generate_apply_manager_params(kwargs)
         applied = self.initialize_session(epoch=epoch, checkpoint=checkpoint)
         # self.callback_disable_fp16.check_disable(epoch, force=True)
-        output = None
-        if not self.one_shot:
-            self.accelerator.wait_for_everyone()
-            output = super().train(*args, **kwargs)
-            self.accelerator.wait_for_everyone()
-            if applied:
-                self.finalize_session()
-        else:
-            _LOGGER.info(f"Skipping Training due to one-shot: {self.one_shot}")
+        self.accelerator.wait_for_everyone()
+        output = super().train(*args, **kwargs)
+        self.accelerator.wait_for_everyone()
+        if applied:
+            self.finalize_session()
         
         self.accelerator.wait_for_everyone()
         if self.accelerator.is_main_process:
@@ -911,43 +593,6 @@ class TransformersTrainer(HFTransformersTrainer):
             lambda _: 1.0,
         )
 
-    def _remove_unused_columns(
-        self, dataset: "datasets.Dataset", description: Optional[str] = None
-    ):
-        if not self.args.remove_unused_columns:
-            return dataset
-        if (
-            self._signature_columns is None
-            and self.teacher is not None
-            and self.teacher not in ("disable", "self")
-        ):
-            model_signature = inspect.signature(self.model.forward)
-            model_signature_columns = set(model_signature.parameters.keys())
-
-            teacher_signature = inspect.signature(self.teacher.forward)
-            teacher_signature_columns = set(teacher_signature.parameters.keys())
-
-            self._signature_columns = list(
-                model_signature_columns | teacher_signature_columns
-            )
-
-            # add columns from teacher tokenizer to allowed list
-            for column_name in dataset.column_names:
-                teacher_column_name = _get_teacher_base_column_name(column_name)
-                if not teacher_column_name or (
-                    teacher_column_name not in teacher_signature_columns
-                ):
-                    continue  # not a teacher tokenizer column
-                # add column name with distill teacher prefix to allowed list
-                self._signature_columns.append(column_name)
-
-            # Labels may be named label or label_ids, the default data
-            # collator handles that.
-            self._signature_columns += ["label", "label_ids"]
-
-        return super()._remove_unused_columns(dataset, description)
-
-
 class Trainer(TrainerInterface, TransformersTrainer):
     """
     Training implementation for running sparsification recipes with transformers flows.
@@ -1062,10 +707,3 @@ class DisableHalfPrecisionCallback(TrainerCallback):
 
         if state.epoch > self.quant_start_epoch:
             _LOGGER.info(self.trainer.model)
-
-
-def _get_teacher_base_column_name(column_name: str) -> Optional[str]:
-    # if column was created by teacher tokenizer, return the base name
-    if not column_name.startswith("distill_teacher:"):
-        return
-    return column_name[len("distill_teacher:") :]

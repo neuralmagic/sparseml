@@ -21,31 +21,18 @@
 import logging
 import os
 import random
-from contextlib import nullcontext
-from typing import Any, Dict, Optional
-
 import datasets
-import torch
 import transformers
-from datasets import load_dataset
-from sklearn.model_selection import StratifiedShuffleSplit
-from torch.nn import Module
 from transformers import (
     AutoConfig,
     AutoTokenizer,
     DataCollatorWithPadding,
-    EvalPrediction,
     HfArgumentParser,
     default_data_collator,
     set_seed,
 )
 from transformers.trainer_utils import get_last_checkpoint
 
-import sparseml.core.session as session_manager
-from sparseml.core.framework import Framework
-from sparseml.pytorch.sparsification.quantization.helpers import (
-    initialize_channel_wise_scale_zp,
-)
 from sparseml.transformers.finetune import Trainer, TrainingArguments
 from sparseml.transformers.finetune.helpers import apply_recipe_structure_to_model
 from sparseml.transformers.finetune.data import TextGenerationDataset
@@ -216,11 +203,6 @@ def main(**kwargs):
 
         train_result = trainer.train(resume_from_checkpoint=checkpoint)
         metrics = train_result.metrics
-        max_train_samples = (
-            data_args.max_train_samples
-            if data_args.max_train_samples is not None
-            else len(train_dataset)
-        )
         metrics["train_samples"] = len(train_dataset)
         trainer.log_metrics("train", metrics)
         trainer.save_metrics("train", metrics)
