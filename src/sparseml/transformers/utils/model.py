@@ -422,7 +422,7 @@ class SparseAutoModel:
             )
 
 
-class SparseCasualLM:
+class SparseCausalLM:
     """
     Factory class for loading LLMs from the transformers library. Currently OPT and
     Llama are supported

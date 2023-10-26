@@ -29,7 +29,7 @@ from sparseml.transformers.sparsification.obcq.utils.helpers import (
     llama_forward,
     opt_forward,
 )
-from sparseml.transformers.utils.model import SparseCasualLM
+from sparseml.transformers.utils.model import SparseCausalLM
 
 
 __all__ = ["one_shot"]
@@ -73,10 +73,10 @@ def one_shot(
     model_loader_fn = None
     forward_fn = None
     if "opt" in model_path.lower():
-        model_loader_fn = SparseCasualLM.opt_model_from_pretrained
+        model_loader_fn = SparseCausalLM.opt_model_from_pretrained
         forward_fn = opt_forward
     elif "llama" in model_path.lower():
-        model_loader_fn = SparseCasualLM.llama_model_from_pretrained
+        model_loader_fn = SparseCausalLM.llama_model_from_pretrained
         forward_fn = llama_forward
     else:
         raise ValueError(f"model_path={model_path} should be one of {SUPPORTED_MODELS}")
