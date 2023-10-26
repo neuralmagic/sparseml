@@ -53,7 +53,7 @@ class SparseGPTModifier(Modifier):
         model.decoder for OPT or just model for Llama
     """
 
-    sparsity: float
+    sparsity: Union[float, List[float]]
     block_size: int
     quantize: Union[bool, Dict]
     dampening_frac: Optional[float] = 0.01
@@ -63,7 +63,6 @@ class SparseGPTModifier(Modifier):
     targets: Union[str, List[str], None] = ALL_TOKEN
     target_ids: Optional[List[str]] = None
     layer_prefix: Optional[str] = None
-
     compressible_layers_: List = None
     quantization_modifier_: Any = None
 
@@ -76,7 +75,7 @@ class SparseGPTModifier(Modifier):
         compressible_dict = self.model.get_layers(self.targets)
         return [v for _, v in compressible_dict.items()]
 
-    def pre_initialize_structure(self, state: State, **kwargs):
+    def on_initialize_structure(self, state: State, **kwargs):
         quantization_already_active = state.model.qat_active()
         if isinstance(self.quantize, bool):
             if not self.quantize and quantization_already_active:
@@ -123,7 +122,7 @@ class SparseGPTModifier(Modifier):
             self.quantize = True
 
         if self.quantization_modifier_:
-            self.quantization_modifier_.pre_initialize_structure(state, **kwargs)
+            self.quantization_modifier_.on_initialize_structure(state, **kwargs)
 
     def _build_quant_modifier_from_dict(self, quant_config, framework):
         modifier_type = list(quant_config.keys())[0]
@@ -135,3 +134,27 @@ class SparseGPTModifier(Modifier):
             allow_experimental=True,
             **modifier_args,
         )
+
+    def _validate_layerwise_sparisity(self):
+        if isinstance(self.sparsity, float):
+            return  # single sparsity will be applied to all layers
+
+        if not isinstance(self.targets, List):
+            raise ValueError(
+                "Layer targets must be a list when specifying layer-wise"
+                f" sparsity. Got {self.targets}"
+            )
+
+        if len(self.targets) != len(self.sparsity):
+            raise ValueError(
+                "Number of layer targets must match the number of "
+                f"sparsities. Got {len(self.targets)} layers and "
+                f"{len(self.sparsity)} sparsities"
+            )
+
+        for layer_name in self.targets:
+            if layer_name.startswith("re:"):
+                raise ValueError(
+                    "Using regular expressions for layer-wise sparsity "
+                    f"profiles is not permitted. Found {layer_name}"
+                )

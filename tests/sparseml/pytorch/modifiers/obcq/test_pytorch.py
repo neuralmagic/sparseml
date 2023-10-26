@@ -12,11 +12,57 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import pytest
+
+from sparseml.core.framework import Framework
+from sparseml.core.model import ModifiableModel
 from sparseml.modifiers.obcq.pytorch import SparseGPTModifierPyTorch
 from sparseml.modifiers.quantization import QuantizationModifier
 from sparseml.modifiers.quantization.pytorch import QuantizationModifierPyTorch
 from tests.sparseml.modifiers.conf import LifecyleTestingHarness, setup_modifier_factory
 from tests.sparseml.pytorch.helpers import LinearNet
+
+
+@pytest.mark.parametrize(
+    "sparsity,targets",
+    [
+        ([0.5, 0.2], "__ALL__"),  # type mismatch
+        ([0.2, 0.1, 0.3], ["seq.fc1", "seq.fc2"]),  # length mismatch
+        ([0.3, 0.4], ["re:.*fc1", "re:.*fc2"]),  # regex not supported
+    ],
+)
+def test_invalid_layerwise_recipes_raise_exceptions(sparsity, targets):
+    setup_modifier_factory()
+    model = LinearNet()
+
+    kwargs = dict(
+        sparsity=sparsity,
+        block_size=128,
+        quantize=False,
+        targets=targets,
+    )
+    modifier = SparseGPTModifierPyTorch(**kwargs)
+    testing_harness = LifecyleTestingHarness(model=model)
+
+    # confirm invalid layerwise recipes fail at initialization
+    with pytest.raises(ValueError):
+        modifier.initialize(testing_harness.get_state())
+
+
+def test_successful_layerwise_recipe():
+    setup_modifier_factory()
+    model = LinearNet()
+
+    sparsities = [0.5, 0.2]
+    targets = ["seq.fc1", "seq.fc2"]
+    kwargs = dict(sparsity=sparsities, block_size=128, quantize=False, targets=targets)
+    modifier = SparseGPTModifierPyTorch(**kwargs)
+    modifier._validate_layerwise_sparisity()
+    modifier.model = ModifiableModel(framework=Framework.pytorch, model=model)
+    found_compressible_layers = modifier.compressible_layers()
+
+    # ensure layers names successfully match up with model
+    assert len(found_compressible_layers) == len(targets)
 
 
 def test_create_default_quant_modifier():
@@ -27,7 +73,7 @@ def test_create_default_quant_modifier():
     assert modifier.quantization_modifier_ is None
 
     testing_harness = LifecyleTestingHarness(model=LinearNet())
-    modifier.pre_initialize_structure(testing_harness.get_state())
+    modifier.on_initialize_structure(testing_harness.get_state())
     assert modifier.quantize
     assert isinstance(modifier.quantization_modifier_, QuantizationModifier)
 
@@ -59,7 +105,7 @@ def test_set_quant_if_modifer_already_exists():
     kwargs = dict(sparsity=0.5, block_size=128, quantize=False)
     modifier = SparseGPTModifierPyTorch(**kwargs)
     assert not modifier.quantize
-    modifier.pre_initialize_structure(testing_harness.get_state())
+    modifier.on_initialize_structure(testing_harness.get_state())
 
     # quantization modifier not owned by SparseGPT
     assert modifier.quantization_modifier_ is None
@@ -95,7 +141,7 @@ def test_set_quant_in_sparsegpt():
     assert modifier.quantization_modifier_ is None
 
     testing_harness = LifecyleTestingHarness(model=LinearNet())
-    modifier.pre_initialize_structure(testing_harness.get_state())
+    modifier.on_initialize_structure(testing_harness.get_state())
     assert modifier.quantize
     assert isinstance(modifier.quantization_modifier_, QuantizationModifier)
 
