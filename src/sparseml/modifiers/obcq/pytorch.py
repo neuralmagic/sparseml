@@ -54,8 +54,10 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
 
         :param state: session state storing input model and calibration data
         """
+        self._validate_layerwise_sparisity()
+
         if not self.initialized_structure_:
-            self.pre_initialize_structure(state, **kwargs)
+            self.on_initialize_structure(state, **kwargs)
         if self.quantization_modifier_:
             self.quantization_modifier_.initialize(state, **kwargs)
         self.finalization_kwargs_ = {}
@@ -118,10 +120,17 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
                     "The 'outputs' key is expected but not found from the "
                     "return of the bottom compressor"
                 )
+
             inputs = accum_kwargs["outputs"]
-            _LOGGER.info(f"\n===== Compressing layer {idx}/{num_layers-1} =====")
+            layer_sparsity = (
+                self.sparsity[idx] if isinstance(self.sparsity, List) else self.sparsity
+            )
+            _LOGGER.info(
+                f"\n===== Compressing layer {idx+1}/{num_layers} "
+                f"to sparsity {layer_sparsity} ====="
+            )
             args = {
-                "sparsity": self.sparsity,
+                "sparsity": layer_sparsity,
                 "prunen": self.prunen,
                 "prunem": self.prunem,
                 "blocksize": self.block_size,
