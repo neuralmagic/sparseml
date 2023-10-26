@@ -17,7 +17,6 @@ import logging
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import torch
-from torch.nn import Module
 
 from sparseml.core.model import ModifiableModel
 from sparseml.core.state import State
@@ -46,30 +45,8 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
     """
 
     model: Any = None
-    compressible_layers_: List = None
     device_: str = "cuda:0"
     finalization_kwargs_: Dict = None
-
-    def compressible_layers(self) -> List[Module]:
-        """
-        Retrieves the modules corresponding to a list of compressible layer names
-
-        :return: list of Pytorch modules to compress
-        """
-        compressible_dict = self.model.get_layers(self.targets)
-
-        # Compare length to sparsities again in case one of the provided layers was
-        # invalid or not compressible
-        if isinstance(self.sparsity, List) and len(self.sparsity) != len(
-            compressible_dict
-        ):
-            raise ValueError(
-                "Number of compressible layers must match the number of "
-                f"sparsities. Got {len(compressible_dict)} layers and "
-                f"{len(self.sparsity)} sparsities"
-            )
-
-        return [v for _, v in compressible_dict.items()]
 
     def on_initialize(self, state: "State", **kwargs) -> bool:
         """
@@ -79,6 +56,10 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
         """
         self._validate_layerwise_sparisity()
 
+        if not self.initialized_structure_:
+            self.on_intialize_structure(state, **kwargs)
+        if self.quantization_modifier_:
+            self.quantization_modifier_.initialize(state, **kwargs)
         self.finalization_kwargs_ = {}
         modifiable_model = state.model
         calibration_dataloader = state.data.calib
@@ -172,8 +153,10 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
         :param state: un-used, for matching spec of Modifier base class
         """
         use_cache = self.finalization_kwargs_.get("use_cache", False)
-        self.model.apply(torch.quantization.disable_observer)
         self.model.config.use_cache = use_cache
+
+        if self.quantization_modifier_:
+            self.quantization_modifier_.finalize(state, **kwargs)
 
         return True
 
