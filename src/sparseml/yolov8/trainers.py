@@ -757,6 +757,17 @@ class SparseYOLO(YOLO):
                 self.ckpt["model"] = self.model
                 torch.save(self.ckpt, torch_path)
 
+        dynamic_axes = kwargs.get("dynamic", {})
+        if not dynamic_axes:
+            dynamic_axes["output0"] = {0: "batch", 2: "anchors"}
+            if isinstance(self, SegmentationModel):
+                # set mask dimensions on output1 to dynamic
+                dynamic_axes["output1"] = {
+                    0: "batch",
+                    2: "mask_height",
+                    3: "mask_width",
+                }
+
         exporter.export_onnx(
             sample_batch=torch.randn(1, 3, args["imgsz"], args["imgsz"]),
             opset=args["opset"],
@@ -768,6 +779,7 @@ class SparseYOLO(YOLO):
             output_names=["output0", "output1"]
             if isinstance(self.model, SegmentationModel)
             else ["output0"],
+            dynamic_axes=dynamic_axes,
         )
 
         complete_path = os.path.join(save_dir, name)

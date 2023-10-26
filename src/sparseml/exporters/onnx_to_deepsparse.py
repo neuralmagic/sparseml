@@ -60,6 +60,7 @@ class ONNXToDeepsparse(BaseExporter):
     def __init__(
         self,
         use_qlinear_conv: bool = False,
+        use_qlinear_matmul: bool = False,
         skip_input_quantize: bool = False,
         inplace: bool = True,
         export_input_model: bool = False,
@@ -77,19 +78,27 @@ class ONNXToDeepsparse(BaseExporter):
             sparseml_transforms.QuantizeQATEmbedding(),
             sparseml_transforms.PropagateEmbeddingQuantization(),
             sparseml_transforms.PropagateDequantThroughSplit(),
-            sparseml_transforms.MatMulToQLinearMatMul(),
-            sparseml_transforms.MatMulAddToMatMulIntegerAddCastMul(),
-            sparseml_transforms.MatMulToMatMulIntegerCastMul(),
-            sparseml_transforms.FoldReLUQuants(),
-            sparseml_transforms.ConvToQLinearConv()
-            if use_qlinear_conv
-            else sparseml_transforms.ConvToConvIntegerAddCastMul(),
-            sparseml_transforms.GemmToQLinearMatMul(),
-            sparseml_transforms.GemmToMatMulIntegerAddCastMul(),
-            sparseml_transforms.QuantizeResiduals(),
-            sparseml_transforms.RemoveDuplicateQConvWeights(),
-            sparseml_transforms.RemoveDuplicateQuantizeOps(),
         ]
+        if use_qlinear_matmul:
+            transforms.append(
+                sparseml_transforms.MatMulToQLinearMatMul(),
+            )
+
+        transforms.extend(
+            [
+                sparseml_transforms.MatMulAddToMatMulIntegerAddCastMul(),
+                sparseml_transforms.MatMulToMatMulIntegerCastMul(),
+                sparseml_transforms.FoldReLUQuants(),
+                sparseml_transforms.ConvToQLinearConv()
+                if use_qlinear_conv
+                else sparseml_transforms.ConvToConvIntegerAddCastMul(),
+                sparseml_transforms.GemmToQLinearMatMul(),
+                sparseml_transforms.GemmToMatMulIntegerAddCastMul(),
+                sparseml_transforms.QuantizeResiduals(),
+                sparseml_transforms.RemoveDuplicateQConvWeights(),
+                sparseml_transforms.RemoveDuplicateQuantizeOps(),
+            ]
+        )
 
         if skip_input_quantize:
             transforms.append(sparseml_transforms.SkipInputQuantize())
