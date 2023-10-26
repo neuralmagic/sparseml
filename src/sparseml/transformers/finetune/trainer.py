@@ -125,6 +125,8 @@ class SessionManagerMixIn:
         sml.create_session()
 
         super().__init__(model=model, **kwargs)
+        self.optim_callbacks = PostOptimCallback()
+        self.callback_handler.add_callback(self.optim_callbacks)
         self.criterion = torch.nn.CrossEntropyLoss()
         self._add_tensorboard_logger_if_available()
 
@@ -266,8 +268,8 @@ class SessionManagerMixIn:
 
         sml.callbacks.batch_start(batch_data=inputs)
         model_outputs = super().training_step(model, inputs)
-        sml.callbacks.optim_post_step()
-        sml.callbacks.batch_end()
+        #sml.callbacks.optim_post_step()
+        #sml.callbacks.batch_end()
 
         return model_outputs
 
@@ -753,17 +755,8 @@ class TrainerInterface(SessionManagerMixIn):
         # self.callback_disable_fp16.check_disable(epoch, force=True)
         output = None
         if not self.one_shot:
-            print("BEFORE TRAIN")
-            self.log_model_sparsification()
-            output = super().train(*args, **kwargs)
-            print("RIGHT AFTER TRAIN")
             self.accelerator.wait_for_everyone()
-            print("WAITING")
-            if self.accelerator.is_main_process:
-                print("MAIN")
-                #self.model = self.accelerator.unwrap_model(self.model)
-                self.log_model_sparsification()
-            print("waiting for everyone!")
+            output = super().train(*args, **kwargs)
             self.accelerator.wait_for_everyone()
             if applied:
                 self.finalize_session()
@@ -771,8 +764,9 @@ class TrainerInterface(SessionManagerMixIn):
             _LOGGER.info(f"Skipping Training due to one-shot: {self.one_shot}")
         
         self.accelerator.wait_for_everyone()
-        print("logging sparsification")
-        self.log_model_sparsification()
+        if self.accelerator.is_main_process:
+            print("logging sparsification")
+            self.log_model_sparsification()
 
         return output
 
@@ -987,6 +981,25 @@ class Trainer(TrainerInterface, TransformersTrainer):
             teacher=teacher,
             **kwargs,
         )
+
+
+class PostOptimCallback(TrainerCallback):
+    def on_step_end(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
+        """
+        Event called at the end of a training step. If using gradient accumulation, one training step might take
+        several inputs.
+        """
+        super().on_step_end(args, state, control, **kwargs)
+        callbacks.optim_post_step()
+        sml.callbacks.batch_end()
+
+    def on_substep_end(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
+        """
+        Event called at the end of an substep during gradient accumulation.
+        """
+        super().on_substep_end(args, state, control, **kwargs)
+        callbacks.optim_post_step()
+        sml.callbacks.batch_end()
 
 
 class DisableHalfPrecisionCallback(TrainerCallback):
