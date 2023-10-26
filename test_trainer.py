@@ -7,8 +7,7 @@ def run():
     concatenate_data = True
     do_train = True
     do_eval = False
-    output_dir = "./output"
-    cache_dir = "cache"
+    output_dir = "./output_finetune"
     recipe = "test_trainer_recipe.yaml"
     num_train_epochs=1
     overwrite_output_dir = True
@@ -20,7 +19,6 @@ def run():
         do_train=do_train,
         do_eval=do_eval,
         output_dir=output_dir,
-        cache_dir=cache_dir,
         recipe=recipe,
         num_train_epochs=num_train_epochs,
         overwrite_output_dir=overwrite_output_dir,
