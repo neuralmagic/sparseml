@@ -82,9 +82,7 @@ class RigLPruningModifier(BaseGradualPruningModifier):
     """
     As described in https://arxiv.org/abs/1911.11134
 
-    Sparse training procedure that starts from a sparse model
-    with (1 - init_update_fraction) * sparsity and gradually increases
-    the sparsity with a cosine schedule up to sparsity.
+    Sparse training procedure that trains a model with (1-final sparsity) parameters.
     At each update a fraction of weights
     init_update_fraction * cos(pi (epoch - start_epoch) / (end_epoch - start_epoch))
     with smallest magnitude is pruned and the same
@@ -107,7 +105,6 @@ class RigLPruningModifier(BaseGradualPruningModifier):
     |       num_grads: 100
     |       params: ["re:.*weight"]
     |       leave_enabled: True
-    |       inter_func: "cosine"
     |       global_sparsity: True
     |       mask_type: unstructured
     |       sparsity_strategy: "erdos_renyi_kernel"
@@ -116,8 +113,8 @@ class RigLPruningModifier(BaseGradualPruningModifier):
     |           batch_size: 256
 
     :param final_sparsity: the final sparsity for the param to end with at end_epoch.
-        A single float for the whole model. Note that with RigL, init_sparsity is
-        always automatically set to final_sparsity.
+        A single float for all prunable layers of the whole model. Note that
+        init_sparsity is always automatically set to final_sparsity.
     :param start_epoch: The epoch to start the modifier at
     :param end_epoch: The epoch to end the modifier at
     :param update_frequency: The number of epochs or fraction of epochs to update at
@@ -133,8 +130,6 @@ class RigLPruningModifier(BaseGradualPruningModifier):
     :param leave_enabled: True to continue masking the weights after end_epoch,
         False to stop masking. Should be set to False if exporting the result
         immediately after or doing some other prune
-    :param inter_func: the type of interpolation function to use:
-        [linear, cubic, inverse_cubic]
     :param mask_type: String to define type of sparsity to apply.
         RigL modifier supports only 'unstructured'
     :param num_grads: Number of grads to be collected by the grad sampler for
@@ -161,7 +156,6 @@ class RigLPruningModifier(BaseGradualPruningModifier):
         update_frequency: float,
         params: Union[str, List[str]],
         num_grads: int = 1,
-        inter_func: str = "cubic",
         leave_enabled: bool = True,
         momentum_buffer_reset: bool = True,
         global_sparsity: bool = True,
@@ -177,7 +171,6 @@ class RigLPruningModifier(BaseGradualPruningModifier):
             start_epoch=start_epoch,
             end_epoch=end_epoch,
             global_sparsity=global_sparsity,
-            inter_func=inter_func,
             update_frequency=update_frequency,
             leave_enabled=leave_enabled,
             parent_class_kwarg_names=[],
@@ -334,8 +327,7 @@ class RigLPruningModifier(BaseGradualPruningModifier):
         """
         :param epoch: current epoch
         :param steps_per_epoch: number of steps in each epoch
-        :return: sparsity level that should be applied based on the given interpolation
-            function
+        :return: sparsity level that should be applied (always final_sparsity)
         """
         _LOGGER.info(f"RigL applied sparsity {self._final_sparsity}")
         return [self._final_sparsity for _ in range(len(self.module_masks.layers))]
