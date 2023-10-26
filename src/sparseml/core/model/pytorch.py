@@ -24,6 +24,7 @@ from sparseml.utils.pytorch import (
     get_layers_params,
     get_param,
     get_params,
+    qat_active,
     set_layer,
     set_param,
 )
@@ -94,3 +95,11 @@ class ModifiableModelPyTorch(ModifiableModel[Module, Module, Parameter]):
         :param param: the parameter to set
         """
         return set_param(target, param, self.model)
+
+    def qat_active(self) -> bool:
+        """
+        Checks if quantization aware training is set up in the model
+
+        :return: True if QAT is active in any layer, False otherwise
+        """
+        return qat_active(self.model)
