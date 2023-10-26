@@ -92,3 +92,19 @@ def check_for_created_files():
         f"megabytes of temp files created in temp directory during pytest run. "
         f"Created files: {set(end_files_temp) - set(start_files_temp)}"
     )
+
+
+@pytest.fixture(autouse=True, scope="function")
+def setup_fresh_session():
+    """
+    setup any state tied to the execution of the given method in a
+    class.  setup_method is invoked for every test method of a class.
+    """
+    import sparseml.core.session as sml
+
+    active_session = sml.active_session()
+    # start with a clean session for each test
+    active_session.reset()
+    yield
+    # reset the session after each test
+    active_session.reset()

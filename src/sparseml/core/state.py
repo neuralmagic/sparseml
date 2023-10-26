@@ -45,6 +45,14 @@ class Data:
     test: Optional[ModifiableData] = None
     calib: Optional[ModifiableData] = None
 
+    def reset(self):
+        """
+        Reset self to initial state
+        """
+        attribs = Data().__dict__
+        for attrib_name, attrib_value in attribs.items():
+            setattr(self, attrib_name, attrib_value)
+
 
 @dataclass
 class Hardware:
