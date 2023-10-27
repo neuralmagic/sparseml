@@ -125,6 +125,7 @@ class ModifiableModel(Generic[MT, LT, PT], MultiFrameworkObject):
         """
         raise NotImplementedError()
 
+
     @property
     def layer_prefix(self) -> Optional[str]:
         """
@@ -140,3 +141,12 @@ class ModifiableModel(Generic[MT, LT, PT], MultiFrameworkObject):
             model.decoder for OPT or just model for Llama
         """
         self._layer_prefix = value
+
+    def qat_active(self) -> bool:
+        """
+        Checks if quantization aware training is set up in the model
+
+        :return: True if QAT is active in any layer, False otherwise
+        """
+        raise NotImplementedError()
+
