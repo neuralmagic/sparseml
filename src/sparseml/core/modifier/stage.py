@@ -68,14 +68,13 @@ class StageModifiers(ModifierInterface, BaseModel):
 
     def check_initialized(self):
         """
-        Check if all of the stage modifiers have been initialized,
-        raises an exception if not
+        Check if all of the stage modifiers have been initialized, and log a warning
+        if not. This warning is expected when loading an input recipe during finetuning
         """
 
         at_least_one_initialized = False
         for modifier in self.modifiers:
-            initialized = modifier.check_initialized()
-            if initialized:
+            if modifier.initialized:
                 at_least_one_initialized = True
         if not at_least_one_initialized:
             modifier_names = [type(mod).__name__ for mod in self.modifiers]

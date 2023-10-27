@@ -74,13 +74,6 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
         """
         return self.finalized_
 
-    def check_initialized(self):
-        """
-        :raises RuntimeError: if the modifier has not been initialized
-        """
-        return self.initialized_
-        # raise RuntimeError("modifier has not been initialized")
-
     def calculate_start(self) -> float:
         """
         Calculate and return the start epoch for the modifier.
@@ -150,8 +143,7 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
             return
 
         if not self.initialized_:
-            return
-            # raise RuntimeError("cannot finalize an uninitialized modifier")
+            raise RuntimeError("cannot finalize an uninitialized modifier")
 
         finalized = self.on_finalize(state=state, **kwargs)
 
@@ -167,9 +159,9 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
         """
         Update modifier based on the given event. In turn calls
         on_start, on_update, and on_end based on the event and
-        modifier settings.
+        modifier settings. Returns immediately if the modifier is
+        not initialized
 
-        :raises RuntimeError: if the modifier has not been initialized
         :raises RuntimeError: if the modifier has been finalized
         :param state: The current state of sparsification
         :param event: The event to update the modifier with
@@ -177,7 +169,6 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
         """
         if not self.initialized_:
             return
-            raise RuntimeError("cannot update an uninitialized modifier")
 
         if self.finalized_:
             raise RuntimeError("cannot update a finalized modifier")
