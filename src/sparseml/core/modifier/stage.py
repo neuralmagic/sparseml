@@ -13,6 +13,7 @@
 # limitations under the License.
 
 
+import logging
 from typing import List, Optional
 
 from pydantic import BaseModel, Field
@@ -24,6 +25,8 @@ from sparseml.core.state import State
 
 
 __all__ = ["StageModifiers"]
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class StageModifiers(ModifierInterface, BaseModel):
@@ -69,8 +72,18 @@ class StageModifiers(ModifierInterface, BaseModel):
         raises an exception if not
         """
 
+        at_least_one_initialized = False
         for modifier in self.modifiers:
-            modifier.check_initialized()
+            initialized = modifier.check_initialized()
+            if initialized:
+                at_least_one_initialized = True
+        if not at_least_one_initialized:
+            modifier_names = [type(mod).__name__ for mod in self.modifiers]
+            _LOGGER.warning(
+                f"Found no initialized modifiers in stage {self.group}. "
+                "Found the following uninitialized modifiers: "
+                f"{modifier_names}"
+            )
 
     def calculate_start(self) -> float:
         """

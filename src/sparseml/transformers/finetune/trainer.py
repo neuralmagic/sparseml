@@ -65,8 +65,6 @@ class SessionManagerMixIn:
         model: Module,
         model_state_path: str,
         recipe: Optional[str],
-        pre_recipe_yaml: Optional[str],
-        stripped_recipe: Optional[Recipe],
         recipe_args: Optional[Union[Dict[str, Any], str]] = None,
         metadata_args: Optional[List[str]] = None,
         data_args: Optional["DataTrainingArguments"] = None,  # noqa: F821
@@ -79,8 +77,6 @@ class SessionManagerMixIn:
         self.recipe = recipe
         self.recipe_args = recipe_args
         self.teacher = teacher
-        self.pre_recipe_yaml = pre_recipe_yaml
-        self.stripped_recipe = stripped_recipe
 
         training_args = kwargs.get("args")
         self.metadata = (
@@ -276,19 +272,12 @@ class SessionManagerMixIn:
         recipe_path = os.path.join(output_dir, RECIPE_NAME)
         session = sml.active_session()
         recipe = session.lifecycle.recipe_container.compiled_recipe
-        full_recipe = Recipe.simplify_combine_recipes([self.stripped_recipe, recipe])
-        recipe_yaml_str = full_recipe.yaml()
+        recipe_yaml_str = recipe.yaml()
         recipe_path = os.path.join(output_dir, "recipe.yaml")
         with open(recipe_path, "w") as fp:
             fp.write(recipe_yaml_str)
 
         _LOGGER.info(f"Saved SparseML recipe with model state to {recipe_path}")
-
-        if self.pre_recipe_yaml is not None:
-            pre_recipe_path = os.path.join(output_dir, "pre_recipe.yaml")
-            with open(pre_recipe_path, "w") as fp:
-                fp.write(self.pre_recipe_yaml)
-        _LOGGER.info(f"Saved prior SparseML recipe to {pre_recipe_path}")
 
     def log_model_sparsification(self):
         """

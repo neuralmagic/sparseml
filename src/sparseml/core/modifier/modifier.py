@@ -78,8 +78,8 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
         """
         :raises RuntimeError: if the modifier has not been initialized
         """
-        if not self.initialized_:
-            raise RuntimeError("modifier has not been initialized")
+        return self.initialized_
+        # raise RuntimeError("modifier has not been initialized")
 
     def calculate_start(self) -> float:
         """
@@ -121,6 +121,9 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
         if state.start_event is None:
             return
 
+        if self.calculate_start() < state.start_event.current_index:
+            return
+
         initialized = self.on_initialize(state=state, **kwargs)
 
         if not isinstance(initialized, bool):
@@ -147,7 +150,8 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
             return
 
         if not self.initialized_:
-            raise RuntimeError("cannot finalize an uninitialized modifier")
+            return
+            # raise RuntimeError("cannot finalize an uninitialized modifier")
 
         finalized = self.on_finalize(state=state, **kwargs)
 
@@ -172,6 +176,7 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
         :param kwargs: Additional arguments for updating the modifier
         """
         if not self.initialized_:
+            return
             raise RuntimeError("cannot update an uninitialized modifier")
 
         if self.finalized_:
