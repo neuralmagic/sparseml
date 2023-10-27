@@ -157,7 +157,7 @@ class LayerParamMasking(BaseModel):
         parameterized_layer = self._masked_layer_params[layer_param_name]
         if layer_param_name == "model.layers.5.mlp.down_proj.weight":
             print(parameterized_layer.param.data)
-            
+
         mask_name = param_mask_name(parameterized_layer.param_name)
         mask = parameterized_layer.layer.get_buffer(mask_name)
         parameterized_layer.param.data = parameterized_layer.param.data * mask

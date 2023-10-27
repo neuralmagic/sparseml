@@ -24,7 +24,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import torch
 from torch.nn import Module
 from transformers import Trainer as HFTransformersTrainer
-from transformers import TrainerControl, TrainingArguments, TrainerCallback
+from transformers import TrainerCallback, TrainerControl, TrainingArguments
 from transformers.file_utils import PaddingStrategy
 from transformers.integrations import TensorBoardCallback
 from transformers.trainer_callback import TrainerState
@@ -37,10 +37,10 @@ from sparseml.core.session import callbacks
 from sparseml.pytorch.utils import (
     LoggerManager,
     ModuleSparsificationInfo,
-    TensorBoardLogger
+    TensorBoardLogger,
 )
-from sparseml.transformers.utils.helpers import RECIPE_NAME
 from sparseml.transformers.finetune.helpers import _reload_model_state
+from sparseml.transformers.utils.helpers import RECIPE_NAME
 
 
 __all__ = [
@@ -112,7 +112,7 @@ class SessionManagerMixIn:
             framework=Framework.pytorch,
             train_data=train_data,
             start=epoch,
-            copy_data=False
+            copy_data=False,
         )
 
         # reload the state dict for the model now that architecture matches expected
@@ -154,7 +154,7 @@ class SessionManagerMixIn:
         self._check_super_defined("create_optimizer")
         super().create_optimizer()
 
-        # see https://huggingface.co/docs/accelerate/concept_guides/performance#observed-batch-sizes
+        # n_gpu handled internally by dataloader
         total_batch_size = (
             self.args.per_device_train_batch_size
             * self.args.gradient_accumulation_steps
@@ -215,9 +215,7 @@ class SessionManagerMixIn:
         """
         self._check_super_defined("compute_loss")
 
-        inputs = {
-            k: inputs[k] for k in inputs if k in self._model_signature_columns
-        }
+        inputs = {k: inputs[k] for k in inputs if k in self._model_signature_columns}
         loss = super().compute_loss(model, inputs, return_outputs=return_outputs)
         callbacks.loss_calculated(loss=loss)
         callbacks.optim_pre_step()
@@ -444,7 +442,7 @@ class TrainerInterface(SessionManagerMixIn):
         self.accelerator.wait_for_everyone()
         if applied:
             self.finalize_session()
-        
+
         self.accelerator.wait_for_everyone()
         if self.accelerator.is_main_process:
             print("logging sparsification")
@@ -593,6 +591,7 @@ class TransformersTrainer(HFTransformersTrainer):
             lambda _: 1.0,
         )
 
+
 class Trainer(TrainerInterface, TransformersTrainer):
     """
     Training implementation for running sparsification recipes with transformers flows.
@@ -629,16 +628,28 @@ class Trainer(TrainerInterface, TransformersTrainer):
 
 
 class PostOptimCallback(TrainerCallback):
-    def on_step_end(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
+    def on_step_end(
+        self,
+        args: TrainingArguments,
+        state: TrainerState,
+        control: TrainerControl,
+        **kwargs,
+    ):
         """
-        Event called at the end of a training step. If using gradient accumulation, one training step might take
-        several inputs.
+        Event called at the end of a training step. If using gradient accumulation,
+        one training step might take several inputs.
         """
         super().on_step_end(args, state, control, **kwargs)
         callbacks.optim_post_step()
         sml.callbacks.batch_end()
 
-    def on_substep_end(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
+    def on_substep_end(
+        self,
+        args: TrainingArguments,
+        state: TrainerState,
+        control: TrainerControl,
+        **kwargs,
+    ):
         """
         Event called at the end of an substep during gradient accumulation.
         """
@@ -669,7 +680,8 @@ class DisableHalfPrecisionCallback(TrainerCallback):
 
     def qat_active(self, epoch: float) -> bool:
         # TODO: refactor to not use manager
-        # would be nice to have helper functions for noting if quantization and/or LR modifiers are applied
+        # would be nice to have helper functions for noting if quantization and/or
+        # LR modifiers are applied
         manager_q_active = arch_manager_q_active = False
         if self.trainer.manager:
             manager_q_active = bool(self.trainer.manager.qat_active(epoch))

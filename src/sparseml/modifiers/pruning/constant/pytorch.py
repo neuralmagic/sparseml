@@ -47,7 +47,6 @@ class ConstantPruningModifierPyTorch(ConstantPruningModifier, LayerParamMasking)
 
     def on_finalize(self, state: State, **kwargs) -> bool:
         for layer_param_name, _ in self.parameterized_layers_.items():
-            #print(self._masked_layer_params[layer_param_name].param.data[0])
             self.remove_mask(layer_param_name)
 
         return True
@@ -71,9 +70,7 @@ class ConstantPruningModifierPyTorch(ConstantPruningModifier, LayerParamMasking)
         elif event.type_ == EventType.OPTIM_POST_STEP:
             for layer_param_name, _ in self.parameterized_layers_.items():
                 self.apply_mask_weight(layer_param_name)
-        #elif event.type_ == EventType.BATCH_END:
-        #   print(self._masked_layer_params['model.layers.5.self_attn.q_proj'].param.data[0][:5])
 
     def on_end(self, state: State, event: Event, **kwargs):
-        print(self._masked_layer_params['model.layers.5.self_attn.q_proj'].param.data[0][:5])
+        # print(self._masked_layer_params['model.layers.5.self_attn.q_proj'].param.data[0][:5])
         self.disable_masks()

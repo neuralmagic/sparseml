@@ -21,6 +21,7 @@
 import logging
 import os
 import random
+
 import datasets
 import transformers
 from transformers import (
@@ -34,11 +35,12 @@ from transformers import (
 from transformers.trainer_utils import get_last_checkpoint
 
 from sparseml.transformers.finetune import Trainer, TrainingArguments
-from sparseml.transformers.finetune.helpers import apply_recipe_structure_to_model
 from sparseml.transformers.finetune.data import TextGenerationDataset
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
+from sparseml.transformers.finetune.helpers import apply_recipe_structure_to_model
 from sparseml.transformers.finetune.model_args import ModelArguments
 from sparseml.transformers.utils import SparseAutoModel, get_shared_tokenizer_src
+
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -190,7 +192,7 @@ def main(**kwargs):
         train_dataset=train_dataset if training_args.do_train else None,
         eval_dataset=eval_dataset if do_eval else None,
         tokenizer=tokenizer,
-        data_collator=data_collator
+        data_collator=data_collator,
     )
 
     # Training
@@ -240,6 +242,7 @@ def main(**kwargs):
         trainer.save_sample_inputs_outputs(
             num_samples_to_export=data_args.num_export_samples
         )
+
 
 if __name__ == "__main__":
     main()
