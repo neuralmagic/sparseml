@@ -17,11 +17,11 @@ import logging
 from typing import Dict, List
 
 import torch
-import torch.nn as nn
 from torch.nn import Module
 
 from sparseml.modifiers.obcq.utils.sparsegpt import SparseGPT
 from sparseml.pytorch.utils.helpers import get_dependency_order
+from sparseml.utils.pytorch.module import get_prunable_layers
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -60,14 +60,8 @@ class LayerCompressor:
 
         :return: dictionary of compressible modules
         """
-        quantize = self.args.get("quantize", False)
-        if quantize:
-            # The layer names are changed due to quantization modifiers, therefore
-            # we need a slightly different func to retrieve layers
-            modules = _find_quant_layers(self.layer)
-        else:
-            modules = _find_layers(self.layer)
-        return modules
+        compressible_layers = get_prunable_layers(self.layer)
+        return compressible_layers
 
     def pre_compress_parallel(self, **kwargs) -> Dict:
         """
@@ -217,30 +211,3 @@ class LayerCompressor:
                 blocksize=self.args["blocksize"],
             )
             gpts.free()
-
-
-def _find_quant_layers(
-    module, layers=[torch.nn.qat.Conv2d, torch.nn.qat.Linear], name=""
-):
-    res = {}
-    # search for QAT versions of layers
-    for name1, child in module.named_children():
-        res.update(
-            _find_layers(
-                child, layers=layers, name=name + "." + name1 if name != "" else name1
-            )
-        )
-    return res
-
-
-def _find_layers(module, layers=[nn.Conv2d, nn.Linear], name=""):
-    if type(module) in layers:
-        return {name: module}
-    res = {}
-    for name1, child in module.named_children():
-        res.update(
-            _find_layers(
-                child, layers=layers, name=name + "." + name1 if name != "" else name1
-            )
-        )
-    return res
