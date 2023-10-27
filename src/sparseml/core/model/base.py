@@ -125,4 +125,11 @@ class ModifiableModel(Generic[MT, LT, PT], MultiFrameworkObject):
             - the name of the loggable item
             - the value of the loggable item
         """
+
+    def qat_active(self) -> bool:
+        """
+        Checks if quantization aware training is set up in the model
+
+        :return: True if QAT is active in any layer, False otherwise
+        """
         raise NotImplementedError()
