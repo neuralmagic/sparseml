@@ -54,6 +54,7 @@ class SparsificationLifecycle:
         if self.state and self.state.data:
             # reset data if it exists
             self.state.data.reset()
+            
         self.state = None
         self.recipe_container = RecipeContainer()
         self.modifiers = []
