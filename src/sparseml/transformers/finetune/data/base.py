@@ -22,16 +22,23 @@ _LOGGER: logging.Logger = logging.getLogger(__name__)
 
 
 class TextGenerationDataset(RegistryMixin):
-    def __init__(self, text_column, data_args, tokenizer):
+    def __init__(self, text_column, data_args, tokenizer, raw_kwargs={}):
 
         self.text_column = text_column
         self.tokenizer = tokenizer
         self.data_args = data_args
+        self.raw_kwargs = raw_kwargs
 
         if data_args.concatenate_data:
             self.padding = False
         elif data_args.pad_to_max_length:
             self.padding = "max_length"
+        else:
+            self.padding = False
+
+        if self.padding:
+            if not self.tokenizer.pad_token:
+                self.tokenizer.pad_token = self.tokenizer.eos_token
 
         max_seq_length = data_args.max_seq_length
         if max_seq_length > tokenizer.model_max_length:
@@ -43,7 +50,7 @@ class TextGenerationDataset(RegistryMixin):
         self.max_seq_length = min(data_args.max_seq_length, tokenizer.model_max_length)
 
     def get_raw_dataset(self, cache_dir):
-        return get_raw_dataset(self.data_args, cache_dir)
+        return get_raw_dataset(self.data_args, cache_dir, **self.raw_kwargs)
 
     def tokenize_and_process(self, raw_dataset):
         def tokenize_fn(data):

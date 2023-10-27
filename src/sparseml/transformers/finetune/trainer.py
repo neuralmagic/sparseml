@@ -272,7 +272,7 @@ class SessionManagerMixIn:
         session = sml.active_session()
         recipe = session.lifecycle.recipe_container.compiled_recipe
         recipe_yaml_str = recipe.yaml()
-        recipe_path = os.path.join(output_dir(output_dir, "recipe.yaml"))
+        recipe_path = os.path.join(output_dir, "recipe.yaml")
         with open(recipe_path, "w") as fp:
             fp.write(recipe_yaml_str)
 
