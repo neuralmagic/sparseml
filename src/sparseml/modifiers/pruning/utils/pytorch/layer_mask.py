@@ -134,9 +134,10 @@ class LayerParamMasking(BaseModel):
         mask_settings = self._mask_settings[layer_param_name]
         parameterized_layer = self._masked_layer_params[layer_param_name]
 
-        if mask_settings.persistent:
-            parameterized_layer.layer.unregister_buffer(
-                param_mask_name(parameterized_layer.param_name)
+        if not mask_settings.persistent:
+            delattr(
+                parameterized_layer.layer,
+                param_mask_name(parameterized_layer.param_name),
             )
 
         del self._masked_layer_params[layer_param_name]
