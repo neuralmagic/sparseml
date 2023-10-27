@@ -104,7 +104,7 @@ def one_shot(
         recipe=recipe_file,
         model=model,
         calib_data=calibration_data,
-        start=0.0,
+        start=-1,
         device=device,
         copy_data=False,
     )

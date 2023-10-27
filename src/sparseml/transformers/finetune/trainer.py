@@ -32,7 +32,6 @@ from transformers.trainer_pt_utils import reissue_pt_warnings
 from transformers.trainer_utils import get_last_checkpoint
 
 import sparseml.core.session as sml
-from sparseml.core import Recipe
 from sparseml.core.framework import Framework
 from sparseml.core.session import callbacks
 from sparseml.pytorch.utils import (

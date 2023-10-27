@@ -34,7 +34,6 @@ from transformers import (
 )
 from transformers.trainer_utils import get_last_checkpoint
 
-import sparseml.core.session as session_manager
 from sparseml.transformers.finetune import Trainer, TrainingArguments
 from sparseml.transformers.finetune.data import TextGenerationDataset
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments

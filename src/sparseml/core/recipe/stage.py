@@ -59,15 +59,10 @@ class RecipeStage(RecipeBase):
 
     def calculate_end(self) -> int:
         """
-        :return: the end epoch for the stage, atleast one modifier
-            in current stage must have an end
+        :return: the end epoch for the stage, -1 if no modifier
+            in current stage has an end
         """
-        ends = [
-            mod.calculate_end() for mod in self.modifiers if mod.calculate_end() >= 0
-        ]
-        if len(ends) == 0:
-            return 0
-        return max(ends)
+        return max(mod.calculate_end() for mod in self.modifiers)
 
     def evaluate(
         self, parent_args: Optional[RecipeArgs] = None, shift: Optional[int] = None

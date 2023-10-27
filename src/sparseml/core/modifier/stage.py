@@ -97,14 +97,10 @@ class StageModifiers(ModifierInterface, BaseModel):
 
     def calculate_end(self) -> float:
         """
-        :return: The maximum end time of all the stage modifiers
+        :return: The maximum end time of all the stage modifiers, or -1 if none of the
+        modifiers have set ends
         """
-        ends = [
-            mod.calculate_end() for mod in self.modifiers if mod.calculate_end() >= 0
-        ]
-        if len(ends) == 0:
-            return 0
-        return max(ends)
+        return max(mod.calculate_end() for mod in self.modifiers)
 
     def pre_initialize_structure(self, state: "State", **kwargs):
         """
