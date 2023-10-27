@@ -1,6 +1,6 @@
-from sparseml.transformers.finetune.text_generation import main
-
 def run():
+    from sparseml.transformers.finetune.text_generation import main
+    
     model = "./obcq_deployment"
     dataset_name = "wikitext"
     dataset_config_name = "wikitext-2-raw-v1"
