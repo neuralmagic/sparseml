@@ -41,15 +41,14 @@ class SparsificationLifecycle:
     event_called: bool = False
 
     def reset(self):
-        for stage_modifiers in self.modifiers:
-            for mod in stage_modifiers.modifiers:
-                if not mod.initialized_ or mod.finalized_:
-                    continue
+        for mod in self.modifiers:
+            if not mod.initialized_ or mod.finalized:
+                continue
 
-                try:
-                    mod.finalize(self.state)
-                except Exception:
-                    pass
+            try:
+                mod.finalize(self.state)
+            except Exception:
+                pass
 
         if self.state and self.state.data:
             # reset data if it exists

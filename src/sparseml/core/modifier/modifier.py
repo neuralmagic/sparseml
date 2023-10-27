@@ -74,6 +74,13 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
         """
         return self.finalized_
 
+    def check_initialized(self):
+        """
+        :raises RuntimeError: if the modifier has not been initialized
+        """
+        if not self.initialized_:
+            raise RuntimeError("modifier has not been initialized")
+
     def calculate_start(self) -> float:
         """
         Calculate and return the start epoch for the modifier.
