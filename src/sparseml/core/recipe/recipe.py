@@ -14,6 +14,7 @@
 
 import json
 import os
+from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
 
@@ -119,6 +120,9 @@ class Recipe(RecipeBase):
         :return: The simplified Recipe instance
         """
         stages = []
+        if isinstance(recipe, Recipe):
+            recipe.evaluate(shift=shift)
+            return recipe
         if isinstance(recipe, RecipeTuple):
             stage_names = recipe.target_stages
             if stage_names is None:
@@ -187,6 +191,20 @@ class Recipe(RecipeBase):
             combined.args.update(simplified.args)
 
         return combined
+
+    @staticmethod
+    def strip_to_quantization_modifiers(recipe: "Recipe"):
+        stripped_recipe = Recipe()
+        stripped_recipe.stages = [RecipeStage(group="pre")]
+        for stage in recipe.stages:
+            for modifier in stage.modifiers:
+                if modifier.type == "QuantizationModifier":
+                    quant_copy = deepcopy(modifier)
+                    quant_copy.group = "quantization"
+                    quant_copy.args_evaluated["start"] = 0
+                    stripped_recipe.stages[0].modifiers.append(quant_copy)
+
+        return stripped_recipe
 
     version: str = None
     args: RecipeArgs = Field(default_factory=RecipeArgs)

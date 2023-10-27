@@ -1,16 +1,34 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 
 import logging
+import os
+from typing import Any, Dict
+
+import torch
+
 import sparseml.core.session as session_manager
 from sparseml.core.framework import Framework
-from typing import Dict, Any
-import os
-from sparseml.transformers.utils import SparseAutoModel
 from sparseml.pytorch.sparsification.quantization.helpers import (
     initialize_channel_wise_scale_zp,
 )
-import torch
+from sparseml.transformers.utils import SparseAutoModel
+
 
 _LOGGER = logging.getLogger(__name__)
+
 
 def apply_recipe_structure_to_model(model, recipe_path, model_path):
     orig_state_dict = model.state_dict()
@@ -35,7 +53,7 @@ def apply_recipe_structure_to_model(model, recipe_path, model_path):
             "Reloaded model state after SparseML recipe structure modifications "
             f"from {model_path}"
         )
-    session_manager.active_session().reset()
+
 
 # TODO: clean up references to this function
 def _reload_model_state(model, load_path: str, orig_state_dict: Dict[str, Any]):

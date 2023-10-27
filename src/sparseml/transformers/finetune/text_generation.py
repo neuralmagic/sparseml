@@ -21,6 +21,7 @@
 import logging
 import os
 import random
+
 import datasets
 import transformers
 from transformers import (
@@ -33,12 +34,15 @@ from transformers import (
 )
 from transformers.trainer_utils import get_last_checkpoint
 
+import sparseml.core.session as session_manager
+from sparseml.core import Recipe
 from sparseml.transformers.finetune import Trainer, TrainingArguments
-from sparseml.transformers.finetune.helpers import apply_recipe_structure_to_model
 from sparseml.transformers.finetune.data import TextGenerationDataset
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
+from sparseml.transformers.finetune.helpers import apply_recipe_structure_to_model
 from sparseml.transformers.finetune.model_args import ModelArguments
 from sparseml.transformers.utils import SparseAutoModel, get_shared_tokenizer_src
+
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -129,11 +133,19 @@ def main(**kwargs):
     # initialize structure of input model from recipe if needed
     model_path = model_args.model_name_or_path
     recipe_path = os.path.join(model_path, "recipe.yaml")
+    pre_recipe_yaml = None
+    stripped_recipe = None
     if not os.path.exists(recipe_path):
         _LOGGER.warning(f"No recipes were applied for {model_path}.")
     else:
         _LOGGER.warning(f"Applying recipe {recipe_path} to {model_path}")
         apply_recipe_structure_to_model(model, recipe_path, model_path)
+        session = session_manager.active_session()
+        evaluated_recipe = session.lifecycle.recipe_container.compiled_recipe
+        pre_recipe_yaml = evaluated_recipe.yaml()
+
+        stripped_recipe = Recipe.strip_to_quantization_modifiers(evaluated_recipe)
+        session_manager.active_session().reset()
 
     # Load tokenizer
     tokenizer_src = (
@@ -183,6 +195,8 @@ def main(**kwargs):
         model=model,
         model_state_path=model_args.model_name_or_path,
         recipe=training_args.recipe,
+        pre_recipe_yaml=pre_recipe_yaml,
+        stripped_recipe=stripped_recipe,
         metadata_args=metadata_args,
         recipe_args=training_args.recipe_args,
         args=training_args,
@@ -190,7 +204,7 @@ def main(**kwargs):
         train_dataset=train_dataset if training_args.do_train else None,
         eval_dataset=eval_dataset if do_eval else None,
         tokenizer=tokenizer,
-        data_collator=data_collator
+        data_collator=data_collator,
     )
 
     # Training
@@ -240,6 +254,7 @@ def main(**kwargs):
         trainer.save_sample_inputs_outputs(
             num_samples_to_export=data_args.num_export_samples
         )
+
 
 if __name__ == "__main__":
     main()
