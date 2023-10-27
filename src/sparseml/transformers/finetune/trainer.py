@@ -154,7 +154,7 @@ class SessionManagerMixIn:
         self._check_super_defined("create_optimizer")
         super().create_optimizer()
 
-        # n_gpu is already accounted for in the dataloader
+        # n_gpu handled internally by dataloader
         total_batch_size = (
             self.args.per_device_train_batch_size
             * self.args.gradient_accumulation_steps
@@ -636,8 +636,8 @@ class PostOptimCallback(TrainerCallback):
         **kwargs,
     ):
         """
-        Event called at the end of a training step. If using gradient accumulation, one
-        training step might take several inputs.
+        Event called at the end of a training step. If using gradient accumulation,
+        one training step might take several inputs.
         """
         super().on_step_end(args, state, control, **kwargs)
         callbacks.optim_post_step()

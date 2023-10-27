@@ -72,4 +72,5 @@ class ConstantPruningModifierPyTorch(ConstantPruningModifier, LayerParamMasking)
                 self.apply_mask_weight(layer_param_name)
 
     def on_end(self, state: State, event: Event, **kwargs):
+        # print(self._masked_layer_params['model.layers.5.self_attn.q_proj'].param.data[0][:5])
         self.disable_masks()
