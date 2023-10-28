@@ -36,7 +36,7 @@ __all__ = ["one_shot"]
 
 _LOGGER = logging.getLogger(__name__)
 SUPPORTED_DATASETS = ["wikitext2", "ptb", "c4", "open_platypus"]
-SUPPORTED_MODELS = ["opt", "llama"]
+SUPPORTED_MODELS = ["opt", "llama", "mistral"]
 
 
 def one_shot(
@@ -76,6 +76,9 @@ def one_shot(
         model_loader_fn = SparseCasualLM.opt_model_from_pretrained
         forward_fn = opt_forward
     elif "llama" in model_path.lower():
+        model_loader_fn = SparseCasualLM.llama_model_from_pretrained
+        forward_fn = llama_forward
+    elif "mistral" or "zephyr" in model_path.lower():
         model_loader_fn = SparseCasualLM.llama_model_from_pretrained
         forward_fn = llama_forward
     else:
