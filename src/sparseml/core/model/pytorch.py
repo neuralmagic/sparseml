@@ -130,4 +130,3 @@ class ModifiableModelPyTorch(ModifiableModel[Module, Module, Parameter]):
         :return: True if QAT is active in any layer, False otherwise
         """
         return qat_active(self.model)
-
