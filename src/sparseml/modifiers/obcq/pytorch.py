@@ -83,7 +83,6 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
         :param model: PyTorch model to sparsify
         :param device: device to run sparsification on, preferably a GPU
         """
-
         self.model = model
         self.compressible_layers_ = self.compressible_layers()
         self.model = self.model.model
