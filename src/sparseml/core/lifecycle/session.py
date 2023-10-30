@@ -42,7 +42,7 @@ class SparsificationLifecycle:
 
     def reset(self):
         for mod in self.modifiers:
-            if not mod.initialized_ or mod.finalized:
+            if not mod.initialized or mod.finalized:
                 continue
 
             try:
