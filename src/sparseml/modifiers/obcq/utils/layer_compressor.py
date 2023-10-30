@@ -154,6 +154,12 @@ class LayerCompressor:
 
         self.inputs = None
         torch.cuda.empty_cache()
+
+        print("\n\n\n--------------------------------------------------")
+        print("MOVING LAYER BACK TO CPU")
+        print("--------------------------------------------------\n\n\n")
+        self.layer.to("cpu")
+
         return {"outputs": outputs}
 
     def sequentially_compress(self, **kwargs):

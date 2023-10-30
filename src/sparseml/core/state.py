@@ -177,7 +177,10 @@ class State:
 
         if "device" in kwargs:
             self.hardware.device = kwargs["device"]
-            self.model.model.to(self.hardware.device)
+            print("\n\n\n------------------------------------------------------------")
+            print("SKIPPING MODEL.to(device)")
+            print("------------------------------------------------------------\n\n\n")
+            # self.model.model.to(self.hardware.device)
 
         if (
             start is not None
