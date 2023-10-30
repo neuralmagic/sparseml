@@ -25,6 +25,7 @@ from transformers import (
     AutoModelForQuestionAnswering,
     AutoModelForSequenceClassification,
     AutoModelForTokenClassification,
+    LlamaForCausalLM,
     OPTForCausalLM,
 )
 from transformers.file_utils import WEIGHTS_NAME
@@ -452,6 +453,19 @@ class SparseCasualLM:
     def llama_model_from_pretrained(model_path: str) -> torch.nn.Module:
         """
         Load a pretrained Llama model from the specified hugging face path
+
+        :param model_path: hugging face path to model
+        :return: loaded pretrained model
+        """
+        model = LlamaForCausalLM.from_pretrained(model_path, torch_dtype="auto")
+        model.eval()
+        model.seqlen = model.config.max_position_embeddings
+        return model
+
+    @staticmethod
+    def auto_model_from_pretrained(model_path: str) -> torch.nn.Module:
+        """
+        Load a pretrained model using auto from the specified hugging face path
 
         :param model_path: hugging face path to model
         :return: loaded pretrained model
