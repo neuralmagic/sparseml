@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, Dict
 
 
 @dataclass
@@ -49,6 +49,18 @@ class DataTrainingArguments:
         metadata={
             "help": "Whether or not to concatenate datapoints to fill max_seq_length"
         },
+    )
+    raw_kwargs: Optional[Dict] = field(
+        default=None,
+        metadata={
+            "help": "Additional keyboard args to pass to datasets load_data"
+        }
+    )
+    splits: Optional[Dict] = field(
+        default=None,
+        metadata={
+            "help": "Optional percentages of each split to download"
+        }
     )
     overwrite_cache: bool = field(
         default=False,
