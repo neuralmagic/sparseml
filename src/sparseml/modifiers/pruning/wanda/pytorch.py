@@ -60,7 +60,7 @@ class WandaPruningModifierPyTorch(
         One-shot pruning implementation for Wanda.
         """
         self.on_start(state, state.start_event)
-        input_activations = self._collect_input_activations(state)
+        # input_activations = self._collect_input_activations(state)
 
         # set the sparsity to the final sparsity
         sparsity = self.final_sparsity
@@ -73,9 +73,7 @@ class WandaPruningModifierPyTorch(
                 PruningMaskCreatorArgs(
                     parameter=parameterized_layer.param,
                     sparsity=sparsity,
-                    scores=self._get_wanda_scores(
-                        parameterized_layer, input_activations
-                    ),
+                    scores=parameterized_layer.param.data.abs(),
                 )
             )
             self.update_mask(layer_param_name, mask)
