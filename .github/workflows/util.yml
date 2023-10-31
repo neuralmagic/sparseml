@@ -110,8 +110,10 @@ jobs:
           exit_code=1
           if [[ "${{ needs.BUILD.outputs.status }}" = "success" ]]; then
               exit_code=0
+              cp .github/workflows/result.xml.success .github/workflows/result.xml
+          else
+              cp .github/workflows/result.xml.fail .github/workflows/result.xml
           fi
-          echo "<status>${{ needs.BUILD.outputs.status }}</status>" > result.xml
           echo "echo \"GHA job ${{ needs.BUILD.outputs.status }}: https://github.com/neuralmagic/${{ github.event.repository.name }}/actions/runs/${{ inputs.run_id }}\"; exit ${exit_code}" > result.sh
           echo "========== Report to testmo ==========="
           echo "testmo automation:run:submit \\"
@@ -119,11 +121,11 @@ jobs:
           echo "  --project-id ${{ inputs.testmo_project_id }} \\"
           echo "  --name ${name} \\"
           echo "  --source ${{ github.event.repository.name }} \\"
-          echo "  --results result.xml"
+          echo "  --results .github/workflows/result.xml"
           testmo automation:run:submit \
                          --instance "${TESTMO_URL}" \
                          --project-id ${{ inputs.testmo_project_id }} \
                          --name "${name}" \
                          --source "${{ github.event.repository.name }}" \
-                         --results result.xml \
+                         --results .github/workflows/result.xml \
                          -- bash result.sh
