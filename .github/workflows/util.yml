@@ -61,10 +61,10 @@ jobs:
              echo "=========== Build status ==========="
              if [[ "${status}" = "FAILED" ]]; then
                  echo "${{ github.event.repository.name }} build failed"
-                 echo "status=failed" >> "$GITHUB_OUTPUT"
-                 exit 1
+                 exitCode=1
              else
                  echo "${{ github.event.repository.name }} build success"
+                 exitCode=0
              fi
              echo "=========== Generated build ==========="
              ls dist/
@@ -72,11 +72,16 @@ jobs:
              aws s3 cp dist/*.whl s3://nm-github-actions/${{ github.event.repository.name }}/
              if [ $? -eq 0 ]; then
                  echo "ok: copied to s3://nm-github-actions/${{ github.event.repository.name }}/"
-                 echo "status=success" >> "$GITHUB_OUTPUT"
              else
                  echo "failed: copied to s3://nm-github-actions/${{ github.event.repository.name }}/"
+                 exitCode=1
+             fi
+             if [ ${exitCode} -eq 1 ]; then
                  echo "status=failed" >> "$GITHUB_OUTPUT"
-                 exit 1
+                 cp .github/workflows/result.xml.fail result.xml
+             else
+                 echo "status=success" >> "$GITHUB_OUTPUT"
+                 cp .github/workflows/result.xml.success result.xml
              fi
              oldDate=`date --date='-2 month' +%Y%m%d`
              oldWhl=`(aws s3 ls s3://nm-github-actions/${{ github.event.repository.name }}/ | grep nightly | grep "${oldDate}") || echo "notfound"`
@@ -87,45 +92,30 @@ jobs:
                      aws s3 rm s3://nm-github-actions/${{ github.event.repository.name }}/${oldwhl}
                  done
              fi
-
-  TESTMO:
-    if: success() || failure()
-    needs: BUILD
-    runs-on: ${{ inputs.runs_on }}
-    steps:
-
-      - id: report
-        run: |
-          echo "node: $(node -v)"
-          echo "npm: $(npm -v)"
-          echo "Installing testmo cli..."
-          sudo npm install -g @testmo/testmo-cli    
-          export TESTMO_TOKEN=${{ secrets.TESTMO_TEST_TOKEN }}
-          TESTMO_URL="https://neuralmagic.testmo.net"
-          todaytime=`date +%Y%m%d`
-          name="${{ github.event.repository.name }} ${{ inputs.build_type }} ${todaytime} ${{ needs.BUILD.outputs.commitid }} RunID:${{ inputs.run_id }}"
-          echo "========== Build info ==========="
-          echo "name: ${name}"
-          echo "build status: ${{ needs.BUILD.outputs.status }}"
-          exit_code=1
-          if [[ "${{ needs.BUILD.outputs.status }}" = "success" ]]; then
-              exit_code=0
-              cp .github/workflows/result.xml.success .github/workflows/result.xml
-          else
-              cp .github/workflows/result.xml.fail .github/workflows/result.xml
-          fi
-          echo "echo \"GHA job ${{ needs.BUILD.outputs.status }}: https://github.com/neuralmagic/${{ github.event.repository.name }}/actions/runs/${{ inputs.run_id }}\"; exit ${exit_code}" > result.sh
-          echo "========== Report to testmo ==========="
-          echo "testmo automation:run:submit \\"
-          echo "  --instance ${TESTMO_URL} \\"
-          echo "  --project-id ${{ inputs.testmo_project_id }} \\"
-          echo "  --name ${name} \\"
-          echo "  --source ${{ github.event.repository.name }} \\"
-          echo "  --results .github/workflows/result.xml"
-          testmo automation:run:submit \
+             # TESTMO
+             echo "node: $(node -v)"
+             echo "npm: $(npm -v)"
+             echo "Installing testmo cli..."
+             sudo npm install -g @testmo/testmo-cli
+             export TESTMO_TOKEN=${{ secrets.TESTMO_TEST_TOKEN }}
+             TESTMO_URL="https://neuralmagic.testmo.net"
+             todaytime=`date +%Y%m%d`
+             name="${{ github.event.repository.name }} ${{ inputs.build_type }} ${todaytime} ${GITHUB_SHA:0:7} RunID:${{ inputs.run_id }}"
+             echo "========== Build info ==========="
+             echo "name: ${name}"
+             echo "build: ${status}"
+             echo "echo \"GHA job ${status}: https://github.com/neuralmagic/${{ github.event.repository.name }}/actions/runs/${{ inputs.run_id }}\"; exit ${exitCode}" > result.sh
+             echo "========== Report to testmo ==========="
+             echo "testmo automation:run:submit \\"
+             echo "  --instance ${TESTMO_URL} \\"
+             echo "  --project-id ${{ inputs.testmo_project_id }} \\"
+             echo "  --name ${name} \\"
+             echo "  --source ${{ github.event.repository.name }} \\"
+             echo "  --results result.xml"
+             testmo automation:run:submit \
                          --instance "${TESTMO_URL}" \
                          --project-id ${{ inputs.testmo_project_id }} \
                          --name "${name}" \
                          --source "${{ github.event.repository.name }}" \
-                         --results .github/workflows/result.xml \
+                         --results result.xml \
                          -- bash result.sh
