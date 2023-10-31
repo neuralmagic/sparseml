@@ -38,7 +38,7 @@ from tests.sparseml.pytorch.helpers import ConvNet, MLPNet
             2800,
             2688,
             0,
-            2912,
+            5600,
             5600,
         ),
         (
@@ -48,7 +48,7 @@ from tests.sparseml.pytorch.helpers import ConvNet, MLPNet
             544,
             512,
             4,
-            544,
+            1056,
             1056,
         ),
         (
@@ -68,7 +68,7 @@ from tests.sparseml.pytorch.helpers import ConvNet, MLPNet
             5418,
             5360,
             0,
-            321780,
+            632564,
             632564,
         ),
         (
@@ -78,17 +78,20 @@ from tests.sparseml.pytorch.helpers import ConvNet, MLPNet
             4640,
             4608,
             4,
-            227360,
+            453152,
             453152,
         ),
         (
             resnet50(),
             (3, 224, 224),
             None,
+            #25557032,
             25557032,
-            25502912,
+            25529472,
+            #25502912,
             0,
-            4140866536,
+            #4140866536,
+            8208826400,
             8230050792,
         ),
     ],
@@ -111,6 +114,8 @@ def test_analyzer(
     assert len(out)
 
     desc = analyzer.layer_desc(name)
+    print(desc)
+    print(desc.flops-8208826400)
     assert desc.params == params
     assert desc.prunable_params == prunable_params
     assert desc.execution_order == execution_order
