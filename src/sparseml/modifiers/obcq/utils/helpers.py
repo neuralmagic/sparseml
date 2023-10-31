@@ -25,23 +25,29 @@ class Catcher(torch.nn.Module):
     def __init__(self, module):
         super().__init__()
         self.module = module
-        # default target keys
-
-        self.target_keys = [
-            "attention_mask",
-            # "input_id",
-        ]
+        self.target_keys = None
         self.cache = {key: [] for key in self.target_keys}
         self.cache["inputs"] = []
 
     def forward(self, *args, **kwargs):
         self.cache["inputs"].append(args)
+        if self.target_keys is None:
+            self.target_keys = self._get_target_keys(kwargs.keys())
+
         for key in self.target_keys:
             self.cache[key].append(kwargs[key])
         raise ValueError
 
     def get_cache(self):
         return self.cache
+
+    def _get_target_keys(self, input_keys):
+        target_keys = []
+        if "attention_mask" in input_keys:
+            target_keys.append("attention_mask")
+        if "position_ids" in input_keys:
+            target_keys.append("position_ids")
+        return target_keys
 
 
 def replace_module(model, old_module, new_module):
