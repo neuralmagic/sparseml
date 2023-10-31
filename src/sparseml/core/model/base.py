@@ -125,7 +125,6 @@ class ModifiableModel(Generic[MT, LT, PT], MultiFrameworkObject):
         """
         raise NotImplementedError()
 
-
     @property
     def layer_prefix(self) -> Optional[str]:
         """
