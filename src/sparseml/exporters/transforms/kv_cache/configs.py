@@ -113,8 +113,8 @@ MPT_CONFIG = KeyValueCacheConfig(
     additional_transforms=AdditionalTransformsMPT,
     key_num_attention_heads="n_heads",
     key_num_embedding_hidden_size="d_model",
-    transpose_value_input=None,
-    transpose_key_input=(0, 1, 3, 2),
+    transpose_value_input=(0, 2, 1, 3),
+    transpose_key_input=(0, 2, 1, 3),
     multiply_batch_by_num_att_heads=False,
 )
 
