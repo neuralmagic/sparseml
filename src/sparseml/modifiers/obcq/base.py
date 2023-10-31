@@ -49,8 +49,6 @@ class SparseGPTModifier(Modifier):
     :param targets: list of layer names to compress during OBCQ, or '__ALL__'
         to compress every layer in the model
     :param target_ids: list of keys in model output to cache
-    :param layer_prefix: name of model attribute that contains the list of layers, i.e.
-        model.decoder for OPT or just model for Llama
     """
 
     sparsity: Union[float, List[float]]
