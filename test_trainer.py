@@ -2,15 +2,19 @@ def run():
     from sparseml.transformers.finetune.text_generation import main
     
     model = "./obcq_deployment"
-    dataset_name = "wikitext"
-    dataset_config_name = "wikitext-2-raw-v1"
-    concatenate_data = True
+    dataset_name = "c4"
+    dataset_config_name = "allenai--c4"
+    concatenate_data = None
     do_train = True
     do_eval = False
     output_dir = "./output_finetune"
     recipe = "test_trainer_recipe.yaml"
     num_train_epochs=1
     overwrite_output_dir = True
+    raw_kwargs = {"data_files": {"train": "en/c4-train.00000-of-01024.json.gz"}}
+    splits = {
+        "train": "train[:20%]",
+    }
 
     main(
         model_name_or_path=model,
@@ -22,7 +26,9 @@ def run():
         recipe=recipe,
         num_train_epochs=num_train_epochs,
         overwrite_output_dir=overwrite_output_dir,
-        concatenate_data = concatenate_data
+        concatenate_data = concatenate_data,
+        splits = splits,
+        raw_kwargs=raw_kwargs
     )
 
 if __name__ == "__main__":

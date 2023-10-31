@@ -12,10 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from copy import deepcopy
+
 from sparseml.transformers.finetune.data import TextGenerationDataset
 
 
 @TextGenerationDataset.register(name="c4")
 class C4Dataset(TextGenerationDataset):
-    def __init__(self, data_args, tokenizer):
-        super().__init__(text_column="text", data_args=data_args, tokenizer=tokenizer)
+    def __init__(self, data_args, split, tokenizer):
+        data_args = deepcopy(data_args)
+        data_args.dataset_name = "allenai/c4"
+        super().__init__(
+            text_column="text", data_args=data_args, split=split, tokenizer=tokenizer
+        )

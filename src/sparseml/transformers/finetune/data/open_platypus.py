@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from copy import deepcopy
 
 from sparseml.transformers.finetune.data import TextGenerationDataset
 from sparseml.transformers.finetune.data.helpers import get_raw_dataset
@@ -28,12 +29,17 @@ class OpenPlatypusDataset(TextGenerationDataset):
         "instruction}\n\n### Response:\n",
     }
 
-    def __init__(self, data_args, tokenizer):
+    def __init__(self, data_args, split, tokenizer):
+        data_args = deepcopy(data_args)
         data_args.dataset_name = "garage-bAInd/Open-Platypus"
-        super().__init__(text_column="text", data_args=data_args, tokenizer=tokenizer)
+        super().__init__(
+            text_column="text", data_args=data_args, split=split, tokenizer=tokenizer
+        )
 
     def get_raw_dataset(self, cache_dir):
-        raw_dataset = get_raw_dataset(self.data_args, cache_dir, **self.raw_kwargs)
+        raw_dataset = get_raw_dataset(
+            self.data_args, cache_dir, split=self.split, **self.raw_kwargs
+        )
 
         def restructure_fn(sample):
             if "input" in sample:
@@ -44,11 +50,11 @@ class OpenPlatypusDataset(TextGenerationDataset):
                 sample["text"] = self.ALPACA_TEMPLATE["prompt_no_input"].format(
                     instruction=sample["instruction"]
                 )
-                
+
             if "output" in sample:
                 sample["text"] += sample["output"]
             return sample
-        
+
         raw_dataset = raw_dataset.map(
             restructure_fn,
             batched=False,

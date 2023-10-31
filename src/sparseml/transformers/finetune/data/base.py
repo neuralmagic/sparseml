@@ -22,12 +22,12 @@ _LOGGER: logging.Logger = logging.getLogger(__name__)
 
 
 class TextGenerationDataset(RegistryMixin):
-    def __init__(self, text_column, split, data_args, tokenizer):
+    def __init__(self, text_column, data_args, split, tokenizer):
 
         self.text_column = text_column
         self.tokenizer = tokenizer
         self.data_args = data_args
-        self.raw_kwargs = data_args.raw_kwargs
+        self.raw_kwargs = data_args.raw_kwargs or {}
         self.split = split
 
         if data_args.concatenate_data:
@@ -51,7 +51,9 @@ class TextGenerationDataset(RegistryMixin):
         self.max_seq_length = min(data_args.max_seq_length, tokenizer.model_max_length)
 
     def get_raw_dataset(self, cache_dir):
-        return get_raw_dataset(self.data_args, cache_dir, split=self.split, **self.raw_kwargs)
+        return get_raw_dataset(
+            self.data_args, cache_dir, split=self.split, **self.raw_kwargs
+        )
 
     def tokenize_and_process(self, raw_dataset):
         def tokenize_fn(data):

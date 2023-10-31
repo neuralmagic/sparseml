@@ -37,6 +37,7 @@ from transformers.trainer_utils import get_last_checkpoint
 from sparseml.transformers.finetune import Trainer, TrainingArguments
 from sparseml.transformers.finetune.data import TextGenerationDataset
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
+from sparseml.transformers.finetune.data.helpers import make_dataset_splits
 from sparseml.transformers.finetune.helpers import apply_recipe_structure_to_model
 from sparseml.transformers.finetune.model_args import ModelArguments
 from sparseml.transformers.utils import SparseAutoModel, get_shared_tokenizer_src
@@ -153,19 +154,27 @@ def main(**kwargs):
 
     # Load datasets
     # TODO: will any of this cause problems with FSDP?
-    do_eval = training_args.do_eval or data_args.num_export_samples > 0
     splits = data_args.splits
     tokenized_datasets = {}
     if data_args.splits is None:
         splits = {"all": None}
     for split_name, split_str in splits.items():
         dataset_manager = TextGenerationDataset.load_from_registry(
-            data_args.dataset_name, data_args=data_args, splits=split_str, tokenizer=tokenizer
+            data_args.dataset_name,
+            data_args=data_args,
+            split=split_str,
+            tokenizer=tokenizer,
         )
         raw_dataset = dataset_manager.get_raw_dataset(model_args.cache_dir)
         tokenized_dataset = dataset_manager.tokenize_and_process(raw_dataset)
         tokenized_datasets[split_name] = tokenized_dataset
 
+    tokenized_datasets = make_dataset_splits(
+        tokenized_datasets,
+        training_args.do_train,
+        training_args.do_eval,
+        training_args.do_predict,
+    )
     train_dataset = tokenized_datasets.get("train")
     eval_dataset = tokenized_datasets.get("validation")
     predict_dataset = tokenized_datasets.get("test")
@@ -194,7 +203,7 @@ def main(**kwargs):
         args=training_args,
         data_args=data_args,
         train_dataset=train_dataset if training_args.do_train else None,
-        eval_dataset=eval_dataset if do_eval else None,
+        eval_dataset=eval_dataset if training_args.do_eval else None,
         tokenizer=tokenizer,
         data_collator=data_collator,
     )
