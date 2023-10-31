@@ -46,7 +46,7 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
 
     model: Any = None
     device_: str = "cuda:0"
-    finalization_kwargs_: Dict = None
+    finalization_kwargs_: Optional[Dict] = None
 
     def on_initialize(self, state: "State", **kwargs) -> bool:
         """
@@ -87,6 +87,7 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
         self.compressible_layers_ = self.compressible_layers()
         self.model = self.model.model
         self._set_device(device)
+        self._infer_mask_block_size()
 
     @torch.no_grad()
     def apply_obcq(
@@ -131,8 +132,8 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
             )
             args = {
                 "sparsity": layer_sparsity,
-                "prunen": self.prunen,
-                "prunem": self.prunem,
+                "prunen": self.prunen_,
+                "prunem": self.prunem_,
                 "blocksize": self.block_size,
                 "percdamp": self.dampening_frac,
                 "sequential_update": self.sequential_update,
@@ -191,3 +192,16 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
             self.device_ = "cpu"
         else:
             self.device_ = device
+
+    def _infer_mask_block_size(self):
+        """
+        Infer the mask block size from the mask structure.
+        Parses mask_structure of the form N:M where N, M are integers that
+        define a custom block shape; and sets prunen_ and prunem_ accordingly.
+
+        :post-condition: prunen_ and prunem_ are set
+        """
+        if self.mask_structure is None:
+            raise ValueError("mask_structure must be defined")
+
+        self.prunen_, self.prunem_ = list(map(int, self.mask_structure.split(":")))
