@@ -13,8 +13,8 @@
 # limitations under the License.
 
 """
-Code related to monitoring, analyzing, and reporting info for Modules in PyTorch.
-Records things like FLOPS, input and output shapes, kernel shapes, etc.
+Code for overall sparsity and forward  FLOPs (floating-point operations)
+estimation for neural networks.
 """
 
 from typing import List, Tuple, Union
@@ -66,11 +66,14 @@ class ModuleAnalyzer(object):
     :param module: the module to analyze
     :param enabled: True to enable the hooks for analyzing and actively track,
         False to disable and not track
+    :param ignore_zero: whether zeros should be excluded from FLOPs (standard
+        when estimating 'theoretical' FLOPs in sparse networks
+    : param
     :param multiply_adds: Whether total flops includes the cost of summing the
         multiplications together
     """
 
-    def __init__(self, module: Module, enabled: bool = False, ignore_zero=True, ignore_bias=False, multiply_adds=True, world_size=1):
+    def __init__(self, module: Module, enabled: bool = False, ignore_zero=True, multiply_adds=True):
         super(ModuleAnalyzer, self).__init__()
         self._module = module
         self._hooks = None  # type: List[RemovableHandle]
@@ -79,9 +82,7 @@ class ModuleAnalyzer(object):
         self._call_count = -1
         self.enabled = enabled
         self._ignore_zero = ignore_zero
-        self._ignore_bias = ignore_bias
         self._multiply_adds = multiply_adds
-        self._world_size = 1 if world_size is None else world_size
 
     def __del__(self):
         self._delete_hooks()
@@ -229,8 +230,6 @@ class ModuleAnalyzer(object):
             flops=0,
             total_flops=0,
         )
-        # if False and mod._analyzed_layer_desc.flops > 0:
-        #     print(mod._analyzed_layer_desc)
 
     def _init_forward_hook(
         self,
@@ -264,7 +263,6 @@ class ModuleAnalyzer(object):
     ):
         desc, inp, out = self._init_forward_hook(mod, inp, out)
 
-    list_conv = []
     def _conv_hook(
         self,
         mod: _ConvNd,
@@ -282,7 +280,7 @@ class ModuleAnalyzer(object):
         batch_size, input_channels, input_height, input_width = inp[0].size()
         _, output_channels, output_height, output_width = out[0].size()
 
-        bias_ops = 1 if not self._ignore_bias and mod.bias is not None else 0
+        bias_ops = 1 if mod.bias is not None else 0
 
         num_weight_params = (
             (mod.weight.data != 0.).float().sum()
@@ -298,7 +296,6 @@ class ModuleAnalyzer(object):
                 * output_height
                 * output_width
                 * batch_size
-                * self._world_size
         )
 
         desc.flops = flops
@@ -328,9 +325,9 @@ class ModuleAnalyzer(object):
             else mod.weight.data.nelement()
         )
         weight_ops = num_weight_params * (2 if self._multiply_adds else 1)
-        bias_ops = mod.bias.nelement() if not self._ignore_bias else 0
+        bias_ops = mod.bias.nelement() if mod.bias is not None else 0
 
-        desc.flops = batch_size * (weight_ops + bias_ops) * self._world_size
+        desc.flops = batch_size * (weight_ops + bias_ops)
         desc.total_flops += desc.flops
 
     def _bn_hook(
@@ -346,9 +343,7 @@ class ModuleAnalyzer(object):
         desc.prunable_params = mod.weight.data.numel()
         desc.zeroed_params = desc.prunable_params - mod.weight.data.count_nonzero()
 
-        # 4 elementwise operations on the output space, just need to add all of them up
-        #desc.flops = 4 * float(numpy.prod(out[0].shape[1:]))
-        desc.flops = 2 * float(inp[0].nelement()) * self._world_size
+        desc.flops = 2 * float(inp[0].nelement())
         desc.total_flops += desc.flops
 
     def _pool_hook(
@@ -374,7 +369,6 @@ class ModuleAnalyzer(object):
                 * output_height
                 * output_width
                 * batch_size
-                * self._world_size
         )
 
         desc.flops = flops
@@ -412,7 +406,6 @@ class ModuleAnalyzer(object):
                 * output_height
                 * output_width
                 * batch_size
-                * self._world_size
         )
 
         desc.flops = flops
@@ -434,7 +427,15 @@ class ModuleAnalyzer(object):
 
         # making assumption that flops spent is one per element
         # (so swish is counted the same activation ReLU)
-        #desc.flops = float(numpy.prod(out[0].shape[1:]))
+        #FIXME (can't really be fixed). Some standard architectures,
+        # such as a standard ResNet use the same activation (ReLU) object
+        # for all of the places that it appears in the net, which works
+        # fine because it's stateless. But it makes it hard to count per-
+        # batch forward FLOPs correctly, since a single forward pass
+        # through the network is actually multiple passes trhough the
+        # activation. So the per-batch FLOPs are undercounted (slightly,
+        # since activations are very few FLOPs in general), but total
+        # (cumulative) FLOPs are counted correctly.
         desc.flops = float(inp[0].nelement())
         desc.total_flops += desc.flops
 
@@ -455,7 +456,7 @@ class ModuleAnalyzer(object):
         flops_per_channel = (
             2 if len(out[0].shape) < 3 else float(numpy.prod(out[0].shape[2:]))
         )
-        desc.flops = flops_per_channel * out[0].shape[1] * self._world_size
+        desc.flops = flops_per_channel * out[0].shape[1]
         desc.total_flops += desc.flops
 
 

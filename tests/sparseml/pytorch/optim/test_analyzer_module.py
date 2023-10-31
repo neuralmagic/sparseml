@@ -22,6 +22,8 @@ from torchvision.models import resnet50
 
 from sparseml.pytorch.optim import ModuleAnalyzer
 from tests.sparseml.pytorch.helpers import ConvNet, MLPNet
+from torch.nn import Linear
+from torch.nn.modules.conv import _ConvNd
 
 
 @pytest.mark.skipif(
@@ -85,14 +87,14 @@ from tests.sparseml.pytorch.helpers import ConvNet, MLPNet
             resnet50(),
             (3, 224, 224),
             None,
-            #25557032,
             25557032,
             25529472,
-            #25502912,
             0,
-            #4140866536,
-            8208826400,
-            8230050792,
+            8208826344,
+            # RN50 has a single ReLU used multiple
+            # times, so total is not equal to single-pass
+            # FLOPs, even for a single step.
+            8212112872,
         ),
     ],
 )
@@ -106,7 +108,16 @@ def test_analyzer(
     flops: int,
     total_flops: int,
 ):
-    analyzer = ModuleAnalyzer(model, enabled=True)
+    # Make sure we don't accidentally have 0 weights in a
+    # 'dense' model. In real life it's fine, but here it would
+    # throw off the expected result.
+    def init_weights(m):
+      if isinstance(m, Linear) or isinstance(m, _ConvNd):
+          m.weight.data.fill_(0.01)
+          if m.bias is not None:
+              m.bias.data.fill_(0.01)
+    model.apply(init_weights)
+    analyzer = ModuleAnalyzer(model, enabled=True, ignore_zero=True)
     tens = torch.randn(1, *input_shape)
     out = model(tens)
     analyzer.enabled = False
@@ -114,10 +125,118 @@ def test_analyzer(
     assert len(out)
 
     desc = analyzer.layer_desc(name)
-    print(desc)
-    print(desc.flops-8208826400)
     assert desc.params == params
     assert desc.prunable_params == prunable_params
+    assert desc.zeroed_params == 0
+    assert desc.execution_order == execution_order
+    assert desc.flops == flops
+    assert desc.total_flops == total_flops
+
+@pytest.mark.parametrize(
+    "model,input_shape,name,params,prunable_params,zeroed_params,execution_order,flops,total_flops",
+    [
+        (
+            MLPNet(),
+            MLPNet.layer_descs()[0].input_size,
+            None,
+            2800,
+            2688,
+            56,
+            0,
+            5488,
+            5488,
+        ),
+        (
+            MLPNet(),
+            MLPNet.layer_descs()[0].input_size,
+            MLPNet.layer_descs()[2].name,
+            544,
+            512,
+            16,
+            4,
+            1024,
+            1024,
+        ),
+        (
+            MLPNet(),
+            MLPNet.layer_descs()[0].input_size,
+            MLPNet.layer_descs()[3].name,
+            0,
+            0,
+            0,
+            5,
+            32,
+            32,
+        ),
+        (
+            ConvNet(),
+            ConvNet.layer_descs()[0].input_size,
+            None,
+            5418,
+            5360,
+            203,
+            0,
+            607804,
+            607804,
+        ),
+        (
+            ConvNet(),
+            ConvNet.layer_descs()[0].input_size,
+            ConvNet.layer_descs()[2].name,
+            4640,
+            4608,
+            144,
+            4,
+            439040,
+            439040,
+        ),
+        (
+            resnet50(),
+            (3, 224, 224),
+            None,
+            25557032,
+            25529472,
+            54931,
+            0,
+            8165194368,
+            # RN50 has a single ReLU used multiple
+            # times, so total is not equal to single-pass
+            # FLOPs, even for a single step.
+            8168480896,
+        ),
+    ],
+)
+def test_analyzer_sparse(
+    model: Module,
+    input_shape: Tuple[int],
+    name: str,
+    params: int,
+    prunable_params: int,
+    zeroed_params: int,
+    execution_order: int,
+    flops: int,
+    total_flops: int,
+):
+    def init_weights(m):
+      if isinstance(m, Linear) or isinstance(m, _ConvNd):
+          m.weight.data.fill_(0.01)
+          # Set some weights to 0
+          m.weight.data[0] = 0
+          if m.bias is not None:
+              m.bias.data.fill_(0.01)
+    model.apply(init_weights)
+    analyzer = ModuleAnalyzer(model, enabled=True, ignore_zero=True)
+    tens = torch.randn(1, *input_shape)
+    out = model(tens)
+    analyzer.enabled = False
+    out = model(tens)
+    assert len(out)
+
+    desc = analyzer.layer_desc(name)
+    print(desc.total_flops-total_flops)
+    assert desc.params == params
+    assert desc.prunable_params == prunable_params
+    assert desc.zeroed_params == zeroed_params
     assert desc.execution_order == execution_order
     assert desc.flops == flops
     assert desc.total_flops == total_flops

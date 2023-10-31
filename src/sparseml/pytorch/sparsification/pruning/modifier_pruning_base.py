@@ -129,6 +129,7 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         global_sparsity: bool = False,
         allow_reintroduction: bool = False,
         leave_enabled: bool = False,
+        estimate_flops: bool = True,
         parent_class_kwarg_names: Optional[List[str]] = None,
         **kwargs,
     ):
@@ -160,6 +161,7 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         self._global_sparsity = global_sparsity
         self._allow_reintroduction = allow_reintroduction
         self._leave_enabled = leave_enabled
+        self._estimate_flops = estimate_flops
 
         self._applied_sparsity = None
         self._pre_step_completed = False
@@ -298,10 +300,10 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
             for individual modifiers.
         """
         super().initialize(module, epoch, loggers, **kwargs)
-        named_layers_and_params = self._create_named_layers_and_params(module)
-        layers = [nlp.layer for nlp in named_layers_and_params]
-        param_names = [nlp.param_name for nlp in named_layers_and_params]
-        layer_names = [nlp.layer_name for nlp in named_layers_and_params]
+        self._named_layers_and_params = self._create_named_layers_and_params(module)
+        layers = [nlp.layer for nlp in self._named_layers_and_params]
+        param_names = [nlp.param_name for nlp in self._named_layers_and_params]
+        layer_names = [nlp.layer_name for nlp in self._named_layers_and_params]
 
         # initialize mask_creator and scorer
         params = [
@@ -424,12 +426,43 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
                     epoch=epoch,
                     steps_per_epoch=steps_per_epoch,
                 )
-            elif True or isinstance(layer_sparsity, ModuleAnalyzer):
+            elif isinstance(layer_sparsity, ModuleAnalyzer):
+                layers = [nlp.layer for nlp in self._named_layers_and_params]
+                param_names = [nlp.param_name for nlp in self._named_layers_and_params]
+                layer_names = [nlp.layer_name for nlp in self._named_layers_and_params]
+                individual_layer_sparsities = [
+                    [f"{layer_name}.{param_name}", ModuleAnalyzer._mod_desc(layer)]
+                    for layer_name, param_name, layer in zip(layer_names, param_names, layers)
+                ]
+                # for name, sparsity in individual_layer_sparsities:
+                #   self.log_scalar(
+                #       tag=f"FlopsForStep/{name}",
+                #       value=layer_sparsity.flops,
+                #       epoch=epoch,
+                #       steps_per_epoch=steps_per_epoch,
+                #   )
+                #   self.log_scalar(
+                #       tag=f"TotalFlops/{name}",
+                #       value=layer_sparsity.total_flops,
+                #       epoch=epoch,
+                #       steps_per_epoch=steps_per_epoch,
+                #   )
+                # Kind of a gotcha here. We report per-layer FLOPs (and sparsities)
+                # only for layers which match the description in the pruner.
+                # However, we report the overall FLOPs for all layers, regardless
+                # of whether they're ever pruned.
                 layer_sparsity = ModuleAnalyzer._mod_desc(module)
                 print("??????????", layer_sparsity)
+                print([[k, s.flops] for k, s in individual_layer_sparsities])
                 self.log_scalar(
-                    tag=f"TotalFlops",
+                    tag=f"FlopsForStep/Overall",
                     value=layer_sparsity.flops,
+                    epoch=epoch,
+                    steps_per_epoch=steps_per_epoch,
+                )
+                self.log_scalar(
+                    tag=f"TotalFlops/Overall",
+                    value=layer_sparsity.total_flops,
                     epoch=epoch,
                     steps_per_epoch=steps_per_epoch,
                 )
@@ -576,11 +609,8 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
             ModulePruningAnalyzer(layer, layer_name, param_name)
             for (layer, layer_name, param_name) in zip(layers, layer_names, param_names)
         ]
-        # flop_analyzers = [
-        #     ModuleAnalyzer(layer, layer_name, enabled=True)
-        #     #for layer in layers
-        #     for (layer, layer_name) in zip(layers, layer_names)
-        # ]
+        if True or not self._estimate_flops:
+            return pruning_analyzers
         flops_analyzer = ModuleAnalyzer(module, "", enabled=True)
         return pruning_analyzers + [flops_analyzer]
 
@@ -648,6 +678,7 @@ class BaseGradualPruningModifier(BasePruningModifier):
         min_frequency: float = -1.0,
         global_sparsity: bool = False,
         allow_reintroduction: bool = False,
+        compute_flops: bool = False,
         parent_class_kwarg_names: Optional[List[str]] = None,
         **kwargs,
     ):
