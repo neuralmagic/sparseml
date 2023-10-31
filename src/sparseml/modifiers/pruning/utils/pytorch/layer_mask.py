@@ -27,8 +27,11 @@ __all__ = ["LayerParamMasking"]
 
 
 def param_mask_name(param_name: str) -> str:
-    valid_name = param_name.replace(".", "_")
-    return f"{valid_name}_mask"
+    # valid_name = param_name.replace(".", "_")
+    # return f"{valid_name}_mask"
+
+    # for simplicity of quick fix
+    return "mask"
 
 
 def setup_mask_for_param(param: Parameter, mask: torch.Tensor) -> torch.Tensor:
