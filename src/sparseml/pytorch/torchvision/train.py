@@ -673,7 +673,7 @@ def main(args):
     max_epochs = manager.max_epochs if manager is not None else args.epochs
     flops_analyzer = None
     if args.track_flops:
-        flops_analyzer = ModuleAnalyzer(model, world_size = args.world_size, enabled=True)
+        flops_analyzer = ModuleAnalyzer(model, enabled=True)
     for epoch in range(args.start_epoch, max_epochs):
         if args.distributed:
             train_sampler.set_epoch(epoch)
@@ -703,11 +703,7 @@ def main(args):
         if lr_scheduler:
             lr_scheduler.step()
 
-        if flops_analyzer is not None:
-            flops_analyzer.enabled(False)
         eval_metrics = evaluate(model, criterion, data_loader_test, device)
-        if flops_analyzer is not None:
-            flops_analyzer.enabled(True)
         log_metrics("Test", eval_metrics, epoch, steps_per_epoch)
 
         top1_acc = eval_metrics.acc1.global_avg
