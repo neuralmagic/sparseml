@@ -54,7 +54,7 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
 
         :param state: session state storing input model and calibration data
         """
-        self._validate_layerwise_sparisity()
+        self._validate_layerwise_sparsity()
 
         if not self.initialized_structure_:
             self.on_initialize_structure(state, **kwargs)
