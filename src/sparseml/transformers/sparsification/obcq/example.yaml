@@ -1,3 +1,8 @@
+metadata:
+  target_model:
+    layer_prefix: "decoder"
+    architecture: "opt"
+
 test_stage:
   obcq_modifiers:
     SmoothQuantModifier:
@@ -52,4 +57,3 @@ test_stage:
         "model.decoder.layers.23"
       ]
       target_ids: ["attention_mask"]
-      layer_prefix: "decoder"

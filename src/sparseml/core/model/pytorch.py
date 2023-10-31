@@ -40,12 +40,17 @@ class ModifiableModelPyTorch(ModifiableModel[Module, Module, Parameter]):
 
     :param framework: the framework the model is in
     :param model: the model object
+    :param layer_prefix: name of model attribute that contains the list of layers, i.e.
+        model.decoder for OPT or just model for Llama
     """
 
     def __init__(
-        self, framework: Optional[Framework] = None, model: Optional[Module] = None
+        self,
+        framework: Optional[Framework] = None,
+        model: Optional[Module] = None,
+        layer_prefix: Optional[str] = None,
     ):
-        super().__init__(framework=framework, model=model)
+        super().__init__(framework=framework, model=model, layer_prefix=layer_prefix)
 
     def get_layers_params(
         self, targets: Union[str, List[str]]
