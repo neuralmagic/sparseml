@@ -21,7 +21,7 @@ on:
 
 jobs:
 
-  BUILD:
+  BUILDA_AND_REPORT:
     runs-on: ${{ inputs.runs_on }}
     outputs:
       status: ${{ steps.build.outputs.status }}
@@ -103,8 +103,8 @@ jobs:
              name="${{ github.event.repository.name }} ${{ inputs.build_type }} ${todaytime} ${GITHUB_SHA:0:7} RunID:${{ inputs.run_id }}"
              echo "========== Build info ==========="
              echo "name: ${name}"
-             echo "build: ${status}"
-             echo "echo \"GHA job ${status}: https://github.com/neuralmagic/${{ github.event.repository.name }}/actions/runs/${{ inputs.run_id }}\"; exit ${exitCode}" > result.sh
+             echo "build: $GITHUB_OUTPUT"
+             echo "echo \"GHA job $GITHUB_OUTPUT: https://github.com/neuralmagic/${{ github.event.repository.name }}/actions/runs/${{ inputs.run_id }}\"; exit ${exitCode}" > result.sh
              echo "========== Report to testmo ==========="
              echo "testmo automation:run:submit \\"
              echo "  --instance ${TESTMO_URL} \\"
