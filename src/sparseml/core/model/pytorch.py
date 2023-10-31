@@ -25,6 +25,7 @@ from sparseml.utils.pytorch import (
     get_matching_layer,
     get_param,
     get_params,
+    qat_active,
     set_layer,
     set_param,
 )
@@ -105,3 +106,11 @@ class ModifiableModelPyTorch(ModifiableModel[Module, Module, Parameter]):
         :param model: model to search for targets
         """
         return get_matching_layer(target, name_to_match, model)
+    
+    def qat_active(self) -> bool:
+        """
+        Checks if quantization aware training is set up in the model
+
+        :return: True if QAT is active in any layer, False otherwise
+        """
+        return qat_active(self.model)

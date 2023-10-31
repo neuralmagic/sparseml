@@ -126,3 +126,11 @@ class ModifiableModel(Generic[MT, LT, PT], MultiFrameworkObject):
         :param model: model to search for targets
         """
         raise NotImplementedError()
+
+    def qat_active(self) -> bool:
+        """
+        Checks if quantization aware training is set up in the model
+
+        :return: True if QAT is active in any layer, False otherwise
+        """
+        raise NotImplementedError()

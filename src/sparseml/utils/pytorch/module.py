@@ -66,6 +66,7 @@ __all__ = [
     "get_terminal_layers",
     "get_prunable_layers",
     "get_quantizable_layers",
+    "qat_active",
     "get_layers_params",
     "get_matching_layer",
 ]
@@ -241,6 +242,21 @@ def get_quantizable_layers(module: Module) -> Dict[str, Module]:
             quantizable[name] = layer
 
     return quantizable
+
+
+def qat_active(module: Module) -> bool:
+    """
+    Determines if any layers in the model have quantization enabled by checking for
+    weight_fake_quant attributes
+
+    :param module: PyTorch model to check for quantization
+    :return: True if quantization is active anywhere in the model, False otherwise
+    """
+    for _, layer in module.named_modules():
+        if isinstance(layer, torch.quantization.FakeQuantize):
+            return True
+
+    return False
 
 
 def get_layers_params(
