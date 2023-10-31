@@ -94,6 +94,8 @@ class SessionManagerMixIn:
         super().__init__(model=model, **kwargs)
         self.optim_callbacks = PostOptimCallback()
         self.callback_handler.add_callback(self.optim_callbacks)
+        self.callback_disable_fp16 = DisableHalfPrecisionCallback(self)
+        self.callback_handler.add_callback(self.callback_disable_fp16)
         self.criterion = torch.nn.CrossEntropyLoss()
         self._add_tensorboard_logger_if_available()
 
@@ -243,6 +245,71 @@ class SessionManagerMixIn:
         )
         return model_outputs
 
+    def train(self, *args, **kwargs):
+        """
+        Run a sparsification training cycle.
+        Calls into apply_manager before super().train()
+        and calls finalize_manager, if applied, after super().train().
+
+        :param args: positional args to pass to super().train()
+        :param kwargs: keyword args to pass to super().train()
+        :return: the output from super.train()
+        """
+        checkpoint, epoch = self._generate_apply_manager_params(kwargs)
+        applied = self.initialize_session(epoch=epoch, checkpoint=checkpoint)
+        self.callback_disable_fp16.check_disable(epoch, force=True)
+        self.accelerator.wait_for_everyone()
+        output = super().train(*args, **kwargs)
+        self.accelerator.wait_for_everyone()
+        if applied:
+            self.finalize_session()
+
+        self.accelerator.wait_for_everyone()
+        if self.accelerator.is_main_process:
+            print("logging sparsification")
+            self.log_model_sparsification()
+
+        return output
+
+    def evaluate(self, *args, **kwargs):
+        """
+        Run a sparsification evaluation cycle.
+        Calls into apply_manager before super().evaluate()
+        and calls finalize_manager, if applied, after super().evaluate().
+
+        :param args: positional args to pass to super().evaluate()
+        :param kwargs: keyword args to pass to super().evaluate()
+        :return: the output from super.evaluate()
+        """
+        self.initialize_structure()
+
+        # Always evaluate w/ fp32 to be closer to DeepSparse
+        use_cuda_amp = self.use_cuda_amp
+        if not self.args.fp16_full_eval and not self.args.bf16_full_eval:
+            self.use_cuda_amp = False
+
+        output = super().evaluate(*args, **kwargs)
+        self.use_cuda_amp = use_cuda_amp
+        self.finalize_session()
+
+        return output
+
+    def predict(self, *args, **kwargs):
+        """
+        Run a sparsification prediction cycle.
+        Calls into apply_manager before super().predict()
+        and calls finalize_manager, if applied, after super().predict().
+
+        :param args: positional args to pass to super().predict()
+        :param kwargs: keyword args to pass to super().predict()
+        :return: the output from super.predict()
+        """
+        self.initialize_structure()
+        output = super().predict(*args, **kwargs)
+        self.finalize_session()
+
+        return output
+
     def save_model(
         self,
         output_dir: Optional[str] = None,
@@ -352,143 +419,6 @@ class SessionManagerMixIn:
             TensorBoardLogger(writer=tensorboard_callback.tb_writer)
         )
 
-    def _get_fake_dataloader(
-        self,
-        num_samples: int,
-        tokenizer: "PreTrainedTokenizerBase",  # noqa: F821
-    ):
-        # Rearrange inputs' keys to match those defined by model foward func, which
-        # seem to define how the order of inputs is determined in the exported model
-        forward_args_spec = inspect.getfullargspec(self.model.__class__.forward)
-        synthetic_input = self._get_fake_input(
-            forward_func_input_keys=forward_args_spec.args,
-            tokenizer=tokenizer,
-        )
-        return (synthetic_input for _ in range(num_samples))
-
-    def _get_fake_input(self, forward_func_input_keys, tokenizer):
-        inputs = tokenizer(
-            "", return_tensors="pt", padding=PaddingStrategy.MAX_LENGTH.value
-        ).data  # Dict[Tensor]
-        inputs = collections.OrderedDict(
-            [
-                (input_key, inputs[input_key][0].reshape(1, -1))
-                for input_key in forward_func_input_keys
-                if input_key in inputs
-            ]
-        )
-        return inputs
-
-
-class TrainerInterface(SessionManagerMixIn):
-    """
-    Training interface for running sparsification recipes with transformers flows.
-    Mimics the lifecycle of transformers Trainer classes.
-
-    Should be instantiated with multi-inheritance with a custom trainer class.
-    TrainerInterface must be provided before Trainer for proper class dependency.
-    i.e. class MyCustomTrainer(TrainerInterface, Trainer)
-
-    :param model: the model to use with the trainer and apply sparsification to
-    :param model_state_path: the state path to the model,
-        used to load config and tokenizer settings
-    :param recipe: the recipe, if any, to apply to the model and training
-        process
-    :param recipe_args: A json string, csv key=value string, or dictionary containing
-        arguments to override the root arguments within the recipe such as
-        learning rate or num epochs
-    :param metadata_args A list of arguments to be extracted from training_args
-        and passed as metadata for the final, saved recipe.
-    :param teacher: teacher model for distillation. Set to 'self' to distill
-        from the loaded model or 'disable' to turn off distillation
-    :param kwargs: key word arguments passed to the parent class
-    """
-
-    def __init__(
-        self,
-        model: Module,
-        model_state_path: str,
-        recipe: Optional[str],
-        recipe_args: Optional[Union[Dict[str, Any], str]] = None,
-        metadata_args: Optional[List[str]] = None,
-        teacher: Optional[Union[Module, str]] = None,
-        **kwargs,
-    ):
-        super().__init__(
-            model=model,
-            model_state_path=model_state_path,
-            recipe=recipe,
-            recipe_args=recipe_args,
-            metadata_args=metadata_args,
-            teacher=teacher,
-            **kwargs,
-        )
-
-    def train(self, *args, **kwargs):
-        """
-        Run a sparsification training cycle.
-        Calls into apply_manager before super().train()
-        and calls finalize_manager, if applied, after super().train().
-
-        :param args: positional args to pass to super().train()
-        :param kwargs: keyword args to pass to super().train()
-        :return: the output from super.train()
-        """
-        checkpoint, epoch = self._generate_apply_manager_params(kwargs)
-        applied = self.initialize_session(epoch=epoch, checkpoint=checkpoint)
-        # self.callback_disable_fp16.check_disable(epoch, force=True)
-        self.accelerator.wait_for_everyone()
-        output = super().train(*args, **kwargs)
-        self.accelerator.wait_for_everyone()
-        if applied:
-            self.finalize_session()
-
-        self.accelerator.wait_for_everyone()
-        if self.accelerator.is_main_process:
-            print("logging sparsification")
-            self.log_model_sparsification()
-
-        return output
-
-    def evaluate(self, *args, **kwargs):
-        """
-        Run a sparsification evaluation cycle.
-        Calls into apply_manager before super().evaluate()
-        and calls finalize_manager, if applied, after super().evaluate().
-
-        :param args: positional args to pass to super().evaluate()
-        :param kwargs: keyword args to pass to super().evaluate()
-        :return: the output from super.evaluate()
-        """
-        self.initialize_structure()
-
-        # Always evaluate w/ fp32 to be closer to DeepSparse
-        use_cuda_amp = self.use_cuda_amp
-        if not self.args.fp16_full_eval and not self.args.bf16_full_eval:
-            self.use_cuda_amp = False
-
-        output = super().evaluate(*args, **kwargs)
-        self.use_cuda_amp = use_cuda_amp
-        self.finalize_session()
-
-        return output
-
-    def predict(self, *args, **kwargs):
-        """
-        Run a sparsification prediction cycle.
-        Calls into apply_manager before super().predict()
-        and calls finalize_manager, if applied, after super().predict().
-
-        :param args: positional args to pass to super().predict()
-        :param kwargs: keyword args to pass to super().predict()
-        :return: the output from super.predict()
-        """
-        self.initialize_structure()
-        output = super().predict(*args, **kwargs)
-        self.finalize_session()
-
-        return output
-
     def _generate_apply_manager_params(self, kwargs) -> Tuple[Optional[str], float]:
         checkpoint = None
         epoch = 0.0
@@ -513,86 +443,7 @@ class TrainerInterface(SessionManagerMixIn):
 
         return checkpoint, epoch
 
-
-class TransformersTrainer(HFTransformersTrainer):
-    """
-    A transformers trainer class with custom behavior that can be shared
-    by all trainers inside SparseML
-    """
-
-    def _save_checkpoint(self, model, trial, metrics=None):
-        # Call into the save checkpoint by HF Transformers, which saves the
-        # best metric if required
-        super()._save_checkpoint(model, trial, metrics=metrics)
-        if (
-            self.args.metric_for_best_model is None
-            or self.args.best_model_after_epoch is None
-        ):
-            return
-
-        if self.state.epoch <= self.args.best_model_after_epoch:
-            self.state.best_metric = None
-            self.state.best_model_checkpoint = None
-
-    def save_optimizer_and_scheduler(self, output_dir: Optional[str] = None):
-        """
-        Save optimizer, scheduler and scaler
-
-        :param output_dir: The output model directory to save the above
-        """
-        if output_dir is None:
-            output_dir = self.args.output_dir
-
-        # if self.sharded_ddp == ShardedDDPOption.SIMPLE and self.optimizer is not None:
-        #    self.optimizer.consolidate_state_dict()
-
-        if self.is_world_process_zero():
-            if self.optimizer is not None:
-                torch.save(
-                    self.optimizer.state_dict(),
-                    os.path.join(output_dir, "optimizer.pt"),
-                )
-            with warnings.catch_warnings(record=True) as caught_warnings:
-                if self.lr_scheduler is not None:
-                    torch.save(
-                        self.lr_scheduler.state_dict(),
-                        os.path.join(output_dir, "scheduler.pt"),
-                    )
-            reissue_pt_warnings(caught_warnings)
-            if self.use_cuda_amp:
-                torch.save(
-                    self.scaler.state_dict(), os.path.join(output_dir, "scaler.pt")
-                )
-
-    def _load_optimizer_and_scheduler(self, checkpoint):
-        """
-        Override the Transformers Trainer so that optimizer, scheduler and scaler could
-        be loaded also from the input model folder, which is our use case (instead of
-        only from a separate checkpoint folder).
-        """
-        # We include the model path as where the optimizer and scheduler could be loaded
-        # (in addition to checkpoint folders)
-        model_folder = checkpoint if checkpoint is not None else self.model_state_path
-        if not os.path.isfile(os.path.join(model_folder, OPTIMIZER_NAME)):
-            return
-
-        super()._load_optimizer_and_scheduler(model_folder)
-
-        # TODO: not yet implemented
-        # if self.manager.learning_rate_modifiers:
-        # If LR modifiers are present in the recipe, SparseML willl take
-        # control of the learning rate schedule. Therefore, set the built-in
-        # scheduler to a dummy
-        # self.lr_scheduler = self._dummy_lr_scheduler()
-
-    def _dummy_lr_scheduler(self):
-        return torch.optim.lr_scheduler.MultiplicativeLR(
-            self.optimizer,
-            lambda _: 1.0,
-        )
-
-
-class Trainer(TrainerInterface, TransformersTrainer):
+class Trainer(SessionManagerMixIn, HFTransformersTrainer):
     """
     Training implementation for running sparsification recipes with transformers flows.
     :param model: the model to use with the trainer and apply sparsification to
@@ -624,6 +475,77 @@ class Trainer(TrainerInterface, TransformersTrainer):
             recipe_args=recipe_args,
             teacher=teacher,
             **kwargs,
+        )
+        
+    def save_optimizer_and_scheduler(self, output_dir: Optional[str] = None):
+        """
+        Save optimizer, scheduler and scaler
+
+        :param output_dir: The output model directory to save the above
+        """
+        if output_dir is None:
+            output_dir = self.args.output_dir
+
+        # if self.sharded_ddp == ShardedDDPOption.SIMPLE and self.optimizer is not None:
+        #    self.optimizer.consolidate_state_dict()
+
+        if self.is_world_process_zero():
+            if self.optimizer is not None:
+                torch.save(
+                    self.optimizer.state_dict(),
+                    os.path.join(output_dir, "optimizer.pt"),
+                )
+            with warnings.catch_warnings(record=True) as caught_warnings:
+                if self.lr_scheduler is not None:
+                    torch.save(
+                        self.lr_scheduler.state_dict(),
+                        os.path.join(output_dir, "scheduler.pt"),
+                    )
+            reissue_pt_warnings(caught_warnings)
+            if self.use_cuda_amp:
+                torch.save(
+                    self.scaler.state_dict(), os.path.join(output_dir, "scaler.pt")
+                )
+                
+    def _save_checkpoint(self, model, trial, metrics=None):
+        # Call into the save checkpoint by HF Transformers, which saves the
+        # best metric if required
+        super()._save_checkpoint(model, trial, metrics=metrics)
+        if (
+            self.args.metric_for_best_model is None
+            or self.args.best_model_after_epoch is None
+        ):
+            return
+
+        if self.state.epoch <= self.args.best_model_after_epoch:
+            self.state.best_metric = None
+            self.state.best_model_checkpoint = None
+
+    def _load_optimizer_and_scheduler(self, checkpoint):
+        """
+        Override the Transformers Trainer so that optimizer, scheduler and scaler could
+        be loaded also from the input model folder, which is our use case (instead of
+        only from a separate checkpoint folder).
+        """
+        # We include the model path as where the optimizer and scheduler could be loaded
+        # (in addition to checkpoint folders)
+        model_folder = checkpoint if checkpoint is not None else self.model_state_path
+        if not os.path.isfile(os.path.join(model_folder, OPTIMIZER_NAME)):
+            return
+
+        super()._load_optimizer_and_scheduler(model_folder)
+
+        # TODO: not yet implemented
+        # if self.manager.learning_rate_modifiers:
+        # If LR modifiers are present in the recipe, SparseML willl take
+        # control of the learning rate schedule. Therefore, set the built-in
+        # scheduler to a dummy
+        # self.lr_scheduler = self._dummy_lr_scheduler()
+
+    def _dummy_lr_scheduler(self):
+        return torch.optim.lr_scheduler.MultiplicativeLR(
+            self.optimizer,
+            lambda _: 1.0,
         )
 
 
@@ -679,17 +601,7 @@ class DisableHalfPrecisionCallback(TrainerCallback):
             self.disable_amp(epoch)
 
     def qat_active(self, epoch: float) -> bool:
-        # TODO: refactor to not use manager
-        # would be nice to have helper functions for noting if quantization and/or
-        # LR modifiers are applied
-        manager_q_active = arch_manager_q_active = False
-        if self.trainer.manager:
-            manager_q_active = bool(self.trainer.manager.qat_active(epoch))
-        if self.trainer.arch_manager:
-            arch_manager_q_active = bool(
-                self.trainer.arch_manager.quantization_modifiers
-            )
-        return manager_q_active or arch_manager_q_active
+        return self.trainer.model.qat_active()
 
     def disable_amp(self, epoch: float):
         if not self.on_begin_called:
