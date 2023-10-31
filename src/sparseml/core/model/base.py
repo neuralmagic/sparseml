@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from dataclasses import dataclass
-from typing import Dict, Generic, List, Optional, TypeVar, Union
+from typing import Dict, Generic, List, Optional, Tuple, TypeVar, Union
 
 from sparseml.core.framework import Framework
 from sparseml.core.framework_object import MultiFrameworkObject
@@ -114,6 +114,16 @@ class ModifiableModel(Generic[MT, LT, PT], MultiFrameworkObject):
         """
         :param target: the target to set the param for
         :param param: the param instance to set
+        """
+        raise NotImplementedError()
+
+    def get_matching_layer(
+        self, target: str, name_to_match: str, model: LT
+    ) -> Optional[Tuple[str, LT]]:
+        """
+        :param target: regex layer name to target when searching model
+        :param name_to_match: name to match targets to
+        :param model: model to search for targets
         """
         raise NotImplementedError()
 
