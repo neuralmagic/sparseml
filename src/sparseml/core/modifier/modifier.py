@@ -146,7 +146,7 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
         :param state: The current state of the model
         :param kwargs: Additional arguments for finalizing the modifier
         """
-        if self.finalized_:
+        if self.finalized_ or not self.initialized_:
             return
 
         if not self.initialized_:

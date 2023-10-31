@@ -14,5 +14,6 @@
 
 # flake8: noqa
 
+from .model_args import ModelArguments
 from .trainer import Trainer
 from .training_args import TrainingArguments
