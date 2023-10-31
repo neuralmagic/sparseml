@@ -18,5 +18,4 @@ from sparseml.transformers.finetune.data import TextGenerationDataset
 @TextGenerationDataset.register(name="c4")
 class C4Dataset(TextGenerationDataset):
     def __init__(self, data_args, tokenizer):
-        raw_kwargs = {"data_files": "en/c4-train.00000-of-01024.json.gz"}
-        super().__init__(text_column="text", data_args=data_args, tokenizer=tokenizer, raw_kwargs=raw_kwargs)
+        super().__init__(text_column="text", data_args=data_args, tokenizer=tokenizer)

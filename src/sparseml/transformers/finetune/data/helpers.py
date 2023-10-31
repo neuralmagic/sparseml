@@ -27,8 +27,8 @@ def get_raw_dataset(data_args, cache_dir: str, **kwargs) -> Dataset:
 
 def make_dataset_splits(tokenized_datasets, do_train, do_eval, do_predict):
     if "all" in tokenized_datasets and len(tokenized_datasets) == 1:
-        tokenized_datasets = tokenized_datasets["all"]
-        
+        tokenized_datasets = tokenized_datasets.get("all")
+
     train_split = eval_split = predict_split = None
     if do_train:
         if "train" not in tokenized_datasets:

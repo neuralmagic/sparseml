@@ -155,6 +155,7 @@ def main(**kwargs):
     # TODO: will any of this cause problems with FSDP?
     do_eval = training_args.do_eval or data_args.num_export_samples > 0
     splits = data_args.splits
+    tokenized_datasets = {}
     if data_args.splits is None:
         splits = {"all": None}
     for split_name, split_str in splits.items():
@@ -163,9 +164,8 @@ def main(**kwargs):
         )
         raw_dataset = dataset_manager.get_raw_dataset(model_args.cache_dir)
         tokenized_dataset = dataset_manager.tokenize_and_process(raw_dataset)
-    tokenized_datasets = dataset_manager.make_dataset_splits(
-        tokenized_datasets, training_args.do_train, do_eval, training_args.do_predict
-    )
+        tokenized_datasets[split_name] = tokenized_dataset
+
     train_dataset = tokenized_datasets.get("train")
     eval_dataset = tokenized_datasets.get("validation")
     predict_dataset = tokenized_datasets.get("test")
