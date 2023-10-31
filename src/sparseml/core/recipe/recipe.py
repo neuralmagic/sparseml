@@ -139,6 +139,9 @@ class Recipe(RecipeBase):
         simplified.args = RecipeArgs(args)
         simplified.stages = stages
         simplified.evaluate(args=args, shift=shift)
+        simplified.metadata = (
+            recipe.metadata if isinstance(recipe, Recipe) else recipe.recipe.metadata
+        )
 
         return simplified
 
@@ -189,6 +192,7 @@ class Recipe(RecipeBase):
             combined.version = simplified.version
             combined.stages.extend(simplified.stages)
             combined.args.update(simplified.args)
+            combined.combine_metadata(simplified.metadata)
 
         return combined
 
@@ -390,6 +394,22 @@ class Recipe(RecipeBase):
             del values[key]
 
         return stages
+
+    def combine_metadata(self, metadata: Optional[RecipeMetaData]):
+        """
+        Combines the metadata of the recipe with the supplied metadata
+        If the recipe already has metadata, the supplied metadata will
+        be used to update missing metadata
+
+        :param metadata: The metadata to combine with the recipe
+        """
+        if metadata is None:
+            return
+
+        if self.metadata is None:
+            self.metadata = metadata
+        else:
+            self.metadata.update_missing_metadata(metadata)
 
     def dict(self, *args, **kwargs) -> Dict[str, Any]:
         """
