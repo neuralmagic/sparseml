@@ -92,4 +92,3 @@ test_stage:
         "model.layers.30",
         "model.layers.31",
       ]
-      target_ids: ["attention_mask", "position_ids"]  
