@@ -233,7 +233,6 @@ def test_analyzer_sparse(
     assert len(out)
 
     desc = analyzer.layer_desc(name)
-    print(desc.total_flops-total_flops)
     assert desc.params == params
     assert desc.prunable_params == prunable_params
     assert desc.zeroed_params == zeroed_params
