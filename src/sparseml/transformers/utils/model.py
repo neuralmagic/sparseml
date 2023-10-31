@@ -462,6 +462,19 @@ class SparseCausalLM:
         model.seqlen = model.config.max_position_embeddings
         return model
 
+    @staticmethod
+    def auto_model_from_pretrained(model_path: str) -> torch.nn.Module:
+        """
+        Load a pretrained model using auto from the specified hugging face path
+
+        :param model_path: hugging face path to model
+        :return: loaded pretrained model
+        """
+        model = AutoModelForCausalLM.from_pretrained(model_path, torch_dtype="auto")
+        model.eval()
+        model.seqlen = model.config.max_position_embeddings
+        return model
+
 
 def get_shared_tokenizer_src(student: Module, teacher: Optional[Module]) -> str:
     """

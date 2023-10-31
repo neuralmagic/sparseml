@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Optional
 
 from torch.nn import Module
+from transformers import AutoConfig
 
 import sparseml.core.session as session_manager
 from sparseml.core.framework import Framework
@@ -36,7 +37,7 @@ __all__ = ["one_shot"]
 
 _LOGGER = logging.getLogger(__name__)
 SUPPORTED_DATASETS = ["wikitext2", "ptb", "c4", "open_platypus"]
-SUPPORTED_MODELS = ["opt", "llama"]
+SUPPORTED_MODELS = ["opt", "llama", "mistral"]
 
 
 def one_shot(
@@ -70,13 +71,20 @@ def one_shot(
         if deploy_dir.exists():
             raise RuntimeError(f"deploy_dir={deploy_dir} already exists")
 
+    # Load the configuration from the model path
+    config = AutoConfig.from_pretrained(model_path)
+    model_type = config.model_type.lower()
+
     model_loader_fn = None
     forward_fn = None
-    if "opt" in model_path.lower():
+    if "opt" in model_type:
         model_loader_fn = SparseCausalLM.opt_model_from_pretrained
         forward_fn = opt_forward
-    elif "llama" in model_path.lower():
+    elif "llama" in model_type:
         model_loader_fn = SparseCausalLM.llama_model_from_pretrained
+        forward_fn = llama_forward
+    elif "mistral" in model_type:
+        model_loader_fn = SparseCausalLM.auto_model_from_pretrained
         forward_fn = llama_forward
     else:
         raise ValueError(f"model_path={model_path} should be one of {SUPPORTED_MODELS}")
