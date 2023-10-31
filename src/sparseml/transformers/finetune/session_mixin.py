@@ -62,7 +62,6 @@ class SessionManagerMixIn:
         **kwargs,
     ):
         # instantiate necessary state, like managers, so we can override args
-        self.model = model
         self.model_state_path = str(model_state_path)
         self.recipe = recipe
         self.recipe_args = recipe_args
@@ -90,7 +89,7 @@ class SessionManagerMixIn:
         self.criterion = torch.nn.CrossEntropyLoss()
         self._add_tensorboard_logger_if_available()
 
-        model_signature = inspect.signature(self.model.forward)
+        model_signature = inspect.signature(model.forward)
         self._model_signature_columns = list(model_signature.parameters.keys())
 
     def initialize_session(self, epoch: float, checkpoint: Optional[str]):
