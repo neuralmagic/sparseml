@@ -38,8 +38,8 @@ class SparseGPTModifier(Modifier):
     :param sparsity: Sparsity to compress model to
     :param block_size: Used to determine number of columns to compress in one pass
     :param quantize: Whether or not to quantize weights during SparseGPT. Set to True
-    to quantize using an existing quantization modifier, or pass in the configuration
-    for a quantization modifier if one does not already exist in the recipe
+        to quantize using an existing quantization modifier, or pass in the configuration
+        for a quantization modifier if one does not already exist in the recipe
     :param dampening_frac: Amount of dampening to apply to H, as a fraction of the
         diagonal norm
     :param sequential_update: Whether or not to update weights sequentially by layer,
@@ -135,7 +135,7 @@ class SparseGPTModifier(Modifier):
             **modifier_args,
         )
 
-    def _validate_layerwise_sparisity(self):
+    def _validate_layerwise_sparsity(self):
         if isinstance(self.sparsity, float):
             return  # single sparsity will be applied to all layers
 
