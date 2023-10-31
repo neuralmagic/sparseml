@@ -121,6 +121,9 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
         if state.start_event is None:
             return
 
+        if self.calculate_start() < state.start_event.current_index:
+            return
+
         initialized = self.on_initialize(state=state, **kwargs)
 
         if not isinstance(initialized, bool):
@@ -163,16 +166,16 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
         """
         Update modifier based on the given event. In turn calls
         on_start, on_update, and on_end based on the event and
-        modifier settings.
+        modifier settings. Returns immediately if the modifier is
+        not initialized
 
-        :raises RuntimeError: if the modifier has not been initialized
         :raises RuntimeError: if the modifier has been finalized
         :param state: The current state of sparsification
         :param event: The event to update the modifier with
         :param kwargs: Additional arguments for updating the modifier
         """
         if not self.initialized_:
-            raise RuntimeError("cannot update an uninitialized modifier")
+            return
 
         if self.finalized_:
             raise RuntimeError("cannot update a finalized modifier")

@@ -26,11 +26,20 @@ def setup_modifier_factory():
 
 class LifecyleTestingHarness:
     def __init__(
-        self, model=None, optimizer=None, framework=Framework.pytorch, device="cpu"
+        self,
+        model=None,
+        optimizer=None,
+        framework=Framework.pytorch,
+        device="cpu",
+        start=0,
     ):
         self.state = State(framework=framework)
         self.state.update(
-            model=model, device=device, optimizer=optimizer, start=0, steps_per_epoch=1
+            model=model,
+            device=device,
+            optimizer=optimizer,
+            start=start,
+            steps_per_epoch=1,
         )
 
         self.event_lifecycle = CallbacksEventLifecycle(
