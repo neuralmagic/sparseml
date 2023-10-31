@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from dataclasses import dataclass
-from typing import Dict, Generic, List, Optional, TypeVar, Union
+from typing import Dict, Generic, List, Optional, Tuple, TypeVar, Union
 
 from sparseml.core.framework import Framework
 from sparseml.core.framework_object import MultiFrameworkObject
@@ -125,6 +125,7 @@ class ModifiableModel(Generic[MT, LT, PT], MultiFrameworkObject):
         """
         raise NotImplementedError()
 
+
     @property
     def layer_prefix(self) -> Optional[str]:
         """
@@ -140,6 +141,16 @@ class ModifiableModel(Generic[MT, LT, PT], MultiFrameworkObject):
             model.decoder for OPT or just model for Llama
         """
         self._layer_prefix = value
+
+    def get_matching_layer(
+        self, target: str, name_to_match: str, model: LT
+    ) -> Optional[Tuple[str, LT]]:
+        """
+        :param target: regex layer name to target when searching model
+        :param name_to_match: name to match targets to
+        :param model: model to search for targets
+        """
+        raise NotImplementedError()
 
     def qat_active(self) -> bool:
         """

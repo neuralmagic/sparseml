@@ -22,6 +22,7 @@ from sparseml.utils.pytorch import (
     get_layer,
     get_layers,
     get_layers_params,
+    get_matching_layer,
     get_param,
     get_params,
     qat_active,
@@ -100,6 +101,16 @@ class ModifiableModelPyTorch(ModifiableModel[Module, Module, Parameter]):
         :param param: the parameter to set
         """
         return set_param(target, param, self.model)
+
+    def get_matching_layer(
+        self, target: str, name_to_match: str, model: Module
+    ) -> Optional[Tuple[str, Module]]:
+        """
+        :param target: regex layer name to target when searching model
+        :param name_to_match: name to match targets to
+        :param model: model to search for targets
+        """
+        return get_matching_layer(target, name_to_match, model)
 
     def qat_active(self) -> bool:
         """
