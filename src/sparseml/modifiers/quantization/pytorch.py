@@ -13,8 +13,7 @@
 # limitations under the License.
 
 import logging
-from itertools import cycle
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Dict, Optional
 
 import torch
 from torch.nn import Module
@@ -35,7 +34,7 @@ from sparseml.modifiers.quantization.utils.quantize import (
     raise_if_torch_quantization_not_available,
     set_quantization_schemes,
 )
-from sparseml.pytorch.utils import tensors_module_forward, tensors_to_device
+from sparseml.modifiers.utils.pytorch_helpers import run_calibration_forward
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -191,25 +190,12 @@ class QuantizationModifierPyTorch(QuantizationModifier):
         module_training = module.training
         module.eval()
 
-        forward_fn: Callable = (
-            self.calibration_function_
-            if self.calibration_function_
-            else tensors_module_forward
+        run_calibration_forward(
+            module,
+            self.calibration_dataloader_,
+            self.num_calibration_steps,
+            self.calibration_function_,
         )
-
-        model_device = next(module.parameters()).device
-        _dataloader = (
-            self.calibration_dataloader_
-            if self.num_calibration_steps is None
-            else cycle(self.calibration_dataloader_)
-        )
-
-        for batch_idx, batch in enumerate(_dataloader):
-            if self.num_calibration_steps and batch_idx >= self.num_calibration_steps:
-                break
-            batch = tensors_to_device(batch, model_device)
-            with torch.no_grad():
-                forward_fn(batch, module=module)
 
         if module_training:
             module.train()
