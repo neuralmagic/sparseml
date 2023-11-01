@@ -76,6 +76,7 @@ class ConstantPruningModifierPyTorch(ConstantPruningModifier, LayerParamMasking)
             #     self.apply_mask_weight(layer_param_name, state.model.model)
             def mask_weights(module):
                 if hasattr(module, "mask"):
+                    # with FullyShardedDataParallel.summon_full_params(module):
                     module.weight *= module.mask
 
             state.model.model.apply(mask_weights)
