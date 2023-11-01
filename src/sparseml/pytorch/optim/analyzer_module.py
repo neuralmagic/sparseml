@@ -73,7 +73,13 @@ class ModuleAnalyzer(object):
         multiplications together
     """
 
-    def __init__(self, module: Module, enabled: bool = False, ignore_zero=True, multiply_adds=True):
+    def __init__(
+        self,
+        module: Module,
+        enabled: bool = False,
+        ignore_zero=True,
+        multiply_adds=True,
+    ):
         super(ModuleAnalyzer, self).__init__()
         self._module = module
         self._hooks = None  # type: List[RemovableHandle]
@@ -142,7 +148,7 @@ class ModuleAnalyzer(object):
         """
         descs = []
 
-        for (name, _) in get_prunable_layers(self._module):
+        for name, _ in get_prunable_layers(self._module):
             desc = self.layer_desc(name)
 
             if desc is None:
@@ -204,7 +210,6 @@ class ModuleAnalyzer(object):
             or isinstance(mod, Sigmoid)
             or isinstance(mod, LogSigmoid)
         ):
-            
             forward_hook = mod.register_forward_hook(self._activation_hook)
         elif isinstance(mod, Softmax) or isinstance(mod, Softmax2d):
             forward_hook = mod.register_forward_hook(self._softmax_hook)
@@ -221,7 +226,7 @@ class ModuleAnalyzer(object):
         self._call_count += 1
 
         if mod._analyzed_layer_desc is not None:
-           return
+            return
 
         mod._analyzed_layer_desc = AnalyzedLayerDesc(
             name=mod._analyzed_layer_name,
@@ -271,9 +276,9 @@ class ModuleAnalyzer(object):
     ):
         desc, inp, out = self._init_forward_hook(mod, inp, out)
 
-
-        desc.params = mod.weight.data.numel() + \
-            (mod.bias.data.numel() if mod.bias is not None else 0)
+        desc.params = mod.weight.data.numel() + (
+            mod.bias.data.numel() if mod.bias is not None else 0
+        )
         desc.prunable_params = mod.weight.data.numel()
         desc.zeroed_params = desc.prunable_params - mod.weight.data.count_nonzero()
 
@@ -283,19 +288,19 @@ class ModuleAnalyzer(object):
         bias_ops = 1 if mod.bias is not None else 0
 
         num_weight_params = (
-            (mod.weight.data != 0.).float().sum()
+            (mod.weight.data != 0.0).float().sum()
             if self._ignore_zero
             else mod.weight.data.nelement()
         )
 
         flops = (
-                (
-                        num_weight_params * (2 if self._multiply_adds else 1)
-                        + bias_ops * output_channels
-                )
-                * output_height
-                * output_width
-                * batch_size
+            (
+                num_weight_params * (2 if self._multiply_adds else 1)
+                + bias_ops * output_channels
+            )
+            * output_height
+            * output_width
+            * batch_size
         )
 
         desc.flops = flops
@@ -309,8 +314,9 @@ class ModuleAnalyzer(object):
     ):
         desc, inp, out = self._init_forward_hook(mod, inp, out)
 
-        desc.params = mod.weight.data.numel() + \
-            (mod.bias.data.numel() if mod.bias is not None else 0)
+        desc.params = mod.weight.data.numel() + (
+            mod.bias.data.numel() if mod.bias is not None else 0
+        )
         desc.prunable_params = mod.weight.data.numel()
         desc.zeroed_params = desc.prunable_params - mod.weight.data.count_nonzero()
 
@@ -320,7 +326,7 @@ class ModuleAnalyzer(object):
         batch_size = inp[0].size(0) if inp[0].dim() == 2 else 1
 
         num_weight_params = (
-            (mod.weight.data != 0.).float().sum()
+            (mod.weight.data != 0.0).float().sum()
             if self._ignore_zero
             else mod.weight.data.nelement()
         )
@@ -338,8 +344,9 @@ class ModuleAnalyzer(object):
     ):
         desc, inp, out = self._init_forward_hook(mod, inp, out)
 
-        desc.params = mod.weight.data.numel() + \
-            (mod.bias.data.numel() if mod.bias is not None else 0)
+        desc.params = mod.weight.data.numel() + (
+            mod.bias.data.numel() if mod.bias is not None else 0
+        )
         desc.prunable_params = mod.weight.data.numel()
         desc.zeroed_params = desc.prunable_params - mod.weight.data.count_nonzero()
 
@@ -356,7 +363,7 @@ class ModuleAnalyzer(object):
 
         params = {key: val for key, val in mod.named_parameters()}
         desc.params = sum([val.numel() for val in params.values()])
-        desc.prunable_params = 0 
+        desc.prunable_params = 0
         desc.zeroed_params = 0
 
         batch_size, input_channels, input_height, input_width = inp[0].size()
@@ -364,16 +371,11 @@ class ModuleAnalyzer(object):
 
         kernel_ops = mod.kernel_size * mod.kernel_size
         flops = (
-                (kernel_ops)
-                * output_channels
-                * output_height
-                * output_width
-                * batch_size
+            (kernel_ops) * output_channels * output_height * output_width * batch_size
         )
 
         desc.flops = flops
         desc.total_flops += desc.flops
-
 
     def _adaptive_pool_hook(
         self,
@@ -400,13 +402,7 @@ class ModuleAnalyzer(object):
 
         batch_size, output_channels, output_height, output_width = out[0].size()
 
-        flops = (
-                kernel_ops
-                * output_channels
-                * output_height
-                * output_width
-                * batch_size
-        )
+        flops = kernel_ops * output_channels * output_height * output_width * batch_size
 
         desc.flops = flops
         desc.total_flops += desc.flops
@@ -422,12 +418,12 @@ class ModuleAnalyzer(object):
         params = {key: val for key, val in mod.named_parameters()}
 
         desc.params = sum([val.numel() for val in params.values()])
-        desc.prunable_params = 0 
+        desc.prunable_params = 0
         desc.zeroed_params = 0
 
         # making assumption that flops spent is one per element
         # (so swish is counted the same activation ReLU)
-        #FIXME (can't really be fixed). Some standard architectures,
+        # FIXME (can't really be fixed). Some standard architectures,
         # such as a standard ResNet use the same activation (ReLU) object
         # for all of the places that it appears in the net, which works
         # fine because it's stateless. But it makes it hard to count per-
@@ -450,7 +446,7 @@ class ModuleAnalyzer(object):
         params = {key: val for key, val in mod.named_parameters()}
 
         desc.params = sum([val.numel() for val in params.values()])
-        desc.prunable_params = 0 
+        desc.prunable_params = 0
         desc.zeroed_params = 0
 
         flops_per_channel = (
@@ -458,7 +454,6 @@ class ModuleAnalyzer(object):
         )
         desc.flops = flops_per_channel * out[0].shape[1]
         desc.total_flops += desc.flops
-
 
     @staticmethod
     def _mod_desc(mod: Module) -> AnalyzedLayerDesc:

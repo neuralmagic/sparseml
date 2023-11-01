@@ -96,8 +96,12 @@ def train_one_epoch(
     metric_logger.add_meter("acc1", utils.SmoothedValue(window_size=accum_steps))
     metric_logger.add_meter("acc5", utils.SmoothedValue(window_size=accum_steps))
     if flops_analyzer is not None:
-        metric_logger.add_meter('flops_per_epoch', utils.SmoothedValue(window_size=1, fmt="{value}"))
-        metric_logger.add_meter('total_flops', utils.SmoothedValue(window_size=1, fmt="{value}"))
+        metric_logger.add_meter(
+            "flops_per_epoch", utils.SmoothedValue(window_size=1, fmt="{value}")
+        )
+        metric_logger.add_meter(
+            "total_flops", utils.SmoothedValue(window_size=1, fmt="{value}")
+        )
 
     steps_accumulated = 0
     num_optim_steps = 0
@@ -106,7 +110,7 @@ def train_one_epoch(
     optimizer.zero_grad()
 
     header = f"Epoch: [{epoch}]"
-    for (image, target) in metric_logger.log_every(
+    for image, target in metric_logger.log_every(
         data_loader, args.logging_steps * accum_steps, header
     ):
         start_time = time.time()
@@ -172,9 +176,9 @@ def train_one_epoch(
             batch_size / (time.time() - start_time)
         )
         if flops_analyzer is not None:
-          layer_sparsity = ModuleAnalyzer._mod_desc(model)
-          metric_logger.meters["total_flops"].update(layer_sparsity.total_flops)
-          metric_logger.meters["flops_per_epoch"].update(layer_sparsity.flops)
+            layer_sparsity = ModuleAnalyzer._mod_desc(model)
+            metric_logger.meters["total_flops"].update(layer_sparsity.total_flops)
+            metric_logger.meters["flops_per_epoch"].update(layer_sparsity.flops)
 
         if args.eval_steps is not None and num_optim_steps % args.eval_steps == 0:
             eval_metrics = evaluate(model, criterion, data_loader_test, device)
@@ -682,7 +686,6 @@ def main(args):
                 scaler._enabled = False
             model_ema = None
 
-        
         train_metrics = train_one_epoch(
             model,
             criterion,
@@ -696,7 +699,7 @@ def main(args):
             manager=manager,
             model_ema=model_ema,
             scaler=scaler,
-            flops_analyzer = flops_analyzer,
+            flops_analyzer=flops_analyzer,
         )
         log_metrics("Train", train_metrics, epoch, steps_per_epoch)
 
@@ -1287,7 +1290,6 @@ def _deprecate_old_arguments(f):
     help="Local rank for distributed training",
     hidden=True,  # should not be modified by user
 )
-
 @click.pass_context
 def cli(ctx, **kwargs):
     """

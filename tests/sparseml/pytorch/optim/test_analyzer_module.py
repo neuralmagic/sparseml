@@ -112,10 +112,11 @@ def test_analyzer(
     # 'dense' model. In real life it's fine, but here it would
     # throw off the expected result.
     def init_weights(m):
-      if isinstance(m, Linear) or isinstance(m, _ConvNd):
-          m.weight.data.fill_(0.01)
-          if m.bias is not None:
-              m.bias.data.fill_(0.01)
+        if isinstance(m, Linear) or isinstance(m, _ConvNd):
+            m.weight.data.fill_(0.01)
+            if m.bias is not None:
+                m.bias.data.fill_(0.01)
+
     model.apply(init_weights)
     analyzer = ModuleAnalyzer(model, enabled=True, ignore_zero=True)
     tens = torch.randn(1, *input_shape)
@@ -131,6 +132,7 @@ def test_analyzer(
     assert desc.execution_order == execution_order
     assert desc.flops == flops
     assert desc.total_flops == total_flops
+
 
 @pytest.mark.parametrize(
     "model,input_shape,name,params,prunable_params,zeroed_params,execution_order,flops,total_flops",
@@ -218,12 +220,13 @@ def test_analyzer_sparse(
     total_flops: int,
 ):
     def init_weights(m):
-      if isinstance(m, Linear) or isinstance(m, _ConvNd):
-          m.weight.data.fill_(0.01)
-          # Set some weights to 0
-          m.weight.data[0] = 0
-          if m.bias is not None:
-              m.bias.data.fill_(0.01)
+        if isinstance(m, Linear) or isinstance(m, _ConvNd):
+            m.weight.data.fill_(0.01)
+            # Set some weights to 0
+            m.weight.data[0] = 0
+            if m.bias is not None:
+                m.bias.data.fill_(0.01)
+
     model.apply(init_weights)
     analyzer = ModuleAnalyzer(model, enabled=True, ignore_zero=True)
     tens = torch.randn(1, *input_shape)
