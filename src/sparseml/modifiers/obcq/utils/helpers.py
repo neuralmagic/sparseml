@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import logging
+from collections import defaultdict
 from math import ceil
 
 import torch
@@ -26,7 +27,7 @@ class Catcher(torch.nn.Module):
         super().__init__()
         self.module = module
         self.target_keys = None
-        self.cache = {key: [] for key in self.target_keys}
+        self.cache = defaultdict(list)
         self.cache["inputs"] = []
 
     def forward(self, *args, **kwargs):
