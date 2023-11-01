@@ -42,12 +42,12 @@ class GSM8K(TransformersDataset):
 
         processed_data = []
         for sample in self._data:
-            processed_sample = "Question: {{question}}.\nAnswer:".format(
-                    question=sample["question"]
-                )
+            processed_sample = "Question: {question}.\nAnswer:".format(
+                question=sample["question"]
+            )
 
             if "answer" in sample:
-                processed_sample += ' ' + sample["answer"]
+                processed_sample += " " + sample["answer"]
             processed_data.append(processed_sample)
 
         self.create_dataloader(processed_data)
