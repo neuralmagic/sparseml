@@ -53,7 +53,6 @@ def apply_recipe_structure_to_model(model, recipe_path, model_path):
             "Reloaded model state after SparseML recipe structure modifications "
             f"from {model_path}"
         )
-    session_manager.active_session().reset()
 
 
 # TODO: clean up references to this function

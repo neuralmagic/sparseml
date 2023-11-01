@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -69,6 +69,7 @@ class ModelMetaData(BaseModel):
     input_shapes: List[List[int]] = None
     output_shapes: List[List[int]] = None
     layers: List[LayerMetaData] = Field(default_factory=list)
+    layer_prefix: Optional[str] = None
 
 
 class RecipeMetaData(BaseModel):
@@ -79,3 +80,18 @@ class RecipeMetaData(BaseModel):
     tags: List[str] = None
     target_dataset: DatasetMetaData = None
     target_model: ModelMetaData = None
+
+    def update_missing_metadata(self, other: "RecipeMetaData"):
+        """
+        Update recipe metadata with missing values from another
+        recipe metadata instance
+
+        :param other: the recipe metadata to update with
+        """
+        self.domain = self.domain or other.domain
+        self.task = self.task or other.task
+        self.versions = self.versions or other.versions
+        self.requirements = self.requirements or other.requirements
+        self.tags = self.tags or other.tags
+        self.target_dataset = self.target_dataset or other.target_dataset
+        self.target_model = self.target_model or other.target_model

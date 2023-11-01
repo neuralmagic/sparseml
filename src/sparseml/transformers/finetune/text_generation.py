@@ -79,7 +79,6 @@ def main(**kwargs):
     _LOGGER.info(f"Training/evaluation parameters {training_args}")
 
     # Detecting last checkpoint.
-    # TODO: test this checkpoint loading after model saving is working
     last_checkpoint = None
     if (
         os.path.isdir(training_args.output_dir)
@@ -215,46 +214,51 @@ def main(**kwargs):
             checkpoint = training_args.resume_from_checkpoint
         elif last_checkpoint is not None:
             checkpoint = last_checkpoint
-
-        train_result = trainer.train(resume_from_checkpoint=checkpoint)
-        metrics = train_result.metrics
-        metrics["train_samples"] = len(train_dataset)
-        trainer.log_metrics("train", metrics)
-        trainer.save_metrics("train", metrics)
-
-        trainer.save_model()
-        trainer.save_state()
-        trainer.save_optimizer_and_scheduler(training_args.output_dir)
+        train(checkpoint, training_args.output_dir, train_dataset, trainer)
 
     # Evaluation
     if training_args.do_eval:
-        _LOGGER.info("*** Evaluate ***")
-        metrics = trainer.evaluate()
-
-        metrics["eval_samples"] = len(eval_dataset)
-        trainer.log_metrics("eval", metrics)
-        trainer.save_metrics("eval", metrics)
+        evaluate(eval_dataset, trainer)
 
     # Prediction
     if training_args.do_predict:
-        _LOGGER.info("*** Predict ***")
-        results = trainer.predict(predict_dataset)
-        metrics = results.metrics
-
-        metrics["predict_samples"] = len(predict_dataset)
-        trainer.log_metrics("predict", metrics)
-        trainer.save_metrics("predict", metrics)
+        predict(predict_dataset, trainer)
 
     kwargs = {
         "finetuned_from": model_args.model_name_or_path,
         "tasks": "text-generation",
     }
 
-    # Exporting Samples
-    if data_args.num_export_samples > 0:
-        trainer.save_sample_inputs_outputs(
-            num_samples_to_export=data_args.num_export_samples
-        )
+
+def train(checkpoint, output_dir, train_dataset, trainer):
+    train_result = trainer.train(resume_from_checkpoint=checkpoint)
+    metrics = train_result.metrics
+    metrics["train_samples"] = len(train_dataset)
+    trainer.log_metrics("train", metrics)
+    trainer.save_metrics("train", metrics)
+
+    trainer.save_model()
+    trainer.save_state()
+    trainer.save_optimizer_and_scheduler(output_dir)
+
+
+def evaluate(eval_dataset, trainer):
+    _LOGGER.info("*** Evaluate ***")
+    metrics = trainer.evaluate()
+
+    metrics["eval_samples"] = len(eval_dataset)
+    trainer.log_metrics("eval", metrics)
+    trainer.save_metrics("eval", metrics)
+
+
+def predict(predict_dataset, trainer):
+    _LOGGER.info("*** Predict ***")
+    results = trainer.predict(predict_dataset)
+    metrics = results.metrics
+
+    metrics["predict_samples"] = len(predict_dataset)
+    trainer.log_metrics("predict", metrics)
+    trainer.save_metrics("predict", metrics)
 
 
 if __name__ == "__main__":
