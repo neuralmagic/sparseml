@@ -167,7 +167,6 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
         nsamples: int = None,
         dev: str = "cuda:0",
         layer_prefix: Optional[str] = None,
-        # target_ids: List[str] = None,
     ) -> Dict:
         """
         Runs calibration data through the bottom part of the network (everything up

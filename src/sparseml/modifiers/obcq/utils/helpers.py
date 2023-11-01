@@ -132,7 +132,6 @@ def cache_attention_inputs(model, dataloader, device, nsamples, layer_prefix):
     cached_inputs = catch(
         model,
         first_layer,
-        # target_ids,  # ["attention_mask"],
         dataloader,
         nsamples,
     )
