@@ -320,9 +320,6 @@ class ModuleAnalyzer(object):
         desc.prunable_params = mod.weight.data.numel()
         desc.zeroed_params = desc.prunable_params - mod.weight.data.count_nonzero()
 
-        mult_per_out_pix = mod.in_features
-        add_per_out_pix = 1 if mod.bias is not None else 0
-        out_pix = float(numpy.prod(out[0].shape[1:]))
         batch_size = inp[0].size(0) if inp[0].dim() == 2 else 1
 
         num_weight_params = (

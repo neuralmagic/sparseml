@@ -17,13 +17,12 @@ from typing import Tuple
 
 import pytest
 import torch
-from torch.nn import Module
+from torch.nn import Linear, Module
+from torch.nn.modules.conv import _ConvNd
 from torchvision.models import resnet50
 
 from sparseml.pytorch.optim import ModuleAnalyzer
 from tests.sparseml.pytorch.helpers import ConvNet, MLPNet
-from torch.nn import Linear
-from torch.nn.modules.conv import _ConvNd
 
 
 @pytest.mark.skipif(
@@ -135,7 +134,7 @@ def test_analyzer(
 
 
 @pytest.mark.parametrize(
-    "model,input_shape,name,params,prunable_params,zeroed_params,execution_order,flops,total_flops",
+    "model,input_shape,name,params,prunable_params,zeroed_params,execution_order,flops,total_flops",  # noqa: E501
     [
         (
             MLPNet(),
