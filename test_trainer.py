@@ -13,7 +13,7 @@ def run():
     overwrite_output_dir = True
     raw_kwargs = {"data_files": {"train": "en/c4-train.00000-of-01024.json.gz"}}
     splits = {
-        "train": "train[:20%]",
+        "train": "train[:5%]",
     }
 
     main(
