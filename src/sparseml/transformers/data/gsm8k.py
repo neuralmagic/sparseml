@@ -45,7 +45,6 @@ class GSM8K(TransformersDataset):
             processed_sample = "Question: {{question}}.\nAnswer:".format(
                     question=sample["question"]
                 )
-           
 
             if "answer" in sample:
                 processed_sample += ' ' + sample["answer"]
