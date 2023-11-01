@@ -25,6 +25,8 @@ from transformers import (
     AutoModelForQuestionAnswering,
     AutoModelForSequenceClassification,
     AutoModelForTokenClassification,
+    LlamaForCausalLM,
+    OPTForCausalLM,
 )
 from transformers.file_utils import WEIGHTS_NAME
 
@@ -418,6 +420,60 @@ class SparseAutoModel:
                 "Detected a TensorFlow model from model_name_or_path: "
                 f"{model_name_or_path}"
             )
+
+
+class SparseCasualLM:
+    """
+    Factory class for loading LLMs from the transformers library. Currently OPT and
+    Llama are supported
+    """
+
+    @staticmethod
+    def opt_model_from_pretrained(model_path: str) -> torch.nn.Module:
+        """
+        Load a pretrained OPT model from the specified hugging face path
+
+        :param model_path: hugging face or local path to model
+        :return: loaded pretrained model
+        """
+
+        def skip(*args, **kwargs):
+            pass
+
+        torch.nn.init.kaiming_uniform_ = skip
+        torch.nn.init.uniform_ = skip
+        torch.nn.init.normal_ = skip
+
+        model = OPTForCausalLM.from_pretrained(model_path, torch_dtype="auto")
+        model.eval()
+        model.seqlen = model.config.max_position_embeddings
+        return model
+
+    @staticmethod
+    def llama_model_from_pretrained(model_path: str) -> torch.nn.Module:
+        """
+        Load a pretrained Llama model from the specified hugging face path
+
+        :param model_path: hugging face path to model
+        :return: loaded pretrained model
+        """
+        model = LlamaForCausalLM.from_pretrained(model_path, torch_dtype="auto")
+        model.eval()
+        model.seqlen = model.config.max_position_embeddings
+        return model
+
+    @staticmethod
+    def auto_model_from_pretrained(model_path: str) -> torch.nn.Module:
+        """
+        Load a pretrained model using auto from the specified hugging face path
+
+        :param model_path: hugging face path to model
+        :return: loaded pretrained model
+        """
+        model = AutoModelForCausalLM.from_pretrained(model_path, torch_dtype="auto")
+        model.eval()
+        model.seqlen = model.config.max_position_embeddings
+        return model
 
 
 def get_shared_tokenizer_src(student: Module, teacher: Optional[Module]) -> str:

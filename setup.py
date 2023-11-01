@@ -79,7 +79,7 @@ _pytorch_vision_deps = _pytorch_deps + [
 _transformers_deps = _pytorch_deps + [
     f"{'nm-transformers' if is_release else 'nm-transformers-nightly'}"
     f"~={version_nm_deps}",
-    "datasets<=2.11",
+    "datasets<=2.14.6",
     "scikit-learn",
     "seqeval",
     "einops",
@@ -187,8 +187,11 @@ def _setup_entry_points() -> Dict:
             ]
         )
 
-    entry_points["console_scripts"].append(
-        "sparseml.transformers.export_onnx=sparseml.transformers.export:main"
+    entry_points["console_scripts"].extend(
+        [
+            "sparseml.transformers.export_onnx=sparseml.transformers.export:main",
+            "sparseml.transformers.export_onnx_refactor=sparseml.transformers.sparsification.obcq.export:main",  # noqa 501
+        ]
     )
 
     # image classification integration
@@ -293,7 +296,7 @@ setup(
     install_requires=_setup_install_requires(),
     extras_require=_setup_extras(),
     entry_points=_setup_entry_points(),
-    python_requires=">=3.8.0,<3.11",
+    python_requires=">=3.8.0,<3.12",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Programming Language :: Python :: 3",

@@ -24,7 +24,7 @@ filelock==3.0.12
 flatbuffers==2.0
 fsspec==2021.6.0
 gitdb==4.0.7
-GitPython==3.1.14
+GitPython==3.1.37
 huggingface-hub==0.0.8
 idna==2.10
 imageio==2.9.0
@@ -127,7 +127,7 @@ traitlets==5.0.5
 transformers==4.7.0
 typer==0.3.2
 typing-extensions==3.10.0.0
-urllib3==1.26.17
+urllib3==1.26.18
 wandb==0.10.32
 wasabi==0.8.2
 wcwidth==0.2.5

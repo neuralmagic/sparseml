@@ -40,6 +40,9 @@ from transformers.trainer_pt_utils import reissue_pt_warnings
 from transformers.trainer_utils import ShardedDDPOption, get_last_checkpoint
 
 from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
+from sparseml.pytorch.sparsification.quantization.helpers import (
+    initialize_channel_wise_scale_zp,
+)
 from sparseml.pytorch.utils import (
     LoggerManager,
     ModuleSparsificationInfo,
@@ -670,6 +673,13 @@ class RecipeManagerTrainerInterface:
                 f"could not find model weights for {load_path}"
             )
             return False
+
+        # PerChannel quantization observers initialize variables
+        # to dummy shapes that do not match the ones saved in
+        # state_dict.
+        # Need to reshape these variables in order to load state_dict
+        # properly.
+        initialize_channel_wise_scale_zp(self.model)
 
         current_state_dict = self.model.state_dict()
 

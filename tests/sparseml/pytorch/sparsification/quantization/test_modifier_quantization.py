@@ -15,6 +15,8 @@
 import os
 
 import pytest
+import torch
+from packaging import version
 from torch.nn import Identity
 
 from sparseml.pytorch.sparsification.quantization.helpers import QATWrapper
@@ -25,6 +27,7 @@ from sparseml.pytorch.sparsification.quantization.quantization_scheme import (
     QuantizationScheme,
 )
 from sparseml.pytorch.sparsification.quantization.quantize import (
+    _match_submodule_name_or_type,
     is_qat_helper_module,
     is_quantizable_module,
 )
@@ -56,7 +59,17 @@ def _assert_qconfigs_equal(qconfig_1, qconfig_2):
 
         if hasattr(observer_1, "p"):
             # assume observer is a partial, test by properties dict
-            assert observer_1.p.keywords == observer_2.p.keywords
+            observer_1_keywords = observer_1.p.keywords
+            observer_2_keywords = observer_2.p.keywords
+            TORCH_VERSION = version.parse(torch.__version__)
+            if (
+                TORCH_VERSION.major < 2
+            ):  # can't match observer class instances before 2.0
+                if "observer" in observer_1_keywords:
+                    del observer_1_keywords["observer"]
+                if "observer" in observer_2_keywords:
+                    del observer_2_keywords["observer"]
+            assert observer_1_keywords == observer_2_keywords
         else:
             # default to plain `==`
             assert observer_1 == observer_2
@@ -66,7 +79,7 @@ def _assert_qconfigs_equal(qconfig_1, qconfig_2):
     _assert_observers_eq(qconfig_1.weight, qconfig_2.weight)
 
 
-def _test_quantized_module(base_model, modifier, module, name):
+def _test_quantized_module(base_model, modifier, module, name, override_key):
     # check quant scheme and configs are set
     quantization_scheme = getattr(module, "quantization_scheme", None)
     qconfig = getattr(module, "qconfig", None)
@@ -74,9 +87,8 @@ def _test_quantized_module(base_model, modifier, module, name):
     assert qconfig is not None
 
     # if module type is overwritten in by scheme_overrides, check scheme set correctly
-    module_type_name = module.__class__.__name__
-    if module_type_name in modifier.scheme_overrides:
-        expected_scheme = modifier.scheme_overrides[module_type_name]
+    if override_key is not None:
+        expected_scheme = modifier.scheme_overrides[override_key]
         assert quantization_scheme == expected_scheme
 
     is_quant_wrapper = isinstance(module, torch_quantization.QuantWrapper)
@@ -148,7 +160,12 @@ def _test_qat_applied(modifier, model):
                 _test_qat_wrapped_module(model, name)
             elif is_quantizable:
                 # check each target module is quantized
-                _test_quantized_module(model, modifier, module, name)
+                override_key = _match_submodule_name_or_type(
+                    module,
+                    name,
+                    list(modifier.scheme_overrides.keys()),
+                )
+                _test_quantized_module(model, modifier, module, name, override_key)
         else:
             # check all non-target modules are not quantized
             assert not hasattr(module, "quantization_scheme")
