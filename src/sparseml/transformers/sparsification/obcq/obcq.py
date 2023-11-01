@@ -154,7 +154,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "dataset",
         type=str,
-        choices=["wikitext2", "ptb", "c4", "open_platypus", "gsm8k"],
+        choices=SUPPORTED_DATASETS,
         help="Name of dataset to extract calibration data from",
     )
     parser.add_argument(
