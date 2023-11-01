@@ -22,16 +22,24 @@ _LOGGER: logging.Logger = logging.getLogger(__name__)
 
 
 class TextGenerationDataset(RegistryMixin):
-    def __init__(self, text_column, data_args, tokenizer):
+    def __init__(self, text_column, data_args, split, tokenizer):
 
         self.text_column = text_column
         self.tokenizer = tokenizer
         self.data_args = data_args
+        self.raw_kwargs = data_args.raw_kwargs or {}
+        self.split = split
 
         if data_args.concatenate_data:
             self.padding = False
         elif data_args.pad_to_max_length:
             self.padding = "max_length"
+        else:
+            self.padding = False
+
+        if self.padding:
+            if not self.tokenizer.pad_token:
+                self.tokenizer.pad_token = self.tokenizer.eos_token
 
         max_seq_length = data_args.max_seq_length
         if max_seq_length > tokenizer.model_max_length:
@@ -43,7 +51,9 @@ class TextGenerationDataset(RegistryMixin):
         self.max_seq_length = min(data_args.max_seq_length, tokenizer.model_max_length)
 
     def get_raw_dataset(self, cache_dir):
-        return get_raw_dataset(self.data_args, cache_dir)
+        return get_raw_dataset(
+            self.data_args, cache_dir, split=self.split, **self.raw_kwargs
+        )
 
     def tokenize_and_process(self, raw_dataset):
         def tokenize_fn(data):
@@ -99,25 +109,3 @@ class TextGenerationDataset(RegistryMixin):
         )
 
         return dataset
-
-    def make_dataset_splits(self, tokenized_dataset, do_train, do_eval, do_predict):
-        train_split = eval_split = predict_split = None
-        if do_train:
-            if "train" not in tokenized_dataset:
-                raise ValueError("--do_train requires a train dataset")
-            train_split = tokenized_dataset["train"]
-        if do_eval:
-            if "validation" not in tokenized_dataset:
-                raise ValueError("--do_eval requires a validation dataset")
-            eval_split = tokenized_dataset["validation"]
-        if do_predict:
-            if "validation" not in tokenized_dataset:
-                raise ValueError("--do_predict requires a test dataset")
-            predict_split = tokenized_dataset["test"]
-
-        split_datasets = {
-            "train": train_split,
-            "validation": eval_split,
-            "test": predict_split,
-        }
-        return split_datasets

@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Dict, Optional
 
 
 @dataclass
@@ -49,6 +49,14 @@ class DataTrainingArguments:
         metadata={
             "help": "Whether or not to concatenate datapoints to fill max_seq_length"
         },
+    )
+    raw_kwargs: Optional[Dict] = field(
+        default=None,
+        metadata={"help": "Additional keyboard args to pass to datasets load_data"},
+    )
+    splits: Optional[Dict] = field(
+        default=None,
+        metadata={"help": "Optional percentages of each split to download"},
     )
     overwrite_cache: bool = field(
         default=False,
@@ -88,12 +96,4 @@ class DataTrainingArguments:
                 "prediction examples to this value if set."
             ),
         },
-    )
-    eval_on_test: bool = field(
-        default=False,
-        metadata={"help": "Evaluate the test dataset."},
-    )
-    num_export_samples: int = field(
-        default=0,
-        metadata={"help": "Number of samples (inputs/outputs) to export during eval."},
     )

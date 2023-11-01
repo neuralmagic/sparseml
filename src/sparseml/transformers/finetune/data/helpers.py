@@ -15,6 +15,9 @@
 from datasets import Dataset, load_dataset
 
 
+__all__ = ["get_raw_dataset", "make_dataset_splits"]
+
+
 def get_raw_dataset(data_args, cache_dir: str, **kwargs) -> Dataset:
     raw_datasets = load_dataset(
         data_args.dataset_name,
@@ -24,3 +27,29 @@ def get_raw_dataset(data_args, cache_dir: str, **kwargs) -> Dataset:
     )
 
     return raw_datasets
+
+
+def make_dataset_splits(tokenized_datasets, do_train, do_eval, do_predict):
+    if "all" in tokenized_datasets and len(tokenized_datasets) == 1:
+        tokenized_datasets = tokenized_datasets.get("all")
+
+    train_split = eval_split = predict_split = None
+    if do_train:
+        if "train" not in tokenized_datasets:
+            raise ValueError("--do_train requires a train dataset")
+        train_split = tokenized_datasets["train"]
+    if do_eval:
+        if "validation" not in tokenized_datasets:
+            raise ValueError("--do_eval requires a validation dataset")
+        eval_split = tokenized_datasets["validation"]
+    if do_predict:
+        if "validation" not in tokenized_datasets:
+            raise ValueError("--do_predict requires a test dataset")
+        predict_split = tokenized_datasets["test"]
+
+    split_datasets = {
+        "train": train_split,
+        "validation": eval_split,
+        "test": predict_split,
+    }
+    return split_datasets
