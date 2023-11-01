@@ -58,7 +58,6 @@ def main(**kwargs):
     parser = HfArgumentParser(
         (ModelArguments, DataTrainingArguments, TrainingArguments)
     )
-    print(kwargs)
     model_args, data_args, training_args = parser.parse_dict(kwargs)
 
     # Setup logging

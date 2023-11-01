@@ -191,8 +191,6 @@ def _setup_entry_points() -> Dict:
         [
             "sparseml.transformers.export_onnx=sparseml.transformers.export:main",
             "sparseml.transformers.export_onnx_refactor=sparseml.transformers.sparsification.obcq.export:main",  # noqa 501
-            "sparseml.transformers.text_generation.train=sparseml.transformers.finetune.text_generation:main",  # noqa 501
-            "sparseml.transformers.text_generation.eval=sparseml.transformers.finetune.text_generation:main",  # noqa 501
         ]
     )
 
