@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from dataclasses import dataclass
-from typing import Dict, Generic, List, Optional, TypeVar, Union
+from typing import Dict, Generic, List, Optional, Tuple, TypeVar, Union
 
 from sparseml.core.framework import Framework
 from sparseml.core.framework_object import MultiFrameworkObject
@@ -57,13 +57,21 @@ class ModifiableModel(Generic[MT, LT, PT], MultiFrameworkObject):
     to be searchable by the MultiFrameworkObject factory method.
 
     :param framework: the framework the model is in
+    :param layer_prefix: name of model attribute that contains the list of layers, i.e.
+        model.decoder for OPT or just model for Llama
     :param model: the model object
     """
 
     model: MT = None
 
-    def __init__(self, framework: Optional[Framework] = None, model=None):
+    def __init__(
+        self,
+        framework: Optional[Framework] = None,
+        model=None,
+        layer_prefix: Optional[str] = None,
+    ):
         self.model = model
+        self._layer_prefix = layer_prefix
 
     def get_layers_params(
         self, targets: Union[str, List[str]]
@@ -114,6 +122,32 @@ class ModifiableModel(Generic[MT, LT, PT], MultiFrameworkObject):
         """
         :param target: the target to set the param for
         :param param: the param instance to set
+        """
+        raise NotImplementedError()
+
+    @property
+    def layer_prefix(self) -> Optional[str]:
+        """
+        :return: the name of model attribute that contains the list of layers, i.e.
+            model.decoder for OPT or just model for Llama
+        """
+        return self._layer_prefix
+
+    @layer_prefix.setter
+    def layer_prefix(self, value: Optional[str]):
+        """
+        :param value: the name of model attribute that contains the list of layers, i.e.
+            model.decoder for OPT or just model for Llama
+        """
+        self._layer_prefix = value
+
+    def get_matching_layer(
+        self, target: str, name_to_match: str, model: LT
+    ) -> Optional[Tuple[str, LT]]:
+        """
+        :param target: regex layer name to target when searching model
+        :param name_to_match: name to match targets to
+        :param model: model to search for targets
         """
         raise NotImplementedError()
 
