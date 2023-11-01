@@ -18,3 +18,4 @@ from .c4 import *
 from .open_platypus import *
 from .ptb import *
 from .wikitext import *
+from .gsm8k import *
