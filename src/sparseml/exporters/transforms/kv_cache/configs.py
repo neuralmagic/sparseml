@@ -108,6 +108,10 @@ CODEGEN_CONFIG = KeyValueCacheConfig(
     multiply_batch_by_num_att_heads=False,
 )
 
+# the injection config for MPT config is compatible
+# with the MPT model in HF Space 'mosaicml/mpt-7b'
+# at the state corresponding to the commit
+# `68e1a8e0ebb9b30f3c45c1ef6195980f29063ae2`
 MPT_CONFIG = KeyValueCacheConfig(
     model_name="mpt",
     additional_transforms=AdditionalTransformsMPT,
