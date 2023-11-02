@@ -36,7 +36,7 @@ from sparseml.transformers.utils.model import SparseCasualLM
 __all__ = ["one_shot"]
 
 _LOGGER = logging.getLogger(__name__)
-SUPPORTED_DATASETS = ["wikitext2", "ptb", "c4", "open_platypus"]
+SUPPORTED_DATASETS = TransformersDataset.registered_names()
 SUPPORTED_MODELS = ["opt", "llama", "mistral"]
 
 
@@ -154,7 +154,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "dataset",
         type=str,
-        choices=["wikitext2", "ptb", "c4", "open_platypus"],
+        choices=SUPPORTED_DATASETS,
         help="Name of dataset to extract calibration data from",
     )
     parser.add_argument(
