@@ -21,7 +21,6 @@ import logging
 import os
 import shutil
 import warnings
-from copy import deepcopy
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 import numpy
@@ -82,7 +81,7 @@ class ModuleExporter(object):
         if is_parallel_model(module):
             module = module.module
 
-        self._module = deepcopy(module).to("cpu").eval()
+        self._module = module.to("cpu").eval()
         self._output_dir = clean_path(output_dir)
 
     def export_to_zoo(
@@ -211,7 +210,7 @@ class ModuleExporter(object):
         if not export_kwargs:
             export_kwargs = {}
 
-        module = deepcopy(self._module).cpu()  # don't modify the original model
+        module = self._module.cpu()
         if "output_names" not in export_kwargs:
             sample_batch = tensors_to_device(sample_batch, "cpu")
             module.eval()
@@ -482,7 +481,7 @@ def export_onnx(
     sample_batch = tensors_to_device(sample_batch, "cpu")
     create_parent_dirs(file_path)
 
-    module = deepcopy(module).cpu()
+    module.cpu()
 
     with torch.no_grad():
         out = tensors_module_forward(sample_batch, module, check_feat_lab_inp=False)
