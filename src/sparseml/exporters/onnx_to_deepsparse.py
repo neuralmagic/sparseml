@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Union
 
 import onnx
+from onnx import ModelProto
 
 from sparseml.exporters import transforms as sparseml_transforms
 from sparseml.exporters.base_exporter import BaseExporter
@@ -59,6 +60,7 @@ class ONNXToDeepsparse(BaseExporter):
     def __init__(
         self,
         use_qlinear_conv: bool = False,
+        use_qlinear_matmul: bool = False,
         skip_input_quantize: bool = False,
         inplace: bool = True,
         export_input_model: bool = False,
@@ -75,19 +77,28 @@ class ONNXToDeepsparse(BaseExporter):
             sparseml_transforms.DeleteRepeatedQdq(),
             sparseml_transforms.QuantizeQATEmbedding(),
             sparseml_transforms.PropagateEmbeddingQuantization(),
-            sparseml_transforms.MatMulToQLinearMatMul(),
-            sparseml_transforms.MatMulAddToMatMulIntegerAddCastMul(),
-            sparseml_transforms.MatMulToMatMulIntegerCastMul(),
-            sparseml_transforms.FoldReLUQuants(),
-            sparseml_transforms.ConvToQLinearConv()
-            if use_qlinear_conv
-            else sparseml_transforms.ConvToConvIntegerAddCastMul(),
-            sparseml_transforms.GemmToQLinearMatMul(),
-            sparseml_transforms.GemmToMatMulIntegerAddCastMul(),
-            sparseml_transforms.QuantizeResiduals(),
-            sparseml_transforms.RemoveDuplicateQConvWeights(),
-            sparseml_transforms.RemoveDuplicateQuantizeOps(),
+            sparseml_transforms.PropagateDequantThroughSplit(),
         ]
+        if use_qlinear_matmul:
+            transforms.append(
+                sparseml_transforms.MatMulToQLinearMatMul(),
+            )
+
+        transforms.extend(
+            [
+                sparseml_transforms.MatMulAddToMatMulIntegerAddCastMul(),
+                sparseml_transforms.MatMulToMatMulIntegerCastMul(),
+                sparseml_transforms.FoldReLUQuants(),
+                sparseml_transforms.ConvToQLinearConv()
+                if use_qlinear_conv
+                else sparseml_transforms.ConvToConvIntegerAddCastMul(),
+                sparseml_transforms.GemmToQLinearMatMul(),
+                sparseml_transforms.GemmToMatMulIntegerAddCastMul(),
+                sparseml_transforms.QuantizeResiduals(),
+                sparseml_transforms.RemoveDuplicateQConvWeights(),
+                sparseml_transforms.RemoveDuplicateQuantizeOps(),
+            ]
+        )
 
         if skip_input_quantize:
             transforms.append(sparseml_transforms.SkipInputQuantize())
@@ -108,7 +119,9 @@ class ONNXToDeepsparse(BaseExporter):
             raise TypeError(f"Expected onnx.ModelProto, found {type(model)}")
         return model
 
-    def export(self, pre_transforms_model: onnx.ModelProto, file_path: str):
+    def export(self, pre_transforms_model: Union[ModelProto, str], file_path: str):
+        if not isinstance(pre_transforms_model, ModelProto):
+            pre_transforms_model = onnx.load(pre_transforms_model)
         if self.export_input_model or os.getenv("SAVE_PREQAT_ONNX", False):
             save_onnx(pre_transforms_model, file_path.replace(".onnx", ".preqat.onnx"))
 

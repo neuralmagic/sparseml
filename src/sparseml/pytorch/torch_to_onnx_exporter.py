@@ -14,7 +14,7 @@
 
 import collections
 import logging
-import tempfile
+import os
 import warnings
 from copy import deepcopy
 from typing import Any, Dict, Iterable, List
@@ -28,7 +28,11 @@ from sparseml.exporters.base_exporter import BaseExporter
 from sparseml.exporters.transforms.base_transform import BaseTransform
 from sparseml.pytorch import _PARSED_TORCH_VERSION
 from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
-from sparseml.pytorch.utils.helpers import tensors_module_forward, tensors_to_device
+from sparseml.pytorch.utils.helpers import (
+    adjust_quantization_for_onnx_export,
+    tensors_module_forward,
+    tensors_to_device,
+)
 from sparseml.pytorch.utils.model import is_parallel_model
 from sparsezoo.utils import save_onnx
 
@@ -147,9 +151,10 @@ class _TorchOnnxExport(BaseTransform):
             raise TypeError(f"Expected onnx.ModelProto, found {type(model)}")
         return model
 
-    def transform(self, module: torch.nn.Module) -> onnx.ModelProto:
-        tmp = tempfile.NamedTemporaryFile("w")
-        file_path = tmp.name
+    def transform(
+        self, module: torch.nn.Module, file_name: str = "model.onnx"
+    ) -> onnx.ModelProto:
+        file_path = os.path.join(os.getcwd(), file_name)
 
         _LOGGER.debug(f"Saving onnx model to {file_path}")
 
@@ -188,6 +193,8 @@ class _TorchOnnxExport(BaseTransform):
                 export_kwargs["input_names"] + export_kwargs["output_names"]
             )
         }
+
+        adjust_quantization_for_onnx_export(module)  # in-place operation
 
         # disable active quantization observers because they cannot be exported
         disabled_observers = []

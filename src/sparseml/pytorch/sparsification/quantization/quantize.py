@@ -357,18 +357,26 @@ def _match_submodule_name_or_type(
     submodule: Module, submodule_name: str, names_or_types: List[str]
 ) -> Optional[str]:
     # match preferences:
-    #   1. match module type name
-    #   2. match the submodule prefix (longest first)
+    #   1. match the submodule prefix (longest first)
+    #   2. match module type name
     submodule_match = ""
     for name_or_type in names_or_types:
-        if name_or_type == submodule.__class__.__name__:
-            # type match, return type name
-            return name_or_type
-        if submodule_name.startswith(name_or_type) and (
+        name_to_compare = submodule_name[:]
+        if name_to_compare.startswith("module."):
+            name_to_compare = name_to_compare[7:]
+        if name_to_compare.startswith(name_or_type) and (
             len(name_or_type) > len(submodule_match)
         ):
             # match to most specific submodule name
             submodule_match = name_or_type
+
+    # If didn't find prefix, try to match to match type
+    if not submodule_match:
+        for name_or_type in names_or_types:
+            if name_or_type == submodule.__class__.__name__:
+                # type match, return type name
+                return name_or_type
+
     return submodule_match or None  # return None if no match
 
 
@@ -422,7 +430,10 @@ def _validate_set_module_schemes(
         for type_or_name in types_or_names:
             matched = False
             for submodule_name, submodule in model.named_modules():
-                if submodule_name.startswith(type_or_name) or (
+                name_to_compare = submodule_name[:]
+                if name_to_compare.startswith("module."):
+                    name_to_compare = name_to_compare[7:]
+                if name_to_compare.startswith(type_or_name) or (
                     submodule.__class__.__name__ == type_or_name
                 ):
                     matched = True

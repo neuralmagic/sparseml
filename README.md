@@ -62,7 +62,7 @@ SparseML is an open-source model optimization toolkit that enables you to create
 ## Workflows
 
 SparseML enables you to create a sparse model trained on your dataset in two ways:
-- **Sparse Transfer Learning** enables you to fine-tune a pre-sparsified model from [SparseZoo](https://sparsezoo.neuralmagic.com/) (an open-source repository of sparse models such as BERT, YOLOv5, and ResNet-50) onto your dataset, while maintaining sparsity. This pathway works just like typical fine-tuning you are used to in training CV and NLP models, and is strongly preferred for if your model architecture is availble in SparseZoo.
+- **Sparse Transfer Learning** enables you to fine-tune a pre-sparsified model from [SparseZoo](https://sparsezoo.neuralmagic.com/) (an open-source repository of sparse models such as BERT, YOLOv5, and ResNet-50) onto your dataset, while maintaining sparsity. This pathway works just like typical fine-tuning you are used to in training CV and NLP models, and is strongly preferred for if your model architecture is available in SparseZoo.
 
 - **Sparsification from Scratch** enables you to apply state-of-the-art pruning (like gradual magnitude pruning or OBS pruning) and quantization (like quantization aware training) algorithms to arbitrary PyTorch and Hugging Face models. This pathway requires more experimentation, but allows you to create a sparse version of any model. 
 
@@ -74,6 +74,9 @@ SparseML enables you to create a sparse model trained on your dataset in two way
     </a>
     <a href="integrations/ultralytics-yolov5">
         <img src="https://docs.neuralmagic.com/docs/source/highlights/sparseml/ultralytics-yolov5.png" width="136px" />
+    </a>
+    <a href="integrations/ultralytics-yolov8">
+        <img src="docs/images/ultralytics-yolov8.png" width="136px" />
     </a>
     <a href="integrations/huggingface-transformers">
         <img src="https://docs.neuralmagic.com/docs/source/highlights/sparseml/huggingface-transformers.png" width="136px" />
@@ -93,21 +96,25 @@ SparseML enables you to create a sparse model trained on your dataset in two way
 - [Sparse Transfer Learning for Sentiment Analysis](integrations/huggingface-transformers/tutorials/sentiment-analysis/sentiment-analysis-cli.md), [for Text Classification](integrations/huggingface-transformers/tutorials/text-classification/text-classification-cli.md), [for Token Classification](integrations/huggingface-transformers/tutorials/token-classification/token-classification-cli.md), [for Question Answering](integrations/huggingface-transformers/tutorials/question-answering/question-answering-cli.md)
 
 ### Ultralytics YOLOv5
-- [Sparse Transfer Learning with the CLI](integrations/ultralytics-yolov5/tutorials/sparse-transfer-learning.md)
-- [Sparsify From Scatch with the CLI](integrations/ultralytics-yolov5/tutorials/sparsify-from-scratch.md)
+- [Sparse Transfer Learning With the CLI](integrations/ultralytics-yolov5/tutorials/sparse-transfer-learning.md)
+- [Sparsify From Scratch With the CLI](integrations/ultralytics-yolov5/tutorials/sparsify-from-scratch.md)
 
-### Links to Additional Examples
+### Ultralytics YOLOv8
+- [Sparse Transfer Learning With the CLI](integrations/ultralytics-yolov8/tutorials/sparse-transfer-learning.md)
+
+### Additional Examples
 
 - [PyTorch](integrations/torchvision#tutorials)
 - [Hugging Face Transformers](integrations/huggingface-transformers#tutorials)
 - [Ultralytics YOLOv5](integrations/ultralytics-yolov5#tutorials)
+- [Ultralytics YOLOv8](integrations/ultralytics-yolov8#tutorials)
 
 ## Installation
 
-This repository is tested on Python 3.7-3.10, and Linux/Debian systems.
+This repository is tested on Python 3.8-3.11, and Linux/Debian systems.
 
 It is recommended to install in a [virtual environment](https://docs.python.org/3/library/venv.html) to keep your system in order.
-Currently supported ML Frameworks are the following: `torch>=1.1.0,<=1.12.1`, `tensorflow>=1.8.0,<2.0.0`, `tensorflow.keras >= 2.2.0`.
+Currently supported ML Frameworks are the following: `torch>=1.1.0,<=2.0`, `tensorflow>=1.8.0,<2.0.0`, `tensorflow.keras >= 2.2.0`.
 
 Install with pip using:
 
@@ -121,13 +128,13 @@ More information on installation such as optional dependencies and requirements 
 
 ### Recipes
 
-To enable flexibility, ease of use, and repeatability, SparseML uses a declarative interface called `recipes` for specifying the sparsity-related algorithms and hyperparamters that should be applied by SparseML.
+To enable flexibility, ease of use, and repeatability, SparseML uses a declarative interface called `recipes` for specifying the sparsity-related algorithms and hyperparameters that should be applied by SparseML.
 
 `Recipes` are YAML-files formatted as a list of `modifiers`, which encode the instructions for SparseML. Example `modifiers` can be anything from setting the learning rate to encoding the hyperparameters of the gradual magnitude pruning algorithm. The SparseML system parses the `recipes` into a native format for each framework and applies the modifications to the model and training pipeline.
 
 ### Python API
 
-Because of the declarative, recipe-based approach, you can add SparseML to your existing PyTorch traing pipelines. The `ScheduleModifierManager` class is responsible for parsing the YAML `recipes` and overriding standard PyTorch model and optimizer objects, encoding the logic of the sparsity algorithms from the recipe. Once you call `manager.modify`, you can then use the model and optimizer as usual, as SparseML abstracts away the complexity of the sparsification algorithms.
+Because of the declarative, recipe-based approach, you can add SparseML to your existing PyTorch training pipelines. The `ScheduleModifierManager` class is responsible for parsing the YAML `recipes` and overriding standard PyTorch model and optimizer objects, encoding the logic of the sparsity algorithms from the recipe. Once you call `manager.modify`, you can then use the model and optimizer as usual, as SparseML abstracts away the complexity of the sparsification algorithms.
 
 The workflow looks like this:
 
@@ -164,9 +171,10 @@ sparseml.yolov5.train \
   --hyp hyps/hyp.finetune.yaml --cfg yolov5s.yaml --patience 0
 ```
 
-- Check out the [YOLOv5 CLI example](ultralytics-yolov5/tutorials/sparse-transfer-learning.md) for more details on the YOLOv5 training pipeline
-- Check out the [Hugging Face CLI example](integrations/huggingface-transformers/tutorials/sparse-transfer-learning-bert.md) for more details on the available NLP training pipelines
-- Check out the [Torchvision CLI example](integrations/torchvision/tutorials/sparse-transfer-learning.md) for more details on the image classification training pipelines
+- [YOLOv5 CLI](integrations/ultralytics-yolov5/tutorials/sparse-transfer-learning.md)
+- [YOLOv8 CLI](integrations/ultralytics-yolov8/tutorials/sparse-transfer-learning.md)
+- [Hugging Face CLI](integrations/huggingface-transformers/tutorials/sparse-transfer-learning-bert.md)
+- [Torchvision CLI](integrations/torchvision/tutorials/sparse-transfer-learning.md)
 
 ### Additional Resources 
 

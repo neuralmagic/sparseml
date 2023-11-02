@@ -75,13 +75,16 @@ import logging
 import math
 import os
 import shutil
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
 
 from torch.nn import Module
 from transformers import AutoConfig, AutoTokenizer
+from transformers import TrainingArguments as HFTrainingArgs
 from transformers.tokenization_utils_base import PaddingStrategy
 
 from sparseml.optim import parse_recipe_variables
+from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
 from sparseml.pytorch.optim import ScheduledModifierManager
 from sparseml.pytorch.utils import export_onnx
 from sparseml.transformers.sparsification import Trainer
@@ -107,12 +110,23 @@ OPTIONAL_DEPLOYMENT_FILES.extend(OPT_TOKENIZER_FILES)
 _LOGGER = logging.getLogger(__name__)
 
 
-def load_task_model(task: str, model_path: str, config: Any) -> Module:
+@dataclass
+class DeviceCPUTrainingArgs(HFTrainingArgs):
+    @property
+    def place_model_on_device(self):
+        # Ensure model remains in CPU during ONNX export
+        return False
+
+
+def load_task_model(
+    task: str, model_path: str, config: Any, trust_remote_code: bool = False
+) -> Module:
     if task == "masked-language-modeling" or task == "mlm":
         return SparseAutoModel.masked_language_modeling_from_pretrained(
             model_name_or_path=model_path,
             config=config,
             model_type="model",
+            trust_remote_code=trust_remote_code,
         )
 
     if task == "question-answering" or task == "qa":
@@ -120,6 +134,7 @@ def load_task_model(task: str, model_path: str, config: Any) -> Module:
             model_name_or_path=model_path,
             config=config,
             model_type="model",
+            trust_remote_code=trust_remote_code,
         )
 
     if (
@@ -132,6 +147,7 @@ def load_task_model(task: str, model_path: str, config: Any) -> Module:
             model_name_or_path=model_path,
             config=config,
             model_type="model",
+            trust_remote_code=trust_remote_code,
         )
 
     if task == "token-classification" or task == "ner":
@@ -139,6 +155,7 @@ def load_task_model(task: str, model_path: str, config: Any) -> Module:
             model_name_or_path=model_path,
             config=config,
             model_type="model",
+            trust_remote_code=trust_remote_code,
         )
 
     if task == "text-generation":
@@ -146,6 +163,7 @@ def load_task_model(task: str, model_path: str, config: Any) -> Module:
             model_name_or_path=model_path,
             config=config,
             model_type="model",
+            trust_remote_code=trust_remote_code,
         )
 
     raise ValueError(f"unrecognized task given of {task}")
@@ -200,7 +218,6 @@ def load_task_dataset(
         or task == "sentiment-analysis"
         or task == "text-classification"
     ):
-
         from sparseml.transformers.text_classification import (
             DataTrainingArguments,
             get_tokenized_text_classification_dataset,
@@ -226,8 +243,10 @@ def export_transformer_to_onnx(
     finetuning_task: Optional[str] = None,
     onnx_file_name: str = MODEL_ONNX_NAME,
     num_export_samples: int = 0,
+    trust_remote_code: bool = False,
     data_args: Optional[Union[Dict[str, Any], str]] = None,
     one_shot: Optional[str] = None,
+    opset: int = TORCH_DEFAULT_ONNX_OPSET,
 ) -> str:
     """
     Exports the saved transformers file to ONNX at batch size 1 using
@@ -245,9 +264,11 @@ def export_transformer_to_onnx(
         is model.onnx. Note that when loading a model directory to a deepsparse
         pipeline, it will look only for 'model.onnx'
     :param num_export_samples: number of samples (inputs/outputs) to export
+    :param trust_remote_code: set True to allow custom models in HF-transformers
     :param data_args: additional args to instantiate a `DataTrainingArguments`
         instance for exporting samples
     :param one_shot: one shot recipe to be applied before exporting model
+    :param opset: ONNX opset to export with
     :return: path to the exported ONNX file
     """
     task = task.replace("_", "-").replace(" ", "-")
@@ -270,6 +291,7 @@ def export_transformer_to_onnx(
     config_args = {"finetuning_task": finetuning_task} if finetuning_task else {}
     config = AutoConfig.from_pretrained(
         model_path,
+        trust_remote_code=trust_remote_code,
         **config_args,
     )
     tokenizer = AutoTokenizer.from_pretrained(
@@ -278,7 +300,7 @@ def export_transformer_to_onnx(
     if task == "text-generation":
         tokenizer.pad_token = tokenizer.eos_token
 
-    model = load_task_model(task, model_path, config)
+    model = load_task_model(task, model_path, config, trust_remote_code)
     _LOGGER.info(f"loaded model, config, and tokenizer from {model_path}")
 
     eval_dataset = None
@@ -294,15 +316,19 @@ def export_transformer_to_onnx(
         _LOGGER.info(f"loaded validation dataset for args {data_args}")
 
     model = model.train()
+
+    trainer_output_dir = os.path.dirname(model_path)
+    args = DeviceCPUTrainingArgs(output_dir=trainer_output_dir)
     trainer = Trainer(
         model=model,
+        args=args,
         model_state_path=model_path,
         eval_dataset=eval_dataset,
         recipe=None,
         recipe_args=None,
         teacher=None,
     )
-    model = model.cpu()
+
     applied = trainer.apply_manager(epoch=math.inf, checkpoint=None)
 
     if not applied:
@@ -375,6 +401,7 @@ def export_transformer_to_onnx(
         inputs,
         onnx_file_path,
         convert_qat=convert_qat,
+        opset=opset,
         **kwargs,
     )
     _LOGGER.info(f"ONNX exported to {onnx_file_path}")
@@ -534,6 +561,17 @@ def _parse_args() -> argparse.Namespace:
         help="local path or SparseZoo stub to a recipe that should be applied "
         "in a one-shot manner before exporting",
     )
+    parser.add_argument(
+        "--trust_remote_code",
+        action="store_true",
+        help=("Set flag to allow custom models in HF-transformers"),
+    )
+    parser.add_argument(
+        "--opset",
+        type=int,
+        default=TORCH_DEFAULT_ONNX_OPSET,
+        help=f"ONNX opset to export with, default: {TORCH_DEFAULT_ONNX_OPSET}",
+    )
 
     return parser.parse_args()
 
@@ -546,9 +584,14 @@ def export(
     finetuning_task: str,
     onnx_file_name: str,
     num_export_samples: int = 0,
+    trust_remote_code: bool = False,
     data_args: Optional[str] = None,
     one_shot: Optional[str] = None,
+    opset: int = TORCH_DEFAULT_ONNX_OPSET,
 ):
+    if os.path.exists(model_path):
+        # expand to absolute path to support downstream logic
+        model_path = os.path.abspath(model_path)
     export_transformer_to_onnx(
         task=task,
         model_path=model_path,
@@ -557,8 +600,10 @@ def export(
         finetuning_task=finetuning_task,
         onnx_file_name=onnx_file_name,
         num_export_samples=num_export_samples,
+        trust_remote_code=trust_remote_code,
         data_args=data_args,
         one_shot=one_shot,
+        opset=opset,
     )
 
     deployment_folder_dir = create_deployment_folder(
@@ -580,8 +625,10 @@ def main():
         finetuning_task=args.finetuning_task,
         onnx_file_name=args.onnx_file_name,
         num_export_samples=args.num_export_samples,
+        trust_remote_code=args.trust_remote_code,
         data_args=args.data_args,
         one_shot=args.one_shot,
+        opset=args.opset,
     )
 
 

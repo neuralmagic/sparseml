@@ -31,7 +31,7 @@ SparseZoo contains pre-sparsified checkpoints of each YOLOv5 model. These models
 Install via `pip`:
 
 ```
-pip install sparseml[torchvision]
+pip install "sparseml[yolov5]"
 ```
 
 ## Table of Contents
@@ -81,10 +81,10 @@ Let's try a step-by-step example of Sparse Transfer Learning YOLOv5s onto the VO
 
 To run sparse transfer learning, we first need to create/select a sparsification recipe. For sparse transfer, we need a recipe that instructs SparseML to maintain sparsity during training and to quantize the model over the final epochs.
 
-For the VOC dataset, there is a [transfer learning recipe available in SparseZoo](https://sparsezoo.neuralmagic.com/models/cv%2Fdetection%2Fyolov5-s%2Fpytorch%2Fultralytics%2Fcoco%2Fpruned75_quant-none), identified by the following stub:
+For the VOC dataset, there is a [transfer learning recipe available in SparseZoo](https://sparsezoo.neuralmagic.com/models/yolov5-x6-coco-pruned90_quantized?hardware=deepsparse-c6i.12xlarge&comparison=yolov5-x6-coco-base&tab=4), identified by the following stub:
 
 ```
-zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned75_quant-none?recipe_type=transfer_learn
+zoo:cv/detection/yolov5-x6/pytorch/ultralytics/coco/pruned90_quant-none?recipe=transfer_learn
 ```
 
 Here's what the transfer learning recipe looks like:
