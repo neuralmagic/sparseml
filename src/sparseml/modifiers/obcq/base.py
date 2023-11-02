@@ -37,15 +37,17 @@ class SparseGPTModifier(Modifier):
 
     :param sparsity: Sparsity to compress model to
     :param block_size: Used to determine number of columns to compress in one pass
-    :param quantize: Whether or not to quantize weights during SparseGPT. Set to True
-    to quantize using an existing quantization modifier, or pass in the configuration
-    for a quantization modifier if one does not already exist in the recipe
+    :param quantize: Whether or not to quantize weights during SparseGPT. Set to
+        True to quantize using an existing quantization modifier, or pass in the
+        configuration for a quantization modifier if one does not already exist
+        in the recipe
     :param dampening_frac: Amount of dampening to apply to H, as a fraction of the
         diagonal norm
     :param sequential_update: Whether or not to update weights sequentially by layer,
         True saves on GPU memory
-    :param prunen: N for N:M pruning
-    :param prunem: M for N:M pruning
+    :param mask_structure: String to define the structure of the mask to apply.
+        Must be of the form N:M where N, M are integers that define a custom block
+        shape. Defaults to 0:0 which represents an unstructured mask.
     :param targets: list of layer names to compress during OBCQ, or '__ALL__'
         to compress every layer in the model
     :param target_ids: list of keys in model output to cache
@@ -56,8 +58,9 @@ class SparseGPTModifier(Modifier):
     quantize: Union[bool, Dict]
     dampening_frac: Optional[float] = 0.01
     sequential_update: Optional[bool] = True
-    prunen: Optional[int] = 0
-    prunem: Optional[int] = 0
+    mask_structure: str = "0:0"
+    prunen_: Optional[int] = None
+    prunem_: Optional[int] = None
     targets: Union[str, List[str], None] = ALL_TOKEN
     target_ids: Optional[List[str]] = None
     layer_prefix: Optional[str] = None
@@ -133,7 +136,7 @@ class SparseGPTModifier(Modifier):
             **modifier_args,
         )
 
-    def _validate_layerwise_sparisity(self):
+    def _validate_layerwise_sparsity(self):
         if isinstance(self.sparsity, float):
             return  # single sparsity will be applied to all layers
 
