@@ -83,7 +83,7 @@ class SmoothQuantModifierPyTorch(SmoothQuantModifier):
                     out = out[0]
 
                 hidden_dim = out.shape[-1]
-                out = out.view(-1, hidden_dim).abs()
+                out = out.view(-1, hidden_dim)
                 latest_mins = torch.min(out, dim=0)[0]
                 latest_maxes = torch.max(out, dim=0)[0]
 
@@ -189,4 +189,5 @@ class SmoothQuantModifierPyTorch(SmoothQuantModifier):
         scales = activation_scales.pow(self.smoothing_strength) / weight_scales.pow(
             1 - self.smoothing_strength
         )
+        scales = torch.where(weight_scales > 0., scales, activation_scales)
         return scales
