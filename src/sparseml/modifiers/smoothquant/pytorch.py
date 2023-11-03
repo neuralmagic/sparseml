@@ -112,7 +112,8 @@ class SmoothQuantModifierPyTorch(SmoothQuantModifier):
         Catch the output dynamic ranges of each layer that will be smoothed by running
         forward passes with calibration_dataloader
         """
-        _LOGGER.info("Running SmoothQuant scale calibration...")
+        class_name = self.__class__.__name__.replace("PyTorch", "")
+        _LOGGER.info(f"Running {class_name} scale calibration...")
         if not calibration_dataloader:
             raise ValueError(
                 "Calibration data loader not set, must populate the calib_data field of"
@@ -162,7 +163,7 @@ class SmoothQuantModifierPyTorch(SmoothQuantModifier):
                 smooth_layer.weight.div_(scales)
             else:
                 smooth_layer.weight.div_(scales.view(-1, 1))
-            if hasattr(smooth_layer, "bias"):
+            if hasattr(smooth_layer, "bias") and smooth_layer.bias is not None:
                 smooth_layer.bias.div_(scales)
 
     def _calculate_smoothing_scales(

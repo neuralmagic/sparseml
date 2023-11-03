@@ -18,7 +18,6 @@ from typing import List
 import torch
 from torch.nn import Module
 
-from sparseml.modifiers.logarithmic_equalization.base import LogarithmicEqualizationModifier
 from sparseml.modifiers.smoothquant.pytorch import SmoothQuantModifierPyTorch
 
 
@@ -27,15 +26,13 @@ _LOGGER = logging.getLogger(__name__)
 __all__ = ["LogarithmicEqualizationPyTorch"]
 
 
-class LogarithmicEqualizationPyTorch(SmoothQuantModifierPyTorch, LogarithmicEqualizationModifier):
+class LogarithmicEqualizationModifierPyTorch(SmoothQuantModifierPyTorch):
     """
-    PyTorch implementation of the SmoothQuant algorithm
+    PyTorch implementation of the Logarithmic Activation Equalization algorithm
 
     :param calibration_function: optional function to use for the forward pass, or None
     to use the default tensor_module_forward
     """
-
-    smoothing_strength: None # Not used in logarithmic equalization
 
     def _calculate_smoothing_scales(
         self, balance_layers: List[Module], activation_scales: torch.Tensor
