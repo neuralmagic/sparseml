@@ -111,13 +111,13 @@ class SmoothQuantModifier(Modifier):
         """
         if self.end and self.end != -1:
             raise ValueError(
-                f"{self.__class__.__name__} can only be applied during one-shot. Expected end"
-                " to be None or -1, got {}".format(self.end)
+                f"{self.__class__.__name__} can only be applied during one-shot. "
+                f" Expected end to be None or -1, got {self.end}"
             )
         if self.start and self.start != -1:
             raise ValueError(
-                f"{self.__class__.__name__} can only be applied during one-shot. Expected "
-                "start to be None or -1, got {}".format(self.start)
+                f"{self.__class__.__name__} can only be applied during one-shot. "
+                f"Expected start to be None or -1, got {self.end}"
             )
 
         self.ignore = [] if not self.ignore else self.ignore

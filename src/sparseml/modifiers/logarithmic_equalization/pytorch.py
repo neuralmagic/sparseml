@@ -23,7 +23,7 @@ from sparseml.modifiers.smoothquant.pytorch import SmoothQuantModifierPyTorch
 
 _LOGGER = logging.getLogger(__name__)
 
-__all__ = ["LogarithmicEqualizationPyTorch"]
+__all__ = ["LogarithmicEqualizationModifierPyTorch"]
 
 
 class LogarithmicEqualizationModifierPyTorch(SmoothQuantModifierPyTorch):

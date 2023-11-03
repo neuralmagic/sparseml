@@ -190,5 +190,5 @@ class SmoothQuantModifierPyTorch(SmoothQuantModifier):
         scales = activation_scales.pow(self.smoothing_strength) / weight_scales.pow(
             1 - self.smoothing_strength
         )
-        scales = torch.where(weight_scales > 0., scales, activation_scales)
+        scales = torch.where(weight_scales > 0.0, scales, activation_scales)
         return scales

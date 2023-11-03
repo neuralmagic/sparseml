@@ -14,23 +14,26 @@
 
 from sparseml.modifiers.smoothquant import SmoothQuantModifier
 
+
 __all__ = ["LogarithmicEqualizationModifier"]
 
 
 class LogarithmicEqualizationModifier(SmoothQuantModifier):
     """
-     Implements the Logarithmic Equalization Algorithm from https://arxiv.org/abs/2308.15987.
-     This modifier performs a channel-wise smoothing of outliers in activations, making them
-     easier to quantize by reducing the dynamic range. The smoothing is offset by
-     applying the inverse operation to the next layer of weights, making the weights
-     slightly more difficult to quantize.
+     Implements the Logarithmic Equalization Algorithm from
+     https://arxiv.org/abs/2308.15987.
+     This modifier performs a channel-wise smoothing of outliers in activations,
+     making them easier to quantize by reducing the dynamic range. The smoothing is
+     offset by applying the inverse operation to the next layer of weights, making
+     the weights slightly more difficult to quantize.
 
-     Because this modifier manipulates the weights of the model, it can only be used
-     in one-shot and not during training. Activation ranges are determined by running a
-     small set of calibration data through the model.
+     Because this modifier manipulates the weights of the model, it can only be
+     used in one-shot and not during training. Activation ranges are determined by
+     running a small set of calibration data through the model.
 
-     This algorithm is very similar to SmoothQuant, changing only how the smoothing scales
-     are computed. This modifier inherits most functionality from the SmoothQuantModifier.
+     This algorithm is very similar to SmoothQuant, changing only how the smoothing
+     scales are computed. This modifier inherits most functionality from the
+     SmoothQuantModifier.
 
     example recipe:
      ```yaml
