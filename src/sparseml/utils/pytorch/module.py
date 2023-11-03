@@ -16,8 +16,9 @@
 Utility / helper functions
 """
 
+import difflib
 import re
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import torch
 from packaging import version
@@ -67,6 +68,7 @@ __all__ = [
     "get_quantizable_layers",
     "qat_active",
     "get_layers_params",
+    "get_matching_layer",
 ]
 
 
@@ -271,3 +273,33 @@ def get_layers_params(
         parameterized_layers[name] = param_layer
 
     return parameterized_layers
+
+
+def get_matching_layer(
+    target: str, name_to_match: str, module: Module
+) -> Optional[Tuple[str, Module]]:
+    """
+    Given a target regex, find the layer name in the module that most closely matches
+    the name_to_match string. This is used to matches submodules in the same layer, for
+    instance matching "re.*k_proj" to "model.decoder.layer.0.q_proj" to find the k_proj
+    that exists in layer 0.
+
+    :param target: regex to search for
+    :param name_to_match: full layer name to match to, should exist in module
+    :param module: module to search for target in
+    :return: Tuple containing the layer name and module that fits the target regex and
+    best matches name_to_match, or None if no match can be found
+    """
+    potential_matches = get_layers(target, module)
+    largest_substring = 0
+    match = None
+    for name, module in potential_matches.items():
+        seq_matcher = difflib.SequenceMatcher(None, name, name_to_match)
+        _, _, match_length = seq_matcher.find_longest_match(
+            0, len(name), 0, len(name_to_match)
+        )
+        if match_length > largest_substring:
+            match = (name, module)
+            largest_substring = match_length
+
+    return match
