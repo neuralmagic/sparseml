@@ -91,7 +91,7 @@ class SmoothQuantModifier(Modifier):
      use the whole dataset
     """
 
-    smoothing_strength: float = Field(validation_alias="alpha")
+    smoothing_strength: float = Field(validation_alias="alpha", default=0.5)
     mappings: List[Tuple]
     ignore: Optional[List[str]] = None
     num_calibration_steps: Optional[int] = None
@@ -111,12 +111,12 @@ class SmoothQuantModifier(Modifier):
         """
         if self.end and self.end != -1:
             raise ValueError(
-                "SmoothQuantModifier can only be applied during one-shot. Expected end"
+                f"{self.__class__.__name__} can only be applied during one-shot. Expected end"
                 " to be None or -1, got {}".format(self.end)
             )
         if self.start and self.start != -1:
             raise ValueError(
-                "SmoothQuantModifier can only be applied during one-shot. Expected "
+                f"{self.__class__.__name__} can only be applied during one-shot. Expected "
                 "start to be None or -1, got {}".format(self.start)
             )
 

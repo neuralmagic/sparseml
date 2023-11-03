@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 from sparseml.modifiers.smoothquant import SmoothQuantModifier
 
 __all__ = ["LogarithmicEqualizationModifier"]
@@ -31,12 +30,11 @@ class LogarithmicEqualizationModifier(SmoothQuantModifier):
      small set of calibration data through the model.
 
      This algorithm is very similar to SmoothQuant, changing only how the smoothing scales
-     are computed.
+     are computed. This modifier inherits most functionality from the SmoothQuantModifier.
 
     example recipe:
      ```yaml
      LogarithmicEqualizationModifier:
-       smoothing_strength: 0.5
        mappings: [
          [["re:.*q_proj", "re:.*k_proj", "re:.*v_proj"], "re:.*self_attn_layer_norm"],
          [["re:.*fc1"], "re:.*final_layer_norm"]
@@ -50,6 +48,3 @@ class LogarithmicEqualizationModifier(SmoothQuantModifier):
      :param num_calibration_steps: number of samples to use for calibration, or None to
      use the whole dataset
     """
-
-    smoothing_strength: None # Not used in logarithmic equalization
-
