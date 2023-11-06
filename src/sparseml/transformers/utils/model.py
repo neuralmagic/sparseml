@@ -422,7 +422,7 @@ class SparseAutoModel:
             )
 
 
-class SparseCasualLM:
+class SparseCausalLM:
     """
     Factory class for loading LLMs from the transformers library. Currently OPT and
     Llama are supported
@@ -458,6 +458,19 @@ class SparseCasualLM:
         :return: loaded pretrained model
         """
         model = LlamaForCausalLM.from_pretrained(model_path, torch_dtype="auto")
+        model.eval()
+        model.seqlen = model.config.max_position_embeddings
+        return model
+
+    @staticmethod
+    def auto_model_from_pretrained(model_path: str) -> torch.nn.Module:
+        """
+        Load a pretrained model using auto from the specified hugging face path
+
+        :param model_path: hugging face path to model
+        :return: loaded pretrained model
+        """
+        model = AutoModelForCausalLM.from_pretrained(model_path, torch_dtype="auto")
         model.eval()
         model.seqlen = model.config.max_position_embeddings
         return model

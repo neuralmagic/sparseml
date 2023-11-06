@@ -79,7 +79,7 @@ _pytorch_vision_deps = _pytorch_deps + [
 _transformers_deps = _pytorch_deps + [
     f"{'nm-transformers' if is_release else 'nm-transformers-nightly'}"
     f"~={version_nm_deps}",
-    "datasets<=2.11",
+    "datasets<=2.14.6",
     "scikit-learn",
     "seqeval",
     "einops",
