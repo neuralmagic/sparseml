@@ -108,13 +108,17 @@ CODEGEN_CONFIG = KeyValueCacheConfig(
     multiply_batch_by_num_att_heads=False,
 )
 
+# the injection config for MPT config is compatible
+# with the MPT model in HF Space 'mosaicml/mpt-7b'
+# at the state corresponding to the commit
+# `68e1a8e0ebb9b30f3c45c1ef6195980f29063ae2`
 MPT_CONFIG = KeyValueCacheConfig(
     model_name="mpt",
     additional_transforms=AdditionalTransformsMPT,
     key_num_attention_heads="n_heads",
     key_num_embedding_hidden_size="d_model",
-    transpose_value_input=None,
-    transpose_key_input=(0, 1, 3, 2),
+    transpose_value_input=(0, 2, 1, 3),
+    transpose_key_input=(0, 2, 1, 3),
     multiply_batch_by_num_att_heads=False,
 )
 
@@ -134,6 +138,21 @@ LLAMA_CONFIG = KeyValueCacheConfig(
     key_num_attention_heads="num_attention_heads",
     key_num_embedding_hidden_size="hidden_size",
     transpose_value_input=(0, 2, 1, 3),
+    transpose_key_input=None,
+    multiply_batch_by_num_att_heads=False,
+)
+
+# Mistral has a config/model definition "MistralForCausalLM" but is based off Llama2.
+# It contains these additions to Llama2-7b:
+# * Sliding Window Attention
+# * GQA (Grouped Query Attention)
+# * Byte-fallback BPE tokenizer
+MISTRAL_CONFIG = KeyValueCacheConfig(
+    model_name="mistral",
+    additional_transforms=AdditionalTransformsLLAMA,
+    key_num_attention_heads="num_attention_heads",
+    key_num_embedding_hidden_size="hidden_size",
+    transpose_value_input=None,
     transpose_key_input=None,
     multiply_batch_by_num_att_heads=False,
 )
@@ -160,6 +179,7 @@ def get_kv_cache_config(
         BLOOM_CONFIG,
         MPT_CONFIG,
         LLAMA_CONFIG,
+        MISTRAL_CONFIG,
         GPT_NEO_CONFIG,
     ],
 ) -> KeyValueCacheConfig:
