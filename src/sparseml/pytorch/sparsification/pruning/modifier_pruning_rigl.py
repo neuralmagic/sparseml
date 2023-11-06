@@ -494,7 +494,6 @@ class RigLPruningParamsScorer(PruningParamsGradScorer):
         """
         self._update_fraction = value
 
-
     def density_scaler(self, param: Tensor) -> float:
         """
         Assigns the density weights for a given parameter
@@ -561,7 +560,9 @@ class RigLPruningParamsScorer(PruningParamsGradScorer):
         magn_score = param.abs()
         # Of the existing mask, we keep the top 1-param_sparsity-mask_update_fraction
         # elements by magnitude.
-        magn_score = threshold_fraction(magn_score, param_sparsity + mask_update_fraction)
+        magn_score = threshold_fraction(
+            magn_score, param_sparsity + mask_update_fraction
+        )
         # We fill in the mask by also adding the mask_update_fraction weights
         # of the ones that are currently masked, using the gradient magnitude
         # as the criterion.
