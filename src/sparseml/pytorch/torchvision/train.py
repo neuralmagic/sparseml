@@ -414,30 +414,27 @@ def main(args):
 
     _LOGGER.info("Creating model")
     local_rank = int(os.environ["LOCAL_RANK"]) if args.distributed else None
-    model, arch_key, maybe_dp_device = _create_model(
+    model, arch_key = _create_model(
         arch_key=args.arch_key,
         local_rank=local_rank,
         pretrained=args.pretrained,
         checkpoint_path=args.checkpoint_path,
         pretrained_dataset=args.pretrained_dataset,
-        device=device,
         num_classes=num_classes,
     )
 
     if args.distill_teacher not in ["self", "disable", None]:
         _LOGGER.info("Instantiating teacher")
-        distill_teacher, _, _ = _create_model(
+        distill_teacher, _ = _create_model(
             arch_key=args.teacher_arch_key,
             local_rank=local_rank,
             pretrained=True,  # teacher is always pretrained
             pretrained_dataset=args.pretrained_teacher_dataset,
             checkpoint_path=args.distill_teacher,
-            device=device,
             num_classes=num_classes,
         )
     else:
         distill_teacher = args.distill_teacher
-    device = maybe_dp_device
 
     if args.distributed and args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
@@ -520,7 +517,7 @@ def main(args):
         alpha = 1.0 - args.model_ema_decay
         alpha = min(1.0, alpha * adjust)
         model_ema = utils.ExponentialMovingAverage(
-            model, device=device, decay=1.0 - alpha
+            model, device=model.device, decay=1.0 - alpha
         )
 
     manager = checkpoint_manager = None
@@ -682,9 +679,17 @@ def main(args):
         args, optimizer, checkpoint=checkpoint, manager=manager
     )
 
-    model_without_ddp = model
     if args.distributed:
-        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
+        ddp = True
+        device = local_rank
+    else:
+        ddp = False
+
+    model, device, _ = model_to_device(model, device, ddp)
+    if distill_teacher is not None:
+        distill_teacher, _, _ = model_to_device(distill_teacher, device, ddp)
+
+    if args.distributed:
         model_without_ddp = model.module
 
     best_top1_acc = -math.inf
@@ -791,7 +796,6 @@ def _create_model(
     pretrained: Optional[bool] = False,
     checkpoint_path: Optional[str] = None,
     pretrained_dataset: Optional[str] = None,
-    device=None,
     num_classes=None,
 ):
     if not arch_key or arch_key in ModelRegistry.available_keys():
@@ -842,17 +846,7 @@ def _create_model(
         raise ValueError(
             f"Unable to find {arch_key} in ModelRegistry or in torchvision.models"
         )
-    ddp = False
-    if local_rank is not None:
-        torch.cuda.set_device(local_rank)
-        device = local_rank
-        ddp = True
-    model, device, _ = model_to_device(
-        model=model,
-        device=device,
-        ddp=ddp,
-    )
-    return model, arch_key, device
+    return model, arch_key
 
 
 def _get_lr_scheduler(args, optimizer, checkpoint=None, manager=None):

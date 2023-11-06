@@ -1,5 +1,11 @@
 test_stage:
   obcq_modifiers:
+    SmoothQuantModifier:
+      smoothing_strength: 0.5
+      mappings: [
+        [["re:.*q_proj", "re:.*k_proj", "re:.*v_proj"], "re:.*input_layernorm"],
+        [["re:.*gate_proj", "re:.*up_proj"], "re:.*post_attention_layernorm"]
+      ]
     QuantizationModifier:
       ignore:
         - LlamaRotaryEmbedding
@@ -50,8 +56,7 @@ test_stage:
       sequential_update: False
       quantize: True
       percdamp: 0.01
-      prunen: 0
-      prunem: 0
+      mask_structure: "0:0"
       targets: [
         "model.layers.0",
         "model.layers.1",
