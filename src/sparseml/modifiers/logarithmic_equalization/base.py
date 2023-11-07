@@ -45,7 +45,7 @@ class LogarithmicEqualizationModifier(SmoothQuantModifier):
        ignore: ["model.decoder.final_layer_norm"]
      ```
 
-     :param mappings: list activation layers to smooth, and the which layers to offset
+     :param mappings: list activation layers to smooth, and which layers to offset
      the smoothing to for each activation
      :param ignore: list of layers to ignore, even if they match a regex in mappings
      :param num_calibration_steps: number of samples to use for calibration, or None to
