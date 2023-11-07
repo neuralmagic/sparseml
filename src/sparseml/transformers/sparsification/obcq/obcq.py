@@ -158,7 +158,7 @@ if __name__ == "__main__":
         help="Name of dataset to extract calibration data from",
     )
     parser.add_argument(
-        "--nsamples", type=int, default=128, help="Number of calibration data samples"
+        "--nsamples", type=int, default=512, help="Number of calibration data samples"
     )
     parser.add_argument("--device", type=str, default="cuda:0")
     parser.add_argument("--deploy-dir", type=str, default=".")
