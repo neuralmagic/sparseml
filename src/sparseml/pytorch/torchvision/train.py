@@ -114,7 +114,7 @@ def train_one_epoch(
     optimizer.zero_grad()
 
     header = f"Epoch: [{epoch}]"
-    for (image, target) in metric_logger.log_every(
+    for image, target in metric_logger.log_every(
         data_loader, args.logging_steps * accum_steps, header
     ):
         start_time = time.time()
