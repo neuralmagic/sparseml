@@ -658,6 +658,7 @@ def main(args):
     if distill_teacher is not None:
         distill_teacher, _, _ = model_to_device(distill_teacher, device, ddp)
 
+    model_without_ddp = model
     if args.distributed:
         model_without_ddp = model.module
 
