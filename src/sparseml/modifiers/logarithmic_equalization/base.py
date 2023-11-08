@@ -27,7 +27,7 @@ class LogarithmicEqualizationModifier(SmoothQuantModifier):
      offset by applying the inverse operation to the next layer of weights, making
      the weights slightly more difficult to quantize.
 
-     Because this modifier manipulates the weights of the model, it can only be
+     Because this modifier manipulates the weights of the model, it should only be
      used in one-shot and not during training. Activation ranges are determined by
      running a small set of calibration data through the model.
 
@@ -45,9 +45,16 @@ class LogarithmicEqualizationModifier(SmoothQuantModifier):
        ignore: ["model.decoder.final_layer_norm"]
      ```
 
-     :param mappings: list activation layers to smooth, and which layers to offset
-     the smoothing to for each activation
-     :param ignore: list of layers to ignore, even if they match a regex in mappings
+     :param mappings: list activation layers to smooth, and which layers to
+        scale the output such that activations are smoothed.
+        Each entry of the mapping list should be a list itself, in which the first
+        entry is a list of layers who share the same input activation (the one to be
+        to smoothed) and the second entry is the layer whose output is scaled to
+        achieve the smoothing.
+        If regex is used, it matches layers with the largest overlap in module name.
+     :param ignore: list of layers to ignore, even if they match a regex in mappings.
+        It should match the name of layers whose outputs are scaled to achieve
+        smoothing (the second entry of the mappings list).
      :param num_calibration_steps: number of samples to use for calibration, or None to
      use the whole dataset
     """

@@ -174,8 +174,8 @@ class SmoothQuantModifierPyTorch(SmoothQuantModifier):
         range of the activation and the following weights
 
         :param balance_layers: layers to offset activation smoothing to
-        :param activation_scales: channel-wise dynamic range of activation to smooth
-        :return: channel-wise scales to use for smoothing activation
+        :param activation_scales: channel-wise dynamic range of activations to smooth
+        :return: channel-wise scales to use for smoothing activations
         """
         # get the channel-wise dynamic range for each layer to be balanced
         weight_scales = []

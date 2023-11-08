@@ -39,11 +39,11 @@ class LogarithmicEqualizationModifierPyTorch(SmoothQuantModifierPyTorch):
     ) -> List[float]:
         """
         Calculate how much smoothing to apply to each channel based on the dynamic
-        range of the activation and the following weights
+        range of the activations and the following weights.
 
         :param balance_layers: layers to offset activation smoothing to
-        :param activation_scales: channel-wise dynamic range of activation to smooth
-        :return: channel-wise scales to use for smoothing activation
+        :param activation_scales: channel-wise dynamic range of activations to smooth
+        :return: channel-wise scales to use for smoothing activations
         """
         # calculate the amount of smoothing to apply
         # s_j = max(|X_j|) / log2( 2 + max(|X_j|) )
