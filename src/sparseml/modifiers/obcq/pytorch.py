@@ -155,8 +155,6 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
 
         :param state: un-used, for matching spec of Modifier base class
         """
-        use_cache = self.finalization_kwargs_.get("use_cache", False)
-        self.model.config.use_cache = use_cache
 
         if self.quantization_modifier_:
             self.quantization_modifier_.finalize(state, **kwargs)
