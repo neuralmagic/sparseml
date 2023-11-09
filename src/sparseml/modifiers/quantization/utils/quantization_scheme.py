@@ -122,7 +122,7 @@ class QuantizationArgs(BaseModel):
 
     @validator("strategy")
     def validate_strategy(cls, value):
-        valid_scopes = ["tensor", "channel"]
+        valid_scopes = ["tensor", "channel", "dynamic_token"]
         if value not in valid_scopes:
             raise ValueError(f"`strategy` must be one of {valid_scopes}, got {value}")
         return value
