@@ -84,14 +84,21 @@ class SmoothQuantModifier(Modifier):
      ```
 
      :param smoothing_strength: alpha, intensity of smoothing to perform (0-1 range)
-     :param mappings: list activation layers to smooth, and the which layers to offset
-     the smoothing to for each activation
-     :param ignore: list of layers to ignore, even if they match a regex in mappings
+     :param mappings: list activation layers to smooth, and which layers to
+        scale the output such that activations are smoothed.
+        Each entry of the mapping list should be a list itself, in which the first
+        entry is a list of layers who share the same input activation (the one to be
+        to smoothed) and the second entry is the layer whose output is scaled to
+        achieve the smoothing.
+        If regex is used, it matches layers with the largest overlap in module name.
+     :param ignore: list of layers to ignore, even if they match a regex in mappings.
+        It should match the name of layers whose outputs are scaled to achieve
+        smoothing (the second entry of the mappings list).
      :param num_calibration_steps: number of samples to use for calibration, or None to
      use the whole dataset
     """
 
-    smoothing_strength: float = Field(validation_alias="alpha")
+    smoothing_strength: float = Field(validation_alias="alpha", default=0.5)
     mappings: List[Tuple]
     ignore: Optional[List[str]] = None
     num_calibration_steps: Optional[int] = None
@@ -111,13 +118,13 @@ class SmoothQuantModifier(Modifier):
         """
         if self.end and self.end != -1:
             raise ValueError(
-                "SmoothQuantModifier can only be applied during one-shot. Expected end"
-                " to be None or -1, got {}".format(self.end)
+                f"{self.__class__.__name__} can only be applied during one-shot. "
+                f" Expected end to be None or -1, got {self.end}"
             )
         if self.start and self.start != -1:
             raise ValueError(
-                "SmoothQuantModifier can only be applied during one-shot. Expected "
-                "start to be None or -1, got {}".format(self.start)
+                f"{self.__class__.__name__} can only be applied during one-shot. "
+                f"Expected start to be None or -1, got {self.end}"
             )
 
         self.ignore = [] if not self.ignore else self.ignore
