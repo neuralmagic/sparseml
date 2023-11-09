@@ -303,7 +303,6 @@ def get_observer(
         qscheme = torch.per_channel_symmetric if symmetric else torch.per_channel_affine
         observer_cls = torch_quantization.MovingAveragePerChannelMinMaxObserver
         fake_quantization_cls = torch_quantization.FakeQuantize
-        fake_quantization_cls = torch_quantization.FakeQuantize
         observer_kwargs = dict(
             ch_axis=0,
             dtype=dtype,
