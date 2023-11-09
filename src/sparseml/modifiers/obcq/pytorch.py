@@ -17,7 +17,6 @@ import logging
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import torch
-from torch.nn import Module
 
 from sparseml.core.model import ModifiableModel
 from sparseml.core.state import State
@@ -46,18 +45,9 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
     """
 
     model: Any = None
-    compressible_layers_: List = None
     device_: str = "cuda:0"
-    finalization_kwargs_: Dict = None
-
-    def compressible_layers(self) -> List[Module]:
-        """
-        Retrieves the modules corresponding to a list of compressible layer names
-
-        :return: list of Pytorch modules to compress
-        """
-        compressible_dict = self.model.get_layers(self.targets)
-        return [v for _, v in compressible_dict.items()]
+    finalization_kwargs_: Optional[Dict] = None
+    layer_prefix_: Optional[str] = None
 
     def on_initialize(self, state: "State", **kwargs) -> bool:
         """
@@ -65,6 +55,12 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
 
         :param state: session state storing input model and calibration data
         """
+        self._validate_layerwise_sparsity()
+
+        if not self.initialized_structure_:
+            self.on_initialize_structure(state, **kwargs)
+        if self.quantization_modifier_:
+            self.quantization_modifier_.initialize(state, **kwargs)
         self.finalization_kwargs_ = {}
         modifiable_model = state.model
         calibration_dataloader = state.data.calib
@@ -90,8 +86,10 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
         """
         self.model = model
         self.compressible_layers_ = self.compressible_layers()
+        self.layer_prefix_ = model.layer_prefix
         self.model = self.model.model
         self._set_device(device)
+        self._infer_mask_block_size()
 
     @torch.no_grad()
     def apply_obcq(
@@ -111,7 +109,7 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
         extras = self.compress_bottom(
             dev=self.device_,
             target_ids=self.target_ids,
-            layer_prefix=self.layer_prefix,
+            layer_prefix=self.layer_prefix_,
             **accum_kwargs,
         )
         accum_kwargs.update(extras)
@@ -125,12 +123,19 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
                     "The 'outputs' key is expected but not found from the "
                     "return of the bottom compressor"
                 )
+
             inputs = accum_kwargs["outputs"]
-            _LOGGER.info(f"\n===== Compressing layer {idx}/{num_layers-1} =====")
+            layer_sparsity = (
+                self.sparsity[idx] if isinstance(self.sparsity, List) else self.sparsity
+            )
+            _LOGGER.info(
+                f"\n===== Compressing layer {idx+1}/{num_layers} "
+                f"to sparsity {layer_sparsity} ====="
+            )
             args = {
-                "sparsity": self.sparsity,
-                "prunen": self.prunen,
-                "prunem": self.prunem,
+                "sparsity": layer_sparsity,
+                "prunen": self.prunen_,
+                "prunem": self.prunem_,
                 "blocksize": self.block_size,
                 "percdamp": self.dampening_frac,
                 "sequential_update": self.sequential_update,
@@ -150,9 +155,9 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
 
         :param state: un-used, for matching spec of Modifier base class
         """
-        use_cache = self.finalization_kwargs_.get("use_cache", False)
-        self.model.apply(torch.quantization.disable_observer)
-        self.model.config.use_cache = use_cache
+
+        if self.quantization_modifier_:
+            self.quantization_modifier_.finalize(state, **kwargs)
 
         return True
 
@@ -162,17 +167,20 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
         nsamples: int = None,
         dev: str = "cuda:0",
         target_ids: List[str] = None,
-        layer_prefix: str = None,
+        layer_prefix: Optional[str] = None,
     ) -> Dict:
         """
         Runs calibration data through the bottom part of the network (everything up
         to the first decoder layer) and return the captured outputs
 
         :param dataloader: calibration data to pass through the model
-        :nsamples: number of samples to use for calibration, or None to use it all
-        :dev: device to use
+        :param nsamples: number of samples to use for calibration, or None to use it all
+        :param dev: device to use
+        :param layer_prefix: name of model attribute that contains the list of layers,
+            i.e. model.decoder for OPT or just model for Llama
         :return: outputs from bottom part of network, attention mask, and kv-cache state
         """
+        layer_prefix = layer_prefix or self.layer_prefix_
         cached_inputs = cache_attention_inputs(
             self.model, dataloader, dev, nsamples, target_ids, layer_prefix
         )
@@ -187,3 +195,16 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
             self.device_ = "cpu"
         else:
             self.device_ = device
+
+    def _infer_mask_block_size(self):
+        """
+        Infer the mask block size from the mask structure.
+        Parses mask_structure of the form N:M where N, M are integers that
+        define a custom block shape; and sets prunen_ and prunem_ accordingly.
+
+        :post-condition: prunen_ and prunem_ are set
+        """
+        if self.mask_structure is None:
+            raise ValueError("mask_structure must be defined")
+
+        self.prunen_, self.prunem_ = list(map(int, self.mask_structure.split(":")))
