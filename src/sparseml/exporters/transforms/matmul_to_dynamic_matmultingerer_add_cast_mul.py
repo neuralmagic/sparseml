@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import numpy
 import onnx
 from onnx import ModelProto, numpy_helper
-import numpy
 
 from sparseml.exporters.transforms import OnnxTransform
 from sparseml.exporters.transforms.utils import (
@@ -183,7 +183,9 @@ class MatMulToDynamicMatMulIntegerAddCastMul(OnnxTransform):
         # create nodes needed to cast zero point and activation to
         # adequate data types
         if new_quantization:
-            _, _, zero_point_cast_node = _cast(zero_point, zero_point, numpy.float32, "INT32")
+            _, _, zero_point_cast_node = _cast(
+                zero_point, zero_point, numpy.float32, "INT32"
+            )
             self.add_node_deferred(zero_point_cast_node)
 
             (
@@ -353,7 +355,9 @@ def _quantize_weights(model, prefix, weight_quant, opt_transpose):
     model.graph.initializer.append(weight_zero_point_initializer)
 
     # Add initializer for weight contribution to zero point offset in multiplication
-    zero_point_shift = numpy.sum(quantized_weight, axis=0, keepdims=True).astype(numpy.int32)
+    zero_point_shift = numpy.sum(quantized_weight, axis=0, keepdims=True).astype(
+        numpy.int32
+    )
     zero_point_shift_name = f"{prefix}.zero_point_shift"
     zero_point_shift_initializer = numpy_helper.from_array(
         zero_point_shift,
@@ -361,4 +365,10 @@ def _quantize_weights(model, prefix, weight_quant, opt_transpose):
     )
     model.graph.initializer.append(zero_point_shift_initializer)
 
-    return quantized_weight, quantized_weight_name, weight_scale_name, weight_zero_point_name, zero_point_shift_name
+    return (
+        quantized_weight,
+        quantized_weight_name,
+        weight_scale_name,
+        weight_zero_point_name,
+        zero_point_shift_name,
+    )
