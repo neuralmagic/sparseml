@@ -262,7 +262,7 @@ def adapt_cache_structure_for_gqa(
             kv_cache_config.transpose_value_input = None
 
             _LOGGER.info(
-                f"Adapted the model {transformers_config['model_type']} "
+                f"Adapted the model: {transformers_config['model_type']} "
                 f"to work with GQA."
             )
     return kv_cache_config
