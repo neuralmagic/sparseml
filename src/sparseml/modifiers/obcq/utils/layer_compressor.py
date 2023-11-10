@@ -153,12 +153,9 @@ class LayerCompressor:
             outputs.append(self.layer(self.inputs[j], **passed_in_kwargs)[0])
 
         self.inputs = None
-        torch.cuda.empty_cache()
-
-        print("\n\n\n--------------------------------------------------")
-        print("MOVING LAYER BACK TO CPU")
-        print("--------------------------------------------------\n\n\n")
+        # once we've finished compressing the layer, move it back to CPU to save memory
         self.layer.to("cpu")
+        torch.cuda.empty_cache()
 
         return {"outputs": outputs}
 
