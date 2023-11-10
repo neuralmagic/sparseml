@@ -237,7 +237,7 @@ def adapt_cache_structure_for_gqa(
     model_names: List[str] = ["llama"],
 ) -> KeyValueCacheConfig:
     """
-    Potentially adapts the kv_cache_config,so that it
+    Potentially adapts the kv_cache_config, so that it
     properly works with Grouped Query Attention (GQA).
 
     :param kv_cache_config: The kv cache config for the model.
