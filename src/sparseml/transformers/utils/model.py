@@ -15,7 +15,7 @@
 import inspect
 import logging
 import os
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Optional, Tuple, Union
 
 import torch
 from torch.nn import Module
@@ -31,6 +31,7 @@ from transformers import (
 from transformers.file_utils import WEIGHTS_NAME
 
 from sparseml.pytorch.utils import ModuleSparsificationInfo
+from sparsezoo.utils.registry import RegistryMixin
 
 
 __all__ = ["SparseAutoModel", "get_shared_tokenizer_src"]
@@ -39,12 +40,19 @@ __all__ = ["SparseAutoModel", "get_shared_tokenizer_src"]
 _LOGGER = logging.getLogger(__name__)
 
 
+class TransformerModelsRegistry(RegistryMixin):
+    @classmethod
+    def load_from_registry(cls, name: str) -> Callable[..., Any]:
+        return cls.get_value_from_registry(name=name)
+
+
 class SparseAutoModel:
     """
     Factory class for creating sparse models using transformers AutoModel classes
     """
 
     @staticmethod
+    @TransformerModelsRegistry.register(name=["masked-language-modeling", "mlm"])
     def masked_language_modeling_from_pretrained(
         model_name_or_path: str,
         model_type: str,
@@ -115,6 +123,7 @@ class SparseAutoModel:
         return model, teacher
 
     @staticmethod
+    @TransformerModelsRegistry.register(name=["question-answering", "qa"])
     def question_answering_from_pretrained(
         model_name_or_path: str,
         model_type: str,
@@ -177,6 +186,14 @@ class SparseAutoModel:
         return model, teacher
 
     @staticmethod
+    @TransformerModelsRegistry.register(
+        name=[
+            "sequence-classification",
+            "glue",
+            "sentiment-analysis",
+            "text-classification",
+        ]
+    )
     def text_classification_from_pretrained(
         model_name_or_path: str,
         model_type: str,
@@ -239,6 +256,7 @@ class SparseAutoModel:
         return model, teacher
 
     @staticmethod
+    @TransformerModelsRegistry.register(name="text-generation")
     def text_generation_from_pretrained(
         model_name_or_path: str,
         model_type: str,
@@ -274,6 +292,7 @@ class SparseAutoModel:
         return model
 
     @staticmethod
+    @TransformerModelsRegistry.register(name=["token-classification", "ner"])
     def token_classification_from_pretrained(
         model_name_or_path: str,
         model_type: str,
