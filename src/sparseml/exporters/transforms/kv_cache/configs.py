@@ -240,6 +240,11 @@ def adapt_cache_structure_for_gqa(
     Potentially adapts the kv_cache_config, so that it
     properly works with Grouped Query Attention (GQA).
 
+    For now, this function only supports the llama model.
+    LLama uses QA instead of Multi Query Attention (MQA)
+    if the `num_key_value_heads` is higher than 1, but
+    not equal to the `num_attention_heads`.
+
     :param kv_cache_config: The kv cache config for the model.
     :param transformers_config: The transformers config for
         the model. If contains the key:`num_key_value_heads`,
@@ -252,13 +257,14 @@ def adapt_cache_structure_for_gqa(
         If the model does not use GQA, the kv_cache_config is
         returned unchanged.
     """
+    # For now, we only support GQA for LLAMA.
+    model_name = kv_cache_config.model_name
+    num_attention_heads = kv_cache_config.num_attention_heads
     num_key_value_heads = transformers_config.get("num_key_value_heads")
 
-    if num_key_value_heads is not None:
-        # If num_key_value_heads=1 the model will use
-        # Multi Query Attention (MQA) otherwise GQA is used.
-        if kv_cache_config.model_name in model_names and num_key_value_heads > 1:
-            # For now, we only support GQA for LLAMA.
+    if num_key_value_heads is not None and model_name in model_names:
+        if num_key_value_heads > 1 and num_key_value_heads != num_attention_heads:
+            # introduce the modification the config to support GQA for LLAMA.
             kv_cache_config.transpose_value_input = None
 
             _LOGGER.info(
