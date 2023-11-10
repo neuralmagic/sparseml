@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# TODO: Those tests should be hardened
+
 import pytest
 
 from sparsezoo import Model
@@ -38,8 +40,9 @@ def task():
 
 
 def test_initialize_transformer_model(model_path, sequence_length, task):
-    model, config, tokenizer = initialize_transformer_model(
+    model, trainer, config, tokenizer = initialize_transformer_model(
         model_path=model_path, sequence_length=sequence_length, task=task
     )
     assert model.base_model_prefix == config.model_type == "mobilebert"
+    assert trainer
     assert tokenizer.model_max_length == sequence_length

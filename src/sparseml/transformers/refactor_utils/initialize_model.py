@@ -11,19 +11,38 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""
+Functionality for initializing a transformer model from a given path
+"""
+# TODO: Add docstrings
 
 import logging
+import math
+import os
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Union
+from typing import Any, Union
 
-from transformers import AutoConfig, AutoTokenizer
+from transformers import AutoConfig, AutoTokenizer, TrainingArguments
 
+from sparseml.transformers.sparsification import Trainer
 from src.sparseml.transformers.utils.model import TransformerModelsRegistry
 
 
 __all__ = ["initialize_transformer_model"]
 
 _LOGGER = logging.getLogger(__name__)
+
+
+@dataclass
+class ForceCPUTrainingArguments(TrainingArguments):
+    @property
+    def place_model_on_device(self):
+        # TODO: Observe how this setting influences memory consumption
+        # The property governs whether or not to automatically place
+        # the model on the device. Setting to False ensures that the
+        # model remains in CPU during ONNX export
+        return False
 
 
 def initialize_transformer_model(
@@ -45,14 +64,53 @@ def initialize_transformer_model(
         )
     )
     model.train()
-    trainer = None
-    _LOGGER.info(f"loaded model, config, and tokenizer from {model_path}")
-    return model, config, tokenizer
+    trainer = initialize_trainer(model, model_path)
+    model.eval()
+
+    _LOGGER.info(f"Loaded model, trainer config, and tokenizer from {model_path}")
+    return model, trainer, config, tokenizer
+
+
+def initialize_trainer(model: Any, model_path: Union[str, Path]) -> Trainer:
+    training_args = TrainingArguments(output_dir=os.path.dirname(model_path))
+    trainer = Trainer(
+        model=model,
+        args=training_args,
+        model_state_path=model_path,
+        # TODO: Do we need eval_dataset?
+        # eval_dataset=eval_dataset,
+        recipe=None,
+        recipe_args=None,
+        teacher=None,
+    )
+    applied = trainer.apply_manager(epoch=math.inf, checkpoint=None)
+
+    if not applied:
+        _LOGGER.warning(
+            f"No recipes were applied for {model_path}, "
+            "check to make sure recipe(s) are stored in the model_path"
+        )
+    else:
+        trainer.finalize_manager()
+        num_stages = 0
+        if trainer.manager:
+            num_stages += trainer.manager.num_stages()
+        if trainer.arch_manager:
+            num_stages += trainer.arch_manager.num_stages()
+
+        msg = (
+            "an unstaged recipe"
+            if num_stages == 1
+            else f"a staged recipe with {num_stages} stages"
+        )
+        _LOGGER.info(f"Applied {msg} to the model at {model_path}")
+
+    return trainer
 
 
 def initialize_config(
     model_path: Union[str, Path], trust_remote_code: bool = False, **config_args
-):
+) -> AutoConfig:
     config = AutoConfig.from_pretrained(
         model_path,
         trust_remote_code=trust_remote_code,
@@ -64,6 +122,7 @@ def initialize_config(
 def initialize_tokenizer(
     model_path: Union[str, Path], sequence_length: int, task: str
 ) -> AutoTokenizer:
+
     tokenizer = AutoTokenizer.from_pretrained(
         model_path, model_max_length=sequence_length
     )
