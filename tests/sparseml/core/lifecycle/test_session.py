@@ -17,12 +17,65 @@ from types import SimpleNamespace
 
 import pytest
 
+import sparseml.core.session as sml
 from sparseml.core import Framework
 from sparseml.core.event import Event, EventType
 from sparseml.core.lifecycle.event import CallbacksEventLifecycle
 from sparseml.core.lifecycle.session import SparsificationLifecycle
 from sparseml.core.modifier.base import ModifierInterface
 from sparseml.core.state import State
+
+
+def recipe_with_layer_prefix():
+    layer_prefix = "decoder"
+    recipe = f"""
+    metadata:
+        target_model:
+            layer_prefix: {layer_prefix}
+            architecture: "opt"
+
+    test_stage:
+        pruning_modifiers:
+            ConstantPruningModifier:
+                targets: __ALL_PRUNABLE__
+                start: 0
+                end: 5
+    """
+    return recipe, layer_prefix
+
+
+def recipe_without_layer_prefix():
+    recipe = """
+    test_stage:
+        pruning_modifiers:
+            ConstantPruningModifier:
+                targets: __ALL_PRUNABLE__
+                start: 0
+                end: 5
+    """
+    return recipe, None
+
+
+@pytest.fixture
+def model():
+    # identity model
+    return lambda x: x
+
+
+@pytest.mark.parametrize(
+    "recipe, expected_layer_prefix",
+    [
+        recipe_without_layer_prefix(),
+        recipe_with_layer_prefix(),
+    ],
+)
+def test_session_initialize_propagates_layer_prefix_to_model(
+    recipe, expected_layer_prefix, model
+):
+    session = sml.active_session()
+    session.initialize(framework=Framework.general, model=model, recipe=recipe)
+    print(f"{session.state.model.layer_prefix=}, {expected_layer_prefix=}")
+    assert session.state.model.layer_prefix == expected_layer_prefix
 
 
 class ModifierMock(ModifierInterface):
