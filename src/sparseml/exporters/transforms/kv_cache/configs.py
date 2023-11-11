@@ -241,9 +241,10 @@ def adapt_cache_structure_for_gqa(
     properly works with Grouped Query Attention (GQA).
 
     For now, this function only supports the llama model.
-    LLama uses QA instead of Multi Query Attention (MQA)
-    if the `num_key_value_heads` is higher than 1, but
-    not equal to the `num_attention_heads`.
+    Llama uses:
+    Multi Head Attention (MHA) if `num_key_value_heads==num_attention_heads` (default),
+    Grouped Query Attention (GQA) if `num_key_value_heads<num_attention_heads`,
+    Multi Query Attention (MQA) if `num_key_value_heads==1`,
 
     :param kv_cache_config: The kv cache config for the model.
     :param transformers_config: The transformers config for
