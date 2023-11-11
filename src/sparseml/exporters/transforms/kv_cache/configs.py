@@ -250,8 +250,7 @@ def adapt_cache_structure_for_gqa(
     :param transformers_config: The transformers config for
         the model. If contains the key:`num_key_value_heads`,
         the model may be potentially using GQA instead of
-        Multi Query Attention (MQA) and thus the kv_cache_config
-        needs to be adapted.
+        MHA and thus the kv_cache_config needs to be adapted.
     :param model_names: The list of model names that may use
         GQA instead of MQA.
     :return: Potentially adapted kv cache config for the model.
