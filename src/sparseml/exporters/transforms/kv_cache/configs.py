@@ -223,7 +223,54 @@ def get_kv_cache_config(
     kv_cache_config.num_attention_heads = num_attention_heads
     kv_cache_config.hidden_size_kv_cache = hidden_size_kv_cache
 
+    kv_cache_config = adapt_cache_structure_for_gqa(
+        kv_cache_config, transformers_config
+    )
+
     _LOGGER.info("Properly configured arguments for KV Cache Transformation")
+    return kv_cache_config
+
+
+def adapt_cache_structure_for_gqa(
+    kv_cache_config: KeyValueCacheConfig,
+    transformers_config: Dict[str, Any],
+    model_names: List[str] = ["llama"],
+) -> KeyValueCacheConfig:
+    """
+    Potentially adapts the kv_cache_config, so that it
+    properly works with Grouped Query Attention (GQA).
+
+    For now, this function only supports the llama model.
+    Llama uses:
+    Multi Head Attention (MHA) if `num_key_value_heads==num_attention_heads` (default),
+    Grouped Query Attention (GQA) if `num_key_value_heads<num_attention_heads`,
+    Multi Query Attention (MQA) if `num_key_value_heads==1`,
+
+    :param kv_cache_config: The kv cache config for the model.
+    :param transformers_config: The transformers config for
+        the model. If contains the key:`num_key_value_heads`,
+        the model may be potentially using GQA instead of
+        MHA and thus the kv_cache_config needs to be adapted.
+    :param model_names: The list of model names that may use
+        GQA instead of MQA.
+    :return: Potentially adapted kv cache config for the model.
+        If the model does not use GQA, the kv_cache_config is
+        returned unchanged.
+    """
+    # For now, we only support GQA for LLAMA.
+    model_name = kv_cache_config.model_name
+    num_attention_heads = kv_cache_config.num_attention_heads
+    num_key_value_heads = transformers_config.get("num_key_value_heads")
+
+    if num_key_value_heads is not None and model_name in model_names:
+        if num_key_value_heads > 1 and num_key_value_heads != num_attention_heads:
+            # introduce the modification the config to support GQA for LLAMA.
+            kv_cache_config.transpose_value_input = None
+
+            _LOGGER.info(
+                f"Adapted the model: {transformers_config['model_type']} "
+                f"to work with GQA."
+            )
     return kv_cache_config
 
 
