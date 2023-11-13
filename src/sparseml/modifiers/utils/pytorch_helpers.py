@@ -26,6 +26,7 @@ def run_calibration_forward(
     calibration_dataloader: List,
     num_calibration_steps: Optional[int] = None,
     calibration_function: Optional[Callable] = None,
+    device: Optional[str] = None,
 ):
     """
     Helper function used by one-shot modifiers, runs calibration data through a model to
@@ -36,6 +37,7 @@ def run_calibration_forward(
     :param num_calibration_steps: number of items in calibration_dataloader to process,
     None to process all available data
     :param calibration_function: option to pass a custom forward function for model
+    :param device: option to move the model to a specific device before calibration
     """
     model.eval()
 
@@ -43,7 +45,11 @@ def run_calibration_forward(
         calibration_function if calibration_function else tensors_module_forward
     )
 
-    model_device = next(model.model.parameters()).device
+    # move model to optional specified device if it is not already there
+    model_device = next(model.parameters()).device
+    if device is not None and model_device != device:
+        model.to(device)
+        model_device = next(model.parameters()).device
     _dataloader = (
         calibration_dataloader
         if num_calibration_steps is None
