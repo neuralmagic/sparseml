@@ -136,11 +136,11 @@ def cache_attention_inputs(
     embed_tokens.to(device)
     first_layer.to(device)
     cached_inputs = catch(
-        model,
-        first_layer,
-        target_ids,  # ["attention_mask"],
-        dataloader,
-        nsamples,
+        model=model,
+        attention_layer=first_layer,
+        target_keys=target_ids,
+        data_loader=dataloader,
+        nsamples=nsamples,
     )
     embed_tokens.cpu()
     first_layer.cpu()
