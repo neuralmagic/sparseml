@@ -21,7 +21,7 @@ import math
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Union
+from typing import Any, Union, Optional
 
 from transformers import AutoConfig, AutoTokenizer, TrainingArguments
 
@@ -54,7 +54,7 @@ def initialize_transformer_model(
 ):
 
     config = initialize_config(model_path, trust_remote_code, **config_args)
-    tokenizer = initialize_tokenizer(model_path, sequence_length, task)
+    tokenizer = initialize_tokenizer(model_path, task, sequence_length)
     model = TransformerModelsRegistry.load_from_registry(task)(
         **dict(
             model_name_or_path=model_path,
@@ -120,7 +120,7 @@ def initialize_config(
 
 
 def initialize_tokenizer(
-    model_path: Union[str, Path], sequence_length: int, task: str
+    model_path: Union[str, Path], task: str, sequence_length: Optional[int] = None,
 ) -> AutoTokenizer:
 
     tokenizer = AutoTokenizer.from_pretrained(

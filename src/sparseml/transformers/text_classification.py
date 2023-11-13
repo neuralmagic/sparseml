@@ -639,7 +639,6 @@ def main(**kwargs):
         kwargs["dataset"] = f"GLUE {data_args.task_name.upper()}"
 
     # Exporting Samples
-
     if data_args.num_export_samples > 0:
         trainer.save_sample_inputs_outputs(
             num_samples_to_export=data_args.num_export_samples
@@ -647,9 +646,9 @@ def main(**kwargs):
 
 
 def _get_label_info(data_args, raw_datasets):
-    label_column = data_args.label_column_name
-    if data_args.task_name is not None:
-        is_regression = data_args.task_name == "stsb"
+    label_column = 'label'
+    if data_args.dataset_name is not None:
+        is_regression = data_args.dataset_name == "stsb"
         is_multi_label_classification = False
         if not is_regression:
             label_list = raw_datasets["train"].features[label_column].names
@@ -706,7 +705,7 @@ def _get_tokenized_and_preprocessed_raw_datasets(
         main_process_func = lambda desc: nullcontext(desc)  # noqa: E731
 
     # Preprocessing the datasets
-    if data_args.input_column_names is not None:
+    if False:
         if "," in data_args.input_column_names:
             # two input columns
             columns = data_args.input_column_names.split(",")
@@ -720,8 +719,8 @@ def _get_tokenized_and_preprocessed_raw_datasets(
             # one input column
             sentence1_key = data_args.input_column_names
             sentence2_key = None
-    elif data_args.task_name is not None:
-        sentence1_key, sentence2_key = _TASK_TO_KEYS[data_args.task_name]
+    elif data_args.dataset_name is not None:
+        sentence1_key, sentence2_key = _TASK_TO_KEYS[data_args.dataset_name]
     else:
         # Again, we try to have some nice defaults but don't hesitate to tweak to your
         # use case
@@ -883,9 +882,9 @@ def _get_raw_dataset(
     #
     # In distributed training, the load_dataset function guarantee that only one local
     # process can concurrently download the dataset.
-    if data_args.task_name is not None:
+    if data_args.dataset_name is not None:
         # Downloading and loading a dataset from the hub.
-        raw_datasets = load_dataset("glue", data_args.task_name, cache_dir=cache_dir)
+        raw_datasets = load_dataset("glue", data_args.dataset_name, cache_dir=cache_dir)
     elif data_args.dataset_name is not None:
         # Downloading and loading a dataset from the hub.
         raw_datasets = load_dataset(

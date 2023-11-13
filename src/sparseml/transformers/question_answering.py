@@ -775,7 +775,8 @@ def _get_tokenized_datasets_and_examples(
             examples[context_column_name if pad_on_right else question_column_name],
             truncation="only_second" if pad_on_right else "only_first",
             max_length=max_seq_length,
-            stride=data_args.doc_stride,
+            # TODO: Has this become deprecated?
+            #stride=data_args.doc_stride,
             return_overflowing_tokens=True,
             return_offsets_mapping=True,
             padding="max_length" if data_args.pad_to_max_length else False,
