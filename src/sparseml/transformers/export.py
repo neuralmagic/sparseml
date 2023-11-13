@@ -297,7 +297,9 @@ def export_transformer_to_onnx(
     )
 
     if sequence_length is None:
-        _LOGGER.info(f"Using default sequence length of {config.max_position_embeddings}")
+        _LOGGER.info(
+            f"Using default sequence length of {config.max_position_embeddings}"
+        )
         sequence_length = config.max_position_embeddings
 
     tokenizer = AutoTokenizer.from_pretrained(
