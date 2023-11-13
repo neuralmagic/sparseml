@@ -180,7 +180,11 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
         """
         layer_prefix = layer_prefix or self.layer_prefix_
         cached_inputs = cache_attention_inputs(
-            self.model, dataloader, dev, nsamples, layer_prefix
+            model=self.model,
+            dataloader=dataloader,
+            device=dev,
+            nsamples=nsamples,
+            layer_prefix=layer_prefix,
         )
 
         outputs = cached_inputs.pop("inputs")

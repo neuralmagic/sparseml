@@ -20,6 +20,10 @@ import torch
 
 
 _LOGGER = logging.getLogger(__name__)
+_DEFAULT_TARGET_IDS = [
+    "attention_mask",
+    "position_ids",
+]
 
 
 class Catcher(torch.nn.Module):
@@ -44,10 +48,9 @@ class Catcher(torch.nn.Module):
 
     def _get_target_keys(self, input_keys):
         target_keys = []
-        if "attention_mask" in input_keys:
-            target_keys.append("attention_mask")
-        if "position_ids" in input_keys:
-            target_keys.append("position_ids")
+        for key in _DEFAULT_TARGET_IDS:
+            if key in input_keys:
+                target_keys.append(key)
         return target_keys
 
 
