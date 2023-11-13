@@ -30,13 +30,13 @@ from sparseml.transformers.sparsification.obcq.utils.helpers import (
     llama_forward,
     opt_forward,
 )
-from sparseml.transformers.utils.model import SparseCasualLM
+from sparseml.transformers.utils.model import SparseCausalLM
 
 
 __all__ = ["one_shot"]
 
 _LOGGER = logging.getLogger(__name__)
-SUPPORTED_DATASETS = ["wikitext2", "ptb", "c4", "open_platypus"]
+SUPPORTED_DATASETS = TransformersDataset.registered_names()
 SUPPORTED_MODELS = ["opt", "llama", "mistral"]
 
 
@@ -78,13 +78,13 @@ def one_shot(
     model_loader_fn = None
     forward_fn = None
     if "opt" in model_type:
-        model_loader_fn = SparseCasualLM.opt_model_from_pretrained
+        model_loader_fn = SparseCausalLM.opt_model_from_pretrained
         forward_fn = opt_forward
     elif "llama" in model_type:
-        model_loader_fn = SparseCasualLM.llama_model_from_pretrained
+        model_loader_fn = SparseCausalLM.llama_model_from_pretrained
         forward_fn = llama_forward
     elif "mistral" in model_type:
-        model_loader_fn = SparseCasualLM.auto_model_from_pretrained
+        model_loader_fn = SparseCausalLM.auto_model_from_pretrained
         forward_fn = llama_forward
     else:
         raise ValueError(f"model_path={model_path} should be one of {SUPPORTED_MODELS}")
@@ -154,11 +154,11 @@ if __name__ == "__main__":
     parser.add_argument(
         "dataset",
         type=str,
-        choices=["wikitext2", "ptb", "c4", "open_platypus"],
+        choices=SUPPORTED_DATASETS,
         help="Name of dataset to extract calibration data from",
     )
     parser.add_argument(
-        "--nsamples", type=int, default=128, help="Number of calibration data samples"
+        "--nsamples", type=int, default=512, help="Number of calibration data samples"
     )
     parser.add_argument("--device", type=str, default="cuda:0")
     parser.add_argument("--deploy-dir", type=str, default=".")
