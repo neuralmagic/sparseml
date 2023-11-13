@@ -257,11 +257,8 @@ class SessionManagerMixIn:
         self.accelerator.wait_for_everyone()
         from torch.distributed.fsdp import FullyShardedDataParallel
 
-        if self.accelerator.is_main_process:
-            print("logging sparsification")
-            print("MODEL BEFORE LOG: ", type(self.model))
-            with FullyShardedDataParallel.summon_full_params(self.model):
-                self.log_model_sparsification()
+        with FullyShardedDataParallel.summon_full_params(self.model):
+            self.log_model_sparsification()
 
         return output
 

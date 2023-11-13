@@ -48,12 +48,6 @@ class PostOptimCallback(TrainerCallback):
         """
         super().on_train_begin(args, state, control, **kwargs)
         session = sml.active_session()
-        print(
-            "TRAIN CALLBACK",
-            type(session.state.model.model),
-            type(self.trainer.model),
-            type(self.trainer.model_wrapped),
-        )
         session.state.model.model = self.trainer.model
 
     def on_step_end(
