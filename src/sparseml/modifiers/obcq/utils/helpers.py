@@ -15,6 +15,7 @@
 import logging
 from collections import defaultdict
 from math import ceil
+from typing import List, Optional
 
 import torch
 
@@ -27,10 +28,10 @@ _DEFAULT_TARGET_IDS = [
 
 
 class Catcher(torch.nn.Module):
-    def __init__(self, module):
+    def __init__(self, module, target_keys: Optional[List[str]] = None):
         super().__init__()
         self.module = module
-        self.target_keys = None
+        self.target_keys = target_keys
         self.cache = defaultdict(list)
         self.cache["inputs"] = []
 
@@ -66,8 +67,8 @@ def replace_module(model, old_module, new_module):
     setattr(current_module, module_name[-1], new_module)
 
 
-def catch(model, attention_layer, data_loader, nsamples):
-    catcher_module = Catcher(attention_layer)
+def catch(model, attention_layer, target_keys, data_loader, nsamples):
+    catcher_module = Catcher(attention_layer, target_keys)
     replace_module(model, attention_layer, catcher_module)
     device = next(attention_layer.parameters()).device
     for input_id, inp in enumerate(data_loader):
@@ -123,7 +124,9 @@ def execute_offloaded_module(
         return new_buffer
 
 
-def cache_attention_inputs(model, dataloader, device, nsamples, layer_prefix):
+def cache_attention_inputs(
+    model, dataloader, device, nsamples, target_ids, layer_prefix
+):
     if layer_prefix:
         embed_tokens = getattr(model.model, layer_prefix).embed_tokens
         first_layer = getattr(model.model, layer_prefix).layers[0]
@@ -133,10 +136,11 @@ def cache_attention_inputs(model, dataloader, device, nsamples, layer_prefix):
     embed_tokens.to(device)
     first_layer.to(device)
     cached_inputs = catch(
-        model,
-        first_layer,
-        dataloader,
-        nsamples,
+        model=model,
+        attention_layer=first_layer,
+        target_keys=target_ids,
+        data_loader=dataloader,
+        nsamples=nsamples,
     )
     embed_tokens.cpu()
     first_layer.cpu()
