@@ -13,30 +13,45 @@
 # limitations under the License.
 
 import logging
+from collections import defaultdict
 from math import ceil
 
 import torch
 
 
 _LOGGER = logging.getLogger(__name__)
+_DEFAULT_TARGET_IDS = [
+    "attention_mask",
+    "position_ids",
+]
 
 
 class Catcher(torch.nn.Module):
-    def __init__(self, module, target_keys):
+    def __init__(self, module):
         super().__init__()
         self.module = module
-        self.cache = {key: [] for key in target_keys}
-        self.target_keys = target_keys
+        self.target_keys = None
+        self.cache = defaultdict(list)
         self.cache["inputs"] = []
 
     def forward(self, *args, **kwargs):
         self.cache["inputs"].append(args)
+        if self.target_keys is None:
+            self.target_keys = self._get_target_keys(kwargs.keys())
+
         for key in self.target_keys:
             self.cache[key].append(kwargs[key])
         raise ValueError
 
     def get_cache(self):
         return self.cache
+
+    def _get_target_keys(self, input_keys):
+        target_keys = []
+        for key in _DEFAULT_TARGET_IDS:
+            if key in input_keys:
+                target_keys.append(key)
+        return target_keys
 
 
 def replace_module(model, old_module, new_module):
@@ -51,8 +66,8 @@ def replace_module(model, old_module, new_module):
     setattr(current_module, module_name[-1], new_module)
 
 
-def catch(model, attention_layer, target_keys, data_loader, nsamples):
-    catcher_module = Catcher(attention_layer, target_keys)
+def catch(model, attention_layer, data_loader, nsamples):
+    catcher_module = Catcher(attention_layer)
     replace_module(model, attention_layer, catcher_module)
     device = next(attention_layer.parameters()).device
     for input_id, inp in enumerate(data_loader):
@@ -108,9 +123,7 @@ def execute_offloaded_module(
         return new_buffer
 
 
-def cache_attention_inputs(
-    model, dataloader, device, nsamples, target_ids, layer_prefix
-):
+def cache_attention_inputs(model, dataloader, device, nsamples, layer_prefix):
     if layer_prefix:
         embed_tokens = getattr(model.model, layer_prefix).embed_tokens
         first_layer = getattr(model.model, layer_prefix).layers[0]
@@ -122,7 +135,6 @@ def cache_attention_inputs(
     cached_inputs = catch(
         model,
         first_layer,
-        target_ids,  # ["attention_mask"],
         dataloader,
         nsamples,
     )

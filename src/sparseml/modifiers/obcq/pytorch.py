@@ -108,7 +108,6 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
         # decoder layer. Also return attention_mask as part of kwargs
         extras = self.compress_bottom(
             dev=self.device_,
-            target_ids=self.target_ids,
             layer_prefix=self.layer_prefix_,
             **accum_kwargs,
         )
@@ -166,7 +165,6 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
         dataloader: List = None,
         nsamples: int = None,
         dev: str = "cuda:0",
-        target_ids: List[str] = None,
         layer_prefix: Optional[str] = None,
     ) -> Dict:
         """
@@ -182,7 +180,11 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
         """
         layer_prefix = layer_prefix or self.layer_prefix_
         cached_inputs = cache_attention_inputs(
-            self.model, dataloader, dev, nsamples, target_ids, layer_prefix
+            model=self.model,
+            dataloader=dataloader,
+            device=dev,
+            nsamples=nsamples,
+            layer_prefix=layer_prefix,
         )
 
         outputs = cached_inputs.pop("inputs")

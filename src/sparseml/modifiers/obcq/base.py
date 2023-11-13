@@ -50,7 +50,6 @@ class SparseGPTModifier(Modifier):
         shape. Defaults to 0:0 which represents an unstructured mask.
     :param targets: list of layer names to compress during OBCQ, or '__ALL__'
         to compress every layer in the model
-    :param target_ids: list of keys in model output to cache
     """
 
     sparsity: Union[float, List[float]]
@@ -62,7 +61,6 @@ class SparseGPTModifier(Modifier):
     prunen_: Optional[int] = None
     prunem_: Optional[int] = None
     targets: Union[str, List[str], None] = ALL_TOKEN
-    target_ids: Optional[List[str]] = None
     layer_prefix: Optional[str] = None
     compressible_layers_: List = None
     quantization_modifier_: Any = None
