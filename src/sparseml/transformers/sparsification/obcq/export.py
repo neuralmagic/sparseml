@@ -40,8 +40,9 @@ optional arguments:
                         Path to directory where model files for weights,
                         config, and tokenizer are stored
   --sequence_length SEQUENCE_LENGTH
-                        Sequence length to use. Default is 384. Can be
-                        overwritten later
+                        Sequence length to use. Default is
+                        `config.max_position_embeddings`. Can be overwritten
+                        later
   --no_convert_qat      Set flag to not perform QAT to fully quantized
                         conversion after export
   --onnx_file_name ONNX_FILE_NAME
@@ -304,7 +305,7 @@ def load_task_dataset(
 def export_transformer_to_onnx(
     task: str,
     model_path: str,
-    sequence_length: int = 384,
+    sequence_length: Optional[int] = None,
     convert_qat: bool = True,
     onnx_file_name: str = MODEL_ONNX_NAME,
     num_export_samples: int = 0,
@@ -353,6 +354,10 @@ def export_transformer_to_onnx(
         trust_remote_code=trust_remote_code,
         **config_args,
     )
+
+    if sequence_length is None:
+        sequence_length = config.max_position_embeddings
+
     tokenizer = AutoTokenizer.from_pretrained(
         model_path, model_max_length=sequence_length
     )
@@ -543,8 +548,11 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--sequence_length",
         type=int,
-        default=384,
-        help="Sequence length to use. Default is 384. Can be overwritten later",
+        default=None,
+        help=(
+            "Sequence length to use. Default is `config.max_position_embeddings`. "
+            "Can be overwritten later"
+        ),
     )
     parser.add_argument(
         "--no_convert_qat",
@@ -586,7 +594,7 @@ def _parse_args() -> argparse.Namespace:
 def export(
     task: str,
     model_path: str,
-    sequence_length: int,
+    sequence_length: Optional[int],
     no_convert_qat: bool,
     onnx_file_name: str,
     num_export_samples: int = 0,
