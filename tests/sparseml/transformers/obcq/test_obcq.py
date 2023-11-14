@@ -12,15 +12,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import pytest
+import torch
+
 from sparseml.modifiers.obcq.utils.helpers import ppl_eval_general
 from sparseml.transformers.data import TransformersDataset
 from sparseml.transformers.sparsification.obcq.obcq import one_shot
 from sparseml.transformers.sparsification.obcq.utils.helpers import llama_forward
 
 
-def test_obcq_tinystories():
+@pytest.mark.parametrize(
+    "recipe_file_path",
+    [
+        "tests/sparseml/transformers/obcq/test_tiny.yaml",
+        "tests/sparseml/transformers/obcq/test_tiny2.yaml",
+    ],
+)
+def test_obcq_tinystories(recipe_file_path):
     tiny_model_path = "Xenova/llama2.c-stories15M"
     device = "cuda:0"
+    if not torch.cuda.is_available():
+        device = "cpu"
 
     # test recipe with 50% sparsity, quantization and smoothquant
     tiny_model = one_shot(
@@ -28,7 +40,7 @@ def test_obcq_tinystories():
         dataset_name="open_platypus",
         num_samples=64,
         device=device,
-        recipe_file="tests/sparseml/transformers/obcq/test_tiny.yaml",
+        recipe_file=recipe_file_path,
     )
 
     dataset = TransformersDataset.load_from_registry(
