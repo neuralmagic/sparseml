@@ -46,7 +46,6 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
 
     model: Any = None
     device_: str = "cuda:0"
-    finalization_kwargs_: Optional[Dict] = None
     layer_prefix_: Optional[str] = None
 
     def on_initialize(self, state: "State", **kwargs) -> bool:
@@ -61,14 +60,12 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
             self.on_initialize_structure(state, **kwargs)
         if self.quantization_modifier_:
             self.quantization_modifier_.initialize(state, **kwargs)
-        self.finalization_kwargs_ = {}
         modifiable_model = state.model
         calibration_dataloader = state.data.calib
         device = state.hardware.device
 
         self.initialize_obcq(modifiable_model, device)
-        extras = self.apply_obcq(calibration_dataloader)
-        self.finalization_kwargs_.update(extras)
+        self.apply_obcq(calibration_dataloader)
 
         return True
 
@@ -99,7 +96,6 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
         Run OBCQ on the loaded model, using dataloader as calibration data
 
         :param dataloader: calibration data for OBCQ
-        :return: compression outputs used for finalization
         """
         accum_kwargs = {"dataloader": dataloader}
 
@@ -146,8 +142,6 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
             # Prune/quantize using SparseGPT
             layer_kwargs = layer_compressor.compress(dev=self.device_, **accum_kwargs)
             accum_kwargs.update(layer_kwargs)
-
-        return extras
 
     def on_finalize(self, state: "State", **kwargs) -> bool:
         """
