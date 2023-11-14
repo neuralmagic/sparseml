@@ -18,7 +18,7 @@ import torch
 
 from sparseml.core import Event, EventType, ModelParameterizedLayer, State
 from sparseml.modifiers.pruning.constant.base import ConstantPruningModifier
-from sparseml.modifiers.pruning.utils.pytorch import LayerParamMasking
+from sparseml.modifiers.pruning.utils.pytorch import LayerParamMasking, param_mask_name
 
 
 class ConstantPruningModifierPyTorch(ConstantPruningModifier, LayerParamMasking):
@@ -66,21 +66,14 @@ class ConstantPruningModifierPyTorch(ConstantPruningModifier, LayerParamMasking)
         if self._use_hooks:
             # hooks are used to update, so nothing to do here
             return
+        if event.type_ == EventType.OPTIM_POST_STEP:
 
-        if event.type_ == EventType.OPTIM_PRE_STEP:
-            # for layer_param_name, _ in self.parameterized_layers_.items():
-            #     self.apply_mask_gradient(layer_param_name)
-            pass  # removing for fix
-        elif event.type_ == EventType.OPTIM_POST_STEP:
-            # for layer_param_name, _ in self.parameterized_layers_.items():
-            #     self.apply_mask_weight(layer_param_name, state.model.model)
-            def mask_weights(module):
-                if hasattr(module, "mask"):
-                    # with FullyShardedDataParallel.summon_full_params(module):
-                    module.weight *= module.mask
+            def apply_masks(module):
+                mask_name = param_mask_name()
+                if hasattr(module, mask_name):
+                    module.weight *= getattr(module, mask_name)
 
-            state.model.model.apply(mask_weights)
+            state.model.model.apply(apply_masks)
 
     def on_end(self, state: State, event: Event, **kwargs):
-        # print(self._masked_layer_params['model.layers.5.self_attn.q_proj'].param.data[0][:5])
         self.disable_masks()
