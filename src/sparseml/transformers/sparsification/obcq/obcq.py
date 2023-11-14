@@ -153,7 +153,7 @@ def _save(model, tokenizer, save_path, recipe_path):
 
 def _fallback_to_cpu(device):
     if "cuda" in device and not torch.cuda.is_available():
-        _LOGGER.info(
+        _LOGGER.warning(
             f"Requested {device} but CUDA is not available, falling back to CPU"
         )
         return "cpu"
