@@ -34,7 +34,8 @@ SCALER_NAME = "scaler.pt"
 
 class Trainer(SessionManagerMixIn, HFTransformersTrainer):
     """
-    Training implementation for running sparsification recipes with transformers flows.
+    Training implementation for running sparsification recipes with HF Trainer.
+
     :param model: the model to use with the trainer and apply sparsification to
     :param model_state_path: the state path to the model,
         used to load config and tokenizer settings
@@ -74,9 +75,6 @@ class Trainer(SessionManagerMixIn, HFTransformersTrainer):
         """
         if output_dir is None:
             output_dir = self.args.output_dir
-
-        # if self.sharded_ddp == ShardedDDPOption.SIMPLE and self.optimizer is not None:
-        #    self.optimizer.consolidate_state_dict()
 
         if self.is_world_process_zero():
             if self.optimizer is not None:
@@ -123,13 +121,6 @@ class Trainer(SessionManagerMixIn, HFTransformersTrainer):
             return
 
         super()._load_optimizer_and_scheduler(model_folder)
-
-        # TODO: not yet implemented
-        # if self.manager.learning_rate_modifiers:
-        # If LR modifiers are present in the recipe, SparseML willl take
-        # control of the learning rate schedule. Therefore, set the built-in
-        # scheduler to a dummy
-        # self.lr_scheduler = self._dummy_lr_scheduler()
 
     def _dummy_lr_scheduler(self):
         return torch.optim.lr_scheduler.MultiplicativeLR(

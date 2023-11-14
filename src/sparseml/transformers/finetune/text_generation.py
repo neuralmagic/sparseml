@@ -24,6 +24,7 @@ import random
 
 import datasets
 import transformers
+from datasets import Dataset
 from transformers import (
     AutoConfig,
     AutoTokenizer,
@@ -53,13 +54,35 @@ metadata_args = [
 
 
 def main(**kwargs):
-    # model_args in src/sparseml/transformers/finetune/model_args.py
-    # data_args in src/sparseml/transformers/finetune/data/data_args.py
-    # training_args in src/sparseml/transformers/finetune/training_args.py
+    """
+    Main entrypoint for finetuning text generation models. A model can be loaded from
+    Hugging Face or disk, and resuming training from a checkpoint is supported.
+
+    Parses kwargs by grouping into model, data or training arg groups:
+        * model_args in src/sparseml/transformers/finetune/model_args.py
+        * data_args in src/sparseml/transformers/finetune/data/data_args.py
+        * training_args in src/sparseml/transformers/finetune/training_args.py
+
+    Lifecycle:
+        - parse_dict()
+        - get_last_checkpoint() [Optional]
+        - AutoModel.text_generation_from_pretrained()
+        - AutoTokenizer.from_pretrained()
+        - TextGenerationDataset.load_from_registry()
+        - Trainer()
+            - SessionMixIn()
+            - HFTransformersTrainer()
+        - train() and/or evaluate() and/or predict()
+
+    """
+    # parse args
     parser = HfArgumentParser(
         (ModelArguments, DataTrainingArguments, TrainingArguments)
     )
-    model_args, data_args, training_args = parser.parse_dict(kwargs)
+    if not kwargs:
+        model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+    else:
+        model_args, data_args, training_args = parser.parse_dict(kwargs)
 
     # Setup logging
     log_level = training_args.get_process_log_level()
@@ -230,7 +253,16 @@ def main(**kwargs):
     }
 
 
-def train(checkpoint, output_dir, train_dataset, trainer):
+def train(checkpoint: str, output_dir: str, train_dataset: Dataset, trainer: Trainer):
+    """
+    Run trainer's training loop on train_dataset, saving the resulting model to
+    output_dir
+
+    :param checkpoint: Optional checkpoint to resume from
+    :param output_dir: Where to output trained model and recipe
+    :param train_dataset: Dataset to run training on
+    :param trainer: Trainer object to run training with
+    """
     train_result = trainer.train(resume_from_checkpoint=checkpoint)
     metrics = train_result.metrics
     metrics["train_samples"] = len(train_dataset)
@@ -242,16 +274,28 @@ def train(checkpoint, output_dir, train_dataset, trainer):
     trainer.save_optimizer_and_scheduler(output_dir)
 
 
-def evaluate(eval_dataset, trainer):
+def evaluate(eval_dataset: Dataset, trainer: Trainer):
+    """
+    Run trainer's evaluation loop on eval_dataset, logging the desired metrics
+
+    :param eval_dataset: Dataset to run evaluation on
+    :param trainer: Trainer object to run evaluation with
+    """
     _LOGGER.info("*** Evaluate ***")
-    metrics = trainer.evaluate()
+    metrics = trainer.evaluate(eval_dataset)
 
     metrics["eval_samples"] = len(eval_dataset)
     trainer.log_metrics("eval", metrics)
     trainer.save_metrics("eval", metrics)
 
 
-def predict(predict_dataset, trainer):
+def predict(predict_dataset: Dataset, trainer: Trainer):
+    """
+    Run trainer's prediction loop on predict_dataset, logging the desired metrics
+
+    :param eval_dataset: Dataset to run prediction on
+    :param trainer: Trainer object to run prediction with
+    """
     _LOGGER.info("*** Predict ***")
     results = trainer.predict(predict_dataset)
     metrics = results.metrics
@@ -259,6 +303,22 @@ def predict(predict_dataset, trainer):
     metrics["predict_samples"] = len(predict_dataset)
     trainer.log_metrics("predict", metrics)
     trainer.save_metrics("predict", metrics)
+
+
+def run_train(**kwargs):
+    """
+    CLI entrypoint for running training
+    """
+    kwargs["do_train"] = True
+    main(**kwargs)
+
+
+def run_eval(**kwargs):
+    """
+    CLI entrypoint for running evaluation
+    """
+    kwargs["do_eval"] = True
+    main(**kwargs)
 
 
 if __name__ == "__main__":
