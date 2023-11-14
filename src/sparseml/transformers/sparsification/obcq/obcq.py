@@ -75,6 +75,10 @@ def one_shot(
         if deploy_dir.exists():
             raise RuntimeError(f"deploy_dir={deploy_dir} already exists")
 
+    # fallback to cpu if cuda not available
+    device = _fallback_to_cpu(device)
+    _LOGGER.info(f"Running one_shot on device {device}")
+
     # Load the configuration from the model path
     config = AutoConfig.from_pretrained(model_path)
     model_type = config.model_type.lower()
@@ -162,6 +166,16 @@ def _save(model, tokenizer, save_path, recipe_path):
     recipe_output_path = os.path.join(save_path, "recipe.yaml")
     with open(recipe_output_path, "w") as fp:
         fp.write(load_recipe_yaml_str(recipe_path))
+
+
+def _fallback_to_cpu(device):
+    if "cuda" in device and not torch.cuda.is_available():
+        _LOGGER.warning(
+            f"Requested {device} but CUDA is not available, falling back to CPU"
+        )
+        return "cpu"
+
+    return device
 
 
 if __name__ == "__main__":
