@@ -37,9 +37,6 @@ from sparseml.modifiers.quantization.utils.quantize import (
 from sparseml.modifiers.utils.pytorch_helpers import run_calibration_forward
 
 
-# from sparseml.utils.pytorch.module import get_quantized_layers, set_layer
-
-
 _LOGGER = logging.getLogger(__name__)
 
 
