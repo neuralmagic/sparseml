@@ -9,7 +9,7 @@ def run():
     do_eval = False
     output_dir = "./output_finetune"
     recipe = "test_trainer_recipe.yaml"
-    num_train_epochs=1
+    num_train_epochs=2
     overwrite_output_dir = True
     raw_kwargs = {"data_files": {"train": "en/c4-train.00000-of-01024.json.gz"}}
     splits = {

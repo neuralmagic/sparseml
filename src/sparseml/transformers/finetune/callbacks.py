@@ -131,4 +131,4 @@ class DisableHalfPrecisionCallback(TrainerCallback):
         self.check_disable(state.epoch)
 
         if state.epoch > self.quant_start_epoch:
-            _LOGGER.info(self.trainer.model)
+            _LOGGER.debug(self.trainer.model)
