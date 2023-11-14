@@ -37,7 +37,7 @@ from sparseml.transformers.finetune.callbacks import (
     DisableHalfPrecisionCallback,
     TrainingLoopCallbacks,
 )
-from sparseml.transformers.finetune.helpers import _reload_model_state
+from sparseml.transformers.finetune.helpers import reload_model_state
 from sparseml.transformers.utils.helpers import RECIPE_NAME
 
 
@@ -111,7 +111,7 @@ class SessionManagerMixIn:
         # TODO: what if there is a quant modifier in the original recipe and we want to
         # continue adjusting its zero point and range?
         load_path = checkpoint or self.model_state_path
-        if _reload_model_state(self.model, load_path, orig_state_dict):
+        if reload_model_state(self.model, load_path, orig_state_dict):
             _LOGGER.info(
                 "Reloaded model state after SparseML recipe structure modifications "
                 f"from {load_path}"
