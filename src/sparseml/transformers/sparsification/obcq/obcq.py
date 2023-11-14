@@ -74,6 +74,7 @@ def one_shot(
 
     # fallback to cpu if cuda not available
     device = _fallback_to_cpu(device)
+    _LOGGER.info(f"Running one_shot on device {device}")
 
     # Load the configuration from the model path
     config = AutoConfig.from_pretrained(model_path)
