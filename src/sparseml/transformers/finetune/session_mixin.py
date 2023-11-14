@@ -25,7 +25,7 @@ from transformers.integrations import TensorBoardCallback
 from transformers.trainer_callback import TrainerState
 from transformers.trainer_utils import get_last_checkpoint
 
-import sparseml.core.session as sml
+import sparseml.core.session as session_manager
 from sparseml.core.framework import Framework
 from sparseml.core.session import callbacks
 from sparseml.pytorch.utils import (
@@ -35,7 +35,7 @@ from sparseml.pytorch.utils import (
 )
 from sparseml.transformers.finetune.callbacks import (
     DisableHalfPrecisionCallback,
-    PostOptimCallback,
+    TrainingLoopCallbacks,
 )
 from sparseml.transformers.finetune.helpers import _reload_model_state
 from sparseml.transformers.utils.helpers import RECIPE_NAME
@@ -79,10 +79,10 @@ class SessionManagerMixIn:
         )
 
         self.logger_manager = LoggerManager(log_python=False)
-        sml.create_session()
+        session_manager.create_session()
 
         super().__init__(model=model, **kwargs)
-        self.optim_callbacks = PostOptimCallback(self)
+        self.optim_callbacks = TrainingLoopCallbacks(self)
         self.callback_handler.add_callback(self.optim_callbacks)
         self.callback_disable_fp16 = DisableHalfPrecisionCallback(self)
         self.callback_handler.add_callback(self.callback_disable_fp16)
@@ -97,7 +97,7 @@ class SessionManagerMixIn:
 
         train_data = self.get_train_dataloader()
 
-        sml.initialize(
+        session_manager.initialize(
             model=self.model,
             recipe=self.recipe,
             recipe_args=self.recipe_args,
@@ -120,19 +120,19 @@ class SessionManagerMixIn:
         return True
 
     def initialize_structure(self):
-        session = sml.active_session()
+        session = session_manager.active_session()
         if session.lifecycle.initialized_ or session.lifecycle.pre_initialize_structure:
             return False
 
-        sml.pre_initialize_structure()
+        session_manager.pre_initialize_structure()
         _LOGGER.info("Initialized SparseML structure from recipe argument")
 
     def finalize_session(self):
-        session = sml.active_session()
+        session = session_manager.active_session()
         if not session.lifecycle.initialized_ or session.lifecycle.finalized:
             return False
 
-        sml.finalize()
+        session_manager.finalize()
         _LOGGER.info("Finalized SparseML recipe argument applied to the model")
 
     def create_optimizer(self):
@@ -154,7 +154,7 @@ class SessionManagerMixIn:
         self.total_steps_per_epoch = math.ceil(
             len(self.train_dataset) / total_batch_size
         )
-        sml.initialize(
+        session_manager.initialize(
             optimizer=self.optimizer, steps_per_epoch=self.total_steps_per_epoch
         )
 
@@ -174,7 +174,7 @@ class SessionManagerMixIn:
 
         # TODO: we don't currently have a LR scheduler in the new modifier framework
         self._check_super_defined("create_scheduler")
-        if self.lr_scheduler is not None or sml.active_session() is None:
+        if self.lr_scheduler is not None or session_manager.active_session() is None:
             super().create_scheduler(num_training_steps, optimizer)
             return
 
@@ -320,14 +320,14 @@ class SessionManagerMixIn:
         self._check_super_defined("save_model")
         super().save_model(output_dir=output_dir, _internal_call=_internal_call)
 
-        if sml.active_session() is None:
+        if session_manager.active_session() is None:
             return
 
         if output_dir is None:
             output_dir = self.args.output_dir
 
         recipe_path = os.path.join(output_dir, RECIPE_NAME)
-        session = sml.active_session()
+        session = session_manager.active_session()
         recipe = session.lifecycle.recipe_container.compiled_recipe
         recipe_yaml_str = recipe.yaml()
         recipe_path = os.path.join(output_dir, "recipe.yaml")
