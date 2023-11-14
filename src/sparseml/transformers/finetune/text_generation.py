@@ -53,18 +53,60 @@ metadata_args = [
 ]
 
 
-def main(**kwargs):
+def run_train(**kwargs):
     """
-    Main entrypoint for finetuning text generation models. A model can be loaded from
-    Hugging Face or disk, and resuming training from a checkpoint is supported.
+    CLI entrypoint for running training
+    """
+    model_args, data_args, training_args = parse_args(**kwargs)
+    training_args.do_train = True
+    main(model_args, data_args, training_args)
 
+
+def run_eval(**kwargs):
+    """
+    CLI entrypoint for running evaluation
+    """
+    model_args, data_args, training_args = parse_args(**kwargs)
+    training_args.do_eval = True
+    main(model_args, data_args, training_args)
+
+
+def run_general(**kwargs):
+    """
+    CLI entrypoint for any of training, eval or predict
+    """
+    model_args, data_args, training_args = parse_args(**kwargs)
+    main(model_args, data_args, training_args)
+
+
+def parse_args(**kwargs):
+    """
     Parses kwargs by grouping into model, data or training arg groups:
         * model_args in src/sparseml/transformers/finetune/model_args.py
         * data_args in src/sparseml/transformers/finetune/data/data_args.py
         * training_args in src/sparseml/transformers/finetune/training_args.py
+    """
+    parser = HfArgumentParser(
+        (ModelArguments, DataTrainingArguments, TrainingArguments)
+    )
+    if not kwargs:
+        model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+    else:
+        model_args, data_args, training_args = parser.parse_dict(kwargs)
+
+    return model_args, data_args, training_args
+
+
+def main(
+    model_args: ModelArguments,
+    data_args: DataTrainingArguments,
+    training_args: TrainingArguments,
+):
+    """
+    Main entrypoint for finetuning text generation models. A model can be loaded from
+    Hugging Face or disk, and resuming training from a checkpoint is supported.
 
     Lifecycle:
-        - parse_dict()
         - get_last_checkpoint() [Optional]
         - AutoModel.text_generation_from_pretrained()
         - AutoTokenizer.from_pretrained()
@@ -74,15 +116,12 @@ def main(**kwargs):
             - HFTransformersTrainer()
         - train() and/or evaluate() and/or predict()
 
+    :param model_args: Arguments pertaining to which model/config/tokenizer we are
+    going to fine-tune from
+    :param data_args: Arguments pertaining to what data we are going to input our model
+    for training and eval
+    :param training_args: Arguments pertaining to training loop configuration
     """
-    # parse args
-    parser = HfArgumentParser(
-        (ModelArguments, DataTrainingArguments, TrainingArguments)
-    )
-    if not kwargs:
-        model_args, data_args, training_args = parser.parse_args_into_dataclasses()
-    else:
-        model_args, data_args, training_args = parser.parse_dict(kwargs)
 
     # Setup logging
     log_level = training_args.get_process_log_level()
@@ -247,11 +286,6 @@ def main(**kwargs):
     if training_args.do_predict:
         predict(predict_dataset, trainer)
 
-    kwargs = {
-        "finetuned_from": model_args.model_name_or_path,
-        "tasks": "text-generation",
-    }
-
 
 def train(checkpoint: str, output_dir: str, train_dataset: Dataset, trainer: Trainer):
     """
@@ -305,21 +339,5 @@ def predict(predict_dataset: Dataset, trainer: Trainer):
     trainer.save_metrics("predict", metrics)
 
 
-def run_train(**kwargs):
-    """
-    CLI entrypoint for running training
-    """
-    kwargs["do_train"] = True
-    main(**kwargs)
-
-
-def run_eval(**kwargs):
-    """
-    CLI entrypoint for running evaluation
-    """
-    kwargs["do_eval"] = True
-    main(**kwargs)
-
-
 if __name__ == "__main__":
-    main()
+    run_general()

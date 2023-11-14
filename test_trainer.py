@@ -1,22 +1,22 @@
 def run():
-    from sparseml.transformers.finetune.text_generation import main
+    from sparseml.transformers.finetune.text_generation import run_general
     
     model = "./obcq_deployment"
-    dataset_name = "c4"
+    dataset_name = "open_platypus"
     dataset_config_name = "allenai--c4"
-    concatenate_data = None
+    concatenate_data = False
     do_train = True
     do_eval = False
     output_dir = "./output_finetune"
     recipe = "test_trainer_recipe.yaml"
     num_train_epochs=2
     overwrite_output_dir = True
-    raw_kwargs = {"data_files": {"train": "en/c4-train.00000-of-01024.json.gz"}}
     splits = {
-        "train": "train[:5%]",
+        "train": "train[:90%]",
+        "validation": "train[90%:]"
     }
 
-    main(
+    run_general(
         model_name_or_path=model,
         dataset_name=dataset_name,
         dataset_config_name=dataset_config_name,
@@ -27,8 +27,7 @@ def run():
         num_train_epochs=num_train_epochs,
         overwrite_output_dir=overwrite_output_dir,
         concatenate_data = concatenate_data,
-        splits = splits,
-        raw_kwargs=raw_kwargs
+        splits = splits
     )
 
 if __name__ == "__main__":

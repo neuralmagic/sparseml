@@ -248,8 +248,11 @@ class SessionManagerMixIn:
 
         inputs = {k: inputs[k] for k in inputs if k in self._model_signature_columns}
         loss = super().compute_loss(model, inputs, return_outputs=return_outputs)
-        callbacks.loss_calculated(loss=loss)
-        callbacks.optim_pre_step()
+
+        if session_manager.active_session().lifecycle.initialized_:
+            callbacks.loss_calculated(loss=loss)
+            callbacks.optim_pre_step()
+
         return loss
 
     def prediction_step(
