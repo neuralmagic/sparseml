@@ -18,7 +18,7 @@ import os
 from typing import Any, Dict
 
 import torch
-from torch import Module
+from torch.nn import Module
 
 import sparseml.core.session as session_manager
 from sparseml.core.framework import Framework
