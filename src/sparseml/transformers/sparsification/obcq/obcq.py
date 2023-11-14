@@ -181,8 +181,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--precision",
         type=str,
+        choices=SUPPORTED_PRECISION,
         default="auto",
-        help="Precision to cast model weights to, either auto, half or",
+        help="Precision to cast model weights to, default to auto",
     )
     parser.add_argument(
         "--eval", type=str, default=None, help="Optional dataset for perplexity eval"
