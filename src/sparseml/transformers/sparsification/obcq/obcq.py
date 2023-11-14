@@ -39,7 +39,7 @@ __all__ = ["one_shot"]
 _LOGGER = logging.getLogger(__name__)
 SUPPORTED_DATASETS = TransformersDataset.registered_names()
 SUPPORTED_MODELS = ["opt", "llama", "mistral"]
-SUPPORTED_PRECISION = ["auto", "half", "full"]
+SUPPORTED_PRECISION = ["auto", "half", "full", "float16", "bfloat16", "float32"]
 
 
 def one_shot(
@@ -144,9 +144,11 @@ def one_shot(
 
 def _parse_dtype(dtype_arg):
     dtype = "auto"  # get precision from model by default
-    if dtype_arg == "half":
+    if dtype_arg == "half" or dtype_arg == "float16":
         dtype = torch.float16
-    elif dtype_arg == "full":
+    elif dtype_arg == "bfloat16":
+        dtype = torch.bfloat16
+    elif dtype_arg == "full" or dtype_arg == "float32":
         dtype = torch.float32
 
     return dtype
