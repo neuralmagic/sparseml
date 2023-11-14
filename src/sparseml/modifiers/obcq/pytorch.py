@@ -155,8 +155,6 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
 
         :param state: un-used, for matching spec of Modifier base class
         """
-        use_cache = self.finalization_kwargs_.get("use_cache", False)
-        self.model.config.use_cache = use_cache
 
         if self.quantization_modifier_:
             self.quantization_modifier_.finalize(state, **kwargs)
@@ -178,13 +176,20 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
         :param dataloader: calibration data to pass through the model
         :param nsamples: number of samples to use for calibration, or None to use it all
         :param dev: device to use
+        :param target_ids: list of keys in model output to cache, NOTE: this argument
+            has been deprecated and will be removed in a future release
         :param layer_prefix: name of model attribute that contains the list of layers,
             i.e. model.decoder for OPT or just model for Llama
         :return: outputs from bottom part of network, attention mask, and kv-cache state
         """
         layer_prefix = layer_prefix or self.layer_prefix_
         cached_inputs = cache_attention_inputs(
-            self.model, dataloader, dev, nsamples, target_ids, layer_prefix
+            model=self.model,
+            dataloader=dataloader,
+            device=dev,
+            nsamples=nsamples,
+            target_ids=target_ids,
+            layer_prefix=layer_prefix,
         )
 
         outputs = cached_inputs.pop("inputs")

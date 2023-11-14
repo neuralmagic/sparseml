@@ -39,6 +39,7 @@ class SmoothQuantModifierPyTorch(SmoothQuantModifier):
 
     calibration_function: Optional[Callable] = None
     hooks_: List = None
+    device_: Optional[str] = None
 
     def on_initialize(self, state: State, **kwargs) -> bool:
         """
@@ -50,6 +51,7 @@ class SmoothQuantModifierPyTorch(SmoothQuantModifier):
         super(SmoothQuantModifierPyTorch, self).on_initialize(state, **kwargs)
 
         calibration_dataloader = state.data.calib
+        self.device_ = torch.device(state.hardware.device)
         self.hooks_ = []
 
         self._setup_scale_hooks()
@@ -83,7 +85,7 @@ class SmoothQuantModifierPyTorch(SmoothQuantModifier):
                     out = out[0]
 
                 hidden_dim = out.shape[-1]
-                out = out.view(-1, hidden_dim).abs()
+                out = out.view(-1, hidden_dim)
                 latest_mins = torch.min(out, dim=0)[0]
                 latest_maxes = torch.max(out, dim=0)[0]
 
@@ -112,7 +114,8 @@ class SmoothQuantModifierPyTorch(SmoothQuantModifier):
         Catch the output dynamic ranges of each layer that will be smoothed by running
         forward passes with calibration_dataloader
         """
-        _LOGGER.info("Running SmoothQuant scale calibration...")
+        class_name = self.__class__.__name__.replace("PyTorch", "")
+        _LOGGER.info(f"Running {class_name} scale calibration...")
         if not calibration_dataloader:
             raise ValueError(
                 "Calibration data loader not set, must populate the calib_data field of"
@@ -162,7 +165,7 @@ class SmoothQuantModifierPyTorch(SmoothQuantModifier):
                 smooth_layer.weight.div_(scales)
             else:
                 smooth_layer.weight.div_(scales.view(-1, 1))
-            if hasattr(smooth_layer, "bias"):
+            if hasattr(smooth_layer, "bias") and smooth_layer.bias is not None:
                 smooth_layer.bias.div_(scales)
 
     def _calculate_smoothing_scales(
@@ -173,8 +176,8 @@ class SmoothQuantModifierPyTorch(SmoothQuantModifier):
         range of the activation and the following weights
 
         :param balance_layers: layers to offset activation smoothing to
-        :param activation_scales: channel-wise dynamic range of activation to smooth
-        :return: channel-wise scales to use for smoothing activation
+        :param activation_scales: channel-wise dynamic range of activations to smooth
+        :return: channel-wise scales to use for smoothing activations
         """
         # get the channel-wise dynamic range for each layer to be balanced
         weight_scales = []
@@ -189,4 +192,5 @@ class SmoothQuantModifierPyTorch(SmoothQuantModifier):
         scales = activation_scales.pow(self.smoothing_strength) / weight_scales.pow(
             1 - self.smoothing_strength
         )
+        scales = torch.where(weight_scales > 0.0, scales, activation_scales)
         return scales
