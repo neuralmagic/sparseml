@@ -32,6 +32,24 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class PostOptimCallback(TrainerCallback):
+    def __init__(self, trainer, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.trainer = trainer
+
+    def on_train_begin(
+        self,
+        args: TrainingArguments,
+        state: TrainerState,
+        control: TrainerControl,
+        **kwargs,
+    ):
+        """
+        Event called at the beginning of training.
+        """
+        super().on_train_begin(args, state, control, **kwargs)
+        session = sml.active_session()
+        session.state.model.model = self.trainer.model
+
     def on_step_end(
         self,
         args: TrainingArguments,

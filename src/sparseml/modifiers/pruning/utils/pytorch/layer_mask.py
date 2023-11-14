@@ -23,12 +23,11 @@ from torch.utils.hooks import RemovableHandle
 from sparseml.core import ModelParameterizedLayer
 
 
-__all__ = ["LayerParamMasking"]
+__all__ = ["LayerParamMasking", "param_mask_name"]
 
 
-def param_mask_name(param_name: str) -> str:
-    valid_name = param_name.replace(".", "_")
-    return f"{valid_name}_mask"
+def param_mask_name() -> str:
+    return "mask"
 
 
 def setup_mask_for_param(param: Parameter, mask: torch.Tensor) -> torch.Tensor:
@@ -70,7 +69,7 @@ class LayerParamMasking(BaseModel):
         if layer_param_name in self._masked_layer_params:
             raise ValueError(f"Layer param {layer_param_name} already has a mask")
 
-        mask_name = param_mask_name(parameterized_layer.param_name)
+        mask_name = param_mask_name()
 
         try:
             parameterized_layer.layer.get_buffer(mask_name)
@@ -126,7 +125,7 @@ class LayerParamMasking(BaseModel):
         mask: torch.Tensor,
     ):
         parameterized_layer = self._masked_layer_params[layer_param_name]
-        mask_name = param_mask_name(parameterized_layer.param_name)
+        mask_name = param_mask_name()
         mask_tensor = parameterized_layer.layer.get_buffer(mask_name)
         mask_tensor[:] = mask
 
@@ -137,7 +136,7 @@ class LayerParamMasking(BaseModel):
         if not mask_settings.persistent:
             delattr(
                 parameterized_layer.layer,
-                param_mask_name(parameterized_layer.param_name),
+                param_mask_name(),
             )
 
         del self._masked_layer_params[layer_param_name]
@@ -155,9 +154,6 @@ class LayerParamMasking(BaseModel):
             return
 
         parameterized_layer = self._masked_layer_params[layer_param_name]
-        if layer_param_name == "model.layers.5.mlp.down_proj.weight":
-            print(parameterized_layer.param.data)
-
         mask_name = param_mask_name(parameterized_layer.param_name)
         mask = parameterized_layer.layer.get_buffer(mask_name)
         parameterized_layer.param.data = parameterized_layer.param.data * mask

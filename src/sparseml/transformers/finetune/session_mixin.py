@@ -82,7 +82,7 @@ class SessionManagerMixIn:
         sml.create_session()
 
         super().__init__(model=model, **kwargs)
-        self.optim_callbacks = PostOptimCallback()
+        self.optim_callbacks = PostOptimCallback(self)
         self.callback_handler.add_callback(self.optim_callbacks)
         self.callback_disable_fp16 = DisableHalfPrecisionCallback(self)
         self.callback_handler.add_callback(self.callback_disable_fp16)
@@ -255,8 +255,9 @@ class SessionManagerMixIn:
             self.finalize_session()
 
         self.accelerator.wait_for_everyone()
-        if self.accelerator.is_main_process:
-            print("logging sparsification")
+        from torch.distributed.fsdp import FullyShardedDataParallel
+
+        with FullyShardedDataParallel.summon_full_params(self.model):
             self.log_model_sparsification()
 
         return output
