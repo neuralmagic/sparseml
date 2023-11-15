@@ -197,7 +197,7 @@ jobs:
         run: pip3 install .[dev,torchvision,onnxruntime] torch==1.9.1
       - name: "🔬 Running onnx tests"
         run: make test TARGETS=onnx
-  pytorch-tests:
+  transformers-tests:
     runs-on: ubuntu-22.04
     env:
       SPARSEZOO_TEST_MODE: "true"
