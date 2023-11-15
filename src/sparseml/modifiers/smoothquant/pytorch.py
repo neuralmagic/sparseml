@@ -127,6 +127,7 @@ class SmoothQuantModifierPyTorch(SmoothQuantModifier):
             calibration_dataloader,
             self.num_calibration_steps,
             self.calibration_function,
+            self.device_,
         )
 
         # remove the hooks now that we are done calibrating

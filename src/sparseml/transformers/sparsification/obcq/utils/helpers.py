@@ -42,6 +42,7 @@ def opt_forward(model: Module, data_loader: List, device: str, nsamples: int = N
         dataloader=data_loader,
         device=device,
         nsamples=nsamples,
+        target_ids=["attention_mask"],
         layer_prefix="decoder",
     )
     buffer = [b[0] for b in cached_inputs.pop("inputs")]
@@ -95,6 +96,7 @@ def llama_forward(model: Module, data_loader: List, device: str, nsamples: int =
         dataloader=data_loader,
         device=device,
         nsamples=nsamples,
+        target_ids=["attention_mask", "position_ids"],
         layer_prefix=None,
     )
     buffer = [b[0] for b in cached_inputs.pop("inputs")]
