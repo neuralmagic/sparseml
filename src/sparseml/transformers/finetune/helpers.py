@@ -45,7 +45,8 @@ def apply_recipe_structure_to_model(model: Module, recipe_path: str, model_path:
     orig_state_dict = model.state_dict()
 
     # apply structural changes to the model
-    session_manager.create_session()
+    if not session_manager.active_session():
+        session_manager.create_session()
     session_manager.pre_initialize_structure(
         model=model, recipe=recipe_path, framework=Framework.pytorch
     )
