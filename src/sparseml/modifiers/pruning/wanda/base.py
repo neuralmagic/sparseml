@@ -28,9 +28,8 @@ class WandaPruningModifier(Modifier):
     Modifier for applying the one-shot WANDA algorithm to a model
     from the paper: https://arxiv.org/abs/2306.11695
     """
-    
+
     sparsity: Union[float, List[float]]
-    block_size: int
     targets: Union[str, List[str], None] = ALL_TOKEN
     mask_structure: str = "unstructured"
 

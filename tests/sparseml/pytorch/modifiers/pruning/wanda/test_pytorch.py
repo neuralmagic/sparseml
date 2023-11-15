@@ -15,11 +15,11 @@
 
 from sparseml.core.factory import ModifierFactory
 from sparseml.core.framework import Framework
-from sparseml.modifiers.pruning.wanda.base import WandaPruningModifier
 from tests.sparseml.modifiers.conf import setup_modifier_factory
 
 
-def test_wanda_is_registered():
+def test_wanda_pytorch_is_registered():
+    from sparseml.modifiers.pruning.wanda.pytorch import WandaPruningModifierPyTorch
 
     kwargs = dict(
         sparsity=0.5,
@@ -28,12 +28,12 @@ def test_wanda_is_registered():
     setup_modifier_factory()
     type_ = ModifierFactory.create(
         type_="WandaPruningModifier",
-        framework=Framework.general,
+        framework=Framework.pytorch,
         allow_experimental=False,
         allow_registered=True,
         **kwargs,
     )
 
     assert isinstance(
-        type_, WandaPruningModifier
+        type_, WandaPruningModifierPyTorch
     ), "PyTorch ConstantPruningModifier not registered"
