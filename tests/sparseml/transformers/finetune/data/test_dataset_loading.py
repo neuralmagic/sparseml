@@ -18,9 +18,14 @@ import pytest
 from sparseml.transformers.finetune.data import TextGenerationDataset
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
 
+
 @pytest.mark.usefixtures("tiny_llama_tokenizer")
 def test_concatenation_tokenization(tiny_llama_tokenizer):
-    data_args = DataTrainingArguments(dataset_name="wikitext", dataset_config_name="wikitext-2-raw-v1", concatenate_data=True)
+    data_args = DataTrainingArguments(
+        dataset_name="wikitext",
+        dataset_config_name="wikitext-2-raw-v1",
+        concatenate_data=True,
+    )
     wiki_manager = TextGenerationDataset.load_from_registry(
         data_args.dataset_name,
         data_args=data_args,
@@ -37,10 +42,12 @@ def test_concatenation_tokenization(tiny_llama_tokenizer):
     for i in range(len(tokenized_dataset)):
         assert len(tokenized_dataset[i]["input_ids"]) == wiki_manager.max_seq_length
 
-# test no padding (open_platypus) running tokenization
+
 @pytest.mark.usefixtures("tiny_llama_tokenizer")
 def test_no_padding_tokenization(tiny_llama_tokenizer):
-    data_args = DataTrainingArguments(dataset_name="open_platypus", pad_to_max_length=False)
+    data_args = DataTrainingArguments(
+        dataset_name="open_platypus", pad_to_max_length=False
+    )
     op_manager = TextGenerationDataset.load_from_registry(
         data_args.dataset_name,
         data_args=data_args,
@@ -61,8 +68,42 @@ def test_no_padding_tokenization(tiny_llama_tokenizer):
     for i in range(len(tokenized_dataset)):
         assert len(tokenized_dataset[i]["input_ids"]) <= op_manager.max_seq_length
 
-# test formatting of open_platypus
 
-# test max sequence length gets clipped
+@pytest.mark.usefixtures("tiny_llama_tokenizer")
+def test_max_seq_len_clipped(tiny_llama_tokenizer):
+    data_args = DataTrainingArguments(dataset_name="open_platypus", max_seq_length=4096)
+    op_manager = TextGenerationDataset.load_from_registry(
+        data_args.dataset_name,
+        data_args=data_args,
+        split="train[80%:]",
+        tokenizer=tiny_llama_tokenizer,
+    )
+
+    assert op_manager.max_seq_length == tiny_llama_tokenizer.model_max_length
+
 
 # test loading percentages works as expected size-wise
+@pytest.mark.usefixtures("tiny_llama_tokenizer")
+def test_dataset_kwargs_and_percentages(tiny_llama_tokenizer):
+    data_args = DataTrainingArguments(
+        dataset_name="c4",
+        dataset_config_name="allenai--c4",
+        raw_kwargs={"data_files": {"train": "en/c4-train.00000-of-01024.json.gz"}},
+    )
+    c4_manager_a = TextGenerationDataset.load_from_registry(
+        data_args.dataset_name,
+        data_args=data_args,
+        split="train[5%:10%]",
+        tokenizer=tiny_llama_tokenizer,
+    )
+    raw_dataset_a = c4_manager_a.get_raw_dataset()
+
+    c4_manager_b = TextGenerationDataset.load_from_registry(
+        data_args.dataset_name,
+        data_args=data_args,
+        split="train[5%:15%]",
+        tokenizer=tiny_llama_tokenizer,
+    )
+    raw_dataset_b = c4_manager_b.get_raw_dataset()
+
+    assert len(raw_dataset_b) == 2 * len(raw_dataset_a)

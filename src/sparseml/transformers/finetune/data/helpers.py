@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from datasets import Dataset, load_dataset
 
@@ -20,7 +20,7 @@ from datasets import Dataset, load_dataset
 __all__ = ["get_raw_dataset", "make_dataset_splits"]
 
 
-def get_raw_dataset(data_args, cache_dir: str, **kwargs) -> Dataset:
+def get_raw_dataset(data_args, cache_dir: Optional[str] = None, **kwargs) -> Dataset:
     """
     Load the raw dataset from Hugging Face, using cached copy if available
 
