@@ -197,16 +197,16 @@ jobs:
         run: pip3 install .[dev,torchvision,onnxruntime] torch==1.9.1
       - name: "🔬 Running onnx tests"
         run: make test TARGETS=onnx
-  transformers-tests:
+  pytorch-tests:
     runs-on: ubuntu-22.04
     env:
       SPARSEZOO_TEST_MODE: "true"
     needs: test-setup
-    if: ${{needs.test-setup.outputs.onnx == 1}}
+    if: ${{needs.test-setup.outputs.pytorch == 1}}
     steps:
       - uses: actions/setup-python@v4
         with:
-          python-version: '3.9'
+          python-version: '3.11'
       - uses: actions/checkout@v2
       - uses: actions/checkout@v2
         with:
