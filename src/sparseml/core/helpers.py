@@ -79,8 +79,7 @@ def _log_epoch(logger_manager: LoggerManager, epoch: int):
     :param logger_manager: The logger manager to log to
     :param epoch: The epoch to log
     """
-    epoch_str = f"Epoch: #{epoch:.1f}"
-    logger_manager.log_string(tag="Epoch", string=f"{epoch_str:=^20}", step=epoch)
+    logger_manager.log_scalar(tag="Epoch", value=float(epoch), step=epoch)
 
 
 def _log_model_loggable_items(

@@ -72,25 +72,24 @@ def state_mock():
     yield StateMock()
 
 
-def test__log_epoch_invokes_log_string():
+def test__log_epoch_invokes_log_scalar():
     logger_manager = LoggerManagerMock()
     _log_epoch(
         logger_manager=logger_manager,
         epoch=1,
     )
     # log epoch should invoke log_string
-    assert logger_manager.hit_count["log_string"] == 1
+    assert logger_manager.hit_count["log_scalar"] == 1
 
 
 def test_log_model_info_logs_epoch_and_loggable_items():
     state = StateMock()
-    log_model_info(state, epoch=3)
-    # epoch logging will invoke log_string
-    assert state.loggers.hit_count["log_string"] == 1
+    epoch = 3
+    log_model_info(state, epoch=epoch)
 
     # loggable items will invoke log_scalar for each
-    # int/float value
-    assert state.loggers.hit_count["log_scalar"] == 3
+    # int/float value + 1 for the epoch
+    assert state.loggers.hit_count["log_scalar"] == epoch + 1
 
 
 @pytest.mark.parametrize(

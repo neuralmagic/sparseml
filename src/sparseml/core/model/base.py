@@ -133,7 +133,7 @@ class ModifiableModel(Generic[MT, LT, PT], MultiFrameworkObject):
             - the name of the loggable item
             - the value of the loggable item
         """
-        
+
     @property
     def layer_prefix(self) -> Optional[str]:
         """

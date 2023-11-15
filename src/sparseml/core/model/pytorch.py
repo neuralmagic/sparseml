@@ -139,7 +139,6 @@ class ModifiableModelPyTorch(ModifiableModel[Module, Module, Parameter]):
         """
         return get_matching_layer(target, name_to_match, model)
 
-
     def qat_active(self) -> bool:
         """
         Checks if quantization aware training is set up in the model
