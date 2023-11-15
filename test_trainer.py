@@ -3,7 +3,6 @@ def run():
     
     model = "./obcq_deployment"
     dataset_name = "open_platypus"
-    dataset_config_name = "allenai--c4"
     concatenate_data = False
     do_train = True
     do_eval = False
@@ -19,7 +18,6 @@ def run():
     run_general(
         model_name_or_path=model,
         dataset_name=dataset_name,
-        dataset_config_name=dataset_config_name,
         do_train=do_train,
         do_eval=do_eval,
         output_dir=output_dir,

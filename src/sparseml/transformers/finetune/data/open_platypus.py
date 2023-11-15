@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from copy import deepcopy
-
+from typing import Optional
 from sparseml.transformers.finetune.data import TextGenerationDataset
 from sparseml.transformers.finetune.data.helpers import get_raw_dataset
 
@@ -44,7 +44,7 @@ class OpenPlatypusDataset(TextGenerationDataset):
             text_column="text", data_args=data_args, split=split, tokenizer=tokenizer
         )
 
-    def get_raw_dataset(self, cache_dir):
+    def get_raw_dataset(self, cache_dir: Optional[str] = None):
         """
         Load the raw dataset from Hugging Face, using cached copy if available.
         Additionally reformats the entries to fit the alpaca template.

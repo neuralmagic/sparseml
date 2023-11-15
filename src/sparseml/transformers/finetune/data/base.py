@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import logging
-
+from typing import Optional
 from datasets import Dataset
 from transformers import AutoTokenizer
 
@@ -70,7 +70,7 @@ class TextGenerationDataset(RegistryMixin):
             )
         self.max_seq_length = min(data_args.max_seq_length, tokenizer.model_max_length)
 
-    def get_raw_dataset(self, cache_dir: str) -> Dataset:
+    def get_raw_dataset(self, cache_dir: Optional[str] = None) -> Dataset:
         """
         Load the raw dataset from Hugging Face, using cached copy if available
 
