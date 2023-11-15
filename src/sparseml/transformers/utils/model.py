@@ -422,18 +422,21 @@ class SparseAutoModel:
             )
 
 
-class SparseCasualLM:
+class SparseCausalLM:
     """
     Factory class for loading LLMs from the transformers library. Currently OPT and
     Llama are supported
     """
 
     @staticmethod
-    def opt_model_from_pretrained(model_path: str) -> torch.nn.Module:
+    def opt_model_from_pretrained(
+        model_path: str, torch_dtype: Union[str, torch.dtype] = "auto"
+    ) -> torch.nn.Module:
         """
         Load a pretrained OPT model from the specified hugging face path
 
         :param model_path: hugging face or local path to model
+        :param torch_dtype: precision to load model weights in as
         :return: loaded pretrained model
         """
 
@@ -444,20 +447,41 @@ class SparseCasualLM:
         torch.nn.init.uniform_ = skip
         torch.nn.init.normal_ = skip
 
-        model = OPTForCausalLM.from_pretrained(model_path, torch_dtype="auto")
+        model = OPTForCausalLM.from_pretrained(model_path, torch_dtype=torch_dtype)
         model.eval()
         model.seqlen = model.config.max_position_embeddings
         return model
 
     @staticmethod
-    def llama_model_from_pretrained(model_path: str) -> torch.nn.Module:
+    def llama_model_from_pretrained(
+        model_path: str, torch_dtype: Union[str, torch.dtype] = "auto"
+    ) -> torch.nn.Module:
         """
         Load a pretrained Llama model from the specified hugging face path
 
         :param model_path: hugging face path to model
+        :param torch_dtype: precision to load model weights in as
         :return: loaded pretrained model
         """
-        model = LlamaForCausalLM.from_pretrained(model_path, torch_dtype="auto")
+        model = LlamaForCausalLM.from_pretrained(model_path, torch_dtype=torch_dtype)
+        model.eval()
+        model.seqlen = model.config.max_position_embeddings
+        return model
+
+    @staticmethod
+    def auto_model_from_pretrained(
+        model_path: str, torch_dtype: Union[str, torch.dtype] = "auto"
+    ) -> torch.nn.Module:
+        """
+        Load a pretrained model using auto from the specified hugging face path
+
+        :param model_path: hugging face path to model
+        :param torch_dtype: precision to load model weights in as
+        :return: loaded pretrained model
+        """
+        model = AutoModelForCausalLM.from_pretrained(
+            model_path, torch_dtype=torch_dtype
+        )
         model.eval()
         model.seqlen = model.config.max_position_embeddings
         return model

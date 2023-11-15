@@ -1,23 +1,34 @@
+metadata:
+  target_model:
+    layer_prefix: "decoder"
+    architecture: "opt"
+
 test_stage:
   obcq_modifiers:
+    SmoothQuantModifier:
+      smoothing_strength: 0.5
+      mappings: [
+        [["re:.*q_proj", "re:.*k_proj", "re:.*v_proj"], "re:.*self_attn_layer_norm"],
+        [["re:.*fc1"], "re:.*final_layer_norm"]
+      ]
+      ignore: ["model.decoder.final_layer_norm"]
+    QuantizationModifier:
+      ignore: ["lm_head", "Embedding", "OPTLearnedPositionalEmbedding", "QuantizableBatchMatMul", "BMMLeftInput_QK", "BMMRightInput_QK", "BMMOutput_QK", "BMMLeftInput_PV", "BMMRightInput_PV", "BMMOutput_PV"]
+      post_oneshot_calibration: True
+      scheme_overrides:
+        ReLU:
+          input_activations: null
+          output_activations: null
+        LayerNorm:
+          input_activations: null
+          output_activations: null
     SparseGPTModifier:
       sparsity: 0.5
       block_size: 128
       sequential_update: False
-      quantize:
-        QuantizationModifier:
-          ignore: ["lm_head", "Embedding", "OPTLearnedPositionalEmbedding", "QuantizableBatchMatMul", "BMMLeftInput_QK", "BMMRightInput_QK", "BMMOutput_QK", "BMMLeftInput_PV", "BMMRightInput_PV", "BMMOutput_PV"]
-          post_oneshot_calibration: True
-          scheme_overrides:
-            ReLU:
-              input_activations: null
-              output_activations: null
-            LayerNorm:
-              input_activations: null
-              output_activations: null
+      quantize: True
       percdamp: 0.01
-      prunen: 0
-      prunem: 0
+      mask_structure: "0:0"
       targets: [
         "model.decoder.layers.0",
         "model.decoder.layers.1",
@@ -44,5 +55,3 @@ test_stage:
         "model.decoder.layers.22",
         "model.decoder.layers.23"
       ]
-      target_ids: ["attention_mask"]
-      layer_prefix: "decoder"

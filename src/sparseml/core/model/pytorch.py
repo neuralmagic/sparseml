@@ -25,6 +25,7 @@ from sparseml.utils.pytorch import (
     get_layer,
     get_layers,
     get_layers_params,
+    get_matching_layer,
     get_param,
     get_params,
     qat_active,
@@ -42,12 +43,17 @@ class ModifiableModelPyTorch(ModifiableModel[Module, Module, Parameter]):
 
     :param framework: the framework the model is in
     :param model: the model object
+    :param layer_prefix: name of model attribute that contains the list of layers, i.e.
+        model.decoder for OPT or just model for Llama
     """
 
     def __init__(
-        self, framework: Optional[Framework] = None, model: Optional[Module] = None
+        self,
+        framework: Optional[Framework] = None,
+        model: Optional[Module] = None,
+        layer_prefix: Optional[str] = None,
     ):
-        super().__init__(framework=framework, model=model)
+        super().__init__(framework=framework, model=model, layer_prefix=layer_prefix)
 
     def get_layers_params(
         self, targets: Union[str, List[str]]
@@ -122,6 +128,17 @@ class ModifiableModelPyTorch(ModifiableModel[Module, Module, Parameter]):
             non_zero_only=True,
             enabled_only=True,
         )
+
+    def get_matching_layer(
+        self, target: str, name_to_match: str, model: Module
+    ) -> Optional[Tuple[str, Module]]:
+        """
+        :param target: regex layer name to target when searching model
+        :param name_to_match: name to match targets to
+        :param model: model to search for targets
+        """
+        return get_matching_layer(target, name_to_match, model)
+
 
     def qat_active(self) -> bool:
         """
