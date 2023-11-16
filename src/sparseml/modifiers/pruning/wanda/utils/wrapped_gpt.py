@@ -25,7 +25,7 @@ except ImportError as err:
     transformers = None
     transformers_err = err
 
-__all__ = ["WrappedGPT"]
+__all__ = ["WandaGPT"]
 
 
 DEBUG = False
@@ -35,7 +35,7 @@ torch.backends.cuda.matmul.allow_tf32 = False
 torch.backends.cudnn.allow_tf32 = False
 
 
-class WrappedGPT:
+class WandaGPT:
     """
     Runs Wanda on a single module that contains no sub-modules
 

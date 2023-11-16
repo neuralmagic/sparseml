@@ -19,7 +19,7 @@ from typing import Dict, List
 import torch
 from torch.nn import Module
 
-from sparseml.modifiers.pruning.wanda.utils.wrapped_gpt import WrappedGPT
+from sparseml.modifiers.pruning.wanda.utils.wrapped_gpt import WandaGPT
 from sparseml.pytorch.utils.helpers import get_dependency_order
 from sparseml.utils.pytorch.module import get_prunable_layers
 
@@ -76,7 +76,7 @@ class WandaLayerCompressor:
 
         gpts = {}
         for name in subset:
-            gpts[name] = WrappedGPT(subset[name])
+            gpts[name] = WandaGPT(subset[name])
 
         def add_batch(name):
             def tmp(_, inp, out):
@@ -167,7 +167,7 @@ class WandaLayerCompressor:
 
         nsamples = len(self.inputs)
         for name in order:  # create WrappedGPT object for each compressible module
-            gpts = WrappedGPT(subset[name])
+            gpts = WandaGPT(subset[name])
 
             def add_batch(name):
                 def tmp(_, inp, out):
