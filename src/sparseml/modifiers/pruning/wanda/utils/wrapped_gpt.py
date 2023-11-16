@@ -12,31 +12,69 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
+import time
+
 import torch
 import torch.nn as nn
 
 
+try:
+    import transformers
+except ImportError as err:
+    transformers = None
+    transformers_err = err
+
 __all__ = ["WrappedGPT"]
+
+
+DEBUG = False
+_LOGGER = logging.getLogger(__name__)
+
+torch.backends.cuda.matmul.allow_tf32 = False
+torch.backends.cudnn.allow_tf32 = False
 
 
 class WrappedGPT:
     """
-    This class wraps a GPT layer for specific operations.
+    Runs Wanda on a single module that contains no sub-modules
+
+    Lifecycle:
+        - add_batch
+        - fasterprune
+        - free
+
+
+    :param layer: module to run Wanda on
     """
 
-    def __init__(self, layer, layer_id=0, layer_name="none"):
+    def __init__(self, layer):
+        if transformers is None:
+            raise transformers_err
+
         self.layer = layer
         self.dev = self.layer.weight.device
-        self.rows = layer.weight.data.shape[0]
-        self.columns = layer.weight.data.shape[1]
-
-        self.scaler_row = torch.zeros((self.columns), device=self.dev)
+        W = layer.weight.data.clone()
+        if isinstance(self.layer, nn.Conv2d):
+            W = W.flatten(1)
+        if isinstance(self.layer, transformers.Conv1D):
+            W = W.t()
+        self.rows = W.shape[0]
+        self.columns = W.shape[1]
         self.nsamples = 0
+        self.scaler_row = torch.zeros((self.columns), device=self.dev)
 
-        self.layer_id = layer_id
-        self.layer_name = layer_name
+    def add_batch(self, inp: torch.Tensor, out: torch.Tensor):
+        """
+        Add a batch of layer input and output data to the layer
+        statistics calculation
 
-    def add_batch(self, inp, out):
+        :param inp: tensor containing layer input
+        :param out: tensor containing layer output
+        """
+        if DEBUG:
+            self._inp1 = inp
+            self.out1 = out
         if len(inp.shape) == 2:
             inp = inp.unsqueeze(0)
         tmp = inp.shape[0]
@@ -50,3 +88,69 @@ class WrappedGPT:
 
         inp = inp.type(torch.float32)
         self.scaler_row += torch.norm(inp, p=2, dim=1) ** 2 / self.nsamples
+
+    def fasterprune(
+        self,
+        sparsity: float,
+        prunen: int = 0,
+        prunem: int = 0,
+    ):
+        """
+        Run pruning and on the layer up to the target
+        sparsity value.
+
+        :param sparsity: target sparsity to reach for layer
+        :param prunen: N for N:M pruning
+        :param prunem: M for N:M pruning
+        """
+        W = self.layer.weight.data.clone()
+        if isinstance(self.layer, nn.Conv2d):
+            W = W.flatten(1)
+        if isinstance(self.layer, transformers.Conv1D):
+            W = W.t()
+        W = W.float()
+
+        tick = time.time()
+
+        W_metric = torch.abs(W) * torch.sqrt(self.scaler_row.reshape((1, -1)))
+
+        # initialize a mask to be all False
+        W_mask = torch.zeros_like(W_metric) == 1
+        if prunen != 0:
+            # structured n:m sparsity
+            for ii in range(W_metric.shape[1]):
+                if ii % prunem == 0:
+                    tmp = W_metric[:, ii : (ii + prunem)].float()
+                    W_mask.scatter_(
+                        1,
+                        ii + torch.topk(tmp, prunen, dim=1, largest=False)[1],
+                        True,
+                    )
+        else:
+            sort_res = torch.sort(W_metric, dim=-1, stable=True)
+            indices = sort_res[1][:, : int(W_metric.shape[1] * sparsity)]
+            W_mask.scatter_(1, indices, True)
+
+        W[W_mask] = 0  # set weights to zero
+
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
+        _LOGGER.info("time %.2f" % (time.time() - tick))
+
+        if isinstance(self.layer, transformers.Conv1D):
+            W = W.t()
+        self.layer.weight.data = W.reshape(self.layer.weight.shape).to(
+            self.layer.weight.data.dtype
+        )
+        if DEBUG:
+            _LOGGER.debug(torch.sum((self.layer(self._inp1) - self.out1) ** 2))
+
+    def free(self):
+        """
+        Free memory after the layer is complete
+        """
+        if DEBUG:
+            self._inp1 = None
+            self.out1 = None
+        self.scaler_row = None
+        torch.cuda.empty_cache()

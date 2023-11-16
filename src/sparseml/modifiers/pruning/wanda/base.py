@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-from typing import List, Union
+from typing import List, Optional, Union
 
 from sparseml.core import Modifier
 from sparseml.core.model.base import ModifiableModel
@@ -45,6 +45,7 @@ class WandaPruningModifier(Modifier):
     sparsity: Union[float, List[float]]
     mask_structure: str = "0:0"
     targets: Union[str, List[str], None] = ALL_TOKEN
+    compressible_layers_: Optional[List] = None
 
     def on_initialize_structure(self, state: State, **kwargs):
         """
