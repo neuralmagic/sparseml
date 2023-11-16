@@ -18,6 +18,7 @@ import os
 from pathlib import Path
 from typing import Optional
 
+import torch
 from torch.nn import Module
 from transformers import AutoConfig
 
@@ -38,6 +39,7 @@ __all__ = ["one_shot"]
 _LOGGER = logging.getLogger(__name__)
 SUPPORTED_DATASETS = TransformersDataset.registered_names()
 SUPPORTED_MODELS = ["opt", "llama", "mistral"]
+SUPPORTED_PRECISION = ["auto", "half", "full", "float16", "bfloat16", "float32"]
 
 
 def one_shot(
@@ -47,6 +49,7 @@ def one_shot(
     device: str = "cuda:0",
     deploy_dir: Optional[str] = ".",
     recipe_file: Optional[str] = None,
+    precision: str = "auto",
     eval_data: Optional[str] = None,
     do_save: Optional[bool] = False,
 ) -> Module:
@@ -59,6 +62,7 @@ def one_shot(
     :param device: Device (cuda:index or cpu) to use for computation
     :param deploy_dir: The output directory to save the model to
     :param recipe_file: recipe containing SparseGPT configuration
+    :param precision: precision to load model as, either auto, half or full
     :param eval_data: dataset to use for perplexity evalaution, or none to skip
     :param do_save: whether to save the output model to disk
 
@@ -70,6 +74,10 @@ def one_shot(
 
         if deploy_dir.exists():
             raise RuntimeError(f"deploy_dir={deploy_dir} already exists")
+
+    # fallback to cpu if cuda not available
+    device = _fallback_to_cpu(device)
+    _LOGGER.info(f"Running one_shot on device {device}")
 
     # Load the configuration from the model path
     config = AutoConfig.from_pretrained(model_path)
@@ -88,7 +96,8 @@ def one_shot(
         forward_fn = llama_forward
     else:
         raise ValueError(f"model_path={model_path} should be one of {SUPPORTED_MODELS}")
-    model = model_loader_fn(model_path)
+    torch_dtype = _parse_dtype(precision)
+    model = model_loader_fn(model_path, torch_dtype=torch_dtype)
 
     if dataset_name not in SUPPORTED_DATASETS:
         raise ValueError(
@@ -137,6 +146,18 @@ def one_shot(
     return model
 
 
+def _parse_dtype(dtype_arg):
+    dtype = "auto"  # get precision from model by default
+    if dtype_arg == "half" or dtype_arg == "float16":
+        dtype = torch.float16
+    elif dtype_arg == "bfloat16":
+        dtype = torch.bfloat16
+    elif dtype_arg == "full" or dtype_arg == "float32":
+        dtype = torch.float32
+
+    return dtype
+
+
 def _save(model, tokenizer, save_path, recipe_path):
     model.save_pretrained(save_path)
     tokenizer.save_pretrained(save_path)
@@ -145,6 +166,16 @@ def _save(model, tokenizer, save_path, recipe_path):
     recipe_output_path = os.path.join(save_path, "recipe.yaml")
     with open(recipe_output_path, "w") as fp:
         fp.write(load_recipe_yaml_str(recipe_path))
+
+
+def _fallback_to_cpu(device):
+    if "cuda" in device and not torch.cuda.is_available():
+        _LOGGER.warning(
+            f"Requested {device} but CUDA is not available, falling back to CPU"
+        )
+        return "cpu"
+
+    return device
 
 
 if __name__ == "__main__":
@@ -158,11 +189,18 @@ if __name__ == "__main__":
         help="Name of dataset to extract calibration data from",
     )
     parser.add_argument(
-        "--nsamples", type=int, default=128, help="Number of calibration data samples"
+        "--nsamples", type=int, default=512, help="Number of calibration data samples"
     )
     parser.add_argument("--device", type=str, default="cuda:0")
     parser.add_argument("--deploy-dir", type=str, default=".")
     parser.add_argument("--recipe", type=str, default=None)
+    parser.add_argument(
+        "--precision",
+        type=str,
+        choices=SUPPORTED_PRECISION,
+        default="auto",
+        help="Precision to cast model weights to, default to auto",
+    )
     parser.add_argument(
         "--eval", type=str, default=None, help="Optional dataset for perplexity eval"
     )
@@ -179,6 +217,7 @@ if __name__ == "__main__":
         num_samples=args.nsamples,
         device=args.device,
         recipe_file=args.recipe,
+        precision=args.precision,
         eval_data=args.eval,
         do_save=args.save,
     )
