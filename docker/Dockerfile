@@ -65,6 +65,8 @@ ENV PATH="${VENV}/bin:$PATH"
 ENV PIP_DEFAULT_TIMEOUT=200
 ARG VERSION
 ARG MODE=""
+ARG BRANCH
+
 RUN \
     if [ -n "$BRANCH" ] ; then \
       echo Installing from BRANCH && \
@@ -92,6 +94,8 @@ ENV PATH="${VENV}/bin:$PATH"
 ENV PIP_DEFAULT_TIMEOUT=200
 ARG VERSION
 ARG MODE
+ARG BRANCH
+
 RUN \
     if [ -n "$BRANCH" ] ; then \
       echo Installing from BRANCH && \
@@ -115,6 +119,8 @@ ENV PATH="${VENV}/bin:$PATH"
 ENV PIP_DEFAULT_TIMEOUT=200
 ARG VERSION
 ARG MODE
+ARG BRANCH
+
 RUN \
     if [ -n "$BRANCH" ] ; then \
       echo Installing from BRANCH with editable mode && \
@@ -141,5 +147,6 @@ ARG VENV
 COPY --from=build $VENV $VENV
 ENV PATH="${VENV}/bin:$PATH"
 HEALTHCHECK CMD python -c 'import sparseml'
+RUN pip list | grep sparseml
 CMD bash
 
