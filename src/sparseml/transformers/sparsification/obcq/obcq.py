@@ -31,7 +31,7 @@ from sparseml.transformers.sparsification.obcq.utils.helpers import (
     llama_forward,
     opt_forward,
 )
-from sparseml.transformers.utils.model import SparseCausalLM
+from sparseml.transformers.utils.model import SparseAutoModel, apply_recipe_structure
 
 
 __all__ = ["one_shot"]
@@ -83,21 +83,22 @@ def one_shot(
     config = AutoConfig.from_pretrained(model_path)
     model_type = config.model_type.lower()
 
-    model_loader_fn = None
     forward_fn = None
     if "opt" in model_type:
-        model_loader_fn = SparseCausalLM.opt_model_from_pretrained
         forward_fn = opt_forward
     elif "llama" in model_type:
-        model_loader_fn = SparseCausalLM.llama_model_from_pretrained
         forward_fn = llama_forward
     elif "mistral" in model_type:
-        model_loader_fn = SparseCausalLM.auto_model_from_pretrained
         forward_fn = llama_forward
     else:
         raise ValueError(f"model_path={model_path} should be one of {SUPPORTED_MODELS}")
+
     torch_dtype = _parse_dtype(precision)
-    model = model_loader_fn(model_path, torch_dtype=torch_dtype)
+    model = SparseAutoModel.text_generation_from_pretrained(
+        model_name_or_path=model_path, model_type="model", torch_dtype=torch_dtype
+    )
+    model.seqlen = model.config.max_position_embeddings
+    apply_recipe_structure(model=model, model_path=model_path)
 
     if dataset_name not in SUPPORTED_DATASETS:
         raise ValueError(
@@ -121,7 +122,7 @@ def one_shot(
         recipe=recipe_file,
         model=model,
         calib_data=calibration_data,
-        start=0.0,
+        start=-1,
         device=device,
         copy_data=False,
     )
