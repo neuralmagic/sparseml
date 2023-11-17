@@ -42,12 +42,16 @@ class EvolCodeAlpaca(TransformersDataset):
 
         processed_data = []
         for sample in self._data:
-            processed_sample = "Below is an instruction that describes a programming task. Write a program that appropriately completes the request.\n\n### Instruction:\n{instruction}\n\n### Response:\n".format(
-                instruction=sample["instruction"]
-            )
+            processed_sample = (
+                "Below is an instruction that describes a "
+                "programming task. Write a program that appropriately "
+                "completes the request.\n\n### Instruction:\n{instruction}"
+                "\n\n### Response:\n"
+            ).format(instruction=sample["instruction"])
 
             if "output" in sample:
                 processed_sample += sample["output"]
             processed_data.append(processed_sample)
-
+            print(processed_sample)
+            exit()
         self.create_dataloader(processed_data)
