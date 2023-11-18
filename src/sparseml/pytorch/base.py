@@ -49,7 +49,7 @@ __all__ = [
 
 
 _TORCH_MIN_VERSION = "1.0.0"
-_TORCH_MAX_VERSION = os.environ.get("MAX_TORCH", "2.1")
+_TORCH_MAX_VERSION = os.environ.get("MAX_TORCH", "2.1.10")
 
 
 def check_torch_install(
