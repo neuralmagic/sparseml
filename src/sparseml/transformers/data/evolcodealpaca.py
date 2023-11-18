@@ -52,6 +52,5 @@ class EvolCodeAlpaca(TransformersDataset):
             if "output" in sample:
                 processed_sample += sample["output"]
             processed_data.append(processed_sample)
-            print(processed_sample)
-            exit()
+
         self.create_dataloader(processed_data)
