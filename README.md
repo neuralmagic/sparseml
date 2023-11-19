@@ -181,7 +181,7 @@ sparseml.yolov5.train \
 More information on the codebase and contained processes can be found in the SparseML docs:
 - [Examples and Tutorials](integrations)
 - [Sparsification Code](https://docs.neuralmagic.com/get-started/sparsify-a-model)
-- [Sparsification Recipes](https://docs.neuralmagic.com/user-guides/recipes)
+- [Sparsification Recipes](user-guide/modifiers.md)
 - [Exporting to ONNX](https://docs.neuralmagic.com/user-guides/onnx-export)
 
 ## Resources
