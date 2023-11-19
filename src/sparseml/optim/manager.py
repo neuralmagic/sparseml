@@ -529,9 +529,25 @@ class BaseManager(BaseObject):
             else False
         )
 
-    def phase(self, epoch: float) -> Optional[str]:
+    def phase_at_end_of(self, epoch: int) -> Optional[str]:
         """
-        Computes the phase that the modifiers are in.
+        Computes the phase that the modifiers are in at the end of the `epoch`.
+
+        `epoch` is an **int**, and calls `math.floor` on all epochs of the modifiers.
+        If you have a pruning modifier with start_epoch 10.0 and end_epoch of 11.5,
+        then `phase_at_end_of(11)` would be comparing against floor(10.0)
+        and floor(11.5). The pruning modifier in this case would be
+        considered finished.
+
+        Pruning is in progress if `epoch` is between any pruning modifier's
+        start and end epoch (floored):
+
+            `floor(modifier.start_epoch) <= epoch < floor(modifier.end_epoch)`
+
+        Quantization is in progress if epoch is between the earliest and latest
+        quantization modifier epochs:
+
+            `floor(earlier_mod.start_epoch) <= epoch < floor(latest_mod.start_epoch)`
 
         Example usage:
 
@@ -539,7 +555,7 @@ class BaseManager(BaseObject):
         phase = BaseManager.compose_staged(
             manager,
             checkpoint_manager
-        ).phase()
+        ).phase_at_end_of(epoch)
         if phase is not None:
             checkpoint_name = "best_{phase}.pt"
         ```
@@ -561,19 +577,19 @@ class BaseManager(BaseObject):
             pruned = False
             pruning_in_progress = False
         else:
-            pruning_start = min(mod.start_epoch for mod in pruners)
-            pruning_end = max(mod.end_epoch for mod in pruners)
-            pruning_in_progress = pruning_start <= epoch <= pruning_end
-            pruned = epoch > pruning_end
+            pruning_start = math.floor(min(mod.start_epoch for mod in pruners))
+            pruning_end = math.floor(max(mod.end_epoch for mod in pruners))
+            pruning_in_progress = pruning_start <= epoch < pruning_end
+            pruned = epoch >= pruning_end
 
         if len(quantizers) == 0:
             quantized = False
             quantization_in_progress = False
         else:
-            first_quant_epoch = min(mod.start_epoch for mod in quantizers)
-            last_quant_epoch = max(mod.start_epoch for mod in quantizers)
-            quantization_in_progress = first_quant_epoch <= epoch <= last_quant_epoch
-            quantized = epoch > last_quant_epoch
+            first_quant_epoch = math.floor(min(mod.start_epoch for mod in quantizers))
+            last_quant_epoch = math.floor(max(mod.start_epoch for mod in quantizers))
+            quantization_in_progress = first_quant_epoch <= epoch < last_quant_epoch
+            quantized = epoch >= last_quant_epoch
 
         if pruning_in_progress or quantization_in_progress:
             return None
