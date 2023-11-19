@@ -514,7 +514,7 @@ class ModuleParamPruningMask(object):
             if self._gradient_hooks[idx] is None:
                 self._gradient_hooks[idx] = param.register_hook(
                     partial(self._hook_mask_gradient, idx)
-                )
+                ) if param.requires_grad else None
 
     def _delete_hooks(self):
         if not hasattr(self, "_params"):
