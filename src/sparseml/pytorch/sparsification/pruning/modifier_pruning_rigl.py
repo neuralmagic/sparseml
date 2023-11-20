@@ -163,6 +163,7 @@ class RigLPruningModifier(BaseGradualPruningModifier):
         sparsity_strategy: str = "erdos_renyi_kernel",
         init_update_fraction: float = 0.3,
         grad_sampler_kwargs: Optional[Dict[str, Any]] = {},
+        **kwargs,
     ):
         super().__init__(
             params=params,
@@ -174,6 +175,7 @@ class RigLPruningModifier(BaseGradualPruningModifier):
             update_frequency=update_frequency,
             leave_enabled=leave_enabled,
             parent_class_kwarg_names=[],
+            **kwargs,
         )
         self._mask_type = mask_type
         self._sparsity_strategy = sparsity_strategy
