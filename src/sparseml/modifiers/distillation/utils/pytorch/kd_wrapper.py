@@ -39,7 +39,7 @@ class KDModuleWrapper(Module):
     ):
         super(KDModuleWrapper, self).__init__()
 
-        self.kd_student_layer = student_layer
+        self.student_layer = student_layer
         self.kd_teacher_layer = teacher_layer
         self.kd_student_projection = projections[0] if projections is not None else None
         self.kd_teacher_projection = projections[1] if projections is not None else None
@@ -67,9 +67,9 @@ class KDModuleWrapper(Module):
 
     def forward(self, *args, **kwargs):
         if not self.kd_enabled:
-            return self.kd_student_layer(*args, **kwargs)
+            return self.student_layer(*args, **kwargs)
 
-        org_output = self.kd_student_layer(*args, **kwargs)
+        org_output = self.student_layer(*args, **kwargs)
         student_output = org_output
 
         with torch.no_grad():
@@ -113,8 +113,8 @@ class KDModuleWrapper(Module):
     def load_state_dict(self, state_dict, strict=True):
         return self.student_layer.load_state_dict(state_dict, strict=strict)
 
-    def _named_members(self, get_members_fn, prefix="", recurse=True):
+    def _named_members(self, get_members_fn, prefix="", recurse=True, **kwargs):
         for name, module in self.student_layer._named_members(
-            get_members_fn, prefix=prefix, recurse=recurse
+            get_members_fn, prefix=prefix, recurse=recurse, **kwargs
         ):
             yield name, module

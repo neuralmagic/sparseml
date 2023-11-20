@@ -259,7 +259,8 @@ class SessionManagerMixIn:
         loss = super().compute_loss(model, inputs, return_outputs=return_outputs)
 
         if session_manager.active_session().lifecycle.initialized_:
-            callbacks.loss_calculated(loss=loss)
+            state = callbacks.loss_calculated(loss=loss)
+            loss = state.loss
             callbacks.optim_pre_step()
 
         return loss
