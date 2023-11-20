@@ -63,17 +63,17 @@ _deepsparse_ent_deps = [f"deepsparse-ent~={version_nm_deps}"]
 
 _onnxruntime_deps = ["onnxruntime>=1.0.0"]
 _clip_deps = ["open_clip_torch==2.20.0"]
-supported_torch_version = "torch>=1.7.0,<=2.0"
+supported_torch_version = "torch>=1.7.0,<2.2"
 _pytorch_deps = [
     supported_torch_version,
     "gputils",
 ]
 _pytorch_all_deps = _pytorch_deps + [
-    "torchvision>=0.3.0,<=0.15.1",
+    "torchvision>=0.3.0,<0.17",
     "torchaudio<=2.0.1",
 ]
 _pytorch_vision_deps = _pytorch_deps + [
-    "torchvision>=0.3.0,<=0.15.1",
+    "torchvision>=0.3.0,<0.17",
     "opencv-python<=4.6.0.66",
 ]
 _transformers_deps = _pytorch_deps + [
@@ -103,9 +103,9 @@ _dev_deps = [
     "black==22.12.0",
     "flake8==3.9.2",
     "isort==5.8.0",
-    "m2r2~=0.2.7",
+    "m2r2>=0.2.7",
     "mistune<3,>=2.0.3",
-    "myst-parser~=0.14.0",
+    "myst-parser>=0.14.0",
     "rinohtype~=0.4.2",
     "sphinx~=3.5.0",
     "sphinx-copybutton~=0.3.0",
@@ -114,8 +114,8 @@ _dev_deps = [
     "sphinx-pydantic~=0.1.0",
     "sphinx-rtd-theme~=0.5.0",
     "wheel>=0.36.2",
-    "pytest~=6.2.0",
-    "pytest-mock~=3.6.0",
+    "pytest>=6.0.0",
+    "pytest-mock>=3.6.0",
     "flaky~=3.7.0",
     "sphinx-rtd-theme",
     "docutils<0.17",
