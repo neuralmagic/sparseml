@@ -116,7 +116,12 @@ class TestState:
         state = State(framework=Framework.pytorch)
         model = get_linear_net_with_device(device="cuda")
         assert model.device == "cuda"
+        assert state.hardware.device is None
 
         state.update(model=model, device="cpu")
         assert state.model.model == model
-        assert state.model.model.device == "cpu"
+
+        # update does not move the model to the device on initialization, it is a
+        # parameter used by individual modifiers to control device management
+        assert state.model.model.device == "cuda"
+        assert state.hardware.device == "cpu"
