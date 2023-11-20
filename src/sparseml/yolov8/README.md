@@ -22,7 +22,7 @@ Use `--help` for more information on flags.
 First, you'll need to create a recipe to sparsify yolov8.
 
 Here is a sample one, where only the first two conv layers are
-sparsified:
+sparsified.  You may save this to a file named `yolov8-pq.yaml`:
 
 ```yaml
 version: 1.1.0
@@ -62,7 +62,7 @@ To export the trained model to ONNX format, execute the appropriate
 CLI command and specify the path to the `.pt` model (`--model`):
 
 ```bash
-sparseml.ultralytics.export_onnx --model /.../model.pt
+sparseml.ultralytics.export_onnx --model path/to/model.pt
 ```
 
 To look up optional arguments for the `export` command, run:
