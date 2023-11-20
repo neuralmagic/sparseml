@@ -83,7 +83,6 @@ def _get_dataloader_builder(
             update_frequency=1.0,
             momentum_buffer_reset=True,
             params=["re:.*weight"],
-            inter_func="cubic",
             mask_type="unstructured",
             num_grads=8,
         ),
@@ -96,7 +95,6 @@ def _get_dataloader_builder(
             update_frequency=1.0,
             momentum_buffer_reset=True,
             params=["re:.*weight"],
-            inter_func="linear",
             mask_type="unstructured",
             num_grads=8,
             grad_sampler_kwargs={"batch_size": 8},
@@ -110,7 +108,6 @@ def _get_dataloader_builder(
             start_epoch=2.0,
             end_epoch=5.0,
             update_frequency=1.0,
-            inter_func="cubic",
             num_grads=8,
         ),
     ],
@@ -297,7 +294,6 @@ def test_rigl_pruning_yaml(params, init_sparsity, final_sparsity):
     start_epoch = 5.0
     end_epoch = 15.0
     update_frequency = 1.0
-    inter_func = "cubic"
     global_sparsity = True
     momentum_buffer_reset = False
     sparsity_strategy = "erdos_renyi"
@@ -312,7 +308,6 @@ def test_rigl_pruning_yaml(params, init_sparsity, final_sparsity):
         update_frequency: {update_frequency}
         params: {params}
         momentum_buffer_reset: {momentum_buffer_reset}
-        inter_func: {inter_func}
         global_sparsity: {global_sparsity}
         sparsity_strategy: {sparsity_strategy}
         mask_type: {mask_type}
@@ -330,7 +325,6 @@ def test_rigl_pruning_yaml(params, init_sparsity, final_sparsity):
         end_epoch=end_epoch,
         update_frequency=update_frequency,
         params=params,
-        inter_func=inter_func,
         global_sparsity=global_sparsity,
         sparsity_strategy=sparsity_strategy,
         momentum_buffer_reset=momentum_buffer_reset,
