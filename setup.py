@@ -103,7 +103,16 @@ _dev_deps = [
     "black==22.12.0",
     "flake8==3.9.2",
     "isort==5.8.0",
-    "m2r2~=0.2.7",
+    "wheel>=0.36.2",
+    "pytest>=6.0.0",
+    "pytest-mock>=3.6.0",
+    "flaky~=3.7.0",
+    "tensorboard>=1.0,<2.9",
+    "tensorboardX>=1.0",
+]
+
+_docs_deps = [
+    "m2r2>=0.2.7",
     "mistune<3,>=2.0.3",
     "myst-parser~=0.14.0",
     "rinohtype~=0.4.2",
@@ -113,14 +122,7 @@ _dev_deps = [
     "sphinx-multiversion~=0.2.4",
     "sphinx-pydantic~=0.1.0",
     "sphinx-rtd-theme~=0.5.0",
-    "wheel>=0.36.2",
-    "pytest~=6.2.0",
-    "pytest-mock~=3.6.0",
-    "flaky~=3.7.0",
-    "sphinx-rtd-theme",
     "docutils<0.17",
-    "tensorboard>=1.0,<2.9",
-    "tensorboardX>=1.0",
 ]
 
 
@@ -148,6 +150,7 @@ def _setup_extras() -> Dict:
     return {
         "clip": _clip_deps,
         "dev": _dev_deps,
+        "docs": _docs_deps,
         "deepsparse": _deepsparse_deps,
         "deepsparse-ent": _deepsparse_ent_deps,
         "openpifpaf": _open_pif_paf_deps,
