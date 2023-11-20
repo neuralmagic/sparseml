@@ -37,7 +37,6 @@ from types import SimpleNamespace
 from typing import Callable, Optional
 
 import torch
-import torch.nn.functional as F
 import torch.utils.data
 import torchvision
 from packaging import version
