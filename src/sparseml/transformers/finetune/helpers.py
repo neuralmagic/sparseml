@@ -18,6 +18,7 @@ import os
 from typing import Any, Dict
 
 import torch
+from torch.nn import Module
 
 import sparseml.core.session as session_manager
 from sparseml.core.framework import Framework
@@ -27,13 +28,25 @@ from sparseml.pytorch.sparsification.quantization.helpers import (
 from sparseml.transformers.utils import SparseAutoModel
 
 
+__all__ = ["apply_recipe_structure_to_model", "reload_model_state"]
+
 _LOGGER = logging.getLogger(__name__)
 
 
-def apply_recipe_structure_to_model(model, recipe_path, model_path):
+def apply_recipe_structure_to_model(model: Module, recipe_path: str, model_path: str):
+    """
+    Takes a loaded Pytorch model and applies any structural changes such as quantization
+    to the model, then reloads the model.
+
+    :param model: PyTorch model to apply structure to
+    :param recipe_path: path to recipe to apply to the model
+    :param model_path: path to model, used for reloading the state dict
+    """
     orig_state_dict = model.state_dict()
 
-    session_manager.create_session()
+    # apply structural changes to the model
+    if not session_manager.active_session():
+        session_manager.create_session()
     session_manager.pre_initialize_structure(
         model=model, recipe=recipe_path, framework=Framework.pytorch
     )
@@ -48,18 +61,23 @@ def apply_recipe_structure_to_model(model, recipe_path, model_path):
     _LOGGER.info(f"Applied {msg} to the model at {model_path}")
 
     # reload the state dict for the model now that architecture matches expected
-    if _reload_model_state(model, model_path, orig_state_dict):
+    if reload_model_state(model, model_path, orig_state_dict):
         _LOGGER.info(
             "Reloaded model state after SparseML recipe structure modifications "
             f"from {model_path}"
         )
 
 
-# TODO: clean up references to this function
-def _reload_model_state(model, load_path: str, orig_state_dict: Dict[str, Any]):
+def reload_model_state(
+    model: Module, load_path: str, orig_state_dict: Dict[str, Any]
+) -> bool:
     """
-    Reload the weights after model arch changes due to recipe application
-    Return True if weights are successfully reloaded; False otherwise
+    Reload the weights after model architecture changes due to recipe application.
+
+    :param model: PyTorch model to reload
+    :param load_path: path to model
+    :param orig_state_dict: state dict of model
+    :return: True if weights are successfully reloaded; False otherwise.
     """
     invalid_load_path = not load_path or not os.path.isdir(load_path)
     files = os.listdir(load_path) if not invalid_load_path else []

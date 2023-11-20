@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from copy import deepcopy
+from typing import Optional
 
 from sparseml.transformers.finetune.data import TextGenerationDataset
 from sparseml.transformers.finetune.data.helpers import get_raw_dataset
@@ -19,6 +20,14 @@ from sparseml.transformers.finetune.data.helpers import get_raw_dataset
 
 @TextGenerationDataset.register(name="open_platypus")
 class OpenPlatypusDataset(TextGenerationDataset):
+    """
+    Child text generation class for the Open Platypus dataset
+
+    :param data_args: configuration settings for dataset loading
+    :param split: split from dataset to load, for instance `test` or `train[:5%]`
+    :param tokenizer: tokenizer to use on dataset
+    """
+
     ALPACA_TEMPLATE = {
         "prompt_input": "Below is an instruction that describes a task, paired with an "
         "input that provides further context. Write a response that appropriately "
@@ -36,11 +45,19 @@ class OpenPlatypusDataset(TextGenerationDataset):
             text_column="text", data_args=data_args, split=split, tokenizer=tokenizer
         )
 
-    def get_raw_dataset(self, cache_dir):
+    def get_raw_dataset(self, cache_dir: Optional[str] = None):
+        """
+        Load the raw dataset from Hugging Face, using cached copy if available.
+        Additionally reformats the entries to fit the alpaca template.
+
+        :param cache_dir: disk location to search for cached dataset
+        :return: the requested dataset
+        """
         raw_dataset = get_raw_dataset(
             self.data_args, cache_dir, split=self.split, **self.raw_kwargs
         )
 
+        # helper fn for restructuring each dataset entry using the alpaca template
         def restructure_fn(sample):
             if "input" in sample:
                 sample["text"] = self.ALPACA_TEMPLATE["prompt_input"].format(

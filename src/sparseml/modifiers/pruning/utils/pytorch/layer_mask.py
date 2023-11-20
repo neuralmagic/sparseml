@@ -27,6 +27,9 @@ __all__ = ["LayerParamMasking", "param_mask_name"]
 
 
 def param_mask_name() -> str:
+    """
+    Name to use for mask buffer on a sparse layer
+    """
     return "mask"
 
 

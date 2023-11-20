@@ -1,3 +1,6 @@
+# apply recipe structure
+
+# reload model state
 # Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,20 +15,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from sparseml.transformers.finetune.data import TextGenerationDataset
+from transformers import AutoModelForCausalLM
+
+from sparseml.transformers.finetune.helpers import apply_recipe_structure_to_model
+from sparseml.utils.pytorch.module import qat_active
 
 
-@TextGenerationDataset.register(name="wikitext")
-class WikiTextDataset(TextGenerationDataset):
-    """
-    Child text generation class for the Open Platypus dataset
+def test_apply_recipe_structure():
+    model_path = "Xenova/llama2.c-stories15M"
+    model = AutoModelForCausalLM.from_pretrained(model_path)
+    assert not qat_active(model)
 
-    :param data_args: configuration settings for dataset loading
-    :param split: split from dataset to load, for instance `test` or `train[:5%]`
-    :param tokenizer: tokenizer to use on dataset
-    """
+    recipe_with_quant = "tests/sparseml/transformers/obcq/test_tiny.yaml"
+    apply_recipe_structure_to_model(model, recipe_with_quant, model_path)
 
-    def __init__(self, data_args, split, tokenizer):
-        super().__init__(
-            text_column="text", data_args=data_args, split=split, tokenizer=tokenizer
-        )
+    assert qat_active(model)

@@ -72,7 +72,6 @@ import os
 import shutil
 from typing import Any, Dict, List, Optional, Union
 
-import torch
 from torch.nn import Module
 from transformers import AutoConfig, AutoTokenizer
 from transformers.tokenization_utils_base import PaddingStrategy
@@ -80,10 +79,8 @@ from transformers.tokenization_utils_base import PaddingStrategy
 import sparseml.core.session as session_manager
 from sparseml.core.framework import Framework
 from sparseml.optim import parse_recipe_variables
-from sparseml.pytorch.sparsification.quantization.helpers import (
-    initialize_channel_wise_scale_zp,
-)
 from sparseml.pytorch.utils import export_onnx
+from sparseml.transformers.finetune.helpers import reload_model_state
 from sparseml.transformers.utils import SparseAutoModel
 from sparseml.transformers.utils.helpers import RECIPE_NAME
 from sparsezoo.utils.onnx import EXTERNAL_ONNX_DATA_NAME
@@ -105,84 +102,6 @@ OPTIONAL_DEPLOYMENT_FILES.extend(OPT_TOKENIZER_FILES)
 
 
 _LOGGER = logging.getLogger(__name__)
-
-
-def _reload_model_state(model, load_path: str, orig_state_dict: Dict[str, Any]):
-    """
-    Reload the weights after model arch changes due to recipe application
-    Return True if weights are successfully reloaded; False otherwise
-    """
-    invalid_load_path = not load_path or not os.path.isdir(load_path)
-    files = os.listdir(load_path) if not invalid_load_path else []
-    weight_files = [
-        os.path.join(load_path, f)
-        for f in files
-        if f.startswith("pytorch_model") and f.endswith("bin")
-    ]
-    if not weight_files:
-        _LOGGER.warning(
-            "Model state was not reloaded for SparseML: "
-            f"could not find model weights for {load_path}"
-        )
-        return False
-
-    # PerChannel quantization observers initialize variables
-    # to dummy shapes that do not match the ones saved in
-    # state_dict.
-    # Need to reshape these variables in order to load state_dict
-    # properly.
-    initialize_channel_wise_scale_zp(model)
-
-    current_state_dict = model.state_dict()
-
-    if set(orig_state_dict.keys()) == set(current_state_dict):
-        # no change in keys, ignore reload
-        return False
-
-    # change in keys due to architecture changes, reload statedict
-    loaded_state_dict = {}
-    for f in weight_files:
-        dd = torch.load(os.path.join(load_path, f), map_location="cpu")
-        loaded_state_dict.update(dd)
-
-    _, missing, unexpected, mismatched, _, _ = model._load_pretrained_model(
-        model=model,
-        state_dict=loaded_state_dict,
-        loaded_keys=list(loaded_state_dict.keys()),
-        resolved_archive_file=None,
-        pretrained_model_name_or_path=load_path,
-        _fast_init=False,
-    )
-
-    if missing:
-        _LOGGER.warning(
-            "Missing keys found when reloading model state for SparseML recipe:"
-            f"{missing}"
-        )
-
-    if unexpected:
-        _LOGGER.warning(
-            f"Unexpected keys found when reloading model state for SparseML recipe:"
-            f"{unexpected}"
-        )
-
-    if mismatched:
-        _LOGGER.warning(
-            f"Mismatched keys found when reloading model state for SparseML recipe:"
-            f"{mismatched}"
-        )
-
-    total_loaded = len(current_state_dict) - (len(missing) if len(missing) else 0)
-    _LOGGER.info(
-        f"Reloaded {total_loaded} model params for SparseML Recipe from {load_path}"
-    )
-    SparseAutoModel.log_model_load(
-        model,
-        load_path,
-        model_type="student",
-        delayed_load=False,
-    )
-    return True
 
 
 def load_task_model(
@@ -395,7 +314,7 @@ def export_transformer_to_onnx(
         _LOGGER.info(f"Applied {msg} to the model at {model_path}")
 
     # reload the state dict for the model now that architecture matches expected
-    if _reload_model_state(model, model_path, orig_state_dict):
+    if reload_model_state(model, model_path, orig_state_dict):
         _LOGGER.info(
             "Reloaded model state after SparseML recipe structure modifications "
             f"from {model_path}"
