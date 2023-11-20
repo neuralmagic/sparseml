@@ -183,11 +183,16 @@ def main(
         "revision": model_args.model_revision,
         "use_auth_token": True if model_args.use_auth_token else None,
     }
+    teacher_kwargs={
+        "cache_dir": model_args.cache_dir,
+        "use_auth_token": True if model_args.use_auth_token else None,
+    }
     # this calls from_pretrained under the hood so should be FSDP safe
-    model = SparseAutoModel.text_generation_from_pretrained(
+    model, teacher = SparseAutoModel.text_generation_from_pretrained_distil(
         model_name_or_path=model_args.model_name_or_path,
-        model_type="model",
-        **model_kwargs,
+        teacher_name_or_path=training_args.distill_teacher,
+        model_kwargs=model_kwargs,
+        teacher_kwargs=teacher_kwargs
     )
 
     # initialize structure of input model from recipe if needed
@@ -200,10 +205,11 @@ def main(
         apply_recipe_structure_to_model(model, recipe_path, model_path)
 
     # Load tokenizer
+    # distill TODO: support for different tokenizer for teacher?
     tokenizer_src = (
         model_args.tokenizer_name
         if model_args.tokenizer_name
-        else get_shared_tokenizer_src(model, None)
+        else get_shared_tokenizer_src(model, teacher)
     )
     tokenizer = AutoTokenizer.from_pretrained(
         tokenizer_src,
@@ -257,6 +263,7 @@ def main(
     # Initialize our Trainer
     trainer = Trainer(
         model=model,
+        teacher=teacher,
         model_state_path=model_args.model_name_or_path,
         recipe=training_args.recipe,
         metadata_args=metadata_args,

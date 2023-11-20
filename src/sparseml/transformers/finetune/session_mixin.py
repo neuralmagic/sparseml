@@ -105,6 +105,12 @@ class SessionManagerMixIn:
         model_signature = inspect.signature(model.forward)
         self._model_signature_columns = list(model_signature.parameters.keys())
 
+        if self.teacher is not None and teacher not in ("disable", "self"):
+            teacher_signature = inspect.signature(self.teacher.forward)
+            self._teacher_signature_columns = list(teacher_signature.parameters.keys())
+        else:
+            self._teacher_signature_columns = None
+
     def initialize_session(self, epoch: float, checkpoint: Optional[str]):
         """
         Initialize the SparseSession from the specified epoch, evaluates the recipe
@@ -120,6 +126,7 @@ class SessionManagerMixIn:
 
         session_manager.initialize(
             model=self.model,
+            teacher_model=self.teacher, # TODO: what about for self/disable?
             recipe=self.recipe,
             recipe_args=self.recipe_args,
             framework=Framework.pytorch,
@@ -244,8 +251,10 @@ class SessionManagerMixIn:
         :return: the resulting loss if not return_outputs, otherwise a tuple
             containing the loss and the model's outputs
         """
+        #TODO: updating this for distillation
         self._check_super_defined("compute_loss")
 
+        #TODO: do we need these model signature columns? 
         inputs = {k: inputs[k] for k in inputs if k in self._model_signature_columns}
         loss = super().compute_loss(model, inputs, return_outputs=return_outputs)
 
