@@ -18,7 +18,7 @@ aka model pruning
 """
 
 from functools import partial
-from typing import Bool, Iterable, List, Optional, Tuple, Union
+from typing import Iterable, List, Optional, Tuple, Union
 
 import torch
 from torch import Tensor
@@ -118,7 +118,7 @@ class ModuleParamPruningMask(object):
         self._params_grad = [None] * len(self._layers)  # type: List[Tensor]
         self._params_movement = [None] * len(self._layers)  # type: List[Tensor]
         self._params_applied_thinning = [0.0] * len(self._layers)  # type: List[float]
-        self._mask_applied = [False] * len(self._layers)  # type: Bool
+        self._mask_applied = [False] * len(self._layers)  # type: bool
 
         # movement pruning requires weight reintroduction
         self._allow_reintroduction = allow_reintroduction
