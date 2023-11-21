@@ -48,6 +48,7 @@ import click
 from sparseml.optim.helpers import load_recipe_yaml_str
 from sparseml.pytorch.models.registry import ModelRegistry
 from sparseml.pytorch.optim import ScheduledModifierManager
+from sparseml.pytorch.optim.analyzer_module import ModuleAnalyzer
 from sparseml.pytorch.torchvision import presets, transforms, utils
 from sparseml.pytorch.torchvision.sampler import RASampler
 from sparseml.pytorch.utils.helpers import (
@@ -61,7 +62,6 @@ from sparseml.pytorch.utils.logger import (
     TensorBoardLogger,
     WANDBLogger,
 )
-from sparseml.pytorch.optim.analyzer_module import ModuleAnalyzer
 from sparseml.pytorch.utils.model import load_model, model_to_device
 from sparsezoo import Model
 
