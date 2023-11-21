@@ -126,7 +126,7 @@ class SessionManagerMixIn:
 
         session_manager.initialize(
             model=self.model,
-            teacher_model=self.teacher, # TODO: what about for self/disable?
+            teacher_model=self.teacher,  # TODO: what about for self/disable?
             recipe=self.recipe,
             recipe_args=self.recipe_args,
             framework=Framework.pytorch,
@@ -251,10 +251,10 @@ class SessionManagerMixIn:
         :return: the resulting loss if not return_outputs, otherwise a tuple
             containing the loss and the model's outputs
         """
-        #TODO: updating this for distillation
+        # TODO: updating this for distillation
         self._check_super_defined("compute_loss")
 
-        #TODO: do we need these model signature columns? 
+        # TODO: do we need these model signature columns?
         inputs = {k: inputs[k] for k in inputs if k in self._model_signature_columns}
         loss = super().compute_loss(model, inputs, return_outputs=return_outputs)
 

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Dict, Any
+from typing import Any, Dict
 
 import torch
 from torch.nn import Module
@@ -61,7 +61,7 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
                 model_layers.items(), teacher_layers.values()
             ):
                 wrapper = self._create_wrapper(student_layer, teacher_layer, state)
-                state.model.set_layer(key, wrapper.student_layer)
+                state.model.set_layer(key, wrapper)
                 self.wrappers_[key] = wrapper
 
         return True
@@ -85,7 +85,7 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
                 wrapper.kd_last_comparison for wrapper in self.wrappers_.values()
             ]
             state.loss = (
-                self.orig_scale * kwargs["loss"] #state.loss
+                self.orig_scale * kwargs["loss"]  # state.loss
                 + self.distill_scale * torch.stack(comparisons).mean()
             )
 

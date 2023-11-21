@@ -183,7 +183,7 @@ def main(
         "revision": model_args.model_revision,
         "use_auth_token": True if model_args.use_auth_token else None,
     }
-    teacher_kwargs={
+    teacher_kwargs = {
         "cache_dir": model_args.cache_dir,
         "use_auth_token": True if model_args.use_auth_token else None,
     }
@@ -192,7 +192,7 @@ def main(
         model_name_or_path=model_args.model_name_or_path,
         teacher_name_or_path=training_args.distill_teacher,
         model_kwargs=model_kwargs,
-        teacher_kwargs=teacher_kwargs
+        teacher_kwargs=teacher_kwargs,
     )
 
     # initialize structure of input model from recipe if needed

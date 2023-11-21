@@ -261,9 +261,9 @@ class SparseAutoModel:
                 model_name_or_path
             )
         # Export decoder model without kv cache support
-        #kwargs["config"].is_decoder = True
-        #kwargs["config"].use_cache = False
-        #kwargs["config"].use_past = False
+        # kwargs["config"].is_decoder = True
+        # kwargs["config"].use_cache = False
+        # kwargs["config"].use_past = False
 
         model = AutoModelForCausalLM.from_pretrained(
             model_name_or_path,
@@ -272,7 +272,7 @@ class SparseAutoModel:
         SparseAutoModel.log_model_load(model, model_name_or_path, model_type, delayed)
 
         return model
-    
+
     @staticmethod
     def text_generation_from_pretrained_distil(
         model_name_or_path: str,
