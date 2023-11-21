@@ -340,7 +340,7 @@ def export_transformer_to_onnx(
         applied = trainer.apply_manager(epoch=math.inf, checkpoint=None)
     except ValueError as e:
         raise ValueError(
-            f"Failed to applied the recipy to the "
+            f"Failed to apply the recipe to the "
             f"model with the exception message:\n{e}\n"
             "It is possible, that there are missing modules "
             "specific to the model, that were not properly loaded. "
