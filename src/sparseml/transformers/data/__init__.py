@@ -15,6 +15,7 @@
 # flake8: noqa
 from .base_llm import TransformersDataset
 from .c4 import *
+from .evolcodealpaca import *
 from .gsm8k import *
 from .open_platypus import *
 from .ptb import *
