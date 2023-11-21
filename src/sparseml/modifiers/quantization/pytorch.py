@@ -62,6 +62,7 @@ class QuantizationModifierPyTorch(QuantizationModifier):
     qat_enabled_: bool = False
     quantization_observer_disabled_: bool = False
     bn_stats_frozen_: bool = False
+    device_: Optional[str] = None
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -84,6 +85,7 @@ class QuantizationModifierPyTorch(QuantizationModifier):
             )
 
         self.calibration_dataloader_ = state.data.calib
+        self.device_ = torch.device(state.hardware.device)
         module = state.model.model
 
         if self.calculate_start() == -1:  # one-shot
@@ -95,7 +97,6 @@ class QuantizationModifierPyTorch(QuantizationModifier):
 
     def on_finalize(self, state: State, **kwargs) -> bool:
         if self.post_oneshot_calibration:
-            state.model.model.to(state.hardware.device)
             state.model.model.apply(torch.quantization.enable_observer)
             self._calibrate_if_possible(state.model.model)
         self._disable_quantization_observer(state.model.model)
@@ -195,6 +196,7 @@ class QuantizationModifierPyTorch(QuantizationModifier):
             self.calibration_dataloader_,
             self.num_calibration_steps,
             self.calibration_function_,
+            self.device_,
         )
 
         if module_training:

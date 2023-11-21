@@ -39,6 +39,7 @@ class SmoothQuantModifierPyTorch(SmoothQuantModifier):
 
     calibration_function: Optional[Callable] = None
     hooks_: List = None
+    device_: Optional[str] = None
 
     def on_initialize(self, state: State, **kwargs) -> bool:
         """
@@ -50,6 +51,7 @@ class SmoothQuantModifierPyTorch(SmoothQuantModifier):
         super(SmoothQuantModifierPyTorch, self).on_initialize(state, **kwargs)
 
         calibration_dataloader = state.data.calib
+        self.device_ = torch.device(state.hardware.device)
         self.hooks_ = []
 
         self._setup_scale_hooks()
@@ -125,6 +127,7 @@ class SmoothQuantModifierPyTorch(SmoothQuantModifier):
             calibration_dataloader,
             self.num_calibration_steps,
             self.calibration_function,
+            self.device_,
         )
 
         # remove the hooks now that we are done calibrating
