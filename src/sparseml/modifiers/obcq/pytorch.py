@@ -46,7 +46,6 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
 
     model: Any = None
     device_: str = "cuda:0"
-    finalization_kwargs_: Optional[Dict] = None
     layer_prefix_: Optional[str] = None
 
     def on_initialize(self, state: "State", **kwargs) -> bool:
@@ -61,14 +60,12 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
             self.on_initialize_structure(state, **kwargs)
         if self.quantization_modifier_:
             self.quantization_modifier_.initialize(state, **kwargs)
-        self.finalization_kwargs_ = {}
         modifiable_model = state.model
         calibration_dataloader = state.data.calib
         device = state.hardware.device
 
         self.initialize_obcq(modifiable_model, device)
-        extras = self.apply_obcq(calibration_dataloader)
-        self.finalization_kwargs_.update(extras)
+        self.apply_obcq(calibration_dataloader)
 
         return True
 
@@ -99,7 +96,6 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
         Run OBCQ on the loaded model, using dataloader as calibration data
 
         :param dataloader: calibration data for OBCQ
-        :return: compression outputs used for finalization
         """
         accum_kwargs = {"dataloader": dataloader}
 
@@ -147,8 +143,6 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
             layer_kwargs = layer_compressor.compress(dev=self.device_, **accum_kwargs)
             accum_kwargs.update(layer_kwargs)
 
-        return extras
-
     def on_finalize(self, state: "State", **kwargs) -> bool:
         """
         disable the observers used by the OBCQ algorithm and set kv-cache configuration
@@ -176,13 +170,20 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
         :param dataloader: calibration data to pass through the model
         :param nsamples: number of samples to use for calibration, or None to use it all
         :param dev: device to use
+        :param target_ids: list of keys in model output to cache, NOTE: this argument
+            has been deprecated and will be removed in a future release
         :param layer_prefix: name of model attribute that contains the list of layers,
             i.e. model.decoder for OPT or just model for Llama
         :return: outputs from bottom part of network, attention mask, and kv-cache state
         """
         layer_prefix = layer_prefix or self.layer_prefix_
         cached_inputs = cache_attention_inputs(
-            self.model, dataloader, dev, nsamples, target_ids, layer_prefix
+            model=self.model,
+            dataloader=dataloader,
+            device=dev,
+            nsamples=nsamples,
+            target_ids=target_ids,
+            layer_prefix=layer_prefix,
         )
 
         outputs = cached_inputs.pop("inputs")
