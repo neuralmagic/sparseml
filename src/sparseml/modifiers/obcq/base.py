@@ -82,7 +82,19 @@ class SparseGPTModifier(Modifier):
         :return: list of Pytorch modules to compress
         """
         compressible_dict = self.model.get_layers(self.targets)
-        return [v for _, v in compressible_dict.items()]
+        layers = [v for _, v in compressible_dict.items()]
+
+        # lm_head doesn't show up in the list of named modules
+        # account for it here as a special case
+        """
+        if LM_HEAD in self.targets:
+            if hasattr(self.model.model, LM_HEAD):
+                lm_head = getattr(self.model.model, LM_HEAD)
+                layers.append(lm_head)
+            else:
+                raise ValueError("Failed to find {LM_HEAD} layer for sparsification")
+        """
+        return layers
 
     def on_initialize_structure(self, state: State, **kwargs):
         quantization_already_active = state.model.qat_active()
