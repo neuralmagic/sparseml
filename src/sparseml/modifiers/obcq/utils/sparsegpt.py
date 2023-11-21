@@ -199,7 +199,8 @@ class SparseGPT:
                 _LOGGER.debug(torch.sum((self.layer(self._inp1) - self.out1) ** 2))
                 _LOGGER.debug(torch.sum(Losses))
 
-        torch.cuda.synchronize()
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
         _LOGGER.info("time %.2f" % (time.time() - tick))
         _LOGGER.info("error %.2f" % torch.sum(Losses).item())
 

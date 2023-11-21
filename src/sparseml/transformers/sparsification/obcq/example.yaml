@@ -28,8 +28,7 @@ test_stage:
       sequential_update: False
       quantize: True
       percdamp: 0.01
-      prunen: 0
-      prunem: 0
+      mask_structure: "0:0"
       targets: [
         "model.decoder.layers.0",
         "model.decoder.layers.1",
@@ -56,4 +55,3 @@ test_stage:
         "model.decoder.layers.22",
         "model.decoder.layers.23"
       ]
-      target_ids: ["attention_mask"]
