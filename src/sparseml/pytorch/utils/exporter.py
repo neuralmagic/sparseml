@@ -460,7 +460,7 @@ def export_onnx(
         https://pytorch.org/docs/stable/onnx.html
     """
     if _PARSED_TORCH_VERSION >= version.parse("1.10.0") and opset < 13 and convert_qat:
-        warnings.warn(
+        raise ValueError(
             "Exporting onnx with QAT and opset < 13 may result in errors. "
             "Please use opset>=13 with QAT. "
             "See https://github.com/pytorch/pytorch/issues/77455 for more info. "
