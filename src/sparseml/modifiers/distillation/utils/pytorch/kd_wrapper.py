@@ -41,8 +41,8 @@ class KDModuleWrapper(Module):
 
         self.student_layer = student_layer
         self.kd_teacher_layer = teacher_layer
-        self.kd_student_projection = projections[0] if projections is not None else None
-        self.kd_teacher_projection = projections[1] if projections is not None else None
+        self.kd_student_projections = projections[0] if projections is not None else None
+        self.kd_teacher_projections = projections[1] if projections is not None else None
         self.kd_transforms = transforms
         self.kd_comparison = comparison
         self.kd_enabled = False
@@ -83,12 +83,9 @@ class KDModuleWrapper(Module):
             for projection in self.kd_teacher_projections:
                 teacher_output = projection(teacher_output, student_output)
 
-        if self.kd_student_transforms is not None:
-            for transform in self.kd_student_transforms:
+        if self.kd_transforms is not None:
+            for transform in self.kd_transforms:
                 student_output = transform(student_output)
-
-        if self.kd_teacher_transforms is not None:
-            for transform in self.kd_teacher_transforms:
                 teacher_output = transform(teacher_output)
 
             comp = self.kd_comparison(student_output, teacher_output)
