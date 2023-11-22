@@ -14,16 +14,12 @@ This page walks through how to perform one-shot quantization of large language m
 
 
 ## <a name="clone">How to Clone and Install  the Latest SparseML </a>
-You'll need the latest version of SparseML to run the one-shot workflow. To avoid any issues, we recommend that you do this in a fresh Python environment. 
+You'll need the latest version of SparseML to run the one-shot workflow. To avoid any issues, we recommend that you do this from source and in a fresh Python environment. 
 
-Clone the SparseML repo: 
+Clone the SparseML repo and install it locally: 
 ```bash
 git clone https://github.com/neuralmagic/sparseml
-```
-
-Install the required dependencies: 
-```bash
-pip install -e "sparseml[transformers]" "torch==2.1"
+pip install -e "sparseml[transformers]"
 ```
 
 ## <a name="TinyLlama">How to One-shot TinyLlama </a>
@@ -35,14 +31,21 @@ Change into the SparseML directory:
 cd sparseml
 ```
 Perform one-shot using the OBCQ algorithm. The command takes the following parameters: 
--  `model_path` a path to Hugging Face stub
-- `dataset_name` Hugging Face dataset to extract calibration data from
-- `num_samples` number of samples to extract from the dataset, defaults to 512
-- `deploy_dir` the directory where the model will be saved, defaults to `obcq_deployment`
-- `recipe_file` the file containing the one-shot hyperparameters 
-- `precision` precision to load model as, either auto (default), half or full
-- `eval_data` dataset to use for perplexity evalaution, or none to skip
-- `do_save` whether to save the output model to disk
+
+positional arguments:
+- `model` a path to Hugging Face stub
+- `dataset_name` Hugging Face dataset to extract calibration data from. Example supported datasets: `{c4,evolcodealpaca,gsm8k,open_platypus,ptb,wikitext2}`
+
+options:
+- `--nsamples` number of samples to extract from the dataset, defaults to 512
+- `--deploy-dir` the directory where the model will be saved, defaults to `obcq_deployment`
+- `--eval` dataset to use for perplexity evalaution, or none to skip
+- `--save` whether to save the output model to disk
+- `--recipe` the file containing the one-shot hyperparameters
+- `--device` which device to load the model onto, either `cpu` or a specific `cuda:0`
+- `--precision` precision to load model as, either auto (default), half or full
+
+Example command:
 ```bash
 python sparsemlsrc/sparseml/transformers/sparsification/obcq/obcq.py TinyLlama/TinyLlama-1.1B-Chat-v0.4 open_platypus --recipe recipe.yaml --save True
 ```
