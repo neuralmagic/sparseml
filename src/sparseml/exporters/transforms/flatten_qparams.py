@@ -50,7 +50,8 @@ class FlattenQParams(OnnxTransform):
                 continue
             self.log_match(init)
             a = numpy_helper.to_array(init)
-            assert a.shape == (1,)
+            if a.shape != (1,):
+                continue  # assume qparam is already flattened
             b = numpy.array(a[0])
             assert b.shape == ()
             assert b.dtype == a.dtype
