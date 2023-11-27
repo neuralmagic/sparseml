@@ -1,5 +1,6 @@
 # One Shot With SparseML 
-This page walks through how to perform one-shot quantization of large language models using [SparseML](https://github.com/neuralmagic/sparseml). 
+This page walks through how to perform one-shot quantization of large language models using [SparseML](https://github.com/neuralmagic/sparseml). This workflow requires a GPU with at least 15GB and 64GB of system RAM.
+
 
 ## Table of Contents 
 1. [How to Clone and Install  the Latest SparseML](#clone)
@@ -23,13 +24,8 @@ pip install -e "sparseml[transformers]"
 ```
 
 ## <a name="TinyLlama">How to One-shot TinyLlama </a>
-[TinyLlama-1.1B-Chat](https://huggingface.co/TinyLlama/TinyLlama-1.1B-Chat-v0.4) is an LLM that we can quantize in a short amount of time becasue it has 1.1B parameters. The steps are as follows: 
+[TinyLlama-1.1B-Chat](https://huggingface.co/TinyLlama/TinyLlama-1.1B-Chat-v0.4) is an LLM that we can quantize in a short amount of time because it has 1.1B parameters. 
 
-Change into the SparseML directory:
-
-```bash
-cd sparseml
-```
 Perform one-shot using the OBCQ algorithm. The command takes the following parameters: 
 
 positional arguments:
@@ -47,7 +43,8 @@ options:
 
 Example command:
 ```bash
-python sparsemlsrc/sparseml/transformers/sparsification/obcq/obcq.py TinyLlama/TinyLlama-1.1B-Chat-v0.4 open_platypus --recipe recipe.yaml --save True
+wget https://huggingface.co/nm-testing/TinyLlama-1.1B-Chat-v0.4-pruned50-quant/raw/main/recipe.yaml
+python sparseml/src/sparseml/transformers/sparsification/obcq/obcq.py TinyLlama/TinyLlama-1.1B-Chat-v0.4 open_platypus --recipe recipe.yaml --save True
 ```
 ## <a name="evaluate"> How to Evaluate the One-shot Model</a>
 Next, evaluate the perforamnce of the model using the [lm-evaluation-harness framework](https://github.com/neuralmagic/lm-evaluation-harness).
@@ -63,26 +60,18 @@ pip install -e .
 ```
 Evaluate on the `hellaswag` task:
 ```bash
-%%bash 
-cd lm-evaluation-harness
 git checkout sparse_new_modifier
-PRETRAINED_PATH=/home/mwitiderrick/neuralmagic/sparseml/obcq_deployment
-TASK=hellaswag
-BATCH_SIZE=64
-SHOTS=0
-DEVICE="cuda:0"
-
 start=`date +%s`
 python main_sparse.py \
  --model hf-causal-experimental \
- --model_args pretrained=$PRETRAINED_PATH,trust_remote_code=True \
- --tasks $TASK \
- --batch_size $BATCH_SIZE \
+ --model_args pretrained=obcq_deployment,trust_remote_code=True \
+ --tasks hellaswag \
+ --batch_size 64 \
  --no_cache \
  --write_out \
- --output_path "${PRETRAINED_PATH}/${TASK}.json" \
- --device "${DEVICE}" \
- --num_fewshot $SHOTS
+ --output_path "obcq_deployment/hellaswag.json" \
+ --device "cuda:0" \
+ --num_fewshot 0
  end=`date +%s`
  echo Execution time was `expr $end - $start` seconds.
 Running loglikelihood requests
@@ -125,7 +114,7 @@ Execution time was 1288 seconds.
 ```
 Repeat the above on other tasks such as `truthfulqa-mc`, `winogrande`, and `drop`.
 ## <a name="export"> How to Export the One-shot Model</a>
-Once you are certain the model is performing as expected, you can export it for inference. The `export.py` file provides the functions for doing this. Running the command below creates a `deployment` directory containing all the artifacts that are needed for running the model using DeepSparse. 
+Once you are certain the model is performing as expected, you can export it for inference. The `export.py` file provides the functions for doing this. Running the command below creates a `deployment` directory containing all the artifacts that are needed for inference with DeepSparse. 
 
 ```bash
 python sparseml/src/sparseml/transformers/sparsification/obcq/export.py --task text-generation --model_path obcq_deployment 
@@ -141,7 +130,7 @@ python onnx_kv_inject.py --input-file deployment/model-orig.onnx --output-file d
 ```
 
 ## <a name="DeepSparse">Using the Model With DeepSparse </a>
-Next, run inference using DeepSparse. Ensure you have the latest version of DeepSparse installed:
+Next, run inference using DeepSparse. Ensure you have the latest version of DeepSparse installed: `pip install deepsparse-nightly`
 
 ```python
 from deepsparse import TextGeneration
@@ -168,18 +157,9 @@ There are many factors to consider when choosing a university. Here are some tip
 Check out the [DeepSparse pipeline text generation docs](https://github.com/neuralmagic/deepsparse/blob/main/src/deepsparse/transformers/text_generation.md) for full list of supported parameters. 
 
 ## <a name="uypload">Upload Model to Hugging Face</a>
-You may want to upload the one-shot model to Hugging Face for ease of reference in the future or to share it with your colleagues. 
+You may want to upload the one-shot model to Hugging Face for ease of reference or to share it with your colleagues. 
 
-Start by installing `huggingface_hub`:
-```
-pip install huggingface_hub
-```
-Log into your Hugging Face account: 
-```python
-import huggingface_hub
-huggingface_hub.login(token="HF_WRITE_TOKEN")
-```
-Head over to your [Hugging Face account](https://huggingface.co/new) and create a model named `TinyLlama-1.1B-Chat-v0.4-pruned50-quant`:
+Head over to your [Hugging Face account](https://huggingface.co/new) and create a model named `TinyLlama-1.1B-Chat-v0.4-pruned50-quant`. Then upload the one-shot model: 
 ```python
 from huggingface_hub import HfApi
 api = HfApi()
@@ -187,11 +167,27 @@ api.upload_folder(
     folder_path="deployment",
     repo_id="YOUR_HF_USERNAME/TinyLlama-1.1B-Chat-v0.4-pruned50-quant",
     repo_type="model",
+    token="HF_WRITE_TOKEN"
 )
 ```
 
 ## <a name="recipe"> Explaining the TinyLlama Recipe</a>
-The recipe below is what we used to one-shot the TinyLlama model. 
+A recipe is a set of hyperparameters that provides detailed instructions on how the [one-shot quantization](https://neuralmagic.com/video/pruning-and-quantizing-ml-models-with-one-shot-without-retraining/) should be done. The recipe performs quantization in one-shot, meaning that no retraining of the LLM is required. 
+
+We will now walk through what the different hyperparameters mean and why they are set to those values.
+
+The `SmoothQuantModifier` is a technique used for dealing with outliers in the weights and activations of the LLM because quantization is very sensitive to large variations in their values. For TinyLlama a `smoothing_strength` value of 0.8 resulted in a model with repetitions in it's output but the problem was solved by lowering the value to 0.5. 
+
+The `ignore` parameter under `QuantizationModifier` allows us to define operations that either don't make sense to quantize or operations that are too sensitive to quantize. Performing quantization on sensitve operations will affect the final accruacy of the model. We also don't quantize the inputs to the embedding layer. 
+
+Under `SparseGPTModifier`, we define `sparsity` as 0.5 because we are aiming for a model that 50% quantized. The other parameters are:
+- `block_size` determines number of columns to compress in one pass
+- `quantize` whether or not to quantize weights during SparseGPT
+- `dampening_frac` amount of dampening to apply to H, as a fraction of the diagonal norm
+- `sequential_update` whether or not to update weights sequentially by layer,True saves on GPU memory
+- `mask_structure` string to define the structure of the mask to apply, "0:0" means that it's an unstrunctured mask 
+- `targets` list of layer names to compress during OBCQ, or '__ALL__' to compress every layer in the model
+
 ```yaml
 test_stage:
   obcq_modifiers:
@@ -231,15 +227,61 @@ test_stage:
       mask_structure: "0:0"
       targets: ["re:model.layers.\\d*$"]
 ```
-We will now walk through what the different hyperparameters mean and why they are set to those values.
-
 ## <a name="adapt"> How to Adapt a Recipe for a New Model</a>
+You can modify the above recipe to perform one-shot quantization on other models, for example [Mistral](https://huggingface.co/docs/transformers/main/model_doc/mistral). 
 
-The above recipe can be modified to perform one-shot on other models, for example Mistral. 
-We can peform the following modifications on the recipe to one-shot a Mistral model.
-- ff
-- ff
+Peform the following modifications on the recipe to one-shot a Mistral model.
+- Define the operations we want to skip during quantization, that is sensitve layers and operations that don't make sense to quantize
+- Declear the desired sparsity level, same as the one for TinnyLamma
+- State the layers to compress during OBCQ
+
 Here is how the final recipe looks like: 
 ```yaml
-
+test_stage:
+  obcq_modifiers:
+    SmoothQuantModifier:
+      smoothing_strength: 0.5
+      mappings: [
+        [["re:.*q_proj", "re:.*k_proj", "re:.*v_proj"], "re:.*input_layernorm"],
+        [["re:.*gate_proj", "re:.*up_proj"], "re:.*post_attention_layernorm"]
+      ]
+    QuantizationModifier:
+      ignore:
+      # These operations don't make sense to quantize
+      - MistralRotaryEmbedding
+      - MistralRMSNorm
+      - SiLUActivation
+      # Skip quantizing the layers with the most sensitive activations
+      - model.layers.1.mlp.down_proj
+      - model.layers.31.mlp.down_proj
+      - model.layers.30.mlp.down_proj
+      - model.layers.30.mlp.gate_proj
+      - model.layers.30.mlp.up_proj
+      post_oneshot_calibration: true
+      scheme_overrides:
+        Embedding:
+          input_activations: null
+          weights:
+            num_bits: 8
+            symmetric: false
+    SparseGPTModifier:
+      sparsity: 0.5
+      block_size: 128
+      sequential_update: true
+      quantize: true
+      percdamp: 0.01
+      mask_structure: "0:0"
+      targets: ["re:model.layers.\\d*$"]
 ```
+
+Save the recipe to a file named `recipe.yaml`. 
+
+Run one-shot quantization on any Mistral-based model, for example `zephyr-7b-beta`: 
+```bash
+python sparseml/src/sparseml/transformers/sparsification/obcq/obcq.py HuggingFaceH4/zephyr-7b-beta open_platypus --recipe recipe.yaml --save True
+```
+
+Repeat the other processes as shown previously. 
+
+## Conclusion
+In case of any questions, submit an [issue on GItHub](https://github.com/neuralmagic/sparseml) or join other LLM developers on our [community](https://join.slack.com/t/discuss-neuralmagic/shared_invite/zt-q1a1cnvo-YBoICSIw3L1dmQpjBeDurQ). 
