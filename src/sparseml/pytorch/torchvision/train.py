@@ -68,6 +68,18 @@ from sparsezoo import Model
 _LOGGER = logging.getLogger(__name__)
 
 
+def create_grad_sampler_loader(
+    train_dataset, num_workers=16, grad_sampler_batch_size=10
+):
+    return DataLoader(
+        train_dataset,
+        batch_size=grad_sampler_batch_size,
+        shuffle=True,
+        pin_memory=True,
+        num_workers=num_workers,
+    )
+
+
 def train_one_epoch(
     model: torch.nn.Module,
     criterion: torch.nn.Module,
@@ -101,7 +113,7 @@ def train_one_epoch(
     optimizer.zero_grad()
 
     header = f"Epoch: [{epoch}]"
-    for (image, target) in metric_logger.log_every(
+    for image, target in metric_logger.log_every(
         data_loader, args.logging_steps * accum_steps, header
     ):
         start_time = time.time()
@@ -625,12 +637,29 @@ def main(args):
                 f"{tag}/{metric_name}", smoothed_value.global_avg, step=step
             )
 
+    recipe_kwargs = {}
+    # TODO: What is the right logic to check if we need a grad sampler here? It seems
+    # that for YOLO the grad sampler is always created, whether or not it's needed. See
+    # https://github.com/neuralmagic/sparseml/blob/b73a173ff89c3bb524dcc0a1f7a16a3109a234a1/src/sparseml/yolov8/trainers.py#L699
+    grad_sampler_loader = create_grad_sampler_loader(dataset)
+
+    def data_loader_builder(**kwargs):
+        while True:
+            for input, target in grad_sampler_loader:
+                input, target = input.to(device).float(), target.to(device)
+                yield [input], {}, target
+
+    recipe_kwargs["grad_sampler"] = {
+        "data_loader_builder": data_loader_builder,
+        "loss_function": criterion,
+    }
     if manager is not None:
         manager.initialize(
             model,
             epoch=args.start_epoch,
             loggers=logger,
             distillation_teacher=distill_teacher,
+            **recipe_kwargs,
         )
         step_wrapper = manager.modify(
             model,
@@ -638,6 +667,7 @@ def main(args):
             steps_per_epoch=steps_per_epoch,
             epoch=args.start_epoch,
             wrap_optim=scaler,
+            **recipe_kwargs,
         )
         if scaler is None:
             optimizer = step_wrapper
