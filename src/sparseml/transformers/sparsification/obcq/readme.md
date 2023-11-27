@@ -278,8 +278,9 @@ Save the recipe to a file named `recipe.yaml`.
 
 Run one-shot quantization on any Mistral-based model, for example `zephyr-7b-beta`: 
 ```bash
-python sparseml/src/sparseml/transformers/sparsification/obcq/obcq.py HuggingFaceH4/zephyr-7b-beta open_platypus --recipe recipe.yaml --save True
+python sparseml/src/sparseml/transformers/sparsification/obcq/obcq.py HuggingFaceH4/zephyr-7b-beta open_platypus --recipe zephyr.yaml --precision float16 --save True
 ```
+We set `—precision float16` because quantization is not supported for the `bfloat16` data type as of this writing. 
 
 Repeat the other processes as shown previously. 
 
