@@ -19,6 +19,7 @@ Contains code for loggers that help visualize the information from each modifier
 import logging
 import os
 import time
+import warnings
 from abc import ABC
 from datetime import datetime
 from logging import CRITICAL, DEBUG, ERROR, INFO, WARN, Logger
@@ -983,6 +984,89 @@ class LoggerManager(ABC):
         for log in self._loggers:
             if log.enabled and (log_types == ALL_TOKEN or log.name in log_types):
                 log.log_hyperparams(params, level)
+
+    def debug(self, tag, string, *args, **kwargs):
+        """
+        logs a string message with level DEBUG on all
+        loggers that are enabled
+
+        :param tag: Identifying tag to log the string with
+        :param string: The string to log
+        :param args: additional arguments to pass to the logger,
+            see `log_string` for more details
+        :param kwargs: additional arguments to pass to the logger,
+            see `log_string` for more details
+        """
+        kwargs["level"] = logging.DEBUG
+        self.log_string(tag=tag, string=string, *args, **kwargs)
+
+    def info(self, tag, string, *args, **kwargs):
+        """
+        logs a string message with level INFO on all
+        loggers that are enabled
+
+        :param tag: Identifying tag to log the string with
+        :param string: The string to log
+        :param args: additional arguments to pass to the logger,
+            see `log_string` for more details
+        :param kwargs: additional arguments to pass to the logger,
+            see `log_string` for more details
+        """
+        kwargs["level"] = logging.INFO
+        self.log_string(tag=tag, string=string, *args, **kwargs)
+
+    def warning(self, tag, string, *args, **kwargs):
+        """
+        logs a string message with level WARNING on all
+        loggers that are enabled
+
+        :param tag: Identifying tag to log the string with
+        :param string: The string to log
+        :param args: additional arguments to pass to the logger,
+            see `log_string` for more details
+        :param kwargs: additional arguments to pass to the logger,
+            see `log_string` for more details
+        """
+        kwargs["level"] = logging.WARNING
+        self.log_string(tag=tag, string=string, *args, **kwargs)
+
+    def warn(self, tag, string, *args, **kwargs):
+        warnings.warn(
+            "The 'warn' method is deprecated, " "use 'warning' instead",
+            DeprecationWarning,
+            2,
+        )
+        self.warning(tag=tag, string=string, *args, **kwargs)
+
+    def error(self, tag, string, *args, **kwargs):
+        """
+        logs a string message with level ERROR on all
+        loggers that are enabled
+
+        :param tag: Identifying tag to log the string with
+        :param string: The string to log
+        :param args: additional arguments to pass to the logger,
+            see `log_string` for more details
+        :param kwargs: additional arguments to pass to the logger,
+            see `log_string` for more details
+        """
+        kwargs["level"] = logging.ERROR
+        self.log_string(tag=tag, string=string, *args, **kwargs)
+
+    def critical(self, tag, string, *args, **kwargs):
+        """
+        logs a string message with level CRITICAL on all
+        loggers that are enabled
+
+        :param tag: Identifying tag to log the string with
+        :param string: The string to log
+        :param args: additional arguments to pass to the logger,
+            see `log_string` for more details
+        :param kwargs: additional arguments to pass to the logger,
+            see `log_string` for more details
+        """
+        kwargs["level"] = logging.CRITICAL
+        self.log_string(tag=tag, string=string, *args, **kwargs)
 
     def save(
         self,
