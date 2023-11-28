@@ -41,12 +41,16 @@ class KDModuleWrapper(Module):
 
         self.student_layer = student_layer
         self.kd_teacher_layer = teacher_layer
-        self.kd_student_projections = projections[0] if projections is not None else None
-        self.kd_teacher_projections = projections[1] if projections is not None else None
+        self.kd_student_projections = (
+            projections[0] if projections is not None else None
+        )
+        self.kd_teacher_projections = (
+            projections[1] if projections is not None else None
+        )
         self.kd_transforms = transforms
         self.kd_comparison = comparison
         self.kd_enabled = False
-        self.kd_last_comparison = None
+        self.register_buffer("kd_last_comparison", torch.zeros(1))
         self._init_called = True  # make sure this is last property to be set
 
     # def __getattr__(self, name):
@@ -90,15 +94,15 @@ class KDModuleWrapper(Module):
 
             comp = self.kd_comparison(student_output, teacher_output)
             comp = recursive_apply(comp, lambda x: x.mean())
-            comp = (
-                comp
-                if isinstance(comp, float)
-                else torch.stack(
-                    comp if isinstance(comp, Sequence) else list(comp.values())
-                ).sum()
-            )
-
-            self.kd_last_comparison = comp
+            if isinstance(comp, Sequence):
+                comp = torch.stack(comp).sum()
+            elif isinstance(comp, torch.Tensor):
+                if comp.numel() > 1:
+                    comp = torch.stack(comp.tolist()).sum()
+                else:
+                    comp = comp.item()
+            # else float
+            self.kd_last_comparison[0] = comp
 
         return org_output
 

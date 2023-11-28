@@ -57,6 +57,7 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
                     f"model and teacher model layers for target {target} do not match"
                 )
 
+            device = None
             for (key, student_layer), teacher_layer in zip(
                 model_layers.items(), teacher_layers.values()
             ):
@@ -66,12 +67,14 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
                     teacher_param.data = teacher_param.to(device)
 
                 for name, buffer in student_layer.named_buffers():
-                    device = buffer.device
                     if hasattr(teacher_layer, name):
+                        device = buffer.device
                         teacher_buffer = getattr(teacher_layer, name)
                         teacher_buffer.data = teacher_buffer.to(device)
-                    
+
                 wrapper = self._create_wrapper(student_layer, teacher_layer, state)
+                kd_comparison_buffer = getattr(wrapper, "kd_last_comparison")
+                kd_comparison_buffer.data = kd_comparison_buffer.to(device)
                 state.model.set_layer(key, wrapper)
                 self.wrappers_[key] = wrapper
                 wrapper.kd_enabled = True
