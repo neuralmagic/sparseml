@@ -305,7 +305,7 @@ def export_transformer_to_onnx(
             raise ValueError(
                 "Could not infer a default sequence length "
                 "from the HF transformers config. Please specify "
-                "a sequence length with --sequence_length"
+                "the sequence length with --sequence_length"
             )
         _LOGGER.info(
             f"Using default sequence length of {sequence_length} "
