@@ -128,7 +128,7 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
         # if modifier should have ended by current index, don't initialize
         if (
             self.calculate_end() >= 0
-            and self.state.start_event.current_index >= self.calculate_end()
+            and state.start_event.current_index >= self.calculate_end()
         ):
             return
 
