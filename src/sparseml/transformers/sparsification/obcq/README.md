@@ -133,7 +133,7 @@ python onnx_kv_inject.py --input-file deployment/model-orig.onnx --output-file d
 ```
 
 ## <a name="deepsparse">Using the Model With DeepSparse </a>
-Next, run inference using DeepSparse. Ensure you have the latest version of DeepSparse installed: `pip install deepsparse-nightly`
+Next, run inference using DeepSparse. Ensure you have the latest version of DeepSparse installed with `pip install -U deepsparse-nightly[llm]`
 
 ```python
 from deepsparse import TextGeneration
