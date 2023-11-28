@@ -1,5 +1,5 @@
 # One Shot With SparseML 
-This page describes how to perform one-shot quantization of large language models using [SparseML](https://github.com/neuralmagic/sparseml). This workflow requires a GPU with at least 15GB and 64GB of system RAM.
+This page describes how to perform one-shot quantization of large language models using [SparseML](https://github.com/neuralmagic/sparseml). This workflow requires a GPU with at least 16GB VRAM and 64GB of system RAM.
 
 
 ## Table of Contents 
