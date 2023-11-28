@@ -4,11 +4,11 @@ This page describes how to perform one-shot quantization of large language model
 
 ## Table of Contents 
 1. [How to Clone and Install  the Latest SparseML](#clone)
-2. [How to One-shot TinyLlama](#TinyLlama)
+2. [How to One-shot TinyLlama](#tinyllama)
 3. [How to Evaluate the One-shot Model](#evaluate)
 4. [How to Export the One-shot model](#export)
 5. [How to Inject KV Cache](#kvcache)
-6. [Using the Model With DeepSparse](#DeepSparse)
+6. [Using the Model With DeepSparse](#deepsparse)
 7. [Upload Model to Hugging Face](#upload)
 8. [Explaining the TinyLlama Recipe](#recipe)
 9. [How to Adapt a Recipe for a New Model](#adapt)
@@ -23,7 +23,7 @@ git clone https://github.com/neuralmagic/sparseml
 pip install -e "sparseml[transformers]"
 ```
 
-## <a name="TinyLlama">How to One-shot TinyLlama </a>
+## <a name="tinyllama">How to One-shot TinyLlama </a>
 [TinyLlama-1.1B-Chat](https://huggingface.co/TinyLlama/TinyLlama-1.1B-Chat-v0.4) is an LLM that we can quantize in a short amount of time because it has 1.1B parameters. 
 
 Perform one-shot using the OBCQ algorithm. The command takes the following parameters: 
@@ -129,7 +129,7 @@ cp deployment/model.onnx deployment/model-orig.onnx
 python onnx_kv_inject.py --input-file deployment/model-orig.onnx --output-file deployment/model.onnx
 ```
 
-## <a name="DeepSparse">Using the Model With DeepSparse </a>
+## <a name="deepsparse">Using the Model With DeepSparse </a>
 Next, run inference using DeepSparse. Ensure you have the latest version of DeepSparse installed: `pip install deepsparse-nightly`
 
 ```python
