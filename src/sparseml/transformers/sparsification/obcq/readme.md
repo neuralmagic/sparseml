@@ -24,7 +24,7 @@ pip install -e "sparseml[transformers]"
 ```
 
 ## <a name="tinyllama">How to One-shot TinyLlama </a>
-[TinyLlama-1.1B-Chat](https://huggingface.co/TinyLlama/TinyLlama-1.1B-Chat-v0.4) is an LLM that we can quantize in a short amount of time because it has 1.1B parameters. 
+[TinyLlama-1.1B-Chat](https://huggingface.co/TinyLlama/TinyLlama-1.1B-Chat-v0.4) is an LLM that we can quantize in a short time because it has 1.1B parameters. 
 
 Perform one-shot using the OBCQ algorithm. The command takes the following parameters: 
 
