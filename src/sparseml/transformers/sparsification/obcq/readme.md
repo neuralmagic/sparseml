@@ -74,6 +74,9 @@ python main_sparse.py \
  --num_fewshot 0
  end=`date +%s`
  echo Execution time was `expr $end - $start` seconds.
+```
+The results obtained in this case are:
+```
 Running loglikelihood requests
 100%|██████████| 40145/40145 [20:47<00:00, 32.19it/s] 
 {
