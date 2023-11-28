@@ -1,5 +1,5 @@
 # One Shot With SparseML 
-This page walks through how to perform one-shot quantization of large language models using [SparseML](https://github.com/neuralmagic/sparseml). This workflow requires a GPU with at least 15GB and 64GB of system RAM.
+This page describes how to perform one-shot quantization of large language models using [SparseML](https://github.com/neuralmagic/sparseml). This workflow requires a GPU with at least 15GB and 64GB of system RAM.
 
 
 ## Table of Contents 
@@ -15,7 +15,7 @@ This page walks through how to perform one-shot quantization of large language m
 
 
 ## <a name="clone">How to Clone and Install  the Latest SparseML </a>
-You'll need the latest version of SparseML to run the one-shot workflow. To avoid any issues, we recommend that you do this from source and in a fresh Python environment. 
+You'll need the latest version of SparseML to run the one-shot workflow. We recommend that you do this from source and in a fresh Python environment to avoid any issues. 
 
 Clone the SparseML repo and install it locally: 
 ```bash
@@ -30,24 +30,24 @@ Perform one-shot using the OBCQ algorithm. The command takes the following param
 
 positional arguments:
 - `model` a path to Hugging Face stub
-- `dataset_name` Hugging Face dataset to extract calibration data from. Example supported datasets: `{c4,evolcodealpaca,gsm8k,open_platypus,ptb,wikitext2}`
+- `dataset_name` Hugging Face dataset to extract calibration data from. Example of supported datasets: `{c4,evolcodealpaca,gsm8k,open_platypus,ptb,wikitext2}`
 
 options:
 - `--nsamples` number of samples to extract from the dataset, defaults to 512
 - `--deploy-dir` the directory where the model will be saved, defaults to `obcq_deployment`
-- `--eval` dataset to use for perplexity evalaution, or none to skip
+- `--eval` dataset to use for perplexity evaluation, or none to skip
 - `--save` whether to save the output model to disk
 - `--recipe` the file containing the one-shot hyperparameters
 - `--device` which device to load the model onto, either `cpu` or a specific `cuda:0`
-- `--precision` precision to load model as, either auto (default), half or full
+- `--precision` precision to load model as, either auto (default), half, or full
 
 Example command:
 ```bash
-wget https://huggingface.co/nm-testing/TinyLlama-1.1B-Chat-v0.4-pruned50-quant/raw/main/recipe.yaml
+wget https://huggingface.co/nm-testing/TinyLlama-1.1B-Chat-v0.4-pruned50-quant/raw/main/recipe.yaml # download recipe
 python sparseml/src/sparseml/transformers/sparsification/obcq/obcq.py TinyLlama/TinyLlama-1.1B-Chat-v0.4 open_platypus --recipe recipe.yaml --save True
 ```
 ## <a name="evaluate"> How to Evaluate the One-shot Model</a>
-Next, evaluate the perforamnce of the model using the [lm-evaluation-harness framework](https://github.com/neuralmagic/lm-evaluation-harness).
+Next, evaluate the model's performance using the [lm-evaluation-harness framework](https://github.com/neuralmagic/lm-evaluation-harness).
 
 Clone the repository:
 ```bash
@@ -154,9 +154,9 @@ There are many factors to consider when choosing a university. Here are some tip
 5. Get involved with extracurricular activities: Universities often have many extracurricular activities, which can help you meet new people
 """
 ```
-Check out the [DeepSparse pipeline text generation docs](https://github.com/neuralmagic/deepsparse/blob/main/src/deepsparse/transformers/text_generation.md) for full list of supported parameters. 
+Check out the [DeepSparse pipeline text generation docs](https://github.com/neuralmagic/deepsparse/blob/main/src/deepsparse/transformers/text_generation.md) for the full list of supported parameters. 
 
-## <a name="uypload">Upload Model to Hugging Face</a>
+## <a name="upload">Upload Model to Hugging Face</a>
 You may want to upload the one-shot model to Hugging Face for ease of reference or to share it with your colleagues. 
 
 Head over to your [Hugging Face account](https://huggingface.co/new) and create a model named `TinyLlama-1.1B-Chat-v0.4-pruned50-quant`. Then upload the one-shot model: 
@@ -172,20 +172,20 @@ api.upload_folder(
 ```
 
 ## <a name="recipe"> Explaining the TinyLlama Recipe</a>
-A recipe is a set of hyperparameters that provides detailed instructions on how the [one-shot quantization](https://neuralmagic.com/video/pruning-and-quantizing-ml-models-with-one-shot-without-retraining/) should be done. The recipe performs quantization in one-shot, meaning that no retraining of the LLM is required. 
+A recipe is a set of hyperparameters that provide detailed instructions on how the [one-shot quantization](https://neuralmagic.com/video/pruning-and-quantizing-ml-models-with-one-shot-without-retraining/) should be done. The recipe performs quantization in one shot, meaning that no retraining of the LLM is required. 
 
 We will now walk through what the different hyperparameters mean and why they are set to those values.
 
-The `SmoothQuantModifier` is a technique used for dealing with outliers in the weights and activations of the LLM because quantization is very sensitive to large variations in their values. For TinyLlama a `smoothing_strength` value of 0.8 resulted in a model with repetitions in it's output but the problem was solved by lowering the value to 0.5. 
+The `SmoothQuantModifier` is a technique used for dealing with outliers in the weights and activations of the LLM because quantization is very sensitive to large variations in their values. For TinyLlama a `smoothing_strength` value of 0.8 resulted in a model with repetitions in its output but the problem was solved by lowering the value to 0.5. 
 
-The `ignore` parameter under `QuantizationModifier` allows us to define operations that either don't make sense to quantize or operations that are too sensitive to quantize. Performing quantization on sensitve operations will affect the final accruacy of the model. We also don't quantize the inputs to the embedding layer. 
+The `ignore` parameter under `QuantizationModifier` allows us to define operations that either don't make sense to quantize or operations that are too sensitive to quantize. Performing quantization on sensitive operations will affect the final accuracy of the model. We also don't quantize the inputs to the embedding layer. 
 
-Under `SparseGPTModifier`, we define `sparsity` as 0.5 because we are aiming for a model that 50% quantized. The other parameters are:
-- `block_size` determines number of columns to compress in one pass
+Under `SparseGPTModifier`, we define `sparsity` as 0.5 because we are aiming for a model that is 50% quantized. The other parameters are:
+- `block_size` determines the number of columns to compress in one pass
 - `quantize` whether or not to quantize weights during SparseGPT
 - `dampening_frac` amount of dampening to apply to H, as a fraction of the diagonal norm
-- `sequential_update` whether or not to update weights sequentially by layer,True saves on GPU memory
-- `mask_structure` string to define the structure of the mask to apply, "0:0" means that it's an unstrunctured mask 
+- `sequential_update` whether or not to update weights sequentially by layer, True saves on GPU memory
+- `mask_structure` string to define the structure of the mask to apply, "0:0" means that it's an unstructured mask 
 - `targets` list of layer names to compress during OBCQ, or '__ALL__' to compress every layer in the model
 
 ```yaml
@@ -230,12 +230,12 @@ test_stage:
 ## <a name="adapt"> How to Adapt a Recipe for a New Model</a>
 You can modify the above recipe to perform one-shot quantization on other models, for example [Mistral](https://huggingface.co/docs/transformers/main/model_doc/mistral). 
 
-Peform the following modifications on the recipe to one-shot a Mistral model.
-- Define the operations we want to skip during quantization, that is sensitve layers and operations that don't make sense to quantize
-- Declear the desired sparsity level, same as the one for TinnyLamma
+Perform the following modifications on the recipe to one-shot a Mistral model.
+- Define the operations we want to skip during quantization, that is sensitive layers and operations that don't make sense to quantize
+- Declare the desired sparsity level, same as the one for TinnyLamma
 - State the layers to compress during OBCQ
 
-Here is how the final recipe looks like: 
+Here is what the final recipe looks like: 
 ```yaml
 test_stage:
   obcq_modifiers:
@@ -276,11 +276,11 @@ test_stage:
 
 Save the recipe to a file named `recipe.yaml`. 
 
-Run one-shot quantization on any Mistral-based model, for example `zephyr-7b-beta`: 
+Run one-shot quantization on any Mistral-based model, for example, `zephyr-7b-beta`: 
 ```bash
 python sparseml/src/sparseml/transformers/sparsification/obcq/obcq.py HuggingFaceH4/zephyr-7b-beta open_platypus --recipe zephyr.yaml --precision float16 --save True
 ```
-We set `—precision float16` because quantization is not supported for the `bfloat16` data type as of this writing. 
+We set `precision` to `float16` because quantization is not supported for the `bfloat16` data type as of this writing. 
 
 Repeat the other processes as shown previously. 
 
