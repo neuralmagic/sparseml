@@ -363,8 +363,7 @@ class PythonLogger(LambdaLogger):
             isinstance(handler, logging.StreamHandler) for handler in logger.handlers
         ):
             stream_handler = logging.StreamHandler()
-            # stream_handler.setLevel(log_level or logging.getLogger("sparseml").level)
-            stream_handler.setLevel(LOGGING_LEVELS["info"])
+            stream_handler.setLevel(log_level or logging.getLogger("sparseml").level)
             logger.addHandler(stream_handler)
 
         # File handler setup, for logging modifier debug statements
