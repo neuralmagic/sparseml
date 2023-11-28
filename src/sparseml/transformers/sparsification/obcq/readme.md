@@ -232,7 +232,7 @@ You can modify the above recipe to perform one-shot quantization on other models
 
 Perform the following modifications on the recipe to one-shot a Mistral model.
 - Define the operations we want to skip during quantization, that is sensitive layers and operations that don't make sense to quantize
-- Declare the desired sparsity level, same as the one for TinnyLamma
+- Declare the desired sparsity level, same as the one for TinyLlama
 - State the layers to compress during OBCQ
 
 Here is what the final recipe looks like: 
