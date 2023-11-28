@@ -28,12 +28,12 @@ from transformers.trainer_utils import get_last_checkpoint
 import sparseml.core.session as session_manager
 from sparseml.core.framework import Framework
 from sparseml.core.session import callbacks
+from sparseml.pytorch.model_load.helpers import reload_model_from_checkpoint
 from sparseml.pytorch.utils import LoggerManager, ModuleSparsificationInfo
 from sparseml.transformers.finetune.callbacks import (
     DisableHalfPrecisionCallback,
     TrainingLoopCallbacks,
 )
-from sparseml.transformers.finetune.helpers import reload_model_state
 from sparseml.transformers.utils.helpers import RECIPE_NAME
 
 
@@ -105,16 +105,17 @@ class SessionManagerMixIn:
         model_signature = inspect.signature(model.forward)
         self._model_signature_columns = list(model_signature.parameters.keys())
 
-    def initialize_session(self, epoch: float, checkpoint: Optional[str]):
+    def initialize_session(self, epoch: float):
         """
         Initialize the SparseSession from the specified epoch, evaluates the recipe
         and initialized the modifiers for the training session
 
         :param epoch: Epoch to initialize session from, usually 0 unless loading
         from a checkpoint
-        :param checkpoint: Optional checkpoint to initialize from to continue training
         """
-        orig_state_dict = self.model.state_dict()
+        session = session_manager.active_session()
+        if session.lifecycle.initialized_ or session.lifecycle.finalized:
+            return False
 
         train_data = self.get_train_dataloader()
 
@@ -127,16 +128,7 @@ class SessionManagerMixIn:
             start=epoch,
             copy_data=False,
         )
-
-        # reload the state dict for the model now that architecture matches expected
-        # TODO: what if there is a quant modifier in the original recipe and we want to
-        # continue adjusting its zero point and range?
-        load_path = checkpoint or self.model_state_path
-        if reload_model_state(self.model, load_path, orig_state_dict):
-            _LOGGER.info(
-                "Reloaded model state after SparseML recipe structure modifications "
-                f"from {load_path}"
-            )
+        _LOGGER.info("Initialized SparseML session")
 
     def initialize_structure(self):
         """
@@ -289,7 +281,8 @@ class SessionManagerMixIn:
         :return: the output from super.train()
         """
         checkpoint, epoch = self._calculate_checkpoint_info(kwargs)
-        applied = self.initialize_session(epoch=epoch, checkpoint=checkpoint)
+        reload_model_from_checkpoint(self.model, checkpoint=checkpoint)
+        applied = self.initialize_session(epoch=epoch)
         self.callback_disable_fp16.check_disable(epoch, force=True)
         self.accelerator.wait_for_everyone()
         output = super().train(*args, **kwargs)

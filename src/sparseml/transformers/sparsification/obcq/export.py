@@ -79,8 +79,8 @@ from transformers.tokenization_utils_base import PaddingStrategy
 import sparseml.core.session as session_manager
 from sparseml.core.framework import Framework
 from sparseml.optim import parse_recipe_variables
+from sparseml.pytorch.model_load.helpers import reload_model_state
 from sparseml.pytorch.utils import export_onnx
-from sparseml.transformers.finetune.helpers import reload_model_state
 from sparseml.transformers.utils import SparseAutoModel
 from sparseml.transformers.utils.helpers import RECIPE_NAME
 from sparsezoo.utils.onnx import EXTERNAL_ONNX_DATA_NAME
