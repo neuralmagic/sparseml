@@ -129,7 +129,19 @@ Injecting KV Cache is done to reduce the model’s computational overhead and sp
 This is done by creating a copy of `model.onnx` and injecting the KV Cache:
 ```bash
 cp deployment/model.onnx deployment/model-orig.onnx
-python onnx_kv_inject.py --input-file deployment/model-orig.onnx --output-file deployment/model.onnx
+```
+
+Code to inject KV Cache:
+```python
+import os
+import onnx
+from sparseml.exporters.kv_cache_injector import KeyValueCacheInjector
+input_file = "deployment/model-orig.onnx"
+output_file = "deployment/model.onnx"
+model = onnx.load(input_file, load_external_data=False)
+model = KeyValueCacheInjector(model_path=os.path.dirname(input_file)).apply(model)
+onnx.save(model, output_file)
+print(f"Modified model saved to: {output_file}")
 ```
 
 ## <a name="deepsparse">Using the Model With DeepSparse </a>
