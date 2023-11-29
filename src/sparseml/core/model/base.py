@@ -90,13 +90,6 @@ class ModifiableModel(Generic[MT, LT, PT], MultiFrameworkObject):
         """
         raise NotImplementedError()
 
-    def get_terminal_layers(self) -> Dict[str, LT]:
-        """
-        :return: a dictionary of terminal layer names to layer instances. A layer is
-        terminal if it has no sub-layers
-        """
-        raise NotImplementedError()
-
     def get_layer(self, target: str) -> LT:
         """
         :param target: the target to get the layer for

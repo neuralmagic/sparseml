@@ -25,7 +25,6 @@ from sparseml.utils.pytorch import (
     get_matching_layer,
     get_param,
     get_params,
-    get_terminal_layers,
     qat_active,
     set_layer,
     set_param,
@@ -68,13 +67,6 @@ class ModifiableModelPyTorch(ModifiableModel[Module, Module, Parameter]):
         :returns: a dictionary of layer name to layer for the given targets
         """
         return get_layers(targets, self.model)
-
-    def get_terminal_layers(self) -> Dict[str, Module]:
-        """
-        :return: a dictionary of terminal layer names to layer instances. A layer is
-        terminal if it has no sub-layers
-        """
-        return get_terminal_layers(self.model)
 
     def get_layer(self, target: str) -> Tuple[str, Module]:
         """
