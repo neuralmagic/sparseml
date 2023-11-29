@@ -49,8 +49,7 @@ Options:
                                   and labels as well as the outputs from model
                                   execution)  [default: -1]
    --onnx-opset, --onnx_opset INTEGER
-                                  The onnx opset to use for exporting the
-                                  model  [default: 11]
+                                  The onnx opset to use for exporting the model
   --use_zipfile_serialization_if_available, --use-zipfile-serialization-if-available /
   --no_zipfile_serialization, --no-zipfile-serialization
                                   For torch >= 1.6.0 only exports the Module's
