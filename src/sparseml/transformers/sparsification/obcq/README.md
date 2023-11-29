@@ -33,13 +33,13 @@ positional arguments:
 - `dataset_name` Hugging Face dataset to extract calibration data from. Example of supported datasets: `{c4,evolcodealpaca,gsm8k,open_platypus,ptb,wikitext2}`
 
 options:
-- `--nsamples` number of samples to extract from the dataset, defaults to 512
-- `--deploy-dir` the directory where the model will be saved, defaults to `obcq_deployment`
-- `--eval` dataset to use for perplexity evaluation, or none to skip
-- `--save` whether to save the output model to disk
-- `--recipe` the file containing the one-shot hyperparameters
-- `--device` which device to load the model onto, either `cpu` or a specific `cuda:0`
-- `--precision` precision to load model as, either auto (default), half, full, float16 or float32
+- `--nsamples` number of samples to extract from the dataset, defaults to 512.
+- `--deploy-dir` the directory where the model will be saved, defaults to `obcq_deployment`.
+- `--eval` dataset to use for perplexity evaluation, or none to skip.
+- `--save` whether to save the output model to disk.
+- `--recipe` the file containing the one-shot hyperparameters.
+- `--device` which device to load the model onto, either `cpu` or a specific `cuda:0`.
+- `--precision` precision to load model as, either auto (default), half, full, float16 or float32.
 
 Example command:
 ```bash
@@ -196,12 +196,12 @@ The `SmoothQuantModifier` is a technique used for dealing with outliers in the w
 The `ignore` parameter under `QuantizationModifier` allows us to define operations that either don't make sense to quantize or operations that are too sensitive to quantize. Performing quantization on sensitive operations will affect the final accuracy of the model. We also don't quantize the inputs to the embedding layer. 
 
 Under `SparseGPTModifier`, we define `sparsity` as 0.5 because we are aiming for a model that is 50% quantized. The other parameters are:
-- `block_size` determines the number of columns to compress in one pass
+- `block_size` determines the number of columns to compress in one pass.
 - `quantize` whether or not to quantize weights during SparseGPT.  A default quantization modifier will be applied when `quantize` is set to `True` and there is no `QuantizationModifier` in the recipe.
-- `dampening_frac` amount of dampening to apply to H, as a fraction of the diagonal norm
-- `sequential_update` whether or not to update weights sequentially by layer, True saves on GPU memory
+- `dampening_frac` amount of dampening to apply to H, as a fraction of the diagonal norm.
+- `sequential_update` whether or not to update weights sequentially by layer, True saves on GPU memory.
 - `mask_structure` string to define the structure of the mask to apply, "0:0" means that it's an unstructured mask. Setting it to "16:32" would mean that 16 out of every 32 weights will be zeroed out (structured sparsity).
-- `targets` list of layer names to compress during OBCQ, or '__ALL__' to compress every layer in the model
+- `targets` list of layer names to compress during OBCQ, or '__ALL__' to compress every layer in the model.
 
 ```yaml
 test_stage:
@@ -246,9 +246,9 @@ test_stage:
 You can modify the above recipe to perform one-shot quantization on other models, for example [Mistral](https://huggingface.co/docs/transformers/main/model_doc/mistral). 
 
 Perform the following modifications on the recipe to one-shot a Mistral model.
-- Define the operations we want to skip during quantization, that is sensitive layers and operations that don't make sense to quantize
-- Declare the desired sparsity level, same as the one for TinyLlama
-- State the layers to compress during OBCQ
+- Define the operations we want to skip during quantization, that is sensitive layers and operations that don't make sense to quantize.
+- Declare the desired sparsity level, same as the one for TinyLlama.
+- State the layers to compress during OBCQ.
 
 Here is what the final recipe looks like: 
 ```yaml
