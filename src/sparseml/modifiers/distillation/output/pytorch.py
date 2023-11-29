@@ -57,6 +57,7 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
                     f"model and teacher model layers for target {target} do not match"
                 )
 
+            # Ensure the student and teacher layer are on the same device
             device = None
             for (key, student_layer), teacher_layer in zip(
                 model_layers.items(), teacher_layers.values()
@@ -73,7 +74,7 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
                         teacher_buffer.data = teacher_buffer.to(device)
 
                 wrapper = self._create_wrapper(student_layer, teacher_layer, state)
-                kd_comparison_buffer = getattr(wrapper, "kd_last_comparison")
+                kd_comparison_buffer = getattr(wrapper, wrapper.KD_COMPARISON_BUFFER)
                 kd_comparison_buffer.data = kd_comparison_buffer.to(device)
                 state.model.set_layer(key, wrapper)
                 self.wrappers_[key] = wrapper
@@ -100,8 +101,8 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
                 wrapper.kd_last_comparison for wrapper in self.wrappers_.values()
             ]
             state.loss = (
-                self.orig_scale * kwargs["loss"]  # state.loss
-                + self.distill_scale * torch.stack(comparisons).mean()
+                self.orig_scale * kwargs["loss"]  # model output loss
+                + self.distill_scale * torch.stack(comparisons).mean()  # distill loss
             )
 
     def on_end(self, state: State, event: Event, **kwargs):

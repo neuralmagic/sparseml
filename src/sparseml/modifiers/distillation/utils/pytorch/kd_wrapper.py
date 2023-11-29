@@ -29,6 +29,8 @@ __all__ = ["KDModuleWrapper"]
 
 
 class KDModuleWrapper(Module):
+    KD_COMPARISON_BUFFER = "kd_last_comparison"
+
     def __init__(
         self,
         student_layer: Module,
@@ -40,17 +42,13 @@ class KDModuleWrapper(Module):
         super(KDModuleWrapper, self).__init__()
 
         self.student_layer = student_layer
-        self.kd_teacher_layer = teacher_layer
-        self.kd_student_projections = (
-            projections[0] if projections is not None else None
-        )
-        self.kd_teacher_projections = (
-            projections[1] if projections is not None else None
-        )
+        self.teacher_layer = teacher_layer
+        self.student_projections = projections[0] if projections is not None else None
+        self.teacher_projections = projections[1] if projections is not None else None
         self.kd_transforms = transforms
         self.kd_comparison = comparison
         self.kd_enabled = False
-        self.register_buffer("kd_last_comparison", torch.zeros(1))
+        self.register_buffer(self.KD_COMPARISON_BUFFER, torch.zeros(1))
         self._init_called = True  # make sure this is last property to be set
 
     # def __getattr__(self, name):
@@ -77,14 +75,14 @@ class KDModuleWrapper(Module):
         student_output = org_output
 
         with torch.no_grad():
-            teacher_output = self.kd_teacher_layer(*args, **kwargs)
+            teacher_output = self.teacher_layer(*args, **kwargs)
 
-        if self.kd_student_projections is not None:
-            for projection in self.kd_student_projections:
+        if self.student_projections is not None:
+            for projection in self.student_projections:
                 student_output = projection(student_output, teacher_output)
 
-        if self.kd_teacher_projections is not None:
-            for projection in self.kd_teacher_projections:
+        if self.teacher_projections is not None:
+            for projection in self.teacher_projections:
                 teacher_output = projection(teacher_output, student_output)
 
         if self.kd_transforms is not None:

@@ -243,7 +243,6 @@ class SessionManagerMixIn:
         :return: the resulting loss if not return_outputs, otherwise a tuple
             containing the loss and the model's outputs
         """
-        # TODO: updating this for distillation
         self._check_super_defined("compute_loss")
 
         # TODO: do we need these model signature columns?
