@@ -36,12 +36,12 @@ from tests.sparseml.pytorch.helpers import (  # noqa isort:skip
 
 
 def create_optim_sgd(
-    model: Module, lr: float = 0.25, momentum: float = 0.9, weight_decay: float = 0
+    model: Module, lr: float = 0.00025, momentum: float = 0.9, weight_decay: float = 0
 ) -> SGD:
     return SGD(model.parameters(), lr=lr, momentum=momentum, weight_decay=weight_decay)
 
 
-def create_optim_adam(model: Module, lr: float = 0.25) -> Adam:
+def create_optim_adam(model: Module, lr: float = 0.00025) -> Adam:
     return Adam(model.parameters(), lr=lr)
 
 
@@ -52,8 +52,8 @@ def create_optim_adam(model: Module, lr: float = 0.25) -> Adam:
             forward_sparsity=0.9,
             backward_sparsity=0.5,
             start_epoch=0,
-            end_epoch=20,
-            update_frequency=5,
+            end_epoch=5,
+            update_frequency=2,
             params=["re:.*weight"],
             leave_enabled=True,
             active_weight_decay=0.0002,
@@ -62,8 +62,8 @@ def create_optim_adam(model: Module, lr: float = 0.25) -> Adam:
             forward_sparsity=0.9,
             backward_sparsity=0.5,
             start_epoch=0,
-            end_epoch=20,
-            update_frequency=5,
+            end_epoch=7,
+            update_frequency=3,
             params=["re:.*weight"],
             active_weight_decay=0.0002,
         ),
@@ -71,7 +71,7 @@ def create_optim_adam(model: Module, lr: float = 0.25) -> Adam:
             forward_sparsity=0.8,
             backward_sparsity=0.7,
             start_epoch=6.0,
-            end_epoch=26.0,
+            end_epoch=9.0,
             update_frequency=1,
             params=["re:.*weight"],
             active_weight_decay=0.0002,
