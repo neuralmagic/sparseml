@@ -15,7 +15,7 @@ from copy import deepcopy
 from typing import Optional
 
 from sparseml.transformers.finetune.data import TextGenerationDataset
-from sparseml.transformers.finetune.data.helpers import get_raw_dataset
+from sparseml.transformers.finetune.data.data_helpers import get_raw_dataset
 
 
 @TextGenerationDataset.register(name="open_platypus")

@@ -21,6 +21,7 @@
 import logging
 import os
 import random
+from typing import Tuple
 
 import datasets
 import transformers
@@ -33,15 +34,15 @@ from transformers import (
     default_data_collator,
     set_seed,
 )
-from transformers.trainer_utils import get_last_checkpoint
 
 from sparseml.transformers.finetune import Trainer, TrainingArguments
 from sparseml.transformers.finetune.data import TextGenerationDataset
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
-from sparseml.transformers.finetune.data.helpers import make_dataset_splits
+from sparseml.transformers.finetune.data.data_helpers import make_dataset_splits
 from sparseml.transformers.finetune.helpers import apply_recipe_structure_to_model
 from sparseml.transformers.finetune.model_args import ModelArguments
 from sparseml.transformers.utils import SparseAutoModel, get_shared_tokenizer_src
+from sparseml.transformers.utils.helpers import detect_last_checkpoint
 
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
@@ -141,26 +142,8 @@ def main(
     _LOGGER.info(f"Training/evaluation parameters {training_args}")
 
     # Detecting last checkpoint.
-    last_checkpoint = None
-    if (
-        os.path.isdir(training_args.output_dir)
-        and training_args.do_train
-        and not training_args.overwrite_output_dir
-    ):
-        last_checkpoint = get_last_checkpoint(training_args.output_dir)
-        if last_checkpoint is None and (len(os.listdir(training_args.output_dir)) > 0):
-            raise ValueError(
-                f"Output directory ({training_args.output_dir}) already "
-                "exists and is not empty. Use --overwrite_output_dir to overcome."
-            )
-        elif (
-            last_checkpoint is not None and training_args.resume_from_checkpoint is None
-        ):
-            _LOGGER.info(
-                f"Checkpoint detected, resuming training at {last_checkpoint}. To "
-                "avoid this behavior, change  the `--output_dir` or add "
-                "`--overwrite_output_dir` to train from scratch."
-            )
+    last_checkpoint = detect_last_checkpoint(training_args)
+    model_path = model_args.model_name_or_path
 
     # Set seed before initializing model.
     set_seed(training_args.seed)
@@ -169,9 +152,7 @@ def main(
     # The .from_pretrained methods guarantee that only one local process can
     # concurrently download model & vocab.
     config = AutoConfig.from_pretrained(
-        model_args.config_name
-        if model_args.config_name
-        else model_args.model_name_or_path,
+        model_args.config_name if model_args.config_name else model_path,
         cache_dir=model_args.cache_dir,
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
@@ -196,7 +177,6 @@ def main(
     )
 
     # initialize structure of input model from recipe if needed
-    model_path = model_args.model_name_or_path
     recipe_path = os.path.join(model_path, "recipe.yaml")
     if not os.path.exists(recipe_path):
         _LOGGER.warning(f"No recipes were applied for {model_path}.")
@@ -221,30 +201,12 @@ def main(
 
     # Load datasets
     # TODO: will any of this cause problems with FSDP?
-    splits = data_args.splits
-    tokenized_datasets = {}
-    if data_args.splits is None:
-        splits = {"all": None}
-    for split_name, split_str in splits.items():
-        dataset_manager = TextGenerationDataset.load_from_registry(
-            data_args.dataset_name,
-            data_args=data_args,
-            split=split_str,
-            tokenizer=tokenizer,
-        )
-        raw_dataset = dataset_manager.get_raw_dataset(model_args.cache_dir)
-        tokenized_dataset = dataset_manager.tokenize_and_process(raw_dataset)
-        tokenized_datasets[split_name] = tokenized_dataset
-
-    tokenized_datasets = make_dataset_splits(
-        tokenized_datasets,
-        training_args.do_train,
-        training_args.do_eval,
-        training_args.do_predict,
+    train_dataset, eval_dataset, predict_dataset = _load_split_datasets(
+        data_args=data_args,
+        model_args=model_args,
+        training_args=training_args,
+        tokenizer=tokenizer,
     )
-    train_dataset = tokenized_datasets.get("train")
-    eval_dataset = tokenized_datasets.get("validation")
-    predict_dataset = tokenized_datasets.get("test")
 
     # Log a few random samples from the training set:
     if training_args.do_train:
@@ -264,7 +226,7 @@ def main(
     trainer = Trainer(
         model=model,
         teacher=teacher,
-        model_state_path=model_args.model_name_or_path,
+        model_state_path=model_path,
         recipe=training_args.recipe,
         metadata_args=metadata_args,
         recipe_args=training_args.recipe_args,
@@ -344,6 +306,41 @@ def predict(predict_dataset: Dataset, trainer: Trainer):
     metrics["predict_samples"] = len(predict_dataset)
     trainer.log_metrics("predict", metrics)
     trainer.save_metrics("predict", metrics)
+
+
+def _load_split_datasets(
+    data_args: DataTrainingArguments,
+    model_args: ModelArguments,
+    training_args: TrainingArguments,
+    tokenizer: AutoTokenizer,
+) -> Tuple[Dataset, Dataset, Dataset]:
+    splits = data_args.splits
+    tokenized_datasets = {}
+    if data_args.splits is None:
+        splits = {"all": None}
+    for split_name, split_str in splits.items():
+        dataset_manager = TextGenerationDataset.load_from_registry(
+            data_args.dataset_name,
+            data_args=data_args,
+            split=split_str,
+            tokenizer=tokenizer,
+        )
+        raw_dataset = dataset_manager.get_raw_dataset(model_args.cache_dir)
+        tokenized_dataset = dataset_manager.tokenize_and_process(raw_dataset)
+        tokenized_datasets[split_name] = tokenized_dataset
+
+    tokenized_datasets = make_dataset_splits(
+        tokenized_datasets,
+        training_args.do_train,
+        training_args.do_eval,
+        training_args.do_predict,
+    )
+
+    train_dataset = tokenized_datasets.get("train")
+    eval_dataset = tokenized_datasets.get("validation")
+    predict_dataset = tokenized_datasets.get("test")
+
+    return train_dataset, eval_dataset, predict_dataset
 
 
 if __name__ == "__main__":

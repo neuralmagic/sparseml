@@ -19,7 +19,7 @@ from datasets import Dataset
 from transformers import AutoTokenizer
 
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
-from sparseml.transformers.finetune.data.helpers import get_raw_dataset
+from sparseml.transformers.finetune.data.data_helpers import get_raw_dataset
 from sparsezoo.utils.registry import RegistryMixin
 
 

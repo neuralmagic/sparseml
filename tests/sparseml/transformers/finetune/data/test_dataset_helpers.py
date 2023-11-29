@@ -15,7 +15,7 @@
 import pytest
 
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
-from sparseml.transformers.finetune.data.helpers import (
+from sparseml.transformers.finetune.data.data_helpers import (
     get_raw_dataset,
     make_dataset_splits,
 )
