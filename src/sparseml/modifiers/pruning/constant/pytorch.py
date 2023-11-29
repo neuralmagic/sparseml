@@ -21,14 +21,14 @@ from sparseml.modifiers.pruning.utils.pytorch import LayerParamMasking
 
 class ConstantPruningModifierPyTorch(ConstantPruningModifier, LayerParamMasking):
     parameterized_layers_: Dict[str, ModelParameterizedLayer] = None
-    _save_masks: bool = False
-    _use_hooks: bool = False
+    save_masks_: bool = False
+    use_hooks_: bool = False
 
     def on_initialize(self, state: State, **kwargs) -> bool:
         if "save_masks" in kwargs:
-            self._save_masks = kwargs["save_masks"]
+            self.save_masks_ = kwargs["save_masks"]
         if "use_hooks" in kwargs:
-            self._use_hooks = kwargs["use_hooks"]
+            self.use_hooks_ = kwargs["use_hooks"]
 
         if not state.model or not state.start_event:
             return False
@@ -39,8 +39,8 @@ class ConstantPruningModifierPyTorch(ConstantPruningModifier, LayerParamMasking)
             self.add_mask(
                 layer_param_name,
                 parameterized_layer,
-                persistent=self._save_masks,
-                add_hooks=self._use_hooks,
+                persistent=self.save_masks_,
+                add_hooks=self.use_hooks_,
             )
 
         return True
@@ -54,13 +54,13 @@ class ConstantPruningModifierPyTorch(ConstantPruningModifier, LayerParamMasking)
     def on_start(self, state: State, event: Event, **kwargs):
         for layer_param_name, parameterized_layer in self.parameterized_layers_.items():
             self.update_mask(
-                layer_param_name, parameterized_layer.param.data.abs() > self._epsilon
+                layer_param_name, parameterized_layer.param.data.abs() > self.epsilon_
             )
 
         self.enable_masks()
 
     def on_update(self, state: State, event: Event, **kwargs):
-        if self._use_hooks:
+        if self.use_hooks_:
             # hooks are used to update, so nothing to do here
             return
 

@@ -28,6 +28,8 @@ class OutputDistillationModifier(Modifier):
     transforms_args: Union[Dict[str, Any], List[Dict[str, Any]]] = None
     comparison: str = "kl_divergence"
     comparison_args: Dict[str, Any] = None
+    orig_scale: float = 1.0
+    distill_scale: float = 1.0
 
     def on_initialize_structure(self, state: State, **kwargs):
         pass  # nothing needed for this modifier

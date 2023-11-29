@@ -58,7 +58,7 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
         :return: True if the modifier structure has been
             applied to the model
         """
-        return self._initialized_structure
+        return self.initialized_structure_
 
     @property
     def initialized(self) -> bool:

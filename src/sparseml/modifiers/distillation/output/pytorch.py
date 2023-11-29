@@ -26,7 +26,7 @@ __all__ = ["OutputDistillationModifierPyTorch"]
 
 
 class OutputDistillationModifierPyTorch(OutputDistillationModifier):
-    _wrappers: Dict[str, KDModuleWrapper] = None
+    wrappers_: Dict[str, KDModuleWrapper] = None
 
     def on_initialize(self, state: State, **kwargs) -> bool:
         if (
@@ -36,7 +36,7 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
         ):
             return False
 
-        self._wrappers = {}
+        self.wrappers_ = {}
 
         for target in (
             self.targets if isinstance(self.targets, list) else [self.targets]
@@ -62,19 +62,19 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
             ):
                 wrapper = self._create_wrapper(student_layer, teacher_layer, state)
                 state.model.set_layer(key, wrapper)
-                self._wrappers[key] = wrapper
+                self.wrappers_[key] = wrapper
 
         return True
 
     def on_finalize(self, state: State, **kwargs) -> bool:
-        for key, wrapper in self._wrappers.items():
+        for key, wrapper in self.wrappers_.items():
             state.model.set_layer(key, wrapper.student_layer)
             del wrapper
 
         return True
 
     def on_start(self, state: State, event: Event, **kwargs):
-        for wrapper in self._wrappers.values():
+        for wrapper in self.wrappers_.values():
             wrapper.kdenabled_ = True
 
     def on_update(self, state: State, event: Event, **kwargs):
@@ -82,12 +82,15 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
             self.start, self.end, self.update
         ):
             comparisons = [
-                wrapper.kd_last_comparison for wrapper in self._wrappers.values()
+                wrapper.kd_last_comparison for wrapper in self.wrappers_.values()
             ]
-            state.loss = state.loss + torch.Stack(comparisons).mean()
+            state.loss = (
+                self.orig_scale * state.loss
+                + self.distill_scale * torch.Stack(comparisons).mean()
+            )
 
     def on_end(self, state: State, event: Event, **kwargs):
-        for wrapper in self._wrappers.values():
+        for wrapper in self.wrappers_.values():
             wrapper.kdenabled_ = False
 
     def _create_wrapper(

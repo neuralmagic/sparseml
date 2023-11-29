@@ -31,8 +31,8 @@ from sparseml.modifiers.pruning.utils.pytorch import (
 
 class MagnitudePruningModifierPyTorch(MagnitudePruningModifier, LayerParamMasking):
     parameterized_layers_: Dict[str, ModelParameterizedLayer] = None
-    _save_masks: bool = False
-    _use_hooks: bool = False
+    save_masks_: bool = False
+    use_hooks_: bool = False
     scheduler_function_: SchedulerCalculationType = None
     mask_creator_function_: MaskCreatorType = None
     current_sparsity_: float = None
@@ -42,9 +42,9 @@ class MagnitudePruningModifierPyTorch(MagnitudePruningModifier, LayerParamMaskin
             raise NotImplementedError("global pruning not implemented yet for PyTorch")
 
         if "save_masks" in kwargs:
-            self._save_masks = kwargs["save_masks"]
+            self.save_masks_ = kwargs["save_masks"]
         if "use_hooks" in kwargs:
-            self._use_hooks = kwargs["use_hooks"]
+            self.use_hooks_ = kwargs["use_hooks"]
 
         if not state.model or not state.start_event:
             return False
@@ -70,8 +70,8 @@ class MagnitudePruningModifierPyTorch(MagnitudePruningModifier, LayerParamMaskin
             self.add_mask(
                 layer_param_name,
                 parameterized_layer,
-                persistent=self._save_masks,
-                add_hooks=self._use_hooks,
+                persistent=self.save_masks_,
+                add_hooks=self.use_hooks_,
             )
 
         return True
@@ -129,9 +129,9 @@ class MagnitudePruningModifierPyTorch(MagnitudePruningModifier, LayerParamMaskin
             self._update_masks(event)
 
     def _update_masks(self, event: Event):
-        if event.type_ == EventType.OPTIM_PRE_STEP and not self._use_hooks:
+        if event.type_ == EventType.OPTIM_PRE_STEP and not self.use_hooks_:
             for layer_param_name, _ in self.parameterized_layers_.items():
                 self.apply_mask_gradient(layer_param_name)
-        elif event.type_ == EventType.OPTIM_POST_STEP and not self._use_hooks:
+        elif event.type_ == EventType.OPTIM_POST_STEP and not self.use_hooks_:
             for layer_param_name, _ in self.parameterized_layers_.items():
                 self.apply_mask_weight(layer_param_name)
