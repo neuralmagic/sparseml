@@ -179,7 +179,7 @@ class TestTopKASTPruningModifier(ScheduledModifierTest):
                 assert torch.allclose(
                     modifier._module_masks._params[i][backward_mask],
                     layer_weights_pre._params[i][backward_mask]
-                    * (1 - 0.0002 * 0.25 * 1 / modifier._forward_sparsity),
+                    * (1 - 0.0002 * 0.00025 * 1 / modifier._forward_sparsity),
                     atol=1e-5,
                     equal_nan=True,
                 )
