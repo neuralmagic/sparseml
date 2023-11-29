@@ -39,7 +39,7 @@ options:
 - `--save` whether to save the output model to disk
 - `--recipe` the file containing the one-shot hyperparameters
 - `--device` which device to load the model onto, either `cpu` or a specific `cuda:0`
-- `--precision` precision to load model as, either auto (default), half, or full
+- `--precision` precision to load model as, either auto (default), half, full, float16 or float32
 
 Example command:
 ```bash
@@ -197,10 +197,10 @@ The `ignore` parameter under `QuantizationModifier` allows us to define operatio
 
 Under `SparseGPTModifier`, we define `sparsity` as 0.5 because we are aiming for a model that is 50% quantized. The other parameters are:
 - `block_size` determines the number of columns to compress in one pass
-- `quantize` whether or not to quantize weights during SparseGPT
+- `quantize` whether or not to quantize weights during SparseGPT.  A default quantization modifier will be applied when `quantize` is set to `True` and there is no `QuantizationModifier` in the recipe.
 - `dampening_frac` amount of dampening to apply to H, as a fraction of the diagonal norm
 - `sequential_update` whether or not to update weights sequentially by layer, True saves on GPU memory
-- `mask_structure` string to define the structure of the mask to apply, "0:0" means that it's an unstructured mask 
+- `mask_structure` string to define the structure of the mask to apply, "0:0" means that it's an unstructured mask. Setting it to "16:32" would mean that 16 out of every 32 weights will be zeroed out (structured sparsity).
 - `targets` list of layer names to compress during OBCQ, or '__ALL__' to compress every layer in the model
 
 ```yaml
