@@ -25,7 +25,6 @@ from transformers import (
     AutoModelForQuestionAnswering,
     AutoModelForSequenceClassification,
     AutoModelForTokenClassification,
-    LlamaForCausalLM,
     OPTForCausalLM,
 )
 from transformers.file_utils import WEIGHTS_NAME
