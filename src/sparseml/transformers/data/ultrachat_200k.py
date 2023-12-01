@@ -44,7 +44,7 @@ class Ultrachat200k(TransformersDataset):
             model=model,
             seqlen=seqlen,
             nsamples=nsamples,
-            path="ultrachat_200k.py",
+            path="HuggingFaceH4/ultrachat_200k",
             name="main",
             seed=seed,
             split=split,
