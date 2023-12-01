@@ -37,7 +37,7 @@ class Ultrachat200k(TransformersDataset):
         seqlen: int,
         nsamples: int,
         seed: int = 0,
-        split: str = "train_sft",
+        split: str = "train",
         split_percent_to_use: float = 1.0,
     ):
         super().__init__(
@@ -47,7 +47,7 @@ class Ultrachat200k(TransformersDataset):
             path="HuggingFaceH4/ultrachat_200k",
             name="default",
             seed=seed,
-            split=split,
+            split=split + "_sft",
             use_max_tokens=False,
             split_percent_to_use=split_percent_to_use,
         )
