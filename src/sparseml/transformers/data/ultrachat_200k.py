@@ -16,6 +16,7 @@ from torch.nn import Module
 
 from sparseml.transformers.data.base_llm import TransformersDataset
 
+
 DEFAULT_CHAT_TEMPLATE = (
     "{% for message in messages %}\n"
     "{% if message['role'] == 'user' %}\n"
@@ -28,6 +29,7 @@ DEFAULT_CHAT_TEMPLATE = (
     "{% if loop.last and add_generation_prompt %}\n"
     "{{ '<|assistant|>' }}\n{% endif %}\n{% endfor %}"
 )
+
 
 @TransformersDataset.register(name="ultrachat_200k")
 class Ultrachat200k(TransformersDataset):
@@ -52,7 +54,10 @@ class Ultrachat200k(TransformersDataset):
             split_percent_to_use=split_percent_to_use,
         )
 
-        if not hasattr(self.tokenizer, "chat_template") or self.tokenizer.chat_template is None:
+        if (
+            not hasattr(self.tokenizer, "chat_template")
+            or self.tokenizer.chat_template is None
+        ):
             self.tokenizer.chat_template = DEFAULT_CHAT_TEMPLATE
 
         processed_data = []
