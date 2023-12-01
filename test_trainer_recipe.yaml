@@ -13,5 +13,5 @@ test_stage:
   distillation_modifiers:
     OutputDistillationModifier:
       targets: "__ALL__"
-      comparison: "l2_distance"
+      comparison: "square_head"
       start: 0

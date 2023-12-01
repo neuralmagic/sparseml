@@ -291,12 +291,12 @@ class SessionManagerMixIn:
         """
         checkpoint, epoch = self._calculate_checkpoint_info(kwargs)
         reload_model_from_checkpoint(self.model, checkpoint=checkpoint)
-        applied = self.initialize_session(epoch=epoch)
+        self.initialize_session(epoch=epoch)
         self.callback_disable_fp16.check_disable(epoch, force=True)
         self.accelerator.wait_for_everyone()
         output = super().train(*args, **kwargs)
         self.accelerator.wait_for_everyone()
-        if applied:
+        with FullyShardedDataParallel.summon_full_params(self.model):
             self.finalize_session()
 
         self.accelerator.wait_for_everyone()

@@ -15,6 +15,7 @@
 from typing import Any, Dict
 
 import torch
+from torch.distributed.fsdp import FullyShardedDataParallel
 from torch.nn import Module
 
 from sparseml.core import Event, EventType, State
@@ -83,8 +84,12 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
         return True
 
     def on_finalize(self, state: State, **kwargs) -> bool:
+        prefix = ""
+        if isinstance(state.model.model, FullyShardedDataParallel):
+            prefix = "_fsdp_wrapped_module."
         for key, wrapper in self.wrappers_.items():
-            state.model.set_layer(key, wrapper.student_layer)
+            fsdp_key = prefix + key
+            state.model.set_layer(fsdp_key, wrapper.student_layer)
             del wrapper
 
         return True
