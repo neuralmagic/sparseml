@@ -45,7 +45,7 @@ class Ultrachat200k(TransformersDataset):
             seqlen=seqlen,
             nsamples=nsamples,
             path="HuggingFaceH4/ultrachat_200k",
-            name="main",
+            name="default",
             seed=seed,
             split=split,
             use_max_tokens=False,
