@@ -14,7 +14,6 @@
 
 from typing import Dict, List, Optional, Tuple, Union
 
-from torch.distributed.fsdp import FullyShardedDataParallel
 from torch.nn import Module, Parameter
 
 from sparseml.core.framework import Framework
@@ -79,9 +78,7 @@ class ModifiableModelPyTorch(ModifiableModel[Module, Module, Parameter]):
         """
         :param target: the target to set the layer for
         """
-        with FullyShardedDataParallel.summon_full_params(self.model):
-            # in order to update a layer we need to gathers all its parameters
-            return set_layer(target, layer, self.model)
+        return set_layer(target, layer, self.model)
 
     def get_params(self, targets: Union[str, List[str]]) -> Dict[str, Parameter]:
         """

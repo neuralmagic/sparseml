@@ -75,7 +75,7 @@ def mixin_trainer():
 
 
 def test_mixin_session_init(mixin_trainer):
-    mixin_trainer.initialize_session(epoch=0.0)
+    mixin_trainer.initialize_session(epoch=0.0, checkpoint=None)
     session = session_manager.active_session()
 
     assert not session.lifecycle.initialized_structure

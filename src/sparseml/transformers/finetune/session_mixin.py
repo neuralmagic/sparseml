@@ -127,6 +127,7 @@ class SessionManagerMixIn:
         orig_state_dict = self.model.state_dict()
         train_data = self.get_train_dataloader()
 
+        self.accelerator.wait_for_everyone()
         session_manager.initialize(
             model=self.model,
             teacher_model=self.teacher,  # TODO: what about for self/disable?
@@ -137,6 +138,7 @@ class SessionManagerMixIn:
             start=epoch,
             copy_data=False,
         )
+        self.accelerator.wait_for_everyone()
 
         # reload the state dict for the model now that architecture matches expected
         # TODO: what if there is a quant modifier in the original recipe and we want to
@@ -173,7 +175,9 @@ class SessionManagerMixIn:
         if not session.lifecycle.initialized_ or session.lifecycle.finalized:
             return False
 
-        session_manager.finalize()
+        with FullyShardedDataParallel.summon_full_params(self.model):
+            # in order to update each layer we need to gathers all its parameters
+            session_manager.finalize()
         _LOGGER.info("Finalized SparseML session")
 
     def create_optimizer(self):
