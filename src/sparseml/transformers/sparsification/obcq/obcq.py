@@ -46,6 +46,7 @@ def one_shot(
     model_path: str,
     dataset_name: str,
     num_samples: int = 128,
+    sequence_length: Optional[int] = None,
     device: str = "cuda:0",
     deploy_dir: Optional[str] = ".",
     recipe_file: Optional[str] = None,
@@ -59,6 +60,7 @@ def one_shot(
     :param model_path: path to Hugging Face stub
     :param dataset_name: Dataset to extract calibration data from
     :param num_samples: Number of samples to extract from the dataset
+    :param sequence_length: Maximum input sequence length to the model
     :param device: Device (cuda:index or cpu) to use for computation
     :param deploy_dir: The output directory to save the model to
     :param recipe_file: recipe containing SparseGPT configuration
@@ -88,16 +90,15 @@ def one_shot(
     if "opt" in model_type:
         model_loader_fn = SparseCausalLM.opt_model_from_pretrained
         forward_fn = opt_forward
-    elif "llama" in model_type:
-        model_loader_fn = SparseCausalLM.llama_model_from_pretrained
-        forward_fn = llama_forward
-    elif "mistral" in model_type:
+    elif "llama" in model_type or "mistral" in model_type:
         model_loader_fn = SparseCausalLM.auto_model_from_pretrained
         forward_fn = llama_forward
     else:
         raise ValueError(f"model_path={model_path} should be one of {SUPPORTED_MODELS}")
     torch_dtype = _parse_dtype(precision)
-    model = model_loader_fn(model_path, torch_dtype=torch_dtype)
+    model = model_loader_fn(
+        model_path, sequence_length=sequence_length, torch_dtype=torch_dtype
+    )
 
     if dataset_name not in SUPPORTED_DATASETS:
         raise ValueError(
@@ -106,7 +107,7 @@ def one_shot(
     dataset = TransformersDataset.load_from_registry(
         dataset_name,
         model=model_path,
-        seqlen=model.seqlen,
+        seqlen=sequence_length,
         nsamples=num_samples,
         seed=0,
         split="train",
@@ -191,6 +192,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "--nsamples", type=int, default=512, help="Number of calibration data samples"
     )
+    parser.add_argument(
+        "--seqlen",
+        type=int,
+        default=None,
+        help="Maximum input sequence length to the model",
+    )
     parser.add_argument("--device", type=str, default="cuda:0")
     parser.add_argument("--deploy-dir", type=str, default=".")
     parser.add_argument("--recipe", type=str, default=None)
@@ -215,6 +222,7 @@ if __name__ == "__main__":
         dataset_name=args.dataset,
         deploy_dir=args.deploy_dir,
         num_samples=args.nsamples,
+        sequence_length=args.seqlen,
         device=args.device,
         recipe_file=args.recipe,
         precision=args.precision,
