@@ -25,7 +25,6 @@ from transformers import (
     AutoModelForQuestionAnswering,
     AutoModelForSequenceClassification,
     AutoModelForTokenClassification,
-    LlamaForCausalLM,
     OPTForCausalLM,
 )
 from transformers.file_utils import WEIGHTS_NAME
@@ -458,12 +457,15 @@ class SparseCausalLM:
 
     @staticmethod
     def opt_model_from_pretrained(
-        model_path: str, torch_dtype: Union[str, torch.dtype] = "auto"
+        model_path: str,
+        sequence_length: Optional[int] = None,
+        torch_dtype: Union[str, torch.dtype] = "auto",
     ) -> torch.nn.Module:
         """
         Load a pretrained OPT model from the specified hugging face path
 
         :param model_path: hugging face or local path to model
+        :param sequence_length: maximum allowable tokens in input sequence
         :param torch_dtype: precision to load model weights in as
         :return: loaded pretrained model
         """
@@ -477,33 +479,22 @@ class SparseCausalLM:
 
         model = OPTForCausalLM.from_pretrained(model_path, torch_dtype=torch_dtype)
         model.eval()
-        model.seqlen = model.config.max_position_embeddings
-        return model
-
-    @staticmethod
-    def llama_model_from_pretrained(
-        model_path: str, torch_dtype: Union[str, torch.dtype] = "auto"
-    ) -> torch.nn.Module:
-        """
-        Load a pretrained Llama model from the specified hugging face path
-
-        :param model_path: hugging face path to model
-        :param torch_dtype: precision to load model weights in as
-        :return: loaded pretrained model
-        """
-        model = LlamaForCausalLM.from_pretrained(model_path, torch_dtype=torch_dtype)
-        model.eval()
-        model.seqlen = model.config.max_position_embeddings
+        model.seqlen = (
+            sequence_length if sequence_length else model.config.max_position_embeddings
+        )
         return model
 
     @staticmethod
     def auto_model_from_pretrained(
-        model_path: str, torch_dtype: Union[str, torch.dtype] = "auto"
+        model_path: str,
+        sequence_length: Optional[int] = None,
+        torch_dtype: Union[str, torch.dtype] = "auto",
     ) -> torch.nn.Module:
         """
         Load a pretrained model using auto from the specified hugging face path
 
         :param model_path: hugging face path to model
+        :param sequence_length: maximum allowable tokens in input sequence
         :param torch_dtype: precision to load model weights in as
         :return: loaded pretrained model
         """
@@ -511,7 +502,9 @@ class SparseCausalLM:
             model_path, torch_dtype=torch_dtype
         )
         model.eval()
-        model.seqlen = model.config.max_position_embeddings
+        model.seqlen = (
+            sequence_length if sequence_length else model.config.max_position_embeddings
+        )
         return model
 
 
