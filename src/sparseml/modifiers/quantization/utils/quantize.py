@@ -234,11 +234,12 @@ def add_output_activation_observers(module: Module):
 
     def get_device(m):
         # infers device based on either paramteres or buffers
-        unique_devices = {p.device for p in m.parameters()} | \
-                            {p.device for p in m.buffers()}
+        unique_devices = {p.device for p in m.parameters()} | {
+            p.device for p in m.buffers()
+        }
 
         assert len(unique_devices) <= 1
-        return next(iter(unique_devices)) if len(unique_devices) > 0 else 'cpu'
+        return next(iter(unique_devices)) if len(unique_devices) > 0 else "cpu"
 
     def _needs_observer(target_module: Module):
         # combines logic from multiple places of original implementation which
