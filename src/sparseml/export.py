@@ -26,41 +26,37 @@ _LOGGER = logging.getLogger(__name__)
 AVAILABLE_DEPLOYMENT_TARGETS = ["deepsparse", "onnxruntime"]
 
 
-class SparseMLIntegrationRegistry(RegistryMixin):
+class IntegrationHelperFunctions(BaseModel, RegistryMixin):
     """
     Registry that maps integration names to helper functions
     for creation/export/manipulation of models for a specific
     integration.
     """
 
-    pass
-
-
-class IntegrationHelperFunctions(BaseModel):
-    """
-    A model that contains a set of helper
-    functions for a specific integration.
-    """
-
-    create_model: Callable = Field(
+    create_model: Optional[Callable] = Field(
         description="A function that creates a (sparse) "
         "PyTorch model from a source path."
     )
-    create_dummy_input: Callable = Field(
-        description="A function that creates a dummy " "input for a model."
+    create_dummy_input: Optional[Callable] = Field(
+        description="A function that creates a dummy input "
+        "given a (sparse) PyTorch model."
     )
-    export_model: Callable = Field(
-        description="A function that exports a model " "to a deployment target."
+    export_model: Optional[Callable] = Field(
+        description="A function that exports a (sparse) PyTorch "
+        "model to an ONNX format appropriate for a "
+        "deployment target."
     )
-    apply_optimizations: Callable = Field(
-        description="A function that applies " "optimizations to a model."
+    apply_optimizations: Optional[Callable] = Field(
+        description="A function that takes a set of "
+        "optimizations and applies them to an ONNX model."
     )
-    export_sample_inputs_outputs: Callable = Field(
-        description="A function that exports sample " "inputs and outputs for a model."
+    export_sample_inputs_outputs: Optional[Callable] = Field(
+        description="A function that exports input/output samples given "
+        "a (sparse) PyTorch model."
     )
-    create_deployment_folder: Callable = Field(
+    create_deployment_folder: Optional[Callable] = Field(
         description="A function that creates a "
-        "deployment folder for a model"
+        "deployment folder for the exporter ONNX model"
         "with the appropriate structure."
     )
 
@@ -82,6 +78,16 @@ def export(
 ):
     """
     Export a PyTorch model to a deployment target specified by the `deployment_target`.
+
+    The functionality follows a set of steps:
+    1. Create a PyTorch model from the source_path.
+    2. Create a dummy input for the model.
+    3. Export the model, using the precomputed dummy input, to an
+        ONNX format appropriate for the deployment target.
+    4. Apply optimizations to the exported model (optional).
+    5. Export sample inputs and outputs for the exported model (optional).
+    6. Create a deployment folder for the exported model with the appropriate structure.
+    7. Validate the correctness of the exported model (optional).
 
     :param source_path: The path to the PyTorch model to export.
     :param target_path: The path to save the exported model to.
@@ -123,7 +129,7 @@ def export(
 
     integration = integration or infer_integration(source_path)
     helper_functions: IntegrationHelperFunctions = (
-        SparseMLIntegrationRegistry.load_from_registry(integration)
+        IntegrationHelperFunctions.load_from_registry(integration)
     )
 
     model = helper_functions.create_model(source_path, device)
