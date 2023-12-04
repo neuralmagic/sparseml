@@ -231,11 +231,14 @@ def add_output_activation_observers(module: Module):
     """
     # adapted from torch/ao/quantization/quantize.py::_add_observer_
     # source: https://github.com/pytorch/pytorch/blob/v1.13.0/torch/ao/quantization/quantize.py#L135  # noqa: E501
-    try:
-        device = next(module.parameters()).device
-    except StopIteration:
-        # default to CPU if module has no parameters
-        device = "cpu"
+
+    def get_device(m):
+        # infers device based on either paramteres or buffers
+        unique_devices = {p.device for p in m.parameters()} | \
+                            {p.device for p in m.buffers()}
+
+        assert len(unique_devices) <= 1
+        return next(iter(unique_devices)) if len(unique_devices) > 0 else 'cpu'
 
     def _needs_observer(target_module: Module):
         # combines logic from multiple places of original implementation which
@@ -273,6 +276,7 @@ def add_output_activation_observers(module: Module):
     def _add_activation_post_process(target_module: Module):
         # get output observer
         output_observer = submodule.qconfig.activation()
+        device = get_device(target_module)
         output_observer.to(device)
 
         # add an activation post process module

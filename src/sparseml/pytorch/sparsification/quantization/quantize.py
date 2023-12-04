@@ -234,9 +234,14 @@ def add_output_activation_observers(module: Module):
     # adapted from torch/ao/quantization/quantize.py::_add_observer_
     # source: https://github.com/pytorch/pytorch/blob/v1.13.0/torch/ao/quantization/quantize.py#L135  # noqa: E501
     try:
-        device = next(module.parameters()).device
+        print("FROM INSIDE THE MAIN QUANTIZATION DIR")
+        if len(list(module.parameters())) > 0:
+            device = next(module.parameters()).device
+        elif len(list(module.buffers())) > 0:
+            device = next(module.buffers()).device
     except StopIteration:
         # default to CPU if module has no parameters
+        print("\n\n[WARNING]: Utilizing cpu for this module!!\n\n")
         device = "cpu"
 
     def _needs_observer(target_module: Module):
