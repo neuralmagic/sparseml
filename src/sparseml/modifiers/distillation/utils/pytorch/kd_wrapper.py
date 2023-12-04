@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import List, Optional, Sequence, Tuple
+from typing import List, Optional, Sequence, Set, Tuple
 
 import torch
 from torch.nn import Module
@@ -117,3 +117,13 @@ class KDModuleWrapper(Module):
             get_members_fn, prefix=prefix, recurse=recurse, **kwargs
         ):
             yield name, module
+
+    def named_modules(
+        self,
+        memo: Optional[Set["Module"]] = None,
+        prefix: str = "",
+        remove_duplicate: bool = True,
+    ):
+        return self.student_layer.named_modules(
+            memo=memo, prefix=prefix, remove_duplicate=remove_duplicate
+        )
