@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Dict
+from typing import Any, Dict
 
 import torch
 from torch.nn import Module
@@ -26,7 +26,7 @@ __all__ = ["OutputDistillationModifierPyTorch"]
 
 
 class OutputDistillationModifierPyTorch(OutputDistillationModifier):
-    _wrappers: Dict[str, KDModuleWrapper] = None
+    wrappers_: Dict[str, Any] = None
 
     def on_initialize(self, state: State, **kwargs) -> bool:
         if (
@@ -36,7 +36,7 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
         ):
             return False
 
-        self._wrappers = {}
+        self.wrappers_ = {}
 
         for target in (
             self.targets if isinstance(self.targets, list) else [self.targets]
@@ -57,24 +57,40 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
                     f"model and teacher model layers for target {target} do not match"
                 )
 
+            # Ensure the student and teacher layer are on the same device
+            device = None
             for (key, student_layer), teacher_layer in zip(
                 model_layers.items(), teacher_layers.values()
             ):
+                for name, param in student_layer.named_parameters():
+                    device = param.device
+                    teacher_param = getattr(teacher_layer, name)
+                    teacher_param.data = teacher_param.to(device)
+
+                for name, buffer in student_layer.named_buffers():
+                    if hasattr(teacher_layer, name):
+                        device = buffer.device
+                        teacher_buffer = getattr(teacher_layer, name)
+                        teacher_buffer.data = teacher_buffer.to(device)
+
                 wrapper = self._create_wrapper(student_layer, teacher_layer, state)
+                kd_comparison_buffer = getattr(wrapper, wrapper.KD_COMPARISON_BUFFER)
+                kd_comparison_buffer.data = kd_comparison_buffer.to(device)
                 state.model.set_layer(key, wrapper)
-                self._wrappers[key] = wrapper
+                self.wrappers_[key] = wrapper
+                wrapper.kd_enabled = True
 
         return True
 
     def on_finalize(self, state: State, **kwargs) -> bool:
-        for key, wrapper in self._wrappers.items():
+        for key, wrapper in self.wrappers_.items():
             state.model.set_layer(key, wrapper.student_layer)
             del wrapper
 
         return True
 
     def on_start(self, state: State, event: Event, **kwargs):
-        for wrapper in self._wrappers.values():
+        for wrapper in self.wrappers_.values():
             wrapper.kdenabled_ = True
 
     def on_update(self, state: State, event: Event, **kwargs):
@@ -82,12 +98,15 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
             self.start, self.end, self.update
         ):
             comparisons = [
-                wrapper.kd_last_comparison for wrapper in self._wrappers.values()
+                wrapper.kd_last_comparison for wrapper in self.wrappers_.values()
             ]
-            state.loss = state.loss + torch.Stack(comparisons).mean()
+            state.loss = (
+                self.orig_scale * kwargs["loss"]  # model output loss
+                + self.distill_scale * torch.stack(comparisons).mean()  # distill loss
+            )
 
     def on_end(self, state: State, event: Event, **kwargs):
-        for wrapper in self._wrappers.values():
+        for wrapper in self.wrappers_.values():
             wrapper.kdenabled_ = False
 
     def _create_wrapper(

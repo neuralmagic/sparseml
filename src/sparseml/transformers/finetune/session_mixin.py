@@ -28,7 +28,7 @@ from transformers.trainer_utils import get_last_checkpoint
 import sparseml.core.session as session_manager
 from sparseml.core.framework import Framework
 from sparseml.core.session import callbacks
-from sparseml.pytorch.model_load.helpers import reload_model_from_checkpoint
+from sparseml.pytorch.model_load.helpers import reload_model_state
 from sparseml.pytorch.utils import LoggerManager, ModuleSparsificationInfo
 from sparseml.transformers.finetune.callbacks import (
     DisableHalfPrecisionCallback,
@@ -105,22 +105,31 @@ class SessionManagerMixIn:
         model_signature = inspect.signature(model.forward)
         self._model_signature_columns = list(model_signature.parameters.keys())
 
-    def initialize_session(self, epoch: float):
+        if self.teacher is not None and teacher not in ("disable", "self"):
+            teacher_signature = inspect.signature(self.teacher.forward)
+            self._teacher_signature_columns = list(teacher_signature.parameters.keys())
+        else:
+            self._teacher_signature_columns = None
+
+    def initialize_session(self, epoch: float, checkpoint: Optional[str]):
         """
         Initialize the SparseSession from the specified epoch, evaluates the recipe
         and initialized the modifiers for the training session
 
         :param epoch: Epoch to initialize session from, usually 0 unless loading
         from a checkpoint
+        :param checkpoint: Optional checkpoint to initialize from to continue training
         """
         session = session_manager.active_session()
         if session.lifecycle.initialized_ or session.lifecycle.finalized:
             return False
 
+        orig_state_dict = self.model.state_dict()
         train_data = self.get_train_dataloader()
 
         session_manager.initialize(
             model=self.model,
+            teacher_model=self.teacher,  # TODO: what about for self/disable?
             recipe=self.recipe,
             recipe_args=self.recipe_args,
             framework=Framework.pytorch,
@@ -128,7 +137,16 @@ class SessionManagerMixIn:
             start=epoch,
             copy_data=False,
         )
-        _LOGGER.info("Initialized SparseML session")
+
+        # reload the state dict for the model now that architecture matches expected
+        # TODO: what if there is a quant modifier in the original recipe and we want to
+        # continue adjusting its zero point and range?
+        load_path = checkpoint or self.model_state_path
+        if reload_model_state(self.model, load_path, orig_state_dict):
+            _LOGGER.info(
+                "Reloaded model state after SparseML recipe structure modifications "
+                f"from {load_path}"
+            )
 
     def initialize_structure(self):
         """
@@ -238,11 +256,13 @@ class SessionManagerMixIn:
         """
         self._check_super_defined("compute_loss")
 
+        # TODO: do we need these model signature columns?
         inputs = {k: inputs[k] for k in inputs if k in self._model_signature_columns}
         loss = super().compute_loss(model, inputs, return_outputs=return_outputs)
 
         if session_manager.active_session().lifecycle.initialized_:
-            callbacks.loss_calculated(loss=loss)
+            state = callbacks.loss_calculated(loss=loss)
+            loss = state.loss
             callbacks.optim_pre_step()
 
         return loss
@@ -281,14 +301,12 @@ class SessionManagerMixIn:
         :return: the output from super.train()
         """
         checkpoint, epoch = self._calculate_checkpoint_info(kwargs)
-        reload_model_from_checkpoint(self.model, checkpoint=checkpoint)
-        applied = self.initialize_session(epoch=epoch)
+        self.initialize_session(epoch=epoch, checkpoint=checkpoint)
         self.callback_disable_fp16.check_disable(epoch, force=True)
         self.accelerator.wait_for_everyone()
         output = super().train(*args, **kwargs)
         self.accelerator.wait_for_everyone()
-        if applied:
-            self.finalize_session()
+        self.finalize_session()
 
         self.accelerator.wait_for_everyone()
 
