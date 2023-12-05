@@ -21,6 +21,7 @@ import os
 import warnings
 from contextlib import nullcontext
 from enum import Enum, auto, unique
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import torch
@@ -54,6 +55,7 @@ from sparseml.pytorch.utils import (
 from sparseml.utils import create_dirs
 from sparseml.utils.datasets import cifar, imagenet, imagenette
 from sparsezoo import Model, setup_model
+from sparseml.export.registry import IntegrationHelperFunctions
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -342,6 +344,7 @@ def get_dataset_and_dataloader(
 
 
 # Model creation Helpers
+@IntegrationHelperFunctions.register("image-classification")
 def create_model(
     checkpoint_path: str,
     num_classes: int,
@@ -643,3 +646,17 @@ def _download_model_from_zoo_using_recipe(
         Model(recipe_stub),
         recipe_name=recipe_type,
     )
+
+
+def is_image_classification_model(source_path: Union[Path, str]) -> bool:
+    """
+    :param source_path: The path to the model
+    :return: Whether the model is an image classification model or not
+    """
+    try:
+        checkpoint = torch.load(os.path.join(source_path, "model.pth"))
+        arch_key = checkpoint.get("arch_key")
+        if arch_key:
+            return True
+    except Exception:
+        return False

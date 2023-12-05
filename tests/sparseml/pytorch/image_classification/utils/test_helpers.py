@@ -12,10 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import shutil
+from pathlib import Path
 
 import pytest
 
-from sparseml.pytorch.image_classification.utils.helpers import save_zoo_directory
+from sparseml.pytorch.image_classification.utils.helpers import save_zoo_directory, is_image_classification_model
 from sparsezoo import Model
 
 
@@ -48,3 +49,13 @@ def test_save_zoo_directory(stub, tmp_path_factory):
     assert new_zoo_model.validate(minimal_validation=True, validate_onnxruntime=False)
     shutil.rmtree(path_to_training_outputs)
     shutil.rmtree(save_dir)
+
+
+@pytest.mark.parametrize(
+    "stub, is_image_classification",
+    [("zoo:efficientnet_v2-s-imagenet-base_quantized", True)],
+)
+def test_is_image_classification_model(stub, is_image_classification):
+    path_to_model = Model(stub).training.path
+    assert is_image_classification_model(path_to_model)
+    assert is_image_classification_model(Path(path_to_model))
