@@ -103,7 +103,7 @@ MANDATORY_DEPLOYMENT_FILES = [
 ]
 OPT_TOKENIZER_FILES = ["special_tokens_map.json", "vocab.json", "merges.txt"]
 
-OPTIONAL_DEPLOYMENT_FILES: List[str] = ["tokenizer.json"]
+OPTIONAL_DEPLOYMENT_FILES: List[str] = ["tokenizer.json", "tokenizer.model"]
 OPTIONAL_DEPLOYMENT_FILES.append(EXTERNAL_ONNX_DATA_NAME)
 OPTIONAL_DEPLOYMENT_FILES.extend(OPT_TOKENIZER_FILES)
 
@@ -297,10 +297,20 @@ def export_transformer_to_onnx(
     )
 
     if sequence_length is None:
+        if hasattr(config, "max_position_embeddings"):
+            sequence_length = config.max_position_embeddings
+        elif hasattr(config, "max_seq_len"):
+            sequence_length = config.max_seq_len
+        else:
+            raise ValueError(
+                "Could not infer a default sequence length "
+                "from the HF transformers config. Please specify "
+                "the sequence length with --sequence_length"
+            )
         _LOGGER.info(
-            f"Using default sequence length of {config.max_position_embeddings}"
+            f"Using default sequence length of {sequence_length} "
+            "(inferred from HF transformers config) "
         )
-        sequence_length = config.max_position_embeddings
 
     tokenizer = AutoTokenizer.from_pretrained(
         model_path, model_max_length=sequence_length
@@ -336,8 +346,16 @@ def export_transformer_to_onnx(
         recipe_args=None,
         teacher=None,
     )
-
-    applied = trainer.apply_manager(epoch=math.inf, checkpoint=None)
+    try:
+        applied = trainer.apply_manager(epoch=math.inf, checkpoint=None)
+    except ValueError as e:
+        raise ValueError(
+            f"Failed to apply the recipe to the "
+            f"model with the exception message:\n{e}\n"
+            "It is possible, that there are missing modules "
+            "specific to the model, that were not properly loaded. "
+            "A possible solution would be setting the --trust_remote_code flag"
+        )
 
     if not applied:
         _LOGGER.warning(
