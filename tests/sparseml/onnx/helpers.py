@@ -67,8 +67,7 @@ def onnx_repo_models(request) -> OnnxRepoModelFixture:
             model.sample_inputs.unzip()
         input_paths = model.sample_inputs.path
     if model.sample_outputs is not None:
-        if not model.sample_outputs["framework"].files:
-            model.sample_outputs["framework"].unzip()
+
         output_paths = model.sample_outputs["framework"].path
 
     return OnnxRepoModelFixture(model_path, model_name, input_paths, output_paths)
