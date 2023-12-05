@@ -108,20 +108,6 @@ class Trainer(SessionManagerMixIn, HFTransformersTrainer):
             self.state.best_metric = None
             self.state.best_model_checkpoint = None
 
-    def _load_optimizer_and_scheduler(self, checkpoint):
-        """
-        Override the Transformers Trainer so that optimizer, scheduler and scaler could
-        be loaded also from the input model folder, which is our use case (instead of
-        only from a separate checkpoint folder).
-        """
-        # We include the model path as where the optimizer and scheduler could be loaded
-        # (in addition to checkpoint folders)
-        model_folder = checkpoint if checkpoint is not None else self.model_state_path
-        if not os.path.isfile(os.path.join(model_folder, OPTIMIZER_NAME)):
-            return
-
-        super()._load_optimizer_and_scheduler(model_folder)
-
     def _dummy_lr_scheduler(self):
         return torch.optim.lr_scheduler.MultiplicativeLR(
             self.optimizer,

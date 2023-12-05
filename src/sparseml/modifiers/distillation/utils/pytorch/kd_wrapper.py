@@ -38,11 +38,13 @@ class KDModuleWrapper(Module):
         projections: Optional[Tuple[ProjectionFuncType, ProjectionFuncType]],
         transforms: Optional[List[TransformFuncType]],
         comparison: ComparisonFuncType,
+        fsdp_active: bool
     ):
         super(KDModuleWrapper, self).__init__()
 
         self.student_layer = student_layer
         self.teacher_layer = teacher_layer
+        self._fsdp_active = fsdp_active
         self.student_projections = projections[0] if projections is not None else None
         self.teacher_projections = projections[1] if projections is not None else None
         self.kd_transforms = transforms
@@ -112,18 +114,17 @@ class KDModuleWrapper(Module):
     def load_state_dict(self, state_dict, strict=True):
         return self.student_layer.load_state_dict(state_dict, strict=strict)
 
-    def _named_members(self, get_members_fn, prefix="", recurse=True, **kwargs):
-        for name, module in self.student_layer._named_members(
-            get_members_fn, prefix=prefix, recurse=recurse, **kwargs
-        ):
-            yield name, module
-
     def named_modules(
         self,
         memo: Optional[Set["Module"]] = None,
         prefix: str = "",
         remove_duplicate: bool = True,
     ):
+        if not self._fsdp_active:
+            return super().named_modules(
+            memo=memo, prefix=prefix, remove_duplicate=remove_duplicate
+        )
+
         return self.student_layer.named_modules(
             memo=memo, prefix=prefix, remove_duplicate=remove_duplicate
         )

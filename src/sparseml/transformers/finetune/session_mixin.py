@@ -20,7 +20,11 @@ from dataclasses import asdict
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import torch
-from torch.distributed.fsdp import FullyShardedDataParallel
+from torch.distributed.fsdp import (
+    FullStateDictConfig,
+    FullyShardedDataParallel,
+    StateDictType,
+)
 from torch.nn import Module
 from transformers.trainer_callback import TrainerState
 from transformers.trainer_utils import get_last_checkpoint
@@ -137,6 +141,7 @@ class SessionManagerMixIn:
             train_data=train_data,
             start=epoch,
             copy_data=False,
+            fsdp_active = self.is_fsdp_enabled
         )
         self.accelerator.wait_for_everyone()
 
@@ -266,7 +271,8 @@ class SessionManagerMixIn:
 
         if session_manager.active_session().lifecycle.initialized_:
             state = callbacks.loss_calculated(loss=loss)
-            loss = state.loss
+            if state.loss is not None:
+                loss = state.loss
             callbacks.optim_pre_step()
 
         return loss
@@ -379,6 +385,23 @@ class SessionManagerMixIn:
 
         if output_dir is None:
             output_dir = self.args.output_dir
+
+        full_state_dict_config = FullStateDictConfig(
+            offload_to_cpu=True, rank0_only=True
+        )
+
+        if isinstance(self.model, FullyShardedDataParallel):
+            with FullyShardedDataParallel.state_dict_type(
+                self.model, StateDictType.FULL_STATE_DICT, full_state_dict_config
+            ):
+                state_dict = self.accelerator.get_state_dict(self.model, unwrap=False)
+
+            self.accelerator.unwrap_model(self.model).save_pretrained(
+                output_dir,
+                is_main_process=self.accelerator.is_main_process,
+                save_function=self.accelerator.save,
+                state_dict=state_dict,
+            )
 
         # save recipe, will contain modifiers from the model's original recipe as well
         # as those added from self.recipe

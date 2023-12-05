@@ -16,7 +16,7 @@ from typing import Any, Dict
 
 import torch
 from torch.nn import Module
-
+from torch.distributed.fsdp import FullyShardedDataParallel
 from sparseml.core import Event, EventType, State
 from sparseml.modifiers.distillation.output.base import OutputDistillationModifier
 from sparseml.modifiers.distillation.utils.pytorch import KDFactory, KDModuleWrapper
@@ -27,6 +27,7 @@ __all__ = ["OutputDistillationModifierPyTorch"]
 
 class OutputDistillationModifierPyTorch(OutputDistillationModifier):
     wrappers_: Dict[str, Any] = None
+    fsdp_active_: bool = False
 
     def on_initialize(self, state: State, **kwargs) -> bool:
         if (
@@ -37,6 +38,8 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
             return False
 
         self.wrappers_ = {}
+        if kwargs.get("fsdp_active"):
+            self.fsdp_active_ = True
 
         for target in (
             self.targets if isinstance(self.targets, list) else [self.targets]
@@ -165,4 +168,5 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
             projections=projections,
             transforms=transforms,
             comparison=comparison,
+            fsdp_active=self.fsdp_active_
         )
