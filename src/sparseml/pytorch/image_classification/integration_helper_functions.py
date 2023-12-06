@@ -61,7 +61,7 @@ def create_dummy_input(
     if not validation_loader:
         # create fake data for export
         validation_loader = [[torch.randn(1, 3, image_size, image_size)]]
-    return next(iter(val_loader))[0]
+    return next(iter(validation_loader))[0]
 
 
 @IntegrationHelperFunctions.register(name=Integrations.image_classification.value)
