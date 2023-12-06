@@ -383,13 +383,11 @@ def create_model(
     :returns: A tuple containing the mode, the model's arch_key, and the
         checkpoint path
     """
+    _validate_dataset_num_classes(
+        dataset_path=dataset_path, dataset=dataset_name, num_classes=num_classes
+    )
+
     if num_classes is None:
-        # infer number of classes from the dataset
-        if dataset_name is None and dataset_path is None:
-            raise ValueError(
-                "To create a model either specify num_classes or "
-                "dataset_name and dataset_path (so that num_classes can be inferred)"
-            )
         val_dataset, _ = get_dataset_and_dataloader(
             dataset_name=dataset_name,
             dataset_path=dataset_path,
@@ -407,12 +405,6 @@ def create_model(
             dataset=dataset_name,
             model_kwargs=model_kwargs,
         )
-    else:
-        if dataset_name is not None or dataset_path is not None:
-            warnings.warn(
-                "Both num_classes and dataset_name/dataset_path were provided. "
-                "Using num_classes and ignoring dataset_name/dataset_path"
-            )
 
     with torch_distributed_zero_first(local_rank):
         # only download once locally
@@ -716,3 +708,19 @@ def is_image_classification_model(source_path: Union[Path, str]) -> bool:
             return True
     except Exception:
         return False
+
+
+def _validate_dataset_num_classes(
+    dataset: str,
+    dataset_path: str,
+    num_classes: int,
+):
+    if dataset and not dataset_path:
+        raise ValueError(f"found dataset {dataset} but dataset_path not specified")
+    if dataset_path and not dataset:
+        raise ValueError(f"found dataset_path {dataset_path} but dataset not specified")
+    if num_classes is None and (not dataset or not dataset_path):
+        raise ValueError(
+            "If num_classes is not provided, both dataset and dataset_path must be "
+            "set to infer num_classes"
+        )
