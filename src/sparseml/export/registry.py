@@ -12,26 +12,62 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Callable, Optional
+from enum import Enum
+from pathlib import Path
+from typing import Any, Callable, Optional, Union
 
 from pydantic import BaseModel, Field, validator
 
 from sparseml.pytorch.image_classification.utils.helpers import (
     create_model as create_model_ic,
 )
+from sparseml.pytorch.image_classification.utils.helpers import (
+    is_image_classification_model,
+)
 from sparsezoo.utils.registry import RegistryMixin
+
+
+__all__ = ["IntegrationHelperFunctions", "infer_integration"]
+
+
+class Integrations(Enum):
+    """
+    Holds the names of the available integrations.
+    """
+
+    image_classification = "image-classification"
+
+
+# TODO: Fold it into the functionalities of the RegistryMixin
+# when the `resolve` method is generically implemented
+def infer_integration(source_path: Union[Path, str]) -> str:
+    """
+    Infer the integration to use for exporting the model from the source_path.
+
+    :param source_path: The path to the PyTorch model to export.
+    :return: The name of the integration to use for exporting the model.
+    """
+    if is_image_classification_model(source_path):
+        return Integrations.image_classification.value
+    else:
+        raise ValueError(
+            f"Could not infer integration from source_path: {source_path}."
+            f"Please specify an argument `integration` from one of"
+            f"the available integrations: {list(Integrations)}."
+        )
 
 
 class IntegrationHelperFunctions(RegistryMixin, BaseModel):
     """
-    Registry that maps integration names to helper functions
+    Registry that maps names to helper functions
     for creation/export/manipulation of models for a specific
     integration.
     """
 
     create_model: Optional[Callable] = Field(
         description="A function that creates a (sparse) "
-        "PyTorch model from a source path."
+        "PyTorch model from a source path and additional "
+        "arguments"
     )
     create_dummy_input: Optional[Callable] = Field(
         description="A function that creates a dummy input "
@@ -57,17 +93,21 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
     )
 
     # use validator to ensure that "create_model" outputs only the first output
-    @validator()
-    def create_model_only_one_output(cls, v):
+    @validator("create_model", pre=True)
+    def create_model_only_one_output(cls, v: Optional[Callable]) -> Optional[Callable]:
+        """
+        Ensure that the create_model function only outputs
+        the first output - the model itself.
+        """
         if v is not None:
             v = cls.wrap_to_return_first_output(v)
         return v
 
     @staticmethod
-    def wrap_to_return_first_output(func):
+    def wrap_to_return_first_output(func: Callable) -> Callable:
         return lambda *args, **kwargs: func(*args, **kwargs)[0]
 
 
-@IntegrationHelperFunctions.register()
+@IntegrationHelperFunctions.register(name=Integrations.image_classification.value)
 class ImageClassification(IntegrationHelperFunctions):
     create_model: Any = Field(default=create_model_ic)

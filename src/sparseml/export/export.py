@@ -13,26 +13,15 @@
 # limitations under the License.
 
 import logging
-from enum import Enum
 from pathlib import Path
 from typing import Any, List, Optional, Union
 
-from sparseml.export.registry import IntegrationHelperFunctions
-
-# TODO: Fold it into the functionalities of the RegistryMixin
-# when the resolve method is implemented
-from sparseml.pytorch.image_classification.utils.helpers import (
-    is_image_classification_model,
-)
+from sparseml.export.registry import IntegrationHelperFunctions, infer_integration
 from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
 
 
 _LOGGER = logging.getLogger(__name__)
 AVAILABLE_DEPLOYMENT_TARGETS = ["deepsparse", "onnxruntime"]
-
-
-class Integrations(Enum):
-    image_classification = "image_classification"
 
 
 def export(
@@ -138,23 +127,6 @@ def export(
         f"Successfully exported model from:\n{target_path}"
         f"\nto\n{deployment_path}\nfor integration: {integration}"
     )
-
-
-def infer_integration(source_path: Union[Path, str]) -> str:
-    """
-    Infer the integration to use for exporting the model from the source_path.
-
-    :param source_path: The path to the PyTorch model to export.
-    :return: The name of the integration to use for exporting the model.
-    """
-    if is_image_classification_model(source_path):
-        return Integrations.image_classification.value
-    else:
-        raise ValueError(
-            f"Could not infer integration from source_path: {source_path}."
-            f"Please specify an argument `integration` from one of"
-            f"the available integrations: {list(Integrations)}."
-        )
 
 
 def validate_correctness(deployment_path: Union[Path, str]):

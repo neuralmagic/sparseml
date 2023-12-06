@@ -12,11 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from src.sparseml.export.registry import IntegrationHelperFunctions
+from src.sparseml.export.registry import IntegrationHelperFunctions, Integrations
 
 
 def test_integration_helper_functions():
     image_classification = IntegrationHelperFunctions.load_from_registry(
-        "ImageClassification"
+        Integrations.image_classification.value
     )
     assert image_classification.create_model
