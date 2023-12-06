@@ -16,7 +16,7 @@ from typing import Any, Dict
 
 import torch
 from torch.nn import Module
-from torch.distributed.fsdp import FullyShardedDataParallel
+
 from sparseml.core import Event, EventType, State
 from sparseml.modifiers.distillation.output.base import OutputDistillationModifier
 from sparseml.modifiers.distillation.utils.pytorch import KDFactory, KDModuleWrapper
@@ -94,7 +94,7 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
 
     def on_start(self, state: State, event: Event, **kwargs):
         for wrapper in self.wrappers_.values():
-            wrapper.kdenabled_ = True
+            wrapper.kdenabled = True
 
     def on_update(self, state: State, event: Event, **kwargs):
         if event.type_ == EventType.LOSS_CALCULATED and event.should_update(
@@ -110,7 +110,7 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
 
     def on_end(self, state: State, event: Event, **kwargs):
         for wrapper in self.wrappers_.values():
-            wrapper.kdenabled_ = False
+            wrapper.kdenabled = False
 
     def _create_wrapper(
         self, student_layer: Module, teacher_layer: Module, state: State
@@ -168,5 +168,5 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
             projections=projections,
             transforms=transforms,
             comparison=comparison,
-            fsdp_active=self.fsdp_active_
+            fsdp_active=self.fsdp_active_,
         )

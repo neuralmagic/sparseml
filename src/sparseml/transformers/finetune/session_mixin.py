@@ -141,7 +141,7 @@ class SessionManagerMixIn:
             train_data=train_data,
             start=epoch,
             copy_data=False,
-            fsdp_active = self.is_fsdp_enabled
+            fsdp_active=self.is_fsdp_enabled,
         )
         self.accelerator.wait_for_everyone()
 
@@ -402,6 +402,9 @@ class SessionManagerMixIn:
                 save_function=self.accelerator.save,
                 state_dict=state_dict,
             )
+
+        self.save_state()
+        self.save_optimizer_and_scheduler(output_dir)
 
         # save recipe, will contain modifiers from the model's original recipe as well
         # as those added from self.recipe

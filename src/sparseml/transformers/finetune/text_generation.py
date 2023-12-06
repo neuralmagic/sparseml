@@ -275,9 +275,8 @@ def train(checkpoint: str, output_dir: str, train_dataset: Dataset, trainer: Tra
     trainer.log_metrics("train", metrics)
     trainer.save_metrics("train", metrics)
 
+    # this includes saving the state, optimizer and scheduler
     trainer.save_model()
-    trainer.save_state()
-    trainer.save_optimizer_and_scheduler(output_dir)
 
 
 def evaluate(eval_dataset: Dataset, trainer: Trainer):
