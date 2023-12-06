@@ -80,6 +80,9 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
         self.model = self.model.model
         self.layer_compressors_ = []
         self._infer_mask_block_size()
+        if self.sparsity_profile is not None and self.sparsity_profile.lower() == "owl":
+            self.sparsity = self._infer_layer_sparsity(dataloader, device)
+        self._validate_layerwise_sparsity()
 
         for idx, (name, layer) in enumerate(self.compressible_layers_.items()):
             _LOGGER.info(f"Preparing {name} for compression")
@@ -173,3 +176,84 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
             raise ValueError("mask_structure must be defined")
 
         self.prunen_, self.prunem_ = list(map(int, self.mask_structure.split(":")))
+
+    def _infer_layer_sparsity(self, calibration_dataloader, dev):
+        prev_dev = self.model.device
+        self.model.to(dev)
+        acts = _get_activations(self.model, calibration_dataloader)
+        wanda = []
+        names = []
+        num_w_perlayer = 0
+        for n, m in self.model.named_modules():
+            if isinstance(m, torch.nn.Linear) and "lm_head" not in n:
+                print(f"[DEBUG] owl considering = {n} with shape = {m.weight.shape}")
+                if "layers.1." in n:
+                    num_w_perlayer += 1
+                wanda.append(m.weight.abs() * acts[n].unsqueeze(0))
+                print(f"wanda score shape = {wanda[-1].shape}")
+                names.append(n)
+        print(f"[DEBUG] there is {num_w_perlayer} Linear weight matrices per layer")
+        perlayer_wanda = [
+            torch.cat([item.flatten().cpu() for item in wanda[i : i + num_w_perlayer]])
+            for i in range(0, len(wanda), num_w_perlayer)
+        ]
+
+        acts = None
+        del acts
+        del wanda
+        self.model.to(prev_dev)
+        torch.cuda.empty_cache()
+
+        outlier_ratios = []
+        for wanda_layer in perlayer_wanda:
+            threshold = torch.mean(wanda_layer) * self.owl_m
+            outlier_ratios.append(
+                100 * (wanda_layer > threshold).sum().item() / wanda_layer.numel()
+            )
+        import numpy as np
+
+        outlier_ratios = np.array(outlier_ratios)
+        outlier_ratios = (outlier_ratios - outlier_ratios.min()) * (
+            1 / (outlier_ratios.max() - outlier_ratios.min()) * self.owl_lmbda * 2
+        )
+        sparsities_per_tflayer = list(
+            1 - (outlier_ratios - np.mean(outlier_ratios) + (1 - float(self.sparsity)))
+        )
+        print(f"[DEBUG] OWL sparsities for sp={self.sparsity} are:")
+        sparsities = []
+        for j, sp in enumerate(sparsities_per_tflayer):
+            print(f"layers.{j} sparsity = {sp}")
+            sparsities += [sp] * num_w_perlayer
+
+        return sparsities_per_tflayer
+
+@torch.no_grad()
+def _get_activations(model, data_loader, nsamples=128):
+    import functools
+
+    model.eval()
+    acts = {}
+
+    def save_acts(module, input, name):
+        if isinstance(input, tuple):
+            input = input[0]
+        if name not in acts:
+            acts[name] = 1.0 / nsamples * input.detach().pow(2).sum(dim=(0, 1)).sqrt()
+        else:
+            acts[name] += 1.0 / nsamples * input.detach().pow(2).sum(dim=(0, 1)).sqrt()
+
+    hooks = []
+    for name, mod in model.named_modules():
+        if isinstance(mod, torch.nn.Linear) and "lm_head" not in name:
+            hooks.append(
+                mod.register_forward_pre_hook(functools.partial(save_acts, name=name))
+            )
+    device = next(model.parameters()).device
+    for batch in data_loader:
+        batch = batch.to(device)
+        model(batch)
+
+    for h in hooks:
+        h.remove()
+
+    return acts
