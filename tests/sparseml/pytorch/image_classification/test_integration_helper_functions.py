@@ -11,14 +11,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-from sparseml.integration_helper_functions import (
+from src.sparseml.integration_helper_functions import (
     IntegrationHelperFunctions,
     Integrations,
 )
 
 
 def test_integration_helper_functions():
+    # import needed to register the object on the fly
+    import sparseml.pytorch.image_classification.integration_helper_functions  # noqa F401
+
     image_classification = IntegrationHelperFunctions.load_from_registry(
         Integrations.image_classification.value
     )

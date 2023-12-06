@@ -27,7 +27,7 @@ from src.sparseml.pytorch.image_classification.utils.helpers import (
 )
 
 
-def create_model(source_path: Union[Path, str], **kwargs) -> torch.Module:
+def create_model(source_path: Union[Path, str], **kwargs) -> torch.nn.Module:
     """
     A contract to create a model from a source path
 

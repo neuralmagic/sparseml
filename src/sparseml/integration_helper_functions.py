@@ -32,31 +32,6 @@ class Integrations(Enum):
     image_classification = "image-classification"
 
 
-def infer_integration(source_path: Union[Path, str]) -> str:
-    """
-    Infer the integration to use for exporting the model from the source_path.
-
-    :param source_path: The path to the PyTorch model to export.
-    :return: The name of the integration to use for exporting the model.
-    """
-    from sparseml.pytorch.image_classification.utils.helpers import (
-        is_image_classification_model,
-    )
-
-    if is_image_classification_model(source_path):
-        from sparseml.pytorch.image_classification.integration_helper_functions import (
-            ImageClassification,
-        )
-
-        return Integrations.image_classification.value
-    else:
-        raise ValueError(
-            f"Could not infer integration from source_path: {source_path}."
-            f"Please specify an argument `integration` from one of"
-            f"the available integrations: {list(Integrations)}."
-        )
-
-
 class IntegrationHelperFunctions(RegistryMixin, BaseModel):
     """
     Registry that maps names to helper functions
@@ -91,3 +66,27 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
         "deployment folder for the exporter ONNX model"
         "with the appropriate structure."
     )
+
+
+def infer_integration(source_path: Union[Path, str]) -> str:
+    """
+    Infer the integration to use for exporting the model from the source_path.
+
+    :param source_path: The path to the PyTorch model to export.
+    :return: The name of the integration to use for exporting the model.
+    """
+    from sparseml.pytorch.image_classification.utils.helpers import (
+        is_image_classification_model,
+    )
+
+    if is_image_classification_model(source_path):
+        # import to register the image_classification integration helper functions
+        import sparseml.pytorch.image_classification.integration_helper_functions  # noqa F401
+
+        return Integrations.image_classification.value
+    else:
+        raise ValueError(
+            f"Could not infer integration from source_path: {source_path}."
+            f"Please specify an argument `integration` from one of"
+            f"the available integrations: {list(Integrations)}."
+        )
