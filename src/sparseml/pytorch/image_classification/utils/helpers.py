@@ -48,6 +48,7 @@ from sparseml.pytorch.utils import (
     default_device,
     download_framework_model_by_recipe_type,
     early_stop_data_loader,
+    load_model,
     model_to_device,
     set_deterministic_seeds,
     torch_distributed_zero_first,
@@ -352,6 +353,7 @@ def create_model(
     arch_key: Optional[str] = None,
     pretrained: Union[bool, str] = False,
     pretrained_dataset: Optional[str] = None,
+    one_shot: Optional[str] = None,
     image_size: int = 224,
     local_rank: int = -1,
     **model_kwargs,
@@ -372,6 +374,8 @@ def create_model(
         False
     :param pretrained_dataset: The dataset to used for pretraining. Defaults to
         None
+    :param one_shot: The recipe to be applied in one-shot manner,
+        before exporting. Defaults to None
     :param image_size: The image size to use for inference of num_classes
         (in case num_classes is None) . Defaults to 224
     :param local_rank: The local rank of the process. Defaults to -1
@@ -439,6 +443,16 @@ def create_model(
             model, arch_key = result, arch_key
         else:
             model, arch_key = result
+
+        # TODO: discuss how this is related to the above application of recipes
+        if recipe_path is not None:
+            # TODO: replace this with a new manager introduced by @satrat
+            ScheduledModifierManager.from_yaml(recipe_path).apply_structure(model)
+            if checkpoint_path:
+                load_model(checkpoint_path, model, strict=True)
+
+        if one_shot is not None:
+            ScheduledModifierManager.from_yaml(file_path=one_shot).apply(module=model)
 
         return model, arch_key, checkpoint_path
 
@@ -691,8 +705,12 @@ def is_image_classification_model(source_path: Union[Path, str]) -> bool:
     :param source_path: The path to the model
     :return: Whether the model is an image classification model or not
     """
+    if not os.isfile(source_path):
+        checkpoint_path = os.path.join(source_path, "model.pth")
+    else:
+        checkpoint_path = source_path
     try:
-        checkpoint = torch.load(os.path.join(source_path, "model.pth"))
+        checkpoint = torch.load(checkpoint_path)
         arch_key = checkpoint.get("arch_key")
         if arch_key:
             return True

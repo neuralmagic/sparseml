@@ -12,7 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from src.sparseml.export.registry import IntegrationHelperFunctions, Integrations
+from sparseml.integration_helper_functions import (
+    IntegrationHelperFunctions,
+    Integrations,
+)
 
 
 def test_integration_helper_functions():

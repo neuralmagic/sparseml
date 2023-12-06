@@ -14,16 +14,10 @@
 
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Optional, Union
+from typing import Callable, Optional, Union
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field
 
-from sparseml.pytorch.image_classification.utils.helpers import (
-    create_model as create_model_ic,
-)
-from sparseml.pytorch.image_classification.utils.helpers import (
-    is_image_classification_model,
-)
 from sparsezoo.utils.registry import RegistryMixin
 
 
@@ -38,8 +32,6 @@ class Integrations(Enum):
     image_classification = "image-classification"
 
 
-# TODO: Fold it into the functionalities of the RegistryMixin
-# when the `resolve` method is generically implemented
 def infer_integration(source_path: Union[Path, str]) -> str:
     """
     Infer the integration to use for exporting the model from the source_path.
@@ -47,7 +39,15 @@ def infer_integration(source_path: Union[Path, str]) -> str:
     :param source_path: The path to the PyTorch model to export.
     :return: The name of the integration to use for exporting the model.
     """
+    from sparseml.pytorch.image_classification.utils.helpers import (
+        is_image_classification_model,
+    )
+
     if is_image_classification_model(source_path):
+        from sparseml.pytorch.image_classification.integration_helper_functions import (
+            ImageClassification,
+        )
+
         return Integrations.image_classification.value
     else:
         raise ValueError(
@@ -91,23 +91,3 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
         "deployment folder for the exporter ONNX model"
         "with the appropriate structure."
     )
-
-    # use validator to ensure that "create_model" outputs only the first output
-    @validator("create_model", pre=True)
-    def create_model_only_one_output(cls, v: Optional[Callable]) -> Optional[Callable]:
-        """
-        Ensure that the create_model function only outputs
-        the first output - the model itself.
-        """
-        if v is not None:
-            v = cls.wrap_to_return_first_output(v)
-        return v
-
-    @staticmethod
-    def wrap_to_return_first_output(func: Callable) -> Callable:
-        return lambda *args, **kwargs: func(*args, **kwargs)[0]
-
-
-@IntegrationHelperFunctions.register(name=Integrations.image_classification.value)
-class ImageClassification(IntegrationHelperFunctions):
-    create_model: Any = Field(default=create_model_ic)

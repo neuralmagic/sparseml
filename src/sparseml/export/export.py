@@ -16,7 +16,10 @@ import logging
 from pathlib import Path
 from typing import Any, List, Optional, Union
 
-from sparseml.export.registry import IntegrationHelperFunctions, infer_integration
+from sparseml.integration_helper_functions import (
+    IntegrationHelperFunctions,
+    infer_integration,
+)
 from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
 
 
