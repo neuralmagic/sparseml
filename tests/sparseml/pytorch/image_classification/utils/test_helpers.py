@@ -33,13 +33,6 @@ def test_save_zoo_directory(stub, tmp_path_factory):
     zoo_model = Model(stub, path_to_training_outputs)
     zoo_model.download()
 
-    zoo_model.sample_labels.unzip()
-    zoo_model.sample_inputs.unzip()
-    zoo_model.sample_outputs["framework"].unzip()
-
-    # download deployment directory
-    zoo_model.deployment_directory_path
-
     save_zoo_directory(
         output_dir=save_dir,
         training_outputs_dir=path_to_training_outputs,
