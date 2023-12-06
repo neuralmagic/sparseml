@@ -25,3 +25,4 @@ def test_integration_helper_functions():
         Integrations.image_classification.value
     )
     assert image_classification.create_model
+    assert image_classification.create_dummy_input

@@ -40,13 +40,18 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
     """
 
     create_model: Optional[Callable] = Field(
-        description="A function that creates a (sparse) "
-        "PyTorch model from a source path and additional "
-        "arguments"
+        description="A function that takes: "
+        "- a source path to a PyTorch model "
+        "- (optionally) a dictionary of additional arguments"
+        "and returns: "
+        "- a (sparse) PyTorch model "
+        "- (optionally) a dictionary of additional arguments"
     )
     create_dummy_input: Optional[Callable] = Field(
-        description="A function that creates a dummy input "
-        "given a (sparse) PyTorch model."
+        description="A function that takes: "
+        "- a dictionary of arguments"
+        "and returns: "
+        "- a dummy input for the model "
     )
     export_model: Optional[Callable] = Field(
         description="A function that exports a (sparse) PyTorch "

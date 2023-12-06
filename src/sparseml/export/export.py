@@ -100,9 +100,7 @@ def export(
 
     model = helper_functions.create_model(source_path, device)
     sample_data = (
-        helper_functions.create_dummy_input(model, batch_size)
-        if sample_data is None
-        else sample_data
+        helper_functions.create_dummy_input() if sample_data is None else sample_data
     )
     onnx_file_path = helper_functions.export_model(
         model, sample_data, target_path, deployment_target, opset, single_graph_file
