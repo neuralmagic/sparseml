@@ -60,7 +60,7 @@ def create_dummy_input(
 
     if not validation_loader:
         # create fake data for export
-        val_loader = [[torch.randn(1, 3, image_size, image_size)]]
+        validation_loader = [[torch.randn(1, 3, image_size, image_size)]]
     return next(iter(val_loader))[0]
 
 
