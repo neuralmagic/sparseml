@@ -59,7 +59,7 @@ SparseML is an open-source model optimization toolkit that enables you to create
    <img alt="SparseML Flow" src="docs/images/sparseml-workflow.png" width="60%" />
 </p>
 
-## ✨NEW✨ SparseML LLM Compression
+## ✨NEW✨ SparseML One-Shot LLM Compression
 
 Neural Magic is excited to preview one-shot LLM compression workflows using the new `SparseGPTModfier`! 
 
