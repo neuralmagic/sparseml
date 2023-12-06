@@ -16,7 +16,10 @@ from pathlib import Path
 
 import pytest
 
-from sparseml.pytorch.image_classification.utils.helpers import save_zoo_directory, is_image_classification_model
+from sparseml.pytorch.image_classification.utils.helpers import (
+    is_image_classification_model,
+    save_zoo_directory,
+)
 from sparsezoo import Model
 
 

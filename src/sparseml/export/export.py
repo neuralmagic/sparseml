@@ -17,9 +17,15 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, List, Optional, Union
 
+from sparseml.export.registry import IntegrationHelperFunctions
 
+# TODO: Fold it into the functionalities of the RegistryMixin
+# when the resolve method is implemented
+from sparseml.pytorch.image_classification.utils.helpers import (
+    is_image_classification_model,
+)
 from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
-from sparseml.pytorch.image_classification.utils.helpers import is_image_classification_model
+
 
 _LOGGER = logging.getLogger(__name__)
 AVAILABLE_DEPLOYMENT_TARGETS = ["deepsparse", "onnxruntime"]
@@ -144,9 +150,11 @@ def infer_integration(source_path: Union[Path, str]) -> str:
     if is_image_classification_model(source_path):
         return Integrations.image_classification.value
     else:
-        raise ValueError(f"Could not infer integration from source_path: {source_path}."
-                         f"Please specify an argument `integration` from one of"
-                         f"the available integrations: {list(Integrations)}.")
+        raise ValueError(
+            f"Could not infer integration from source_path: {source_path}."
+            f"Please specify an argument `integration` from one of"
+            f"the available integrations: {list(Integrations)}."
+        )
 
 
 def validate_correctness(deployment_path: Union[Path, str]):

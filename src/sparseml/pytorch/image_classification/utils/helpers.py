@@ -55,7 +55,6 @@ from sparseml.pytorch.utils import (
 from sparseml.utils import create_dirs
 from sparseml.utils.datasets import cifar, imagenet, imagenette
 from sparsezoo import Model, setup_model
-from sparseml.export.registry import IntegrationHelperFunctions
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -344,20 +343,26 @@ def get_dataset_and_dataloader(
 
 
 # Model creation Helpers
-@IntegrationHelperFunctions.register("image-classification")
 def create_model(
     checkpoint_path: str,
-    num_classes: int,
+    dataset_name: Optional[str] = None,
+    dataset_path: Optional[str] = None,
+    num_classes: Optional[int] = None,
     recipe_path: Optional[str] = None,
     arch_key: Optional[str] = None,
     pretrained: Union[bool, str] = False,
     pretrained_dataset: Optional[str] = None,
+    image_size: int = 224,
     local_rank: int = -1,
     **model_kwargs,
 ) -> Tuple[Module, str, str]:
     """
     :param checkpoint_path: Path to the checkpoint to load. `zoo` for
         downloading weights with respect to a SparseZoo recipe
+    :param dataset_name: The name of the dataset to use for model creation.
+        Defaults to `None`
+    :param dataset_path: The path to the dataset to use for model creation.
+        Defaults to `None`
     :param num_classes: Integer representing the number of output classes
     :param recipe_path: Path or SparseZoo stub to the recipe for downloading,
         respective model. Defaults to `None`
@@ -367,11 +372,44 @@ def create_model(
         False
     :param pretrained_dataset: The dataset to used for pretraining. Defaults to
         None
+    :param image_size: The image size to use for inference of num_classes
+        (in case num_classes is None) . Defaults to 224
     :param local_rank: The local rank of the process. Defaults to -1
     :param model_kwargs: Additional keyword arguments to pass to the model
     :returns: A tuple containing the mode, the model's arch_key, and the
         checkpoint path
     """
+    if num_classes is None:
+        # infer number of classes from the dataset
+        if dataset_name is None and dataset_path is None:
+            raise ValueError(
+                "To create a model either specify num_classes or "
+                "dataset_name and dataset_path (so that num_classes can be inferred)"
+            )
+        val_dataset, _ = get_dataset_and_dataloader(
+            dataset_name=dataset_name,
+            dataset_path=dataset_path,
+            batch_size=1,
+            image_size=image_size,
+            training=False,
+            loader_num_workers=1,
+            loader_pin_memory=False,
+            max_samples=1,
+        )
+
+        num_classes = infer_num_classes(
+            train_dataset=None,
+            val_dataset=val_dataset,
+            dataset=dataset_name,
+            model_kwargs=model_kwargs,
+        )
+    else:
+        if dataset_name is not None or dataset_path is not None:
+            warnings.warn(
+                "Both num_classes and dataset_name/dataset_path were provided. "
+                "Using num_classes and ignoring dataset_name/dataset_path"
+            )
+
     with torch_distributed_zero_first(local_rank):
         # only download once locally
         if checkpoint_path and checkpoint_path.startswith("zoo"):
