@@ -59,6 +59,20 @@ SparseML is an open-source model optimization toolkit that enables you to create
    <img alt="SparseML Flow" src="docs/images/sparseml-workflow.png" width="60%" />
 </p>
 
+## ✨NEW✨ SparseML LLM Compression
+
+Neural Magic is excited to preview one-shot LLM compression workflows using the new `SparseGPTModfier`! 
+
+To prune and quantize a TinyLlama Chat model it is just a few steps to install dependencies, download a recipe, and apply it to the model:
+```
+git clone https://github.com/neuralmagic/sparseml
+pip install -e "sparseml[transformers]"
+wget https://huggingface.co/neuralmagic/TinyLlama-1.1B-Chat-v0.4-pruned50-quant-ds/raw/main/recipe.yaml
+python sparseml/src/sparseml/transformers/sparsification/obcq/obcq.py TinyLlama/TinyLlama-1.1B-Chat-v0.4 open_platypus --recipe recipe.yaml --save True
+```
+
+Please see the README at [`src/sparseml/transformers/sparsification/obcq`](https://github.com/neuralmagic/sparseml/tree/main/src/sparseml/transformers/sparsification/obcq) for a detailed walkthrough.
+
 ## Workflows
 
 SparseML enables you to create a sparse model trained on your dataset in two ways:
