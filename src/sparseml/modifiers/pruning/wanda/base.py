@@ -69,7 +69,8 @@ class WandaPruningModifier(Modifier):
         if not isinstance(self.model, ModifiableModel):
             raise ValueError(
                 "`self.model` must be a ModifiableModel to use "
-                f"the WANDA modifier but got {type(self.model)} instead"
+                f"the {self.__class__.__qualname__} modifier but got "
+                f"{type(self.model)} instead"
             )
 
         compressible_dict = self.model.get_layers(self.targets)
