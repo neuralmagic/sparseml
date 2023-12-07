@@ -98,7 +98,6 @@ def one_shot(
         model_name_or_path=model_path, model_type="model", torch_dtype=torch_dtype
     )
     model.seqlen = model.config.max_position_embeddings
-    apply_recipe_structure(model=model, model_path=model_path)
 
     if dataset_name not in SUPPORTED_DATASETS:
         raise ValueError(
@@ -115,8 +114,12 @@ def one_shot(
     calibration_data = dataset.loader
     tokenizer = dataset.tokenizer
 
+    # create session and initialize structure from input model
     session_manager.create_session()
     session = session_manager.active_session()
+    apply_recipe_structure(model=model, model_path=model_path)
+
+    # launch one shot
     session.apply(
         framework=Framework.pytorch,
         recipe=recipe_file,

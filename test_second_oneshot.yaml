@@ -1,0 +1,18 @@
+test_stage:
+  obcq_modifiers:
+    SparseGPTModifier:
+      sparsity: 0.7
+      block_size: 128
+      sequential_update: True
+      quantize: True
+      percdamp: 0.01
+      prunen: 0
+      prunem: 0
+      targets: [
+        "model.layers.0",
+        "model.layers.1",
+        "model.layers.2",
+        "model.layers.3",
+        "model.layers.4",
+        "model.layers.5"
+      ]
