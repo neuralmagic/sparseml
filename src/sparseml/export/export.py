@@ -116,7 +116,10 @@ def export(
         model, sample_data, target_path, deployment_target, opset, single_graph_file
     )
 
-    helper_functions.apply_optimizations(onnx_file_path, graph_optimizations)
+    helper_functions.apply_optimizations(
+        onnx_file_path,
+        graph_optimizations,
+    )
 
     if export_sample_inputs_outputs:
         helper_functions.export_sample_inputs_outputs(model, target_path)

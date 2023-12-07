@@ -72,4 +72,4 @@ class ImageClassification(IntegrationHelperFunctions):
         default=create_model
     )
     create_dummy_input: Callable[..., torch.Tensor] = Field(default=create_dummy_input)
-    export: Callable[..., None] = Field(default=export_model)
+    export: Callable[..., str] = Field(default=export_model)

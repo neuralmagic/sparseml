@@ -89,7 +89,7 @@ def export_model(
     deployment_target: str = "deepsparse",
     opset: int = TORCH_DEFAULT_ONNX_OPSET,
     **kwargs,
-):
+) -> str:
     """
     Exports the torch model to the deployment target
 
@@ -100,20 +100,22 @@ def export_model(
     :param deployment_target: The deployment target to export to. Defaults to deepsparse
     :param opset: The opset to use for the export. Defaults to TORCH_DEFAULT_ONNX_OPSET
     :param kwargs: Additional kwargs to pass to the TorchToONNX exporter
+    :return: The path to the exported model
     """
 
     model.eval()
 
     exporter = TorchToONNX(sample_batch=sample_data, opset=opset, **kwargs)
     exporter.export(model, os.path.join(target_path, onnx_model_name))
-    if deployment_target == ExportTargets.onnx.value:
-        return
-    elif deployment_target == ExportTargets.deepsparse.value:
+    if deployment_target == ExportTargets.deepsparse.value:
         exporter = ONNXToDeepsparse()
         model = exporter.load_model(os.path.join(target_path, onnx_model_name))
         exporter.export(model, os.path.join(target_path, onnx_model_name))
+    if deployment_target == ExportTargets.onnx.value:
+        pass
     else:
         raise ValueError(f"Unsupported deployment target: {deployment_target}")
+    return os.path.join(target_path, onnx_model_name)
 
 
 def save_zoo_directory(
