@@ -60,7 +60,7 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
         "and returns: "
         "- a dummy input for the model (a torch.Tensor) "
     )
-    export_model: Optional[Callable[..., None]] = Field(
+    export: Optional[Callable[..., None]] = Field(
         description="A function that takes: "
         " - a (sparse) PyTorch model "
         " - sample input data "

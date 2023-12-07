@@ -32,6 +32,7 @@ ONNX_MODEL_NAME = "model.onnx"
 def export(
     source_path: Union[Path, str],
     target_path: Union[Path, str],
+    model_onnx_name: str = ONNX_MODEL_NAME,
     deployment_target: str = "deepsparse",
     integration: Optional[str] = None,
     sample_data: Optional[Any] = None,
@@ -59,6 +60,8 @@ def export(
 
     :param source_path: The path to the PyTorch model to export.
     :param target_path: The path to save the exported model to.
+    :param model_onnx_name: The name of the exported model.
+        Defaults to ONNX_MODEL_NAME.
     :param deployment_target: The deployment target to export
         the model to. Defaults to 'deepsparse'.
     :param integration: The name of the integration to use for
