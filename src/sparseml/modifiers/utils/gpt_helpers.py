@@ -132,14 +132,14 @@ class WandaGPT(LayerGPT):
         self.store_inps_outs_for_debugging(inp, out)
         if len(inp.shape) == 2:
             inp = inp.unsqueeze(0)
-        tmp = inp.shape[0]
+        batch_size = inp.shape[0]
         if isinstance(self.layer, nn.Linear):
             if len(inp.shape) == 3:
                 inp = inp.reshape((-1, inp.shape[-1]))
             inp = inp.t()
 
-        self.scaler_row *= self.nsamples / (self.nsamples + tmp)
-        self.nsamples += tmp
+        self.scaler_row *= self.nsamples / (self.nsamples + batch_size)
+        self.nsamples += batch_size
         inp = inp.type(torch.float32)
         self.scaler_row += torch.norm(inp, p=2, dim=1) ** 2 / self.nsamples
 
