@@ -14,7 +14,7 @@
 
 from enum import Enum
 from pathlib import Path
-from typing import Callable, Optional, Union
+from typing import Any, Callable, Dict, Optional, Union
 
 from pydantic import BaseModel, Field
 
@@ -39,7 +39,13 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
     integration.
     """
 
-    create_model: Optional[Callable] = Field(
+    create_model: Optional[
+        Callable[
+            [Union[str, Path], Optional[Dict[str, Any]]][
+                "torch.nn.Module", Optional[Dict[str, Any]]  # noqa F821 # noqa F821
+            ]
+        ]
+    ] = Field(
         description="A function that takes: "
         "- a source path to a PyTorch model "
         "- (optionally) a dictionary of additional arguments"
@@ -47,11 +53,13 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
         "- a (sparse) PyTorch model "
         "- (optionally) a dictionary of additional arguments"
     )
-    create_dummy_input: Optional[Callable] = Field(
+    create_dummy_input: Optional[
+        Callable[Any]["torch.Tensor"]  # noqa F821
+    ] = Field(  # noqa: F82
         description="A function that takes: "
         "- a dictionary of arguments"
         "and returns: "
-        "- a dummy input for the model "
+        "- a dummy input for the model (a torch.Tensor) "
     )
     export_model: Optional[Callable] = Field(
         description="A function that exports a (sparse) PyTorch "

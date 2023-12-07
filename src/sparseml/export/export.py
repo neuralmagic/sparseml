@@ -98,9 +98,14 @@ def export(
         IntegrationHelperFunctions.load_from_registry(integration)
     )
 
-    model = helper_functions.create_model(source_path, device)
+    # for now, this code is not runnable, serves as a blueprint
+    model, auxiliary_items = helper_functions.create_model(
+        source_path, **kwargs  # noqa: F821
+    )  # type: ignore
     sample_data = (
-        helper_functions.create_dummy_input() if sample_data is None else sample_data
+        helper_functions.create_dummy_input(**auxiliary_items)
+        if sample_data is None
+        else sample_data
     )
     onnx_file_path = helper_functions.export_model(
         model, sample_data, target_path, deployment_target, opset, single_graph_file

@@ -37,7 +37,7 @@ def create_model(
     :param kwargs: Additional kwargs to pass to the model creation function
     :return: A tuple of the
         - torch model
-        - additional dictionary of items created during model creation
+        - additional dictionary of useful objects created during model creation
     """
     model, *_, validation_loader = create_image_classification_model(
         checkpoint_path=source_path, **kwargs
