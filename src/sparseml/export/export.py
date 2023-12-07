@@ -101,7 +101,7 @@ def export(
     # for now, this code is not runnable, serves as a blueprint
     model, auxiliary_items = helper_functions.create_model(
         source_path, **kwargs  # noqa: F821
-    )  # type: ignore
+    ) 
     sample_data = (
         helper_functions.create_dummy_input(**auxiliary_items)
         if sample_data is None
