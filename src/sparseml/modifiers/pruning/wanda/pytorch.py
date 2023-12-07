@@ -14,12 +14,12 @@
 
 import logging
 from typing import Any, Dict, Iterable, List, Optional, Tuple
-from sparseml.modifiers.utils import layer_compressors
 
 import torch
 
 from sparseml.core.model.base import ModifiableModel
 from sparseml.core.state import State
+from sparseml.experimental.sparsegpt.layer_compressor import LayerCompressor
 from sparseml.modifiers.obcq.utils.helpers import cache_attention_inputs
 from sparseml.modifiers.pruning.wanda.base import WandaPruningModifier
 from sparseml.modifiers.utils.layer_compressors import WandaLayerCompressor
@@ -30,9 +30,18 @@ _LOGGER = logging.getLogger(__name__)
 
 class WandaPruningModifierPyTorch(WandaPruningModifier):
     """
-    PyTorch implementation of WandaPruningModifier
-    
-    
+    Pytorch implementation of WandaPruningModifier
+
+    Lifecycle:
+        - on_initialize
+            - setup
+                - compressible_layers
+            - prune
+                - compress_bottom
+                - LayerCompressor.compress
+        - on_finalize
+
+    :param model: `ModifiableModel` to perform wanda on, in-place
     """
 
     model: Optional[ModifiableModel] = None
@@ -40,7 +49,7 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
     layer_prefix_: Optional[str] = None
     prunen_: Optional[int] = None
     prunem_: Optional[int] = None
-    layer_compressor_class_: layer_compressors = WandaLayerCompressor
+    layer_compressor_class_: LayerCompressor = WandaLayerCompressor
 
     def on_initialize(self, state: State, **kwargs) -> bool:
         """
@@ -49,9 +58,8 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
         :param state: session state storing input model and calibration data
         """
         self._validate_layerwise_sparsity()
-
         self.setup(state=state, **kwargs)
-        
+
         # run on calibration data
         self.prune(dataloader=state.data.calib)
         torch.cuda.empty_cache()
@@ -125,10 +133,10 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
 
     def _get_compression_args(self, layer_sparsity):
         return {
-                "sparsity": layer_sparsity,
-                "prunen": self.prunen_,
-                "prunem": self.prunem_,
-            }
+            "sparsity": layer_sparsity,
+            "prunen": self.prunen_,
+            "prunem": self.prunem_,
+        }
 
     def compress_bottom(
         self,
