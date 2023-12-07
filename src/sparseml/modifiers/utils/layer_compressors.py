@@ -20,7 +20,7 @@ from typing import Dict, List
 import torch
 from torch.nn import Module
 
-from sparseml.modifiers.utils.gpt_helpers import GPT, SparseGPT, WandaGPT
+from sparseml.modifiers.utils.gpts import GPT, SparseGPT, WandaGPT
 from sparseml.pytorch.utils.helpers import get_dependency_order
 from sparseml.utils.pytorch.module import get_prunable_layers
 
@@ -30,14 +30,18 @@ _LOGGER = logging.getLogger(__name__)
 
 class LayerCompressor(ABC):
     """
-    Runs the SparseGPT algorithm on a single layer using calibration data inputs
+    Defines the contract to run GPT algorithms on a
+    single layer using calibration data inputs
 
-    Lifecycle:
+    Example Lifecycle:
         - compress
             - pre_compress_parallel (optional)
             - add_batch
             - fasterprune
             - post_compress
+
+    Note: inheriting classes must define the gpt_class attribute,
+    and implement the invoke_fasterprune, and compress methods.
 
     :param model: model containing the layer we are running compression on
     :param layer: layer to run compression on
@@ -56,6 +60,24 @@ class LayerCompressor(ABC):
         self.layer_index = layer_index
         self.inputs = inputs
         self.args = args
+
+    def compress(self, dev: str = "cuda:0", **kwargs) -> Dict:
+        """
+        Run GPT compression on all compressible modules in the layer
+
+        :param dev: device to run computation on
+        """
+        raise NotImplementedError()
+
+    def invoke_fasterprune(self, gpts: GPT):
+        """
+        Invoke fasterprune method on the GPT object
+
+        :param gpts: Instantiated GPT object
+        :raises NotImplementedError: inheritor must provide an
+            implementation for this method
+        """
+        raise NotImplementedError()
 
     def compressible_modules(self) -> Dict:
         """
@@ -105,24 +127,6 @@ class LayerCompressor(ABC):
             h.remove()
 
         return {"gpts": gpts}
-
-    def compress(self, dev: str = "cuda:0", **kwargs) -> Dict:
-        """
-        Run SparseGPT compression on all compressible modules in the layer
-
-        :param dev: device to run computation on
-        """
-        raise NotImplementedError()
-
-    def invoke_fasterprune(self, gpts: GPT):
-        """
-        Invoke fasterprune method on the GPT object
-
-        :param gpts: Instantiated GPT object
-        :raises NotImplementedError: inheritor must provide an
-            implementation for this method
-        """
-        raise NotImplementedError()
 
     def post_compress(self, **kwargs) -> Dict:
         """
