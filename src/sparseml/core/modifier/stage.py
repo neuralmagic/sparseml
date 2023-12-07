@@ -41,6 +41,7 @@ class StageModifiers(ModifierInterface, BaseModel):
     modifiers: List["Modifier"] = Field(default_factory=list)
     index: Optional[int] = None
     group: Optional[str] = None
+    applied: bool = False
 
     @property
     def initialized_structure(self) -> bool:
@@ -112,6 +113,8 @@ class StageModifiers(ModifierInterface, BaseModel):
         for modifier in self.modifiers:
             modifier.pre_initialize_structure(state, **kwargs)
 
+        self.applied = True
+
     def initialize(self, state: "State", **kwargs):
         """
         Initialize all the stage modifiers
@@ -120,6 +123,10 @@ class StageModifiers(ModifierInterface, BaseModel):
         :param kwargs: Additional kwargs to pass to the modifier(s)
             initialize method
         """
+
+        if self.applied:
+            return
+
         for modifier in self.modifiers:
             modifier.initialize(state, **kwargs)
 
@@ -131,6 +138,10 @@ class StageModifiers(ModifierInterface, BaseModel):
         :param kwargs: Additional kwargs to pass to the modifier(s)
             finalize method
         """
+
+        if self.applied:
+            return
+
         for modifier in self.modifiers:
             modifier.finalize(state, **kwargs)
 
@@ -143,5 +154,9 @@ class StageModifiers(ModifierInterface, BaseModel):
         :param kwargs: Additional kwargs to pass to the modifier(s)
             update_event method
         """
+
+        if self.applied:
+            return
+
         for modifier in self.modifiers:
             modifier.update_event(state, event, **kwargs)

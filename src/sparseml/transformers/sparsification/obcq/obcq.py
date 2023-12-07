@@ -25,13 +25,13 @@ from transformers import AutoConfig
 import sparseml.core.session as session_manager
 from sparseml.core.framework import Framework
 from sparseml.modifiers.obcq.utils.helpers import ppl_eval_general
-from sparseml.optim.helpers import load_recipe_yaml_str
+from sparseml.pytorch.model_load.helpers import apply_recipe_structure_to_model
 from sparseml.transformers.data import TransformersDataset
 from sparseml.transformers.sparsification.obcq.utils.helpers import (
     llama_forward,
     opt_forward,
 )
-from sparseml.transformers.utils.model import SparseAutoModel, apply_recipe_structure
+from sparseml.transformers.utils.model import SparseAutoModel
 
 
 __all__ = ["one_shot"]
@@ -117,7 +117,9 @@ def one_shot(
     # create session and initialize structure from input model
     session_manager.create_session()
     session = session_manager.active_session()
-    apply_recipe_structure(model=model, model_path=model_path)
+    apply_recipe_structure_to_model(
+        model=model, recipe_path=recipe_file, model_path=model_path
+    )
 
     # launch one shot
     session.apply(
@@ -131,7 +133,7 @@ def one_shot(
     )
 
     if do_save:
-        _save(model, tokenizer, deploy_dir, recipe_file)
+        _save(model, tokenizer, deploy_dir)
     if eval_data:
         dataset = TransformersDataset.load_from_registry(
             eval_data,
@@ -162,14 +164,16 @@ def _parse_dtype(dtype_arg):
     return dtype
 
 
-def _save(model, tokenizer, save_path, recipe_path):
+def _save(model, tokenizer, save_path):
     model.save_pretrained(save_path)
     tokenizer.save_pretrained(save_path)
 
     _LOGGER.info("Saving output to {}".format(os.path.abspath(save_path)))
-    recipe_output_path = os.path.join(save_path, "recipe.yaml")
-    with open(recipe_output_path, "w") as fp:
-        fp.write(load_recipe_yaml_str(recipe_path))
+    recipe_path = os.path.join(save_path, "recipe.yaml")
+    session = session_manager.active_session()
+    recipe_yaml_str = session.get_serialized_recipe()
+    with open(recipe_path, "w") as fp:
+        fp.write(recipe_yaml_str)
 
 
 def _fallback_to_cpu(device):

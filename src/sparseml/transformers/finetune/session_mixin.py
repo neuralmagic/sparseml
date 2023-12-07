@@ -410,9 +410,7 @@ class SessionManagerMixIn:
         # as those added from self.recipe
         recipe_path = os.path.join(output_dir, RECIPE_NAME)
         session = session_manager.active_session()
-        recipe = session.lifecycle.recipe_container.compiled_recipe
-        recipe_yaml_str = recipe.yaml()
-        recipe_path = os.path.join(output_dir, "recipe.yaml")
+        recipe_yaml_str = session.get_serialized_recipe()
         with open(recipe_path, "w") as fp:
             fp.write(recipe_yaml_str)
 
