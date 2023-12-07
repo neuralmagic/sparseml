@@ -14,12 +14,13 @@
 
 import inspect
 import logging
+from abc import ABC
 from typing import Dict, List
 
 import torch
 from torch.nn import Module
 
-from sparseml.modifiers.utils.gpt_helpers import SparseGPT
+from sparseml.modifiers.utils.gpt_helpers import GPT, SparseGPT, WandaGPT
 from sparseml.pytorch.utils.helpers import get_dependency_order
 from sparseml.utils.pytorch.module import get_prunable_layers
 
@@ -27,7 +28,7 @@ from sparseml.utils.pytorch.module import get_prunable_layers
 _LOGGER = logging.getLogger(__name__)
 
 
-class LayerCompressor:
+class LayerCompressor(ABC):
     """
     Runs the SparseGPT algorithm on a single layer using calibration data inputs
 
@@ -44,6 +45,8 @@ class LayerCompressor:
     :param inputs: calibration data to pass through the layer
     :param args: additional keyword arguments
     """
+
+    gpt_class: GPT
 
     def __init__(
         self, model: Module, layer: Module, layer_index: int, inputs: List, args: Dict
@@ -74,7 +77,7 @@ class LayerCompressor:
 
         gpts = {}
         for name in subset:
-            gpts[name] = SparseGPT(subset[name])
+            gpts[name] = self.gpt_class(subset[name])
 
         def add_batch(name):
             def tmp(_, inp, out):
@@ -109,29 +112,17 @@ class LayerCompressor:
 
         :param dev: device to run computation on
         """
-        self.layer.to(dev)
-        if not self.args["sequential_update"]:
-            # compute Hessians ahead of time
-            extras = self.pre_compress_parallel(**kwargs)
-            gpts = extras["gpts"]
-            for name in gpts:
-                _LOGGER.info(f"Compressing {name}...")
-                sparsity = self.args["sparsity"]
-                gpts[name].fasterprune(
-                    sparsity,
-                    prunen=self.args["prunen"],
-                    prunem=self.args["prunem"],
-                    percdamp=self.args["percdamp"],
-                    blocksize=self.args["blocksize"],
-                )
-                gpts[name].free()
-        else:
-            # Hessians computed layer by layer
-            self.sequentially_compress(**kwargs)
+        raise NotImplementedError()
 
-        extras = self.post_compress(**kwargs)
+    def invoke_fasterprune(self, gpts: GPT):
+        """
+        Invoke fasterprune method on the GPT object
 
-        return {"outputs": extras["outputs"]}
+        :param gpts: Instantiated GPT object
+        :raises NotImplementedError: inheritor must provide an
+            implementation for this method
+        """
+        raise NotImplementedError()
 
     def post_compress(self, **kwargs) -> Dict:
         """
@@ -184,7 +175,7 @@ class LayerCompressor:
 
         nsamples = len(self.inputs)
         for name in order:  # create SparseGPT object for each compressible module
-            gpts = SparseGPT(subset[name])
+            gpts: GPT = SparseGPT(subset[name])
 
             def add_batch(name):
                 def tmp(_, inp, out):
@@ -206,11 +197,108 @@ class LayerCompressor:
             handle.remove()
 
             _LOGGER.info(f"Compressing module {name} of layer {self.layer_index}")
-            gpts.fasterprune(  # run SparseGPT algorithm on current module
-                self.args["sparsity"],
-                prunen=self.args["prunen"],
-                prunem=self.args["prunem"],
-                percdamp=self.args["percdamp"],
-                blocksize=self.args["blocksize"],
-            )
+
+            # run GPT algorithm on current module
+            self.invoke_fasterprune(gpts=gpts)
             gpts.free()
+
+
+class WandaLayerCompressor(LayerCompressor):
+    """
+    Runs the Wanda algorithm on a single layer using calibration data inputs
+
+    Lifecycle:
+        - compress
+            - pre_compress_parallel (optional)
+            - add_batch
+            - fasterprune
+            - post_compress
+
+    :param model: model containing the layer we are running compression on
+    :param layer: layer to run compression on
+    :param layer_index: index of layer in the model
+    :param inputs: calibration data to pass through the layer
+    :param args: additional keyword arguments
+    """
+
+    gpt_class: GPT = WandaGPT
+
+    def compress(self, dev: str = "cuda:0", **kwargs) -> Dict:
+        """
+        Run WANDA compression on all compressible modules in the layer
+
+        :param dev: device to run computation on
+        """
+        self.layer.to(dev)
+        self.sequentially_compress(**kwargs)
+        extras = self.post_compress(**kwargs)
+        return {"outputs": extras["outputs"]}
+
+    def invoke_fasterprune(self, gpts: WandaGPT):
+        # run WandaGPT algorithm on current module
+        gpts.fasterprune(
+            self.args["sparsity"],
+            prunen=self.args["prunen"],
+            prunem=self.args["prunem"],
+        )
+
+
+class OBCQLayerCompressor(LayerCompressor):
+    """
+    Runs the SparseGPT algorithm on a single layer using calibration data inputs
+
+    Lifecycle:
+        - compress
+            - pre_compress_parallel (optional)
+            - add_batch
+            - fasterprune
+            - post_compress
+
+    :param model: model containing the layer we are running compression on
+    :param layer: layer to run compression on
+    :param layer_index: index of layer in the model
+    :param inputs: calibration data to pass through the layer
+    :param args: additional keyword arguments
+    """
+
+    gpt_class: GPT = SparseGPT
+
+    def compress(self, dev: str = "cuda:0", **kwargs) -> Dict:
+        """
+        Run SparseGPT compression on all compressible modules in the layer
+
+        :param dev: device to run computation on
+        """
+        self.layer.to(dev)
+        if not self.args["sequential_update"]:
+            # compute Hessians ahead of time
+            extras = self.pre_compress_parallel(**kwargs)
+            gpts = extras["gpts"]
+            for name in gpts:
+                _LOGGER.info(f"Compressing {name}...")
+                sparsity = self.args["sparsity"]
+                gpts[name].fasterprune(
+                    sparsity,
+                    prunen=self.args["prunen"],
+                    prunem=self.args["prunem"],
+                    percdamp=self.args["percdamp"],
+                    blocksize=self.args["blocksize"],
+                )
+                gpts[name].free()
+        else:
+            # Hessians computed layer by layer
+            self.sequentially_compress(**kwargs)
+
+        extras = self.post_compress(**kwargs)
+
+        return {"outputs": extras["outputs"]}
+
+    def invoke_fasterprune(self, gpts: SparseGPT):
+        # run SparseGPT algorithm on current module
+        gpts.fasterprune(
+            self.args["sparsity"],
+            prunen=self.args["prunen"],
+            prunem=self.args["prunem"],
+            percdamp=self.args["percdamp"],
+            blocksize=self.args["blocksize"],
+        )

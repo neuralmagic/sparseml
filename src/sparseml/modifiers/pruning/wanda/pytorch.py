@@ -21,7 +21,7 @@ from sparseml.core.model.base import ModifiableModel
 from sparseml.core.state import State
 from sparseml.modifiers.obcq.utils.helpers import cache_attention_inputs
 from sparseml.modifiers.pruning.wanda.base import WandaPruningModifier
-from sparseml.modifiers.pruning.wanda.utils.layer_compressor import WandaLayerCompressor
+from sparseml.modifiers.utils.layer_compressors import WandaLayerCompressor
 
 
 _LOGGER = logging.getLogger(__name__)
