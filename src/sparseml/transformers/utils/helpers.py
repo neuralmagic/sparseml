@@ -20,10 +20,15 @@ import logging
 import os
 from typing import Optional
 
+from transformers.trainer_utils import get_last_checkpoint
+
 from sparsezoo import setup_model
 
 
-__all__ = ["RECIPE_NAME", "save_zoo_directory"]
+_LOGGER: logging.Logger = logging.getLogger(__name__)
+
+
+__all__ = ["RECIPE_NAME", "save_zoo_directory", "detect_last_checkpoint"]
 
 
 RECIPE_NAME = "recipe.yaml"
@@ -48,7 +53,7 @@ def save_zoo_directory(
     for root_file in ["sample-inputs", "sample-outputs"]:
         root_file_path = os.path.join(training_outputs_dir, root_file)
         if not os.path.exists(root_file_path):
-            logging.warning(
+            _LOGGER.warning(
                 f"File {root_file_path} missing. To create this file, "
                 "make sure that the export script is being ran with"
                 "`--num_export_samples` argument."
@@ -78,4 +83,29 @@ def save_zoo_directory(
         eval_results=None,
         recipes=None,
     )
-    logging.info(f"Created sparsezoo Model directory locally in {output_dir}")
+    _LOGGER.info(f"Created sparsezoo Model directory locally in {output_dir}")
+
+
+def detect_last_checkpoint(training_args: "TrainingArguments"):  # noqa 821
+    last_checkpoint = None
+    if (
+        os.path.isdir(training_args.output_dir)
+        and training_args.do_train
+        and not training_args.overwrite_output_dir
+    ):
+        last_checkpoint = get_last_checkpoint(training_args.output_dir)
+        if last_checkpoint is None and (len(os.listdir(training_args.output_dir)) > 0):
+            raise ValueError(
+                f"Output directory ({training_args.output_dir}) already "
+                "exists and is not empty. Use --overwrite_output_dir to overcome."
+            )
+        elif (
+            last_checkpoint is not None and training_args.resume_from_checkpoint is None
+        ):
+            _LOGGER.info(
+                f"Checkpoint detected, resuming training at {last_checkpoint}. To "
+                "avoid this behavior, change  the `--output_dir` or add "
+                "`--overwrite_output_dir` to train from scratch."
+            )
+
+    return last_checkpoint

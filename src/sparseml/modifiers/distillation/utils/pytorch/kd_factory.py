@@ -202,6 +202,12 @@ def recursive_combine(
     val_two: TensorOrCollectionType,
     func: Callable[[Tensor, Tensor], Tensor],
 ):
+    if type(val_one) != type(val_two):
+        raise ValueError(
+            f"val_one type of {type(val_one)} must match "
+            f"val_two type of {type(val_two)}"
+        )
+
     if isinstance(val_one, Tensor):
         return func(val_one, val_two)
 
@@ -393,9 +399,28 @@ def cross_entropy_comparison(
 
         return TF.cross_entropy(val_one, val_two, reduction=reduction)
 
-    def _create_projection(
+    def _create_comparison(
         val_one: TensorOrCollectionType, val_two: TensorOrCollectionType
     ) -> TensorOrCollectionType:
         return recursive_combine(val_one, val_two, _cross_entropy)
 
-    return _create_projection
+    return _create_comparison
+
+
+@KDFactory.register_comparison_decorator("square_head")
+def square_head_comparison(name: str, **kwargs):
+    if name != "square_head":
+        raise ValueError(f"Invalid projection name: {name}")
+
+    def _square_head(val_one: Tensor, val_two: Tensor) -> Tensor:
+        numerator = torch.sum(torch.square(val_two - val_one))
+        denominator = torch.sum(torch.square(val_two))
+
+        return numerator / denominator
+
+    def _create_comparison(
+        val_one: TensorOrCollectionType, val_two: TensorOrCollectionType
+    ) -> TensorOrCollectionType:
+        return recursive_combine(val_one, val_two, _square_head)
+
+    return _create_comparison

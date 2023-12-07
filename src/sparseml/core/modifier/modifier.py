@@ -58,7 +58,7 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
         :return: True if the modifier structure has been
             applied to the model
         """
-        return self._initialized_structure
+        return self.initialized_structure_
 
     @property
     def initialized(self) -> bool:
@@ -121,7 +121,15 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
         if state.start_event is None:
             return
 
-        if self.calculate_start() < state.start_event.current_index:
+        # ignore modifier structure initialized from one-shot
+        if state.start_event.current_index >= 0 and self.calculate_start() < 0:
+            return
+
+        # if modifier should have ended by current index, don't initialize
+        if (
+            self.calculate_end() >= 0
+            and state.start_event.current_index >= self.calculate_end()
+        ):
             return
 
         initialized = self.on_initialize(state=state, **kwargs)
