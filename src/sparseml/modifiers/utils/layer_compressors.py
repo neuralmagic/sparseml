@@ -282,7 +282,7 @@ class OBCQLayerCompressor(LayerCompressor):
                 _LOGGER.info(f"Compressing {name}...")
                 sparsity = self.args["sparsity"]
                 gpts[name].fasterprune(
-                    sparsity,
+                    sparsity=sparsity,
                     prunen=self.args["prunen"],
                     prunem=self.args["prunem"],
                     percdamp=self.args["percdamp"],
@@ -300,7 +300,7 @@ class OBCQLayerCompressor(LayerCompressor):
     def invoke_fasterprune(self, gpts: SparseGPT):
         # run SparseGPT algorithm on current module
         gpts.fasterprune(
-            self.args["sparsity"],
+            sparsity=self.args["sparsity"],
             prunen=self.args["prunen"],
             prunem=self.args["prunem"],
             percdamp=self.args["percdamp"],
