@@ -78,8 +78,9 @@ from transformers.tokenization_utils_base import PaddingStrategy
 
 import sparseml.core.session as session_manager
 from sparseml.optim import parse_recipe_variables
+from sparseml.pytorch.model_load.helpers import apply_recipe_structure_to_model
 from sparseml.pytorch.utils import export_onnx
-from sparseml.transformers.utils import SparseAutoModel, apply_recipe_structure
+from sparseml.transformers.utils import SparseAutoModel
 from sparsezoo.utils.onnx import EXTERNAL_ONNX_DATA_NAME
 
 
@@ -286,8 +287,11 @@ def export_transformer_to_onnx(
     model = model.train()
 
     # creates a SparseSession and apply structure from the model's recipe
+    recipe_path = os.path.join(model_path, "recipe.yaml")
     session_manager.create_session()
-    apply_recipe_structure(model, model_path)
+    apply_recipe_structure_to_model(
+        model, recipe_path=recipe_path, model_path=model_path
+    )
 
     # create fake model input
     inputs = tokenizer(

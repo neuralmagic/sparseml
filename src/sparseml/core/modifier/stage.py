@@ -36,6 +36,8 @@ class StageModifiers(ModifierInterface, BaseModel):
     :param modifiers: The modifiers to apply as a stage
     :param index: The index of the stage, if applicable
     :param group: The group name of the stage, if applicable
+    :param applied: Flag for indicating if this stage's structure has already been
+    applied to the model
     """
 
     modifiers: List["Modifier"] = Field(default_factory=list)
