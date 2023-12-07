@@ -18,12 +18,15 @@ from typing import Any, Callable, Dict, Optional, Tuple, Union
 import torch
 from pydantic import Field
 
-from sparseml.integration_helper_functions import (
+from src.sparseml.integration_helper_functions import (
     IntegrationHelperFunctions,
     Integrations,
 )
 from sparseml.pytorch.image_classification.utils.helpers import (
     create_model as create_image_classification_model,
+)
+from sparseml.pytorch.image_classification.utils.helpers import (
+    export_model as export_model_ic,
 )
 
 
@@ -66,10 +69,8 @@ def create_dummy_input(
 
 @IntegrationHelperFunctions.register(name=Integrations.image_classification.value)
 class ImageClassification(IntegrationHelperFunctions):
-    create_model: Callable[
-        [Union[str, Path], Optional[Dict[str, Any]]][
-            "torch.nn.Module", Optional[Dict[str, Any]]
-        ]
+
+    create_model: Callable[..., Tuple[torch.nn.Module, Dict[str, Any]]
     ] = Field(default=create_model)
     create_dummy_input: Callable[..., torch.Tensor] = Field(default=create_dummy_input)
-    export_model: Callable[..., None] = Field(default=export_model)
+    export_model: Callable[..., None] = Field(default=export_model_ic)

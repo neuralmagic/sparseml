@@ -38,11 +38,11 @@ from sparseml.pytorch.datasets.image_classification.ffcv_dataset import (
 )
 from sparseml.pytorch.image_classification.utils.constants import AVAILABLE_DATASETS
 from sparseml.pytorch.models import ModelRegistry
+from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
 from sparseml.pytorch.optim import ScheduledModifierManager
 from sparseml.pytorch.torch_to_onnx_exporter import TorchToONNX
 from sparseml.pytorch.utils import (
     DEFAULT_LOSS_KEY,
-    TORCH_DEFAULT_ONNX_OPSET,
     CrossEntropyLossWrapper,
     ModuleExporter,
     ModuleRunResults,
