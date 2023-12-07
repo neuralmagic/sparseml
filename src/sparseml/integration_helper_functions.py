@@ -42,7 +42,7 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
     create_model: Optional[
         Callable[
             [Union[str, Path], Optional[Dict[str, Any]]][
-                "torch.nn.Module", Optional[Dict[str, Any]]  # noqa F821 # noqa F821
+                "torch.nn.Module", Optional[Dict[str, Any]]  # noqa F821
             ]
         ]
     ] = Field(
