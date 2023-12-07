@@ -62,9 +62,15 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
         "- a dummy input for the model (a torch.Tensor) "
     )
     export_model: Optional[Callable] = Field(
-        description="A function that exports a (sparse) PyTorch "
-        "model to an ONNX format appropriate for a "
-        "deployment target."
+        description="A function that takes: "
+        " - a (sparse) PyTorch model "
+        " - sample input data "
+        " - the path to save the exported model to "
+        " - the name to save the exported ONNX model as "
+        " - the deployment target to export to "
+        " - the opset to use for the export "
+        " - (optionally) a dictionary of additional arguments"
+        "and returns nothing"
     )
     apply_optimizations: Optional[Callable] = Field(
         description="A function that takes a set of "
