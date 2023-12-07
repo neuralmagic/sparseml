@@ -15,6 +15,7 @@
 import logging
 import math
 import time
+from abc import ABC
 
 import torch
 import torch.nn as nn
@@ -26,6 +27,8 @@ except ImportError as err:
     transformers = None
     transformers_err = err
 
+__all__ = ["WandaGPT"]
+
 
 DEBUG = False
 _LOGGER = logging.getLogger(__name__)
@@ -34,7 +37,40 @@ torch.backends.cuda.matmul.allow_tf32 = False
 torch.backends.cudnn.allow_tf32 = False
 
 
-class SparseGPT:
+class GPT(ABC):
+    """
+    Base class for pruning/quantization a single module
+    with no sub-modules using information from input/output
+    statistics
+
+    Lifecycle:
+        - add_batch
+        - fasterprune
+        - free
+    """
+
+    def add_batch(self, *args, **kwargs):
+        """
+        Add a batch of layer input and output data to the layer
+        statistics calculation
+        """
+        raise NotImplementedError("Child class must implement `add_batch`")
+
+    def fasterprune(self, *args, **kwargs):
+        """
+        Run pruning and on the layer up to the target
+        sparsity
+        """
+        raise NotImplementedError("Child class must implement `fasterprune`")
+
+    def free(self):
+        """
+        Free up memory used by the layer
+        """
+        raise NotImplementedError("Child class must implement `free`")
+
+
+class LayerGPT(GPT):
     """
     Runs SparseGPT on a single module that contains no sub-modules
 
@@ -60,8 +96,133 @@ class SparseGPT:
             W = W.t()
         self.rows = W.shape[0]
         self.columns = W.shape[1]
-        self.H = torch.zeros((self.columns, self.columns), device=self.dev)
         self.nsamples = 0
+
+    def store_inps_outs_for_debugging(self, inp, out):
+        if DEBUG:
+            self._inp1 = inp
+            self.out1 = out
+
+    def free(self):
+        """
+        Free memory after the layer is complete
+        calls torch.cuda.empty_cache() to defragement GPU memory
+        """
+        if DEBUG:
+            if hasattr(self, "_inp1"):
+                self._inp1 = None
+            if hasattr(self, "out1"):
+                self.out1 = None
+        torch.cuda.empty_cache()
+
+
+class WandaGPT(LayerGPT):
+    def __init__(self, layer):
+        super().__init__(layer=layer)
+        self.scaler_row = torch.zeros((self.columns), device=self.dev)
+
+    def add_batch(self, inp: torch.Tensor, out: torch.Tensor):
+        """
+        Add a batch of layer input and output data to the layer
+        statistics calculation
+
+        :param inp: tensor containing layer input
+        :param out: tensor containing layer output
+        """
+        self.store_inps_outs_for_debugging(inp, out)
+        if len(inp.shape) == 2:
+            inp = inp.unsqueeze(0)
+        tmp = inp.shape[0]
+        if isinstance(self.layer, nn.Linear):
+            if len(inp.shape) == 3:
+                inp = inp.reshape((-1, inp.shape[-1]))
+            inp = inp.t()
+
+        self.scaler_row *= self.nsamples / (self.nsamples + tmp)
+        self.nsamples += tmp
+        inp = inp.type(torch.float32)
+        self.scaler_row += torch.norm(inp, p=2, dim=1) ** 2 / self.nsamples
+
+    def fasterprune(
+        self,
+        sparsity: float,
+        prunen: int = 0,
+        prunem: int = 0,
+    ):
+        """
+        Run pruning and on the layer up to the target
+        sparsity value.
+
+        :param sparsity: target sparsity to reach for layer
+        :param prunen: N for N:M pruning
+        :param prunem: M for N:M pruning
+        """
+        W = self.layer.weight.data.clone()
+        if isinstance(self.layer, nn.Conv2d):
+            W = W.flatten(1)
+        if isinstance(self.layer, transformers.Conv1D):
+            W = W.t()
+        W = W.float()
+
+        tick = time.time()
+
+        W_metric = torch.abs(W) * torch.sqrt(self.scaler_row.reshape((1, -1)))
+
+        # initialize a mask to be all False
+        W_mask = torch.zeros_like(W_metric) == 1
+        if prunen != 0:
+            # structured n:m sparsity
+            for ii in range(W_metric.shape[1]):
+                if ii % prunem == 0:
+                    tmp = W_metric[:, ii : (ii + prunem)].float()
+                    W_mask.scatter_(
+                        1,
+                        ii + torch.topk(tmp, prunen, dim=1, largest=False)[1],
+                        True,
+                    )
+        else:
+            sort_res = torch.sort(W_metric, dim=-1, stable=True)
+            indices = sort_res[1][:, : int(W_metric.shape[1] * sparsity)]
+            W_mask.scatter_(1, indices, True)
+
+        W[W_mask] = 0  # set weights to zero
+
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
+        _LOGGER.info("time %.2f" % (time.time() - tick))
+
+        if isinstance(self.layer, transformers.Conv1D):
+            W = W.t()
+        self.layer.weight.data = W.reshape(self.layer.weight.shape).to(
+            self.layer.weight.data.dtype
+        )
+        if DEBUG:
+            _LOGGER.debug(torch.sum((self.layer(self._inp1) - self.out1) ** 2))
+
+    def free(self):
+        """
+        Free memory after the layer is complete
+        """
+        self.scaler_row = None
+        super().free()
+
+
+class SparseGPT(LayerGPT):
+    """
+    Runs SparseGPT on a single module that contains no sub-modules
+
+    Lifecycle:
+        - add_batch
+        - fasterprune
+        - free
+
+
+    :param layer: module to run SparseGPT on
+    """
+
+    def __init__(self, layer):
+        super().__init__(layer=layer)
+        self.H = torch.zeros((self.columns, self.columns), device=self.dev)
 
     def add_batch(self, inp: torch.Tensor, out: torch.Tensor):
         """
@@ -70,20 +231,18 @@ class SparseGPT:
         :param inp: tensor containing layer input
         :param out: tensor containing layer our
         """
-        if DEBUG:
-            self._inp1 = inp
-            self.out1 = out
+        self.store_inps_outs_for_debugging(inp, out)
         if len(inp.shape) == 2:
             inp = inp.unsqueeze(0)
-        tmp = inp.shape[0]
+        batch_size = inp.shape[0]
         if isinstance(self.layer, nn.Linear) or isinstance(
             self.layer, transformers.Conv1D
         ):
             if len(inp.shape) == 3:
                 inp = inp.reshape((-1, inp.shape[-1]))
             inp = inp.t()
-        self.H *= self.nsamples / (self.nsamples + tmp)
-        self.nsamples += tmp
+        self.H *= self.nsamples / (self.nsamples + batch_size)
+        self.nsamples += batch_size
         inp = math.sqrt(2 / self.nsamples) * inp.float()
         self.H += inp.matmul(inp.t())
 
@@ -104,7 +263,7 @@ class SparseGPT:
         :param prunem: M for N:M pruning
         :param blocksize: Number of columns to compress in one pass
         :param percdamp: Amount of dampening to apply to H, as a fraction of the
-        diagonal norm
+            diagonal norm
         """
         W = self.layer.weight.data.clone()
         if isinstance(self.layer, nn.Conv2d):
@@ -216,8 +375,5 @@ class SparseGPT:
         """
         Free the Hessian memory after the layer is complete
         """
-        if DEBUG:
-            self._inp1 = None
-            self.out1 = None
         self.H = None
-        torch.cuda.empty_cache()
+        super().free()

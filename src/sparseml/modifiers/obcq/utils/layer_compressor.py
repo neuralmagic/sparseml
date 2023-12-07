@@ -19,7 +19,7 @@ from typing import Dict, List
 import torch
 from torch.nn import Module
 
-from sparseml.modifiers.obcq.utils.sparsegpt import SparseGPT
+from sparseml.modifiers.utils.gpt_helpers import SparseGPT
 from sparseml.pytorch.utils.helpers import get_dependency_order
 from sparseml.utils.pytorch.module import get_prunable_layers
 
