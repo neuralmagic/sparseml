@@ -143,7 +143,7 @@ def main(
 
     # Detecting last checkpoint.
     last_checkpoint = detect_last_checkpoint(training_args)
-    model_path = model_args.model_name_or_path
+    model_path = last_checkpoint or model_args.model_name_or_path
 
     # Set seed before initializing model.
     set_seed(training_args.seed)
@@ -170,7 +170,7 @@ def main(
     }
     # this calls from_pretrained under the hood so should be FSDP safe
     model, teacher = SparseAutoModel.text_generation_from_pretrained_distil(
-        model_name_or_path=model_args.model_name_or_path,
+        model_name_or_path=model_path,
         teacher_name_or_path=training_args.distill_teacher,
         model_kwargs=model_kwargs,
         teacher_kwargs=teacher_kwargs,
@@ -178,11 +178,14 @@ def main(
 
     # initialize structure of input model from recipe if needed
     recipe_path = os.path.join(model_path, "recipe.yaml")
-    if not os.path.exists(recipe_path):
-        _LOGGER.warning(f"No recipes were applied for {model_path}.")
+    if last_checkpoint is not None and training_args.recipe is None:
+        training_args.recipe = recipe_path  # continue from checkpoint recipe
     else:
-        _LOGGER.warning(f"Applying recipe {recipe_path} to {model_path}")
-        apply_recipe_structure_to_model(model, recipe_path, model_path)
+        if not os.path.exists(recipe_path):
+            _LOGGER.warning(f"No recipes were applied for {model_path}.")
+        else:
+            _LOGGER.warning(f"Applying recipe {recipe_path} to {model_path}")
+            apply_recipe_structure_to_model(model, recipe_path, model_path)
 
     # Load tokenizer
     # distill TODO: support for different tokenizer for teacher?
@@ -272,9 +275,8 @@ def train(checkpoint: str, output_dir: str, train_dataset: Dataset, trainer: Tra
     trainer.log_metrics("train", metrics)
     trainer.save_metrics("train", metrics)
 
+    # this includes saving the state, optimizer and scheduler
     trainer.save_model()
-    trainer.save_state()
-    trainer.save_optimizer_and_scheduler(output_dir)
 
 
 def evaluate(eval_dataset: Dataset, trainer: Trainer):

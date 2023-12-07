@@ -38,11 +38,13 @@ class KDModuleWrapper(Module):
         projections: Optional[Tuple[ProjectionFuncType, ProjectionFuncType]],
         transforms: Optional[List[TransformFuncType]],
         comparison: ComparisonFuncType,
+        fsdp_active: bool,
     ):
         super(KDModuleWrapper, self).__init__()
 
         self.student_layer = student_layer
         self.teacher_layer = teacher_layer
+        self._fsdp_active = fsdp_active
         self.student_projections = projections[0] if projections is not None else None
         self.teacher_projections = projections[1] if projections is not None else None
         self.kd_transforms = transforms
@@ -51,21 +53,10 @@ class KDModuleWrapper(Module):
         self.register_buffer(self.KD_COMPARISON_BUFFER, torch.zeros(1))
         self._init_called = True  # make sure this is last property to be set
 
-    # def __getattr__(self, name):
-    #     if name.startswith("kd_"):
-    #         return getattr(self, name)
-    #
-    #     return getattr(self.student_layer, name)
-    #
-    # def __setattr__(self, name, value):
-    #     if "_init_called" not in self.__dict__:
-    #         super().__setattr__(name, value)
-    #     elif name.startswith("kd_"):
-    #         super().__setattr__(name, value)
-    #     elif hasattr(self.student_layer, name):
-    #         setattr(self.student_layer, name, value)
-    #     else:
-    #         super().__setattr__(name, value)
+        def _clear_missing_keys(module, incompatible_keys):
+            incompatible_keys.missing_keys.clear()
+
+        self.register_load_state_dict_post_hook(_clear_missing_keys)
 
     def forward(self, *args, **kwargs):
         if not self.kd_enabled:
@@ -112,11 +103,25 @@ class KDModuleWrapper(Module):
     def load_state_dict(self, state_dict, strict=True):
         return self.student_layer.load_state_dict(state_dict, strict=strict)
 
-    def _named_members(self, get_members_fn, prefix="", recurse=True, **kwargs):
-        for name, module in self.student_layer._named_members(
-            get_members_fn, prefix=prefix, recurse=recurse, **kwargs
-        ):
-            yield name, module
+    def _load_from_state_dict(
+        self,
+        state_dict,
+        prefix,
+        local_metadata,
+        strict,
+        missing_keys,
+        unexpected_keys,
+        error_msgs,
+    ):
+        self.student_layer._load_from_state_dict(
+            state_dict=state_dict,
+            prefix=prefix,
+            local_metadata=local_metadata,
+            strict=strict,
+            missing_keys=missing_keys,
+            unexpected_keys=unexpected_keys,
+            error_msgs=error_msgs,
+        )
 
     def named_modules(
         self,
@@ -124,6 +129,16 @@ class KDModuleWrapper(Module):
         prefix: str = "",
         remove_duplicate: bool = True,
     ):
+        # we want the full names of modules in two cases
+        # 1. trainer initialization, so teacher is moved to the correct device. This is
+        # caught by the kd_enabled flag, which is set when the modifier is started
+        # 2. running in DataParallel (non-FSDP) mode so the replicate function can pick
+        # up the teacher.
+        if not self.kd_enabled or not self._fsdp_active:
+            return super().named_modules(
+                memo=memo, prefix=prefix, remove_duplicate=remove_duplicate
+            )
+
         return self.student_layer.named_modules(
             memo=memo, prefix=prefix, remove_duplicate=remove_duplicate
         )

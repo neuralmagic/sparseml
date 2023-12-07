@@ -27,6 +27,7 @@ __all__ = ["OutputDistillationModifierPyTorch"]
 
 class OutputDistillationModifierPyTorch(OutputDistillationModifier):
     wrappers_: Dict[str, Any] = None
+    fsdp_active_: bool = False
 
     def on_initialize(self, state: State, **kwargs) -> bool:
         if (
@@ -37,6 +38,8 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
             return False
 
         self.wrappers_ = {}
+        if kwargs.get("fsdp_active"):
+            self.fsdp_active_ = True
 
         for target in (
             self.targets if isinstance(self.targets, list) else [self.targets]
@@ -91,7 +94,7 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
 
     def on_start(self, state: State, event: Event, **kwargs):
         for wrapper in self.wrappers_.values():
-            wrapper.kdenabled_ = True
+            wrapper.kdenabled = True
 
     def on_update(self, state: State, event: Event, **kwargs):
         if event.type_ == EventType.LOSS_CALCULATED and event.should_update(
@@ -107,7 +110,7 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
 
     def on_end(self, state: State, event: Event, **kwargs):
         for wrapper in self.wrappers_.values():
-            wrapper.kdenabled_ = False
+            wrapper.kdenabled = False
 
     def _create_wrapper(
         self, student_layer: Module, teacher_layer: Module, state: State
@@ -165,4 +168,5 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
             projections=projections,
             transforms=transforms,
             comparison=comparison,
+            fsdp_active=self.fsdp_active_,
         )
