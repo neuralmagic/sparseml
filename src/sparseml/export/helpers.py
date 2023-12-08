@@ -11,7 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import os
+import shutil
+import tarfile
 from collections import OrderedDict
 from enum import Enum
 from pathlib import Path
@@ -22,7 +24,7 @@ import onnx
 from sparsezoo.utils.onnx import save_onnx
 
 
-__all__ = ["apply_optimizations"]
+__all__ = ["apply_optimizations", "export_sample_inputs_outputs"]
 
 
 class GraphOptimizationOptions(Enum):
@@ -32,6 +34,69 @@ class GraphOptimizationOptions(Enum):
 
     none = "none"
     all = "all"
+
+
+class OutputsNames(Enum):
+    basename = "sample-outputs"
+    filename = "out"
+
+
+class InputsNames(Enum):
+    basename = "sample-inputs"
+    filename = "inp"
+
+
+def export_sample_inputs_outputs(
+    input_samples: List["torch.Tensor"],  # noqa F821
+    output_samples: List["torch.Tensor"],  # noqa F821
+    target_path: Union[Path, str],
+    as_tar: bool = False,
+):
+    """
+    Save the input and output samples to the target path.
+
+    Input samples will be saved to:
+    .../sample-inputs/inp_0001.npz
+    .../sample-inputs/inp_0002.npz
+    ...
+
+    Output samples will be saved to:
+    .../sample-outputs/out_0001.npz
+    .../sample-outputs/out_0002.npz
+    ...
+
+    If as_tar is True, the samples will be saved as tar files:
+    .../sample-inputs.tar.gz
+    .../sample-outputs.tar.gz
+
+    :param input_samples: The input samples to save.
+    :param output_samples: The output samples to save.
+    :param target_path: The path to save the samples to.
+    :param as_tar: Whether to save the samples as tar files.
+    """
+
+    from sparseml.pytorch.utils.helpers import tensors_export, tensors_to_device
+
+    input_samples = tensors_to_device(input_samples, "cpu")
+    output_samples = tensors_to_device(output_samples, "cpu")
+
+    for tensors, names in zip(
+        [input_samples, output_samples], [InputsNames, OutputsNames]
+    ):
+        tensors_export(
+            tensors=tensors,
+            export_dir=os.path.join(target_path, names.basename.value),
+            name_prefix=names.filename.value,
+        )
+    if as_tar:
+        for folder_name_to_tar in [
+            InputsNames.basename.value,
+            OutputsNames.basename.value,
+        ]:
+            folder_path = os.path.join(target_path, folder_name_to_tar)
+            with tarfile.open(folder_path + ".tar.gz", "w:gz") as tar:
+                tar.add(folder_path, arcname=os.path.basename(folder_path))
+            shutil.rmtree(folder_path)
 
 
 def apply_optimizations(

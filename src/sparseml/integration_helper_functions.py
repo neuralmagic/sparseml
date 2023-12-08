@@ -14,9 +14,10 @@
 
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from pydantic import BaseModel, Field
+from tqdm import tqdm
 
 from sparsezoo.utils.registry import RegistryMixin
 
@@ -30,6 +31,27 @@ class Integrations(Enum):
     """
 
     image_classification = "image-classification"
+
+
+def create_sample_inputs_outputs(
+    data_loader: "torch.utils.data.DataLoader",  # noqa F821
+    num_samples: int = 1,
+) -> Tuple[List["torch.Tensor"], List["torch.Tensor"]]:  # noqa F821
+    """
+    Fetch a batch of samples from the data loader and return the inputs and outputs
+
+    :param data_loader: The data loader to get a batch of inputs/outputs from.
+    :param num_samples: The number of samples to generate. Defaults to 1
+    :return: The inputs and outputs as lists of torch tensors
+    """
+    inputs, outputs = [], []
+    for batch_num, data in tqdm(enumerate(data_loader)):
+        if batch_num == num_samples:
+            break
+        inputs.append(data[0])
+        outputs.append(data[1])
+
+    return inputs, outputs
 
 
 class IntegrationHelperFunctions(RegistryMixin, BaseModel):
@@ -74,10 +96,19 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
     graph_optimizations: Optional[Dict[str, Callable]] = Field(
         description="A mapping from names to graph optimization functions "
     )
-    export_sample_inputs_outputs: Optional[Callable] = Field(
-        description="A function that exports input/output samples given "
-        "a (sparse) PyTorch model."
+
+    create_sample_inputs_outputs: Callable[
+        Tuple["torch.utils.data.DataLoader", int],  # noqa F821
+        Tuple[List["torch.Tensor"], List["torch.Tensor"]],  # noqa F821
+    ] = Field(
+        default=create_sample_inputs_outputs,
+        description="A function that takes: "
+        " - a data loader "
+        " - the number of samples to generate "
+        "and returns: "
+        " - the inputs and outputs as torch tensors ",
     )
+
     create_deployment_folder: Optional[Callable] = Field(
         description="A function that creates a "
         "deployment folder for the exporter ONNX model"
