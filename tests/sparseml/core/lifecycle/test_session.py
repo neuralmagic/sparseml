@@ -17,7 +17,7 @@ from types import SimpleNamespace
 
 import pytest
 
-import sparseml.core.session as sml
+import sparseml.core.session as session_manager
 from sparseml.core import Framework
 from sparseml.core.event import Event, EventType
 from sparseml.core.lifecycle.event import CallbacksEventLifecycle
@@ -72,7 +72,7 @@ def model():
 def test_session_initialize_propagates_layer_prefix_to_model(
     recipe, expected_layer_prefix, model
 ):
-    session = sml.active_session()
+    session = session_manager.active_session()
     session.initialize(framework=Framework.general, model=model, recipe=recipe)
     print(f"{session.state.model.layer_prefix=}, {expected_layer_prefix=}")
     assert session.state.model.layer_prefix == expected_layer_prefix
