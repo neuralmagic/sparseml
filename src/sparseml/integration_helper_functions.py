@@ -109,10 +109,17 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
         " - the inputs and outputs as torch tensors ",
     )
 
-    create_deployment_folder: Optional[Callable] = Field(
-        description="A function that creates a "
-        "deployment folder for the exporter ONNX model"
-        "with the appropriate structure."
+    deployment_directory_structure: Optional[Dict[str, Any]] = Field(
+        description="A mapping that describes the expected structure "
+        "of the deployment directory e.g    "
+        "{`file_one`: {},                   "
+        " `file_two`: {},                   "
+        " `directory_one`: `file_three`,    "
+        " `directory_two`: {                "
+        "   `directory_three`: `file_four`  "
+        "   `file_five`: {}                 "
+        "   }                               "
+        " }                                 "
     )
 
 

@@ -22,11 +22,67 @@ import pytest
 
 from src.sparseml.export.helpers import (
     apply_optimizations,
+    create_deployment_folder,
     export_sample_inputs_outputs,
 )
 from tests.sparseml.exporters.transforms.test_onnx_transform import (
     _create_model as create_dummy_onnx_file,
 )
+
+
+def create_files(source_path, target_path):
+    # create model.onnx
+    model_onnx_path = target_path / "model.onnx"
+    model_onnx_path.touch()
+
+    # create model.data
+    model_data_path = target_path / "model.data"
+    model_data_path.touch()
+
+    # create dummy_file
+    dummy_file_path = source_path / "dummy_file"
+    dummy_file_path.touch()
+
+
+@pytest.fixture()
+def create_files_func():
+    return create_files
+
+
+@pytest.mark.parametrize(
+    "deployment_directory_structure, expected_deployment_file_names",
+    [
+        (None, {"model.onnx", "model.data"}),
+        (
+            {"model.onnx": {}, "dummy_file": {}},
+            {"model.onnx", "model.data", "dummy_file"},
+        ),
+    ],
+)
+def test_create_deployment_folder(
+    tmp_path,
+    deployment_directory_structure,
+    expected_deployment_file_names,
+    create_files_func,
+):
+    source_path = tmp_path / "source"
+    source_path.mkdir()
+
+    target_path = tmp_path / "target"
+    target_path.mkdir()
+
+    create_files_func(source_path, target_path)
+
+    create_deployment_folder(
+        source_path=source_path,
+        target_path=target_path,
+        deployment_directory_structure=deployment_directory_structure,
+    )
+
+    assert (
+        set(os.listdir(os.path.join(target_path, "deployment")))
+        == expected_deployment_file_names
+    )
 
 
 @pytest.mark.parametrize(

@@ -73,3 +73,4 @@ class ImageClassification(IntegrationHelperFunctions):
     )
     create_dummy_input: Callable[..., torch.Tensor] = Field(default=create_dummy_input)
     export: Callable[..., str] = Field(default=export_model)
+    deployment_directory_structure: Dict[str, Any] = Field(default={"model.onnx": {}})
