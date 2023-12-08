@@ -23,6 +23,7 @@ from sparseml.export.helpers import (
     create_deployment_folder,
     export_sample_inputs_outputs,
 )
+from sparseml.export.validate_correctness import validate_correctness
 from sparseml.integration_helper_functions import (
     IntegrationHelperFunctions,
     infer_integration,
@@ -44,7 +45,7 @@ def export(
     batch_size: Optional[int] = None,
     single_graph_file: bool = True,
     graph_optimizations: Union[str, List[str], None] = "all",
-    validate_correctness: bool = False,
+    validate_model_correctness: bool = False,
     num_export_samples: int = 0,
     deployment_directory_name: str = "deployment",
     device: str = "auto",
@@ -82,7 +83,7 @@ def export(
         Defaults to True.
     :param graph_optimizations: The graph optimizations to apply
         to the exported model. Defaults to 'all'.
-    :param validate_correctness: Whether to validate the correctness
+    :param validate_model_correctness: Whether to validate the correctness
         of the exported model. Defaults to False.
     :param num_export_samples: The number of samples to export for
         the exported model. Defaults to 0.
@@ -152,27 +153,10 @@ def export(
         onnx_model_name=model_onnx_name,
     )
 
-    if validate_correctness:
-        if not export_sample_inputs_outputs:
-            raise ValueError(
-                "To validate correctness sample inputs/outputs are needed."
-                "To enable the validation, set `export_sample_inputs_outputs`"
-                "to True"
-            )
-        validate_correctness(deployment_path)
+    if validate_model_correctness:
+        validate_correctness(deployment_path, model_onnx_name)
 
     _LOGGER.info(
         f"Successfully exported model from:\n{target_path}"
         f"\nto\n{deployment_path}\nfor integration: {integration}"
     )
-
-
-def validate_correctness(deployment_path: Union[Path, str]):
-    """
-    Validate the correctness of the exported model.
-    The validation is performed by running the exported model
-    on the sample inputs and comparing the outputs to the expected outputs.
-
-    :param deployment_path: The path to the exported model.
-    """
-    raise NotImplementedError
