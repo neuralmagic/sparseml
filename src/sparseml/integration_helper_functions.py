@@ -18,6 +18,7 @@ from typing import Any, Callable, Dict, Optional, Tuple, Union
 
 from pydantic import BaseModel, Field
 
+from sparseml.export.export_torch_model import export_model
 from sparsezoo.utils.registry import RegistryMixin
 
 
