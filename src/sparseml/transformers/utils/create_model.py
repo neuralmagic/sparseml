@@ -21,11 +21,12 @@ import math
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, Dict, Optional, Union
 
 from torch.nn import Module
 from transformers import AutoConfig, AutoTokenizer, TrainingArguments
 
+from sparseml.optim import parse_recipe_variables
 from sparseml.transformers.sparsification import Trainer
 from sparseml.transformers.utils.helpers import TaskNames
 from sparseml.transformers.utils.load_task_dataset import load_task_dataset
@@ -52,6 +53,7 @@ def create_model(
     task: str,
     sequence_length: Optional[int] = None,
     trust_remote_code: bool = False,
+    data_args: Optional[Dict] = None,
     **config_args,
 ):
 
@@ -65,8 +67,9 @@ def create_model(
         config=config,
         trust_remote_code=trust_remote_code,
     )
+    data_args = _parse_data_args(data_args)
     dataset = load_task_dataset(
-        task=task, tokenizer=tokenizer, data_args={}, model=model, config=config
+        task=task, tokenizer=tokenizer, data_args=data_args, model=model, config=config
     )
     validation_dataset = dataset.get("validation")
 
@@ -75,7 +78,7 @@ def create_model(
     model.eval()
 
     _LOGGER.info(f"Loaded model, trainer config, and tokenizer from {model_path}")
-    return model, trainer, config, tokenizer
+    return model, trainer, config, tokenizer, validation_dataset
 
 
 def initialize_trainer(
@@ -146,7 +149,6 @@ def resolve_sequence_length(config: AutoConfig) -> int:
     :param config: the config to resolve the sequence length from
     :return: the sequence length
     """
-    sequence_length = None
     if hasattr(config, "max_position_embeddings"):
         sequence_length = config.max_position_embeddings
 
@@ -192,3 +194,13 @@ def get_shared_tokenizer_src(student: Module, teacher: Optional[Module]) -> str:
     else:
         src_model = student
     return src_model.config._name_or_path
+
+
+def _parse_data_args(data_args):
+    try:
+        return parse_recipe_variables(data_args)
+    except ValueError as parse_error:
+        message = str(parse_error).replace("recipe_args", "data_args")
+        if "recipe variables" in message:
+            message = message.replace("recipe variables", "data_args")
+        raise ValueError(message)

@@ -15,30 +15,40 @@
 import pytest
 
 from sparsezoo import Model
-from src.sparseml.transformers.utils.create_model import create_model
+from src.sparseml.transformers.utils.create_model import (
+    create_model,
+    initialize_config,
+    initialize_tokenizer,
+)
 
 
-@pytest.fixture()
-def model_path():
-    return Model(
-        "zoo:mobilebert-squad_wikipedia_bookcorpus-14layer_pruned50.4block_quantized"
-    ).training.path
+@pytest.mark.parametrize(
+    "stub, task",
+    [("zoo:distilbert-qqp_wikipedia_bookcorpus-pruned80.4block_quantized", "qa")],
+    scope="class",
+)
+class TestCreateModelFlow:
+    @pytest.fixture()
+    def setup(self, tmp_path, stub, task):
+        self.model_path = Model(stub, tmp_path).training.path
+        self.sequence_length = 384
+        self.task = task
 
+    def test_initialize_tokenizer(self, setup):
+        tokenizer = initialize_tokenizer(
+            self.model_path, self.sequence_length, self.task
+        )
+        assert (
+            tokenizer.padding_side == "right"
+            if self.task != "text-classification"
+            else "left"
+        )
+        assert tokenizer.model_max_length == self.sequence_length
 
-@pytest.fixture()
-def sequence_length():
-    return 384
+    def test_initialize_config(self, setup):
+        assert initialize_config(model_path=self.model_path, trust_remote_code=True)
 
-
-@pytest.fixture()
-def task():
-    return "qa"
-
-
-def test_initialize_transformer_model(model_path, sequence_length, task):
-    model, trainer, config, tokenizer = initialize_transformer_model(
-        model_path=model_path, sequence_length=sequence_length, task=task
-    )
-    assert model.base_model_prefix == config.model_type == "mobilebert"
-    assert trainer
-    assert tokenizer.model_max_length == sequence_length
+    def test_create_model(self, setup):
+        out = create_model(
+            model_path=self.model_path, task=self.task, trust_remote_code=True
+        )

@@ -34,8 +34,10 @@ def create_model(source_path: Union[Path, str], **kwargs) -> torch.nn.Module:
     :param source_path: The path to the model
     :return: The torch model
     """
-    model, *_ = create_transformers_model(model_path=source_path, **kwargs)
-    return model
+    model, *_, validation_loader = create_transformers_model(
+        model_path=source_path, **kwargs
+    )
+    return model, dict(validation_loader=validation_loader)
 
 
 @IntegrationHelperFunctions.register(name=Integrations.transformers.value)
