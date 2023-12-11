@@ -30,6 +30,7 @@ class Integrations(Enum):
     """
 
     image_classification = "image-classification"
+    transformers = "transformers"
 
 
 class IntegrationHelperFunctions(RegistryMixin, BaseModel):
@@ -78,12 +79,18 @@ def infer_integration(source_path: Union[Path, str]) -> str:
     from sparseml.pytorch.image_classification.utils.helpers import (
         is_image_classification_model,
     )
+    from sparseml.transformers.utils.helpers import is_transformers_model
 
     if is_image_classification_model(source_path):
-        # import to register the image_classification integration helper functions
+
         import sparseml.pytorch.image_classification.integration_helper_functions  # noqa F401
 
         return Integrations.image_classification.value
+
+    elif is_transformers_model(source_path):
+        import sparseml.transformers.integration_helper_functions  # noqa F401
+
+        return Integrations.transformers.value
     else:
         raise ValueError(
             f"Could not infer integration from source_path: {source_path}."

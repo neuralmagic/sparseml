@@ -49,7 +49,7 @@ from sparseml.pytorch.utils import (
     TensorBoardLogger,
     WANDBLogger,
 )
-from sparseml.transformers.utils import SparseAutoModel
+from sparseml.transformers.utils.sparse_auto_model import SparseAutoModel
 from sparseml.transformers.utils.helpers import RECIPE_NAME
 
 

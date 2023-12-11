@@ -14,8 +14,20 @@
 
 import pytest
 
-from sparseml.transformers.utils.helpers import save_zoo_directory
+from sparseml.transformers.utils.helpers import is_transformer_model, save_zoo_directory
 from sparsezoo import Model
+
+
+@pytest.mark.parametrize(
+    "stub",
+    [
+        "zoo:nlp/question_answering/bert-base/pytorch/huggingface/squad/pruned95_obs_quant-none",  # noqa E501
+    ],
+)
+def test_is_transformer_model(tmp_path, stub):
+    zoo_model = Model(stub, tmp_path)
+    source_path = zoo_model.training.path
+    assert is_transformer_model(source_path)
 
 
 @pytest.mark.parametrize(

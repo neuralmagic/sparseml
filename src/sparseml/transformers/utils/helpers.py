@@ -18,15 +18,52 @@ flows
 """
 import logging
 import os
-from typing import Optional
+from enum import Enum
+from pathlib import Path
+from typing import Optional, Union
 
 from sparsezoo import setup_model
 
 
-__all__ = ["RECIPE_NAME", "save_zoo_directory"]
+__all__ = ["RECIPE_NAME", "save_zoo_directory", "TaskNames"]
+
+
+class TaskNames(Enum):
+    mlm = {"masked-language-modeling", "mlm"}
+    qa = {"question-answering", "qa"}
+    token_classification = {"token-classification", "ner"}
+    text_classification = {
+        "text-classification",
+        "sentiment-analysis",
+        "sequence-classification",
+        "glue",
+    }
+    text_generation = {"text-generation"}
 
 
 RECIPE_NAME = "recipe.yaml"
+# TODO: To import MODEL_ONNX_NAME after the rebase
+MODEL_ONNX_NAME = "model.onnx"
+MANDATORY_DEPLOYMENT_FILES = {
+    MODEL_ONNX_NAME,
+    "tokenizer_config.json",
+    "config.json",
+}
+NLG_TOKENIZER_FILES = {"special_tokens_map.json", "vocab.json", "merges.txt"}
+OPTIONAL_DEPLOYMENT_FILES = {"tokenizer.json", "tokenizer.model"}
+
+
+def is_transformer_model(source_path: Union[Path, str]) -> bool:
+    """
+    :param source_path: The path to the model
+    :return: Whether the model is a transformers model or not
+    """
+    # make sure that the path is a directory and contains
+    # the EXPECTED_TRANSFORMER_FILES
+    if not os.path.isdir(source_path):
+        raise ValueError(f"Path {source_path} is not a valid directory")
+    expected_files = MANDATORY_DEPLOYMENT_FILES.difference({MODEL_ONNX_NAME})
+    return expected_files.issubset(os.listdir(source_path))
 
 
 def save_zoo_directory(
