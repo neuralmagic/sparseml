@@ -137,16 +137,11 @@ def cache_attention_inputs(
         layers_name = "layers"
         first_layer = model_root.layers[0]
 
-    pre_layers_modules = []
-    for name, layer in model_root.named_modules():
-        if name.startswith(layers_name):
-            break
-        if isinstance(layer, Embedding):
-            pre_layers_modules.append(layer)
-
-    first_layer.to(device)
+    # send everything up to the first compressable layer to device
+    pre_layers_modules = _get_pre_layer_modules(model_root, layers_name)
     for pre_layer in pre_layers_modules:
         pre_layer.to(device)
+    first_layer.to(device)
 
     cached_inputs = catch(
         model=model,
@@ -207,3 +202,14 @@ def ppl_eval_general(
     _LOGGER.info(f"Perplexity: {ppl.item():3f}")
 
     return ppl.item()
+
+
+def _get_pre_layer_modules(model_root, layers_name):
+    pre_layers_modules = []
+    for name, layer in model_root.named_modules():
+        if name.startswith(layers_name):
+            break
+        if isinstance(layer, Embedding):
+            pre_layers_modules.append(layer)
+
+    return pre_layers_modules
