@@ -356,6 +356,16 @@ class PythonLogger(LambdaLogger):
         """
         logger = logging.getLogger(__name__)
 
+        # Console handler, for logging high level modifier logs
+        # must be created before the file handler
+        # as file handler is also a stream handler
+        if not any(
+            isinstance(handler, logging.StreamHandler) for handler in logger.handlers
+        ):
+            stream_handler = logging.StreamHandler()
+            stream_handler.setLevel(log_level or logging.getLogger("sparseml").level)
+            logger.addHandler(stream_handler)
+
         # File handler setup, for logging modifier debug statements
         if not any(
             isinstance(handler, logging.FileHandler) for handler in logger.handlers
@@ -376,14 +386,6 @@ class PythonLogger(LambdaLogger):
             file_handler.setLevel(LOGGING_LEVELS["debug"])
             logger.addHandler(file_handler)
             logger.info(f"Logging all SparseML modifier-level logs to {log_path}")
-
-        if not any(
-            isinstance(handler, logging.StreamHandler) for handler in logger.handlers
-        ):
-            # Console handler, for logging high level modifier logs
-            stream_handler = logging.StreamHandler()
-            stream_handler.setLevel(log_level or logging.getLogger("sparseml").level)
-            logger.addHandler(stream_handler)
 
         logger.setLevel(LOGGING_LEVELS["debug"])
         logger.propagate = False
