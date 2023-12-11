@@ -11,12 +11,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from src.sparseml.integration_helper_functions import (
+    IntegrationHelperFunctions,
+    Integrations,
+)
 
-"""
-Utilities for applying sparsification algorithms to Hugging Face transformers flows
-"""
 
-# flake8: noqa
-from .helpers import *
-from .metrics import *
-from .sparse_auto_model import *
+def test_integration_helper_functions():
+    # import needed to register the object on the fly
+    import sparseml.transformers.integration_helper_functions  # noqa F401
+
+    tranformers = IntegrationHelperFunctions.load_from_registry(
+        Integrations.transformers.value
+    )
+    assert tranformers.create_model

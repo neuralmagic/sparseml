@@ -22,8 +22,8 @@ from src.sparseml.integration_helper_functions import (
     IntegrationHelperFunctions,
     Integrations,
 )
-from src.sparseml.pytorch.image_classification.utils.helpers import (
-    create_model as create_image_classification_model,
+from src.sparseml.transformers.utils.create_model import (
+    create_model as create_transformers_model,
 )
 
 
@@ -34,10 +34,10 @@ def create_model(source_path: Union[Path, str], **kwargs) -> torch.nn.Module:
     :param source_path: The path to the model
     :return: The torch model
     """
-    model, *_ = create_image_classification_model(checkpoint_path=source_path, **kwargs)
+    model, *_ = create_transformers_model(model_path=source_path, **kwargs)
     return model
 
 
-@IntegrationHelperFunctions.register(name=Integrations.image_classification.value)
-class ImageClassification(IntegrationHelperFunctions):
+@IntegrationHelperFunctions.register(name=Integrations.transformers.value)
+class Transformers(IntegrationHelperFunctions):
     create_model: Any = Field(default=create_model)
