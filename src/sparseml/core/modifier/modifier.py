@@ -58,7 +58,7 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
         :return: True if the modifier structure has been
             applied to the model
         """
-        return self._initialized_structure
+        return self.initialized_structure_
 
     @property
     def initialized(self) -> bool:
@@ -121,6 +121,17 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
         if state.start_event is None:
             return
 
+        # ignore modifier structure initialized from one-shot
+        if state.start_event.current_index >= 0 and self.calculate_start() < 0:
+            return
+
+        # if modifier should have ended by current index, don't initialize
+        if (
+            self.calculate_end() >= 0
+            and state.start_event.current_index >= self.calculate_end()
+        ):
+            return
+
         initialized = self.on_initialize(state=state, **kwargs)
 
         if not isinstance(initialized, bool):
@@ -143,7 +154,7 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
         :param state: The current state of the model
         :param kwargs: Additional arguments for finalizing the modifier
         """
-        if self.finalized_:
+        if self.finalized_ or not self.initialized_:
             return
 
         if not self.initialized_:
@@ -163,16 +174,16 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
         """
         Update modifier based on the given event. In turn calls
         on_start, on_update, and on_end based on the event and
-        modifier settings.
+        modifier settings. Returns immediately if the modifier is
+        not initialized
 
-        :raises RuntimeError: if the modifier has not been initialized
         :raises RuntimeError: if the modifier has been finalized
         :param state: The current state of sparsification
         :param event: The event to update the modifier with
         :param kwargs: Additional arguments for updating the modifier
         """
         if not self.initialized_:
-            raise RuntimeError("cannot update an uninitialized modifier")
+            return
 
         if self.finalized_:
             raise RuntimeError("cannot update a finalized modifier")

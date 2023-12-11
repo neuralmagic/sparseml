@@ -219,7 +219,7 @@ class SparseSession:
         return ModifiedState(
             model=self.state.model.model if self.state.model else None,
             optimizer=self.state.optimizer.optimizer if self.state.optimizer else None,
-            loss=self.state.loss.loss if self.state.loss else None,
+            loss=self.state.loss,
             modifier_data=mod_data,
         )
 
@@ -259,7 +259,7 @@ class SparseSession:
         return ModifiedState(
             model=self.state.model.model if self.state.model else None,
             optimizer=self.state.optimizer.optimizer if self.state.optimizer else None,
-            loss=self.state.loss.loss if self.state.loss else None,
+            loss=self.state.loss,  # TODO: is this supposed to be a different type?
             modifier_data=mod_data,
         )
 

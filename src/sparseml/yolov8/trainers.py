@@ -727,12 +727,8 @@ class SparseYOLO(YOLO):
                 else manager
             )
 
-        if args.get("name") and args["name"]:
-            name = args["name"]
-        else:
-            name = f"{type(self.model).__name__}.onnx"
-
         save_dir = args["save_dir"]
+        name = "model.onnx"  # save 'model.onnx' in deployment directory
         if not os.path.exists(save_dir):
             os.mkdir(save_dir)
 
