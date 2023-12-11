@@ -39,6 +39,7 @@ from transformers.trainer_callback import TrainerState
 from transformers.trainer_pt_utils import reissue_pt_warnings
 from transformers.trainer_utils import ShardedDDPOption, get_last_checkpoint
 
+from sparseml.pytorch.model_load.helpers import RECIPE_FILE_NAME
 from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
 from sparseml.pytorch.sparsification.quantization.helpers import (
     initialize_channel_wise_scale_zp,
@@ -50,7 +51,6 @@ from sparseml.pytorch.utils import (
     WANDBLogger,
 )
 from sparseml.transformers.utils import SparseAutoModel
-from sparseml.transformers.utils.helpers import RECIPE_NAME
 
 
 __all__ = [
@@ -464,7 +464,7 @@ class RecipeManagerTrainerInterface:
         if output_dir is None:
             output_dir = self.args.output_dir
 
-        recipe_path = os.path.join(output_dir, RECIPE_NAME)
+        recipe_path = os.path.join(output_dir, RECIPE_FILE_NAME)
         if self.arch_manager:
             composed_manager = ScheduledModifierManager.compose_staged(
                 base_recipe=str(self.arch_manager),
@@ -634,7 +634,7 @@ class RecipeManagerTrainerInterface:
                 f"and metadata {self.metadata}"
             )
 
-        arch_recipe = os.path.join(self.model_state_path, RECIPE_NAME)
+        arch_recipe = os.path.join(self.model_state_path, RECIPE_FILE_NAME)
         if os.path.isfile(arch_recipe):
             arch_manager = ScheduledModifierManager.from_yaml(arch_recipe)
             _LOGGER.info(
