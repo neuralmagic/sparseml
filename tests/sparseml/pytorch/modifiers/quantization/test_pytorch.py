@@ -88,7 +88,7 @@ def test_quantization_registered():
 def test_quantization_oneshot(model_class):
     model = model_class()
     state = State(framework=Framework.pytorch, start_event=Event())
-    state.update(model=model)
+    state.update(model=model, start=-1)
 
     scheme = dict(
         input_activations=dict(num_bits=8, symmetric=True),
