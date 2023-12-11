@@ -37,7 +37,7 @@ torch.backends.cuda.matmul.allow_tf32 = False
 torch.backends.cudnn.allow_tf32 = False
 
 
-class GPT(ABC):
+class TerminalModuleCompressor(ABC):
     """
     Base class for pruning/quantization a single module
     with no sub-modules using information from input/output
@@ -70,7 +70,7 @@ class GPT(ABC):
         raise NotImplementedError("Child class must implement `free`")
 
 
-class LayerGPT(GPT):
+class LayerGPT(TerminalModuleCompressor):
     """
     Runs SparseGPT on a single module that contains no sub-modules
 
@@ -150,7 +150,7 @@ class WandaGPT(LayerGPT):
         prunem: int = 0,
     ):
         """
-        Run pruning and on the layer up to the target
+        Run pruning on the layer up to the target
         sparsity value.
 
         :param sparsity: target sparsity to reach for layer
