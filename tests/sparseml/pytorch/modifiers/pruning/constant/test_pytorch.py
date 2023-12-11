@@ -104,7 +104,7 @@ def test_constant_pruning_modifier_e2e(model, optimizer):
     # check mask is added and has correct sparsity
 
     for _, parameterized_layer in modifier.parameterized_layers_.items():
-        mask_name = param_mask_name(parameterized_layer.param_name)
+        mask_name = param_mask_name()
         mask_tensor = parameterized_layer.layer.get_buffer(mask_name)
         data_tensor = parameterized_layer.param.data
         # check mask and data tensors have 0 in the same places
@@ -134,7 +134,7 @@ def test_constant_pruning_modifier_e2e(model, optimizer):
 
     # check mask is removed
     for layer_param_name, parameterized_layer in modifier.parameterized_layers_.items():
-        mask_name = param_mask_name(parameterized_layer.param_name)
+        mask_name = param_mask_name()
 
         if not old_mask_settings[layer_param_name].persistent:
             assert not hasattr(parameterized_layer.layer, mask_name)
