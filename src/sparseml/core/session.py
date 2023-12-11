@@ -100,7 +100,7 @@ class SparseSession:
         This will run the pre-initialize structure method for each modifier in the
         session's lifecycle. This will also set the session's state to the
         pre-initialized state. Takes care of cases when the model(s) structure
-        has been previosuly modified by a modifier.
+        has been previously modified by a modifier.
 
         :param model: the model to pre-initialize the structure for
         :param recipe: the recipe to use for the sparsification, can be a path to a
