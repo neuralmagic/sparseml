@@ -43,7 +43,7 @@ def opt_forward(model: Module, data_loader: List, device: str, nsamples: int = N
         device=device,
         nsamples=nsamples,
         target_ids=["attention_mask"],
-        layer_prefix="decoder",
+        layer_prefix="model.decoder.layers",
     )
     buffer = [b[0] for b in cached_inputs.pop("inputs")]
     for layer in model.model.decoder.layers:

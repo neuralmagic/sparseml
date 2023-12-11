@@ -13,18 +13,17 @@
 # limitations under the License.
 
 import logging
+import operator
 from collections import defaultdict
 from math import ceil
 from typing import List, Optional
 
 import torch
+from torch.nn.modules.sparse import Embedding
 
 
 _LOGGER = logging.getLogger(__name__)
-_DEFAULT_TARGET_IDS = [
-    "attention_mask",
-    "position_ids",
-]
+_DEFAULT_TARGET_IDS = ["attention_mask", "position_ids", "position_bias"]
 
 
 class Catcher(torch.nn.Module):
@@ -127,14 +126,28 @@ def execute_offloaded_module(
 def cache_attention_inputs(
     model, dataloader, device, nsamples, target_ids, layer_prefix
 ):
-    if layer_prefix:
-        embed_tokens = getattr(model.model, layer_prefix).embed_tokens
-        first_layer = getattr(model.model, layer_prefix).layers[0]
+    if layer_prefix:  # get model-specific path to layers list
+        split_prefix = layer_prefix.split(".")
+        layers_name = split_prefix[-1]
+        model_root_name = ".".join(split_prefix[:-1])
+        model_root = operator.attrgetter(model_root_name)(model)
+        first_layer = getattr(model_root, layers_name)[0]
     else:
-        embed_tokens = model.model.embed_tokens
-        first_layer = model.model.layers[0]
-    embed_tokens.to(device)
+        model_root = model.model
+        layers_name = "layers"
+        first_layer = model_root.layers[0]
+
+    pre_layers_modules = []
+    for name, layer in model_root.named_modules():
+        if name.startswith(layers_name):
+            break
+        if isinstance(layer, Embedding):
+            pre_layers_modules.append(layer)
+
     first_layer.to(device)
+    for pre_layer in pre_layers_modules:
+        pre_layer.to(device)
+
     cached_inputs = catch(
         model=model,
         attention_layer=first_layer,
@@ -142,9 +155,12 @@ def cache_attention_inputs(
         data_loader=dataloader,
         nsamples=nsamples,
     )
-    embed_tokens.cpu()
+
+    for pre_layer in pre_layers_modules:
+        pre_layer.cpu()
     first_layer.cpu()
     torch.cuda.empty_cache()
+
     return cached_inputs
 
 
