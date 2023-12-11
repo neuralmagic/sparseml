@@ -28,10 +28,7 @@ from sparsezoo import setup_model
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
 
-__all__ = ["RECIPE_NAME", "save_zoo_directory", "detect_last_checkpoint"]
-
-
-RECIPE_NAME = "recipe.yaml"
+__all__ = ["save_zoo_directory", "detect_last_checkpoint"]
 
 
 def save_zoo_directory(

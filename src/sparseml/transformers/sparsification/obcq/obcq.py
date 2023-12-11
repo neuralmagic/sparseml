@@ -25,7 +25,10 @@ from transformers import AutoConfig
 import sparseml.core.session as session_manager
 from sparseml.core.framework import Framework
 from sparseml.modifiers.obcq.utils.helpers import ppl_eval_general
-from sparseml.pytorch.model_load.helpers import apply_recipe_structure_to_model
+from sparseml.pytorch.model_load.helpers import (
+    RECIPE_FILE_NAME,
+    apply_recipe_structure_to_model,
+)
 from sparseml.transformers.data import TransformersDataset
 from sparseml.transformers.sparsification.obcq.utils.helpers import (
     llama_forward,
@@ -118,7 +121,7 @@ def one_shot(
     # create session and initialize any structure from input model recipe
     session_manager.create_session()
     session = session_manager.active_session()
-    input_recipe_path = os.path.join(model_path, "recipe.yaml")
+    input_recipe_path = os.path.join(model_path, RECIPE_FILE_NAME)
     if os.path.exists(input_recipe_path):
         apply_recipe_structure_to_model(
             model=model, recipe_path=input_recipe_path, model_path=model_path
@@ -173,7 +176,7 @@ def _save(model, tokenizer, save_path):
 
     _LOGGER.info("Saving output to {}".format(os.path.abspath(save_path)))
 
-    recipe_path = os.path.join(save_path, "recipe.yaml")
+    recipe_path = os.path.join(save_path, RECIPE_FILE_NAME)
     session = session_manager.active_session()
     recipe_yaml_str = session.get_serialized_recipe()
     with open(recipe_path, "w") as fp:
