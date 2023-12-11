@@ -22,8 +22,10 @@ import transformers
 
 from sparseml.modifiers.utils.gpt_helpers import LayerGPT
 
+
 _LOGGER = logging.getLogger(__name__)
 DEBUG = False
+
 
 class SparseGPT(LayerGPT):
     """
