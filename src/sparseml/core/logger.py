@@ -834,7 +834,7 @@ class LoggerManager(ABC):
             self._log_frequency is not None
             and (
                 epoch is None
-                or epoch == last_log_epoch
+                or last_log_epoch is None
                 or epoch >= last_log_epoch + self._log_frequency
             )
             and any(log.enabled for log in self.loggers)

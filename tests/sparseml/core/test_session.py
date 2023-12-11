@@ -71,6 +71,10 @@ def get_linear_net():
     return LinearNet()
 
 
+def empty_mock(*args, **kwargs):
+    pass
+
+
 class TestSparseSession:
     def test_session_has_a_sparsification_lifecycle(self, setup_active_session):
         assert hasattr(
@@ -132,6 +136,7 @@ class TestSparseSession:
             "_lifecycle",
             lifecycle_mock := LifeCycleMock(model=kwargs.get("model")),
         )
+        monkeypatch.setattr(setup_active_session, "_log_model_info", empty_mock)
         method = getattr(setup_active_session, method_name)
 
         result = method(**kwargs)

@@ -59,20 +59,15 @@ class ModuleSparsificationInfo(SparsificationInfo):
             quantization_info=SparsificationQuantization.from_module(module),
         )
 
-        return cls(
-            summary_info=SparsificationSummaries.from_module(module),
-            pruning_info=SparsificationPruning.from_module(module),
-            quantization_info=SparsificationQuantization.from_module(module),
-        )
-
-    def loggable_items(self) -> Generator[Tuple[str, Any], None, None]:
+    def loggable_items(self, **kwargs) -> Generator[Tuple[str, Any], None, None]:
         """
         A generator that yields the loggable items of
         the ModuleSparsificationInfo object.
 
+        :param kwargs: additional kwargs to pass to the loggable items
         :return a generator that yields a tuple of:
             - the name of the loggable item
             - the value of the loggable item
         """
         for info in [self.summary_info, self.pruning_info, self.quantization_info]:
-            yield from info.loggable_items()
+            yield from info.loggable_items(**kwargs)

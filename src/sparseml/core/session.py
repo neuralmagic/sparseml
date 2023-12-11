@@ -19,7 +19,9 @@ from typing import Any, Callable, Dict, List, Optional, Union
 
 from sparseml.core.event import EventType
 from sparseml.core.framework import Framework
+from sparseml.core.helpers import log_model_info, should_log_model_info
 from sparseml.core.lifecycle import SparsificationLifecycle
+from sparseml.core.logger import BaseLogger, LoggerManager
 from sparseml.core.recipe import Recipe
 from sparseml.core.state import ModifiedState, State
 
@@ -146,6 +148,7 @@ class SparseSession:
         start: Optional[float] = None,
         steps_per_epoch: Optional[int] = None,
         batches_per_step: Optional[int] = None,
+        loggers: Union[None, LoggerManager, List[BaseLogger]] = None,
         **kwargs,
     ) -> ModifiedState:
         """
@@ -174,6 +177,8 @@ class SparseSession:
             sparsification
         :param batches_per_step: the number of batches per step to use for
             sparsification
+        :param loggers: the logger manager to setup logging important info
+            and milestones to, also accepts a list of BaseLogger(s)
         :param kwargs: additional kwargs to pass to the lifecycle's initialize method
         :return: the modified state of the session after initializing
         """
@@ -195,6 +200,7 @@ class SparseSession:
             start=start,
             steps_per_epoch=steps_per_epoch,
             batches_per_step=batches_per_step,
+            loggers=loggers,
             **kwargs,
         )
 
@@ -255,7 +261,7 @@ class SparseSession:
         mod_data = self._lifecycle.event(
             event_type=event_type, batch_data=batch_data, loss=loss, **kwargs
         )
-
+        self._log_model_info(event_type=event_type)
         return ModifiedState(
             model=self.state.model.model if self.state.model else None,
             optimizer=self.state.optimizer.optimizer if self.state.optimizer else None,
@@ -268,6 +274,26 @@ class SparseSession:
         Reset the session to its initial state
         """
         self._lifecycle.reset()
+
+    def _log_model_info(self, event_type: EventType):
+        # Log model level logs if needed
+
+        epoch = self._lifecycle.event_lifecycle.current_index
+
+        # override logging cadence temporarily
+
+        if should_log_model_info(
+            model=self.state.model,
+            loggers=self.state.loggers,
+            epoch=epoch,
+            last_log_epoch=self.state._last_log_epoch,
+        ):
+            log_model_info(
+                state=self.state,
+                epoch=epoch,
+            )
+            # update last log epoch
+            self.state._last_log_epoch = epoch
 
 
 _global_session = SparseSession()
