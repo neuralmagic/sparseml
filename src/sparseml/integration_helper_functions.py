@@ -79,7 +79,7 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
     create_data_samples: Callable[
         Tuple[
             Optional["torch.nn.Module"], "torch.utils.data.DataLoader", int  # noqa F821
-        ],  # noqa F821
+        ],
         Tuple[
             List["torch.Tensor"],  # noqa F821
             Optional[List["torch.Tensor"]],  # noqa F821

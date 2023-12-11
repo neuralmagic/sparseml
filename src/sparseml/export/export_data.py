@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import os
 import shutil
 import tarfile
@@ -23,6 +24,8 @@ from tqdm import tqdm
 
 
 __all__ = ["create_data_samples"]
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class LabelNames(Enum):
@@ -77,7 +80,9 @@ def export_data_samples(
     as_tar: bool = False,
 ):
     """
-    Save the input and output samples to the target path.
+    Save the input, labels and output samples to the target path.
+    All the input files are optional. If a sample is None,
+    it will not be saved.
 
     Input samples will be saved to:
     .../sample-inputs/inp_0001.npz
@@ -89,9 +94,15 @@ def export_data_samples(
     .../sample-outputs/out_0002.npz
     ...
 
+    Label samples will be saved to:
+    .../sample-labels/lab_0001.npz
+    .../sample-labels/lab_0002.npz
+    ...
+
     If as_tar is True, the samples will be saved as tar files:
     .../sample-inputs.tar.gz
     .../sample-outputs.tar.gz
+    .../sample-labels.tar.gz
 
     :param input_samples: The input samples to save.
     :param output_samples: The output samples to save.
@@ -104,6 +115,7 @@ def export_data_samples(
         [InputsNames, OutputsNames, LabelNames],
     ):
         if samples is not None:
+            _LOGGER.info(f"Exporting {names.basename.value} to {target_path}")
             export_data_sample(samples, names, target_path, as_tar)
 
 
