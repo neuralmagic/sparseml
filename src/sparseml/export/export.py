@@ -16,6 +16,8 @@ import logging
 from pathlib import Path
 from typing import Any, List, Optional, Union
 
+from sparseml.export.helpers import apply_optimizations
+from sparseml.exporters import ExportTargets
 from sparseml.integration_helper_functions import (
     IntegrationHelperFunctions,
     infer_integration,
@@ -24,12 +26,14 @@ from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
 
 
 _LOGGER = logging.getLogger(__name__)
-AVAILABLE_DEPLOYMENT_TARGETS = ["deepsparse", "onnxruntime"]
+AVAILABLE_DEPLOYMENT_TARGETS = [target.value for target in ExportTargets]
+ONNX_MODEL_NAME = "model.onnx"
 
 
 def export(
     source_path: Union[Path, str],
     target_path: Union[Path, str],
+    model_onnx_name: str = ONNX_MODEL_NAME,
     deployment_target: str = "deepsparse",
     integration: Optional[str] = None,
     sample_data: Optional[Any] = None,
@@ -46,17 +50,18 @@ def export(
     Export a PyTorch model to a deployment target specified by the `deployment_target`.
 
     The functionality follows a set of steps:
-    1. Create a PyTorch model from the source_path.
-    2. Create a dummy input for the model.
-    3. Export the model, using the precomputed dummy input, to an
-        ONNX format appropriate for the deployment target.
-    4. Apply optimizations to the exported model (optional).
+    1. Create a PyTorch model from the file located in source_path.
+    2. Create model dummy input.
+    3. Export the model to the format specified by the `deployment_target`.
+    4. (Optional) Apply optimizations to the exported model.
     5. Export sample inputs and outputs for the exported model (optional).
     6. Create a deployment folder for the exported model with the appropriate structure.
     7. Validate the correctness of the exported model (optional).
 
     :param source_path: The path to the PyTorch model to export.
     :param target_path: The path to save the exported model to.
+    :param model_onnx_name: The name of the exported model.
+        Defaults to ONNX_MODEL_NAME.
     :param deployment_target: The deployment target to export
         the model to. Defaults to 'deepsparse'.
     :param integration: The name of the integration to use for
@@ -98,17 +103,25 @@ def export(
         IntegrationHelperFunctions.load_from_registry(integration)
     )
 
-    model = helper_functions.create_model(source_path, device)
+    # for now, this code is not runnable, serves as a blueprint
+    model, auxiliary_items = helper_functions.create_model(
+        source_path, **kwargs  # noqa: F821
+    )
     sample_data = (
-        helper_functions.create_dummy_input(model, batch_size)
+        helper_functions.create_dummy_input(**auxiliary_items)
         if sample_data is None
         else sample_data
     )
     onnx_file_path = helper_functions.export_model(
-        model, sample_data, target_path, deployment_target, opset, single_graph_file
+        model, sample_data, target_path, deployment_target, opset
     )
 
-    helper_functions.apply_optimizations(onnx_file_path, graph_optimizations)
+    apply_optimizations(
+        onnx_file_path=onnx_file_path,
+        graph_optimizations=graph_optimizations,
+        available_graph_optimizations=helper_functions.graph_optimizations,
+        single_graph_file=single_graph_file,
+    )
 
     if export_sample_inputs_outputs:
         helper_functions.export_sample_inputs_outputs(model, target_path)

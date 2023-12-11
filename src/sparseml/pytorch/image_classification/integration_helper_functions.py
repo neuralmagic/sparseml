@@ -13,11 +13,12 @@
 # limitations under the License.
 
 from pathlib import Path
-from typing import Any, Union
+from typing import Any, Callable, Dict, Optional, Tuple, Union
 
 import torch
 from pydantic import Field
 
+from sparseml.pytorch.image_classification.utils.helpers import export_model
 from src.sparseml.integration_helper_functions import (
     IntegrationHelperFunctions,
     Integrations,
@@ -27,17 +28,48 @@ from src.sparseml.pytorch.image_classification.utils.helpers import (
 )
 
 
-def create_model(source_path: Union[Path, str], **kwargs) -> torch.nn.Module:
+def create_model(
+    source_path: Union[Path, str], **kwargs
+) -> Tuple[torch.nn.Module, Dict[str, Any]]:
     """
     A contract to create a model from a source path
 
     :param source_path: The path to the model
-    :return: The torch model
+    :param kwargs: Additional kwargs to pass to the model creation function
+    :return: A tuple of the
+        - torch model
+        - additional dictionary of useful objects created during model creation
     """
-    model, *_ = create_image_classification_model(checkpoint_path=source_path, **kwargs)
-    return model
+    model, *_, validation_loader = create_image_classification_model(
+        checkpoint_path=source_path, **kwargs
+    )
+    return model, dict(validation_loader=validation_loader)
+
+
+def create_dummy_input(
+    validation_loader: Optional[torch.utils.data.DataLoader] = None,
+    image_size: Optional[int] = 224,
+) -> torch.Tensor:
+    """
+    A contract to create a dummy input for a model
+
+    :param validation_loader: The validation loader to get a batch from.
+        If None, a fake batch will be created
+    :param image_size: The image size to use for the dummy input. Defaults to 224
+    :return: The dummy input as a torch tensor
+    """
+
+    if not validation_loader:
+        # create fake data for export
+        validation_loader = [[torch.randn(1, 3, image_size, image_size)]]
+    return next(iter(validation_loader))[0]
 
 
 @IntegrationHelperFunctions.register(name=Integrations.image_classification.value)
 class ImageClassification(IntegrationHelperFunctions):
-    create_model: Any = Field(default=create_model)
+
+    create_model: Callable[..., Tuple[torch.nn.Module, Dict[str, Any]]] = Field(
+        default=create_model
+    )
+    create_dummy_input: Callable[..., torch.Tensor] = Field(default=create_dummy_input)
+    export: Callable[..., str] = Field(default=export_model)

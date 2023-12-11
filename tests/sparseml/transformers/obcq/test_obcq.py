@@ -75,7 +75,7 @@ def test_lm_head_target():
     if not torch.cuda.is_available():
         device = "cpu"
 
-    model = SparseCausalLM.llama_model_from_pretrained(tiny_model_path)
+    model = SparseCausalLM.auto_model_from_pretrained(tiny_model_path)
     modifiable_model = ModifiableModel(model=model, framework=Framework.pytorch)
 
     kwargs = {
