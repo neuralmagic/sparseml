@@ -446,7 +446,7 @@ def create_model(
         if one_shot is not None:
             ScheduledModifierManager.from_yaml(file_path=one_shot).apply(module=model)
 
-        return model, arch_key, checkpoint_path
+        return model, arch_key, checkpoint_path, val_dataset
 
 
 def infer_num_classes(
