@@ -18,6 +18,7 @@ from typing import Any, Callable, Dict, Optional, Tuple, Union
 
 from pydantic import BaseModel, Field
 
+from sparseml.export.export_torch_model import export_model
 from sparsezoo.utils.registry import RegistryMixin
 
 
@@ -60,7 +61,7 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
         "and returns: "
         "- a dummy input for the model (a torch.Tensor) "
     )
-    export: Optional[Callable[..., str]] = Field(
+    export: Callable[..., str] = Field(
         description="A function that takes: "
         " - a (sparse) PyTorch model "
         " - sample input data "
@@ -69,7 +70,8 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
         " - the deployment target to export to "
         " - the opset to use for the export "
         " - (optionally) a dictionary of additional arguments"
-        "and returns nothing"
+        "and returns nothing",
+        default=export_model,
     )
     apply_optimizations: Optional[Callable] = Field(
         description="A function that takes a set of "
