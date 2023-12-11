@@ -28,3 +28,4 @@ def test_integration_helper_functions():
     assert image_classification.create_dummy_input
     assert image_classification.export
     assert image_classification.graph_optimizations is None
+    assert image_classification.create_data_samples

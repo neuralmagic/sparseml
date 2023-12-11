@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any, List, Optional, Union
 
 from sparseml.export.helpers import apply_optimizations
+from sparseml.export_data import export_data_samples
 from sparseml.exporters import ExportTargets
 from sparseml.integration_helper_functions import (
     IntegrationHelperFunctions,
@@ -42,7 +43,7 @@ def export(
     single_graph_file: bool = True,
     graph_optimizations: Union[str, List[str], None] = "all",
     validate_correctness: bool = False,
-    export_sample_inputs_outputs: bool = False,
+    num_export_samples: int = 0,
     deployment_directory_name: str = "deployment",
     device: str = "auto",
 ):
@@ -81,8 +82,8 @@ def export(
         to the exported model. Defaults to 'all'.
     :param validate_correctness: Whether to validate the correctness
         of the exported model. Defaults to False.
-    :param export_sample_inputs_outputs: Whether to export sample
-        inputs and outputs for the exported model.Defaults to False.
+    :param num_export_samples: The number of samples to export for
+        the exported model. Defaults to 0.
     :param deployment_directory_name: The name of the deployment
         directory to create for the exported model. Thus, the exported
         model will be saved to `target_path/deployment_directory_name`.
@@ -123,18 +124,38 @@ def export(
         single_graph_file=single_graph_file,
     )
 
-    if export_sample_inputs_outputs:
-        helper_functions.export_sample_inputs_outputs(model, target_path)
+    if num_export_samples:
+        data_loader = auxiliary_items.get("validation_loader")
+        if data_loader is None:
+            raise ValueError(
+                "To export sample inputs/outputs a data loader is needed."
+                "To enable the export, provide a `validatation_loader` "
+                "as a part of `auxiliary_items` output of the `create_model` function."
+            )
+        (
+            input_samples,
+            output_samples,
+            label_samples,
+        ) = helper_functions.create_data_samples(
+            num_samples=num_export_samples, data_loader=data_loader, model=model
+        )
+        export_data_samples(
+            input_samples=input_samples,
+            output_samples=output_samples,
+            label_samples=label_samples,
+            target_path=target_path,
+            as_tar=True,
+        )
 
     deployment_path = helper_functions.create_deployment_folder(
         source_path, target_path, deployment_directory_name
     )
 
     if validate_correctness:
-        if not export_sample_inputs_outputs:
+        if not num_export_samples:
             raise ValueError(
                 "To validate correctness sample inputs/outputs are needed."
-                "To enable the validation, set `export_sample_inputs_outputs`"
+                "To enable the validation, set `num_export_samples`"
                 "to True"
             )
         validate_correctness(deployment_path)
