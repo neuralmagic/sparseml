@@ -22,7 +22,7 @@ from sparseml.core.model import ModifiableModel
 from sparseml.core.state import State
 from sparseml.modifiers.obcq.base import SparseGPTModifier
 from sparseml.modifiers.obcq.utils.helpers import cache_attention_inputs
-from sparseml.modifiers.obcq.utils.layer_compressor import LayerCompressor
+from sparseml.modifiers.obcq.utils.layer_compressor import OBCQLayerCompressor
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -137,7 +137,7 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
                 "sequential_update": self.sequential_update,
                 "quantize": self.quantize,
             }
-            layer_compressor = LayerCompressor(self.model, layer, idx, inputs, args)
+            layer_compressor = OBCQLayerCompressor(self.model, layer, idx, inputs, args)
 
             # Prune/quantize using SparseGPT
             layer_kwargs = layer_compressor.compress(dev=self.device_, **accum_kwargs)
