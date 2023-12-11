@@ -29,6 +29,8 @@ from torch.nn import Module
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader, Dataset
 
+from sparseml.exporters import ExportTargets
+from sparseml.exporters.onnx_to_deepsparse import ONNXToDeepsparse
 from sparseml.optim.manager import BaseManager
 from sparseml.pytorch.datasets import DatasetRegistry
 from sparseml.pytorch.datasets.image_classification.ffcv_dataset import (
@@ -36,7 +38,9 @@ from sparseml.pytorch.datasets.image_classification.ffcv_dataset import (
 )
 from sparseml.pytorch.image_classification.utils.constants import AVAILABLE_DATASETS
 from sparseml.pytorch.models import ModelRegistry
+from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
 from sparseml.pytorch.optim import ScheduledModifierManager
+from sparseml.pytorch.torch_to_onnx_exporter import TorchToONNX
 from sparseml.pytorch.utils import (
     DEFAULT_LOSS_KEY,
     CrossEntropyLossWrapper,
@@ -75,6 +79,43 @@ __all__ = [
     "save_zoo_directory",
     "label_to_class_mapping_from_dataset",
 ]
+
+
+def export_model(
+    model: torch.nn.Module,
+    sample_data: torch.Tensor,
+    target_path: Union[Path, str],
+    onnx_model_name: str,
+    deployment_target: str = "deepsparse",
+    opset: int = TORCH_DEFAULT_ONNX_OPSET,
+    **kwargs,
+) -> str:
+    """
+    Exports the torch model to the deployment target
+
+    :param model: The torch model to export
+    :param sample_data: The sample data to use for the export
+    :param target_path: The path to export the model to
+    :param onnx_model_name: The name to save  the exported ONNX model as
+    :param deployment_target: The deployment target to export to. Defaults to deepsparse
+    :param opset: The opset to use for the export. Defaults to TORCH_DEFAULT_ONNX_OPSET
+    :param kwargs: Additional kwargs to pass to the TorchToONNX exporter
+    :return: The path to the exported model
+    """
+
+    model.eval()
+
+    exporter = TorchToONNX(sample_batch=sample_data, opset=opset, **kwargs)
+    exporter.export(model, os.path.join(target_path, onnx_model_name))
+    if deployment_target == ExportTargets.deepsparse.value:
+        exporter = ONNXToDeepsparse()
+        model = exporter.load_model(os.path.join(target_path, onnx_model_name))
+        exporter.export(model, os.path.join(target_path, onnx_model_name))
+    if deployment_target == ExportTargets.onnx.value:
+        pass
+    else:
+        raise ValueError(f"Unsupported deployment target: {deployment_target}")
+    return os.path.join(target_path, onnx_model_name)
 
 
 def save_zoo_directory(
