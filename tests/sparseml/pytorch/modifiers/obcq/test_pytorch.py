@@ -42,7 +42,7 @@ def test_invalid_layerwise_recipes_raise_exceptions(sparsity, targets):
         targets=targets,
     )
     modifier = SparseGPTModifierPyTorch(**kwargs)
-    testing_harness = LifecyleTestingHarness(model=model)
+    testing_harness = LifecyleTestingHarness(model=model, start=-1)
 
     # confirm invalid layerwise recipes fail at initialization
     with pytest.raises(ValueError):
@@ -96,7 +96,7 @@ def test_set_quant_if_modifer_already_exists():
     )
 
     modifier = QuantizationModifierPyTorch(**kwargs)
-    testing_harness = LifecyleTestingHarness(model=model)
+    testing_harness = LifecyleTestingHarness(model=model, start=-1)
 
     assert not testing_harness.get_state().model.qat_active()
     modifier.initialize(testing_harness.get_state())

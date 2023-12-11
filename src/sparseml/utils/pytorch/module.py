@@ -28,6 +28,8 @@ from torch.nn.modules.conv import _ConvNd
 from sparseml.core.model.base import ModelParameterizedLayer
 
 
+FSDP_WRAPPER_NAME = "_fsdp_wrapped_module."
+
 try:
     quant_err = None
     from torch.nn.qat import Conv2d as QATConv2d
@@ -130,6 +132,8 @@ def match_layers_params(
     targets_found = [False for _ in range(len(targets))]
 
     for name, layer in module.named_modules():
+        # due to nesting, FSDP may not be the top layer
+        name = name.replace(FSDP_WRAPPER_NAME, "")
         match, match_index = match_targets(name, targets)
         if match and not params:
             targets_found[match_index] = True
@@ -168,7 +172,10 @@ def get_layer(target: str, module: Module) -> Tuple[str, Module]:
 
 def set_layer(target: str, layer: Module, module: Module) -> Module:
     parent_target = ".".join(target.split(".")[:-1])
-    parent_layer = get_layer(parent_target, module)[1]
+    if parent_target != "":
+        parent_layer = get_layer(parent_target, module)[1]
+    else:
+        parent_layer = module
     old_layer = getattr(parent_layer, target.split(".")[-1])
     setattr(parent_layer, target.split(".")[-1], layer)
 

@@ -70,7 +70,7 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
         " - the deployment target to export to "
         " - the opset to use for the export "
         " - (optionally) a dictionary of additional arguments"
-        "and returns nothing",
+        "and returns path to the exported model",
         default=export_model,
     )
     apply_optimizations: Optional[Callable] = Field(
