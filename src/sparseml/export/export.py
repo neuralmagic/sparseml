@@ -21,8 +21,8 @@ from sparseml.export.helpers import (
     ONNX_MODEL_NAME,
     apply_optimizations,
     create_deployment_folder,
-    export_sample_inputs_outputs,
 )
+from sparseml.export_data import export_data_samples
 from sparseml.integration_helper_functions import (
     IntegrationHelperFunctions,
     infer_integration,
@@ -134,12 +134,17 @@ def export(
                 "To enable the export, provide a `validatation_loader` "
                 "as a part of `auxiliary_items` output of the `create_model` function."
             )
-        input_samples, output_samples = helper_functions.create_sample_inputs_outputs(
-            num_samples=num_export_samples, data_loader=data_loader
+        (
+            input_samples,
+            output_samples,
+            label_samples,
+        ) = helper_functions.create_data_samples(
+            num_samples=num_export_samples, data_loader=data_loader, model=model
         )
-        export_sample_inputs_outputs(
+        export_data_samples(
             input_samples=input_samples,
             output_samples=output_samples,
+            label_samples=label_samples,
             target_path=target_path,
             as_tar=True,
         )
@@ -153,10 +158,10 @@ def export(
     )
 
     if validate_correctness:
-        if not export_sample_inputs_outputs:
+        if not num_export_samples:
             raise ValueError(
                 "To validate correctness sample inputs/outputs are needed."
-                "To enable the validation, set `export_sample_inputs_outputs`"
+                "To enable the validation, set `num_export_samples`"
                 "to True"
             )
         validate_correctness(deployment_path)

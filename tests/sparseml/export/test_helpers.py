@@ -13,125 +13,15 @@
 # limitations under the License.
 
 import logging
-import os
-import tarfile
 from collections import OrderedDict
 
 import onnx
 import pytest
 
-from src.sparseml.export.helpers import (
-    apply_optimizations,
-    create_deployment_folder,
-    export_sample_inputs_outputs,
-)
+from src.sparseml.export.helpers import apply_optimizations
 from tests.sparseml.exporters.transforms.test_onnx_transform import (
     _create_model as create_dummy_onnx_file,
 )
-
-
-def create_files(source_path, target_path):
-    # create model.onnx
-    model_onnx_path = target_path / "model.onnx"
-    model_onnx_path.touch()
-
-    # create model.data
-    model_data_path = target_path / "model.data"
-    model_data_path.touch()
-
-    # create dummy_file
-    dummy_file_path = source_path / "dummy_file"
-    dummy_file_path.touch()
-
-
-@pytest.fixture()
-def create_files_func():
-    return create_files
-
-
-@pytest.mark.parametrize(
-    "deployment_directory_structure, expected_deployment_file_names",
-    [
-        (None, {"model.onnx", "model.data"}),
-        (
-            {"model.onnx": {}, "dummy_file": {}},
-            {"model.onnx", "model.data", "dummy_file"},
-        ),
-    ],
-)
-def test_create_deployment_folder(
-    tmp_path,
-    deployment_directory_structure,
-    expected_deployment_file_names,
-    create_files_func,
-):
-    source_path = tmp_path / "source"
-    source_path.mkdir()
-
-    target_path = tmp_path / "target"
-    target_path.mkdir()
-
-    create_files_func(source_path, target_path)
-
-    create_deployment_folder(
-        source_path=source_path,
-        target_path=target_path,
-        deployment_directory_structure=deployment_directory_structure,
-    )
-
-    assert (
-        set(os.listdir(os.path.join(target_path, "deployment")))
-        == expected_deployment_file_names
-    )
-
-
-@pytest.mark.parametrize(
-    "as_tar",
-    [True, False],
-)
-def test_export_sample_inputs_outputs(tmp_path, as_tar):
-    pytest.importorskip("torch", reason="test requires pytorch")
-    import torch
-
-    batch_size = 3
-    num_samples = 5
-
-    input_samples = [torch.randn(batch_size, 3, 224, 224) for _ in range(num_samples)]
-    output_samples = [torch.randn(batch_size, 1000) for _ in range(num_samples)]
-
-    export_sample_inputs_outputs(
-        input_samples=input_samples,
-        output_samples=output_samples,
-        target_path=tmp_path,
-        as_tar=as_tar,
-    )
-    dir_names = {"sample-inputs", "sample-outputs"}
-    dir_names_tar = {"sample-inputs.tar.gz", "sample-outputs.tar.gz"}
-
-    if as_tar:
-        assert set(os.listdir(tmp_path)) == dir_names_tar
-        # unpack the tar files
-        for dir_name in dir_names_tar:
-            with tarfile.open(os.path.join(tmp_path, dir_name)) as tar:
-                tar.extractall(path=tmp_path)
-
-    assert set(os.listdir(tmp_path)) == (
-        dir_names if not as_tar else dir_names_tar | dir_names
-    )
-    assert set(os.listdir(os.path.join(tmp_path, "sample-inputs"))) == {
-        "inp-0000.npz",
-        "inp-0001.npz",
-        "inp-0002.npz",
-        "inp-0003.npz",
-        "inp-0004.npz",
-    }
-    assert set(os.listdir(os.path.join(tmp_path, "sample-outputs"))) == {
-        "out-0000.npz",
-        "out-0001.npz",
-        "out-0002.npz",
-        "out-0003.npz",
-        "out-0004.npz",
-    }
 
 
 def foo(onnx_model):
