@@ -14,11 +14,11 @@
 
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from pydantic import BaseModel, Field
 
-from sparseml.export.export_torch_model import export_model
+from sparseml.export.export_data import create_data_samples as create_data_samples_
 from sparsezoo.utils.registry import RegistryMixin
 
 
@@ -75,10 +75,26 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
     graph_optimizations: Optional[Dict[str, Callable]] = Field(
         description="A mapping from names to graph optimization functions "
     )
-    export_sample_inputs_outputs: Optional[Callable] = Field(
-        description="A function that exports input/output samples given "
-        "a (sparse) PyTorch model."
+
+    create_data_samples: Callable[
+        Tuple[
+            Optional["torch.nn.Module"], "torch.utils.data.DataLoader", int  # noqa F821
+        ],
+        Tuple[
+            List["torch.Tensor"],  # noqa F821
+            Optional[List["torch.Tensor"]],  # noqa F821
+            List["torch.Tensor"],  # noqa F821
+        ],
+    ] = Field(
+        default=create_data_samples_,
+        description="A function that takes: "
+        " - an optional (sparse) PyTorch model "
+        " - a data loader "
+        " - the number of samples to generate "
+        "and returns: "
+        " - the inputs, labels and (optionally) outputs as torch tensors ",
     )
+
     create_deployment_folder: Optional[Callable] = Field(
         description="A function that creates a "
         "deployment folder for the exporter ONNX model"
