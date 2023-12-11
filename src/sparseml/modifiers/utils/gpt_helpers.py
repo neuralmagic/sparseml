@@ -70,7 +70,7 @@ class TerminalModuleCompressor(ABC):
 
 class LayerGPT(TerminalModuleCompressor):
     """
-    Runs SparseGPT on a single module that contains no sub-modules
+    Runs Module Compression on a single module that contains no sub-modules
 
     Lifecycle:
         - add_batch
