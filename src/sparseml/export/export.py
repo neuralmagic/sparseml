@@ -16,6 +16,7 @@ import logging
 from pathlib import Path
 from typing import Any, List, Optional, Union
 
+from sparseml.exporters import ExportTargets
 from sparseml.integration_helper_functions import (
     IntegrationHelperFunctions,
     infer_integration,
@@ -24,12 +25,14 @@ from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
 
 
 _LOGGER = logging.getLogger(__name__)
-AVAILABLE_DEPLOYMENT_TARGETS = ["deepsparse", "onnxruntime"]
+AVAILABLE_DEPLOYMENT_TARGETS = [target.value for target in ExportTargets]
+ONNX_MODEL_NAME = "model.onnx"
 
 
 def export(
     source_path: Union[Path, str],
     target_path: Union[Path, str],
+    model_onnx_name: str = ONNX_MODEL_NAME,
     deployment_target: str = "deepsparse",
     integration: Optional[str] = None,
     sample_data: Optional[Any] = None,
@@ -57,6 +60,8 @@ def export(
 
     :param source_path: The path to the PyTorch model to export.
     :param target_path: The path to save the exported model to.
+    :param model_onnx_name: The name of the exported model.
+        Defaults to ONNX_MODEL_NAME.
     :param deployment_target: The deployment target to export
         the model to. Defaults to 'deepsparse'.
     :param integration: The name of the integration to use for
@@ -101,7 +106,7 @@ def export(
     # for now, this code is not runnable, serves as a blueprint
     model, auxiliary_items = helper_functions.create_model(
         source_path, **kwargs  # noqa: F821
-    ) 
+    )
     sample_data = (
         helper_functions.create_dummy_input(**auxiliary_items)
         if sample_data is None
@@ -111,7 +116,10 @@ def export(
         model, sample_data, target_path, deployment_target, opset, single_graph_file
     )
 
-    helper_functions.apply_optimizations(onnx_file_path, graph_optimizations)
+    helper_functions.apply_optimizations(
+        onnx_file_path,
+        graph_optimizations,
+    )
 
     if export_sample_inputs_outputs:
         helper_functions.export_sample_inputs_outputs(model, target_path)

@@ -63,7 +63,7 @@ class TorchToONNX(BaseExporter):
         inference engine, and other engines, perform batch norm fusing at model
         compilation.
     :param export_kwargs: kwargs to be passed as is to the torch.onnx.export api
-        call. Useful to pass in dyanmic_axes, input_names, output_names, etc.
+        call. Useful to pass in dynamic_axes, input_names, output_names, etc.
         See more on the torch.onnx.export api spec in the PyTorch docs:
         https://pytorch.org/docs/stable/onnx.html
     """

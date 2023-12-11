@@ -26,3 +26,4 @@ def test_integration_helper_functions():
     )
     assert image_classification.create_model
     assert image_classification.create_dummy_input
+    assert image_classification.export

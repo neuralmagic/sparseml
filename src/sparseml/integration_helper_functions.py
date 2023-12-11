@@ -14,10 +14,11 @@
 
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Callable, Dict, Optional, Tuple, Union
 
 from pydantic import BaseModel, Field
 
+from sparseml.export.export_torch_model import export_model
 from sparsezoo.utils.registry import RegistryMixin
 
 
@@ -41,9 +42,8 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
 
     create_model: Optional[
         Callable[
-            [Union[str, Path], Optional[Dict[str, Any]]][
-                "torch.nn.Module", Optional[Dict[str, Any]]  # noqa F821
-            ]
+            Tuple[Union[str, Path], Optional[Dict[str, Any]]],
+            Tuple["torch.nn.Module", Dict[str, Any]],  # noqa F821
         ]
     ] = Field(
         description="A function that takes: "
@@ -54,17 +54,24 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
         "- (optionally) a dictionary of additional arguments"
     )
     create_dummy_input: Optional[
-        Callable[Any]["torch.Tensor"]  # noqa F821
+        Callable[..., "torch.Tensor"]  # noqa F821
     ] = Field(  # noqa: F82
         description="A function that takes: "
         "- a dictionary of arguments"
         "and returns: "
         "- a dummy input for the model (a torch.Tensor) "
     )
-    export_model: Optional[Callable] = Field(
-        description="A function that exports a (sparse) PyTorch "
-        "model to an ONNX format appropriate for a "
-        "deployment target."
+    export: Callable[..., str] = Field(
+        description="A function that takes: "
+        " - a (sparse) PyTorch model "
+        " - sample input data "
+        " - the path to save the exported model to "
+        " - the name to save the exported ONNX model as "
+        " - the deployment target to export to "
+        " - the opset to use for the export "
+        " - (optionally) a dictionary of additional arguments"
+        "and returns path to the exported model",
+        default=export_model,
     )
     apply_optimizations: Optional[Callable] = Field(
         description="A function that takes a set of "
