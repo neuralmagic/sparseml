@@ -97,7 +97,13 @@ def one_shot(
         model_loader_fn = SparseCausalLM.auto_model_from_pretrained
         forward_fn = llama_forward
     else:
-        raise ValueError(f"model_path={model_path} should be one of {SUPPORTED_MODELS}")
+        _LOGGER.warning(
+            f"A supported model type({SUPPORTED_MODELS}) could not be "
+            f"parsed from model_path={model_path}. Defaulting to "
+            "AutoModelForCausalLM loading. "
+        )
+        model_loader_fn = SparseCausalLM.auto_model_from_pretrained
+        forward_fn = llama_forward
     torch_dtype = _parse_dtype(precision)
     model = model_loader_fn(
         model_path, sequence_length=sequence_length, torch_dtype=torch_dtype
