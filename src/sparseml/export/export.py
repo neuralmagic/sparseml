@@ -14,51 +14,17 @@
 
 import logging
 from pathlib import Path
-from typing import Any, Callable, List, Optional, Union
+from typing import Any, List, Optional, Union
 
-from pydantic import BaseModel, Field
-
+from sparseml.integration_helper_functions import (
+    IntegrationHelperFunctions,
+    infer_integration,
+)
 from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
-from sparsezoo.utils.registry import RegistryMixin
 
 
 _LOGGER = logging.getLogger(__name__)
 AVAILABLE_DEPLOYMENT_TARGETS = ["deepsparse", "onnxruntime"]
-
-
-class IntegrationHelperFunctions(BaseModel, RegistryMixin):
-    """
-    Registry that maps integration names to helper functions
-    for creation/export/manipulation of models for a specific
-    integration.
-    """
-
-    create_model: Optional[Callable] = Field(
-        description="A function that creates a (sparse) "
-        "PyTorch model from a source path."
-    )
-    create_dummy_input: Optional[Callable] = Field(
-        description="A function that creates a dummy input "
-        "given a (sparse) PyTorch model."
-    )
-    export_model: Optional[Callable] = Field(
-        description="A function that exports a (sparse) PyTorch "
-        "model to an ONNX format appropriate for a "
-        "deployment target."
-    )
-    apply_optimizations: Optional[Callable] = Field(
-        description="A function that takes a set of "
-        "optimizations and applies them to an ONNX model."
-    )
-    export_sample_inputs_outputs: Optional[Callable] = Field(
-        description="A function that exports input/output samples given "
-        "a (sparse) PyTorch model."
-    )
-    create_deployment_folder: Optional[Callable] = Field(
-        description="A function that creates a "
-        "deployment folder for the exporter ONNX model"
-        "with the appropriate structure."
-    )
 
 
 def export(
@@ -164,20 +130,6 @@ def export(
         f"Successfully exported model from:\n{target_path}"
         f"\nto\n{deployment_path}\nfor integration: {integration}"
     )
-
-
-def infer_integration(source_path: Union[Path, str]) -> str:
-    """
-    Infer the integration to use for exporting the model from the source_path.
-    For example:
-        - for transformers model the integration
-            can be inferred from `config.json`
-        - for computer vision, the integration
-            can be inferred from the model architecture (`arch_key`)
-    :param source_path: The path to the PyTorch model to export.
-    :return: The name of the integration to use for exporting the model.
-    """
-    raise NotImplementedError
 
 
 def validate_correctness(deployment_path: Union[Path, str]):
