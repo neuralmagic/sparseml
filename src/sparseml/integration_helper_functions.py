@@ -19,6 +19,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from pydantic import BaseModel, Field
 
 from sparseml.export.export_data import create_data_samples as create_data_samples_
+from sparseml.export.export_torch_model import export_model
 from sparsezoo.utils.registry import RegistryMixin
 
 
@@ -61,7 +62,7 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
         "and returns: "
         "- a dummy input for the model (a torch.Tensor) "
     )
-    export: Optional[Callable[..., str]] = Field(
+    export: Callable[..., str] = Field(
         description="A function that takes: "
         " - a (sparse) PyTorch model "
         " - sample input data "
@@ -70,7 +71,8 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
         " - the deployment target to export to "
         " - the opset to use for the export "
         " - (optionally) a dictionary of additional arguments"
-        "and returns nothing"
+        "and returns nothing",
+        default=export_model,
     )
     graph_optimizations: Optional[Dict[str, Callable]] = Field(
         description="A mapping from names to graph optimization functions "
@@ -88,24 +90,17 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
     ] = Field(
         default=create_data_samples_,
         description="A function that takes: "
-                    " - an optional (sparse) PyTorch model "
-                    " - a data loader "
-                    " - the number of samples to generate "
-                    "and returns: "
-                    " - the inputs, labels and (optionally) outputs as torch tensors ",
+        " - an optional (sparse) PyTorch model "
+        " - a data loader "
+        " - the number of samples to generate "
+        "and returns: "
+        " - the inputs, labels and (optionally) outputs as torch tensors ",
     )
 
-    deployment_directory_structure: Optional[Dict[str, Any]] = Field(
-        description="A mapping that describes the expected structure "
-        "of the deployment directory e.g    "
-        "{`file_one`: {},                   "
-        " `file_two`: {},                   "
-        " `directory_one`: `file_three`,    "
-        " `directory_two`: {                "
-        "   `directory_three`: `file_four`  "
-        "   `file_five`: {}                 "
-        "   }                               "
-        " }                                 "
+    deployment_directory_structure: List[str] = Field(
+        description="A list that describes the "
+        "expected files of the deployment directory",
+        default=["model.onnx"],
     )
 
 

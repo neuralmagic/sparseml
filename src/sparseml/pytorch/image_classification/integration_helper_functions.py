@@ -18,7 +18,6 @@ from typing import Any, Callable, Dict, Optional, Tuple, Union
 import torch
 from pydantic import Field
 
-from sparseml.pytorch.image_classification.utils.helpers import export_model
 from src.sparseml.integration_helper_functions import (
     IntegrationHelperFunctions,
     Integrations,
@@ -72,5 +71,3 @@ class ImageClassification(IntegrationHelperFunctions):
         default=create_model
     )
     create_dummy_input: Callable[..., torch.Tensor] = Field(default=create_dummy_input)
-    export: Callable[..., str] = Field(default=export_model)
-    deployment_directory_structure: Dict[str, Any] = Field(default={"model.onnx": {}})

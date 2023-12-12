@@ -153,7 +153,7 @@ def export(
         source_path=source_path,
         target_path=target_path,
         deployment_directory_name=deployment_directory_name,
-        deployment_directory_structure=helper_functions.deployment_directory_structure,
+        deployment_directory_files=helper_functions.deployment_directory_structure,
         onnx_model_name=model_onnx_name,
     )
 
