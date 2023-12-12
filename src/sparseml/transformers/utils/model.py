@@ -25,7 +25,6 @@ from transformers import (
     AutoModelForQuestionAnswering,
     AutoModelForSequenceClassification,
     AutoModelForTokenClassification,
-    LlamaForCausalLM,
     OPTForCausalLM,
 )
 from transformers.file_utils import WEIGHTS_NAME
@@ -260,10 +259,6 @@ class SparseAutoModel:
             kwargs["state_dict"], delayed = SparseAutoModel._loadable_state_dict(
                 model_name_or_path
             )
-        # Export decoder model without kv cache support
-        kwargs["config"].is_decoder = True
-        kwargs["config"].use_cache = False
-        kwargs["config"].use_past = False
 
         model = AutoModelForCausalLM.from_pretrained(
             model_name_or_path,
@@ -272,6 +267,38 @@ class SparseAutoModel:
         SparseAutoModel.log_model_load(model, model_name_or_path, model_type, delayed)
 
         return model
+
+    @staticmethod
+    def text_generation_from_pretrained_distil(
+        model_name_or_path: str,
+        teacher_name_or_path: Optional[str],
+        model_kwargs: Dict[str, Any],
+        teacher_kwargs: Dict[str, Any],
+    ) -> Tuple[Module, Optional[Module]]:
+        """
+        :param model_name_or_path: the name of or path to the model to load
+        :param teacher_name_or_path: the name of or path to the teacher to load,
+            None or one of ['self', 'disable'] will not create a teacher and
+            instead return the value passed in
+        :param model_kwargs: the keyword args to pass into the AutoModel for model
+        :param teacher_kwargs: the keyword args to pass into the AutoModel for teacher
+        :return: a tuple containing the model and distillation teacher (optional)
+            for text generation
+        """
+        model = SparseAutoModel.text_generation_from_pretrained(
+            model_name_or_path,
+            model_type="student" if teacher_name_or_path else "model",
+            **model_kwargs,
+        )
+        teacher = (
+            SparseAutoModel.text_generation_from_pretrained(
+                teacher_name_or_path, model_type="teacher", **teacher_kwargs
+            )
+            if teacher_name_or_path and teacher_name_or_path not in ["self", "disable"]
+            else teacher_name_or_path
+        )
+
+        return model, teacher
 
     @staticmethod
     def token_classification_from_pretrained(
@@ -430,12 +457,15 @@ class SparseCausalLM:
 
     @staticmethod
     def opt_model_from_pretrained(
-        model_path: str, torch_dtype: Union[str, torch.dtype] = "auto"
+        model_path: str,
+        sequence_length: Optional[int] = None,
+        torch_dtype: Union[str, torch.dtype] = "auto",
     ) -> torch.nn.Module:
         """
         Load a pretrained OPT model from the specified hugging face path
 
         :param model_path: hugging face or local path to model
+        :param sequence_length: maximum allowable tokens in input sequence
         :param torch_dtype: precision to load model weights in as
         :return: loaded pretrained model
         """
@@ -449,33 +479,22 @@ class SparseCausalLM:
 
         model = OPTForCausalLM.from_pretrained(model_path, torch_dtype=torch_dtype)
         model.eval()
-        model.seqlen = model.config.max_position_embeddings
-        return model
-
-    @staticmethod
-    def llama_model_from_pretrained(
-        model_path: str, torch_dtype: Union[str, torch.dtype] = "auto"
-    ) -> torch.nn.Module:
-        """
-        Load a pretrained Llama model from the specified hugging face path
-
-        :param model_path: hugging face path to model
-        :param torch_dtype: precision to load model weights in as
-        :return: loaded pretrained model
-        """
-        model = LlamaForCausalLM.from_pretrained(model_path, torch_dtype=torch_dtype)
-        model.eval()
-        model.seqlen = model.config.max_position_embeddings
+        model.seqlen = (
+            sequence_length if sequence_length else model.config.max_position_embeddings
+        )
         return model
 
     @staticmethod
     def auto_model_from_pretrained(
-        model_path: str, torch_dtype: Union[str, torch.dtype] = "auto"
+        model_path: str,
+        sequence_length: Optional[int] = None,
+        torch_dtype: Union[str, torch.dtype] = "auto",
     ) -> torch.nn.Module:
         """
         Load a pretrained model using auto from the specified hugging face path
 
         :param model_path: hugging face path to model
+        :param sequence_length: maximum allowable tokens in input sequence
         :param torch_dtype: precision to load model weights in as
         :return: loaded pretrained model
         """
@@ -483,7 +502,9 @@ class SparseCausalLM:
             model_path, torch_dtype=torch_dtype
         )
         model.eval()
-        model.seqlen = model.config.max_position_embeddings
+        model.seqlen = (
+            sequence_length if sequence_length else model.config.max_position_embeddings
+        )
         return model
 
 
