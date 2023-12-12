@@ -22,7 +22,7 @@ from sparseml.export.helpers import (
     apply_optimizations,
     create_deployment_folder,
 )
-from sparseml.export.validate_correctness import validate_correctness
+from sparseml.export.validators import validate_correctness, validate_structure
 from sparseml.export_data import export_data_samples
 from sparseml.integration_helper_functions import (
     IntegrationHelperFunctions,
@@ -46,6 +46,7 @@ def export(
     single_graph_file: bool = True,
     graph_optimizations: Union[str, List[str], None] = "all",
     validate_model_correctness: bool = False,
+    validate_model_structure: bool = True,
     num_export_samples: int = 0,
     deployment_directory_name: str = "deployment",
     device: str = "auto",
@@ -157,6 +158,10 @@ def export(
         deployment_directory_files=helper_functions.deployment_directory_structure,
         onnx_model_name=model_onnx_name,
     )
+    if validate_model_structure:
+        validate_structure(
+            deployment_path, helper_functions.deployment_directory_structure
+        )
 
     if validate_model_correctness:
         if not num_export_samples:

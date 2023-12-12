@@ -14,14 +14,32 @@
 
 import os.path
 from pathlib import Path
-from typing import Union
+from typing import List, Union
 
 from sparseml.export.helpers import InputsNames, OutputsNames
 from sparsezoo.inference import InferenceRunner
 from sparsezoo.objects import File, NumpyDirectory
 
 
-__all__ = ["validate_correctness"]
+__all__ = ["validate_correctness", "validate_structure"]
+
+
+def validate_structure(
+    directory: Union[str, Path], deployment_directory_files: List[str]
+):
+    """
+    Validates the structure of the exported ONNX model by
+    checking if the required files are present.
+
+    :param directory: The directory where the ONNX model is stored.
+    :param deployment_directory_files: The list of files that should be present
+        in the deployment directory.
+    """
+    for file in deployment_directory_files:
+        if not os.path.exists(os.path.join(directory, file)):
+            raise ValueError(
+                f"File {file} is missing from the deployment directory {directory}"
+            )
 
 
 # TODO: Test this function with e2e tests
