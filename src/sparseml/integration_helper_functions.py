@@ -19,6 +19,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from pydantic import BaseModel, Field
 
 from sparseml.export.export_data import create_data_samples as create_data_samples_
+from sparseml.export.export_torch_model import export_model
 from sparsezoo.utils.registry import RegistryMixin
 
 
@@ -61,7 +62,7 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
         "and returns: "
         "- a dummy input for the model (a torch.Tensor) "
     )
-    export: Optional[Callable[..., str]] = Field(
+    export: Callable[..., str] = Field(
         description="A function that takes: "
         " - a (sparse) PyTorch model "
         " - sample input data "
@@ -70,7 +71,8 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
         " - the deployment target to export to "
         " - the opset to use for the export "
         " - (optionally) a dictionary of additional arguments"
-        "and returns nothing"
+        "and returns the path to the exported model",
+        default=export_model,
     )
     graph_optimizations: Optional[Dict[str, Callable]] = Field(
         description="A mapping from names to graph optimization functions "
@@ -78,7 +80,9 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
 
     create_data_samples: Callable[
         Tuple[
-            Optional["torch.nn.Module"], "torch.utils.data.DataLoader", int  # noqa F821
+            Optional["torch.nn.Module"],  # noqa F821
+            "torch.utils.data.DataLoader",  # noqa F821
+            int,
         ],
         Tuple[
             List["torch.Tensor"],  # noqa F821
@@ -95,10 +99,10 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
         " - the inputs, labels and (optionally) outputs as torch tensors ",
     )
 
-    create_deployment_folder: Optional[Callable] = Field(
-        description="A function that creates a "
-        "deployment folder for the exporter ONNX model"
-        "with the appropriate structure."
+    deployment_directory_structure: List[str] = Field(
+        description="A list that describes the "
+        "expected files of the deployment directory",
+        default=["model.onnx"],
     )
 
 
