@@ -22,13 +22,14 @@ from sparseml.export.helpers import (
     apply_optimizations,
     create_deployment_folder,
 )
+from sparseml.export.validate_correctness import validate_correctness
 from sparseml.export_data import export_data_samples
 from sparseml.integration_helper_functions import (
     IntegrationHelperFunctions,
     infer_integration,
 )
 from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
-from sparseml.export.validate_correctness import validate_correctness
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -157,32 +158,13 @@ def export(
         onnx_model_name=model_onnx_name,
     )
 
-    if validate_correctness:
+    if validate_model_correctness:
         if not num_export_samples:
             raise ValueError(
                 "To validate correctness sample inputs/outputs are needed."
                 "To enable the validation, set `num_export_samples`"
                 "to True"
             )
-        input_samples, output_samples = helper_functions.create_sample_inputs_outputs(
-            num_samples=num_export_samples, data_loader=data_loader
-        )
-        export_sample_inputs_outputs(
-            input_samples=input_samples,
-            output_samples=output_samples,
-            target_path=target_path,
-            as_tar=True,
-        )
-
-    deployment_path = create_deployment_folder(
-        source_path=source_path,
-        target_path=target_path,
-        deployment_directory_name=deployment_directory_name,
-        deployment_directory_structure=helper_functions.deployment_directory_structure,
-        onnx_model_name=model_onnx_name,
-    )
-
-    if validate_model_correctness:
         validate_correctness(deployment_path, model_onnx_name)
 
     _LOGGER.info(
