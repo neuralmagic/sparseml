@@ -22,6 +22,7 @@ from sparseml.export.helpers import (
     apply_optimizations,
     create_deployment_folder,
 )
+from sparseml.export.validate_correctness import validate_correctness
 from sparseml.export_data import export_data_samples
 from sparseml.integration_helper_functions import (
     IntegrationHelperFunctions,
@@ -44,7 +45,7 @@ def export(
     batch_size: Optional[int] = None,
     single_graph_file: bool = True,
     graph_optimizations: Union[str, List[str], None] = "all",
-    validate_correctness: bool = False,
+    validate_model_correctness: bool = False,
     num_export_samples: int = 0,
     deployment_directory_name: str = "deployment",
     device: str = "auto",
@@ -82,7 +83,7 @@ def export(
         Defaults to True.
     :param graph_optimizations: The graph optimizations to apply
         to the exported model. Defaults to 'all'.
-    :param validate_correctness: Whether to validate the correctness
+    :param validate_model_correctness: Whether to validate the correctness
         of the exported model. Defaults to False.
     :param num_export_samples: The number of samples to export for
         the exported model. Defaults to 0.
@@ -131,7 +132,7 @@ def export(
         if data_loader is None:
             raise ValueError(
                 "To export sample inputs/outputs a data loader is needed."
-                "To enable the export, provide a `validatation_loader` "
+                "To enable the export, provide a `validation_loader` "
                 "as a part of `auxiliary_items` output of the `create_model` function."
             )
         (
@@ -157,27 +158,16 @@ def export(
         onnx_model_name=model_onnx_name,
     )
 
-    if validate_correctness:
+    if validate_model_correctness:
         if not num_export_samples:
             raise ValueError(
                 "To validate correctness sample inputs/outputs are needed."
                 "To enable the validation, set `num_export_samples`"
                 "to True"
             )
-        validate_correctness(deployment_path)
+        validate_correctness(deployment_path, model_onnx_name)
 
     _LOGGER.info(
         f"Successfully exported model from:\n{target_path}"
         f"\nto\n{deployment_path}\nfor integration: {integration}"
     )
-
-
-def validate_correctness(deployment_path: Union[Path, str]):
-    """
-    Validate the correctness of the exported model.
-    The validation is performed by running the exported model
-    on the sample inputs and comparing the outputs to the expected outputs.
-
-    :param deployment_path: The path to the exported model.
-    """
-    raise NotImplementedError
