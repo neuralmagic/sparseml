@@ -16,22 +16,19 @@ import logging
 from pathlib import Path
 from typing import Any, List, Optional, Union
 
-from sparseml.export.helpers import (
-    AVAILABLE_DEPLOYMENT_TARGETS,
-    ONNX_MODEL_NAME,
-    apply_optimizations,
-    create_deployment_folder,
-    export_sample_inputs_outputs,
-)
-from sparseml.export.validate_correctness import validate_correctness
+from sparseml.export.helpers import apply_optimizations
+from sparseml.export_data import export_data_samples
+from sparseml.exporters import ExportTargets
 from sparseml.integration_helper_functions import (
     IntegrationHelperFunctions,
     infer_integration,
 )
 from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
-
+from sparseml.export.validate_correctness import validate_correctness
 
 _LOGGER = logging.getLogger(__name__)
+AVAILABLE_DEPLOYMENT_TARGETS = [target.value for target in ExportTargets]
+ONNX_MODEL_NAME = "model.onnx"
 
 
 def export(
@@ -132,8 +129,34 @@ def export(
         if data_loader is None:
             raise ValueError(
                 "To export sample inputs/outputs a data loader is needed."
-                "To enable the export, provide a `validatation_loader` "
+                "To enable the export, provide a `validation_loader` "
                 "as a part of `auxiliary_items` output of the `create_model` function."
+            )
+        (
+            input_samples,
+            output_samples,
+            label_samples,
+        ) = helper_functions.create_data_samples(
+            num_samples=num_export_samples, data_loader=data_loader, model=model
+        )
+        export_data_samples(
+            input_samples=input_samples,
+            output_samples=output_samples,
+            label_samples=label_samples,
+            target_path=target_path,
+            as_tar=True,
+        )
+
+    deployment_path = helper_functions.create_deployment_folder(
+        source_path, target_path, deployment_directory_name
+    )
+
+    if validate_correctness:
+        if not num_export_samples:
+            raise ValueError(
+                "To validate correctness sample inputs/outputs are needed."
+                "To enable the validation, set `num_export_samples`"
+                "to True"
             )
         input_samples, output_samples = helper_functions.create_sample_inputs_outputs(
             num_samples=num_export_samples, data_loader=data_loader

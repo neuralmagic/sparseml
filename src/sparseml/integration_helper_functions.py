@@ -17,8 +17,8 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from pydantic import BaseModel, Field
-from tqdm import tqdm
 
+from sparseml.export.export_data import create_data_samples as create_data_samples_
 from sparsezoo.utils.registry import RegistryMixin
 
 
@@ -31,27 +31,6 @@ class Integrations(Enum):
     """
 
     image_classification = "image-classification"
-
-
-def create_sample_inputs_outputs(
-    data_loader: "torch.utils.data.DataLoader",  # noqa F821
-    num_samples: int = 1,
-) -> Tuple[List["torch.Tensor"], List["torch.Tensor"]]:  # noqa F821
-    """
-    Fetch a batch of samples from the data loader and return the inputs and outputs
-
-    :param data_loader: The data loader to get a batch of inputs/outputs from.
-    :param num_samples: The number of samples to generate. Defaults to 1
-    :return: The inputs and outputs as lists of torch tensors
-    """
-    inputs, outputs = [], []
-    for batch_num, data in tqdm(enumerate(data_loader)):
-        if batch_num == num_samples:
-            break
-        inputs.append(data[0])
-        outputs.append(data[1])
-
-    return inputs, outputs
 
 
 class IntegrationHelperFunctions(RegistryMixin, BaseModel):
@@ -97,29 +76,29 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
         description="A mapping from names to graph optimization functions "
     )
 
-    create_sample_inputs_outputs: Callable[
-        Tuple["torch.utils.data.DataLoader", int],  # noqa F821
-        Tuple[List["torch.Tensor"], List["torch.Tensor"]],  # noqa F821
+    create_data_samples: Callable[
+        Tuple[
+            Optional["torch.nn.Module"], "torch.utils.data.DataLoader", int  # noqa F821
+        ],
+        Tuple[
+            List["torch.Tensor"],  # noqa F821
+            Optional[List["torch.Tensor"]],  # noqa F821
+            List["torch.Tensor"],  # noqa F821
+        ],
     ] = Field(
-        default=create_sample_inputs_outputs,
+        default=create_data_samples_,
         description="A function that takes: "
+        " - an optional (sparse) PyTorch model "
         " - a data loader "
         " - the number of samples to generate "
         "and returns: "
-        " - the inputs and outputs as torch tensors ",
+        " - the inputs, labels and (optionally) outputs as torch tensors ",
     )
 
-    deployment_directory_structure: Optional[Dict[str, Any]] = Field(
-        description="A mapping that describes the expected structure "
-        "of the deployment directory e.g    "
-        "{`file_one`: {},                   "
-        " `file_two`: {},                   "
-        " `directory_one`: `file_three`,    "
-        " `directory_two`: {                "
-        "   `directory_three`: `file_four`  "
-        "   `file_five`: {}                 "
-        "   }                               "
-        " }                                 "
+    create_deployment_folder: Optional[Callable] = Field(
+        description="A function that creates a "
+        "deployment folder for the exporter ONNX model"
+        "with the appropriate structure."
     )
 
 
