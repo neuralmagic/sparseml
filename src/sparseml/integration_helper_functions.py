@@ -71,7 +71,7 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
         " - the deployment target to export to "
         " - the opset to use for the export "
         " - (optionally) a dictionary of additional arguments"
-        "and returns nothing",
+        "and returns the path to the exported model",
         default=export_model,
     )
     graph_optimizations: Optional[Dict[str, Callable]] = Field(
@@ -80,7 +80,9 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
 
     create_data_samples: Callable[
         Tuple[
-            Optional["torch.nn.Module"], "torch.utils.data.DataLoader", int  # noqa F821
+            Optional["torch.nn.Module"],  # noqa F821
+            "torch.utils.data.DataLoader",  # noqa F821
+            int,
         ],
         Tuple[
             List["torch.Tensor"],  # noqa F821

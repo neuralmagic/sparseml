@@ -63,6 +63,7 @@ def create_deployment_folder(
         be copied from target_path. Else, the file will be copied from source_path.
     :param onnx_model_name: The name of the ONNX model file. If not specified,
         defaults to ONNX_MODEL_NAME.
+    :return: The path to the deployment folder.
     """
 
     # create the deployment folder
