@@ -32,13 +32,12 @@ from transformers.trainer_utils import get_last_checkpoint
 import sparseml.core.session as session_manager
 from sparseml.core.framework import Framework
 from sparseml.core.session import callbacks
-from sparseml.pytorch.model_load.helpers import reload_model_state
+from sparseml.pytorch.model_load.helpers import RECIPE_FILE_NAME, reload_model_state
 from sparseml.pytorch.utils import LoggerManager, ModuleSparsificationInfo
 from sparseml.transformers.finetune.callbacks import (
     DisableHalfPrecisionCallback,
     TrainingLoopCallbacks,
 )
-from sparseml.transformers.utils.helpers import RECIPE_NAME
 
 
 __all__ = [
@@ -408,7 +407,7 @@ class SessionManagerMixIn:
 
         # save recipe, will contain modifiers from the model's original recipe as well
         # as those added from self.recipe
-        recipe_path = os.path.join(output_dir, RECIPE_NAME)
+        recipe_path = os.path.join(output_dir, RECIPE_FILE_NAME)
         session = session_manager.active_session()
         recipe_yaml_str = session.get_serialized_recipe()
         with open(recipe_path, "w") as fp:

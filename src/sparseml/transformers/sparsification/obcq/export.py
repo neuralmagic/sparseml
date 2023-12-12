@@ -23,7 +23,7 @@ The export incorporates:
 script accessible from sparseml.transformers.export_onnx_refactor
 
 command help:
-usage: sparseml.transformers.export_onnx [-h] --task TASK --model_path
+usage: sparseml.transformers.export_onnx_refactor [-h] --task TASK --model_path
                                          MODEL_PATH
                                          [--sequence_length SEQUENCE_LENGTH]
                                          [--no_convert_qat]
@@ -78,7 +78,10 @@ from transformers.tokenization_utils_base import PaddingStrategy
 
 import sparseml.core.session as session_manager
 from sparseml.optim import parse_recipe_variables
-from sparseml.pytorch.model_load.helpers import apply_recipe_structure_to_model
+from sparseml.pytorch.model_load.helpers import (
+    RECIPE_FILE_NAME,
+    apply_recipe_structure_to_model,
+)
 from sparseml.pytorch.utils import export_onnx
 from sparseml.transformers.utils import SparseAutoModel
 from sparsezoo.utils.onnx import EXTERNAL_ONNX_DATA_NAME
@@ -287,7 +290,7 @@ def export_transformer_to_onnx(
     model = model.train()
 
     # creates a SparseSession and apply structure from the model's recipe
-    recipe_path = os.path.join(model_path, "recipe.yaml")
+    recipe_path = os.path.join(model_path, RECIPE_FILE_NAME)
     session_manager.create_session()
     apply_recipe_structure_to_model(
         model, recipe_path=recipe_path, model_path=model_path

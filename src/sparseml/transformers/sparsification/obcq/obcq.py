@@ -25,13 +25,16 @@ from transformers import AutoConfig
 import sparseml.core.session as session_manager
 from sparseml.core.framework import Framework
 from sparseml.modifiers.obcq.utils.helpers import ppl_eval_general
-from sparseml.pytorch.model_load.helpers import apply_recipe_structure_to_model
+from sparseml.pytorch.model_load.helpers import (
+    RECIPE_FILE_NAME,
+    apply_recipe_structure_to_model,
+)
 from sparseml.transformers.data import TransformersDataset
 from sparseml.transformers.sparsification.obcq.utils.helpers import (
     llama_forward,
     opt_forward,
 )
-from sparseml.transformers.utils.model import SparseAutoModel
+from sparseml.transformers.utils.model import SparseCausalLM
 
 
 __all__ = ["one_shot"]
@@ -85,19 +88,26 @@ def one_shot(
     config = AutoConfig.from_pretrained(model_path)
     model_type = config.model_type.lower()
 
+    model_loader_fn = None
     forward_fn = None
     if "opt" in model_type:
+        model_loader_fn = SparseCausalLM.opt_model_from_pretrained
         forward_fn = opt_forward
     elif "llama" in model_type or "mistral" in model_type:
+        model_loader_fn = SparseCausalLM.auto_model_from_pretrained
         forward_fn = llama_forward
     else:
-        raise ValueError(f"model_path={model_path} should be one of {SUPPORTED_MODELS}")
-
+        _LOGGER.warning(
+            f"A supported model type({SUPPORTED_MODELS}) could not be "
+            f"parsed from model_path={model_path}. Defaulting to "
+            "AutoModelForCausalLM loading. "
+        )
+        model_loader_fn = SparseCausalLM.auto_model_from_pretrained
+        forward_fn = llama_forward
     torch_dtype = _parse_dtype(precision)
-    model = SparseAutoModel.text_generation_from_pretrained(
-        model_name_or_path=model_path, model_type="model", torch_dtype=torch_dtype
+    model = model_loader_fn(
+        model_path, sequence_length=sequence_length, torch_dtype=torch_dtype
     )
-    model.seqlen = model.config.max_position_embeddings
 
     if dataset_name not in SUPPORTED_DATASETS:
         raise ValueError(
@@ -114,12 +124,14 @@ def one_shot(
     calibration_data = dataset.loader
     tokenizer = dataset.tokenizer
 
-    # create session and initialize structure from input model
+    # create session and initialize any structure from input model recipe
     session_manager.create_session()
     session = session_manager.active_session()
-    apply_recipe_structure_to_model(
-        model=model, recipe_path=recipe_file, model_path=model_path
-    )
+    input_recipe_path = os.path.join(model_path, RECIPE_FILE_NAME)
+    if os.path.exists(input_recipe_path):
+        apply_recipe_structure_to_model(
+            model=model, recipe_path=input_recipe_path, model_path=model_path
+        )
 
     # launch one shot
     session.apply(
@@ -169,7 +181,8 @@ def _save(model, tokenizer, save_path):
     tokenizer.save_pretrained(save_path)
 
     _LOGGER.info("Saving output to {}".format(os.path.abspath(save_path)))
-    recipe_path = os.path.join(save_path, "recipe.yaml")
+
+    recipe_path = os.path.join(save_path, RECIPE_FILE_NAME)
     session = session_manager.active_session()
     recipe_yaml_str = session.get_serialized_recipe()
     with open(recipe_path, "w") as fp:
