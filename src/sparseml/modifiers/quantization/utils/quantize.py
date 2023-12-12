@@ -162,6 +162,7 @@ def set_quantization_schemes(
             wrap_qat_targets[submodule_name] = submodule_scheme
         elif is_module_type_override or is_quantizable_module(submodule):
             # is base quantizable module or user specifically targeted module type
+            raise_if_already_quantized(submodule_name, submodule)
             submodule.quantization_scheme = submodule_scheme
 
     # inject any targeted QATWrappers
@@ -348,6 +349,26 @@ def raise_if_torch_quantization_not_available():
             "Unable to import package torch.quantization and/or "
             "torch.nn.intrinsic. "
             "Try upgrading your PyTorch version to use the QuantizationModifier."
+        )
+
+
+def raise_if_already_quantized(module_name: str, module: Module):
+    """
+    :param module_name: name of module to check for quantization
+    :param module: module to check for quantization
+    :raises: RuntimeError if module is already quantized, it cannot be re-quantized
+    """
+    do_raise = False
+    if hasattr(module, "scheme") and isinstance(module.scheme, QuantizationScheme):
+        do_raise = True
+    elif isinstance(module, torch_quantization.QuantWrapper):
+        do_raise = True
+
+    if do_raise:
+        raise RuntimeError(
+            f"Unable to quantize module {module_name}, as it has already been "
+            "quantized. Ensure your input recipe does not contain multiple "
+            "QuantizationModifiers that act on the same module. "
         )
 
 

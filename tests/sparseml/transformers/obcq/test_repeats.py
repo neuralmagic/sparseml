@@ -14,12 +14,19 @@
 
 import math
 
+import pytest
 import torch
 
 import sparseml.core.session as session_manager
 from sparseml.pytorch.utils.helpers import tensor_sparsity
 from sparseml.transformers.sparsification.obcq.obcq import one_shot
 from sparseml.utils.pytorch import qat_active
+
+
+try:
+    from torch import quantization as torch_quantization
+except Exception:
+    torch_quantization = None
 
 
 def test_consecutive_runs(tmp_path):
@@ -73,3 +80,129 @@ def test_consecutive_runs(tmp_path):
     assert len(stages) == 2
     assert "test" in stages
     assert "test_second" in stages
+
+
+def test_fail_on_repeated_quant(tmp_path):
+    first_recipe_str = """
+    first_stage:
+        quant_modifiers:
+            QuantizationModifier:
+                ignore:
+                    - LlamaRotaryEmbedding
+                    - LlamaRMSNorm
+                    - SiLUActivation
+                    - Embedding
+    """
+
+    second_recipe_str = """
+    second_stage:
+        quant_modifiers:
+            QuantizationModifier:
+                ignore:
+                    - LlamaRotaryEmbedding
+                    - LlamaRMSNorm
+                    - SiLUActivation
+                    - Embedding
+    """
+
+    tiny_model_path = "Xenova/llama2.c-stories15M"
+    device = "cuda:0"
+    if not torch.cuda.is_available():
+        device = "cpu"
+
+    one_shot(
+        model_path=tiny_model_path,
+        dataset_name="open_platypus",
+        num_samples=4,
+        device=device,
+        recipe_file=first_recipe_str,
+        deploy_dir=tmp_path,
+        do_save=True,
+    )
+
+    session = session_manager.active_session()
+    session.reset()
+
+    # When trying to re-quantize with the second recipe, we should error out
+    # to avoid nested quantizations
+    with pytest.raises(RuntimeError):
+        one_shot(
+            model_path=tmp_path / "obcq_deployment",
+            dataset_name="open_platypus",
+            num_samples=4,
+            device=device,
+            recipe_file=second_recipe_str,
+        )
+
+
+def test_separate_quants_allowed(tmp_path):
+    first_recipe_str = """
+    first_stage:
+        quant_modifiers:
+            QuantizationModifier:
+                ignore:
+                    - LlamaRotaryEmbedding
+                    - LlamaRMSNorm
+                    - SiLUActivation
+                    - Linear
+                scheme_overrides:
+                    Embedding:
+                        input_activations: null
+    """
+
+    second_recipe_str = """
+    second_stage:
+        quant_modifiers:
+            QuantizationModifier:
+                ignore:
+                    - LlamaRotaryEmbedding
+                    - LlamaRMSNorm
+                    - SiLUActivation
+                    - Embedding
+                    - MatMulLeftInput_QK
+                    - MatMulRightInput_QK
+                    - MatMulOutput_QK
+                    - MatMulLeftInput_PV
+                    - MatMulRightInput_PV
+                    - MatMulOutput_PV
+                    - QuantizableMatMul
+    """
+
+    tiny_model_path = "Xenova/llama2.c-stories15M"
+    device = "cuda:0"
+    if not torch.cuda.is_available():
+        device = "cpu"
+
+    first_model = one_shot(
+        model_path=tiny_model_path,
+        dataset_name="open_platypus",
+        num_samples=4,
+        device=device,
+        recipe_file=first_recipe_str,
+        deploy_dir=tmp_path,
+        do_save=True,
+    )
+
+    # only embedding quantized after first recipe
+    assert not isinstance(
+        first_model.model.layers[0].mlp.down_proj, torch_quantization.QuantWrapper
+    )
+    assert hasattr(first_model.model.embed_tokens, "quantization_scheme")
+    session = session_manager.active_session()
+    session.reset()
+
+    # When trying to re-quantize with the second recipe, we should error out
+    # to avoid nested quantizations
+    second_model = one_shot(
+        model_path=tmp_path / "obcq_deployment",
+        dataset_name="open_platypus",
+        num_samples=4,
+        device=device,
+        recipe_file=second_recipe_str,
+    )
+
+    # linear and embeddings should be quantized now
+    assert isinstance(
+        second_model.model.layers[0].mlp.down_proj, torch_quantization.QuantWrapper
+    )
+    assert hasattr(second_model.model.embed_tokens, "quantization_scheme")
