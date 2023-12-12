@@ -16,9 +16,13 @@ import logging
 from pathlib import Path
 from typing import Any, List, Optional, Union
 
-from sparseml.export.helpers import apply_optimizations
+from sparseml.export.helpers import (
+    AVAILABLE_DEPLOYMENT_TARGETS,
+    ONNX_MODEL_NAME,
+    apply_optimizations,
+    create_deployment_folder,
+)
 from sparseml.export_data import export_data_samples
-from sparseml.exporters import ExportTargets
 from sparseml.integration_helper_functions import (
     IntegrationHelperFunctions,
     infer_integration,
@@ -27,8 +31,6 @@ from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
 
 
 _LOGGER = logging.getLogger(__name__)
-AVAILABLE_DEPLOYMENT_TARGETS = [target.value for target in ExportTargets]
-ONNX_MODEL_NAME = "model.onnx"
 
 
 def export(
@@ -147,8 +149,12 @@ def export(
             as_tar=True,
         )
 
-    deployment_path = helper_functions.create_deployment_folder(
-        source_path, target_path, deployment_directory_name
+    deployment_path = create_deployment_folder(
+        source_path=source_path,
+        target_path=target_path,
+        deployment_directory_name=deployment_directory_name,
+        deployment_directory_files=helper_functions.deployment_directory_structure,
+        onnx_model_name=model_onnx_name,
     )
 
     if validate_correctness:
