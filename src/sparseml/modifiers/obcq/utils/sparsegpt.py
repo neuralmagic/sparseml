@@ -20,14 +20,14 @@ import torch
 import torch.nn as nn
 import transformers
 
-from sparseml.modifiers.utils.gpt_helpers import LayerGPT
+from sparseml.modifiers.utils.compressor import TerminalModuleCompressor
 
 
 _LOGGER = logging.getLogger(__name__)
 DEBUG = False
 
 
-class SparseGPT(LayerGPT):
+class SparseGPT(TerminalModuleCompressor):
     """
     Runs SparseGPT on a single module that contains no sub-modules
 

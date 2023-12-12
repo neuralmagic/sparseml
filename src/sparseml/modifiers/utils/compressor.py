@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
 from abc import ABC
 
 import torch
@@ -25,11 +24,12 @@ except ImportError as err:
     transformers = None
     transformers_err = err
 
-__all__ = []
+__all__ = [
+    "TerminalModuleCompressor",
+]
 
 
 DEBUG = False
-_LOGGER = logging.getLogger(__name__)
 
 torch.backends.cuda.matmul.allow_tf32 = False
 torch.backends.cudnn.allow_tf32 = False
@@ -47,43 +47,8 @@ class TerminalModuleCompressor(ABC):
         - free
     """
 
-    def add_batch(self, *args, **kwargs):
-        """
-        Add a batch of layer input and output data to the layer
-        statistics calculation
-        """
-        raise NotImplementedError("Child class must implement `add_batch`")
-
-    def fasterprune(self, *args, **kwargs):
-        """
-        Run pruning and on the layer up to the target
-        sparsity
-        """
-        raise NotImplementedError("Child class must implement `fasterprune`")
-
-    def free(self):
-        """
-        Free up memory used by the layer
-        """
-        raise NotImplementedError("Child class must implement `free`")
-
-
-class LayerGPT(TerminalModuleCompressor):
-    """
-    Runs Module Compression on a single module that contains no sub-modules
-
-    Lifecycle:
-        - add_batch
-        - fasterprune
-        - free
-
-
-    :param layer: module to run SparseGPT on
-    """
-
-    def __init__(self, layer):
-        if transformers is None:
-            raise transformers_err
+    def __init__(self, layer: nn.Module):
+        _check_transformers_is_available()
 
         self.layer = layer
         self.dev = self.layer.weight.device
@@ -96,7 +61,29 @@ class LayerGPT(TerminalModuleCompressor):
         self.columns = W.shape[1]
         self.nsamples = 0
 
+    def add_batch(self, *args, **kwargs):
+        """
+        Add a batch of layer input and output data to the layer
+        statistics calculation
+        """
+        raise NotImplementedError("Subclass class must implement `add_batch`")
+
+    def fasterprune(self, *args, **kwargs):
+        """
+        Run pruning/quantization up to the target
+        sparsity
+        """
+        raise NotImplementedError("Subclass class must implement `fasterprune`")
+
     def store_inps_outs_for_debugging(self, inp, out):
+        """
+        Store the inputs and outputs for debugging purposes
+        
+        :param inp: inputs to the layer
+        :param out: outputs from the layer
+        :postcondition: if DEBUG is True, the inputs and outputs are stored
+            as self._inp1 and self.out1
+        """
         if DEBUG:
             self._inp1 = inp
             self.out1 = out
@@ -104,7 +91,9 @@ class LayerGPT(TerminalModuleCompressor):
     def free(self):
         """
         Free memory after the layer is complete
-        calls torch.cuda.empty_cache() to defragement GPU memory
+        calls torch.cuda.empty_cache() to defragement GPU memory;
+        
+        Child classes should free any other memory they allocate
         """
         if DEBUG:
             if hasattr(self, "_inp1"):
@@ -112,3 +101,11 @@ class LayerGPT(TerminalModuleCompressor):
             if hasattr(self, "out1"):
                 self.out1 = None
         torch.cuda.empty_cache()
+
+
+def _check_transformers_is_available():
+    # if transformers could not be imported, raise the error
+    # :precondition: transformers_err is defined at the module
+    #   level
+    if transformers is None:
+        raise transformers_err

@@ -19,14 +19,14 @@ import torch
 import torch.nn as nn
 import transformers
 
-from sparseml.modifiers.utils.gpt_helpers import LayerGPT
+from sparseml.modifiers.utils.compressor import TerminalModuleCompressor
 
 
 _LOGGER = logging.getLogger(__name__)
 DEBUG = False
 
 
-class WandaGPT(LayerGPT):
+class WandaGPT(TerminalModuleCompressor):
     def __init__(self, layer):
         super().__init__(layer=layer)
         self.scaler_row = torch.zeros((self.columns), device=self.dev)
