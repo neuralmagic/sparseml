@@ -32,6 +32,7 @@ _LOGGER: logging.Logger = logging.getLogger(__name__)
 
 __all__ = ["RECIPE_NAME", "save_zoo_directory", "detect_last_checkpoint", "TaskNames"]
 
+
 class TaskNames(Enum):
     mlm = {"masked-language-modeling", "mlm"}
     qa = {"question-answering", "qa"}

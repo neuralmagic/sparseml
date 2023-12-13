@@ -20,13 +20,16 @@ from transformers import AutoConfig, AutoTokenizer
 from sparseml.transformers.utils.helpers import TaskNames
 
 
+__all__ = ["load_task_dataset"]
+
+
 def load_task_dataset(
     task: str,
     tokenizer: AutoTokenizer,
     data_args: Dict[str, Any],
     model: Module,
     config: Optional[AutoConfig] = None,
-):
+) -> Any:
     """
 
     Load a dataset for a given task.
@@ -37,6 +40,7 @@ def load_task_dataset(
         instance for fetching the dataset
     :param model: the model to use for the dataset
     :param config: the config to use for the dataset
+    :return: the dataset for the given task
     """
 
     if task in TaskNames.mlm.value:

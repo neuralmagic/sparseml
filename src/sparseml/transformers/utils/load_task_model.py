@@ -20,6 +20,9 @@ from sparseml.transformers.utils.helpers import TaskNames
 from sparseml.transformers.utils.sparse_auto_model import SparseAutoModel
 
 
+__all__ = ["load_task_model"]
+
+
 def load_task_model(
     task: str, model_path: str, config: Any, trust_remote_code: bool = False
 ) -> Module:

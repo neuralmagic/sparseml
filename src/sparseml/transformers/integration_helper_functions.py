@@ -37,6 +37,7 @@ def create_model(source_path: Union[Path, str], **kwargs) -> torch.nn.Module:
     model, *_, validation_loader = create_transformers_model(
         model_path=source_path, **kwargs
     )
+    model.eval()
     return model, dict(validation_loader=validation_loader)
 
 

@@ -68,14 +68,20 @@ def create_model(
         trust_remote_code=trust_remote_code,
     )
     data_args = _parse_data_args(data_args)
-    dataset = load_task_dataset(
-        task=task, tokenizer=tokenizer, data_args=data_args, model=model, config=config
-    )
-    validation_dataset = dataset.get("validation")
+
+    validation_dataset = None
+    if data_args:
+        dataset = load_task_dataset(
+            task=task,
+            tokenizer=tokenizer,
+            data_args=data_args,
+            model=model,
+            config=config,
+        )
+        validation_dataset = dataset.get("validation")
 
     model.train()
     trainer = initialize_trainer(model, model_path, validation_dataset)
-    model.eval()
 
     _LOGGER.info(f"Loaded model, trainer config, and tokenizer from {model_path}")
     return model, trainer, config, tokenizer, validation_dataset
@@ -85,6 +91,7 @@ def initialize_trainer(
     model: Any, model_path: Union[str, Path], validation_dataset
 ) -> Trainer:
     training_args = TrainingArguments(output_dir=os.path.dirname(model_path))
+
     trainer = Trainer(
         model=model,
         args=training_args,
