@@ -13,13 +13,14 @@
 # limitations under the License.
 
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, Callable, Dict, Optional, Union
 
 import torch
 from pydantic import Field
 from transformers import AutoTokenizer
 
 from sparseml.transformers.utils.load_task_dataset import load_task_dataset
+from sparseml.transformers.utils.optimizations import apply_kv_cache_injection
 from src.sparseml.integration_helper_functions import (
     IntegrationHelperFunctions,
     Integrations,
@@ -85,7 +86,13 @@ def create_dummy_inputs(
     return next(iter(validation_dataloader))
 
 
+transformers_graph_optimizations = {"kv_cache_injection": apply_kv_cache_injection}
+
+
 @IntegrationHelperFunctions.register(name=Integrations.transformers.value)
 class Transformers(IntegrationHelperFunctions):
     create_model: Any = Field(default=create_model)
     create_dummy_inputs: Any = Field(default=create_dummy_inputs)
+    graph_optimizations: Dict[str, Callable] = Field(
+        default=transformers_graph_optimizations
+    )
