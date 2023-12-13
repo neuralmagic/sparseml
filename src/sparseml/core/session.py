@@ -275,6 +275,7 @@ class SparseSession:
         """
         self._lifecycle.reset()
 
+
     def _log_model_info(self, event_type: EventType):
         # Log model level logs if needed
 
@@ -294,6 +295,13 @@ class SparseSession:
             )
             # update last log epoch
             self.state._last_log_epoch = epoch
+
+    def get_serialized_recipe(self) -> str:
+        """
+        :return: serialized string of the current compiled recipe
+        """
+        recipe = self.lifecycle.recipe_container.compiled_recipe
+        return recipe.yaml()
 
 
 _global_session = SparseSession()

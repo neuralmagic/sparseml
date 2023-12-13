@@ -36,6 +36,8 @@ __all__ = [
 
 _LOGGER = logging.getLogger(__name__)
 
+RECIPE_FILE_NAME = "recipe.yaml"
+
 
 def apply_recipe_structure_to_model(model: Module, recipe_path: str, model_path: str):
     """
