@@ -70,8 +70,6 @@ NON_QUANTIZABLE_MODULE_NAMES = {
     "Dropout3d",
     "AlphaDropout",
     "FeatureAlphaDropout",
-    "FakeQuantize",
-    "QuantWrapper",
 }
 
 

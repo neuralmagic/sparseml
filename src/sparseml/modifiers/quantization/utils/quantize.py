@@ -148,6 +148,15 @@ def set_quantization_schemes(
             # submodule type or graph section set to ignore, skip
             continue
 
+        if isinstance(submodule, torch_quantization.QuantWrapper):
+            if ignore and _match_submodule_name_or_type(
+                submodule.module, submodule_name, ignore
+            ):
+                continue
+
+        if is_qat_helper_module(submodule):
+            continue
+
         # override default scheme if necessary
         override_key = _match_submodule_name_or_type(
             submodule, submodule_name, scheme_overrides
@@ -358,18 +367,22 @@ def raise_if_already_quantized(module_name: str, module: Module):
     :param module: module to check for quantization
     :raises: RuntimeError if module is already quantized, it cannot be re-quantized
     """
-    do_raise = False
-    if hasattr(module, "scheme") and isinstance(module.scheme, QuantizationScheme):
-        do_raise = True
-    elif isinstance(module, torch_quantization.QuantWrapper):
-        do_raise = True
-
-    if do_raise:
+    if is_module_quantized(module):
         raise RuntimeError(
             f"Unable to quantize module {module_name}, as it has already been "
             "quantized. Ensure your input recipe does not contain multiple "
             "QuantizationModifiers that act on the same module. "
         )
+
+
+def is_module_quantized(module: Module):
+    if hasattr(module, "quantization_scheme") and isinstance(
+        module.quantization_scheme, QuantizationScheme
+    ):
+        return True
+    if isinstance(module, torch_quantization.QuantWrapper):
+        return True
+    return False
 
 
 def _match_submodule_name_or_type(

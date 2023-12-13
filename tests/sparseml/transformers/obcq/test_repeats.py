@@ -91,7 +91,9 @@ def test_fail_on_repeated_quant(tmp_path):
                     - LlamaRotaryEmbedding
                     - LlamaRMSNorm
                     - SiLUActivation
-                    - Embedding
+                scheme_overrides:
+                    Embedding:
+                        input_activations: null
     """
 
     second_recipe_str = """
