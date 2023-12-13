@@ -16,7 +16,7 @@ import argparse
 import logging
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Dict, Optional
 
 import torch
 from torch.nn import Module
@@ -54,6 +54,7 @@ def one_shot(
     deploy_dir: Optional[str] = ".",
     recipe_file: Optional[str] = None,
     precision: str = "auto",
+    recipe_args: Optional[Dict] = None,
     eval_data: Optional[str] = None,
     do_save: Optional[bool] = False,
 ) -> Module:
@@ -68,6 +69,7 @@ def one_shot(
     :param deploy_dir: The output directory to save the model to
     :param recipe_file: recipe containing SparseGPT configuration
     :param precision: precision to load model as, either auto, half or full
+    :param recipe_args: additional arguments to use for recipe evaluation
     :param eval_data: dataset to use for perplexity evalaution, or none to skip
     :param do_save: whether to save the output model to disk
 
@@ -142,6 +144,7 @@ def one_shot(
         start=-1,
         device=device,
         copy_data=False,
+        recipe_args=recipe_args
     )
 
     if do_save:
@@ -199,6 +202,15 @@ def _fallback_to_cpu(device):
     return device
 
 
+class KeyValue(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        setattr(namespace, self.dest, dict())
+
+        for value in values:
+            key, value = value.split("=")
+            getattr(namespace, self.dest)[key] = value
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
@@ -229,6 +241,12 @@ if __name__ == "__main__":
         help="Precision to cast model weights to, default to auto",
     )
     parser.add_argument(
+        "--recipe_args",
+        nargs="*",
+        action=KeyValue,
+        help="Recipe arguments to evaluate, of the format key1=value1 key2=value2",
+    )
+    parser.add_argument(
         "--eval", type=str, default=None, help="Optional dataset for perplexity eval"
     )
     parser.add_argument(
@@ -246,6 +264,7 @@ if __name__ == "__main__":
         device=args.device,
         recipe_file=args.recipe,
         precision=args.precision,
+        recipe_args=args.recipe_args,
         eval_data=args.eval,
         do_save=args.save,
     )
