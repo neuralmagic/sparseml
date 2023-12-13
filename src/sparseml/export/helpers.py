@@ -65,7 +65,6 @@ def create_deployment_folder(
         defaults to ONNX_MODEL_NAME.
     :return: The path to the deployment folder.
     """
-
     # create the deployment folder
     deployment_folder_dir = os.path.join(target_path, deployment_directory_name)
     if os.path.isdir(deployment_folder_dir):
@@ -77,7 +76,7 @@ def create_deployment_folder(
         if file_name == ONNX_MODEL_NAME:
             # attempting to move the ONNX model file
             # (potentially together with the ONNX data file)
-            # from source_path to deployment_folder_dir
+            # from target_path to target_path/deployment_folder_dir
 
             # takes into consideration potentially custom ONNX model name
             onnx_model_name = (
@@ -146,8 +145,8 @@ def apply_optimizations(
 
 
 def resolve_graph_optimizations(
-    available_optimizations: OrderedDict[str, Callable],
     optimizations: Union[str, List[str]],
+    available_optimizations: Optional[OrderedDict[str, Callable]] = None,
 ) -> List[Callable]:
     """
     Get the optimization functions to apply to the onnx model.
@@ -166,7 +165,11 @@ def resolve_graph_optimizations(
         if optimizations == GraphOptimizationOptions.none.value:
             return []
         elif optimizations == GraphOptimizationOptions.all.value:
-            return list(available_optimizations.values())
+            return (
+                list(available_optimizations.values())
+                if available_optimizations is not None
+                else []
+            )
         else:
             raise KeyError(f"Unknown graph optimization option: {optimizations}")
     elif isinstance(optimizations, list):
