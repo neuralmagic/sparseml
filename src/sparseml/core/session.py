@@ -275,7 +275,6 @@ class SparseSession:
         """
         self._lifecycle.reset()
 
-
     def _log_model_info(self, event_type: EventType):
         # Log model level logs if needed
 
