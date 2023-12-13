@@ -16,8 +16,11 @@ import logging
 from typing import Optional
 
 from torch.nn import Module
+from torch.utils.data import DataLoader, RandomSampler
 from transformers import AutoTokenizer
 
+import sparseml.core.session as session_manager
+from sparseml.core.framework import Framework
 from sparseml.transformers.finetune import Trainer, TrainingArguments
 from sparseml.transformers.finetune.data import TextGenerationDataset
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
@@ -73,8 +76,32 @@ class StageRunner:
     def set_trainer(self, trainer: Trainer):
         self.trainer = trainer
 
+    def get_oneshot_dataloader(self) -> DataLoader:
+        oneshot_dataset = self.datasets["calibration"]
+
+        dataloader_params = {
+            "batch_size": 1,
+            "sampler": RandomSampler(oneshot_dataset),
+            "collate_fn": self.trainer.data_collator,
+        }
+
+        return DataLoader(oneshot_dataset, **dataloader_params)
+
     def one_shot(self):
-        pass
+        _LOGGER.info("*** One Shot ***")
+
+        calib_dataloader = self.get_oneshot_dataloader()
+        calib_data = [inp["input_ids"] for inp in calib_dataloader]
+        calib_data = calib_data[: self._data_args.num_calibration_samples]
+        session_manager.apply(
+            framework=Framework.pytorch,
+            recipe=self._training_args.recipe,
+            model=self.model,
+            calib_data=calib_data,
+            start=-1,
+            device="cuda:0",  # TODO: don't hardcode
+            copy_data=False,
+        )
 
     def train(self, checkpoint: str):
         """

@@ -247,7 +247,7 @@ def main(
 
     # One Shot
     if training_args.do_oneshot:
-        stage_runner.oneshot()
+        stage_runner.one_shot()
 
     # Evaluation
     if training_args.do_eval:
