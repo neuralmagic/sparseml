@@ -144,7 +144,7 @@ def one_shot(
         start=-1,
         device=device,
         copy_data=False,
-        recipe_args=recipe_args
+        recipe_args=recipe_args,
     )
 
     if do_save:
