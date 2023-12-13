@@ -25,7 +25,7 @@ from sparseml.pytorch.utils.helpers import tensor_sparsity
 from sparseml.transformers.data import TransformersDataset
 from sparseml.transformers.sparsification.obcq.obcq import one_shot
 from sparseml.transformers.sparsification.obcq.utils.helpers import llama_forward
-from sparseml.transformers.utils.sparse_auto_model import SparseCausalLM
+from sparseml.transformers.utils.model import SparseCausalLM
 
 
 @pytest.mark.parametrize(

@@ -14,11 +14,13 @@
 
 import pytest
 
+from sparseml.transformers.utils.load_task_dataset import load_task_dataset
 from sparsezoo import Model
-from src.sparseml.transformers.utils.create_model import (
-    create_model,
+from src.sparseml.transformers.utils.initializers import (
     initialize_config,
+    initialize_model,
     initialize_tokenizer,
+    initialize_trainer,
 )
 
 
@@ -38,13 +40,16 @@ from src.sparseml.transformers.utils.create_model import (
     ],
     scope="class",
 )
-class TestCreateModelFlow:
+class TestInitializeModelFlow:
     @pytest.fixture()
     def setup(self, tmp_path, stub, task, data_args):
         self.model_path = Model(stub, tmp_path).training.path
         self.sequence_length = 384
         self.task = task
         self.data_args = data_args
+
+    def test_initialize_config(self, setup):
+        assert initialize_config(model_path=self.model_path, trust_remote_code=True)
 
     def test_initialize_tokenizer(self, setup):
         tokenizer = initialize_tokenizer(
@@ -57,26 +62,49 @@ class TestCreateModelFlow:
         )
         assert tokenizer.model_max_length == self.sequence_length
 
-    def test_initialize_config(self, setup):
-        assert initialize_config(model_path=self.model_path, trust_remote_code=True)
-
-    def test_create_model(self, setup):
-        if self.data_args is None:
-            pytest.skip("No data args provided")
-
-        model, *_, validation = create_model(
+    def test_initialize_model(self, setup):
+        assert initialize_model(
             model_path=self.model_path,
             task=self.task,
-            trust_remote_code=True,
+            config=initialize_config(
+                model_path=self.model_path, trust_remote_code=True
+            ),
+        )
+
+    def test_initialize_trainer(self, setup):
+        if not self.data_args:
+            pytest.skip("To run this test, please provide valid data_args")
+        config = initialize_config(model_path=self.model_path, trust_remote_code=True)
+        model = initialize_model(
+            model_path=self.model_path,
+            task=self.task,
+            config=config,
+        )
+        tokenizer = initialize_tokenizer(
+            self.model_path, self.sequence_length, self.task
+        )
+        dataset = load_task_dataset(
+            task=self.task,
+            tokenizer=tokenizer,
             data_args=self.data_args,
+            model=model,
+            config=config,
         )
-        assert validation is not None
+        validation_dataset = dataset.get("validation")
 
-    def test_create_model_no_data_args(self, setup):
-        model, *_, validation = create_model(
+        assert initialize_trainer(
+            model=model,
+            model_path=self.model_path,
+            validation_dataset=validation_dataset,
+        )
+
+    def test_initialize_trainer_no_validation_dataset(self, setup):
+        config = initialize_config(model_path=self.model_path, trust_remote_code=True)
+        model = initialize_model(
             model_path=self.model_path,
             task=self.task,
-            trust_remote_code=True,
-            data_args=None,
+            config=config,
         )
-        assert validation is None
+        assert initialize_trainer(
+            model=model, model_path=self.model_path, validation_dataset=None
+        )

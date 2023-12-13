@@ -15,25 +15,29 @@
 Functionality for initializing a transformer model from a given path
 """
 
-import inspect
 import logging
 import math
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Optional, Union
 
-from torch.nn import Module
-from transformers import AutoConfig, AutoTokenizer, TrainingArguments
+import transformers
+from transformers import AutoConfig, AutoModel, AutoTokenizer, TrainingArguments
 
 from sparseml.optim import parse_recipe_variables
 from sparseml.transformers.sparsification import Trainer
 from sparseml.transformers.utils.helpers import TaskNames
-from sparseml.transformers.utils.load_task_dataset import load_task_dataset
 from sparseml.transformers.utils.load_task_model import load_task_model
 
 
-__all__ = ["create_model"]
+__all__ = [
+    "initialize_model",
+    "initialize_tokenizer",
+    "initialize_trainer",
+    "initialize_config",
+    "resolve_sequence_length",
+]
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -48,49 +52,86 @@ class ForceCPUTrainingArguments(TrainingArguments):
         return False
 
 
-def create_model(
+def initialize_config(
+    model_path: Union[str, Path], trust_remote_code: bool = False, **config_args
+) -> AutoConfig:
+    """
+    Initialize a config from a given path
+
+    :param model_path: the path to the model to load
+    :param trust_remote_code: True to trust remote code when loading the model,
+        False otherwise
+    :param config_args: additional arguments to pass to the config
+    :return: the loaded config
+    """
+    config = AutoConfig.from_pretrained(
+        model_path,
+        trust_remote_code=trust_remote_code,
+        **config_args,
+    )
+    return config
+
+
+def initialize_tokenizer(
+    model_path: Union[str, Path], sequence_length: int, task: str
+) -> AutoTokenizer:
+    """
+    Initialize a tokenizer from a given path
+
+    :param model_path: the path to the model to load
+    :param sequence_length: the sequence length to use for the tokenizer
+    :param task: the task to load the tokenizer for
+    :return: the loaded tokenizer
+    """
+
+    tokenizer = AutoTokenizer.from_pretrained(
+        model_path, model_max_length=sequence_length
+    )
+    if task in TaskNames.text_generation.value:
+        tokenizer.pad_token = tokenizer.eos_token
+    return tokenizer
+
+
+def initialize_model(
     model_path: Union[str, Path],
     task: str,
-    sequence_length: Optional[int] = None,
+    config: AutoConfig,
     trust_remote_code: bool = False,
-    data_args: Optional[Dict] = None,
-    **config_args,
-):
+) -> transformers.AutoModel:
+    """
+    Initialize a model from a given path
 
-    config = initialize_config(model_path, trust_remote_code, **config_args)
-    sequence_length = sequence_length or resolve_sequence_length(config)
-    tokenizer = initialize_tokenizer(model_path, sequence_length, task)
-
+    :param model_path: the path to the model to load
+    :param task: the task to load the model for
+    :param config: the config to use for the model
+    :param trust_remote_code: True to trust remote code when loading the model,
+        False otherwise
+    :return: the loaded model
+    """
     model = load_task_model(
         task=task,
         model_path=model_path,
         config=config,
         trust_remote_code=trust_remote_code,
     )
-    data_args = _parse_data_args(data_args)
-
-    validation_dataset = None
-    if data_args:
-        dataset = load_task_dataset(
-            task=task,
-            tokenizer=tokenizer,
-            data_args=data_args,
-            model=model,
-            config=config,
-        )
-        validation_dataset = dataset.get("validation")
-
-    model.train()
-    trainer = initialize_trainer(model, model_path, validation_dataset)
-
-    _LOGGER.info(f"Loaded model, trainer config, and tokenizer from {model_path}")
-    return model, trainer, config, tokenizer, validation_dataset
+    return model
 
 
 def initialize_trainer(
-    model: Any, model_path: Union[str, Path], validation_dataset
+    model: AutoModel,
+    model_path: Union[str, Path],
+    validation_dataset: Optional[Any] = None,
 ) -> Trainer:
-    training_args = TrainingArguments(output_dir=os.path.dirname(model_path))
+    """
+    Initialize a trainer
+
+    :param model: the model to initialize the trainer with
+    :param model_path: the path to the model to load
+    :param validation_dataset: the validation dataset to use for the trainer
+    :return: the initialized trainer
+    """
+
+    training_args = ForceCPUTrainingArguments(output_dir=os.path.dirname(model_path))
 
     trainer = Trainer(
         model=model,
@@ -126,29 +167,6 @@ def initialize_trainer(
     return trainer
 
 
-def initialize_config(
-    model_path: Union[str, Path], trust_remote_code: bool = False, **config_args
-) -> AutoConfig:
-    config = AutoConfig.from_pretrained(
-        model_path,
-        trust_remote_code=trust_remote_code,
-        **config_args,
-    )
-    return config
-
-
-def initialize_tokenizer(
-    model_path: Union[str, Path], sequence_length: int, task: str
-) -> AutoTokenizer:
-
-    tokenizer = AutoTokenizer.from_pretrained(
-        model_path, model_max_length=sequence_length
-    )
-    if task in TaskNames.text_generation.value:
-        tokenizer.pad_token = tokenizer.eos_token
-    return tokenizer
-
-
 def resolve_sequence_length(config: AutoConfig) -> int:
     """
     Resolve the sequence length from the config
@@ -172,35 +190,6 @@ def resolve_sequence_length(config: AutoConfig) -> int:
         "(inferred from HF transformers config) "
     )
     return sequence_length
-
-
-def get_shared_tokenizer_src(student: Module, teacher: Optional[Module]) -> str:
-    """
-    Get a tokenizer source used for both student and teacher, assuming
-    that they could be shared
-
-    :param student: the student model
-    :param teacher: the teacher model
-    :return: the source for the tokenizer shared between teacher and model
-    """
-
-    if teacher is not None and teacher not in ("disable", "self"):
-        student_forward_params = list(
-            inspect.signature(student.forward).parameters.keys()
-        )
-        teacher_forward_params = list(
-            inspect.signature(teacher.forward).parameters.keys()
-        )
-        diff = [p for p in student_forward_params if p not in teacher_forward_params]
-        if diff:
-            raise RuntimeError(
-                "Teacher tokenizer cannot be used for student "
-                f"due to missing args: {diff}"
-            )
-        src_model = teacher
-    else:
-        src_model = student
-    return src_model.config._name_or_path
 
 
 def _parse_data_args(data_args):

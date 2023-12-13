@@ -17,7 +17,7 @@ from typing import Any
 from torch.nn import Module
 
 from sparseml.transformers.utils.helpers import TaskNames
-from sparseml.transformers.utils.sparse_auto_model import SparseAutoModel
+from sparseml.transformers.utils.model import SparseAutoModel
 
 
 __all__ = ["load_task_model"]

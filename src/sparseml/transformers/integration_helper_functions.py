@@ -18,27 +18,56 @@ from typing import Any, Union
 import torch
 from pydantic import Field
 
+from sparseml.transformers.utils.load_task_dataset import load_task_dataset
 from src.sparseml.integration_helper_functions import (
     IntegrationHelperFunctions,
     Integrations,
 )
-from src.sparseml.transformers.utils.create_model import (
-    create_model as create_transformers_model,
+from src.sparseml.transformers.utils.initializers import (
+    _parse_data_args,
+    initialize_config,
+    initialize_model,
+    initialize_tokenizer,
+    initialize_trainer,
+    resolve_sequence_length,
 )
 
 
 def create_model(source_path: Union[Path, str], **kwargs) -> torch.nn.Module:
     """
-    A contract to create a model from a source path
+    Create a model and the data loader from the source path
 
-    :param source_path: The path to the model
-    :return: The torch model
+    :param source_path: The path to the source code for the model
+    :param kwargs: Additional arguments to pass to the model creation
+    :return: The model and the validation dataset
     """
-    model, *_, validation_loader = create_transformers_model(
-        model_path=source_path, **kwargs
-    )
+    config_args = kwargs.get("config_args", {})
+    sequence_length = kwargs.get("sequence_length", None)
+    task = kwargs.get("task", None)
+    data_args = kwargs.get("data_args", {})
+
+    config = initialize_config(source_path, trust_remote_code=True, **config_args)
+    sequence_length = sequence_length or resolve_sequence_length(config)
+    tokenizer = initialize_tokenizer(source_path, sequence_length, task)
+    model = initialize_model(source_path, **kwargs)
+
+    data_args = _parse_data_args(data_args)
+    if data_args:
+        dataset = load_task_dataset(
+            task=task,
+            tokenizer=tokenizer,
+            data_args=data_args,
+            model=model,
+            config=config,
+        )
+        validation_dataset = dataset.get("validation")
+    else:
+        validation_dataset = None
+
+    model.train()
+    initialize_trainer(model, source_path, validation_dataset)
     model.eval()
-    return model, dict(validation_loader=validation_loader)
+    return model, validation_dataset
 
 
 @IntegrationHelperFunctions.register(name=Integrations.transformers.value)
