@@ -116,7 +116,7 @@ def one_shot(
     dataset = TransformersDataset.load_from_registry(
         dataset_name,
         model=model_path,
-        seqlen=sequence_length,
+        seqlen=sequence_length or model.seqlen,
         nsamples=num_samples,
         seed=0,
         split="train",
