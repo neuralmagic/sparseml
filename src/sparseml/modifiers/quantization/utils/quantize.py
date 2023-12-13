@@ -52,6 +52,8 @@ __all__ = [
     "add_input_activation_quant_wrappers",
     "add_output_activation_observers",
     "raise_if_torch_quantization_not_available",
+    "raise_if_already_quantized",
+    "is_module_quantized",
 ]
 
 
@@ -149,12 +151,15 @@ def set_quantization_schemes(
             continue
 
         if isinstance(submodule, torch_quantization.QuantWrapper):
+            # special case to catch QuantizableMatMul children
             if ignore and _match_submodule_name_or_type(
                 submodule.module, submodule_name, ignore
             ):
                 continue
 
         if is_qat_helper_module(submodule):
+            # ignore children of an already quantized module, if there is a clash it
+            # will have been caught in the parent
             continue
 
         # override default scheme if necessary
@@ -375,7 +380,11 @@ def raise_if_already_quantized(module_name: str, module: Module):
         )
 
 
-def is_module_quantized(module: Module):
+def is_module_quantized(module: Module) -> bool:
+    """
+    :param module: module to check for quantization
+    :return: True if the module is quantized, False otherwise
+    """
     if hasattr(module, "quantization_scheme") and isinstance(
         module.quantization_scheme, QuantizationScheme
     ):
