@@ -21,7 +21,8 @@ def test_integration_helper_functions():
     # import needed to register the object on the fly
     import sparseml.transformers.integration_helper_functions  # noqa F401
 
-    tranformers = IntegrationHelperFunctions.load_from_registry(
+    transformers = IntegrationHelperFunctions.load_from_registry(
         Integrations.transformers.value
     )
-    assert tranformers.create_model
+    assert transformers.create_model
+    assert transformers.create_dummy_inputs

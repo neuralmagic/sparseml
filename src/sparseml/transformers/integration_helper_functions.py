@@ -13,15 +13,19 @@
 # limitations under the License.
 
 from pathlib import Path
-from typing import Any, Union
+from typing import Any, Optional, Union
 
 import torch
 from pydantic import Field
+from transformers import AutoTokenizer
 
 from sparseml.transformers.utils.load_task_dataset import load_task_dataset
 from src.sparseml.integration_helper_functions import (
     IntegrationHelperFunctions,
     Integrations,
+)
+from src.sparseml.transformers.utils.helpers import (
+    create_dummy_inputs as create_dummy_inputs_from_tokenizer,
 )
 from src.sparseml.transformers.utils.initializers import (
     _parse_data_args,
@@ -70,6 +74,18 @@ def create_model(source_path: Union[Path, str], **kwargs) -> torch.nn.Module:
     return model, validation_dataset
 
 
+def create_dummy_inputs(
+    model: Any,
+    tokenizer: AutoTokenizer,
+    batch_size: int,
+    validation_dataloader: Optional[torch.utils.data.DataLoader] = None,
+) -> torch.Tensor:
+    if validation_dataloader is None:
+        create_dummy_inputs_from_tokenizer(model, tokenizer, batch_size)
+    return next(iter(validation_dataloader))
+
+
 @IntegrationHelperFunctions.register(name=Integrations.transformers.value)
 class Transformers(IntegrationHelperFunctions):
     create_model: Any = Field(default=create_model)
+    create_dummy_inputs: Any = Field(default=create_dummy_inputs)
