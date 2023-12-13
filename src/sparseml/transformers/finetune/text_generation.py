@@ -20,12 +20,9 @@
 
 import logging
 import os
-import random
-from typing import Tuple
 
 import datasets
 import transformers
-from datasets import Dataset
 from transformers import (
     AutoConfig,
     AutoTokenizer,
@@ -37,10 +34,9 @@ from transformers import (
 
 from sparseml.pytorch.model_load.helpers import apply_recipe_structure_to_model
 from sparseml.transformers.finetune import Trainer, TrainingArguments
-from sparseml.transformers.finetune.data import TextGenerationDataset
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
-from sparseml.transformers.finetune.data.data_helpers import make_dataset_splits
 from sparseml.transformers.finetune.model_args import ModelArguments
+from sparseml.transformers.finetune.runner import StageRunner
 from sparseml.transformers.utils import SparseAutoModel, get_shared_tokenizer_src
 from sparseml.transformers.utils.helpers import detect_last_checkpoint
 
@@ -203,18 +199,16 @@ def main(
     )
 
     # Load datasets
-    # TODO: will any of this cause problems with FSDP?
-    train_dataset, eval_dataset, predict_dataset = _load_split_datasets(
-        data_args=data_args,
+    stage_runner = StageRunner(
         model_args=model_args,
+        data_args=data_args,
         training_args=training_args,
-        tokenizer=tokenizer,
+        model=model,
+        teacher=teacher,
     )
-
-    # Log a few random samples from the training set:
-    if training_args.do_train:
-        for index in random.sample(range(len(train_dataset)), 3):
-            _LOGGER.info(f"Sample {index} of training set: {train_dataset[index]}.")
+    stage_runner.populate_datasets(tokenizer=tokenizer)
+    train_dataset = stage_runner.datasets["train"]  # TODO helper fn
+    eval_dataset = stage_runner.datasets["validation"]
 
     # Data collator will default to DataCollatorWithPadding when the tokenizer is
     # passed to Trainer, so we change it if we already did the padding.
@@ -240,6 +234,7 @@ def main(
         tokenizer=tokenizer,
         data_collator=data_collator,
     )
+    stage_runner.set_trainer(trainer)
 
     # Training
     if training_args.do_train:
@@ -248,101 +243,19 @@ def main(
             checkpoint = training_args.resume_from_checkpoint
         elif last_checkpoint is not None:
             checkpoint = last_checkpoint
-        train(checkpoint, training_args.output_dir, train_dataset, trainer)
+        stage_runner.train(checkpoint)
+
+    # One Shot
+    if training_args.do_oneshot:
+        stage_runner.oneshot()
 
     # Evaluation
     if training_args.do_eval:
-        evaluate(eval_dataset, trainer)
+        stage_runner.evaluate()
 
     # Prediction
     if training_args.do_predict:
-        predict(predict_dataset, trainer)
-
-
-def train(checkpoint: str, output_dir: str, train_dataset: Dataset, trainer: Trainer):
-    """
-    Run trainer's training loop on train_dataset, saving the resulting model to
-    output_dir
-
-    :param checkpoint: Optional checkpoint to resume from
-    :param output_dir: Where to output trained model and recipe
-    :param train_dataset: Dataset to run training on
-    :param trainer: Trainer object to run training with
-    """
-    train_result = trainer.train(resume_from_checkpoint=checkpoint)
-    metrics = train_result.metrics
-    metrics["train_samples"] = len(train_dataset)
-    trainer.log_metrics("train", metrics)
-    trainer.save_metrics("train", metrics)
-
-    # this includes saving the state, optimizer and scheduler
-    trainer.save_model()
-
-
-def evaluate(eval_dataset: Dataset, trainer: Trainer):
-    """
-    Run trainer's evaluation loop on eval_dataset, logging the desired metrics
-
-    :param eval_dataset: Dataset to run evaluation on
-    :param trainer: Trainer object to run evaluation with
-    """
-    _LOGGER.info("*** Evaluate ***")
-    metrics = trainer.evaluate(eval_dataset)
-
-    metrics["eval_samples"] = len(eval_dataset)
-    trainer.log_metrics("eval", metrics)
-    trainer.save_metrics("eval", metrics)
-
-
-def predict(predict_dataset: Dataset, trainer: Trainer):
-    """
-    Run trainer's prediction loop on predict_dataset, logging the desired metrics
-
-    :param eval_dataset: Dataset to run prediction on
-    :param trainer: Trainer object to run prediction with
-    """
-    _LOGGER.info("*** Predict ***")
-    results = trainer.predict(predict_dataset)
-    metrics = results.metrics
-
-    metrics["predict_samples"] = len(predict_dataset)
-    trainer.log_metrics("predict", metrics)
-    trainer.save_metrics("predict", metrics)
-
-
-def _load_split_datasets(
-    data_args: DataTrainingArguments,
-    model_args: ModelArguments,
-    training_args: TrainingArguments,
-    tokenizer: AutoTokenizer,
-) -> Tuple[Dataset, Dataset, Dataset]:
-    splits = data_args.splits
-    tokenized_datasets = {}
-    if data_args.splits is None:
-        splits = {"all": None}
-    for split_name, split_str in splits.items():
-        dataset_manager = TextGenerationDataset.load_from_registry(
-            data_args.dataset_name,
-            data_args=data_args,
-            split=split_str,
-            tokenizer=tokenizer,
-        )
-        raw_dataset = dataset_manager.get_raw_dataset(model_args.cache_dir)
-        tokenized_dataset = dataset_manager.tokenize_and_process(raw_dataset)
-        tokenized_datasets[split_name] = tokenized_dataset
-
-    tokenized_datasets = make_dataset_splits(
-        tokenized_datasets,
-        training_args.do_train,
-        training_args.do_eval,
-        training_args.do_predict,
-    )
-
-    train_dataset = tokenized_datasets.get("train")
-    eval_dataset = tokenized_datasets.get("validation")
-    predict_dataset = tokenized_datasets.get("test")
-
-    return train_dataset, eval_dataset, predict_dataset
+        stage_runner.predict()
 
 
 if __name__ == "__main__":

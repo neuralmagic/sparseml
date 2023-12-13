@@ -55,3 +55,7 @@ class TrainingArguments(HFTrainingArgs):
         default=None,
         metadata={"help": "Recipe arguments to be overwritten"},
     )
+    do_oneshot: Optional[bool] = field(
+        default=False,
+        metadata={"help": "Whether to run one-shot calibration"},
+    )
