@@ -1,4 +1,4 @@
-test_second_stage:
+test_stage:
   obcq_modifiers:
     SparseGPTModifier:
       sparsity: 0.7

@@ -69,6 +69,13 @@ class StageModifiers(ModifierInterface, BaseModel):
         """
         return all(mod.finalized for mod in self.modifiers)
 
+    @property
+    def unique_id(self) -> str:
+        """
+        :return: ID for stage containing the name and index
+        """
+        return self.group + "_" + str(self.index)
+
     def check_initialized(self):
         """
         Check if all of the stage modifiers have been initialized, and log a warning

@@ -484,20 +484,22 @@ class Recipe(RecipeBase):
                 for key, value in modifier.items()
             }
 
-        def _stage_to_dict(stage: List[Dict[str, Any]]):
-            # convert a list of stages to a dict of modifiers
+        def _stage_to_dict(stage: Dict[str, Any]):
+            # convert a stage to a dict of modifiers
             return {
                 modifier_group_name: _modifier_group_to_dict(modifier_group)
-                for stage_modifiers in stage
-                for modifier_group_name, modifier_group in stage_modifiers[
-                    "modifiers"
-                ].items()
+                for modifier_group_name, modifier_group in stage["modifiers"].items()
             }
 
-        return {
-            stage_name: _stage_to_dict(stage=stage)
-            for stage_name, stage in self.dict()["stages"].items()
-        }
+        final_dict = {}
+        for stage_name, stages in self.dict()["stages"].items():
+            if len(stages) == 1:
+                final_dict[stage_name] = _stage_to_dict(stages[0])
+            else:
+                for idx, stage in enumerate(stages):
+                    final_dict[stage_name + "_" + str(idx)] = _stage_to_dict(stage)
+
+        return final_dict
 
 
 @dataclass

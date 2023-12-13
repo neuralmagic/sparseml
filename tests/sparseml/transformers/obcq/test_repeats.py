@@ -16,6 +16,7 @@ import math
 
 import pytest
 import torch
+import yaml
 
 import sparseml.core.session as session_manager
 from sparseml.pytorch.utils.helpers import tensor_sparsity
@@ -44,7 +45,7 @@ def test_consecutive_runs(tmp_path):
         num_samples=16,
         device=device,
         recipe_file=first_recipe,
-        deploy_dir=tmp_path,
+        deploy_dir=tmp_path / "test1",
         do_save=True,
     )
     layer_0_sparse = tensor_sparsity(
@@ -57,16 +58,17 @@ def test_consecutive_runs(tmp_path):
     session_recipe = session.lifecycle.recipe_container.compiled_recipe
     stages = [stage.group for stage in session_recipe.stages]
     assert len(stages) == 1
-    assert "test" in stages
     session.reset()
 
     # reload saved model and up sparsity to 0.7
     second_tiny_model = one_shot(
-        model_path=tmp_path / "obcq_deployment",
+        model_path=tmp_path / "test1" / "obcq_deployment",
         dataset_name="open_platypus",
         num_samples=16,
         device=device,
         recipe_file=second_recipe,
+        deploy_dir=tmp_path / "test2",
+        do_save=True,
     )
     layer_0_sparse = tensor_sparsity(
         second_tiny_model.model.layers[0].self_attn.k_proj.module.weight
@@ -78,8 +80,13 @@ def test_consecutive_runs(tmp_path):
     session_recipe = session.lifecycle.recipe_container.compiled_recipe
     stages = [stage.group for stage in session_recipe.stages]
     assert len(stages) == 2
-    assert "test" in stages
-    assert "test_second" in stages
+
+    recipe_path = tmp_path / "test2" / "obcq_deployment" / "recipe.yaml"
+    recipe_data = yaml.safe_load(recipe_path.read_text())
+    stage_keys = recipe_data.keys()
+    assert len(stage_keys) == 2
+    assert "test_stage_0" in stage_keys
+    assert "test_stage_1" in stage_keys
 
 
 def test_fail_on_repeated_quant(tmp_path):
