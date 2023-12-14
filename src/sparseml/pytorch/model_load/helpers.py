@@ -33,6 +33,8 @@ __all__ = [
     "reload_model_state",
     "reload_model_from_checkpoint",
     "save_model_and_recipe",
+    "fallback_to_cpu",
+    "parse_dtype",
 ]
 
 _LOGGER = logging.getLogger(__name__)
@@ -182,11 +184,11 @@ def save_model_and_recipe(
     tokenizer: Optional[Any] = None,
 ):
     """
-    Save a model and the loaded recipe to file
+    Save a model, tokenizer and the currently loaded recipe to file
 
     :param model: pytorch model to save
-    :param tokenizer: model tokenizer to save
     :param save_path: path to save output to
+    :param tokenizer: model tokenizer to save
     """
     model.save_pretrained(save_path)
     if tokenizer is not None:
@@ -203,7 +205,7 @@ def save_model_and_recipe(
 
 def fallback_to_cpu(device: str) -> str:
     """
-    Changes device id if cuda is requested and not available by falling back to cpu
+    Takes in a device string and forces it to cpu if cuda is not available
 
     :param device: device id to check
     :return: device modified for CUDA status

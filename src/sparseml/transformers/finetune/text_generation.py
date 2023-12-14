@@ -171,7 +171,7 @@ def main(
         "cache_dir": model_args.cache_dir,
         "revision": model_args.model_revision,
         "use_auth_token": True if model_args.use_auth_token else None,
-        "model_dtype": parse_dtype(model_args.precision),
+        "torch_dtype": parse_dtype(model_args.precision),
     }
     teacher_kwargs = {
         "cache_dir": model_args.cache_dir,
