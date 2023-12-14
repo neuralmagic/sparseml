@@ -13,20 +13,18 @@
 # limitations under the License.
 
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Callable, Dict, Union
 
 import torch
 from pydantic import Field
 from transformers import AutoTokenizer
 
+from sparseml.transformers.sparsification.trainer import Trainer
 from sparseml.transformers.utils.load_task_dataset import load_task_dataset
 from sparseml.transformers.utils.optimizations import apply_kv_cache_injection
 from src.sparseml.integration_helper_functions import (
     IntegrationHelperFunctions,
     Integrations,
-)
-from src.sparseml.transformers.utils.helpers import (
-    create_dummy_inputs as create_dummy_inputs_from_tokenizer,
 )
 from src.sparseml.transformers.utils.initializers import (
     _parse_data_args,
@@ -66,24 +64,28 @@ def create_model(source_path: Union[Path, str], **kwargs) -> torch.nn.Module:
             config=config,
         )
         validation_dataset = dataset.get("validation")
-    else:
-        validation_dataset = None
 
     model.train()
-    initialize_trainer(model, source_path, validation_dataset)
+    trainer = initialize_trainer(model, source_path, validation_dataset)
     model.eval()
-    return model, validation_dataset
+    return model, trainer
 
 
+# TODO: If this idea works, we can remove create_dummy_inputs from the transformers
 def create_dummy_inputs(
-    model: Any,
+    trainer: Trainer,
     tokenizer: AutoTokenizer,
-    batch_size: int,
-    validation_dataloader: Optional[torch.utils.data.DataLoader] = None,
 ) -> torch.Tensor:
-    if validation_dataloader is None:
-        create_dummy_inputs_from_tokenizer(model, tokenizer, batch_size)
-    return next(iter(validation_dataloader))
+
+    data_loader = trainer.get_eval_dataloader()
+
+    if not data_loader and not tokenizer:
+        raise ValueError(
+            "Tokenizer is needed to generate fake sample inputs when the trainer is "
+            "not initialized with an eval dataset"
+        )
+    data_loader = trainer._get_fake_dataloader(num_samples=1, tokenizer=tokenizer)
+    return next(iter(data_loader))
 
 
 transformers_graph_optimizations = {"kv_cache_injection": apply_kv_cache_injection}
