@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+import logging
 import os
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
@@ -29,6 +30,8 @@ from sparseml.core.recipe.stage import RecipeStage
 
 
 __all__ = ["Recipe", "RecipeTuple"]
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class Recipe(RecipeBase):
@@ -72,8 +75,15 @@ class Recipe(RecipeBase):
                 raise NotImplementedError("Using SparseZoo stubs is not yet supported")
             else:
                 # assume it's a string
+                _LOGGER.warning(
+                    "Could not process input as a file path or zoo stub, "
+                    "attempting to process it as a string"
+                )
+                _LOGGER.warning(f"Input string: {path}")
                 obj = _load_json_or_yaml_string(path)
                 return Recipe.parse_obj(obj)
+        else:
+            _LOGGER.info(f"Loading recipe from path {path}")
 
         with open(path, "r") as file:
             content = file.read().strip()
