@@ -1,6 +1,6 @@
 metadata:
   target_model:
-    layer_prefix: "decoder"
+    layer_prefix: "model.decoder.layers"
     architecture: "opt"
 
 test_stage:
