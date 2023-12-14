@@ -68,9 +68,18 @@ def run_eval(**kwargs):
     main(model_args, data_args, training_args)
 
 
+def run_oneshot(**kwargs):
+    """
+    CLI entrypoint for running oneshot calibration
+    """
+    model_args, data_args, training_args = parse_args(**kwargs)
+    training_args.do_oneshot = True
+    main(model_args, data_args, training_args)
+
+
 def run_general(**kwargs):
     """
-    CLI entrypoint for any of training, eval or predict
+    CLI entrypoint for any of training, eval, predict or oneshot
     """
     model_args, data_args, training_args = parse_args(**kwargs)
     main(model_args, data_args, training_args)
@@ -106,12 +115,12 @@ def main(
     Lifecycle:
         - get_last_checkpoint() [Optional]
         - AutoModel.text_generation_from_pretrained()
-        - AutoTokenizer.from_pretrained()
-        - TextGenerationDataset.load_from_registry()
+        - AutoTokenizer.from_pretrained_distil()
+        - StageRunner.populate_datasets()
         - Trainer()
             - SessionMixIn()
             - HFTransformersTrainer()
-        - train() and/or evaluate() and/or predict()
+        - StageRunner.train() and/or evaluate() and/or predict() and/or oneshot()
 
     :param model_args: Arguments pertaining to which model/config/tokenizer we are
     going to fine-tune from
@@ -204,11 +213,10 @@ def main(
         data_args=data_args,
         training_args=training_args,
         model=model,
-        teacher=teacher,
     )
     stage_runner.populate_datasets(tokenizer=tokenizer)
-    train_dataset = stage_runner.datasets["train"]  # TODO helper fn
-    eval_dataset = stage_runner.datasets["validation"]
+    train_dataset = stage_runner.get_dataset_split("train")
+    eval_dataset = stage_runner.get_dataset_split("validation")
 
     # Data collator will default to DataCollatorWithPadding when the tokenizer is
     # passed to Trainer, so we change it if we already did the padding.

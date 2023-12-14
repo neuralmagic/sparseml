@@ -32,6 +32,7 @@ __all__ = [
     "apply_recipe_structure_to_model",
     "reload_model_state",
     "reload_model_from_checkpoint",
+    "save_model_and_recipe",
 ]
 
 _LOGGER = logging.getLogger(__name__)
@@ -173,3 +174,44 @@ def reload_model_from_checkpoint(model: Module, checkpoint: Optional[str] = None
     # reload the state dict for the model from the checkpoint
     if reload_model_state(model, checkpoint, orig_state_dict):
         _LOGGER.info(f"Reloaded model state from checkpoint {checkpoint}")
+
+
+def save_model_and_recipe(
+    model: Module,
+    save_path: str,
+    tokenizer: Optional[Any] = None,
+):
+    """
+    Save a model and the loaded recipe to file
+
+    :param model: pytorch model to save
+    :param tokenizer: model tokenizer to save
+    :param save_path: path to save output to
+    """
+    model.save_pretrained(save_path)
+    if tokenizer is not None:
+        tokenizer.save_pretrained(save_path)
+
+    _LOGGER.info("Saving output to {}".format(os.path.abspath(save_path)))
+
+    recipe_path = os.path.join(save_path, RECIPE_FILE_NAME)
+    session = session_manager.active_session()
+    recipe_yaml_str = session.get_serialized_recipe()
+    with open(recipe_path, "w") as fp:
+        fp.write(recipe_yaml_str)
+
+
+def fallback_to_cpu(device: str) -> str:
+    """
+    Changes device id if cuda is requested and not available by falling back to cpu
+
+    :param device: device id to check
+    :return: device modified for CUDA status
+    """
+    if "cuda" in device and not torch.cuda.is_available():
+        _LOGGER.warning(
+            f"Requested {device} but CUDA is not available, falling back to CPU"
+        )
+        return "cpu"
+
+    return device

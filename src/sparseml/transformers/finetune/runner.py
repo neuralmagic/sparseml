@@ -13,14 +13,16 @@
 # limitations under the License.
 
 import logging
-from typing import Optional
+from typing import List
 
+import torch
 from torch.nn import Module
-from torch.utils.data import DataLoader, RandomSampler
+from torch.utils.data import DataLoader, Dataset, RandomSampler
 from transformers import AutoTokenizer
 
 import sparseml.core.session as session_manager
 from sparseml.core.framework import Framework
+from sparseml.pytorch.model_load.helpers import fallback_to_cpu, save_model_and_recipe
 from sparseml.transformers.finetune import Trainer, TrainingArguments
 from sparseml.transformers.finetune.data import TextGenerationDataset
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
@@ -32,13 +34,28 @@ _LOGGER: logging.Logger = logging.getLogger(__name__)
 
 
 class StageRunner:
+    """
+    Launcher class for train, eval and one_shot flows. Manages data splits for each
+    flow and configurations. In the future this class will also handle alternating
+    between the different flows
+
+    LifeCycle
+        - populate_datasets()
+        - set_trainer()
+        - train() / evaluate() / predict()
+
+    :param model_args: Arguments pertaining to model/config/tokenizer
+    :param data_args: Arguments pertaining to what data to use for different flows
+    :param training_args: Arguments pertaining to training loop configuration
+    :model: unwrapped model to run flows on
+    """
+
     def __init__(
         self,
         data_args: "DataTrainingArguments",
         model_args: "ModelArguments",
         training_args: "TrainingArguments",
         model: Module,
-        teacher: Optional[Module] = None,
     ):
         self._data_args = data_args
         self._model_args = model_args
@@ -46,10 +63,16 @@ class StageRunner:
 
         self.datasets = {}
         self.model = model
-        self.teacher = teacher
         self.trainer = None
+        self.tokenizer = None
 
     def populate_datasets(self, tokenizer: "AutoTokenizer"):
+        """
+        Loads datasets for each flow based on data_args, stores a Dataset for each
+        enabled flow in self.datasets
+
+        :param tokenizer: tokenizer to use for dataset tokenization
+        """
         splits = self._data_args.splits
         tokenized_datasets = {}
         if self._data_args.splits is None:
@@ -72,12 +95,37 @@ class StageRunner:
             self._training_args.do_predict,
             self._training_args.do_oneshot,
         )
+        self.tokenizer = tokenizer
 
     def set_trainer(self, trainer: Trainer):
+        """
+        :param trainer: update trainer
+        """
         self.trainer = trainer
 
-    def get_oneshot_dataloader(self) -> DataLoader:
-        oneshot_dataset = self.datasets["calibration"]
+    def set_model(self, model: Module):
+        """
+        :param model: update pytorch model
+        """
+        self.model = model
+
+    def get_dataset_split(self, split_name: str) -> Dataset:
+        """
+        Retrieve a dataset split by name
+
+        :param split_name: name of dataset split to return
+        :return: dataset split labeled by split_name
+        """
+        return self.datasets.get(split_name)
+
+    def format_calibration_data(self) -> List[torch.Tensor]:
+        """
+        Creates a dataloader out of the calibration dataset split, trimming it to
+        the desired number of calibration samples
+
+        :return: list of trimmed calibration data tensors
+        """
+        oneshot_dataset = self.get_dataset_split("calibration")
 
         dataloader_params = {
             "batch_size": 1,
@@ -85,22 +133,34 @@ class StageRunner:
             "collate_fn": self.trainer.data_collator,
         }
 
-        return DataLoader(oneshot_dataset, **dataloader_params)
+        calib_dataloader = DataLoader(oneshot_dataset, **dataloader_params)
+        parsed_calib_data = [inp["input_ids"] for inp in calib_dataloader]
+        return parsed_calib_data[
+            : min(self._data_args.num_calibration_samples, len(parsed_calib_data))
+        ]
 
     def one_shot(self):
+        """
+        Run oneshot calibration on the active model
+        """
         _LOGGER.info("*** One Shot ***")
 
-        calib_dataloader = self.get_oneshot_dataloader()
-        calib_data = [inp["input_ids"] for inp in calib_dataloader]
-        calib_data = calib_data[: self._data_args.num_calibration_samples]
+        calib_data = self.format_calibration_data()
+        oneshot_device = fallback_to_cpu(self._training_args.oneshot_device)
         session_manager.apply(
             framework=Framework.pytorch,
             recipe=self._training_args.recipe,
             model=self.model,
             calib_data=calib_data,
             start=-1,
-            device="cuda:0",  # TODO: don't hardcode
+            device=oneshot_device,
             copy_data=False,
+        )
+
+        save_model_and_recipe(
+            model=self.model,
+            save_path=self._training_args.output_dir,
+            tokenizer=self.tokenizer,
         )
 
     def train(self, checkpoint: str):
@@ -112,7 +172,7 @@ class StageRunner:
         """
         train_result = self.trainer.train(resume_from_checkpoint=checkpoint)
         metrics = train_result.metrics
-        metrics["train_samples"] = len(self.datasets["train"])
+        metrics["train_samples"] = len(self.get_dataset_split("train"))
         self.trainer.log_metrics("train", metrics)
         self.trainer.save_metrics("train", metrics)
 
@@ -124,9 +184,9 @@ class StageRunner:
         Run trainer's evaluation loop on eval_dataset, logging the desired metrics
         """
         _LOGGER.info("*** Evaluate ***")
-        metrics = self.trainer.evaluate(self.datasets["validation"])
+        metrics = self.trainer.evaluate(self.get_dataset_split("validation"))
 
-        metrics["eval_samples"] = len(self.datasets["validation"])
+        metrics["eval_samples"] = len(self.get_dataset_split("validation"))
         self.trainer.log_metrics("eval", metrics)
         self.trainer.save_metrics("eval", metrics)
 
