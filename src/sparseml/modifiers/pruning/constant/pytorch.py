@@ -14,9 +14,11 @@
 
 from typing import Dict
 
+import torch
+
 from sparseml.core import Event, EventType, ModelParameterizedLayer, State
 from sparseml.modifiers.pruning.constant.base import ConstantPruningModifier
-from sparseml.modifiers.pruning.utils.pytorch import LayerParamMasking
+from sparseml.modifiers.pruning.utils.pytorch import LayerParamMasking, param_mask_name
 
 
 class ConstantPruningModifierPyTorch(ConstantPruningModifier, LayerParamMasking):
@@ -59,17 +61,19 @@ class ConstantPruningModifierPyTorch(ConstantPruningModifier, LayerParamMasking)
 
         self.enable_masks()
 
+    @torch.no_grad()
     def on_update(self, state: State, event: Event, **kwargs):
         if self._use_hooks:
             # hooks are used to update, so nothing to do here
             return
+        if event.type_ == EventType.OPTIM_POST_STEP:
 
-        if event.type_ == EventType.OPTIM_PRE_STEP:
-            for layer_param_name, _ in self.parameterized_layers_.items():
-                self.apply_mask_gradient(layer_param_name)
-        elif event.type_ == EventType.OPTIM_POST_STEP:
-            for layer_param_name, _ in self.parameterized_layers_.items():
-                self.apply_mask_weight(layer_param_name)
+            def apply_masks(module):
+                mask_name = param_mask_name()
+                if hasattr(module, mask_name):
+                    module.weight *= getattr(module, mask_name)
+
+            state.model.model.apply(apply_masks)
 
     def on_end(self, state: State, event: Event, **kwargs):
         self.disable_masks()
