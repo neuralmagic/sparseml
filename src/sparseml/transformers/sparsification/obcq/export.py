@@ -296,6 +296,8 @@ def export_transformer_to_onnx(
         apply_recipe_structure_to_model(
             model=model, recipe_path=recipe_path, model_path=model_path
         )
+    else:
+        _LOGGER.warning(f"No input recipe {RECIPE_FILE_NAME} found in {model_path}.")
 
     # create fake model input
     inputs = tokenizer(
