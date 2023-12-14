@@ -29,8 +29,6 @@ from torch.nn import Module
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader, Dataset
 
-from sparseml.exporters import ExportTargets
-from sparseml.exporters.onnx_to_deepsparse import ONNXToDeepsparse
 from sparseml.optim.manager import BaseManager
 from sparseml.pytorch.datasets import DatasetRegistry
 from sparseml.pytorch.datasets.image_classification.ffcv_dataset import (
@@ -38,9 +36,7 @@ from sparseml.pytorch.datasets.image_classification.ffcv_dataset import (
 )
 from sparseml.pytorch.image_classification.utils.constants import AVAILABLE_DATASETS
 from sparseml.pytorch.models import ModelRegistry
-from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
 from sparseml.pytorch.optim import ScheduledModifierManager
-from sparseml.pytorch.torch_to_onnx_exporter import TorchToONNX
 from sparseml.pytorch.utils import (
     DEFAULT_LOSS_KEY,
     CrossEntropyLossWrapper,
@@ -79,43 +75,6 @@ __all__ = [
     "save_zoo_directory",
     "label_to_class_mapping_from_dataset",
 ]
-
-
-def export_model(
-    model: torch.nn.Module,
-    sample_data: torch.Tensor,
-    target_path: Union[Path, str],
-    onnx_model_name: str,
-    deployment_target: str = "deepsparse",
-    opset: int = TORCH_DEFAULT_ONNX_OPSET,
-    **kwargs,
-) -> str:
-    """
-    Exports the torch model to the deployment target
-
-    :param model: The torch model to export
-    :param sample_data: The sample data to use for the export
-    :param target_path: The path to export the model to
-    :param onnx_model_name: The name to save  the exported ONNX model as
-    :param deployment_target: The deployment target to export to. Defaults to deepsparse
-    :param opset: The opset to use for the export. Defaults to TORCH_DEFAULT_ONNX_OPSET
-    :param kwargs: Additional kwargs to pass to the TorchToONNX exporter
-    :return: The path to the exported model
-    """
-
-    model.eval()
-
-    exporter = TorchToONNX(sample_batch=sample_data, opset=opset, **kwargs)
-    exporter.export(model, os.path.join(target_path, onnx_model_name))
-    if deployment_target == ExportTargets.deepsparse.value:
-        exporter = ONNXToDeepsparse()
-        model = exporter.load_model(os.path.join(target_path, onnx_model_name))
-        exporter.export(model, os.path.join(target_path, onnx_model_name))
-    if deployment_target == ExportTargets.onnx.value:
-        pass
-    else:
-        raise ValueError(f"Unsupported deployment target: {deployment_target}")
-    return os.path.join(target_path, onnx_model_name)
 
 
 def save_zoo_directory(
@@ -387,25 +346,19 @@ def get_dataset_and_dataloader(
 # Model creation Helpers
 def create_model(
     checkpoint_path: str,
-    dataset_name: Optional[str] = None,
-    dataset_path: Optional[str] = None,
-    num_classes: Optional[int] = None,
+    num_classes: int,
     recipe_path: Optional[str] = None,
     arch_key: Optional[str] = None,
     pretrained: Union[bool, str] = False,
     pretrained_dataset: Optional[str] = None,
     one_shot: Optional[str] = None,
-    image_size: int = 224,
     local_rank: int = -1,
-    **model_kwargs,
+    model_kwargs: Optional[Dict[str, Any]] = None,
+    **kwargs,
 ) -> Tuple[Module, str, str]:
     """
     :param checkpoint_path: Path to the checkpoint to load. `zoo` for
         downloading weights with respect to a SparseZoo recipe
-    :param dataset_name: The name of the dataset to use for model creation.
-        Defaults to `None`
-    :param dataset_path: The path to the dataset to use for model creation.
-        Defaults to `None`
     :param num_classes: Integer representing the number of output classes
     :param recipe_path: Path or SparseZoo stub to the recipe for downloading,
         respective model. Defaults to `None`
@@ -417,36 +370,12 @@ def create_model(
         None
     :param one_shot: The recipe to be applied in one-shot manner,
         before exporting. Defaults to None
-    :param image_size: The image size to use for inference of num_classes
-        (in case num_classes is None) . Defaults to 224
     :param local_rank: The local rank of the process. Defaults to -1
     :param model_kwargs: Additional keyword arguments to pass to the model
     :returns: A tuple containing the mode, the model's arch_key, and the
         checkpoint path
     """
-    _validate_dataset_num_classes(
-        dataset_path=dataset_path, dataset=dataset_name, num_classes=num_classes
-    )
-
-    if num_classes is None:
-        val_dataset, _ = get_dataset_and_dataloader(
-            dataset_name=dataset_name,
-            dataset_path=dataset_path,
-            batch_size=1,
-            image_size=image_size,
-            training=False,
-            loader_num_workers=1,
-            loader_pin_memory=False,
-            max_samples=1,
-        )
-
-        num_classes = infer_num_classes(
-            train_dataset=None,
-            val_dataset=val_dataset,
-            dataset=dataset_name,
-            model_kwargs=model_kwargs,
-        )
-
+    model_kwargs = model_kwargs or {}
     with torch_distributed_zero_first(local_rank):
         # only download once locally
         if checkpoint_path and checkpoint_path.startswith("zoo"):
@@ -487,7 +416,7 @@ def create_model(
         if one_shot is not None:
             ScheduledModifierManager.from_yaml(file_path=one_shot).apply(module=model)
 
-        return model, arch_key, checkpoint_path, val_dataset
+        return model, arch_key, checkpoint_path
 
 
 def infer_num_classes(
@@ -738,7 +667,8 @@ def is_image_classification_model(source_path: Union[Path, str]) -> bool:
     :param source_path: The path to the model
     :return: Whether the model is an image classification model or not
     """
-    if not os.isfile(source_path):
+
+    if not os.path.isfile(source_path):
         checkpoint_path = os.path.join(source_path, "model.pth")
     else:
         checkpoint_path = source_path

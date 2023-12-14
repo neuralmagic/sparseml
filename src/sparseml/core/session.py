@@ -269,6 +269,13 @@ class SparseSession:
         """
         self._lifecycle.reset()
 
+    def get_serialized_recipe(self) -> str:
+        """
+        :return: serialized string of the current compiled recipe
+        """
+        recipe = self.lifecycle.recipe_container.compiled_recipe
+        return recipe.yaml()
+
 
 _global_session = SparseSession()
 _local_storage = threading.local()

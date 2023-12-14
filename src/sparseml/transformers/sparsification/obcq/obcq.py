@@ -25,7 +25,10 @@ from transformers import AutoConfig
 import sparseml.core.session as session_manager
 from sparseml.core.framework import Framework
 from sparseml.modifiers.obcq.utils.helpers import ppl_eval_general
-from sparseml.optim.helpers import load_recipe_yaml_str
+from sparseml.pytorch.model_load.helpers import (
+    RECIPE_FILE_NAME,
+    apply_recipe_structure_to_model,
+)
 from sparseml.transformers.data import TransformersDataset
 from sparseml.transformers.sparsification.obcq.utils.helpers import (
     llama_forward,
@@ -94,7 +97,13 @@ def one_shot(
         model_loader_fn = SparseCausalLM.auto_model_from_pretrained
         forward_fn = llama_forward
     else:
-        raise ValueError(f"model_path={model_path} should be one of {SUPPORTED_MODELS}")
+        _LOGGER.warning(
+            f"A supported model type({SUPPORTED_MODELS}) could not be "
+            f"parsed from model_path={model_path}. Defaulting to "
+            "AutoModelForCausalLM loading. "
+        )
+        model_loader_fn = SparseCausalLM.auto_model_from_pretrained
+        forward_fn = llama_forward
     torch_dtype = _parse_dtype(precision)
     model = model_loader_fn(
         model_path, sequence_length=sequence_length, torch_dtype=torch_dtype
@@ -107,7 +116,7 @@ def one_shot(
     dataset = TransformersDataset.load_from_registry(
         dataset_name,
         model=model_path,
-        seqlen=sequence_length,
+        seqlen=sequence_length or model.seqlen,
         nsamples=num_samples,
         seed=0,
         split="train",
@@ -115,8 +124,16 @@ def one_shot(
     calibration_data = dataset.loader
     tokenizer = dataset.tokenizer
 
+    # create session and initialize any structure from input model recipe
     session_manager.create_session()
     session = session_manager.active_session()
+    input_recipe_path = os.path.join(model_path, RECIPE_FILE_NAME)
+    if os.path.exists(input_recipe_path):
+        apply_recipe_structure_to_model(
+            model=model, recipe_path=input_recipe_path, model_path=model_path
+        )
+
+    # launch one shot
     session.apply(
         framework=Framework.pytorch,
         recipe=recipe_file,
@@ -128,7 +145,7 @@ def one_shot(
     )
 
     if do_save:
-        _save(model, tokenizer, deploy_dir, recipe_file)
+        _save(model, tokenizer, deploy_dir)
     if eval_data:
         dataset = TransformersDataset.load_from_registry(
             eval_data,
@@ -159,14 +176,17 @@ def _parse_dtype(dtype_arg):
     return dtype
 
 
-def _save(model, tokenizer, save_path, recipe_path):
+def _save(model, tokenizer, save_path):
     model.save_pretrained(save_path)
     tokenizer.save_pretrained(save_path)
 
     _LOGGER.info("Saving output to {}".format(os.path.abspath(save_path)))
-    recipe_output_path = os.path.join(save_path, "recipe.yaml")
-    with open(recipe_output_path, "w") as fp:
-        fp.write(load_recipe_yaml_str(recipe_path))
+
+    recipe_path = os.path.join(save_path, RECIPE_FILE_NAME)
+    session = session_manager.active_session()
+    recipe_yaml_str = session.get_serialized_recipe()
+    with open(recipe_path, "w") as fp:
+        fp.write(recipe_yaml_str)
 
 
 def _fallback_to_cpu(device):

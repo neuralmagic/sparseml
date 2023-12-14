@@ -35,11 +35,11 @@ from transformers import (
     set_seed,
 )
 
+from sparseml.pytorch.model_load.helpers import apply_recipe_structure_to_model
 from sparseml.transformers.finetune import Trainer, TrainingArguments
 from sparseml.transformers.finetune.data import TextGenerationDataset
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
 from sparseml.transformers.finetune.data.data_helpers import make_dataset_splits
-from sparseml.transformers.finetune.helpers import apply_recipe_structure_to_model
 from sparseml.transformers.finetune.model_args import ModelArguments
 from sparseml.transformers.utils import SparseAutoModel, get_shared_tokenizer_src
 from sparseml.transformers.utils.helpers import detect_last_checkpoint
