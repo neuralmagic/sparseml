@@ -77,13 +77,13 @@ class Recipe(RecipeBase):
                 # assume it's a string
                 _LOGGER.warning(
                     "Could not process input as a file path or zoo stub, "
-                    "attempting to process it as a string"
+                    "attempting to process it as a string."
                 )
                 _LOGGER.warning(f"Input string: {path}")
                 obj = _load_json_or_yaml_string(path)
                 return Recipe.parse_obj(obj)
         else:
-            _LOGGER.info(f"Loading recipe from path {path}")
+            _LOGGER.info(f"Loading recipe from file {path}")
 
         with open(path, "r") as file:
             content = file.read().strip()
