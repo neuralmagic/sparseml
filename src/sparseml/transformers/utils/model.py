@@ -262,7 +262,6 @@ class SparseAutoModel:
 
         kwargs["config"].is_decoder = True
         kwargs["config"].use_past = False
-        print(kwargs["config"].use_cache)
 
         model = AutoModelForCausalLM.from_pretrained(
             model_name_or_path,
