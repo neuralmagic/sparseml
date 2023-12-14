@@ -16,17 +16,13 @@
 Helper variables and functions for integrating SparseML with huggingface/transformers
 flows
 """
-import collections
-import inspect
+
 import logging
 import os
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Optional, Union
 
-import numpy
-from transformers import AutoTokenizer
-from transformers.tokenization_utils_base import PaddingStrategy
 from transformers.trainer_utils import get_last_checkpoint
 
 from sparsezoo import setup_model
@@ -40,7 +36,6 @@ __all__ = [
     "save_zoo_directory",
     "detect_last_checkpoint",
     "TaskNames",
-    "create_dummy_inputs",
 ]
 
 
@@ -80,66 +75,6 @@ def is_transformer_model(source_path: Union[Path, str]) -> bool:
         raise ValueError(f"Path {source_path} is not a valid directory")
     expected_files = MANDATORY_DEPLOYMENT_FILES.difference({MODEL_ONNX_NAME})
     return expected_files.issubset(os.listdir(source_path))
-
-
-def create_dummy_inputs(
-    model: Any, tokenizer: AutoTokenizer, batch_size: int = 1, type: str = "pt"
-) -> Dict[str, Union["torch.Tensor", numpy.ndarray]]:  # noqa 821
-    """
-    Create dummy inputs for the model to be exported to ONNX.
-    The inputs are created by the tokenizer and then rearranged to match the order
-    of inputs expected by the model's forward function.
-
-    :param model: The pytorch model
-    :param tokenizer: The tokenizer used to create the inputs
-    :param batch_size: The batch size of the inputs
-    :param type: The type of the inputs, either "pt" for pytorch tensors or "np" for
-        numpy arrays
-    :return: The dummy inputs as a dictionary of {input_name: input_value}
-    """
-    if type not in ["pt", "np"]:
-        raise ValueError(f"Type of inputs must be one of ['pt', 'np'], got {type}")
-
-    if not hasattr(model, "forward"):
-        raise ValueError(
-            f"Model: {model} is expected to have a forward function, but it does not"
-        )
-
-    inputs: Dict[str, Union["torch.Tensor", numpy.ndarray]] = tokenizer(  # noqa 821
-        "", return_tensors="pt", padding=PaddingStrategy.MAX_LENGTH.value
-    ).data
-
-    # Rearrange inputs' keys to match those defined by model forward function, which
-    # defines how the order of inputs is determined in the exported model
-    forward_args_spec = inspect.getfullargspec(model.__class__.forward)
-
-    # Drop inputs that were added by the tokenizer and are not expected by the model
-    dropped = [
-        input_key
-        for input_key in inputs.keys()
-        if input_key not in forward_args_spec.args
-    ]
-    if dropped:
-        _LOGGER.warning(
-            "The following inputs were not present in the model forward function "
-            f"and therefore dropped from ONNX export: {dropped}"
-        )
-
-    # Rearrange inputs so that they all have shape (batch_size, tokenizer.max_length)
-    inputs = collections.OrderedDict(
-        [
-            (
-                func_input_arg_name,
-                inputs[func_input_arg_name][0].reshape(
-                    batch_size, tokenizer.model_max_length
-                ),
-            )
-            for func_input_arg_name in forward_args_spec.args
-            if func_input_arg_name in inputs
-        ]
-    )
-
-    return inputs
 
 
 def save_zoo_directory(

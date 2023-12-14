@@ -57,15 +57,22 @@ def resolve_integration(
     from sparseml.pytorch.image_classification.utils.helpers import (
         is_image_classification_model,
     )
+    from sparseml.transformers.utils.helpers import is_transformer_model
 
     if (
         integration == Integrations.image_classification.value
         or is_image_classification_model(source_path)
     ):
-        # import to register the image_classification integration helper functions
         import sparseml.pytorch.image_classification.integration_helper_functions  # noqa F401
 
         return Integrations.image_classification.value
+
+    if integration == Integrations.transformers.value or is_transformer_model(
+        source_path
+    ):
+        import sparseml.transformers.integration_helper_functions  # noqa F401
+
+        return Integrations.transformers.value
     else:
         raise ValueError(
             f"Could not infer integration from source_path:\n{source_path}\n"
@@ -82,14 +89,12 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
     integration.
     """
 
-    create_model: Optional[
-        Callable[
-            Tuple[Union[str, Path], Optional[int], str, Optional[Dict[str, Any]]],
-            Tuple[
-                "torch.nn.Module",  # noqa F821
-                Optional["torch.utils.data.Dataloader"],  # noqa F821
-            ],
-        ]
+    create_model: Callable[
+        Tuple[Union[str, Path], Optional[int], str, Optional[Dict[str, Any]]],
+        Tuple[
+            "torch.nn.Module",  # noqa F821
+            Optional[Dict[str, Any]],
+        ],
     ] = Field(
         description="A function that takes: "
         "- a source path to a PyTorch model "
@@ -98,20 +103,11 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
         "- (optionally) a dictionary of additional arguments"
         "and returns: "
         "- a (sparse) PyTorch model "
-        "- (optionally) a data loader "
+        "- (optionally) a dictionary of auxiliary items"
     )
-    create_dummy_input: Optional[
-        Callable[
-            Tuple[
-                Optional["torch.utils.data.Dataloader"],  # noqa F821
-                Optional[Dict[str, Any]],
-            ],
-            "torch.Tensor",  # noqa F821
-        ]
-    ] = Field(
+    create_dummy_input: Callable[..., "torch.Tensor"] = Field(  # noqa F821
         description="A function that takes: "
-        "- (optionally) a data loader "
-        "- (optionally) a dictionary of additional arguments"
+        "- appropriate arguments "
         "and returns: "
         "- a dummy input for the model (a torch.Tensor) "
     )
@@ -151,7 +147,6 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
         "and returns: "
         " - the inputs, labels and (optionally) outputs as torch tensors ",
     )
-    from sparseml.transformers.utils.helpers import is_transformers_model
 
     deployment_directory_structure: List[str] = Field(
         description="A list that describes the "

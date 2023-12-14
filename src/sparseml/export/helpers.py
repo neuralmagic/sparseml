@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import os
 import shutil
 from collections import OrderedDict
@@ -19,10 +20,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Callable, List, Optional, Union
 
-import onnx
-
 from sparseml.exporters import ExportTargets
-from sparsezoo.utils.onnx import save_onnx
 
 
 __all__ = [
@@ -32,15 +30,19 @@ __all__ = [
     "ONNX_MODEL_NAME",
 ]
 
+
 AVAILABLE_DEPLOYMENT_TARGETS = [target.value for target in ExportTargets]
 ONNX_MODEL_NAME = "model.onnx"
 ONNX_DATA_NAME = "model.data"
+
+_LOGGER = logging.getLogger(__name__)
 
 
 def create_deployment_folder(
     source_path: Union[Path, str],
     target_path: Union[Path, str],
-    deployment_directory_files: List[str],
+    deployment_directory_files_mandatory: List[str],
+    deployment_directory_files_optional: Optional[List[str]] = None,
     deployment_directory_name: str = "deployment",
     onnx_model_name: Optional[str] = None,
 ) -> str:
@@ -58,9 +60,12 @@ def create_deployment_folder(
     :param target_path: The path to the target folder.
     :param deployment_directory_name: The name of the deployment directory.
         The files will be copied to target_path/deployment_directory_name.
-    :param deployment_directory_files: The list of files to copy to the deployment
-        directory. If the file is an ONNX model (or ONNX data file), the file will
-        be copied from target_path. Else, the file will be copied from source_path.
+    :param deployment_directory_files_mandatory: The mandatory list of files
+        to copy to the deployment directory. If the file is an ONNX model
+        (or ONNX data file), the file will be copied from target_path.
+        Else, the file will be copied from source_path.
+    :param deployment_directory_files_optional: The optional list of files
+        to copy to the deployment directory.
     :param onnx_model_name: The name of the ONNX model file. If not specified,
         defaults to ONNX_MODEL_NAME.
     :return: The path to the deployment folder.
@@ -72,7 +77,7 @@ def create_deployment_folder(
     os.makedirs(deployment_folder_dir, exist_ok=True)
 
     # copy over the expected files
-    for file_name in deployment_directory_files:
+    for file_name in deployment_directory_files_mandatory:
         if file_name == ONNX_MODEL_NAME:
             # attempting to move the ONNX model file
             # (potentially together with the ONNX data file)
@@ -94,6 +99,17 @@ def create_deployment_folder(
                 src=os.path.join(source_path, file_name),
                 target=os.path.join(deployment_folder_dir, file_name),
             )
+    if deployment_directory_files_optional is not None:
+        for file_name in deployment_directory_files_optional:
+            try:
+                _copy_file_or_directory(
+                    src=os.path.join(source_path, file_name),
+                    target=os.path.join(deployment_folder_dir, file_name),
+                )
+            except:
+                _LOGGER.warning(
+                    f"Optional file {file_name} not found in source path {source_path}"
+                )
     return deployment_folder_dir
 
 
@@ -132,16 +148,11 @@ def apply_optimizations(
         optimizations=target_optimizations,
     )
 
-    onnx_model = onnx.load(onnx_file_path)
-
     for optimization in optimizations:
-        onnx_model = optimization(onnx_model)
+        optimization(onnx_file_path)
 
-    if single_graph_file:
-        save_onnx(onnx_model, onnx_file_path)
-        return
-
-    save_onnx_multiple_files(onnx_model)
+    if not single_graph_file:
+        save_onnx_multiple_files(onnx_file_path)
 
 
 def resolve_graph_optimizations(

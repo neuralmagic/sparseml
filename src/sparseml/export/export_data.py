@@ -18,7 +18,7 @@ import shutil
 import tarfile
 from enum import Enum
 from pathlib import Path
-from typing import List, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union
 
 import torch
 from tqdm import tqdm
@@ -63,30 +63,40 @@ def create_data_samples(
     inputs, outputs, labels = [], [], []
     if model is None:
         _LOGGER.warning("The model is None. The list of outputs will be empty")
-    for batch_num, (inputs_, labels_) in tqdm(enumerate(data_loader)):
+    for batch_num, data in tqdm(enumerate(data_loader)):
+        if len(data) == 2:
+            inputs_, labels_ = data
+        else:
+            inputs_ = {key: value.to("cpu") for key, value in data.items()}
+            labels_ = None
         if batch_num == num_samples:
             break
         if model:
-            outputs_ = model(inputs_)
+            if labels_:
+                outputs_ = model(inputs_)
+            else:
+                outputs_ = model(**inputs_).end_logits
+
             if isinstance(outputs_, tuple):
                 # outputs_ contains (logits, softmax)
                 outputs_ = outputs_[0]
             outputs.append(outputs_)
         inputs.append(inputs_)
-        labels.append(
-            torch.IntTensor([labels_])
-            if not isinstance(labels_, torch.Tensor)
-            else labels_
-        )
+        if labels_:
+            labels.append(
+                torch.IntTensor([labels_])
+                if not isinstance(labels_, torch.Tensor)
+                else labels_
+            )
 
     return inputs, outputs, labels
 
 
 def export_data_samples(
     target_path: Union[Path, str],
-    input_samples: Optional[List["torch.Tensor"]] = None,  # noqa F821
-    output_samples: Optional[List["torch.Tensor"]] = None,  # noqa F821
-    label_samples: Optional[List["torch.Tensor"]] = None,  # noqa F821
+    input_samples: Optional[List[Any]] = None,
+    output_samples: Optional[List[Any]] = None,
+    label_samples: Optional[List[Any]] = None,
     as_tar: bool = False,
 ):
     """
@@ -124,16 +134,21 @@ def export_data_samples(
         [input_samples, output_samples, label_samples],
         [InputsNames, OutputsNames, LabelNames],
     ):
-        if samples is not None:
+        if len(samples) > 0:
             _LOGGER.info(f"Exporting {names.basename.value} to {target_path}...")
-            export_data_sample(samples, names, target_path, as_tar)
+            break_batch = isinstance(samples[0], dict)
+            export_data_sample(samples, names, target_path, as_tar, break_batch)
             _LOGGER.info(
                 f"Successfully exported {names.basename.value} to {target_path}!"
             )
 
 
 def export_data_sample(
-    samples, names: Enum, target_path: Union[Path, str], as_tar: bool = False
+    samples,
+    names: Enum,
+    target_path: Union[Path, str],
+    as_tar: bool = False,
+    break_batch=False,
 ):
 
     samples = tensors_to_device(samples, "cpu")
@@ -142,6 +157,7 @@ def export_data_sample(
         tensors=samples,
         export_dir=os.path.join(target_path, names.basename.value),
         name_prefix=names.filename.value,
+        break_batch=break_batch,
     )
     if as_tar:
         folder_path = os.path.join(target_path, names.basename.value)

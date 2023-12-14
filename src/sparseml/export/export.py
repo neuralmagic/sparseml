@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import logging
+import os
 from pathlib import Path
 from typing import Any, List, Optional, Union
 
@@ -44,6 +45,7 @@ def export(
     opset: int = TORCH_DEFAULT_ONNX_OPSET,
     single_graph_file: bool = True,
     num_export_samples: int = 0,
+    batch_size: int = 1,
     deployment_directory_name: str = "deployment",
     device: str = "auto",
     graph_optimizations: Union[str, List[str], None] = "all",
@@ -51,7 +53,6 @@ def export(
     validate_structure: bool = True,
     integration: Optional[str] = None,
     sample_data: Optional[Any] = None,
-    batch_size: Optional[int] = None,
     **kwargs,
 ):
     """
@@ -84,6 +85,8 @@ def export(
         file. Defaults to True.
     :param num_export_samples: The number of samples to create for
         the exported model. Defaults to 0.
+    :param batch_size: The batch size to use for exporting the data.
+        Defaults to None.
     :param deployment_directory_name: The name of the deployment
         directory to create for the exported model. Thus, the exported
         model will be saved to `target_path/deployment_directory_name`.
@@ -102,8 +105,6 @@ def export(
     :param sample_data: Optional sample data to use for exporting
         the model. If not provided, a dummy input will be created
         for the model. Defaults to None.
-    :param batch_size: The batch size to use for exporting the data.
-        Defaults to None.
     """
 
     # create the target path if it doesn't exist
@@ -130,24 +131,17 @@ def export(
     )
 
     _LOGGER.info("Creating model for the export...")
-    model, validation_dataloader = helper_functions.create_model(
+    model, auxiliary_items = helper_functions.create_model(
         source_path, batch_size, device, **kwargs
     )
 
-    if validation_dataloader:
-        _LOGGER.info("Created validation dataloader for the export")
-    else:
-        _LOGGER.warning(
-            "Failed to create validation dataloader for the export. "
-            "Will be using the dummy (or user-provided) data instead "
-            "and will be not able to export samples or validate the model "
-            "correctness."
+    if auxiliary_items:
+        _LOGGER.info(
+            f"Created auxiliary items for the export: {list(auxiliary_items.keys())}"
         )
 
     sample_data = (
-        helper_functions.create_dummy_input(
-            validation_dataloader=validation_dataloader, **kwargs
-        )
+        helper_functions.create_dummy_input(**auxiliary_items, **kwargs)
         if sample_data is None
         else sample_data
     )
@@ -163,32 +157,16 @@ def export(
     )
     _LOGGER.info(f"Successfully exported {onnx_model_name} to {target_path}...")
 
-    _LOGGER.info(
-        f"Applying optimizations: {graph_optimizations} to the exported model..."
-    )
-    apply_optimizations(
-        onnx_file_path=onnx_file_path,
-        target_optimizations=graph_optimizations,
-        available_optimizations=helper_functions.graph_optimizations,
-        single_graph_file=single_graph_file,
-    )
-
     if num_export_samples:
         _LOGGER.info(f"Exporting {num_export_samples} samples...")
-        if not validation_dataloader:
-            raise ValueError(
-                "To export sample inputs/outputs a data loader is needed. "
-                "To return a data loader provide the appropriate, integration-specific "
-                "arguments to `create_model` function"
-            )
         (
             input_samples,
             output_samples,
             label_samples,
         ) = helper_functions.create_data_samples(
             num_samples=num_export_samples,
-            data_loader=validation_dataloader,
             model=model,
+            **auxiliary_items,
         )
         export_data_samples(
             input_samples=input_samples,
@@ -207,9 +185,21 @@ def export(
         source_path=source_path,
         target_path=target_path,
         deployment_directory_name=deployment_directory_name,
-        deployment_directory_files=helper_functions.deployment_directory_structure,
+        deployment_directory_files_mandatory=helper_functions.deployment_directory_files_mandatory,
+        deployment_directory_files_optional=helper_functions.deployment_directory_files_optional,
         onnx_model_name=onnx_model_name,
     )
+
+    _LOGGER.info(
+        f"Applying optimizations: {graph_optimizations} to the exported model..."
+    )
+    apply_optimizations(
+        onnx_file_path=os.path.join(deployment_path, onnx_model_name),
+        target_optimizations=graph_optimizations,
+        available_optimizations=helper_functions.graph_optimizations,
+        single_graph_file=single_graph_file,
+    )
+
     if validate_structure:
         _LOGGER.info("Validating model structure...")
         validate_structure_(
