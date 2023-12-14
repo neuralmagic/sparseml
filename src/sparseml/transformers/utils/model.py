@@ -502,9 +502,12 @@ class SparseCausalLM:
             model_path, torch_dtype=torch_dtype
         )
         model.eval()
-        model.seqlen = (
-            sequence_length if sequence_length else model.config.max_position_embeddings
-        )
+        max_seq_len = None
+        if hasattr(model.config, "max_position_embeddings"):
+            max_seq_len = model.config.max_position_embeddings
+        elif hasattr(model.config, "max_seq_len"):
+            max_seq_len = model.config.max_seq_len
+        model.seqlen = sequence_length if sequence_length else max_seq_len
         return model
 
 
