@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from pathlib import Path
-from typing import Any, Callable, Dict, Union
+from typing import Any, Callable, Dict, Optional, Union
 
 import torch
 from pydantic import Field
@@ -25,6 +25,9 @@ from sparseml.transformers.utils.optimizations import apply_kv_cache_injection
 from src.sparseml.integration_helper_functions import (
     IntegrationHelperFunctions,
     Integrations,
+)
+from src.sparseml.transformers.utils.helpers import (
+    create_dummy_inputs as create_dummy_inputs_from_tokenizer,
 )
 from src.sparseml.transformers.utils.initializers import (
     _parse_data_args,
@@ -86,6 +89,21 @@ def create_dummy_inputs(
         )
     data_loader = trainer._get_fake_dataloader(num_samples=1, tokenizer=tokenizer)
     return next(iter(data_loader))
+
+
+transformers_graph_optimizations = {"kv_cache_injection": apply_kv_cache_injection}
+
+
+def create_dummy_inputs(
+    model: Any,
+    tokenizer: AutoTokenizer,
+    batch_size: int,
+    validation_dataloader: Optional[torch.utils.data.DataLoader] = None,
+) -> torch.Tensor:
+    if validation_dataloader is None:
+        create_dummy_inputs_from_tokenizer(model, tokenizer, batch_size)
+    return next(iter(validation_dataloader))
+
 
 
 transformers_graph_optimizations = {"kv_cache_injection": apply_kv_cache_injection}
