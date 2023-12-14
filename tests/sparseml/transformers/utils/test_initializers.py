@@ -47,6 +47,8 @@ class TestInitializeModelFlow:
         self.sequence_length = 384
         self.task = task
         self.data_args = data_args
+        yield
+        tmp_path.rmdir()
 
     def test_initialize_config(self, setup):
         assert initialize_config(model_path=self.model_path, trust_remote_code=True)
@@ -92,19 +94,24 @@ class TestInitializeModelFlow:
         )
         validation_dataset = dataset.get("validation")
 
-        assert initialize_trainer(
+        trainer = initialize_trainer(
             model=model,
             model_path=self.model_path,
             validation_dataset=validation_dataset,
         )
+        assert trainer.get_eval_dataloader()
 
     def test_initialize_trainer_no_validation_dataset(self, setup):
         config = initialize_config(model_path=self.model_path, trust_remote_code=True)
+        tokenizer = initialize_tokenizer(
+            self.model_path, self.sequence_length, self.task
+        )
         model = initialize_model(
             model_path=self.model_path,
             task=self.task,
             config=config,
         )
-        assert initialize_trainer(
+        trainer = initialize_trainer(
             model=model, model_path=self.model_path, validation_dataset=None
         )
+        assert trainer._get_fake_dataloader(num_samples=10, tokenizer=tokenizer)

@@ -499,6 +499,7 @@ class RecipeManagerTrainerInterface:
             f"all sparsification info: {sparsification_info}"
         )
 
+    # TODO: Eventually remove this func
     def save_sample_inputs_outputs(
         self,
         num_samples_to_export: int = 100,
@@ -789,7 +790,7 @@ class RecipeManagerTrainerInterface:
         num_samples: int,
         tokenizer: "PreTrainedTokenizerBase",  # noqa: F821
     ):
-        # Rearrange inputs' keys to match those defined by model foward func, which
+        # Rearrange inputs' keys to match those defined by model forward func, which
         # seem to define how the order of inputs is determined in the exported model
         forward_args_spec = inspect.getfullargspec(self.model.__class__.forward)
         synthetic_input = self._get_fake_input(
