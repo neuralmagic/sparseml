@@ -59,26 +59,31 @@ def validate_structure(
     optional_files = {
         os.path.join(target_path, name.basename.value) for name in sample_files
     }
-    check_file_presence(mandatory_files, mandatory=True)
-    check_file_presence(optional_files, mandatory=False)
+    missing_mandatory_files = check_file_presence(mandatory_files)
+    missing_optional_files = check_file_presence(optional_files)
+
+    if missing_optional_files:
+        for file_path in missing_optional_files:
+            _LOGGER.warning(f"File {file_path} is missing.")
+
+    if missing_mandatory_files:
+        for file_path in missing_mandatory_files:
+            raise FileNotFoundError(f"File {file_path} is missing.")
 
 
-def check_file_presence(file_paths: List[str], mandatory: bool = False):
+def check_file_presence(file_paths: List[str]) -> List[str]:
     """
     Check if the files exist in the given paths.
 
     :param file_paths: The list of paths to check.
         Paths can be either directories or files.
-    :param mandatory: If True, raises an error if
-        any of the files is missing. Otherwise,
-        logs a warning.
+    :return The list of missing file paths.
     """
+    missing_files = []
     for file_path in file_paths:
         if not os.path.exists(file_path):
-            if mandatory:
-                raise FileNotFoundError(f"File {file_path} is missing.")
-            else:
-                _LOGGER.warning(f"File {file_path} is missing.")
+            missing_files.append(file_path)
+    return missing_files
 
 
 # TODO: Need to add few changes to sparsezoo to support this function
