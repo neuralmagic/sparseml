@@ -22,7 +22,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional, Union
 
-import transformers
 from transformers import AutoConfig, AutoModel, AutoTokenizer, TrainingArguments
 
 from sparseml.optim import parse_recipe_variables
@@ -42,6 +41,8 @@ __all__ = [
 _LOGGER = logging.getLogger(__name__)
 
 
+# TODO: Let's not take this for granted. We should be able to
+# device argument
 @dataclass
 class ForceCPUTrainingArguments(TrainingArguments):
     @property
@@ -97,7 +98,7 @@ def initialize_model(
     task: str,
     config: AutoConfig,
     trust_remote_code: bool = False,
-) -> transformers.AutoModel:
+) -> AutoModel:
     """
     Initialize a model from a given path
 

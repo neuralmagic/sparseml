@@ -18,6 +18,7 @@ from typing import Any, Callable, Dict, Optional, Tuple, Union
 import torch
 from pydantic import Field
 
+from src.sparseml.export.export_data import create_data_samples as create_data_samples_
 from src.sparseml.integration_helper_functions import (
     IntegrationHelperFunctions,
     Integrations,
@@ -36,8 +37,8 @@ from src.sparseml.pytorch.image_classification.utils.helpers import (
 
 def create_model(
     source_path: Union[Path, str],
-    batch_size: Optional[int],
-    device: Optional[str],
+    batch_size: Optional[int] = None,
+    device: Optional[str] = None,
     **kwargs,
 ) -> Tuple[torch.nn.Module, Dict[str, Any]]:
     """
@@ -121,10 +122,26 @@ def create_dummy_input(
     return next(iter(validation_dataloader))[0]
 
 
+def create_data_samples(
+    num_samples: int,
+    validation_dataloader: Optional[torch.utils.data.DataLoader] = None,
+    model: Optional["torch.nn.Module"] = None,
+    **kwargs,
+):
+    if validation_dataloader is None:
+        raise ValueError(
+            "Attempting to create data samples without a" "validation dataloader."
+        )
+
+    return create_data_samples_(
+        data_loader=validation_dataloader, model=model, num_samples=num_samples
+    )
+
+
 @IntegrationHelperFunctions.register(name=Integrations.image_classification.value)
 class ImageClassification(IntegrationHelperFunctions):
-
     create_model: Callable[..., Tuple[torch.nn.Module, Dict[str, Any]]] = Field(
         default=create_model
     )
     create_dummy_input: Callable[..., torch.Tensor] = Field(default=create_dummy_input)
+    create_data_samples: Callable = Field(create_data_samples)

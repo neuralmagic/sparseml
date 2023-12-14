@@ -18,7 +18,7 @@ import shutil
 from collections import OrderedDict
 from enum import Enum
 from pathlib import Path
-from typing import Callable, List, Optional, Union
+from typing import Callable, Dict, List, Optional, Union
 
 from sparseml.exporters import ExportTargets
 
@@ -29,7 +29,6 @@ __all__ = [
     "AVAILABLE_DEPLOYMENT_TARGETS",
     "ONNX_MODEL_NAME",
 ]
-
 
 AVAILABLE_DEPLOYMENT_TARGETS = [target.value for target in ExportTargets]
 ONNX_MODEL_NAME = "model.onnx"
@@ -76,41 +75,63 @@ def create_deployment_folder(
         shutil.rmtree(deployment_folder_dir)
     os.makedirs(deployment_folder_dir, exist_ok=True)
 
-    # copy over the expected files
+    deployment_directory_files_optional = deployment_directory_files_optional or []
+
     for file_name in deployment_directory_files_mandatory:
-        if file_name == ONNX_MODEL_NAME:
-            # attempting to move the ONNX model file
-            # (potentially together with the ONNX data file)
-            # from target_path to target_path/deployment_folder_dir
+        move_mandatory_deployment_files(
+            file_name, source_path, target_path, onnx_model_name, deployment_folder_dir
+        )
 
-            # takes into consideration potentially custom ONNX model name
-            onnx_model_name = (
-                ONNX_MODEL_NAME if onnx_model_name is None else onnx_model_name
-            )
+    for file_name in deployment_directory_files_optional:
+        move_optional_deployment_files(file_name, source_path, deployment_folder_dir)
 
-            _move_onnx_model(
-                onnx_model_name=onnx_model_name,
-                src_path=target_path,
-                target_path=deployment_folder_dir,
-            )
-
-        else:
-            _copy_file_or_directory(
-                src=os.path.join(source_path, file_name),
-                target=os.path.join(deployment_folder_dir, file_name),
-            )
-    if deployment_directory_files_optional is not None:
-        for file_name in deployment_directory_files_optional:
-            try:
-                _copy_file_or_directory(
-                    src=os.path.join(source_path, file_name),
-                    target=os.path.join(deployment_folder_dir, file_name),
-                )
-            except:
-                _LOGGER.warning(
-                    f"Optional file {file_name} not found in source path {source_path}"
-                )
     return deployment_folder_dir
+
+
+def move_mandatory_deployment_files(
+    file_name: str,
+    source_path: Union[Path, str],
+    target_path: Union[Path, str],
+    onnx_model_name: str,
+    deployment_folder_dir: Union[Path, str],
+):
+    if file_name == ONNX_MODEL_NAME:
+        # attempting to move the ONNX model file
+        # (potentially together with the ONNX data file)
+        # from target_path to target_path/deployment_folder_dir
+
+        # takes into consideration potentially custom ONNX model name
+        onnx_model_name = (
+            ONNX_MODEL_NAME if onnx_model_name is None else onnx_model_name
+        )
+
+        _move_onnx_model(
+            onnx_model_name=onnx_model_name,
+            src_path=target_path,
+            target_path=deployment_folder_dir,
+        )
+
+    else:
+        _copy_file_or_directory(
+            src=os.path.join(source_path, file_name),
+            target=os.path.join(deployment_folder_dir, file_name),
+        )
+
+
+def move_optional_deployment_files(
+    file_name: str,
+    source_path: Union[Path, str],
+    deployment_folder_dir: Union[Path, str],
+):
+    if os.path.exists(os.path.join(source_path, file_name)):
+        _copy_file_or_directory(
+            src=os.path.join(source_path, file_name),
+            target=os.path.join(deployment_folder_dir, file_name),
+        )
+    else:
+        _LOGGER.warning(
+            f"Optional file {file_name} not found in source path {source_path}"
+        )
 
 
 class GraphOptimizationOptions(Enum):
@@ -143,13 +164,19 @@ def apply_optimizations(
     :param single_graph_file: Whether to save the optimized graph to a single
         file or split it into multiple files. By default, it is True.
     """
-    optimizations: List[Callable] = resolve_graph_optimizations(
+    optimizations: Dict[str, Callable] = resolve_graph_optimizations(
         available_optimizations=available_optimizations,
         optimizations=target_optimizations,
     )
 
-    for optimization in optimizations:
-        optimization(onnx_file_path)
+    for name, optimization in optimizations.items():
+        _LOGGER.info(f"Attempting to apply optimization: {name}... ")
+        applied = optimization(onnx_file_path)
+        if applied:
+            _LOGGER.info(
+                f"Optimization: {name} has been successfully "
+                f"applied to the ONNX model: {onnx_file_path}"
+            )
 
     if not single_graph_file:
         save_onnx_multiple_files(onnx_file_path)
@@ -158,7 +185,7 @@ def apply_optimizations(
 def resolve_graph_optimizations(
     optimizations: Union[str, List[str]],
     available_optimizations: Optional[OrderedDict[str, Callable]] = None,
-) -> List[Callable]:
+) -> Dict[str, Callable]:
     """
     Get the optimization functions to apply to the onnx model.
 
@@ -170,21 +197,21 @@ def resolve_graph_optimizations(
         that specifies the set of optimizations to apply.
         If is string, refer to the `GraphOptimizationOptions` enum
         for the available options.
-    return The list of optimization functions to apply.
+    :return: The optimization functions to apply to the onnx model.
     """
     if isinstance(optimizations, str):
         if optimizations == GraphOptimizationOptions.none.value:
-            return []
+            return {}
         elif optimizations == GraphOptimizationOptions.all.value:
-            return (
-                list(available_optimizations.values())
-                if available_optimizations is not None
-                else []
-            )
+            return available_optimizations or {}
         else:
             raise KeyError(f"Unknown graph optimization option: {optimizations}")
     elif isinstance(optimizations, list):
-        return [available_optimizations[optimization] for optimization in optimizations]
+        return {
+            name: available_optimizations[name]
+            for name in optimizations
+            if name in available_optimizations
+        }
     else:
         raise KeyError(f"Unknown graph optimization option: {optimizations}")
 

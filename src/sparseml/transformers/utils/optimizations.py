@@ -20,7 +20,6 @@ from typing import Union
 import onnx
 
 from sparseml.exporters.kv_cache_injector import KeyValueCacheInjector
-from sparseml.transformers.utils.helpers import NLG_TOKENIZER_FILES
 
 
 __all__ = ["apply_kv_cache_injection"]
@@ -28,17 +27,15 @@ __all__ = ["apply_kv_cache_injection"]
 _LOGGER = logging.getLogger(__name__)
 
 
-def apply_kv_cache_injection(onnx_model_path: Union[str, Path]):
+def apply_kv_cache_injection(onnx_model_path: Union[str, Path]) -> bool:
     """
     Apply key value cache injection to an ONNX model
 
     :param onnx_model_path: path to the ONNX model to inject
+    :return: True if successful, False otherwise
     """
     onnx_model = onnx.load(onnx_model_path, load_external_data=False)
     model_path = os.path.dirname(onnx_model_path)
     exporter = KeyValueCacheInjector(model_path=model_path)
     exporter.export(onnx_model, onnx_model_path)
-    _LOGGER.info(
-        "Successfully applied key value cache injection "
-        f"to ONNX model: {onnx_model_path}"
-    )
+    return True

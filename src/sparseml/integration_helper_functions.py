@@ -33,10 +33,13 @@ class Integrations(Enum):
 
     image_classification = "image-classification"
     transformers = "transformers"
+    transformers_generative = "transformers-generative"
 
 
 def resolve_integration(
-    source_path: Union[Path, str], integration: Optional[str] = None
+    source_path: Union[Path, str],
+    integration: Optional[str] = None,
+    task: Optional[str] = None,
 ) -> str:
     """
     Resolve the integration to use.
@@ -48,16 +51,23 @@ def resolve_integration(
     :param source_path: The path to the PyTorch model to export.
     :param integration: Optional name of the integration to use. If not provided,
         will attempt to infer it from the source_path.
+    :param task: Optional name of the task to use.
     :return: The name of the integration to use for exporting the model.
     """
 
     if integration is not None:
         integration = integration.replace("_", "-")
 
+    if task is not None:
+        task = task.replace("_", "-")
+
     from sparseml.pytorch.image_classification.utils.helpers import (
         is_image_classification_model,
     )
-    from sparseml.transformers.utils.helpers import is_transformer_model
+    from sparseml.transformers.utils.helpers import (
+        is_transformer_generative_model,
+        is_transformer_model,
+    )
 
     if (
         integration == Integrations.image_classification.value
@@ -71,6 +81,12 @@ def resolve_integration(
         source_path
     ):
         import sparseml.transformers.integration_helper_functions  # noqa F401
+        from sparseml.transformers.utils.helpers import TaskNames
+
+        if (task in TaskNames.text_generation.value) or is_transformer_generative_model(
+            source_path
+        ):
+            return Integrations.transformers_generative.value
 
         return Integrations.transformers.value
     else:
@@ -90,7 +106,7 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
     """
 
     create_model: Callable[
-        Tuple[Union[str, Path], Optional[int], str, Optional[Dict[str, Any]]],
+        [Union[str, Path], ...],
         Tuple[
             "torch.nn.Module",  # noqa F821
             Optional[Dict[str, Any]],
@@ -98,9 +114,7 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
     ] = Field(
         description="A function that takes: "
         "- a source path to a PyTorch model "
-        "- a batch size "
-        "- a device name "
-        "- (optionally) a dictionary of additional arguments"
+        "- (optionally) additional arguments"
         "and returns: "
         "- a (sparse) PyTorch model "
         "- (optionally) a dictionary of auxiliary items"
@@ -128,28 +142,29 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
     )
 
     create_data_samples: Callable[
-        Tuple[
-            Optional["torch.nn.Module"],  # noqa F821
-            "torch.utils.data.DataLoader",  # noqa F821
-            int,
-        ],
+        Tuple[Optional["torch.nn.Module"], int, Optional[Dict[str, Any]]],  # noqa F821
         Tuple[
             List["torch.Tensor"],  # noqa F821
             Optional[List["torch.Tensor"]],  # noqa F821
-            List["torch.Tensor"],  # noqa F821
+            Optional[List["torch.Tensor"]],  # noqa F821
         ],
     ] = Field(
         default=create_data_samples_,
         description="A function that takes: "
         " - (optionally) a (sparse) PyTorch model "
-        " - a data loader "
         " - the number of samples to generate "
+        " - (optionally) additional auxiliary items "
         "and returns: "
-        " - the inputs, labels and (optionally) outputs as torch tensors ",
+        " - the inputs, (optionally) labels and (optionally) outputs as torch tensors ",
     )
 
-    deployment_directory_structure: List[str] = Field(
+    deployment_directory_files_mandatory: List[str] = Field(
         description="A list that describes the "
-        "expected files of the deployment directory",
+        "mandatory expected files of the deployment directory",
         default=["model.onnx"],
+    )
+
+    deployment_directory_files_optional: Optional[List[str]] = Field(
+        description="A list that describes the "
+        "optional expected files of the deployment directory",
     )

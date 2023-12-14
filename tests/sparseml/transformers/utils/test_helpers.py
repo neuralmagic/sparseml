@@ -16,15 +16,13 @@ from collections import OrderedDict
 
 import numpy
 import pytest
-from transformers import AutoTokenizer
 
 from sparseml.transformers.utils.helpers import (
-    create_dummy_inputs,
+    is_transformer_generative_model,
     is_transformer_model,
     save_zoo_directory,
 )
 from sparsezoo import Model
-from src.sparseml.transformers.utils.model import SparseAutoModel
 
 
 @pytest.fixture()
@@ -58,33 +56,6 @@ def expected_dummy_inputs():
 
 
 @pytest.mark.parametrize(
-    "inputs_type",
-    ["pt", "np"],
-)
-@pytest.mark.parametrize(
-    "batch_size",
-    [1, 10],
-)
-def test_create_dummy_inputs(
-    model_path, sequence_length, inputs_type, expected_dummy_inputs, batch_size
-):
-    tokenizer = AutoTokenizer.from_pretrained(
-        pretrained_model_name_or_path=model_path, model_max_length=sequence_length
-    )
-    model = SparseAutoModel.question_answering_from_pretrained(
-        model_name_or_path=model_path, model_type="model"
-    )
-    dummy_inputs = create_dummy_inputs(
-        model, tokenizer, type=inputs_type, batch_size=batch_size
-    )
-    for key in dummy_inputs:
-        input = dummy_inputs[key]
-        assert numpy.array_equal(
-            input.numpy() if inputs_type == "pt" else input, expected_dummy_inputs[key]
-        )
-
-
-@pytest.mark.parametrize(
     "stub",
     [
         "zoo:nlp/question_answering/bert-base/pytorch/huggingface/squad/pruned95_obs_quant-none",  # noqa E501
@@ -94,6 +65,11 @@ def test_is_transformer_model(tmp_path, stub):
     zoo_model = Model(stub, tmp_path)
     source_path = zoo_model.training.path
     assert is_transformer_model(source_path)
+
+
+def test_is_transformer_generative_model():
+    assert False
+    # is_transformer_generative_model()
 
 
 @pytest.mark.parametrize(

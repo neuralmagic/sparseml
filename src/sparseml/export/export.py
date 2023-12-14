@@ -53,6 +53,7 @@ def export(
     validate_structure: bool = True,
     integration: Optional[str] = None,
     sample_data: Optional[Any] = None,
+    task: Optional[str] = None,
     **kwargs,
 ):
     """
@@ -105,6 +106,8 @@ def export(
     :param sample_data: Optional sample data to use for exporting
         the model. If not provided, a dummy input will be created
         for the model. Defaults to None.
+    :param task: Optional task to use for exporting the model.
+        Defaults to None.
     """
 
     # create the target path if it doesn't exist
@@ -122,7 +125,7 @@ def export(
             f"Got {deployment_target} instead."
         )
 
-    integration = resolve_integration(source_path, integration)
+    integration = resolve_integration(source_path, integration, task)
 
     _LOGGER.info(f"Starting export for {integration} model...")
 
@@ -131,8 +134,11 @@ def export(
     )
 
     _LOGGER.info("Creating model for the export...")
+
+    # auxiliary_items may include any items
+    # that are needed for the export
     model, auxiliary_items = helper_functions.create_model(
-        source_path, batch_size, device, **kwargs
+        source_path, **dict(device=device, task=task, batch_size=batch_size), **kwargs
     )
 
     if auxiliary_items:
@@ -147,6 +153,7 @@ def export(
     )
 
     _LOGGER.info(f"Exporting {onnx_model_name} to {target_path}...")
+
     onnx_file_path = helper_functions.export(
         model=model,
         sample_data=sample_data,
@@ -154,8 +161,11 @@ def export(
         onnx_model_name=onnx_model_name,
         deployment_target=deployment_target,
         opset=opset,
+        input_names=None
+        if not isinstance(sample_data, dict)
+        else list(sample_data.keys()),
     )
-    _LOGGER.info(f"Successfully exported {onnx_model_name} to {target_path}...")
+    _LOGGER.info(f"Successfully exported {onnx_model_name} to {onnx_file_path}...")
 
     if num_export_samples:
         _LOGGER.info(f"Exporting {num_export_samples} samples...")
@@ -185,8 +195,8 @@ def export(
         source_path=source_path,
         target_path=target_path,
         deployment_directory_name=deployment_directory_name,
-        deployment_directory_files_mandatory=helper_functions.deployment_directory_files_mandatory,
-        deployment_directory_files_optional=helper_functions.deployment_directory_files_optional,
+        deployment_directory_files_mandatory=helper_functions.deployment_directory_files_mandatory,  # noqa: E501
+        deployment_directory_files_optional=helper_functions.deployment_directory_files_optional,  # noqa: E501
         onnx_model_name=onnx_model_name,
     )
 
@@ -206,7 +216,8 @@ def export(
             target_path=target_path,
             deployment_directory_name=deployment_directory_name,
             onnx_model_name=onnx_model_name,
-            deployment_directory_files=helper_functions.deployment_directory_structure,
+            deployment_directory_files_mandatory=helper_functions.deployment_directory_files_mandatory,  # noqa: E501
+            deployment_directory_files_optional=helper_functions.deployment_directory_files_optional,  # noqa: E501
         )
 
     if validate_correctness:

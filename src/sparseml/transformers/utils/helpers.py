@@ -25,6 +25,7 @@ from typing import Optional, Union
 
 from transformers.trainer_utils import get_last_checkpoint
 
+from sparseml.export.helpers import ONNX_MODEL_NAME
 from sparsezoo import setup_model
 
 
@@ -36,6 +37,8 @@ __all__ = [
     "save_zoo_directory",
     "detect_last_checkpoint",
     "TaskNames",
+    "is_transformer_model",
+    "is_transformer_generative_model",
 ]
 
 
@@ -53,10 +56,8 @@ class TaskNames(Enum):
 
 
 RECIPE_NAME = "recipe.yaml"
-# TODO: To import MODEL_ONNX_NAME after the rebase
-MODEL_ONNX_NAME = "model.onnx"
 MANDATORY_DEPLOYMENT_FILES = {
-    MODEL_ONNX_NAME,
+    ONNX_MODEL_NAME,
     "tokenizer_config.json",
     "config.json",
 }
@@ -73,7 +74,22 @@ def is_transformer_model(source_path: Union[Path, str]) -> bool:
     # the EXPECTED_TRANSFORMER_FILES
     if not os.path.isdir(source_path):
         raise ValueError(f"Path {source_path} is not a valid directory")
-    expected_files = MANDATORY_DEPLOYMENT_FILES.difference({MODEL_ONNX_NAME})
+    expected_files = MANDATORY_DEPLOYMENT_FILES.difference({ONNX_MODEL_NAME})
+    return expected_files.issubset(os.listdir(source_path))
+
+
+def is_transformer_generative_model(source_path: Union[Path, str]) -> bool:
+    """
+    :param source_path: The path to the model
+    :return: Whether the model is a transformers model or not
+    """
+    # make sure that the path is a directory and contains
+    # the EXPECTED_TRANSFORMER_FILES
+    if not os.path.isdir(source_path):
+        raise ValueError(f"Path {source_path} is not a valid directory")
+    expected_files = MANDATORY_DEPLOYMENT_FILES.union(NLG_TOKENIZER_FILES).difference(
+        {ONNX_MODEL_NAME}
+    )
     return expected_files.issubset(os.listdir(source_path))
 
 

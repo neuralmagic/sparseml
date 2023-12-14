@@ -49,8 +49,8 @@ _LOGGER = logging.getLogger(__name__)
 # TODO: Think about how to handle batch_size and device here
 def create_model(
     source_path: Union[Path, str],
-    batch_size: Optional[int],
-    device: Optional[str],
+    device: Optional[str] = None,
+    task: Optional[str] = None,
     **kwargs,
 ) -> Tuple[torch.nn.Module, Dict[str, Any]]:
     """
@@ -58,8 +58,8 @@ def create_model(
     auxiliary items related to the model
 
     :param source_path: The path to the model
-    :param batch_size: The batch size to use for the dataloader creation
     :param device: The device to use for the model and dataloader instantiation
+    :param task: The task to use for the model and dataloader instantiation
 
     :return: A tuple of the
         - torch model
@@ -67,7 +67,6 @@ def create_model(
     """
     config_args = kwargs.get("config_args", {})
     sequence_length = kwargs.get("sequence_length", None)
-    task = kwargs.get("task", None)
     data_args = kwargs.get("data_args", {})
     trust_remote_code = kwargs.get("trust_remote_code", False)
 
@@ -79,9 +78,7 @@ def create_model(
             "that the model will not be loaded correctly."
         )
 
-    config = initialize_config(
-        source_path, trust_remote_code=trust_remote_code, **config_args
-    )
+    config = initialize_config(source_path, trust_remote_code, **config_args)
     sequence_length = sequence_length or resolve_sequence_length(config)
     tokenizer = initialize_tokenizer(source_path, sequence_length, task)
     model = initialize_model(
@@ -92,6 +89,7 @@ def create_model(
     )
 
     data_args = _parse_data_args(data_args)
+
     if data_args:
         dataset = load_task_dataset(
             task=task,
@@ -116,12 +114,13 @@ def create_dummy_input(
     tokenizer: Optional[AutoTokenizer] = None,
     **kwargs,
 ) -> torch.Tensor:
-    try:
+    if trainer.eval_dataset is not None:
         data_loader = trainer.get_eval_dataloader()
-    except:
+    else:
         if not tokenizer:
             raise ValueError(
-                "Tokenizer is needed to generate fake sample inputs when the trainer is "
+                "Tokenizer is needed to generate "
+                "fake sample inputs when the trainer is "
                 "not initialized with an eval dataset"
             )
         data_loader = trainer._get_fake_dataloader(num_samples=1, tokenizer=tokenizer)
@@ -134,19 +133,20 @@ def create_data_samples(
     model: Optional["torch.nn.Module"] = None,
     **kwargs,
 ):
-    try:
-        data_loader = trainer.get_eval_dataloader()
-    except:
-        raise ValueError()
+    if kwargs.get("batch_size"):
+        _LOGGER.info(
+            "For exporting samples for transformers integration,"
+            "batch size is ignored (equal to 1"
+        )
+    if trainer.eval_dataset is None:
+        raise ValueError(
+            "Attempting to create data samples without an eval dataloader. "
+            "Initialize a trainer with an eval dataset"
+        )
 
     return create_data_samples_(
-        data_loader=data_loader, model=model, num_samples=num_samples
+        data_loader=trainer.get_eval_dataloader(), model=model, num_samples=num_samples
     )
-
-
-generative_transformers_graph_optimizations = {
-    "kv_cache_injection": apply_kv_cache_injection
-}
 
 
 @IntegrationHelperFunctions.register(name=Integrations.transformers.value)
@@ -164,13 +164,13 @@ class Transformers(IntegrationHelperFunctions):
     )
 
 
-@IntegrationHelperFunctions.register(name="text-generation")
-class Transformers(IntegrationHelperFunctions):
-    create_model: Callable[..., Tuple[torch.nn.Module, Dict[str, Any]]] = Field(
-        default=create_model
-    )
-    create_dummy_input: Callable[..., torch.Tensor] = Field(default=create_dummy_input)
-    create_data_samples: Callable = Field(create_data_samples)
+generative_transformers_graph_optimizations = {
+    "kv_cache_injection": apply_kv_cache_injection
+}
+
+
+@IntegrationHelperFunctions.register(name=Integrations.transformers_generative.value)
+class GenerativeTransformers(Transformers):
     graph_optimizations: Dict[str, Callable] = Field(
         default=generative_transformers_graph_optimizations
     )

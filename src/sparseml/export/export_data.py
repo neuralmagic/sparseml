@@ -72,7 +72,7 @@ def create_data_samples(
         if batch_num == num_samples:
             break
         if model:
-            if labels_:
+            if labels_ is not None:
                 outputs_ = model(inputs_)
             else:
                 outputs_ = model(**inputs_).end_logits
@@ -82,7 +82,7 @@ def create_data_samples(
                 outputs_ = outputs_[0]
             outputs.append(outputs_)
         inputs.append(inputs_)
-        if labels_:
+        if labels_ is not None:
             labels.append(
                 torch.IntTensor([labels_])
                 if not isinstance(labels_, torch.Tensor)
