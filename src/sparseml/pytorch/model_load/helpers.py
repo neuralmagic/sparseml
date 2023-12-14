@@ -215,3 +215,19 @@ def fallback_to_cpu(device: str) -> str:
         return "cpu"
 
     return device
+
+
+def parse_dtype(dtype_arg: str) -> torch.dtype:
+    """
+    :param dtype_arg: dtype string to parse
+    :return: torch.dtype parsed from input string
+    """
+    dtype = "auto"  # get precision from model by default
+    if dtype_arg == "half" or dtype_arg == "float16":
+        dtype = torch.float16
+    elif dtype_arg == "bfloat16":
+        dtype = torch.bfloat16
+    elif dtype_arg == "full" or dtype_arg == "float32":
+        dtype = torch.float32
+
+    return dtype

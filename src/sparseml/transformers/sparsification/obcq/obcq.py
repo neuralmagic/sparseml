@@ -18,7 +18,6 @@ import os
 from pathlib import Path
 from typing import Optional
 
-import torch
 from torch.nn import Module
 from transformers import AutoConfig
 
@@ -29,6 +28,7 @@ from sparseml.pytorch.model_load.helpers import (
     RECIPE_FILE_NAME,
     apply_recipe_structure_to_model,
     fallback_to_cpu,
+    parse_dtype,
     save_model_and_recipe,
 )
 from sparseml.transformers.data import TransformersDataset
@@ -106,7 +106,7 @@ def one_shot(
         )
         model_loader_fn = SparseCausalLM.auto_model_from_pretrained
         forward_fn = llama_forward
-    torch_dtype = _parse_dtype(precision)
+    torch_dtype = parse_dtype(precision)
     model = model_loader_fn(
         model_path, sequence_length=sequence_length, torch_dtype=torch_dtype
     )
@@ -164,18 +164,6 @@ def one_shot(
         )
 
     return model
-
-
-def _parse_dtype(dtype_arg):
-    dtype = "auto"  # get precision from model by default
-    if dtype_arg == "half" or dtype_arg == "float16":
-        dtype = torch.float16
-    elif dtype_arg == "bfloat16":
-        dtype = torch.bfloat16
-    elif dtype_arg == "full" or dtype_arg == "float32":
-        dtype = torch.float32
-
-    return dtype
 
 
 if __name__ == "__main__":
