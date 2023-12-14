@@ -106,7 +106,7 @@ class TorchToONNX(BaseExporter):
 
     def export(self, pre_transforms_model: torch.nn.Module, file_path: str):
         post_transforms_model: onnx.ModelProto = self.apply(pre_transforms_model)
-        save_onnx(post_transforms_model, file_path)
+        save_onnx(model=post_transforms_model, model_path=file_path)
 
 
 class _TorchOnnxExport(BaseTransform):

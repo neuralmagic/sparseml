@@ -16,6 +16,7 @@ import os
 from pathlib import Path
 from typing import Union
 
+import onnx
 import torch
 
 from sparseml.exporters import ExportTargets
@@ -50,15 +51,15 @@ def export_model(
     """
 
     model.eval()
-
+    path_to_exported_model = os.path.join(target_path, onnx_model_name)
     exporter = TorchToONNX(sample_batch=sample_data, opset=opset, **kwargs)
-    exporter.export(model, os.path.join(target_path, onnx_model_name))
+    exporter.export(model, path_to_exported_model)
     if deployment_target == ExportTargets.deepsparse.value:
         exporter = ONNXToDeepsparse()
-        model = exporter.load_model(os.path.join(target_path, onnx_model_name))
-        exporter.export(model, os.path.join(target_path, onnx_model_name))
+        model = onnx.load(path_to_exported_model)
+        exporter.export(model, path_to_exported_model)
+        return path_to_exported_model
     if deployment_target == ExportTargets.onnx.value:
-        pass
+        return path_to_exported_model
     else:
         raise ValueError(f"Unsupported deployment target: {deployment_target}")
-    return os.path.join(target_path, onnx_model_name)

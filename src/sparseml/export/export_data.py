@@ -20,10 +20,13 @@ from enum import Enum
 from pathlib import Path
 from typing import List, Optional, Tuple, Union
 
+import torch
 from tqdm import tqdm
 
+from sparseml.pytorch.utils.helpers import tensors_export, tensors_to_device
 
-__all__ = ["create_data_samples"]
+
+__all__ = ["create_data_samples", "export_data_samples"]
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -44,30 +47,37 @@ class InputsNames(Enum):
 
 
 def create_data_samples(
-    data_loader: "torch.utils.data.DataLoader",  # noqa F821
-    model: Optional["torch.nn.Module"] = None,  # noqa F821
+    data_loader: torch.utils.data.DataLoader,
+    model: Optional[torch.nn.Module] = None,
     num_samples: int = 1,
-) -> Tuple[
-    List["torch.Tensor"],  # noqa F821
-    Optional[List["torch.Tensor"]],  # noqa F821
-    List["torch.Tensor"],  # noqa F821
-]:
+) -> Tuple[List[torch.Tensor], List[torch.Tensor], List[torch.Tensor]]:
     """
     Fetch a batch of samples from the data loader and return the inputs and outputs
 
     :param data_loader: The data loader to get a batch of inputs/outputs from.
+    :param model: The model to run the inputs through to get the outputs.
+        If None, the outputs will be an empty list.
     :param num_samples: The number of samples to generate. Defaults to 1
     :return: The inputs and outputs as lists of torch tensors
     """
     inputs, outputs, labels = [], [], []
+    if model is None:
+        _LOGGER.warning("The model is None. The list of outputs will be empty")
     for batch_num, (inputs_, labels_) in tqdm(enumerate(data_loader)):
         if batch_num == num_samples:
             break
         if model:
             outputs_ = model(inputs_)
+            if isinstance(outputs_, tuple):
+                # outputs_ contains (logits, softmax)
+                outputs_ = outputs_[0]
             outputs.append(outputs_)
         inputs.append(inputs_)
-        labels.append(labels_)
+        labels.append(
+            torch.IntTensor([labels_])
+            if not isinstance(labels_, torch.Tensor)
+            else labels_
+        )
 
     return inputs, outputs, labels
 
@@ -115,14 +125,16 @@ def export_data_samples(
         [InputsNames, OutputsNames, LabelNames],
     ):
         if samples is not None:
-            _LOGGER.info(f"Exporting {names.basename.value} to {target_path}")
+            _LOGGER.info(f"Exporting {names.basename.value} to {target_path}...")
             export_data_sample(samples, names, target_path, as_tar)
+            _LOGGER.info(
+                f"Successfully exported {names.basename.value} to {target_path}!"
+            )
 
 
 def export_data_sample(
     samples, names: Enum, target_path: Union[Path, str], as_tar: bool = False
 ):
-    from sparseml.pytorch.utils.helpers import tensors_export, tensors_to_device
 
     samples = tensors_to_device(samples, "cpu")
 

@@ -23,7 +23,7 @@ from sparseml.export.export_torch_model import export_model
 from sparsezoo.utils.registry import RegistryMixin
 
 
-__all__ = ["IntegrationHelperFunctions", "infer_integration"]
+__all__ = ["IntegrationHelperFunctions", "resolve_integration"]
 
 
 class Integrations(Enum):
@@ -32,6 +32,46 @@ class Integrations(Enum):
     """
 
     image_classification = "image-classification"
+
+
+def resolve_integration(
+    source_path: Union[Path, str], integration: Optional[str] = None
+) -> str:
+    """
+    Resolve the integration to use.
+
+    If integration is not provided, attempt to infer it from the source_path.
+    Once the integration is resolved, perform the hot import to register
+    the integration helper functions.
+
+    :param source_path: The path to the PyTorch model to export.
+    :param integration: Optional name of the integration to use. If not provided,
+        will attempt to infer it from the source_path.
+    :return: The name of the integration to use for exporting the model.
+    """
+
+    if integration is not None:
+        integration = integration.replace("_", "-")
+
+    from sparseml.pytorch.image_classification.utils.helpers import (
+        is_image_classification_model,
+    )
+
+    if (
+        integration == Integrations.image_classification.value
+        or is_image_classification_model(source_path)
+    ):
+        # import to register the image_classification integration helper functions
+        import sparseml.pytorch.image_classification.integration_helper_functions  # noqa F401
+
+        return Integrations.image_classification.value
+    else:
+        raise ValueError(
+            f"Could not infer integration from source_path:\n{source_path}\n"
+            "Please specify an argument `integration` from one of "
+            "the available integrations: "
+            f"{[integration.value for integration in Integrations]}."
+        )
 
 
 class IntegrationHelperFunctions(RegistryMixin, BaseModel):
@@ -43,22 +83,34 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
 
     create_model: Optional[
         Callable[
-            Tuple[Union[str, Path], Optional[Dict[str, Any]]],
-            Tuple["torch.nn.Module", Dict[str, Any]],  # noqa F821
+            Tuple[Union[str, Path], Optional[int], str, Optional[Dict[str, Any]]],
+            Tuple[
+                "torch.nn.Module",  # noqa F821
+                Optional["torch.utils.data.Dataloader"],  # noqa F821
+            ],
         ]
     ] = Field(
         description="A function that takes: "
         "- a source path to a PyTorch model "
+        "- a batch size "
+        "- a device name "
         "- (optionally) a dictionary of additional arguments"
         "and returns: "
         "- a (sparse) PyTorch model "
-        "- (optionally) a dictionary of additional arguments"
+        "- (optionally) a data loader "
     )
     create_dummy_input: Optional[
-        Callable[..., "torch.Tensor"]  # noqa F821
-    ] = Field(  # noqa: F82
+        Callable[
+            Tuple[
+                Optional["torch.utils.data.Dataloader"],  # noqa F821
+                Optional[Dict[str, Any]],
+            ],
+            "torch.Tensor",  # noqa F821
+        ]
+    ] = Field(
         description="A function that takes: "
-        "- a dictionary of arguments"
+        "- (optionally) a data loader "
+        "- (optionally) a dictionary of additional arguments"
         "and returns: "
         "- a dummy input for the model (a torch.Tensor) "
     )
@@ -92,7 +144,7 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
     ] = Field(
         default=create_data_samples_,
         description="A function that takes: "
-        " - an optional (sparse) PyTorch model "
+        " - (optionally) a (sparse) PyTorch model "
         " - a data loader "
         " - the number of samples to generate "
         "and returns: "
@@ -104,27 +156,3 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
         "expected files of the deployment directory",
         default=["model.onnx"],
     )
-
-
-def infer_integration(source_path: Union[Path, str]) -> str:
-    """
-    Infer the integration to use for exporting the model from the source_path.
-
-    :param source_path: The path to the PyTorch model to export.
-    :return: The name of the integration to use for exporting the model.
-    """
-    from sparseml.pytorch.image_classification.utils.helpers import (
-        is_image_classification_model,
-    )
-
-    if is_image_classification_model(source_path):
-        # import to register the image_classification integration helper functions
-        import sparseml.pytorch.image_classification.integration_helper_functions  # noqa F401
-
-        return Integrations.image_classification.value
-    else:
-        raise ValueError(
-            f"Could not infer integration from source_path: {source_path}."
-            f"Please specify an argument `integration` from one of"
-            f"the available integrations: {list(Integrations)}."
-        )
