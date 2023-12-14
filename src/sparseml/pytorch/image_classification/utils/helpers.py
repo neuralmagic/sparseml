@@ -346,25 +346,19 @@ def get_dataset_and_dataloader(
 # Model creation Helpers
 def create_model(
     checkpoint_path: str,
-    dataset_name: Optional[str] = None,
-    dataset_path: Optional[str] = None,
-    num_classes: Optional[int] = None,
+    num_classes: int,
     recipe_path: Optional[str] = None,
     arch_key: Optional[str] = None,
     pretrained: Union[bool, str] = False,
     pretrained_dataset: Optional[str] = None,
     one_shot: Optional[str] = None,
-    image_size: int = 224,
     local_rank: int = -1,
-    **model_kwargs,
+    model_kwargs: Optional[Dict[str, Any]] = None,
+    **kwargs,
 ) -> Tuple[Module, str, str]:
     """
     :param checkpoint_path: Path to the checkpoint to load. `zoo` for
         downloading weights with respect to a SparseZoo recipe
-    :param dataset_name: The name of the dataset to use for model creation.
-        Defaults to `None`
-    :param dataset_path: The path to the dataset to use for model creation.
-        Defaults to `None`
     :param num_classes: Integer representing the number of output classes
     :param recipe_path: Path or SparseZoo stub to the recipe for downloading,
         respective model. Defaults to `None`
@@ -376,36 +370,12 @@ def create_model(
         None
     :param one_shot: The recipe to be applied in one-shot manner,
         before exporting. Defaults to None
-    :param image_size: The image size to use for inference of num_classes
-        (in case num_classes is None) . Defaults to 224
     :param local_rank: The local rank of the process. Defaults to -1
     :param model_kwargs: Additional keyword arguments to pass to the model
     :returns: A tuple containing the mode, the model's arch_key, and the
         checkpoint path
     """
-    _validate_dataset_num_classes(
-        dataset_path=dataset_path, dataset=dataset_name, num_classes=num_classes
-    )
-
-    if num_classes is None:
-        val_dataset, _ = get_dataset_and_dataloader(
-            dataset_name=dataset_name,
-            dataset_path=dataset_path,
-            batch_size=1,
-            image_size=image_size,
-            training=False,
-            loader_num_workers=1,
-            loader_pin_memory=False,
-            max_samples=1,
-        )
-
-        num_classes = infer_num_classes(
-            train_dataset=None,
-            val_dataset=val_dataset,
-            dataset=dataset_name,
-            model_kwargs=model_kwargs,
-        )
-
+    model_kwargs = model_kwargs or {}
     with torch_distributed_zero_first(local_rank):
         # only download once locally
         if checkpoint_path and checkpoint_path.startswith("zoo"):
@@ -446,7 +416,7 @@ def create_model(
         if one_shot is not None:
             ScheduledModifierManager.from_yaml(file_path=one_shot).apply(module=model)
 
-        return model, arch_key, checkpoint_path, val_dataset
+        return model, arch_key, checkpoint_path
 
 
 def infer_num_classes(
@@ -697,7 +667,8 @@ def is_image_classification_model(source_path: Union[Path, str]) -> bool:
     :param source_path: The path to the model
     :return: Whether the model is an image classification model or not
     """
-    if not os.isfile(source_path):
+
+    if not os.path.isfile(source_path):
         checkpoint_path = os.path.join(source_path, "model.pth")
     else:
         checkpoint_path = source_path
