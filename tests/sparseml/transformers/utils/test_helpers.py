@@ -12,10 +12,76 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import pytest
+from collections import OrderedDict
 
-from sparseml.transformers.utils.helpers import is_transformer_model, save_zoo_directory
+import numpy
+import pytest
+from transformers import AutoTokenizer
+
+from sparseml.transformers.utils.helpers import (
+    create_dummy_inputs,
+    is_transformer_model,
+    save_zoo_directory,
+)
 from sparsezoo import Model
+from src.sparseml.transformers.utils.model import SparseAutoModel
+
+
+@pytest.fixture()
+def model_path(tmp_path):
+    return Model(
+        "zoo:mobilebert-squad_wikipedia_bookcorpus-14layer_pruned50.4block_quantized",
+        tmp_path,
+    ).training.path
+
+
+@pytest.fixture()
+def sequence_length():
+    return 384
+
+
+@pytest.fixture()
+def expected_dummy_inputs():
+    input_ids = numpy.zeros((1, 384), dtype=numpy.int8)
+    attention_mask = numpy.zeros((1, 384), dtype=numpy.int8)
+    token_type_ids = numpy.zeros((1, 384), dtype=numpy.int8)
+
+    input_ids[:, 0] = 101
+    input_ids[:, 1] = 102
+    attention_mask[:, :2] = 1
+
+    return OrderedDict(
+        input_ids=input_ids,
+        attention_mask=attention_mask,
+        token_type_ids=token_type_ids,
+    )
+
+
+@pytest.mark.parametrize(
+    "inputs_type",
+    ["pt", "np"],
+)
+@pytest.mark.parametrize(
+    "batch_size",
+    [1, 10],
+)
+def test_create_dummy_inputs(
+    model_path, sequence_length, inputs_type, expected_dummy_inputs, batch_size
+):
+    tokenizer = AutoTokenizer.from_pretrained(
+        pretrained_model_name_or_path=model_path, model_max_length=sequence_length
+    )
+    model = SparseAutoModel.question_answering_from_pretrained(
+        model_name_or_path=model_path, model_type="model"
+    )
+    dummy_inputs = create_dummy_inputs(
+        model, tokenizer, type=inputs_type, batch_size=batch_size
+    )
+    for key in dummy_inputs:
+        input = dummy_inputs[key]
+        assert numpy.array_equal(
+            input.numpy() if inputs_type == "pt" else input, expected_dummy_inputs[key]
+        )
 
 
 @pytest.mark.parametrize(
