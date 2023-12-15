@@ -64,9 +64,8 @@ class SessionManagerMixIn:
 
     def __init__(
         self,
-        model: Module,
         model_state_path: str,
-        recipe: Optional[str],
+        recipe: Optional[str] = None,
         recipe_args: Optional[Union[Dict[str, Any], str]] = None,
         metadata_args: Optional[List[str]] = None,
         data_args: Optional["DataTrainingArguments"] = None,  # noqa: F821
@@ -96,7 +95,7 @@ class SessionManagerMixIn:
         session_manager.create_session()
 
         # call Trainer initialization
-        super().__init__(model=model, **kwargs)
+        super().__init__(**kwargs)
 
         # setup callbacks and loss
         self.optim_callbacks = TrainingLoopCallbacks(self)
@@ -105,7 +104,7 @@ class SessionManagerMixIn:
         self.callback_handler.add_callback(self.callback_disable_fp16)
         self.criterion = torch.nn.CrossEntropyLoss()
 
-        model_signature = inspect.signature(model.forward)
+        model_signature = inspect.signature(self.model.forward)
         self._model_signature_columns = list(model_signature.parameters.keys())
 
         if self.teacher is not None and teacher not in ("disable", "self"):

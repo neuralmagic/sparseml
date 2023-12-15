@@ -35,6 +35,7 @@ __all__ = [
     "save_model_and_recipe",
     "fallback_to_cpu",
     "parse_dtype",
+    "model_reinit",
 ]
 
 _LOGGER = logging.getLogger(__name__)
@@ -59,6 +60,10 @@ def apply_recipe_structure_to_model(model: Module, recipe_path: str, model_path:
     session_manager.pre_initialize_structure(
         model=model, recipe=recipe_path, framework=Framework.pytorch
     )
+
+    # no need to reload if no recipe was applied
+    if recipe_path is None:
+        return
 
     session = session_manager.active_session()
     num_stages = len(session.lifecycle.recipe_container.compiled_recipe.stages)
@@ -233,3 +238,10 @@ def parse_dtype(dtype_arg: str) -> torch.dtype:
         dtype = torch.float32
 
     return dtype
+
+
+def model_reinit():
+    session = session_manager.active_session()
+    active_model = session.state.model.model
+    # active_model.cpu()
+    return active_model

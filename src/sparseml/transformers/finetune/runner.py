@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import logging
+import os
 from typing import List, Optional
 
 import torch
@@ -66,6 +67,7 @@ class StageRunner:
         self.model = model
         self.trainer = None
         self.tokenizer = None
+        self._output_dir = self._training_args.output_dir
 
     def populate_datasets(self, tokenizer: "AutoTokenizer"):
         """
@@ -163,7 +165,7 @@ class StageRunner:
 
         save_model_and_recipe(
             model=self.model,
-            save_path=self._training_args.output_dir,
+            save_path=self._output_dir,
             tokenizer=self.tokenizer,
         )
 
@@ -185,7 +187,7 @@ class StageRunner:
         self.trainer.save_metrics("train", metrics)
 
         # this includes saving the state, optimizer and scheduler
-        self.trainer.save_model()
+        self.trainer.save_model(output_dir=self._output_dir)
 
     def evaluate(self):
         """
@@ -220,6 +222,11 @@ class StageRunner:
         stage_list = [stage.group for stage in recipe_obj.stages]
 
         for stage_name in stage_list:
+            self._output_dir = os.path.join(
+                self._training_args.output_dir, "stage_" + stage_name
+            )
+            if not os.path.exists(self._output_dir):
+                os.makedirs(self._output_dir)
             if "oneshot" in stage_name:
                 self.one_shot(stage=stage_name)
             elif "finetune" in stage_name:

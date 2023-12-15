@@ -34,6 +34,7 @@ from transformers import (
 
 from sparseml.pytorch.model_load.helpers import (
     apply_recipe_structure_to_model,
+    model_reinit,
     parse_dtype,
 )
 from sparseml.transformers.finetune import Trainer, TrainingArguments
@@ -192,6 +193,7 @@ def main(
     else:
         if not os.path.exists(recipe_path):
             _LOGGER.warning(f"No recipes were applied for {model_path}.")
+            apply_recipe_structure_to_model(model, None, model_path)
         else:
             _LOGGER.warning(f"Applying recipe {recipe_path} to {model_path}")
             apply_recipe_structure_to_model(model, recipe_path, model_path)
@@ -233,7 +235,7 @@ def main(
 
     # Initialize our Trainer
     trainer = Trainer(
-        model=model,
+        model_init=model_reinit,
         teacher=teacher,
         model_state_path=model_path,
         recipe=training_args.recipe,
