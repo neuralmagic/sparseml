@@ -27,7 +27,7 @@ from sparseml.core.state import State
 
 
 def recipe_with_layer_prefix():
-    layer_prefix = "decoder"
+    layer_prefix = "model.decoder.layers"
     recipe = f"""
     metadata:
         target_model:
