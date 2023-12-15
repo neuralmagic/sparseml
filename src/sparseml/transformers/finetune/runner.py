@@ -227,6 +227,7 @@ class StageRunner:
             )
             if not os.path.exists(self._output_dir):
                 os.makedirs(self._output_dir)
+            # TODO: these checks are hacky, make it a stage parameter?
             if "oneshot" in stage_name:
                 self.one_shot(stage=stage_name)
             elif "finetune" in stage_name:

@@ -53,7 +53,6 @@ class SessionManagerMixIn:
     Mix-In class to extend the Hugging Face Trainer class to support SparseML recipes
     for one-shot and finetuning flows.
 
-    :param model: PyTorch model to run training on
     :param model_state_path: path to Pytorch model checkpoint or saved model
     :param recipe: path to recipe file to apply during training
     :param recipe_args: additional kwargs to use for evaluating recipe

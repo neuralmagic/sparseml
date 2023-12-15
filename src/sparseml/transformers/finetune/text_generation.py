@@ -34,7 +34,7 @@ from transformers import (
 
 from sparseml.pytorch.model_load.helpers import (
     apply_recipe_structure_to_model,
-    model_reinit,
+    get_session_model,
     parse_dtype,
 )
 from sparseml.transformers.finetune import Trainer, TrainingArguments
@@ -235,7 +235,7 @@ def main(
 
     # Initialize our Trainer
     trainer = Trainer(
-        model_init=model_reinit,
+        model_init=get_session_model,
         teacher=teacher,
         model_state_path=model_path,
         recipe=training_args.recipe,

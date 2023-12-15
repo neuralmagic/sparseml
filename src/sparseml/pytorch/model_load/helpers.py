@@ -35,7 +35,7 @@ __all__ = [
     "save_model_and_recipe",
     "fallback_to_cpu",
     "parse_dtype",
-    "model_reinit",
+    "get_session_model",
 ]
 
 _LOGGER = logging.getLogger(__name__)
@@ -240,8 +240,14 @@ def parse_dtype(dtype_arg: str) -> torch.dtype:
     return dtype
 
 
-def model_reinit():
+def get_session_model() -> Module:
+    """
+    :return: pytorch module stored by the active SparseSession, or None if no session
+    is active
+    """
     session = session_manager.active_session()
+    if not session:
+        return None
+
     active_model = session.state.model.model
-    # active_model.cpu()
     return active_model
