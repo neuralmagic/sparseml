@@ -16,22 +16,111 @@
 Helper variables and functions for integrating SparseML with huggingface/transformers
 flows
 """
+
 import logging
 import os
-from typing import Optional
+from enum import Enum
+from pathlib import Path
+from typing import Any, Dict, Optional, Tuple, Union
 
+import torch
 from transformers.trainer_utils import get_last_checkpoint
 
+from sparseml.export.helpers import ONNX_MODEL_NAME
 from sparsezoo import setup_model
 
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
 
-__all__ = ["RECIPE_NAME", "save_zoo_directory", "detect_last_checkpoint"]
+__all__ = [
+    "RECIPE_NAME",
+    "save_zoo_directory",
+    "detect_last_checkpoint",
+    "TaskNames",
+    "is_transformer_model",
+    "is_transformer_generative_model",
+    "run_transformers_inference",
+]
+
+
+class TaskNames(Enum):
+    mlm = {"masked-language-modeling", "mlm"}
+    qa = {"question-answering", "qa"}
+    token_classification = {"token-classification", "ner"}
+    text_classification = {
+        "text-classification",
+        "sentiment-analysis",
+        "sequence-classification",
+        "glue",
+    }
+    text_generation = {"text-generation"}
 
 
 RECIPE_NAME = "recipe.yaml"
+MANDATORY_DEPLOYMENT_FILES = {
+    ONNX_MODEL_NAME,
+    "tokenizer_config.json",
+    "config.json",
+}
+NLG_TOKENIZER_FILES = {"special_tokens_map.json", "vocab.json", "merges.txt"}
+OPTIONAL_DEPLOYMENT_FILES = {"tokenizer.json", "tokenizer.model"}
+
+
+def run_transformers_inference(
+    inputs: Dict[str, Any], model: Optional[torch.nn.Module] = None
+) -> Tuple[Dict[str, Any], Any, Dict[str, Any]]:
+    """
+    Run inference on a transformers model and return the inputs, labels and outputs
+
+    :param inputs: The inputs to run inference on
+    :param model: The model to run inference on (optional)
+
+    :return: The inputs, labels and outputs
+    """
+    # TODO: For now we need to make sure that the model and tensors
+    # live on the same device. This is because I am currently unable
+    # to assign them to the same device
+    inputs = {key: value.to("cpu") for key, value in inputs.items()}
+
+    label = None  # transformers in general have no labels
+    if model is None:
+        return inputs, label, None
+
+    model.to("cpu")
+    output_vals = model(**inputs)
+    output = {
+        name: torch.squeeze(val).detach().to("cpu") for name, val in output_vals.items()
+    }
+    return inputs, label, output
+
+
+def is_transformer_model(source_path: Union[Path, str]) -> bool:
+    """
+    :param source_path: The path to the model
+    :return: Whether the model is a transformers model or not
+    """
+    # make sure that the path is a directory and contains
+    # the EXPECTED_TRANSFORMER_FILES
+    if not os.path.isdir(source_path):
+        raise ValueError(f"Path {source_path} is not a valid directory")
+    expected_files = MANDATORY_DEPLOYMENT_FILES.difference({ONNX_MODEL_NAME})
+    return expected_files.issubset(os.listdir(source_path))
+
+
+def is_transformer_generative_model(source_path: Union[Path, str]) -> bool:
+    """
+    :param source_path: The path to the model
+    :return: Whether the model is a transformers model or not
+    """
+    # make sure that the path is a directory and contains
+    # the EXPECTED_TRANSFORMER_FILES
+    if not os.path.isdir(source_path):
+        raise ValueError(f"Path {source_path} is not a valid directory")
+    expected_files = MANDATORY_DEPLOYMENT_FILES.union(NLG_TOKENIZER_FILES).difference(
+        {ONNX_MODEL_NAME}
+    )
+    return expected_files.issubset(os.listdir(source_path))
 
 
 def save_zoo_directory(
