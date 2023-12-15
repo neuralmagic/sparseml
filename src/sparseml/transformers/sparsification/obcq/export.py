@@ -146,6 +146,9 @@ def load_task_model(
         )
 
     if task == "text-generation":
+        # Export decoder model without kv cache support
+        config.use_cache = False
+
         return SparseAutoModel.text_generation_from_pretrained(
             model_name_or_path=model_path,
             config=config,
