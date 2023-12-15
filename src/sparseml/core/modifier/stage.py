@@ -36,8 +36,8 @@ class StageModifiers(ModifierInterface, BaseModel):
     :param modifiers: The modifiers to apply as a stage
     :param index: The index of the stage, if applicable
     :param group: The group name of the stage, if applicable
-    :param applied: Flag for indicating if this stage's structure has already been
-    applied to the model
+    :param applied: Flag for indicating if this stage has has already been
+    applied to the model, through structure initialization or finalization
     """
 
     modifiers: List["Modifier"] = Field(default_factory=list)
@@ -113,7 +113,7 @@ class StageModifiers(ModifierInterface, BaseModel):
 
     def pre_initialize_structure(self, state: "State", **kwargs):
         """
-        Pre initialize the structure for all stage modifiers
+        Pre initialize the structure for all stage modifiers mark the stage applied
 
         :param state: The current state of the training
         :param kwargs: Additional kwargs to pass to the modifier(s)
@@ -141,7 +141,7 @@ class StageModifiers(ModifierInterface, BaseModel):
 
     def finalize(self, state: "State", **kwargs):
         """
-        Finalize all the stage modifiers
+        Finalize all the stage modifiers and mark the stage as applied
 
         :param state: The state of current session
         :param kwargs: Additional kwargs to pass to the modifier(s)
