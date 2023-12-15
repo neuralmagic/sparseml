@@ -154,6 +154,8 @@ class StageModifiers(ModifierInterface, BaseModel):
         for modifier in self.modifiers:
             modifier.finalize(state, **kwargs)
 
+        self.applied = True
+
     def update_event(self, state: "State", event: "Event", **kwargs):
         """
         Propagate the event to all the stage modifiers
