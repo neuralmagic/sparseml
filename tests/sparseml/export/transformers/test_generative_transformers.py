@@ -12,24 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
-import glob
-import os
 import shutil
 
-import numpy as np
 import pytest
 import torch
 
+from huggingface_hub import snapshot_download
 from sparseml.export.export import export
-from sparsezoo import Model
 
 
 @pytest.mark.parametrize(
     "stub, task",
-    [
-        ("zoo:obert-medium-squad_wikipedia_bookcorpus-pruned95_quantized", "qa"),
-    ],
+    [("roneneldan/TinyStories-1M", "text-generation")],
 )
 class TestEndToEndExport:
     @pytest.fixture()
@@ -37,7 +31,7 @@ class TestEndToEndExport:
         model_path = tmp_path / "model"
         target_path = tmp_path / "target"
 
-        source_path = Model(stub, model_path).training.path
+        source_path = snapshot_download(stub, local_dir=model_path)
 
         yield source_path, target_path, task
 
@@ -51,30 +45,6 @@ class TestEndToEndExport:
             task=task,
         )
         assert (target_path / "deployment" / "model.onnx").exists()
-
-    def test_export_samples(self, setup):
-        source_path, target_path, task = setup
-
-        num_samples = 4
-
-        export(
-            source_path=source_path,
-            target_path=target_path,
-            task=task,
-            num_export_samples=num_samples,
-            **dict(data_args=dict(dataset_name="squad")),
-        )
-        assert (target_path / "deployment" / "model.onnx").exists()
-        assert (
-            len(os.listdir(os.path.join(target_path, "sample-inputs"))) == num_samples
-        )
-        assert (
-            len(os.listdir(os.path.join(target_path, "sample-outputs"))) == num_samples
-        )
-        assert np.load(
-            glob.glob(os.path.join(target_path, "sample-inputs/*"))[0],
-            allow_pickle=True,
-        )["arr_0"]
 
     def test_export_with_sample_data(self, setup):
         source_path, target_path, task = setup
@@ -92,16 +62,6 @@ class TestEndToEndExport:
         )
         assert (target_path / "deployment" / "model.onnx").exists()
 
-    @pytest.mark.skipif(reason="skipping since not implemented")
-    def test_export_multiple_files(self, setup):
-        source_path, target_path, task = setup
-        export(
-            source_path=source_path,
-            target_path=target_path,
-            task=task,
-            single_graph_file=False,
-        )
-
     @pytest.mark.skipif(
         reason="skipping since this functionality needs some more attention"
     )
@@ -116,5 +76,4 @@ class TestEndToEndExport:
             task=task,
             num_export_samples=num_samples,
             validate_correctness=True,
-            **dict(data_args=dict(dataset_name="squad")),
         )

@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import shutil
+
 import pytest
 
 from sparseml.transformers.utils.load_task_dataset import load_task_dataset
@@ -48,7 +50,7 @@ class TestInitializeModelFlow:
         self.task = task
         self.data_args = data_args
         yield
-        tmp_path.rmdir()
+        shutil.rmtree(tmp_path)
 
     def test_initialize_config(self, setup):
         assert initialize_config(model_path=self.model_path, trust_remote_code=True)
@@ -114,4 +116,5 @@ class TestInitializeModelFlow:
         trainer = initialize_trainer(
             model=model, model_path=self.model_path, validation_dataset=None
         )
+        assert trainer.eval_dataset is None
         assert trainer._get_fake_dataloader(num_samples=10, tokenizer=tokenizer)

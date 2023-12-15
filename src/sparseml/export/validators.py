@@ -50,11 +50,12 @@ def validate_structure(
     """
     sample_files = {InputsNames, OutputsNames, LabelNames}
 
-    # Account for the potentially custom ONNX model name
+    # account for the potentially custom ONNX model name
     deployment_directory_files_mandatory = [
         onnx_model_name if file_name == ONNX_MODEL_NAME else file_name
         for file_name in deployment_directory_files_mandatory
     ]
+    # obtain full paths
     deployment_directory_files_mandatory = {
         os.path.join(target_path, deployment_directory_name, file_name)
         for file_name in deployment_directory_files_mandatory
@@ -64,6 +65,7 @@ def validate_structure(
         for file_name in deployment_directory_files_optional or []
     }
 
+    # obtain full paths for the potential sample files
     optional_files = {
         os.path.join(target_path, name.basename.value) for name in sample_files
     }

@@ -18,7 +18,7 @@ import shutil
 from collections import OrderedDict
 from enum import Enum
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 from sparseml.exporters import ExportTargets
 
@@ -28,6 +28,7 @@ __all__ = [
     "create_deployment_folder",
     "AVAILABLE_DEPLOYMENT_TARGETS",
     "ONNX_MODEL_NAME",
+    "create_export_kwargs",
 ]
 
 AVAILABLE_DEPLOYMENT_TARGETS = [target.value for target in ExportTargets]
@@ -35,6 +36,19 @@ ONNX_MODEL_NAME = "model.onnx"
 ONNX_DATA_NAME = "model.data"
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def create_export_kwargs(auxiliary_items: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Retrieve the export kwargs from the auxiliary items.
+    """
+    export_kwargs = {}
+
+    input_names = auxiliary_items.get("input_names")
+    if input_names is not None:
+        export_kwargs["input_names"] = input_names
+
+    return export_kwargs
 
 
 def create_deployment_folder(
@@ -207,11 +221,7 @@ def resolve_graph_optimizations(
         else:
             raise KeyError(f"Unknown graph optimization option: {optimizations}")
     elif isinstance(optimizations, list):
-        return {
-            name: available_optimizations[name]
-            for name in optimizations
-            if name in available_optimizations
-        }
+        return {name: available_optimizations[name] for name in optimizations}
     else:
         raise KeyError(f"Unknown graph optimization option: {optimizations}")
 

@@ -21,8 +21,9 @@ import logging
 import os
 from enum import Enum
 from pathlib import Path
-from typing import Optional, Union
+from typing import Any, Dict, Optional, Tuple, Union
 
+import torch
 from transformers.trainer_utils import get_last_checkpoint
 
 from sparseml.export.helpers import ONNX_MODEL_NAME
@@ -39,6 +40,7 @@ __all__ = [
     "TaskNames",
     "is_transformer_model",
     "is_transformer_generative_model",
+    "run_transformers_inference",
 ]
 
 
@@ -63,6 +65,34 @@ MANDATORY_DEPLOYMENT_FILES = {
 }
 NLG_TOKENIZER_FILES = {"special_tokens_map.json", "vocab.json", "merges.txt"}
 OPTIONAL_DEPLOYMENT_FILES = {"tokenizer.json", "tokenizer.model"}
+
+
+def run_transformers_inference(
+    inputs: Dict[str, Any], model: Optional[torch.nn.Module] = None
+) -> Tuple[Dict[str, Any], Any, Dict[str, Any]]:
+    """
+    Run inference on a transformers model and return the inputs, labels and outputs
+
+    :param inputs: The inputs to run inference on
+    :param model: The model to run inference on (optional)
+
+    :return: The inputs, labels and outputs
+    """
+    # TODO: For now we need to make sure that the model and tensors
+    # live on the same device. This is because I am currently unable
+    # to assign them to the same device
+    inputs = {key: value.to("cpu") for key, value in inputs.items()}
+
+    label = None  # transformers in general have no labels
+    if model is None:
+        return inputs, label, None
+
+    model.to("cpu")
+    output_vals = model(**inputs)
+    output = {
+        name: torch.squeeze(val).detach().to("cpu") for name, val in output_vals.items()
+    }
+    return inputs, label, output
 
 
 def is_transformer_model(source_path: Union[Path, str]) -> bool:

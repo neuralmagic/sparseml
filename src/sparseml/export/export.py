@@ -23,6 +23,7 @@ from sparseml.export.helpers import (
     ONNX_MODEL_NAME,
     apply_optimizations,
     create_deployment_folder,
+    create_export_kwargs,
 )
 from sparseml.export.validators import validate_correctness as validate_correctness_
 from sparseml.export.validators import validate_structure as validate_structure_
@@ -154,6 +155,8 @@ def export(
 
     _LOGGER.info(f"Exporting {onnx_model_name} to {target_path}...")
 
+    export_kwargs = create_export_kwargs(auxiliary_items)
+
     onnx_file_path = helper_functions.export(
         model=model,
         sample_data=sample_data,
@@ -161,9 +164,7 @@ def export(
         onnx_model_name=onnx_model_name,
         deployment_target=deployment_target,
         opset=opset,
-        input_names=None
-        if not isinstance(sample_data, dict)
-        else list(sample_data.keys()),
+        **export_kwargs,
     )
     _LOGGER.info(f"Successfully exported {onnx_model_name} to {onnx_file_path}...")
 

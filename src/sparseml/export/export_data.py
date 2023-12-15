@@ -50,7 +50,7 @@ def create_data_samples(
     data_loader: torch.utils.data.DataLoader,
     model: Optional[torch.nn.Module] = None,
     num_samples: int = 1,
-) -> Tuple[List[torch.Tensor], List[torch.Tensor], List[torch.Tensor]]:
+) -> Tuple[List[Any], List[Any], List[Any]]:
     """
     Fetch a batch of samples from the data loader and return the inputs and outputs
 
@@ -63,25 +63,29 @@ def create_data_samples(
     inputs, outputs, labels = [], [], []
     if model is None:
         _LOGGER.warning("The model is None. The list of outputs will be empty")
+
     for batch_num, data in tqdm(enumerate(data_loader)):
-        if len(data) == 2:
-            inputs_, labels_ = data
-        else:
-            inputs_ = {key: value.to("cpu") for key, value in data.items()}
-            labels_ = None
         if batch_num == num_samples:
             break
-        if model:
-            if labels_ is not None:
-                outputs_ = model(inputs_)
-            else:
-                outputs_ = model(**inputs_).end_logits
 
+        if isinstance(data, dict):
+            # assume transformers inference
+            from sparseml.transformers.utils.helpers import run_transformers_inference
+
+            inputs_, labels_, outputs_ = run_transformers_inference(
+                inputs=data, model=model
+            )
+        else:
+            # assume image classification inference
+            inputs_, labels_ = data
+            outputs_ = model(inputs_) if model else None
             if isinstance(outputs_, tuple):
                 # outputs_ contains (logits, softmax)
                 outputs_ = outputs_[0]
-            outputs.append(outputs_)
+
         inputs.append(inputs_)
+        if outputs_ is not None:
+            outputs.append(outputs_)
         if labels_ is not None:
             labels.append(
                 torch.IntTensor([labels_])
@@ -126,6 +130,7 @@ def export_data_samples(
 
     :param input_samples: The input samples to save.
     :param output_samples: The output samples to save.
+    :param label_samples: The label samples to save.
     :param target_path: The path to save the samples to.
     :param as_tar: Whether to save the samples as tar files.
     """

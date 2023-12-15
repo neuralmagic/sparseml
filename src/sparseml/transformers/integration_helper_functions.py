@@ -23,11 +23,9 @@ from transformers import AutoTokenizer
 from sparseml.transformers.sparsification.trainer import Trainer
 from sparseml.transformers.utils.helpers import (
     MANDATORY_DEPLOYMENT_FILES,
-    NLG_TOKENIZER_FILES,
     OPTIONAL_DEPLOYMENT_FILES,
 )
 from sparseml.transformers.utils.load_task_dataset import load_task_dataset
-from sparseml.transformers.utils.optimizations import apply_kv_cache_injection
 from src.sparseml.export.export_data import create_data_samples as create_data_samples_
 from src.sparseml.integration_helper_functions import (
     IntegrationHelperFunctions,
@@ -72,6 +70,7 @@ def create_model(
 
     if task is None:
         raise ValueError("To create a transformer model, a task must be specified")
+
     if not trust_remote_code:
         _LOGGER.warning(
             "trust_remote_code is set to False. It is possible, "
@@ -99,6 +98,7 @@ def create_model(
             config=config,
         )
         validation_dataset = dataset.get("validation")
+
     else:
         validation_dataset = None
 
@@ -106,7 +106,11 @@ def create_model(
     trainer = initialize_trainer(model, source_path, validation_dataset)
     model.eval()
 
-    return model, dict(trainer=trainer, tokenizer=tokenizer)
+    return model, dict(
+        trainer=trainer,
+        tokenizer=tokenizer,
+        input_names=list(next(trainer._get_fake_dataloader(1, tokenizer)).keys()),
+    )
 
 
 def create_dummy_input(
@@ -136,7 +140,7 @@ def create_data_samples(
     if kwargs.get("batch_size"):
         _LOGGER.info(
             "For exporting samples for transformers integration,"
-            "batch size is ignored (equal to 1"
+            "batch size is ignored (equal to 1)"
         )
     if trainer.eval_dataset is None:
         raise ValueError(
@@ -157,26 +161,8 @@ class Transformers(IntegrationHelperFunctions):
     create_dummy_input: Callable[..., torch.Tensor] = Field(default=create_dummy_input)
     create_data_samples: Callable = Field(create_data_samples)
     deployment_directory_files_mandatory: List[str] = Field(
-        default=MANDATORY_DEPLOYMENT_FILES
+        default=list(MANDATORY_DEPLOYMENT_FILES)
     )
     deployment_directory_files_optional: List[str] = Field(
-        default=OPTIONAL_DEPLOYMENT_FILES
-    )
-
-
-generative_transformers_graph_optimizations = {
-    "kv_cache_injection": apply_kv_cache_injection
-}
-
-
-@IntegrationHelperFunctions.register(name=Integrations.transformers_generative.value)
-class GenerativeTransformers(Transformers):
-    graph_optimizations: Dict[str, Callable] = Field(
-        default=generative_transformers_graph_optimizations
-    )
-    deployment_directory_files_mandatory: List[str] = Field(
-        default=MANDATORY_DEPLOYMENT_FILES.union(NLG_TOKENIZER_FILES)
-    )
-    deployment_directory_files_optional: List[str] = Field(
-        default=OPTIONAL_DEPLOYMENT_FILES
+        default=list(OPTIONAL_DEPLOYMENT_FILES)
     )

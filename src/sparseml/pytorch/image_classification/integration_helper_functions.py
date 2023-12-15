@@ -107,6 +107,7 @@ def create_dummy_input(
 
     :param validation_dataloader: The validation dataloader to get a batch from.
         If None, a fake batch will be created
+    :param image_size: The image size to use for the dummy input
     :return: The dummy input as a torch tensor
     """
 

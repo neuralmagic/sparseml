@@ -65,6 +65,7 @@ def resolve_integration(
         is_image_classification_model,
     )
     from sparseml.transformers.utils.helpers import (
+        TaskNames,
         is_transformer_generative_model,
         is_transformer_model,
     )
@@ -77,16 +78,17 @@ def resolve_integration(
 
         return Integrations.image_classification.value
 
-    if integration == Integrations.transformers.value or is_transformer_model(
+    elif task in TaskNames.text_generation.value or is_transformer_generative_model(
+        source_path
+    ):
+        import sparseml.transformers.integration_helper_functions_generative  # noqa F401
+
+        return Integrations.transformers_generative.value
+
+    elif integration == Integrations.transformers.value or is_transformer_model(
         source_path
     ):
         import sparseml.transformers.integration_helper_functions  # noqa F401
-        from sparseml.transformers.utils.helpers import TaskNames
-
-        if (task in TaskNames.text_generation.value) or is_transformer_generative_model(
-            source_path
-        ):
-            return Integrations.transformers_generative.value
 
         return Integrations.transformers.value
     else:

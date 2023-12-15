@@ -14,15 +14,23 @@
 
 from collections import OrderedDict
 
-import numpy
 import pytest
+import torch
 
+from huggingface_hub import snapshot_download
 from sparseml.transformers.utils.helpers import (
     is_transformer_generative_model,
     is_transformer_model,
+    run_transformers_inference,
     save_zoo_directory,
 )
+from sparseml.transformers.utils.initializers import initialize_config, initialize_model
 from sparsezoo import Model
+
+
+@pytest.fixture()
+def generative_model_path(tmp_path):
+    return snapshot_download("roneneldan/TinyStories-1M", local_dir=tmp_path)
 
 
 @pytest.fixture()
@@ -39,19 +47,13 @@ def sequence_length():
 
 
 @pytest.fixture()
-def expected_dummy_inputs():
-    input_ids = numpy.zeros((1, 384), dtype=numpy.int8)
-    attention_mask = numpy.zeros((1, 384), dtype=numpy.int8)
-    token_type_ids = numpy.zeros((1, 384), dtype=numpy.int8)
-
-    input_ids[:, 0] = 101
-    input_ids[:, 1] = 102
-    attention_mask[:, :2] = 1
+def dummy_inputs():
+    input_ids = torch.zeros((1, 32), dtype=torch.int64)
+    attention_mask = torch.ones((1, 32), dtype=torch.int64)
 
     return OrderedDict(
         input_ids=input_ids,
         attention_mask=attention_mask,
-        token_type_ids=token_type_ids,
     )
 
 
@@ -67,9 +69,51 @@ def test_is_transformer_model(tmp_path, stub):
     assert is_transformer_model(source_path)
 
 
-def test_is_transformer_generative_model():
-    assert False
-    # is_transformer_generative_model()
+def test_is_transformer_generative_model(generative_model_path):
+    assert is_transformer_generative_model(generative_model_path)
+
+
+def test_run_transformers_inference_generative(generative_model_path, dummy_inputs):
+    config = initialize_config(
+        model_path=generative_model_path,
+        trust_remote_code=True,
+        **dict(use_cache=False),
+    )
+    model = initialize_model(
+        model_path=generative_model_path,
+        task="text-generation",
+        config=config,
+    )
+
+    inputs, label, output = run_transformers_inference(inputs=dummy_inputs, model=None)
+    assert isinstance(inputs, dict)
+    assert label is None
+    assert output is None
+
+    inputs, label, output = run_transformers_inference(inputs=dummy_inputs, model=model)
+    assert isinstance(inputs, dict)
+    assert label is None
+    assert isinstance(output, dict)
+
+
+def test_run_tranformers_inference(model_path, dummy_inputs):
+
+    config = initialize_config(model_path=model_path, trust_remote_code=True)
+    model = initialize_model(
+        model_path=model_path,
+        task="qa",
+        config=config,
+    )
+
+    inputs, label, output = run_transformers_inference(inputs=dummy_inputs, model=None)
+    assert isinstance(inputs, dict)
+    assert label is None
+    assert output is None
+
+    inputs, label, output = run_transformers_inference(inputs=dummy_inputs, model=model)
+    assert isinstance(inputs, dict)
+    assert label is None
+    assert isinstance(output, dict)
 
 
 @pytest.mark.parametrize(

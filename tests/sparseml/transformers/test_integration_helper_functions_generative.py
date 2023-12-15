@@ -19,22 +19,25 @@ from src.sparseml.integration_helper_functions import (
 
 def test_integration_helper_functions():
     # import needed to register the object on the fly
-    import sparseml.transformers.integration_helper_functions  # noqa F401
+    import sparseml.transformers.integration_helper_functions_generative  # noqa F401
 
-    transformers = IntegrationHelperFunctions.load_from_registry(
-        Integrations.transformers.value
+    transformers_gen = IntegrationHelperFunctions.load_from_registry(
+        Integrations.transformers_generative.value
     )
-    assert transformers.create_model
-    assert transformers.create_dummy_input
-    assert transformers.export
-    assert transformers.graph_optimizations is None
-    assert transformers.create_data_samples
-    assert set(transformers.deployment_directory_files_mandatory) == {
+    assert transformers_gen.create_model
+    assert transformers_gen.create_dummy_input
+    assert transformers_gen.export
+    assert transformers_gen.graph_optimizations.values() == ["apply_kv_cache_injection"]
+    assert transformers_gen.create_data_samples
+    assert set(transformers_gen.deployment_directory_files_mandatory) == {
         "model.onnx",
         "tokenizer_config.json",
         "config.json",
+        "special_tokens_map.json",
+        "vocab.json",
+        "merges.txt",
     }
-    assert set(transformers.deployment_directory_files_optional) == {
+    assert set(transformers_gen.deployment_directory_files_optional) == {
         "tokenizer.json",
         "tokenizer.model",
     }
