@@ -237,4 +237,4 @@ class StageRunner:
             session.lifecycle.initialized_ = False
             session.lifecycle.finalized = False
 
-        pass
+        self.trainer.log_model_sparsification()
