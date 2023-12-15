@@ -131,7 +131,7 @@ def create_data_samples(
 ):
     if validation_dataloader is None:
         raise ValueError(
-            "Attempting to create data samples without a" "validation dataloader."
+            "Attempting to create data samples without a validation dataloader."
         )
 
     return create_data_samples_(
