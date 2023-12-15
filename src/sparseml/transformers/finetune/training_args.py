@@ -59,6 +59,9 @@ class TrainingArguments(HFTrainingArgs):
         default=False,
         metadata={"help": "Whether to run one-shot calibration"},
     )
+    run_stages: Optional[bool] = field(
+        default=False, metadata={"help": "Whether to trigger recipe stage by stage"}
+    )
     oneshot_device: Optional[str] = field(
         default="cuda:0",
         metadata={"help": "Device to run oneshot calibration on"},

@@ -114,7 +114,12 @@ class SessionManagerMixIn:
         else:
             self._teacher_signature_columns = None
 
-    def initialize_session(self, epoch: float, checkpoint: Optional[str]):
+    def initialize_session(
+        self,
+        epoch: float,
+        checkpoint: Optional[str] = None,
+        stage: Optional[str] = None,
+    ):
         """
         Initialize the SparseSession from the specified epoch, evaluates the recipe
         and initialized the modifiers for the training session
@@ -122,6 +127,7 @@ class SessionManagerMixIn:
         :param epoch: Epoch to initialize session from, usually 0 unless loading
         from a checkpoint
         :param checkpoint: Optional checkpoint to initialize from to continue training
+        :param stage: Optional stage of recipe to run, or None to run all stages
         """
         session = session_manager.active_session()
         if session.lifecycle.initialized_ or session.lifecycle.finalized:
@@ -135,6 +141,7 @@ class SessionManagerMixIn:
             model=self.model,
             teacher_model=self.teacher,  # TODO: what about for self/disable?
             recipe=self.recipe,
+            recipe_stage=stage,
             recipe_args=self.recipe_args,
             framework=Framework.pytorch,
             train_data=train_data,
@@ -298,7 +305,7 @@ class SessionManagerMixIn:
         )
         return model_outputs
 
-    def train(self, *args, **kwargs):
+    def train(self, *args, stage: Optional[str] = None, **kwargs):
         """
         Run a sparsification training cycle. Runs initialization for the sparse session
         before calling super().train() and finalization of the session after.
@@ -306,11 +313,12 @@ class SessionManagerMixIn:
         Logs sparsification details for the trained model.
 
         :param args: positional args to pass to super().train()
+        :param stage: Optional stage of recipe to run, or None to run all stages
         :param kwargs: keyword args to pass to super().train()
         :return: the output from super.train()
         """
         checkpoint, epoch = self._calculate_checkpoint_info(kwargs)
-        self.initialize_session(epoch=epoch, checkpoint=checkpoint)
+        self.initialize_session(epoch=epoch, checkpoint=checkpoint, stage=stage)
         self.callback_disable_fp16.check_disable(epoch, force=True)
         self.accelerator.wait_for_everyone()
         output = super().train(*args, **kwargs)
