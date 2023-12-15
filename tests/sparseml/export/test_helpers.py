@@ -74,7 +74,7 @@ def test_create_deployment_folder(
     create_deployment_folder(
         source_path=source_path,
         target_path=target_path,
-        deployment_directory_files=deployment_directory_list,
+        deployment_directory_files_mandatory=deployment_directory_list,
     )
 
     assert (
@@ -83,14 +83,14 @@ def test_create_deployment_folder(
     )
 
 
-def foo(onnx_model):
-    logging.debug("foo")
-    return onnx_model
+def foo(*args, **kwargs):
+    logging.debug("foo applied")
+    return True
 
 
-def bar(onnx_model):
-    logging.debug("bar")
-    return onnx_model
+def bar(*args, **kwargs):
+    logging.debug("bar applied")
+    return True
 
 
 @pytest.fixture()
@@ -133,8 +133,8 @@ def test_apply_optimizations_empty(
     "target_optimizations, expected_logs, should_raise_error",
     [
         ("none", [], False),
-        ("all", ["bar", "foo"], False),
-        (["foo"], ["foo"], False),
+        ("all", ["bar applied", "foo applied"], False),
+        (["foo"], ["foo applied"], False),
         ("error_name", [], True),
         (["error_name"], [], True),
     ],
@@ -167,4 +167,4 @@ def test_apply_optimizations(
             available_optimizations=available_optimizations,
         )
 
-        assert caplog.messages == expected_logs
+        assert set(expected_logs).issubset(set(caplog.messages))

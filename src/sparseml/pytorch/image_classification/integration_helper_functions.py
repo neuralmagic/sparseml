@@ -13,11 +13,12 @@
 # limitations under the License.
 import os
 from pathlib import Path
-from typing import Any, Callable, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Optional, Tuple, Union
 
 import torch
 from pydantic import Field
 
+from src.sparseml.export.export_data import create_data_samples as create_data_samples_
 from src.sparseml.integration_helper_functions import (
     IntegrationHelperFunctions,
     Integrations,
@@ -36,12 +37,13 @@ from src.sparseml.pytorch.image_classification.utils.helpers import (
 
 def create_model(
     source_path: Union[Path, str],
-    batch_size: Optional[int],
-    device: Optional[str],
+    batch_size: Optional[int] = None,
+    device: Optional[str] = None,
     **kwargs,
-) -> Tuple[torch.nn.Module, Optional[torch.utils.data.DataLoader]]:
+) -> Tuple[torch.nn.Module, Dict[str, Any]]:
     """
-    A contract to create a model and optionally a validation dataloader
+    A contract to create a model and optional dictionary of
+    auxiliary items related to the model
 
     :param source_path: The path to the model
     :param batch_size: The batch size to use for the dataloader creation
@@ -49,7 +51,7 @@ def create_model(
 
     :return: A tuple of the
         - torch model
-        - (optionally) validation dataloader
+        - (optionally) a dictionary of auxiliary items
     """
     checkpoint_path = (
         os.path.join(source_path, "model.pth")
@@ -92,39 +94,55 @@ def create_model(
         checkpoint_path=checkpoint_path, **kwargs
     )
 
-    return model, validation_dataloader
+    return model, dict(validation_dataloader=validation_dataloader)
 
 
 def create_dummy_input(
     validation_dataloader: Optional[torch.utils.data.DataLoader] = None,
-    **kwargs: Any,
+    image_size: Optional[int] = None,
+    **kwargs,
 ) -> torch.Tensor:
     """
     A contract to create a dummy input for a model
 
     :param validation_dataloader: The validation dataloader to get a batch from.
         If None, a fake batch will be created
+    :param image_size: The image size to use for the dummy input
     :return: The dummy input as a torch tensor
     """
 
     if not validation_dataloader:
         # create fake data for export
-        batch_size = kwargs.get("batch_size", 1)
-        image_size = kwargs.get("image_size")
         if image_size is None:
             raise ValueError(
                 "In the absence of validation_dataloader, the "
                 "image_size must be provided to create a dummy input"
             )
-        validation_dataloader = [[torch.randn(batch_size, 3, image_size, image_size)]]
+        validation_dataloader = [[torch.randn(1, 3, image_size, image_size)]]
 
     return next(iter(validation_dataloader))[0]
 
 
+def create_data_samples(
+    num_samples: int,
+    validation_dataloader: Optional[torch.utils.data.DataLoader] = None,
+    model: Optional["torch.nn.Module"] = None,
+    **kwargs,
+):
+    if validation_dataloader is None:
+        raise ValueError(
+            "Attempting to create data samples without a" "validation dataloader."
+        )
+
+    return create_data_samples_(
+        data_loader=validation_dataloader, model=model, num_samples=num_samples
+    )
+
+
 @IntegrationHelperFunctions.register(name=Integrations.image_classification.value)
 class ImageClassification(IntegrationHelperFunctions):
-
-    create_model: Callable[
-        ..., Tuple[torch.nn.Module, Optional[torch.utils.data.DataLoader]]
-    ] = Field(default=create_model)
+    create_model: Callable[..., Tuple[torch.nn.Module, Dict[str, Any]]] = Field(
+        default=create_model
+    )
     create_dummy_input: Callable[..., torch.Tensor] = Field(default=create_dummy_input)
+    create_data_samples: Callable = Field(create_data_samples)
