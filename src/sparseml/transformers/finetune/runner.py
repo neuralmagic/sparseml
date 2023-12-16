@@ -222,20 +222,27 @@ class StageRunner:
         stage_list = [stage.group for stage in recipe_obj.stages]
 
         for stage_name in stage_list:
-            self._output_dir = os.path.join(
-                self._training_args.output_dir, "stage_" + stage_name
-            )
-            if not os.path.exists(self._output_dir):
-                os.makedirs(self._output_dir)
+            with self.trainer.accelerator.main_process_first():
+                self._output_dir = os.path.join(
+                    self._training_args.output_dir, "stage_" + stage_name
+                )
+                if not os.path.exists(self._output_dir):
+                    os.makedirs(self._output_dir)
+
             # TODO: these checks are hacky, make it a stage parameter?
             if "oneshot" in stage_name:
-                self.one_shot(stage=stage_name)
+                if self.trainer.accelerator.is_main_process:
+                    self.one_shot(stage=stage_name)
             elif "finetune" in stage_name:
                 self.train(checkpoint=None, stage=stage_name)
+
+            self.model = self.trainer.accelerator.unwrap_model(self.trainer.model)
 
             # TODO: this is hacky, clean it up
             session = session_manager.active_session()
             session.lifecycle.initialized_ = False
             session.lifecycle.finalized = False
 
-        self.trainer.log_model_sparsification()
+        self.trainer.accelerator.wait_for_everyone()
+        if self.trainer.accelerator.is_main_process:
+            self.trainer.log_model_sparsification()
