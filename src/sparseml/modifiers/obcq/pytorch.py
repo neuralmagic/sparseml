@@ -62,7 +62,10 @@ class SparseGPTModifierPyTorch(WandaPruningModifierPyTorch, SparseGPTModifier):
         # attach target_ids to `compress_bottom` for OBCQ
         # this must be done before calling super().on_initialize
 
-        self.compress_bottom = partial(self.compress_bottom, target_ids=self.target_ids)
+        compress_bottom = partial(self.compress_bottom, target_ids=self.target_ids)
+
+        # we need setattr here because of Pydantic's internal data model
+        object.__setattr__(self, "compress_bottom", compress_bottom)
         return super().on_initialize(state=state, **kwargs)
 
     def _get_compression_args(self, layer_sparsity):
