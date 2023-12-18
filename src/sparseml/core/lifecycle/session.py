@@ -17,7 +17,12 @@ from typing import Any, List, Optional
 
 from sparseml.core.event import EventType
 from sparseml.core.framework import Framework
+from sparseml.core.helpers import log_model_info
 from sparseml.core.lifecycle.event import CallbacksEventLifecycle, EventLifecycle
+from sparseml.core.logger.utils import (
+    BatchFrequencyManager,
+    OptimizerStepFrequencyManager,
+)
 from sparseml.core.modifier import StageModifiers
 from sparseml.core.recipe import RecipeContainer
 from sparseml.core.state import State
@@ -89,6 +94,8 @@ class SparsificationLifecycle:
 
         self._check_compile_recipe()
         self._set_model_layer_prefix()
+        self._attach_logging_callbacks()
+
         mod_data = []
         for mod in self.modifiers:
             data = mod.initialize(state=self.state, **extras)
@@ -98,6 +105,47 @@ class SparsificationLifecycle:
         self.initialized_ = True
 
         return mod_data
+
+    def _attach_logging_callbacks(self):
+        if (
+            isinstance(
+                self.state.loggers.frequency_manager, OptimizerStepFrequencyManager
+            )
+            and self.state.optimizer
+            and self.state.optimizer.optimizer
+        ):
+            optimizer = self.state.optimizer.optimizer
+            step_function = optimizer.step
+
+            def _optimizer_step_fn():
+                step_function()
+                current_step = optimizer.state[optimizer.param_groups[0]["params"][-1]][
+                    "step"
+                ]
+                if self.state.loggers.log_ready(
+                    current_step, self.state._last_log_step
+                ):
+                    log_model_info(state=self.state, epoch=current_step)
+
+            optimizer.step = _optimizer_step_fn
+
+        elif (
+            isinstance(self.state.loggers.frequency_manager, BatchFrequencyManager)
+            and self.state.model
+            and self.state.model.model
+        ):
+            model = self.state.model.model
+            forward_function = model.forward
+
+            def _model_forward_fn(*args, **kwargs):
+                output = forward_function(*args, **kwargs)
+                if self.state.loggers.log_ready(
+                    self.event_lifecycle.current_index, self.state._last_log_step
+                ):
+                    log_model_info(state=self.state, epoch=self.state._last_log_step)
+                return output
+
+            model.forward = _model_forward_fn
 
     def finalize(self, **kwargs) -> List[Any]:
         if not self.initialized_:

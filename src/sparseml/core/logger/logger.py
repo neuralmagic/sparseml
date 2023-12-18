@@ -27,6 +27,8 @@ from pathlib import Path
 from types import ModuleType
 from typing import Callable, Dict, List, Optional, Union
 
+from sparseml.core.logger.utils import FrequencyManagerContract, FrequencyManagerFactory
+
 
 try:
     try:
@@ -57,6 +59,8 @@ __all__ = [
     "SparsificationGroupLogger",
     "LoggerManager",
     "LOGGING_LEVELS",
+    "VALID_FREQUENCY_TYPES",
+    "DEFAULT_FREQUENCY_TYPE",
 ]
 ALL_TOKEN = "__ALL__"
 LOGGING_LEVELS = {
@@ -66,6 +70,8 @@ LOGGING_LEVELS = {
     "error": ERROR,
     "critical": CRITICAL,
 }
+VALID_FREQUENCY_TYPES = ["epoch", "step", "batch"]
+DEFAULT_FREQUENCY_TYPE = "epoch"
 
 
 class BaseLogger(ABC):
@@ -800,14 +806,17 @@ class LoggerManager(ABC):
         log_frequency: Union[float, None] = 0.1,
         log_python: bool = True,
         name: str = "manager",
+        frequency_type: str = DEFAULT_FREQUENCY_TYPE,
     ):
         self._loggers = loggers or []
-        self._log_frequency = log_frequency
         self._name = name
         if log_python and not any(
             isinstance(log, PythonLogger) for log in self._loggers
         ):
             self._loggers.append(PythonLogger())
+        self.frequency_manager: FrequencyManagerContract = (
+            FrequencyManagerFactory.from_frequency_type()
+        )
 
     def __len__(self):
         return len(self.loggers)
@@ -825,23 +834,17 @@ class LoggerManager(ABC):
             raise ValueError(f"logger {type(logger)} must be of type BaseLogger")
         self._loggers.append(logger)
 
-    def log_ready(self, epoch, last_log_epoch):
+    def log_ready(self, current_log_step, last_log_step):
         """
         Check if there is a logger that is ready to accept a log
 
-        :param epoch: current epoch log is requested at
+        :param epoch: current step log is requested at
         :param last_log_epoch: last time a log was recorder for this object
         :return: True if a logger is ready to accept a log.
         """
-        return (
-            self._log_frequency is not None
-            and (
-                epoch is None
-                or last_log_epoch is None
-                or epoch >= last_log_epoch + self._log_frequency
-            )
-            and any(log.enabled for log in self.loggers)
-        )
+        return self.frequency_manager.log_ready(
+            current_log_step, last_log_step
+        ) and any(log.enabled for log in self.loggers)
 
     @staticmethod
     def epoch_to_step(epoch, steps_per_epoch):
@@ -866,14 +869,14 @@ class LoggerManager(ABC):
         """
         :return: number of epochs or fraction of epochs to wait between logs
         """
-        return self._log_frequency
+        return self.frequency_manager._log_frequency
 
     @log_frequency.setter
     def log_frequency(self, value: Union[str, float, None]):
         """
         :param value: number of epochs or fraction of epochs to wait between logs
         """
-        self._log_frequency = value
+        self.frequency_manager._log_frequency = value
 
     @property
     def name(self) -> str:

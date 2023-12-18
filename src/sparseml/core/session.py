@@ -21,7 +21,7 @@ from sparseml.core.event import EventType
 from sparseml.core.framework import Framework
 from sparseml.core.helpers import log_model_info, should_log_model_info
 from sparseml.core.lifecycle import SparsificationLifecycle
-from sparseml.core.logger import BaseLogger, LoggerManager
+from sparseml.core.logger.logger import BaseLogger, LoggerManager
 from sparseml.core.recipe import Recipe
 from sparseml.core.state import ModifiedState, State
 
@@ -285,15 +285,15 @@ class SparseSession:
         if should_log_model_info(
             model=self.state.model,
             loggers=self.state.loggers,
-            epoch=epoch,
-            last_log_epoch=self.state._last_log_epoch,
+            current_log_step=epoch,
+            last_log_step=self.state._last_log_step,
         ):
             log_model_info(
                 state=self.state,
                 epoch=epoch,
             )
             # update last log epoch
-            self.state._last_log_epoch = epoch
+            self.state._last_log_step = epoch
 
     def get_serialized_recipe(self) -> str:
         """

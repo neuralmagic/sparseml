@@ -18,7 +18,7 @@ import pytest
 
 from sparseml.core.event import EventType
 from sparseml.core.helpers import _log_epoch, _log_model_loggable_items, log_model_info
-from sparseml.core.logger import LoggerManager
+from sparseml.core.logger.logger import LoggerManager
 
 
 class ModelMock:

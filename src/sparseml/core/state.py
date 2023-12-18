@@ -19,7 +19,7 @@ from typing import Any, Dict, List, Optional, Union
 from sparseml.core.data import ModifiableData
 from sparseml.core.event import Event
 from sparseml.core.framework import Framework
-from sparseml.core.logger import BaseLogger, LoggerManager
+from sparseml.core.logger.logger import BaseLogger, LoggerManager
 from sparseml.core.model import ModifiableModel
 from sparseml.core.optimizer import ModifiableOptimizer
 
@@ -113,7 +113,7 @@ class State:
     last_event: Event = None
     loggers: Optional[LoggerManager] = None
     model_log_cadence: Optional[float] = None
-    _last_log_epoch: Optional[float] = None
+    _last_log_step: Union[float, int, None] = None
 
     @property
     def sparsification_ready(self) -> bool:

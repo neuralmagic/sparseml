@@ -11,31 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# flake8: noqa
 
-
-# This file has been moved to src/sparseml/core/logger.py
-# and is kept here for backwards compatibility.
-# It will be removed in a future release.
-
-from sparseml.core.logger.logger import (
-    LOGGING_LEVELS,
-    BaseLogger,
-    LambdaLogger,
-    LoggerManager,
-    PythonLogger,
-    SparsificationGroupLogger,
-    TensorBoardLogger,
-    WANDBLogger,
-)
-
-
-__all__ = [
-    "BaseLogger",
-    "LambdaLogger",
-    "PythonLogger",
-    "TensorBoardLogger",
-    "WANDBLogger",
-    "SparsificationGroupLogger",
-    "LoggerManager",
-    "LOGGING_LEVELS",
-]
+from .logger import *
