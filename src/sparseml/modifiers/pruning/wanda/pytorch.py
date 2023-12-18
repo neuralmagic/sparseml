@@ -74,7 +74,7 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
         """
         self.model = state.model
         self.compressible_layers_ = self.compressible_layers()
-        self.device_ = self._set_device(device=state.hardware.device)
+        self._set_device(device=state.hardware.device)
         self.layer_prefix_ = self.model.layer_prefix
         self._infer_mask_block_size()
 
