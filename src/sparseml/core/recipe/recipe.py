@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+import logging
 import os
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
@@ -29,6 +30,8 @@ from sparseml.core.recipe.stage import RecipeStage
 
 
 __all__ = ["Recipe", "RecipeTuple"]
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class Recipe(RecipeBase):
@@ -72,8 +75,15 @@ class Recipe(RecipeBase):
                 raise NotImplementedError("Using SparseZoo stubs is not yet supported")
             else:
                 # assume it's a string
+                _LOGGER.warning(
+                    "Could not process input as a file path or zoo stub, "
+                    "attempting to process it as a string."
+                )
+                _LOGGER.warning(f"Input string: {path}")
                 obj = _load_json_or_yaml_string(path)
                 return Recipe.parse_obj(obj)
+        else:
+            _LOGGER.info(f"Loading recipe from file {path}")
 
         with open(path, "r") as file:
             content = file.read().strip()
@@ -118,15 +128,19 @@ class Recipe(RecipeBase):
             defaults to None (No shift)
         :return: The simplified Recipe instance
         """
+        if isinstance(recipe, Recipe):
+            recipe.evaluate(shift=shift)
+            return recipe
+
+        # RecipeTuple case
         stages = []
-        if isinstance(recipe, RecipeTuple):
-            stage_names = recipe.target_stages
-            if stage_names is None:
-                stages = recipe.recipe.stages
-            else:
-                for stage in recipe.recipe.stages:
-                    if stage.group in stage_names:
-                        stages.append(stage)
+        stage_names = recipe.target_stages
+        if stage_names is None:
+            stages = recipe.recipe.stages
+        else:
+            for stage in recipe.recipe.stages:
+                if stage.group in stage_names:
+                    stages.append(stage)
         args = recipe.override_args if isinstance(recipe, RecipeTuple) else {}
         version = recipe.version if isinstance(recipe, Recipe) else None
 
@@ -218,13 +232,12 @@ class Recipe(RecipeBase):
         The end epoch is the maximum end epoch of all stages.
 
         :return: The end of the recipe, the maximum end of all stages. If no stages
-            found, returns 0
+            found, or no stages had ends, returns 0
         """
         if len(self.stages) == 0:
             return 0
-        return max(
-            stage.calculate_end() for stage in self.stages if stage.calculate_end() >= 0
-        )
+        end = max(stage.calculate_end() for stage in self.stages)
+        return max(0, end)
 
     def evaluate(
         self, args: Optional[Dict[str, Any]] = None, shift: Optional[int] = None
