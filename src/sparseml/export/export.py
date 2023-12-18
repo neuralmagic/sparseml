@@ -28,7 +28,7 @@ from sparseml.export.helpers import (
 from sparseml.export.validators import validate_correctness as validate_correctness_
 from sparseml.export.validators import validate_structure as validate_structure_
 from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
-from sparseml.pytorch.utils.helpers import default_device
+from sparseml.pytorch.utils.helpers import default_device, use_single_gpu
 from src.sparseml.integration_helper_functions import (
     IntegrationHelperFunctions,
     resolve_integration,
@@ -117,6 +117,7 @@ def export(
 
     # choose the appropriate device
     device = default_device() if device == "auto" else device
+    device = use_single_gpu(device) if "cuda" in device else device
 
     # assert the valid deployment target
     if deployment_target not in AVAILABLE_DEPLOYMENT_TARGETS:

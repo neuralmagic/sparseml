@@ -44,7 +44,6 @@ from src.sparseml.transformers.utils.initializers import (
 _LOGGER = logging.getLogger(__name__)
 
 
-# TODO: Think about how to handle batch_size and device here
 def create_model(
     source_path: Union[Path, str],
     device: Optional[str] = None,
@@ -85,6 +84,7 @@ def create_model(
         task=task,
         config=config,
         trust_remote_code=trust_remote_code,
+        device=device,
     )
 
     data_args = _parse_data_args(data_args)

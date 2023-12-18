@@ -18,7 +18,6 @@ Functionality for initializing a transformer model from a given path
 import logging
 import math
 import os
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional, Union
 
@@ -39,18 +38,6 @@ __all__ = [
 ]
 
 _LOGGER = logging.getLogger(__name__)
-
-
-# TODO: Let's not take this for granted. We should be able to
-# device argument
-@dataclass
-class ForceCPUTrainingArguments(TrainingArguments):
-    @property
-    def place_model_on_device(self):
-        # The property governs whether to automatically place
-        # the model on the device. Setting to False ensures that the
-        # model remains in CPU during ONNX export
-        return False
 
 
 def initialize_config(
@@ -98,6 +85,7 @@ def initialize_model(
     task: str,
     config: AutoConfig,
     trust_remote_code: bool = False,
+    device: Optional[str] = None,
 ) -> AutoModel:
     """
     Initialize a model from a given path
@@ -107,6 +95,7 @@ def initialize_model(
     :param config: the config to use for the model
     :param trust_remote_code: True to trust remote code when loading the model,
         False otherwise
+    :param device: the device to load the model on. If None, will load on CPU
     :return: the loaded model
     """
     model = load_task_model(
@@ -115,6 +104,8 @@ def initialize_model(
         config=config,
         trust_remote_code=trust_remote_code,
     )
+    if device:
+        model.to(device)
     return model
 
 
@@ -124,7 +115,8 @@ def initialize_trainer(
     validation_dataset: Optional[Any] = None,
 ) -> Trainer:
     """
-    Initialize a trainer
+    Initialize a trainer. This will apply the structure dictated by
+    any of the recipes stored in the model_path
 
     :param model: the model to initialize the trainer with
     :param model_path: the path to the model to load
@@ -132,7 +124,7 @@ def initialize_trainer(
     :return: the initialized trainer
     """
 
-    training_args = ForceCPUTrainingArguments(output_dir=os.path.dirname(model_path))
+    training_args = TrainingArguments(output_dir=os.path.dirname(model_path))
 
     trainer = Trainer(
         model=model,

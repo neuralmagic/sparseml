@@ -67,6 +67,7 @@ NLG_TOKENIZER_FILES = {"special_tokens_map.json", "vocab.json", "merges.txt"}
 OPTIONAL_DEPLOYMENT_FILES = {"tokenizer.json", "tokenizer.model"}
 
 
+# TODO: Move this this functionality to export module once merged
 def run_transformers_inference(
     inputs: Dict[str, Any], model: Optional[torch.nn.Module] = None
 ) -> Tuple[Dict[str, Any], Any, Dict[str, Any]]:
@@ -78,17 +79,14 @@ def run_transformers_inference(
 
     :return: The inputs, labels and outputs
     """
-    # TODO: For now we need to make sure that the model and tensors
-    # live on the same device. This is because I am currently unable
-    # to assign them to the same device
-    inputs = {key: value.to("cpu") for key, value in inputs.items()}
-
     label = None  # transformers in general have no labels
     if model is None:
+        inputs = {key: value.to("cpu") for key, value in inputs.items()}
         return inputs, label, None
 
-    model.to("cpu")
+    inputs = {key: value.to(model.device) for key, value in inputs.items()}
     output_vals = model(**inputs)
+    inputs = {key: value.to("cpu") for key, value in inputs.items()}
     output = {
         name: torch.squeeze(val).detach().to("cpu") for name, val in output_vals.items()
     }
