@@ -76,7 +76,7 @@ class WandaModuleCompressor(ModuleCompressor):
         prunem: int = 0,
     ):
         """
-        Run pruning and on the layer up to the target
+        Run pruning on the layer up to the target
         sparsity value.
 
         :param sparsity: target sparsity to reach for layer
