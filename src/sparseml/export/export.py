@@ -136,26 +136,28 @@ def export(
 
     _LOGGER.info("Creating model for the export...")
 
-    # auxiliary_items may include any items
-    # that are needed for the export
-    model, auxiliary_items = helper_functions.create_model(
+    # loaded_model_kwargs may include any objects
+    # that were created along with the model and are needed
+    # for the export
+    model, loaded_model_kwargs = helper_functions.create_model(
         source_path, device=device, task=task, batch_size=batch_size, **kwargs
     )
 
-    if auxiliary_items:
+    if loaded_model_kwargs:
         _LOGGER.info(
-            f"Created auxiliary items for the export: {list(auxiliary_items.keys())}"
+            "Created additional items that will "
+            f"be used for the export: {list(loaded_model_kwargs.keys())}"
         )
 
     sample_data = (
-        helper_functions.create_dummy_input(**auxiliary_items, **kwargs)
+        helper_functions.create_dummy_input(**loaded_model_kwargs, **kwargs)
         if sample_data is None
         else sample_data
     )
 
     _LOGGER.info(f"Exporting {onnx_model_name} to {target_path}...")
 
-    export_kwargs = create_export_kwargs(auxiliary_items)
+    export_kwargs = create_export_kwargs(loaded_model_kwargs)
 
     onnx_file_path = helper_functions.export(
         model=model,
@@ -177,7 +179,7 @@ def export(
         ) = helper_functions.create_data_samples(
             num_samples=num_export_samples,
             model=model,
-            **auxiliary_items,
+            **loaded_model_kwargs,
         )
         export_data_samples(
             input_samples=input_samples,

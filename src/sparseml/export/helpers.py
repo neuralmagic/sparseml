@@ -38,13 +38,29 @@ ONNX_DATA_NAME = "model.data"
 _LOGGER = logging.getLogger(__name__)
 
 
-def create_export_kwargs(auxiliary_items: Dict[str, Any]) -> Dict[str, Any]:
+def create_export_kwargs(
+    loaded_model_kwargs: Dict[str, Any], export_target: str = "deepsparse"
+) -> Dict[str, Any]:
     """
-    Retrieve the export kwargs from the auxiliary items.
-    """
-    export_kwargs = {}
+    Retrieve the export kwargs from the loaded model kwargs.
 
-    input_names = auxiliary_items.get("input_names")
+    The export kwargs are the kwargs that are passed to the export function.
+    Given the loaded model kwargs and the export_target, one can define which
+    loaded_model_kwargs should be routed to the export kwargs.
+
+    :param loaded_model_kwargs: The loaded model kwargs.
+    :param export_target: The export target.
+    :return: The export kwargs.
+    """
+
+    if export_target not in AVAILABLE_DEPLOYMENT_TARGETS:
+        raise ValueError(
+            f"Export target {export_target} not in "
+            f"available targets {AVAILABLE_DEPLOYMENT_TARGETS}"
+        )
+
+    export_kwargs = {}
+    input_names = loaded_model_kwargs.get("input_names")
     if input_names is not None:
         export_kwargs["input_names"] = input_names
 

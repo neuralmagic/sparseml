@@ -18,7 +18,7 @@ import shutil
 import tarfile
 from enum import Enum
 from pathlib import Path
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import torch
 from tqdm import tqdm
@@ -44,56 +44,6 @@ class OutputsNames(Enum):
 class InputsNames(Enum):
     basename = "sample-inputs"
     filename = "inp"
-
-
-def create_data_samples(
-    data_loader: torch.utils.data.DataLoader,
-    model: Optional[torch.nn.Module] = None,
-    num_samples: int = 1,
-) -> Tuple[List[Any], List[Any], List[Any]]:
-    """
-    Fetch a batch of samples from the data loader and return the inputs and outputs
-
-    :param data_loader: The data loader to get a batch of inputs/outputs from.
-    :param model: The model to run the inputs through to get the outputs.
-        If None, the outputs will be an empty list.
-    :param num_samples: The number of samples to generate. Defaults to 1
-    :return: The inputs and outputs as lists of torch tensors
-    """
-    inputs, outputs, labels = [], [], []
-    if model is None:
-        _LOGGER.warning("The model is None. The list of outputs will be empty")
-
-    for batch_num, data in tqdm(enumerate(data_loader)):
-        if batch_num == num_samples:
-            break
-
-        if isinstance(data, dict):
-            # assume transformers inference
-            from sparseml.transformers.utils.helpers import run_transformers_inference
-
-            inputs_, labels_, outputs_ = run_transformers_inference(
-                inputs=data, model=model
-            )
-        else:
-            # assume image classification inference
-            inputs_, labels_ = data
-            outputs_ = model(inputs_) if model else None
-            if isinstance(outputs_, tuple):
-                # outputs_ contains (logits, softmax)
-                outputs_ = outputs_[0]
-
-        inputs.append(inputs_)
-        if outputs_ is not None:
-            outputs.append(outputs_)
-        if labels_ is not None:
-            labels.append(
-                torch.IntTensor([labels_])
-                if not isinstance(labels_, torch.Tensor)
-                else labels_
-            )
-
-    return inputs, outputs, labels
 
 
 def export_data_samples(
@@ -169,3 +119,95 @@ def export_data_sample(
         with tarfile.open(folder_path + ".tar.gz", "w:gz") as tar:
             tar.add(folder_path, arcname=os.path.basename(folder_path))
         shutil.rmtree(folder_path)
+
+
+def create_data_samples(
+    data_loader: torch.utils.data.DataLoader,
+    model: Optional[torch.nn.Module] = None,
+    num_samples: int = 1,
+) -> Tuple[List[Any], List[Any], List[Any]]:
+    """
+    Fetch a batch of samples from the data loader and return the inputs and outputs
+
+    :param data_loader: The data loader to get a batch of inputs/outputs from.
+    :param model: The model to run the inputs through to get the outputs.
+        If None, the outputs will be an empty list.
+    :param num_samples: The number of samples to generate. Defaults to 1
+    :return: The inputs and outputs as lists of torch tensors
+    """
+    inputs, outputs, labels = [], [], []
+    if model is None:
+        _LOGGER.warning("The model is None. The list of outputs will be empty")
+
+    for batch_num, data in tqdm(enumerate(data_loader)):
+        if batch_num == num_samples:
+            break
+        if isinstance(data, dict):
+            inputs_, labels_, outputs_ = run_inference_with_dict_data(
+                data=data, model=model
+            )
+        elif isinstance(data, tuple):
+            inputs_, labels_, outputs_ = run_inference_with_tuple_data(
+                data=data, model=model
+            )
+
+        inputs.append(inputs_)
+        if outputs_ is not None:
+            outputs.append(outputs_)
+        if labels_ is not None:
+            labels.append(
+                torch.IntTensor([labels_])
+                if not isinstance(labels_, torch.Tensor)
+                else labels_
+            )
+
+    return inputs, outputs, labels
+
+
+def run_inference_with_dict_data(
+    data: Dict[str, Any], model: Optional[torch.nn.Module] = None
+) -> Tuple[Dict[str, Any], Any, Optional[Dict[str, Any]]]:
+    """
+    Run inference on a model by inferring the appropriate
+    inputs from the dictionary input data.
+
+
+    :param data: The data to run inference on
+    :param model: The model to run inference on (optional)
+    :return: The inputs, labels and outputs
+    """
+    # TODO: For now we need to make sure that the model and tensors
+    # live on the same device. This is because I am currently unable
+    # to assign them to the same device (transformer scenario)
+    inputs = {key: value.to("cpu") for key, value in data.items()}
+
+    label = None
+    if model is None:
+        return inputs, label, None
+
+    model.to("cpu")
+    output_vals = model(**inputs)
+    output = {
+        name: torch.squeeze(val).detach().to("cpu") for name, val in output_vals.items()
+    }
+    return inputs, label, output
+
+
+def run_inference_with_tuple_data(
+    data: Tuple[Any, Any], model: Optional[torch.nn.Module] = None
+) -> Tuple[torch.Tensor, Any, Optional[torch.Tensor]]:
+    """
+    Run inference on a model by inferring the appropriate
+    inputs from the tuple input data.
+
+    :param inputs: The data to run inference on
+    :param model: The model to run inference on (optional)
+    :return: The inputs, labels and outputs
+    """
+    # assume that
+    inputs, labels = data
+    outputs = model(inputs) if model else None
+    if isinstance(outputs, tuple):
+        # outputs_ contains (logits, softmax)
+        outputs = outputs[0]
+    return inputs, labels, outputs

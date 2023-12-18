@@ -72,8 +72,13 @@ def test_export_data_sample(tmp_path, as_tar, dummy_names, dummy_samples):
     [True, False],
 )
 @pytest.mark.parametrize("num_samples", [0, 1, 5])
-def test_create_data_samples(num_samples, model):
+@pytest.mark.parametrize("scenario", ["transformers", "image_classification"])
+def test_create_data_samples(num_samples, model, scenario):
     pytest.importorskip("torch", reason="test requires pytorch")
+    if scenario == "transformers":
+        # TODO: leaving it here to add appropriate test cases
+        # before landing to main
+        assert False
 
     import torch
     from torch.utils.data import DataLoader, Dataset
