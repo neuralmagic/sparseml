@@ -157,7 +157,7 @@ class LayerParamMasking(BaseModel):
             return
 
         parameterized_layer = self._masked_layer_params[layer_param_name]
-        mask_name = param_mask_name(parameterized_layer.param_name)
+        mask_name = param_mask_name()
         mask = parameterized_layer.layer.get_buffer(mask_name)
         parameterized_layer.param.data = parameterized_layer.param.data * mask
 
@@ -166,7 +166,7 @@ class LayerParamMasking(BaseModel):
             return
 
         parameterized_layer = self._masked_layer_params[layer_param_name]
-        mask_name = param_mask_name(parameterized_layer.param_name)
+        mask_name = param_mask_name()
         mask = parameterized_layer.layer.get_buffer(mask_name)
 
         if parameterized_layer.param.grad is not None:
