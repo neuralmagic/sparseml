@@ -18,6 +18,8 @@ import time
 import torch
 import torch.nn as nn
 
+from sparseml.modifiers.utils.module_compressor import ModuleCompressor
+
 
 try:
     import transformers
@@ -25,7 +27,7 @@ except ImportError as err:
     transformers = None
     transformers_err = err
 
-__all__ = ["WandaGPT"]
+__all__ = ["WandaModuleCompressor"]
 
 
 DEBUG = False
@@ -35,33 +37,14 @@ torch.backends.cuda.matmul.allow_tf32 = False
 torch.backends.cudnn.allow_tf32 = False
 
 
-class WandaGPT:
+class WandaModuleCompressor(ModuleCompressor):
     """
-    Runs Wanda on a single module that contains no sub-modules
-
-    Lifecycle:
-        - add_batch
-        - fasterprune
-        - free
-
-
-    :param layer: module to run Wanda on
+    Runs WANDA on a single module that contains no sub-modules
+    see https://arxiv.org/abs/2306.11695
     """
 
     def __init__(self, layer):
-        if transformers is None:
-            raise transformers_err
-
-        self.layer = layer
-        self.dev = self.layer.weight.device
-        W = layer.weight.data.clone()
-        if isinstance(self.layer, nn.Conv2d):
-            W = W.flatten(1)
-        if isinstance(self.layer, transformers.Conv1D):
-            W = W.t()
-        self.rows = W.shape[0]
-        self.columns = W.shape[1]
-        self.nsamples = 0
+        super().__init__(layer=layer)
         self.scaler_row = torch.zeros((self.columns), device=self.dev)
 
     def add_batch(self, inp: torch.Tensor, out: torch.Tensor):
@@ -72,20 +55,17 @@ class WandaGPT:
         :param inp: tensor containing layer input
         :param out: tensor containing layer output
         """
-        if DEBUG:
-            self._inp1 = inp
-            self.out1 = out
+        self.store_inps_outs_for_debugging(inp, out)
         if len(inp.shape) == 2:
             inp = inp.unsqueeze(0)
-        tmp = inp.shape[0]
+        batch_size = inp.shape[0]
         if isinstance(self.layer, nn.Linear):
             if len(inp.shape) == 3:
                 inp = inp.reshape((-1, inp.shape[-1]))
             inp = inp.t()
 
-        self.scaler_row *= self.nsamples / (self.nsamples + tmp)
-        self.nsamples += tmp
-
+        self.scaler_row *= self.nsamples / (self.nsamples + batch_size)
+        self.nsamples += batch_size
         inp = inp.type(torch.float32)
         self.scaler_row += torch.norm(inp, p=2, dim=1) ** 2 / self.nsamples
 
@@ -149,8 +129,5 @@ class WandaGPT:
         """
         Free memory after the layer is complete
         """
-        if DEBUG:
-            self._inp1 = None
-            self.out1 = None
         self.scaler_row = None
-        torch.cuda.empty_cache()
+        super().free()

@@ -19,12 +19,16 @@ import time
 import torch
 import torch.nn as nn
 
+from sparseml.modifiers.utils.module_compressor import ModuleCompressor
+
 
 try:
     import transformers
 except ImportError as err:
     transformers = None
     transformers_err = err
+
+__all__ = ["SparseGPT"]
 
 
 DEBUG = False
@@ -34,7 +38,7 @@ torch.backends.cuda.matmul.allow_tf32 = False
 torch.backends.cudnn.allow_tf32 = False
 
 
-class SparseGPT:
+class SparseGPT(ModuleCompressor):
     """
     Runs SparseGPT on a single module that contains no sub-modules
 
@@ -48,20 +52,8 @@ class SparseGPT:
     """
 
     def __init__(self, layer):
-        if transformers is None:
-            raise transformers_err
-
-        self.layer = layer
-        self.dev = self.layer.weight.device
-        W = layer.weight.data.clone()
-        if isinstance(self.layer, nn.Conv2d):
-            W = W.flatten(1)
-        if isinstance(self.layer, transformers.Conv1D):
-            W = W.t()
-        self.rows = W.shape[0]
-        self.columns = W.shape[1]
+        super().__init__(layer=layer)
         self.H = torch.zeros((self.columns, self.columns), device=self.dev)
-        self.nsamples = 0
 
     def add_batch(self, inp: torch.Tensor, out: torch.Tensor):
         """
@@ -70,20 +62,18 @@ class SparseGPT:
         :param inp: tensor containing layer input
         :param out: tensor containing layer our
         """
-        if DEBUG:
-            self._inp1 = inp
-            self.out1 = out
+        self.store_inps_outs_for_debugging(inp, out)
         if len(inp.shape) == 2:
             inp = inp.unsqueeze(0)
-        tmp = inp.shape[0]
+        batch_size = inp.shape[0]
         if isinstance(self.layer, nn.Linear) or isinstance(
             self.layer, transformers.Conv1D
         ):
             if len(inp.shape) == 3:
                 inp = inp.reshape((-1, inp.shape[-1]))
             inp = inp.t()
-        self.H *= self.nsamples / (self.nsamples + tmp)
-        self.nsamples += tmp
+        self.H *= self.nsamples / (self.nsamples + batch_size)
+        self.nsamples += batch_size
         inp = math.sqrt(2 / self.nsamples) * inp.float()
         self.H += inp.matmul(inp.t())
 
@@ -104,7 +94,7 @@ class SparseGPT:
         :param prunem: M for N:M pruning
         :param blocksize: Number of columns to compress in one pass
         :param percdamp: Amount of dampening to apply to H, as a fraction of the
-        diagonal norm
+            diagonal norm
         """
         W = self.layer.weight.data.clone()
         if isinstance(self.layer, nn.Conv2d):
@@ -216,8 +206,5 @@ class SparseGPT:
         """
         Free the Hessian memory after the layer is complete
         """
-        if DEBUG:
-            self._inp1 = None
-            self.out1 = None
         self.H = None
-        torch.cuda.empty_cache()
+        super().free()

@@ -29,7 +29,18 @@ _LOGGER = logging.getLogger(__name__)
 
 class WandaPruningModifierPyTorch(WandaPruningModifier):
     """
-    PyTorch implementation of WandaPruningModifier
+    Pytorch implementation of WandaPruningModifier
+
+    Lifecycle:
+        - on_initialize
+            - setup
+                - compressible_layers
+            - prune
+                - compress_bottom
+                - LayerCompressor.compress
+        - on_finalize
+
+    :param model: `ModifiableModel` to perform wanda on, in-place
     """
 
     model: Optional[ModifiableModel] = None
@@ -37,6 +48,7 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
     layer_prefix_: Optional[str] = None
     prunen_: Optional[int] = None
     prunem_: Optional[int] = None
+    layer_compressor_class_ = WandaLayerCompressor
 
     def on_initialize(self, state: State, **kwargs) -> bool:
         """
@@ -45,15 +57,14 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
         :param state: session state storing input model and calibration data
         """
         self._validate_layerwise_sparsity()
+        self.setup(state=state, **kwargs)
 
-        self.initialize_wanda(state, **kwargs)
-
-        # run wanda on calibration data
-        self.apply_wanda(dataloader=state.data.calib)
+        # run on calibration data
+        self.prune(dataloader=state.data.calib)
         torch.cuda.empty_cache()
         return True
 
-    def initialize_wanda(self, state: State, **kwargs):
+    def setup(self, state: State, **kwargs):
         """
         Setup for WANDA, initializes the model, device,
         and other parameters, also initilializes the
@@ -68,7 +79,7 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
         self._infer_mask_block_size()
 
     @torch.no_grad()
-    def apply_wanda(
+    def prune(
         self, dataloader: Optional[Iterable[Tuple[List, Dict[str, Any]]]] = None
     ) -> Dict:
         """
@@ -107,13 +118,9 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
                 f"\n===== Compressing layer {idx+1}/{num_layers} "
                 f"to sparsity {layer_sparsity} ====="
             )
-            args = {
-                "sparsity": layer_sparsity,
-                "prunen": self.prunen_,
-                "prunem": self.prunem_,
-            }
-            # Prune using WandaGPT
-            layer_compressor = WandaLayerCompressor(
+            args = self._get_compression_args(layer_sparsity=layer_sparsity)
+            # Prune using GPT
+            layer_compressor = self.layer_compressor_class_(
                 model=pytorch_model,
                 layer=layer,
                 layer_index=idx,
@@ -123,12 +130,20 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
             layer_kwargs = layer_compressor.compress(dev=self.device_, **accum_kwargs)
             accum_kwargs.update(layer_kwargs)
 
+    def _get_compression_args(self, layer_sparsity):
+        return {
+            "sparsity": layer_sparsity,
+            "prunen": self.prunen_,
+            "prunem": self.prunem_,
+        }
+
     def compress_bottom(
         self,
         dataloader: List = None,
         nsamples: int = None,
         dev: str = "cuda:0",
         layer_prefix: Optional[str] = None,
+        target_ids: Optional[List[int]] = None,
     ) -> Dict:
         """
         Runs calibration data through the bottom part of the network (everything up
@@ -139,15 +154,19 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
         :param dev: device to use
         :param layer_prefix: name of model attribute that contains the list of layers,
             i.e. model.decoder for OPT or just model for Llama
+        :param target_ids: list of keys in model output to cache, NOTE: this argument
+            has been deprecated and will be removed in a future release, also must be
+            set to None for Wanda
         :return: outputs from bottom part of network, attention mask, and kv-cache state
         """
         layer_prefix = layer_prefix or self.layer_prefix_
+        pytorch_model = self.model.model
         cached_inputs = cache_attention_inputs(
-            model=self.model.model,
+            model=pytorch_model,
             dataloader=dataloader,
             device=dev,
             nsamples=nsamples,
-            target_ids=None,
+            target_ids=target_ids,
             layer_prefix=layer_prefix,
         )
 
