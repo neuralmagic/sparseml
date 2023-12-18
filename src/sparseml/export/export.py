@@ -139,7 +139,7 @@ def export(
     # auxiliary_items may include any items
     # that are needed for the export
     model, auxiliary_items = helper_functions.create_model(
-        source_path, **dict(device=device, task=task, batch_size=batch_size), **kwargs
+        source_path, device=device, task=task, batch_size=batch_size, **kwargs
     )
 
     if auxiliary_items:
