@@ -17,10 +17,12 @@ from functools import partial
 from typing import Any, Optional
 
 from sparseml.core.state import State
-from sparseml.experimental.sparsegpt.layer_compressor import LayerCompressor
 from sparseml.modifiers.obcq.base import SparseGPTModifier
+from sparseml.modifiers.obcq.utils.layer_compressor import OBCQLayerCompressor
 from sparseml.modifiers.pruning.wanda.pytorch import WandaPruningModifierPyTorch
-from sparseml.modifiers.utils.layer_compressors import OBCQLayerCompressor
+
+
+__all__ = ["SparseGPTModifierPyTorch"]
 
 
 class SparseGPTModifierPyTorch(WandaPruningModifierPyTorch, SparseGPTModifier):
@@ -42,7 +44,7 @@ class SparseGPTModifierPyTorch(WandaPruningModifierPyTorch, SparseGPTModifier):
     model: Any = None
     device_: str = "cuda:0"
     layer_prefix_: Optional[str] = None
-    layer_compressor_class_: LayerCompressor = OBCQLayerCompressor
+    layer_compressor_class_ = OBCQLayerCompressor
 
     def on_initialize(self, state: "State", **kwargs) -> bool:
         """

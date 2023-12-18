@@ -19,10 +19,9 @@ import torch
 
 from sparseml.core.model.base import ModifiableModel
 from sparseml.core.state import State
-from sparseml.experimental.sparsegpt.layer_compressor import LayerCompressor
 from sparseml.modifiers.obcq.utils.helpers import cache_attention_inputs
 from sparseml.modifiers.pruning.wanda.base import WandaPruningModifier
-from sparseml.modifiers.utils.layer_compressors import WandaLayerCompressor
+from sparseml.modifiers.pruning.wanda.utils.layer_compressor import WandaLayerCompressor
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -49,7 +48,7 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
     layer_prefix_: Optional[str] = None
     prunen_: Optional[int] = None
     prunem_: Optional[int] = None
-    layer_compressor_class_: LayerCompressor = WandaLayerCompressor
+    layer_compressor_class_ = WandaLayerCompressor
 
     def on_initialize(self, state: State, **kwargs) -> bool:
         """

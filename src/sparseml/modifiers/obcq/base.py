@@ -15,11 +15,9 @@
 import logging
 from typing import Any, Dict, List, Optional, Union
 
-from sparseml.core import Modifier
 from sparseml.core.factory import ModifierFactory
 from sparseml.core.state import State
 from sparseml.modifiers.pruning.wanda.base import WandaPruningModifier
-from sparseml.utils import ALL_TOKEN
 
 
 __all__ = ["SparseGPTModifier"]
