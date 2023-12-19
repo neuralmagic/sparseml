@@ -106,62 +106,6 @@ class SparsificationLifecycle:
 
         return mod_data
 
-    def _attach_logging_callbacks(self):
-        if (
-            isinstance(
-                self.state.loggers.frequency_manager, OptimizerStepFrequencyManager
-            )
-            and self.state.optimizer
-            and self.state.optimizer.optimizer
-        ):
-            optimizer = self.state.optimizer.optimizer
-            step_function = optimizer.step
-
-            def _optimizer_step_fn():
-                step_function()
-                current_step = optimizer.state[optimizer.param_groups[0]["params"][-1]][
-                    "step"
-                ].item()
-                if should_log_model_info(
-                    model=self.state.model,
-                    loggers=self.state.loggers,
-                    current_log_step=current_step,
-                    last_log_step=self.state._last_log_step,
-                ):
-                    log_model_info(state=self.state, current_log_step=current_step)
-                    self.state._last_log_step = current_step
-
-            optimizer.step = _optimizer_step_fn
-
-        elif (
-            isinstance(self.state.loggers.frequency_manager, BatchFrequencyManager)
-            and self.state.model
-            and self.state.model.model
-        ):
-            model = self.state.model.model
-            forward_function = model.forward
-
-            def _model_forward_fn(*args, **kwargs):
-                output = forward_function(*args, **kwargs)
-                current_step = self.state.loggers.epoch_to_step(
-                    epoch=self.event_lifecycle.current_index,
-                    steps_per_epoch=len(self.state.data.train),
-                )
-
-                if should_log_model_info(
-                    model=self.state.model,
-                    loggers=self.state.loggers,
-                    current_log_step=current_step,
-                    last_log_step=self.state._last_log_step,
-                ):
-                    log_model_info(
-                        state=self.state, current_log_step=self.state._last_log_step
-                    )
-                    self.state._last_log_step = current_step
-                return output
-
-            model.forward = _model_forward_fn
-
     def finalize(self, **kwargs) -> List[Any]:
         if not self.initialized_:
             raise ValueError("Cannot finalize before initializing")
@@ -217,6 +161,66 @@ class SparsificationLifecycle:
         self.event_called = True
 
         return mod_data
+
+    def _attach_logging_callbacks(self):
+        if (
+            isinstance(
+                self.state.loggers.frequency_manager, OptimizerStepFrequencyManager
+            )
+            and self.state.optimizer
+            and self.state.optimizer.optimizer
+        ):
+            optimizer = self.state.optimizer.optimizer
+            step_function = optimizer.step
+
+            def _optimizer_step_fn():
+                step_function()
+                current_step = int(
+                    optimizer.state[optimizer.param_groups[0]["params"][-1]][
+                        "step"
+                    ].item()
+                )
+                if should_log_model_info(
+                    model=self.state.model,
+                    loggers=self.state.loggers,
+                    current_log_step=current_step,
+                    last_log_step=self.state._last_log_step,
+                ):
+                    log_model_info(state=self.state, current_log_step=current_step)
+                    self.state._last_log_step = current_step
+
+            optimizer.step = _optimizer_step_fn
+
+        elif (
+            isinstance(self.state.loggers.frequency_manager, BatchFrequencyManager)
+            and self.state.model
+            and self.state.model.model
+        ):
+            model = self.state.model.model
+            forward_function = model.forward
+
+            def _model_forward_fn(*args, **kwargs):
+                output = forward_function(*args, **kwargs)
+                current_step = int(
+                    self.state.loggers.epoch_to_step(
+                        epoch=self.event_lifecycle.current_index,
+                        steps_per_epoch=len(self.state.data.train),
+                    )
+                )
+
+                if should_log_model_info(
+                    model=self.state.model,
+                    loggers=self.state.loggers,
+                    current_log_step=current_step,
+                    last_log_step=self.state._last_log_step,
+                ):
+                    log_model_info(
+                        state=self.state, current_log_step=self.state._last_log_step
+                    )
+                    self.state._last_log_step = current_step
+                return output
+
+            model.forward = _model_forward_fn
 
     def _check_create_state(self, framework: Framework):
         if self.state is not None:

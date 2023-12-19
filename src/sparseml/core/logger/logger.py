@@ -59,8 +59,6 @@ __all__ = [
     "SparsificationGroupLogger",
     "LoggerManager",
     "LOGGING_LEVELS",
-    "VALID_FREQUENCY_TYPES",
-    "DEFAULT_FREQUENCY_TYPE",
 ]
 ALL_TOKEN = "__ALL__"
 LOGGING_LEVELS = {
@@ -70,7 +68,6 @@ LOGGING_LEVELS = {
     "error": ERROR,
     "critical": CRITICAL,
 }
-VALID_FREQUENCY_TYPES = ["epoch", "step", "batch"]
 DEFAULT_FREQUENCY_TYPE = "epoch"
 
 
