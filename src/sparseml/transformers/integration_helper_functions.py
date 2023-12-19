@@ -25,6 +25,7 @@ from sparseml.transformers.utils.helpers import (
     MANDATORY_DEPLOYMENT_FILES,
     NLG_TOKENIZER_FILES,
     OPTIONAL_DEPLOYMENT_FILES,
+    TaskNames,
 )
 from sparseml.transformers.utils.load_task_dataset import load_task_dataset
 from sparseml.transformers.utils.optimizations import apply_kv_cache_injection
@@ -159,6 +160,19 @@ def create_data_samples(
 
 @IntegrationHelperFunctions.register(name=Integrations.transformers.value)
 class Transformers(IntegrationHelperFunctions):
+    def __init__(self, *args, **kwargs):
+        super().__init__()
+        task = kwargs.get("task")
+        if task is None:
+            raise ValueError("To create a transformer model, a task must be specified")
+        if task in TaskNames.text_generation.value:
+            # if the task is text generation, alter the default attributes
+            # to reflect the idiosyncrasies for text generation
+            self.graph_optimizations = {"kv_cache_injection": apply_kv_cache_injection}
+            self.deployment_directory_files_mandatory = list(
+                MANDATORY_DEPLOYMENT_FILES.union(NLG_TOKENIZER_FILES)
+            )
+
     create_model: Callable[..., Tuple[torch.nn.Module, Dict[str, Any]]] = Field(
         default=create_model
     )
@@ -170,18 +184,3 @@ class Transformers(IntegrationHelperFunctions):
     deployment_directory_files_optional: List[str] = Field(
         default=list(OPTIONAL_DEPLOYMENT_FILES)
     )
-
-
-# generative_transformers_graph_optimizations = {
-#     "kv_cache_injection": apply_kv_cache_injection
-# }
-#
-#
-# @IntegrationHelperFunctions.register(name=Integrations.transformers_generative.value)
-# class GenerativeTransformers(Transformers):
-#     graph_optimizations: Dict[str, Callable] = Field(
-#         default=generative_transformers_graph_optimizations
-#     )
-#     deployment_directory_files_mandatory: List[str] = Field(
-#         default=list(MANDATORY_DEPLOYMENT_FILES.union(NLG_TOKENIZER_FILES))
-#     )

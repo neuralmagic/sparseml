@@ -128,11 +128,12 @@ def export(
         )
 
     integration = resolve_integration(source_path, integration)
+    task = task.replace("_", "-") if task else task
 
     _LOGGER.info(f"Starting export for {integration} model...")
 
     helper_functions: IntegrationHelperFunctions = (
-        IntegrationHelperFunctions.load_from_registry(integration)
+        IntegrationHelperFunctions.load_from_registry(integration, task=task)
     )
 
     _LOGGER.info("Creating model for the export...")

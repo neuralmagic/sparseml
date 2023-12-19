@@ -38,3 +38,30 @@ def test_integration_helper_functions():
         "tokenizer.json",
         "tokenizer.model",
     }
+
+
+def test_integration_helper_function_text_generation():
+    # import needed to register the object on the fly
+    import sparseml.transformers.integration_helper_functions  # noqa F401
+
+    transformers = IntegrationHelperFunctions.load_from_registry(
+        Integrations.transformers.value, task="text-generation"
+    )
+
+    assert transformers.create_model
+    assert transformers.create_dummy_input
+    assert transformers.export
+    assert set(transformers.graph_optimizations.keys()) == {"kv_cache_injection"}
+    assert transformers.create_data_samples
+    assert set(transformers.deployment_directory_files_mandatory) == {
+        "model.onnx",
+        "tokenizer_config.json",
+        "config.json",
+        "special_tokens_map.json",
+        "vocab.json",
+        "merges.txt",
+    }
+    assert set(transformers.deployment_directory_files_optional) == {
+        "tokenizer.json",
+        "tokenizer.model",
+    }
