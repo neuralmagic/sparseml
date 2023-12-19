@@ -137,6 +137,15 @@ def default_device() -> str:
     return "cuda:{}".format(",".join(device_ids))
 
 
+def use_single_gpu(device: str) -> str:
+    """
+    return: the first gpu in the device string if multiple are available
+    """
+    if "cuda" not in device:
+        raise ValueError("use_single_gpu should only be called on cuda devices")
+    return device.split(",")[0]
+
+
 def device_of(inputs: Any):
     if isinstance(inputs, Tensor):
         return inputs.device
@@ -538,7 +547,8 @@ def _tensors_export_batch(
         return
 
     if isinstance(tensors, Iterable):
-        for index, tens in enumerate(zip(*tensors)):
+        # TODO: I am breaking something here? - dbogunowicz
+        for index, tens in enumerate(zip(tensors)):
             exported_paths.append(
                 tensor_export(
                     tens, export_dir, "{}-{:04d}".format(name_prefix, counter + index)

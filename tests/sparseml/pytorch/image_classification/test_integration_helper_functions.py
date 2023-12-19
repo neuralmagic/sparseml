@@ -27,6 +27,7 @@ def test_integration_helper_functions():
     assert image_classification.create_model
     assert image_classification.create_dummy_input
     assert image_classification.export
-    assert image_classification.graph_optimizations is None
+    assert image_classification.apply_optimizations is None
     assert image_classification.create_data_samples
-    assert image_classification.deployment_directory_structure == ["model.onnx"]
+    assert image_classification.deployment_directory_files_mandatory == ["model.onnx"]
+    assert image_classification.deployment_directory_files_optional is None

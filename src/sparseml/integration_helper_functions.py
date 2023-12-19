@@ -32,10 +32,12 @@ class Integrations(Enum):
     """
 
     image_classification = "image-classification"
+    transformers = "transformers"
 
 
 def resolve_integration(
-    source_path: Union[Path, str], integration: Optional[str] = None
+    source_path: Union[Path, str],
+    integration: Optional[str] = None,
 ) -> str:
     """
     Resolve the integration to use.
@@ -56,15 +58,23 @@ def resolve_integration(
     from sparseml.pytorch.image_classification.utils.helpers import (
         is_image_classification_model,
     )
+    from sparseml.transformers.utils.helpers import is_transformer_model
 
     if (
         integration == Integrations.image_classification.value
         or is_image_classification_model(source_path)
     ):
-        # import to register the image_classification integration helper functions
         import sparseml.pytorch.image_classification.integration_helper_functions  # noqa F401
 
         return Integrations.image_classification.value
+
+    elif integration == Integrations.transformers.value or is_transformer_model(
+        source_path
+    ):
+
+        import sparseml.transformers.integration_helper_functions  # noqa F401
+
+        return Integrations.transformers.value
     else:
         raise ValueError(
             f"Could not infer integration from source_path:\n{source_path}\n"
@@ -81,36 +91,24 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
     integration.
     """
 
-    create_model: Optional[
-        Callable[
-            Tuple[Union[str, Path], Optional[int], str, Optional[Dict[str, Any]]],
-            Tuple[
-                "torch.nn.Module",  # noqa F821
-                Optional["torch.utils.data.Dataloader"],  # noqa F821
-            ],
-        ]
+    create_model: Callable[
+        [Union[str, Path], ...],
+        Tuple[
+            "torch.nn.Module",  # noqa F821
+            Optional[Dict[str, Any]],
+        ],
     ] = Field(
         description="A function that takes: "
         "- a source path to a PyTorch model "
-        "- a batch size "
-        "- a device name "
-        "- (optionally) a dictionary of additional arguments"
+        "- (optionally) additional arguments"
         "and returns: "
         "- a (sparse) PyTorch model "
-        "- (optionally) a data loader "
+        "- (optionally) loaded_model_kwargs "
+        "(any relevant objects created along with the model)"
     )
-    create_dummy_input: Optional[
-        Callable[
-            Tuple[
-                Optional["torch.utils.data.Dataloader"],  # noqa F821
-                Optional[Dict[str, Any]],
-            ],
-            "torch.Tensor",  # noqa F821
-        ]
-    ] = Field(
+    create_dummy_input: Callable[..., "torch.Tensor"] = Field(  # noqa F821
         description="A function that takes: "
-        "- (optionally) a data loader "
-        "- (optionally) a dictionary of additional arguments"
+        "- appropriate arguments "
         "and returns: "
         "- a dummy input for the model (a torch.Tensor) "
     )
@@ -126,33 +124,38 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
         "and returns the path to the exported model",
         default=export_model,
     )
-    graph_optimizations: Optional[Dict[str, Callable]] = Field(
-        description="A mapping from names to graph optimization functions "
+    apply_optimizations: Optional[Callable[..., None]] = Field(
+        description="A function that takes:"
+        " - path to the exported model"
+        " - names of the optimizations to apply"
+        " and applies the optimizations to the model",
     )
 
     create_data_samples: Callable[
-        Tuple[
-            Optional["torch.nn.Module"],  # noqa F821
-            "torch.utils.data.DataLoader",  # noqa F821
-            int,
-        ],
+        Tuple[Optional["torch.nn.Module"], int, Optional[Dict[str, Any]]],  # noqa F821
         Tuple[
             List["torch.Tensor"],  # noqa F821
             Optional[List["torch.Tensor"]],  # noqa F821
-            List["torch.Tensor"],  # noqa F821
+            Optional[List["torch.Tensor"]],  # noqa F821
         ],
     ] = Field(
         default=create_data_samples_,
         description="A function that takes: "
         " - (optionally) a (sparse) PyTorch model "
-        " - a data loader "
         " - the number of samples to generate "
+        " - (optionally) loaded_model_kwargs "
+        "(any relevant objects created along with the model) "
         "and returns: "
-        " - the inputs, labels and (optionally) outputs as torch tensors ",
+        " - the inputs, (optionally) labels and (optionally) outputs as torch tensors ",
     )
 
-    deployment_directory_structure: List[str] = Field(
+    deployment_directory_files_mandatory: List[str] = Field(
         description="A list that describes the "
-        "expected files of the deployment directory",
+        "mandatory expected files of the deployment directory",
         default=["model.onnx"],
+    )
+
+    deployment_directory_files_optional: Optional[List[str]] = Field(
+        description="A list that describes the "
+        "optional expected files of the deployment directory",
     )

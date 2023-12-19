@@ -15,7 +15,7 @@
 import logging
 import os.path
 from pathlib import Path
-from typing import List, Union
+from typing import List, Optional, Union
 
 from sparseml.export.export_data import InputsNames, LabelNames, OutputsNames
 from sparseml.export.helpers import ONNX_MODEL_NAME
@@ -32,7 +32,8 @@ def validate_structure(
     target_path: Union[str, Path],
     deployment_directory_name: str,
     onnx_model_name: str,
-    deployment_directory_files: List[str],
+    deployment_directory_files_mandatory: List[str],
+    deployment_directory_files_optional: Optional[List[str]] = None,
 ):
     """
     Validates the structure of the targe_path by
@@ -42,24 +43,35 @@ def validate_structure(
     :param target_path: The directory where the exported files are stored.
     :param deployment_directory_name: The name of the deployment directory.
     :param onnx_model_name: The name of the ONNX model.
-    :param deployment_directory_files: The list of files that should be present
-        in the deployment directory.
+    :param deployment_directory_files_mandatory: The list of files that
+        should be present in the deployment directory.
+    :param deployment_directory_files_optional: The list of files that
+        can be optionally present in the deployment directory.
     """
     sample_files = {InputsNames, OutputsNames, LabelNames}
 
-    deployment_directory_files = [
+    # account for the potentially custom ONNX model name
+    deployment_directory_files_mandatory = [
         onnx_model_name if file_name == ONNX_MODEL_NAME else file_name
-        for file_name in deployment_directory_files
+        for file_name in deployment_directory_files_mandatory
     ]
-
-    mandatory_files = {
+    # obtain full paths
+    deployment_directory_files_mandatory = {
         os.path.join(target_path, deployment_directory_name, file_name)
-        for file_name in deployment_directory_files
+        for file_name in deployment_directory_files_mandatory
     }
+    deployment_directory_files_optional = {
+        os.path.join(target_path, deployment_directory_name, file_name)
+        for file_name in deployment_directory_files_optional or []
+    }
+
+    # obtain full paths for the potential sample files
     optional_files = {
         os.path.join(target_path, name.basename.value) for name in sample_files
     }
-    missing_mandatory_files = check_file_presence(mandatory_files)
+    optional_files.update(deployment_directory_files_optional)
+
+    missing_mandatory_files = check_file_presence(deployment_directory_files_mandatory)
     missing_optional_files = check_file_presence(optional_files)
 
     if missing_optional_files:
