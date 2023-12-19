@@ -146,9 +146,14 @@ def create_data_samples(
             inputs_, labels_, outputs_ = run_inference_with_dict_data(
                 data=data, model=model
             )
-        elif isinstance(data, tuple):
-            inputs_, labels_, outputs_ = run_inference_with_tuple_data(
+        elif isinstance(data, (list, tuple)):
+            inputs_, labels_, outputs_ = run_inference_with_tuple_or_list_data(
                 data=data, model=model
+            )
+        else:
+            raise ValueError(
+                f"Data type {type(data)} is not supported. "
+                f"Only dict and tuple are supported"
             )
 
         inputs.append(inputs_)
@@ -176,24 +181,22 @@ def run_inference_with_dict_data(
     :param model: The model to run inference on (optional)
     :return: The inputs, labels and outputs
     """
-    # TODO: For now we need to make sure that the model and tensors
-    # live on the same device. This is because I am currently unable
-    # to assign them to the same device (transformer scenario)
-    inputs = {key: value.to("cpu") for key, value in data.items()}
-
-    label = None
+    labels = None
     if model is None:
-        return inputs, label, None
+        output = None
 
-    model.to("cpu")
-    output_vals = model(**inputs)
-    output = {
-        name: torch.squeeze(val).detach().to("cpu") for name, val in output_vals.items()
-    }
-    return inputs, label, output
+    else:
+        inputs = {key: value.to(model.device) for key, value in data.items()}
+        output_vals = model(**inputs)
+        output = {
+            name: torch.squeeze(val).detach().to("cpu")
+            for name, val in output_vals.items()
+        }
+    inputs = {key: value.to("cpu") for key, value in data.items()}
+    return inputs, labels, output
 
 
-def run_inference_with_tuple_data(
+def run_inference_with_tuple_or_list_data(
     data: Tuple[Any, Any], model: Optional[torch.nn.Module] = None
 ) -> Tuple[torch.Tensor, Any, Optional[torch.Tensor]]:
     """

@@ -33,13 +33,11 @@ class Integrations(Enum):
 
     image_classification = "image-classification"
     transformers = "transformers"
-    transformers_generative = "transformers-generative"
 
 
 def resolve_integration(
     source_path: Union[Path, str],
     integration: Optional[str] = None,
-    task: Optional[str] = None,
 ) -> str:
     """
     Resolve the integration to use.
@@ -51,24 +49,16 @@ def resolve_integration(
     :param source_path: The path to the PyTorch model to export.
     :param integration: Optional name of the integration to use. If not provided,
         will attempt to infer it from the source_path.
-    :param task: Optional name of the task to use.
     :return: The name of the integration to use for exporting the model.
     """
 
     if integration is not None:
         integration = integration.replace("_", "-")
 
-    if task is not None:
-        task = task.replace("_", "-")
-
     from sparseml.pytorch.image_classification.utils.helpers import (
         is_image_classification_model,
     )
-    from sparseml.transformers.utils.helpers import (
-        TaskNames,
-        is_transformer_generative_model,
-        is_transformer_model,
-    )
+    from sparseml.transformers.utils.helpers import is_transformer_model
 
     if (
         integration == Integrations.image_classification.value
@@ -78,16 +68,10 @@ def resolve_integration(
 
         return Integrations.image_classification.value
 
-    elif task in TaskNames.text_generation.value or is_transformer_generative_model(
-        source_path
-    ):
-        import sparseml.transformers.integration_helper_functions_generative  # noqa F401
-
-        return Integrations.transformers_generative.value
-
     elif integration == Integrations.transformers.value or is_transformer_model(
         source_path
     ):
+
         import sparseml.transformers.integration_helper_functions  # noqa F401
 
         return Integrations.transformers.value
@@ -119,7 +103,8 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
         "- (optionally) additional arguments"
         "and returns: "
         "- a (sparse) PyTorch model "
-        "- (optionally) a dictionary of auxiliary items"
+        "- (optionally) loaded_model_kwargs "
+        "(any relevant objects created along with the model)"
     )
     create_dummy_input: Callable[..., "torch.Tensor"] = Field(  # noqa F821
         description="A function that takes: "
@@ -155,7 +140,8 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
         description="A function that takes: "
         " - (optionally) a (sparse) PyTorch model "
         " - the number of samples to generate "
-        " - (optionally) additional auxiliary items "
+        " - (optionally) loaded_model_kwargs "
+        "(any relevant objects created along with the model) "
         "and returns: "
         " - the inputs, (optionally) labels and (optionally) outputs as torch tensors ",
     )
