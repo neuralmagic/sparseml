@@ -128,7 +128,6 @@ def export(
         )
 
     integration = resolve_integration(source_path, integration)
-    task = task.replace("_", "-") if task else task
 
     _LOGGER.info(f"Starting export for {integration} model...")
 
