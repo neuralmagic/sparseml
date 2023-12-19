@@ -131,6 +131,7 @@ class TestInitializeModelFlow:
         trainer = initialize_trainer(
             model=model, model_path=self.model_path, validation_dataset=None
         )
+        self._test_model_device(model)
         assert trainer.eval_dataset is None
         assert trainer._get_fake_dataloader(num_samples=10, tokenizer=tokenizer)
 

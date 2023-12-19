@@ -43,7 +43,7 @@ def create_model(
 ) -> Tuple[torch.nn.Module, Dict[str, Any]]:
     """
     A contract to create a model and optional dictionary of
-    auxiliary objects created along side with the model
+    loaded_model_kwargs (any relevant objects created along with the model)
 
     :param source_path: The path to the model
     :param batch_size: The batch size to use for the dataloader creation
@@ -51,7 +51,8 @@ def create_model(
 
     :return: A tuple of the
         - torch model
-        - (optionally) a dictionary of auxiliary objects
+        - (optionally) loaded_model_kwargs
+          (any relevant objects created along with the model)
     """
     checkpoint_path = (
         os.path.join(source_path, "model.pth")

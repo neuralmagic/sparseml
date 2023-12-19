@@ -23,9 +23,11 @@ from transformers import AutoTokenizer
 from sparseml.transformers.sparsification.trainer import Trainer
 from sparseml.transformers.utils.helpers import (
     MANDATORY_DEPLOYMENT_FILES,
+    NLG_TOKENIZER_FILES,
     OPTIONAL_DEPLOYMENT_FILES,
 )
 from sparseml.transformers.utils.load_task_dataset import load_task_dataset
+from sparseml.transformers.utils.optimizations import apply_kv_cache_injection
 from src.sparseml.export.export_data import create_data_samples as create_data_samples_
 from src.sparseml.integration_helper_functions import (
     IntegrationHelperFunctions,
@@ -52,7 +54,7 @@ def create_model(
 ) -> Tuple[torch.nn.Module, Dict[str, Any]]:
     """
     A contract to create a model and optional dictionary of
-    auxiliary items related to the model
+    loaded_model_kwargs (any relevant objects created along with the model)
 
     :param source_path: The path to the model
     :param device: The device to use for the model and dataloader instantiation
@@ -60,7 +62,8 @@ def create_model(
 
     :return: A tuple of the
         - torch model
-        - (optionally) a dictionary of auxiliary items
+        - (optionally) loaded_model_kwargs
+          (any relevant objects created along with the model)
     """
     config_args = kwargs.get("config_args", {})
     sequence_length = kwargs.get("sequence_length", None)
@@ -69,6 +72,7 @@ def create_model(
 
     if task is None:
         raise ValueError("To create a transformer model, a task must be specified")
+    task = task.replace("_", "-")
 
     if not trust_remote_code:
         _LOGGER.warning(
@@ -166,3 +170,18 @@ class Transformers(IntegrationHelperFunctions):
     deployment_directory_files_optional: List[str] = Field(
         default=list(OPTIONAL_DEPLOYMENT_FILES)
     )
+
+
+# generative_transformers_graph_optimizations = {
+#     "kv_cache_injection": apply_kv_cache_injection
+# }
+#
+#
+# @IntegrationHelperFunctions.register(name=Integrations.transformers_generative.value)
+# class GenerativeTransformers(Transformers):
+#     graph_optimizations: Dict[str, Callable] = Field(
+#         default=generative_transformers_graph_optimizations
+#     )
+#     deployment_directory_files_mandatory: List[str] = Field(
+#         default=list(MANDATORY_DEPLOYMENT_FILES.union(NLG_TOKENIZER_FILES))
+#     )

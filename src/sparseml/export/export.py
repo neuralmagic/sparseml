@@ -127,7 +127,7 @@ def export(
             f"Got {deployment_target} instead."
         )
 
-    integration = resolve_integration(source_path, integration, task)
+    integration = resolve_integration(source_path, integration)
 
     _LOGGER.info(f"Starting export for {integration} model...")
 

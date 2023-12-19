@@ -124,7 +124,9 @@ def initialize_trainer(
     :return: the initialized trainer
     """
 
-    training_args = TrainingArguments(output_dir=os.path.dirname(model_path))
+    training_args = TrainingArguments(
+        output_dir=os.path.dirname(model_path), use_cpu=(model.device.type == "cpu")
+    )
 
     trainer = Trainer(
         model=model,
