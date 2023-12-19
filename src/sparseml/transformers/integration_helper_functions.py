@@ -20,6 +20,7 @@ import torch
 from pydantic import Field
 from transformers import AutoTokenizer
 
+from sparseml.export.helpers import apply_optimizations as apply_optimizations_onnx
 from sparseml.transformers.sparsification.trainer import Trainer
 from sparseml.transformers.utils.helpers import (
     MANDATORY_DEPLOYMENT_FILES,
@@ -158,19 +159,43 @@ def create_data_samples(
     )
 
 
+def apply_optimizations_generative_transformer(
+    exported_file_path: Union[str, Path],
+    optimizations: Union[str, List[str]],
+    single_graph_file: bool = True,
+):
+
+    if exported_file_path.endswith(".onnx"):
+        available_optimizations = dict(kv_cache_injection=apply_kv_cache_injection)
+        apply_optimizations_onnx(
+            onnx_file_path=exported_file_path,
+            target_optimizations=optimizations,
+            available_optimizations=available_optimizations,
+            single_graph_file=single_graph_file,
+        )
+    else:
+        raise NotImplementedError(
+            "Applying optimizations is only supported for ONNX files"
+        )
+
+
 @IntegrationHelperFunctions.register(name=Integrations.transformers.value)
 class Transformers(IntegrationHelperFunctions):
     def __init__(self, *args, **kwargs):
         super().__init__()
         task = kwargs.get("task")
         if task is None:
-            raise ValueError("To create a transformer model, a task must be specified")
-        if task in TaskNames.text_generation.value:
+            _LOGGER.warning("The task for transformers is not specified.")
+        elif task in TaskNames.text_generation.value:
             # if the task is text generation, alter the default attributes
             # to reflect the idiosyncrasies for text generation
-            self.graph_optimizations = {"kv_cache_injection": apply_kv_cache_injection}
+            self.apply_optimizations = apply_optimizations_generative_transformer
             self.deployment_directory_files_mandatory = list(
                 MANDATORY_DEPLOYMENT_FILES.union(NLG_TOKENIZER_FILES)
+            )
+        else:
+            _LOGGER.info(
+                "Fetching default helper functions for transformers integration"
             )
 
     create_model: Callable[..., Tuple[torch.nn.Module, Dict[str, Any]]] = Field(

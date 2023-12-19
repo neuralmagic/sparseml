@@ -124,8 +124,11 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
         "and returns the path to the exported model",
         default=export_model,
     )
-    graph_optimizations: Optional[Dict[str, Callable]] = Field(
-        description="A mapping from names to graph optimization functions "
+    apply_optimizations: Optional[Callable[..., None]] = Field(
+        description="A function that takes:"
+        " - path to the exported model"
+        " - names of the optimizations to apply"
+        " and applies the optimizations to the model",
     )
 
     create_data_samples: Callable[

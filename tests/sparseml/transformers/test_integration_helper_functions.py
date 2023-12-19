@@ -27,7 +27,7 @@ def test_integration_helper_functions():
     assert transformers.create_model
     assert transformers.create_dummy_input
     assert transformers.export
-    assert transformers.graph_optimizations is None
+    assert transformers.apply_optimizations is None
     assert transformers.create_data_samples
     assert set(transformers.deployment_directory_files_mandatory) == {
         "model.onnx",
@@ -51,7 +51,7 @@ def test_integration_helper_function_text_generation():
     assert transformers.create_model
     assert transformers.create_dummy_input
     assert transformers.export
-    assert set(transformers.graph_optimizations.keys()) == {"kv_cache_injection"}
+    assert transformers.apply_optimizations is not None
     assert transformers.create_data_samples
     assert set(transformers.deployment_directory_files_mandatory) == {
         "model.onnx",

@@ -21,7 +21,6 @@ from sparseml.export.export_data import export_data_samples
 from sparseml.export.helpers import (
     AVAILABLE_DEPLOYMENT_TARGETS,
     ONNX_MODEL_NAME,
-    apply_optimizations,
     create_deployment_folder,
     create_export_kwargs,
 )
@@ -207,12 +206,12 @@ def export(
     _LOGGER.info(
         f"Applying optimizations: {graph_optimizations} to the exported model..."
     )
-    apply_optimizations(
-        onnx_file_path=os.path.join(deployment_path, onnx_model_name),
-        target_optimizations=graph_optimizations,
-        available_optimizations=helper_functions.graph_optimizations,
-        single_graph_file=single_graph_file,
-    )
+    if helper_functions.apply_optimizations is not None:
+        helper_functions.apply_optimizations(
+            exported_file_path=os.path.join(deployment_path, onnx_model_name),
+            optimizations=graph_optimizations,
+            single_graph_file=single_graph_file,
+        )
 
     if validate_structure:
         _LOGGER.info("Validating model structure...")
