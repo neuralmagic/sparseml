@@ -14,6 +14,7 @@
 
 import shutil
 
+import onnx
 import pytest
 import torch
 
@@ -45,6 +46,13 @@ class TestEndToEndExport:
             task=task,
         )
         assert (target_path / "deployment" / "model.onnx").exists()
+        # check if kv cache injection has been applied
+        onnx_model = onnx.load(
+            str(target_path / "deployment" / "model.onnx"), load_external_data=False
+        )
+        assert any(
+            inp.name == "past_key_values.0.key" for inp in onnx_model.graph.input
+        )
 
     def test_export_with_sample_data(self, setup):
         source_path, target_path, task = setup
