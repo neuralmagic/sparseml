@@ -1,14 +1,29 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from onnx import ModelProto, numpy_helper
 
 from sparseml.exporters.transforms import OnnxTransform
-from sparseml.onnx.utils import ONNXGraph
 from sparseml.exporters.transforms.utils import (
     INITIALIZER_MATCH,
-    get_structural_matches,
     get_quantization_params,
+    get_structural_matches,
     optional_node,
 )
 from sparseml.exporters.transforms.utils.helpers import quantize_array
+from sparseml.onnx.utils import ONNXGraph
+
 
 __all__ = ["WeightsOnly"]
 
@@ -42,9 +57,7 @@ class WeightsOnly(OnnxTransform):
         graph = ONNXGraph(model)
         matches = get_structural_matches(
             graph,
-            parent_ops=[
-                [INITIALIZER_MATCH, "QuantizeLinear"]
-            ],
+            parent_ops=[[INITIALIZER_MATCH, "QuantizeLinear"]],
             op_type="DequantizeLinear",
             children_ops=[[optional_node("Transpose")]],
         )
@@ -56,9 +69,7 @@ class WeightsOnly(OnnxTransform):
             dqnode = match.node
             transpose_node = match.children[0][0]
 
-            quantize_params = get_quantization_params(
-                model, qnode, include_target=True
-            )
+            quantize_params = get_quantization_params(model, qnode, include_target=True)
 
             quantized_array = quantize_array(
                 quantize_params.target,
