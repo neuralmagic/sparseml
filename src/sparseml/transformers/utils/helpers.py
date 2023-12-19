@@ -16,22 +16,63 @@
 Helper variables and functions for integrating SparseML with huggingface/transformers
 flows
 """
+
 import logging
 import os
-from typing import Optional
+from enum import Enum
+from pathlib import Path
+from typing import Optional, Union
 
 from transformers.trainer_utils import get_last_checkpoint
 
+from sparseml.export.helpers import ONNX_MODEL_NAME
 from sparsezoo import setup_model
 
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
 
-__all__ = ["RECIPE_NAME", "save_zoo_directory", "detect_last_checkpoint"]
+__all__ = [
+    "RECIPE_NAME",
+    "save_zoo_directory",
+    "detect_last_checkpoint",
+    "TaskNames",
+    "is_transformer_model",
+]
+
+
+class TaskNames(Enum):
+    mlm = {"masked-language-modeling", "mlm"}
+    qa = {"question-answering", "qa"}
+    token_classification = {"token-classification", "ner"}
+    text_classification = {
+        "text-classification",
+        "sentiment-analysis",
+        "sequence-classification",
+        "glue",
+    }
+    text_generation = {"text-generation"}
 
 
 RECIPE_NAME = "recipe.yaml"
+MANDATORY_DEPLOYMENT_FILES = {
+    ONNX_MODEL_NAME,
+    "tokenizer_config.json",
+    "config.json",
+}
+NLG_TOKENIZER_FILES = {"special_tokens_map.json", "vocab.json", "merges.txt"}
+OPTIONAL_DEPLOYMENT_FILES = {"tokenizer.json", "tokenizer.model"}
+
+
+def is_transformer_model(source_path: Union[Path, str]) -> bool:
+    """
+    :param source_path: The path to the model
+    :return: Whether the model is a transformers model or not
+    """
+    if not os.path.isdir(source_path):
+        raise ValueError(f"Path {source_path} is not a valid directory")
+    expected_files = MANDATORY_DEPLOYMENT_FILES.difference({ONNX_MODEL_NAME})
+    return expected_files.issubset(os.listdir(source_path))
 
 
 def save_zoo_directory(
