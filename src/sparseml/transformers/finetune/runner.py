@@ -31,6 +31,8 @@ from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
 from sparseml.transformers.finetune.data.data_helpers import make_dataset_splits
 from sparseml.transformers.finetune.model_args import ModelArguments
 
+from torch.distributed.fsdp import FullyShardedDataParallel
+
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -236,7 +238,11 @@ class StageRunner:
             elif "finetune" in stage_name:
                 self.train(checkpoint=None, stage=stage_name)
 
-            self.model = self.trainer.accelerator.unwrap_model(self.trainer.model)
+            if isinstance(self.trainer.model, FullyShardedDataParallel):
+                self.model = self.trainer.accelerator.unwrap_model(self.trainer.model)
+                for idx, layer in enumerate(self.model.model.layers):
+                    self.model.model.layers[idx] = self.trainer.accelerator.unwrap_model(layer)
+                self.trainer.model = self.model
 
             # TODO: this is hacky, clean it up
             session = session_manager.active_session()
