@@ -94,6 +94,7 @@ class ONNXToDeepsparse(BaseExporter):
                 else sparseml_transforms.ConvToConvIntegerAddCastMul(),
                 sparseml_transforms.GemmToQLinearMatMul(),
                 sparseml_transforms.GemmToMatMulIntegerAddCastMul(),
+                sparseml_transforms.WeightsOnly(),
                 sparseml_transforms.QuantizeResiduals(),
                 sparseml_transforms.RemoveDuplicateQConvWeights(),
                 sparseml_transforms.RemoveDuplicateQuantizeOps(),
