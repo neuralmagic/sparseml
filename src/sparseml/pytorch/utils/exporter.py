@@ -544,6 +544,12 @@ def export_onnx(
         # batch norm layer
         batch_norms_wrapped = _wrap_batch_norms(module)
 
+    # Makes sure that quant_min/quant_max are set correctly for
+    # UINT8 ot INT8 ranges (even if a different number of bits was
+    # used during quantization)
+    if convert_qat:
+        _adjust_min_max_values(module)
+
     kwargs = dict(
         model=module,
         args=sample_batch,
@@ -814,3 +820,21 @@ def _unwrap_batchnorms(model: onnx.ModelProto):
             node.output[idx] = node.output[idx].replace(".bn_wrapper_replace_me", "")
 
     validate_onnx(model)
+
+
+def _adjust_min_max_values(module: Module):
+    """
+    Adjust min/max values to match INT8 or UINT8 range.
+    ONNX does not support different ranges (e.g., INT4 range)
+    """
+    for submodule in module.modules():
+        if hasattr(submodule, "quant_min") and hasattr(submodule, "quant_max"):
+            # INT4 -> INT8
+            if submodule.quant_min < 0:
+                submodule.quant_min = -128
+                submodule.quant_max = 127
+
+            # UINT4 -> UINT8
+            else:
+                submodule.quant_min = 0
+                submodule.quant_max = 255
