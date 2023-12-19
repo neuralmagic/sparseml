@@ -17,7 +17,11 @@ from collections import defaultdict
 import pytest
 
 from sparseml.core.event import EventType
-from sparseml.core.helpers import _log_epoch, _log_model_loggable_items, log_model_info
+from sparseml.core.helpers import (
+    _log_current_step,
+    _log_model_loggable_items,
+    log_model_info,
+)
 from sparseml.core.logger.logger import LoggerManager
 
 
@@ -74,9 +78,9 @@ def state_mock():
 
 def test__log_epoch_invokes_log_scalar():
     logger_manager = LoggerManagerMock()
-    _log_epoch(
+    _log_current_step(
         logger_manager=logger_manager,
-        epoch=1,
+        current_log_step=1,
     )
     # log epoch should invoke log_string
     assert logger_manager.hit_count["log_scalar"] == 1
@@ -85,7 +89,7 @@ def test__log_epoch_invokes_log_scalar():
 def test_log_model_info_logs_epoch_and_loggable_items():
     state = StateMock()
     epoch = 3
-    log_model_info(state, epoch=epoch)
+    log_model_info(state, current_log_step=epoch)
 
     # loggable items will invoke log_scalar for each
     # int/float value + 1 for the epoch

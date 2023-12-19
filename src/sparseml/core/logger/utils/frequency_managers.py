@@ -31,6 +31,15 @@ class FrequencyManagerContract(ABC):
     Contract for frequency managers
     """
 
+    def __init__(
+        self,
+        log_frequency: Union[float, int, None] = None,
+        frequency_type: str = "epoch",
+    ):
+        self.validate_log_frequency(log_frequency=log_frequency)
+        self._log_frequency = log_frequency
+        self._frequency_type = frequency_type
+
     @abstractmethod
     def validate_log_frequency(self, log_frequency):
         """
@@ -48,6 +57,10 @@ class FrequencyManagerContract(ABC):
         """
         raise NotImplementedError
 
+    @property
+    def frequency_type(self) -> str:
+        return self._frequency_type
+
 
 class EpochFrequencyManager(FrequencyManagerContract):
     """
@@ -57,10 +70,6 @@ class EpochFrequencyManager(FrequencyManagerContract):
 
     :param log_frequency: The frequency to log at, either a float or int or None
     """
-
-    def __init__(self, log_frequency: Union[float, int, None] = None):
-        self.validate_log_frequency(log_frequency=log_frequency)
-        self._log_frequency = log_frequency
 
     def log_ready(
         self,
@@ -125,7 +134,7 @@ class BatchFrequencyManager(IntegerFrequencyManager_):
     Frequency manager that handles logging based on batches.
     Accepts an int for the frequency, where the frequency is the number of batches
     between logs, or None for to log on every batch. If not None, the frequency
-    must be >= 100
+    must be >= 16
     """
 
     def validate_log_frequency(self, log_frequency: Optional[int]):
@@ -135,11 +144,11 @@ class BatchFrequencyManager(IntegerFrequencyManager_):
 
         :param log_frequency: the log frequency to validate
         :raises ValueError: if the log frequency is neither an int or None
-        :raises ValueError: if the log frequency is < 100
+        :raises ValueError: if the log frequency is < 10
         """
         super().validate_log_frequency(log_frequency)
-        if log_frequency is not None and log_frequency < 100:
-            raise ValueError(f"frequency {log_frequency} must be >= 100")
+        if log_frequency is not None and log_frequency < 10:
+            raise ValueError(f"frequency {log_frequency} must be >= 10")
 
 
 class OptimizerStepFrequencyManager(IntegerFrequencyManager_):
@@ -153,15 +162,15 @@ class OptimizerStepFrequencyManager(IntegerFrequencyManager_):
     def validate_log_frequency(self, log_frequency: Optional[int]):
         """
         Validates the log frequency is an int or None, raising a ValueError if invalid
-        Also validates that the frequency is >= 50 (to avoid over-logging) if not None
+        Also validates that the frequency is >= 4 (to avoid over-logging) if not None
 
         :param log_frequency: the log frequency to validate
         :raises ValueError: if the log frequency is neither an int or None
-        :raises ValueError: if the log frequency is < 50
+        :raises ValueError: if the log frequency is < 4
         """
         super().validate_log_frequency(log_frequency)
-        if log_frequency is not None and log_frequency < 50:
-            raise ValueError(f"frequency {log_frequency} must be >= 50")
+        if log_frequency is not None and log_frequency < 4:
+            raise ValueError(f"frequency {log_frequency} must be >= 4")
 
 
 _CONSTRUCTORS = defaultdict(
@@ -190,7 +199,9 @@ class FrequencyManagerFactory:
 
         normalized_frequency_type = frequency_type.lower().replace("-", "_").strip()
         if frequency_manager := _CONSTRUCTORS[normalized_frequency_type]:
-            return frequency_manager(log_frequency=log_frequency)
+            return frequency_manager(
+                log_frequency=log_frequency, frequency_type=normalized_frequency_type
+            )
 
         raise ValueError(
             f"Invalid frequency type {frequency_type}, must be one "

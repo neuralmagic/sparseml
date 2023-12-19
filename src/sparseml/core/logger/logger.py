@@ -815,7 +815,9 @@ class LoggerManager(ABC):
         ):
             self._loggers.append(PythonLogger())
         self.frequency_manager: FrequencyManagerContract = (
-            FrequencyManagerFactory.from_frequency_type()
+            FrequencyManagerFactory.from_frequency_type(
+                frequency_type=frequency_type, log_frequency=log_frequency
+            )
         )
 
     def __len__(self):

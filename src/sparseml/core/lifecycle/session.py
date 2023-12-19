@@ -17,7 +17,7 @@ from typing import Any, List, Optional
 
 from sparseml.core.event import EventType
 from sparseml.core.framework import Framework
-from sparseml.core.helpers import log_model_info
+from sparseml.core.helpers import log_model_info, should_log_model_info
 from sparseml.core.lifecycle.event import CallbacksEventLifecycle, EventLifecycle
 from sparseml.core.logger.utils import (
     BatchFrequencyManager,
@@ -121,11 +121,15 @@ class SparsificationLifecycle:
                 step_function()
                 current_step = optimizer.state[optimizer.param_groups[0]["params"][-1]][
                     "step"
-                ]
-                if self.state.loggers.log_ready(
-                    current_step, self.state._last_log_step
+                ].item()
+                if should_log_model_info(
+                    model=self.state.model,
+                    loggers=self.state.loggers,
+                    current_log_step=current_step,
+                    last_log_step=self.state._last_log_step,
                 ):
-                    log_model_info(state=self.state, epoch=current_step)
+                    log_model_info(state=self.state, current_log_step=current_step)
+                    self.state._last_log_step = current_step
 
             optimizer.step = _optimizer_step_fn
 
@@ -139,10 +143,18 @@ class SparsificationLifecycle:
 
             def _model_forward_fn(*args, **kwargs):
                 output = forward_function(*args, **kwargs)
-                if self.state.loggers.log_ready(
-                    self.event_lifecycle.current_index, self.state._last_log_step
+                current_step = self.event_lifecycle.current_index
+
+                if should_log_model_info(
+                    model=self.state.model,
+                    loggers=self.state.loggers,
+                    current_log_step=current_step,
+                    last_log_step=self.state._last_log_step,
                 ):
-                    log_model_info(state=self.state, epoch=self.state._last_log_step)
+                    log_model_info(
+                        state=self.state, current_log_step=self.state._last_log_step
+                    )
+                    self.state._last_log_step = current_step
                 return output
 
             model.forward = _model_forward_fn
