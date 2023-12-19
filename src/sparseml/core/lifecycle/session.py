@@ -143,7 +143,10 @@ class SparsificationLifecycle:
 
             def _model_forward_fn(*args, **kwargs):
                 output = forward_function(*args, **kwargs)
-                current_step = self.event_lifecycle.current_index
+                current_step = self.state.loggers.epoch_to_step(
+                    epoch=self.event_lifecycle.current_index,
+                    steps_per_epoch=len(self.state.data.train),
+                )
 
                 if should_log_model_info(
                     model=self.state.model,
