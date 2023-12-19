@@ -19,6 +19,7 @@ from enum import Enum
 import pytest
 
 from sparseml.export.export_data import create_data_samples, export_data_sample
+from tests.sparseml.export.utils import get_dummy_dataset
 
 
 @pytest.fixture()
@@ -72,55 +73,65 @@ def test_export_data_sample(tmp_path, as_tar, dummy_names, dummy_samples):
     [True, False],
 )
 @pytest.mark.parametrize("num_samples", [0, 1, 5])
-@pytest.mark.parametrize("scenario", ["transformers", "image_classification"])
-def test_create_data_samples(num_samples, model, scenario):
+def test_create_data_samples_transformers(num_samples, model):
     pytest.importorskip("torch", reason="test requires pytorch")
-    if scenario == "transformers":
-        # TODO: leaving it here to add appropriate test cases
-        # before landing to main
-        assert False
-
     import torch
-    from torch.utils.data import DataLoader, Dataset
+    from torch.utils.data import DataLoader
 
-    model = torch.nn.Sequential(torch.nn.Identity()) if model else None
+    class Identity(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.dummy_param = torch.nn.Parameter(torch.empty(0))
+            self.device = self.dummy_param.device
 
-    class DummyDataset(Dataset):
-        def __init__(self, inputs, outputs):
-            self.data = inputs
-            self.target = outputs
+        def forward(self, input_ids, attention_mask):
+            return dict(input_ids=input_ids, attention_mask=attention_mask)
 
-        def __len__(self):
-            return len(self.data)
+    model = Identity().to("cpu") if model else None
 
-        def __getitem__(self, index):
-            data_sample = self.data[index]
-            target_sample = self.target[index]
-
-            return data_sample, target_sample
-
-    inputs = torch.randn((100, 3, 224, 224))
-    labels = torch.randint(
-        0,
-        10,
-        (
-            100,
-            50,
-        ),
-    )
-
-    custom_dataset = DummyDataset(inputs, labels)
-
-    data_loader = DataLoader(custom_dataset, batch_size=1)
+    data_loader = DataLoader(get_dummy_dataset("transformers"), batch_size=1)
 
     inputs, outputs, labels = create_data_samples(
         data_loader=data_loader, num_samples=num_samples, model=model
     )
+    target_input = next(iter(data_loader))
+    target_output = target_input
 
-    assert all(tuple(input.shape) == (1, 3, 224, 224) for input in inputs)
-    assert all(tuple(label.shape) == (1, 50) for label in labels)
+    assert len(inputs) == num_samples
+    for input in inputs:
+        for key, value in input.items():
+            assert torch.equal(value, target_input[key])
+    assert labels == []
+    if model is not None:
+        assert len(outputs) == num_samples
+        for output in outputs:
+            for key, value in output.items():
+                assert torch.equal(value, target_output[key][0])
+
+
+@pytest.mark.parametrize(
+    "model",
+    [True, False],
+)
+@pytest.mark.parametrize("num_samples", [0, 1, 5])
+def test_create_data_samples_image_classification(num_samples, model):
+    pytest.importorskip("torch", reason="test requires pytorch")
+
+    import torch
+    from torch.utils.data import DataLoader
+
+    model = torch.nn.Sequential(torch.nn.Identity()) if model else None
+    data_loader = DataLoader(get_dummy_dataset("image-classification"), batch_size=1)
+
+    inputs, outputs, labels = create_data_samples(
+        data_loader=data_loader, num_samples=num_samples, model=model
+    )
+    target_input, target_label = next(iter(data_loader))
+    target_output = target_input
+    assert all(input.shape == target_input.shape for input in inputs)
+    assert all(label.shape == target_label.shape for label in labels)
     assert len(inputs) == num_samples == len(labels)
 
     if model is not None:
         assert len(outputs) == num_samples
-        assert all(tuple(output.shape) == (1, 3, 224, 224) for output in outputs)
+        assert all(output.shape == target_output.shape for output in outputs)
