@@ -79,8 +79,29 @@ class WeightsOnly(OnnxTransform):
             )
 
             if transpose_node is not None:
+                # Transpose array
                 quantized_array = quantized_array.transpose()
+
+                # Move the output of Dequantize node to the
+                # output of the Transpose node (to be removed)
+                # such that the output of the block remains the same
                 dqnode.output[0] = transpose_node.output[0]
+
+                # Find which axis to apply dequantization scale.
+                # This will be the axis being permuted by the
+                # Transpose node
+                for attribute in transpose_node.attribute:
+                    if attribute.name == "perm":
+                        permutation_axis = attribute.ints
+                        break
+
+                for attribute in dqnode.attribute:
+                    if attribute.name == "axis":
+                        original_axis = attribute.i
+                        permutation_axis.remove(original_axis)
+                        new_axis = permutation_axis[0]
+                        attribute.i = new_axis
+                        break
 
             quantized_initializer_name = initializer.name + "_quantized"
             quantized_initializer = numpy_helper.from_array(
