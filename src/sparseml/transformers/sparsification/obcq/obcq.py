@@ -34,7 +34,7 @@ from sparseml.transformers.sparsification.obcq.utils.helpers import (
     llama_forward,
     opt_forward,
 )
-from sparseml.transformers.utils.model import SparseCausalLM
+from sparseml.transformers.utils.sparse_model import SparseCausalLM
 
 
 __all__ = ["one_shot"]

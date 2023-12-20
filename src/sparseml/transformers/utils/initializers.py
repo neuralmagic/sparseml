@@ -18,23 +18,24 @@ Functionality for initializing a transformer model from a given path
 import logging
 import math
 import os
+import re
 from pathlib import Path
 from typing import Any, Optional, Union
 
+import torch
 from transformers import AutoConfig, AutoModel, AutoTokenizer, TrainingArguments
 
 from sparseml.optim import parse_recipe_variables
 from sparseml.transformers.sparsification import Trainer
-from sparseml.transformers.utils.helpers import TaskNames
+from sparseml.transformers.utils.helpers import RECIPE_NAME, TaskNames
 from sparseml.transformers.utils.load_task_model import load_task_model
 
 
 __all__ = [
-    "initialize_model",
+    "initialize_sparse_model",
     "initialize_tokenizer",
     "initialize_trainer",
     "initialize_config",
-    "resolve_sequence_length",
 ]
 
 _LOGGER = logging.getLogger(__name__)
@@ -61,7 +62,7 @@ def initialize_config(
 
 
 def initialize_tokenizer(
-    model_path: Union[str, Path], sequence_length: int, task: str
+    model_path: Union[str, Path], sequence_length: int, task: str, **tokenizer_args
 ) -> AutoTokenizer:
     """
     Initialize a tokenizer from a given path
@@ -73,39 +74,60 @@ def initialize_tokenizer(
     """
 
     tokenizer = AutoTokenizer.from_pretrained(
-        model_path, model_max_length=sequence_length
+        model_path, model_max_length=sequence_length, **tokenizer_args
     )
     if task in TaskNames.text_generation.value:
-        tokenizer.pad_token = tokenizer.eos_token
+        # for generative transformers, we might
+        # need to set the pad token to the eos token
+        if tokenizer.pad_token_id is None:
+            tokenizer.pad_token_id = tokenizer.eos_token_id
     return tokenizer
 
 
-def initialize_model(
+def initialize_sparse_model(
     model_path: Union[str, Path],
     task: str,
     config: AutoConfig,
     trust_remote_code: bool = False,
+    recipe: Optional[Union[str, Path]] = None,
     device: Optional[str] = None,
+    **model_kwargs,
 ) -> AutoModel:
     """
     Initialize a model from a given path
+
+    Initialize a sparse model from a given path. This will:
+    1. Load the dense model from the given path, given
+       the task name, config and model_kwargs
+    3.(Optional) Apply the recipe to the model
+    4 (Optional) Move the model to the specified device
 
     :param model_path: the path to the model to load
     :param task: the task to load the model for
     :param config: the config to use for the model
     :param trust_remote_code: True to trust remote code when loading the model,
         False otherwise
+    :param recipe: the recipe to apply to the model. If None, will look for a recipe
+        in the model_path
     :param device: the device to load the model on. If None, will load on CPU
     :return: the loaded model
     """
+    if recipe is None:
+        recipe = os.path.join(model_path, RECIPE_NAME)
+
     model = load_task_model(
         task=task,
         model_path=model_path,
         config=config,
         trust_remote_code=trust_remote_code,
+        recipe=recipe,
+        **model_kwargs,
     )
     if device:
-        model.to(device)
+        # if device is a list of devices, then we assume we want to use multiple gpus
+        # (wrap the model in a DataParallel) e.g. device = 'cuda:0,1,...'
+        use_multiple_gpus = re.match(r"cuda:\d+,(\d+)*", device)
+        model = torch.nn.DataParallel(model) if use_multiple_gpus else model.to(device)
     return model
 
 
@@ -123,6 +145,8 @@ def initialize_trainer(
     :param validation_dataset: the validation dataset to use for the trainer
     :return: the initialized trainer
     """
+    # TODO: add here support for v2 trainer
+    # also add initialize_dataset function that will merge v1 and v2 functions
 
     training_args = TrainingArguments(
         output_dir=os.path.dirname(model_path), use_cpu=(model.device.type == "cpu")
@@ -160,31 +184,6 @@ def initialize_trainer(
         _LOGGER.info(f"Applied {msg} to the model at {model_path}")
 
     return trainer
-
-
-def resolve_sequence_length(config: AutoConfig) -> int:
-    """
-    Resolve the sequence length from the config
-
-    :param config: the config to resolve the sequence length from
-    :return: the sequence length
-    """
-    if hasattr(config, "max_position_embeddings"):
-        sequence_length = config.max_position_embeddings
-
-    elif hasattr(config, "max_seq_len"):
-        sequence_length = config.max_seq_len
-    else:
-        raise ValueError(
-            "Could not infer a default sequence length "
-            "from the HF transformers config. Please specify "
-            "the sequence length with --sequence_length"
-        )
-    _LOGGER.info(
-        f"Using default sequence length of {sequence_length} "
-        "(inferred from HF transformers config) "
-    )
-    return sequence_length
 
 
 def _parse_data_args(data_args):

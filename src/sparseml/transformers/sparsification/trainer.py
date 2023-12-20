@@ -37,6 +37,7 @@ from transformers.trainer_callback import TrainerState
 from transformers.trainer_pt_utils import reissue_pt_warnings
 from transformers.trainer_utils import ShardedDDPOption, get_last_checkpoint
 
+from sparseml.pytorch.model_load.helpers import log_model_load
 from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
 from sparseml.pytorch.sparsification.quantization.helpers import (
     initialize_channel_wise_scale_zp,
@@ -47,7 +48,6 @@ from sparseml.pytorch.utils import (
     TensorBoardLogger,
     WANDBLogger,
 )
-from sparseml.transformers.utils import SparseAutoModel
 from sparseml.transformers.utils.helpers import RECIPE_NAME
 
 
@@ -638,7 +638,7 @@ class RecipeManagerTrainerInterface:
         _LOGGER.info(
             f"Reloaded {total_loaded} model params for SparseML Recipe from {load_path}"
         )
-        SparseAutoModel.log_model_load(
+        log_model_load(
             self.model,
             self.model_state_path,
             model_type="student" if self.teacher else "model",

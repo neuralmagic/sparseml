@@ -12,19 +12,37 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+import re
 import shutil
 
 import pytest
+import torch
 
-from sparseml.pytorch.utils.helpers import default_device, use_single_gpu
+from huggingface_hub import snapshot_download
+from sparseml.pytorch.utils.helpers import default_device
+from sparseml.transformers.utils.helpers import resolve_sequence_length
 from sparseml.transformers.utils.load_task_dataset import load_task_dataset
 from sparsezoo import Model
 from src.sparseml.transformers.utils.initializers import (
     initialize_config,
-    initialize_model,
+    initialize_sparse_model,
     initialize_tokenizer,
     initialize_trainer,
 )
+
+
+def save_recipe_for_text_classification(source_path):
+    recipe = """test_stage:
+             quant_modifiers:
+               QuantizationModifier:
+                 post_oneshot_calibration: False
+                 scheme_overrides:
+                   Embedding:
+                     input_activations: null"""
+
+    with open(os.path.join(source_path, "recipe.yaml"), "w") as f:
+        f.write(recipe)
 
 
 @pytest.mark.parametrize(
@@ -36,8 +54,8 @@ from src.sparseml.transformers.utils.initializers import (
             dict(dataset_name="squad"),
         ),
         (
-            "zoo:distilbert-qqp_wikipedia_bookcorpus-pruned80.4block_quantized",
-            "text-classification",
+            "roneneldan/TinyStories-1M",
+            "text-generation",
             None,
         ),
     ],
@@ -47,17 +65,21 @@ from src.sparseml.transformers.utils.initializers import (
 class TestInitializeModelFlow:
     @pytest.fixture()
     def setup(self, tmp_path, stub, task, data_args, device):
-        self.model_path = Model(stub, tmp_path).training.path
-        self.sequence_length = 384
+        self.model_path = (
+            Model(stub, tmp_path).training.path
+            if stub.startswith("zoo:")
+            else snapshot_download(stub, local_dir=tmp_path)
+        )
         self.task = task
         self.data_args = data_args
+        self.device = default_device() if device == "auto" else device
 
-        # process device argument
-        device = default_device() if device == "auto" else device
-        # if multiple gpus available use the first one
-        if not (device is None or device == "cpu"):
-            device = use_single_gpu(device)
-        self.device = device
+        if task == "text-classification":
+            # for text classification, save a dummy recipe to the model path
+            # so that it can be loaded
+            save_recipe_for_text_classification(self.model_path)
+
+        self.sequence_length = 384
         yield
         shutil.rmtree(tmp_path)
 
@@ -68,35 +90,43 @@ class TestInitializeModelFlow:
         tokenizer = initialize_tokenizer(
             self.model_path, self.sequence_length, self.task
         )
-        assert (
-            tokenizer.padding_side == "right"
-            if self.task != "text-generation"
-            else "left"
-        )
+        if self.task == "text-generation":
+            assert tokenizer.pad_token_id
+
         assert tokenizer.model_max_length == self.sequence_length
 
     def test_initialize_model(self, setup):
-        model = initialize_model(
+        config = initialize_config(model_path=self.model_path, trust_remote_code=True)
+        model = initialize_sparse_model(
             model_path=self.model_path,
             task=self.task,
             device=self.device,
-            config=initialize_config(
-                model_path=self.model_path, trust_remote_code=True
-            ),
+            recipe=None,
+            config=config,
         )
-        assert model
+        if self.task == "text-generation":
+            expected_sequence_length = resolve_sequence_length(config)
+            assert (
+                model.module.seqlen == expected_sequence_length
+                if hasattr(model, "module")
+                else model.seqlen == expected_sequence_length
+            )
+
         self._test_model_device(model)
 
     def test_initialize_trainer(self, setup):
         if not self.data_args:
             pytest.skip("To run this test, please provide valid data_args")
         config = initialize_config(model_path=self.model_path, trust_remote_code=True)
-        model = initialize_model(
+        model = initialize_sparse_model(
             model_path=self.model_path,
             task=self.task,
             device=self.device,
+            recipe=None,
             config=config,
         )
+        if isinstance(model, torch.nn.DataParallel):
+            pytest.skip("Cannot initialize a trainer for a DataParallel model")
         tokenizer = initialize_tokenizer(
             self.model_path, self.sequence_length, self.task
         )
@@ -123,11 +153,15 @@ class TestInitializeModelFlow:
         tokenizer = initialize_tokenizer(
             self.model_path, self.sequence_length, self.task
         )
-        model = initialize_model(
+        model = initialize_sparse_model(
             model_path=self.model_path,
             task=self.task,
+            device=self.device,
+            recipe=None,
             config=config,
         )
+        if isinstance(model, torch.nn.DataParallel):
+            pytest.skip("Cannot initialize a trainer for a DataParallel model")
         trainer = initialize_trainer(
             model=model, model_path=self.model_path, validation_dataset=None
         )
@@ -136,7 +170,11 @@ class TestInitializeModelFlow:
         assert trainer._get_fake_dataloader(num_samples=10, tokenizer=tokenizer)
 
     def _test_model_device(self, model):
-        if model.device.type == "cuda":
-            assert self.device.startswith("cuda")
+        if self.device is None or self.device == "cpu":
+            assert model.device.type == "cpu"
+            return
+        use_multiple_gpus = re.match(r"cuda:\d+,(\d+)*", self.device)
+        if use_multiple_gpus:
+            assert isinstance(model, torch.nn.DataParallel)
         else:
-            assert self.device is None or self.device == "cpu"
+            assert model.device.type == "cuda"

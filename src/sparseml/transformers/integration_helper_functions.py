@@ -26,7 +26,9 @@ from sparseml.transformers.utils.helpers import (
     MANDATORY_DEPLOYMENT_FILES,
     NLG_TOKENIZER_FILES,
     OPTIONAL_DEPLOYMENT_FILES,
+    RECIPE_NAME,
     TaskNames,
+    resolve_sequence_length,
 )
 from sparseml.transformers.utils.load_task_dataset import load_task_dataset
 from sparseml.transformers.utils.optimizations import apply_kv_cache_injection
@@ -38,10 +40,9 @@ from src.sparseml.integration_helper_functions import (
 from src.sparseml.transformers.utils.initializers import (
     _parse_data_args,
     initialize_config,
-    initialize_model,
+    initialize_sparse_model,
     initialize_tokenizer,
     initialize_trainer,
-    resolve_sequence_length,
 )
 
 
@@ -52,6 +53,7 @@ def create_model(
     source_path: Union[Path, str],
     device: Optional[str] = None,
     task: Optional[str] = None,
+    recipe: Optional[str] = None,
     **kwargs,
 ) -> Tuple[torch.nn.Module, Dict[str, Any]]:
     """
@@ -61,6 +63,8 @@ def create_model(
     :param source_path: The path to the model
     :param device: The device to use for the model and dataloader instantiation
     :param task: The task to use for the model and dataloader instantiation
+    :param recipe: The recipe to use for the model and dataloader instantiation.
+        If None, attempt to use the default recipe
 
     :return: A tuple of the
         - torch model
@@ -74,7 +78,10 @@ def create_model(
 
     if task is None:
         raise ValueError("To create a transformer model, a task must be specified")
-    task = task.replace("_", "-")
+    if recipe is None:
+        _LOGGER.info(f"Attempting to apply default recipe: {RECIPE_NAME}")
+    else:
+        _LOGGER.info(f"Attempting to apply user-specified recipe: {recipe}")
 
     if not trust_remote_code:
         _LOGGER.warning(
@@ -85,11 +92,13 @@ def create_model(
     config = initialize_config(source_path, trust_remote_code, **config_args)
     sequence_length = sequence_length or resolve_sequence_length(config)
     tokenizer = initialize_tokenizer(source_path, sequence_length, task)
-    model = initialize_model(
+    model = initialize_sparse_model(
         model_path=source_path,
         task=task,
         config=config,
         trust_remote_code=trust_remote_code,
+        recipe=recipe,
+        sequence_length=sequence_length,
         device=device,
     )
 
@@ -108,9 +117,8 @@ def create_model(
     else:
         validation_dataset = None
 
-    model.train()
     trainer = initialize_trainer(model, source_path, validation_dataset)
-    model.eval()
+    # TODO: Parse out dataloader from the trainer
 
     return model, dict(
         trainer=trainer,
