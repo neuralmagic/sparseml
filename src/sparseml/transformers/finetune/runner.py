@@ -30,8 +30,13 @@ from sparseml.transformers.finetune.data import TextGenerationDataset
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
 from sparseml.transformers.finetune.data.data_helpers import make_dataset_splits
 from sparseml.transformers.finetune.model_args import ModelArguments
+from sparseml.utils.pytorch.module import set_layer
 
-from torch.distributed.fsdp import FullyShardedDataParallel
+from torch.distributed.fsdp import (
+    FullStateDictConfig,
+    FullyShardedDataParallel,
+    StateDictType,
+)
 
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
@@ -227,6 +232,7 @@ class StageRunner:
             with self.trainer.accelerator.main_process_first():
                 self._output_dir = os.path.join(
                     self._training_args.output_dir, "stage_" + stage_name
+
                 )
                 if not os.path.exists(self._output_dir):
                     os.makedirs(self._output_dir)
@@ -238,11 +244,37 @@ class StageRunner:
             elif "finetune" in stage_name:
                 self.train(checkpoint=None, stage=stage_name)
 
+
+            self.trainer.accelerator.wait_for_everyone()
+            
+            full_state_dict_config = FullStateDictConfig(
+                offload_to_cpu=True, rank0_only=False
+            )
+
             if isinstance(self.trainer.model, FullyShardedDataParallel):
-                self.model = self.trainer.accelerator.unwrap_model(self.trainer.model)
-                for idx, layer in enumerate(self.model.model.layers):
-                    self.model.model.layers[idx] = self.trainer.accelerator.unwrap_model(layer)
-                self.trainer.model = self.model
+                with FullyShardedDataParallel.state_dict_type(
+                    self.trainer.model, StateDictType.FULL_STATE_DICT, full_state_dict_config
+                ):
+                    state_dict = self.trainer.accelerator.get_state_dict(self.trainer.model, unwrap=True)
+
+                unwrapped_model = self.trainer.accelerator.unwrap_model(self.trainer.model, keep_fp32_wrapper=False)
+                with FullyShardedDataParallel.summon_full_params(unwrapped_model):
+                    for idx, layer in enumerate(unwrapped_model.model.layers):
+                        set_layer("model.layers." + str(idx), self.trainer.accelerator.unwrap_model(layer, keep_fp32_wrapper=False), unwrapped_model)
+                
+                    #reload_model_state(unwrapped_model, self._output_dir, state_dict)
+                    unwrapped_model._load_pretrained_model(
+                        model=unwrapped_model,
+                        state_dict=state_dict,
+                        loaded_keys=list(state_dict.keys()),
+                        resolved_archive_file=None,
+                        pretrained_model_name_or_path=self._output_dir,
+                        _fast_init=False,
+                    )
+                    self.model = unwrapped_model
+                    self.trainer.model = unwrapped_model
+
+            self.trainer.accelerator.wait_for_everyone()
 
             # TODO: this is hacky, clean it up
             session = session_manager.active_session()
