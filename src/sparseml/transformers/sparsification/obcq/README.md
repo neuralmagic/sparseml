@@ -9,7 +9,7 @@ Due to inefficiencies in PyTorch ONNX export, a lot of system memory is required
 | ----------- | ----------- | ----------- |
 | 1B Params   | 16GB        | 64GB |
 | 7B Params   | 32GB        | ~300GB |
-| 13B Params  | 32GB        | ~600GB |
+| 13B Params  | 64GB        | ~600GB |
 
 ## Table of Contents 
 1. [How to Clone and Install  the Latest SparseML](#clone)
