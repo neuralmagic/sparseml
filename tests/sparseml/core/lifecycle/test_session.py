@@ -80,6 +80,9 @@ def test_session_initialize_propagates_layer_prefix_to_model(
 
 class ModifierMock(ModifierInterface):
     initialized_ = False
+    applied = False
+    group = "test"
+    unique_id = "test_0"
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__()
