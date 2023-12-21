@@ -38,7 +38,11 @@ def get_raw_dataset(data_args, cache_dir: Optional[str] = None, **kwargs) -> Dat
 
 
 def make_dataset_splits(
-    tokenized_datasets: Dict[str, Any], do_train: bool, do_eval: bool, do_predict: bool
+    tokenized_datasets: Dict[str, Any],
+    do_train: bool = False,
+    do_eval: bool = False,
+    do_predict: bool = False,
+    do_oneshot: bool = False,
 ) -> Dict[str, Dataset]:
     """
     Restructures the datasets dictionary based on what tasks will be run
@@ -48,6 +52,7 @@ def make_dataset_splits(
     :param do_train: Whether to store the train dataset
     :param do_eval: Whether to store the validation dataset
     :param do_predict: Whether to store the test dataset
+    :param do_oneshot: Whether to store the calibration dataset
     :return: Datasets to be used by the requested tasks
     """
 
@@ -55,7 +60,7 @@ def make_dataset_splits(
     if "all" in tokenized_datasets and len(tokenized_datasets) == 1:
         tokenized_datasets = tokenized_datasets.get("all")
 
-    train_split = eval_split = predict_split = None
+    train_split = eval_split = predict_split = calib_split = None
     if do_train:
         if "train" not in tokenized_datasets:
             raise ValueError("--do_train requires a train dataset")
@@ -68,10 +73,15 @@ def make_dataset_splits(
         if "test" not in tokenized_datasets:
             raise ValueError("--do_predict requires a test dataset")
         predict_split = tokenized_datasets["test"]
+    if do_oneshot:
+        if "calibration" not in tokenized_datasets:
+            raise ValueError("--do_oneshot requires a calibration dataset")
+        calib_split = tokenized_datasets["calibration"]
 
     split_datasets = {
         "train": train_split,
         "validation": eval_split,
         "test": predict_split,
+        "calibration": calib_split,
     }
     return split_datasets

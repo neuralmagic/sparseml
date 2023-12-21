@@ -58,6 +58,10 @@ class DataTrainingArguments:
         default=None,
         metadata={"help": "Optional percentages of each split to download"},
     )
+    num_calibration_samples: Optional[int] = field(
+        default=512,
+        metadata={"help": "Number of samples to use for one-shot calibration"},
+    )
     overwrite_cache: bool = field(
         default=False,
         metadata={"help": "Overwrite the cached preprocessed datasets or not."},
