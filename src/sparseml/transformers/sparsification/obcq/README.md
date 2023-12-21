@@ -1,6 +1,15 @@
 # One Shot With SparseML 
 This page describes how to perform one-shot quantization of large language models using [SparseML](https://github.com/neuralmagic/sparseml). This workflow requires a GPU with at least 16GB VRAM and 64GB of system RAM.
 
+### Note on system requirements
+
+Due to inefficiencies in PyTorch ONNX export, a lot of system memory is required to export the models for inference. Below are some current estimations for various model sizes using `torch==2.1`. There are [improvements coming in 2.2](https://github.com/pytorch/pytorch/commit/b4a49124c8165a374a3ef49e14807ac05b3fc030).
+
+| Model Size  | Required GPU VRAM | Required System RAM |
+| ----------- | ----------- | ----------- |
+| 1B Params   | 16GB        | 64GB |
+| 7B Params   | 32GB        | ~300GB |
+| 13B Params  | 64GB        | ~600GB |
 
 ## Table of Contents 
 1. [How to Clone and Install  the Latest SparseML](#clone)
