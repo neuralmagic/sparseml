@@ -113,8 +113,15 @@ def export(
     :param task: Optional task to use for exporting the model.
         Defaults to None.
     """
+    # TODO: Remove with the followin once sparsezoo: #404 lands
+    """
+    from sparsezoo.utils.registry import standardize_lookup_name
+    task = standardize_lookup_name(task)
+    """
     if task is not None:
         task = task.replace("_", "-").replace(" ", "-")
+
+    # TODO: Remove once sparsezoo: #404 lands
     if integration is not None:
         integration = integration.replace("_", "-").replace(" ", "-")
 

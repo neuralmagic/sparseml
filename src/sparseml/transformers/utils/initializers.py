@@ -94,13 +94,29 @@ def initialize_sparse_model(
     **model_kwargs,
 ) -> AutoModel:
     """
-    Initialize a model from a given path
-
     Initialize a sparse model from a given path. This will:
     1. Load the dense model from the given path, given
        the task name, config and model_kwargs
-    3.(Optional) Apply the recipe to the model
-    4 (Optional) Move the model to the specified device
+    2.(Optional) Apply the recipe to the model.
+      If no recipe is given, will look for a recipe
+      in the model_path
+    3 (Optional) Move the model to the specified device
+
+    Example usage:
+    ```python
+     model_path = ... # path to the model
+     task = ... # the task to load the model for
+        e.g "text-generation" or "question-answering"
+
+     config = initialize_config(model_path=model_path,
+                                trust_remote_code=True)
+
+     model = initialize_sparse_model(
+        model_path=model_path,
+        task=self.task,
+        config=config,
+        )
+    ```
 
     :param model_path: the path to the model to load
     :param task: the task to load the model for
@@ -112,8 +128,7 @@ def initialize_sparse_model(
     :param device: the device to load the model on. If None, will load on CPU
     :return: the loaded model
     """
-    if recipe is None:
-        recipe = os.path.join(model_path, RECIPE_NAME)
+    recipe = resolve_recipe_application(recipe, model_path)
 
     model = load_task_model(
         task=task,
@@ -184,6 +199,68 @@ def initialize_trainer(
         _LOGGER.info(f"Applied {msg} to the model at {model_path}")
 
     return trainer
+
+
+def resolve_recipe_application(
+    recipe: Union[str, Path, None], model_path: Union[str, Path]
+) -> Union[str, Path, None]:
+    """
+    Resolve the recipe to apply to the model.
+    If the recipe is None, will look for a recipe in the model_path
+
+    :param recipe: the recipe to apply to the model.
+        If None, will look for a recipe in the model_path
+    :param model_path: the path to the model to load
+    :return: the resolved recipe
+    """
+    default_recipe = os.path.join(model_path, RECIPE_NAME)
+    requested_recipe = None
+    if recipe:
+        requested_recipe = (
+            recipe if os.path.isfile(recipe) else os.path.join(model_path, recipe)
+        )
+
+    default_recipe_exists = os.path.isfile(default_recipe)
+    default_and_request_recipes_identical = default_recipe == requested_recipe
+
+    if (
+        default_recipe_exists
+        and requested_recipe
+        and not default_and_request_recipes_identical
+    ):
+        _LOGGER.warning(
+            f"Attempting to apply {requested_recipe} "
+            f"to the model located in {model_path}, "
+            f"but the model already has a recipe stored in {default_recipe}. "
+            f"Using {requested_recipe} instead."
+        )
+        return requested_recipe
+
+    elif (
+        not default_recipe_exists
+        and requested_recipe
+        and not default_and_request_recipes_identical
+    ):
+        _LOGGER.warning(
+            f"Attempting to apply {requested_recipe} "
+            f"to the model located in {model_path}."
+            "However, it is expected that the model "
+            f"has it's target recipe stored as {default_recipe}."
+            "Applying any recipe before the target recipe may "
+            "result in unexpected behavior."
+            f"Applying {requested_recipe} nevertheless."
+        )
+        return requested_recipe
+
+    elif default_recipe_exists:
+        _LOGGER.info(f"Applying the default recip: {default_recipe}")
+        return default_recipe
+
+    _LOGGER.info(
+        "No recipe requested and no default recipe "
+        f"found in {model_path}. Skipping recipe application."
+    )
+    return None
 
 
 def _parse_data_args(data_args):

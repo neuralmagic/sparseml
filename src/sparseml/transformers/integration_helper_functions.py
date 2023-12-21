@@ -26,7 +26,6 @@ from sparseml.transformers.utils.helpers import (
     MANDATORY_DEPLOYMENT_FILES,
     NLG_TOKENIZER_FILES,
     OPTIONAL_DEPLOYMENT_FILES,
-    RECIPE_NAME,
     TaskNames,
     resolve_sequence_length,
 )
@@ -78,10 +77,6 @@ def create_model(
 
     if task is None:
         raise ValueError("To create a transformer model, a task must be specified")
-    if recipe is None:
-        _LOGGER.info(f"Attempting to apply default recipe: {RECIPE_NAME}")
-    else:
-        _LOGGER.info(f"Attempting to apply user-specified recipe: {recipe}")
 
     if not trust_remote_code:
         _LOGGER.warning(

@@ -70,30 +70,19 @@ OPTIONAL_DEPLOYMENT_FILES = {"tokenizer.json", "tokenizer.model"}
 
 
 def apply_structure_to_transformers(
-    model: AutoModel, model_directory: Union[str, Path], recipe: Union[Path, str]
+    model: AutoModel, model_directory: Union[str, Path], recipe_path: Union[Path, str]
 ) -> None:
     """
     Apply the structure (dictated by the recipe) to the model.
     If no recipe is found, the model is returned as is (a warning is logged).
     :param model: the model to apply the structure to
     :param model_directory: the directory where the model is stored
-    :param recipe: the recipe to apply. It may be a path to a recipe file
-        or a recipe name (this assumes that the recipe is stored in the model_directory)
+    :param recipe_path: a valid path to the recipe to apply
     """
-    if Path(recipe).is_dir():
-        recipe_path = recipe
-    else:
-        recipe_path = os.path.join(model_directory, recipe)
-
-    if os.path.exists(recipe_path):
-        session_manager.create_session()
-        apply_recipe_structure_to_model(
-            model=model, recipe_path=recipe_path, model_path=model_directory
-        )
-    else:
-        _LOGGER.warning(
-            f"Recipe path: {recipe_path} found. Recipe will not be applied."
-        )
+    session_manager.create_session()
+    apply_recipe_structure_to_model(
+        model=model, recipe_path=recipe_path, model_path=model_directory
+    )
 
 
 def is_transformer_model(source_path: Union[Path, str]) -> bool:
@@ -202,7 +191,7 @@ def resolve_sequence_length(config: AutoConfig) -> int:
             "from the HF transformers config. Please specify "
             "the sequence length with --sequence_length"
         )
-    _LOGGER.info(
+    _LOGGER.debug(
         f"Using default sequence length of {sequence_length} "
         "(inferred from HF transformers config) "
     )

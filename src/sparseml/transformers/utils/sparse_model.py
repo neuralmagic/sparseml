@@ -404,68 +404,6 @@ class SparseAutoModel:
             )
 
 
-class SparseCausalLM:
-    """
-    Factory class for loading LLMs from the transformers library. Currently OPT and
-    Llama are supported
-    """
-
-    @staticmethod
-    def opt_model_from_pretrained(
-        model_path: str,
-        sequence_length: Optional[int] = None,
-        torch_dtype: Union[str, torch.dtype] = "auto",
-    ) -> torch.nn.Module:
-        """
-        Load a pretrained OPT model from the specified hugging face path
-
-        :param model_path: hugging face or local path to model
-        :param sequence_length: maximum allowable tokens in input sequence
-        :param torch_dtype: precision to load model weights in as
-        :return: loaded pretrained model
-        """
-
-        def skip(*args, **kwargs):
-            pass
-
-        torch.nn.init.kaiming_uniform_ = skip
-        torch.nn.init.uniform_ = skip
-        torch.nn.init.normal_ = skip
-
-        model = OPTForCausalLM.from_pretrained(model_path, torch_dtype=torch_dtype)
-        model.eval()
-        model.seqlen = (
-            sequence_length if sequence_length else model.config.max_position_embeddings
-        )
-        return model
-
-    @staticmethod
-    def auto_model_from_pretrained(
-        model_path: str,
-        sequence_length: Optional[int] = None,
-        torch_dtype: Union[str, torch.dtype] = "auto",
-    ) -> torch.nn.Module:
-        """
-        Load a pretrained model using auto from the specified hugging face path
-
-        :param model_path: hugging face path to model
-        :param sequence_length: maximum allowable tokens in input sequence
-        :param torch_dtype: precision to load model weights in as
-        :return: loaded pretrained model
-        """
-        model = AutoModelForCausalLM.from_pretrained(
-            model_path, torch_dtype=torch_dtype
-        )
-        model.eval()
-        max_seq_len = None
-        if hasattr(model.config, "max_position_embeddings"):
-            max_seq_len = model.config.max_position_embeddings
-        elif hasattr(model.config, "max_seq_len"):
-            max_seq_len = model.config.max_seq_len
-        model.seqlen = sequence_length if sequence_length else max_seq_len
-        return model
-
-
 def get_shared_tokenizer_src(student: Module, teacher: Optional[Module]) -> str:
     """
     Get a tokenizer source used for both student and teacher, assuming
