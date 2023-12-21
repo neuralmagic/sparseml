@@ -269,6 +269,13 @@ class SparseSession:
         """
         self._lifecycle.reset()
 
+    def reset_stage(self):
+        """
+        Reset the session for starting a new stage, recipe and model stays intact
+        """
+        self.lifecycle.initialized_ = False
+        self.lifecycle.finalized = False
+
     def get_serialized_recipe(self) -> str:
         """
         :return: serialized string of the current compiled recipe
