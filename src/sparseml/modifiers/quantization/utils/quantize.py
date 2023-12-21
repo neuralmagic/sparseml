@@ -52,6 +52,8 @@ __all__ = [
     "add_input_activation_quant_wrappers",
     "add_output_activation_observers",
     "raise_if_torch_quantization_not_available",
+    "raise_if_already_quantized",
+    "is_module_quantized",
 ]
 
 
@@ -148,6 +150,18 @@ def set_quantization_schemes(
             # submodule type or graph section set to ignore, skip
             continue
 
+        if isinstance(submodule, torch_quantization.QuantWrapper):
+            # special case to catch QuantizableMatMul children
+            if ignore and _match_submodule_name_or_type(
+                submodule.module, submodule_name, ignore
+            ):
+                continue
+
+        if is_qat_helper_module(submodule):
+            # ignore children of an already quantized module, if there is a clash it
+            # will have been caught in the parent
+            continue
+
         # override default scheme if necessary
         override_key = _match_submodule_name_or_type(
             submodule, submodule_name, scheme_overrides
@@ -162,6 +176,7 @@ def set_quantization_schemes(
             wrap_qat_targets[submodule_name] = submodule_scheme
         elif is_module_type_override or is_quantizable_module(submodule):
             # is base quantizable module or user specifically targeted module type
+            raise_if_already_quantized(submodule_name, submodule)
             submodule.quantization_scheme = submodule_scheme
 
     # inject any targeted QATWrappers
@@ -349,6 +364,34 @@ def raise_if_torch_quantization_not_available():
             "torch.nn.intrinsic. "
             "Try upgrading your PyTorch version to use the QuantizationModifier."
         )
+
+
+def raise_if_already_quantized(module_name: str, module: Module):
+    """
+    :param module_name: name of module to check for quantization
+    :param module: module to check for quantization
+    :raises: RuntimeError if module is already quantized, it cannot be re-quantized
+    """
+    if is_module_quantized(module):
+        raise RuntimeError(
+            f"Unable to quantize module {module_name}, as it has already been "
+            "quantized. Ensure your input recipe does not contain multiple "
+            "QuantizationModifiers that act on the same module. "
+        )
+
+
+def is_module_quantized(module: Module) -> bool:
+    """
+    :param module: module to check for quantization
+    :return: True if the module is quantized, False otherwise
+    """
+    if hasattr(module, "quantization_scheme") and isinstance(
+        module.quantization_scheme, QuantizationScheme
+    ):
+        return True
+    if isinstance(module, torch_quantization.QuantWrapper):
+        return True
+    return False
 
 
 def _match_submodule_name_or_type(

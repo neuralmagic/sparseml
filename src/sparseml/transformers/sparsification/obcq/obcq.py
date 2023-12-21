@@ -18,7 +18,6 @@ import os
 from pathlib import Path
 from typing import Optional
 
-import torch
 from torch.nn import Module
 from transformers import AutoConfig
 
@@ -28,6 +27,9 @@ from sparseml.modifiers.obcq.utils.helpers import ppl_eval_general
 from sparseml.pytorch.model_load.helpers import (
     RECIPE_FILE_NAME,
     apply_recipe_structure_to_model,
+    fallback_to_cpu,
+    parse_dtype,
+    save_model_and_recipe,
 )
 from sparseml.transformers.data import TransformersDataset
 from sparseml.transformers.sparsification.obcq.utils.helpers import (
@@ -81,7 +83,7 @@ def one_shot(
             raise RuntimeError(f"deploy_dir={deploy_dir} already exists")
 
     # fallback to cpu if cuda not available
-    device = _fallback_to_cpu(device)
+    device = fallback_to_cpu(device)
     _LOGGER.info(f"Running one_shot on device {device}")
 
     # Load the configuration from the model path
@@ -104,7 +106,7 @@ def one_shot(
         )
         model_loader_fn = SparseCausalLM.auto_model_from_pretrained
         forward_fn = llama_forward
-    torch_dtype = _parse_dtype(precision)
+    torch_dtype = parse_dtype(precision)
     model = model_loader_fn(
         model_path, sequence_length=sequence_length, torch_dtype=torch_dtype
     )
@@ -145,7 +147,7 @@ def one_shot(
     )
 
     if do_save:
-        _save(model, tokenizer, deploy_dir)
+        save_model_and_recipe(model, deploy_dir, tokenizer)
     if eval_data:
         dataset = TransformersDataset.load_from_registry(
             eval_data,
@@ -162,41 +164,6 @@ def one_shot(
         )
 
     return model
-
-
-def _parse_dtype(dtype_arg):
-    dtype = "auto"  # get precision from model by default
-    if dtype_arg == "half" or dtype_arg == "float16":
-        dtype = torch.float16
-    elif dtype_arg == "bfloat16":
-        dtype = torch.bfloat16
-    elif dtype_arg == "full" or dtype_arg == "float32":
-        dtype = torch.float32
-
-    return dtype
-
-
-def _save(model, tokenizer, save_path):
-    model.save_pretrained(save_path)
-    tokenizer.save_pretrained(save_path)
-
-    _LOGGER.info("Saving output to {}".format(os.path.abspath(save_path)))
-
-    recipe_path = os.path.join(save_path, RECIPE_FILE_NAME)
-    session = session_manager.active_session()
-    recipe_yaml_str = session.get_serialized_recipe()
-    with open(recipe_path, "w") as fp:
-        fp.write(recipe_yaml_str)
-
-
-def _fallback_to_cpu(device):
-    if "cuda" in device and not torch.cuda.is_available():
-        _LOGGER.warning(
-            f"Requested {device} but CUDA is not available, falling back to CPU"
-        )
-        return "cpu"
-
-    return device
 
 
 if __name__ == "__main__":

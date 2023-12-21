@@ -36,11 +36,14 @@ class StageModifiers(ModifierInterface, BaseModel):
     :param modifiers: The modifiers to apply as a stage
     :param index: The index of the stage, if applicable
     :param group: The group name of the stage, if applicable
+    :param applied: Flag for indicating if this stage has has already been
+    applied to the model, through structure initialization or finalization
     """
 
     modifiers: List["Modifier"] = Field(default_factory=list)
     index: Optional[int] = None
     group: Optional[str] = None
+    applied: bool = False
 
     @property
     def initialized_structure(self) -> bool:
@@ -65,6 +68,13 @@ class StageModifiers(ModifierInterface, BaseModel):
             False otherwise
         """
         return all(mod.finalized for mod in self.modifiers)
+
+    @property
+    def unique_id(self) -> str:
+        """
+        :return: ID for stage containing the name and index
+        """
+        return self.group + "_" + str(self.index)
 
     def check_initialized(self):
         """
@@ -103,7 +113,7 @@ class StageModifiers(ModifierInterface, BaseModel):
 
     def pre_initialize_structure(self, state: "State", **kwargs):
         """
-        Pre initialize the structure for all stage modifiers
+        Pre initialize the structure for all stage modifiers mark the stage applied
 
         :param state: The current state of the training
         :param kwargs: Additional kwargs to pass to the modifier(s)
@@ -111,6 +121,8 @@ class StageModifiers(ModifierInterface, BaseModel):
         """
         for modifier in self.modifiers:
             modifier.pre_initialize_structure(state, **kwargs)
+
+        self.applied = True
 
     def initialize(self, state: "State", **kwargs):
         """
@@ -120,19 +132,29 @@ class StageModifiers(ModifierInterface, BaseModel):
         :param kwargs: Additional kwargs to pass to the modifier(s)
             initialize method
         """
+
+        if self.applied:
+            return
+
         for modifier in self.modifiers:
             modifier.initialize(state, **kwargs)
 
     def finalize(self, state: "State", **kwargs):
         """
-        Finalize all the stage modifiers
+        Finalize all the stage modifiers and mark the stage as applied
 
         :param state: The state of current session
         :param kwargs: Additional kwargs to pass to the modifier(s)
             finalize method
         """
+
+        if self.applied:
+            return
+
         for modifier in self.modifiers:
             modifier.finalize(state, **kwargs)
+
+        self.applied = True
 
     def update_event(self, state: "State", event: "Event", **kwargs):
         """
@@ -143,5 +165,9 @@ class StageModifiers(ModifierInterface, BaseModel):
         :param kwargs: Additional kwargs to pass to the modifier(s)
             update_event method
         """
+
+        if self.applied:
+            return
+
         for modifier in self.modifiers:
             modifier.update_event(state, event, **kwargs)
