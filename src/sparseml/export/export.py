@@ -27,7 +27,7 @@ from sparseml.export.helpers import (
 from sparseml.export.validators import validate_correctness as validate_correctness_
 from sparseml.export.validators import validate_structure as validate_structure_
 from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
-from sparseml.pytorch.utils.helpers import default_device, use_single_gpu
+from sparseml.pytorch.utils.helpers import default_device
 from src.sparseml.integration_helper_functions import (
     IntegrationHelperFunctions,
     resolve_integration,
@@ -46,8 +46,9 @@ def export(
     single_graph_file: bool = True,
     num_export_samples: int = 0,
     batch_size: int = 1,
+    recipe: Optional[Union[Path, str]] = None,
     deployment_directory_name: str = "deployment",
-    device: str = "auto",
+    device: str = "cpu",
     graph_optimizations: Union[str, List[str], None] = "all",
     validate_correctness: bool = False,
     validate_structure: bool = True,
@@ -82,6 +83,9 @@ def export(
         the model to. Defaults to 'deepsparse'.
     :param opset: The ONNX opset to use for exporting the model.
         Defaults to the latest supported opset.
+    :param recipe: The path to the recipe to use for exporting the model.
+        Defaults to None. If a recipe is found in the source_path, it will
+        be automatically used for export.
     :param single_graph_file: Whether to save the model as a single
         file. Defaults to True.
     :param num_export_samples: The number of samples to create for
@@ -109,6 +113,17 @@ def export(
     :param task: Optional task to use for exporting the model.
         Defaults to None.
     """
+    # TODO: Remove with the followin once sparsezoo: #404 lands
+    """
+    from sparsezoo.utils.registry import standardize_lookup_name
+    task = standardize_lookup_name(task)
+    """
+    if task is not None:
+        task = task.replace("_", "-").replace(" ", "-")
+
+    # TODO: Remove once sparsezoo: #404 lands
+    if integration is not None:
+        integration = integration.replace("_", "-").replace(" ", "-")
 
     # create the target path if it doesn't exist
     if not Path(target_path).exists():
@@ -116,7 +131,6 @@ def export(
 
     # choose the appropriate device
     device = default_device() if device == "auto" else device
-    device = use_single_gpu(device) if "cuda" in device else device
 
     # assert the valid deployment target
     if deployment_target not in AVAILABLE_DEPLOYMENT_TARGETS:
@@ -140,8 +154,14 @@ def export(
     # that were created along with the model and are needed
     # for the export
     model, loaded_model_kwargs = helper_functions.create_model(
-        source_path, device=device, task=task, batch_size=batch_size, **kwargs
+        source_path,
+        device=device,
+        task=task,
+        batch_size=batch_size,
+        recipe=recipe,
+        **kwargs,
     )
+    model.eval()
 
     if loaded_model_kwargs:
         _LOGGER.info(

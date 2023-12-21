@@ -23,13 +23,16 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional, Union
 
+from transformers import AutoConfig, AutoModel
 from transformers.trainer_utils import get_last_checkpoint
 
+import sparseml.core.session as session_manager
 from sparseml.export.helpers import ONNX_MODEL_NAME
+from sparseml.pytorch.model_load.helpers import apply_recipe_structure_to_model
 from sparsezoo import setup_model
 
 
-_LOGGER: logging.Logger = logging.getLogger(__name__)
+_LOGGER = logging.getLogger(__name__)
 
 
 __all__ = [
@@ -38,6 +41,8 @@ __all__ = [
     "detect_last_checkpoint",
     "TaskNames",
     "is_transformer_model",
+    "resolve_sequence_length",
+    "apply_structure_to_transformers",
 ]
 
 
@@ -62,6 +67,22 @@ MANDATORY_DEPLOYMENT_FILES = {
 }
 NLG_TOKENIZER_FILES = {"special_tokens_map.json", "vocab.json", "merges.txt"}
 OPTIONAL_DEPLOYMENT_FILES = {"tokenizer.json", "tokenizer.model"}
+
+
+def apply_structure_to_transformers(
+    model: AutoModel, model_directory: Union[str, Path], recipe_path: Union[Path, str]
+) -> None:
+    """
+    Apply the structure (dictated by the recipe) to the model.
+    If no recipe is found, the model is returned as is (a warning is logged).
+    :param model: the model to apply the structure to
+    :param model_directory: the directory where the model is stored
+    :param recipe_path: a valid path to the recipe to apply
+    """
+    session_manager.create_session()
+    apply_recipe_structure_to_model(
+        model=model, recipe_path=recipe_path, model_path=model_directory
+    )
 
 
 def is_transformer_model(source_path: Union[Path, str]) -> bool:
@@ -150,3 +171,28 @@ def detect_last_checkpoint(training_args: "TrainingArguments"):  # noqa 821
             )
 
     return last_checkpoint
+
+
+def resolve_sequence_length(config: AutoConfig) -> int:
+    """
+    Resolve the sequence length from the config
+
+    :param config: the config to resolve the sequence length from
+    :return: the sequence length
+    """
+    if hasattr(config, "max_position_embeddings"):
+        sequence_length = config.max_position_embeddings
+
+    elif hasattr(config, "max_seq_len"):
+        sequence_length = config.max_seq_len
+    else:
+        raise ValueError(
+            "Could not infer a default sequence length "
+            "from the HF transformers config. Please specify "
+            "the sequence length with --sequence_length"
+        )
+    _LOGGER.debug(
+        f"Using default sequence length of {sequence_length} "
+        "(inferred from HF transformers config) "
+    )
+    return sequence_length

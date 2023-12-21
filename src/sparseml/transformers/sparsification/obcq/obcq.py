@@ -36,7 +36,7 @@ from sparseml.transformers.sparsification.obcq.utils.helpers import (
     llama_forward,
     opt_forward,
 )
-from sparseml.transformers.utils.model import SparseCausalLM
+from sparseml.transformers.utils.sparse_model import SparseAutoModel
 
 
 __all__ = ["one_shot"]
@@ -93,18 +93,18 @@ def one_shot(
     model_loader_fn = None
     forward_fn = None
     if "opt" in model_type:
-        model_loader_fn = SparseCausalLM.opt_model_from_pretrained
+        model_loader_fn = SparseAutoModel.text_classification_from_pretrained
         forward_fn = opt_forward
     elif "llama" in model_type or "mistral" in model_type:
-        model_loader_fn = SparseCausalLM.auto_model_from_pretrained
+        model_loader_fn = SparseAutoModel.text_classification_from_pretrained
         forward_fn = llama_forward
     else:
         _LOGGER.warning(
             f"A supported model type({SUPPORTED_MODELS}) could not be "
             f"parsed from model_path={model_path}. Defaulting to "
-            "AutoModelForCausalLM loading. "
+            "SparseAutoModel loading. "
         )
-        model_loader_fn = SparseCausalLM.auto_model_from_pretrained
+        model_loader_fn = SparseAutoModel.text_classification_from_pretrained
         forward_fn = llama_forward
     torch_dtype = parse_dtype(precision)
     model = model_loader_fn(

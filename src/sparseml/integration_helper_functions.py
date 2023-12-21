@@ -51,10 +51,6 @@ def resolve_integration(
         will attempt to infer it from the source_path.
     :return: The name of the integration to use for exporting the model.
     """
-
-    if integration is not None:
-        integration = integration.replace("_", "-")
-
     from sparseml.pytorch.image_classification.utils.helpers import (
         is_image_classification_model,
     )

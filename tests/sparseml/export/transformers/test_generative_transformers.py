@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import shutil
 
 import onnx
@@ -54,6 +55,27 @@ class TestEndToEndExport:
             inp.name == "past_key_values.0.key" for inp in onnx_model.graph.input
         )
 
+    def test_export_with_recipe(self, setup):
+        source_path, target_path, task = setup
+
+        recipe = """test_stage:
+          quant_modifiers:
+            QuantizationModifier:
+              post_oneshot_calibration: False
+              scheme_overrides:
+                Embedding:
+                  input_activations: null"""
+
+        with open(os.path.join(source_path, "recipe.yaml"), "w") as f:
+            f.write(recipe)
+
+        export(
+            source_path=source_path,
+            target_path=target_path,
+            task=task,
+        )
+        assert (target_path / "deployment" / "model.onnx").exists()
+
     def test_export_with_sample_data(self, setup):
         source_path, target_path, task = setup
 
@@ -84,4 +106,17 @@ class TestEndToEndExport:
             task=task,
             num_export_samples=num_samples,
             validate_correctness=True,
+        )
+
+    @pytest.mark.skipif(reason="skipping since not implemented")
+    def test_export_samples(self, setup):
+        source_path, target_path, task = setup
+
+        num_samples = 4
+
+        export(
+            source_path=source_path,
+            target_path=target_path,
+            task=task,
+            num_export_samples=num_samples,
         )

@@ -15,11 +15,13 @@
 import inspect
 import logging
 import os
+from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, Union
 
 import torch
 from torch.nn import Module
 from transformers import (
+    AutoConfig,
     AutoModelForCausalLM,
     AutoModelForMaskedLM,
     AutoModelForQuestionAnswering,
@@ -29,7 +31,8 @@ from transformers import (
 )
 from transformers.file_utils import WEIGHTS_NAME
 
-from sparseml.pytorch.utils import ModuleSparsificationInfo
+from sparseml.pytorch.model_load.helpers import log_model_load
+from sparseml.transformers.utils.helpers import apply_structure_to_transformers
 
 
 __all__ = ["SparseAutoModel", "get_shared_tokenizer_src"]
@@ -75,7 +78,7 @@ class SparseAutoModel:
                 **kwargs,
             )
 
-        SparseAutoModel.log_model_load(model, model_name_or_path, model_type, delayed)
+        log_model_load(model, model_name_or_path, model_type, delayed)
 
         return model
 
@@ -139,7 +142,7 @@ class SparseAutoModel:
             model_name_or_path,
             **kwargs,
         )
-        SparseAutoModel.log_model_load(model, model_name_or_path, model_type, delayed)
+        log_model_load(model, model_name_or_path, model_type, delayed)
 
         return model
 
@@ -201,7 +204,7 @@ class SparseAutoModel:
             model_name_or_path,
             **kwargs,
         )
-        SparseAutoModel.log_model_load(model, model_name_or_path, model_type, delayed)
+        log_model_load(model, model_name_or_path, model_type, delayed)
 
         return model
 
@@ -241,6 +244,11 @@ class SparseAutoModel:
     def text_generation_from_pretrained(
         model_name_or_path: str,
         model_type: str,
+        sequence_length: int,
+        config: AutoConfig,
+        recipe: Optional[Union[str, Path]] = None,
+        trust_remote_code: bool = False,
+        torch_dtype: Union[str, torch.dtype] = "auto",
         **kwargs,
     ) -> Module:
         """
@@ -250,58 +258,43 @@ class SparseAutoModel:
         :param kwargs: keyword arguments to pass through to the AutoModel call
         :return: the created model for text generation
         """
-        SparseAutoModel._check_tf(model_name_or_path)
-        if not kwargs:
-            kwargs = {}
-        kwargs["from_tf"] = False
-        delayed = False
-        if "state_dict" not in kwargs:
-            kwargs["state_dict"], delayed = SparseAutoModel._loadable_state_dict(
-                model_name_or_path
+        if config.model_type == "opt":
+            # TODO: Talk to Alex whether this pathway needs to be maintained
+            def skip(*args, **kwargs):
+                pass
+
+            torch.nn.init.kaiming_uniform_ = skip
+            torch.nn.init.uniform_ = skip
+            torch.nn.init.normal_ = skip
+
+            model = OPTForCausalLM.from_pretrained(
+                model_name_or_path,
+                torch_dtype=torch_dtype,
+                config=config,
+                trust_remote_code=trust_remote_code,
+                **kwargs,
+            )
+        else:
+            model = AutoModelForCausalLM.from_pretrained(
+                model_name_or_path,
+                torch_dtype=torch_dtype,
+                config=config,
+                trust_remote_code=trust_remote_code,
+                **kwargs,
             )
 
-        kwargs["config"].is_decoder = True
-        kwargs["config"].use_past = False
+        # TODO: Do we need to call eval() here? Why?
+        model.eval()
+        model.seqlen = sequence_length
 
-        model = AutoModelForCausalLM.from_pretrained(
-            model_name_or_path,
-            **kwargs,
-        )
-        SparseAutoModel.log_model_load(model, model_name_or_path, model_type, delayed)
+        if recipe:
+            apply_structure_to_transformers(
+                model=model, model_directory=model_name_or_path, recipe=recipe
+            )
+
+        log_model_load(model, model_name_or_path, model_type, delayed_load=False)
 
         return model
-
-    @staticmethod
-    def text_generation_from_pretrained_distil(
-        model_name_or_path: str,
-        teacher_name_or_path: Optional[str],
-        model_kwargs: Dict[str, Any],
-        teacher_kwargs: Dict[str, Any],
-    ) -> Tuple[Module, Optional[Module]]:
-        """
-        :param model_name_or_path: the name of or path to the model to load
-        :param teacher_name_or_path: the name of or path to the teacher to load,
-            None or one of ['self', 'disable'] will not create a teacher and
-            instead return the value passed in
-        :param model_kwargs: the keyword args to pass into the AutoModel for model
-        :param teacher_kwargs: the keyword args to pass into the AutoModel for teacher
-        :return: a tuple containing the model and distillation teacher (optional)
-            for text generation
-        """
-        model = SparseAutoModel.text_generation_from_pretrained(
-            model_name_or_path,
-            model_type="student" if teacher_name_or_path else "model",
-            **model_kwargs,
-        )
-        teacher = (
-            SparseAutoModel.text_generation_from_pretrained(
-                teacher_name_or_path, model_type="teacher", **teacher_kwargs
-            )
-            if teacher_name_or_path and teacher_name_or_path not in ["self", "disable"]
-            else teacher_name_or_path
-        )
-
-        return model, teacher
 
     @staticmethod
     def token_classification_from_pretrained(
@@ -329,7 +322,7 @@ class SparseAutoModel:
             model_name_or_path,
             **kwargs,
         )
-        SparseAutoModel.log_model_load(model, model_name_or_path, model_type, delayed)
+        log_model_load(model, model_name_or_path, model_type, delayed)
 
         return model
 
@@ -364,47 +357,6 @@ class SparseAutoModel:
         )
 
         return model, teacher
-
-    @staticmethod
-    def log_model_load(
-        model: Module, model_name_or_path: str, model_type: str, delayed_load: bool
-    ):
-        """
-        Log the state of a loaded model including sparsity and
-        prunable params information.
-
-        :param model: the loaded model
-        :param model_name_or_path: the original name of or path to the model that loaded
-        :param model_type: specify the type of model loaded for logging;
-            ex one of [model, student, teacher]
-        :param delayed_load: True if this model load was delayed until after
-            recipe instantiation due to QAT or other architectural state changes
-        """
-        if delayed_load:
-            _LOGGER.info(
-                f"Delayed load of model {model_name_or_path} detected. "
-                f"Will print out model information once SparseML recipes have loaded"
-            )
-            return
-
-        sparsification_info = ModuleSparsificationInfo(model)
-
-        _LOGGER.info(
-            f"Loaded {model_type} from {model_name_or_path} "
-            f"with {sparsification_info.params_total} total params. "
-            f"Of those there are {sparsification_info.params_prunable_total} prunable "
-            f"params which have {sparsification_info.params_prunable_sparse_percent} "
-            "avg sparsity."
-        )
-        model_type = (
-            "sparse"
-            if sparsification_info.params_prunable_sparse_percent > 5
-            else "dense"
-        )
-        _LOGGER.info(
-            f"{model_type} model detected, "
-            f"all sparsification info: {sparsification_info}"
-        )
 
     @staticmethod
     def _loadable_state_dict(
@@ -450,68 +402,6 @@ class SparseAutoModel:
                 "Detected a TensorFlow model from model_name_or_path: "
                 f"{model_name_or_path}"
             )
-
-
-class SparseCausalLM:
-    """
-    Factory class for loading LLMs from the transformers library. Currently OPT and
-    Llama are supported
-    """
-
-    @staticmethod
-    def opt_model_from_pretrained(
-        model_path: str,
-        sequence_length: Optional[int] = None,
-        torch_dtype: Union[str, torch.dtype] = "auto",
-    ) -> torch.nn.Module:
-        """
-        Load a pretrained OPT model from the specified hugging face path
-
-        :param model_path: hugging face or local path to model
-        :param sequence_length: maximum allowable tokens in input sequence
-        :param torch_dtype: precision to load model weights in as
-        :return: loaded pretrained model
-        """
-
-        def skip(*args, **kwargs):
-            pass
-
-        torch.nn.init.kaiming_uniform_ = skip
-        torch.nn.init.uniform_ = skip
-        torch.nn.init.normal_ = skip
-
-        model = OPTForCausalLM.from_pretrained(model_path, torch_dtype=torch_dtype)
-        model.eval()
-        model.seqlen = (
-            sequence_length if sequence_length else model.config.max_position_embeddings
-        )
-        return model
-
-    @staticmethod
-    def auto_model_from_pretrained(
-        model_path: str,
-        sequence_length: Optional[int] = None,
-        torch_dtype: Union[str, torch.dtype] = "auto",
-    ) -> torch.nn.Module:
-        """
-        Load a pretrained model using auto from the specified hugging face path
-
-        :param model_path: hugging face path to model
-        :param sequence_length: maximum allowable tokens in input sequence
-        :param torch_dtype: precision to load model weights in as
-        :return: loaded pretrained model
-        """
-        model = AutoModelForCausalLM.from_pretrained(
-            model_path, torch_dtype=torch_dtype
-        )
-        model.eval()
-        max_seq_len = None
-        if hasattr(model.config, "max_position_embeddings"):
-            max_seq_len = model.config.max_position_embeddings
-        elif hasattr(model.config, "max_seq_len"):
-            max_seq_len = model.config.max_seq_len
-        model.seqlen = sequence_length if sequence_length else max_seq_len
-        return model
 
 
 def get_shared_tokenizer_src(student: Module, teacher: Optional[Module]) -> str:

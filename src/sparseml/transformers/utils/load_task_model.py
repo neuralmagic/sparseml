@@ -12,19 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any
+from pathlib import Path
+from typing import Any, Optional, Union
 
 from torch.nn import Module
 
-from sparseml.transformers.utils.helpers import TaskNames
-from sparseml.transformers.utils.model import SparseAutoModel
+from sparseml.transformers.utils.helpers import TaskNames, resolve_sequence_length
+from sparseml.transformers.utils.sparse_model import SparseAutoModel
 
 
 __all__ = ["load_task_model"]
 
 
 def load_task_model(
-    task: str, model_path: str, config: Any, trust_remote_code: bool = False
+    task: str,
+    model_path: str,
+    config: Any,
+    recipe: Optional[Union[str, Path]] = None,
+    trust_remote_code: bool = False,
+    **kwargs,
 ) -> Module:
     if task in TaskNames.mlm.value:
         return SparseAutoModel.masked_language_modeling_from_pretrained(
@@ -59,10 +65,15 @@ def load_task_model(
         )
 
     if task in TaskNames.text_generation.value:
+        sequence_length = kwargs.get("sequence_length")
+        if sequence_length is None:
+            sequence_length = resolve_sequence_length(config)
         return SparseAutoModel.text_generation_from_pretrained(
             model_name_or_path=model_path,
+            sequence_length=sequence_length,
             config=config,
             model_type="model",
+            recipe=recipe,
             trust_remote_code=trust_remote_code,
         )
 
