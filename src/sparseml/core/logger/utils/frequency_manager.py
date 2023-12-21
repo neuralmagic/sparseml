@@ -69,7 +69,9 @@ class FrequencyManager:
             >= float(format(self.last_log_step + self.log_frequency, ".4f"))
         )
 
-        if not (check_model_update and cadence_reached):
+        if not cadence_reached or not check_model_update:
+            # early return if cadence not reached or,
+            # model update check not requested
             return cadence_reached
 
         model_updated_since_last_log: bool = (
