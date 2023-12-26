@@ -14,10 +14,15 @@
 
 import logging
 import os
+from copy import deepcopy
 from typing import List, Optional
 
 import torch
-from torch.distributed.fsdp import FullyShardedDataParallel
+from torch.distributed.fsdp import (
+    FullStateDictConfig,
+    FullyShardedDataParallel,
+    StateDictType,
+)
 from torch.nn import Module
 from torch.utils.data import DataLoader, Dataset, RandomSampler
 from transformers import AutoTokenizer
@@ -31,7 +36,6 @@ from sparseml.transformers.finetune.data import TextGenerationDataset
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
 from sparseml.transformers.finetune.data.data_helpers import make_dataset_splits
 from sparseml.transformers.finetune.model_args import ModelArguments
-from sparseml.utils.pytorch.module import set_layer
 
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
@@ -67,6 +71,7 @@ class StageRunner:
 
         self.datasets = {}
         self.model = model
+        self.unwrapped_model = deepcopy(model)
         self.trainer = None
         self.tokenizer = None
         self._output_dir = self._training_args.output_dir
@@ -233,18 +238,20 @@ class StageRunner:
 
             # TODO: these checks are hacky, make it a stage parameter?
             if "oneshot" in stage_name:
-                if self.trainer.accelerator.is_main_process:
-                    if isinstance(self.trainer.model, FullyShardedDataParallel):
-                        with FullyShardedDataParallel.summon_full_params(
+                if isinstance(self.trainer.model, FullyShardedDataParallel):
+                    full_state_dict_config = FullStateDictConfig(offload_to_cpu=True)
+                    with FullyShardedDataParallel.state_dict_type(
+                        self.trainer.model,
+                        StateDictType.FULL_STATE_DICT,
+                        full_state_dict_config,
+                    ):
+                        state_dict = self.trainer.accelerator.get_state_dict(
                             self.trainer.model
-                        ):
-                            state_dict = self.trainer.accelerator.get_state_dict(
-                                self.trainer.model, unwrap=True
-                            )
-                            self.model.load_state_dict(state_dict)
-                            self.one_shot(stage=stage_name)
-                    else:
-                        self.one_shot(stage=stage_name)
+                        )
+                        self.unwrapped_model.load_state_dict(state_dict)
+                        self.model = deepcopy(self.unwrapped_model)
+                self.one_shot(stage=stage_name)
+                self.trainer.model = self.model
             elif "finetune" in stage_name:
                 self.train(checkpoint=None, stage=stage_name)
 
