@@ -23,7 +23,7 @@ The export incorporates:
 script accessible from sparseml.transformers.export_onnx_refactor
 
 command help:
-usage: sparseml.transformers.export_onnx [-h] --task TASK --model_path
+usage: sparseml.transformers.export_onnx_refactor [-h] --task TASK --model_path
                                          MODEL_PATH
                                          [--sequence_length SEQUENCE_LENGTH]
                                          [--no_convert_qat]
@@ -77,12 +77,13 @@ from transformers import AutoConfig, AutoTokenizer
 from transformers.tokenization_utils_base import PaddingStrategy
 
 import sparseml.core.session as session_manager
-from sparseml.core.framework import Framework
 from sparseml.optim import parse_recipe_variables
-from sparseml.pytorch.model_load.helpers import reload_model_state
+from sparseml.pytorch.model_load.helpers import (
+    RECIPE_FILE_NAME,
+    apply_recipe_structure_to_model,
+)
 from sparseml.pytorch.utils import export_onnx
 from sparseml.transformers.utils import SparseAutoModel
-from sparseml.transformers.utils.helpers import RECIPE_NAME
 from sparsezoo.utils.onnx import EXTERNAL_ONNX_DATA_NAME
 
 
@@ -145,6 +146,9 @@ def load_task_model(
         )
 
     if task == "text-generation":
+        # Export decoder model without kv cache support
+        config.use_cache = False
+
         return SparseAutoModel.text_generation_from_pretrained(
             model_name_or_path=model_path,
             config=config,
@@ -288,37 +292,15 @@ def export_transformer_to_onnx(
 
     model = model.train()
 
-    recipe_path = os.path.join(model_path, RECIPE_NAME)
-    if not os.path.exists(recipe_path):
-        _LOGGER.warning(
-            f"No recipes were applied for {model_path}, "
-            "check to make sure recipe(s) are stored in the model_path"
+    # creates a SparseSession and apply structure from the model's recipe
+    recipe_path = os.path.join(model_path, RECIPE_FILE_NAME)
+    if os.path.exists(recipe_path):
+        session_manager.create_session()
+        apply_recipe_structure_to_model(
+            model=model, recipe_path=recipe_path, model_path=model_path
         )
-        recipe_path = None
-
-    orig_state_dict = model.state_dict()
-
-    session_manager.create_session()
-    session_manager.pre_initialize_structure(
-        model=model, recipe=recipe_path, framework=Framework.pytorch
-    )
-
-    if recipe_path:
-        session = session_manager.active_session()
-        num_stages = len(session.lifecycle.recipe_container.compiled_recipe.stages)
-        msg = (
-            "an unstaged recipe"
-            if num_stages == 1
-            else f"a staged recipe with {num_stages} stages"
-        )
-        _LOGGER.info(f"Applied {msg} to the model at {model_path}")
-
-    # reload the state dict for the model now that architecture matches expected
-    if reload_model_state(model, model_path, orig_state_dict):
-        _LOGGER.info(
-            "Reloaded model state after SparseML recipe structure modifications "
-            f"from {model_path}"
-        )
+    else:
+        _LOGGER.warning(f"No input recipe {RECIPE_FILE_NAME} found in {model_path}.")
 
     # create fake model input
     inputs = tokenizer(

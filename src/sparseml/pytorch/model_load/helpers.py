@@ -32,9 +32,14 @@ __all__ = [
     "apply_recipe_structure_to_model",
     "reload_model_state",
     "reload_model_from_checkpoint",
+    "save_model_and_recipe",
+    "fallback_to_cpu",
+    "parse_dtype",
 ]
 
 _LOGGER = logging.getLogger(__name__)
+
+RECIPE_FILE_NAME = "recipe.yaml"
 
 
 def apply_recipe_structure_to_model(model: Module, recipe_path: str, model_path: str):
@@ -171,3 +176,60 @@ def reload_model_from_checkpoint(model: Module, checkpoint: Optional[str] = None
     # reload the state dict for the model from the checkpoint
     if reload_model_state(model, checkpoint, orig_state_dict):
         _LOGGER.info(f"Reloaded model state from checkpoint {checkpoint}")
+
+
+def save_model_and_recipe(
+    model: Module,
+    save_path: str,
+    tokenizer: Optional[Any] = None,
+):
+    """
+    Save a model, tokenizer and the currently loaded recipe to file
+
+    :param model: pytorch model to save
+    :param save_path: path to save output to
+    :param tokenizer: model tokenizer to save
+    """
+    model.save_pretrained(save_path)
+    if tokenizer is not None:
+        tokenizer.save_pretrained(save_path)
+
+    _LOGGER.info("Saving output to {}".format(os.path.abspath(save_path)))
+
+    recipe_path = os.path.join(save_path, RECIPE_FILE_NAME)
+    session = session_manager.active_session()
+    recipe_yaml_str = session.get_serialized_recipe()
+    with open(recipe_path, "w") as fp:
+        fp.write(recipe_yaml_str)
+
+
+def fallback_to_cpu(device: str) -> str:
+    """
+    Takes in a device string and forces it to cpu if cuda is not available
+
+    :param device: device id to check
+    :return: device modified for CUDA status
+    """
+    if "cuda" in device and not torch.cuda.is_available():
+        _LOGGER.warning(
+            f"Requested {device} but CUDA is not available, falling back to CPU"
+        )
+        return "cpu"
+
+    return device
+
+
+def parse_dtype(dtype_arg: str) -> torch.dtype:
+    """
+    :param dtype_arg: dtype string to parse
+    :return: torch.dtype parsed from input string
+    """
+    dtype = "auto"  # get precision from model by default
+    if dtype_arg == "half" or dtype_arg == "float16":
+        dtype = torch.float16
+    elif dtype_arg == "bfloat16":
+        dtype = torch.bfloat16
+    elif dtype_arg == "full" or dtype_arg == "float32":
+        dtype = torch.float32
+
+    return dtype

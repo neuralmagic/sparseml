@@ -78,7 +78,11 @@ class SparsificationLifecycle:
             if data is not None:
                 mod_data.append(data)
 
+        # mark which modifiers have already had their structures initialized
+        # so when we consolidate the next recipe  this info isn't lost
         self.initialized_structure = True
+        applied_stage_names = [mod.unique_id for mod in self.modifiers if mod.applied]
+        self.recipe_container.update_applied_stages(applied_stage_names)
 
         return mod_data
 
@@ -113,6 +117,8 @@ class SparsificationLifecycle:
                 mod_data.append(data)
 
         self.finalized = True
+        applied_stage_names = [mod.unique_id for mod in self.modifiers if mod.applied]
+        self.recipe_container.update_applied_stages(applied_stage_names)
 
         return mod_data
 
@@ -169,6 +175,9 @@ class SparsificationLifecycle:
             self.modifiers = self.recipe_container.compiled_recipe.create_modifier(
                 self.state.framework
             )
+            for mod in self.modifiers:
+                if mod.unique_id in self.recipe_container.applied_stages:
+                    mod.applied = True
 
     def _check_setup_event_lifecycle(self, event_type: EventType):
         if self.event_lifecycle is not None:
