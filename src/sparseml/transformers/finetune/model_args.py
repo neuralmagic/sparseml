@@ -64,3 +64,7 @@ class ModelArguments:
             "(necessary to use this script with private models)"
         },
     )
+    precision: str = field(
+        default="auto",
+        metadata={"help": "Precision to cast model weights to, default to auto"},
+    )
