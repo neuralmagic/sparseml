@@ -19,10 +19,10 @@ from typing import Dict, List
 import torch
 from torch.nn import Module
 
-from sparseml.modifiers.obcq.utils.sparsegpt import SparseGPT
+from sparseml.modifiers.obcq.utils.sgpt_wrapper import SGPTModuleWrapper
 from sparseml.pytorch.utils.helpers import get_dependency_order
 from sparseml.utils.pytorch.module import get_prunable_layers
-
+from sparseml.utils.pytorch import set_layer
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -74,7 +74,10 @@ class LayerCompressor:
 
         gpts = {}
         for name in subset:
-            gpts[name] = SparseGPT(subset[name])
+            layer = subset[name]
+            wrapper = SGPTModuleWrapper(layer)
+            set_layer(name, wrapper, self.model)
+            gpts[name] = wrapper
 
         def add_batch(name):
             def tmp(_, inp, out):

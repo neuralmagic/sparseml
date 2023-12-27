@@ -238,20 +238,7 @@ class StageRunner:
 
             # TODO: these checks are hacky, make it a stage parameter?
             if "oneshot" in stage_name:
-                if isinstance(self.trainer.model, FullyShardedDataParallel):
-                    full_state_dict_config = FullStateDictConfig(offload_to_cpu=True)
-                    with FullyShardedDataParallel.state_dict_type(
-                        self.trainer.model,
-                        StateDictType.FULL_STATE_DICT,
-                        full_state_dict_config,
-                    ):
-                        state_dict = self.trainer.accelerator.get_state_dict(
-                            self.trainer.model
-                        )
-                        self.unwrapped_model.load_state_dict(state_dict)
-                        self.model = deepcopy(self.unwrapped_model)
                 self.one_shot(stage=stage_name)
-                self.trainer.model = self.model
             elif "finetune" in stage_name:
                 self.train(checkpoint=None, stage=stage_name)
 
