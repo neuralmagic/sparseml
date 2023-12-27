@@ -438,7 +438,9 @@ class ScheduledModifier(Modifier, BaseScheduled):
             epoch = kwargs.get("epoch", None)
             steps_per_epoch = kwargs.get("steps_per_epoch", None)
             # Log call state
-            if self.loggers and self.loggers.log_ready(epoch, self._last_log_epoch):
+            if self.loggers and self.loggers.log_ready(
+                current_log_step=epoch, last_log_step=self._last_log_epoch
+            ):
                 self.log_string(
                     string=(
                         f"Calling {func.__name__} with:\n"
@@ -451,7 +453,9 @@ class ScheduledModifier(Modifier, BaseScheduled):
                 )
             out = func(*args, **kwargs)
             # Log return state
-            if self.loggers and self.loggers.log_ready(epoch, self._last_log_epoch):
+            if self.loggers and self.loggers.log_ready(
+                current_log_step=epoch, last_log_step=self._last_log_epoch
+            ):
                 out_print = out if isinstance(out, Tuple) else [out]
                 self.log_string(
                     string=(f"\nReturned: {format_args(out_print)}\n"),
@@ -671,7 +675,9 @@ class ScheduledModifier(Modifier, BaseScheduled):
         if not self._enabled:
             raise RuntimeError("modifier must be enabled")
 
-        if self.loggers and self.loggers.log_ready(epoch, self._last_log_epoch):
+        if self.loggers and self.loggers.log_ready(
+            current_log_step=epoch, last_log_step=self._last_log_epoch
+        ):
             self._last_log_epoch = epoch
             self._scheduled_log_called = True
             self.log_update(module, optimizer, epoch, steps_per_epoch)
