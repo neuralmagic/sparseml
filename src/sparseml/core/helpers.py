@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-from typing import Any, Generator, Optional, Tuple
+from typing import Any, Generator, Tuple
 
 from sparseml.core.logger import LoggerManager
 from sparseml.core.model.base import ModifiableModel
@@ -30,7 +30,6 @@ def should_log_model_info(
     model: ModifiableModel,
     loggers: LoggerManager,
     epoch: float,
-    last_log_epoch: Optional[float] = None,
 ) -> bool:
     """
     Check if we should log model level info
@@ -42,13 +41,12 @@ def should_log_model_info(
     :param model: The model whose info we want to log
     :param loggers: The logger manager to log to
     :param epoch: The current epoch
-    :param last_log_epoch: The last epoch we logged model info at
     :return: True if we should log model level info, False otherwise
     """
     return (
         hasattr(model, "loggable_items")
         and isinstance(loggers, LoggerManager)
-        and loggers.log_ready(epoch=epoch, last_log_epoch=last_log_epoch)
+        and loggers.log_ready(current_log_step=epoch)
     )
 
 

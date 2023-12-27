@@ -16,7 +16,12 @@
 from typing import Literal, Union
 
 
-__all__ = ["FrequencyManager"]
+__all__ = [
+    "FrequencyManager",
+    "PossibleLoggingMode",
+    "PossibleFrequencyType",
+    "LogStepType",
+]
 
 LogStepType = Union[int, float, None]
 PossibleLoggingMode = Literal["on_change", "exact"]
@@ -51,7 +56,7 @@ class FrequencyManager:
         self._frequency_type = self._set_frequency_type(frequency_type=frequency_type)
 
         self._validate_log_frequency(log_frequency=log_frequency)
-        self.log_frequency = log_frequency
+        self._log_frequency = log_frequency
 
         self.last_log_step: LogStepType = None
         self.last_model_update_step: LogStepType = None
@@ -90,11 +95,11 @@ class FrequencyManager:
         # e.g. 0.1 + 0.2 != 0.3
         # format(0.1 + 0.2, ".4f") == format(0.3, ".4f")
 
-        cadence_reached: bool = self.log_frequency is not None and (
+        cadence_reached: bool = self._log_frequency is not None and (
             current_log_step is None
             or self.last_log_step is None
             or current_log_step
-            >= float(format(self.last_log_step + self.log_frequency, ".4f"))
+            >= float(format(self.last_log_step + self._log_frequency, ".4f"))
         )
 
         if not cadence_reached or not check_model_update:
@@ -110,7 +115,7 @@ class FrequencyManager:
                 self.last_model_update_step >= self.last_log_step
                 and current_log_step
                 >= float(
-                    format(self.log_frequency + self.last_model_update_step, ".4f")
+                    format(self._log_frequency + self.last_model_update_step, ".4f")
                 )
             )
         )
@@ -136,6 +141,24 @@ class FrequencyManager:
         """
         self._validate_log_step(log_step=step)
         self.last_log_step = step
+
+    @property
+    def log_frequency(self) -> LogStepType:
+        """
+        :return: The log frequency
+        """
+        return self._log_frequency
+
+    @log_frequency.setter
+    def log_frequency(self, log_frequency: LogStepType) -> None:
+        """
+        Sets the log frequency to the given value
+
+        :param log_frequency: The log frequency to set
+        :post-cond: The log frequency is set to the given value
+        """
+        self._validate_log_frequency(log_frequency=log_frequency)
+        self._log_frequency = log_frequency
 
     def _validate_log_frequency(self, log_frequency):
         # checks that log frequency is a positive number or None

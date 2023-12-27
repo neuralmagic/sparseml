@@ -27,6 +27,13 @@ from pathlib import Path
 from types import ModuleType
 from typing import Callable, Dict, List, Optional, Union
 
+from sparseml.core.logger.utils import (
+    FrequencyManager,
+    LogStepType,
+    PossibleFrequencyType,
+    PossibleLoggingMode,
+)
+
 
 try:
     try:
@@ -790,8 +797,15 @@ class LoggerManager(ABC):
     loggers.
 
     :param loggers: list of loggers assigned to this manager
-    :param log_frequency: number of epochs or fraction of epochs to wait between logs
-
+    :param log_frequency: number of stes or fraction of steps to wait between logs
+    :param mode: The logging mode to use, either "on_change" or "exact",
+        "on_change" will log when the model has been updated since the last log,
+        "exact" will log at the given frequency regardless of model updates
+    :param frequency_type: The frequency type to use, either "epoch", "step", or "batch"
+        controls what the frequency manager is tracking, e.g. if the frequency type
+        is "epoch", then the frequency manager will track the number of epochs that
+        have passed since the last log, if the frequency type is "step", then the
+        frequency manager will track the number of optimizer steps
     """
 
     def __init__(
@@ -800,14 +814,21 @@ class LoggerManager(ABC):
         log_frequency: Union[float, None] = 0.1,
         log_python: bool = True,
         name: str = "manager",
+        mode: PossibleLoggingMode = "on_change",
+        frequency_type: PossibleFrequencyType = "epoch",
     ):
         self._loggers = loggers or []
-        self._log_frequency = log_frequency
         self._name = name
         if log_python and not any(
             isinstance(log, PythonLogger) for log in self._loggers
         ):
             self._loggers.append(PythonLogger())
+
+        self.frequency_manager = FrequencyManager(
+            mode=mode,
+            frequency_type=frequency_type,
+            log_frequency=log_frequency,
+        )
 
     def __len__(self):
         return len(self.loggers)
@@ -825,23 +846,48 @@ class LoggerManager(ABC):
             raise ValueError(f"logger {type(logger)} must be of type BaseLogger")
         self._loggers.append(logger)
 
-    def log_ready(self, epoch, last_log_epoch):
+    def log_ready(
+        self, current_log_step, last_log_step=None, check_model_update: bool = False
+    ):
         """
         Check if there is a logger that is ready to accept a log
 
-        :param epoch: current epoch log is requested at
-        :param last_log_epoch: last time a log was recorder for this object
+        :param current_log_step: current step log is requested at
+        :param last_log_step: last time a log was recorder for this object. (Deprecated)
+        :param check_model_update: if True, will check if the model has been updated,
+            if False, will only check the log frequency
         :return: True if a logger is ready to accept a log.
         """
-        return (
-            self._log_frequency is not None
-            and (
-                epoch is None
-                or last_log_epoch is None
-                or epoch >= last_log_epoch + self._log_frequency
+        log_enabled = any(logger.enabled for logger in self.loggers)
+        if last_log_step is not None:
+            self.warning(
+                tag="warning",
+                string="specifying `last_log_step` is now deprecated "
+                "and will be removed in a future release. Update to use"
+                " `log_written(step)` to track the last log step",
             )
-            and any(log.enabled for log in self.loggers)
+            self.frequency_manager.log_written(step=last_log_step)
+
+        return log_enabled and self.frequency_manager.log_ready(
+            current_log_step=current_log_step,
+            check_model_update=check_model_update,
         )
+
+    def log_written(self, step: LogStepType):
+        """
+        Update the frequency manager with the last log step written
+
+        :param step: step that was last logged
+        """
+        self.frequency_manager.log_written(step=step)
+
+    def model_updated(self, step: LogStepType):
+        """
+        Update the frequency manager with the last model update step
+
+        :param step: step that was last logged
+        """
+        self.frequency_manager.model_updated(step=step)
 
     @staticmethod
     def epoch_to_step(epoch, steps_per_epoch):
@@ -866,14 +912,14 @@ class LoggerManager(ABC):
         """
         :return: number of epochs or fraction of epochs to wait between logs
         """
-        return self._log_frequency
+        return self.frequency_manager._log_frequency
 
     @log_frequency.setter
     def log_frequency(self, value: Union[str, float, None]):
         """
         :param value: number of epochs or fraction of epochs to wait between logs
         """
-        self._log_frequency = value
+        self.frequency_manager._log_frequency = value
 
     @property
     def name(self) -> str:
