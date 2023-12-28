@@ -511,7 +511,7 @@ class ScheduledModifier(Modifier, BaseScheduled):
         self._ended = False
         self._schedule_called = False
         self._scheduled_log_called = False
-        self._last_log_epoch = -1
+        self._last_log_epoch = None
 
         self.validate_schedule()
 
