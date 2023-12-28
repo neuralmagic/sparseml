@@ -139,10 +139,9 @@ def test_log_ready(
     assert actual == expected
 
 
-def _test_cases__validate_log_frequency():
-    # "log_frequency, frequency_type, expectation"
-
-    return [
+@pytest.mark.parametrize(
+    "log_frequency, frequency_type, expectation",
+    [
         # epoch frequency type accepts floats
         (0.1, "epoch", does_not_raise()),
         # batch and step frequency types need
@@ -153,12 +152,7 @@ def _test_cases__validate_log_frequency():
         (-1, "epoch", pytest.raises(ValueError)),
         (-1, "batch", pytest.raises(ValueError)),
         (-1, "step", pytest.raises(ValueError)),
-    ]
-
-
-@pytest.mark.parametrize(
-    "log_frequency, frequency_type, expectation",
-    _test_cases__validate_log_frequency(),
+    ],
 )
 def test__validate_log_frequency(log_frequency, frequency_type, expectation):
     with expectation:
