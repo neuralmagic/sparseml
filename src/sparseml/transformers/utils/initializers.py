@@ -206,20 +206,51 @@ def resolve_recipe_application(
 ) -> Union[str, Path, None]:
     """
     Resolve the recipe to apply to the model.
-    If the recipe is None, will look for a recipe in the model_path
-
     :param recipe: the recipe to apply to the model.
-        If None, will look for a recipe in the model_path
+        It can be one of the following:
+        - None (no recipe will be applied or the
+            default recipe will be applied if exists. Default recipe
+            is assumed to be stored in the model_path and named RECIPE_NAME)
+        - a path to the recipe file
+        - name of the recipe file (e.g. "recipe.yaml")
+            (assumed to be stored in the model_path instead
+            of RECIPE_NAME)
+        - a string containing the recipe
     :param model_path: the path to the model to load
     :return: the resolved recipe
     """
-    default_recipe = os.path.join(model_path, RECIPE_NAME)
-    requested_recipe = None
+    recipe_is_file = True
     if recipe:
-        requested_recipe = (
-            recipe if os.path.isfile(recipe) else os.path.join(model_path, recipe)
+        if os.path.isfile(recipe):
+            # recipe is a path to a recipe file
+            pass
+        elif os.path.isfile(os.path.join(model_path, recipe)):
+            # recipe is a name of a recipe file
+            recipe = os.path.join(model_path, recipe)
+        else:
+            # recipe is a string containing the recipe
+            recipe_is_file = False
+            _LOGGER.debug(
+                "Applying the recipe string directly to the model, without "
+                "checking for a potential existing recipe in the model_path."
+            )
+    else:
+        _LOGGER.info(
+            "No recipe requested and no default recipe "
+            f"found in {model_path}. Skipping recipe application."
         )
+        return None
 
+    if recipe_is_file:
+        # if recipe is a file, resolve it to a path
+        return _resolve_recipe_file(recipe, model_path)
+    return recipe
+
+
+def _resolve_recipe_file(
+    requested_recipe: Union[str, Path], model_path: Union[str, Path]
+) -> Union[str, Path, None]:
+    default_recipe = os.path.join(model_path, RECIPE_NAME)
     default_recipe_exists = os.path.isfile(default_recipe)
     default_and_request_recipes_identical = default_recipe == requested_recipe
 
@@ -253,14 +284,8 @@ def resolve_recipe_application(
         return requested_recipe
 
     elif default_recipe_exists:
-        _LOGGER.info(f"Applying the default recip: {default_recipe}")
+        _LOGGER.info(f"Applying the default recipe: {default_recipe}")
         return default_recipe
-
-    _LOGGER.info(
-        "No recipe requested and no default recipe "
-        f"found in {model_path}. Skipping recipe application."
-    )
-    return None
 
 
 def _parse_data_args(data_args):

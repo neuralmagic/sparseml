@@ -51,7 +51,8 @@ def test_save_zoo_directory(stub, tmp_path_factory):
     "stub, is_image_classification",
     [("zoo:efficientnet_v2-s-imagenet-base_quantized", True)],
 )
-def test_is_image_classification_model(stub, is_image_classification):
-    path_to_model = Model(stub).training.path
+def test_is_image_classification_model(tmp_path, stub, is_image_classification):
+    path_to_model = Model(stub, tmp_path).training.path
     assert is_image_classification_model(path_to_model)
     assert is_image_classification_model(Path(path_to_model))
+    shutil.rmtree(tmp_path)

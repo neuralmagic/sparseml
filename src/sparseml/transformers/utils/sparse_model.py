@@ -181,7 +181,7 @@ class SparseAutoModel:
     @staticmethod
     def text_classification_from_pretrained(
         model_name_or_path: str,
-        model_type: str,
+        model_type: str = "model",
         **kwargs,
     ) -> Module:
         """
@@ -243,9 +243,9 @@ class SparseAutoModel:
     @staticmethod
     def text_generation_from_pretrained(
         model_name_or_path: str,
-        model_type: str,
         sequence_length: int,
         config: AutoConfig,
+        model_type: str = "model",
         recipe: Optional[Union[str, Path]] = None,
         trust_remote_code: bool = False,
         torch_dtype: Union[str, torch.dtype] = "auto",

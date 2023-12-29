@@ -65,9 +65,11 @@ def load_task_model(
         )
 
     if task in TaskNames.text_generation.value:
+        torch_dtype = kwargs.get("torch_dtype")
         sequence_length = kwargs.get("sequence_length")
         if sequence_length is None:
             sequence_length = resolve_sequence_length(config)
+
         return SparseAutoModel.text_generation_from_pretrained(
             model_name_or_path=model_path,
             sequence_length=sequence_length,
@@ -75,6 +77,7 @@ def load_task_model(
             model_type="model",
             recipe=recipe,
             trust_remote_code=trust_remote_code,
+            torch_dtype=torch_dtype,
         )
 
     raise ValueError(f"unrecognized task given of {task}")

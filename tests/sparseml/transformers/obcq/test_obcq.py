@@ -25,7 +25,10 @@ from sparseml.pytorch.utils.helpers import tensor_sparsity
 from sparseml.transformers.data import TransformersDataset
 from sparseml.transformers.sparsification.obcq.obcq import one_shot
 from sparseml.transformers.sparsification.obcq.utils.helpers import llama_forward
-from sparseml.transformers.utils.sparse_model import SparseAutoModel
+from sparseml.transformers.utils.initializers import (
+    initialize_config,
+    initialize_sparse_model,
+)
 
 
 @pytest.mark.parametrize(
@@ -75,7 +78,13 @@ def test_lm_head_target():
     if not torch.cuda.is_available():
         device = "cpu"
 
-    model = SparseAutoModel.text_classification_from_pretrained(tiny_model_path)
+    config = initialize_config(model_path=tiny_model_path)
+    model = initialize_sparse_model(
+        model_path=tiny_model_path,
+        device=device,
+        task="text-classification",
+        config=config,
+    )
 
     kwargs = {
         "sparsity": 0.5,

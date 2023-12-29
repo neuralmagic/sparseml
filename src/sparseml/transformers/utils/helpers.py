@@ -26,7 +26,6 @@ from typing import Optional, Union
 from transformers import AutoConfig, AutoModel
 from transformers.trainer_utils import get_last_checkpoint
 
-import sparseml.core.session as session_manager
 from sparseml.export.helpers import ONNX_MODEL_NAME
 from sparseml.pytorch.model_load.helpers import apply_recipe_structure_to_model
 from sparsezoo import setup_model
@@ -70,18 +69,17 @@ OPTIONAL_DEPLOYMENT_FILES = {"tokenizer.json", "tokenizer.model"}
 
 
 def apply_structure_to_transformers(
-    model: AutoModel, model_directory: Union[str, Path], recipe_path: Union[Path, str]
+    model: AutoModel, model_directory: Union[str, Path], recipe: Union[Path, str]
 ) -> None:
     """
     Apply the structure (dictated by the recipe) to the model.
     If no recipe is found, the model is returned as is (a warning is logged).
     :param model: the model to apply the structure to
     :param model_directory: the directory where the model is stored
-    :param recipe_path: a valid path to the recipe to apply
+    :param recipe: a valid path to the recipe to apply or a recipe string
     """
-    session_manager.create_session()
     apply_recipe_structure_to_model(
-        model=model, recipe_path=recipe_path, model_path=model_directory
+        model=model, recipe_path=recipe, model_path=model_directory
     )
 
 

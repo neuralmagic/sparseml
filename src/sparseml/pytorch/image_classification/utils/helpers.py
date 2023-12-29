@@ -673,11 +673,18 @@ def is_image_classification_model(source_path: Union[Path, str]) -> bool:
     else:
         checkpoint_path = source_path
     try:
-        checkpoint = torch.load(checkpoint_path)
+        if torch.cuda.is_available():
+            checkpoint = torch.load(checkpoint_path)
+        else:
+            checkpoint = torch.load(checkpoint_path, map_location=torch.device("cpu"))
+
         arch_key = checkpoint.get("arch_key")
         if arch_key:
             return True
-    except Exception:
+    except Exception as e:
+        _LOGGER.warning(
+            f"Model: {checkpoint_path} not an image classification model: {e}"
+        )
         return False
 
 

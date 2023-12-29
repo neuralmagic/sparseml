@@ -11,15 +11,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from src.sparseml.integration_helper_functions import (
-    IntegrationHelperFunctions,
-    Integrations,
-)
+import pytest
 
 
-def test_integration_helper_functions():
+def _test_image_classification_integration_helper_functions():
     # import needed to register the object on the fly
     import sparseml.pytorch.image_classification.integration_helper_functions  # noqa F401
+    from src.sparseml.integration_helper_functions import (
+        IntegrationHelperFunctions,
+        Integrations,
+    )
 
     image_classification = IntegrationHelperFunctions.load_from_registry(
         Integrations.image_classification.value
@@ -31,3 +32,11 @@ def test_integration_helper_functions():
     assert image_classification.create_data_samples
     assert image_classification.deployment_directory_files_mandatory == ["model.onnx"]
     assert image_classification.deployment_directory_files_optional is None
+
+
+@pytest.fixture(scope="session", autouse=True)
+def setup_and_teardown():
+    # setup
+    yield
+    # teardown
+    _test_image_classification_integration_helper_functions()
