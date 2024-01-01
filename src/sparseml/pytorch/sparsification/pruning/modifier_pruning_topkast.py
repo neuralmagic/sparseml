@@ -263,10 +263,10 @@ class TopKASTPruningModifier(BasePruningModifier):
             )
 
             self._module_masks.update_param_masks(
-                target=recomputation_sparsity or self._applied_sparsity
+                target=self._applied_sparsity
             )
             self._grad_module_masks.update_param_masks(
-                target=recomputation_sparsity or self._grad_applied_sparsity
+                target=self._grad_applied_sparsity
             )
             self._sparsity_applied = True
 
@@ -383,7 +383,7 @@ class TopKASTPruningModifier(BasePruningModifier):
           w_i = w_i - w_i * self._active_weight_decay * current learning rate
         For weights inactive in the forward pass but active in
         the backward pass:
-          w_i = w_i - w_i * 1/forward_sparsity * self._active_weight_decay * \
+          w_i = w_i - w_i * 1/(1-forward_sparsity) * self._active_weight_decay * \
                   current learning rate
 
         The reason that we multiply by the learning rate is that in the original
@@ -416,7 +416,7 @@ class TopKASTPruningModifier(BasePruningModifier):
                 param -= (
                     self._active_weight_decay
                     * lr
-                    * (1 / self.forward_sparsity)
+                    * (1 / (1 - self.forward_sparsity))
                     * (1 - self._module_masks.param_masks[i])
                     * self._grad_module_masks.param_masks[i]
                     * param

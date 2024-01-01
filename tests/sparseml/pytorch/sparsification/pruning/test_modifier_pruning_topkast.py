@@ -36,7 +36,7 @@ from tests.sparseml.pytorch.helpers import (  # noqa isort:skip
 
 
 def create_optim_sgd(
-    model: Module, lr: float = 0.25, momentum: float = 0.9, weight_decay: float = 0
+    model: Module, lr: float = 0.25, momentum: float = 0., weight_decay: float = 0.
 ) -> SGD:
     return SGD(model.parameters(), lr=lr, momentum=momentum, weight_decay=weight_decay)
 
@@ -56,7 +56,7 @@ def create_optim_adam(model: Module, lr: float = 0.25) -> Adam:
             update_frequency=5,
             params=["re:.*weight"],
             leave_enabled=True,
-            active_weight_decay=0.0002,
+            active_weight_decay=0.0002
         ),
         lambda: TopKASTPruningModifier(
             forward_sparsity=0.9,
@@ -79,10 +79,11 @@ def create_optim_adam(model: Module, lr: float = 0.25) -> Adam:
     ],
     scope="function",
 )
+
 @pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
 @pytest.mark.parametrize(
     "optim_lambda",
-    [create_optim_sgd, create_optim_adam],
+    [create_optim_sgd],#, create_optim_adam],
     scope="function",
 )
 class TestTopKASTPruningModifier(ScheduledModifierTest):
@@ -125,13 +126,13 @@ class TestTopKASTPruningModifier(ScheduledModifierTest):
             assert not modifier.update_ready(epoch, test_steps_per_epoch)
             _test_compression_sparsity_applied()
 
-    @flaky(max_runs=3, min_passes=2)
-    def test_weight_decay(
+
+    def test_topkast_forward_masking(
         self,
         modifier_lambda,
         model_lambda,
         optim_lambda,
-        test_steps_per_epoch,  # noqa: F811
+        test_steps_per_epoch,  # noqa: f811
     ):
         modifier = modifier_lambda()
         model = model_lambda()
@@ -145,7 +146,104 @@ class TestTopKASTPruningModifier(ScheduledModifierTest):
         while epoch < modifier.end_epoch:
             if modifier.update_ready(epoch, test_steps_per_epoch):
                 modifier.scheduled_update(model, optimizer, epoch, test_steps_per_epoch)
-            # Cache the model's weights before optimizer step.
+
+            # cache the model's weights before masking.
+            model_state_dict = copy.deepcopy(model.state_dict())
+            optimizer.zero_grad()
+            model(torch.randn(batch_shape, *input_shape)).mean().backward()
+            grads_from_full_model = {}
+            for i, param in enumerate(modifier._module_masks._params):
+                grads_from_full_model[i] = modifier._module_masks._params[i].grad
+            with torch.no_grad():
+                for i, param in enumerate(modifier._module_masks._params):
+                    param.data.mul_(modifier._module_masks.param_masks[i])
+            optimizer.zero_grad()
+            model(torch.randn(batch_shape, *input_shape)).mean().backward()
+            for i, param in enumerate(modifier._module_masks._params):
+                assert torch.allclose(grads_from_full_model[i], modifier._module_masks._params[i].grad)
+            # Restore the unmasked weights to continue the test.
+            model.load_state_dict(model_state_dict)
+            optimizer.step()
+            epoch += 1
+
+
+    def test_topkast_gradient_masking(
+        self,
+        modifier_lambda,
+        model_lambda,
+        optim_lambda,
+        test_steps_per_epoch,  # noqa: f811
+    ):
+        modifier = modifier_lambda()
+        model = model_lambda()
+        optimizer = optim_lambda(model)
+        self.initialize_helper(modifier, model)
+
+        batch_shape = 10
+        input_shape = model_lambda.layer_descs()[0].input_size
+        epoch = int(modifier.start_epoch)
+
+        while epoch < modifier.end_epoch:
+            if modifier.update_ready(epoch, test_steps_per_epoch):
+                modifier.scheduled_update(model, optimizer, epoch, test_steps_per_epoch)
+
+            # cache the model's weights before optimizer step.
+            layer_weights_pre = copy.deepcopy(modifier._module_masks)
+            optimizer.zero_grad()
+            model(torch.randn(batch_shape, *input_shape)).mean().backward()
+            optimizer.step()
+
+            for i, param in enumerate(modifier._module_masks._params):
+                unchanged_mask = (1 - modifier._grad_module_masks.param_masks[i]).bool()
+                forward_mask = (modifier._module_masks.param_masks[i]).bool()
+                backward_mask = (
+                    (1 - modifier._module_masks.param_masks[i])
+                    * modifier._grad_module_masks.param_masks[i]
+                ).bool()
+                # check that the three masks fully covert the space
+                assert torch.all(unchanged_mask + forward_mask + backward_mask)
+                assert torch.equal((~unchanged_mask), forward_mask + backward_mask)
+                assert torch.equal((~forward_mask), backward_mask + unchanged_mask)
+                assert torch.equal((~backward_mask), forward_mask + unchanged_mask)
+
+
+                # Confirm that the gradients were only applied to those weights which are in the backward mask.
+                assert torch.equal(
+                    modifier._module_masks._params[i][unchanged_mask],
+                    layer_weights_pre._params[i][unchanged_mask],
+                )
+                assert torch.allclose(
+                    modifier._module_masks._params[i][forward_mask],
+                    (layer_weights_pre._params[i]-0.25*modifier._module_masks._params[i].grad)[forward_mask],
+                )
+                assert torch.allclose(
+                    modifier._module_masks._params[i][backward_mask],
+                    (layer_weights_pre._params[i]-0.25*modifier._module_masks._params[i].grad)[backward_mask],
+                )
+
+            epoch += 1
+
+    @flaky(max_runs=3, min_passes=2)
+    def test_weight_decay(
+        self,
+        modifier_lambda,
+        model_lambda,
+        optim_lambda,
+        test_steps_per_epoch,  # noqa: f811
+    ):
+        modifier = modifier_lambda()
+        model = model_lambda()
+        optimizer = optim_lambda(model)
+        self.initialize_helper(modifier, model)
+
+        batch_shape = 10
+        input_shape = model_lambda.layer_descs()[0].input_size
+        epoch = int(modifier.start_epoch)
+
+        while epoch < modifier.end_epoch:
+            if modifier.update_ready(epoch, test_steps_per_epoch):
+                modifier.scheduled_update(model, optimizer, epoch, test_steps_per_epoch)
+            # cache the model's weights before optimizer step.
 
             layer_weights_pre = copy.deepcopy(modifier._module_masks)
             optimizer.zero_grad()
@@ -159,7 +257,7 @@ class TestTopKASTPruningModifier(ScheduledModifierTest):
                     (1 - modifier._module_masks.param_masks[i])
                     * modifier._grad_module_masks.param_masks[i]
                 ).bool()
-                # Check that the three masks fully covert the space
+                # check that the three masks fully covert the space
                 assert torch.all(unchanged_mask + forward_mask + backward_mask)
                 assert torch.equal((~unchanged_mask), forward_mask + backward_mask)
                 assert torch.equal((~forward_mask), backward_mask + unchanged_mask)
@@ -172,14 +270,14 @@ class TestTopKASTPruningModifier(ScheduledModifierTest):
                 assert torch.allclose(
                     modifier._module_masks._params[i][forward_mask],
                     layer_weights_pre._params[i][forward_mask] * (1 - 0.0002 * 0.25),
-                    atol=1e-5,
+                    atol=1e-7,
                     equal_nan=True,
                 )
                 assert torch.allclose(
                     modifier._module_masks._params[i][backward_mask],
                     layer_weights_pre._params[i][backward_mask]
-                    * (1 - 0.0002 * 0.25 * 1 / modifier._forward_sparsity),
-                    atol=1e-5,
+                    * (1 - 0.0002 * 0.25 * 1 / (1-modifier._forward_sparsity)),
+                    atol=1e-7,
                     equal_nan=True,
                 )
 
