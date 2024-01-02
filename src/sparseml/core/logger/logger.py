@@ -870,11 +870,12 @@ class LoggerManager(ABC):
         """
         log_enabled = any(logger.enabled for logger in self.loggers)
         if last_log_step is not None:
-            self.warning(
-                tag="warning",
-                string="specifying `last_log_step` is now deprecated "
+            warnings.warn(
+                message="specifying `last_log_step` is now deprecated "
                 "and will be removed in a future release. Update to use"
                 " `log_written(step)` to track the last log step",
+                category=DeprecationWarning,
+                stacklevel=2,
             )
             self.frequency_manager.log_written(step=last_log_step)
 
@@ -986,7 +987,7 @@ class LoggerManager(ABC):
     def log_scalars(
         self,
         tag: str,
-        values: float,
+        values: Dict[str, float],
         step: Optional[int] = None,
         wall_time: Optional[float] = None,
         log_types: Union[str, List[str]] = ALL_TOKEN,
@@ -1100,13 +1101,13 @@ class LoggingWrapperBase:
     """
 
     def __init__(self, loggers: List[BaseLogger], frequency_manager: FrequencyManager):
-        self._loggers = loggers
+        self.loggers = loggers
         self._frequency_manager = frequency_manager
 
     def __repr__(self):
         return (
             f"{self.__class__.__name__}("
-            f"loggers={self._loggers}, frequency_manager={self._frequency_manager})"
+            f"loggers={self.loggers}, frequency_manager={self._frequency_manager})"
         )
 
 
@@ -1241,7 +1242,7 @@ class MetricLoggingWrapper(LoggingWrapperBase):
         :param params: Each key-value pair in the dictionary is the name of the
             hyper parameter and it's corresponding value.
         """
-        for log in self._loggers:
+        for log in self.loggers:
             if log.enabled and (log_types == ALL_TOKEN or log.name in log_types):
                 log.log_hyperparams(params, level)
 
@@ -1275,7 +1276,7 @@ class MetricLoggingWrapper(LoggingWrapperBase):
     def log_scalars(
         self,
         tag: str,
-        values: float,
+        values: Dict[str, float],
         step: Optional[int] = None,
         wall_time: Optional[float] = None,
         log_types: Union[str, List[str]] = ALL_TOKEN,
