@@ -480,7 +480,7 @@ class SparseCausalLM:
         torch.nn.init.uniform_ = skip
         torch.nn.init.normal_ = skip
 
-        model = OPTForCausalLM.from_pretrained(model_path, torch_dtype=torch_dtype)
+        model = OPTForCausalLM.from_pretrained(model_path, torch_dtype=torch_dtype, device_map="cuda:0")
         model.eval()
         model.seqlen = (
             sequence_length if sequence_length else model.config.max_position_embeddings
@@ -502,7 +502,7 @@ class SparseCausalLM:
         :return: loaded pretrained model
         """
         model = AutoModelForCausalLM.from_pretrained(
-            model_path, torch_dtype=torch_dtype
+            model_path, torch_dtype=torch_dtype, device_map="cuda:0"
         )
         model.eval()
         max_seq_len = None

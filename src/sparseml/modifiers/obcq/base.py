@@ -81,8 +81,8 @@ class SparseGPTModifier(Modifier):
 
         :return: list of Pytorch modules to compress
         """
-        compressible_dict = self.model.get_layers(self.targets)
-        return [v for _, v in compressible_dict.items()]
+        return self.model.get_layers(self.targets)
+        #return [v for _, v in compressible_dict.items()]
 
     def on_initialize_structure(self, state: State, **kwargs):
         quantization_already_active = state.model.qat_active()

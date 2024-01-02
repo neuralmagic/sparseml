@@ -46,6 +46,8 @@ class SGPTModuleWrapper(Module):
     """
 
     def __init__(self, layer):
+        super(SGPTModuleWrapper, self).__init__()
+        
         if transformers is None:
             raise transformers_err
 
@@ -61,7 +63,7 @@ class SGPTModuleWrapper(Module):
 
         # These need to be buffers so they are preserved between forward passes
         self.register_buffer("H", torch.zeros((self.columns, self.columns), device=self.dev))
-        self.register_buffer("nsamples", torch.zeros(1,dtype=torch.int32))
+        self.register_buffer("nsamples", torch.zeros(1,dtype=torch.int32, device=self.dev))
 
         self.sgpt_enabled = False
 
