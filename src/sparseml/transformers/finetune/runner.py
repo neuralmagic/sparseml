@@ -14,7 +14,6 @@
 
 import logging
 import os
-from copy import deepcopy
 from typing import List, Optional
 
 import torch
@@ -24,7 +23,7 @@ from transformers import AutoTokenizer
 
 import sparseml.core.session as session_manager
 from sparseml.core.framework import Framework
-from sparseml.core.recipe import Recipe
+from sparseml.core.recipe import Recipe, StageRunType
 from sparseml.pytorch.model_load.helpers import fallback_to_cpu, save_model_and_recipe
 from sparseml.transformers.finetune import Trainer, TrainingArguments
 from sparseml.transformers.finetune.data import TextGenerationDataset
@@ -66,7 +65,6 @@ class StageRunner:
 
         self.datasets = {}
         self.model = model
-        self.unwrapped_model = deepcopy(model)
         self.trainer = None
         self.tokenizer = None
         self._output_dir = self._training_args.output_dir
@@ -221,29 +219,34 @@ class StageRunner:
         """
 
         recipe_obj = Recipe.create_instance(self._training_args.recipe)
-        stage_list = [stage.group for stage in recipe_obj.stages]
 
-        for stage_name in stage_list:
-            with self.trainer.accelerator.main_process_first():
-                self._output_dir = os.path.join(
-                    self._training_args.output_dir, "stage_" + stage_name
+        for stage in recipe_obj.stages:
+            # validate stage
+            stage_name = stage.group
+            run_type = stage.infer_run_type()
+            if not run_type:
+                raise ValueError(
+                    f"a valid stage type ({[e.value for e in StageRunType]}) "
+                    "must be provided in run_stages mode. Either add a run_type "
+                    "attribute to each stage in the recipe or include it as part of "
+                    "the stage name."
                 )
-                if not os.path.exists(self._output_dir):
-                    os.makedirs(self._output_dir)
 
-            # TODO: these checks are hacky, make it a stage parameter?
-            if "oneshot" in stage_name:
+            # setup checkpoint dir, TODO: this should be optional
+            self._output_dir = os.path.join(
+                self._training_args.output_dir, "stage_" + stage_name
+            )
+            if not os.path.exists(self._output_dir):
+                os.makedirs(self._output_dir)
+
+            # run stage
+            if run_type is StageRunType.ONESHOT:
                 self.one_shot(stage=stage_name)
-            elif "finetune" in stage_name:
+            elif run_type is StageRunType.TRAIN:
                 self.train(checkpoint=None, stage=stage_name)
 
-            self.trainer.accelerator.wait_for_everyone()
-
-            # TODO: this is hacky, clean it up
+            # setup for next stage
             session = session_manager.active_session()
-            session.lifecycle.initialized_ = False
-            session.lifecycle.finalized = False
+            session.reset_stage()
 
-        self.trainer.accelerator.wait_for_everyone()
-        if self.trainer.accelerator.is_main_process:
-            self.trainer.log_model_sparsification()
+        self.trainer.log_model_sparsification()

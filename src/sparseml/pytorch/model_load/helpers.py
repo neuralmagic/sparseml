@@ -35,7 +35,6 @@ __all__ = [
     "save_model_and_recipe",
     "fallback_to_cpu",
     "parse_dtype",
-    "get_session_model",
 ]
 
 _LOGGER = logging.getLogger(__name__)
