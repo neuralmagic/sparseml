@@ -18,8 +18,9 @@ from typing import Dict
 from torch.nn import Module
 
 from sparseml.modifiers.obcq.utils.sgpt_wrapper import SGPTModuleWrapper
-from sparseml.utils.pytorch.module import get_prunable_layers
 from sparseml.utils.pytorch import set_layer
+from sparseml.utils.pytorch.module import get_prunable_layers
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -90,6 +91,13 @@ class LayerCompressor:
     def post_compress(self):
         for handle in self.handles:
             handle.remove()
+
+    def revert_layer_wrappers(self):
+        for name, gpt_wrapper in self.gpts.items():
+            full_name = ".".join(x for x in [self.name, name] if len(x) > 0)
+            set_layer(full_name, gpt_wrapper.layer, self.model)
+
+        self.gpts = None
 
     def compress(self) -> Dict:
         """

@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional, Set, Dict
 import time
+from typing import Optional, Set
+
 
 try:
     import transformers
@@ -21,11 +22,14 @@ except ImportError as err:
     transformers = None
     transformers_err = err
 
+import logging
+import math
+
 import torch
 import torch.nn as nn
+from torch.distributed.fsdp import FullyShardedDataParallel
 from torch.nn import Module
-import math
-import logging
+
 
 __all__ = ["SGPTModuleWrapper"]
 
@@ -47,7 +51,7 @@ class SGPTModuleWrapper(Module):
 
     def __init__(self, layer):
         super(SGPTModuleWrapper, self).__init__()
-        
+
         if transformers is None:
             raise transformers_err
 
@@ -62,8 +66,12 @@ class SGPTModuleWrapper(Module):
         self.columns = W.shape[1]
 
         # These need to be buffers so they are preserved between forward passes
-        self.register_buffer("H", torch.zeros((self.columns, self.columns), device=self.dev))
-        self.register_buffer("nsamples", torch.zeros(1,dtype=torch.int32, device=self.dev))
+        self.register_buffer(
+            "H", torch.zeros((self.columns, self.columns), device=self.dev)
+        )
+        self.register_buffer(
+            "nsamples", torch.zeros(1, dtype=torch.int32, device=self.dev)
+        )
 
         self.sgpt_enabled = False
 
@@ -199,9 +207,10 @@ class SGPTModuleWrapper(Module):
 
         if isinstance(self.layer, transformers.Conv1D):
             W = W.t()
-        self.layer.weight.data = W.reshape(self.layer.weight.shape).to(
-            self.layer.weight.data.dtype
-        )
+        with FullyShardedDataParallel.summon_full_params(self.layer):
+            self.layer.weight.data = W.reshape(self.layer.weight.shape).to(
+                self.layer.weight.data.dtype
+            )
 
     def free(self):
         """

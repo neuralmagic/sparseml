@@ -21,9 +21,9 @@ import torch
 from sparseml.core.model import ModifiableModel
 from sparseml.core.state import State
 from sparseml.modifiers.obcq.base import SparseGPTModifier
-from sparseml.modifiers.obcq.utils.helpers import cache_attention_inputs
 from sparseml.modifiers.obcq.utils.layer_compressor import LayerCompressor
 from sparseml.modifiers.utils.pytorch_helpers import run_calibration_forward
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -68,10 +68,7 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
 
         return True
 
-    def initialize_obcq(
-        self,
-        model: "ModifiableModel"
-    ):
+    def initialize_obcq(self, model: "ModifiableModel"):
         """
         Setup for SparseGPT, initialize the the compressible layers of model, and set
         the device
@@ -86,7 +83,7 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
         self._infer_mask_block_size()
 
         for idx, (name, layer) in enumerate(self.compressible_layers_.items()):
-            print(f"precompressing {name}")
+            _LOGGER.info(f"Preparing {name} for SparseGPT compression")
             layer_sparsity = (
                 self.sparsity[idx] if isinstance(self.sparsity, List) else self.sparsity
             )
@@ -113,10 +110,8 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
         :param dataloader: calibration data for OBCQ
         """
 
-        run_calibration_forward(
-            self.model,
-            dataloader
-        )
+        _LOGGER.info(f"Running SparseGPT calibration with {len(dataloader)} samples...")
+        run_calibration_forward(self.model, dataloader)
 
         num_layers = len(self.compressible_layers_)
         for idx, layer_compressor in enumerate(self.layer_compressors):
@@ -130,13 +125,16 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
             layer_compressor.compress()
             layer_compressor.post_compress()
 
-
     def on_finalize(self, state: "State", **kwargs) -> bool:
         """
         disable the observers used by the OBCQ algorithm and set kv-cache configuration
 
         :param state: un-used, for matching spec of Modifier base class
         """
+
+        for layer_compressor in self.layer_compressors:
+            _LOGGER.info(f"Cleaning up {layer_compressor.name}")
+            layer_compressor.revert_layer_wrappers()
 
         if self.quantization_modifier_:
             self.quantization_modifier_.finalize(state, **kwargs)

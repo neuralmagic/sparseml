@@ -18,11 +18,6 @@ from copy import deepcopy
 from typing import List, Optional
 
 import torch
-from torch.distributed.fsdp import (
-    FullStateDictConfig,
-    FullyShardedDataParallel,
-    StateDictType,
-)
 from torch.nn import Module
 from torch.utils.data import DataLoader, Dataset, RandomSampler
 from transformers import AutoTokenizer

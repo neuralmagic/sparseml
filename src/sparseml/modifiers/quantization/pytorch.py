@@ -62,7 +62,6 @@ class QuantizationModifierPyTorch(QuantizationModifier):
     qat_enabled_: bool = False
     quantization_observer_disabled_: bool = False
     bn_stats_frozen_: bool = False
-    device_: Optional[str] = None
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -85,7 +84,6 @@ class QuantizationModifierPyTorch(QuantizationModifier):
             )
 
         self.calibration_dataloader_ = state.data.calib
-        self.device_ = torch.device(state.hardware.device)
         module = state.model.model
 
         if self.calculate_start() == -1:  # one-shot
@@ -186,7 +184,11 @@ class QuantizationModifierPyTorch(QuantizationModifier):
         self._calibrate(module)
 
     def _calibrate(self, module: Module):
-        _LOGGER.info("Running quantization calibration using calibration_dataloader")
+        class_name = self.__class__.__name__.replace("PyTorch", "")
+        _LOGGER.info(
+            f"Running {class_name} calibration with "
+            f"{len(self.calibration_dataloader_)} samples..."
+        )
 
         module_training = module.training
         module.eval()
@@ -196,7 +198,6 @@ class QuantizationModifierPyTorch(QuantizationModifier):
             self.calibration_dataloader_,
             self.num_calibration_steps,
             self.calibration_function_,
-            self.device_,
         )
 
         if module_training:
