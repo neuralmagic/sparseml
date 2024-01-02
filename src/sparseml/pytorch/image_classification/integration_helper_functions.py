@@ -37,7 +37,7 @@ from src.sparseml.pytorch.image_classification.utils.helpers import (
 
 def create_model(
     source_path: Union[Path, str],
-    batch_size: Optional[int] = None,
+    batch_size: Optional[int] = 1,
     device: Optional[str] = None,
     **kwargs,
 ) -> Tuple[torch.nn.Module, Dict[str, Any]]:

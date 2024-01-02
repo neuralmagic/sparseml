@@ -166,6 +166,17 @@ def create_data_samples(
                 else labels_
             )
 
+    # turn all the returned lists into a list of dicts
+    # to facilitate the sample export
+    if inputs and not isinstance(inputs[0], dict):
+        inputs = [dict(input=input) for input in inputs]
+
+    if labels and not isinstance(labels[0], dict):
+        labels = [dict(label=label) for label in labels]
+
+    if outputs and not isinstance(outputs[0], dict):
+        outputs = [dict(output=output) for output in outputs]
+
     return inputs, outputs, labels
 
 
@@ -176,7 +187,6 @@ def run_inference_with_dict_data(
     Run inference on a model by inferring the appropriate
     inputs from the dictionary input data.
 
-
     :param data: The data to run inference on
     :param model: The model to run inference on (optional)
     :return: The inputs, labels and outputs
@@ -184,15 +194,18 @@ def run_inference_with_dict_data(
     labels = None
     if model is None:
         output = None
-
     else:
-        inputs = {key: value.to(model.device) for key, value in data.items()}
+        # move the inputs to the model device and
+        # grab only the first sample from the batch
+        inputs = {
+            key: value[0].to(model.device).reshape(1, -1) for key, value in data.items()
+        }
         output_vals = model(**inputs)
         output = {
             name: torch.squeeze(val).detach().to("cpu")
             for name, val in output_vals.items()
         }
-    inputs = {key: value.to("cpu") for key, value in data.items()}
+    inputs = {key: value.to("cpu")[0] for key, value in data.items()}
     return inputs, labels, output
 
 
@@ -203,14 +216,17 @@ def run_inference_with_tuple_or_list_data(
     Run inference on a model by inferring the appropriate
     inputs from the tuple input data.
 
-    :param inputs: The data to run inference on
+    :param data: The data to run inference on
     :param model: The model to run inference on (optional)
     :return: The inputs, labels and outputs
     """
-    # assume that
     inputs, labels = data
+    if len(inputs.size()) == 4:
+        # if the input is a batch, remove the batch dimension
+        inputs = torch.squeeze(inputs, 0)
+
     outputs = model(inputs) if model else None
     if isinstance(outputs, tuple):
-        # outputs_ contains (logits, softmax)
-        outputs = outputs[0]
+        # outputs_ contains (logits, scores)
+        outputs = {"logits": outputs[0], "scores": outputs[1]}
     return inputs, labels, outputs

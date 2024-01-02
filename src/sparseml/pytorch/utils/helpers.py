@@ -539,7 +539,7 @@ def _tensors_export_batch(
 
     if isinstance(tensors, Iterable):
         # TODO: I am breaking something here? - dbogunowicz
-        for index, tens in enumerate(zip(tensors)):
+        for index, tens in enumerate(tensors):
             exported_paths.append(
                 tensor_export(
                     tens, export_dir, "{}-{:04d}".format(name_prefix, counter + index)

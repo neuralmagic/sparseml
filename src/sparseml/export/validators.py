@@ -101,7 +101,7 @@ def check_file_presence(file_paths: List[str]) -> List[str]:
 # TODO: Need to add few changes to sparsezoo to support this function
 def validate_correctness(
     target_path: Union[str, Path], directory: Union[str, Path], onnx_model_name: str
-):
+) -> bool:
     """
     Validates the correctness of the exported ONNX model by
     running it on a set of sample inputs and comparing the
@@ -141,4 +141,4 @@ def validate_correctness(
         onnx_file=onnx_model,
     )
 
-    runner.validate_with_onnx_runtime()
+    return runner.validate_with_onnx_runtime()

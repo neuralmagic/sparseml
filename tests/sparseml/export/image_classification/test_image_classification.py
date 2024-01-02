@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import glob
 import os
 import shutil
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -33,7 +33,8 @@ class TestEndToEndExport:
         model_path = tmp_path / "model"
         target_path = tmp_path / "target"
 
-        source_path = Model(stub, model_path).training.path
+        self.model = Model(stub, model_path)
+        source_path = self.model.training.path
 
         # if no arch_key supplied explicitly, it can be fetched from the checkpoint
         # and thus the integration can be inferred (we can set it to None)
@@ -118,51 +119,93 @@ class TestEndToEndExport:
         kwargs["dataset_name"] = "imagenette"
         kwargs["dataset_path"] = target_path.parent / "dataset"
 
-        num_samples = 10
-        batch_size = 2
+        num_samples = 20
 
         export(
             source_path=source_path,
             target_path=target_path,
             integration=integration,
             num_export_samples=num_samples,
-            batch_size=batch_size,
             **kwargs,
         )
+        # test that the samples were properly exported
         assert (target_path / "deployment" / "model.onnx").exists()
-        assert (
-            len(os.listdir(os.path.join(target_path, "sample-labels"))) == num_samples
-        )
-        assert (
-            len(os.listdir(os.path.join(target_path, "sample-inputs"))) == num_samples
-        )
-        assert (
-            len(os.listdir(os.path.join(target_path, "sample-outputs"))) == num_samples
-        )
-        # # open the sample-inputs file and check the batch size
-        sample_input = np.load(
-            glob.glob(os.path.join(target_path, "sample-inputs/*"))[0]
-        )["arr_0"]
-        assert sample_input.shape[0] == batch_size
 
-    @pytest.mark.skipif(
-        reason="skipping since this functionality needs some more attention"
-    )
+        # download the existing samples
+        self.model.sample_inputs.download()
+        self.model.sample_outputs["framework"].download()
+        self.model.sample_labels.download()
+
+        # make sure that the exported data has
+        # the correct structure (backward compatibility)
+        self._test_exported_sample_data_structure(
+            new_samples_dir=target_path / "sample-inputs",
+            old_samples_dir=Path(source_path).parent / "sample-inputs",
+            file_prefix="inp",
+        )
+
+        self._test_exported_sample_data_structure(
+            new_samples_dir=target_path / "sample-labels",
+            old_samples_dir=Path(source_path).parent / "sample-labels",
+            file_prefix="lab",
+        )
+
+        self._test_exported_sample_data_structure(
+            new_samples_dir=target_path / "sample-outputs",
+            old_samples_dir=Path(source_path).parent / "sample-outputs",
+            file_prefix="out",
+        )
+
     def test_export_validate_correctness(self, setup):
         source_path, target_path, integration, kwargs = setup
         del kwargs["num_classes"]
         kwargs["dataset_name"] = "imagenette"
         kwargs["dataset_path"] = target_path.parent / "dataset"
 
-        num_samples = 10
-        batch_size = 2
+        num_samples = 5
 
         export(
             source_path=source_path,
             target_path=target_path,
             integration=integration,
             num_export_samples=num_samples,
-            batch_size=batch_size,
             validate_correctness=True,
             **kwargs,
         )
+
+    @staticmethod
+    def _test_exported_sample_data_structure(
+        new_samples_dir, old_samples_dir, file_prefix
+    ):
+        if file_prefix == "inp":
+            # define the name of the input array of the newly generated sample nad
+            # the name of the input array of the downloaded, existing sample
+            array_name_new, array_name_old = "input", "input"
+        elif file_prefix == "lab":
+            array_name_new, array_name_old = (
+                "label",
+                "arr_0",
+            )  # old samples have inconsistent naming
+        elif file_prefix == "out":
+            array_name_new, array_name_old = (
+                "scores",
+                "arr_0",
+            )  # old samples have inconsistent naming
+        else:
+            raise ValueError(f"Unknown file prefix {file_prefix}")
+
+        assert new_samples_dir.exists()
+        assert set(os.listdir(new_samples_dir)) == set(os.listdir(old_samples_dir))
+
+        # read the first sample from the newly
+        # generated samples and the downloaded samples
+        sample_input_new = np.load(
+            os.path.join(new_samples_dir, f"{file_prefix}-0000.npz")
+        )[array_name_new]
+        sample_input_old = np.load(
+            os.path.join(old_samples_dir, f"{file_prefix}-0000.npz")
+        )[array_name_old]
+
+        # out labels can have different shapes (imagenette is 10, imagenet is 1000)
+        if file_prefix != "out":
+            assert sample_input_new.shape == sample_input_old.shape
