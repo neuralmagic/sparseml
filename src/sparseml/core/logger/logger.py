@@ -426,13 +426,17 @@ class PythonLogger(LambdaLogger):
             level = LOGGING_LEVELS["debug"]
 
         if level > LOGGING_LEVELS["debug"]:
-            format = "%s %s step %s: %s"
-            log_args = [
-                self.name,
-                tag,
-                step,
-                values or value,
-            ]
+            if step is not None:
+                format = "%s %s step %s: %s"
+                log_args = [
+                    self.name,
+                    tag,
+                    step,
+                    values or value,
+                ]
+            else:
+                format = "%s %s: %s"
+                log_args = [self.name, tag, values or value]
         else:
             format = "%s %s [%s - %s]: %s"
             log_args = [self.name, tag, step, wall_time, values or value]
