@@ -1344,6 +1344,23 @@ class MetricLoggingWrapper(LoggingWrapperBase):
             tag=tag, values=values, step=step, wall_time=wall_time, **kwargs
         )
 
+    def log(
+        self,
+        data: Dict[str, Any],
+        step: Optional[int] = None,
+        tag: Optional[str] = DEFAULT_TAG,
+        **kwargs,
+    ) -> None:
+        """
+        :param data:  A dict of serializable python objects i.e `str`,
+                `ints`, `floats`, `Tensors`, `dicts`, etc
+        :param step: global step for when the values were taken
+        :param tag: identifying tag to log the values with, defaults to DEFAULT_TAG
+        :param kwargs: additional logging arguments to support
+            Python and custom loggers
+        """
+        self.log_scalars(tag=tag, values=data, step=step, **kwargs)
+
 
 def _create_dirs(path: str):
     path = Path(path).expanduser().absolute()
