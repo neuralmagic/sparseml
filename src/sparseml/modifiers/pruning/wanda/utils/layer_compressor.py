@@ -13,22 +13,21 @@
 # limitations under the License.
 
 
-import logging
 from typing import Dict
 
-from sparseml.modifiers.obcq.utils.sparsegpt import SparseGPT
+from sparseml.modifiers.pruning.wanda.utils.module_compressor import (
+    WandaModuleCompressor,
+)
 from sparseml.modifiers.utils.layer_compressor import LayerCompressor
 from sparseml.modifiers.utils.module_compressor import ModuleCompressor
 
 
-__all__ = ["OBCQLayerCompressor"]
-
-_LOGGER = logging.getLogger(__name__)
+__all__ = ["WandaLayerCompressor"]
 
 
-class OBCQLayerCompressor(LayerCompressor):
+class WandaLayerCompressor(LayerCompressor):
     """
-    Runs the SparseGPT algorithm on a single layer using calibration data inputs
+    Runs the Wanda algorithm on a single layer using calibration data inputs
 
     Lifecycle:
         - compress
@@ -44,37 +43,23 @@ class OBCQLayerCompressor(LayerCompressor):
     :param args: additional keyword arguments
     """
 
-    module_compressor_class: ModuleCompressor = SparseGPT
+    module_compressor_class: ModuleCompressor = WandaModuleCompressor
 
     def compress(self, dev: str = "cuda:0", **kwargs) -> Dict:
         """
-        Run SparseGPT compression on all compressible modules in the layer
+        Run WANDA compression on all compressible modules in the layer
 
         :param dev: device to run computation on
         """
         self.layer.to(dev)
-        if not self.args["sequential_update"]:
-            # compute Hessians ahead of time
-            extras = self.pre_compress_parallel(**kwargs)
-            gpts = extras["gpts"]
-            for name in gpts:
-                _LOGGER.info(f"Compressing {name}...")
-                self.invoke_fasterprune(module_compressor=gpts[name])
-                gpts[name].free()
-        else:
-            # Hessians computed layer by layer
-            self.sequentially_compress(**kwargs)
-
+        self.sequentially_compress(**kwargs)
         extras = self.post_compress(**kwargs)
-
         return {"outputs": extras["outputs"]}
 
-    def invoke_fasterprune(self, module_compressor: SparseGPT):
-        # run SparseGPT algorithm on current module
+    def invoke_fasterprune(self, module_compressor: "WandaModuleCompressor"):
+        # run WandaGPT algorithm on current module
         module_compressor.fasterprune(
-            sparsity=self.args["sparsity"],
+            self.args["sparsity"],
             prunen=self.args["prunen"],
             prunem=self.args["prunem"],
-            percdamp=self.args["percdamp"],
-            blocksize=self.args["blocksize"],
         )
