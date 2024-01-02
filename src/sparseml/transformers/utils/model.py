@@ -463,6 +463,7 @@ class SparseCausalLM:
         model_path: str,
         sequence_length: Optional[int] = None,
         torch_dtype: Union[str, torch.dtype] = "auto",
+        device_map: str = "auto",
     ) -> torch.nn.Module:
         """
         Load a pretrained OPT model from the specified hugging face path
@@ -470,6 +471,7 @@ class SparseCausalLM:
         :param model_path: hugging face or local path to model
         :param sequence_length: maximum allowable tokens in input sequence
         :param torch_dtype: precision to load model weights in as
+        :param device: device to load model to, or auto by default
         :return: loaded pretrained model
         """
 
@@ -481,7 +483,7 @@ class SparseCausalLM:
         torch.nn.init.normal_ = skip
 
         model = OPTForCausalLM.from_pretrained(
-            model_path, torch_dtype=torch_dtype, device_map="cuda:0"
+            model_path, torch_dtype=torch_dtype, device_map=device_map
         )
         model.eval()
         model.seqlen = (
@@ -494,6 +496,7 @@ class SparseCausalLM:
         model_path: str,
         sequence_length: Optional[int] = None,
         torch_dtype: Union[str, torch.dtype] = "auto",
+        device_map: str = "auto",
     ) -> torch.nn.Module:
         """
         Load a pretrained model using auto from the specified hugging face path
@@ -501,10 +504,11 @@ class SparseCausalLM:
         :param model_path: hugging face path to model
         :param sequence_length: maximum allowable tokens in input sequence
         :param torch_dtype: precision to load model weights in as
+        :param device: device to load model to, or auto by default
         :return: loaded pretrained model
         """
         model = AutoModelForCausalLM.from_pretrained(
-            model_path, torch_dtype=torch_dtype, device_map="cuda:0"
+            model_path, torch_dtype=torch_dtype, device_map=device_map
         )
         model.eval()
         max_seq_len = None
