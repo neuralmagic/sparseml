@@ -108,6 +108,9 @@ class BaseLogger(ABC):
         """
         self._enabled = value
 
+    def __repr__(self):
+        return f"{self.__class__.__name__}(name={self._name}, enabled={self._enabled})"
+
     def log_hyperparams(self, params: Dict[str, float]) -> bool:
         """
         :param params: Each key-value pair in the dictionary is the name of the
@@ -830,6 +833,13 @@ class LoggerManager(ABC):
             log_frequency=log_frequency,
         )
 
+        self.system = SystemLoggingWraper(
+            loggers=self._loggers, frequency_manager=self.frequency_manager
+        )
+        self.metric = MetricLoggingWrapper(
+            loggers=self._loggers, frequency_manager=self.frequency_manager
+        )
+
     def __len__(self):
         return len(self.loggers)
 
@@ -948,6 +958,9 @@ class LoggerManager(ABC):
         level: Optional[int] = None,
     ):
         """
+        (Note: this method is deprecated and will be removed in a future version,
+        use LoggerManager().metric.log_scalar instead)
+
         :param tag: identifying tag to log the value with
         :param value: value to save
         :param step: global step for when the value was taken
@@ -955,15 +968,20 @@ class LoggerManager(ABC):
         :param kwargs: additional logging arguments to support Python and custom loggers
         :return: True if logged, False otherwise.
         """
-        for log in self.loggers:
-            if log.enabled and (log_types == ALL_TOKEN or log.name in log_types):
-                log.log_scalar(
-                    tag=tag,
-                    value=value,
-                    step=step,
-                    wall_time=wall_time,
-                    level=level,
-                )
+        warnings.warn(
+            message="LoggerManager().log_scalar is deprecated and will be removed in a "
+            "future version, use LoggerManager().metric.log_scalar instead",
+            category=DeprecationWarning,
+            stacklevel=2,
+        )
+        self.metric.log_scalar(
+            tag=tag,
+            value=value,
+            step=step,
+            wall_time=wall_time,
+            log_types=log_types,
+            level=level,
+        )
 
     def log_scalars(
         self,
@@ -975,6 +993,9 @@ class LoggerManager(ABC):
         level: Optional[int] = None,
     ):
         """
+        (Note: this method is deprecated and will be removed in a future version,
+        use LoggerManager().metric.log_scalars instead)
+
         :param tag: identifying tag to log the values with
         :param values: values to save
         :param step: global step for when the values were taken
@@ -982,15 +1003,117 @@ class LoggerManager(ABC):
         :param kwargs: additional logging arguments to support Python and custom loggers
         :return: True if logged, False otherwise.
         """
-        for log in self.loggers:
-            if log.enabled and (log_types == ALL_TOKEN or log.name in log_types):
-                log.log_scalars(
-                    tag=tag,
-                    values=values,
-                    step=step,
-                    wall_time=wall_time,
-                    level=level,
-                )
+        warnings.warn(
+            message="LoggerManager().log_scalars is deprecated and will be removed"
+            " in a future version, use LoggerManager().metric.log_scalars instead",
+            category=DeprecationWarning,
+            stacklevel=2,
+        )
+        self.metric.log_scalars(
+            tag=tag,
+            values=values,
+            step=step,
+            wall_time=wall_time,
+            log_types=log_types,
+            level=level,
+        )
+
+    def log_hyperparams(
+        self,
+        params: Dict,
+        log_types: Union[str, List[str]] = ALL_TOKEN,
+        level: Optional[int] = None,
+    ):
+        """
+        (Note: this method is deprecated and will be removed in a future version,
+        use LoggerManager().metric.log_hyperparams instead)
+
+        :param params: Each key-value pair in the dictionary is the name of the
+            hyper parameter and it's corresponding value.
+        """
+        warnings.warn(
+            message="LoggerManager().log_hyperparams is deprecated and will be "
+            "removed in a future version, use "
+            "LoggerManager().metric.log_hyperparams instead",
+            category=DeprecationWarning,
+            stacklevel=2,
+        )
+        self.metric.log_hyperparams(
+            params=params,
+            log_types=log_types,
+            level=level,
+        )
+
+    def log_string(
+        self,
+        tag: str,
+        string: str,
+        step: Optional[int] = None,
+        wall_time: Optional[float] = None,
+        log_types: Union[str, List[str]] = ALL_TOKEN,
+        level: Optional[int] = None,
+    ):
+        """
+        (Note: this method is deprecated and will be removed in a future version,
+        use LoggerManager().system.log_string instead)
+
+        :param tag: identifying tag to log the values with
+        :param values: values to save
+        :param step: global step for when the values were taken
+        :param wall_time: global wall time for when the values were taken
+        :param kwargs: additional logging arguments to support Python and custom loggers
+        :return: True if logged, False otherwise.
+        """
+        warnings.warn(
+            message="LoggerManager().log_string is deprecated and will be "
+            "removed in a future version, use "
+            "LoggerManager().system.log_string instead",
+            category=DeprecationWarning,
+            stacklevel=2,
+        )
+        self.system.log_string(
+            tag=tag,
+            string=string,
+            step=step,
+            wall_time=wall_time,
+            log_types=log_types,
+            level=level,
+        )
+
+    def save(
+        self,
+        file_path: str,
+        **kwargs,
+    ):
+        """
+        :param file_path: path to a file to be saved
+        :param kwargs: additional arguments that a specific logger might use
+        """
+        for log in self._loggers:
+            if log.enabled:
+                log.save(file_path, **kwargs)
+
+
+class LoggingWrapperBase:
+    """
+    Base class that holds a reference to the loggers and frequency manager
+    """
+
+    def __init__(self, loggers: List[BaseLogger], frequency_manager: FrequencyManager):
+        self._loggers = loggers
+        self._frequency_manager = frequency_manager
+
+    def __repr__(self):
+        return (
+            f"{self.__class__.__name__}("
+            f"loggers={self._loggers}, frequency_manager={self._frequency_manager})"
+        )
+
+
+class SystemLoggingWraper(LoggingWrapperBase):
+    """
+    Wraps utilities and convenience methods for logging strings to the system
+    """
 
     def log_string(
         self,
@@ -1018,20 +1141,6 @@ class LoggerManager(ABC):
                     wall_time=wall_time,
                     level=level,
                 )
-
-    def log_hyperparams(
-        self,
-        params: Dict,
-        log_types: Union[str, List[str]] = ALL_TOKEN,
-        level: Optional[int] = None,
-    ):
-        """
-        :param params: Each key-value pair in the dictionary is the name of the
-            hyper parameter and it's corresponding value.
-        """
-        for log in self._loggers:
-            if log.enabled and (log_types == ALL_TOKEN or log.name in log_types):
-                log.log_hyperparams(params, level)
 
     def debug(self, tag, string, *args, **kwargs):
         """
@@ -1116,18 +1225,79 @@ class LoggerManager(ABC):
         kwargs["level"] = logging.CRITICAL
         self.log_string(tag=tag, string=string, *args, **kwargs)
 
-    def save(
+
+class MetricLoggingWrapper(LoggingWrapperBase):
+    """
+    Wraps utilities and convenience methods for logging metrics to the system
+    """
+
+    def log_hyperparams(
         self,
-        file_path: str,
-        **kwargs,
+        params: Dict,
+        log_types: Union[str, List[str]] = ALL_TOKEN,
+        level: Optional[int] = None,
     ):
         """
-        :param file_path: path to a file to be saved
-        :param kwargs: additional arguments that a specific logger might use
+        :param params: Each key-value pair in the dictionary is the name of the
+            hyper parameter and it's corresponding value.
         """
         for log in self._loggers:
-            if log.enabled:
-                log.save(file_path, **kwargs)
+            if log.enabled and (log_types == ALL_TOKEN or log.name in log_types):
+                log.log_hyperparams(params, level)
+
+    def log_scalar(
+        self,
+        tag: str,
+        value: float,
+        step: Optional[int] = None,
+        wall_time: Optional[float] = None,
+        log_types: Union[str, List[str]] = ALL_TOKEN,
+        level: Optional[int] = None,
+    ):
+        """
+        :param tag: identifying tag to log the value with
+        :param value: value to save
+        :param step: global step for when the value was taken
+        :param wall_time: global wall time for when the value was taken
+        :param kwargs: additional logging arguments to support Python and custom loggers
+        :return: True if logged, False otherwise.
+        """
+        for log in self.loggers:
+            if log.enabled and (log_types == ALL_TOKEN or log.name in log_types):
+                log.log_scalar(
+                    tag=tag,
+                    value=value,
+                    step=step,
+                    wall_time=wall_time,
+                    level=level,
+                )
+
+    def log_scalars(
+        self,
+        tag: str,
+        values: float,
+        step: Optional[int] = None,
+        wall_time: Optional[float] = None,
+        log_types: Union[str, List[str]] = ALL_TOKEN,
+        level: Optional[int] = None,
+    ):
+        """
+        :param tag: identifying tag to log the values with
+        :param values: values to save
+        :param step: global step for when the values were taken
+        :param wall_time: global wall time for when the values were taken
+        :param kwargs: additional logging arguments to support Python and custom loggers
+        :return: True if logged, False otherwise.
+        """
+        for log in self.loggers:
+            if log.enabled and (log_types == ALL_TOKEN or log.name in log_types):
+                log.log_scalars(
+                    tag=tag,
+                    values=values,
+                    step=step,
+                    wall_time=wall_time,
+                    level=level,
+                )
 
 
 def _create_dirs(path: str):
