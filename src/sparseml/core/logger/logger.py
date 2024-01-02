@@ -25,7 +25,7 @@ from datetime import datetime
 from logging import CRITICAL, DEBUG, ERROR, INFO, WARN, Logger
 from pathlib import Path
 from types import ModuleType
-from typing import Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 from sparseml.core.logger.utils import (
     FrequencyManager,
@@ -73,6 +73,7 @@ LOGGING_LEVELS = {
     "error": ERROR,
     "critical": CRITICAL,
 }
+DEFAULT_TAG = "defaul_tag"
 
 
 class BaseLogger(ABC):
@@ -1299,6 +1300,49 @@ class MetricLoggingWrapper(LoggingWrapperBase):
                     wall_time=wall_time,
                     level=level,
                 )
+
+    def add_scalar(
+        self,
+        value,
+        tag: str = DEFAULT_TAG,
+        step: Optional[int] = None,
+        wall_time: Union[int, float, None] = None,
+        **kwargs,
+    ):
+        """
+        Add a scalar value to the logger
+
+        :param value: value to log
+        :param tag: tag to log the value with, defaults to DEFAULT_TAG
+        :param step: global step for when the value was taken
+        :param wall_time: global wall time for when the value was taken
+        :param kwargs: additional logging arguments to to pass through to the
+            logger
+        """
+        self.log_scalar(tag=tag, value=value, step=step, wall_time=wall_time, **kwargs)
+
+    def add_scalars(
+        self,
+        values: Dict[str, Any],
+        tag: str = DEFAULT_TAG,
+        step: Optional[int] = None,
+        wall_time: Union[int, float, None] = None,
+        **kwargs,
+    ):
+        """
+        Adds multiple scalar values to the logger
+
+        :param values: values to log, must be A dict of serializable
+            python objects i.e `str`, `ints`, `floats`, `Tensors`, `dicts`, etc
+        :param tag: tag to log the value with, defaults to DEFAULT_TAG
+        :param step: global step for when the value was taken
+        :param wall_time: global wall time for when the value was taken
+        :param kwargs: additional logging arguments to to pass through to the
+            logger
+        """
+        self.log_scalars(
+            tag=tag, values=values, step=step, wall_time=wall_time, **kwargs
+        )
 
 
 def _create_dirs(path: str):
