@@ -29,9 +29,9 @@ from typing import Callable, Dict, List, Optional, Union
 
 from sparseml.core.logger.utils import (
     FrequencyManager,
+    FrequencyType,
+    LoggingModeType,
     LogStepType,
-    PossibleFrequencyType,
-    PossibleLoggingMode,
 )
 
 
@@ -814,8 +814,8 @@ class LoggerManager(ABC):
         log_frequency: Union[float, None] = 0.1,
         log_python: bool = True,
         name: str = "manager",
-        mode: PossibleLoggingMode = "on_change",
-        frequency_type: PossibleFrequencyType = "epoch",
+        mode: LoggingModeType = "on_change",
+        frequency_type: FrequencyType = "epoch",
     ):
         self._loggers = loggers or []
         self._name = name

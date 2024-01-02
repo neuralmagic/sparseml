@@ -18,14 +18,14 @@ from typing import Literal, Union
 
 __all__ = [
     "FrequencyManager",
-    "PossibleLoggingMode",
-    "PossibleFrequencyType",
+    "LoggingModeType",
+    "FrequencyType",
     "LogStepType",
 ]
 
 LogStepType = Union[int, float, None]
-PossibleLoggingMode = Literal["on_change", "exact"]
-PossibleFrequencyType = Literal["epoch", "step", "batch"]
+LoggingModeType = Literal["on_change", "exact"]
+FrequencyType = Literal["epoch", "step", "batch"]
 
 
 class FrequencyManager:
@@ -46,8 +46,8 @@ class FrequencyManager:
     def __init__(
         self,
         log_frequency: LogStepType = None,
-        mode: PossibleLoggingMode = "exact",
-        frequency_type: PossibleFrequencyType = "epoch",
+        mode: LoggingModeType = "exact",
+        frequency_type: FrequencyType = "epoch",
     ):
         # sets self._logging_mode and self._check_model_update
         self._logging_mode = self._set_logging_mode(mode=mode)
@@ -196,7 +196,7 @@ class FrequencyManager:
                 f"log step must be greater than or equal to 0, given {log_step}"
             )
 
-    def _set_logging_mode(self, mode: PossibleLoggingMode) -> PossibleLoggingMode:
+    def _set_logging_mode(self, mode: LoggingModeType) -> LoggingModeType:
         """
         Set the logging mode for the frequency manager.
         The logging mode determines how the frequency manager determines
@@ -222,9 +222,7 @@ class FrequencyManager:
             )
         return self._logging_mode
 
-    def _set_frequency_type(
-        self, frequency_type: PossibleFrequencyType
-    ) -> PossibleFrequencyType:
+    def _set_frequency_type(self, frequency_type: FrequencyType) -> FrequencyType:
         """
         Set the frequency type for the frequency manager.
         The frequency type determines what the frequency manager is tracking.
