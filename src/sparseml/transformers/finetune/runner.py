@@ -24,7 +24,7 @@ from transformers import AutoTokenizer
 import sparseml.core.session as session_manager
 from sparseml.core.framework import Framework
 from sparseml.core.recipe import Recipe, StageRunType
-from sparseml.pytorch.model_load.helpers import fallback_to_cpu, save_model_and_recipe
+from sparseml.pytorch.model_load.helpers import save_model_and_recipe, get_session_model
 from sparseml.transformers.finetune import Trainer, TrainingArguments
 from sparseml.transformers.finetune.data import TextGenerationDataset
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
@@ -151,7 +151,6 @@ class StageRunner:
         _LOGGER.info("*** One Shot ***")
 
         calib_data = self.format_calibration_data()
-        oneshot_device = fallback_to_cpu(self._training_args.oneshot_device)
         session_manager.apply(
             framework=Framework.pytorch,
             recipe=self._training_args.recipe,
@@ -159,10 +158,11 @@ class StageRunner:
             model=self.model,
             calib_data=calib_data,
             start=-1,
-            device=oneshot_device,
             copy_data=False,
         )
 
+        self.trainer.accelerator.wait_for_everyone()
+        
         save_model_and_recipe(
             model=self.model,
             save_path=self._output_dir,
@@ -249,4 +249,8 @@ class StageRunner:
             session = session_manager.active_session()
             session.reset_stage()
 
-        self.trainer.log_model_sparsification()
+            if self.trainer.accelerator.is_main_process:
+                self.trainer.log_model_sparsification()
+            self.trainer.accelerator.wait_for_everyone()
+            self.trainer.model = get_session_model()
+            self.model = get_session_model()

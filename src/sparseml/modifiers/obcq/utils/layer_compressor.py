@@ -75,6 +75,7 @@ class LayerCompressor:
             layer = subset[name]
             wrapper = SGPTModuleWrapper(layer)
             full_name = ".".join(x for x in [self.name, name] if len(x) > 0)
+            full_name = full_name.replace("_fsdp_wrapped_module.", "")
             set_layer(full_name, wrapper, self.model)
             self.gpts[name] = wrapper
 
@@ -95,6 +96,7 @@ class LayerCompressor:
     def revert_layer_wrappers(self):
         for name, gpt_wrapper in self.gpts.items():
             full_name = ".".join(x for x in [self.name, name] if len(x) > 0)
+            full_name = full_name.replace("_fsdp_wrapped_module.", "")
             set_layer(full_name, gpt_wrapper.layer, self.model)
 
         self.gpts = None

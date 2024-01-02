@@ -57,13 +57,17 @@ class SGPTModuleWrapper(Module):
 
         self.layer = layer
         self.dev = self.layer.weight.device
-        W = layer.weight.data.clone()
-        if isinstance(self.layer, nn.Conv2d):
-            W = W.flatten(1)
-        if isinstance(self.layer, transformers.Conv1D):
-            W = W.t()
-        self.rows = W.shape[0]
-        self.columns = W.shape[1]
+        with FullyShardedDataParallel.summon_full_params(self.layer):
+            W = self.layer.weight
+            if isinstance(self.layer, nn.Conv2d):
+                self.rows = W.shape[0]
+                self.columns = W.numel() / self.rows
+            if isinstance(self.layer, transformers.Conv1D):
+                self.rows = W.shape[1]
+                self.columns = W.shape[0]
+            else:
+                self.rows = W.shape[0]
+                self.columns = W.shape[1]
 
         # These need to be buffers so they are preserved between forward passes
         self.register_buffer(
@@ -72,7 +76,8 @@ class SGPTModuleWrapper(Module):
         self.register_buffer(
             "nsamples", torch.zeros(1, dtype=torch.int32, device=self.dev)
         )
-
+        if str(self.dev) == "cpu":
+            print("on CPU")
         self.sgpt_enabled = False
 
     def add_batch(self, inp: torch.Tensor, out: torch.Tensor):
@@ -94,7 +99,7 @@ class SGPTModuleWrapper(Module):
         self.H *= self.nsamples / (self.nsamples + tmp)
         self.nsamples += tmp
         inp = math.sqrt(2 / self.nsamples) * inp.float()
-        self.H += inp.matmul(inp.t())
+        self.H += inp.matmul(inp.t()).to(self.dev)
 
     def fasterprune(
         self,
@@ -115,7 +120,11 @@ class SGPTModuleWrapper(Module):
         :param percdamp: Amount of dampening to apply to H, as a fraction of the
         diagonal norm
         """
-        W = self.layer.weight.data.clone()
+        with FullyShardedDataParallel.summon_full_params(self.layer):
+            import copy
+            W = copy.deepcopy(self.layer.weight.data)
+            self.dev = W.device
+            self.H = self.H.to(self.dev)
         if isinstance(self.layer, nn.Conv2d):
             W = W.flatten(1)
         if isinstance(self.layer, transformers.Conv1D):

@@ -26,7 +26,7 @@ from torch.nn import Linear, Module, Parameter
 from torch.nn.modules.conv import _ConvNd
 
 from sparseml.core.model.base import ModelParameterizedLayer
-
+from torch.distributed.fsdp import FullyShardedDataParallel
 
 FSDP_WRAPPER_NAME = "_fsdp_wrapped_module."
 
@@ -171,13 +171,14 @@ def get_layer(target: str, module: Module) -> Tuple[str, Module]:
 
 
 def set_layer(target: str, layer: Module, module: Module) -> Module:
-    parent_target = ".".join(target.split(".")[:-1])
-    if parent_target != "":
-        parent_layer = get_layer(parent_target, module)[1]
-    else:
-        parent_layer = module
-    old_layer = getattr(parent_layer, target.split(".")[-1])
-    setattr(parent_layer, target.split(".")[-1], layer)
+    with FullyShardedDataParallel.summon_full_params(module):
+        parent_target = ".".join(target.split(".")[:-1])
+        if parent_target != "":
+            parent_layer = get_layer(parent_target, module)[1]
+        else:
+            parent_layer = module
+        old_layer = getattr(parent_layer, target.split(".")[-1])
+        setattr(parent_layer, target.split(".")[-1], layer)
 
     return old_layer
 
