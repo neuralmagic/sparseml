@@ -219,32 +219,34 @@ def resolve_recipe_application(
     :param model_path: the path to the model to load
     :return: the resolved recipe
     """
-    recipe_is_file = True
-    if recipe:
-        if os.path.isfile(recipe):
-            # recipe is a path to a recipe file
-            pass
-        elif os.path.isfile(os.path.join(model_path, recipe)):
-            # recipe is a name of a recipe file
-            recipe = os.path.join(model_path, recipe)
-        else:
-            # recipe is a string containing the recipe
-            recipe_is_file = False
-            _LOGGER.debug(
-                "Applying the recipe string directly to the model, without "
-                "checking for a potential existing recipe in the model_path."
-            )
-    else:
-        _LOGGER.info(
-            "No recipe requested and no default recipe "
-            f"found in {model_path}. Skipping recipe application."
-        )
-        return None
 
-    if recipe_is_file:
-        # if recipe is a file, resolve it to a path
+    if recipe is None:
+        # if recipe is None -> still look for recipe.yaml in the model_path
+        recipe = os.path.join(model_path, RECIPE_NAME)
+        if os.path.isfile(recipe):
+            return recipe
+
+    elif os.path.isfile(recipe):
+        # recipe is a path to a recipe file
         return _resolve_recipe_file(recipe, model_path)
-    return recipe
+
+    elif os.path.isfile(os.path.join(model_path, recipe)):
+        # recipe is a name of a recipe file
+        recipe = os.path.join(model_path, recipe)
+        return _resolve_recipe_file(recipe, model_path)
+    elif isinstance(recipe, str):
+        # recipe is a string containing the recipe
+        _LOGGER.debug(
+            "Applying the recipe string directly to the model, without "
+            "checking for a potential existing recipe in the model_path."
+        )
+        return recipe
+
+    _LOGGER.info(
+        "No recipe requested and no default recipe "
+        f"found in {model_path}. Skipping recipe application."
+    )
+    return None
 
 
 def _resolve_recipe_file(

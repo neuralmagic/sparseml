@@ -82,7 +82,7 @@ def test_lm_head_target():
     model = initialize_sparse_model(
         model_path=tiny_model_path,
         device=device,
-        task="text-classification",
+        task="text-generation",
         config=config,
     )
 

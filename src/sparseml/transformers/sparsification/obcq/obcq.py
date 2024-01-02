@@ -109,7 +109,6 @@ def one_shot(
         sequence_length=sequence_length,
         torch_dtype=torch_dtype,
         config=config,
-        recipe=recipe_file,
         device=device,
     )
 
