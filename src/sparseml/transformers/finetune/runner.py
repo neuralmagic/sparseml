@@ -18,6 +18,7 @@ from typing import List, Optional
 
 import torch
 from torch.nn import Module
+from torch.distributed.fsdp import FullyShardedDataParallel
 from torch.utils.data import DataLoader, Dataset, RandomSampler
 from transformers import AutoTokenizer
 
@@ -162,11 +163,16 @@ class StageRunner:
         )
 
         self.trainer.accelerator.wait_for_everyone()
+        if isinstance(self.model, FullyShardedDataParallel):
+            accelerator=self.trainer.accelerator
+        else:
+            accelerator=None
         
         save_model_and_recipe(
             model=self.model,
             save_path=self._output_dir,
             tokenizer=self.tokenizer,
+            accelerator=accelerator
         )
 
     def train(self, checkpoint: str, stage: Optional[str] = None):
@@ -236,8 +242,9 @@ class StageRunner:
             self._output_dir = os.path.join(
                 self._training_args.output_dir, "stage_" + stage_name
             )
-            if not os.path.exists(self._output_dir):
-                os.makedirs(self._output_dir)
+            with self.trainer.accelerator.main_process_first():
+                if not os.path.exists(self._output_dir):
+                    os.makedirs(self._output_dir)
 
             # run stage
             if run_type is StageRunType.ONESHOT:

@@ -56,9 +56,12 @@ class SGPTModuleWrapper(Module):
             raise transformers_err
 
         self.layer = layer
-        self.dev = self.layer.weight.device
         with FullyShardedDataParallel.summon_full_params(self.layer):
+            self.dev = self.layer.weight.device
             W = self.layer.weight
+            self.layer.register_buffer(
+                "pruned_weight", torch.zeros(self.layer.weight.shape, device=self.dev)
+            )
             if isinstance(self.layer, nn.Conv2d):
                 self.rows = W.shape[0]
                 self.columns = W.numel() / self.rows
@@ -76,8 +79,6 @@ class SGPTModuleWrapper(Module):
         self.register_buffer(
             "nsamples", torch.zeros(1, dtype=torch.int32, device=self.dev)
         )
-        if str(self.dev) == "cpu":
-            print("on CPU")
         self.sgpt_enabled = False
 
     def add_batch(self, inp: torch.Tensor, out: torch.Tensor):
@@ -120,11 +121,13 @@ class SGPTModuleWrapper(Module):
         :param percdamp: Amount of dampening to apply to H, as a fraction of the
         diagonal norm
         """
-        with FullyShardedDataParallel.summon_full_params(self.layer):
-            import copy
-            W = copy.deepcopy(self.layer.weight.data)
-            self.dev = W.device
-            self.H = self.H.to(self.dev)
+        import copy
+        self.dev = self.layer.weight.device
+        self.H = self.H.to(self.dev)
+        final_shape = self.layer.weight.shape
+        final_dtype = self.layer.weight.data.dtype
+        W = copy.deepcopy(self.layer.weight.data)
+
         if isinstance(self.layer, nn.Conv2d):
             W = W.flatten(1)
         if isinstance(self.layer, transformers.Conv1D):
@@ -209,24 +212,20 @@ class SGPTModuleWrapper(Module):
 
             W[:, i2:] -= Err1.matmul(Hinv[i1:i2, i2:])
 
-        if torch.cuda.is_available():
-            torch.cuda.synchronize()
         _LOGGER.info("time %.2f" % (time.time() - tick))
         _LOGGER.info("error %.2f" % torch.sum(Losses).item())
 
         if isinstance(self.layer, transformers.Conv1D):
             W = W.t()
-        with FullyShardedDataParallel.summon_full_params(self.layer):
-            self.layer.weight.data = W.reshape(self.layer.weight.shape).to(
-                self.layer.weight.data.dtype
-            )
+        self.layer.pruned_weight = W.reshape(final_shape).to(final_dtype)
 
     def free(self):
         """
         Free the Hessian memory after the layer is complete
         """
-        self.H = None
-        torch.cuda.empty_cache()
+        delattr(self, "H")
+        delattr(self, "nsamples")
+        delattr(self.layer, "pruned_weight")
 
     def forward(self, *args, **kwargs):
         if not self.sgpt_enabled:

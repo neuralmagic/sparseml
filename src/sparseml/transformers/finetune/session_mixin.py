@@ -135,18 +135,19 @@ class SessionManagerMixIn:
         train_data = self.get_train_dataloader()
 
         self.accelerator.wait_for_everyone()
-        session_manager.initialize(
-            model=self.model,
-            teacher_model=self.teacher,  # TODO: what about for self/disable?
-            recipe=self.recipe,
-            recipe_stage=stage,
-            recipe_args=self.recipe_args,
-            framework=Framework.pytorch,
-            train_data=train_data,
-            start=epoch,
-            copy_data=False,
-            fsdp_active=self.is_fsdp_enabled,
-        )
+        with FullyShardedDataParallel.summon_full_params(self.model):
+            session_manager.initialize(
+                model=self.model,
+                teacher_model=self.teacher,  # TODO: what about for self/disable?
+                recipe=self.recipe,
+                recipe_stage=stage,
+                recipe_args=self.recipe_args,
+                framework=Framework.pytorch,
+                train_data=train_data,
+                start=epoch,
+                copy_data=False,
+                fsdp_active=self.is_fsdp_enabled,
+            )
         self.accelerator.wait_for_everyone()
 
         # reload the state dict for the model now that architecture matches expected

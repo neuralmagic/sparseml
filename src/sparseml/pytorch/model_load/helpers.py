@@ -186,6 +186,7 @@ def save_model_and_recipe(
     model: Module,
     save_path: str,
     tokenizer: Optional[Any] = None,
+    accelerator: Optional[Any] = None
 ):
     """
     Save a model, tokenizer and the currently loaded recipe to file
@@ -193,8 +194,14 @@ def save_model_and_recipe(
     :param model: pytorch model to save
     :param save_path: path to save output to
     :param tokenizer: model tokenizer to save
+    :param accelerator: accelerator to use if saving an FSDP model
     """
-    model.save_pretrained(save_path)
+
+    if accelerator is not None: # FSDP
+        accelerator.save_model(model, save_path)
+    else:
+        model.save_pretrained(save_path)
+
     if tokenizer is not None:
         tokenizer.save_pretrained(save_path)
 

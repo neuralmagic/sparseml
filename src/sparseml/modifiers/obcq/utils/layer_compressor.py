@@ -16,6 +16,7 @@ import logging
 from typing import Dict
 
 from torch.nn import Module
+from torch.distributed.fsdp import FullyShardedDataParallel
 
 from sparseml.modifiers.obcq.utils.sgpt_wrapper import SGPTModuleWrapper
 from sparseml.utils.pytorch import set_layer
@@ -98,7 +99,7 @@ class LayerCompressor:
             full_name = ".".join(x for x in [self.name, name] if len(x) > 0)
             full_name = full_name.replace("_fsdp_wrapped_module.", "")
             set_layer(full_name, gpt_wrapper.layer, self.model)
-
+            gpt_wrapper.free()
         self.gpts = None
 
     def compress(self) -> Dict:
@@ -108,10 +109,11 @@ class LayerCompressor:
         for name in self.gpts:
             _LOGGER.info(f"Compressing {name}...")
             sparsity = self.args["sparsity"]
-            self.gpts[name].fasterprune(
-                sparsity,
-                prunen=self.args["prunen"],
-                prunem=self.args["prunem"],
-                percdamp=self.args["percdamp"],
-                blocksize=self.args["blocksize"],
-            )
+            with FullyShardedDataParallel.summon_full_params(self.layer):
+                self.gpts[name].fasterprune(
+                    sparsity,
+                    prunen=self.args["prunen"],
+                    prunem=self.args["prunem"],
+                    percdamp=self.args["percdamp"],
+                    blocksize=self.args["blocksize"],
+                )
