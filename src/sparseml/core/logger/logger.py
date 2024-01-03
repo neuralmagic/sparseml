@@ -808,7 +808,8 @@ class LoggerManager(ABC):
     :param log_frequency: number of stes or fraction of steps to wait between logs
     :param mode: The logging mode to use, either "on_change" or "exact",
         "on_change" will log when the model has been updated since the last log,
-        "exact" will log at the given frequency regardless of model updates
+        "exact" will log at the given frequency regardless of model updates.
+        Defaults to "exact"
     :param frequency_type: The frequency type to use, either "epoch", "step", or "batch"
         controls what the frequency manager is tracking, e.g. if the frequency type
         is "epoch", then the frequency manager will track the number of epochs that
@@ -822,7 +823,7 @@ class LoggerManager(ABC):
         log_frequency: Union[float, None] = 0.1,
         log_python: bool = True,
         name: str = "manager",
-        mode: LoggingModeType = "on_change",
+        mode: LoggingModeType = "exact",
         frequency_type: FrequencyType = "epoch",
     ):
         self._loggers = loggers or []

@@ -65,6 +65,7 @@ class SparseSession:
 
     def __init__(self):
         self._lifecycle = SparsificationLifecycle()
+        self._loss_logged = False
 
     @property
     def lifecycle(self) -> SparsificationLifecycle:
@@ -220,6 +221,10 @@ class SparseSession:
         :param kwargs: additional kwargs to pass to the lifecycle's finalize method
         :return: the modified state of the session after finalizing
         """
+        # log losses on finalization
+        self._loss_logged = False
+        self._log_loss(event_type=EventType.LOSS_CALCULATED, loss=self.state.loss)
+
         mod_data = self._lifecycle.finalize(**kwargs)
 
         return ModifiedState(
@@ -261,7 +266,14 @@ class SparseSession:
         mod_data = self._lifecycle.event(
             event_type=event_type, batch_data=batch_data, loss=loss, **kwargs
         )
+
+        # Update loss
+        if loss is not None:
+            self.state.loss = loss
+
         self._log_model_info(event_type=event_type)
+        self._log_loss(event_type=event_type, loss=loss)
+
         return ModifiedState(
             model=self.state.model.model if self.state.model else None,
             optimizer=self.state.optimizer.optimizer if self.state.optimizer else None,
@@ -280,20 +292,31 @@ class SparseSession:
 
         epoch = self._lifecycle.event_lifecycle.current_index
 
-        # override logging cadence temporarily
-
         if should_log_model_info(
             model=self.state.model,
             loggers=self.state.loggers,
             epoch=epoch,
-            last_log_epoch=self.state._last_log_epoch,
         ):
             log_model_info(
                 state=self.state,
                 epoch=epoch,
             )
             # update last log epoch
-            self.state._last_log_epoch = epoch
+            self.state.loggers.log_written(epoch)
+
+            # loss was not logged for this cadence
+            # reset flag
+            self._loss_logged = False
+
+    def _log_loss(self, event_type: EventType, loss: Any):
+        if event_type != EventType.LOSS_CALCULATED or self._loss_logged:
+            return
+
+        current_step = self._lifecycle.event_lifecycle.current_index
+        self.state.loggers.metric.log_scalars(
+            tag="Loss", values=loss, step=current_step
+        )
+        self._loss_logged = True
 
     def get_serialized_recipe(self) -> str:
         """
