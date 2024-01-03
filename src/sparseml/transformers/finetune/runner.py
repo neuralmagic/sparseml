@@ -225,6 +225,9 @@ class StageRunner:
         """
 
         recipe_obj = Recipe.create_instance(self._training_args.recipe)
+        #if not isinstance(self.model, FullyShardedDataParallel):
+        #    self.model = self.trainer.accelerator.prepare(self.model)
+        #    self.trainer.model = self.model
 
         for stage in recipe_obj.stages:
             # validate stage

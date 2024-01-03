@@ -27,7 +27,6 @@ import math
 
 import torch
 import torch.nn as nn
-from torch.distributed.fsdp import FullyShardedDataParallel
 from torch.nn import Module
 
 
@@ -56,21 +55,18 @@ class SGPTModuleWrapper(Module):
             raise transformers_err
 
         self.layer = layer
-        with FullyShardedDataParallel.summon_full_params(self.layer):
-            self.dev = self.layer.weight.device
-            W = self.layer.weight
-            self.layer.register_buffer(
-                "pruned_weight", torch.zeros(self.layer.weight.shape, device=self.dev)
-            )
-            if isinstance(self.layer, nn.Conv2d):
-                self.rows = W.shape[0]
-                self.columns = W.numel() / self.rows
-            if isinstance(self.layer, transformers.Conv1D):
-                self.rows = W.shape[1]
-                self.columns = W.shape[0]
-            else:
-                self.rows = W.shape[0]
-                self.columns = W.shape[1]
+        self.dev = self.layer.weight.device
+        W = self.layer.weight
+
+        if isinstance(self.layer, nn.Conv2d):
+            self.rows = W.shape[0]
+            self.columns = W.numel() / self.rows
+        if isinstance(self.layer, transformers.Conv1D):
+            self.rows = W.shape[1]
+            self.columns = W.shape[0]
+        else:
+            self.rows = W.shape[0]
+            self.columns = W.shape[1]
 
         # These need to be buffers so they are preserved between forward passes
         self.register_buffer(
@@ -121,12 +117,11 @@ class SGPTModuleWrapper(Module):
         :param percdamp: Amount of dampening to apply to H, as a fraction of the
         diagonal norm
         """
-        import copy
         self.dev = self.layer.weight.device
         self.H = self.H.to(self.dev)
         final_shape = self.layer.weight.shape
-        final_dtype = self.layer.weight.data.dtype
-        W = copy.deepcopy(self.layer.weight.data)
+        final_dtype = self.layer.weight.dtype
+        W = self.layer.weight.data.clone()
 
         if isinstance(self.layer, nn.Conv2d):
             W = W.flatten(1)
@@ -217,7 +212,10 @@ class SGPTModuleWrapper(Module):
 
         if isinstance(self.layer, transformers.Conv1D):
             W = W.t()
-        self.layer.pruned_weight = W.reshape(final_shape).to(final_dtype)
+        W = W.reshape(final_shape).to(final_dtype)
+        self.layer.weight -= self.layer.weight
+        self.layer.weight += W
+        return
 
     def free(self):
         """
@@ -225,7 +223,6 @@ class SGPTModuleWrapper(Module):
         """
         delattr(self, "H")
         delattr(self, "nsamples")
-        delattr(self.layer, "pruned_weight")
 
     def forward(self, *args, **kwargs):
         if not self.sgpt_enabled:
