@@ -403,6 +403,7 @@ def _match_submodule_name_or_type(
     submodule_match = ""
     for name_or_type in names_or_types:
         name_to_compare = submodule_name[:]
+        name_to_compare = name_to_compare.replace("_fsdp_wrapped_module.", "")
         if name_to_compare.startswith("module."):
             name_to_compare = name_to_compare[7:]
         if name_or_type == submodule.__class__.__name__:
@@ -467,6 +468,7 @@ def _validate_set_module_schemes(
             matched = False
             for submodule_name, submodule in model.named_modules():
                 name_to_compare = submodule_name[:]
+                name_to_compare = name_to_compare.replace("_fsdp_wrapped_module.", "")
                 if name_to_compare.startswith("module."):
                     name_to_compare = name_to_compare[7:]
                 if name_to_compare.startswith(type_or_name) or (

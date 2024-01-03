@@ -172,7 +172,8 @@ def main(
         "cache_dir": model_args.cache_dir,
         "revision": model_args.model_revision,
         "use_auth_token": True if model_args.use_auth_token else None,
-        "torch_dtype": parse_dtype(model_args.precision)
+        "torch_dtype": parse_dtype(model_args.precision),
+        "device_map": "cuda:0",
     }
     teacher_kwargs = {
         "cache_dir": model_args.cache_dir,
@@ -248,7 +249,7 @@ def main(
         tokenizer=tokenizer,
         data_collator=data_collator,
     )
-    stage_runner.set_trainer(trainer)
+    stage_runner.trainer = trainer
 
     # alternating Training/One-shot
     if training_args.run_stages:

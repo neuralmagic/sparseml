@@ -17,16 +17,15 @@ import os
 from typing import List, Optional
 
 import torch
-from torch.nn import Module
 from torch.distributed.fsdp import FullyShardedDataParallel
+from torch.nn import Module
 from torch.utils.data import DataLoader, Dataset, RandomSampler
 from transformers import AutoTokenizer
 
 import sparseml.core.session as session_manager
-from sparseml.core.framework import Framework
 from sparseml.core.recipe import Recipe, StageRunType
-from sparseml.pytorch.model_load.helpers import save_model_and_recipe, get_session_model
-from sparseml.transformers.finetune import Trainer, TrainingArguments
+from sparseml.pytorch.model_load.helpers import get_session_model, save_model_and_recipe
+from sparseml.transformers.finetune import TrainingArguments
 from sparseml.transformers.finetune.data import TextGenerationDataset
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
 from sparseml.transformers.finetune.data.data_helpers import make_dataset_splits
@@ -65,7 +64,6 @@ class StageRunner:
         self._training_args = training_args
 
         self.datasets = {}
-        self.model = model
         self.trainer = None
         self.tokenizer = None
         self._output_dir = self._training_args.output_dir
@@ -100,18 +98,6 @@ class StageRunner:
             do_oneshot=self._training_args.do_oneshot or self._training_args.run_stages,
         )
         self.tokenizer = tokenizer
-
-    def set_trainer(self, trainer: Trainer):
-        """
-        :param trainer: update trainer
-        """
-        self.trainer = trainer
-
-    def set_model(self, model: Module):
-        """
-        :param model: update pytorch model
-        """
-        self.model = model
 
     def get_dataset_split(self, split_name: str) -> Dataset:
         """
@@ -152,28 +138,16 @@ class StageRunner:
         _LOGGER.info("*** One Shot ***")
 
         calib_data = self.format_calibration_data()
-        session_manager.apply(
-            framework=Framework.pytorch,
-            recipe=self._training_args.recipe,
-            recipe_stage=stage,
-            model=self.model,
-            calib_data=calib_data,
-            start=-1,
-            copy_data=False,
-        )
+        self.trainer.one_shot(calib_data, stage=stage)
 
-        self.trainer.accelerator.wait_for_everyone()
-        if isinstance(self.model, FullyShardedDataParallel):
-            accelerator=self.trainer.accelerator
+        if isinstance(self.trainer.model, FullyShardedDataParallel):
+            self.trainer.save_model(output_dir=self._output_dir)
         else:
-            accelerator=None
-        
-        save_model_and_recipe(
-            model=self.model,
-            save_path=self._output_dir,
-            tokenizer=self.tokenizer,
-            accelerator=accelerator
-        )
+            save_model_and_recipe(
+                model=self.trainer.model,
+                save_path=self._output_dir,
+                tokenizer=self.tokenizer,
+            )
 
     def train(self, checkpoint: str, stage: Optional[str] = None):
         """
@@ -225,9 +199,6 @@ class StageRunner:
         """
 
         recipe_obj = Recipe.create_instance(self._training_args.recipe)
-        #if not isinstance(self.model, FullyShardedDataParallel):
-        #    self.model = self.trainer.accelerator.prepare(self.model)
-        #    self.trainer.model = self.model
 
         for stage in recipe_obj.stages:
             # validate stage
@@ -253,6 +224,8 @@ class StageRunner:
             if run_type is StageRunType.ONESHOT:
                 self.one_shot(stage=stage_name)
             elif run_type is StageRunType.TRAIN:
+                if not isinstance(self.trainer.model, FullyShardedDataParallel):
+                    self.trainer.model.to("cpu")
                 self.train(checkpoint=None, stage=stage_name)
 
             # setup for next stage
@@ -263,4 +236,3 @@ class StageRunner:
                 self.trainer.log_model_sparsification()
             self.trainer.accelerator.wait_for_everyone()
             self.trainer.model = get_session_model()
-            self.model = get_session_model()

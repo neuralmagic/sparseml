@@ -131,12 +131,6 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
 
         :param state: un-used, for matching spec of Modifier base class
         """
-        #@torch.no_grad()
-        #def apply_weights(module):
-        #    if hasattr(module, "pruned_weight"):
-        #        module.weight -= module.weight
-        #        module.weight += module.pruned_weight
-        #self.model.apply(apply_weights)
 
         for layer_compressor in self.layer_compressors:
             _LOGGER.info(f"Cleaning up {layer_compressor.name}")

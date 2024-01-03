@@ -14,9 +14,10 @@
 
 import logging
 from typing import Dict
+
 import torch
-from torch.nn import Module
 from torch.distributed.fsdp import FullyShardedDataParallel
+from torch.nn import Module
 
 from sparseml.modifiers.obcq.utils.sgpt_wrapper import SGPTModuleWrapper
 from sparseml.utils.pytorch import set_layer
@@ -107,7 +108,6 @@ class LayerCompressor:
         """
         Run SparseGPT compression on all compressible modules in the layer
         """
-        #sparsity = self.args["sparsity"]
         @torch.no_grad()
         def prune(module):
             if isinstance(module, SGPTModuleWrapper):
@@ -118,4 +118,5 @@ class LayerCompressor:
                     percdamp=self.args["percdamp"],
                     blocksize=self.args["blocksize"],
                 )
+
         self.layer.apply(prune)

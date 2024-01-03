@@ -26,6 +26,7 @@ from torch.distributed.fsdp import (
     StateDictType,
 )
 from torch.nn import Module
+from torch.utils.data import DataLoader
 from transformers.trainer_callback import TrainerState
 from transformers.trainer_utils import get_last_checkpoint
 
@@ -370,6 +371,25 @@ class SessionManagerMixIn:
         self.finalize_session()
 
         return output
+
+    def one_shot(self, calib_data: DataLoader, stage: Optional[str] = None):
+        """
+        Run oneshot calibration on the active model
+
+        :param stage: which stage of the recipe to run, or None to run whole recipe
+        :param calib_data: dataloader of calibration data
+        """
+        session_manager.apply(
+            framework=Framework.pytorch,
+            recipe=self.recipe,
+            recipe_stage=stage,
+            model=self.model,
+            calib_data=calib_data,
+            start=-1,
+            copy_data=False,
+        )
+
+        self.accelerator.wait_for_everyone()
 
     def save_model(
         self,

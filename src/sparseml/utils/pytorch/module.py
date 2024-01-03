@@ -22,11 +22,12 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import torch
 from packaging import version
+from torch.distributed.fsdp import FullyShardedDataParallel
 from torch.nn import Linear, Module, Parameter
 from torch.nn.modules.conv import _ConvNd
 
 from sparseml.core.model.base import ModelParameterizedLayer
-from torch.distributed.fsdp import FullyShardedDataParallel
+
 
 FSDP_WRAPPER_NAME = "_fsdp_wrapped_module."
 
