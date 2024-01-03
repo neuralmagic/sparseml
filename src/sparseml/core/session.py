@@ -271,8 +271,7 @@ class SparseSession:
         if loss is not None:
             self.state.loss = loss
 
-        self._log_model_info(event_type=event_type)
-        self._log_loss(event_type=event_type, loss=loss)
+        self.log(event_type=event_type, loss=loss)
 
         return ModifiedState(
             model=self.state.model.model if self.state.model else None,
@@ -280,6 +279,16 @@ class SparseSession:
             loss=self.state.loss,  # TODO: is this supposed to be a different type?
             modifier_data=mod_data,
         )
+
+    def log(self, event_type: EventType, loss: Optional[Any] = None):
+        """
+        Log model and loss information for the current event type
+
+        :param event_type: the event type to log for
+        :param loss: the loss to log if any
+        """
+        self._log_model_info()
+        self._log_loss(event_type=event_type, loss=loss)
 
     def reset(self):
         """
@@ -301,8 +310,8 @@ class SparseSession:
         recipe = self.lifecycle.recipe_container.compiled_recipe
         return recipe.yaml()
 
-    def _log_model_info(self, event_type: EventType):
-        # Log model level logs if needed
+    def _log_model_info(self):
+        # Log model level logs if cadence reached
 
         epoch = self._lifecycle.event_lifecycle.current_index
 
