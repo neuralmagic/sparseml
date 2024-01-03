@@ -322,6 +322,7 @@ class SparseSession:
             return
 
         current_step = self._lifecycle.event_lifecycle.current_index
+        loss = loss if isinstance(loss, dict) else {"loss": loss}
         self.state.loggers.metric.log_scalars(
             tag="Loss", values=loss, step=current_step
         )

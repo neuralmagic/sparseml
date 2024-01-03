@@ -826,12 +826,16 @@ class LoggerManager(ABC):
         mode: LoggingModeType = "exact",
         frequency_type: FrequencyType = "epoch",
     ):
-        self._loggers = loggers or []
         self._name = name
-        if log_python and not any(
-            isinstance(log, PythonLogger) for log in self._loggers
-        ):
-            self._loggers.append(PythonLogger())
+        self._loggers = (
+            loggers
+            or SparsificationGroupLogger(
+                python=log_python,
+                name=name,
+                tensorboard=True,
+                wandb_=True,
+            ).loggers
+        )
 
         self.frequency_manager = FrequencyManager(
             mode=mode,
