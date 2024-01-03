@@ -138,7 +138,6 @@ def initialize_sparse_model(
         recipe=recipe,
         **model_kwargs,
     )
-    model.train()
     if device:
         # if device is a list of devices, then we assume we want to use multiple gpus
         # (wrap the model in a DataParallel) e.g. device = 'cuda:0,1,...'
