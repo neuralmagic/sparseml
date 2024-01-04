@@ -104,7 +104,6 @@ class TopKASTPruningModifier(BasePruningModifier):
         mask_type: str = "unstructured",
         active_weight_decay: float = 0.0001,
     ):
-
         self._mask_type = mask_type
 
         super(TopKASTPruningModifier, self).__init__(
@@ -262,9 +261,7 @@ class TopKASTPruningModifier(BasePruningModifier):
                 epoch, steps_per_epoch
             )
 
-            self._module_masks.update_param_masks(
-                target=self._applied_sparsity
-            )
+            self._module_masks.update_param_masks(target=self._applied_sparsity)
             self._grad_module_masks.update_param_masks(
                 target=self._grad_applied_sparsity
             )

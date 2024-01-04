@@ -36,7 +36,7 @@ from tests.sparseml.pytorch.helpers import (  # noqa isort:skip
 
 
 def create_optim_sgd(
-    model: Module, lr: float = 0.25, momentum: float = 0., weight_decay: float = 0.
+    model: Module, lr: float = 0.25, momentum: float = 0.0, weight_decay: float = 0.0
 ) -> SGD:
     return SGD(model.parameters(), lr=lr, momentum=momentum, weight_decay=weight_decay)
 
@@ -56,7 +56,7 @@ def create_optim_adam(model: Module, lr: float = 0.25) -> Adam:
             update_frequency=5,
             params=["re:.*weight"],
             leave_enabled=True,
-            active_weight_decay=0.0002
+            active_weight_decay=0.0002,
         ),
         lambda: TopKASTPruningModifier(
             forward_sparsity=0.9,
@@ -79,11 +79,10 @@ def create_optim_adam(model: Module, lr: float = 0.25) -> Adam:
     ],
     scope="function",
 )
-
 @pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
 @pytest.mark.parametrize(
     "optim_lambda",
-    [create_optim_sgd],#, create_optim_adam],
+    [create_optim_sgd],
     scope="function",
 )
 class TestTopKASTPruningModifier(ScheduledModifierTest):
@@ -126,13 +125,15 @@ class TestTopKASTPruningModifier(ScheduledModifierTest):
             assert not modifier.update_ready(epoch, test_steps_per_epoch)
             _test_compression_sparsity_applied()
 
-
+    # This test evaluates whether the gradients computed when Top-Kast
+    # is applied (so there is a forward mask) match those when the remaining
+    # parameters are explicitly sset to 0.
     def test_topkast_forward_masking(
         self,
         modifier_lambda,
         model_lambda,
         optim_lambda,
-        test_steps_per_epoch,  # noqa: f811
+        test_steps_per_epoch,  # noqa: F811
     ):
         modifier = modifier_lambda()
         model = model_lambda()
@@ -147,32 +148,40 @@ class TestTopKASTPruningModifier(ScheduledModifierTest):
             if modifier.update_ready(epoch, test_steps_per_epoch):
                 modifier.scheduled_update(model, optimizer, epoch, test_steps_per_epoch)
 
-            # cache the model's weights before masking.
+            # cache the model's weights before masking, so we can restore at
+            # the end of the test.
             model_state_dict = copy.deepcopy(model.state_dict())
+
+            # Compute gradients using full weights but Top-Kast modifier.
             optimizer.zero_grad()
             model(torch.randn(batch_shape, *input_shape)).mean().backward()
             grads_from_full_model = {}
             for i, param in enumerate(modifier._module_masks._params):
                 grads_from_full_model[i] = modifier._module_masks._params[i].grad
+
+            # Now compute grads when the masked weights are actually just 0.
+            optimizer.zero_grad()
             with torch.no_grad():
                 for i, param in enumerate(modifier._module_masks._params):
                     param.data.mul_(modifier._module_masks.param_masks[i])
-            optimizer.zero_grad()
             model(torch.randn(batch_shape, *input_shape)).mean().backward()
             for i, param in enumerate(modifier._module_masks._params):
-                assert torch.allclose(grads_from_full_model[i], modifier._module_masks._params[i].grad)
+                assert torch.allclose(
+                    grads_from_full_model[i], modifier._module_masks._params[i].grad
+                )
+
             # Restore the unmasked weights to continue the test.
             model.load_state_dict(model_state_dict)
             optimizer.step()
             epoch += 1
 
-
+    # Test whether the gradients are masked and applied  correctly.
     def test_topkast_gradient_masking(
         self,
         modifier_lambda,
         model_lambda,
         optim_lambda,
-        test_steps_per_epoch,  # noqa: f811
+        test_steps_per_epoch,  # noqa: F811
     ):
         modifier = modifier_lambda()
         model = model_lambda()
@@ -189,11 +198,13 @@ class TestTopKASTPruningModifier(ScheduledModifierTest):
 
             # cache the model's weights before optimizer step.
             layer_weights_pre = copy.deepcopy(modifier._module_masks)
+
             optimizer.zero_grad()
             model(torch.randn(batch_shape, *input_shape)).mean().backward()
             optimizer.step()
 
             for i, param in enumerate(modifier._module_masks._params):
+                # Params  masked by the backward mask shouldn't change.
                 unchanged_mask = (1 - modifier._grad_module_masks.param_masks[i]).bool()
                 forward_mask = (modifier._module_masks.param_masks[i]).bool()
                 backward_mask = (
@@ -206,19 +217,27 @@ class TestTopKASTPruningModifier(ScheduledModifierTest):
                 assert torch.equal((~forward_mask), backward_mask + unchanged_mask)
                 assert torch.equal((~backward_mask), forward_mask + unchanged_mask)
 
-
-                # Confirm that the gradients were only applied to those weights which are in the backward mask.
+                # Confirm that the gradients were only applied to those weights that
+                # are in the backward mask.
+                # We are using SGD with no momentum as the optimizer, so we can check
+                # the calculation explicitly.
                 assert torch.equal(
                     modifier._module_masks._params[i][unchanged_mask],
                     layer_weights_pre._params[i][unchanged_mask],
                 )
                 assert torch.allclose(
                     modifier._module_masks._params[i][forward_mask],
-                    (layer_weights_pre._params[i]-0.25*modifier._module_masks._params[i].grad)[forward_mask],
+                    (
+                        layer_weights_pre._params[i]
+                        - 0.25 * modifier._module_masks._params[i].grad
+                    )[forward_mask],
                 )
                 assert torch.allclose(
                     modifier._module_masks._params[i][backward_mask],
-                    (layer_weights_pre._params[i]-0.25*modifier._module_masks._params[i].grad)[backward_mask],
+                    (
+                        layer_weights_pre._params[i]
+                        - 0.25 * modifier._module_masks._params[i].grad
+                    )[backward_mask],
                 )
 
             epoch += 1
@@ -229,7 +248,7 @@ class TestTopKASTPruningModifier(ScheduledModifierTest):
         modifier_lambda,
         model_lambda,
         optim_lambda,
-        test_steps_per_epoch,  # noqa: f811
+        test_steps_per_epoch,  # noqa: F811
     ):
         modifier = modifier_lambda()
         model = model_lambda()
@@ -276,7 +295,7 @@ class TestTopKASTPruningModifier(ScheduledModifierTest):
                 assert torch.allclose(
                     modifier._module_masks._params[i][backward_mask],
                     layer_weights_pre._params[i][backward_mask]
-                    * (1 - 0.0002 * 0.25 * 1 / (1-modifier._forward_sparsity)),
+                    * (1 - 0.0002 * 0.25 * 1 / (1 - modifier._forward_sparsity)),
                     atol=1e-7,
                     equal_nan=True,
                 )
