@@ -22,16 +22,20 @@ RUN set -Eeuxo \
         git-all \
     && add-apt-repository -y ppa:deadsnakes \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        python3.8-dev \
-        python3.8-venv \
+        python3.8 python3.8-venv python3-pip\
         build-essential libssl-dev libffi-dev \
         ffmpeg libsm6 libxext6 \
-        curl \
+        curl 
+
+# Install virtualenv and create a virtual environment
+RUN set -Eeuxo \
+    && apt-get update \
+    && python3.8 -m pip install --upgrade virtualenv \
+    && python3.8 -m virtualenv --python=/usr/bin/python3.8 $VENV \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Activate venv
-RUN python3.8 -m venv $VENV
+# Add the virtual environment to the $PATH
 ENV PATH="${VENV}/bin:$PATH"
 
 FROM base as cuda-10.2

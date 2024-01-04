@@ -26,6 +26,8 @@ from sparseml.modifiers.utils.pytorch_helpers import run_calibration_forward
 
 _LOGGER = logging.getLogger(__name__)
 
+MINIMUM_SMOOTHING_SCALE = 1e-5
+
 __all__ = ["SmoothQuantModifierPyTorch"]
 
 
@@ -156,6 +158,9 @@ class SmoothQuantModifierPyTorch(SmoothQuantModifier):
             balance_layers = mapping.balance_layers
 
             scales = self._calculate_smoothing_scales(balance_layers, activation_scales)
+            scales = torch.maximum(
+                scales, torch.Tensor([MINIMUM_SMOOTHING_SCALE]).to(scales.device)
+            )
 
             # invert the smoothing in the following layers
             for layer in balance_layers:

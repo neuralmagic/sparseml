@@ -13,7 +13,10 @@
 # limitations under the License.
 
 
+import os
+
 import click
+from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
 from sparseml.yolov8.trainers import SparseYOLO
 
 
@@ -36,9 +39,9 @@ from sparseml.yolov8.trainers import SparseYOLO
 )
 @click.option(
     "--opset",
-    default=13,
+    default=TORCH_DEFAULT_ONNX_OPSET,
     type=int,
-    help="The opset version to export the ONNX model with. " "Defaults to 13",
+    help="The opset version to export the ONNX model with.",
 )
 @click.option(
     "--imgsz",
@@ -86,6 +89,12 @@ from sparseml.yolov8.trainers import SparseYOLO
     help="Path to override default dataset path.",
 )
 def main(**kwargs):
+
+    if not os.path.isfile(kwargs["model"]):
+        raise ValueError(
+            "model must be a path to an individual model file such as `model.pt`, "
+            f"{kwargs['model']} either is a directory or does not exist"
+        )
 
     model = SparseYOLO(kwargs["model"])
     model.export(**kwargs)

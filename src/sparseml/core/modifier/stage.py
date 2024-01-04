@@ -13,6 +13,7 @@
 # limitations under the License.
 
 
+import logging
 from typing import List, Optional
 
 from pydantic import BaseModel, Field
@@ -25,6 +26,8 @@ from sparseml.core.state import State
 
 __all__ = ["StageModifiers"]
 
+_LOGGER = logging.getLogger(__name__)
+
 
 class StageModifiers(ModifierInterface, BaseModel):
     """
@@ -33,11 +36,14 @@ class StageModifiers(ModifierInterface, BaseModel):
     :param modifiers: The modifiers to apply as a stage
     :param index: The index of the stage, if applicable
     :param group: The group name of the stage, if applicable
+    :param applied: Flag for indicating if this stage has has already been
+    applied to the model, through structure initialization or finalization
     """
 
     modifiers: List["Modifier"] = Field(default_factory=list)
     index: Optional[int] = None
     group: Optional[str] = None
+    applied: bool = False
 
     @property
     def initialized_structure(self) -> bool:
@@ -63,14 +69,30 @@ class StageModifiers(ModifierInterface, BaseModel):
         """
         return all(mod.finalized for mod in self.modifiers)
 
+    @property
+    def unique_id(self) -> str:
+        """
+        :return: ID for stage containing the name and index
+        """
+        return self.group + "_" + str(self.index)
+
     def check_initialized(self):
         """
-        Check if all of the stage modifiers have been initialized,
-        raises an exception if not
+        Check if all of the stage modifiers have been initialized, and log a warning
+        if not. This warning is expected when loading an input recipe during finetuning
         """
 
+        at_least_one_initialized = False
         for modifier in self.modifiers:
-            modifier.check_initialized()
+            if modifier.initialized:
+                at_least_one_initialized = True
+        if not at_least_one_initialized:
+            modifier_names = [type(mod).__name__ for mod in self.modifiers]
+            _LOGGER.warning(
+                f"Found no initialized modifiers in stage {self.group}. "
+                "Found the following uninitialized modifiers: "
+                f"{modifier_names}"
+            )
 
     def calculate_start(self) -> float:
         """
@@ -84,15 +106,14 @@ class StageModifiers(ModifierInterface, BaseModel):
 
     def calculate_end(self) -> float:
         """
-        :return: The maximum end time of all the stage modifiers
+        :return: The maximum end time of all the stage modifiers, or -1 if none of the
+        modifiers have set ends
         """
-        return max(
-            mod.calculate_end() for mod in self.modifiers if mod.calculate_end() >= 0
-        )
+        return max(mod.calculate_end() for mod in self.modifiers)
 
     def pre_initialize_structure(self, state: "State", **kwargs):
         """
-        Pre initialize the structure for all stage modifiers
+        Pre initialize the structure for all stage modifiers mark the stage applied
 
         :param state: The current state of the training
         :param kwargs: Additional kwargs to pass to the modifier(s)
@@ -100,6 +121,8 @@ class StageModifiers(ModifierInterface, BaseModel):
         """
         for modifier in self.modifiers:
             modifier.pre_initialize_structure(state, **kwargs)
+
+        self.applied = True
 
     def initialize(self, state: "State", **kwargs):
         """
@@ -109,19 +132,29 @@ class StageModifiers(ModifierInterface, BaseModel):
         :param kwargs: Additional kwargs to pass to the modifier(s)
             initialize method
         """
+
+        if self.applied:
+            return
+
         for modifier in self.modifiers:
             modifier.initialize(state, **kwargs)
 
     def finalize(self, state: "State", **kwargs):
         """
-        Finalize all the stage modifiers
+        Finalize all the stage modifiers and mark the stage as applied
 
         :param state: The state of current session
         :param kwargs: Additional kwargs to pass to the modifier(s)
             finalize method
         """
+
+        if self.applied:
+            return
+
         for modifier in self.modifiers:
             modifier.finalize(state, **kwargs)
+
+        self.applied = True
 
     def update_event(self, state: "State", event: "Event", **kwargs):
         """
@@ -132,5 +165,9 @@ class StageModifiers(ModifierInterface, BaseModel):
         :param kwargs: Additional kwargs to pass to the modifier(s)
             update_event method
         """
+
+        if self.applied:
+            return
+
         for modifier in self.modifiers:
             modifier.update_event(state, event, **kwargs)
