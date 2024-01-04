@@ -38,7 +38,9 @@ class TransformersDataset(RegistryMixin, Dataset):
         shuffle: bool = True,
         **kwargs,
     ):
-        self.tokenizer = AutoTokenizer.from_pretrained(model, use_fast=True)
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            model, use_fast=True, trust_remote_code=True
+        )
         self._nsamples = nsamples
         self._seqlen = seqlen
         self._use_max_tokens = use_max_tokens
