@@ -37,7 +37,6 @@ from tests.sparseml.pytorch.helpers import (  # noqa isort:skip
 
 def create_optim_sgd(
     model: Module, lr: float = 0.25, momentum: float = 0.0, weight_decay: float = 0.0
-
 ) -> SGD:
     return SGD(model.parameters(), lr=lr, momentum=momentum, weight_decay=weight_decay)
 
