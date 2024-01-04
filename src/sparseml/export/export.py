@@ -247,9 +247,7 @@ def export(
                 "To enable the validation, set `num_export_samples`"
                 "to True"
             )
-        result = validate_correctness_(target_path, deployment_path, onnx_model_name)
-        if not result:
-            _LOGGER.warning("Model correctness validation failed.")
+        validate_correctness_(target_path, deployment_path, onnx_model_name)
 
     _LOGGER.info(
         f"Successfully exported model from:\n{target_path}"

@@ -16,6 +16,7 @@ import logging
 import os
 import shutil
 import tarfile
+from collections import OrderedDict
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -221,12 +222,12 @@ def run_inference_with_tuple_or_list_data(
     :return: The inputs, labels and outputs
     """
     inputs, labels = data
-    if len(inputs.size()) == 4:
-        # if the input is a batch, remove the batch dimension
-        inputs = torch.squeeze(inputs, 0)
 
     outputs = model(inputs) if model else None
     if isinstance(outputs, tuple):
         # outputs_ contains (logits, scores)
-        outputs = {"logits": outputs[0], "scores": outputs[1]}
+        outputs = OrderedDict(logits=outputs[0], scores=outputs[1])
+    if len(inputs.size()) == 4:
+        # if the input is a batch, remove the batch dimension
+        inputs = torch.squeeze(inputs, 0)
     return inputs, labels, outputs

@@ -28,6 +28,7 @@ from sparsezoo import Model
     "stub, task",
     [
         ("zoo:obert-medium-squad_wikipedia_bookcorpus-pruned95_quantized", "qa"),
+        ("zoo:roberta-large-squad_v2_wikipedia_bookcorpus-base", "qa"),
     ],
 )
 class TestEndToEndExport:
@@ -109,10 +110,10 @@ class TestEndToEndExport:
             single_graph_file=False,
         )
 
-    def test_export_validate_correctness(self, setup):
+    def test_export_validate_correctness(self, caplog, setup):
         source_path, target_path, task = setup
 
-        num_samples = 4
+        num_samples = 3
 
         export(
             source_path=source_path,
@@ -123,19 +124,12 @@ class TestEndToEndExport:
             **dict(data_args=dict(dataset_name="squad")),
         )
 
+        assert "ERROR" not in caplog.text
+
     @staticmethod
     def _test_exported_sample_data_structure(
         new_samples_dir, old_samples_dir, file_prefix
     ):
-        if file_prefix == "inp":
-            # define the name of the input array of the newly generated sample nad
-            # the name of the input array of the downloaded, existing sample
-            array_name = "input_ids"
-        elif file_prefix == "out":
-            array_name = "start_logits"
-        else:
-            raise ValueError(f"Unknown file prefix {file_prefix}")
-
         assert new_samples_dir.exists()
         assert set(os.listdir(new_samples_dir)) == set(os.listdir(old_samples_dir))
 
@@ -143,9 +137,10 @@ class TestEndToEndExport:
         # generated samples and the downloaded samples
         sample_input_new = np.load(
             os.path.join(new_samples_dir, f"{file_prefix}-0000.npz")
-        )[array_name]
+        )
         sample_input_old = np.load(
             os.path.join(old_samples_dir, f"{file_prefix}-0000.npz")
-        )[array_name]
+        )
 
-        assert sample_input_new.shape == sample_input_old.shape
+        for s1, s2 in zip(sample_input_new.values(), sample_input_old.values()):
+            assert s1.shape == s2.shape

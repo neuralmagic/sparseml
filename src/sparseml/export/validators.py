@@ -12,15 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import glob
 import logging
 import os.path
+from collections import OrderedDict
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import Callable, List, Optional, Union
+
+import numpy
+import onnxruntime as ort
 
 from sparseml.export.export_data import InputsNames, LabelNames, OutputsNames
 from sparseml.export.helpers import ONNX_MODEL_NAME
-from sparsezoo.inference import InferenceRunner
-from sparsezoo.objects import File, NumpyDirectory
+from sparsezoo.utils.numpy import load_numpy
 
 
 __all__ = ["validate_correctness", "validate_structure"]
@@ -98,47 +102,79 @@ def check_file_presence(file_paths: List[str]) -> List[str]:
     return missing_files
 
 
-# TODO: Need to add few changes to sparsezoo to support this function
+def top_k_match(
+    ground_truth: numpy.ndarray, prediction: numpy.ndarray, k: int = 2
+) -> bool:
+    """
+    Checks if the top k predictions match the ground truth.
+
+    :param ground_truth: The ground truth array.
+    :param prediction: The prediction array.
+    :param k: The number of top predictions to consider.
+    """
+    top_k_prediction = numpy.argsort(prediction.flatten())[-k:]
+    top_k_ground_truth = numpy.argsort(ground_truth.flatten())[-k:]
+    return numpy.all(top_k_prediction == top_k_ground_truth)
+
+
 def validate_correctness(
-    target_path: Union[str, Path], directory: Union[str, Path], onnx_model_name: str
+    target_path: Union[str, Path],
+    directory: Union[str, Path],
+    onnx_model_name: str,
+    validation_function: Callable[..., bool] = top_k_match,
 ) -> bool:
     """
     Validates the correctness of the exported ONNX model by
     running it on a set of sample inputs and comparing the
-    resulting outputs with precomputed ground truth values.
+    resulting outputs using a validation function.
 
     :param target_path: The directory where the sample inputs and outputs are stored.
     :param directory: The directory where the ONNX model is stored.
     :param onnx_model_name: The name of the ONNX model.
+    :param validation_function: The function that will be used to validate the outputs.
+    :return: True if the validation passes, False otherwise.
     """
-    # TODO: During testing add a support for tar.gz scenario (potentially)
+
     sample_inputs_path = os.path.join(target_path, InputsNames.basename.value)
     sample_outputs_path = os.path.join(target_path, OutputsNames.basename.value)
 
-    sample_inputs = NumpyDirectory(
-        name=InputsNames.basename.value,
-        files=[
-            File(name=file_name, path=os.path.join(sample_inputs_path, file_name))
-            for file_name in os.listdir(sample_inputs_path)
-        ],
-        path=sample_inputs_path,
-    )
-    sample_outputs = NumpyDirectory(
-        name=OutputsNames.basename.value,
-        files=[
-            File(name=file_name, path=os.path.join(sample_outputs_path, file_name))
-            for file_name in os.listdir(sample_outputs_path)
-        ],
-        path=sample_outputs_path,
-    )
-    onnx_model = File(
-        name=onnx_model_name, path=os.path.join(directory, onnx_model_name)
-    )
+    sample_inputs_files = sorted(glob.glob(os.path.join(sample_inputs_path, "*")))
+    sample_outputs_files = sorted(glob.glob(os.path.join(sample_outputs_path, "*")))
 
-    runner = InferenceRunner(
-        sample_inputs=sample_inputs,
-        sample_outputs=sample_outputs,
-        onnx_file=onnx_model,
-    )
+    session = ort.InferenceSession(os.path.join(directory, onnx_model_name))
 
-    return runner.validate_with_onnx_runtime()
+    validations = (
+        []
+    )  # stores boolean per sample pair (True if validation passes, False otherwise)
+
+    for sample_input_file, sample_output_file in zip(
+        sample_inputs_files, sample_outputs_files
+    ):
+        sample_input = load_numpy(sample_input_file)
+        sample_output = load_numpy(sample_output_file)
+
+        sample_input_with_batch_dim = OrderedDict(
+            (key, numpy.expand_dims(value, 0)) for key, value in sample_input.items()
+        )
+        outputs = session.run(None, sample_input_with_batch_dim)
+        if isinstance(outputs, list):
+            validations_sample = []
+            for o1, o2 in zip(outputs, sample_output.values()):
+                validations_sample.append(validation_function(o1, o2))
+            validations.append(all(validations_sample))
+        else:
+            validations.append(validation_function(outputs, sample_output))
+
+    if not all(validations):
+        _LOGGER.error(
+            f"Correctness validation failed for exported model: {onnx_model_name}. "
+            "The model outputs match the expected outputs "
+            f"only for {sum(validations)}/{len(validations)} samples "
+            f"(according to the validation function: {validation_function.__name__}."
+        )
+        return False
+
+    _LOGGER.info(
+        f"Successfully validated the exported model on all {len(validations)} samples."
+    )
+    return True
