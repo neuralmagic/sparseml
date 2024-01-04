@@ -48,7 +48,6 @@ import click
 from sparseml.optim.helpers import load_recipe_yaml_str
 from sparseml.pytorch.models.registry import ModelRegistry
 from sparseml.pytorch.optim import ScheduledModifierManager
-from sparseml.pytorch.optim.analyzer_module import ModuleAnalyzer
 from sparseml.pytorch.torchvision import presets, transforms, utils
 from sparseml.pytorch.torchvision.sampler import RASampler
 from sparseml.pytorch.utils.helpers import (
@@ -94,7 +93,6 @@ def train_one_epoch(
     manager=None,
     model_ema=None,
     scaler=None,
-    flops_analyzer=None,
 ) -> utils.MetricLogger:
     accum_steps = args.gradient_accum_steps
 
@@ -107,13 +105,6 @@ def train_one_epoch(
     metric_logger.add_meter("loss", utils.SmoothedValue(window_size=accum_steps))
     metric_logger.add_meter("acc1", utils.SmoothedValue(window_size=accum_steps))
     metric_logger.add_meter("acc5", utils.SmoothedValue(window_size=accum_steps))
-    if flops_analyzer is not None:
-        metric_logger.add_meter(
-            "flops_per_epoch", utils.SmoothedValue(window_size=1, fmt="{value}")
-        )
-        metric_logger.add_meter(
-            "total_flops", utils.SmoothedValue(window_size=1, fmt="{value}")
-        )
 
     steps_accumulated = 0
     num_optim_steps = 0
@@ -187,10 +178,6 @@ def train_one_epoch(
         metric_logger.meters["imgs_per_sec"].update(
             batch_size / (time.time() - start_time)
         )
-        if flops_analyzer is not None:
-            layer_sparsity = ModuleAnalyzer._mod_desc(model)
-            metric_logger.meters["total_flops"].update(layer_sparsity.total_flops)
-            metric_logger.meters["flops_per_epoch"].update(layer_sparsity.flops)
 
         if args.eval_steps is not None and num_optim_steps % args.eval_steps == 0:
             eval_metrics = evaluate(model, criterion, data_loader_test, device)
@@ -711,9 +698,6 @@ def main(args):
 
     start_time = time.time()
     max_epochs = manager.max_epochs if manager is not None else args.epochs
-    flops_analyzer = None
-    if args.track_flops:
-        flops_analyzer = ModuleAnalyzer(model, enabled=True)
     for epoch in range(args.start_epoch, max_epochs):
         if args.distributed:
             train_sampler.set_epoch(epoch)
@@ -735,7 +719,6 @@ def main(args):
             manager=manager,
             model_ema=model_ema,
             scaler=scaler,
-            flops_analyzer=flops_analyzer,
         )
         log_metrics("Train", train_metrics, epoch, steps_per_epoch)
 
@@ -1296,15 +1279,6 @@ def _deprecate_old_arguments(f):
     help=(
         "RGB standard-deviation values used to normalize input RGB values; "
         "Note: Will use ImageNet values if not specified."
-    ),
-)
-@click.option(
-    "--track-flops",
-    is_flag=True,
-    default=False,
-    help=(
-        "If true, estimate FLOPs (floating point operations) of forward "
-        "passes during training."
     ),
 )
 @click.pass_context
