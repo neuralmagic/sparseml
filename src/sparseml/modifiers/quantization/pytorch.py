@@ -129,26 +129,29 @@ class QuantizationModifierPyTorch(QuantizationModifier):
         module.apply(torch.quantization.enable_observer)
 
         if not self.qat_enabled_:
-            # fuse conv-bn-relu blocks prior to quantization emulation
-            self._fuse(module)
+            from torch.distributed.fsdp import FullyShardedDataParallel
 
-            # add quantization_schemes to target submodules
-            set_quantization_schemes(
-                module,
-                scheme=self.scheme,
-                scheme_overrides=self.scheme_overrides,
-                ignore=self.ignore,
-                strict=self.strict,
-            )
+            with FullyShardedDataParallel.summon_full_params(module):
+                # fuse conv-bn-relu blocks prior to quantization emulation
+                self._fuse(module)
 
-            # fix for freezing batchnorm statistics when not fusing BN with convs.
-            # pytorch only supports freezing batchnorm statistics for fused modules.
-            # this fix wraps BN modules adding with a new module class that supports
-            # methods related to freezing/unfreezing BN statistics.
-            configure_module_bn_wrappers(module)
+                # add quantization_schemes to target submodules
+                set_quantization_schemes(
+                    module,
+                    scheme=self.scheme,
+                    scheme_overrides=self.scheme_overrides,
+                    ignore=self.ignore,
+                    strict=self.strict,
+                )
 
-            # convert target qconfig layers to QAT modules with FakeQuantize
-            convert_module_qat_from_schemes(module)
+                # fix for freezing batchnorm statistics when not fusing BN with convs.
+                # pytorch only supports freezing batchnorm statistics for fused modules.
+                # this fix wraps BN modules adding with a new module class that supports
+                # methods related to freezing/unfreezing BN statistics.
+                configure_module_bn_wrappers(module)
+
+                # convert target qconfig layers to QAT modules with FakeQuantize
+                convert_module_qat_from_schemes(module)
 
         self.qat_enabled_ = True
 

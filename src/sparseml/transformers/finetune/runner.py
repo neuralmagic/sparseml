@@ -17,7 +17,11 @@ import os
 from typing import List, Optional
 
 import torch
-from torch.distributed.fsdp import FullyShardedDataParallel
+from torch.distributed.fsdp import (
+    FullStateDictConfig,
+    FullyShardedDataParallel,
+    StateDictType,
+)
 from torch.nn import Module
 from torch.utils.data import DataLoader, Dataset, RandomSampler
 from transformers import AutoTokenizer
@@ -30,6 +34,7 @@ from sparseml.transformers.finetune.data import TextGenerationDataset
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
 from sparseml.transformers.finetune.data.data_helpers import make_dataset_splits
 from sparseml.transformers.finetune.model_args import ModelArguments
+from sparseml.utils.pytorch import qat_active, set_layer
 
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
@@ -141,7 +146,33 @@ class StageRunner:
         self.trainer.one_shot(calib_data, stage=stage)
 
         if isinstance(self.trainer.model, FullyShardedDataParallel):
-            self.trainer.save_model(output_dir=self._output_dir)
+            try:
+                self.trainer.save_model(output_dir=self._output_dir)
+            except AssertionError:
+                # fallback to this in the case of quantization
+                full_state_dict_config = FullStateDictConfig(
+                    offload_to_cpu=True, rank0_only=True
+                )
+                with FullyShardedDataParallel.state_dict_type(
+                    self.trainer.model,
+                    StateDictType.FULL_STATE_DICT,
+                    full_state_dict_config,
+                ):
+                    unwrapped_model = self.trainer.accelerator.unwrap_model(
+                        self.trainer.model
+                    )
+                    for name, module in unwrapped_model.named_modules():
+                        if isinstance(module, FullyShardedDataParallel):
+                            set_layer(
+                                name,
+                                self.trainer.accelerator.unwrap_model(module),
+                                unwrapped_model,
+                            )
+                    save_model_and_recipe(
+                        model=unwrapped_model,
+                        save_path=self._output_dir,
+                        tokenizer=self.tokenizer,
+                    )
         else:
             save_model_and_recipe(
                 model=self.trainer.model,
@@ -232,7 +263,9 @@ class StageRunner:
             session = session_manager.active_session()
             session.reset_stage()
 
-            if self.trainer.accelerator.is_main_process:
-                self.trainer.log_model_sparsification()
+            with FullyShardedDataParallel.summon_full_params(self.trainer.model):
+                if self.trainer.accelerator.is_main_process:
+                    if not qat_active(self.trainer.model):
+                        self.trainer.log_model_sparsification()
             self.trainer.accelerator.wait_for_everyone()
             self.trainer.model = get_session_model()

@@ -108,6 +108,7 @@ class LayerCompressor:
         """
         Run SparseGPT compression on all compressible modules in the layer
         """
+
         @torch.no_grad()
         def prune(module):
             if isinstance(module, SGPTModuleWrapper):
