@@ -42,6 +42,8 @@ class SparseGPTModifier(WandaPruningModifier):
         in the recipe
     :param dampening_frac: Amount of dampening to apply to H, as a fraction of the
         diagonal norm
+    :param sequential_update: Whether or not to update weights sequentially by layer,
+        True saves on GPU memory
     :param mask_structure: String to define the structure of the mask to apply.
         Must be of the form N:M where N, M are integers that define a custom block
         shape. Defaults to 0:0 which represents an unstructured mask.
@@ -55,7 +57,10 @@ class SparseGPTModifier(WandaPruningModifier):
     quantize: Union[bool, Dict]
     dampening_frac: Optional[float] = 0.01
     sequential_update: Optional[bool] = True
+    prunen_: Optional[int] = None
+    prunem_: Optional[int] = None
     target_ids: Optional[List[str]] = None
+    layer_prefix: Optional[str] = None
     quantization_modifier_: Any = None
 
     def __post_init__(self):
