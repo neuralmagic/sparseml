@@ -13,7 +13,8 @@
 # limitations under the License.
 
 import time
-from typing import Optional, Set
+
+from sparseml.modifiers.utils.compression_wrapper import ModuleCompressionWrapper
 
 
 try:
@@ -27,15 +28,14 @@ import math
 
 import torch
 import torch.nn as nn
-from torch.nn import Module
 
 
-__all__ = ["SGPTModuleWrapper"]
+__all__ = ["SparseGptWrapper"]
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class SGPTModuleWrapper(Module):
+class SparseGptWrapper(ModuleCompressionWrapper):
     """
     Runs SparseGPT on a single module that contains no sub-modules
 
@@ -49,33 +49,11 @@ class SGPTModuleWrapper(Module):
     """
 
     def __init__(self, layer):
-        super(SGPTModuleWrapper, self).__init__()
+        super().__init__(layer=layer)
 
-        if transformers is None:
-            raise transformers_err
-
-        self.layer = layer
-        self.dev = self.layer.weight.device
-        W = self.layer.weight
-
-        if isinstance(self.layer, nn.Conv2d):
-            self.rows = W.shape[0]
-            self.columns = W.numel() / self.rows
-        if isinstance(self.layer, transformers.Conv1D):
-            self.rows = W.shape[1]
-            self.columns = W.shape[0]
-        else:
-            self.rows = W.shape[0]
-            self.columns = W.shape[1]
-
-        # These need to be buffers so they are preserved between forward passes
         self.register_buffer(
             "H", torch.zeros((self.columns, self.columns), device=self.dev)
         )
-        self.register_buffer(
-            "nsamples", torch.zeros(1, dtype=torch.int32, device=self.dev)
-        )
-        self.sgpt_enabled = False
 
     def add_batch(self, inp: torch.Tensor, out: torch.Tensor):
         """
@@ -117,8 +95,8 @@ class SGPTModuleWrapper(Module):
         :param percdamp: Amount of dampening to apply to H, as a fraction of the
         diagonal norm
         """
-        self.dev = self.layer.weight.device
-        self.H = self.H.to(self.dev)
+        # self.dev = self.layer.weight.device
+        # self.H = self.H.to(self.dev)
         final_shape = self.layer.weight.shape
         final_dtype = self.layer.weight.dtype
         W = self.layer.weight.data.clone()
@@ -215,35 +193,10 @@ class SGPTModuleWrapper(Module):
         W = W.reshape(final_shape).to(final_dtype)
         self.layer.weight -= self.layer.weight
         self.layer.weight += W
-        return
 
     def free(self):
         """
         Free the Hessian memory after the layer is complete
         """
         delattr(self, "H")
-        delattr(self, "nsamples")
-
-    def forward(self, *args, **kwargs):
-        if not self.sgpt_enabled:
-            return self.layer(*args, **kwargs)
-
-        return self.layer(*args, **kwargs)
-
-    def state_dict(self, destination=None, prefix="", keep_vars=False, **kwargs):
-        return self.layer.state_dict(
-            destination=destination, prefix=prefix, keep_vars=keep_vars, **kwargs
-        )
-
-    def load_state_dict(self, state_dict, strict=True):
-        return self.layer.load_state_dict(state_dict, strict=strict)
-
-    def named_modules(
-        self,
-        memo: Optional[Set["Module"]] = None,
-        prefix: str = "",
-        remove_duplicate: bool = True,
-    ):
-        return self.layer.named_modules(
-            memo=memo, prefix=prefix, remove_duplicate=remove_duplicate
-        )
+        super().free()

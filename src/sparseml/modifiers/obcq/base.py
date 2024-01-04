@@ -15,10 +15,9 @@
 import logging
 from typing import Any, Dict, List, Optional, Union
 
-from sparseml.core import Modifier
 from sparseml.core.factory import ModifierFactory
 from sparseml.core.state import State
-from sparseml.utils import ALL_TOKEN
+from sparseml.modifiers.pruning.wanda.base import WandaPruningModifier
 
 
 __all__ = ["SparseGPTModifier"]
@@ -26,7 +25,7 @@ __all__ = ["SparseGPTModifier"]
 _LOGGER = logging.getLogger(__name__)
 
 
-class SparseGPTModifier(Modifier):
+class SparseGPTModifier(WandaPruningModifier):
     """
     Modifier for applying the one-shot OBCQ algorithm to a model
 
@@ -43,8 +42,6 @@ class SparseGPTModifier(Modifier):
         in the recipe
     :param dampening_frac: Amount of dampening to apply to H, as a fraction of the
         diagonal norm
-    :param sequential_update: Whether or not to update weights sequentially by layer,
-        True saves on GPU memory
     :param mask_structure: String to define the structure of the mask to apply.
         Must be of the form N:M where N, M are integers that define a custom block
         shape. Defaults to 0:0 which represents an unstructured mask.
@@ -54,18 +51,11 @@ class SparseGPTModifier(Modifier):
         has been deprecated and will be removed in a future release
     """
 
-    sparsity: Union[float, List[float]]
     block_size: int
     quantize: Union[bool, Dict]
     dampening_frac: Optional[float] = 0.01
     sequential_update: Optional[bool] = True
-    mask_structure: str = "0:0"
-    prunen_: Optional[int] = None
-    prunem_: Optional[int] = None
-    targets: Union[str, List[str], None] = ALL_TOKEN
     target_ids: Optional[List[str]] = None
-    layer_prefix: Optional[str] = None
-    compressible_layers_: Optional[List] = None
     quantization_modifier_: Any = None
 
     def __post_init__(self):
@@ -74,15 +64,6 @@ class SparseGPTModifier(Modifier):
                 "`target_ids` param has been deprecated and will be "
                 "removed in a future release"
             )
-
-    def compressible_layers(self) -> List:
-        """
-        Retrieves the modules corresponding to a list of compressible layer names
-
-        :return: list of Pytorch modules to compress
-        """
-        return self.model.get_layers(self.targets)
-        # return [v for _, v in compressible_dict.items()]
 
     def on_initialize_structure(self, state: State, **kwargs):
         quantization_already_active = state.model.qat_active()
@@ -143,27 +124,3 @@ class SparseGPTModifier(Modifier):
             allow_experimental=True,
             **modifier_args,
         )
-
-    def _validate_layerwise_sparsity(self):
-        if isinstance(self.sparsity, float):
-            return  # single sparsity will be applied to all layers
-
-        if not isinstance(self.targets, List):
-            raise ValueError(
-                "Layer targets must be a list when specifying layer-wise"
-                f" sparsity. Got {self.targets}"
-            )
-
-        if len(self.targets) != len(self.sparsity):
-            raise ValueError(
-                "Number of layer targets must match the number of "
-                f"sparsities. Got {len(self.targets)} layers and "
-                f"{len(self.sparsity)} sparsities"
-            )
-
-        for layer_name in self.targets:
-            if layer_name.startswith("re:"):
-                raise ValueError(
-                    "Using regular expressions for layer-wise sparsity "
-                    f"profiles is not permitted. Found {layer_name}"
-                )

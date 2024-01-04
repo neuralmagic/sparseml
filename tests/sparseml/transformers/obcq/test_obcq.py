@@ -18,7 +18,7 @@ import pytest
 import torch
 
 from sparseml.core.framework import Framework
-from sparseml.core.model import ModifiableModel
+from sparseml.core.state import State
 from sparseml.modifiers.obcq import SparseGPTModifier
 from sparseml.modifiers.obcq.utils.helpers import ppl_eval_general
 from sparseml.pytorch.utils.helpers import tensor_sparsity
@@ -76,7 +76,6 @@ def test_lm_head_target():
         device = "cpu"
 
     model = SparseCausalLM.auto_model_from_pretrained(tiny_model_path)
-    modifiable_model = ModifiableModel(model=model, framework=Framework.pytorch)
 
     kwargs = {
         "sparsity": 0.5,
@@ -95,11 +94,13 @@ def test_lm_head_target():
     sparsegpt_modifier_no_head = SparseGPTModifier(
         framework=Framework.pytorch, **kwargs
     )
-    sparsegpt_modifier_no_head.initialize_obcq(model=modifiable_model, device=device)
+    state = State(framework=Framework.pytorch)
+    state.update(model=model, device=device)
+    sparsegpt_modifier_no_head.initialize_obcq(state.model)
 
     kwargs["targets"].append("lm_head")
     sparsegpt_modifier_head = SparseGPTModifier(framework=Framework.pytorch, **kwargs)
-    sparsegpt_modifier_head.initialize_obcq(model=modifiable_model, device=device)
+    sparsegpt_modifier_head.initialize_obcq(state.model)
 
     # check we pick up the lm_head layer
     layers_no_head = len(sparsegpt_modifier_no_head.compressible_layers_)

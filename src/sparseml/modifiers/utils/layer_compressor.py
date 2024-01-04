@@ -12,19 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
+import operator
 from typing import Dict
 
 import torch
 from torch.distributed.fsdp import FullyShardedDataParallel
 from torch.nn import Module
 
-from sparseml.modifiers.obcq.utils.sgpt_wrapper import SGPTModuleWrapper
 from sparseml.utils.pytorch import set_layer
 from sparseml.utils.pytorch.module import get_prunable_layers
 
 
-_LOGGER = logging.getLogger(__name__)
+__all__ = ["LayerCompressor"]
 
 
 class LayerCompressor:
@@ -45,15 +44,22 @@ class LayerCompressor:
     """
 
     def __init__(
-        self, model: Module, layer: Module, layer_index: int, name: str, args: Dict
+        self,
+        module_compressor_class,
+        model: Module,
+        layer: Module,
+        layer_index: int,
+        name: str,
+        args: Dict,
     ):
+        self.module_compressor_class = module_compressor_class
         self.model = model
         self.layer = layer
         self.layer_index = layer_index
         self.name = name
         self.args = args
         self.handles = None
-        self.gpts = {}
+        self.modules = {}
 
     def compressible_modules(self) -> Dict:
         """
@@ -76,20 +82,22 @@ class LayerCompressor:
         for name in subset:
             layer = subset[name]
             with FullyShardedDataParallel.summon_full_params(self.layer):
-                wrapper = SGPTModuleWrapper(layer)
+                wrapper = self.module_compressor_class(layer)
             full_name = ".".join(x for x in [self.name, name] if len(x) > 0)
             full_name = full_name.replace("_fsdp_wrapped_module.", "")
             set_layer(full_name, wrapper, self.model)
-            self.gpts[name] = wrapper
+            self.modules[name] = wrapper
+
+        self.layer = operator.attrgetter(self.name)(self.model)
 
         def add_batch(name):
             def tmp(_, inp, out):
-                self.gpts[name].add_batch(inp[0].data, out.data)
+                self.modules[name].add_batch(inp[0].data, out.data)
 
             return tmp
 
         self.handles = []
-        for name in self.gpts:
+        for name in self.modules:
             self.handles.append(subset[name].register_forward_hook(add_batch(name)))
 
     def post_compress(self):
@@ -97,27 +105,17 @@ class LayerCompressor:
             handle.remove()
 
     def revert_layer_wrappers(self):
-        for name, gpt_wrapper in self.gpts.items():
+        for name, module_wrapper in self.modules.items():
             full_name = ".".join(x for x in [self.name, name] if len(x) > 0)
             full_name = full_name.replace("_fsdp_wrapped_module.", "")
-            set_layer(full_name, gpt_wrapper.layer, self.model)
-            gpt_wrapper.free()
-        self.gpts = None
+            set_layer(full_name, module_wrapper.layer, self.model)
+            module_wrapper.free()
+        self.modules = None
 
     def compress(self) -> Dict:
-        """
-        Run SparseGPT compression on all compressible modules in the layer
-        """
-
         @torch.no_grad()
         def prune(module):
-            if isinstance(module, SGPTModuleWrapper):
-                module.fasterprune(
-                    self.args["sparsity"],
-                    prunen=self.args["prunen"],
-                    prunem=self.args["prunem"],
-                    percdamp=self.args["percdamp"],
-                    blocksize=self.args["blocksize"],
-                )
+            if isinstance(module, self.module_compressor_class):
+                module.fasterprune(**self.args)
 
         self.layer.apply(prune)
