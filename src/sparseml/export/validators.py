@@ -170,7 +170,10 @@ def validate_correctness(
             f"Correctness validation failed for exported model: {onnx_model_name}. "
             "The model outputs match the expected outputs "
             f"only for {sum(validations)}/{len(validations)} samples "
-            f"(according to the validation function: {validation_function.__name__}."
+            f"(according to the validation function: {validation_function.__name__}. "
+            f"Some failures are expected in the case of quantized models, but not in "
+            f"the case of non-quantized models. If in doubt, validate the performance "
+            f"of the exported ONNX model using the NeuralMagic evaluation module."
         )
         return False
 
