@@ -28,20 +28,26 @@ def load_task_dataset(
     tokenizer: AutoTokenizer,
     data_args: Dict[str, Any],
     model: Module,
+    split: Optional[str] = None,
     config: Optional[AutoConfig] = None,
 ) -> Any:
     """
 
     Load a dataset for a given task.
 
+    Note: datasets for task: text-generation are loaded differently than other tasks
+    using the TextGenerationDataset object
+
     :param task: the task a dataset being loaded for
     :param tokenizer: the tokenizer to use for the dataset
     :param data_args: additional data args used to create a `DataTrainingArguments`
         instance for fetching the dataset
     :param model: the model to use for the dataset
+    :param split: the split to use for the dataset.
     :param config: the config to use for the dataset
     :return: the dataset for the given task
     """
+    dataset = None
 
     if task in TaskNames.mlm.value:
         from sparseml.transformers.masked_language_modeling import (
@@ -50,7 +56,7 @@ def load_task_dataset(
         )
 
         data_training_args = DataTrainingArguments(**data_args)
-        return get_tokenized_mlm_dataset(
+        dataset = get_tokenized_mlm_dataset(
             data_args=data_training_args, tokenizer=tokenizer
         )
 
@@ -61,7 +67,7 @@ def load_task_dataset(
         )
 
         data_training_args = DataTrainingArguments(**data_args)
-        return get_tokenized_qa_dataset(
+        dataset = get_tokenized_qa_dataset(
             data_args=data_training_args, tokenizer=tokenizer
         )
 
@@ -72,7 +78,7 @@ def load_task_dataset(
         )
 
         data_training_args = DataTrainingArguments(**data_args)
-        return get_tokenized_token_classification_dataset(
+        dataset = get_tokenized_token_classification_dataset(
             data_args=data_training_args, tokenizer=tokenizer, model=model or config
         )
 
@@ -84,11 +90,32 @@ def load_task_dataset(
 
         data_training_args = DataTrainingArguments(**data_args)
 
-        return get_tokenized_text_classification_dataset(
+        dataset = get_tokenized_text_classification_dataset(
             data_args=data_training_args,
             tokenizer=tokenizer,
             model=model,
             config=config,
         )
 
-    raise ValueError(f"unrecognized task given of {task}")
+    if task in TaskNames.text_generation.value:
+        from sparseml.transformers.finetune.data.base import TextGenerationDataset
+        from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
+
+        data_training_args = DataTrainingArguments(**data_args)
+        dataset_manager = TextGenerationDataset.load_from_registry(
+            data_args["dataset_name"],
+            tokenizer=tokenizer,
+            data_args=data_training_args,
+            split=split,
+        )
+        raw_dataset = dataset_manager.get_raw_dataset()
+        dataset = dataset_manager.tokenize_and_process(raw_dataset)
+        return dataset
+
+    if dataset is None:
+        raise ValueError(f"unrecognized task given of {task}")
+
+    if split:
+        return dataset.get(split)
+
+    return dataset

@@ -12,9 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import glob
 import os
 import shutil
 
+import numpy as np
 import onnx
 import pytest
 import torch
@@ -108,7 +110,6 @@ class TestEndToEndExport:
             validate_correctness=True,
         )
 
-    @pytest.mark.skipif(reason="skipping since not implemented")
     def test_export_samples(self, setup):
         source_path, target_path, task = setup
 
@@ -119,4 +120,21 @@ class TestEndToEndExport:
             target_path=target_path,
             task=task,
             num_export_samples=num_samples,
+            **dict(
+                data_args=dict(
+                    dataset_name="wikitext", dataset_config_name="wikitext-2-raw-v1"
+                )
+            ),
         )
+
+        assert (target_path / "deployment" / "model.onnx").exists()
+        assert (
+            len(os.listdir(os.path.join(target_path, "sample-inputs"))) == num_samples
+        )
+        assert (
+            len(os.listdir(os.path.join(target_path, "sample-outputs"))) == num_samples
+        )
+        assert np.load(
+            glob.glob(os.path.join(target_path, "sample-inputs/*"))[0],
+            allow_pickle=True,
+        )["arr_0"]

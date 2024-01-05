@@ -97,23 +97,20 @@ def create_model(
         device=device,
     )
 
+    validation_dataset = None
     data_args = _parse_data_args(data_args)
 
     if data_args:
-        dataset = load_task_dataset(
+        validation_dataset = load_task_dataset(
             task=task,
             tokenizer=tokenizer,
             data_args=data_args,
             model=model,
             config=config,
+            split="validation",
         )
-        validation_dataset = dataset.get("validation")
-
-    else:
-        validation_dataset = None
 
     trainer = initialize_trainer(model, source_path, validation_dataset)
-    # TODO: Parse out dataloader from the trainer
 
     return model, dict(
         trainer=trainer,

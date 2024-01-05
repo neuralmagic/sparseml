@@ -202,12 +202,36 @@ def run_inference_with_dict_data(
             key: value[0].to(model.device).reshape(1, -1) for key, value in data.items()
         }
         output_vals = model(**inputs)
+        if "past_key_values" in output_vals.keys():
+            output_vals = _unnest_past_key_values(output_vals)
         output = {
             name: torch.squeeze(val).detach().to("cpu")
             for name, val in output_vals.items()
         }
     inputs = {key: value.to("cpu")[0] for key, value in data.items()}
     return inputs, labels, output
+
+
+def _unnest_past_key_values(output_vals: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Unnest the past key values from the output of the model.
+    (so they exist on the top level of the output dictionary)
+    By default the past key values are nested in a list of unnamed
+    tuples. This function unnests them and names them.
+
+    :param output_vals: The output of the model
+    :return: The output of the model with the past key values unpacked
+    """
+
+    past_key_values = output_vals["past_key_values"]
+    output_vals = {
+        key: value for key, value in output_vals.items() if key != "past_key_values"
+    }
+    for i, past_key_values in enumerate(past_key_values):
+        key, value = past_key_values
+        output_vals[f"past_key_values_{i}_key"] = key
+        output_vals[f"past_key_values_{i}_value"] = value
+    return output_vals
 
 
 def run_inference_with_tuple_or_list_data(
