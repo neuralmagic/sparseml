@@ -45,7 +45,6 @@ def export(
     opset: int = TORCH_DEFAULT_ONNX_OPSET,
     single_graph_file: bool = True,
     num_export_samples: int = 0,
-    batch_size: int = 1,
     recipe: Optional[Union[Path, str]] = None,
     deployment_directory_name: str = "deployment",
     device: str = "cpu",
@@ -90,8 +89,6 @@ def export(
         file. Defaults to True.
     :param num_export_samples: The number of samples to create for
         the exported model. Defaults to 0.
-    :param batch_size: The batch size to use for exporting the data.
-        Defaults to None.
     :param deployment_directory_name: The name of the deployment
         directory to create for the exported model. Thus, the exported
         model will be saved to `target_path/deployment_directory_name`.
@@ -157,7 +154,6 @@ def export(
         source_path,
         device=device,
         task=task,
-        batch_size=batch_size,
         recipe=recipe,
         **kwargs,
     )
@@ -223,16 +219,6 @@ def export(
         onnx_model_name=onnx_model_name,
     )
 
-    _LOGGER.info(
-        f"Applying optimizations: {graph_optimizations} to the exported model..."
-    )
-    if helper_functions.apply_optimizations is not None:
-        helper_functions.apply_optimizations(
-            exported_file_path=os.path.join(deployment_path, onnx_model_name),
-            optimizations=graph_optimizations,
-            single_graph_file=single_graph_file,
-        )
-
     if validate_structure:
         _LOGGER.info("Validating model structure...")
         validate_structure_(
@@ -252,6 +238,17 @@ def export(
                 "to True"
             )
         validate_correctness_(target_path, deployment_path, onnx_model_name)
+
+    _LOGGER.info(
+        f"Applying optimizations: {graph_optimizations} to the exported model..."
+    )
+
+    if helper_functions.apply_optimizations is not None:
+        helper_functions.apply_optimizations(
+            exported_file_path=os.path.join(deployment_path, onnx_model_name),
+            optimizations=graph_optimizations,
+            single_graph_file=single_graph_file,
+        )
 
     _LOGGER.info(
         f"Successfully exported model from:\n{target_path}"

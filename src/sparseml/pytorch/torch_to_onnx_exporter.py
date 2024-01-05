@@ -233,7 +233,7 @@ class _TorchOnnxExport(BaseTransform):
         if _PARSED_TORCH_VERSION < version.parse("1.10.0"):
             kwargs["strip_doc_string"] = True
         else:
-            kwargs["training"] = torch.onnx.TrainingMode.PRESERVE
+            kwargs["training"] = torch.onnx.TrainingMode.EVAL
             kwargs["do_constant_folding"] = not module.training
             kwargs["keep_initializers_as_inputs"] = False
 

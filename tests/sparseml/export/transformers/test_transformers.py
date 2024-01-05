@@ -12,10 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
-import glob
 import os
 import shutil
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -29,6 +28,7 @@ from sparsezoo import Model
     "stub, task",
     [
         ("zoo:obert-medium-squad_wikipedia_bookcorpus-pruned95_quantized", "qa"),
+        ("zoo:roberta-large-squad_v2_wikipedia_bookcorpus-base", "qa"),
     ],
 )
 class TestEndToEndExport:
@@ -36,8 +36,9 @@ class TestEndToEndExport:
     def setup(self, tmp_path, stub, task):
         model_path = tmp_path / "model"
         target_path = tmp_path / "target"
-
-        source_path = Model(stub, model_path).training.path
+        self.model = Model(stub, model_path)
+        self.is_model_quantized = stub.endswith("quantized")
+        source_path = self.model.training.path
 
         yield source_path, target_path, task
 
@@ -55,7 +56,7 @@ class TestEndToEndExport:
     def test_export_samples(self, setup):
         source_path, target_path, task = setup
 
-        num_samples = 4
+        num_samples = 20
 
         export(
             source_path=source_path,
@@ -65,16 +66,24 @@ class TestEndToEndExport:
             **dict(data_args=dict(dataset_name="squad")),
         )
         assert (target_path / "deployment" / "model.onnx").exists()
-        assert (
-            len(os.listdir(os.path.join(target_path, "sample-inputs"))) == num_samples
+
+        # download the existing samples
+        self.model.sample_inputs.download()
+        self.model.sample_outputs["framework"].download()
+
+        # make sure that the exported data has
+        # the correct structure (backward compatibility)
+        self._test_exported_sample_data_structure(
+            new_samples_dir=target_path / "sample-inputs",
+            old_samples_dir=Path(source_path).parent / "sample-inputs",
+            file_prefix="inp",
         )
-        assert (
-            len(os.listdir(os.path.join(target_path, "sample-outputs"))) == num_samples
+
+        self._test_exported_sample_data_structure(
+            new_samples_dir=target_path / "sample-outputs",
+            old_samples_dir=Path(source_path).parent / "sample-outputs",
+            file_prefix="out",
         )
-        assert np.load(
-            glob.glob(os.path.join(target_path, "sample-inputs/*"))[0],
-            allow_pickle=True,
-        )["arr_0"]
 
     def test_export_with_sample_data(self, setup):
         source_path, target_path, task = setup
@@ -102,13 +111,15 @@ class TestEndToEndExport:
             single_graph_file=False,
         )
 
-    @pytest.mark.skipif(
-        reason="skipping since this functionality needs some more attention"
-    )
-    def test_export_validate_correctness(self, setup):
+    def test_export_validate_correctness(self, caplog, setup):
+        if self.is_model_quantized:
+            pytest.skip(
+                "Skipping since quantized models may not pass this test"
+                "due to differences in rounding between quant ops in PyTorch and ONNX"
+            )
         source_path, target_path, task = setup
 
-        num_samples = 4
+        num_samples = 3
 
         export(
             source_path=source_path,
@@ -118,3 +129,24 @@ class TestEndToEndExport:
             validate_correctness=True,
             **dict(data_args=dict(dataset_name="squad")),
         )
+
+        assert "ERROR" not in caplog.text
+
+    @staticmethod
+    def _test_exported_sample_data_structure(
+        new_samples_dir, old_samples_dir, file_prefix
+    ):
+        assert new_samples_dir.exists()
+        assert set(os.listdir(new_samples_dir)) == set(os.listdir(old_samples_dir))
+
+        # read the first sample from the newly
+        # generated samples and the downloaded samples
+        sample_input_new = np.load(
+            os.path.join(new_samples_dir, f"{file_prefix}-0000.npz")
+        )
+        sample_input_old = np.load(
+            os.path.join(old_samples_dir, f"{file_prefix}-0000.npz")
+        )
+
+        for s1, s2 in zip(sample_input_new.values(), sample_input_old.values()):
+            assert s1.shape == s2.shape
