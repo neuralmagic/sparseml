@@ -88,7 +88,7 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
         self._infer_mask_block_size()
 
         for idx, (name, layer) in enumerate(self.compressible_layers_.items()):
-            _LOGGER.info(f"Preparing {name} for SparseGPT compression")
+            _LOGGER.info(f"Preparing {name} for compression")
             layer_sparsity = (
                 self.sparsity[idx] if isinstance(self.sparsity, List) else self.sparsity
             )
@@ -107,7 +107,10 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
 
         :param dataloader: calibration data for WANDA
         """
-        _LOGGER.info(f"Running Wanda calibration with {len(dataloader)} samples...")
+        class_name = self.__class__.__name__.replace("PyTorch", "")
+        _LOGGER.info(
+            f"Running {class_name} calibration with " f"{len(dataloader)} samples..."
+        )
         run_calibration_forward(self.model, dataloader)
 
         num_layers = len(self.compressible_layers_)

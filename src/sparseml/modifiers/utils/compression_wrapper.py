@@ -41,11 +41,12 @@ class ModuleCompressionWrapper(Module, ABC):
     :param layer: module to run compression on
     """
 
-    def __init__(self, layer):
+    def __init__(self, name, layer):
         super(ModuleCompressionWrapper, self).__init__()
         if transformers is None:
             raise transformers_err
 
+        self.name = name
         self.layer = layer
         self.dev = self.layer.weight.device
         W = self.layer.weight

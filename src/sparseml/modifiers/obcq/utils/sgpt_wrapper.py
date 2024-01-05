@@ -48,8 +48,8 @@ class SparseGptWrapper(ModuleCompressionWrapper):
     :param layer: module to run SparseGPT on
     """
 
-    def __init__(self, layer):
-        super().__init__(layer=layer)
+    def __init__(self, name, layer):
+        super().__init__(name=name, layer=layer)
 
         self.register_buffer(
             "H", torch.zeros((self.columns, self.columns), device=self.dev)

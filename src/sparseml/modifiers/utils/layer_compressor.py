@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import operator
 from typing import Dict
 
@@ -24,6 +25,8 @@ from sparseml.utils.pytorch.module import get_prunable_layers
 
 
 __all__ = ["LayerCompressor"]
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class LayerCompressor:
@@ -82,9 +85,8 @@ class LayerCompressor:
         for name in subset:
             layer = subset[name]
             with FullyShardedDataParallel.summon_full_params(self.layer):
-                wrapper = self.module_compressor_class(layer)
-            full_name = ".".join(x for x in [self.name, name] if len(x) > 0)
-            full_name = full_name.replace("_fsdp_wrapped_module.", "")
+                wrapper = self.module_compressor_class(name, layer)
+            full_name = self._get_full_submodule_name(name)
             set_layer(full_name, wrapper, self.model)
             self.modules[name] = wrapper
 
@@ -106,16 +108,22 @@ class LayerCompressor:
 
     def revert_layer_wrappers(self):
         for name, module_wrapper in self.modules.items():
-            full_name = ".".join(x for x in [self.name, name] if len(x) > 0)
-            full_name = full_name.replace("_fsdp_wrapped_module.", "")
+            full_name = self._get_full_submodule_name(name)
             set_layer(full_name, module_wrapper.layer, self.model)
             module_wrapper.free()
         self.modules = None
+
+    def _get_full_submodule_name(self, name):
+        full_name = ".".join(x for x in [self.name, name] if len(x) > 0)
+        full_name = full_name.replace("_fsdp_wrapped_module.", "")
+        return full_name
 
     def compress(self) -> Dict:
         @torch.no_grad()
         def prune(module):
             if isinstance(module, self.module_compressor_class):
+                full_name = self._get_full_submodule_name(module.name)
+                _LOGGER.info(f"Compressing {full_name}...")
                 module.fasterprune(**self.args)
 
         self.layer.apply(prune)

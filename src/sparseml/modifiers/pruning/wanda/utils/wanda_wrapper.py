@@ -43,8 +43,8 @@ class WandaWrapper(ModuleCompressionWrapper):
     see https://arxiv.org/abs/2306.11695
     """
 
-    def __init__(self, layer):
-        super().__init__(layer=layer)
+    def __init__(self, name, layer):
+        super().__init__(name=name, layer=layer)
         self.register_buffer("scaler_row", torch.zeros(self.columns, device=self.dev))
 
     def add_batch(self, inp: torch.Tensor, out: torch.Tensor):
@@ -118,7 +118,7 @@ class WandaWrapper(ModuleCompressionWrapper):
         if isinstance(self.layer, transformers.Conv1D):
             W = W.t()
 
-        W = W.W.reshape(final_shape).to(final_dtype)
+        W = W.reshape(final_shape).to(final_dtype)
         self.layer.weight -= self.layer.weight
         self.layer.weight += W
 
