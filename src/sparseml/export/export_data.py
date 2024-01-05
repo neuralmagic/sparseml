@@ -210,6 +210,8 @@ def run_inference_with_dict_data(
     return inputs, labels, output
 
 
+# this function is specific for image-classification for now
+# to be generalized later
 def run_inference_with_tuple_or_list_data(
     data: Tuple[Any, Any], model: Optional[torch.nn.Module] = None
 ) -> Tuple[torch.Tensor, Any, Optional[torch.Tensor]]:
