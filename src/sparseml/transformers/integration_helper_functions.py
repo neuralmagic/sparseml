@@ -50,6 +50,7 @@ _LOGGER = logging.getLogger(__name__)
 
 def create_model(
     source_path: Union[Path, str],
+    dataset_with_labels: bool = False,
     device: Optional[str] = None,
     task: Optional[str] = None,
     recipe: Optional[str] = None,
@@ -60,6 +61,9 @@ def create_model(
     loaded_model_kwargs (any relevant objects created along with the model)
 
     :param source_path: The path to the model
+    :param dataset_with_labels: Whether the allow the dataset to
+        have "labels" inputs or not. Text-generation datasets may
+        contain labels (needed for training only)
     :param device: The device to use for the model and dataloader instantiation
     :param task: The task to use for the model and dataloader instantiation
     :param recipe: The recipe to use for the model and dataloader instantiation.
@@ -109,6 +113,8 @@ def create_model(
             config=config,
             split="validation",
         )
+        if task in TaskNames.text_generation.value and not dataset_with_labels:
+            validation_dataset = validation_dataset.remove_columns("labels")
 
     trainer = initialize_trainer(model, source_path, validation_dataset)
 

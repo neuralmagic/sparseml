@@ -16,6 +16,7 @@ import logging
 import os
 import shutil
 import tarfile
+from collections import OrderedDict
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -166,6 +167,17 @@ def create_data_samples(
                 else labels_
             )
 
+    # turn all the returned lists into a list of dicts
+    # to facilitate the sample export
+    if inputs and not isinstance(inputs[0], dict):
+        inputs = [dict(input=input) for input in inputs]
+
+    if labels and not isinstance(labels[0], dict):
+        labels = [dict(label=label) for label in labels]
+
+    if outputs and not isinstance(outputs[0], dict):
+        outputs = [dict(output=output) for output in outputs]
+
     return inputs, outputs, labels
 
 
@@ -176,7 +188,6 @@ def run_inference_with_dict_data(
     Run inference on a model by inferring the appropriate
     inputs from the dictionary input data.
 
-
     :param data: The data to run inference on
     :param model: The model to run inference on (optional)
     :return: The inputs, labels and outputs
@@ -184,42 +195,23 @@ def run_inference_with_dict_data(
     labels = None
     if model is None:
         output = None
-
     else:
-        inputs = {key: value.to(model.device) for key, value in data.items()}
+        # move the inputs to the model device and
+        # grab only the first sample from the batch
+        inputs = {
+            key: value[0].to(model.device).reshape(1, -1) for key, value in data.items()
+        }
         output_vals = model(**inputs)
-        if "past_key_values" in output_vals.keys():
-            output_vals = _unnest_past_key_values(output_vals)
         output = {
             name: torch.squeeze(val).detach().to("cpu")
             for name, val in output_vals.items()
         }
-    inputs = {key: value.to("cpu") for key, value in data.items()}
+    inputs = {key: value.to("cpu")[0] for key, value in data.items()}
     return inputs, labels, output
 
 
-def _unnest_past_key_values(output_vals: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Unnest the past key values from the output of the model.
-    (so they exist on the top level of the output dictionary)
-    By default the past key values are nested in a list of unnamed
-    tuples. This function unnests them and names them.
-
-    :param output_vals: The output of the model
-    :return: The output of the model with the past key values unpacked
-    """
-
-    past_key_values = output_vals["past_key_values"]
-    output_vals = {
-        key: value for key, value in output_vals.items() if key != "past_key_values"
-    }
-    for i, past_key_values in enumerate(past_key_values):
-        key, value = past_key_values
-        output_vals[f"past_key_values_{i}_key"] = key
-        output_vals[f"past_key_values_{i}_value"] = value
-    return output_vals
-
-
+# this function is specific for image-classification for now
+# to be generalized later
 def run_inference_with_tuple_or_list_data(
     data: Tuple[Any, Any], model: Optional[torch.nn.Module] = None
 ) -> Tuple[torch.Tensor, Any, Optional[torch.Tensor]]:
@@ -227,14 +219,17 @@ def run_inference_with_tuple_or_list_data(
     Run inference on a model by inferring the appropriate
     inputs from the tuple input data.
 
-    :param inputs: The data to run inference on
+    :param data: The data to run inference on
     :param model: The model to run inference on (optional)
     :return: The inputs, labels and outputs
     """
-    # assume that
     inputs, labels = data
+
     outputs = model(inputs) if model else None
     if isinstance(outputs, tuple):
-        # outputs_ contains (logits, softmax)
-        outputs = outputs[0]
+        # outputs_ contains (logits, scores)
+        outputs = OrderedDict(logits=outputs[0], scores=outputs[1])
+    if len(inputs.size()) == 4:
+        # if the input is a batch, remove the batch dimension
+        inputs = torch.squeeze(inputs, 0)
     return inputs, labels, outputs

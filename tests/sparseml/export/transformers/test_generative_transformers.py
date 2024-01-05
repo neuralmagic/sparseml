@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import glob
+
 import os
 import shutil
 
@@ -94,22 +94,6 @@ class TestEndToEndExport:
         )
         assert (target_path / "deployment" / "model.onnx").exists()
 
-    @pytest.mark.skipif(
-        reason="skipping since this functionality needs some more attention"
-    )
-    def test_export_validate_correctness(self, setup):
-        source_path, target_path, task = setup
-
-        num_samples = 4
-
-        export(
-            source_path=source_path,
-            target_path=target_path,
-            task=task,
-            num_export_samples=num_samples,
-            validate_correctness=True,
-        )
-
     def test_export_samples(self, setup):
         source_path, target_path, task = setup
 
@@ -134,7 +118,27 @@ class TestEndToEndExport:
         assert (
             len(os.listdir(os.path.join(target_path, "sample-outputs"))) == num_samples
         )
-        assert np.load(
-            glob.glob(os.path.join(target_path, "sample-inputs/*"))[0],
-            allow_pickle=True,
-        )["arr_0"]
+        sample_input_new = np.load(
+            os.path.join(target_path, "sample-outputs", "out-0000.npz")
+        )
+        assert ["logits"] == list(sample_input_new.keys())
+
+    def test_export_validate_correctness(self, caplog, setup):
+        source_path, target_path, task = setup
+
+        num_samples = 3
+
+        export(
+            source_path=source_path,
+            target_path=target_path,
+            task=task,
+            num_export_samples=num_samples,
+            validate_correctness=True,
+            **dict(
+                data_args=dict(
+                    dataset_name="wikitext", dataset_config_name="wikitext-2-raw-v1"
+                )
+            ),
+        )
+
+        assert "ERROR" not in caplog.text
