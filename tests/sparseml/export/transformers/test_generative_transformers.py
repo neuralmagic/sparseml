@@ -15,6 +15,8 @@
 
 import os
 import shutil
+
+import numpy as np
 import onnx
 import pytest
 import torch
@@ -92,22 +94,6 @@ class TestEndToEndExport:
         )
         assert (target_path / "deployment" / "model.onnx").exists()
 
-    @pytest.mark.skipif(
-        reason="skipping since this functionality needs some more attention"
-    )
-    def test_export_validate_correctness(self, setup):
-        source_path, target_path, task = setup
-
-        num_samples = 4
-
-        export(
-            source_path=source_path,
-            target_path=target_path,
-            task=task,
-            num_export_samples=num_samples,
-            validate_correctness=True,
-        )
-
     def test_export_samples(self, setup):
         source_path, target_path, task = setup
 
@@ -132,6 +118,10 @@ class TestEndToEndExport:
         assert (
             len(os.listdir(os.path.join(target_path, "sample-outputs"))) == num_samples
         )
+        sample_input_new = np.load(
+            os.path.join(target_path, "sample-outputs", "out-0000.npz")
+        )
+        assert ["logits"] == list(sample_input_new.keys())
 
     def test_export_validate_correctness(self, caplog, setup):
         source_path, target_path, task = setup
