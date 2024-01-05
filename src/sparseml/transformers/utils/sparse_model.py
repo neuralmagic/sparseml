@@ -258,6 +258,11 @@ class SparseAutoModel:
         :param kwargs: keyword arguments to pass through to the AutoModel call
         :return: the created model for text generation
         """
+        # set the config so that exported model is a decoder and does
+        # not take past_key_values as input
+        config.is_decoder = True
+        config.use_past = False
+
         if config.model_type == "opt":
             # TODO: Talk to Alex whether this pathway needs to be maintained
             def skip(*args, **kwargs):

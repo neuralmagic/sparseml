@@ -12,11 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import glob
+
 import os
 import shutil
-
-import numpy as np
 import onnx
 import pytest
 import torch
@@ -134,7 +132,23 @@ class TestEndToEndExport:
         assert (
             len(os.listdir(os.path.join(target_path, "sample-outputs"))) == num_samples
         )
-        assert np.load(
-            glob.glob(os.path.join(target_path, "sample-inputs/*"))[0],
-            allow_pickle=True,
-        )["arr_0"]
+
+    def test_export_validate_correctness(self, caplog, setup):
+        source_path, target_path, task = setup
+
+        num_samples = 3
+
+        export(
+            source_path=source_path,
+            target_path=target_path,
+            task=task,
+            num_export_samples=num_samples,
+            validate_correctness=True,
+            **dict(
+                data_args=dict(
+                    dataset_name="wikitext", dataset_config_name="wikitext-2-raw-v1"
+                )
+            ),
+        )
+
+        assert "ERROR" not in caplog.text

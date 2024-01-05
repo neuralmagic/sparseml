@@ -219,16 +219,6 @@ def export(
         onnx_model_name=onnx_model_name,
     )
 
-    _LOGGER.info(
-        f"Applying optimizations: {graph_optimizations} to the exported model..."
-    )
-    if helper_functions.apply_optimizations is not None:
-        helper_functions.apply_optimizations(
-            exported_file_path=os.path.join(deployment_path, onnx_model_name),
-            optimizations=graph_optimizations,
-            single_graph_file=single_graph_file,
-        )
-
     if validate_structure:
         _LOGGER.info("Validating model structure...")
         validate_structure_(
@@ -248,6 +238,17 @@ def export(
                 "to True"
             )
         validate_correctness_(target_path, deployment_path, onnx_model_name)
+
+    _LOGGER.info(
+        f"Applying optimizations: {graph_optimizations} to the exported model..."
+    )
+
+    if helper_functions.apply_optimizations is not None:
+        helper_functions.apply_optimizations(
+            exported_file_path=os.path.join(deployment_path, onnx_model_name),
+            optimizations=graph_optimizations,
+            single_graph_file=single_graph_file,
+        )
 
     _LOGGER.info(
         f"Successfully exported model from:\n{target_path}"

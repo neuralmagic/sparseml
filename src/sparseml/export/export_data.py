@@ -204,6 +204,10 @@ def run_inference_with_dict_data(
         output_vals = model(**inputs)
         if "past_key_values" in output_vals.keys():
             output_vals = _unnest_past_key_values(output_vals)
+            # remove "loss" from the output_vals
+            output_vals = {
+                key: value for key, value in output_vals.items() if key != "loss"
+            }
         output = {
             name: torch.squeeze(val).detach().to("cpu")
             for name, val in output_vals.items()
