@@ -100,7 +100,7 @@ def test_create_data_samples_transformers(num_samples, model):
     assert len(inputs) == num_samples
     for input in inputs:
         for key, value in input.items():
-            assert torch.equal(value, target_input[key])
+            assert torch.equal(value.unsqueeze(0), target_input[key])
     assert labels == []
     if model is not None:
         assert len(outputs) == num_samples
@@ -128,10 +128,12 @@ def test_create_data_samples_image_classification(num_samples, model):
     )
     target_input, target_label = next(iter(data_loader))
     target_output = target_input
-    assert all(input.shape == target_input.shape for input in inputs)
-    assert all(label.shape == target_label.shape for label in labels)
+    assert all(
+        input["input"].unsqueeze(0).shape == target_input.shape for input in inputs
+    )
+    assert all(label["label"].shape == target_label.shape for label in labels)
     assert len(inputs) == num_samples == len(labels)
 
     if model is not None:
         assert len(outputs) == num_samples
-        assert all(output.shape == target_output.shape for output in outputs)
+        assert all(output["output"].shape == target_output.shape for output in outputs)

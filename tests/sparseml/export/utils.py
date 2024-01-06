@@ -58,8 +58,8 @@ def get_dummy_dataset(integration):
         return DummyDatasetImageClassification(inputs, labels)
     elif integration == "transformers":
         input = dict(
-            input_ids=torch.ones((10, 100), dtype=torch.long),
-            attention_mask=torch.ones((10, 100), dtype=torch.long),
+            input_ids=torch.ones((100), dtype=torch.long),
+            attention_mask=torch.ones((100), dtype=torch.long),
         )
         return DummyDatasetTransformers([input for _ in range(100)])
     else:

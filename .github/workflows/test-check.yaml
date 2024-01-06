@@ -249,7 +249,7 @@ jobs:
       - name: "Clean sparsezoo directory"
         run: rm -r sparsezoo/
       - name: "⚙️ Install dependencies"
-        run: pip3 install .[dev,torch,transformers,torchvision]
+        run: pip3 install .[dev,torch,transformers,torchvision,onnxruntime]
       - name: "🔬 Running export tests"
         run: make test TARGETS=export
 
