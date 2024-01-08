@@ -172,6 +172,10 @@ def main(
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
     )
+    teacher_config = AutoConfig.from_pretrained(
+        training_args.distill_teacher,
+        use_auth_token=True if model_args.use_auth_token else None,
+    )
 
     model_kwargs = {
         "config": config,
@@ -181,6 +185,7 @@ def main(
         "torch_dtype": parse_dtype(model_args.precision),
     }
     teacher_kwargs = {
+        "config": teacher_config,
         "cache_dir": model_args.cache_dir,
         "use_auth_token": True if model_args.use_auth_token else None,
     }
