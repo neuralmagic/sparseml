@@ -38,12 +38,15 @@ class WandaPruningModifier(Modifier):
     :param mask_structure: String to define the structure of the mask to apply.
         Must be of the form N:M where N, M are integers that define a custom block
         shape. Defaults to 0:0 which represents an unstructured mask.
+    :param sequential_update: Whether or not to update weights sequentially by layer,
+        True saves on GPU memory
     :param targets: list of layer names to compress during OBCQ, or '__ALL__'
         to compress every layer in the model
     """
 
     sparsity: Union[float, List[float]]
     mask_structure: str = "0:0"
+    sequential_update: Optional[bool] = False
     targets: Union[str, List[str], None] = ALL_TOKEN
     compressible_layers_: Optional[List] = None
     prunen_: Optional[int] = None

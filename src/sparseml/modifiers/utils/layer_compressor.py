@@ -84,9 +84,9 @@ class LayerCompressor:
 
         for name in subset:
             layer = subset[name]
-            with FullyShardedDataParallel.summon_full_params(self.layer):
-                wrapper = self.module_compressor_class(name, layer)
             full_name = self._get_full_submodule_name(name)
+            with FullyShardedDataParallel.summon_full_params(self.layer):
+                wrapper = self.module_compressor_class(full_name, layer)
             set_layer(full_name, wrapper, self.model)
             self.modules[name] = wrapper
 

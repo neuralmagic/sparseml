@@ -56,7 +56,7 @@ class SparseGPTModifier(WandaPruningModifier):
     block_size: int
     quantize: Union[bool, Dict]
     dampening_frac: Optional[float] = 0.01
-    sequential_update: Optional[bool] = True
+    sequential_update: Optional[bool] = False
     prunen_: Optional[int] = None
     prunem_: Optional[int] = None
     target_ids: Optional[List[str]] = None

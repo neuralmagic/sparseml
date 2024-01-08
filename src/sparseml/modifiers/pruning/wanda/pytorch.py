@@ -95,7 +95,9 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
             args = self._pruning_arguments(layer_sparsity)
             comp_cls = self._compression_class()
             compressor = LayerCompressor(comp_cls, self.model, layer, idx, name, args)
-            compressor.pre_compress()
+            if not self.sequential_update:
+                # add all batch processing hooks before the forward pass
+                compressor.pre_compress()
             self.layer_compressors.append(compressor)
 
     @torch.no_grad()
@@ -111,7 +113,9 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
         _LOGGER.info(
             f"Running {class_name} calibration with " f"{len(dataloader)} samples..."
         )
-        run_calibration_forward(self.model, dataloader)
+        if not self.sequential_update:
+            # in non-sequential mode we run one forward batch for all modules
+            run_calibration_forward(self.model, dataloader)
 
         num_layers = len(self.compressible_layers_)
         for idx, layer_compressor in enumerate(self.layer_compressors):
@@ -122,6 +126,13 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
             )
 
             # Prune/quantize using SparseGPT
+            if self.sequential_update:
+                # in sequential mode we run one forward pass for each module we
+                # want to compress, this will be really slow but allows compression in
+                # earlier layers to affect later layers
+                layer_compressor.pre_compress()
+                _LOGGER.info(f"Calibrating {layer_compressor.name}...")
+                run_calibration_forward(self.model, dataloader)
             layer_compressor.compress()
             layer_compressor.post_compress()
 
