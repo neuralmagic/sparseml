@@ -143,3 +143,16 @@ class RecipeContainer:
             return True
 
         return False
+
+    def check_any_recipe_exists(self) -> bool:
+        """
+        Checks if any recipes have been added to the container, compiled or not
+
+        :return: True if any recipes exist in the container, False otherwise
+        """
+        if self.compiled_recipe is not None:
+            return True
+        if len(self.recipes) > 0:
+            return True
+
+        return False

@@ -159,6 +159,13 @@ class SessionManagerMixIn:
                 f"from {load_path}"
             )
 
+        if self.recipe is None:
+            _LOGGER.warning(
+                "No training recipe was provided, finetuning will be run "
+                "without event callbacks to SparseML. To supply a recipe "
+                "pass a yaml file or string to the `recipe` argument."
+            )
+
     def initialize_structure(self):
         """
         Initialize any recipe structural changes such as quantization on the model,
@@ -275,7 +282,7 @@ class SessionManagerMixIn:
 
         if session_manager.active_session().lifecycle.initialized_:
             state = callbacks.loss_calculated(loss=loss)
-            if state.loss is not None:
+            if state and state.loss is not None:
                 loss = state.loss
             callbacks.optim_pre_step()
 
@@ -410,6 +417,9 @@ class SessionManagerMixIn:
 
         self.save_state()
         self.save_optimizer_and_scheduler(output_dir)
+
+        if not self.recipe:
+            return
 
         # save recipe, will contain modifiers from the model's original recipe as well
         # as those added from self.recipe
