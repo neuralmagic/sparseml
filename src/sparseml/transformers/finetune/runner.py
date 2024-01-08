@@ -75,8 +75,13 @@ class StageRunner:
         """
         splits = self._data_args.splits
         tokenized_datasets = {}
-        if self._data_args.splits is None:
+        if splits is None:
             splits = {"all": None}
+        elif isinstance(splits, str):
+            splits = {splits: splits}
+        elif isinstance(splits, List):
+            splits = {s: s for s in splits}
+
         for split_name, split_str in splits.items():
             dataset_manager = TextGenerationDataset.load_from_registry(
                 self._data_args.dataset_name,
