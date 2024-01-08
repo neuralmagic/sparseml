@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+import logging
 import os
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
@@ -29,6 +30,8 @@ from sparseml.core.recipe.stage import RecipeStage
 
 
 __all__ = ["Recipe", "RecipeTuple"]
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class Recipe(RecipeBase):
@@ -72,8 +75,15 @@ class Recipe(RecipeBase):
                 raise NotImplementedError("Using SparseZoo stubs is not yet supported")
             else:
                 # assume it's a string
+                _LOGGER.warning(
+                    "Could not process input as a file path or zoo stub, "
+                    "attempting to process it as a string."
+                )
+                _LOGGER.warning(f"Input string: {path}")
                 obj = _load_json_or_yaml_string(path)
                 return Recipe.parse_obj(obj)
+        else:
+            _LOGGER.info(f"Loading recipe from file {path}")
 
         with open(path, "r") as file:
             content = file.read().strip()
@@ -484,20 +494,22 @@ class Recipe(RecipeBase):
                 for key, value in modifier.items()
             }
 
-        def _stage_to_dict(stage: List[Dict[str, Any]]):
-            # convert a list of stages to a dict of modifiers
+        def _stage_to_dict(stage: Dict[str, Any]):
+            # convert a stage to a dict of modifiers
             return {
                 modifier_group_name: _modifier_group_to_dict(modifier_group)
-                for stage_modifiers in stage
-                for modifier_group_name, modifier_group in stage_modifiers[
-                    "modifiers"
-                ].items()
+                for modifier_group_name, modifier_group in stage["modifiers"].items()
             }
 
-        return {
-            stage_name: _stage_to_dict(stage=stage)
-            for stage_name, stage in self.dict()["stages"].items()
-        }
+        final_dict = {}
+        for stage_name, stages in self.dict()["stages"].items():
+            if len(stages) == 1:
+                final_dict[stage_name] = _stage_to_dict(stages[0])
+            else:
+                for idx, stage in enumerate(stages):
+                    final_dict[stage_name + "_" + str(idx)] = _stage_to_dict(stage)
+
+        return final_dict
 
 
 @dataclass

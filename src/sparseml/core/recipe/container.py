@@ -44,10 +44,12 @@ class RecipeContainer:
 
     :param compiled_recipe: the compiled recipe from the recipes list
     :param recipes: the list of RecipeTuple instances to be compiled
+    :param applied_stages: list of recipe stages that have already been applied
     """
 
     compiled_recipe: Optional[Recipe] = None
     recipes: List[RecipeTuple] = field(default_factory=list)
+    applied_stages: List[str] = field(default_factory=list)
 
     def update(
         self,
@@ -118,6 +120,17 @@ class RecipeContainer:
 
         return kwargs
 
+    def update_applied_stages(self, new_stages: List[str]):
+        """
+        Updates the applied_stages list with new stages, indicating their structure
+        has already been applied
+
+        :param new_stages: new stage names to add
+        """
+        for stage in new_stages:
+            if stage not in self.applied_stages:
+                self.applied_stages.append(stage)
+
     def check_compile_recipe(self) -> bool:
         """
         Check if the recipes need to be compiled into a single recipe and
@@ -127,6 +140,19 @@ class RecipeContainer:
         """
         if self.compiled_recipe is None and self.recipes:
             self.compiled_recipe = Recipe.simplify_combine_recipes(self.recipes)
+            return True
+
+        return False
+
+    def check_any_recipe_exists(self) -> bool:
+        """
+        Checks if any recipes have been added to the container, compiled or not
+
+        :return: True if any recipes exist in the container, False otherwise
+        """
+        if self.compiled_recipe is not None:
+            return True
+        if len(self.recipes) > 0:
             return True
 
         return False

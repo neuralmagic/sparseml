@@ -146,6 +146,9 @@ def load_task_model(
         )
 
     if task == "text-generation":
+        # Export decoder model without kv cache support
+        config.use_cache = False
+
         return SparseAutoModel.text_generation_from_pretrained(
             model_name_or_path=model_path,
             config=config,
@@ -291,10 +294,13 @@ def export_transformer_to_onnx(
 
     # creates a SparseSession and apply structure from the model's recipe
     recipe_path = os.path.join(model_path, RECIPE_FILE_NAME)
-    session_manager.create_session()
-    apply_recipe_structure_to_model(
-        model, recipe_path=recipe_path, model_path=model_path
-    )
+    if os.path.exists(recipe_path):
+        session_manager.create_session()
+        apply_recipe_structure_to_model(
+            model=model, recipe_path=recipe_path, model_path=model_path
+        )
+    else:
+        _LOGGER.warning(f"No input recipe {RECIPE_FILE_NAME} found in {model_path}.")
 
     # create fake model input
     inputs = tokenizer(

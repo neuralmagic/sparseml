@@ -27,7 +27,7 @@ from sparseml.core.state import State
 
 
 def recipe_with_layer_prefix():
-    layer_prefix = "decoder"
+    layer_prefix = "model.decoder.layers"
     recipe = f"""
     metadata:
         target_model:
@@ -80,6 +80,9 @@ def test_session_initialize_propagates_layer_prefix_to_model(
 
 class ModifierMock(ModifierInterface):
     initialized_ = False
+    applied = False
+    group = "test"
+    unique_id = "test_0"
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__()

@@ -60,3 +60,11 @@ class TrainingArguments(HFTrainingArgs):
             )
         },
     )
+    do_oneshot: Optional[bool] = field(
+        default=False,
+        metadata={"help": "Whether to run one-shot calibration"},
+    )
+    oneshot_device: Optional[str] = field(
+        default="cuda:0",
+        metadata={"help": "Device to run oneshot calibration on"},
+    )
