@@ -95,6 +95,13 @@ def parse_args(**kwargs):
     else:
         model_args, data_args, training_args = parser.parse_dict(kwargs)
 
+    if training_args.recipe_args is not None:
+        arg_dict = {}
+        for recipe_arg in training_args.recipe_args:
+            key, value = recipe_arg.split("=")
+            arg_dict[key] = value
+        training_args.recipe_args = arg_dict
+
     return model_args, data_args, training_args
 
 
