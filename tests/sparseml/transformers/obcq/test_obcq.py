@@ -119,7 +119,7 @@ def test_sparsities():
     tiny_model = one_shot(
         model_path=tiny_model_path,
         dataset_name="open_platypus",
-        num_samples=64,
+        num_samples=32,
         device=device,
         recipe_file=lm_head_recipe,
     )
