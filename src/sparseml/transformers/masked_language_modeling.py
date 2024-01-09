@@ -138,6 +138,10 @@ class ModelArguments:
             "(necessary to use this script with private models)"
         },
     )
+    apply_mask_from: Optional[str] = field(
+        default=None,
+        metadata={"help": ("Path to the checkpoint whose mask to apply on the model")},
+    )
 
     def __post_init__(self):
         if self.config_overrides is not None and (
@@ -383,6 +387,7 @@ def main(**kwargs):
             "cache_dir": model_args.cache_dir,
             "use_auth_token": True if model_args.use_auth_token else None,
         },
+        mask_name_or_path=model_args.apply_mask_from,
     )
 
     tokenizer_kwargs = {
