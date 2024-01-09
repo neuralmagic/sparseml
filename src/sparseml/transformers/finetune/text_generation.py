@@ -34,6 +34,7 @@ from transformers import (
 
 from sparseml.pytorch.model_load.helpers import (
     apply_recipe_structure_to_model,
+    get_session_model,
     parse_dtype,
 )
 from sparseml.transformers.finetune import Trainer, TrainingArguments
@@ -192,6 +193,7 @@ def main(
     else:
         if not os.path.exists(recipe_path):
             _LOGGER.warning(f"No recipes were applied for {model_path}.")
+            apply_recipe_structure_to_model(model, None, model_path)
         else:
             _LOGGER.warning(f"Applying recipe {recipe_path} to {model_path}")
             apply_recipe_structure_to_model(model, recipe_path, model_path)
@@ -233,7 +235,7 @@ def main(
 
     # Initialize our Trainer
     trainer = Trainer(
-        model=model,
+        model_init=get_session_model,
         teacher=teacher,
         model_state_path=model_path,
         recipe=training_args.recipe,
@@ -241,12 +243,19 @@ def main(
         recipe_args=training_args.recipe_args,
         args=training_args,
         data_args=data_args,
-        train_dataset=train_dataset if training_args.do_train else None,
-        eval_dataset=eval_dataset if training_args.do_eval else None,
+        train_dataset=train_dataset,
+        eval_dataset=eval_dataset,
         tokenizer=tokenizer,
         data_collator=data_collator,
     )
     stage_runner.set_trainer(trainer)
+
+    # alternating Training/One-shot
+    if training_args.run_stages:
+        stage_runner.run_sequential_stages()
+
+        # exit immediately
+        return
 
     # Training
     if training_args.do_train:

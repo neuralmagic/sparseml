@@ -60,6 +60,10 @@ def apply_recipe_structure_to_model(model: Module, recipe_path: str, model_path:
         model=model, recipe=recipe_path, framework=Framework.pytorch
     )
 
+    # no need to reload if no recipe was applied
+    if recipe_path is None:
+        return
+
     session = session_manager.active_session()
     num_stages = len(session.lifecycle.recipe_container.compiled_recipe.stages)
     msg = (
@@ -233,3 +237,16 @@ def parse_dtype(dtype_arg: str) -> torch.dtype:
         dtype = torch.float32
 
     return dtype
+
+
+def get_session_model() -> Module:
+    """
+    :return: pytorch module stored by the active SparseSession, or None if no session
+    is active
+    """
+    session = session_manager.active_session()
+    if not session:
+        return None
+
+    active_model = session.state.model.model
+    return active_model
