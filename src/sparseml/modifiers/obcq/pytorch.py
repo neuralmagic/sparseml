@@ -31,14 +31,17 @@ class SparseGPTModifierPyTorch(WandaPruningModifierPyTorch, SparseGPTModifier):
     """
     Pytorch implementation of SparseGPT
 
-    Lifecycle: TODO update
+    Lifecycle:
         - on_initialize
-            - setup
-                - compressible_layers
-            - prune
-                - compress_bottom
-                - LayerCompressor.compress
+            - initialize_compression()
+                - compressible_layers()
+                - LayerCompressor.pre_compress()
+            - apply_compression()
+                - run_calibration_forward()
+                - LayerCompressor.compress()
+                - LayerCompressor.post_compress()
         - on_finalize
+            - LayerCompressor.revert_layer_wrappers()
 
     :param model: Pytorch model to perform OBCQ on, in-place
     """
@@ -59,7 +62,24 @@ class SparseGPTModifierPyTorch(WandaPruningModifierPyTorch, SparseGPTModifier):
 
         return super(SparseGPTModifierPyTorch, self).on_initialize(state, **kwargs)
 
+    def on_finalize(self, state: "State", **kwargs) -> bool:
+        """
+        disable the quantization observers used by the OBCQ algorithm
+
+        :param state: session state storing input model and calibration data
+        """
+        if self.quantization_modifier_:
+            self.quantization_modifier_.finalize(state, **kwargs)
+
+        return super(SparseGPTModifierPyTorch, self).on_finalize(state, **kwargs)
+
     def _pruning_arguments(self, sparsity):
+        """
+        Gather the parameters needed for root module compression in a dict
+
+        :param sparsity: target sparsity
+        :return: dict of params for pruning
+        """
         return {
             "sparsity": sparsity,
             "prunen": self.prunen_,
@@ -69,15 +89,7 @@ class SparseGPTModifierPyTorch(WandaPruningModifierPyTorch, SparseGPTModifier):
         }
 
     def _compression_class(self):
+        """
+        :return: wrapper class used for root modules of this compression class
+        """
         return SparseGptWrapper
-
-    def on_finalize(self, state: "State", **kwargs) -> bool:
-        """
-        disable the observers used by the OBCQ algorithm and set kv-cache configuration
-
-        :param state: un-used, for matching spec of Modifier base class
-        """
-        if self.quantization_modifier_:
-            self.quantization_modifier_.finalize(state, **kwargs)
-
-        return super(SparseGPTModifierPyTorch, self).on_finalize(state, **kwargs)

@@ -44,13 +44,14 @@ class SparseGptWrapper(ModuleCompressionWrapper):
         - fasterprune
         - free
 
-
-    :param layer: module to run SparseGPT on
+    :param name: name of module to run compression on
+    :param layer: module to run compression on
     """
 
     def __init__(self, name, layer):
         super().__init__(name=name, layer=layer)
 
+        # for Hessian calculation
         self.register_buffer(
             "H", torch.zeros((self.columns, self.columns), device=self.dev)
         )
@@ -95,8 +96,6 @@ class SparseGptWrapper(ModuleCompressionWrapper):
         :param percdamp: Amount of dampening to apply to H, as a fraction of the
         diagonal norm
         """
-        # self.dev = self.layer.weight.device
-        # self.H = self.H.to(self.dev)
         final_shape = self.layer.weight.shape
         final_dtype = self.layer.weight.dtype
         W = self.layer.weight.data.clone()
@@ -191,6 +190,9 @@ class SparseGptWrapper(ModuleCompressionWrapper):
         if isinstance(self.layer, transformers.Conv1D):
             W = W.t()
         W = W.reshape(final_shape).to(final_dtype)
+
+        # This is a bit hacky, but FSDP updates only work if we change the weight in
+        # place, clone() or direct assignment won't work
         self.layer.weight -= self.layer.weight
         self.layer.weight += W
 

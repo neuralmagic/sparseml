@@ -29,10 +29,17 @@ class WandaPruningModifier(Modifier):
     Modifier for applying the one-shot WANDA algorithm to a model
     from the paper: https://arxiv.org/abs/2306.11695
 
-    Life-cycle:
-        - initialze
-            - compress
-        - finalize
+    Lifecycle:
+        - on_initialize
+            - initialize_compression()
+                - compressible_layers()
+                - LayerCompressor.pre_compress()
+            - apply_compression()
+                - run_calibration_forward()
+                - LayerCompressor.compress()
+                - LayerCompressor.post_compress()
+        - on_finalize
+            - LayerCompressor.revert_layer_wrappers()
 
     :param sparsity: Sparsity to compress model to
     :param mask_structure: String to define the structure of the mask to apply.

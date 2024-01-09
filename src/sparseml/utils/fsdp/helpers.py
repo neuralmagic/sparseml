@@ -21,21 +21,55 @@ try:
 except ImportError:
     FullyShardedDataParallel = None
 
+from torch.nn import Module
+
 from sparseml.pytorch.model_load.helpers import save_model_and_recipe
 from sparseml.utils.pytorch import set_layer
 
 
-__all__ = ["is_fsdp_model", "unwrap_and_export_model", "save_pretrained_fsdp"]
+__all__ = [
+    "is_fsdp_model",
+    "fix_fsdp_module_name",
+    "unwrap_and_export_model",
+    "save_pretrained_fsdp",
+]
+
+FSDP_WRAPPER_NAME = "_fsdp_wrapped_module."
 
 
-def is_fsdp_model(model):
+def is_fsdp_model(model: Module) -> bool:
+    """
+    Check if a model instance is wrapped by FSDP
+
+    :param model: pytorch model to check
+    :return: True if module is wrapped, False otherwise
+    """
     if not FullyShardedDataParallel:
         return False
 
     return isinstance(model, FullyShardedDataParallel)
 
 
+def fix_fsdp_module_name(name: str) -> str:
+    """
+    Remove FSDP wrapper prefixes from a module name
+
+    :param name: name to strip
+    :return: stripped name
+    """
+    return name.replace(FSDP_WRAPPER_NAME, "")
+
+
 def unwrap_and_export_model(model, accelerator, output_dir, tokenizer):
+    """
+    Recursively unwraps an FSDP model, then saves the unwrapped model and the
+    currently active recipe to disk
+
+    :param model: model to unwrap
+    :param accelerator: Accelerator instance used to perform unwrapping
+    :param output_dir: where to save output model
+    :param tokenizer: tokenizer used by the model
+    """
     full_state_dict_config = FullStateDictConfig(offload_to_cpu=True, rank0_only=True)
     with FullyShardedDataParallel.state_dict_type(
         model,
@@ -56,7 +90,14 @@ def unwrap_and_export_model(model, accelerator, output_dir, tokenizer):
 
 def save_pretrained_fsdp(model, accelerator, output_dir):
     full_state_dict_config = FullStateDictConfig(offload_to_cpu=True, rank0_only=True)
+    """
+    Gathers the full FSDP state dict of the model onto rank0 GPU, then uses it to save
+    the pretrained FSDP model to disk
 
+    :param model: model to save
+    :param accelerator: Accelerator instance used to perform unwrapping
+    :param output_dir: where to save output model
+    """
     with FullyShardedDataParallel.state_dict_type(
         model, StateDictType.FULL_STATE_DICT, full_state_dict_config
     ):
