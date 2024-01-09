@@ -35,6 +35,7 @@ from sparseml.modifiers.quantization.utils.quantize import (
     set_quantization_schemes,
 )
 from sparseml.modifiers.utils.pytorch_helpers import run_calibration_forward
+from sparseml.utils.fsdp.context import summon_full_params_context
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -129,9 +130,7 @@ class QuantizationModifierPyTorch(QuantizationModifier):
         module.apply(torch.quantization.enable_observer)
 
         if not self.qat_enabled_:
-            from torch.distributed.fsdp import FullyShardedDataParallel
-
-            with FullyShardedDataParallel.summon_full_params(module):
+            with summon_full_params_context(module):
                 # fuse conv-bn-relu blocks prior to quantization emulation
                 self._fuse(module)
 

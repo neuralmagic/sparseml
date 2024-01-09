@@ -17,9 +17,9 @@ import operator
 from typing import Dict
 
 import torch
-from torch.distributed.fsdp import FullyShardedDataParallel
 from torch.nn import Module
 
+from sparseml.utils.fsdp.context import summon_full_params_context
 from sparseml.utils.pytorch import set_layer
 from sparseml.utils.pytorch.module import get_prunable_layers
 
@@ -85,7 +85,7 @@ class LayerCompressor:
         for name in subset:
             layer = subset[name]
             full_name = self._get_full_submodule_name(name)
-            with FullyShardedDataParallel.summon_full_params(self.layer):
+            with summon_full_params_context(self.layer):
                 wrapper = self.module_compressor_class(full_name, layer)
             set_layer(full_name, wrapper, self.model)
             self.modules[name] = wrapper

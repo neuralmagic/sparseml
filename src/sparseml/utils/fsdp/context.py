@@ -12,13 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# flake8: noqa
+try:
+    from torch.distributed.fsdp import FullyShardedDataParallel
+except ImportError:
+    FullyShardedDataParallel = None
 
-from .base import TextGenerationDataset
-from .c4 import C4Dataset
-from .evolcodealpaca import EvolCodeAlpacaDataset
-from .gsm8k import GSM8KDataset
-from .open_platypus import OpenPlatypusDataset
-from .ptb import PtbDataset
-from .ultrachat_200k import UltraChatDataset
-from .wikitext import WikiTextDataset
+from contextlib import nullcontext
+
+
+__all__ = ["summon_full_params_context"]
+
+
+def summon_full_params_context(model):
+    if FullyShardedDataParallel is not None:
+        return FullyShardedDataParallel.summon_full_params(model)
+
+    return nullcontext()
