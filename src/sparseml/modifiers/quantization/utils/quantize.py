@@ -33,7 +33,7 @@ from sparseml.modifiers.quantization.utils.helpers import (
 )
 from sparseml.modifiers.quantization.utils.quantization_scheme import QuantizationScheme
 from sparseml.pytorch.utils import get_layer
-from sparseml.utils.fsdp import fix_fsdp_module_name
+from sparseml.utils.fsdp.context import fix_fsdp_module_name
 
 
 try:
