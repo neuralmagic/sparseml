@@ -13,7 +13,8 @@
 # limitations under the License.
 
 import logging
-from typing import List
+import os
+from typing import List, Optional
 
 import torch
 from torch.nn import Module
@@ -22,6 +23,7 @@ from transformers import AutoTokenizer
 
 import sparseml.core.session as session_manager
 from sparseml.core.framework import Framework
+from sparseml.core.recipe import Recipe, StageRunType
 from sparseml.pytorch.model_load.helpers import fallback_to_cpu, save_model_and_recipe
 from sparseml.transformers.finetune import Trainer, TrainingArguments
 from sparseml.transformers.finetune.data import TextGenerationDataset
@@ -65,6 +67,7 @@ class StageRunner:
         self.model = model
         self.trainer = None
         self.tokenizer = None
+        self._output_dir = self._training_args.output_dir
 
     def populate_datasets(self, tokenizer: "AutoTokenizer"):
         """
@@ -95,10 +98,10 @@ class StageRunner:
 
         self.datasets = make_dataset_splits(
             tokenized_datasets,
-            self._training_args.do_train,
-            self._training_args.do_eval,
-            self._training_args.do_predict,
-            self._training_args.do_oneshot,
+            do_train=self._training_args.do_train or self._training_args.run_stages,
+            do_eval=self._training_args.do_eval,
+            do_predict=self._training_args.do_predict,
+            do_oneshot=self._training_args.do_oneshot or self._training_args.run_stages,
         )
         self.tokenizer = tokenizer
 
@@ -144,9 +147,11 @@ class StageRunner:
             : min(self._data_args.num_calibration_samples, len(parsed_calib_data))
         ]
 
-    def one_shot(self):
+    def one_shot(self, stage: Optional[str] = None):
         """
         Run oneshot calibration on the active model
+
+        :param stage: which stage of the recipe to run, or None to run whole recipe
         """
         _LOGGER.info("*** One Shot ***")
 
@@ -155,6 +160,7 @@ class StageRunner:
         session_manager.apply(
             framework=Framework.pytorch,
             recipe=self._training_args.recipe,
+            recipe_stage=stage,
             model=self.model,
             calib_data=calib_data,
             start=-1,
@@ -164,25 +170,29 @@ class StageRunner:
 
         save_model_and_recipe(
             model=self.model,
-            save_path=self._training_args.output_dir,
+            save_path=self._output_dir,
             tokenizer=self.tokenizer,
         )
 
-    def train(self, checkpoint: str):
+    def train(self, checkpoint: str, stage: Optional[str] = None):
         """
         Run trainer's training loop on train_dataset, saving the resulting model to
         output_dir
 
         :param checkpoint: Optional checkpoint to resume from
+        :param stage: which stage of the recipe to run, or None to run whole recipe
         """
-        train_result = self.trainer.train(resume_from_checkpoint=checkpoint)
+        _LOGGER.info("*** Train ***")
+        train_result = self.trainer.train(
+            resume_from_checkpoint=checkpoint, stage=stage
+        )
         metrics = train_result.metrics
         metrics["train_samples"] = len(self.get_dataset_split("train"))
         self.trainer.log_metrics("train", metrics)
         self.trainer.save_metrics("train", metrics)
 
         # this includes saving the state, optimizer and scheduler
-        self.trainer.save_model()
+        self.trainer.save_model(output_dir=self._output_dir)
 
     def evaluate(self):
         """
@@ -206,3 +216,42 @@ class StageRunner:
         metrics["predict_samples"] = len(self.dataset["test"])
         self.trainer.log_metrics("predict", metrics)
         self.trainer.save_metrics("predict", metrics)
+
+    def run_sequential_stages(self):
+        """
+        Run the recipe stage by stage, allowing for alternating between one-shot and
+        finetuning flows. Optionally save the model output at the end of each stage
+        """
+
+        recipe_obj = Recipe.create_instance(self._training_args.recipe)
+
+        for stage in recipe_obj.stages:
+            # validate stage
+            stage_name = stage.group
+            run_type = stage.infer_run_type()
+            if not run_type:
+                raise ValueError(
+                    f"a valid stage type ({[e.value for e in StageRunType]}) "
+                    "must be provided in run_stages mode. Either add a run_type "
+                    "attribute to each stage in the recipe or include it as part of "
+                    "the stage name."
+                )
+
+            # setup checkpoint dir, TODO: this should be optional
+            self._output_dir = os.path.join(
+                self._training_args.output_dir, "stage_" + stage_name
+            )
+            if not os.path.exists(self._output_dir):
+                os.makedirs(self._output_dir)
+
+            # run stage
+            if run_type is StageRunType.ONESHOT:
+                self.one_shot(stage=stage_name)
+            elif run_type is StageRunType.TRAIN:
+                self.train(checkpoint=None, stage=stage_name)
+
+            # setup for next stage
+            session = session_manager.active_session()
+            session.reset_stage()
+
+        self.trainer.log_model_sparsification()
