@@ -20,11 +20,6 @@ from dataclasses import asdict
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import torch
-from torch.distributed.fsdp import (
-    FullStateDictConfig,
-    FullyShardedDataParallel,
-    StateDictType,
-)
 from torch.nn import Module
 from torch.utils.data import DataLoader
 from transformers.trainer_callback import TrainerState
@@ -39,6 +34,8 @@ from sparseml.transformers.finetune.callbacks import (
     DisableHalfPrecisionCallback,
     TrainingLoopCallbacks,
 )
+from sparseml.utils.fsdp.context import summon_full_params_context
+from sparseml.utils.fsdp.helpers import is_fsdp_model, save_pretrained_fsdp
 
 
 __all__ = [
@@ -136,7 +133,7 @@ class SessionManagerMixIn:
         train_data = self.get_train_dataloader()
 
         self.accelerator.wait_for_everyone()
-        with FullyShardedDataParallel.summon_full_params(self.model):
+        with summon_full_params_context(self.model):
             session_manager.initialize(
                 model=self.model,
                 teacher_model=self.teacher,  # TODO: what about for self/disable?
@@ -193,7 +190,7 @@ class SessionManagerMixIn:
         if not session.lifecycle.initialized_ or session.lifecycle.finalized:
             return False
 
-        with FullyShardedDataParallel.summon_full_params(self.model):
+        with summon_full_params_context(self.model):
             # in order to update each layer we need to gathers all its parameters
             session_manager.finalize()
         _LOGGER.info("Finalized SparseML session")
@@ -335,7 +332,7 @@ class SessionManagerMixIn:
         self.accelerator.wait_for_everyone()
 
         # Need to gather parameters across the GPUs before accessing layer weights
-        with FullyShardedDataParallel.summon_full_params(self.model):
+        with summon_full_params_context(self.model):
             self.log_model_sparsification()
 
         return output
@@ -419,21 +416,9 @@ class SessionManagerMixIn:
         if output_dir is None:
             output_dir = self.args.output_dir
 
-        full_state_dict_config = FullStateDictConfig(
-            offload_to_cpu=True, rank0_only=True
-        )
-
-        if isinstance(self.model, FullyShardedDataParallel):
-            with FullyShardedDataParallel.state_dict_type(
-                self.model, StateDictType.FULL_STATE_DICT, full_state_dict_config
-            ):
-                state_dict = self.accelerator.get_state_dict(self.model, unwrap=False)
-
-            self.accelerator.unwrap_model(self.model).save_pretrained(
-                output_dir,
-                is_main_process=self.accelerator.is_main_process,
-                save_function=self.accelerator.save,
-                state_dict=state_dict,
+        if is_fsdp_model(self.model):
+            save_pretrained_fsdp(
+                model=self.model, accelerator=self.accelerator, output_dir=output_dir
             )
 
         self.save_state()

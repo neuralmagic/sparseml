@@ -34,6 +34,7 @@ from transformers import (
 
 from sparseml.pytorch.model_load.helpers import (
     apply_recipe_structure_to_model,
+    fallback_to_cpu,
     get_session_model,
     parse_dtype,
 )
@@ -157,6 +158,9 @@ def main(
     # Set seed before initializing model.
     set_seed(training_args.seed)
 
+    # Fallback to CPU if GPU requested and not available
+    training_args.oneshot_device = fallback_to_cpu(training_args.oneshot_device)
+
     # Load pretrained model
     # The .from_pretrained methods guarantee that only one local process can
     # concurrently download model & vocab.
@@ -173,7 +177,7 @@ def main(
         "revision": model_args.model_revision,
         "use_auth_token": True if model_args.use_auth_token else None,
         "torch_dtype": parse_dtype(model_args.precision),
-        "device_map": "cuda:0",
+        "device_map": training_args.oneshot_device,
     }
     teacher_kwargs = {
         "cache_dir": model_args.cache_dir,

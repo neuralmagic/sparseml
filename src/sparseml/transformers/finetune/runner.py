@@ -17,11 +17,6 @@ import os
 from typing import List, Optional
 
 import torch
-from torch.distributed.fsdp import (
-    FullStateDictConfig,
-    FullyShardedDataParallel,
-    StateDictType,
-)
 from torch.nn import Module
 from torch.utils.data import DataLoader, Dataset, RandomSampler
 from transformers import AutoTokenizer
@@ -34,7 +29,9 @@ from sparseml.transformers.finetune.data import TextGenerationDataset
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
 from sparseml.transformers.finetune.data.data_helpers import make_dataset_splits
 from sparseml.transformers.finetune.model_args import ModelArguments
-from sparseml.utils.pytorch import qat_active, set_layer
+from sparseml.utils.fsdp.context import summon_full_params_context
+from sparseml.utils.fsdp.helpers import is_fsdp_model, unwrap_and_export_model
+from sparseml.utils.pytorch import qat_active
 
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
@@ -150,34 +147,17 @@ class StageRunner:
         calib_data = self.format_calibration_data()
         self.trainer.one_shot(calib_data, stage=stage)
 
-        if isinstance(self.trainer.model, FullyShardedDataParallel):
+        if is_fsdp_model(self.trainer.model):
             try:
                 self.trainer.save_model(output_dir=self._output_dir)
             except AssertionError:
                 # fallback to this in the case of quantization
-                full_state_dict_config = FullStateDictConfig(
-                    offload_to_cpu=True, rank0_only=True
+                unwrap_and_export_model(
+                    model=self.trainer.model,
+                    accelerator=self.trainer.accelerator,
+                    output_dir=self._output_dir,
+                    tokenizer=self.tokenizer,
                 )
-                with FullyShardedDataParallel.state_dict_type(
-                    self.trainer.model,
-                    StateDictType.FULL_STATE_DICT,
-                    full_state_dict_config,
-                ):
-                    unwrapped_model = self.trainer.accelerator.unwrap_model(
-                        self.trainer.model
-                    )
-                    for name, module in unwrapped_model.named_modules():
-                        if isinstance(module, FullyShardedDataParallel):
-                            set_layer(
-                                name,
-                                self.trainer.accelerator.unwrap_model(module),
-                                unwrapped_model,
-                            )
-                    save_model_and_recipe(
-                        model=unwrapped_model,
-                        save_path=self._output_dir,
-                        tokenizer=self.tokenizer,
-                    )
         else:
             save_model_and_recipe(
                 model=self.trainer.model,
@@ -260,7 +240,7 @@ class StageRunner:
             if run_type is StageRunType.ONESHOT:
                 self.one_shot(stage=stage_name)
             elif run_type is StageRunType.TRAIN:
-                if not isinstance(self.trainer.model, FullyShardedDataParallel):
+                if is_fsdp_model(self.trainer.model):
                     self.trainer.model.to("cpu")
                 self.train(checkpoint=None, stage=stage_name)
 
@@ -268,7 +248,7 @@ class StageRunner:
             session = session_manager.active_session()
             session.reset_stage()
 
-            with FullyShardedDataParallel.summon_full_params(self.trainer.model):
+            with summon_full_params_context(self.trainer.model):
                 if self.trainer.accelerator.is_main_process:
                     if not qat_active(self.trainer.model):
                         self.trainer.log_model_sparsification()

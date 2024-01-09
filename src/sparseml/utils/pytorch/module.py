@@ -22,11 +22,11 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import torch
 from packaging import version
-from torch.distributed.fsdp import FullyShardedDataParallel
 from torch.nn import Linear, Module, Parameter
 from torch.nn.modules.conv import _ConvNd
 
 from sparseml.core.model.base import ModelParameterizedLayer
+from sparseml.utils.fsdp.context import summon_full_params_context
 
 
 FSDP_WRAPPER_NAME = "_fsdp_wrapped_module."
@@ -172,7 +172,7 @@ def get_layer(target: str, module: Module) -> Tuple[str, Module]:
 
 
 def set_layer(target: str, layer: Module, module: Module) -> Module:
-    with FullyShardedDataParallel.summon_full_params(module):
+    with summon_full_params_context(module):
         parent_target = ".".join(target.split(".")[:-1])
         if parent_target != "":
             parent_layer = get_layer(parent_target, module)[1]
