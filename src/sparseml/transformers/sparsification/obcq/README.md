@@ -36,9 +36,11 @@ positional arguments:
 - `dataset_name` Hugging Face dataset to extract calibration data from. Example of supported datasets: `{c4,evolcodealpaca,gsm8k,open_platypus,ptb,wikitext2}`
 
 options:
+- `--dataset_config` Specific configuration to extract from the dataset, i.e. `wikitext2-raw-v1` for `wikitext2`
 - `--nsamples` number of samples to extract from the dataset, defaults to 512.
+- `--seqlen` Maximum input sequence length to truncate calibration data to, defaults to model's max sequence length
+- `--concat_data` Whether or not to concatenate samples to fill the full seqlen, defaults to False
 - `--deploy-dir` the directory where the model will be saved, defaults to `obcq_deployment`.
-- `--eval` dataset to use for perplexity evaluation, or none to skip.
 - `--save` whether to save the output model to disk.
 - `--recipe` the file containing the one-shot hyperparameters.
 - `--device` which device to load the model onto, either `cpu` or a specific `cuda:0`.

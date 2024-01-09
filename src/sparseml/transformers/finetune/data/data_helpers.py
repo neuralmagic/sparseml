@@ -12,12 +12,42 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional
 
+import torch
 from datasets import Dataset, load_dataset
+from torch.utils.data import DataLoader, RandomSampler
+from transformers.data import default_data_collator
 
 
-__all__ = ["get_raw_dataset", "make_dataset_splits"]
+__all__ = ["format_calibration_data", "get_raw_dataset", "make_dataset_splits"]
+
+
+def format_calibration_data(
+    tokenized_dataset: Dataset,
+    num_calibration_samples: int,
+    collate_fn: Callable = default_data_collator,
+) -> List[torch.Tensor]:
+    """
+    Creates a dataloader out of the calibration dataset split, trimming it to
+    the desired number of calibration samples
+
+    :return: list of trimmed calibration data tensors
+    """
+    dataloader_params = {
+        "batch_size": 1,
+        "sampler": RandomSampler(tokenized_dataset),
+        "collate_fn": collate_fn,
+    }
+
+    calibration_data = []
+    calib_dataloader = DataLoader(tokenized_dataset, **dataloader_params)
+    dataloader_iter = iter(calib_dataloader)
+    for _ in range(num_calibration_samples):
+        datapoint = next(dataloader_iter)
+        calibration_data.append(datapoint["input_ids"])
+
+    return calibration_data
 
 
 def get_raw_dataset(data_args, cache_dir: Optional[str] = None, **kwargs) -> Dataset:

@@ -16,9 +16,8 @@ import logging
 import os
 from typing import List, Optional
 
-import torch
 from torch.nn import Module
-from torch.utils.data import DataLoader, Dataset, RandomSampler
+from torch.utils.data import Dataset
 from transformers import AutoTokenizer
 
 import sparseml.core.session as session_manager
@@ -28,7 +27,10 @@ from sparseml.pytorch.model_load.helpers import fallback_to_cpu, save_model_and_
 from sparseml.transformers.finetune import Trainer, TrainingArguments
 from sparseml.transformers.finetune.data import TextGenerationDataset
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
-from sparseml.transformers.finetune.data.data_helpers import make_dataset_splits
+from sparseml.transformers.finetune.data.data_helpers import (
+    format_calibration_data,
+    make_dataset_splits,
+)
 from sparseml.transformers.finetune.model_args import ModelArguments
 
 
@@ -126,27 +128,6 @@ class StageRunner:
         """
         return self.datasets.get(split_name)
 
-    def format_calibration_data(self) -> List[torch.Tensor]:
-        """
-        Creates a dataloader out of the calibration dataset split, trimming it to
-        the desired number of calibration samples
-
-        :return: list of trimmed calibration data tensors
-        """
-        oneshot_dataset = self.get_dataset_split("calibration")
-
-        dataloader_params = {
-            "batch_size": 1,
-            "sampler": RandomSampler(oneshot_dataset),
-            "collate_fn": self.trainer.data_collator,
-        }
-
-        calib_dataloader = DataLoader(oneshot_dataset, **dataloader_params)
-        parsed_calib_data = [inp["input_ids"] for inp in calib_dataloader]
-        return parsed_calib_data[
-            : min(self._data_args.num_calibration_samples, len(parsed_calib_data))
-        ]
-
     def one_shot(self, stage: Optional[str] = None):
         """
         Run oneshot calibration on the active model
@@ -155,7 +136,12 @@ class StageRunner:
         """
         _LOGGER.info("*** One Shot ***")
 
-        calib_data = self.format_calibration_data()
+        oneshot_dataset = self.get_dataset_split("calibration")
+        calib_data = format_calibration_data(
+            tokenized_dataset=oneshot_dataset,
+            num_calibration_samples=self._data_args.num_calibration_samples,
+            collate_fn=self.trainer.data_collator,
+        )
         oneshot_device = fallback_to_cpu(self._training_args.oneshot_device)
         session_manager.apply(
             framework=Framework.pytorch,

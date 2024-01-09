@@ -173,9 +173,13 @@ def main(
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
     )
-    teacher_config = AutoConfig.from_pretrained(
-        training_args.distill_teacher,
-        use_auth_token=True if model_args.use_auth_token else None,
+    teacher_config = (
+        AutoConfig.from_pretrained(
+            training_args.distill_teacher,
+            use_auth_token=True if model_args.use_auth_token else None,
+        )
+        if training_args.distill_teacher
+        else None
     )
 
     model_kwargs = {
