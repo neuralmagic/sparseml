@@ -86,9 +86,10 @@ def test_max_seq_len_clipped(tiny_llama_tokenizer):
 @pytest.mark.usefixtures("tiny_llama_tokenizer")
 def test_dataset_kwargs_and_percentages(tiny_llama_tokenizer):
     data_args = DataTrainingArguments(
-        dataset_name="c4",
-        dataset_config_name="allenai--c4",
-        raw_kwargs={"data_files": {"train": "en/c4-train.00000-of-01024.json.gz"}},
+        dataset_name="wikitext",
+        raw_kwargs={
+            "data_files": {"train": "wikitext-2-raw-v1/train-00000-of-00001.parquet"}
+        },
     )
     c4_manager_a = TextGenerationDataset.load_from_registry(
         data_args.dataset_name,
