@@ -29,7 +29,7 @@ def test_concatenation_tokenization(tiny_llama_tokenizer):
     wiki_manager = TextGenerationDataset.load_from_registry(
         data_args.dataset_name,
         data_args=data_args,
-        split="train[:2%]",
+        split="train[:5%]",
         tokenizer=tiny_llama_tokenizer,
     )
     raw_dataset = wiki_manager.get_raw_dataset()
