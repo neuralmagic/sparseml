@@ -16,13 +16,16 @@ import math
 
 import pytest
 import torch
+from transformers import AutoTokenizer
 
 from sparseml.core.framework import Framework
 from sparseml.core.state import State
 from sparseml.modifiers.obcq import SparseGPTModifier
 from sparseml.modifiers.obcq.utils.helpers import ppl_eval_general
 from sparseml.pytorch.utils.helpers import tensor_sparsity
-from sparseml.transformers.data import TransformersDataset
+from sparseml.transformers.finetune.data import TextGenerationDataset
+from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
+from sparseml.transformers.finetune.data.data_helpers import format_calibration_data
 from sparseml.transformers.sparsification.obcq.obcq import one_shot
 from sparseml.transformers.sparsification.obcq.utils.helpers import llama_forward
 from sparseml.transformers.utils.model import SparseCausalLM
@@ -39,27 +42,39 @@ from sparseml.transformers.utils.model import SparseCausalLM
 def test_obcq_tinystories(recipe_file_path):
     tiny_model_path = "Xenova/llama2.c-stories15M"
     device = "cuda:0"
+    num_samples = 64
+    dataset_name = "open_platypus"
     if not torch.cuda.is_available():
         device = "cpu"
 
     # test recipe with 50% sparsity, quantization and smoothquant
     tiny_model = one_shot(
         model_path=tiny_model_path,
-        dataset_name="open_platypus",
-        num_samples=64,
+        dataset_name=dataset_name,
+        num_samples=num_samples,
         device=device,
         recipe_file=recipe_file_path,
     )
 
-    dataset = TransformersDataset.load_from_registry(
-        "wikitext2",
-        model=tiny_model_path,
-        seqlen=tiny_model.seqlen,
-        nsamples=64,
-        seed=0,
-        split="test",
+    data_args = DataTrainingArguments(
+        dataset_name=dataset_name,
+        max_seq_length=tiny_model.seqlen,
+        num_calibration_samples=num_samples,
+        concatenate_data=False,
+        pad_to_max_length=False,
     )
-    test_data = dataset.loader
+
+    tokenizer = AutoTokenizer.from_pretrained(
+        tiny_model_path, use_fast=True, trust_remote_code=True
+    )
+    dataset_manager = TextGenerationDataset.load_from_registry(
+        dataset_name, data_args=data_args, split="train", tokenizer=tokenizer
+    )
+    raw_dataset = dataset_manager.get_raw_dataset()
+    tokenized_dataset = dataset_manager.tokenize_and_process(raw_dataset)
+    test_data = format_calibration_data(
+        tokenized_dataset=tokenized_dataset, num_calibration_samples=num_samples
+    )
     perplexity = ppl_eval_general(
         llama_forward, tiny_model, test_data, device, max_samples_per_iteration=8
     )
