@@ -258,6 +258,13 @@ def main(
         # exit immediately
         return
 
+    # alternating Training/One-shot
+    if training_args.run_stages:
+        stage_runner.run_sequential_stages()
+
+        # exit immediately
+        return
+
     # Training
     if training_args.do_train:
         checkpoint = None
