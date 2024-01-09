@@ -53,7 +53,6 @@ class SessionManagerMixIn:
     Mix-In class to extend the Hugging Face Trainer class to support SparseML recipes
     for one-shot and finetuning flows.
 
-    :param model: PyTorch model to run training on
     :param model_state_path: path to Pytorch model checkpoint or saved model
     :param recipe: path to recipe file to apply during training
     :param recipe_args: additional kwargs to use for evaluating recipe
@@ -64,9 +63,8 @@ class SessionManagerMixIn:
 
     def __init__(
         self,
-        model: Module,
         model_state_path: str,
-        recipe: Optional[str],
+        recipe: Optional[str] = None,
         recipe_args: Optional[Union[Dict[str, Any], str]] = None,
         metadata_args: Optional[List[str]] = None,
         data_args: Optional["DataTrainingArguments"] = None,  # noqa: F821
@@ -96,7 +94,7 @@ class SessionManagerMixIn:
         session_manager.create_session()
 
         # call Trainer initialization
-        super().__init__(model=model, **kwargs)
+        super().__init__(**kwargs)
 
         # setup callbacks and loss
         self.optim_callbacks = TrainingLoopCallbacks(self)
@@ -105,7 +103,7 @@ class SessionManagerMixIn:
         self.callback_handler.add_callback(self.callback_disable_fp16)
         self.criterion = torch.nn.CrossEntropyLoss()
 
-        model_signature = inspect.signature(model.forward)
+        model_signature = inspect.signature(self.model.forward)
         self._model_signature_columns = list(model_signature.parameters.keys())
 
         if self.teacher is not None and teacher not in ("disable", "self"):
@@ -114,7 +112,12 @@ class SessionManagerMixIn:
         else:
             self._teacher_signature_columns = None
 
-    def initialize_session(self, epoch: float, checkpoint: Optional[str]):
+    def initialize_session(
+        self,
+        epoch: float,
+        checkpoint: Optional[str] = None,
+        stage: Optional[str] = None,
+    ):
         """
         Initialize the SparseSession from the specified epoch, evaluates the recipe
         and initialized the modifiers for the training session
@@ -122,6 +125,7 @@ class SessionManagerMixIn:
         :param epoch: Epoch to initialize session from, usually 0 unless loading
         from a checkpoint
         :param checkpoint: Optional checkpoint to initialize from to continue training
+        :param stage: Optional stage of recipe to run, or None to run all stages
         """
         session = session_manager.active_session()
         if session.lifecycle.initialized_ or session.lifecycle.finalized:
@@ -135,6 +139,7 @@ class SessionManagerMixIn:
             model=self.model,
             teacher_model=self.teacher,  # TODO: what about for self/disable?
             recipe=self.recipe,
+            recipe_stage=stage,
             recipe_args=self.recipe_args,
             framework=Framework.pytorch,
             train_data=train_data,
@@ -305,7 +310,7 @@ class SessionManagerMixIn:
         )
         return model_outputs
 
-    def train(self, *args, **kwargs):
+    def train(self, *args, stage: Optional[str] = None, **kwargs):
         """
         Run a sparsification training cycle. Runs initialization for the sparse session
         before calling super().train() and finalization of the session after.
@@ -313,11 +318,12 @@ class SessionManagerMixIn:
         Logs sparsification details for the trained model.
 
         :param args: positional args to pass to super().train()
+        :param stage: Optional stage of recipe to run, or None to run all stages
         :param kwargs: keyword args to pass to super().train()
         :return: the output from super.train()
         """
         checkpoint, epoch = self._calculate_checkpoint_info(kwargs)
-        self.initialize_session(epoch=epoch, checkpoint=checkpoint)
+        self.initialize_session(epoch=epoch, checkpoint=checkpoint, stage=stage)
         self.callback_disable_fp16.check_disable(epoch, force=True)
         self.accelerator.wait_for_everyone()
         output = super().train(*args, **kwargs)
