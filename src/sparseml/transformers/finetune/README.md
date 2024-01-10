@@ -78,6 +78,23 @@ Finetuning arguments are split up into 3 groups:
 
 
 ## Running One-Shot with FSDP (OBC Only)
+```bash
+accelerate launch 
+    --config_file example_fsdp_config.yaml 
+    --no_python sparseml.transformers.text_generation.oneshot
+    --model_name PATH_TO_MODEL
+    --num_calibration_samples 512
+    --dataset_name DATASET_NAME
+    --dataset_config_name OPTIONAL
+    --max_seq_len OPTIONAL
+    --concatenate_data OPTIONAL
+    --recipe PATH_TO_RECIPE
+    --output_dir PATH_TO_OUTPUT
+    --splits "train"
+```
+
+
+## Running One-shot from Python (without FSDP)
 ```python
 from sparseml.transformers.finetune.text_generation import run_oneshot
 
@@ -91,10 +108,10 @@ splits = {
     "calibration": "train[:20%]"
 }
 
-run_oneshot(
+run_general(
     model_name_or_path=model,
     dataset_name=dataset_name,
-    do_oneshot=do_oneshot,
+    concatenate_data=concatenate_data,
     output_dir=output_dir,
     recipe=recipe,
     overwrite_output_dir=overwrite_output_dir,
