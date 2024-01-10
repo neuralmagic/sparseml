@@ -170,6 +170,8 @@ def _setup_extras() -> Dict:
 def _setup_entry_points() -> Dict:
     entry_points = {
         "console_scripts": [
+            # export
+            "sparseml.export=sparseml.export.export:main",
             # sparsification
             "sparseml.framework=sparseml.framework.info:_main",
             "sparseml.sparsification=sparseml.sparsification.info:_main",
