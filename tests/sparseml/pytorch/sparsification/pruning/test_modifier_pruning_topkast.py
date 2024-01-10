@@ -152,9 +152,11 @@ class TestTopKASTPruningModifier(ScheduledModifierTest):
             # the end of the test.
             model_state_dict = copy.deepcopy(model.state_dict())
 
+            random_input = torch.randn(batch_shape, * input_shape)
+            
             # Compute gradients using full weights but Top-Kast modifier.
             optimizer.zero_grad()
-            model(torch.randn(batch_shape, *input_shape)).mean().backward()
+            model(random_input).mean().backward()
             grads_from_full_model = {}
             for i, param in enumerate(modifier._module_masks._params):
                 grads_from_full_model[i] = modifier._module_masks._params[i].grad
@@ -164,7 +166,7 @@ class TestTopKASTPruningModifier(ScheduledModifierTest):
             with torch.no_grad():
                 for i, param in enumerate(modifier._module_masks._params):
                     param.data.mul_(modifier._module_masks.param_masks[i])
-            model(torch.randn(batch_shape, *input_shape)).mean().backward()
+            model(random_input).mean().backward()
             for i, param in enumerate(modifier._module_masks._params):
                 assert torch.allclose(
                     grads_from_full_model[i], modifier._module_masks._params[i].grad
