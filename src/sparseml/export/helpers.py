@@ -15,10 +15,9 @@
 import logging
 import os
 import shutil
-from collections import OrderedDict
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, OrderedDict, Union
 
 from sparseml.exporters import ExportTargets
 

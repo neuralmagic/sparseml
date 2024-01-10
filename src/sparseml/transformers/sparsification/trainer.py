@@ -694,9 +694,14 @@ class RecipeManagerTrainerInterface:
                 self.args, log_dir=self.args.logging_dir
             )
 
-        self.logger_manager.add_logger(
-            TensorBoardLogger(writer=tensorboard_callback.tb_writer)
-        )
+        try:
+            self.logger_manager.add_logger(
+                TensorBoardLogger(writer=tensorboard_callback.tb_writer)
+            )
+        except (ImportError, ModuleNotFoundError):
+            _LOGGER.info(
+                f"Unable to import tensorboard - running without tensorboard logging"
+            )
 
     def _get_fake_dataloader(
         self,
