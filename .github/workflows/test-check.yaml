@@ -232,7 +232,7 @@ jobs:
       - name: "Clean sparsezoo directory"
         run: rm -r sparsezoo/
       - name: "⚙️ Install dependencies"
-        run: pip3 install .[dev,torch,transformers]
+        run: pip3 install .[dev,torch,transformers,onnxruntime]
       - name: "🔬 Running transformers tests"
         run: make test TARGETS=transformers
   export-tests:

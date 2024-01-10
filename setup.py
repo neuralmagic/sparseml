@@ -83,6 +83,7 @@ _transformers_deps = _pytorch_deps + [
     "scikit-learn",
     "seqeval",
     "einops",
+    "onnxruntime>=1.0.0",
     "accelerate>=0.20.3",
 ]
 _yolov5_deps = _pytorch_vision_deps + [
