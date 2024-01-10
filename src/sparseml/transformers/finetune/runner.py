@@ -240,7 +240,7 @@ class StageRunner:
             if run_type is StageRunType.ONESHOT:
                 self.one_shot(stage=stage_name)
             elif run_type is StageRunType.TRAIN:
-                if is_fsdp_model(self.trainer.model):
+                if not is_fsdp_model(self.trainer.model):
                     self.trainer.model.to("cpu")
                 self.train(checkpoint=None, stage=stage_name)
 

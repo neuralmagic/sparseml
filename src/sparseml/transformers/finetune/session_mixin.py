@@ -460,6 +460,20 @@ class SessionManagerMixIn:
             f"all sparsification info: {sparsification_info}"
         )
 
+    def _prepare_model_for_fsdp(self):
+        """
+        This is quite hacky, but the FSDP setup code is buried in the Trainers
+        _inner_training_loop call. Doing this quick run sets up FSDP for the case
+        where we want to run one-shot in FSDP mode
+        """
+        self.model.to("cpu")
+        self.model_wrapped.to("cpu")
+        epochs = self.args.num_train_epochs
+        self.args.num_train_epochs = 0.01
+        super().train()
+        self.args.num_train_epochs = epochs
+        self.accelerator.wait_for_everyone()
+
     def _extract_metadata(
         self,
         metadata_args: List[str],

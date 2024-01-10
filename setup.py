@@ -203,6 +203,7 @@ def _setup_entry_points() -> Dict:
             "sparseml.transformers.text_generation.train=sparseml.transformers.finetune.text_generation:run_train",  # noqa 501
             "sparseml.transformers.text_generation.finetune=sparseml.transformers.finetune.text_generation:run_train",  # noqa 501
             "sparseml.transformers.text_generation.eval=sparseml.transformers.finetune.text_generation:run_eval",  # noqa 501
+            "sparseml.transformers.text_generation.oneshot=sparseml.transformers.finetune.text_generation:run_oneshot",  # noqa 501
         ]
     )
 

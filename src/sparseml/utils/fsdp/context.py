@@ -20,7 +20,9 @@ except ImportError:
 from contextlib import nullcontext
 
 
-__all__ = ["summon_full_params_context"]
+__all__ = ["summon_full_params_context", "fix_fsdp_module_name"]
+
+FSDP_WRAPPER_NAME = "_fsdp_wrapped_module."
 
 
 def summon_full_params_context(model):
@@ -28,3 +30,13 @@ def summon_full_params_context(model):
         return FullyShardedDataParallel.summon_full_params(model)
 
     return nullcontext()
+
+
+def fix_fsdp_module_name(name: str) -> str:
+    """
+    Remove FSDP wrapper prefixes from a module name
+
+    :param name: name to strip
+    :return: stripped name
+    """
+    return name.replace(FSDP_WRAPPER_NAME, "")

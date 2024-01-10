@@ -34,24 +34,28 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
 
     Lifecycle:
         - on_initialize
-            - setup
-                - compressible_layers
-            - prune
-                - compress_bottom
-                - LayerCompressor.compress
+            - initialize_compression()
+                - compressible_layers()
+                - LayerCompressor.pre_compress()
+            - apply_compression()
+                - run_calibration_forward()
+                - LayerCompressor.compress()
+                - LayerCompressor.post_compress()
         - on_finalize
+            - LayerCompressor.revert_layer_wrappers()
 
-    :param model: `ModifiableModel` to perform wanda on, in-place
+    :param model: `ModifiableModel` to perform WANDA on, in-place
     """
 
     model: Optional[ModifiableModel] = None
-    layer_compressors: List = None
+    layer_compressors_: List = None
 
     def on_initialize(self, state: State, **kwargs) -> bool:
         """
         Initialize and run the WANDA algorithm on the current state
 
         :param state: session state storing input model and calibration data
+        :param kwargs: Unused, kept to conform to the parent method signature
         """
         self._validate_layerwise_sparsity()
 
@@ -63,28 +67,18 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
 
         return True
 
-    def _pruning_arguments(self, sparsity):
-        return {
-            "sparsity": sparsity,
-            "prunen": self.prunen_,
-            "prunem": self.prunem_,
-        }
-
-    def _compression_class(self):
-        return WandaWrapper
-
     def initialize_compression(self, model: ModifiableModel):
         """
         Setup for WANDA, initializes the model, device,
         and other parameters, also initilializes the
         compressible layers of model, and sets the device
 
-        :param state: session state storing input model and calibration data
+        :param model: model to initialize for compression
         """
         self.model = model
         self.compressible_layers_ = self.compressible_layers()
         self.model = self.model.model
-        self.layer_compressors = []
+        self.layer_compressors_ = []
         self._infer_mask_block_size()
 
         for idx, (name, layer) in enumerate(self.compressible_layers_.items()):
@@ -98,7 +92,7 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
             if not self.sequential_update:
                 # add all batch processing hooks before the forward pass
                 compressor.pre_compress()
-            self.layer_compressors.append(compressor)
+            self.layer_compressors_.append(compressor)
 
     @torch.no_grad()
     def apply_compression(
@@ -118,7 +112,7 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
             run_calibration_forward(self.model, dataloader)
 
         num_layers = len(self.compressible_layers_)
-        for idx, layer_compressor in enumerate(self.layer_compressors):
+        for idx, layer_compressor in enumerate(self.layer_compressors_):
             layer_sparsity = layer_compressor.args["sparsity"]
             _LOGGER.info(
                 f"\n===== Compressing layer {idx+1}/{num_layers} "
@@ -137,11 +131,36 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
             layer_compressor.post_compress()
 
     def on_finalize(self, state: State, **kwargs):
-        for layer_compressor in self.layer_compressors:
+        """
+        Reverts wrapped root modules back to their original structure
+
+        :param state: Unused, kept to conform to the parent method signature
+        :param kwargs: Unused, kept to conform to the parent method signature
+        """
+        for layer_compressor in self.layer_compressors_:
             _LOGGER.info(f"Cleaning up {layer_compressor.name}")
             layer_compressor.revert_layer_wrappers()
 
         return True
+
+    def _pruning_arguments(self, sparsity) -> Dict[str, Any]:
+        """
+        Gather the parameters needed for root module compression in a dict
+
+        :param sparsity: target sparsity
+        :return: dict of params for pruning
+        """
+        return {
+            "sparsity": sparsity,
+            "prunen": self.prunen_,
+            "prunem": self.prunem_,
+        }
+
+    def _compression_class(self):
+        """
+        :return: wrapper class used for root modules of this compression class
+        """
+        return WandaWrapper
 
     def _infer_mask_block_size(self):
         """

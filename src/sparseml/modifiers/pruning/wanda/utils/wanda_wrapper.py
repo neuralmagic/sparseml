@@ -41,6 +41,16 @@ class WandaWrapper(ModuleCompressionWrapper):
     """
     Runs WANDA on a single module that contains no sub-modules
     see https://arxiv.org/abs/2306.11695
+
+    Runs SparseGPT on a single module that contains no sub-modules
+
+    Lifecycle:
+        - add_batch
+        - fasterprune
+        - free
+
+    :param name: name of module to run compression on
+    :param layer: module to run compression on
     """
 
     def __init__(self, name, layer):
@@ -49,8 +59,7 @@ class WandaWrapper(ModuleCompressionWrapper):
 
     def add_batch(self, inp: torch.Tensor, out: torch.Tensor):
         """
-        Add a batch of layer input and output data to the layer
-        statistics calculation
+        Add a batch of layer input and output data to the layer statistics calculation
 
         :param inp: tensor containing layer input
         :param out: tensor containing layer output
@@ -119,6 +128,9 @@ class WandaWrapper(ModuleCompressionWrapper):
             W = W.t()
 
         W = W.reshape(final_shape).to(final_dtype)
+
+        # This is a bit hacky, but FSDP updates only work if we change the weight in
+        # place, clone() or direct assignment won't work
         self.layer.weight -= self.layer.weight
         self.layer.weight += W
 

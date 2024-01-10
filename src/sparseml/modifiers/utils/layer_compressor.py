@@ -19,7 +19,8 @@ from typing import Dict
 import torch
 from torch.nn import Module
 
-from sparseml.utils.fsdp.context import summon_full_params_context
+from sparseml.modifiers.utils.compression_wrapper import ModuleCompressionWrapper
+from sparseml.utils.fsdp.context import fix_fsdp_module_name, summon_full_params_context
 from sparseml.utils.pytorch import set_layer
 from sparseml.utils.pytorch.module import get_prunable_layers
 
@@ -31,15 +32,20 @@ _LOGGER = logging.getLogger(__name__)
 
 class LayerCompressor:
     """
-    Runs the SparseGPT algorithm on a single layer using calibration data inputs
+    Runs weight sparisification on a single layer using calibration data inputs. The
+    layer may contain submodules. The specific sparsification algorithm is determined
+    by module_compressor_class.
 
     Lifecycle:
-        - compress
-            - pre_compress_parallel (optional)
-            - add_batch
-            - fasterprune
-            - post_compress
+        - pre_compress()
+            - compressible_modules()
+            - module_compressor_class.register_forward_hook()
+        - compress()
+            - module_compressor_class.fasterprune()
+        - post_compress()
+        - revert_layer_wrappers()
 
+    :param module_compressor_class: wrapper class to use for root modules
     :param model: model containing the layer we are running compression on
     :param layer: layer to run compression on
     :param layer_index: index of layer in the model
@@ -48,7 +54,7 @@ class LayerCompressor:
 
     def __init__(
         self,
-        module_compressor_class,
+        module_compressor_class: ModuleCompressionWrapper,
         model: Module,
         layer: Module,
         layer_index: int,
@@ -73,12 +79,10 @@ class LayerCompressor:
         compressible_layers = get_prunable_layers(self.layer)
         return compressible_layers
 
-    def pre_compress(self) -> Dict:
+    def pre_compress(self):
         """
         Sets up the SparseGPT objects for each compressible module, computes the Hessian
         for each using the calibration data.
-
-        :return: SparseGPT objects for each module
         """
         subset = self.compressible_modules()
 
@@ -103,22 +107,27 @@ class LayerCompressor:
             self.handles.append(subset[name].register_forward_hook(add_batch(name)))
 
     def post_compress(self):
+        """
+        remove the add_batch forward hooks after compression is complete
+        """
         for handle in self.handles:
             handle.remove()
 
     def revert_layer_wrappers(self):
+        """
+        Reverts wrapped root modules back to their original structure
+        """
         for name, module_wrapper in self.modules.items():
             full_name = self._get_full_submodule_name(name)
             set_layer(full_name, module_wrapper.layer, self.model)
             module_wrapper.free()
         self.modules = None
 
-    def _get_full_submodule_name(self, name):
-        full_name = ".".join(x for x in [self.name, name] if len(x) > 0)
-        full_name = full_name.replace("_fsdp_wrapped_module.", "")
-        return full_name
+    def compress(self):
+        """
+        Apply compression to each wrapped submodule in the layer
+        """
 
-    def compress(self) -> Dict:
         @torch.no_grad()
         def prune(module):
             if isinstance(module, self.module_compressor_class):
@@ -127,3 +136,8 @@ class LayerCompressor:
                 module.fasterprune(**self.args)
 
         self.layer.apply(prune)
+
+    def _get_full_submodule_name(self, name):
+        full_name = ".".join(x for x in [self.name, name] if len(x) > 0)
+        full_name = fix_fsdp_module_name(full_name)
+        return full_name

@@ -75,8 +75,8 @@ def make_dataset_splits(
         predict_split = tokenized_datasets["test"]
     if do_oneshot:
         if "calibration" not in tokenized_datasets:
-            raise ValueError("--do_oneshot requires a calibration dataset")
-        calib_split = tokenized_datasets["calibration"]
+            # fallback to training dataset
+            calib_split = tokenized_datasets["train"]
 
     split_datasets = {
         "train": train_split,

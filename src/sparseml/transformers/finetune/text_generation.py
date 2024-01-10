@@ -105,6 +105,13 @@ def parse_args(**kwargs):
     else:
         model_args, data_args, training_args = parser.parse_dict(kwargs)
 
+    if training_args.recipe_args is not None:
+        arg_dict = {}
+        for recipe_arg in training_args.recipe_args:
+            key, value = recipe_arg.split("=")
+            arg_dict[key] = value
+        training_args.recipe_args = arg_dict
+
     return model_args, data_args, training_args
 
 
@@ -170,6 +177,14 @@ def main(
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
     )
+    teacher_config = (
+        AutoConfig.from_pretrained(
+            training_args.distill_teacher,
+            use_auth_token=True if model_args.use_auth_token else None,
+        )
+        if training_args.distill_teacher
+        else None
+    )
 
     model_kwargs = {
         "config": config,
@@ -180,6 +195,7 @@ def main(
         "device_map": training_args.oneshot_device,
     }
     teacher_kwargs = {
+        "config": teacher_config,
         "cache_dir": model_args.cache_dir,
         "use_auth_token": True if model_args.use_auth_token else None,
     }
@@ -228,6 +244,7 @@ def main(
     stage_runner.populate_datasets(tokenizer=tokenizer)
     train_dataset = stage_runner.get_dataset_split("train")
     eval_dataset = stage_runner.get_dataset_split("validation")
+    calib_dataset = stage_runner.get_dataset_split("calibration")
 
     # Data collator will default to DataCollatorWithPadding when the tokenizer is
     # passed to Trainer, so we change it if we already did the padding.
@@ -248,11 +265,13 @@ def main(
         recipe_args=training_args.recipe_args,
         args=training_args,
         data_args=data_args,
-        train_dataset=train_dataset,
+        train_dataset=train_dataset or calib_dataset,
         eval_dataset=eval_dataset,
         tokenizer=tokenizer,
         data_collator=data_collator,
     )
+    if trainer.is_fsdp_enabled:
+        trainer._prepare_model_for_fsdp()
     stage_runner.trainer = trainer
 
     # alternating Training/One-shot
