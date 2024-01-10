@@ -269,6 +269,8 @@ def main(
         tokenizer=tokenizer,
         data_collator=data_collator,
     )
+    if trainer.is_fsdp_enabled:
+        trainer._prepare_model_for_fsdp()
     stage_runner.trainer = trainer
 
     # alternating Training/One-shot
