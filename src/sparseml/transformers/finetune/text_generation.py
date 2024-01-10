@@ -200,20 +200,22 @@ def main(
         "use_auth_token": True if model_args.use_auth_token else None,
     }
     # this calls from_pretrained under the hood so should be FSDP safe
-    model = SparseAutoModel.text_classification_from_pretrained(
+    model = SparseAutoModel.text_generation_from_pretrained(
         model_name_or_path=model_path,
-        model_type="student" if training_args.distill_teacher else "model",
+        sequence_length=None,  # use model default
+        model_type="model",
         **model_kwargs,
     )
+
     teacher = (
-        SparseAutoModel.text_classification_from_pretrained(
+        SparseAutoModel.text_generation_from_pretrained(
             model_name_or_path=training_args.distill_teacher,
+            sequence_length=None,  # use model default
             model_type="teacher",
             **teacher_kwargs,
         )
-        if training_args.distill_teacher
-        and training_args.distill_teacher not in ["self", "disable"]
-        else training_args.distill_teacher
+        if training_args.distill_teacher is not None
+        else None
     )
 
     # initialize structure of input model from recipe if needed
