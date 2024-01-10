@@ -15,6 +15,7 @@
 import logging
 import os
 from typing import List, Optional
+import json
 
 import torch
 from torch.nn import Module
@@ -215,6 +216,14 @@ class StageRunner:
         """
 
         recipe_obj = Recipe.create_instance(self._training_args.recipe)
+        stage_path = os.path.join(self._model_args.model_name_or_path, "completed_stages.json")
+        with self.trainer.accelerator.main_process_first():
+            if os.path.exists(stage_path):
+                with open(stage_path) as stage_file:
+                    stage_data = json.load(stage_file)
+                completed_stages = stage_data['completed']
+            else:
+                completed_stages = []
 
         for stage in recipe_obj.stages:
             # validate stage
@@ -227,6 +236,11 @@ class StageRunner:
                     "attribute to each stage in the recipe or include it as part of "
                     "the stage name."
                 )
+
+            # just load structure if already applied
+            if stage_name in completed_stages:
+                self.trainer.initialize_structure(stage=stage)
+                continue
 
             # setup checkpoint dir, TODO: this should be optional
             self._output_dir = os.path.join(
@@ -243,6 +257,15 @@ class StageRunner:
                 if not is_fsdp_model(self.trainer.model):
                     self.trainer.model.to("cpu")
                 self.train(checkpoint=None, stage=stage_name)
+
+            # save stage stage to checkpoint dir
+                
+            if self.trainer.accelerator.is_main_process:
+                completed_stages.append(stage_name)
+                stage_path = os.path.join(self._output_dir, "completed_stages.json")
+                with open(stage_path, 'w') as out_file:
+                    json.dump({"completed": completed_stages}, out_file)
+
 
             # setup for next stage
             session = session_manager.active_session()
