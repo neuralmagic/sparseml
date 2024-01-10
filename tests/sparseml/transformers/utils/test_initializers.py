@@ -22,14 +22,14 @@ import torch
 from huggingface_hub import snapshot_download
 from sparseml.pytorch.utils.helpers import default_device
 from sparseml.transformers.utils.helpers import resolve_sequence_length
-from sparseml.transformers.utils.load_task_dataset import load_task_dataset
-from sparsezoo import Model
-from src.sparseml.transformers.utils.initializers import (
+from sparseml.transformers.utils.initializers import (
     initialize_config,
     initialize_sparse_model,
     initialize_tokenizer,
     initialize_trainer,
 )
+from sparseml.transformers.utils.load_task_dataset import load_task_dataset
+from sparsezoo import Model
 
 
 def save_recipe_for_text_classification(source_path):

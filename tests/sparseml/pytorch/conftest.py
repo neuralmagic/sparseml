@@ -17,7 +17,7 @@ import pytest
 def _test_image_classification_integration_helper_functions():
     # import needed to register the object on the fly
     import sparseml.pytorch.image_classification.integration_helper_functions  # noqa F401
-    from src.sparseml.integration_helper_functions import (
+    from sparseml.integration_helper_functions import (
         IntegrationHelperFunctions,
         Integrations,
     )

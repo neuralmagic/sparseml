@@ -700,7 +700,7 @@ class RecipeManagerTrainerInterface:
             )
         except (ImportError, ModuleNotFoundError):
             _LOGGER.info(
-                f"Unable to import tensorboard - running without tensorboard logging"
+                "Unable to import tensorboard - running without tensorboard logging"
             )
 
     def _get_fake_dataloader(
