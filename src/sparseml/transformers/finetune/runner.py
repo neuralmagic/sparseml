@@ -217,6 +217,7 @@ class StageRunner:
 
         recipe_obj = Recipe.create_instance(self._training_args.recipe)
         stage_path = os.path.join(self._model_args.model_name_or_path, "completed_stages.json")
+
         with self.trainer.accelerator.main_process_first():
             if os.path.exists(stage_path):
                 with open(stage_path) as stage_file:
@@ -224,6 +225,8 @@ class StageRunner:
                 completed_stages = stage_data['completed']
             else:
                 completed_stages = []
+
+        self.trainer.accelerator.wait_for_everyone()
 
         for stage in recipe_obj.stages:
             # validate stage
@@ -240,6 +243,7 @@ class StageRunner:
             # just load structure if already applied
             if stage_name in completed_stages:
                 self.trainer.initialize_structure(stage=stage)
+                self.trainer.accelerator.wait_for_everyone()
                 continue
 
             # setup checkpoint dir, TODO: this should be optional
