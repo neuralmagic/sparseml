@@ -51,10 +51,19 @@ def resolve_integration(
         will attempt to infer it from the source_path.
     :return: The name of the integration to use for exporting the model.
     """
-    from sparseml.pytorch.image_classification.utils.helpers import (
-        is_image_classification_model,
-    )
-    from sparseml.transformers.utils.helpers import is_transformer_model
+    try:
+        from sparseml.pytorch.image_classification.utils.helpers import (
+            is_image_classification_model,
+        )
+    except ImportError:
+        # unable to import integration, always return False
+        is_image_classification_model = _null_is_model
+
+    try:
+        from sparseml.transformers.utils.helpers import is_transformer_model
+    except ImportError:
+        # unable to import integration, always return False
+        is_transformer_model = _null_is_model()
 
     if (
         integration == Integrations.image_classification.value
@@ -63,7 +72,6 @@ def resolve_integration(
         import sparseml.pytorch.image_classification.integration_helper_functions  # noqa F401
 
         return Integrations.image_classification.value
-
     elif integration == Integrations.transformers.value or is_transformer_model(
         source_path
     ):
@@ -80,6 +88,12 @@ def resolve_integration(
         )
 
 
+def _null_is_model(*args, **kwargs):
+    # convenience function to always return False for an integration
+    # to be used if that integration is not importable
+    return False
+
+
 class IntegrationHelperFunctions(RegistryMixin, BaseModel):
     """
     Registry that maps names to helper functions
@@ -88,7 +102,7 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
     """
 
     create_model: Callable[
-        [Union[str, Path], ...],
+        [Union[str, Path]],
         Tuple[
             "torch.nn.Module",  # noqa F821
             Optional[Dict[str, Any]],
@@ -102,13 +116,13 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
         "- (optionally) loaded_model_kwargs "
         "(any relevant objects created along with the model)"
     )
-    create_dummy_input: Callable[..., "torch.Tensor"] = Field(  # noqa F821
+    create_dummy_input: Callable[[Any], "torch.Tensor"] = Field(  # noqa F821
         description="A function that takes: "
         "- appropriate arguments "
         "and returns: "
         "- a dummy input for the model (a torch.Tensor) "
     )
-    export: Callable[..., str] = Field(
+    export: Callable[[Any], str] = Field(
         description="A function that takes: "
         " - a (sparse) PyTorch model "
         " - sample input data "
@@ -120,7 +134,7 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
         "and returns the path to the exported model",
         default=export_model,
     )
-    apply_optimizations: Optional[Callable[..., None]] = Field(
+    apply_optimizations: Optional[Callable[[Any], None]] = Field(
         description="A function that takes:"
         " - path to the exported model"
         " - names of the optimizations to apply"
@@ -128,7 +142,9 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
     )
 
     create_data_samples: Callable[
-        Tuple[Optional["torch.nn.Module"], int, Optional[Dict[str, Any]]],  # noqa F821
+        [
+            Tuple[Optional["torch.nn.Module"], int, Optional[Dict[str, Any]]]
+        ],  # noqa F821
         Tuple[
             List["torch.Tensor"],  # noqa F821
             Optional[List["torch.Tensor"]],  # noqa F821
