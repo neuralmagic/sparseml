@@ -269,6 +269,13 @@ class SparseSession:
         """
         self._lifecycle.reset()
 
+    def reset_stage(self):
+        """
+        Reset the session for starting a new stage, recipe and model stays intact
+        """
+        self.lifecycle.initialized_ = False
+        self.lifecycle.finalized = False
+
     def get_serialized_recipe(self) -> str:
         """
         :return: serialized string of the current compiled recipe
@@ -473,6 +480,10 @@ class LifecycleCallbacks:
                 f"Cannot invoke {event_type} event. "
                 f"Use the corresponding method instead."
             )
+
+        # skip event callbacks if no recipe was provided
+        if not active_session().lifecycle.recipe_container.check_any_recipe_exists():
+            return
 
         return active_session().event(event_type, **kwargs)
 

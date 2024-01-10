@@ -295,6 +295,7 @@ class TestLifecycleCallbacks:
         self, event_type, monkeypatch, setup_active_session
     ):
         monkeypatch.setattr(setup_active_session, "event", active_session_event_mock)
+        setup_active_session.lifecycle.recipe_container.recipes = ["dummy_recipe.yaml"]
         result = session_module.LifecycleCallbacks.event(event_type=event_type)
         assert result == event_type, f"{event_type} did not invoke session event"
 
@@ -312,6 +313,7 @@ class TestLifecycleCallbacks:
         self, method_name, expected_event_type, monkeypatch, setup_active_session
     ):
         monkeypatch.setattr(setup_active_session, "event", active_session_event_mock)
+        setup_active_session.lifecycle.recipe_container.recipes = ["dummy_recipe.yaml"]
         method = getattr(session_module.LifecycleCallbacks, method_name)
         result = method()
         assert (
