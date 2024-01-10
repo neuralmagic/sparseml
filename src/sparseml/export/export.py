@@ -12,11 +12,51 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""
+Usage: sparseml.export [OPTIONS] SOURCE_PATH
+
+Options:
+  --target_path TEXT              Path to write the exported model to,
+                                  defaults to a `deployment` directory in the
+                                  source_path
+  --onnx_model_name TEXT          Name of onnx model to write, defaults to
+                                  model.onnx
+  --deployment_target TEXT        Engine or engine family exported model will
+                                  run on, default 'deepsparse'
+  --opset INTEGER                 Onnx opset to export to, default: 14
+  --single_graph_file BOOLEAN     Default True - if True, onnx graph will be
+                                  written to a single file
+  --num_export_samples INTEGER    Number of sample imputs/outputs to save.
+                                  Default 0
+  --recipe TEXT                   Optional sparsification recipe to apply at
+                                  runtime
+  --deployment_directory_name TEXT
+                                  Name to save exported files under. Default -
+                                  'deployment'
+  --device TEXT                   Device to run export trace with. Default -
+                                  'cpu'
+  --graph_optimizations TEXT      csv list of graph optimizations to apply.
+                                  Default all, can set to none
+  --validate_correctness BOOLEAN  Default False - if True, graph will be
+                                  validated for output correctness
+  --validate_structure BOOLEAN    Default True - if True, graph structure will
+                                  be statically validated
+  --integration TEXT              Integration the model was trained under. ie
+                                  transformers, image-classification. Will be
+                                  inferred by default
+  --sample_data TEXT              Path to sample data to export with. default
+                                  None
+  --task TEXT                     subtask within the integration this model
+                                  was trained on. Default - None
+  --help                          Show this message and exit.
+"""
+
 import logging
 import os
 from pathlib import Path
 from typing import Any, List, Optional, Union
 
+import click
 from sparseml.export.export_data import export_data_samples
 from sparseml.export.helpers import (
     AVAILABLE_DEPLOYMENT_TARGETS,
@@ -26,12 +66,12 @@ from sparseml.export.helpers import (
 )
 from sparseml.export.validators import validate_correctness as validate_correctness_
 from sparseml.export.validators import validate_structure as validate_structure_
-from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
-from sparseml.pytorch.utils.helpers import default_device
-from src.sparseml.integration_helper_functions import (
+from sparseml.integration_helper_functions import (
     IntegrationHelperFunctions,
     resolve_integration,
 )
+from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
+from sparseml.pytorch.utils.helpers import default_device
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -39,7 +79,7 @@ _LOGGER = logging.getLogger(__name__)
 
 def export(
     source_path: Union[Path, str],
-    target_path: Union[Path, str],
+    target_path: Union[Path, str, None] = None,
     onnx_model_name: str = ONNX_MODEL_NAME,
     deployment_target: str = "deepsparse",
     opset: int = TORCH_DEFAULT_ONNX_OPSET,
@@ -75,7 +115,8 @@ def export(
         the integration-specific `validate_structure` function.
 
     :param source_path: The path to the PyTorch model to export.
-    :param target_path: The path to save the exported model to.
+    :param target_path: The path to save the exported model to. If not provided
+        will default to writing `deployment` in the source_path
     :param onnx_model_name: The name of the exported model.
         Defaults to ONNX_MODEL_NAME.
     :param deployment_target: The deployment target to export
@@ -122,6 +163,8 @@ def export(
     if integration is not None:
         integration = integration.replace("_", "-").replace(" ", "-")
 
+    if target_path is None:
+        target_path = source_path
     # create the target path if it doesn't exist
     if not Path(target_path).exists():
         Path(target_path).mkdir(parents=True, exist_ok=True)
@@ -254,3 +297,147 @@ def export(
         f"Successfully exported model from:\n{target_path}"
         f"\nto\n{deployment_path}\nfor integration: {integration}"
     )
+
+
+@click.command()
+@click.argument("source_path", type=str)
+@click.option(
+    "--target_path",
+    type=str,
+    default=None,
+    help=(
+        "Path to write the exported model to, defaults to a `deployment` "
+        "directory in the source_path"
+    ),
+)
+@click.option(
+    "--onnx_model_name",
+    type=str,
+    default=ONNX_MODEL_NAME,
+    help=f"Name of onnx model to write, defaults to {ONNX_MODEL_NAME}",
+)
+@click.option(
+    "--deployment_target",
+    type=str,
+    default="deepsparse",
+    help="Engine or engine family exported model will run on, default 'deepsparse'",
+)
+@click.option(
+    "--opset",
+    type=int,
+    default=TORCH_DEFAULT_ONNX_OPSET,
+    help=f"Onnx opset to export to, default: {TORCH_DEFAULT_ONNX_OPSET}",
+)
+@click.option(
+    "--single_graph_file",
+    type=bool,
+    default=True,
+    help="Default True - if True, onnx graph will be written to a single file",
+)
+@click.option(
+    "--num_export_samples",
+    type=int,
+    default=0,
+    help="Number of sample imputs/outputs to save. Default 0",
+)
+@click.option(
+    "--recipe",
+    type=str,
+    default=None,
+    help="Optional sparsification recipe to apply at runtime",
+)
+@click.option(
+    "--deployment_directory_name",
+    type=str,
+    default="deployment",
+    help="Name to save exported files under. Default - 'deployment'",
+)
+@click.option(
+    "--device",
+    type=str,
+    default="cpu",
+    help="Device to run export trace with. Default - 'cpu'",
+)
+@click.option(
+    "--graph_optimizations",
+    type=str,
+    default="all",
+    help="csv list of graph optimizations to apply. Default all, can set to none",
+)
+@click.option(
+    "--validate_correctness",
+    type=bool,
+    default=False,
+    help="Default False - if True, graph will be validated for output correctness",
+)
+@click.option(
+    "--validate_structure",
+    type=bool,
+    default=True,
+    help="Default True - if True, graph structure will be statically validated",
+)
+@click.option(
+    "--integration",
+    type=str,
+    default=None,
+    help=(
+        "Integration the model was trained under. "
+        "ie transformers, image-classification. Will be inferred by default"
+    ),
+)
+@click.option(
+    "--sample_data",
+    type=str,
+    default=None,
+    help="Path to sample data to export with. default None",
+)
+@click.option(
+    "--task",
+    type=str,
+    default=None,
+    help="subtask within the integration this model was trained on. Default - None",
+)
+def main(
+    source_path: str,
+    target_path: str,
+    onnx_model_name: str = ONNX_MODEL_NAME,
+    deployment_target: str = "deepsparse",
+    opset: int = TORCH_DEFAULT_ONNX_OPSET,
+    single_graph_file: bool = True,
+    num_export_samples: int = 0,
+    recipe: str = None,
+    deployment_directory_name: str = "deployment",
+    device: str = "cpu",
+    graph_optimizations: str = "all",
+    validate_correctness: bool = False,
+    validate_structure: bool = True,
+    integration: str = None,
+    sample_data: str = None,
+    task: str = None,
+):
+    export(
+        source_path=source_path,
+        target_path=target_path,
+        onnx_model_name=onnx_model_name,
+        deployment_target=deployment_target,
+        opset=opset,
+        single_graph_file=single_graph_file,
+        num_export_samples=num_export_samples,
+        recipe=recipe,
+        deployment_directory_name=deployment_directory_name,
+        device=device,
+        graph_optimizations=_parse_graph_optimizations(graph_optimizations),
+        validate_correctness=validate_correctness,
+        validate_structure=validate_structure,
+        integration=integration,
+        sample_data=sample_data,
+        task=task,
+    )
+
+
+def _parse_graph_optimizations(graph_optimizations):
+    if "," in graph_optimizations:
+        return graph_optimizations.split(",")
+    elif graph_optimizations.lower() in ["none", "null", "", "false", "0"]:
+        return None
+    return graph_optimizations

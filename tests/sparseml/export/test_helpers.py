@@ -19,7 +19,7 @@ from collections import OrderedDict
 import onnx
 import pytest
 
-from src.sparseml.export.helpers import apply_optimizations, create_deployment_folder
+from sparseml.export.helpers import apply_optimizations, create_deployment_folder
 from tests.sparseml.exporters.transforms.test_onnx_transform import (
     _create_model as create_dummy_onnx_file,
 )

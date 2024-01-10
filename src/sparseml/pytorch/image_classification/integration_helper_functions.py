@@ -18,18 +18,18 @@ from typing import Any, Callable, Dict, Optional, Tuple, Union
 import torch
 from pydantic import Field
 
-from src.sparseml.export.export_data import create_data_samples as create_data_samples_
-from src.sparseml.integration_helper_functions import (
+from sparseml.export.export_data import create_data_samples as create_data_samples_
+from sparseml.integration_helper_functions import (
     IntegrationHelperFunctions,
     Integrations,
 )
-from src.sparseml.pytorch.image_classification.utils.helpers import (
+from sparseml.pytorch.image_classification.utils.helpers import (
     _validate_dataset_num_classes,
 )
-from src.sparseml.pytorch.image_classification.utils.helpers import (
+from sparseml.pytorch.image_classification.utils.helpers import (
     create_model as create_image_classification_model,
 )
-from src.sparseml.pytorch.image_classification.utils.helpers import (
+from sparseml.pytorch.image_classification.utils.helpers import (
     get_dataset_and_dataloader,
     infer_num_classes,
 )
