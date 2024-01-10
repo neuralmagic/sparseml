@@ -18,6 +18,7 @@ sparseml.transformers.text_generation.train
 Also supported:
 
 * `sparseml.transformers.text_generation.finetune`
+* `sparseml.transformers.text_generation.oneshot`
 * `sparseml.transformers.text_generation.eval`
 
 ### with FSDP
@@ -74,3 +75,30 @@ Finetuning arguments are split up into 3 groups:
 * ModelArguments: `src/sparseml/transformers/finetune/model_args.py`
 * TrainingArguments: `src/sparseml/transformers/finetune/training_args.py`
 * DataTrainingArguments: `src/sparseml/transformers/finetune/data/data_training_args.py`
+
+
+## Running One-Shot with FSDP (OBC Only)
+```python
+from sparseml.transformers.finetune.text_generation import run_oneshot
+
+model = "Xenova/llama2.c-stories15M"
+dataset_name = "open_platypus"
+concatenate_data = False
+output_dir = "./output_oneshot"
+recipe = "test_oneshot_recipe.yaml"
+overwrite_output_dir = True
+splits = {
+    "calibration": "train[:20%]"
+}
+
+run_oneshot(
+    model_name_or_path=model,
+    dataset_name=dataset_name,
+    do_oneshot=do_oneshot,
+    output_dir=output_dir,
+    recipe=recipe,
+    overwrite_output_dir=overwrite_output_dir,
+    concatenate_data = concatenate_data,
+    splits = splits
+)
+```

@@ -123,6 +123,9 @@ class StageRunner:
         :return: list of trimmed calibration data tensors
         """
         oneshot_dataset = self.get_dataset_split("calibration")
+        if oneshot_dataset is None:
+            # if specific calibration dataset not specified, fallback to train
+            oneshot_dataset = self.get_dataset_split("train")
 
         dataloader_params = {
             "batch_size": 1,
