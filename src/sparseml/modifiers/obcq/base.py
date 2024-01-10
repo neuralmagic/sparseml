@@ -48,14 +48,11 @@ class SparseGPTModifier(WandaPruningModifier):
         in the recipe
     :param dampening_frac: Amount of dampening to apply to H, as a fraction of the
         diagonal norm
-    :param sequential_update: Whether or not to update weights sequentially by layer,
-        True saves on GPU memory (NOTE: deprecated)
     """
 
     block_size: int
     quantize: Union[bool, Dict]
     dampening_frac: Optional[float] = 0.01
-    sequential_update: Optional[bool] = False  # deprecated
     quantization_modifier_: Any = None
 
     def on_initialize_structure(self, state: State, **kwargs):
