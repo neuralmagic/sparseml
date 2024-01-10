@@ -9,7 +9,7 @@ MDCHECKFILES := CODE_OF_CONDUCT.md CONTRIBUTING.md DEVELOPING.md README.md
 SPARSEZOO_TEST_MODE := "true"
 
 BUILD_ARGS :=  # set nightly to build nightly release
-TARGETS := ""  # targets for running pytests: deepsparse,keras,onnx,pytorch,pytorch_models,pytorch_datasets,tensorflow_v1,tensorflow_v1_models,tensorflow_v1_datasets
+TARGETS := ""  # targets for running pytests: deepsparse,keras,onnx,pytorch,pytorch_models,export,pytorch_datasets,tensorflow_v1,tensorflow_v1_models,tensorflow_v1_datasets
 PYTEST_ARGS ?= ""
 PYTEST_INTEG_ARGS ?= ""
 ifneq ($(findstring deepsparse,$(TARGETS)),deepsparse)
@@ -17,6 +17,9 @@ ifneq ($(findstring deepsparse,$(TARGETS)),deepsparse)
 endif
 ifneq ($(findstring transformers,$(TARGETS)),transformers)
     PYTEST_ARGS := $(PYTEST_ARGS) --ignore tests/sparseml/transformers
+endif
+ifneq ($(findstring export,$(TARGETS)),export)
+    PYTEST_ARGS := $(PYTEST_ARGS) --ignore tests/sparseml/export
 endif
 ifneq ($(findstring keras,$(TARGETS)),keras)
     PYTEST_ARGS := $(PYTEST_ARGS) --ignore tests/sparseml/keras
