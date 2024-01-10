@@ -63,7 +63,7 @@ def resolve_integration(
         from sparseml.transformers.utils.helpers import is_transformer_model
     except ImportError:
         # unable to import integration, always return False
-        is_transformer_model = _null_is_model()
+        is_transformer_model = _null_is_model
 
     if (
         integration == Integrations.image_classification.value
@@ -143,8 +143,10 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
 
     create_data_samples: Callable[
         [
-            Tuple[Optional["torch.nn.Module"], int, Optional[Dict[str, Any]]]
-        ],  # noqa F821
+            Tuple[
+                Optional["torch.nn.Module"], int, Optional[Dict[str, Any]]  # noqa: F821
+            ]
+        ],
         Tuple[
             List["torch.Tensor"],  # noqa F821
             Optional[List["torch.Tensor"]],  # noqa F821
