@@ -243,8 +243,8 @@ class SparseAutoModel:
     @staticmethod
     def text_generation_from_pretrained(
         model_name_or_path: str,
-        sequence_length: int,
         config: AutoConfig,
+        sequence_length: Optional[int] = None,
         model_type: str = "model",
         recipe: Optional[Union[str, Path]] = None,
         trust_remote_code: bool = False,
@@ -293,7 +293,8 @@ class SparseAutoModel:
 
         # TODO: Do we need to call eval() here? Why?
         model.eval()
-        model.seqlen = sequence_length
+        if sequence_length is not None:
+            model.seqlen = sequence_length
 
         if recipe:
             apply_structure_to_transformers(
