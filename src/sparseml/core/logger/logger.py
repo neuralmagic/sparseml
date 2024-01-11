@@ -870,13 +870,6 @@ class LoggerManager(ABC):
         """
         log_enabled = any(logger.enabled for logger in self.loggers)
         if last_log_step is not None:
-            warnings.warn(
-                message="specifying `last_log_step` is now deprecated "
-                "and will be removed in a future release. Update to use"
-                " `log_written(step)` to track the last log step",
-                category=DeprecationWarning,
-                stacklevel=2,
-            )
             self.frequency_manager.log_written(step=last_log_step)
 
         return log_enabled and self.frequency_manager.log_ready(
@@ -969,12 +962,7 @@ class LoggerManager(ABC):
         :param kwargs: additional logging arguments to support Python and custom loggers
         :return: True if logged, False otherwise.
         """
-        warnings.warn(
-            message="LoggerManager().log_scalar is deprecated and will be removed in a "
-            "future version, use LoggerManager().metric.log_scalar instead",
-            category=DeprecationWarning,
-            stacklevel=2,
-        )
+
         self.metric.log_scalar(
             tag=tag,
             value=value,
@@ -1004,12 +992,7 @@ class LoggerManager(ABC):
         :param kwargs: additional logging arguments to support Python and custom loggers
         :return: True if logged, False otherwise.
         """
-        warnings.warn(
-            message="LoggerManager().log_scalars is deprecated and will be removed"
-            " in a future version, use LoggerManager().metric.log_scalars instead",
-            category=DeprecationWarning,
-            stacklevel=2,
-        )
+
         self.metric.log_scalars(
             tag=tag,
             values=values,
@@ -1032,13 +1015,7 @@ class LoggerManager(ABC):
         :param params: Each key-value pair in the dictionary is the name of the
             hyper parameter and it's corresponding value.
         """
-        warnings.warn(
-            message="LoggerManager().log_hyperparams is deprecated and will be "
-            "removed in a future version, use "
-            "LoggerManager().metric.log_hyperparams instead",
-            category=DeprecationWarning,
-            stacklevel=2,
-        )
+
         self.metric.log_hyperparams(
             params=params,
             log_types=log_types,
@@ -1065,13 +1042,6 @@ class LoggerManager(ABC):
         :param kwargs: additional logging arguments to support Python and custom loggers
         :return: True if logged, False otherwise.
         """
-        warnings.warn(
-            message="LoggerManager().log_string is deprecated and will be "
-            "removed in a future version, use "
-            "LoggerManager().system.log_string instead",
-            category=DeprecationWarning,
-            stacklevel=2,
-        )
         self.system.log_string(
             tag=tag,
             string=string,
@@ -1190,7 +1160,7 @@ class SystemLoggingWraper(LoggingWrapperBase):
 
     def warn(self, tag, string, *args, **kwargs):
         warnings.warn(
-            "The 'warn' method is deprecated, " "use 'warning' instead",
+            "The 'warn' method is deprecated, use 'warning' instead",
             DeprecationWarning,
             2,
         )
