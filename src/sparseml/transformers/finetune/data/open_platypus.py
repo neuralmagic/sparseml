@@ -76,12 +76,13 @@ class OpenPlatypusDataset(TextGenerationDataset):
                 sample["text"] += sample["output"]
             return sample
 
-        raw_dataset = raw_dataset.map(
-            restructure_fn,
+        raw_dataset = self.map(
+            raw_dataset,
+            function=restructure_fn,
             batched=False,
             remove_columns=["input", "output", "instruction", "data_source"],
-            #num_proc=self.data_args.preprocessing_num_workers,
-            #load_from_cache_file=not self.data_args.overwrite_cache,
-            #desc="Restructuring Platypus Dataset",
+            num_proc=self.data_args.preprocessing_num_workers,
+            load_from_cache_file=not self.data_args.overwrite_cache,
+            desc="Restructuring Platypus Dataset",
         )
         return raw_dataset

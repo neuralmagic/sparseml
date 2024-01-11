@@ -13,9 +13,9 @@
 # limitations under the License.
 
 import logging
-from typing import Optional
+from typing import Optional, Union
 
-from datasets import Dataset
+from datasets import Dataset, IterableDataset
 from transformers import AutoTokenizer
 
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
@@ -122,30 +122,52 @@ class TextGenerationDataset(RegistryMixin):
             data["labels"] = data["input_ids"].copy()
             return data
 
-        dataset = raw_dataset.map(
-            tokenize_fn,
+        dataset = self.map(
+            raw_dataset,
+            function=tokenize_fn,
             batched=True,
             remove_columns=[self.text_column],
-            #num_proc=self.data_args.preprocessing_num_workers,
-            #load_from_cache_file=not self.data_args.overwrite_cache,
-            #desc="Running tokenizer on dataset",
+            num_proc=self.data_args.preprocessing_num_workers,
+            load_from_cache_file=not self.data_args.overwrite_cache,
+            desc="Running tokenizer on dataset",
         )
 
         if self.data_args.concatenate_data:
-            dataset = dataset.map(
-                group_text_fn,
+            dataset = self.map(
+                dataset,
+                function=group_text_fn,
                 batched=True,
-                #num_proc=self.data_args.preprocessing_num_workers,
-                #load_from_cache_file=not self.data_args.overwrite_cache,
-                #desc="Grouping text",
+                num_proc=self.data_args.preprocessing_num_workers,
+                load_from_cache_file=not self.data_args.overwrite_cache,
+                desc="Grouping text",
             )
 
-        dataset = dataset.map(
-            label_fn,
+        dataset = self.map(
+            dataset,
+            function=label_fn,
             batched=True,
-            #num_proc=self.data_args.preprocessing_num_workers,
-            #load_from_cache_file=not self.data_args.overwrite_cache,
-            #desc="Adding labels",
+            num_proc=self.data_args.preprocessing_num_workers,
+            load_from_cache_file=not self.data_args.overwrite_cache,
+            desc="Adding labels",
         )
 
         return dataset
+
+    def map(
+        self, dataset: Union[Dataset, IterableDataset], **kwargs
+    ) -> Union[Dataset, IterableDataset]:
+        """
+        Wrapper function around Dataset.map and IterableDataset.map, clears invalid
+        parameters in the case where streaming is enabled
+
+        :param dataset: dataset to apply mapping to
+        :param kwargs: args to pass on to map function
+        :return: mapped dataset
+        """
+        if isinstance(dataset, IterableDataset):
+            # remove arguments that don't apply to streaming
+            kwargs.pop("num_proc", None)
+            kwargs.pop("load_from_cache_file", None)
+            kwargs.pop("desc", None)
+
+        return dataset.map(**kwargs)

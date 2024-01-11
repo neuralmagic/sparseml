@@ -61,8 +61,9 @@ class GSM8KDataset(TextGenerationDataset):
                 sample["text"] += " " + sample["answer"]
             return sample
 
-        raw_dataset = raw_dataset.map(
-            restructure_fn,
+        raw_dataset = self.map(
+            raw_dataset,
+            function=restructure_fn,
             batched=False,
             remove_columns=["question", "answer"],
             num_proc=self.data_args.preprocessing_num_workers,

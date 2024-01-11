@@ -213,11 +213,18 @@ class SessionManagerMixIn:
         )
 
         if isinstance(self.train_dataset, IterableDataset):
+            _LOGGER.warning(
+                "Training is being run with a streamed dataset, "
+                "steps_per_epoch cannot be determined and will default to "
+                "1. SparseML modifiers utilizing this statistic may not "
+                "behave as expected. "
+            )
             self.total_steps_per_epoch = 1
         else:
             self.total_steps_per_epoch = math.ceil(
                 len(self.train_dataset) / total_batch_size
             )
+
         session_manager.initialize(
             optimizer=self.optimizer, steps_per_epoch=self.total_steps_per_epoch
         )
