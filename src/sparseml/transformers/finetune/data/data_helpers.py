@@ -27,12 +27,16 @@ def format_calibration_data(
     tokenized_dataset: Dataset,
     num_calibration_samples: int,
     collate_fn: Callable = default_data_collator,
-    accelerator: Optional[Any] = None
+    accelerator: Optional[Any] = None,
 ) -> List[torch.Tensor]:
     """
     Creates a dataloader out of the calibration dataset split, trimming it to
     the desired number of calibration samples
 
+    :param tokenized_dataset: dataset to convert to dataloader
+    :param num_calibration_samples: number of data samples to convert
+    :param collate_fn: optional custom collate function, or use default
+    :param accelerator: optional accelerator for if preparing in FSDP mode
     :return: list of trimmed calibration data tensors
     """
     shuffled_calibration = tokenized_dataset.shuffle()
@@ -42,7 +46,7 @@ def format_calibration_data(
         "batch_size": 1,
         "sampler": RandomSampler(shuffled_calibration),
         "collate_fn": collate_fn,
-        "pin_memory": True
+        "pin_memory": True,
     }
 
     calib_dataloader = DataLoader(shuffled_calibration, **dataloader_params)

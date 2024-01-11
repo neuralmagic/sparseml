@@ -126,9 +126,9 @@ class StageRunner:
         _LOGGER.info("*** One Shot ***")
 
         calib_data = format_calibration_data(
-            tokenized_dataset=self.datasets.get("calibration"),
+            tokenized_dataset=self.get_dataset_split("calibration"),
             num_calibration_samples=self._data_args.num_calibration_samples,
-            accelerator=self.trainer.accelerator
+            accelerator=self.trainer.accelerator,
         )
         self.trainer.one_shot(calib_data, stage=stage)
 

@@ -13,12 +13,13 @@
 # limitations under the License.
 
 from itertools import cycle
-from typing import Callable, List, Optional
+from typing import Callable, Optional
 
 import torch
 from torch.nn import Module
-from tqdm import tqdm
 from torch.utils.data import DataLoader
+from tqdm import tqdm
+
 from sparseml.pytorch.utils import tensors_module_forward, tensors_to_device
 
 
