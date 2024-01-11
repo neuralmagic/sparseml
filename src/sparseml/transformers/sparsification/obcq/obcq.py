@@ -25,6 +25,8 @@ import sparseml.core.session as session_manager
 from sparseml.core.framework import Framework
 from sparseml.modifiers.obcq.utils.helpers import ppl_eval_general
 from sparseml.pytorch.model_load.helpers import (
+    RECIPE_FILE_NAME,
+    apply_recipe_structure_to_model,
     fallback_to_cpu,
     parse_dtype,
     save_model_and_recipe,
@@ -34,7 +36,7 @@ from sparseml.transformers.sparsification.obcq.utils.helpers import (
     llama_forward,
     opt_forward,
 )
-from sparseml.transformers.utils.initializers import initialize_sparse_model
+from sparseml.transformers.utils.sparse_model import SparseCausalLM
 
 
 __all__ = ["one_shot"]
@@ -65,7 +67,7 @@ def one_shot(
     :param dataset_name: Dataset to extract calibration data from
     :param num_samples: Number of samples to extract from the dataset
     :param sequence_length: Maximum input sequence length to the model
-    :param device: Device (cuda:index or cpu) to use for computation
+    :param device: Device (cuda:index, auto or cpu) to use for computation
     :param deploy_dir: The output directory to save the model to
     :param recipe_file: recipe containing SparseGPT configuration
     :param precision: precision to load model as, either auto, half or full
@@ -90,28 +92,28 @@ def one_shot(
     config = AutoConfig.from_pretrained(model_path)
     model_type = config.model_type.lower()
 
+    model_loader_fn = None
+    forward_fn = None
     if "opt" in model_type:
+        model_loader_fn = SparseCausalLM.opt_model_from_pretrained
         forward_fn = opt_forward
     elif "llama" in model_type or "mistral" in model_type:
+        model_loader_fn = SparseCausalLM.auto_model_from_pretrained
         forward_fn = llama_forward
     else:
         _LOGGER.warning(
             f"A supported model type({SUPPORTED_MODELS}) could not be "
             f"parsed from model_path={model_path}. Defaulting to "
-            "SparseAutoModel loading. "
+            "AutoModelForCausalLM loading. "
         )
+        model_loader_fn = SparseCausalLM.auto_model_from_pretrained
         forward_fn = llama_forward
-
     torch_dtype = parse_dtype(precision)
-    # create session and initialize a sparse model
-    session_manager.create_session()
-    model = initialize_sparse_model(
-        model_path=model_path,
-        task="text-generation",
+    model = model_loader_fn(
+        model_path,
         sequence_length=sequence_length,
         torch_dtype=torch_dtype,
-        config=config,
-        device=device,
+        device_map=device,
     )
 
     if dataset_name not in SUPPORTED_DATASETS:
@@ -129,15 +131,22 @@ def one_shot(
     calibration_data = dataset.loader
     tokenizer = dataset.tokenizer
 
-    # launch one shot
+    # create session and initialize any structure from input model recipe
+    session_manager.create_session()
     session = session_manager.active_session()
+    input_recipe_path = os.path.join(model_path, RECIPE_FILE_NAME)
+    if os.path.exists(input_recipe_path):
+        apply_recipe_structure_to_model(
+            model=model, recipe_path=input_recipe_path, model_path=model_path
+        )
+
+    # launch one shot
     session.apply(
         framework=Framework.pytorch,
         recipe=recipe_file,
         model=model,
         calib_data=calibration_data,
         start=-1,
-        device=device,
         copy_data=False,
         recipe_args=recipe_args,
     )

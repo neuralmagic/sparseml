@@ -105,11 +105,11 @@ def test_lm_head_target():
     )
     state = State(framework=Framework.pytorch)
     state.update(model=model, device=device)
-    sparsegpt_modifier_no_head.setup(state)
+    sparsegpt_modifier_no_head.initialize_compression(state.model)
 
     kwargs["targets"].append("lm_head")
     sparsegpt_modifier_head = SparseGPTModifier(framework=Framework.pytorch, **kwargs)
-    sparsegpt_modifier_head.setup(state)
+    sparsegpt_modifier_head.initialize_compression(state.model)
 
     # check we pick up the lm_head layer
     layers_no_head = len(sparsegpt_modifier_no_head.compressible_layers_)

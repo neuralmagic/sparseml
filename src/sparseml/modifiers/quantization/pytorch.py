@@ -35,6 +35,7 @@ from sparseml.modifiers.quantization.utils.quantize import (
     set_quantization_schemes,
 )
 from sparseml.modifiers.utils.pytorch_helpers import run_calibration_forward
+from sparseml.utils.fsdp.context import summon_full_params_context
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -62,7 +63,6 @@ class QuantizationModifierPyTorch(QuantizationModifier):
     qat_enabled_: bool = False
     quantization_observer_disabled_: bool = False
     bn_stats_frozen_: bool = False
-    device_: Optional[str] = None
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -85,7 +85,6 @@ class QuantizationModifierPyTorch(QuantizationModifier):
             )
 
         self.calibration_dataloader_ = state.data.calib
-        self.device_ = torch.device(state.hardware.device)
         module = state.model.model
 
         if self.calculate_start() == -1:  # one-shot
@@ -131,26 +130,27 @@ class QuantizationModifierPyTorch(QuantizationModifier):
         module.apply(torch.quantization.enable_observer)
 
         if not self.qat_enabled_:
-            # fuse conv-bn-relu blocks prior to quantization emulation
-            self._fuse(module)
+            with summon_full_params_context(module):
+                # fuse conv-bn-relu blocks prior to quantization emulation
+                self._fuse(module)
 
-            # add quantization_schemes to target submodules
-            set_quantization_schemes(
-                module,
-                scheme=self.scheme,
-                scheme_overrides=self.scheme_overrides,
-                ignore=self.ignore,
-                strict=self.strict,
-            )
+                # add quantization_schemes to target submodules
+                set_quantization_schemes(
+                    module,
+                    scheme=self.scheme,
+                    scheme_overrides=self.scheme_overrides,
+                    ignore=self.ignore,
+                    strict=self.strict,
+                )
 
-            # fix for freezing batchnorm statistics when not fusing BN with convs.
-            # pytorch only supports freezing batchnorm statistics for fused modules.
-            # this fix wraps BN modules adding with a new module class that supports
-            # methods related to freezing/unfreezing BN statistics.
-            configure_module_bn_wrappers(module)
+                # fix for freezing batchnorm statistics when not fusing BN with convs.
+                # pytorch only supports freezing batchnorm statistics for fused modules.
+                # this fix wraps BN modules adding with a new module class that supports
+                # methods related to freezing/unfreezing BN statistics.
+                configure_module_bn_wrappers(module)
 
-            # convert target qconfig layers to QAT modules with FakeQuantize
-            convert_module_qat_from_schemes(module)
+                # convert target qconfig layers to QAT modules with FakeQuantize
+                convert_module_qat_from_schemes(module)
 
         self.qat_enabled_ = True
 
@@ -186,7 +186,11 @@ class QuantizationModifierPyTorch(QuantizationModifier):
         self._calibrate(module)
 
     def _calibrate(self, module: Module):
-        _LOGGER.info("Running quantization calibration using calibration_dataloader")
+        class_name = self.__class__.__name__.replace("PyTorch", "")
+        _LOGGER.info(
+            f"Running {class_name} calibration with "
+            f"{len(self.calibration_dataloader_)} samples..."
+        )
 
         module_training = module.training
         module.eval()
@@ -196,7 +200,6 @@ class QuantizationModifierPyTorch(QuantizationModifier):
             self.calibration_dataloader_,
             self.num_calibration_steps,
             self.calibration_function_,
-            self.device_,
         )
 
         if module_training:
