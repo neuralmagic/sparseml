@@ -54,7 +54,11 @@ class OpenPlatypusDataset(TextGenerationDataset):
         :return: the requested dataset
         """
         raw_dataset = get_raw_dataset(
-            self.data_args, cache_dir, split=self.split, **self.raw_kwargs
+            self.data_args,
+            cache_dir,
+            split=self.split,
+            streaming=self.data_args.streaming,
+            **self.raw_kwargs,
         )
 
         # helper fn for restructuring each dataset entry using the alpaca template
@@ -76,8 +80,8 @@ class OpenPlatypusDataset(TextGenerationDataset):
             restructure_fn,
             batched=False,
             remove_columns=["input", "output", "instruction", "data_source"],
-            num_proc=self.data_args.preprocessing_num_workers,
-            load_from_cache_file=not self.data_args.overwrite_cache,
-            desc="Restructuring Platypus Dataset",
+            #num_proc=self.data_args.preprocessing_num_workers,
+            #load_from_cache_file=not self.data_args.overwrite_cache,
+            #desc="Restructuring Platypus Dataset",
         )
         return raw_dataset

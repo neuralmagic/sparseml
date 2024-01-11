@@ -21,7 +21,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import torch
 from torch.nn import Module
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, IterableDataset
 from transformers.trainer_callback import TrainerState
 from transformers.trainer_utils import get_last_checkpoint
 
@@ -211,9 +211,13 @@ class SessionManagerMixIn:
             self.args.per_device_train_batch_size
             * self.args.gradient_accumulation_steps
         )
-        self.total_steps_per_epoch = math.ceil(
-            len(self.train_dataset) / total_batch_size
-        )
+
+        if isinstance(self.train_dataset, IterableDataset):
+            self.total_steps_per_epoch = 1
+        else:
+            self.total_steps_per_epoch = math.ceil(
+                len(self.train_dataset) / total_batch_size
+            )
         session_manager.initialize(
             optimizer=self.optimizer, steps_per_epoch=self.total_steps_per_epoch
         )

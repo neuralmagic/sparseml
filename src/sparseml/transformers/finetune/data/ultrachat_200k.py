@@ -66,7 +66,11 @@ class UltraChatDataset(TextGenerationDataset):
         :return: the requested dataset
         """
         raw_dataset = get_raw_dataset(
-            self.data_args, cache_dir, split=self.split, **self.raw_kwargs
+            self.data_args,
+            cache_dir,
+            split=self.split,
+            streaming=self.data_args.streaming,
+            **self.raw_kwargs,
         )
 
         # helper fn for restructuring each dataset entry using the chat template

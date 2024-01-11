@@ -79,7 +79,11 @@ class TextGenerationDataset(RegistryMixin):
         :return: the requested dataset
         """
         return get_raw_dataset(
-            self.data_args, cache_dir, split=self.split, **self.raw_kwargs
+            self.data_args,
+            cache_dir,
+            split=self.split,
+            streaming=self.data_args.streaming,
+            **self.raw_kwargs,
         )
 
     def tokenize_and_process(self, raw_dataset: Dataset) -> Dataset:
@@ -122,26 +126,26 @@ class TextGenerationDataset(RegistryMixin):
             tokenize_fn,
             batched=True,
             remove_columns=[self.text_column],
-            num_proc=self.data_args.preprocessing_num_workers,
-            load_from_cache_file=not self.data_args.overwrite_cache,
-            desc="Running tokenizer on dataset",
+            #num_proc=self.data_args.preprocessing_num_workers,
+            #load_from_cache_file=not self.data_args.overwrite_cache,
+            #desc="Running tokenizer on dataset",
         )
 
         if self.data_args.concatenate_data:
             dataset = dataset.map(
                 group_text_fn,
                 batched=True,
-                num_proc=self.data_args.preprocessing_num_workers,
-                load_from_cache_file=not self.data_args.overwrite_cache,
-                desc="Grouping text",
+                #num_proc=self.data_args.preprocessing_num_workers,
+                #load_from_cache_file=not self.data_args.overwrite_cache,
+                #desc="Grouping text",
             )
 
         dataset = dataset.map(
             label_fn,
             batched=True,
-            num_proc=self.data_args.preprocessing_num_workers,
-            load_from_cache_file=not self.data_args.overwrite_cache,
-            desc="Adding labels",
+            #num_proc=self.data_args.preprocessing_num_workers,
+            #load_from_cache_file=not self.data_args.overwrite_cache,
+            #desc="Adding labels",
         )
 
         return dataset
