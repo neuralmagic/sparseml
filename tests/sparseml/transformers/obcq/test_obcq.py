@@ -78,6 +78,7 @@ def test_obcq_tinystories(recipe_file_path):
     test_data = format_calibration_data(
         tokenized_dataset=tokenized_dataset, num_calibration_samples=num_samples
     )
+    test_data = [d["input_ids"] for d in test_data]
     perplexity = ppl_eval_general(
         llama_forward, tiny_model, test_data, device, max_samples_per_iteration=8
     )
