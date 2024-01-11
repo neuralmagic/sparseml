@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 from sparseml.core import Modifier
 from sparseml.core.model.base import ModifiableModel
@@ -29,23 +29,35 @@ class WandaPruningModifier(Modifier):
     Modifier for applying the one-shot WANDA algorithm to a model
     from the paper: https://arxiv.org/abs/2306.11695
 
-    Life-cycle:
-        - initialze
-            - compress
-        - finalize
+    Lifecycle:
+        - on_initialize
+            - initialize_compression()
+                - compressible_layers()
+                - LayerCompressor.pre_compress()
+            - apply_compression()
+                - run_calibration_forward()
+                - LayerCompressor.compress()
+                - LayerCompressor.post_compress()
+        - on_finalize
+            - LayerCompressor.revert_layer_wrappers()
 
     :param sparsity: Sparsity to compress model to
     :param mask_structure: String to define the structure of the mask to apply.
         Must be of the form N:M where N, M are integers that define a custom block
         shape. Defaults to 0:0 which represents an unstructured mask.
+    :param sequential_update: Whether or not to update weights sequentially by layer,
+        True saves on GPU memory
     :param targets: list of layer names to compress during OBCQ, or '__ALL__'
         to compress every layer in the model
     """
 
     sparsity: Union[float, List[float]]
     mask_structure: str = "0:0"
+    sequential_update: Optional[bool] = False
     targets: Union[str, List[str], None] = ALL_TOKEN
     compressible_layers_: Optional[List] = None
+    prunen_: Optional[int] = None
+    prunem_: Optional[int] = None
 
     def on_initialize_structure(self, state: State, **kwargs):
         """
@@ -56,7 +68,7 @@ class WandaPruningModifier(Modifier):
         :param kwargs: Unused, kept to conform to the parent method signature
         """
 
-    def compressible_layers(self) -> List:
+    def compressible_layers(self) -> Dict:
         """
         Retrieves the modules corresponding to a list of
         compressible layer names
@@ -64,7 +76,7 @@ class WandaPruningModifier(Modifier):
         :precondition: self.model is set and is a `ModifiableModel`
         :precondition: The `ModifiableModel` implements a `get_layers`
             method
-        :return: list of modules to compress
+        :return: dictionary of modules to compress
         """
         if not isinstance(self.model, ModifiableModel):
             raise ValueError(
@@ -73,8 +85,7 @@ class WandaPruningModifier(Modifier):
                 f"{type(self.model)} instead"
             )
 
-        compressible_dict = self.model.get_layers(self.targets)
-        return [v for _, v in compressible_dict.items()]
+        return self.model.get_layers(self.targets)
 
     def _validate_layerwise_sparsity(self):
         if isinstance(self.sparsity, float):

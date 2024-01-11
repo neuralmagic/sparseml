@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from dataclasses import dataclass, field
-from typing import Dict, Optional
+from typing import Dict, List, Optional, Union
 
 
 @dataclass
@@ -54,7 +54,7 @@ class DataTrainingArguments:
         default=None,
         metadata={"help": "Additional keyboard args to pass to datasets load_data"},
     )
-    splits: Optional[Dict] = field(
+    splits: Union[None, str, List, Dict] = field(
         default=None,
         metadata={"help": "Optional percentages of each split to download"},
     )
