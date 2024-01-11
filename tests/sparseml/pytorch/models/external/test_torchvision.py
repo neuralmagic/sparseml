@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+import platform
 from typing import Callable, Union
 
 import pytest
@@ -34,9 +35,29 @@ from tests.sparseml.pytorch.models.utils import compare_model
     "key,pretrained,constructor",
     [
         ("torchvision.mobilenet_v2", False, torchvision_models.mobilenet_v2),
-        ("torchvision.mobilenet_v2", True, torchvision_models.mobilenet_v2),
+        pytest.param(
+            "torchvision.mobilenet_v2",
+            True,
+            torchvision_models.mobilenet_v2,
+            marks=[
+                pytest.mark.skipif(
+                    "centos" in platform.platform(),
+                    reason="torchvision cannot pull remote model on CentOS 7",
+                )
+            ],
+        ),
         ("torchvision.resnet50", False, torchvision_models.resnet50),
-        ("torchvision.resnet50", True, torchvision_models.resnet50),
+        pytest.param(
+            "torchvision.resnet50",
+            True,
+            torchvision_models.resnet50,
+            marks=[
+                pytest.mark.skipif(
+                    "centos" in platform.platform(),
+                    reason="torchvision cannot pull remote model on CentOS 7",
+                )
+            ],
+        ),
     ],
 )
 def test_torchvision_registry_models(

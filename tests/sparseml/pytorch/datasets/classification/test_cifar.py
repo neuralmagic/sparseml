@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+import platform
 
 import pytest
 from torch.utils.data import Dataset
@@ -30,6 +31,10 @@ def _validate_cifar(dataset: Dataset, num_classes: int):
     assert item[1] < num_classes
 
 
+@pytest.mark.skipif(
+    "centos-7" in platform.platform(),
+    reason="torchvision cannot pull remote model on CentOS 7",
+)
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
     reason="Skipping pytorch tests",
@@ -49,6 +54,10 @@ def test_cifar_10():
     _validate_cifar(reg_dataset, 10)
 
 
+@pytest.mark.skipif(
+    "centos-7" in platform.platform(),
+    reason="torchvision cannot pull remote model on CentOS 7",
+)
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
     reason="Skipping pytorch tests",
