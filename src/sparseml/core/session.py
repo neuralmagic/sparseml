@@ -288,7 +288,7 @@ class SparseSession:
         """
         recipe = self.lifecycle.recipe_container.compiled_recipe
         return recipe.yaml()
-    
+
     def _log_model_info(self, event_type: EventType):
         # Log model level logs if needed
 
