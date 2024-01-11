@@ -64,7 +64,7 @@ class DataTrainingArguments:
     )
     streaming: Optional[bool] = field(
         default=False,
-        metadata={"help": "Whether to stream data from dataset"},
+        metadata={"help": "True to stream data from a cloud dataset"},
     )
     overwrite_cache: bool = field(
         default=False,
