@@ -22,12 +22,10 @@ import logging
 import math
 import os
 import warnings
-from contextlib import suppress
 from dataclasses import asdict
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import datasets
-import numpy
 import torch
 from torch import distributed as dist
 from torch.nn import Module
@@ -39,6 +37,7 @@ from transformers.trainer_callback import TrainerState
 from transformers.trainer_pt_utils import reissue_pt_warnings
 from transformers.trainer_utils import ShardedDDPOption, get_last_checkpoint
 
+from sparseml.pytorch.model_load.helpers import log_model_load
 from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
 from sparseml.pytorch.sparsification.quantization.helpers import (
     initialize_channel_wise_scale_zp,
@@ -49,7 +48,6 @@ from sparseml.pytorch.utils import (
     TensorBoardLogger,
     WANDBLogger,
 )
-from sparseml.transformers.utils import SparseAutoModel
 from sparseml.transformers.utils.helpers import RECIPE_NAME
 
 
@@ -499,90 +497,6 @@ class RecipeManagerTrainerInterface:
             f"all sparsification info: {sparsification_info}"
         )
 
-    def save_sample_inputs_outputs(
-        self,
-        num_samples_to_export: int = 100,
-        output_dir: Optional[str] = None,
-        tokenizer: Optional[Any] = None,
-    ):
-        """
-        Save sample inputs/outputs/labels in save_dir as .npz arrays
-
-        :param num_samples_to_export: Number of samples to export.
-            Defaults to 100
-        :param output_dir: The directory to store sample inputs and outputs in
-        :param tokenizer: if eval and train dataset cannot be generated, then
-            the tokenizer is used to generate fake inputs
-        """
-        num_samples = 0
-
-        if output_dir is None:
-            output_dir = (
-                self.args.output_dir if hasattr(self.args, "output_dir") else ""
-            )
-
-        sample_in_dir = os.path.join(output_dir, "sample-inputs")
-        sample_out_dir = os.path.join(output_dir, "sample-outputs")
-
-        os.makedirs(sample_in_dir, exist_ok=True)
-        os.makedirs(sample_out_dir, exist_ok=True)
-        device = self.model.device
-
-        dataloader = None
-        try:
-            dataloader = self.get_eval_dataloader()
-        except Exception:
-            with suppress(ValueError):
-                dataloader = self.get_train_dataloader()
-
-        if not dataloader and not tokenizer:
-            raise ValueError(
-                "tokenizer is needed to generate fake sample inputs when Trainer is "
-                "not initialized with a train or eval dataset"
-            )
-        if dataloader is None:
-            # we have the tokenizer so use it
-            dataloader = self._get_fake_dataloader(
-                num_samples=num_samples_to_export, tokenizer=tokenizer
-            )
-
-        _LOGGER.info(
-            f"Exporting {num_samples_to_export} samples to "
-            f"{os.path.abspath(output_dir)}"
-        )
-        for _, sample_batch in enumerate(dataloader):
-            sample_batch.pop("labels", None)
-            input_names = list(sample_batch.keys())
-
-            for input_vals in zip(*sample_batch.values()):
-                input_feed = {k: v.to("cpu") for k, v in zip(input_names, input_vals)}
-                model_inputs = {
-                    k: input_feed[k].to(device).reshape(1, -1) for k in input_feed
-                }
-                output_vals = self.model(**model_inputs)
-                output_dict = {
-                    name: torch.squeeze(val).detach().to("cpu")
-                    for name, val in output_vals.items()
-                }
-                file_idx = f"{num_samples}".zfill(4)
-
-                sample_input_filename = os.path.join(
-                    f"{sample_in_dir}", f"inp-{file_idx}.npz"
-                )
-                numpy.savez(sample_input_filename, **input_feed)
-
-                sample_output_filename = os.path.join(
-                    f"{sample_out_dir}", f"out-{file_idx}.npz"
-                )
-                numpy.savez(sample_output_filename, **output_dict)
-                num_samples += 1
-
-                if num_samples >= num_samples_to_export:
-                    break
-            if num_samples >= num_samples_to_export:
-                break
-        _LOGGER.info(f"Exported {num_samples_to_export} samples to {output_dir}")
-
     def _extract_metadata(
         self,
         metadata_args: List[str],
@@ -724,7 +638,7 @@ class RecipeManagerTrainerInterface:
         _LOGGER.info(
             f"Reloaded {total_loaded} model params for SparseML Recipe from {load_path}"
         )
-        SparseAutoModel.log_model_load(
+        log_model_load(
             self.model,
             self.model_state_path,
             model_type="student" if self.teacher else "model",
@@ -780,16 +694,21 @@ class RecipeManagerTrainerInterface:
                 self.args, log_dir=self.args.logging_dir
             )
 
-        self.logger_manager.add_logger(
-            TensorBoardLogger(writer=tensorboard_callback.tb_writer)
-        )
+        try:
+            self.logger_manager.add_logger(
+                TensorBoardLogger(writer=tensorboard_callback.tb_writer)
+            )
+        except (ImportError, ModuleNotFoundError):
+            _LOGGER.info(
+                "Unable to import tensorboard - running without tensorboard logging"
+            )
 
     def _get_fake_dataloader(
         self,
         num_samples: int,
         tokenizer: "PreTrainedTokenizerBase",  # noqa: F821
     ):
-        # Rearrange inputs' keys to match those defined by model foward func, which
+        # Rearrange inputs' keys to match those defined by model forward func, which
         # seem to define how the order of inputs is determined in the exported model
         forward_args_spec = inspect.getfullargspec(self.model.__class__.forward)
         synthetic_input = self._get_fake_input(

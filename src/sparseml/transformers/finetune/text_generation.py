@@ -34,6 +34,7 @@ from transformers import (
 
 from sparseml.pytorch.model_load.helpers import (
     apply_recipe_structure_to_model,
+    fallback_to_cpu,
     get_session_model,
     parse_dtype,
 )
@@ -164,6 +165,9 @@ def main(
     # Set seed before initializing model.
     set_seed(training_args.seed)
 
+    # Fallback to CPU if GPU requested and not available
+    training_args.oneshot_device = fallback_to_cpu(training_args.oneshot_device)
+
     # Load pretrained model
     # The .from_pretrained methods guarantee that only one local process can
     # concurrently download model & vocab.
@@ -188,6 +192,7 @@ def main(
         "revision": model_args.model_revision,
         "use_auth_token": True if model_args.use_auth_token else None,
         "torch_dtype": parse_dtype(model_args.precision),
+        "device_map": training_args.oneshot_device,
     }
     teacher_kwargs = {
         "config": teacher_config,
@@ -195,11 +200,22 @@ def main(
         "use_auth_token": True if model_args.use_auth_token else None,
     }
     # this calls from_pretrained under the hood so should be FSDP safe
-    model, teacher = SparseAutoModel.text_generation_from_pretrained_distil(
+    model = SparseAutoModel.text_generation_from_pretrained(
         model_name_or_path=model_path,
-        teacher_name_or_path=training_args.distill_teacher,
-        model_kwargs=model_kwargs,
-        teacher_kwargs=teacher_kwargs,
+        sequence_length=None,  # use model default
+        model_type="model",
+        **model_kwargs,
+    )
+
+    teacher = (
+        SparseAutoModel.text_generation_from_pretrained(
+            model_name_or_path=training_args.distill_teacher,
+            sequence_length=None,  # use model default
+            model_type="teacher",
+            **teacher_kwargs,
+        )
+        if training_args.distill_teacher is not None
+        else None
     )
 
     # initialize structure of input model from recipe if needed
@@ -239,6 +255,7 @@ def main(
     stage_runner.populate_datasets(tokenizer=tokenizer)
     train_dataset = stage_runner.get_dataset_split("train")
     eval_dataset = stage_runner.get_dataset_split("validation")
+    calib_dataset = stage_runner.get_dataset_split("calibration")
 
     # Data collator will default to DataCollatorWithPadding when the tokenizer is
     # passed to Trainer, so we change it if we already did the padding.
@@ -259,12 +276,21 @@ def main(
         recipe_args=training_args.recipe_args,
         args=training_args,
         data_args=data_args,
-        train_dataset=train_dataset,
+        train_dataset=train_dataset or calib_dataset,
         eval_dataset=eval_dataset,
         tokenizer=tokenizer,
         data_collator=data_collator,
     )
-    stage_runner.set_trainer(trainer)
+    if trainer.is_fsdp_enabled:
+        trainer._prepare_model_for_fsdp()
+    stage_runner.trainer = trainer
+
+    # alternating Training/One-shot
+    if training_args.run_stages:
+        stage_runner.run_sequential_stages()
+
+        # exit immediately
+        return
 
     # alternating Training/One-shot
     if training_args.run_stages:

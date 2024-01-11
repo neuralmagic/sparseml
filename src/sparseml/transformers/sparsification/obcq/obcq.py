@@ -33,7 +33,7 @@ from sparseml.pytorch.model_load.helpers import (
 from sparseml.transformers.finetune.data import TextGenerationDataset
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
 from sparseml.transformers.finetune.data.data_helpers import format_calibration_data
-from sparseml.transformers.utils.model import SparseCausalLM
+from sparseml.transformers.utils.sparse_model import SparseCausalLM
 
 
 __all__ = ["one_shot"]
@@ -67,7 +67,7 @@ def one_shot(
     :param num_samples: Number of samples to extract from the dataset
     :param sequence_length: Maximum input sequence length to the model
     :param concatenate_data: Whether or not to concatenate datapoints to fill seqlen
-    :param device: Device (cuda:index or cpu) to use for computation
+    :param device: Device (cuda:index, auto or cpu) to use for computation
     :param deploy_dir: The output directory to save the model to
     :param recipe_file: recipe containing SparseGPT configuration
     :param precision: precision to load model as, either auto, half or full
@@ -105,7 +105,10 @@ def one_shot(
         model_loader_fn = SparseCausalLM.auto_model_from_pretrained
     torch_dtype = parse_dtype(precision)
     model = model_loader_fn(
-        model_path, sequence_length=sequence_length, torch_dtype=torch_dtype
+        model_path,
+        sequence_length=sequence_length,
+        torch_dtype=torch_dtype,
+        device_map=device,
     )
 
     # Load calibration data
@@ -151,7 +154,6 @@ def one_shot(
         model=model,
         calib_data=calibration_data,
         start=-1,
-        device=device,
         copy_data=False,
         recipe_args=recipe_args,
     )

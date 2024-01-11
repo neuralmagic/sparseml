@@ -28,7 +28,10 @@ from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
 from sparseml.transformers.finetune.data.data_helpers import format_calibration_data
 from sparseml.transformers.sparsification.obcq.obcq import one_shot
 from sparseml.transformers.sparsification.obcq.utils.helpers import llama_forward
-from sparseml.transformers.utils.model import SparseCausalLM
+from sparseml.transformers.utils.initializers import (
+    initialize_config,
+    initialize_sparse_model,
+)
 
 
 @pytest.mark.parametrize(
@@ -90,7 +93,13 @@ def test_lm_head_target():
     if not torch.cuda.is_available():
         device = "cpu"
 
-    model = SparseCausalLM.auto_model_from_pretrained(tiny_model_path)
+    config = initialize_config(model_path=tiny_model_path)
+    model = initialize_sparse_model(
+        model_path=tiny_model_path,
+        device=device,
+        task="text-generation",
+        config=config,
+    )
 
     kwargs = {
         "sparsity": 0.5,
@@ -111,11 +120,11 @@ def test_lm_head_target():
     )
     state = State(framework=Framework.pytorch)
     state.update(model=model, device=device)
-    sparsegpt_modifier_no_head.setup(state)
+    sparsegpt_modifier_no_head.initialize_compression(state.model)
 
     kwargs["targets"].append("lm_head")
     sparsegpt_modifier_head = SparseGPTModifier(framework=Framework.pytorch, **kwargs)
-    sparsegpt_modifier_head.setup(state)
+    sparsegpt_modifier_head.initialize_compression(state.model)
 
     # check we pick up the lm_head layer
     layers_no_head = len(sparsegpt_modifier_no_head.compressible_layers_)

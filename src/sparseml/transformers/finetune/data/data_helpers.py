@@ -27,6 +27,7 @@ def format_calibration_data(
     tokenized_dataset: Dataset,
     num_calibration_samples: int,
     collate_fn: Callable = default_data_collator,
+    accelerator: Optional[Any] = None
 ) -> List[torch.Tensor]:
     """
     Creates a dataloader out of the calibration dataset split, trimming it to
@@ -34,20 +35,21 @@ def format_calibration_data(
 
     :return: list of trimmed calibration data tensors
     """
+    shuffled_calibration = tokenized_dataset.shuffle()
+    shuffled_calibration = shuffled_calibration.select(range(num_calibration_samples))
+
     dataloader_params = {
         "batch_size": 1,
-        "sampler": RandomSampler(tokenized_dataset),
+        "sampler": RandomSampler(shuffled_calibration),
         "collate_fn": collate_fn,
+        "pin_memory": True
     }
 
-    calibration_data = []
-    calib_dataloader = DataLoader(tokenized_dataset, **dataloader_params)
-    dataloader_iter = iter(calib_dataloader)
-    for _ in range(num_calibration_samples):
-        datapoint = next(dataloader_iter)
-        calibration_data.append(datapoint["input_ids"])
+    calib_dataloader = DataLoader(shuffled_calibration, **dataloader_params)
+    if accelerator:
+        calib_dataloader = accelerator.prepare(calib_dataloader)
 
-    return calibration_data
+    return calib_dataloader
 
 
 def get_raw_dataset(data_args, cache_dir: Optional[str] = None, **kwargs) -> Dataset:
@@ -104,9 +106,11 @@ def make_dataset_splits(
             raise ValueError("--do_predict requires a test dataset")
         predict_split = tokenized_datasets["test"]
     if do_oneshot:
-        if "calibration" not in tokenized_datasets:
-            raise ValueError("--do_oneshot requires a calibration dataset")
-        calib_split = tokenized_datasets["calibration"]
+        calib_split = tokenized_datasets.get("calibration")
+        if calib_split is None:
+            if "train" not in tokenized_datasets:
+                raise ValueError("--do_oneshot requires a calibration dataset")
+            calib_split = tokenized_datasets["train"]
 
     split_datasets = {
         "train": train_split,

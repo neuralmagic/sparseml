@@ -20,12 +20,8 @@ from dataclasses import asdict
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import torch
-from torch.distributed.fsdp import (
-    FullStateDictConfig,
-    FullyShardedDataParallel,
-    StateDictType,
-)
 from torch.nn import Module
+from torch.utils.data import DataLoader
 from transformers.trainer_callback import TrainerState
 from transformers.trainer_utils import get_last_checkpoint
 
@@ -38,6 +34,8 @@ from sparseml.transformers.finetune.callbacks import (
     DisableHalfPrecisionCallback,
     TrainingLoopCallbacks,
 )
+from sparseml.utils.fsdp.context import summon_full_params_context
+from sparseml.utils.fsdp.helpers import is_fsdp_model, save_pretrained_fsdp
 
 
 __all__ = [
@@ -135,18 +133,19 @@ class SessionManagerMixIn:
         train_data = self.get_train_dataloader()
 
         self.accelerator.wait_for_everyone()
-        session_manager.initialize(
-            model=self.model,
-            teacher_model=self.teacher,  # TODO: what about for self/disable?
-            recipe=self.recipe,
-            recipe_stage=stage,
-            recipe_args=self.recipe_args,
-            framework=Framework.pytorch,
-            train_data=train_data,
-            start=epoch,
-            copy_data=False,
-            fsdp_active=self.is_fsdp_enabled,
-        )
+        with summon_full_params_context(self.model):
+            session_manager.initialize(
+                model=self.model,
+                teacher_model=self.teacher,  # TODO: what about for self/disable?
+                recipe=self.recipe,
+                recipe_stage=stage,
+                recipe_args=self.recipe_args,
+                framework=Framework.pytorch,
+                train_data=train_data,
+                start=epoch,
+                copy_data=False,
+                fsdp_active=self.is_fsdp_enabled,
+            )
         self.accelerator.wait_for_everyone()
 
         # reload the state dict for the model now that architecture matches expected
@@ -191,7 +190,7 @@ class SessionManagerMixIn:
         if not session.lifecycle.initialized_ or session.lifecycle.finalized:
             return False
 
-        with FullyShardedDataParallel.summon_full_params(self.model):
+        with summon_full_params_context(self.model):
             # in order to update each layer we need to gathers all its parameters
             session_manager.finalize()
         _LOGGER.info("Finalized SparseML session")
@@ -333,7 +332,7 @@ class SessionManagerMixIn:
         self.accelerator.wait_for_everyone()
 
         # Need to gather parameters across the GPUs before accessing layer weights
-        with FullyShardedDataParallel.summon_full_params(self.model):
+        with summon_full_params_context(self.model):
             self.log_model_sparsification()
 
         return output
@@ -377,6 +376,25 @@ class SessionManagerMixIn:
 
         return output
 
+    def one_shot(self, calib_data: DataLoader, stage: Optional[str] = None):
+        """
+        Run oneshot calibration on the active model
+
+        :param stage: which stage of the recipe to run, or None to run whole recipe
+        :param calib_data: dataloader of calibration data
+        """
+        session_manager.apply(
+            framework=Framework.pytorch,
+            recipe=self.recipe,
+            recipe_stage=stage,
+            model=self.model,
+            calib_data=calib_data,
+            start=-1,
+            copy_data=False,
+        )
+
+        self.accelerator.wait_for_everyone()
+
     def save_model(
         self,
         output_dir: Optional[str] = None,
@@ -398,21 +416,9 @@ class SessionManagerMixIn:
         if output_dir is None:
             output_dir = self.args.output_dir
 
-        full_state_dict_config = FullStateDictConfig(
-            offload_to_cpu=True, rank0_only=True
-        )
-
-        if isinstance(self.model, FullyShardedDataParallel):
-            with FullyShardedDataParallel.state_dict_type(
-                self.model, StateDictType.FULL_STATE_DICT, full_state_dict_config
-            ):
-                state_dict = self.accelerator.get_state_dict(self.model, unwrap=False)
-
-            self.accelerator.unwrap_model(self.model).save_pretrained(
-                output_dir,
-                is_main_process=self.accelerator.is_main_process,
-                save_function=self.accelerator.save,
-                state_dict=state_dict,
+        if is_fsdp_model(self.model):
+            save_pretrained_fsdp(
+                model=self.model, accelerator=self.accelerator, output_dir=output_dir
             )
 
         self.save_state()
@@ -453,6 +459,19 @@ class SessionManagerMixIn:
             f"{model_type} model detected, "
             f"all sparsification info: {sparsification_info}"
         )
+
+    def _prepare_model_for_fsdp(self):
+        """
+        This is quite hacky, but the FSDP setup code is buried in the Trainers
+        _inner_training_loop call. Doing this quick run sets up FSDP for the case
+        where we want to run one-shot in FSDP mode
+        """
+        self.model.to("cpu")
+        max_steps = self.args.max_steps
+        self.args.max_steps = 1
+        super().train()
+        self.args.max_steps = max_steps
+        self.accelerator.wait_for_everyone()
 
     def _extract_metadata(
         self,

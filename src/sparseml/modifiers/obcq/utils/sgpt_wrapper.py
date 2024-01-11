@@ -12,14 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
-import math
 import time
 
-import torch
-import torch.nn as nn
-
-from sparseml.modifiers.utils.module_compressor import ModuleCompressor
+from sparseml.modifiers.utils.compression_wrapper import ModuleCompressionWrapper
 
 
 try:
@@ -28,17 +23,19 @@ except ImportError as err:
     transformers = None
     transformers_err = err
 
-__all__ = ["SparseGPT"]
+import logging
+import math
+
+import torch
+import torch.nn as nn
 
 
-DEBUG = False
+__all__ = ["SparseGptWrapper"]
+
 _LOGGER = logging.getLogger(__name__)
 
-torch.backends.cuda.matmul.allow_tf32 = False
-torch.backends.cudnn.allow_tf32 = False
 
-
-class SparseGPT(ModuleCompressor):
+class SparseGptWrapper(ModuleCompressionWrapper):
     """
     Runs SparseGPT on a single module that contains no sub-modules
 
@@ -47,35 +44,38 @@ class SparseGPT(ModuleCompressor):
         - fasterprune
         - free
 
-
-    :param layer: module to run SparseGPT on
+    :param name: name of module to run compression on
+    :param layer: module to run compression on
     """
 
-    def __init__(self, layer):
-        super().__init__(layer=layer)
-        self.H = torch.zeros((self.columns, self.columns), device=self.dev)
+    def __init__(self, name, layer):
+        super().__init__(name=name, layer=layer)
+
+        # for Hessian calculation
+        self.register_buffer(
+            "H", torch.zeros((self.columns, self.columns), device=self.dev)
+        )
 
     def add_batch(self, inp: torch.Tensor, out: torch.Tensor):
         """
         Add a batch of layer input and output data to the Hessian calculation
 
         :param inp: tensor containing layer input
-        :param out: tensor containing layer our
+        :param out: tensor containing layer output
         """
-        self.store_inps_outs_for_debugging(inp, out)
         if len(inp.shape) == 2:
             inp = inp.unsqueeze(0)
-        batch_size = inp.shape[0]
+        tmp = inp.shape[0]
         if isinstance(self.layer, nn.Linear) or isinstance(
             self.layer, transformers.Conv1D
         ):
             if len(inp.shape) == 3:
                 inp = inp.reshape((-1, inp.shape[-1]))
             inp = inp.t()
-        self.H *= self.nsamples / (self.nsamples + batch_size)
-        self.nsamples += batch_size
+        self.H *= self.nsamples / (self.nsamples + tmp)
+        self.nsamples += tmp
         inp = math.sqrt(2 / self.nsamples) * inp.float()
-        self.H += inp.matmul(inp.t())
+        self.H += inp.matmul(inp.t()).to(self.dev)
 
     def fasterprune(
         self,
@@ -94,9 +94,12 @@ class SparseGPT(ModuleCompressor):
         :param prunem: M for N:M pruning
         :param blocksize: Number of columns to compress in one pass
         :param percdamp: Amount of dampening to apply to H, as a fraction of the
-            diagonal norm
+        diagonal norm
         """
+        final_shape = self.layer.weight.shape
+        final_dtype = self.layer.weight.dtype
         W = self.layer.weight.data.clone()
+
         if isinstance(self.layer, nn.Conv2d):
             W = W.flatten(1)
         if isinstance(self.layer, transformers.Conv1D):
@@ -105,21 +108,19 @@ class SparseGPT(ModuleCompressor):
 
         tick = time.time()
 
-        H = self.H
-        del self.H
-        dead = torch.diag(H) == 0
-        H[dead, dead] = 1
+        dead = torch.diag(self.H) == 0
+        self.H[dead, dead] = 1
         W[:, dead] = 0
 
         Losses = torch.zeros(self.rows, device=self.dev)
 
-        damp = percdamp * torch.mean(torch.diag(H))
+        damp = percdamp * torch.mean(torch.diag(self.H))
         diag = torch.arange(self.columns, device=self.dev)
-        H[diag, diag] += damp
-        H = torch.linalg.cholesky(H)
-        H = torch.cholesky_inverse(H)
-        H = torch.linalg.cholesky(H, upper=True)
-        Hinv = H
+        self.H[diag, diag] += damp
+        self.H = torch.linalg.cholesky(self.H)
+        self.H = torch.cholesky_inverse(self.H)
+        self.H = torch.linalg.cholesky(self.H, upper=True)
+        Hinv = self.H
 
         mask = None
 
@@ -183,28 +184,21 @@ class SparseGPT(ModuleCompressor):
 
             W[:, i2:] -= Err1.matmul(Hinv[i1:i2, i2:])
 
-            if DEBUG:
-                self.layer.weight.data[:, :i2] = W[:, :i2]
-                self.layer.weight.data[:, i2:] = W[:, i2:]
-                _LOGGER.debug(torch.sum((self.layer(self._inp1) - self.out1) ** 2))
-                _LOGGER.debug(torch.sum(Losses))
-
-        if torch.cuda.is_available():
-            torch.cuda.synchronize()
         _LOGGER.info("time %.2f" % (time.time() - tick))
         _LOGGER.info("error %.2f" % torch.sum(Losses).item())
 
         if isinstance(self.layer, transformers.Conv1D):
             W = W.t()
-        self.layer.weight.data = W.reshape(self.layer.weight.shape).to(
-            self.layer.weight.data.dtype
-        )
-        if DEBUG:
-            _LOGGER.debug(torch.sum((self.layer(self._inp1) - self.out1) ** 2))
+        W = W.reshape(final_shape).to(final_dtype)
+
+        # This is a bit hacky, but FSDP updates only work if we change the weight in
+        # place, clone() or direct assignment won't work
+        self.layer.weight -= self.layer.weight
+        self.layer.weight += W
 
     def free(self):
         """
         Free the Hessian memory after the layer is complete
         """
-        self.H = None
+        delattr(self, "H")
         super().free()

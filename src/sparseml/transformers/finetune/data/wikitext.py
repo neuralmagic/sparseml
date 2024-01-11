@@ -15,7 +15,7 @@
 from sparseml.transformers.finetune.data import TextGenerationDataset
 
 
-@TextGenerationDataset.register(name="wikitext")
+@TextGenerationDataset.register(name="wikitext2")
 class WikiTextDataset(TextGenerationDataset):
     """
     Child text generation class for the Open Platypus dataset

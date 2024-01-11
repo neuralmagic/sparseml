@@ -12,17 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
+from typing import List, Optional
 
-from functools import partial
-from typing import Any, Optional
-
+from sparseml.core.model import ModifiableModel
 from sparseml.core.state import State
 from sparseml.modifiers.obcq.base import SparseGPTModifier
-from sparseml.modifiers.obcq.utils.layer_compressor import OBCQLayerCompressor
+from sparseml.modifiers.obcq.utils.sgpt_wrapper import SparseGptWrapper
 from sparseml.modifiers.pruning.wanda.pytorch import WandaPruningModifierPyTorch
 
 
 __all__ = ["SparseGPTModifierPyTorch"]
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class SparseGPTModifierPyTorch(WandaPruningModifierPyTorch, SparseGPTModifier):
@@ -31,20 +33,21 @@ class SparseGPTModifierPyTorch(WandaPruningModifierPyTorch, SparseGPTModifier):
 
     Lifecycle:
         - on_initialize
-            - setup
-                - compressible_layers
-            - prune
-                - compress_bottom
-                - LayerCompressor.compress
+            - initialize_compression()
+                - compressible_layers()
+                - LayerCompressor.pre_compress()
+            - apply_compression()
+                - run_calibration_forward()
+                - LayerCompressor.compress()
+                - LayerCompressor.post_compress()
         - on_finalize
+            - LayerCompressor.revert_layer_wrappers()
 
     :param model: Pytorch model to perform OBCQ on, in-place
     """
 
-    model: Any = None
-    device_: str = "cuda:0"
-    layer_prefix_: Optional[str] = None
-    layer_compressor_class_ = OBCQLayerCompressor
+    model: Optional[ModifiableModel] = None
+    layer_compressors: List = None
 
     def on_initialize(self, state: "State", **kwargs) -> bool:
         """
@@ -52,39 +55,41 @@ class SparseGPTModifierPyTorch(WandaPruningModifierPyTorch, SparseGPTModifier):
 
         :param state: session state storing input model and calibration data
         """
-        self._validate_layerwise_sparsity()
-
         if not self.initialized_structure_:
             self.on_initialize_structure(state, **kwargs)
         if self.quantization_modifier_:
             self.quantization_modifier_.initialize(state, **kwargs)
 
-        # attach target_ids to `compress_bottom` for OBCQ
-        # this must be done before calling super().on_initialize
+        return super(SparseGPTModifierPyTorch, self).on_initialize(state, **kwargs)
 
-        compress_bottom = partial(self.compress_bottom, target_ids=self.target_ids)
-
-        # we need setattr here because of Pydantic's internal data model
-        object.__setattr__(self, "compress_bottom", compress_bottom)
-        return super().on_initialize(state=state, **kwargs)
-
-    def _get_compression_args(self, layer_sparsity):
-        return {
-            **super()._get_compression_args(layer_sparsity=layer_sparsity),
-            **{
-                "blocksize": self.block_size,
-                "percdamp": self.dampening_frac,
-                "sequential_update": self.sequential_update,
-                "quantize": self.quantize,
-            },
-        }
-
-    def on_finalize(self, state: State, **kwargs) -> bool:
+    def on_finalize(self, state: "State", **kwargs) -> bool:
         """
-        disable the observers used by the OBCQ algorithm and set kv-cache configuration
+        disable the quantization observers used by the OBCQ algorithm
 
-        :param state: un-used, for matching spec of Modifier base class
+        :param state: session state storing input model and calibration data
         """
         if self.quantization_modifier_:
             self.quantization_modifier_.finalize(state, **kwargs)
-        return super().on_finalize(state, **kwargs)
+
+        return super(SparseGPTModifierPyTorch, self).on_finalize(state, **kwargs)
+
+    def _pruning_arguments(self, sparsity):
+        """
+        Gather the parameters needed for root module compression in a dict
+
+        :param sparsity: target sparsity
+        :return: dict of params for pruning
+        """
+        return {
+            "sparsity": sparsity,
+            "prunen": self.prunen_,
+            "prunem": self.prunem_,
+            "blocksize": self.block_size,
+            "percdamp": self.dampening_frac,
+        }
+
+    def _compression_class(self):
+        """
+        :return: wrapper class used for root modules of this compression class
+        """
+        return SparseGptWrapper
