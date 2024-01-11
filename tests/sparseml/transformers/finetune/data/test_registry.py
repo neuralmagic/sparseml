@@ -41,7 +41,7 @@ def test_c4_initializes(tiny_llama_tokenizer):
 @pytest.mark.usefixtures("tiny_llama_tokenizer")
 def test_wikitext_initializes(tiny_llama_tokenizer):
     data_args = DataTrainingArguments(
-        dataset_name="wikitext2", dataset_config_name="wikitext-2-raw-v1"
+        dataset_name="wikitext", dataset_config_name="wikitext-2-raw-v1"
     )
     wiki_manager = TextGenerationDataset.load_from_registry(
         data_args.dataset_name,

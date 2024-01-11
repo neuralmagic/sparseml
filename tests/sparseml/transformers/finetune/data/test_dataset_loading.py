@@ -22,7 +22,7 @@ from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
 @pytest.mark.usefixtures("tiny_llama_tokenizer")
 def test_concatenation_tokenization(tiny_llama_tokenizer):
     data_args = DataTrainingArguments(
-        dataset_name="wikitext2",
+        dataset_name="wikitext",
         dataset_config_name="wikitext-2-raw-v1",
         concatenate_data=True,
     )
@@ -86,7 +86,7 @@ def test_max_seq_len_clipped(tiny_llama_tokenizer):
 @pytest.mark.usefixtures("tiny_llama_tokenizer")
 def test_dataset_kwargs_and_percentages(tiny_llama_tokenizer):
     data_args = DataTrainingArguments(
-        dataset_name="wikitext2",
+        dataset_name="wikitext",
         raw_kwargs={
             "data_files": {"train": "wikitext-2-raw-v1/train-00000-of-00001.parquet"}
         },
