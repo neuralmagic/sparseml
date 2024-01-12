@@ -36,7 +36,7 @@ from sparseml.transformers.sparsification.obcq.utils.helpers import (
     llama_forward,
     opt_forward,
 )
-from sparseml.transformers.utils.model import SparseCausalLM
+from sparseml.transformers.utils.sparse_model import SparseCausalLM
 
 
 __all__ = ["one_shot"]
@@ -67,7 +67,7 @@ def one_shot(
     :param dataset_name: Dataset to extract calibration data from
     :param num_samples: Number of samples to extract from the dataset
     :param sequence_length: Maximum input sequence length to the model
-    :param device: Device (cuda:index or cpu) to use for computation
+    :param device: Device (cuda:index, auto or cpu) to use for computation
     :param deploy_dir: The output directory to save the model to
     :param recipe_file: recipe containing SparseGPT configuration
     :param precision: precision to load model as, either auto, half or full
@@ -110,7 +110,10 @@ def one_shot(
         forward_fn = llama_forward
     torch_dtype = parse_dtype(precision)
     model = model_loader_fn(
-        model_path, sequence_length=sequence_length, torch_dtype=torch_dtype
+        model_path,
+        sequence_length=sequence_length,
+        torch_dtype=torch_dtype,
+        device_map=device,
     )
 
     if dataset_name not in SUPPORTED_DATASETS:
@@ -144,7 +147,6 @@ def one_shot(
         model=model,
         calib_data=calibration_data,
         start=-1,
-        device=device,
         copy_data=False,
         recipe_args=recipe_args,
     )

@@ -22,14 +22,16 @@ from torch.utils.data import DataLoader, Dataset, RandomSampler
 from transformers import AutoTokenizer
 
 import sparseml.core.session as session_manager
-from sparseml.core.framework import Framework
 from sparseml.core.recipe import Recipe, StageRunType
-from sparseml.pytorch.model_load.helpers import fallback_to_cpu, save_model_and_recipe
-from sparseml.transformers.finetune import Trainer, TrainingArguments
+from sparseml.pytorch.model_load.helpers import get_session_model, save_model_and_recipe
+from sparseml.transformers.finetune import TrainingArguments
 from sparseml.transformers.finetune.data import TextGenerationDataset
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
 from sparseml.transformers.finetune.data.data_helpers import make_dataset_splits
 from sparseml.transformers.finetune.model_args import ModelArguments
+from sparseml.utils.fsdp.context import summon_full_params_context
+from sparseml.utils.fsdp.helpers import is_fsdp_model, unwrap_and_export_model
+from sparseml.utils.pytorch import qat_active
 
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
@@ -64,7 +66,6 @@ class StageRunner:
         self._training_args = training_args
 
         self.datasets = {}
-        self.model = model
         self.trainer = None
         self.tokenizer = None
         self._output_dir = self._training_args.output_dir
@@ -105,18 +106,6 @@ class StageRunner:
         )
         self.tokenizer = tokenizer
 
-    def set_trainer(self, trainer: Trainer):
-        """
-        :param trainer: update trainer
-        """
-        self.trainer = trainer
-
-    def set_model(self, model: Module):
-        """
-        :param model: update pytorch model
-        """
-        self.model = model
-
     def get_dataset_split(self, split_name: str) -> Dataset:
         """
         Retrieve a dataset split by name
@@ -156,23 +145,25 @@ class StageRunner:
         _LOGGER.info("*** One Shot ***")
 
         calib_data = self.format_calibration_data()
-        oneshot_device = fallback_to_cpu(self._training_args.oneshot_device)
-        session_manager.apply(
-            framework=Framework.pytorch,
-            recipe=self._training_args.recipe,
-            recipe_stage=stage,
-            model=self.model,
-            calib_data=calib_data,
-            start=-1,
-            device=oneshot_device,
-            copy_data=False,
-        )
+        self.trainer.one_shot(calib_data, stage=stage)
 
-        save_model_and_recipe(
-            model=self.model,
-            save_path=self._output_dir,
-            tokenizer=self.tokenizer,
-        )
+        if is_fsdp_model(self.trainer.model):
+            try:
+                self.trainer.save_model(output_dir=self._output_dir)
+            except AssertionError:
+                # fallback to this in the case of quantization
+                unwrap_and_export_model(
+                    model=self.trainer.model,
+                    accelerator=self.trainer.accelerator,
+                    output_dir=self._output_dir,
+                    tokenizer=self.tokenizer,
+                )
+        else:
+            save_model_and_recipe(
+                model=self.trainer.model,
+                save_path=self._output_dir,
+                tokenizer=self.tokenizer,
+            )
 
     def train(self, checkpoint: str, stage: Optional[str] = None):
         """
@@ -241,17 +232,25 @@ class StageRunner:
             self._output_dir = os.path.join(
                 self._training_args.output_dir, "stage_" + stage_name
             )
-            if not os.path.exists(self._output_dir):
-                os.makedirs(self._output_dir)
+            with self.trainer.accelerator.main_process_first():
+                if not os.path.exists(self._output_dir):
+                    os.makedirs(self._output_dir)
 
             # run stage
             if run_type is StageRunType.ONESHOT:
                 self.one_shot(stage=stage_name)
             elif run_type is StageRunType.TRAIN:
+                if not is_fsdp_model(self.trainer.model):
+                    self.trainer.model.to("cpu")
                 self.train(checkpoint=None, stage=stage_name)
 
             # setup for next stage
             session = session_manager.active_session()
             session.reset_stage()
 
-        self.trainer.log_model_sparsification()
+            with summon_full_params_context(self.trainer.model):
+                if self.trainer.accelerator.is_main_process:
+                    if not qat_active(self.trainer.model):
+                        self.trainer.log_model_sparsification()
+            self.trainer.accelerator.wait_for_everyone()
+            self.trainer.model = get_session_model()
