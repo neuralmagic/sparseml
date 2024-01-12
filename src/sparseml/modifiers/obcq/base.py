@@ -48,8 +48,6 @@ class SparseGPTModifier(WandaPruningModifier):
         in the recipe
     :param dampening_frac: Amount of dampening to apply to H, as a fraction of the
         diagonal norm
-    :param sequential_update: Whether or not to update weights sequentially by layer,
-        True saves on GPU memory (NOTE: deprecated)
     """
 
     block_size: int

@@ -12,10 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import logging
 import os
 from typing import List, Optional
-import json
 
 import torch
 from torch.nn import Module
@@ -216,13 +216,15 @@ class StageRunner:
         """
 
         recipe_obj = Recipe.create_instance(self._training_args.recipe)
-        stage_path = os.path.join(self._model_args.model_name_or_path, "completed_stages.json")
+        stage_path = os.path.join(
+            self._model_args.model_name_or_path, "completed_stages.json"
+        )
 
         with self.trainer.accelerator.main_process_first():
             if os.path.exists(stage_path):
                 with open(stage_path) as stage_file:
                     stage_data = json.load(stage_file)
-                completed_stages = stage_data['completed']
+                completed_stages = stage_data["completed"]
             else:
                 completed_stages = []
 
@@ -263,13 +265,12 @@ class StageRunner:
                 self.train(checkpoint=None, stage=stage_name)
 
             # save stage stage to checkpoint dir
-                
+
             if self.trainer.accelerator.is_main_process:
                 completed_stages.append(stage_name)
                 stage_path = os.path.join(self._output_dir, "completed_stages.json")
-                with open(stage_path, 'w') as out_file:
+                with open(stage_path, "w") as out_file:
                     json.dump({"completed": completed_stages}, out_file)
-
 
             # setup for next stage
             session = session_manager.active_session()
