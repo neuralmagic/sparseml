@@ -884,6 +884,10 @@ class SparseYOLO(YOLO):
         if args.task == "segment":
             args = check_coco128_segmentation(args)
 
+        if not hasattr(self.model, "args"):
+            # set model args from overrides if possible
+            self.model.args = overrides
+
         validator = self.ValidatorClass(args=args)
         validator(
             model=self.model,
