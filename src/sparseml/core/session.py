@@ -223,7 +223,6 @@ class SparseSession:
         :return: the modified state of the session after finalizing
         """
         # log losses on finalization
-        self._last_loss_log_step = False
         self._log_loss(event_type=EventType.LOSS_CALCULATED, loss=self.state.loss)
 
         mod_data = self._lifecycle.finalize(**kwargs)
@@ -338,7 +337,7 @@ class SparseSession:
         # No need to check model update for loss logging
         check_model_update = False
 
-        if log_ready(
+        if loss is not None and log_ready(
             current_log_step=current_step,
             last_log_step=self._last_loss_log_step,
             log_frequency=self.state.loggers.log_frequency,
