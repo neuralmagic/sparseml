@@ -15,7 +15,6 @@ from copy import deepcopy
 from typing import Optional
 
 from sparseml.transformers.finetune.data import TextGenerationDataset
-from sparseml.transformers.finetune.data.data_helpers import get_raw_dataset
 
 
 @TextGenerationDataset.register(name="open_platypus")
@@ -53,13 +52,7 @@ class OpenPlatypusDataset(TextGenerationDataset):
         :param cache_dir: disk location to search for cached dataset
         :return: the requested dataset
         """
-        raw_dataset = get_raw_dataset(
-            self.data_args,
-            cache_dir,
-            split=self.split,
-            streaming=self.data_args.streaming,
-            **self.raw_kwargs,
-        )
+        raw_dataset = super().get_raw_dataset(cache_dir=cache_dir)
 
         # helper fn for restructuring each dataset entry using the alpaca template
         def restructure_fn(sample):
