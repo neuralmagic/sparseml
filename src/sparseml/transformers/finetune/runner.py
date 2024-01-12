@@ -73,6 +73,7 @@ class StageRunner:
         self.datasets = {}
         self.trainer = None
         self.tokenizer = None
+        self.parent_output_dir = self._training_args.output_dir
         self._output_dir = self._training_args.output_dir
 
     def populate_datasets(self, tokenizer: "AutoTokenizer"):
@@ -249,6 +250,7 @@ class StageRunner:
             with self.trainer.accelerator.main_process_first():
                 if not os.path.exists(self._output_dir):
                     os.makedirs(self._output_dir)
+            self._training_args.output_dir = self._output_dir
 
             # run stage
             if run_type is StageRunType.ONESHOT:
