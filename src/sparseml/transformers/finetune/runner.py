@@ -259,7 +259,6 @@ class StageRunner:
                 self.train(checkpoint=None, stage=stage_name)
 
             # save stage stage to checkpoint dir
-
             if self.trainer.accelerator.is_main_process:
                 completed_stages.append(stage_name)
                 save_completed_stages(self._output_dir, completed_stages)
@@ -268,9 +267,12 @@ class StageRunner:
             session = session_manager.active_session()
             session.reset_stage()
 
+            # log model sparsity
             with summon_full_params_context(self.trainer.model):
                 if self.trainer.accelerator.is_main_process:
                     if not qat_active(self.trainer.model):
                         self.trainer.log_model_sparsification()
+
+            # synchronize
             self.trainer.accelerator.wait_for_everyone()
             self.trainer.model = get_session_model()
