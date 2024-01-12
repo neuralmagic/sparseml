@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
 import logging
 import os
 from typing import List, Optional
@@ -24,7 +23,12 @@ from transformers import AutoTokenizer
 
 import sparseml.core.session as session_manager
 from sparseml.core.recipe import Recipe, StageRunType
-from sparseml.pytorch.model_load.helpers import get_session_model, save_model_and_recipe
+from sparseml.pytorch.model_load.helpers import (
+    get_completed_stages,
+    get_session_model,
+    save_completed_stages,
+    save_model_and_recipe,
+)
 from sparseml.transformers.finetune import TrainingArguments
 from sparseml.transformers.finetune.data import TextGenerationDataset
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
@@ -216,18 +220,8 @@ class StageRunner:
         """
 
         recipe_obj = Recipe.create_instance(self._training_args.recipe)
-        stage_path = os.path.join(
-            self._model_args.model_name_or_path, "completed_stages.json"
-        )
-
         with self.trainer.accelerator.main_process_first():
-            if os.path.exists(stage_path):
-                with open(stage_path) as stage_file:
-                    stage_data = json.load(stage_file)
-                completed_stages = stage_data["completed"]
-            else:
-                completed_stages = []
-
+            completed_stages = get_completed_stages(self._model_args.model_name_or_path)
         self.trainer.accelerator.wait_for_everyone()
 
         for stage in recipe_obj.stages:
@@ -242,7 +236,7 @@ class StageRunner:
                     "the stage name."
                 )
 
-            # just load structure if already applied
+            # just load structure if stage has already applied
             if stage_name in completed_stages:
                 self.trainer.initialize_structure(stage=stage)
                 self.trainer.accelerator.wait_for_everyone()
@@ -268,9 +262,7 @@ class StageRunner:
 
             if self.trainer.accelerator.is_main_process:
                 completed_stages.append(stage_name)
-                stage_path = os.path.join(self._output_dir, "completed_stages.json")
-                with open(stage_path, "w") as out_file:
-                    json.dump({"completed": completed_stages}, out_file)
+                save_completed_stages(self._output_dir, completed_stages)
 
             # setup for next stage
             session = session_manager.active_session()
