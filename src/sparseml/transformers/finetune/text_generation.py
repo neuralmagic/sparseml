@@ -200,11 +200,22 @@ def main(
         "use_auth_token": True if model_args.use_auth_token else None,
     }
     # this calls from_pretrained under the hood so should be FSDP safe
-    model, teacher = SparseAutoModel.text_generation_from_pretrained_distil(
+    model = SparseAutoModel.text_generation_from_pretrained(
         model_name_or_path=model_path,
-        teacher_name_or_path=training_args.distill_teacher,
-        model_kwargs=model_kwargs,
-        teacher_kwargs=teacher_kwargs,
+        sequence_length=None,  # use model default
+        model_type="model",
+        **model_kwargs,
+    )
+
+    teacher = (
+        SparseAutoModel.text_generation_from_pretrained(
+            model_name_or_path=training_args.distill_teacher,
+            sequence_length=None,  # use model default
+            model_type="teacher",
+            **teacher_kwargs,
+        )
+        if training_args.distill_teacher is not None
+        else None
     )
 
     # initialize structure of input model from recipe if needed
@@ -244,6 +255,7 @@ def main(
     stage_runner.populate_datasets(tokenizer=tokenizer)
     train_dataset = stage_runner.get_dataset_split("train")
     eval_dataset = stage_runner.get_dataset_split("validation")
+    calib_dataset = stage_runner.get_dataset_split("calibration")
 
     # Data collator will default to DataCollatorWithPadding when the tokenizer is
     # passed to Trainer, so we change it if we already did the padding.
@@ -264,11 +276,13 @@ def main(
         recipe_args=training_args.recipe_args,
         args=training_args,
         data_args=data_args,
-        train_dataset=train_dataset,
+        train_dataset=train_dataset or calib_dataset,
         eval_dataset=eval_dataset,
         tokenizer=tokenizer,
         data_collator=data_collator,
     )
+    if trainer.is_fsdp_enabled:
+        trainer._prepare_model_for_fsdp()
     stage_runner.trainer = trainer
 
     # alternating Training/One-shot

@@ -12,13 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from enum import Enum
+# flake8: noqa
 
-
-class ExportTargets(Enum):
-    """
-    Holds the names of the supported export targets
-    """
-
-    deepsparse = "deepsparse"
-    onnx = "onnx"
+from .export import *

@@ -55,7 +55,6 @@ class SparseGPTModifier(WandaPruningModifier):
     block_size: int
     quantize: Union[bool, Dict]
     dampening_frac: Optional[float] = 0.01
-    sequential_update: Optional[bool] = False  # deprecated
     quantization_modifier_: Any = None
 
     def on_initialize_structure(self, state: State, **kwargs):

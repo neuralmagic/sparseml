@@ -63,7 +63,7 @@ class TorchToONNX(BaseExporter):
         inference engine, and other engines, perform batch norm fusing at model
         compilation.
     :param export_kwargs: kwargs to be passed as is to the torch.onnx.export api
-        call. Useful to pass in dyanmic_axes, input_names, output_names, etc.
+        call. Useful to pass in dynamic_axes, input_names, output_names, etc.
         See more on the torch.onnx.export api spec in the PyTorch docs:
         https://pytorch.org/docs/stable/onnx.html
     """
@@ -106,7 +106,7 @@ class TorchToONNX(BaseExporter):
 
     def export(self, pre_transforms_model: torch.nn.Module, file_path: str):
         post_transforms_model: onnx.ModelProto = self.apply(pre_transforms_model)
-        save_onnx(post_transforms_model, file_path)
+        save_onnx(model=post_transforms_model, model_path=file_path)
 
 
 class _TorchOnnxExport(BaseTransform):
@@ -233,7 +233,7 @@ class _TorchOnnxExport(BaseTransform):
         if _PARSED_TORCH_VERSION < version.parse("1.10.0"):
             kwargs["strip_doc_string"] = True
         else:
-            kwargs["training"] = torch.onnx.TrainingMode.PRESERVE
+            kwargs["training"] = torch.onnx.TrainingMode.EVAL
             kwargs["do_constant_folding"] = not module.training
             kwargs["keep_initializers_as_inputs"] = False
 
