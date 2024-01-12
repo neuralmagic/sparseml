@@ -61,6 +61,12 @@ class FrequencyManager:
         self.last_log_step: LogStepType = None
         self.last_model_update_step: LogStepType = None
 
+    def __repr__(self):
+        return (
+            f"{self.__class__.__name__}(log_frequency={self.log_frequency}, "
+            f"mode={self._logging_mode}, frequency_type={self._frequency_type})"
+        )
+
     def log_ready(
         self,
         current_log_step: LogStepType,
