@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-from typing import Literal, Union
+from typing import Literal, Optional, Union
 
 
 __all__ = [
@@ -21,6 +21,7 @@ __all__ = [
     "LoggingModeType",
     "FrequencyType",
     "LogStepType",
+    "log_ready",
 ]
 
 LogStepType = Union[int, float, None]
@@ -97,36 +98,13 @@ class FrequencyManager:
 
         check_model_update = check_model_update or self._check_model_update
 
-        # format is used to avoid floating point errors
-        # e.g. 0.1 + 0.2 != 0.3
-        # format(0.1 + 0.2, ".4f") == format(0.3, ".4f")
-
-        cadence_reached: bool = self._log_frequency is not None and (
-            current_log_step is None
-            or self.last_log_step is None
-            or current_log_step
-            >= float(format(self.last_log_step + self._log_frequency, ".4f"))
+        return log_ready(
+            current_log_step=current_log_step,
+            last_log_step=self.last_log_step,
+            log_frequency=self.log_frequency,
+            last_model_update_step=self.last_model_update_step,
+            check_model_update=check_model_update,
         )
-
-        if not cadence_reached or not check_model_update:
-            # early return if cadence not reached or,
-            # model update check not requested
-            return cadence_reached
-
-        model_updated_since_last_log: bool = (
-            self.last_model_update_step is None
-            or self.last_log_step is None
-            or current_log_step is None
-            or (
-                self.last_model_update_step >= self.last_log_step
-                and current_log_step
-                >= float(
-                    format(self._log_frequency + self.last_model_update_step, ".4f")
-                )
-            )
-        )
-
-        return cadence_reached and model_updated_since_last_log
 
     def model_updated(self, step: LogStepType = None) -> None:
         """
@@ -260,6 +238,65 @@ class FrequencyManager:
                 "'epoch', 'step', 'batch'"
             )
         return self._frequency_type
+
+
+def log_ready(
+    current_log_step: Optional[LogStepType],
+    last_log_step: Optional[LogStepType],
+    log_frequency: Optional[LogStepType],
+    last_model_update_step: Optional[LogStepType] = None,
+    check_model_update: bool = False,
+):
+    """
+    Check if we are ready to log again based on the given parameters
+    (Stateless version of FrequencyManager().log_ready)
+
+    Conditions for readiness:
+        - log frequency is not None
+        - current log step is None
+        - current log step greater than or equal to the last log step
+            plus the log frequency
+        - if check_model_update is True, then the last model update step
+            must be greater than or equal to the last log step, and the
+            current log step must be greater than or equal to the
+            last model update step plus the log frequency
+
+    :param current_log_step: The current log step
+    :param last_log_step: The last step at which logging occurred
+    :param log_frequency: The frequency to log at
+    :param last_model_update_step: The last step at which the model was updated
+    :param check_model_update: If True, will check if the model has been updated
+        since the last log step and if log_frequency steps have passed since the
+        last model update; Defaults to False.
+    :return: True if logging cadence has been reached again False otherwise
+    """
+    # format is used to avoid floating point errors
+    # e.g. 0.1 + 0.2 != 0.3
+    # format(0.1 + 0.2, ".4f") == format(0.3, ".4f")
+
+    cadence_reached: bool = log_frequency is not None and (
+        current_log_step is None
+        or last_log_step is None
+        or current_log_step >= float(format(last_log_step + log_frequency, ".4f"))
+    )
+
+    if not cadence_reached or not check_model_update:
+        # early return if cadence not reached or,
+        # model update check not requested
+        return cadence_reached
+
+    model_updated_since_last_log: bool = (
+        last_model_update_step is None
+        or last_log_step is None
+        or current_log_step is None
+        or (
+            last_model_update_step >= last_log_step
+            and current_log_step
+            >= float(format(log_frequency + last_model_update_step, ".4f"))
+        )
+    )
+
+    return cadence_reached and model_updated_since_last_log
 
 
 def _basic_normalization(value: str) -> str:

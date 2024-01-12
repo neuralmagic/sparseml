@@ -22,6 +22,7 @@ from sparseml.core.framework import Framework
 from sparseml.core.helpers import log_model_info, should_log_model_info
 from sparseml.core.lifecycle import SparsificationLifecycle
 from sparseml.core.logger import BaseLogger, LoggerManager
+from sparseml.core.logger.utils import log_ready
 from sparseml.core.recipe import Recipe
 from sparseml.core.state import ModifiedState, State
 
@@ -65,7 +66,7 @@ class SparseSession:
 
     def __init__(self):
         self._lifecycle = SparsificationLifecycle()
-        self._loss_logged = False
+        self._last_loss_log_step = None
 
     @property
     def lifecycle(self) -> SparsificationLifecycle:
@@ -222,7 +223,7 @@ class SparseSession:
         :return: the modified state of the session after finalizing
         """
         # log losses on finalization
-        self._loss_logged = False
+        self._last_loss_log_step = False
         self._log_loss(event_type=EventType.LOSS_CALCULATED, loss=self.state.loss)
 
         mod_data = self._lifecycle.finalize(**kwargs)
@@ -327,20 +328,27 @@ class SparseSession:
             # update last log epoch
             self.state.loggers.log_written(epoch)
 
-            # loss was not logged for this cadence
-            # reset flag
-            self._loss_logged = False
-
     def _log_loss(self, event_type: EventType, loss: Any):
-        if event_type != EventType.LOSS_CALCULATED or self._loss_logged:
+        if event_type != EventType.LOSS_CALCULATED:
+            # only log loss when loss is calculated
             return
 
         current_step = self._lifecycle.event_lifecycle.current_index
-        loss = loss if isinstance(loss, dict) else {"loss": loss}
-        self.state.loggers.metric.log_scalars(
-            tag="Loss", values=loss, step=current_step
-        )
-        self._loss_logged = True
+
+        # No need to check model update for loss logging
+        check_model_update = False
+
+        if log_ready(
+            current_log_step=current_step,
+            last_log_step=self._last_loss_log_step,
+            log_frequency=self.state.loggers.log_frequency,
+            check_model_update=check_model_update,
+        ):
+            loss = loss if isinstance(loss, dict) else {"loss": loss}
+            self.state.loggers.metric.log_scalars(
+                tag="Loss", values=loss, step=current_step
+            )
+            self._last_loss_log_step = current_step
 
 
 _global_session = SparseSession()
