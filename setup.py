@@ -282,6 +282,13 @@ def _setup_entry_points() -> Dict:
         ]
     )
 
+    # evaluation entrypoint
+    entry_points["console_scripts"].extend(
+        [
+            "sparseml.eval=sparseml.evaluation.cli:main",
+        ]
+    )
+
     return entry_points
 
 
