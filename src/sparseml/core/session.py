@@ -22,6 +22,7 @@ from sparseml.core.framework import Framework
 from sparseml.core.helpers import log_model_info, should_log_model_info
 from sparseml.core.lifecycle import SparsificationLifecycle
 from sparseml.core.logger import BaseLogger, LoggerManager
+from sparseml.core.logger.utils import log_ready
 from sparseml.core.recipe import Recipe
 from sparseml.core.state import ModifiedState, State
 
@@ -65,6 +66,7 @@ class SparseSession:
 
     def __init__(self):
         self._lifecycle = SparsificationLifecycle()
+        self._last_loss_log_step = None
 
     @property
     def lifecycle(self) -> SparsificationLifecycle:
@@ -220,6 +222,9 @@ class SparseSession:
         :param kwargs: additional kwargs to pass to the lifecycle's finalize method
         :return: the modified state of the session after finalizing
         """
+        # log losses on finalization
+        self._log_loss(event_type=EventType.LOSS_CALCULATED, loss=self.state.loss)
+
         mod_data = self._lifecycle.finalize(**kwargs)
 
         return ModifiedState(
@@ -261,13 +266,29 @@ class SparseSession:
         mod_data = self._lifecycle.event(
             event_type=event_type, batch_data=batch_data, loss=loss, **kwargs
         )
-        self._log_model_info(event_type=event_type)
+
+        # Update loss
+        if loss is not None:
+            self.state.loss = loss
+
+        self.log(event_type=event_type, loss=loss)
+
         return ModifiedState(
             model=self.state.model.model if self.state.model else None,
             optimizer=self.state.optimizer.optimizer if self.state.optimizer else None,
             loss=self.state.loss,  # TODO: is this supposed to be a different type?
             modifier_data=mod_data,
         )
+
+    def log(self, event_type: EventType, loss: Optional[Any] = None):
+        """
+        Log model and loss information for the current event type
+
+        :param event_type: the event type to log for
+        :param loss: the loss to log if any
+        """
+        self._log_model_info()
+        self._log_loss(event_type=event_type, loss=loss)
 
     def reset(self):
         """
@@ -289,25 +310,44 @@ class SparseSession:
         recipe = self.lifecycle.recipe_container.compiled_recipe
         return recipe.yaml()
 
-    def _log_model_info(self, event_type: EventType):
-        # Log model level logs if needed
+    def _log_model_info(self):
+        # Log model level logs if cadence reached
 
         epoch = self._lifecycle.event_lifecycle.current_index
-
-        # override logging cadence temporarily
 
         if should_log_model_info(
             model=self.state.model,
             loggers=self.state.loggers,
             epoch=epoch,
-            last_log_epoch=self.state._last_log_epoch,
         ):
             log_model_info(
                 state=self.state,
                 epoch=epoch,
             )
             # update last log epoch
-            self.state._last_log_epoch = epoch
+            self.state.loggers.log_written(epoch)
+
+    def _log_loss(self, event_type: EventType, loss: Any):
+        if event_type != EventType.LOSS_CALCULATED:
+            # only log loss when loss is calculated
+            return
+
+        current_step = self._lifecycle.event_lifecycle.current_index
+
+        # No need to check model update for loss logging
+        check_model_update = False
+
+        if loss is not None and log_ready(
+            current_log_step=current_step,
+            last_log_step=self._last_loss_log_step,
+            log_frequency=self.state.loggers.log_frequency,
+            check_model_update=check_model_update,
+        ):
+            loss = loss if isinstance(loss, dict) else {"loss": loss}
+            self.state.loggers.metric.log_scalars(
+                tag="Loss", values=loss, step=current_step
+            )
+            self._last_loss_log_step = current_step
 
 
 _global_session = SparseSession()
