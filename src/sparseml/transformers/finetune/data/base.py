@@ -48,6 +48,7 @@ class TextGenerationDataset(RegistryMixin):
         self.data_args = data_args
         self.raw_kwargs = data_args.raw_kwargs or {}
         self.split = split
+        self.dvc_dataset = True if self.data_args.dvc_dataset_path else False
 
         # configure padding
         if data_args.concatenate_data:
