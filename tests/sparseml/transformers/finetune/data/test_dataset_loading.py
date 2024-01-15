@@ -177,7 +177,7 @@ def test_dvc_dataloading(tiny_llama_tokenizer):
     data_args = DataTrainingArguments(
         dataset_name="csv",
         dvc_dataset_path="dvc://workshop/satellite-data/jan_train.csv",
-        dvc_data_registry="https://github.com/iterative/dataset-registry.git",
+        dvc_data_repository="https://github.com/iterative/dataset-registry.git",
     )
     manager = TextGenerationDataset(
         text_column="",
