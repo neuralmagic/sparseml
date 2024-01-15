@@ -48,6 +48,7 @@ class TextGenerationDataset(RegistryMixin):
         self.data_args = data_args
         self.raw_kwargs = data_args.raw_kwargs or {}
         self.split = split
+        self.dvc_dataset = True if self.data_args.dvc_dataset_path else False
 
         # configure padding
         if data_args.concatenate_data:
@@ -57,19 +58,20 @@ class TextGenerationDataset(RegistryMixin):
         else:
             self.padding = False
 
-        if self.padding:
+        if self.padding and self.tokenizer:
             if not self.tokenizer.pad_token:
                 self.tokenizer.pad_token = self.tokenizer.eos_token
 
         # configure sequence length
         max_seq_length = data_args.max_seq_length
-        if max_seq_length > tokenizer.model_max_length:
+        model_max_length = tokenizer.model_max_length if tokenizer else max_seq_length
+        if self.tokenizer and max_seq_length > model_max_length:
             _LOGGER.warning(
                 f"The max_seq_length passed ({max_seq_length}) is larger than "
                 f"the maximum length for the model ({tokenizer.model_max_length}). "
                 f"Using max_seq_length={tokenizer.model_max_length}."
             )
-        self.max_seq_length = min(data_args.max_seq_length, tokenizer.model_max_length)
+        self.max_seq_length = min(data_args.max_seq_length, model_max_length)
 
     def get_raw_dataset(self, cache_dir: Optional[str] = None) -> Dataset:
         """
@@ -78,6 +80,12 @@ class TextGenerationDataset(RegistryMixin):
         :param cache_dir: disk location to search for cached dataset
         :return: the requested dataset
         """
+        if self.dvc_dataset:
+            self.raw_kwargs["data_files"] = self.data_args.dvc_dataset_path
+            self.raw_kwargs["storage_options"] = {
+                "url": self.data_args.dvc_data_repository
+            }
+
         return get_raw_dataset(
             self.data_args,
             cache_dir,

@@ -172,6 +172,26 @@ def test_evol(tiny_llama_tokenizer):
         assert len(tokenized_dataset[i]["input_ids"]) <= evol_manager.max_seq_length
 
 
+@pytest.mark.usefixtures("tiny_llama_tokenizer")
+def test_dvc_dataloading(tiny_llama_tokenizer):
+    data_args = DataTrainingArguments(
+        dataset_name="csv",
+        dvc_dataset_path="dvc://workshop/satellite-data/jan_train.csv",
+        dvc_data_repository="https://github.com/iterative/dataset-registry.git",
+    )
+    manager = TextGenerationDataset(
+        text_column="",
+        data_args=data_args,
+        split="train",
+        tokenizer=tiny_llama_tokenizer,
+    )
+
+    raw_dataset = manager.get_raw_dataset()
+    assert len(raw_dataset) > 0
+    assert isinstance(raw_dataset[0], dict)
+
+
+@pytest.mark.usefixtures("tiny_llama_tokenizer")
 def test_stream_loading(tiny_llama_tokenizer):
     data_args = DataTrainingArguments(
         dataset_name="wikitext",
