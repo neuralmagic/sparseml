@@ -70,6 +70,10 @@ class DataTrainingArguments:
         default=None,
         metadata={"help": "Path to repository used for dvc_dataset_path"},
     )
+    streaming: Optional[bool] = field(
+        default=False,
+        metadata={"help": "True to stream data from a cloud dataset"},
+    )
     overwrite_cache: bool = field(
         default=False,
         metadata={"help": "Overwrite the cached preprocessed datasets or not."},

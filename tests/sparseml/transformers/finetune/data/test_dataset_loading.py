@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import pytest
+from datasets import IterableDataset
 
 from sparseml.transformers.finetune.data import TextGenerationDataset
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
@@ -184,6 +185,34 @@ def test_dvc_dataloading(tiny_llama_tokenizer):
         split="train",
         tokenizer=tiny_llama_tokenizer,
     )
+
     raw_dataset = manager.get_raw_dataset()
     assert len(raw_dataset) > 0
     assert isinstance(raw_dataset[0], dict)
+
+@pytest.mark.usefixtures("tiny_llama_tokenizer")        
+def test_stream_loading(tiny_llama_tokenizer):
+    data_args = DataTrainingArguments(
+        dataset_name="wikitext",
+        dataset_config_name="wikitext-2-raw-v1",
+        concatenate_data=True,
+        streaming=True,
+    )
+    manager = TextGenerationDataset.load_from_registry(
+        data_args.dataset_name,
+        data_args=data_args,
+        split="train",
+        tokenizer=tiny_llama_tokenizer,
+    )
+
+    raw_dataset = manager.get_raw_dataset()
+    processed = manager.tokenize_and_process(raw_dataset)
+    assert isinstance(processed, IterableDataset)
+    with pytest.raises(TypeError):
+        # in streaming mode we don't know the length of the dataset
+        _ = len(processed)
+
+    # confirm tokenization of streamed item works correctly
+    item = next(iter(processed))
+    assert "labels" in item
+    assert len(item["input_ids"]) == manager.max_seq_length
