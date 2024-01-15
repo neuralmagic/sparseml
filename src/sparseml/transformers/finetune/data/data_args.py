@@ -62,6 +62,10 @@ class DataTrainingArguments:
         default=512,
         metadata={"help": "Number of samples to use for one-shot calibration"},
     )
+    streaming: Optional[bool] = field(
+        default=False,
+        metadata={"help": "True to stream data from a cloud dataset"},
+    )
     overwrite_cache: bool = field(
         default=False,
         metadata={"help": "Overwrite the cached preprocessed datasets or not."},
