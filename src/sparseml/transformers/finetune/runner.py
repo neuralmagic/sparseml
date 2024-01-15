@@ -23,7 +23,12 @@ from transformers import AutoTokenizer
 
 import sparseml.core.session as session_manager
 from sparseml.core.recipe import Recipe, StageRunType
-from sparseml.pytorch.model_load.helpers import get_session_model, save_model_and_recipe
+from sparseml.pytorch.model_load.helpers import (
+    get_completed_stages,
+    get_session_model,
+    save_completed_stages,
+    save_model_and_recipe,
+)
 from sparseml.transformers.finetune import TrainingArguments
 from sparseml.transformers.finetune.data import TextGenerationDataset
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
@@ -68,6 +73,7 @@ class StageRunner:
         self.datasets = {}
         self.trainer = None
         self.tokenizer = None
+        self.parent_output_dir = self._training_args.output_dir
         self._output_dir = self._training_args.output_dir
 
     def populate_datasets(self, tokenizer: "AutoTokenizer"):
@@ -99,10 +105,10 @@ class StageRunner:
 
         self.datasets = make_dataset_splits(
             tokenized_datasets,
-            do_train=self._training_args.do_train or self._training_args.run_stages,
+            do_train=self._training_args.do_train,
             do_eval=self._training_args.do_eval,
             do_predict=self._training_args.do_predict,
-            do_oneshot=self._training_args.do_oneshot or self._training_args.run_stages,
+            do_oneshot=self._training_args.do_oneshot,
         )
         self.tokenizer = tokenizer
 
@@ -208,13 +214,18 @@ class StageRunner:
         self.trainer.log_metrics("predict", metrics)
         self.trainer.save_metrics("predict", metrics)
 
-    def run_sequential_stages(self):
+    def run_sequential_stages(self, checkpoint: Optional[str] = None):
         """
         Run the recipe stage by stage, allowing for alternating between one-shot and
         finetuning flows. Optionally save the model output at the end of each stage
+
+        :param checkpoint: optional checkpoint to pick up a stage from
         """
 
         recipe_obj = Recipe.create_instance(self._training_args.recipe)
+        with self.trainer.accelerator.main_process_first():
+            completed_stages = get_completed_stages(self._model_args.model_name_or_path)
+        self.trainer.accelerator.wait_for_everyone()
 
         for stage in recipe_obj.stages:
             # validate stage
@@ -228,29 +239,44 @@ class StageRunner:
                     "the stage name."
                 )
 
+            # just load structure if stage has already applied
+            if stage_name in completed_stages:
+                self.trainer.initialize_structure(stage=stage)
+                self.trainer.accelerator.wait_for_everyone()
+                continue
+
             # setup checkpoint dir, TODO: this should be optional
             self._output_dir = os.path.join(
-                self._training_args.output_dir, "stage_" + stage_name
+                self.parent_output_dir, "stage_" + stage_name
             )
             with self.trainer.accelerator.main_process_first():
                 if not os.path.exists(self._output_dir):
                     os.makedirs(self._output_dir)
+                save_completed_stages(self._output_dir, completed_stages)
+            self._training_args.output_dir = self._output_dir
 
             # run stage
             if run_type is StageRunType.ONESHOT:
                 self.one_shot(stage=stage_name)
             elif run_type is StageRunType.TRAIN:
-                if not is_fsdp_model(self.trainer.model):
-                    self.trainer.model.to("cpu")
-                self.train(checkpoint=None, stage=stage_name)
+                self.train(checkpoint=checkpoint, stage=stage_name)
+            checkpoint = None
+
+            # save stage stage to checkpoint dir
+            if self.trainer.accelerator.is_main_process:
+                completed_stages.append(stage_name)
+                save_completed_stages(self._output_dir, completed_stages)
 
             # setup for next stage
             session = session_manager.active_session()
             session.reset_stage()
 
+            # log model sparsity
             with summon_full_params_context(self.trainer.model):
                 if self.trainer.accelerator.is_main_process:
                     if not qat_active(self.trainer.model):
                         self.trainer.log_model_sparsification()
+
+            # synchronize
             self.trainer.accelerator.wait_for_everyone()
             self.trainer.model = get_session_model()

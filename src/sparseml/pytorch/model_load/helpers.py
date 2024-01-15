@@ -13,9 +13,10 @@
 # limitations under the License.
 
 
+import json
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import torch
 from torch.nn import Module
@@ -28,13 +29,19 @@ from sparseml.pytorch.sparsification.quantization.helpers import (
 from sparseml.pytorch.utils import ModuleSparsificationInfo
 
 
+COMPLETED_STAGES_FILENAME = "completed_stages.json"
+
 __all__ = [
+    "log_model_load",
     "apply_recipe_structure_to_model",
     "reload_model_state",
     "reload_model_from_checkpoint",
     "save_model_and_recipe",
     "fallback_to_cpu",
     "parse_dtype",
+    "get_session_model",
+    "get_completed_stages",
+    "save_completed_stages",
 ]
 
 _LOGGER = logging.getLogger(__name__)
@@ -289,3 +296,32 @@ def get_session_model() -> Module:
 
     active_model = session.state.model.model
     return active_model
+
+
+def get_completed_stages(checkpoint_dir: str) -> List[str]:
+    """
+    Given a checkpoint directory for a staged run, get the list of stages that
+    have completed in a prior run.
+
+    :param checkpoint_dir: path to staged checkpoint
+    :return: list of completed stage names
+    """
+    stage_path = os.path.join(checkpoint_dir, COMPLETED_STAGES_FILENAME)
+    if os.path.exists(stage_path):
+        with open(stage_path) as stage_file:
+            stage_data = json.load(stage_file)
+            return stage_data["completed"]
+
+    return []
+
+
+def save_completed_stages(checkpoint_dir: str, completed_stages: List[str]):
+    """
+    Save a list of completed stages to a checkpoint directory
+
+    :param checkpoint_dir: model checkpoint directory to save stages to
+    :param completed_stages: list of stage names that have been run
+    """
+    stage_path = os.path.join(checkpoint_dir, COMPLETED_STAGES_FILENAME)
+    with open(stage_path, "w") as out_file:
+        json.dump({"completed": completed_stages}, out_file)
