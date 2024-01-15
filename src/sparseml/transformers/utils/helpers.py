@@ -64,8 +64,13 @@ MANDATORY_DEPLOYMENT_FILES = {
     "tokenizer_config.json",
     "config.json",
 }
-NLG_TOKENIZER_FILES = {"special_tokens_map.json", "vocab.json", "merges.txt"}
-OPTIONAL_DEPLOYMENT_FILES = {"tokenizer.json", "tokenizer.model"}
+NLG_TOKENIZER_FILES = {"special_tokens_map.json"}
+OPTIONAL_DEPLOYMENT_FILES = {
+    "tokenizer.json",
+    "tokenizer.model",
+    "vocab.json",
+    "merges.txt",
+}
 
 
 def apply_structure_to_transformers(
