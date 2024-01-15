@@ -15,6 +15,7 @@
 import json
 import logging
 import os
+import re
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
 
@@ -27,6 +28,7 @@ from sparseml.core.recipe.args import RecipeArgs
 from sparseml.core.recipe.base import RecipeBase
 from sparseml.core.recipe.metadata import RecipeMetaData
 from sparseml.core.recipe.stage import RecipeStage
+from sparsezoo import Model
 
 
 __all__ = ["Recipe", "RecipeTuple"]
@@ -72,7 +74,9 @@ class Recipe(RecipeBase):
             # not a local file
             if path.startswith("zoo:"):
                 # download from SparseZoo
-                raise NotImplementedError("Using SparseZoo stubs is not yet supported")
+                model = Model(path)
+                path = model.recipes.default.path
+                _LOGGER.info(f"Loading recipe from zoo stub {path}")
             else:
                 # assume it's a string
                 _LOGGER.warning(
@@ -87,6 +91,8 @@ class Recipe(RecipeBase):
 
         with open(path, "r") as file:
             content = file.read().strip()
+            if path.lower().endswith(".md"):
+                content = _parse_recipe_from_md(path, content)
 
             if path.lower().endswith(".json"):
                 obj = json.loads(content)
@@ -540,3 +546,32 @@ def _load_json_or_yaml_string(content: str) -> Dict[str, Any]:
             return yaml.safe_load(content)
         except yaml.YAMLError as err:
             raise ValueError(f"Could not parse recipe from string {content}") from err
+
+
+def _parse_recipe_from_md(file_path, yaml_str):
+    """
+    extract YAML front matter from markdown recipe card. Copied from
+    sparseml.optim.helpers:_load_yaml_str_from_file
+
+    :param file_path: path to recipe file
+    :param yaml_str: string read from file_path
+    :return: parsed yaml_str with README info removed
+    """
+    # extract YAML front matter from markdown recipe card
+    # adapted from
+    # https://github.com/jonbeebe/frontmatter/blob/master/frontmatter
+    yaml_delim = r"(?:---|\+\+\+)"
+    yaml = r"(.*?)"
+    re_pattern = r"^\s*" + yaml_delim + yaml + yaml_delim
+    regex = re.compile(re_pattern, re.S | re.M)
+    result = regex.search(yaml_str)
+
+    if result:
+        yaml_str = result.group(1)
+    else:
+        # fail if we know whe should have extracted front matter out
+        raise RuntimeError(
+            "Could not extract YAML front matter from recipe card:"
+            " {}".format(file_path)
+        )
+    return yaml_str
