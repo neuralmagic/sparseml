@@ -112,6 +112,10 @@ def parse_args(**kwargs):
             arg_dict[key] = value
         training_args.recipe_args = arg_dict
 
+    if training_args.run_stages:
+        training_args.do_oneshot = True
+        training_args.do_train = True
+
     return model_args, data_args, training_args
 
 
@@ -159,7 +163,7 @@ def main(
     _LOGGER.info(f"Training/evaluation parameters {training_args}")
 
     # Detecting last checkpoint.
-    last_checkpoint = detect_last_checkpoint(training_args)
+    last_checkpoint = detect_last_checkpoint(training_args, model_args=model_args)
     model_path = last_checkpoint or model_args.model_name_or_path
 
     # Set seed before initializing model.
@@ -222,6 +226,7 @@ def main(
     recipe_path = os.path.join(model_path, "recipe.yaml")
     if last_checkpoint is not None and training_args.recipe is None:
         training_args.recipe = recipe_path  # continue from checkpoint recipe
+        apply_recipe_structure_to_model(model, None, model_path)
     else:
         if not os.path.exists(recipe_path):
             _LOGGER.warning(f"No recipes were applied for {model_path}.")
@@ -287,14 +292,10 @@ def main(
 
     # alternating Training/One-shot
     if training_args.run_stages:
-        stage_runner.run_sequential_stages()
-
-        # exit immediately
-        return
-
-    # alternating Training/One-shot
-    if training_args.run_stages:
-        stage_runner.run_sequential_stages()
+        checkpoint = None
+        if last_checkpoint is not None:
+            checkpoint = last_checkpoint
+        stage_runner.run_sequential_stages(checkpoint)
 
         # exit immediately
         return
