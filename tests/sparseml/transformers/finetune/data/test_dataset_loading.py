@@ -190,7 +190,8 @@ def test_dvc_dataloading(tiny_llama_tokenizer):
     assert len(raw_dataset) > 0
     assert isinstance(raw_dataset[0], dict)
 
-@pytest.mark.usefixtures("tiny_llama_tokenizer")        
+
+@pytest.mark.usefixtures("tiny_llama_tokenizer")
 def test_stream_loading(tiny_llama_tokenizer):
     data_args = DataTrainingArguments(
         dataset_name="wikitext",

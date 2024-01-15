@@ -83,7 +83,7 @@ class TextGenerationDataset(RegistryMixin):
         if self.dvc_dataset:
             self.raw_kwargs["data_files"] = self.data_args.dvc_dataset_path
             self.raw_kwargs["storage_options"] = {
-                "url": self.data_args.dvc_data_registry
+                "url": self.data_args.dvc_data_repository
             }
 
         return get_raw_dataset(

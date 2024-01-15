@@ -66,7 +66,7 @@ class DataTrainingArguments:
         default=None,
         metadata={"help": "Path to dvc dataset to load, of format dvc://path"},
     )
-    dvc_data_registry: Optional[str] = field(
+    dvc_data_repository: Optional[str] = field(
         default=None,
         metadata={"help": "Path to repository used for dvc_dataset_path"},
     )
