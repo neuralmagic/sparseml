@@ -165,18 +165,21 @@ class SessionManagerMixIn:
                 "pass a yaml file or string to the `recipe` argument."
             )
 
-    def initialize_structure(self):
+    def initialize_structure(self, stage: Optional[str] = None):
         """
         Initialize any recipe structural changes such as quantization on the model,
-        return immediately if structure or session has already been initialized
+        return immediately if session has already been initialized
+
+        :param stage: Optional stage of recipe to run, or None to run all stages
         """
         session = session_manager.active_session()
-        if session.lifecycle.initialized_ or session.lifecycle.pre_initialize_structure:
+        if session.lifecycle.initialized_:
             return False
 
         session_manager.pre_initialize_structure(
             model=self.model,
             recipe=self.recipe,
+            recipe_stage=stage,
             recipe_args=self.recipe_args,
             framework=Framework.pytorch,
         )

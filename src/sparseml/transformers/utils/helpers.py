@@ -153,7 +153,10 @@ def save_zoo_directory(
     _LOGGER.info(f"Created sparsezoo Model directory locally in {output_dir}")
 
 
-def detect_last_checkpoint(training_args: "TrainingArguments"):  # noqa 821
+def detect_last_checkpoint(
+    training_args: "TrainingArguments",  # noqa 821
+    model_args: Optional["ModelArguments"] = None,  # noqa 821
+):
     last_checkpoint = None
     if (
         os.path.isdir(training_args.output_dir)
@@ -161,6 +164,8 @@ def detect_last_checkpoint(training_args: "TrainingArguments"):  # noqa 821
         and not training_args.overwrite_output_dir
     ):
         last_checkpoint = get_last_checkpoint(training_args.output_dir)
+        if training_args.run_stages and model_args is not None:
+            last_checkpoint = get_last_checkpoint(model_args.model_name_or_path)
         if last_checkpoint is None and (len(os.listdir(training_args.output_dir)) > 0):
             raise ValueError(
                 f"Output directory ({training_args.output_dir}) already "
