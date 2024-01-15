@@ -100,7 +100,7 @@ class SparseSession:
         This will run the pre-initialize structure method for each modifier in the
         session's lifecycle. This will also set the session's state to the
         pre-initialized state. Takes care of cases when the model(s) structure
-        has been previosuly modified by a modifier.
+        has been previously modified by a modifier.
 
         :param model: the model to pre-initialize the structure for
         :param recipe: the recipe to use for the sparsification, can be a path to a
@@ -268,6 +268,13 @@ class SparseSession:
         Reset the session to its initial state
         """
         self._lifecycle.reset()
+
+    def reset_stage(self):
+        """
+        Reset the session for starting a new stage, recipe and model stays intact
+        """
+        self.lifecycle.initialized_ = False
+        self.lifecycle.finalized = False
 
     def get_serialized_recipe(self) -> str:
         """
@@ -473,6 +480,10 @@ class LifecycleCallbacks:
                 f"Cannot invoke {event_type} event. "
                 f"Use the corresponding method instead."
             )
+
+        # skip event callbacks if no recipe was provided
+        if not active_session().lifecycle.recipe_container.check_any_recipe_exists():
+            return
 
         return active_session().event(event_type, **kwargs)
 

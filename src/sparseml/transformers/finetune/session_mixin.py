@@ -20,12 +20,8 @@ from dataclasses import asdict
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import torch
-from torch.distributed.fsdp import (
-    FullStateDictConfig,
-    FullyShardedDataParallel,
-    StateDictType,
-)
 from torch.nn import Module
+from torch.utils.data import DataLoader, IterableDataset
 from transformers.trainer_callback import TrainerState
 from transformers.trainer_utils import get_last_checkpoint
 
@@ -38,6 +34,8 @@ from sparseml.transformers.finetune.callbacks import (
     DisableHalfPrecisionCallback,
     TrainingLoopCallbacks,
 )
+from sparseml.utils.fsdp.context import summon_full_params_context
+from sparseml.utils.fsdp.helpers import is_fsdp_model, save_pretrained_fsdp
 
 
 __all__ = [
@@ -53,7 +51,6 @@ class SessionManagerMixIn:
     Mix-In class to extend the Hugging Face Trainer class to support SparseML recipes
     for one-shot and finetuning flows.
 
-    :param model: PyTorch model to run training on
     :param model_state_path: path to Pytorch model checkpoint or saved model
     :param recipe: path to recipe file to apply during training
     :param recipe_args: additional kwargs to use for evaluating recipe
@@ -64,9 +61,8 @@ class SessionManagerMixIn:
 
     def __init__(
         self,
-        model: Module,
         model_state_path: str,
-        recipe: Optional[str],
+        recipe: Optional[str] = None,
         recipe_args: Optional[Union[Dict[str, Any], str]] = None,
         metadata_args: Optional[List[str]] = None,
         data_args: Optional["DataTrainingArguments"] = None,  # noqa: F821
@@ -96,7 +92,7 @@ class SessionManagerMixIn:
         session_manager.create_session()
 
         # call Trainer initialization
-        super().__init__(model=model, **kwargs)
+        super().__init__(**kwargs)
 
         # setup callbacks and loss
         self.optim_callbacks = TrainingLoopCallbacks(self)
@@ -105,7 +101,7 @@ class SessionManagerMixIn:
         self.callback_handler.add_callback(self.callback_disable_fp16)
         self.criterion = torch.nn.CrossEntropyLoss()
 
-        model_signature = inspect.signature(model.forward)
+        model_signature = inspect.signature(self.model.forward)
         self._model_signature_columns = list(model_signature.parameters.keys())
 
         if self.teacher is not None and teacher not in ("disable", "self"):
@@ -114,7 +110,12 @@ class SessionManagerMixIn:
         else:
             self._teacher_signature_columns = None
 
-    def initialize_session(self, epoch: float, checkpoint: Optional[str]):
+    def initialize_session(
+        self,
+        epoch: float,
+        checkpoint: Optional[str] = None,
+        stage: Optional[str] = None,
+    ):
         """
         Initialize the SparseSession from the specified epoch, evaluates the recipe
         and initialized the modifiers for the training session
@@ -122,6 +123,7 @@ class SessionManagerMixIn:
         :param epoch: Epoch to initialize session from, usually 0 unless loading
         from a checkpoint
         :param checkpoint: Optional checkpoint to initialize from to continue training
+        :param stage: Optional stage of recipe to run, or None to run all stages
         """
         session = session_manager.active_session()
         if session.lifecycle.initialized_ or session.lifecycle.finalized:
@@ -131,17 +133,19 @@ class SessionManagerMixIn:
         train_data = self.get_train_dataloader()
 
         self.accelerator.wait_for_everyone()
-        session_manager.initialize(
-            model=self.model,
-            teacher_model=self.teacher,  # TODO: what about for self/disable?
-            recipe=self.recipe,
-            recipe_args=self.recipe_args,
-            framework=Framework.pytorch,
-            train_data=train_data,
-            start=epoch,
-            copy_data=False,
-            fsdp_active=self.is_fsdp_enabled,
-        )
+        with summon_full_params_context(self.model):
+            session_manager.initialize(
+                model=self.model,
+                teacher_model=self.teacher,  # TODO: what about for self/disable?
+                recipe=self.recipe,
+                recipe_stage=stage,
+                recipe_args=self.recipe_args,
+                framework=Framework.pytorch,
+                train_data=train_data,
+                start=epoch,
+                copy_data=False,
+                fsdp_active=self.is_fsdp_enabled,
+            )
         self.accelerator.wait_for_everyone()
 
         # reload the state dict for the model now that architecture matches expected
@@ -154,18 +158,28 @@ class SessionManagerMixIn:
                 f"from {load_path}"
             )
 
-    def initialize_structure(self):
+        if self.recipe is None:
+            _LOGGER.warning(
+                "No training recipe was provided, finetuning will be run "
+                "without event callbacks to SparseML. To supply a recipe "
+                "pass a yaml file or string to the `recipe` argument."
+            )
+
+    def initialize_structure(self, stage: Optional[str] = None):
         """
         Initialize any recipe structural changes such as quantization on the model,
-        return immediately if structure or session has already been initialized
+        return immediately if session has already been initialized
+
+        :param stage: Optional stage of recipe to run, or None to run all stages
         """
         session = session_manager.active_session()
-        if session.lifecycle.initialized_ or session.lifecycle.pre_initialize_structure:
+        if session.lifecycle.initialized_:
             return False
 
         session_manager.pre_initialize_structure(
             model=self.model,
             recipe=self.recipe,
+            recipe_stage=stage,
             recipe_args=self.recipe_args,
             framework=Framework.pytorch,
         )
@@ -179,7 +193,7 @@ class SessionManagerMixIn:
         if not session.lifecycle.initialized_ or session.lifecycle.finalized:
             return False
 
-        with FullyShardedDataParallel.summon_full_params(self.model):
+        with summon_full_params_context(self.model):
             # in order to update each layer we need to gathers all its parameters
             session_manager.finalize()
         _LOGGER.info("Finalized SparseML session")
@@ -200,9 +214,20 @@ class SessionManagerMixIn:
             self.args.per_device_train_batch_size
             * self.args.gradient_accumulation_steps
         )
-        self.total_steps_per_epoch = math.ceil(
-            len(self.train_dataset) / total_batch_size
-        )
+
+        if isinstance(self.train_dataset, IterableDataset):
+            _LOGGER.warning(
+                "Training is being run with a streamed dataset, "
+                "steps_per_epoch cannot be determined and will default to "
+                "1. SparseML modifiers utilizing this statistic may not "
+                "behave as expected. "
+            )
+            self.total_steps_per_epoch = 1
+        else:
+            self.total_steps_per_epoch = math.ceil(
+                len(self.train_dataset) / total_batch_size
+            )
+
         session_manager.initialize(
             optimizer=self.optimizer, steps_per_epoch=self.total_steps_per_epoch
         )
@@ -270,7 +295,7 @@ class SessionManagerMixIn:
 
         if session_manager.active_session().lifecycle.initialized_:
             state = callbacks.loss_calculated(loss=loss)
-            if state.loss is not None:
+            if state and state.loss is not None:
                 loss = state.loss
             callbacks.optim_pre_step()
 
@@ -298,7 +323,7 @@ class SessionManagerMixIn:
         )
         return model_outputs
 
-    def train(self, *args, **kwargs):
+    def train(self, *args, stage: Optional[str] = None, **kwargs):
         """
         Run a sparsification training cycle. Runs initialization for the sparse session
         before calling super().train() and finalization of the session after.
@@ -306,11 +331,12 @@ class SessionManagerMixIn:
         Logs sparsification details for the trained model.
 
         :param args: positional args to pass to super().train()
+        :param stage: Optional stage of recipe to run, or None to run all stages
         :param kwargs: keyword args to pass to super().train()
         :return: the output from super.train()
         """
         checkpoint, epoch = self._calculate_checkpoint_info(kwargs)
-        self.initialize_session(epoch=epoch, checkpoint=checkpoint)
+        self.initialize_session(epoch=epoch, checkpoint=checkpoint, stage=stage)
         self.callback_disable_fp16.check_disable(epoch, force=True)
         self.accelerator.wait_for_everyone()
         output = super().train(*args, **kwargs)
@@ -320,7 +346,7 @@ class SessionManagerMixIn:
         self.accelerator.wait_for_everyone()
 
         # Need to gather parameters across the GPUs before accessing layer weights
-        with FullyShardedDataParallel.summon_full_params(self.model):
+        with summon_full_params_context(self.model):
             self.log_model_sparsification()
 
         return output
@@ -364,6 +390,25 @@ class SessionManagerMixIn:
 
         return output
 
+    def one_shot(self, calib_data: DataLoader, stage: Optional[str] = None):
+        """
+        Run oneshot calibration on the active model
+
+        :param stage: which stage of the recipe to run, or None to run whole recipe
+        :param calib_data: dataloader of calibration data
+        """
+        session_manager.apply(
+            framework=Framework.pytorch,
+            recipe=self.recipe,
+            recipe_stage=stage,
+            model=self.model,
+            calib_data=calib_data,
+            start=-1,
+            copy_data=False,
+        )
+
+        self.accelerator.wait_for_everyone()
+
     def save_model(
         self,
         output_dir: Optional[str] = None,
@@ -385,25 +430,16 @@ class SessionManagerMixIn:
         if output_dir is None:
             output_dir = self.args.output_dir
 
-        full_state_dict_config = FullStateDictConfig(
-            offload_to_cpu=True, rank0_only=True
-        )
-
-        if isinstance(self.model, FullyShardedDataParallel):
-            with FullyShardedDataParallel.state_dict_type(
-                self.model, StateDictType.FULL_STATE_DICT, full_state_dict_config
-            ):
-                state_dict = self.accelerator.get_state_dict(self.model, unwrap=False)
-
-            self.accelerator.unwrap_model(self.model).save_pretrained(
-                output_dir,
-                is_main_process=self.accelerator.is_main_process,
-                save_function=self.accelerator.save,
-                state_dict=state_dict,
+        if is_fsdp_model(self.model):
+            save_pretrained_fsdp(
+                model=self.model, accelerator=self.accelerator, output_dir=output_dir
             )
 
         self.save_state()
         self.save_optimizer_and_scheduler(output_dir)
+
+        if not self.recipe:
+            return
 
         # save recipe, will contain modifiers from the model's original recipe as well
         # as those added from self.recipe
@@ -437,6 +473,20 @@ class SessionManagerMixIn:
             f"{model_type} model detected, "
             f"all sparsification info: {sparsification_info}"
         )
+
+    def _prepare_model_for_fsdp(self):
+        """
+        This is quite hacky, but the FSDP setup code is buried in the Trainers
+        _inner_training_loop call. Doing this quick run sets up FSDP for the case
+        where we want to run one-shot in FSDP mode
+        """
+        self.model.to("cpu")
+        self.model_wrapped.to("cpu")
+        epochs = self.args.num_train_epochs
+        self.args.num_train_epochs = 0.01
+        super().train()
+        self.args.num_train_epochs = epochs
+        self.accelerator.wait_for_everyone()
 
     def _extract_metadata(
         self,

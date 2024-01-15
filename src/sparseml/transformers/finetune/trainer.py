@@ -14,7 +14,7 @@
 
 import os
 import warnings
-from typing import Any, Dict, Optional, Union
+from typing import Any, Callable, Dict, Optional, Union
 
 import torch
 from torch.nn import Module
@@ -51,15 +51,17 @@ class Trainer(SessionManagerMixIn, HFTransformersTrainer):
 
     def __init__(
         self,
-        model: Module,
         model_state_path: str,
-        recipe: Optional[str],
+        model: Optional[Module] = None,
+        model_init: Optional[Callable] = None,
+        recipe: Optional[str] = None,
         recipe_args: Optional[Union[Dict[str, Any], str]] = None,
         teacher: Optional[Union[Module, str]] = None,
         **kwargs,
     ):
         super().__init__(
             model=model,
+            model_init=model_init,
             model_state_path=model_state_path,
             recipe=recipe,
             recipe_args=recipe_args,

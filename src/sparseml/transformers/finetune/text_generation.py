@@ -34,6 +34,8 @@ from transformers import (
 
 from sparseml.pytorch.model_load.helpers import (
     apply_recipe_structure_to_model,
+    fallback_to_cpu,
+    get_session_model,
     parse_dtype,
 )
 from sparseml.transformers.finetune import Trainer, TrainingArguments
@@ -103,6 +105,17 @@ def parse_args(**kwargs):
     else:
         model_args, data_args, training_args = parser.parse_dict(kwargs)
 
+    if training_args.recipe_args is not None:
+        arg_dict = {}
+        for recipe_arg in training_args.recipe_args:
+            key, value = recipe_arg.split("=")
+            arg_dict[key] = value
+        training_args.recipe_args = arg_dict
+
+    if training_args.run_stages:
+        training_args.do_oneshot = True
+        training_args.do_train = True
+
     return model_args, data_args, training_args
 
 
@@ -150,11 +163,14 @@ def main(
     _LOGGER.info(f"Training/evaluation parameters {training_args}")
 
     # Detecting last checkpoint.
-    last_checkpoint = detect_last_checkpoint(training_args)
+    last_checkpoint = detect_last_checkpoint(training_args, model_args=model_args)
     model_path = last_checkpoint or model_args.model_name_or_path
 
     # Set seed before initializing model.
     set_seed(training_args.seed)
+
+    # Fallback to CPU if GPU requested and not available
+    training_args.oneshot_device = fallback_to_cpu(training_args.oneshot_device)
 
     # Load pretrained model
     # The .from_pretrained methods guarantee that only one local process can
@@ -165,6 +181,14 @@ def main(
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
     )
+    teacher_config = (
+        AutoConfig.from_pretrained(
+            training_args.distill_teacher,
+            use_auth_token=True if model_args.use_auth_token else None,
+        )
+        if training_args.distill_teacher
+        else None
+    )
 
     model_kwargs = {
         "config": config,
@@ -172,26 +196,41 @@ def main(
         "revision": model_args.model_revision,
         "use_auth_token": True if model_args.use_auth_token else None,
         "torch_dtype": parse_dtype(model_args.precision),
+        "device_map": training_args.oneshot_device,
     }
     teacher_kwargs = {
+        "config": teacher_config,
         "cache_dir": model_args.cache_dir,
         "use_auth_token": True if model_args.use_auth_token else None,
     }
     # this calls from_pretrained under the hood so should be FSDP safe
-    model, teacher = SparseAutoModel.text_generation_from_pretrained_distil(
+    model = SparseAutoModel.text_generation_from_pretrained(
         model_name_or_path=model_path,
-        teacher_name_or_path=training_args.distill_teacher,
-        model_kwargs=model_kwargs,
-        teacher_kwargs=teacher_kwargs,
+        sequence_length=None,  # use model default
+        model_type="model",
+        **model_kwargs,
+    )
+
+    teacher = (
+        SparseAutoModel.text_generation_from_pretrained(
+            model_name_or_path=training_args.distill_teacher,
+            sequence_length=None,  # use model default
+            model_type="teacher",
+            **teacher_kwargs,
+        )
+        if training_args.distill_teacher is not None
+        else None
     )
 
     # initialize structure of input model from recipe if needed
     recipe_path = os.path.join(model_path, "recipe.yaml")
     if last_checkpoint is not None and training_args.recipe is None:
         training_args.recipe = recipe_path  # continue from checkpoint recipe
+        apply_recipe_structure_to_model(model, None, model_path)
     else:
         if not os.path.exists(recipe_path):
             _LOGGER.warning(f"No recipes were applied for {model_path}.")
+            apply_recipe_structure_to_model(model, None, model_path)
         else:
             _LOGGER.warning(f"Applying recipe {recipe_path} to {model_path}")
             apply_recipe_structure_to_model(model, recipe_path, model_path)
@@ -221,6 +260,7 @@ def main(
     stage_runner.populate_datasets(tokenizer=tokenizer)
     train_dataset = stage_runner.get_dataset_split("train")
     eval_dataset = stage_runner.get_dataset_split("validation")
+    calib_dataset = stage_runner.get_dataset_split("calibration")
 
     # Data collator will default to DataCollatorWithPadding when the tokenizer is
     # passed to Trainer, so we change it if we already did the padding.
@@ -233,7 +273,7 @@ def main(
 
     # Initialize our Trainer
     trainer = Trainer(
-        model=model,
+        model_init=get_session_model,
         teacher=teacher,
         model_state_path=model_path,
         recipe=training_args.recipe,
@@ -241,12 +281,24 @@ def main(
         recipe_args=training_args.recipe_args,
         args=training_args,
         data_args=data_args,
-        train_dataset=train_dataset if training_args.do_train else None,
-        eval_dataset=eval_dataset if training_args.do_eval else None,
+        train_dataset=train_dataset or calib_dataset,
+        eval_dataset=eval_dataset,
         tokenizer=tokenizer,
         data_collator=data_collator,
     )
-    stage_runner.set_trainer(trainer)
+    if trainer.is_fsdp_enabled:
+        trainer._prepare_model_for_fsdp()
+    stage_runner.trainer = trainer
+
+    # alternating Training/One-shot
+    if training_args.run_stages:
+        checkpoint = None
+        if last_checkpoint is not None:
+            checkpoint = last_checkpoint
+        stage_runner.run_sequential_stages(checkpoint)
+
+        # exit immediately
+        return
 
     # Training
     if training_args.do_train:

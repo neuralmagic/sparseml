@@ -17,6 +17,7 @@ from typing import Callable, List, Optional
 
 import torch
 from torch.nn import Module
+from tqdm import tqdm
 
 from sparseml.pytorch.utils import tensors_module_forward, tensors_to_device
 
@@ -57,9 +58,9 @@ def run_calibration_forward(
     )
 
     # run through the calibration data
-    for batch_idx, batch in enumerate(_dataloader):
-        if num_calibration_steps and batch_idx >= num_calibration_steps:
-            break
+    num_iterations = num_calibration_steps or len(_dataloader)
+    for batch_idx in tqdm(range(num_iterations)):
+        batch = _dataloader[batch_idx]
         batch = tensors_to_device(batch, model_device)
         with torch.no_grad():
             forward_fn(batch, module=model)

@@ -80,9 +80,11 @@ _transformers_deps = _pytorch_deps + [
     f"{'nm-transformers' if is_release else 'nm-transformers-nightly'}"
     f"~={version_nm_deps}",
     "datasets<=2.14.6",
+    "dvc",
     "scikit-learn",
     "seqeval",
     "einops",
+    "onnxruntime>=1.0.0",
     "accelerate>=0.20.3",
 ]
 _yolov5_deps = _pytorch_vision_deps + [
@@ -170,6 +172,8 @@ def _setup_extras() -> Dict:
 def _setup_entry_points() -> Dict:
     entry_points = {
         "console_scripts": [
+            # export
+            "sparseml.export=sparseml.export.export:main",
             # sparsification
             "sparseml.framework=sparseml.framework.info:_main",
             "sparseml.sparsification=sparseml.sparsification.info:_main",
@@ -203,6 +207,7 @@ def _setup_entry_points() -> Dict:
             "sparseml.transformers.text_generation.train=sparseml.transformers.finetune.text_generation:run_train",  # noqa 501
             "sparseml.transformers.text_generation.finetune=sparseml.transformers.finetune.text_generation:run_train",  # noqa 501
             "sparseml.transformers.text_generation.eval=sparseml.transformers.finetune.text_generation:run_eval",  # noqa 501
+            "sparseml.transformers.text_generation.oneshot=sparseml.transformers.finetune.text_generation:run_oneshot",  # noqa 501
         ]
     )
 
