@@ -194,7 +194,27 @@ def test_split_loading(split_def, tiny_llama_tokenizer):
     train_dataset = stage_runner.get_dataset_split("train")
     assert train_dataset is not None
     assert isinstance(train_dataset[0], dict)
-    
+
+@pytest.mark.usefixtures("tiny_llama_tokenizer")
+def test_dvc_dataloading(tiny_llama_tokenizer):
+    data_args = DataTrainingArguments(
+        dataset_name="csv",
+        dvc_dataset_path="dvc://workshop/satellite-data/jan_train.csv",
+        dvc_data_repository="https://github.com/iterative/dataset-registry.git",
+    )
+    manager = TextGenerationDataset(
+        text_column="",
+        data_args=data_args,
+        split="train",
+        tokenizer=tiny_llama_tokenizer,
+    )
+
+    raw_dataset = manager.get_raw_dataset()
+    assert len(raw_dataset) > 0
+    assert isinstance(raw_dataset[0], dict)
+
+
+@pytest.mark.usefixtures("tiny_llama_tokenizer")
 def test_stream_loading(tiny_llama_tokenizer):
     data_args = DataTrainingArguments(
         dataset_name="wikitext",
