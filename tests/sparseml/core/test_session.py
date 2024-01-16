@@ -155,6 +155,7 @@ class TestSparseSession:
         monkeypatch.setattr(
             setup_active_session, "_lifecycle", lifecycle_mock := LifeCycleMock()
         )
+        monkeypatch.setattr(setup_active_session, "_log_loss", empty_mock)
         setup_active_session.apply()
 
         # check initialize was called once
@@ -174,7 +175,7 @@ class TestSparseSession:
             setup_active_session, "_log_model_info"
         )
         mock_log_loss = mocker.patch.object(setup_active_session, "_log_loss")
-        monkeypatch.setattr(setup_active_session, "_lifecycle", LifeCycleMock())
+        monkeypatch.setattr(setup_active_session, "_log_loss", empty_mock)
 
         event_type = EventType.BATCH_START
         batch_data = None
