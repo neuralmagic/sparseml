@@ -67,7 +67,7 @@ class ModuleCompressionWrapper(Module, ABC):
             self.rows = W.shape[0]
             self.columns = W.shape[1]
 
-        print(self.layer.weight.has_storage(), self.layer.weight.defined(), self.layer.weight.numel(), torch.sum(self.layer.weight))
+        print(self.layer.weight.numel(), torch.sum(self.layer.weight))
         # This need to be a buffer so its preserved between forward passes
         self.register_buffer(
             "nsamples", torch.zeros(1, dtype=torch.int32, device=self.dev)
