@@ -25,8 +25,6 @@ import sparseml.core.session as session_manager
 from sparseml.core.framework import Framework
 from sparseml.modifiers.obcq.utils.helpers import ppl_eval_general
 from sparseml.pytorch.model_load.helpers import (
-    RECIPE_FILE_NAME,
-    apply_recipe_structure_to_model,
     fallback_to_cpu,
     parse_dtype,
     save_model_and_recipe,
@@ -36,8 +34,8 @@ from sparseml.transformers.sparsification.obcq.utils.helpers import (
     llama_forward,
     opt_forward,
 )
-from sparseml.transformers.utils.sparse_model import SparseCausalLM
 from sparseml.transformers.utils.initializers import initialize_sparse_model
+
 
 __all__ = ["one_shot"]
 
@@ -92,13 +90,10 @@ def one_shot(
     config = AutoConfig.from_pretrained(model_path)
     model_type = config.model_type.lower()
 
-    model_loader_fn = None
     forward_fn = None
     if "opt" in model_type:
-        model_loader_fn = SparseCausalLM.opt_model_from_pretrained
         forward_fn = opt_forward
     elif "llama" in model_type or "mistral" in model_type:
-        model_loader_fn = SparseCausalLM.auto_model_from_pretrained
         forward_fn = llama_forward
     else:
         _LOGGER.warning(
@@ -106,8 +101,8 @@ def one_shot(
             f"parsed from model_path={model_path}. Defaulting to "
             "AutoModelForCausalLM loading. "
         )
-        model_loader_fn = SparseCausalLM.auto_model_from_pretrained
         forward_fn = llama_forward
+
     torch_dtype = parse_dtype(precision)
     session_manager.create_session()
     model = initialize_sparse_model(
@@ -116,7 +111,7 @@ def one_shot(
         sequence_length=sequence_length,
         torch_dtype=torch_dtype,
         config=config,
-        device=device,
+        device_map=device,
     )
 
     if dataset_name not in SUPPORTED_DATASETS:
@@ -135,10 +130,10 @@ def one_shot(
     tokenizer = dataset.tokenizer
 
     # create session and initialize any structure from input model recipe
-    #session_manager.create_session()
-    #session = session_manager.active_session()
-    #input_recipe_path = os.path.join(model_path, RECIPE_FILE_NAME)
-    #if os.path.exists(input_recipe_path):
+    # session_manager.create_session()
+    # session = session_manager.active_session()
+    # input_recipe_path = os.path.join(model_path, RECIPE_FILE_NAME)
+    # if os.path.exists(input_recipe_path):
     #    apply_recipe_structure_to_model(
     #        model=model, recipe_path=input_recipe_path, model_path=model_path
     #    )
