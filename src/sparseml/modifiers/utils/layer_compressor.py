@@ -98,6 +98,7 @@ class LayerCompressor:
 
         def add_batch(name):
             def tmp(_, inp, out):
+                print(name, inp[0].shape, torch.sum(torch.isnan(inp[0])))
                 self.modules[name].add_batch(inp[0].data, out.data)
 
             return tmp
