@@ -80,6 +80,7 @@ _transformers_deps = _pytorch_deps + [
     f"{'nm-transformers' if is_release else 'nm-transformers-nightly'}"
     f"~={version_nm_deps}",
     "datasets<=2.14.6",
+    "dvc",
     "scikit-learn",
     "seqeval",
     "einops",

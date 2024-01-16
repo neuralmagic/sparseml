@@ -48,6 +48,16 @@ def test_serialization(recipe_str):
     assert expected_dict == actual_dict
 
 
+@pytest.mark.parametrize(
+    "zoo_stub", ["zoo:bert-base_cased-squad_wikipedia_bookcorpus-pruned90"]
+)
+def test_zoo_stub_recipe(zoo_stub):
+    # TODO: no recipes in the new modifier framework exist in SparseZoo, so the yaml
+    # load will fail even though we successfully parse the recipe
+    with pytest.raises(ValueError):
+        Recipe.create_instance(zoo_stub)
+
+
 @pytest.mark.skipif(
     should_skip_pytorch_tests(),
     reason="Skipping pytorch tests either torch is not installed or "
