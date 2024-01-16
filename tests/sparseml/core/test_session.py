@@ -137,6 +137,8 @@ class TestSparseSession:
             lifecycle_mock := LifeCycleMock(model=kwargs.get("model")),
         )
         monkeypatch.setattr(setup_active_session, "_log_model_info", empty_mock)
+        monkeypatch.setattr(setup_active_session, "_log_loss", empty_mock)
+
         method = getattr(setup_active_session, method_name)
 
         result = method(**kwargs)
@@ -167,24 +169,6 @@ class TestSparseSession:
         assert (
             lifecycle_mock._hit_count["finalize"] == 1
         ), "apply did not invoke the lifecycle finalize method"
-
-    def test_log_methods_called_same_number_of_times(
-        self, mocker, monkeypatch, setup_active_session
-    ):
-        mock_log_model_info = mocker.patch.object(
-            setup_active_session, "_log_model_info"
-        )
-        mock_log_loss = mocker.patch.object(setup_active_session, "_log_loss")
-        monkeypatch.setattr(setup_active_session, "_log_loss", empty_mock)
-
-        event_type = EventType.BATCH_START
-        batch_data = None
-        loss = None
-
-        setup_active_session.initialize(framework=Framework.pytorch)
-        setup_active_session.event(event_type, batch_data, loss)
-
-        assert mock_log_model_info.call_count == mock_log_loss.call_count
 
 
 @pytest.mark.parametrize(

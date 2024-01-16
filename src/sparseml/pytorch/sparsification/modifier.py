@@ -439,7 +439,7 @@ class ScheduledModifier(Modifier, BaseScheduled):
             steps_per_epoch = kwargs.get("steps_per_epoch", None)
             # Log call state
             if self.loggers and self.loggers.log_ready(
-                current_log_step=epoch, last_log_step=self._last_log_epoch
+                epoch=epoch, last_log_epoch=self._last_log_epoch
             ):
                 self.log_string(
                     string=(
@@ -454,7 +454,7 @@ class ScheduledModifier(Modifier, BaseScheduled):
             out = func(*args, **kwargs)
             # Log return state
             if self.loggers and self.loggers.log_ready(
-                current_log_step=epoch, last_log_step=self._last_log_epoch
+                epoch=epoch, last_log_epoch=self._last_log_epoch
             ):
                 out_print = out if isinstance(out, Tuple) else [out]
                 self.log_string(
@@ -515,7 +515,7 @@ class ScheduledModifier(Modifier, BaseScheduled):
         self._ended = False
         self._schedule_called = False
         self._scheduled_log_called = False
-        self._last_log_epoch = None
+        self._last_log_epoch = -1
 
         self.validate_schedule()
 
@@ -676,7 +676,7 @@ class ScheduledModifier(Modifier, BaseScheduled):
             raise RuntimeError("modifier must be enabled")
 
         if self.loggers and self.loggers.log_ready(
-            current_log_step=epoch, last_log_step=self._last_log_epoch
+            epoch=epoch, last_log_epoch=self._last_log_epoch
         ):
             self._last_log_epoch = epoch
             self._scheduled_log_called = True
