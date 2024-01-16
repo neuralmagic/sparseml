@@ -12,12 +12,48 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional
 
+import torch
 from datasets import Dataset, load_dataset
+from torch.utils.data import DataLoader, RandomSampler
+from transformers.data import default_data_collator
 
 
-__all__ = ["get_raw_dataset", "make_dataset_splits"]
+__all__ = ["format_calibration_data", "get_raw_dataset", "make_dataset_splits"]
+
+
+def format_calibration_data(
+    tokenized_dataset: Dataset,
+    num_calibration_samples: int,
+    collate_fn: Callable = default_data_collator,
+    accelerator: Optional[Any] = None,
+) -> List[torch.Tensor]:
+    """
+    Creates a dataloader out of the calibration dataset split, trimming it to
+    the desired number of calibration samples
+
+    :param tokenized_dataset: dataset to convert to dataloader
+    :param num_calibration_samples: number of data samples to convert
+    :param collate_fn: optional custom collate function, or use default
+    :param accelerator: optional accelerator for if preparing in FSDP mode
+    :return: list of trimmed calibration data tensors
+    """
+    shuffled_calibration = tokenized_dataset.shuffle()
+    shuffled_calibration = shuffled_calibration.select(range(num_calibration_samples))
+
+    dataloader_params = {
+        "batch_size": 1,
+        "sampler": RandomSampler(shuffled_calibration),
+        "collate_fn": collate_fn,
+        "pin_memory": True,
+    }
+
+    calib_dataloader = DataLoader(shuffled_calibration, **dataloader_params)
+    if accelerator:
+        calib_dataloader = accelerator.prepare(calib_dataloader)
+
+    return calib_dataloader
 
 
 def get_raw_dataset(
