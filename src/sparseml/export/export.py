@@ -72,7 +72,7 @@ from sparseml.integration_helper_functions import (
 )
 from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
 from sparseml.pytorch.utils.helpers import default_device
-
+from sparsezoo.utils.registry import standardize_lookup_name
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -151,13 +151,8 @@ def export(
     :param task: Optional task to use for exporting the model.
         Defaults to None.
     """
-    # TODO: Remove with the followin once sparsezoo: #404 lands
-    """
-    from sparsezoo.utils.registry import standardize_lookup_name
-    task = standardize_lookup_name(task)
-    """
     if task is not None:
-        task = task.replace("_", "-").replace(" ", "-")
+        task = standardize_lookup_name(task)
 
     # TODO: Remove once sparsezoo: #404 lands
     if integration is not None:
