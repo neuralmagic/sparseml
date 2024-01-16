@@ -37,7 +37,7 @@ from sparseml.transformers.sparsification.obcq.utils.helpers import (
     opt_forward,
 )
 from sparseml.transformers.utils.sparse_model import SparseCausalLM
-
+from sparseml.transformers.utils.initializers import initialize_sparse_model
 
 __all__ = ["one_shot"]
 
@@ -109,11 +109,14 @@ def one_shot(
         model_loader_fn = SparseCausalLM.auto_model_from_pretrained
         forward_fn = llama_forward
     torch_dtype = parse_dtype(precision)
-    model = model_loader_fn(
-        model_path,
+    session_manager.create_session()
+    model = initialize_sparse_model(
+        model_path=model_path,
+        task="text-generation",
         sequence_length=sequence_length,
         torch_dtype=torch_dtype,
-        device_map=device,
+        config=config,
+        device=device,
     )
 
     if dataset_name not in SUPPORTED_DATASETS:
@@ -132,15 +135,16 @@ def one_shot(
     tokenizer = dataset.tokenizer
 
     # create session and initialize any structure from input model recipe
-    session_manager.create_session()
-    session = session_manager.active_session()
-    input_recipe_path = os.path.join(model_path, RECIPE_FILE_NAME)
-    if os.path.exists(input_recipe_path):
-        apply_recipe_structure_to_model(
-            model=model, recipe_path=input_recipe_path, model_path=model_path
-        )
+    #session_manager.create_session()
+    #session = session_manager.active_session()
+    #input_recipe_path = os.path.join(model_path, RECIPE_FILE_NAME)
+    #if os.path.exists(input_recipe_path):
+    #    apply_recipe_structure_to_model(
+    #        model=model, recipe_path=input_recipe_path, model_path=model_path
+    #    )
 
     # launch one shot
+    session = session_manager.active_session()
     session.apply(
         framework=Framework.pytorch,
         recipe=recipe_file,
