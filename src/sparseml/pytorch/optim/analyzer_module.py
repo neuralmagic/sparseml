@@ -366,9 +366,12 @@ class ModuleAnalyzer(object):
         batch_size, input_channels, input_height, input_width = inp[0].size()
         batch_size, output_channels, output_height, output_width = out[0].size()
 
-        kernel_ops = mod.kernel_size * mod.kernel_size
+        if mod.kernel_size.dim() == 1:
+            kernel_ops = mod.kernel_size * mod.kernel_size
+        else:
+            kernel_ops = torch.prod(mod.kernel_size)
         flops = (
-            (kernel_ops) * output_channels * output_height * output_width * batch_size
+            kernel_ops * output_channels * output_height * output_width * batch_size
         )
 
         desc.flops = flops
