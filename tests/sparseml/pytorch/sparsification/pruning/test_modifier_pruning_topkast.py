@@ -152,8 +152,8 @@ class TestTopKASTPruningModifier(ScheduledModifierTest):
             # the end of the test.
             model_state_dict = copy.deepcopy(model.state_dict())
 
-            random_input = torch.randn(batch_shape, * input_shape)
-            
+            random_input = torch.randn(batch_shape, *input_shape)
+
             # Compute gradients using full weights but Top-Kast modifier.
             optimizer.zero_grad()
             model(random_input).mean().backward()
