@@ -129,15 +129,6 @@ def one_shot(
     calibration_data = dataset.loader
     tokenizer = dataset.tokenizer
 
-    # create session and initialize any structure from input model recipe
-    # session_manager.create_session()
-    # session = session_manager.active_session()
-    # input_recipe_path = os.path.join(model_path, RECIPE_FILE_NAME)
-    # if os.path.exists(input_recipe_path):
-    #    apply_recipe_structure_to_model(
-    #        model=model, recipe_path=input_recipe_path, model_path=model_path
-    #    )
-
     # launch one shot
     session = session_manager.active_session()
     session.apply(
