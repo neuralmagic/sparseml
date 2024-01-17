@@ -108,11 +108,14 @@ class StageRunner:
                 self._data_args.dataset_name,
                 data_args=self._data_args,
                 split=split_str,
-                tokenizer=tokenizer,
-                store_padding_mask=True if self._training_args.do_oneshot else False,
+                tokenizer=tokenizer
             )
+
+            store_padding_mask = False
+            if self._training_args.do_oneshot and split_name == "calibration":
+                store_padding_mask = True
             raw_dataset = dataset_manager.get_raw_dataset(self._model_args.cache_dir)
-            tokenized_dataset = dataset_manager.tokenize_and_process(raw_dataset)
+            tokenized_dataset = dataset_manager.tokenize_and_process(raw_dataset, store_padding_mask=store_padding_mask)
             tokenized_datasets[split_name] = tokenized_dataset
 
         self.datasets = make_dataset_splits(

@@ -62,6 +62,8 @@ def run_calibration_forward(
     for batch_idx, batch in enumerate(tqdm(_dataloader)):
         if num_calibration_steps and batch_idx >= num_calibration_steps:
             break
+        if 'padding_mask' in batch:
+            batch['input_ids'] = batch['input_ids'] * batch['padding_mask']
         batch = tensors_to_device(batch, model_device)
         with torch.no_grad():
             forward_fn(batch, module=model)

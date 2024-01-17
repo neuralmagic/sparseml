@@ -41,7 +41,6 @@ def format_calibration_data(
     """
     shuffled_calibration = tokenized_dataset.shuffle()
     shuffled_calibration = shuffled_calibration.select(range(num_calibration_samples))
-
     dataloader_params = {
         "batch_size": 1,
         "sampler": RandomSampler(shuffled_calibration),
