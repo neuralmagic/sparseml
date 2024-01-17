@@ -37,7 +37,7 @@ def run_calibration_forward(
     :param model: PyTorch model to run
     :param calibration_dataloader: data to use for calibration
     :param num_calibration_steps: number of items in calibration_dataloader to process,
-    None to process all available data
+    None or a negative number to process all available data
     :param calibration_function: option to pass a custom forward function for model
     :param device: option to move the model to a specific device before calibration
     """
