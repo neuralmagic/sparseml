@@ -475,11 +475,10 @@ class SessionManagerMixIn:
         where we want to run one-shot in FSDP mode
         """
         self.model.to("cpu")
-        self.model_wrapped.to("cpu")
-        epochs = self.args.num_train_epochs
-        self.args.num_train_epochs = 0.01
+        max_steps = self.args.max_steps
+        self.args.max_steps = 1
         super().train()
-        self.args.num_train_epochs = epochs
+        self.args.max_steps = max_steps
         self.accelerator.wait_for_everyone()
 
     def _extract_metadata(
