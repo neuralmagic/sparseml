@@ -21,7 +21,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import torch
 from torch.nn import Module
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, IterableDataset
 from transformers.trainer_callback import TrainerState
 from transformers.trainer_utils import get_last_checkpoint
 
@@ -165,18 +165,21 @@ class SessionManagerMixIn:
                 "pass a yaml file or string to the `recipe` argument."
             )
 
-    def initialize_structure(self):
+    def initialize_structure(self, stage: Optional[str] = None):
         """
         Initialize any recipe structural changes such as quantization on the model,
-        return immediately if structure or session has already been initialized
+        return immediately if session has already been initialized
+
+        :param stage: Optional stage of recipe to run, or None to run all stages
         """
         session = session_manager.active_session()
-        if session.lifecycle.initialized_ or session.lifecycle.pre_initialize_structure:
+        if session.lifecycle.initialized_:
             return False
 
         session_manager.pre_initialize_structure(
             model=self.model,
             recipe=self.recipe,
+            recipe_stage=stage,
             recipe_args=self.recipe_args,
             framework=Framework.pytorch,
         )
@@ -211,9 +214,20 @@ class SessionManagerMixIn:
             self.args.per_device_train_batch_size
             * self.args.gradient_accumulation_steps
         )
-        self.total_steps_per_epoch = math.ceil(
-            len(self.train_dataset) / total_batch_size
-        )
+
+        if isinstance(self.train_dataset, IterableDataset):
+            _LOGGER.warning(
+                "Training is being run with a streamed dataset, "
+                "steps_per_epoch cannot be determined and will default to "
+                "1. SparseML modifiers utilizing this statistic may not "
+                "behave as expected. "
+            )
+            self.total_steps_per_epoch = 1
+        else:
+            self.total_steps_per_epoch = math.ceil(
+                len(self.train_dataset) / total_batch_size
+            )
+
         session_manager.initialize(
             optimizer=self.optimizer, steps_per_epoch=self.total_steps_per_epoch
         )

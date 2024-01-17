@@ -62,6 +62,18 @@ class DataTrainingArguments:
         default=512,
         metadata={"help": "Number of samples to use for one-shot calibration"},
     )
+    dvc_dataset_path: Optional[str] = field(
+        default=None,
+        metadata={"help": "Path to dvc dataset to load, of format dvc://path"},
+    )
+    dvc_data_repository: Optional[str] = field(
+        default=None,
+        metadata={"help": "Path to repository used for dvc_dataset_path"},
+    )
+    streaming: Optional[bool] = field(
+        default=False,
+        metadata={"help": "True to stream data from a cloud dataset"},
+    )
     overwrite_cache: bool = field(
         default=False,
         metadata={"help": "Overwrite the cached preprocessed datasets or not."},
