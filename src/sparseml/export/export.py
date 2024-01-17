@@ -90,7 +90,7 @@ def export(
     onnx_model_name: str = ONNX_MODEL_NAME,
     deployment_target: str = "deepsparse",
     opset: int = TORCH_DEFAULT_ONNX_OPSET,
-    save_with_external_data: bool = True,
+    save_with_external_data: bool = False,
     num_export_samples: int = 0,
     recipe: Optional[Union[Path, str]] = None,
     deployment_directory_name: str = "deployment",
@@ -342,7 +342,7 @@ def export(
 @click.option(
     "--save_with_external_data",
     type=bool,
-    default=True,
+    default=False,
     help="Default False - if True, large constant tensors, such as initializers, "
     "will be serialised in a separate file. Note: if the model is sufficiently "
     "large, it will be saved with external data regardless of this flag",

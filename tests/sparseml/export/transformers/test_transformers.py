@@ -113,16 +113,6 @@ class TestEndToEndExport:
         )
         assert (target_path / "deployment" / "model.onnx").exists()
 
-    @pytest.mark.skipif(reason="skipping since not implemented")
-    def test_export_multiple_files(self, setup):
-        source_path, target_path, task = setup
-        export(
-            source_path=source_path,
-            target_path=target_path,
-            task=task,
-            save_with_external_data=False,
-        )
-
     def test_export_validate_correctness(self, caplog, setup):
         if self.is_model_quantized:
             pytest.skip(
