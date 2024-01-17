@@ -15,6 +15,7 @@
 import logging
 from typing import Optional, Union
 
+import torch
 from datasets import Dataset, IterableDataset
 from transformers import AutoTokenizer
 
@@ -34,6 +35,8 @@ class TextGenerationDataset(RegistryMixin):
     :param data_args: configuration settings for dataset loading
     :param split: split from dataset to load, for instance `test` or `train[:5%]`
     :param tokenizer: tokenizer to use on dataset
+    :param store_padding_mask: when set, keep track of a padding mask for each embedding
+    in the dataset. Used for zeroing out padding during one-shot pruning.
     """
 
     def __init__(
@@ -42,6 +45,7 @@ class TextGenerationDataset(RegistryMixin):
         data_args: DataTrainingArguments,
         split: str,
         tokenizer: AutoTokenizer,
+        store_padding_mask: bool = False,
     ):
         self.text_column = text_column
         self.tokenizer = tokenizer
@@ -49,6 +53,7 @@ class TextGenerationDataset(RegistryMixin):
         self.raw_kwargs = data_args.raw_kwargs or {}
         self.split = split
         self.dvc_dataset = True if self.data_args.dvc_dataset_path else False
+        self.store_padding_mask = store_padding_mask
 
         # configure padding
         if data_args.concatenate_data:
@@ -134,11 +139,14 @@ class TextGenerationDataset(RegistryMixin):
             raw_dataset,
             function=tokenize_fn,
             batched=True,
-            remove_columns=[self.text_column],
+            remove_columns=[self.text_column] if not self.create_padding_mask else None,
             num_proc=self.data_args.preprocessing_num_workers,
             load_from_cache_file=not self.data_args.overwrite_cache,
             desc="Running tokenizer on dataset",
         )
+
+        if self.create_padding_mask:
+            dataset = self.create_padding_mask(dataset)
 
         if self.data_args.concatenate_data:
             dataset = self.map(
@@ -160,6 +168,33 @@ class TextGenerationDataset(RegistryMixin):
         )
 
         return dataset
+
+    def create_padding_mask(self, raw_dataset: Dataset) -> Dataset:
+        """ """
+        # helper fn for tokenizing text column
+        def padding_mask_fn(data):
+            result = self.tokenizer(
+                data[self.text_column],
+                padding=False,
+                max_length=self.max_seq_length,
+                truncation=True,
+            )
+            mask = torch.ones(result.shape, type=torch.bool)
+            padding_amount = self.max_seq_length - result.shape[-1]
+            data["padding_mask"] = torch.nn.functional.pad(mask, (0, padding_amount))
+            return data
+
+        padding_mask_dataset = self.map(
+            raw_dataset,
+            function=padding_mask_fn,
+            remove_columns=[self.text_column],
+            batched=True,
+            num_proc=self.data_args.preprocessing_num_workers,
+            load_from_cache_file=not self.data_args.overwrite_cache,
+            desc="Creating padding mask",
+        )
+
+        return padding_mask_dataset
 
     def map(
         self, dataset: Union[Dataset, IterableDataset], **kwargs

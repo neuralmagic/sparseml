@@ -107,6 +107,7 @@ class StageRunner:
                 data_args=self._data_args,
                 split=split_str,
                 tokenizer=tokenizer,
+                store_padding_mask=True if self._training_args.do_oneshot else False,
             )
             raw_dataset = dataset_manager.get_raw_dataset(self._model_args.cache_dir)
             tokenized_dataset = dataset_manager.tokenize_and_process(raw_dataset)
