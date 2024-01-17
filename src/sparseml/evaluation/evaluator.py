@@ -15,7 +15,7 @@
 import logging
 from typing import Any, List, Optional, Union
 
-from sparsezoo.evaluation import EvaluationRegistry
+from sparseml.evaluation.registry import SparseMLEvaluationRegistry
 from sparsezoo.evaluation.results import Result
 
 
@@ -31,18 +31,9 @@ def evaluate(
     **kwargs,
 ) -> Result:
 
-    collect_integrations()
-    eval_integration = EvaluationRegistry.get_value_from_registry(name=integration)
+    eval_integration = SparseMLEvaluationRegistry.resolve(name=integration)
     _LOGGER.info(
         f"Starting evaluation with target {target}, datasets {datasets}, "
         f"integration {eval_integration}, batch_size {batch_size}, kwargs {kwargs}"
     )
     return eval_integration(target, datasets, batch_size, **kwargs)
-
-
-def collect_integrations():
-    """
-    This function is used to collect all integrations that are registered
-    with the evaluation registry. This is done by importing the module
-    associated with each integration.
-    """
