@@ -14,6 +14,7 @@
 
 import logging
 import os
+import re
 from typing import List, Optional
 
 from torch.nn import Module
@@ -87,12 +88,20 @@ class StageRunner:
         """
         splits = self._data_args.splits
         tokenized_datasets = {}
+
+        def _get_split_name(inp_str):
+            # strip out split name, for ex train[60%:] -> train
+            match = re.match(r"(\w*)\[.*\]", inp_str)
+            if match is not None:
+                return match.group(1)
+            return inp_str
+
         if splits is None:
             splits = {"all": None}
         elif isinstance(splits, str):
-            splits = {splits: splits}
+            splits = {_get_split_name(splits): splits}
         elif isinstance(splits, List):
-            splits = {s: s for s in splits}
+            splits = {_get_split_name(s): s for s in splits}
 
         for split_name, split_str in splits.items():
             dataset_manager = TextGenerationDataset.load_from_registry(
