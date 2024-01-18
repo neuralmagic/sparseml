@@ -170,7 +170,13 @@ class TextGenerationDataset(RegistryMixin):
         return dataset
 
     def create_padding_mask(self, raw_dataset: Dataset) -> Dataset:
-        """ """
+        """
+        Given a dataset, add a new column to each entry that is a mask indicating
+        whether or not that element is padding
+
+        :param raw_dataset: dataset to add padding column to
+        :return: dataset with padding column added
+        """
         # helper fn for tokenizing text column
         def padding_mask_fn(data):
             result = self.tokenizer(

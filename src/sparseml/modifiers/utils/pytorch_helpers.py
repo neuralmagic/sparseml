@@ -35,7 +35,7 @@ def apply_pad_mask_to_batch(batch: Dict[str, torch.Tensor]) -> Dict[str, torch.T
     SparseGPT algorithm
 
     :param batch: batch to apply padding to if it exists
-    :return: batch with zeroed out input_ids
+    :return: batch with padding zeroed out in the input_ids
     """
     if PADDING_MASK_COLUMN_NAME in batch:
         batch["input_ids"] = batch["input_ids"] * batch[PADDING_MASK_COLUMN_NAME]
