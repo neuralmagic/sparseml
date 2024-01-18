@@ -42,6 +42,7 @@ __all__ = [
     "is_transformer_model",
     "resolve_sequence_length",
     "apply_structure_to_transformers",
+    "ALL_TASK_NAMES",
 ]
 
 
@@ -58,6 +59,7 @@ class TaskNames(Enum):
     text_generation = {"text-generation"}
 
 
+ALL_TASK_NAMES = list(set.union(*[task_names.value for task_names in TaskNames]))
 RECIPE_NAME = "recipe.yaml"
 MANDATORY_DEPLOYMENT_FILES = {
     ONNX_MODEL_NAME,

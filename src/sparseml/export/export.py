@@ -384,12 +384,9 @@ def export(
 )
 @click.option(
     "--integration",
-    type=str,
+    type=click.Choice(["image-classification, transformers"]),
     default=None,
-    help=(
-        "Integration the model was trained under. "
-        "i.e. transformers, image-classification. Will be inferred by default"
-    ),
+    help="Integration the model was trained under. By default, inferred from the model",
 )
 @click.option(
     "--sample_data",
