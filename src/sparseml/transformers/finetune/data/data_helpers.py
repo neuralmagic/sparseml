@@ -45,7 +45,6 @@ def format_calibration_data(
         "batch_size": 1,
         "sampler": RandomSampler(shuffled_calibration),
         "collate_fn": collate_fn,
-        "pin_memory": True,
     }
 
     calib_dataloader = DataLoader(shuffled_calibration, **dataloader_params)

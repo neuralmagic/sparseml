@@ -15,10 +15,10 @@
 import logging
 from typing import Optional, Union
 
-import torch
 from datasets import Dataset, IterableDataset
 from transformers import AutoTokenizer
 
+from sparseml.modifiers.utils.pytorch_helpers import PADDING_MASK_COLUMN_NAME
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
 from sparseml.transformers.finetune.data.data_helpers import get_raw_dataset
 from sparsezoo.utils.registry import RegistryMixin
@@ -42,7 +42,7 @@ class TextGenerationDataset(RegistryMixin):
         text_column: str,
         data_args: DataTrainingArguments,
         split: str,
-        tokenizer: AutoTokenizer
+        tokenizer: AutoTokenizer,
     ):
         self.text_column = text_column
         self.tokenizer = tokenizer
@@ -95,13 +95,15 @@ class TextGenerationDataset(RegistryMixin):
             **self.raw_kwargs,
         )
 
-    def tokenize_and_process(self, raw_dataset: Dataset, store_padding_mask: bool = False) -> Dataset:
+    def tokenize_and_process(
+        self, raw_dataset: Dataset, store_padding_mask: bool = False
+    ) -> Dataset:
         """
         Sets up the raw dataset for finetuning, performs tokenization, concatenates
         entries to max sequence length if desired, and adds labels to each entry
 
         :param raw_dataset: dataset to process
-        :param store_padding_mask: when set, keep track of a padding mask for each 
+        :param store_padding_mask: when set, keep track of a padding mask for each
         embedding in the dataset. Used for zeroing out padding during one-shot pruning.
         """
         # helper fn for tokenizing text column
@@ -177,10 +179,10 @@ class TextGenerationDataset(RegistryMixin):
                 max_length=self.max_seq_length,
                 truncation=True,
             )
-            non_padded_size = len(result['input_ids'])
+            non_padded_size = len(result["input_ids"])
             mask = [1] * non_padded_size
             padding = [0] * (self.max_seq_length - non_padded_size)
-            
+            data[PADDING_MASK_COLUMN_NAME] = mask + padding
             return data
 
         padding_mask_dataset = self.map(
