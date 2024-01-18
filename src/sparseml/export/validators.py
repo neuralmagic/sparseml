@@ -133,7 +133,13 @@ def validate_correctness(
     :param validation_function: The function that will be used to validate the outputs.
     :return: True if the validation passes, False otherwise.
     """
-    import onnxruntime as ort
+    try:
+        import onnxruntime as ort
+    except ImportError as err:
+        raise ImportError(
+            "The onnxruntime package is required for the correctness validation. "
+            "Please install it using 'pip install sparseml[onnxruntime]'."
+        ) from err
 
     sample_inputs_path = os.path.join(target_path, InputsNames.basename.value)
     sample_outputs_path = os.path.join(target_path, OutputsNames.basename.value)
