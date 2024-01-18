@@ -19,11 +19,10 @@ from pathlib import Path
 from typing import Dict, Optional
 
 from torch.nn import Module
-from transformers import AutoConfig
+from transformers import AutoConfig, AutoTokenizer
 
 import sparseml.core.session as session_manager
 from sparseml.core.framework import Framework
-from sparseml.modifiers.obcq.utils.helpers import ppl_eval_general
 from sparseml.pytorch.model_load.helpers import (
     RECIPE_FILE_NAME,
     apply_recipe_structure_to_model,
@@ -31,18 +30,16 @@ from sparseml.pytorch.model_load.helpers import (
     parse_dtype,
     save_model_and_recipe,
 )
-from sparseml.transformers.data import TransformersDataset
-from sparseml.transformers.sparsification.obcq.utils.helpers import (
-    llama_forward,
-    opt_forward,
-)
+from sparseml.transformers.finetune.data import TextGenerationDataset
+from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
+from sparseml.transformers.finetune.data.data_helpers import format_calibration_data
 from sparseml.transformers.utils.sparse_model import SparseCausalLM
 
 
 __all__ = ["one_shot"]
 
 _LOGGER = logging.getLogger(__name__)
-SUPPORTED_DATASETS = TransformersDataset.registered_names()
+SUPPORTED_DATASETS = TextGenerationDataset.registered_names()
 SUPPORTED_MODELS = ["opt", "llama", "mistral"]
 SUPPORTED_PRECISION = ["auto", "half", "full", "float16", "bfloat16", "float32"]
 
@@ -50,14 +47,15 @@ SUPPORTED_PRECISION = ["auto", "half", "full", "float16", "bfloat16", "float32"]
 def one_shot(
     model_path: str,
     dataset_name: str,
+    dataset_config_name: Optional[str] = None,
     num_samples: int = 128,
     sequence_length: Optional[int] = None,
+    concatenate_data: Optional[bool] = False,
     device: str = "cuda:0",
     deploy_dir: Optional[str] = ".",
     recipe_file: Optional[str] = None,
     precision: str = "auto",
     recipe_args: Optional[Dict] = None,
-    eval_data: Optional[str] = None,
     do_save: Optional[bool] = False,
 ) -> Module:
     """
@@ -65,14 +63,15 @@ def one_shot(
 
     :param model_path: path to Hugging Face stub
     :param dataset_name: Dataset to extract calibration data from
+    :param dataset_config_name: Specific configuration to extract from calib dataset
     :param num_samples: Number of samples to extract from the dataset
     :param sequence_length: Maximum input sequence length to the model
+    :param concatenate_data: Whether or not to concatenate datapoints to fill seqlen
     :param device: Device (cuda:index, auto or cpu) to use for computation
     :param deploy_dir: The output directory to save the model to
     :param recipe_file: recipe containing SparseGPT configuration
     :param precision: precision to load model as, either auto, half or full
     :param recipe_args: additional arguments to use for recipe evaluation
-    :param eval_data: dataset to use for perplexity evalaution, or none to skip
     :param do_save: whether to save the output model to disk
 
     :return: Pytorch module with OBCQ applied
@@ -93,13 +92,10 @@ def one_shot(
     model_type = config.model_type.lower()
 
     model_loader_fn = None
-    forward_fn = None
     if "opt" in model_type:
         model_loader_fn = SparseCausalLM.opt_model_from_pretrained
-        forward_fn = opt_forward
     elif "llama" in model_type or "mistral" in model_type:
         model_loader_fn = SparseCausalLM.auto_model_from_pretrained
-        forward_fn = llama_forward
     else:
         _LOGGER.warning(
             f"A supported model type({SUPPORTED_MODELS}) could not be "
@@ -107,7 +103,6 @@ def one_shot(
             "AutoModelForCausalLM loading. "
         )
         model_loader_fn = SparseCausalLM.auto_model_from_pretrained
-        forward_fn = llama_forward
     torch_dtype = parse_dtype(precision)
     model = model_loader_fn(
         model_path,
@@ -116,20 +111,32 @@ def one_shot(
         device_map=device,
     )
 
+    # Load calibration data
     if dataset_name not in SUPPORTED_DATASETS:
         raise ValueError(
             f"dataset_name={dataset_name} should be one of {SUPPORTED_DATASETS}"
         )
-    dataset = TransformersDataset.load_from_registry(
-        dataset_name,
-        model=model_path,
-        seqlen=sequence_length or model.seqlen,
-        nsamples=num_samples,
-        seed=0,
-        split="train",
+
+    data_args = DataTrainingArguments(
+        dataset_name=dataset_name,
+        dataset_config_name=dataset_config_name,
+        max_seq_length=sequence_length or model.seqlen,
+        num_calibration_samples=num_samples,
+        concatenate_data=concatenate_data,
+        pad_to_max_length=False,
     )
-    calibration_data = dataset.loader
-    tokenizer = dataset.tokenizer
+
+    tokenizer = AutoTokenizer.from_pretrained(
+        model_path, use_fast=True, trust_remote_code=True
+    )
+    dataset_manager = TextGenerationDataset.load_from_registry(
+        dataset_name, data_args=data_args, split="train", tokenizer=tokenizer
+    )
+    raw_dataset = dataset_manager.get_raw_dataset()
+    tokenized_dataset = dataset_manager.tokenize_and_process(raw_dataset)
+    calibration_data = format_calibration_data(
+        tokenized_dataset=tokenized_dataset, num_calibration_samples=num_samples
+    )
 
     # create session and initialize any structure from input model recipe
     session_manager.create_session()
@@ -153,20 +160,6 @@ def one_shot(
 
     if do_save:
         save_model_and_recipe(model, deploy_dir, tokenizer)
-    if eval_data:
-        dataset = TransformersDataset.load_from_registry(
-            eval_data,
-            model=model_path,
-            seqlen=model.seqlen,
-            nsamples=None,
-            seed=0,
-            split="test",
-            split_percent_to_use=0.1 if eval_data == "open_platypus" else 1.0,
-        )
-        test_data = dataset.loader
-        ppl_eval_general(
-            forward_fn, model, test_data, device, max_samples_per_iteration=8
-        )
 
     return model
 
@@ -191,6 +184,12 @@ if __name__ == "__main__":
         help="Name of dataset to extract calibration data from",
     )
     parser.add_argument(
+        "--dataset_config",
+        type=str,
+        default=None,
+        help="Specific configuration to extract from calibration dataset (optional)",
+    )
+    parser.add_argument(
         "--nsamples", type=int, default=512, help="Number of calibration data samples"
     )
     parser.add_argument(
@@ -198,6 +197,12 @@ if __name__ == "__main__":
         type=int,
         default=None,
         help="Maximum input sequence length to the model",
+    )
+    parser.add_argument(
+        "--concat_data",
+        type=bool,
+        default=False,
+        help="Whether or not to concatenate samples to fill sequence length",
     )
     parser.add_argument("--device", type=str, default="cuda:0")
     parser.add_argument("--deploy-dir", type=str, default=".")
@@ -216,10 +221,7 @@ if __name__ == "__main__":
         help="Recipe arguments to evaluate, of the format key1=value1 key2=value2",
     )
     parser.add_argument(
-        "--eval", type=str, default=None, help="Optional dataset for perplexity eval"
-    )
-    parser.add_argument(
-        "--save", type=bool, default=False, help="Save output model to disk"
+        "--save", type=bool, default=True, help="Save output model to disk"
     )
 
     args = parser.parse_args()
@@ -227,13 +229,14 @@ if __name__ == "__main__":
     one_shot(
         model_path=args.model,
         dataset_name=args.dataset,
+        dataset_config_name=args.dataset_config,
         deploy_dir=args.deploy_dir,
         num_samples=args.nsamples,
         sequence_length=args.seqlen,
+        concatenate_data=args.concat_data,
         device=args.device,
         recipe_file=args.recipe,
         precision=args.precision,
         recipe_args=args.recipe_args,
-        eval_data=args.eval,
         do_save=args.save,
     )
