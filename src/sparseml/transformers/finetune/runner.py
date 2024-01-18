@@ -16,6 +16,7 @@ import logging
 import os
 from typing import List, Optional
 
+import torch
 from torch.nn import Module
 from torch.utils.data import Dataset
 from transformers import AutoTokenizer
@@ -136,6 +137,12 @@ class StageRunner:
             num_calibration_samples=self._data_args.num_calibration_samples,
             accelerator=self.trainer.accelerator,
         )
+
+        # if we don't run a forward pass after initializing the FSDP model for the 
+        # first time, calls to summon_full_params will fail ¯\_(ツ)_/¯
+        dummy_inp = next(iter(calib_data))
+        self.trainer.model(**dummy_inp)
+
         self.trainer.one_shot(calib_data, stage=stage)
 
         if is_fsdp_model(self.trainer.model):
@@ -265,3 +272,8 @@ class StageRunner:
             # synchronize
             self.trainer.accelerator.wait_for_everyone()
             self.trainer.model = get_session_model()
+            self.trainer.accelerator.wait_for_everyone()
+            torch.cuda.empty_cache()
+            self.trainer.accelerator.wait_for_everyone()
+            self.trainer.accelerator.free_memory()
+            self.trainer.accelerator.wait_for_everyone()
