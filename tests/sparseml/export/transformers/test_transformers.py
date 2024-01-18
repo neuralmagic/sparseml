@@ -28,7 +28,7 @@ from sparsezoo import Model
     "stub, task",
     [
         ("zoo:obert-medium-squad_wikipedia_bookcorpus-pruned95_quantized", "qa"),
-        # ("zoo:roberta-large-squad_v2_wikipedia_bookcorpus-base", "qa"),
+        ("zoo:roberta-large-squad_v2_wikipedia_bookcorpus-base", "qa"),
     ],
 )
 class TestEndToEndExport:
