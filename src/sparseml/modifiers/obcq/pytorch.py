@@ -55,10 +55,15 @@ class SparseGPTModifierPyTorch(WandaPruningModifierPyTorch, SparseGPTModifier):
 
         :param state: session state storing input model and calibration data
         """
+
         if not self.initialized_structure_:
             self.on_initialize_structure(state, **kwargs)
         if self.quantization_modifier_:
             self.quantization_modifier_.initialize(state, **kwargs)
+
+        # temporary work around until logger refactor lands
+        # we can then use the LoggerManager from state
+        self.logger_ = _LOGGER
 
         return super(SparseGPTModifierPyTorch, self).on_initialize(state, **kwargs)
 

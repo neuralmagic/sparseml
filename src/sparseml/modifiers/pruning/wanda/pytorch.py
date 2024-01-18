@@ -49,6 +49,7 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
 
     model: Optional[ModifiableModel] = None
     layer_compressors_: List = None
+    logger_: None = None
 
     def on_initialize(self, state: State, **kwargs) -> bool:
         """
@@ -57,6 +58,10 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
         :param state: session state storing input model and calibration data
         :param kwargs: Unused, kept to conform to the parent method signature
         """
+        # Temporary work around until logger refactor lands
+        # we can then use the LoggerManager from state
+        if self.logger_ is None:
+            self.logger_ = _LOGGER
         self._validate_layerwise_sparsity()
 
         modifiable_model = state.model
@@ -82,7 +87,7 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
         self._infer_mask_block_size()
 
         for idx, (name, layer) in enumerate(self.compressible_layers_.items()):
-            _LOGGER.info(f"Preparing {name} for compression")
+            self.logger_.info(f"Preparing {name} for compression")
             layer_sparsity = (
                 self.sparsity[idx] if isinstance(self.sparsity, List) else self.sparsity
             )
@@ -104,7 +109,7 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
         :param dataloader: calibration data for WANDA
         """
         class_name = self.__class__.__name__.replace("PyTorch", "")
-        _LOGGER.info(
+        self.logger_.info(
             f"Running {class_name} calibration with " f"{len(dataloader)} samples..."
         )
         if not self.sequential_update:
@@ -125,7 +130,7 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
                 # want to compress, this will be really slow but allows compression in
                 # earlier layers to affect later layers
                 layer_compressor.pre_compress()
-                _LOGGER.info(f"Calibrating {layer_compressor.name}...")
+                self.logger_.info(f"Calibrating {layer_compressor.name}...")
                 run_calibration_forward(self.model, dataloader)
             layer_compressor.compress()
             layer_compressor.post_compress()
