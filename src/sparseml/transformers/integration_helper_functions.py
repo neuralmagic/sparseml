@@ -32,6 +32,7 @@ from sparseml.transformers.utils.helpers import (
     NLG_TOKENIZER_FILES,
     OPTIONAL_DEPLOYMENT_FILES,
     TaskNames,
+    remove_past_key_value_support_from_config,
     resolve_sequence_length,
 )
 from sparseml.transformers.utils.initializers import (
@@ -54,6 +55,7 @@ def create_model(
     device: Optional[str] = None,
     task: Optional[str] = None,
     recipe: Optional[str] = None,
+    export: bool = True,
     **kwargs,
 ) -> Tuple[torch.nn.Module, Dict[str, Any]]:
     """
@@ -61,13 +63,14 @@ def create_model(
     loaded_model_kwargs (any relevant objects created along with the model)
 
     :param source_path: The path to the model
-    :param dataset_with_labels: Whether the allow the dataset to
+    :param dataset_with_labels: Whether to allow the dataset to
         have "labels" inputs or not. Text-generation datasets may
         contain labels (needed for training only)
     :param device: The device to use for the model and dataloader instantiation
     :param task: The task to use for the model and dataloader instantiation
     :param recipe: The recipe to use for the model and dataloader instantiation.
         If None, attempt to use the default recipe
+    :param export: Whether the created model is for export or not.
 
     :return: A tuple of the
         - torch model
@@ -91,6 +94,10 @@ def create_model(
     config = initialize_config(source_path, trust_remote_code, **config_args)
     sequence_length = sequence_length or resolve_sequence_length(config)
     tokenizer = initialize_tokenizer(source_path, sequence_length, task)
+    if export:
+        if task in TaskNames.text_generation.value:
+            config = remove_past_key_value_support_from_config(config)
+
     model = initialize_sparse_model(
         model_path=source_path,
         task=task,
