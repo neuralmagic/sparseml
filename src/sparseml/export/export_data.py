@@ -91,6 +91,9 @@ def export_data_samples(
         [InputsNames, OutputsNames, LabelNames],
     ):
         if len(samples) > 0:
+            _check_if_samples_already_exist(
+                os.path.join(target_path, names.basename.value)
+            )
             _LOGGER.info(f"Exporting {names.basename.value} to {target_path}...")
             break_batch = isinstance(samples[0], dict)
             export_data_sample(samples, names, target_path, as_tar, break_batch)
@@ -233,3 +236,10 @@ def run_inference_with_tuple_or_list_data(
         # if the input is a batch, remove the batch dimension
         inputs = torch.squeeze(inputs, 0)
     return inputs, labels, outputs
+
+
+def _check_if_samples_already_exist(sample_path: Union[str, Path]) -> bool:
+    samples_exist = os.path.isdir(sample_path)
+    if samples_exist:
+        _LOGGER.warning(f"Samples already exist in {sample_path}. Overwriting...")
+    return samples_exist
