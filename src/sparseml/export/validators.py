@@ -20,7 +20,6 @@ from pathlib import Path
 from typing import Callable, List, Optional, Union
 
 import numpy
-import onnxruntime as ort
 
 from sparseml.export.export_data import InputsNames, LabelNames, OutputsNames
 from sparseml.export.helpers import ONNX_MODEL_NAME
@@ -134,6 +133,7 @@ def validate_correctness(
     :param validation_function: The function that will be used to validate the outputs.
     :return: True if the validation passes, False otherwise.
     """
+    import onnxruntime as ort
 
     sample_inputs_path = os.path.join(target_path, InputsNames.basename.value)
     sample_outputs_path = os.path.join(target_path, OutputsNames.basename.value)
