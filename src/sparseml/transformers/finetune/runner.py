@@ -147,7 +147,7 @@ class StageRunner:
             accelerator=self.trainer.accelerator,
         )
 
-        # if we don't run a forward pass after initializing the FSDP model for the 
+        # if we don't run a forward pass after initializing the FSDP model for the
         # first time, calls to summon_full_params will fail ¯\_(ツ)_/¯
         dummy_inp = next(iter(calib_data))
         with torch.no_grad():
