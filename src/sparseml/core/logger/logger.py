@@ -1081,7 +1081,7 @@ class LoggerManager(ABC):
         Context manager to log the time it takes to run the block of code
 
         Usage:
-        >>> with LoggerManager().system.time("my_block"):
+        >>> with LoggerManager().time("my_block"):
         >>>    time.sleep(1)
 
         :param tag: identifying tag to log the values with
