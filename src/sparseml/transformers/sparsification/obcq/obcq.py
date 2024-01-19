@@ -24,8 +24,6 @@ from transformers import AutoConfig, AutoTokenizer
 import sparseml.core.session as session_manager
 from sparseml.core.framework import Framework
 from sparseml.pytorch.model_load.helpers import (
-    RECIPE_FILE_NAME,
-    apply_recipe_structure_to_model,
     fallback_to_cpu,
     parse_dtype,
     save_model_and_recipe,
@@ -33,7 +31,7 @@ from sparseml.pytorch.model_load.helpers import (
 from sparseml.transformers.finetune.data import TextGenerationDataset
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
 from sparseml.transformers.finetune.data.data_helpers import format_calibration_data
-from sparseml.transformers.utils.sparse_model import SparseCausalLM
+from sparseml.transformers.utils.initializers import initialize_sparse_model
 
 
 __all__ = ["one_shot"]
@@ -89,25 +87,15 @@ def one_shot(
 
     # Load the configuration from the model path
     config = AutoConfig.from_pretrained(model_path)
-    model_type = config.model_type.lower()
 
-    model_loader_fn = None
-    if "opt" in model_type:
-        model_loader_fn = SparseCausalLM.opt_model_from_pretrained
-    elif "llama" in model_type or "mistral" in model_type:
-        model_loader_fn = SparseCausalLM.auto_model_from_pretrained
-    else:
-        _LOGGER.warning(
-            f"A supported model type({SUPPORTED_MODELS}) could not be "
-            f"parsed from model_path={model_path}. Defaulting to "
-            "AutoModelForCausalLM loading. "
-        )
-        model_loader_fn = SparseCausalLM.auto_model_from_pretrained
     torch_dtype = parse_dtype(precision)
-    model = model_loader_fn(
-        model_path,
+    session_manager.create_session()
+    model = initialize_sparse_model(
+        model_path=model_path,
+        task="text-generation",
         sequence_length=sequence_length,
         torch_dtype=torch_dtype,
+        config=config,
         device_map=device,
     )
 
@@ -138,16 +126,8 @@ def one_shot(
         tokenized_dataset=tokenized_dataset, num_calibration_samples=num_samples
     )
 
-    # create session and initialize any structure from input model recipe
-    session_manager.create_session()
-    session = session_manager.active_session()
-    input_recipe_path = os.path.join(model_path, RECIPE_FILE_NAME)
-    if os.path.exists(input_recipe_path):
-        apply_recipe_structure_to_model(
-            model=model, recipe_path=input_recipe_path, model_path=model_path
-        )
-
     # launch one shot
+    session = session_manager.active_session()
     session.apply(
         framework=Framework.pytorch,
         recipe=recipe_file,
