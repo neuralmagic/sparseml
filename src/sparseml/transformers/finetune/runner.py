@@ -148,7 +148,7 @@ class StageRunner:
 
         if is_fsdp_model(self.trainer.model):
             try:
-                self.trainer.save_model(output_dir=self._output_dir)
+                self.trainer.save_model(output_dir=self._output_dir, _is_oneshot=True)
             except AssertionError:
                 # fallback to this in the case of quantization
                 unwrap_and_export_model(

@@ -412,7 +412,8 @@ class SessionManagerMixIn:
     def save_model(
         self,
         output_dir: Optional[str] = None,
-        _internal_call=True,
+        _internal_call=False,
+        _is_oneshot=False
     ):
         """
         Override of the save_model function and expects it to exist in the parent.
@@ -430,13 +431,15 @@ class SessionManagerMixIn:
         if output_dir is None:
             output_dir = self.args.output_dir
 
-        if is_fsdp_model(self.model):
+        # don't export the gathered model on checkpoints
+        if is_fsdp_model(self.model) and not _internal_call:
             save_pretrained_fsdp(
                 model=self.model, accelerator=self.accelerator, output_dir=output_dir
             )
 
         self.save_state()
-        self.save_optimizer_and_scheduler(output_dir)
+        if not _is_oneshot: # optimizer/scheduler not relevant to one-shot
+            self.save_optimizer_and_scheduler(output_dir)
 
         if not self.recipe:
             return
@@ -450,6 +453,7 @@ class SessionManagerMixIn:
             fp.write(recipe_yaml_str)
 
         _LOGGER.info(f"Saved SparseML recipe with model state to {recipe_path}")
+        self.accelerator.wait_for_everyone()
 
     def log_model_sparsification(self):
         """
