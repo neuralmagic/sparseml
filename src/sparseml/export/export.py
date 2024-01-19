@@ -262,16 +262,6 @@ def export(
         onnx_model_name=onnx_model_name,
     )
 
-    if validate_structure:
-        _LOGGER.info("Validating model structure...")
-        validate_structure_(
-            target_path=target_path,
-            deployment_directory_name=deployment_directory_name,
-            onnx_model_name=onnx_model_name,
-            deployment_directory_files_mandatory=helper_functions.deployment_directory_files_mandatory,  # noqa: E501
-            deployment_directory_files_optional=helper_functions.deployment_directory_files_optional,  # noqa: E501
-        )
-
     if validate_correctness:
         _LOGGER.info("Validating model correctness...")
         if not num_export_samples:
@@ -291,6 +281,16 @@ def export(
             exported_file_path=os.path.join(deployment_path, onnx_model_name),
             optimizations=graph_optimizations,
             single_graph_file=single_graph_file,
+        )
+
+    if validate_structure:
+        _LOGGER.info("Validating model structure...")
+        validate_structure_(
+            target_path=target_path,
+            deployment_directory_name=deployment_directory_name,
+            onnx_model_name=onnx_model_name,
+            deployment_directory_files_mandatory=helper_functions.deployment_directory_files_mandatory,  # noqa: E501
+            deployment_directory_files_optional=helper_functions.deployment_directory_files_optional,  # noqa: E501
         )
 
     _LOGGER.info(
