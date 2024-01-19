@@ -279,11 +279,9 @@ class StageRunner:
                     if not qat_active(self.trainer.model):
                         self.trainer.log_model_sparsification()
 
-            # synchronize
+            # synchronize and clean up memory
             self.trainer.accelerator.wait_for_everyone()
             self.trainer.model = get_session_model()
-            self.trainer.accelerator.wait_for_everyone()
             torch.cuda.empty_cache()
-            self.trainer.accelerator.wait_for_everyone()
             self.trainer.accelerator.free_memory()
             self.trainer.accelerator.wait_for_everyone()

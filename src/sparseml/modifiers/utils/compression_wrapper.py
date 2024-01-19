@@ -66,7 +66,7 @@ class ModuleCompressionWrapper(Module, ABC):
         else:
             self.rows = W.shape[0]
             self.columns = W.shape[1]
-            
+
         # This need to be a buffer so its preserved between forward passes
         self.register_buffer(
             "nsamples", torch.zeros(1, dtype=torch.int32, device=self.dev)
