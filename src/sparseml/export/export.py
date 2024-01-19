@@ -362,7 +362,8 @@ def export(
     "--graph_optimizations",
     type=str,
     default="all",
-    help="csv list of graph optimizations to apply. Default all, can set to none",
+    help="csv list of graph optimizations to apply. "
+    "Available options: 'all', 'none' or referring to optimization by name. ",
 )
 @click.option(
     "--validate_correctness",

@@ -29,7 +29,8 @@ from sparseml.integration_helper_functions import (
 from sparseml.transformers.sparsification.trainer import Trainer
 from sparseml.transformers.utils.helpers import (
     MANDATORY_DEPLOYMENT_FILES,
-    NLG_TOKENIZER_FILES,
+    NLG_MANDATORY_DEPLOYMENT_FILES,
+    NLG_OPTIONAL_DEPLOYMENT_FILES,
     OPTIONAL_DEPLOYMENT_FILES,
     TaskNames,
     resolve_sequence_length,
@@ -61,7 +62,7 @@ def create_model(
     loaded_model_kwargs (any relevant objects created along with the model)
 
     :param source_path: The path to the model
-    :param dataset_with_labels: Whether the allow the dataset to
+    :param dataset_with_labels: Whether to allow the dataset to
         have "labels" inputs or not. Text-generation datasets may
         contain labels (needed for training only)
     :param device: The device to use for the model and dataloader instantiation
@@ -197,7 +198,10 @@ class Transformers(IntegrationHelperFunctions):
             # to reflect the idiosyncrasies for text generation
             self.apply_optimizations = apply_optimizations_generative_transformer
             self.deployment_directory_files_mandatory = list(
-                MANDATORY_DEPLOYMENT_FILES.union(NLG_TOKENIZER_FILES)
+                MANDATORY_DEPLOYMENT_FILES.union(NLG_MANDATORY_DEPLOYMENT_FILES)
+            )
+            self.deployment_directory_files_optional = list(
+                OPTIONAL_DEPLOYMENT_FILES.union(NLG_OPTIONAL_DEPLOYMENT_FILES)
             )
         else:
             _LOGGER.info(

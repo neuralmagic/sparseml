@@ -14,12 +14,14 @@
 
 import logging
 import os
+import shutil
 from pathlib import Path
 from typing import Union
 
 import onnx
 
 from sparseml.exporters.kv_cache_injector import KeyValueCacheInjector
+from sparseml.transformers.utils.helpers import ONNX_MODEL_NAME_INTERMEDIATE
 
 
 __all__ = ["apply_kv_cache_injection"]
@@ -34,6 +36,16 @@ def apply_kv_cache_injection(onnx_model_path: Union[str, Path]) -> bool:
     :param onnx_model_path: path to the ONNX model to inject
     :return: True if successful, False otherwise
     """
+    # create a copy of the model before the injection
+    pre_injection_onnx_model_path = (
+        Path(onnx_model_path).parent / ONNX_MODEL_NAME_INTERMEDIATE
+    )
+    shutil.copyfile(src=onnx_model_path, dst=pre_injection_onnx_model_path)
+    _LOGGER.info(
+        "Created a copy of the ONNX model before KV "
+        f"cache injection at {pre_injection_onnx_model_path}"
+    )
+
     onnx_model = onnx.load(onnx_model_path, load_external_data=False)
     model_path = os.path.dirname(onnx_model_path)
     exporter = KeyValueCacheInjector(model_path=model_path)
