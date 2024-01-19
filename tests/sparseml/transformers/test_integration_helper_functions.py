@@ -64,4 +64,5 @@ def test_integration_helper_function_text_generation():
     assert set(transformers.deployment_directory_files_optional) == {
         "tokenizer.json",
         "tokenizer.model",
+        "model-orig.onnx",
     }
