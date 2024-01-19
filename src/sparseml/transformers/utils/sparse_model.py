@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import inspect
 import logging
 import os
 from pathlib import Path
@@ -25,7 +26,6 @@ from transformers import (
     AutoModelForQuestionAnswering,
     AutoModelForSequenceClassification,
     AutoModelForTokenClassification,
-    OPTForCausalLM,
 )
 from transformers.file_utils import WEIGHTS_NAME
 
