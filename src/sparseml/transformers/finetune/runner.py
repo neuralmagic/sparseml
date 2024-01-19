@@ -152,6 +152,7 @@ class StageRunner:
         dummy_inp = next(iter(calib_data))
         with torch.no_grad():
             self.trainer.model(**dummy_inp)
+        torch.cuda.empty_cache()
 
         self.trainer.one_shot(calib_data, stage=stage)
 

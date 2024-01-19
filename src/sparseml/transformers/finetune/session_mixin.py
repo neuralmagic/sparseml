@@ -165,6 +165,8 @@ class SessionManagerMixIn:
                 "pass a yaml file or string to the `recipe` argument."
             )
 
+        torch.cuda.empty_cache()
+
     def initialize_structure(self, stage: Optional[str] = None):
         """
         Initialize any recipe structural changes such as quantization on the model,
@@ -184,6 +186,7 @@ class SessionManagerMixIn:
             framework=Framework.pytorch,
         )
         _LOGGER.info(f"Initialized SparseML structure from recipe {self.recipe}")
+        torch.cuda.empty_cache()
 
     def finalize_session(self):
         """
@@ -197,6 +200,7 @@ class SessionManagerMixIn:
             # in order to update each layer we need to gathers all its parameters
             session_manager.finalize()
         _LOGGER.info("Finalized SparseML session")
+        torch.cuda.empty_cache()
 
     def create_optimizer(self):
         """
