@@ -480,9 +480,7 @@ class SessionManagerMixIn:
 
     def _prepare_model_for_fsdp(self):
         """
-        This is quite hacky, but the FSDP setup code is buried in the Trainers
-        _inner_training_loop call. Doing this quick run sets up FSDP for the case
-        where we want to run one-shot in FSDP mode
+        Sets up FSDP ahead of time so we can run one-shot in FSDP mode
         """
         self.model.to("cpu")
         self.model = self.accelerator.prepare(self.model)

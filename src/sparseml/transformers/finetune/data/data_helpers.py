@@ -25,7 +25,7 @@ __all__ = ["format_calibration_data", "get_raw_dataset", "make_dataset_splits"]
 
 def format_calibration_data(
     tokenized_dataset: Dataset,
-    num_calibration_samples: int,
+    num_calibration_samples: Optional[int] = None,
     collate_fn: Callable = default_data_collator,
     accelerator: Optional[Any] = None,
 ) -> List[torch.Tensor]:
