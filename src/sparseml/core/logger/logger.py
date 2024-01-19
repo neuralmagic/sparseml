@@ -21,6 +21,7 @@ import os
 import time
 import warnings
 from abc import ABC
+from contextlib import contextmanager
 from datetime import datetime
 from logging import CRITICAL, DEBUG, ERROR, INFO, WARN, Logger
 from pathlib import Path
@@ -1073,6 +1074,25 @@ class LoggerManager(ABC):
         for log in self._loggers:
             if log.enabled:
                 log.save(file_path, **kwargs)
+
+    @contextmanager
+    def time(self, tag: Optional[str] = None, *args, **kwargs):
+        """
+        Context manager to log the time it takes to run the block of code
+
+        Usage:
+        >>> with LoggerManager().time("my_block"):
+        >>>    time.sleep(1)
+
+        :param tag: identifying tag to log the values with
+        """
+
+        start = time.time()
+        yield
+        elapsed = time.time() - start
+        if not tag:
+            tag = f"{DEFAULT_TAG}_time_secs"
+        self.log_scalar(tag=tag, value=float(f"{elapsed:.3f}"), *args, **kwargs)
 
 
 class LoggingWrapperBase:
