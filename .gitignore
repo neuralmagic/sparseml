@@ -798,3 +798,4 @@ integrations/pytorch/pytorch_vision*
 
 # local log files
 nm_temp_test_logs/*
+sparse_logs/*

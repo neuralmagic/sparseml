@@ -123,6 +123,7 @@ class StageModifiers(ModifierInterface, BaseModel):
             modifier.pre_initialize_structure(state, **kwargs)
 
         self.applied = True
+        state.loggers.system.info(tag="stage", string="Model structure initialized")
 
     def initialize(self, state: "State", **kwargs):
         """
@@ -138,6 +139,7 @@ class StageModifiers(ModifierInterface, BaseModel):
 
         for modifier in self.modifiers:
             modifier.initialize(state, **kwargs)
+        state.loggers.system.info(tag="stage", string="Modifiers initialized")
 
     def finalize(self, state: "State", **kwargs):
         """
@@ -155,6 +157,7 @@ class StageModifiers(ModifierInterface, BaseModel):
             modifier.finalize(state, **kwargs)
 
         self.applied = True
+        state.loggers.system.info(tag="stage", string="Modifiers finalized")
 
     def update_event(self, state: "State", event: "Event", **kwargs):
         """
