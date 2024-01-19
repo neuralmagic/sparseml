@@ -66,6 +66,7 @@ def load_task_model(
 
     if task in TaskNames.text_generation.value:
         torch_dtype = kwargs.get("torch_dtype")
+        device_map = kwargs.get("device_map")
         sequence_length = kwargs.get("sequence_length")
         return SparseAutoModel.text_generation_from_pretrained(
             model_name_or_path=model_path,
@@ -73,6 +74,7 @@ def load_task_model(
             recipe=recipe,
             trust_remote_code=trust_remote_code,
             torch_dtype=torch_dtype,
+            device_map=device_map,
         )
 
     raise ValueError(f"unrecognized task given of {task}")
