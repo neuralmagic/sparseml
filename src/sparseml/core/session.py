@@ -222,9 +222,6 @@ class SparseSession:
         :param kwargs: additional kwargs to pass to the lifecycle's finalize method
         :return: the modified state of the session after finalizing
         """
-        # log losses on finalization
-        self._log_loss(event_type=EventType.LOSS_CALCULATED, loss=self.state.loss)
-
         mod_data = self._lifecycle.finalize(**kwargs)
 
         return ModifiedState(
