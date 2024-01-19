@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import inspect
 import logging
 import os
 from pathlib import Path
@@ -26,7 +25,6 @@ from transformers import (
     AutoModelForQuestionAnswering,
     AutoModelForSequenceClassification,
     AutoModelForTokenClassification,
-    OPTForCausalLM,
 )
 from transformers.file_utils import WEIGHTS_NAME
 
@@ -34,7 +32,7 @@ from sparseml.pytorch.model_load.helpers import log_model_load
 from sparseml.transformers.utils.helpers import apply_structure_to_transformers
 
 
-__all__ = ["SparseAutoModel", "get_shared_tokenizer_src"]
+__all__ = ["SparseAutoModel"]
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -262,6 +260,15 @@ class SparseAutoModel:
         :return: the created model for text generation
         """
 
+        def skip(*args, **kwargs):
+            pass
+
+        # Skip the initializer step. This accelerates the loading
+        # of the models, especially for the quantized models
+        torch.nn.init.kaiming_uniform_ = skip
+        torch.nn.init.uniform_ = skip
+        torch.nn.init.normal_ = skip
+
         model = AutoModelForCausalLM.from_pretrained(
             model_name_or_path,
             torch_dtype=torch_dtype,
@@ -384,98 +391,3 @@ class SparseAutoModel:
                 "Detected a TensorFlow model from model_name_or_path: "
                 f"{model_name_or_path}"
             )
-
-
-class SparseCausalLM:
-    """
-    Factory class for loading LLMs from the transformers library. Currently OPT and
-    Llama are supported
-    """
-
-    @staticmethod
-    def opt_model_from_pretrained(
-        model_path: str,
-        sequence_length: Optional[int] = None,
-        torch_dtype: Union[str, torch.dtype] = "auto",
-        device_map: str = "auto",
-    ) -> torch.nn.Module:
-        """
-        Load a pretrained OPT model from the specified hugging face path
-        :param model_path: hugging face or local path to model
-        :param sequence_length: maximum allowable tokens in input sequence
-        :param torch_dtype: precision to load model weights in as
-        :param device: device to load model to, or auto by default
-        :return: loaded pretrained model
-        """
-
-        def skip(*args, **kwargs):
-            pass
-
-        torch.nn.init.kaiming_uniform_ = skip
-        torch.nn.init.uniform_ = skip
-        torch.nn.init.normal_ = skip
-
-        model = OPTForCausalLM.from_pretrained(
-            model_path, torch_dtype=torch_dtype, device_map=device_map
-        )
-        model.eval()
-        model.seqlen = (
-            sequence_length if sequence_length else model.config.max_position_embeddings
-        )
-        return model
-
-    @staticmethod
-    def auto_model_from_pretrained(
-        model_path: str,
-        sequence_length: Optional[int] = None,
-        torch_dtype: Union[str, torch.dtype] = "auto",
-        device_map: str = "auto",
-    ) -> torch.nn.Module:
-        """
-        Load a pretrained model using auto from the specified hugging face path
-        :param model_path: hugging face path to model
-        :param sequence_length: maximum allowable tokens in input sequence
-        :param torch_dtype: precision to load model weights in as
-        :param device: device to load model to, or auto by default
-        :return: loaded pretrained model
-        """
-        model = AutoModelForCausalLM.from_pretrained(
-            model_path, torch_dtype=torch_dtype, device_map=device_map
-        )
-        model.eval()
-        max_seq_len = None
-        if hasattr(model.config, "max_position_embeddings"):
-            max_seq_len = model.config.max_position_embeddings
-        elif hasattr(model.config, "max_seq_len"):
-            max_seq_len = model.config.max_seq_len
-        model.seqlen = sequence_length if sequence_length else max_seq_len
-        return model
-
-
-def get_shared_tokenizer_src(student: Module, teacher: Optional[Module]) -> str:
-    """
-    Get a tokenizer source used for both student and teacher, assuming
-    that they could be shared
-
-    :param student: the student model
-    :param teacher: the teacher model
-    :return: the source for the tokenizer shared between teacher and model
-    """
-
-    if teacher is not None and teacher not in ("disable", "self"):
-        student_forward_params = list(
-            inspect.signature(student.forward).parameters.keys()
-        )
-        teacher_forward_params = list(
-            inspect.signature(teacher.forward).parameters.keys()
-        )
-        diff = [p for p in student_forward_params if p not in teacher_forward_params]
-        if diff:
-            raise RuntimeError(
-                "Teacher tokenizer cannot be used for student "
-                f"due to missing args: {diff}"
-            )
-        src_model = teacher
-    else:
-        src_model = student
-    return src_model.config._name_or_path
