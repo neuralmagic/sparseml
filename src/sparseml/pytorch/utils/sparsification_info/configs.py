@@ -14,7 +14,7 @@
 
 from abc import ABC, abstractmethod
 from collections import Counter, defaultdict
-from typing import Dict, Generator, Tuple, Union
+from typing import Any, Dict, Generator, Tuple, Union
 
 import torch.nn
 from pydantic import BaseModel, Field
@@ -54,6 +54,7 @@ class SparsificationInfo(BaseModel, ABC):
     @abstractmethod
     def loggable_items(
         self,
+        **kwargs,
     ) -> Generator[Tuple[str, Union[Dict[str, int], float, int]], None, None]:
         """
         Yield the loggable items for SparsificationInfo object.
@@ -61,6 +62,67 @@ class SparsificationInfo(BaseModel, ABC):
         :return: A generator that yields the loggable items for this object.
         """
         raise NotImplementedError()
+
+    @staticmethod
+    def filter_loggable_items_percentages_only(
+        items_to_log: Generator[Tuple[str, Any], None, None],
+        percentage_only: bool = False,
+    ):
+        """
+        Filter the loggable items to only yield the percentages of the loggable items
+
+        :param items_to_log: A generator that yields the loggable items for this object.
+        :param percentage_only: If True, only yield the percentages of the loggable
+            items. If False, yield both the counts and percentages. Defaults to False
+        :return: A generator that yields the loggable items for this object.
+        """
+
+        def filter_percentage(log):
+            # log tag ends with percent
+            return log[0].endswith("percent")
+
+        yield from SparsificationInfo._filter_items_to_log(
+            items_to_log,
+            filter_function=filter_percentage,
+            to_filter=percentage_only,
+        )
+
+    @staticmethod
+    def filter_loggable_items_non_zero_only(items_to_log, non_zero_only):
+        """
+        Filter the loggable items to only yield the non-zero items
+
+        :param items_to_log: A generator that yields the loggable items for this object.
+        :param non_zero_only: If True, only yield information for non-zero items.
+        :return: A generator that yields the loggable items for this object.
+        """
+
+        def filter_non_zero_values(log):
+            # log value must be non-zero
+            return log[1] != 0
+
+        yield from SparsificationInfo._filter_items_to_log(
+            items_to_log,
+            filter_function=filter_non_zero_values,
+            to_filter=non_zero_only,
+        )
+
+    @staticmethod
+    def _filter_items_to_log(items_to_log, filter_function, to_filter: bool = True):
+        """
+        Utility function to filter the loggable itemsn based on a filter function
+
+        :param items_to_log: A generator that yields the loggable items for this object.
+        :param filter_function: A function that takes in a loggable item and returns
+            True if the item should be yieled, False otherwise.
+        :param to_filter: If True, filter the loggable items. If False, do not filter.
+        :return: A generator that yields the loggable items for this object.
+        """
+        for loggable_item in items_to_log:
+            if not to_filter:
+                yield loggable_item
+            elif filter_function(loggable_item):
+                yield loggable_item
 
 
 class CountAndPercent(BaseModel):
@@ -141,19 +203,37 @@ class SparsificationSummaries(SparsificationInfo):
 
     def loggable_items(
         self,
+        non_zero_only: bool = False,
+        percentages_only: bool = True,
+        **kwargs,
     ) -> Generator[Tuple[str, Union[Dict[str, int], float, int]], None, None]:
         """
         Yield the loggable items for SparsificationSummaries object.
 
+        :param non_zero_only: If True, only yield information for non-zero items.
+        :param percentages_only: If True, only yield the percentages of the loggable
+            items. If False, yield both the counts and percentages. Defaults to True
         :return: A generator that yields the loggable items for this object.
         """
         main_tag = self.__class__.__name__
         yield f"{main_tag}/OperationCounts", self.operation_counts
         yield f"{main_tag}/ParameterCounts", self.parameter_counts
-        yield f"{main_tag}/QuantizedOperations/count", self.quantized.count
-        yield f"{main_tag}/QuantizedOperations/percent", self.quantized.percent
-        yield f"{main_tag}/PrunedParameters/count", self.pruned.count
-        yield f"{main_tag}/PrunedParameters/percent", self.pruned.percent
+
+        items_to_log = (
+            (f"{main_tag}/QuantizedOperations/count", self.quantized.count),
+            (f"{main_tag}/QuantizedOperations/percent", self.quantized.percent),
+            (f"{main_tag}/PrunedParameters/count", self.pruned.count),
+            (f"{main_tag}/PrunedParameters/percent", self.pruned.percent),
+        )
+
+        items_to_log = SparsificationInfo.filter_loggable_items_percentages_only(
+            items_to_log, percentages_only
+        )
+        items_to_log = SparsificationInfo.filter_loggable_items_non_zero_only(
+            items_to_log, non_zero_only
+        )
+
+        yield from items_to_log
 
 
 class SparsificationPruning(SparsificationInfo):
@@ -191,16 +271,43 @@ class SparsificationPruning(SparsificationInfo):
 
     def loggable_items(
         self,
+        percentages_only: bool = False,
+        non_zero_only: bool = False,
+        **kwargs,
     ) -> Generator[Tuple[str, Union[Dict[str, int], float, int]], None, None]:
         """
         Yield the loggable items for SparsificationPruning object.
 
+        :param percentages_only: If True, only yield the percentages of the loggable
+            items. If False, yield both the counts and percentages. Default is False.
+        :param non_zero_only: If True, only yield information for non-zero
+            counts/percentages. Default is False.
         :return: A generator that yields the loggable items for this object.
         """
         main_tag = self.__class__.__name__
+        items_to_log = []
         for param_name, count_and_percent in self.sparse_parameters.items():
-            yield f"{main_tag}/SparseParameters/{param_name}/count", count_and_percent.count  # noqa: E501
-            yield f"{main_tag}/SparseParameters/{param_name}/percent", count_and_percent.percent  # noqa: E501
+            items_to_log.append(
+                (
+                    f"{main_tag}/SparseParameters/{param_name}/count",
+                    count_and_percent.count,
+                )
+            )  # noqa: E501
+            items_to_log.append(
+                (
+                    f"{main_tag}/SparseParameters/{param_name}/percent",
+                    count_and_percent.percent,
+                )
+            )  # noqa: E501
+
+        items_to_log = SparsificationInfo.filter_loggable_items_percentages_only(
+            items_to_log, percentages_only
+        )
+        items_to_log = SparsificationInfo.filter_loggable_items_non_zero_only(
+            items_to_log, non_zero_only
+        )
+
+        yield from items_to_log
 
 
 class SparsificationQuantization(SparsificationInfo):
@@ -250,14 +357,22 @@ class SparsificationQuantization(SparsificationInfo):
 
     def loggable_items(
         self,
+        enabled_only: bool = False,
+        **kwargs,
     ) -> Generator[Tuple[str, Union[Dict[str, int], float, int]], None, None]:
         """
         Yield the loggable items for SparsificationQuantization object.
 
+        :param enabled_only: If True, only yield loggable items for
+            operations where quantization is enabled. If False, yield irrespective
+            of whether quantization is enabled or not. Defaults to False.
         :return: A generator that yields the loggable items for this object.
         """
         main_tag = self.__class__.__name__
         for operation in self.enabled.keys():
+            if enabled_only and not self.enabled[operation]:
+                continue
+
             yield f"{main_tag}/{operation}/enabled", self.enabled[operation]
 
             precision = self.precision[operation]
