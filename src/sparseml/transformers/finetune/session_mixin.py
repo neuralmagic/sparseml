@@ -482,7 +482,6 @@ class SessionManagerMixIn:
         """
         self.model.to("cpu")
         self.model = self.accelerator.prepare(self.model)
-        self.model_wrapped = self.model
         self.accelerator.wait_for_everyone()
 
     def _extract_metadata(
