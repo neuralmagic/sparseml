@@ -32,10 +32,7 @@ _PACKAGE_NAME = "sparseml" if is_release else "sparseml-nightly"
 
 _deps = [
     "setuptools<=59.5.0",
-    "jupyter>=1.0.0",
-    "ipywidgets>=7.0.0",
     "pyyaml>=5.0.0",
-    "progressbar2>=3.0.0",
     "numpy>=1.0.0",
     "matplotlib>=3.0.0",
     "merge-args>=0.1.0",
@@ -45,14 +42,12 @@ _deps = [
     "psutil>=5.0.0",
     "pydantic>=1.8.2,<2.0.0",
     "requests>=2.0.0",
-    "scikit-image>=0.15.0",
     "scikit-learn>=0.24.2",
     "scipy<1.9.2,>=1.8; python_version <= '3.9'",
     "scipy>=1.0.0; python_version > '3.9'",
     "tqdm>=4.0.0",
     "toposort>=1.0",
     "GPUtil>=1.4.0",
-    "protobuf>=3.12.2,<=3.20.3",
     "click>=7.1.2,!=8.0.0",  # latest version < 8.0 + blocked version with reported bug
 ]
 _nm_deps = [f"{'sparsezoo' if is_release else 'sparsezoo-nightly'}~={version_nm_deps}"]
@@ -88,6 +83,10 @@ _transformers_deps = _pytorch_deps + [
 ]
 _yolov5_deps = _pytorch_vision_deps + [
     f"{'nm-yolov5' if is_release else 'nm-yolov5-nightly'}~={version_nm_deps}"
+]
+_notebook_deps = [
+    "jupyter>=1.0.0",
+    "ipywidgets>=7.0.0",
 ]
 _tensorflow_v1_deps = ["tensorflow<2.0.0", "tensorboard<2.0.0", "tf2onnx>=1.0.0,<1.6"]
 _tensorflow_v1_gpu_deps = [
@@ -160,6 +159,7 @@ def _setup_extras() -> Dict:
         "torch_all": _pytorch_all_deps,
         "torchvision": _pytorch_vision_deps,
         "transformers": _transformers_deps,
+        "notebook": _notebook_deps,
         "tf_v1": _tensorflow_v1_deps,
         "tf_v1_gpu": _tensorflow_v1_gpu_deps,
         "tf_keras": _keras_deps,
