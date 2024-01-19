@@ -1092,7 +1092,7 @@ class LoggerManager(ABC):
         elapsed = time.time() - start
         if not tag:
             tag = f"{DEFAULT_TAG}_time_secs"
-        self.log_scalar(tag=tag, string=float(f"{elapsed:.3f}"), *args, **kwargs)
+        self.log_scalar(tag=tag, value=float(f"{elapsed:.3f}"), *args, **kwargs)
 
 
 class LoggingWrapperBase:
