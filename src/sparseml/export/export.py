@@ -72,8 +72,8 @@ from sparseml.export.helpers import (
     ONNX_MODEL_NAME,
     create_deployment_folder,
     create_export_kwargs,
-    save_model_with_external_data,
     format_source_path,
+    save_model_with_external_data,
 )
 from sparseml.export.validators import validate_correctness as validate_correctness_
 from sparseml.export.validators import validate_structure as validate_structure_
