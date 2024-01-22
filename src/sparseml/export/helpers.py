@@ -28,6 +28,7 @@ __all__ = [
     "AVAILABLE_DEPLOYMENT_TARGETS",
     "ONNX_MODEL_NAME",
     "create_export_kwargs",
+    "format_source_path",
 ]
 
 AVAILABLE_DEPLOYMENT_TARGETS = [target.value for target in ExportTargets]
@@ -35,6 +36,20 @@ ONNX_MODEL_NAME = "model.onnx"
 ONNX_DATA_NAME = "model.data"
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def format_source_path(source_path: Union[Path, str]) -> str:
+    """
+    Format the source path to be an absolute posix path
+    """
+    if isinstance(source_path, str):
+        source_path = Path(source_path)
+    source_path = source_path.absolute()
+    if not source_path.is_dir():
+        raise ValueError(
+            f"Argument: source_path must be a directory. " f"Got {source_path} instead."
+        )
+    return source_path.as_posix()
 
 
 def create_export_kwargs(
