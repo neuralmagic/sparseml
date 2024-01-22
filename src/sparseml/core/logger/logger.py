@@ -527,6 +527,13 @@ class TensorBoardLogger(LambdaLogger):
             enabled=enabled,
         )
 
+    @staticmethod
+    def available() -> bool:
+        """
+        :return: True if tensorboard is available and installed, False, otherwise
+        """
+        return not tensorboard_import_error
+
     @property
     def writer(self) -> SummaryWriter:
         """
@@ -717,7 +724,7 @@ class SparsificationGroupLogger(BaseLogger):
                 )
             )
 
-        if tensorboard:
+        if tensorboard and TensorBoardLogger.available():
             self._loggers.append(
                 TensorBoardLogger(
                     log_path=tensorboard if isinstance(tensorboard, str) else None,
