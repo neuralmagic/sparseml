@@ -66,6 +66,7 @@ def load_task_model(
 
     if task in TaskNames.text_generation.value:
         torch_dtype = kwargs.get("torch_dtype")
+        device_map = kwargs.get("device_map")
         sequence_length = kwargs.get("sequence_length")
         if sequence_length is None:
             sequence_length = resolve_sequence_length(config)
@@ -78,6 +79,7 @@ def load_task_model(
             recipe=recipe,
             trust_remote_code=trust_remote_code,
             torch_dtype=torch_dtype,
+            device_map=device_map,
         )
 
     raise ValueError(f"unrecognized task given of {task}")
