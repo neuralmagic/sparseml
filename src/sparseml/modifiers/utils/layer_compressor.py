@@ -91,7 +91,11 @@ class LayerCompressor:
             full_name = self._get_full_submodule_name(name)
             with summon_full_params_context(self.layer):
                 wrapper = self.module_compressor_class(full_name, layer)
-            set_layer(full_name, wrapper, self.model)
+            if len(name) == 0:  # special case if layer has no children (i.e. lm_head)
+                with summon_full_params_context(self.model):
+                    set_layer(full_name, wrapper, self.model)
+            else:
+                set_layer(name, wrapper, self.layer)
             self.modules[name] = wrapper
 
         self.layer = operator.attrgetter(self.name)(self.model)
