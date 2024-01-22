@@ -209,7 +209,7 @@ class SparseSession:
         return ModifiedState(
             model=self.state.model.model if self.state.model else None,
             optimizer=self.state.optimizer.optimizer if self.state.optimizer else None,
-            loss=self.state.loss.loss if self.state.loss else None,
+            loss=self.state.loss,
             modifier_data=mod_data,
         )
 
@@ -222,9 +222,6 @@ class SparseSession:
         :param kwargs: additional kwargs to pass to the lifecycle's finalize method
         :return: the modified state of the session after finalizing
         """
-        # log losses on finalization
-        self._log_loss(event_type=EventType.LOSS_CALCULATED, loss=self.state.loss)
-
         mod_data = self._lifecycle.finalize(**kwargs)
 
         return ModifiedState(
