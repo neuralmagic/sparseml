@@ -1,0 +1,26 @@
+test_oneshot_stage:
+  obcq_modifiers:
+    SparseGPTModifier:
+      sparsity: 0.7
+      block_size: 128
+      sequential_update: False
+      quantize: False
+      percdamp: 0.01
+      prunen: 0
+      prunem: 0
+      targets: [
+        "model.layers.0"
+      ]
+      target_ids: ["attention_mask", "position_ids"]  
+test_train_stage:
+  pruning_modifiers:
+    ConstantPruningModifier:
+      targets: [
+        "re:.*self_attn.q_proj",
+        "re:.*self_attn.k_proj",
+        "re:.*self_attn.v_proj",
+        "re:.*self_attn.o_proj",
+        "re:.*mlp.gate_proj",
+        "re:.*mlp.up_proj"
+      ]
+      start: 0
