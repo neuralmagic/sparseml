@@ -72,7 +72,7 @@ def test_oneshot_then_finetune(tmp_path):
         oneshot_device=device,
     )
 
-    recipe_str = "tests/sparseml/transformers/obcq/test_tiny.yaml"
+    recipe_str = "tests/sparseml/transformers/finetune/test_finetune_recipe.yaml"
     model = tmp_path / "oneshot_out"
     dataset_name = "open_platypus"
     concatenate_data = False
