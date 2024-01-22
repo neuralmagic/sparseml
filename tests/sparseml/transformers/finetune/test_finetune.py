@@ -14,6 +14,7 @@
 
 import torch
 
+import sparseml.core.session as session_manager
 from sparseml.transformers.finetune.text_generation import (
     run_general,
     run_oneshot,
@@ -50,7 +51,7 @@ def test_oneshot_and_finetune(tmp_path):
 
 
 def test_oneshot_then_finetune(tmp_path):
-    recipe_str = "tests/sparseml/transformers/obcq/test_tiny.yaml"
+    recipe_str = "tests/sparseml/transformers/obcq/test_tiny2.yaml"
     model = "Xenova/llama2.c-stories15M"
     device = "cuda:0"
     if not torch.cuda.is_available():
@@ -71,6 +72,9 @@ def test_oneshot_then_finetune(tmp_path):
         splits=splits,
         oneshot_device=device,
     )
+
+    session = session_manager.active_session()
+    session.reset()
 
     recipe_str = "tests/sparseml/transformers/finetune/test_finetune_recipe.yaml"
     model = tmp_path / "oneshot_out"
