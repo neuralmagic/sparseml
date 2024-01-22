@@ -54,20 +54,16 @@ python sparseml/src/sparseml/transformers/sparsification/obcq/obcq.py TinyLlama/
 ## <a name="evaluate"> How to Evaluate the One-shot Model</a>
 Next, evaluate the model's performance using the [lm-evaluation-harness framework](https://github.com/neuralmagic/lm-evaluation-harness).
 
-Clone the repository:
+Clone the forked repository with SparseML support and install it:
 ```bash
 git clone https://github.com/neuralmagic/lm-evaluation-harness.git
-```
-Install the required dependencies:
-```bash
 cd lm-evaluation-harness
 pip install -e .
 ```
 Evaluate on the `hellaswag` task:
 ```bash
-git checkout sparse_new_modifier
 start=`date +%s`
-python main_sparse.py \
+python main.py \
  --model hf-causal-experimental \
  --model_args pretrained=obcq_deployment,trust_remote_code=True \
  --tasks hellaswag \
