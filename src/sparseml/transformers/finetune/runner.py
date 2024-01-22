@@ -24,7 +24,6 @@ from transformers import AutoTokenizer
 
 import sparseml.core.session as session_manager
 from sparseml.core.recipe import Recipe, StageRunType
-from sparseml.modifiers.utils.pytorch_helpers import PADDING_MASK_COLUMN_NAME
 from sparseml.pytorch.model_load.helpers import (
     get_completed_stages,
     get_session_model,
