@@ -109,7 +109,7 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
         )
         if not self.sequential_update:
             # in non-sequential mode we run one forward batch for all modules
-            run_calibration_forward(self.model, dataloader)
+            run_calibration_forward(self.model, dataloader, mask_padding=True)
 
         num_layers = len(self.compressible_layers_)
         for idx, layer_compressor in enumerate(self.layer_compressors_):
@@ -126,7 +126,7 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
                 # earlier layers to affect later layers
                 layer_compressor.pre_compress()
                 _LOGGER.info(f"Calibrating {layer_compressor.name}...")
-                run_calibration_forward(self.model, dataloader)
+                run_calibration_forward(self.model, dataloader, mask_padding=True)
             layer_compressor.compress()
             layer_compressor.post_compress()
 
