@@ -129,17 +129,16 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
                 run_calibration_forward(self.model, dataloader)
             layer_compressor.compress()
             layer_compressor.post_compress()
+            layer_compressor.revert_layer_wrappers()
+            torch.cuda.empty_cache()
 
     def on_finalize(self, state: State, **kwargs):
         """
-        Reverts wrapped root modules back to their original structure
+        Nothing to clean up for this module
 
         :param state: Unused, kept to conform to the parent method signature
         :param kwargs: Unused, kept to conform to the parent method signature
         """
-        for layer_compressor in self.layer_compressors_:
-            _LOGGER.info(f"Cleaning up {layer_compressor.name}")
-            layer_compressor.revert_layer_wrappers()
 
         return True
 
