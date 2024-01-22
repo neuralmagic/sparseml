@@ -17,12 +17,14 @@ import os
 import re
 from typing import List, Optional
 
+import torch
 from torch.nn import Module
 from torch.utils.data import Dataset
 from transformers import AutoTokenizer
 
 import sparseml.core.session as session_manager
 from sparseml.core.recipe import Recipe, StageRunType
+from sparseml.modifiers.utils.pytorch_helpers import PADDING_MASK_COLUMN_NAME
 from sparseml.pytorch.model_load.helpers import (
     get_completed_stages,
     get_session_model,
@@ -110,8 +112,14 @@ class StageRunner:
                 split=split_str,
                 tokenizer=tokenizer,
             )
+
+            store_padding_mask = False
+            if self._training_args.do_oneshot and split_name == "calibration":
+                store_padding_mask = True
             raw_dataset = dataset_manager.get_raw_dataset(self._model_args.cache_dir)
-            tokenized_dataset = dataset_manager.tokenize_and_process(raw_dataset)
+            tokenized_dataset = dataset_manager.tokenize_and_process(
+                raw_dataset, store_padding_mask=store_padding_mask
+            )
             tokenized_datasets[split_name] = tokenized_dataset
 
         self.datasets = make_dataset_splits(
@@ -145,11 +153,20 @@ class StageRunner:
             num_calibration_samples=self._data_args.num_calibration_samples,
             accelerator=self.trainer.accelerator,
         )
+
+        # if we don't run a forward pass after initializing the FSDP model for the
+        # first time, calls to summon_full_params will fail ¯\_(ツ)_/¯
+        dummy_inp = dict(next(iter(calib_data)))
+        with torch.no_grad():
+            dummy_inp.pop(PADDING_MASK_COLUMN_NAME)
+            self.trainer.model(**dummy_inp)
+        torch.cuda.empty_cache()
+
         self.trainer.one_shot(calib_data, stage=stage)
 
         if is_fsdp_model(self.trainer.model):
             try:
-                self.trainer.save_model(output_dir=self._output_dir)
+                self.trainer.save_model(output_dir=self._output_dir, _is_oneshot=True)
             except AssertionError:
                 # fallback to this in the case of quantization
                 unwrap_and_export_model(
@@ -271,6 +288,9 @@ class StageRunner:
                     if not qat_active(self.trainer.model):
                         self.trainer.log_model_sparsification()
 
-            # synchronize
+            # synchronize and clean up memory
             self.trainer.accelerator.wait_for_everyone()
             self.trainer.model = get_session_model()
+            torch.cuda.empty_cache()
+            self.trainer.accelerator.free_memory()
+            self.trainer.accelerator.wait_for_everyone()

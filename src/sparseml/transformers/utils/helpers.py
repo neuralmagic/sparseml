@@ -60,16 +60,17 @@ class TaskNames(Enum):
 
 
 ALL_TASK_NAMES = list(set.union(*[task_names.value for task_names in TaskNames]))
+ONNX_MODEL_NAME_INTERMEDIATE = "model-orig.onnx"
 RECIPE_NAME = "recipe.yaml"
 MANDATORY_DEPLOYMENT_FILES = {
     ONNX_MODEL_NAME,
     "tokenizer_config.json",
     "config.json",
 }
-NLG_TOKENIZER_FILES = {"special_tokens_map.json"}
-OPTIONAL_DEPLOYMENT_FILES = {
-    "tokenizer.json",
-    "tokenizer.model",
+OPTIONAL_DEPLOYMENT_FILES = {"tokenizer.json", "tokenizer.model"}
+NLG_MANDATORY_DEPLOYMENT_FILES = {"special_tokens_map.json"}
+NLG_OPTIONAL_DEPLOYMENT_FILES = {
+    ONNX_MODEL_NAME_INTERMEDIATE,
     "vocab.json",
     "merges.txt",
 }
@@ -165,7 +166,8 @@ def detect_last_checkpoint(
     ):
         last_checkpoint = get_last_checkpoint(training_args.output_dir)
         if training_args.run_stages and model_args is not None:
-            last_checkpoint = get_last_checkpoint(model_args.model_name_or_path)
+            if os.path.isdir(model_args.model_name_or_path):
+                last_checkpoint = get_last_checkpoint(model_args.model_name_or_path)
         if last_checkpoint is None and (len(os.listdir(training_args.output_dir)) > 0):
             raise ValueError(
                 f"Output directory ({training_args.output_dir}) already "
