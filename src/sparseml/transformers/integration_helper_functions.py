@@ -30,7 +30,8 @@ from sparseml.transformers.sparsification.trainer import Trainer
 from sparseml.transformers.utils.helpers import (
     ALL_TASK_NAMES,
     MANDATORY_DEPLOYMENT_FILES,
-    NLG_TOKENIZER_FILES,
+    NLG_MANDATORY_DEPLOYMENT_FILES,
+    NLG_OPTIONAL_DEPLOYMENT_FILES,
     OPTIONAL_DEPLOYMENT_FILES,
     TaskNames,
     remove_past_key_value_support_from_config,
@@ -208,7 +209,10 @@ class Transformers(IntegrationHelperFunctions):
             # to reflect the idiosyncrasies for text generation
             self.apply_optimizations = apply_optimizations_generative_transformer
             self.deployment_directory_files_mandatory = list(
-                MANDATORY_DEPLOYMENT_FILES.union(NLG_TOKENIZER_FILES)
+                MANDATORY_DEPLOYMENT_FILES.union(NLG_MANDATORY_DEPLOYMENT_FILES)
+            )
+            self.deployment_directory_files_optional = list(
+                OPTIONAL_DEPLOYMENT_FILES.union(NLG_OPTIONAL_DEPLOYMENT_FILES)
             )
         else:
             _LOGGER.info(
