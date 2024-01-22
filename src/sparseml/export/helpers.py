@@ -240,14 +240,14 @@ def resolve_graph_optimizations(
 def save_model_with_external_data(onnx_file_path: Union[str, Path]):
     onnx_model = load_model(onnx_file_path)
     if onnx_includes_external_data(onnx_model):
-        _LOGGER.info(
+        _LOGGER.debug(
             "Splitting the model into two files: "
             f"{os.path.basename(onnx_file_path)} (graph definition) "
             f"and {ONNX_DATA_NAME} (constant tensor data)"
         )
         save_onnx(onnx_model, onnx_file_path, external_data_file=ONNX_DATA_NAME)
     else:
-        _LOGGER.info(
+        _LOGGER.debug(
             "save_with_external_data = True ignored, the model already "
             "has been saved with external data"
         )
