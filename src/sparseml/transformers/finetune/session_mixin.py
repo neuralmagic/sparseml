@@ -282,6 +282,11 @@ class SessionManagerMixIn:
         inputs = {k: inputs[k] for k in inputs if k in self._model_signature_columns}
         loss = super().compute_loss(model, inputs, return_outputs=return_outputs)
 
+        # take the mean across multiple GPUs
+        # this is done outside the compute_loss function in the parent, replicating it
+        # here for SparseML logging and distillation
+        loss = loss.mean()
+
         if session_manager.active_session().lifecycle.initialized_:
             state = callbacks.loss_calculated(loss=loss)
             if state and state.loss is not None:
