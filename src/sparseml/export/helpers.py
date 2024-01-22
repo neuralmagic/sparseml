@@ -14,6 +14,7 @@
 
 import logging
 import os
+import re
 import shutil
 from enum import Enum
 from pathlib import Path
@@ -29,6 +30,7 @@ __all__ = [
     "ONNX_MODEL_NAME",
     "create_export_kwargs",
     "format_source_path",
+    "onnx_data_files",
 ]
 
 AVAILABLE_DEPLOYMENT_TARGETS = [target.value for target in ExportTargets]
@@ -50,6 +52,25 @@ def format_source_path(source_path: Union[Path, str]) -> str:
             f"Argument: source_path must be a directory. " f"Got {source_path} instead."
         )
     return source_path.as_posix()
+
+
+def onnx_data_files(onnx_data_name: str, path: Union[str, Path]) -> List[str]:
+    """
+    Given the onnx_data_name, return a list of all the onnx data file names
+    in the src_path. E.g. if onnx_data_name is "model.data", return
+    ["model.data"] (if there is only one file present),
+    alternativelty potentially return ["model.data.0", "model.data.1", ...]
+    if the files are split into multiple files.
+
+    :param onnx_data_name: The name of the onnx data file.
+    :param path: The path to the onnx data file.
+    :return: A list of all the onnx data file names.
+    """
+    onnx_data_pattern = re.compile(rf"{onnx_data_name}(\.\d+)?$")
+    onnx_data_files = [
+        file for file in os.listdir(path) if onnx_data_pattern.match(file)
+    ]
+    return onnx_data_files
 
 
 def create_export_kwargs(
@@ -264,14 +285,19 @@ def save_onnx_multiple_files(*args, **kwargs):
 def _move_onnx_model(
     onnx_model_name: str, src_path: Union[str, Path], target_path: Union[str, Path]
 ):
-    onnx_data_name = onnx_model_name.replace(".onnx", ".data")
-
-    onnx_model_path = os.path.join(src_path, onnx_model_name)
-    onnx_data_path = os.path.join(src_path, onnx_data_name)
-
-    if os.path.exists(onnx_data_path):
-        _move_file(src=onnx_data_path, target=os.path.join(target_path, onnx_data_name))
-    _move_file(src=onnx_model_path, target=os.path.join(target_path, onnx_model_name))
+    # move the data file(s)
+    for onnx_data_file in onnx_data_files(
+        onnx_data_name=onnx_model_name.replace(".onnx", ".data"), path=src_path
+    ):
+        _move_file(
+            src=os.path.join(src_path, onnx_data_file),
+            target=os.path.join(target_path, onnx_data_file),
+        )
+    # move the model itself
+    _move_file(
+        src=os.path.join(src_path, onnx_model_name),
+        target=os.path.join(target_path, onnx_model_name),
+    )
 
 
 def _copy_file_or_directory(src: str, target: str):
