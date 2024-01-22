@@ -24,6 +24,7 @@ from transformers import AutoTokenizer
 
 import sparseml.core.session as session_manager
 from sparseml.core.recipe import Recipe, StageRunType
+from sparseml.modifiers.utils.pytorch_helpers import PADDING_MASK_COLUMN_NAME
 from sparseml.pytorch.model_load.helpers import (
     get_completed_stages,
     get_session_model,
@@ -155,8 +156,9 @@ class StageRunner:
 
         # if we don't run a forward pass after initializing the FSDP model for the
         # first time, calls to summon_full_params will fail ¯\_(ツ)_/¯
-        dummy_inp = next(iter(calib_data))
+        dummy_inp = dict(next(iter(calib_data)))
         with torch.no_grad():
+            dummy_inp.pop(PADDING_MASK_COLUMN_NAME)
             self.trainer.model(**dummy_inp)
         torch.cuda.empty_cache()
 
