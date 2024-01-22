@@ -69,7 +69,11 @@ MANDATORY_DEPLOYMENT_FILES = {
 }
 OPTIONAL_DEPLOYMENT_FILES = {"tokenizer.json", "tokenizer.model"}
 NLG_MANDATORY_DEPLOYMENT_FILES = {"special_tokens_map.json"}
-NLG_OPTIONAL_DEPLOYMENT_FILES = {ONNX_MODEL_NAME_INTERMEDIATE, "vocab.json", "merges.txt"}
+NLG_OPTIONAL_DEPLOYMENT_FILES = {
+    ONNX_MODEL_NAME_INTERMEDIATE,
+    "vocab.json",
+    "merges.txt",
+}
 
 
 def apply_structure_to_transformers(
