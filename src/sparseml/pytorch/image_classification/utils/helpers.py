@@ -682,7 +682,7 @@ def is_image_classification_model(source_path: Union[Path, str]) -> bool:
         if arch_key:
             return True
     except Exception as e:
-        _LOGGER.warning(
+        _LOGGER.debug(
             f"Model: {checkpoint_path} not an image classification model: {e}"
         )
         return False

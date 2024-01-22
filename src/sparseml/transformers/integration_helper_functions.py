@@ -28,6 +28,7 @@ from sparseml.integration_helper_functions import (
 )
 from sparseml.transformers.sparsification.trainer import Trainer
 from sparseml.transformers.utils.helpers import (
+    ALL_TASK_NAMES,
     MANDATORY_DEPLOYMENT_FILES,
     NLG_TOKENIZER_FILES,
     OPTIONAL_DEPLOYMENT_FILES,
@@ -80,7 +81,10 @@ def create_model(
     trust_remote_code = kwargs.get("trust_remote_code", False)
 
     if task is None:
-        raise ValueError("To create a transformer model, a task must be specified")
+        raise ValueError(
+            "To create a transformer model, a task must be specified. "
+            f"Choose one from {ALL_TASK_NAMES}"
+        )
 
     if not trust_remote_code:
         _LOGGER.warning(
