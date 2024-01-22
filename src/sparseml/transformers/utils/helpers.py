@@ -42,6 +42,7 @@ __all__ = [
     "is_transformer_model",
     "resolve_sequence_length",
     "apply_structure_to_transformers",
+    "ALL_TASK_NAMES",
 ]
 
 
@@ -58,6 +59,7 @@ class TaskNames(Enum):
     text_generation = {"text-generation"}
 
 
+ALL_TASK_NAMES = list(set.union(*[task_names.value for task_names in TaskNames]))
 ONNX_MODEL_NAME_INTERMEDIATE = "model-orig.onnx"
 RECIPE_NAME = "recipe.yaml"
 MANDATORY_DEPLOYMENT_FILES = {
@@ -66,8 +68,8 @@ MANDATORY_DEPLOYMENT_FILES = {
     "config.json",
 }
 OPTIONAL_DEPLOYMENT_FILES = {"tokenizer.json", "tokenizer.model"}
-NLG_MANDATORY_DEPLOYMENT_FILES = {"special_tokens_map.json", "vocab.json", "merges.txt"}
-NLG_OPTIONAL_DEPLOYMENT_FILES = {ONNX_MODEL_NAME_INTERMEDIATE}
+NLG_MANDATORY_DEPLOYMENT_FILES = {"special_tokens_map.json"}
+NLG_OPTIONAL_DEPLOYMENT_FILES = {ONNX_MODEL_NAME_INTERMEDIATE, "vocab.json", "merges.txt"}
 
 
 def apply_structure_to_transformers(
