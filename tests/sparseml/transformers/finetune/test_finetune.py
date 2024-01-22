@@ -86,6 +86,7 @@ def test_oneshot_then_finetune(tmp_path):
 
     run_train(
         model_name_or_path=model,
+        distill_teacher="Xenova/llama2.c-stories15M",
         dataset_name=dataset_name,
         output_dir=output_dir,
         num_calibration_samples=num_calibration_samples,
