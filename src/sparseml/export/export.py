@@ -26,6 +26,11 @@ Options:
                                   supported opset.
   --single_graph_file BOOLEAN     Default True - if True, onnx graph will be
                                   written to a single file
+  --external_data_chunk_size_mb INTEGER
+                                  Size of external data chunks to use for
+                                  exporting the model. Defaults to None, which
+                                  will use the default chunk size. If set, will
+                                  force the export with external data
   --num_export_samples INTEGER    Number of sample inputs/outputs to save.
                                   Default 0
   --recipe TEXT                   Optional sparsification recipe to apply at
@@ -90,6 +95,7 @@ def export(
     deployment_target: str = "deepsparse",
     opset: int = TORCH_DEFAULT_ONNX_OPSET,
     single_graph_file: bool = True,
+    external_data_chunk_size_mb: Optional[int] = None,
     num_export_samples: int = 0,
     recipe: Optional[Union[Path, str]] = None,
     deployment_directory_name: str = "deployment",
@@ -134,6 +140,10 @@ def export(
         be automatically used for export.
     :param single_graph_file: Whether to save the model as a single
         file. Defaults to True.
+    :param external_data_chunk_size_mb: The size of the external data
+        chunks to use for exporting the model. Defaults to None, which
+        will use the default chunk size. If set, will force the
+        export with external data.
     :param num_export_samples: The number of samples to create for
         the exported model. Defaults to 0.
     :param deployment_directory_name: The name of the deployment
@@ -351,6 +361,14 @@ def export(
     help="Default True - if True, onnx graph will be written to a single file",
 )
 @click.option(
+    "--external_data_chunk_size_mb",
+    type=int,
+    default=False,
+    help="Default False - if explicitely set to a number, "
+    "it will force the model to be exported with external "
+    "data, with the given chunk size in MB",
+)
+@click.option(
     "--num_export_samples",
     type=int,
     default=0,
@@ -418,6 +436,7 @@ def main(
     deployment_target: str = "deepsparse",
     opset: int = TORCH_DEFAULT_ONNX_OPSET,
     single_graph_file: bool = True,
+    external_data_chunk_size_mb: Optional[int] = None,
     num_export_samples: int = 0,
     recipe: str = None,
     deployment_directory_name: str = "deployment",
@@ -436,6 +455,7 @@ def main(
         deployment_target=deployment_target,
         opset=opset,
         single_graph_file=single_graph_file,
+        external_data_chunk_size_mb=external_data_chunk_size_mb,
         num_export_samples=num_export_samples,
         recipe=recipe,
         deployment_directory_name=deployment_directory_name,
