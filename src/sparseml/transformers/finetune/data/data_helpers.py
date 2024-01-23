@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+import re
 from typing import Any, Callable, Dict, List, Optional
 
 import torch
@@ -20,7 +22,12 @@ from torch.utils.data import DataLoader, RandomSampler
 from transformers.data import default_data_collator
 
 
-__all__ = ["format_calibration_data", "get_raw_dataset", "make_dataset_splits"]
+__all__ = [
+    "format_calibration_data",
+    "get_raw_dataset",
+    "make_dataset_splits",
+    "find_files_by_regex",
+]
 
 
 def format_calibration_data(
@@ -60,6 +67,7 @@ def get_raw_dataset(
     data_args,
     cache_dir: Optional[str] = None,
     streaming: Optional[bool] = False,
+    data_files: Optional[Dict] = None,
     **kwargs,
 ) -> Dataset:
     """
@@ -67,17 +75,29 @@ def get_raw_dataset(
 
     :param cache_dir: disk location to search for cached dataset
     :param streaming: True to stream data from Hugging Face, otherwise download
+    :param data_files: For custom datasets only. Parsed dict of foldername
+        and data path. data_args.dataset_name should be 'json' or 'csv'
+
+        Ex.
+            {
+                "train": [
+                    "path/to/folder/data1.json", # or csv
+                    "path/to/folder/data2.json",
+                ],
+                "test": ...
+            }
+
     :return: the requested dataset
     """
-    breakpoint()
     raw_datasets = load_dataset(
         data_args.dataset_name,
         data_args.dataset_config_name,
         cache_dir=cache_dir,
         streaming=streaming,
+        data_files=data_files,
         **kwargs,
     )
-    breakpoint()
+
     return raw_datasets
 
 
@@ -131,3 +151,21 @@ def make_dataset_splits(
         "calibration": calib_split,
     }
     return split_datasets
+
+
+def find_files_by_regex(directory_path, pattern) -> List[str]:
+    """
+    Find files in a directory that match a regex pattern.
+
+    :param directory_path: The path to the directory to search in.
+    :param pattern: The regex pattern to match against file names.
+    :return: A list of file paths that match the pattern.
+
+    """
+    matching_files = []
+
+    for filename in os.listdir(directory_path):
+        if re.match(pattern, filename):
+            matching_files.append(os.path.join(directory_path, filename))
+
+    return matching_files

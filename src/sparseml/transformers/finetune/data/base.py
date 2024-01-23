@@ -92,6 +92,7 @@ class TextGenerationDataset(RegistryMixin):
             cache_dir,
             split=self.split,
             streaming=self.data_args.streaming,
+            data_files=self.data_args.data_files,
             **self.raw_kwargs,
         )
 
@@ -221,9 +222,3 @@ class TextGenerationDataset(RegistryMixin):
             kwargs.pop("desc", None)
 
         return dataset.map(**kwargs)
-
-    def get_custom_dataset(
-        self,
-    ):
-        # load custom data with splits
-        ...

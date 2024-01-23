@@ -17,7 +17,37 @@ from typing import Dict, List, Optional, Union
 
 
 @dataclass
-class DataTrainingArguments:
+class CustomDataTrainingArguments:
+    """
+    Arguments for training using custom datasets
+    """
+
+    data_files: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": """
+            The data in a dict format to be loaded using HF's load_dataset
+
+            Ex.
+            {
+                "train": [
+                    "path/to/folder/data1.json", # or csv
+                    "path/to/folder/data2.json",
+                ],
+                "test": ...
+            }"
+            """
+        },
+    )
+
+    text_column: Optional[str] = field(
+        default=None,
+        metadata={"help": "For custom datasets only. The text field key"},
+    )
+
+
+@dataclass
+class DataTrainingArguments(CustomDataTrainingArguments):
     """
     Arguments pertaining to what data we are going to input our model for
     training and eval
