@@ -107,6 +107,20 @@ class TorchToONNX(BaseExporter):
     def export(self, pre_transforms_model: torch.nn.Module, file_path: str):
         post_transforms_model: onnx.ModelProto = self.apply(pre_transforms_model)
         save_onnx(model=post_transforms_model, model_path=file_path)
+        self.remove_leftover_files()
+
+    def remove_leftover_files(self):
+        """
+        Remove any leftover files created by the exporter
+        during intermediate steps of the export process.
+        The files are being stored by the _TorchOnnxExport transform.
+        """
+        torch_onnx_export_transform = self.transforms[0]
+        assert isinstance(
+            torch_onnx_export_transform, _TorchOnnxExport
+        ), "Expected the first transform from self.transform to be _TorchOnnxExport"
+        for file in torch_onnx_export_transform.leftover_files:
+            os.remove(file)
 
 
 class _TorchOnnxExport(BaseTransform):
@@ -140,6 +154,7 @@ class _TorchOnnxExport(BaseTransform):
         self.opset = opset
         self.disable_bn_fusing = disable_bn_fusing
         self.export_kwargs = export_kwargs or {}
+        self.leftover_files = {}
 
     def pre_validate(self, model: torch.nn.Module) -> torch.nn.Module:
         if not isinstance(model, torch.nn.Module):
@@ -238,7 +253,13 @@ class _TorchOnnxExport(BaseTransform):
             kwargs["keep_initializers_as_inputs"] = False
 
         _LOGGER.debug(f"Running torch.onnx.export with {kwargs}")
+        files_before_export = os.listdir(os.getcwd())
         torch.onnx.export(**kwargs)
+
+        # record the intermediate ONNX tensor files created by torch.onnx.export
+        self.leftover_files = set(os.listdir(os.getcwd())).difference(
+            set(files_before_export)
+        )
 
         # re-enable disabled quantization observers
         for submodule in disabled_observers:

@@ -17,22 +17,23 @@ Usage: sparseml.export [OPTIONS] SOURCE_PATH
 
 Options:
   --target_path TEXT              Path to write the exported model to,
-                                  defaults to a `deployment` directory in the
-                                  source_path
+                                  defaults to a source_path
   --onnx_model_name TEXT          Name of onnx model to write, defaults to
                                   model.onnx
   --deployment_target TEXT        Engine or engine family exported model will
                                   run on, default 'deepsparse'
-  --opset INTEGER                 Onnx opset to export to, default: 14
+  --opset INTEGER                 Onnx opset to export to. Defaults to the latest
+                                  supported opset.
   --single_graph_file BOOLEAN     Default True - if True, onnx graph will be
                                   written to a single file
-  --num_export_samples INTEGER    Number of sample imputs/outputs to save.
+  --num_export_samples INTEGER    Number of sample inputs/outputs to save.
                                   Default 0
   --recipe TEXT                   Optional sparsification recipe to apply at
                                   runtime
   --deployment_directory_name TEXT
-                                  Name to save exported files under. Default -
-                                  'deployment'
+                                  Name of the folder inside the target_path
+                                  to save the exported model to. Default -
+                                  `deployment'
   --device TEXT                   Device to run export trace with. Default -
                                   'cpu'
   --graph_optimizations TEXT      csv list of graph optimizations to apply.
@@ -46,15 +47,18 @@ Options:
                                   inferred by default
   --sample_data TEXT              Path to sample data to export with. default
                                   None
-  --task TEXT                     subtask within the integration this model
+  --task TEXT                     Task within the integration this model
                                   was trained on. Default - None
   --help                          Show this message and exit.
 """
 
 import logging
 import os
+import shutil
 from pathlib import Path
 from typing import Any, List, Optional, Union
+
+import numpy
 
 import click
 from sparseml.export.export_data import export_data_samples
@@ -63,6 +67,7 @@ from sparseml.export.helpers import (
     ONNX_MODEL_NAME,
     create_deployment_folder,
     create_export_kwargs,
+    format_source_path,
 )
 from sparseml.export.validators import validate_correctness as validate_correctness_
 from sparseml.export.validators import validate_structure as validate_structure_
@@ -72,6 +77,8 @@ from sparseml.integration_helper_functions import (
 )
 from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
 from sparseml.pytorch.utils.helpers import default_device
+from sparsezoo.utils.numpy import load_numpy
+
 from sparsezoo.utils.registry import standardize_lookup_name
 
 _LOGGER = logging.getLogger(__name__)
@@ -116,7 +123,7 @@ def export(
 
     :param source_path: The path to the PyTorch model to export.
     :param target_path: The path to save the exported model to. If not provided
-        will default to writing `deployment` in the source_path
+        will default to source_path
     :param onnx_model_name: The name of the exported model.
         Defaults to ONNX_MODEL_NAME.
     :param deployment_target: The deployment target to export
@@ -143,7 +150,7 @@ def export(
     :param validate_structure: Whether to validate the structure
         of the exporter model (contents of the target_path).
     :param integration: The name of the integration to use for
-        exporting the model.Defaults to None, which will infer
+        exporting the model. Defaults to None, which will infer
         the integration from the source_path.
     :param sample_data: Optional sample data to use for exporting
         the model. If not provided, a dummy input will be created
@@ -151,12 +158,12 @@ def export(
     :param task: Optional task to use for exporting the model.
         Defaults to None.
     """
+    source_path = format_source_path(source_path)
     if task is not None:
         task = standardize_lookup_name(task)
 
-    # TODO: Remove once sparsezoo: #404 lands
     if integration is not None:
-        integration = integration.replace("_", "-").replace(" ", "-")
+        integration = standardize_lookup_name(integration)
 
     if target_path is None:
         target_path = source_path
@@ -176,6 +183,15 @@ def export(
         )
 
     integration = resolve_integration(source_path, integration)
+
+    deployment_folder_dir = os.path.join(target_path, deployment_directory_name)
+
+    if os.path.isdir(deployment_folder_dir):
+        _LOGGER.warning(
+            f"Deployment directory at: {deployment_folder_dir} already exists."
+            "Overwriting the existing deployment directory... "
+        )
+        shutil.rmtree(deployment_folder_dir)
 
     _LOGGER.info(f"Starting export for {integration} model...")
 
@@ -248,7 +264,7 @@ def export(
         f"at directory: {target_path}..."
     )
 
-    deployment_path = create_deployment_folder(
+    deployment_folder_dir = create_deployment_folder(
         source_path=source_path,
         target_path=target_path,
         deployment_directory_name=deployment_directory_name,
@@ -256,6 +272,27 @@ def export(
         deployment_directory_files_optional=helper_functions.deployment_directory_files_optional,  # noqa: E501
         onnx_model_name=onnx_model_name,
     )
+
+    if validate_correctness:
+        _LOGGER.info("Validating model correctness...")
+        if not num_export_samples:
+            raise ValueError(
+                "To validate correctness sample inputs/outputs are needed."
+                "To enable the validation, set `num_export_samples`"
+                "to True"
+            )
+        validate_correctness_(target_path, deployment_folder_dir, onnx_model_name)
+
+    _LOGGER.info(
+        f"Applying optimizations: {graph_optimizations} to the exported model..."
+    )
+
+    if helper_functions.apply_optimizations is not None:
+        helper_functions.apply_optimizations(
+            exported_file_path=os.path.join(deployment_folder_dir, onnx_model_name),
+            optimizations=graph_optimizations,
+            single_graph_file=single_graph_file,
+        )
 
     if validate_structure:
         _LOGGER.info("Validating model structure...")
@@ -267,30 +304,9 @@ def export(
             deployment_directory_files_optional=helper_functions.deployment_directory_files_optional,  # noqa: E501
         )
 
-    if validate_correctness:
-        _LOGGER.info("Validating model correctness...")
-        if not num_export_samples:
-            raise ValueError(
-                "To validate correctness sample inputs/outputs are needed."
-                "To enable the validation, set `num_export_samples`"
-                "to True"
-            )
-        validate_correctness_(target_path, deployment_path, onnx_model_name)
-
-    _LOGGER.info(
-        f"Applying optimizations: {graph_optimizations} to the exported model..."
-    )
-
-    if helper_functions.apply_optimizations is not None:
-        helper_functions.apply_optimizations(
-            exported_file_path=os.path.join(deployment_path, onnx_model_name),
-            optimizations=graph_optimizations,
-            single_graph_file=single_graph_file,
-        )
-
     _LOGGER.info(
         f"Successfully exported model from:\n{target_path}"
-        f"\nto\n{deployment_path}\nfor integration: {integration}"
+        f"\nto\n{deployment_folder_dir}\nfor integration: {integration}"
     )
 
 
@@ -333,7 +349,7 @@ def export(
     "--num_export_samples",
     type=int,
     default=0,
-    help="Number of sample imputs/outputs to save. Default 0",
+    help="Number of sample inputs/outputs to save. Default 0",
 )
 @click.option(
     "--recipe",
@@ -357,7 +373,8 @@ def export(
     "--graph_optimizations",
     type=str,
     default="all",
-    help="csv list of graph optimizations to apply. Default all, can set to none",
+    help="csv list of graph optimizations to apply. "
+    "Available options: 'all', 'none' or referring to optimization by name. ",
 )
 @click.option(
     "--validate_correctness",
@@ -373,24 +390,21 @@ def export(
 )
 @click.option(
     "--integration",
-    type=str,
+    type=click.Choice(["image-classification, transformers"]),
     default=None,
-    help=(
-        "Integration the model was trained under. "
-        "ie transformers, image-classification. Will be inferred by default"
-    ),
+    help="Integration the model was trained under. By default, inferred from the model",
 )
 @click.option(
     "--sample_data",
     type=str,
     default=None,
-    help="Path to sample data to export with. default None",
+    help="Path to sample data to export with. Default - None",
 )
 @click.option(
     "--task",
     type=str,
     default=None,
-    help="subtask within the integration this model was trained on. Default - None",
+    help="Task within the integration this model was trained on. Default - None",
 )
 def main(
     source_path: str,
@@ -425,7 +439,7 @@ def main(
         validate_correctness=validate_correctness,
         validate_structure=validate_structure,
         integration=integration,
-        sample_data=sample_data,
+        sample_data=_parse_sample_data(sample_data),
         task=task,
     )
 
@@ -436,3 +450,16 @@ def _parse_graph_optimizations(graph_optimizations):
     elif graph_optimizations.lower() in ["none", "null", "", "false", "0"]:
         return None
     return graph_optimizations
+
+
+def _parse_sample_data(
+    sample_data: Union[None, Path, str]
+) -> Union[None, numpy.ndarray]:
+    if sample_data is None:
+        return None
+    elif sample_data.endswith((".npz", ".npy")):
+        return load_numpy(sample_data)
+    else:
+        raise NotImplementedError(
+            "Only numpy files (.npy) are supported for sample_data"
+        )

@@ -58,10 +58,11 @@ def test_integration_helper_function_text_generation():
         "tokenizer_config.json",
         "config.json",
         "special_tokens_map.json",
-        "vocab.json",
-        "merges.txt",
     }
     assert set(transformers.deployment_directory_files_optional) == {
         "tokenizer.json",
         "tokenizer.model",
+        "model-orig.onnx",
+        "vocab.json",
+        "merges.txt",
     }

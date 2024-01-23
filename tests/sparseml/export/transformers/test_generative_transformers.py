@@ -49,11 +49,39 @@ class TestEndToEndExport:
             task=task,
         )
         assert (target_path / "deployment" / "model.onnx").exists()
+        assert (target_path / "deployment" / "model-orig.onnx").exists()
         # check if kv cache injection has been applied
         onnx_model = onnx.load(
             str(target_path / "deployment" / "model.onnx"), load_external_data=False
         )
         assert any(
+            inp.name == "past_key_values.0.key" for inp in onnx_model.graph.input
+        )
+
+    def text_export_without_optimizations(self, setup):
+        source_path, target_path, task = setup
+        export(
+            source_path=source_path,
+            target_path=target_path,
+            task=task,
+            graph_optimizations="none",
+            # set validate correctness to True to ensure that
+            # samples are correctly generated and consumed
+            # by the model
+            validate_correctness=True,
+            **dict(
+                data_args=dict(
+                    dataset_name="wikitext", dataset_config_name="wikitext-2-raw-v1"
+                )
+            ),
+        )
+        assert (target_path / "deployment" / "model.onnx").exists()
+        assert not (target_path / "deployment" / "model-orig.onnx").exists()
+        # check if that kv cache injection has not been applied
+        onnx_model = onnx.load(
+            str(target_path / "deployment" / "model.onnx"), load_external_data=False
+        )
+        assert not all(
             inp.name == "past_key_values.0.key" for inp in onnx_model.graph.input
         )
 
@@ -142,3 +170,52 @@ class TestEndToEndExport:
         )
 
         assert "ERROR" not in caplog.text
+
+    def test_export_multiple_times(self, caplog, setup):
+        # make sure that when we export multiple times,
+        # the user gets verbose warning about the files
+        # already existing and being overwritten
+        source_path, target_path, task = setup
+
+        num_samples = 3
+
+        export(
+            source_path=source_path,
+            target_path=target_path,
+            task=task,
+            num_export_samples=num_samples,
+            **dict(
+                data_args=dict(
+                    dataset_name="wikitext", dataset_config_name="wikitext-2-raw-v1"
+                )
+            ),
+        )
+        warnings_after_first_export = [
+            record.message for record in caplog.records if record.levelname == "WARNING"
+        ]
+        caplog.clear()
+
+        export(
+            source_path=source_path,
+            target_path=target_path,
+            task=task,
+            num_export_samples=num_samples,
+            **dict(
+                data_args=dict(
+                    dataset_name="wikitext", dataset_config_name="wikitext-2-raw-v1"
+                )
+            ),
+        )
+        warnings_after_second_export = [
+            record.message for record in caplog.records if record.levelname == "WARNING"
+        ]
+
+        new_warnings = set(warnings_after_second_export) - set(
+            warnings_after_first_export
+        )
+
+        # make sure that all the unique warnings that happen only after the
+        # repeated export are about the files already existing
+        for warning in new_warnings:
+            assert "already exist" in warning
+            assert "Overwriting" in warning
