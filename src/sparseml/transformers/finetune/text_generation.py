@@ -116,6 +116,10 @@ def parse_args(**kwargs):
         training_args.do_oneshot = True
         training_args.do_train = True
 
+    # when set to true in FSDP mode this causes issues, the model arguments show up
+    # as *args and **kwargs so all columns get removed
+    training_args.remove_unused_columns = False
+
     return model_args, data_args, training_args
 
 

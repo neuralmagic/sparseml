@@ -165,6 +165,8 @@ class SessionManagerMixIn:
                 "pass a yaml file or string to the `recipe` argument."
             )
 
+        torch.cuda.empty_cache()
+
     def initialize_structure(self, stage: Optional[str] = None):
         """
         Initialize any recipe structural changes such as quantization on the model,
@@ -184,6 +186,7 @@ class SessionManagerMixIn:
             framework=Framework.pytorch,
         )
         _LOGGER.info(f"Initialized SparseML structure from recipe {self.recipe}")
+        torch.cuda.empty_cache()
 
     def finalize_session(self):
         """
@@ -197,6 +200,7 @@ class SessionManagerMixIn:
             # in order to update each layer we need to gathers all its parameters
             session_manager.finalize()
         _LOGGER.info("Finalized SparseML session")
+        torch.cuda.empty_cache()
 
     def create_optimizer(self):
         """
@@ -292,6 +296,11 @@ class SessionManagerMixIn:
         # TODO: do we need these model signature columns?
         inputs = {k: inputs[k] for k in inputs if k in self._model_signature_columns}
         loss = super().compute_loss(model, inputs, return_outputs=return_outputs)
+
+        # take the mean across multiple GPUs
+        # this is done outside the compute_loss function in the parent, replicating it
+        # here for SparseML logging and distillation
+        loss = loss.mean()
 
         if session_manager.active_session().lifecycle.initialized_:
             state = callbacks.loss_calculated(loss=loss)
@@ -410,9 +419,7 @@ class SessionManagerMixIn:
         self.accelerator.wait_for_everyone()
 
     def save_model(
-        self,
-        output_dir: Optional[str] = None,
-        _internal_call=True,
+        self, output_dir: Optional[str] = None, _internal_call=False, _is_oneshot=False
     ):
         """
         Override of the save_model function and expects it to exist in the parent.
@@ -430,13 +437,15 @@ class SessionManagerMixIn:
         if output_dir is None:
             output_dir = self.args.output_dir
 
-        if is_fsdp_model(self.model):
+        # don't export the gathered model on checkpoints
+        if is_fsdp_model(self.model) and not _internal_call:
             save_pretrained_fsdp(
                 model=self.model, accelerator=self.accelerator, output_dir=output_dir
             )
 
         self.save_state()
-        self.save_optimizer_and_scheduler(output_dir)
+        if not _is_oneshot:  # optimizer/scheduler not relevant to one-shot
+            self.save_optimizer_and_scheduler(output_dir)
 
         if not self.recipe:
             return
@@ -450,6 +459,7 @@ class SessionManagerMixIn:
             fp.write(recipe_yaml_str)
 
         _LOGGER.info(f"Saved SparseML recipe with model state to {recipe_path}")
+        self.accelerator.wait_for_everyone()
 
     def log_model_sparsification(self):
         """
@@ -476,15 +486,10 @@ class SessionManagerMixIn:
 
     def _prepare_model_for_fsdp(self):
         """
-        This is quite hacky, but the FSDP setup code is buried in the Trainers
-        _inner_training_loop call. Doing this quick run sets up FSDP for the case
-        where we want to run one-shot in FSDP mode
+        Sets up FSDP ahead of time so we can run one-shot in FSDP mode
         """
         self.model.to("cpu")
-        max_steps = self.args.max_steps
-        self.args.max_steps = 1
-        super().train()
-        self.args.max_steps = max_steps
+        self.model = self.accelerator.prepare(self.model)
         self.accelerator.wait_for_everyone()
 
     def _extract_metadata(
