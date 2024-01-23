@@ -18,15 +18,15 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import torch
 from pydantic import Field
-from transformers import AutoTokenizer
 
 from sparseml.export.export_data import create_data_samples as create_data_samples_
+from sparseml.export.export_data import create_fake_dataloader
 from sparseml.export.helpers import apply_optimizations as apply_optimizations_onnx
 from sparseml.integration_helper_functions import (
     IntegrationHelperFunctions,
     Integrations,
 )
-from sparseml.transformers.sparsification.trainer import Trainer
+from sparseml.transformers.finetune.data.data_helpers import format_calibration_data
 from sparseml.transformers.utils.helpers import (
     ALL_TASK_NAMES,
     MANDATORY_DEPLOYMENT_FILES,
@@ -118,39 +118,38 @@ def create_model(
             config=config,
             split="validation",
         )
-        if task in TaskNames.text_generation.value and not dataset_with_labels:
-            validation_dataset = validation_dataset.remove_columns("labels")
+        if task in TaskNames.text_generation.value:
+            if not dataset_with_labels:
+                validation_dataset = validation_dataset.remove_columns("labels")
+            data_loader = format_calibration_data(tokenized_dataset=validation_dataset)
+            input_names = validation_dataset.column_names
 
-    trainer = initialize_trainer(model, source_path, validation_dataset)
+        else:
+            trainer = initialize_trainer(model, source_path, validation_dataset)
+            data_loader = trainer.get_eval_dataloader()
+            input_names = list(next(trainer._get_fake_dataloader(1, tokenizer)).keys())
+
+    else:
+        data_loader, input_names = create_fake_dataloader(
+            model, tokenizer, num_samples=1
+        )
 
     return model, dict(
-        trainer=trainer,
-        tokenizer=tokenizer,
-        input_names=list(next(trainer._get_fake_dataloader(1, tokenizer)).keys()),
+        data_loader=data_loader, tokenizer=tokenizer, input_names=input_names
     )
 
 
 def create_dummy_input(
-    trainer: Optional[Trainer] = None,
-    tokenizer: Optional[AutoTokenizer] = None,
+    data_loader: torch.utils.data.DataLoader,
     **kwargs,
 ) -> torch.Tensor:
-    if trainer.eval_dataset is not None:
-        data_loader = trainer.get_eval_dataloader()
-    else:
-        if not tokenizer:
-            raise ValueError(
-                "Tokenizer is needed to generate "
-                "fake sample inputs when the trainer is "
-                "not initialized with an eval dataset"
-            )
-        data_loader = trainer._get_fake_dataloader(num_samples=1, tokenizer=tokenizer)
+
     return next(iter(data_loader))
 
 
 def create_data_samples(
     num_samples: int,
-    trainer: Trainer,
+    data_loader: torch.utils.data.DataLoader,
     model: Optional["torch.nn.Module"] = None,
     **kwargs,
 ):
@@ -159,14 +158,9 @@ def create_data_samples(
             "For exporting samples for transformers integration,"
             "batch size is ignored (equal to 1)"
         )
-    if trainer.eval_dataset is None:
-        raise ValueError(
-            "Attempting to create data samples without an eval dataloader. "
-            "Initialize a trainer with an eval dataset"
-        )
 
     return create_data_samples_(
-        data_loader=trainer.get_eval_dataloader(), model=model, num_samples=num_samples
+        data_loader=data_loader, model=model, num_samples=num_samples
     )
 
 
