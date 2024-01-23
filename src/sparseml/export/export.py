@@ -56,7 +56,7 @@ import logging
 import os
 import shutil
 from pathlib import Path
-from typing import Any, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import numpy
 
@@ -315,7 +315,11 @@ def export(
     )
 
 
-@click.command()
+@click.command(
+    context_settings=dict(
+        ignore_unknown_options=True,
+    )
+)
 @click.argument("source_path", type=str)
 @click.option(
     "--target_path",
@@ -395,7 +399,7 @@ def export(
 )
 @click.option(
     "--integration",
-    type=click.Choice(["image-classification, transformers"]),
+    type=click.Choice(["image-classification", "transformers"]),
     default=None,
     help="Integration the model was trained under. By default, inferred from the model",
 )
@@ -411,6 +415,7 @@ def export(
     default=None,
     help="Task within the integration this model was trained on. Default - None",
 )
+@click.argument("kwargs", nargs=-1, type=click.UNPROCESSED)
 def main(
     source_path: str,
     target_path: str,
@@ -428,6 +433,7 @@ def main(
     integration: str = None,
     sample_data: str = None,
     task: str = None,
+    kwargs: Optional[tuple] = None,
 ):
     export(
         source_path=source_path,
@@ -446,7 +452,28 @@ def main(
         integration=integration,
         sample_data=_parse_sample_data(sample_data),
         task=task,
+        **_parse_kwargs(kwargs),
     )
+
+
+def _parse_kwargs(kwargs: Optional[tuple] = None) -> Dict:
+    """
+    Convert a tuple of kwargs to a dict of kwargs.
+
+    :param args: The args to convert. Should be a tuple of alternating
+        arg names and arg values e.g.('--arg1', 1, 'arg2', 2, -arg3', 3).
+        The names can optionally have a '-' or `--` in front of them.
+    :return: The converted args as a dict.
+    """
+    if len(kwargs) == 0:
+        return {}
+    # names are uneven indices, values are even indices
+    kwargs_names = kwargs[0::2]
+    kwargs_values = kwargs[1::2]
+    # remove any '-' or '--' from the names
+    kwargs_names = [name.lstrip("-") for name in kwargs_names]
+
+    return dict(zip(kwargs_names, kwargs_values))
 
 
 def _parse_graph_optimizations(graph_optimizations):
