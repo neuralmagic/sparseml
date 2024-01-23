@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, OrderedDict, Union
 
 from sparseml.exporters import ExportTargets
+from sparsezoo.utils.onnx import load_model, onnx_includes_external_data, save_onnx
 
 
 __all__ = [
@@ -29,6 +30,7 @@ __all__ = [
     "AVAILABLE_DEPLOYMENT_TARGETS",
     "ONNX_MODEL_NAME",
     "create_export_kwargs",
+    "save_model_with_external_data",
     "format_source_path",
     "onnx_data_files",
 ]
@@ -212,7 +214,6 @@ def apply_optimizations(
     onnx_file_path: Union[str, Path],
     available_optimizations: OrderedDict[str, Callable],
     target_optimizations: Union[str, List[str]] = GraphOptimizationOptions.all.value,
-    single_graph_file: bool = True,
 ):
     """
     Apply optimizations to the graph of the ONNX model.
@@ -226,8 +227,6 @@ def apply_optimizations(
         that specifies the set of optimizations to apply.
         If is string, refer to the `GraphOptimizationOptions` enum
         for the available options.
-    :param single_graph_file: Whether to save the optimized graph to a single
-        file or split it into multiple files. By default, it is True.
     """
     optimizations: Dict[str, Callable] = resolve_graph_optimizations(
         available_optimizations=available_optimizations,
@@ -242,9 +241,6 @@ def apply_optimizations(
                 f"Optimization: {name} has been successfully "
                 f"applied to the ONNX model: {onnx_file_path}"
             )
-
-    if not single_graph_file:
-        save_onnx_multiple_files(onnx_file_path)
 
 
 def resolve_graph_optimizations(
@@ -277,9 +273,20 @@ def resolve_graph_optimizations(
         raise KeyError(f"Unknown graph optimization option: {optimizations}")
 
 
-# TODO: To discuss with @bfineran
-def save_onnx_multiple_files(*args, **kwargs):
-    raise NotImplementedError
+def save_model_with_external_data(onnx_file_path: Union[str, Path]):
+    onnx_model = load_model(onnx_file_path)
+    if onnx_includes_external_data(onnx_model):
+        _LOGGER.debug(
+            "Splitting the model into two files: "
+            f"{os.path.basename(onnx_file_path)} (graph definition) "
+            f"and {ONNX_DATA_NAME} (constant tensor data)"
+        )
+        save_onnx(onnx_model, onnx_file_path, external_data_file=ONNX_DATA_NAME)
+    else:
+        _LOGGER.debug(
+            "save_with_external_data = True ignored, the model already "
+            "has been saved with external data"
+        )
 
 
 def _move_onnx_model(

@@ -24,8 +24,12 @@ Options:
                                   run on, default 'deepsparse'
   --opset INTEGER                 Onnx opset to export to. Defaults to the latest
                                   supported opset.
-  --single_graph_file BOOLEAN     Default True - if True, onnx graph will be
-                                  written to a single file
+  --save_with_external_data BOOLEAN
+                                  Default False - if True, large constant tensors,
+                                  such as initializers, will be serialised
+                                  in a separate file. Note: if the model is
+                                  sufficiently large, it will be saved with
+                                  external data regardless of this flag
   --external_data_chunk_size_mb INTEGER
                                   Size of external data chunks to use for
                                   exporting the model. Defaults to None, which
@@ -73,6 +77,7 @@ from sparseml.export.helpers import (
     create_deployment_folder,
     create_export_kwargs,
     format_source_path,
+    save_model_with_external_data,
 )
 from sparseml.export.validators import validate_correctness as validate_correctness_
 from sparseml.export.validators import validate_structure as validate_structure_
@@ -94,7 +99,7 @@ def export(
     onnx_model_name: str = ONNX_MODEL_NAME,
     deployment_target: str = "deepsparse",
     opset: int = TORCH_DEFAULT_ONNX_OPSET,
-    single_graph_file: bool = True,
+    save_with_external_data: bool = False,
     external_data_chunk_size_mb: Optional[int] = None,
     num_export_samples: int = 0,
     recipe: Optional[Union[Path, str]] = None,
@@ -138,8 +143,10 @@ def export(
     :param recipe: The path to the recipe to use for exporting the model.
         Defaults to None. If a recipe is found in the source_path, it will
         be automatically used for export.
-    :param single_graph_file: Whether to save the model as a single
-        file. Defaults to True.
+    :param save_with_external_data: if True, large constant tensors,
+        such as initializers, will be serialised in a separate file.
+        Defaults to False. Note: if the model is sufficiently large,
+        it will be saved with external data regardless of this flag.
     :param external_data_chunk_size_mb: The size of the external data
         chunks to use for exporting the model. Defaults to None, which
         will use the default chunk size. If set, will force the
@@ -306,7 +313,11 @@ def export(
         helper_functions.apply_optimizations(
             exported_file_path=os.path.join(deployment_folder_dir, onnx_model_name),
             optimizations=graph_optimizations,
-            single_graph_file=single_graph_file,
+        )
+
+    if save_with_external_data is True:
+        save_model_with_external_data(
+            os.path.join(deployment_folder_dir, onnx_model_name)
         )
 
     if validate_structure:
@@ -355,10 +366,12 @@ def export(
     help=f"Onnx opset to export to, default: {TORCH_DEFAULT_ONNX_OPSET}",
 )
 @click.option(
-    "--single_graph_file",
+    "--save_with_external_data",
     type=bool,
-    default=True,
-    help="Default True - if True, onnx graph will be written to a single file",
+    default=False,
+    help="Default False - if True, large constant tensors, such as initializers, "
+    "will be serialised in a separate file. Note: if the model is sufficiently "
+    "large, it will be saved with external data regardless of this flag",
 )
 @click.option(
     "--external_data_chunk_size_mb",
@@ -435,7 +448,7 @@ def main(
     onnx_model_name: str = ONNX_MODEL_NAME,
     deployment_target: str = "deepsparse",
     opset: int = TORCH_DEFAULT_ONNX_OPSET,
-    single_graph_file: bool = True,
+    save_with_external_data: bool = False,
     external_data_chunk_size_mb: Optional[int] = None,
     num_export_samples: int = 0,
     recipe: str = None,
@@ -454,7 +467,7 @@ def main(
         onnx_model_name=onnx_model_name,
         deployment_target=deployment_target,
         opset=opset,
-        single_graph_file=single_graph_file,
+        save_with_external_data=save_with_external_data,
         external_data_chunk_size_mb=external_data_chunk_size_mb,
         num_export_samples=num_export_samples,
         recipe=recipe,
