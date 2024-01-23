@@ -54,6 +54,7 @@ Options:
 
 import logging
 import os
+import shutil
 from pathlib import Path
 from typing import Any, List, Optional, Union
 
@@ -188,6 +189,15 @@ def export(
 
     integration = resolve_integration(source_path, integration)
 
+    deployment_folder_dir = os.path.join(target_path, deployment_directory_name)
+
+    if os.path.isdir(deployment_folder_dir):
+        _LOGGER.warning(
+            f"Deployment directory at: {deployment_folder_dir} already exists."
+            "Overwriting the existing deployment directory... "
+        )
+        shutil.rmtree(deployment_folder_dir)
+
     _LOGGER.info(f"Starting export for {integration} model...")
 
     helper_functions: IntegrationHelperFunctions = (
@@ -259,7 +269,7 @@ def export(
         f"at directory: {target_path}..."
     )
 
-    deployment_path = create_deployment_folder(
+    deployment_folder_dir = create_deployment_folder(
         source_path=source_path,
         target_path=target_path,
         deployment_directory_name=deployment_directory_name,
@@ -276,7 +286,7 @@ def export(
                 "To enable the validation, set `num_export_samples`"
                 "to True"
             )
-        validate_correctness_(target_path, deployment_path, onnx_model_name)
+        validate_correctness_(target_path, deployment_folder_dir, onnx_model_name)
 
     _LOGGER.info(
         f"Applying optimizations: {graph_optimizations} to the exported model..."
@@ -284,7 +294,7 @@ def export(
 
     if helper_functions.apply_optimizations is not None:
         helper_functions.apply_optimizations(
-            exported_file_path=os.path.join(deployment_path, onnx_model_name),
+            exported_file_path=os.path.join(deployment_folder_dir, onnx_model_name),
             optimizations=graph_optimizations,
             single_graph_file=single_graph_file,
         )
@@ -301,7 +311,7 @@ def export(
 
     _LOGGER.info(
         f"Successfully exported model from:\n{target_path}"
-        f"\nto\n{deployment_path}\nfor integration: {integration}"
+        f"\nto\n{deployment_folder_dir}\nfor integration: {integration}"
     )
 
 
