@@ -308,7 +308,9 @@ def export(
         )
 
     if save_with_external_data is True:
-        save_model_with_external_data(os.path.join(deployment_path, onnx_model_name))
+        save_model_with_external_data(
+            os.path.join(deployment_folder_dir, onnx_model_name)
+        )
 
     if validate_structure:
         _LOGGER.info("Validating model structure...")
