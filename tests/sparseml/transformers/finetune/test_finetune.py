@@ -126,7 +126,22 @@ def test_finetune_wout_recipe_custom_dataset(tmp_path: Path):
     device = "cuda:0"
     if not torch.cuda.is_available():
         device = "cpu"
-    dataset_name = "custom"
+    dataset_name = "json" or "csv"
+    path = "tests/sparseml/transformers/finetune/data/train/"
+
+    data_files ={
+        "train": [
+            path + "data1.json",
+            path + 'data2.json',
+        ],
+        "test": [
+            path + "data1.json",
+            path + 'data2.json',
+        ]
+}
+
+    raw_kwargs = {"data_files": data_files}
+    # load_dataset("json", data_files="my_file.json")
     concatenate_data = False
     output_dir = tmp_path
     max_steps = 50
@@ -140,4 +155,5 @@ def test_finetune_wout_recipe_custom_dataset(tmp_path: Path):
         concatenate_data=concatenate_data,
         splits=splits,
         oneshot_device=device,
+        raw_kwargs=raw_kwargs,
     )

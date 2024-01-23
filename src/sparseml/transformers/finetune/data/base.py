@@ -221,3 +221,9 @@ class TextGenerationDataset(RegistryMixin):
             kwargs.pop("desc", None)
 
         return dataset.map(**kwargs)
+
+    def get_custom_dataset(
+        self,
+    ):
+        # load custom data with splits
+        ...

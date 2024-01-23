@@ -69,6 +69,7 @@ def get_raw_dataset(
     :param streaming: True to stream data from Hugging Face, otherwise download
     :return: the requested dataset
     """
+    breakpoint()
     raw_datasets = load_dataset(
         data_args.dataset_name,
         data_args.dataset_config_name,
@@ -76,7 +77,7 @@ def get_raw_dataset(
         streaming=streaming,
         **kwargs,
     )
-
+    breakpoint()
     return raw_datasets
 
 
