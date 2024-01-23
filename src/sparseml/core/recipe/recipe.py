@@ -474,7 +474,12 @@ class Recipe(RecipeBase):
         yaml_dict = self._get_yaml_dict()
 
         ret = yaml.dump(
-            yaml_dict, stream=file_stream, allow_unicode=True, sort_keys=False
+            yaml_dict,
+            stream=file_stream,
+            allow_unicode=True,
+            sort_keys=False,
+            default_flow_style=None,
+            width=88,
         )
 
         if file_stream is not None:
