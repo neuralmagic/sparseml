@@ -15,6 +15,7 @@
 # flake8: noqa
 
 from .base import TextGenerationDataset
+from .custom import CustomDataset
 from .c4 import C4Dataset
 from .evolcodealpaca import EvolCodeAlpacaDataset
 from .gsm8k import GSM8KDataset

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from pathlib import Path
 import torch
 
 import sparseml.core.session as session_manager
@@ -22,7 +23,7 @@ from sparseml.transformers.finetune.text_generation import (
 )
 
 
-def test_oneshot_and_finetune(tmp_path):
+def test_oneshot_and_finetune(tmp_path: Path):
     recipe_str = "tests/sparseml/transformers/finetune/test_alternate_recipe.yaml"
     model = "Xenova/llama2.c-stories15M"
     device = "cuda:0"
@@ -50,7 +51,7 @@ def test_oneshot_and_finetune(tmp_path):
     )
 
 
-def test_oneshot_then_finetune(tmp_path):
+def test_oneshot_then_finetune(tmp_path: Path):
     recipe_str = "tests/sparseml/transformers/obcq/test_tiny2.yaml"
     model = "Xenova/llama2.c-stories15M"
     device = "cuda:0"
@@ -97,7 +98,7 @@ def test_oneshot_then_finetune(tmp_path):
     )
 
 
-def test_finetune_wout_recipe(tmp_path):
+def test_finetune_wout_recipe(tmp_path: Path):
     recipe_str = None
     model = "Xenova/llama2.c-stories15M"
     device = "cuda:0"
@@ -108,7 +109,28 @@ def test_finetune_wout_recipe(tmp_path):
     output_dir = tmp_path
     max_steps = 50
     splits = "train"
-
+    run_train(
+        model_name_or_path=model,
+        dataset_name=dataset_name,
+        output_dir=output_dir,
+        recipe=recipe_str,
+        max_steps=max_steps,
+        concatenate_data=concatenate_data,
+        splits=splits,
+        oneshot_device=device,
+    )
+    
+def test_finetune_wout_recipe_custom_dataset(tmp_path: Path):
+    recipe_str = None
+    model = "Xenova/llama2.c-stories15M"
+    device = "cuda:0"
+    if not torch.cuda.is_available():
+        device = "cpu"
+    dataset_name = "custom"
+    concatenate_data = False
+    output_dir = tmp_path
+    max_steps = 50
+    splits = "train"
     run_train(
         model_name_or_path=model,
         dataset_name=dataset_name,
