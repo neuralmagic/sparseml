@@ -273,15 +273,32 @@ def resolve_graph_optimizations(
         raise KeyError(f"Unknown graph optimization option: {optimizations}")
 
 
-def save_model_with_external_data(onnx_file_path: Union[str, Path]):
+def save_model_with_external_data(
+    onnx_file_path: Union[str, Path], external_data_chunk_size_mb: Optional[int] = None
+):
     onnx_model = load_model(onnx_file_path)
-    if onnx_includes_external_data(onnx_model):
+    if external_data_chunk_size_mb is not None:
         _LOGGER.debug(
-            "Splitting the model into two files: "
-            f"{os.path.basename(onnx_file_path)} (graph definition) "
-            f"and {ONNX_DATA_NAME} (constant tensor data)"
+            "Splitting the model into "
+            f"{os.path.basename(onnx_file_path)} (graph definition) one or more "
+            f"{ONNX_DATA_NAME} files (constant tensor data). The size of each "
+            f"{ONNX_DATA_NAME} file will not exceed {external_data_chunk_size_mb} MB.",
+        )
+        save_onnx(
+            onnx_model,
+            onnx_file_path,
+            external_data_file=ONNX_DATA_NAME,
+            max_external_data_chunk_size=external_data_chunk_size_mb * 1024 * 1024,
+        )
+
+    elif onnx_includes_external_data(onnx_model):
+        _LOGGER.debug(
+            "Splitting the model into"
+            f"{os.path.basename(onnx_file_path)} (graph definition) one or more"
+            f"{ONNX_DATA_NAME} files (constant tensor data)"
         )
         save_onnx(onnx_model, onnx_file_path, external_data_file=ONNX_DATA_NAME)
+
     else:
         _LOGGER.debug(
             "save_with_external_data = True ignored, the model already "

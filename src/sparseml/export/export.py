@@ -315,9 +315,10 @@ def export(
             optimizations=graph_optimizations,
         )
 
-    if save_with_external_data is True:
+    if save_with_external_data is True or external_data_chunk_size_mb:
         save_model_with_external_data(
-            os.path.join(deployment_folder_dir, onnx_model_name)
+            os.path.join(deployment_folder_dir, onnx_model_name),
+            external_data_chunk_size_mb,
         )
 
     if validate_structure:
