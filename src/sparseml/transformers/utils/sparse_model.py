@@ -21,13 +21,11 @@ from typing import Any, Dict, Optional, Tuple, Union
 import torch
 from torch.nn import Module
 from transformers import (
-    AutoConfig,
     AutoModelForCausalLM,
     AutoModelForMaskedLM,
     AutoModelForQuestionAnswering,
     AutoModelForSequenceClassification,
     AutoModelForTokenClassification,
-    OPTForCausalLM,
 )
 from transformers.file_utils import WEIGHTS_NAME
 
@@ -243,9 +241,7 @@ class SparseAutoModel:
     @staticmethod
     def text_generation_from_pretrained(
         model_name_or_path: str,
-        config: AutoConfig,
         sequence_length: Optional[int] = None,
-        model_type: str = "model",
         recipe: Optional[Union[str, Path]] = None,
         trust_remote_code: bool = False,
         torch_dtype: Union[str, torch.dtype] = "auto",
@@ -253,46 +249,33 @@ class SparseAutoModel:
     ) -> Module:
         """
         :param model_name_or_path: the name of or path to the model to load
-        :param model_type: specify the type of model loaded for logging;
-            ex one of [model, student, teacher]
-        :param kwargs: keyword arguments to pass through to the AutoModel call
+        :param sequence_length: the maximum length of the sequence to generate.
+            If None, will use the default sequence length for the model.
+            Defaults to None.
+        :param recipe: the recipe to apply to the model. If None, no recipe is applied
+        :param trust_remote_code: related to trust_remote_code in HF transformers.
+            If True, will execute the modelling code from the model directory
+            (if present). Defaults to False.
+        :param torch_dtype: the torch dtype to use for the model. If "auto", will
+            use the default dtype for the model. Defaults to "auto".
         :return: the created model for text generation
         """
-        # set the config so that exported model is a decoder and does
-        # not take past_key_values as input
-        config.is_decoder = True
-        # whether to use past key values an input
-        config.use_past = False
-        # whether to output past key values
-        config.use_cache = False
 
-        if config.model_type == "opt":
-            # TODO: Talk to Alex whether this pathway needs to be maintained
-            def skip(*args, **kwargs):
-                pass
+        def skip(*args, **kwargs):
+            pass
 
-            torch.nn.init.kaiming_uniform_ = skip
-            torch.nn.init.uniform_ = skip
-            torch.nn.init.normal_ = skip
+        # Skip the initializer step. This accelerates the loading
+        # of the models, especially for the quantized models
+        torch.nn.init.kaiming_uniform_ = skip
+        torch.nn.init.uniform_ = skip
+        torch.nn.init.normal_ = skip
 
-            model = OPTForCausalLM.from_pretrained(
-                model_name_or_path,
-                torch_dtype=torch_dtype,
-                config=config,
-                trust_remote_code=trust_remote_code,
-                **kwargs,
-            )
-        else:
-            model = AutoModelForCausalLM.from_pretrained(
-                model_name_or_path,
-                torch_dtype=torch_dtype,
-                config=config,
-                trust_remote_code=trust_remote_code,
-                **kwargs,
-            )
-
-        # TODO: Do we need to call eval() here? Why?
-        model.eval()
+        model = AutoModelForCausalLM.from_pretrained(
+            model_name_or_path,
+            torch_dtype=torch_dtype,
+            trust_remote_code=trust_remote_code,
+            **kwargs,
+        )
         if sequence_length is not None:
             model.seqlen = sequence_length
 
@@ -300,8 +283,6 @@ class SparseAutoModel:
             apply_structure_to_transformers(
                 model=model, model_directory=model_name_or_path, recipe=recipe
             )
-
-        log_model_load(model, model_name_or_path, model_type, delayed_load=False)
 
         return model
 

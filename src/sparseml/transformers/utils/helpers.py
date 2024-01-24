@@ -76,6 +76,22 @@ NLG_OPTIONAL_DEPLOYMENT_FILES = {
 }
 
 
+def remove_past_key_value_support_from_config(config: AutoConfig) -> AutoConfig:
+    """
+    Modify config of the causal language model so that it turns off the
+    past key value support. This means that the model initialized from
+    this config will not take past key values as input and will not output
+    past key values.
+    """
+    # not take past_key_values as input
+    config.is_decoder = True
+    # whether to use past key values an input
+    config.use_past = False
+    # whether to output past key values
+    config.use_cache = False
+    return config
+
+
 def apply_structure_to_transformers(
     model: AutoModel, model_directory: Union[str, Path], recipe: Union[Path, str]
 ) -> None:

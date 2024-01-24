@@ -28,6 +28,7 @@ from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
 from sparseml.transformers.finetune.data.data_helpers import format_calibration_data
 from sparseml.transformers.sparsification.obcq.obcq import one_shot
 from sparseml.transformers.sparsification.obcq.utils.helpers import llama_forward
+from sparseml.transformers.utils.helpers import resolve_sequence_length
 from sparseml.transformers.utils.initializers import (
     initialize_config,
     initialize_sparse_model,
@@ -49,6 +50,7 @@ def test_obcq_tinystories(recipe_file_path):
     dataset_name = "open_platypus"
     if not torch.cuda.is_available():
         device = "cpu"
+    config = initialize_config(model_path=tiny_model_path)
 
     # test recipe with 50% sparsity, quantization and smoothquant
     tiny_model = one_shot(
@@ -61,7 +63,7 @@ def test_obcq_tinystories(recipe_file_path):
 
     data_args = DataTrainingArguments(
         dataset_name=dataset_name,
-        max_seq_length=tiny_model.seqlen,
+        max_seq_length=resolve_sequence_length(config),
         num_calibration_samples=num_samples,
         concatenate_data=False,
         pad_to_max_length=False,
