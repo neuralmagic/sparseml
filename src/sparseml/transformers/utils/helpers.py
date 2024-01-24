@@ -48,6 +48,7 @@ __all__ = [
 
 class TaskNames(Enum):
     mlm = {"masked-language-modeling", "mlm"}
+    model = {"model", "base"}
     qa = {"question-answering", "qa"}
     token_classification = {"token-classification", "ner"}
     text_classification = {
