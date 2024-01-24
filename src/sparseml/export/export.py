@@ -395,7 +395,7 @@ def export(
 )
 @click.option(
     "--integration",
-    type=click.Choice(["image-classification, transformers"]),
+    type=click.Choice(["image-classification", "transformers"]),
     default=None,
     help="Integration the model was trained under. By default, inferred from the model",
 )
