@@ -108,7 +108,7 @@ splits = {
     "calibration": "train[:20%]"
 }
 
-run_general(
+run_oneshot(
     model_name_or_path=model,
     dataset_name=dataset_name,
     concatenate_data=concatenate_data,
