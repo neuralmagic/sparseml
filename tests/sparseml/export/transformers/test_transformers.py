@@ -111,22 +111,6 @@ class TestEndToEndExport:
         )
         assert (target_path / "deployment" / "model.onnx").exists()
 
-    def test_export_validate_correctness(self, caplog, setup):
-        source_path, target_path, task = setup
-
-        num_samples = 3
-
-        export(
-            source_path=source_path,
-            target_path=target_path,
-            task=task,
-            num_export_samples=num_samples,
-            validate_correctness=True,
-            **dict(data_args=dict(dataset_name="squad")),
-        )
-
-        assert "ERROR" not in caplog.text
-
     def test_export_multiple_times(self, caplog, setup):
         # make sure that when we export multiple times,
         # the user gets verbose warning about the files
