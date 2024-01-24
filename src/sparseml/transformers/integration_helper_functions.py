@@ -34,6 +34,7 @@ from sparseml.transformers.utils.helpers import (
     OPTIONAL_DEPLOYMENT_FILES,
     TaskNames,
     create_fake_dataloader,
+    remove_past_key_value_support_from_config,
     resolve_sequence_length,
 )
 from sparseml.transformers.utils.initializers import (
@@ -56,6 +57,7 @@ def create_model(
     device: Optional[str] = None,
     task: Optional[str] = None,
     recipe: Optional[str] = None,
+    export: bool = True,
     **kwargs,
 ) -> Tuple[torch.nn.Module, Dict[str, Any]]:
     """
@@ -70,6 +72,7 @@ def create_model(
     :param task: The task to use for the model and dataloader instantiation
     :param recipe: The recipe to use for the model and dataloader instantiation.
         If None, attempt to use the default recipe
+    :param export: Whether the created model is for export or not.
 
     :return: A tuple of the
         - torch model
@@ -96,6 +99,10 @@ def create_model(
     config = initialize_config(source_path, trust_remote_code, **config_args)
     sequence_length = sequence_length or resolve_sequence_length(config)
     tokenizer = initialize_tokenizer(source_path, sequence_length, task)
+    if export:
+        if task in TaskNames.text_generation.value:
+            config = remove_past_key_value_support_from_config(config)
+
     model = initialize_sparse_model(
         model_path=source_path,
         task=task,
@@ -170,16 +177,14 @@ def create_data_samples(
 def apply_optimizations_generative_transformer(
     exported_file_path: Union[str, Path],
     optimizations: Union[str, List[str]],
-    single_graph_file: bool = True,
 ):
 
     if exported_file_path.endswith(".onnx"):
         available_optimizations = dict(kv_cache_injection=apply_kv_cache_injection)
         apply_optimizations_onnx(
             onnx_file_path=exported_file_path,
-            target_optimizations=optimizations,
             available_optimizations=available_optimizations,
-            single_graph_file=single_graph_file,
+            target_optimizations=optimizations,
         )
     else:
         raise NotImplementedError(

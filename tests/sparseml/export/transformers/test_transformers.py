@@ -50,6 +50,18 @@ class TestEndToEndExport:
             task=task,
         )
         assert (target_path / "deployment" / "model.onnx").exists()
+        assert not (target_path / "deployment" / "model.data").exists()
+
+    def test_export_with_external_data(self, setup):
+        source_path, target_path, task = setup
+        export(
+            source_path=source_path,
+            target_path=target_path,
+            task=task,
+            save_with_external_data=True,
+        )
+        assert (target_path / "deployment" / "model.onnx").exists()
+        assert (target_path / "deployment" / "model.data").exists()
 
     def test_export_samples(self, setup):
         source_path, target_path, task = setup
@@ -98,16 +110,6 @@ class TestEndToEndExport:
             sample_data=sample_data,
         )
         assert (target_path / "deployment" / "model.onnx").exists()
-
-    @pytest.mark.skipif(reason="skipping since not implemented")
-    def test_export_multiple_files(self, setup):
-        source_path, target_path, task = setup
-        export(
-            source_path=source_path,
-            target_path=target_path,
-            task=task,
-            single_graph_file=False,
-        )
 
     def test_export_validate_correctness(self, caplog, setup):
         source_path, target_path, task = setup
