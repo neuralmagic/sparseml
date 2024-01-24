@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import inspect
 import logging
 import os
 import shutil
@@ -23,9 +22,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import torch
-import transformers
 from tqdm import tqdm
-from transformers.file_utils import PaddingStrategy
 
 from sparseml.pytorch.utils.helpers import tensors_export, tensors_to_device
 
@@ -239,28 +236,6 @@ def run_inference_with_tuple_or_list_data(
         # if the input is a batch, remove the batch dimension
         inputs = torch.squeeze(inputs, 0)
     return inputs, labels, outputs
-
-
-def create_fake_dataloader(
-    model: torch.nn.Module,
-    tokenizer: transformers.AutoTokenizer,
-    num_samples: int,
-):
-
-    forward_args_spec = inspect.getfullargspec(model.__class__.forward)
-    inputs = tokenizer(
-        "", return_tensors="pt", padding=PaddingStrategy.MAX_LENGTH.value
-    ).data
-    fake_inputs = OrderedDict(
-        [
-            (input_key, inputs[input_key][0].reshape(1, -1))
-            for input_key in forward_args_spec.args
-            if input_key in inputs
-        ]
-    )
-    data_loader = (fake_inputs for _ in range(num_samples))
-    input_names = list(fake_inputs.keys())
-    return data_loader, input_names
 
 
 def _check_if_samples_already_exist(sample_path: Union[str, Path]) -> bool:

@@ -20,7 +20,6 @@ import torch
 from pydantic import Field
 
 from sparseml.export.export_data import create_data_samples as create_data_samples_
-from sparseml.export.export_data import create_fake_dataloader
 from sparseml.export.helpers import apply_optimizations as apply_optimizations_onnx
 from sparseml.integration_helper_functions import (
     IntegrationHelperFunctions,
@@ -34,6 +33,7 @@ from sparseml.transformers.utils.helpers import (
     NLG_OPTIONAL_DEPLOYMENT_FILES,
     OPTIONAL_DEPLOYMENT_FILES,
     TaskNames,
+    create_fake_dataloader,
     resolve_sequence_length,
 )
 from sparseml.transformers.utils.initializers import (
@@ -106,7 +106,6 @@ def create_model(
         device=device,
     )
 
-    validation_dataset = None
     data_args = _parse_data_args(data_args)
 
     if data_args:
@@ -118,7 +117,10 @@ def create_model(
             config=config,
             split="validation",
         )
+
         if task in TaskNames.text_generation.value:
+            # text-generation datasets have a separate
+            # logic for creating a dataloader
             if not dataset_with_labels:
                 validation_dataset = validation_dataset.remove_columns("labels")
             data_loader = format_calibration_data(tokenized_dataset=validation_dataset)
@@ -130,6 +132,7 @@ def create_model(
             input_names = list(next(trainer._get_fake_dataloader(1, tokenizer)).keys())
 
     else:
+        # if no data_args are provided, create a fake dataloader
         data_loader, input_names = create_fake_dataloader(
             model, tokenizer, num_samples=1
         )
