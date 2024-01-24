@@ -86,6 +86,8 @@ def run_calibration_forward(
             break
         if mask_padding:
             batch = apply_pad_mask_to_batch(batch)
+        else:
+            batch.pop(PADDING_MASK_COLUMN_NAME)
         batch = tensors_to_device(batch, model_device)
         with torch.no_grad():
             forward_fn(batch, module=model)
