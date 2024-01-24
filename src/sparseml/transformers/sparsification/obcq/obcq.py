@@ -31,13 +31,13 @@ from sparseml.pytorch.model_load.helpers import (
 from sparseml.transformers.finetune.data import TextGenerationDataset
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
 from sparseml.transformers.finetune.data.data_helpers import format_calibration_data
+from sparseml.transformers.utils.helpers import resolve_sequence_length
 from sparseml.transformers.utils.initializers import initialize_sparse_model
 
 
 __all__ = ["one_shot"]
 
 _LOGGER = logging.getLogger(__name__)
-SUPPORTED_DATASETS = TextGenerationDataset.registered_names()
 SUPPORTED_MODELS = ["opt", "llama", "mistral"]
 SUPPORTED_PRECISION = ["auto", "half", "full", "float16", "bfloat16", "float32"]
 
@@ -64,7 +64,7 @@ def one_shot(
     :param dataset_config_name: Specific configuration to extract from calib dataset
     :param num_samples: Number of samples to extract from the dataset
     :param sequence_length: Maximum input sequence length to the model
-    :param concatenate_data: Whether or not to concatenate datapoints to fill seqlen
+    :param concatenate_data: Whether to concatenate datapoints to fill seqlen or not
     :param device: Device (cuda:index, auto or cpu) to use for computation
     :param deploy_dir: The output directory to save the model to
     :param recipe_file: recipe containing SparseGPT configuration
@@ -100,15 +100,18 @@ def one_shot(
     )
 
     # Load calibration data
-    if dataset_name not in SUPPORTED_DATASETS:
+    try:
+        TextGenerationDataset.get_value_from_registry(dataset_name)
+    except KeyError:
         raise ValueError(
-            f"dataset_name={dataset_name} should be one of {SUPPORTED_DATASETS}"
+            f"dataset_name={dataset_name} should be one of "
+            f"{TextGenerationDataset.registered_names()}"
         )
 
     data_args = DataTrainingArguments(
         dataset_name=dataset_name,
         dataset_config_name=dataset_config_name,
-        max_seq_length=sequence_length or model.seqlen,
+        max_seq_length=sequence_length or resolve_sequence_length(config),
         num_calibration_samples=num_samples,
         concatenate_data=concatenate_data,
         pad_to_max_length=False,
@@ -160,7 +163,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "dataset",
         type=str,
-        choices=SUPPORTED_DATASETS,
+        choices=TextGenerationDataset.registered_names(),
         help="Name of dataset to extract calibration data from",
     )
     parser.add_argument(
