@@ -31,6 +31,7 @@ from sparseml.pytorch.model_load.helpers import (
 from sparseml.transformers.finetune.data import TextGenerationDataset
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
 from sparseml.transformers.finetune.data.data_helpers import format_calibration_data
+from sparseml.transformers.utils.helpers import resolve_sequence_length
 from sparseml.transformers.utils.initializers import initialize_sparse_model
 
 
@@ -110,7 +111,7 @@ def one_shot(
     data_args = DataTrainingArguments(
         dataset_name=dataset_name,
         dataset_config_name=dataset_config_name,
-        max_seq_length=sequence_length or model.seqlen,
+        max_seq_length=sequence_length or resolve_sequence_length(config),
         num_calibration_samples=num_samples,
         concatenate_data=concatenate_data,
         pad_to_max_length=False,

@@ -219,7 +219,6 @@ def main(
     model = SparseAutoModel.text_generation_from_pretrained(
         model_name_or_path=model_path,
         sequence_length=None,  # use model default
-        model_type="model",
         **model_kwargs,
     )
 
@@ -227,7 +226,6 @@ def main(
         SparseAutoModel.text_generation_from_pretrained(
             model_name_or_path=training_args.distill_teacher,
             sequence_length=None,  # use model default
-            model_type="teacher",
             **teacher_kwargs,
         )
         if training_args.distill_teacher is not None
