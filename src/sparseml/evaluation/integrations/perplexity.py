@@ -14,11 +14,19 @@
 
 from typing import List, Optional
 
-import numpy
-import torch
-from datasets import load_dataset
-from torch.nn import CrossEntropyLoss
-from tqdm import tqdm
+
+try:
+    import numpy
+    import torch
+    from datasets import load_dataset
+    from torch.nn import CrossEntropyLoss
+    from tqdm import tqdm
+except ImportError as err:
+    raise ImportError(
+        "perplexity evaluation requires the following packages to be installed: "
+        "datasets, numpy, torch, tqdm kindly install these packages using "
+        "`pip install sparseml[transformers, torch]`"
+    ) from err
 
 from sparseml.evaluation.registry import SparseMLEvaluationRegistry
 from sparseml.evaluation.utils.helpers import fetch_recipe_path

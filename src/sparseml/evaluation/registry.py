@@ -18,6 +18,7 @@ from typing import Callable
 
 from sparsezoo.evaluation import EvaluationRegistry
 from sparsezoo.evaluation.results import Result
+from sparsezoo.utils.registry import standardize_lookup_name
 
 
 __all__ = ["SparseMLEvaluationRegistry", "collect_integrations"]
@@ -42,7 +43,7 @@ class SparseMLEvaluationRegistry(EvaluationRegistry):
         :return: The evaluation integration associated with the name
         """
 
-        collect_integrations()
+        collect_integrations(name=name)
         return cls.get_value_from_registry(name=name)
 
 
@@ -60,9 +61,14 @@ def collect_integrations(name: str):
     :param name: The name of the integration to collect, is case insentitive
     """
 
+    standardized_name = standardize_lookup_name(name)
+
     # The integration locations must be hardcoded here to be collected
     # this is a time being solution until we move to a config based
     # solution
+
+    if standardized_name == "perplexity":
+        from sparseml.evaluation.integrations import perplexity  # noqa: F401
 
     _LOGGER.debug(
         f"Auto collection of {name} integration for eval failed. "
