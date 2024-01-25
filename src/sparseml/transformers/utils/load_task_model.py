@@ -45,6 +45,7 @@ def load_task_model(
             model_name_or_path=model_path,
             config=config,
             model_type="model",
+            recipe=recipe,
             trust_remote_code=trust_remote_code,
         )
 

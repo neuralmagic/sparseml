@@ -353,28 +353,26 @@ class SparseAutoModel:
     def model_from_pretrained(
         model_name_or_path: str,
         model_type: str = "model",
+        recipe: Optional[Union[str, Path]] = None,
         **kwargs,
     ) -> Module:
         """
         :param model_name_or_path: the name of or path to the model to load
         :param model_type: specify the type of model loaded for logging;
             ex one of [model, student, teacher]
+        :param recipe: the recipe to apply to the model. If None, no recipe is applied
         :param kwargs: keyword arguments to pass through to the AutoModel call
         :return: the created base model
         """
-        if not kwargs:
-            kwargs = {}
-        kwargs["from_tf"] = False
-        delayed = False
-        if "state_dict" not in kwargs:
-            kwargs["state_dict"], delayed = SparseAutoModel._loadable_state_dict(
-                model_name_or_path
-            )
         model = AutoModel.from_pretrained(
             model_name_or_path,
             **kwargs,
         )
-        log_model_load(model, model_name_or_path, model_type, delayed)
+
+        if recipe:
+            apply_structure_to_transformers(
+                model=model, model_directory=model_name_or_path, recipe=recipe
+            )
 
         return model
 
