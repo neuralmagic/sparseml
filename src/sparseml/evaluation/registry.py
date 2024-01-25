@@ -71,6 +71,8 @@ def collect_integrations(name: str):
         from sparseml.evaluation.integrations import perplexity  # noqa: F401
     elif standardized_name == "lm-eval-harness":
         from sparseml.evaluation.integrations import lm_eval_harness  # noqa: F401
+    elif standardized_name == "rouge":
+        from sparseml.evaluation.integrations import rouge  # noqa: F401
     else:
         _LOGGER.debug(
             f"Auto collection of {name}({standardized_name}) integration "
