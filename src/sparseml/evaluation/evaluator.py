@@ -34,7 +34,7 @@ def evaluate(
         SparseZoo/HuggingFace to evaluate. For example,
         `mgoin/llama2.c-stories15M-quant-pt`
     :param datasets: The dataset(s) to evaluate on. For example,
-        `open_playtpus`
+        `open_platypus`
     :param integration: Name of the eval integration to use.
         Example, `perplexity`
     :param batch_size: The batch size to use for evals, defaults to 1
