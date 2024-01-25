@@ -195,10 +195,11 @@ def _format_lm_eval_raw_results(results: Dict[str, Any]) -> List[Evaluation]:
     """
     formatted_results = []
     for dataset_name, dataset_result in results["results"].items():
-        metrics = []
-        for metric_name, metric_value in dataset_result.items():
-            metric = Metric(name=metric_name, value=metric_value)
-            metrics.append(metric)
+        metrics = [
+            Metric(name=metric_name, value=metric_value)
+            for metric_name, metric_value in dataset_result.items()
+            if isinstance(metric_value, float)
+        ]
         dataset = Dataset(
             type=None, name=dataset_name, config=results["config"], split=None
         )
