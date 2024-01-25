@@ -176,26 +176,6 @@ def test_evol(tiny_llama_tokenizer):
 
 
 @pytest.mark.usefixtures("tiny_llama_tokenizer")
-@pytest.mark.parametrize(
-    "split_def", [("train"), ("train[60%:]"), ({"train": "train[:20%]"}), (None)]
-)
-def test_split_loading(split_def, tiny_llama_tokenizer):
-    data_args = DataTrainingArguments(dataset_name="open_platypus", splits=split_def)
-    training_args = TrainingArguments(do_train=True, output_dir="dummy")
-    model_args = ModelArguments(model_name_or_path=None)
-    stage_runner = StageRunner(
-        model_args=model_args,
-        data_args=data_args,
-        training_args=training_args,
-        model=None,
-    )
-    stage_runner.populate_datasets(tokenizer=tiny_llama_tokenizer)
-
-    train_dataset = stage_runner.get_dataset_split("train")
-    assert train_dataset is not None
-    assert isinstance(train_dataset[0], dict)
-
-@pytest.mark.usefixtures("tiny_llama_tokenizer")
 def test_dvc_dataloading(tiny_llama_tokenizer):
     data_args = DataTrainingArguments(
         dataset_name="csv",
@@ -240,6 +220,27 @@ def test_stream_loading(tiny_llama_tokenizer):
     item = next(iter(processed))
     assert "labels" in item
     assert len(item["input_ids"]) == manager.max_seq_length
+
+
+@pytest.mark.usefixtures("tiny_llama_tokenizer")
+@pytest.mark.parametrize(
+    "split_def", [("train"), ("train[60%:]"), ({"train": "train[:20%]"}), (None)]
+)
+def test_split_loading(split_def, tiny_llama_tokenizer):
+    data_args = DataTrainingArguments(dataset_name="open_platypus", splits=split_def)
+    training_args = TrainingArguments(do_train=True, output_dir="dummy")
+    model_args = ModelArguments(model_name_or_path=None)
+    stage_runner = StageRunner(
+        model_args=model_args,
+        data_args=data_args,
+        training_args=training_args,
+        model=None,
+    )
+    stage_runner.populate_datasets(tokenizer=tiny_llama_tokenizer)
+
+    train_dataset = stage_runner.get_dataset_split("train")
+    assert train_dataset is not None
+    assert isinstance(train_dataset[0], dict)
 
 
 @pytest.mark.usefixtures("tiny_llama_tokenizer")
