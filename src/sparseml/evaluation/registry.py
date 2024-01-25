@@ -69,9 +69,9 @@ def collect_integrations(name: str):
 
     if standardized_name == "perplexity":
         from sparseml.evaluation.integrations import perplexity  # noqa: F401
-
-    _LOGGER.debug(
-        f"Auto collection of {name} integration for eval failed. "
-        "The integration must be registered and collected/imported "
-        "manually."
-    )
+    else:
+        _LOGGER.debug(
+            f"Auto collection of {name}({standardized_name}) integration "
+            "for eval failed. The integration must be registered and "
+            "collected/imported manually."
+        )
