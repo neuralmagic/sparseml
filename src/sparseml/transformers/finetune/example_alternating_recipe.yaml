@@ -7,8 +7,7 @@ initial_sparsity_stage:
       sequential_update: False
       quantize: False
       percdamp: 0.01
-      prunen: 0
-      prunem: 0
+      mask_structure: "0:0"
       targets: [
         "re:model.layers.\\d+$"
       ]
@@ -16,14 +15,7 @@ initial_training_stage:
   run_type: train
   pruning_modifiers:
     ConstantPruningModifier:
-      targets: [
-        "re:.*self_attn.q_proj",
-        "re:.*self_attn.k_proj",
-        "re:.*self_attn.v_proj",
-        "re:.*self_attn.o_proj",
-        "re:.*mlp.gate_proj",
-        "re:.*mlp.up_proj"
-      ]
+      targets: '__ALL__'
       start: 0
 next_sparsity_stage:
   run_type: oneshot
@@ -34,8 +26,7 @@ next_sparsity_stage:
       sequential_update: False
       quantize: False
       percdamp: 0.01
-      prunen: 0
-      prunem: 0
+      mask_structure: "0:0"
       targets: [
         "re:model.layers.\\d+$"
       ]
@@ -43,12 +34,5 @@ next_training_stage:
   run_type: train
   pruning_modifiers:
     ConstantPruningModifier:
-      targets: [
-        "re:.*self_attn.q_proj",
-        "re:.*self_attn.k_proj",
-        "re:.*self_attn.v_proj",
-        "re:.*self_attn.o_proj",
-        "re:.*mlp.gate_proj",
-        "re:.*mlp.up_proj"
-      ]
+      targets: '__ALL__'
       start: 0
