@@ -194,9 +194,13 @@ def main(
         else None
     )
 
+    # Trainer handles device assignment for FSDP and training, don't do mapping here
+    # if running oneshot outside of FSDP, apply user device settings
     device_map = None
-    if training_args.fsdp is None and training_args.do_oneshot:
+    fsdp_enabled = os.environ.get("ACCELERATE_USE_FSDP", "false") == "true"
+    if not fsdp_enabled and training_args.do_oneshot:
         device_map = training_args.oneshot_device
+        _LOGGER.warning(f"Moving {model_path} to device {device_map} for One-Shot")
     model_kwargs = {
         "config": config,
         "cache_dir": model_args.cache_dir,

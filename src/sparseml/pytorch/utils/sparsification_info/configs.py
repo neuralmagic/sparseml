@@ -179,7 +179,7 @@ class SparsificationSummaries(SparsificationInfo):
         for param_name, param in module.named_parameters():
             num_parameters = param.numel()
             num_zero_parameters = param.numel() - param.count_nonzero().item()
-            num_parameters = max(1, num_parameters) # avoid FSDP divide by 0
+            num_parameters = max(1, num_parameters)  # avoid FSDP divide by 0
 
             if (
                 lower_threshold_pruning
@@ -260,7 +260,7 @@ class SparsificationPruning(SparsificationInfo):
         for param_name, param in module.named_parameters():
             num_parameters = param.numel()
             num_zero_parameters = param.numel() - param.count_nonzero().item()
-            num_parameters = max(1, num_parameters) # avoid FSDP divide by 0
+            num_parameters = max(1, num_parameters)  # avoid FSDP divide by 0
 
             zero_count = num_zero_parameters
             zero_count_percent = num_zero_parameters / num_parameters
