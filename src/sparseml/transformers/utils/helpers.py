@@ -209,47 +209,6 @@ def resolve_sequence_length(config: AutoConfig) -> int:
     return sequence_length
 
 
-def _resolve_recipe_file(
-    requested_recipe: Union[str, Path], model_path: Union[str, Path]
-) -> Union[str, Path, None]:
-    default_recipe = os.path.join(model_path, RECIPE_NAME)
-    default_recipe_exists = os.path.isfile(default_recipe)
-    default_and_request_recipes_identical = default_recipe == requested_recipe
-
-    if (
-        default_recipe_exists
-        and requested_recipe
-        and not default_and_request_recipes_identical
-    ):
-        _LOGGER.warning(
-            f"Attempting to apply {requested_recipe} "
-            f"to the model located in {model_path}, "
-            f"but the model already has a recipe stored in {default_recipe}. "
-            f"Using {requested_recipe} instead."
-        )
-        return requested_recipe
-
-    elif (
-        not default_recipe_exists
-        and requested_recipe
-        and not default_and_request_recipes_identical
-    ):
-        _LOGGER.warning(
-            f"Attempting to apply {requested_recipe} "
-            f"to the model located in {model_path}."
-            "However, it is expected that the model "
-            f"has it's target recipe stored as {default_recipe}."
-            "Applying any recipe before the target recipe may "
-            "result in unexpected behavior."
-            f"Applying {requested_recipe} nevertheless."
-        )
-        return requested_recipe
-
-    elif default_recipe_exists:
-        _LOGGER.info(f"Applying the default recipe: {default_recipe}")
-        return default_recipe
-
-
 def resolve_recipe_application(
     recipe: Union[str, Path, None], model_path: Union[str, Path]
 ) -> Union[str, Path, None]:
@@ -296,3 +255,44 @@ def resolve_recipe_application(
         f"found in {model_path}. Skipping recipe application."
     )
     return None
+
+
+def _resolve_recipe_file(
+    requested_recipe: Union[str, Path], model_path: Union[str, Path]
+) -> Union[str, Path, None]:
+    default_recipe = os.path.join(model_path, RECIPE_NAME)
+    default_recipe_exists = os.path.isfile(default_recipe)
+    default_and_request_recipes_identical = default_recipe == requested_recipe
+
+    if (
+        default_recipe_exists
+        and requested_recipe
+        and not default_and_request_recipes_identical
+    ):
+        _LOGGER.warning(
+            f"Attempting to apply {requested_recipe} "
+            f"to the model located in {model_path}, "
+            f"but the model already has a recipe stored in {default_recipe}. "
+            f"Using {requested_recipe} instead."
+        )
+        return requested_recipe
+
+    elif (
+        not default_recipe_exists
+        and requested_recipe
+        and not default_and_request_recipes_identical
+    ):
+        _LOGGER.warning(
+            f"Attempting to apply {requested_recipe} "
+            f"to the model located in {model_path}."
+            "However, it is expected that the model "
+            f"has it's target recipe stored as {default_recipe}."
+            "Applying any recipe before the target recipe may "
+            "result in unexpected behavior."
+            f"Applying {requested_recipe} nevertheless."
+        )
+        return requested_recipe
+
+    elif default_recipe_exists:
+        _LOGGER.info(f"Applying the default recipe: {default_recipe}")
+        return default_recipe
