@@ -158,7 +158,7 @@ class StageRunner:
         # first time, calls to summon_full_params will fail ¯\_(ツ)_/¯
         dummy_inp = dict(next(iter(calib_data)))
         with torch.no_grad():
-            dummy_inp.pop(PADDING_MASK_COLUMN_NAME)
+            dummy_inp.pop(PADDING_MASK_COLUMN_NAME, None)
             self.trainer.model(**dummy_inp)
         torch.cuda.empty_cache()
 
