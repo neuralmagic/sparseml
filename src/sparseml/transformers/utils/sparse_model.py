@@ -29,14 +29,51 @@ from transformers import (
 )
 from transformers.file_utils import WEIGHTS_NAME
 
-from sparseml.pytorch.model_load.helpers import log_model_load
-from sparseml.transformers.utils.helpers import apply_structure_to_transformers
+from sparseml.pytorch.model_load.helpers import (
+    apply_recipe_structure_to_model,
+    log_model_load,
+)
+from sparseml.transformers.utils.helpers import resolve_recipe_application
 
 
-__all__ = ["SparseAutoModel", "get_shared_tokenizer_src"]
+__all__ = ["SparseAutoModel", "SparseAutoModelForCausalLM", "get_shared_tokenizer_src"]
 
 
 _LOGGER = logging.getLogger(__name__)
+
+
+class SparseAutoModelForCausalLM(AutoModelForCausalLM):
+    """
+    SparseML wrapper for the AutoModelForCausalLM class
+    """
+
+    @classmethod
+    def from_pretrained(
+        cls,
+        pretrained_model_name_or_path,
+        recipe: Optional[Union[str, Path]] = None,
+        *model_args,
+        **kwargs,
+    ) -> Module:
+        """
+        A wrapper around the AutoModelForCausalLM.from_pretrained method that
+        enables the loading of a SparseML recipe file to apply to the model
+
+        :param pretrained_model_name_or_path: the name of or path to the model to load
+        :param recipe: the path to the recipe file to apply to the model. Can be a
+            string or Path object. If None, a recipe will be searched for in the
+            pretrained_model_name_or_path directory and applied if found
+        :return the created model for causal language modeling
+        """
+        model = super(AutoModelForCausalLM, cls).from_pretrained(
+            pretrained_model_name_or_path, *model_args, **kwargs
+        )
+        recipe = resolve_recipe_application(recipe, pretrained_model_name_or_path)
+        if recipe:
+            apply_recipe_structure_to_model(
+                model=model, module_path=pretrained_model_name_or_path, recipe=recipe
+            )
+        return model
 
 
 class SparseAutoModel:
@@ -270,19 +307,15 @@ class SparseAutoModel:
         torch.nn.init.uniform_ = skip
         torch.nn.init.normal_ = skip
 
-        model = AutoModelForCausalLM.from_pretrained(
+        model = SparseAutoModelForCausalLM.from_pretrained(
             model_name_or_path,
             torch_dtype=torch_dtype,
             trust_remote_code=trust_remote_code,
+            recipe=recipe,
             **kwargs,
         )
         if sequence_length is not None:
             model.seqlen = sequence_length
-
-        if recipe:
-            apply_structure_to_transformers(
-                model=model, model_directory=model_name_or_path, recipe=recipe
-            )
 
         return model
 

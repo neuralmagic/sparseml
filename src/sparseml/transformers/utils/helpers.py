@@ -23,11 +23,10 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional, Union
 
-from transformers import AutoConfig, AutoModel
+from transformers import AutoConfig
 from transformers.trainer_utils import get_last_checkpoint
 
 from sparseml.export.helpers import ONNX_MODEL_NAME
-from sparseml.pytorch.model_load.helpers import apply_recipe_structure_to_model
 from sparsezoo import setup_model
 
 
@@ -41,7 +40,6 @@ __all__ = [
     "TaskNames",
     "is_transformer_model",
     "resolve_sequence_length",
-    "apply_structure_to_transformers",
     "ALL_TASK_NAMES",
 ]
 
@@ -90,21 +88,6 @@ def remove_past_key_value_support_from_config(config: AutoConfig) -> AutoConfig:
     # whether to output past key values
     config.use_cache = False
     return config
-
-
-def apply_structure_to_transformers(
-    model: AutoModel, model_directory: Union[str, Path], recipe: Union[Path, str]
-) -> None:
-    """
-    Apply the structure (dictated by the recipe) to the model.
-    If no recipe is found, the model is returned as is (a warning is logged).
-    :param model: the model to apply the structure to
-    :param model_directory: the directory where the model is stored
-    :param recipe: a valid path to the recipe to apply or a recipe string
-    """
-    apply_recipe_structure_to_model(
-        model=model, recipe_path=recipe, model_path=model_directory
-    )
 
 
 def is_transformer_model(source_path: Union[Path, str]) -> bool:
@@ -224,3 +207,92 @@ def resolve_sequence_length(config: AutoConfig) -> int:
         "(inferred from HF transformers config) "
     )
     return sequence_length
+
+
+def _resolve_recipe_file(
+    requested_recipe: Union[str, Path], model_path: Union[str, Path]
+) -> Union[str, Path, None]:
+    default_recipe = os.path.join(model_path, RECIPE_NAME)
+    default_recipe_exists = os.path.isfile(default_recipe)
+    default_and_request_recipes_identical = default_recipe == requested_recipe
+
+    if (
+        default_recipe_exists
+        and requested_recipe
+        and not default_and_request_recipes_identical
+    ):
+        _LOGGER.warning(
+            f"Attempting to apply {requested_recipe} "
+            f"to the model located in {model_path}, "
+            f"but the model already has a recipe stored in {default_recipe}. "
+            f"Using {requested_recipe} instead."
+        )
+        return requested_recipe
+
+    elif (
+        not default_recipe_exists
+        and requested_recipe
+        and not default_and_request_recipes_identical
+    ):
+        _LOGGER.warning(
+            f"Attempting to apply {requested_recipe} "
+            f"to the model located in {model_path}."
+            "However, it is expected that the model "
+            f"has it's target recipe stored as {default_recipe}."
+            "Applying any recipe before the target recipe may "
+            "result in unexpected behavior."
+            f"Applying {requested_recipe} nevertheless."
+        )
+        return requested_recipe
+
+    elif default_recipe_exists:
+        _LOGGER.info(f"Applying the default recipe: {default_recipe}")
+        return default_recipe
+
+
+def resolve_recipe_application(
+    recipe: Union[str, Path, None], model_path: Union[str, Path]
+) -> Union[str, Path, None]:
+    """
+    Resolve the recipe to apply to the model.
+    :param recipe: the recipe to apply to the model.
+        It can be one of the following:
+        - None (no recipe will be applied or the
+            default recipe will be applied if exists. Default recipe
+            is assumed to be stored in the model_path and named RECIPE_NAME)
+        - a path to the recipe file
+        - name of the recipe file (e.g. "recipe.yaml")
+            (assumed to be stored in the model_path instead
+            of RECIPE_NAME)
+        - a string containing the recipe
+    :param model_path: the path to the model to load
+    :return: the resolved recipe
+    """
+
+    if recipe is None:
+        # if recipe is None -> still look for recipe.yaml in the model_path
+        recipe = os.path.join(model_path, RECIPE_NAME)
+        if os.path.isfile(recipe):
+            return recipe
+
+    elif os.path.isfile(recipe):
+        # recipe is a path to a recipe file
+        return _resolve_recipe_file(recipe, model_path)
+
+    elif os.path.isfile(os.path.join(model_path, recipe)):
+        # recipe is a name of a recipe file
+        recipe = os.path.join(model_path, recipe)
+        return _resolve_recipe_file(recipe, model_path)
+    elif isinstance(recipe, str):
+        # recipe is a string containing the recipe
+        _LOGGER.debug(
+            "Applying the recipe string directly to the model, without "
+            "checking for a potential existing recipe in the model_path."
+        )
+        return recipe
+
+    _LOGGER.info(
+        "No recipe requested and no default recipe "
+        f"found in {model_path}. Skipping recipe application."
+    )
+    return None
