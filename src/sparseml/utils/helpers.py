@@ -66,6 +66,7 @@ __all__ = [
     "parse_optimization_str",
     "json_to_jsonl",
     "deprecation_warning",
+    "parse_kwarg_tuples",
 ]
 
 
@@ -831,3 +832,46 @@ def deprecation_warning(message: str):
         category=DeprecationWarning,
         stacklevel=2,
     )
+
+
+def parse_kwarg_tuples(kwargs: tuple) -> Dict:
+    """
+    Convert a tuple of kwargs to a dict of kwargs.
+    This function is used to enable the click parsing of kwargs.
+
+    Example use:
+    ```
+    @click.command(
+    context_settings=dict(
+        ignore_unknown_options=True)
+    )
+    @click.argument(...)
+    @click.option(...)
+    ...
+    @click.argument("kwargs", nargs=-1, type=click.UNPROCESSED)
+    def main(..., kwargs):
+        ...
+        kwargs: Dict[str, Any] = parse_kwarg_tuples(kwargs: Tuple)
+    ```
+
+    Example inputs, outputs:
+    ```
+    input = ('--arg1', 1, 'arg2', 2, '-arg3', 3)
+    output = parse_kwarg_tuples(input)
+    output = {'arg1': 1, 'arg2': 2, 'arg3': 3}
+    ```
+
+    :param kwargs: The kwargs to convert. Should be a tuple of alternating
+        kwargs names and kwargs values e.g.('--arg1', 1, 'arg2', 2, -arg3', 3).
+        The names can optionally have a '-' or `--` in front of them.
+    :return: The converted kwargs as a dict.
+    """
+    if len(kwargs) == 0:
+        return {}
+    # names are uneven indices, values are even indices
+    kwargs_names = kwargs[0::2]
+    kwargs_values = kwargs[1::2]
+    # remove any '-' or '--' from the names
+    kwargs_names = [name.lstrip("-") for name in kwargs_names]
+
+    return dict(zip(kwargs_names, kwargs_values))

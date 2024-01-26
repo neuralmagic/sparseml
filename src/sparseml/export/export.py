@@ -56,7 +56,7 @@ import logging
 import os
 import shutil
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, List, Optional, Union
 
 import numpy
 
@@ -77,6 +77,7 @@ from sparseml.integration_helper_functions import (
 )
 from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
 from sparseml.pytorch.utils.helpers import default_device
+from sparseml.utils.helpers import parse_kwarg_tuples
 from sparsezoo.utils.numpy import load_numpy
 
 
@@ -452,28 +453,8 @@ def main(
         integration=integration,
         sample_data=_parse_sample_data(sample_data),
         task=task,
-        **_parse_kwargs(kwargs),
+        **parse_kwarg_tuples(kwargs) if kwargs is not None else {},
     )
-
-
-def _parse_kwargs(kwargs: Optional[tuple] = None) -> Dict:
-    """
-    Convert a tuple of kwargs to a dict of kwargs.
-
-    :param args: The args to convert. Should be a tuple of alternating
-        arg names and arg values e.g.('--arg1', 1, 'arg2', 2, -arg3', 3).
-        The names can optionally have a '-' or `--` in front of them.
-    :return: The converted args as a dict.
-    """
-    if len(kwargs) == 0:
-        return {}
-    # names are uneven indices, values are even indices
-    kwargs_names = kwargs[0::2]
-    kwargs_values = kwargs[1::2]
-    # remove any '-' or '--' from the names
-    kwargs_names = [name.lstrip("-") for name in kwargs_names]
-
-    return dict(zip(kwargs_names, kwargs_values))
 
 
 def _parse_graph_optimizations(graph_optimizations):
