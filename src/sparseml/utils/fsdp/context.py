@@ -14,6 +14,7 @@
 
 try:
     from torch.distributed.fsdp import FullyShardedDataParallel
+    from torch.distributed.fsdp._common_utils import TrainingState
 except ImportError:
     FullyShardedDataParallel = None
 
@@ -27,6 +28,12 @@ FSDP_WRAPPER_NAME = "_fsdp_wrapped_module."
 
 def summon_full_params_context(model):
     if FullyShardedDataParallel is not None:
+        # avoid nested summon_full_param context
+        if (
+            hasattr(model, "training_state")
+            and model.training_state is TrainingState.SUMMON_FULL_PARAMS
+        ):
+            return nullcontext()
         return FullyShardedDataParallel.summon_full_params(model)
 
     return nullcontext()
