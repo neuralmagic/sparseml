@@ -180,16 +180,14 @@ def create_data_samples(
 def apply_optimizations_generative_transformer(
     exported_file_path: Union[str, Path],
     optimizations: Union[str, List[str]],
-    single_graph_file: bool = True,
 ):
 
     if exported_file_path.endswith(".onnx"):
         available_optimizations = dict(kv_cache_injection=apply_kv_cache_injection)
         apply_optimizations_onnx(
             onnx_file_path=exported_file_path,
-            target_optimizations=optimizations,
             available_optimizations=available_optimizations,
-            single_graph_file=single_graph_file,
+            target_optimizations=optimizations,
         )
     else:
         raise NotImplementedError(
