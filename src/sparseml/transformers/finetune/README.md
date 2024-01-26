@@ -77,7 +77,7 @@ Finetuning arguments are split up into 3 groups:
 * DataTrainingArguments: `src/sparseml/transformers/finetune/data/data_training_args.py`
 
 
-## Running One-Shot with FSDP (OBC Only)
+## Running One-Shot with FSDP
 ```bash
 accelerate launch 
     --config_file example_fsdp_config.yaml 
@@ -108,7 +108,7 @@ splits = {
     "calibration": "train[:20%]"
 }
 
-run_general(
+run_oneshot(
     model_name_or_path=model,
     dataset_name=dataset_name,
     concatenate_data=concatenate_data,
@@ -116,6 +116,48 @@ run_general(
     recipe=recipe,
     overwrite_output_dir=overwrite_output_dir,
     concatenate_data = concatenate_data,
+    splits = splits
+)
+```
+
+## Running Multi-Stage Recipes
+
+A recipe can be run stage-by-stage by setting `run_stages` to `True`. Each stage in the
+recipe should have a `run_type` attribute set to either `oneshot` or `train`.
+
+See [example_alternating_recipe.yaml](example_alternating_recipe.yaml) for an example 
+of a staged recipe for Llama. 
+
+### Python Example
+(This can also be run with FSDP by launching the script as `accelerate launch --config_file example_fsdp_config.yaml test_multi.py`)
+
+test_multi.py
+```python
+from sparseml.transformers.finetune.text_generation import run_general
+
+model = "../ml-experiments/nlg-text_generation/llama_pretrain-llama_7b-base/dense/training"
+dataset_name = "open_platypus"
+concatenate_data = False
+run_stages=True
+output_dir = "./output_finetune_multi"
+recipe = "example_alternating_recipe.yaml"
+num_train_epochs=1
+overwrite_output_dir = True
+splits = {
+    "train": "train[:95%]",
+    "calibration": "train[95%:100%]"
+}
+
+run_general(
+    model_name_or_path=model,
+    dataset_name=dataset_name,
+    run_stages=run_stages,
+    output_dir=output_dir,
+    recipe=recipe,
+    num_train_epochs=num_train_epochs,
+    overwrite_output_dir=overwrite_output_dir,
+    concatenate_data = concatenate_data,
+    remove_unused_columns = False,
     splits = splits
 )
 ```

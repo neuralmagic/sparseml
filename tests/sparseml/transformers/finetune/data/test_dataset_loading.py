@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import pytest
+from datasets import IterableDataset
 
 from sparseml.transformers.finetune.data import TextGenerationDataset
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
@@ -175,6 +176,53 @@ def test_evol(tiny_llama_tokenizer):
 
 
 @pytest.mark.usefixtures("tiny_llama_tokenizer")
+def test_dvc_dataloading(tiny_llama_tokenizer):
+    data_args = DataTrainingArguments(
+        dataset_name="csv",
+        dvc_dataset_path="dvc://workshop/satellite-data/jan_train.csv",
+        dvc_data_repository="https://github.com/iterative/dataset-registry.git",
+    )
+    manager = TextGenerationDataset(
+        text_column="",
+        data_args=data_args,
+        split="train",
+        tokenizer=tiny_llama_tokenizer,
+    )
+
+    raw_dataset = manager.get_raw_dataset()
+    assert len(raw_dataset) > 0
+    assert isinstance(raw_dataset[0], dict)
+
+
+@pytest.mark.usefixtures("tiny_llama_tokenizer")
+def test_stream_loading(tiny_llama_tokenizer):
+    data_args = DataTrainingArguments(
+        dataset_name="wikitext",
+        dataset_config_name="wikitext-2-raw-v1",
+        concatenate_data=True,
+        streaming=True,
+    )
+    manager = TextGenerationDataset.load_from_registry(
+        data_args.dataset_name,
+        data_args=data_args,
+        split="train",
+        tokenizer=tiny_llama_tokenizer,
+    )
+
+    raw_dataset = manager.get_raw_dataset()
+    processed = manager.tokenize_and_process(raw_dataset)
+    assert isinstance(processed, IterableDataset)
+    with pytest.raises(TypeError):
+        # in streaming mode we don't know the length of the dataset
+        _ = len(processed)
+
+    # confirm tokenization of streamed item works correctly
+    item = next(iter(processed))
+    assert "labels" in item
+    assert len(item["input_ids"]) == manager.max_seq_length
+
+
+@pytest.mark.usefixtures("tiny_llama_tokenizer")
 @pytest.mark.parametrize(
     "split_def", [("train"), ("train[60%:]"), ({"train": "train[:20%]"}), (None)]
 )
@@ -193,3 +241,33 @@ def test_split_loading(split_def, tiny_llama_tokenizer):
     train_dataset = stage_runner.get_dataset_split("train")
     assert train_dataset is not None
     assert isinstance(train_dataset[0], dict)
+
+
+@pytest.mark.usefixtures("tiny_llama_tokenizer")
+def test_padding_mask(tiny_llama_tokenizer):
+    data_args = DataTrainingArguments(
+        dataset_name="open_platypus",
+        splits={"calibration": "train[:10%]", "train": "train[10%:]"},
+    )
+    training_args = TrainingArguments(
+        do_oneshot=True, do_train=True, output_dir="dummy"
+    )
+    model_args = ModelArguments(model_name_or_path=None)
+    stage_runner = StageRunner(
+        model_args=model_args,
+        data_args=data_args,
+        training_args=training_args,
+        model=None,
+    )
+    stage_runner.populate_datasets(tokenizer=tiny_llama_tokenizer)
+
+    calib_dataset = stage_runner.get_dataset_split("calibration")
+    train_dataset = stage_runner.get_dataset_split("train")
+    assert calib_dataset is not None
+    assert train_dataset is not None
+
+    # padding mask should only be in calibration data
+    assert "padding_mask" not in train_dataset
+    for datapoint in calib_dataset:
+        assert "padding_mask" in datapoint
+        assert len(datapoint["padding_mask"]) == len(datapoint["input_ids"])

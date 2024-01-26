@@ -56,17 +56,24 @@ def format_calibration_data(
     return calib_dataloader
 
 
-def get_raw_dataset(data_args, cache_dir: Optional[str] = None, **kwargs) -> Dataset:
+def get_raw_dataset(
+    data_args,
+    cache_dir: Optional[str] = None,
+    streaming: Optional[bool] = False,
+    **kwargs,
+) -> Dataset:
     """
     Load the raw dataset from Hugging Face, using cached copy if available
 
     :param cache_dir: disk location to search for cached dataset
+    :param streaming: True to stream data from Hugging Face, otherwise download
     :return: the requested dataset
     """
     raw_datasets = load_dataset(
         data_args.dataset_name,
         data_args.dataset_config_name,
         cache_dir=cache_dir,
+        streaming=streaming,
         **kwargs,
     )
 
