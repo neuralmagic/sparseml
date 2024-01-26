@@ -105,7 +105,7 @@ def get_precision_information(
 
 def _get_num_bits(dtype: torch.dtype) -> int:
     # Get the number of bits of a torch dtype
-    if dtype == torch.float16:
+    if dtype == torch.float16 or dtype == torch.bfloat16:
         return 16
     elif dtype == torch.float32:
         return 32
