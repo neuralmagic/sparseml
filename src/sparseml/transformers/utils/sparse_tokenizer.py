@@ -29,7 +29,7 @@ class SparseAutoTokenizer(AutoTokenizer):
     def from_pretrained(cls, pretrained_model_name_or_path, *inputs, **kwargs):
         """
         A wrapper around the AutoTokenizer.from_pretrained method that
-        enables the loading of tokenizer from SparseZoo and Hugging Face stubs
+        enables the loading of tokenizer from SparseZoo stubs
 
         :param pretrained_model_name_or_path: the name of or path to the model to load
         :return tokenizer: the loaded tokenizer from pretrained
@@ -41,14 +41,5 @@ class SparseAutoTokenizer(AutoTokenizer):
             pretrained_model_name_or_path = Model(
                 pretrained_model_name_or_path
             ).deployment.path
-
-        elif pretrained_model_name_or_path.startswith("hf:"):
-            # if Hugging Face stub is passed, fetch the model path
-            # from the Hugging Face Hub and replace
-            # pretrained_model_name_or_path with the model path
-
-            pretrained_model_name_or_path = pretrained_model_name_or_path.replace(
-                "hf:", "", 1
-            )
 
         return super().from_pretrained(pretrained_model_name_or_path, *inputs, **kwargs)
