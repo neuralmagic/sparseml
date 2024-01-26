@@ -23,9 +23,11 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional, Union
 
+import requests
 from transformers import AutoConfig
 from transformers.trainer_utils import get_last_checkpoint
 
+from huggingface_hub import hf_hub_download
 from sparseml.export.helpers import ONNX_MODEL_NAME
 from sparsezoo import setup_model
 
@@ -41,6 +43,7 @@ __all__ = [
     "is_transformer_model",
     "resolve_sequence_length",
     "ALL_TASK_NAMES",
+    "HUGGINGFACE_ADDRESS",
 ]
 
 
@@ -57,6 +60,7 @@ class TaskNames(Enum):
     text_generation = {"text-generation"}
 
 
+HUGGINGFACE_ADDRESS = "https://huggingface.co/"
 ALL_TASK_NAMES = list(set.union(*[task_names.value for task_names in TaskNames]))
 ONNX_MODEL_NAME_INTERMEDIATE = "model-orig.onnx"
 RECIPE_NAME = "recipe.yaml"
@@ -216,14 +220,19 @@ def resolve_recipe_application(
     Resolve the recipe to apply to the model.
     :param recipe: the recipe to apply to the model.
         It can be one of the following:
-        - None (no recipe will be applied or the
-            default recipe will be applied if exists. Default recipe
-            is assumed to be stored in the model_path and named RECIPE_NAME)
+        - None
         - a path to the recipe file
         - name of the recipe file (e.g. "recipe.yaml")
             (assumed to be stored in the model_path instead
             of RECIPE_NAME)
         - a string containing the recipe
+
+        If recipe is None, the function will try to
+        find the recipe in the model_path if model_path
+        is a local path. If model_path is a huggingface
+        model_id, the function will try to download the
+        recipe from huggingface.co.
+
     :param model_path: the path to the model to load
     :return: the resolved recipe
     """
@@ -233,6 +242,15 @@ def resolve_recipe_application(
         recipe = os.path.join(model_path, RECIPE_NAME)
         if os.path.isfile(recipe):
             return recipe
+        else:
+            request = requests.get(os.path.join(HUGGINGFACE_ADDRESS, model_path))
+            if request.status_code == 200:
+                _LOGGER.info(
+                    "model_path is a huggingface model id. "
+                    f"Attempting to download recipe from {HUGGINGFACE_ADDRESS}"
+                )
+                recipe = hf_hub_download(repo_id=model_path, filename=RECIPE_NAME)
+                return recipe
 
     elif os.path.isfile(recipe):
         # recipe is a path to a recipe file

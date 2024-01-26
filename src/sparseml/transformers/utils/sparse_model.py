@@ -71,7 +71,9 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
         recipe = resolve_recipe_application(recipe, pretrained_model_name_or_path)
         if recipe:
             apply_recipe_structure_to_model(
-                model=model, model_path=pretrained_model_name_or_path, recipe_path=recipe
+                model=model,
+                model_path=pretrained_model_name_or_path,
+                recipe_path=recipe,
             )
         return model
 
