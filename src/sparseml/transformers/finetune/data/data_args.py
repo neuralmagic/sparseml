@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Union
+from typing import Callable, Dict, List, Optional, Union
 
 
 @dataclass
@@ -43,6 +43,10 @@ class CustomDataTrainingArguments:
     text_column: Optional[str] = field(
         default=None,
         metadata={"help": "For custom datasets only. The text field key"},
+    )
+
+    preprocessing_func: Optional[Callable] = field(
+        default=None, metadata={"help": "The preprcessing function to apply"}
     )
 
 

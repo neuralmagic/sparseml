@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import os
-import re
 from typing import Any, Callable, Dict, List, Optional
 
 import torch
@@ -26,7 +25,7 @@ __all__ = [
     "format_calibration_data",
     "get_raw_dataset",
     "make_dataset_splits",
-    "find_files_by_regex",
+    "get_custom_datasets_from_path",
 ]
 
 
@@ -153,19 +152,68 @@ def make_dataset_splits(
     return split_datasets
 
 
-def find_files_by_regex(directory_path, pattern) -> List[str]:
+def get_custom_datasets_from_path(path: str, ext: str = "json") -> Dict[str, str]:
     """
-    Find files in a directory that match a regex pattern.
+    Get a dictionary of custom datasets from a directory path.
 
-    :param directory_path: The path to the directory to search in.
-    :param pattern: The regex pattern to match against file names.
-    :return: A list of file paths that match the pattern.
+    This function scans the specified directory path for files with a
+     specific extension (default is '.json').
+    It constructs a dictionary where the keys are either subdirectory names or
+     direct dataset names (depending on the directory structure)
+    and the values are either file paths (if only one file exists with that name) or
+     lists of file paths (if multiple files exist).
+
+    :param path: The path to the directory containing the dataset files.
+    :param ext: The file extension to filter files by. Default is 'json'.
+
+    :return: A dictionary mapping dataset names to their file paths or lists of
+     file paths.
+
+    Example:
+        dataset = get_custom_datasets_from_path("/path/to/dataset/directory", "json")
+
+    Note:
+        If datasets are organized in subdirectories, the function constructs the
+         dictionary with lists of file paths.
+        If datasets are found directly in the main directory, they are included with
+         their respective names.
+
+    Accepts:
+        - path\
+            train.json
+            test.json
+            val.json
+
+        - path\
+            train\
+                data1.json
+                data2.json
+                ...
+            test\
+                ...
+            val\
+                ...
 
     """
-    matching_files = []
+    data_files = {}
 
-    for filename in os.listdir(directory_path):
-        if re.match(pattern, filename):
-            matching_files.append(os.path.join(directory_path, filename))
+    if any(filename.endswith(ext) for filename in os.listdir(path)):
+        # If there are files with the given extension in the path
+        for filename in os.listdir(path):
+            if filename.endswith(ext):
+                name, _ = os.path.splitext(filename)
+                data_files[name] = os.path.join(path, filename)
+    else:
+        # If datasets are organized in subdirectories
+        for root, dirs, files in os.walk(path):
+            for dir_name in dirs:
+                dir_path = os.path.join(root, dir_name)
+                dir_dataset = []
+                for filename in os.listdir(dir_path):
+                    if filename.endswith(ext):
+                        file_path = os.path.join(dir_path, filename)
+                        dir_dataset.append(file_path)
+                if dir_dataset:
+                    data_files[dir_name] = dir_dataset
 
-    return matching_files
+    return data_files

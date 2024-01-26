@@ -18,13 +18,14 @@ import os
 import tempfile
 from io import StringIO
 from pathlib import Path
-from typing import List
 
 import pytest
 import torch
 
 import sparseml.core.session as session_manager
-from sparseml.transformers.finetune.data.data_helpers import find_files_by_regex
+from sparseml.transformers.finetune.data.data_helpers import (
+    get_custom_datasets_from_path,
+)
 from sparseml.transformers.finetune.text_generation import (
     run_general,
     run_oneshot,
@@ -174,18 +175,11 @@ def test_finetune_wout_recipe_custom_dataset(
         filename="data4",
     )
 
-    # get the dataN.ext files
-    pattern = rf"data\d+\.{file_extension}"
+    data_files = get_custom_datasets_from_path(tmp_dir_data, file_extension)
 
-    train_data: List[str] = find_files_by_regex(train_path, pattern)
-    test_data: List[str] = find_files_by_regex(test_path, pattern)
-    validate_data: List[str] = find_files_by_regex(validate_path, pattern)
-
-    data_files = {
-        "train": train_data,
-        "test": test_data,
-        "validate": validate_data,
-    }
+    def preprocessing_func(example):
+        example["text"] = "Review: " + example["text"]
+        return example
 
     concatenate_data = False
     output_dir = tmp_path
@@ -200,6 +194,7 @@ def test_finetune_wout_recipe_custom_dataset(
         oneshot_device=device,
         text_column="text",
         data_files=data_files,
+        preprocessing_func=preprocessing_func,
     )
 
 
