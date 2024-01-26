@@ -50,6 +50,7 @@ class TestEndToEndExport:
         )
         assert (target_path / "deployment" / "model.onnx").exists()
         assert (target_path / "deployment" / "model-orig.onnx").exists()
+        assert not (target_path / "deployment" / "model.data").exists()
         # check if kv cache injection has been applied
         onnx_model = onnx.load(
             str(target_path / "deployment" / "model.onnx"), load_external_data=False
@@ -84,6 +85,17 @@ class TestEndToEndExport:
         assert not all(
             inp.name == "past_key_values.0.key" for inp in onnx_model.graph.input
         )
+
+    def test_export_with_external_data(self, setup):
+        source_path, target_path, task = setup
+        export(
+            source_path=source_path,
+            target_path=target_path,
+            task=task,
+            save_with_external_data=True,
+        )
+        assert (target_path / "deployment" / "model.onnx").exists()
+        assert (target_path / "deployment" / "model.data").exists()
 
     def test_export_with_recipe(self, setup):
         source_path, target_path, task = setup
