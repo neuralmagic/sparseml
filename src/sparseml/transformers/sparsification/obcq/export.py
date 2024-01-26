@@ -152,7 +152,6 @@ def load_task_model(
         return SparseAutoModel.text_generation_from_pretrained(
             model_name_or_path=model_path,
             config=config,
-            model_type="model",
             trust_remote_code=trust_remote_code,
         )
 
