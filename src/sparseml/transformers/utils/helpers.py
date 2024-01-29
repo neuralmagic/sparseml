@@ -267,7 +267,9 @@ def resolve_recipe(
 def _infer_recipe_from_model_path(model_path: Union[str, Path]) -> Optional[Union[str]]:
     if isinstance(model_path, Path) or os.path.isdir(model_path):
         # model_path is a local path
-        model_path = model_path.as_posix()
+        model_path = (
+            model_path.as_posix() if isinstance(model_path, Path) else model_path
+        )
         recipe = os.path.join(model_path, RECIPE_NAME)
         if os.path.isfile(recipe):
             # if recipe is an actual file -> use it
