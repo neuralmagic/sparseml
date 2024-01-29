@@ -69,30 +69,18 @@ git clone https://github.com/neuralmagic/sparseml
 pip install -e "sparseml[transformers]"
 wget https://huggingface.co/neuralmagic/TinyLlama-1.1B-Chat-v0.4-pruned50-quant-ds/raw/main/recipe.yaml
 ```
-Run Python script:
-```python
-from sparseml.transformers.finetune.text_generation import run_oneshot
-
-model = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
-dataset_name = "open_platypus"
-concatenate_data = False
-output_dir = "./output_oneshot"
-recipe = "recipe.yaml"
-overwrite_output_dir = True
-splits = {
-    "calibration": "train"
-}
-
-run_oneshot(
-    model_name_or_path=model,
-    dataset_name=dataset_name,
-    concatenate_data=concatenate_data,
-    output_dir=output_dir,
-    recipe=recipe,
-    overwrite_output_dir=overwrite_output_dir,
-    concatenate_data = concatenate_data,
-    splits = splits
-)
+Run script:
+```bash
+accelerate launch 
+    --config_file example_fsdp_config.yaml 
+    --no_python sparseml.transformers.text_generation.oneshot
+    --model_name TinyLlama/TinyLlama-1.1B-Chat-v1.0
+    --num_calibration_samples 512
+    --dataset_name open_platypus
+    --concatenate_data False
+    --recipe recipe.yaml
+    --output_dir ./output_oneshot
+    --splits "train"
 ```
 
 The README at [`src/sparseml/transformers/sparsification/obcq`](https://github.com/neuralmagic/sparseml/tree/main/src/sparseml/transformers/sparsification/obcq) has a detailed walkthrough.
