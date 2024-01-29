@@ -12,13 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 from collections import OrderedDict
 
 import pytest
 import torch
 
 from huggingface_hub import snapshot_download
-from sparseml.transformers.utils.helpers import is_transformer_model, save_zoo_directory
+from sparseml.transformers.utils.helpers import (
+    is_transformer_model,
+    resolve_recipe,
+    save_zoo_directory,
+)
 from sparsezoo import Model
 
 
@@ -84,5 +89,80 @@ def test_save_zoo_directory(stub, tmp_path_factory):
     new_zoo_model = Model(str(save_dir))
     assert new_zoo_model.validate(minimal_validation=True, validate_onnxruntime=False)
 
-def test_resolve_recipe():
-    assert False
+
+# create pytest fixture with recipe path
+@pytest.fixture()
+def model_path_and_recipe_path(tmp_path):
+    model_path = tmp_path
+    recipe_path = tmp_path / "recipe.yaml"
+    recipe_path.touch()
+
+    return model_path, recipe_path
+
+
+def test_resolve_recipe_from_local_path(model_path_and_recipe_path):
+    model_path, recipe_path = model_path_and_recipe_path
+    # recipe path is not None, so will be looking for the
+    # recipe path in the model path (successfully)
+    assert resolve_recipe(recipe=None, model_path=model_path) == recipe_path.as_posix()
+
+
+def test_resolve_recipe_from_sparsezoo_stub():
+    # recipe path is None, so will be looking for the
+    # recipe path in the sparsezoo stub (successfully)
+    assert resolve_recipe(
+        recipe=None,
+        model_path="zoo:mobilebert-squad_wikipedia_bookcorpus-14layer_pruned50.4block_quantized",  # noqa E501
+    ).endswith("recipe.md")
+
+
+def test_resolve_recipe_from_huggingface_model_id():
+    # recipe path is None, so will be looking for the
+    # recipe path in the huggingface model id (successfully)
+    assert resolve_recipe(
+        recipe=None, model_path="mgoin/all-MiniLM-L6-v2-quant-ds"
+    ).endswith("recipe.yaml")
+
+
+def test_resolve_recipe_not_found(tmp_path):
+    # recipe not found
+    assert resolve_recipe(recipe=None, model_path=tmp_path) is None
+
+
+def test_resolve_recipe_from_recipe_path(model_path_and_recipe_path):
+    # standard case
+    model_path, recipe_path = model_path_and_recipe_path
+    assert (
+        resolve_recipe(recipe=recipe_path, model_path=model_path)
+        == recipe_path.as_posix()
+    )
+
+
+def test_resolve_recipe_from_recipe_path_new(tmp_path, model_path_and_recipe_path):
+    # apply a new recipe path, even though there is a
+    # recipe in the model path
+    os.mkdir(tmp_path / "dir")
+    new_recipe_path = tmp_path / "dir" / "recipe.yaml"
+    new_recipe_path.touch()
+    model_path, _ = model_path_and_recipe_path
+    assert (
+        resolve_recipe(recipe=new_recipe_path, model_path=model_path)
+        == new_recipe_path.as_posix()
+    )
+
+
+def test_resolve_recipe_from_recipe_name(model_path_and_recipe_path):
+    # pass recipe as file name and not path
+    model_path, recipe_path = model_path_and_recipe_path
+    assert (
+        resolve_recipe(recipe="recipe.yaml", model_path=model_path)
+        == recipe_path.as_posix()
+    )
+
+
+def test_resolve_recipe_from_string(tmp_path):
+    # pass recipe as string
+    assert (
+        resolve_recipe(recipe="hey I am a recipe", model_path=tmp_path)
+        == "hey I am a recipe"
+    )

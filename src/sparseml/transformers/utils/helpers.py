@@ -27,9 +27,9 @@ import requests
 from transformers import AutoConfig
 from transformers.trainer_utils import get_last_checkpoint
 
-from huggingface_hub import hf_hub_download
+from huggingface_hub import HUGGINGFACE_CO_URL_HOME, hf_hub_download
 from sparseml.export.helpers import ONNX_MODEL_NAME
-from sparsezoo import setup_model, Model
+from sparsezoo import Model, setup_model
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -43,7 +43,6 @@ __all__ = [
     "is_transformer_model",
     "resolve_sequence_length",
     "ALL_TASK_NAMES",
-    "HUGGINGFACE_ADDRESS",
 ]
 
 
@@ -60,7 +59,6 @@ class TaskNames(Enum):
     text_generation = {"text-generation"}
 
 
-HUGGINGFACE_ADDRESS = "https://huggingface.co/"
 ALL_TASK_NAMES = list(set.union(*[task_names.value for task_names in TaskNames]))
 ONNX_MODEL_NAME_INTERMEDIATE = "model-orig.onnx"
 RECIPE_NAME = "recipe.yaml"
@@ -221,7 +219,7 @@ def resolve_recipe(
     :param recipe: the recipe to apply to the model.
         It can be one of the following:
         - None
-        - a path to the recipe file
+        - a path to the recipe file (string or Path)
         - name of the recipe file (e.g. "recipe.yaml")
             (assumed to be stored in the model_path instead
             of RECIPE_NAME)
@@ -231,7 +229,9 @@ def resolve_recipe(
         find the recipe in the model_path if model_path
         is a local path. If model_path is a huggingface
         model_id, the function will try to download the
-        recipe from huggingface.co.
+        recipe from huggingface.co. If model_path is a
+        sparsezoo stub, the function will try to download
+        the recipe from sparsezoo
 
     :param model_path: the path to the model to load
     :return: the resolved recipe
@@ -248,6 +248,7 @@ def resolve_recipe(
         # recipe is a name of a recipe file
         recipe = os.path.join(model_path, recipe)
         return _resolve_recipe_file(recipe, model_path)
+
     elif isinstance(recipe, str):
         # recipe is a string containing the recipe
         _LOGGER.debug(
@@ -262,34 +263,44 @@ def resolve_recipe(
     )
     return None
 
-def _infer_recipe_from_model_path(model_path: Union[str, Path]) -> Optional[Union[str, Path]]:
-    if model_path.startswith("zoo:"):
-        recipe = Model(model_path).recipe
-    # if recipe is None -> look for default
-    # recipe name in the model_path
-    recipe = os.path.join(model_path, RECIPE_NAME)
-    if os.path.isfile(recipe):
-        # if recipe is an actual file -> use it
+
+def _infer_recipe_from_model_path(model_path: Union[str, Path]) -> Optional[Union[str]]:
+    if isinstance(model_path, Path) or os.path.isdir(model_path):
+        # model_path is a local path
+        model_path = model_path.as_posix()
+        recipe = os.path.join(model_path, RECIPE_NAME)
+        if os.path.isfile(recipe):
+            # if recipe is an actual file -> use it
+            return recipe
+        return None
+
+    elif model_path.startswith("zoo:"):
+        # model path is a sparsezoo stub
+        recipe = Model(model_path).recipes.default.path
         return recipe
-    # send a request to hugginface server to check if model_path is
-    # a valid huggingface model id
-    request = requests.get(os.path.join(HUGGINGFACE_ADDRESS, model_path))
+
+    model_id = os.path.join(HUGGINGFACE_CO_URL_HOME, model_path)
+    request = requests.get(model_id)
     if request.status_code == 200:
+        # model path is a valid huggingface model id
         _LOGGER.info(
             "model_path is a huggingface model id. "
-            f"Attempting to download recipe from {HUGGINGFACE_ADDRESS}"
+            f"Attempting to download recipe from {HUGGINGFACE_CO_URL_HOME}"
         )
         recipe = hf_hub_download(repo_id=model_path, filename=RECIPE_NAME)
         return recipe
     # failed to infer recipe from model_path
     return None
 
+
 def _resolve_recipe_file(
     requested_recipe: Union[str, Path], model_path: Union[str, Path]
 ) -> Union[str, Path, None]:
     default_recipe = os.path.join(model_path, RECIPE_NAME)
     default_recipe_exists = os.path.isfile(default_recipe)
-    default_and_request_recipes_identical = default_recipe == requested_recipe
+    default_and_request_recipes_identical = os.path.samefile(
+        default_recipe, requested_recipe
+    )
 
     if (
         default_recipe_exists
@@ -302,13 +313,13 @@ def _resolve_recipe_file(
             f"but the model already has a recipe stored in {default_recipe}. "
             f"Using {requested_recipe} instead."
         )
-        return requested_recipe
+        return (
+            requested_recipe.as_posix()
+            if isinstance(requested_recipe, Path)
+            else requested_recipe
+        )
 
-    elif (
-        not default_recipe_exists
-        and requested_recipe
-        and not default_and_request_recipes_identical
-    ):
+    elif not default_recipe_exists and requested_recipe:
         _LOGGER.warning(
             f"Attempting to apply {requested_recipe} "
             f"to the model located in {model_path}."
@@ -323,3 +334,5 @@ def _resolve_recipe_file(
     elif default_recipe_exists:
         _LOGGER.info(f"Using the default recipe: {default_recipe}")
         return default_recipe
+
+    return None
