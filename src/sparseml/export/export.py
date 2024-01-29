@@ -87,6 +87,7 @@ from sparseml.integration_helper_functions import (
 )
 from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
 from sparseml.pytorch.utils.helpers import default_device
+from sparseml.utils.helpers import parse_kwarg_tuples
 from sparsezoo.utils.numpy import load_numpy
 
 
@@ -325,7 +326,11 @@ def export(
     )
 
 
-@click.command()
+@click.command(
+    context_settings=dict(
+        ignore_unknown_options=True,
+    )
+)
 @click.argument("source_path", type=str)
 @click.option(
     "--target_path",
@@ -415,7 +420,7 @@ def export(
 )
 @click.option(
     "--integration",
-    type=click.Choice(["image-classification, transformers"]),
+    type=click.Choice(["image-classification", "transformers"]),
     default=None,
     help="Integration the model was trained under. By default, inferred from the model",
 )
@@ -431,6 +436,7 @@ def export(
     default=None,
     help="Task within the integration this model was trained on. Default - None",
 )
+@click.argument("kwargs", nargs=-1, type=click.UNPROCESSED)
 def main(
     source_path: str,
     target_path: str,
@@ -449,6 +455,7 @@ def main(
     integration: str = None,
     sample_data: str = None,
     task: str = None,
+    kwargs: Optional[tuple] = None,
 ):
     export(
         source_path=source_path,
@@ -468,6 +475,7 @@ def main(
         integration=integration,
         sample_data=_parse_sample_data(sample_data),
         task=task,
+        **parse_kwarg_tuples(kwargs) if kwargs is not None else {},
     )
 
 
