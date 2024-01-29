@@ -32,6 +32,7 @@ from transformers import (
     set_seed,
 )
 
+from sparseml.core.recipe import Recipe, StageRunType
 from sparseml.pytorch.model_load.helpers import (
     apply_recipe_structure_to_model,
     fallback_to_cpu,
@@ -154,10 +155,15 @@ def main(
     transformers.utils.logging.enable_default_handler()
     transformers.utils.logging.enable_explicit_format()
 
-    # Setup staging if applicable
-    if training_args.run_stages:
-        training_args.do_oneshot = True
-        training_args.do_train = True
+    # Setup based on stage types if running stage mode
+    if training_args.run_stages and training_args.recipe is not None:
+        recipe_obj = Recipe.create_instance(training_args.recipe)
+        for stage in recipe_obj.stages:
+            run_type = stage.infer_run_type()
+            if run_type is StageRunType.ONESHOT:
+                training_args.do_oneshot = True
+            elif run_type is StageRunType.TRAIN:
+                training_args.do_train = True
 
     # Summary on each process
     _LOGGER.warning(
