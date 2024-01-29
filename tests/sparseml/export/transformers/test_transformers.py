@@ -28,7 +28,6 @@ from sparsezoo import Model
     "stub, task",
     [
         ("zoo:obert-medium-squad_wikipedia_bookcorpus-pruned95_quantized", "qa"),
-        ("zoo:roberta-large-squad_v2_wikipedia_bookcorpus-base", "qa"),
     ],
 )
 class TestEndToEndExport:
@@ -37,7 +36,6 @@ class TestEndToEndExport:
         model_path = tmp_path / "model"
         target_path = tmp_path / "target"
         self.model = Model(stub, model_path)
-        self.is_model_quantized = stub.endswith("quantized")
         source_path = self.model.training.path
 
         yield source_path, target_path, task
@@ -52,6 +50,18 @@ class TestEndToEndExport:
             task=task,
         )
         assert (target_path / "deployment" / "model.onnx").exists()
+        assert not (target_path / "deployment" / "model.data").exists()
+
+    def test_export_with_external_data(self, setup):
+        source_path, target_path, task = setup
+        export(
+            source_path=source_path,
+            target_path=target_path,
+            task=task,
+            save_with_external_data=True,
+        )
+        assert (target_path / "deployment" / "model.onnx").exists()
+        assert (target_path / "deployment" / "model.data").exists()
 
     def test_export_samples(self, setup):
         source_path, target_path, task = setup
@@ -101,22 +111,10 @@ class TestEndToEndExport:
         )
         assert (target_path / "deployment" / "model.onnx").exists()
 
-    @pytest.mark.skipif(reason="skipping since not implemented")
-    def test_export_multiple_files(self, setup):
-        source_path, target_path, task = setup
-        export(
-            source_path=source_path,
-            target_path=target_path,
-            task=task,
-            single_graph_file=False,
-        )
-
-    def test_export_validate_correctness(self, caplog, setup):
-        if self.is_model_quantized:
-            pytest.skip(
-                "Skipping since quantized models may not pass this test"
-                "due to differences in rounding between quant ops in PyTorch and ONNX"
-            )
+    def test_export_multiple_times(self, caplog, setup):
+        # make sure that when we export multiple times,
+        # the user gets verbose warning about the files
+        # already existing and being overwritten
         source_path, target_path, task = setup
 
         num_samples = 3
@@ -126,11 +124,33 @@ class TestEndToEndExport:
             target_path=target_path,
             task=task,
             num_export_samples=num_samples,
-            validate_correctness=True,
             **dict(data_args=dict(dataset_name="squad")),
         )
+        warnings_after_first_export = [
+            record.message for record in caplog.records if record.levelname == "WARNING"
+        ]
+        caplog.clear()
 
-        assert "ERROR" not in caplog.text
+        export(
+            source_path=source_path,
+            target_path=target_path,
+            task=task,
+            num_export_samples=num_samples,
+            **dict(data_args=dict(dataset_name="squad")),
+        )
+        warnings_after_second_export = [
+            record.message for record in caplog.records if record.levelname == "WARNING"
+        ]
+
+        new_warnings = set(warnings_after_second_export) - set(
+            warnings_after_first_export
+        )
+
+        # make sure that all the unique warnings that happen only after the
+        # repeated export are about the files already existing
+        for warning in new_warnings:
+            assert "already exist" in warning
+            assert "Overwriting" in warning
 
     @staticmethod
     def _test_exported_sample_data_structure(

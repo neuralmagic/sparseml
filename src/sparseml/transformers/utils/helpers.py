@@ -16,15 +16,19 @@
 Helper variables and functions for integrating SparseML with huggingface/transformers
 flows
 """
-
+import inspect
 import logging
 import os
+from collections import OrderedDict
 from enum import Enum
 from pathlib import Path
-from typing import Optional, Union
+from typing import Iterable, List, Optional, Tuple, Union
 
+import torch
+import transformers
 from transformers import AutoConfig, AutoModel
 from transformers.trainer_utils import get_last_checkpoint
+from transformers.utils import PaddingStrategy
 
 from sparseml.export.helpers import ONNX_MODEL_NAME
 from sparseml.pytorch.model_load.helpers import apply_recipe_structure_to_model
@@ -43,6 +47,7 @@ __all__ = [
     "resolve_sequence_length",
     "apply_structure_to_transformers",
     "ALL_TASK_NAMES",
+    "create_fake_dataloader",
 ]
 
 
@@ -60,19 +65,36 @@ class TaskNames(Enum):
 
 
 ALL_TASK_NAMES = list(set.union(*[task_names.value for task_names in TaskNames]))
+ONNX_MODEL_NAME_INTERMEDIATE = "model-orig.onnx"
 RECIPE_NAME = "recipe.yaml"
 MANDATORY_DEPLOYMENT_FILES = {
     ONNX_MODEL_NAME,
     "tokenizer_config.json",
     "config.json",
 }
-NLG_TOKENIZER_FILES = {"special_tokens_map.json"}
-OPTIONAL_DEPLOYMENT_FILES = {
-    "tokenizer.json",
-    "tokenizer.model",
+OPTIONAL_DEPLOYMENT_FILES = {"tokenizer.json", "tokenizer.model"}
+NLG_MANDATORY_DEPLOYMENT_FILES = {"special_tokens_map.json"}
+NLG_OPTIONAL_DEPLOYMENT_FILES = {
+    ONNX_MODEL_NAME_INTERMEDIATE,
     "vocab.json",
     "merges.txt",
 }
+
+
+def remove_past_key_value_support_from_config(config: AutoConfig) -> AutoConfig:
+    """
+    Modify config of the causal language model so that it turns off the
+    past key value support. This means that the model initialized from
+    this config will not take past key values as input and will not output
+    past key values.
+    """
+    # not take past_key_values as input
+    config.is_decoder = True
+    # whether to use past key values an input
+    config.use_past = False
+    # whether to output past key values
+    config.use_cache = False
+    return config
 
 
 def apply_structure_to_transformers(
@@ -207,3 +229,34 @@ def resolve_sequence_length(config: AutoConfig) -> int:
         "(inferred from HF transformers config) "
     )
     return sequence_length
+
+
+def create_fake_dataloader(
+    model: torch.nn.Module,
+    tokenizer: transformers.AutoTokenizer,
+    num_samples: int,
+) -> Tuple[Iterable[OrderedDict[str, torch.Tensor]], List[str]]:
+    """
+    Creates fake transformers dataloader for the model, based on the model's
+    forward signature.
+
+    :param model: The model to create the dataloader for
+    :param tokenizer: The tokenizer to use for the dataloader
+    :param num_samples: The number of fake samples in the dataloader
+    :return: The data loader (iterable) and the input names for the model
+    """
+
+    forward_args_spec = inspect.getfullargspec(model.__class__.forward)
+    inputs = tokenizer(
+        "", return_tensors="pt", padding=PaddingStrategy.MAX_LENGTH.value
+    ).data
+    fake_inputs = OrderedDict(
+        [
+            (input_key, inputs[input_key][0].reshape(1, -1))
+            for input_key in forward_args_spec.args
+            if input_key in inputs
+        ]
+    )
+    data_loader = (fake_inputs for _ in range(num_samples))
+    input_names = list(fake_inputs.keys())
+    return data_loader, input_names

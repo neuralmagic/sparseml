@@ -17,7 +17,7 @@ from typing import Any, Optional, Union
 
 from torch.nn import Module
 
-from sparseml.transformers.utils.helpers import TaskNames, resolve_sequence_length
+from sparseml.transformers.utils.helpers import TaskNames
 from sparseml.transformers.utils.sparse_model import SparseAutoModel
 
 
@@ -68,18 +68,14 @@ def load_task_model(
         torch_dtype = kwargs.get("torch_dtype")
         device_map = kwargs.get("device_map")
         sequence_length = kwargs.get("sequence_length")
-        if sequence_length is None:
-            sequence_length = resolve_sequence_length(config)
-
         return SparseAutoModel.text_generation_from_pretrained(
             model_name_or_path=model_path,
             sequence_length=sequence_length,
-            config=config,
-            model_type="model",
             recipe=recipe,
             trust_remote_code=trust_remote_code,
             torch_dtype=torch_dtype,
             device_map=device_map,
+            config=config,
         )
 
     raise ValueError(f"unrecognized task given of {task}")

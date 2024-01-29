@@ -24,8 +24,17 @@ Options:
                                   run on, default 'deepsparse'
   --opset INTEGER                 Onnx opset to export to. Defaults to the latest
                                   supported opset.
-  --single_graph_file BOOLEAN     Default True - if True, onnx graph will be
-                                  written to a single file
+  --save_with_external_data BOOLEAN
+                                  Default False - if True, large constant tensors,
+                                  such as initializers, will be serialised
+                                  in a separate file. Note: if the model is
+                                  sufficiently large, it will be saved with
+                                  external data regardless of this flag
+  --external_data_chunk_size_mb INTEGER
+                                  Size of external data chunks to use for
+                                  exporting the model. Defaults to None, which
+                                  will use the default chunk size. If set, will
+                                  force the export with external data
   --num_export_samples INTEGER    Number of sample inputs/outputs to save.
                                   Default 0
   --recipe TEXT                   Optional sparsification recipe to apply at
@@ -54,6 +63,7 @@ Options:
 
 import logging
 import os
+import shutil
 from pathlib import Path
 from typing import Any, List, Optional, Union
 
@@ -67,6 +77,7 @@ from sparseml.export.helpers import (
     create_deployment_folder,
     create_export_kwargs,
     format_source_path,
+    save_model_with_external_data,
 )
 from sparseml.export.validators import validate_correctness as validate_correctness_
 from sparseml.export.validators import validate_structure as validate_structure_
@@ -76,6 +87,7 @@ from sparseml.integration_helper_functions import (
 )
 from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
 from sparseml.pytorch.utils.helpers import default_device
+from sparseml.utils.helpers import parse_kwarg_tuples
 from sparsezoo.utils.numpy import load_numpy
 
 
@@ -88,7 +100,8 @@ def export(
     onnx_model_name: str = ONNX_MODEL_NAME,
     deployment_target: str = "deepsparse",
     opset: int = TORCH_DEFAULT_ONNX_OPSET,
-    single_graph_file: bool = True,
+    save_with_external_data: bool = False,
+    external_data_chunk_size_mb: Optional[int] = None,
     num_export_samples: int = 0,
     recipe: Optional[Union[Path, str]] = None,
     deployment_directory_name: str = "deployment",
@@ -131,8 +144,14 @@ def export(
     :param recipe: The path to the recipe to use for exporting the model.
         Defaults to None. If a recipe is found in the source_path, it will
         be automatically used for export.
-    :param single_graph_file: Whether to save the model as a single
-        file. Defaults to True.
+    :param save_with_external_data: if True, large constant tensors,
+        such as initializers, will be serialised in a separate file.
+        Defaults to False. Note: if the model is sufficiently large,
+        it will be saved with external data regardless of this flag.
+    :param external_data_chunk_size_mb: The size of the external data
+        chunks to use for exporting the model. Defaults to None, which
+        will use the default chunk size. If set, will force the
+        export with external data.
     :param num_export_samples: The number of samples to create for
         the exported model. Defaults to 0.
     :param deployment_directory_name: The name of the deployment
@@ -156,19 +175,7 @@ def export(
     :param task: Optional task to use for exporting the model.
         Defaults to None.
     """
-    # TODO: Remove with the following once sparsezoo: #404 lands
-    """
-    from sparsezoo.utils.registry import standardize_lookup_name
-    task = standardize_lookup_name(task)
-    """
     source_path = format_source_path(source_path)
-    if task is not None:
-        task = task.replace("_", "-").replace(" ", "-")
-
-    # TODO: Remove once sparsezoo: #404 lands
-    if integration is not None:
-        integration = integration.replace("_", "-").replace(" ", "-")
-
     if target_path is None:
         target_path = source_path
     # create the target path if it doesn't exist
@@ -187,6 +194,15 @@ def export(
         )
 
     integration = resolve_integration(source_path, integration)
+
+    deployment_folder_dir = os.path.join(target_path, deployment_directory_name)
+
+    if os.path.isdir(deployment_folder_dir):
+        _LOGGER.warning(
+            f"Deployment directory at: {deployment_folder_dir} already exists."
+            "Overwriting the existing deployment directory... "
+        )
+        shutil.rmtree(deployment_folder_dir)
 
     _LOGGER.info(f"Starting export for {integration} model...")
 
@@ -259,7 +275,7 @@ def export(
         f"at directory: {target_path}..."
     )
 
-    deployment_path = create_deployment_folder(
+    deployment_folder_dir = create_deployment_folder(
         source_path=source_path,
         target_path=target_path,
         deployment_directory_name=deployment_directory_name,
@@ -267,6 +283,32 @@ def export(
         deployment_directory_files_optional=helper_functions.deployment_directory_files_optional,  # noqa: E501
         onnx_model_name=onnx_model_name,
     )
+
+    if validate_correctness:
+        _LOGGER.info("Validating model correctness...")
+        if not num_export_samples:
+            raise ValueError(
+                "To validate correctness sample inputs/outputs are needed."
+                "To enable the validation, set `num_export_samples`"
+                "to True"
+            )
+        validate_correctness_(target_path, deployment_folder_dir, onnx_model_name)
+
+    _LOGGER.info(
+        f"Applying optimizations: {graph_optimizations} to the exported model..."
+    )
+
+    if helper_functions.apply_optimizations is not None:
+        helper_functions.apply_optimizations(
+            exported_file_path=os.path.join(deployment_folder_dir, onnx_model_name),
+            optimizations=graph_optimizations,
+        )
+
+    if save_with_external_data is True or external_data_chunk_size_mb:
+        save_model_with_external_data(
+            os.path.join(deployment_folder_dir, onnx_model_name),
+            external_data_chunk_size_mb,
+        )
 
     if validate_structure:
         _LOGGER.info("Validating model structure...")
@@ -278,34 +320,17 @@ def export(
             deployment_directory_files_optional=helper_functions.deployment_directory_files_optional,  # noqa: E501
         )
 
-    if validate_correctness:
-        _LOGGER.info("Validating model correctness...")
-        if not num_export_samples:
-            raise ValueError(
-                "To validate correctness sample inputs/outputs are needed."
-                "To enable the validation, set `num_export_samples`"
-                "to True"
-            )
-        validate_correctness_(target_path, deployment_path, onnx_model_name)
-
-    _LOGGER.info(
-        f"Applying optimizations: {graph_optimizations} to the exported model..."
-    )
-
-    if helper_functions.apply_optimizations is not None:
-        helper_functions.apply_optimizations(
-            exported_file_path=os.path.join(deployment_path, onnx_model_name),
-            optimizations=graph_optimizations,
-            single_graph_file=single_graph_file,
-        )
-
     _LOGGER.info(
         f"Successfully exported model from:\n{target_path}"
-        f"\nto\n{deployment_path}\nfor integration: {integration}"
+        f"\nto\n{deployment_folder_dir}\nfor integration: {integration}"
     )
 
 
-@click.command()
+@click.command(
+    context_settings=dict(
+        ignore_unknown_options=True,
+    )
+)
 @click.argument("source_path", type=str)
 @click.option(
     "--target_path",
@@ -335,10 +360,20 @@ def export(
     help=f"Onnx opset to export to, default: {TORCH_DEFAULT_ONNX_OPSET}",
 )
 @click.option(
-    "--single_graph_file",
+    "--save_with_external_data",
     type=bool,
-    default=True,
-    help="Default True - if True, onnx graph will be written to a single file",
+    default=False,
+    help="Default False - if True, large constant tensors, such as initializers, "
+    "will be serialised in a separate file. Note: if the model is sufficiently "
+    "large, it will be saved with external data regardless of this flag",
+)
+@click.option(
+    "--external_data_chunk_size_mb",
+    type=int,
+    default=False,
+    help="Default False - if explicitely set to a number, "
+    "it will force the model to be exported with external "
+    "data, with the given chunk size in MB",
 )
 @click.option(
     "--num_export_samples",
@@ -368,7 +403,8 @@ def export(
     "--graph_optimizations",
     type=str,
     default="all",
-    help="csv list of graph optimizations to apply. Default all, can set to none",
+    help="csv list of graph optimizations to apply. "
+    "Available options: 'all', 'none' or referring to optimization by name. ",
 )
 @click.option(
     "--validate_correctness",
@@ -384,7 +420,7 @@ def export(
 )
 @click.option(
     "--integration",
-    type=click.Choice(["image-classification, transformers"]),
+    type=click.Choice(["image-classification", "transformers"]),
     default=None,
     help="Integration the model was trained under. By default, inferred from the model",
 )
@@ -400,13 +436,15 @@ def export(
     default=None,
     help="Task within the integration this model was trained on. Default - None",
 )
+@click.argument("kwargs", nargs=-1, type=click.UNPROCESSED)
 def main(
     source_path: str,
     target_path: str,
     onnx_model_name: str = ONNX_MODEL_NAME,
     deployment_target: str = "deepsparse",
     opset: int = TORCH_DEFAULT_ONNX_OPSET,
-    single_graph_file: bool = True,
+    save_with_external_data: bool = False,
+    external_data_chunk_size_mb: Optional[int] = None,
     num_export_samples: int = 0,
     recipe: str = None,
     deployment_directory_name: str = "deployment",
@@ -417,6 +455,7 @@ def main(
     integration: str = None,
     sample_data: str = None,
     task: str = None,
+    kwargs: Optional[tuple] = None,
 ):
     export(
         source_path=source_path,
@@ -424,7 +463,8 @@ def main(
         onnx_model_name=onnx_model_name,
         deployment_target=deployment_target,
         opset=opset,
-        single_graph_file=single_graph_file,
+        save_with_external_data=save_with_external_data,
+        external_data_chunk_size_mb=external_data_chunk_size_mb,
         num_export_samples=num_export_samples,
         recipe=recipe,
         deployment_directory_name=deployment_directory_name,
@@ -435,6 +475,7 @@ def main(
         integration=integration,
         sample_data=_parse_sample_data(sample_data),
         task=task,
+        **parse_kwarg_tuples(kwargs) if kwargs is not None else {},
     )
 
 

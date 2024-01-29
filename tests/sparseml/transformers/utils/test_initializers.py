@@ -21,7 +21,6 @@ import torch
 
 from huggingface_hub import snapshot_download
 from sparseml.pytorch.utils.helpers import default_device
-from sparseml.transformers.utils.helpers import resolve_sequence_length
 from sparseml.transformers.utils.initializers import (
     initialize_config,
     initialize_sparse_model,
@@ -104,14 +103,6 @@ class TestInitializeModelFlow:
             recipe=None,
             config=config,
         )
-        if self.task == "text-generation":
-            expected_sequence_length = resolve_sequence_length(config)
-            assert (
-                model.module.seqlen == expected_sequence_length
-                if hasattr(model, "module")
-                else model.seqlen == expected_sequence_length
-            )
-
         self._test_model_device(model)
 
     def test_initialize_trainer(self, setup):

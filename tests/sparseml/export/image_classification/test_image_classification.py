@@ -62,6 +62,7 @@ class TestEndToEndExport:
             **kwargs,
         )
         assert (target_path / "deployment" / "model.onnx").exists()
+        assert not (target_path / "deployment" / "model.data").exists()
 
     def test_export_custom_onnx_model_name(self, setup):
         source_path, target_path, integration, kwargs = setup
@@ -85,6 +86,18 @@ class TestEndToEndExport:
         )
         assert (target_path / "custom_deployment_name" / "model.onnx").exists()
 
+    def test_export_with_external_data(self, setup):
+        source_path, target_path, integration, kwargs = setup
+        export(
+            source_path=source_path,
+            target_path=target_path,
+            integration=integration,
+            save_with_external_data=True,
+            **kwargs,
+        )
+        assert (target_path / "deployment" / "model.onnx").exists()
+        assert (target_path / "deployment" / "model.data").exists()
+
     def test_export_deployment_target_onnx(self, setup):
         source_path, target_path, integration, kwargs = setup
         export(
@@ -106,17 +119,6 @@ class TestEndToEndExport:
             **kwargs,
         )
         assert (target_path / "deployment" / "model.onnx").exists()
-
-    @pytest.mark.skipif(reason="skipping since not implemented")
-    def test_export_multiple_files(self, setup):
-        source_path, target_path, integration, kwargs = setup
-        export(
-            source_path=source_path,
-            target_path=target_path,
-            integration=integration,
-            single_graph_file=False,
-            **kwargs,
-        )
 
     def test_export_samples(self, setup):
         source_path, target_path, integration, kwargs = setup
@@ -164,7 +166,7 @@ class TestEndToEndExport:
     def test_export_validate_correctness(self, caplog, setup):
         if self.is_model_quantized:
             pytest.skip(
-                "Skipping since quantized models may not pass this test"
+                "Skipping since quantized models may not pass this test "
                 "due to differences in rounding between quant ops in PyTorch and ONNX"
             )
         source_path, target_path, integration, kwargs = setup
