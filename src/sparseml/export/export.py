@@ -88,7 +88,6 @@ from sparseml.integration_helper_functions import (
 from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
 from sparseml.pytorch.utils.helpers import default_device
 from sparsezoo.utils.numpy import load_numpy
-from sparsezoo.utils.registry import standardize_lookup_name
 
 
 _LOGGER = logging.getLogger(__name__)
