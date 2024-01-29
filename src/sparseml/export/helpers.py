@@ -294,7 +294,7 @@ def save_model_with_external_data(
     elif onnx_includes_external_data(onnx_model):
         _LOGGER.debug(
             "Splitting the model into"
-            f"{os.path.basename(onnx_file_path)} (graph definition) one or more"
+            f"{os.path.basename(onnx_file_path)} (graph definition) and one or more "
             f"{ONNX_DATA_NAME} files (constant tensor data)"
         )
         save_onnx(onnx_model, onnx_file_path, external_data_file=ONNX_DATA_NAME)
