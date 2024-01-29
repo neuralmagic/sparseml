@@ -71,12 +71,12 @@ wget https://huggingface.co/neuralmagic/TinyLlama-1.1B-Chat-v0.4-pruned50-quant-
 ```
 Run script:
 ```bash
-accelerate launch 
-    --config_file example_fsdp_config.yaml 
-    --no_python sparseml.transformers.text_generation.oneshot
+sparseml.transformers.text_generation.oneshot
     --model_name TinyLlama/TinyLlama-1.1B-Chat-v1.0
     --num_calibration_samples 512
     --dataset_name open_platypus
+    --dataset_config_name OPTIONAL
+    --max_seq_len OPTIONAL
     --concatenate_data False
     --recipe recipe.yaml
     --output_dir ./output_oneshot
