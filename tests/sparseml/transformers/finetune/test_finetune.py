@@ -150,7 +150,7 @@ def test_finetune_wout_recipe_custom_dataset(
     concatenate_data = False
     output_dir = tmp_path
     max_steps = 50
-    run_train(
+    train(
         model_name_or_path=model,
         dataset_name=file_extension,
         output_dir=output_dir,
