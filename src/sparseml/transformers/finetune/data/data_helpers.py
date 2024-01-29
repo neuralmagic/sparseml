@@ -45,6 +45,7 @@ def format_calibration_data(
     :param accelerator: optional accelerator for if preparing in FSDP mode
     :return: list of trimmed calibration data tensors
     """
+    num_calibration_samples = num_calibration_samples or len(tokenized_dataset)
     shuffled_calibration = tokenized_dataset.shuffle()
     shuffled_calibration = shuffled_calibration.select(range(num_calibration_samples))
 

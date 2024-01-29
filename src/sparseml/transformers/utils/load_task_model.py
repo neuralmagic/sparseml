@@ -75,6 +75,7 @@ def load_task_model(
             trust_remote_code=trust_remote_code,
             torch_dtype=torch_dtype,
             device_map=device_map,
+            config=config,
         )
 
     raise ValueError(f"unrecognized task given of {task}")

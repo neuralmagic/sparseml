@@ -18,7 +18,6 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import torch
 from pydantic import Field
-from transformers import AutoTokenizer
 
 from sparseml.export.export_data import create_data_samples as create_data_samples_
 from sparseml.export.helpers import apply_optimizations as apply_optimizations_onnx
@@ -26,7 +25,7 @@ from sparseml.integration_helper_functions import (
     IntegrationHelperFunctions,
     Integrations,
 )
-from sparseml.transformers.sparsification.trainer import Trainer
+from sparseml.transformers.finetune.data.data_helpers import format_calibration_data
 from sparseml.transformers.utils.helpers import (
     ALL_TASK_NAMES,
     MANDATORY_DEPLOYMENT_FILES,
@@ -34,6 +33,7 @@ from sparseml.transformers.utils.helpers import (
     NLG_OPTIONAL_DEPLOYMENT_FILES,
     OPTIONAL_DEPLOYMENT_FILES,
     TaskNames,
+    create_fake_dataloader,
     remove_past_key_value_support_from_config,
     resolve_sequence_length,
 )
@@ -113,7 +113,6 @@ def create_model(
         device=device,
     )
 
-    validation_dataset = None
     data_args = _parse_data_args(data_args)
 
     if data_args:
@@ -125,39 +124,42 @@ def create_model(
             config=config,
             split="validation",
         )
-        if task in TaskNames.text_generation.value and not dataset_with_labels:
-            validation_dataset = validation_dataset.remove_columns("labels")
 
-    trainer = initialize_trainer(model, source_path, validation_dataset)
+        if task in TaskNames.text_generation.value:
+            # text-generation datasets have a separate
+            # logic for creating a dataloader
+            if not dataset_with_labels:
+                validation_dataset = validation_dataset.remove_columns("labels")
+            data_loader = format_calibration_data(tokenized_dataset=validation_dataset)
+            input_names = validation_dataset.column_names
+
+        else:
+            trainer = initialize_trainer(model, source_path, validation_dataset)
+            data_loader = trainer.get_eval_dataloader()
+            input_names = list(next(trainer._get_fake_dataloader(1, tokenizer)).keys())
+
+    else:
+        # if no data_args are provided, create a fake dataloader
+        data_loader, input_names = create_fake_dataloader(
+            model, tokenizer, num_samples=1
+        )
 
     return model, dict(
-        trainer=trainer,
-        tokenizer=tokenizer,
-        input_names=list(next(trainer._get_fake_dataloader(1, tokenizer)).keys()),
+        data_loader=data_loader, tokenizer=tokenizer, input_names=input_names
     )
 
 
 def create_dummy_input(
-    trainer: Optional[Trainer] = None,
-    tokenizer: Optional[AutoTokenizer] = None,
+    data_loader: torch.utils.data.DataLoader,
     **kwargs,
 ) -> torch.Tensor:
-    if trainer.eval_dataset is not None:
-        data_loader = trainer.get_eval_dataloader()
-    else:
-        if not tokenizer:
-            raise ValueError(
-                "Tokenizer is needed to generate "
-                "fake sample inputs when the trainer is "
-                "not initialized with an eval dataset"
-            )
-        data_loader = trainer._get_fake_dataloader(num_samples=1, tokenizer=tokenizer)
+
     return next(iter(data_loader))
 
 
 def create_data_samples(
     num_samples: int,
-    trainer: Trainer,
+    data_loader: torch.utils.data.DataLoader,
     model: Optional["torch.nn.Module"] = None,
     **kwargs,
 ):
@@ -166,30 +168,23 @@ def create_data_samples(
             "For exporting samples for transformers integration,"
             "batch size is ignored (equal to 1)"
         )
-    if trainer.eval_dataset is None:
-        raise ValueError(
-            "Attempting to create data samples without an eval dataloader. "
-            "Initialize a trainer with an eval dataset"
-        )
 
     return create_data_samples_(
-        data_loader=trainer.get_eval_dataloader(), model=model, num_samples=num_samples
+        data_loader=data_loader, model=model, num_samples=num_samples
     )
 
 
 def apply_optimizations_generative_transformer(
     exported_file_path: Union[str, Path],
     optimizations: Union[str, List[str]],
-    single_graph_file: bool = True,
 ):
 
     if exported_file_path.endswith(".onnx"):
         available_optimizations = dict(kv_cache_injection=apply_kv_cache_injection)
         apply_optimizations_onnx(
             onnx_file_path=exported_file_path,
-            target_optimizations=optimizations,
             available_optimizations=available_optimizations,
-            single_graph_file=single_graph_file,
+            target_optimizations=optimizations,
         )
     else:
         raise NotImplementedError(
