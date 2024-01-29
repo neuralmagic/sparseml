@@ -270,7 +270,7 @@ def resolve_recipe_application(
 
     _LOGGER.info(
         "No recipe requested and no default recipe "
-        f"found in {model_path}. Skipping recipe application."
+        f"found in {model_path}. Skipping recipe resolution."
     )
     return None
 
