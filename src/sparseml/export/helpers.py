@@ -280,7 +280,7 @@ def save_model_with_external_data(
     if external_data_chunk_size_mb is not None:
         _LOGGER.debug(
             "Splitting the model into "
-            f"{os.path.basename(onnx_file_path)} (graph definition) one or more "
+            f"{os.path.basename(onnx_file_path)} (graph definition) and one or more "
             f"{ONNX_DATA_NAME} files (constant tensor data). The size of each "
             f"{ONNX_DATA_NAME} file will not exceed {external_data_chunk_size_mb} MB.",
         )
