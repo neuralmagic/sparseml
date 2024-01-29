@@ -55,7 +55,7 @@ metadata_args = [
 ]
 
 
-def run_train(**kwargs):
+def train(**kwargs):
     """
     CLI entrypoint for running training
     """
@@ -64,7 +64,7 @@ def run_train(**kwargs):
     main(model_args, data_args, training_args)
 
 
-def run_eval(**kwargs):
+def eval(**kwargs):
     """
     CLI entrypoint for running evaluation
     """
@@ -73,7 +73,7 @@ def run_eval(**kwargs):
     main(model_args, data_args, training_args)
 
 
-def run_oneshot(**kwargs):
+def oneshot(**kwargs):
     """
     CLI entrypoint for running oneshot calibration
     """
@@ -82,11 +82,12 @@ def run_oneshot(**kwargs):
     main(model_args, data_args, training_args)
 
 
-def run_general(**kwargs):
+def apply(**kwargs):
     """
     CLI entrypoint for any of training, eval, predict or oneshot
     """
     model_args, data_args, training_args = parse_args(**kwargs)
+    training_args.run_stages = True
     main(model_args, data_args, training_args)
 
 
@@ -111,10 +112,6 @@ def parse_args(**kwargs):
             key, value = recipe_arg.split("=")
             arg_dict[key] = value
         training_args.recipe_args = arg_dict
-
-    if training_args.run_stages:
-        training_args.do_oneshot = True
-        training_args.do_train = True
 
     # when set to true in FSDP mode this causes issues, the model arguments show up
     # as *args and **kwargs so all columns get removed
@@ -156,6 +153,11 @@ def main(
     transformers.utils.logging.set_verbosity(log_level)
     transformers.utils.logging.enable_default_handler()
     transformers.utils.logging.enable_explicit_format()
+
+    # Setup staging if applicable
+    if training_args.run_stages:
+        training_args.do_oneshot = True
+        training_args.do_train = True
 
     # Summary on each process
     _LOGGER.warning(
@@ -334,4 +336,4 @@ def main(
 
 
 if __name__ == "__main__":
-    run_general()
+    apply()
