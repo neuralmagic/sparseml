@@ -23,6 +23,7 @@ from sparseml.modifiers.distillation.utils.pytorch.kd_factory import (
     TransformFuncType,
     recursive_apply,
 )
+from sparseml.pytorch.utils import tensors_to_device
 
 
 __all__ = ["KDModuleWrapper"]
@@ -66,7 +67,13 @@ class KDModuleWrapper(Module):
         student_output = org_output
 
         with torch.no_grad():
-            teacher_output = self.teacher_layer(*args, **kwargs)
+            # input must be moved to teacher device for forward pass
+            init_param = next(self.teacher_layer.parameters(), None)
+            teacher_device = init_param.device if init_param is not None else "cpu"
+            input_device = args[0].device
+            teacher_args = tensors_to_device(args, teacher_device)
+            teacher_output = self.teacher_layer(*teacher_args, **kwargs)
+            teacher_output = tensors_to_device(teacher_output, input_device)
 
         if self.student_projections is not None:
             for projection in self.student_projections:
