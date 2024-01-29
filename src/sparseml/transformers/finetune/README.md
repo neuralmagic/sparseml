@@ -20,6 +20,7 @@ Also supported:
 * `sparseml.transformers.text_generation.finetune`
 * `sparseml.transformers.text_generation.oneshot`
 * `sparseml.transformers.text_generation.eval`
+* `sparseml.transformers.text_generation.apply`
 
 ### with FSDP
 
