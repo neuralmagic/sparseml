@@ -60,25 +60,10 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
                     f"model and teacher model layers for target {target} do not match"
                 )
 
-            # Ensure the student and teacher layer are on the same device
-            device = None
             for (key, student_layer), teacher_layer in zip(
                 model_layers.items(), teacher_layers.values()
             ):
-                for name, param in student_layer.named_parameters():
-                    device = param.device
-                    teacher_param = getattr(teacher_layer, name)
-                    teacher_param.data = teacher_param.to(device)
-
-                for name, buffer in student_layer.named_buffers():
-                    if hasattr(teacher_layer, name):
-                        device = buffer.device
-                        teacher_buffer = getattr(teacher_layer, name)
-                        teacher_buffer.data = teacher_buffer.to(device)
-
                 wrapper = self._create_wrapper(student_layer, teacher_layer, state)
-                kd_comparison_buffer = getattr(wrapper, wrapper.KD_COMPARISON_BUFFER)
-                kd_comparison_buffer.data = kd_comparison_buffer.to(device)
                 state.model.set_layer(key, wrapper)
                 self.wrappers_[key] = wrapper
                 wrapper.kd_enabled = True
