@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from copy import deepcopy
+from typing import List, Optional
 
 from datasets.dataset_dict import DatasetDict
 
@@ -26,6 +27,7 @@ class CustomDataset(TextGenerationDataset):
 
     :param data_args: configuration settings for dataset loading
     :param split: split from dataset to load, for instance `test` or `train[:5%]`
+        Can also be set to None to load all the splits
     :param tokenizer: tokenizer to use on dataset
 
     """
@@ -40,7 +42,9 @@ class CustomDataset(TextGenerationDataset):
         )
         self.preprocessing_func = data_args.preprocessing_func
 
-    def get_raw_dataset(self, *_ignore, **__ignore) -> DatasetDict:
+    def get_raw_dataset(
+        self, remove_columns: Optional[List[str]] = None, *_ignore, **__ignore
+    ) -> DatasetDict:
         """Get the raw dataset and apply preprocessing func if provided"""
 
         raw_dataset: DatasetDict = super().get_raw_dataset()
@@ -50,6 +54,7 @@ class CustomDataset(TextGenerationDataset):
                 raw_dataset,
                 function=self.preprocessing_func,
                 batched=False,
+                remove_columns=remove_columns,
                 num_proc=self.data_args.preprocessing_num_workers,
                 desc="Applying custom func to the custom dataset",
             )

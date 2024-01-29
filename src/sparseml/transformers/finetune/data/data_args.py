@@ -17,26 +17,31 @@ from typing import Callable, Dict, List, Optional, Union
 
 
 @dataclass
-class CustomDataTrainingArguments:
+class DVCDatasetTrainingArguments:
+    """
+    Arguments for training using DVC
+    """
+
+    dvc_data_repository: Optional[str] = field(
+        default=None,
+        metadata={"help": "Path to repository used for dvc_dataset_path"},
+    )
+
+
+@dataclass
+class CustomDataTrainingArguments(DVCDatasetTrainingArguments):
     """
     Arguments for training using custom datasets
     """
 
-    data_files: Optional[str] = field(
+    dataset_path: Optional[str] = field(
         default=None,
         metadata={
-            "help": """
-            The data in a dict format to be loaded using HF's load_dataset
-
-            Ex.
-            {
-                "train": [
-                    "path/to/folder/data1.json", # or csv
-                    "path/to/folder/data2.json",
-                ],
-                "test": ...
-            }"
-            """
+            "help": (
+                "Path to the custom dataset. Suppoerts json, csv, dvc. "
+                "For DVC, the to dvc dataset to load, of format dvc://path. "
+                "For csv or json, the path containing the dataset. "
+            ),
         },
     )
 
@@ -95,14 +100,6 @@ class DataTrainingArguments(CustomDataTrainingArguments):
     num_calibration_samples: Optional[int] = field(
         default=512,
         metadata={"help": "Number of samples to use for one-shot calibration"},
-    )
-    dvc_dataset_path: Optional[str] = field(
-        default=None,
-        metadata={"help": "Path to dvc dataset to load, of format dvc://path"},
-    )
-    dvc_data_repository: Optional[str] = field(
-        default=None,
-        metadata={"help": "Path to repository used for dvc_dataset_path"},
     )
     streaming: Optional[bool] = field(
         default=False,

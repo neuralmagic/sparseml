@@ -20,7 +20,10 @@ from transformers import AutoTokenizer
 
 from sparseml.modifiers.utils.pytorch_helpers import PADDING_MASK_COLUMN_NAME
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
-from sparseml.transformers.finetune.data.data_helpers import get_raw_dataset
+from sparseml.transformers.finetune.data.data_helpers import (
+    get_custom_datasets_from_path,
+    get_raw_dataset,
+)
 from sparsezoo.utils.registry import RegistryMixin
 
 
@@ -49,7 +52,8 @@ class TextGenerationDataset(RegistryMixin):
         self.data_args = data_args
         self.raw_kwargs = data_args.raw_kwargs or {}
         self.split = split
-        self.dvc_dataset = True if self.data_args.dvc_dataset_path else False
+        self.dvc_dataset = True if self.data_args.dataset_name == "dvc" else False
+        self.custom_dataset = True if self.data_args.dataset_path is not None else False
 
         # configure padding
         if data_args.concatenate_data:
@@ -82,17 +86,23 @@ class TextGenerationDataset(RegistryMixin):
         :return: the requested dataset
         """
         if self.dvc_dataset:
-            self.raw_kwargs["data_files"] = self.data_args.dvc_dataset_path
+            self.data_args.dataset_name = "csv"
             self.raw_kwargs["storage_options"] = {
                 "url": self.data_args.dvc_data_repository
             }
+            self.raw_kwargs["data_files"] = self.data_args.dataset_path
+
+        if self.custom_dataset:
+            self.raw_kwargs["data_files"] = get_custom_datasets_from_path(
+                self.data_args.dataset_path,
+                self.data_args.dataset_name,
+            )
 
         return get_raw_dataset(
             self.data_args,
             cache_dir,
             split=self.split,
             streaming=self.data_args.streaming,
-            data_files=self.data_args.data_files,
             **self.raw_kwargs,
         )
 

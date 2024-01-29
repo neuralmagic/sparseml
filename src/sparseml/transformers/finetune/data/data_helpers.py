@@ -66,7 +66,6 @@ def get_raw_dataset(
     data_args,
     cache_dir: Optional[str] = None,
     streaming: Optional[bool] = False,
-    data_files: Optional[Dict] = None,
     **kwargs,
 ) -> Dataset:
     """
@@ -74,29 +73,16 @@ def get_raw_dataset(
 
     :param cache_dir: disk location to search for cached dataset
     :param streaming: True to stream data from Hugging Face, otherwise download
-    :param data_files: For custom datasets only. Parsed dict of foldername
-        and data path. data_args.dataset_name should be 'json' or 'csv'
-
-        Ex.
-            {
-                "train": [
-                    "path/to/folder/data1.json", # or csv
-                    "path/to/folder/data2.json",
-                ],
-                "test": ...
-            }
-
     :return: the requested dataset
+
     """
     raw_datasets = load_dataset(
         data_args.dataset_name,
         data_args.dataset_config_name,
         cache_dir=cache_dir,
         streaming=streaming,
-        data_files=data_files,
         **kwargs,
     )
-
     return raw_datasets
 
 
@@ -154,7 +140,8 @@ def make_dataset_splits(
 
 def get_custom_datasets_from_path(path: str, ext: str = "json") -> Dict[str, str]:
     """
-    Get a dictionary of custom datasets from a directory path.
+    Get a dictionary of custom datasets from a directory path. Support HF's load_dataset
+     for local folder datasets https://huggingface.co/docs/datasets/loading
 
     This function scans the specified directory path for files with a
      specific extension (default is '.json').
