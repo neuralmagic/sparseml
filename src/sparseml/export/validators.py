@@ -22,7 +22,7 @@ from typing import Callable, List, Optional, Union
 import numpy
 
 from sparseml.export.export_data import InputsNames, LabelNames, OutputsNames
-from sparseml.export.helpers import ONNX_MODEL_NAME
+from sparseml.export.helpers import ONNX_MODEL_NAME, onnx_data_files
 from sparsezoo.utils.numpy import load_numpy
 
 
@@ -51,6 +51,12 @@ def validate_structure(
     :param deployment_directory_files_optional: The list of files that
         can be optionally present in the deployment directory.
     """
+    deployment_directory_path = os.path.join(target_path, deployment_directory_name)
+
+    validate_structure_external_data(
+        deployment_directory_path, onnx_model_name=onnx_model_name
+    )
+
     sample_files = {InputsNames, OutputsNames, LabelNames}
 
     # account for the potentially custom ONNX model name
@@ -60,11 +66,11 @@ def validate_structure(
     ]
     # obtain full paths
     deployment_directory_files_mandatory = {
-        os.path.join(target_path, deployment_directory_name, file_name)
+        os.path.join(deployment_directory_path, file_name)
         for file_name in deployment_directory_files_mandatory
     }
     deployment_directory_files_optional = {
-        os.path.join(target_path, deployment_directory_name, file_name)
+        os.path.join(deployment_directory_path, file_name)
         for file_name in deployment_directory_files_optional or []
     }
 
@@ -84,6 +90,18 @@ def validate_structure(
     if missing_mandatory_files:
         for file_path in missing_mandatory_files:
             raise FileNotFoundError(f"File {file_path} is missing.")
+
+
+def validate_structure_external_data(
+    deployment_directory_path: Union[str, Path], onnx_model_name: Union[str, Path]
+):
+    files_present = onnx_data_files(
+        onnx_model_name.replace(".onnx", ".data"), deployment_directory_path
+    )
+    if files_present:
+        _LOGGER.info(
+            f"Exported model contains {len(files_present)} external data files"
+        )
 
 
 def check_file_presence(file_paths: List[str]) -> List[str]:
