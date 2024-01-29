@@ -51,13 +51,13 @@ class SmoothQuantMapping(Generic[LT]):
 
     :param smooth_name: name of the activation layer
     :param smooth_layer: PyTorch module storing the activation layer
-    :param balance_layers: list of PyTorch modules that smooth_layer feeds into, must be
+    :param balance_layers: dict of PyTorch modules that smooth_layer feeds into, must be
     balanced to offset the smoothing of smooth_layer
     """
 
     smooth_name: str
     smooth_layer: LT
-    balance_layers: List[LT]
+    balance_layers: Dict[str, LT]
 
 
 class SmoothQuantModifier(Modifier):
@@ -147,14 +147,14 @@ class SmoothQuantModifier(Modifier):
             to_smooth_layers = model.get_layers(to_smooth)
             for layer_name, smooth_layer in to_smooth_layers.items():
                 if layer_name not in self.ignore:
-                    balance_layers = []
+                    balance_layers = {}
                     for balance_suffix in to_balance:
                         # find the submodule that matches the activation layer
-                        _, balance_layer = model.get_matching_layer(
+                        balance_name, balance_layer = model.get_matching_layer(
                             balance_suffix, layer_name, model.model
                         )
                         if balance_layer:
-                            balance_layers.append(balance_layer)
+                            balance_layers[balance_name] = balance_layer
                     # each mapping can contain multiple layers to balance, but only
                     # one layer to smooth
                     mapping = SmoothQuantMapping(

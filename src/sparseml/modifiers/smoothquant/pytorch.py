@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import logging
-from typing import Callable, List, Optional
+from typing import Callable, Dict, List, Optional
 
 import torch
 from torch.nn import Module
@@ -56,7 +56,7 @@ class SmoothQuantModifierPyTorch(SmoothQuantModifier):
 
         self._setup_scale_hooks()
         self._calibrate(state.model, calibration_dataloader)
-        self._apply_smoothing()
+        self._apply_smoothing(state.model)
 
         return True
 
@@ -138,7 +138,7 @@ class SmoothQuantModifierPyTorch(SmoothQuantModifier):
         del self.hooks_
 
     @torch.no_grad()
-    def _apply_smoothing(self):
+    def _apply_smoothing(self, model: ModifiableModelPyTorch):
         """
         After calibration, apply smoothing to the activations and push the transform
         into the following weights by applying the inverse to each balance weight.
@@ -154,7 +154,7 @@ class SmoothQuantModifierPyTorch(SmoothQuantModifier):
                 self.scales_[mapping.smooth_name].max_channel_vals
                 - self.scales_[mapping.smooth_name].min_channel_vals
             )
-            smooth_layer = mapping.smooth_layer
+            smooth_name = mapping.smooth_name
             balance_layers = mapping.balance_layers
 
             scales = self._calculate_smoothing_scales(balance_layers, activation_scales)
@@ -162,20 +162,34 @@ class SmoothQuantModifierPyTorch(SmoothQuantModifier):
                 scales, torch.Tensor([MINIMUM_SMOOTHING_SCALE]).to(scales.device)
             )
 
-            # invert the smoothing in the following layers
-            for layer in balance_layers:
-                layer.weight.mul_(scales.view(1, -1))
+            #import operator
+            #no_split_modules = getattr(model.model, "_no_split_modules", None)
+            #parent_name = smooth_name
+            #parent = operator.attrgetter(parent_name, model.model)
+            #while not isinstance(parent)
+            #while not is
+            #parent_target = ".".join(target.split(".")[:-1])
+            #operator.attrgetter("b.c")(a)
 
-            # apply the smoothing
-            if smooth_layer.weight.ndim == 1:
-                smooth_layer.weight.div_(scales)
-            else:
-                smooth_layer.weight.div_(scales.view(-1, 1))
-            if hasattr(smooth_layer, "bias") and smooth_layer.bias is not None:
-                smooth_layer.bias.div_(scales)
+            @torch.no_grad()
+            def smooth(module):
+                if module.name in balance_layers.keys():
+                    # invert the smoothing in the following layers
+                    module.weight.mul_(scales.view(1, -1))
+
+                # apply the smoothing
+                elif module.name == smooth_name:
+                    if module.weight.ndim == 1:
+                        module.weight.div_(scales)
+                    else:
+                        module.weight.div_(scales.view(-1, 1))
+                    if hasattr(module, "bias") and module.bias is not None:
+                        module.bias.div_(scales)
+
+            model.model.apply(smooth)
 
     def _calculate_smoothing_scales(
-        self, balance_layers: List[Module], activation_scales: torch.Tensor
+        self, balance_layers: Dict[str, Module], activation_scales: torch.Tensor
     ) -> List[float]:
         """
         Calculate how much smoothing to apply to each channel based on the dynamic
@@ -187,7 +201,7 @@ class SmoothQuantModifierPyTorch(SmoothQuantModifier):
         """
         # get the channel-wise dynamic range for each layer to be balanced
         weight_scales = []
-        for layer in balance_layers:
+        for _, layer in balance_layers.items():
             scale = layer.weight.abs().max(dim=0, keepdim=True)[0]
             weight_scales.append(scale)
         weight_scales = 2.0 * torch.cat(weight_scales, dim=0).max(dim=0)[0]
