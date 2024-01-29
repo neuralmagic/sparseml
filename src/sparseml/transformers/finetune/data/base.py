@@ -85,18 +85,18 @@ class TextGenerationDataset(RegistryMixin):
         :param cache_dir: disk location to search for cached dataset
         :return: the requested dataset
         """
-        if self.dvc_dataset:
-            self.data_args.dataset_name = "csv"
-            self.raw_kwargs["storage_options"] = {
-                "url": self.data_args.dvc_data_repository
-            }
-            self.raw_kwargs["data_files"] = self.data_args.dataset_path
-
         if self.custom_dataset:
-            self.raw_kwargs["data_files"] = get_custom_datasets_from_path(
-                self.data_args.dataset_path,
-                self.data_args.dataset_name,
-            )
+            if self.dvc_dataset:
+                self.data_args.dataset_name = "csv"
+                self.raw_kwargs["storage_options"] = {
+                    "url": self.data_args.dvc_data_repository
+                }
+                self.raw_kwargs["data_files"] = self.data_args.dataset_path
+            else:
+                self.raw_kwargs["data_files"] = get_custom_datasets_from_path(
+                    self.data_args.dataset_path,
+                    self.data_args.dataset_name,
+                )
 
         return get_raw_dataset(
             self.data_args,
