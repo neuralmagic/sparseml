@@ -81,6 +81,7 @@ sparseml.transformers.text_generation.oneshot
     --recipe recipe.yaml
     --output_dir ./output_oneshot
     --splits "train"
+    --precision float16
 ```
 
 The README at [`src/sparseml/transformers/sparsification/obcq`](https://github.com/neuralmagic/sparseml/tree/main/src/sparseml/transformers/sparsification/obcq) has a detailed walkthrough.
