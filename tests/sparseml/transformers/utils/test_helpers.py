@@ -83,3 +83,6 @@ def test_save_zoo_directory(stub, tmp_path_factory):
     )
     new_zoo_model = Model(str(save_dir))
     assert new_zoo_model.validate(minimal_validation=True, validate_onnxruntime=False)
+
+def test_resolve_recipe():
+    assert False

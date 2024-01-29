@@ -29,7 +29,7 @@ from transformers.trainer_utils import get_last_checkpoint
 
 from huggingface_hub import hf_hub_download
 from sparseml.export.helpers import ONNX_MODEL_NAME
-from sparsezoo import setup_model
+from sparsezoo import setup_model, Model
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -213,7 +213,7 @@ def resolve_sequence_length(config: AutoConfig) -> int:
     return sequence_length
 
 
-def resolve_recipe_application(
+def resolve_recipe(
     recipe: Union[str, Path, None], model_path: Union[str, Path]
 ) -> Union[str, Path, None]:
     """
@@ -238,19 +238,7 @@ def resolve_recipe_application(
     """
 
     if recipe is None:
-        # if recipe is None -> still look for recipe.yaml in the model_path
-        recipe = os.path.join(model_path, RECIPE_NAME)
-        if os.path.isfile(recipe):
-            return recipe
-        else:
-            request = requests.get(os.path.join(HUGGINGFACE_ADDRESS, model_path))
-            if request.status_code == 200:
-                _LOGGER.info(
-                    "model_path is a huggingface model id. "
-                    f"Attempting to download recipe from {HUGGINGFACE_ADDRESS}"
-                )
-                recipe = hf_hub_download(repo_id=model_path, filename=RECIPE_NAME)
-                return recipe
+        return _infer_recipe_from_model_path(model_path)
 
     elif os.path.isfile(recipe):
         # recipe is a path to a recipe file
@@ -274,6 +262,27 @@ def resolve_recipe_application(
     )
     return None
 
+def _infer_recipe_from_model_path(model_path: Union[str, Path]) -> Optional[Union[str, Path]]:
+    if model_path.startswith("zoo:"):
+        recipe = Model(model_path).recipe
+    # if recipe is None -> look for default
+    # recipe name in the model_path
+    recipe = os.path.join(model_path, RECIPE_NAME)
+    if os.path.isfile(recipe):
+        # if recipe is an actual file -> use it
+        return recipe
+    # send a request to hugginface server to check if model_path is
+    # a valid huggingface model id
+    request = requests.get(os.path.join(HUGGINGFACE_ADDRESS, model_path))
+    if request.status_code == 200:
+        _LOGGER.info(
+            "model_path is a huggingface model id. "
+            f"Attempting to download recipe from {HUGGINGFACE_ADDRESS}"
+        )
+        recipe = hf_hub_download(repo_id=model_path, filename=RECIPE_NAME)
+        return recipe
+    # failed to infer recipe from model_path
+    return None
 
 def _resolve_recipe_file(
     requested_recipe: Union[str, Path], model_path: Union[str, Path]

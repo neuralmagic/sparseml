@@ -33,7 +33,7 @@ from sparseml.pytorch.model_load.helpers import (
     apply_recipe_structure_to_model,
     log_model_load,
 )
-from sparseml.transformers.utils.helpers import resolve_recipe_application
+from sparseml.transformers.utils.helpers import resolve_recipe
 
 
 __all__ = ["SparseAutoModel", "SparseAutoModelForCausalLM", "get_shared_tokenizer_src"]
@@ -68,7 +68,7 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
         model = super(AutoModelForCausalLM, cls).from_pretrained(
             pretrained_model_name_or_path, *model_args, **kwargs
         )
-        recipe = resolve_recipe_application(recipe, pretrained_model_name_or_path)
+        recipe = resolve_recipe(recipe, pretrained_model_name_or_path)
         if recipe:
             apply_recipe_structure_to_model(
                 model=model,
