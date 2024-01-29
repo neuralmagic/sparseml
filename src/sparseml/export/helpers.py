@@ -14,6 +14,7 @@
 
 import logging
 import os
+import re
 import shutil
 from enum import Enum
 from pathlib import Path
@@ -31,6 +32,7 @@ __all__ = [
     "create_export_kwargs",
     "save_model_with_external_data",
     "format_source_path",
+    "onnx_data_files",
 ]
 
 AVAILABLE_DEPLOYMENT_TARGETS = [target.value for target in ExportTargets]
@@ -52,6 +54,25 @@ def format_source_path(source_path: Union[Path, str]) -> str:
             f"Argument: source_path must be a directory. " f"Got {source_path} instead."
         )
     return source_path.as_posix()
+
+
+def onnx_data_files(onnx_data_name: str, path: Union[str, Path]) -> List[str]:
+    """
+    Given the onnx_data_name, return a list of all the onnx data file names
+    in the src_path. E.g. if onnx_data_name is "model.data", return
+    ["model.data"] (if there is only one file present),
+    alternativelty potentially return ["model.data.0", "model.data.1", ...]
+    if the files are split into multiple files.
+
+    :param onnx_data_name: The name of the onnx data file.
+    :param path: The path to the onnx data file.
+    :return: A list of all the onnx data file names.
+    """
+    onnx_data_pattern = re.compile(rf"{onnx_data_name}(\.\d+)?$")
+    onnx_data_files = [
+        file for file in os.listdir(path) if onnx_data_pattern.match(file)
+    ]
+    return onnx_data_files
 
 
 def create_export_kwargs(
@@ -252,15 +273,32 @@ def resolve_graph_optimizations(
         raise KeyError(f"Unknown graph optimization option: {optimizations}")
 
 
-def save_model_with_external_data(onnx_file_path: Union[str, Path]):
+def save_model_with_external_data(
+    onnx_file_path: Union[str, Path], external_data_chunk_size_mb: Optional[int] = None
+):
     onnx_model = load_model(onnx_file_path)
-    if onnx_includes_external_data(onnx_model):
+    if external_data_chunk_size_mb is not None:
         _LOGGER.debug(
-            "Splitting the model into two files: "
-            f"{os.path.basename(onnx_file_path)} (graph definition) "
-            f"and {ONNX_DATA_NAME} (constant tensor data)"
+            "Splitting the model into "
+            f"{os.path.basename(onnx_file_path)} (graph definition) and one or more "
+            f"{ONNX_DATA_NAME} files (constant tensor data). The size of each "
+            f"{ONNX_DATA_NAME} file will not exceed {external_data_chunk_size_mb} MB.",
+        )
+        save_onnx(
+            onnx_model,
+            onnx_file_path,
+            external_data_file=ONNX_DATA_NAME,
+            max_external_data_chunk_size=external_data_chunk_size_mb * 1024 * 1024,
+        )
+
+    elif onnx_includes_external_data(onnx_model):
+        _LOGGER.debug(
+            "Splitting the model into"
+            f"{os.path.basename(onnx_file_path)} (graph definition) and one or more "
+            f"{ONNX_DATA_NAME} files (constant tensor data)"
         )
         save_onnx(onnx_model, onnx_file_path, external_data_file=ONNX_DATA_NAME)
+
     else:
         _LOGGER.debug(
             "save_with_external_data = True ignored, the model already "
@@ -271,14 +309,19 @@ def save_model_with_external_data(onnx_file_path: Union[str, Path]):
 def _move_onnx_model(
     onnx_model_name: str, src_path: Union[str, Path], target_path: Union[str, Path]
 ):
-    onnx_data_name = onnx_model_name.replace(".onnx", ".data")
-
-    onnx_model_path = os.path.join(src_path, onnx_model_name)
-    onnx_data_path = os.path.join(src_path, onnx_data_name)
-
-    if os.path.exists(onnx_data_path):
-        _move_file(src=onnx_data_path, target=os.path.join(target_path, onnx_data_name))
-    _move_file(src=onnx_model_path, target=os.path.join(target_path, onnx_model_name))
+    # move the data file(s)
+    for onnx_data_file in onnx_data_files(
+        onnx_data_name=onnx_model_name.replace(".onnx", ".data"), path=src_path
+    ):
+        _move_file(
+            src=os.path.join(src_path, onnx_data_file),
+            target=os.path.join(target_path, onnx_data_file),
+        )
+    # move the model itself
+    _move_file(
+        src=os.path.join(src_path, onnx_model_name),
+        target=os.path.join(target_path, onnx_model_name),
+    )
 
 
 def _copy_file_or_directory(src: str, target: str):

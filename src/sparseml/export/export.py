@@ -24,15 +24,18 @@ Options:
                                   run on, default 'deepsparse'
   --opset INTEGER                 Onnx opset to export to. Defaults to the latest
                                   supported opset.
-
   --save_with_external_data BOOLEAN
                                   Default False - if True, large constant tensors,
                                   such as initializers, will be serialised
                                   in a separate file. Note: if the model is
                                   sufficiently large, it will be saved with
                                   external data regardless of this flag
-
-  --num_export_samples INTEGER    Number of sample imputs/outputs to save.
+  --external_data_chunk_size_mb INTEGER
+                                  Size of external data chunks to use for
+                                  exporting the model. Defaults to None, which
+                                  will use the default chunk size. If set, will
+                                  force the export with external data
+  --num_export_samples INTEGER    Number of sample inputs/outputs to save.
                                   Default 0
   --recipe TEXT                   Optional sparsification recipe to apply at
                                   runtime
@@ -86,7 +89,6 @@ from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
 from sparseml.pytorch.utils.helpers import default_device
 from sparseml.utils.helpers import parse_kwarg_tuples
 from sparsezoo.utils.numpy import load_numpy
-from sparsezoo.utils.registry import standardize_lookup_name
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -99,6 +101,7 @@ def export(
     deployment_target: str = "deepsparse",
     opset: int = TORCH_DEFAULT_ONNX_OPSET,
     save_with_external_data: bool = False,
+    external_data_chunk_size_mb: Optional[int] = None,
     num_export_samples: int = 0,
     recipe: Optional[Union[Path, str]] = None,
     deployment_directory_name: str = "deployment",
@@ -145,6 +148,10 @@ def export(
         such as initializers, will be serialised in a separate file.
         Defaults to False. Note: if the model is sufficiently large,
         it will be saved with external data regardless of this flag.
+    :param external_data_chunk_size_mb: The size of the external data
+        chunks to use for exporting the model. Defaults to None, which
+        will use the default chunk size. If set, will force the
+        export with external data.
     :param num_export_samples: The number of samples to create for
         the exported model. Defaults to 0.
     :param deployment_directory_name: The name of the deployment
@@ -169,12 +176,6 @@ def export(
         Defaults to None.
     """
     source_path = format_source_path(source_path)
-    if task is not None:
-        task = standardize_lookup_name(task)
-
-    if integration is not None:
-        integration = standardize_lookup_name(integration)
-
     if target_path is None:
         target_path = source_path
     # create the target path if it doesn't exist
@@ -303,9 +304,10 @@ def export(
             optimizations=graph_optimizations,
         )
 
-    if save_with_external_data is True:
+    if save_with_external_data is True or external_data_chunk_size_mb:
         save_model_with_external_data(
-            os.path.join(deployment_folder_dir, onnx_model_name)
+            os.path.join(deployment_folder_dir, onnx_model_name),
+            external_data_chunk_size_mb,
         )
 
     if validate_structure:
@@ -364,6 +366,14 @@ def export(
     help="Default False - if True, large constant tensors, such as initializers, "
     "will be serialised in a separate file. Note: if the model is sufficiently "
     "large, it will be saved with external data regardless of this flag",
+)
+@click.option(
+    "--external_data_chunk_size_mb",
+    type=int,
+    default=False,
+    help="Default False - if explicitely set to a number, "
+    "it will force the model to be exported with external "
+    "data, with the given chunk size in MB",
 )
 @click.option(
     "--num_export_samples",
@@ -434,6 +444,7 @@ def main(
     deployment_target: str = "deepsparse",
     opset: int = TORCH_DEFAULT_ONNX_OPSET,
     save_with_external_data: bool = False,
+    external_data_chunk_size_mb: Optional[int] = None,
     num_export_samples: int = 0,
     recipe: str = None,
     deployment_directory_name: str = "deployment",
@@ -453,6 +464,7 @@ def main(
         deployment_target=deployment_target,
         opset=opset,
         save_with_external_data=save_with_external_data,
+        external_data_chunk_size_mb=external_data_chunk_size_mb,
         num_export_samples=num_export_samples,
         recipe=recipe,
         deployment_directory_name=deployment_directory_name,
