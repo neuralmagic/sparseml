@@ -31,7 +31,7 @@ pip install -e "sparseml[transformers]"
 Perform one-shot using the OBCQ algorithm. The command takes the following parameters: 
 
 positional arguments:
-- `model` a path to Hugging Face stub
+- `model_name` a path to Hugging Face stub
 - `dataset_name` Hugging Face dataset to extract calibration data from. Example of supported datasets: `{c4,evolcodealpaca,gsm8k,open_platypus,ptb,wikitext2}`
 
 options:
