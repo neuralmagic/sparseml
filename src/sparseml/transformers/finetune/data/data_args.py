@@ -52,7 +52,7 @@ class CustomDataTrainingArguments(DVCDatasetTrainingArguments):
 
     remove_columns: Union[None, str, List] = field(
         default=None,
-        metadata={"help": "column names to remove after preprocessing"},
+        metadata={"help": "Column names to remove after preprocessing custom datasets"},
     )
 
     preprocessing_func: Optional[Callable] = field(
