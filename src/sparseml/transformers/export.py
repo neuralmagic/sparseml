@@ -80,7 +80,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
 
 from torch.nn import Module
-from transformers import AutoConfig, AutoTokenizer
+from transformers import AutoConfig
 from transformers import TrainingArguments as HFTrainingArgs
 from transformers.tokenization_utils_base import PaddingStrategy
 
@@ -88,6 +88,7 @@ from sparseml.optim import parse_recipe_variables
 from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
 from sparseml.pytorch.optim import ScheduledModifierManager
 from sparseml.pytorch.utils import export_onnx
+from sparseml.transformers import SparseAutoTokenizer
 from sparseml.transformers.sparsification import Trainer
 from sparseml.transformers.utils import SparseAutoModel
 from sparsezoo.utils.onnx import EXTERNAL_ONNX_DATA_NAME
@@ -312,7 +313,7 @@ def export_transformer_to_onnx(
             "(inferred from HF transformers config) "
         )
 
-    tokenizer = AutoTokenizer.from_pretrained(
+    tokenizer = SparseAutoTokenizer.from_pretrained(
         model_path, model_max_length=sequence_length
     )
     if task == "text-generation":

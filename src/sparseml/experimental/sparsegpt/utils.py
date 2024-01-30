@@ -240,9 +240,9 @@ def get_wikitext2(nsamples, seed, seqlen, model):
     traindata = load_dataset("wikitext", "wikitext-2-raw-v1", split="train")
     testdata = load_dataset("wikitext", "wikitext-2-raw-v1", split="test")
 
-    from transformers import AutoTokenizer
+    from sparseml.transformers import SparseAutoTokenizer
 
-    tokenizer = AutoTokenizer.from_pretrained(model, use_fast=False)
+    tokenizer = SparseAutoTokenizer.from_pretrained(model, use_fast=False)
     trainenc = tokenizer(" ".join(traindata["text"]), return_tensors="pt")["input_ids"]
     testenc = tokenizer("\n\n".join(testdata["text"]), return_tensors="pt")["input_ids"]
 
@@ -273,9 +273,9 @@ def get_ptb(nsamples, seed, seqlen, model):
     traindata = load_dataset("ptb_text_only", "penn_treebank", split="train")
     testdata = load_dataset("ptb_text_only", "penn_treebank", split="test")
 
-    from transformers import AutoTokenizer
+    from sparseml.transformers import SparseAutoTokenizer
 
-    tokenizer = AutoTokenizer.from_pretrained(model, use_fast=False)
+    tokenizer = SparseAutoTokenizer.from_pretrained(model, use_fast=False)
     trainenc = tokenizer(" ".join(traindata["sentence"]), return_tensors="pt")
     testenc = tokenizer(" ".join(testdata["sentence"]), return_tensors="pt")
 
@@ -309,9 +309,9 @@ def get_c4(nsamples, seed, seqlen, model):
         split="validation",
     )
 
-    from transformers import AutoTokenizer
+    from sparseml.transformers import SparseAutoTokenizer
 
-    tokenizer = AutoTokenizer.from_pretrained(model, use_fast=False)
+    tokenizer = SparseAutoTokenizer.from_pretrained(model, use_fast=False)
 
     import random
 
@@ -368,9 +368,9 @@ def get_openplatypus(nsamples, seed, seqlen, model, split):
         "\n\n### Response:\n",
     }
 
-    from transformers import AutoTokenizer
+    from sparseml.transformers import SparseAutoTokenizer
 
-    tokenizer = AutoTokenizer.from_pretrained(model)
+    tokenizer = SparseAutoTokenizer.from_pretrained(model)
 
     def _process_sample(sample):
         if "input" in sample:
