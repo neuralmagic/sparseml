@@ -178,7 +178,7 @@ def test_evol(tiny_llama_tokenizer):
 @pytest.mark.usefixtures("tiny_llama_tokenizer")
 def test_dvc_dataloading(tiny_llama_tokenizer):
     data_args = DataTrainingArguments(
-        dataset_name="dvc",
+        dataset_name="csv",
         dataset_path="dvc://workshop/satellite-data/jan_train.csv",
         dvc_data_repository="https://github.com/iterative/dataset-registry.git",
     )

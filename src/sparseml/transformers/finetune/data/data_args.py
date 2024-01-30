@@ -38,7 +38,7 @@ class CustomDataTrainingArguments(DVCDatasetTrainingArguments):
         default=None,
         metadata={
             "help": (
-                "Path to the custom dataset. Suppoerts json, csv, dvc. "
+                "Path to the custom dataset. Supports json, csv, dvc. "
                 "For DVC, the to dvc dataset to load, of format dvc://path. "
                 "For csv or json, the path containing the dataset. "
             ),

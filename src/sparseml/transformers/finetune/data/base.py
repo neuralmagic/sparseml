@@ -52,7 +52,9 @@ class TextGenerationDataset(RegistryMixin):
         self.data_args = data_args
         self.raw_kwargs = data_args.raw_kwargs or {}
         self.split = split
-        self.dvc_dataset = True if self.data_args.dataset_name == "dvc" else False
+        self.dvc_dataset = (
+            True if self.data_args.dvc_data_repository is not None else False
+        )
         self.custom_dataset = True if self.data_args.dataset_path is not None else False
 
         # configure padding
@@ -87,7 +89,6 @@ class TextGenerationDataset(RegistryMixin):
         """
         if self.custom_dataset:
             if self.dvc_dataset:
-                self.data_args.dataset_name = "csv"
                 self.raw_kwargs["storage_options"] = {
                     "url": self.data_args.dvc_data_repository
                 }
