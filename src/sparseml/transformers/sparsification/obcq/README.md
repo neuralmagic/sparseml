@@ -116,7 +116,7 @@ Execution time was 1288 seconds.
 ```
 Repeat the above on other tasks such as `truthfulqa-mc`, `winogrande`, and `drop`.
 ## <a name="export"> How to Export the One-shot Model</a>
-Once you are certain the model is performing as expected, you can export it for inference. The `sparseml.export` command provides the functions for doing this. Running the command below creates a `deployment` directory containing all the artifacts that are needed for inference with DeepSparse. It will also inject KV Cache reduce the model’s computational overhead and speed up inference by caching the Key and Value states.
+Once you are certain the model is performing as expected, you can export it for inference. The `sparseml.export` command provides the functions for doing this. Running the command below creates a `deployment` directory containing all the artifacts that are needed for inference with DeepSparse. It will also inject KV Cache to reduce the model’s computational overhead and speed up inference by caching the Key and Value states.
 ```bash
 sparseml.export --task text-generation obcq_deployment/
 
