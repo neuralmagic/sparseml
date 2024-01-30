@@ -10,11 +10,10 @@ Due to inefficiencies in PyTorch ONNX export, a lot of system memory is required
 2. [How to One-shot TinyLlama](#tinyllama)
 3. [How to Evaluate the One-shot Model](#evaluate)
 4. [How to Export the One-shot model](#export)
-5. [How to Inject KV Cache](#kvcache)
-6. [Using the Model With DeepSparse](#deepsparse)
-7. [Upload Model to Hugging Face](#upload)
-8. [Explaining the TinyLlama Recipe](#recipe)
-9. [How to Adapt a Recipe for a New Model](#adapt)
+5. [Using the Model With DeepSparse](#deepsparse)
+6. [Upload Model to Hugging Face](#upload)
+7. [Explaining the TinyLlama Recipe](#recipe)
+8. [How to Adapt a Recipe for a New Model](#adapt)
 
 
 ## <a name="clone">How to Clone and Install  the Latest SparseML </a>
@@ -36,12 +35,11 @@ positional arguments:
 - `dataset_name` Hugging Face dataset to extract calibration data from. Example of supported datasets: `{c4,evolcodealpaca,gsm8k,open_platypus,ptb,wikitext2}`
 
 options:
-- `--dataset_config` Specific configuration to extract from the dataset, i.e. `wikitext2-raw-v1` for `wikitext2`
+- `--dataset_config_name` Specific configuration to extract from the dataset, i.e. `wikitext2-raw-v1` for `wikitext2`
 - `--nsamples` number of samples to extract from the dataset, defaults to 512.
 - `--seqlen` Maximum input sequence length to truncate calibration data to, defaults to model's max sequence length
 - `--concat_data` Whether or not to concatenate samples to fill the full seqlen, defaults to False
-- `--deploy-dir` the directory where the model will be saved, defaults to `obcq_deployment`.
-- `--save` whether to save the output model to disk.
+- `--output_dir` the directory where the model will be saved, defaults to `obcq_deployment`.
 - `--recipe` the file containing the one-shot hyperparameters.
 - `--device` which device to load the model onto, either `cpu` or a specific `cuda:0`.
 - `--precision` precision to load model as, either auto (default), half, full, float16 or float32.
@@ -49,7 +47,7 @@ options:
 Example command:
 ```bash
 wget https://huggingface.co/nm-testing/TinyLlama-1.1B-Chat-v0.4-pruned50-quant/raw/main/recipe.yaml # download recipe
-python sparseml/src/sparseml/transformers/sparsification/obcq/obcq.py TinyLlama/TinyLlama-1.1B-Chat-v0.4 open_platypus --recipe recipe.yaml --save True
+sparseml.transformers.text_generation.oneshot --model_name TinyLlama/TinyLlama-1.1B-Chat-v1.0 --dataset_name open_platypus --recipe recipe.yaml --output_dir ./obcq_deployment --precision float16
 ```
 ## <a name="evaluate"> How to Evaluate the One-shot Model</a>
 Next, evaluate the model's performance using the [lm-evaluation-harness framework](https://github.com/neuralmagic/lm-evaluation-harness).
@@ -121,29 +119,11 @@ Repeat the above on other tasks such as `truthfulqa-mc`, `winogrande`, and `drop
 Once you are certain the model is performing as expected, you can export it for inference. The `export.py` file provides the functions for doing this. Running the command below creates a `deployment` directory containing all the artifacts that are needed for inference with DeepSparse. 
 
 ```bash
-python sparseml/src/sparseml/transformers/sparsification/obcq/export.py --task text-generation --model_path obcq_deployment 
+sparseml.export --task text-generation obcq_deployment/
 
 ```
-
-## <a name="kvcache">How to Inject KV Cache</a>
 Injecting KV Cache is done to reduce the model’s computational overhead and speed up inference by caching the Key and Value states.
-This is done by creating a copy of `model.onnx` and injecting the KV Cache:
-```bash
-cp deployment/model.onnx deployment/model-orig.onnx
-```
-
-Code to inject KV Cache:
-```python
-import os
-import onnx
-from sparseml.exporters.kv_cache_injector import KeyValueCacheInjector
-input_file = "deployment/model-orig.onnx"
-output_file = "deployment/model.onnx"
-model = onnx.load(input_file, load_external_data=False)
-model = KeyValueCacheInjector(model_path=os.path.dirname(input_file)).apply(model)
-onnx.save(model, output_file)
-print(f"Modified model saved to: {output_file}")
-```
+This is done by creating a copy of `model.onnx` and injecting the KV Cache.
 
 ## <a name="deepsparse">Using the Model With DeepSparse </a>
 Next, run inference using DeepSparse. Ensure you have the latest version of DeepSparse installed with `pip install -U deepsparse-nightly[llm]`
@@ -294,7 +274,7 @@ Save the recipe to a file named `recipe.yaml`.
 
 Run one-shot quantization on any Mistral-based model, for example, `zephyr-7b-beta`: 
 ```bash
-python sparseml/src/sparseml/transformers/sparsification/obcq/obcq.py HuggingFaceH4/zephyr-7b-beta open_platypus --recipe recipe.yaml --precision float16 --save True
+sparseml.transformers.text_generation.oneshot --model_name HuggingFaceH4/zephyr-7b-bet --dataset_name open_platypus --recipe recipe.yaml --output_dir ./output_oneshot --precision float16
 ```
 We set `precision` to `float16` because quantization is not supported for the `bfloat16` data type as of this writing. 
 
