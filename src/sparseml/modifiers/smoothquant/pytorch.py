@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import logging
-from typing import Callable, Dict, List, Optional
+from typing import Callable, List, Optional
 
 import torch
 from torch.nn import Module
