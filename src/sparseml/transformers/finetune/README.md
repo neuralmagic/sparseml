@@ -20,6 +20,7 @@ Also supported:
 * `sparseml.transformers.text_generation.finetune`
 * `sparseml.transformers.text_generation.oneshot`
 * `sparseml.transformers.text_generation.eval`
+* `sparseml.transformers.text_generation.apply`
 
 ### with FSDP
 
@@ -41,7 +42,7 @@ See [configure_fsdp.md](https://github.com/neuralmagic/sparseml/blob/main/integr
 ## Launching from Python
 
 ```python
-from sparseml.transformers.finetune.text_generation import run_train
+from sparseml.transformers.finetune.text_generation import train
 
 model = "./obcq_deployment"
 teacher_model = "Xenova/llama2.c-stories15M"
@@ -55,7 +56,7 @@ splits = {
     "train": "train[:50%]",
 }
 
-run_train(
+train(
     model_name_or_path=model,
     distill_teacher=teacher_model,
     dataset_name=dataset_name,
@@ -96,7 +97,7 @@ accelerate launch
 
 ## Running One-shot from Python (without FSDP)
 ```python
-from sparseml.transformers.finetune.text_generation import run_oneshot
+from sparseml.transformers.finetune.text_generation import oneshot
 
 model = "Xenova/llama2.c-stories15M"
 dataset_name = "open_platypus"
@@ -108,7 +109,7 @@ splits = {
     "calibration": "train[:20%]"
 }
 
-run_oneshot(
+oneshot(
     model_name_or_path=model,
     dataset_name=dataset_name,
     concatenate_data=concatenate_data,
@@ -133,7 +134,7 @@ of a staged recipe for Llama.
 
 test_multi.py
 ```python
-from sparseml.transformers.finetune.text_generation import run_general
+from sparseml.transformers.finetune.text_generation import apply
 
 model = "../ml-experiments/nlg-text_generation/llama_pretrain-llama_7b-base/dense/training"
 dataset_name = "open_platypus"
@@ -148,7 +149,7 @@ splits = {
     "calibration": "train[95%:100%]"
 }
 
-run_general(
+apply(
     model_name_or_path=model,
     dataset_name=dataset_name,
     run_stages=run_stages,
