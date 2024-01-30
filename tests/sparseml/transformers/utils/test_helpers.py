@@ -17,13 +17,16 @@ from collections import OrderedDict
 
 import pytest
 import torch
+import transformers
 
 from huggingface_hub import snapshot_download
 from sparseml.transformers.utils.helpers import (
+    create_fake_dataloader,
     is_transformer_model,
     resolve_recipe,
     save_zoo_directory,
 )
+from sparseml.transformers.utils.initializers import initialize_tokenizer
 from sparsezoo import Model
 
 
@@ -166,3 +169,26 @@ def test_resolve_recipe_from_string(tmp_path):
         resolve_recipe(recipe="hey I am a recipe", model_path=tmp_path)
         == "hey I am a recipe"
     )
+
+
+def test_create_fake_dataloader(generative_model_path, sequence_length):
+    expected_input_names = ["input_ids", "attention_mask"]
+    sequence_length = 32
+    num_samples = 2
+
+    model = transformers.AutoModelForCausalLM.from_pretrained(generative_model_path)
+    tokenizer = initialize_tokenizer(
+        generative_model_path, sequence_length=sequence_length, task="text-generation"
+    )
+    data_loader, input_names = create_fake_dataloader(
+        model=model,
+        tokenizer=tokenizer,
+        num_samples=num_samples,
+    )
+
+    assert input_names == expected_input_names
+    for i, sample in enumerate(data_loader):
+        assert sample["input_ids"].shape == torch.Size([1, sequence_length])
+        assert sample["attention_mask"].shape == torch.Size([1, sequence_length])
+        assert set(sample.keys()) == set(expected_input_names)
+    assert i == num_samples - 1

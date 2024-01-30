@@ -16,16 +16,20 @@
 Helper variables and functions for integrating SparseML with huggingface/transformers
 flows
 """
-
+import inspect
 import logging
 import os
+from collections import OrderedDict
 from enum import Enum
 from pathlib import Path
-from typing import Optional, Union
+from typing import Iterable, List, Optional, Tuple, Union
 
 import requests
+import torch
+import transformers
 from transformers import AutoConfig
 from transformers.trainer_utils import get_last_checkpoint
+from transformers.utils import PaddingStrategy
 
 from huggingface_hub import HUGGINGFACE_CO_URL_HOME, hf_hub_download
 from sparseml.export.helpers import ONNX_MODEL_NAME
@@ -43,6 +47,7 @@ __all__ = [
     "is_transformer_model",
     "resolve_sequence_length",
     "ALL_TASK_NAMES",
+    "create_fake_dataloader",
 ]
 
 
@@ -338,3 +343,34 @@ def _resolve_recipe_file(
         return default_recipe
 
     return None
+
+
+def create_fake_dataloader(
+    model: torch.nn.Module,
+    tokenizer: transformers.AutoTokenizer,
+    num_samples: int,
+) -> Tuple[Iterable[OrderedDict[str, torch.Tensor]], List[str]]:
+    """
+    Creates fake transformers dataloader for the model, based on the model's
+    forward signature.
+
+    :param model: The model to create the dataloader for
+    :param tokenizer: The tokenizer to use for the dataloader
+    :param num_samples: The number of fake samples in the dataloader
+    :return: The data loader (iterable) and the input names for the model
+    """
+
+    forward_args_spec = inspect.getfullargspec(model.__class__.forward)
+    inputs = tokenizer(
+        "", return_tensors="pt", padding=PaddingStrategy.MAX_LENGTH.value
+    ).data
+    fake_inputs = OrderedDict(
+        [
+            (input_key, inputs[input_key][0].reshape(1, -1))
+            for input_key in forward_args_spec.args
+            if input_key in inputs
+        ]
+    )
+    data_loader = (fake_inputs for _ in range(num_samples))
+    input_names = list(fake_inputs.keys())
+    return data_loader, input_names
