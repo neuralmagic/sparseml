@@ -116,15 +116,11 @@ Execution time was 1288 seconds.
 ```
 Repeat the above on other tasks such as `truthfulqa-mc`, `winogrande`, and `drop`.
 ## <a name="export"> How to Export the One-shot Model</a>
-Once you are certain the model is performing as expected, you can export it for inference. The `export.py` file provides the functions for doing this. Running the command below creates a `deployment` directory containing all the artifacts that are needed for inference with DeepSparse. 
-
+Once you are certain the model is performing as expected, you can export it for inference. The `sparseml.export` command provides the functions for doing this. Running the command below creates a `deployment` directory containing all the artifacts that are needed for inference with DeepSparse. It will also inject KV Cache reduce the model’s computational overhead and speed up inference by caching the Key and Value states.
 ```bash
 sparseml.export --task text-generation obcq_deployment/
 
 ```
-Injecting KV Cache is done to reduce the model’s computational overhead and speed up inference by caching the Key and Value states.
-This is done by creating a copy of `model.onnx` and injecting the KV Cache.
-
 ## <a name="deepsparse">Using the Model With DeepSparse </a>
 Next, run inference using DeepSparse. Ensure you have the latest version of DeepSparse installed with `pip install -U deepsparse-nightly[llm]`
 
@@ -134,7 +130,7 @@ from deepsparse import TextGeneration
 prompt = "How to get in a good university?"
 formatted_prompt =  f"<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
 
-model = TextGeneration(model="deployment")
+model = TextGeneration(model="obcq_deployment/deployment")
 print(model(formatted_prompt, max_new_tokens=200).generations[0].text)
 """
 There are many factors to consider when choosing a university. Here are some tips for getting into a good university:
