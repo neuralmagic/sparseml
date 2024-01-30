@@ -15,11 +15,7 @@
 import torch
 
 import sparseml.core.session as session_manager
-from sparseml.transformers.finetune.text_generation import (
-    run_general,
-    run_oneshot,
-    run_train,
-)
+from sparseml.transformers.finetune.text_generation import apply, oneshot, train
 
 
 def test_oneshot_and_finetune(tmp_path):
@@ -36,7 +32,7 @@ def test_oneshot_and_finetune(tmp_path):
     max_steps = 50
     splits = {"train": "train[:50%]", "calibration": "train[50%:60%]"}
 
-    run_general(
+    apply(
         model_name_or_path=model,
         dataset_name=dataset_name,
         dataset_config_name=dataset_config_name,
@@ -62,7 +58,7 @@ def test_oneshot_then_finetune(tmp_path):
     output_dir = tmp_path / "oneshot_out"
     splits = {"calibration": "train[:10%]"}
 
-    run_oneshot(
+    oneshot(
         model_name_or_path=model,
         dataset_name=dataset_name,
         output_dir=output_dir,
@@ -84,7 +80,7 @@ def test_oneshot_then_finetune(tmp_path):
     splits = "train[:50%]"
     max_steps = 50
 
-    run_train(
+    train(
         model_name_or_path=model,
         distill_teacher="Xenova/llama2.c-stories15M",
         dataset_name=dataset_name,
@@ -109,7 +105,7 @@ def test_finetune_wout_recipe(tmp_path):
     max_steps = 50
     splits = "train"
 
-    run_train(
+    train(
         model_name_or_path=model,
         dataset_name=dataset_name,
         output_dir=output_dir,
