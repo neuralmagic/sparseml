@@ -274,7 +274,7 @@ Save the recipe to a file named `recipe.yaml`.
 
 Run one-shot quantization on any Mistral-based model, for example, `zephyr-7b-beta`: 
 ```bash
-sparseml.transformers.text_generation.oneshot --model_name HuggingFaceH4/zephyr-7b-bet --dataset_name open_platypus --recipe recipe.yaml --output_dir ./output_oneshot --precision float16
+sparseml.transformers.text_generation.oneshot --model_name HuggingFaceH4/zephyr-7b-beta --dataset_name open_platypus --recipe recipe.yaml --output_dir ./output_oneshot --precision float16
 ```
 We set `precision` to `float16` because quantization is not supported for the `bfloat16` data type as of this writing. 
 
