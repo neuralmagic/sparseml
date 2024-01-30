@@ -163,13 +163,13 @@ class SmoothQuantModifierPyTorch(SmoothQuantModifier):
             scales = torch.maximum(
                 scales, torch.Tensor([MINIMUM_SMOOTHING_SCALE]).to(scales.device)
             )
-                
+
             @torch.no_grad()
             def smooth(module):
                 if module in balance_layers:
                     module.weight.mul_(scales.view(1, -1))
                 elif module == smooth_layer:
-                    if module.weight.ndim == 1:   
+                    if module.weight.ndim == 1:
                         module.weight.div_(scales)
                     else:
                         module.weight.div_(scales.view(-1, 1))

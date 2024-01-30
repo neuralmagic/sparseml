@@ -161,7 +161,7 @@ class StageModifiers(ModifierInterface, BaseModel):
             modifier.finalize(state, **kwargs)
             if accelerator:
                 accelerator.wait_for_everyone()
-                
+
         self.applied = True
         state.loggers.system.info(tag="stage", string="Modifiers finalized")
 
