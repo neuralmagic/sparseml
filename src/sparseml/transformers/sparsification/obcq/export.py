@@ -525,6 +525,10 @@ def export(
 
 
 def main():
+    _LOGGER.warning(
+        "This export script is deprecated and will be removed in a future release. "
+        "Please use the entrypoint: sparseml.export instead."
+    )
     args = _parse_args()
     export(
         task=args.task,
