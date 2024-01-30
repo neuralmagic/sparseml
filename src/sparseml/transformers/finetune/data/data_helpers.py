@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 from typing import Any, Callable, Dict, List, Optional
 
 import torch
@@ -20,7 +21,12 @@ from torch.utils.data import DataLoader, RandomSampler
 from transformers.data import default_data_collator
 
 
-__all__ = ["format_calibration_data", "get_raw_dataset", "make_dataset_splits"]
+__all__ = [
+    "format_calibration_data",
+    "get_raw_dataset",
+    "make_dataset_splits",
+    "get_custom_datasets_from_path",
+]
 
 
 def format_calibration_data(
@@ -69,6 +75,7 @@ def get_raw_dataset(
     :param cache_dir: disk location to search for cached dataset
     :param streaming: True to stream data from Hugging Face, otherwise download
     :return: the requested dataset
+
     """
     raw_datasets = load_dataset(
         data_args.dataset_name,
@@ -77,7 +84,6 @@ def get_raw_dataset(
         streaming=streaming,
         **kwargs,
     )
-
     return raw_datasets
 
 
@@ -131,3 +137,71 @@ def make_dataset_splits(
         "calibration": calib_split,
     }
     return split_datasets
+
+
+def get_custom_datasets_from_path(path: str, ext: str = "json") -> Dict[str, str]:
+    """
+    Get a dictionary of custom datasets from a directory path. Support HF's load_dataset
+     for local folder datasets https://huggingface.co/docs/datasets/loading
+
+    This function scans the specified directory path for files with a
+     specific extension (default is '.json').
+    It constructs a dictionary where the keys are either subdirectory names or
+     direct dataset names (depending on the directory structure)
+    and the values are either file paths (if only one file exists with that name) or
+     lists of file paths (if multiple files exist).
+
+    :param path: The path to the directory containing the dataset files.
+    :param ext: The file extension to filter files by. Default is 'json'.
+
+    :return: A dictionary mapping dataset names to their file paths or lists of
+     file paths.
+
+    Example:
+        dataset = get_custom_datasets_from_path("/path/to/dataset/directory", "json")
+
+    Note:
+        If datasets are organized in subdirectories, the function constructs the
+         dictionary with lists of file paths.
+        If datasets are found directly in the main directory, they are included with
+         their respective names.
+
+    Accepts:
+        - path\
+            train.json
+            test.json
+            val.json
+
+        - path\
+            train\
+                data1.json
+                data2.json
+                ...
+            test\
+                ...
+            val\
+                ...
+
+    """
+    data_files = {}
+
+    if any(filename.endswith(ext) for filename in os.listdir(path)):
+        # If there are files with the given extension in the path
+        for filename in os.listdir(path):
+            if filename.endswith(ext):
+                name, _ = os.path.splitext(filename)
+                data_files[name] = os.path.join(path, filename)
+    else:
+        # If datasets are organized in subdirectories
+        for root, dirs, files in os.walk(path):
+            for dir_name in dirs:
+                dir_path = os.path.join(root, dir_name)
+                dir_dataset = []
+                for filename in os.listdir(dir_path):
+                    if filename.endswith(ext):
+                        file_path = os.path.join(dir_path, filename)
+                        dir_dataset.append(file_path)
+                if dir_dataset:
+                    data_files[dir_name] = dir_dataset
+
+    return data_files
