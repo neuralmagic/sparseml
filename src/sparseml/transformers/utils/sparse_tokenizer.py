@@ -12,8 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+
 from transformers import AutoTokenizer
 
+from sparseml.transformers.utils.helpers import POSSIBLE_TOKENIZER_FILES
 from sparsezoo import Model
 
 
@@ -31,15 +34,22 @@ class SparseAutoTokenizer(AutoTokenizer):
         A wrapper around the AutoTokenizer.from_pretrained method that
         enables the loading of tokenizer from SparseZoo stubs
 
+        If a SparseZoo stub is passed, the all the available tokenizer
+        files are downloaded and the path to the directory containing the
+        files is passed to the AutoTokenizer.from_pretrained method
+
         :param pretrained_model_name_or_path: the name of or path to the model to load
         :return tokenizer: the loaded tokenizer from pretrained
         """
         if pretrained_model_name_or_path.startswith("zoo:"):
-            # if SparseZoo stub is passed, fetch the deployment
-            # path of the SparseZoo model and replace
-            # pretrained_model_name_or_path with the deployment path
-            pretrained_model_name_or_path = Model(
-                pretrained_model_name_or_path
-            ).deployment.path
+            model = Model(pretrained_model_name_or_path)
+            for file_name in POSSIBLE_TOKENIZER_FILES:
+                # go over all the possible tokenizer files
+                # and if detected, download them
+                file = model.deployment.get_file(file_name)
+                if file is not None:
+                    tokenizer_file = file
+                    tokenizer_file.download()
+            pretrained_model_name_or_path = os.path.dirname(tokenizer_file.path)
 
         return super().from_pretrained(pretrained_model_name_or_path, *inputs, **kwargs)
