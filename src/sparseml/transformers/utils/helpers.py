@@ -292,9 +292,22 @@ def _infer_recipe_from_model_path(model_path: Union[str, Path]) -> Optional[Unio
         # model path is a valid huggingface model id
         _LOGGER.info(
             "model_path is a huggingface model id. "
-            f"Attempting to download recipe from {HUGGINGFACE_CO_URL_HOME}"
+            "Attempting to download recipe from "
+            f"{HUGGINGFACE_CO_URL_HOME}"
         )
-        recipe = hf_hub_download(repo_id=model_path, filename=RECIPE_NAME)
+        try:
+            _LOGGER.info(
+                f"Found recipe: {RECIPE_NAME} for model id: "
+                f"{model_path}. Downloading..."
+            )
+            recipe = hf_hub_download(repo_id=model_path, filename=RECIPE_NAME)
+        except Exception as e:
+            _LOGGER.debug(
+                f"Unable to to find recipe {RECIPE_NAME} "
+                f"for model id: {model_path}: {e}. "
+                "Skipping recipe resolution."
+            )
+            recipe = None
         return recipe
     # failed to infer recipe from model_path
     return None

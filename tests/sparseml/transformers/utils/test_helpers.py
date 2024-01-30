@@ -127,6 +127,13 @@ def test_resolve_recipe_from_huggingface_model_id():
     ).endswith("recipe.yaml")
 
 
+def test_resolve_recipe_from_huggingface_model_id_no_recipe():
+    # recipe path is None, so will be looking for the
+    # recipe path in the huggingface model id (unsuccessfully,
+    # there is none available)
+    assert resolve_recipe(recipe=None, model_path="roneneldan/TinyStories-1M") is None
+
+
 def test_resolve_recipe_not_found(tmp_path):
     # recipe not found
     assert resolve_recipe(recipe=None, model_path=tmp_path) is None

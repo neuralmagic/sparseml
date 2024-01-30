@@ -65,6 +65,16 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
             pretrained_model_name_or_path directory and applied if found
         :return the created model for causal language modeling
         """
+
+        def skip(*args, **kwargs):
+            pass
+
+        # Skip the initializer step. This accelerates the loading
+        # of the models, especially for the quantized models
+        torch.nn.init.kaiming_uniform_ = skip
+        torch.nn.init.uniform_ = skip
+        torch.nn.init.normal_ = skip
+
         model = super(AutoModelForCausalLM, cls).from_pretrained(
             pretrained_model_name_or_path, *model_args, **kwargs
         )
@@ -299,15 +309,6 @@ class SparseAutoModel:
             use the default dtype for the model. Defaults to "auto".
         :return: the created model for text generation
         """
-
-        def skip(*args, **kwargs):
-            pass
-
-        # Skip the initializer step. This accelerates the loading
-        # of the models, especially for the quantized models
-        torch.nn.init.kaiming_uniform_ = skip
-        torch.nn.init.uniform_ = skip
-        torch.nn.init.normal_ = skip
 
         model = SparseAutoModelForCausalLM.from_pretrained(
             model_name_or_path,
