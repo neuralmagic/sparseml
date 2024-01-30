@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import logging
-from typing import Dict, List
+from typing import List
 
 import torch
 from torch.nn import Module
@@ -35,7 +35,7 @@ class LogarithmicEqualizationModifierPyTorch(SmoothQuantModifierPyTorch):
     """
 
     def _calculate_smoothing_scales(
-        self, balance_layers: Dict[str, Module], activation_scales: torch.Tensor
+        self, balance_layers: List[Module], activation_scales: torch.Tensor
     ) -> List[float]:
         """
         Calculate how much smoothing to apply to each channel based on the dynamic

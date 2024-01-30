@@ -22,6 +22,7 @@ from sparseml.core import State
 from sparseml.core.model.pytorch import ModifiableModelPyTorch
 from sparseml.modifiers.smoothquant.base import SmoothQuantModifier, SmoothQuantScale
 from sparseml.modifiers.utils.pytorch_helpers import run_calibration_forward
+from sparseml.utils.fsdp.helpers import get_fsdp_parent
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -155,38 +156,34 @@ class SmoothQuantModifierPyTorch(SmoothQuantModifier):
                 - self.scales_[mapping.smooth_name].min_channel_vals
             )
             smooth_name = mapping.smooth_name
+            smooth_layer = mapping.smooth_layer
             balance_layers = mapping.balance_layers
 
             scales = self._calculate_smoothing_scales(balance_layers, activation_scales)
             scales = torch.maximum(
                 scales, torch.Tensor([MINIMUM_SMOOTHING_SCALE]).to(scales.device)
             )
-
-            #import operator
-            #no_split_modules = getattr(model.model, "_no_split_modules", None)
-            #parent_name = smooth_name
-            #parent = operator.attrgetter(parent_name, model.model)
-            #while not isinstance(parent)
-            #while not is
-            #parent_target = ".".join(target.split(".")[:-1])
-            #operator.attrgetter("b.c")(a)
-
+                
             @torch.no_grad()
             def smooth(module):
-                if module.name in balance_layers.keys():
-                    # invert the smoothing in the following layers
+                if module in balance_layers:
                     module.weight.mul_(scales.view(1, -1))
-
-                # apply the smoothing
-                elif module.name == smooth_name:
-                    if module.weight.ndim == 1:
+                elif module == smooth_layer:
+                    if module.weight.ndim == 1:   
                         module.weight.div_(scales)
                     else:
                         module.weight.div_(scales.view(-1, 1))
                     if hasattr(module, "bias") and module.bias is not None:
                         module.bias.div_(scales)
 
-            model.model.apply(smooth)
+            parent = get_fsdp_parent(smooth_name, model.model)
+            if parent is not None:
+                parent.apply(smooth)
+            else:
+                # if we're not running with FSDP we can apply smoothing directly
+                for layer in balance_layers:
+                    smooth(layer)
+                smooth(smooth_layer)
 
     def _calculate_smoothing_scales(
         self, balance_layers: Dict[str, Module], activation_scales: torch.Tensor
