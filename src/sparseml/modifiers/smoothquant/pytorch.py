@@ -155,7 +155,6 @@ class SmoothQuantModifierPyTorch(SmoothQuantModifier):
                 self.scales_[mapping.smooth_name].max_channel_vals
                 - self.scales_[mapping.smooth_name].min_channel_vals
             )
-            smooth_name = mapping.smooth_name
             smooth_layer = mapping.smooth_layer
             balance_layers = mapping.balance_layers
 
@@ -176,7 +175,7 @@ class SmoothQuantModifierPyTorch(SmoothQuantModifier):
                     if hasattr(module, "bias") and module.bias is not None:
                         module.bias.div_(scales)
 
-            parent = get_fsdp_parent(smooth_name, model.model)
+            parent = get_fsdp_parent(mapping.smooth_name, model.model)
             if parent is not None:
                 parent.apply(smooth)
             else:
@@ -186,7 +185,7 @@ class SmoothQuantModifierPyTorch(SmoothQuantModifier):
                 smooth(smooth_layer)
 
     def _calculate_smoothing_scales(
-        self, balance_layers: Dict[str, Module], activation_scales: torch.Tensor
+        self, balance_layers: List[Module], activation_scales: torch.Tensor
     ) -> List[float]:
         """
         Calculate how much smoothing to apply to each channel based on the dynamic
@@ -198,7 +197,7 @@ class SmoothQuantModifierPyTorch(SmoothQuantModifier):
         """
         # get the channel-wise dynamic range for each layer to be balanced
         weight_scales = []
-        for _, layer in balance_layers.items():
+        for layer in balance_layers:
             scale = layer.weight.abs().max(dim=0, keepdim=True)[0]
             weight_scales.append(scale)
         weight_scales = 2.0 * torch.cat(weight_scales, dim=0).max(dim=0)[0]
