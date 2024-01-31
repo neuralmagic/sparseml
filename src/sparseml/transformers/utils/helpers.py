@@ -22,7 +22,9 @@ import os
 from collections import OrderedDict
 from enum import Enum
 from pathlib import Path
-from typing import Iterable, List, Optional, Tuple, Union
+from typing import Iterable, List, Optional
+from typing import OrderedDict as OrderedDictType
+from typing import Tuple, Union
 
 import torch
 import transformers
@@ -235,7 +237,7 @@ def create_fake_dataloader(
     model: torch.nn.Module,
     tokenizer: transformers.AutoTokenizer,
     num_samples: int,
-) -> Tuple[Iterable[OrderedDict[str, torch.Tensor]], List[str]]:
+) -> Tuple[Iterable[OrderedDictType[str, torch.Tensor]], List[str]]:
     """
     Creates fake transformers dataloader for the model, based on the model's
     forward signature.
