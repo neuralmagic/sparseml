@@ -871,7 +871,8 @@ def parse_kwarg_tuples(kwargs: tuple) -> Dict:
     if len(kwargs) % 2 != 0:
         raise ValueError(
             "kwargs must be a tuple of alternating names and values "
-            "i.e. the length of kwargs tuple must be even."
+            "i.e. the length of kwargs tuple must be even. Received "
+            f"kwargs: {kwargs}"
         )
     # names are uneven indices, values are even indices
     kwargs_names = kwargs[0::2]
