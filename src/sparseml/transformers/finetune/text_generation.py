@@ -240,6 +240,8 @@ def main(
         if training_args.distill_teacher is not None
         else None
     )
+    if teacher is not None:
+        teacher.eval()
 
     # initialize structure of input model from recipe if needed
     recipe_path = os.path.join(model_path, "recipe.yaml")

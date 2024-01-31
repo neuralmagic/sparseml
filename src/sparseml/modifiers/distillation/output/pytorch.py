@@ -90,7 +90,7 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
             ]
             state.loss = (
                 self.orig_scale * kwargs["loss"]  # model output loss
-                + self.distill_scale * torch.stack(comparisons).mean()  # distill loss
+                + self.distill_scale * torch.stack(comparisons).sum()  # distill loss
             )
 
     def on_end(self, state: State, event: Event, **kwargs):

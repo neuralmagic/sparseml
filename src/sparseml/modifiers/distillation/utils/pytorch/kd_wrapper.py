@@ -64,7 +64,9 @@ class KDModuleWrapper(Module):
             return self.student_layer(*args, **kwargs)
 
         org_output = self.student_layer(*args, **kwargs)
-        student_output = org_output
+        student_output = (
+            org_output if isinstance(org_output, torch.Tensor) else org_output[0]
+        )
 
         with torch.no_grad():
             # input must be moved to teacher device for forward pass
@@ -73,6 +75,11 @@ class KDModuleWrapper(Module):
             input_device = args[0].device
             teacher_args = tensors_to_device(args, teacher_device)
             teacher_output = self.teacher_layer(*teacher_args, **kwargs)
+            teacher_output = (
+                teacher_output
+                if isinstance(teacher_output, torch.Tensor)
+                else teacher_output[0]
+            )
             teacher_output = tensors_to_device(teacher_output, input_device)
 
         if self.student_projections is not None:
