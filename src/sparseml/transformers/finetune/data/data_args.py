@@ -17,7 +17,51 @@ from typing import Dict, List, Optional, Union
 
 
 @dataclass
-class DataTrainingArguments:
+class DVCDatasetTrainingArguments:
+    """
+    Arguments for training using DVC
+    """
+
+    dvc_data_repository: Optional[str] = field(
+        default=None,
+        metadata={"help": "Path to repository used for dvc_dataset_path"},
+    )
+
+
+@dataclass
+class CustomDataTrainingArguments(DVCDatasetTrainingArguments):
+    """
+    Arguments for training using custom datasets
+    """
+
+    dataset_path: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": (
+                "Path to the custom dataset. Supports json, csv, dvc. "
+                "For DVC, the to dvc dataset to load, of format dvc://path. "
+                "For csv or json, the path containing the dataset. "
+            ),
+        },
+    )
+
+    text_column: Optional[str] = field(
+        default="text",
+        metadata={"help": "For custom datasets only. The text field key"},
+    )
+
+    remove_columns: Union[None, str, List] = field(
+        default=None,
+        metadata={"help": "Column names to remove after preprocessing custom datasets"},
+    )
+
+    preprocessing_func: Optional[Callable] = field(
+        default=None, metadata={"help": "The preprcessing function to apply"}
+    )
+
+
+@dataclass
+class DataTrainingArguments(CustomDataTrainingArguments):
     """
     Arguments pertaining to what data we are going to input our model for
     training and eval
