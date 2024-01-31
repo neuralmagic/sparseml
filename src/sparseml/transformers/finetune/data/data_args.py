@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Union
+from typing import Callable, Dict, List, Optional, Union
 
 
 @dataclass
@@ -105,14 +105,6 @@ class DataTrainingArguments(CustomDataTrainingArguments):
     num_calibration_samples: Optional[int] = field(
         default=512,
         metadata={"help": "Number of samples to use for one-shot calibration"},
-    )
-    dvc_dataset_path: Optional[str] = field(
-        default=None,
-        metadata={"help": "Path to dvc dataset to load, of format dvc://path"},
-    )
-    dvc_data_repository: Optional[str] = field(
-        default=None,
-        metadata={"help": "Path to repository used for dvc_dataset_path"},
     )
     streaming: Optional[bool] = field(
         default=False,
