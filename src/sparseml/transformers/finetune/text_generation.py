@@ -217,12 +217,13 @@ def main(
         "torch_dtype": parse_dtype(model_args.precision),
         "device_map": device_map,
     }
+    teacher_device_map = None if fsdp_enabled else "auto"
     teacher_kwargs = {
         "config": teacher_config,
         "cache_dir": model_args.cache_dir,
         "use_auth_token": True if model_args.use_auth_token else None,
         "torch_dtype": parse_dtype(model_args.precision),
-        "device_map": "auto",  # spread teacher across GPUs, used for inference only
+        "device_map": teacher_device_map,
     }
     # this calls from_pretrained under the hood so should be FSDP safe
     model = SparseAutoModel.text_generation_from_pretrained(

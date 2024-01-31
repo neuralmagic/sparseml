@@ -492,6 +492,12 @@ class SessionManagerMixIn:
         self.model = self.accelerator.prepare(self.model)
         self.accelerator.wait_for_everyone()
 
+        if self.teacher is not None:
+            self.teacher.to("cpu")
+            self.teacher = self.accelerator.prepare(self.teacher)
+            self.accelerator.wait_for_everyone()
+            self.teacher.eval()
+
     def _extract_metadata(
         self,
         metadata_args: List[str],
