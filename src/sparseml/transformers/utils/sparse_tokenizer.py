@@ -41,7 +41,7 @@ class SparseAutoTokenizer(AutoTokenizer):
         :param pretrained_model_name_or_path: the name of or path to the model to load
         :return tokenizer: the loaded tokenizer from pretrained
         """
-        if pretrained_model_name_or_path.startswith("zoo:"):
+        if str(pretrained_model_name_or_path).startswith("zoo:"):
             model = Model(pretrained_model_name_or_path)
             for file_name in POSSIBLE_TOKENIZER_FILES:
                 # go over all the possible tokenizer files
