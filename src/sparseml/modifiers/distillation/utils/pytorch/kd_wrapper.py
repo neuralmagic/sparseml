@@ -73,7 +73,10 @@ class KDModuleWrapper(Module):
             init_param = next(self.teacher_layer.parameters(), None)
             teacher_device = init_param.device if init_param is not None else "cpu"
             input_device = args[0].device
-            teacher_args = tensors_to_device(args, teacher_device)
+            teacher_args = list(args)
+            for i, arg in enumerate(teacher_args):
+                if isinstance(arg, torch.Tensor):
+                    teacher_args[i] = tensors_to_device(arg, teacher_device)
             teacher_output = self.teacher_layer(*teacher_args, **kwargs)
             teacher_output = (
                 teacher_output

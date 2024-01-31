@@ -419,7 +419,7 @@ def mse_normalized_comparison(name: str, dim: int = -1, **kwargs):
     def _mse_normalized(val_one: Tensor, val_two: Tensor) -> Tensor:
         mse = (val_one - val_two).pow(2).mean(dim=dim)
         norm = val_two.pow(2).mean(dim=dim)
-        norm = torch.maximum(norm, torch.Tensor([1e-5], device=norm.device))
+        norm = torch.maximum(norm, torch.Tensor([1e-5]).to(norm.device))
         return mse / norm
 
     def _create_comparison(
