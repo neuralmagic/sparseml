@@ -121,7 +121,7 @@ class QuantizationArgs(BaseModel):
 
     @validator("strategy")
     def validate_strategy(cls, value):
-        valid_scopes = ["tensor", "channel"]
+        valid_scopes = ["tensor", "channel", "histogram"]
         if value not in valid_scopes:
             raise ValueError(f"`strategy` must be one of {valid_scopes}, got {value}")
         return value
@@ -303,6 +303,14 @@ def get_observer(
         observer_cls = torch_quantization.MovingAveragePerChannelMinMaxObserver
         observer_kwargs = dict(
             ch_axis=0,
+            dtype=dtype,
+            qscheme=qscheme,
+            reduce_range=reduce_range,
+        )
+    elif strategy == "histrogram":
+        qscheme = torch.per_channel_symmetric if symmetric else torch.per_channel_affine
+        observer_cls = torch_quantization.HistogramObserver
+        observer_kwargs = dict(
             dtype=dtype,
             qscheme=qscheme,
             reduce_range=reduce_range,
