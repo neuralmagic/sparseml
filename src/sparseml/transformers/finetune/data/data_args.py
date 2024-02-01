@@ -46,8 +46,13 @@ class CustomDataTrainingArguments(DVCDatasetTrainingArguments):
     )
 
     text_column: Optional[str] = field(
-        default=None,
+        default="text",
         metadata={"help": "For custom datasets only. The text field key"},
+    )
+
+    remove_columns: Union[None, str, List] = field(
+        default=None,
+        metadata={"help": "Column names to remove after preprocessing custom datasets"},
     )
 
     preprocessing_func: Optional[Callable] = field(
