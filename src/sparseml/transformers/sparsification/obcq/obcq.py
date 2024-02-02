@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Dict, Optional
 
 from torch.nn import Module
-from transformers import AutoConfig, AutoTokenizer
+from transformers import AutoConfig
 
 import sparseml.core.session as session_manager
 from sparseml.core.framework import Framework
@@ -28,6 +28,7 @@ from sparseml.pytorch.model_load.helpers import (
     parse_dtype,
     save_model_and_recipe,
 )
+from sparseml.transformers import SparseAutoTokenizer
 from sparseml.transformers.finetune.data import TextGenerationDataset
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
 from sparseml.transformers.finetune.data.data_helpers import format_calibration_data
@@ -117,7 +118,7 @@ def one_shot(
         pad_to_max_length=False,
     )
 
-    tokenizer = AutoTokenizer.from_pretrained(
+    tokenizer = SparseAutoTokenizer.from_pretrained(
         model_path, use_fast=True, trust_remote_code=True
     )
     dataset_manager = TextGenerationDataset.load_from_registry(

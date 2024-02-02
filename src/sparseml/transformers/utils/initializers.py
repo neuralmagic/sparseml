@@ -23,9 +23,10 @@ from pathlib import Path
 from typing import Any, Optional, Union
 
 import torch
-from transformers import AutoConfig, AutoModel, AutoTokenizer, TrainingArguments
+from transformers import AutoConfig, AutoModel, TrainingArguments
 
 from sparseml.optim import parse_recipe_variables
+from sparseml.transformers import SparseAutoTokenizer
 from sparseml.transformers.sparsification import Trainer
 from sparseml.transformers.utils.helpers import RECIPE_NAME, TaskNames
 from sparseml.transformers.utils.load_task_model import load_task_model
@@ -63,7 +64,7 @@ def initialize_config(
 
 def initialize_tokenizer(
     model_path: Union[str, Path], sequence_length: int, task: str, **tokenizer_args
-) -> AutoTokenizer:
+) -> SparseAutoTokenizer:
     """
     Initialize a tokenizer from a given path
 
@@ -73,7 +74,7 @@ def initialize_tokenizer(
     :return: the loaded tokenizer
     """
 
-    tokenizer = AutoTokenizer.from_pretrained(
+    tokenizer = SparseAutoTokenizer.from_pretrained(
         model_path, model_max_length=sequence_length, **tokenizer_args
     )
     if task in TaskNames.text_generation.value:
