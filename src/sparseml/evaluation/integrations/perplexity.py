@@ -24,19 +24,19 @@ try:
 except ImportError as err:
     raise ImportError(
         "perplexity evaluation requires the following packages to be installed: "
-        "datasets, numpy, torch, tqdm kindly install these packages using "
-        "`pip install sparseml[transformers, torch]`"
+        "datasets, numpy, torch, tqdm, transformers kindly install these packages "
+        "using `pip install sparseml[transformers, torch]`"
     ) from err
 
 from sparseml.evaluation.registry import SparseMLEvaluationRegistry
-from sparseml.evaluation.utils.helpers import fetch_recipe_path
 from sparseml.transformers.integration_helper_functions import create_model
+from sparseml.transformers.utils.helpers import fetch_recipe_path
 from sparsezoo.evaluation.results import Dataset, Evaluation, Metric, Result
 
 
 @SparseMLEvaluationRegistry.register("perplexity")
 def perplexity_eval(
-    target,
+    model_path,
     datasets: str = "wikitext",
     batch_size: int = 1,
     device: Optional[str] = None,
@@ -45,9 +45,9 @@ def perplexity_eval(
     dataset_config_name = _infer_dataset_config_name(datasets)
     task = "text-generation"
     split = "test"
-    recipe_path = fetch_recipe_path(target)
+    recipe_path = fetch_recipe_path(model_path)
     model, other_objects = create_model(
-        source_path=target,
+        source_path=model_path,
         device=device,
         task=task,
         recipe=recipe_path,
@@ -61,6 +61,9 @@ def perplexity_eval(
     )
     add_start_token = True
     max_length = None
+
+    # Adapted from
+    # https://github.com/huggingface/evaluate/blob/main/metrics/perplexity/perplexity.py#L103
 
     # if batch_size > 1 (which generally leads to padding being required), and
     # if there is not an already assigned pad_token, assign an existing
@@ -85,6 +88,7 @@ def perplexity_eval(
     else:
         max_tokenized_len = max_length
 
+    # fetch tokenized inputs and attention masks
     encodings = tokenizer(
         input_text,
         add_special_tokens=False,
@@ -122,6 +126,8 @@ def perplexity_eval(
             bos_tokens_tensor = torch.tensor(
                 [[tokenizer.bos_token_id]] * encoded_batch.size(dim=0)
             ).to(device)
+            # prepend <BOS> token tensor to each input encoding and
+            # attention mask
             encoded_batch = torch.cat([bos_tokens_tensor, encoded_batch], dim=1)
             attn_mask = torch.cat(
                 [
@@ -140,6 +146,7 @@ def perplexity_eval(
         shift_labels = labels[..., 1:].contiguous()
         shift_attention_mask_batch = attn_mask[..., 1:].contiguous()
 
+        # calculate perplexity for each batch
         perplexity_batch = torch.exp(
             (
                 loss_fct(shift_logits.transpose(1, 2), shift_labels)
@@ -153,6 +160,7 @@ def perplexity_eval(
     mean_ppl = numpy.mean(ppls)
     raw = {"perplexities": ppls, "mean_perplexity": mean_ppl}
 
+    # wrap the perplexity result in a Result object
     eval = Evaluation(
         task=task,
         dataset=Dataset(
