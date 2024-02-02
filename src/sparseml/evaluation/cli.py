@@ -15,7 +15,7 @@
 """
 ######
 Command help:
-$ sparseml.eval --help                                                                                (add-eval-cli|✚1…2)
+$ sparseml.eval --help
 Usage: sparseml.eval [OPTIONS] [INTEGRATION_ARGS]...
 
 Options:
