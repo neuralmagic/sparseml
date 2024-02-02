@@ -68,6 +68,7 @@ def collect_integrations(name: str):
     integrations = _standardize_integration_dict(
         integrations_location_dict=_load_yaml(path=INTEGRATION_CONFIG_PATH)
     )
+    name = standardize_lookup_name(name)
 
     if name in integrations:
         location = integrations[name]
