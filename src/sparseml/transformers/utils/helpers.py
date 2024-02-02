@@ -26,15 +26,16 @@ from typing import Iterable, List, Optional
 from typing import OrderedDict as OrderedDictType
 from typing import Tuple, Union
 
+import requests
 import torch
 import transformers
-from transformers import AutoConfig, AutoModel
+from transformers import AutoConfig
 from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils import PaddingStrategy
 
+from huggingface_hub import HUGGINGFACE_CO_URL_HOME, hf_hub_download
 from sparseml.export.helpers import ONNX_MODEL_NAME
-from sparseml.pytorch.model_load.helpers import apply_recipe_structure_to_model
-from sparsezoo import setup_model
+from sparsezoo import Model, setup_model
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -47,7 +48,6 @@ __all__ = [
     "TaskNames",
     "is_transformer_model",
     "resolve_sequence_length",
-    "apply_structure_to_transformers",
     "ALL_TASK_NAMES",
     "create_fake_dataloader",
     "POSSIBLE_TOKENIZER_FILES",
@@ -106,21 +106,6 @@ def remove_past_key_value_support_from_config(config: AutoConfig) -> AutoConfig:
     # whether to output past key values
     config.use_cache = False
     return config
-
-
-def apply_structure_to_transformers(
-    model: AutoModel, model_directory: Union[str, Path], recipe: Union[Path, str]
-) -> None:
-    """
-    Apply the structure (dictated by the recipe) to the model.
-    If no recipe is found, the model is returned as is (a warning is logged).
-    :param model: the model to apply the structure to
-    :param model_directory: the directory where the model is stored
-    :param recipe: a valid path to the recipe to apply or a recipe string
-    """
-    apply_recipe_structure_to_model(
-        model=model, recipe_path=recipe, model_path=model_directory
-    )
 
 
 def is_transformer_model(source_path: Union[Path, str]) -> bool:
@@ -240,6 +225,255 @@ def resolve_sequence_length(config: AutoConfig) -> int:
         "(inferred from HF transformers config) "
     )
     return sequence_length
+
+
+def resolve_recipe(
+    recipe: Union[str, Path, None], model_path: Union[str, Path]
+) -> Union[str, None]:
+    """
+    Resolve the recipe to apply to the model.
+    :param recipe: the recipe to apply to the model.
+        It can be one of the following:
+        - None
+            This means that we are not either not applying
+            any recipe and allowing the model to potentially
+            infer the appropriate pre-existing recipe
+            from the model_path
+        - a path to the recipe file
+            This can be a string or Path object pointing
+            to a recipe file. If the specified recipe file
+            is different from the potential pre-existing
+            recipe for that model (stored in the model_path),
+            the function will raise an warning
+        - name of the recipe file (e.g. "recipe.yaml")
+            Recipe file name specific is assumed to be stored
+            in the model_path
+        - a string containing the recipe
+            Needs to adhere to the SparseML recipe format
+
+    :param model_path: the path to the model to load.
+        It can be one of the following:
+        - a path to the model directory
+        - a path to the model file
+        - Hugging face model id
+        - SparseZoo stub
+
+    :return: the resolved recipe
+    """
+
+    if recipe is None:
+        return infer_recipe_from_model_path(model_path)
+
+    elif os.path.isfile(recipe):
+        # recipe is a path to a recipe file
+        return resolve_recipe_file(recipe, model_path)
+
+    elif os.path.isfile(os.path.join(model_path, recipe)):
+        # recipe is a name of a recipe file
+        recipe = os.path.join(model_path, recipe)
+        return resolve_recipe_file(recipe, model_path)
+
+    elif isinstance(recipe, str):
+        # recipe is a string containing the recipe
+        _LOGGER.debug(
+            "Applying the recipe string directly to the model, without "
+            "checking for a potential existing recipe in the model_path."
+        )
+        return recipe
+
+    _LOGGER.info(
+        "No recipe requested and no default recipe "
+        f"found in {model_path}. Skipping recipe resolution."
+    )
+    return None
+
+
+def infer_recipe_from_model_path(model_path: Union[str, Path]) -> Optional[str]:
+    """
+    Infer the recipe from the model_path.
+    :param model_path: the path to the model to load.
+        It can be one of the following:
+        - a path to the model directory
+        - a path to the model file
+        - Hugging face model id
+        - SparseZoo stub
+    :return the path to the recipe file if found, None otherwise
+    """
+    model_path = model_path.as_posix() if isinstance(model_path, Path) else model_path
+
+    if os.path.isdir(model_path) or os.path.isfile(model_path):
+        # model_path is a local path to the model directory or model file
+        # attempting to find the recipe in the model_directory
+        model_path = (
+            os.path.dirname(model_path) if os.path.isfile(model_path) else model_path
+        )
+        recipe = os.path.join(model_path, RECIPE_NAME)
+        if os.path.isfile(recipe):
+            _LOGGER.info(f"Found recipe in the model_path: {recipe}")
+            return recipe
+        _LOGGER.debug(f"No recipe found in the model_path: {model_path}")
+        return None
+
+    elif model_path.startswith("zoo:"):
+        # model_path is a sparsezoo stub
+        return recipe_from_sparsezoo_stub(stub=model_path)
+
+    recipe = recipe_from_huggingface_model_id(model_path)[0]
+
+    if recipe is None:
+        _LOGGER.info("Failed to infer the recipe from the model_path")
+    return recipe
+
+
+def recipe_from_huggingface_model_id(
+    model_path: str, recipe_name: str = RECIPE_NAME
+) -> Tuple[Optional[str], bool]:
+    """
+    Attempts to download the recipe from the huggingface model id.
+
+    :param model_path: Assumed to be the huggingface model id.
+        If it is not, this function will return None.
+    :param recipe_name: The name of the recipe file to download.
+        Defaults to RECIPE_NAME.
+    :return: tuple:
+        - the path to the recipe file if found, None otherwise
+        - True if model_path is a valid huggingface model id, False otherwise
+    """
+    model_id = os.path.join(HUGGINGFACE_CO_URL_HOME, model_path)
+    request = requests.get(model_id)
+    if not request.status_code == 200:
+        _LOGGER.debug(
+            "model_path is not a valid huggingface model id. "
+            "Skipping recipe resolution."
+        )
+        return None, False
+
+    _LOGGER.info(
+        "model_path is a huggingface model id. "
+        "Attempting to download recipe from "
+        f"{HUGGINGFACE_CO_URL_HOME}"
+    )
+    try:
+        _LOGGER.info(
+            f"Found recipe: {recipe_name} for model id: "
+            f"{model_path}. Downloading..."
+        )
+        recipe = hf_hub_download(repo_id=model_path, filename=recipe_name)
+    except Exception as e:
+        _LOGGER.info(
+            f"Unable to to find recipe {recipe_name} "
+            f"for model id: {model_path}: {e}. "
+            "Skipping recipe resolution."
+        )
+        recipe = None
+    return recipe, True
+
+
+def recipe_from_sparsezoo_stub(
+    stub: str, recipe_file_name: Optional[str] = None
+) -> Optional[str]:
+    """
+    Attempts to find the recipe for the sparsezoo stub.
+
+    :param stub: The sparsezoo stub to find the recipe for
+    :param recipe_file_name: The name of the recipe file to find.
+        If None, the default recipe will be returned. Default: None
+    :return: The path to the recipe file if found, None otherwise
+    """
+    if recipe_file_name is None:
+        recipe = Model(stub).recipes.default.path
+        _LOGGER.info(f"Found recipe: {recipe}")
+        return recipe
+    else:
+        for recipe in Model(stub).recipes.recipes:
+            if recipe.name == recipe_file_name:
+                recipe = recipe.path
+                _LOGGER.info(f"Found recipe: {recipe}")
+                return recipe
+        _LOGGER.warning(
+            f"Unable to find recipe: {recipe_file_name} " f"for sparsezoo stub: {stub}."
+        )
+        return None
+
+
+def resolve_recipe_file(
+    requested_recipe: Union[str, Path], model_path: Union[str, Path]
+) -> Union[str, Path, None]:
+    """
+    Given the requested recipe and the model_path, return the path to the recipe file.
+
+    :param requested_recipe. Is a full path to the recipe file
+    :param model_path: the path to the model to load.
+        It can be one of the following:
+        - a path to the model directory
+        - a path to the model file
+        - Hugging face model id
+        - SparseZoo stub
+    :return the path to the recipe file if found, None otherwise
+    """
+    # preprocess arguments so that they are all strings
+    requested_recipe = (
+        requested_recipe.as_posix()
+        if isinstance(requested_recipe, Path)
+        else requested_recipe
+    )
+    model_path = model_path.as_posix() if isinstance(model_path, Path) else model_path
+    model_path = (
+        os.path.dirname(model_path) if os.path.isfile(model_path) else model_path
+    )
+
+    if not os.path.isdir(model_path):
+        # pathway for model_path that is not a directory
+        if model_path.startswith("zoo:"):
+            default_recipe = recipe_from_sparsezoo_stub(model_path)
+        else:
+            default_recipe, model_exists = recipe_from_huggingface_model_id(model_path)
+            if not model_exists:
+                raise ValueError(f"Unrecognized model_path: {model_path}")
+
+        if not default_recipe == requested_recipe and default_recipe is not None:
+            _LOGGER.warning(
+                f"Attempting to apply recipe: {requested_recipe} "
+                f"to the model at: {model_path}, "
+                f"but the model already has a recipe: {default_recipe}. "
+                f"Using {requested_recipe} instead."
+            )
+        return requested_recipe
+
+    # pathway for model_path that is a directory
+    default_recipe = os.path.join(model_path, RECIPE_NAME)
+    default_recipe_exists = os.path.isfile(default_recipe)
+    default_and_request_recipes_identical = os.path.samefile(
+        default_recipe, requested_recipe
+    )
+
+    if (
+        default_recipe_exists
+        and requested_recipe
+        and not default_and_request_recipes_identical
+    ):
+        _LOGGER.warning(
+            f"Attempting to apply recipe: {requested_recipe} "
+            f"to the model located in {model_path}, "
+            f"but the model already has a recipe stored as {default_recipe}. "
+            f"Using {requested_recipe} instead."
+        )
+
+    elif not default_recipe_exists and requested_recipe:
+        _LOGGER.warning(
+            f"Attempting to apply {requested_recipe} "
+            f"to the model located in {model_path}."
+            "However, it is expected that the model "
+            f"has its target recipe stored as {default_recipe}."
+            "Applying any recipe before the target recipe may "
+            "result in unexpected behavior."
+            f"Applying {requested_recipe} nevertheless."
+        )
+
+    elif default_recipe_exists:
+        _LOGGER.info(f"Using the default recipe: {requested_recipe}")
+
+    return requested_recipe
 
 
 def create_fake_dataloader(
