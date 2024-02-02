@@ -50,6 +50,7 @@ __all__ = [
     "apply_structure_to_transformers",
     "ALL_TASK_NAMES",
     "create_fake_dataloader",
+    "POSSIBLE_TOKENIZER_FILES",
 ]
 
 
@@ -80,6 +81,14 @@ NLG_OPTIONAL_DEPLOYMENT_FILES = {
     ONNX_MODEL_NAME_INTERMEDIATE,
     "vocab.json",
     "merges.txt",
+}
+POSSIBLE_TOKENIZER_FILES = {
+    "vocab.json",
+    "merges.txt",
+    "tokenizer.json",
+    "tokenizer.model",
+    "special_tokens_map.json",
+    "tokenizer_config.json",
 }
 
 
