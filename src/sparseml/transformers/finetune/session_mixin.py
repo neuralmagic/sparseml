@@ -300,7 +300,7 @@ class SessionManagerMixIn:
         # take the mean across multiple GPUs
         # this is done outside the compute_loss function in the parent, replicating it
         # here for SparseML logging and distillation
-        loss = loss.mean()
+        # loss = loss.mean()
 
         if session_manager.active_session().lifecycle.initialized_:
             state = callbacks.loss_calculated(loss=loss)
@@ -438,7 +438,7 @@ class SessionManagerMixIn:
             output_dir = self.args.output_dir
 
         # don't export the gathered model on checkpoints
-        if is_fsdp_model(self.model) and not _internal_call:
+        if is_fsdp_model(self.model):  # and not _internal_call:
             save_pretrained_fsdp(
                 model=self.model, accelerator=self.accelerator, output_dir=output_dir
             )
@@ -491,6 +491,12 @@ class SessionManagerMixIn:
         self.model.to("cpu")
         self.model = self.accelerator.prepare(self.model)
         self.accelerator.wait_for_everyone()
+
+        if self.teacher is not None:
+            self.teacher.to("cpu")
+            self.teacher = self.accelerator.prepare(self.teacher)
+            self.accelerator.wait_for_everyone()
+            self.teacher.eval()
 
     def _extract_metadata(
         self,

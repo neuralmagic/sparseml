@@ -209,6 +209,8 @@ def main(
     if not fsdp_enabled and training_args.do_oneshot:
         device_map = training_args.oneshot_device
         _LOGGER.warning(f"Moving {model_path} to device {device_map} for One-Shot")
+    elif not fsdp_enabled:
+        device_map = "auto"
     model_kwargs = {
         "config": config,
         "cache_dir": model_args.cache_dir,
@@ -217,29 +219,32 @@ def main(
         "torch_dtype": parse_dtype(model_args.precision),
         "device_map": device_map,
     }
+    teacher_device_map = None if fsdp_enabled else "auto"
     teacher_kwargs = {
         "config": teacher_config,
         "cache_dir": model_args.cache_dir,
         "use_auth_token": True if model_args.use_auth_token else None,
         "torch_dtype": parse_dtype(model_args.precision),
-        "device_map": "auto",  # spread teacher across GPUs, used for inference only
+        "device_map": teacher_device_map,
     }
     # this calls from_pretrained under the hood so should be FSDP safe
     model = SparseAutoModel.text_generation_from_pretrained(
         model_name_or_path=model_path,
-        sequence_length=None,  # use model default
+        sequence_length=data_args.max_seq_length,  # use model default
         **model_kwargs,
     )
 
     teacher = (
         SparseAutoModel.text_generation_from_pretrained(
             model_name_or_path=training_args.distill_teacher,
-            sequence_length=None,  # use model default
+            sequence_length=data_args.max_seq_length,  # use model default
             **teacher_kwargs,
         )
         if training_args.distill_teacher is not None
         else None
     )
+    if teacher is not None:
+        teacher.eval()
 
     # initialize structure of input model from recipe if needed
     recipe_path = os.path.join(model_path, "recipe.yaml")

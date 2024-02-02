@@ -277,7 +277,7 @@ class SparseAutoModel:
             **kwargs,
         )
         if sequence_length is not None:
-            model.seqlen = sequence_length
+            model.config.max_position_embeddings = sequence_length
 
         if recipe:
             apply_structure_to_transformers(
