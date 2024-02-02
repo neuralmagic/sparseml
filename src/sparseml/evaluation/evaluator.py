@@ -21,7 +21,7 @@ __all__ = ["evaluate"]
 
 
 def evaluate(
-    target: str,
+    model_path: str,
     datasets: str,
     integration: str,
     batch_size: int = 1,
@@ -30,7 +30,7 @@ def evaluate(
     """
     Evaluate a target model on a dataset using the specified integration.
 
-    :param target: Path to the model folder or the model stub from
+    :param model_path: Path to the model folder or the model stub from
         SparseZoo/HuggingFace to evaluate. For example,
         `mgoin/llama2.c-stories15M-quant-pt`
     :param datasets: The dataset(s) to evaluate on. For example,
@@ -44,4 +44,4 @@ def evaluate(
     eval_integration = SparseMLEvaluationRegistry.resolve(
         name=integration, datasets=datasets
     )
-    return eval_integration(target, datasets, batch_size, **kwargs)
+    return eval_integration(model_path, datasets, batch_size, **kwargs)

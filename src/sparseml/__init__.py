@@ -44,6 +44,6 @@ from .sparsification import (
     load_sparsification_info,
 )
 from .analytics import sparseml_analytics as _analytics
-
+from .evaluation.evaluator import evaluate
 
 _analytics.send_event("python__init")
