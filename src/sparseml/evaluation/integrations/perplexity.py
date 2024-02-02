@@ -158,7 +158,7 @@ def perplexity_eval(
         ppls += perplexity_batch.tolist()
 
     mean_ppl = numpy.mean(ppls)
-    raw = {"perplexities": ppls, "mean_perplexity": mean_ppl}
+    raw = {"mean_perplexity": mean_ppl}
 
     # wrap the perplexity result in a Result object
     eval = Evaluation(
