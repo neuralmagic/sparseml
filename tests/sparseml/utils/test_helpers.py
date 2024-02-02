@@ -102,5 +102,5 @@ def test_interpolate(x_cur, x0, x1, y0, y1, inter_func, out):
 
 
 def test_pass_kwargs_tuples():
-    kwargs = parse_kwarg_tuples(("--input_1", 1, "--input_2", "two"))
-    assert kwargs == dict(input_1=1, input_2="two")
+    kwargs = parse_kwarg_tuples(("--input_1", 1, "--input_2", "two", "--input_3", "2"))
+    assert kwargs == dict(input_1=1, input_2="two", input_3=2)
