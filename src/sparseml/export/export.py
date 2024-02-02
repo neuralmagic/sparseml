@@ -498,3 +498,7 @@ def _parse_sample_data(
         raise NotImplementedError(
             "Only numpy files (.npy) are supported for sample_data"
         )
+
+
+if __name__ == "__main__":
+    main()
