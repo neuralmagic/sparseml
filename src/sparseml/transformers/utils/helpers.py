@@ -387,7 +387,7 @@ def recipe_from_sparsezoo_stub(
     else:
         for recipe in Model(stub).recipes.recipes:
             if recipe.name == recipe_file_name:
-                recipe - recipe.path
+                recipe = recipe.path
                 _LOGGER.info(f"Found recipe: {recipe}")
                 return recipe
         _LOGGER.warning(
