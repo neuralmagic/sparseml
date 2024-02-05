@@ -290,6 +290,8 @@ class SessionManagerMixIn:
         # TODO: do we need these model signature columns?
         inputs = {k: inputs[k] for k in inputs if k in self._model_signature_columns}
         loss = super().compute_loss(model, inputs, return_outputs=return_outputs)
+
+        # Log step-wise loss and perplexity, for llama-recipes comparison
         if self.state.global_step % self.args.logging_steps == 0:
             log = {}
             log["step_loss"] = loss.item()

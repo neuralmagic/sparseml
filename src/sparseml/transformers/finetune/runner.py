@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import logging
+import math
 import os
 import re
 from typing import List, Optional
@@ -190,8 +191,6 @@ class StageRunner:
         :param checkpoint: Optional checkpoint to resume from
         :param stage: which stage of the recipe to run, or None to run whole recipe
         """
-        import math
-
         _LOGGER.info("*** Train ***")
         train_result = self.trainer.train(
             resume_from_checkpoint=checkpoint, stage=stage
