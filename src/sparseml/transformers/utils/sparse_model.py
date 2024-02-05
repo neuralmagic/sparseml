@@ -318,7 +318,7 @@ class SparseAutoModel:
             **kwargs,
         )
         if sequence_length is not None:
-            model.config.max_position_embeddings = sequence_length
+            model.seqlen = sequence_length
 
         return model
 
