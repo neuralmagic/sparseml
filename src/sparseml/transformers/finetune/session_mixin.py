@@ -202,64 +202,6 @@ class SessionManagerMixIn:
         _LOGGER.info("Finalized SparseML session")
         torch.cuda.empty_cache()
 
-    def create_optimizer(self):
-        """
-        Override the optimizer to apply and update the recipe while training.
-        create_optimizer must exist in the parent class and should set
-        self.optimizer to the optimizer state and optionally set self.scaler
-        if using amp.
-        """
-
-        self._check_super_defined("create_optimizer")
-        super().create_optimizer()
-
-        # n_gpu handled internally by dataloader
-        total_batch_size = (
-            self.args.per_device_train_batch_size
-            * self.args.gradient_accumulation_steps
-        )
-
-        if isinstance(self.train_dataset, IterableDataset):
-            _LOGGER.warning(
-                "Training is being run with a streamed dataset, "
-                "steps_per_epoch cannot be determined and will default to "
-                "1. SparseML modifiers utilizing this statistic may not "
-                "behave as expected. "
-            )
-            self.total_steps_per_epoch = 1
-        else:
-            self.total_steps_per_epoch = math.ceil(
-                len(self.train_dataset) / total_batch_size
-            )
-
-        session_manager.initialize(
-            optimizer=self.optimizer, steps_per_epoch=self.total_steps_per_epoch
-        )
-
-    def create_scheduler(
-        self, num_training_steps: int, optimizer: torch.optim.Optimizer = None
-    ):
-        """
-        Create an LR scheduler to work with the applied recipes. If the
-        recipe specifies LR modifiers, then will set lr_scheduler to a
-        placeholder lr scheduler. Expects create_scheduler to be defined in the
-        super class. Additionally expects self.lr_scheduler argument to be
-        available
-
-        :param num_training_steps: the total number of training steps
-        :param optimizer: pre-initialized optimizer
-        """
-
-        # TODO: we don't currently have a LR scheduler in the new modifier framework
-        self._check_super_defined("create_scheduler")
-        if self.lr_scheduler is not None or session_manager.active_session() is None:
-            super().create_scheduler(num_training_steps, optimizer)
-            return
-
-        # allow SparseML to manage LR and set a dummy scheduler
-        # TODO: remove this and just using the HF one?
-        self.lr_scheduler = self._dummy_lr_scheduler()
-
     def training_step(
         self, model: Module, inputs: Dict[str, Union[torch.Tensor, Any]]
     ) -> torch.Tensor:
