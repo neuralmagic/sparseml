@@ -26,9 +26,8 @@ import transformers
 from transformers import (
     AutoConfig,
     AutoTokenizer,
-    DataCollatorWithPadding,
+    DataCollatorForLanguageModeling,
     HfArgumentParser,
-    default_data_collator,
     set_seed,
 )
 
@@ -230,14 +229,14 @@ def main(
     # this calls from_pretrained under the hood so should be FSDP safe
     model = SparseAutoModel.text_generation_from_pretrained(
         model_name_or_path=model_path,
-        sequence_length=data_args.max_seq_length,  # use model default
+        sequence_length=None,  # use model default
         **model_kwargs,
     )
 
     teacher = (
         SparseAutoModel.text_generation_from_pretrained(
             model_name_or_path=training_args.distill_teacher,
-            sequence_length=data_args.max_seq_length,  # use model default
+            sequence_length=None,  # use model default
             **teacher_kwargs,
         )
         if training_args.distill_teacher is not None
@@ -287,11 +286,7 @@ def main(
     calib_dataset = stage_runner.get_dataset_split("calibration")
 
     # Initialize our Trainer
-    from transformers import DataCollatorForLanguageModeling
-
-    tokenizer.pad_token = tokenizer.eos_token
     data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
-
     trainer = Trainer(
         model_init=get_session_model,
         teacher=teacher,

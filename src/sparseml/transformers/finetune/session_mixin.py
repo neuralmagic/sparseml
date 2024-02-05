@@ -202,6 +202,58 @@ class SessionManagerMixIn:
         _LOGGER.info("Finalized SparseML session")
         torch.cuda.empty_cache()
 
+    def create_optimizer(self):
+        """
+        Override the optimizer to apply and update the recipe while training.
+        create_optimizer must exist in the parent class and should set
+        self.optimizer to the optimizer state and optionally set self.scaler
+        if using amp.
+        """
+
+        self._check_super_defined("create_optimizer")
+        super().create_optimizer()
+
+        # n_gpu handled internally by dataloader
+        total_batch_size = (
+            self.args.per_device_train_batch_size
+            * self.args.gradient_accumulation_steps
+        )
+
+        if isinstance(self.train_dataset, IterableDataset):
+            _LOGGER.warning(
+                "Training is being run with a streamed dataset, "
+                "steps_per_epoch cannot be determined and will default to "
+                "1. SparseML modifiers utilizing this statistic may not "
+                "behave as expected. "
+            )
+            self.total_steps_per_epoch = 1
+        else:
+            self.total_steps_per_epoch = math.ceil(
+                len(self.train_dataset) / total_batch_size
+            )
+
+        session_manager.initialize(
+            optimizer=self.optimizer, steps_per_epoch=self.total_steps_per_epoch
+        )
+
+        return self.optimizer
+
+    def create_scheduler(
+        self, num_training_steps: int, optimizer: torch.optim.Optimizer = None
+    ):
+        """
+        Create an LR scheduler to work with the applied recipes. This is a placeholder
+        that just calls the super method, but would be expanded upon if we ever
+        implement a LearningRateModifier.
+
+        :param num_training_steps: the total number of training steps
+        :param optimizer: pre-initialized optimizer
+        """
+
+        # TODO: we don't currently have a LR scheduler in the new modifier framework
+        self._check_super_defined("create_scheduler")
+        return super().create_scheduler(num_training_steps, optimizer)
+
     def training_step(
         self, model: Module, inputs: Dict[str, Union[torch.Tensor, Any]]
     ) -> torch.Tensor:
@@ -247,7 +299,7 @@ class SessionManagerMixIn:
         # take the mean across multiple GPUs
         # this is done outside the compute_loss function in the parent, replicating it
         # here for SparseML logging and distillation
-        # loss = loss.mean()
+        loss = loss.mean()
 
         if session_manager.active_session().lifecycle.initialized_:
             state = callbacks.loss_calculated(loss=loss)
@@ -385,7 +437,7 @@ class SessionManagerMixIn:
             output_dir = self.args.output_dir
 
         # don't export the gathered model on checkpoints
-        if is_fsdp_model(self.model):  # and not _internal_call:
+        if is_fsdp_model(self.model) and not _internal_call:
             save_pretrained_fsdp(
                 model=self.model, accelerator=self.accelerator, output_dir=output_dir
             )
