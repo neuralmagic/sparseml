@@ -17,6 +17,7 @@ General utility helper functions.
 Common functions for interfacing with python primitives and directories/files.
 """
 
+import ast
 import errno
 import fnmatch
 import json
@@ -877,6 +878,19 @@ def parse_kwarg_tuples(kwargs: tuple) -> Dict:
     # names are uneven indices, values are even indices
     kwargs_names = kwargs[0::2]
     kwargs_values = kwargs[1::2]
+    # by default kwargs values are strings, so convert them
+    # to the appropriate type if possible
+    kwargs_values = list(kwargs_values)
+    for i, value in enumerate(kwargs_values):
+        try:
+            kwargs_values[i] = ast.literal_eval(value)
+        except Exception as e:  # noqa E841
+            _LOGGER.debug(
+                f"Failed to infer non-string type"
+                f"from kwarg value: {value}. It will"
+                f"be left as a string."
+            )
+            pass
     # remove any '-' or '--' from the names
     kwargs_names = [name.lstrip("-") for name in kwargs_names]
 
