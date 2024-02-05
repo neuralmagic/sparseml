@@ -286,7 +286,6 @@ def main(
     eval_dataset = stage_runner.get_dataset_split("validation")
     calib_dataset = stage_runner.get_dataset_split("calibration")
 
-
     # Initialize our Trainer
     from transformers import DataCollatorForLanguageModeling
 
