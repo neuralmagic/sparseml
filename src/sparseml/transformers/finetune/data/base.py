@@ -126,11 +126,6 @@ class TextGenerationDataset(RegistryMixin):
                 max_length=self.max_seq_length,
                 truncation=True,
             )
-            result["prompt"] = self.tokenizer(
-                data["prompt"],
-                max_length=self.max_seq_length,
-                truncation=True,
-            )["input_ids"]
             return result
 
         # helper fn for filling to max_sequence_length by concatenating entries
@@ -149,9 +144,7 @@ class TextGenerationDataset(RegistryMixin):
 
         # helper fn for adding labels, needed for loss calculation
         def label_fn(data):
-            prompt_len = len(data["prompt"])
             data["labels"] = data["input_ids"].copy()
-            data["labels"][:prompt_len] = [-100] * prompt_len
             return data
 
         dataset = self.map(
@@ -180,8 +173,7 @@ class TextGenerationDataset(RegistryMixin):
         dataset = self.map(
             dataset,
             function=label_fn,
-            batched=False,
-            remove_columns=["prompt"],
+            batched=True,
             num_proc=self.data_args.preprocessing_num_workers,
             load_from_cache_file=not self.data_args.overwrite_cache,
             desc="Adding labels",
