@@ -20,6 +20,7 @@ Also supported:
 * `sparseml.transformers.text_generation.finetune`
 * `sparseml.transformers.text_generation.oneshot`
 * `sparseml.transformers.text_generation.eval`
+* `sparseml.transformers.text_generation.apply`
 
 ### with FSDP
 
@@ -41,7 +42,7 @@ See [configure_fsdp.md](https://github.com/neuralmagic/sparseml/blob/main/integr
 ## Launching from Python
 
 ```python
-from sparseml.transformers.finetune.text_generation import run_train
+from sparseml.transformers.finetune.text_generation import train
 
 model = "./obcq_deployment"
 teacher_model = "Xenova/llama2.c-stories15M"
@@ -55,7 +56,7 @@ splits = {
     "train": "train[:50%]",
 }
 
-run_train(
+train(
     model_name_or_path=model,
     distill_teacher=teacher_model,
     dataset_name=dataset_name,
@@ -77,7 +78,7 @@ Finetuning arguments are split up into 3 groups:
 * DataTrainingArguments: `src/sparseml/transformers/finetune/data/data_training_args.py`
 
 
-## Running One-Shot with FSDP (OBC Only)
+## Running One-Shot with FSDP
 ```bash
 accelerate launch 
     --config_file example_fsdp_config.yaml 
@@ -96,7 +97,7 @@ accelerate launch
 
 ## Running One-shot from Python (without FSDP)
 ```python
-from sparseml.transformers.finetune.text_generation import run_oneshot
+from sparseml.transformers.finetune.text_generation import oneshot
 
 model = "Xenova/llama2.c-stories15M"
 dataset_name = "open_platypus"
@@ -108,7 +109,7 @@ splits = {
     "calibration": "train[:20%]"
 }
 
-run_oneshot(
+oneshot(
     model_name_or_path=model,
     dataset_name=dataset_name,
     concatenate_data=concatenate_data,
@@ -116,6 +117,48 @@ run_oneshot(
     recipe=recipe,
     overwrite_output_dir=overwrite_output_dir,
     concatenate_data = concatenate_data,
+    splits = splits
+)
+```
+
+## Running Multi-Stage Recipes
+
+A recipe can be run stage-by-stage by setting `run_stages` to `True`. Each stage in the
+recipe should have a `run_type` attribute set to either `oneshot` or `train`.
+
+See [example_alternating_recipe.yaml](example_alternating_recipe.yaml) for an example 
+of a staged recipe for Llama. 
+
+### Python Example
+(This can also be run with FSDP by launching the script as `accelerate launch --config_file example_fsdp_config.yaml test_multi.py`)
+
+test_multi.py
+```python
+from sparseml.transformers.finetune.text_generation import apply
+
+model = "../ml-experiments/nlg-text_generation/llama_pretrain-llama_7b-base/dense/training"
+dataset_name = "open_platypus"
+concatenate_data = False
+run_stages=True
+output_dir = "./output_finetune_multi"
+recipe = "example_alternating_recipe.yaml"
+num_train_epochs=1
+overwrite_output_dir = True
+splits = {
+    "train": "train[:95%]",
+    "calibration": "train[95%:100%]"
+}
+
+apply(
+    model_name_or_path=model,
+    dataset_name=dataset_name,
+    run_stages=run_stages,
+    output_dir=output_dir,
+    recipe=recipe,
+    num_train_epochs=num_train_epochs,
+    overwrite_output_dir=overwrite_output_dir,
+    concatenate_data = concatenate_data,
+    remove_unused_columns = False,
     splits = splits
 )
 ```

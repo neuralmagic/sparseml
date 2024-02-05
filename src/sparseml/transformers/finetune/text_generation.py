@@ -25,19 +25,20 @@ import datasets
 import transformers
 from transformers import (
     AutoConfig,
-    AutoTokenizer,
     DataCollatorWithPadding,
     HfArgumentParser,
     default_data_collator,
     set_seed,
 )
 
+from sparseml.core.recipe import Recipe, StageRunType
 from sparseml.pytorch.model_load.helpers import (
     apply_recipe_structure_to_model,
     fallback_to_cpu,
     get_session_model,
     parse_dtype,
 )
+from sparseml.transformers import SparseAutoTokenizer
 from sparseml.transformers.finetune import Trainer, TrainingArguments
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
 from sparseml.transformers.finetune.model_args import ModelArguments
@@ -55,7 +56,7 @@ metadata_args = [
 ]
 
 
-def run_train(**kwargs):
+def train(**kwargs):
     """
     CLI entrypoint for running training
     """
@@ -64,7 +65,7 @@ def run_train(**kwargs):
     main(model_args, data_args, training_args)
 
 
-def run_eval(**kwargs):
+def eval(**kwargs):
     """
     CLI entrypoint for running evaluation
     """
@@ -73,7 +74,7 @@ def run_eval(**kwargs):
     main(model_args, data_args, training_args)
 
 
-def run_oneshot(**kwargs):
+def oneshot(**kwargs):
     """
     CLI entrypoint for running oneshot calibration
     """
@@ -82,11 +83,12 @@ def run_oneshot(**kwargs):
     main(model_args, data_args, training_args)
 
 
-def run_general(**kwargs):
+def apply(**kwargs):
     """
     CLI entrypoint for any of training, eval, predict or oneshot
     """
     model_args, data_args, training_args = parse_args(**kwargs)
+    training_args.run_stages = True
     main(model_args, data_args, training_args)
 
 
@@ -111,10 +113,6 @@ def parse_args(**kwargs):
             key, value = recipe_arg.split("=")
             arg_dict[key] = value
         training_args.recipe_args = arg_dict
-
-    if training_args.run_stages:
-        training_args.do_oneshot = True
-        training_args.do_train = True
 
     # when set to true in FSDP mode this causes issues, the model arguments show up
     # as *args and **kwargs so all columns get removed
@@ -157,6 +155,16 @@ def main(
     transformers.utils.logging.enable_default_handler()
     transformers.utils.logging.enable_explicit_format()
 
+    # Setup based on stage types if running stage mode
+    if training_args.run_stages and training_args.recipe is not None:
+        recipe_obj = Recipe.create_instance(training_args.recipe)
+        for stage in recipe_obj.stages:
+            run_type = stage.infer_run_type()
+            if run_type is StageRunType.ONESHOT:
+                training_args.do_oneshot = True
+            elif run_type is StageRunType.TRAIN:
+                training_args.do_train = True
+
     # Summary on each process
     _LOGGER.warning(
         f"Process rank: {training_args.local_rank}, device: {training_args.device}, "
@@ -194,18 +202,27 @@ def main(
         else None
     )
 
+    # Trainer handles device assignment for FSDP and training, don't do mapping here
+    # if running oneshot outside of FSDP, apply user device settings
+    device_map = None
+    fsdp_enabled = os.environ.get("ACCELERATE_USE_FSDP", "false") == "true"
+    if not fsdp_enabled and training_args.do_oneshot:
+        device_map = training_args.oneshot_device
+        _LOGGER.warning(f"Moving {model_path} to device {device_map} for One-Shot")
     model_kwargs = {
         "config": config,
         "cache_dir": model_args.cache_dir,
         "revision": model_args.model_revision,
         "use_auth_token": True if model_args.use_auth_token else None,
         "torch_dtype": parse_dtype(model_args.precision),
-        "device_map": training_args.oneshot_device,
+        "device_map": device_map,
     }
     teacher_kwargs = {
         "config": teacher_config,
         "cache_dir": model_args.cache_dir,
         "use_auth_token": True if model_args.use_auth_token else None,
+        "torch_dtype": parse_dtype(model_args.precision),
+        "device_map": "auto",  # spread teacher across GPUs, used for inference only
     }
     # this calls from_pretrained under the hood so should be FSDP safe
     model = SparseAutoModel.text_generation_from_pretrained(
@@ -244,7 +261,7 @@ def main(
         if model_args.tokenizer_name
         else get_shared_tokenizer_src(model, teacher)
     )
-    tokenizer = AutoTokenizer.from_pretrained(
+    tokenizer = SparseAutoTokenizer.from_pretrained(
         tokenizer_src,
         cache_dir=model_args.cache_dir,
         use_fast=True,
@@ -325,4 +342,4 @@ def main(
 
 
 if __name__ == "__main__":
-    run_general()
+    apply()
