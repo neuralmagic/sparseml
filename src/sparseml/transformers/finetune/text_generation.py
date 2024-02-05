@@ -25,7 +25,6 @@ import datasets
 import transformers
 from transformers import (
     AutoConfig,
-    AutoTokenizer,
     DataCollatorForLanguageModeling,
     HfArgumentParser,
     set_seed,
@@ -38,6 +37,7 @@ from sparseml.pytorch.model_load.helpers import (
     get_session_model,
     parse_dtype,
 )
+from sparseml.transformers import SparseAutoTokenizer
 from sparseml.transformers.finetune import Trainer, TrainingArguments
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
 from sparseml.transformers.finetune.model_args import ModelArguments
@@ -265,7 +265,7 @@ def main(
         if model_args.tokenizer_name
         else get_shared_tokenizer_src(model, teacher)
     )
-    tokenizer = AutoTokenizer.from_pretrained(
+    tokenizer = SparseAutoTokenizer.from_pretrained(
         tokenizer_src,
         cache_dir=model_args.cache_dir,
         use_fast=True,
