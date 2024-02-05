@@ -239,7 +239,10 @@ class SessionManagerMixIn:
         inputs = {k: inputs[k] for k in inputs if k in self._model_signature_columns}
         loss = super().compute_loss(model, inputs, return_outputs=return_outputs)
         if self.state.global_step % self.args.logging_steps == 0:
-            print(f"Step loss: {loss.item()}, perplexity: {torch.exp(loss).item()}")
+            log = {}
+            log["step_loss"] = loss.item()
+            log["perplexity"] = torch.exp(loss).item()
+            self.log(log)
 
         # take the mean across multiple GPUs
         # this is done outside the compute_loss function in the parent, replicating it

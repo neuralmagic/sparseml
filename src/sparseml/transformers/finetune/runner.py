@@ -190,13 +190,15 @@ class StageRunner:
         :param checkpoint: Optional checkpoint to resume from
         :param stage: which stage of the recipe to run, or None to run whole recipe
         """
+        import math
+
         _LOGGER.info("*** Train ***")
         train_result = self.trainer.train(
             resume_from_checkpoint=checkpoint, stage=stage
         )
         metrics = train_result.metrics
         metrics["train_samples"] = len(self.get_dataset_split("train"))
-        self.trainer.log_metrics("train", metrics)
+        metrics["perplexity"] = math.exp(metrics["train_loss"])
         self.trainer.save_metrics("train", metrics)
 
         # this includes saving the state, optimizer and scheduler
