@@ -286,16 +286,13 @@ def main(
     eval_dataset = stage_runner.get_dataset_split("validation")
     calib_dataset = stage_runner.get_dataset_split("calibration")
 
-    # Data collator will default to DataCollatorWithPadding when the tokenizer is
-    # passed to Trainer, so we change it if we already did the padding.
-    if data_args.pad_to_max_length:
-        data_collator = default_data_collator
-    elif training_args.fp16:
-        data_collator = DataCollatorWithPadding(tokenizer, pad_to_multiple_of=8)
-    else:
-        data_collator = None
 
     # Initialize our Trainer
+    from transformers import DataCollatorForLanguageModeling
+
+    tokenizer.pad_token = tokenizer.eos_token
+    data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
+
     trainer = Trainer(
         model_init=get_session_model,
         teacher=teacher,
