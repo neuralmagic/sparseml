@@ -283,6 +283,9 @@ def _setup_entry_points() -> Dict:
         ]
     )
 
+    # eval entrypoint
+    entry_points["console_scripts"].append("sparseml.eval=sparseml.evaluation.cli:main")
+
     return entry_points
 
 
