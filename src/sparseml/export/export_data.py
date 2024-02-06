@@ -21,10 +21,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-import torch
 from tqdm import tqdm
-
-from sparseml.pytorch.utils.helpers import tensors_export, tensors_to_device
 
 
 __all__ = ["create_data_samples", "export_data_samples"]
@@ -109,6 +106,7 @@ def export_data_sample(
     as_tar: bool = False,
     break_batch=False,
 ):
+    from sparseml.pytorch.utils.helpers import tensors_export, tensors_to_device
 
     samples = tensors_to_device(samples, "cpu")
 
@@ -126,8 +124,8 @@ def export_data_sample(
 
 
 def create_data_samples(
-    data_loader: torch.utils.data.DataLoader,
-    model: Optional[torch.nn.Module] = None,
+    data_loader: "torch.utils.data.DataLoader",  # noqa F821
+    model: Optional["torch.nn.Module"] = None,  # noqa F821
     num_samples: int = 1,
 ) -> Tuple[List[Any], List[Any], List[Any]]:
     """
@@ -139,6 +137,8 @@ def create_data_samples(
     :param num_samples: The number of samples to generate. Defaults to 1
     :return: The inputs and outputs as lists of torch tensors
     """
+    import torch
+
     inputs, outputs, labels = [], [], []
     if model is None:
         _LOGGER.warning("The model is None. The list of outputs will be empty")
@@ -185,7 +185,7 @@ def create_data_samples(
 
 
 def run_inference_with_dict_data(
-    data: Dict[str, Any], model: Optional[torch.nn.Module] = None
+    data: Dict[str, Any], model: Optional["torch.nn.Module"] = None  # noqa F821
 ) -> Tuple[Dict[str, Any], Any, Optional[Dict[str, Any]]]:
     """
     Run inference on a model by inferring the appropriate
@@ -195,6 +195,8 @@ def run_inference_with_dict_data(
     :param model: The model to run inference on (optional)
     :return: The inputs, labels and outputs
     """
+    import torch
+
     labels = None
     if model is None:
         output = None
@@ -216,8 +218,8 @@ def run_inference_with_dict_data(
 # this function is specific for image-classification for now
 # to be generalized later
 def run_inference_with_tuple_or_list_data(
-    data: Tuple[Any, Any], model: Optional[torch.nn.Module] = None
-) -> Tuple[torch.Tensor, Any, Optional[torch.Tensor]]:
+    data: Tuple[Any, Any], model: Optional["torch.nn.Module"] = None  # noqa F821
+) -> Tuple["torch.Tensor", Any, Optional["torch.Tensor"]]:  # noqa F821
     """
     Run inference on a model by inferring the appropriate
     inputs from the tuple input data.
@@ -226,6 +228,8 @@ def run_inference_with_tuple_or_list_data(
     :param model: The model to run inference on (optional)
     :return: The inputs, labels and outputs
     """
+    import torch
+
     inputs, labels = data
 
     outputs = model(inputs) if model else None
