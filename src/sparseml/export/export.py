@@ -76,7 +76,7 @@ from sparseml.export.helpers import (
     ONNX_MODEL_NAME,
     create_deployment_folder,
     create_export_kwargs,
-    format_source_path,
+    process_source_path,
     save_model_with_external_data,
 )
 from sparseml.export.validators import validate_correctness as validate_correctness_
@@ -175,7 +175,7 @@ def export(
     :param task: Optional task to use for exporting the model.
         Defaults to None.
     """
-    source_path = format_source_path(source_path)
+    source_path = process_source_path(source_path)
     if target_path is None:
         target_path = source_path
     # create the target path if it doesn't exist
