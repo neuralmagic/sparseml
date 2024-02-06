@@ -12,13 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Utilities for applying sparsification algorithms to Hugging Face transformers flows
-"""
+import pytest
 
-# flake8: noqa
-from .helpers import *
-from .metrics import *
-from .sparse_config import *
-from .sparse_model import *
-from .sparse_tokenizer import *
+from sparseml.transformers import SparseAutoConfig
+
+
+@pytest.mark.parametrize(
+    "pretrained_model_name_or_path",
+    [
+        "roneneldan/TinyStories-1M",
+        "mgoin/TinyStories-1M-ds",
+        "zoo:codegen_mono-350m-bigpython_bigquery_thepile-pruned50_quantized",
+    ],
+)
+def test_from_pretrained(tmp_path, pretrained_model_name_or_path):
+    assert SparseAutoConfig.from_pretrained(
+        pretrained_model_name_or_path, cache_dir=tmp_path
+    )
