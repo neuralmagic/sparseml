@@ -76,6 +76,12 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
         torch.nn.init.uniform_ = skip
         torch.nn.init.normal_ = skip
 
+        pretrained_model_name_or_path = (
+            pretrained_model_name_or_path.as_posix()
+            if isinstance(pretrained_model_name_or_path, Path)
+            else pretrained_model_name_or_path
+        )
+
         if pretrained_model_name_or_path.startswith("zoo:"):
             _LOGGER.debug(
                 "Passed zoo stub to SparseAutoModelForCausalLM object. "
