@@ -359,7 +359,7 @@ def export(
     "--opset",
     type=int,
     default=None,
-    help=f"Onnx opset to export to, defaults to default torch opset",
+    help="Onnx opset to export to, defaults to default torch opset",
 )
 @click.option(
     "--save_with_external_data",
