@@ -236,15 +236,15 @@ class SessionManagerMixIn:
             optimizer=self.optimizer, steps_per_epoch=self.total_steps_per_epoch
         )
 
+        return self.optimizer
+
     def create_scheduler(
         self, num_training_steps: int, optimizer: torch.optim.Optimizer = None
     ):
         """
-        Create an LR scheduler to work with the applied recipes. If the
-        recipe specifies LR modifiers, then will set lr_scheduler to a
-        placeholder lr scheduler. Expects create_scheduler to be defined in the
-        super class. Additionally expects self.lr_scheduler argument to be
-        available
+        Create an LR scheduler to work with the applied recipes. This is a placeholder
+        that just calls the super method, but would be expanded upon if we ever
+        implement a LearningRateModifier.
 
         :param num_training_steps: the total number of training steps
         :param optimizer: pre-initialized optimizer
@@ -252,13 +252,7 @@ class SessionManagerMixIn:
 
         # TODO: we don't currently have a LR scheduler in the new modifier framework
         self._check_super_defined("create_scheduler")
-        if self.lr_scheduler is not None or session_manager.active_session() is None:
-            super().create_scheduler(num_training_steps, optimizer)
-            return
-
-        # allow SparseML to manage LR and set a dummy scheduler
-        # TODO: remove this and just using the HF one?
-        self.lr_scheduler = self._dummy_lr_scheduler()
+        return super().create_scheduler(num_training_steps, optimizer)
 
     def training_step(
         self, model: Module, inputs: Dict[str, Union[torch.Tensor, Any]]
@@ -301,6 +295,13 @@ class SessionManagerMixIn:
         # this is done outside the compute_loss function in the parent, replicating it
         # here for SparseML logging and distillation
         loss = loss.mean()
+
+        # Log step-wise loss and perplexity, for llama-recipes comparison
+        if self.state.global_step % self.args.logging_steps == 0:
+            log = {}
+            log["step_loss"] = loss.item()
+            log["perplexity"] = torch.exp(loss).item()
+            self.log(log)
 
         if session_manager.active_session().lifecycle.initialized_:
             state = callbacks.loss_calculated(loss=loss)
@@ -491,6 +492,12 @@ class SessionManagerMixIn:
         self.model.to("cpu")
         self.model = self.accelerator.prepare(self.model)
         self.accelerator.wait_for_everyone()
+
+        if self.teacher is not None:
+            self.teacher.to("cpu")
+            self.teacher = self.accelerator.prepare(self.teacher)
+            self.accelerator.wait_for_everyone()
+            self.teacher.eval()
 
     def _extract_metadata(
         self,
