@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import logging
+import math
 import os
 import re
 from typing import List, Optional
@@ -196,6 +197,7 @@ class StageRunner:
         )
         metrics = train_result.metrics
         metrics["train_samples"] = len(self.get_dataset_split("train"))
+        metrics["perplexity"] = math.exp(metrics["train_loss"])
         self.trainer.log_metrics("train", metrics)
         self.trainer.save_metrics("train", metrics)
 

@@ -25,9 +25,8 @@ import datasets
 import transformers
 from transformers import (
     AutoConfig,
-    DataCollatorWithPadding,
+    DataCollatorForLanguageModeling,
     HfArgumentParser,
-    default_data_collator,
     set_seed,
 )
 
@@ -209,6 +208,8 @@ def main(
     if not fsdp_enabled and training_args.do_oneshot:
         device_map = training_args.oneshot_device
         _LOGGER.warning(f"Moving {model_path} to device {device_map} for One-Shot")
+    elif not fsdp_enabled:
+        device_map = "auto"
     model_kwargs = {
         "config": config,
         "cache_dir": model_args.cache_dir,
@@ -284,16 +285,8 @@ def main(
     eval_dataset = stage_runner.get_dataset_split("validation")
     calib_dataset = stage_runner.get_dataset_split("calibration")
 
-    # Data collator will default to DataCollatorWithPadding when the tokenizer is
-    # passed to Trainer, so we change it if we already did the padding.
-    if data_args.pad_to_max_length:
-        data_collator = default_data_collator
-    elif training_args.fp16:
-        data_collator = DataCollatorWithPadding(tokenizer, pad_to_multiple_of=8)
-    else:
-        data_collator = None
-
     # Initialize our Trainer
+    data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
     trainer = Trainer(
         model_init=get_session_model,
         teacher=teacher,
