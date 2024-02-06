@@ -38,14 +38,12 @@ __all__ = [
     "softmax_transform",
     "log_softmax_transform",
     "normalize_transform",
-    "rms_normalize_transform",
     "l1_comparison",
     "l2_comparison",
     "inner_product_comparison",
     "cosine_similarity_comparison",
     "kl_divergence_comparison",
     "cross_entropy_comparison",
-    "mse_normalized_comparison",
 ]
 
 
@@ -301,29 +299,6 @@ def normalize_transform(
     return _create_transform
 
 
-@KDFactory.register_transform_decorator("rms_normalize")
-def rms_normalize_transform(
-    name: str,
-    dim: int = -1,
-    eps: float = 1e-6,
-    **kwargs,
-):
-    if name != "rms_normalize":
-        raise ValueError(f"Invalid transform name: {name}")
-
-    def _rms_normalize(val: Tensor) -> Tensor:
-        input_dtype = val.dtype
-        val = val.to(torch.float32)
-        variance = val.pow(2).mean(dim, keepdim=True)
-        val = val * torch.rsqrt(variance + eps)
-        return val.to(input_dtype)
-
-    def _create_transform(val: TensorOrCollectionType) -> TensorOrCollectionType:
-        return recursive_apply(val, _rms_normalize)
-
-    return _create_transform
-
-
 @KDFactory.register_comparison_decorator("l1_distance")
 def l1_comparison(name: str, dim: int = -1, **kwargs):
     if name != "l1_distance":
@@ -407,25 +382,6 @@ def kl_divergence_comparison(
         val_one: TensorOrCollectionType, val_two: TensorOrCollectionType
     ) -> TensorOrCollectionType:
         return recursive_combine(val_one, val_two, _kl_divergence)
-
-    return _create_comparison
-
-
-@KDFactory.register_comparison_decorator("mse_normalized")
-def mse_normalized_comparison(name: str, dim: int = -1, **kwargs):
-    if name != "mse_normalized":
-        raise ValueError(f"Invalid comparison name: {name}")
-
-    def _mse_normalized(val_one: Tensor, val_two: Tensor) -> Tensor:
-        mse = (val_one - val_two).pow(2).mean(dim=dim)
-        norm = val_two.pow(2).mean(dim=dim)
-        norm = torch.maximum(norm, torch.Tensor([1e-5]).to(norm.device))
-        return mse / norm
-
-    def _create_comparison(
-        val_one: TensorOrCollectionType, val_two: TensorOrCollectionType
-    ) -> TensorOrCollectionType:
-        return recursive_combine(val_one, val_two, _mse_normalized)
 
     return _create_comparison
 
