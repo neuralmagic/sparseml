@@ -296,18 +296,19 @@ class SessionManagerMixIn:
         # here for SparseML logging and distillation
         loss = loss.mean()
 
-        if session_manager.active_session().lifecycle.initialized_:
-            state = callbacks.loss_calculated(loss=loss)
-            if state and state.loss is not None:
-                loss = state.loss
-            callbacks.optim_pre_step()
-
         # Log step-wise loss and perplexity, for llama-recipes comparison
+        # we want this before distillation loss so perplexity isn't thrown off
         if self.state.global_step % self.args.logging_steps == 0:
             log = {}
             log["step_loss"] = loss.item()
             log["perplexity"] = torch.exp(loss).item()
             self.log(log)
+
+        if session_manager.active_session().lifecycle.initialized_:
+            state = callbacks.loss_calculated(loss=loss)
+            if state and state.loss is not None:
+                loss = state.loss
+            callbacks.optim_pre_step()
 
         return loss
 
