@@ -160,6 +160,8 @@ def _setup_extras() -> Dict:
         "torch_all": _pytorch_all_deps,
         "torchvision": _pytorch_vision_deps,
         "transformers": _transformers_deps,
+        "llm": _transformers_deps,
+        "notebook": _notebook_deps,
         "tf_v1": _tensorflow_v1_deps,
         "tf_v1_gpu": _tensorflow_v1_gpu_deps,
         "tf_keras": _keras_deps,
