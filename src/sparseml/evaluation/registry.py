@@ -48,7 +48,13 @@ class SparseMLEvaluationRegistry(EvaluationRegistry):
         :param kwargs: The keyword arguments to pass to the evaluation integration
         :return: The evaluation integration associated with the name
         """
-        collect_integrations(name=name)
+        if "integration_config_path" in kwargs:
+            collect_integrations(
+                name=name,
+                integration_config_path=kwargs.get(
+                    "integration_config_path", INTEGRATION_CONFIG_PATH
+                ),
+            )
         return cls.get_value_from_registry(name=name)
 
 
