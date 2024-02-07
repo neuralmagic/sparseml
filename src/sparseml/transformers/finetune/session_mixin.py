@@ -145,6 +145,8 @@ class SessionManagerMixIn:
                 start=epoch,
                 copy_data=False,
                 fsdp_active=self.is_fsdp_enabled,
+                batch_size = self.metadata['per_device_train_batch_size'],
+                max_seq_length = self.metadata['max_seq_length']
             )
         self.accelerator.wait_for_everyone()
 
@@ -298,17 +300,22 @@ class SessionManagerMixIn:
 
         # Log step-wise loss and perplexity, for llama-recipes comparison
         # we want this before distillation loss so perplexity isn't thrown off
-        if self.state.global_step % self.args.logging_steps == 0:
+        do_log = self.state.global_step % self.args.logging_steps == 0
+        if do_log:
             log = {}
             log["step_loss"] = loss.item()
             log["perplexity"] = torch.exp(loss).item()
-            self.log(log)
 
         if session_manager.active_session().lifecycle.initialized_:
             state = callbacks.loss_calculated(loss=loss)
             if state and state.loss is not None:
                 loss = state.loss
+                if do_log:
+                    log["distill_step_loss"] = loss.item()
             callbacks.optim_pre_step()
+
+        if do_log:
+            self.log(log)
 
         return loss
 

@@ -12,33 +12,34 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import List, Optional, Set, Tuple
+from typing import Optional, Set, Dict, Any
 
 import torch
 from torch.nn import Module
 
-from sparseml.modifiers.distillation.utils.pytorch.kd_factory import TransformFuncType
-
-__all__ = ["KDModuleWrapper"]
+__all__ = ["KDModelWrapper"]
 
 
-class KDModuleWrapper(Module):
-    KD_TRANSFORMED_BUFFER = "kd_last_transformed"
+class KDModelWrapper(Module):
+    KD_LAST_COMPARISON = "kd_last_comparison"
 
     def __init__(
         self,
-        layer: Module,
-        hidden_size: Tuple,
-        transforms: Optional[List[TransformFuncType]],
-        fsdp_active: bool
+        student_model: Module,
+        teacher_model: Module,
+        wrappers: Dict[str, Any],
+        comparison,
+        fsdp_active: bool,
     ):
-        super(KDModuleWrapper, self).__init__()
+        super(KDModelWrapper, self).__init__()
 
-        self.layer = layer
+        self.student_model = student_model
+        self.teacher_model = teacher_model
+        self.wrappers = wrappers
+        self.kd_comparison = comparison
         self._fsdp_active = fsdp_active
-        self.kd_transforms = transforms
         self.kd_enabled = False
-        self.register_buffer(self.KD_TRANSFORMED_BUFFER, torch.zeros(hidden_size))
+        self.register_buffer(self.KD_LAST_COMPARISON, torch.zeros(1))
         self._init_called = True  # make sure this is last property to be set
 
         def _clear_missing_keys(module, incompatible_keys):
@@ -48,27 +49,30 @@ class KDModuleWrapper(Module):
 
     def forward(self, *args, **kwargs):
         if not self.kd_enabled:
-            return self.layer(*args, **kwargs)
+            return self.student_model(*args, **kwargs)
 
-        org_output = self.layer(*args, **kwargs)
-        output = (
-            org_output if isinstance(org_output, torch.Tensor) else org_output[0]
-        )
+        org_output = self.student_model(*args, **kwargs)
+        with torch.no_grad():
+            self.teacher_model(*args, **kwargs)
 
-        if self.kd_transforms is not None:
-            for transform in self.kd_transforms:
-                output = transform(output)
+        layerwise_comps = []
+        for key, (student_wrapper, teacher_wrapper) in self.wrappers.items():
+            student_out = student_wrapper.kd_last_transformed
+            teacher_out = teacher_wrapper.kd_last_transformed
+            comp = self.kd_comparison(student_out, teacher_out)
+            layerwise_comps.append(comp)
 
-        self.kd_last_transformed = output
+        self.kd_last_comparison = sum(layerwise_comps)
+
         return org_output
 
     def state_dict(self, destination=None, prefix="", keep_vars=False, **kwargs):
-        return self.layer.state_dict(
+        return self.student_model.state_dict(
             destination=destination, prefix=prefix, keep_vars=keep_vars, **kwargs
         )
 
     def load_state_dict(self, state_dict, strict=True):
-        return self.layer.load_state_dict(state_dict, strict=strict)
+        return self.student_model.load_state_dict(state_dict, strict=strict)
 
     def _load_from_state_dict(
         self,
@@ -80,7 +84,7 @@ class KDModuleWrapper(Module):
         unexpected_keys,
         error_msgs,
     ):
-        self.layer._load_from_state_dict(
+        self.student_model._load_from_state_dict(
             state_dict=state_dict,
             prefix=prefix,
             local_metadata=local_metadata,
@@ -106,6 +110,6 @@ class KDModuleWrapper(Module):
                 memo=memo, prefix=prefix, remove_duplicate=remove_duplicate
             )
 
-        return self.layer.named_modules(
+        return self.student_model.named_modules(
             memo=memo, prefix=prefix, remove_duplicate=remove_duplicate
         )
