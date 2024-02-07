@@ -46,7 +46,7 @@ class UltraChatDataset(TextGenerationDataset):
 
         if split in ["train", "test"]:
             split += "_sft"
-        
+
         super().__init__(
             text_column="messages",
             data_args=data_args,
