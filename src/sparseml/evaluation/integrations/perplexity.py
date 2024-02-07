@@ -14,6 +14,9 @@
 
 from typing import List, Optional
 
+from sparseml.transformers.utils.sparse_model import SparseAutoModelForCausalLM
+from sparseml.transformers.utils.sparse_tokenizer import SparseAutoTokenizer
+
 
 try:
     import numpy
@@ -29,8 +32,6 @@ except ImportError as err:
     ) from err
 
 from sparseml.evaluation.registry import SparseMLEvaluationRegistry
-from sparseml.transformers.integration_helper_functions import create_model
-from sparseml.transformers.utils.helpers import fetch_recipe_path
 from sparsezoo.evaluation.results import Dataset, Evaluation, Metric, Result
 
 
@@ -45,14 +46,9 @@ def perplexity_eval(
     dataset_config_name = _infer_dataset_config_name(datasets)
     task = "text-generation"
     split = "test"
-    recipe_path = fetch_recipe_path(model_path)
-    model, other_objects = create_model(
-        source_path=model_path,
-        device=device,
-        task=task,
-        recipe=recipe_path,
-    )
-    tokenizer = other_objects["tokenizer"]
+    model = SparseAutoModelForCausalLM.from_pretrained(model_path)
+    tokenizer = SparseAutoTokenizer.from_pretrained(model_path)
+
     input_text = _load_perplexity_dataset(
         dataset_name=datasets,
         dataset_config_name=dataset_config_name,

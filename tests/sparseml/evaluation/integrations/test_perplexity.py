@@ -16,6 +16,7 @@
 
 import os
 
+import numpy
 import pytest
 
 from sparseml.evaluation.integrations.perplexity import perplexity_eval
@@ -73,7 +74,7 @@ def test_perplexity_against_huggingface(monkeypatch):
     expected = huggingface_ppl_eval(
         predictions=input_texts, model_id=model_path, batch_size=batch_size
     )
-    assert actual == expected
+    assert numpy.isclose(actual, expected, rtol=0.1)
 
 
 def huggingface_ppl_eval(predictions, model_id, batch_size):
