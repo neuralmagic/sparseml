@@ -141,7 +141,6 @@ class SparseMLLM(HFLM):
         pretrained: str,
         **kwargs,
     ) -> None:
-        # recipe_path = fetch_recipe_path(target=pretrained)
         model_kwargs = kwargs if kwargs else {}
         relevant_kwarg_names = [
             "revision",
