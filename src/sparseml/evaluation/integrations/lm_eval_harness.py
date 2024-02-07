@@ -18,8 +18,7 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
 from sparseml.evaluation.registry import SparseMLEvaluationRegistry
-from sparseml.transformers.integration_helper_functions import create_model
-from sparseml.transformers.utils.helpers import fetch_recipe_path
+from sparseml.transformers.utils.sparse_model import SparseAutoModelForCausalLM
 from sparsezoo.evaluation.results import Dataset, Evaluation, Metric, Result
 
 
@@ -31,7 +30,7 @@ except ImportError as err:
     raise Exception(
         "package `lm_eval` is not installed. "
         "Please install it via "
-        "`pip install git+https://github.com/EleutherAI/lm-evaluation-harness.git`"
+        "`pip install lm-eval==0.4.0"
     ) from err
 
 __all__ = ["lm_eval_harness", "SparseMLLM", "LMEvalHarnessEvaluatorInputSchema"]
@@ -58,7 +57,6 @@ def lm_eval_harness(
     :param kwargs: additional keyword arguments to pass to the
         lm-evaluation-harness
     """
-
     model = SparseMLLM(pretrained=model_path, device=device, **kwargs)
     kwargs.pop("nsamples", None)
 
@@ -143,29 +141,21 @@ class SparseMLLM(HFLM):
         pretrained: str,
         **kwargs,
     ) -> None:
-        recipe_path = fetch_recipe_path(target=pretrained)
+        # recipe_path = fetch_recipe_path(target=pretrained)
         model_kwargs = kwargs if kwargs else {}
-        ignored_kwargs = [
-            "dtype",
-            "parallelize",
-            "device_map_option",
-            "max_memory_per_gpu",
-            "max_cpu_memory",
-            "peft",
-            "autogptq",
+        relevant_kwarg_names = [
+            "revision",
+            "trust_remote_code",
+            "offload_folder",
+            "device",
         ]
-        for ignored_kwarg in ignored_kwargs:
-            model_kwargs.pop(ignored_kwarg, None)
 
-        device = model_kwargs.pop("device", None)
-        task = model_kwargs.pop("task", "text-generation")
+        relevant_kwargs = {
+            k: v for k, v in model_kwargs.items() if k in relevant_kwarg_names
+        }
 
-        model, _ = create_model(
-            source_path=pretrained,
-            device=device,
-            task=task,
-            recipe=recipe_path,
-            **model_kwargs,
+        model = SparseAutoModelForCausalLM.from_pretrained(
+            pretrained, **relevant_kwargs
         )
         self._model = model
 
