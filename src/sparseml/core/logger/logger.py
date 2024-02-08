@@ -640,7 +640,7 @@ class WANDBLogger(LambdaLogger):
 
         if step is not None:
             step = int(step)
-        wandb.log(params, step=step)
+        # wandb.log(params, step=step)
 
         return True
 
