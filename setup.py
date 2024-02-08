@@ -73,7 +73,7 @@ _pytorch_vision_deps = _pytorch_deps + [
     "opencv-python<=4.6.0.66",
 ]
 _transformers_deps = _pytorch_deps + [
-    f"{'nm-transformers' if is_release else 'nm-transformers-nightly'}"
+    "transformers<4.37",
     f"~={version_nm_deps}",
     "datasets<=2.14.6",
     "dvc",
