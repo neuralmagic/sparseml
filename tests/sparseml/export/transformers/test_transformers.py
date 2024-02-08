@@ -20,7 +20,7 @@ import numpy as np
 import pytest
 import torch
 
-from sparseml.export.export import export
+from sparseml import export
 from sparsezoo import Model
 
 
