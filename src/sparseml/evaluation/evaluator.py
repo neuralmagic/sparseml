@@ -13,6 +13,8 @@
 # limitations under the License.
 
 
+from typing import Optional
+
 from sparseml.evaluation.registry import SparseMLEvaluationRegistry
 from sparsezoo.evaluation.results import Result
 
@@ -22,8 +24,8 @@ __all__ = ["evaluate"]
 
 def evaluate(
     model_path: str,
-    datasets: str,
     integration: str,
+    datasets: Optional[str] = None,
     batch_size: int = 1,
     **kwargs,
 ) -> Result:
@@ -34,7 +36,8 @@ def evaluate(
         SparseZoo/HuggingFace to evaluate. For example,
         `mgoin/llama2.c-stories15M-quant-pt`
     :param datasets: The dataset(s) to evaluate on. For example,
-        `open_platypus`
+        `open_platypus`. If None, it is left upto the integration
+        to handle the default dataset.
     :param integration: Name of the eval integration to use.
         Example, `perplexity`
     :param batch_size: The batch size to use for evals, defaults to 1
@@ -44,4 +47,11 @@ def evaluate(
     eval_integration = SparseMLEvaluationRegistry.resolve(
         name=integration, datasets=datasets
     )
-    return eval_integration(model_path, datasets, batch_size, **kwargs)
+
+    if datasets is None:
+        # let the integration handle the default dataset
+        return eval_integration(model_path=model_path, batch_size=batch_size, **kwargs)
+
+    return eval_integration(
+        model_path=model_path, datasets=datasets, batch_size=batch_size, **kwargs
+    )
