@@ -110,6 +110,7 @@ _dev_deps = [
     "flaky~=3.7.0",
     "tensorboard>=1.0,<2.9",
     "tensorboardX>=1.0",
+    "evaluate>=0.4.1",
 ]
 
 _docs_deps = [
