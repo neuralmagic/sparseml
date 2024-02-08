@@ -13,15 +13,6 @@
 # limitations under the License.
 
 """
-Objects, classes, and methods for applying sparsification algorithms to
-Hugging Face transformers flows
+Modification to the original MobileBert model required in the
+context of SparseML
 """
-
-# flake8: noqa
-
-from .question_answering import *
-from .sparse_config import *
-from .sparse_model import *
-from .sparse_tokenizer import *
-from .trainer import *
-from .training_args import *

@@ -33,9 +33,11 @@ from sparseml.pytorch.model_load.helpers import (
     apply_recipe_structure_to_model,
     log_model_load,
 )
+
+# TODO: Also propagate modify_model to non-LLMS (e.g. DistillBERT)
+from sparseml.transformers.sparsification.modification import modify_model
 from sparseml.transformers.utils.helpers import resolve_recipe
-from sparseml.utils import download_zoo_training_dir
-from sparseml.utils.fsdp.context import main_process_first_context
+from sparsezoo import Model
 
 
 __all__ = ["SparseAutoModel", "SparseAutoModelForCausalLM", "get_shared_tokenizer_src"]
@@ -47,6 +49,18 @@ _LOGGER = logging.getLogger(__name__)
 class SparseAutoModelForCausalLM(AutoModelForCausalLM):
     """
     SparseML wrapper for the AutoModelForCausalLM class
+    Its lifecycle is defined as follows:
+    1. If pretrained_model_name_or_path is a SparseZoo stub
+       the appropriate SparseZoo model will be downloaded
+       (if required) and the path to the deployment directory
+       of the model will be retrieved
+    2. The original model definition will be loaded, without
+        the model weights
+    3. The model will be potentially modifier by `modify_model`
+        function, so that is compatible with SparseML
+    4. The appropriate recipy will be applied to the model
+       if requested or required
+    5. The appropriate set of weights will be loaded into the model
     """
 
     @classmethod
@@ -58,8 +72,7 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
         **kwargs,
     ) -> Module:
         """
-        A wrapper around the AutoModelForCausalLM.from_pretrained method that
-        enables the loading of a SparseML recipe file to apply to the model
+        A wrapper around the AutoModelForCausalLM.from_pretrained method
 
         :param pretrained_model_name_or_path: the name of or path to the model to load
         :param recipe: the path to the recipe file to apply to the model. Can be a
@@ -88,21 +101,14 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
                 "Passed zoo stub to SparseAutoModelForCausalLM object. "
                 "Loading model from SparseZoo training files..."
             )
-            with main_process_first_context():
-                pretrained_model_name_or_path = download_zoo_training_dir(
-                    zoo_stub=pretrained_model_name_or_path
-                )
-
-        # temporarily set the log level to error, to ignore printing out long missing
-        # and unexpected key error messages (these are EXPECTED for quantized models)
-        logger = logging.getLogger("transformers.modeling_utils")
-        restore_log_level = logger.getEffectiveLevel()
-        logger.setLevel(level=logging.ERROR)
+            pretrained_model_name_or_path = Model(
+                pretrained_model_name_or_path
+            ).training.path
+        # TODO: Load the model without weights
         model = super(AutoModelForCausalLM, cls).from_pretrained(
             pretrained_model_name_or_path, *model_args, **kwargs
         )
-        logger.setLevel(level=restore_log_level)
-
+        model = modify_model(model)
         recipe = resolve_recipe(recipe, pretrained_model_name_or_path)
         if recipe:
             apply_recipe_structure_to_model(
@@ -110,6 +116,7 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
                 model_path=pretrained_model_name_or_path,
                 recipe_path=recipe,
             )
+        # TODO: Load weights here
         return model
 
 
