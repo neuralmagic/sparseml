@@ -32,7 +32,7 @@ from sparseml.pytorch.model_load.helpers import (
     save_completed_stages,
     save_model_and_recipe,
 )
-from sparseml.transformers.finetune import TrainingArguments
+from sparseml.transformers import TrainingArguments
 from sparseml.transformers.finetune.data import TextGenerationDataset
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
 from sparseml.transformers.finetune.data.data_helpers import (
