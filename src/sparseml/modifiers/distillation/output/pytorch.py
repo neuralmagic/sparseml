@@ -48,8 +48,8 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
 
         # needed to initialize intermediate output buffers for student and teacher
         hidden_size = (
-            kwargs["batch_size"],
-            kwargs["max_seq_length"],
+            kwargs.get("metadata").get("per_device_train_batch_size", 1),
+            kwargs.get("metadata").get("max_seq_length", 512),
             state.model.model.config.hidden_size,
         )
 
