@@ -81,18 +81,18 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
                 teacher_model=state.teacher_model.model.model,
                 state=state
             )
-            state.model.set_layer('model', self.wrapped_kd_model_) #TODO: this is iffy....
+            state.model.set_layer('model', self.wrapped_kd_model_)
 
         return True
 
     def on_finalize(self, state: State, **kwargs) -> bool:
+        state.model.set_layer('model', self.wrapped_kd_model_.student_model)
         for key, (student_wrapper, teacher_wrapper) in self.wrappers_.items():
             state.model.set_layer(key, student_wrapper.layer)
             state.teacher_model.set_layer(key, teacher_wrapper.layer)
             del student_wrapper
             del teacher_wrapper
 
-        state.model.set_layer('model', self.wrapped_kd_model_.student_model) # TODO: this too...
         del self.wrapped_kd_model_
         return True
 
@@ -107,15 +107,17 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
             self.start, self.end, self.update
         ):
             distill_loss = self.wrapped_kd_model_.kd_last_comparison
+            model_loss = kwargs["loss"]
+            distill_loss = distill_loss.to(model_loss.device)
             state.loss = (
-                self.orig_scale * kwargs["loss"]  # model output loss
+                self.orig_scale * model_loss  # model output loss
                 + self.distill_scale * distill_loss # distill loss
             )
 
     def on_end(self, state: State, event: Event, **kwargs):
         for (student_wrapper, teacher_wrapper) in self.wrappers_.values():
-            student_wrapper.kd_enabled = True
-            teacher_wrapper.kd_enabled = True
+            student_wrapper.kd_enabled = False
+            teacher_wrapper.kd_enabled = False
         self.wrapped_kd_model_.kd_enabled = False
 
     def _create_model_wrapper(
