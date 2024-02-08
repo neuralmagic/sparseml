@@ -17,3 +17,4 @@
 from .model_args import ModelArguments
 from .trainer import Trainer
 from .training_args import TrainingArguments
+from .text_generation import train,eval,oneshot,apply
