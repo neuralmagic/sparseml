@@ -15,3 +15,5 @@
 # my_eval_integration2: integrations/my_eval_integration2.py
 
 perplexity: integrations/perplexity.py
+lm-eval-harness: integrations/lm_eval_harness.py
+
