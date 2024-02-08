@@ -319,7 +319,7 @@ class SessionManagerMixIn:
             if state and state.loss is not None:
                 loss = state.loss
                 if do_log:
-                    log["distill_step_loss"] = loss.item()
+                    log["distill_step_loss"] = loss.item() - log["step_loss"]
             callbacks.optim_pre_step()
 
         if do_log:

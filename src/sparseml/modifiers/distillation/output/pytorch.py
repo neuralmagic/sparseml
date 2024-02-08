@@ -46,6 +46,7 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
         if kwargs.get("fsdp_active"):
             self.fsdp_active_ = True
 
+        # needed to initialize intermediate output buffers for student and teacher
         hidden_size = (
             kwargs["batch_size"],
             kwargs["max_seq_length"],
@@ -89,11 +90,15 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
                 teacher_model=state.teacher_model.model,
                 state=state,
             )
+
         if is_fsdp_model(state.model.model):
             state.model.model._fsdp_wrapped_module = self.wrapped_kd_model_
         else:
             state.model.model = self.wrapped_kd_model_
 
+        # for square-head distillation we want to scale the loss by the number of
+        # layers if the user doesn't alter the default scale. This is done so the
+        # distillation loss is roughly equally weighted to the cross entropy loss
         num_layers = len(self.wrappers_)
         if self.comparison == "square_head" and self.distill_scale == 1.0:
             self.distill_scale = float(num_layers)
