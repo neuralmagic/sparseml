@@ -13,9 +13,6 @@
 # limitations under the License.
 
 """
-Utilities for applying sparsification algorithms to Hugging Face transformers flows
+Modification to the original OPT model required in the
+context of SparseML
 """
-
-# flake8: noqa
-from .helpers import *
-from .metrics import *

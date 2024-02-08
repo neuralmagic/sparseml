@@ -12,10 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Utilities for applying sparsification algorithms to Hugging Face transformers flows
-"""
+from sparsezoo.utils.registry import RegistryMixin
 
-# flake8: noqa
-from .helpers import *
-from .metrics import *
+
+class ModificationRegistry(RegistryMixin):
+    """
+    A registry for modification functions that can be applied to models
+    so that they can be used in the context of sparseml.transformers
+    """

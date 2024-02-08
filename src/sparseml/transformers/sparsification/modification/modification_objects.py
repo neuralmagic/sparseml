@@ -13,9 +13,6 @@
 # limitations under the License.
 
 """
-Utilities for applying sparsification algorithms to Hugging Face transformers flows
+Set of helper objects that are used to modify
+the HuggingFace transformer models
 """
-
-# flake8: noqa
-from .helpers import *
-from .metrics import *

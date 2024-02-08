@@ -29,8 +29,8 @@ from transformers.tokenization_utils_base import PaddingStrategy
 
 from flaky import flaky
 from sparseml.pytorch.optim.manager import ScheduledModifierManager
+from sparseml.transformers import SparseAutoModel
 from sparseml.transformers.export import load_task_model
-from sparseml.transformers.utils import SparseAutoModel
 from tests.integrations.base_tester import (
     BaseIntegrationManager,
     BaseIntegrationTester,
