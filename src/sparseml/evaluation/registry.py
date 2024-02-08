@@ -48,11 +48,19 @@ class SparseMLEvaluationRegistry(EvaluationRegistry):
         :param kwargs: The keyword arguments to pass to the evaluation integration
         :return: The evaluation integration associated with the name
         """
-        collect_integrations(name=name)
+
+        collect_integrations(
+            name=name,
+            integration_config_path=kwargs.get(
+                "integration_config_path", INTEGRATION_CONFIG_PATH
+            ),
+        )
         return cls.get_value_from_registry(name=name)
 
 
-def collect_integrations(name: str):
+def collect_integrations(
+    name: str, integration_config_path: Path = INTEGRATION_CONFIG_PATH
+):
     """
     This function is used to collect integrations based on name, this method
     is responsible for triggering the registration with the SparseML Evaluation
@@ -64,10 +72,13 @@ def collect_integrations(name: str):
     `@SparseMLEvaluationRegistry.register` decorator.
 
     :param name: The name of the integration to collect, is case insentitive
+    :param integration_config_path: The path to the integrations config file
     """
     integrations = _standardize_integration_dict(
-        integrations_location_dict=_load_yaml(path=INTEGRATION_CONFIG_PATH)
+        integrations_location_dict=_load_yaml(path=integration_config_path),
+        integration_config_path=integration_config_path,
     )
+
     name = standardize_lookup_name(name)
 
     if name in integrations:
@@ -104,29 +115,37 @@ def _load_yaml(path: Path):
 
 
 def _standardize_integration_dict(
-    integrations_location_dict: Dict[str, str]
+    integrations_location_dict: Dict[str, str],
+    integration_config_path: Path = INTEGRATION_CONFIG_PATH,
 ) -> Dict[str, str]:
     """
     Standardize the names of the integrations in the given dictionary.
 
     :param integrations_location_dict: Dictionary of integration names to
         their locations
+    :param integration_config_path: The path to the integrations config file
+        (Used to resolve relative paths to absolute paths)
     :return: A copy of the dictionary with the standardized integration names
+        and the resolved absolute paths to their locations
     """
     return {
-        standardize_lookup_name(name): _resolve_relative_path(location)
+        standardize_lookup_name(name): _resolve_relative_path(
+            relative_path=location, relative_to=integration_config_path
+        )
         for name, location in integrations_location_dict.items()
     }
 
 
-def _resolve_relative_path(relative_path: Path) -> Path:
+def _resolve_relative_path(
+    relative_path: Path, relative_to: Path = INTEGRATION_CONFIG_PATH
+) -> Path:
     """
     Resolve the given path to an absolute path.
 
-    :param relative_path: The path to resolve w.r.t
-        the current file
+    :param relative_path: The path to resolve
+    :param relative_to: The path to resolve the given path relative to, defaults
+        to the integrations config path
     :return: The resolved absolute path
     """
-    current_file_path = Path(__file__).resolve()
-    absolute_path = (current_file_path.parent / relative_path).resolve()
+    absolute_path = (relative_to.resolve().parent / relative_path).resolve()
     return absolute_path
