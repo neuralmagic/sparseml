@@ -59,7 +59,7 @@ class KDModelWrapper(Module):
         for key, (student_wrapper, teacher_wrapper) in self.wrappers.items():
             student_out = student_wrapper.kd_last_transformed
             teacher_out = teacher_wrapper.kd_last_transformed
-            comp = self.kd_comparison(student_out, teacher_out)
+            comp = self.kd_comparison(student_out, teacher_out.to(student_out.device))
             layerwise_comps.append(comp)
 
         self.kd_last_comparison = sum(layerwise_comps)
@@ -113,3 +113,9 @@ class KDModelWrapper(Module):
         return self.student_model.named_modules(
             memo=memo, prefix=prefix, remove_duplicate=remove_duplicate
         )
+    
+    def __getattr__(self, name: str) -> Any:
+        try:
+            return super().__getattr__(name)
+        except AttributeError:
+            return getattr(self.student_model, name)

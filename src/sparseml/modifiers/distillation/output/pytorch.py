@@ -14,9 +14,8 @@
 
 from typing import Any, Dict
 
-import torch
 from torch.nn import Module
-
+from sparseml.utils.fsdp.helpers import maybe_get_wrapped, set_wrapped_model
 from sparseml.core import Event, EventType, State
 from sparseml.modifiers.distillation.output.base import OutputDistillationModifier
 from sparseml.modifiers.distillation.utils.pytorch import KDFactory, KDModuleWrapper, KDModelWrapper
@@ -77,16 +76,16 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
                 self.wrappers_[key] = (student_wrapper, teacher_wrapper)
 
             self.wrapped_kd_model_ = self._create_model_wrapper(
-                student_model=state.model.model.model,
-                teacher_model=state.teacher_model.model.model,
+                student_model=state.model.model._fsdp_wrapped_module,
+                teacher_model=state.teacher_model.model,
                 state=state
             )
-            state.model.set_layer('model', self.wrapped_kd_model_)
+        state.model.model._fsdp_wrapped_module = self.wrapped_kd_model_
 
         return True
 
     def on_finalize(self, state: State, **kwargs) -> bool:
-        state.model.set_layer('model', self.wrapped_kd_model_.student_model)
+        state.model.model._fsdp_wrapped_module = self.wrapped_kd_model_.student_model
         for key, (student_wrapper, teacher_wrapper) in self.wrappers_.items():
             state.model.set_layer(key, student_wrapper.layer)
             state.teacher_model.set_layer(key, teacher_wrapper.layer)
