@@ -307,8 +307,8 @@ def get_observer(
             qscheme=qscheme,
             reduce_range=reduce_range,
         )
-    elif strategy == "histrogram":
-        qscheme = torch.per_channel_symmetric if symmetric else torch.per_channel_affine
+    elif strategy == "histogram":
+        qscheme = torch.per_tensor_symmetric if symmetric else torch.per_tensor_affine
         observer_cls = torch_quantization.HistogramObserver
         observer_kwargs = dict(
             dtype=dtype,
