@@ -26,6 +26,7 @@ from transformers.trainer_callback import TrainerState
 from transformers.trainer_utils import get_last_checkpoint
 
 import sparseml.core.session as session_manager
+from sparseml.pytorch.model_load.helpers import get_session_model
 from sparseml.core.framework import Framework
 from sparseml.core.session import callbacks
 from sparseml.pytorch.model_load.helpers import RECIPE_FILE_NAME, reload_model_state
@@ -149,12 +150,14 @@ class SessionManagerMixIn:
                 max_seq_length = self.metadata['max_seq_length']
             )
         self.accelerator.wait_for_everyone()
+        model = get_session_model()
+        self.model = model
 
         # reload the state dict for the model now that architecture matches expected
         # TODO: what if there is a quant modifier in the original recipe and we want to
         # continue adjusting its zero point and range?
         load_path = checkpoint or self.model_state_path
-        if reload_model_state(self.model, load_path, orig_state_dict):
+        if reload_model_state(model, load_path, orig_state_dict):
             _LOGGER.info(
                 "Reloaded model state after SparseML recipe structure modifications "
                 f"from {load_path}"
@@ -202,6 +205,8 @@ class SessionManagerMixIn:
             # in order to update each layer we need to gathers all its parameters
             session_manager.finalize()
         _LOGGER.info("Finalized SparseML session")
+        model = get_session_model()
+        self.model = model
         torch.cuda.empty_cache()
 
     def create_optimizer(self):

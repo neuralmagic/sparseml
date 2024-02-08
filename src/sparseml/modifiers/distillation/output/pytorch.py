@@ -13,9 +13,9 @@
 # limitations under the License.
 
 from typing import Any, Dict
-
+import logging
 from torch.nn import Module
-from sparseml.utils.fsdp.helpers import maybe_get_wrapped, set_wrapped_model
+from sparseml.utils.fsdp.helpers import maybe_get_wrapped, is_fsdp_model
 from sparseml.core import Event, EventType, State
 from sparseml.modifiers.distillation.output.base import OutputDistillationModifier
 from sparseml.modifiers.distillation.utils.pytorch import KDFactory, KDModuleWrapper, KDModelWrapper
@@ -76,16 +76,22 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
                 self.wrappers_[key] = (student_wrapper, teacher_wrapper)
 
             self.wrapped_kd_model_ = self._create_model_wrapper(
-                student_model=state.model.model._fsdp_wrapped_module,
+                student_model=maybe_get_wrapped(state.model),
                 teacher_model=state.teacher_model.model,
                 state=state
             )
-        state.model.model._fsdp_wrapped_module = self.wrapped_kd_model_
+        if is_fsdp_model(state.model.model):
+            state.model.model._fsdp_wrapped_module = self.wrapped_kd_model_
+        else:
+            state.model.model = self.wrapped_kd_model_
 
         return True
 
     def on_finalize(self, state: State, **kwargs) -> bool:
-        state.model.model._fsdp_wrapped_module = self.wrapped_kd_model_.student_model
+        if is_fsdp_model(state.model.model):
+            state.model.model._fsdp_wrapped_module = self.wrapped_kd_model_.student_model
+        else:
+            state.model.model = self.wrapped_kd_model_.student_model
         for key, (student_wrapper, teacher_wrapper) in self.wrappers_.items():
             state.model.set_layer(key, student_wrapper.layer)
             state.teacher_model.set_layer(key, teacher_wrapper.layer)

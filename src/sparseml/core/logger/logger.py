@@ -624,8 +624,8 @@ class WANDBLogger(LambdaLogger):
         tag: Optional[str],
         value: Optional[float],
         values: Optional[Dict[str, float]],
-        step: Optional[int],
-        wall_time: Optional[float],
+        step: Optional[int] = None,
+        wall_time: Optional[float] = None,
         level: Optional[int] = None,
     ) -> bool:
         params = {}
@@ -638,7 +638,9 @@ class WANDBLogger(LambdaLogger):
                 values = {f"{tag}/{key}": val for key, val in values.items()}
             params.update(values)
 
-        # wandb.log(params, step=step)
+        if step is not None:
+            step = int(step)
+        wandb.log(params, step=step)
 
         return True
 
