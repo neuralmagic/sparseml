@@ -894,6 +894,8 @@ class TransformersTrainer(HFTransformersTrainer):
         if output_dir is None:
             output_dir = self.args.output_dir
 
+        # TODO: The forkless transformers dependency does not
+        # support ShardedDDPOption anymore. To be investigated.
         # if self.sharded_ddp == ShardedDDPOption.SIMPLE and self.optimizer is not None:
         #     self.optimizer.consolidate_state_dict()
 

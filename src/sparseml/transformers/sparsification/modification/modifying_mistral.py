@@ -17,7 +17,7 @@ Modification to the original Mistral model required in the
 context of SparseML
 """
 import math
-from typing import Any, Optional, Tuple
+from typing import Optional, Tuple
 
 import torch
 from torch import nn
@@ -30,7 +30,7 @@ from transformers.models.mistral.modeling_mistral import (
 from sparseml.transformers.sparsification.modification.modification_objects import (
     QuantizableIdentity,
     QuantizableMatMul,
-    recursive_setattr,
+    swap_modules,
 )
 from sparseml.transformers.sparsification.modification.registry import (
     ModificationRegistry,
@@ -38,17 +38,19 @@ from sparseml.transformers.sparsification.modification.registry import (
 
 
 @ModificationRegistry.register(name="MistralModel")
-def modify(model: Any) -> Any:
+def modify(model: torch.nn.Module) -> torch.nn.Module:
     """
     Modify the Mistral model to be compatible with SparseML
+
+    1. Replaces the MistralAttention modules with
+        MistralAttentionWithQuantizableMatmuls modules
+
     :param model: the original Mistral model
     :return: the modified Mistral model
     """
-    for name, module in model.named_modules():
-        if module.__class__.__name__ == "MistralAttention":
-            recursive_setattr(
-                model, name, MistralAttentionWithQuantizableMatmuls(module)
-            )
+    for name, submodule in model.named_modules():
+        if submodule.__class__.__name__ == "MistralAttention":
+            swap_modules(model, name, MistralAttentionWithQuantizableMatmuls(submodule))
     return model
 
 
@@ -69,13 +71,21 @@ class MatMulRightInput_PV(QuantizableIdentity):
 
 
 class MistralAttentionWithQuantizableMatmuls(MistralAttention):
-    def __init__(self, mistal_attention: MistralAttention):
+    """
+    Wrapper around the original MistralAttention module to replace the
+    matmul operations with quantizable matmul operations
+
+    :param mistral_attention: the original MistralAttention module
+
+    """
+
+    def __init__(self, mistral_attention: MistralAttention):
         self.__class__ = type(
-            mistal_attention.__class__.__name__,
-            (self.__class__, mistal_attention.__class__),
+            mistral_attention.__class__.__name__,
+            (self.__class__, mistral_attention.__class__),
             {},
         )
-        self.__dict__ = mistal_attention.__dict__
+        self.__dict__ = mistral_attention.__dict__
 
         self.attn_weights_matmul = QuantizableMatMul(
             MatMulLeftInput_QK, MatMulRightInput_QK
@@ -94,6 +104,12 @@ class MistralAttentionWithQuantizableMatmuls(MistralAttention):
         use_cache: bool = False,
         padding_mask: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
+        """
+        This function is almost entirely ported from the
+        original MistralAttention module
+        (transformers.models.mistral.modeling_mistral.py::MistralAttention.forward(...)) # noqa: E501
+        with the exception of the annotated lines below
+        """
         bsz, q_len, _ = hidden_states.size()
 
         query_states = self.q_proj(hidden_states)
@@ -129,20 +145,21 @@ class MistralAttentionWithQuantizableMatmuls(MistralAttention):
         key_states = repeat_kv(key_states, self.num_key_value_groups)
         value_states = repeat_kv(value_states, self.num_key_value_groups)
 
+        # ==== SparseML MODIFICATION ====
         attn_weights = self.attn_weights_matmul(
             query_states, key_states.transpose(2, 3)
         ) / math.sqrt(self.head_dim)
-
+        # ======================
         if attn_weights.size() != (bsz, self.num_heads, q_len, kv_seq_len):
             raise ValueError(
-                f"Attention weights should be of size {(bsz, self.num_heads, q_len, kv_seq_len)}, but is"
+                f"Attention weights should be of size {(bsz, self.num_heads, q_len, kv_seq_len)}, but is"  # noqa: E501
                 f" {attn_weights.size()}"
             )
 
         if attention_mask is not None:
             if attention_mask.size() != (bsz, 1, q_len, kv_seq_len):
                 raise ValueError(
-                    f"Attention mask should be of size {(bsz, 1, q_len, kv_seq_len)}, but is {attention_mask.size()}"
+                    f"Attention mask should be of size {(bsz, 1, q_len, kv_seq_len)}, but is {attention_mask.size()}"  # noqa: E501
                 )
 
             attn_weights = attn_weights + attention_mask
@@ -151,11 +168,12 @@ class MistralAttentionWithQuantizableMatmuls(MistralAttention):
         attn_weights = nn.functional.softmax(
             attn_weights, dim=-1, dtype=torch.float32
         ).to(query_states.dtype)
+        # ==== SparseML MODIFICATION ====
         attn_output = self.attn_output_matmul(attn_weights, value_states)
-
+        # ======================
         if attn_output.size() != (bsz, self.num_heads, q_len, self.head_dim):
             raise ValueError(
-                f"`attn_output` should be of size {(bsz, self.num_heads, q_len, self.head_dim)}, but is"
+                f"`attn_output` should be of size {(bsz, self.num_heads, q_len, self.head_dim)}, but is"  # noqa: E501
                 f" {attn_output.size()}"
             )
 

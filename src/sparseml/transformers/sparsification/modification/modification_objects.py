@@ -16,52 +16,67 @@
 Set of helper objects that are used to modify
 the HuggingFace transformer models
 """
-from typing import Any
 
 import torch
 
 
-__all__ = ["QuantizableIdentity", "QuantizableMatMul"]
-
-# def swap_submodule(module: Any, current_submodule, new_submodule):
-#     """
-#     Swap a submodule in a module with a new submodule
-#
-#     :param module: the module to swap the submodule in
-#     :param current_submodule: the submodule to swap out
-#     :param new_submodule: the new submodule to swap in
-#     :return: the module with the swapped submodule
-#     """
-#     pass
-# #
-# def replace_layer(module):
-#     if isinstance(module, nn.Dropout):
-#         return nn.Dropout(0)
-#     elif isinstance(module, nn.Linear):
-#         target_state_dict = deepcopy(module.state_dict())
-#         bias = True if module.bias is not None else False
-#         new_module = MixLinear(
-#             module.in_features,
-#             module.out_features,
-#             bias,
-#             target_state_dict['weight'],
-#             0.9
-#         )
-#         new_module.load_state_dict(target_state_dict)
-#         return new_module
-#     else:
-#         return module
+__all__ = ["QuantizableIdentity", "QuantizableMatMul", "swap_modules"]
 
 
-def recursive_setattr(obj, attr, value):
-    attr = attr.split(".", 1)
-    if len(attr) == 1:
-        setattr(obj, attr[0], value)
+def swap_modules(
+    module: torch.nn.Module, submodule_name: str, submodule_to_replace: torch.nn.Module
+):
+    """
+    Recursively unfold the submodules of the module according to the submodule_name
+    to eventually replace the leaf submodule (accessed from the module through the
+    submodule_name) with the submodule_to_replace.
+
+    E.g
+    ```
+    swap_modules(module=Model,
+                 module_name="layers.0.sublayer",
+                 module_to_replace=ReplaceModule
+                 )
+    ```
+    this will recursively call:
+    1. SomeModule1 = getattr(Model, "layers")
+    2. SomeModule2 = getattr(SomeModule1, "0")
+
+    finally will swap the leaf submodule with the submodule_to_replace
+    ```
+    (submodule_name = "sublayer")
+    setattr(SomeModule2 , submodule_name, ReplaceModule)
+    ```
+    this will essentially replace SomeModule2.sublayer with ReplaceModule
+
+    :param module: the module to replace with the module_to_replace
+    :param submodule_name: the name of the module to replace
+    :param submodule_to_replace: the module to replace the module with
+    """
+    if not isinstance(module, torch.nn.Module):
+        raise ValueError(f"module {module} is not a torch.nn.Module")
+    if not isinstance(submodule_to_replace, torch.nn.Module):
+        raise ValueError(
+            f"submodule_to_replace {submodule_name} is not a torch.nn.Module"
+        )
+
+    attribute_name = submodule_name
+    attribute_name = attribute_name.split(".", 1)
+    if len(attribute_name) == 1:
+        setattr(module, attribute_name[0], submodule_to_replace)
     else:
-        recursive_setattr(getattr(obj, attr[0]), attr[1], value)
+        swap_modules(
+            getattr(module, attribute_name[0]), attribute_name[1], submodule_to_replace
+        )
 
 
 class QuantizableIdentity(torch.nn.Module):
+    """
+    Identity model that is introduced to be used
+    together with QuantizableMatMul to allow for
+    SparseML quantization scheme
+    """
+
     def forward(self, x):
         return x
 

@@ -34,32 +34,45 @@ def test_modifying_mistral(mistral_model):
         modify,
     )
 
+    # keep the original model for comparison
     mistral_ = deepcopy(mistral_model)
     mistral = modify_model(mistral_model)
 
+    # check how many modified "MistralAttention" modules are in the original
+    # model (should be 0, as the model is not modified yet)
     modified_modules_original_model = [
         module
         for module in mistral_.modules()
-        if hasattr(module, "attn_output_matmul")
+        if _is_mistral_attention_modified(module)
         and module.__class__.__name__ == "MistralAttention"
     ]
+    # check how many modified "MistralAttention" modules are in the modified
+    # model (should be 32, as the model is modified, and has 32 attention blocks)
     modified_modules_modified_model = [
         module
         for module in mistral.modules()
-        if hasattr(module, "attn_output_matmul")
+        if _is_mistral_attention_modified(module)
         and module.__class__.__name__ == "MistralAttention"
     ]
-
+    # check how many original "MistralAttention"
+    # modules are in the original
+    # model (should be 32, as the model is
+    # not modified yet, and has 32 attention blocks)
     original_modules_original_model = [
         module
         for module in mistral_.modules()
-        if not hasattr(module, "attn_output_matmul")
+        if not _is_mistral_attention_modified(module)
         and module.__class__.__name__ == "MistralAttention"
     ]
+    # check how many original "MistralAttention"
+    # modules are in the modified
+    # model (should be 0, as the model is
+    # modified, and should not contain any original
+    # "MistralAttention" modules)
     original_modules_modified_model = [
         module
         for module in mistral.modules()
-        if not hasattr(module, "attn_output_matmul")
+        if not _is_mistral_attention_modified(module)
         and module.__class__.__name__ == "MistralAttention"
     ]
 
@@ -73,3 +86,9 @@ def test_modifying_mistral(mistral_model):
         == len(original_modules_original_model)
         == 32
     )
+
+
+def _is_mistral_attention_modified(module):
+    # only the modified "MistralAttention"
+    # modules have the "attn_output_matmul" attribute
+    return hasattr(module, "attn_output_matmul")
