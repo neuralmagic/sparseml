@@ -22,7 +22,7 @@ import pytest
 import torch
 
 from huggingface_hub import snapshot_download
-from sparseml.export.export import export
+from sparseml import export
 
 
 @pytest.mark.parametrize(
