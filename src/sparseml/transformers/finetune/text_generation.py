@@ -25,10 +25,8 @@ import datasets
 import transformers
 from transformers import (
     AutoConfig,
-    AutoTokenizer,
-    DataCollatorWithPadding,
+    DataCollatorForLanguageModeling,
     HfArgumentParser,
-    default_data_collator,
     set_seed,
 )
 
@@ -39,6 +37,7 @@ from sparseml.pytorch.model_load.helpers import (
     get_session_model,
     parse_dtype,
 )
+from sparseml.transformers import SparseAutoTokenizer
 from sparseml.transformers.finetune import Trainer, TrainingArguments
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
 from sparseml.transformers.finetune.model_args import ModelArguments
@@ -209,6 +208,8 @@ def main(
     if not fsdp_enabled and training_args.do_oneshot:
         device_map = training_args.oneshot_device
         _LOGGER.warning(f"Moving {model_path} to device {device_map} for One-Shot")
+    elif not fsdp_enabled:
+        device_map = "auto"
     model_kwargs = {
         "config": config,
         "cache_dir": model_args.cache_dir,
@@ -217,12 +218,13 @@ def main(
         "torch_dtype": parse_dtype(model_args.precision),
         "device_map": device_map,
     }
+    teacher_device_map = None if fsdp_enabled else "auto"
     teacher_kwargs = {
         "config": teacher_config,
         "cache_dir": model_args.cache_dir,
         "use_auth_token": True if model_args.use_auth_token else None,
         "torch_dtype": parse_dtype(model_args.precision),
-        "device_map": "auto",  # spread teacher across GPUs, used for inference only
+        "device_map": teacher_device_map,
     }
     # this calls from_pretrained under the hood so should be FSDP safe
     model = SparseAutoModel.text_generation_from_pretrained(
@@ -240,6 +242,8 @@ def main(
         if training_args.distill_teacher is not None
         else None
     )
+    if teacher is not None:
+        teacher.eval()
 
     # initialize structure of input model from recipe if needed
     recipe_path = os.path.join(model_path, "recipe.yaml")
@@ -261,7 +265,7 @@ def main(
         if model_args.tokenizer_name
         else get_shared_tokenizer_src(model, teacher)
     )
-    tokenizer = AutoTokenizer.from_pretrained(
+    tokenizer = SparseAutoTokenizer.from_pretrained(
         tokenizer_src,
         cache_dir=model_args.cache_dir,
         use_fast=True,
@@ -281,16 +285,8 @@ def main(
     eval_dataset = stage_runner.get_dataset_split("validation")
     calib_dataset = stage_runner.get_dataset_split("calibration")
 
-    # Data collator will default to DataCollatorWithPadding when the tokenizer is
-    # passed to Trainer, so we change it if we already did the padding.
-    if data_args.pad_to_max_length:
-        data_collator = default_data_collator
-    elif training_args.fp16:
-        data_collator = DataCollatorWithPadding(tokenizer, pad_to_multiple_of=8)
-    else:
-        data_collator = None
-
     # Initialize our Trainer
+    data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
     trainer = Trainer(
         model_init=get_session_model,
         teacher=teacher,

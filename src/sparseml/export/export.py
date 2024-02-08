@@ -70,23 +70,14 @@ from typing import Any, List, Optional, Union
 import numpy
 
 import click
-from sparseml.export.export_data import export_data_samples
 from sparseml.export.helpers import (
     AVAILABLE_DEPLOYMENT_TARGETS,
     ONNX_MODEL_NAME,
     create_deployment_folder,
     create_export_kwargs,
-    format_source_path,
+    process_source_path,
     save_model_with_external_data,
 )
-from sparseml.export.validators import validate_correctness as validate_correctness_
-from sparseml.export.validators import validate_structure as validate_structure_
-from sparseml.integration_helper_functions import (
-    IntegrationHelperFunctions,
-    resolve_integration,
-)
-from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
-from sparseml.pytorch.utils.helpers import default_device
 from sparseml.utils.helpers import parse_kwarg_tuples
 from sparsezoo.utils.numpy import load_numpy
 
@@ -99,7 +90,7 @@ def export(
     target_path: Union[Path, str, None] = None,
     onnx_model_name: str = ONNX_MODEL_NAME,
     deployment_target: str = "deepsparse",
-    opset: int = TORCH_DEFAULT_ONNX_OPSET,
+    opset: Optional[int] = None,
     save_with_external_data: bool = False,
     external_data_chunk_size_mb: Optional[int] = None,
     num_export_samples: int = 0,
@@ -175,7 +166,18 @@ def export(
     :param task: Optional task to use for exporting the model.
         Defaults to None.
     """
-    source_path = format_source_path(source_path)
+    from sparseml.export.export_data import export_data_samples
+    from sparseml.export.validators import validate_correctness as validate_correctness_
+    from sparseml.export.validators import validate_structure as validate_structure_
+    from sparseml.integration_helper_functions import (
+        IntegrationHelperFunctions,
+        resolve_integration,
+    )
+    from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
+    from sparseml.pytorch.utils.helpers import default_device
+
+    opset = opset or TORCH_DEFAULT_ONNX_OPSET
+    source_path = process_source_path(source_path)
     if target_path is None:
         target_path = source_path
     # create the target path if it doesn't exist
@@ -356,8 +358,8 @@ def export(
 @click.option(
     "--opset",
     type=int,
-    default=TORCH_DEFAULT_ONNX_OPSET,
-    help=f"Onnx opset to export to, default: {TORCH_DEFAULT_ONNX_OPSET}",
+    default=None,
+    help="Onnx opset to export to, defaults to default torch opset",
 )
 @click.option(
     "--save_with_external_data",
@@ -442,7 +444,7 @@ def main(
     target_path: str,
     onnx_model_name: str = ONNX_MODEL_NAME,
     deployment_target: str = "deepsparse",
-    opset: int = TORCH_DEFAULT_ONNX_OPSET,
+    opset: Optional[int] = None,
     save_with_external_data: bool = False,
     external_data_chunk_size_mb: Optional[int] = None,
     num_export_samples: int = 0,
@@ -498,3 +500,7 @@ def _parse_sample_data(
         raise NotImplementedError(
             "Only numpy files (.npy) are supported for sample_data"
         )
+
+
+if __name__ == "__main__":
+    main()

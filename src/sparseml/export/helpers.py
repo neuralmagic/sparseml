@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, OrderedDict, Union
 
 from sparseml.exporters import ExportTargets
+from sparsezoo import Model
 from sparsezoo.utils.onnx import load_model, onnx_includes_external_data, save_onnx
 
 
@@ -31,7 +32,7 @@ __all__ = [
     "ONNX_MODEL_NAME",
     "create_export_kwargs",
     "save_model_with_external_data",
-    "format_source_path",
+    "process_source_path",
     "onnx_data_files",
 ]
 
@@ -42,11 +43,17 @@ ONNX_DATA_NAME = "model.data"
 _LOGGER = logging.getLogger(__name__)
 
 
-def format_source_path(source_path: Union[Path, str]) -> str:
+def process_source_path(source_path: Union[Path, str]) -> str:
     """
-    Format the source path to be an absolute posix path
+    Format the source path to be an absolute posix path.
+    If the source path is a zoo stub, return the path to
+    the training directory
     """
     if isinstance(source_path, str):
+        if source_path.startswith("zoo:"):
+            source_path = Model(source_path).training.path
+
+            return source_path
         source_path = Path(source_path)
     source_path = source_path.absolute()
     if not source_path.is_dir():

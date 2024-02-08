@@ -23,11 +23,12 @@ from pathlib import Path
 from typing import Any, Optional, Union
 
 import torch
-from transformers import AutoConfig, AutoModel, AutoTokenizer, TrainingArguments
+from transformers import AutoConfig, AutoModel, TrainingArguments
 
 from sparseml.optim import parse_recipe_variables
+from sparseml.transformers import SparseAutoTokenizer
 from sparseml.transformers.sparsification import Trainer
-from sparseml.transformers.utils.helpers import RECIPE_NAME, TaskNames
+from sparseml.transformers.utils.helpers import TaskNames
 from sparseml.transformers.utils.load_task_model import load_task_model
 
 
@@ -63,7 +64,7 @@ def initialize_config(
 
 def initialize_tokenizer(
     model_path: Union[str, Path], sequence_length: int, task: str, **tokenizer_args
-) -> AutoTokenizer:
+) -> SparseAutoTokenizer:
     """
     Initialize a tokenizer from a given path
 
@@ -73,7 +74,7 @@ def initialize_tokenizer(
     :return: the loaded tokenizer
     """
 
-    tokenizer = AutoTokenizer.from_pretrained(
+    tokenizer = SparseAutoTokenizer.from_pretrained(
         model_path, model_max_length=sequence_length, **tokenizer_args
     )
     if task in TaskNames.text_generation.value:
@@ -94,13 +95,10 @@ def initialize_sparse_model(
     **model_kwargs,
 ) -> AutoModel:
     """
-    Initialize a sparse model from a given path. This will:
-    1. Load the dense model from the given path, given
-       the task name, config and model_kwargs
-    2.(Optional) Apply the recipe to the model.
-      If no recipe is given, will look for a recipe
-      in the model_path
-    3 (Optional) Move the model to the specified device
+    Initialize a sparse model from a given path. This will
+    call the load_task_model function to load an appropriate
+    SparseAutoModel for the given task.
+    Optionally, we will also move the model to the specified device
 
     Example usage:
     ```python
@@ -123,12 +121,10 @@ def initialize_sparse_model(
     :param config: the config to use for the model
     :param trust_remote_code: True to trust remote code when loading the model,
         False otherwise
-    :param recipe: the recipe to apply to the model. If None, will look for a recipe
-        in the model_path
+    :param recipe: the recipe to apply to the model.
     :param device: the device to load the model on. If None, will load on CPU
     :return: the loaded model
     """
-    recipe = resolve_recipe_application(recipe, model_path)
 
     model = load_task_model(
         task=task,
@@ -199,95 +195,6 @@ def initialize_trainer(
         _LOGGER.info(f"Applied {msg} to the model at {model_path}")
 
     return trainer
-
-
-def resolve_recipe_application(
-    recipe: Union[str, Path, None], model_path: Union[str, Path]
-) -> Union[str, Path, None]:
-    """
-    Resolve the recipe to apply to the model.
-    :param recipe: the recipe to apply to the model.
-        It can be one of the following:
-        - None (no recipe will be applied or the
-            default recipe will be applied if exists. Default recipe
-            is assumed to be stored in the model_path and named RECIPE_NAME)
-        - a path to the recipe file
-        - name of the recipe file (e.g. "recipe.yaml")
-            (assumed to be stored in the model_path instead
-            of RECIPE_NAME)
-        - a string containing the recipe
-    :param model_path: the path to the model to load
-    :return: the resolved recipe
-    """
-
-    if recipe is None:
-        # if recipe is None -> still look for recipe.yaml in the model_path
-        recipe = os.path.join(model_path, RECIPE_NAME)
-        if os.path.isfile(recipe):
-            return recipe
-
-    elif os.path.isfile(recipe):
-        # recipe is a path to a recipe file
-        return _resolve_recipe_file(recipe, model_path)
-
-    elif os.path.isfile(os.path.join(model_path, recipe)):
-        # recipe is a name of a recipe file
-        recipe = os.path.join(model_path, recipe)
-        return _resolve_recipe_file(recipe, model_path)
-    elif isinstance(recipe, str):
-        # recipe is a string containing the recipe
-        _LOGGER.debug(
-            "Applying the recipe string directly to the model, without "
-            "checking for a potential existing recipe in the model_path."
-        )
-        return recipe
-
-    _LOGGER.info(
-        "No recipe requested and no default recipe "
-        f"found in {model_path}. Skipping recipe application."
-    )
-    return None
-
-
-def _resolve_recipe_file(
-    requested_recipe: Union[str, Path], model_path: Union[str, Path]
-) -> Union[str, Path, None]:
-    default_recipe = os.path.join(model_path, RECIPE_NAME)
-    default_recipe_exists = os.path.isfile(default_recipe)
-    default_and_request_recipes_identical = default_recipe == requested_recipe
-
-    if (
-        default_recipe_exists
-        and requested_recipe
-        and not default_and_request_recipes_identical
-    ):
-        _LOGGER.warning(
-            f"Attempting to apply {requested_recipe} "
-            f"to the model located in {model_path}, "
-            f"but the model already has a recipe stored in {default_recipe}. "
-            f"Using {requested_recipe} instead."
-        )
-        return requested_recipe
-
-    elif (
-        not default_recipe_exists
-        and requested_recipe
-        and not default_and_request_recipes_identical
-    ):
-        _LOGGER.warning(
-            f"Attempting to apply {requested_recipe} "
-            f"to the model located in {model_path}."
-            "However, it is expected that the model "
-            f"has it's target recipe stored as {default_recipe}."
-            "Applying any recipe before the target recipe may "
-            "result in unexpected behavior."
-            f"Applying {requested_recipe} nevertheless."
-        )
-        return requested_recipe
-
-    elif default_recipe_exists:
-        _LOGGER.info(f"Applying the default recipe: {default_recipe}")
-        return default_recipe
 
 
 def _parse_data_args(data_args):

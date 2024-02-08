@@ -65,7 +65,7 @@ class TextGenerationDataset(RegistryMixin):
         else:
             self.padding = False
 
-        if self.padding and self.tokenizer:
+        if self.tokenizer:
             if not self.tokenizer.pad_token:
                 self.tokenizer.pad_token = self.tokenizer.eos_token
 
