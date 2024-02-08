@@ -12,10 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional, Set, Dict, Any
+from typing import Any, Dict, Optional, Set
 
 import torch
 from torch.nn import Module
+
 
 __all__ = ["KDModelWrapper"]
 
@@ -62,7 +63,7 @@ class KDModelWrapper(Module):
             comp = self.kd_comparison(student_out, teacher_out.to(student_out.device))
             layerwise_comps.append(comp)
 
-        self.kd_last_comparison = sum(layerwise_comps)
+        self.kd_last_comparison = torch.stack(layerwise_comps).mean()
 
         return org_output
 
@@ -113,7 +114,7 @@ class KDModelWrapper(Module):
         return self.student_model.named_modules(
             memo=memo, prefix=prefix, remove_duplicate=remove_duplicate
         )
-    
+
     def __getattr__(self, name: str) -> Any:
         try:
             return super().__getattr__(name)

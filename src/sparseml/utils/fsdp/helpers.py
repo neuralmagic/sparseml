@@ -22,6 +22,7 @@ except ImportError:
     FullyShardedDataParallel = None
 
 from torch.nn import Module
+
 from sparseml.core.model import ModifiableModel
 from sparseml.pytorch.model_load.helpers import save_model_and_recipe
 from sparseml.utils.pytorch import set_layer
@@ -31,7 +32,7 @@ __all__ = [
     "is_fsdp_model",
     "maybe_get_wrapped",
     "unwrap_and_export_model",
-    "save_pretrained_fsdp"
+    "save_pretrained_fsdp",
 ]
 
 
@@ -47,9 +48,10 @@ def is_fsdp_model(model: Module) -> bool:
 
     return isinstance(model, FullyShardedDataParallel)
 
+
 def maybe_get_wrapped(model: ModifiableModel) -> Module:
     """
-    Given a model that may or may not have a distributed wrapper, return the underlying 
+    Given a model that may or may not have a distributed wrapper, return the underlying
     wrapped model.
 
     :param model: input model to get wrapped model from
@@ -59,9 +61,10 @@ def maybe_get_wrapped(model: ModifiableModel) -> Module:
         return model.model._fsdp_wrapped_module
     return model.model
 
+
 def set_wrapped_model(model: ModifiableModel, wrapped_model: Module):
     """
-    Given a model that may or may not have a distributed wrapper, set the underlying 
+    Given a model that may or may not have a distributed wrapper, set the underlying
     wrapped model.
 
     :param input_model: input model to be updated
@@ -70,6 +73,7 @@ def set_wrapped_model(model: ModifiableModel, wrapped_model: Module):
     if is_fsdp_model(model.model):
         model.model._fsdp_wrapped_module = wrapped_model
     model.model = wrapped_model
+
 
 def unwrap_and_export_model(model, accelerator, output_dir, tokenizer):
     """

@@ -13,12 +13,17 @@
 # limitations under the License.
 
 from typing import Any, Dict
-import logging
+
 from torch.nn import Module
-from sparseml.utils.fsdp.helpers import maybe_get_wrapped, is_fsdp_model
+
 from sparseml.core import Event, EventType, State
 from sparseml.modifiers.distillation.output.base import OutputDistillationModifier
-from sparseml.modifiers.distillation.utils.pytorch import KDFactory, KDModuleWrapper, KDModelWrapper
+from sparseml.modifiers.distillation.utils.pytorch import (
+    KDFactory,
+    KDModelWrapper,
+    KDModuleWrapper,
+)
+from sparseml.utils.fsdp.helpers import is_fsdp_model, maybe_get_wrapped
 
 
 __all__ = ["OutputDistillationModifierPyTorch"]
@@ -44,7 +49,7 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
         hidden_size = (
             kwargs["batch_size"],
             kwargs["max_seq_length"],
-            state.model.model.config.hidden_size
+            state.model.model.config.hidden_size,
         )
 
         for target in (
@@ -69,8 +74,12 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
             for (key, student_layer), teacher_layer in zip(
                 model_layers.items(), teacher_layers.values()
             ):
-                student_wrapper = self._create_layer_wrapper(student_layer, hidden_size, state)
-                teacher_wrapper = self._create_layer_wrapper(teacher_layer, hidden_size, state)
+                student_wrapper = self._create_layer_wrapper(
+                    student_layer, hidden_size, state
+                )
+                teacher_wrapper = self._create_layer_wrapper(
+                    teacher_layer, hidden_size, state
+                )
                 state.model.set_layer(key, student_wrapper)
                 state.teacher_model.set_layer(key, teacher_wrapper)
                 self.wrappers_[key] = (student_wrapper, teacher_wrapper)
@@ -78,18 +87,23 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
             self.wrapped_kd_model_ = self._create_model_wrapper(
                 student_model=maybe_get_wrapped(state.model),
                 teacher_model=state.teacher_model.model,
-                state=state
+                state=state,
             )
         if is_fsdp_model(state.model.model):
             state.model.model._fsdp_wrapped_module = self.wrapped_kd_model_
         else:
             state.model.model = self.wrapped_kd_model_
 
+        num_layers = len(self.wrappers_)
+        if self.comparison == "square_head" and self.distill_scale == 1.0:
+            self.distill_scale = float(num_layers)
         return True
 
     def on_finalize(self, state: State, **kwargs) -> bool:
         if is_fsdp_model(state.model.model):
-            state.model.model._fsdp_wrapped_module = self.wrapped_kd_model_.student_model
+            state.model.model._fsdp_wrapped_module = (
+                self.wrapped_kd_model_.student_model
+            )
         else:
             state.model.model = self.wrapped_kd_model_.student_model
         for key, (student_wrapper, teacher_wrapper) in self.wrappers_.items():
@@ -112,12 +126,11 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
             self.start, self.end, self.update
         ):
             distill_loss = self.wrapped_kd_model_.kd_last_comparison
-            model_loss = kwargs["loss"]
-            distill_loss = distill_loss.to(model_loss.device)
-            state.loss = (
-                self.orig_scale * model_loss  # model output loss
-                + self.distill_scale * distill_loss # distill loss
-            )
+            model_loss = self.orig_scale * kwargs["loss"]
+            distill_loss = self.distill_scale * distill_loss.to(model_loss.device)
+            state.loss = model_loss + distill_loss
+            # state.loggers.log_scalar("model__loss", model_loss, level=logging.INFO)
+            # state.loggers.log_scalar("kd_loss", distill_loss, level=logging.INFO)
 
     def on_end(self, state: State, event: Event, **kwargs):
         for (student_wrapper, teacher_wrapper) in self.wrappers_.values():
@@ -133,7 +146,7 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
             student_model,
             teacher_model,
             state,
-            **(self.comparison_args or {})
+            **(self.comparison_args or {}),
         )
 
         return KDModelWrapper(

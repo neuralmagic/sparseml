@@ -19,6 +19,7 @@ from torch.nn import Module
 
 from sparseml.modifiers.distillation.utils.pytorch.kd_factory import TransformFuncType
 
+
 __all__ = ["KDModuleWrapper"]
 
 
@@ -30,7 +31,7 @@ class KDModuleWrapper(Module):
         layer: Module,
         hidden_size: Tuple,
         transforms: Optional[List[TransformFuncType]],
-        fsdp_active: bool
+        fsdp_active: bool,
     ):
         super(KDModuleWrapper, self).__init__()
 
@@ -51,9 +52,7 @@ class KDModuleWrapper(Module):
             return self.layer(*args, **kwargs)
 
         org_output = self.layer(*args, **kwargs)
-        output = (
-            org_output if isinstance(org_output, torch.Tensor) else org_output[0]
-        )
+        output = org_output if isinstance(org_output, torch.Tensor) else org_output[0]
 
         if self.kd_transforms is not None:
             for transform in self.kd_transforms:

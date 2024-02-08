@@ -26,10 +26,13 @@ from transformers.trainer_callback import TrainerState
 from transformers.trainer_utils import get_last_checkpoint
 
 import sparseml.core.session as session_manager
-from sparseml.pytorch.model_load.helpers import get_session_model
 from sparseml.core.framework import Framework
 from sparseml.core.session import callbacks
-from sparseml.pytorch.model_load.helpers import RECIPE_FILE_NAME, reload_model_state
+from sparseml.pytorch.model_load.helpers import (
+    RECIPE_FILE_NAME,
+    get_session_model,
+    reload_model_state,
+)
 from sparseml.pytorch.utils import LoggerManager, ModuleSparsificationInfo
 from sparseml.transformers.finetune.callbacks import (
     DisableHalfPrecisionCallback,
@@ -146,8 +149,8 @@ class SessionManagerMixIn:
                 start=epoch,
                 copy_data=False,
                 fsdp_active=self.is_fsdp_enabled,
-                batch_size = self.metadata['per_device_train_batch_size'],
-                max_seq_length = self.metadata['max_seq_length']
+                batch_size=self.metadata["per_device_train_batch_size"],
+                max_seq_length=self.metadata["max_seq_length"],
             )
         self.accelerator.wait_for_everyone()
         model = get_session_model()
