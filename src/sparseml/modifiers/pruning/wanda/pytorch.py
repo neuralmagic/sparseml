@@ -62,12 +62,12 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
         modifiable_model = state.model
         calibration_dataloader = state.data.calib
 
-        self.initialize_compression(modifiable_model)
+        self.initialize_compression(modifiable_model, calibration_dataloader)
         self.apply_compression(calibration_dataloader)
 
         return True
 
-    def initialize_compression(self, model: ModifiableModel):
+    def initialize_compression(self, model: ModifiableModel, dataloader: Optional[Iterable[Tuple[List, Dict[str, Any]]]] = None):
         """
         Setup for WANDA, initializes the model, device,
         and other parameters, also initilializes the
@@ -80,8 +80,9 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
         self.model = self.model.model
         self.layer_compressors_ = []
         self._infer_mask_block_size()
+        import pdb; pdb.set_trace()
         if self.sparsity_profile is not None and self.sparsity_profile.lower() == "owl":
-            self.sparsity = self._infer_layer_sparsity(dataloader, device)
+            self.sparsity = self._infer_layer_sparsity(dataloader)
         self._validate_layerwise_sparsity()
 
         for idx, (name, layer) in enumerate(self.compressible_layers_.items()):
@@ -178,8 +179,8 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
         self.prunen_, self.prunem_ = list(map(int, self.mask_structure.split(":")))
 
     def _infer_layer_sparsity(self, calibration_dataloader, dev):
-        prev_dev = self.model.device
-        self.model.to(dev)
+        # prev_dev = self.model.device
+        # self.model.to(dev)
         acts = _get_activations(self.model, calibration_dataloader)
         wanda = []
         names = []
@@ -201,7 +202,7 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
         acts = None
         del acts
         del wanda
-        self.model.to(prev_dev)
+        #self.model.to(prev_dev)
         torch.cuda.empty_cache()
 
         outlier_ratios = []
@@ -248,9 +249,9 @@ def _get_activations(model, data_loader, nsamples=128):
             hooks.append(
                 mod.register_forward_pre_hook(functools.partial(save_acts, name=name))
             )
-    device = next(model.parameters()).device
+    #device = next(model.parameters()).device
     for batch in data_loader:
-        batch = batch.to(device)
+        #batch = batch.to(device)
         model(batch)
 
     for h in hooks:
