@@ -149,8 +149,7 @@ class SessionManagerMixIn:
                 start=epoch,
                 copy_data=False,
                 fsdp_active=self.is_fsdp_enabled,
-                batch_size=self.metadata["per_device_train_batch_size"],
-                max_seq_length=self.metadata["max_seq_length"],
+                metadata=self.metadata,
             )
         self.accelerator.wait_for_everyone()
         model = get_session_model()
