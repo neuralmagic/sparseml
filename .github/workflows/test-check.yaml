@@ -83,6 +83,10 @@ jobs:
           repository: "neuralmagic/sparsezoo"
           path: "sparsezoo"
           ref: ${{needs.test-setup.outputs.branch}}
+      - name: "Installing from commit"
+        run: cd sparsezoo && \
+            git rev-parse HEAD && \
+            cd ..
       - name: "⚙️ Install sparsezoo dependencies"
         run: pip3 install -U pip && pip3 install setuptools sparsezoo/
       - name: "Clean sparsezoo directory"
