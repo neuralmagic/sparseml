@@ -84,8 +84,10 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
                 )
                 self.wrappers_[key] = (student_wrapper, teacher_wrapper)
 
-            with summon_full_params_context(state.teacher_model, offload_to_cpu=True):
-                for key, (student_layer, teacher_layer) in self.wrappers_:
+            with summon_full_params_context(
+                state.teacher_model.model, offload_to_cpu=True
+            ):
+                for key, (student_wrapper, teacher_wrapper) in self.wrappers_.items():
                     state.model.set_layer(key, student_wrapper)
                     state.teacher_model.set_layer(key, teacher_wrapper)
 
@@ -115,6 +117,7 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
             )
         else:
             state.model.model = self.wrapped_kd_model_.student_model
+
         for key, (student_wrapper, teacher_wrapper) in self.wrappers_.items():
             state.model.set_layer(key, student_wrapper.layer)
             state.teacher_model.set_layer(key, teacher_wrapper.layer)

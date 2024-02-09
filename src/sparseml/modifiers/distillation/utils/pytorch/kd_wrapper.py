@@ -58,7 +58,7 @@ class KDModuleWrapper(Module):
             for transform in self.kd_transforms:
                 output = transform(output)
 
-        self.setattr(self, self.KD_TRANSFORMED_BUFFER, output)
+        setattr(self, self.KD_TRANSFORMED_BUFFER, output)
         return org_output
 
     def state_dict(self, destination=None, prefix="", keep_vars=False, **kwargs):

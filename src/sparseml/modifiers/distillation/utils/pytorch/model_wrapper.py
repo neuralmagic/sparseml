@@ -57,15 +57,16 @@ class KDModelWrapper(Module):
             self.teacher_model(*args, **kwargs)
 
         layerwise_comps = []
+        comp_device = getattr(self, self.KD_LAST_COMPARISON).device
         for key, (student_wrapper, teacher_wrapper) in self.wrappers.items():
             student_out = student_wrapper.kd_last_transformed
             teacher_out = teacher_wrapper.kd_last_transformed
             teacher_device = teacher_out.device
             comp = self.kd_comparison(student_out, teacher_out.to(student_out.device))
-            layerwise_comps.append(comp)
+            layerwise_comps.append(comp.to(comp_device))
             teacher_out.to(teacher_device)
 
-        self.setattr(self, self.KD_LAST_COMPARISON, torch.stack(layerwise_comps).mean())
+        setattr(self, self.KD_LAST_COMPARISON, torch.stack(layerwise_comps).mean())
 
         return org_output
 
