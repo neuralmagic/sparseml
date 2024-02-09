@@ -67,7 +67,11 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
 
         return True
 
-    def initialize_compression(self, model: ModifiableModel, dataloader: Optional[Iterable[Tuple[List, Dict[str, Any]]]] = None):
+    def initialize_compression(
+        self,
+        model: ModifiableModel,
+        dataloader: Optional[Iterable[Tuple[List, Dict[str, Any]]]] = None,
+    ):
         """
         Setup for WANDA, initializes the model, device,
         and other parameters, also initilializes the
@@ -80,7 +84,6 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
         self.model = self.model.model
         self.layer_compressors_ = []
         self._infer_mask_block_size()
-        import pdb; pdb.set_trace()
         if self.sparsity_profile is not None and self.sparsity_profile.lower() == "owl":
             self.sparsity = self._infer_layer_sparsity(dataloader)
         self._validate_layerwise_sparsity()
@@ -178,22 +181,24 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
 
         self.prunen_, self.prunem_ = list(map(int, self.mask_structure.split(":")))
 
-    def _infer_layer_sparsity(self, calibration_dataloader, dev):
-        # prev_dev = self.model.device
-        # self.model.to(dev)
+    def _infer_layer_sparsity(self, calibration_dataloader):
         acts = _get_activations(self.model, calibration_dataloader)
         wanda = []
         names = []
         num_w_perlayer = 0
         for n, m in self.model.named_modules():
             if isinstance(m, torch.nn.Linear) and "lm_head" not in n:
-                print(f"[DEBUG] owl considering = {n} with shape = {m.weight.shape}")
+                _LOGGER.debug(
+                    f"[DEBUG] owl considering = {n} with shape = {m.weight.shape}"
+                )
                 if "layers.1." in n:
                     num_w_perlayer += 1
                 wanda.append(m.weight.abs() * acts[n].unsqueeze(0))
-                print(f"wanda score shape = {wanda[-1].shape}")
+                _LOGGER.debug(f"wanda score shape = {wanda[-1].shape}")
                 names.append(n)
-        print(f"[DEBUG] there is {num_w_perlayer} Linear weight matrices per layer")
+        _LOGGER.debug(
+            f"[DEBUG] there is {num_w_perlayer} Linear weight matrices per layer"
+        )
         perlayer_wanda = [
             torch.cat([item.flatten().cpu() for item in wanda[i : i + num_w_perlayer]])
             for i in range(0, len(wanda), num_w_perlayer)
@@ -202,7 +207,6 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
         acts = None
         del acts
         del wanda
-        #self.model.to(prev_dev)
         torch.cuda.empty_cache()
 
         outlier_ratios = []
@@ -220,13 +224,12 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
         sparsities_per_tflayer = list(
             1 - (outlier_ratios - np.mean(outlier_ratios) + (1 - float(self.sparsity)))
         )
-        print(f"[DEBUG] OWL sparsities for sp={self.sparsity} are:")
-        sparsities = []
+        _LOGGER.debug(f"[DEBUG] OWL sparsities for sp={self.sparsity} are:")
         for j, sp in enumerate(sparsities_per_tflayer):
-            print(f"layers.{j} sparsity = {sp}")
-            sparsities += [sp] * num_w_perlayer
+            _LOGGER.debug(f"layers.{j} sparsity = {sp}")
 
         return sparsities_per_tflayer
+
 
 @torch.no_grad()
 def _get_activations(model, data_loader, nsamples=128):
@@ -249,10 +252,12 @@ def _get_activations(model, data_loader, nsamples=128):
             hooks.append(
                 mod.register_forward_pre_hook(functools.partial(save_acts, name=name))
             )
-    #device = next(model.parameters()).device
+    device = next(model.parameters()).device
     for batch in data_loader:
-        #batch = batch.to(device)
-        model(batch)
+        batch = {k: v.to(device) for k, v in batch.items()}
+        model(**batch)
+        batch = None
+    torch.cuda.empty_cache()
 
     for h in hooks:
         h.remove()
