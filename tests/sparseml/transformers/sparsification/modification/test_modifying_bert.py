@@ -22,61 +22,61 @@ from sparseml.transformers.sparsification.modification import modify_model
 
 
 @pytest.fixture
-def distilbert_model():
-    config = AutoConfig.from_pretrained("distilbert/distilbert-base-uncased")
+def bert_model():
+    config = AutoConfig.from_pretrained("bert-base-uncased")
     with init_empty_weights():
         model = AutoModel.from_config(config)
     return model
 
 
-def test_modifying_distilbert(distilbert_model):
-    from sparseml.transformers.sparsification.modification.modifying_distilbert import (  # noqa F401
+def test_modifying_bert(bert_model):
+    from sparseml.transformers.sparsification.modification.modifying_bert import (  # noqa F401
         modify,
     )
 
-    num_attn_blocks = distilbert_model.config.num_hidden_layers
+    num_attn_blocks = bert_model.config.num_hidden_layers
 
     # keep the original model for comparison
-    distilbert_ = deepcopy(distilbert_model)
-    distilbert = modify_model(distilbert_model)
+    bert_ = deepcopy(bert_model)
+    bert = modify_model(bert_model)
 
-    # check how many modified "MultiHeadSelfAttention" modules are in the original
+    # check how many modified "BertSelfAttention" modules are in the original
     # model (should be 0, as the model is not modified yet)
     modified_modules_original_model = [
         module
-        for module in distilbert_.modules()
-        if _is_distilbert_attention_modified(module)
-        and module.__class__.__name__ == "MultiHeadSelfAttention"
+        for module in bert_.modules()
+        if _is_bert_attention_modified(module)
+        and module.__class__.__name__ == "BertSelfAttention"
     ]
-    # check how many modified "MultiHeadSelfAttention" modules are
+    # check how many modified "BertSelfAttention" modules are
     # in the modified model (should be num_attn_blocks, as the
     # model is modified, and has num_attn_blocks attention blocks)
     modified_modules_modified_model = [
         module
-        for module in distilbert.modules()
-        if _is_distilbert_attention_modified(module)
-        and module.__class__.__name__ == "MultiHeadSelfAttention"
+        for module in bert.modules()
+        if _is_bert_attention_modified(module)
+        and module.__class__.__name__ == "BertSelfAttention"
     ]
-    # check how many original "MultiHeadSelfAttention"
+    # check how many original "BertSelfAttention"
     # modules are in the original
     # model (should be num_attn_blocks, as the model is
     # not modified yet, and has num_attn_blocks attention blocks)
     original_modules_original_model = [
         module
-        for module in distilbert_.modules()
-        if not _is_distilbert_attention_modified(module)
-        and module.__class__.__name__ == "MultiHeadSelfAttention"
+        for module in bert_.modules()
+        if not _is_bert_attention_modified(module)
+        and module.__class__.__name__ == "BertSelfAttention"
     ]
-    # check how many original "MultiHeadSelfAttention"
+    # check how many original "BertSelfAttention"
     # modules are in the modified
     # model (should be 0, as the model is
     # modified, and should not contain any original
-    # "MultiHeadSelfAttention" modules)
+    # "BertSelfAttention" modules)
     original_modules_modified_model = [
         module
-        for module in distilbert.modules()
-        if not _is_distilbert_attention_modified(module)
-        and module.__class__.__name__ == "MultiHeadSelfAttention"
+        for module in bert.modules()
+        if not _is_bert_attention_modified(module)
+        and module.__class__.__name__ == "BertSelfAttention"
     ]
 
     assert (
@@ -91,7 +91,7 @@ def test_modifying_distilbert(distilbert_model):
     )
 
 
-def _is_distilbert_attention_modified(module):
-    # only the modified "MultiHeadSelfAttention" modules have the
+def _is_bert_attention_modified(module):
+    # only the modified "BertSelfAttention" modules have the
     # modules have the "attention_scores_matmul" attribute
     return hasattr(module, "attention_scores_matmul")

@@ -12,46 +12,39 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import shutil
+
 from copy import copy
 
 import pytest
-from transformers import AutoModel
 
 from sparseml.transformers.sparsification.modification import modify_model
 from sparseml.transformers.sparsification.modification.registry import (
     ModificationRegistry,
 )
-from sparsezoo import Model
 
 
 @pytest.fixture
-def model(tmpdir):
-    stub = "zoo:mobilebert-squad_wikipedia_bookcorpus-14layer_pruned50.4block_quantized"
-    model = Model(stub, tmpdir)
-    yield AutoModel.from_pretrained(model.training.path)
-    shutil.rmtree(tmpdir)
+def model():
+    class DummyModel:
+        def __init__(self):
+            self.modified = False
+
+    yield DummyModel()
 
 
 def test_modify_model_without_actual_modification(model):
-    # test to check that the model is not
-    # modified if no modification is registered
-    # the attribute `training` should not be changed
-    is_training = copy(model.training)
+
+    is_modified = copy(model.modified)
     model = modify_model(model)
-    assert model.training == is_training == False  # noqa E712
+    assert model.modified == is_modified == False  # noqa E712
 
 
 def test_modify_model(model):
-    # test to check that the model is modified
-    # if a modification is registered
-    # the attribute `training` should be changed
-    # to True
-    @ModificationRegistry.register(name="MobileBertModel")
+    @ModificationRegistry.register(name="DummyModel")
     def dummy_modification(model):
-        model.training = True
+        model.modified = True
         return model
 
-    is_training = copy(model.training)
+    is_modified = copy(model.modified)
     model = modify_model(model)
-    assert model.training != is_training
+    assert model.modified != is_modified
