@@ -22,40 +22,41 @@ from sparseml.transformers.sparsification.modification import modify_model
 
 
 @pytest.fixture
-def mistral_model():
-    config = AutoConfig.from_pretrained("mistralai/Mistral-7B-v0.1")
+def llama_model():
+    config = AutoConfig.from_pretrained("TinyLlama/TinyLlama-1.1B-Chat-v1.0")
     with init_empty_weights():
-        model = AutoModel.from_config(config)
+        # attn_implementation="eager" needed so that the model uses
+        model = AutoModel.from_config(config, attn_implementation="eager")
     return model
 
 
-def test_modifying_mistral(mistral_model):
-    from sparseml.transformers.sparsification.modification.modifying_mistral import (  # noqa F401
+def test_modifying_llama(llama_model):
+    from sparseml.transformers.sparsification.modification.modifying_llama import (  # noqa F401
         modify,
     )
 
-    num_attn_blocks = mistral_model.config.num_hidden_layers
+    num_attn_blocks = llama_model.config.num_hidden_layers
 
     # keep the original model for comparison
-    mistral_ = deepcopy(mistral_model)
-    mistral = modify_model(mistral_model)
+    llama_ = deepcopy(llama_model)
+    llama = modify_model(llama_model)
 
     # check how many modified "MistralAttention" modules are in the original
     # model (should be 0, as the model is not modified yet)
     modified_modules_original_model = [
         module
-        for module in mistral_.modules()
-        if _is_mistral_attention_modified(module)
-        and module.__class__.__name__ == "MistralAttention"
+        for module in llama_.modules()
+        if _is_llama_attention_modified(module)
+        and module.__class__.__name__ == "LlamaAttention"
     ]
     # check how many modified "MistralAttention" modules are
     # in the modified model (should be num_attn_blocks, as the
     # model is modified, and has num_attn_blocks attention blocks)
     modified_modules_modified_model = [
         module
-        for module in mistral.modules()
-        if _is_mistral_attention_modified(module)
-        and module.__class__.__name__ == "MistralAttention"
+        for module in llama.modules()
+        if _is_llama_attention_modified(module)
+        and module.__class__.__name__ == "LlamaAttention"
     ]
     # check how many original "MistralAttention"
     # modules are in the original
@@ -63,9 +64,9 @@ def test_modifying_mistral(mistral_model):
     # not modified yet, and has num_attn_blocks attention blocks)
     original_modules_original_model = [
         module
-        for module in mistral_.modules()
-        if not _is_mistral_attention_modified(module)
-        and module.__class__.__name__ == "MistralAttention"
+        for module in llama_.modules()
+        if not _is_llama_attention_modified(module)
+        and module.__class__.__name__ == "LlamaAttention"
     ]
     # check how many original "MistralAttention"
     # modules are in the modified
@@ -74,9 +75,9 @@ def test_modifying_mistral(mistral_model):
     # "MistralAttention" modules)
     original_modules_modified_model = [
         module
-        for module in mistral.modules()
-        if not _is_mistral_attention_modified(module)
-        and module.__class__.__name__ == "MistralAttention"
+        for module in llama.modules()
+        if not _is_llama_attention_modified(module)
+        and module.__class__.__name__ == "LlamaAttention"
     ]
 
     assert (
@@ -91,7 +92,7 @@ def test_modifying_mistral(mistral_model):
     )
 
 
-def _is_mistral_attention_modified(module):
-    # only the modified "MistralAttention"
+def _is_llama_attention_modified(module):
+    # only the modified "LlamaAttention"
     # modules have the "attn_output_matmul" attribute
     return hasattr(module, "attn_output_matmul")
