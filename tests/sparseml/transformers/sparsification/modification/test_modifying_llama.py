@@ -22,7 +22,7 @@ from sparseml.transformers.sparsification.modification import modify_model
 
 
 @pytest.fixture
-def opt_model():
+def llama_model():
     config = AutoConfig.from_pretrained("TinyLlama/TinyLlama-1.1B-Chat-v1.0")
     with init_empty_weights():
         # attn_implementation="eager" needed so that the model uses
@@ -30,16 +30,16 @@ def opt_model():
     return model
 
 
-def test_modifying_llama(opt_model):
+def test_modifying_llama(llama_model):
     from sparseml.transformers.sparsification.modification.modifying_llama import (  # noqa F401
         modify,
     )
 
-    num_attn_blocks = opt_model.config.num_hidden_layers
+    num_attn_blocks = llama_model.config.num_hidden_layers
 
     # keep the original model for comparison
-    llama_ = deepcopy(opt_model)
-    llama = modify_model(opt_model)
+    llama_ = deepcopy(llama_model)
+    llama = modify_model(llama_model)
 
     # check how many modified "LlamalAttention" modules are in the original
     # model (should be 0, as the model is not modified yet)
