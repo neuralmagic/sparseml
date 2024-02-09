@@ -82,7 +82,7 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
                     teacher_layer, hidden_size, state
                 )
                 state.model.set_layer(key, student_wrapper)
-                state.teacher_model.set_layer(key, teacher_wrapper)
+                state.teacher_model.set_layer(key, teacher_wrapper, offload_to_cpu=True)
                 self.wrappers_[key] = (student_wrapper, teacher_wrapper)
 
             self.wrapped_kd_model_ = self._create_model_wrapper(

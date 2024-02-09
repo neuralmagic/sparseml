@@ -511,8 +511,8 @@ class SessionManagerMixIn:
         if self.teacher is not None:
             self.teacher.to("cpu")
             self.teacher = self.accelerator.prepare(self.teacher)
-            self.accelerator.wait_for_everyone()
             self.teacher.eval()
+            self.accelerator.wait_for_everyone()
 
     def _extract_metadata(
         self,

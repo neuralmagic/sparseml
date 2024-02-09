@@ -97,7 +97,7 @@ class ModifiableModel(Generic[MT, LT, PT], MultiFrameworkObject):
         """
         raise NotImplementedError()
 
-    def set_layer(self, target: str, layer: LT):
+    def set_layer(self, target: str, layer: LT, **kwargs):
         """
         :param target: the target to set the layer for
         :param layer: the layer instance to set

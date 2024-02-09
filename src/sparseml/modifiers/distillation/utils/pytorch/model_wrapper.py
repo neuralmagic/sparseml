@@ -63,7 +63,7 @@ class KDModelWrapper(Module):
             comp = self.kd_comparison(student_out, teacher_out.to(student_out.device))
             layerwise_comps.append(comp)
 
-        self.kd_last_comparison = torch.stack(layerwise_comps).mean()
+        self.setattr(self, self.KD_LAST_COMPARISON, torch.stack(layerwise_comps).mean())
 
         return org_output
 

@@ -169,9 +169,9 @@ def get_layer(target: str, module: Module) -> Tuple[str, Module]:
     return name, layer
 
 
-def set_layer(target: str, layer: Module, module: Module) -> Module:
+def set_layer(target: str, layer: Module, module: Module, **kwargs) -> Module:
     target = fix_fsdp_module_name(target)
-    with summon_full_params_context(module):
+    with summon_full_params_context(module, **kwargs):
         parent_target = ".".join(target.split(".")[:-1])
         if parent_target != "":
             parent_layer = get_layer(parent_target, module)[1]
