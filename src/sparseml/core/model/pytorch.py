@@ -77,11 +77,11 @@ class ModifiableModelPyTorch(ModifiableModel[Module, Module, Parameter]):
         """
         return get_layer(target, self.model)
 
-    def set_layer(self, target: str, layer: Module, **kwargs) -> Module:
+    def set_layer(self, target: str, layer: Module) -> Module:
         """
         :param target: the target to set the layer for
         """
-        return set_layer(target, layer, self.model, **kwargs)
+        return set_layer(target, layer, self.model)
 
     def get_params(self, targets: Union[str, List[str]]) -> Dict[str, Parameter]:
         """

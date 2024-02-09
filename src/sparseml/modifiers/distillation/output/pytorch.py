@@ -23,6 +23,7 @@ from sparseml.modifiers.distillation.utils.pytorch import (
     KDModelWrapper,
     KDModuleWrapper,
 )
+from sparseml.utils.fsdp.context import summon_full_params_context
 from sparseml.utils.fsdp.helpers import is_fsdp_model, maybe_get_wrapped
 
 
@@ -81,9 +82,12 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
                 teacher_wrapper = self._create_layer_wrapper(
                     teacher_layer, hidden_size, state
                 )
-                state.model.set_layer(key, student_wrapper)
-                state.teacher_model.set_layer(key, teacher_wrapper, offload_to_cpu=True)
                 self.wrappers_[key] = (student_wrapper, teacher_wrapper)
+
+            with summon_full_params_context(state.teacher_model, offload_to_cpu=True):
+                for key, (student_layer, teacher_layer) in self.wrappers_:
+                    state.model.set_layer(key, student_wrapper)
+                    state.teacher_model.set_layer(key, teacher_wrapper)
 
             self.wrapped_kd_model_ = self._create_model_wrapper(
                 student_model=maybe_get_wrapped(state.model),
