@@ -20,7 +20,14 @@ the HuggingFace transformer models
 import torch
 
 
-__all__ = ["QuantizableIdentity", "QuantizableMatMul", "swap_modules"]
+__all__ = [
+    "QuantizableIdentity",
+    "QuantizableMatMul",
+    "swap_modules",
+    "QuantizableBatchMatmul",
+    "QATAttentionScores",
+    "QATContextLayer",
+]
 
 
 def swap_modules(
@@ -121,3 +128,42 @@ class QuantizableBatchMatmul(QuantizableMatMul):
         if self.output is not None:
             return self.output(out)
         return out
+
+
+class QATAttentionScores(torch.nn.Module):
+    """
+    Behaves like normal torch.matmul unless a SparseML QuantizationModifier
+    is initialized (Quantization-Aware-Training is invoked)
+    """
+
+    def __init__(self):
+        super().__init__()
+
+        self.wrap_qat = True
+        self.qat_wrapper_kwargs = {
+            "num_inputs": 2,
+            "input_qconfigs": ["asymmetric", "symmetric"],
+        }
+
+    def forward(self, a: torch.Tensor, b: torch.Tensor):
+        return torch.matmul(a, b)
+
+
+class QATContextLayer(torch.nn.Module):
+    """
+    Behaves like normal torch.matmul unless a SparseML QuantizationModifier
+    is initialized (Quantization-Aware-Training is invoked)
+    """
+
+    def __init__(self):
+        super().__init__()
+
+        self.wrap_qat = True
+        self.qat_wrapper_kwargs = {
+            "num_inputs": 2,
+            "num_outputs": 0,
+            "input_qconfigs": ["asymmetric", "symmetric"],
+        }
+
+    def forward(self, a: torch.Tensor, b: torch.Tensor):
+        return torch.matmul(a, b)
