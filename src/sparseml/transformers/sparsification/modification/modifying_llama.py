@@ -91,6 +91,14 @@ class MatMulRightInput_PV(QuantizableIdentity):
     ...
 
 
+class MatMulOutput_QK(QuantizableIdentity):
+    ...
+
+
+class MatMulOutput_PV(QuantizableIdentity):
+    ...
+
+
 class LlamaAttentionWithQuantizableMatmuls(LlamaAttention):
     """
     Wrapper around the original LlamaAttention module to replace the
@@ -108,10 +116,10 @@ class LlamaAttentionWithQuantizableMatmuls(LlamaAttention):
         self.__dict__ = llama_attention.__dict__
 
         self.attn_weights_matmul = QuantizableMatMul(
-            MatMulLeftInput_QK, MatMulRightInput_QK
+            MatMulLeftInput_QK, MatMulRightInput_QK, MatMulOutput_QK
         )
         self.attn_output_matmul = QuantizableMatMul(
-            MatMulLeftInput_PV, MatMulRightInput_PV
+            MatMulLeftInput_PV, MatMulRightInput_PV, MatMulOutput_PV
         )
 
     def forward(
@@ -209,7 +217,7 @@ class LlamaAttentionWithQuantizableMatmuls(LlamaAttention):
         attn_weights = self.attn_weights_matmul(
             query_states, key_states.transpose(2, 3)
         ) / math.sqrt(self.head_dim)
-        # ==== SparseML MODIFICATION ====
+        # ==============================
 
         if attn_weights.size() != (bsz, self.num_heads, q_len, kv_seq_len):
             raise ValueError(
@@ -237,7 +245,7 @@ class LlamaAttentionWithQuantizableMatmuls(LlamaAttention):
 
         # ==== SparseML MODIFICATION ====
         attn_output = self.attn_output_matmul(attn_weights, value_states)
-        # ==== SparseML MODIFICATION ====
+        # ===============================
 
         if attn_output.size() != (bsz, self.num_heads, q_len, self.head_dim):
             raise ValueError(

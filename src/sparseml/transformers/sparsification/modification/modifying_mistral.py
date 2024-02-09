@@ -49,6 +49,9 @@ def modify(model: torch.nn.Module) -> torch.nn.Module:
     1. Replaces the MistralAttention modules with
         MistralAttentionWithQuantizableMatmuls modules
 
+    Note: This function will not alter any of the alternatives
+    to the MistralAttention module such as MistralFlashAttention2
+
     :param model: the original Mistral model
     :return: the modified Mistral model
     """
@@ -159,7 +162,7 @@ class MistralAttentionWithQuantizableMatmuls(MistralAttention):
         attn_weights = self.attn_weights_matmul(
             query_states, key_states.transpose(2, 3)
         ) / math.sqrt(self.head_dim)
-        # ======================
+        # ===============================
         if attn_weights.size() != (bsz, self.num_heads, q_len, kv_seq_len):
             raise ValueError(
                 f"Attention weights should be of size {(bsz, self.num_heads, q_len, kv_seq_len)}, but is"  # noqa: E501
@@ -180,7 +183,7 @@ class MistralAttentionWithQuantizableMatmuls(MistralAttention):
         ).to(query_states.dtype)
         # ==== SparseML MODIFICATION ====
         attn_output = self.attn_output_matmul(attn_weights, value_states)
-        # ======================
+        # ===============================
         if attn_output.size() != (bsz, self.num_heads, q_len, self.head_dim):
             raise ValueError(
                 f"`attn_output` should be of size {(bsz, self.num_heads, q_len, self.head_dim)}, but is"  # noqa: E501

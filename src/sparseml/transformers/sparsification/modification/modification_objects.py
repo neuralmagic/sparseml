@@ -103,3 +103,21 @@ class QuantizableMatMul(torch.nn.Module):
         if self.output is not None:
             return self.output(out)
         return out
+
+
+class QuantizableBatchMatmul(QuantizableMatMul):
+    """
+    Wrapper around torch.bmm with distinct inputs/output class
+    instances that could be quantized through SparseML recipe
+
+    :param left_input_cls: class instance that is used to quantize the left input
+    :param right_input_cls: class instance that is used to quantize the right input
+    :param output_cls: class instance that is used to quantize the output (optional)
+    :return: the output of the batch matrix multiplication
+    """
+
+    def forward(self, a: torch.Tensor, b: torch.Tensor):
+        out = torch.bmm(self.left_input(a), self.right_input(b))
+        if self.output is not None:
+            return self.output(out)
+        return out
