@@ -98,7 +98,7 @@ requests==2.31.0
 rouge-score==0.0.4
 sacremoses==0.0.45
 scikit-image==0.18.1
-scikit-learn==0.24.2
+scikit-learn==1.0.1
 scipy==1.10.0
 Send2Trash==1.5.0
 sentencepiece==0.1.96
