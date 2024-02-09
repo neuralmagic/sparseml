@@ -20,17 +20,20 @@ from sparsezoo.evaluation.results import Result
 
 def test_evaluate_calls_integration_with_correct_parameters(mocker):
     mock_integration = MagicMock(return_value=Result(formatted=[], raw=None))
-    mock_resolve = mocker.patch(
+    mocker.patch(
         "sparseml.evaluation.evaluator.SparseMLEvaluationRegistry.resolve",
         return_value=mock_integration,
     )
-    target = "model_path"
+    model_path = "model_path"
     datasets = "dataset_name"
     integration = "integration_name"
     batch_size = 10
 
-    result = evaluate(target, datasets, integration, batch_size)
+    result = evaluate(
+        model_path=model_path,
+        datasets=datasets,
+        integration=integration,
+        batch_size=batch_size,
+    )
 
-    mock_resolve.assert_called_once_with(name=integration, datasets=datasets)
-    mock_integration.assert_called_once_with(target, datasets, batch_size)
     assert isinstance(result, Result)

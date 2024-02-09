@@ -84,6 +84,10 @@ def perplexity_eval(
     else:
         max_tokenized_len = max_length
 
+    # if batch_size is 1, set the pad token to be the eos token
+    if batch_size == 1:
+        tokenizer.pad_token = tokenizer.eos_token
+
     # fetch tokenized inputs and attention masks
     encodings = tokenizer(
         input_text,

@@ -68,6 +68,7 @@ _LOGGER = logging.getLogger(__name__)
 @click.command(
     context_settings=dict(
         ignore_unknown_options=True,
+        token_normalize_func=lambda x: x.replace("-", "_"),
     )
 )
 @click.option(
@@ -81,7 +82,7 @@ _LOGGER = logging.getLogger(__name__)
     "-d",
     "--dataset",
     type=str,
-    multiple=True,
+    default=None,
     help="The name of dataset to evaluate on. The user may pass multiple "
     "datasets names by passing the option multiple times.",
 )
@@ -135,20 +136,19 @@ def main(
     nsamples,
     integration_args,
 ):
-    # join datasets to a list if multiple datasets are passed
-    datasets = list(dataset) if not isinstance(dataset, str) else dataset
+
     # format kwargs to a  dict
     integration_args = _args_to_dict(integration_args)
 
     _LOGGER.info(
-        f"Datasets to evaluate on: {datasets}\n"
+        f"Datasets to evaluate on: {dataset}\n"
         f"Batch size: {batch_size}\n"
         f"Additional integration arguments supplied: {integration_args}"
     )
 
     result: Result = evaluate(
-        model=model_path,
-        datasets=datasets,
+        model_path=model_path,
+        datasets=dataset,
         integration=integration,
         batch_size=batch_size,
         nsamples=nsamples,
@@ -165,7 +165,9 @@ def main(
 
     if save_path:
         _LOGGER.info(f"Saving the evaluation results to {save_path}")
-        save_result(result=result, save_path=save_path, save_format=type_serialization)
+        save_result(
+            result=result, save_path=str(save_path), save_format=type_serialization
+        )
 
 
 def _args_to_dict(args: Tuple[Any, ...]) -> Dict[str, Any]:

@@ -19,8 +19,6 @@ import os
 import numpy
 import pytest
 
-from sparseml.evaluation.integrations.perplexity import perplexity_eval
-
 
 def perplexity_dependencies_available():
     try:
@@ -48,6 +46,8 @@ def dataset_mock(*args, **kwargs):
     reason="Skipping perplexity tests due to missing dependencies",
 )
 def test_perplexity_against_huggingface(monkeypatch):
+    from sparseml.evaluation.integrations.perplexity import perplexity_eval
+
     model_path = "Xenova/llama2.c-stories15M"
     batch_size = 2
     nsamples = None
