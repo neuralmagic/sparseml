@@ -14,17 +14,18 @@
 
 import logging
 from typing import Any, Dict, Iterable, List, Optional, Tuple
-import collections
-import torch
+
 import numpy as np
+import torch
+
 from sparseml.core.model.base import ModifiableModel
 from sparseml.core.state import State
 from sparseml.modifiers.pruning.wanda.base import WandaPruningModifier
 from sparseml.modifiers.pruning.wanda.utils.wanda_wrapper import WandaWrapper
 from sparseml.modifiers.utils.layer_compressor import LayerCompressor
 from sparseml.modifiers.utils.pytorch_helpers import run_calibration_forward
-
 from sparseml.utils.pytorch.module import get_prunable_layers
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -187,9 +188,12 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
         wanda = {}
         for name, layer in self.compressible_layers_.items():
             prunable_layers = get_prunable_layers(layer)
-            z = [m.weight.abs() * acts[f"{name}.{n}"].unsqueeze(0) for n, m in prunable_layers.items()]
+            z = [
+                m.weight.abs() * acts[f"{name}.{n}"].unsqueeze(0)
+                for n, m in prunable_layers.items()
+            ]
             wanda[name] = torch.cat([item.flatten().cpu() for item in z])
-    
+
         acts = None
         del acts
         torch.cuda.empty_cache()
@@ -200,7 +204,6 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
             outlier_ratios[group] = (
                 100 * (wanda[group] > threshold).sum().item() / wanda[group].numel()
             )
-        outlier_ratios = {k: np.array(outlier_ratios[k]) for k in outlier_ratios}
         outlier_ratios_arr = np.array([outlier_ratios[k] for k in outlier_ratios])
         for k in outlier_ratios:
             outlier_ratios[k] = (outlier_ratios[k] - outlier_ratios_arr.min()) * (
@@ -209,6 +212,7 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
                 * self.owl_lmbda
                 * 2
             )
+        outlier_ratios_arr = np.array([outlier_ratios[k] for k in outlier_ratios])
         sparsities = {
             k: 1
             - (
@@ -218,11 +222,11 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
             )
             for k in outlier_ratios
         }
-        _LOGGER.debug(f"[DEBUG] OWL sparsities for sp={self.sparsity} are:")
+        _LOGGER.info(f"[DEBUG] OWL sparsities for sp={self.sparsity} are:")
         for k in sparsities:
-            _LOGGER.info(f"Sparsity for {k}: sparsities[k]")
-        import pdb; pdb.set_trace()
+            _LOGGER.info(f"Sparsity for {k}: {sparsities[k]}")
         return sparsities
+
 
 @torch.no_grad()
 def _get_activations(model, data_loader, nsamples=128):
