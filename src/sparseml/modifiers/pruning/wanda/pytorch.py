@@ -14,9 +14,9 @@
 
 import logging
 from typing import Any, Dict, Iterable, List, Optional, Tuple
-
+import collections
 import torch
-
+import numpy as np
 from sparseml.core.model.base import ModifiableModel
 from sparseml.core.state import State
 from sparseml.modifiers.pruning.wanda.base import WandaPruningModifier
@@ -24,6 +24,7 @@ from sparseml.modifiers.pruning.wanda.utils.wanda_wrapper import WandaWrapper
 from sparseml.modifiers.utils.layer_compressor import LayerCompressor
 from sparseml.modifiers.utils.pytorch_helpers import run_calibration_forward
 
+from sparseml.utils.pytorch.module import get_prunable_layers
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -183,53 +184,45 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
 
     def _infer_layer_sparsity(self, calibration_dataloader):
         acts = _get_activations(self.model, calibration_dataloader)
-        wanda = []
-        names = []
-        num_w_perlayer = 0
-        for n, m in self.model.named_modules():
-            if isinstance(m, torch.nn.Linear) and "lm_head" not in n:
-                _LOGGER.debug(
-                    f"[DEBUG] owl considering = {n} with shape = {m.weight.shape}"
-                )
-                if "layers.1." in n:
-                    num_w_perlayer += 1
-                wanda.append(m.weight.abs() * acts[n].unsqueeze(0))
-                _LOGGER.debug(f"wanda score shape = {wanda[-1].shape}")
-                names.append(n)
-        _LOGGER.debug(
-            f"[DEBUG] there is {num_w_perlayer} Linear weight matrices per layer"
-        )
-        perlayer_wanda = [
-            torch.cat([item.flatten().cpu() for item in wanda[i : i + num_w_perlayer]])
-            for i in range(0, len(wanda), num_w_perlayer)
-        ]
-
+        wanda = {}
+        for name, layer in self.compressible_layers_.items():
+            prunable_layers = get_prunable_layers(layer)
+            z = [m.weight.abs() * acts[f"{name}.{n}"].unsqueeze(0) for n, m in prunable_layers.items()]
+            wanda[name] = torch.cat([item.flatten().cpu() for item in z])
+    
         acts = None
         del acts
-        del wanda
         torch.cuda.empty_cache()
 
-        outlier_ratios = []
-        for wanda_layer in perlayer_wanda:
-            threshold = torch.mean(wanda_layer) * self.owl_m
-            outlier_ratios.append(
-                100 * (wanda_layer > threshold).sum().item() / wanda_layer.numel()
+        outlier_ratios = {}
+        for group in wanda:
+            threshold = torch.mean(wanda[group]) * self.owl_m
+            outlier_ratios[group] = (
+                100 * (wanda[group] > threshold).sum().item() / wanda[group].numel()
             )
-        import numpy as np
-
-        outlier_ratios = np.array(outlier_ratios)
-        outlier_ratios = (outlier_ratios - outlier_ratios.min()) * (
-            1 / (outlier_ratios.max() - outlier_ratios.min()) * self.owl_lmbda * 2
-        )
-        sparsities_per_tflayer = list(
-            1 - (outlier_ratios - np.mean(outlier_ratios) + (1 - float(self.sparsity)))
-        )
+        outlier_ratios = {k: np.array(outlier_ratios[k]) for k in outlier_ratios}
+        outlier_ratios_arr = np.array([outlier_ratios[k] for k in outlier_ratios])
+        for k in outlier_ratios:
+            outlier_ratios[k] = (outlier_ratios[k] - outlier_ratios_arr.min()) * (
+                1
+                / (outlier_ratios_arr.max() - outlier_ratios_arr.min())
+                * self.owl_lmbda
+                * 2
+            )
+        sparsities = {
+            k: 1
+            - (
+                outlier_ratios[k]
+                - np.mean(outlier_ratios_arr)
+                + (1 - float(self.sparsity))
+            )
+            for k in outlier_ratios
+        }
         _LOGGER.debug(f"[DEBUG] OWL sparsities for sp={self.sparsity} are:")
-        for j, sp in enumerate(sparsities_per_tflayer):
-            _LOGGER.debug(f"layers.{j} sparsity = {sp}")
-
-        return sparsities_per_tflayer
-
+        for k in sparsities:
+            _LOGGER.info(f"Sparsity for {k}: sparsities[k]")
+        import pdb; pdb.set_trace()
+        return sparsities
 
 @torch.no_grad()
 def _get_activations(model, data_loader, nsamples=128):
