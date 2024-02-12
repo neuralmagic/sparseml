@@ -93,7 +93,9 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
         for idx, (name, layer) in enumerate(self.compressible_layers_.items()):
             _LOGGER.info(f"Preparing {name} for compression")
             layer_sparsity = (
-                self.sparsity[idx] if isinstance(self.sparsity, List) else self.sparsity
+                self.sparsity[name]
+                if isinstance(self.sparsity, Dict)
+                else self.sparsity
             )
             args = self._pruning_arguments(layer_sparsity)
             comp_cls = self._compression_class()
