@@ -14,10 +14,21 @@
 
 from pathlib import Path
 
+import pytest
+
 from sparseml.evaluation.registry import (
     SparseMLEvaluationRegistry,
     collect_integrations,
 )
+
+
+@pytest.fixture(autouse=True)
+def empty_registry():
+    from sparsezoo.utils.registry import _ALIAS_REGISTRY, _REGISTRY
+
+    _REGISTRY.clear()
+    _ALIAS_REGISTRY.clear()
+    yield
 
 
 def test_resolve_returns_value_from_registry(mocker):
