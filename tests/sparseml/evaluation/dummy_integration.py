@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# flake8: noqa
+from sparseml.evaluation.registry import SparseMLEvaluationRegistry
 
-from .export import export
+
+@SparseMLEvaluationRegistry.register(name="dummy")
+def dummy_integration(model_path, batch_size=1, datasets="dummy", **kwargs):
+    return "dummy_result"
