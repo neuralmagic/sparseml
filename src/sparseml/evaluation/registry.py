@@ -14,6 +14,7 @@
 
 import importlib
 import logging
+from contextlib import suppress
 from pathlib import Path
 from typing import Callable, Dict
 
@@ -74,6 +75,12 @@ def collect_integrations(
     :param name: The name of the integration to collect, is case insentitive
     :param integration_config_path: The path to the integrations config file
     """
+    with suppress(KeyError):
+        # exit early if the integration is already registered
+        SparseMLEvaluationRegistry.get_value_from_registry(name)
+        _LOGGER.info(f"Integration {name} already registered")
+        return
+
     integrations = _standardize_integration_dict(
         integrations_location_dict=_load_yaml(path=integration_config_path),
         integration_config_path=integration_config_path,

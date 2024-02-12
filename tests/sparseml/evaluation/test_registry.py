@@ -49,10 +49,10 @@ def test_collect():
 
 def test_resolve():
     integration_name = "dummy"
-
     from .dummy_integration import dummy_integration
 
-    expected_callable = dummy_integration
-    actual_callable = SparseMLEvaluationRegistry.resolve(integration_name)
-
-    assert actual_callable == expected_callable
+    actual_callable = SparseMLEvaluationRegistry.resolve(
+        integration_name,
+        integration_config_path=Path(__file__).parent / "dummy_config.yaml",
+    )
+    assert actual_callable == dummy_integration
