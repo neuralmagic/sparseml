@@ -23,15 +23,15 @@ from sparseml.evaluation.registry import (
 
 
 @pytest.fixture()
-def empty_registry():
+def empty_eval_registry():
     from sparsezoo.utils.registry import _ALIAS_REGISTRY, _REGISTRY
 
-    _REGISTRY.clear()
-    _ALIAS_REGISTRY.clear()
+    _REGISTRY[SparseMLEvaluationRegistry].clear()
+    _ALIAS_REGISTRY[SparseMLEvaluationRegistry].clear()
     yield
 
 
-def test_resolve_returns_value_from_registry(mocker, empty_registry):
+def test_resolve_returns_value_from_registry(mocker, empty_eval_registry):
     mock_collect_integrations = mocker.patch(
         "sparseml.evaluation.registry.collect_integrations"
     )
@@ -52,13 +52,13 @@ def _collect_dummy_integration(integration_name="dummy"):
     collect_integrations(integration_name, dummy_config)
 
 
-def test_collect(empty_registry):
+def test_collect(empty_eval_registry):
     integration_name = "dummy"
     _collect_dummy_integration(integration_name=integration_name)
     assert integration_name in SparseMLEvaluationRegistry.registered_names()
 
 
-def test_resolve(empty_registry):
+def test_resolve(empty_eval_registry):
     integration_name = "dummy"
     from .dummy_integration import dummy_integration
 
