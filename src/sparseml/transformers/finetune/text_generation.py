@@ -37,8 +37,7 @@ from sparseml.pytorch.model_load.helpers import (
     get_session_model,
     parse_dtype,
 )
-from sparseml.transformers import SparseAutoTokenizer
-from sparseml.transformers.finetune import Trainer, TrainingArguments
+from sparseml.transformers import SparseAutoTokenizer, Trainer, TrainingArguments
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
 from sparseml.transformers.finetune.model_args import ModelArguments
 from sparseml.transformers.finetune.runner import StageRunner
