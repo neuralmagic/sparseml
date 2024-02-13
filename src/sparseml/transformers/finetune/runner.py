@@ -32,7 +32,6 @@ from sparseml.pytorch.model_load.helpers import (
     save_completed_stages,
     save_model_and_recipe,
 )
-from sparseml.transformers.finetune import TrainingArguments
 from sparseml.transformers.finetune.data import TextGenerationDataset
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
 from sparseml.transformers.finetune.data.data_helpers import (
@@ -40,6 +39,7 @@ from sparseml.transformers.finetune.data.data_helpers import (
     make_dataset_splits,
 )
 from sparseml.transformers.finetune.model_args import ModelArguments
+from sparseml.transformers.finetune.training_args import TrainingArguments
 from sparseml.utils.fsdp.context import summon_full_params_context
 from sparseml.utils.fsdp.helpers import is_fsdp_model, unwrap_and_export_model
 from sparseml.utils.pytorch import qat_active
