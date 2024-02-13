@@ -25,13 +25,12 @@ from sparsezoo.evaluation.results import Dataset, Evaluation, Metric, Result
 try:
     from lm_eval import evaluator, tasks, utils
     from lm_eval.models.huggingface import HFLM
-except ImportError as err:
+except ImportError as import_error:
     HFLM = object
-    raise Exception(
-        "package `lm_eval` is not installed. "
-        "Please install it via "
-        "`pip install lm-eval==0.4.0"
-    ) from err
+    raise ImportError(
+        "package `lm_eval` not found. Please install it via "
+        "`pip install git+https://github.com/EleutherAI/lm-evaluation-harness.git@e0eda4d`"  # noqa: E501
+    ) from import_error
 
 __all__ = ["lm_eval_harness", "SparseMLLM", "LMEvalHarnessEvaluatorInputSchema"]
 _LOGGER = logging.getLogger(__name__)
