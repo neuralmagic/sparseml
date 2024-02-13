@@ -23,7 +23,7 @@ import pytest
 import torch
 
 import sparseml.core.session as session_manager
-from sparseml.transformers.finetune.text_generation import apply, oneshot, train
+from sparseml.transformers import apply, oneshot, train
 
 
 def test_oneshot_and_finetune(tmp_path: Path):
