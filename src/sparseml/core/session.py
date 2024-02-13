@@ -264,11 +264,7 @@ class SparseSession:
             event_type=event_type, batch_data=batch_data, loss=loss, **kwargs
         )
 
-        # Update loss
-        if loss is not None:
-            self.state.loss = loss
-
-        self.log(event_type=event_type, loss=loss)
+        self.log(event_type=event_type, loss=self.state.loss)
 
         return ModifiedState(
             model=self.state.model.model if self.state.model else None,
