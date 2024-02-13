@@ -57,7 +57,6 @@ class KDModelWrapper(Module):
             self.teacher_model(*args, **kwargs)
 
         layerwise_comps = []
-        comp_device = getattr(self, self.KD_LAST_COMPARISON).device
         for key, (student_wrapper, teacher_wrapper) in self.wrappers.items():
             student_out = student_wrapper.kd_last_transformed
             teacher_out = teacher_wrapper.kd_last_transformed
