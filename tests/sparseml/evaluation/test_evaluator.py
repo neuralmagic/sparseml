@@ -14,6 +14,8 @@
 
 from unittest.mock import MagicMock
 
+import pytest
+
 from sparseml.evaluation.evaluator import evaluate
 from sparsezoo.evaluation.results import Result
 
@@ -37,3 +39,11 @@ def test_evaluate_calls_integration_with_correct_parameters(mocker):
     )
 
     assert isinstance(result, Result)
+
+
+def test_evaluate_raises_value_error_for_unregistered_integration():
+    with pytest.raises(ValueError, match="No registered integrations"):
+        evaluate(
+            model_path="model_path",
+            integration="foo",
+        )
