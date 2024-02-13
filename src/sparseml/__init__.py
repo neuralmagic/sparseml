@@ -44,8 +44,7 @@ from .sparsification import (
     load_sparsification_info,
 )
 from .analytics import sparseml_analytics as _analytics
-
-from .export.export import export
 from .evaluation.evaluator import evaluate
+from .export.export import export
 
 _analytics.send_event("python__init")
