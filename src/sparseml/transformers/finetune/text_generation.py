@@ -84,6 +84,10 @@ def oneshot(**kwargs):
     main(model_args, data_args, training_args)
 
 
+# alias
+one_shot = oneshot
+
+
 def apply(**kwargs):
     """
     CLI entrypoint for any of training, eval, predict or oneshot
