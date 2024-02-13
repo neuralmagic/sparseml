@@ -157,3 +157,28 @@ def test_sparsities():
     assert math.isclose(layer_1_sparse.item(), 0.3, rel_tol=1e-4)
     layer_2_dense = tensor_sparsity(tiny_model.model.layers[2].self_attn.k_proj.weight)
     assert math.isclose(layer_2_dense.item(), 0.0, rel_tol=1e-4)
+
+
+def test_sgpt_defaults():
+    kwargs = {"sparsity": 0.5}
+    sparsegpt_modifier_only_sparsity = SparseGPTModifier(
+        framework=Framework.pytorch, **kwargs
+    )
+    assert sparsegpt_modifier_only_sparsity.quantize == False
+    assert sparsegpt_modifier_only_sparsity.block_size == 128
+    assert sparsegpt_modifier_only_sparsity.sparsity == 0.5
+
+    kwargs = {"quantize": True}
+    sparsegpt_modifier_only_quant = SparseGPTModifier(
+        framework=Framework.pytorch, **kwargs
+    )
+    assert sparsegpt_modifier_only_quant.quantize == True
+    assert sparsegpt_modifier_only_quant.block_size == 128
+    assert sparsegpt_modifier_only_quant.sparsity == 0.0
+
+    # fail if we don't pass a sparsity or enable quantization
+    kwargs = {}
+    sparsegpt_invalid = SparseGPTModifier(framework=Framework.pytorch, **kwargs)
+    state_test = State(framework=Framework.pytorch)
+    with pytest.raises(ValueError):
+        sparsegpt_invalid.on_initialize(state=state_test)
