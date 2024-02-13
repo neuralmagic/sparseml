@@ -18,7 +18,7 @@ from sparseml.experimental.sparsegpt.dispatch import evaluate_perplexity, load_m
 from sparseml.experimental.sparsegpt.main import sequential
 from sparseml.experimental.sparsegpt.opt import load_data
 from sparseml.modifiers.obcq.utils.helpers import ppl_eval_general
-from sparseml.transformers.sparsification.obcq.obcq import apply
+from sparseml.transformers import apply
 from sparseml.transformers.sparsification.obcq.utils.helpers import opt_forward
 
 
