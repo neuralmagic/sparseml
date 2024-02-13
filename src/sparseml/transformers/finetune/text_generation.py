@@ -37,10 +37,12 @@ from sparseml.pytorch.model_load.helpers import (
     get_session_model,
     parse_dtype,
 )
-from sparseml.transformers import SparseAutoTokenizer, Trainer, TrainingArguments
+from sparseml.transformers import SparseAutoTokenizer
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
 from sparseml.transformers.finetune.model_args import ModelArguments
 from sparseml.transformers.finetune.runner import StageRunner
+from sparseml.transformers.finetune.trainer import Trainer
+from sparseml.transformers.finetune.training_args import TrainingArguments
 from sparseml.transformers.utils import SparseAutoModel, get_shared_tokenizer_src
 from sparseml.transformers.utils.helpers import detect_last_checkpoint
 
