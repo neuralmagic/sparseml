@@ -20,7 +20,7 @@ import yaml
 
 import sparseml.core.session as session_manager
 from sparseml.pytorch.utils.helpers import tensor_sparsity
-from sparseml.transformers.sparsification.obcq.obcq import one_shot
+from sparseml.transformers import apply
 from sparseml.utils.pytorch import qat_active
 
 
@@ -39,7 +39,7 @@ def test_consecutive_runs(tmp_path):
         device = "cpu"
 
     # test recipe with 50% sparsity, quantization and smoothquant
-    first_tiny_model = one_shot(
+    first_tiny_model = apply(
         model_path=tiny_model_path,
         dataset_name="open_platypus",
         num_samples=16,
@@ -61,7 +61,7 @@ def test_consecutive_runs(tmp_path):
     session.reset()
 
     # reload saved model and up sparsity to 0.7
-    second_tiny_model = one_shot(
+    second_tiny_model = apply(
         model_path=tmp_path / "test1" / "obcq_deployment",
         dataset_name="open_platypus",
         num_samples=16,
@@ -119,7 +119,7 @@ def test_fail_on_repeated_quant(tmp_path):
     if not torch.cuda.is_available():
         device = "cpu"
 
-    one_shot(
+    apply(
         model_path=tiny_model_path,
         dataset_name="open_platypus",
         num_samples=4,
@@ -135,7 +135,7 @@ def test_fail_on_repeated_quant(tmp_path):
     # When trying to re-quantize with the second recipe, we should error out
     # to avoid nested quantizations
     with pytest.raises(RuntimeError):
-        one_shot(
+        apply(
             model_path=tmp_path / "obcq_deployment",
             dataset_name="open_platypus",
             num_samples=4,
@@ -182,7 +182,7 @@ def test_separate_quants_allowed(tmp_path):
     if not torch.cuda.is_available():
         device = "cpu"
 
-    first_model = one_shot(
+    first_model = apply(
         model_path=tiny_model_path,
         dataset_name="open_platypus",
         num_samples=4,
@@ -202,7 +202,7 @@ def test_separate_quants_allowed(tmp_path):
 
     # When trying to re-quantize with the second recipe, we should error out
     # to avoid nested quantizations
-    second_model = one_shot(
+    second_model = apply(
         model_path=tmp_path / "obcq_deployment",
         dataset_name="open_platypus",
         num_samples=4,

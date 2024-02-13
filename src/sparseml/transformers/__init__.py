@@ -58,3 +58,4 @@ _check_transformers_install()
 # (import order matters for circular import avoidance)
 from .utils import *
 from .export import *
+from .sparsification import *

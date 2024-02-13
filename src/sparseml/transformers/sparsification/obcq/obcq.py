@@ -36,14 +36,14 @@ from sparseml.transformers.utils.helpers import resolve_sequence_length
 from sparseml.transformers.utils.initializers import initialize_sparse_model
 
 
-__all__ = ["one_shot"]
+__all__ = ["apply"]
 
 _LOGGER = logging.getLogger(__name__)
 SUPPORTED_MODELS = ["opt", "llama", "mistral"]
 SUPPORTED_PRECISION = ["auto", "half", "full", "float16", "bfloat16", "float32"]
 
 
-def one_shot(
+def apply(
     model_path: str,
     dataset_name: str,
     dataset_config_name: Optional[str] = None,
@@ -210,7 +210,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    one_shot(
+    apply(
         model_path=args.model,
         dataset_name=args.dataset,
         dataset_config_name=args.dataset_config,

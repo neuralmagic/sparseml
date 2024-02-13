@@ -23,10 +23,10 @@ from sparseml.core.state import State
 from sparseml.modifiers.obcq import SparseGPTModifier
 from sparseml.modifiers.obcq.utils.helpers import ppl_eval_general
 from sparseml.pytorch.utils.helpers import tensor_sparsity
+from sparseml.transformers import apply
 from sparseml.transformers.finetune.data import TextGenerationDataset
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
 from sparseml.transformers.finetune.data.data_helpers import format_calibration_data
-from sparseml.transformers.sparsification.obcq.obcq import one_shot
 from sparseml.transformers.sparsification.obcq.utils.helpers import llama_forward
 from sparseml.transformers.utils.helpers import resolve_sequence_length
 from sparseml.transformers.utils.initializers import (
@@ -53,7 +53,7 @@ def test_obcq_tinystories(recipe_file_path):
     config = initialize_config(model_path=tiny_model_path)
 
     # test recipe with 50% sparsity, quantization and smoothquant
-    tiny_model = one_shot(
+    tiny_model = apply(
         model_path=tiny_model_path,
         dataset_name=dataset_name,
         num_samples=num_samples,
@@ -143,7 +143,7 @@ def test_sparsities():
         device = "cpu"
 
     # test recipe with 50% sparsity, quantization and smoothquant
-    tiny_model = one_shot(
+    tiny_model = apply(
         model_path=tiny_model_path,
         dataset_name="open_platypus",
         num_samples=64,

@@ -18,7 +18,7 @@ from sparseml.experimental.sparsegpt.dispatch import evaluate_perplexity, load_m
 from sparseml.experimental.sparsegpt.main import sequential
 from sparseml.experimental.sparsegpt.opt import load_data
 from sparseml.modifiers.obcq.utils.helpers import ppl_eval_general
-from sparseml.transformers.sparsification.obcq.obcq import one_shot
+from sparseml.transformers.sparsification.obcq.obcq import apply
 from sparseml.transformers.sparsification.obcq.utils.helpers import opt_forward
 
 
@@ -94,7 +94,7 @@ if __name__ == "__main__":
     torch.cuda.empty_cache()
 
     prod_args = ProdArgs()
-    prod_model = one_shot(
+    prod_model = apply(
         model_path=prod_args.model,
         dataset_name=prod_args.dataset,
         num_samples=prod_args.nsamples,
