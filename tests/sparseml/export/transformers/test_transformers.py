@@ -44,6 +44,8 @@ class TestEndToEndExport:
         shutil.rmtree(tmp_path)
 
     def test_export_initialized_model_no_source_path(self, setup):
+        # export the transformer model, that is being passed to the
+        # `export` API directly as an object
         source_path, target_path, task = setup
         export(
             model=SparseAutoModel.question_answering_from_pretrained(

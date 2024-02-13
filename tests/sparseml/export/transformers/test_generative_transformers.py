@@ -46,6 +46,8 @@ class TestEndToEndExport:
         shutil.rmtree(tmp_path)
 
     def test_export_initialized_model_no_source_path(self, setup):
+        # export the transformer model, that is being passed to the
+        # `export` API directly as an object
         source_path, target_path, task = setup
         config = remove_past_key_value_support_from_config(
             SparseAutoConfig.from_pretrained(source_path)
@@ -57,6 +59,10 @@ class TestEndToEndExport:
             target_path=target_path,
             integration="transformers",
             sequence_length=384,
+            # we need to disable applying kv cache injection
+            # because the script does not have access to the
+            # config.json (we are not creating a full deployment
+            # directory during the export)
             graph_optimizations="none",
             task=task,
             validate_correctness=True,

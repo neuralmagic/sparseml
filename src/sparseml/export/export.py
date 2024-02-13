@@ -88,7 +88,7 @@ _LOGGER = logging.getLogger(__name__)
 def export(
     source_path: Union[Path, str] = None,
     target_path: Union[Path, str, None] = None,
-    model: Optional["torch.nn.Module"] = None,
+    model: Optional["torch.nn.Module"] = None,  # noqa F401
     onnx_model_name: str = ONNX_MODEL_NAME,
     deployment_target: str = "deepsparse",
     opset: Optional[int] = None,
@@ -107,12 +107,15 @@ def export(
     **kwargs,
 ):
     """
-    Export a PyTorch model located in source_path, to target_path.
+    Export a PyTorch model that is either:
+     - located in source_path (and will be loaded)
+     - passed directly to the function
+    to target_path.
     The deployment files will be located at target_path/deployment_directory_name
 
     The exporting logic consists of the following steps:
-    1. (If required) create the model and additional model kwargs using the
-        integration-specific `create_model` function.
+    1. Create the model (if required) and the data loader using the
+       integration-specific `create_model` and `create_data_loader` functions.
     2. Export the model to ONNX using the integration-specific `export` function.
     3. Apply the graph optimizations to the exported model.
     4. Create the deployment folder at target_path/deployment_directory_name
@@ -128,9 +131,13 @@ def export(
         omitted if model is provided
     :param target_path: The path to save the exported model to. If not provided
         will default to source_path
-    :param model: The PyTorch model to export. If provided, the script will
-        not attempt to load the model from source_path. Also, the full
-        export logic will not be enforced (e.g. validate_structure)
+    :param model: The PyTorch model to export. If provided, the source_path
+        should be set to None to avoid potential confusion and entaglement
+        of sources. This means that, the full
+        export logic will not be enforced (e.g. the final deployment directory
+        will not be complete, it will not be possible to run validate_structure
+        method or apply some optimizations that require complete deployment
+        directory structure)
     :param onnx_model_name: The name of the exported model.
         Defaults to ONNX_MODEL_NAME.
     :param deployment_target: The deployment target to export
@@ -185,7 +192,9 @@ def export(
 
     if source_path is not None and model is not None:
         raise ValueError(
-            "Not allowed to specify multiple model sources for export. Specify either source_path or model path, not both"
+            "Not allowed to specify multiple model "
+            "sources for export: source_path and model. "
+            "Specify either source_path or model, not both"
         )
 
     if source_path is not None:
@@ -194,6 +203,7 @@ def export(
             target_path = source_path
 
     integration = resolve_integration(source_path, integration)
+    _LOGGER.info(f"Starting export for {integration} model...")
 
     if target_path is None:
         raise ValueError("targe_path is None. Provide the target_path argument.")
@@ -222,8 +232,6 @@ def export(
         )
         shutil.rmtree(deployment_folder_dir)
 
-    _LOGGER.info(f"Starting export for {integration} model...")
-
     helper_functions: IntegrationHelperFunctions = (
         IntegrationHelperFunctions.load_from_registry(integration, task=task)
     )
@@ -247,7 +255,8 @@ def export(
         **kwargs,
         **loaded_model_kwargs,
     )
-
+    # join kwargs that are created during the initialization of the model
+    # and data_loader
     export_kwargs = {**loaded_model_kwargs, **loaded_data_loader_kwargs}
 
     if export_kwargs:
@@ -314,7 +323,7 @@ def export(
             raise ValueError(
                 "To validate correctness sample inputs/outputs are needed."
                 "To enable the validation, set `num_export_samples` "
-                "to non-zero, positive int"
+                "to non-zero, positive integer"
             )
         validate_correctness_(target_path, deployment_folder_dir, onnx_model_name)
 

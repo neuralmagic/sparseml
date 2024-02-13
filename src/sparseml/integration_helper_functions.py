@@ -58,6 +58,7 @@ def resolve_integration(
         import sparseml.pytorch.image_classification.integration_helper_functions  # noqa F401
 
         return Integrations.image_classification.value
+
     elif integration == Integrations.transformers.value:
         import sparseml.transformers.integration_helper_functions  # noqa F401
 
@@ -72,7 +73,7 @@ def resolve_integration(
 
 
 def _infer_integration_from_source_path(
-    source_path: Union[Path, str, None]
+    source_path: Union[Path, str, None] = None
 ) -> Optional[str]:
     """
     Infer the integration to use from the source_path.
@@ -134,19 +135,17 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
         "(any relevant objects created along with the model)"
     )
     create_data_loader: Callable[
-        ["torch.nn.Module", ...],
+        [...],
         Tuple[
             Union["torch.utils.data.DataLoader", Generator],  # noqa F821
             Optional[Dict[str, Any]],
         ],
     ] = Field(
         description="A function that takes: "
-        "- a source path to a PyTorch model "
-        "- (optionally) additional arguments"
-        "and returns: "
-        "- a (sparse) PyTorch model "
-        "- (optionally) loaded_model_kwargs "
-        "(any relevant objects created along with the model)"
+        "arbitrary arguments and returns: "
+        "- a dataloader "
+        "- (optionally) loaded data_loader kwargs "
+        "(any relevant objects created along with the data_loader)"
     )
     create_dummy_input: Callable[[Any], "torch.Tensor"] = Field(  # noqa F821
         description="A function that takes: "

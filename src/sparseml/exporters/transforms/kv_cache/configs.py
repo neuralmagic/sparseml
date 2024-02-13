@@ -283,6 +283,8 @@ def _get_transformers_config(model_path: Union[str, Path]) -> Dict[str, Any]:
             f"`model_path` is expected to be a directory, found {model_path}"
         )
     config_file = [file for file in model_path.iterdir() if file.name == "config.json"]
+    if len(config_file) == 0:
+        raise ValueError(f"Unable to find config.json in model_path: {model_path}")
     config_file = config_file[0]
 
     with open(config_file) as f:

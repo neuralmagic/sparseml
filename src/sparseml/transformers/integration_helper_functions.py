@@ -14,7 +14,7 @@
 
 import logging
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Union
 
 import torch
 from pydantic import Field
@@ -25,7 +25,6 @@ from sparseml.integration_helper_functions import (
     IntegrationHelperFunctions,
     Integrations,
 )
-from sparseml.transformers import SparseAutoTokenizer
 from sparseml.transformers.finetune.data.data_helpers import format_calibration_data
 from sparseml.transformers.utils.helpers import (
     ALL_TASK_NAMES,
@@ -113,11 +112,11 @@ def create_model(
 def create_data_loader(
     model: torch.nn.Module,
     task: str,
-    data_args: Optional[Any] = None,
-    config: Optional["AutoConfig"] = None,
+    data_args: Optional[Dict[str, Any]] = None,
+    config: Optional["AutoConfig"] = None,  # noqa F821
     source_path: Optional[str] = None,
     sequence_length: Optional[int] = None,
-    tokenizer: Optional["AutoTokenizer"] = None,
+    tokenizer: Optional["AutoTokenizer"] = None,  # noqa F821
     dataset_with_labels: bool = False,
     **kwargs,
 ):
@@ -125,23 +124,29 @@ def create_data_loader(
     A contract to create a dataloader and optional dictionary of
     loaded_dataloader_kwargs (any relevant objects created along with the dataloader)
 
-    # TODO
+    :param model: A model for which the data_loader is created
+    :param task: The task to use for the model
+    :param data_args: Arguments for instantiation of the dataset
+    :param source_path: Path to the model files
+    :param sequence_length: The sequence length to use for the model
+    :param tokenizer: The tokenizer to use for the model
+    :param dataset_with_labels: Whether to allow the dataset to
+        have "labels" inputs or not. Text-generation datasets may
+        contain labels (needed for training only)
 
     :return: A tuple of:
-        - dataloder
-        - dict of loaded_dataloader_kwargs
+        - torch model
+        - dict of loaded_model_kwargs
     """
-
     config = config or model.config
-    if sequence_length is None:
-        raise ValueError(
-            "Sequence length for the transformer model export missing. Provide it manually using sequence_length argument"
-        )
-    tokenizer = tokenizer or initialize_tokenizer(
-        config.name_or_path, sequence_length, task
-    )
     source_path = source_path or model.name_or_path
-
+    if tokenizer is None:
+        if sequence_length is None:
+            raise ValueError(
+                "Sequence length for the transformer model export missing. "
+                "Provide it manually using sequence_length argument"
+            )
+        tokenizer = initialize_tokenizer(config.name_or_path, sequence_length, task)
     data_args = _parse_data_args(data_args or {})
 
     if data_args:
@@ -245,7 +250,7 @@ class Transformers(IntegrationHelperFunctions):
         default=create_model
     )
     create_data_loader: Callable[
-        ..., Tuple[torch.utils.data.DataLoader, Dict[str, Any]]
+        ..., Tuple[Union[Generator, torch.utils.data.DataLoader], Dict[str, Any]]
     ] = Field(default=create_data_loader)
     create_dummy_input: Callable[..., torch.Tensor] = Field(default=create_dummy_input)
     create_data_samples: Callable = Field(create_data_samples)

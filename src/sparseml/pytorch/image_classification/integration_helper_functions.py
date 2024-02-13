@@ -24,68 +24,28 @@ from sparseml.integration_helper_functions import (
     Integrations,
 )
 from sparseml.pytorch.image_classification.utils.helpers import (
-    _validate_dataset_num_classes,
-)
-from sparseml.pytorch.image_classification.utils.helpers import (
     create_model as create_image_classification_model,
 )
 from sparseml.pytorch.image_classification.utils.helpers import (
     get_dataset_and_dataloader,
-    infer_num_classes,
 )
 
 
-def create_data_loader(
-    batch_size: Optional[int] = 1,
-    device: Optional[str] = None,
-    **kwargs,
-) -> Tuple[torch.nn.Module, Dict[str, Any]]:
+def create_model(
+    source_path: Union[Path, str], **kwargs
+) -> Tuple[torch.nn.Module, Dict]:
     """
     A contract to create a model and optional dictionary of
     loaded_model_kwargs (any relevant objects created along with the model)
 
-    :param batch_size: The batch size to use for the dataloader creation
-    :param device: The device to use for the model and dataloader instantiation
+    :param source_path: Path to the model files
 
     :return: A tuple of the
         - torch model
         - (optionally) loaded_model_kwargs
           (any relevant objects created along with the model)
     """
-    dataset_path = kwargs.get("dataset_path", None)
-    dataset_name = kwargs.get("dataset_name", None)
-    image_size = kwargs.get("image_size", None)
-    num_classes = kwargs.get("num_classes", None)
 
-    _validate_dataset_num_classes(
-        dataset_path=dataset_path, dataset=dataset_name, num_classes=num_classes
-    )
-
-    if num_classes is None:
-        dataset, dataloader = get_dataset_and_dataloader(
-            dataset_name=dataset_name,
-            dataset_path=dataset_path,
-            batch_size=batch_size,
-            image_size=image_size,
-            training=False,
-            loader_num_workers=1,
-            loader_pin_memory=False,
-            device=device,
-        )
-
-        num_classes = infer_num_classes(
-            train_dataset=None,
-            val_dataset=dataset,
-            dataset=dataset_name,
-            model_kwargs={},
-        )
-    else:
-        dataloader = None
-
-    return dataloader, dict(num_classes=num_classes, image_size=image_size)
-
-
-def create_model(source_path, **kwargs):
     checkpoint_path = (
         os.path.join(source_path, "model.pth")
         if not os.path.isfile(source_path)
@@ -96,6 +56,45 @@ def create_model(source_path, **kwargs):
         create_image_classification_model(checkpoint_path=checkpoint_path, **kwargs)[0],
         {},
     )
+
+
+def create_data_loader(
+    model: "torch.nn.Module",
+    batch_size: Optional[int] = 1,
+    device: Optional[str] = None,
+    **kwargs,
+) -> Tuple[torch.nn.Module, Dict[str, Any]]:
+    """
+    A contract to create a model and optional dictionary of
+    loaded_data_loader_kwargs (any relevant objects created along with the data_loader)
+
+    :param batch_size: The batch size to use for the dataloader creation
+    :param device: The device to use for the model and dataloader instantiation
+
+    :return: A tuple of the
+        - a data_loader
+        - (optionally) loaded_data_loader_kwargs
+          (any relevant objects created along with the model)
+    """
+    dataset_path = kwargs.get("dataset_path", None)
+    dataset_name = kwargs.get("dataset_name", None)
+    image_size = kwargs.get("image_size", None)
+
+    if dataset_path is not None:
+        dataset, dataloader = get_dataset_and_dataloader(
+            dataset_name=dataset_name,
+            dataset_path=dataset_path,
+            batch_size=batch_size,
+            image_size=image_size,
+            training=False,
+            loader_num_workers=1,
+            loader_pin_memory=False,
+            device=device,
+        )
+    else:
+        dataloader = None
+
+    return dataloader, dict(image_size=image_size)
 
 
 def create_dummy_input(
@@ -145,6 +144,8 @@ class ImageClassification(IntegrationHelperFunctions):
     create_model: Callable[..., Tuple[torch.nn.Module, Dict[str, Any]]] = Field(
         default=create_model
     )
-    create_data_loader: Any = Field(default=create_data_loader)
+    create_data_loader: Callable[
+        ..., Tuple[Union[torch.utils.data.DataLoader], Dict[str, Any]]
+    ] = Field(default=create_data_loader)
     create_dummy_input: Callable[..., torch.Tensor] = Field(default=create_dummy_input)
     create_data_samples: Callable = Field(create_data_samples)

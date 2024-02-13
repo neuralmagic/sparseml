@@ -112,9 +112,9 @@ def create_export_kwargs(
 
 
 def create_deployment_folder(
-    source_path: Union[Path, str],
     target_path: Union[Path, str],
     deployment_directory_files_mandatory: List[str],
+    source_path: Union[Path, str, None] = None,
     deployment_directory_files_optional: Optional[List[str]] = None,
     deployment_directory_name: str = "deployment",
     onnx_model_name: Optional[str] = None,
@@ -133,6 +133,8 @@ def create_deployment_folder(
     :param target_path: The path to the target folder.
     :param deployment_directory_name: The name of the deployment directory.
         The files will be copied to target_path/deployment_directory_name.
+    :param source_path: The path to the source folder (where the original model
+        files are stored)
     :param deployment_directory_files_mandatory: The mandatory list of files
         to copy to the deployment directory. If the file is an ONNX model
         (or ONNX data file), the file will be copied from target_path.
@@ -149,9 +151,11 @@ def create_deployment_folder(
         shutil.rmtree(deployment_folder_dir)
     os.makedirs(deployment_folder_dir, exist_ok=True)
 
+    # prepare for moving the data
     deployment_directory_files_optional = deployment_directory_files_optional or []
     deployment_directory_files_mandatory.remove(ONNX_MODEL_NAME)
 
+    # move the model and (if required) the data files
     move_onnx_files(
         target_path=target_path,
         deployment_folder_dir=deployment_folder_dir,
@@ -160,6 +164,7 @@ def create_deployment_folder(
     if source_path is None:
         return deployment_folder_dir
 
+    # copy the relevant files from source_path
     for file_name in deployment_directory_files_mandatory:
         copy_mandatory_deployment_files(
             file_name, source_path, target_path, onnx_model_name, deployment_folder_dir
