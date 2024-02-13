@@ -103,7 +103,7 @@ def collect_integrations(
                 f"Collection of {name} integration for eval failed"
             ) from import_error
 
-    _LOGGER.debug(f"No integrations found for the given name {name}")
+    raise ValueError(f"No registered integrations found for the given name {name}")
 
 
 def _load_yaml(path: Path):
