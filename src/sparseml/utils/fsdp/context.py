@@ -26,7 +26,7 @@ __all__ = ["summon_full_params_context", "fix_fsdp_module_name"]
 FSDP_WRAPPER_NAME = "_fsdp_wrapped_module."
 
 
-def summon_full_params_context(model):
+def summon_full_params_context(model, offload_to_cpu: bool = False):
     if FullyShardedDataParallel is not None:
         # avoid nested summon_full_param context
         if (
@@ -34,7 +34,9 @@ def summon_full_params_context(model):
             and model.training_state is TrainingState.SUMMON_FULL_PARAMS
         ):
             return nullcontext()
-        return FullyShardedDataParallel.summon_full_params(model)
+        return FullyShardedDataParallel.summon_full_params(
+            model, offload_to_cpu=offload_to_cpu
+        )
 
     return nullcontext()
 
