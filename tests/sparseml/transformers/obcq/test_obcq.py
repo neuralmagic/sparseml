@@ -164,7 +164,7 @@ def test_sgpt_defaults():
     sparsegpt_modifier_only_sparsity = SparseGPTModifier(
         framework=Framework.pytorch, **kwargs
     )
-    assert sparsegpt_modifier_only_sparsity.quantize == False
+    assert not sparsegpt_modifier_only_sparsity.quantize
     assert sparsegpt_modifier_only_sparsity.block_size == 128
     assert sparsegpt_modifier_only_sparsity.sparsity == 0.5
 
@@ -172,7 +172,7 @@ def test_sgpt_defaults():
     sparsegpt_modifier_only_quant = SparseGPTModifier(
         framework=Framework.pytorch, **kwargs
     )
-    assert sparsegpt_modifier_only_quant.quantize == True
+    assert sparsegpt_modifier_only_quant.quantize
     assert sparsegpt_modifier_only_quant.block_size == 128
     assert sparsegpt_modifier_only_quant.sparsity == 0.0
 
