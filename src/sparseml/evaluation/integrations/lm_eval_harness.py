@@ -18,7 +18,6 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
 from sparseml.evaluation.registry import SparseMLEvaluationRegistry
-from sparseml.transformers.utils.sparse_model import SparseAutoModelForCausalLM
 from sparsezoo.evaluation.results import Dataset, Evaluation, Metric, Result
 
 
@@ -30,6 +29,15 @@ except ImportError as import_error:
     raise ImportError(
         "package `lm_eval` not found. Please install it via "
         "`pip install git+https://github.com/EleutherAI/lm-evaluation-harness.git@e0eda4d`"  # noqa: E501
+    ) from import_error
+try:
+    # This needs to be imported after lm_eval to ensure right transformers
+    # version is installed for SparseML
+    from sparseml.transformers.utils.sparse_model import SparseAutoModelForCausalLM
+except ImportError as import_error:
+    raise ImportError(
+        "Install sparseml supported dependencies for lm-eval integration by running "
+        "`pip uninstall transformers && pip install sparseml[transformers,torch]`"
     ) from import_error
 
 __all__ = ["lm_eval_harness", "SparseMLLM", "LMEvalHarnessEvaluatorInputSchema"]
