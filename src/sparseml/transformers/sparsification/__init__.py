@@ -18,8 +18,9 @@ Hugging Face transformers flows
 """
 
 # flake8: noqa
-
-from .obcq import *
+# isort: skip_file
+# (import order matters for circular import avoidance)
 from .question_answering import *
 from .trainer import *
 from .training_args import *
+from .obcq import *
