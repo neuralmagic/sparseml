@@ -228,7 +228,7 @@ jobs:
           path: "sparsezoo"
           ref: ${{needs.test-setup.outputs.branch}}
           fetch-depth: 0
-      - run: git checkout e6b12f640ee6bf8c09463ccea94161836a910c21
+      - run: cd sparsezoo && git checkout e6b12f640ee6bf8c09463ccea94161836a910c21 && cd ..
       - name: "⚙️ Install sparsezoo dependencies"
         run: pip3 install -U pip && pip3 install setuptools sparsezoo/
       - name: "Clean sparsezoo directory"
