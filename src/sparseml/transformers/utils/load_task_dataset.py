@@ -14,19 +14,25 @@
 
 from typing import Any, Dict, Optional
 
+import datasets
 from torch.nn import Module
 from transformers import AutoConfig
 
-from sparseml.transformers import SparseAutoTokenizer
 from sparseml.transformers.utils.helpers import TaskNames
 
 
-__all__ = ["load_task_dataset"]
+__all__ = ["load_task_dataset", "load_dataset"]
+
+
+def load_dataset(*args, **kwargs):
+    # a wrapper around datasets.load_dataset
+    # to be expanded in the future
+    return datasets.load_dataset(*args, **kwargs)
 
 
 def load_task_dataset(
     task: str,
-    tokenizer: SparseAutoTokenizer,
+    tokenizer: "AutoTokenizer",  # noqa F821
     data_args: Dict[str, Any],
     model: Module,
     split: Optional[str] = None,
