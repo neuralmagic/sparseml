@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import logging
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Optional, Union
 
 from sparseml.core.factory import ModifierFactory
 from sparseml.core.state import State
@@ -46,14 +46,12 @@ class SparseGPTModifier(WandaPruningModifier):
         True to quantize using an existing quantization modifier, or pass in the
         configuration for a quantization modifier if one does not already exist
         in the recipe
-    :param sparsity: Sparsity to compress model to
     :param dampening_frac: Amount of dampening to apply to H, as a fraction of the
         diagonal norm
     """
 
-    block_size: int = 128
-    quantize: Union[bool, Dict] = False
-    sparsity: Union[float, List[float]] = 0.0
+    block_size: int
+    quantize: Union[bool, Dict]
     dampening_frac: Optional[float] = 0.01
     quantization_modifier_: Any = None
 
