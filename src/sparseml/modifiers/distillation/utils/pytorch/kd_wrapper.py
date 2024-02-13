@@ -39,7 +39,9 @@ class KDModuleWrapper(Module):
         self._fsdp_active = fsdp_active
         self.kd_transforms = transforms
         self.kd_enabled = False
-        self.register_buffer(self.KD_TRANSFORMED_BUFFER, torch.zeros(hidden_size))
+        self.register_buffer(
+            self.KD_TRANSFORMED_BUFFER, torch.zeros(hidden_size, device="cpu")
+        )
         self._init_called = True  # make sure this is last property to be set
 
         def _clear_missing_keys(module, incompatible_keys):

@@ -118,11 +118,12 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
         else:
             state.model.model = self.wrapped_kd_model_.student_model
 
-        for key, (student_wrapper, teacher_wrapper) in self.wrappers_.items():
-            state.model.set_layer(key, student_wrapper.layer)
-            state.teacher_model.set_layer(key, teacher_wrapper.layer)
-            del student_wrapper
-            del teacher_wrapper
+        with summon_full_params_context(state.teacher_model.model, offload_to_cpu=True):
+            for key, (student_wrapper, teacher_wrapper) in self.wrappers_.items():
+                state.model.set_layer(key, student_wrapper.layer)
+                state.teacher_model.set_layer(key, teacher_wrapper.layer)
+                del student_wrapper
+                del teacher_wrapper
 
         del self.wrapped_kd_model_
         return True
@@ -138,11 +139,9 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
             self.start, self.end, self.update
         ):
             distill_loss = self.wrapped_kd_model_.kd_last_comparison
-            distill_loss_device = distill_loss.device
             model_loss = self.orig_scale * kwargs["loss"]
             distill_loss = self.distill_scale * distill_loss.to(model_loss.device)
             state.loss = model_loss + distill_loss
-            distill_loss.to(distill_loss_device)
 
     def on_end(self, state: State, event: Event, **kwargs):
         for (student_wrapper, teacher_wrapper) in self.wrappers_.values():

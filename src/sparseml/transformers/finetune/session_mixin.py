@@ -203,7 +203,7 @@ class SessionManagerMixIn:
         if not session.lifecycle.initialized_ or session.lifecycle.finalized:
             return False
 
-        with summon_full_params_context(self.model):
+        with summon_full_params_context(self.model, offload_to_cpu=True):
             # in order to update each layer we need to gathers all its parameters
             session_manager.finalize()
         _LOGGER.info("Finalized SparseML session")
