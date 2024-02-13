@@ -42,7 +42,7 @@ See [configure_fsdp.md](https://github.com/neuralmagic/sparseml/blob/main/integr
 ## Launching from Python
 
 ```python
-from sparseml.transformers.finetune.text_generation import train
+from sparseml.transformers import train
 
 model = "./obcq_deployment"
 teacher_model = "Xenova/llama2.c-stories15M"
@@ -97,7 +97,7 @@ accelerate launch
 
 ## Running One-shot from Python (without FSDP)
 ```python
-from sparseml.transformers.finetune.text_generation import oneshot
+from sparseml.transformers import oneshot
 
 model = "Xenova/llama2.c-stories15M"
 dataset_name = "open_platypus"
@@ -134,7 +134,7 @@ of a staged recipe for Llama.
 
 test_multi.py
 ```python
-from sparseml.transformers.finetune.text_generation import apply
+from sparseml.transformers import apply
 
 model = "../ml-experiments/nlg-text_generation/llama_pretrain-llama_7b-base/dense/training"
 dataset_name = "open_platypus"
