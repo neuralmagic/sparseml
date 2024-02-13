@@ -23,6 +23,10 @@ import torch
 
 from huggingface_hub import snapshot_download
 from sparseml import export
+from sparseml.transformers import SparseAutoConfig, SparseAutoModelForCausalLM
+from sparseml.transformers.utils.helpers import (
+    remove_past_key_value_support_from_config,
+)
 
 
 @pytest.mark.parametrize(
@@ -40,6 +44,38 @@ class TestEndToEndExport:
         yield source_path, target_path, task
 
         shutil.rmtree(tmp_path)
+
+    def test_export_initialized_model_no_source_path(self, setup):
+        source_path, target_path, task = setup
+        config = remove_past_key_value_support_from_config(
+            SparseAutoConfig.from_pretrained(source_path)
+        )
+        export(
+            model=SparseAutoModelForCausalLM.from_pretrained(
+                source_path, config=config
+            ),
+            target_path=target_path,
+            integration="transformers",
+            sequence_length=384,
+            graph_optimizations="none",
+            task=task,
+            validate_correctness=True,
+            num_export_samples=2,
+            **dict(
+                data_args=dict(
+                    dataset_name="wikitext", dataset_config_name="wikitext-2-raw-v1"
+                )
+            ),
+        )
+        assert (target_path / "deployment" / "model.onnx").exists()
+        assert not (target_path / "deployment" / "model.data").exists()
+        # assert that kv cache injection has not been applied
+        onnx_model = onnx.load(
+            str(target_path / "deployment" / "model.onnx"), load_external_data=False
+        )
+        assert not any(
+            inp.name == "past_key_values.0.key" for inp in onnx_model.graph.input
+        )
 
     def test_export_happy_path(self, setup):
         source_path, target_path, task = setup

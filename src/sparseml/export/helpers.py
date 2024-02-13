@@ -150,49 +150,55 @@ def create_deployment_folder(
     os.makedirs(deployment_folder_dir, exist_ok=True)
 
     deployment_directory_files_optional = deployment_directory_files_optional or []
+    deployment_directory_files_mandatory.remove(ONNX_MODEL_NAME)
+
+    move_onnx_files(
+        target_path=target_path,
+        deployment_folder_dir=deployment_folder_dir,
+        onnx_model_name=onnx_model_name,
+    )
+    if source_path is None:
+        return deployment_folder_dir
 
     for file_name in deployment_directory_files_mandatory:
-        move_mandatory_deployment_files(
+        copy_mandatory_deployment_files(
             file_name, source_path, target_path, onnx_model_name, deployment_folder_dir
         )
 
     for file_name in deployment_directory_files_optional:
-        move_optional_deployment_files(file_name, source_path, deployment_folder_dir)
+        copy_optional_deployment_files(file_name, source_path, deployment_folder_dir)
 
     return deployment_folder_dir
 
 
-def move_mandatory_deployment_files(
+def move_onnx_files(
+    target_path: Union[str, Path],
+    deployment_folder_dir: str,
+    onnx_model_name: Optional[str] = None,
+):
+    onnx_model_name = onnx_model_name or ONNX_MODEL_NAME
+    _move_onnx_model(
+        onnx_model_name=onnx_model_name,
+        src_path=target_path,
+        target_path=deployment_folder_dir,
+    )
+
+
+def copy_mandatory_deployment_files(
     file_name: str,
     source_path: Union[Path, str],
     target_path: Union[Path, str],
     onnx_model_name: str,
     deployment_folder_dir: Union[Path, str],
 ):
-    if file_name == ONNX_MODEL_NAME:
-        # attempting to move the ONNX model file
-        # (potentially together with the ONNX data file)
-        # from target_path to target_path/deployment_folder_dir
 
-        # takes into consideration potentially custom ONNX model name
-        onnx_model_name = (
-            ONNX_MODEL_NAME if onnx_model_name is None else onnx_model_name
-        )
-
-        _move_onnx_model(
-            onnx_model_name=onnx_model_name,
-            src_path=target_path,
-            target_path=deployment_folder_dir,
-        )
-
-    else:
-        _copy_file_or_directory(
-            src=os.path.join(source_path, file_name),
-            target=os.path.join(deployment_folder_dir, file_name),
-        )
+    _copy_file_or_directory(
+        src=os.path.join(source_path, file_name),
+        target=os.path.join(deployment_folder_dir, file_name),
+    )
 
 
-def move_optional_deployment_files(
+def copy_optional_deployment_files(
     file_name: str,
     source_path: Union[Path, str],
     deployment_folder_dir: Union[Path, str],

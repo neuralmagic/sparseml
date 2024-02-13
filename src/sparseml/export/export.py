@@ -86,8 +86,9 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def export(
-    source_path: Union[Path, str],
+    source_path: Union[Path, str] = None,
     target_path: Union[Path, str, None] = None,
+    model: Optional["torch.nn.Module"] = None,
     onnx_model_name: str = ONNX_MODEL_NAME,
     deployment_target: str = "deepsparse",
     opset: Optional[int] = None,
@@ -110,7 +111,7 @@ def export(
     The deployment files will be located at target_path/deployment_directory_name
 
     The exporting logic consists of the following steps:
-    1. Create the model and validation dataloader (if needed) using the
+    1. (If required) create the model and additional model kwargs using the
         integration-specific `create_model` function.
     2. Export the model to ONNX using the integration-specific `export` function.
     3. Apply the graph optimizations to the exported model.
@@ -123,9 +124,13 @@ def export(
     7. Optionally, validate the structure of the exported model using
         the integration-specific `validate_structure` function.
 
-    :param source_path: The path to the PyTorch model to export.
+    :param source_path: The path to the PyTorch model to export. Will be
+        omitted if model is provided
     :param target_path: The path to save the exported model to. If not provided
         will default to source_path
+    :param model: The PyTorch model to export. If provided, the script will
+        not attempt to load the model from source_path. Also, the full
+        export logic will not be enforced (e.g. validate_structure)
     :param onnx_model_name: The name of the exported model.
         Defaults to ONNX_MODEL_NAME.
     :param deployment_target: The deployment target to export
@@ -177,9 +182,22 @@ def export(
     from sparseml.pytorch.utils.helpers import default_device
 
     opset = opset or TORCH_DEFAULT_ONNX_OPSET
-    source_path = process_source_path(source_path)
+
+    if source_path is not None and model is not None:
+        raise ValueError(
+            "Not allowed to specify multiple model sources for export. Specify either source_path or model path, not both"
+        )
+
+    if source_path is not None:
+        source_path = process_source_path(source_path)
+        if target_path is None:
+            target_path = source_path
+
+    integration = resolve_integration(source_path, integration)
+
     if target_path is None:
-        target_path = source_path
+        raise ValueError("targe_path is None. Provide the target_path argument.")
+
     # create the target path if it doesn't exist
     if not Path(target_path).exists():
         Path(target_path).mkdir(parents=True, exist_ok=True)
@@ -195,8 +213,6 @@ def export(
             f"Got {deployment_target} instead."
         )
 
-    integration = resolve_integration(source_path, integration)
-
     deployment_folder_dir = os.path.join(target_path, deployment_directory_name)
 
     if os.path.isdir(deployment_folder_dir):
@@ -211,36 +227,44 @@ def export(
     helper_functions: IntegrationHelperFunctions = (
         IntegrationHelperFunctions.load_from_registry(integration, task=task)
     )
-
-    _LOGGER.info("Creating model for the export...")
-
-    # loaded_model_kwargs may include any objects
-    # that were created along with the model and are needed
-    # for the export
-    model, loaded_model_kwargs = helper_functions.create_model(
-        source_path,
-        device=device,
-        task=task,
-        recipe=recipe,
-        **kwargs,
-    )
+    loaded_model_kwargs = {}
+    if model is None:
+        _LOGGER.info("Creating model for the export...")
+        model, loaded_model_kwargs = helper_functions.create_model(
+            source_path,
+            device=device,
+            task=task,
+            recipe=recipe,
+            **kwargs,
+        )
     model.eval()
 
-    if loaded_model_kwargs:
+    _LOGGER.info("Creating data loader for the export...")
+    data_loader, loaded_data_loader_kwargs = helper_functions.create_data_loader(
+        model=model,
+        task=task,
+        device=device,
+        **kwargs,
+        **loaded_model_kwargs,
+    )
+
+    export_kwargs = {**loaded_model_kwargs, **loaded_data_loader_kwargs}
+
+    if export_kwargs:
         _LOGGER.info(
             "Created additional items that will "
-            f"be used for the export: {list(loaded_model_kwargs.keys())}"
+            f"be used for the export: {list(export_kwargs.keys())}"
         )
 
     sample_data = (
-        helper_functions.create_dummy_input(**loaded_model_kwargs, **kwargs)
+        helper_functions.create_dummy_input(data_loader=data_loader, **kwargs)
         if sample_data is None
         else sample_data
     )
 
     _LOGGER.info(f"Exporting {onnx_model_name} to {target_path}...")
 
-    export_kwargs = create_export_kwargs(loaded_model_kwargs)
+    export_kwargs = create_export_kwargs(export_kwargs)
 
     onnx_file_path = helper_functions.export(
         model=model,
@@ -260,9 +284,7 @@ def export(
             output_samples,
             label_samples,
         ) = helper_functions.create_data_samples(
-            num_samples=num_export_samples,
-            model=model,
-            **loaded_model_kwargs,
+            num_samples=num_export_samples, model=model, data_loader=data_loader
         )
         export_data_samples(
             input_samples=input_samples,
@@ -291,8 +313,8 @@ def export(
         if not num_export_samples:
             raise ValueError(
                 "To validate correctness sample inputs/outputs are needed."
-                "To enable the validation, set `num_export_samples`"
-                "to True"
+                "To enable the validation, set `num_export_samples` "
+                "to non-zero, positive int"
             )
         validate_correctness_(target_path, deployment_folder_dir, onnx_model_name)
 
@@ -312,7 +334,7 @@ def export(
             external_data_chunk_size_mb,
         )
 
-    if validate_structure:
+    if validate_structure and source_path:
         _LOGGER.info("Validating model structure...")
         validate_structure_(
             target_path=target_path,
