@@ -14,12 +14,13 @@
 # flake8: noqa: F401
 
 import numpy
-import numpy
+
 from evaluate import load
 
 
 def dataset_mock(*args, **kwargs):
     return ["lorem ipsum", "Happy Birthday!", "Bienvenue"]
+
 
 def test_perplexity_against_huggingface(monkeypatch):
     from sparseml.evaluation.integrations.perplexity import perplexity_eval
