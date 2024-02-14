@@ -91,9 +91,16 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
                 zoo_stub=pretrained_model_name_or_path
             )
 
+        # temporarily set the log level to error, to ignore printing out long missing
+        # and unexpected key error messages (these are EXPECTED for quantized models)
+        logger = logging.getLogger("transformers.modeling_utils")
+        restore_log_level = logger.getEffectiveLevel()
+        logger.setLevel(level=logging.ERROR)
         model = super(AutoModelForCausalLM, cls).from_pretrained(
             pretrained_model_name_or_path, *model_args, **kwargs
         )
+        logger.setLevel(level=restore_log_level)
+
         recipe = resolve_recipe(recipe, pretrained_model_name_or_path)
         if recipe:
             apply_recipe_structure_to_model(
