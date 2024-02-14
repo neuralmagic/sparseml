@@ -191,6 +191,9 @@ def export(
 
     opset = opset or TORCH_DEFAULT_ONNX_OPSET
 
+    # start a new SparseSession for potential recipe application
+    session_manager.create_session()
+
     if source_path is not None and model is not None:
         raise ValueError(
             "Not allowed to specify multiple model "
