@@ -25,6 +25,7 @@ def test_integration_helper_functions():
         Integrations.transformers.value
     )
     assert transformers.create_model
+    assert transformers.create_data_loader
     assert transformers.create_dummy_input
     assert transformers.export
     assert transformers.apply_optimizations is None
@@ -49,6 +50,7 @@ def test_integration_helper_function_text_generation():
     )
 
     assert transformers.create_model
+    assert transformers.create_data_loader
     assert transformers.create_dummy_input
     assert transformers.export
     assert transformers.apply_optimizations is not None
