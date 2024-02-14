@@ -42,7 +42,18 @@ def perplexity_eval(
     batch_size: int = 1,
     device: Optional[str] = None,
     nsamples: Optional[int] = None,
+    **kwargs,
 ) -> Result:
+    """
+    Perform perplexity evaluation on a language model.
+
+    :param model_path: The path to the model to evaluate
+    :param datasets: The name of the dataset to evaluate on
+    :param batch_size: The batch size to use for evaluation
+    :param device: The device to use for evaluation
+    :param nsamples: The number of samples to evaluate on
+    :param kwargs: Additional arguments for the evaluation
+    """
     dataset_config_name = _infer_dataset_config_name(datasets)
     task = "text-generation"
     split = "test"

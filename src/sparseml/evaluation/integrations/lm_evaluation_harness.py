@@ -64,8 +64,15 @@ def lm_eval_harness(
         list of dataset names or a pattern to match against
     :param batch_size: the batch size to use for evaluation
     :param kwargs: additional keyword arguments to pass to the
-        lm-evaluation-harness
+        lm-evaluation-harness. For example, `limit`
     """
+    # use nsamples as limit, if limit is not provided
+    # and nsamples is provided (example: from CLI)
+
+    kwargs["limit"] = kwargs.get("limit") or kwargs.get("nsamples")
+    kwargs["limit"] = int(kwargs["limit"]) if kwargs["limit"] else None
+    kwargs.pop("nsamples", None)
+
     model = SparseMLLM(pretrained=model_path, **kwargs)
 
     if kwargs.get("limit"):
@@ -148,7 +155,7 @@ def _format_lm_eval_raw_results(results: Dict[str, Any]) -> List[Evaluation]:
         metrics = [
             Metric(name=metric_name, value=metric_value)
             for metric_name, metric_value in dataset_result.items()
-            if not isinstance(metric_value, str)
+            if isinstance(metric_value, (float, int))
         ]
         dataset = Dataset(
             type=None, name=dataset_name, config=results["config"], split=None

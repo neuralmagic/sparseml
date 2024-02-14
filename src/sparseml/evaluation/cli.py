@@ -15,17 +15,16 @@
 """
 ######
 Command help:
-$ sparseml.eval --help
-Usage: sparseml.eval [OPTIONS] [INTEGRATION_ARGS]...
+$ sparseml.evaluate --help                                                                                     (eval-docs-ui-fixes|✚3…1⚑3)
+Usage: sparseml.evaluate [OPTIONS] MODEL_PATH [INTEGRATION_ARGS]...
+
+  Evaluate a model using a specified integration.
+
+  Where model is path to a local directory containing pytorch model (including
+  all the auxiliary files) or a SparseZoo/HugginFace stub
 
 Options:
-  --model_path PATH               A path to a local directory containing
-                                  pytorch model(including all the auxiliary
-                                  files) or a SparseZoo/HugginFace stub
-                                  [required]
-  -d, --dataset TEXT              The name of dataset to evaluate on. The user
-                                  may pass multiple datasets names by passing
-                                  the option multiple times.
+  -d, --dataset TEXT              The name of dataset to evaluate on
   -i, --integration TEXT          Name of the evaluation integration to use.
                                   Must be a valid integration name that is
                                   registered in the evaluation registry
@@ -47,15 +46,19 @@ Options:
 
 INTEGRATION_ARGS:
     Additional, unstructured arguments to pass to the evaluation integration.
-
 #########
 EXAMPLES
 #########
+1. Use A Huggingface stub with lm-evaluation_harness
+    sparseml.evaluate \
+        "mgoin/llama2.c-stories15M-quant-pt" \
+        -d hellaswag -i lm-evaluation-harness
 
 """  # noqa: E501
+import ast
 import logging
 from pathlib import Path
-from typing import Any, Dict, Tuple
+from typing import Any, Dict
 
 import click
 from sparseml.evaluation.evaluator import evaluate
@@ -71,20 +74,15 @@ _LOGGER = logging.getLogger(__name__)
         token_normalize_func=lambda x: x.replace("-", "_"),
     )
 )
-@click.option(
-    "--model_path",
-    type=click.Path(dir_okay=True, file_okay=True),
-    required=True,
-    help="A path to a local directory containing pytorch model"
-    "(including all the auxiliary files) or a SparseZoo/HugginFace stub",
+@click.argument(
+    "model_path", type=click.Path(dir_okay=True, file_okay=True), required=True
 )
 @click.option(
     "-d",
     "--dataset",
     type=str,
     default=None,
-    help="The name of dataset to evaluate on. The user may pass multiple "
-    "datasets names by passing the option multiple times.",
+    help="The name of dataset to evaluate on",
 )
 @click.option(
     "-i",
@@ -136,9 +134,16 @@ def main(
     nsamples,
     integration_args,
 ):
+    """
+    Evaluate a model using a specified integration.
+
+    Where model is path to a local directory
+    containing pytorch model (including all the
+    auxiliary files) or a SparseZoo/HugginFace stub
+    """
 
     # format kwargs to a  dict
-    integration_args = _args_to_dict(integration_args)
+    integration_args: Dict[str, Any] = parse_kwarg_tuples(integration_args)
 
     _LOGGER.info(
         f"Datasets to evaluate on: {dataset}\n"
@@ -158,7 +163,7 @@ def main(
     _LOGGER.info(f"Evaluation done. Results:\n{result}")
 
     save_path = (
-        Path.cwd() / f"results.{type_serialization}"
+        Path.cwd().absolute() / f"results.{type_serialization}"
         if not save_path
         else Path(save_path).absolute().with_suffix(f".{type_serialization}")
     )
@@ -170,27 +175,66 @@ def main(
         )
 
 
-def _args_to_dict(args: Tuple[Any, ...]) -> Dict[str, Any]:
+def parse_kwarg_tuples(kwargs: tuple) -> Dict:
     """
-    Convert a tuple of args to a dict of args.
+    Convert a tuple of kwargs to a dict of kwargs.
+    This function is used to enable the click parsing of kwargs.
 
-    :param args: The args to convert. Should be a tuple of alternating
-        arg names and arg values e.g.('--arg1', 1, 'arg2', 2, -arg3', 3).
+    Example use:
+    ```
+    @click.command(
+    context_settings=dict(
+        ignore_unknown_options=True)
+    )
+    @click.argument(...)
+    @click.option(...)
+    ...
+    @click.argument("kwargs", nargs=-1, type=click.UNPROCESSED)
+    def main(..., kwargs):
+        ...
+        kwargs: Dict[str, Any] = parse_kwarg_tuples(kwargs: Tuple)
+    ```
+
+    Example inputs, outputs:
+    ```
+    input = ('--arg1', 1, 'arg2', 2, '-arg3', 3)
+    output = parse_kwarg_tuples(input)
+    output = {'arg1': 1, 'arg2': 2, 'arg3': 3}
+    ```
+
+    :param kwargs: The kwargs to convert. Should be a tuple of alternating
+        kwargs names and kwargs values e.g.('--arg1', 1, 'arg2', 2, -arg3', 3).
         The names can optionally have a '-' or `--` in front of them.
-    :return: The converted args as a dict.
+    :return: The converted kwargs as a dict.
     """
-    # Note: this function will ne moved to
-    # nm_utils soon
-
-    if len(args) == 0:
+    if len(kwargs) == 0:
         return {}
+    if len(kwargs) % 2 != 0:
+        raise ValueError(
+            "kwargs must be a tuple of alternating names and values "
+            "i.e. the length of kwargs tuple must be even. Received "
+            f"kwargs: {kwargs}"
+        )
     # names are uneven indices, values are even indices
-    args_names = args[0::2]
-    args_values = args[1::2]
-    # remove any '-' or '--' from the names
-    args_names = [name.lstrip("-") for name in args_names]
+    kwargs_names = kwargs[0::2]
+    kwargs_values = kwargs[1::2]
+    # by default kwargs values are strings, so convert them
+    # to the appropriate type if possible
+    kwargs_values = list(kwargs_values)
+    for i, value in enumerate(kwargs_values):
+        try:
+            kwargs_values[i] = ast.literal_eval(value)
+        except Exception as e:  # noqa E841
+            _LOGGER.debug(
+                f"Failed to infer non-string type"
+                f"from kwarg value: {value}. It will"
+                f"be left as a string."
+            )
 
-    return dict(zip(args_names, args_values))
+    # remove any '-' or '--' from the names
+    kwargs_names = [name.lstrip("-") for name in kwargs_names]
+
+    return dict(zip(kwargs_names, kwargs_values))
 
 
 if __name__ == "__main__":
