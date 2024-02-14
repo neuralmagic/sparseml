@@ -51,7 +51,7 @@ class WandaPruningModifier(Modifier):
         to compress every layer in the model
     """
 
-    sparsity: Union[float, List[float]]
+    sparsity: Union[float, List[float]] = 0.0
     mask_structure: str = "0:0"
     sequential_update: Optional[bool] = False
     targets: Union[str, List[str], None] = ALL_TOKEN
