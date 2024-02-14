@@ -26,6 +26,7 @@ def _test_image_classification_integration_helper_functions():
         Integrations.image_classification.value
     )
     assert image_classification.create_model
+    assert image_classification.create_data_loader
     assert image_classification.create_dummy_input
     assert image_classification.export
     assert image_classification.apply_optimizations is None

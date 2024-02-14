@@ -12,26 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 
-def test_imports():
-    # flake8: noqa
-    from sparseml import (
-        Framework,
-        FrameworkInferenceProviderInfo,
-        FrameworkInfo,
-        SparsificationInfo,
-        check_version,
-        detect_framework,
-        evaluate,
-        execute_in_sparseml_framework,
-        framework_info,
-        get_main_logger,
-        get_nm_root_logger,
-        set_logging_level,
-        sparsification_info,
-        version,
-        version_bug,
-        version_major,
-        version_major_minor,
-        version_minor,
-    )
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def run_before_and_after_tests(tmp_path):
+    os.environ["TRANSFORMERS_CACHE"] = str(tmp_path / "transformers")
+    os.environ["HF_DATASETS_CACHE"] = str(tmp_path / "datasets")
+    os.environ["SPARSEZOO_MODELS_PATH"] = str(tmp_path / "sparsezoo")
+    yield

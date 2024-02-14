@@ -15,5 +15,9 @@
 # my_eval_integration2: integrations/my_eval_integration2.py
 
 perplexity: integrations/perplexity.py
-lm-eval-harness: integrations/lm_eval_harness.py
+lm-eval-harness: integrations/lm_evaluation_harness.py
 
+# this is a workound to allow collection via both lm-eval-harness 
+# and lm-evaluation-harness, support for aliases for collections
+# will be added in the future
+lm-evaluation-harness: integrations/lm_evaluation_harness.py 
