@@ -59,6 +59,11 @@ class SparseGPTModifierPyTorch(WandaPruningModifierPyTorch, SparseGPTModifier):
             self.on_initialize_structure(state, **kwargs)
         if self.quantization_modifier_:
             self.quantization_modifier_.initialize(state, **kwargs)
+        if not self.quantize and self.sparsity == 0.0:
+            raise ValueError(
+                "To use the SparseGPTModifier, target sparsity must be > 0.0 or "
+                "quantization must be enabled."
+            )
 
         return super(SparseGPTModifierPyTorch, self).on_initialize(state, **kwargs)
 

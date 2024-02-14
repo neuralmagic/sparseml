@@ -80,6 +80,7 @@ _transformers_deps = _pytorch_deps + [
     "scikit-learn",
     "seqeval",
     "einops",
+    "evaluate>=0.4.1",
     "accelerate>=0.20.3",
 ]
 _yolov5_deps = _pytorch_vision_deps + [
@@ -110,6 +111,7 @@ _dev_deps = [
     "flaky~=3.7.0",
     "tensorboard>=1.0,<2.9",
     "tensorboardX>=1.0",
+    "evaluate>=0.4.1",
 ]
 
 _docs_deps = [
@@ -281,6 +283,11 @@ def _setup_entry_points() -> Dict:
             "sparseml.ultralytics.val=sparseml.yolov8.val:main",
             "sparseml.ultralytics.export_onnx=sparseml.yolov8.export:main",
         ]
+    )
+
+    # eval entrypoint
+    entry_points["console_scripts"].append(
+        "sparseml.evaluate=sparseml.evaluation.cli:main"
     )
 
     return entry_points
