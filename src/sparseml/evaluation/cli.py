@@ -15,7 +15,7 @@
 """
 ######
 Command help:
-$ sparseml.evaluate --help                                                                                     (eval-docs-ui-fixes|✚3…1⚑3)
+$ sparseml.evaluate --help
 Usage: sparseml.evaluate [OPTIONS] MODEL_PATH [INTEGRATION_ARGS]...
 
   Evaluate a model using a specified integration.
