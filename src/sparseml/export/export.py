@@ -323,7 +323,7 @@ def export(
             raise ValueError(
                 "To validate correctness sample inputs/outputs are needed."
                 "To enable the validation, set `num_export_samples` "
-                "to non-zero, positive integer"
+                "to positive integer"
             )
         validate_correctness_(target_path, deployment_folder_dir, onnx_model_name)
 
