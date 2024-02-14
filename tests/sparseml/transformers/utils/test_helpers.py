@@ -71,6 +71,28 @@ def test_is_transformer_model(tmp_path, stub):
     source_path = zoo_model.training.path
     assert is_transformer_model(source_path)
 
+
+@pytest.mark.parametrize(
+    "stub",
+    [
+        "zoo:nlp/question_answering/bert-base/pytorch/huggingface/squad/pruned95_obs_quant-none",  # noqa E501
+    ],
+)
+def test_save_zoo_directory(stub, tmp_path_factory):
+    path_to_training_outputs = tmp_path_factory.mktemp("outputs")
+    save_dir = tmp_path_factory.mktemp("save_dir")
+
+    zoo_model = Model(stub, path_to_training_outputs)
+    zoo_model.download()
+
+    save_zoo_directory(
+        output_dir=save_dir,
+        training_outputs_dir=path_to_training_outputs,
+    )
+    new_zoo_model = Model(str(save_dir))
+    assert new_zoo_model.validate(minimal_validation=True, validate_onnxruntime=False)
+
+
 @pytest.mark.parametrize(
     "model_path, recipe_found",
     [
