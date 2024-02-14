@@ -224,7 +224,7 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
             )
             for k in outlier_ratios
         }
-        _LOGGER.info(f"[DEBUG] OWL sparsities for sp={self.sparsity} are:")
+        _LOGGER.info(f"OWL sparsities for sp={self.sparsity} are:")
         for k in sparsities:
             _LOGGER.info(f"Sparsity for {k}: {sparsities[k]}")
         return sparsities
