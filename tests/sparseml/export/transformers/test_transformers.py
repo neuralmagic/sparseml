@@ -21,6 +21,7 @@ import pytest
 import torch
 
 from sparseml import export
+from sparseml.transformers.utils.sparse_model import SparseAutoModel
 from sparsezoo import Model
 
 
@@ -41,6 +42,26 @@ class TestEndToEndExport:
         yield source_path, target_path, task
 
         shutil.rmtree(tmp_path)
+
+    def test_export_initialized_model_no_source_path(self, setup):
+        # export the transformer model, that is being passed to the
+        # `export` API directly as an object
+        source_path, target_path, task = setup
+        export(
+            model=SparseAutoModel.question_answering_from_pretrained(
+                model_name_or_path=source_path, model_type="model"
+            ),
+            target_path=target_path,
+            integration="transformers",
+            sequence_length=384,
+            task=task,
+            validate_correctness=True,
+            num_export_samples=2,
+            **dict(data_args=dict(dataset_name="squad")),
+        ),
+
+        assert (target_path / "deployment" / "model.onnx").exists()
+        assert not (target_path / "deployment" / "model.data").exists()
 
     def test_export_happy_path(self, setup):
         source_path, target_path, task = setup
