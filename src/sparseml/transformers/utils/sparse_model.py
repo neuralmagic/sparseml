@@ -87,9 +87,9 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
                 "Passed zoo stub to SparseAutoModelForCausalLM object. "
                 "Loading model from SparseZoo training files..."
             )
-            pretrained_model_name_or_path = Model(
-                pretrained_model_name_or_path
-            ).training.path
+            pretrained_model_name_or_path = download_zoo_training_dir(
+                zoo_stub=pretrained_model_name_or_path
+            )
 
         model = super(AutoModelForCausalLM, cls).from_pretrained(
             pretrained_model_name_or_path, *model_args, **kwargs
@@ -473,3 +473,26 @@ def get_shared_tokenizer_src(student: Module, teacher: Optional[Module]) -> str:
     else:
         src_model = student
     return src_model.config._name_or_path
+
+
+def download_zoo_training_dir(zoo_stub: str) -> str:
+    """
+    Helper function to download the training directory from a zoo stub,
+    takes care of downloading the missing files in the training
+    directory if any (This can happen if a some subset of files in the
+    training directory were downloaded before)
+
+    :param zoo_stub: The zoo stub to download the training directory from
+    :return: The path to the downloaded training directory
+    """
+    sparsezoo_model = Model(zoo_stub)
+    training_dir_path = sparsezoo_model.training.path
+
+    # download missing files if any this can happen if
+    # some subset of files in the training directory
+    # were downloaded before
+
+    for file_name in sparsezoo_model.training.files:
+        file_name.path
+
+    return training_dir_path
