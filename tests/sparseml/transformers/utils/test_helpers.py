@@ -79,9 +79,9 @@ def test_is_transformer_model(tmp_path, stub):
         "zoo:nlp/question_answering/obert-base/pytorch/huggingface/squad/pruned90_quant-none",  # noqa E501
     ],
 )
-def test_save_zoo_directory(stub, tmp_path_factory):
-    path_to_training_outputs = tmp_path_factory.mktemp("outputs")
-    save_dir = tmp_path_factory.mktemp("save_dir")
+def test_save_zoo_directory(stub, tmp_path):
+    path_to_training_outputs = tmp_path / "outputs"
+    save_dir = tmp_path / "save_dir"
 
     zoo_model = Model(stub, path_to_training_outputs)
     zoo_model.download()
