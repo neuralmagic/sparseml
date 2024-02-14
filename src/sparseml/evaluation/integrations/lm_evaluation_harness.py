@@ -13,36 +13,46 @@
 # limitations under the License.
 
 import logging
-from typing import Any, Dict, List, Optional
-
-from pydantic import BaseModel, Field
+from typing import Any, Dict, List
 
 from sparseml.evaluation.registry import SparseMLEvaluationRegistry
-from sparseml.transformers.utils.sparse_model import SparseAutoModelForCausalLM
 from sparsezoo.evaluation.results import Dataset, Evaluation, Metric, Result
 
 
 try:
     from lm_eval import evaluator, tasks, utils
     from lm_eval.models.huggingface import HFLM
-except ImportError as err:
+except ImportError as import_error:
     HFLM = object
-    raise Exception(
-        "package `lm_eval` is not installed. "
-        "Please install it via "
-        "`pip install lm-eval==0.4.0"
-    ) from err
+    raise ImportError(
+        "package `lm_eval` not found. Please install it via "
+        "`pip install git+https://github.com/EleutherAI/lm-evaluation-harness.git@e0eda4d`"  # noqa: E501
+    ) from import_error
+try:
+    # This needs to be imported after lm_eval to ensure right transformers
+    # version is installed for SparseML
+    from sparseml.transformers.utils.sparse_config import SparseAutoConfig
+    from sparseml.transformers.utils.sparse_model import SparseAutoModelForCausalLM
+except ImportError as import_error:
+    raise ImportError(
+        "Install sparseml supported dependencies for lm-eval integration by running "
+        "`pip uninstall transformers && pip install sparseml[transformers,torch]`"
+    ) from import_error
 
-__all__ = ["lm_eval_harness", "SparseMLLM", "LMEvalHarnessEvaluatorInputSchema"]
+__all__ = ["lm_eval_harness", "SparseMLLM"]
 _LOGGER = logging.getLogger(__name__)
 
+LM_EVALUATION_HARNESS: str = "lm-evaluation-harness"
+LM_EVALUATION_HARNESS_ALIASES: List[str] = ["lm-eval-harness"]
 
-@SparseMLEvaluationRegistry.register("lm-eval-harness")
+
+@SparseMLEvaluationRegistry.register(
+    LM_EVALUATION_HARNESS, alias=LM_EVALUATION_HARNESS_ALIASES
+)
 def lm_eval_harness(
     model_path,
     datasets: str = "wikitext",
     batch_size: int = 1,
-    device: str = "cuda",
     **kwargs,
 ) -> Result:
     """
@@ -53,12 +63,12 @@ def lm_eval_harness(
     :param datasets: the datasets to evaluate on, can be a comma separated
         list of dataset names or a pattern to match against
     :param batch_size: the batch size to use for evaluation
-    :param device: the device to use for evaluation
     :param kwargs: additional keyword arguments to pass to the
-        lm-evaluation-harness
+        lm-evaluation-harness. For example, `limit`
     """
-    model = SparseMLLM(pretrained=model_path, device=device, **kwargs)
-    kwargs.pop("nsamples", None)
+
+    kwargs["limit"] = int(limit) if (limit := kwargs.get("limit")) else None
+    model = SparseMLLM(pretrained=model_path, **kwargs)
 
     if kwargs.get("limit"):
         _LOGGER.warning(
@@ -73,56 +83,19 @@ def lm_eval_harness(
 
     _LOGGER.info(f"Selected Tasks: {task_names}")
 
-    evaluator_input = LMEvalHarnessEvaluatorInputSchema(
+    results_raw = evaluator.simple_evaluate(
         model=model,
         tasks=task_names,
         batch_size=batch_size,
-        device=device,
         **kwargs,
     )
 
-    results_raw = evaluator.simple_evaluate(**evaluator_input.dict())
-
     results = Result(
-        raw=dict(output=results_raw, input=_filter_evaluator_input(evaluator_input)),
+        raw=results_raw,
         formatted=_format_lm_eval_raw_results(results_raw),
     )
 
     return results
-
-
-class LMEvalHarnessEvaluatorInputSchema(BaseModel):
-    model: Any = Field(description="The name of the model.")
-    tasks: List[str] = Field(
-        description="The task (or multiple tasks) to evaluate the target on."
-    )
-    batch_size: int = Field(description="The batch size to use for evaluation.")
-    model_args: str = Field(
-        "", description="Additional arguments for the evaluated model."
-    )
-    num_fewshot: int = Field(0, description="The number of few shots to use.")
-    max_batch_size: Optional[int] = Field(
-        None, description="Maximal batch size to try with --batch_size auto."
-    )
-    device: Optional[str] = Field(None, description="Device to use for evaluation.")
-    use_cache: Optional[str] = Field(
-        None,
-        description="A path to a sqlite db "
-        "file for caching model responses. `None` if not caching.",
-    )
-    limit: Optional[float] = Field(
-        None,
-        description="Limit the number of examples per task. If <1, "
-        "limit is a percentage of the total number of "
-        "examples.",
-    )
-    decontamination_ngrams_path: Optional[str] = Field(
-        None, description="Specify the path for decontamination n-grams."
-    )
-    check_integrity: bool = Field(
-        False, description="Include this flag to check integrity."
-    )
-    write_out: bool = Field(False, description="Include this flag to write out.")
 
 
 class SparseMLLM(HFLM):
@@ -158,21 +131,10 @@ class SparseMLLM(HFLM):
         )
         self._model = model
 
-
-def _filter_evaluator_input(
-    evaluator_input: "LMEvalHarnessEvaluatorInputSchema",
-) -> Dict[str, Any]:  # noqa: F821
-    """
-    Filter the evaluator input to remove the model field.
-    The model field is a complex object that cannot be serialized.
-
-    :param evaluator_input: the evaluator input to filter
-    :return: the filtered evaluator input
-    """
-    evaluator = evaluator_input.dict()
-    del evaluator["model"]
-
-    return evaluator
+    def _get_config(self, pretrained: str, **kwargs) -> None:
+        self._config = SparseAutoConfig.from_pretrained(
+            pretrained_model_name_or_path=pretrained, **kwargs
+        )
 
 
 def _format_lm_eval_raw_results(results: Dict[str, Any]) -> List[Evaluation]:
@@ -188,13 +150,13 @@ def _format_lm_eval_raw_results(results: Dict[str, Any]) -> List[Evaluation]:
         metrics = [
             Metric(name=metric_name, value=metric_value)
             for metric_name, metric_value in dataset_result.items()
-            if isinstance(metric_value, float)
+            if isinstance(metric_value, (float, int))
         ]
         dataset = Dataset(
             type=None, name=dataset_name, config=results["config"], split=None
         )
         evaluation = Evaluation(
-            task="lm_evaluation_harness",
+            task=LM_EVALUATION_HARNESS,
             dataset=dataset,
             metrics=metrics,
             samples=None,
