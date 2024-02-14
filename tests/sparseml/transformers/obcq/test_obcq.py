@@ -180,5 +180,6 @@ def test_sgpt_defaults():
     kwargs = {}
     sparsegpt_invalid = SparseGPTModifier(framework=Framework.pytorch, **kwargs)
     state_test = State(framework=Framework.pytorch)
+    sparsegpt_invalid.initialized_structure_ = True
     with pytest.raises(ValueError):
         sparsegpt_invalid.on_initialize(state=state_test)
