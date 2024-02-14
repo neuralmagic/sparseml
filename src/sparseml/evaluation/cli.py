@@ -15,17 +15,16 @@
 """
 ######
 Command help:
-$ sparseml.eval --help
-Usage: sparseml.eval [OPTIONS] [INTEGRATION_ARGS]...
+$ sparseml.evaluate --help
+Usage: sparseml.evaluate [OPTIONS] MODEL_PATH [INTEGRATION_ARGS]...
+
+  Evaluate a model using a specified integration.
+
+  Where model is path to a local directory containing pytorch model (including
+  all the auxiliary files) or a SparseZoo/HugginFace stub
 
 Options:
-  --model_path PATH               A path to a local directory containing
-                                  pytorch model(including all the auxiliary
-                                  files) or a SparseZoo/HugginFace stub
-                                  [required]
-  -d, --dataset TEXT              The name of dataset to evaluate on. The user
-                                  may pass multiple datasets names by passing
-                                  the option multiple times.
+  -d, --dataset TEXT              The name of dataset to evaluate on
   -i, --integration TEXT          Name of the evaluation integration to use.
                                   Must be a valid integration name that is
                                   registered in the evaluation registry
@@ -41,24 +40,28 @@ Options:
                                   evaluation results. The default is json
   -b, --batch_size INTEGER        The batch size to use for the evaluation.
                                   Must be greater than 0
-  --nsamples INTEGER              The number of samples to evaluate on. Must
+  --limit INTEGER              The number of samples to evaluate on. Must
                                   be greater than 0
   --help                          Show this message and exit.
 
 INTEGRATION_ARGS:
     Additional, unstructured arguments to pass to the evaluation integration.
-
 #########
 EXAMPLES
 #########
+1. Use A Huggingface stub with lm-evaluation_harness
+    sparseml.evaluate \
+        "mgoin/llama2.c-stories15M-quant-pt" \
+        -d hellaswag -i lm-evaluation-harness
 
 """  # noqa: E501
 import logging
 from pathlib import Path
-from typing import Any, Dict, Tuple
+from typing import Any, Dict
 
 import click
 from sparseml.evaluation.evaluator import evaluate
+from sparseml.utils import parse_kwarg_tuples
 from sparsezoo.evaluation.results import Result, save_result
 
 
@@ -71,20 +74,15 @@ _LOGGER = logging.getLogger(__name__)
         token_normalize_func=lambda x: x.replace("-", "_"),
     )
 )
-@click.option(
-    "--model_path",
-    type=click.Path(dir_okay=True, file_okay=True),
-    required=True,
-    help="A path to a local directory containing pytorch model"
-    "(including all the auxiliary files) or a SparseZoo/HugginFace stub",
+@click.argument(
+    "model_path", type=click.Path(dir_okay=True, file_okay=True), required=True
 )
 @click.option(
     "-d",
     "--dataset",
     type=str,
     default=None,
-    help="The name of dataset to evaluate on. The user may pass multiple "
-    "datasets names by passing the option multiple times.",
+    help="The name of dataset to evaluate on",
 )
 @click.option(
     "-i",
@@ -120,7 +118,7 @@ _LOGGER = logging.getLogger(__name__)
     help="The batch size to use for the evaluation. Must be greater than 0",
 )
 @click.option(
-    "--nsamples",
+    "--limit",
     type=int,
     default=None,
     help="The number of samples to evaluate on. Must be greater than 0",
@@ -133,12 +131,19 @@ def main(
     save_path,
     type_serialization,
     batch_size,
-    nsamples,
+    limit,
     integration_args,
 ):
+    """
+    Evaluate a model using a specified integration.
+
+    Where model is path to a local directory
+    containing pytorch model (including all the
+    auxiliary files) or a SparseZoo/HugginFace stub
+    """
 
     # format kwargs to a  dict
-    integration_args = _args_to_dict(integration_args)
+    integration_args: Dict[str, Any] = parse_kwarg_tuples(integration_args)
 
     _LOGGER.info(
         f"Datasets to evaluate on: {dataset}\n"
@@ -151,14 +156,14 @@ def main(
         datasets=dataset,
         integration=integration,
         batch_size=batch_size,
-        nsamples=nsamples,
+        limit=limit,
         **integration_args,
     )
 
     _LOGGER.info(f"Evaluation done. Results:\n{result}")
 
     save_path = (
-        Path.cwd() / f"results.{type_serialization}"
+        Path.cwd().absolute() / f"results.{type_serialization}"
         if not save_path
         else Path(save_path).absolute().with_suffix(f".{type_serialization}")
     )
@@ -168,29 +173,6 @@ def main(
         save_result(
             result=result, save_path=str(save_path), save_format=type_serialization
         )
-
-
-def _args_to_dict(args: Tuple[Any, ...]) -> Dict[str, Any]:
-    """
-    Convert a tuple of args to a dict of args.
-
-    :param args: The args to convert. Should be a tuple of alternating
-        arg names and arg values e.g.('--arg1', 1, 'arg2', 2, -arg3', 3).
-        The names can optionally have a '-' or `--` in front of them.
-    :return: The converted args as a dict.
-    """
-    # Note: this function will ne moved to
-    # nm_utils soon
-
-    if len(args) == 0:
-        return {}
-    # names are uneven indices, values are even indices
-    args_names = args[0::2]
-    args_values = args[1::2]
-    # remove any '-' or '--' from the names
-    args_names = [name.lstrip("-") for name in args_names]
-
-    return dict(zip(args_names, args_values))
 
 
 if __name__ == "__main__":

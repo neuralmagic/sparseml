@@ -34,7 +34,7 @@ from sparseml.pytorch.model_load.helpers import (
     log_model_load,
 )
 from sparseml.transformers.utils.helpers import resolve_recipe
-from sparsezoo import Model
+from sparseml.utils import download_zoo_training_dir
 
 
 __all__ = ["SparseAutoModel", "SparseAutoModelForCausalLM", "get_shared_tokenizer_src"]
@@ -87,9 +87,9 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
                 "Passed zoo stub to SparseAutoModelForCausalLM object. "
                 "Loading model from SparseZoo training files..."
             )
-            pretrained_model_name_or_path = Model(
-                pretrained_model_name_or_path
-            ).training.path
+            pretrained_model_name_or_path = download_zoo_training_dir(
+                zoo_stub=pretrained_model_name_or_path
+            )
 
         model = super(AutoModelForCausalLM, cls).from_pretrained(
             pretrained_model_name_or_path, *model_args, **kwargs
