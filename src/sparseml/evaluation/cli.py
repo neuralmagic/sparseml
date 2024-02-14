@@ -40,7 +40,7 @@ Options:
                                   evaluation results. The default is json
   -b, --batch_size INTEGER        The batch size to use for the evaluation.
                                   Must be greater than 0
-  --nsamples INTEGER              The number of samples to evaluate on. Must
+  --limit INTEGER              The number of samples to evaluate on. Must
                                   be greater than 0
   --help                          Show this message and exit.
 
@@ -55,13 +55,13 @@ EXAMPLES
         -d hellaswag -i lm-evaluation-harness
 
 """  # noqa: E501
-import ast
 import logging
 from pathlib import Path
 from typing import Any, Dict
 
 import click
 from sparseml.evaluation.evaluator import evaluate
+from sparseml.utils import parse_kwarg_tuples
 from sparsezoo.evaluation.results import Result, save_result
 
 
@@ -118,7 +118,7 @@ _LOGGER = logging.getLogger(__name__)
     help="The batch size to use for the evaluation. Must be greater than 0",
 )
 @click.option(
-    "--nsamples",
+    "--limit",
     type=int,
     default=None,
     help="The number of samples to evaluate on. Must be greater than 0",
@@ -131,7 +131,7 @@ def main(
     save_path,
     type_serialization,
     batch_size,
-    nsamples,
+    limit,
     integration_args,
 ):
     """
@@ -156,7 +156,7 @@ def main(
         datasets=dataset,
         integration=integration,
         batch_size=batch_size,
-        nsamples=nsamples,
+        limit=limit,
         **integration_args,
     )
 
@@ -173,68 +173,6 @@ def main(
         save_result(
             result=result, save_path=str(save_path), save_format=type_serialization
         )
-
-
-def parse_kwarg_tuples(kwargs: tuple) -> Dict:
-    """
-    Convert a tuple of kwargs to a dict of kwargs.
-    This function is used to enable the click parsing of kwargs.
-
-    Example use:
-    ```
-    @click.command(
-    context_settings=dict(
-        ignore_unknown_options=True)
-    )
-    @click.argument(...)
-    @click.option(...)
-    ...
-    @click.argument("kwargs", nargs=-1, type=click.UNPROCESSED)
-    def main(..., kwargs):
-        ...
-        kwargs: Dict[str, Any] = parse_kwarg_tuples(kwargs: Tuple)
-    ```
-
-    Example inputs, outputs:
-    ```
-    input = ('--arg1', 1, 'arg2', 2, '-arg3', 3)
-    output = parse_kwarg_tuples(input)
-    output = {'arg1': 1, 'arg2': 2, 'arg3': 3}
-    ```
-
-    :param kwargs: The kwargs to convert. Should be a tuple of alternating
-        kwargs names and kwargs values e.g.('--arg1', 1, 'arg2', 2, -arg3', 3).
-        The names can optionally have a '-' or `--` in front of them.
-    :return: The converted kwargs as a dict.
-    """
-    if len(kwargs) == 0:
-        return {}
-    if len(kwargs) % 2 != 0:
-        raise ValueError(
-            "kwargs must be a tuple of alternating names and values "
-            "i.e. the length of kwargs tuple must be even. Received "
-            f"kwargs: {kwargs}"
-        )
-    # names are uneven indices, values are even indices
-    kwargs_names = kwargs[0::2]
-    kwargs_values = kwargs[1::2]
-    # by default kwargs values are strings, so convert them
-    # to the appropriate type if possible
-    kwargs_values = list(kwargs_values)
-    for i, value in enumerate(kwargs_values):
-        try:
-            kwargs_values[i] = ast.literal_eval(value)
-        except Exception as e:  # noqa E841
-            _LOGGER.debug(
-                f"Failed to infer non-string type"
-                f"from kwarg value: {value}. It will"
-                f"be left as a string."
-            )
-
-    # remove any '-' or '--' from the names
-    kwargs_names = [name.lstrip("-") for name in kwargs_names]
-
-    return dict(zip(kwargs_names, kwargs_values))
 
 
 if __name__ == "__main__":

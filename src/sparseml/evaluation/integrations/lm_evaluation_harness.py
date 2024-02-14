@@ -66,13 +66,8 @@ def lm_eval_harness(
     :param kwargs: additional keyword arguments to pass to the
         lm-evaluation-harness. For example, `limit`
     """
-    # use nsamples as limit, if limit is not provided
-    # and nsamples is provided (example: from CLI)
 
-    kwargs["limit"] = kwargs.get("limit") or kwargs.get("nsamples")
-    kwargs["limit"] = int(kwargs["limit"]) if kwargs["limit"] else None
-    kwargs.pop("nsamples", None)
-
+    kwargs["limit"] = int(limit) if (limit := kwargs.get("limit")) else None
     model = SparseMLLM(pretrained=model_path, **kwargs)
 
     if kwargs.get("limit"):
