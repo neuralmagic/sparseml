@@ -293,9 +293,7 @@ def export(
             output_samples,
             label_samples,
         ) = helper_functions.create_data_samples(
-            num_samples=num_export_samples,
-            model=model,
-            **loaded_model_kwargs,
+            num_samples=num_export_samples, model=model, data_loader=data_loader
         )
         export_data_samples(
             input_samples=input_samples,
