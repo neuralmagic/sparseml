@@ -52,6 +52,7 @@ _LOGGER: logging.Logger = logging.getLogger(__name__)
 metadata_args = [
     "per_device_train_batch_size",
     "per_device_eval_batch_size",
+    "max_seq_length",
     "fp16",
 ]
 
@@ -81,6 +82,10 @@ def oneshot(**kwargs):
     model_args, data_args, training_args = parse_args(**kwargs)
     training_args.do_oneshot = True
     main(model_args, data_args, training_args)
+
+
+# alias
+one_shot = oneshot
 
 
 def apply(**kwargs):

@@ -28,7 +28,11 @@ from transformers.trainer_utils import get_last_checkpoint
 import sparseml.core.session as session_manager
 from sparseml.core.framework import Framework
 from sparseml.core.session import callbacks
-from sparseml.pytorch.model_load.helpers import RECIPE_FILE_NAME, reload_model_state
+from sparseml.pytorch.model_load.helpers import (
+    RECIPE_FILE_NAME,
+    get_session_model,
+    reload_model_state,
+)
 from sparseml.pytorch.utils import LoggerManager, ModuleSparsificationInfo
 from sparseml.transformers.finetune.callbacks import (
     DisableHalfPrecisionCallback,
@@ -145,14 +149,17 @@ class SessionManagerMixIn:
                 start=epoch,
                 copy_data=False,
                 fsdp_active=self.is_fsdp_enabled,
+                metadata=self.metadata,
             )
         self.accelerator.wait_for_everyone()
+        model = get_session_model()
+        self.model = model
 
         # reload the state dict for the model now that architecture matches expected
         # TODO: what if there is a quant modifier in the original recipe and we want to
         # continue adjusting its zero point and range?
         load_path = checkpoint or self.model_state_path
-        if reload_model_state(self.model, load_path, orig_state_dict):
+        if reload_model_state(model, load_path, orig_state_dict):
             _LOGGER.info(
                 "Reloaded model state after SparseML recipe structure modifications "
                 f"from {load_path}"
@@ -196,10 +203,12 @@ class SessionManagerMixIn:
         if not session.lifecycle.initialized_ or session.lifecycle.finalized:
             return False
 
-        with summon_full_params_context(self.model):
+        with summon_full_params_context(self.model, offload_to_cpu=True):
             # in order to update each layer we need to gathers all its parameters
             session_manager.finalize()
         _LOGGER.info("Finalized SparseML session")
+        model = get_session_model()
+        self.model = model
         torch.cuda.empty_cache()
 
     def create_optimizer(self):
@@ -297,17 +306,23 @@ class SessionManagerMixIn:
         loss = loss.mean()
 
         # Log step-wise loss and perplexity, for llama-recipes comparison
-        if self.state.global_step % self.args.logging_steps == 0:
+        # we want this before distillation loss so perplexity isn't thrown off
+        do_log = self.state.global_step % self.args.logging_steps == 0
+        if do_log:
             log = {}
             log["step_loss"] = loss.item()
             log["perplexity"] = torch.exp(loss).item()
-            self.log(log)
 
         if session_manager.active_session().lifecycle.initialized_:
             state = callbacks.loss_calculated(loss=loss)
             if state and state.loss is not None:
                 loss = state.loss
+                if do_log:
+                    log["distill_step_loss"] = loss.item() - log["step_loss"]
             callbacks.optim_pre_step()
+
+        if do_log:
+            self.log(log)
 
         return loss
 
@@ -496,8 +511,8 @@ class SessionManagerMixIn:
         if self.teacher is not None:
             self.teacher.to("cpu")
             self.teacher = self.accelerator.prepare(self.teacher)
-            self.accelerator.wait_for_everyone()
             self.teacher.eval()
+            self.accelerator.wait_for_everyone()
 
     def _extract_metadata(
         self,
