@@ -13,38 +13,15 @@
 # limitations under the License.
 # flake8: noqa: F401
 
-
-import os
-
 import numpy
-import pytest
 
-
-def perplexity_dependencies_available():
-    try:
-        import datasets
-        import numpy
-        import torch
-        import transformers
-
-        import evaluate
-    except ImportError:
-        return False
-    return True
+from evaluate import load
 
 
 def dataset_mock(*args, **kwargs):
     return ["lorem ipsum", "Happy Birthday!", "Bienvenue"]
 
 
-@pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
-)
-@pytest.mark.skipif(
-    not perplexity_dependencies_available(),
-    reason="Skipping perplexity tests due to missing dependencies",
-)
 def test_perplexity_against_huggingface(monkeypatch):
     from sparseml.evaluation.integrations.perplexity import perplexity_eval
 
@@ -78,8 +55,6 @@ def test_perplexity_against_huggingface(monkeypatch):
 
 
 def huggingface_ppl_eval(predictions, model_id, batch_size):
-    from evaluate import load
-
     perplexity = load("perplexity", module_type="metric")
     results = perplexity.compute(
         predictions=predictions,

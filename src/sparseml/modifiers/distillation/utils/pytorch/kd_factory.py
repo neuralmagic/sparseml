@@ -118,8 +118,7 @@ class KDFactory:
     @staticmethod
     def create_transform(
         name: str,
-        student_layer: Module,
-        teacher_layer: Module,
+        layer: Module,
         state: State,
         **kwargs,
     ) -> TransformFuncType:
@@ -136,8 +135,7 @@ class KDFactory:
             if match:
                 return creator(
                     name=name,
-                    student_layer=student_layer,
-                    teacher_layer=teacher_layer,
+                    layer=layer,
                     state=state,
                     **kwargs,
                 )
