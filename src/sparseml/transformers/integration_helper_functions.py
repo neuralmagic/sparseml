@@ -246,13 +246,13 @@ class Transformers(IntegrationHelperFunctions):
                 "Fetching default helper functions for transformers integration"
             )
 
-    create_model: Callable[..., Tuple[torch.nn.Module, Dict[str, Any]]] = Field(
+    create_model: Callable[[], Tuple[torch.nn.Module, Dict[str, Any]]] = Field(
         default=create_model
     )
     create_data_loader: Callable[
-        ..., Tuple[Union[Generator, torch.utils.data.DataLoader], Dict[str, Any]]
+        [], Tuple[Union[Generator, torch.utils.data.DataLoader], Dict[str, Any]]
     ] = Field(default=create_data_loader)
-    create_dummy_input: Callable[..., torch.Tensor] = Field(default=create_dummy_input)
+    create_dummy_input: Callable[[], torch.Tensor] = Field(default=create_dummy_input)
     create_data_samples: Callable = Field(create_data_samples)
     deployment_directory_files_mandatory: List[str] = Field(
         default=list(MANDATORY_DEPLOYMENT_FILES)
