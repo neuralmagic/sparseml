@@ -12,6 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import operator
+from typing import Optional
+
+
 try:
     from torch.distributed.fsdp import (
         FullStateDictConfig,
@@ -33,6 +37,7 @@ __all__ = [
     "maybe_get_wrapped",
     "unwrap_and_export_model",
     "save_pretrained_fsdp",
+    "get_fsdp_parent",
 ]
 
 
@@ -124,3 +129,28 @@ def save_pretrained_fsdp(model, accelerator, output_dir):
         save_function=accelerator.save,
         state_dict=state_dict,
     )
+
+
+def get_fsdp_parent(layer_name: str, model: Module) -> Optional[Module]:
+    """
+    Gets the closest parent of layer_name that is wrapped by FSDP. If no FSDP wrapper
+    is found just return None
+
+    :param layer_name: layer name in model to get parent of
+    :model: pytorch module to search through
+    :return: FSDP wrapped parent of layer_name if available, otherwise None
+    """
+    if not is_fsdp_model(model):
+        return None
+
+    parent_name = layer_name
+    parent = operator.attrgetter(parent_name)(model)
+    while not isinstance(parent, FullyShardedDataParallel):
+        if len(parent_name) == 0:  # we've reached the root module and its not FSDP
+            # this should never get hit because we check for an FSDP root above
+            # but while statements without a backup are too scary
+            return None
+        parent_name = ".".join(parent_name.split(".")[:-1])
+        parent = operator.attrgetter(parent_name)(model)
+
+    return parent

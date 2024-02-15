@@ -120,7 +120,7 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
     """
 
     create_model: Callable[
-        [Union[str, Path], ...],
+        [Union[str, Path]],
         Tuple[
             "torch.nn.Module",  # noqa F821
             Optional[Dict[str, Any]],
@@ -135,7 +135,7 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
         "(any relevant objects created along with the model)"
     )
     create_data_loader: Callable[
-        [...],
+        [],
         Tuple[
             Union["torch.utils.data.DataLoader", Generator],  # noqa F821
             Optional[Dict[str, Any]],
