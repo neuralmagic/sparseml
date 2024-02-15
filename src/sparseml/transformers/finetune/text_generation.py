@@ -95,6 +95,21 @@ def apply(**kwargs):
     model_args, data_args, training_args = parse_args(**kwargs)
     training_args.run_stages = True
     main(model_args, data_args, training_args)
+    
+
+# load_dataset('open_platypus', padding=True, another_kwarg=False)
+
+def load_dataset(dataset_name: str, **kwargs):
+
+    parser = HfArgumentParser(
+        (ModelArguments, DataTrainingArguments, TrainingArguments)
+    )
+    model_args, data_args, training_args = parser.parse_dict(kwargs)
+    data_args["dataset_name"] = dataset_name
+    
+    
+
+    
 
 
 def parse_args(**kwargs):
@@ -112,6 +127,8 @@ def parse_args(**kwargs):
     else:
         model_args, data_args, training_args = parser.parse_dict(kwargs)
 
+    
+    
     if training_args.recipe_args is not None:
         arg_dict = {}
         for recipe_arg in training_args.recipe_args:
@@ -180,116 +197,130 @@ def main(
     _LOGGER.info(f"Training/evaluation parameters {training_args}")
 
     # Detecting last checkpoint.
-    last_checkpoint = detect_last_checkpoint(training_args, model_args=model_args)
-    model_path = last_checkpoint or model_args.model_name_or_path
-
-    # Set seed before initializing model.
-    set_seed(training_args.seed)
-
-    # Fallback to CPU if GPU requested and not available
-    training_args.oneshot_device = fallback_to_cpu(training_args.oneshot_device)
-
-    # Load pretrained model
-    # The .from_pretrained methods guarantee that only one local process can
-    # concurrently download model & vocab.
-    config = AutoConfig.from_pretrained(
-        model_args.config_name if model_args.config_name else model_path,
-        cache_dir=model_args.cache_dir,
-        revision=model_args.model_revision,
-        use_auth_token=True if model_args.use_auth_token else None,
-    )
-    teacher_config = (
-        AutoConfig.from_pretrained(
-            training_args.distill_teacher,
+    last_checkpoint = None
+    teacher = None
+    model_path = None
+    model = model_args.model_name_or_path
+    if isinstance(model_args.model_name_or_path, str):
+        last_checkpoint = detect_last_checkpoint(training_args, model_args=model_args)
+        # Load pretrained model
+        # The .from_pretrained methods guarantee that only one local process can
+        # concurrently download model & vocab.
+        config = AutoConfig.from_pretrained(
+            model_args.config_name if model_args.config_name else model_path,
+            cache_dir=model_args.cache_dir,
+            revision=model_args.model_revision,
             use_auth_token=True if model_args.use_auth_token else None,
         )
-        if training_args.distill_teacher
-        else None
-    )
-
-    # Trainer handles device assignment for FSDP and training, don't do mapping here
-    # if running oneshot outside of FSDP, apply user device settings
-    device_map = None
-    fsdp_enabled = os.environ.get("ACCELERATE_USE_FSDP", "false") == "true"
-    if not fsdp_enabled and training_args.do_oneshot:
-        device_map = training_args.oneshot_device
-        _LOGGER.warning(f"Moving {model_path} to device {device_map} for One-Shot")
-    elif not fsdp_enabled:
-        device_map = "auto"
-    model_kwargs = {
-        "config": config,
-        "cache_dir": model_args.cache_dir,
-        "revision": model_args.model_revision,
-        "use_auth_token": True if model_args.use_auth_token else None,
-        "torch_dtype": parse_dtype(model_args.precision),
-        "device_map": device_map,
-    }
-    teacher_device_map = None if fsdp_enabled else "auto"
-    teacher_kwargs = {
-        "config": teacher_config,
-        "cache_dir": model_args.cache_dir,
-        "use_auth_token": True if model_args.use_auth_token else None,
-        "torch_dtype": parse_dtype(model_args.precision),
-        "device_map": teacher_device_map,
-    }
-    # this calls from_pretrained under the hood so should be FSDP safe
-    model = SparseAutoModel.text_generation_from_pretrained(
-        model_name_or_path=model_path,
-        sequence_length=None,  # use model default
-        **model_kwargs,
-    )
-
-    teacher = (
-        SparseAutoModel.text_generation_from_pretrained(
-            model_name_or_path=training_args.distill_teacher,
-            sequence_length=None,  # use model default
-            **teacher_kwargs,
+        teacher_config = (
+            AutoConfig.from_pretrained(
+                training_args.distill_teacher,
+                use_auth_token=True if model_args.use_auth_token else None,
+            )
+            if training_args.distill_teacher
+            else None
         )
-        if training_args.distill_teacher is not None
-        else None
-    )
+        
+        model_path = last_checkpoint or model_args.model_name_or_path
+
+        # Set seed before initializing model.
+        set_seed(training_args.seed)
+
+        # Fallback to CPU if GPU requested and not available
+        training_args.oneshot_device = fallback_to_cpu(training_args.oneshot_device)
+
+
+
+        # Trainer handles device assignment for FSDP and training, don't do mapping here
+        # if running oneshot outside of FSDP, apply user device settings
+        device_map = None
+        fsdp_enabled = os.environ.get("ACCELERATE_USE_FSDP", "false") == "true"
+        if not fsdp_enabled and training_args.do_oneshot:
+            device_map = training_args.oneshot_device
+            _LOGGER.warning(f"Moving {model_path} to device {device_map} for One-Shot")
+        elif not fsdp_enabled:
+            device_map = "auto"
+        model_kwargs = {
+            "config": config,
+            "cache_dir": model_args.cache_dir,
+            "revision": model_args.model_revision,
+            "use_auth_token": True if model_args.use_auth_token else None,
+            "torch_dtype": parse_dtype(model_args.precision),
+            "device_map": device_map,
+        }
+        teacher_device_map = None if fsdp_enabled else "auto"
+        teacher_kwargs = {
+            "config": teacher_config,
+            "cache_dir": model_args.cache_dir,
+            "use_auth_token": True if model_args.use_auth_token else None,
+            "torch_dtype": parse_dtype(model_args.precision),
+            "device_map": teacher_device_map,
+        }
+        # this calls from_pretrained under the hood so should be FSDP safe
+        model = SparseAutoModel.text_generation_from_pretrained(
+            model_name_or_path=model_path,
+            sequence_length=None,  # use model default
+            **model_kwargs,
+        )
+
+        teacher = (
+            SparseAutoModel.text_generation_from_pretrained(
+                model_name_or_path=training_args.distill_teacher,
+                sequence_length=None,  # use model default
+                **teacher_kwargs,
+            )
+            if training_args.distill_teacher is not None
+            else None
+        )
+
     if teacher is not None:
         teacher.eval()
 
-    # initialize structure of input model from recipe if needed
-    recipe_path = os.path.join(model_path, "recipe.yaml")
-    if last_checkpoint is not None and training_args.recipe is None:
-        training_args.recipe = recipe_path  # continue from checkpoint recipe
-        apply_recipe_structure_to_model(model, None, model_path)
-    else:
-        if not os.path.exists(recipe_path):
-            _LOGGER.warning(f"No recipes were applied for {model_path}.")
-            apply_recipe_structure_to_model(model, None, model_path)
-        else:
-            _LOGGER.warning(f"Applying recipe {recipe_path} to {model_path}")
-            apply_recipe_structure_to_model(model, recipe_path, model_path)
+        # # initialize structure of input model from recipe if needed
+        # recipe_path = os.path.join(model_path, "recipe.yaml")
+        # if last_checkpoint is not None and training_args.recipe is None:
+        #     training_args.recipe = recipe_path  # continue from checkpoint recipe
+        #     apply_recipe_structure_to_model(model, None, model_path)
+        # else:
+        #     if not os.path.exists(recipe_path):
+        #         _LOGGER.warning(f"No recipes were applied for {model_path}.")
+        #         apply_recipe_structure_to_model(model, None, model_path)
+        #     else:
+        #         _LOGGER.warning(f"Applying recipe {recipe_path} to {model_path}")
+        #         apply_recipe_structure_to_model(model, recipe_path, model_path)
 
     # Load tokenizer
     # distill TODO: support for different tokenizer for teacher?
-    tokenizer_src = (
-        model_args.tokenizer_name
-        if model_args.tokenizer_name
-        else get_shared_tokenizer_src(model, teacher)
-    )
-    tokenizer = SparseAutoTokenizer.from_pretrained(
-        tokenizer_src,
-        cache_dir=model_args.cache_dir,
-        use_fast=True,
-        revision=model_args.model_revision,
-        use_auth_token=True if model_args.use_auth_token else None,
-    )
-
+    tokenizer = model_args.tokenizer_name
+    if isinstance(model_args.tokenizer_name, str):
+        tokenizer_src = (
+            model_args.tokenizer_name
+            if model_args.tokenizer_name
+            else get_shared_tokenizer_src(model, teacher)
+        )
+        tokenizer = SparseAutoTokenizer.from_pretrained(
+            tokenizer_src,
+            cache_dir=model_args.cache_dir,
+            use_fast=True,
+            revision=model_args.model_revision,
+            use_auth_token=True if model_args.use_auth_token else None,
+        )
+        
+        
     # Load datasets
+    
     stage_runner = StageRunner(
         model_args=model_args,
         data_args=data_args,
         training_args=training_args,
         model=model,
     )
+    
     stage_runner.populate_datasets(tokenizer=tokenizer)
     train_dataset = stage_runner.get_dataset_split("train")
     eval_dataset = stage_runner.get_dataset_split("validation")
     calib_dataset = stage_runner.get_dataset_split("calibration")
+    
 
     # Initialize our Trainer
     data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
