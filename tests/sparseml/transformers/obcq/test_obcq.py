@@ -185,16 +185,28 @@ def test_sgpt_defaults():
         sparsegpt_invalid.on_initialize(state=state_test)
 
 
-def test_fake_quant_wrapper():
+def test_fake_quant_wrapper(tmp_path):
     from sparseml.transformers import oneshot
 
-    model_name = "Xenova/llama2.c-stories15M"
+    model_name = "TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T"
     dataset_name = "open_platypus"
     overwrite_output_dir = True
     precision = "bfloat16"  # unsupported by native FakeQuantize
     oneshot_device = "auto"  # unsupported by native FakeQuantize
-    output_dir = "llama1.1b_quantized"
-    recipe = "tests/sparseml/transformers/obcq/test_tiny.yaml"
+    output_dir = tmp_path / "temp_output"
+    recipe = """
+    first_stage:
+        quant_modifiers:
+            QuantizationModifier:
+                ignore:
+                    - LlamaRotaryEmbedding
+                    - LlamaRMSNorm
+                    - SiLUActivation
+                    - Linear
+                scheme_overrides:
+                    Embedding:
+                        input_activations: null
+    """
     num_calibration_samples = 128
 
     oneshot(
