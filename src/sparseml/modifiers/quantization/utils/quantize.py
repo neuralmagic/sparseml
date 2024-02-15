@@ -34,7 +34,7 @@ from sparseml.modifiers.quantization.utils.helpers import (
 from sparseml.modifiers.quantization.utils.quantization_scheme import QuantizationScheme
 from sparseml.pytorch.utils import get_layer
 from sparseml.utils.fsdp.context import fix_fsdp_module_name
-
+from sparseml.modifiers.quantization.utils.fake_quant_wrapper import FakeQuantizeWrapper
 
 try:
     from torch import quantization as torch_quantization
@@ -71,6 +71,7 @@ def is_qat_helper_module(module: Module) -> bool:
         module,
         (
             fake_quantize_class,
+            FakeQuantizeWrapper,
             torch_quantization.ObserverBase,
             torch_quantization.DeQuantStub,
             torch_quantization.QuantStub,

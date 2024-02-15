@@ -30,7 +30,7 @@ try:
 except Exception:
     torch_quantization = None
 
-
+from sparseml.modifiers.quantization.utils.fake_quant_wrapper import FakeQuantizeWrapper
 __all__ = [
     "DictQuantizationArgs",
     "DictQuantizationScheme",
@@ -360,9 +360,7 @@ def get_observer(
 
     observer_kwargs["observer"] = observer_cls
     observer_kwargs.update(qconfig_kwargs or {})
-    observer = torch_quantization.FakeQuantize.with_args(
-        **observer_kwargs,
-    )
+    observer = FakeQuantizeWrapper.with_args(**observer_kwargs)
 
     return observer
 
