@@ -31,6 +31,8 @@ except Exception:
     torch_quantization = None
 
 from sparseml.modifiers.quantization.utils.fake_quant_wrapper import FakeQuantizeWrapper
+
+
 __all__ = [
     "DictQuantizationArgs",
     "DictQuantizationScheme",

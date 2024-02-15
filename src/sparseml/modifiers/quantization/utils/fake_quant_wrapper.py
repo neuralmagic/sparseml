@@ -1,19 +1,35 @@
-from torch.ao.quantization import FakeQuantize
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import torch
+from torch.ao.quantization import FakeQuantize
+
 
 class FakeQuantizeWrapper(FakeQuantize):
     """
-    Wrapper around Pytorch's FakeQuantize module, to enable compatibility with bfloat16 
-    and auto device mapping. 
+    Wrapper around Pytorch's FakeQuantize module, to enable compatibility with bfloat16
+    and auto device mapping.
     """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-    
+
     def forward(self, X):
         """
-        Overrides the forward pass by converting the weight to a compatible dtype and 
+        Overrides the forward pass by converting the weight to a compatible dtype and
         moving configuration parameters to the device of the weight.
-        
+
         All changes are reverted before returning.
         """
         if self.fake_quant_enabled[0] == 0:
@@ -36,20 +52,26 @@ class FakeQuantizeWrapper(FakeQuantize):
             self._move_params_to_device(og_params_device)
         if og_weight_dtype is torch.bfloat16:
             X = X.to(og_weight_dtype)
-        
+
         return X
-    
+
     def _move_params_to_device(self, device: torch.device):
         """
         Moves parameters used in the FakeQuantize forward pass to device
         """
         self.zero_point = self.zero_point.to(device)
         self.scale = self.scale.to(device)
-    
+
         if self.observer_enabled[0] == 0:
             return
-        
+
         if hasattr(self.activation_post_process, "min_val"):
-            self.activation_post_process.min_val = self.activation_post_process.min_val.to(device)
-            self.activation_post_process.max_val = self.activation_post_process.max_val.to(device)
-            self.activation_post_process.eps = self.activation_post_process.eps.to(device)
+            self.activation_post_process.min_val = (
+                self.activation_post_process.min_val.to(device)
+            )
+            self.activation_post_process.max_val = (
+                self.activation_post_process.max_val.to(device)
+            )
+            self.activation_post_process.eps = self.activation_post_process.eps.to(
+                device
+            )

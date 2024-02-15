@@ -26,6 +26,7 @@ from sparseml.modifiers.quantization.utils.constants import (
     FUSED_MODULE_NAMES,
     NON_QUANTIZABLE_MODULE_NAMES,
 )
+from sparseml.modifiers.quantization.utils.fake_quant_wrapper import FakeQuantizeWrapper
 from sparseml.modifiers.quantization.utils.helpers import (
     QATWrapper,
     configure_module_default_qconfigs,
@@ -34,7 +35,7 @@ from sparseml.modifiers.quantization.utils.helpers import (
 from sparseml.modifiers.quantization.utils.quantization_scheme import QuantizationScheme
 from sparseml.pytorch.utils import get_layer
 from sparseml.utils.fsdp.context import fix_fsdp_module_name
-from sparseml.modifiers.quantization.utils.fake_quant_wrapper import FakeQuantizeWrapper
+
 
 try:
     from torch import quantization as torch_quantization
