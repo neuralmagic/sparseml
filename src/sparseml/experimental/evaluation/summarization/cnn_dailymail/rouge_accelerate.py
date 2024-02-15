@@ -19,7 +19,7 @@ import os
 
 import datasets
 import torch
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer, default_data_collator
 
@@ -221,13 +221,13 @@ def main(model_path, batch, dataset_path, dataset_name):
         )
         print(f"Rouge score: {results}")
 
-        with open(os.path.join(result_path, f"predictions.json"), "w") as f:
+        with open(os.path.join(result_path, "predictions.json"), "w") as f:
             json.dump(saved_preds, f)
 
         result_file_name = (
             f"rouge_{args.samples}samples.json"
             if args.samples > 0
-            else f"rouge_full_validation.json"
+            else "rouge_full_validation.json"
         )
         results.update(
             {
