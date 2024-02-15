@@ -24,7 +24,7 @@ class OutputDistillationModifier(Modifier):
     targets: Union[str, List[Union[str, Tuple[str, str]]]]
     projection: str = None
     projection_args: Dict[str, Any] = None
-    transforms: Union[str, List[str]] = "softmax"
+    transforms: Union[str, List[str]] = "identity"
     transforms_args: Union[Dict[str, Any], List[Dict[str, Any]]] = None
     comparison: str = "kl_divergence"
     comparison_args: Dict[str, Any] = None

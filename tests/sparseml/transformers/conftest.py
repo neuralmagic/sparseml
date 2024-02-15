@@ -12,14 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Utilities for applying sparsification algorithms to Hugging Face transformers flows
-"""
+import os
 
-# flake8: noqa
-from .helpers import *
-from .load_task_dataset import *
-from .metrics import *
-from .sparse_config import *
-from .sparse_model import *
-from .sparse_tokenizer import *
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def run_before_and_after_tests(tmp_path):
+    os.environ["TRANSFORMERS_CACHE"] = str(tmp_path / "transformers")
+    os.environ["HF_DATASETS_CACHE"] = str(tmp_path / "datasets")
+    os.environ["SPARSEZOO_MODELS_PATH"] = str(tmp_path / "sparsezoo")
+    yield
