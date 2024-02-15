@@ -183,3 +183,27 @@ def test_sgpt_defaults():
     sparsegpt_invalid.initialized_structure_ = True
     with pytest.raises(ValueError):
         sparsegpt_invalid.on_initialize(state=state_test)
+
+
+def test_fake_quant_wrapper():
+    from sparseml.transformers import oneshot
+
+    model_name = "Xenova/llama2.c-stories15M"
+    dataset_name = "open_platypus"
+    overwrite_output_dir = True
+    precision = "bfloat16"  # unsupported by native FakeQuantize
+    oneshot_device = "auto"  # unsupported by native FakeQuantize
+    output_dir = "llama1.1b_quantized"
+    recipe = "tests/sparseml/transformers/obcq/test_tiny.yaml"
+    num_calibration_samples = 128
+
+    oneshot(
+        model_name_or_path=model_name,
+        dataset_name=dataset_name,
+        output_dir=output_dir,
+        overwrite_output_dir=overwrite_output_dir,
+        precision=precision,
+        recipe=recipe,
+        oneshot_device=oneshot_device,
+        num_calibration_samples=num_calibration_samples,
+    )
