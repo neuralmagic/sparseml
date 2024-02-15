@@ -430,6 +430,7 @@ class SessionManagerMixIn:
             calib_data=calib_data,
             start=-1,
             copy_data=False,
+            accelerator=self.accelerator,
         )
 
         self.accelerator.wait_for_everyone()
