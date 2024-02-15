@@ -106,10 +106,14 @@ class StageRunner:
         elif isinstance(splits, List):
             splits = {_get_split_name(s): s for s in splits}
 
+        # default to custom dataset if dataset provided isn't a string
+        # TODO: lets also rename this from dataset_name to dataset
+        registry_id = self._data_args.dataset_name
+        if not isinstance(registry_id, str):
+            registry_id = "custom"
         for split_name, split_str in splits.items():
-            breakpoint()
             dataset_manager = TextGenerationDataset.load_from_registry(
-                self._data_args.dataset_name if isinstance(self._data_args.dataset_name, str) else self._data_args.dataset_name['train']._info.dataset_name,
+                registry_id,
                 data_args=self._data_args,
                 split=split_str,
                 tokenizer=tokenizer,
@@ -118,11 +122,7 @@ class StageRunner:
             store_padding_mask = False
             if self._training_args.do_oneshot and split_name == "calibration":
                 store_padding_mask = True
-
-            raw_dataset = self._data_args.dataset_name
-            if isinstance(self._data_args.dataset_name, str):
-                raw_dataset = dataset_manager.get_raw_dataset(self._model_args.cache_dir)
-            
+            raw_dataset = dataset_manager.get_raw_dataset(self._model_args.cache_dir)
             tokenized_dataset = dataset_manager.tokenize_and_process(
                 raw_dataset, store_padding_mask=store_padding_mask
             )

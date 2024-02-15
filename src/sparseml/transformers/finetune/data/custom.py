@@ -45,7 +45,12 @@ class CustomDataset(TextGenerationDataset):
     def get_raw_dataset(self, *_ignore, **__ignore) -> DatasetDict:
         """Get the raw dataset and apply preprocessing func if provided"""
 
-        raw_dataset: DatasetDict = super().get_raw_dataset()
+        if isinstance(self.data_args.dataset_name, DatasetDict):
+            # user passed in an already instantiated dataset, just use it directly
+            raw_dataset = self.data_args.dataset_name
+        else:
+            # dataset must be loaded from file or HF Hub
+            raw_dataset = super().get_raw_dataset()
 
         if self.preprocessing_func is not None:
             raw_dataset = self.map(

@@ -98,7 +98,7 @@ class TextGenerationDataset(RegistryMixin):
                     self.data_args.dataset_path,
                     self.data_args.dataset_name,
                 )
-        
+
         return get_raw_dataset(
             self.data_args,
             cache_dir,
