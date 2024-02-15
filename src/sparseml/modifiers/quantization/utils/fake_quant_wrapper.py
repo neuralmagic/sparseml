@@ -24,15 +24,18 @@ class FakeQuantizeWrapper(FakeQuantize):
         og_weight_dtype = X.dtype
 
         # setup for FakeQuantize operation
-        self._move_params_to_device(X.device)
+        if og_params_device != X.device:
+            self._move_params_to_device(X.device)
         if og_weight_dtype is torch.bfloat16:
             X = X.to(torch.float32)
 
         X = super().forward(X)
 
         # move params back to where they were
-        self._move_params_to_device(og_params_device)
-        X = X.to(og_weight_dtype)
+        if og_params_device != X.device:
+            self._move_params_to_device(og_params_device)
+        if og_weight_dtype is torch.bfloat16:
+            X = X.to(og_weight_dtype)
         
         return X
     
