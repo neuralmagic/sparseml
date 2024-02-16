@@ -160,25 +160,17 @@ def create_data_loader(
             config=config,
             split=split,
         )
-        if isinstance(dataset, dict) and split is None:
-            if "validation" in list(dataset.keys()):
-                key = "validation"
-            else:
-                key = list(dataset.keys())[-1]
-            validation_dataset = dataset[key]
-        else:
-            validation_dataset = dataset
 
         if task in TaskNames.text_generation.value:
             # text-generation datasets have a separate
             # logic for creating a dataloader
             if not dataset_with_labels:
-                validation_dataset = validation_dataset.remove_columns("labels")
-            data_loader = format_calibration_data(tokenized_dataset=validation_dataset)
-            input_names = validation_dataset.column_names
+                dataset = dataset.remove_columns("labels")
+            data_loader = format_calibration_data(tokenized_dataset=dataset)
+            input_names = dataset.column_names
 
         else:
-            trainer = initialize_trainer(model, source_path, validation_dataset)
+            trainer = initialize_trainer(model, source_path, dataset)
             data_loader = trainer.get_eval_dataloader()
             input_names = list(next(trainer._get_fake_dataloader(1, tokenizer)).keys())
 
