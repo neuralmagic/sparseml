@@ -7,6 +7,7 @@ from typing import List, Optional
 from onnx import TensorProto, ModelProto, helper, NodeProto
 from sparseml.onnx.utils import ONNXGraph
 from sparseml.exporters.transforms.kv_cache.transforms_codegen import AdditionalTransformsCodeGen
+from sparseml.onnx.utils.helpers import get_nodes_by_output_id
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -23,6 +24,60 @@ class AdditionalTransformsBigCode(AdditionalTransformsCodeGen):
     # causal mask is created by a Unsqueeze node (the one that is folllowed by a Where node
     # in the onnx graph)
     CAUSAL_MASK_MATCHING_PATTERN = dict(op_type="Unsqueeze", children_ops=[["Where", "Softmax"]])
+
+    def swap_nodes_for_input(
+        self,
+        model: ModelProto,
+        nodes: List[NodeProto],
+        input_name: str,
+        nodes_parent_op_type: Optional[str] = None,
+    ) -> ModelProto:
+
+        """
+        Injects the specified input to the graph, replacing the specified nodes.
+
+        :param model: the ONNX model to inject the input into
+        :param nodes: the nodes to replace with the input
+        :param input_name: the name of the input to replace the nodes with
+        :param nodes_parent_op_type: the parent op type of the nodes to replace
+
+        :return: the updated model
+        """
+
+        graph = ONNXGraph(model)
+        for node in nodes:
+            child_node = graph.get_node_children(node)[0]
+
+            if nodes_parent_op_type:
+                assert child_node.op_type == nodes_parent_op_type, (
+                    f"Expected to find {nodes_parent_op_type} node, "
+                    f"found {child_node.op_type}"
+                )
+            output_to_replace = node.output[0]
+            self.log_match(node)
+            for idx, input_name_child_node in enumerate(child_node.input):
+                if input_name_child_node == output_to_replace:
+                    graph.update_node_input(child_node, input_name, idx)
+            children_nodes = graph.get_node_children(node)
+            for child_node in children_nodes:
+                if nodes_parent_op_type:
+                    assert child_node.op_type == nodes_parent_op_type, (
+                        f"Expected to find {nodes_parent_op_type} node, "
+                        f"found {child_node.op_type}"
+                    )
+                output_to_replace = node.output[0]
+                self.log_match(node)
+                for idx, input_name_child_node in enumerate(child_node.input):
+                    if input_name_child_node == output_to_replace:
+                        graph.update_node_input(child_node, input_name, idx)
+
+        graph.delete_orphaned_node_branches()
+
+        _LOGGER.info(
+            f"Successfully swapped {len(nodes)} nodes for input '{input_name}'"
+        )
+
+        return model
 
     def add_causal_mask_input(self, model: ModelProto) -> ModelProto:
         """
@@ -91,6 +146,36 @@ class AdditionalTransformsBigCode(AdditionalTransformsCodeGen):
 
         return model
 
+    def add_constant_reshape_node(self, model: ModelProto) -> ModelProto:
+        """
+        Adds positions as an input to the model.
+
+        Positions is a tensor of shape and dtype
+        equal to input_ids.
+
+        :param model: model to update
+        :return: updated model
+        """
+        graph = ONNXGraph(model)
+        # create a constant node that will feed value (1, 256, 768) to the reshape node
+        constant_node = onnx.helper.make_node(
+            "Constant",
+            inputs=[],
+            name="abc",
+            outputs=["reshape_input"],
+            value=onnx.helper.make_tensor(
+                name="const_tensor",
+                data_type=TensorProto.INT64,
+                dims=[3],
+                vals=[1, 256, 768],
+            ),
+        )
+        graph.add_node(constant_node)
+        reshape_node = get_nodes_by_output_id(model, "/transformer/Reshape_2_output_0")[0]
+        reshape_node.input[1] = "reshape_input"
+        _LOGGER.info(f"Inserted constant reshape node to the ONNX model")
+        return model
+
     def transform(self, model: ModelProto) -> ModelProto:
         """
         1. Adds `positions` as an input to the model
@@ -107,6 +192,8 @@ class AdditionalTransformsBigCode(AdditionalTransformsCodeGen):
         """
         model = self.add_positions_input(model)
         model = self.add_causal_mask_input(model)
+        model = self.add_constant_reshape_node(model)
+
 
         position_ids_nodes = self.find_nodes_by_pattern(
             model, pattern=self.POSITION_IDS_MATCHING_PATTERN
@@ -125,6 +212,7 @@ class AdditionalTransformsBigCode(AdditionalTransformsCodeGen):
         )
         model = self.inject_causal_mask(model, causal_mask_nodes, "Where")
         model = self.adjust_causal_mask(model)
+
         return model
 
 def inject_kv_cache_inputs_outputs(model: ModelProto, names_nodes_producing_kv_tensors, hidden_size_kv_cache, batch_size = 1):

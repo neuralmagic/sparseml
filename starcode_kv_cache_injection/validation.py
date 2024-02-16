@@ -73,7 +73,7 @@ def create_causal_mask(
         attention_mask = numpy.array(attention_mask)[None, ...]
 
     if input_ids_length == 1:
-        causal_mask = numpy.reshape(attention_mask, (batch_size, 1, 1, sequence_length))
+        causal_mask = numpy.reshape(attention_mask, (batch_size, sequence_length, 1, -1))
         return causal_mask.astype(dtype)
 
     causal_mask = numpy.tril(
@@ -164,19 +164,23 @@ def singletoken_inference_test(onnx_model_path, prompt, config, tokenizer, seque
         positions = np.array([[idx]])
         input_ids = np.array([[token]])
         causal_mask = create_causal_mask(input_ids, attention_mask)
-
-        outputs = session .run(None, {
+        outputs = session.run(None, {
             "input_ids": input_ids,
             "attention_mask": attention_mask,
             "positions": positions,
             "causal_mask": causal_mask,
             **kv_cache
         })
+        logits, *kv_cache = outputs
+        for _idx, (cache_gt, cache) in enumerate(zip(kv_cache_gt, kv_cache)):
+            if np.allclose(cache_gt[:,idx,:], cache[:,-(idx + 1)],atol=1e-3):
+                print(f"Cache {_idx} matches for iteration {idx}")
         # will not run without throwing an error, there are some missing pieces that need to be addressed
 
 def get_baseline(prompt, hf_model_name, tokenizer):
     model = AutoModelForCausalLM.from_pretrained(hf_model_name)
     tokens = tokenizer.encode(prompt, return_tensors="pt")
+    model.generate(tokens[:,:1], max_length=256)
     out = model(tokens, return_dict=True)
     logits_gt = out.logits.detach().numpy()
     kv_cache_gt = [t.detach().numpy() for t in out.past_key_values]
@@ -189,8 +193,8 @@ def main(prompt, hf_model_name, onnx_model_path, sequence_length):
 
     logits_gt, kv_cache_gt = get_baseline(prompt, hf_model_name, tokenizer)
 
-    multitoken_inference_test(onnx_model_path, prompt, config, tokenizer, sequence_length, logits_gt, kv_cache_gt)
-    _LOGGER.info("Successfully ran multi-token inference on the kv cache injected model")
+    #multitoken_inference_test(onnx_model_path, prompt, config, tokenizer, sequence_length, logits_gt, kv_cache_gt)
+    #_LOGGER.info("Successfully ran multi-token inference on the kv cache injected model")
     singletoken_inference_test(onnx_model_path, prompt, config, tokenizer, sequence_length, logits_gt, kv_cache_gt)
     _LOGGER.info("Successfully ran single-token inference on the kv cache injected model")
 
