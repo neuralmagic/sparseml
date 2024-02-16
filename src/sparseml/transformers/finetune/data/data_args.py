@@ -62,12 +62,12 @@ class CustomDataTrainingArguments(DVCDatasetTrainingArguments):
     )
 
 
-@dataclass
-class LegacyDataTrainingArguments:
-    dataset_name: Optional[Union[str, DatasetDict]] = field(
-        default=None,
-        metadata={"help": "The name of the dataset to use (via the datasets library)"},
-    )
+# @dataclass
+# class LegacyDataTrainingArguments:
+#     dataset_name: Optional[Union[str, DatasetDict]] = field(
+#         default=None,
+#         metadata={"help": "The name of the dataset to use (via the datasets library)"},
+#     )
 
 
 @dataclass

@@ -39,9 +39,6 @@ def test_oneshot_and_finetune(tmp_path: Path):
     output_dir = tmp_path
     max_steps = 50
     splits = {"train": "train[:50%]", "calibration": "train[50%:60%]"}
-    tokenizer = SparseAutoTokenizer.from_pretrained(
-        "Xenova/llama2.c-stories15M",
-    )
 
     apply(
         model=model,
@@ -54,7 +51,6 @@ def test_oneshot_and_finetune(tmp_path: Path):
         concatenate_data=concatenate_data,
         splits=splits,
         oneshot_device=device,
-        tokenizer=tokenizer,
     )
 
 
@@ -71,6 +67,9 @@ def test_oneshot_and_finetune_with_tokenizer(tmp_path: Path):
     output_dir = tmp_path
     max_steps = 50
     splits = {"train": "train[:50%]", "calibration": "train[50%:60%]"}
+    tokenizer = SparseAutoTokenizer.from_pretrained(
+        "Xenova/llama2.c-stories15M",
+    )
 
     compress(
         model=model,
@@ -83,6 +82,7 @@ def test_oneshot_and_finetune_with_tokenizer(tmp_path: Path):
         concatenate_data=concatenate_data,
         splits=splits,
         oneshot_device=device,
+        tokenizer=tokenizer,
     )
 
 

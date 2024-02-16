@@ -18,24 +18,24 @@ from typing import Optional, Union
 from transformers import PreTrainedModel, PreTrainedTokenizerBase
 
 
-@dataclass
-class LegacyModelArguments:
-    model_name_or_path: str = field(
-        # default=None,
-        metadata={
-            "help": (
-                "Path to pretrained model, sparsezoo stub. or model identifier from "
-                "huggingface.co/models"
-            )
-        }
-    )
+# @dataclass
+# class LegacyModelArguments:
+#     model_name_or_path: str = field(
+#         default=None,
+#         metadata={
+#             "help": (
+#                 "Path to pretrained model, sparsezoo stub. or model identifier from "
+#                 "huggingface.co/models"
+#             )
+#         },
+#     )
 
-    tokenizer_name: str = field(
-        # default=None,
-        metadata={
-            "help": "Pretrained tokenizer name or path if not the same as model_name"
-        },
-    )
+#     tokenizer_name: str = field(
+#         default=None,
+#         metadata={
+#             "help": "Pretrained tokenizer name or path if not the same as model_name"
+#         },
+#     )
 
 
 @dataclass
@@ -50,7 +50,7 @@ class ModelArguments:
                 "Path to pretrained model, sparsezoo stub. or model identifier from "
                 "huggingface.co/models"
             )
-        }
+        },
     )
     config_name: Optional[str] = field(
         default=None,

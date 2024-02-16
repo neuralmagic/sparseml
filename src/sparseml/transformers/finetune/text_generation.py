@@ -140,9 +140,8 @@ def parse_args(**kwargs):
     return model_args, data_args, training_args
 
 
-def intialize_from_path(
+def intialize_model_from_path(
     model_args: ModelArguments,
-    data_args: DataTrainingArguments,
     training_args: TrainingArguments,
 ):
 
@@ -223,13 +222,17 @@ def intialize_from_path(
         if training_args.distill_teacher is not None
         else None
     )
+
+    return teacher, model_path, model
+
+
+def initialize_tokenizer_from_path(model_args, model, teacher):
     tokenizer_src = (
         model_args.tokenizer
         if hasattr(model_args, "tokenizer")
         else model_args.tokenizer_name
     )
     tokenizer_src = tokenizer_src or get_shared_tokenizer_src(model, teacher)
-
     tokenizer = SparseAutoTokenizer.from_pretrained(
         tokenizer_src,
         cache_dir=model_args.cache_dir,
@@ -238,7 +241,7 @@ def intialize_from_path(
         use_auth_token=True if model_args.use_auth_token else None,
     )
 
-    return tokenizer, teacher, model_path, model
+    return tokenizer
 
 
 def main(
@@ -311,14 +314,16 @@ def main(
         else model_args.tokenizer_name
     )
     if isinstance(model, str) or isinstance(model, PosixPath):
-        (tokenizer, teacher, model_path, model) = intialize_from_path(
+        (teacher, model_path, model) = intialize_model_from_path(
             model_args,
-            data_args,
             training_args,
         )
 
     if teacher is not None:
         teacher.eval()
+
+    if isinstance(tokenizer, str) or tokenizer is None:
+        tokenizer = initialize_tokenizer_from_path(model_args, model, teacher)
 
     # intialize session manager
     apply_recipe_structure_to_model(model, None, model_path)
@@ -330,7 +335,6 @@ def main(
         training_args=training_args,
         model=model,
     )
-
     stage_runner.populate_datasets(tokenizer=tokenizer)
     train_dataset = stage_runner.get_dataset_split("train")
     eval_dataset = stage_runner.get_dataset_split("validation")
