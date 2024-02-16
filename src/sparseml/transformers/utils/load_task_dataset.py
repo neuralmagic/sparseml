@@ -56,13 +56,6 @@ def load_task_dataset(
     :param config: the config to use for the dataset
     :return: the dataset for the given task
     """
-    if split is None:
-        _LOGGER.warning(
-            "Attempting to load the dataset without having specified "
-            "the specific split. "
-            "This may cause longer loading times for big datasets. "
-            "Consider passing `split` argument to avoid that"
-        )
     dataset = None
 
     if task in TaskNames.mlm.value:
