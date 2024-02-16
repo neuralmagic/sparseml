@@ -36,7 +36,7 @@ class EvolCodeAlpacaDataset(TextGenerationDataset):
 
     def __init__(self, data_args, split, tokenizer):
         data_args = deepcopy(data_args)
-        data_args.dataset_name = "theblackcat102/evol-codealpaca-v1"
+        data_args.dataset = "theblackcat102/evol-codealpaca-v1"
         super().__init__(
             text_column="text", data_args=data_args, split=split, tokenizer=tokenizer
         )

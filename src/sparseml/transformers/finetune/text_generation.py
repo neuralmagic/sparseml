@@ -20,6 +20,7 @@
 
 import logging
 import os
+from pathlib import PosixPath
 
 import datasets
 import transformers
@@ -139,15 +140,19 @@ def intialize_from_path(
     model_args: ModelArguments,
     data_args: DataTrainingArguments,
     training_args: TrainingArguments,
-    model_path: str,
 ):
 
     last_checkpoint = detect_last_checkpoint(training_args, model_args=model_args)
     # Load pretrained model
     # The .from_pretrained methods guarantee that only one local process can
     # concurrently download model & vocab.
+    model_path = (
+        model_args.model
+        if hasattr(model_args, "model")
+        else model_args.model_name_or_path
+    )
     config = AutoConfig.from_pretrained(
-        model_args.config_name if model_args.config_name else None,
+        model_args.config_name if model_args.config_name else model_path,
         cache_dir=model_args.cache_dir,
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
@@ -215,10 +220,12 @@ def intialize_from_path(
         else None
     )
     tokenizer_src = (
-        model_args.tokenizer_name
-        if model_args.tokenizer_name
-        else get_shared_tokenizer_src(model, teacher)
+        model_args.tokenizer
+        if hasattr(model_args, "tokenizer")
+        else model_args.tokenizer_name
     )
+    tokenizer_src = tokenizer_src or get_shared_tokenizer_src(model, teacher)
+
     tokenizer = SparseAutoTokenizer.from_pretrained(
         tokenizer_src,
         cache_dir=model_args.cache_dir,
@@ -299,7 +306,7 @@ def main(
         if hasattr(model_args, "tokenizer")
         else model_args.tokenizer_name
     )
-    if isinstance(model, str):
+    if isinstance(model, str) or isinstance(model, PosixPath):
         (tokenizer, teacher, model_path, model) = intialize_from_path(
             model_args,
             data_args,

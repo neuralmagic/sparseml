@@ -41,8 +41,8 @@ def test_oneshot_and_finetune(tmp_path: Path):
     splits = {"train": "train[:50%]", "calibration": "train[50%:60%]"}
 
     apply(
-        model_name_or_path=model,
-        dataset_name=dataset_name,
+        model=model,
+        dataset=dataset_name,
         dataset_config_name=dataset_config_name,
         run_stages=run_stages,
         output_dir=output_dir,
@@ -67,8 +67,8 @@ def test_oneshot_then_finetune(tmp_path: Path):
     splits = {"calibration": "train[:10%]"}
 
     oneshot(
-        model_name_or_path=model,
-        dataset_name=dataset_name,
+        model=model,
+        dataset=dataset_name,
         output_dir=output_dir,
         num_calibration_samples=num_calibration_samples,
         recipe=recipe_str,
@@ -89,9 +89,9 @@ def test_oneshot_then_finetune(tmp_path: Path):
     max_steps = 50
 
     train(
-        model_name_or_path=model,
+        model=model,
         distill_teacher="Xenova/llama2.c-stories15M",
-        dataset_name=dataset_name,
+        dataset=dataset_name,
         output_dir=output_dir,
         num_calibration_samples=num_calibration_samples,
         recipe=recipe_str,
@@ -114,8 +114,8 @@ def test_finetune_wout_recipe(tmp_path: Path):
     splits = "train"
 
     train(
-        model_name_or_path=model,
-        dataset_name=dataset_name,
+        model=model,
+        dataset=dataset_name,
         output_dir=output_dir,
         recipe=recipe_str,
         max_steps=max_steps,
@@ -151,8 +151,8 @@ def test_finetune_wout_recipe_custom_dataset(
     output_dir = tmp_path
     max_steps = 50
     train(
-        model_name_or_path=model,
-        dataset_name=file_extension,
+        model=model,
+        dataset=file_extension,
         output_dir=output_dir,
         recipe=recipe_str,
         max_steps=max_steps,
