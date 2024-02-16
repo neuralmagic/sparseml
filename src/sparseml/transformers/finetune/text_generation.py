@@ -17,7 +17,6 @@
 # Adapted from https://github.com/huggingface/transformers
 # neuralmagic: no copyright
 
-
 import logging
 import os
 
@@ -30,9 +29,10 @@ from transformers import (
     set_seed,
 )
 
+import sparseml.core.session as session_manager
+from sparseml.core.framework import Framework
 from sparseml.core.recipe import Recipe, StageRunType
 from sparseml.pytorch.model_load.helpers import (
-    apply_recipe_structure_to_model,
     fallback_to_cpu,
     get_session_model,
     parse_dtype,
@@ -255,14 +255,11 @@ def main(
     recipe_path = os.path.join(model_path, "recipe.yaml")
     if last_checkpoint is not None and training_args.recipe is None:
         training_args.recipe = recipe_path  # continue from checkpoint recipe
-        apply_recipe_structure_to_model(model, None, model_path)
-    else:
-        if not os.path.exists(recipe_path):
-            _LOGGER.warning(f"No recipes were applied for {model_path}.")
-            apply_recipe_structure_to_model(model, None, model_path)
-        else:
-            _LOGGER.warning(f"Applying recipe {recipe_path} to {model_path}")
-            apply_recipe_structure_to_model(model, recipe_path, model_path)
+
+    # setup new SparseSession unless user requests otherwise
+    if training_args.clear_sparse_session:
+        session_manager.create_session()
+    session_manager.pre_initialize_structure(model=model, framework=Framework.pytorch)
 
     # Load tokenizer
     # distill TODO: support for different tokenizer for teacher?
