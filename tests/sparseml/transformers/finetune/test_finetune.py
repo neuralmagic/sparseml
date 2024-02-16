@@ -23,7 +23,7 @@ import pytest
 import torch
 
 import sparseml.core.session as session_manager
-from sparseml.transformers import apply, oneshot, train
+from sparseml.transformers import SparseAutoTokenizer, apply, compress, oneshot, train
 
 
 def test_oneshot_and_finetune(tmp_path: Path):
@@ -39,8 +39,40 @@ def test_oneshot_and_finetune(tmp_path: Path):
     output_dir = tmp_path
     max_steps = 50
     splits = {"train": "train[:50%]", "calibration": "train[50%:60%]"}
+    tokenizer = SparseAutoTokenizer.from_pretrained(
+        "Xenova/llama2.c-stories15M",
+    )
 
     apply(
+        model=model,
+        dataset=dataset_name,
+        dataset_config_name=dataset_config_name,
+        run_stages=run_stages,
+        output_dir=output_dir,
+        recipe=recipe_str,
+        max_steps=max_steps,
+        concatenate_data=concatenate_data,
+        splits=splits,
+        oneshot_device=device,
+        tokenizer=tokenizer,
+    )
+
+
+def test_oneshot_and_finetune_with_tokenizer(tmp_path: Path):
+    recipe_str = "tests/sparseml/transformers/finetune/test_alternate_recipe.yaml"
+    model = "Xenova/llama2.c-stories15M"
+    device = "cuda:0"
+    if not torch.cuda.is_available():
+        device = "cpu"
+    dataset_name = "wikitext"
+    dataset_config_name = "wikitext-2-raw-v1"
+    concatenate_data = True
+    run_stages = True
+    output_dir = tmp_path
+    max_steps = 50
+    splits = {"train": "train[:50%]", "calibration": "train[50%:60%]"}
+
+    compress(
         model=model,
         dataset=dataset_name,
         dataset_config_name=dataset_config_name,

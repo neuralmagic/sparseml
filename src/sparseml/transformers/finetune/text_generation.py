@@ -98,6 +98,10 @@ def apply(**kwargs):
     main(model_args, data_args, training_args)
 
 
+def compress(**kwargs):
+    apply(**kwargs)
+
+
 def load_dataset(dataset_name: str, **kwargs):
 
     parser = HfArgumentParser(
