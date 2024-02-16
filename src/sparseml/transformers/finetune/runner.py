@@ -243,6 +243,7 @@ class StageRunner:
         recipe_obj = Recipe.create_instance(self._training_args.recipe)
         with self.trainer.accelerator.main_process_first():
             completed_stages = get_completed_stages(self._model_args.model_name_or_path)
+
         self.trainer.accelerator.wait_for_everyone()
 
         for stage in recipe_obj.stages:

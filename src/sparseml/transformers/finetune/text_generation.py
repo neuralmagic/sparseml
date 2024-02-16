@@ -95,9 +95,7 @@ def apply(**kwargs):
     model_args, data_args, training_args = parse_args(**kwargs)
     training_args.run_stages = True
     main(model_args, data_args, training_args)
-    
 
-# load_dataset('open_platypus', padding=True, another_kwarg=False)
 
 def load_dataset(dataset_name: str, **kwargs):
 
@@ -106,10 +104,6 @@ def load_dataset(dataset_name: str, **kwargs):
     )
     model_args, data_args, training_args = parser.parse_dict(kwargs)
     data_args["dataset_name"] = dataset_name
-    
-    
-
-    
 
 
 def parse_args(**kwargs):
@@ -127,8 +121,6 @@ def parse_args(**kwargs):
     else:
         model_args, data_args, training_args = parser.parse_dict(kwargs)
 
-    
-    
     if training_args.recipe_args is not None:
         arg_dict = {}
         for recipe_arg in training_args.recipe_args:
@@ -220,7 +212,7 @@ def main(
             if training_args.distill_teacher
             else None
         )
-        
+
         model_path = last_checkpoint or model_args.model_name_or_path
 
         # Set seed before initializing model.
@@ -228,8 +220,6 @@ def main(
 
         # Fallback to CPU if GPU requested and not available
         training_args.oneshot_device = fallback_to_cpu(training_args.oneshot_device)
-
-
 
         # Trainer handles device assignment for FSDP and training, don't do mapping here
         # if running oneshot outside of FSDP, apply user device settings
@@ -276,18 +266,8 @@ def main(
     if teacher is not None:
         teacher.eval()
 
-        # # initialize structure of input model from recipe if needed
-        # recipe_path = os.path.join(model_path, "recipe.yaml")
-        # if last_checkpoint is not None and training_args.recipe is None:
-        #     training_args.recipe = recipe_path  # continue from checkpoint recipe
-        #     apply_recipe_structure_to_model(model, None, model_path)
-        # else:
-        #     if not os.path.exists(recipe_path):
-        #         _LOGGER.warning(f"No recipes were applied for {model_path}.")
-        #         apply_recipe_structure_to_model(model, None, model_path)
-        #     else:
-        #         _LOGGER.warning(f"Applying recipe {recipe_path} to {model_path}")
-        #         apply_recipe_structure_to_model(model, recipe_path, model_path)
+    # intialize session manager
+    apply_recipe_structure_to_model(model, None, model_path)
 
     # Load tokenizer
     # distill TODO: support for different tokenizer for teacher?
@@ -305,25 +285,24 @@ def main(
             revision=model_args.model_revision,
             use_auth_token=True if model_args.use_auth_token else None,
         )
-        
-        
+
     # Load datasets
-    
+
     stage_runner = StageRunner(
         model_args=model_args,
         data_args=data_args,
         training_args=training_args,
         model=model,
     )
-    
+
     stage_runner.populate_datasets(tokenizer=tokenizer)
     train_dataset = stage_runner.get_dataset_split("train")
     eval_dataset = stage_runner.get_dataset_split("validation")
     calib_dataset = stage_runner.get_dataset_split("calibration")
-    
 
     # Initialize our Trainer
     data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
+
     trainer = Trainer(
         model_init=get_session_model,
         teacher=teacher,

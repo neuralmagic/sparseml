@@ -293,7 +293,7 @@ def get_session_model() -> Module:
     session = session_manager.active_session()
     if not session:
         return None
-
+    # breakpoint()
     active_model = session.state.model.model
     return active_model
 
@@ -306,11 +306,12 @@ def get_completed_stages(checkpoint_dir: str) -> List[str]:
     :param checkpoint_dir: path to staged checkpoint
     :return: list of completed stage names
     """
-    stage_path = os.path.join(checkpoint_dir, COMPLETED_STAGES_FILENAME)
-    if os.path.exists(stage_path):
-        with open(stage_path) as stage_file:
-            stage_data = json.load(stage_file)
-            return stage_data["completed"]
+    if isinstance(checkpoint_dir, str):
+        stage_path = os.path.join(checkpoint_dir, COMPLETED_STAGES_FILENAME)
+        if os.path.exists(stage_path):
+            with open(stage_path) as stage_file:
+                stage_data = json.load(stage_file)
+                return stage_data["completed"]
 
     return []
 
