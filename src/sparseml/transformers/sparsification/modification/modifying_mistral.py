@@ -41,7 +41,7 @@ from sparseml.transformers.sparsification.modification.registry import (
 _LOGGER = logging.getLogger(__name__)
 
 
-@ModificationRegistry.register(name="MistralModel")
+@ModificationRegistry.register(name="MistralModel", alias=["MistralForCausalLM"])
 def modify(model: torch.nn.Module) -> torch.nn.Module:
     """
     Modify the Mistral model to be compatible with SparseML

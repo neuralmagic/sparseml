@@ -11,22 +11,30 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 from copy import deepcopy
 
 import pytest
-from transformers import AutoConfig, AutoModel
 
-from accelerate import init_empty_weights
+from sparseml.pytorch.model_load.helpers import apply_recipe_structure_to_model
 from sparseml.transformers.sparsification.modification import modify_model
 
 
 @pytest.fixture
-def mistral_model():
-    config = AutoConfig.from_pretrained("mistralai/Mistral-7B-v0.1")
-    with init_empty_weights():
-        model = AutoModel.from_config(config)
-    return model
+def mistral_recipe():
+    return """test_stage:
+  quant_modifiers:
+    QuantizationModifier:
+      ignore:
+        - MatMulRightInput_QK
+        - MatMulLeftInput_QK
+        - MatMulRightInput_PV
+        - MatMulLeftInput_PV
+      scheme_overrides:
+        Embedding:
+          input_activations: null
+          weights:
+            num_bits: 8
+            symmetric: False"""
 
 
 def test_modifying_mistral(mistral_model):
@@ -89,6 +97,30 @@ def test_modifying_mistral(mistral_model):
         == len(original_modules_original_model)
         == num_attn_blocks
     )
+
+
+def test_apply_recipe_fail(mistral_recipe, mistral_zoo_model):
+    from sparseml.transformers.sparsification.modification.modifying_mistral import (  # noqa F401
+        modify,
+    )
+
+    with pytest.raises(Exception):
+        apply_recipe_structure_to_model(
+            model=mistral_zoo_model, model_path=None, recipe_path=mistral_recipe
+        )
+
+
+def test_apply_recipe(mistral_recipe, mistral_zoo_model):
+    from sparseml.transformers.sparsification.modification.modifying_mistral import (  # noqa F401
+        modify,
+    )
+
+    apply_recipe_structure_to_model(
+        model=modify_model(mistral_zoo_model),
+        model_path=None,
+        recipe_path=mistral_recipe,
+    )
+    assert True
 
 
 def _is_mistral_attention_modified(module):

@@ -45,7 +45,7 @@ from sparseml.transformers.sparsification.modification.registry import (
 _LOGGER = logging.getLogger(__name__)
 
 
-@ModificationRegistry.register(name="LlamaModel")
+@ModificationRegistry.register(name="LlamaModel", alias=["LlamaForCausalLM"])
 def modify(model: nn.Module) -> nn.Module:
     """
     Modify the LLaMa model to be compatible with SparseML
