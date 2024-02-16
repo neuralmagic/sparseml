@@ -259,6 +259,7 @@ def main(
     # setup new SparseSession unless user requests otherwise
     if training_args.clear_sparse_session:
         session_manager.create_session()
+        session_manager.active_session().reset()
     session_manager.pre_initialize_structure(model=model, framework=Framework.pytorch)
 
     # Load tokenizer
