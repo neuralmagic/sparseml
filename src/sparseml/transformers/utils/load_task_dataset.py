@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 from typing import Any, Dict, Optional
 
 import datasets
@@ -22,6 +23,7 @@ from sparseml.transformers.utils.helpers import TaskNames
 
 
 __all__ = ["load_task_dataset", "load_dataset"]
+_LOGGER = logging.getLogger(__name__)
 
 
 def load_dataset(*args, **kwargs):
@@ -54,6 +56,13 @@ def load_task_dataset(
     :param config: the config to use for the dataset
     :return: the dataset for the given task
     """
+    if split is None:
+        _LOGGER.warning(
+            "Attempting to load the dataset without having specified "
+            "the specific split. "
+            "This may cause longer loading times for big datasets. "
+            "Consider passing `split` argument to avoid that"
+        )
     dataset = None
 
     if task in TaskNames.mlm.value:

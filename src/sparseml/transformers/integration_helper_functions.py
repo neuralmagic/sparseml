@@ -138,6 +138,8 @@ def create_data_loader(
         - torch model
         - dict of loaded_model_kwargs
     """
+    split = kwargs.get("split", None)
+
     config = config or model.config
     source_path = source_path or model.name_or_path
     if tokenizer is None:
@@ -150,14 +152,22 @@ def create_data_loader(
     data_args = _parse_data_args(data_args or {})
 
     if data_args:
-        validation_dataset = load_task_dataset(
+        dataset = load_task_dataset(
             task=task,
             tokenizer=tokenizer,
             data_args=data_args,
             model=model,
             config=config,
-            split="validation",
+            split=split,
         )
+        if isinstance(dataset, dict) and split is None:
+            if "validation" in list(dataset.keys()):
+                key = "validation"
+            else:
+                key = list(dataset.keys())[-1]
+            validation_dataset = dataset[key]
+        else:
+            validation_dataset = dataset
 
         if task in TaskNames.text_generation.value:
             # text-generation datasets have a separate
