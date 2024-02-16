@@ -188,14 +188,24 @@ def test_sgpt_defaults():
 def test_fake_quant_wrapper(tmp_path):
     from sparseml.transformers import oneshot
 
-    model_name = "facebook/opt-125m"
+    model_name = "roneneldan/TinyStories-1M"
     dataset_name = "open_platypus"
     overwrite_output_dir = True
     precision = "bfloat16"  # unsupported by native FakeQuantize
-    oneshot_device = "auto"  # unsupported by native FakeQuantize
+    oneshot_device = "cuda:0"  # unsupported by native FakeQuantize
     output_dir = tmp_path / "temp_output"
-    recipe = "tests/sparseml/transformers/obcq/opt_example_quant.yaml"
-    num_calibration_samples = 128
+    recipe = """
+    first_stage:
+        quant_modifiers:
+            QuantizationModifier:
+                ignore:
+                    - Embedding
+                scheme_overrides:
+                    LayerNorm:
+                        input_activations: null
+                        output_activations: null
+    """
+    num_calibration_samples = 8
 
     oneshot(
         model_name_or_path=model_name,
