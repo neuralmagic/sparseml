@@ -25,13 +25,14 @@ class FakeQuantizeWrapper(FakeQuantize):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def forward(self, X):
+    def forward(self, *args, **kwargs):
         """
         Overrides the forward pass by converting the weight to a compatible dtype and
         moving configuration parameters to the device of the weight.
 
         All changes are reverted before returning.
         """
+        X = args[0]
         if self.fake_quant_enabled[0] == 0:
             return super().forward(X)
 
