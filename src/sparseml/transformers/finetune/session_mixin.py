@@ -310,7 +310,7 @@ class SessionManagerMixIn:
         do_log = self.state.global_step % self.args.logging_steps == 0
         if do_log:
             log = {}
-            log["step_loss"] = 0.5 * loss.item()
+            log["step_loss"] = loss.item()
             log["perplexity"] = torch.exp(loss).item()
 
         if session_manager.active_session().lifecycle.initialized_:
