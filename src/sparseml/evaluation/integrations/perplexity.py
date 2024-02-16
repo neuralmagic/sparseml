@@ -56,7 +56,7 @@ def perplexity_eval(
     """
     dataset_config_name = _infer_dataset_config_name(datasets)
     task = "text-generation"
-    split = "test"
+    split = kwargs.pop("split", None)
     model = SparseAutoModelForCausalLM.from_pretrained(model_path)
     tokenizer = SparseAutoTokenizer.from_pretrained(model_path)
 
@@ -199,7 +199,8 @@ def _infer_dataset_config_name(datasets):
 def _load_perplexity_dataset(
     dataset_name: str,
     dataset_config_name: str,
-    split: str = "test",
+    text_column_name: Optional[str] = None,
+    split: Optional[str] = None,
     limit: Optional[int] = None,
 ) -> List[str]:
     """
@@ -207,11 +208,24 @@ def _load_perplexity_dataset(
 
     :param dataset_name: The name of the dataset to load
     :param dataset_config_name: The name of the dataset config to load
-    :param split: The split of the dataset to load
+    :param text_column_name: The name of the column containing the text data
+        if None, defaults to "text"
+    :param split: The split of the dataset to load, if None uses test split
+        if available, otherwise uses train split
     :param nsamples: The number of samples to load from the dataset
     :return: The loaded dataset as a list of strings
     """
-    dataset = load_dataset(dataset_name, dataset_config_name, split=split)["text"]
+    dataset = load_dataset(dataset_name, dataset_config_name, split=split)
+    if isinstance(dataset, dict):
+        # check if test split exists
+        dataset = dataset["test"] if "test" in dataset else dataset["train"]
+
+    text_column_name = text_column_name or "text"
+    if text_column_name not in dataset.column_names:
+        raise ValueError(
+            f"Dataset {dataset_name} does not contain a column named {text_column_name}"
+        )
+    dataset = dataset[text_column_name]
     inputs = []
     for s in dataset:
         if s != "":
