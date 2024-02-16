@@ -108,7 +108,11 @@ class StageRunner:
 
         # default to custom dataset if dataset provided isn't a string
         # TODO: lets also rename this from dataset_name to dataset
-        registry_id = self._data_args.dataset_name
+        registry_id = (
+            self._data_args.dataset
+            if hasattr(self._data_args, "dataset")
+            else self._data_args.dataset_name
+        )
         if not isinstance(registry_id, str):
             registry_id = "custom"
         for split_name, split_str in splits.items():
@@ -242,7 +246,12 @@ class StageRunner:
 
         recipe_obj = Recipe.create_instance(self._training_args.recipe)
         with self.trainer.accelerator.main_process_first():
-            completed_stages = get_completed_stages(self._model_args.model_name_or_path)
+            checkpoint_dir = (
+                self._model_args.model
+                if hasattr(self._model_args, "model")
+                else self._model_args.model_name_or_pat
+            )
+            completed_stages = get_completed_stages(checkpoint_dir)
 
         self.trainer.accelerator.wait_for_everyone()
 
