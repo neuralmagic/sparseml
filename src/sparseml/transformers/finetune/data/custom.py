@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from copy import deepcopy
+from typing import List
 
 from datasets.dataset_dict import DatasetDict
 
@@ -80,3 +81,14 @@ class CustomDataset(TextGenerationDataset):
             )
 
         return raw_dataset
+
+    def get_remove_columns_from_dataset(self, raw_dataset: DatasetDict) -> List[str]:
+        """Remove redandant columns from the dataset for processing"""
+        remove_columns = set()
+        for datasets in raw_dataset.values():
+            for feature in datasets.features.keys():
+                remove_columns.add(feature)
+
+        remove_columns.remove(self.text_column)
+
+        return list(remove_columns)
