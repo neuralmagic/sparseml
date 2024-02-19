@@ -15,6 +15,7 @@
 import logging
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
+import numpy as np
 import torch
 
 from sparseml.core.model.base import ModifiableModel
@@ -23,6 +24,7 @@ from sparseml.modifiers.pruning.wanda.base import WandaPruningModifier
 from sparseml.modifiers.pruning.wanda.utils.wanda_wrapper import WandaWrapper
 from sparseml.modifiers.utils.layer_compressor import LayerCompressor
 from sparseml.modifiers.utils.pytorch_helpers import run_calibration_forward
+from sparseml.utils.pytorch.module import get_prunable_layers
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -62,12 +64,16 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
         modifiable_model = state.model
         calibration_dataloader = state.data.calib
 
-        self.initialize_compression(modifiable_model)
+        self.initialize_compression(modifiable_model, calibration_dataloader)
         self.apply_compression(calibration_dataloader)
 
         return True
 
-    def initialize_compression(self, model: ModifiableModel):
+    def initialize_compression(
+        self,
+        model: ModifiableModel,
+        dataloader: Optional[Iterable[Tuple[List, Dict[str, Any]]]] = None,
+    ):
         """
         Setup for WANDA, initializes the model, device,
         and other parameters, also initilializes the
@@ -80,11 +86,16 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
         self.model = self.model.model
         self.layer_compressors_ = []
         self._infer_mask_block_size()
+        if self.sparsity_profile is not None and self.sparsity_profile.lower() == "owl":
+            self.sparsity = self._infer_layer_sparsity(dataloader)
+        self._validate_layerwise_sparsity()
 
         for idx, (name, layer) in enumerate(self.compressible_layers_.items()):
             _LOGGER.info(f"Preparing {name} for compression")
             layer_sparsity = (
-                self.sparsity[idx] if isinstance(self.sparsity, List) else self.sparsity
+                self.sparsity[name]
+                if isinstance(self.sparsity, Dict)
+                else self.sparsity
             )
             args = self._pruning_arguments(layer_sparsity)
             comp_cls = self._compression_class()
@@ -173,3 +184,81 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
             raise ValueError("mask_structure must be defined")
 
         self.prunen_, self.prunem_ = list(map(int, self.mask_structure.split(":")))
+
+    def _infer_layer_sparsity(self, calibration_dataloader):
+        acts = _get_activations(self.model, calibration_dataloader)
+        wanda = {}
+        for name, layer in self.compressible_layers_.items():
+            prunable_layers = get_prunable_layers(layer)
+            z = [
+                m.weight.abs() * acts[f"{name}.{n}"].unsqueeze(0)
+                for n, m in prunable_layers.items()
+            ]
+            wanda[name] = torch.cat([item.flatten().cpu() for item in z])
+
+        acts = None
+        del acts
+        torch.cuda.empty_cache()
+
+        outlier_ratios = {}
+        for group in wanda:
+            threshold = torch.mean(wanda[group]) * self.owl_m
+            outlier_ratios[group] = (
+                100 * (wanda[group] > threshold).sum().item() / wanda[group].numel()
+            )
+        outlier_ratios_arr = np.array([outlier_ratios[k] for k in outlier_ratios])
+        for k in outlier_ratios:
+            outlier_ratios[k] = (outlier_ratios[k] - outlier_ratios_arr.min()) * (
+                1
+                / (outlier_ratios_arr.max() - outlier_ratios_arr.min())
+                * self.owl_lmbda
+                * 2
+            )
+        outlier_ratios_arr = np.array([outlier_ratios[k] for k in outlier_ratios])
+        sparsities = {
+            k: 1
+            - (
+                outlier_ratios[k]
+                - np.mean(outlier_ratios_arr)
+                + (1 - float(self.sparsity))
+            )
+            for k in outlier_ratios
+        }
+        _LOGGER.info(f"OWL sparsities for sp={self.sparsity} are:")
+        for k in sparsities:
+            _LOGGER.info(f"Sparsity for {k}: {sparsities[k]}")
+        return sparsities
+
+
+@torch.no_grad()
+def _get_activations(model, data_loader, nsamples=128):
+    import functools
+
+    model.eval()
+    acts = {}
+
+    def save_acts(module, input, name):
+        if isinstance(input, tuple):
+            input = input[0]
+        if name not in acts:
+            acts[name] = 1.0 / nsamples * input.detach().pow(2).sum(dim=(0, 1)).sqrt()
+        else:
+            acts[name] += 1.0 / nsamples * input.detach().pow(2).sum(dim=(0, 1)).sqrt()
+
+    hooks = []
+    for name, mod in model.named_modules():
+        if isinstance(mod, torch.nn.Linear) and "lm_head" not in name:
+            hooks.append(
+                mod.register_forward_pre_hook(functools.partial(save_acts, name=name))
+            )
+    device = next(model.parameters()).device
+    for batch in data_loader:
+        batch = {k: v.to(device) for k, v in batch.items()}
+        model(**batch)
+        batch = None
+    torch.cuda.empty_cache()
+
+    for h in hooks:
+        h.remove()
+
+    return acts
