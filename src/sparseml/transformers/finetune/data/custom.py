@@ -72,11 +72,11 @@ class CustomDataset(TextGenerationDataset):
 
         return raw_dataset
 
-    def get_remove_columns_from_dataset(self, dataset) -> List[str]:
+    def get_remove_columns_from_dataset(self, raw_dataset: DatasetDict) -> List[str]:
         """Remove redandant columns from the dataset for processing"""
         remove_columns = set()
-        for key in dataset.keys():
-            for feature in dataset[key].features.keys():
+        for datasets in raw_dataset.values():
+            for feature in datasets.features.keys():
                 remove_columns.add(feature)
 
         remove_columns.remove(self.text_column)
