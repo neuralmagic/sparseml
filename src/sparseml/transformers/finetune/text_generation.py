@@ -287,9 +287,7 @@ def main(
     calib_dataset = stage_runner.get_dataset_split("calibration")
 
     # Initialize our Trainer
-    data_collator = (
-        DefaultDataCollator()
-    )  # DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
+    data_collator = DefaultDataCollator()
     trainer = Trainer(
         model_init=get_session_model,
         teacher=teacher,
