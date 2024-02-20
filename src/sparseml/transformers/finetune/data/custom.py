@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from copy import deepcopy
+from typing import List
 
 from datasets.dataset_dict import DatasetDict
 
@@ -57,14 +58,37 @@ class CustomDataset(TextGenerationDataset):
             # dataset must be loaded from file or HF Hub
             raw_dataset = super().get_raw_dataset()
 
+        self.remove_columns = (
+            self.remove_columns or self.get_remove_columns_from_dataset(raw_dataset)
+        )
+
+        if self.remove_columns is not None:
+            raw_dataset = self.map(
+                raw_dataset,
+                batched=False,
+                remove_columns=self.remove_columns,
+                num_proc=self.data_args.preprocessing_num_workers,
+                desc="Removing redandant columns",
+            )
+
         if self.preprocessing_func is not None:
             raw_dataset = self.map(
                 raw_dataset,
                 function=self.preprocessing_func,
                 batched=False,
-                remove_columns=self.remove_columns,
                 num_proc=self.data_args.preprocessing_num_workers,
                 desc="Applying custom func to the custom dataset",
             )
 
         return raw_dataset
+
+    def get_remove_columns_from_dataset(self, raw_dataset: DatasetDict) -> List[str]:
+        """Remove redandant columns from the dataset for processing"""
+        remove_columns = set()
+        for datasets in raw_dataset.values():
+            for feature in datasets.features.keys():
+                remove_columns.add(feature)
+
+        remove_columns.remove(self.text_column)
+
+        return list(remove_columns)

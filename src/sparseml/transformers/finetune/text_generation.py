@@ -17,7 +17,6 @@
 # Adapted from https://github.com/huggingface/transformers
 # neuralmagic: no copyright
 
-
 import logging
 import os
 from pathlib import PosixPath
@@ -31,6 +30,8 @@ from transformers import (
     set_seed,
 )
 
+import sparseml.core.session as session_manager
+from sparseml.core.framework import Framework
 from sparseml.core.recipe import Recipe, StageRunType
 from sparseml.pytorch.model_load.helpers import (
     apply_recipe_structure_to_model,
@@ -324,6 +325,17 @@ def main(
 
     if isinstance(tokenizer, str) or tokenizer is None:
         tokenizer = initialize_tokenizer_from_path(model_args, model, teacher)
+
+    # # initialize structure of input model from recipe if needed
+    # recipe_path = os.path.join(model_path, "recipe.yaml")
+    # if last_checkpoint is not None and training_args.recipe is None:
+    #     training_args.recipe = recipe_path  # continue from checkpoint recipe
+
+    # setup new SparseSession unless user requests otherwise
+    if training_args.clear_sparse_session:
+        session_manager.create_session()
+        session_manager.active_session().reset()
+    session_manager.pre_initialize_structure(model=model, framework=Framework.pytorch)
 
     # intialize session manager
     apply_recipe_structure_to_model(model, None, model_path)

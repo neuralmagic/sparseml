@@ -22,7 +22,6 @@ from pathlib import Path
 import pytest
 import torch
 
-import sparseml.core.session as session_manager
 from sparseml.transformers import SparseAutoTokenizer, apply, compress, oneshot, train
 
 
@@ -108,9 +107,6 @@ def test_oneshot_then_finetune(tmp_path: Path):
         splits=splits,
         oneshot_device=device,
     )
-
-    session = session_manager.active_session()
-    session.reset()
 
     recipe_str = "tests/sparseml/transformers/finetune/test_finetune_recipe.yaml"
     model = tmp_path / "oneshot_out"
