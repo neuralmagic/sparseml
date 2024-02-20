@@ -150,11 +150,7 @@ def intialize_model_from_path(
     # Load pretrained model
     # The .from_pretrained methods guarantee that only one local process can
     # concurrently download model & vocab.
-    model_path = (
-        model_args.model
-        if hasattr(model_args, "model")
-        else model_args.model_name_or_path
-    )
+    model_path = model_args.model
     config = AutoConfig.from_pretrained(
         model_args.config_name if model_args.config_name else model_path,
         cache_dir=model_args.cache_dir,
@@ -228,11 +224,7 @@ def intialize_model_from_path(
 
 
 def initialize_tokenizer_from_path(model_args, model, teacher):
-    tokenizer_src = (
-        model_args.tokenizer
-        if hasattr(model_args, "tokenizer")
-        else model_args.tokenizer_name
-    )
+    tokenizer_src = model_args.tokenizer
     tokenizer_src = tokenizer_src or get_shared_tokenizer_src(model, teacher)
     tokenizer = SparseAutoTokenizer.from_pretrained(
         tokenizer_src,
@@ -255,9 +247,10 @@ def main(
     Hugging Face or disk, and resuming training from a checkpoint is supported.
 
     Lifecycle:
-        - get_last_checkpoint() [Optional]
-        - AutoModel.text_generation_from_pretrained()
-        - AutoTokenizer.from_pretrained_distil()
+        - SparseAutoModel.text_generation_from_pretrained if model provided as
+            string for model and teacher
+        - SparseAutoTokenizer.from_pretrained() if tokenizer provided as
+            string for tokenizer
         - StageRunner.populate_datasets()
         - Trainer()
             - SessionMixIn()
@@ -302,18 +295,11 @@ def main(
     last_checkpoint = None
     teacher = None
     model_path = None
-    model = (
-        model_args.model
-        if hasattr(model_args, "model")
-        else model_args.model_name_or_path
-    )
+    model = model_args.model
     # Load tokenizer
     # distill TODO: support for different tokenizer for teacher?
-    tokenizer = (
-        model_args.tokenizer
-        if hasattr(model_args, "tokenizer")
-        else model_args.tokenizer_name
-    )
+    tokenizer = model_args.tokenizer
+
     if isinstance(model, str) or isinstance(model, PosixPath):
         (teacher, model_path, model) = intialize_model_from_path(
             model_args,
@@ -325,11 +311,6 @@ def main(
 
     if isinstance(tokenizer, str) or tokenizer is None:
         tokenizer = initialize_tokenizer_from_path(model_args, model, teacher)
-
-    # # initialize structure of input model from recipe if needed
-    # recipe_path = os.path.join(model_path, "recipe.yaml")
-    # if last_checkpoint is not None and training_args.recipe is None:
-    #     training_args.recipe = recipe_path  # continue from checkpoint recipe
 
     # setup new SparseSession unless user requests otherwise
     if training_args.clear_sparse_session:

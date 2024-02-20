@@ -27,8 +27,8 @@ class ModelArguments:
     model: Union[str, PreTrainedModel] = field(
         metadata={
             "help": (
-                "Path to pretrained model, sparsezoo stub. or model identifier from "
-                "huggingface.co/models"
+                "A pretrained model or a string as a path to pretrained model, "
+                "sparsezoo stub, or model identifier from huggingface.co/models."
             )
         },
     )

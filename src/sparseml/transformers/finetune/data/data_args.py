@@ -74,7 +74,12 @@ class DataTrainingArguments(CustomDataTrainingArguments):
 
     dataset: Optional[Union[str, DatasetDict]] = field(
         default=None,
-        metadata={"help": "The name of the dataset to use (via the datasets library)"},
+        metadata={
+            "help": (
+                "The name of the dataset to use (via the datasets library). "
+                "Supports input as a string or DatasetDict from HF"
+            )
+        },
     )
     dataset_config_name: Optional[str] = field(
         default=None,

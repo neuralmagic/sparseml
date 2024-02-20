@@ -293,15 +293,15 @@ def get_session_model() -> Module:
     session = session_manager.active_session()
     if not session:
         return None
-    # breakpoint()
+
     active_model = session.state.model.model
     return active_model
 
 
-def get_completed_stages(checkpoint_dir: str) -> List[str]:
+def get_completed_stages(checkpoint_dir: Any) -> List[str]:
     """
     Given a checkpoint directory for a staged run, get the list of stages that
-    have completed in a prior run.
+    have completed in a prior run if the checkpoint_dir is a string
 
     :param checkpoint_dir: path to staged checkpoint
     :return: list of completed stage names
