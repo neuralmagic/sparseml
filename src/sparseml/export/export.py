@@ -193,6 +193,7 @@ def export(
 
     # start a new SparseSession for potential recipe application
     session_manager.create_session()
+    session_manager.active_session().reset()
 
     if source_path is not None and model is not None:
         raise ValueError(
@@ -260,7 +261,6 @@ def export(
         model=model,
         task=task,
         device=device,
-        **kwargs,
         **loaded_model_kwargs,
     )
     # join kwargs that are created during the initialization of the model
