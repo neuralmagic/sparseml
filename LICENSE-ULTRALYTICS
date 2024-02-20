@@ -1,4 +1,10 @@
 ULTRALYTICS ENTERPRISE SOFTWARE LICENSE AGREEMENT 
+* Original Agreement v0.6.1 - Updated 21 February 2023
+* Amendment to Original Agreement v0.10.0 - Updated 12 December 2023
+
+#####
+
+ULTRALYTICS ENTERPRISE SOFTWARE LICENSE AGREEMENT 
 v0.6.1 - Updated 21 February 2023
 
 This Enterprise Software License Agreement (the “Agreement”) is made between Neuralmagic, Inc., (the “Client”, or "Licensee") and Ultralytics Inc.
@@ -101,4 +107,38 @@ Any changes to this Agreement will be by mutual agreement.
 
 IN WITNESS whereof, the Parties have caused this Agreement to be executed by their duly authorized representatives as of the Effective Date. 
 
-Executed by Ultralytics Inc. and Neuralmagic, Inc.
+Executed by Ultralytics Inc. and Neuralmagic, Inc., February 24th, 2023
+
+AMENDMENT TO ENTERPRISE SOFTWARE LICENSE AGREEMENT
+v0.10.0 - Updated 12 Dec 2023
+
+This Amendment to the Enterprise Software License Agreement (the “Amendment”) is made between Neural Magic (the “Client”, or "Licensee") and Ultralytics Inc. (the 
+“Company”), a Delaware corporation with offices at 3616 Barham BLVD X311, Los Angeles CA 90068 United States, (collectively the “Parties”), as of 12 December 2023 
+(the “Amendment Effective Date”). This Amendment modifies the Enterprise Software License Agreement originally executed as of February 24th, 2023 with reference number 
+U3JNH-333DV-3UGZM-J9JFA (the “Original Agreement”).
+
+WHEREAS, the parties wish to amend the Original Agreement as set forth below;
+NOW, THEREFORE, in consideration of the mutual covenants contained herein and for other good and valuable consideration, the receipt and sufficiency of which are hereby 
+acknowledged, the parties hereto agree as follows:
+
+1. Amendment to Section 2 (Right to Use Software): Section 2 of the Original Agreement is hereby deleted in its entirety and replaced with the following:
+   “2. Right to Use Software. Company grants Licensee a non-exclusive, non-transferable, worldwide license to use the Software, as well as the accompanying Documentation.
+       1. Licensee will hold the right to use the Software that Company has developed for any purpose, including commercial and for-profit purposes.
+       2. Licensee's subcontractors, consultants, and vendors will also hold the right to use the Software for purposes of developing or deploying Licensee's products 
+          or services.
+       3. Licensee will have the ability to make and distribute to its customers and end users an unlimited number of commercial, for-profit products containing the 
+          Software mentioned above.
+       4. Licensee, and any third party that receives an authorized distribution under Section 2.3, will retain perpetual license rights to Software versions and updates 
+          released during the License Term.
+       5. Licensee, and any third party that receives an authorized distribution under Section 2.3, shall own all rights, title, and interest in and to Software 
+          modifications they make and any Ultralytics YOLO models that they train with the modified or unmodified Software. Company shall have no rights in or to such 
+          Ultralytics YOLO models or Software modifications.”
+
+2. Effect on the Original Agreement: Except as expressly amended herein, all terms and conditions of the Original Agreement shall remain in full force and effect.
+
+3. Entire Agreement: This Amendment, together with the Original Agreement, constitutes the entire agreement between the parties with respect to the subject matter hereof 
+and supersedes all prior and contemporaneous understandings or agreements, written or oral, regarding such subject matter.
+
+IN WITNESS whereof, the Parties have caused this Agreement to be executed by their duly authorized representatives as of the Effective Date.
+
+Executed by Ultralytics Inc. and Neuralmagic, Inc., December 13th, 2023
