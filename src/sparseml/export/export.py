@@ -252,6 +252,11 @@ def export(
         )
     model.eval()
 
+    # merge arg dictionaries
+    for arg_name, arg_val in kwargs.items():
+        if arg_name not in loaded_model_kwargs:
+            loaded_model_kwargs[arg_name] = arg_val
+
     # once model is loaded we can clear the SparseSession, it was only needed for
     # adding structural changes (ie quantization) to the model
     session_manager.active_session().reset()
