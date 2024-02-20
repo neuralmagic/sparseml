@@ -82,6 +82,7 @@ _transformers_deps = _pytorch_deps + [
     "einops",
     "evaluate>=0.4.1",
     "accelerate>=0.20.3",
+    "safetensors>=0.4.1"
 ]
 _yolov5_deps = _pytorch_vision_deps + [
     f"{'nm-yolov5' if is_release else 'nm-yolov5-nightly'}~={version_nm_deps}"
