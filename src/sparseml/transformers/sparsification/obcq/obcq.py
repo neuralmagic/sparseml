@@ -45,7 +45,7 @@ SUPPORTED_PRECISION = ["auto", "half", "full", "float16", "bfloat16", "float32"]
 
 def one_shot(
     model_path: str,
-    dataset_name: str,
+    dataset: str,
     dataset_config_name: Optional[str] = None,
     num_samples: int = 128,
     sequence_length: Optional[int] = None,
@@ -61,7 +61,7 @@ def one_shot(
     Performs in place one shot sparsification/quantization of a model based on:
 
     :param model_path: path to Hugging Face stub
-    :param dataset_name: Dataset to extract calibration data from
+    :param dataset: Dataset to extract calibration data from
     :param dataset_config_name: Specific configuration to extract from calib dataset
     :param num_samples: Number of samples to extract from the dataset
     :param sequence_length: Maximum input sequence length to the model
@@ -102,15 +102,15 @@ def one_shot(
 
     # Load calibration data
     try:
-        TextGenerationDataset.get_value_from_registry(dataset_name)
+        TextGenerationDataset.get_value_from_registry(dataset)
     except KeyError:
         raise ValueError(
-            f"dataset_name={dataset_name} should be one of "
+            f"dataset={dataset} should be one of "
             f"{TextGenerationDataset.registered_names()}"
         )
 
     data_args = DataTrainingArguments(
-        dataset_name=dataset_name,
+        dataset=dataset,
         dataset_config_name=dataset_config_name,
         max_seq_length=sequence_length or resolve_sequence_length(config),
         num_calibration_samples=num_samples,
@@ -122,7 +122,7 @@ def one_shot(
         model_path, use_fast=True, trust_remote_code=True
     )
     dataset_manager = TextGenerationDataset.load_from_registry(
-        dataset_name, data_args=data_args, split="train", tokenizer=tokenizer
+        dataset, data_args=data_args, split="train", tokenizer=tokenizer
     )
     raw_dataset = dataset_manager.get_raw_dataset()
     tokenized_dataset = dataset_manager.tokenize_and_process(raw_dataset)
@@ -212,7 +212,7 @@ if __name__ == "__main__":
 
     one_shot(
         model_path=args.model,
-        dataset_name=args.dataset,
+        dataset=args.dataset,
         dataset_config_name=args.dataset_config,
         deploy_dir=args.deploy_dir,
         num_samples=args.nsamples,
