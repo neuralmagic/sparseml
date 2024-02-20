@@ -23,23 +23,19 @@ from tqdm import tqdm
 from sparseml.pytorch.utils import tensors_module_forward, tensors_to_device
 
 
-PADDING_MASK_COLUMN_NAME = "padding_mask"
-
 __all__ = ["apply_pad_mask_to_batch", "run_calibration_forward"]
 
 
 def apply_pad_mask_to_batch(batch: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
     """
-    Apply a mask to the input ids of a batch if one exists. This is used to zero out
+    Apply a mask to the input ids of a batch. This is used to zero out
     padding tokens so they do not contribute to the hessian calculation in the
     SparseGPT algorithm
 
     :param batch: batch to apply padding to if it exists
     :return: batch with padding zeroed out in the input_ids
     """
-    if PADDING_MASK_COLUMN_NAME in batch:
-        batch["input_ids"] = batch["input_ids"] * batch[PADDING_MASK_COLUMN_NAME]
-        batch.pop(PADDING_MASK_COLUMN_NAME)
+    batch["input_ids"] = batch["input_ids"] * batch["attention_mask"]
     return batch
 
 
@@ -86,8 +82,6 @@ def run_calibration_forward(
             break
         if mask_padding:
             batch = apply_pad_mask_to_batch(batch)
-        else:
-            batch.pop(PADDING_MASK_COLUMN_NAME, None)
         batch = tensors_to_device(batch, model_device)
         with torch.no_grad():
             forward_fn(batch, module=model)

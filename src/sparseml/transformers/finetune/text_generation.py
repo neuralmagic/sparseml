@@ -23,12 +23,7 @@ import os
 
 import datasets
 import transformers
-from transformers import (
-    AutoConfig,
-    DataCollatorForLanguageModeling,
-    HfArgumentParser,
-    set_seed,
-)
+from transformers import AutoConfig, DefaultDataCollator, HfArgumentParser, set_seed
 
 from sparseml.core.recipe import Recipe, StageRunType
 from sparseml.pytorch.model_load.helpers import (
@@ -292,7 +287,9 @@ def main(
     calib_dataset = stage_runner.get_dataset_split("calibration")
 
     # Initialize our Trainer
-    data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
+    data_collator = (
+        DefaultDataCollator()
+    )  # DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
     trainer = Trainer(
         model_init=get_session_model,
         teacher=teacher,
