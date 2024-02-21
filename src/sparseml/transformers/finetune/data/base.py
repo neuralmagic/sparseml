@@ -182,6 +182,10 @@ class TextGenerationDataset(RegistryMixin):
                 desc="Grouping text",
             )
 
+        if isinstance(dataset, IterableDataset):
+            # so we can get column names from streamed_datasets
+            dataset = dataset._resolve_features()
+
         dataset = self.map(
             dataset,
             function=label_fn,
