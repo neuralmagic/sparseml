@@ -62,15 +62,6 @@ class CustomDataset(TextGenerationDataset):
             self.remove_columns or self.get_remove_columns_from_dataset(raw_dataset)
         )
 
-        if self.remove_columns is not None:
-            raw_dataset = self.map(
-                raw_dataset,
-                batched=False,
-                remove_columns=self.remove_columns,
-                num_proc=self.data_args.preprocessing_num_workers,
-                desc="Removing redandant columns",
-            )
-
         if self.preprocessing_func is not None:
             raw_dataset = self.map(
                 raw_dataset,
@@ -78,6 +69,15 @@ class CustomDataset(TextGenerationDataset):
                 batched=False,
                 num_proc=self.data_args.preprocessing_num_workers,
                 desc="Applying custom func to the custom dataset",
+            )
+
+        if self.remove_columns is not None:
+            raw_dataset = self.map(
+                raw_dataset,
+                batched=False,
+                remove_columns=self.remove_columns,
+                num_proc=self.data_args.preprocessing_num_workers,
+                desc="Removing unneeded columns",
             )
 
         return raw_dataset
