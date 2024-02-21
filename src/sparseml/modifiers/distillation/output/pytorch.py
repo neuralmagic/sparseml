@@ -204,4 +204,5 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
             hidden_size=hidden_size,
             transforms=transforms,
             fsdp_active=self.fsdp_active_,
+            offload_output=self.offload_layer_output,
         )
