@@ -20,6 +20,7 @@ from transformers import AutoTokenizer
 
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
 from sparseml.transformers.finetune.data.data_helpers import (
+    LABELS_MASK_VALUE,
     get_custom_datasets_from_path,
     get_raw_dataset,
 )
@@ -143,14 +144,18 @@ class TextGenerationDataset(RegistryMixin):
 
         # helper fn for adding labels, needed for loss calculation
         def label_fn(data):
+            # if the dataset uses prompts, mask them out so they don't contribute
+            # to the loss calculation
             prompt_len = 0
             if "prompt" in data:
                 prompt_len = len(data["prompt"])
             data["labels"] = data["input_ids"].copy()
-            data["labels"][:prompt_len] = [-100] * prompt_len
+            data["labels"][:prompt_len] = [LABELS_MASK_VALUE] * prompt_len
+
+            # mask out padding in the labels as well
             padding = len(data["attention_mask"]) - sum(data["attention_mask"])
             if padding > 0:
-                data["labels"][-padding:] = [-100] * padding
+                data["labels"][-padding:] = [LABELS_MASK_VALUE] * padding
             return data
 
         dataset = self.map(
