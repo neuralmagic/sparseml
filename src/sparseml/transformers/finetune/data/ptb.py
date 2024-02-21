@@ -29,7 +29,7 @@ class PtbDataset(TextGenerationDataset):
 
     def __init__(self, data_args, split, tokenizer):
         data_args = deepcopy(data_args)
-        data_args.dataset_name = "ptb_text_only"
+        data_args.dataset = "ptb_text_only"
         super().__init__(
             text_column="sentence",
             data_args=data_args,

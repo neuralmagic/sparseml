@@ -106,9 +106,14 @@ class StageRunner:
         elif isinstance(splits, List):
             splits = {_get_split_name(s): s for s in splits}
 
+        # default to custom dataset if dataset provided isn't a string
+        registry_id = self._data_args.dataset
+
+        if not isinstance(registry_id, str):
+            registry_id = "custom"
         for split_name, split_str in splits.items():
             dataset_manager = TextGenerationDataset.load_from_registry(
-                self._data_args.dataset_name,
+                registry_id,
                 data_args=self._data_args,
                 split=split_str,
                 tokenizer=tokenizer,
@@ -117,7 +122,12 @@ class StageRunner:
             store_padding_mask = False
             if self._training_args.do_oneshot and split_name == "calibration":
                 store_padding_mask = True
-            raw_dataset = dataset_manager.get_raw_dataset(self._model_args.cache_dir)
+            if isinstance(self._data_args.dataset, str):
+                raw_dataset = dataset_manager.get_raw_dataset(
+                    self._model_args.cache_dir
+                )
+            else:
+                raw_dataset = self._data_args.dataset
             tokenized_dataset = dataset_manager.tokenize_and_process(
                 raw_dataset, store_padding_mask=store_padding_mask
             )
@@ -237,7 +247,9 @@ class StageRunner:
 
         recipe_obj = Recipe.create_instance(self._training_args.recipe)
         with self.trainer.accelerator.main_process_first():
-            completed_stages = get_completed_stages(self._model_args.model_name_or_path)
+            checkpoint_dir = self._model_args.model
+            completed_stages = get_completed_stages(checkpoint_dir)
+
         self.trainer.accelerator.wait_for_everyone()
 
         for stage in recipe_obj.stages:

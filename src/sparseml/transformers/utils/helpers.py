@@ -184,7 +184,12 @@ def detect_last_checkpoint(
     ):
         last_checkpoint = get_last_checkpoint(training_args.output_dir)
         if training_args.run_stages and model_args is not None:
-            if os.path.isdir(model_args.model_name_or_path):
+            model = (
+                model_args.model
+                if hasattr(model_args, "model")
+                else model_args.model_name_or_path
+            )
+            if os.path.isdir(model):
                 last_checkpoint = get_last_checkpoint(model_args.model_name_or_path)
         if last_checkpoint is None and (len(os.listdir(training_args.output_dir)) > 0):
             raise ValueError(

@@ -298,19 +298,20 @@ def get_session_model() -> Module:
     return active_model
 
 
-def get_completed_stages(checkpoint_dir: str) -> List[str]:
+def get_completed_stages(checkpoint_dir: Any) -> List[str]:
     """
     Given a checkpoint directory for a staged run, get the list of stages that
-    have completed in a prior run.
+    have completed in a prior run if the checkpoint_dir is a string
 
     :param checkpoint_dir: path to staged checkpoint
     :return: list of completed stage names
     """
-    stage_path = os.path.join(checkpoint_dir, COMPLETED_STAGES_FILENAME)
-    if os.path.exists(stage_path):
-        with open(stage_path) as stage_file:
-            stage_data = json.load(stage_file)
-            return stage_data["completed"]
+    if isinstance(checkpoint_dir, str):
+        stage_path = os.path.join(checkpoint_dir, COMPLETED_STAGES_FILENAME)
+        if os.path.exists(stage_path):
+            with open(stage_path) as stage_file:
+                stage_data = json.load(stage_file)
+                return stage_data["completed"]
 
     return []
 
