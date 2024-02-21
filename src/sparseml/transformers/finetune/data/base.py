@@ -122,10 +122,14 @@ class TextGenerationDataset(RegistryMixin):
                 max_length=self.max_seq_length,
                 truncation=True,
             )
+
+            # store unpadded prompt so we can mask out correct number of elements
+            # in the labels
             if "prompt" in data:
                 result["prompt"] = self.tokenizer(
                     data["prompt"], max_length=self.max_seq_length, truncation=True
                 )["input_ids"]
+
             return result
 
         # helper fn for filling to max_sequence_length by concatenating entries
@@ -181,7 +185,7 @@ class TextGenerationDataset(RegistryMixin):
         dataset = self.map(
             dataset,
             function=label_fn,
-            batched=False,
+            batched=False,  # not compatible with batching due to needing row lengths
             remove_columns=["prompt"] if "prompt" in dataset.column_names else None,
             num_proc=self.data_args.preprocessing_num_workers,
             load_from_cache_file=not self.data_args.overwrite_cache,
