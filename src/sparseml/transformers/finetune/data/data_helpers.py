@@ -78,7 +78,7 @@ def get_raw_dataset(
 
     """
     raw_datasets = load_dataset(
-        data_args.dataset_name,
+        data_args.dataset,
         data_args.dataset_config_name,
         cache_dir=cache_dir,
         streaming=streaming,

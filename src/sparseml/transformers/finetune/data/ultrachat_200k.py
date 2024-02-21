@@ -42,7 +42,7 @@ class UltraChatDataset(TextGenerationDataset):
 
     def __init__(self, data_args, split, tokenizer):
         data_args = deepcopy(data_args)
-        data_args.dataset_name = "HuggingFaceH4/ultrachat_200k"
+        data_args.dataset = "HuggingFaceH4/ultrachat_200k"
 
         if split in ["train", "test"]:
             split += "_sft"

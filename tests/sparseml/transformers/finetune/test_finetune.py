@@ -22,7 +22,15 @@ from pathlib import Path
 import pytest
 import torch
 
-from sparseml.transformers import apply, oneshot, train
+from sparseml.transformers import (
+    SparseAutoModelForCausalLM,
+    SparseAutoTokenizer,
+    apply,
+    compress,
+    load_dataset,
+    oneshot,
+    train,
+)
 
 
 def test_oneshot_and_finetune(tmp_path: Path):
@@ -31,7 +39,7 @@ def test_oneshot_and_finetune(tmp_path: Path):
     device = "cuda:0"
     if not torch.cuda.is_available():
         device = "cpu"
-    dataset_name = "wikitext"
+    dataset = "wikitext"
     dataset_config_name = "wikitext-2-raw-v1"
     concatenate_data = True
     run_stages = True
@@ -40,8 +48,8 @@ def test_oneshot_and_finetune(tmp_path: Path):
     splits = {"train": "train[:50%]", "calibration": "train[50%:60%]"}
 
     apply(
-        model_name_or_path=model,
-        dataset_name=dataset_name,
+        model=model,
+        dataset=dataset,
         dataset_config_name=dataset_config_name,
         run_stages=run_stages,
         output_dir=output_dir,
@@ -53,21 +61,56 @@ def test_oneshot_and_finetune(tmp_path: Path):
     )
 
 
+def test_oneshot_and_finetune_with_tokenizer(tmp_path: Path):
+    recipe_str = "tests/sparseml/transformers/finetune/test_alternate_recipe.yaml"
+    model = SparseAutoModelForCausalLM.from_pretrained("Xenova/llama2.c-stories15M")
+    tokenizer = SparseAutoTokenizer.from_pretrained(
+        "Xenova/llama2.c-stories15M",
+    )
+    device = "cuda:0"
+    if not torch.cuda.is_available():
+        device = "cpu"
+
+    dataset_config_name = "wikitext-2-raw-v1"
+    dataset = load_dataset("wikitext", dataset_config_name, split="train[:50%]")
+    # dataset ="wikitext"
+
+    concatenate_data = True
+    run_stages = True
+    output_dir = tmp_path
+    max_steps = 50
+    splits = {"train": "train[:50%]", "calibration": "train[50%:60%]"}
+
+    compress(
+        model=model,
+        dataset=dataset,
+        dataset_config_name=dataset_config_name,
+        run_stages=run_stages,
+        output_dir=output_dir,
+        recipe=recipe_str,
+        max_steps=max_steps,
+        concatenate_data=concatenate_data,
+        splits=splits,
+        oneshot_device=device,
+        tokenizer=tokenizer,
+    )
+
+
 def test_oneshot_then_finetune(tmp_path: Path):
     recipe_str = "tests/sparseml/transformers/obcq/test_tiny2.yaml"
     model = "Xenova/llama2.c-stories15M"
     device = "cuda:0"
     if not torch.cuda.is_available():
         device = "cpu"
-    dataset_name = "open_platypus"
+    dataset = "open_platypus"
     concatenate_data = False
     num_calibration_samples = 64
     output_dir = tmp_path / "oneshot_out"
     splits = {"calibration": "train[:10%]"}
 
     oneshot(
-        model_name_or_path=model,
-        dataset_name=dataset_name,
+        model=model,
+        dataset=dataset,
         output_dir=output_dir,
         num_calibration_samples=num_calibration_samples,
         recipe=recipe_str,
@@ -78,16 +121,16 @@ def test_oneshot_then_finetune(tmp_path: Path):
 
     recipe_str = "tests/sparseml/transformers/finetune/test_finetune_recipe.yaml"
     model = tmp_path / "oneshot_out"
-    dataset_name = "open_platypus"
+    dataset = "open_platypus"
     concatenate_data = False
     output_dir = tmp_path / "finetune_out"
     splits = "train[:50%]"
     max_steps = 50
 
     train(
-        model_name_or_path=model,
+        model=model,
         distill_teacher="Xenova/llama2.c-stories15M",
-        dataset_name=dataset_name,
+        dataset=dataset,
         output_dir=output_dir,
         num_calibration_samples=num_calibration_samples,
         recipe=recipe_str,
@@ -103,15 +146,15 @@ def test_finetune_wout_recipe(tmp_path: Path):
     device = "cuda:0"
     if not torch.cuda.is_available():
         device = "cpu"
-    dataset_name = "open_platypus"
+    dataset = "open_platypus"
     concatenate_data = False
     output_dir = tmp_path
     max_steps = 50
     splits = "train"
 
     train(
-        model_name_or_path=model,
-        dataset_name=dataset_name,
+        model=model,
+        dataset=dataset,
         output_dir=output_dir,
         recipe=recipe_str,
         max_steps=max_steps,
@@ -147,8 +190,8 @@ def test_finetune_wout_recipe_custom_dataset(
     output_dir = tmp_path
     max_steps = 50
     train(
-        model_name_or_path=model,
-        dataset_name=file_extension,
+        model=model,
+        dataset=file_extension,
         output_dir=output_dir,
         recipe=recipe_str,
         max_steps=max_steps,
