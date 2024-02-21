@@ -13,7 +13,9 @@
 # limitations under the License.
 
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, Union
+
+from transformers import PreTrainedModel, PreTrainedTokenizerBase
 
 
 @dataclass
@@ -22,13 +24,13 @@ class ModelArguments:
     Arguments pertaining to which model/config/tokenizer we are going to fine-tune from
     """
 
-    model_name_or_path: str = field(
+    model: Union[str, PreTrainedModel] = field(
         metadata={
             "help": (
-                "Path to pretrained model, sparsezoo stub. or model identifier from "
-                "huggingface.co/models"
+                "A pretrained model or a string as a path to pretrained model, "
+                "sparsezoo stub, or model identifier from huggingface.co/models."
             )
-        }
+        },
     )
     config_name: Optional[str] = field(
         default=None,
@@ -36,7 +38,7 @@ class ModelArguments:
             "help": "Pretrained config name or path if not the same as model_name"
         },
     )
-    tokenizer_name: Optional[str] = field(
+    tokenizer: Optional[Union[str, PreTrainedTokenizerBase]] = field(
         default=None,
         metadata={
             "help": "Pretrained tokenizer name or path if not the same as model_name"

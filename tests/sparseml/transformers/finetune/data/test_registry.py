@@ -24,9 +24,9 @@ from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
 
 @pytest.mark.usefixtures("tiny_llama_tokenizer")
 def test_c4_initializes(tiny_llama_tokenizer):
-    data_args = DataTrainingArguments(dataset_name="c4", concatenate_data=True)
+    data_args = DataTrainingArguments(dataset="c4", concatenate_data=True)
     c4_manager = TextGenerationDataset.load_from_registry(
-        data_args.dataset_name,
+        data_args.dataset,
         data_args=data_args,
         split=None,
         tokenizer=tiny_llama_tokenizer,
@@ -41,10 +41,10 @@ def test_c4_initializes(tiny_llama_tokenizer):
 @pytest.mark.usefixtures("tiny_llama_tokenizer")
 def test_wikitext_initializes(tiny_llama_tokenizer):
     data_args = DataTrainingArguments(
-        dataset_name="wikitext", dataset_config_name="wikitext-2-raw-v1"
+        dataset="wikitext", dataset_config_name="wikitext-2-raw-v1"
     )
     wiki_manager = TextGenerationDataset.load_from_registry(
-        data_args.dataset_name,
+        data_args.dataset,
         data_args=data_args,
         split=None,
         tokenizer=tiny_llama_tokenizer,
@@ -58,11 +58,9 @@ def test_wikitext_initializes(tiny_llama_tokenizer):
 
 @pytest.mark.usefixtures("tiny_llama_tokenizer")
 def test_open_platypus_initializes(tiny_llama_tokenizer):
-    data_args = DataTrainingArguments(
-        dataset_name="open_platypus", pad_to_max_length=False
-    )
+    data_args = DataTrainingArguments(dataset="open_platypus", pad_to_max_length=False)
     op_manager = TextGenerationDataset.load_from_registry(
-        data_args.dataset_name,
+        data_args.dataset,
         data_args=data_args,
         split=None,
         tokenizer=tiny_llama_tokenizer,
