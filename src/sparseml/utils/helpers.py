@@ -864,6 +864,12 @@ def parse_kwarg_tuples(kwargs: tuple) -> Dict:
     output = {'arg1': 1, 'arg2': 2, 'arg3': 3}
     ```
 
+    ```
+    input = ('--arg1', 1, '--args1', 2 , 'arg2', 2, '-arg3', 3)
+    output = parse_kwarg_tuples(input)
+    output = {'arg1': [1, 2], 'arg2': 2, 'arg3': 3}
+    ```
+
     :param kwargs: The kwargs to convert. Should be a tuple of alternating
         kwargs names and kwargs values e.g.('--arg1', 1, 'arg2', 2, -arg3', 3).
         The names can optionally have a '-' or `--` in front of them.
@@ -895,8 +901,17 @@ def parse_kwarg_tuples(kwargs: tuple) -> Dict:
             pass
     # remove any '-' or '--' from the names
     kwargs_names = [name.lstrip("-") for name in kwargs_names]
-
-    return dict(zip(kwargs_names, kwargs_values))
+    processed_kwargs = {}
+    for kwarg_name, kwarg_value in zip(kwargs_names, kwargs_values):
+        if kwarg_name in processed_kwargs:
+            # if the kwarg name is already in the processed kwargs,
+            # then we should convert the value to a list
+            if not isinstance(processed_kwargs[kwarg_name], list):
+                processed_kwargs[kwarg_name] = [processed_kwargs[kwarg_name]]
+            processed_kwargs[kwarg_name].append(kwarg_value)
+        else:
+            processed_kwargs[kwarg_name] = kwarg_value
+    return processed_kwargs
 
 
 def download_zoo_training_dir(zoo_stub: str) -> str:
