@@ -49,6 +49,7 @@ class KDModelWrapper(Module):
         self.register_load_state_dict_post_hook(_clear_missing_keys)
 
     def forward(self, *args, **kwargs):
+        self.teacher_model.eval()
         if not self.kd_enabled:
             return self.student_model(*args, **kwargs)
 
