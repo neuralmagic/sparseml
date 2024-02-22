@@ -99,3 +99,9 @@ class ModifiableOptimizer(Generic[OT, PGT], MultiFrameworkObject):
             set to None to set attribute in all groups
         """
         raise NotImplementedError()
+
+    def attach_optim_callbacks(self, func_name: str, callback):
+        """
+        Attach callbacks to the optimizer
+        """
+        raise NotImplementedError()

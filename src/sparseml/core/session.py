@@ -66,7 +66,6 @@ class SparseSession:
 
     def __init__(self):
         self._lifecycle = SparsificationLifecycle()
-        self._last_loss_log_step = None
 
     @property
     def lifecycle(self) -> SparsificationLifecycle:
@@ -264,7 +263,7 @@ class SparseSession:
             event_type=event_type, batch_data=batch_data, loss=loss, **kwargs
         )
 
-        self.log(event_type=event_type, loss=self.state.loss)
+        self.log(event_type=event_type, loss=loss or self.state.loss)
 
         return ModifiedState(
             model=self.state.model.model if self.state.model else None,
@@ -308,14 +307,18 @@ class SparseSession:
 
         epoch = self._lifecycle.event_lifecycle.current_index
 
-        if should_log_model_info(
-            model=self.state.model,
-            loggers=self.state.loggers,
-            epoch=epoch,
+        if (
+            should_log_model_info(
+                model=self.state.model,
+                loggers=self.state.loggers,
+                current_log_step=epoch,
+                last_log_step=self.state._last_log_step,
+            )
+            and self.state.loggers.frequency_manager.is_epoch_frequency_manager
         ):
             log_model_info(
                 state=self.state,
-                epoch=epoch,
+                current_log_step=epoch,
             )
             # update last log epoch
             self.state.loggers.log_written(epoch)
@@ -325,22 +328,25 @@ class SparseSession:
             # only log loss when loss is calculated
             return
 
-        current_step = self._lifecycle.event_lifecycle.current_index
+        epoch = self._lifecycle.event_lifecycle.current_index
+        if self.state.loggers.frequency_manager.is_optim_frequency_manager:
+            # log integer step for optimizer frequency manager
+            current_step = int(
+                self.state.loggers.epoch_to_step(
+                    epoch=epoch,
+                    steps_per_epoch=len(self.state.data.train),
+                )
+            )
+        else:
+            # log float epoch for epoch frequency manager
+            current_step = epoch
 
-        # No need to check model update for loss logging
-        check_model_update = False
-
-        if loss is not None and log_ready(
-            current_log_step=current_step,
-            last_log_step=self._last_loss_log_step,
-            log_frequency=self.state.loggers.log_frequency,
-            check_model_update=check_model_update,
-        ):
-            loss = loss if isinstance(loss, dict) else {"loss": loss}
+        # always log loss if available
+        if loss is not None:
+            loss = loss if isinstance(loss, dict) else {"Loss": loss}
             self.state.loggers.metric.log_scalars(
                 tag="Loss", values=loss, step=current_step
             )
-            self._last_loss_log_step = current_step
 
 
 _global_session = SparseSession()

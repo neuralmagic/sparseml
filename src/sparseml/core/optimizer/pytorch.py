@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Union
 
 from torch.optim import Optimizer
 
+from sparseml.core.helpers import attach_callback_to_object
 from sparseml.core.optimizer.base import ModifiableOptimizer
 
 
@@ -116,3 +117,17 @@ class ModifiableOptimizerPyTorch(ModifiableOptimizer[Optimizer, Dict[str, Any]])
         else:
             for param_group in self.optimizer.param_groups:
                 param_group[attr_name] = value
+
+    def attach_optim_callbacks(self, func_name: str, callback):
+        """
+        Attach the callbacks to the optimizer
+
+        :param func_name: the name of the function to attach the callback to
+        :param callback: the callback to attach
+        """
+        attach_callback_to_object(
+            parent_object=self.optimizer,
+            func_name=func_name,
+            callback=callback,
+            object_tag="Optimizer",
+        )

@@ -17,6 +17,7 @@ from typing import Any, List, Optional
 
 from sparseml.core.event import EventType
 from sparseml.core.framework import Framework
+from sparseml.core.helpers import log_model_info_at_current_step
 from sparseml.core.lifecycle.event import CallbacksEventLifecycle, EventLifecycle
 from sparseml.core.modifier import StageModifiers
 from sparseml.core.recipe import RecipeContainer
@@ -93,6 +94,7 @@ class SparsificationLifecycle:
 
         self._check_compile_recipe()
         self._set_model_layer_prefix()
+        self._attach_logging_callbacks()
         mod_data = []
         for mod in self.modifiers:
             data = mod.initialize(state=self.state, **extras)
@@ -230,3 +232,27 @@ class SparsificationLifecycle:
 
         self.state.model.layer_prefix = model_metadata.layer_prefix
         return True
+
+    def _attach_logging_callbacks(self):
+
+        if (
+            self.state.loggers.frequency_manager.is_optim_frequency_manager
+            and self.state.optimizer
+            and self.state.optimizer.optimizer
+        ):
+            # only track optimizer step if we are using the
+            # optim frequency manager
+            optimizer: "ModifiableOptimizer" = self.state.optimizer  # noqa: F821
+
+            def _optimizer_log_callback():
+                current_step = int(
+                    self.state.loggers.epoch_to_step(
+                        epoch=self.event_lifecycle.current_index,
+                        steps_per_epoch=len(self.state.data.train),
+                    )
+                )
+                log_model_info_at_current_step(self.state, current_step=current_step)
+
+            optimizer.attach_optim_callbacks(
+                func_name="step", callback=_optimizer_log_callback
+            )
