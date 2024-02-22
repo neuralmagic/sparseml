@@ -28,6 +28,9 @@ LogStepType = Union[int, float, None]
 LoggingModeType = Literal["on_change", "exact"]
 FrequencyType = Literal["epoch", "step", "batch"]
 
+DEFAULT_FREQUENCY_TYPE = "epoch"
+DEFAULT_LOGGING_MODE = "exact"
+
 
 class FrequencyManager:
     """
@@ -47,14 +50,14 @@ class FrequencyManager:
     def __init__(
         self,
         log_frequency: LogStepType = None,
-        mode: LoggingModeType = "exact",
-        frequency_type: FrequencyType = "epoch",
+        mode: LoggingModeType = DEFAULT_LOGGING_MODE,
+        frequency_type: FrequencyType = DEFAULT_FREQUENCY_TYPE,
     ):
         # sets self._logging_mode and self._check_model_update
         self._logging_mode = self._set_logging_mode(mode=mode)
 
         # sets self._frequency_type and self._valid_python_types
-        self._frequency_type = self._set_frequency_type(frequency_type=frequency_type)
+        self.frequency_type = self._set_frequency_type(frequency_type=frequency_type)
 
         self._validate_log_frequency(log_frequency=log_frequency)
         self._log_frequency = log_frequency
@@ -65,7 +68,7 @@ class FrequencyManager:
     def __repr__(self):
         return (
             f"{self.__class__.__name__}(log_frequency={self.log_frequency}, "
-            f"mode={self._logging_mode}, frequency_type={self._frequency_type})"
+            f"mode={self._logging_mode}, frequency_type={self.frequency_type})"
         )
 
     def log_ready(
@@ -143,6 +146,30 @@ class FrequencyManager:
         """
         self._validate_log_frequency(log_frequency=log_frequency)
         self._log_frequency = log_frequency
+
+    @property
+    def is_optim_frequency_manager(self) -> bool:
+        """
+        :return: True if the frequency manager is tracking optimizer steps,
+            False otherwise
+        """
+        return self.frequency_type == "step"
+
+    @property
+    def is_epoch_frequency_manager(self) -> bool:
+        """
+        :return: True if the frequency manager is tracking epochs,
+            False otherwise
+        """
+        return self.frequency_type == "epoch"
+
+    @property
+    def is_batch_frequency_manager(self) -> bool:
+        """
+        :return: True if the frequency manager is tracking batches,
+            False otherwise
+        """
+        return self.frequency_type == "batch"
 
     def _validate_log_frequency(self, log_frequency):
         # checks that log frequency is a positive number or None
@@ -224,20 +251,20 @@ class FrequencyManager:
         """
         frequency_type = _basic_normalization(frequency_type)
         if frequency_type == "epoch":
-            self._frequency_type = "epoch"
+            self.frequency_type = "epoch"
             self._valid_python_types = (int, float, type(None))
         elif frequency_type == "step":
-            self._frequency_type = "step"
+            self.frequency_type = "step"
             self._valid_python_types = (int, type(None))
         elif frequency_type == "batch":
-            self._frequency_type = "batch"
+            self.frequency_type = "batch"
             self._valid_python_types = (int, type(None))
         else:
             raise ValueError(
                 f"Invalid frequency type {frequency_type}, must be one of "
                 "'epoch', 'step', 'batch'"
             )
-        return self._frequency_type
+        return self.frequency_type
 
 
 def log_ready(

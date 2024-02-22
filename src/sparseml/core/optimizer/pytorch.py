@@ -116,3 +116,16 @@ class ModifiableOptimizerPyTorch(ModifiableOptimizer[Optimizer, Dict[str, Any]])
         else:
             for param_group in self.optimizer.param_groups:
                 param_group[attr_name] = value
+
+    def step(self, *args, **kwargs):
+        """
+        Perform a step of optimization for the wrapped optimizer
+        """
+        self.optimizer.step(*args, **kwargs)
+
+    def get_current_optimizer_step(self):
+        return int(
+            self.optimizer.state[self.get_param_groups()[0]["params"][-1]][
+                "step"
+            ].item()
+        )

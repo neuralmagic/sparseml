@@ -17,6 +17,7 @@ from typing import Any, List, Optional
 
 from sparseml.core.event import EventType
 from sparseml.core.framework import Framework
+from sparseml.core.helpers import log_model_info, should_log_model_info
 from sparseml.core.lifecycle.event import CallbacksEventLifecycle, EventLifecycle
 from sparseml.core.modifier import StageModifiers
 from sparseml.core.recipe import RecipeContainer
@@ -93,6 +94,7 @@ class SparsificationLifecycle:
 
         self._check_compile_recipe()
         self._set_model_layer_prefix()
+        self._attach_logging_callbacks()
         mod_data = []
         for mod in self.modifiers:
             data = mod.initialize(state=self.state, **extras)
@@ -230,3 +232,62 @@ class SparsificationLifecycle:
 
         self.state.model.layer_prefix = model_metadata.layer_prefix
         return True
+
+    def _attach_logging_callbacks(self):
+
+        if (
+            self.state.loggers.frequency_manager.is_optim_frequency_manager
+            and self.state.optimizer
+            and self.state.optimizer.optimizer
+        ):
+            # only track optimizer step if we are using the
+            # optim frequency manager
+            optimizer: "ModifiableOptimizer" = self.state.optimizer  # noqa: F821
+            step_function = optimizer.step
+
+            def _optimizer_step_fn():
+                step_function()
+                current_step = optimizer.get_current_optimizer_step()
+                if should_log_model_info(
+                    model=self.state.model,
+                    loggers=self.state.loggers,
+                    current_log_step=current_step,
+                    last_log_step=self.state._last_log_step,
+                ):
+                    log_model_info(state=self.state, current_log_step=current_step)
+                    self.state._last_log_step = current_step
+
+            optimizer.step = _optimizer_step_fn
+
+        elif (
+            self.state.loggers.frequency_manager.is_batch_frequency_manager
+            and self.state.model
+            and self.state.model.model
+        ):
+            # only track batch step if we are using the
+            # batch frequency manager
+            model: "ModifiableModel" = self.state.model  # noqa: F821
+            forward_function = model.__call__
+
+            def _model_forward_fn(*args, **kwargs):
+                output = forward_function(*args, **kwargs)
+                current_step = int(
+                    self.state.loggers.epoch_to_step(
+                        epoch=self.event_lifecycle.current_index,
+                        steps_per_epoch=len(self.state.data.train),
+                    )
+                )
+
+                if should_log_model_info(
+                    model=self.state.model,
+                    loggers=self.state.loggers,
+                    current_log_step=current_step,
+                    last_log_step=self.state._last_log_step,
+                ):
+                    log_model_info(
+                        state=self.state, current_log_step=self.state._last_log_step
+                    )
+                    self.state._last_log_step = current_step
+                return output
+
+            model.__call__ = _model_forward_fn

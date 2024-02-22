@@ -17,7 +17,7 @@ from collections import defaultdict
 import pytest
 
 from sparseml.core.event import EventType
-from sparseml.core.helpers import _log_epoch, _log_model_loggable_items, log_model_info
+from sparseml.core.helpers import _log_current_step, _log_model_loggable_items, log_model_info
 from sparseml.core.logger import LoggerManager
 
 
@@ -74,7 +74,7 @@ def state_mock():
 
 def test__log_epoch_invokes_log_scalar():
     logger_manager = LoggerManagerMock()
-    _log_epoch(
+    _log_current_step(
         logger_manager=logger_manager,
         epoch=1,
     )

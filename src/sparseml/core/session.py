@@ -308,14 +308,18 @@ class SparseSession:
 
         epoch = self._lifecycle.event_lifecycle.current_index
 
-        if should_log_model_info(
-            model=self.state.model,
-            loggers=self.state.loggers,
-            epoch=epoch,
+        if (
+            should_log_model_info(
+                model=self.state.model,
+                loggers=self.state.loggers,
+                current_log_step=epoch,
+                last_log_step=self.state._last_log_step,
+            )
+            and self.state.loggers.frequency_manager.is_epoch_frequency_manager
         ):
             log_model_info(
                 state=self.state,
-                epoch=epoch,
+                current_log_step=epoch,
             )
             # update last log epoch
             self.state.loggers.log_written(epoch)

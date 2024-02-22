@@ -99,3 +99,15 @@ class ModifiableOptimizer(Generic[OT, PGT], MultiFrameworkObject):
             set to None to set attribute in all groups
         """
         raise NotImplementedError()
+
+    def step(self, *args, **kwargs):
+        """
+        Step the optimizer
+        """
+        raise NotImplementedError()
+
+    def get_current_optimizer_step(self):
+        """
+        Get the optimizer step
+        """
+        raise NotImplementedError()
