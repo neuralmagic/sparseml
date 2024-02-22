@@ -88,7 +88,7 @@ class CustomDataset(TextGenerationDataset):
         for datasets in raw_dataset.values():
             for feature in datasets.features.keys():
                 remove_columns.add(feature)
-
-        remove_columns.remove(self.text_column)
+        if self.text_column in remove_columns:
+            remove_columns.remove(self.text_column)
 
         return list(remove_columns)
