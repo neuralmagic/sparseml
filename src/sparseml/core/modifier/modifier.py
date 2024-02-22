@@ -40,9 +40,9 @@ class Modifier(BaseModel, ModifierInterface, MultiFrameworkObject):
     :param update: The update step for the modifier
     """
 
-    index: int = None
-    group: str = None
-    start: float = None
+    index: Optional[int] = None
+    group: Optional[str] = None
+    start: Optional[float] = None
     end: Optional[float] = None
     update: Optional[float] = None
 
