@@ -41,7 +41,7 @@ class CNNDailyMailDataset(TextGenerationDataset):
     def get_raw_dataset(self, cache_dir: Optional[str] = None):
         """
         Load the raw dataset from Hugging Face, using cached copy if available.
-        Additionally reformats the entries to fit the alpaca template.
+        Additionally reformats the entries to fit the template.
 
         :param cache_dir: disk location to search for cached dataset
         :return: the requested dataset
