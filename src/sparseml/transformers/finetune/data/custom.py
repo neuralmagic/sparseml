@@ -66,7 +66,6 @@ class CustomDataset(TextGenerationDataset):
                 raw_dataset,
                 function=self.preprocessing_func,
                 batched=False,
-                remove_columns=self.remove_columns,
                 num_proc=self.data_args.preprocessing_num_workers,
                 desc="Applying custom func to the custom dataset",
             )
