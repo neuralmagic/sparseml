@@ -53,11 +53,16 @@ def export_model(
     model.eval()
     path_to_exported_model = os.path.join(target_path, onnx_model_name)
     exporter = TorchToONNX(sample_batch=sample_data, opset=opset, **kwargs)
-    exporter.export(model, path_to_exported_model)
-    if deployment_target == ExportTargets.deepsparse.value:
+
+    # If performing deepsparse transforms, don't split the initial onnx export
+    do_deploy_deepsparse = deployment_target == ExportTargets.deepsparse.value
+    exporter.export(
+        model, path_to_exported_model, do_split_external_data=(not do_deploy_deepsparse)
+    )
+    if do_deploy_deepsparse:
         exporter = ONNXToDeepsparse()
         model = onnx.load(path_to_exported_model)
-        exporter.export(model, path_to_exported_model)
+        exporter.export(model, path_to_exported_model, do_split_external_data=True)
         return path_to_exported_model
     if deployment_target == ExportTargets.onnx.value:
         return path_to_exported_model
