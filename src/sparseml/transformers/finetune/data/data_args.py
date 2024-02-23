@@ -79,7 +79,7 @@ class DataTrainingArguments(CustomDataTrainingArguments):
     arguments to be able to specify them on the command line
     """
 
-    dataset: Optional[Union[str, DatasetDict]] = field(
+    dataset: Union[None, str, DatasetDict] = field(
         default=None,
         metadata={
             "help": (

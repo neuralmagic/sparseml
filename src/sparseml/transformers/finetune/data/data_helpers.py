@@ -221,6 +221,7 @@ def get_custom_datasets_from_path(path: str, ext: str = "json") -> Dict[str, str
 
 
 def transform_dataset_keys(data_files: Dict[str, Any]):
+    """Transform dict keys to `train`, `val` or `test`"""
     keys = set(data_files.keys())
 
     def transform_dataset_key(candidate: str):
@@ -234,13 +235,9 @@ def transform_dataset_keys(data_files: Dict[str, Any]):
     def do_transform(candidate: str):
         return sum(candidate in key for key in keys) == 1
 
-    if do_transform("train"):
-        transform_dataset_key("train")
-
-    if do_transform("val"):
-        transform_dataset_key("val")
-
-    if do_transform("test"):
-        transform_dataset_key("test")
+    dataset_keys = ("train", "val", "test")
+    for dataset_key in dataset_keys:
+        if do_transform(dataset_key):
+            transform_dataset_key(dataset_key)
 
     return data_files

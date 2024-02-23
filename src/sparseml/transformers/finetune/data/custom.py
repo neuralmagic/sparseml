@@ -64,10 +64,6 @@ class CustomDataset(TextGenerationDataset):
             # dataset must be loaded from file or HF Hub
             raw_dataset = super().get_raw_dataset()
 
-        self.remove_columns = (
-            self.remove_columns or self.get_remove_columns_from_dataset(raw_dataset)
-        )
-
         if self.preprocessing_func is not None:
             if isinstance(self.preprocessing_func, Callable):
                 raw_dataset = self.map(
@@ -95,6 +91,9 @@ class CustomDataset(TextGenerationDataset):
                     f"Got {self.preprocessing_func}"
                 )
 
+        self.remove_columns = (
+            self.remove_columns or self.get_remove_columns_from_dataset(raw_dataset)
+        )
         if self.remove_columns is not None:
             raw_dataset = self.map(
                 raw_dataset,
@@ -112,7 +111,6 @@ class CustomDataset(TextGenerationDataset):
         for datasets in raw_dataset.values():
             for feature in datasets.features.keys():
                 remove_columns.add(feature)
-        if self.text_column in remove_columns:
-            remove_columns.remove(self.text_column)
 
+        remove_columns.remove(self.text_column)
         return list(remove_columns)
