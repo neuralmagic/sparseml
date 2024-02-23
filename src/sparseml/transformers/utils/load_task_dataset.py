@@ -112,7 +112,7 @@ def load_task_dataset(
 
         data_training_args = DataTrainingArguments(**data_args)
         dataset_manager = TextGenerationDataset.load_from_registry(
-            data_args["dataset_name"],
+            data_args["dataset"],
             tokenizer=tokenizer,
             data_args=data_training_args,
             split=None,
