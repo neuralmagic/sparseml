@@ -57,8 +57,15 @@ class CustomDataTrainingArguments(DVCDatasetTrainingArguments):
         metadata={"help": "Column names to remove after preprocessing custom datasets"},
     )
 
-    preprocessing_func: Optional[Callable] = field(
-        default=None, metadata={"help": "The preprcessing function to apply"}
+    preprocessing_func: Union[None, str, Callable] = field(
+        default=None,
+        metadata={
+            "help": (
+                "The preprcessing function to apply ",
+                "or the preprocessing func name in "
+                "src/sparseml/transformers/utils/preprocesing_funtions.py",
+            )
+        },
     )
 
 

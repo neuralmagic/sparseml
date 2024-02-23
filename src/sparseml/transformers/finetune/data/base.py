@@ -101,8 +101,6 @@ class TextGenerationDataset(RegistryMixin):
                     else self.data_args.dataset_name,
                 )
 
-        print(self.raw_kwargs)
-        # breakpoint()
         return get_raw_dataset(
             self.data_args,
             cache_dir,
@@ -235,12 +233,5 @@ class TextGenerationDataset(RegistryMixin):
             kwargs.pop("num_proc", None)
             kwargs.pop("load_from_cache_file", None)
             kwargs.pop("desc", None)
-        print()
-        print()
-        print()
-        print(kwargs)
-        print()
-        print()
-        print()
 
         return dataset.map(**kwargs)

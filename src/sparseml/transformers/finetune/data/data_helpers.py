@@ -88,11 +88,7 @@ def get_raw_dataset(
     :return: the requested dataset
 
     """
-    print()
-    print(kwargs)
-    print()
 
-    # kwargs["split"] = {"train": "evolved_codealpaca_train"}
     raw_datasets = load_dataset(
         data_args.dataset,
         data_args.dataset_config_name,
@@ -127,13 +123,6 @@ def make_dataset_splits(
         tokenized_datasets = tokenized_datasets.get("all")
 
     train_split = eval_split = predict_split = calib_split = None
-    print(0)
-    print(0)
-    print(0)
-    print(tokenized_datasets)
-    print(0)
-    print(0)
-    print(0)
 
     if do_train:
         if "train" not in tokenized_datasets:
@@ -228,26 +217,30 @@ def get_custom_datasets_from_path(path: str, ext: str = "json") -> Dict[str, str
                 if dir_dataset:
                     data_files[dir_name] = dir_dataset
 
-    # return data_files
-    return transform_keys(data_files)
+    return transform_dataset_keys(data_files)
 
 
-def transform_keys(data_files: Dict[str, Any]):
+def transform_dataset_keys(data_files: Dict[str, Any]):
     keys = set(data_files.keys())
 
-    transform_train = sum("train" in key for key in keys) == 1
-    transform_val = sum("val" in key for key in keys) == 1
-    transform_test = sum("test" in key for key in keys) == 1
-
-    if transform_train:
+    def transform_dataset_key(candidate: str):
         for key in keys:
-            if "train" in key:
+            if candidate in key:
+                if key == candidate:
+                    return
                 val = data_files.pop(key)
-                data_files["train"] = val
+                data_files[candidate] = val
+
+    def do_transform(candidate: str):
+        return sum(candidate in key for key in keys) == 1
+
+    if do_transform("train"):
+        transform_dataset_key("train")
+
+    if do_transform("val"):
+        transform_dataset_key("val")
+
+    if do_transform("test"):
+        transform_dataset_key("test")
 
     return data_files
-    # if transform_val:
-    #     for key in keys:
-    #         if "train" in key:
-    #             data_files["train"] = data_files[key]
-    #             del data_files[key]

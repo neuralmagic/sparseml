@@ -12,11 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from copy import deepcopy
-from typing import List
+from typing import Callable, List
 
 from datasets.dataset_dict import DatasetDict
 
+from sparseml.base import import_attr_from_path
 from sparseml.transformers.finetune.data import TextGenerationDataset
+
+
+PREPROCESSING_FUNCTION_REGISTRY_PATH = (
+    "sparseml.transformers.utils.preprocesing_funtions"
+)
 
 
 @TextGenerationDataset.register(name="custom", alias=["json", "csv"])
@@ -63,13 +69,31 @@ class CustomDataset(TextGenerationDataset):
         )
 
         if self.preprocessing_func is not None:
-            raw_dataset = self.map(
-                raw_dataset,
-                function=self.preprocessing_func,
-                batched=False,
-                num_proc=self.data_args.preprocessing_num_workers,
-                desc="Applying custom func to the custom dataset",
-            )
+            if isinstance(self.preprocessing_func, Callable):
+                raw_dataset = self.map(
+                    raw_dataset,
+                    function=self.preprocessing_func,
+                    batched=False,
+                    num_proc=self.data_args.preprocessing_num_workers,
+                    desc="Applying custom func to the custom dataset",
+                )
+            elif isinstance(self.preprocessing_func, str):
+                raw_dataset = self.map(
+                    raw_dataset,
+                    function=import_attr_from_path(
+                        PREPROCESSING_FUNCTION_REGISTRY_PATH
+                        + ":"
+                        + self.preprocessing_func
+                    ),
+                    batched=False,
+                    num_proc=self.data_args.preprocessing_num_workers,
+                    desc="Applying custom func to the custom dataset",
+                )
+            else:
+                raise ValueError(
+                    "preprocessing_func should be string or a callable. "
+                    f"Got {self.preprocessing_func}"
+                )
 
         if self.remove_columns is not None:
             raw_dataset = self.map(
