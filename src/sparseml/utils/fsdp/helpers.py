@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import operator
-from typing import Optional
+from typing import Optional, Union
 
 
 try:
@@ -34,7 +34,6 @@ from sparseml.utils.pytorch import set_layer
 
 __all__ = [
     "is_fsdp_model",
-    "maybe_get_wrapped",
     "unwrap_and_export_model",
     "save_pretrained_fsdp",
     "get_fsdp_parent",
@@ -54,7 +53,7 @@ def is_fsdp_model(model: Module) -> bool:
     return isinstance(model, FullyShardedDataParallel)
 
 
-def maybe_get_wrapped(model: ModifiableModel) -> Module:
+def maybe_get_wrapped(model: Union[ModifiableModel, Module]) -> Module:
     """
     Given a model that may or may not have a distributed wrapper, return the underlying
     wrapped model.
@@ -62,8 +61,11 @@ def maybe_get_wrapped(model: ModifiableModel) -> Module:
     :param model: input model to get wrapped model from
     :returns: wrapped model
     """
-    if is_fsdp_model(model=model.model):
-        return model.model._fsdp_wrapped_module
+    if isinstance(model, ModifiableModel):
+        model = model.model  # get the inner PyTorch model
+
+    if is_fsdp_model(model=model):
+        return model._fsdp_wrapped_module
     return model.model
 
 
@@ -77,7 +79,8 @@ def set_wrapped_model(model: ModifiableModel, wrapped_model: Module):
     """
     if is_fsdp_model(model.model):
         model.model._fsdp_wrapped_module = wrapped_model
-    model.model = wrapped_model
+    else:
+        model.model = wrapped_model
 
 
 def unwrap_and_export_model(model, accelerator, output_dir, tokenizer):
