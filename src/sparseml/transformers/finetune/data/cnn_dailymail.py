@@ -48,7 +48,6 @@ class CNNDailyMailDataset(TextGenerationDataset):
         """
         raw_dataset = super().get_raw_dataset(cache_dir=cache_dir)
 
-        # helper fn for restructuring each dataset entry using the alpaca template
         def restructure_fn(sample):
             sample["text"] = self.SAMPLE_TEMPLATE.format(
                 article=sample["article"], highlights=sample["highlights"]
