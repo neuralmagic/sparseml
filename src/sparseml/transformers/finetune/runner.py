@@ -124,9 +124,7 @@ class StageRunner:
                 )
             else:
                 raw_dataset = self._data_args.dataset
-            tokenized_dataset = dataset_manager.tokenize_and_process(
-                raw_dataset, store_padding_mask=store_padding_mask
-            )
+            tokenized_dataset = dataset_manager.tokenize_and_process(raw_dataset)
             tokenized_datasets[split_name] = tokenized_dataset
 
         self.datasets = make_dataset_splits(

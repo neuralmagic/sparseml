@@ -68,7 +68,7 @@ def maybe_get_wrapped(model: Union[ModifiableModel, Module]) -> Module:
 
     if is_fsdp_model(model=model):
         return model._fsdp_wrapped_module
-    return model.model
+    return model
 
 
 def set_wrapped_model(model: ModifiableModel, wrapped_model: Module):
