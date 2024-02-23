@@ -104,9 +104,18 @@ class TorchToONNX(BaseExporter):
             raise TypeError(f"Expected onnx.ModelProto, found {type(model)}")
         return model
 
-    def export(self, pre_transforms_model: torch.nn.Module, file_path: str):
+    def export(
+        self,
+        pre_transforms_model: torch.nn.Module,
+        file_path: str,
+        do_split_external_data: bool = True,
+    ):
         post_transforms_model: onnx.ModelProto = self.apply(pre_transforms_model)
-        save_onnx(model=post_transforms_model, model_path=file_path)
+        save_onnx(
+            model=post_transforms_model,
+            model_path=file_path,
+            do_split_external_data=do_split_external_data,
+        )
         self.remove_leftover_files()
 
     def remove_leftover_files(self):
