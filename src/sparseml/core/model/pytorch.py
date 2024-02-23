@@ -56,12 +56,6 @@ class ModifiableModelPyTorch(ModifiableModel[Module, Module, Parameter]):
     ):
         super().__init__(framework=framework, model=model, layer_prefix=layer_prefix)
 
-    def __call__(self, *args, **kwargs):
-        """
-        Forward pass through the model
-        """
-        return self.model(*args, **kwargs)
-
     def get_layers_params(
         self, targets: Union[str, List[str]]
     ) -> Dict[str, ModelParameterizedLayer[Module, Parameter]]:
