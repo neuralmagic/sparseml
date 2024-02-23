@@ -179,6 +179,7 @@ class TestSparsificationLifecycle:
         monkeypatch.setattr(lifecycle, "_check_create_state", _empty_mock)
         monkeypatch.setattr(lifecycle, "_check_compile_recipe", _empty_mock)
         monkeypatch.setattr(lifecycle, "state", StateMock())
+        monkeypatch.setattr(lifecycle, "_attach_logging_callbacks", _empty_mock)
 
         method = getattr(lifecycle, method_name)
         results = method()

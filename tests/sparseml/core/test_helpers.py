@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from collections import defaultdict
+from types import SimpleNamespace
 
 import pytest
 
@@ -34,6 +35,11 @@ class ModelMock:
 class LoggerManagerMock:
     def __init__(self):
         self.hit_count = defaultdict(int)
+        self.frequency_manager = SimpleNamespace(
+            frequency_type="foo",
+            is_batch_frequency_manager=True,
+            is_optim_frequency_manager=True,
+        )
 
     def epoch_to_step(self, epoch, steps_per_epoch):
         self.hit_count["epoch_to_step"] += 1
@@ -80,7 +86,7 @@ def test__log_epoch_invokes_log_scalar():
     logger_manager = LoggerManagerMock()
     _log_current_step(
         logger_manager=logger_manager,
-        epoch=1,
+        current_log_step=1,
     )
     # log epoch should invoke log_string
     assert logger_manager.hit_count["log_scalar"] == 1
@@ -89,7 +95,7 @@ def test__log_epoch_invokes_log_scalar():
 def test_log_model_info_logs_epoch_and_loggable_items():
     state = StateMock()
     epoch = 3
-    log_model_info(state, epoch=epoch)
+    log_model_info(state, current_log_step=epoch)
 
     # loggable items will invoke log_scalar for each
     # int/float value + 1 for the epoch
@@ -99,7 +105,7 @@ def test_log_model_info_logs_epoch_and_loggable_items():
 @pytest.mark.parametrize(
     "loggable_items", [ModelMock().loggable_items(), [("a", {}), ("b", 2), ("c", {})]]
 )
-def test__log_model_loggable_items_routes_appropriately(loggable_items, monkeypatch):
+def test__log_model_loggable_items_routes_appropriately(loggable_items):
     logger_manager = LoggerManagerMock()
     loggable_items = list(loggable_items)
 
