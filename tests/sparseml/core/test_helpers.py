@@ -17,7 +17,11 @@ from collections import defaultdict
 import pytest
 
 from sparseml.core.event import EventType
-from sparseml.core.helpers import _log_current_step, _log_model_loggable_items, log_model_info
+from sparseml.core.helpers import (
+    _log_current_step,
+    _log_model_loggable_items,
+    log_model_info,
+)
 from sparseml.core.logger import LoggerManager
 
 

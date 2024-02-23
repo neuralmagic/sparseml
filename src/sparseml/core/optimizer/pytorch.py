@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Union
 
 from torch.optim import Optimizer
 
+from sparseml.core.helpers import callback_closure
 from sparseml.core.optimizer.base import ModifiableOptimizer
 
 
@@ -117,15 +118,23 @@ class ModifiableOptimizerPyTorch(ModifiableOptimizer[Optimizer, Dict[str, Any]])
             for param_group in self.optimizer.param_groups:
                 param_group[attr_name] = value
 
-    def step(self, *args, **kwargs):
-        """
-        Perform a step of optimization for the wrapped optimizer
-        """
-        self.optimizer.step(*args, **kwargs)
-
     def get_current_optimizer_step(self):
         return int(
             self.optimizer.state[self.get_param_groups()[0]["params"][-1]][
                 "step"
             ].item()
         )
+
+    def attach_optim_callbacks(self, func_name: str, callback):
+        """
+        Attach the callbacks to the optimizer
+        """
+        optim_func = getattr(self.optimizer, func_name, None)
+        if optim_func is not None and callable(optim_func):
+            setattr(
+                self.optimizer,
+                func_name,
+                callback_closure(func=optim_func, callback=callback),
+            )
+        else:
+            raise ValueError(f"Optimizer does not have function {func_name}")

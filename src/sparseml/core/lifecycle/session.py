@@ -243,10 +243,8 @@ class SparsificationLifecycle:
             # only track optimizer step if we are using the
             # optim frequency manager
             optimizer: "ModifiableOptimizer" = self.state.optimizer  # noqa: F821
-            step_function = optimizer.step
 
-            def _optimizer_step_fn():
-                step_function()
+            def _optimizer_log_callback():
                 current_step = optimizer.get_current_optimizer_step()
                 if should_log_model_info(
                     model=self.state.model,
@@ -257,7 +255,9 @@ class SparsificationLifecycle:
                     log_model_info(state=self.state, current_log_step=current_step)
                     self.state._last_log_step = current_step
 
-            optimizer.step = _optimizer_step_fn
+            optimizer.attach_optim_callbacks(
+                func_name="step", callback=_optimizer_log_callback
+            )
 
         elif (
             self.state.loggers.frequency_manager.is_batch_frequency_manager
@@ -267,10 +267,8 @@ class SparsificationLifecycle:
             # only track batch step if we are using the
             # batch frequency manager
             model: "ModifiableModel" = self.state.model  # noqa: F821
-            forward_function = model.__call__
 
-            def _model_forward_fn(*args, **kwargs):
-                output = forward_function(*args, **kwargs)
+            def _model_logging_callback():
                 current_step = int(
                     self.state.loggers.epoch_to_step(
                         epoch=self.event_lifecycle.current_index,
@@ -288,6 +286,7 @@ class SparsificationLifecycle:
                         state=self.state, current_log_step=self.state._last_log_step
                     )
                     self.state._last_log_step = current_step
-                return output
 
-            model.__call__ = _model_forward_fn
+            model.attach_model_callback(
+                func_name="forward", callback=_model_logging_callback
+            )

@@ -100,14 +100,14 @@ class ModifiableOptimizer(Generic[OT, PGT], MultiFrameworkObject):
         """
         raise NotImplementedError()
 
-    def step(self, *args, **kwargs):
-        """
-        Step the optimizer
-        """
-        raise NotImplementedError()
-
     def get_current_optimizer_step(self):
         """
         Get the optimizer step
+        """
+        raise NotImplementedError()
+
+    def attach_optim_callbacks(self, func_name: str, callback):
+        """
+        Attach callbacks to the optimizer
         """
         raise NotImplementedError()

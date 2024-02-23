@@ -17,6 +17,7 @@ from typing import Any, Dict, Generator, List, Optional, Tuple, Union
 from torch.nn import Module, Parameter
 
 from sparseml.core.framework import Framework
+from sparseml.core.helpers import callback_closure
 from sparseml.core.model.base import ModelParameterizedLayer, ModifiableModel
 from sparseml.pytorch.utils.sparsification_info.module_sparsification_info import (
     ModuleSparsificationInfo,
@@ -152,3 +153,20 @@ class ModifiableModelPyTorch(ModifiableModel[Module, Module, Parameter]):
         :return: True if QAT is active in any layer, False otherwise
         """
         return qat_active(self.model)
+
+    def attach_model_callback(self, func_name: str, callback):
+        """
+        Attach a callback to the model for the given function name
+
+        :param func_name: the name of the function to attach the callback to
+        :param callback: the callback to attach after function invocation
+        """
+        model_func = getattr(self.model, func_name, None)
+        if model_func is not None and callable(model_func):
+            setattr(
+                self.model,
+                func_name,
+                callback_closure(func=model_func, callback=callback),
+            )
+        else:
+            raise ValueError(f"model does not have function {func_name}")

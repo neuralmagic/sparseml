@@ -13,6 +13,7 @@
 # limitations under the License.
 
 
+import functools
 from typing import Any, Generator, Optional, Tuple, Union
 
 from sparseml.core.logger import LoggerManager
@@ -21,9 +22,27 @@ from sparseml.core.state import State
 
 
 __all__ = [
+    "callback_closure",
     "should_log_model_info",
     "log_model_info",
 ]
+
+
+def callback_closure(func, callback):
+    """
+    Closure to add a callback after function invocation
+
+    :param func: the function to wrap
+    :param callback: the callback to call after the function is invoked
+    """
+
+    @functools.wraps(func)
+    def wrapped(*args, **kwargs):
+        return_value = func(*args, **kwargs)
+        callback()
+        return return_value
+
+    return wrapped
 
 
 def should_log_model_info(

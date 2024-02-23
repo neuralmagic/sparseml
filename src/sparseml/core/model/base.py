@@ -167,3 +167,9 @@ class ModifiableModel(Generic[MT, LT, PT], MultiFrameworkObject):
         :return: True if QAT is active in any layer, False otherwise
         """
         raise NotImplementedError()
+
+    def attach_model_callback(self, func_name: str, callback):
+        """
+        Attach callbacks to the model
+        """
+        raise NotImplementedError()
