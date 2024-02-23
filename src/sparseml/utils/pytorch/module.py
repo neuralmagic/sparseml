@@ -172,6 +172,7 @@ def get_layer(target: str, module: Module) -> Tuple[str, Module]:
 def set_layer(target: str, layer: Module, module: Module) -> Module:
     target = fix_fsdp_module_name(target)
     with summon_full_params_context(module):
+        # importing here to avoid circular import
         from sparseml.utils.fsdp.helpers import maybe_get_wrapped
 
         parent_target = ".".join(target.split(".")[:-1])

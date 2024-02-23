@@ -34,6 +34,8 @@ from sparseml.utils.pytorch import set_layer
 
 __all__ = [
     "is_fsdp_model",
+    "maybe_get_wrapped",
+    "set_wrapped_model",
     "unwrap_and_export_model",
     "save_pretrained_fsdp",
     "get_fsdp_parent",
