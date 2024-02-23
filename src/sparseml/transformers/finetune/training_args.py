@@ -75,3 +75,10 @@ class TrainingArguments(HFTrainingArgs):
         default=True,
         metadata={"help": "Whether to clear SparseSession data between runs."},
     )
+    output_dir: str = field(
+        default="./output",
+        metadata={
+            "help": "The output directory where the model predictions and "
+            "checkpoints will be written."
+        },
+    )
