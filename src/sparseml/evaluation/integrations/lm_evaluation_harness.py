@@ -26,7 +26,8 @@ except ImportError as import_error:
     HFLM = object
     raise ImportError(
         "package `lm_eval` not found. Please install it via "
-        "`pip install git+https://github.com/EleutherAI/lm-evaluation-harness.git@e0eda4d`"  # noqa: E501
+        "`pip install lm-eval==0.4.1;pip uninstall transformers &&"
+        " pip install sparseml[transformers,torch]`"
     ) from import_error
 try:
     # This needs to be imported after lm_eval to ensure right transformers
