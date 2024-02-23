@@ -17,7 +17,7 @@ from typing import Any, List, Optional
 
 from sparseml.core.event import EventType
 from sparseml.core.framework import Framework
-from sparseml.core.helpers import log_model_info, should_log_model_info
+from sparseml.core.helpers import log_model_info_at_current_step
 from sparseml.core.lifecycle.event import CallbacksEventLifecycle, EventLifecycle
 from sparseml.core.modifier import StageModifiers
 from sparseml.core.recipe import RecipeContainer
@@ -246,14 +246,7 @@ class SparsificationLifecycle:
 
             def _optimizer_log_callback():
                 current_step = optimizer.get_current_optimizer_step()
-                if should_log_model_info(
-                    model=self.state.model,
-                    loggers=self.state.loggers,
-                    current_log_step=current_step,
-                    last_log_step=self.state._last_log_step,
-                ):
-                    log_model_info(state=self.state, current_log_step=current_step)
-                    self.state._last_log_step = current_step
+                log_model_info_at_current_step(self.state, current_step=current_step)
 
             optimizer.attach_optim_callbacks(
                 func_name="step", callback=_optimizer_log_callback
@@ -275,17 +268,7 @@ class SparsificationLifecycle:
                         steps_per_epoch=len(self.state.data.train),
                     )
                 )
-
-                if should_log_model_info(
-                    model=self.state.model,
-                    loggers=self.state.loggers,
-                    current_log_step=current_step,
-                    last_log_step=self.state._last_log_step,
-                ):
-                    log_model_info(
-                        state=self.state, current_log_step=self.state._last_log_step
-                    )
-                    self.state._last_log_step = current_step
+                log_model_info_at_current_step(self.state, current_step=current_step)
 
             model.attach_model_callback(
                 func_name="forward", callback=_model_logging_callback

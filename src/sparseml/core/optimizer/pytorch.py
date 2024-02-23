@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Union
 
 from torch.optim import Optimizer
 
-from sparseml.core.helpers import callback_closure
+from sparseml.core.helpers import attach_callback_to_object
 from sparseml.core.optimizer.base import ModifiableOptimizer
 
 
@@ -128,13 +128,13 @@ class ModifiableOptimizerPyTorch(ModifiableOptimizer[Optimizer, Dict[str, Any]])
     def attach_optim_callbacks(self, func_name: str, callback):
         """
         Attach the callbacks to the optimizer
+
+        :param func_name: the name of the function to attach the callback to
+        :param callback: the callback to attach
         """
-        optim_func = getattr(self.optimizer, func_name, None)
-        if optim_func is not None and callable(optim_func):
-            setattr(
-                self.optimizer,
-                func_name,
-                callback_closure(func=optim_func, callback=callback),
-            )
-        else:
-            raise ValueError(f"Optimizer does not have function {func_name}")
+        attach_callback_to_object(
+            parent_object=self.optimizer,
+            func_name=func_name,
+            callback=callback,
+            object_tag="Optimizer",
+        )

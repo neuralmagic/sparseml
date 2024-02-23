@@ -22,10 +22,36 @@ from sparseml.core.state import State
 
 
 __all__ = [
+    "attach_callback_to_object",
     "callback_closure",
     "should_log_model_info",
     "log_model_info",
+    "log_model_info_at_current_step",
 ]
+
+
+def attach_callback_to_object(
+    parent_object: Any, func_name: str, callback, object_tag: Optional[str] = None
+):
+    """
+    Attach a callback to a function on an object
+
+    :param parent_object: the object whose function the callback is
+        to be attached to
+    :param func_name: the name of the function to attach the callback to
+    :param callback: the callback to attach
+    :param object_tag: the tag to use for error messages
+    """
+    func = getattr(parent_object, func_name, None)
+    if func is not None and callable(func):
+        setattr(
+            parent_object,
+            func_name,
+            callback_closure(func=func, callback=callback),
+        )
+    else:
+        object_tag = object_tag or parent_object.__class__.__name__
+        raise ValueError(f"{object_tag} does not have function {func_name}")
 
 
 def callback_closure(func, callback):
@@ -43,6 +69,24 @@ def callback_closure(func, callback):
         return return_value
 
     return wrapped
+
+
+def log_model_info_at_current_step(state: State, current_step: Union[int, float, None]):
+    """
+    Log model level info if ready to log at the current step
+
+    :param state: The current state of sparsification
+    :param current_step: The current log step to log
+        model info at
+    """
+    if should_log_model_info(
+        model=state.model,
+        loggers=state.loggers,
+        current_log_step=current_step,
+        last_log_step=state._last_log_step,
+    ):
+        log_model_info(state=state, current_log_step=current_step)
+        state._last_log_step = current_step
 
 
 def should_log_model_info(
