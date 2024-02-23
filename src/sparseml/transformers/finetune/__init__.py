@@ -14,4 +14,4 @@
 
 # flake8: noqa
 
-from .text_generation import apply, eval, oneshot, train
+from .text_generation import apply, compress, eval, oneshot, train

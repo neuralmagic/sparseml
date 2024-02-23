@@ -96,7 +96,9 @@ class TextGenerationDataset(RegistryMixin):
             else:
                 self.raw_kwargs["data_files"] = get_custom_datasets_from_path(
                     self.data_args.dataset_path,
-                    self.data_args.dataset_name,
+                    self.data_args.dataset
+                    if hasattr(self.data_args, "dataset")
+                    else self.data_args.dataset_name,
                 )
 
         return get_raw_dataset(
