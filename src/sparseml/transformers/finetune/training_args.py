@@ -82,3 +82,10 @@ class TrainingArguments(HFTrainingArgs):
             "default torch.load and torch.save."
         },
     )
+    output_dir: str = field(
+        default="./output",
+        metadata={
+            "help": "The output directory where the model predictions and "
+            "checkpoints will be written."
+        },
+    )

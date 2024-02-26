@@ -25,13 +25,13 @@ def tiny_llama_path():
 
 @pytest.fixture
 def tiny_llama_model_args(tiny_llama_path):
-    return ModelArguments(model_name_or_path=tiny_llama_path)
+    return ModelArguments(model=tiny_llama_path)
 
 
 @pytest.fixture
 def tiny_llama_tokenizer(tiny_llama_model_args):
     tokenizer = AutoTokenizer.from_pretrained(
-        tiny_llama_model_args.model_name_or_path,
+        tiny_llama_model_args.model,
         cache_dir=tiny_llama_model_args.cache_dir,
         use_fast=True,
         revision=tiny_llama_model_args.model_revision,

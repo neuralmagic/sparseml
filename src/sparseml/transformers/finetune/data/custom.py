@@ -46,20 +46,21 @@ class CustomDataset(TextGenerationDataset):
     def get_raw_dataset(self, *_ignore, **__ignore) -> DatasetDict:
         """Get the raw dataset and apply preprocessing func if provided"""
 
-        raw_dataset: DatasetDict = super().get_raw_dataset()
+        dataset = (
+            self.data_args.dataset
+            if hasattr(self.data_args, "dataset")
+            else self.data_args.dataset_name
+        )
+        if isinstance(dataset, DatasetDict):
+            # user passed in an already instantiated dataset, just use it directly
+            raw_dataset = dataset
+        else:
+            # dataset must be loaded from file or HF Hub
+            raw_dataset = super().get_raw_dataset()
 
         self.remove_columns = (
             self.remove_columns or self.get_remove_columns_from_dataset(raw_dataset)
         )
-
-        if self.remove_columns is not None:
-            raw_dataset = self.map(
-                raw_dataset,
-                batched=False,
-                remove_columns=self.remove_columns,
-                num_proc=self.data_args.preprocessing_num_workers,
-                desc="Removing redandant columns",
-            )
 
         if self.preprocessing_func is not None:
             raw_dataset = self.map(
@@ -68,6 +69,15 @@ class CustomDataset(TextGenerationDataset):
                 batched=False,
                 num_proc=self.data_args.preprocessing_num_workers,
                 desc="Applying custom func to the custom dataset",
+            )
+
+        if self.remove_columns is not None:
+            raw_dataset = self.map(
+                raw_dataset,
+                batched=False,
+                remove_columns=self.remove_columns,
+                num_proc=self.data_args.preprocessing_num_workers,
+                desc="Removing unneeded columns",
             )
 
         return raw_dataset

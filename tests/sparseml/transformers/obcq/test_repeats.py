@@ -41,7 +41,7 @@ def test_consecutive_runs(tmp_path):
     # test recipe with 50% sparsity, quantization and smoothquant
     first_tiny_model = one_shot(
         model_path=tiny_model_path,
-        dataset_name="open_platypus",
+        dataset="open_platypus",
         num_samples=16,
         device=device,
         recipe_file=first_recipe,
@@ -63,7 +63,7 @@ def test_consecutive_runs(tmp_path):
     # reload saved model and up sparsity to 0.7
     second_tiny_model = one_shot(
         model_path=tmp_path / "test1" / "obcq_deployment",
-        dataset_name="open_platypus",
+        dataset="open_platypus",
         num_samples=16,
         device=device,
         recipe_file=second_recipe,
@@ -121,7 +121,7 @@ def test_fail_on_repeated_quant(tmp_path):
 
     one_shot(
         model_path=tiny_model_path,
-        dataset_name="open_platypus",
+        dataset="open_platypus",
         num_samples=4,
         device=device,
         recipe_file=first_recipe_str,
@@ -137,7 +137,7 @@ def test_fail_on_repeated_quant(tmp_path):
     with pytest.raises(RuntimeError):
         one_shot(
             model_path=tmp_path / "obcq_deployment",
-            dataset_name="open_platypus",
+            dataset="open_platypus",
             num_samples=4,
             device=device,
             recipe_file=second_recipe_str,
@@ -184,7 +184,7 @@ def test_separate_quants_allowed(tmp_path):
 
     first_model = one_shot(
         model_path=tiny_model_path,
-        dataset_name="open_platypus",
+        dataset="open_platypus",
         num_samples=4,
         device=device,
         recipe_file=first_recipe_str,
@@ -204,7 +204,7 @@ def test_separate_quants_allowed(tmp_path):
     # to avoid nested quantizations
     second_model = one_shot(
         model_path=tmp_path / "obcq_deployment",
-        dataset_name="open_platypus",
+        dataset="open_platypus",
         num_samples=4,
         device=device,
         recipe_file=second_recipe_str,
