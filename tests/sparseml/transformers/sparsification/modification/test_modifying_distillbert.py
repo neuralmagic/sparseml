@@ -18,7 +18,17 @@ import pytest
 from transformers import AutoConfig, AutoModel
 
 from accelerate import init_empty_weights
+from sparseml.pytorch.optim.manager import ScheduledModifierManager
 from sparseml.transformers.sparsification.modification import modify_model
+
+
+@pytest.fixture
+def distilbert_recipe():
+    return """version: 1.1.0
+stage_test:
+  stage_test_modifiers:
+      - !QuantizationModifier
+          exclude_module_types: ['QATMatMul']"""
 
 
 @pytest.fixture
@@ -29,7 +39,7 @@ def distilbert_model():
     return model
 
 
-def test_modifying_opt(distilbert_model):
+def test_modifying_distilbert(distilbert_model):
     from sparseml.transformers.sparsification.modification.modifying_distilbert import (  # noqa F401
         modify,
     )
@@ -89,6 +99,17 @@ def test_modifying_opt(distilbert_model):
         == len(original_modules_original_model)
         == num_attn_blocks
     )
+
+
+def test_apply_recipe(distilbert_recipe, distilbert_zoo_model):
+    from sparseml.transformers.sparsification.modification.modifying_distilbert import (  # noqa F401
+        modify,
+    )
+
+    manager = ScheduledModifierManager.from_yaml(distilbert_recipe)
+    distilbert_zoo_model.train()
+    manager.apply_structure(distilbert_zoo_model)
+    assert True
 
 
 def _is_distilbert_attention_modified(module):

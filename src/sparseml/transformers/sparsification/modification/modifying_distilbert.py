@@ -26,8 +26,7 @@ from torch import nn
 from transformers.models.distilbert.modeling_distilbert import MultiHeadSelfAttention
 
 from sparseml.transformers.sparsification.modification.modification_objects import (
-    QATAttentionScores,
-    QATContextLayer,
+    QATMatMul,
     swap_modules,
 )
 from sparseml.transformers.sparsification.modification.registry import (
@@ -82,8 +81,8 @@ class MultiHeadSelfAttentionWithQuantizableMatmuls(MultiHeadSelfAttention):
         )
         self.__dict__ = mhs_attention.__dict__
 
-        self.attention_scores_matmul = QATAttentionScores()
-        self.context_layer_matmul = QATContextLayer()
+        self.attention_scores_matmul = QATMatMul
+        self.context_layer_matmul = QATMatMul
 
     def forward(
         self,
