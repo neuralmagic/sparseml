@@ -131,11 +131,6 @@ class DisableHalfPrecisionCallback(TrainerCallback):
 
         :param epoch: epoch to disable from
         """
-        if not self.on_begin_called:
-            # disable if training loops haven't started so we don't load
-            # the empty scaler state dict and instead disable it from the start
-            self.trainer.use_cuda_amp = False
-
         if hasattr(self.trainer, "scaler"):
             self.trainer.scaler._enabled = False
 

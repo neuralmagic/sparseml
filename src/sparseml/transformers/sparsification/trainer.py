@@ -35,7 +35,7 @@ from transformers.file_utils import PaddingStrategy
 from transformers.integrations import TensorBoardCallback
 from transformers.trainer_callback import TrainerState
 from transformers.trainer_pt_utils import reissue_pt_warnings
-from transformers.trainer_utils import ShardedDDPOption, get_last_checkpoint
+from transformers.trainer_utils import get_last_checkpoint
 
 from sparseml.pytorch.model_load.helpers import log_model_load
 from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
@@ -810,14 +810,8 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         :return: the output from super.evaluate()
         """
         applied = self.apply_manager(epoch=math.inf, checkpoint=None)
-
-        # Always evaluate w/ fp32 to be closer to DeepSparse
-        use_cuda_amp = self.use_cuda_amp
-        if not self.args.fp16_full_eval and not self.args.bf16_full_eval:
-            self.use_cuda_amp = False
-
         output = super().evaluate(*args, **kwargs)
-        self.use_cuda_amp = use_cuda_amp
+
         if applied:
             self.finalize_manager()
 
@@ -894,9 +888,6 @@ class TransformersTrainer(HFTransformersTrainer):
         if output_dir is None:
             output_dir = self.args.output_dir
 
-        if self.sharded_ddp == ShardedDDPOption.SIMPLE and self.optimizer is not None:
-            self.optimizer.consolidate_state_dict()
-
         if self.is_world_process_zero():
             if self.optimizer is not None:
                 torch.save(
@@ -910,10 +901,6 @@ class TransformersTrainer(HFTransformersTrainer):
                         os.path.join(output_dir, "scheduler.pt"),
                     )
             reissue_pt_warnings(caught_warnings)
-            if self.use_cuda_amp:
-                torch.save(
-                    self.scaler.state_dict(), os.path.join(output_dir, "scaler.pt")
-                )
 
     def _load_optimizer_and_scheduler(self, checkpoint):
         """
@@ -1044,10 +1031,6 @@ class DisableHalfPrecisionCallback(TrainerCallback):
         return manager_q_active or arch_manager_q_active
 
     def disable_amp(self, epoch: float):
-        if not self.on_begin_called:
-            # disable if training loops haven't started so we don't load
-            # the empty scaler state dict and instead disable it from the start
-            self.trainer.use_cuda_amp = False
 
         if hasattr(self.trainer, "scaler"):
             self.trainer.scaler._enabled = False
