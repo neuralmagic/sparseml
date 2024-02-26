@@ -47,6 +47,6 @@ def modify_model(model: Any) -> Any:
         return model
 
     _LOGGER.info(
-        f"Modifying the model {model_name} " "to be compatible with SparseML library"
+        f"Modifying the model {model_name} to be compatible with SparseML library"
     )
     return modification_func(model)
