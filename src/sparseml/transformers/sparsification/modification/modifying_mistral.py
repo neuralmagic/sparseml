@@ -16,6 +16,7 @@
 Modification to the original Mistral model required in the
 context of SparseML
 """
+import logging
 import math
 from typing import Optional, Tuple
 
@@ -37,6 +38,9 @@ from sparseml.transformers.sparsification.modification.registry import (
 )
 
 
+_LOGGER = logging.getLogger(__name__)
+
+
 @ModificationRegistry.register(name="MistralModel")
 def modify(model: torch.nn.Module) -> torch.nn.Module:
     """
@@ -49,8 +53,14 @@ def modify(model: torch.nn.Module) -> torch.nn.Module:
     :return: the modified Mistral model
     """
     for name, submodule in model.named_modules():
-        if submodule.__class__.__name__ == "MistralAttention":
+        submodule_cname = submodule.__class__.__name__
+        if submodule_cname == "MistralAttention":
             swap_modules(model, name, MistralAttentionWithQuantizableMatmuls(submodule))
+        if submodule_cname == "MistralFlashAttention2":
+            _LOGGER.debug(
+                f"The model contains {submodule_cname} "
+                "module, which will not be modified"
+            )
     return model
 
 

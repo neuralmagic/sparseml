@@ -85,12 +85,21 @@ class QuantizableMatMul(torch.nn.Module):
     """
     Wrapper around torch.matmul with distinct inputs/output class
     instances that could be quantized through SparseML recipe
+
+    :param left_input_cls: class instance that is used to quantize the left input
+    :param right_input_cls: class instance that is used to quantize the right input
+    :param output_cls: class instance that is used to quantize the output (optional)
+    :return: the output of the matrix multiplication
     """
 
-    def __init__(self, left_input_cls, right_input_cls):
+    def __init__(self, left_input_cls, right_input_cls, output_cls=None):
         super().__init__()
         self.left_input = left_input_cls()
         self.right_input = right_input_cls()
+        self.output = output_cls() if output_cls is not None else None
 
     def forward(self, a: torch.Tensor, b: torch.Tensor):
-        return torch.matmul(self.left_input(a), self.right_input(b))
+        out = torch.matmul(self.left_input(a), self.right_input(b))
+        if self.output is not None:
+            return self.output(out)
+        return out
