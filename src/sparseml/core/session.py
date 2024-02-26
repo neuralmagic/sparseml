@@ -22,7 +22,6 @@ from sparseml.core.framework import Framework
 from sparseml.core.helpers import log_model_info, should_log_model_info
 from sparseml.core.lifecycle import SparsificationLifecycle
 from sparseml.core.logger import BaseLogger, LoggerManager
-from sparseml.core.logger.utils import log_ready
 from sparseml.core.recipe import Recipe
 from sparseml.core.state import ModifiedState, State
 
