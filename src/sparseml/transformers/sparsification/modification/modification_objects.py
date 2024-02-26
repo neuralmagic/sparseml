@@ -20,7 +20,14 @@ the HuggingFace transformer models
 import torch
 
 
-__all__ = ["QuantizableIdentity", "QuantizableMatMul", "swap_modules"]
+__all__ = [
+    "QuantizableIdentity",
+    "QuantizableMatMul",
+    "swap_modules",
+    "QuantizableBatchMatmul",
+    "QATMatMul",
+    "QATLinear",
+]
 
 
 def swap_modules(
@@ -103,3 +110,63 @@ class QuantizableMatMul(torch.nn.Module):
         if self.output is not None:
             return self.output(out)
         return out
+
+
+class QuantizableBatchMatmul(QuantizableMatMul):
+    """
+    Wrapper around torch.bmm with distinct inputs/output class
+    instances that could be quantized through SparseML recipe
+
+    :param left_input_cls: class instance that is used to quantize the left input
+    :param right_input_cls: class instance that is used to quantize the right input
+    :param output_cls: class instance that is used to quantize the output (optional)
+    :return: the output of the batch matrix multiplication
+    """
+
+    def forward(self, a: torch.Tensor, b: torch.Tensor):
+        out = torch.bmm(self.left_input(a), self.right_input(b))
+        if self.output is not None:
+            return self.output(out)
+        return out
+
+
+class QATMatMul(torch.nn.Module):
+    """
+    Behaves like normal torch.matmul unless a SparseML QuantizationModifier
+    is initialized (Quantization-Aware-Training is invoked)
+    """
+
+    def __init__(self):
+        super().__init__()
+
+        self.wrap_qat = True
+        self.qat_wrapper_kwargs = {
+            "num_inputs": 2,
+            "input_qconfigs": ["asymmetric", "symmetric"],
+        }
+
+    def forward(self, a: torch.Tensor, b: torch.Tensor):
+        return torch.matmul(a, b)
+
+
+class QATLinear(torch.nn.Module):
+    """
+    Behaves like normal torch.nn.Linear unless a SparseML QuantizationModifier
+    is initialized (Quantization-Aware-Training is invoked)
+    When initialized does not quantize inputs. Only weights are quantized
+    (inputs may come quantized)
+    """
+
+    def __init__(self, in_features, out_features):
+        super().__init__()
+
+        self.wrap_qat = True
+        self.qat_wrapper_kwargs = {
+            "num_inputs": 0,
+            "num_outputs": 1,
+        }
+
+        self.linear = torch.nn.Linear(in_features, out_features)
+
+    def forward(self, x: torch.Tensor):
+        return self.linear(x)

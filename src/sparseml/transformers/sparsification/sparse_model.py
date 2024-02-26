@@ -109,7 +109,7 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
             pretrained_model_name_or_path, *model_args, **kwargs
         )
         model = modify_model(model)
-        recipe = resolve_recipe(recipe, pretrained_model_name_or_path)
+        recipe = resolve_recipe(recipe=recipe, model_path=pretrained_model_name_or_path)
         if recipe:
             apply_recipe_structure_to_model(
                 model=model,

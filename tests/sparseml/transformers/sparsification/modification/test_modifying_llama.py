@@ -15,19 +15,29 @@
 from copy import deepcopy
 
 import pytest
-from transformers import AutoConfig, AutoModel
 
-from accelerate import init_empty_weights
+from sparseml.pytorch.model_load.helpers import apply_recipe_structure_to_model
 from sparseml.transformers.sparsification.modification import modify_model
 
 
 @pytest.fixture
-def llama_model():
-    config = AutoConfig.from_pretrained("TinyLlama/TinyLlama-1.1B-Chat-v1.0")
-    with init_empty_weights():
-        # attn_implementation="eager" needed so that the model uses
-        model = AutoModel.from_config(config, attn_implementation="eager")
-    return model
+def llama_recipe():
+    return """test_stage:
+  quant_modifiers:
+    QuantizationModifier:
+      ignore:
+        - MatMulRightInput_QK
+        - MatMulLeftInput_QK
+        - MatMulRightInput_PV
+        - MatMulLeftInput_PV
+        - MatMulOutput_QK
+        - MatMulOutput_PV
+      scheme_overrides:
+        Embedding:
+          input_activations: null
+          weights:
+            num_bits: 8
+            symmetric: False"""
 
 
 def test_modifying_llama(llama_model):
@@ -41,7 +51,7 @@ def test_modifying_llama(llama_model):
     llama_ = deepcopy(llama_model)
     llama = modify_model(llama_model)
 
-    # check how many modified "MistralAttention" modules are in the original
+    # check how many modified "LlamalAttention" modules are in the original
     # model (should be 0, as the model is not modified yet)
     modified_modules_original_model = [
         module
@@ -49,7 +59,7 @@ def test_modifying_llama(llama_model):
         if _is_llama_attention_modified(module)
         and module.__class__.__name__ == "LlamaAttention"
     ]
-    # check how many modified "MistralAttention" modules are
+    # check how many modified "LLamalAttention" modules are
     # in the modified model (should be num_attn_blocks, as the
     # model is modified, and has num_attn_blocks attention blocks)
     modified_modules_modified_model = [
@@ -58,7 +68,7 @@ def test_modifying_llama(llama_model):
         if _is_llama_attention_modified(module)
         and module.__class__.__name__ == "LlamaAttention"
     ]
-    # check how many original "MistralAttention"
+    # check how many original "LlamalAttention"
     # modules are in the original
     # model (should be num_attn_blocks, as the model is
     # not modified yet, and has num_attn_blocks attention blocks)
@@ -68,11 +78,11 @@ def test_modifying_llama(llama_model):
         if not _is_llama_attention_modified(module)
         and module.__class__.__name__ == "LlamaAttention"
     ]
-    # check how many original "MistralAttention"
+    # check how many original "LlamalAttention"
     # modules are in the modified
     # model (should be 0, as the model is
     # modified, and should not contain any original
-    # "MistralAttention" modules)
+    # "LlamalAttention" modules)
     original_modules_modified_model = [
         module
         for module in llama.modules()
@@ -90,6 +100,28 @@ def test_modifying_llama(llama_model):
         == len(original_modules_original_model)
         == num_attn_blocks
     )
+
+
+def test_apply_recipe_fail(llama_recipe, llama_zoo_model):
+    from sparseml.transformers.sparsification.modification.modifying_llama import (  # noqa F401
+        modify,
+    )
+
+    with pytest.raises(Exception):
+        apply_recipe_structure_to_model(
+            model=llama_zoo_model, model_path=None, recipe_path=llama_recipe
+        )
+
+
+def test_apply_recipe(llama_recipe, llama_zoo_model):
+    from sparseml.transformers.sparsification.modification.modifying_llama import (  # noqa F401
+        modify,
+    )
+
+    apply_recipe_structure_to_model(
+        model=modify_model(llama_zoo_model), model_path=None, recipe_path=llama_recipe
+    )
+    assert True
 
 
 def _is_llama_attention_modified(module):
