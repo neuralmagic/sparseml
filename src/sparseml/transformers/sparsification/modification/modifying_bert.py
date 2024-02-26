@@ -40,16 +40,16 @@ _LOGGER = logging.getLogger(__name__)
 @ModificationRegistry.register(name="BertModel")
 def modify(model: nn.Module) -> nn.Module:
     """
-    Modify the DistilBert model to be compatible with SparseML
+    Modify the Bert model to be compatible with SparseML
 
     1. Replaces the MultiHeadSelfAttention modules with
         MultiHeadSelfAttentionWithQuantizableMatmuls modules
 
     Note: This function will not alter any of the alternatives
-    to the MultiHeadSelfAttention module such as DistilBertFlashAttention2
+    to the MultiHeadSelfAttention module such as BertAttention
 
-    :param model: the original DistilBert model
-    :return: the modified DistilBert model
+    :param model: the original Bert model
+    :return: the modified Bert model
     """
     for name, submodule in model.named_modules():
         submodule_cname = submodule.__class__.__name__

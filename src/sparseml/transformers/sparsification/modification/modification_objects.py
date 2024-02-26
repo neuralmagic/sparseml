@@ -26,6 +26,7 @@ __all__ = [
     "swap_modules",
     "QuantizableBatchMatmul",
     "QATMatMul",
+    "QATLinear",
 ]
 
 
@@ -146,3 +147,26 @@ class QATMatMul(torch.nn.Module):
 
     def forward(self, a: torch.Tensor, b: torch.Tensor):
         return torch.matmul(a, b)
+
+
+class QATLinear(torch.nn.Module):
+    """
+    Behaves like normal torch.nn.Linear unless a SparseML QuantizationModifier
+    is initialized (Quantization-Aware-Training is invoked)
+    When initialized does not quantize inputs. Only weights are quantized
+    (inputs may come quantized)
+    """
+
+    def __init__(self, in_features, out_features):
+        super().__init__()
+
+        self.wrap_qat = True
+        self.qat_wrapper_kwargs = {
+            "num_inputs": 0,
+            "num_outputs": 1,
+        }
+
+        self.linear = torch.nn.Linear(in_features, out_features)
+
+    def forward(self, x: torch.Tensor):
+        return self.linear(x)
