@@ -120,13 +120,10 @@ class OPTAttentionWithQuantizableMatmuls(OPTAttention):
         output_attentions: bool = False,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
         """
-        Input shape: Batch x Time x Channel
-
         This function is almost entirely ported from the
         original OPTAttention module
         (transformers.models.opt.modeling_opt.py::OPTAttention.forward(...)) # noqa: E501
         with the exception of the annotated lines below
-
         """
 
         # if key_value_states are provided this layer is
