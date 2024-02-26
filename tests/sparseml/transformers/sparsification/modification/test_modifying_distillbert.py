@@ -25,7 +25,6 @@ from sparseml.transformers.sparsification.modification import modify_model
 @pytest.fixture
 def distilbert_recipe():
     return """version: 1.1.0
-
 stage_test:
   stage_test_modifiers:
       - !QuantizationModifier
@@ -40,16 +39,16 @@ def distilbert_model():
     return model
 
 
-def test_modifying_distilbert(distilbert_model):
+def test_modifying_distilbert(mobilebert_model):
     from sparseml.transformers.sparsification.modification.modifying_distilbert import (  # noqa F401
         modify,
     )
 
-    num_attn_blocks = distilbert_model.config.num_hidden_layers
+    num_attn_blocks = mobilebert_model.config.num_hidden_layers
 
     # keep the original model for comparison
-    distilbert_ = deepcopy(distilbert_model)
-    distilbert = modify_model(distilbert_model)
+    distilbert_ = deepcopy(mobilebert_model)
+    distilbert = modify_model(mobilebert_model)
 
     # check how many modified "MultiHeadSelfAttention" modules are in the original
     # model (should be 0, as the model is not modified yet)
