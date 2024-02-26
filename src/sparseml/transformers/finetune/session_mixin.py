@@ -373,13 +373,7 @@ class SessionManagerMixIn:
         """
         self.initialize_structure()
 
-        # Always evaluate w/ fp32 to be closer to DeepSparse
-        use_cuda_amp = self.use_cuda_amp
-        if not self.args.fp16_full_eval and not self.args.bf16_full_eval:
-            self.use_cuda_amp = False
-
         output = super().evaluate(*args, **kwargs)
-        self.use_cuda_amp = use_cuda_amp
         self.finalize_session()
 
         return output
