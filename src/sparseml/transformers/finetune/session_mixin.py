@@ -460,7 +460,7 @@ class SessionManagerMixIn:
                 model=self.model,
                 accelerator=self.accelerator,
                 output_dir=output_dir,
-                save_safetensors=self.metdata.get("save_safetensors", False),
+                save_safetensors=self.metadata.get("save_safetensors", False),
             )
 
         self.save_state()
