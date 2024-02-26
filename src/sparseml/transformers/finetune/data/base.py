@@ -188,15 +188,19 @@ class TextGenerationDataset(RegistryMixin):
             # so we can get column names from streamed_datasets
             dataset = dataset._resolve_features()
 
+        column_names = dataset.column_names
+        if isinstance(column_names, dict):
+            column_names = column_names[list(column_names)[0]]
         dataset = self.map(
             dataset,
             function=label_fn,
             batched=False,  # not compatible with batching due to needing row lengths
-            remove_columns=["prompt"] if "prompt" in dataset.column_names else None,
+            remove_columns=["prompt"] if "prompt" in column_names else None,
             num_proc=self.data_args.preprocessing_num_workers,
             load_from_cache_file=not self.data_args.overwrite_cache,
             desc="Adding labels",
         )
+        print(dataset.column_names)
 
         return dataset
 

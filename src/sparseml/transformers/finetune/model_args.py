@@ -24,7 +24,7 @@ class ModelArguments:
     Arguments pertaining to which model/config/tokenizer we are going to fine-tune from
     """
 
-    model: Union[str, PreTrainedModel] = field(
+    model: Union[PreTrainedModel, str, None] = field(
         metadata={
             "help": (
                 "A pretrained model or a string as a path to pretrained model, "
