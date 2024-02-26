@@ -108,7 +108,7 @@ def unwrap_and_export_model(model, accelerator, output_dir, tokenizer):
         )
 
 
-def save_pretrained_fsdp(model, accelerator, output_dir):
+def save_pretrained_fsdp(model, accelerator, output_dir, save_safetensors: bool = True):
     full_state_dict_config = FullStateDictConfig(offload_to_cpu=True, rank0_only=True)
     """
     Gathers the full FSDP state dict of the model onto rank0 GPU, then uses it to save
@@ -117,6 +117,7 @@ def save_pretrained_fsdp(model, accelerator, output_dir):
     :param model: model to save
     :param accelerator: Accelerator instance used to perform unwrapping
     :param output_dir: where to save output model
+    :param save_safetensors: True to safe in safetensors format, otherwise .bin
     """
     with FullyShardedDataParallel.state_dict_type(
         model, StateDictType.FULL_STATE_DICT, full_state_dict_config
@@ -128,6 +129,7 @@ def save_pretrained_fsdp(model, accelerator, output_dir):
         is_main_process=accelerator.is_main_process,
         save_function=accelerator.save,
         state_dict=state_dict,
+        safe_serialization=save_safetensors,
     )
 
 

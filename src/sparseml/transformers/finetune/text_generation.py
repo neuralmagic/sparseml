@@ -53,6 +53,7 @@ metadata_args = [
     "per_device_train_batch_size",
     "per_device_eval_batch_size",
     "max_seq_length",
+    "save_safetensors",
     "fp16",
 ]
 
