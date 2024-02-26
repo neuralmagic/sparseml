@@ -84,6 +84,7 @@ _transformers_deps = _pytorch_deps + [
     "accelerate>=0.20.3",
     "safetensors>=0.4.1",
 ]
+_llm_deps = _transformers_deps + ["sentencepiece"]
 _yolov5_deps = _pytorch_vision_deps + [
     f"{'nm-yolov5' if is_release else 'nm-yolov5-nightly'}~={version_nm_deps}"
 ]
@@ -163,7 +164,7 @@ def _setup_extras() -> Dict:
         "torch_all": _pytorch_all_deps,
         "torchvision": _pytorch_vision_deps,
         "transformers": _transformers_deps,
-        "llm": _transformers_deps,
+        "llm": _llm_deps,
         "notebook": _notebook_deps,
         "tf_v1": _tensorflow_v1_deps,
         "tf_v1_gpu": _tensorflow_v1_gpu_deps,
