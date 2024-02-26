@@ -37,7 +37,7 @@ from sparseml.transformers.sparsification.modification.registry import (
 _LOGGER = logging.getLogger(__name__)
 
 
-@ModificationRegistry.register(name="OPTModel")
+@ModificationRegistry.register(name="OPTModel", alias=["OPTForCausalLM"])
 def modify(model: nn.Module) -> nn.Module:
     """
     Modify the OPT model to be compatible with SparseML

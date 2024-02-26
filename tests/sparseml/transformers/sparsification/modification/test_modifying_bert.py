@@ -14,19 +14,7 @@
 
 from copy import deepcopy
 
-import pytest
-from transformers import AutoConfig, AutoModel
-
-from accelerate import init_empty_weights
 from sparseml.transformers.sparsification.modification import modify_model
-
-
-@pytest.fixture
-def bert_model():
-    config = AutoConfig.from_pretrained("bert-base-uncased")
-    with init_empty_weights():
-        model = AutoModel.from_config(config)
-    return model
 
 
 def test_modifying_bert(bert_model):
