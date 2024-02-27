@@ -28,4 +28,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build Docker Container
-        uses: neuralmagic/nm-actions/docker@docker
+        uses: docker/build-push-action@v2
+        with:
+          context: https://github.com/neuralmagic/nm-actions/tree/docker/docker
+          push: false
