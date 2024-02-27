@@ -113,7 +113,7 @@ class State:
     last_event: Event = None
     loggers: Optional[LoggerManager] = None
     model_log_cadence: Optional[float] = None
-    _last_log_epoch: Optional[float] = None
+    _last_log_step: Union[float, int, None] = None
 
     @property
     def sparsification_ready(self) -> bool:
