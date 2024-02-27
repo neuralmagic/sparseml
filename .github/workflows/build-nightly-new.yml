@@ -36,4 +36,4 @@ jobs:
         with:
           context: ./docker_nightly
           push: true
-        tags: ghcr.io/neuralmagic/test-sparseml-nightly:latest, ghcr.io/neuralmagic/test-sparseml-nightly:latest:$(date +%Y%m%d)
+          tags: ghcr.io/neuralmagic/test-sparseml-nightly:latest, ghcr.io/neuralmagic/test-sparseml-nightly:latest:$(date +%Y%m%d)
