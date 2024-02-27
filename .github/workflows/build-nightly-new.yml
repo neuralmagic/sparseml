@@ -2,7 +2,7 @@ name: Run nightly docker container
 on:
   push:
     branches:
-      - main
+      - '*'
   schedule:
     - cron: '0 0 * * *'
 
