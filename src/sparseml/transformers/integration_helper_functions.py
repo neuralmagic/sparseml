@@ -167,7 +167,7 @@ def create_data_loader(
             if not dataset_with_labels:
                 dataset = dataset.remove_columns("labels")
             data_loader = format_calibration_data(tokenized_dataset=dataset)
-            input_names = dataset.column_names
+            input_names = list(next(iter(data_loader)).keys())
 
         else:
             trainer = initialize_trainer(model, source_path, dataset)
