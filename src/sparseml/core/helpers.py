@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-from typing import Any, Generator, Tuple
+from typing import Any, Generator, Optional, Tuple, Union
 
 from sparseml.core.logger import LoggerManager
 from sparseml.core.model.base import ModifiableModel
@@ -29,7 +29,8 @@ __all__ = [
 def should_log_model_info(
     model: ModifiableModel,
     loggers: LoggerManager,
-    epoch: float,
+    current_log_step: float,
+    last_log_step: Optional[float] = None,
 ) -> bool:
     """
     Check if we should log model level info
@@ -40,17 +41,20 @@ def should_log_model_info(
 
     :param model: The model whose info we want to log
     :param loggers: The logger manager to log to
-    :param epoch: The current epoch
+    :param current_log_step: The current epoch
+    :param last_log_step: The last step we logged model info at
     :return: True if we should log model level info, False otherwise
     """
     return (
         hasattr(model, "loggable_items")
         and isinstance(loggers, LoggerManager)
-        and loggers.log_ready(current_log_step=epoch)
+        and loggers.log_ready(
+            current_log_step=current_log_step, last_log_step=last_log_step
+        )
     )
 
 
-def log_model_info(state: State, epoch):
+def log_model_info(state: State, current_log_step):
     """
     Log model level info to the logger
     Relies on `state.model` having a `loggable_items` method
@@ -59,25 +63,28 @@ def log_model_info(state: State, epoch):
     `LoggerManager` instance.
 
     :param state: The current state of sparsification
-    :param epoch: The epoch number to log model info
-        at
+    :param current_log_step: The current log step to log
+        model info at
     """
-    _log_epoch(logger_manager=state.loggers, epoch=epoch)
+    _log_current_step(logger_manager=state.loggers, current_log_step=current_log_step)
     _log_model_loggable_items(
         logger_manager=state.loggers,
         loggable_items=state.model.loggable_items(),
-        epoch=epoch,
+        epoch=current_log_step,
     )
 
 
-def _log_epoch(logger_manager: LoggerManager, epoch: int):
+def _log_current_step(
+    logger_manager: LoggerManager, current_log_step: Union[float, int]
+):
     """
-    Log the epoch to the logger_manager
+    Log the Current Log Step to the logger_manager
 
     :param logger_manager: The logger manager to log to
-    :param epoch: The epoch to log
+    :param current_log_step: The logging step
     """
-    logger_manager.log_scalar(tag="Epoch", value=float(epoch), step=epoch)
+    tag = logger_manager.frequency_manager.frequency_type
+    logger_manager.log_scalar(tag=tag, value=current_log_step, step=current_log_step)
 
 
 def _log_model_loggable_items(

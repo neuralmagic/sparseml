@@ -68,9 +68,7 @@ class TestEndToEndExport:
             validate_correctness=True,
             num_export_samples=2,
             **dict(
-                data_args=dict(
-                    dataset_name="wikitext", dataset_config_name="wikitext-2-raw-v1"
-                )
+                data_args=dict(dataset="ultrachat-200k", dataset_config_name="default")
             ),
         )
         assert (target_path / "deployment" / "model.onnx").exists()
@@ -114,7 +112,7 @@ class TestEndToEndExport:
             validate_correctness=True,
             **dict(
                 data_args=dict(
-                    dataset_name="wikitext", dataset_config_name="wikitext-2-raw-v1"
+                    dataset="wikitext", dataset_config_name="wikitext-2-raw-v1"
                 )
             ),
         )
@@ -188,7 +186,7 @@ class TestEndToEndExport:
             num_export_samples=num_samples,
             **dict(
                 data_args=dict(
-                    dataset_name="wikitext", dataset_config_name="wikitext-2-raw-v1"
+                    dataset="wikitext", dataset_config_name="wikitext-2-raw-v1"
                 )
             ),
         )
@@ -218,7 +216,7 @@ class TestEndToEndExport:
             validate_correctness=True,
             **dict(
                 data_args=dict(
-                    dataset_name="wikitext", dataset_config_name="wikitext-2-raw-v1"
+                    dataset="wikitext", dataset_config_name="wikitext-2-raw-v1"
                 )
             ),
         )
@@ -240,7 +238,7 @@ class TestEndToEndExport:
             num_export_samples=num_samples,
             **dict(
                 data_args=dict(
-                    dataset_name="wikitext", dataset_config_name="wikitext-2-raw-v1"
+                    dataset="wikitext", dataset_config_name="wikitext-2-raw-v1"
                 )
             ),
         )
@@ -256,7 +254,7 @@ class TestEndToEndExport:
             num_export_samples=num_samples,
             **dict(
                 data_args=dict(
-                    dataset_name="wikitext", dataset_config_name="wikitext-2-raw-v1"
+                    dataset="wikitext", dataset_config_name="wikitext-2-raw-v1"
                 )
             ),
         )

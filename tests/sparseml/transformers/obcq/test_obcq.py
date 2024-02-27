@@ -47,7 +47,7 @@ def test_obcq_tinystories(recipe_file_path):
     tiny_model_path = "Xenova/llama2.c-stories15M"
     device = "cuda:0"
     num_samples = 64
-    dataset_name = "open_platypus"
+    dataset = "open_platypus"
     if not torch.cuda.is_available():
         device = "cpu"
     config = initialize_config(model_path=tiny_model_path)
@@ -55,14 +55,14 @@ def test_obcq_tinystories(recipe_file_path):
     # test recipe with 50% sparsity, quantization and smoothquant
     tiny_model = one_shot(
         model_path=tiny_model_path,
-        dataset_name=dataset_name,
+        dataset=dataset,
         num_samples=num_samples,
         device=device,
         recipe_file=recipe_file_path,
     )
 
     data_args = DataTrainingArguments(
-        dataset_name=dataset_name,
+        dataset=dataset,
         max_seq_length=resolve_sequence_length(config),
         num_calibration_samples=num_samples,
         concatenate_data=False,
@@ -73,7 +73,7 @@ def test_obcq_tinystories(recipe_file_path):
         tiny_model_path, use_fast=True, trust_remote_code=True
     )
     dataset_manager = TextGenerationDataset.load_from_registry(
-        dataset_name, data_args=data_args, split="train", tokenizer=tokenizer
+        dataset, data_args=data_args, split="train", tokenizer=tokenizer
     )
     raw_dataset = dataset_manager.get_raw_dataset()
     tokenized_dataset = dataset_manager.tokenize_and_process(raw_dataset)
@@ -145,7 +145,7 @@ def test_sparsities():
     # test recipe with 50% sparsity, quantization and smoothquant
     tiny_model = one_shot(
         model_path=tiny_model_path,
-        dataset_name="open_platypus",
+        dataset="open_platypus",
         num_samples=64,
         device=device,
         recipe_file=lm_head_recipe,

@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Union
 
 from sparseml.evaluation.registry import SparseMLEvaluationRegistry
 from sparsezoo.evaluation.results import Dataset, Evaluation, Metric, Result
@@ -26,7 +26,8 @@ except ImportError as import_error:
     HFLM = object
     raise ImportError(
         "package `lm_eval` not found. Please install it via "
-        "`pip install git+https://github.com/EleutherAI/lm-evaluation-harness.git@e0eda4d`"  # noqa: E501
+        "`pip install lm-eval==0.4.1;pip uninstall transformers &&"
+        " pip install sparseml[transformers,torch]`"
     ) from import_error
 try:
     # This needs to be imported after lm_eval to ensure right transformers
@@ -51,7 +52,7 @@ LM_EVALUATION_HARNESS_ALIASES: List[str] = ["lm-eval-harness"]
 )
 def lm_eval_harness(
     model_path,
-    datasets: str = "wikitext",
+    datasets: Union[str, List[str]] = "wikitext",
     batch_size: int = 1,
     **kwargs,
 ) -> Result:
@@ -60,8 +61,8 @@ def lm_eval_harness(
 
     :param model-path: the target model to evaluate, can be path to
         a local model directory or a SparseZoo/Huggingface stub
-    :param datasets: the datasets to evaluate on, can be a comma separated
-        list of dataset names or a pattern to match against
+    :param datasets: the datasets to evaluate on, can be a string or
+        list of strings, or a command separated string
     :param batch_size: the batch size to use for evaluation
     :param kwargs: additional keyword arguments to pass to the
         lm-evaluation-harness. For example, `limit`
@@ -79,6 +80,7 @@ def lm_eval_harness(
     if datasets is None:
         task_names = tasks.ALL_TASKS
     else:
+        datasets = datasets if isinstance(datasets, str) else ",".join(datasets)
         task_names = utils.pattern_match(datasets.split(","), tasks.ALL_TASKS)
 
     _LOGGER.info(f"Selected Tasks: {task_names}")
