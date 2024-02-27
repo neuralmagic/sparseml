@@ -55,6 +55,10 @@ def perplexity_eval(
     :param limit: The number of samples to evaluate on
     :param kwargs: Additional arguments for the evaluation
     """
+    if isinstance(datasets, list):
+        raise NotImplementedError(
+            "Running perplexity evaluation on multiple datasets is not supported"
+        )
     dataset_config_name = _infer_dataset_config_name(datasets)
     task = "text-generation"
     split = kwargs.pop("split", None)
@@ -218,6 +222,7 @@ def _load_perplexity_dataset(
     :param nsamples: The number of samples to load from the dataset
     :return: The loaded dataset as a list of strings
     """
+
     dataset: HuggingFaceDataset = _fetch_dataset_split(
         dataset_name=dataset_name,
         dataset_config_name=dataset_config_name,
