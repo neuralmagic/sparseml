@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   build-container:
-    name: Push Version Tagged Nightly Docker Images
+    name: Build sparseml nightly
     runs-on: ubuntu-latest
 
     steps:
