@@ -339,7 +339,7 @@ class SparseSession:
 
         # always log loss if available
         if loss is not None:
-            loss = loss if isinstance(loss, dict) else {"Loss": loss}
+            loss = loss if isinstance(loss, dict) else {"loss": loss}
             self.state.loggers.metric.log_scalars(
                 tag="Loss", values=loss, step=current_step
             )
