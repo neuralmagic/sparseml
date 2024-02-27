@@ -35,4 +35,5 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           context: ./docker_nightly
-          push: false
+          push: true
+        tags: ghcr.io/neuralmagic/test-sparseml-nightly:latest, ghcr.io/neuralmagic/test-sparseml-nightly:latest:$(date +%Y%m%d)
