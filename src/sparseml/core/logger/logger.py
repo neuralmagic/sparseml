@@ -638,7 +638,8 @@ class WANDBLogger(LambdaLogger):
                 values = {f"{tag}/{key}": val for key, val in values.items()}
             params.update(values)
 
-        # wandb.log(params, step=step)
+        params.update({"Step": step})
+        wandb.log(params)
 
         return True
 
