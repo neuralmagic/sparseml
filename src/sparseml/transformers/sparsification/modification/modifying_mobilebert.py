@@ -18,13 +18,13 @@ context of SparseML
 """
 
 import logging
+from sparseml.pytorch.utils.helpers import swap_modules
 
 from torch import nn
 from transformers.models.mobilebert.modeling_mobilebert import MobileBertEmbeddings
 
 from sparseml.transformers.sparsification.modification.modification_objects import (
     QATLinear,
-    swap_modules,
 )
 from sparseml.transformers.sparsification.modification.registry import (
     ModificationRegistry,
@@ -46,8 +46,7 @@ def modify(model: nn.Module) -> nn.Module:
     :return: the modified MobileBert model
     """
     for name, submodule in model.named_modules():
-        submodule_cname = submodule.__class__.__name__
-        if submodule_cname == "MobileBertEmbeddings":
+        if isinstance(submodule, MobileBertEmbeddings):
             swap_modules(
                 model, name, MobileBertEmbeddingsWithQuantizableLinear(submodule)
             )

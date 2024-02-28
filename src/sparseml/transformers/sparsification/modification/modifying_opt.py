@@ -19,15 +19,15 @@ context of SparseML
 
 import logging
 from typing import Optional, Tuple
+from sparseml.pytorch.utils.helpers import swap_modules
 
 import torch
 from torch import nn
-from transformers.models.opt.modeling_opt import OPTAttention
+from transformers.models.opt.modeling_opt import OPTAttention, OptFlashAttention2
 
 from sparseml.transformers.sparsification.modification.modification_objects import (
     QuantizableBatchMatmul,
     QuantizableIdentity,
-    swap_modules,
 )
 from sparseml.transformers.sparsification.modification.registry import (
     ModificationRegistry,
@@ -52,12 +52,11 @@ def modify(model: nn.Module) -> nn.Module:
     :return: the modified LLaMa model
     """
     for name, submodule in model.named_modules():
-        submodule_cname = submodule.__class__.__name__
-        if submodule_cname == "OPTAttention":
+        if isinstance(submodule, OPTAttention):
             swap_modules(model, name, OPTAttentionWithQuantizableMatmuls(submodule))
-        elif submodule_cname == "OptFlashAttention2":
+        elif isinstance(submodule, OptFlashAttention2):
             _LOGGER.debug(
-                f"The model contains {submodule_cname} "
+                f"The model contains {submodule.__class__.__name__} "
                 "module, which will not be modified"
             )
     return model

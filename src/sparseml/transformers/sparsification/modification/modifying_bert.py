@@ -20,14 +20,14 @@ context of SparseML
 import logging
 import math
 from typing import Optional, Tuple
+from sparseml.pytorch.utils.helpers import swap_modules
 
 import torch
 from torch import nn
-from transformers.models.bert.modeling_bert import BertSelfAttention
+from transformers.models.bert.modeling_bert import BertSelfAttention, BertAttention
 
 from sparseml.transformers.sparsification.modification.modification_objects import (
     QATMatMul,
-    swap_modules,
 )
 from sparseml.transformers.sparsification.modification.registry import (
     ModificationRegistry,
@@ -52,14 +52,13 @@ def modify(model: nn.Module) -> nn.Module:
     :return: the modified Bert model
     """
     for name, submodule in model.named_modules():
-        submodule_cname = submodule.__class__.__name__
-        if submodule_cname == "BertSelfAttention":
+        if isinstance(submodule, BertSelfAttention):
             swap_modules(
                 model, name, BertSelfAttentionWithQuantizableMatmuls(submodule)
             )
-        elif submodule_cname == "BertAttention":
+        elif isinstance(submodule, BertAttention):
             _LOGGER.debug(
-                f"The model contains {submodule_cname} "
+                f"The model contains {submodule.__class__.__name__} "
                 "module, which will not be modified"
             )
     return model

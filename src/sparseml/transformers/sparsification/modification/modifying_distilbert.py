@@ -20,14 +20,14 @@ context of SparseML
 import logging
 import math
 from typing import Optional, Tuple
+from sparseml.pytorch.utils.helpers import swap_modules
 
 import torch
 from torch import nn
-from transformers.models.distilbert.modeling_distilbert import MultiHeadSelfAttention
+from transformers.models.distilbert.modeling_distilbert import MultiHeadSelfAttention, DistilBertFlashAttention2
 
 from sparseml.transformers.sparsification.modification.modification_objects import (
     QATMatMul,
-    swap_modules,
 )
 from sparseml.transformers.sparsification.modification.registry import (
     ModificationRegistry,
@@ -52,14 +52,13 @@ def modify(model: nn.Module) -> nn.Module:
     :return: the modified DistilBert model
     """
     for name, submodule in model.named_modules():
-        submodule_cname = submodule.__class__.__name__
-        if submodule_cname == "MultiHeadSelfAttention":
+        if isinstance(submodule, MultiHeadSelfAttention):
             swap_modules(
                 model, name, MultiHeadSelfAttentionWithQuantizableMatmuls(submodule)
             )
-        elif submodule_cname == "DistilBertFlashAttention2":
+        elif isinstance(submodule, DistilBertFlashAttention2):
             _LOGGER.debug(
-                f"The model contains {submodule_cname} "
+                f"The model contains {submodule.__class__.__name__} "
                 "module, which will not be modified"
             )
     return model

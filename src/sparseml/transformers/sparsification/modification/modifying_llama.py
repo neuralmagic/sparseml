@@ -21,6 +21,7 @@ import logging
 import math
 import warnings
 from typing import Optional, Tuple
+from sparseml.pytorch.utils.helpers import swap_modules
 
 import torch
 import torch.nn.functional as F
@@ -28,6 +29,8 @@ from torch import nn
 from transformers.models.llama.modeling_llama import (
     Cache,
     LlamaAttention,
+    LlamaSdpaAttention,
+    LlamaFlashAttention2,
     apply_rotary_pos_emb,
     repeat_kv,
 )
@@ -35,7 +38,6 @@ from transformers.models.llama.modeling_llama import (
 from sparseml.transformers.sparsification.modification.modification_objects import (
     QuantizableIdentity,
     QuantizableMatMul,
-    swap_modules,
 )
 from sparseml.transformers.sparsification.modification.registry import (
     ModificationRegistry,
@@ -61,15 +63,11 @@ def modify(model: nn.Module) -> nn.Module:
     :return: the modified LLaMa model
     """
     for name, submodule in model.named_modules():
-        submodule_cname = submodule.__class__.__name__
-        if submodule_cname == "LlamaAttention":
+        if isinstance(submodule, LlamaAttention):
             swap_modules(model, name, LlamaAttentionWithQuantizableMatmuls(submodule))
-        elif (
-            submodule_cname == "LlamaFlashAttention2"
-            or submodule_cname == "LlamaSdpaAttention"
-        ):
+        elif isinstance(submodule, (LlamaFlashAttention2, LlamaSdpaAttention)):
             _LOGGER.debug(
-                f"The model contains {submodule_cname} "
+                f"The model contains {submodule.__class__.__name__} "
                 "module, which will not be modified"
             )
     return model
