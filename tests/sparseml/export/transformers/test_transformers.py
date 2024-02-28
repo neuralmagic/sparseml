@@ -21,7 +21,7 @@ import pytest
 import torch
 
 from sparseml import export
-from sparseml.transformers.utils.sparse_model import SparseAutoModel
+from sparseml.transformers.utils import SparseAutoModel
 from sparsezoo import Model
 
 
