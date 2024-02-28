@@ -3,6 +3,8 @@ ARG BRANCH
 
 FROM $SOURCE
 
+ARG BRANCH
+
 RUN python3.8 -m pip install --upgrade pip \
     && python3.8 -m pip install --upgrade setuptools \
     && git clone https://github.com/neuralmagic/sparseml.git --depth 1 -b ${BRANCH} \
