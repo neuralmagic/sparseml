@@ -25,6 +25,13 @@ jobs:
 
     steps:
       - name: Checkout code
+        if: ${{ env.DEV == 'true' }}
+        uses: actions/checkout@v3
+        with:
+          branch: ${{ github.ref_name }}
+          fetch-depth: 1
+      - name: Checkout code
+        if: ${{ env.DEV == 'false' }}
         uses: actions/checkout@v3
         with:
           fetch-depth: 1
@@ -33,6 +40,9 @@ jobs:
         uses: docker/setup-buildx-action@v2
         with:
           buildkitd-flags: --debug
+      - name: Debug
+        run: | 
+          echo ${{ github.ref_name }}
       - name: Get current date
         id: date
         run: echo "::set-output name=date::$(date +'%Y%m%d')"
