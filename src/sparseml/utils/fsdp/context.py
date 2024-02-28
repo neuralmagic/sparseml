@@ -15,13 +15,20 @@
 try:
     from torch.distributed.fsdp import FullyShardedDataParallel
     from torch.distributed.fsdp._common_utils import TrainingState
+
+    from accelerate import Accelerator
 except ImportError:
     FullyShardedDataParallel = None
+    Accelerator = None
 
 from contextlib import nullcontext
 
 
-__all__ = ["summon_full_params_context", "fix_fsdp_module_name"]
+__all__ = [
+    "summon_full_params_context",
+    "main_process_first_context",
+    "fix_fsdp_module_name",
+]
 
 FSDP_WRAPPER_NAME = "_fsdp_wrapped_module."
 
@@ -39,6 +46,17 @@ def summon_full_params_context(model, offload_to_cpu: bool = False):
         )
 
     return nullcontext()
+
+
+def main_process_first_context():
+    """
+    Creates a context manager where the main process runs the block before all other
+    processes. Returns a nullcontext when called from a single process application.
+    """
+    if Accelerator is None:
+        return nullcontext()
+
+    return Accelerator().main_process_first()
 
 
 def fix_fsdp_module_name(name: str) -> str:
