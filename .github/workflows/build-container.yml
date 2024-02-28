@@ -32,6 +32,9 @@ jobs:
         uses: docker/setup-buildx-action@v2
         with:
           buildkitd-flags: --debug
+      - name: debug
+        run: | 
+          echo $DEV
       - name: Get current date
         id: date
         run: echo "::set-output name=date::$(date +'%Y%m%d')"
