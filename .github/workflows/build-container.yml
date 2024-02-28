@@ -11,7 +11,7 @@ on:
     - cron: '0 0 * * *'
 
 env:
-  DEV: ${{ github.base_ref == 'main'}}
+  DEV: ${{ github.base_ref == 'main' && github.event_name == "pull_request"}}
   NAME: ${{ github.event.number }} 
 
 permissions:
@@ -33,14 +33,6 @@ jobs:
         uses: docker/setup-buildx-action@v2
         with:
           buildkitd-flags: --debug
-      - name: debug
-        run: | 
-          echo $DEV
-          echo ${{github.head_ref}}
-          echo ${{github.event_name}}
-          echo ${{github.event.action}}
-          echo ${{github.ref_name}}
-          echo ${{github.base_ref}}
       - name: Get current date
         id: date
         run: echo "::set-output name=date::$(date +'%Y%m%d')"
