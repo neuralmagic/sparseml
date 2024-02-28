@@ -10,6 +10,8 @@ on:
   schedule:
     - cron: '0 2 * * *'
 
+# potentially update to change criteria; only run when wheel build is complete
+# use outptus from wheel build to determie if release/dev/nightly
 env:
   DEV: ${{ github.base_ref == 'main' && github.event_name == 'pull_request'}}
   NAME: ${{ github.event.number }} 
