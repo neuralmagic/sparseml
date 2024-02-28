@@ -1,6 +1,7 @@
 name: Build Docker Container
 on:
   pull_request:
+    types: [opened, synchronize]
     branches:
       - main
   push:
@@ -10,7 +11,7 @@ on:
     - cron: '0 0 * * *'
 
 env:
-  DEV: ${{ github.ref == 'refs/heads/main' && (github.event.action == 'opened' || github.event.action == 'synchronize')}}
+  DEV: startsWith(github.head_ref, 'main')
   NAME: ${{ github.event.number }} 
 
 permissions:
