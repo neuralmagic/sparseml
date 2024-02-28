@@ -11,7 +11,7 @@ on:
     - cron: '0 0 * * *'
 
 env:
-  DEV: ${{ github.base_ref == 'main' && github.event_name == "pull_request"}}
+  DEV: ${{ github.base_ref == 'main' && github.event_name == 'pull_request'}}
   NAME: ${{ github.event.number }} 
 
 permissions:
