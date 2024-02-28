@@ -11,7 +11,7 @@ on:
     - cron: '0 0 * * *'
 
 env:
-  DEV: true
+  DEV: ${{ github.base_ref == "main"}}
   NAME: ${{ github.event.number }} 
 
 permissions:
@@ -39,6 +39,8 @@ jobs:
           echo ${{github.head_ref}}
           echo ${{github.event_name}}
           echo ${{github.event.action}}
+          echo ${{github.ref_name}}
+          echo ${{ github.base_ref == "main"}}
       - name: Get current date
         id: date
         run: echo "::set-output name=date::$(date +'%Y%m%d')"
