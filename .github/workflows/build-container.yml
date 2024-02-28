@@ -38,7 +38,7 @@ jobs:
           echo $DEV
           echo ${{github.head_ref}}
           echo ${{github.event_name}}
-          echo ${{github.event_type}}
+          echo ${{github.event.action}}
       - name: Get current date
         id: date
         run: echo "::set-output name=date::$(date +'%Y%m%d')"
