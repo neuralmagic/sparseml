@@ -11,7 +11,7 @@ on:
     - cron: '0 0 * * *'
 
 env:
-  DEV: startsWith(github.head_ref, 'main')
+  DEV: ${{ startsWith(github.head_ref, 'main') }}
   NAME: ${{ github.event.number }} 
 
 permissions:
