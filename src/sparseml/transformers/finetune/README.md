@@ -6,9 +6,9 @@
 
 ```bash
 sparseml.transformers.text_generation.train
-    --model_name PATH_TO_MODEL
+    --model PATH_TO_MODEL
     --distill_teacher PATH_TO_TEACHER
-    --dataset_name DATASET_NAME
+    --dataset DATASET
     --recipe PATH_TO_RECIPE
     --output_dir PATH_TO_OUTPUT
     --num_train_epochs 1
@@ -28,9 +28,9 @@ Also supported:
 accelerate launch 
     --config_file example_fsdp_config.yaml 
     --no_python sparseml.transformers.text_generation.finetune
-    --model_name PATH_TO_MODEL
+    --model PATH_TO_MODEL
     --distill_teacher PATH_TO_TEACHER
-    --dataset_name DATASET_NAME
+    --dataset DATASET
     --recipe PATH_TO_RECIPE
     --output_dir PATH_TO_OUTPUT
     --num_train_epochs 1
@@ -46,7 +46,7 @@ from sparseml.transformers import train
 
 model = "./obcq_deployment"
 teacher_model = "Xenova/llama2.c-stories15M"
-dataset_name = "open_platypus"
+dataset = "open_platypus"
 concatenate_data = False
 output_dir = "./output_finetune"
 recipe = "test_trainer_recipe.yaml"
@@ -57,9 +57,9 @@ splits = {
 }
 
 train(
-    model_name_or_path=model,
+    model=model,
     distill_teacher=teacher_model,
-    dataset_name=dataset_name,
+    dataset=dataset,
     output_dir=output_dir,
     recipe=recipe,
     num_train_epochs=num_train_epochs,
@@ -83,9 +83,9 @@ Finetuning arguments are split up into 3 groups:
 accelerate launch 
     --config_file example_fsdp_config.yaml 
     --no_python sparseml.transformers.text_generation.oneshot
-    --model_name PATH_TO_MODEL
+    --model PATH_TO_MODEL
     --num_calibration_samples 512
-    --dataset_name DATASET_NAME
+    --dataset DATASET
     --dataset_config_name OPTIONAL
     --max_seq_len OPTIONAL
     --concatenate_data OPTIONAL
@@ -100,7 +100,7 @@ accelerate launch
 from sparseml.transformers import oneshot
 
 model = "Xenova/llama2.c-stories15M"
-dataset_name = "open_platypus"
+dataset = "open_platypus"
 concatenate_data = False
 output_dir = "./output_oneshot"
 recipe = "test_oneshot_recipe.yaml"
@@ -110,8 +110,8 @@ splits = {
 }
 
 oneshot(
-    model_name_or_path=model,
-    dataset_name=dataset_name,
+    mode=model,
+    dataset=dataset,
     concatenate_data=concatenate_data,
     output_dir=output_dir,
     recipe=recipe,
@@ -137,7 +137,7 @@ test_multi.py
 from sparseml.transformers import apply
 
 model = "../ml-experiments/nlg-text_generation/llama_pretrain-llama_7b-base/dense/training"
-dataset_name = "open_platypus"
+dataset = "open_platypus"
 concatenate_data = False
 run_stages=True
 output_dir = "./output_finetune_multi"
@@ -150,8 +150,8 @@ splits = {
 }
 
 apply(
-    model_name_or_path=model,
-    dataset_name=dataset_name,
+    model_or_path=model,
+    dataset=dataset,
     run_stages=run_stages,
     output_dir=output_dir,
     recipe=recipe,
