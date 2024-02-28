@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
+import os,shutil
 
 import pytest
 
@@ -23,3 +23,4 @@ def run_before_and_after_tests(tmp_path):
     os.environ["HF_DATASETS_CACHE"] = str(tmp_path / "datasets")
     os.environ["SPARSEZOO_MODELS_PATH"] = str(tmp_path / "sparsezoo")
     yield
+    shutil.rmtree(tmp_path)
