@@ -10,9 +10,6 @@ permissions:
   contents: read
   packages: write
 
-env:
-  DATE: $(date +'%Y%m%d')
-
 jobs:
   build-container:
     name: Build sparseml nightly
@@ -42,4 +39,6 @@ jobs:
         with:
           context: ./docker_nightly
           push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           tags: ghcr.io/neuralmagic/test-sparseml-nightly:latest, ghcr.io/neuralmagic/test-sparseml-nightly:${{ steps.date.outputs.date }}
