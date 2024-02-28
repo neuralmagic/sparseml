@@ -5,7 +5,7 @@ FROM $SOURCE
 
 RUN python3.8 -m pip install --upgrade pip \
     && python3.8 -m pip install --upgrade setuptools \
-    && git clone https://github.com/neuralmagic/sparseml.git --depth 1 -b "${BRANCH}" \
+    && git clone https://github.com/neuralmagic/sparseml.git --depth 1 -b "docker_workflows" \
     && python3.8 -m pip install -e "./sparseml[dev,onnxruntime,torchvision,transformers,yolov5,ultralytics]"
 
 HEALTHCHECK CMD python3.8 -c 'import sparseml'

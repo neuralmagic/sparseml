@@ -22,7 +22,6 @@ jobs:
   build-container:
     name: Build sparseml container
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
