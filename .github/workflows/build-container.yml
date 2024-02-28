@@ -26,7 +26,7 @@ jobs:
     steps:
       - name: Determine branch
         run: |
-          if ${{ env.DEV = 'true' }}; then
+          if ${{ env.DEV == 'true' }}; then
               echo "BRANCH=${{github.ref_name}}" >> "$GITHUB_ENV"
           else
               echo "BRANCH=main" >> "$GITHUB_ENV"
