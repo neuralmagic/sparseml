@@ -35,6 +35,7 @@ from sparseml.pytorch.model_load.helpers import (
 )
 from sparseml.transformers.utils.helpers import resolve_recipe
 from sparseml.utils import download_zoo_training_dir
+from sparseml.utils.fsdp.context import main_process_first_context
 
 
 __all__ = ["SparseAutoModel", "SparseAutoModelForCausalLM", "get_shared_tokenizer_src"]
@@ -87,9 +88,10 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
                 "Passed zoo stub to SparseAutoModelForCausalLM object. "
                 "Loading model from SparseZoo training files..."
             )
-            pretrained_model_name_or_path = download_zoo_training_dir(
-                zoo_stub=pretrained_model_name_or_path
-            )
+            with main_process_first_context():
+                pretrained_model_name_or_path = download_zoo_training_dir(
+                    zoo_stub=pretrained_model_name_or_path
+                )
 
         # temporarily set the log level to error, to ignore printing out long missing
         # and unexpected key error messages (these are EXPECTED for quantized models)
