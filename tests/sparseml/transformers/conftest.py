@@ -24,6 +24,9 @@ def run_before_and_after_tests(tmp_path):
     os.environ["HF_DATASETS_CACHE"] = str(tmp_path / "datasets")
     os.environ["SPARSEZOO_MODELS_PATH"] = str(tmp_path / "sparsezoo")
     yield
-    shutil.rmtree(tmp_path / "transformers")
-    shutil.rmtree(tmp_path / "datasets")
-    shutil.rmtree(tmp_path / "sparsezoo")
+    if os.path.exists(tmp_path / "transformers"):
+        shutil.rmtree(tmp_path / "transformers")
+    if os.path.exists(tmp_path / "datasets"):
+        shutil.rmtree(tmp_path / "datasets")
+    if os.path.exists(tmp_path / "sparsezoo"):
+        shutil.rmtree(tmp_path / "sparsezoo")
