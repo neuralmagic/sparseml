@@ -12,70 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from copy import deepcopy
 
-from sparseml.transformers.sparsification.modification import modify_model
+from transformers.models.bert.modeling_bert import BertSelfAttention
 
 
-def test_modifying_bert(bert_model):
+def test_modifying_bert(bert_model, helpers):
     from sparseml.transformers.sparsification.modification.modifying_bert import (  # noqa F401
         modify,
     )
 
-    num_attn_blocks = bert_model.config.num_hidden_layers
-
-    # keep the original model for comparison
-    bert_ = deepcopy(bert_model)
-    bert = modify_model(bert_model)
-
-    # check how many modified "BertSelfAttention" modules are in the original
-    # model (should be 0, as the model is not modified yet)
-    modified_modules_original_model = [
-        module
-        for module in bert_.modules()
-        if _is_bert_attention_modified(module)
-        and module.__class__.__name__ == "BertSelfAttention"
-    ]
-    # check how many modified "BertSelfAttention" modules are
-    # in the modified model (should be num_attn_blocks, as the
-    # model is modified, and has num_attn_blocks attention blocks)
-    modified_modules_modified_model = [
-        module
-        for module in bert.modules()
-        if _is_bert_attention_modified(module)
-        and module.__class__.__name__ == "BertSelfAttention"
-    ]
-    # check how many original "BertSelfAttention"
-    # modules are in the original
-    # model (should be num_attn_blocks, as the model is
-    # not modified yet, and has num_attn_blocks attention blocks)
-    original_modules_original_model = [
-        module
-        for module in bert_.modules()
-        if not _is_bert_attention_modified(module)
-        and module.__class__.__name__ == "BertSelfAttention"
-    ]
-    # check how many original "BertSelfAttention"
-    # modules are in the modified
-    # model (should be 0, as the model is
-    # modified, and should not contain any original
-    # "BertSelfAttention" modules)
-    original_modules_modified_model = [
-        module
-        for module in bert.modules()
-        if not _is_bert_attention_modified(module)
-        and module.__class__.__name__ == "BertSelfAttention"
-    ]
-
-    assert (
-        len(modified_modules_original_model)
-        == len(original_modules_modified_model)
-        == 0
-    )
-    assert (
-        len(modified_modules_modified_model)
-        == len(original_modules_original_model)
-        == num_attn_blocks
+    helpers.check_model_modified(
+        bert_model,
+        module_to_replace=BertSelfAttention,
+        func_to_validate_replacement=_is_bert_attention_modified,
     )
 
 

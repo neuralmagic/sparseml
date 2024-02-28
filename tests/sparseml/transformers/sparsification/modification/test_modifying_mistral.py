@@ -11,9 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from copy import deepcopy
 
 import pytest
+from transformers.models.mistral.modeling_mistral import MistralAttention
 
 from sparseml.pytorch.model_load.helpers import apply_recipe_structure_to_model
 from sparseml.transformers.sparsification.modification import modify_model
@@ -37,65 +37,15 @@ def mistral_recipe():
             symmetric: False"""
 
 
-def test_modifying_mistral(mistral_model):
+def test_modifying_mistral(mistral_model, helpers):
     from sparseml.transformers.sparsification.modification.modifying_mistral import (  # noqa F401
         modify,
     )
 
-    num_attn_blocks = mistral_model.config.num_hidden_layers
-
-    # keep the original model for comparison
-    mistral_ = deepcopy(mistral_model)
-    mistral = modify_model(mistral_model)
-
-    # check how many modified "MistralAttention" modules are in the original
-    # model (should be 0, as the model is not modified yet)
-    modified_modules_original_model = [
-        module
-        for module in mistral_.modules()
-        if _is_mistral_attention_modified(module)
-        and module.__class__.__name__ == "MistralAttention"
-    ]
-    # check how many modified "MistralAttention" modules are
-    # in the modified model (should be num_attn_blocks, as the
-    # model is modified, and has num_attn_blocks attention blocks)
-    modified_modules_modified_model = [
-        module
-        for module in mistral.modules()
-        if _is_mistral_attention_modified(module)
-        and module.__class__.__name__ == "MistralAttention"
-    ]
-    # check how many original "MistralAttention"
-    # modules are in the original
-    # model (should be num_attn_blocks, as the model is
-    # not modified yet, and has num_attn_blocks attention blocks)
-    original_modules_original_model = [
-        module
-        for module in mistral_.modules()
-        if not _is_mistral_attention_modified(module)
-        and module.__class__.__name__ == "MistralAttention"
-    ]
-    # check how many original "MistralAttention"
-    # modules are in the modified
-    # model (should be 0, as the model is
-    # modified, and should not contain any original
-    # "MistralAttention" modules)
-    original_modules_modified_model = [
-        module
-        for module in mistral.modules()
-        if not _is_mistral_attention_modified(module)
-        and module.__class__.__name__ == "MistralAttention"
-    ]
-
-    assert (
-        len(modified_modules_original_model)
-        == len(original_modules_modified_model)
-        == 0
-    )
-    assert (
-        len(modified_modules_modified_model)
-        == len(original_modules_original_model)
-        == num_attn_blocks
+    helpers.check_model_modified(
+        mistral_model,
+        module_to_replace=MistralAttention,
+        func_to_validate_replacement=_is_mistral_attention_modified,
     )
 
 

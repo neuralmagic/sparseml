@@ -33,7 +33,6 @@ def model():
 
 
 def test_modify_model_without_actual_modification(model):
-
     is_modified = copy(model.modified)
     model = modify_model(model)
     assert model.modified == is_modified == False  # noqa E712

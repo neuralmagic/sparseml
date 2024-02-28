@@ -12,9 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from copy import deepcopy
-
 import pytest
+from transformers.models.llama.modeling_llama import LlamaAttention
 
 from sparseml.pytorch.model_load.helpers import apply_recipe_structure_to_model
 from sparseml.transformers.sparsification.modification import modify_model
@@ -40,65 +39,15 @@ def llama_recipe():
             symmetric: False"""
 
 
-def test_modifying_llama(llama_model):
+def test_modifying_llama(llama_model, helpers):
     from sparseml.transformers.sparsification.modification.modifying_llama import (  # noqa F401
         modify,
     )
 
-    num_attn_blocks = llama_model.config.num_hidden_layers
-
-    # keep the original model for comparison
-    llama_ = deepcopy(llama_model)
-    llama = modify_model(llama_model)
-
-    # check how many modified "LlamalAttention" modules are in the original
-    # model (should be 0, as the model is not modified yet)
-    modified_modules_original_model = [
-        module
-        for module in llama_.modules()
-        if _is_llama_attention_modified(module)
-        and module.__class__.__name__ == "LlamaAttention"
-    ]
-    # check how many modified "LLamalAttention" modules are
-    # in the modified model (should be num_attn_blocks, as the
-    # model is modified, and has num_attn_blocks attention blocks)
-    modified_modules_modified_model = [
-        module
-        for module in llama.modules()
-        if _is_llama_attention_modified(module)
-        and module.__class__.__name__ == "LlamaAttention"
-    ]
-    # check how many original "LlamalAttention"
-    # modules are in the original
-    # model (should be num_attn_blocks, as the model is
-    # not modified yet, and has num_attn_blocks attention blocks)
-    original_modules_original_model = [
-        module
-        for module in llama_.modules()
-        if not _is_llama_attention_modified(module)
-        and module.__class__.__name__ == "LlamaAttention"
-    ]
-    # check how many original "LlamalAttention"
-    # modules are in the modified
-    # model (should be 0, as the model is
-    # modified, and should not contain any original
-    # "LlamalAttention" modules)
-    original_modules_modified_model = [
-        module
-        for module in llama.modules()
-        if not _is_llama_attention_modified(module)
-        and module.__class__.__name__ == "LlamaAttention"
-    ]
-
-    assert (
-        len(modified_modules_original_model)
-        == len(original_modules_modified_model)
-        == 0
-    )
-    assert (
-        len(modified_modules_modified_model)
-        == len(original_modules_original_model)
-        == num_attn_blocks
+    helpers.check_model_modified(
+        llama_model,
+        module_to_replace=LlamaAttention,
+        func_to_validate_replacement=_is_llama_attention_modified,
     )
 
 

@@ -14,26 +14,15 @@
 
 from copy import deepcopy
 
-import pytest
 from torch import nn
-from transformers import AutoConfig, AutoModel
 
-from accelerate import init_empty_weights
 from sparseml.transformers.sparsification.modification import modify_model
 from sparseml.transformers.sparsification.modification.modification_objects import (
     QATLinear,
 )
 
 
-@pytest.fixture
-def mobilebert_model():
-    config = AutoConfig.from_pretrained("google/mobilebert-uncased")
-    with init_empty_weights():
-        model = AutoModel.from_config(config)
-    return model
-
-
-def test_modifying_distilbert(mobilebert_model):
+def test_modifying_mobilebert(mobilebert_model):
     from sparseml.transformers.sparsification.modification.modifying_mobilebert import (  # noqa F401
         modify,
     )

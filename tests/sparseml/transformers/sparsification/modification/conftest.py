@@ -12,16 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from copy import deepcopy
+
 import pytest
 from transformers import AutoConfig, AutoModel
 
 from accelerate import init_empty_weights
-from sparseml.transformers import (
-    SparseAutoConfig,
-    SparseAutoModel,
-    SparseAutoModelForCausalLM,
-)
-from sparsezoo import Model
+from sparseml.transformers import SparseAutoConfig, SparseAutoModelForCausalLM
+from sparseml.transformers.sparsification.modification import modify_model
 
 
 @pytest.fixture
@@ -52,36 +50,6 @@ def llama_zoo_model():
         model = SparseAutoModelForCausalLM.from_config(
             config, attn_implementation="eager"
         )
-    return model
-
-
-@pytest.fixture
-def distilbert_zoo_model(tmp_path):
-    stub = "zoo:distilbert-squad_wikipedia_bookcorpus-pruned80.4block_quantized"
-    model_path = Model(stub, tmp_path).training.path
-    model = SparseAutoModel.question_answering_from_pretrained(
-        model_path, model_type="model"
-    )
-    return model
-
-
-@pytest.fixture
-def mobilebert_zoo_model(tmp_path):
-    stub = "zoo:mobilebert-squad_wikipedia_bookcorpus-14layer_pruned50.4block_quantized"
-    model_path = Model(stub, tmp_path).training.path
-    model = SparseAutoModel.question_answering_from_pretrained(
-        model_path, model_type="model"
-    )
-    return model
-
-
-@pytest.fixture
-def bert_zoo_model(tmp_path):
-    stub = "zoo:bert-base-squad_wikipedia_bookcorpus-pruned95.obs_quantized"
-    model_path = Model(stub, tmp_path).training.path
-    model = SparseAutoModel.question_answering_from_pretrained(
-        model_path, model_type="model"
-    )
     return model
 
 
@@ -133,3 +101,63 @@ def opt_model():
     with init_empty_weights():
         model = AutoModel.from_config(config)
     return model
+
+
+@pytest.fixture
+def helpers():
+    return Helpers
+
+
+class Helpers:
+    @staticmethod
+    def check_model_modified(
+        original_model_, module_to_replace, func_to_validate_replacement
+    ):
+        num_attn_blocks = original_model_.config.num_hidden_layers
+
+        original_model = deepcopy(original_model_)
+        modified_model = modify_model(original_model_)
+
+        modified_modules_original_model = [
+            module
+            for module in original_model.modules()
+            if func_to_validate_replacement(module)
+            and isinstance(module, module_to_replace)
+        ]
+
+        modified_modules_modified_model = [
+            module
+            for module in modified_model.modules()
+            if func_to_validate_replacement(module)
+            and isinstance(module, module_to_replace)
+        ]
+
+        original_modules_original_model = [
+            module
+            for module in original_model.modules()
+            if not func_to_validate_replacement(module)
+            and isinstance(module, module_to_replace)
+        ]
+
+        original_modules_modified_model = [
+            module
+            for module in modified_model.modules()
+            if not func_to_validate_replacement(module)
+            and isinstance(module, module_to_replace)
+        ]
+
+        # make sure that the original model has no modified modules
+        # and that the modified model has no original modules
+        assert (
+            len(modified_modules_original_model)
+            == len(original_modules_modified_model)
+            == 0
+        )
+        # make sure that the original model has N original modules
+        # and that the modified model has N modified modules
+        # where N is the number of transformer's attention blocks
+        assert (
+            len(modified_modules_modified_model)
+            == len(original_modules_original_model)
+            == num_attn_blocks
+        )
