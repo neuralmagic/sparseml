@@ -1,10 +1,17 @@
 name: Run nightly docker container
 on:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
-      - '*'
+      - 'main'
   schedule:
     - cron: '0 0 * * *'
+
+env:
+  DEV: ${{ github.ref == 'main' && (github.event.action == 'opened' || github.event.action == 'synchronize')}}
+  NAME: ${{ github.event.number }} 
 
 permissions:
   contents: read
@@ -34,7 +41,15 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build Docker Container
+      - name: Build Dev Docker Container
+        if: ${{ env.DEV == 'true' }}
+        uses: docker/build-push-action@v4
+        with: 
+          context: ./docker_dev
+          build-args: |
+            BRANCH=${{ github.ref_name }}
+      - name: Build Nightly Docker Container
+        if: ${{ env.DEV == 'false' }}
         uses: docker/build-push-action@v4
         with:
           context: ./docker_nightly
