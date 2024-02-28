@@ -24,25 +24,23 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Determine branch
+        run: |
+          if {{ $DEV = 'true' }}; then
+              echo "BRANCH=${{github.ref_name}}" >> "$GITHUB_ENV"
+          else
+              echo "BRANCH=main" >> "$GITHUB_ENV"
+          fi
       - name: Checkout code
-        if: ${{ env.DEV == 'true' }}
         uses: actions/checkout@v3
         with:
-          branch: ${{ github.ref_name }}
-          fetch-depth: 1
-      - name: Checkout code
-        if: ${{ env.DEV == 'false' }}
-        uses: actions/checkout@v3
-        with:
+          ref: $BRANCH
           fetch-depth: 1
       - name: Set up Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@v2
         with:
           buildkitd-flags: --debug
-      - name: Debug
-        run: | 
-          echo ${{ github.ref_name }}
       - name: Get current date
         id: date
         run: echo "::set-output name=date::$(date +'%Y%m%d')"
@@ -58,7 +56,7 @@ jobs:
         with: 
           context: ./docker_dev
           build-args: |
-            BRANCH=${{ github.ref_name }}
+            BRANCH=$BRANCH
       - name: Build Nightly Docker Container
         if: ${{ env.DEV == 'false' }}
         uses: docker/build-push-action@v4
