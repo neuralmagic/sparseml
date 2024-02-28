@@ -1,4 +1,4 @@
-name: Run nightly docker container
+name: Build Docker Container
 on:
   pull_request:
     branches:
@@ -10,7 +10,7 @@ on:
     - cron: '0 0 * * *'
 
 env:
-  DEV: ${{ github.ref == 'main' && (github.event.action == 'opened' || github.event.action == 'synchronize')}}
+  DEV: ${{ github.ref == 'refs/heads/main' && (github.event.action == 'opened' || github.event.action == 'synchronize')}}
   NAME: ${{ github.event.number }} 
 
 permissions:
@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   build-container:
-    name: Build sparseml nightly
+    name: Build sparseml container
     runs-on: ubuntu-latest
 
     steps:
