@@ -208,8 +208,8 @@ def test_fake_quant_wrapper(tmp_path):
     num_calibration_samples = 8
 
     oneshot(
-        model_name_or_path=model_name,
-        dataset_name=dataset_name,
+        model=model_name,
+        dataset=dataset_name,
         output_dir=output_dir,
         overwrite_output_dir=overwrite_output_dir,
         precision=precision,
