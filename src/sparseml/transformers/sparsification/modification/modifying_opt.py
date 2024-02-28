@@ -19,12 +19,12 @@ context of SparseML
 
 import logging
 from typing import Optional, Tuple
-from sparseml.pytorch.utils.helpers import swap_modules
 
 import torch
 from torch import nn
 from transformers.models.opt.modeling_opt import OPTAttention, OptFlashAttention2
 
+from sparseml.pytorch.utils.helpers import swap_modules
 from sparseml.transformers.sparsification.modification.modification_objects import (
     QuantizableBatchMatmul,
     QuantizableIdentity,

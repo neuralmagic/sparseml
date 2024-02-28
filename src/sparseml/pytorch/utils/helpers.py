@@ -724,6 +724,7 @@ def get_layer(name: str, module: Module) -> Module:
 
     return layer
 
+
 def get_terminal_layers(module: Module) -> Dict[str, Module]:
     """
     :param module: the module to grab all terminal layers for

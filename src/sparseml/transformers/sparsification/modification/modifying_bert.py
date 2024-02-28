@@ -20,12 +20,12 @@ context of SparseML
 import logging
 import math
 from typing import Optional, Tuple
-from sparseml.pytorch.utils.helpers import swap_modules
 
 import torch
 from torch import nn
-from transformers.models.bert.modeling_bert import BertSelfAttention, BertAttention
+from transformers.models.bert.modeling_bert import BertAttention, BertSelfAttention
 
+from sparseml.pytorch.utils.helpers import swap_modules
 from sparseml.transformers.sparsification.modification.modification_objects import (
     QATMatMul,
 )

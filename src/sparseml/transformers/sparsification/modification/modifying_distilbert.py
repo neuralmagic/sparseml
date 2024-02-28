@@ -20,12 +20,15 @@ context of SparseML
 import logging
 import math
 from typing import Optional, Tuple
-from sparseml.pytorch.utils.helpers import swap_modules
 
 import torch
 from torch import nn
-from transformers.models.distilbert.modeling_distilbert import MultiHeadSelfAttention, DistilBertFlashAttention2
+from transformers.models.distilbert.modeling_distilbert import (
+    DistilBertFlashAttention2,
+    MultiHeadSelfAttention,
+)
 
+from sparseml.pytorch.utils.helpers import swap_modules
 from sparseml.transformers.sparsification.modification.modification_objects import (
     QATMatMul,
 )

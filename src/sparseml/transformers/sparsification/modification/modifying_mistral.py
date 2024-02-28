@@ -19,7 +19,6 @@ context of SparseML
 import logging
 import math
 from typing import Optional, Tuple
-from sparseml.pytorch.utils.helpers import swap_modules
 
 import torch
 from torch import nn
@@ -30,6 +29,7 @@ from transformers.models.mistral.modeling_mistral import (
     repeat_kv,
 )
 
+from sparseml.pytorch.utils.helpers import swap_modules
 from sparseml.transformers.sparsification.modification.modification_objects import (
     QuantizableIdentity,
     QuantizableMatMul,

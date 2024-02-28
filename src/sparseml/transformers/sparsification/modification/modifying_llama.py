@@ -21,7 +21,6 @@ import logging
 import math
 import warnings
 from typing import Optional, Tuple
-from sparseml.pytorch.utils.helpers import swap_modules
 
 import torch
 import torch.nn.functional as F
@@ -29,12 +28,13 @@ from torch import nn
 from transformers.models.llama.modeling_llama import (
     Cache,
     LlamaAttention,
-    LlamaSdpaAttention,
     LlamaFlashAttention2,
+    LlamaSdpaAttention,
     apply_rotary_pos_emb,
     repeat_kv,
 )
 
+from sparseml.pytorch.utils.helpers import swap_modules
 from sparseml.transformers.sparsification.modification.modification_objects import (
     QuantizableIdentity,
     QuantizableMatMul,

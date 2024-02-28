@@ -18,11 +18,11 @@ context of SparseML
 """
 
 import logging
-from sparseml.pytorch.utils.helpers import swap_modules
 
 from torch import nn
 from transformers.models.mobilebert.modeling_mobilebert import MobileBertEmbeddings
 
+from sparseml.pytorch.utils.helpers import swap_modules
 from sparseml.transformers.sparsification.modification.modification_objects import (
     QATLinear,
 )
