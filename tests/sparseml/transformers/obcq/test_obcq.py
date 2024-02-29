@@ -183,3 +183,37 @@ def test_sgpt_defaults():
     sparsegpt_invalid.initialized_structure_ = True
     with pytest.raises(ValueError):
         sparsegpt_invalid.on_initialize(state=state_test)
+
+
+def test_fake_quant_wrapper(tmp_path):
+    from sparseml.transformers import oneshot
+
+    model_name = "roneneldan/TinyStories-1M"
+    dataset_name = "open_platypus"
+    overwrite_output_dir = True
+    precision = "bfloat16"  # unsupported by native FakeQuantize
+    oneshot_device = "cuda:0"  # unsupported by native FakeQuantize
+    output_dir = tmp_path / "temp_output"
+    recipe = """
+    first_stage:
+        quant_modifiers:
+            QuantizationModifier:
+                ignore:
+                    - Embedding
+                scheme_overrides:
+                    LayerNorm:
+                        input_activations: null
+                        output_activations: null
+    """
+    num_calibration_samples = 8
+
+    oneshot(
+        model=model_name,
+        dataset=dataset_name,
+        output_dir=output_dir,
+        overwrite_output_dir=overwrite_output_dir,
+        precision=precision,
+        recipe=recipe,
+        oneshot_device=oneshot_device,
+        num_calibration_samples=num_calibration_samples,
+    )
