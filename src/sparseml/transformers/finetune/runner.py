@@ -118,12 +118,7 @@ class StageRunner:
                 tokenizer=tokenizer,
             )
 
-            if isinstance(self._data_args.dataset, str):
-                raw_dataset = dataset_manager.get_raw_dataset(
-                    self._model_args.cache_dir
-                )
-            else:
-                raw_dataset = self._data_args.dataset
+            raw_dataset = dataset_manager.get_raw_dataset(self._model_args.cache_dir)
             tokenized_dataset = dataset_manager.tokenize_and_process(raw_dataset)
             tokenized_datasets[split_name] = tokenized_dataset
 

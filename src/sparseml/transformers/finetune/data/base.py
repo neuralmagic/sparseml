@@ -40,6 +40,8 @@ class TextGenerationDataset(RegistryMixin):
     :param tokenizer: tokenizer to use on dataset
     """
 
+    PROMPT_KEY = "prompt"
+
     def __init__(
         self,
         text_column: str,
@@ -127,9 +129,11 @@ class TextGenerationDataset(RegistryMixin):
 
             # store unpadded prompt so we can mask out correct number of elements
             # in the labels
-            if "prompt" in data:
-                result["prompt"] = self.tokenizer(
-                    data["prompt"], max_length=self.max_seq_length, truncation=True
+            if self.PROMPT_KEY in data:
+                result[self.PROMPT_KEY] = self.tokenizer(
+                    data[self.PROMPT_KEY],
+                    max_length=self.max_seq_length,
+                    truncation=True,
                 )["input_ids"]
 
             return result
@@ -153,8 +157,8 @@ class TextGenerationDataset(RegistryMixin):
             # if the dataset uses prompts, mask them out so they don't contribute
             # to the loss calculation
             prompt_len = 0
-            if "prompt" in data:
-                prompt_len = len(data["prompt"])
+            if self.PROMPT_KEY in data:
+                prompt_len = len(data[self.PROMPT_KEY])
             data["labels"] = data["input_ids"].copy()
             data["labels"][:prompt_len] = [LABELS_MASK_VALUE] * prompt_len
 
@@ -195,7 +199,9 @@ class TextGenerationDataset(RegistryMixin):
             dataset,
             function=label_fn,
             batched=False,  # not compatible with batching due to needing row lengths
-            remove_columns=["prompt"] if "prompt" in column_names else None,
+            remove_columns=[self.PROMPT_KEY]
+            if self.PROMPT_KEY in column_names
+            else None,
             num_proc=self.data_args.preprocessing_num_workers,
             load_from_cache_file=not self.data_args.overwrite_cache,
             desc="Adding labels",
