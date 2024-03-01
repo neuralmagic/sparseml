@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import os
 from typing import Any, Callable, Dict, List, Optional
 
@@ -20,6 +21,9 @@ from datasets import Dataset, load_dataset
 from torch.utils.data import DataLoader, RandomSampler
 from transformers.data import default_data_collator
 
+
+LOGGER = logging.getLogger(__name__)
+LABELS_MASK_VALUE = -100
 
 __all__ = [
     "format_calibration_data",

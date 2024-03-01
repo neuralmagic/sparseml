@@ -30,6 +30,7 @@ class OutputDistillationModifier(Modifier):
     comparison_args: Dict[str, Any] = None
     orig_scale: float = 1.0
     distill_scale: float = 1.0
+    offload_layer_output: bool = False
 
     def on_initialize_structure(self, state: State, **kwargs):
         pass  # nothing needed for this modifier
