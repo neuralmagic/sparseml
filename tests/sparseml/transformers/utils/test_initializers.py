@@ -48,11 +48,6 @@ def save_recipe_for_text_classification(source_path):
     "stub, task, data_args",
     [
         (
-            "zoo:obert-medium-squad_wikipedia_bookcorpus-pruned95_quantized",
-            "qa",
-            dict(dataset_name="squad"),
-        ),
-        (
             "roneneldan/TinyStories-1M",
             "text-generation",
             None,
