@@ -23,6 +23,7 @@ from transformers.data import default_data_collator
 
 
 LOGGER = logging.getLogger(__name__)
+LABELS_MASK_VALUE = -100
 
 __all__ = [
     "format_calibration_data",
