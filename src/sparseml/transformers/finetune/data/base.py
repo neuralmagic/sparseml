@@ -18,9 +18,9 @@ from typing import Optional, Union
 from datasets import Dataset, IterableDataset
 from transformers import AutoTokenizer
 
-from sparseml.modifiers.utils.pytorch_helpers import PADDING_MASK_COLUMN_NAME
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
 from sparseml.transformers.finetune.data.data_helpers import (
+    LABELS_MASK_VALUE,
     get_custom_datasets_from_path,
     get_raw_dataset,
 )
@@ -109,16 +109,12 @@ class TextGenerationDataset(RegistryMixin):
             **self.raw_kwargs,
         )
 
-    def tokenize_and_process(
-        self, raw_dataset: Dataset, store_padding_mask: bool = False
-    ) -> Dataset:
+    def tokenize_and_process(self, raw_dataset: Dataset) -> Dataset:
         """
         Sets up the raw dataset for finetuning, performs tokenization, concatenates
         entries to max sequence length if desired, and adds labels to each entry
 
         :param raw_dataset: dataset to process
-        :param store_padding_mask: when set, keep track of a padding mask for each
-        embedding in the dataset. Used for zeroing out padding during one-shot pruning.
         """
         # helper fn for tokenizing text column
         def tokenize_fn(data):
@@ -128,6 +124,14 @@ class TextGenerationDataset(RegistryMixin):
                 max_length=self.max_seq_length,
                 truncation=True,
             )
+
+            # store unpadded prompt so we can mask out correct number of elements
+            # in the labels
+            if "prompt" in data:
+                result["prompt"] = self.tokenizer(
+                    data["prompt"], max_length=self.max_seq_length, truncation=True
+                )["input_ids"]
+
             return result
 
         # helper fn for filling to max_sequence_length by concatenating entries
@@ -146,21 +150,29 @@ class TextGenerationDataset(RegistryMixin):
 
         # helper fn for adding labels, needed for loss calculation
         def label_fn(data):
+            # if the dataset uses prompts, mask them out so they don't contribute
+            # to the loss calculation
+            prompt_len = 0
+            if "prompt" in data:
+                prompt_len = len(data["prompt"])
             data["labels"] = data["input_ids"].copy()
+            data["labels"][:prompt_len] = [LABELS_MASK_VALUE] * prompt_len
+
+            # mask out padding in the labels as well
+            padding = len(data["attention_mask"]) - sum(data["attention_mask"])
+            if padding > 0:
+                data["labels"][-padding:] = [LABELS_MASK_VALUE] * padding
             return data
 
         dataset = self.map(
             raw_dataset,
             function=tokenize_fn,
             batched=True,
-            remove_columns=[self.text_column] if not store_padding_mask else None,
+            remove_columns=[self.text_column],
             num_proc=self.data_args.preprocessing_num_workers,
             load_from_cache_file=not self.data_args.overwrite_cache,
             desc="Running tokenizer on dataset",
         )
-
-        if store_padding_mask:
-            dataset = self.create_padding_mask(dataset)
 
         if self.data_args.concatenate_data:
             dataset = self.map(
@@ -172,50 +184,25 @@ class TextGenerationDataset(RegistryMixin):
                 desc="Grouping text",
             )
 
+        if isinstance(dataset, IterableDataset):
+            # so we can get column names from streamed_datasets
+            dataset = dataset._resolve_features()
+
+        column_names = dataset.column_names
+        if isinstance(column_names, dict):
+            column_names = column_names[list(column_names)[0]]
         dataset = self.map(
             dataset,
             function=label_fn,
-            batched=True,
+            batched=False,  # not compatible with batching due to needing row lengths
+            remove_columns=["prompt"] if "prompt" in column_names else None,
             num_proc=self.data_args.preprocessing_num_workers,
             load_from_cache_file=not self.data_args.overwrite_cache,
             desc="Adding labels",
         )
+        print(dataset.column_names)
 
         return dataset
-
-    def create_padding_mask(self, raw_dataset: Dataset) -> Dataset:
-        """
-        Given a dataset, add a new column to each entry that is a mask indicating
-        whether or not that element is padding
-
-        :param raw_dataset: dataset to add padding column to
-        :return: dataset with padding column added
-        """
-        # helper fn for tokenizing text column
-        def padding_mask_fn(data):
-            result = self.tokenizer(
-                data[self.text_column],
-                padding=False,
-                max_length=self.max_seq_length,
-                truncation=True,
-            )
-            non_padded_size = len(result["input_ids"])
-            mask = [1] * non_padded_size
-            padding = [0] * (self.max_seq_length - non_padded_size)
-            data[PADDING_MASK_COLUMN_NAME] = mask + padding
-            return data
-
-        padding_mask_dataset = self.map(
-            raw_dataset,
-            function=padding_mask_fn,
-            remove_columns=[self.text_column],
-            batched=False,
-            num_proc=self.data_args.preprocessing_num_workers,
-            load_from_cache_file=not self.data_args.overwrite_cache,
-            desc="Creating padding mask",
-        )
-
-        return padding_mask_dataset
 
     def map(
         self, dataset: Union[Dataset, IterableDataset], **kwargs
