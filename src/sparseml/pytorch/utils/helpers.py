@@ -1227,9 +1227,9 @@ def get_dependency_order(
 
 def swap_modules(
     module: torch.nn.Module, submodule_name: str, submodule_to_replace: torch.nn.Module
-):
+) -> torch.nn.Module:
     """
-    Recursively unfold the submodules of the module according to the submodule_name
+    Iteratively unfold the submodules of the module according to the submodule_name
     to eventually replace the leaf submodule (accessed from the module through the
     submodule_name) with the submodule_to_replace.
 
@@ -1240,33 +1240,21 @@ def swap_modules(
                  module_to_replace=ReplaceModule
                  )
     ```
-    this will recursively call:
-    1. SomeModule1 = getattr(Model, "layers")
-    2. SomeModule2 = getattr(SomeModule1, "0")
-
-    finally will swap the leaf submodule with the submodule_to_replace
-    ```
-    (submodule_name = "sublayer")
-    setattr(SomeModule2 , submodule_name, ReplaceModule)
-    ```
-    this will essentially replace SomeModule2.sublayer with ReplaceModule
+    this will iteratively traverse through the submodules
+    'layers' -> '0' -> to eventually replace 'sublayer' with ReplaceModule
 
     :param module: the module to replace with the module_to_replace
     :param submodule_name: the name of the module to replace
     :param submodule_to_replace: the module to replace the module with
+    :return: the replaced module
     """
-    if not isinstance(module, torch.nn.Module):
-        raise ValueError(f"module {module} is not a torch.nn.Module")
-    if not isinstance(submodule_to_replace, torch.nn.Module):
-        raise ValueError(
-            f"submodule_to_replace {submodule_name} is not a torch.nn.Module"
-        )
+    parent = module
+    sections = submodule_name.split(".")
 
-    attribute_name = submodule_name
-    attribute_name = attribute_name.split(".", 1)
-    if len(attribute_name) == 1:
-        setattr(module, attribute_name[0], submodule_to_replace)
-    else:
-        swap_modules(
-            getattr(module, attribute_name[0]), attribute_name[1], submodule_to_replace
-        )
+    for sec in sections[:-1]:
+        parent = parent.__getattr__(sec)
+
+    cur = parent.__getattr__(sections[-1])
+    parent.__setattr__(sections[-1], submodule_to_replace)
+
+    return cur
