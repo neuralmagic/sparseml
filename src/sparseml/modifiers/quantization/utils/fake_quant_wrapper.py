@@ -13,7 +13,14 @@
 # limitations under the License.
 
 import torch
-from torch.ao.quantization import FakeQuantize
+from packaging import version
+
+
+_PARSED_TORCH_VERSION = version.parse(torch.__version__)
+if _PARSED_TORCH_VERSION < version.parse("2"):
+    from torch.quantization import FakeQuantize
+else:
+    from torch.ao.quantization import FakeQuantize
 
 
 class FakeQuantizeWrapper(FakeQuantize):
