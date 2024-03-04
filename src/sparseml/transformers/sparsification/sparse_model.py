@@ -156,7 +156,7 @@ class SparseAutoModel:
                 model_name_or_path,
                 **kwargs,
             )
-
+        model = modify_model(model)
         log_model_load(model, model_name_or_path, model_type, delayed)
 
         return model
@@ -221,6 +221,7 @@ class SparseAutoModel:
             model_name_or_path,
             **kwargs,
         )
+        model = modify_model(model)
         log_model_load(model, model_name_or_path, model_type, delayed)
 
         return model
@@ -283,6 +284,7 @@ class SparseAutoModel:
             model_name_or_path,
             **kwargs,
         )
+        model = modify_model(model)
         log_model_load(model, model_name_or_path, model_type, delayed)
 
         return model
@@ -380,6 +382,7 @@ class SparseAutoModel:
             model_name_or_path,
             **kwargs,
         )
+        model = modify_model(model)
         log_model_load(model, model_name_or_path, model_type, delayed)
 
         return model
@@ -406,6 +409,7 @@ class SparseAutoModel:
             model_type="student" if teacher_name_or_path else "model",
             **model_kwargs,
         )
+
         teacher = (
             SparseAutoModel.token_classification_from_pretrained(
                 teacher_name_or_path, model_type="teacher", **teacher_kwargs

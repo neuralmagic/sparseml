@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+import shutil
 from collections import OrderedDict
 
 import pytest
@@ -32,16 +33,21 @@ from sparsezoo import Model
 
 
 @pytest.fixture()
-def generative_model_path(tmp_path):
-    return snapshot_download("roneneldan/TinyStories-1M", local_dir=tmp_path)
+def generative_model_path(autouse=True):
+    generative_model_path = snapshot_download("roneneldan/TinyStories-1M")
+    yield generative_model_path
+    shutil.rmtree(generative_model_path)
 
 
-@pytest.fixture()
+@pytest.fixture(autouse=True)
 def model_path(tmp_path):
-    return Model(
+    model_path_dir = tmp_path / "model"
+    model_path_dir.mkdir()
+    yield Model(
         "zoo:mobilebert-squad_wikipedia_bookcorpus-14layer_pruned50.4block_quantized",
-        tmp_path,
+        model_path_dir,
     ).training.path
+    shutil.rmtree(tmp_path)
 
 
 @pytest.fixture()
@@ -70,6 +76,7 @@ def test_is_transformer_model(tmp_path, stub):
     zoo_model = Model(stub, tmp_path)
     source_path = zoo_model.training.path
     assert is_transformer_model(source_path)
+    shutil.rmtree(tmp_path)
 
 
 @pytest.mark.parametrize(
@@ -91,6 +98,7 @@ def test_save_zoo_directory(stub, tmp_path_factory):
     )
     new_zoo_model = Model(str(save_dir))
     assert new_zoo_model.validate(minimal_validation=True, validate_onnxruntime=False)
+    shutil.rmtree(tmp_path_factory.getbasetemp())
 
 
 @pytest.mark.parametrize(
