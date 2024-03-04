@@ -112,7 +112,7 @@ def test_recipe_can_be_created_from_modifier_instances():
     )
 
     actual_recipe_instance = Recipe.create_instance(
-        [modifier], modifier_group=group_name
+        [modifier], modifier_group_name=group_name
     )
     actual_modifiers = actual_recipe_instance.create_modifier(
         framework=Framework.pytorch

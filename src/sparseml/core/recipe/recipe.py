@@ -17,7 +17,7 @@ import logging
 import os
 import re
 from dataclasses import dataclass
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import yaml
 from pydantic import Field, root_validator
@@ -35,8 +35,6 @@ from sparsezoo import Model
 __all__ = ["Recipe", "RecipeTuple"]
 
 _LOGGER = logging.getLogger(__name__)
-
-ModifierGroupType = Union[Literal["oneshot", "train"], None]
 
 
 class Recipe(RecipeBase):
@@ -56,13 +54,13 @@ class Recipe(RecipeBase):
     def from_modifiers(
         cls,
         modifiers: Union[Modifier, List[Modifier]],
-        modifier_group_name: ModifierGroupType = None,
+        modifier_group_name: Optional[str] = None,
     ) -> "Recipe":
         """
         Create a recipe instance from a list of modifiers
 
         (Note: all modifiers are wrapped into a single stage
-        with the run_type as the stage name. If run_type is None,
+        with the modifier_group_name as the stage name. If modifier_group_name is None,
         the default run type is `oneshot`)
 
         Lfecycle:
@@ -98,7 +96,7 @@ class Recipe(RecipeBase):
     def create_instance(
         cls,
         path_or_modifiers: Union[str, Modifier, List[Modifier]],
-        modifier_group: ModifierGroupType = None,
+        modifier_group_name: Optional[str] = None,
     ) -> "Recipe":
         """
         Create a recipe instance from a file, string, or RecipeModifier objects
@@ -134,7 +132,7 @@ class Recipe(RecipeBase):
 
         if isinstance(path_or_modifiers, (Modifier, list)):
             return cls.from_modifiers(
-                modifiers=path_or_modifiers, modifier_group_name=modifier_group
+                modifiers=path_or_modifiers, modifier_group_name=modifier_group_name
             )
 
         if not os.path.isfile(path_or_modifiers):
@@ -655,7 +653,7 @@ def _parse_recipe_from_md(file_path, yaml_str):
 
 def create_recipe_string_from_modifiers(
     modifiers: List[Modifier],
-    modifier_group_name: ModifierGroupType = None,
+    modifier_group_name: Optional[str] = None,
 ) -> str:
     """
     Create a recipe string from a list of Modifier instances
