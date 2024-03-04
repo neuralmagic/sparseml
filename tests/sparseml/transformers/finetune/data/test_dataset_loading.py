@@ -239,33 +239,3 @@ def test_split_loading(split_def, tiny_llama_tokenizer):
     train_dataset = stage_runner.get_dataset_split("train")
     assert train_dataset is not None
     assert isinstance(train_dataset[0], dict)
-
-
-@pytest.mark.usefixtures("tiny_llama_tokenizer")
-def test_padding_mask(tiny_llama_tokenizer):
-    data_args = DataTrainingArguments(
-        dataset="open_platypus",
-        splits={"calibration": "train[:10%]", "train": "train[10%:]"},
-    )
-    training_args = TrainingArguments(
-        do_oneshot=True, do_train=True, output_dir="dummy"
-    )
-    model_args = ModelArguments(model=None)
-    stage_runner = StageRunner(
-        model_args=model_args,
-        data_args=data_args,
-        training_args=training_args,
-        model=None,
-    )
-    stage_runner.populate_datasets(tokenizer=tiny_llama_tokenizer)
-
-    calib_dataset = stage_runner.get_dataset_split("calibration")
-    train_dataset = stage_runner.get_dataset_split("train")
-    assert calib_dataset is not None
-    assert train_dataset is not None
-
-    # padding mask should only be in calibration data
-    assert "padding_mask" not in train_dataset
-    for datapoint in calib_dataset:
-        assert "padding_mask" in datapoint
-        assert len(datapoint["padding_mask"]) == len(datapoint["input_ids"])

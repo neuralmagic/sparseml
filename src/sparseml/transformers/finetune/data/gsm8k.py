@@ -50,6 +50,7 @@ class GSM8KDataset(TextGenerationDataset):
         # helper fn for restructuring each dataset entry using the gsm template
         def restructure_fn(sample):
             sample["text"] = self.GSM_TEMPLATE.format(question=sample["question"])
+            sample[self.PROMPT_KEY] = sample["text"]
             if "answer" in sample:
                 sample["text"] += " " + sample["answer"]
             return sample
