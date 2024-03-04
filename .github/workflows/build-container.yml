@@ -58,6 +58,8 @@ jobs:
           context: ./docker_dev
           build-args: |
             BRANCH=${{github.head_ref}}
+          push: true
+          tags: ghcr.io/neuralmagic/test-sparseml-dev:$NAME
       - name: Build RELEASE Docker Container
         if: ${{ env.RELEASE == 'true' }}
         uses: docker/build-push-action@v4
@@ -65,12 +67,12 @@ jobs:
           context: ./docker_release
           build-args: |
             VERSION=${{ steps.version.outputs.version }}
+          push: true
+          tags: ghcr.io/neuralmagic/test-sparseml:latest, ghcr.io/neuralmagic/test-sparseml:${{ steps.version.outputs.version }}
       - name: Build Nightly Docker Container
         if: ${{ env.DEV == 'false' && env.RELEASE == 'false'}}
         uses: docker/build-push-action@v4
         with:
           context: ./docker_nightly
           push: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
           tags: ghcr.io/neuralmagic/test-sparseml-nightly:latest, ghcr.io/neuralmagic/test-sparseml-nightly:${{ steps.date.outputs.date }}
