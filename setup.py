@@ -82,6 +82,7 @@ _transformers_deps = _pytorch_deps + [
     "einops",
     "evaluate>=0.4.1",
     "accelerate>=0.20.3",
+    "safetensors>=0.4.1",
 ]
 _llm_deps = _transformers_deps + ["sentencepiece"]
 _yolov5_deps = _pytorch_vision_deps + [

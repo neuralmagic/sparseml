@@ -75,6 +75,13 @@ class TrainingArguments(HFTrainingArgs):
         default=True,
         metadata={"help": "Whether to clear SparseSession data between runs."},
     )
+    save_safetensors: Optional[bool] = field(
+        default=True,
+        metadata={
+            "help": "Use safetensors saving and loading for state dicts instead of "
+            "default torch.load and torch.save."
+        },
+    )
     output_dir: str = field(
         default="./output",
         metadata={
