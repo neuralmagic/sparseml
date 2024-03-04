@@ -17,6 +17,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import numpy as np
 import torch
+from tqdm import tqdm
 
 from sparseml.core.model.base import ModifiableModel
 from sparseml.core.state import State
@@ -59,8 +60,6 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
         :param state: session state storing input model and calibration data
         :param kwargs: Unused, kept to conform to the parent method signature
         """
-        self._validate_layerwise_sparsity()
-
         modifiable_model = state.model
         calibration_dataloader = state.data.calib
 
@@ -86,7 +85,12 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
         self.model = self.model.model
         self.layer_compressors_ = []
         self._infer_mask_block_size()
+
         if self.sparsity_profile is not None and self.sparsity_profile.lower() == "owl":
+            _LOGGER.info(
+                "Inferring layer-wise sparsities from "
+                f"{len(dataloader)} calibration samples..."
+            )
             self.sparsity = self._infer_layer_sparsity(dataloader)
         self._validate_layerwise_sparsity()
 
@@ -252,7 +256,7 @@ def _get_activations(model, data_loader, nsamples=128):
                 mod.register_forward_pre_hook(functools.partial(save_acts, name=name))
             )
     device = next(model.parameters()).device
-    for batch in data_loader:
+    for batch in tqdm(data_loader):
         batch = {k: v.to(device) for k, v in batch.items()}
         model(**batch)
         batch = None
