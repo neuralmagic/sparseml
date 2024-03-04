@@ -13,3 +13,9 @@
 # limitations under the License.
 # flake8: noqa
 from .modify_model import modify_model
+from .modifying_bert import *
+from .modifying_distilbert import *
+from .modifying_llama import *
+from .modifying_mistral import *
+from .modifying_mobilebert import *
+from .modifying_opt import *

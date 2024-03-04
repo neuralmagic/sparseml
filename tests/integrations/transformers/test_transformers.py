@@ -167,7 +167,7 @@ class TestTransformers(BaseIntegrationTester):
         results_file = os.path.join(manager.save_dir.name, "train_results.json")
         model_directory = manager.save_dir.name
         assert os.path.isdir(model_directory)
-        assert os.path.exists(os.path.join(model_directory, "pytorch_model.bin"))
+        assert os.path.exists(os.path.join(model_directory, "model.safetensors"))
         model = _load_model_on_task(model_directory, "student", manager.task)
         assert isinstance(model, torch.nn.Module)
 

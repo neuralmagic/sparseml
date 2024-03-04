@@ -37,7 +37,7 @@ from sparseml.transformers.sparsification.modification.registry import (
 _LOGGER = logging.getLogger(__name__)
 
 
-@ModificationRegistry.register(name="BertModel")
+@ModificationRegistry.register(name="BertModel", alias=["BertForQuestionAnswering"])
 def modify(model: nn.Module) -> nn.Module:
     """
     Modify the Bert model to be compatible with SparseML

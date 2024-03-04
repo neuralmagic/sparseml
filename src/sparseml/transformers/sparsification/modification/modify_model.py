@@ -35,6 +35,7 @@ def modify_model(model: Any) -> Any:
     :return: The potentially modified model
     """
     model_name = model.__class__.__name__
+    print(model_name)
 
     try:
         modification_func = ModificationRegistry.get_value_from_registry(model_name)
