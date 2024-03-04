@@ -167,3 +167,6 @@ class ModifiableModel(Generic[MT, LT, PT], MultiFrameworkObject):
         :return: True if QAT is active in any layer, False otherwise
         """
         raise NotImplementedError()
+
+    def get_no_split_params(self) -> Union[str, List[str]]:
+        raise NotImplementedError()

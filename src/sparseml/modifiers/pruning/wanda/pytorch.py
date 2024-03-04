@@ -63,6 +63,9 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
         modifiable_model = state.model
         calibration_dataloader = state.data.calib
 
+        if self.targets is None:
+            self.targets = modifiable_model.get_no_split_params()
+
         self.initialize_compression(modifiable_model, calibration_dataloader)
         self.apply_compression(calibration_dataloader)
 

@@ -70,6 +70,7 @@ __all__ = [
     "qat_active",
     "get_layers_params",
     "get_matching_layer",
+    "get_no_split_params",
 ]
 
 
@@ -79,6 +80,7 @@ _PARSED_TORCH_VERSION = version.parse(torch.__version__)
 ALL_TARGET = "__ALL__"
 ALL_PRUNABLE_TARGET = "__ALL_PRUNABLE__"
 ALL_QUANTIZABLE_TARGET = "__ALL_QUANTIZABLE__"
+ALL_NO_SPLIT_MODULES = "__ALL_NO_SPLIT_MODULES__"
 
 
 def match_targets(name: str, targets: Union[str, List[str]]) -> Tuple[bool, int]:
@@ -314,3 +316,13 @@ def get_matching_layer(
             largest_substring = match_length
 
     return match
+
+
+def get_no_split_params(module: Module) -> Union[str, List[str]]:
+    # importing here to avoid circular import
+    from sparseml.utils.fsdp.helpers import maybe_get_wrapped
+
+    model = maybe_get_wrapped(module)
+    if hasattr(model, "_no_split_modules"):
+        return model._no_split_modules
+    return ALL_PRUNABLE_TARGET

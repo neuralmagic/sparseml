@@ -26,6 +26,7 @@ from sparseml.utils.pytorch import (
     get_layers,
     get_layers_params,
     get_matching_layer,
+    get_no_split_params,
     get_param,
     get_params,
     qat_active,
@@ -146,3 +147,6 @@ class ModifiableModelPyTorch(ModifiableModel[Module, Module, Parameter]):
         :return: True if QAT is active in any layer, False otherwise
         """
         return qat_active(self.model)
+
+    def get_no_split_params(self) -> Union[str, List[str]]:
+        return get_no_split_params(self.model)
