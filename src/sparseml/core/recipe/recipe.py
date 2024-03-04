@@ -683,13 +683,12 @@ def create_recipe_string_from_modifiers(
     #            ...
 
     # Create a recipe string from the modifiers
-    # Default greoup is sparseml_intermediate
-    default_group_name: str = "sparseml_intermediate"
+    default_group_name: str = "DEFAULT"
     modifier_group_name: str = modifier_group_name or default_group_name
 
     recipe_dict = {
         f"{modifier_group_name}_stage": {
-            "pruning_modifiers": {
+            f"{default_group_name}_modifiers": {
                 modifier.__class__.__name__: modifier.dict() for modifier in modifiers
             }
         }

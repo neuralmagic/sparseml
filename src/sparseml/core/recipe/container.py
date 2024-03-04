@@ -96,7 +96,6 @@ class RecipeContainer:
         if recipe is None or isinstance(recipe, list) and len(recipe) == 0:
             return kwargs
 
-        # Recipe is Truthy
         self.compiled_recipe = None
 
         if isinstance(recipe, Modifier) or (
