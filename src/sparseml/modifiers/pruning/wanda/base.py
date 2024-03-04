@@ -95,22 +95,11 @@ class WandaPruningModifier(Modifier):
             # single sparsity will be applied to all layers
             return
 
-        if not isinstance(self.targets, List):
-            raise ValueError(
-                "Layer targets must be a list when specifying layer-wise"
-                f" sparsity. Got {type(self.targets)}"
-            )
+        target_layers = list(self.compressible_layers_.keys())
 
-        if len(self.targets) != len(self.sparsity):
+        if len(target_layers) != len(self.sparsity):
             raise ValueError(
                 "Number of layer targets must match the number of "
-                f"sparsities. Got {len(self.targets)} layers and "
+                f"sparsities. Got {len(target_layers)} layers and "
                 f"{len(self.sparsity)} sparsities"
             )
-
-        for layer_name in self.targets:
-            if layer_name.startswith("re:"):
-                raise ValueError(
-                    "Using regular expressions for layer-wise sparsity "
-                    f"profiles is not permitted. Found {layer_name}"
-                )
