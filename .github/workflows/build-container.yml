@@ -55,7 +55,7 @@ jobs:
         if: ${{ env.DEV == 'true' }}
         uses: docker/build-push-action@v4
         with: 
-          context: ./docker_dev
+          context: ./docker/containers/docker_dev
           build-args: |
             BRANCH=${{github.head_ref}}
           push: true
@@ -64,7 +64,7 @@ jobs:
         if: ${{ env.RELEASE == 'true' }}
         uses: docker/build-push-action@v4
         with: 
-          context: ./docker_release
+          context: ./docker/containers/docker_release
           build-args: |
             VERSION=${{ steps.version.outputs.version }}
           push: true
@@ -73,6 +73,6 @@ jobs:
         if: ${{ env.DEV == 'false' && env.RELEASE == 'false'}}
         uses: docker/build-push-action@v4
         with:
-          context: ./docker_nightly
+          context: ./docker/containers/docker_nightly
           push: true
           tags: ghcr.io/neuralmagic/test-sparseml-nightly:latest, ghcr.io/neuralmagic/test-sparseml-nightly:${{ steps.date.outputs.date }}
