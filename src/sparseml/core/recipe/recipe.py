@@ -121,7 +121,9 @@ class Recipe(RecipeBase):
         :param modifier_group_name: The stage_name of the recipe,
             if `oneshot` or `train` the run_type of the recipe will be
             inferred from the modifier_group_name, if None, a dummy default
-            group_name will be assigned.
+            group_name will be assigned. This argument is only used
+            when creating a recipe from a Modifier/list of Modifier(s)
+            instance, else it's ignored.
         :return: The Recipe instance created from the path or modifiers,
             or a valid recipe string in yaml/json format
         """
