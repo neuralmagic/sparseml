@@ -20,7 +20,7 @@ import pytest
 # Ignore submodules
 collect_ignore_glob = ["tensorflow_v1-onnx/*"]
 
-LOG_DIR = os.environ["NM_TEST_LOG_DIR"] or "test_logs"
+LOG_DIR = os.environ.get("NM_TEST_LOG_DIR", "test_logs")
 FAILURE_LOG = os.path.join(LOG_DIR, "failures.log")
 
 
