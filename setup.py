@@ -107,7 +107,7 @@ _dev_deps = [
     "flake8==3.9.2",
     "isort==5.8.0",
     "wheel>=0.36.2",
-    "pytest>=6.0.0",
+    "pytest>=6.0.0,<8.1.0",
     "pytest-mock>=3.6.0",
     "flaky~=3.7.0",
     "tensorboard>=1.0,<2.9",
