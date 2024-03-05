@@ -52,7 +52,7 @@ jobs:
       - name: "Checking if sparseml.pytorch was changed"
         id: pytorch-check
         run: >
-          ((git diff --name-only origin/main HEAD | grep -E "[src|tests]/sparseml/pytorch|setup.py|.github")
+          ((git diff --name-only origin/main HEAD | grep -E "[src|tests]/sparseml/modifiers|pytorch|setup.py|.github")
           || (echo $GITHUB_REF | grep -E "refs/heads/[release/|main]"))
           && echo "::set-output name=output::1" || echo "::set-output name=output::0"
       - name: "Checking if sparseml.export was changed"

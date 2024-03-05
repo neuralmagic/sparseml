@@ -32,11 +32,13 @@ class KDModuleWrapper(Module):
         hidden_size: Tuple,
         transforms: Optional[List[TransformFuncType]],
         fsdp_active: bool,
+        offload_output: bool,
     ):
         super(KDModuleWrapper, self).__init__()
 
         self.layer = layer
         self._fsdp_active = fsdp_active
+        self.offload_output = offload_output
         self.kd_transforms = transforms
         self.kd_enabled = False
         self.register_buffer(
@@ -60,6 +62,8 @@ class KDModuleWrapper(Module):
             for transform in self.kd_transforms:
                 output = transform(output)
 
+        if self.offload_output:
+            output = output.to("cpu")
         setattr(self, self.KD_TRANSFORMED_BUFFER, output)
         return org_output
 

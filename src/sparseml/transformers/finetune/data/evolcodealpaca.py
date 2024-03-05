@@ -56,6 +56,7 @@ class EvolCodeAlpacaDataset(TextGenerationDataset):
             sample["text"] = self.EVOL_ALPACA_TEMPLATE.format(
                 instruction=sample["instruction"]
             )
+            sample[self.PROMPT_KEY] = sample["text"]
             if "output" in sample:
                 sample["text"] += sample["output"]
             return sample
