@@ -335,10 +335,17 @@ def get_matching_layer(
 
 
 def get_no_split_params(module: Module) -> Union[str, List[str]]:
+    """
+    Get list of module classes that shouldn't be split when sharding. For
+    Hugging Face Transformer models, this is the decoder layer type. For other
+    types of models, this just returns all module names.
+
+    :return: list of class names that shouldn't be split
+    """
     # importing here to avoid circular import
     from sparseml.utils.fsdp.helpers import maybe_get_wrapped
 
     model = maybe_get_wrapped(module)
     if hasattr(model, "_no_split_modules"):
         return model._no_split_modules
-    return ALL_PRUNABLE_TARGET
+    return ALL_TARGET

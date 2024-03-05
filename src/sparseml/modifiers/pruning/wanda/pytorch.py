@@ -64,6 +64,9 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
         calibration_dataloader = state.data.calib
 
         if self.targets is None:
+            # if no targets are provided, default to the modules that shouldn't be
+            # split by FSDP. For Transformers models this is equivalent to the
+            # decoder layers (ie LlamaDecoderLayer)
             self.targets = modifiable_model.get_no_split_params()
 
         self.initialize_compression(modifiable_model, calibration_dataloader)

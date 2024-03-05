@@ -149,4 +149,11 @@ class ModifiableModelPyTorch(ModifiableModel[Module, Module, Parameter]):
         return qat_active(self.model)
 
     def get_no_split_params(self) -> Union[str, List[str]]:
+        """
+        Get list of module classes that shouldn't be split when sharding. For
+        Hugging Face Transformer models, this is the decoder layer type. For other
+        types of models, this just returns all module names.
+
+        :return: list of class names that shouldn't be split
+        """
         return get_no_split_params(self.model)
