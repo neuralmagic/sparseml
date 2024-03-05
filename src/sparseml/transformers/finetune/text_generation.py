@@ -39,6 +39,7 @@ from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
 from sparseml.transformers.finetune.model_args import ModelArguments
 from sparseml.transformers.finetune.runner import StageRunner
 from sparseml.transformers.finetune.trainer import Trainer
+from sparseml.transformers.finetune.sft_trainer import SFTTrainer
 from sparseml.transformers.finetune.training_args import TrainingArguments
 from sparseml.transformers.utils import SparseAutoModel, get_shared_tokenizer_src
 from sparseml.transformers.utils.helpers import detect_last_checkpoint
@@ -331,7 +332,17 @@ def main(
 
     # Initialize our Trainer
     data_collator = DefaultDataCollator()
-    trainer = Trainer(
+
+    from peft import LoraConfig
+    lora_config = LoraConfig(
+        r=16,
+        lora_alpha=32,
+        lora_dropout=0.05,
+        bias="none",
+        task_type="CAUSAL_LM",
+    )
+
+    trainer = SFTTrainer(
         model_init=get_session_model,
         teacher=teacher,
         model_state_path=model_path,
@@ -344,6 +355,8 @@ def main(
         eval_dataset=eval_dataset,
         tokenizer=tokenizer,
         data_collator=data_collator,
+        peft_config=lora_config,
+        dataset_text_field="text"
     )
     if trainer.is_fsdp_enabled:
         trainer._prepare_model_for_fsdp()

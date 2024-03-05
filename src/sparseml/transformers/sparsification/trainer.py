@@ -35,7 +35,7 @@ from transformers.file_utils import PaddingStrategy
 from transformers.integrations import TensorBoardCallback
 from transformers.trainer_callback import TrainerState
 from transformers.trainer_pt_utils import reissue_pt_warnings
-from transformers.trainer_utils import ShardedDDPOption, get_last_checkpoint
+#from transformers.trainer_utils import ShardedDDPOption, get_last_checkpoint
 
 from sparseml.pytorch.model_load.helpers import log_model_load
 from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
@@ -894,8 +894,8 @@ class TransformersTrainer(HFTransformersTrainer):
         if output_dir is None:
             output_dir = self.args.output_dir
 
-        if self.sharded_ddp == ShardedDDPOption.SIMPLE and self.optimizer is not None:
-            self.optimizer.consolidate_state_dict()
+        #if self.sharded_ddp == ShardedDDPOption.SIMPLE and self.optimizer is not None:
+        #    self.optimizer.consolidate_state_dict()
 
         if self.is_world_process_zero():
             if self.optimizer is not None:
