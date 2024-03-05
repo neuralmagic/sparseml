@@ -1,5 +1,6 @@
 ARG SOURCE=ghcr.io/neuralmagic/cuda-python3.8
-ARG TORCH_VERSION=1.10.1
+# how were these versions selected before?
+ARG TORCH_VERSION=1.10.2
 ARG TORCHVISION_VERSION=0.11.3
 ARG CUDA=113
 
