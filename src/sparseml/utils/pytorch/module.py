@@ -98,6 +98,17 @@ def match_targets(name: str, targets: Union[str, List[str]]) -> Tuple[bool, int]
     return False, -1
 
 
+def match_class(layer: Module, targets: Union[str, List[str]]) -> Tuple[bool, int]:
+    if isinstance(targets, str):
+        targets = [targets]
+
+    for index, target in enumerate(targets):
+        if layer.__class__.__name__ == target:
+            return True, index
+
+    return False, -1
+
+
 def get_default_params(layers: Dict[str, Module]) -> Dict[str, Parameter]:
     params = {}
     for name, layer in layers.items():
@@ -139,6 +150,11 @@ def match_layers_params(
         if match and not params:
             targets_found[match_index] = True
             resolved[name] = layer
+        else:
+            match, match_index = match_class(layer, targets)
+            if match:
+                targets_found[match_index] = True
+                resolved[name] = layer
 
         for param_name, param in layer.named_parameters():
             if "." in param_name:  # skip parameters of nested layers
