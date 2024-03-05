@@ -15,10 +15,9 @@
 
 import importlib
 import logging
-import re
 from collections import OrderedDict
 from enum import Enum
-from typing import Any, List, Optional, Type
+from typing import Any, List, Optional
 
 from packaging import version
 
@@ -64,31 +63,6 @@ def _execute_sparseml_package_function(
         )
 
     return function(*args, **kwargs)
-
-
-def import_attr_from_path(path: str) -> Type[Any]:
-    """
-    Import the module and the name of the function/class separated by :
-    Examples:
-      path = "/path/to/file.py:func_name"
-      path = "/path/to/file:class_name"
-    :param path: path including the file path and object name
-    :return Function or class object
-    """
-    path, class_name = path.split(":")
-    _path = path
-
-    path = path.split(".py")[0]
-    path = re.sub(r"/+", ".", path)
-    try:
-        module = importlib.import_module(path)
-    except ImportError:
-        raise ImportError(f"Cannot find module with path {_path}")
-
-    try:
-        return getattr(module, class_name)
-    except AttributeError:
-        raise AttributeError(f"Cannot find {class_name} in {_path}")
 
 
 def detect_frameworks(item: Any) -> List[Framework]:

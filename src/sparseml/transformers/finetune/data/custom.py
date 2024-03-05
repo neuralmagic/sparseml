@@ -16,15 +16,9 @@ from typing import Callable, List
 
 from datasets.dataset_dict import DatasetDict
 
-from sparseml.base import import_attr_from_path
 from sparseml.transformers.finetune.data import TextGenerationDataset
 from sparseml.transformers.utils.preprocesing_funtions import (
     PreproecessingFunctionRegistry,
-)
-
-
-PREPROCESSING_FUNCTION_REGISTRY_PATH = (
-    "sparseml.transformers.utils.preprocesing_funtions"
 )
 
 
