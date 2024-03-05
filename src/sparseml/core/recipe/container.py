@@ -30,6 +30,7 @@
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Union
 
+from sparseml.core.modifier.modifier import Modifier
 from sparseml.core.recipe.recipe import Recipe, RecipeTuple
 
 
@@ -53,7 +54,9 @@ class RecipeContainer:
 
     def update(
         self,
-        recipe: Union[str, List[str], Recipe, List[Recipe], None] = None,
+        recipe: Union[
+            str, List[str], Recipe, List[Recipe], Modifier, List[Modifier], None
+        ] = None,
         recipe_stage: Union[str, List[str], List[List[str]], None] = None,
         recipe_args: Union[Dict[str, Any], List[Dict[str, Any]], None] = None,
         **kwargs,
@@ -90,33 +93,42 @@ class RecipeContainer:
         :param kwargs: additional kwargs to return
         :return: the passed in kwargs
         """
-        if recipe is not None:
-            self.compiled_recipe = None
+        if recipe is None or isinstance(recipe, list) and len(recipe) == 0:
+            return kwargs
 
-            if not isinstance(recipe, list):
-                recipe = [recipe]
-            if recipe_stage is None:
-                recipe_stage = [None] * len(recipe)
-            else:
-                if not isinstance(recipe_stage, list):
-                    recipe_stage = [[recipe_stage]] * len(recipe)
-                if not isinstance(recipe_stage[0], list):
-                    recipe_stage = [recipe_stage] * len(recipe)
+        self.compiled_recipe = None
 
-            if recipe_args is None:
-                recipe_args = [{}] * len(recipe)
-            elif not isinstance(recipe_args, list):
-                recipe_args = [recipe_args] * len(recipe)
+        if isinstance(recipe, Modifier) or (
+            isinstance(recipe, list)
+            and all(isinstance(mod, Modifier) for mod in recipe)
+        ):
+            recipe = Recipe.create_instance(recipe)
 
-            if len(recipe) != len(recipe_stage) or len(recipe) != len(recipe_args):
-                raise ValueError(
-                    "recipe, recipe_stage, and recipe_args must be the same length"
-                )
+        if not isinstance(recipe, list):
+            recipe = [recipe]
 
-            for rec, stage, args in zip(recipe, recipe_stage, recipe_args):
-                if isinstance(rec, str):
-                    rec = Recipe.create_instance(rec)
-                self.recipes.append(RecipeTuple(rec, stage, args))
+        if recipe_stage is None:
+            recipe_stage = [None] * len(recipe)
+        else:
+            if not isinstance(recipe_stage, list):
+                recipe_stage = [[recipe_stage]] * len(recipe)
+            if not isinstance(recipe_stage[0], list):
+                recipe_stage = [recipe_stage] * len(recipe)
+
+        if recipe_args is None:
+            recipe_args = [{}] * len(recipe)
+        elif not isinstance(recipe_args, list):
+            recipe_args = [recipe_args] * len(recipe)
+
+        if len(recipe) != len(recipe_stage) or len(recipe) != len(recipe_args):
+            raise ValueError(
+                "recipe, recipe_stage, and recipe_args must be the same length"
+            )
+
+        for rec, stage, args in zip(recipe, recipe_stage, recipe_args):
+            if isinstance(rec, str):
+                rec = Recipe.create_instance(rec)
+            self.recipes.append(RecipeTuple(rec, stage, args))
 
         return kwargs
 
