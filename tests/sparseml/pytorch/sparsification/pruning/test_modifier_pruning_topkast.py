@@ -19,7 +19,6 @@ import torch
 from torch.nn import Module
 from torch.optim import SGD, Adam
 
-from flaky import flaky
 from sparseml.pytorch.sparsification.pruning import TopKASTPruningModifier
 from tests.sparseml.pytorch.helpers import LinearNet
 from tests.sparseml.pytorch.sparsification.pruning.helpers import (
@@ -125,7 +124,7 @@ class TestTopKASTPruningModifier(ScheduledModifierTest):
             assert not modifier.update_ready(epoch, test_steps_per_epoch)
             _test_compression_sparsity_applied()
 
-    @flaky(max_runs=3, min_passes=2)
+    @pytest.mark.flaky(reruns=3, min_passes=2)
     def test_weight_decay(
         self,
         modifier_lambda,
