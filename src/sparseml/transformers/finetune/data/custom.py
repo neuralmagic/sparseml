@@ -18,6 +18,9 @@ from datasets.dataset_dict import DatasetDict
 
 from sparseml.base import import_attr_from_path
 from sparseml.transformers.finetune.data import TextGenerationDataset
+from sparseml.transformers.utils.preprocesing_funtions import (
+    PreproecessingFunctionRegistry,
+)
 
 
 PREPROCESSING_FUNCTION_REGISTRY_PATH = (
@@ -65,31 +68,20 @@ class CustomDataset(TextGenerationDataset):
             raw_dataset = super().get_raw_dataset()
 
         if self.preprocessing_func is not None:
-            if isinstance(self.preprocessing_func, Callable):
-                raw_dataset = self.map(
-                    raw_dataset,
-                    function=self.preprocessing_func,
-                    batched=False,
-                    num_proc=self.data_args.preprocessing_num_workers,
-                    desc="Applying custom func to the custom dataset",
+            func = (
+                self.preprocessing_func
+                if isinstance(self.preprocessing_func, Callable)
+                else PreproecessingFunctionRegistry.get_value_from_registry(
+                    name=self.preprocessing_func
                 )
-            elif isinstance(self.preprocessing_func, str):
-                raw_dataset = self.map(
-                    raw_dataset,
-                    function=import_attr_from_path(
-                        PREPROCESSING_FUNCTION_REGISTRY_PATH
-                        + ":"
-                        + self.preprocessing_func
-                    ),
-                    batched=False,
-                    num_proc=self.data_args.preprocessing_num_workers,
-                    desc="Applying custom func to the custom dataset",
-                )
-            else:
-                raise ValueError(
-                    "preprocessing_func should be string or a callable. "
-                    f"Got {self.preprocessing_func}"
-                )
+            )
+            raw_dataset = self.map(
+                raw_dataset,
+                function=func,
+                batched=False,
+                num_proc=self.data_args.preprocessing_num_workers,
+                desc="Applying custom func to the custom dataset",
+            )
 
         self.remove_columns = (
             self.remove_columns or self.get_remove_columns_from_dataset(raw_dataset)

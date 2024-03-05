@@ -221,7 +221,12 @@ def get_custom_datasets_from_path(path: str, ext: str = "json") -> Dict[str, str
 
 
 def transform_dataset_keys(data_files: Dict[str, Any]):
-    """Transform dict keys to `train`, `val` or `test`"""
+    """
+    Transform dict keys to `train`, `val` or `test` for the given input dict
+    if matches exist with the existing keys
+
+    :param data_files: The dict where keys will be transformed
+    """
     keys = set(data_files.keys())
 
     def transform_dataset_key(candidate: str):
