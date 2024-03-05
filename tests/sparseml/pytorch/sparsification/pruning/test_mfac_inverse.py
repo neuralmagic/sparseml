@@ -17,7 +17,6 @@ import os
 import pytest
 import torch
 
-from flaky import flaky
 from sparseml.pytorch.sparsification.pruning import (
     EmpiricalBlockFisherInverse,
     FisherInverseFast,
@@ -54,7 +53,7 @@ PRECISION = 0.00001
         ),
     ],
 )
-@flaky(max_runs=3, min_passes=2)
+@pytest.mark.flaky(reruns=3, min_passes=2)
 def test_blocked_fisher_inverse(fisher_algorithm, devices):
     total_params = 1000
     num_grads = 32
@@ -122,7 +121,7 @@ def test_blocked_fisher_inverse(fisher_algorithm, devices):
         ),
     ],
 )
-@flaky(max_runs=3, min_passes=2)
+@pytest.mark.flaky(reruns=3, min_passes=2)
 def test_online_blocked_fisher_inverse(fisher_block_online_algorithm, device):
     total_params = 10000
     num_grads = 32
