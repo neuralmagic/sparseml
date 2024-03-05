@@ -6,7 +6,7 @@ ARG CUDA=113
 FROM $SOURCE
 
 RUN python3.8 -m pip install --upgrade pip \
-    && python3.8 -m pip install --upgrade setuptools \
+    && python3.8 -m pip install --upgrade setuptools
 
 ARG CUDA 
 ARG TORCH_VERSION
