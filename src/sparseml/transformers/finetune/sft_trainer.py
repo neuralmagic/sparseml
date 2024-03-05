@@ -97,3 +97,19 @@ class SFTTrainer(SessionManagerMixIn, TRLSFTTrainer):
                 torch.save(
                     self.scaler.state_dict(), os.path.join(output_dir, "scaler.pt")
                 )
+
+    def _prepare_dataset(
+        self,
+        dataset,
+        tokenizer,
+        packing,
+        dataset_text_field,
+        max_seq_length,
+        formatting_func,
+        num_of_sequences,
+        chars_per_token,
+        remove_unused_columns=True,
+        append_concat_token=True,
+        add_special_tokens=True,
+    ):
+        return dataset
