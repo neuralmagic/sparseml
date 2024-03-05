@@ -18,7 +18,6 @@ import pytest
 import torch
 from torch.utils.data import DataLoader
 
-from flaky import flaky
 from sparseml.pytorch.sparsification.pruning import OBSPruningModifier
 from sparseml.pytorch.utils import tensor_sparsity
 from sparseml.utils import FROM_PARAM_TOKEN
@@ -67,7 +66,7 @@ def _get_dataloader_builder(
     return dataloader_builder
 
 
-@flaky(max_runs=3, min_passes=2)
+@pytest.mark.flaky(reruns=3, min_passes=2)
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
     reason="Skipping pytorch tests",

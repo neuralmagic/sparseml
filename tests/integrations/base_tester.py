@@ -37,7 +37,6 @@ import pytest
 import yaml
 from pydantic import BaseModel
 
-from flaky import flaky
 from tests.integrations.config import Config
 
 
@@ -249,7 +248,7 @@ def skip_inactive_stage(test):
     return wrapped_test
 
 
-@flaky(max_runs=2, min_passes=1)
+@pytest.mark.flaky(reruns=2, min_passes=1)
 class BaseIntegrationTester:
     """
     Class from which integration test-holding classes should inherit. Tests defined here
