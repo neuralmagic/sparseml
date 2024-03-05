@@ -17,6 +17,7 @@ import os
 from transformers import AutoTokenizer
 
 from sparseml.transformers.utils.helpers import POSSIBLE_TOKENIZER_FILES
+from sparseml.utils.fsdp.context import main_process_first_context
 from sparsezoo import Model
 
 
@@ -42,14 +43,14 @@ class SparseAutoTokenizer(AutoTokenizer):
         :return tokenizer: the loaded tokenizer from pretrained
         """
         if str(pretrained_model_name_or_path).startswith("zoo:"):
-            model = Model(pretrained_model_name_or_path)
-            for file_name in POSSIBLE_TOKENIZER_FILES:
-                # go over all the possible tokenizer files
-                # and if detected, download them
-                file = model.deployment.get_file(file_name)
-                if file is not None:
-                    tokenizer_file = file
-                    tokenizer_file.download()
-            pretrained_model_name_or_path = os.path.dirname(tokenizer_file.path)
-
+            with main_process_first_context():
+                model = Model(pretrained_model_name_or_path)
+                for file_name in POSSIBLE_TOKENIZER_FILES:
+                    # go over all the possible tokenizer files
+                    # and if detected, download them
+                    file = model.deployment.get_file(file_name)
+                    if file is not None:
+                        tokenizer_file = file
+                        tokenizer_file.download()
+                pretrained_model_name_or_path = os.path.dirname(tokenizer_file.path)
         return super().from_pretrained(pretrained_model_name_or_path, *inputs, **kwargs)
