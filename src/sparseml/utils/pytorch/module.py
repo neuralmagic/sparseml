@@ -80,7 +80,6 @@ _PARSED_TORCH_VERSION = version.parse(torch.__version__)
 ALL_TARGET = "__ALL__"
 ALL_PRUNABLE_TARGET = "__ALL_PRUNABLE__"
 ALL_QUANTIZABLE_TARGET = "__ALL_QUANTIZABLE__"
-ALL_NO_SPLIT_MODULES = "__ALL_NO_SPLIT_MODULES__"
 
 
 def match_targets(name: str, targets: Union[str, List[str]]) -> Tuple[bool, int]:
