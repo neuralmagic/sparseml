@@ -24,7 +24,7 @@ Usage: sparseml.evaluate [OPTIONS] MODEL_PATH [INTEGRATION_ARGS]...
   all the auxiliary files) or a SparseZoo/HugginFace stub
 
 Options:
-  -d, --dataset TEXT              The name of dataset to evaluate on
+  -d, --datasets TEXT              The name of dataset to evaluate on
   -i, --integration TEXT          Name of the evaluation integration to use.
                                   Must be a valid integration name that is
                                   registered in the evaluation registry
@@ -79,7 +79,7 @@ _LOGGER = logging.getLogger(__name__)
 )
 @click.option(
     "-d",
-    "--dataset",
+    "--datasets",
     type=str,
     default=None,
     help="The name of dataset to evaluate on",
@@ -126,7 +126,7 @@ _LOGGER = logging.getLogger(__name__)
 @click.argument("integration_args", nargs=-1, type=click.UNPROCESSED)
 def main(
     model_path,
-    dataset,
+    datasets,
     integration,
     save_path,
     type_serialization,
@@ -146,14 +146,14 @@ def main(
     integration_args: Dict[str, Any] = parse_kwarg_tuples(integration_args)
 
     _LOGGER.info(
-        f"Datasets to evaluate on: {dataset}\n"
+        f"Datasets to evaluate on: {datasets}\n"
         f"Batch size: {batch_size}\n"
         f"Additional integration arguments supplied: {integration_args}"
     )
 
     result: Result = evaluate(
         model_path=model_path,
-        datasets=dataset,
+        datasets=datasets,
         integration=integration,
         batch_size=batch_size,
         limit=limit,
