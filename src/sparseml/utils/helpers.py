@@ -74,6 +74,7 @@ __all__ = [
     "parse_kwarg_tuples",
     "download_zoo_training_dir",
     "is_package_available",
+    "get_unique_dir_name",
 ]
 
 
@@ -974,3 +975,23 @@ def is_package_available(
         return package_exists, package_version
     else:
         return package_exists
+
+
+def get_unique_dir_name(dir_name: Union[str, Path]) -> str:
+    """
+    A utility function to get a unique directory name by appending
+    a number to the directory name if the directory already exists
+    (Note: the function does not create the directory, it only
+    returns the unique directory name)
+
+    :param dir_name: The directory name to get a unique name for
+    :return: The unique directory name
+    """
+    dir_name: str = str(dir_name)
+    counter: str = 1
+    new_dir_name: str = dir_name
+
+    while Path(new_dir_name).exists():
+        new_dir_name = f"{dir_name}_{counter}"
+        counter += 1
+    return new_dir_name
