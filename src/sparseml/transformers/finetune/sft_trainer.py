@@ -18,11 +18,11 @@ from typing import Any, Callable, Dict, Optional, Union
 
 import torch
 from torch.nn import Module
-from trl import SFTTrainer as TRLSFTTrainer
-from peft import PeftConfig
 from transformers.trainer_pt_utils import reissue_pt_warnings
 
+from peft import PeftConfig
 from sparseml.transformers.finetune.session_mixin import SessionManagerMixIn
+from trl import SFTTrainer as TRLSFTTrainer
 
 
 __all__ = ["SFTTrainer"]
@@ -68,6 +68,7 @@ class SFTTrainer(SessionManagerMixIn, TRLSFTTrainer):
             recipe=recipe,
             recipe_args=recipe_args,
             teacher=teacher,
+            peft_config=peft_config,
             **kwargs,
         )
 
