@@ -426,6 +426,7 @@ class SessionManagerMixIn:
             framework=Framework.pytorch,
             recipe=self.recipe,
             recipe_stage=stage,
+            recipe_args=self.recipe_args,
             model=self.model,
             calib_data=calib_data,
             start=-1,
