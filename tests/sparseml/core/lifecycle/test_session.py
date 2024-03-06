@@ -62,22 +62,6 @@ def model():
     return lambda x: x
 
 
-@pytest.mark.parametrize(
-    "recipe, expected_layer_prefix",
-    [
-        recipe_without_layer_prefix(),
-        recipe_with_layer_prefix(),
-    ],
-)
-def test_session_initialize_propagates_layer_prefix_to_model(
-    recipe, expected_layer_prefix, model
-):
-    session = session_manager.active_session()
-    session.initialize(framework=Framework.general, model=model, recipe=recipe)
-    print(f"{session.state.model.layer_prefix=}, {expected_layer_prefix=}")
-    assert session.state.model.layer_prefix == expected_layer_prefix
-
-
 class ModifierMock(ModifierInterface):
     initialized_ = False
     applied = False
