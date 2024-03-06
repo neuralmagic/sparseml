@@ -17,7 +17,6 @@ from types import SimpleNamespace
 
 import pytest
 
-import sparseml.core.session as session_manager
 from sparseml.core import Framework
 from sparseml.core.event import Event, EventType
 from sparseml.core.lifecycle.event import CallbacksEventLifecycle
