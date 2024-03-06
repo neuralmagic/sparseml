@@ -44,7 +44,7 @@ jobs:
       - name: Get the current version
         if: ${{ env.RELEASE == 'true' }}
         id: version
-        run: echo "##[set-output name=version;]$(echo ${GITHUB_REF_NAME#*/})"
+        run: echo "::set-output name=version::$(echo ${{ github.base_ref }} | cut -c 9-15)"
       - name: Login to Github Packages
         uses: docker/login-action@v2
         with:
