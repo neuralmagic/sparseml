@@ -23,12 +23,7 @@ from pathlib import PosixPath
 
 import datasets
 import transformers
-from transformers import (
-    AutoConfig,
-    DataCollatorForLanguageModeling,
-    HfArgumentParser,
-    set_seed,
-)
+from transformers import AutoConfig, DefaultDataCollator, HfArgumentParser, set_seed
 
 import sparseml.core.session as session_manager
 from sparseml.core.framework import Framework
@@ -55,6 +50,7 @@ metadata_args = [
     "per_device_train_batch_size",
     "per_device_eval_batch_size",
     "max_seq_length",
+    "save_safetensors",
     "fp16",
 ]
 
@@ -334,8 +330,7 @@ def main(
     calib_dataset = stage_runner.get_dataset_split("calibration")
 
     # Initialize our Trainer
-    data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
-
+    data_collator = DefaultDataCollator()
     trainer = Trainer(
         model_init=get_session_model,
         teacher=teacher,

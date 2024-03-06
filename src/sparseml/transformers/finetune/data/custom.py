@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from copy import deepcopy
-from typing import Callable, List
+from typing import Callable, Dict, List, Union
 
-from datasets.dataset_dict import DatasetDict
+from datasets.dataset_dict import Dataset, DatasetDict
 
 from sparseml.transformers.finetune.data import TextGenerationDataset
 from sparseml.transformers.utils.preprocesing_funtions import (
@@ -46,15 +46,11 @@ class CustomDataset(TextGenerationDataset):
         self.preprocessing_func = data_args.preprocessing_func
         self.remove_columns = data_args.remove_columns
 
-    def get_raw_dataset(self, *_ignore, **__ignore) -> DatasetDict:
+    def get_raw_dataset(self, *_ignore, **__ignore) -> Union[DatasetDict, Dataset]:
         """Get the raw dataset and apply preprocessing func if provided"""
 
-        dataset = (
-            self.data_args.dataset
-            if hasattr(self.data_args, "dataset")
-            else self.data_args.dataset_name
-        )
-        if isinstance(dataset, DatasetDict):
+        dataset = self.data_args.dataset
+        if isinstance(dataset, DatasetDict) or isinstance(dataset, Dataset):
             # user passed in an already instantiated dataset, just use it directly
             raw_dataset = dataset
         else:
@@ -80,10 +76,11 @@ class CustomDataset(TextGenerationDataset):
         self.remove_columns = (
             self.remove_columns or self.get_remove_columns_from_dataset(raw_dataset)
         )
+
         if self.remove_columns is not None:
             raw_dataset = self.map(
                 raw_dataset,
-                batched=False,
+                batched=True,
                 remove_columns=self.remove_columns,
                 num_proc=self.data_args.preprocessing_num_workers,
                 desc="Removing unneeded columns",
@@ -91,12 +88,20 @@ class CustomDataset(TextGenerationDataset):
 
         return raw_dataset
 
-    def get_remove_columns_from_dataset(self, raw_dataset: DatasetDict) -> List[str]:
+    def get_remove_columns_from_dataset(
+        self, raw_dataset: Union[DatasetDict, Dataset]
+    ) -> List[str]:
         """Remove redandant columns from the dataset for processing"""
-        remove_columns = set()
-        for datasets in raw_dataset.values():
-            for feature in datasets.features.keys():
-                remove_columns.add(feature)
 
-        remove_columns.remove(self.text_column)
+        remove_columns = raw_dataset.column_names
+        if isinstance(remove_columns, Dict):
+            remove_columns = raw_dataset[list(raw_dataset.keys())[0]].column_names
+
+        remove_columns = set(remove_columns)
+        if self.text_column in remove_columns:
+            remove_columns.remove(self.text_column)
+        if self.PROMPT_KEY in remove_columns:
+            remove_columns.remove(self.PROMPT_KEY)
+
+
         return list(remove_columns)

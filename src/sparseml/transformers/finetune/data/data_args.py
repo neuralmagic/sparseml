@@ -15,8 +15,6 @@
 from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Optional, Union
 
-from datasets.dataset_dict import DatasetDict
-
 
 @dataclass
 class DVCDatasetTrainingArguments:
@@ -79,7 +77,7 @@ class DataTrainingArguments(CustomDataTrainingArguments):
     arguments to be able to specify them on the command line
     """
 
-    dataset: Union[None, str, DatasetDict] = field(
+    dataset: Optional[str] = field(
         default=None,
         metadata={
             "help": (

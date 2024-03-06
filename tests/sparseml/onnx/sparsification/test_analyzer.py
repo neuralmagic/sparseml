@@ -19,7 +19,6 @@ import os
 import onnx
 import pytest
 
-from flaky import flaky
 from sparseml.onnx.sparsification import (
     ModelInfo,
     PruningLossSensitivityMagnitudeAnalyzer,
@@ -98,7 +97,7 @@ def _test_pruning_sensitivity_results(results, expected_results):
             assert abs(sensitivity - expected_layer_results[sparsity]) < 5e-4
 
 
-@flaky(max_runs=2, min_passes=1)
+@pytest.mark.flaky(reruns=2, min_passes=1)
 def test_pruning_loss_sensitivity_magnitude_analyzer(
     onnx_repo_models: OnnxRepoModelFixture,  # noqa: F811
 ):
@@ -118,7 +117,7 @@ def test_pruning_loss_sensitivity_magnitude_analyzer(
 
 
 @pytest.mark.skipif(deepsparse is None, reason="unable to import deepsparse")
-@flaky(max_runs=2, min_passes=1)
+@pytest.mark.flaky(reruns=2, min_passes=1)
 def test_pruning_performance_sensitivity_analyzer(
     onnx_repo_models: OnnxRepoModelFixture,  # noqa: F811
 ):

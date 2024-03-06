@@ -23,6 +23,7 @@ from transformers.data import default_data_collator
 
 
 LOGGER = logging.getLogger(__name__)
+LABELS_MASK_VALUE = -100
 
 __all__ = [
     "format_calibration_data",
@@ -121,6 +122,8 @@ def make_dataset_splits(
     # handles case where all splits are contained in a single dataset
     if "all" in tokenized_datasets and len(tokenized_datasets) == 1:
         tokenized_datasets = tokenized_datasets.get("all")
+        if isinstance(tokenized_datasets, Dataset):
+            tokenized_datasets = {"train": tokenized_datasets}
 
     train_split = eval_split = predict_split = calib_split = None
 

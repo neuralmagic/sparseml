@@ -22,6 +22,7 @@ from pathlib import Path
 import pytest
 import torch
 
+from sparseml.modifiers.obcq.base import SparseGPTModifier
 from sparseml.transformers import (
     SparseAutoModelForCausalLM,
     SparseAutoTokenizer,
@@ -260,3 +261,61 @@ def create_mock_file(extension, content, path, filename):
         mock_file.write(mock_content)
 
     return mock_filepath  # Return the file path
+
+
+def test_safetensors(tmp_path: Path):
+    model = "Xenova/llama2.c-stories15M"
+    device = "cuda:0"
+    if not torch.cuda.is_available():
+        device = "cpu"
+    dataset = "open_platypus"
+    output_dir = tmp_path / "output1"
+    max_steps = 10
+    splits = {"train": "train[:10%]"}
+
+    train(
+        model=model,
+        dataset=dataset,
+        output_dir=output_dir,
+        max_steps=max_steps,
+        splits=splits,
+        oneshot_device=device,
+    )
+
+    assert os.path.exists(output_dir / "model.safetensors")
+    assert not os.path.exists(output_dir / "pytorch_model.bin")
+
+    # test we can also load
+    new_output_dir = tmp_path / "output2"
+    train(
+        model=output_dir,
+        dataset=dataset,
+        output_dir=new_output_dir,
+        max_steps=max_steps,
+        splits=splits,
+        oneshot_device=device,
+    )
+
+
+def test_oneshot_with_modifier_object(tmp_path: Path):
+    recipe_str = [SparseGPTModifier(sparsity=0.5, targets=[r"re:model.layers.\d+$"])]
+    model = "Xenova/llama2.c-stories15M"
+    device = "cuda:0"
+    if not torch.cuda.is_available():
+        device = "cpu"
+    dataset = "open_platypus"
+    concatenate_data = False
+    num_calibration_samples = 64
+    output_dir = tmp_path / "oneshot_out"
+    splits = {"calibration": "train[:10%]"}
+
+    oneshot(
+        model=model,
+        dataset=dataset,
+        output_dir=output_dir,
+        num_calibration_samples=num_calibration_samples,
+        recipe=recipe_str,
+        concatenate_data=concatenate_data,
+        splits=splits,
+        oneshot_device=device,
+    )

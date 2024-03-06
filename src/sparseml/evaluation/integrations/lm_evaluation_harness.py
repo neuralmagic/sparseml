@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Union
 
 from sparseml.evaluation.registry import SparseMLEvaluationRegistry
 from sparsezoo.evaluation.results import Dataset, Evaluation, Metric, Result
@@ -34,6 +34,7 @@ try:
     # version is installed for SparseML
     from sparseml.transformers.utils.sparse_config import SparseAutoConfig
     from sparseml.transformers.utils.sparse_model import SparseAutoModelForCausalLM
+    from sparseml.transformers.utils.sparse_tokenizer import SparseAutoTokenizer
 except ImportError as import_error:
     raise ImportError(
         "Install sparseml supported dependencies for lm-eval integration by running "
@@ -52,7 +53,7 @@ LM_EVALUATION_HARNESS_ALIASES: List[str] = ["lm-eval-harness"]
 )
 def lm_eval_harness(
     model_path,
-    datasets: str = "wikitext",
+    datasets: Union[str, List[str]] = "wikitext",
     batch_size: int = 1,
     **kwargs,
 ) -> Result:
@@ -61,15 +62,17 @@ def lm_eval_harness(
 
     :param model-path: the target model to evaluate, can be path to
         a local model directory or a SparseZoo/Huggingface stub
-    :param datasets: the datasets to evaluate on, can be a comma separated
-        list of dataset names or a pattern to match against
+    :param datasets: the datasets to evaluate on, can be a string or
+        list of strings, or a command separated string
     :param batch_size: the batch size to use for evaluation
     :param kwargs: additional keyword arguments to pass to the
         lm-evaluation-harness. For example, `limit`
     """
 
     kwargs["limit"] = int(limit) if (limit := kwargs.get("limit")) else None
-    model = SparseMLLM(pretrained=model_path, **kwargs)
+
+    tokenizer = SparseAutoTokenizer.from_pretrained(model_path)
+    model = SparseMLLM(pretrained=model_path, tokenizer=tokenizer, **kwargs)
 
     if kwargs.get("limit"):
         _LOGGER.warning(
@@ -80,6 +83,7 @@ def lm_eval_harness(
     if datasets is None:
         task_names = tasks.ALL_TASKS
     else:
+        datasets = datasets if isinstance(datasets, str) else ",".join(datasets)
         task_names = utils.pattern_match(datasets.split(","), tasks.ALL_TASKS)
 
     _LOGGER.info(f"Selected Tasks: {task_names}")
