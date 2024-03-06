@@ -14,10 +14,12 @@
 import os
 from typing import Any, Dict, Optional
 
+import numpy as np
 import pytest
 import torch
 from torch.utils.data import DataLoader
 
+from flaky import flaky
 from sparseml.pytorch.sparsification.pruning import RigLPruningModifier
 from sparseml.pytorch.utils import tensor_sparsity
 from tests.sparseml.pytorch.helpers import MLPDataset, MLPNet
@@ -65,7 +67,7 @@ def _get_dataloader_builder(
     return dataloader_builder
 
 
-@pytest.mark.flaky(reruns=3, min_passes=2)
+@flaky(max_runs=3, min_passes=2)
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
     reason="Skipping pytorch tests",
@@ -75,7 +77,6 @@ def _get_dataloader_builder(
     [
         lambda: RigLPruningModifier(
             final_sparsity=0.9,
-            global_sparsity=True,
             sparsity_strategy="erdos_renyi_kernel",
             start_epoch=2.0,
             end_epoch=5.0,
@@ -87,7 +88,6 @@ def _get_dataloader_builder(
         ),
         lambda: RigLPruningModifier(
             final_sparsity=0.7,
-            global_sparsity=False,
             sparsity_strategy="uniform",
             start_epoch=2.0,
             end_epoch=5.0,
@@ -101,7 +101,6 @@ def _get_dataloader_builder(
         lambda: RigLPruningModifier(
             params=["seq.fc1.weight", "seq.fc2.weight"],
             final_sparsity=0.5,
-            global_sparsity=True,
             sparsity_strategy="erdos_renyi",
             momentum_buffer_reset=False,
             start_epoch=2.0,
@@ -176,15 +175,22 @@ class TestRigLPruningModifier(ScheduledUpdateModifierTest):
         if not isinstance(applied_sparsities, list):
             applied_sparsities = [applied_sparsities]
 
-        if not isinstance(modifier.init_sparsity, str):
+        if (
+            not isinstance(modifier.init_sparsity, str)
+        ) and modifier._sparsity_strategy == "uniform":
             assert all(
                 applied_sparsity == modifier.init_sparsity
                 for applied_sparsity in applied_sparsities
             )
         else:
-            assert len(modifier._init_sparsity) == len(modifier.module_masks.layers)
+            total_zeroes = 0
+            total_params = 0
             for idx, param in enumerate(modifier.module_masks.params_data):
-                assert modifier._init_sparsity[idx] == tensor_sparsity(param).item()
+                total_zeroes += tensor_sparsity(param).item() * param.numel()
+                total_params += param.numel()
+            assert np.isclose(
+                modifier._init_sparsity, total_zeroes / total_params, atol=1e-4
+            )
 
         last_sparsities = applied_sparsities
 
@@ -217,14 +223,13 @@ class TestRigLPruningModifier(ScheduledUpdateModifierTest):
         modifier.scheduled_update(model, optimizer, epoch, test_steps_per_epoch)
 
         def _test_final_sparsity_applied():
-            final_sparsities = (
-                [modifier.final_sparsity]
-                if isinstance(modifier.final_sparsity, float)
-                else modifier.final_sparsity
-            )
-            assert all(
-                sparsity in final_sparsities for sparsity in modifier.applied_sparsity
-            )
+            total_zeroes = 0
+            total_params = 0
+            for idx, param in enumerate(modifier.module_masks.params_data):
+                total_zeroes += tensor_sparsity(param).item() * param.numel()
+                total_params += param.numel()
+            # RigL can induce additional sparsity from repeated training.
+            assert total_zeroes / total_params >= modifier.final_sparsity
 
         _test_final_sparsity_applied()
 
@@ -293,7 +298,6 @@ def test_rigl_pruning_yaml(params, init_sparsity, final_sparsity):
     start_epoch = 5.0
     end_epoch = 15.0
     update_frequency = 1.0
-    global_sparsity = True
     momentum_buffer_reset = False
     sparsity_strategy = "erdos_renyi"
     num_grads = 64
@@ -307,7 +311,6 @@ def test_rigl_pruning_yaml(params, init_sparsity, final_sparsity):
         update_frequency: {update_frequency}
         params: {params}
         momentum_buffer_reset: {momentum_buffer_reset}
-        global_sparsity: {global_sparsity}
         sparsity_strategy: {sparsity_strategy}
         mask_type: {mask_type}
         num_grads: {num_grads}
@@ -324,7 +327,6 @@ def test_rigl_pruning_yaml(params, init_sparsity, final_sparsity):
         end_epoch=end_epoch,
         update_frequency=update_frequency,
         params=params,
-        global_sparsity=global_sparsity,
         sparsity_strategy=sparsity_strategy,
         momentum_buffer_reset=momentum_buffer_reset,
         mask_type=mask_type,
@@ -341,11 +343,6 @@ def test_rigl_pruning_yaml(params, init_sparsity, final_sparsity):
         str(yaml_modifier.final_sparsity)
         == str(serialized_modifier.final_sparsity)
         == str(obj_modifier.final_sparsity)
-    )
-    assert (
-        str(yaml_modifier.global_sparsity)
-        == str(serialized_modifier.global_sparsity)
-        == str(obj_modifier.global_sparsity)
     )
     assert (
         str(yaml_modifier.sparsity_strategy)
