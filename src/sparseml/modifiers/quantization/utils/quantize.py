@@ -26,6 +26,7 @@ from sparseml.modifiers.quantization.utils.constants import (
     FUSED_MODULE_NAMES,
     NON_QUANTIZABLE_MODULE_NAMES,
 )
+from sparseml.modifiers.quantization.utils.fake_quant_wrapper import FakeQuantizeWrapper
 from sparseml.modifiers.quantization.utils.helpers import (
     QATWrapper,
     configure_module_default_qconfigs,
@@ -71,6 +72,7 @@ def is_qat_helper_module(module: Module) -> bool:
         module,
         (
             fake_quantize_class,
+            FakeQuantizeWrapper,
             torch_quantization.ObserverBase,
             torch_quantization.DeQuantStub,
             torch_quantization.QuantStub,

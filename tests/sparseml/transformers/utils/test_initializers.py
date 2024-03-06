@@ -128,12 +128,9 @@ class TestInitializeModelFlow:
             model=model,
             config=config,
         )
-        validation_dataset = dataset.get("validation")
 
         trainer = initialize_trainer(
-            model=model,
-            model_path=self.model_path,
-            validation_dataset=validation_dataset,
+            model=model, model_path=self.model_path, validation_dataset=dataset
         )
         # assert that trainer is not messing up with model's location
         self._test_model_device(model)

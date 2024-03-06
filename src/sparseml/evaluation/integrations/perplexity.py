@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from sparseml.transformers.utils.sparse_model import SparseAutoModelForCausalLM
 from sparseml.transformers.utils.sparse_tokenizer import SparseAutoTokenizer
@@ -21,6 +21,7 @@ from sparseml.transformers.utils.sparse_tokenizer import SparseAutoTokenizer
 try:
     import numpy
     import torch
+    from datasets import Dataset as HuggingFaceDataset
     from datasets import load_dataset
     from torch.nn import CrossEntropyLoss
     from tqdm import tqdm
@@ -54,9 +55,13 @@ def perplexity_eval(
     :param limit: The number of samples to evaluate on
     :param kwargs: Additional arguments for the evaluation
     """
+    if isinstance(datasets, list):
+        raise NotImplementedError(
+            "Running perplexity evaluation on multiple datasets is not supported"
+        )
     dataset_config_name = _infer_dataset_config_name(datasets)
     task = "text-generation"
-    split = "test"
+    split = kwargs.pop("split", None)
     model = SparseAutoModelForCausalLM.from_pretrained(model_path)
     tokenizer = SparseAutoTokenizer.from_pretrained(model_path)
 
@@ -65,6 +70,7 @@ def perplexity_eval(
         dataset_config_name=dataset_config_name,
         split=split,
         limit=limit,
+        text_column_name=kwargs.pop("text_column_name", None),
     )
     add_start_token = True
     max_length = None
@@ -186,7 +192,7 @@ def perplexity_eval(
     return Result(formatted=[eval], raw=raw)
 
 
-def _infer_dataset_config_name(datasets):
+def _infer_dataset_config_name(datasets: str):
     """
     :param datasets: The name of the dataset to load
     :return: The name of the dataset config to load
@@ -199,7 +205,8 @@ def _infer_dataset_config_name(datasets):
 def _load_perplexity_dataset(
     dataset_name: str,
     dataset_config_name: str,
-    split: str = "test",
+    text_column_name: Union[str, List[str], None] = None,
+    split: Optional[str] = None,
     limit: Optional[int] = None,
 ) -> List[str]:
     """
@@ -207,15 +214,88 @@ def _load_perplexity_dataset(
 
     :param dataset_name: The name of the dataset to load
     :param dataset_config_name: The name of the dataset config to load
-    :param split: The split of the dataset to load
+    :param text_column_name: The name of the column containing the text data
+        if None, defaults to "text". If a list of column names is passed, the
+        columns will be concatenated to form the input text
+    :param split: The split of the dataset to load, if None uses test split
+        if available, otherwise uses train split
     :param nsamples: The number of samples to load from the dataset
     :return: The loaded dataset as a list of strings
     """
-    dataset = load_dataset(dataset_name, dataset_config_name, split=split)["text"]
+
+    dataset: HuggingFaceDataset = _fetch_dataset_split(
+        dataset_name=dataset_name,
+        dataset_config_name=dataset_config_name,
+        split=split,
+    )
+    text_column_name: List[str] = _verify_text_column_name(
+        dataset=dataset, text_column_name=text_column_name
+    )
+
     inputs = []
-    for s in dataset:
-        if s != "":
-            inputs.append(s)
+    for sample in dataset:
+        input_sample = "".join(sample[column_name] for column_name in text_column_name)
+        if input_sample != "":
+            inputs.append(input_sample)
         if limit is not None and len(inputs) >= limit:
             break
     return inputs
+
+
+def _fetch_dataset_split(
+    dataset_name: str, dataset_config_name: Optional[str] = None, split=None
+):
+    """
+    Loads and returns the specified split of the dataset.
+
+    :param dataset_name: The name of the dataset to load from the HuggingFace
+        datasets library
+    :param dataset_config_name: The name of the dataset config to load, if any.
+    :param split: The split of the dataset to load, if None uses test split
+        if available, otherwise uses train split. Also supports HuggingFace
+        style splits such as "train[:10%]", "test", "validation", etc.
+    :return: The loaded dataset split
+    """
+    dataset = load_dataset(dataset_name, dataset_config_name, split=split)
+    if split is not None:
+        # specified split was found in the dataset
+        return dataset
+
+    # try to infer the split to use
+    if "test" in dataset:
+        return dataset["test"]
+
+    if "train" in dataset:
+        return dataset["train"]
+
+    raise ValueError(
+        f"Neither 'test' nor 'train' split found in dataset {dataset_name}. "
+        "Specify a valid split using the 'split' argument."
+    )
+
+
+def _verify_text_column_name(
+    dataset: HuggingFaceDataset,
+    text_column_name: Union[str, List[str], None] = None,
+) -> List[str]:
+    """
+    Verifies that the dataset contains the specified text column name(s),
+    and returns the text column name(s) to use for evaluation as a list.
+
+    :param dataset: The huggingface dataset to verify
+    :param text_column_name: The name of the column containing the text data
+        if None, defaults to "text". If a list of column names is passed, all
+        columns must be present in the dataset
+    :return: The text column name(s) to use for evaluation as a list of strings
+    """
+    text_column_names = text_column_name or ["text"]
+
+    if isinstance(text_column_names, str):
+        text_column_names = [text_column_name]
+
+    for column_name in text_column_names:
+        if column_name not in dataset.column_names:
+            raise ValueError(
+                f"Dataset {dataset} does not contain a column named {column_name}"
+            )
+    return text_column_names

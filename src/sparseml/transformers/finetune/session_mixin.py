@@ -430,6 +430,7 @@ class SessionManagerMixIn:
             calib_data=calib_data,
             start=-1,
             copy_data=False,
+            accelerator=self.accelerator,
         )
 
         self.accelerator.wait_for_everyone()
@@ -456,7 +457,10 @@ class SessionManagerMixIn:
         # don't export the gathered model on checkpoints
         if is_fsdp_model(self.model) and not _internal_call:
             save_pretrained_fsdp(
-                model=self.model, accelerator=self.accelerator, output_dir=output_dir
+                model=self.model,
+                accelerator=self.accelerator,
+                output_dir=output_dir,
+                save_safetensors=self.metadata.get("save_safetensors", False),
             )
 
         self.save_state()

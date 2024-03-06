@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import os
 from typing import Any, Callable, Dict, List, Optional
 
@@ -20,6 +21,9 @@ from datasets import Dataset, load_dataset
 from torch.utils.data import DataLoader, RandomSampler
 from transformers.data import default_data_collator
 
+
+LOGGER = logging.getLogger(__name__)
+LABELS_MASK_VALUE = -100
 
 __all__ = [
     "format_calibration_data",
@@ -45,9 +49,17 @@ def format_calibration_data(
     :param accelerator: optional accelerator for if preparing in FSDP mode
     :return: list of trimmed calibration data tensors
     """
-    num_calibration_samples = num_calibration_samples or len(tokenized_dataset)
+    safe_calibration_samples = len(tokenized_dataset)
+    if num_calibration_samples is not None:
+        safe_calibration_samples = min(len(tokenized_dataset), num_calibration_samples)
+        if safe_calibration_samples != num_calibration_samples:
+            LOGGER.warn(
+                f"Requested {num_calibration_samples} calibration samples but "
+                f"the provided dataset only has {safe_calibration_samples}. "
+            )
+
     shuffled_calibration = tokenized_dataset.shuffle()
-    shuffled_calibration = shuffled_calibration.select(range(num_calibration_samples))
+    shuffled_calibration = shuffled_calibration.select(range(safe_calibration_samples))
 
     dataloader_params = {
         "batch_size": 1,
@@ -78,7 +90,7 @@ def get_raw_dataset(
 
     """
     raw_datasets = load_dataset(
-        data_args.dataset_name,
+        data_args.dataset,
         data_args.dataset_config_name,
         cache_dir=cache_dir,
         streaming=streaming,
@@ -109,6 +121,8 @@ def make_dataset_splits(
     # handles case where all splits are contained in a single dataset
     if "all" in tokenized_datasets and len(tokenized_datasets) == 1:
         tokenized_datasets = tokenized_datasets.get("all")
+        if isinstance(tokenized_datasets, Dataset):
+            tokenized_datasets = {"train": tokenized_datasets}
 
     train_split = eval_split = predict_split = calib_split = None
     if do_train:

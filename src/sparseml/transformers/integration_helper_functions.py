@@ -138,6 +138,8 @@ def create_data_loader(
         - torch model
         - dict of loaded_model_kwargs
     """
+    split = kwargs.get("split", None)
+
     config = config or model.config
     source_path = source_path or model.name_or_path
     if tokenizer is None:
@@ -150,25 +152,25 @@ def create_data_loader(
     data_args = _parse_data_args(data_args or {})
 
     if data_args:
-        validation_dataset = load_task_dataset(
+        dataset = load_task_dataset(
             task=task,
             tokenizer=tokenizer,
             data_args=data_args,
             model=model,
             config=config,
-            split="validation",
+            split=split,
         )
 
         if task in TaskNames.text_generation.value:
             # text-generation datasets have a separate
             # logic for creating a dataloader
             if not dataset_with_labels:
-                validation_dataset = validation_dataset.remove_columns("labels")
-            data_loader = format_calibration_data(tokenized_dataset=validation_dataset)
-            input_names = validation_dataset.column_names
+                dataset = dataset.remove_columns("labels")
+            data_loader = format_calibration_data(tokenized_dataset=dataset)
+            input_names = list(next(iter(data_loader)).keys())
 
         else:
-            trainer = initialize_trainer(model, source_path, validation_dataset)
+            trainer = initialize_trainer(model, source_path, dataset)
             data_loader = trainer.get_eval_dataloader()
             input_names = list(next(trainer._get_fake_dataloader(1, tokenizer)).keys())
 
@@ -246,13 +248,13 @@ class Transformers(IntegrationHelperFunctions):
                 "Fetching default helper functions for transformers integration"
             )
 
-    create_model: Callable[..., Tuple[torch.nn.Module, Dict[str, Any]]] = Field(
+    create_model: Callable[[], Tuple[torch.nn.Module, Dict[str, Any]]] = Field(
         default=create_model
     )
     create_data_loader: Callable[
-        ..., Tuple[Union[Generator, torch.utils.data.DataLoader], Dict[str, Any]]
+        [], Tuple[Union[Generator, torch.utils.data.DataLoader], Dict[str, Any]]
     ] = Field(default=create_data_loader)
-    create_dummy_input: Callable[..., torch.Tensor] = Field(default=create_dummy_input)
+    create_dummy_input: Callable[[], torch.Tensor] = Field(default=create_dummy_input)
     create_data_samples: Callable = Field(create_data_samples)
     deployment_directory_files_mandatory: List[str] = Field(
         default=list(MANDATORY_DEPLOYMENT_FILES)
