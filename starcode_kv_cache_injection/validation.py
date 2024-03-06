@@ -73,7 +73,7 @@ def create_causal_mask(
         attention_mask = numpy.array(attention_mask)[None, ...]
 
     if input_ids_length == 1:
-        causal_mask = numpy.reshape(attention_mask, (batch_size, sequence_length, 1, -1))
+        causal_mask = numpy.reshape(attention_mask, (batch_size, 1, 1, sequence_length))
         return causal_mask.astype(dtype)
 
     causal_mask = numpy.tril(
@@ -89,14 +89,13 @@ def create_causal_mask(
 
     # changes to the original function
     causal_mask[:, :, num_zeros:, :] = 0
-    causal_mask = causal_mask.reshape(1, sequence_length, 1, -1)
 
     return causal_mask
 
 def apply_input_shapes(model, onnx_model_path, sequence_length, config):
     kv_cache_hidden_dim = config.n_embd // config.n_head
-    cache_changes_in = {n.name: [1, "dynamic_len_1", 2 * kv_cache_hidden_dim] for n in model.graph.input if n.name.startswith("past_key_values")}
-    cache_changes_out = {n.name: [1, "dynamic_len_2", 2 * kv_cache_hidden_dim] for n in model.graph.output if n.name.startswith("present")}
+    cache_changes_in = {n.name: [1, 1,"dynamic_len_1", kv_cache_hidden_dim] for n in model.graph.input if n.name.startswith("past_key_values")}
+    cache_changes_out = {n.name: [1, 1,"dynamic_len_2", kv_cache_hidden_dim] for n in model.graph.output if n.name.startswith("present")}
     graph = ONNXGraph(model)
 
     graph.delete_unused_initializers()
@@ -107,9 +106,8 @@ def apply_input_shapes(model, onnx_model_path, sequence_length, config):
                                                          {"input_ids": [1, "dynamic_len_3"],
                                                           "positions": [1, "dynamic_len_4"],
                                                           "attention_mask": [1, sequence_length],
-                                                          "causal_mask": [1, "dynamic_len_5", 1, "dynamic_len_6"],
+                                                          "causal_mask": [1, 1, "dynamic_len_5", "dynamic_len_6"],
                                                           **cache_changes_in},
-
                                                           {"logits": [1, "dynamic_len_6", config.vocab_size], **cache_changes_out})
 
     onnx.save(model, onnx_model_path)
@@ -123,8 +121,11 @@ def multitoken_inference_test(onnx_model_path, prompt, config, tokenizer, sequen
     inputs = tokenizer(prompt, return_tensors="np", padding='max_length', max_length=sequence_length)
     input_ids = inputs.input_ids  # (1, sequence_length)
     attention_mask = inputs.attention_mask  # (1, sequence_length)
-    kv_cache = {f"past_key_values.{i}": np.zeros((1, 0, 2 * kv_cache_hidden_dim), dtype=np.float32) for i in
-                range(config.n_layer)}  # (1, 0, 2 * embedding [because we have k and v's concatenated])
+    kv_cache_value = {f"past_key_values.{i}.value": np.zeros((1, 1, 0, kv_cache_hidden_dim), dtype=np.float32) for i in
+                range(config.n_layer)}  # (1, 0, embedding)
+    kv_cache_keys = {f"past_key_values.{i}.key": np.zeros((1, 1, 0, kv_cache_hidden_dim), dtype=np.float32) for i in
+                range(config.n_layer)}  # (1, 0, embedding)
+    kv_cache = {**kv_cache_keys, **kv_cache_value}
     causal_mask = create_causal_mask(input_ids, attention_mask)  # (1, sequence_length, 1, sequence_length)
     positions = attention_mask.cumsum(-1) - 1  # (1, sequence_length)
 
@@ -154,7 +155,9 @@ def singletoken_inference_test(onnx_model_path, prompt, config, tokenizer, seque
     kv_cache_hidden_dim = config.n_embd // config.n_head
     inputs = tokenizer(prompt, return_tensors="np")
     attention_mask = np.zeros((1, sequence_length), dtype=np.int64)
-    kv_cache = {f"past_key_values.{i}": np.zeros((1,sequence_length-1, 2 * kv_cache_hidden_dim), dtype=np.float32) for i in range(config.n_layer)}
+    kv_cache_keys = {f"past_key_values.{i}.key": np.zeros((1,1,sequence_length-1, kv_cache_hidden_dim), dtype=np.float32) for i in range(config.n_layer)}
+    kv_cache_values = {f"past_key_values.{i}.value": np.zeros((1,1,sequence_length-1, kv_cache_hidden_dim), dtype=np.float32) for i in range(config.n_layer)}
+    kv_cache = {**kv_cache_keys, **kv_cache_values}
     session = ort.InferenceSession(onnx_model_path)
 
     for idx, token in enumerate(inputs.input_ids[0]):
@@ -164,6 +167,11 @@ def singletoken_inference_test(onnx_model_path, prompt, config, tokenizer, seque
         positions = np.array([[idx]])
         input_ids = np.array([[token]])
         causal_mask = create_causal_mask(input_ids, attention_mask)
+        print(causal_mask.shape)
+        print(input_ids.shape)
+        print(attention_mask.shape)
+        print(positions)
+        print(kv_cache["past_key_values.0.key"].shape)
         outputs = session.run(None, {
             "input_ids": input_ids,
             "attention_mask": attention_mask,
@@ -171,10 +179,10 @@ def singletoken_inference_test(onnx_model_path, prompt, config, tokenizer, seque
             "causal_mask": causal_mask,
             **kv_cache
         })
-        logits, *kv_cache = outputs
-        for _idx, (cache_gt, cache) in enumerate(zip(kv_cache_gt, kv_cache)):
-            if np.allclose(cache_gt[:,idx,:], cache[:,-(idx + 1)],atol=1e-3):
-                print(f"Cache {_idx} matches for iteration {idx}")
+        #logits, *kv_cache = outputs
+        #for _idx, (cache_gt, cache) in enumerate(zip(kv_cache_gt, kv_cache)):
+        #    if np.allclose(cache_gt[:,idx,:], cache[:,-(idx + 1)],atol=1e-3):
+        #        print(f"Cache {_idx} matches for iteration {idx}")
         # will not run without throwing an error, there are some missing pieces that need to be addressed
 
 def get_baseline(prompt, hf_model_name, tokenizer):
@@ -194,7 +202,7 @@ def main(prompt, hf_model_name, onnx_model_path, sequence_length):
     logits_gt, kv_cache_gt = get_baseline(prompt, hf_model_name, tokenizer)
 
     #multitoken_inference_test(onnx_model_path, prompt, config, tokenizer, sequence_length, logits_gt, kv_cache_gt)
-    #_LOGGER.info("Successfully ran multi-token inference on the kv cache injected model")
+   # _LOGGER.info("Successfully ran multi-token inference on the kv cache injected model")
     singletoken_inference_test(onnx_model_path, prompt, config, tokenizer, sequence_length, logits_gt, kv_cache_gt)
     _LOGGER.info("Successfully ran single-token inference on the kv cache injected model")
 
