@@ -4,7 +4,7 @@ on:
     types: [opened, synchronize, reopened]
     branches:
       - main
-      - 'release/**'
+      - 'release/[0-9]+.[0-9]+'
   push:
     branches:
       - 'main'
@@ -16,7 +16,7 @@ on:
 # potentially update to change criteria; only run when wheel build is complete
 # use outptus from wheel build to determie if release/dev/nightly
 env:
-  RELEASE: ${{ github.event_name =='release' || (github.base_ref == 'release/**' && github.event_name == 'pull_request')}}
+  RELEASE: ${{ github.event_name =='release' || (startsWith(github.base_ref, 'release/') && github.event_name == 'pull_request')}}
   DEV: ${{ github.base_ref == 'main' && github.event_name == 'pull_request'}}
   NAME: ${{ github.event.number }} 
 
