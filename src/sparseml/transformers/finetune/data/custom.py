@@ -103,5 +103,4 @@ class CustomDataset(TextGenerationDataset):
         if self.PROMPT_KEY in remove_columns:
             remove_columns.remove(self.PROMPT_KEY)
 
-
         return list(remove_columns)
