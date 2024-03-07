@@ -124,11 +124,12 @@ def parse_args(**kwargs):
         model_args, data_args, training_args = parser.parse_dict(kwargs)
 
     if training_args.recipe_args is not None:
-        arg_dict = {}
-        for recipe_arg in training_args.recipe_args:
-            key, value = recipe_arg.split("=")
-            arg_dict[key] = value
-        training_args.recipe_args = arg_dict
+        if not isinstance(training_args.recipe_args, dict):
+            arg_dict = {}
+            for recipe_arg in training_args.recipe_args:
+                key, value = recipe_arg.split("=")
+                arg_dict[key] = value
+            training_args.recipe_args = arg_dict
 
     # when set to true in FSDP mode this causes issues, the model arguments show up
     # as *args and **kwargs so all columns get removed

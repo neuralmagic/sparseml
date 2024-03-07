@@ -218,7 +218,13 @@ class Recipe(RecipeBase):
             for stage in recipe.recipe.stages:
                 if stage.group in stage_names:
                     stages.append(stage)
-        args = recipe.override_args if isinstance(recipe, RecipeTuple) else {}
+
+        # default args in recipe
+        args = recipe.recipe.args if isinstance(recipe, RecipeTuple) else recipe.args
+
+        # overwrite with args passed in through CLI
+        for key, val in recipe.override_args.items():
+            args[key] = val
         version = recipe.version if isinstance(recipe, Recipe) else None
 
         simplified = Recipe()
@@ -396,9 +402,18 @@ class Recipe(RecipeBase):
 
         extracted = Recipe.extract_dict_stages(values)
         stages.extend(extracted)
-        values["stages"] = stages
+        formatted_values = {}
 
-        return values
+        # fill out stages
+        formatted_values["stages"] = stages
+
+        # fill out any default argument values
+        args = {}
+        for key, val in values.items():
+            args[key] = val
+        formatted_values["args"] = RecipeArgs(args)
+
+        return formatted_values
 
     @staticmethod
     def extract_dict_stages(values: Dict[str, Any]) -> List[Dict[str, Any]]:

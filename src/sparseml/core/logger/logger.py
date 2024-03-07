@@ -34,6 +34,7 @@ from sparseml.core.logger.utils import (
     LoggingModeType,
     LogStepType,
 )
+from sparseml.utils import is_package_available
 
 
 try:
@@ -47,14 +48,16 @@ except Exception as tensorboard_err:
     tensorboard_import_error = tensorboard_err
 
 
-try:
+wandb_available = is_package_available("wandb")
+if wandb_available:
     import wandb
 
     wandb_err = None
-except Exception as err:
-    wandb = None
-    wandb_err = err
-
+else:
+    wandb = object
+    wandb_err = ModuleNotFoundError(
+        "`wandb` is not installed, use `pip install wandb` to log to Weights and Biases"
+    )
 
 __all__ = [
     "BaseLogger",
@@ -580,7 +583,7 @@ class WANDBLogger(LambdaLogger):
         """
         :return: True if wandb is available and installed, False, otherwise
         """
-        return not wandb_err
+        return wandb_available
 
     def __init__(
         self,
@@ -590,10 +593,7 @@ class WANDBLogger(LambdaLogger):
         wandb_err: Optional[Exception] = wandb_err,
     ):
         if wandb_err:
-            raise ModuleNotFoundError(
-                "Error: Failed to import wandb. "
-                "Please install the wandb library in order to use it."
-            ) from wandb_err
+            raise wandb_err
 
         super().__init__(
             lambda_func=self._log_lambda,
