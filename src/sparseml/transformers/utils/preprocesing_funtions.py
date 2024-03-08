@@ -21,8 +21,8 @@ class PreproecessingFunctionRegistry(RegistryMixin):
 
 
 @PreproecessingFunctionRegistry.register()
-def evolved_codealpaca_dataset(data):
-    PROMPT_DICT = """[Instructions]:\n{instruction}\n\n[Response]:"""
-    data["text"] = PROMPT_DICT.format_map(data)
-
+def custom_evolved_codealpaca_dataset(data):
+    PROMPT_DICT = """[Instruction]:\n{instruction}\n\n[Response]:"""
+    data["prompt"] = PROMPT_DICT.format_map(data)
+    data["text"] = data["prompt"] + data["output"]
     return data
