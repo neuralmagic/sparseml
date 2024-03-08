@@ -49,7 +49,6 @@ class KDModelWrapper(Module):
         self.register_load_state_dict_post_hook(_clear_missing_keys)
 
     def forward(self, *args, **kwargs):
-        self.teacher_model.eval()
         if not self.kd_enabled:
             return self.student_model(*args, **kwargs)
 
@@ -117,6 +116,13 @@ class KDModelWrapper(Module):
         return self.student_model.named_modules(
             memo=memo, prefix=prefix, remove_duplicate=remove_duplicate
         )
+
+    def named_children(self):
+        return self.student_model.named_children()
+    
+    def train(self, mode: bool = True):
+        self.student_model.train(mode)
+        return self
 
     def __getattr__(self, name: str) -> Any:
         try:

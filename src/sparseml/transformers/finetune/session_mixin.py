@@ -515,6 +515,8 @@ class SessionManagerMixIn:
 
         if self.teacher is not None:
             self.teacher.to("cpu")
+            for n, p in self.teacher.named_parameters():
+                p.requires_grad = False
             self.teacher = self.accelerator.prepare(self.teacher)
             self.teacher.eval()
             self.accelerator.wait_for_everyone()
