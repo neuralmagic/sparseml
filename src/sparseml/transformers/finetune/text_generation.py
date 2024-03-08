@@ -156,10 +156,10 @@ def intialize_model_from_path(
     )
     teacher_config = (
         AutoConfig.from_pretrained(
-            training_args.distill_teacher,
+            model_args.distill_teacher,
             use_auth_token=True if model_args.use_auth_token else None,
         )
-        if training_args.distill_teacher
+        if model_args.distill_teacher
         else None
     )
 
@@ -209,11 +209,11 @@ def intialize_model_from_path(
 
     teacher = (
         SparseAutoModel.text_generation_from_pretrained(
-            model_name_or_path=training_args.distill_teacher,
+            model_name_or_path=model_args.distill_teacher,
             sequence_length=None,  # use model default
             **teacher_kwargs,
         )
-        if training_args.distill_teacher is not None
+        if model_args.distill_teacher is not None
         else None
     )
 
@@ -290,7 +290,7 @@ def main(
 
     # Detecting last checkpoint.
     last_checkpoint = None
-    teacher = None
+    teacher = model_args.distill_teacher
     model_path = None
     model = model_args.model
     # Load tokenizer

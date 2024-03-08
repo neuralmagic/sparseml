@@ -32,12 +32,6 @@ class TrainingArguments(HFTrainingArgs):
         arguments
     """
 
-    distill_teacher: Optional[str] = field(
-        default=None,
-        metadata={
-            "help": "Teacher model (a trained text generation model)",
-        },
-    )
     best_model_after_epoch: int = field(
         default=None,
         metadata={"help": "Epoch after which best model will be saved."},
