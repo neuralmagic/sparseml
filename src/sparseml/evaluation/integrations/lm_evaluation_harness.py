@@ -98,7 +98,7 @@ def lm_eval_harness(
         raw=results_raw,
         formatted=_format_lm_eval_raw_results(results_raw),
     )
-    
+
     return results
 
 
