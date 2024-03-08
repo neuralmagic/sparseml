@@ -30,6 +30,12 @@ class ModelArguments:
             )
         },
     )
+    distill_teacher: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "Teacher model (a trained text generation model)",
+        },
+    )
     config_name: Optional[str] = field(
         default=None,
         metadata={
