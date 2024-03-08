@@ -17,8 +17,8 @@ from typing import Callable, Dict, List, Union
 from datasets.dataset_dict import Dataset, DatasetDict
 
 from sparseml.transformers.finetune.data import TextGenerationDataset
-from sparseml.transformers.utils.preprocesing_funtions import (
-    PreproecessingFunctionRegistry,
+from sparseml.transformers.utils.preprocessing_functions import (
+    PreprocessingFunctionRegistry,
 )
 
 
@@ -61,7 +61,7 @@ class CustomDataset(TextGenerationDataset):
             func = (
                 self.preprocessing_func
                 if isinstance(self.preprocessing_func, Callable)
-                else PreproecessingFunctionRegistry.get_value_from_registry(
+                else PreprocessingFunctionRegistry.get_value_from_registry(
                     name=self.preprocessing_func
                 )
             )

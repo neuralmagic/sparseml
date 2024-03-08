@@ -61,7 +61,7 @@ class CustomDataTrainingArguments(DVCDatasetTrainingArguments):
             "help": (
                 "The preprcessing function to apply ",
                 "or the preprocessing func name in "
-                "src/sparseml/transformers/utils/preprocesing_funtions.py",
+                "src/sparseml/transformers/utils/preprocessing_functions.py",
             )
         },
     )
