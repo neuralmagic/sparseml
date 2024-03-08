@@ -12,15 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# from sparseml.transformers.finetune.data.custom import PreproecessingFunctionRegistry
 from sparsezoo.utils.registry import RegistryMixin
 
 
-class PreproecessingFunctionRegistry(RegistryMixin):
+class PreprocessingFunctionRegistry(RegistryMixin):
     ...
 
 
-@PreproecessingFunctionRegistry.register()
+@PreprocessingFunctionRegistry.register()
 def evolved_codealpaca_dataset(data):
     PROMPT_DICT = """[Instructions]:\n{instruction}\n\n[Response]:"""
     data["text"] = PROMPT_DICT.format_map(data)
