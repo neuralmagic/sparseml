@@ -31,6 +31,7 @@ from sparseml.pytorch.model_load.helpers import (
     save_completed_stages,
     save_model_and_recipe,
 )
+from sparseml.pytorch.utils import tensors_to_device
 from sparseml.transformers.finetune.data import TextGenerationDataset
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
 from sparseml.transformers.finetune.data.data_helpers import (
@@ -157,9 +158,11 @@ class StageRunner:
         # if we don't run a forward pass after initializing the FSDP model for the
         # first time, calls to summon_full_params will fail ¯\_(ツ)_/¯
         dummy_inp = dict(next(iter(calib_data)))
+        model_device = next(self.trainer.model.parameters()).device
+        dummy_inp = tensors_to_device(dummy_inp, model_device)
         with torch.no_grad():
             self.trainer.model(**dummy_inp)
-        torch.cuda.empty_cache()
+        self.trainer.accelerator.wait_for_everyone()
 
         self.trainer.one_shot(calib_data, stage=stage)
 
