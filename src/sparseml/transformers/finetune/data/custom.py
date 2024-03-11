@@ -20,6 +20,7 @@ from sparseml.transformers.finetune.data import TextGenerationDataset
 from sparseml.transformers.utils.preprocessing_functions import (
     PreprocessingFunctionRegistry,
 )
+from sparsezoo.utils.helpers import import_from_path
 
 
 @TextGenerationDataset.register(name="custom", alias=["json", "csv"])
@@ -58,13 +59,19 @@ class CustomDataset(TextGenerationDataset):
             raw_dataset = super().get_raw_dataset()
 
         if self.preprocessing_func is not None:
-            func = (
-                self.preprocessing_func
-                if isinstance(self.preprocessing_func, Callable)
-                else PreprocessingFunctionRegistry.get_value_from_registry(
-                    name=self.preprocessing_func
-                )
-            )
+
+            if isinstance(self.preprocessing_func, Callable):
+                func = self.preprocessing_func
+            else:
+                if ":" in self.preprocessing_func:
+                    # load func_name from "/path/to/file.py:func_name"
+                    func = import_from_path(self.preprocessing_func)
+                else:
+                    # load from the registry
+                    func = PreprocessingFunctionRegistry.get_value_from_registry(
+                        name=self.preprocessing_func
+                    )
+
             raw_dataset = self.map(
                 raw_dataset,
                 function=func,
