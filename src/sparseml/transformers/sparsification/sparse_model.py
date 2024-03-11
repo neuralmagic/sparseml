@@ -34,7 +34,6 @@ from sparseml.pytorch.model_load.helpers import (
     log_model_load,
 )
 
-# TODO: Also propagate modify_model to non-LLMS (e.g. DistillBERT)
 from sparseml.transformers.sparsification.modification import modify_model
 from sparseml.transformers.utils.helpers import resolve_recipe
 from sparsezoo import Model
@@ -409,7 +408,6 @@ class SparseAutoModel:
             model_type="student" if teacher_name_or_path else "model",
             **model_kwargs,
         )
-
         teacher = (
             SparseAutoModel.token_classification_from_pretrained(
                 teacher_name_or_path, model_type="teacher", **teacher_kwargs
