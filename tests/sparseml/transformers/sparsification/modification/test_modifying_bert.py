@@ -17,9 +17,6 @@ from transformers.models.bert.modeling_bert import BertSelfAttention
 
 
 def test_modifying_bert(bert_model, shared_helper_functions):
-    from sparseml.transformers.sparsification.modification.modifying_bert import (  # noqa F401
-        modify,
-    )
 
     shared_helper_functions.check_model_modified(
         bert_model,

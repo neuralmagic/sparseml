@@ -41,9 +41,6 @@ def opt_recipe():
 
 
 def test_modifying_opt(opt_model, shared_helper_functions):
-    from sparseml.transformers.sparsification.modification.modifying_opt import (  # noqa F401
-        modify,
-    )
 
     shared_helper_functions.check_model_modified(
         opt_model,
@@ -53,9 +50,6 @@ def test_modifying_opt(opt_model, shared_helper_functions):
 
 
 def test_apply_recipe_fail(opt_recipe, opt_zoo_model):
-    from sparseml.transformers.sparsification.modification.modifying_opt import (  # noqa F401
-        modify,
-    )
 
     with pytest.raises(Exception):
         apply_recipe_structure_to_model(
@@ -64,9 +58,6 @@ def test_apply_recipe_fail(opt_recipe, opt_zoo_model):
 
 
 def test_apply_recipe(opt_recipe, opt_zoo_model):
-    from sparseml.transformers.sparsification.modification.modifying_opt import (  # noqa F401
-        modify,
-    )
 
     apply_recipe_structure_to_model(
         model=modify_model(opt_zoo_model), model_path=None, recipe_path=opt_recipe

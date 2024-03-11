@@ -40,9 +40,6 @@ def llama_recipe():
 
 
 def test_modifying_llama(llama_model, shared_helper_functions):
-    from sparseml.transformers.sparsification.modification.modifying_llama import (  # noqa F401
-        modify,
-    )
 
     shared_helper_functions.check_model_modified(
         llama_model,
@@ -52,9 +49,6 @@ def test_modifying_llama(llama_model, shared_helper_functions):
 
 
 def test_apply_recipe_fail(llama_recipe, llama_zoo_model):
-    from sparseml.transformers.sparsification.modification.modifying_llama import (  # noqa F401
-        modify,
-    )
 
     with pytest.raises(Exception):
         apply_recipe_structure_to_model(
@@ -63,10 +57,6 @@ def test_apply_recipe_fail(llama_recipe, llama_zoo_model):
 
 
 def test_apply_recipe(llama_recipe, llama_zoo_model):
-    from sparseml.transformers.sparsification.modification.modifying_llama import (  # noqa F401
-        modify,
-    )
-
     apply_recipe_structure_to_model(
         model=modify_model(llama_zoo_model), model_path=None, recipe_path=llama_recipe
     )

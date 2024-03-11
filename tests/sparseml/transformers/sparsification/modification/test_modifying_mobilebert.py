@@ -23,9 +23,6 @@ from sparseml.transformers.sparsification.modification.modification_objects impo
 
 
 def test_modifying_mobilebert(mobilebert_model):
-    from sparseml.transformers.sparsification.modification.modifying_mobilebert import (  # noqa F401
-        modify,
-    )
 
     mobilebert_ = deepcopy(mobilebert_model)
     mobilebert = modify_model(mobilebert_model)

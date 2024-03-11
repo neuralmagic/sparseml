@@ -37,10 +37,9 @@ def modify_model(model: torch.nn.Module, disable: int = False) -> torch.nn.Modul
     :return: The potentially modified model
     """
     model_name = model.__class__.__name__
-    NM_DISABLE_MODEL_MODIFICATION = bool(
-        os.environ.get("NM_DISABLE_MODEL_MODIFICATION", False)
-    )
-
+    NM_DISABLE_MODEL_MODIFICATION = os.environ.get(
+        "NM_DISABLE_MODEL_MODIFICATION", "False"
+    ).lower() in ["true", "1"]
     try:
         modification_func = ModificationRegistry.get_value_from_registry(model_name)
     except KeyError:

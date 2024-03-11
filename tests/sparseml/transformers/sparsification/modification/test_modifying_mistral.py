@@ -38,10 +38,6 @@ def mistral_recipe():
 
 
 def test_modifying_mistral(mistral_model, shared_helper_functions):
-    from sparseml.transformers.sparsification.modification.modifying_mistral import (  # noqa F401
-        modify,
-    )
-
     shared_helper_functions.check_model_modified(
         mistral_model,
         module_to_replace=MistralAttention,
@@ -50,10 +46,6 @@ def test_modifying_mistral(mistral_model, shared_helper_functions):
 
 
 def test_apply_recipe_fail(mistral_recipe, mistral_zoo_model):
-    from sparseml.transformers.sparsification.modification.modifying_mistral import (  # noqa F401
-        modify,
-    )
-
     with pytest.raises(Exception):
         apply_recipe_structure_to_model(
             model=mistral_zoo_model, model_path=None, recipe_path=mistral_recipe
@@ -61,9 +53,6 @@ def test_apply_recipe_fail(mistral_recipe, mistral_zoo_model):
 
 
 def test_apply_recipe(mistral_recipe, mistral_zoo_model):
-    from sparseml.transformers.sparsification.modification.modifying_mistral import (  # noqa F401
-        modify,
-    )
 
     apply_recipe_structure_to_model(
         model=modify_model(mistral_zoo_model),

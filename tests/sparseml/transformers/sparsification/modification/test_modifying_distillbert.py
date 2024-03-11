@@ -16,10 +16,6 @@ from transformers.models.distilbert.modeling_distilbert import MultiHeadSelfAtte
 
 
 def test_modifying_distilbert(distilbert_model, shared_helper_functions):
-    from sparseml.transformers.sparsification.modification.modifying_distilbert import (  # noqa F401
-        modify,
-    )
-
     shared_helper_functions.check_model_modified(
         distilbert_model,
         module_to_replace=MultiHeadSelfAttention,
