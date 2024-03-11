@@ -70,6 +70,7 @@ __all__ = [
     "qat_active",
     "get_layers_params",
     "get_matching_layer",
+    "get_no_split_params",
 ]
 
 
@@ -91,6 +92,17 @@ def match_targets(name: str, targets: Union[str, List[str]]) -> Tuple[bool, int]
             if re.match(pattern, name):
                 return True, index
         elif name == target:
+            return True, index
+
+    return False, -1
+
+
+def match_class(layer: Module, targets: Union[str, List[str]]) -> Tuple[bool, int]:
+    if isinstance(targets, str):
+        targets = [targets]
+
+    for index, target in enumerate(targets):
+        if layer.__class__.__name__ == target:
             return True, index
 
     return False, -1
@@ -137,6 +149,11 @@ def match_layers_params(
         if match and not params:
             targets_found[match_index] = True
             resolved[name] = layer
+        else:
+            match, match_index = match_class(layer, targets)
+            if match:
+                targets_found[match_index] = True
+                resolved[name] = layer
 
         for param_name, param in layer.named_parameters():
             if "." in param_name:  # skip parameters of nested layers
@@ -314,3 +331,20 @@ def get_matching_layer(
             largest_substring = match_length
 
     return match
+
+
+def get_no_split_params(module: Module) -> Union[str, List[str]]:
+    """
+    Get list of module classes that shouldn't be split when sharding. For
+    Hugging Face Transformer models, this is the decoder layer type. For other
+    types of models, this just returns all module names.
+
+    :return: list of class names that shouldn't be split
+    """
+    # importing here to avoid circular import
+    from sparseml.utils.fsdp.helpers import maybe_get_wrapped
+
+    model = maybe_get_wrapped(module)
+    if hasattr(model, "_no_split_modules"):
+        return model._no_split_modules
+    return ALL_TARGET
