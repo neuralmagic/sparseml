@@ -18,7 +18,6 @@ from typing import Dict, List, Optional, Union
 from sparseml.core import Modifier
 from sparseml.core.model.base import ModifiableModel
 from sparseml.core.state import State
-from sparseml.utils import ALL_TOKEN
 
 
 __all__ = ["WandaPruningModifier"]
@@ -57,7 +56,7 @@ class WandaPruningModifier(Modifier):
     owl_lmbda: Optional[float] = None
     mask_structure: str = "0:0"
     sequential_update: Optional[bool] = False
-    targets: Union[str, List[str], None] = ALL_TOKEN
+    targets: Union[str, List[str], None] = None
     compressible_layers_: Optional[List] = None
     prunen_: Optional[int] = None
     prunem_: Optional[int] = None
