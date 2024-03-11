@@ -18,15 +18,9 @@ Tools for integrating SparseML with transformers training flows
 
 # flake8: noqa
 from sparseml.analytics import sparseml_analytics as _analytics
+from sparseml.transformers.base import check_transformers_install
 
-
-try:
-    import datasets as _datasets
-    import transformers as _transformers
-except ImportError:
-    raise ImportError("Please install sparseml[transformers] to use this pathway")
-
-
+check_transformers_install()
 _analytics.send_event("python__transformers__init")
 
 
