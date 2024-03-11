@@ -13,7 +13,9 @@
 # limitations under the License.
 
 import logging
-from typing import Any
+import os
+
+import torch
 
 from sparseml.transformers.sparsification.modification.registry import (
     ModificationRegistry,
@@ -23,7 +25,7 @@ from sparseml.transformers.sparsification.modification.registry import (
 _LOGGER = logging.getLogger(__name__)
 
 
-def modify_model(model: Any) -> Any:
+def modify_model(model: torch.nn.Module, disable: int = False) -> torch.nn.Module:
     """
     Modify the original transformers model so that it is
     compatible with the SparseML library.
@@ -35,6 +37,9 @@ def modify_model(model: Any) -> Any:
     :return: The potentially modified model
     """
     model_name = model.__class__.__name__
+    NM_DISABLE_MODEL_MODIFICATION = bool(
+        os.environ.get("NM_DISABLE_MODEL_MODIFICATION", False)
+    )
 
     try:
         modification_func = ModificationRegistry.get_value_from_registry(model_name)
@@ -43,6 +48,20 @@ def modify_model(model: Any) -> Any:
             f"No modification function found for the model {model_name}. "
             "Returning the original model. Available modification functions"
             f"are available for models: {ModificationRegistry.registered_names()}"
+        )
+        return model
+
+    if NM_DISABLE_MODEL_MODIFICATION:
+        _LOGGER.debug(
+            "Application of the modification function to model "
+            "disabled through the environment variable."
+        )
+        return model
+
+    if disable:
+        _LOGGER.debug(
+            "Application of the modification function for to model "
+            "disabled through the `disable` argument."
         )
         return model
 

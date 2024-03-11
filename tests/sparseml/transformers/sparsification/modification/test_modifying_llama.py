@@ -39,12 +39,12 @@ def llama_recipe():
             symmetric: False"""
 
 
-def test_modifying_llama(llama_model, helpers):
+def test_modifying_llama(llama_model, shared_helper_functions):
     from sparseml.transformers.sparsification.modification.modifying_llama import (  # noqa F401
         modify,
     )
 
-    helpers.check_model_modified(
+    shared_helper_functions.check_model_modified(
         llama_model,
         module_to_replace=LlamaAttention,
         func_to_validate_replacement=_is_llama_attention_modified,

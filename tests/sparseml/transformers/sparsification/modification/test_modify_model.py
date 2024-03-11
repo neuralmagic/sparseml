@@ -16,11 +16,12 @@
 from copy import copy
 
 import pytest
-
+import os
 from sparseml.transformers.sparsification.modification import modify_model
 from sparseml.transformers.sparsification.modification.registry import (
     ModificationRegistry,
 )
+from sparsezoo.utils.registry import _ALIAS_REGISTRY, _REGISTRY
 
 
 @pytest.fixture
@@ -32,14 +33,21 @@ def model():
     yield DummyModel()
 
 
+@pytest.fixture
+def test_registry():
+    yield ModificationRegistry
+    _ALIAS_REGISTRY.clear()
+    _REGISTRY.clear()
+
+
 def test_modify_model_without_actual_modification(model):
     is_modified = copy(model.modified)
     model = modify_model(model)
     assert model.modified == is_modified == False  # noqa E712
 
 
-def test_modify_model(model):
-    @ModificationRegistry.register(name="DummyModel")
+def test_modify_model(model, test_registry):
+    @test_registry.register(name="DummyModel")
     def dummy_modification(model):
         model.modified = True
         return model
@@ -47,3 +55,27 @@ def test_modify_model(model):
     is_modified = copy(model.modified)
     model = modify_model(model)
     assert model.modified != is_modified
+
+
+def test_disable_modify_model_through_argument(model, test_registry):
+    @test_registry.register(name="DummyModel")
+    def dummy_modification(model):
+        model.modified = True
+        return model
+
+    is_modified = copy(model.modified)
+    model = modify_model(model, disable=True)
+    assert model.modified == is_modified == False  # noqa E712
+
+
+def test_disable_modify_model_through_env_var(model, test_registry):
+    @test_registry.register(name="DummyModel")
+    def dummy_modification(model):
+        model.modified = True
+        return model
+
+    is_modified = copy(model.modified)
+    os.environ["NM_DISABLE_MODEL_MODIFICATION"] = "1"
+    model = modify_model(model)
+    assert model.modified == is_modified == False  # noqa E712
+    os.environ["NM_DISABLE_MODEL_MODIFICATION"] = "0"

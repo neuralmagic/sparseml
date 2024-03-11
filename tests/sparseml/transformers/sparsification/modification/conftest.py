@@ -104,11 +104,11 @@ def opt_model():
 
 
 @pytest.fixture
-def helpers():
-    return Helpers
+def shared_helper_functions():
+    return SharedHelperFunctions
 
 
-class Helpers:
+class SharedHelperFunctions:
     @staticmethod
     def check_model_modified(
         original_model_, module_to_replace, func_to_validate_replacement

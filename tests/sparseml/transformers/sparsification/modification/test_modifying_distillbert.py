@@ -15,12 +15,12 @@
 from transformers.models.distilbert.modeling_distilbert import MultiHeadSelfAttention
 
 
-def test_modifying_distilbert(distilbert_model, helpers):
+def test_modifying_distilbert(distilbert_model, shared_helper_functions):
     from sparseml.transformers.sparsification.modification.modifying_distilbert import (  # noqa F401
         modify,
     )
 
-    helpers.check_model_modified(
+    shared_helper_functions.check_model_modified(
         distilbert_model,
         module_to_replace=MultiHeadSelfAttention,
         func_to_validate_replacement=_is_distilbert_attention_modified,

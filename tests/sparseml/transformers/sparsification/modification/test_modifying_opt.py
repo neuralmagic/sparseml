@@ -40,12 +40,12 @@ def opt_recipe():
             symmetric: False"""
 
 
-def test_modifying_opt(opt_model, helpers):
+def test_modifying_opt(opt_model, shared_helper_functions):
     from sparseml.transformers.sparsification.modification.modifying_opt import (  # noqa F401
         modify,
     )
 
-    helpers.check_model_modified(
+    shared_helper_functions.check_model_modified(
         opt_model,
         module_to_replace=OPTAttention,
         func_to_validate_replacement=_is_opt_attention_modified,

@@ -16,12 +16,12 @@
 from transformers.models.bert.modeling_bert import BertSelfAttention
 
 
-def test_modifying_bert(bert_model, helpers):
+def test_modifying_bert(bert_model, shared_helper_functions):
     from sparseml.transformers.sparsification.modification.modifying_bert import (  # noqa F401
         modify,
     )
 
-    helpers.check_model_modified(
+    shared_helper_functions.check_model_modified(
         bert_model,
         module_to_replace=BertSelfAttention,
         func_to_validate_replacement=_is_bert_attention_modified,
