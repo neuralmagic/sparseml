@@ -25,13 +25,13 @@ from transformers import AutoTokenizer
 
 import sparseml.core.session as session_manager
 from sparseml.core.recipe import Recipe, StageRunType
-from sparseml.modifiers.utils.pytorch_helpers import PADDING_MASK_COLUMN_NAME
 from sparseml.pytorch.model_load.helpers import (
     get_completed_stages,
     get_session_model,
     save_completed_stages,
     save_model_and_recipe,
 )
+from sparseml.pytorch.utils import tensors_to_device
 from sparseml.transformers.finetune.data import TextGenerationDataset
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
 from sparseml.transformers.finetune.data.data_helpers import (
@@ -119,18 +119,8 @@ class StageRunner:
                 tokenizer=tokenizer,
             )
 
-            store_padding_mask = False
-            if self._training_args.do_oneshot and split_name == "calibration":
-                store_padding_mask = True
-            if isinstance(self._data_args.dataset, str):
-                raw_dataset = dataset_manager.get_raw_dataset(
-                    self._model_args.cache_dir
-                )
-            else:
-                raw_dataset = self._data_args.dataset
-            tokenized_dataset = dataset_manager.tokenize_and_process(
-                raw_dataset, store_padding_mask=store_padding_mask
-            )
+            raw_dataset = dataset_manager.get_raw_dataset(self._model_args.cache_dir)
+            tokenized_dataset = dataset_manager.tokenize_and_process(raw_dataset)
             tokenized_datasets[split_name] = tokenized_dataset
 
         self.datasets = make_dataset_splits(
@@ -168,10 +158,11 @@ class StageRunner:
         # if we don't run a forward pass after initializing the FSDP model for the
         # first time, calls to summon_full_params will fail ¯\_(ツ)_/¯
         dummy_inp = dict(next(iter(calib_data)))
+        model_device = next(self.trainer.model.parameters()).device
+        dummy_inp = tensors_to_device(dummy_inp, model_device)
         with torch.no_grad():
-            dummy_inp.pop(PADDING_MASK_COLUMN_NAME, None)
             self.trainer.model(**dummy_inp)
-        torch.cuda.empty_cache()
+        self.trainer.accelerator.wait_for_everyone()
 
         self.trainer.one_shot(calib_data, stage=stage)
 

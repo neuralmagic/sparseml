@@ -107,7 +107,7 @@ _dev_deps = [
     "flake8==3.9.2",
     "isort==5.8.0",
     "wheel>=0.36.2",
-    "pytest>=6.0.0",
+    "pytest>=6.0.0,<8.1.0",
     "pytest-mock>=3.6.0",
     "flaky~=3.7.0",
     "tensorboard>=1.0,<2.9",
@@ -208,6 +208,7 @@ def _setup_entry_points() -> Dict:
     entry_points["console_scripts"].extend(
         [
             "sparseml.transformers.text_generation.apply=sparseml.transformers.finetune.text_generation:apply",  # noqa 501
+            "sparseml.transformers.text_generation.compress=sparseml.transformers.finetune.text_generation:apply",  # noqa 501
             "sparseml.transformers.text_generation.train=sparseml.transformers.finetune.text_generation:train",  # noqa 501
             "sparseml.transformers.text_generation.finetune=sparseml.transformers.finetune.text_generation:train",  # noqa 501
             "sparseml.transformers.text_generation.eval=sparseml.transformers.finetune.text_generation:eval",  # noqa 501

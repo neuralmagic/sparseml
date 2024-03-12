@@ -23,12 +23,7 @@ from pathlib import PosixPath
 
 import datasets
 import transformers
-from transformers import (
-    AutoConfig,
-    DataCollatorForLanguageModeling,
-    HfArgumentParser,
-    set_seed,
-)
+from transformers import AutoConfig, DefaultDataCollator, HfArgumentParser, set_seed
 
 import sparseml.core.session as session_manager
 from sparseml.core.framework import Framework
@@ -128,11 +123,12 @@ def parse_args(**kwargs):
         model_args, data_args, training_args = parser.parse_dict(kwargs)
 
     if training_args.recipe_args is not None:
-        arg_dict = {}
-        for recipe_arg in training_args.recipe_args:
-            key, value = recipe_arg.split("=")
-            arg_dict[key] = value
-        training_args.recipe_args = arg_dict
+        if not isinstance(training_args.recipe_args, dict):
+            arg_dict = {}
+            for recipe_arg in training_args.recipe_args:
+                key, value = recipe_arg.split("=")
+                arg_dict[key] = value
+            training_args.recipe_args = arg_dict
 
     # when set to true in FSDP mode this causes issues, the model arguments show up
     # as *args and **kwargs so all columns get removed
@@ -159,10 +155,10 @@ def intialize_model_from_path(
     )
     teacher_config = (
         AutoConfig.from_pretrained(
-            training_args.distill_teacher,
+            model_args.distill_teacher,
             use_auth_token=True if model_args.use_auth_token else None,
         )
-        if training_args.distill_teacher
+        if model_args.distill_teacher
         else None
     )
 
@@ -212,11 +208,11 @@ def intialize_model_from_path(
 
     teacher = (
         SparseAutoModel.text_generation_from_pretrained(
-            model_name_or_path=training_args.distill_teacher,
+            model_name_or_path=model_args.distill_teacher,
             sequence_length=None,  # use model default
             **teacher_kwargs,
         )
-        if training_args.distill_teacher is not None
+        if model_args.distill_teacher is not None
         else None
     )
 
@@ -293,7 +289,7 @@ def main(
 
     # Detecting last checkpoint.
     last_checkpoint = None
-    teacher = None
+    teacher = model_args.distill_teacher
     model_path = None
     model = model_args.model
     # Load tokenizer
@@ -334,8 +330,7 @@ def main(
     calib_dataset = stage_runner.get_dataset_split("calibration")
 
     # Initialize our Trainer
-    data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
-
+    data_collator = DefaultDataCollator()
     trainer = Trainer(
         model_init=get_session_model,
         teacher=teacher,

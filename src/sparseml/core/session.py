@@ -300,8 +300,13 @@ class SparseSession:
 
     def _log_model_info(self):
         # Log model level logs if cadence reached
+        event_lifecycle = self._lifecycle.event_lifecycle
+        if event_lifecycle is None:
+            # event lifecycle not available
+            # when recipe is not provided
+            return
 
-        epoch = self._lifecycle.event_lifecycle.current_index
+        epoch = event_lifecycle.current_index
 
         if (
             should_log_model_info(
@@ -323,8 +328,14 @@ class SparseSession:
         if event_type != EventType.LOSS_CALCULATED:
             # only log loss when loss is calculated
             return
+        event_lifecycle = self._lifecycle.event_lifecycle
 
-        epoch = self._lifecycle.event_lifecycle.current_index
+        if event_lifecycle is None:
+            # event lifecycle not available
+            # when recipe is not provided
+            return
+
+        epoch = event_lifecycle.current_index
         if self.state.loggers.frequency_manager.is_optim_frequency_manager:
             # log integer step for optimizer frequency manager
             current_step = int(

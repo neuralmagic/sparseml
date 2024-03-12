@@ -65,6 +65,7 @@ class OpenPlatypusDataset(TextGenerationDataset):
                     instruction=sample["instruction"]
                 )
 
+            sample[self.PROMPT_KEY] = sample["text"]
             if "output" in sample:
                 sample["text"] += sample["output"]
             return sample
