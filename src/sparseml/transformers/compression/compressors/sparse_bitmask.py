@@ -69,7 +69,8 @@ class BitmaskCompressor(ModelCompressor):
 
 class BitmaskTensor:
     """
-    Owns compressions and decompression for a single bitmask compressed tensor
+    Owns compressions and decompression for a single bitmask compressed tensor.
+    Adapted from: https://github.com/mgoin/torch_bitmask/tree/main
 
     :param tensor: Dense tensor to compress
     """
