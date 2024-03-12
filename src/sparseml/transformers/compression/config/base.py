@@ -21,4 +21,10 @@ __all__ = ["CompressionConfig"]
 
 
 class CompressionConfig(RegistryMixin, BaseModel):
+    """
+    Base data class for storing compression parameters
+
+    :param format: name of compression format
+    """
+
     format: str

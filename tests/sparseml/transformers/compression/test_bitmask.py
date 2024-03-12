@@ -1,15 +1,32 @@
-import torch
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import math
-from sparseml.transformers.compression import BitmaskConfig, BitmaskCompressor
-from sparseml.transformers.compression.compressors.sparse_bitmask import NumpyBitmaskTensor
+
 import pytest
+import torch
+
+from sparseml.transformers.compression import BitmaskCompressor, BitmaskConfig
+from sparseml.transformers.compression.compressors.sparse_bitmask import BitmaskTensor
+
 
 @pytest.mark.parametrize(
     "shape,sparsity",
     [
-        [(512,1024), 0.5],
-        [(830,545), 0.8],
-    ]
+        [(512, 1024), 0.5],
+        [(830, 545), 0.8],
+    ],
 )
 def test_bitmask_sizes(shape, sparsity):
     test_tensor = torch.rand(shape, dtype=torch.float32)
@@ -28,22 +45,22 @@ def test_bitmask_sizes(shape, sparsity):
     sparse_shape = sparse_state_dict["dummy.weight.shape"]
     assert torch.all(torch.eq(sparse_shape, torch.tensor(shape)))
     bitmask_shape = sparse_state_dict["dummy.weight.bitmask"].shape
-    assert(bitmask_shape[0] == sparse_shape[0])
-    assert(bitmask_shape[1] == int(math.ceil(sparse_shape[1] / 8.0)))
+    assert bitmask_shape[0] == sparse_shape[0]
+    assert bitmask_shape[1] == int(math.ceil(sparse_shape[1] / 8.0))
 
     # one value for each non-zero weight
     values_shape = sparse_state_dict["dummy.weight.compressed"].shape
     assert values_shape[0] == torch.sum(mask)
     row_offsets_shape = sparse_state_dict["dummy.weight.row_offsets"].shape
-    assert row_offsets_shape[0] == test_tensor.shape[0] 
-    
+    assert row_offsets_shape[0] == test_tensor.shape[0]
+
 
 @pytest.mark.parametrize(
     "shape,sparsity",
     [
-        [(256,512), 0.5],
-        [(128,280), 0.8],
-    ]
+        [(256, 512), 0.5],
+        [(128, 280), 0.8],
+    ],
 )
 def test_match(shape, sparsity):
     test_tensor1 = torch.rand(shape, dtype=torch.float32)
@@ -54,12 +71,9 @@ def test_match(shape, sparsity):
     mask = (test_tensor2.abs() < (1 - sparsity)).int()
     test_tensor2 *= mask
 
-    dense_state_dict = {
-        "dummy.weight": test_tensor1,
-        "dummy2.weight": test_tensor2
-    }
-    
+    dense_state_dict = {"dummy.weight": test_tensor1, "dummy2.weight": test_tensor2}
+
     for key in dense_state_dict.keys():
         dense_tensor = dense_state_dict[key]
-        sparse_tensor = NumpyBitmaskTensor(dense_tensor)
+        sparse_tensor = BitmaskTensor(dense_tensor)
         assert torch.equal(dense_tensor, sparse_tensor.to_dense())

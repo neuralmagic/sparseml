@@ -22,6 +22,15 @@ __all__ = ["BitmaskConfig"]
 
 @CompressionConfig.register(name="sparse_bitmask")
 class BitmaskConfig(CompressionConfig):
+    """
+    Configuration for storing a sparse model using
+    bitmask compression
+
+    :param global_sparsity: average sparsity of the entire model
+    :param sparsity_structure: structure of the sparsity, such as
+    "unstructured", "2:4", "8:16" etc
+    """
+
     format: str = "sparse_bitmask"
     global_sparsity: Optional[float] = None
     sparsity_structure: Optional[str] = None
