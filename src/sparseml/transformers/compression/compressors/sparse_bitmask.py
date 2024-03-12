@@ -64,6 +64,16 @@ class NumpyBitmaskTensor:
     @staticmethod
     def from_dense(tensor: torch.Tensor) -> "NumpyBitmaskTensor":
         return NumpyBitmaskTensor(tensor)
+    
+    def curr_memory_size_bytes(self):
+        def sizeof_tensor(a):
+            return a.element_size() * a.nelement()
+
+        return (
+            sizeof_tensor(self.values)
+            + sizeof_tensor(self.bitmasks)
+            + sizeof_tensor(self.row_offsets)
+        )
 
     def __repr__(self):
         return f"NumpyBitmaskTensor(shape={self.shape}, compressed=True)"
@@ -72,7 +82,7 @@ class NumpyBitmaskTensor:
         return {
             name_prefix + ".compressed": self.values,
             name_prefix + ".bitmask": self.bitmasks,
-            name_prefix + ".shape": self.shape,
+            name_prefix + ".shape": torch.tensor(self.shape, device="cpu"),
             name_prefix + ".row_offsets": self.row_offsets,
         }
 
