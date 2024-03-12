@@ -167,3 +167,11 @@ class ModifiableModel(Generic[MT, LT, PT], MultiFrameworkObject):
         :return: True if QAT is active in any layer, False otherwise
         """
         raise NotImplementedError()
+
+    def get_no_split_params(self) -> Union[str, List[str]]:
+        """
+        Get list of module classes that shouldn't be split when sharding
+
+        :return: list of class names that shouldn't be split
+        """
+        raise NotImplementedError()
