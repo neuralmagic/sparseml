@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Dict
+
 from sparsezoo.utils.registry import RegistryMixin
 
 
@@ -20,7 +22,7 @@ class PreprocessingFunctionRegistry(RegistryMixin):
 
 
 @PreprocessingFunctionRegistry.register()
-def custom_evolved_codealpaca_dataset(data):
+def custom_evolved_codealpaca_dataset(data: Dict):
     PROMPT_DICT = """[Instruction]:\n{instruction}\n\n[Response]:"""
     data["prompt"] = PROMPT_DICT.format_map(data)
     data["text"] = data["prompt"] + data["output"]

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from copy import deepcopy
-from typing import Callable, Dict, List, Union
+from typing import Dict, List, Union
 
 from datasets.dataset_dict import Dataset, DatasetDict
 
@@ -62,15 +62,14 @@ class CustomDataset(TextGenerationDataset):
 
             if callable(self.preprocessing_func):
                 func = self.preprocessing_func
+            elif ":" in self.preprocessing_func:
+                # load func_name from "/path/to/file.py:func_name"
+                func = import_from_path(self.preprocessing_func)
             else:
-                if ":" in self.preprocessing_func:
-                    # load func_name from "/path/to/file.py:func_name"
-                    func = import_from_path(self.preprocessing_func)
-                else:
-                    # load from the registry
-                    func = PreprocessingFunctionRegistry.get_value_from_registry(
-                        name=self.preprocessing_func
-                    )
+                # load from the registry
+                func = PreprocessingFunctionRegistry.get_value_from_registry(
+                    name=self.preprocessing_func
+                )
 
             raw_dataset = self.map(
                 raw_dataset,

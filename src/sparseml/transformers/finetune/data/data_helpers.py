@@ -226,13 +226,16 @@ def get_custom_datasets_from_path(path: str, ext: str = "json") -> Dict[str, str
 def transform_dataset_keys(data_files: Dict[str, Any]):
     """
     Transform dict keys to `train`, `val` or `test` for the given input dict
-    if matches exist with the existing keys
+    if matches exist with the existing keys. Note that there can only be one
+    matching file name.
+    Ex. Folder(train_eval.json)          -> Folder(train.json)
+        Folder(train1.json, train2.json) -> Same
 
     :param data_files: The dict where keys will be transformed
     """
     keys = set(data_files.keys())
 
-    def transform_dataset_key(candidate: str):
+    def transform_dataset_key(candidate: str) -> None:
         for key in keys:
             if candidate in key:
                 if key == candidate:
@@ -240,7 +243,7 @@ def transform_dataset_keys(data_files: Dict[str, Any]):
                 val = data_files.pop(key)
                 data_files[candidate] = val
 
-    def do_transform(candidate: str):
+    def do_transform(candidate: str) -> bool:
         return sum(candidate in key for key in keys) == 1
 
     dataset_keys = ("train", "val", "test")
