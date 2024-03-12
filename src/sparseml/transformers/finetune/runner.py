@@ -182,6 +182,7 @@ class StageRunner:
                 model=self.trainer.model,
                 save_path=self._output_dir,
                 tokenizer=self.tokenizer,
+                save_safetensors=self._training_args.save_safetensors,
             )
 
     def train(self, checkpoint: str, stage: Optional[str] = None):

@@ -229,7 +229,10 @@ def reload_model_from_checkpoint(model: Module, checkpoint: Optional[str] = None
 
 
 def save_model_and_recipe(
-    model: Module, save_path: str, tokenizer: Optional[Any] = None
+    model: Module,
+    save_path: str,
+    tokenizer: Optional[Any] = None,
+    save_safetensors: bool = False,
 ):
     """
     Save a model, tokenizer and the currently loaded recipe to file
@@ -237,9 +240,10 @@ def save_model_and_recipe(
     :param model: pytorch model to save
     :param save_path: path to save output to
     :param tokenizer: model tokenizer to save
+    :param save_safetensors: whether to save as safetensors or pickle(bin)
     """
 
-    model.save_pretrained(save_path)
+    model.save_pretrained(save_path, safe_serialization=save_safetensors)
 
     if tokenizer is not None:
         tokenizer.save_pretrained(save_path)
