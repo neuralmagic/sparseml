@@ -60,7 +60,7 @@ class CustomDataset(TextGenerationDataset):
 
         if self.preprocessing_func is not None:
 
-            if isinstance(self.preprocessing_func, Callable):
+            if callable(self.preprocessing_func):
                 func = self.preprocessing_func
             else:
                 if ":" in self.preprocessing_func:
