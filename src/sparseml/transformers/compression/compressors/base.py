@@ -16,6 +16,7 @@ from typing import Dict
 
 from torch.nn import Module
 
+from sparseml.transformers.compression.config import CompressionConfig
 from sparsezoo.utils.registry import RegistryMixin
 
 
@@ -23,7 +24,10 @@ __all__ = ["ModelCompressor"]
 
 
 class ModelCompressor(RegistryMixin):
-    def compress(model: Module) -> Dict:
+    def __init__(self, config: CompressionConfig):
+        self.config = config
+
+    def compress(model_state: Dict) -> Dict:
         raise NotImplementedError()
 
     def uncompress(model: Module, safetensors_path: str) -> Dict:
