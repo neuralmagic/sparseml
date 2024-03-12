@@ -12,11 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 from typing import Dict
 
 import numpy
 import torch
 from torch.nn import Module
+from tqdm import tqdm
 
 from sparseml.transformers.compression.compressors import ModelCompressor
 
@@ -30,16 +32,21 @@ __all__ = [
     "bitmask_decompress",
 ]
 
+_LOGGER: logging.Logger = logging.getLogger(__name__)
+
 
 @ModelCompressor.register(name="sparse_bitmask")
 class BitmaskCompressor(ModelCompressor):
-    def compress(model_state: Dict) -> Dict:
+    def compress(self, model_state: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         compressed_dict = {}
-        for name, value in model_state.items():
+        _LOGGER.info(f"Compressing model with {len(model_state)} weights...")
+        for name, value in tqdm(model_state.items()):
             bitmask_tensor = NumpyBitmaskTensor(value)
             compressed_dict |= bitmask_tensor.dict(name_prefix=name)
 
-    def uncompress(model: Module, safetensors_path: str) -> Dict:
+        return compressed_dict
+
+    def uncompress(self, model: Module, safetensors_path: str) -> Dict:
         raise NotImplementedError()
 
 

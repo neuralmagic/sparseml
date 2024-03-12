@@ -14,6 +14,7 @@
 
 from typing import Dict
 
+import torch
 from torch.nn import Module
 
 from sparseml.transformers.compression.config import CompressionConfig
@@ -27,8 +28,8 @@ class ModelCompressor(RegistryMixin):
     def __init__(self, config: CompressionConfig):
         self.config = config
 
-    def compress(model_state: Dict) -> Dict:
+    def compress(self, model_state: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         raise NotImplementedError()
 
-    def uncompress(model: Module, safetensors_path: str) -> Dict:
+    def uncompress(self, model: Module, safetensors_path: str) -> Dict:
         raise NotImplementedError()
