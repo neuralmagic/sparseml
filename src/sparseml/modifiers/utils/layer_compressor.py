@@ -122,7 +122,6 @@ class LayerCompressor:
         Reverts wrapped root modules back to their original structure
         """
         for name, module_wrapper in self.modules.items():
-            print(name)
             full_name = self._get_full_submodule_name(name)
             if len(name) == 0:  # special case if layer has no children (i.e. lm_head)
                 with summon_full_params_context(self.model):
