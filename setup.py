@@ -32,10 +32,7 @@ _PACKAGE_NAME = "sparseml" if is_release else "sparseml-nightly"
 
 _deps = [
     "setuptools<=59.5.0",
-    "jupyter>=1.0.0",
-    "ipywidgets>=7.0.0",
     "pyyaml>=5.0.0",
-    "progressbar2>=3.0.0",
     "numpy>=1.0.0",
     "matplotlib>=3.0.0",
     "merge-args>=0.1.0",
@@ -45,7 +42,6 @@ _deps = [
     "psutil>=5.0.0",
     "pydantic>=1.8.2,<2.0.0",
     "requests>=2.0.0",
-    "scikit-image>=0.15.0",
     "scikit-learn>=0.24.2",
     "scipy<1.9.2,>=1.8; python_version <= '3.9'",
     "scipy>=1.0.0; python_version > '3.9'",
@@ -84,11 +80,17 @@ _transformers_deps = _pytorch_deps + [
     "scikit-learn",
     "seqeval",
     "einops",
-    "onnxruntime>=1.0.0",
+    "evaluate>=0.4.1",
     "accelerate>=0.20.3",
+    "safetensors>=0.4.1",
 ]
+_llm_deps = _transformers_deps + ["sentencepiece"]
 _yolov5_deps = _pytorch_vision_deps + [
     f"{'nm-yolov5' if is_release else 'nm-yolov5-nightly'}~={version_nm_deps}"
+]
+_notebook_deps = [
+    "jupyter>=1.0.0",
+    "ipywidgets>=7.0.0",
 ]
 _tensorflow_v1_deps = ["tensorflow<2.0.0", "tensorboard<2.0.0", "tf2onnx>=1.0.0,<1.6"]
 _tensorflow_v1_gpu_deps = [
@@ -108,9 +110,10 @@ _dev_deps = [
     "wheel>=0.36.2",
     "pytest>=6.0.0",
     "pytest-mock>=3.6.0",
-    "flaky~=3.7.0",
+    "pytest-rerunfailures>=13.0",
     "tensorboard>=1.0,<2.9",
     "tensorboardX>=1.0",
+    "evaluate>=0.4.1",
 ]
 
 _docs_deps = [
@@ -161,6 +164,8 @@ def _setup_extras() -> Dict:
         "torch_all": _pytorch_all_deps,
         "torchvision": _pytorch_vision_deps,
         "transformers": _transformers_deps,
+        "llm": _llm_deps,
+        "notebook": _notebook_deps,
         "tf_v1": _tensorflow_v1_deps,
         "tf_v1_gpu": _tensorflow_v1_gpu_deps,
         "tf_keras": _keras_deps,
@@ -203,11 +208,12 @@ def _setup_entry_points() -> Dict:
 
     entry_points["console_scripts"].extend(
         [
-            "sparseml.transformers.text_generation=sparseml.transformers.finetune.text_generation:run_general",  # noqa 501
-            "sparseml.transformers.text_generation.train=sparseml.transformers.finetune.text_generation:run_train",  # noqa 501
-            "sparseml.transformers.text_generation.finetune=sparseml.transformers.finetune.text_generation:run_train",  # noqa 501
-            "sparseml.transformers.text_generation.eval=sparseml.transformers.finetune.text_generation:run_eval",  # noqa 501
-            "sparseml.transformers.text_generation.oneshot=sparseml.transformers.finetune.text_generation:run_oneshot",  # noqa 501
+            "sparseml.transformers.text_generation.apply=sparseml.transformers.finetune.text_generation:apply",  # noqa 501
+            "sparseml.transformers.text_generation.compress=sparseml.transformers.finetune.text_generation:apply",  # noqa 501
+            "sparseml.transformers.text_generation.train=sparseml.transformers.finetune.text_generation:train",  # noqa 501
+            "sparseml.transformers.text_generation.finetune=sparseml.transformers.finetune.text_generation:train",  # noqa 501
+            "sparseml.transformers.text_generation.eval=sparseml.transformers.finetune.text_generation:eval",  # noqa 501
+            "sparseml.transformers.text_generation.oneshot=sparseml.transformers.finetune.text_generation:oneshot",  # noqa 501
         ]
     )
 
@@ -280,6 +286,11 @@ def _setup_entry_points() -> Dict:
             "sparseml.ultralytics.val=sparseml.yolov8.val:main",
             "sparseml.ultralytics.export_onnx=sparseml.yolov8.export:main",
         ]
+    )
+
+    # eval entrypoint
+    entry_points["console_scripts"].append(
+        "sparseml.evaluate=sparseml.evaluation.cli:main"
     )
 
     return entry_points

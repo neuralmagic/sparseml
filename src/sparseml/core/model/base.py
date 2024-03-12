@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from dataclasses import dataclass
-from typing import Dict, Generic, List, Optional, Tuple, TypeVar, Union
+from typing import Any, Dict, Generator, Generic, List, Optional, Tuple, TypeVar, Union
 
 from sparseml.core.framework import Framework
 from sparseml.core.framework_object import MultiFrameworkObject
@@ -125,6 +125,15 @@ class ModifiableModel(Generic[MT, LT, PT], MultiFrameworkObject):
         """
         raise NotImplementedError()
 
+    def loggable_items(self) -> Generator[Tuple[str, Any], None, None]:
+        """
+        Model level information to be logged for the model
+
+        :return a generator that yields a tuple of:
+            - the name of the loggable item
+            - the value of the loggable item
+        """
+
     @property
     def layer_prefix(self) -> Optional[str]:
         """
@@ -156,5 +165,13 @@ class ModifiableModel(Generic[MT, LT, PT], MultiFrameworkObject):
         Checks if quantization aware training is set up in the model
 
         :return: True if QAT is active in any layer, False otherwise
+        """
+        raise NotImplementedError()
+
+    def get_no_split_params(self) -> Union[str, List[str]]:
+        """
+        Get list of module classes that shouldn't be split when sharding
+
+        :return: list of class names that shouldn't be split
         """
         raise NotImplementedError()

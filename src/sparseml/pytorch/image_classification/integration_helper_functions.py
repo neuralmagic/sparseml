@@ -24,52 +24,64 @@ from sparseml.integration_helper_functions import (
     Integrations,
 )
 from sparseml.pytorch.image_classification.utils.helpers import (
-    _validate_dataset_num_classes,
-)
-from sparseml.pytorch.image_classification.utils.helpers import (
     create_model as create_image_classification_model,
 )
 from sparseml.pytorch.image_classification.utils.helpers import (
     get_dataset_and_dataloader,
-    infer_num_classes,
 )
 
 
 def create_model(
-    source_path: Union[Path, str],
-    batch_size: Optional[int] = 1,
-    device: Optional[str] = None,
-    **kwargs,
-) -> Tuple[torch.nn.Module, Dict[str, Any]]:
+    source_path: Union[Path, str], **kwargs
+) -> Tuple[torch.nn.Module, Dict]:
     """
     A contract to create a model and optional dictionary of
     loaded_model_kwargs (any relevant objects created along with the model)
 
-    :param source_path: The path to the model
-    :param batch_size: The batch size to use for the dataloader creation
-    :param device: The device to use for the model and dataloader instantiation
+    :param source_path: Path to the model files
 
     :return: A tuple of the
         - torch model
         - (optionally) loaded_model_kwargs
           (any relevant objects created along with the model)
     """
+
     checkpoint_path = (
         os.path.join(source_path, "model.pth")
         if not os.path.isfile(source_path)
         else source_path
     )
 
+    return (
+        create_image_classification_model(checkpoint_path=checkpoint_path, **kwargs)[0],
+        {},
+    )
+
+
+def create_data_loader(
+    model: "torch.nn.Module",
+    batch_size: Optional[int] = 1,
+    device: Optional[str] = None,
+    **kwargs,
+) -> Tuple[torch.nn.Module, Dict[str, Any]]:
+    """
+    A contract to create a model and optional dictionary of
+    loaded_data_loader_kwargs (any relevant objects created along with the data_loader)
+
+    :param batch_size: The batch size to use for the dataloader creation
+    :param device: The device to use for the model and dataloader instantiation
+
+    :return: A tuple of the
+        - a data_loader
+        - (optionally) loaded_data_loader_kwargs
+          (any relevant objects created along with the model)
+    """
     dataset_path = kwargs.get("dataset_path", None)
     dataset_name = kwargs.get("dataset_name", None)
     image_size = kwargs.get("image_size", None)
-    num_classes = kwargs.get("num_classes", None)
-    _validate_dataset_num_classes(
-        dataset_path=dataset_path, dataset=dataset_name, num_classes=num_classes
-    )
 
-    if num_classes is None:
-        validation_dataset, validation_dataloader = get_dataset_and_dataloader(
+    if dataset_path is not None:
+        dataset, dataloader = get_dataset_and_dataloader(
             dataset_name=dataset_name,
             dataset_path=dataset_path,
             batch_size=batch_size,
@@ -79,71 +91,61 @@ def create_model(
             loader_pin_memory=False,
             device=device,
         )
-
-        num_classes = infer_num_classes(
-            train_dataset=None,
-            val_dataset=validation_dataset,
-            dataset=dataset_name,
-            model_kwargs={},
-        )
     else:
-        validation_dataloader = None
+        dataloader = None
 
-    kwargs["num_classes"] = num_classes
-    # TODO: How do we pass device information here?
-    model, *_ = create_image_classification_model(
-        checkpoint_path=checkpoint_path, **kwargs
-    )
-
-    return model, dict(validation_dataloader=validation_dataloader)
+    return dataloader, dict(image_size=image_size)
 
 
 def create_dummy_input(
-    validation_dataloader: Optional[torch.utils.data.DataLoader] = None,
+    data_loader: Optional[torch.utils.data.DataLoader] = None,
     image_size: Optional[int] = None,
     **kwargs,
 ) -> torch.Tensor:
     """
     A contract to create a dummy input for a model
 
-    :param validation_dataloader: The validation dataloader to get a batch from.
+    :param data_loader: The validation dataloader to get a batch from.
         If None, a fake batch will be created
     :param image_size: The image size to use for the dummy input
     :return: The dummy input as a torch tensor
     """
 
-    if not validation_dataloader:
+    if not data_loader:
         # create fake data for export
         if image_size is None:
             raise ValueError(
                 "In the absence of validation_dataloader, the "
                 "image_size must be provided to create a dummy input"
             )
-        validation_dataloader = [[torch.randn(1, 3, image_size, image_size)]]
+        data_loader = [[torch.randn(1, 3, image_size, image_size)]]
 
-    return next(iter(validation_dataloader))[0]
+    return next(iter(data_loader))[0]
 
 
 def create_data_samples(
     num_samples: int,
-    validation_dataloader: Optional[torch.utils.data.DataLoader] = None,
+    data_loader: Optional[torch.utils.data.DataLoader] = None,
     model: Optional["torch.nn.Module"] = None,
     **kwargs,
 ):
-    if validation_dataloader is None:
+    if data_loader is None:
         raise ValueError(
             "Attempting to create data samples without a validation dataloader."
         )
 
     return create_data_samples_(
-        data_loader=validation_dataloader, model=model, num_samples=num_samples
+        data_loader=data_loader, model=model, num_samples=num_samples
     )
 
 
 @IntegrationHelperFunctions.register(name=Integrations.image_classification.value)
 class ImageClassification(IntegrationHelperFunctions):
-    create_model: Callable[..., Tuple[torch.nn.Module, Dict[str, Any]]] = Field(
+    create_model: Callable[[], Tuple[torch.nn.Module, Dict[str, Any]]] = Field(
         default=create_model
     )
-    create_dummy_input: Callable[..., torch.Tensor] = Field(default=create_dummy_input)
+    create_data_loader: Callable[
+        [], Tuple[Union[torch.utils.data.DataLoader], Dict[str, Any]]
+    ] = Field(default=create_data_loader)
+    create_dummy_input: Callable[[], torch.Tensor] = Field(default=create_dummy_input)
     create_data_samples: Callable = Field(create_data_samples)

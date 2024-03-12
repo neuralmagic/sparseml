@@ -73,7 +73,7 @@ import shutil
 from typing import Any, Dict, List, Optional, Union
 
 from torch.nn import Module
-from transformers import AutoConfig, AutoTokenizer
+from transformers import AutoConfig
 from transformers.tokenization_utils_base import PaddingStrategy
 
 import sparseml.core.session as session_manager
@@ -83,6 +83,7 @@ from sparseml.pytorch.model_load.helpers import (
     apply_recipe_structure_to_model,
 )
 from sparseml.pytorch.utils import export_onnx
+from sparseml.transformers import SparseAutoTokenizer
 from sparseml.transformers.utils import SparseAutoModel
 from sparsezoo.utils.onnx import EXTERNAL_ONNX_DATA_NAME
 
@@ -152,7 +153,6 @@ def load_task_model(
         return SparseAutoModel.text_generation_from_pretrained(
             model_name_or_path=model_path,
             config=config,
-            model_type="model",
             trust_remote_code=trust_remote_code,
         )
 
@@ -281,7 +281,7 @@ def export_transformer_to_onnx(
     if sequence_length is None:
         sequence_length = config.max_position_embeddings
 
-    tokenizer = AutoTokenizer.from_pretrained(
+    tokenizer = SparseAutoTokenizer.from_pretrained(
         model_path, model_max_length=sequence_length
     )
     if task == "text-generation":
@@ -526,6 +526,10 @@ def export(
 
 
 def main():
+    _LOGGER.warning(
+        "This export script is deprecated and will be removed in a future release. "
+        "Please use the entrypoint: sparseml.export instead."
+    )
     args = _parse_args()
     export(
         task=args.task,

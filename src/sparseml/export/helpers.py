@@ -14,12 +14,15 @@
 
 import logging
 import os
+import re
 import shutil
 from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, OrderedDict, Union
 
 from sparseml.exporters import ExportTargets
+from sparsezoo import Model
+from sparsezoo.utils.onnx import load_model, onnx_includes_external_data, save_onnx
 
 
 __all__ = [
@@ -28,6 +31,9 @@ __all__ = [
     "AVAILABLE_DEPLOYMENT_TARGETS",
     "ONNX_MODEL_NAME",
     "create_export_kwargs",
+    "save_model_with_external_data",
+    "process_source_path",
+    "onnx_data_files",
 ]
 
 AVAILABLE_DEPLOYMENT_TARGETS = [target.value for target in ExportTargets]
@@ -35,6 +41,45 @@ ONNX_MODEL_NAME = "model.onnx"
 ONNX_DATA_NAME = "model.data"
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def process_source_path(source_path: Union[Path, str]) -> str:
+    """
+    Format the source path to be an absolute posix path.
+    If the source path is a zoo stub, return the path to
+    the training directory
+    """
+    if isinstance(source_path, str):
+        if source_path.startswith("zoo:"):
+            source_path = Model(source_path).training.path
+
+            return source_path
+        source_path = Path(source_path)
+    source_path = source_path.absolute()
+    if not source_path.is_dir():
+        raise ValueError(
+            f"Argument: source_path must be a directory. " f"Got {source_path} instead."
+        )
+    return source_path.as_posix()
+
+
+def onnx_data_files(onnx_data_name: str, path: Union[str, Path]) -> List[str]:
+    """
+    Given the onnx_data_name, return a list of all the onnx data file names
+    in the src_path. E.g. if onnx_data_name is "model.data", return
+    ["model.data"] (if there is only one file present),
+    alternativelty potentially return ["model.data.0", "model.data.1", ...]
+    if the files are split into multiple files.
+
+    :param onnx_data_name: The name of the onnx data file.
+    :param path: The path to the onnx data file.
+    :return: A list of all the onnx data file names.
+    """
+    onnx_data_pattern = re.compile(rf"{onnx_data_name}(\.\d+)?$")
+    onnx_data_files = [
+        file for file in os.listdir(path) if onnx_data_pattern.match(file)
+    ]
+    return onnx_data_files
 
 
 def create_export_kwargs(
@@ -67,9 +112,9 @@ def create_export_kwargs(
 
 
 def create_deployment_folder(
-    source_path: Union[Path, str],
     target_path: Union[Path, str],
     deployment_directory_files_mandatory: List[str],
+    source_path: Union[Path, str, None] = None,
     deployment_directory_files_optional: Optional[List[str]] = None,
     deployment_directory_name: str = "deployment",
     onnx_model_name: Optional[str] = None,
@@ -88,6 +133,8 @@ def create_deployment_folder(
     :param target_path: The path to the target folder.
     :param deployment_directory_name: The name of the deployment directory.
         The files will be copied to target_path/deployment_directory_name.
+    :param source_path: The path to the source folder (where the original model
+        files are stored)
     :param deployment_directory_files_mandatory: The mandatory list of files
         to copy to the deployment directory. If the file is an ONNX model
         (or ONNX data file), the file will be copied from target_path.
@@ -104,50 +151,59 @@ def create_deployment_folder(
         shutil.rmtree(deployment_folder_dir)
     os.makedirs(deployment_folder_dir, exist_ok=True)
 
+    # prepare for moving the data
     deployment_directory_files_optional = deployment_directory_files_optional or []
+    deployment_directory_files_mandatory.remove(ONNX_MODEL_NAME)
 
+    # move the model and (if required) the data files
+    move_onnx_files(
+        target_path=target_path,
+        deployment_folder_dir=deployment_folder_dir,
+        onnx_model_name=onnx_model_name,
+    )
+    if source_path is None:
+        return deployment_folder_dir
+
+    # copy the relevant files from source_path
     for file_name in deployment_directory_files_mandatory:
-        move_mandatory_deployment_files(
+        copy_mandatory_deployment_files(
             file_name, source_path, target_path, onnx_model_name, deployment_folder_dir
         )
 
     for file_name in deployment_directory_files_optional:
-        move_optional_deployment_files(file_name, source_path, deployment_folder_dir)
+        copy_optional_deployment_files(file_name, source_path, deployment_folder_dir)
 
     return deployment_folder_dir
 
 
-def move_mandatory_deployment_files(
+def move_onnx_files(
+    target_path: Union[str, Path],
+    deployment_folder_dir: str,
+    onnx_model_name: Optional[str] = None,
+):
+    onnx_model_name = onnx_model_name or ONNX_MODEL_NAME
+    _move_onnx_model(
+        onnx_model_name=onnx_model_name,
+        src_path=target_path,
+        target_path=deployment_folder_dir,
+    )
+
+
+def copy_mandatory_deployment_files(
     file_name: str,
     source_path: Union[Path, str],
     target_path: Union[Path, str],
     onnx_model_name: str,
     deployment_folder_dir: Union[Path, str],
 ):
-    if file_name == ONNX_MODEL_NAME:
-        # attempting to move the ONNX model file
-        # (potentially together with the ONNX data file)
-        # from target_path to target_path/deployment_folder_dir
 
-        # takes into consideration potentially custom ONNX model name
-        onnx_model_name = (
-            ONNX_MODEL_NAME if onnx_model_name is None else onnx_model_name
-        )
-
-        _move_onnx_model(
-            onnx_model_name=onnx_model_name,
-            src_path=target_path,
-            target_path=deployment_folder_dir,
-        )
-
-    else:
-        _copy_file_or_directory(
-            src=os.path.join(source_path, file_name),
-            target=os.path.join(deployment_folder_dir, file_name),
-        )
+    _copy_file_or_directory(
+        src=os.path.join(source_path, file_name),
+        target=os.path.join(deployment_folder_dir, file_name),
+    )
 
 
-def move_optional_deployment_files(
+def copy_optional_deployment_files(
     file_name: str,
     source_path: Union[Path, str],
     deployment_folder_dir: Union[Path, str],
@@ -176,7 +232,6 @@ def apply_optimizations(
     onnx_file_path: Union[str, Path],
     available_optimizations: OrderedDict[str, Callable],
     target_optimizations: Union[str, List[str]] = GraphOptimizationOptions.all.value,
-    single_graph_file: bool = True,
 ):
     """
     Apply optimizations to the graph of the ONNX model.
@@ -190,8 +245,6 @@ def apply_optimizations(
         that specifies the set of optimizations to apply.
         If is string, refer to the `GraphOptimizationOptions` enum
         for the available options.
-    :param single_graph_file: Whether to save the optimized graph to a single
-        file or split it into multiple files. By default, it is True.
     """
     optimizations: Dict[str, Callable] = resolve_graph_optimizations(
         available_optimizations=available_optimizations,
@@ -206,9 +259,6 @@ def apply_optimizations(
                 f"Optimization: {name} has been successfully "
                 f"applied to the ONNX model: {onnx_file_path}"
             )
-
-    if not single_graph_file:
-        save_onnx_multiple_files(onnx_file_path)
 
 
 def resolve_graph_optimizations(
@@ -241,22 +291,55 @@ def resolve_graph_optimizations(
         raise KeyError(f"Unknown graph optimization option: {optimizations}")
 
 
-# TODO: To discuss with @bfineran
-def save_onnx_multiple_files(*args, **kwargs):
-    raise NotImplementedError
+def save_model_with_external_data(
+    onnx_file_path: Union[str, Path], external_data_chunk_size_mb: Optional[int] = None
+):
+    onnx_model = load_model(onnx_file_path)
+    if external_data_chunk_size_mb is not None:
+        _LOGGER.debug(
+            "Splitting the model into "
+            f"{os.path.basename(onnx_file_path)} (graph definition) and one or more "
+            f"{ONNX_DATA_NAME} files (constant tensor data). The size of each "
+            f"{ONNX_DATA_NAME} file will not exceed {external_data_chunk_size_mb} MB.",
+        )
+        save_onnx(
+            onnx_model,
+            onnx_file_path,
+            external_data_file=ONNX_DATA_NAME,
+            max_external_data_chunk_size=external_data_chunk_size_mb * 1024 * 1024,
+        )
+
+    elif onnx_includes_external_data(onnx_model):
+        _LOGGER.debug(
+            "Splitting the model into"
+            f"{os.path.basename(onnx_file_path)} (graph definition) and one or more "
+            f"{ONNX_DATA_NAME} files (constant tensor data)"
+        )
+        save_onnx(onnx_model, onnx_file_path, external_data_file=ONNX_DATA_NAME)
+
+    else:
+        _LOGGER.debug(
+            "save_with_external_data = True ignored, the model already "
+            "has been saved with external data"
+        )
 
 
 def _move_onnx_model(
     onnx_model_name: str, src_path: Union[str, Path], target_path: Union[str, Path]
 ):
-    onnx_data_name = onnx_model_name.replace(".onnx", ".data")
-
-    onnx_model_path = os.path.join(src_path, onnx_model_name)
-    onnx_data_path = os.path.join(src_path, onnx_data_name)
-
-    if os.path.exists(onnx_data_path):
-        _move_file(src=onnx_data_path, target=os.path.join(target_path, onnx_data_name))
-    _move_file(src=onnx_model_path, target=os.path.join(target_path, onnx_model_name))
+    # move the data file(s)
+    for onnx_data_file in onnx_data_files(
+        onnx_data_name=onnx_model_name.replace(".onnx", ".data"), path=src_path
+    ):
+        _move_file(
+            src=os.path.join(src_path, onnx_data_file),
+            target=os.path.join(target_path, onnx_data_file),
+        )
+    # move the model itself
+    _move_file(
+        src=os.path.join(src_path, onnx_model_name),
+        target=os.path.join(target_path, onnx_model_name),
+    )
 
 
 def _copy_file_or_directory(src: str, target: str):

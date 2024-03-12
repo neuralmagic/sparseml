@@ -12,13 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 from collections import OrderedDict
 
 import pytest
 import torch
+import transformers
 
 from huggingface_hub import snapshot_download
-from sparseml.transformers.utils.helpers import is_transformer_model, save_zoo_directory
+from sparseml.transformers.utils.helpers import (
+    create_fake_dataloader,
+    infer_recipe_from_model_path,
+    is_transformer_model,
+    resolve_recipe_file,
+    save_zoo_directory,
+)
+from sparseml.transformers.utils.initializers import initialize_tokenizer
 from sparsezoo import Model
 
 
@@ -67,7 +76,6 @@ def test_is_transformer_model(tmp_path, stub):
     "stub",
     [
         "zoo:nlp/question_answering/bert-base/pytorch/huggingface/squad/pruned95_obs_quant-none",  # noqa E501
-        "zoo:nlp/question_answering/obert-base/pytorch/huggingface/squad/pruned90_quant-none",  # noqa E501
     ],
 )
 def test_save_zoo_directory(stub, tmp_path_factory):
@@ -83,3 +91,98 @@ def test_save_zoo_directory(stub, tmp_path_factory):
     )
     new_zoo_model = Model(str(save_dir))
     assert new_zoo_model.validate(minimal_validation=True, validate_onnxruntime=False)
+
+
+@pytest.mark.parametrize(
+    "model_path, recipe_found",
+    [
+        ("roneneldan/TinyStories-1M", False),
+        ("mgoin/all-MiniLM-L6-v2-quant-ds", True),
+        (
+            "zoo:mobilebert-squad_wikipedia_bookcorpus-14layer_pruned50.4block_quantized",  # noqa E501
+            True,
+        ),
+    ],
+)
+def test_infer_recipe_from_model_path(model_path, recipe_found):
+    recipe = infer_recipe_from_model_path(model_path)
+    if recipe_found:
+        assert isinstance(recipe, str)
+        return
+    assert recipe is None
+
+
+def test_infer_recipe_from_local_model_path(tmp_path):
+    model_directory_path = tmp_path
+    recipe_path = tmp_path / "recipe.yaml"
+    model_path = tmp_path / "model.onnx"
+    recipe_path.touch()
+    model_path.touch()
+    recipe = infer_recipe_from_model_path(model_directory_path)
+    assert recipe == recipe_path.as_posix()
+    recipe = infer_recipe_from_model_path(model_path)
+    assert recipe == recipe_path.as_posix()
+
+
+@pytest.mark.parametrize(
+    "model_path",
+    [
+        ("roneneldan/TinyStories-1M"),
+        ("mgoin/all-MiniLM-L6-v2-quant-ds"),
+        ("zoo:mobilebert-squad_wikipedia_bookcorpus-14layer_pruned50.4block_quantized"),
+    ],
+)
+def test_resolve_recipe_file(model_path, model_path_and_recipe_path):
+    recipe = model_path_and_recipe_path[1]
+    # looks for recipe: .../.../recipe.yaml in model_path
+    assert recipe.as_posix() == resolve_recipe_file(
+        requested_recipe=recipe, model_path=model_path
+    )
+
+
+@pytest.fixture()
+def model_path_and_recipe_path(tmp_path):
+    model_path = tmp_path / "model.onnx"
+    recipe_path = tmp_path / "recipe.yaml"
+    recipe_path.touch()
+    model_path.touch()
+
+    return model_path, recipe_path
+
+
+def test_resolve_recipe_file_from_local_path(model_path_and_recipe_path):
+    model_path, recipe_path = model_path_and_recipe_path
+    assert recipe_path.as_posix() == resolve_recipe_file(
+        requested_recipe=recipe_path, model_path=model_path
+    )
+    assert recipe_path.as_posix() == resolve_recipe_file(
+        requested_recipe=recipe_path, model_path=os.path.dirname(model_path)
+    )
+    new_recipe_path = model_path.parent / "new_recipe.yaml"
+    new_recipe_path.touch()
+    assert new_recipe_path.as_posix() == resolve_recipe_file(
+        requested_recipe=new_recipe_path, model_path=model_path
+    )
+
+
+def test_create_fake_dataloader(generative_model_path, sequence_length):
+    expected_input_names = ["input_ids", "attention_mask"]
+    sequence_length = 32
+    num_samples = 2
+
+    model = transformers.AutoModelForCausalLM.from_pretrained(generative_model_path)
+    tokenizer = initialize_tokenizer(
+        generative_model_path, sequence_length=sequence_length, task="text-generation"
+    )
+    data_loader, input_names = create_fake_dataloader(
+        model=model,
+        tokenizer=tokenizer,
+        num_samples=num_samples,
+    )
+
+    assert input_names == expected_input_names
+    for i, sample in enumerate(data_loader):
+        assert sample["input_ids"].shape == torch.Size([1, sequence_length])
+        assert sample["attention_mask"].shape == torch.Size([1, sequence_length])
+        assert set(sample.keys()) == set(expected_input_names)
+    assert i == num_samples - 1

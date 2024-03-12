@@ -20,7 +20,8 @@ import numpy as np
 import pytest
 import torch
 
-from sparseml.export.export import export
+from sparseml import export
+from sparseml.pytorch.image_classification.utils.helpers import create_model
 from sparsezoo import Model
 
 
@@ -53,6 +54,32 @@ class TestEndToEndExport:
 
         shutil.rmtree(tmp_path)
 
+    def test_export_initialized_model_no_source_path(self, setup):
+        # export the image-classification model, that is being passed to the
+        # `export` API directly as an object
+        source_path, target_path, task, kwargs = setup
+        del kwargs["num_classes"]
+        kwargs["dataset_name"] = "imagenette"
+        kwargs["dataset_path"] = target_path.parent / "dataset"
+
+        model = create_model(
+            checkpoint_path=os.path.join(source_path, "model.pth"),
+            num_classes=10,
+            **kwargs,
+        )[0]
+
+        export(
+            model=model,
+            target_path=target_path,
+            integration="image-classification",
+            validate_correctness=True,
+            num_export_samples=2,
+            **kwargs,
+        )
+
+        assert (target_path / "deployment" / "model.onnx").exists()
+        assert not (target_path / "deployment" / "model.data").exists()
+
     def test_export_happy_path(self, setup):
         source_path, target_path, integration, kwargs = setup
         export(
@@ -62,6 +89,7 @@ class TestEndToEndExport:
             **kwargs,
         )
         assert (target_path / "deployment" / "model.onnx").exists()
+        assert not (target_path / "deployment" / "model.data").exists()
 
     def test_export_custom_onnx_model_name(self, setup):
         source_path, target_path, integration, kwargs = setup
@@ -85,6 +113,18 @@ class TestEndToEndExport:
         )
         assert (target_path / "custom_deployment_name" / "model.onnx").exists()
 
+    def test_export_with_external_data(self, setup):
+        source_path, target_path, integration, kwargs = setup
+        export(
+            source_path=source_path,
+            target_path=target_path,
+            integration=integration,
+            save_with_external_data=True,
+            **kwargs,
+        )
+        assert (target_path / "deployment" / "model.onnx").exists()
+        assert (target_path / "deployment" / "model.data").exists()
+
     def test_export_deployment_target_onnx(self, setup):
         source_path, target_path, integration, kwargs = setup
         export(
@@ -107,20 +147,8 @@ class TestEndToEndExport:
         )
         assert (target_path / "deployment" / "model.onnx").exists()
 
-    @pytest.mark.skipif(reason="skipping since not implemented")
-    def test_export_multiple_files(self, setup):
-        source_path, target_path, integration, kwargs = setup
-        export(
-            source_path=source_path,
-            target_path=target_path,
-            integration=integration,
-            single_graph_file=False,
-            **kwargs,
-        )
-
     def test_export_samples(self, setup):
         source_path, target_path, integration, kwargs = setup
-        del kwargs["num_classes"]
         kwargs["dataset_name"] = "imagenette"
         kwargs["dataset_path"] = target_path.parent / "dataset"
 
@@ -164,11 +192,10 @@ class TestEndToEndExport:
     def test_export_validate_correctness(self, caplog, setup):
         if self.is_model_quantized:
             pytest.skip(
-                "Skipping since quantized models may not pass this test"
+                "Skipping since quantized models may not pass this test "
                 "due to differences in rounding between quant ops in PyTorch and ONNX"
             )
         source_path, target_path, integration, kwargs = setup
-        del kwargs["num_classes"]
         kwargs["dataset_name"] = "imagenette"
         kwargs["dataset_path"] = target_path.parent / "dataset"
 

@@ -19,6 +19,7 @@ from sparseml.utils import (
     convert_to_bool,
     flatten_iterable,
     interpolate,
+    parse_kwarg_tuples,
     validate_str_iterable,
 )
 
@@ -98,3 +99,8 @@ def test_validate_str_iterable_negative():
 def test_interpolate(x_cur, x0, x1, y0, y1, inter_func, out):
     interpolated = interpolate(x_cur, x0, x1, y0, y1, inter_func)
     assert abs(out - interpolated) < 0.01
+
+
+def test_pass_kwargs_tuples():
+    kwargs = parse_kwarg_tuples(("--input_1", 1, "--input_2", "two", "--input_3", "2"))
+    assert kwargs == dict(input_1=1, input_2="two", input_3=2)

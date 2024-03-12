@@ -57,9 +57,11 @@ def test_successful_layerwise_recipe():
     targets = ["seq.fc1", "seq.fc2"]
     kwargs = dict(sparsity=sparsities, block_size=128, quantize=False, targets=targets)
     modifier = SparseGPTModifierPyTorch(**kwargs)
-    modifier._validate_layerwise_sparsity()
+    modifier.compressible_layers_ = {"seq.fc1": None, "seq.fc2": None}
     modifier.model = ModifiableModel(framework=Framework.pytorch, model=model)
     found_compressible_layers = modifier.compressible_layers()
+    modifier.compressible_layers_ = found_compressible_layers
+    modifier._validate_layerwise_sparsity()
 
     # ensure layers names successfully match up with model
     assert len(found_compressible_layers) == len(targets)

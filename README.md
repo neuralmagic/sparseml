@@ -68,7 +68,7 @@ To prune and quantize a TinyLlama Chat model it is just a few steps to install d
 git clone https://github.com/neuralmagic/sparseml
 pip install -e "sparseml[transformers]"
 wget https://huggingface.co/neuralmagic/TinyLlama-1.1B-Chat-v0.4-pruned50-quant-ds/raw/main/recipe.yaml
-python sparseml/src/sparseml/transformers/sparsification/obcq/obcq.py TinyLlama/TinyLlama-1.1B-Chat-v0.4 open_platypus --recipe recipe.yaml --save True
+sparseml.transformers.text_generation.oneshot --model_name TinyLlama/TinyLlama-1.1B-Chat-v1.0 --dataset_name open_platypus --recipe recipe.yaml --output_dir ./obcq_deployment --precision float16
 ```
 
 The README at [`src/sparseml/transformers/sparsification/obcq`](https://github.com/neuralmagic/sparseml/tree/main/src/sparseml/transformers/sparsification/obcq) has a detailed walkthrough.

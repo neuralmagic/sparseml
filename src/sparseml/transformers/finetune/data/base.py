@@ -19,7 +19,11 @@ from datasets import Dataset, IterableDataset
 from transformers import AutoTokenizer
 
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
-from sparseml.transformers.finetune.data.data_helpers import get_raw_dataset
+from sparseml.transformers.finetune.data.data_helpers import (
+    LABELS_MASK_VALUE,
+    get_custom_datasets_from_path,
+    get_raw_dataset,
+)
 from sparsezoo.utils.registry import RegistryMixin
 
 
@@ -36,6 +40,8 @@ class TextGenerationDataset(RegistryMixin):
     :param tokenizer: tokenizer to use on dataset
     """
 
+    PROMPT_KEY = "prompt"
+
     def __init__(
         self,
         text_column: str,
@@ -48,7 +54,10 @@ class TextGenerationDataset(RegistryMixin):
         self.data_args = data_args
         self.raw_kwargs = data_args.raw_kwargs or {}
         self.split = split
-        self.dvc_dataset = True if self.data_args.dvc_dataset_path else False
+        self.dvc_dataset = (
+            True if self.data_args.dvc_data_repository is not None else False
+        )
+        self.custom_dataset = True if self.data_args.dataset_path is not None else False
 
         # configure padding
         if data_args.concatenate_data:
@@ -58,7 +67,7 @@ class TextGenerationDataset(RegistryMixin):
         else:
             self.padding = False
 
-        if self.padding and self.tokenizer:
+        if self.tokenizer:
             if not self.tokenizer.pad_token:
                 self.tokenizer.pad_token = self.tokenizer.eos_token
 
@@ -80,11 +89,19 @@ class TextGenerationDataset(RegistryMixin):
         :param cache_dir: disk location to search for cached dataset
         :return: the requested dataset
         """
-        if self.dvc_dataset:
-            self.raw_kwargs["data_files"] = self.data_args.dvc_dataset_path
-            self.raw_kwargs["storage_options"] = {
-                "url": self.data_args.dvc_data_repository
-            }
+        if self.custom_dataset:
+            if self.dvc_dataset:
+                self.raw_kwargs["storage_options"] = {
+                    "url": self.data_args.dvc_data_repository
+                }
+                self.raw_kwargs["data_files"] = self.data_args.dataset_path
+            else:
+                self.raw_kwargs["data_files"] = get_custom_datasets_from_path(
+                    self.data_args.dataset_path,
+                    self.data_args.dataset
+                    if hasattr(self.data_args, "dataset")
+                    else self.data_args.dataset_name,
+                )
 
         return get_raw_dataset(
             self.data_args,
@@ -99,7 +116,7 @@ class TextGenerationDataset(RegistryMixin):
         Sets up the raw dataset for finetuning, performs tokenization, concatenates
         entries to max sequence length if desired, and adds labels to each entry
 
-        :raw_dataset: dataset to process
+        :param raw_dataset: dataset to process
         """
         # helper fn for tokenizing text column
         def tokenize_fn(data):
@@ -109,6 +126,16 @@ class TextGenerationDataset(RegistryMixin):
                 max_length=self.max_seq_length,
                 truncation=True,
             )
+
+            # store unpadded prompt so we can mask out correct number of elements
+            # in the labels
+            if self.PROMPT_KEY in data:
+                result[self.PROMPT_KEY] = self.tokenizer(
+                    data[self.PROMPT_KEY],
+                    max_length=self.max_seq_length,
+                    truncation=True,
+                )["input_ids"]
+
             return result
 
         # helper fn for filling to max_sequence_length by concatenating entries
@@ -127,7 +154,18 @@ class TextGenerationDataset(RegistryMixin):
 
         # helper fn for adding labels, needed for loss calculation
         def label_fn(data):
+            # if the dataset uses prompts, mask them out so they don't contribute
+            # to the loss calculation
+            prompt_len = 0
+            if self.PROMPT_KEY in data:
+                prompt_len = len(data[self.PROMPT_KEY])
             data["labels"] = data["input_ids"].copy()
+            data["labels"][:prompt_len] = [LABELS_MASK_VALUE] * prompt_len
+
+            # mask out padding in the labels as well
+            padding = len(data["attention_mask"]) - sum(data["attention_mask"])
+            if padding > 0:
+                data["labels"][-padding:] = [LABELS_MASK_VALUE] * padding
             return data
 
         dataset = self.map(
@@ -150,14 +188,25 @@ class TextGenerationDataset(RegistryMixin):
                 desc="Grouping text",
             )
 
+        if isinstance(dataset, IterableDataset):
+            # so we can get column names from streamed_datasets
+            dataset = dataset._resolve_features()
+
+        column_names = dataset.column_names
+        if isinstance(column_names, dict):
+            column_names = column_names[list(column_names)[0]]
         dataset = self.map(
             dataset,
             function=label_fn,
-            batched=True,
+            batched=False,  # not compatible with batching due to needing row lengths
+            remove_columns=[self.PROMPT_KEY]
+            if self.PROMPT_KEY in column_names
+            else None,
             num_proc=self.data_args.preprocessing_num_workers,
             load_from_cache_file=not self.data_args.overwrite_cache,
             desc="Adding labels",
         )
+        print(dataset.column_names)
 
         return dataset
 

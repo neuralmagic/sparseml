@@ -13,12 +13,14 @@
 # limitations under the License.
 
 import logging
+import math
 import os
+import re
 from typing import List, Optional
 
 import torch
 from torch.nn import Module
-from torch.utils.data import DataLoader, Dataset, RandomSampler
+from torch.utils.data import Dataset
 from transformers import AutoTokenizer
 
 import sparseml.core.session as session_manager
@@ -29,11 +31,15 @@ from sparseml.pytorch.model_load.helpers import (
     save_completed_stages,
     save_model_and_recipe,
 )
-from sparseml.transformers.finetune import TrainingArguments
+from sparseml.pytorch.utils import tensors_to_device
 from sparseml.transformers.finetune.data import TextGenerationDataset
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
-from sparseml.transformers.finetune.data.data_helpers import make_dataset_splits
+from sparseml.transformers.finetune.data.data_helpers import (
+    format_calibration_data,
+    make_dataset_splits,
+)
 from sparseml.transformers.finetune.model_args import ModelArguments
+from sparseml.transformers.finetune.training_args import TrainingArguments
 from sparseml.utils.fsdp.context import summon_full_params_context
 from sparseml.utils.fsdp.helpers import is_fsdp_model, unwrap_and_export_model
 from sparseml.utils.pytorch import qat_active
@@ -85,20 +91,34 @@ class StageRunner:
         """
         splits = self._data_args.splits
         tokenized_datasets = {}
+
+        def _get_split_name(inp_str):
+            # strip out split name, for ex train[60%:] -> train
+            match = re.match(r"(\w*)\[.*\]", inp_str)
+            if match is not None:
+                return match.group(1)
+            return inp_str
+
         if splits is None:
             splits = {"all": None}
         elif isinstance(splits, str):
-            splits = {splits: splits}
+            splits = {_get_split_name(splits): splits}
         elif isinstance(splits, List):
-            splits = {s: s for s in splits}
+            splits = {_get_split_name(s): s for s in splits}
 
+        # default to custom dataset if dataset provided isn't a string
+        registry_id = self._data_args.dataset
+
+        if not isinstance(registry_id, str):
+            registry_id = "custom"
         for split_name, split_str in splits.items():
             dataset_manager = TextGenerationDataset.load_from_registry(
-                self._data_args.dataset_name,
+                registry_id,
                 data_args=self._data_args,
                 split=split_str,
                 tokenizer=tokenizer,
             )
+
             raw_dataset = dataset_manager.get_raw_dataset(self._model_args.cache_dir)
             tokenized_dataset = dataset_manager.tokenize_and_process(raw_dataset)
             tokenized_datasets[split_name] = tokenized_dataset
@@ -121,27 +141,6 @@ class StageRunner:
         """
         return self.datasets.get(split_name)
 
-    def format_calibration_data(self) -> List[torch.Tensor]:
-        """
-        Creates a dataloader out of the calibration dataset split, trimming it to
-        the desired number of calibration samples
-
-        :return: list of trimmed calibration data tensors
-        """
-        oneshot_dataset = self.get_dataset_split("calibration")
-
-        dataloader_params = {
-            "batch_size": 1,
-            "sampler": RandomSampler(oneshot_dataset),
-            "collate_fn": self.trainer.data_collator,
-        }
-
-        calib_dataloader = DataLoader(oneshot_dataset, **dataloader_params)
-        parsed_calib_data = [inp["input_ids"] for inp in calib_dataloader]
-        return parsed_calib_data[
-            : min(self._data_args.num_calibration_samples, len(parsed_calib_data))
-        ]
-
     def one_shot(self, stage: Optional[str] = None):
         """
         Run oneshot calibration on the active model
@@ -150,12 +149,26 @@ class StageRunner:
         """
         _LOGGER.info("*** One Shot ***")
 
-        calib_data = self.format_calibration_data()
+        calib_data = format_calibration_data(
+            tokenized_dataset=self.get_dataset_split("calibration"),
+            num_calibration_samples=self._data_args.num_calibration_samples,
+            accelerator=self.trainer.accelerator,
+        )
+
+        # if we don't run a forward pass after initializing the FSDP model for the
+        # first time, calls to summon_full_params will fail ¯\_(ツ)_/¯
+        dummy_inp = dict(next(iter(calib_data)))
+        model_device = next(self.trainer.model.parameters()).device
+        dummy_inp = tensors_to_device(dummy_inp, model_device)
+        with torch.no_grad():
+            self.trainer.model(**dummy_inp)
+        self.trainer.accelerator.wait_for_everyone()
+
         self.trainer.one_shot(calib_data, stage=stage)
 
         if is_fsdp_model(self.trainer.model):
             try:
-                self.trainer.save_model(output_dir=self._output_dir)
+                self.trainer.save_model(output_dir=self._output_dir, _is_oneshot=True)
             except AssertionError:
                 # fallback to this in the case of quantization
                 unwrap_and_export_model(
@@ -185,6 +198,7 @@ class StageRunner:
         )
         metrics = train_result.metrics
         metrics["train_samples"] = len(self.get_dataset_split("train"))
+        metrics["perplexity"] = math.exp(metrics["train_loss"])
         self.trainer.log_metrics("train", metrics)
         self.trainer.save_metrics("train", metrics)
 
@@ -224,7 +238,9 @@ class StageRunner:
 
         recipe_obj = Recipe.create_instance(self._training_args.recipe)
         with self.trainer.accelerator.main_process_first():
-            completed_stages = get_completed_stages(self._model_args.model_name_or_path)
+            checkpoint_dir = self._model_args.model
+            completed_stages = get_completed_stages(checkpoint_dir)
+
         self.trainer.accelerator.wait_for_everyone()
 
         for stage in recipe_obj.stages:
@@ -277,6 +293,9 @@ class StageRunner:
                     if not qat_active(self.trainer.model):
                         self.trainer.log_model_sparsification()
 
-            # synchronize
+            # synchronize and clean up memory
             self.trainer.accelerator.wait_for_everyone()
             self.trainer.model = get_session_model()
+            torch.cuda.empty_cache()
+            self.trainer.accelerator.free_memory()
+            self.trainer.accelerator.wait_for_everyone()

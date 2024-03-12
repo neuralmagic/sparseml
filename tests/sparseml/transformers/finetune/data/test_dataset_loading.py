@@ -18,17 +18,20 @@ from datasets import IterableDataset
 
 from sparseml.transformers.finetune.data import TextGenerationDataset
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
+from sparseml.transformers.finetune.model_args import ModelArguments
+from sparseml.transformers.finetune.runner import StageRunner
+from sparseml.transformers.finetune.training_args import TrainingArguments
 
 
 @pytest.mark.usefixtures("tiny_llama_tokenizer")
 def test_concatenation_tokenization(tiny_llama_tokenizer):
     data_args = DataTrainingArguments(
-        dataset_name="wikitext",
+        dataset="wikitext",
         dataset_config_name="wikitext-2-raw-v1",
         concatenate_data=True,
     )
     wiki_manager = TextGenerationDataset.load_from_registry(
-        data_args.dataset_name,
+        data_args.dataset,
         data_args=data_args,
         split="train[:5%]",
         tokenizer=tiny_llama_tokenizer,
@@ -46,11 +49,9 @@ def test_concatenation_tokenization(tiny_llama_tokenizer):
 
 @pytest.mark.usefixtures("tiny_llama_tokenizer")
 def test_no_padding_tokenization(tiny_llama_tokenizer):
-    data_args = DataTrainingArguments(
-        dataset_name="open_platypus", pad_to_max_length=False
-    )
+    data_args = DataTrainingArguments(dataset="open_platypus", pad_to_max_length=False)
     op_manager = TextGenerationDataset.load_from_registry(
-        data_args.dataset_name,
+        data_args.dataset,
         data_args=data_args,
         split="train[5%:10%]",
         tokenizer=tiny_llama_tokenizer,
@@ -72,9 +73,9 @@ def test_no_padding_tokenization(tiny_llama_tokenizer):
 
 @pytest.mark.usefixtures("tiny_llama_tokenizer")
 def test_max_seq_len_clipped(tiny_llama_tokenizer):
-    data_args = DataTrainingArguments(dataset_name="open_platypus", max_seq_length=4096)
+    data_args = DataTrainingArguments(dataset="open_platypus", max_seq_length=4096)
     op_manager = TextGenerationDataset.load_from_registry(
-        data_args.dataset_name,
+        data_args.dataset,
         data_args=data_args,
         split="train[80%:]",
         tokenizer=tiny_llama_tokenizer,
@@ -87,13 +88,13 @@ def test_max_seq_len_clipped(tiny_llama_tokenizer):
 @pytest.mark.usefixtures("tiny_llama_tokenizer")
 def test_dataset_kwargs_and_percentages(tiny_llama_tokenizer):
     data_args = DataTrainingArguments(
-        dataset_name="wikitext",
+        dataset="wikitext",
         raw_kwargs={
             "data_files": {"train": "wikitext-2-raw-v1/train-00000-of-00001.parquet"}
         },
     )
     c4_manager_a = TextGenerationDataset.load_from_registry(
-        data_args.dataset_name,
+        data_args.dataset,
         data_args=data_args,
         split="train[5%:10%]",
         tokenizer=tiny_llama_tokenizer,
@@ -101,7 +102,7 @@ def test_dataset_kwargs_and_percentages(tiny_llama_tokenizer):
     raw_dataset_a = c4_manager_a.get_raw_dataset()
 
     c4_manager_b = TextGenerationDataset.load_from_registry(
-        data_args.dataset_name,
+        data_args.dataset,
         data_args=data_args,
         split="train[5%:15%]",
         tokenizer=tiny_llama_tokenizer,
@@ -122,12 +123,12 @@ def test_dataset_kwargs_and_percentages(tiny_llama_tokenizer):
 )
 def test_datasets(tiny_llama_tokenizer, dataset_key, dataset_config, split, do_concat):
     data_args = DataTrainingArguments(
-        dataset_name=dataset_key,
+        dataset=dataset_key,
         dataset_config_name=dataset_config,
         concatenate_data=do_concat,
     )
     manager = TextGenerationDataset.load_from_registry(
-        data_args.dataset_name,
+        data_args.dataset,
         data_args=data_args,
         split=split,
         tokenizer=tiny_llama_tokenizer,
@@ -151,12 +152,12 @@ def test_datasets(tiny_llama_tokenizer, dataset_key, dataset_config, split, do_c
 @pytest.mark.usefixtures("tiny_llama_tokenizer")
 def test_evol(tiny_llama_tokenizer):
     data_args = DataTrainingArguments(
-        dataset_name="evolcodealpaca",
+        dataset="evolcodealpaca",
         dataset_config_name=None,
         concatenate_data=False,
     )
     evol_manager = TextGenerationDataset.load_from_registry(
-        data_args.dataset_name,
+        data_args.dataset,
         data_args=data_args,
         split="train[:2%]",
         tokenizer=tiny_llama_tokenizer,
@@ -175,8 +176,8 @@ def test_evol(tiny_llama_tokenizer):
 @pytest.mark.usefixtures("tiny_llama_tokenizer")
 def test_dvc_dataloading(tiny_llama_tokenizer):
     data_args = DataTrainingArguments(
-        dataset_name="csv",
-        dvc_dataset_path="dvc://workshop/satellite-data/jan_train.csv",
+        dataset="csv",
+        dataset_path="dvc://workshop/satellite-data/jan_train.csv",
         dvc_data_repository="https://github.com/iterative/dataset-registry.git",
     )
     manager = TextGenerationDataset(
@@ -194,13 +195,13 @@ def test_dvc_dataloading(tiny_llama_tokenizer):
 @pytest.mark.usefixtures("tiny_llama_tokenizer")
 def test_stream_loading(tiny_llama_tokenizer):
     data_args = DataTrainingArguments(
-        dataset_name="wikitext",
+        dataset="wikitext",
         dataset_config_name="wikitext-2-raw-v1",
         concatenate_data=True,
         streaming=True,
     )
     manager = TextGenerationDataset.load_from_registry(
-        data_args.dataset_name,
+        data_args.dataset,
         data_args=data_args,
         split="train",
         tokenizer=tiny_llama_tokenizer,
@@ -217,3 +218,24 @@ def test_stream_loading(tiny_llama_tokenizer):
     item = next(iter(processed))
     assert "labels" in item
     assert len(item["input_ids"]) == manager.max_seq_length
+
+
+@pytest.mark.usefixtures("tiny_llama_tokenizer")
+@pytest.mark.parametrize(
+    "split_def", [("train"), ("train[60%:]"), ({"train": "train[:20%]"}), (None)]
+)
+def test_split_loading(split_def, tiny_llama_tokenizer):
+    data_args = DataTrainingArguments(dataset="open_platypus", splits=split_def)
+    training_args = TrainingArguments(do_train=True, output_dir="dummy")
+    model_args = ModelArguments(model=None)
+    stage_runner = StageRunner(
+        model_args=model_args,
+        data_args=data_args,
+        training_args=training_args,
+        model=None,
+    )
+    stage_runner.populate_datasets(tokenizer=tiny_llama_tokenizer)
+
+    train_dataset = stage_runner.get_dataset_split("train")
+    assert train_dataset is not None
+    assert isinstance(train_dataset[0], dict)
