@@ -76,4 +76,4 @@ def test_match(shape, sparsity):
     for key in dense_state_dict.keys():
         dense_tensor = dense_state_dict[key]
         sparse_tensor = BitmaskTensor(dense_tensor)
-        assert torch.equal(dense_tensor, sparse_tensor.to_dense())
+        assert torch.equal(dense_tensor, sparse_tensor.decompress())

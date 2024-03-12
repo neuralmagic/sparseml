@@ -39,25 +39,21 @@ from sparseml.transformers.compression import BitmaskConfig, BitmaskCompressor
 from safetensors import safe_open
 import os
 
-MODEL_PATH = "/path/to/sparse/model"
-OUTPUT_PATH = "/desired/output/path"
+MODEL_PATH = "zoo:llama2-7b-gsm8k_llama2_pretrain-pruned50.oneshot"
+OUTPUT_PATH = "./test_compress_output"
 
-# load the uncompressed model
 model = SparseAutoModelForCausalLM.from_pretrained(MODEL_PATH)
 
-# setup compression config
 sparsity_config = BitmaskConfig()
 compressor = BitmaskCompressor(config=sparsity_config)
 
-# apply bitmask compression
 model_state_dict = model.state_dict()
 sparse_state_dict = compressor.compress(model_state_dict)
 
-# save the compressed model
+
 model.save_pretrained(OUTPUT_PATH, safe_serialization=True, state_dict=sparse_state_dict)
 
-# read data from the compressed model
-safetensors_path = os.path.join(OUTPUT_PATH, "model.safetensors")
+safetensors_path = os.path.join(OUTPUT_PATH, "model-00001-of-00002.safetensors")
 with safe_open(safetensors_path, framework="pt", device=0) as f:
     test_name = "model.layers.4.self_attn.k_proj.weight"
     bitmask = f.get_tensor(test_name + ".bitmask")
