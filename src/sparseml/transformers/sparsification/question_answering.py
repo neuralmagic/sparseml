@@ -79,11 +79,6 @@ class _QuestionAnsweringTrainer(TransformersTrainer):
         eval_dataloader = self.get_eval_dataloader(eval_dataset)
         eval_examples = self.eval_examples if eval_examples is None else eval_examples
 
-        # Always evaluate w/ fp32 to be closer to DeepSparse
-        use_cuda_amp = self.use_cuda_amp
-        if not self.args.fp16_full_eval and not self.args.bf16_full_eval:
-            self.use_cuda_amp = False
-
         # Temporarily disable metric computation, we will do it in the loop here.
         compute_metrics = self.compute_metrics
         self.compute_metrics = None
@@ -128,8 +123,6 @@ class _QuestionAnsweringTrainer(TransformersTrainer):
         self.control = self.callback_handler.on_evaluate(
             self.args, self.state, self.control, metrics
         )
-
-        self.use_cuda_amp = use_cuda_amp
 
         return metrics
 

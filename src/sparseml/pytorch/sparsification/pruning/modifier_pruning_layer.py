@@ -30,7 +30,7 @@ from sparseml.pytorch.sparsification.modifier import (
     ScheduledModifier,
     ScheduledUpdateModifier,
 )
-from sparseml.pytorch.utils import get_layer, get_prunable_layers, replace_layer
+from sparseml.pytorch.utils import get_layer, get_prunable_layers, swap_modules
 from sparseml.pytorch.utils.logger import BaseLogger
 from sparseml.sparsification import SparsificationTypes
 from sparseml.utils import ALL_PRUNABLE_TOKEN, ALL_TOKEN, validate_str_iterable
@@ -219,11 +219,11 @@ class LayerPruningModifier(ScheduledUpdateModifier):
             epoch >= self.start_epoch or self.start_epoch == -1
         ):
             for name in list(self._layer_modules.keys()):
-                self._layer_modules[name] = replace_layer(module, name, Identity())
+                self._layer_modules[name] = swap_modules(module, name, Identity())
             self._layers_replaced = True
 
         if self._layers_replaced and (epoch >= self.end_epoch and self.end_epoch != -1):
             for name, replaced in self._layer_modules.items():
-                replace_layer(module, name, replaced)
+                swap_modules(module, name, replaced)
                 self._layer_modules[name] = None
             self._layers_replaced = False

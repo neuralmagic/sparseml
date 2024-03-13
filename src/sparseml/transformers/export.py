@@ -88,9 +88,8 @@ from sparseml.optim import parse_recipe_variables
 from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
 from sparseml.pytorch.optim import ScheduledModifierManager
 from sparseml.pytorch.utils import export_onnx
-from sparseml.transformers import SparseAutoTokenizer
+from sparseml.transformers import SparseAutoModel, SparseAutoTokenizer
 from sparseml.transformers.sparsification import Trainer
-from sparseml.transformers.utils import SparseAutoModel
 from sparsezoo.utils.onnx import EXTERNAL_ONNX_DATA_NAME
 
 

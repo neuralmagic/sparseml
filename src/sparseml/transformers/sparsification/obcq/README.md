@@ -194,7 +194,7 @@ test_stage:
       # These operations don't make sense to quantize
       - LlamaRotaryEmbedding
       - LlamaRMSNorm
-      - SiLUActivation
+      - SiLU
       # Skip quantizing the BMMs
       - QuantizableMatMul
       # Skip quantizing the layers with the most sensitive activations
@@ -242,7 +242,7 @@ test_stage:
       # These operations don't make sense to quantize
       - MistralRotaryEmbedding
       - MistralRMSNorm
-      - SiLUActivation
+      - SiLU
       # Skip quantizing the layers with the most sensitive activations
       - model.layers.1.mlp.down_proj
       - model.layers.31.mlp.down_proj

@@ -47,10 +47,11 @@ from transformers.utils.versions import require_version
 from sparseml.pytorch.utils.distributed import record
 from sparseml.transformers.sparsification import (
     QuestionAnsweringTrainer,
+    SparseAutoModel,
     TrainingArguments,
     postprocess_qa_predictions,
 )
-from sparseml.transformers.utils import SparseAutoModel, get_shared_tokenizer_src
+from sparseml.transformers.sparsification.sparse_model import get_shared_tokenizer_src
 
 
 # You can also adapt this script on your own question answering task.

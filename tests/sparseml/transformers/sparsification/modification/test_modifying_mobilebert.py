@@ -12,16 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Objects, classes, and methods for applying sparsification algorithms to
-Hugging Face transformers flows
-"""
+from copy import deepcopy
 
-# flake8: noqa
+from torch import nn
 
-from .question_answering import *
-from .sparse_config import *
-from .sparse_model import *
-from .sparse_tokenizer import *
-from .trainer import *
-from .training_args import *
+from sparseml.transformers.sparsification.modification import modify_model
+from sparseml.transformers.sparsification.modification.modification_objects import (
+    QATLinear,
+)
+
+
+def test_modifying_mobilebert(mobilebert_model):
+
+    mobilebert_ = deepcopy(mobilebert_model)
+    mobilebert = modify_model(mobilebert_model)
+
+    assert isinstance(mobilebert_.embeddings.embedding_transformation, nn.Linear)
+    assert isinstance(mobilebert.embeddings.embedding_transformation, QATLinear)

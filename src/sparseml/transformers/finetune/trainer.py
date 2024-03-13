@@ -91,10 +91,6 @@ class Trainer(SessionManagerMixIn, HFTransformersTrainer):
                         os.path.join(output_dir, "scheduler.pt"),
                     )
             reissue_pt_warnings(caught_warnings)
-            if self.use_cuda_amp:
-                torch.save(
-                    self.scaler.state_dict(), os.path.join(output_dir, "scaler.pt")
-                )
 
     def _save_checkpoint(self, model, trial, metrics=None):
         # Call into the save checkpoint by HF Transformers, which saves the
