@@ -137,7 +137,7 @@ class SessionManagerMixIn:
         train_data = self.get_train_dataloader()
 
         self.accelerator.wait_for_everyone()
-        with summon_full_params_context(self.model):
+        with summon_full_params_context(self.model, offload_to_cpu=True):
             session_manager.initialize(
                 model=self.model,
                 teacher_model=self.teacher,  # TODO: what about for self/disable?
