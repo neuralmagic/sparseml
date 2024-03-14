@@ -24,6 +24,7 @@ is_release = False  # change to True to set the generated version as a release v
 is_dev = False
 dev_number = None
 
+
 def _generate_version():
     if is_release:
         return version_base
