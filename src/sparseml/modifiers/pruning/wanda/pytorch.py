@@ -63,6 +63,12 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
         modifiable_model = state.model
         calibration_dataloader = state.data.calib
 
+        if self.targets is None:
+            # if no targets are provided, default to the modules that shouldn't be
+            # split by FSDP. For Transformers models this is equivalent to the
+            # decoder layers (ie LlamaDecoderLayer)
+            self.targets = modifiable_model.get_no_split_params()
+
         self.initialize_compression(modifiable_model, calibration_dataloader)
         self.apply_compression(calibration_dataloader)
 
@@ -96,11 +102,12 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
 
         for idx, (name, layer) in enumerate(self.compressible_layers_.items()):
             _LOGGER.info(f"Preparing {name} for compression")
-            layer_sparsity = (
-                self.sparsity[name]
-                if isinstance(self.sparsity, Dict)
-                else self.sparsity
-            )
+            if isinstance(self.sparsity, Dict):
+                layer_sparsity = self.sparsity[name]
+            elif isinstance(self.sparsity, List):
+                layer_sparsity = self.sparsity[idx]
+            else:  # float
+                layer_sparsity = self.sparsity
             args = self._pruning_arguments(layer_sparsity)
             comp_cls = self._compression_class()
             compressor = LayerCompressor(comp_cls, self.model, layer, idx, name, args)

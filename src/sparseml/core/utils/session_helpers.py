@@ -12,15 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Utilities for applying sparsification algorithms to Hugging Face transformers flows
-"""
+from contextlib import contextmanager
 
-# flake8: noqa
-from .helpers import *
-from .load_task_dataset import *
-from .metrics import *
-from .preprocessing_functions import *
-from .sparse_config import *
-from .sparse_model import *
-from .sparse_tokenizer import *
+import sparseml.core.session as session_manager
+
+
+@contextmanager
+def session_context_manager():
+    """
+    A context manager to setup a fresh session and reset it after the context
+    is exited.
+    """
+
+    active_session = session_manager.active_session()
+    active_session.reset()
+    yield
+    # reset the session after each context
+    active_session.reset()

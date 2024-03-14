@@ -123,7 +123,11 @@ class LayerCompressor:
         """
         for name, module_wrapper in self.modules.items():
             full_name = self._get_full_submodule_name(name)
-            set_layer(full_name, module_wrapper.layer, self.model)
+            if len(name) == 0:  # special case if layer has no children (i.e. lm_head)
+                with summon_full_params_context(self.model):
+                    set_layer(full_name, module_wrapper.layer, self.model)
+            else:
+                set_layer(name, module_wrapper.layer, self.layer)
             module_wrapper.free()
         self.modules = None
 
