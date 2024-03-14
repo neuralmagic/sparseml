@@ -24,7 +24,7 @@ from transformers.utils import SAFE_WEIGHTS_INDEX_NAME, SAFE_WEIGHTS_NAME
 __all__ = [
     "get_safetensors_header",
     "match_param_name",
-    "merge_param_names",
+    "merge_names",
     "get_weight_mappings",
     "get_nested_weight_mappings",
 ]
@@ -47,7 +47,7 @@ def match_param_name(full_name, param_name):
     return regex[0]
 
 
-def merge_param_names(parent_name, child_name):
+def merge_names(parent_name, child_name):
     return parent_name + "." + child_name
 
 

@@ -24,7 +24,7 @@ from safetensors import safe_open
 from sparseml.transformers.compression.compressors import ModelCompressor
 from sparseml.transformers.compression.utils import (
     get_nested_weight_mappings,
-    merge_param_names,
+    merge_names,
 )
 
 
@@ -79,7 +79,7 @@ class BitmaskCompressor(ModelCompressor):
         for weight_name in tqdm(weight_mappings.keys()):
             weight_data = {}
             for param_name, safe_path in weight_mappings[weight_name].items():
-                full_name = merge_param_names(weight_name, param_name)
+                full_name = merge_names(weight_name, param_name)
                 with safe_open(safe_path, framework="pt", device="cpu") as f:
                     weight_data[param_name] = f.get_tensor(full_name)
             data = BitmaskTensor(**weight_data)
@@ -155,12 +155,10 @@ class BitmaskTensor:
         :return: dict of compressed data for the stored weight
         """
         return {
-            merge_param_names(name_prefix, "shape"): torch.tensor(
-                self.shape, device="cpu"
-            ),
-            merge_param_names(name_prefix, "compressed"): self.compressed,
-            merge_param_names(name_prefix, "bitmask"): self.bitmask,
-            merge_param_names(name_prefix, "row_offsets"): self.row_offsets,
+            merge_names(name_prefix, "shape"): torch.tensor(self.shape, device="cpu"),
+            merge_names(name_prefix, "compressed"): self.compressed,
+            merge_names(name_prefix, "bitmask"): self.bitmask,
+            merge_names(name_prefix, "row_offsets"): self.row_offsets,
         }
 
     def __repr__(self):
