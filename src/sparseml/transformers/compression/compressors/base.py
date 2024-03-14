@@ -42,7 +42,7 @@ class ModelCompressor(RegistryMixin):
         """
         raise NotImplementedError()
 
-    def decompress(self, model_state: Dict[str, Tensor]) -> Dict[str, Tensor]:
+    def decompress(self, model_path: str) -> Dict[str, Tensor]:
         """
         Uncompresses a compressed state dict back to dense
 
