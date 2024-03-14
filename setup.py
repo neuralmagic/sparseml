@@ -30,11 +30,11 @@ print(f"loaded version {version} from src/sparseml/version.py")
 version_nm_deps = f"{version_major_minor}.0"
 
 if is_release:
-    _PACKAGE_NAME = "sparsezoo"
+    _PACKAGE_NAME = "sparseml"
 elif is_dev:
-    _PACKAGE_NAME = "sparsezoo-dev"
+    _PACKAGE_NAME = "sparseml-dev"
 else:
-    _PACKAGE_NAME = "sparsezoo-nightly"
+    _PACKAGE_NAME = "sparseml-nightly"
 
 _deps = [
     "setuptools<=59.5.0",
