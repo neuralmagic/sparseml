@@ -70,6 +70,8 @@ def get_weight_mappings(model_path: str):
     for key, value in header.items():
         header[key] = os.path.join(model_path, value)
 
+    return header
+
 
 def get_nested_weight_mappings(
     model_path: str, params_to_nest: List[str]
@@ -80,10 +82,10 @@ def get_nested_weight_mappings(
     for key in weight_mappings.keys():
         for param_name in params_to_nest:
             maybe_match = match_param_name(key, param_name)
-        if maybe_match is not None:
-            dense_param = maybe_match
-            if dense_param not in weight_mappings:
-                nested_weight_mappings[dense_param] = {}
-            nested_weight_mappings[dense_param][param_name] = weight_mappings[key]
+            if maybe_match is not None:
+                dense_param = maybe_match
+                if dense_param not in nested_weight_mappings:
+                    nested_weight_mappings[dense_param] = {}
+                nested_weight_mappings[dense_param][param_name] = weight_mappings[key]
 
     return nested_weight_mappings

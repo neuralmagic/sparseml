@@ -71,9 +71,12 @@ class BitmaskCompressor(ModelCompressor):
         :param model_state: state dict of uncompressed model
         :return: compressed state dict
         """
-        weight_mappings = get_nested_weight_mappings(model_path, self.COMPRESSION_PARAM_NAMES)
+        weight_mappings = get_nested_weight_mappings(
+            model_path, self.COMPRESSION_PARAM_NAMES
+        )
         uncompressed_weights = {}
-        for weight_name in weight_mappings.keys():
+        _LOGGER.info(f"Decompressing model with {len(weight_mappings)} weights...")
+        for weight_name in tqdm(weight_mappings.keys()):
             weight_data = {}
             for param_name, safe_path in weight_mappings[weight_name].items():
                 full_name = merge_param_names(weight_name, param_name)
