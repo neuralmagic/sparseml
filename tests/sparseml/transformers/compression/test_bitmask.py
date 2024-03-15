@@ -13,10 +13,12 @@
 # limitations under the License.
 
 import math
+import shutil
 
 import pytest
 import torch
 
+from safetensors.torch import save_file
 from sparseml.transformers.compression import BitmaskCompressor, BitmaskConfig
 from sparseml.transformers.compression.compressors.sparse_bitmask import BitmaskTensor
 
@@ -81,3 +83,38 @@ def test_match(shape, sparsity, dtype):
         dense_tensor = dense_state_dict[key]
         sparse_tensor = BitmaskTensor.from_dense(dense_tensor)
         assert torch.equal(dense_tensor, sparse_tensor.decompress())
+
+
+@pytest.mark.parametrize(
+    "sparsity,dtype",
+    [
+        [0.5, torch.float32],
+        [0.8, torch.float32],
+        [0.3, torch.bfloat16],
+        [0.7, torch.float16],
+    ],
+)
+def test_reload_match(sparsity, dtype, tmp_path):
+    test_tensor1 = torch.rand((256, 512), dtype=dtype)
+    mask = (test_tensor1.abs() < (1 - sparsity)).int()
+    test_tensor1 *= mask
+
+    test_tensor2 = torch.rand((360, 720), dtype=torch.float32)
+    mask = (test_tensor2.abs() < (1 - sparsity)).int()
+    test_tensor2 *= mask
+
+    dense_state_dict = {"dummy.weight": test_tensor1, "dummy2.weight": test_tensor2}
+
+    sparsity_config = BitmaskConfig()
+    compressor = BitmaskCompressor(config=sparsity_config)
+
+    sparse_state_dict = compressor.compress(dense_state_dict)
+    save_file(sparse_state_dict, tmp_path / "model.safetensors")
+    reconstructed_dense = compressor.decompress(tmp_path)
+
+    for key in dense_state_dict.keys():
+        dense_tensor = dense_state_dict[key]
+        reconstructed_tensor = reconstructed_dense[key]
+        assert torch.equal(dense_tensor, reconstructed_tensor)
+
+    shutil.rmtree(tmp_path)

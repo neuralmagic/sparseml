@@ -59,7 +59,7 @@ def get_weight_mappings(model_path: str):
         header = get_safetensors_header(safetensors_path)
         for key in header.keys():
             header[key] = SAFE_WEIGHTS_NAME
-        header.pop("__metadata__")
+        header.pop("__metadata__", None)
     elif os.path.exists(index_path):
         # we have multiple safetensors file, read from index
         with open(index_path, "r", encoding="utf-8") as f:
