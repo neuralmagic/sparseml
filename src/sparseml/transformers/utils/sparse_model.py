@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import inspect
+import json
 import logging
 import os
 from pathlib import Path
@@ -21,18 +22,21 @@ from typing import Any, Dict, Optional, Tuple, Union
 import torch
 from torch.nn import Module
 from transformers import (
+    AutoConfig,
     AutoModelForCausalLM,
     AutoModelForMaskedLM,
     AutoModelForQuestionAnswering,
     AutoModelForSequenceClassification,
     AutoModelForTokenClassification,
+    PreTrainedModel,
 )
-from transformers.file_utils import WEIGHTS_NAME
+from transformers.file_utils import CONFIG_NAME, WEIGHTS_NAME
 
 from sparseml.pytorch.model_load.helpers import (
     apply_recipe_structure_to_model,
     log_model_load,
 )
+from sparseml.transformers.compression import CompressionConfig, ModelCompressor
 from sparseml.transformers.utils.helpers import resolve_recipe
 from sparseml.utils import download_zoo_training_dir
 from sparseml.utils.fsdp.context import main_process_first_context
@@ -42,6 +46,8 @@ __all__ = ["SparseAutoModel", "SparseAutoModelForCausalLM", "get_shared_tokenize
 
 
 _LOGGER = logging.getLogger(__name__)
+
+SPARSITY_CONFIG_NAME = "sparsity_config"
 
 
 class SparseAutoModelForCausalLM(AutoModelForCausalLM):
@@ -56,7 +62,7 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
         recipe: Optional[Union[str, Path]] = None,
         *model_args,
         **kwargs,
-    ) -> Module:
+    ) -> PreTrainedModel:
         """
         A wrapper around the AutoModelForCausalLM.from_pretrained method that
         enables the loading of a SparseML recipe file to apply to the model
@@ -93,6 +99,22 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
                     zoo_stub=pretrained_model_name_or_path
                 )
 
+        # TODO: should work for huggingface too
+        config = AutoConfig.from_pretrained(pretrained_model_name_or_path)
+        sparsity_config = getattr(config, SPARSITY_CONFIG_NAME, None)
+        state_dict = None
+        if sparsity_config is not None:
+            # need to uncompress the model
+            format = sparsity_config.get("format", "dense")
+            sparsity_config = CompressionConfig.load_from_registry(format)
+            compressor = ModelCompressor.load_from_registry(
+                format, config=sparsity_config
+            )
+            state_dict = compressor.decompress(pretrained_model_name_or_path)
+
+        if state_dict is not None:
+            kwargs["state_dict"] = state_dict
+
         # temporarily set the log level to error, to ignore printing out long missing
         # and unexpected key error messages (these are EXPECTED for quantized models)
         logger = logging.getLogger("transformers.modeling_utils")
@@ -111,6 +133,68 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
                 recipe_path=recipe,
             )
         return model
+
+    @staticmethod
+    def save_pretrained(
+        model: PreTrainedModel,
+        save_directory: str,
+        sparsity_config: Optional[CompressionConfig] = None,
+        save_dense: bool = False,
+        **kwargs,
+    ):
+        if save_dense:
+            return model.save_pretrained(save_directory, **kwargs)
+
+        if sparsity_config is None:
+            # attempt to infer sparsity config if not provided
+            if hasattr(model, SPARSITY_CONFIG_NAME):
+                sparsity_config = getattr(model, SPARSITY_CONFIG_NAME)
+                if sparsity_config is None:
+                    return model.save_pretrained(save_directory, **kwargs)
+            else:  # no config, save as dense
+                return model.save_pretrained(save_directory, **kwargs)
+
+        # if we've gotten to this point we can run compression since we have a config
+
+        kwargs["safe_serialization"] = True
+        compressor = ModelCompressor.load_from_registry(
+            sparsity_config.format, config=sparsity_config
+        )
+
+        compressed_state_dict = compressor.compress(model.state_dict())
+        kwargs["state_dict"] = compressed_state_dict
+
+        model.save_pretrained(save_directory, **kwargs)
+        sparsity_config_data = sparsity_config.dict()
+        config_file_path = os.path.join(save_directory, CONFIG_NAME)
+
+        with open(config_file_path, "r") as config_file:
+            config_data = json.load(config_file)
+        config_data[SPARSITY_CONFIG_NAME] = sparsity_config_data
+        with open(config_file_path, "w") as config_file:
+            json.dump(config_data, config_file, indent=4, sort_keys=True)
+
+    @staticmethod
+    def save_compressed(
+        model: PreTrainedModel,
+        save_directory: str,
+        sparsity_config: Optional[CompressionConfig] = None,
+        **kwargs,
+    ):
+        if sparsity_config is None:
+            # attempt to infer sparsity config if not provided
+            if hasattr(model, SPARSITY_CONFIG_NAME):
+                sparsity_config = getattr(model, SPARSITY_CONFIG_NAME)
+                if sparsity_config is None:
+                    # force dense compression config if can't infer
+                    sparsity_config = CompressionConfig.load_from_registry("dense")
+
+        return SparseAutoModelForCausalLM.save_pretrained(
+            model=model,
+            save_directory=save_directory,
+            sparsity_config=sparsity_config,
+            **kwargs,
+        )
 
 
 class SparseAutoModel:
