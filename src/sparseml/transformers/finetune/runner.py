@@ -40,9 +40,7 @@ from sparseml.transformers.finetune.data.data_helpers import (
 )
 from sparseml.transformers.finetune.model_args import ModelArguments
 from sparseml.transformers.finetune.training_args import TrainingArguments
-from sparseml.utils.fsdp.context import summon_full_params_context
 from sparseml.utils.fsdp.helpers import is_fsdp_model, unwrap_and_export_model
-from sparseml.utils.pytorch import qat_active
 
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
@@ -287,12 +285,6 @@ class StageRunner:
             # setup for next stage
             session = session_manager.active_session()
             session.reset_stage()
-
-            # log model sparsity
-            with summon_full_params_context(self.trainer.model):
-                if self.trainer.accelerator.is_main_process:
-                    if not qat_active(self.trainer.model):
-                        self.trainer.log_model_sparsification()
 
             # synchronize and clean up memory
             self.trainer.accelerator.wait_for_everyone()

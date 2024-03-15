@@ -32,5 +32,5 @@ class BitmaskConfig(CompressionConfig):
     """
 
     format: str = "sparse_bitmask"
-    global_sparsity: Optional[float] = None
-    sparsity_structure: Optional[str] = None
+    global_sparsity: Optional[float] = 0.0
+    sparsity_structure: Optional[str] = "unstructured"

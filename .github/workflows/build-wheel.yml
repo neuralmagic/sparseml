@@ -1,0 +1,58 @@
+name: Build PyPi Wheel
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - main
+      - 'release/[0-9]+.[0-9]+'
+  push:
+    branches:
+      - main
+  release:
+    types: [created, published]
+  schedule:
+    - cron: '0 0 * * *'
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+# if not dev or release, will create a nightly build
+# everything is pushed to internal unless created through a nightly scheduled cron job which creates the build or 
+# missing release tag workflow/needs to be added in
+env:
+  INTERNAL: ${{ github.event_name != 'schedule' && github.event_name != 'release'}}
+  RELEASE: ${{ github.event_name =='release' || (startsWith(github.base_ref, 'release/') && github.event_name == 'pull_request')}}
+  DEV: ${{ github.base_ref == 'main' && github.event_name == 'pull_request'}}
+  NAME: ${{ github.event.number }} 
+
+jobs:
+  build_and_push:
+    runs-on: ubuntu-latest
+    outputs:
+      wheel: ${{ steps.push-wheel.outputs.wheel }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Login to s3
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ secrets.AWS_WEBIDENTITY_FOR_GITHUB_ACTIONS }}
+          aws-region: us-east-1 
+      - name: Build PyPi Wheel
+        id: build-wheel
+        uses: neuralmagic/nm-actions/actions/pypi_build@main
+        with:
+          dev: $DEV
+          release: $RELEASE
+          name: $NAME
+      - name: Push to s3 bucket
+        id: push-wheel
+        uses: neuralmagic/nm-actions/actions/s3_push@main
+        with:
+          filename: dist/*.whl
+          internal: $INTERNAL

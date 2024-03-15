@@ -57,7 +57,9 @@ class BitmaskCompressor(ModelCompressor):
         :return: compressed state dict
         """
         compressed_dict = {}
-        _LOGGER.info(f"Compressing model with {len(model_state)} weights...")
+        _LOGGER.info(
+            f"Compressing model with {len(model_state)} parameterized layers..."
+        )
         for name, value in tqdm(model_state.items()):
             bitmask_tensor = BitmaskTensor.from_dense(value)
             compressed_dict |= bitmask_tensor.dict(name_prefix=name)

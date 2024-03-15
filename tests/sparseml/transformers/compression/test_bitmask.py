@@ -22,14 +22,16 @@ from sparseml.transformers.compression.compressors.sparse_bitmask import Bitmask
 
 
 @pytest.mark.parametrize(
-    "shape,sparsity",
+    "shape,sparsity,dtype",
     [
-        [(512, 1024), 0.5],
-        [(830, 545), 0.8],
+        [(512, 1024), 0.5, torch.float32],
+        [(830, 545), 0.8, torch.float32],
+        [(342, 512), 0.3, torch.bfloat16],
+        [(256, 700), 0.9, torch.float16],
     ],
 )
-def test_bitmask_sizes(shape, sparsity):
-    test_tensor = torch.rand(shape, dtype=torch.float32)
+def test_bitmask_sizes(shape, sparsity, dtype):
+    test_tensor = torch.rand(shape, dtype=dtype)
     mask = (test_tensor.abs() < (1 - sparsity)).int()
     test_tensor *= mask
     dense_state_dict = {"dummy.weight": test_tensor}
@@ -50,20 +52,22 @@ def test_bitmask_sizes(shape, sparsity):
 
     # one value for each non-zero weight
     values_shape = sparse_state_dict["dummy.weight.compressed"].shape
-    assert values_shape[0] == torch.sum(mask)
+    assert values_shape[0] == torch.sum(test_tensor != 0)
     row_offsets_shape = sparse_state_dict["dummy.weight.row_offsets"].shape
     assert row_offsets_shape[0] == test_tensor.shape[0]
 
 
 @pytest.mark.parametrize(
-    "shape,sparsity",
+    "shape,sparsity,dtype",
     [
-        [(256, 512), 0.5],
-        [(128, 280), 0.8],
+        [(256, 512), 0.5, torch.float32],
+        [(128, 280), 0.8, torch.float32],
+        [(1024, 256), 0.3, torch.bfloat16],
+        [(511, 350), 0.7, torch.float16],
     ],
 )
-def test_match(shape, sparsity):
-    test_tensor1 = torch.rand(shape, dtype=torch.float32)
+def test_match(shape, sparsity, dtype):
+    test_tensor1 = torch.rand(shape, dtype=dtype)
     mask = (test_tensor1.abs() < (1 - sparsity)).int()
     test_tensor1 *= mask
 
