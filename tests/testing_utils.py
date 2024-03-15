@@ -54,8 +54,9 @@ def parse_params(configs_directory: str) -> List[Dict[str, Any]]:
             with open(config_path, "r") as f:
                 config = yaml.safe_load(f)
 
-            config.pop("cadence")
-            config.pop("test_type")
             config_dicts.append(config)
-    print(config_dicts)
     return config_dicts
+
+
+def parse_custom(configs_directory: str):
+    pass

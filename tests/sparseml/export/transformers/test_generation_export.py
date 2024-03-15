@@ -22,14 +22,17 @@ import pytest
 from huggingface_hub import snapshot_download
 from parameterized import parameterized_class
 from sparseml import export
-from tests.testing_utils import parse_params, requires_torch
+from tests.testing_utils import parse_custom, parse_params, requires_torch
 
 
 CONFIGS_DIRECTORY = "tests/sparseml/export/transformers/generation_configs"
+CUSTOM_CONFIGS_DIRECTORY = (
+    "tests/sparseml/export/transformers/generation_configs/custom_configs"
+)
 
 
-@pytest.mark.integration
 @requires_torch
+@pytest.mark.integration
 @parameterized_class(parse_params(CONFIGS_DIRECTORY))
 class TestGenerationExportIntegration(unittest.TestCase):
     stub = None
@@ -58,5 +61,7 @@ class TestGenerationExportIntegration(unittest.TestCase):
 
 
 @pytest.mark.custom
+@parameterized_class(parse_custom(CUSTOM_CONFIGS_DIRECTORY))
 class TestGenerationExportIntegrationCustom:
-    pass
+    def test_custom_script(self):
+        pass
