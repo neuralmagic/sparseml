@@ -106,7 +106,9 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
         if sparsity_config is not None:
             # need to uncompress the model
             format = sparsity_config.get("format", "dense")
-            sparsity_config = CompressionConfig.load_from_registry(format)
+            sparsity_config = CompressionConfig.load_from_registry(
+                format, **sparsity_config
+            )
             compressor = ModelCompressor.load_from_registry(
                 format, config=sparsity_config
             )
@@ -124,8 +126,10 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
             pretrained_model_name_or_path, *model_args, **kwargs
         )
         logger.setLevel(level=restore_log_level)
+        setattr(model, SPARSITY_CONFIG_NAME, sparsity_config)
 
         recipe = resolve_recipe(recipe, pretrained_model_name_or_path)
+        recipe = "zoo:llama2-7b-open_platypus_orca_llama2_pretrain-pruned60"
         if recipe:
             apply_recipe_structure_to_model(
                 model=model,
@@ -147,12 +151,16 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
 
         if sparsity_config is None:
             # attempt to infer sparsity config if not provided
-            if hasattr(model, SPARSITY_CONFIG_NAME):
-                sparsity_config = getattr(model, SPARSITY_CONFIG_NAME)
-                if sparsity_config is None:
-                    return model.save_pretrained(save_directory, **kwargs)
-            else:  # no config, save as dense
-                return model.save_pretrained(save_directory, **kwargs)
+            sparsity_config = getattr(model, SPARSITY_CONFIG_NAME, None)
+            if sparsity_config is None:
+                # try to infer a config from the model
+                sparsity_config = SparseAutoModelForCausalLM.infer_compression_config(
+                    model
+                )
+
+        if sparsity_config is None:
+            # no config found, save as dense
+            return model.save_pretrained(save_directory, **kwargs)
 
         # if we've gotten to this point we can run compression since we have a config
 
@@ -194,6 +202,31 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
             save_directory=save_directory,
             sparsity_config=sparsity_config,
             **kwargs,
+        )
+
+    @staticmethod
+    def infer_compression_config(model: Module):
+        from sparseml.pytorch.utils import ModuleSparsificationInfo
+
+        info = ModuleSparsificationInfo(model)
+        global_sparsity = info.params_sparse_percent
+        if global_sparsity < 0.05:
+            return None
+        import sparseml.core.session as session_manager
+
+        current_session = session_manager.active_session()
+        stage_modifiers = current_session.lifecycle.modifiers
+        sparsity_structure = "unstructured"
+        for stage in stage_modifiers:
+            if stage.applied:
+                for modifier in stage.modifiers:
+                    if hasattr(modifier, "mask_structure"):
+                        sparsity_structure = modifier.mask_structure
+                        break
+        return CompressionConfig.load_from_registry(
+            "sparse_bitmask",
+            global_sparsity=global_sparsity,
+            sparsity_structure=sparsity_structure,
         )
 
 
