@@ -60,12 +60,14 @@ def test_bitmask_sizes(shape, sparsity, dtype):
 @pytest.mark.parametrize(
     "shape,sparsity",
     [
-        [(256, 512), 0.5],
-        [(128, 280), 0.8],
+        [(256, 512), 0.5, torch.float32],
+        [(128, 280), 0.8, torch.float32],
+        [(256, 512), 0.5, torch.float16],
+        [(128, 280), 0.8, torch.float16],
     ],
 )
-def test_match(shape, sparsity):
-    test_tensor1 = torch.rand(shape, dtype=torch.float32)
+def test_match(shape, sparsity, dtype):
+    test_tensor1 = torch.rand(shape, dtype=dtype)
     mask = (test_tensor1.abs() < (1 - sparsity)).int()
     test_tensor1 *= mask
 
