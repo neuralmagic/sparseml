@@ -30,7 +30,13 @@ __all__ = [
 ]
 
 
-def get_safetensors_header(safetensors_path: str):
+def get_safetensors_header(safetensors_path: str) -> Dict[str, str]:
+    """
+    Extracts the metadata from a safetensors file as JSON
+
+    :param safetensors_path: path to a safetensors file
+    :return: dictionary of metadata extracted from the safetensors file
+    """
     with open(safetensors_path, "rb") as f:
         length_of_header = struct.unpack("<Q", f.read(8))[0]
         header_data = f.read(length_of_header)
@@ -39,7 +45,15 @@ def get_safetensors_header(safetensors_path: str):
     return header
 
 
-def match_param_name(full_name, param_name):
+def match_param_name(full_name: str, param_name: str) -> str:
+    """
+    Helper function extracting the uncompressed parameterized layer name from a
+    compressed name. Assumes the compressed name was merged using merge_names.
+
+    :param full_name: full name of parameter in compressed model
+    :param param_name: compression paramater name
+    :return: uncompressed name of the uncompressed parameterized layer
+    """
     pattern = r"^(.*)\." + param_name + r"$"
     regex = re.findall(pattern, full_name)
     if len(regex) == 0:
@@ -47,11 +61,37 @@ def match_param_name(full_name, param_name):
     return regex[0]
 
 
-def merge_names(parent_name, child_name):
+def merge_names(parent_name: str, child_name: str) -> str:
+    """
+    Helper function for merging an uncompressed parameterized layer name with a
+    compression parameter. Names merged with this function can then be parsed by
+    match_param_name.
+
+    :param parent_name: uncompressed parameterized layer name
+    :param child_name: compression parameter name
+    :return: merged compressed name
+    """
     return parent_name + "." + child_name
 
 
-def get_weight_mappings(model_path: str):
+def get_weight_mappings(model_path: str) -> Dict[str, str]:
+    """
+    Takes a path to a state dict saved in safetensors format and returns a mapping
+    from parameterized layer name to file location.
+
+    {
+        layer.weight.bitmask: file_location,
+        layer.weight.row_offsets: file_location,
+        layer.weight.shape: file_location,
+        layer.weight.compressed: file_location
+    }
+
+    This generalizes to cases where the model is split into multiple safetensors files
+
+    :param model_path: path to safetensors state dict, must contain either a single
+    safetensors file or multiple files with an index
+    :return: mapping of parameterized layer name to file location
+    """
     safetensors_path = os.path.join(model_path, SAFE_WEIGHTS_NAME)
     index_path = os.path.join(model_path, SAFE_WEIGHTS_INDEX_NAME)
     if os.path.exists(safetensors_path):
@@ -76,6 +116,24 @@ def get_weight_mappings(model_path: str):
 def get_nested_weight_mappings(
     model_path: str, params_to_nest: List[str]
 ) -> Dict[str, Dict[str, str]]:
+    """
+    Takes a path to a state dict saved in safetensors format and returns a nested
+    mapping from uncompressed parameterized layer names to the file locations of each
+    of the layers compression parameters.
+
+    layer.weight: {
+        bitmask: file_location,
+        row_offsets: file_location,
+        shape: file_location,
+        compressed: file_location
+    }
+
+    This generalizes to cases where the model is split into multiple safetensors files
+
+    :param model_path: path to safetensors state dict, must contain either a single
+    safetensors file or multiple files with an index
+    :return: nested mapping of parameterized layer name to file location
+    """
     weight_mappings = get_weight_mappings(model_path)
 
     nested_weight_mappings = {}

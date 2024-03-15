@@ -68,9 +68,10 @@ class BitmaskCompressor(ModelCompressor):
 
     def decompress(self, model_path: str) -> Dict[str, Tensor]:
         """
-        Uncompresses a bitmask compressed state dict back to dense
+        Reads a bitmask compressed state dict located at model_path and decompresses it
+        back to a dense state dict. Weights are decompressed sequentially.
 
-        :param model_state: state dict of uncompressed model
+        :param model_path: path to compressed safetensors model
         :return: compressed state dict
         """
         weight_mappings = get_nested_weight_mappings(
@@ -101,11 +102,6 @@ class BitmaskTensor:
     :bitmask: 2d bitmask of non-zero values
     :row_offsets: flat tensor indicating what index in values each dense row starts at
     """
-
-    shape: torch.Size
-    compressed: Tensor
-    bitmask: Tensor
-    row_offsets: Tensor
 
     def __init__(
         self,

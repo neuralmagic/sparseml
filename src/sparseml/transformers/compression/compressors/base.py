@@ -44,9 +44,10 @@ class ModelCompressor(RegistryMixin):
 
     def decompress(self, model_path: str) -> Dict[str, Tensor]:
         """
-        Uncompresses a compressed state dict back to dense
+        Reads a compressed state_dict from model_path and returns the reconstructed
+        dense state dict
 
-        :param model_state: state dict of uncompressed model
+        :param model_path: path to compressed safetensors model
         :return: compressed state dict
         """
         raise NotImplementedError()
