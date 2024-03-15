@@ -22,14 +22,16 @@ from sparseml.transformers.compression.compressors.sparse_bitmask import Bitmask
 
 
 @pytest.mark.parametrize(
-    "shape,sparsity",
+    "shape,sparsity,dtype",
     [
-        [(512, 1024), 0.5],
-        [(830, 545), 0.8],
+        [(512, 1024), 0.5, torch.float32],
+        [(830, 545), 0.8, torch.float32],
+        [(342, 512), 0.3, torch.float16],
+        [(256, 700), 0.9, torch.float16],
     ],
 )
-def test_bitmask_sizes(shape, sparsity):
-    test_tensor = torch.rand(shape, dtype=torch.float32)
+def test_bitmask_sizes(shape, sparsity, dtype):
+    test_tensor = torch.rand(shape, dtype=dtype)
     mask = (test_tensor.abs() < (1 - sparsity)).int()
     test_tensor *= mask
     dense_state_dict = {"dummy.weight": test_tensor}
