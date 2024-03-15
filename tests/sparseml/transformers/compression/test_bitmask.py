@@ -26,7 +26,7 @@ from sparseml.transformers.compression.compressors.sparse_bitmask import Bitmask
     [
         [(512, 1024), 0.5, torch.float32],
         [(830, 545), 0.8, torch.float32],
-        [(342, 512), 0.3, torch.float16],
+        [(342, 512), 0.3, torch.bfloat16],
         [(256, 700), 0.9, torch.float16],
     ],
 )
@@ -62,7 +62,7 @@ def test_bitmask_sizes(shape, sparsity, dtype):
     [
         [(256, 512), 0.5, torch.float32],
         [(128, 280), 0.8, torch.float32],
-        [(1024, 256), 0.3, torch.float16],
+        [(1024, 256), 0.3, torch.bfloat16],
         [(511, 350), 0.7, torch.float16],
     ],
 )
