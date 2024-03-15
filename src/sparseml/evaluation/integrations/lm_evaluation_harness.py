@@ -68,7 +68,6 @@ def lm_eval_harness(
     :param kwargs: additional keyword arguments to pass to the
         lm-evaluation-harness. For example, `limit`
     """
-
     kwargs["limit"] = int(limit) if (limit := kwargs.get("limit")) else None
 
     tokenizer = SparseAutoTokenizer.from_pretrained(model_path)
