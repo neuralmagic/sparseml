@@ -52,7 +52,7 @@ def test_bitmask_sizes(shape, sparsity, dtype):
 
     # one value for each non-zero weight
     values_shape = sparse_state_dict["dummy.weight.compressed"].shape
-    assert values_shape[0] == torch.sum(mask)
+    assert values_shape[0] == torch.sum(test_tensor != 0)
     row_offsets_shape = sparse_state_dict["dummy.weight.row_offsets"].shape
     assert row_offsets_shape[0] == test_tensor.shape[0]
 
@@ -62,8 +62,8 @@ def test_bitmask_sizes(shape, sparsity, dtype):
     [
         [(256, 512), 0.5, torch.float32],
         [(128, 280), 0.8, torch.float32],
-        [(256, 512), 0.5, torch.float16],
-        [(128, 280), 0.8, torch.float16],
+        [(1024, 256), 0.3, torch.float16],
+        [(511, 350), 0.7, torch.float16],
     ],
 )
 def test_match(shape, sparsity, dtype):
