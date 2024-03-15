@@ -58,7 +58,7 @@ def test_bitmask_sizes(shape, sparsity, dtype):
 
 
 @pytest.mark.parametrize(
-    "shape,sparsity",
+    "shape,sparsity,dtype",
     [
         [(256, 512), 0.5, torch.float32],
         [(128, 280), 0.8, torch.float32],
