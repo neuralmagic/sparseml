@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import logging
-from typing import Optional, Union
+from typing import Optional, Union, Tuple
 
 from datasets import Dataset, IterableDataset
 from transformers import AutoTokenizer
@@ -125,6 +125,7 @@ class TextGenerationDataset(RegistryMixin):
                 padding=self.padding,
                 max_length=self.max_seq_length,
                 truncation=True,
+                return_offsets_mapping=True,
             )
 
             # store unpadded prompt so we can mask out correct number of elements
@@ -156,6 +157,18 @@ class TextGenerationDataset(RegistryMixin):
         def label_fn(data):
             # if the dataset uses prompts, mask them out so they don't contribute
             # to the loss calculation
+
+            if "offset_mapping" in data:
+                offset_mapping = data["offset_mapping"]
+                input_ids = data["input_ids"]
+                # get the character level mask 
+                mask = ""# str of 01
+                mask = "1" * len(input_ids)
+                for i, (start, end) in enumerate(offset_mapping):
+                    # if any char is to be filtered
+                    if '0' in mask[start:end]:
+                        input_ids[i] = LABELS_MASK_VALUE
+            
             prompt_len = 0
             if self.PROMPT_KEY in data:
                 prompt_len = len(data[self.PROMPT_KEY])
@@ -166,6 +179,7 @@ class TextGenerationDataset(RegistryMixin):
             padding = len(data["attention_mask"]) - sum(data["attention_mask"])
             if padding > 0:
                 data["labels"][-padding:] = [LABELS_MASK_VALUE] * padding
+            
             return data
 
         dataset = self.map(
@@ -195,6 +209,7 @@ class TextGenerationDataset(RegistryMixin):
         column_names = dataset.column_names
         if isinstance(column_names, dict):
             column_names = column_names[list(column_names)[0]]
+        breakpoint()
         dataset = self.map(
             dataset,
             function=label_fn,
@@ -206,7 +221,6 @@ class TextGenerationDataset(RegistryMixin):
             load_from_cache_file=not self.data_args.overwrite_cache,
             desc="Adding labels",
         )
-        print(dataset.column_names)
 
         return dataset
 
@@ -226,5 +240,4 @@ class TextGenerationDataset(RegistryMixin):
             kwargs.pop("num_proc", None)
             kwargs.pop("load_from_cache_file", None)
             kwargs.pop("desc", None)
-
         return dataset.map(**kwargs)
