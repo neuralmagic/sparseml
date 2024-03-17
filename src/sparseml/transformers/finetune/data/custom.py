@@ -17,6 +17,10 @@ from typing import Dict, List, Union
 from datasets.dataset_dict import Dataset, DatasetDict
 
 from sparseml.transformers.finetune.data import TextGenerationDataset
+from sparseml.transformers.utils.preprocessing_functions import (
+    PreprocessingFunctionRegistry,
+)
+from sparsezoo.utils.helpers import import_from_path
 
 
 @TextGenerationDataset.register(name="custom", alias=["json", "csv"])
@@ -55,9 +59,21 @@ class CustomDataset(TextGenerationDataset):
             raw_dataset = super().get_raw_dataset()
 
         if self.preprocessing_func is not None:
+
+            if callable(self.preprocessing_func):
+                func = self.preprocessing_func
+            elif ":" in self.preprocessing_func:
+                # load func_name from "/path/to/file.py:func_name"
+                func = import_from_path(self.preprocessing_func)
+            else:
+                # load from the registry
+                func = PreprocessingFunctionRegistry.get_value_from_registry(
+                    name=self.preprocessing_func
+                )
+
             raw_dataset = self.map(
                 raw_dataset,
-                function=self.preprocessing_func,
+                function=func,
                 batched=False,
                 num_proc=self.data_args.preprocessing_num_workers,
                 desc="Applying custom func to the custom dataset",
@@ -82,6 +98,7 @@ class CustomDataset(TextGenerationDataset):
         self, raw_dataset: Union[DatasetDict, Dataset]
     ) -> List[str]:
         """Remove redandant columns from the dataset for processing"""
+
         remove_columns = raw_dataset.column_names
         if isinstance(remove_columns, Dict):
             remove_columns = raw_dataset[list(raw_dataset.keys())[0]].column_names

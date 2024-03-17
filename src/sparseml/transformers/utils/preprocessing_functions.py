@@ -12,15 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Utilities for applying sparsification algorithms to Hugging Face transformers flows
-"""
+from typing import Dict
 
-# flake8: noqa
-from .helpers import *
-from .load_task_dataset import *
-from .metrics import *
-from .preprocessing_functions import *
-from .sparse_config import *
-from .sparse_model import *
-from .sparse_tokenizer import *
+from sparsezoo.utils.registry import RegistryMixin
+
+
+class PreprocessingFunctionRegistry(RegistryMixin):
+    ...
+
+
+@PreprocessingFunctionRegistry.register()
+def custom_evolved_codealpaca_dataset(data: Dict):
+    PROMPT_DICT = """[Instruction]:\n{instruction}\n\n[Response]:"""
+    data["prompt"] = PROMPT_DICT.format_map(data)
+    data["text"] = data["prompt"] + data["output"]
+    return data
