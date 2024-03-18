@@ -121,3 +121,26 @@ class ExportGenericDataUnitTest(unittest.TestCase):
 
     def tearDown(self):
         shutil.rmtree(self.tmp_path)
+
+
+@pytest.mark.smoke
+@requires_torch
+class ExportDataDummySmokeTest(unittest.TestCase):
+    def setUp(self):
+        import torch
+
+        self.samples = [torch.randn(1, 3, 224, 224) for _ in range(2)]
+
+        class LabelNames(Enum):
+            basename = "sample-dummies"
+            filename = "dummy"
+
+        self.names = LabelNames
+
+    @parameterized.expand([["some_path"], [Path("some_path")]])
+    def test_export_runs(self, target_path):
+        Path(target_path).mkdir(exist_ok=True)
+        export_data_sample(
+            samples=self.samples, names=self.names, target_path=target_path
+        )
+        shutil.rmtree(target_path)

@@ -8,4 +8,5 @@ markers = [
     "integration: integration tests",
     "unit: unit tests",
     "custom: custom integration tests",
+    "smoke: smoke tests"
 ]
