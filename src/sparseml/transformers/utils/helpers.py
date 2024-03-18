@@ -52,6 +52,7 @@ __all__ = [
     "ALL_TASK_NAMES",
     "create_fake_dataloader",
     "POSSIBLE_TOKENIZER_FILES",
+    "generate_mask",
 ]
 
 
@@ -554,3 +555,49 @@ def fetch_recipe_path(target: str):
         recipe_path = hf_hub_download(repo_id=target, filename=DEFAULT_RECIPE_NAME)
 
     return recipe_path
+
+
+def generate_mask(string: str, prompt: str, censor: str) -> str:
+    """
+    Generate a mask based on provided prompt and censor strings to obscure
+    characters in the input string.
+
+    Args:
+    :param string: The input string to be masked.
+    :param prompt: The prompt string to identify characters to keep visible.
+    :param censor: The censor string to identify characters to obscure.
+
+    Returns:
+        str: A string representing the mask where '1' indicates visible
+        characters and '0' indicates obscured characters.
+
+    """
+    mask = ["1"] * len(string)
+    is_prompt = True
+    counter = 0
+    for i, char in enumerate(string):
+        if not is_prompt:
+            mask[i] = "0"
+
+        if counter > 0:
+            if not is_prompt and char == prompt[counter]:
+                counter += 1
+            elif is_prompt and char == censor[counter]:
+                counter += 1
+            else:
+                counter = 0
+
+        if counter == len(prompt) and not is_prompt:
+            mask[i - counter + 1 : i + 1] = ["1"] * counter
+            counter = 0
+            is_prompt = True
+
+        if counter == len(censor) and is_prompt:
+            mask[i - counter + 1 : i + 1] = ["0"] * counter
+            counter = 0
+            is_prompt = False
+
+        if prompt.startswith(char) or censor.startswith(char):
+            counter = 1
+
+    return "".join(mask)

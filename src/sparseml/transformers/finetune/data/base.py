@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import logging
-from typing import Optional, Union, Tuple
+from typing import Optional, Tuple, Union
 
 from datasets import Dataset, IterableDataset
 from transformers import AutoTokenizer
@@ -161,14 +161,15 @@ class TextGenerationDataset(RegistryMixin):
             if "offset_mapping" in data:
                 offset_mapping = data["offset_mapping"]
                 input_ids = data["input_ids"]
-                # get the character level mask 
-                mask = ""# str of 01
+                # get the character level mask
                 mask = "1" * len(input_ids)
-                for i, (start, end) in enumerate(offset_mapping):
-                    # if any char is to be filtered
-                    if '0' in mask[start:end]:
-                        input_ids[i] = LABELS_MASK_VALUE
-            
+                mask = data.get('mask')
+                if mask is not None:
+                    for i, (start, end) in enumerate(offset_mapping):
+                        # if any char is to be filtered
+                        if "0" in mask[start:end]:
+                            input_ids[i] = LABELS_MASK_VALUE
+
             prompt_len = 0
             if self.PROMPT_KEY in data:
                 prompt_len = len(data[self.PROMPT_KEY])
@@ -179,7 +180,7 @@ class TextGenerationDataset(RegistryMixin):
             padding = len(data["attention_mask"]) - sum(data["attention_mask"])
             if padding > 0:
                 data["labels"][-padding:] = [LABELS_MASK_VALUE] * padding
-            
+
             return data
 
         dataset = self.map(
@@ -209,7 +210,6 @@ class TextGenerationDataset(RegistryMixin):
         column_names = dataset.column_names
         if isinstance(column_names, dict):
             column_names = column_names[list(column_names)[0]]
-        breakpoint()
         dataset = self.map(
             dataset,
             function=label_fn,
@@ -221,7 +221,6 @@ class TextGenerationDataset(RegistryMixin):
             load_from_cache_file=not self.data_args.overwrite_cache,
             desc="Adding labels",
         )
-
         return dataset
 
     def map(
