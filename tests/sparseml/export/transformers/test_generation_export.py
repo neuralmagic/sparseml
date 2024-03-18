@@ -15,23 +15,21 @@
 import shutil
 import unittest
 from pathlib import Path
-from typing import Dict
+from typing import Optional
 
 import pytest
 
 from huggingface_hub import snapshot_download
-from parameterized import parameterized_class
+from parameterized import parameterized, parameterized_class
 from sparseml import export
-from tests.testing_utils import parse_custom, parse_params, requires_torch
+from tests.custom_test import CustomIntegrationTest
+from tests.data import CustomTestConfig
+from tests.testing_utils import parse_params
 
 
 CONFIGS_DIRECTORY = "tests/sparseml/export/transformers/generation_configs"
-CUSTOM_CONFIGS_DIRECTORY = (
-    "tests/sparseml/export/transformers/generation_configs/custom_configs"
-)
 
 
-@requires_torch
 @pytest.mark.integration
 @parameterized_class(parse_params(CONFIGS_DIRECTORY))
 class TestGenerationExportIntegration(unittest.TestCase):
@@ -60,8 +58,19 @@ class TestGenerationExportIntegration(unittest.TestCase):
         shutil.rmtree(self.tmp_path)
 
 
-@pytest.mark.custom
-@parameterized_class(parse_custom(CUSTOM_CONFIGS_DIRECTORY))
-class TestGenerationExportIntegrationCustom:
-    def test_custom_script(self):
-        pass
+class TestGenerationExportIntegrationCustom(CustomIntegrationTest):
+    custom_scripts_directory = (
+        "tests/sparseml/export/transformers/generation_configs/custom_script"
+    )
+    custom_class_directory = (
+        "tests/sparseml/export/transformers/generation_configs/custom_class"
+    )
+
+    # TODO: make enum
+    @parameterized.expand([parse_params(custom_scripts_directory, type="custom")])
+    def test_custom_scripts(self, config: Optional[CustomTestConfig] = None):
+        super().test_custom_scripts(config)
+
+    @parameterized.expand([parse_params(custom_class_directory, type="custom")])
+    def test_custom_class(self, config: Optional[CustomTestConfig] = None):
+        super().test_custom_class(config)

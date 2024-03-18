@@ -12,22 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import dataclasses
 import logging
 import os
 import unittest
-from typing import Any, Dict, List
+from typing import List, Optional, Union
 
 import yaml
+
+from tests.data import CustomTestConfig, TestConfig
 
 
 # TODO: probably makes sense to move this type of function to a more central place,
 # which can be used by __init__.py as well
 def is_torch_available():
     try:
-        import torch
+        import torch  # noqa: F401
 
         return True
-    # Update
     except ImportError:
         return False
 
@@ -40,7 +42,28 @@ def requires_gpu(test_case):
     return unittest.skipUnless(False, "test requires GPU")(test_case)
 
 
-def parse_params(configs_directory: str) -> List[Dict[str, Any]]:
+def _load_yaml(configs_directory, file):
+    if file.endswith(".yaml") or file.endswith(".yml"):
+        config_path = os.path.join(configs_directory, file)
+        # reads the yaml file
+        with open(config_path, "r") as f:
+            config = yaml.safe_load(f)
+        return config
+    return None
+
+
+def _validate_test_config(config: dict):
+    for f in dataclasses.fields(TestConfig):
+        if f.name not in config:
+            return False
+    return True
+
+
+# Set cadence in the config. The environment must set if nightly, weekly or commit
+# tests are running
+def parse_params(
+    configs_directory: str, type: Optional[str] = None
+) -> List[Union[dict, CustomTestConfig]]:
     # parses the config file provided
     assert os.path.isdir(
         configs_directory
@@ -48,15 +71,23 @@ def parse_params(configs_directory: str) -> List[Dict[str, Any]]:
 
     config_dicts = []
     for file in os.listdir(configs_directory):
-        if file.endswith(".yaml") or file.endswith(".yml"):
-            config_path = os.path.join(configs_directory, file)
-            # reads the yaml file
-            with open(config_path, "r") as f:
-                config = yaml.safe_load(f)
+        config = _load_yaml(configs_directory, file)
+        if not config:
+            continue
 
+        cadence = os.environ.get("CADENCE", "commit")
+        expected_cadence = config.get("cadence")
+
+        if not isinstance(expected_cadence, list):
+            expected_cadence = [expected_cadence]
+        if cadence in expected_cadence:
+            if type == "custom":
+                config = CustomTestConfig(**config)
+            else:
+                _validate_test_config(config)
             config_dicts.append(config)
+        else:
+            logging.info(
+                f"Skipping testing model: {file} " f"for cadence: {config['cadence']}"
+            )
     return config_dicts
-
-
-def parse_custom(configs_directory: str):
-    pass

@@ -27,7 +27,6 @@ from tests.sparseml.export.utils import get_dummy_dataset
 from tests.testing_utils import requires_torch
 
 
-# TODO: use assert equal
 @requires_torch
 @pytest.mark.unit
 class ExportDataTransformersUnitTest(unittest.TestCase):
@@ -61,7 +60,7 @@ class ExportDataTransformersUnitTest(unittest.TestCase):
         target_input = next(iter(self.data_loader))
         target_output = target_input
 
-        assert len(inputs) == num_samples
+        self.assertEqual(len(inputs), num_samples)
         for input in inputs:
             for key, value in input.items():
                 assert torch.equal(value.unsqueeze(0), target_input[key])
