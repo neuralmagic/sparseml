@@ -57,10 +57,10 @@ class BitmaskCompressor(ModelCompressor):
         :return: compressed state dict
         """
         compressed_dict = {}
-        _LOGGER.info(
+        _LOGGER.debug(
             f"Compressing model with {len(model_state)} parameterized layers..."
         )
-        for name, value in tqdm(model_state.items()):
+        for name, value in tqdm(model_state.items(), desc="Compressing model"):
             bitmask_tensor = BitmaskTensor.from_dense(value)
             compressed_dict |= bitmask_tensor.dict(name_prefix=name)
 
@@ -78,8 +78,8 @@ class BitmaskCompressor(ModelCompressor):
             model_path, self.COMPRESSION_PARAM_NAMES
         )
         uncompressed_weights = {}
-        _LOGGER.info(f"Decompressing model with {len(weight_mappings)} weights...")
-        for weight_name in tqdm(weight_mappings.keys()):
+        _LOGGER.debug(f"Decompressing model with {len(weight_mappings)} weights...")
+        for weight_name in tqdm(weight_mappings.keys(), desc="Decompressing model"):
             weight_data = {}
             for param_name, safe_path in weight_mappings[weight_name].items():
                 full_name = merge_names(weight_name, param_name)
