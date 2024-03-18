@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import logging
+import math
 import os
 import re
 from typing import List, Optional
@@ -24,14 +25,13 @@ from transformers import AutoTokenizer
 
 import sparseml.core.session as session_manager
 from sparseml.core.recipe import Recipe, StageRunType
-from sparseml.modifiers.utils.pytorch_helpers import PADDING_MASK_COLUMN_NAME
 from sparseml.pytorch.model_load.helpers import (
     get_completed_stages,
     get_session_model,
     save_completed_stages,
     save_model_and_recipe,
 )
-from sparseml.transformers.finetune import TrainingArguments
+from sparseml.pytorch.utils import tensors_to_device
 from sparseml.transformers.finetune.data import TextGenerationDataset
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
 from sparseml.transformers.finetune.data.data_helpers import (
@@ -39,9 +39,8 @@ from sparseml.transformers.finetune.data.data_helpers import (
     make_dataset_splits,
 )
 from sparseml.transformers.finetune.model_args import ModelArguments
-from sparseml.utils.fsdp.context import summon_full_params_context
+from sparseml.transformers.finetune.training_args import TrainingArguments
 from sparseml.utils.fsdp.helpers import is_fsdp_model, unwrap_and_export_model
-from sparseml.utils.pytorch import qat_active
 
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
@@ -105,21 +104,21 @@ class StageRunner:
         elif isinstance(splits, List):
             splits = {_get_split_name(s): s for s in splits}
 
+        # default to custom dataset if dataset provided isn't a string
+        registry_id = self._data_args.dataset
+
+        if not isinstance(registry_id, str):
+            registry_id = "custom"
         for split_name, split_str in splits.items():
             dataset_manager = TextGenerationDataset.load_from_registry(
-                self._data_args.dataset_name,
+                registry_id,
                 data_args=self._data_args,
                 split=split_str,
                 tokenizer=tokenizer,
             )
 
-            store_padding_mask = False
-            if self._training_args.do_oneshot and split_name == "calibration":
-                store_padding_mask = True
             raw_dataset = dataset_manager.get_raw_dataset(self._model_args.cache_dir)
-            tokenized_dataset = dataset_manager.tokenize_and_process(
-                raw_dataset, store_padding_mask=store_padding_mask
-            )
+            tokenized_dataset = dataset_manager.tokenize_and_process(raw_dataset)
             tokenized_datasets[split_name] = tokenized_dataset
 
         self.datasets = make_dataset_splits(
@@ -157,10 +156,11 @@ class StageRunner:
         # if we don't run a forward pass after initializing the FSDP model for the
         # first time, calls to summon_full_params will fail ¯\_(ツ)_/¯
         dummy_inp = dict(next(iter(calib_data)))
+        model_device = next(self.trainer.model.parameters()).device
+        dummy_inp = tensors_to_device(dummy_inp, model_device)
         with torch.no_grad():
-            dummy_inp.pop(PADDING_MASK_COLUMN_NAME, None)
             self.trainer.model(**dummy_inp)
-        torch.cuda.empty_cache()
+        self.trainer.accelerator.wait_for_everyone()
 
         self.trainer.one_shot(calib_data, stage=stage)
 
@@ -196,6 +196,7 @@ class StageRunner:
         )
         metrics = train_result.metrics
         metrics["train_samples"] = len(self.get_dataset_split("train"))
+        metrics["perplexity"] = math.exp(metrics["train_loss"])
         self.trainer.log_metrics("train", metrics)
         self.trainer.save_metrics("train", metrics)
 
@@ -235,7 +236,9 @@ class StageRunner:
 
         recipe_obj = Recipe.create_instance(self._training_args.recipe)
         with self.trainer.accelerator.main_process_first():
-            completed_stages = get_completed_stages(self._model_args.model_name_or_path)
+            checkpoint_dir = self._model_args.model
+            completed_stages = get_completed_stages(checkpoint_dir)
+
         self.trainer.accelerator.wait_for_everyone()
 
         for stage in recipe_obj.stages:
@@ -281,12 +284,6 @@ class StageRunner:
             # setup for next stage
             session = session_manager.active_session()
             session.reset_stage()
-
-            # log model sparsity
-            with summon_full_params_context(self.trainer.model):
-                if self.trainer.accelerator.is_main_process:
-                    if not qat_active(self.trainer.model):
-                        self.trainer.log_model_sparsification()
 
             # synchronize and clean up memory
             self.trainer.accelerator.wait_for_everyone()

@@ -22,6 +22,7 @@ def test_imports():
         SparsificationInfo,
         check_version,
         detect_framework,
+        evaluate,
         execute_in_sparseml_framework,
         framework_info,
         get_main_logger,

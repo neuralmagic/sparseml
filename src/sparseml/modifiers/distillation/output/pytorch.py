@@ -14,12 +14,17 @@
 
 from typing import Any, Dict
 
-import torch
 from torch.nn import Module
 
 from sparseml.core import Event, EventType, State
 from sparseml.modifiers.distillation.output.base import OutputDistillationModifier
-from sparseml.modifiers.distillation.utils.pytorch import KDFactory, KDModuleWrapper
+from sparseml.modifiers.distillation.utils.pytorch import (
+    KDFactory,
+    KDModelWrapper,
+    KDModuleWrapper,
+)
+from sparseml.utils.fsdp.context import summon_full_params_context
+from sparseml.utils.fsdp.helpers import maybe_get_wrapped, set_wrapped_model
 
 
 __all__ = ["OutputDistillationModifierPyTorch"]
@@ -27,6 +32,7 @@ __all__ = ["OutputDistillationModifierPyTorch"]
 
 class OutputDistillationModifierPyTorch(OutputDistillationModifier):
     wrappers_: Dict[str, Any] = None
+    wrapped_kd_model_: Any = None
     fsdp_active_: bool = False
 
     def on_initialize(self, state: State, **kwargs) -> bool:
@@ -40,6 +46,13 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
         self.wrappers_ = {}
         if kwargs.get("fsdp_active"):
             self.fsdp_active_ = True
+
+        # needed to initialize intermediate output buffers for student and teacher
+        hidden_size = (
+            kwargs.get("metadata").get("per_device_train_batch_size", 1),
+            kwargs.get("metadata").get("max_seq_length", 512),
+            state.model.model.config.hidden_size,
+        )
 
         for target in (
             self.targets if isinstance(self.targets, list) else [self.targets]
@@ -63,61 +76,91 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
             for (key, student_layer), teacher_layer in zip(
                 model_layers.items(), teacher_layers.values()
             ):
-                wrapper = self._create_wrapper(student_layer, teacher_layer, state)
-                state.model.set_layer(key, wrapper)
-                self.wrappers_[key] = wrapper
-                wrapper.kd_enabled = True
+                student_wrapper = self._create_layer_wrapper(
+                    student_layer, hidden_size, state
+                )
+                teacher_wrapper = self._create_layer_wrapper(
+                    teacher_layer, hidden_size, state
+                )
+                self.wrappers_[key] = (student_wrapper, teacher_wrapper)
 
+        with summon_full_params_context(state.teacher_model.model, offload_to_cpu=True):
+            for key, (student_wrapper, teacher_wrapper) in self.wrappers_.items():
+                state.model.set_layer(key, student_wrapper)
+                state.teacher_model.set_layer(key, teacher_wrapper)
+
+        self.wrapped_kd_model_ = self._create_model_wrapper(
+            student_model=maybe_get_wrapped(state.model),
+            teacher_model=state.teacher_model.model,
+            state=state,
+        )
+
+        set_wrapped_model(state.model, self.wrapped_kd_model_)
+
+        # for square-head distillation we want to scale the loss by the number of
+        # layers if the user doesn't alter the default scale. This is done so the
+        # distillation loss is roughly equally weighted to the cross entropy loss
+        num_layers = len(self.wrappers_)
+        if self.comparison == "square_head" and self.distill_scale == 1.0:
+            self.distill_scale = float(num_layers)
         return True
 
     def on_finalize(self, state: State, **kwargs) -> bool:
-        for key, wrapper in self.wrappers_.items():
-            state.model.set_layer(key, wrapper.student_layer)
-            del wrapper
+        set_wrapped_model(state.model, self.wrapped_kd_model_.student_model)
 
+        with summon_full_params_context(state.teacher_model.model, offload_to_cpu=True):
+            for key, (student_wrapper, teacher_wrapper) in self.wrappers_.items():
+                state.model.set_layer(key, student_wrapper.layer)
+                state.teacher_model.set_layer(key, teacher_wrapper.layer)
+                del student_wrapper
+                del teacher_wrapper
+
+        del self.wrapped_kd_model_
         return True
 
     def on_start(self, state: State, event: Event, **kwargs):
-        for wrapper in self.wrappers_.values():
-            wrapper.kdenabled = True
+        for (student_wrapper, teacher_wrapper) in self.wrappers_.values():
+            student_wrapper.kd_enabled = True
+            teacher_wrapper.kd_enabled = True
+        self.wrapped_kd_model_.kd_enabled = True
 
     def on_update(self, state: State, event: Event, **kwargs):
         if event.type_ == EventType.LOSS_CALCULATED and event.should_update(
             self.start, self.end, self.update
         ):
-            comparisons = [
-                wrapper.kd_last_comparison for wrapper in self.wrappers_.values()
-            ]
-            state.loss = (
-                self.orig_scale * kwargs["loss"]  # model output loss
-                + self.distill_scale * torch.stack(comparisons).mean()  # distill loss
-            )
+            distill_loss = self.wrapped_kd_model_.kd_last_comparison
+            model_loss = self.orig_scale * kwargs["loss"]
+            distill_loss = self.distill_scale * distill_loss.to(model_loss.device)
+            state.loss = model_loss + distill_loss
 
     def on_end(self, state: State, event: Event, **kwargs):
-        for wrapper in self.wrappers_.values():
-            wrapper.kdenabled = False
+        for (student_wrapper, teacher_wrapper) in self.wrappers_.values():
+            student_wrapper.kd_enabled = False
+            teacher_wrapper.kd_enabled = False
+        self.wrapped_kd_model_.kd_enabled = False
 
-    def _create_wrapper(
-        self, student_layer: Module, teacher_layer: Module, state: State
-    ) -> KDModuleWrapper:
-        projections = (
-            KDFactory.create_projection(
-                self.projection,
-                student_layer,
-                teacher_layer,
-                state,
-                **(self.projection_args or {}),
-            )
-            if self.projection
-            else None
-        )
+    def _create_model_wrapper(
+        self, student_model: Module, teacher_model: Module, state: State
+    ) -> KDModelWrapper:
         comparison = KDFactory.create_comparison(
             self.comparison,
-            student_layer,
-            teacher_layer,
+            student_model,
+            teacher_model,
             state,
             **(self.comparison_args or {}),
         )
+
+        return KDModelWrapper(
+            student_model=student_model,
+            teacher_model=teacher_model,
+            wrappers=self.wrappers_,
+            comparison=comparison,
+            fsdp_active=self.fsdp_active_,
+        )
+
+    def _create_layer_wrapper(
+        self, layer: Module, hidden_size: int, state: State
+    ) -> KDModuleWrapper:
 
         transforms = []
         if self.transforms:
@@ -140,18 +183,16 @@ class OutputDistillationModifierPyTorch(OutputDistillationModifier):
                 transforms.append(
                     KDFactory.create_transform(
                         transform,
-                        student_layer,
-                        teacher_layer,
+                        layer,
                         state,
                         **transform_args,
                     )
                 )
 
         return KDModuleWrapper(
-            student_layer=student_layer,
-            teacher_layer=teacher_layer,
-            projections=projections,
+            layer=layer,
+            hidden_size=hidden_size,
             transforms=transforms,
-            comparison=comparison,
             fsdp_active=self.fsdp_active_,
+            offload_output=self.offload_layer_output,
         )

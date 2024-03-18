@@ -28,7 +28,11 @@ from transformers.trainer_utils import get_last_checkpoint
 import sparseml.core.session as session_manager
 from sparseml.core.framework import Framework
 from sparseml.core.session import callbacks
-from sparseml.pytorch.model_load.helpers import RECIPE_FILE_NAME, reload_model_state
+from sparseml.pytorch.model_load.helpers import (
+    RECIPE_FILE_NAME,
+    get_session_model,
+    reload_model_state,
+)
 from sparseml.pytorch.utils import LoggerManager, ModuleSparsificationInfo
 from sparseml.transformers.finetune.callbacks import (
     DisableHalfPrecisionCallback,
@@ -36,6 +40,7 @@ from sparseml.transformers.finetune.callbacks import (
 )
 from sparseml.utils.fsdp.context import summon_full_params_context
 from sparseml.utils.fsdp.helpers import is_fsdp_model, save_pretrained_fsdp
+from sparseml.utils.pytorch import qat_active
 
 
 __all__ = [
@@ -133,7 +138,7 @@ class SessionManagerMixIn:
         train_data = self.get_train_dataloader()
 
         self.accelerator.wait_for_everyone()
-        with summon_full_params_context(self.model):
+        with summon_full_params_context(self.model, offload_to_cpu=True):
             session_manager.initialize(
                 model=self.model,
                 teacher_model=self.teacher,  # TODO: what about for self/disable?
@@ -145,14 +150,17 @@ class SessionManagerMixIn:
                 start=epoch,
                 copy_data=False,
                 fsdp_active=self.is_fsdp_enabled,
+                metadata=self.metadata,
             )
         self.accelerator.wait_for_everyone()
+        model = get_session_model()
+        self.model = model
 
         # reload the state dict for the model now that architecture matches expected
         # TODO: what if there is a quant modifier in the original recipe and we want to
         # continue adjusting its zero point and range?
         load_path = checkpoint or self.model_state_path
-        if reload_model_state(self.model, load_path, orig_state_dict):
+        if reload_model_state(model, load_path, orig_state_dict):
             _LOGGER.info(
                 "Reloaded model state after SparseML recipe structure modifications "
                 f"from {load_path}"
@@ -196,10 +204,12 @@ class SessionManagerMixIn:
         if not session.lifecycle.initialized_ or session.lifecycle.finalized:
             return False
 
-        with summon_full_params_context(self.model):
+        with summon_full_params_context(self.model, offload_to_cpu=True):
             # in order to update each layer we need to gathers all its parameters
             session_manager.finalize()
         _LOGGER.info("Finalized SparseML session")
+        model = get_session_model()
+        self.model = model
         torch.cuda.empty_cache()
 
     def create_optimizer(self):
@@ -236,15 +246,15 @@ class SessionManagerMixIn:
             optimizer=self.optimizer, steps_per_epoch=self.total_steps_per_epoch
         )
 
+        return self.optimizer
+
     def create_scheduler(
         self, num_training_steps: int, optimizer: torch.optim.Optimizer = None
     ):
         """
-        Create an LR scheduler to work with the applied recipes. If the
-        recipe specifies LR modifiers, then will set lr_scheduler to a
-        placeholder lr scheduler. Expects create_scheduler to be defined in the
-        super class. Additionally expects self.lr_scheduler argument to be
-        available
+        Create an LR scheduler to work with the applied recipes. This is a placeholder
+        that just calls the super method, but would be expanded upon if we ever
+        implement a LearningRateModifier.
 
         :param num_training_steps: the total number of training steps
         :param optimizer: pre-initialized optimizer
@@ -252,13 +262,7 @@ class SessionManagerMixIn:
 
         # TODO: we don't currently have a LR scheduler in the new modifier framework
         self._check_super_defined("create_scheduler")
-        if self.lr_scheduler is not None or session_manager.active_session() is None:
-            super().create_scheduler(num_training_steps, optimizer)
-            return
-
-        # allow SparseML to manage LR and set a dummy scheduler
-        # TODO: remove this and just using the HF one?
-        self.lr_scheduler = self._dummy_lr_scheduler()
+        return super().create_scheduler(num_training_steps, optimizer)
 
     def training_step(
         self, model: Module, inputs: Dict[str, Union[torch.Tensor, Any]]
@@ -302,11 +306,24 @@ class SessionManagerMixIn:
         # here for SparseML logging and distillation
         loss = loss.mean()
 
+        # Log step-wise loss and perplexity, for llama-recipes comparison
+        # we want this before distillation loss so perplexity isn't thrown off
+        do_log = self.state.global_step % self.args.logging_steps == 0
+        if do_log:
+            log = {}
+            log["step_loss"] = loss.item()
+            log["perplexity"] = torch.exp(loss).item()
+
         if session_manager.active_session().lifecycle.initialized_:
             state = callbacks.loss_calculated(loss=loss)
             if state and state.loss is not None:
                 loss = state.loss
+                if do_log:
+                    log["distill_step_loss"] = loss.item() - log["step_loss"]
             callbacks.optim_pre_step()
+
+        if do_log:
+            self.log(log)
 
         return loss
 
@@ -354,9 +371,13 @@ class SessionManagerMixIn:
 
         self.accelerator.wait_for_everyone()
 
-        # Need to gather parameters across the GPUs before accessing layer weights
-        with summon_full_params_context(self.model):
-            self.log_model_sparsification()
+        # log model sparsity
+        with summon_full_params_context(self.model, offload_to_cpu=True):
+            if self.accelerator.is_main_process:
+                if not qat_active(self.model):
+                    self.log_model_sparsification()
+
+        self.accelerator.wait_for_everyone()
 
         return output
 
@@ -410,11 +431,19 @@ class SessionManagerMixIn:
             framework=Framework.pytorch,
             recipe=self.recipe,
             recipe_stage=stage,
+            recipe_args=self.recipe_args,
             model=self.model,
             calib_data=calib_data,
             start=-1,
             copy_data=False,
+            accelerator=self.accelerator,
         )
+
+        # log model sparsity
+        with summon_full_params_context(self.model, offload_to_cpu=True):
+            if self.accelerator.is_main_process:
+                if not qat_active(self.model):
+                    self.log_model_sparsification()
 
         self.accelerator.wait_for_everyone()
 
@@ -440,7 +469,10 @@ class SessionManagerMixIn:
         # don't export the gathered model on checkpoints
         if is_fsdp_model(self.model) and not _internal_call:
             save_pretrained_fsdp(
-                model=self.model, accelerator=self.accelerator, output_dir=output_dir
+                model=self.model,
+                accelerator=self.accelerator,
+                output_dir=output_dir,
+                save_safetensors=self.metadata.get("save_safetensors", False),
             )
 
         self.save_state()
@@ -491,6 +523,12 @@ class SessionManagerMixIn:
         self.model.to("cpu")
         self.model = self.accelerator.prepare(self.model)
         self.accelerator.wait_for_everyone()
+
+        if self.teacher is not None:
+            self.teacher.to("cpu")
+            self.teacher = self.accelerator.prepare(self.teacher)
+            self.teacher.eval()
+            self.accelerator.wait_for_everyone()
 
     def _extract_metadata(
         self,

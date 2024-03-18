@@ -14,7 +14,7 @@
 
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Union
 
 from pydantic import BaseModel, Field
 
@@ -36,7 +36,7 @@ class Integrations(Enum):
 
 
 def resolve_integration(
-    source_path: Union[Path, str],
+    source_path: Union[Path, str, None] = None,
     integration: Optional[str] = None,
 ) -> str:
     """
@@ -51,6 +51,39 @@ def resolve_integration(
         will attempt to infer it from the source_path.
     :return: The name of the integration to use for exporting the model.
     """
+
+    integration = integration or _infer_integration_from_source_path(source_path)
+
+    if integration == Integrations.image_classification.value:
+        import sparseml.pytorch.image_classification.integration_helper_functions  # noqa F401
+
+        return Integrations.image_classification.value
+
+    elif integration == Integrations.transformers.value:
+        import sparseml.transformers.integration_helper_functions  # noqa F401
+
+        return Integrations.transformers.value
+    else:
+        raise ValueError(
+            f"Could not infer integration from source_path:\n{source_path}\n"
+            "Please specify an argument `integration` from one of "
+            "the available integrations: "
+            f"{[integration.value for integration in Integrations]}."
+        )
+
+
+def _infer_integration_from_source_path(
+    source_path: Union[Path, str, None] = None
+) -> Optional[str]:
+    """
+    Infer the integration to use from the source_path.
+
+    :param source_path: The path to the PyTorch model to export.
+    :return: The name of the integration to use for exporting the model.
+    """
+    if source_path is None:
+        return None
+
     try:
         from sparseml.pytorch.image_classification.utils.helpers import (
             is_image_classification_model,
@@ -65,27 +98,12 @@ def resolve_integration(
         # unable to import integration, always return False
         is_transformer_model = _null_is_model
 
-    if (
-        integration == Integrations.image_classification.value
-        or is_image_classification_model(source_path)
-    ):
-        import sparseml.pytorch.image_classification.integration_helper_functions  # noqa F401
-
+    if is_image_classification_model(source_path):
         return Integrations.image_classification.value
-    elif integration == Integrations.transformers.value or is_transformer_model(
-        source_path
-    ):
-
-        import sparseml.transformers.integration_helper_functions  # noqa F401
-
+    elif is_transformer_model(source_path):
         return Integrations.transformers.value
     else:
-        raise ValueError(
-            f"Could not infer integration from source_path:\n{source_path}\n"
-            "Please specify an argument `integration` from one of "
-            "the available integrations: "
-            f"{[integration.value for integration in Integrations]}."
-        )
+        return None
 
 
 def _null_is_model(*args, **kwargs):
@@ -115,6 +133,19 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
         "- a (sparse) PyTorch model "
         "- (optionally) loaded_model_kwargs "
         "(any relevant objects created along with the model)"
+    )
+    create_data_loader: Callable[
+        [],
+        Tuple[
+            Union["torch.utils.data.DataLoader", Generator],  # noqa F821
+            Optional[Dict[str, Any]],
+        ],
+    ] = Field(
+        description="A function that takes: "
+        "arbitrary arguments and returns: "
+        "- a dataloader "
+        "- (optionally) loaded data_loader kwargs "
+        "(any relevant objects created along with the data_loader)"
     )
     create_dummy_input: Callable[[Any], "torch.Tensor"] = Field(  # noqa F821
         description="A function that takes: "

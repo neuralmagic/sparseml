@@ -24,12 +24,13 @@ class OutputDistillationModifier(Modifier):
     targets: Union[str, List[Union[str, Tuple[str, str]]]]
     projection: str = None
     projection_args: Dict[str, Any] = None
-    transforms: Union[str, List[str]] = "softmax"
+    transforms: Union[str, List[str]] = "identity"
     transforms_args: Union[Dict[str, Any], List[Dict[str, Any]]] = None
     comparison: str = "kl_divergence"
     comparison_args: Dict[str, Any] = None
     orig_scale: float = 1.0
     distill_scale: float = 1.0
+    offload_layer_output: bool = False
 
     def on_initialize_structure(self, state: State, **kwargs):
         pass  # nothing needed for this modifier

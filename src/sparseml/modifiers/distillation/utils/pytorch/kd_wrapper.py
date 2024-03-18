@@ -12,46 +12,38 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import List, Optional, Sequence, Set, Tuple
+from typing import List, Optional, Set, Tuple
 
 import torch
 from torch.nn import Module
 
-from sparseml.modifiers.distillation.utils.pytorch.kd_factory import (
-    ComparisonFuncType,
-    ProjectionFuncType,
-    TransformFuncType,
-    recursive_apply,
-)
-from sparseml.pytorch.utils import tensors_to_device
+from sparseml.modifiers.distillation.utils.pytorch.kd_factory import TransformFuncType
 
 
 __all__ = ["KDModuleWrapper"]
 
 
 class KDModuleWrapper(Module):
-    KD_COMPARISON_BUFFER = "kd_last_comparison"
+    KD_TRANSFORMED_BUFFER = "kd_last_transformed"
 
     def __init__(
         self,
-        student_layer: Module,
-        teacher_layer: Module,
-        projections: Optional[Tuple[ProjectionFuncType, ProjectionFuncType]],
+        layer: Module,
+        hidden_size: Tuple,
         transforms: Optional[List[TransformFuncType]],
-        comparison: ComparisonFuncType,
         fsdp_active: bool,
+        offload_output: bool,
     ):
         super(KDModuleWrapper, self).__init__()
 
-        self.student_layer = student_layer
-        self.teacher_layer = teacher_layer
+        self.layer = layer
         self._fsdp_active = fsdp_active
-        self.student_projections = projections[0] if projections is not None else None
-        self.teacher_projections = projections[1] if projections is not None else None
+        self.offload_output = offload_output
         self.kd_transforms = transforms
-        self.kd_comparison = comparison
         self.kd_enabled = False
-        self.register_buffer(self.KD_COMPARISON_BUFFER, torch.zeros(1))
+        self.register_buffer(
+            self.KD_TRANSFORMED_BUFFER, torch.zeros(hidden_size, device="cpu")
+        )
         self._init_called = True  # make sure this is last property to be set
 
         def _clear_missing_keys(module, incompatible_keys):
@@ -61,54 +53,27 @@ class KDModuleWrapper(Module):
 
     def forward(self, *args, **kwargs):
         if not self.kd_enabled:
-            return self.student_layer(*args, **kwargs)
+            return self.layer(*args, **kwargs)
 
-        org_output = self.student_layer(*args, **kwargs)
-        student_output = org_output
-
-        with torch.no_grad():
-            # input must be moved to teacher device for forward pass
-            init_param = next(self.teacher_layer.parameters(), None)
-            teacher_device = init_param.device if init_param is not None else "cpu"
-            input_device = args[0].device
-            teacher_args = tensors_to_device(args, teacher_device)
-            teacher_output = self.teacher_layer(*teacher_args, **kwargs)
-            teacher_output = tensors_to_device(teacher_output, input_device)
-
-        if self.student_projections is not None:
-            for projection in self.student_projections:
-                student_output = projection(student_output, teacher_output)
-
-        if self.teacher_projections is not None:
-            for projection in self.teacher_projections:
-                teacher_output = projection(teacher_output, student_output)
+        org_output = self.layer(*args, **kwargs)
+        output = org_output if isinstance(org_output, torch.Tensor) else org_output[0]
 
         if self.kd_transforms is not None:
             for transform in self.kd_transforms:
-                student_output = transform(student_output)
-                teacher_output = transform(teacher_output)
+                output = transform(output)
 
-            comp = self.kd_comparison(student_output, teacher_output)
-            comp = recursive_apply(comp, lambda x: x.mean())
-            if isinstance(comp, Sequence):
-                comp = torch.stack(comp).sum()
-            elif isinstance(comp, torch.Tensor):
-                if comp.numel() > 1:
-                    comp = torch.stack(comp.tolist()).sum()
-                else:
-                    comp = comp.item()
-            # else float
-            self.kd_last_comparison[0] = comp
-
+        if self.offload_output:
+            output = output.to("cpu")
+        setattr(self, self.KD_TRANSFORMED_BUFFER, output)
         return org_output
 
     def state_dict(self, destination=None, prefix="", keep_vars=False, **kwargs):
-        return self.student_layer.state_dict(
+        return self.layer.state_dict(
             destination=destination, prefix=prefix, keep_vars=keep_vars, **kwargs
         )
 
     def load_state_dict(self, state_dict, strict=True):
-        return self.student_layer.load_state_dict(state_dict, strict=strict)
+        return self.layer.load_state_dict(state_dict, strict=strict)
 
     def _load_from_state_dict(
         self,
@@ -120,7 +85,7 @@ class KDModuleWrapper(Module):
         unexpected_keys,
         error_msgs,
     ):
-        self.student_layer._load_from_state_dict(
+        self.layer._load_from_state_dict(
             state_dict=state_dict,
             prefix=prefix,
             local_metadata=local_metadata,
@@ -146,6 +111,6 @@ class KDModuleWrapper(Module):
                 memo=memo, prefix=prefix, remove_duplicate=remove_duplicate
             )
 
-        return self.student_layer.named_modules(
+        return self.layer.named_modules(
             memo=memo, prefix=prefix, remove_duplicate=remove_duplicate
         )

@@ -32,12 +32,6 @@ class TrainingArguments(HFTrainingArgs):
         arguments
     """
 
-    distill_teacher: Optional[str] = field(
-        default=None,
-        metadata={
-            "help": "Teacher model (a trained text generation model)",
-        },
-    )
     best_model_after_epoch: int = field(
         default=None,
         metadata={"help": "Epoch after which best model will be saved."},
@@ -70,4 +64,22 @@ class TrainingArguments(HFTrainingArgs):
     oneshot_device: Optional[str] = field(
         default="cuda:0",
         metadata={"help": "Device to run oneshot calibration on"},
+    )
+    clear_sparse_session: Optional[bool] = field(
+        default=True,
+        metadata={"help": "Whether to clear SparseSession data between runs."},
+    )
+    save_safetensors: Optional[bool] = field(
+        default=True,
+        metadata={
+            "help": "Use safetensors saving and loading for state dicts instead of "
+            "default torch.load and torch.save."
+        },
+    )
+    output_dir: str = field(
+        default="./output",
+        metadata={
+            "help": "The output directory where the model predictions and "
+            "checkpoints will be written."
+        },
     )

@@ -14,7 +14,7 @@
 
 import logging
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Union
 
 import torch
 from pydantic import Field
@@ -53,7 +53,6 @@ _LOGGER = logging.getLogger(__name__)
 
 def create_model(
     source_path: Union[Path, str],
-    dataset_with_labels: bool = False,
     device: Optional[str] = None,
     task: Optional[str] = None,
     recipe: Optional[str] = None,
@@ -65,25 +64,18 @@ def create_model(
     loaded_model_kwargs (any relevant objects created along with the model)
 
     :param source_path: The path to the model
-    :param dataset_with_labels: Whether to allow the dataset to
-        have "labels" inputs or not. Text-generation datasets may
-        contain labels (needed for training only)
-    :param device: The device to use for the model and dataloader instantiation
-    :param task: The task to use for the model and dataloader instantiation
-    :param recipe: The recipe to use for the model and dataloader instantiation.
-        If None, attempt to use the default recipe
+    :param device: The device to use for the model
+    :param task: The task to use for the model
+    :param recipe: The recipe to use for the model
     :param export: Whether the created model is for export or not.
 
-    :return: A tuple of the
+    :return: A tuple of:
         - torch model
-        - (optionally) loaded_model_kwargs
-          (any relevant objects created along with the model)
+        - dict of loaded_model_kwargs
     """
     config_args = kwargs.get("config_args", {})
     sequence_length = kwargs.get("sequence_length", None)
-    data_args = kwargs.get("data_args", {})
     trust_remote_code = kwargs.get("trust_remote_code", False)
-
     if task is None:
         raise ValueError(
             "To create a transformer model, a task must be specified. "
@@ -112,29 +104,73 @@ def create_model(
         sequence_length=sequence_length,
         device=device,
     )
+    return model, dict(
+        tokenizer=tokenizer, sequence_length=sequence_length, config=config
+    )
 
-    data_args = _parse_data_args(data_args)
+
+def create_data_loader(
+    model: torch.nn.Module,
+    task: str,
+    data_args: Optional[Dict[str, Any]] = None,
+    config: Optional["AutoConfig"] = None,  # noqa F821
+    source_path: Optional[str] = None,
+    sequence_length: Optional[int] = None,
+    tokenizer: Optional["AutoTokenizer"] = None,  # noqa F821
+    dataset_with_labels: bool = False,
+    **kwargs,
+):
+    """
+    A contract to create a dataloader and optional dictionary of
+    loaded_dataloader_kwargs (any relevant objects created along with the dataloader)
+
+    :param model: A model for which the data_loader is created
+    :param task: The task to use for the model
+    :param data_args: Arguments for instantiation of the dataset
+    :param source_path: Path to the model files
+    :param sequence_length: The sequence length to use for the model
+    :param tokenizer: The tokenizer to use for the model
+    :param dataset_with_labels: Whether to allow the dataset to
+        have "labels" inputs or not. Text-generation datasets may
+        contain labels (needed for training only)
+
+    :return: A tuple of:
+        - torch model
+        - dict of loaded_model_kwargs
+    """
+    split = kwargs.get("split", None)
+
+    config = config or model.config
+    source_path = source_path or model.name_or_path
+    if tokenizer is None:
+        if sequence_length is None:
+            raise ValueError(
+                "Sequence length for the transformer model export missing. "
+                "Provide it manually using sequence_length argument"
+            )
+        tokenizer = initialize_tokenizer(config.name_or_path, sequence_length, task)
+    data_args = _parse_data_args(data_args or {})
 
     if data_args:
-        validation_dataset = load_task_dataset(
+        dataset = load_task_dataset(
             task=task,
             tokenizer=tokenizer,
             data_args=data_args,
             model=model,
             config=config,
-            split="validation",
+            split=split,
         )
 
         if task in TaskNames.text_generation.value:
             # text-generation datasets have a separate
             # logic for creating a dataloader
             if not dataset_with_labels:
-                validation_dataset = validation_dataset.remove_columns("labels")
-            data_loader = format_calibration_data(tokenized_dataset=validation_dataset)
-            input_names = validation_dataset.column_names
+                dataset = dataset.remove_columns("labels")
+            data_loader = format_calibration_data(tokenized_dataset=dataset)
+            input_names = list(next(iter(data_loader)).keys())
 
         else:
-            trainer = initialize_trainer(model, source_path, validation_dataset)
+            trainer = initialize_trainer(model, source_path, dataset)
             data_loader = trainer.get_eval_dataloader()
             input_names = list(next(trainer._get_fake_dataloader(1, tokenizer)).keys())
 
@@ -144,9 +180,7 @@ def create_model(
             model, tokenizer, num_samples=1
         )
 
-    return model, dict(
-        data_loader=data_loader, tokenizer=tokenizer, input_names=input_names
-    )
+    return data_loader, dict(input_names=input_names)
 
 
 def create_dummy_input(
@@ -214,10 +248,13 @@ class Transformers(IntegrationHelperFunctions):
                 "Fetching default helper functions for transformers integration"
             )
 
-    create_model: Callable[..., Tuple[torch.nn.Module, Dict[str, Any]]] = Field(
+    create_model: Callable[[], Tuple[torch.nn.Module, Dict[str, Any]]] = Field(
         default=create_model
     )
-    create_dummy_input: Callable[..., torch.Tensor] = Field(default=create_dummy_input)
+    create_data_loader: Callable[
+        [], Tuple[Union[Generator, torch.utils.data.DataLoader], Dict[str, Any]]
+    ] = Field(default=create_data_loader)
+    create_dummy_input: Callable[[], torch.Tensor] = Field(default=create_dummy_input)
     create_data_samples: Callable = Field(create_data_samples)
     deployment_directory_files_mandatory: List[str] = Field(
         default=list(MANDATORY_DEPLOYMENT_FILES)

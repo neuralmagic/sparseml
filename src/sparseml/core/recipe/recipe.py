@@ -24,6 +24,7 @@ from pydantic import Field, root_validator
 
 from sparseml.core.framework import Framework
 from sparseml.core.modifier import StageModifiers
+from sparseml.core.modifier.modifier import Modifier
 from sparseml.core.recipe.args import RecipeArgs
 from sparseml.core.recipe.base import RecipeBase
 from sparseml.core.recipe.metadata import RecipeMetaData
@@ -49,10 +50,56 @@ class Recipe(RecipeBase):
     when serializing a recipe, yaml will be used by default.
     """
 
-    @staticmethod
-    def create_instance(path: str) -> "Recipe":
+    @classmethod
+    def from_modifiers(
+        cls,
+        modifiers: Union[Modifier, List[Modifier]],
+        modifier_group_name: Optional[str] = None,
+    ) -> "Recipe":
         """
-        Create a recipe instance from a file, or string
+        Create a recipe instance from a list of modifiers
+
+        (Note: all modifiers are wrapped into a single stage
+        with the modifier_group_name as the stage name. If modifier_group_name is None,
+        the default run type is `oneshot`)
+
+        Lfecycle:
+        | - Validate Modifiers
+        | - Create recipe string from modifiers
+        | - Create recipe instance from recipe string
+
+        :param modifiers: The list of RecipeModifier instances
+        :param modifier_group_name: The stage_name of the recipe,
+            if `oneshot` or `train` the run_type of the recipe will be
+            inferred from the modifier_group_name, if None, a dummy default
+            group_name will be assigned.
+        :return: The Recipe instance created from the modifiers
+        """
+        _LOGGER.info("Creating recipe from modifiers")
+
+        # validate Modifiers
+        if isinstance(modifiers, Modifier):
+            modifiers: List[Modifier] = [modifiers]
+
+        if any(not isinstance(modifier, Modifier) for modifier in modifiers):
+            raise ValueError("modifiers must be a list of Modifier instances")
+
+        recipe_string: str = create_recipe_string_from_modifiers(
+            modifiers=modifiers,
+            modifier_group_name=modifier_group_name,
+        )
+
+        # modifier group name already included in the recipe string
+        return cls.create_instance(path_or_modifiers=recipe_string)
+
+    @classmethod
+    def create_instance(
+        cls,
+        path_or_modifiers: Union[str, Modifier, List[Modifier]],
+        modifier_group_name: Optional[str] = None,
+    ) -> "Recipe":
+        """
+        Create a recipe instance from a file, string, or RecipeModifier objects
 
 
         Using a recipe string or file is supported:
@@ -66,43 +113,67 @@ class Recipe(RecipeBase):
         ... '''
         >>> recipe = Recipe.create_instance(recipe_str)
 
-        :param path: The path to the recipe file or
-            SparseZoo stub or the recipe string, must be a valid
-            json/yaml file or a valid json/yaml string
+        :param path_or_modifiers: The path to the recipe file or
+            SparseZoo stub or the recipe string (must be a valid
+            json/yaml file or a valid json/yaml string). Can also
+            accept a RecipeModifier instance, or a list of
+            RecipeModifiers
+        :param modifier_group_name: The stage_name of the recipe,
+            if `oneshot` or `train` the run_type of the recipe will be
+            inferred from the modifier_group_name, if None, a dummy default
+            group_name will be assigned. This argument is only used
+            when creating a recipe from a Modifier/list of Modifier(s)
+            instance, else it's ignored.
+        :return: The Recipe instance created from the path or modifiers,
+            or a valid recipe string in yaml/json format
         """
-        if not os.path.isfile(path):
+
+        if isinstance(path_or_modifiers, Recipe):
+            # already a recipe
+            return path_or_modifiers
+
+        if isinstance(path_or_modifiers, (Modifier, list)):
+            return cls.from_modifiers(
+                modifiers=path_or_modifiers, modifier_group_name=modifier_group_name
+            )
+
+        if not os.path.isfile(path_or_modifiers):
             # not a local file
-            if path.startswith("zoo:"):
+            if path_or_modifiers.startswith("zoo:"):
                 # download from SparseZoo
-                model = Model(path)
-                path = model.recipes.default.path
-                _LOGGER.info(f"Loading recipe from zoo stub {path}")
+                model = Model(path_or_modifiers)
+                path_or_modifiers = model.recipes.default.path
+                _LOGGER.info(f"Loading recipe from zoo stub {path_or_modifiers}")
             else:
                 # assume it's a string
                 _LOGGER.warning(
                     "Could not process input as a file path or zoo stub, "
                     "attempting to process it as a string."
                 )
-                _LOGGER.warning(f"Input string: {path}")
-                obj = _load_json_or_yaml_string(path)
+                _LOGGER.debug(f"Input string: {path_or_modifiers}")
+                obj = _load_json_or_yaml_string(path_or_modifiers)
                 return Recipe.parse_obj(obj)
         else:
-            _LOGGER.info(f"Loading recipe from file {path}")
+            _LOGGER.info(f"Loading recipe from file {path_or_modifiers}")
 
-        with open(path, "r") as file:
+        with open(path_or_modifiers, "r") as file:
             content = file.read().strip()
-            if path.lower().endswith(".md"):
-                content = _parse_recipe_from_md(path, content)
+            if path_or_modifiers.lower().endswith(".md"):
+                content = _parse_recipe_from_md(path_or_modifiers, content)
 
-            if path.lower().endswith(".json"):
+            if path_or_modifiers.lower().endswith(".json"):
                 obj = json.loads(content)
-            elif path.lower().endswith(".yaml") or path.lower().endswith(".yml"):
+            elif path_or_modifiers.lower().endswith(
+                ".yaml"
+            ) or path_or_modifiers.lower().endswith(".yml"):
                 obj = yaml.safe_load(content)
             else:
                 try:
                     obj = _load_json_or_yaml_string(content)
                 except ValueError:
-                    raise ValueError(f"Could not parse recipe from path {path}")
+                    raise ValueError(
+                        f"Could not parse recipe from path {path_or_modifiers}"
+                    )
             return Recipe.parse_obj(obj)
 
     @staticmethod
@@ -147,7 +218,13 @@ class Recipe(RecipeBase):
             for stage in recipe.recipe.stages:
                 if stage.group in stage_names:
                     stages.append(stage)
-        args = recipe.override_args if isinstance(recipe, RecipeTuple) else {}
+
+        # default args in recipe
+        args = recipe.recipe.args if isinstance(recipe, RecipeTuple) else recipe.args
+
+        # overwrite with args passed in through CLI
+        for key, val in recipe.override_args.items():
+            args[key] = val
         version = recipe.version if isinstance(recipe, Recipe) else None
 
         simplified = Recipe()
@@ -325,9 +402,18 @@ class Recipe(RecipeBase):
 
         extracted = Recipe.extract_dict_stages(values)
         stages.extend(extracted)
-        values["stages"] = stages
+        formatted_values = {}
 
-        return values
+        # fill out stages
+        formatted_values["stages"] = stages
+
+        # fill out any default argument values
+        args = {}
+        for key, val in values.items():
+            args[key] = val
+        formatted_values["args"] = RecipeArgs(args)
+
+        return formatted_values
 
     @staticmethod
     def extract_dict_stages(values: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -580,3 +666,47 @@ def _parse_recipe_from_md(file_path, yaml_str):
             " {}".format(file_path)
         )
     return yaml_str
+
+
+def create_recipe_string_from_modifiers(
+    modifiers: List[Modifier],
+    modifier_group_name: Optional[str] = None,
+) -> str:
+    """
+    Create a recipe string from a list of Modifier instances
+
+    (Note: this pathway assumes there's only one stage in the recipe
+    associated by the modifier_group_name, if None, a dummy default
+    group_name will be assigned.)
+
+    :param modifiers: The list of Modifier instances
+    :param modifier_group_name: The stage_name of the recipe,
+        if `oneshot` or `train` the run_type of the recipe will be
+        inferred from the modifier_group_name, if None, a dummy default
+        group_name will be assigned.
+    :return: A string in yaml format from which the recipe can be created
+    """
+
+    # Recipe(s) are yaml/json strings of the following format:
+    # run_type_stage: # should contain oneshot/train
+    #    modifiers:
+    #        ModifierTypeOne:
+    #            start: 0.0
+    #            end: 2.0
+    #            ...
+    #        ModifierTypeTwo:
+    #            ...
+
+    # Create a recipe string from the modifiers
+    default_group_name: str = "DEFAULT"
+    modifier_group_name: str = modifier_group_name or default_group_name
+
+    recipe_dict = {
+        f"{modifier_group_name}_stage": {
+            f"{default_group_name}_modifiers": {
+                modifier.__class__.__name__: modifier.dict() for modifier in modifiers
+            }
+        }
+    }
+    recipe_str: str = yaml.dump(recipe_dict)
+    return recipe_str

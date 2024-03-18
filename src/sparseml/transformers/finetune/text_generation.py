@@ -17,20 +17,16 @@
 # Adapted from https://github.com/huggingface/transformers
 # neuralmagic: no copyright
 
-
 import logging
 import os
+from pathlib import PosixPath
 
 import datasets
 import transformers
-from transformers import (
-    AutoConfig,
-    DataCollatorWithPadding,
-    HfArgumentParser,
-    default_data_collator,
-    set_seed,
-)
+from transformers import AutoConfig, DefaultDataCollator, HfArgumentParser, set_seed
 
+import sparseml.core.session as session_manager
+from sparseml.core.framework import Framework
 from sparseml.core.recipe import Recipe, StageRunType
 from sparseml.pytorch.model_load.helpers import (
     apply_recipe_structure_to_model,
@@ -39,10 +35,11 @@ from sparseml.pytorch.model_load.helpers import (
     parse_dtype,
 )
 from sparseml.transformers import SparseAutoTokenizer
-from sparseml.transformers.finetune import Trainer, TrainingArguments
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
 from sparseml.transformers.finetune.model_args import ModelArguments
 from sparseml.transformers.finetune.runner import StageRunner
+from sparseml.transformers.finetune.trainer import Trainer
+from sparseml.transformers.finetune.training_args import TrainingArguments
 from sparseml.transformers.utils import SparseAutoModel, get_shared_tokenizer_src
 from sparseml.transformers.utils.helpers import detect_last_checkpoint
 
@@ -52,6 +49,8 @@ _LOGGER: logging.Logger = logging.getLogger(__name__)
 metadata_args = [
     "per_device_train_batch_size",
     "per_device_eval_batch_size",
+    "max_seq_length",
+    "save_safetensors",
     "fp16",
 ]
 
@@ -83,6 +82,10 @@ def oneshot(**kwargs):
     main(model_args, data_args, training_args)
 
 
+# alias
+one_shot = oneshot
+
+
 def apply(**kwargs):
     """
     CLI entrypoint for any of training, eval, predict or oneshot
@@ -90,6 +93,19 @@ def apply(**kwargs):
     model_args, data_args, training_args = parse_args(**kwargs)
     training_args.run_stages = True
     main(model_args, data_args, training_args)
+
+
+def compress(**kwargs):
+    apply(**kwargs)
+
+
+def load_dataset(dataset_name: str, **kwargs):
+
+    parser = HfArgumentParser(
+        (ModelArguments, DataTrainingArguments, TrainingArguments)
+    )
+    model_args, data_args, training_args = parser.parse_dict(kwargs)
+    data_args["dataset_name"] = dataset_name
 
 
 def parse_args(**kwargs):
@@ -108,17 +124,114 @@ def parse_args(**kwargs):
         model_args, data_args, training_args = parser.parse_dict(kwargs)
 
     if training_args.recipe_args is not None:
-        arg_dict = {}
-        for recipe_arg in training_args.recipe_args:
-            key, value = recipe_arg.split("=")
-            arg_dict[key] = value
-        training_args.recipe_args = arg_dict
+        if not isinstance(training_args.recipe_args, dict):
+            arg_dict = {}
+            for recipe_arg in training_args.recipe_args:
+                key, value = recipe_arg.split("=")
+                arg_dict[key] = value
+            training_args.recipe_args = arg_dict
 
     # when set to true in FSDP mode this causes issues, the model arguments show up
     # as *args and **kwargs so all columns get removed
     training_args.remove_unused_columns = False
 
     return model_args, data_args, training_args
+
+
+def intialize_model_from_path(
+    model_args: ModelArguments,
+    training_args: TrainingArguments,
+):
+
+    last_checkpoint = detect_last_checkpoint(training_args, model_args=model_args)
+    # Load pretrained model
+    # The .from_pretrained methods guarantee that only one local process can
+    # concurrently download model & vocab.
+    model_path = model_args.model
+    config = AutoConfig.from_pretrained(
+        model_args.config_name if model_args.config_name else model_path,
+        cache_dir=model_args.cache_dir,
+        revision=model_args.model_revision,
+        use_auth_token=True if model_args.use_auth_token else None,
+    )
+    teacher_config = (
+        AutoConfig.from_pretrained(
+            model_args.distill_teacher,
+            use_auth_token=True if model_args.use_auth_token else None,
+        )
+        if model_args.distill_teacher
+        else None
+    )
+
+    model_path = (
+        last_checkpoint or model_args.model
+        if hasattr(model_args, "model")
+        else model_args.model_name_or_path
+    )
+
+    # Set seed before initializing model.
+    set_seed(training_args.seed)
+
+    # Fallback to CPU if GPU requested and not available
+    training_args.oneshot_device = fallback_to_cpu(training_args.oneshot_device)
+
+    # Trainer handles device assignment for FSDP and training, don't do mapping here
+    # if running oneshot outside of FSDP, apply user device settings
+    device_map = None
+    fsdp_enabled = os.environ.get("ACCELERATE_USE_FSDP", "false") == "true"
+    if not fsdp_enabled and training_args.do_oneshot:
+        device_map = training_args.oneshot_device
+        _LOGGER.warning(f"Moving {model_path} to device {device_map} for One-Shot")
+    elif not fsdp_enabled:
+        device_map = "auto"
+    model_kwargs = {
+        "config": config,
+        "cache_dir": model_args.cache_dir,
+        "revision": model_args.model_revision,
+        "use_auth_token": True if model_args.use_auth_token else None,
+        "torch_dtype": parse_dtype(model_args.precision),
+        "device_map": device_map,
+    }
+    teacher_device_map = None if fsdp_enabled else "auto"
+    teacher_kwargs = {
+        "config": teacher_config,
+        "cache_dir": model_args.cache_dir,
+        "use_auth_token": True if model_args.use_auth_token else None,
+        "torch_dtype": parse_dtype(model_args.precision),
+        "device_map": teacher_device_map,
+    }
+    # this calls from_pretrained under the hood so should be FSDP safe
+    model = SparseAutoModel.text_generation_from_pretrained(
+        model_name_or_path=model_path,
+        sequence_length=None,  # use model default
+        **model_kwargs,
+    )
+
+    teacher = (
+        SparseAutoModel.text_generation_from_pretrained(
+            model_name_or_path=model_args.distill_teacher,
+            sequence_length=None,  # use model default
+            **teacher_kwargs,
+        )
+        if model_args.distill_teacher is not None
+        else None
+    )
+
+    return teacher, model_path, model
+
+
+def initialize_tokenizer_from_path(model_args, model, teacher):
+    tokenizer_src = model_args.tokenizer
+    tokenizer_src = tokenizer_src or get_shared_tokenizer_src(model, teacher)
+    tokenizer = SparseAutoTokenizer.from_pretrained(
+        tokenizer_src,
+        cache_dir=model_args.cache_dir,
+        use_fast=True,
+        revision=model_args.model_revision,
+        use_auth_token=True if model_args.use_auth_token else None,
+    )
+
+    return tokenizer
 
 
 def main(
@@ -131,9 +244,10 @@ def main(
     Hugging Face or disk, and resuming training from a checkpoint is supported.
 
     Lifecycle:
-        - get_last_checkpoint() [Optional]
-        - AutoModel.text_generation_from_pretrained()
-        - AutoTokenizer.from_pretrained_distil()
+        - SparseAutoModel.text_generation_from_pretrained if model provided as
+            string for model and teacher
+        - SparseAutoTokenizer.from_pretrained() if tokenizer provided as
+            string for tokenizer
         - StageRunner.populate_datasets()
         - Trainer()
             - SessionMixIn()
@@ -175,99 +289,34 @@ def main(
     _LOGGER.info(f"Training/evaluation parameters {training_args}")
 
     # Detecting last checkpoint.
-    last_checkpoint = detect_last_checkpoint(training_args, model_args=model_args)
-    model_path = last_checkpoint or model_args.model_name_or_path
-
-    # Set seed before initializing model.
-    set_seed(training_args.seed)
-
-    # Fallback to CPU if GPU requested and not available
-    training_args.oneshot_device = fallback_to_cpu(training_args.oneshot_device)
-
-    # Load pretrained model
-    # The .from_pretrained methods guarantee that only one local process can
-    # concurrently download model & vocab.
-    config = AutoConfig.from_pretrained(
-        model_args.config_name if model_args.config_name else model_path,
-        cache_dir=model_args.cache_dir,
-        revision=model_args.model_revision,
-        use_auth_token=True if model_args.use_auth_token else None,
-    )
-    teacher_config = (
-        AutoConfig.from_pretrained(
-            training_args.distill_teacher,
-            use_auth_token=True if model_args.use_auth_token else None,
-        )
-        if training_args.distill_teacher
-        else None
-    )
-
-    # Trainer handles device assignment for FSDP and training, don't do mapping here
-    # if running oneshot outside of FSDP, apply user device settings
-    device_map = None
-    fsdp_enabled = os.environ.get("ACCELERATE_USE_FSDP", "false") == "true"
-    if not fsdp_enabled and training_args.do_oneshot:
-        device_map = training_args.oneshot_device
-        _LOGGER.warning(f"Moving {model_path} to device {device_map} for One-Shot")
-    model_kwargs = {
-        "config": config,
-        "cache_dir": model_args.cache_dir,
-        "revision": model_args.model_revision,
-        "use_auth_token": True if model_args.use_auth_token else None,
-        "torch_dtype": parse_dtype(model_args.precision),
-        "device_map": device_map,
-    }
-    teacher_kwargs = {
-        "config": teacher_config,
-        "cache_dir": model_args.cache_dir,
-        "use_auth_token": True if model_args.use_auth_token else None,
-        "torch_dtype": parse_dtype(model_args.precision),
-        "device_map": "auto",  # spread teacher across GPUs, used for inference only
-    }
-    # this calls from_pretrained under the hood so should be FSDP safe
-    model = SparseAutoModel.text_generation_from_pretrained(
-        model_name_or_path=model_path,
-        sequence_length=None,  # use model default
-        **model_kwargs,
-    )
-
-    teacher = (
-        SparseAutoModel.text_generation_from_pretrained(
-            model_name_or_path=training_args.distill_teacher,
-            sequence_length=None,  # use model default
-            **teacher_kwargs,
-        )
-        if training_args.distill_teacher is not None
-        else None
-    )
-
-    # initialize structure of input model from recipe if needed
-    recipe_path = os.path.join(model_path, "recipe.yaml")
-    if last_checkpoint is not None and training_args.recipe is None:
-        training_args.recipe = recipe_path  # continue from checkpoint recipe
-        apply_recipe_structure_to_model(model, None, model_path)
-    else:
-        if not os.path.exists(recipe_path):
-            _LOGGER.warning(f"No recipes were applied for {model_path}.")
-            apply_recipe_structure_to_model(model, None, model_path)
-        else:
-            _LOGGER.warning(f"Applying recipe {recipe_path} to {model_path}")
-            apply_recipe_structure_to_model(model, recipe_path, model_path)
-
+    last_checkpoint = None
+    teacher = model_args.distill_teacher
+    model_path = None
+    model = model_args.model
     # Load tokenizer
     # distill TODO: support for different tokenizer for teacher?
-    tokenizer_src = (
-        model_args.tokenizer_name
-        if model_args.tokenizer_name
-        else get_shared_tokenizer_src(model, teacher)
-    )
-    tokenizer = SparseAutoTokenizer.from_pretrained(
-        tokenizer_src,
-        cache_dir=model_args.cache_dir,
-        use_fast=True,
-        revision=model_args.model_revision,
-        use_auth_token=True if model_args.use_auth_token else None,
-    )
+    tokenizer = model_args.tokenizer
+
+    if isinstance(model, str) or isinstance(model, PosixPath):
+        (teacher, model_path, model) = intialize_model_from_path(
+            model_args,
+            training_args,
+        )
+
+    if teacher is not None:
+        teacher.eval()
+
+    if isinstance(tokenizer, str) or tokenizer is None:
+        tokenizer = initialize_tokenizer_from_path(model_args, model, teacher)
+
+    # setup new SparseSession unless user requests otherwise
+    if training_args.clear_sparse_session:
+        session_manager.create_session()
+        session_manager.active_session().reset()
+    session_manager.pre_initialize_structure(model=model, framework=Framework.pytorch)
+
+    # intialize session manager
+    apply_recipe_structure_to_model(model, None, model_path)
 
     # Load datasets
     stage_runner = StageRunner(
@@ -281,16 +330,8 @@ def main(
     eval_dataset = stage_runner.get_dataset_split("validation")
     calib_dataset = stage_runner.get_dataset_split("calibration")
 
-    # Data collator will default to DataCollatorWithPadding when the tokenizer is
-    # passed to Trainer, so we change it if we already did the padding.
-    if data_args.pad_to_max_length:
-        data_collator = default_data_collator
-    elif training_args.fp16:
-        data_collator = DataCollatorWithPadding(tokenizer, pad_to_multiple_of=8)
-    else:
-        data_collator = None
-
     # Initialize our Trainer
+    data_collator = DefaultDataCollator()
     trainer = Trainer(
         model_init=get_session_model,
         teacher=teacher,

@@ -70,23 +70,15 @@ from typing import Any, List, Optional, Union
 import numpy
 
 import click
-from sparseml.export.export_data import export_data_samples
+import sparseml.core.session as session_manager
 from sparseml.export.helpers import (
     AVAILABLE_DEPLOYMENT_TARGETS,
     ONNX_MODEL_NAME,
     create_deployment_folder,
     create_export_kwargs,
-    format_source_path,
+    process_source_path,
     save_model_with_external_data,
 )
-from sparseml.export.validators import validate_correctness as validate_correctness_
-from sparseml.export.validators import validate_structure as validate_structure_
-from sparseml.integration_helper_functions import (
-    IntegrationHelperFunctions,
-    resolve_integration,
-)
-from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
-from sparseml.pytorch.utils.helpers import default_device
 from sparseml.utils.helpers import parse_kwarg_tuples
 from sparsezoo.utils.numpy import load_numpy
 
@@ -95,11 +87,12 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def export(
-    source_path: Union[Path, str],
+    source_path: Union[Path, str] = None,
     target_path: Union[Path, str, None] = None,
+    model: Optional["torch.nn.Module"] = None,  # noqa F401
     onnx_model_name: str = ONNX_MODEL_NAME,
     deployment_target: str = "deepsparse",
-    opset: int = TORCH_DEFAULT_ONNX_OPSET,
+    opset: Optional[int] = None,
     save_with_external_data: bool = False,
     external_data_chunk_size_mb: Optional[int] = None,
     num_export_samples: int = 0,
@@ -115,12 +108,15 @@ def export(
     **kwargs,
 ):
     """
-    Export a PyTorch model located in source_path, to target_path.
+    Export a PyTorch model that is either:
+     - located in source_path (and will be loaded)
+     - passed directly to the function
+    to target_path.
     The deployment files will be located at target_path/deployment_directory_name
 
     The exporting logic consists of the following steps:
-    1. Create the model and validation dataloader (if needed) using the
-        integration-specific `create_model` function.
+    1. Create the model (if required) and the data loader using the
+       integration-specific `create_model` and `create_data_loader` functions.
     2. Export the model to ONNX using the integration-specific `export` function.
     3. Apply the graph optimizations to the exported model.
     4. Create the deployment folder at target_path/deployment_directory_name
@@ -132,9 +128,17 @@ def export(
     7. Optionally, validate the structure of the exported model using
         the integration-specific `validate_structure` function.
 
-    :param source_path: The path to the PyTorch model to export.
+    :param source_path: The path to the PyTorch model to export. Will be
+        omitted if model is provided
     :param target_path: The path to save the exported model to. If not provided
         will default to source_path
+    :param model: The PyTorch model to export. If provided, the source_path
+        should be set to None to avoid potential confusion and entaglement
+        of sources. This means that, the full
+        export logic will not be enforced (e.g. the final deployment directory
+        will not be complete, it will not be possible to run validate_structure
+        method or apply some optimizations that require complete deployment
+        directory structure)
     :param onnx_model_name: The name of the exported model.
         Defaults to ONNX_MODEL_NAME.
     :param deployment_target: The deployment target to export
@@ -175,9 +179,40 @@ def export(
     :param task: Optional task to use for exporting the model.
         Defaults to None.
     """
-    source_path = format_source_path(source_path)
+    from sparseml.export.export_data import export_data_samples
+    from sparseml.export.validators import validate_correctness as validate_correctness_
+    from sparseml.export.validators import validate_structure as validate_structure_
+    from sparseml.integration_helper_functions import (
+        IntegrationHelperFunctions,
+        resolve_integration,
+    )
+    from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
+    from sparseml.pytorch.utils.helpers import default_device
+
+    opset = opset or TORCH_DEFAULT_ONNX_OPSET
+
+    # start a new SparseSession for potential recipe application
+    session_manager.create_session()
+    session_manager.active_session().reset()
+
+    if source_path is not None and model is not None:
+        raise ValueError(
+            "Not allowed to specify multiple model "
+            "sources for export: source_path and model. "
+            "Specify either source_path or model, not both"
+        )
+
+    if source_path is not None:
+        source_path = process_source_path(source_path)
+        if target_path is None:
+            target_path = source_path
+
+    integration = resolve_integration(source_path, integration)
+    _LOGGER.info(f"Starting export for {integration} model...")
+
     if target_path is None:
-        target_path = source_path
+        raise ValueError("targe_path is None. Provide the target_path argument.")
+
     # create the target path if it doesn't exist
     if not Path(target_path).exists():
         Path(target_path).mkdir(parents=True, exist_ok=True)
@@ -193,8 +228,6 @@ def export(
             f"Got {deployment_target} instead."
         )
 
-    integration = resolve_integration(source_path, integration)
-
     deployment_folder_dir = os.path.join(target_path, deployment_directory_name)
 
     if os.path.isdir(deployment_folder_dir):
@@ -204,41 +237,56 @@ def export(
         )
         shutil.rmtree(deployment_folder_dir)
 
-    _LOGGER.info(f"Starting export for {integration} model...")
-
     helper_functions: IntegrationHelperFunctions = (
         IntegrationHelperFunctions.load_from_registry(integration, task=task)
     )
-
-    _LOGGER.info("Creating model for the export...")
-
-    # loaded_model_kwargs may include any objects
-    # that were created along with the model and are needed
-    # for the export
-    model, loaded_model_kwargs = helper_functions.create_model(
-        source_path,
-        device=device,
-        task=task,
-        recipe=recipe,
-        **kwargs,
-    )
+    loaded_model_kwargs = {}
+    if model is None:
+        _LOGGER.info("Creating model for the export...")
+        model, loaded_model_kwargs = helper_functions.create_model(
+            source_path,
+            device=device,
+            task=task,
+            recipe=recipe,
+            **kwargs,
+        )
     model.eval()
 
-    if loaded_model_kwargs:
+    # merge arg dictionaries
+    for arg_name, arg_val in kwargs.items():
+        if arg_name not in loaded_model_kwargs:
+            loaded_model_kwargs[arg_name] = arg_val
+
+    # once model is loaded we can clear the SparseSession, it was only needed for
+    # adding structural changes (ie quantization) to the model
+    session_manager.active_session().reset()
+
+    _LOGGER.info("Creating data loader for the export...")
+    data_loader, loaded_data_loader_kwargs = helper_functions.create_data_loader(
+        model=model,
+        task=task,
+        device=device,
+        **loaded_model_kwargs,
+    )
+    # join kwargs that are created during the initialization of the model
+    # and data_loader
+    export_kwargs = {**loaded_model_kwargs, **loaded_data_loader_kwargs}
+
+    if export_kwargs:
         _LOGGER.info(
             "Created additional items that will "
-            f"be used for the export: {list(loaded_model_kwargs.keys())}"
+            f"be used for the export: {list(export_kwargs.keys())}"
         )
 
     sample_data = (
-        helper_functions.create_dummy_input(**loaded_model_kwargs, **kwargs)
+        helper_functions.create_dummy_input(data_loader=data_loader, **kwargs)
         if sample_data is None
         else sample_data
     )
 
     _LOGGER.info(f"Exporting {onnx_model_name} to {target_path}...")
 
-    export_kwargs = create_export_kwargs(loaded_model_kwargs)
+    export_kwargs = create_export_kwargs(export_kwargs)
 
     onnx_file_path = helper_functions.export(
         model=model,
@@ -258,9 +306,7 @@ def export(
             output_samples,
             label_samples,
         ) = helper_functions.create_data_samples(
-            num_samples=num_export_samples,
-            model=model,
-            **loaded_model_kwargs,
+            num_samples=num_export_samples, model=model, data_loader=data_loader
         )
         export_data_samples(
             input_samples=input_samples,
@@ -289,8 +335,8 @@ def export(
         if not num_export_samples:
             raise ValueError(
                 "To validate correctness sample inputs/outputs are needed."
-                "To enable the validation, set `num_export_samples`"
-                "to True"
+                "To enable the validation, set `num_export_samples` "
+                "to positive integer"
             )
         validate_correctness_(target_path, deployment_folder_dir, onnx_model_name)
 
@@ -310,7 +356,7 @@ def export(
             external_data_chunk_size_mb,
         )
 
-    if validate_structure:
+    if validate_structure and source_path:
         _LOGGER.info("Validating model structure...")
         validate_structure_(
             target_path=target_path,
@@ -356,8 +402,8 @@ def export(
 @click.option(
     "--opset",
     type=int,
-    default=TORCH_DEFAULT_ONNX_OPSET,
-    help=f"Onnx opset to export to, default: {TORCH_DEFAULT_ONNX_OPSET}",
+    default=None,
+    help="Onnx opset to export to, defaults to default torch opset",
 )
 @click.option(
     "--save_with_external_data",
@@ -442,7 +488,7 @@ def main(
     target_path: str,
     onnx_model_name: str = ONNX_MODEL_NAME,
     deployment_target: str = "deepsparse",
-    opset: int = TORCH_DEFAULT_ONNX_OPSET,
+    opset: Optional[int] = None,
     save_with_external_data: bool = False,
     external_data_chunk_size_mb: Optional[int] = None,
     num_export_samples: int = 0,

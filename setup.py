@@ -20,6 +20,7 @@ from setuptools import find_packages, setup
 
 # default variables to be overwritten by the version.py file
 is_release = None
+is_dev = None
 version = "unknown"
 version_major_minor = version
 
@@ -28,7 +29,12 @@ exec(open(os.path.join("src", "sparseml", "version.py")).read())
 print(f"loaded version {version} from src/sparseml/version.py")
 version_nm_deps = f"{version_major_minor}.0"
 
-_PACKAGE_NAME = "sparseml" if is_release else "sparseml-nightly"
+if is_release:
+    _PACKAGE_NAME = "sparseml"
+elif is_dev:
+    _PACKAGE_NAME = "sparseml-dev"
+else:
+    _PACKAGE_NAME = "sparseml-nightly"
 
 _deps = [
     "setuptools<=59.5.0",
@@ -80,8 +86,11 @@ _transformers_deps = _pytorch_deps + [
     "scikit-learn",
     "seqeval",
     "einops",
+    "evaluate>=0.4.1",
     "accelerate>=0.20.3",
+    "safetensors>=0.4.1",
 ]
+_llm_deps = _transformers_deps + ["sentencepiece"]
 _yolov5_deps = _pytorch_vision_deps + [
     f"{'nm-yolov5' if is_release else 'nm-yolov5-nightly'}~={version_nm_deps}"
 ]
@@ -107,9 +116,10 @@ _dev_deps = [
     "wheel>=0.36.2",
     "pytest>=6.0.0",
     "pytest-mock>=3.6.0",
-    "flaky~=3.7.0",
+    "pytest-rerunfailures>=13.0",
     "tensorboard>=1.0,<2.9",
     "tensorboardX>=1.0",
+    "evaluate>=0.4.1",
 ]
 
 _docs_deps = [
@@ -160,6 +170,7 @@ def _setup_extras() -> Dict:
         "torch_all": _pytorch_all_deps,
         "torchvision": _pytorch_vision_deps,
         "transformers": _transformers_deps,
+        "llm": _llm_deps,
         "notebook": _notebook_deps,
         "tf_v1": _tensorflow_v1_deps,
         "tf_v1_gpu": _tensorflow_v1_gpu_deps,
@@ -204,6 +215,7 @@ def _setup_entry_points() -> Dict:
     entry_points["console_scripts"].extend(
         [
             "sparseml.transformers.text_generation.apply=sparseml.transformers.finetune.text_generation:apply",  # noqa 501
+            "sparseml.transformers.text_generation.compress=sparseml.transformers.finetune.text_generation:apply",  # noqa 501
             "sparseml.transformers.text_generation.train=sparseml.transformers.finetune.text_generation:train",  # noqa 501
             "sparseml.transformers.text_generation.finetune=sparseml.transformers.finetune.text_generation:train",  # noqa 501
             "sparseml.transformers.text_generation.eval=sparseml.transformers.finetune.text_generation:eval",  # noqa 501
@@ -280,6 +292,11 @@ def _setup_entry_points() -> Dict:
             "sparseml.ultralytics.val=sparseml.yolov8.val:main",
             "sparseml.ultralytics.export_onnx=sparseml.yolov8.export:main",
         ]
+    )
+
+    # eval entrypoint
+    entry_points["console_scripts"].append(
+        "sparseml.evaluate=sparseml.evaluation.cli:main"
     )
 
     return entry_points

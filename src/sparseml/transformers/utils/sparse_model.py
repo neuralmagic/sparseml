@@ -35,6 +35,8 @@ from sparseml.pytorch.model_load.helpers import (
     log_model_load,
 )
 from sparseml.transformers.utils.helpers import resolve_recipe
+from sparseml.utils import download_zoo_training_dir
+from sparseml.utils.fsdp.context import main_process_first_context
 
 
 __all__ = ["SparseAutoModel", "SparseAutoModelForCausalLM", "get_shared_tokenizer_src"]
@@ -76,9 +78,32 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
         torch.nn.init.uniform_ = skip
         torch.nn.init.normal_ = skip
 
+        pretrained_model_name_or_path = (
+            pretrained_model_name_or_path.as_posix()
+            if isinstance(pretrained_model_name_or_path, Path)
+            else pretrained_model_name_or_path
+        )
+
+        if pretrained_model_name_or_path.startswith("zoo:"):
+            _LOGGER.debug(
+                "Passed zoo stub to SparseAutoModelForCausalLM object. "
+                "Loading model from SparseZoo training files..."
+            )
+            with main_process_first_context():
+                pretrained_model_name_or_path = download_zoo_training_dir(
+                    zoo_stub=pretrained_model_name_or_path
+                )
+
+        # temporarily set the log level to error, to ignore printing out long missing
+        # and unexpected key error messages (these are EXPECTED for quantized models)
+        logger = logging.getLogger("transformers.modeling_utils")
+        restore_log_level = logger.getEffectiveLevel()
+        logger.setLevel(level=logging.ERROR)
         model = super(AutoModelForCausalLM, cls).from_pretrained(
             pretrained_model_name_or_path, *model_args, **kwargs
         )
+        logger.setLevel(level=restore_log_level)
+
         recipe = resolve_recipe(recipe, pretrained_model_name_or_path)
         if recipe:
             apply_recipe_structure_to_model(
