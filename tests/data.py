@@ -16,10 +16,11 @@ from dataclasses import dataclass
 from typing import List, Union
 
 
+# TODO: add enums
 @dataclass
 class TestConfig:
-    test_type: str
-    cadence: Union[str, List]
+    test_type: str  # sanity, regression, smoke
+    cadence: Union[str, List]  # weekly, nightly, commit
 
 
 @dataclass
