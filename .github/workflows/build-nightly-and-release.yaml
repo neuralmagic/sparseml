@@ -4,7 +4,7 @@ name: Build Nightly and Release Containers
 on:
   workflow_run:
     workflows: 
-      - "Build PyPi Wheel"
+      - Build PyPi Wheel
     types:
       - completed
 
