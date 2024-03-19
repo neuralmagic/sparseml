@@ -55,7 +55,15 @@ class BitmaskCompressor(ModelCompressor):
         )
         for name, value in tqdm(model_state.items()):
             bitmask_tensor = BitmaskTensor(value)
-            compressed_dict |= bitmask_tensor.dict(name_prefix=name)
+            bitmask_dict = bitmask_tensor.dict(name_prefix=name)
+            for key in bitmask_dict.keys():
+                if key in compressed_dict:
+                    _LOGGER.warn(
+                        f"Expected all compressed state_dict keys to be unique, but "
+                        f"found an existing entry for {key}. The existing entry will "
+                        "be replaced."
+                    )
+            compressed_dict |= bitmask_dict
 
         return compressed_dict
 
@@ -78,6 +86,7 @@ class BitmaskTensor:
     """
 
     def __init__(self, tensor: Tensor):
+        self.dense_device = tensor.device
         self.shape = tensor.shape
         self.values, self.bitmasks, self.row_offsets = bitmask_compress(tensor.cpu())
 
