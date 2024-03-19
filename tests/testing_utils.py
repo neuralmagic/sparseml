@@ -34,12 +34,16 @@ def is_torch_available():
         return False
 
 
+def is_gpu_avaialble():
+    return False
+
+
 def requires_torch(test_case):
     return unittest.skipUnless(is_torch_available(), "test requires PyTorch")(test_case)
 
 
 def requires_gpu(test_case):
-    return unittest.skipUnless(False, "test requires GPU")(test_case)
+    return unittest.skipUnless(is_gpu_avaialble(), "test requires GPU")(test_case)
 
 
 def _load_yaml(configs_directory, file):

@@ -17,6 +17,9 @@ from typing import List, Union
 
 
 # TODO: add enums
+# test type as decorators?
+
+
 @dataclass
 class TestConfig:
     test_type: str  # sanity, regression, smoke

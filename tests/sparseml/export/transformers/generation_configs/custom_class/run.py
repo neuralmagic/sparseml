@@ -15,6 +15,7 @@
 from tests.custom_test import CustomTestCase
 
 
+# Example custom class for testing
 class MyTests(CustomTestCase):
     def test_something_else(self):
         assert 1 == 1

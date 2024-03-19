@@ -27,6 +27,10 @@ from tests.sparseml.export.utils import get_dummy_dataset
 from tests.testing_utils import requires_torch
 
 
+# NOTE: These tests are equivalent to the tests in test_export_data, updated to use
+# the new framework
+
+
 @requires_torch
 @pytest.mark.unit
 class ExportDataTransformersUnitTest(unittest.TestCase):
@@ -121,6 +125,9 @@ class ExportGenericDataUnitTest(unittest.TestCase):
 
     def tearDown(self):
         shutil.rmtree(self.tmp_path)
+
+
+# NOTE: Dummy smoke test
 
 
 @pytest.mark.smoke

@@ -29,6 +29,9 @@ from tests.testing_utils import parse_params
 
 CONFIGS_DIRECTORY = "tests/sparseml/export/transformers/generation_configs"
 
+# NOTE: this integration test class has the same integration test written in
+# test_geneeration_export, updated to use the new framework
+
 
 @pytest.mark.integration
 @parameterized_class(parse_params(CONFIGS_DIRECTORY))
@@ -59,6 +62,10 @@ class TestGenerationExportIntegration(unittest.TestCase):
 
 
 class TestGenerationExportIntegrationCustom(CustomIntegrationTest):
+    """
+    Integration test class which uses the base CustomIntegrationTest class.
+    """
+
     custom_scripts_directory = (
         "tests/sparseml/export/transformers/generation_configs/custom_script"
     )
@@ -66,7 +73,6 @@ class TestGenerationExportIntegrationCustom(CustomIntegrationTest):
         "tests/sparseml/export/transformers/generation_configs/custom_class"
     )
 
-    # TODO: make enum
     @parameterized.expand([parse_params(custom_scripts_directory, type="custom")])
     def test_custom_scripts(self, config: Optional[CustomTestConfig] = None):
         super().test_custom_scripts(config)

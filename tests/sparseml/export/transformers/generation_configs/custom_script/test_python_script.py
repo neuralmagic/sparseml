@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Example custom script for testing
+def do_something():
+    assert 1 == 1
 
-def something():
-    assert 1 == 0
 
-
-something()
+do_something()
