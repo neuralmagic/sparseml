@@ -6,13 +6,10 @@ on:
     workflows: ["Build PyPi Wheel"]
     types:
       - completed
-    branches:
-      - 'release/[0-9]+.[0-9]+'
-      - main
 
 env:
   RELEASE: ${{ github.event_name =='release' || (startsWith(github.base_ref, 'release/') )}}
-  NIGHTLY: ${{ github.base_ref == 'main' }}
+  NIGHTLY: true
 
 permissions:
   contents: read
