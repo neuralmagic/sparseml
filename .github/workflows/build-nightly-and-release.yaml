@@ -3,7 +3,8 @@ name: Build Nightly and Release Containers
 # Only trigger, when the pypi build workflow succeededs
 on:
   workflow_run:
-    workflows: ["Build PyPi Wheel"]
+    workflows: 
+      - "Build PyPi Wheel"
     types:
       - completed
 
