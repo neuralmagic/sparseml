@@ -73,10 +73,10 @@ class TestGenerationExportIntegrationCustom(CustomIntegrationTest):
         "tests/sparseml/export/transformers/generation_configs/custom_class"
     )
 
-    @parameterized.expand([parse_params(custom_scripts_directory, type="custom")])
+    @parameterized.expand(parse_params(custom_scripts_directory, type="custom"))
     def test_custom_scripts(self, config: Optional[CustomTestConfig] = None):
         super().test_custom_scripts(config)
 
-    @parameterized.expand([parse_params(custom_class_directory, type="custom")])
+    @parameterized.expand(parse_params(custom_class_directory, type="custom"))
     def test_custom_class(self, config: Optional[CustomTestConfig] = None):
         super().test_custom_class(config)
