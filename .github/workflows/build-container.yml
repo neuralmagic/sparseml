@@ -59,8 +59,8 @@ jobs:
           build-args: |
             BRANCH=${{github.head_ref}}
           push: true
-          tags: ghcr.io/neuralmagic/test-sparseml-dev:${{ env.NAME }}
-      - name: Build RELEASE Docker Container
+          tags: ghcr.io/neuralmagic/sparseml-dev:${{ env.NAME }}
+      - name: Build Release Docker Container
         if: ${{ env.RELEASE == 'true' }}
         uses: docker/build-push-action@v4
         with: 
