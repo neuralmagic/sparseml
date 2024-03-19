@@ -6,7 +6,9 @@ on:
     workflows: 
       - BuildPyPiWheel
     types:
-      - requested
+      - completed
+    branches:
+      - '*'
 
 env:
   RELEASE: ${{ github.event_name =='release' || (startsWith(github.base_ref, 'release/') )}}
