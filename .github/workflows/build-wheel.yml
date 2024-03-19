@@ -1,4 +1,4 @@
-name: Build PyPi Wheel
+name: BuildPyPiWheel
 on:
   pull_request:
     types: [opened, synchronize, reopened]

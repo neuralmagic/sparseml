@@ -4,7 +4,7 @@ name: Build Nightly and Release Containers
 on:
   workflow_run:
     workflows: 
-      - Build PyPi Wheel
+      - BuildPyPiWheel
     types:
       - completed
 
@@ -17,7 +17,7 @@ permissions:
   packages: write
 
 jobs:
-  build-container:
+  notify:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
