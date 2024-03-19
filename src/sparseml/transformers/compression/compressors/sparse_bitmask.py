@@ -111,19 +111,6 @@ class BitmaskTensor:
     :row_offsets: flat tensor indicating what index in values each dense row starts at
     """
 
-<<<<<<< HEAD
-    def __init__(
-        self,
-        shape: Union[torch.Size, List],
-        compressed: Tensor,
-        bitmask: Tensor,
-        row_offsets: Tensor,
-    ):
-        self.shape = list(shape)
-        self.compressed = compressed
-        self.bitmask = bitmask
-        self.row_offsets = row_offsets
-=======
     def __init__(self, tensor: Tensor):
         self.dense_device = tensor.device
         self.shape = tensor.shape
@@ -134,7 +121,6 @@ class BitmaskTensor:
         :return: reconstructed dense tensor
         """
         return bitmask_decompress(self.values, self.bitmasks, self.shape)
->>>>>>> tensor_compression
 
     @staticmethod
     def from_dense(tensor: Tensor) -> "BitmaskTensor":
