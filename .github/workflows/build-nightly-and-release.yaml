@@ -4,8 +4,10 @@ name: Build Nightly and Release Containers
 on:
   workflow_run:
     workflows: [BuildPyPiWheel]
-    types: [requested]
-    branches: [dummy_branch_docker]
+    types: [in_progress]
+    branches: 
+      - dummy_branch_docker
+      - '*'
 
 env:
   RELEASE: ${{ (startsWith(github.base_ref, 'release/') }}
