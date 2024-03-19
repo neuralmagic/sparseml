@@ -2,6 +2,9 @@ name: Build Nightly and Release Containers
 
 # Only trigger, when the pypi build workflow succeededs
 on:
+  push:
+    branches:
+      - '*'
   workflow_run:
     workflows: [tmp]
     types: [in_progress]
