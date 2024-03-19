@@ -24,9 +24,17 @@ class measure_cuda_memory:
     def __init__(self, device=None):
         self.device = device
 
+    def reset_peak_memory_stats(self):
+        torch.cuda.reset_peak_memory_stats(self.device)
+
     def current_memory_usage(self) -> float:
         # Return the memory usage in bytes.
-        torch.cuda.reset_peak_memory_stats(self.device)
+        self.reset_peak_memory_stats()
+        mem = torch.cuda.max_memory_allocated(self.device)
+        return mem
+
+    def peak_memory_usage(self) -> float:
+        # Return the peak memory usage in bytes since the last reset
         mem = torch.cuda.max_memory_allocated(self.device)
         return mem
 
@@ -36,8 +44,8 @@ class measure_cuda_memory:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.final_memory = self.current_memory_usage()
-        self.consumed_memory = self.final_memory - self.initial_memory
+        self.overall_peak_memory = self.peak_memory_usage()
+        self.peak_consumed_memory = self.overall_peak_memory - self.initial_memory
 
         # Force garbage collection
         gc.collect()
