@@ -61,8 +61,16 @@ class BitmaskCompressor(ModelCompressor):
             f"Compressing model with {len(model_state)} parameterized layers..."
         )
         for name, value in tqdm(model_state.items(), desc="Compressing model"):
-            bitmask_tensor = BitmaskTensor.from_dense(value)
-            compressed_dict |= bitmask_tensor.dict(name_prefix=name)
+            bitmask_tensor = BitmaskTensor(value)
+            bitmask_dict = bitmask_tensor.dict(name_prefix=name)
+            for key in bitmask_dict.keys():
+                if key in compressed_dict:
+                    _LOGGER.warn(
+                        f"Expected all compressed state_dict keys to be unique, but "
+                        f"found an existing entry for {key}. The existing entry will "
+                        "be replaced."
+                    )
+            compressed_dict |= bitmask_dict
 
         return compressed_dict
 
@@ -103,6 +111,7 @@ class BitmaskTensor:
     :row_offsets: flat tensor indicating what index in values each dense row starts at
     """
 
+<<<<<<< HEAD
     def __init__(
         self,
         shape: Union[torch.Size, List],
@@ -114,6 +123,18 @@ class BitmaskTensor:
         self.compressed = compressed
         self.bitmask = bitmask
         self.row_offsets = row_offsets
+=======
+    def __init__(self, tensor: Tensor):
+        self.dense_device = tensor.device
+        self.shape = tensor.shape
+        self.values, self.bitmasks, self.row_offsets = bitmask_compress(tensor.cpu())
+
+    def decompress(self) -> Tensor:
+        """
+        :return: reconstructed dense tensor
+        """
+        return bitmask_decompress(self.values, self.bitmasks, self.shape)
+>>>>>>> tensor_compression
 
     @staticmethod
     def from_dense(tensor: Tensor) -> "BitmaskTensor":
