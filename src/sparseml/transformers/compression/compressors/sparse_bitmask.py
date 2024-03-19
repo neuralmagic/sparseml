@@ -78,11 +78,11 @@ class BitmaskCompressor(ModelCompressor):
 
     def decompress(self, model_path: str) -> Generator:
         """
-        Reads a bitmask compressed state dict located at model_path and decompresses it
-        back to a dense state dict. Weights are decompressed sequentially.
+        Reads a bitmask compressed state dict located at model_path and returns a
+        generator for sequentially decompressing back to a dense state dict
 
         :param model_path: path to compressed safetensors model
-        :return: compressed state dict
+        :return: iterator for generating decompressed weights
         """
         weight_mappings = get_nested_weight_mappings(
             model_path, self.COMPRESSION_PARAM_NAMES

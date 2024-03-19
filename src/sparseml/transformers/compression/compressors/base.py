@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import operator
-from typing import Dict
+from typing import Dict, Generator
 
 from torch import Tensor
 from torch.nn import Module, Parameter
@@ -45,10 +45,10 @@ class ModelCompressor(RegistryMixin):
         """
         raise NotImplementedError()
 
-    def decompress(self, model_path: str) -> Dict[str, Tensor]:
+    def decompress(self, model_path: str) -> Generator:
         """
-        Reads a compressed state_dict from model_path and returns the reconstructed
-        dense state dict
+        Reads a compressed state dict located at model_path and returns a
+        generator for sequentially decompressing back to a dense state dict
 
         :param model_path: path to compressed safetensors model
         :return: compressed state dict
