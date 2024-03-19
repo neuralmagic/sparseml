@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import logging
-from typing import Dict, List, Tuple, Union
+from typing import Dict, Generator, List, Tuple, Union
 
 import numpy
 import torch
@@ -57,29 +57,37 @@ class BitmaskCompressor(ModelCompressor):
         :return: compressed state dict
         """
         compressed_dict = {}
-        _LOGGER.info(
+        _LOGGER.debug(
             f"Compressing model with {len(model_state)} parameterized layers..."
         )
-        for name, value in tqdm(model_state.items()):
+        for name, value in tqdm(model_state.items(), desc="Compressing model"):
             bitmask_tensor = BitmaskTensor.from_dense(value)
-            compressed_dict |= bitmask_tensor.dict(name_prefix=name)
+            bitmask_dict = bitmask_tensor.dict(name_prefix=name)
+            for key in bitmask_dict.keys():
+                if key in compressed_dict:
+                    _LOGGER.warn(
+                        f"Expected all compressed state_dict keys to be unique, but "
+                        f"found an existing entry for {key}. The existing entry will "
+                        "be replaced."
+                    )
+            compressed_dict |= bitmask_dict
+            bitmask_tensor = BitmaskTensor.from_dense(value)
+            compressed_dict |= bitmask_tensor.dict(name_prefix=name, device="cpu")
 
         return compressed_dict
 
-    def decompress(self, model_path: str) -> Dict[str, Tensor]:
+    def decompress(self, model_path: str) -> Generator:
         """
-        Reads a bitmask compressed state dict located at model_path and decompresses it
-        back to a dense state dict. Weights are decompressed sequentially.
+        Reads a bitmask compressed state dict located at model_path and returns a
+        generator for sequentially decompressing back to a dense state dict
 
         :param model_path: path to compressed safetensors model
-        :return: compressed state dict
+        :return: iterator for generating decompressed weights
         """
         weight_mappings = get_nested_weight_mappings(
             model_path, self.COMPRESSION_PARAM_NAMES
         )
-        uncompressed_weights = {}
-        _LOGGER.info(f"Decompressing model with {len(weight_mappings)} weights...")
-        for weight_name in tqdm(weight_mappings.keys()):
+        for weight_name in weight_mappings.keys():
             weight_data = {}
             for param_name, safe_path in weight_mappings[weight_name].items():
                 full_name = merge_names(weight_name, param_name)
@@ -87,9 +95,7 @@ class BitmaskCompressor(ModelCompressor):
                     weight_data[param_name] = f.get_tensor(full_name)
             data = BitmaskTensor(**weight_data)
             decompressed = data.decompress()
-            uncompressed_weights[weight_name] = decompressed
-
-        return uncompressed_weights
+            yield weight_name, decompressed
 
 
 class BitmaskTensor:
@@ -147,16 +153,16 @@ class BitmaskTensor:
             + sizeof_tensor(self.row_offsets)
         )
 
-    def dict(self, name_prefix: str) -> Dict[str, Tensor]:
+    def dict(self, name_prefix: str, device: str = "cpu") -> Dict[str, Tensor]:
         """
         :name_prefix: name of original tensor to store compressed weight as
         :return: dict of compressed data for the stored weight
         """
         return {
-            merge_names(name_prefix, "shape"): torch.tensor(self.shape, device="cpu"),
-            merge_names(name_prefix, "compressed"): self.compressed,
-            merge_names(name_prefix, "bitmask"): self.bitmask,
-            merge_names(name_prefix, "row_offsets"): self.row_offsets,
+            merge_names(name_prefix, "shape"): torch.tensor(self.shape, device=device),
+            merge_names(name_prefix, "compressed"): self.compressed.to(device),
+            merge_names(name_prefix, "bitmask"): self.bitmask.to(device),
+            merge_names(name_prefix, "row_offsets"): self.row_offsets.to(device),
         }
 
     def __repr__(self):

@@ -112,9 +112,8 @@ def test_reload_match(sparsity, dtype, tmp_path):
     save_file(sparse_state_dict, tmp_path / "model.safetensors")
     reconstructed_dense = compressor.decompress(tmp_path)
 
-    for key in dense_state_dict.keys():
+    for key, reconstructed_tensor in reconstructed_dense:
         dense_tensor = dense_state_dict[key]
-        reconstructed_tensor = reconstructed_dense[key]
         assert torch.equal(dense_tensor, reconstructed_tensor)
 
     shutil.rmtree(tmp_path)
