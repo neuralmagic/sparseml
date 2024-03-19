@@ -21,6 +21,7 @@ from typing import Any, Dict, Optional, Tuple, Union
 
 import torch
 from torch.nn import Module
+from tqdm import tqdm
 from transformers import (
     AutoConfig,
     AutoModelForCausalLM,
@@ -102,7 +103,6 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
         # TODO: should work for huggingface too
         config = AutoConfig.from_pretrained(pretrained_model_name_or_path)
         sparsity_config = getattr(config, SPARSITY_CONFIG_NAME, None)
-        state_dict = None
         if sparsity_config is not None:
             # need to uncompress the model
             format = sparsity_config.get("format", "dense")
@@ -112,10 +112,6 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
             compressor = ModelCompressor.load_from_registry(
                 format, config=sparsity_config
             )
-            state_dict = compressor.decompress(pretrained_model_name_or_path)
-
-        if state_dict is not None:
-            kwargs["state_dict"] = state_dict
 
         # temporarily set the log level to error, to ignore printing out long missing
         # and unexpected key error messages (these are EXPECTED for quantized models)
@@ -126,6 +122,12 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
             pretrained_model_name_or_path, *model_args, **kwargs
         )
         logger.setLevel(level=restore_log_level)
+
+        # If model is compressed on disk, decompress and load the weights
+        if sparsity_config is not None:
+            dense_gen = compressor.decompress(pretrained_model_name_or_path)
+            for name, data in tqdm(dense_gen, desc="Decompressing model"):
+                ModelCompressor.replace_layer(name, data, model)
         setattr(model, SPARSITY_CONFIG_NAME, sparsity_config)
 
         recipe = resolve_recipe(recipe, pretrained_model_name_or_path)
