@@ -12,11 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import operator
 from typing import Dict
 
 from torch import Tensor
+from torch.nn import Module, Parameter
 
 from sparseml.transformers.compression.config import CompressionConfig
+from sparseml.utils.pytorch.module import set_layer
 from sparsezoo.utils.registry import RegistryMixin
 
 
@@ -51,3 +54,16 @@ class ModelCompressor(RegistryMixin):
         :return: compressed state dict
         """
         raise NotImplementedError()
+
+    @staticmethod
+    def replace_layer(param_name: str, data: Tensor, model: Module):
+        """
+        Overwrites a parameterized layer with a new tensor, maintaining the device of
+        the original parameter
+
+        :param param_name: name of parameterized layer to replace
+        :param data: tensor to insert into model
+        :param model: pytorch model to insert data into
+        """
+        model_device = operator.attrgetter(param_name)(model).device
+        set_layer(param_name, Parameter(data.to(model_device)), model)
