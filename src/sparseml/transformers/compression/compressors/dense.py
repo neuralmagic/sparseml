@@ -12,8 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# flake8: noqa
+from typing import Dict, Generator
 
-from .base import ModelCompressor
-from .dense import DenseCompressor
-from .sparse_bitmask import BitmaskCompressor
+from torch import Tensor
+
+from sparseml.transformers.compression.compressors import ModelCompressor
+
+
+@ModelCompressor.register(name="dense_sparsity")
+class DenseCompressor(ModelCompressor):
+    """
+    Dummy compressor for dense models
+    """
+
+    def compress(self, model_state: Dict[str, Tensor]) -> Dict[str, Tensor]:
+        return model_state
+
+    def decompress(self, model_path: str) -> Generator:
+        return iter([])

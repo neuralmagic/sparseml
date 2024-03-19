@@ -43,12 +43,12 @@ from sparseml.utils import download_zoo_training_dir
 from sparseml.utils.fsdp.context import main_process_first_context
 
 
-__all__ = ["SparseAutoModel", "SparseAutoModelForCausalLM", "get_shared_tokenizer_src"]
-
-
 _LOGGER = logging.getLogger(__name__)
 
 SPARSITY_CONFIG_NAME = "sparsity_config"
+
+
+__all__ = ["SparseAutoModel", "SparseAutoModelForCausalLM", "get_shared_tokenizer_src"]
 
 
 class SparseAutoModelForCausalLM(AutoModelForCausalLM):
@@ -100,12 +100,11 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
                     zoo_stub=pretrained_model_name_or_path
                 )
 
-        # TODO: should work for huggingface too
         config = AutoConfig.from_pretrained(pretrained_model_name_or_path)
         sparsity_config = getattr(config, SPARSITY_CONFIG_NAME, None)
         if sparsity_config is not None:
             # need to uncompress the model
-            format = sparsity_config.get("format", "dense")
+            format = sparsity_config.get("format")
             sparsity_config = CompressionConfig.load_from_registry(
                 format, **sparsity_config
             )
@@ -145,27 +144,22 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
         model: PreTrainedModel,
         save_directory: str,
         sparsity_config: Optional[CompressionConfig] = None,
-        save_dense: bool = False,
+        save_dense: bool = True,
         **kwargs,
     ):
-        if save_dense:
-            return model.save_pretrained(save_directory, **kwargs)
+        if sparsity_config is not None:
+            sparsity_config.fill_config_details(model)
+            save_dense = False
+        else:
+            sparsity_config = CompressionConfig.infer_config_from_model(
+                model, force_dense=save_dense
+            )
 
         if sparsity_config is None:
-            # attempt to infer sparsity config if not provided
-            sparsity_config = getattr(model, SPARSITY_CONFIG_NAME, None)
-            if sparsity_config is None:
-                # try to infer a config from the model
-                sparsity_config = SparseAutoModelForCausalLM.infer_compression_config(
-                    model
-                )
-
-        if sparsity_config is None:
-            # no config found, save as dense
+            # model is not sparse, save as dense
             return model.save_pretrained(save_directory, **kwargs)
 
         # if we've gotten to this point we can run compression since we have a config
-
         kwargs["safe_serialization"] = True
         compressor = ModelCompressor.load_from_registry(
             sparsity_config.format, config=sparsity_config
@@ -191,44 +185,11 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
         sparsity_config: Optional[CompressionConfig] = None,
         **kwargs,
     ):
-        if sparsity_config is None:
-            # attempt to infer sparsity config if not provided
-            if hasattr(model, SPARSITY_CONFIG_NAME):
-                sparsity_config = getattr(model, SPARSITY_CONFIG_NAME)
-                if sparsity_config is None:
-                    # force dense compression config if can't infer
-                    sparsity_config = CompressionConfig.load_from_registry("dense")
-
         return SparseAutoModelForCausalLM.save_pretrained(
             model=model,
             save_directory=save_directory,
             sparsity_config=sparsity_config,
-            **kwargs,
-        )
-
-    @staticmethod
-    def infer_compression_config(model: Module):
-        from sparseml.pytorch.utils import ModuleSparsificationInfo
-
-        info = ModuleSparsificationInfo(model)
-        global_sparsity = info.params_sparse_percent
-        if global_sparsity < 0.05:
-            return None
-        import sparseml.core.session as session_manager
-
-        current_session = session_manager.active_session()
-        stage_modifiers = current_session.lifecycle.modifiers
-        sparsity_structure = "unstructured"
-        for stage in stage_modifiers:
-            if stage.applied:
-                for modifier in stage.modifiers:
-                    if hasattr(modifier, "mask_structure"):
-                        sparsity_structure = modifier.mask_structure
-                        break
-        return CompressionConfig.load_from_registry(
-            "sparse_bitmask",
-            global_sparsity=global_sparsity,
-            sparsity_structure=sparsity_structure,
+            save_dense=False**kwargs,
         )
 
 
