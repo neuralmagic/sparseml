@@ -1,22 +1,11 @@
-name: Build Docker Container
+name: Build Dev Docker Container
 on:
   pull_request:
     types: [opened, synchronize, reopened]
     branches:
       - main
-      - 'release/[0-9]+.[0-9]+'
-  push:
-    branches:
-      - 'main'
-  release:
-    types: [created, published]
-  schedule:
-    - cron: '0 2 * * *'
 
-# potentially update to change criteria; only run when wheel build is complete
-# use outptus from wheel build to determie if release/dev/nightly
 env:
-  RELEASE: ${{ github.event_name =='release' || (startsWith(github.base_ref, 'release/') && github.event_name == 'pull_request')}}
   DEV: ${{ github.base_ref == 'main' && github.event_name == 'pull_request'}}
   NAME: ${{ github.event.number }} 
 
@@ -38,13 +27,6 @@ jobs:
         uses: docker/setup-buildx-action@v2
         with:
           buildkitd-flags: --debug
-      - name: Get current date
-        id: date
-        run: echo "::set-output name=date::$(date +'%Y%m%d')"
-      - name: Get the current version
-        if: ${{ env.RELEASE == 'true' }}
-        id: version
-        run: echo "::set-output name=version::$(echo ${{ github.base_ref }} | cut -c 9-15)"
       - name: Login to Github Packages
         uses: docker/login-action@v2
         with:
@@ -60,19 +42,3 @@ jobs:
             BRANCH=${{github.head_ref}}
           push: true
           tags: ghcr.io/neuralmagic/sparseml-dev:${{ env.NAME }}
-      - name: Build Release Docker Container
-        if: ${{ env.RELEASE == 'true' }}
-        uses: docker/build-push-action@v4
-        with: 
-          context: ./docker/containers/docker_release
-          build-args: |
-            VERSION=${{ steps.version.outputs.version }}
-          push: true
-          tags: ghcr.io/neuralmagic/test-sparseml:latest, ghcr.io/neuralmagic/test-sparseml:${{ steps.version.outputs.version }}
-      - name: Build Nightly Docker Container
-        if: ${{ env.DEV == 'false' && env.RELEASE == 'false'}}
-        uses: docker/build-push-action@v4
-        with:
-          context: ./docker/containers/docker_nightly
-          push: true
-          tags: ghcr.io/neuralmagic/test-sparseml-nightly:latest, ghcr.io/neuralmagic/test-sparseml-nightly:${{ steps.date.outputs.date }}

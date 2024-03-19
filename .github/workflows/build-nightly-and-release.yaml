@@ -1,0 +1,56 @@
+name: Build Nightly and Release Containers
+
+# Only trigger, when the pypi build workflow succeededs
+on:
+  workflow_run:
+    workflows: ["Build PyPi Wheel"]
+    types:
+      - completed
+    branches:
+      - 'release/[0-9]+.[0-9]+'
+      - main
+
+env:
+  RELEASE: ${{ github.event_name =='release' || (startsWith(github.base_ref, 'release/') )}}
+  NIGHTLY: ${{ github.base_ref == 'main' }}
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-container:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3p
+        with:
+          fetch-depth: 1
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v2
+        with:
+          buildkitd-flags: --debug
+      - name: Get current date
+        id: date
+        run: echo "::set-output name=date::$(date +'%Y%m%d')"
+      - name: Get the current version
+        if: ${{ env.RELEASE == 'true' }}
+        id: version
+        run: echo "::set-output name=version::$(echo ${{ github.base_ref }} | cut -c 9-15)"
+      - name: Build Release Docker Container
+        if: ${{ env.RELEASE == 'true' }}
+        uses: docker/build-push-action@v4
+        with: 
+          context: ./docker/containers/docker_release
+          build-args: |
+            VERSION=${{ steps.version.outputs.version }}
+          push: true
+          tags: ghcr.io/neuralmagic/test-sparseml:latest, ghcr.io/neuralmagic/test-sparseml:${{ steps.version.outputs.version }}
+      - name: Build Nightly Docker Container
+        if: ${{ env.NIGHTLY == 'true'}}
+        uses: docker/build-push-action@v4
+        with:
+          context: ./docker/containers/docker_nightly
+          push: true
+          tags: ghcr.io/neuralmagic/test-sparseml-nightly:latest, ghcr.io/neuralmagic/test-sparseml-nightly:${{ steps.date.outputs.date }}
