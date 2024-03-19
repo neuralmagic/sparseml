@@ -5,7 +5,9 @@ on:
   workflow_run:
     workflows: 
       - BuildPyPiWheel
-      
+    types:
+      - requested
+
 env:
   RELEASE: ${{ github.event_name =='release' || (startsWith(github.base_ref, 'release/') )}}
   NIGHTLY: true
