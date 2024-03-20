@@ -62,7 +62,7 @@ class BitmaskCompressor(ModelCompressor):
         )
         for name, value in tqdm(model_state.items(), desc="Compressing model"):
             bitmask_tensor = BitmaskTensor.from_dense(value)
-            bitmask_dict = bitmask_tensor.dict(name_prefix=name)
+            bitmask_dict = bitmask_tensor.dict(name_prefix=name, device="cpu")
             for key in bitmask_dict.keys():
                 if key in compressed_dict:
                     _LOGGER.warn(
@@ -71,8 +71,6 @@ class BitmaskCompressor(ModelCompressor):
                         "be replaced."
                     )
             compressed_dict |= bitmask_dict
-            bitmask_tensor = BitmaskTensor.from_dense(value)
-            compressed_dict |= bitmask_tensor.dict(name_prefix=name, device="cpu")
 
         return compressed_dict
 
