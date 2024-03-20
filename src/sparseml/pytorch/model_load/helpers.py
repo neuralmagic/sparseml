@@ -240,7 +240,7 @@ def save_model_and_recipe(
     :param model: pytorch model to save
     :param save_path: path to save output to
     :param tokenizer: model tokenizer to save
-    :param save_safetensors: whether to save as safetensors or pickle(bin)
+    :param save_safetensors: whether to save as safetensors or pickle (bin)
     """
 
     model.save_pretrained(save_path, safe_serialization=save_safetensors)
