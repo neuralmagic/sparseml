@@ -26,7 +26,7 @@ permissions:
 jobs:
   build-container:
     name: Build sparseml container
-    runs-on: [ self-hosted, k8s-mle-gpu-32G-a4000-16G]
+    runs-on: [self-hosted, k8s-mle-gpu-32G-a4000-16G]
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
