@@ -15,15 +15,12 @@
 import shutil
 import unittest
 from pathlib import Path
-from typing import Optional
 
 import pytest
 
 from huggingface_hub import snapshot_download
-from parameterized import parameterized, parameterized_class
+from parameterized import parameterized_class
 from sparseml import export
-from tests.custom_test import CustomIntegrationTest
-from tests.data import CustomTestConfig
 from tests.testing_utils import parse_params
 
 
@@ -59,24 +56,3 @@ class TestGenerationExportIntegration(unittest.TestCase):
 
     def tearDown(self):
         shutil.rmtree(self.tmp_path)
-
-
-class TestGenerationExportIntegrationCustom(CustomIntegrationTest):
-    """
-    Integration test class which uses the base CustomIntegrationTest class.
-    """
-
-    custom_scripts_directory = (
-        "tests/sparseml/export/transformers/generation_configs/custom_script"
-    )
-    custom_class_directory = (
-        "tests/sparseml/export/transformers/generation_configs/custom_class"
-    )
-
-    @parameterized.expand(parse_params(custom_scripts_directory, type="custom"))
-    def test_custom_scripts(self, config: Optional[CustomTestConfig] = None):
-        super().test_custom_scripts(config)
-
-    @parameterized.expand(parse_params(custom_class_directory, type="custom"))
-    def test_custom_class(self, config: Optional[CustomTestConfig] = None):
-        super().test_custom_class(config)

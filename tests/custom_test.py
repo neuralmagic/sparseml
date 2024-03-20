@@ -16,8 +16,6 @@ import runpy
 import unittest
 from typing import Optional
 
-import pytest
-
 from tests.data import CustomTestConfig
 
 
@@ -33,7 +31,6 @@ class CustomTestCase(unittest.TestCase):
 
 # TODO: consider breaking this up into two classes, similar to non-custom
 # integration tests. Could then make use of parameterize_class instead
-@pytest.mark.custom
 class CustomIntegrationTest(unittest.TestCase):
     """
     Base Class for all custom integration tests.
