@@ -40,6 +40,7 @@ from sparseml.transformers.finetune.callbacks import (
 )
 from sparseml.utils.fsdp.context import summon_full_params_context
 from sparseml.utils.fsdp.helpers import is_fsdp_model, save_pretrained_fsdp
+from sparseml.utils.pytorch import qat_active
 
 
 __all__ = [
@@ -137,7 +138,7 @@ class SessionManagerMixIn:
         train_data = self.get_train_dataloader()
 
         self.accelerator.wait_for_everyone()
-        with summon_full_params_context(self.model):
+        with summon_full_params_context(self.model, offload_to_cpu=True):
             session_manager.initialize(
                 model=self.model,
                 teacher_model=self.teacher,  # TODO: what about for self/disable?
@@ -370,9 +371,13 @@ class SessionManagerMixIn:
 
         self.accelerator.wait_for_everyone()
 
-        # Need to gather parameters across the GPUs before accessing layer weights
-        with summon_full_params_context(self.model):
-            self.log_model_sparsification()
+        # log model sparsity
+        with summon_full_params_context(self.model, offload_to_cpu=True):
+            if self.accelerator.is_main_process:
+                if not qat_active(self.model):
+                    self.log_model_sparsification()
+
+        self.accelerator.wait_for_everyone()
 
         return output
 
@@ -433,6 +438,12 @@ class SessionManagerMixIn:
             copy_data=False,
             accelerator=self.accelerator,
         )
+
+        # log model sparsity
+        with summon_full_params_context(self.model, offload_to_cpu=True):
+            if self.accelerator.is_main_process:
+                if not qat_active(self.model):
+                    self.log_model_sparsification()
 
         self.accelerator.wait_for_everyone()
 
