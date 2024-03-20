@@ -25,16 +25,93 @@ needed for decompression in the compressed state_dict:
 {
     PARAM_NAME.compressed: compressed_tensor # 1d tensor
     PARAM_NAME.bitmask: value # 2d bitmask tensor (nrows x (ncols / 8))
-Satrat marked this conversation as resolved.
     PARAM_NAME.shape: value # uncompressed shape tensor
     PARAM_NAME.row_offsets: value # 1d offsets tensor
 }
 ```
 
-## Example Code
+Config information gets stored in the HF config file
+```json
+// config.json
+{
+    "sparsity_config": {
+        "format": "sparse_bitmask", // "dense_sparsity" for original tensor format
+
+        // informational
+        "sparsity_structure": "unstructured", // or 2:4, 8:16 etc...
+        "global_sparsity": "0.5"
+    }
+}
+```
+
+## Saving/Loading Interface 
+
+Loading in a compressed model requires no interface changes
 
 ```python
-from sparseml.transformers import SparseAutoModelForCausalLM, SparseAutoTokenizer
+from sparseml.transformers.utils import SparseAutoModelForCausalLM
+
+# should contain model.safetensors or model.safetensors.index.json
+model_path = "/PATH/TO/COMPRESSED_MODEL"
+
+model = SparseAutoModelForCausalLM.from_pretrained(
+    model_name_or_path=model_path,
+    **model_kwargs,
+)
+```
+
+Saving a compressed model with an explicitly provided compression config. The config
+is saved to the model's `config.json` file
+
+```python
+from sparseml.transformers.utils import SparseAutoModelForCausalLM
+from sparseml.transformers.compression import BitmaskConfig
+
+output_dir = "/PATH/TO/SAVE/COMPRESSED_MODEL"
+sparsity_config = BitmaskConfig()
+
+SparseAutoModelForCausalLM.save_pretrained(
+    model,
+    save_directory=output_dir,
+    sparsity_config=sparsity_config,
+)
+```
+
+Saving a compressed model, inferring the config from the model attributes
+
+```python
+SparseAutoModelForCausalLM.save_compressed(
+    model,
+    save_directory=output_dir,
+)
+
+# alternative
+SparseAutoModelForCausalLM.save_pretrained(
+    model,
+    save_directory=output_dir,
+    save_dense=False
+)
+```
+
+Saving a model in the dense format. If the model has at least 5% global sparsity a 
+sparsity config will still be included in `config.json` with format `dense_sparsity`
+
+```python
+from sparseml.transformers.utils import SparseAutoModelForCausalLM
+
+SparseAutoModelForCausalLM.save_pretrained(
+    model,
+    save_directory=output_dir
+)
+```
+
+## Example Code
+
+Loads a 50% sparse model, compresses it using the inferred bitmask compression, then 
+reloads the compressed model.
+
+```python
+from sparseml.transformers import SparseAutoModelForCausalLM
 from sparseml.utils.pytorch.utils import measure_cuda_memory
 import torch
 
@@ -46,11 +123,10 @@ torch.cuda.set_device(0)
 with measure_cuda_memory() as m:
     model = SparseAutoModelForCausalLM.from_pretrained(MODEL_PATH, device_map="cuda:0")
 print(f"Load dense model peak GPU {m.overall_peak_memory / float(2**30):.4f} GB")
-tokenizer = SparseAutoTokenizer.from_pretrained(MODEL_PATH)
 
 print(f"Sparsity config before compression: {model.sparsity_config}")
 with measure_cuda_memory() as m:
-    SparseAutoModelForCausalLM.save_pretrained(
+    SparseAutoModelForCausalLM.save_compressed(
         model, OUTPUT_PATH
     )
 print(f"Save compressed model peak GPU {m.overall_peak_memory / float(2**30):.4f} GB")

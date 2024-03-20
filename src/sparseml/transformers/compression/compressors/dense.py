@@ -22,7 +22,7 @@ from sparseml.transformers.compression.compressors import ModelCompressor
 @ModelCompressor.register(name="dense_sparsity")
 class DenseCompressor(ModelCompressor):
     """
-    Dummy compressor for dense models
+    Identity compressor for dense models, returns the original state_dict
     """
 
     def compress(self, model_state: Dict[str, Tensor]) -> Dict[str, Tensor]:

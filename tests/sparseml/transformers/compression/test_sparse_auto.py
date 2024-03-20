@@ -19,6 +19,7 @@ import pytest
 import torch
 from transformers import AutoConfig
 
+import sparseml.core.session as session_manager
 from sparseml.transformers import SparseAutoModelForCausalLM, oneshot
 from sparseml.transformers.compression import BitmaskConfig, CompressionConfig
 from sparseml.transformers.utils.sparse_model import SPARSITY_CONFIG_NAME
@@ -40,6 +41,7 @@ def test_sparse_model_reload(dense, config, tmp_path):
     output_dir = tmp_path / "oneshot_out"
     splits = {"calibration": "train[:10%]"}
 
+    # create a sparse model
     oneshot(
         model=model_path,
         dataset=dataset,
@@ -80,5 +82,24 @@ def test_sparse_model_reload(dense, config, tmp_path):
         dense_tensor = og_state_dict[key]
         reconstructed_tensor = reconstructed_state_dict[key]
         assert torch.equal(dense_tensor.cpu(), reconstructed_tensor.cpu())
+
+    shutil.rmtree(tmp_path)
+
+
+def test_dense_model_save(tmp_path):
+    session_manager.active_session().reset()
+
+    model_path = "Xenova/llama2.c-stories15M"
+    model = SparseAutoModelForCausalLM.from_pretrained(model_path)
+
+    inferred_global_sparsity = CompressionConfig.infer_global_sparsity(model)
+    assert math.isclose(inferred_global_sparsity, 0.0, rel_tol=1e-3)
+    inferred_structure = CompressionConfig.infer_sparsity_structure()
+    assert inferred_structure == "unstructured"
+
+    SparseAutoModelForCausalLM.save_pretrained(model, tmp_path / "dense_out")
+    config = AutoConfig.from_pretrained(tmp_path / "dense_out")
+    sparsity_config = getattr(config, SPARSITY_CONFIG_NAME, None)
+    assert sparsity_config is None
 
     shutil.rmtree(tmp_path)

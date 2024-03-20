@@ -30,18 +30,35 @@ class CompressionConfig(RegistryMixin, BaseModel):
     Base data class for storing compression parameters
 
     :param format: name of compression format
+    :param global_sparsity: average sparsity of the entire model
+    :param sparsity_structure: structure of the sparsity, such as
+    "unstructured", "2:4", "8:16" etc
     """
 
     format: str
+    global_sparsity: Optional[float] = 0.0
+    sparsity_structure: Optional[str] = "unstructured"
 
     @staticmethod
     def infer_global_sparsity(model: Module) -> float:
+        """
+        Calculates the global percentage of sparse zero weights in the model
+
+        :param model: pytorch model to infer sparsity of
+        :return: global sparsity of model
+        """
         info = ModuleSparsificationInfo(model)
         global_sparsity = info.params_sparse_percent
         return global_sparsity
 
     @staticmethod
     def infer_sparsity_structure() -> str:
+        """
+        Determines what sparsity structure, if any, was applied in the currently active
+        sparse session
+
+        :return: sparsity structure as a string
+        """
         current_session = session_manager.active_session()
         stage_modifiers = current_session.lifecycle.modifiers
         sparsity_structure = "unstructured"
@@ -60,6 +77,14 @@ class CompressionConfig(RegistryMixin, BaseModel):
     def infer_config_from_model(
         model: Module, force_dense: bool = False
     ) -> Optional["CompressionConfig"]:
+        """
+        Determines compression type and informational parameters for a given model
+
+        :param model: pytorch model to calculate sparsity config for
+        :param force_dense: whether or not to save the model dense on disk, regardless
+        of sparsity percentage
+        :return: compression config inferred from the model
+        """
 
         global_sparsity = CompressionConfig.infer_global_sparsity(model)
 
@@ -79,5 +104,10 @@ class CompressionConfig(RegistryMixin, BaseModel):
         )
 
     def fill_config_details(self, model: Module):
+        """
+        Fills in informational sparsity parameters from a given model
+
+        :param model: pytorch model to infer config parameters from
+        """
         self.global_sparsity = CompressionConfig.infer_global_sparsity(model)
         self.sparsity_structure = CompressionConfig.infer_sparsity_structure()

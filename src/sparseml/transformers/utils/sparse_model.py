@@ -66,7 +66,8 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
     ) -> PreTrainedModel:
         """
         A wrapper around the AutoModelForCausalLM.from_pretrained method that
-        enables the loading of a SparseML recipe file to apply to the model
+        enables the loading of a SparseML recipe file to apply to the model and the
+        loading of compressed models
 
         :param pretrained_model_name_or_path: the name of or path to the model to load
         :param recipe: the path to the recipe file to apply to the model. Can be a
@@ -100,10 +101,10 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
                     zoo_stub=pretrained_model_name_or_path
                 )
 
+        # determine compression format, if any, from the model config
         config = AutoConfig.from_pretrained(pretrained_model_name_or_path)
         sparsity_config = getattr(config, SPARSITY_CONFIG_NAME, None)
         if sparsity_config is not None:
-            # need to uncompress the model
             format = sparsity_config.get("format")
             sparsity_config = CompressionConfig.load_from_registry(
                 format, **sparsity_config
@@ -130,7 +131,6 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
         setattr(model, SPARSITY_CONFIG_NAME, sparsity_config)
 
         recipe = resolve_recipe(recipe, pretrained_model_name_or_path)
-        recipe = "zoo:llama2-7b-open_platypus_orca_llama2_pretrain-pruned60"
         if recipe:
             apply_recipe_structure_to_model(
                 model=model,
@@ -147,10 +147,24 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
         save_dense: bool = True,
         **kwargs,
     ):
+        """
+        Wrapper around PreTrainedModel.save_pretrained(), adds functionality for
+        saving models in a compressed format on disk. The compression format is
+        saved to the model's config file
+
+        :param model: transformers model to save
+        :param save_directory: output directory to save model to
+        :param sparsity_config: optional sparsity config to compress model with, if no
+        config is provided it will be inferred from the model
+        :param save_dense: whether or not to compress the model on disk
+        :param kwargs: additional kwargs to pass on to model.save_pretrained
+        """
         if sparsity_config is not None:
+            # if a sparsity config is provided, always save compressed
             sparsity_config.fill_config_details(model)
             save_dense = False
         else:
+            # try to infer a sparsity config from the model if none is provided
             sparsity_config = CompressionConfig.infer_config_from_model(
                 model, force_dense=save_dense
             )
@@ -172,6 +186,7 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
         sparsity_config_data = sparsity_config.dict()
         config_file_path = os.path.join(save_directory, CONFIG_NAME)
 
+        # add the sparsity config to the model's config file
         with open(config_file_path, "r") as config_file:
             config_data = json.load(config_file)
         config_data[SPARSITY_CONFIG_NAME] = sparsity_config_data
@@ -185,11 +200,22 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
         sparsity_config: Optional[CompressionConfig] = None,
         **kwargs,
     ):
+        """
+        Alias for SparseAutoModelForCausalLM.save_pretrained() that always saves in a
+        compressed format
+
+        :param model: transformers model to save
+        :param save_directory: output directory to save model to
+        :param sparsity_config: optional sparsity config to compress model with, if no
+        config is provided it will be inferred from the model
+        :param kwargs: additional kwargs to pass on to model.save_pretrained
+        """
         return SparseAutoModelForCausalLM.save_pretrained(
             model=model,
             save_directory=save_directory,
             sparsity_config=sparsity_config,
-            save_dense=False**kwargs,
+            save_dense=False,
+            **kwargs,
         )
 
 
