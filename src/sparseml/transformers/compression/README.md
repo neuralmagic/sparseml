@@ -25,7 +25,6 @@ needed for decompression in the compressed state_dict:
 {
     PARAM_NAME.compressed: compressed_tensor # 1d tensor
     PARAM_NAME.bitmask: value # 2d bitmask tensor (nrows x (ncols / 8))
-Satrat marked this conversation as resolved.
     PARAM_NAME.shape: value # uncompressed shape tensor
     PARAM_NAME.row_offsets: value # 1d offsets tensor
 }
