@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import logging
-from typing import Optional, Tuple, Union
+from typing import Optional, Union
 
 from datasets import Dataset, IterableDataset
 from transformers import AutoTokenizer
@@ -157,23 +157,22 @@ class TextGenerationDataset(RegistryMixin):
         def label_fn(data):
             # if the dataset uses prompts, mask them out so they don't contribute
             # to the loss calculation
-
+            labels = data["input_ids"].copy()
             if "offset_mapping" in data:
                 offset_mapping = data["offset_mapping"]
-                input_ids = data["input_ids"]
                 # get the character level mask
-                mask = "1" * len(input_ids)
-                mask = data.get('mask')
+                mask = data.get("mask")
                 if mask is not None:
                     for i, (start, end) in enumerate(offset_mapping):
                         # if any char is to be filtered
                         if "0" in mask[start:end]:
-                            input_ids[i] = LABELS_MASK_VALUE
+                            labels[i] = LABELS_MASK_VALUE
 
             prompt_len = 0
             if self.PROMPT_KEY in data:
                 prompt_len = len(data[self.PROMPT_KEY])
-            data["labels"] = data["input_ids"].copy()
+
+            data["labels"] = labels
             data["labels"][:prompt_len] = [LABELS_MASK_VALUE] * prompt_len
 
             # mask out padding in the labels as well

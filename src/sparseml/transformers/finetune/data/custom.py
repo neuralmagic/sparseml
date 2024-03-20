@@ -88,9 +88,7 @@ class CustomDataset(TextGenerationDataset):
                 raw_dataset,
                 batched=True,
                 remove_columns=self.remove_columns,
-                # num_proc=self.data_args.preprocessing_num_workers,
-                num_proc=1,
-                
+                num_proc=self.data_args.preprocessing_num_workers,
                 desc="Removing unneeded columns",
             )
         return raw_dataset
