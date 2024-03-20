@@ -23,7 +23,6 @@ import torch
 from torch.nn import Module
 from tqdm import tqdm
 from transformers import (
-    AutoConfig,
     AutoModelForCausalLM,
     AutoModelForMaskedLM,
     AutoModelForQuestionAnswering,
@@ -38,6 +37,7 @@ from sparseml.pytorch.model_load.helpers import (
     log_model_load,
 )
 from sparseml.transformers.compression import CompressionConfig, ModelCompressor
+from sparseml.transformers.compression.utils import infer_compressor_from_model_config
 from sparseml.transformers.utils.helpers import SPARSITY_CONFIG_NAME, resolve_recipe
 from sparseml.utils import download_zoo_training_dir
 from sparseml.utils.fsdp.context import main_process_first_context
@@ -100,16 +100,7 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
                 )
 
         # determine compression format, if any, from the model config
-        config = AutoConfig.from_pretrained(pretrained_model_name_or_path)
-        sparsity_config = getattr(config, SPARSITY_CONFIG_NAME, None)
-        if sparsity_config is not None:
-            format = sparsity_config.get("format")
-            sparsity_config = CompressionConfig.load_from_registry(
-                format, **sparsity_config
-            )
-            compressor = ModelCompressor.load_from_registry(
-                format, config=sparsity_config
-            )
+        compressor = infer_compressor_from_model_config(pretrained_model_name_or_path)
 
         # temporarily set the log level to error, to ignore printing out long missing
         # and unexpected key error messages (these are EXPECTED for quantized models)
@@ -122,11 +113,11 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
         logger.setLevel(level=restore_log_level)
 
         # If model is compressed on disk, decompress and load the weights
-        if sparsity_config is not None:
+        if compressor is not None:
             dense_gen = compressor.decompress(pretrained_model_name_or_path)
             for name, data in tqdm(dense_gen, desc="Decompressing model"):
                 ModelCompressor.replace_layer(name, data, model)
-        setattr(model, SPARSITY_CONFIG_NAME, sparsity_config)
+        setattr(model, SPARSITY_CONFIG_NAME, compressor.config)
 
         recipe = resolve_recipe(recipe, pretrained_model_name_or_path)
         if recipe:

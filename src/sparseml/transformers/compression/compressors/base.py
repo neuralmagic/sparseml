@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import operator
-from typing import Dict, Generator
+from typing import Dict, Generator, Tuple
 
 from torch import Tensor
 from torch.nn import Module, Parameter
@@ -45,7 +45,7 @@ class ModelCompressor(RegistryMixin):
         """
         raise NotImplementedError()
 
-    def decompress(self, model_path: str) -> Generator:
+    def decompress(self, model_path: str) -> Generator[Tuple[str, Tensor], None, None]:
         """
         Reads a compressed state dict located at model_path and returns a
         generator for sequentially decompressing back to a dense state dict

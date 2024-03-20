@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Dict, Generator
+from typing import Dict, Generator, Tuple
 
 from torch import Tensor
 
@@ -28,5 +28,5 @@ class DenseCompressor(ModelCompressor):
     def compress(self, model_state: Dict[str, Tensor]) -> Dict[str, Tensor]:
         return model_state
 
-    def decompress(self, model_path: str) -> Generator:
+    def decompress(self, model_path: str) -> Generator[Tuple[str, Tensor], None, None]:
         return iter([])
