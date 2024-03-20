@@ -39,7 +39,7 @@ else:
 _deps = [
     "setuptools<=59.5.0",
     "pyyaml>=5.0.0",
-    "numpy>=1.0.0",
+    "numpy>=1.17.0",
     "matplotlib>=3.0.0",
     "merge-args>=0.1.0",
     "onnx>=1.5.0,<1.15.0",

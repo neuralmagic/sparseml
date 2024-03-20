@@ -62,19 +62,27 @@ def cosine_schedule(t: float, t_max: float, init_value: float, end_value: float)
     )
 
 
-def threshold_fraction(tensor: Tensor, fraction: float) -> None:
+def threshold_fraction(
+    tensor: Tensor, fraction: float, set_to_max: bool = False
+) -> None:
     """
     A function returning the tensor with all but topk fraction
     elements set to 0.
 
     :param tensor: the input tensor
-    :param fraction: fraction of nonzero elements
+    :param fraction: fraction of zero elements
     """
-    lookup_idx = round(fraction * tensor.numel())
+    lookup_idx = round((1 - fraction) * tensor.numel())
     if lookup_idx == 0:
-        return tensor
-    threshold, _ = torch.kthvalue(tensor.reshape(-1), k=lookup_idx)
-    return torch.where(tensor > threshold, 1.0, 0.0)
+        return torch.zeros_like(tensor)
+    tensor_shape = tensor.shape
+    vals, idx = tensor.reshape(-1).topk(lookup_idx, largest=True)
+    topk = torch.zeros_like(tensor.reshape(-1))
+    if set_to_max:
+        topk[idx] = torch.finfo(tensor.dtype).max
+    else:
+        topk[idx] = vals
+    return topk.reshape(tensor_shape)
 
 
 @PyTorchModifierYAML()
@@ -104,8 +112,8 @@ class RigLPruningModifier(BaseGradualPruningModifier):
     |       update_frequency: 4.0
     |       num_grads: 100
     |       params: ["re:.*weight"]
+    |       global_sparsity: False
     |       leave_enabled: True
-    |       global_sparsity: True
     |       mask_type: unstructured
     |       sparsity_strategy: "erdos_renyi_kernel"
     |       init_update_fraction: 0.3
@@ -124,6 +132,8 @@ class RigLPruningModifier(BaseGradualPruningModifier):
         will match to all parameters. __ALL_PRUNABLE__ will match to all ConvNd
         and Linear layers' weights. If a sparsity to param mapping is defined by
         final_sparsity, then params should be set to []
+    :param global_sparsity: set True to enable global pruning. If False, pruning will
+        be layer-wise. Must be set to False, as global sparsity is not supported yet.
     :param momentum_buffer_reset: set True to reset momentum buffer
         for pruned weights at every optimizer step, so that reintroduced
         weights start with an empty momentum buffer.
@@ -134,8 +144,6 @@ class RigLPruningModifier(BaseGradualPruningModifier):
         RigL modifier supports only 'unstructured'
     :param num_grads: Number of grads to be collected by the grad sampler for
         recomputing the mask.
-    :param global_sparsity: set True to enable global pruning. If False, pruning will
-        be layer-wise. Default is True
     :param sparsity_strategy: String to define the sparsity distribution. Following
         the original paper one can select one of the 3 options:
         [uniform, erdos_renyi, erdos_renyi_kernel].
@@ -157,28 +165,30 @@ class RigLPruningModifier(BaseGradualPruningModifier):
         params: Union[str, List[str]],
         num_grads: int = 1,
         leave_enabled: bool = True,
+        global_sparsity: bool = False,
         momentum_buffer_reset: bool = True,
-        global_sparsity: bool = True,
         mask_type: str = "unstructured",
         sparsity_strategy: str = "erdos_renyi_kernel",
         init_update_fraction: float = 0.3,
         grad_sampler_kwargs: Optional[Dict[str, Any]] = {},
         **kwargs,
     ):
+        self._sparsity_strategy = sparsity_strategy
         super().__init__(
             params=params,
             final_sparsity=final_sparsity,
             init_sparsity=final_sparsity,
             start_epoch=start_epoch,
             end_epoch=end_epoch,
-            global_sparsity=global_sparsity,
+            global_sparsity=False,
             update_frequency=update_frequency,
             leave_enabled=leave_enabled,
             parent_class_kwarg_names=[],
             **kwargs,
         )
+        # self._sparsity_distribution = self._scorer.get_sparsity_distribution()
         self._mask_type = mask_type
-        self._sparsity_strategy = sparsity_strategy
+        # self._sparsity_strategy = sparsity_strategy
         self._momentum_buffer_reset = momentum_buffer_reset
         self._init_update_fraction = init_update_fraction
         self._grad_sampler_kwargs = grad_sampler_kwargs
@@ -201,14 +211,13 @@ class RigLPruningModifier(BaseGradualPruningModifier):
         ), f"{self._mask_type} mask_type not supported"
 
         if self._global_sparsity:
+            raise ValueError("global sparsity is not supported for RigL.")
+        else:
             assert self._sparsity_strategy in (
                 "erdos_renyi",
                 "erdos_renyi_kernel",
-            ), "Global sparsity supports only `erdos_renyi`, `erdos_renyi_kernel`"
-        else:
-            assert (
-                self._sparsity_strategy == "uniform"
-            ), "Uniform sparsity supports only `uniform`"
+                "uniform",
+            ), "erdos_renyi, erdos_renyi_kernel, and uniform sparsity are supported."
 
     # Override te optimizer_post_step method to reset the momentum of pruned weights.
     # TODO: this implementation has some  dependencies that may be better handled
@@ -331,8 +340,10 @@ class RigLPruningModifier(BaseGradualPruningModifier):
         :param steps_per_epoch: number of steps in each epoch
         :return: sparsity level that should be applied (always final_sparsity)
         """
-        _LOGGER.info(f"RigL applied sparsity {self._final_sparsity}")
-        return [self._final_sparsity for _ in range(len(self.module_masks.layers))]
+
+        self._sparsity_distribution = self._scorer.get_sparsity_distribution()
+        _LOGGER.info(f"RigL applied sparsity {self._sparsity_distribution}")
+        return self._sparsity_distribution
 
     def initialize(
         self,
@@ -563,13 +574,12 @@ class RigLPruningParamsScorer(PruningParamsGradScorer):
         # Of the existing mask, we keep the top 1-param_sparsity-mask_update_fraction
         # elements by magnitude.
         magn_score = threshold_fraction(
-            magn_score, param_sparsity + mask_update_fraction
+            magn_score, (param_sparsity + mask_update_fraction), set_to_max=True
         )
-        # We fill in the mask by also adding the mask_update_fraction weights
-        # of the ones that are currently masked, using the gradient magnitude
-        # as the criterion.
-        grad_score = param_grad.abs() * magn_score.eq(0)
-        grad_score = threshold_fraction(grad_score, 1 - mask_update_fraction)
+        # For the rest of the unmasked weights, we use the gradient magnitude
+        # as the criterion. These cannot be larger than the magnitude scores,
+        # since those are set to the largest possible value.
+        grad_score = (param_grad.abs()) * magn_score.eq(0)
         score = magn_score + grad_score
         return score
 
