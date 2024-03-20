@@ -119,7 +119,7 @@ class KDModelWrapper(Module):
 
     def named_children(self):
         return self.student_model.named_children()
-    
+
     def train(self, mode: bool = True):
         self.student_model.train(mode)
         return self
