@@ -59,3 +59,4 @@ _check_transformers_install()
 from .utils import *
 from .export import *
 from .finetune import *
+from .compression import *
