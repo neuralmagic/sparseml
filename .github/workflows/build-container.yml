@@ -13,8 +13,7 @@ on:
   schedule:
     - cron: '0 2 * * *'
 
-# potentially update to change criteria; only run when wheel build is complete
-# use outptus from wheel build to determie if release/dev/nightly
+# TODO: update names of repos that containers are pushed to, removing 'test'
 env:
   RELEASE: ${{ github.event_name =='release' || (startsWith(github.base_ref, 'release/') && github.event_name == 'pull_request')}}
   DEV: ${{ github.base_ref == 'main' && github.event_name == 'pull_request'}}
@@ -27,7 +26,7 @@ permissions:
 jobs:
   build-container:
     name: Build sparseml container
-    runs-on: ubuntu-latest
+    runs-on: [ self-hosted, k8s-mle-gpu-32G-a4000-16G]
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
