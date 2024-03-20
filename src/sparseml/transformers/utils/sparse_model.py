@@ -38,14 +38,12 @@ from sparseml.pytorch.model_load.helpers import (
     log_model_load,
 )
 from sparseml.transformers.compression import CompressionConfig, ModelCompressor
-from sparseml.transformers.utils.helpers import resolve_recipe
+from sparseml.transformers.utils.helpers import SPARSITY_CONFIG_NAME, resolve_recipe
 from sparseml.utils import download_zoo_training_dir
 from sparseml.utils.fsdp.context import main_process_first_context
 
 
 _LOGGER = logging.getLogger(__name__)
-
-SPARSITY_CONFIG_NAME = "sparsity_config"
 
 
 __all__ = ["SparseAutoModel", "SparseAutoModelForCausalLM", "get_shared_tokenizer_src"]
