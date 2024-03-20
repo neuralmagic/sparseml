@@ -21,7 +21,6 @@ from typing import Any, Dict, Optional, Tuple, Union
 
 import torch
 from torch.nn import Module
-from tqdm import tqdm
 from transformers import (
     AutoModelForCausalLM,
     AutoModelForMaskedLM,
@@ -114,10 +113,9 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
 
         # If model is compressed on disk, decompress and load the weights
         if compressor is not None:
-            dense_gen = compressor.decompress(pretrained_model_name_or_path)
-            for name, data in tqdm(dense_gen, desc="Decompressing model"):
-                ModelCompressor.replace_layer(name, data, model)
-        setattr(model, SPARSITY_CONFIG_NAME, compressor.config)
+            compressor.overwrite_weights(
+                pretrained_model_name_or_path=pretrained_model_name_or_path, model=model
+            )
 
         recipe = resolve_recipe(recipe, pretrained_model_name_or_path)
         if recipe:

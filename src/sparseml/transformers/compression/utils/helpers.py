@@ -17,7 +17,8 @@ from typing import Optional
 
 from transformers import AutoConfig
 
-from sparseml.transformers.compression import CompressionConfig, ModelCompressor
+from sparseml.transformers.compression.compressors import ModelCompressor
+from sparseml.transformers.compression.config import CompressionConfig
 from sparseml.transformers.utils.helpers import SPARSITY_CONFIG_NAME
 
 
