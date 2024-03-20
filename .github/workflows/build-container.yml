@@ -13,7 +13,10 @@ on:
   schedule:
     - cron: '0 2 * * *'
 
-# TODO: update names of repos that containers are pushed to, removing 'test'
+# TODO: docker containers created through a release cut vs PR to the release branch
+# will be pushed to different locations (i.e one will be sparseml the other will be test-sparseml).
+# These containers rely on the new internal pypi server being enabled. Once enabled,
+# this workflow can be expanded to make this distinction.
 env:
   RELEASE: ${{ github.event_name =='release' || (startsWith(github.base_ref, 'release/') && github.event_name == 'pull_request')}}
   DEV: ${{ github.base_ref == 'main' && github.event_name == 'pull_request'}}
@@ -26,7 +29,7 @@ permissions:
 jobs:
   build-container:
     name: Build sparseml container
-    runs-on: [self-hosted, k8s-mle-gpu-32G-a4000-16G]
+    runs-on: ubuntu-20.04
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
