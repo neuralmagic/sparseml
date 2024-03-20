@@ -15,13 +15,17 @@
 import logging
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
+import numpy as np
 import torch
+from tqdm import tqdm
 
 from sparseml.core.model.base import ModifiableModel
 from sparseml.core.state import State
-from sparseml.modifiers.obcq.utils.helpers import cache_attention_inputs
 from sparseml.modifiers.pruning.wanda.base import WandaPruningModifier
-from sparseml.modifiers.pruning.wanda.utils.layer_compressor import WandaLayerCompressor
+from sparseml.modifiers.pruning.wanda.utils.wanda_wrapper import WandaWrapper
+from sparseml.modifiers.utils.layer_compressor import LayerCompressor
+from sparseml.modifiers.utils.pytorch_helpers import run_calibration_forward
+from sparseml.utils.pytorch.module import get_prunable_layers
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -33,53 +37,87 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
 
     Lifecycle:
         - on_initialize
-            - setup
-                - compressible_layers
-            - prune
-                - compress_bottom
-                - LayerCompressor.compress
+            - initialize_compression()
+                - compressible_layers()
+                - LayerCompressor.pre_compress()
+            - apply_compression()
+                - run_calibration_forward()
+                - LayerCompressor.compress()
+                - LayerCompressor.post_compress()
         - on_finalize
+            - LayerCompressor.revert_layer_wrappers()
 
-    :param model: `ModifiableModel` to perform wanda on, in-place
+    :param model: `ModifiableModel` to perform WANDA on, in-place
     """
 
     model: Optional[ModifiableModel] = None
-    device_: str = "cuda:0"
-    layer_prefix_: Optional[str] = None
-    prunen_: Optional[int] = None
-    prunem_: Optional[int] = None
-    layer_compressor_class_ = WandaLayerCompressor
+    layer_compressors_: List = None
 
     def on_initialize(self, state: State, **kwargs) -> bool:
         """
         Initialize and run the WANDA algorithm on the current state
 
         :param state: session state storing input model and calibration data
+        :param kwargs: Unused, kept to conform to the parent method signature
         """
-        self._validate_layerwise_sparsity()
-        self.setup(state=state, **kwargs)
+        modifiable_model = state.model
+        calibration_dataloader = state.data.calib
 
-        # run on calibration data
-        self.prune(dataloader=state.data.calib)
-        torch.cuda.empty_cache()
+        if self.targets is None:
+            # if no targets are provided, default to the modules that shouldn't be
+            # split by FSDP. For Transformers models this is equivalent to the
+            # decoder layers (ie LlamaDecoderLayer)
+            self.targets = modifiable_model.get_no_split_params()
+
+        self.initialize_compression(modifiable_model, calibration_dataloader)
+        self.apply_compression(calibration_dataloader)
+
         return True
 
-    def setup(self, state: State, **kwargs):
+    def initialize_compression(
+        self,
+        model: ModifiableModel,
+        dataloader: Optional[Iterable[Tuple[List, Dict[str, Any]]]] = None,
+    ):
         """
         Setup for WANDA, initializes the model, device,
         and other parameters, also initilializes the
         compressible layers of model, and sets the device
 
-        :param state: session state storing input model and calibration data
+        :param model: model to initialize for compression
         """
-        self.model = state.model
+        self.model = model
         self.compressible_layers_ = self.compressible_layers()
-        self._set_device(device=state.hardware.device)
-        self.layer_prefix_ = self.model.layer_prefix
+        self.model = self.model.model
+        self.layer_compressors_ = []
         self._infer_mask_block_size()
 
+        if self.sparsity_profile is not None and self.sparsity_profile.lower() == "owl":
+            _LOGGER.info(
+                "Inferring layer-wise sparsities from "
+                f"{len(dataloader)} calibration samples..."
+            )
+            self.sparsity = self._infer_layer_sparsity(dataloader)
+        self._validate_layerwise_sparsity()
+
+        for idx, (name, layer) in enumerate(self.compressible_layers_.items()):
+            _LOGGER.info(f"Preparing {name} for compression")
+            if isinstance(self.sparsity, Dict):
+                layer_sparsity = self.sparsity[name]
+            elif isinstance(self.sparsity, List):
+                layer_sparsity = self.sparsity[idx]
+            else:  # float
+                layer_sparsity = self.sparsity
+            args = self._pruning_arguments(layer_sparsity)
+            comp_cls = self._compression_class()
+            compressor = LayerCompressor(comp_cls, self.model, layer, idx, name, args)
+            if not self.sequential_update:
+                # add all batch processing hooks before the forward pass
+                compressor.pre_compress()
+            self.layer_compressors_.append(compressor)
+
     @torch.no_grad()
-    def prune(
+    def apply_compression(
         self, dataloader: Optional[Iterable[Tuple[List, Dict[str, Any]]]] = None
     ) -> Dict:
         """
@@ -87,102 +125,63 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
 
         :param dataloader: calibration data for WANDA
         """
-        accum_kwargs = {"dataloader": dataloader}
-        pytorch_model = self.model.model
-
-        # Step 0: Pass the calibration data through the (compressed) bottom part of the
-        # network, capturing the outputs which will become the inputs to the first
-        # decoder layer. Also return attention_mask as part of kwargs
-        extras = self.compress_bottom(
-            dev=self.device_,
-            layer_prefix=self.layer_prefix_,
-            **accum_kwargs,
+        class_name = self.__class__.__name__.replace("PyTorch", "")
+        _LOGGER.info(
+            f"Running {class_name} calibration with " f"{len(dataloader)} samples..."
         )
-        accum_kwargs.update(extras)
+        if not self.sequential_update:
+            # in non-sequential mode we run one forward batch for all modules
+            run_calibration_forward(self.model, dataloader, mask_padding=True)
 
-        # Step 1: Sequentially prune decoder layers
-        inputs = None
         num_layers = len(self.compressible_layers_)
-        for idx, layer in enumerate(self.compressible_layers_):
-            if "outputs" not in accum_kwargs:
-                raise RuntimeError(
-                    "The 'outputs' key is expected but not found from the "
-                    "return of the bottom compressor"
-                )
-
-            inputs = accum_kwargs["outputs"]
-            layer_sparsity = (
-                self.sparsity[idx] if isinstance(self.sparsity, List) else self.sparsity
-            )
+        for idx, layer_compressor in enumerate(self.layer_compressors_):
+            layer_sparsity = layer_compressor.args["sparsity"]
             _LOGGER.info(
                 f"\n===== Compressing layer {idx+1}/{num_layers} "
                 f"to sparsity {layer_sparsity} ====="
             )
-            args = self._get_compression_args(layer_sparsity=layer_sparsity)
-            # Prune using GPT
-            layer_compressor = self.layer_compressor_class_(
-                model=pytorch_model,
-                layer=layer,
-                layer_index=idx,
-                inputs=inputs,
-                args=args,
-            )
-            layer_kwargs = layer_compressor.compress(dev=self.device_, **accum_kwargs)
-            accum_kwargs.update(layer_kwargs)
 
-    def _get_compression_args(self, layer_sparsity):
+            # Prune/quantize using SparseGPT
+            if self.sequential_update:
+                # in sequential mode we run one forward pass for each module we
+                # want to compress, this will be really slow but allows compression in
+                # earlier layers to affect later layers
+                layer_compressor.pre_compress()
+                _LOGGER.info(f"Calibrating {layer_compressor.name}...")
+                run_calibration_forward(self.model, dataloader, mask_padding=True)
+            layer_compressor.compress()
+            layer_compressor.post_compress()
+            layer_compressor.revert_layer_wrappers()
+            torch.cuda.empty_cache()
+
+    def on_finalize(self, state: State, **kwargs):
+        """
+        Nothing to clean up for this module
+
+        :param state: Unused, kept to conform to the parent method signature
+        :param kwargs: Unused, kept to conform to the parent method signature
+        """
+
+        return True
+
+    def _pruning_arguments(self, sparsity) -> Dict[str, Any]:
+        """
+        Gather the parameters needed for root module compression in a dict
+
+        :param sparsity: target sparsity
+        :return: dict of params for pruning
+        """
         return {
-            "sparsity": layer_sparsity,
+            "sparsity": sparsity,
             "prunen": self.prunen_,
             "prunem": self.prunem_,
         }
 
-    def compress_bottom(
-        self,
-        dataloader: List = None,
-        nsamples: int = None,
-        dev: str = "cuda:0",
-        layer_prefix: Optional[str] = None,
-        target_ids: Optional[List[int]] = None,
-    ) -> Dict:
+    def _compression_class(self):
         """
-        Runs calibration data through the bottom part of the network (everything up
-        to the first decoder layer) and return the captured outputs
-
-        :param dataloader: calibration data to pass through the model
-        :param nsamples: number of samples to use for calibration, or None to use it all
-        :param dev: device to use
-        :param layer_prefix: name of model attribute that contains the list of layers,
-            i.e. model.decoder for OPT or just model for Llama
-        :param target_ids: list of keys in model output to cache, NOTE: this argument
-            has been deprecated and will be removed in a future release, also must be
-            set to None for Wanda
-        :return: outputs from bottom part of network, attention mask, and kv-cache state
+        :return: wrapper class used for root modules of this compression class
         """
-        layer_prefix = layer_prefix or self.layer_prefix_
-        pytorch_model = self.model.model
-        cached_inputs = cache_attention_inputs(
-            model=pytorch_model,
-            dataloader=dataloader,
-            device=dev,
-            nsamples=nsamples,
-            target_ids=target_ids,
-            layer_prefix=layer_prefix,
-        )
-
-        outputs = cached_inputs.pop("inputs")
-        outputs = [o[0] for o in outputs]
-        cached_inputs.update({"outputs": outputs})
-        return cached_inputs
-
-    def on_finalize(self, state: State, **kwargs):
-        return True
-
-    def _set_device(self, device: str):
-        if "cuda" in device and not torch.cuda.is_available():
-            self.device_ = "cpu"
-        else:
-            self.device_ = device
+        return WandaWrapper
 
     def _infer_mask_block_size(self):
         """
@@ -196,3 +195,81 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
             raise ValueError("mask_structure must be defined")
 
         self.prunen_, self.prunem_ = list(map(int, self.mask_structure.split(":")))
+
+    def _infer_layer_sparsity(self, calibration_dataloader):
+        acts = _get_activations(self.model, calibration_dataloader)
+        wanda = {}
+        for name, layer in self.compressible_layers_.items():
+            prunable_layers = get_prunable_layers(layer)
+            z = [
+                m.weight.abs() * acts[f"{name}.{n}"].unsqueeze(0)
+                for n, m in prunable_layers.items()
+            ]
+            wanda[name] = torch.cat([item.flatten().cpu() for item in z])
+
+        acts = None
+        del acts
+        torch.cuda.empty_cache()
+
+        outlier_ratios = {}
+        for group in wanda:
+            threshold = torch.mean(wanda[group]) * self.owl_m
+            outlier_ratios[group] = (
+                100 * (wanda[group] > threshold).sum().item() / wanda[group].numel()
+            )
+        outlier_ratios_arr = np.array([outlier_ratios[k] for k in outlier_ratios])
+        for k in outlier_ratios:
+            outlier_ratios[k] = (outlier_ratios[k] - outlier_ratios_arr.min()) * (
+                1
+                / (outlier_ratios_arr.max() - outlier_ratios_arr.min())
+                * self.owl_lmbda
+                * 2
+            )
+        outlier_ratios_arr = np.array([outlier_ratios[k] for k in outlier_ratios])
+        sparsities = {
+            k: 1
+            - (
+                outlier_ratios[k]
+                - np.mean(outlier_ratios_arr)
+                + (1 - float(self.sparsity))
+            )
+            for k in outlier_ratios
+        }
+        _LOGGER.info(f"OWL sparsities for sp={self.sparsity} are:")
+        for k in sparsities:
+            _LOGGER.info(f"Sparsity for {k}: {sparsities[k]}")
+        return sparsities
+
+
+@torch.no_grad()
+def _get_activations(model, data_loader, nsamples=128):
+    import functools
+
+    model.eval()
+    acts = {}
+
+    def save_acts(module, input, name):
+        if isinstance(input, tuple):
+            input = input[0]
+        if name not in acts:
+            acts[name] = 1.0 / nsamples * input.detach().pow(2).sum(dim=(0, 1)).sqrt()
+        else:
+            acts[name] += 1.0 / nsamples * input.detach().pow(2).sum(dim=(0, 1)).sqrt()
+
+    hooks = []
+    for name, mod in model.named_modules():
+        if isinstance(mod, torch.nn.Linear) and "lm_head" not in name:
+            hooks.append(
+                mod.register_forward_pre_hook(functools.partial(save_acts, name=name))
+            )
+    device = next(model.parameters()).device
+    for batch in tqdm(data_loader):
+        batch = {k: v.to(device) for k, v in batch.items()}
+        model(**batch)
+        batch = None
+    torch.cuda.empty_cache()
+
+    for h in hooks:
+        h.remove()
+
+    return acts

@@ -17,7 +17,6 @@ import os
 import pytest
 import torch
 
-from flaky import flaky
 from sparseml.pytorch.sparsification import (
     StructuredPruningMaskCreator,
     StructuredPruningModifier,
@@ -74,7 +73,7 @@ def test_structured_sparsity_mask_creator(
                 assert torch.all(masks[mask_idx] == first_mask)
 
 
-@flaky(max_runs=3, min_passes=2)
+@pytest.mark.flaky(reruns=3, min_passes=2)
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
     reason="Skipping pytorch tests",

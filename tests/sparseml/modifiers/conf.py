@@ -40,6 +40,7 @@ class LifecyleTestingHarness:
             optimizer=optimizer,
             start=start,
             steps_per_epoch=1,
+            calib_data=[],
         )
 
         self.event_lifecycle = CallbacksEventLifecycle(

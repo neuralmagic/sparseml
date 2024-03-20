@@ -13,20 +13,39 @@
 # limitations under the License.
 
 from itertools import cycle
-from typing import Callable, List, Optional
+from typing import Callable, Dict, Optional
 
 import torch
 from torch.nn import Module
+from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 from sparseml.pytorch.utils import tensors_module_forward, tensors_to_device
 
 
+__all__ = ["apply_pad_mask_to_batch", "run_calibration_forward"]
+
+
+def apply_pad_mask_to_batch(batch: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    """
+    Apply a mask to the input ids of a batch. This is used to zero out
+    padding tokens so they do not contribute to the hessian calculation in the
+    SparseGPT algorithm
+
+    :param batch: batch to apply padding to if it exists
+    :return: batch with padding zeroed out in the input_ids
+    """
+    batch["input_ids"] = batch["input_ids"] * batch["attention_mask"]
+    return batch
+
+
 def run_calibration_forward(
     model: Module,
-    calibration_dataloader: List,
+    calibration_dataloader: DataLoader,
     num_calibration_steps: Optional[int] = None,
     calibration_function: Optional[Callable] = None,
     device: Optional[str] = None,
+    mask_padding: bool = False,
 ):
     """
     Helper function used by one-shot modifiers, runs calibration data through a model to
@@ -35,9 +54,10 @@ def run_calibration_forward(
     :param model: PyTorch model to run
     :param calibration_dataloader: data to use for calibration
     :param num_calibration_steps: number of items in calibration_dataloader to process,
-    None to process all available data
+    None or a negative number to process all available data
     :param calibration_function: option to pass a custom forward function for model
     :param device: option to move the model to a specific device before calibration
+    :param mask_padding: whether to zero out padding tokens during calibration
     """
     model.eval()
 
@@ -57,9 +77,11 @@ def run_calibration_forward(
     )
 
     # run through the calibration data
-    for batch_idx, batch in enumerate(_dataloader):
+    for batch_idx, batch in enumerate(tqdm(_dataloader)):
         if num_calibration_steps and batch_idx >= num_calibration_steps:
             break
+        if mask_padding:
+            batch = apply_pad_mask_to_batch(batch)
         batch = tensors_to_device(batch, model_device)
         with torch.no_grad():
             forward_fn(batch, module=model)

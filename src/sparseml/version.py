@@ -21,14 +21,17 @@ from datetime import date
 
 version_base = "1.7.0"
 is_release = False  # change to True to set the generated version as a release version
+is_dev = False
+dev_number = None
 
 
 def _generate_version():
-    return (
-        version_base
-        if is_release
-        else f"{version_base}.{date.today().strftime('%Y%m%d')}"
-    )
+    if is_release:
+        return version_base
+    elif is_dev:
+        return f"{version_base}.dev{dev_number}"
+    else:
+        return f"{version_base}.{date.today().strftime('%Y%m%d')}"
 
 
 __all__ = [

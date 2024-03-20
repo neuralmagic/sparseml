@@ -19,6 +19,7 @@ import yaml
 
 from sparseml.core.framework import Framework
 from sparseml.core.recipe import Recipe
+from sparseml.modifiers.obcq.base import SparseGPTModifier
 from tests.sparseml.helpers import should_skip_pytorch_tests, valid_recipe_strings
 
 
@@ -46,6 +47,16 @@ def test_serialization(recipe_str):
     actual_dict = recipe_from_serialized.dict()
 
     assert expected_dict == actual_dict
+
+
+@pytest.mark.parametrize(
+    "zoo_stub", ["zoo:bert-base_cased-squad_wikipedia_bookcorpus-pruned90"]
+)
+def test_zoo_stub_recipe(zoo_stub):
+    # TODO: no recipes in the new modifier framework exist in SparseZoo, so the yaml
+    # load will fail even though we successfully parse the recipe
+    with pytest.raises(ValueError):
+        Recipe.create_instance(zoo_stub)
 
 
 @pytest.mark.skipif(
@@ -79,3 +90,44 @@ def test_recipe_creates_correct_modifier():
     assert isinstance(modifier := modifiers[0], ConstantPruningModifierPyTorch)
     assert modifier.start == start
     assert modifier.end == end
+
+
+def test_recipe_can_be_created_from_modifier_instances():
+    modifier = SparseGPTModifier(
+        sparsity=0.5,
+    )
+    group_name = "dummy"
+
+    # for pep8 compliance
+    recipe_str = (
+        f"{group_name}_stage:\n"
+        "   pruning_modifiers:\n"
+        "       SparseGPTModifier:\n"
+        "           sparsity: 0.5\n"
+    )
+
+    expected_recipe_instance = Recipe.create_instance(recipe_str)
+    expected_modifiers = expected_recipe_instance.create_modifier(
+        framework=Framework.pytorch
+    )
+
+    actual_recipe_instance = Recipe.create_instance(
+        [modifier], modifier_group_name=group_name
+    )
+    actual_modifiers = actual_recipe_instance.create_modifier(
+        framework=Framework.pytorch
+    )
+
+    # assert num stages is the same
+    assert len(actual_modifiers) == len(expected_modifiers)
+
+    # assert num modifiers in each stage is the same
+    assert len(actual_modifiers[0].modifiers) == len(expected_modifiers[0].modifiers)
+
+    # assert modifiers in each stage are the same type
+    # and have the same parameters
+    for actual_modifier, expected_modifier in zip(
+        actual_modifiers[0].modifiers, expected_modifiers[0].modifiers
+    ):
+        assert isinstance(actual_modifier, type(expected_modifier))
+        assert actual_modifier.dict() == expected_modifier.dict()

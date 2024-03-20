@@ -14,6 +14,4 @@
 
 # flake8: noqa
 
-from .model_args import ModelArguments
-from .trainer import Trainer
-from .training_args import TrainingArguments
+from .text_generation import apply, compress, eval, oneshot, train

@@ -12,17 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, Generator, List, Optional, Tuple, Union
 
 from torch.nn import Module, Parameter
 
 from sparseml.core.framework import Framework
 from sparseml.core.model.base import ModelParameterizedLayer, ModifiableModel
+from sparseml.pytorch.utils.sparsification_info.module_sparsification_info import (
+    ModuleSparsificationInfo,
+)
 from sparseml.utils.pytorch import (
     get_layer,
     get_layers,
     get_layers_params,
     get_matching_layer,
+    get_no_split_params,
     get_param,
     get_params,
     qat_active,
@@ -102,6 +106,30 @@ class ModifiableModelPyTorch(ModifiableModel[Module, Module, Parameter]):
         """
         return set_param(target, param, self.model)
 
+    def loggable_items(self) -> Generator[Tuple[str, Any], None, None]:
+        """
+        PyTorch specific logging info for the model.
+        loggable items are defined in the `ModuleSparsificationInfo` class,
+        and include sparsity, quantization, and pruning information.
+
+        This includes:
+            - Total operation counts
+            - Total parameter counts
+            - sparsity percentages per layer (with non-zero sparsity only)
+            - quantization bitwidth (for quantized layers)
+
+        :return a generator that yields a tuple of:
+            - the name of the loggable item
+            - the value of the loggable item
+        """
+        sparsification_info = ModuleSparsificationInfo.from_module(self.model)
+
+        yield from sparsification_info.loggable_items(
+            percentages_only=True,
+            non_zero_only=True,
+            enabled_only=True,
+        )
+
     def get_matching_layer(
         self, target: str, name_to_match: str, model: Module
     ) -> Optional[Tuple[str, Module]]:
@@ -119,3 +147,13 @@ class ModifiableModelPyTorch(ModifiableModel[Module, Module, Parameter]):
         :return: True if QAT is active in any layer, False otherwise
         """
         return qat_active(self.model)
+
+    def get_no_split_params(self) -> Union[str, List[str]]:
+        """
+        Get list of module classes that shouldn't be split when sharding. For
+        Hugging Face Transformer models, this is the decoder layer type. For other
+        types of models, this just returns all module names.
+
+        :return: list of class names that shouldn't be split
+        """
+        return get_no_split_params(self.model)

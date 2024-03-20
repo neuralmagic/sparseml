@@ -29,48 +29,41 @@ class SparseGPTModifier(WandaPruningModifier):
     """
     Modifier for applying the one-shot OBCQ algorithm to a model
 
-    Life-cycle:
-        - initialze
-            - compress
-        - finalize
+    Lifecycle:
+        - on_initialize
+            - initialize_compression()
+                - compressible_layers()
+                - LayerCompressor.pre_compress()
+            - apply_compression()
+                - run_calibration_forward()
+                - LayerCompressor.compress()
+                - LayerCompressor.post_compress()
+        - on_finalize
+            - LayerCompressor.revert_layer_wrappers()
 
-    :param sparsity: Sparsity to compress model to
     :param block_size: Used to determine number of columns to compress in one pass
     :param quantize: Whether or not to quantize weights during SparseGPT. Set to
         True to quantize using an existing quantization modifier, or pass in the
         configuration for a quantization modifier if one does not already exist
         in the recipe
+    :param sparsity: Sparsity to compress model to
     :param dampening_frac: Amount of dampening to apply to H, as a fraction of the
         diagonal norm
-    :param sequential_update: Whether or not to update weights sequentially by layer,
-        True saves on GPU memory
-    :param mask_structure: String to define the structure of the mask to apply.
-        Must be of the form N:M where N, M are integers that define a custom block
-        shape. Defaults to 0:0 which represents an unstructured mask.
-    :param targets: list of layer names to compress during OBCQ, or '__ALL__'
-        to compress every layer in the model
-    :param target_ids: list of keys in model output to cache, NOTE: this argument
-        has been deprecated and will be removed in a future release
     """
 
-    block_size: int
-    quantize: Union[bool, Dict]
+    block_size: int = 128
+    quantize: Union[bool, Dict] = False
+    sparsity: Union[float, List[float]] = 0.0
     dampening_frac: Optional[float] = 0.01
-    sequential_update: Optional[bool] = True
-    prunen_: Optional[int] = None
-    prunem_: Optional[int] = None
-    target_ids: Optional[List[str]] = None
-    layer_prefix: Optional[str] = None
     quantization_modifier_: Any = None
 
-    def __post_init__(self):
-        if self.target_ids is not None:
-            _LOGGER.warning(
-                "`target_ids` param has been deprecated and will be "
-                "removed in a future release"
-            )
-
     def on_initialize_structure(self, state: State, **kwargs):
+        """
+        Check the model's quantization state matches that expected by this modifier,
+        adding a default quantization scheme if needed
+
+        :param state: session state storing input model and calibration data
+        """
         quantization_already_active = state.model.qat_active()
         if isinstance(self.quantize, bool):
             if not self.quantize and quantization_already_active:

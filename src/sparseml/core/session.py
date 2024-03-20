@@ -19,7 +19,9 @@ from typing import Any, Callable, Dict, List, Optional, Union
 
 from sparseml.core.event import EventType
 from sparseml.core.framework import Framework
+from sparseml.core.helpers import log_model_info, should_log_model_info
 from sparseml.core.lifecycle import SparsificationLifecycle
+from sparseml.core.logger import BaseLogger, LoggerManager
 from sparseml.core.recipe import Recipe
 from sparseml.core.state import ModifiedState, State
 
@@ -100,7 +102,7 @@ class SparseSession:
         This will run the pre-initialize structure method for each modifier in the
         session's lifecycle. This will also set the session's state to the
         pre-initialized state. Takes care of cases when the model(s) structure
-        has been previosuly modified by a modifier.
+        has been previously modified by a modifier.
 
         :param model: the model to pre-initialize the structure for
         :param recipe: the recipe to use for the sparsification, can be a path to a
@@ -146,6 +148,7 @@ class SparseSession:
         start: Optional[float] = None,
         steps_per_epoch: Optional[int] = None,
         batches_per_step: Optional[int] = None,
+        loggers: Union[None, LoggerManager, List[BaseLogger]] = None,
         **kwargs,
     ) -> ModifiedState:
         """
@@ -174,6 +177,8 @@ class SparseSession:
             sparsification
         :param batches_per_step: the number of batches per step to use for
             sparsification
+        :param loggers: the logger manager to setup logging important info
+            and milestones to, also accepts a list of BaseLogger(s)
         :param kwargs: additional kwargs to pass to the lifecycle's initialize method
         :return: the modified state of the session after initializing
         """
@@ -195,13 +200,14 @@ class SparseSession:
             start=start,
             steps_per_epoch=steps_per_epoch,
             batches_per_step=batches_per_step,
+            loggers=loggers,
             **kwargs,
         )
 
         return ModifiedState(
             model=self.state.model.model if self.state.model else None,
             optimizer=self.state.optimizer.optimizer if self.state.optimizer else None,
-            loss=self.state.loss.loss if self.state.loss else None,
+            loss=self.state.loss,
             modifier_data=mod_data,
         )
 
@@ -255,7 +261,6 @@ class SparseSession:
         mod_data = self._lifecycle.event(
             event_type=event_type, batch_data=batch_data, loss=loss, **kwargs
         )
-
         return ModifiedState(
             model=self.state.model.model if self.state.model else None,
             optimizer=self.state.optimizer.optimizer if self.state.optimizer else None,
@@ -263,11 +268,28 @@ class SparseSession:
             modifier_data=mod_data,
         )
 
+    def log(self, event_type: EventType, loss: Optional[Any] = None):
+        """
+        Log model and loss information for the current event type
+
+        :param event_type: the event type to log for
+        :param loss: the loss to log if any
+        """
+        self._log_model_info()
+        self._log_loss(event_type=event_type, loss=loss)
+
     def reset(self):
         """
         Reset the session to its initial state
         """
         self._lifecycle.reset()
+
+    def reset_stage(self):
+        """
+        Reset the session for starting a new stage, recipe and model stays intact
+        """
+        self.lifecycle.initialized_ = False
+        self.lifecycle.finalized = False
 
     def get_serialized_recipe(self) -> str:
         """
@@ -275,6 +297,63 @@ class SparseSession:
         """
         recipe = self.lifecycle.recipe_container.compiled_recipe
         return recipe.yaml()
+
+    def _log_model_info(self):
+        # Log model level logs if cadence reached
+        event_lifecycle = self._lifecycle.event_lifecycle
+        if event_lifecycle is None:
+            # event lifecycle not available
+            # when recipe is not provided
+            return
+
+        epoch = event_lifecycle.current_index
+
+        if (
+            should_log_model_info(
+                model=self.state.model,
+                loggers=self.state.loggers,
+                current_log_step=epoch,
+                last_log_step=self.state._last_log_step,
+            )
+            and self.state.loggers.frequency_manager.is_epoch_frequency_manager
+        ):
+            log_model_info(
+                state=self.state,
+                current_log_step=epoch,
+            )
+            # update last log epoch
+            self.state.loggers.log_written(epoch)
+
+    def _log_loss(self, event_type: EventType, loss: Any):
+        if event_type != EventType.LOSS_CALCULATED:
+            # only log loss when loss is calculated
+            return
+        event_lifecycle = self._lifecycle.event_lifecycle
+
+        if event_lifecycle is None:
+            # event lifecycle not available
+            # when recipe is not provided
+            return
+
+        epoch = event_lifecycle.current_index
+        if self.state.loggers.frequency_manager.is_optim_frequency_manager:
+            # log integer step for optimizer frequency manager
+            current_step = int(
+                self.state.loggers.epoch_to_step(
+                    epoch=epoch,
+                    steps_per_epoch=len(self.state.data.train),
+                )
+            )
+        else:
+            # log float epoch for epoch frequency manager
+            current_step = epoch
+
+        # always log loss if available
+        if loss is not None:
+            loss = loss if isinstance(loss, dict) else {"loss": loss}
+            self.state.loggers.metric.log_scalars(
+                tag="Loss", values=loss, step=current_step
+            )
 
 
 _global_session = SparseSession()
@@ -474,6 +553,10 @@ class LifecycleCallbacks:
                 f"Use the corresponding method instead."
             )
 
+        # skip event callbacks if no recipe was provided
+        if not active_session().lifecycle.recipe_container.check_any_recipe_exists():
+            return
+
         return active_session().event(event_type, **kwargs)
 
     @classmethod
@@ -496,6 +579,8 @@ class LifecycleCallbacks:
         :param kwargs: additional kwargs to pass to the current session's event method
         :return: the modified state of the active session after invoking the event
         """
+        # log loss if loss calculated
+        active_session()._log_loss(event_type=EventType.LOSS_CALCULATED, loss=loss)
         return cls.event(EventType.LOSS_CALCULATED, loss=loss, **kwargs)
 
     @classmethod
@@ -526,6 +611,7 @@ class LifecycleCallbacks:
         :param kwargs: additional kwargs to pass to the current session's event method
         :return: the modified state of the active session after invoking the event
         """
+        active_session()._log_model_info()
         return cls.event(EventType.BATCH_END, **kwargs)
 
 

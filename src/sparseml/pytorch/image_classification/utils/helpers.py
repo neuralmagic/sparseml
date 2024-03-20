@@ -21,6 +21,7 @@ import os
 import warnings
 from contextlib import nullcontext
 from enum import Enum, auto, unique
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import torch
@@ -47,6 +48,7 @@ from sparseml.pytorch.utils import (
     default_device,
     download_framework_model_by_recipe_type,
     early_stop_data_loader,
+    load_model,
     model_to_device,
     set_deterministic_seeds,
     torch_distributed_zero_first,
@@ -349,8 +351,10 @@ def create_model(
     arch_key: Optional[str] = None,
     pretrained: Union[bool, str] = False,
     pretrained_dataset: Optional[str] = None,
+    one_shot: Optional[str] = None,
     local_rank: int = -1,
-    **model_kwargs,
+    model_kwargs: Optional[Dict[str, Any]] = None,
+    **kwargs,
 ) -> Tuple[Module, str, str]:
     """
     :param checkpoint_path: Path to the checkpoint to load. `zoo` for
@@ -364,11 +368,14 @@ def create_model(
         False
     :param pretrained_dataset: The dataset to used for pretraining. Defaults to
         None
+    :param one_shot: The recipe to be applied in one-shot manner,
+        before exporting. Defaults to None
     :param local_rank: The local rank of the process. Defaults to -1
     :param model_kwargs: Additional keyword arguments to pass to the model
     :returns: A tuple containing the mode, the model's arch_key, and the
         checkpoint path
     """
+    model_kwargs = model_kwargs or {}
     with torch_distributed_zero_first(local_rank):
         # only download once locally
         if checkpoint_path and checkpoint_path.startswith("zoo"):
@@ -398,6 +405,16 @@ def create_model(
             model, arch_key = result, arch_key
         else:
             model, arch_key = result
+
+        # TODO: discuss how this is related to the above application of recipes
+        if recipe_path is not None:
+            # TODO: replace this with a new manager introduced by @satrat
+            ScheduledModifierManager.from_yaml(recipe_path).apply_structure(model)
+            if checkpoint_path:
+                load_model(checkpoint_path, model, strict=True)
+
+        if one_shot is not None:
+            ScheduledModifierManager.from_yaml(file_path=one_shot).apply(module=model)
 
         return model, arch_key, checkpoint_path
 
@@ -643,3 +660,45 @@ def _download_model_from_zoo_using_recipe(
         Model(recipe_stub),
         recipe_name=recipe_type,
     )
+
+
+def is_image_classification_model(source_path: Union[Path, str]) -> bool:
+    """
+    :param source_path: The path to the model
+    :return: Whether the model is an image classification model or not
+    """
+
+    if not os.path.isfile(source_path):
+        checkpoint_path = os.path.join(source_path, "model.pth")
+    else:
+        checkpoint_path = source_path
+    try:
+        if torch.cuda.is_available():
+            checkpoint = torch.load(checkpoint_path)
+        else:
+            checkpoint = torch.load(checkpoint_path, map_location=torch.device("cpu"))
+
+        arch_key = checkpoint.get("arch_key")
+        if arch_key:
+            return True
+    except Exception as e:
+        _LOGGER.debug(
+            f"Model: {checkpoint_path} not an image classification model: {e}"
+        )
+        return False
+
+
+def _validate_dataset_num_classes(
+    dataset: str,
+    dataset_path: str,
+    num_classes: int,
+):
+    if dataset and not dataset_path:
+        raise ValueError(f"found dataset {dataset} but dataset_path not specified")
+    if dataset_path and not dataset:
+        raise ValueError(f"found dataset_path {dataset_path} but dataset not specified")
+    if num_classes is None and (not dataset or not dataset_path):
+        raise ValueError(
+            "If num_classes is not provided, both dataset and dataset_path must be "
+            "set to infer num_classes"
+        )

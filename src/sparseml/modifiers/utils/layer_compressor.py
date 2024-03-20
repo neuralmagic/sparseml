@@ -12,73 +12,63 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import inspect
 import logging
-from abc import ABC
-from typing import Dict, List
+import operator
+from typing import Dict
 
 import torch
 from torch.nn import Module
 
-from sparseml.modifiers.utils.module_compressor import ModuleCompressor
-from sparseml.pytorch.utils.helpers import get_dependency_order
+from sparseml.modifiers.utils.compression_wrapper import ModuleCompressionWrapper
+from sparseml.utils.fsdp.context import fix_fsdp_module_name, summon_full_params_context
+from sparseml.utils.pytorch import set_layer
 from sparseml.utils.pytorch.module import get_prunable_layers
 
 
 __all__ = ["LayerCompressor"]
+
 _LOGGER = logging.getLogger(__name__)
 
 
-class LayerCompressor(ABC):
+class LayerCompressor:
     """
-    Defines the contract to run GPT algorithms on a
-    single layer using calibration data inputs
+    Runs weight sparisification on a single layer using calibration data inputs. The
+    layer may contain submodules. The specific sparsification algorithm is determined
+    by module_compressor_class.
 
-    Example Lifecycle:
-        - compress
-            - pre_compress_parallel (optional)
-            - add_batch
-            - fasterprune
-            - post_compress
+    Lifecycle:
+        - pre_compress()
+            - compressible_modules()
+            - module_compressor_class.register_forward_hook()
+        - compress()
+            - module_compressor_class.fasterprune()
+        - post_compress()
+        - revert_layer_wrappers()
 
-    Note: inheriting classes must define the gpt_class attribute,
-    and implement the invoke_fasterprune, and compress methods.
-
+    :param module_compressor_class: wrapper class to use for root modules
     :param model: model containing the layer we are running compression on
     :param layer: layer to run compression on
     :param layer_index: index of layer in the model
-    :param inputs: calibration data to pass through the layer
     :param args: additional keyword arguments
     """
 
-    module_compressor_class: ModuleCompressor
-
     def __init__(
-        self, model: Module, layer: Module, layer_index: int, inputs: List, args: Dict
+        self,
+        module_compressor_class: ModuleCompressionWrapper,
+        model: Module,
+        layer: Module,
+        layer_index: int,
+        name: str,
+        args: Dict,
     ):
+        self.module_compressor_class = module_compressor_class
         self.model = model
         self.layer = layer
         self.layer_index = layer_index
-        self.inputs = inputs
+        self.name = name
         self.args = args
-
-    def compress(self, dev: str = "cuda:0", **kwargs) -> Dict:
-        """
-        Run GPT compression on all compressible modules in the layer
-
-        :param dev: device to run computation on
-        """
-        raise NotImplementedError()
-
-    def invoke_fasterprune(self, module_compressor: ModuleCompressor):
-        """
-        Invoke fasterprune method on the GPT object
-
-        :param gpts: Instantiated GPT object
-        :raises NotImplementedError: inheritor must provide an
-            implementation for this method
-        """
-        raise NotImplementedError()
+        self.handles = None
+        self.modules = {}
 
     def compressible_modules(self) -> Dict:
         """
@@ -89,122 +79,73 @@ class LayerCompressor(ABC):
         compressible_layers = get_prunable_layers(self.layer)
         return compressible_layers
 
-    def pre_compress_parallel(self, **kwargs) -> Dict:
+    def pre_compress(self):
         """
         Sets up the SparseGPT objects for each compressible module, computes the Hessian
         for each using the calibration data.
-
-        :return: SparseGPT objects for each module
         """
         subset = self.compressible_modules()
 
-        gpts = {}
         for name in subset:
-            gpts[name] = self.module_compressor_class(subset[name])
+            layer = subset[name]
+            full_name = self._get_full_submodule_name(name)
+            with summon_full_params_context(self.layer):
+                wrapper = self.module_compressor_class(full_name, layer)
+            if len(name) == 0:  # special case if layer has no children (i.e. lm_head)
+                with summon_full_params_context(self.model):
+                    set_layer(full_name, wrapper, self.model)
+            else:
+                set_layer(name, wrapper, self.layer)
+            self.modules[name] = wrapper
+
+        self.layer = operator.attrgetter(self.name)(self.model)
 
         def add_batch(name):
             def tmp(_, inp, out):
-                gpts[name].add_batch(inp[0].data, out.data)
+                self.modules[name].add_batch(inp[0].data, out.data)
 
             return tmp
 
-        handles = []
-        for name in gpts:
-            handles.append(subset[name].register_forward_hook(add_batch(name)))
+        self.handles = []
+        for name in self.modules:
+            self.handles.append(subset[name].register_forward_hook(add_batch(name)))
 
-        # Run through the samples in order to compute Hessian matrix for each module
-        nsamples = len(self.inputs)
-        forward_args_spec = inspect.getfullargspec(self.layer.__class__.forward)
-        passed_in_args = [arg for arg in forward_args_spec.args if arg in kwargs]
-        for sample_idx in range(nsamples):
-            passed_in_kwargs = {}
-            for arg in passed_in_args:
-                if isinstance(kwargs[arg], List):
-                    passed_in_kwargs[arg] = kwargs[arg][sample_idx]
-                else:
-                    passed_in_kwargs[arg] = kwargs[arg]
-            self.layer(self.inputs[sample_idx], **passed_in_kwargs)
-        for h in handles:
-            h.remove()
-
-        return {"gpts": gpts}
-
-    def post_compress(self, **kwargs) -> Dict:
+    def post_compress(self):
         """
-        Clean up after compression
-
-        :return: outputs of the layer
+        remove the add_batch forward hooks after compression is complete
         """
-        nsamples = len(self.inputs)
-        outputs = []
-        forward_args_spec = inspect.getfullargspec(self.layer.__class__.forward)
-        passed_in_args = [arg for arg in forward_args_spec.args if arg in kwargs]
-        for j in range(nsamples):
-            passed_in_kwargs = {}
-            for arg in passed_in_args:
-                if isinstance(kwargs[arg], List):
-                    passed_in_kwargs[arg] = kwargs[arg][j]
-                else:
-                    passed_in_kwargs[arg] = kwargs[arg]
-            outputs.append(self.layer(self.inputs[j], **passed_in_kwargs)[0])
-
-        self.inputs = None
-        # once we've finished compressing the layer, move it back to CPU to save memory
-        self.layer.to("cpu")
-        torch.cuda.empty_cache()
-
-        return {"outputs": outputs}
-
-    def sequentially_compress(self, **kwargs):
-        """
-        Run compression module by module, in dependency order. Unlike in parallel
-        compression, we compute the Hessians layer by layer instead of computing them
-        all up front. This saves on memory and means compression in earlier layers
-        affects the inputs to later layers
-        """
-        subset = self.compressible_modules()
-
-        # filter kwargs that are expected as layer inputs
-        forward_args_spec = inspect.getfullargspec(self.layer.__class__.forward)
-        passed_in_args = [arg for arg in forward_args_spec.args if arg in kwargs]
-
-        passed_in_kwargs = {}
-        for arg in passed_in_args:
-            if isinstance(kwargs[arg], List):  # take the first batch
-                passed_in_kwargs[arg] = kwargs[arg][0]
-            else:
-                passed_in_kwargs[arg] = kwargs[arg]
-        order = get_dependency_order(
-            self.layer, subset, self.inputs[0], **passed_in_kwargs
-        )
-
-        nsamples = len(self.inputs)
-        for (
-            name
-        ) in order:  # create ModuleCompressor object for each compressible module
-            gpts: ModuleCompressor = self.module_compressor_class(subset[name])
-
-            def add_batch(name):
-                def tmp(_, inp, out):
-                    gpts.add_batch(inp[0].data, out.data)
-
-                return tmp
-
-            # add ModuleCompressor hook for current module
-            handle = subset[name].register_forward_hook(add_batch(name))
-            for sample_idx in range(nsamples):
-                passed_in_kwargs = {}
-                for arg in passed_in_args:
-                    if isinstance(kwargs[arg], List):
-                        passed_in_kwargs[arg] = kwargs[arg][sample_idx]
-                    else:
-                        passed_in_kwargs[arg] = kwargs[arg]
-                # run layer, triggering SparseGPT add_batch for current module
-                self.layer(self.inputs[sample_idx], **passed_in_kwargs)
+        for handle in self.handles:
             handle.remove()
 
-            _LOGGER.info(f"Compressing module {name} of layer {self.layer_index}")
+    def revert_layer_wrappers(self):
+        """
+        Reverts wrapped root modules back to their original structure
+        """
+        for name, module_wrapper in self.modules.items():
+            full_name = self._get_full_submodule_name(name)
+            if len(name) == 0:  # special case if layer has no children (i.e. lm_head)
+                with summon_full_params_context(self.model):
+                    set_layer(full_name, module_wrapper.layer, self.model)
+            else:
+                set_layer(name, module_wrapper.layer, self.layer)
+            module_wrapper.free()
+        self.modules = None
 
-            # run compression algorithm on current module
-            self.invoke_fasterprune(module_compressor=gpts)
-            gpts.free()
+    def compress(self):
+        """
+        Apply compression to each wrapped submodule in the layer
+        """
+
+        @torch.no_grad()
+        def prune(module):
+            if isinstance(module, self.module_compressor_class):
+                full_name = self._get_full_submodule_name(module.name)
+                _LOGGER.info(f"Compressing {full_name}...")
+                module.fasterprune(**self.args)
+
+        self.layer.apply(prune)
+
+    def _get_full_submodule_name(self, name):
+        full_name = ".".join(x for x in [self.name, name] if len(x) > 0)
+        full_name = fix_fsdp_module_name(full_name)
+        return full_name
