@@ -40,7 +40,11 @@ from sparseml.transformers.finetune.data.data_helpers import (
 )
 from sparseml.transformers.finetune.model_args import ModelArguments
 from sparseml.transformers.finetune.training_args import TrainingArguments
-from sparseml.utils.fsdp.helpers import is_fsdp_model, unwrap_and_export_model
+from sparseml.utils.fsdp.helpers import (
+    find_and_move_state_dicts_to_cpu,
+    is_fsdp_model,
+    unwrap_and_export_model,
+)
 
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
@@ -175,6 +179,15 @@ class StageRunner:
                     output_dir=self._output_dir,
                     tokenizer=self.tokenizer,
                 )
+                # only allow the main process move the state
+                # dicts to cpu
+                if self.trainer.accelerator.is_main_process:
+                    # assuming quantization is the last step
+                    # we no longer need the original model
+                    # and can safely delete it to save memory
+                    del self.trainer.model
+                    find_and_move_state_dicts_to_cpu(self._output_dir)
+
         else:
             save_model_and_recipe(
                 model=self.trainer.model,
