@@ -131,7 +131,7 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
         model: PreTrainedModel,
         save_directory: str,
         sparsity_config: Optional[CompressionConfig] = None,
-        save_dense: bool = True,
+        save_compressed: bool = False,
         **kwargs,
     ):
         """
@@ -143,17 +143,17 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
         :param save_directory: output directory to save model to
         :param sparsity_config: optional sparsity config to compress model with, if no
         config is provided it will be inferred from the model
-        :param save_dense: whether or not to compress the model on disk
+        :param save_compresed: whether or not to compress the model on disk
         :param kwargs: additional kwargs to pass on to model.save_pretrained
         """
         if sparsity_config is not None:
             # if a sparsity config is provided, always save compressed
             sparsity_config.fill_config_details(model)
-            save_dense = False
-        else:
+            save_compressed = True
+        elif save_compressed:
             # try to infer a sparsity config from the model if none is provided
             sparsity_config = CompressionConfig.infer_config_from_model(
-                model, force_dense=save_dense
+                model, compress=save_compressed
             )
 
         if sparsity_config is None:
@@ -201,7 +201,7 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
             model=model,
             save_directory=save_directory,
             sparsity_config=sparsity_config,
-            save_dense=False,
+            save_compressed=True,
             **kwargs,
         )
 

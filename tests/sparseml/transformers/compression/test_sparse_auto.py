@@ -21,15 +21,24 @@ from transformers import AutoConfig
 
 import sparseml.core.session as session_manager
 from sparseml.transformers import SparseAutoModelForCausalLM, oneshot
-from sparseml.transformers.compression import BitmaskConfig, CompressionConfig
+from sparseml.transformers.compression import (
+    BitmaskConfig,
+    CompressionConfig,
+    DenseSparsityConfig,
+)
 from sparseml.transformers.utils.helpers import SPARSITY_CONFIG_NAME
 
 
 @pytest.mark.parametrize(
-    "dense,config",
-    [[True, None], [False, None], [True, BitmaskConfig()], [False, BitmaskConfig()]],
+    "compressed,config",
+    [
+        [True, None],
+        [False, DenseSparsityConfig()],
+        [True, BitmaskConfig()],
+        [False, BitmaskConfig()],
+    ],
 )
-def test_sparse_model_reload(dense, config, tmp_path):
+def test_sparse_model_reload(compressed, config, tmp_path):
     recipe_str = "tests/sparseml/transformers/obcq/test_tiny2.yaml"
     model_path = "Xenova/llama2.c-stories15M"
     device = "cuda:0"
@@ -61,13 +70,16 @@ def test_sparse_model_reload(dense, config, tmp_path):
     assert inferred_structure == "0:0"
 
     SparseAutoModelForCausalLM.save_pretrained(
-        model, tmp_path / "compress_out", sparsity_config=config, save_dense=dense
+        model,
+        tmp_path / "compress_out",
+        sparsity_config=config,
+        save_compressed=compressed,
     )
     config = AutoConfig.from_pretrained(tmp_path / "compress_out")
     sparsity_config = getattr(config, SPARSITY_CONFIG_NAME, None)
     assert (
         sparsity_config["format"] == "dense"
-        if (dense and config is None)
+        if (not compressed and config is None)
         else "sparse_bitmask"
     )
     assert sparsity_config["global_sparsity"] == inferred_global_sparsity

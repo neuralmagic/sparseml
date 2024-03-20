@@ -75,14 +75,13 @@ class CompressionConfig(RegistryMixin, BaseModel):
 
     @staticmethod
     def infer_config_from_model(
-        model: Module, force_dense: bool = False
+        model: Module, compress: bool = False
     ) -> Optional["CompressionConfig"]:
         """
         Determines compression type and informational parameters for a given model
 
         :param model: pytorch model to calculate sparsity config for
-        :param force_dense: whether or not to save the model dense on disk, regardless
-        of sparsity percentage
+        :param compress: whether or not to compress the model on disk
         :return: compression config inferred from the model
         """
 
@@ -92,10 +91,10 @@ class CompressionConfig(RegistryMixin, BaseModel):
             return None
 
         sparsity_structure = CompressionConfig.infer_sparsity_structure()
-        if force_dense:
-            format = "dense_sparsity"
-        else:
+        if compress:
             format = "sparse_bitmask"
+        else:
+            format = "dense_sparsity"
 
         return CompressionConfig.load_from_registry(
             format,

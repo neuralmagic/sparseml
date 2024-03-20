@@ -89,19 +89,21 @@ SparseAutoModelForCausalLM.save_compressed(
 SparseAutoModelForCausalLM.save_pretrained(
     model,
     save_directory=output_dir,
-    save_dense=False
+    save_compressed=True
 )
 ```
 
-Saving a model in the dense format. If the model has at least 5% global sparsity a 
-sparsity config will still be included in `config.json` with format `dense_sparsity`
+Saving a model in the dense format, but still include a sparsity config in `config.json`
+with global sparsity and sparsity structure information
 
 ```python
 from sparseml.transformers.utils import SparseAutoModelForCausalLM
+from sparseml.transformers.compression import DenseSparsityConfig
 
 SparseAutoModelForCausalLM.save_pretrained(
     model,
-    save_directory=output_dir
+    save_directory=output_dir,
+    sparsity_config=DenseSparsityConfig()
 )
 ```
 
