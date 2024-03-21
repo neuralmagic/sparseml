@@ -35,32 +35,47 @@ needed for decompression in the compressed state_dict:
 ```python
 from sparseml.transformers import SparseAutoModelForCausalLM
 from sparseml.transformers.compression import BitmaskConfig, BitmaskCompressor
-from safetensors import safe_open
-import os
+from sparseml.utils.pytorch.utils import measure_cuda_memory
+from tqdm import tqdm
+import torch
 
 MODEL_PATH = "zoo:llama2-7b-gsm8k_llama2_pretrain-pruned50.oneshot"
 OUTPUT_PATH = "./test_compress_output"
 
-model = SparseAutoModelForCausalLM.from_pretrained(MODEL_PATH)
+torch.cuda.set_device(0)
+with measure_cuda_memory() as m:
+    model = SparseAutoModelForCausalLM.from_pretrained(MODEL_PATH, device_map="cuda:0")
+print(f"Load dense model peak GPU {m.overall_peak_memory / float(2**30):.4f} GB")
 
 sparsity_config = BitmaskConfig()
 compressor = BitmaskCompressor(config=sparsity_config)
 
-model_state_dict = model.state_dict()
-sparse_state_dict = compressor.compress(model_state_dict)
+# compresses the model using Bitmask compression
+with measure_cuda_memory() as m:
+    model_state_dict = model.state_dict()
+    sparse_state_dict = compressor.compress(model_state_dict)
 
+    # save the compressed model
+    model.save_pretrained(
+        OUTPUT_PATH, 
+        safe_serialization=True, 
+        state_dict=sparse_state_dict
+    )
 
-model.save_pretrained(OUTPUT_PATH, safe_serialization=True, state_dict=sparse_state_dict)
+print(f"Save compressed model peak GPU {m.overall_peak_memory / float(2**30):.4f} GB")
 
-safetensors_path = os.path.join(OUTPUT_PATH, "model-00001-of-00002.safetensors")
-with safe_open(safetensors_path, framework="pt", device=0) as f:
-    test_name = "model.layers.4.self_attn.k_proj.weight"
-    bitmask = f.get_tensor(test_name + ".bitmask")
-    shape = f.get_tensor(test_name + ".shape")
-    values = f.get_tensor(test_name + ".compressed")
-    row_offsets = f.get_tensor(test_name + ".row_offsets")
-    print(f"bitmask: {bitmask}")
-    print(f"shape: {shape}")
-    print(f"values: {values}")
-    print(f"row offsets: {row_offsets}")
+# use the dense state dict to reload the model
+torch.cuda.set_device(1)
+with measure_cuda_memory() as m:
+    model_again = SparseAutoModelForCausalLM.from_pretrained(
+        OUTPUT_PATH, 
+        device_map="cuda:1"
+    )
+
+    #returns iterator
+    dense_state_dict = compressor.decompress(OUTPUT_PATH)
+    for name, data in tqdm(dense_state_dict, desc="Decompressing model"):
+        BitmaskCompressor.replace_layer(name, data, model_again)
+
+print(f"Load compressed model peak GPU {m.overall_peak_memory / float(2**30):.4f} GB")
 ```
