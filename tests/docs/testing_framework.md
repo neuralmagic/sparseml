@@ -63,3 +63,35 @@ tests allowing us to run a subset of the tests when needed
 - Two new decorators are added in to check for package and compute requirements. If
 the requirements are not met, the test is skipped. Currently, `requires_torch` and 
 `requires_gpu` are added in and can be found under `testing_utils.py`
+
+## Testing Targets 
+
+### Unit Testing Targets:
+- A unit test should be written for every utils, helper, or static function. 
+    - Test cases should be written for all datatype combinations that the function takes as input 
+    - Can have `smoke` tests but focus should be on `sanity`
+
+### Integration Testing Targets:
+- An integration test should be written for every cli pathway that is exposed through `setup.py`
+    - All cli-arg combinations should be tested through a `smoke` check 
+    (all may be overkill but ideally we're covering beyond the few important combinations)
+    - All **important** cli-arg combinations should be covered through either a `sanity`
+    check or a `regression` check
+        - A small model should be tested through a `sanity` check  
+        - All other larger models should be tested through `regression` test types
+   
+- An integration test should be written for every major/critical module 
+    - All arg combinations should be tested through a `smoke` check
+    (all may be overkill but ideally we're covering beyond the few important combinations)
+    - All **important** arg combinations should be covered through either a `sanity`
+    check or a `regression` check
+        - A small model should be tested through a `sanity` check  
+        - All other larger models should be tested through `regression` test types
+
+## End-to-end Testing Targets:
+- Tests cascading repositories (sparseml --> vLLM) but will become more prominent as are
+docker containers are furhter solidified
+
+## Cadence
+- Ideally, large models and `regression` tests should be tested on a nightly cadence while
+unit tests and `sanity` test should be tested on a per commit basis
