@@ -30,15 +30,15 @@ from sparseml.transformers.utils.helpers import SPARSITY_CONFIG_NAME
 
 
 @pytest.mark.parametrize(
-    "compressed,config",
+    "compressed,config,dtype",
     [
-        [True, None],
-        [False, DenseSparsityConfig()],
-        [True, BitmaskConfig()],
-        [False, BitmaskConfig()],
+        [True, None, torch.float32],
+        [False, DenseSparsityConfig(), torch.float16],
+        [True, BitmaskConfig(), torch.bfloat16],
+        [False, BitmaskConfig(), torch.float32],
     ],
 )
-def test_sparse_model_reload(compressed, config, tmp_path):
+def test_sparse_model_reload(compressed, config, dtype, tmp_path):
     recipe_str = "tests/sparseml/transformers/obcq/test_tiny2.yaml"
     model_path = "Xenova/llama2.c-stories15M"
     device = "cuda:0"
@@ -60,9 +60,12 @@ def test_sparse_model_reload(compressed, config, tmp_path):
         concatenate_data=concatenate_data,
         splits=splits,
         oneshot_device=device,
+        precision=dtype,
     )
 
-    model = SparseAutoModelForCausalLM.from_pretrained(tmp_path / "oneshot_out")
+    model = SparseAutoModelForCausalLM.from_pretrained(
+        tmp_path / "oneshot_out", torch_dtype=dtype
+    )
 
     inferred_global_sparsity = CompressionConfig.infer_global_sparsity(model)
     assert math.isclose(inferred_global_sparsity, 19.6562, rel_tol=1e-3)
@@ -85,7 +88,9 @@ def test_sparse_model_reload(compressed, config, tmp_path):
     assert sparsity_config["global_sparsity"] == inferred_global_sparsity
     assert sparsity_config["sparsity_structure"] == inferred_structure
 
-    dense_model = SparseAutoModelForCausalLM.from_pretrained(tmp_path / "compress_out")
+    dense_model = SparseAutoModelForCausalLM.from_pretrained(
+        tmp_path / "compress_out", torch_dtype="auto"
+    )
 
     og_state_dict = model.state_dict()
     reconstructed_state_dict = dense_model.state_dict()
@@ -93,7 +98,8 @@ def test_sparse_model_reload(compressed, config, tmp_path):
     for key in og_state_dict.keys():
         dense_tensor = og_state_dict[key]
         reconstructed_tensor = reconstructed_state_dict[key]
-        assert torch.equal(dense_tensor.cpu(), reconstructed_tensor.cpu())
+        assert dense_tensor.dtype == reconstructed_tensor.dtype == dtype
+        assert torch.equal(dense_tensor, reconstructed_tensor)
 
     shutil.rmtree(tmp_path)
 
