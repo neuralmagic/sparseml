@@ -71,8 +71,6 @@ class BitmaskCompressor(ModelCompressor):
                         "be replaced."
                     )
             compressed_dict |= bitmask_dict
-            bitmask_tensor = BitmaskTensor.from_dense(value)
-            compressed_dict |= bitmask_tensor.dict(name_prefix=name, device="cpu")
 
         return compressed_dict
 
