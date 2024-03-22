@@ -61,17 +61,16 @@ model = SparseAutoModelForCausalLM.from_pretrained(
 ```
 
 Saving a compressed model with an explicitly provided compression config. The config
-is saved to the model's `config.json` file
+is saved to the model's `config.json` file. **Note:** the model must have been 
+initialized with SparseAutoModelForCausalLM.from_pretrained()
 
 ```python
-from sparseml.transformers.utils import SparseAutoModelForCausalLM
 from sparseml.transformers.compression import BitmaskConfig
 
 output_dir = "/PATH/TO/SAVE/COMPRESSED_MODEL"
 sparsity_config = BitmaskConfig()
 
-SparseAutoModelForCausalLM.save_pretrained(
-    model,
+model.save_pretrained(
     save_directory=output_dir,
     sparsity_config=sparsity_config,
 )
@@ -80,14 +79,13 @@ SparseAutoModelForCausalLM.save_pretrained(
 Saving a compressed model, inferring the config from the model attributes
 
 ```python
-SparseAutoModelForCausalLM.save_compressed(
+model.save_compressed(
     model,
     save_directory=output_dir,
 )
 
 # alternative
-SparseAutoModelForCausalLM.save_pretrained(
-    model,
+model.save_pretrained(
     save_directory=output_dir,
     save_compressed=True
 )
@@ -97,11 +95,9 @@ Saving a model in the dense format, but still include a sparsity config in `conf
 with global sparsity and sparsity structure information
 
 ```python
-from sparseml.transformers.utils import SparseAutoModelForCausalLM
 from sparseml.transformers.compression import DenseSparsityConfig
 
-SparseAutoModelForCausalLM.save_pretrained(
-    model,
+model.save_pretrained(
     save_directory=output_dir,
     sparsity_config=DenseSparsityConfig()
 )
@@ -109,7 +105,7 @@ SparseAutoModelForCausalLM.save_pretrained(
 
 ## Example Code
 
-Loads a 50% sparse model, compresses it using the inferred bitmask compression, then 
+Loads a 60% sparse model, compresses it using the inferred bitmask compression, then 
 reloads the compressed model.
 
 ```python
@@ -126,10 +122,12 @@ with measure_cuda_memory() as m:
     model = SparseAutoModelForCausalLM.from_pretrained(MODEL_PATH, device_map="cuda:0")
 print(f"Load dense model peak GPU {m.overall_peak_memory / float(2**30):.4f} GB")
 
-print(f"Sparsity config before compression: {model.sparsity_config}")
+sparsity_config = getattr(model,"sparsity_config", None)
+print(f"Sparsity config before compression: {sparsity_config}")
 with measure_cuda_memory() as m:
     SparseAutoModelForCausalLM.save_compressed(
-        model, OUTPUT_PATH
+        model,
+        OUTPUT_PATH
     )
 print(f"Save compressed model peak GPU {m.overall_peak_memory / float(2**30):.4f} GB")
 
@@ -139,5 +137,6 @@ with measure_cuda_memory() as m:
         OUTPUT_PATH, device_map="cuda:1"
     )
 print(f"Load compressed model peak GPU {m.overall_peak_memory / float(2**30):.4f} GB")
-print(f"Sparsity config after compression: {model_again.sparsity_config}")
+sparsity_config = getattr(model_again,"sparsity_config", None)
+print(f"Sparsity config after compression: {sparsity_config}")
 ```
