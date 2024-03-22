@@ -103,6 +103,27 @@ model.save_pretrained(
 )
 ```
 
+## Enable Compression During One-Shot and Sparse Finetunining
+Models that are saved in a supported compressed format on disk will automatically be
+decompressed when loaded as input to `sparseml.transformers.oneshot` or 
+`sparseml.transformers.train`
+
+To enable compression on save after oneshot or finetuning simply add the 
+`save_compressed=True` argument to `sparseml.transformers.oneshot` or 
+`sparseml.transformers.train`
+
+```python
+from sparseml.transformers import train
+
+train(
+    save_compressed=True,
+    model="neuralmagic/TinyLlama-1.1B-Chat-v1.0-pruned2.4",
+    recipe=RECIPE,
+    dataset=DATASET
+)
+```
+
+
 ## Example Code
 
 Loads a 60% sparse model, compresses it using the inferred bitmask compression, then 
