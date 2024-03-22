@@ -93,21 +93,28 @@ def modify_save_pretrained(model: PreTrainedModel):
                 sparsity_config.format, config=sparsity_config
             )
 
-            compressed_state_dict = compressor.compress(model.state_dict())
-            kwargs["state_dict"] = compressed_state_dict
+            # state_dict gets passed in as a kwarg for FSDP models
+            state_dict = kwargs.get("state_dict", None)
+            if state_dict is None:
+                state_dict = model.state_dict()
 
-            original_save_pretrained.__get__(model, model_class)(
-                save_directory, **kwargs
-            )
-            sparsity_config_data = sparsity_config.dict()
-            config_file_path = os.path.join(save_directory, CONFIG_NAME)
+            # make sure we're on the main process when saving
+            if state_dict is not None and len(state_dict) > 0:
+                compressed_state_dict = compressor.compress(state_dict)
+                kwargs["state_dict"] = compressed_state_dict
 
-            # add the sparsity config to the model's config file
-            with open(config_file_path, "r") as config_file:
-                config_data = json.load(config_file)
-            config_data[SPARSITY_CONFIG_NAME] = sparsity_config_data
-            with open(config_file_path, "w") as config_file:
-                json.dump(config_data, config_file, indent=4, sort_keys=True)
+                original_save_pretrained.__get__(model, model_class)(
+                    save_directory, **kwargs
+                )
+                sparsity_config_data = sparsity_config.dict()
+                config_file_path = os.path.join(save_directory, CONFIG_NAME)
+
+                # add the sparsity config to the model's config file
+                with open(config_file_path, "r") as config_file:
+                    config_data = json.load(config_file)
+                config_data[SPARSITY_CONFIG_NAME] = sparsity_config_data
+                with open(config_file_path, "w") as config_file:
+                    json.dump(config_data, config_file, indent=4, sort_keys=True)
 
         save_pretrained_wrapper._overriden = True
         return save_pretrained_wrapper

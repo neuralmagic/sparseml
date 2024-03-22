@@ -457,8 +457,12 @@ class SessionManagerMixIn:
 
         :param output_dir: the path to save the recipes into
         """
-        self._check_super_defined("save_model")
-        super().save_model(output_dir=output_dir, _internal_call=_internal_call)
+        if not is_fsdp_model(self.model):
+            self.model.save_pretrained(
+                output_dir,
+                save_compressed=self.args.save_compressed,
+                safe_serialization=self.args.save_safetensors,
+            )
 
         if session_manager.active_session() is None:
             return  # nothing to save
@@ -472,10 +476,12 @@ class SessionManagerMixIn:
                 model=self.model,
                 accelerator=self.accelerator,
                 output_dir=output_dir,
+                save_compressed=self.args.save_compressed,
                 save_safetensors=self.metadata.get("save_safetensors", False),
             )
 
         self.save_state()
+        self.tokenizer.save_pretrained(output_dir)
         if not _is_oneshot:  # optimizer/scheduler not relevant to one-shot
             self.save_optimizer_and_scheduler(output_dir)
 
