@@ -125,10 +125,7 @@ print(f"Load dense model peak GPU {m.overall_peak_memory / float(2**30):.4f} GB"
 sparsity_config = getattr(model,"sparsity_config", None)
 print(f"Sparsity config before compression: {sparsity_config}")
 with measure_cuda_memory() as m:
-    SparseAutoModelForCausalLM.save_compressed(
-        model,
-        OUTPUT_PATH
-    )
+    model.save_compressed(OUTPUT_PATH)
 print(f"Save compressed model peak GPU {m.overall_peak_memory / float(2**30):.4f} GB")
 
 torch.cuda.set_device(1)
