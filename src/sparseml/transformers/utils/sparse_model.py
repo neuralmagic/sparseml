@@ -111,9 +111,11 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
         model = super(AutoModelForCausalLM, cls).from_pretrained(
             pretrained_model_name_or_path, *model_args, **kwargs
         )
+        logger.setLevel(level=restore_log_level)
+
+        # override the PreTrainedModel instance with compression save functions
         modify_save_pretrained(model)
         add_save_compressed_method(model)
-        logger.setLevel(level=restore_log_level)
 
         # If model is compressed on disk, decompress and load the weights
         if compressor is not None:
