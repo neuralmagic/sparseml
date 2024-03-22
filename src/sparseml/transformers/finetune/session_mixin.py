@@ -457,21 +457,19 @@ class SessionManagerMixIn:
 
         :param output_dir: the path to save the recipes into
         """
-        if not is_fsdp_model(self.model):
-            self.model.save_pretrained(
-                output_dir,
-                save_compressed=self.args.save_compressed,
-                safe_serialization=self.args.save_safetensors,
-            )
-
         if session_manager.active_session() is None:
             return  # nothing to save
 
         if output_dir is None:
             output_dir = self.args.output_dir
 
-        # don't export the gathered model on checkpoints
-        if is_fsdp_model(self.model) and not _internal_call:
+        if not is_fsdp_model(self.model):
+            self.model.save_pretrained(
+                output_dir,
+                save_compressed=self.args.save_compressed,
+                safe_serialization=self.args.save_safetensors,
+            )
+        else:  # FSDP model
             save_pretrained_fsdp(
                 model=self.model,
                 accelerator=self.accelerator,
