@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import inspect
-import json
 import logging
 import os
 from pathlib import Path
@@ -29,15 +28,18 @@ from transformers import (
     AutoModelForTokenClassification,
     PreTrainedModel,
 )
-from transformers.file_utils import CONFIG_NAME, WEIGHTS_NAME
+from transformers.file_utils import WEIGHTS_NAME
 
 from sparseml.pytorch.model_load.helpers import (
     apply_recipe_structure_to_model,
     log_model_load,
 )
-from sparseml.transformers.compression import CompressionConfig, ModelCompressor
-from sparseml.transformers.compression.utils import infer_compressor_from_model_config
-from sparseml.transformers.utils.helpers import SPARSITY_CONFIG_NAME, resolve_recipe
+from sparseml.transformers.compression.utils import (
+    add_save_compressed_method,
+    infer_compressor_from_model_config,
+    modify_save_pretrained,
+)
+from sparseml.transformers.utils.helpers import resolve_recipe
 from sparseml.utils import download_zoo_training_dir
 from sparseml.utils.fsdp.context import main_process_first_context
 
@@ -111,6 +113,10 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
         )
         logger.setLevel(level=restore_log_level)
 
+        # override the PreTrainedModel instance with compression save functions
+        modify_save_pretrained(model)
+        add_save_compressed_method(model)
+
         # If model is compressed on disk, decompress and load the weights
         if compressor is not None:
             compressor.overwrite_weights(
@@ -125,85 +131,6 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
                 recipe_path=recipe,
             )
         return model
-
-    @staticmethod
-    def save_pretrained(
-        model: PreTrainedModel,
-        save_directory: str,
-        sparsity_config: Optional[CompressionConfig] = None,
-        save_compressed: bool = False,
-        **kwargs,
-    ):
-        """
-        Wrapper around PreTrainedModel.save_pretrained(), adds functionality for
-        saving models in a compressed format on disk. The compression format is
-        saved to the model's config file
-
-        :param model: transformers model to save
-        :param save_directory: output directory to save model to
-        :param sparsity_config: optional sparsity config to compress model with, if no
-        config is provided it will be inferred from the model
-        :param save_compresed: whether or not to compress the model on disk
-        :param kwargs: additional kwargs to pass on to model.save_pretrained
-        """
-        if sparsity_config is not None:
-            # if a sparsity config is provided, always save compressed
-            sparsity_config.fill_config_details(model)
-            save_compressed = True
-        elif save_compressed:
-            # try to infer a sparsity config from the model if none is provided
-            sparsity_config = CompressionConfig.infer_config_from_model(
-                model, compress=save_compressed
-            )
-
-        if sparsity_config is None:
-            # model is not sparse, save as dense
-            return model.save_pretrained(save_directory, **kwargs)
-
-        # if we've gotten to this point we can run compression since we have a config
-        kwargs["safe_serialization"] = True
-        compressor = ModelCompressor.load_from_registry(
-            sparsity_config.format, config=sparsity_config
-        )
-
-        compressed_state_dict = compressor.compress(model.state_dict())
-        kwargs["state_dict"] = compressed_state_dict
-
-        model.save_pretrained(save_directory, **kwargs)
-        sparsity_config_data = sparsity_config.dict()
-        config_file_path = os.path.join(save_directory, CONFIG_NAME)
-
-        # add the sparsity config to the model's config file
-        with open(config_file_path, "r") as config_file:
-            config_data = json.load(config_file)
-        config_data[SPARSITY_CONFIG_NAME] = sparsity_config_data
-        with open(config_file_path, "w") as config_file:
-            json.dump(config_data, config_file, indent=4, sort_keys=True)
-
-    @staticmethod
-    def save_compressed(
-        model: PreTrainedModel,
-        save_directory: str,
-        sparsity_config: Optional[CompressionConfig] = None,
-        **kwargs,
-    ):
-        """
-        Alias for SparseAutoModelForCausalLM.save_pretrained() that always saves in a
-        compressed format
-
-        :param model: transformers model to save
-        :param save_directory: output directory to save model to
-        :param sparsity_config: optional sparsity config to compress model with, if no
-        config is provided it will be inferred from the model
-        :param kwargs: additional kwargs to pass on to model.save_pretrained
-        """
-        return SparseAutoModelForCausalLM.save_pretrained(
-            model=model,
-            save_directory=save_directory,
-            sparsity_config=sparsity_config,
-            save_compressed=True,
-            **kwargs,
-        )
 
 
 class SparseAutoModel:

@@ -30,15 +30,16 @@ from sparseml.transformers.utils.helpers import SPARSITY_CONFIG_NAME
 
 
 @pytest.mark.parametrize(
-    "compressed,config,dtype",
+    "compressed,config,dtype,use_compress",
     [
-        [True, None, torch.float32],
-        [False, DenseSparsityConfig(), torch.float16],
-        [True, BitmaskConfig(), torch.bfloat16],
-        [False, BitmaskConfig(), torch.float32],
+        [True, None, torch.float32, False],
+        [False, DenseSparsityConfig(), torch.float16, False],
+        [True, BitmaskConfig(), torch.bfloat16, False],
+        [True, BitmaskConfig(), torch.bfloat16, True],
+        [False, BitmaskConfig(), torch.float32, False],
     ],
 )
-def test_sparse_model_reload(compressed, config, dtype, tmp_path):
+def test_sparse_model_reload(compressed, config, dtype, use_compress, tmp_path):
     recipe_str = "tests/sparseml/transformers/obcq/test_tiny2.yaml"
     model_path = "Xenova/llama2.c-stories15M"
     device = "cuda:0"
@@ -72,12 +73,15 @@ def test_sparse_model_reload(compressed, config, dtype, tmp_path):
     inferred_structure = CompressionConfig.infer_sparsity_structure()
     assert inferred_structure == "0:0"
 
-    SparseAutoModelForCausalLM.save_pretrained(
-        model,
-        tmp_path / "compress_out",
-        sparsity_config=config,
-        save_compressed=compressed,
-    )
+    if use_compress:
+        model.save_compressed(tmp_path / "compress_out", sparsity_config=config)
+    else:
+        model.save_pretrained(
+            tmp_path / "compress_out",
+            sparsity_config=config,
+            save_compressed=compressed,
+        )
+
     config = AutoConfig.from_pretrained(tmp_path / "compress_out")
     sparsity_config = getattr(config, SPARSITY_CONFIG_NAME, None)
     assert (
@@ -115,7 +119,7 @@ def test_dense_model_save(tmp_path):
     inferred_structure = CompressionConfig.infer_sparsity_structure()
     assert inferred_structure == "unstructured"
 
-    SparseAutoModelForCausalLM.save_pretrained(model, tmp_path / "dense_out")
+    model.save_pretrained(tmp_path / "dense_out")
     config = AutoConfig.from_pretrained(tmp_path / "dense_out")
     sparsity_config = getattr(config, SPARSITY_CONFIG_NAME, None)
     assert sparsity_config is None
