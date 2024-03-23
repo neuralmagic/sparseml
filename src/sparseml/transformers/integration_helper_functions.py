@@ -47,8 +47,6 @@ from sparseml.transformers.utils.initializers import (
 from sparseml.transformers.utils.load_task_dataset import load_task_dataset
 from sparseml.transformers.utils.optimizations import apply_kv_cache_injection
 
-MAXIMUM_SEQUENCE_LENGTH = 32000
-
 _LOGGER = logging.getLogger(__name__)
 
 

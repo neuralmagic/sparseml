@@ -154,7 +154,6 @@ class StageRunner:
         tokenized_dataset = self.get_dataset_split("calibration")
         if "labels" in tokenized_dataset.column_names:
             tokenized_dataset = tokenized_dataset.remove_columns("labels")
-    
         calib_data = format_calibration_data(
             tokenized_dataset=tokenized_dataset,
             num_calibration_samples=self._data_args.num_calibration_samples,
