@@ -47,6 +47,7 @@ from sparseml.transformers.utils.initializers import (
 from sparseml.transformers.utils.load_task_dataset import load_task_dataset
 from sparseml.transformers.utils.optimizations import apply_kv_cache_injection
 
+MAXIMUM_SEQUENCE_LENGTH = 32000
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -144,10 +145,14 @@ def create_data_loader(
     source_path = source_path or model.name_or_path
     if tokenizer is None:
         if sequence_length is None:
-            raise ValueError(
-                "Sequence length for the transformer model export missing. "
-                "Provide it manually using sequence_length argument"
-            )
+            if hasattr(model.config, "max_position_embeddings"):
+                sequence_length = model.config.max_position_embeddings
+            else:
+                raise ValueError(
+                    "Sequence length for the transformer model export missing and "
+                    "could not detect using model.config.max_position_embeddings"
+                    "Provide it manually using sequence_length argument"
+                )
         tokenizer = initialize_tokenizer(config.name_or_path, sequence_length, task)
     data_args = _parse_data_args(data_args or {})
 

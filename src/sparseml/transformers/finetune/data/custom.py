@@ -20,7 +20,7 @@ from sparseml.transformers.finetune.data import TextGenerationDataset
 from sparseml.transformers.utils.preprocessing_functions import (
     PreprocessingFunctionRegistry,
 )
-from sparsezoo.utils.helpers import import_from_path
+# from sparsezoo.utils.helpers import import_from_path
 
 
 @TextGenerationDataset.register(name="custom", alias=["json", "csv"])
