@@ -35,7 +35,7 @@ def test_oneshot_and_finetune(tmp_path: Path):
     splits = {"train": "train[:50%]", "calibration": "train[50%:60%]"}
 
     Task.init(project_name="test", task_name="test_oneshot_and_finetune")
-    
+
     apply(
         model=model,
         dataset=dataset,
