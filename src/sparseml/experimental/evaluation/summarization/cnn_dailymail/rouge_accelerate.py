@@ -1,33 +1,19 @@
-# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing,
-# software distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-
 import argparse
 import json
 import os
 
 import datasets
-import torch
-from torch.utils.data import DataLoader
-from tqdm import tqdm
-from transformers import AutoModelForCausalLM, AutoTokenizer, default_data_collator
-
 import evaluate
 import nltk
+import torch
 from accelerate import Accelerator
 from lm_eval.utils import stop_sequences_criteria
-
+from sparseml.pytorch.model_load.helpers import (
+    RECIPE_FILE_NAME, apply_recipe_structure_to_model)
+from torch.utils.data import DataLoader, Dataset
+from tqdm import tqdm
+from transformers import (AutoModelForCausalLM, AutoTokenizer,
+                          default_data_collator)
 
 nltk.download("punkt")
 
@@ -38,7 +24,13 @@ SUMMARY_TEMPLATE = "\n\n### Summarization:\n"
 
 
 def load_model(model_path):
-    return AutoModelForCausalLM.from_pretrained(model_path)
+    model = AutoModelForCausalLM.from_pretrained(model_path)
+    input_recipe_path = os.path.join(model_path, RECIPE_FILE_NAME)
+    if os.path.exists(input_recipe_path):
+        apply_recipe_structure_to_model(
+            model=model, recipe_path=input_recipe_path, model_path=model_path
+        )
+    return model
 
 
 def load_tokenizer(model_path):
@@ -75,8 +67,6 @@ def main(model_path, batch, dataset_path, dataset_name):
             os.makedirs(result_path)
 
     if args.generation == "lm-eval-harness":
-        # Similar to the default decoding strategy used by
-        # lm-evaluation-harness
         gen_kwargs = {
             "do_sample": False,
             "temperature": 1.0,  # To disable warning
@@ -221,13 +211,13 @@ def main(model_path, batch, dataset_path, dataset_name):
         )
         print(f"Rouge score: {results}")
 
-        with open(os.path.join(result_path, "predictions.json"), "w") as f:
+        with open(os.path.join(result_path, f"predictions.json"), "w") as f:
             json.dump(saved_preds, f)
 
         result_file_name = (
             f"rouge_{args.samples}samples.json"
             if args.samples > 0
-            else "rouge_full_validation.json"
+            else f"rouge_full_validation.json"
         )
         results.update(
             {
