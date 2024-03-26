@@ -13,14 +13,19 @@
 # limitations under the License.
 
 import logging
-from typing import Dict, Tuple
+from typing import Dict, Generator, List, Tuple, Union
 
 import numpy
 import torch
 from torch import Tensor
 from tqdm import tqdm
 
+from safetensors import safe_open
 from sparseml.transformers.compression.compressors import ModelCompressor
+from sparseml.transformers.compression.utils import (
+    get_nested_weight_mappings,
+    merge_names,
+)
 
 
 __all__ = [
@@ -42,6 +47,8 @@ class BitmaskCompressor(ModelCompressor):
     values tensor, with their locations stored in a 2d bitmask
     """
 
+    COMPRESSION_PARAM_NAMES = ["shape", "compressed", "bitmask", "row_offsets"]
+
     def compress(self, model_state: Dict[str, Tensor]) -> Dict[str, Tensor]:
         """
         Compresses a dense state dict using bitmask compression
@@ -50,12 +57,12 @@ class BitmaskCompressor(ModelCompressor):
         :return: compressed state dict
         """
         compressed_dict = {}
-        _LOGGER.info(
+        _LOGGER.debug(
             f"Compressing model with {len(model_state)} parameterized layers..."
         )
-        for name, value in tqdm(model_state.items()):
-            bitmask_tensor = BitmaskTensor(value)
-            bitmask_dict = bitmask_tensor.dict(name_prefix=name)
+        for name, value in tqdm(model_state.items(), desc="Compressing model"):
+            bitmask_tensor = BitmaskTensor.from_dense(value)
+            bitmask_dict = bitmask_tensor.dict(name_prefix=name, device="cpu")
             for key in bitmask_dict.keys():
                 if key in compressed_dict:
                     _LOGGER.warn(
@@ -67,14 +74,26 @@ class BitmaskCompressor(ModelCompressor):
 
         return compressed_dict
 
-    def decompress(self, model_state: Dict[str, Tensor]) -> Dict[str, Tensor]:
+    def decompress(self, model_path: str) -> Generator:
         """
-        Uncompresses a bitmask compressed state dict back to dense
+        Reads a bitmask compressed state dict located at model_path and returns a
+        generator for sequentially decompressing back to a dense state dict
 
-        :param model_state: state dict of uncompressed model
-        :return: compressed state dict
+        :param model_path: path to compressed safetensors model
+        :return: iterator for generating decompressed weights
         """
-        raise NotImplementedError()
+        weight_mappings = get_nested_weight_mappings(
+            model_path, self.COMPRESSION_PARAM_NAMES
+        )
+        for weight_name in weight_mappings.keys():
+            weight_data = {}
+            for param_name, safe_path in weight_mappings[weight_name].items():
+                full_name = merge_names(weight_name, param_name)
+                with safe_open(safe_path, framework="pt", device="cpu") as f:
+                    weight_data[param_name] = f.get_tensor(full_name)
+            data = BitmaskTensor(**weight_data)
+            decompressed = data.decompress()
+            yield weight_name, decompressed
 
 
 class BitmaskTensor:
@@ -82,19 +101,23 @@ class BitmaskTensor:
     Owns compressions and decompression for a single bitmask compressed tensor.
     Adapted from: https://github.com/mgoin/torch_bitmask/tree/main
 
-    :param tensor: Dense tensor to compress
+    :param shape: shape of dense tensor
+    :compressed: flat tensor of non-zero values
+    :bitmask: 2d bitmask of non-zero values
+    :row_offsets: flat tensor indicating what index in values each dense row starts at
     """
 
-    def __init__(self, tensor: Tensor):
-        self.dense_device = tensor.device
-        self.shape = tensor.shape
-        self.values, self.bitmasks, self.row_offsets = bitmask_compress(tensor.cpu())
-
-    def decompress(self) -> Tensor:
-        """
-        :return: reconstructed dense tensor
-        """
-        return bitmask_decompress(self.values, self.bitmasks, self.shape)
+    def __init__(
+        self,
+        shape: Union[torch.Size, List],
+        compressed: Tensor,
+        bitmask: Tensor,
+        row_offsets: Tensor,
+    ):
+        self.shape = list(shape)
+        self.compressed = compressed
+        self.bitmask = bitmask
+        self.row_offsets = row_offsets
 
     @staticmethod
     def from_dense(tensor: Tensor) -> "BitmaskTensor":
@@ -102,7 +125,17 @@ class BitmaskTensor:
         :param tensor: dense tensor to compress
         :return: instantiated compressed tensor
         """
-        return BitmaskTensor(tensor)
+        shape = tensor.shape
+        compressed, bitmask, row_offsets = bitmask_compress(tensor.cpu())
+        return BitmaskTensor(
+            shape=shape, compressed=compressed, bitmask=bitmask, row_offsets=row_offsets
+        )
+
+    def decompress(self) -> Tensor:
+        """
+        :return: reconstructed dense tensor
+        """
+        return bitmask_decompress(self.compressed, self.bitmask, self.shape)
 
     def curr_memory_size_bytes(self):
         """
@@ -113,21 +146,21 @@ class BitmaskTensor:
             return a.element_size() * a.nelement()
 
         return (
-            sizeof_tensor(self.values)
-            + sizeof_tensor(self.bitmasks)
+            sizeof_tensor(self.compressed)
+            + sizeof_tensor(self.bitmask)
             + sizeof_tensor(self.row_offsets)
         )
 
-    def dict(self, name_prefix: str) -> Dict[str, Tensor]:
+    def dict(self, name_prefix: str, device: str = "cpu") -> Dict[str, Tensor]:
         """
         :name_prefix: name of original tensor to store compressed weight as
         :return: dict of compressed data for the stored weight
         """
         return {
-            name_prefix + ".compressed": self.values,
-            name_prefix + ".bitmask": self.bitmasks,
-            name_prefix + ".shape": torch.tensor(self.shape, device="cpu"),
-            name_prefix + ".row_offsets": self.row_offsets,
+            merge_names(name_prefix, "shape"): torch.tensor(self.shape, device=device),
+            merge_names(name_prefix, "compressed"): self.compressed.to(device),
+            merge_names(name_prefix, "bitmask"): self.bitmask.to(device),
+            merge_names(name_prefix, "row_offsets"): self.row_offsets.to(device),
         }
 
     def __repr__(self):
