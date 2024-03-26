@@ -23,6 +23,8 @@ from typing import Any, Dict, Literal, Optional, Tuple, Union
 from torch import Tensor
 from transformers import PreTrainedModel, PreTrainedTokenizerBase
 
+from sparseml.transformers.utils.sparse_model import SparseAutoModelForCausalLM
+from sparseml.transformers.utils.sparse_tokenizer import SparseAutoTokenizer
 from sparseml.transformers.utils.transformations import (
     add_tensors,
     convert_fp32_to_fp16,
@@ -31,8 +33,6 @@ from sparseml.transformers.utils.transformations import (
     transform_tensors,
 )
 from sparseml.utils import get_unique_dir_name
-from src.sparseml.transformers.utils.sparse_model import SparseAutoModelForCausalLM
-from src.sparseml.transformers.utils.sparse_tokenizer import SparseAutoTokenizer
 
 
 __all__ = [
