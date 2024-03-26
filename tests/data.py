@@ -13,17 +13,26 @@
 # limitations under the License.
 
 from dataclasses import dataclass
-from typing import List, Union
+from enum import Enum
 
 
-# TODO: add enums
-# test type as decorators?
+# TODO: maybe test type as decorators?
+class TestType(Enum):
+    SANITY = "sanity"
+    REGRESSION = "regression"
+    SMOKE = "smoke"
+
+
+class Cadence(Enum):
+    COMMIT = "commit"
+    WEEKLY = "weekly"
+    NIGHTLY = "nightly"
 
 
 @dataclass
 class TestConfig:
-    test_type: str  # sanity, regression, smoke
-    cadence: Union[str, List]  # weekly, nightly, commit
+    test_type: TestType
+    cadence: Cadence
 
 
 @dataclass

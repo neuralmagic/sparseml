@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import dataclasses
+import enum
 import logging
 import os
 import unittest
@@ -60,6 +61,12 @@ def _validate_test_config(config: dict):
     for f in dataclasses.fields(TestConfig):
         if f.name not in config:
             return False
+        config_value = config.get(f.name)
+        if issubclass(f.type, enum.Enum):
+            try:
+                f.type(config_value)
+            except ValueError:
+                raise False
     return True
 
 
@@ -88,10 +95,15 @@ def parse_params(
             if type == "custom":
                 config = CustomTestConfig(**config)
             else:
-                _validate_test_config(config)
+                if not _validate_test_config(config):
+                    raise ValueError(
+                        "The config provided does not comply with the expected "
+                        "structure. See tests.data.TestConfig for the expected "
+                        "fields."
+                    )
             config_dicts.append(config)
         else:
             logging.info(
-                f"Skipping testing model: {file} " f"for cadence: {config['cadence']}"
+                f"Skipping testing model: {file} for cadence: {config['cadence']}"
             )
     return config_dicts

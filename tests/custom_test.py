@@ -12,11 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import runpy
 import unittest
 from typing import Optional
 
 from tests.data import CustomTestConfig
+
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class CustomTestCase(unittest.TestCase):
@@ -78,5 +82,5 @@ class CustomIntegrationTest(unittest.TestCase):
             raise Exception(output[-1])
 
         for out in output.failures:
+            _LOGGER.error(out[-1])
             assert False
-        assert True
