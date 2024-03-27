@@ -699,7 +699,10 @@ class ClearMLLogger(LambdaLogger):
         :return: True if logged, False otherwise.
         """
         logger = self.task.get_logger()
-        logger.report_single_value(name=tag, value=value)
+        # each series is superimposed on the same plot on title
+        logger.report_scalar(
+            title=tag, series=str(level) or tag, value=value, iteration=step
+        )
         return True
 
     def log_scalars(

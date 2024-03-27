@@ -34,6 +34,8 @@ def test_oneshot_and_finetune(tmp_path: Path):
     max_steps = 50
     splits = {"train": "train[:50%]", "calibration": "train[50%:60%]"}
 
+    # clearML will automatically log default capturing entries without
+    # explicitly calling logger. Logs accessible in https://app.clear.ml/
     Task.init(project_name="test", task_name="test_oneshot_and_finetune")
 
     apply(
