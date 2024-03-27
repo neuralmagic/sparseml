@@ -45,11 +45,21 @@ except Exception as err:
     wandb = None
     wandb_err = err
 
+
+try:
+    from clearml import Task
+
+    clearml_err = None
+except Exception as err:
+    clearml = None
+    clearml_err = err
+
 from sparseml.utils import ALL_TOKEN, create_dirs
 
 
 __all__ = [
     "BaseLogger",
+    "ClearMLLogger",
     "LambdaLogger",
     "PythonLogger",
     "TensorBoardLogger",
@@ -625,6 +635,101 @@ class WANDBLogger(LambdaLogger):
         :param file_path: path to a file to be saved
         """
         wandb.save(file_path)
+        return True
+
+
+class ClearMLLogger(LambdaLogger):
+    @staticmethod
+    def available() -> bool:
+        """
+        :return: True if wandb is available and installed, False, otherwise
+        """
+        return not clearml_err
+
+    def __init__(
+        self,
+        name: str = "clearml",
+        enabled: bool = True,
+        project_name: str = "sparseml",
+        task_name: str = "",
+    ):
+        if task_name == "":
+            now = datetime.now()
+            task_name = now.strftime("%d-%m-%Y_%H.%M.%S")
+
+        self.task = Task.init(project_name=project_name, task_name=task_name)
+
+        super().__init__(
+            lambda_func=self.log_scalar,
+            name=name,
+            enabled=enabled,
+        )
+
+    def log_hyperparams(
+        self,
+        params: Dict,
+        level: Optional[int] = None,
+    ) -> bool:
+        """
+        :param params: Each key-value pair in the dictionary is the name of the
+            hyper parameter and it's corresponding value.
+        :return: True if logged, False otherwise.
+        """
+        if not self.enabled:
+            return False
+
+        self.task.connect(params)
+        return True
+
+    def log_scalar(
+        self,
+        tag: str,
+        value: float,
+        step: Optional[int] = None,
+        wall_time: Optional[float] = None,
+        level: Optional[int] = None,
+    ) -> bool:
+        """
+        :param tag: identifying tag to log the value with
+        :param value: value to save
+        :param step: global step for when the value was taken
+        :param wall_time: global wall time for when the value was taken,
+            defaults to time.time()
+        :param kwargs: additional logging arguments to support Python and custom loggers
+        :return: True if logged, False otherwise.
+        """
+        logger = self.task.get_logger()
+        # each series is superimposed on the same plot on title
+        logger.report_scalar(
+            title=tag, series=str(level) or tag, value=value, iteration=step
+        )
+        return True
+
+    def log_scalars(
+        self,
+        tag: str,
+        values: Dict[str, float],
+        step: Optional[int] = None,
+        wall_time: Optional[float] = None,
+        level: Optional[int] = None,
+    ) -> bool:
+        """
+        :param tag: identifying tag to log the values with
+        :param values: values to save
+        :param step: global step for when the values were taken
+        :param wall_time: global wall time for when the values were taken,
+            defaults to time.time()
+        :param kwargs: additional logging arguments to support Python and custom loggers
+        :return: True if logged, False otherwise.
+        """
+        for k, v in values.items():
+            self.log_scalar(
+                tag=f"{tag}.{k}",
+                value=v,
+                step=step,
+                wall_time=wall_time,
+                level=level,
+            )
         return True
 
 
