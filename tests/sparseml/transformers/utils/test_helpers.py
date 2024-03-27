@@ -172,7 +172,12 @@ def test_save_zoo_directory(tmp_path, stub):
 @pytest.mark.parametrize(
     "string, prompt, censor, expected_mask",
     [
-        ("[foo]hello\n\n[bar]world", "[foo]", "[bar]", "1111111111110000000000"),
+        (
+            ("[foo]hello\n\n" "[bar]world"),
+            "[foo]",
+            "[bar]",
+            ("000000000000" "1111111111"),
+        ),
         (
             (
                 "[Instruction]python is\n\n"  # 24
@@ -183,11 +188,18 @@ def test_save_zoo_directory(tmp_path, stub):
             "[Instruction]",
             "[Response]",
             (
-                "111111111111111111111111"  # 24
-                "00000000000000000"  # 17
-                "1111111111111111111111111111"  # 28
-                "0000000000000"  # 13
+                "000000000000000000000000"  # 24
+                "11111111111111111"  # 17
+                "0000000000000000000000000000"  # 28
+                "1111111111111"  # 13
             ),
+        ),
+        (
+            ("hello\n\n" "[bar]world"),
+            "[foo]",
+            "[bar]",
+            ("000000000" "1111111111"),
+            (             1111111111)
         ),
     ],
 )

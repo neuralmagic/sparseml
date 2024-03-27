@@ -41,6 +41,7 @@ class TextGenerationDataset(RegistryMixin):
     """
 
     PROMPT_KEY = "prompt"
+    MASK_KEY = "mask"
 
     def __init__(
         self,

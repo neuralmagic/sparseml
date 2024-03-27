@@ -557,15 +557,15 @@ def fetch_recipe_path(target: str):
     return recipe_path
 
 
-def generate_mask(string: str, prompt: str, censor: str) -> str:
+def generate_mask(string: str, prompt: str, respomse: str = "") -> str:
     """
-    Generate a mask based on provided prompt and censor strings to obscure
+    Generate a mask based on provided prompt and respomse strings to obscure
     characters in the input string.
 
     Args:
     :param string: The input string to be masked.
-    :param prompt: The prompt string to identify characters to keep visible.
-    :param censor: The censor string to identify characters to obscure.
+    :param prompt: The prompt string to identify characters to obscure.
+    :param respomse: The respomse string to identify characters to keep visible.
 
     Returns:
         str: A string representing the mask where '1' indicates visible
@@ -576,28 +576,33 @@ def generate_mask(string: str, prompt: str, censor: str) -> str:
     is_prompt = True
     counter = 0
     for i, char in enumerate(string):
-        if not is_prompt:
+        # if not is_prompt:
+        if is_prompt:
             mask[i] = "0"
 
         if counter > 0:
             if not is_prompt and char == prompt[counter]:
                 counter += 1
-            elif is_prompt and char == censor[counter]:
+            elif is_prompt and char == respomse[counter]:
                 counter += 1
             else:
                 counter = 0
 
         if counter == len(prompt) and not is_prompt:
-            mask[i - counter + 1 : i + 1] = ["1"] * counter
+            # mask[i - counter + 1 : i + 1] = ["1"] * counter
+            mask[i - counter + 1 : i + 1] = ["0"] * counter
+
             counter = 0
             is_prompt = True
 
-        if counter == len(censor) and is_prompt:
-            mask[i - counter + 1 : i + 1] = ["0"] * counter
+        if counter == len(respomse) and is_prompt:
+            # mask[i - counter + 1 : i + 1] = ["0"] * counter
+            mask[i - counter + 1 : i + 1] = ["1"] * counter
+
             counter = 0
             is_prompt = False
 
-        if prompt.startswith(char) or censor.startswith(char):
+        if prompt.startswith(char) or respomse.startswith(char):
             counter = 1
 
     return "".join(mask)

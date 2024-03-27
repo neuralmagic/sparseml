@@ -107,7 +107,7 @@ class CustomDataset(TextGenerationDataset):
             remove_columns.remove(self.text_column)
         if self.PROMPT_KEY in remove_columns:
             remove_columns.remove(self.PROMPT_KEY)
-        if "mask" in remove_columns:
-            remove_columns.remove("mask")
+        if self.MASK_KEY in remove_columns:
+            remove_columns.remove(self.MASK_KEY)
 
         return list(remove_columns)
