@@ -38,7 +38,7 @@ from sparseml.transformers.compression.utils import (
     infer_compressor_from_model_config,
     modify_save_pretrained,
 )
-from sparseml.transformers.utils.helpers import SPARSITY_CONFIG_NAME, resolve_recipe
+from sparseml.transformers.utils.helpers import resolve_recipe
 from sparseml.utils import download_zoo_training_dir
 from sparseml.utils.fsdp.context import main_process_first_context
 
@@ -117,7 +117,6 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
 
         # If model is compressed on disk, decompress and load the weights
         if compressor is not None:
-            setattr(model, SPARSITY_CONFIG_NAME, compressor.config)
             compressor.overwrite_weights(
                 pretrained_model_name_or_path=pretrained_model_name_or_path, model=model
             )

@@ -25,6 +25,7 @@ from transformers.file_utils import CONFIG_NAME
 from sparseml.transformers.compression.compressors import ModelCompressor
 from sparseml.transformers.compression.config import CompressionConfig
 from sparseml.transformers.utils.helpers import SPARSITY_CONFIG_NAME
+from sparseml.utils.pytorch import qat_active
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -73,6 +74,16 @@ def modify_save_pretrained(model: PreTrainedModel):
             :param kwargs: additional kwargs to pass on to model.save_pretrained
             """
             model = model_ref()
+
+            if qat_active(model):
+                _LOGGER.info(
+                    "Compression for quantized models is not yet supported. Save will "
+                    "be run without compression and no sparsity statistics will be "
+                    "calculated."
+                )
+                return original_save_pretrained.__get__(model, model_class)(
+                    save_directory, **kwargs
+                )
 
             if sparsity_config is not None:
                 sparsity_config.fill_config_details(model)
