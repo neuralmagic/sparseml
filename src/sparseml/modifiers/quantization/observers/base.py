@@ -15,6 +15,7 @@
 from typing import Optional, Tuple
 
 from torch import FloatTensor, IntTensor, Tensor
+from torch.nn import Module
 
 from sparseml.modifiers.quantization.utils.quantization_scheme import QuantizationArgs
 from sparsezoo.utils.registry import RegistryMixin
@@ -23,7 +24,7 @@ from sparsezoo.utils.registry import RegistryMixin
 __all__ = ["Observer"]
 
 
-class Observer(RegistryMixin):
+class Observer(RegistryMixin, Module):
     """
     Base Observer class to be subclassed for specific implementation.
 

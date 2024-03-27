@@ -21,11 +21,11 @@ from sparseml.modifiers.quantization.observers.base import Observer
 from sparseml.modifiers.quantization.utils.quantization_scheme import QuantizationArgs
 
 
-__all__ = ["DynamicObserver"]
+__all__ = ["MemorylessObserver"]
 
 
-@Observer.register("dynamic")
-class DynamicObserver(Observer):
+@Observer.register("memoryless")
+class MemorylessObserver(Observer):
     """
     Implements a dynamic quantization observer that sets the scale and
     zero point based on the latest observed value

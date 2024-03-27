@@ -15,4 +15,4 @@
 # flake8: noqa
 
 from .base import *
-from .dynamic import *
+from .memoryless import *
