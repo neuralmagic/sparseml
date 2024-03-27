@@ -18,6 +18,7 @@ from sparseml.transformers.compression import (
     BitmaskCompressor,
     BitmaskConfig,
     CompressionConfig,
+    DenseCompressor,
     DenseSparsityConfig,
     ModelCompressor,
 )
@@ -38,9 +39,7 @@ def test_configs(name, type):
 
 @pytest.mark.parametrize(
     "name,type",
-    [
-        ["sparse_bitmask", BitmaskCompressor],
-    ],
+    [["sparse_bitmask", BitmaskCompressor], ["dense_sparsity", DenseCompressor]],
 )
 def test_compressors(name, type):
     compressor = ModelCompressor.load_from_registry(
