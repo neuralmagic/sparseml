@@ -89,7 +89,7 @@ the requirements are not met, the test is skipped. Currently, `requires_torch` a
         - All other larger models should be tested through `regression` test types
 
 ## End-to-end Testing Targets:
-- Tests cascading repositories (sparseml --> vLLM) but will become more prominent as are
+- Tests cascading repositories (sparseml --> vLLM) but will become more prominent as our
 docker containers are furhter solidified. Goal would be to emulate common flows users
 may follow
 
