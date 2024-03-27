@@ -21,6 +21,7 @@ from transformers import AutoConfig, AutoModelForCausalLM
 from accelerate import init_empty_weights
 from sparseml.transformers.utils.helpers import (
     create_fake_dataloader,
+    generate_mask,
     infer_recipe_from_model_path,
     is_transformer_model,
     resolve_recipe_file,
@@ -166,3 +167,41 @@ def test_save_zoo_directory(tmp_path, stub):
     assert zoo_model.validate(minimal_validation=True, validate_onnxruntime=False)
     shutil.rmtree(path_to_training_outputs)
     shutil.rmtree(save_dir)
+
+
+@pytest.mark.parametrize(
+    "string, prompt, censor, expected_mask",
+    [
+        (
+            ("[foo]hello\n\n" "[bar]world"),
+            "[foo]",
+            "[bar]",
+            ("000000000000" "1111111111"),
+        ),
+        (
+            (
+                "[Instruction]python is\n\n"  # 24
+                "[Response]great\n\n"  # 17
+                "[Instruction]What about Java"  # 28
+                "[Response]Meh"  # 13
+            ),
+            "[Instruction]",
+            "[Response]",
+            (
+                "000000000000000000000000"  # 24
+                "11111111111111111"  # 17
+                "0000000000000000000000000000"  # 28
+                "1111111111111"  # 13
+            ),
+        ),
+        (
+            ("hello\n\n" "[bar]world"),
+            "[foo]",
+            "[bar]",
+            ("000000000" "1111111111"),
+            (             1111111111)
+        ),
+    ],
+)
+def test_generate_mask(string, prompt, censor, expected_mask):
+    assert generate_mask(string, prompt, censor) == expected_mask
