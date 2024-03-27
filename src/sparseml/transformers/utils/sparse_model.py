@@ -35,7 +35,6 @@ from sparseml.pytorch.model_load.helpers import (
     log_model_load,
 )
 from sparseml.transformers.compression.utils import (
-    add_save_compressed_method,
     infer_compressor_from_model_config,
     modify_save_pretrained,
 )
@@ -113,9 +112,8 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
         )
         logger.setLevel(level=restore_log_level)
 
-        # override the PreTrainedModel instance with compression save functions
+        # override the PreTrainedModel instance with compression save function
         modify_save_pretrained(model)
-        add_save_compressed_method(model)
 
         # If model is compressed on disk, decompress and load the weights
         if compressor is not None:

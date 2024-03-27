@@ -79,12 +79,6 @@ model.save_pretrained(
 Saving a compressed model, inferring the config from the model attributes
 
 ```python
-model.save_compressed(
-    model,
-    save_directory=output_dir,
-)
-
-# alternative
 model.save_pretrained(
     save_directory=output_dir,
     save_compressed=True
@@ -154,7 +148,7 @@ print(f"Load dense model peak GPU {m.overall_peak_memory / float(2**30):.4f} GB"
 sparsity_config = getattr(model,"sparsity_config", None)
 print(f"Sparsity config before compression: {sparsity_config}")
 with measure_cuda_memory() as m:
-    model.save_compressed(OUTPUT_PATH)
+    model.save_pretrained(OUTPUT_PATH, save_compressed=True)
 print(f"Save compressed model peak GPU {m.overall_peak_memory / float(2**30):.4f} GB")
 
 torch.cuda.set_device(1)

@@ -15,7 +15,6 @@
 import json
 import logging
 import os
-import types
 import weakref
 from functools import wraps
 from typing import Optional
@@ -30,10 +29,7 @@ from sparseml.transformers.utils.helpers import SPARSITY_CONFIG_NAME
 
 _LOGGER = logging.getLogger(__name__)
 
-__all__ = [
-    "modify_save_pretrained",
-    "add_save_compressed_method",
-]
+__all__ = ["modify_save_pretrained"]
 
 
 def modify_save_pretrained(model: PreTrainedModel):
@@ -132,36 +128,3 @@ def modify_save_pretrained(model: PreTrainedModel):
 
     # wrap save_pretrained
     model.save_pretrained = save_pretrained_compressed(model.save_pretrained)
-
-
-def add_save_compressed_method(model: PreTrainedModel):
-    """
-    Overrides an instance of PreTrainedModel to add a save_compressed method that
-    wraps PreTrainedModel.save_pretrained(). Requires modify_save_pretrained() has
-    already been run on the model instance
-    """
-
-    def save_compressed(
-        self,
-        save_directory: str,
-        sparsity_config: Optional[CompressionConfig] = None,
-        **kwargs,
-    ):
-        """
-        Alias for PreTrainedModel.save_pretrained() that always saves in a
-        compressed format
-
-        :param save_directory: output directory to save model to
-        :param sparsity_config: optional sparsity config to compress model with, if no
-        config is provided it will be inferred from the model
-        :param kwargs: additional kwargs to pass on to model.save_pretrained
-        """
-        return self.save_pretrained(
-            save_directory=save_directory,
-            sparsity_config=sparsity_config,
-            save_compressed=True,
-            skip_compression_stats=False,
-            **kwargs,
-        )
-
-    model.save_compressed = types.MethodType(save_compressed, model)
