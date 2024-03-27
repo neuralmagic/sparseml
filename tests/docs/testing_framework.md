@@ -90,7 +90,8 @@ the requirements are not met, the test is skipped. Currently, `requires_torch` a
 
 ## End-to-end Testing Targets:
 - Tests cascading repositories (sparseml --> vLLM) but will become more prominent as are
-docker containers are furhter solidified
+docker containers are furhter solidified. Goal would be to emulate common flows users
+may follow
 
 ## Cadence
 - Ideally, large models and `regression` tests should be tested on a nightly cadence while
