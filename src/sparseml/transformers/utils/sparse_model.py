@@ -21,6 +21,7 @@ from typing import Any, Dict, Optional, Tuple, Union
 import torch
 from torch.nn import Module
 from transformers import (
+    AutoModel,
     AutoModelForCausalLM,
     AutoModelForMaskedLM,
     AutoModelForQuestionAnswering,
@@ -408,6 +409,33 @@ class SparseAutoModel:
         )
 
         return model, teacher
+
+    @staticmethod
+    def model_from_pretrained(
+        model_name_or_path: str,
+        model_type: str = "model",
+        recipe: Optional[Union[str, Path]] = None,
+        **kwargs,
+    ) -> Module:
+        """
+        :param model_name_or_path: the name of or path to the model to load
+        :param model_type: specify the type of model loaded for logging;
+            ex one of [model, student, teacher]
+        :param recipe: the recipe to apply to the model. If None, no recipe is applied
+        :param kwargs: keyword arguments to pass through to the AutoModel call
+        :return: the created base model
+        """
+        model = AutoModel.from_pretrained(
+            model_name_or_path,
+            **kwargs,
+        )
+
+        if recipe:
+            apply_structure_to_transformers(
+                model=model, model_directory=model_name_or_path, recipe=recipe
+            )
+
+        return model
 
     @staticmethod
     def _loadable_state_dict(
