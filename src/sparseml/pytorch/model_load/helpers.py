@@ -233,6 +233,7 @@ def save_model_and_recipe(
     save_path: str,
     tokenizer: Optional[Any] = None,
     save_safetensors: bool = False,
+    save_compressed: bool = False,
 ):
     """
     Save a model, tokenizer and the currently loaded recipe to file
@@ -241,9 +242,12 @@ def save_model_and_recipe(
     :param save_path: path to save output to
     :param tokenizer: model tokenizer to save
     :param save_safetensors: whether to save as safetensors or pickle (bin)
+    :param save_compressed: whether to compress sparse weights on disk
     """
 
-    model.save_pretrained(save_path, safe_serialization=save_safetensors)
+    model.save_pretrained(
+        save_path, save_compressed=save_compressed, safe_serialization=save_safetensors
+    )
 
     if tokenizer is not None:
         tokenizer.save_pretrained(save_path)

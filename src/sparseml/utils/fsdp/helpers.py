@@ -140,7 +140,13 @@ def find_and_move_state_dicts_to_cpu(output_dir: str):
         _LOGGER.info(f"Moved state dict {model_file} to cpu")
 
 
-def save_pretrained_fsdp(model, accelerator, output_dir, save_safetensors: bool = True):
+def save_pretrained_fsdp(
+    model,
+    accelerator,
+    output_dir,
+    save_safetensors: bool = True,
+    save_compressed: bool = False,
+):
     full_state_dict_config = FullStateDictConfig(offload_to_cpu=True, rank0_only=True)
     """
     Gathers the full FSDP state dict of the model onto rank0 GPU, then uses it to save
@@ -150,6 +156,7 @@ def save_pretrained_fsdp(model, accelerator, output_dir, save_safetensors: bool 
     :param accelerator: Accelerator instance used to perform unwrapping
     :param output_dir: where to save output model
     :param save_safetensors: True to safe in safetensors format, otherwise .bin
+    :param save_compressed: whether to compress sparse weights on disk
     """
     with FullyShardedDataParallel.state_dict_type(
         model, StateDictType.FULL_STATE_DICT, full_state_dict_config
@@ -161,6 +168,7 @@ def save_pretrained_fsdp(model, accelerator, output_dir, save_safetensors: bool 
         is_main_process=accelerator.is_main_process,
         save_function=accelerator.save,
         state_dict=state_dict,
+        save_compressed=save_compressed,
         safe_serialization=save_safetensors,
     )
 
