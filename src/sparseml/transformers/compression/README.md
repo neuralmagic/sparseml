@@ -91,15 +91,23 @@ model.save_pretrained(
 )
 ```
 
-Saving a model in the dense format, but still include a sparsity config in `config.json`
-with global sparsity and sparsity structure information
+Saving a model in the dense format. If the model has at least 5% global sparsity a 
+sparsity config will still be included in `config.json` with format `dense_sparsity`
 
 ```python
-from sparseml.transformers.compression import DenseSparsityConfig
-
 model.save_pretrained(
-    save_directory=output_dir,
-    sparsity_config=DenseSparsityConfig()
+    save_directory=output_dir
+)
+```
+
+Saving a model in the dense format, bypassing the sparsity config calculation. When the
+`skip_compression_stats` flag is set, no sparsity config will be written to 
+`config.json`
+
+```python
+model.save_pretrained(
+    save_directory=output_dir
+    skip_compression_stats=True
 )
 ```
 

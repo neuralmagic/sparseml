@@ -37,6 +37,7 @@ from sparseml.transformers.utils.helpers import SPARSITY_CONFIG_NAME
         [True, BitmaskConfig(), torch.bfloat16, False],
         [True, BitmaskConfig(), torch.bfloat16, True],
         [False, BitmaskConfig(), torch.float32, False],
+        [False, None, torch.float16, False],
     ],
 )
 def test_sparse_model_reload(compressed, config, dtype, use_compress, tmp_path):
@@ -108,7 +109,11 @@ def test_sparse_model_reload(compressed, config, dtype, use_compress, tmp_path):
     shutil.rmtree(tmp_path)
 
 
-def test_dense_model_save(tmp_path):
+@pytest.mark.parametrize(
+    "skip_compression_stats,save_compressed",
+    [[True, True], [True, False], [False, True], [False, False]],
+)
+def test_dense_model_save(tmp_path, skip_compression_stats, save_compressed):
     session_manager.active_session().reset()
 
     model_path = "Xenova/llama2.c-stories15M"
@@ -119,7 +124,13 @@ def test_dense_model_save(tmp_path):
     inferred_structure = CompressionConfig.infer_sparsity_structure()
     assert inferred_structure == "unstructured"
 
-    model.save_pretrained(tmp_path / "dense_out")
+    model.save_pretrained(
+        tmp_path / "dense_out",
+        skip_compression_stats=skip_compression_stats,
+        save_compressed=save_compressed,
+    )
+
+    # for models with 0% sparsity no sparsity config is saved regardless
     config = AutoConfig.from_pretrained(tmp_path / "dense_out")
     sparsity_config = getattr(config, SPARSITY_CONFIG_NAME, None)
     assert sparsity_config is None

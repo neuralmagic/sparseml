@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+import logging
 import os
 import types
 import weakref
@@ -26,6 +27,8 @@ from sparseml.transformers.compression.compressors import ModelCompressor
 from sparseml.transformers.compression.config import CompressionConfig
 from sparseml.transformers.utils.helpers import SPARSITY_CONFIG_NAME
 
+
+_LOGGER = logging.getLogger(__name__)
 
 __all__ = [
     "modify_save_pretrained",
@@ -56,6 +59,7 @@ def modify_save_pretrained(model: PreTrainedModel):
             save_directory: str,
             sparsity_config: Optional[CompressionConfig] = None,
             save_compressed: bool = False,
+            skip_compression_stats: bool = False,
             **kwargs,
         ):
             """
@@ -67,16 +71,23 @@ def modify_save_pretrained(model: PreTrainedModel):
             :param sparsity_config: optional sparsity config to compress model with,
             if no config is provided it will be inferred from the model
             :param save_compresed: whether or not to compress the model on disk
+            :param skip_compression_stats: whether to skip the calculation of
+            compression statistics (such as global sparsity and sparsity structure) when
+            saving a model in dense format
             :param kwargs: additional kwargs to pass on to model.save_pretrained
             """
             model = model_ref()
 
             if sparsity_config is not None:
-                # if a sparsity config is provided, always save compressed
                 sparsity_config.fill_config_details(model)
-                save_compressed = True
-            elif save_compressed:
+            elif not skip_compression_stats:
                 # try to infer a sparsity config from the model if none is provided
+                _LOGGER.warning(
+                    "Inferring a sparsity configuration requires a global sparsity "
+                    "calculation. This can be costly for large models. To skip the "
+                    "calculation of compression statistics set "
+                    "skip_compression_stats=True"
+                )
                 sparsity_config = CompressionConfig.infer_config_from_model(
                     model, compress=save_compressed
                 )
@@ -114,7 +125,7 @@ def modify_save_pretrained(model: PreTrainedModel):
                     config_data = json.load(config_file)
                 config_data[SPARSITY_CONFIG_NAME] = sparsity_config_data
                 with open(config_file_path, "w") as config_file:
-                    json.dump(config_data, config_file, indent=4, sort_keys=True)
+                    json.dump(config_data, config_file, indent=2, sort_keys=True)
 
         save_pretrained_wrapper._overriden = True
         return save_pretrained_wrapper
@@ -149,6 +160,7 @@ def add_save_compressed_method(model: PreTrainedModel):
             save_directory=save_directory,
             sparsity_config=sparsity_config,
             save_compressed=True,
+            skip_compression_stats=False,
             **kwargs,
         )
 
