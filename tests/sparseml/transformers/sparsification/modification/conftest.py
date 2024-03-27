@@ -45,7 +45,11 @@ def llama_zoo_model():
     stub = "zoo:llama2-7b-llama2_chat_llama2_pretrain-base_quantized"
     config = SparseAutoConfig.from_pretrained(stub)
     with init_empty_weights():
-        model = SparseAutoModelForCausalLM.from_config(config)
+        # attn_implementation="eager" needed so that the model uses the
+        # appropriate attention type
+        model = SparseAutoModelForCausalLM.from_config(
+            config, attn_implementation="eager"
+        )
     return model
 
 
@@ -85,7 +89,9 @@ def mobilebert_model():
 def llama_model():
     config = AutoConfig.from_pretrained("TinyLlama/TinyLlama-1.1B-Chat-v1.0")
     with init_empty_weights():
-        model = AutoModel.from_config(config)
+        # attn_implementation="eager" needed so that the model uses the
+        # appropriate attention type
+        model = AutoModel.from_config(config, attn_implementation="eager")
     return model
 
 

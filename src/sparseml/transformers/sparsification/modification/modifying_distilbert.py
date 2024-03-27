@@ -23,7 +23,10 @@ from typing import Optional, Tuple
 
 import torch
 from torch import nn
-from transformers.models.distilbert.modeling_distilbert import MultiHeadSelfAttention
+from transformers.models.distilbert.modeling_distilbert import (
+    DistilBertFlashAttention2,
+    MultiHeadSelfAttention,
+)
 
 from sparseml.pytorch.utils.helpers import swap_modules
 from sparseml.transformers.sparsification.modification.modification_objects import (
@@ -45,6 +48,9 @@ def modify(model: nn.Module) -> nn.Module:
     1. Replaces the MultiHeadSelfAttention modules with
         MultiHeadSelfAttentionWithQuantizableMatmuls modules
 
+    Note: This function will not alter any of the alternatives
+    to the MultiHeadSelfAttention module such as DistilBertFlashAttention2
+
     :param model: the original DistilBert model
     :return: the modified DistilBert model
     """
@@ -52,6 +58,11 @@ def modify(model: nn.Module) -> nn.Module:
         if isinstance(submodule, MultiHeadSelfAttention):
             swap_modules(
                 model, name, MultiHeadSelfAttentionWithQuantizableMatmuls(submodule)
+            )
+        elif isinstance(submodule, DistilBertFlashAttention2):
+            _LOGGER.debug(
+                f"The model contains {submodule.__class__.__name__} "
+                "module, which will not be modified"
             )
     return model
 
@@ -85,22 +96,15 @@ class MultiHeadSelfAttentionWithQuantizableMatmuls(MultiHeadSelfAttention):
         output_attentions: bool = False,
     ) -> Tuple[torch.Tensor, ...]:
         """
-        Parameters:
-            query: torch.tensor(bs, seq_length, dim)
-            key: torch.tensor(bs, seq_length, dim)
-            value: torch.tensor(bs, seq_length, dim)
-            mask: torch.tensor(bs, seq_length)
-
-        Returns:
-            weights: torch.tensor(bs, n_heads, seq_length, seq_length)
-            Attention weights context: torch.tensor(bs,
-            seq_length, dim) Contextualized layer.
-            Optional: only if `output_attentions=True`
+        This function is almost entirely ported from the
+        original MultiHeadSelfAttention
+        (transformers.models.distilbert.modeling_distilbert.py::MultiHeadSelfAttention.forward(...)) # noqa: E501
+        with the exception of the annotated lines below
         """
         bs, q_length, dim = query.size()
         k_length = key.size(1)
-        # assert dim == self.dim, f'Dimensions do not match:
-        # {dim} input vs {self.dim} configured'
+        # assert dim == self.dim,
+        # f'Dimensions do not match: {dim} input vs {self.dim} configured'
         # assert key.size() == value.size()
 
         dim_per_head = self.dim // self.n_heads

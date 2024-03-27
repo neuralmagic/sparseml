@@ -19,14 +19,17 @@ context of SparseML
 
 import logging
 import math
+import warnings
 from typing import Optional, Tuple
 
 import torch
 import torch.nn.functional as F
 from torch import nn
 from transformers.models.llama.modeling_llama import (
+    Cache,
     LlamaAttention,
     LlamaFlashAttention2,
+    LlamaSdpaAttention,
     apply_rotary_pos_emb,
     repeat_kv,
 )
@@ -54,6 +57,7 @@ def modify(model: nn.Module) -> nn.Module:
 
     Note: This function will not alter any of the alternatives
     to the LlamaAttention module such as LlamaFlashAttention2
+    or LlamaSdpaAttention
 
     :param model: the original LLaMa model
     :return: the modified LLaMa model
@@ -61,7 +65,7 @@ def modify(model: nn.Module) -> nn.Module:
     for name, submodule in model.named_modules():
         if isinstance(submodule, LlamaAttention):
             swap_modules(model, name, LlamaAttentionWithQuantizableMatmuls(submodule))
-        elif isinstance(submodule, LlamaFlashAttention2):
+        elif isinstance(submodule, (LlamaFlashAttention2, LlamaSdpaAttention)):
             _LOGGER.debug(
                 f"The model contains {submodule.__class__.__name__} "
                 "module, which will not be modified"
@@ -121,11 +125,23 @@ class LlamaAttentionWithQuantizableMatmuls(LlamaAttention):
         hidden_states: torch.Tensor,
         attention_mask: Optional[torch.Tensor] = None,
         position_ids: Optional[torch.LongTensor] = None,
-        past_key_value: Optional[Tuple[torch.Tensor]] = None,
+        past_key_value: Optional[Cache] = None,
         output_attentions: bool = False,
         use_cache: bool = False,
-        padding_mask: Optional[torch.LongTensor] = None,
+        **kwargs,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
+        """
+        This function is almost entirely ported from the
+        original LlamaAttention module
+        (transformers.models.llama.modeling_llama.py::LlamaAttention.forward(...)) # noqa: E501
+        with the exception of the annotated lines below
+        """
+        if "padding_mask" in kwargs:
+            warnings.warn(
+                "Passing `padding_mask` is deprecated and will be removed in v4.37. "
+                "Please make sure use `attention_mask` instead.`"
+            )
+
         bsz, q_len, _ = hidden_states.size()
 
         if self.config.pretraining_tp > 1:
@@ -173,22 +189,28 @@ class LlamaAttentionWithQuantizableMatmuls(LlamaAttention):
 
         kv_seq_len = key_states.shape[-2]
         if past_key_value is not None:
-            kv_seq_len += past_key_value[0].shape[-2]
+            if self.layer_idx is None:
+                raise ValueError(
+                    f"The cache structure has changed since version v4.36. "
+                    f"If you are using {self.__class__.__name__} "
+                    "for auto-regressive decoding with k/v caching, "
+                    "please make sure to initialize the attention class "
+                    "with a layer index."
+                )
+            kv_seq_len += past_key_value.get_usable_length(kv_seq_len, self.layer_idx)
         cos, sin = self.rotary_emb(value_states, seq_len=kv_seq_len)
         query_states, key_states = apply_rotary_pos_emb(
             query_states, key_states, cos, sin, position_ids
         )
 
         if past_key_value is not None:
-            # reuse k, v, self_attention
-            key_states = torch.cat([past_key_value[0], key_states], dim=2)
-            value_states = torch.cat([past_key_value[1], value_states], dim=2)
-
-        past_key_value = (key_states, value_states) if use_cache else None
+            cache_kwargs = {"sin": sin, "cos": cos}  # Specific to RoPE models
+            key_states, value_states = past_key_value.update(
+                key_states, value_states, self.layer_idx, cache_kwargs
+            )
 
         key_states = repeat_kv(key_states, self.num_key_value_groups)
         value_states = repeat_kv(value_states, self.num_key_value_groups)
-
         # ==== SparseML MODIFICATION ====
         attn_weights = self.attn_weights_matmul(
             query_states, key_states.transpose(2, 3)
@@ -197,7 +219,7 @@ class LlamaAttentionWithQuantizableMatmuls(LlamaAttention):
 
         if attn_weights.size() != (bsz, self.num_heads, q_len, kv_seq_len):
             raise ValueError(
-                f"Attention weights should be of size "
+                "Attention weights should be of size "
                 f"{(bsz, self.num_heads, q_len, kv_seq_len)}, but is"
                 f" {attn_weights.size()}"
             )
@@ -205,8 +227,9 @@ class LlamaAttentionWithQuantizableMatmuls(LlamaAttention):
         if attention_mask is not None:
             if attention_mask.size() != (bsz, 1, q_len, kv_seq_len):
                 raise ValueError(
-                    f"Attention mask should be of size "
-                    f"{(bsz, 1, q_len, kv_seq_len)}, but is {attention_mask.size()}"
+                    "Attention mask should be of size "
+                    f"{(bsz, 1, q_len, kv_seq_len)}, "
+                    f"but is {attention_mask.size()}"
                 )
             attn_weights = attn_weights + attention_mask
 
@@ -214,6 +237,10 @@ class LlamaAttentionWithQuantizableMatmuls(LlamaAttention):
         attn_weights = nn.functional.softmax(
             attn_weights, dim=-1, dtype=torch.float32
         ).to(query_states.dtype)
+        attn_weights = nn.functional.dropout(
+            attn_weights, p=self.attention_dropout, training=self.training
+        )
+
         # ==== SparseML MODIFICATION ====
         attn_output = self.attn_output_matmul(attn_weights, value_states)
         # ===============================
@@ -221,8 +248,8 @@ class LlamaAttentionWithQuantizableMatmuls(LlamaAttention):
         if attn_output.size() != (bsz, self.num_heads, q_len, self.head_dim):
             raise ValueError(
                 f"`attn_output` should be of size "
-                f"{(bsz, self.num_heads, q_len, self.head_dim)}, but is"
-                f" {attn_output.size()}"
+                f"{(bsz, self.num_heads, q_len, self.head_dim)}, "
+                f"but is {attn_output.size()}"
             )
 
         attn_output = attn_output.transpose(1, 2).contiguous()
