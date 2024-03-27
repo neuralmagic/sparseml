@@ -12,15 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Utilities for applying sparsification algorithms to Hugging Face transformers flows
-"""
+from typing import Optional
 
-# flake8: noqa
-from .helpers import *
-from .load_task_dataset import *
-from .metrics import *
-from .preprocessing_functions import *
-from .sparse_config import *
-from .sparse_model import *
-from .sparse_tokenizer import *
+from sparseml.transformers.compression.config import CompressionConfig
+
+
+__all__ = ["BitmaskConfig"]
+
+
+@CompressionConfig.register(name="sparse_bitmask")
+class BitmaskConfig(CompressionConfig):
+    """
+    Configuration for storing a sparse model using
+    bitmask compression
+
+    :param global_sparsity: average sparsity of the entire model
+    :param sparsity_structure: structure of the sparsity, such as
+    "unstructured", "2:4", "8:16" etc
+    """
+
+    format: str = "sparse_bitmask"
+    global_sparsity: Optional[float] = 0.0
+    sparsity_structure: Optional[str] = "unstructured"
