@@ -12,16 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Objects, classes, and methods for applying sparsification algorithms to
-Hugging Face transformers flows
-"""
+import logging
 
-# flake8: noqa
 
-from .question_answering import *
-from .sparse_config import *
-from .sparse_model import *
-from .sparse_tokenizer import *
-from .trainer import *
-from .training_args import *
+_LOGGER = logging.getLogger(__name__)
+
+
+def check_transformers_install():
+    try:
+        import transformers  # noqa F401
+    except ImportError as transformers_err:
+        _LOGGER.warning(
+            "transformers dependency is not installed. "
+            "To install, run `pip sparseml[transformers]`"
+        )
+        raise transformers_err

@@ -11,17 +11,3 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-"""
-Objects, classes, and methods for applying sparsification algorithms to
-Hugging Face transformers flows
-"""
-
-# flake8: noqa
-
-from .question_answering import *
-from .sparse_config import *
-from .sparse_model import *
-from .sparse_tokenizer import *
-from .trainer import *
-from .training_args import *

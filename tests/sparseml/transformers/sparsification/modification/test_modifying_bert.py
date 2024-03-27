@@ -12,16 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Objects, classes, and methods for applying sparsification algorithms to
-Hugging Face transformers flows
-"""
 
-# flake8: noqa
+from transformers.models.bert.modeling_bert import BertSelfAttention
 
-from .question_answering import *
-from .sparse_config import *
-from .sparse_model import *
-from .sparse_tokenizer import *
-from .trainer import *
-from .training_args import *
+
+def test_modifying_bert(bert_model, shared_helper_functions):
+
+    shared_helper_functions.check_model_modified(
+        bert_model,
+        module_to_replace=BertSelfAttention,
+        func_to_validate_replacement=_is_bert_attention_modified,
+    )
+
+
+def _is_bert_attention_modified(module):
+    # only the modified "BertSelfAttention" modules have the
+    # modules have the "attention_scores_matmul" attribute
+    return hasattr(module, "attention_scores_matmul")
