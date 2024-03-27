@@ -97,7 +97,7 @@ class ModuleSparsificationInfo:
         """
         return sum(
             round(tensor_sparsity(param).item() * torch.numel(param))
-            for param in self.trainable_params
+            for param in tqdm(self.trainable_params, desc="Calculating model sparsity")
         )
 
     @property

@@ -73,7 +73,7 @@ def test_match(shape, sparsity, dtype):
     mask = (test_tensor1.abs() < (1 - sparsity)).int()
     test_tensor1 *= mask
 
-    test_tensor2 = torch.rand(shape, dtype=torch.float32)
+    test_tensor2 = torch.rand(shape, dtype=dtype)
     mask = (test_tensor2.abs() < (1 - sparsity)).int()
     test_tensor2 *= mask
 
@@ -82,7 +82,9 @@ def test_match(shape, sparsity, dtype):
     for key in dense_state_dict.keys():
         dense_tensor = dense_state_dict[key]
         sparse_tensor = BitmaskTensor.from_dense(dense_tensor)
-        assert torch.equal(dense_tensor, sparse_tensor.decompress())
+        decompressed = sparse_tensor.decompress()
+        assert decompressed.dtype == dense_tensor.dtype == dtype
+        assert torch.equal(dense_tensor, decompressed)
 
 
 @pytest.mark.parametrize(
@@ -99,7 +101,7 @@ def test_reload_match(sparsity, dtype, tmp_path):
     mask = (test_tensor1.abs() < (1 - sparsity)).int()
     test_tensor1 *= mask
 
-    test_tensor2 = torch.rand((360, 720), dtype=torch.float32)
+    test_tensor2 = torch.rand((360, 720), dtype=dtype)
     mask = (test_tensor2.abs() < (1 - sparsity)).int()
     test_tensor2 *= mask
 
@@ -114,6 +116,7 @@ def test_reload_match(sparsity, dtype, tmp_path):
 
     for key, reconstructed_tensor in reconstructed_dense:
         dense_tensor = dense_state_dict[key]
+        assert dense_tensor.dtype == reconstructed_tensor.dtype == dtype
         assert torch.equal(dense_tensor, reconstructed_tensor)
 
     shutil.rmtree(tmp_path)

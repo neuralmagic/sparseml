@@ -15,4 +15,5 @@
 # flake8: noqa
 
 from .base import ModelCompressor
+from .dense import DenseCompressor
 from .sparse_bitmask import BitmaskCompressor
