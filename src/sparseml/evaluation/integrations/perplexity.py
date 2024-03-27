@@ -14,8 +14,7 @@
 
 from typing import List, Optional, Union
 
-from sparseml.transformers.utils.sparse_model import SparseAutoModelForCausalLM
-from sparseml.transformers.utils.sparse_tokenizer import SparseAutoTokenizer
+from sparseml.transformers import SparseAutoModelForCausalLM, SparseAutoTokenizer
 
 
 try:

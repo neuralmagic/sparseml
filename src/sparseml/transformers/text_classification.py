@@ -52,12 +52,13 @@ from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils.versions import require_version
 
 from sparseml.pytorch.utils.distributed import record
-from sparseml.transformers.sparsification import Trainer, TrainingArguments
-from sparseml.transformers.utils import (
+from sparseml.transformers.sparsification import (
     SparseAutoModel,
-    get_shared_tokenizer_src,
-    multi_label_precision_recall_f1,
+    Trainer,
+    TrainingArguments,
 )
+from sparseml.transformers.sparsification.sparse_model import get_shared_tokenizer_src
+from sparseml.transformers.utils import multi_label_precision_recall_f1
 
 
 require_version(

@@ -54,8 +54,12 @@ from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils.versions import require_version
 
 from sparseml.pytorch.utils.distributed import record
-from sparseml.transformers.sparsification import Trainer, TrainingArguments
-from sparseml.transformers.utils import SparseAutoModel, get_shared_tokenizer_src
+from sparseml.transformers.sparsification import (
+    SparseAutoModel,
+    Trainer,
+    TrainingArguments,
+)
+from sparseml.transformers.sparsification.sparse_model import get_shared_tokenizer_src
 
 
 metadata_args = [

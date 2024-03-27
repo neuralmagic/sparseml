@@ -28,8 +28,8 @@ from transformers import AutoConfig, AutoTokenizer
 from transformers.tokenization_utils_base import PaddingStrategy
 
 from sparseml.pytorch.optim.manager import ScheduledModifierManager
+from sparseml.transformers import SparseAutoModel
 from sparseml.transformers.export import load_task_model
-from sparseml.transformers.utils import SparseAutoModel
 from tests.integrations.base_tester import (
     BaseIntegrationManager,
     BaseIntegrationTester,
@@ -167,7 +167,7 @@ class TestTransformers(BaseIntegrationTester):
         results_file = os.path.join(manager.save_dir.name, "train_results.json")
         model_directory = manager.save_dir.name
         assert os.path.isdir(model_directory)
-        assert os.path.exists(os.path.join(model_directory, "pytorch_model.bin"))
+        assert os.path.exists(os.path.join(model_directory, "model.safetensors"))
         model = _load_model_on_task(model_directory, "student", manager.task)
         assert isinstance(model, torch.nn.Module)
 

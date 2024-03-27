@@ -17,9 +17,12 @@ import logging
 import os.path
 from collections import OrderedDict
 from pathlib import Path
-from typing import Callable, List, Optional, Union
+from typing import Callable, List, Optional
+from typing import OrderedDict as OrderedDictType
+from typing import Union
 
 import numpy
+import onnx
 
 from sparseml.export.export_data import InputsNames, LabelNames, OutputsNames
 from sparseml.export.helpers import ONNX_MODEL_NAME, onnx_data_files
@@ -164,8 +167,11 @@ def validate_correctness(
 
     sample_inputs_files = sorted(glob.glob(os.path.join(sample_inputs_path, "*")))
     sample_outputs_files = sorted(glob.glob(os.path.join(sample_outputs_path, "*")))
-
-    session = ort.InferenceSession(os.path.join(directory, onnx_model_name))
+    model_path = os.path.join(directory, onnx_model_name)
+    expected_input_names = [
+        inp.name for inp in onnx.load(model_path, load_external_data=False).graph.input
+    ]
+    session = ort.InferenceSession(model_path)
 
     validations = (
         []
@@ -180,6 +186,11 @@ def validate_correctness(
         sample_input_with_batch_dim = OrderedDict(
             (key, numpy.expand_dims(value, 0)) for key, value in sample_input.items()
         )
+
+        sample_input_with_batch_dim = _potentially_rename_input(
+            sample_input_with_batch_dim, expected_input_names
+        )
+
         outputs = session.run(None, sample_input_with_batch_dim)
         if isinstance(outputs, list):
             validations_sample = []
@@ -205,3 +216,17 @@ def validate_correctness(
         f"Successfully validated the exported model on all {len(validations)} samples."
     )
     return True
+
+
+def _potentially_rename_input(
+    sample_input_with_batch_dim: OrderedDictType[str, numpy.ndarray],
+    expected_input_names: List[str],
+) -> OrderedDictType[str, numpy.ndarray]:
+    # if required, rename the input names of the sample to match
+    # the input names of the model
+    input_names = list(sample_input_with_batch_dim.keys())
+    if set(input_names) != set(expected_input_names):
+        return OrderedDict(
+            zip(expected_input_names, sample_input_with_batch_dim.values())
+        )
+    return sample_input_with_batch_dim
