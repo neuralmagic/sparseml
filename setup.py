@@ -93,7 +93,7 @@ _transformers_deps = _pytorch_deps + [
 ]
 _llm_deps = _transformers_deps + ["sentencepiece"]
 _yolov5_deps = _pytorch_vision_deps + [
-    f"{'nm-yolov5' if is_release else 'nm-yolov5-nightly'}~={version_nm_deps}"
+    f"{'nm-yolov5' if is_release else 'nm-yolov5-nightly'}<={version_nm_deps}"
 ]
 _notebook_deps = [
     "jupyter>=1.0.0",
