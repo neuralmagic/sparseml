@@ -23,20 +23,16 @@ from typing import Any, Dict, Literal, Optional, Tuple, Union
 from torch import Tensor
 from transformers import PreTrainedModel, PreTrainedTokenizerBase
 
+from sparseml.transformers.utils.gptq_utils.transformations import (
+    GPTQ_EXLLAMA_TRANSFORMATIONS,
+)
 from sparseml.transformers.utils.sparse_model import SparseAutoModelForCausalLM
 from sparseml.transformers.utils.sparse_tokenizer import SparseAutoTokenizer
-from sparseml.transformers.utils.transformations import (
-    add_tensors,
-    convert_fp32_to_fp16,
-    remove_unwanted_tensors,
-    transform_names,
-    transform_tensors,
-)
 from sparseml.utils import get_unique_dir_name
 
 
 __all__ = [
-    "export_vllm_checkpoint",
+    "export_vllm_compatible_checkpoint",
     "SUPPORTED_FORMAT_TYPES",
 ]
 
@@ -44,7 +40,7 @@ SUPPORTED_FORMAT_TYPES = Literal["exllama", "marlin"]
 _LOGGER = logging.getLogger(__name__)
 
 
-def export_vllm_checkpoint(
+def export_vllm_compatible_checkpoint(
     model: Union[PreTrainedModel, str],
     tokenizer: Union[PreTrainedTokenizerBase, str, None] = None,
     format: SUPPORTED_FORMAT_TYPES = "exllama",
@@ -66,18 +62,11 @@ def export_vllm_checkpoint(
         Default is "exllama".
     :param save_dir: The directory where the model should be saved.
     """
-    # validate
-    if format not in SUPPORTED_FORMAT_TYPES:
-        raise ValueError(
-            f"Unsupported format {format}, supported formats "
-            f"are {SUPPORTED_FORMAT_TYPES}"
-        )
 
-    if format != "exllama":
-        raise NotImplementedError(f"Exporting to format {format} is not supported yet.")
+    validate_specified_format(format=format)
 
-    # translate
     model, tokenizer = _create_model_and_tokenizer(model, tokenizer)
+
     _LOGGER.info(f"Translating state dict to {format} format.")
     translated_state_dict: Dict[str, Any] = translate_state_dict(
         state_dict=model.state_dict(), format=format
@@ -86,7 +75,6 @@ def export_vllm_checkpoint(
     model.config.quantization_config = QuantizationConfig()
     _LOGGER.info(f"Added {format} quantization info to model.config")
 
-    # save
     if save_dir is None:
         save_dir = Path.cwd() / f"{format}_model"
 
@@ -98,6 +86,121 @@ def export_vllm_checkpoint(
         state_dict=translated_state_dict,
         save_dir=save_dir,
     )
+
+
+def save_checkpoint(
+    model: PreTrainedModel,
+    state_dict: Dict[Any, Any],
+    save_dir: str,
+    tokenizer: Optional[PreTrainedTokenizerBase] = None,
+):
+    """
+    Saves the model and tokenizer to the specified directory,
+    with the specified state dict.
+
+    :param model: The model to be saved.
+    :param state_dict: The state dict to be saved.
+    :param save_dir: The directory where the model should be saved.
+    :param tokenizer: The tokenizer associated with the model. This will
+        be saved to the same directory as the model.
+    """
+    model.save_pretrained(
+        save_directory=save_dir, state_dict=state_dict, safe_serialization=True
+    )
+    _LOGGER.info(f"Model and config saved to {save_dir}")
+
+    if tokenizer:
+        tokenizer.save_pretrained(save_directory=save_dir)
+        _LOGGER.info(f"tokenizer saved to {save_dir}")
+
+
+def translate_state_dict(
+    state_dict: Dict[Any, Any], format: SUPPORTED_FORMAT_TYPES
+) -> Dict[Any, Any]:
+    """
+    A utility function to translate the state dict to the specified format.
+
+    :pre-condition: The format must be one of the supported formats.
+    :param state_dict: The state dict to be translated.
+    :param format: The format to which the state dict should be translated.
+    """
+    if format == "exllama":
+        return _translate_state_dict_exllama(state_dict=state_dict)
+
+    # raise appropriate error if this function is called as a standalone
+    validate_specified_format()
+
+
+def validate_specified_format(format: SUPPORTED_FORMAT_TYPES):
+    """
+    Validates the specified format is supported and raises
+    an error if not.
+
+    :raises ValueError: If the specified format is not supported.
+    :raises NotImplementedError: for marlin format.
+    """
+
+    # validate
+    if format not in SUPPORTED_FORMAT_TYPES:
+        raise ValueError(
+            f"Unsupported format {format}, supported formats "
+            f"are {SUPPORTED_FORMAT_TYPES}"
+        )
+
+    if format != "exllama":
+        raise NotImplementedError(f"Exporting to format {format} is not supported yet.")
+
+
+@dataclass
+class QuantizationConfig:
+    bits: int = field(default=4, metadata={"choices": [2, 3, 4, 8]})
+    group_size: int = field(default=-1)
+    damp_percent: float = field(default=0.01)
+    desc_act: bool = field(default=False)
+    sym: bool = field(default=True)
+    is_marlin_format: bool = field(default=False)
+
+    def to_dict(self):
+        return {
+            "bits": self.bits,
+            "group_size": self.group_size,
+            "desc_act": self.desc_act,
+            "sym": self.sym,
+            "is_marlin_format": self.is_marlin_format,
+            "quant_method": "gptq",
+        }
+
+
+def _translate_state_dict_exllama(state_dict: Dict[str, Any]) -> Dict[Any, Any]:
+    """
+    Translate the state dict to the Exllama format.
+
+    Changes made to quantized params in the passed state_dict:
+    - weight tensor renamed to qweight, and the corresponding tensor
+        value of shape [x, 8y] will be repacked to [x, y]
+    - scale tensor renamed to scales, and the corresponding tensor
+        value of shape [8x] will be reshaped to [1, 8x] and
+        then repacked to [1, x]
+    - zero_point tensor renamed to qzeros, and the corresponding tensor
+        value of shape [x] will be reshaped to [1, x]
+    - A g_idx tensor of shape [num_channels] will be added to the
+        state_dict, this tensor will be filled with zeros
+    - All fake quantization parameters will be removed from the state_dict
+
+
+
+
+    :param state_dict: The model state dict to be translated.
+    :return: The translated state dict compatible with Exllama.
+    """
+
+    state_dict_copy = {}
+    for transformation in GPTQ_EXLLAMA_TRANSFORMATIONS:
+        state_dict_copy: Dict[str, Tensor] = transformation(
+            state_dict=state_dict_copy or state_dict
+        )
+
+    return state_dict_copy
 
 
 def _create_model_and_tokenizer(
@@ -137,91 +240,3 @@ def _create_model_and_tokenizer(
         model = SparseAutoModelForCausalLM.from_pretrained(model)
 
     return model, tokenizer
-
-
-def save_checkpoint(
-    model: PreTrainedModel,
-    state_dict: Dict[Any, Any],
-    save_dir: str,
-    tokenizer: Optional[PreTrainedTokenizerBase] = None,
-):
-    model.save_pretrained(
-        save_directory=save_dir, state_dict=state_dict, safe_serialization=True
-    )
-    _LOGGER.info(f"Model and config saved to {save_dir}")
-
-    if tokenizer:
-        tokenizer.save_pretrained(save_directory=save_dir)
-        _LOGGER.info(f"tokenizer saved to {save_dir}")
-
-
-def translate_state_dict(
-    state_dict: Dict[Any, Any], format: SUPPORTED_FORMAT_TYPES
-) -> Dict[Any, Any]:
-    """
-    A utility function to translate the state dict to the specified format.
-
-    :param state_dict: The state dict to be translated.
-    :param format: The format to which the state dict should be translated.
-    """
-    if format == "exllama":
-        return _translate_state_dict_exllama(state_dict=state_dict)
-
-
-def _translate_state_dict_exllama(state_dict: Dict[str, Any]) -> Dict[Any, Any]:
-    """
-    Translate the state dict to the Exllama format.
-
-    Changes made to quantized params in the passed state_dict:
-    - weight tensor renamed to qweight, and the corresponding tensor
-        value of shape [x, 8y] will be repacked to [x, y]
-    - scale tensor renamed to scales, and the corresponding tensor
-        value of shape [8x] will be reshaped to [1, 8x] and
-        then repacked to [1, x]
-    - zero_point tensor renamed to qzeros, and the corresponding tensor
-        value of shape [x] will be reshaped to [1, x]
-    - A g_idx tensor of shape [num_channels] will be added to the
-        state_dict, this tensor will be filled with zeros
-    - All fake quantization parameters will be removed from the state_dict
-
-
-
-
-    :param state_dict: The model state dict to be translated.
-    :return: The translated state dict compatible with Exllama.
-    """
-
-    transformations = (
-        transform_names,
-        add_tensors,
-        transform_tensors,
-        remove_unwanted_tensors,
-        convert_fp32_to_fp16,
-    )
-    state_dict_copy = {}
-    for transformation in transformations:
-        state_dict_copy: Dict[str, Tensor] = transformation(
-            state_dict=state_dict_copy or state_dict
-        )
-
-    return state_dict_copy
-
-
-@dataclass
-class QuantizationConfig:
-    bits: int = field(default=4, metadata={"choices": [2, 3, 4, 8]})
-    group_size: int = field(default=-1)
-    damp_percent: float = field(default=0.01)
-    desc_act: bool = field(default=False)
-    sym: bool = field(default=True)
-    is_marlin_format: bool = field(default=False)
-
-    def to_dict(self):
-        return {
-            "bits": self.bits,
-            "group_size": self.group_size,
-            "desc_act": self.desc_act,
-            "sym": self.sym,
-            "is_marlin_format": self.is_marlin_format,
-            "quant_method": "gptq",
-        }
