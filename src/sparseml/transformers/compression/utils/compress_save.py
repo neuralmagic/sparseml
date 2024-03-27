@@ -82,7 +82,7 @@ def modify_save_pretrained(model: PreTrainedModel):
                 sparsity_config.fill_config_details(model)
             elif not skip_compression_stats:
                 # try to infer a sparsity config from the model if none is provided
-                _LOGGER.warning(
+                _LOGGER.info(
                     "Inferring a sparsity configuration requires a global sparsity "
                     "calculation. This can be costly for large models. To skip the "
                     "calculation of compression statistics set "
