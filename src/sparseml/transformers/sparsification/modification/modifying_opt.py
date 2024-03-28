@@ -22,7 +22,7 @@ from typing import Optional, Tuple
 
 import torch
 from torch import nn
-from transformers.models.opt.modeling_opt import OPTAttention, OptFlashAttention2
+from transformers.models.opt.modeling_opt import OPTAttention
 
 from sparseml.pytorch.utils.helpers import swap_modules
 from sparseml.transformers.sparsification.modification.modification_objects import (
@@ -45,20 +45,12 @@ def modify(model: nn.Module) -> nn.Module:
     1. Replaces the OPTAttention modules with
         OPTAttentionWithQuantizableMatmuls modules
 
-    Note: This function will not alter any of the alternatives
-    to the OPTAttention module such as OPTFlashAttention2
-
     :param model: the original LLaMa model
     :return: the modified LLaMa model
     """
     for name, submodule in model.named_modules():
         if isinstance(submodule, OPTAttention):
             swap_modules(model, name, OPTAttentionWithQuantizableMatmuls(submodule))
-        elif isinstance(submodule, OptFlashAttention2):
-            _LOGGER.debug(
-                f"The model contains {submodule.__class__.__name__} "
-                "module, which will not be modified"
-            )
     return model
 
 
@@ -118,15 +110,9 @@ class OPTAttentionWithQuantizableMatmuls(OPTAttention):
         layer_head_mask: Optional[torch.Tensor] = None,
         output_attentions: bool = False,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
-        """
-        This function is almost entirely ported from the
-        original OPTAttention module
-        (transformers.models.opt.modeling_opt.py::OPTAttention.forward(...)) # noqa: E501
-        with the exception of the annotated lines below
-        """
+        """Input shape: Batch x Time x Channel"""
 
-        # if key_value_states are provided this layer is
-        # used as a cross-attention layer
+        # if key_value_states are provided this layer is used as a cross-attention layer
         # for the decoder
         is_cross_attention = key_value_states is not None
 
@@ -155,19 +141,19 @@ class OPTAttentionWithQuantizableMatmuls(OPTAttention):
             value_states = self._shape(self.v_proj(hidden_states), -1, bsz)
 
         if self.is_decoder:
-            # if cross_attention save Tuple(torch.Tensor, torch.Tensor) of
-            # all cross attention key/value_states.
-            # Further calls to cross_attention layer can then reuse all
-            # cross-attention
+            # if cross_attention save Tuple(torch.Tensor, torch.Tensor)
+            # of all cross attention key/value_states.
+            # Further calls to cross_attention layer
+            # can then reuse all cross-attention
             # key/value_states (first "if" case)
-            # if uni-directional self-attention (decoder) save
-            # Tuple(torch.Tensor, torch.Tensor) of
+            # if uni-directional self-attention (decoder)
+            # save Tuple(torch.Tensor, torch.Tensor) of
             # all previous decoder key/value_states.
             # Further calls to uni-directional self-attention
-            # can concat previous decoder key/value_states to
-            # current projected key/value_states (third "elif" case)
-            # if encoder bi-directional self-attention `past_key_value`
-            # is always `None`
+            # can concat previous decoder key/value_states
+            # to current projected key/value_states (third "elif" case)
+            # if encoder bi-directional self-attention
+            # `past_key_value` is always `None`
             past_key_value = (key_states, value_states)
 
         proj_shape = (bsz * self.num_heads, -1, self.head_dim)
@@ -179,6 +165,7 @@ class OPTAttentionWithQuantizableMatmuls(OPTAttention):
         # ==== SparseML MODIFICATION ====
         attn_weights = self.attn_weights_bmm(query_states, key_states.transpose(1, 2))
         # ==============================
+
         if attn_weights.size() != (bsz * self.num_heads, tgt_len, src_len):
             raise ValueError(
                 f"Attention weights should be of size "
@@ -189,8 +176,8 @@ class OPTAttentionWithQuantizableMatmuls(OPTAttention):
         if attention_mask is not None:
             if attention_mask.size() != (bsz, 1, tgt_len, src_len):
                 raise ValueError(
-                    f"Attention mask should be of size {(bsz, 1, tgt_len, src_len)}, "
-                    f"but is {attention_mask.size()}"
+                    f"Attention mask should be of size "
+                    f"{(bsz, 1, tgt_len, src_len)}, but is {attention_mask.size()}"
                 )
             attn_weights = (
                 attn_weights.view(bsz, self.num_heads, tgt_len, src_len)
@@ -216,7 +203,7 @@ class OPTAttentionWithQuantizableMatmuls(OPTAttention):
         if layer_head_mask is not None:
             if layer_head_mask.size() != (self.num_heads,):
                 raise ValueError(
-                    "Head mask for a single layer "
+                    f"Head mask for a single layer "
                     f"should be of size {(self.num_heads,)}, but is"
                     f" {layer_head_mask.size()}"
                 )
@@ -249,7 +236,7 @@ class OPTAttentionWithQuantizableMatmuls(OPTAttention):
 
         if attn_output.size() != (bsz * self.num_heads, tgt_len, self.head_dim):
             raise ValueError(
-                "`attn_output` should be of size "
+                f"`attn_output` should be of size "
                 f"{(bsz, self.num_heads, tgt_len, self.head_dim)}, but is"
                 f" {attn_output.size()}"
             )
@@ -257,9 +244,9 @@ class OPTAttentionWithQuantizableMatmuls(OPTAttention):
         attn_output = attn_output.view(bsz, self.num_heads, tgt_len, self.head_dim)
         attn_output = attn_output.transpose(1, 2)
 
-        # Use the `embed_dim` from the config (stored in the class) rather
-        # than `hidden_state` because `attn_output` can be
-        # partitioned across GPUs when using tensor-parallelism.
+        # Use the `embed_dim` from the config (stored in the class)
+        # rather than `hidden_state` because `attn_output` can be
+        # partitioned aross GPUs when using tensor-parallelism.
         attn_output = attn_output.reshape(bsz, tgt_len, self.embed_dim)
 
         attn_output = self.out_proj(attn_output)

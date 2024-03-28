@@ -93,13 +93,6 @@ class BertSelfAttentionWithQuantizableMatmuls(BertSelfAttention):
         past_key_value: Optional[Tuple[Tuple[torch.FloatTensor]]] = None,
         output_attentions: Optional[bool] = False,
     ) -> Tuple[torch.Tensor]:
-        """
-        This function is almost entirely ported from the
-        original BertSelfAttention
-        (transformers.models.bert.modeling_bert.py::BertSelfAttention.forward(...)) # noqa: E501
-        with the exception of the annotated lines below
-        """
-
         mixed_query_layer = self.query(hidden_states)
 
         # If this is instantiated as a cross-attention module, the keys
@@ -131,21 +124,20 @@ class BertSelfAttentionWithQuantizableMatmuls(BertSelfAttention):
         if self.is_decoder:
             # if cross_attention save Tuple(torch.Tensor, torch.Tensor)
             # of all cross attention key/value_states.
-            # Further calls to cross_attention layer can then reuse
-            # all cross-attention
+            # Further calls to cross_attention
+            # layer can then reuse all cross-attention
             # key/value_states (first "if" case)
-            # if uni-directional self-attention (decoder) save
-            # Tuple(torch.Tensor, torch.Tensor) of
-            # all previous decoder key/value_states. Further
-            # calls to uni-directional self-attention
+            # if uni-directional self-attention
+            # (decoder) save Tuple(torch.Tensor, torch.Tensor) of
+            # all previous decoder key/value_states.
+            # Further calls to uni-directional self-attention
             # can concat previous decoder key/value_states to
             # current projected key/value_states (third "elif" case)
-            # if encoder bi-directional self-attention `past_key_value`
-            # is always `None`
+            # if encoder bi-directional self-attention `past_key_value` is always `None`
             past_key_value = (key_layer, value_layer)
 
-        # Take the dot product between "query" and "key" to get
-        # the raw attention scores.
+        # Take the dot product between "query" and "key"
+        # to get the raw attention scores.
         # ==== SparseML MODIFICATION ====
         attention_scores = self.attention_scores_matmul(
             query_layer, key_layer.transpose(-1, -2)
@@ -197,8 +189,8 @@ class BertSelfAttentionWithQuantizableMatmuls(BertSelfAttention):
 
         attention_scores = attention_scores / math.sqrt(self.attention_head_size)
         if attention_mask is not None:
-            # Apply the attention mask is (precomputed for all
-            # layers in BertModel forward() function)
+            # Apply the attention mask is
+            # (precomputed for all layers in BertModel forward() function)
             attention_scores = attention_scores + attention_mask
 
         # Normalize the attention scores to probabilities.
@@ -215,6 +207,7 @@ class BertSelfAttentionWithQuantizableMatmuls(BertSelfAttention):
         # ==== SparseML MODIFICATION ====
         context_layer = self.context_layer_matmul(attention_probs, value_layer)
         # ==============================
+
         context_layer = context_layer.permute(0, 2, 1, 3).contiguous()
         new_context_layer_shape = context_layer.size()[:-2] + (self.all_head_size,)
         context_layer = context_layer.view(new_context_layer_shape)
