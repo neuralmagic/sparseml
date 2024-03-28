@@ -1,0 +1,3 @@
+cadence: "commit"
+test_type: "sanity"
+script_path: "run.py"
