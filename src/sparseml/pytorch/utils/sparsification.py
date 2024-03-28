@@ -26,6 +26,7 @@ from typing import (
     Iterable,
     Iterator,
     List,
+    Optional,
     Tuple,
     Union,
 )
@@ -59,11 +60,18 @@ class ModuleSparsificationInfo:
     :param module: torch Module to analyze
     """
 
-    def __init__(self, module: Module):
+    def __init__(
+        self, module: Module, state_dict: Optional[Dict[str, torch.Tensor]] = None
+    ):
         self.module = module
-        self.trainable_params = list(
-            filter(lambda param: param.requires_grad, self.module.parameters())
-        )
+        self.state_dict = state_dict
+
+        if self.state_dict is not None:
+            self.trainable_params = [param for _, param in state_dict.items()]
+        else:
+            self.trainable_params = list(
+                filter(lambda param: param.requires_grad, self.module.parameters())
+            )
 
     def __str__(self):
         return json.dumps(
@@ -124,7 +132,9 @@ class ModuleSparsificationInfo:
         """
         return sum(
             round(tensor_sparsity(layer.weight).item() * torch.numel(layer.weight))
-            for (name, layer) in get_prunable_layers(self.module)
+            for (name, layer) in tqdm(
+                get_prunable_layers(self.module), desc="Calculating model sparsity"
+            )
         )
 
     @property

@@ -163,14 +163,17 @@ def save_pretrained_fsdp(
     ):
         state_dict = accelerator.get_state_dict(model, unwrap=False)
 
-    accelerator.unwrap_model(model).save_pretrained(
-        output_dir,
-        is_main_process=accelerator.is_main_process,
-        save_function=accelerator.save,
-        state_dict=state_dict,
-        save_compressed=save_compressed,
-        safe_serialization=save_safetensors,
-    )
+    if accelerator.is_main_process:
+        accelerator.unwrap_model(model).save_pretrained(
+            output_dir,
+            is_main_process=accelerator.is_main_process,
+            save_function=accelerator.save,
+            state_dict=state_dict,
+            save_compressed=save_compressed,
+            safe_serialization=save_safetensors,
+        )
+
+    accelerator.wait_for_everyone()
 
 
 def get_fsdp_parent(layer_name: str, model: Module) -> Optional[Module]:
