@@ -48,6 +48,8 @@ class CompressionConfig(RegistryMixin, BaseModel):
         Calculates the global percentage of sparse zero weights in the model
 
         :param model: pytorch model to infer sparsity of
+        :param state_dict: optional state_dict to replace that in model, used for
+        gathering global FSDP model info
         :return: global sparsity of model
         """
 
@@ -87,6 +89,8 @@ class CompressionConfig(RegistryMixin, BaseModel):
         Determines compression type and informational parameters for a given model
 
         :param model: pytorch model to calculate sparsity config for
+        :param state_dict: optional state_dict to replace that in model, used for
+        gathering global FSDP model info
         :param compress: whether or not to compress the model on disk
         :return: compression config inferred from the model
         """
@@ -117,6 +121,8 @@ class CompressionConfig(RegistryMixin, BaseModel):
         Fills in informational sparsity parameters from a given model
 
         :param model: pytorch model to infer config parameters from
+        :param state_dict: optional state_dict to replace that in model, used for
+        gathering global FSDP model info
         """
         self.global_sparsity = CompressionConfig.infer_global_sparsity(
             model, state_dict=state_dict

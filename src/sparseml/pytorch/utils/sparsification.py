@@ -58,6 +58,8 @@ class ModuleSparsificationInfo:
     and quantization
 
     :param module: torch Module to analyze
+    :param state_dict: optional state_dict to analyze in place of the torch model. This
+    is used when analyzing an FSDP model, where the full weights may not be accessible
     """
 
     def __init__(
