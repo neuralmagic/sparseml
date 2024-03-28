@@ -74,7 +74,7 @@ class BitmaskCompressor(ModelCompressor):
 
         return compressed_dict
 
-    def decompress(self, model_path: str) -> Generator:
+    def decompress(self, model_path: str) -> Generator[Tuple[str, Tensor], None, None]:
         """
         Reads a bitmask compressed state dict located at model_path and returns a
         generator for sequentially decompressing back to a dense state dict
