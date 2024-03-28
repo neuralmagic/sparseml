@@ -93,13 +93,6 @@ class BertSelfAttentionWithQuantizableMatmuls(BertSelfAttention):
         past_key_value: Optional[Tuple[Tuple[torch.FloatTensor]]] = None,
         output_attentions: Optional[bool] = False,
     ) -> Tuple[torch.Tensor]:
-        """
-        This function is almost entirely ported from the
-        original BertSelfAttention
-        (transformers.models.bert.modeling_bert.py::BertSelfAttention.forward(...)) # noqa: E501
-        with the exception of the annotated lines below
-        """
-
         mixed_query_layer = self.query(hidden_states)
 
         # If this is instantiated as a cross-attention module, the keys
@@ -214,6 +207,7 @@ class BertSelfAttentionWithQuantizableMatmuls(BertSelfAttention):
         # ==== SparseML MODIFICATION ====
         context_layer = self.context_layer_matmul(attention_probs, value_layer)
         # ==============================
+
         context_layer = context_layer.permute(0, 2, 1, 3).contiguous()
         new_context_layer_shape = context_layer.size()[:-2] + (self.all_head_size,)
         context_layer = context_layer.view(new_context_layer_shape)
