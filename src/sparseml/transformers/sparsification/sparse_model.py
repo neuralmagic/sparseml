@@ -26,12 +26,17 @@ from transformers import (
     AutoModelForQuestionAnswering,
     AutoModelForSequenceClassification,
     AutoModelForTokenClassification,
+    PreTrainedModel,
 )
 from transformers.file_utils import WEIGHTS_NAME
 
 from sparseml.pytorch.model_load.helpers import (
     apply_recipe_structure_to_model,
     log_model_load,
+)
+from sparseml.transformers.compression.utils import (
+    infer_compressor_from_model_config,
+    modify_save_pretrained,
 )
 from sparseml.transformers.sparsification.modification import modify_model
 from sparseml.transformers.utils.helpers import resolve_recipe
@@ -69,7 +74,7 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
         recipe: Optional[Union[str, Path]] = None,
         *model_args,
         **kwargs,
-    ) -> Module:
+    ) -> PreTrainedModel:
         """
          A wrapper around the AutoModelForCausalLM.from_pretrained method
 
@@ -105,6 +110,9 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
                     zoo_stub=pretrained_model_name_or_path
                 )
 
+        # determine compression format, if any, from the model config
+        compressor = infer_compressor_from_model_config(pretrained_model_name_or_path)
+
         # temporarily set the log level to error, to ignore printing out long missing
         # and unexpected key error messages (these are EXPECTED for quantized models)
         logger = logging.getLogger("transformers.modeling_utils")
@@ -115,6 +123,14 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
         )
         logger.setLevel(level=restore_log_level)
         model = modify_model(model)
+        # override the PreTrainedModel instance with compression save function
+        modify_save_pretrained(model)
+
+        # If model is compressed on disk, decompress and load the weights
+        if compressor is not None:
+            compressor.overwrite_weights(
+                pretrained_model_name_or_path=pretrained_model_name_or_path, model=model
+            )
         recipe = resolve_recipe(recipe=recipe, model_path=pretrained_model_name_or_path)
         if recipe:
             apply_recipe_structure_to_model(
