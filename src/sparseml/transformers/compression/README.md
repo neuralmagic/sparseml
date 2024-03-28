@@ -30,52 +30,133 @@ needed for decompression in the compressed state_dict:
 }
 ```
 
+Config information gets stored in the HF config file
+```json
+// config.json
+{
+    "sparsity_config": {
+        "format": "sparse_bitmask", // "dense_sparsity" for original tensor format
+
+        // informational
+        "sparsity_structure": "unstructured", // or 2:4, 8:16 etc...
+        "global_sparsity": "0.5"
+    }
+}
+```
+
+## Saving/Loading Interface 
+
+Loading in a compressed model requires no interface changes
+
+```python
+from sparseml.transformers.utils import SparseAutoModelForCausalLM
+
+# should contain model.safetensors or model.safetensors.index.json
+model_path = "/PATH/TO/COMPRESSED_MODEL"
+
+model = SparseAutoModelForCausalLM.from_pretrained(
+    model_name_or_path=model_path,
+    **model_kwargs,
+)
+```
+
+Saving a compressed model with an explicitly provided compression config. The config
+is saved to the model's `config.json` file. **Note:** the model must have been 
+initialized with SparseAutoModelForCausalLM.from_pretrained()
+
+```python
+from sparseml.transformers.compression import BitmaskConfig
+
+output_dir = "/PATH/TO/SAVE/COMPRESSED_MODEL"
+sparsity_config = BitmaskConfig()
+
+model.save_pretrained(
+    save_directory=output_dir,
+    sparsity_config=sparsity_config,
+)
+```
+
+Saving a compressed model, inferring the config from the model attributes
+
+```python
+model.save_pretrained(
+    save_directory=output_dir,
+    save_compressed=True
+)
+```
+
+Saving a model in the dense format. If the model has at least 5% global sparsity a 
+sparsity config will still be included in `config.json` with format `dense_sparsity`
+
+```python
+model.save_pretrained(
+    save_directory=output_dir
+)
+```
+
+Saving a model in the dense format, bypassing the sparsity config calculation. When the
+`skip_compression_stats` flag is set, no sparsity config will be written to 
+`config.json`
+
+```python
+model.save_pretrained(
+    save_directory=output_dir
+    skip_compression_stats=True
+)
+```
+
+## Enable Compression During One-Shot and Sparse Finetunining
+Models that are saved in a supported compressed format on disk will automatically be
+decompressed when loaded as input to `sparseml.transformers.oneshot` or 
+`sparseml.transformers.train`
+
+To enable compression on save after oneshot or finetuning simply add the 
+`save_compressed=True` argument to `sparseml.transformers.oneshot` or 
+`sparseml.transformers.train`
+
+```python
+from sparseml.transformers import train
+
+train(
+    save_compressed=True,
+    model="neuralmagic/TinyLlama-1.1B-Chat-v1.0-pruned2.4",
+    recipe=RECIPE,
+    dataset=DATASET
+)
+```
+
+
 ## Example Code
+
+Loads a 60% sparse model, compresses it using the inferred bitmask compression, then 
+reloads the compressed model.
 
 ```python
 from sparseml.transformers import SparseAutoModelForCausalLM
-from sparseml.transformers.compression import BitmaskConfig, BitmaskCompressor
 from sparseml.utils.pytorch.utils import measure_cuda_memory
-from tqdm import tqdm
 import torch
 
-MODEL_PATH = "zoo:llama2-7b-gsm8k_llama2_pretrain-pruned50.oneshot"
+MODEL_PATH = "zoo:llama2-7b-open_platypus_orca_llama2_pretrain-pruned60"
 OUTPUT_PATH = "./test_compress_output"
+RECIPE = "zoo:llama2-7b-open_platypus_orca_llama2_pretrain-pruned60"
 
 torch.cuda.set_device(0)
 with measure_cuda_memory() as m:
     model = SparseAutoModelForCausalLM.from_pretrained(MODEL_PATH, device_map="cuda:0")
 print(f"Load dense model peak GPU {m.overall_peak_memory / float(2**30):.4f} GB")
 
-sparsity_config = BitmaskConfig()
-compressor = BitmaskCompressor(config=sparsity_config)
-
-# compresses the model using Bitmask compression
+sparsity_config = getattr(model,"sparsity_config", None)
+print(f"Sparsity config before compression: {sparsity_config}")
 with measure_cuda_memory() as m:
-    model_state_dict = model.state_dict()
-    sparse_state_dict = compressor.compress(model_state_dict)
-
-    # save the compressed model
-    model.save_pretrained(
-        OUTPUT_PATH, 
-        safe_serialization=True, 
-        state_dict=sparse_state_dict
-    )
-
+    model.save_pretrained(OUTPUT_PATH, save_compressed=True)
 print(f"Save compressed model peak GPU {m.overall_peak_memory / float(2**30):.4f} GB")
 
-# use the dense state dict to reload the model
 torch.cuda.set_device(1)
 with measure_cuda_memory() as m:
     model_again = SparseAutoModelForCausalLM.from_pretrained(
-        OUTPUT_PATH, 
-        device_map="cuda:1"
+        OUTPUT_PATH, device_map="cuda:1"
     )
-
-    #returns iterator
-    dense_state_dict = compressor.decompress(OUTPUT_PATH)
-    for name, data in tqdm(dense_state_dict, desc="Decompressing model"):
-        BitmaskCompressor.replace_layer(name, data, model_again)
-
 print(f"Load compressed model peak GPU {m.overall_peak_memory / float(2**30):.4f} GB")
+sparsity_config = getattr(model_again,"sparsity_config", None)
+print(f"Sparsity config after compression: {sparsity_config}")
 ```
