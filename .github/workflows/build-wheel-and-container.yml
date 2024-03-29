@@ -3,10 +3,12 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
     branches:
+      - main
       - 'release/[0-9]+.[0-9]+'
   push:
     branches:
-      - '*'
+      - "*"
+      - 'release/[0-9]+.[0-9]+'
       - main
   release:
     types: [created, published]
@@ -27,7 +29,7 @@ concurrency:
 # missing release tag workflow/needs to be added in
 env:
   INTERNAL: ${{ github.event_name != 'schedule' && github.event_name != 'release'}}
-  RELEASE: ${{ github.event_name =='release' || (startsWith(github.base_ref, 'release/') && github.event_name == 'pull_request')}}
+  RELEASE: ${{ github.event_name =='release' || startsWith(github.base_ref, 'release/') }}
   DEV: ${{ github.base_ref == 'main' && github.event_name == 'pull_request'}}
   NAME: ${{ github.event.number }} 
 
