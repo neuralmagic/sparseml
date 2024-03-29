@@ -1,4 +1,4 @@
-name: Build PyPi Wheel
+name: Build PyPi Wheel and Docker Container
 on:
   pull_request:
     types: [opened, synchronize, reopened]
@@ -56,7 +56,6 @@ jobs:
         with:
           filename: dist/*.whl
           internal: $INTERNAL
-  
   build-container:
     needs: build-wheel-and-push
     runs-on: ubuntu-20.04
