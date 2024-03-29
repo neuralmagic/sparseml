@@ -88,7 +88,7 @@ def test_disable_modify_model_through_env_var(monkeypatch, model, test_registry)
         return model
 
     is_modified = copy(model.modified)
-    monkeypatch.setenv("NM_DISABLE_MODEL_MODIFICATION", "1")
+    monkeypatch.setenv("NM_DISABLE_TRANSFORMERS_MODIFICATION", "1")
     model = modify_model(model)
     assert model.modified == is_modified == False  # noqa E712
     monkeypatch.undo()

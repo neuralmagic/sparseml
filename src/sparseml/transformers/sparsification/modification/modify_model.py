@@ -37,8 +37,8 @@ def modify_model(model: torch.nn.Module, disable: int = False) -> torch.nn.Modul
     :return: The potentially modified model
     """
     model_name = model.__class__.__name__
-    NM_DISABLE_MODEL_MODIFICATION = os.environ.get(
-        "NM_DISABLE_MODEL_MODIFICATION", "False"
+    NM_DISABLE_TRANSFORMERS_MODIFICATION = os.environ.get(
+        "NM_DISABLE_TRANSFORMERS_MODIFICATION", "False"
     ).lower() in ["true", "1"]
     try:
         modification_func = ModificationRegistry.get_value_from_registry(model_name)
@@ -50,7 +50,7 @@ def modify_model(model: torch.nn.Module, disable: int = False) -> torch.nn.Modul
         )
         return model
 
-    if NM_DISABLE_MODEL_MODIFICATION:
+    if NM_DISABLE_TRANSFORMERS_MODIFICATION:
         _LOGGER.debug(
             "Application of the modification function to model "
             "disabled through the environment variable."
