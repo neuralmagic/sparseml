@@ -235,7 +235,8 @@ def resolve_sequence_length(config: AutoConfig) -> int:
 
 
 def resolve_recipe(
-    recipe: Union[str, Path, None], model_path: Union[str, Path]
+    model_path: Union[str, Path],
+    recipe: Union[str, Path, None] = None,
 ) -> Union[str, None]:
     """
     Resolve the recipe to apply to the model.

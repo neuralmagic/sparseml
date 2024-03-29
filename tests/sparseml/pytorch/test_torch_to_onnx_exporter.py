@@ -399,7 +399,7 @@ def test_yolov5_exporters_are_equivalent(tmp_path):
 )
 def test_bert_exporters_are_equivalent(tmp_path, quantize: bool, convert_qat: bool):
 
-    from sparseml.transformers.utils import SparseAutoModel
+    from sparseml.transformers import SparseAutoModel
     from sparsezoo import Model
 
     old_dir = tmp_path / "old_exporter"
