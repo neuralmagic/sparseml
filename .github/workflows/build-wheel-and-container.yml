@@ -3,10 +3,10 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
     branches:
-      - main
       - 'release/[0-9]+.[0-9]+'
   push:
     branches:
+      - '*'
       - main
   release:
     types: [created, published]
@@ -57,7 +57,7 @@ jobs:
         with:
           filename: dist/*.whl
           internal: $INTERNAL
-  build-container:
+  build-container-and-push:
     needs: build-wheel-and-push
     runs-on: ubuntu-20.04
     steps:
