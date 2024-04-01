@@ -77,7 +77,7 @@ With the models downloaded, we will set up the Hugging Face `tokenizer`, `config
 We instantiate these classes by passing the local path to the directory containing the `pytorch_model.bin`, `tokenizer.json`, and `config.json` files from the SparseZoo download.
 
 ```python
-from sparseml.transformers.utils import SparseAutoModel
+from sparseml.transformers import SparseAutoModel
 from transformers import AutoModelForSequenceClassification, AutoConfig, AutoTokenizer
 
 NUM_LABELS = 2
