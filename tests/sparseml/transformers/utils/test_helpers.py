@@ -200,6 +200,12 @@ def test_save_zoo_directory(tmp_path, stub):
             None,
             ("000000000000" "1111111111"),
         ),
+        (
+            ("hello\n\n" "[bar]world"),
+            "[bar]",
+            None,
+            ("0000000" "1111111111"),
+        ),
     ],
 )
 def test_generate_mask(string, response, prompt, expected_mask):

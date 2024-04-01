@@ -606,5 +606,4 @@ def generate_mask(string: str, response: str, prompt: Optional[str] = None) -> s
 
         if prompt.startswith(char) or response.startswith(char):
             counter = 1
-
     return "".join(mask)
