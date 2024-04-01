@@ -40,7 +40,10 @@ from sparseml.transformers.finetune.model_args import ModelArguments
 from sparseml.transformers.finetune.runner import StageRunner
 from sparseml.transformers.finetune.trainer import Trainer
 from sparseml.transformers.finetune.training_args import TrainingArguments
-from sparseml.transformers.utils import SparseAutoModel, get_shared_tokenizer_src
+from sparseml.transformers.sparsification.sparse_model import (
+    SparseAutoModel,
+    get_shared_tokenizer_src,
+)
 from sparseml.transformers.utils.helpers import detect_last_checkpoint
 
 
