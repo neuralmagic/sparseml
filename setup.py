@@ -37,7 +37,6 @@ else:
     _PACKAGE_NAME = "sparseml-nightly"
 
 _deps = [
-    "setuptools<=59.5.0",
     "pyyaml>=5.0.0",
     "numpy>=1.17.0",
     "matplotlib>=3.0.0",
