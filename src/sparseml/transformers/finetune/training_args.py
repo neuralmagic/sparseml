@@ -32,12 +32,6 @@ class TrainingArguments(HFTrainingArgs):
         arguments
     """
 
-    distill_teacher: Optional[str] = field(
-        default=None,
-        metadata={
-            "help": "Teacher model (a trained text generation model)",
-        },
-    )
     best_model_after_epoch: int = field(
         default=None,
         metadata={"help": "Epoch after which best model will be saved."},
@@ -59,6 +53,10 @@ class TrainingArguments(HFTrainingArgs):
                 "key2=value2"
             )
         },
+    )
+    save_compressed: Optional[bool] = field(
+        default=False,
+        metadata={"help": "Whether to compress sparse models during save"},
     )
     do_oneshot: Optional[bool] = field(
         default=False,

@@ -18,11 +18,14 @@ import pytest
 import torch
 from transformers import AutoTokenizer
 
+from sparseml.core import ModifiableModel
 from sparseml.core.framework import Framework
 from sparseml.core.state import State
 from sparseml.modifiers.obcq import SparseGPTModifier
+from sparseml.modifiers.obcq.pytorch import SparseGPTModifierPyTorch
 from sparseml.modifiers.obcq.utils.helpers import ppl_eval_general
 from sparseml.pytorch.utils.helpers import tensor_sparsity
+from sparseml.transformers import SparseAutoModelForCausalLM
 from sparseml.transformers.finetune.data import TextGenerationDataset
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
 from sparseml.transformers.finetune.data.data_helpers import format_calibration_data
@@ -217,3 +220,19 @@ def test_fake_quant_wrapper(tmp_path):
         oneshot_device=oneshot_device,
         num_calibration_samples=num_calibration_samples,
     )
+
+
+def test_infer_targets():
+    model = SparseAutoModelForCausalLM.from_pretrained("Xenova/llama2.c-stories15M")
+    modifiable_model = ModifiableModel(framework=Framework.pytorch, model=model)
+    targets = modifiable_model.get_no_split_params()
+    assert len(targets) == 1
+    assert targets[0] == "LlamaDecoderLayer"
+
+    modifier = SparseGPTModifierPyTorch(sparsity=0.5)
+    modifier.targets = targets
+    modifier.model = modifiable_model
+    compressible_layers = modifier.compressible_layers()
+
+    # 15M model should have 6 transformer layers
+    assert len(compressible_layers) == 6

@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# flake8: noqa #E501
 
 """
 General utility helper functions.
@@ -20,6 +21,8 @@ Common functions for interfacing with python primitives and directories/files.
 import ast
 import errno
 import fnmatch
+import importlib.metadata
+import importlib.util
 import json
 import logging
 import os
@@ -70,6 +73,7 @@ __all__ = [
     "deprecation_warning",
     "parse_kwarg_tuples",
     "download_zoo_training_dir",
+    "is_package_available",
 ]
 
 
@@ -935,3 +939,38 @@ def download_zoo_training_dir(zoo_stub: str) -> str:
         file_name.path
 
     return training_dir_path
+
+
+def is_package_available(
+    package_name: str,
+    return_version: bool = False,
+) -> Union[Tuple[bool, str], bool]:
+    """
+    A helper function to check if a package is available
+    and optionally return its version. This function enforces
+    a check that the package is available and is not
+    just a directory/file with the same name as the package.
+
+    inspired from:
+    https://github.com/huggingface/transformers/blob/965cf677695dd363285831afca8cf479cf0c600c/src/transformers/utils/import_utils.py#L41
+
+    :param package_name: The package name to check for
+    :param return_version: True to return the version of
+        the package if available
+    :return: True if the package is available, False otherwise or a tuple of
+        (bool, version) if return_version is True
+    """
+
+    package_exists = importlib.util.find_spec(package_name) is not None
+    package_version = "N/A"
+    if package_exists:
+        try:
+            package_version = importlib.metadata.version(package_name)
+            package_exists = True
+        except importlib.metadata.PackageNotFoundError:
+            package_exists = False
+        _LOGGER.debug(f"Detected {package_name} version {package_version}")
+    if return_version:
+        return package_exists, package_version
+    else:
+        return package_exists

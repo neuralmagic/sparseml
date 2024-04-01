@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import operator
+from pathlib import Path
 from typing import Optional, Union
 
 
@@ -25,6 +27,7 @@ try:
 except ImportError:
     FullyShardedDataParallel = None
 
+import torch
 from torch.nn import Module
 
 from sparseml.core.model import ModifiableModel
@@ -39,7 +42,10 @@ __all__ = [
     "unwrap_and_export_model",
     "save_pretrained_fsdp",
     "get_fsdp_parent",
+    "find_and_move_state_dicts_to_cpu",
 ]
+
+_LOGGER = logging.getLogger(__name__)
 
 
 def is_fsdp_model(model: Module) -> bool:
@@ -113,7 +119,34 @@ def unwrap_and_export_model(model, accelerator, output_dir, tokenizer):
         )
 
 
-def save_pretrained_fsdp(model, accelerator, output_dir, save_safetensors: bool = True):
+def find_and_move_state_dicts_to_cpu(output_dir: str):
+    """
+    Looks for state dicts in the output directory and overwrites them
+    with cpu state dicts.
+
+    this is needed for quantized models trained with FSDP as the state dict
+    contains device information, which can cause issues when loading the model
+    using transformers AutoModel.from_pretrained(...) if the device information
+    is not removed, assumes the state dicts are named pytorch_model*.bin
+    """
+
+    for model_file in Path(output_dir).rglob("pytorch_model*.bin"):
+        loaded_dict = torch.load(model_file)
+        for key, value in loaded_dict.items():
+            if isinstance(value, torch.Tensor):
+                loaded_dict[key] = value.cpu()
+
+        torch.save(loaded_dict, model_file)
+        _LOGGER.info(f"Moved state dict {model_file} to cpu")
+
+
+def save_pretrained_fsdp(
+    model,
+    accelerator,
+    output_dir,
+    save_safetensors: bool = True,
+    save_compressed: bool = False,
+):
     full_state_dict_config = FullStateDictConfig(offload_to_cpu=True, rank0_only=True)
     """
     Gathers the full FSDP state dict of the model onto rank0 GPU, then uses it to save
@@ -123,6 +156,7 @@ def save_pretrained_fsdp(model, accelerator, output_dir, save_safetensors: bool 
     :param accelerator: Accelerator instance used to perform unwrapping
     :param output_dir: where to save output model
     :param save_safetensors: True to safe in safetensors format, otherwise .bin
+    :param save_compressed: whether to compress sparse weights on disk
     """
     with FullyShardedDataParallel.state_dict_type(
         model, StateDictType.FULL_STATE_DICT, full_state_dict_config
@@ -134,6 +168,7 @@ def save_pretrained_fsdp(model, accelerator, output_dir, save_safetensors: bool 
         is_main_process=accelerator.is_main_process,
         save_function=accelerator.save,
         state_dict=state_dict,
+        save_compressed=save_compressed,
         safe_serialization=save_safetensors,
     )
 

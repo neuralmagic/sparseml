@@ -89,6 +89,7 @@ def get_raw_dataset(
     :return: the requested dataset
 
     """
+
     raw_datasets = load_dataset(
         data_args.dataset,
         data_args.dataset_config_name,
@@ -125,6 +126,7 @@ def make_dataset_splits(
             tokenized_datasets = {"train": tokenized_datasets}
 
     train_split = eval_split = predict_split = calib_split = None
+
     if do_train:
         if "train" not in tokenized_datasets:
             raise ValueError("--do_train requires a train dataset")
@@ -217,5 +219,36 @@ def get_custom_datasets_from_path(path: str, ext: str = "json") -> Dict[str, str
                         dir_dataset.append(file_path)
                 if dir_dataset:
                     data_files[dir_name] = dir_dataset
+
+    return transform_dataset_keys(data_files)
+
+
+def transform_dataset_keys(data_files: Dict[str, Any]):
+    """
+    Transform dict keys to `train`, `val` or `test` for the given input dict
+    if matches exist with the existing keys. Note that there can only be one
+    matching file name.
+    Ex. Folder(train_eval.json)          -> Folder(train.json)
+        Folder(train1.json, train2.json) -> Same
+
+    :param data_files: The dict where keys will be transformed
+    """
+    keys = set(data_files.keys())
+
+    def transform_dataset_key(candidate: str) -> None:
+        for key in keys:
+            if candidate in key:
+                if key == candidate:
+                    return
+                val = data_files.pop(key)
+                data_files[candidate] = val
+
+    def do_transform(candidate: str) -> bool:
+        return sum(candidate in key for key in keys) == 1
+
+    dataset_keys = ("train", "val", "test")
+    for dataset_key in dataset_keys:
+        if do_transform(dataset_key):
+            transform_dataset_key(dataset_key)
 
     return data_files

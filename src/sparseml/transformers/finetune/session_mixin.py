@@ -40,6 +40,7 @@ from sparseml.transformers.finetune.callbacks import (
 )
 from sparseml.utils.fsdp.context import summon_full_params_context
 from sparseml.utils.fsdp.helpers import is_fsdp_model, save_pretrained_fsdp
+from sparseml.utils.pytorch import qat_active
 
 
 __all__ = [
@@ -137,7 +138,7 @@ class SessionManagerMixIn:
         train_data = self.get_train_dataloader()
 
         self.accelerator.wait_for_everyone()
-        with summon_full_params_context(self.model):
+        with summon_full_params_context(self.model, offload_to_cpu=True):
             session_manager.initialize(
                 model=self.model,
                 teacher_model=self.teacher,  # TODO: what about for self/disable?
@@ -370,9 +371,13 @@ class SessionManagerMixIn:
 
         self.accelerator.wait_for_everyone()
 
-        # Need to gather parameters across the GPUs before accessing layer weights
-        with summon_full_params_context(self.model):
-            self.log_model_sparsification()
+        # log model sparsity
+        with summon_full_params_context(self.model, offload_to_cpu=True):
+            if self.accelerator.is_main_process:
+                if not qat_active(self.model):
+                    self.log_model_sparsification()
+
+        self.accelerator.wait_for_everyone()
 
         return output
 
@@ -426,12 +431,19 @@ class SessionManagerMixIn:
             framework=Framework.pytorch,
             recipe=self.recipe,
             recipe_stage=stage,
+            recipe_args=self.recipe_args,
             model=self.model,
             calib_data=calib_data,
             start=-1,
             copy_data=False,
             accelerator=self.accelerator,
         )
+
+        # log model sparsity
+        with summon_full_params_context(self.model, offload_to_cpu=True):
+            if self.accelerator.is_main_process:
+                if not qat_active(self.model):
+                    self.log_model_sparsification()
 
         self.accelerator.wait_for_everyone()
 
@@ -445,25 +457,29 @@ class SessionManagerMixIn:
 
         :param output_dir: the path to save the recipes into
         """
-        self._check_super_defined("save_model")
-        super().save_model(output_dir=output_dir, _internal_call=_internal_call)
-
         if session_manager.active_session() is None:
             return  # nothing to save
 
         if output_dir is None:
             output_dir = self.args.output_dir
 
-        # don't export the gathered model on checkpoints
-        if is_fsdp_model(self.model) and not _internal_call:
+        if not is_fsdp_model(self.model):
+            self.model.save_pretrained(
+                output_dir,
+                save_compressed=self.args.save_compressed,
+                safe_serialization=self.args.save_safetensors,
+            )
+        else:  # FSDP model
             save_pretrained_fsdp(
                 model=self.model,
                 accelerator=self.accelerator,
                 output_dir=output_dir,
+                save_compressed=self.args.save_compressed,
                 save_safetensors=self.metadata.get("save_safetensors", False),
             )
 
         self.save_state()
+        self.tokenizer.save_pretrained(output_dir)
         if not _is_oneshot:  # optimizer/scheduler not relevant to one-shot
             self.save_optimizer_and_scheduler(output_dir)
 
@@ -514,6 +530,8 @@ class SessionManagerMixIn:
 
         if self.teacher is not None:
             self.teacher.to("cpu")
+            for n, p in self.teacher.named_parameters():
+                p.requires_grad = False
             self.teacher = self.accelerator.prepare(self.teacher)
             self.teacher.eval()
             self.accelerator.wait_for_everyone()

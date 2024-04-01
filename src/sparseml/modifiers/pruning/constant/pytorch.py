@@ -71,6 +71,9 @@ class ConstantPruningModifierPyTorch(ConstantPruningModifier, LayerParamMasking)
             def apply_masks(module):
                 mask_name = param_mask_name()
                 if hasattr(module, mask_name):
+                    mask = getattr(module, mask_name)
+                    if mask.device != module.weight.device:
+                        setattr(module, mask_name, mask.to(module.weight.device))
                     module.weight *= getattr(module, mask_name)
 
             state.model.model.apply(apply_masks)

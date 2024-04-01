@@ -20,6 +20,7 @@ from setuptools import find_packages, setup
 
 # default variables to be overwritten by the version.py file
 is_release = None
+is_dev = None
 version = "unknown"
 version_major_minor = version
 
@@ -28,12 +29,17 @@ exec(open(os.path.join("src", "sparseml", "version.py")).read())
 print(f"loaded version {version} from src/sparseml/version.py")
 version_nm_deps = f"{version_major_minor}.0"
 
-_PACKAGE_NAME = "sparseml" if is_release else "sparseml-nightly"
+if is_release:
+    _PACKAGE_NAME = "sparseml"
+elif is_dev:
+    _PACKAGE_NAME = "sparseml-dev"
+else:
+    _PACKAGE_NAME = "sparseml-nightly"
 
 _deps = [
     "setuptools<=59.5.0",
     "pyyaml>=5.0.0",
-    "numpy>=1.0.0",
+    "numpy>=1.17.0",
     "matplotlib>=3.0.0",
     "merge-args>=0.1.0",
     "onnx>=1.5.0,<1.15.0",
@@ -73,8 +79,7 @@ _pytorch_vision_deps = _pytorch_deps + [
     "opencv-python<=4.6.0.66",
 ]
 _transformers_deps = _pytorch_deps + [
-    f"{'nm-transformers' if is_release else 'nm-transformers-nightly'}"
-    f"~={version_nm_deps}",
+    "transformers<4.35.0",
     "datasets<=2.14.6",
     "dvc",
     "scikit-learn",
@@ -86,7 +91,7 @@ _transformers_deps = _pytorch_deps + [
 ]
 _llm_deps = _transformers_deps + ["sentencepiece"]
 _yolov5_deps = _pytorch_vision_deps + [
-    f"{'nm-yolov5' if is_release else 'nm-yolov5-nightly'}~={version_nm_deps}"
+    f"{'nm-yolov5' if is_release else 'nm-yolov5-nightly'}<={version_nm_deps}"
 ]
 _notebook_deps = [
     "jupyter>=1.0.0",
@@ -114,6 +119,7 @@ _dev_deps = [
     "tensorboard>=1.0,<2.9",
     "tensorboardX>=1.0",
     "evaluate>=0.4.1",
+    "parameterized",
 ]
 
 _docs_deps = [

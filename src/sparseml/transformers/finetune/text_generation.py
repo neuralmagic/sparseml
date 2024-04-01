@@ -42,7 +42,10 @@ from sparseml.transformers.finetune.sft_trainer import SFTTrainer
 
 # from sparseml.transformers.finetune.trainer import Trainer
 from sparseml.transformers.finetune.training_args import TrainingArguments
-from sparseml.transformers.utils import SparseAutoModel, get_shared_tokenizer_src
+from sparseml.transformers.sparsification.sparse_model import (
+    SparseAutoModel,
+    get_shared_tokenizer_src,
+)
 from sparseml.transformers.utils.helpers import detect_last_checkpoint
 
 
@@ -126,11 +129,12 @@ def parse_args(**kwargs):
         model_args, data_args, training_args = parser.parse_dict(kwargs)
 
     if training_args.recipe_args is not None:
-        arg_dict = {}
-        for recipe_arg in training_args.recipe_args:
-            key, value = recipe_arg.split("=")
-            arg_dict[key] = value
-        training_args.recipe_args = arg_dict
+        if not isinstance(training_args.recipe_args, dict):
+            arg_dict = {}
+            for recipe_arg in training_args.recipe_args:
+                key, value = recipe_arg.split("=")
+                arg_dict[key] = value
+            training_args.recipe_args = arg_dict
 
     # when set to true in FSDP mode this causes issues, the model arguments show up
     # as *args and **kwargs so all columns get removed
@@ -157,10 +161,10 @@ def intialize_model_from_path(
     )
     teacher_config = (
         AutoConfig.from_pretrained(
-            training_args.distill_teacher,
+            model_args.distill_teacher,
             use_auth_token=True if model_args.use_auth_token else None,
         )
-        if training_args.distill_teacher
+        if model_args.distill_teacher
         else None
     )
 
@@ -210,11 +214,11 @@ def intialize_model_from_path(
 
     teacher = (
         SparseAutoModel.text_generation_from_pretrained(
-            model_name_or_path=training_args.distill_teacher,
+            model_name_or_path=model_args.distill_teacher,
             sequence_length=None,  # use model default
             **teacher_kwargs,
         )
-        if training_args.distill_teacher is not None
+        if model_args.distill_teacher is not None
         else None
     )
 
@@ -291,7 +295,7 @@ def main(
 
     # Detecting last checkpoint.
     last_checkpoint = None
-    teacher = None
+    teacher = model_args.distill_teacher
     model_path = None
     model = model_args.model
     # Load tokenizer
@@ -310,10 +314,6 @@ def main(
     if isinstance(tokenizer, str) or tokenizer is None:
         tokenizer = initialize_tokenizer_from_path(model_args, model, teacher)
 
-    # setup new SparseSession unless user requests otherwise
-    if training_args.clear_sparse_session:
-        session_manager.create_session()
-        session_manager.active_session().reset()
     session_manager.pre_initialize_structure(model=model, framework=Framework.pytorch)
 
     # intialize session manager
@@ -394,6 +394,10 @@ def main(
     # Prediction
     if training_args.do_predict:
         stage_runner.predict()
+
+    # Clean up the SparseSession before exit if requested
+    if training_args.clear_sparse_session:
+        session_manager.active_session().reset()
 
 
 if __name__ == "__main__":
