@@ -557,52 +557,54 @@ def fetch_recipe_path(target: str):
     return recipe_path
 
 
-def generate_mask(string: str, prompt: str, respomse: str = "") -> str:
+def generate_mask(string: str, response: str, prompt: Optional[str] = None) -> str:
     """
-    Generate a mask based on provided prompt and respomse strings to obscure
-    characters in the input string.
+    Generate a mask based on provided prompt and response strings to obscure
+    characters in the input string. Prompt will be masked and string in response
+    will be kept represented by 0 - remove and 1 - keep.
+    By default, non-reponse wrapped strings will be matched with 0
 
     Args:
     :param string: The input string to be masked.
     :param prompt: The prompt string to identify characters to obscure.
-    :param respomse: The respomse string to identify characters to keep visible.
+    :param response: The response string to identify characters to keep visible.
 
     Returns:
         str: A string representing the mask where '1' indicates visible
         characters and '0' indicates obscured characters.
 
     """
+    if prompt is None:
+        prompt = ""
+
     mask = ["1"] * len(string)
     is_prompt = True
     counter = 0
     for i, char in enumerate(string):
-        # if not is_prompt:
         if is_prompt:
             mask[i] = "0"
 
         if counter > 0:
             if not is_prompt and char == prompt[counter]:
                 counter += 1
-            elif is_prompt and char == respomse[counter]:
+            elif is_prompt and char == response[counter]:
                 counter += 1
             else:
                 counter = 0
 
-        if counter == len(prompt) and not is_prompt:
-            # mask[i - counter + 1 : i + 1] = ["1"] * counter
+        if len(prompt) > 0 and counter == len(prompt) and not is_prompt:
             mask[i - counter + 1 : i + 1] = ["0"] * counter
 
             counter = 0
             is_prompt = True
 
-        if counter == len(respomse) and is_prompt:
-            # mask[i - counter + 1 : i + 1] = ["0"] * counter
+        if counter == len(response) and is_prompt:
             mask[i - counter + 1 : i + 1] = ["1"] * counter
 
             counter = 0
             is_prompt = False
 
-        if prompt.startswith(char) or respomse.startswith(char):
+        if prompt.startswith(char) or response.startswith(char):
             counter = 1
 
     return "".join(mask)

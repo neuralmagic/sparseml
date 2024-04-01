@@ -170,12 +170,12 @@ def test_save_zoo_directory(tmp_path, stub):
 
 
 @pytest.mark.parametrize(
-    "string, prompt, censor, expected_mask",
+    "string, response, prompt, expected_mask",
     [
         (
             ("[foo]hello\n\n" "[bar]world"),
-            "[foo]",
             "[bar]",
+            "[foo]",
             ("000000000000" "1111111111"),
         ),
         (
@@ -185,8 +185,8 @@ def test_save_zoo_directory(tmp_path, stub):
                 "[Instruction]What about Java"  # 28
                 "[Response]Meh"  # 13
             ),
-            "[Instruction]",
             "[Response]",
+            "[Instruction]",
             (
                 "000000000000000000000000"  # 24
                 "11111111111111111"  # 17
@@ -195,13 +195,12 @@ def test_save_zoo_directory(tmp_path, stub):
             ),
         ),
         (
-            ("hello\n\n" "[bar]world"),
-            "[foo]",
+            ("[foo]hello\n\n" "[bar]world"),
             "[bar]",
-            ("000000000" "1111111111"),
-            (             1111111111)
+            None,
+            ("000000000000" "1111111111"),
         ),
     ],
 )
-def test_generate_mask(string, prompt, censor, expected_mask):
-    assert generate_mask(string, prompt, censor) == expected_mask
+def test_generate_mask(string, response, prompt, expected_mask):
+    assert generate_mask(string, response, prompt) == expected_mask
