@@ -40,7 +40,10 @@ from sparseml.transformers.finetune.model_args import ModelArguments
 from sparseml.transformers.finetune.runner import StageRunner
 from sparseml.transformers.finetune.trainer import Trainer
 from sparseml.transformers.finetune.training_args import TrainingArguments
-from sparseml.transformers.utils import SparseAutoModel, get_shared_tokenizer_src
+from sparseml.transformers.sparsification.sparse_model import (
+    SparseAutoModel,
+    get_shared_tokenizer_src,
+)
 from sparseml.transformers.utils.helpers import detect_last_checkpoint
 
 
@@ -309,10 +312,6 @@ def main(
     if isinstance(tokenizer, str) or tokenizer is None:
         tokenizer = initialize_tokenizer_from_path(model_args, model, teacher)
 
-    # setup new SparseSession unless user requests otherwise
-    if training_args.clear_sparse_session:
-        session_manager.create_session()
-        session_manager.active_session().reset()
     session_manager.pre_initialize_structure(model=model, framework=Framework.pytorch)
 
     # intialize session manager
@@ -380,6 +379,10 @@ def main(
     # Prediction
     if training_args.do_predict:
         stage_runner.predict()
+
+    # Clean up the SparseSession before exit if requested
+    if training_args.clear_sparse_session:
+        session_manager.active_session().reset()
 
 
 if __name__ == "__main__":

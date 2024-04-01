@@ -17,8 +17,8 @@ from typing import Any, Optional, Union
 
 from torch.nn import Module
 
+from sparseml.transformers.sparsification.sparse_model import SparseAutoModel
 from sparseml.transformers.utils.helpers import TaskNames
-from sparseml.transformers.utils.sparse_model import SparseAutoModel
 
 
 __all__ = ["load_task_model"]

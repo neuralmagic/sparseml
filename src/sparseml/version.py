@@ -19,7 +19,7 @@ Functionality for storing and setting the version info for SparseML
 from datetime import date
 
 
-version_base = "1.7.0"
+version_base = "1.8.0"
 is_release = False  # change to True to set the generated version as a release version
 is_dev = False
 dev_number = None

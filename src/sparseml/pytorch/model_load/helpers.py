@@ -22,6 +22,7 @@ import torch
 from torch.nn import Module
 
 import sparseml.core.session as session_manager
+from safetensors import safe_open
 from sparseml.core.framework import Framework
 from sparseml.pytorch.sparsification.quantization.helpers import (
     initialize_channel_wise_scale_zp,
@@ -143,7 +144,8 @@ def reload_model_state(
     weight_files = [
         os.path.join(load_path, os.path.basename(f))
         for f in files
-        if f.startswith("pytorch_model") and f.endswith("bin")
+        if (f.startswith("pytorch_model") and f.endswith("bin"))
+        or (f.endswith("safetensors"))
     ]
     if not weight_files:
         _LOGGER.warning(
@@ -168,7 +170,10 @@ def reload_model_state(
     # change in keys due to architecture changes, reload statedict
     loaded_state_dict = {}
     for f in weight_files:
-        dd = torch.load(f, map_location="cpu")
+        if f.endswith("safetensors"):
+            dd = load_safetensors_state_dict(file_path=f)
+        else:
+            dd = torch.load(f, map_location="cpu")
         loaded_state_dict.update(dd)
 
     _, missing, unexpected, mismatched, _, _ = model._load_pretrained_model(
@@ -229,7 +234,11 @@ def reload_model_from_checkpoint(model: Module, checkpoint: Optional[str] = None
 
 
 def save_model_and_recipe(
-    model: Module, save_path: str, tokenizer: Optional[Any] = None
+    model: Module,
+    save_path: str,
+    tokenizer: Optional[Any] = None,
+    save_safetensors: bool = False,
+    save_compressed: bool = False,
 ):
     """
     Save a model, tokenizer and the currently loaded recipe to file
@@ -237,9 +246,13 @@ def save_model_and_recipe(
     :param model: pytorch model to save
     :param save_path: path to save output to
     :param tokenizer: model tokenizer to save
+    :param save_safetensors: whether to save as safetensors or pickle (bin)
+    :param save_compressed: whether to compress sparse weights on disk
     """
 
-    model.save_pretrained(save_path)
+    model.save_pretrained(
+        save_path, save_compressed=save_compressed, safe_serialization=save_safetensors
+    )
 
     if tokenizer is not None:
         tokenizer.save_pretrained(save_path)
@@ -326,3 +339,14 @@ def save_completed_stages(checkpoint_dir: str, completed_stages: List[str]):
     stage_path = os.path.join(checkpoint_dir, COMPLETED_STAGES_FILENAME)
     with open(stage_path, "w") as out_file:
         json.dump({"completed": completed_stages}, out_file)
+
+
+def load_safetensors_state_dict(file_path: str) -> Dict[str, torch.Tensor]:
+    """
+    Load a safetensors file from disk
+
+    :param file_path: path to the safetensors file
+    :return: dictionary of safetensors data
+    """
+    with safe_open(file_path, framework="pt", device="cpu") as f:
+        return {key: f.get_tensor(key) for key in f.keys()}

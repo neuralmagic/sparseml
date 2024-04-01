@@ -83,8 +83,7 @@ from sparseml.pytorch.model_load.helpers import (
     apply_recipe_structure_to_model,
 )
 from sparseml.pytorch.utils import export_onnx
-from sparseml.transformers import SparseAutoTokenizer
-from sparseml.transformers.utils import SparseAutoModel
+from sparseml.transformers import SparseAutoModel, SparseAutoTokenizer
 from sparsezoo.utils.onnx import EXTERNAL_ONNX_DATA_NAME
 
 
