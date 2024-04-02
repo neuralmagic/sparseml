@@ -60,7 +60,7 @@ jobs:
           internal: $INTERNAL
   build-container-and-push:
     needs: build-wheel-and-push
-    runs-on: [self-hosted, aws-avx2-64G]
+    runs-on: [aws-avx2-64G]
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
