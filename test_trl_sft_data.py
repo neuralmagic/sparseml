@@ -8,7 +8,6 @@ from sparseml.transformers import (
     SparseAutoTokenizer
 )
 
-dataset = load_dataset("gsm8k", "main", split="train")
 model_path = "neuralmagic/Llama-2-7b-pruned50-retrained"
 output_dir = "./output_trl_sft_test_7b_gsm8k_sft_data"
 model = SparseAutoModelForCausalLM.from_pretrained(model_path, torch_dtype="auto", device_map="auto")
@@ -25,6 +24,7 @@ test_stage:
 """
 
 
+dataset = load_dataset("gsm8k", "main", split="train")
 def formatting_prompts_func(example):
     output_texts = []
     for i in range(len(example['question'])):
@@ -34,6 +34,7 @@ def formatting_prompts_func(example):
 
 response_template = "Answer:"
 collator = DataCollatorForCompletionOnlyLM(response_template, tokenizer=tokenizer)
+
 training_args = TrainingArguments(
     output_dir=output_dir, 
     num_train_epochs=0.6, 

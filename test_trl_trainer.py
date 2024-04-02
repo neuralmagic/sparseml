@@ -15,7 +15,7 @@ output_dir = "./output_trl_sft_test_7b_gsm8k"
 model = SparseAutoModelForCausalLM.from_pretrained(model_path, torch_dtype="auto", device_map="auto")
 tokenizer = SparseAutoTokenizer.from_pretrained(model_path)
 
-data_args = DataTrainingArguments(dataset = "gsm8k", dataset_config_name="main")
+data_args = DataTrainingArguments(dataset = "gsm8k", dataset_config_name="main", max_seq_length=512)
 dataset_manager = TextGenerationDataset.load_from_registry(
     data_args.dataset,
     data_args=data_args,
