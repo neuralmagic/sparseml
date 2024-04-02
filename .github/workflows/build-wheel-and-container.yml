@@ -79,14 +79,15 @@ jobs:
         dst: dist_s3
     - name: Install Wheel
       run: |
-          pip install dist_s3/*.whl[dev]
+          pip install dist_s3/${{ needs.build-wheel-and-push.outputs.wheel }}[dev]
     - name: Checkout code
       uses: actions/checkout@v3
       with:
-          sparse-checkout: 'tests'
-          sparse-checkout-cone-mode: false
+        sparse-checkout: 'tests'
+        sparse-checkout-cone-mode: false
     - name: Remove non-test files and run tests
       run: |
+            pip list
             ls
             make test
   build-container-and-push:
