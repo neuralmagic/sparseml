@@ -78,7 +78,7 @@ jobs:
     - name: Install Wheel
       run: |
           echo "FILENAME=$(echo dist_s3/*.whl)" >> $GITHUB_ENV
-          pip install $FILENAME[dev]
+          echo $FILENAME
     - name: Checkout code
       uses: actions/checkout@v3
       with:
@@ -86,6 +86,7 @@ jobs:
         sparse-checkout-cone-mode: false
     - name: Remove non-test files and run tests
       run: |
+            pip install $FILENAME[dev]
             pip list
             ls
             make test
