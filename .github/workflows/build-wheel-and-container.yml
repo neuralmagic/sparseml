@@ -86,8 +86,9 @@ jobs:
         sparse-checkout-cone-mode: false
     - name: Remove non-test files and run tests
       run: |
-            pip install $FILENAME[dev]
+            pip install $FILENAME
             pip list
+            pip install pytest
             ls
             make test
   build-container-and-push:
