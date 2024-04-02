@@ -34,6 +34,15 @@ __all__ = [
 def get_safetensors_folder(
     pretrained_model_name_or_path: str, cache_dir: Optional[str] = None
 ) -> str:
+    """
+    Given a Hugging Face stub or a local path, return the folder containing the
+    safetensors weight files
+
+    :param pretrained_model_name_or_path: local path to model or HF stub
+    :param cache_dir: optional cache dir to search through, if none is specified the
+    model will be searched for in the default TRANSFORMERS_CACHE
+    :return: local folder containing model data
+    """
     if os.path.exists(pretrained_model_name_or_path):
         # argument is a path to a local folder
         return pretrained_model_name_or_path
@@ -51,12 +60,15 @@ def get_safetensors_folder(
         _raise_exceptions_for_missing_entries=False,
     )
     if safetensors_path is not None:
+        # found a single cached safetensors file
         return os.path.split(safetensors_path)[0]
     if index_path is not None:
+        # found a cached safetensors weight index file
         return os.path.split(index_path)[0]
 
+    # model weights could not be found locally or cached from HF Hub
     raise ValueError(
-        "Could not find a safetensors weight or index file at "
+        "Could not locate safetensors weight or index file from "
         f"{pretrained_model_name_or_path}."
     )
 

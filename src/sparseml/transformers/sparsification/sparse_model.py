@@ -129,12 +129,14 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
 
         # If model is compressed on disk, decompress and load the weights
         if compressor is not None:
+            # if we loaded from a HF stub, find the cached model
             model_path = get_safetensors_folder(
                 pretrained_model_name_or_path, cache_dir=kwargs.get("cache_dir", None)
             )
-            compressor.overwrite_weights(
-                pretrained_model_name_or_path=model_path, model=model
-            )
+
+            # decompress weights
+            compressor.overwrite_weights(model_path=model_path, model=model)
+
         recipe = resolve_recipe(recipe=recipe, model_path=pretrained_model_name_or_path)
         if recipe:
             apply_recipe_structure_to_model(

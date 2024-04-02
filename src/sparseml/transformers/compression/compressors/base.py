@@ -70,15 +70,14 @@ class ModelCompressor(RegistryMixin):
         model_device = operator.attrgetter(param_name)(model).device
         set_layer(param_name, Parameter(data.to(model_device)), model)
 
-    def overwrite_weights(self, pretrained_model_name_or_path: str, model: Module):
+    def overwrite_weights(self, model_path: str, model: Module):
         """
-        Overwrites the weights in model with weights decompressed from
-        pretrained_model_name_or_path
+        Overwrites the weights in model with weights decompressed from model_path
 
-        :param pretrained_model_name_or_path: path to compressed weights
+        :param pretrained_model_path: path to compressed weights
         :param model: pytorch model to load decompressed weights into
         """
-        dense_gen = self.decompress(pretrained_model_name_or_path)
+        dense_gen = self.decompress(model_path)
         for name, data in tqdm(dense_gen, desc="Decompressing model"):
             ModelCompressor.replace_layer(name, data, model)
         setattr(model, SPARSITY_CONFIG_NAME, self.config)
