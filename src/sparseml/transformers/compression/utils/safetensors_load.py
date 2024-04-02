@@ -16,18 +16,49 @@ import json
 import os
 import re
 import struct
-from typing import Dict, List
+from typing import Dict, List, Optional
 
-from transformers.utils import SAFE_WEIGHTS_INDEX_NAME, SAFE_WEIGHTS_NAME
+from transformers.utils import SAFE_WEIGHTS_INDEX_NAME, SAFE_WEIGHTS_NAME, cached_file
 
 
 __all__ = [
+    "get_safetensors_folder",
     "get_safetensors_header",
     "match_param_name",
     "merge_names",
     "get_weight_mappings",
     "get_nested_weight_mappings",
 ]
+
+
+def get_safetensors_folder(
+    pretrained_model_name_or_path: str, cache_dir: Optional[str] = None
+) -> str:
+    if os.path.exists(pretrained_model_name_or_path):
+        # argument is a path to a local folder
+        return pretrained_model_name_or_path
+
+    safetensors_path = cached_file(
+        pretrained_model_name_or_path,
+        SAFE_WEIGHTS_NAME,
+        cache_dir=cache_dir,
+        _raise_exceptions_for_missing_entries=False,
+    )
+    index_path = cached_file(
+        pretrained_model_name_or_path,
+        SAFE_WEIGHTS_INDEX_NAME,
+        cache_dir=cache_dir,
+        _raise_exceptions_for_missing_entries=False,
+    )
+    if safetensors_path is not None:
+        return os.path.split(safetensors_path)[0]
+    if index_path is not None:
+        return os.path.split(index_path)[0]
+
+    raise ValueError(
+        "Could not find a safetensors weight or index file at "
+        f"{pretrained_model_name_or_path}."
+    )
 
 
 def get_safetensors_header(safetensors_path: str) -> Dict[str, str]:
@@ -105,6 +136,10 @@ def get_weight_mappings(model_path: str) -> Dict[str, str]:
         with open(index_path, "r", encoding="utf-8") as f:
             index = json.load(f)
         header = index["weight_map"]
+    else:
+        raise ValueError(
+            f"Could not find a safetensors weight or index file at {model_path}"
+        )
 
     # convert weight locations to full paths
     for key, value in header.items():

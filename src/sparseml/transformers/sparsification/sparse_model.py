@@ -35,6 +35,7 @@ from sparseml.pytorch.model_load.helpers import (
     log_model_load,
 )
 from sparseml.transformers.compression.utils import (
+    get_safetensors_folder,
     infer_compressor_from_model_config,
     modify_save_pretrained,
 )
@@ -128,8 +129,11 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
 
         # If model is compressed on disk, decompress and load the weights
         if compressor is not None:
+            model_path = get_safetensors_folder(
+                pretrained_model_name_or_path, cache_dir=kwargs.get("cache_dir", None)
+            )
             compressor.overwrite_weights(
-                pretrained_model_name_or_path=pretrained_model_name_or_path, model=model
+                pretrained_model_name_or_path=model_path, model=model
             )
         recipe = resolve_recipe(recipe=recipe, model_path=pretrained_model_name_or_path)
         if recipe:
