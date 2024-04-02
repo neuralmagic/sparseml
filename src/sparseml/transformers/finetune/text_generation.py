@@ -334,7 +334,6 @@ def main(
     trainer = Trainer(
         model_init=get_session_model,
         teacher=teacher,
-        model_state_path=model_path,
         recipe=training_args.recipe,
         metadata_args=metadata_args,
         recipe_args=training_args.recipe_args,

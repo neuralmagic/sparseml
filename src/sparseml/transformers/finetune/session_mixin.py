@@ -30,8 +30,7 @@ from sparseml.core.framework import Framework
 from sparseml.core.session import callbacks
 from sparseml.pytorch.model_load.helpers import (
     RECIPE_FILE_NAME,
-    get_session_model,
-    reload_model_state,
+    get_session_model
 )
 from sparseml.pytorch.utils import LoggerManager, ModuleSparsificationInfo
 from sparseml.transformers.finetune.callbacks import (
@@ -56,7 +55,6 @@ class SessionManagerMixIn:
     Mix-In class to extend the Hugging Face Trainer class to support SparseML recipes
     for one-shot and finetuning flows.
 
-    :param model_state_path: path to Pytorch model checkpoint or saved model
     :param recipe: path to recipe file to apply during training
     :param recipe_args: additional kwargs to use for evaluating recipe
     :param metadata_args: additional kwargs for configuring training
@@ -66,7 +64,6 @@ class SessionManagerMixIn:
 
     def __init__(
         self,
-        model_state_path: str,
         recipe: Optional[str] = None,
         recipe_args: Optional[Union[Dict[str, Any], str]] = None,
         metadata_args: Optional[List[str]] = None,
@@ -74,8 +71,6 @@ class SessionManagerMixIn:
         teacher: Optional[Union[Module, str]] = None,
         **kwargs,
     ):
-        # instantiate necessary state, like managers, so we can override args
-        self.model_state_path = str(model_state_path)
         self.recipe = recipe
         self.recipe_args = recipe_args
         self.teacher = teacher
@@ -134,7 +129,6 @@ class SessionManagerMixIn:
         if session.lifecycle.initialized_ or session.lifecycle.finalized:
             return False
 
-        orig_state_dict = self.model.state_dict()
         train_data = self.get_train_dataloader()
 
         self.accelerator.wait_for_everyone()
@@ -156,16 +150,6 @@ class SessionManagerMixIn:
         model = get_session_model()
         self.model = model
 
-        # reload the state dict for the model now that architecture matches expected
-        # TODO: what if there is a quant modifier in the original recipe and we want to
-        # continue adjusting its zero point and range?
-        load_path = checkpoint or self.model_state_path
-        if reload_model_state(model, load_path, orig_state_dict):
-            _LOGGER.info(
-                "Reloaded model state after SparseML recipe structure modifications "
-                f"from {load_path}"
-            )
-
         if self.recipe is None:
             _LOGGER.warning(
                 "No training recipe was provided, finetuning will be run "
@@ -185,6 +169,9 @@ class SessionManagerMixIn:
         session = session_manager.active_session()
         if session.lifecycle.initialized_:
             return False
+        
+        if isinstance(self.model, str):
+            self.model_path_or_stub = self.model
 
         session_manager.pre_initialize_structure(
             model=self.model,
@@ -479,9 +466,8 @@ class SessionManagerMixIn:
             )
 
         self.save_state()
-        self.tokenizer.save_pretrained(output_dir)
-        if not _is_oneshot:  # optimizer/scheduler not relevant to one-shot
-            self.save_optimizer_and_scheduler(output_dir)
+        if self.tokenizer is not None:
+            self.tokenizer.save_pretrained(output_dir)
 
         if not self.recipe:
             return
@@ -504,7 +490,7 @@ class SessionManagerMixIn:
         sparsification_info = ModuleSparsificationInfo(self.model)
 
         _LOGGER.info(
-            f"Sparsification info for {self.model_state_path}: "
+            f"Sparsification info for {str(type(self.model))}: "
             f"{sparsification_info.params_total} total params. "
             f"Of those there are {sparsification_info.params_prunable_total} prunable "
             f"params which have {sparsification_info.params_prunable_sparse_percent} "

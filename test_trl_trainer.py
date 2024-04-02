@@ -1,14 +1,20 @@
-from sparseml.transformers import SparseAutoModelForCausalLM, SparseAutoTokenizer
-from sparseml.transformers.finetune.sft_trainer import SFTTrainer
 from transformers import DefaultDataCollator
-from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
-from sparseml.transformers.finetune.data import TextGenerationDataset
-from peft import LoraConfig
+from datasets import load_dataset
 
-model_path = "facebook/opt-350m"
+from sparseml.transformers import (
+    Trainer, 
+    SFTTrainer,
+    DataTrainingArguments, 
+    TrainingArguments, 
+    TextGenerationDataset, 
+    SparseAutoModelForCausalLM, 
+    SparseAutoTokenizer
+)
+
+model_path = "neuralmagic/TinyLlama-1.1B-Chat-v1.0-pruned2.4"
 output_dir = "./output_trl_sft_test"
 
-model = SparseAutoModelForCausalLM.from_pretrained(model_path)
+model = SparseAutoModelForCausalLM.from_pretrained(model_path, device_map="auto")
 tokenizer = SparseAutoTokenizer.from_pretrained(model_path)
 
 data_args = DataTrainingArguments(dataset = "open_platypus")
@@ -18,27 +24,31 @@ dataset_manager = TextGenerationDataset.load_from_registry(
     split="train",
     tokenizer=tokenizer,
 )
-raw_dataset = dataset_manager.get_raw_dataset()
-train_dataset = dataset_manager.tokenize_and_process(raw_dataset)
+train_dataset = dataset_manager.tokenize_and_process()
 print(f"--> Training Set Length = {len(train_dataset)}")
 
+dataset = load_dataset("imdb", split="train")
 
-lora_config = LoraConfig(
-    r=16,
-    lora_alpha=32,
-    lora_dropout=0.05,
-    bias="none",
-    task_type="CAUSAL_LM",
-)
+recipe = """
+test_stage:
+  pruning_modifiers:
+    ConstantPruningModifier:
+      targets: ['re:.*q_proj.weight', 're:.*k_proj.weight', 're:.*v_proj.weight', 're:.*o_proj.weight',
+        're:.*gate_proj.weight', 're:.*up_proj.weight', 're:.*down_proj.weight']
+      start: 0
+"""
 
 data_collator = DefaultDataCollator()
 trainer = SFTTrainer(
     model=model,
-    model_state_path=model_path,
-    train_dataset=train_dataset,
     tokenizer=tokenizer,
+    recipe=recipe,
+    train_dataset=train_dataset,
     data_collator=data_collator,
-    peft_config=lora_config,
-    dataset_text_field="text"
+    args=TrainingArguments(output_dir=output_dir, num_train_epochs=0.01, logging_steps=50),
+    max_seq_length=data_args.max_seq_length,
+    packing=True
+    #dataset_text_field="text",
 )
 trainer.train()
+trainer.save_model(output_dir=trainer.args.output_dir)
