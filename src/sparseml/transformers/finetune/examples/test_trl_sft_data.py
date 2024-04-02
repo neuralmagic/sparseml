@@ -14,6 +14,7 @@ model = SparseAutoModelForCausalLM.from_pretrained(model_path, torch_dtype="auto
 tokenizer = SparseAutoTokenizer.from_pretrained(model_path)
 tokenizer.pad_token = tokenizer.eos_token
 
+# recipe for maintaining model sparsity during finetuning
 recipe = """
 test_stage:
   pruning_modifiers:
@@ -23,7 +24,7 @@ test_stage:
       start: 0
 """
 
-
+# Load gsm8k using TRL dataset tools
 dataset = load_dataset("gsm8k", "main", split="train")
 def formatting_prompts_func(example):
     output_texts = []
@@ -31,7 +32,6 @@ def formatting_prompts_func(example):
         text = f"Question: {example['question'][i]}\n Answer: {example['answer'][i]}"
         output_texts.append(text)
     return output_texts
-
 response_template = "Answer:"
 collator = DataCollatorForCompletionOnlyLM(response_template, tokenizer=tokenizer)
 
