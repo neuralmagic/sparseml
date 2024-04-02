@@ -84,8 +84,8 @@ jobs:
       uses: actions/checkout@v3
     - name: Install test dependencies
       run: |
-            rm -rf src/
             pip install -e ./[dev]
+            rm -rf src/
     - name: Test Wheel on Base Tests
       run: | 
             make test
