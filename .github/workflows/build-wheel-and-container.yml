@@ -73,7 +73,7 @@ jobs:
       run: |
           mkdir dist_s3
     - name: Pull from s3
-      uses: neuralmagic/nm-actions/actions/s3_pull@pypi-actions
+      uses: neuralmagic/nm-actions/actions/s3_pull@main
       with:
         filename: ${{ needs.build-wheel-and-push.outputs.wheel }}
         dst: dist_s3
