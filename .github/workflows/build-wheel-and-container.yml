@@ -77,8 +77,8 @@ jobs:
         dst: dist_s3
     - name: Install Wheel
       run: |
-          export wheel=$(ls dist_s3/*.whl)
-          pip install (echo $wheel)[dev]
+          echo "FILENAME=$(echo dist_s3/*.whel)" >> $GITHUB_ENB
+          pip install $FILENAME[dev]
     - name: Checkout code
       uses: actions/checkout@v3
       with:
