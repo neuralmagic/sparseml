@@ -19,6 +19,7 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import Callable, List, Optional
 from typing import OrderedDict as OrderedDictType
+from typing import Union
 
 import numpy
 import onnx
