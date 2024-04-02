@@ -81,11 +81,11 @@ jobs:
           echo $FILENAME
     - name: Install 
       run: |
-          pip install $FILENAME
+          pip install $FILENAME[dev]
     - name: Checkout code
       uses: actions/checkout@v3
       with:
-        sparse-checkout: 'tests'
+        sparse-checkout: ['tests', 'Makefile']
         sparse-checkout-cone-mode: false
     - name: Remove non-test files and run tests
       run: |
