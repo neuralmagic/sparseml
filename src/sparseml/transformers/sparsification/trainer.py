@@ -787,7 +787,6 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         """
         checkpoint, epoch = self._generate_apply_manager_params(kwargs)
         applied = self.apply_manager(epoch=epoch, checkpoint=checkpoint)
-        self.callback_disable_fp16.check_disable(epoch, force=True)
         output = None
         if not self.one_shot:
             output = super().train(*args, **kwargs)
@@ -811,13 +810,7 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         """
         applied = self.apply_manager(epoch=math.inf, checkpoint=None)
 
-        # Always evaluate w/ fp32 to be closer to DeepSparse
-        use_cuda_amp = self.use_cuda_amp
-        if not self.args.fp16_full_eval and not self.args.bf16_full_eval:
-            self.use_cuda_amp = False
-
         output = super().evaluate(*args, **kwargs)
-        self.use_cuda_amp = use_cuda_amp
         if applied:
             self.finalize_manager()
 
@@ -907,10 +900,6 @@ class TransformersTrainer(HFTransformersTrainer):
                         os.path.join(output_dir, "scheduler.pt"),
                     )
             reissue_pt_warnings(caught_warnings)
-            if self.use_cuda_amp:
-                torch.save(
-                    self.scaler.state_dict(), os.path.join(output_dir, "scaler.pt")
-                )
 
     def _load_optimizer_and_scheduler(self, checkpoint):
         """
@@ -1024,12 +1013,6 @@ class DisableHalfPrecisionCallback(TrainerCallback):
         self.on_begin_called = False
         self.quant_start_epoch = math.inf
 
-    def check_disable(self, epoch: float, force: bool = False):
-        if (
-            force or hasattr(self.trainer, "scaler") and self.trainer.scaler._enabled
-        ) and self.qat_active(epoch):
-            self.disable_amp(epoch)
-
     def qat_active(self, epoch: float) -> bool:
         manager_q_active = arch_manager_q_active = False
         if self.trainer.manager:
@@ -1039,18 +1022,6 @@ class DisableHalfPrecisionCallback(TrainerCallback):
                 self.trainer.arch_manager.quantization_modifiers
             )
         return manager_q_active or arch_manager_q_active
-
-    def disable_amp(self, epoch: float):
-        if not self.on_begin_called:
-            # disable if training loops haven't started so we don't load
-            # the empty scaler state dict and instead disable it from the start
-            self.trainer.use_cuda_amp = False
-
-        if hasattr(self.trainer, "scaler"):
-            self.trainer.scaler._enabled = False
-
-        self.quant_start_epoch = epoch
-        _LOGGER.info(f"entering QAT phase at epoch {epoch}, disabling FP16 training")
 
     def on_epoch_begin(
         self,
@@ -1064,7 +1035,6 @@ class DisableHalfPrecisionCallback(TrainerCallback):
         """
         super().on_epoch_begin(args, state, control, **kwargs)
         self.on_begin_called = True
-        self.check_disable(state.epoch)
 
         if state.epoch > self.quant_start_epoch:
             _LOGGER.info(self.trainer.model)

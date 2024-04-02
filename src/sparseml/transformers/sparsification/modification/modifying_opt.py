@@ -22,7 +22,7 @@ from typing import Optional, Tuple
 
 import torch
 from torch import nn
-from transformers.models.opt.modeling_opt import OPTAttention
+from transformers.models.opt.modeling_opt import OPTAttention, OptFlashAttention2
 
 from sparseml.pytorch.utils.helpers import swap_modules
 from sparseml.transformers.sparsification.modification.modification_objects import (
@@ -45,12 +45,20 @@ def modify(model: nn.Module) -> nn.Module:
     1. Replaces the OPTAttention modules with
         OPTAttentionWithQuantizableMatmuls modules
 
+    Note: This function will not alter any of the alternatives
+    to the OPTAttention module such as OptFlashAttention2
+
     :param model: the original LLaMa model
     :return: the modified LLaMa model
     """
     for name, submodule in model.named_modules():
         if isinstance(submodule, OPTAttention):
             swap_modules(model, name, OPTAttentionWithQuantizableMatmuls(submodule))
+        elif isinstance(submodule, OptFlashAttention2):
+            _LOGGER.debug(
+                f"The model contains {submodule.__class__.__name__} "
+                "module, which will not be modified"
+            )
     return model
 
 
@@ -141,19 +149,13 @@ class OPTAttentionWithQuantizableMatmuls(OPTAttention):
             value_states = self._shape(self.v_proj(hidden_states), -1, bsz)
 
         if self.is_decoder:
-            # if cross_attention save Tuple(torch.Tensor, torch.Tensor)
-            # of all cross attention key/value_states.
-            # Further calls to cross_attention layer
-            # can then reuse all cross-attention
+            # if cross_attention save Tuple(torch.Tensor, torch.Tensor) of all cross attention key/value_states. # noqa
+            # Further calls to cross_attention layer can then reuse all cross-attention
             # key/value_states (first "if" case)
-            # if uni-directional self-attention (decoder)
-            # save Tuple(torch.Tensor, torch.Tensor) of
-            # all previous decoder key/value_states.
-            # Further calls to uni-directional self-attention
-            # can concat previous decoder key/value_states
-            # to current projected key/value_states (third "elif" case)
-            # if encoder bi-directional self-attention
-            # `past_key_value` is always `None`
+            # if uni-directional self-attention (decoder) save Tuple(torch.Tensor, torch.Tensor) of # noqa
+            # all previous decoder key/value_states. Further calls to uni-directional self-attention # noqa
+            # can concat previous decoder key/value_states to current projected key/value_states (third "elif" case) # noqa
+            # if encoder bi-directional self-attention `past_key_value` is always `None`
             past_key_value = (key_states, value_states)
 
         proj_shape = (bsz * self.num_heads, -1, self.head_dim)
@@ -168,16 +170,14 @@ class OPTAttentionWithQuantizableMatmuls(OPTAttention):
 
         if attn_weights.size() != (bsz * self.num_heads, tgt_len, src_len):
             raise ValueError(
-                f"Attention weights should be of size "
-                f"{(bsz * self.num_heads, tgt_len, src_len)}, but is"
+                f"Attention weights should be of size {(bsz * self.num_heads, tgt_len, src_len)}, but is"
                 f" {attn_weights.size()}"
             )
 
         if attention_mask is not None:
             if attention_mask.size() != (bsz, 1, tgt_len, src_len):
                 raise ValueError(
-                    f"Attention mask should be of size "
-                    f"{(bsz, 1, tgt_len, src_len)}, but is {attention_mask.size()}"
+                    f"Attention mask should be of size {(bsz, 1, tgt_len, src_len)}, but is {attention_mask.size()}"  # noqa
                 )
             attn_weights = (
                 attn_weights.view(bsz, self.num_heads, tgt_len, src_len)
@@ -191,8 +191,7 @@ class OPTAttentionWithQuantizableMatmuls(OPTAttention):
             )
             attn_weights = attn_weights.view(bsz * self.num_heads, tgt_len, src_len)
 
-        # upcast to fp32 if the weights are in fp16.
-        # Please see https://github.com/huggingface/transformers/pull/17437
+        # upcast to fp32 if the weights are in fp16. Please see https://github.com/huggingface/transformers/pull/17437 # noqa
         if attn_weights.dtype == torch.float16:
             attn_weights = nn.functional.softmax(
                 attn_weights, dim=-1, dtype=torch.float32
@@ -203,8 +202,7 @@ class OPTAttentionWithQuantizableMatmuls(OPTAttention):
         if layer_head_mask is not None:
             if layer_head_mask.size() != (self.num_heads,):
                 raise ValueError(
-                    f"Head mask for a single layer "
-                    f"should be of size {(self.num_heads,)}, but is"
+                    f"Head mask for a single layer should be of size {(self.num_heads,)}, but is"  # noqa
                     f" {layer_head_mask.size()}"
                 )
             attn_weights = layer_head_mask.view(1, -1, 1, 1) * attn_weights.view(
@@ -236,16 +234,14 @@ class OPTAttentionWithQuantizableMatmuls(OPTAttention):
 
         if attn_output.size() != (bsz * self.num_heads, tgt_len, self.head_dim):
             raise ValueError(
-                f"`attn_output` should be of size "
-                f"{(bsz, self.num_heads, tgt_len, self.head_dim)}, but is"
+                f"`attn_output` should be of size {(bsz, self.num_heads, tgt_len, self.head_dim)}, but is"  # noqa
                 f" {attn_output.size()}"
             )
 
         attn_output = attn_output.view(bsz, self.num_heads, tgt_len, self.head_dim)
         attn_output = attn_output.transpose(1, 2)
 
-        # Use the `embed_dim` from the config (stored in the class)
-        # rather than `hidden_state` because `attn_output` can be
+        # Use the `embed_dim` from the config (stored in the class) rather than `hidden_state` because `attn_output` can be # noqa
         # partitioned aross GPUs when using tensor-parallelism.
         attn_output = attn_output.reshape(bsz, tgt_len, self.embed_dim)
 
