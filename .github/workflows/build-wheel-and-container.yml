@@ -58,8 +58,39 @@ jobs:
         with:
           filename: dist/*.whl
           internal: $INTERNAL
-  build-container-and-push:
+  pull-wheel-and-test:
     needs: build-wheel-and-push
+    runs-on: ubuntu-20.04
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    - name: Login to s3
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        role-to-assume: ${{ secrets.AWS_WEBIDENTITY_FOR_GITHUB_ACTIONS }}
+        aws-region: us-east-1 
+    - name: Make directory for wheel
+        run: |
+             mkdir dist_s3
+    - name: Pull from s3
+      uses: neuralmagic/nm-actions/actions/s3_pull@pypi-actions
+      with:
+        filename: ${{ needs.build-wheel-and-push.outputs.wheel }}
+        dst: dist_s3
+    - name: Install Wheel
+      run: |
+            pip install dist_s3/*.whl
+    - name: Checkout code
+      uses: actions/checkout@v3
+    - name: Install test dependencies
+      run: |
+            rm -rf src/
+            pip install -e ./[dev]
+    - name: Test Wheel on Base Tests
+      run: | 
+            make test
+  build-container-and-push:
+    needs: pull-wheel-and-test
     runs-on: [aws-avx2-64G]
     steps:
       - name: Checkout code
