@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from datasets import Dataset, IterableDataset
-
 from sparseml.transformers.finetune.session_mixin import SessionManagerMixIn
 from trl import SFTTrainer as TRLSFTTrainer
 
@@ -23,7 +21,8 @@ __all__ = ["SFTTrainer"]
 
 class SFTTrainer(SessionManagerMixIn, TRLSFTTrainer):
     def _prepare_dataset(self, dataset, *args, **kwargs):
-        if isinstance(dataset, Dataset) or isinstance(dataset, IterableDataset):
+        if "input_ids" in dataset.column_names:
+            # dataset is already tokenized, skip preprocessing
             return dataset
 
         return super()._prepare_dataset(dataset, *args, **kwargs)

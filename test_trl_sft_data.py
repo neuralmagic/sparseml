@@ -1,29 +1,19 @@
-from transformers import DefaultDataCollator
+from datasets import load_dataset
+from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
 
 from sparseml.transformers import (
     SFTTrainer,
-    DataTrainingArguments, 
     TrainingArguments, 
-    TextGenerationDataset, 
     SparseAutoModelForCausalLM, 
     SparseAutoTokenizer
 )
 
+dataset = load_dataset("gsm8k", "main", split="train")
 model_path = "neuralmagic/Llama-2-7b-pruned50-retrained"
-output_dir = "./output_trl_sft_test_7b_gsm8k"
-
+output_dir = "./output_trl_sft_test_7b_gsm8k_sft_data"
 model = SparseAutoModelForCausalLM.from_pretrained(model_path, torch_dtype="auto", device_map="auto")
 tokenizer = SparseAutoTokenizer.from_pretrained(model_path)
-
-data_args = DataTrainingArguments(dataset = "gsm8k", dataset_config_name="main")
-dataset_manager = TextGenerationDataset.load_from_registry(
-    data_args.dataset,
-    data_args=data_args,
-    split="train",
-    tokenizer=tokenizer,
-)
-train_dataset = dataset_manager.tokenize_and_process()
-print(f"--> Training Set Length = {len(train_dataset)}")
+tokenizer.pad_token = tokenizer.eos_token
 
 recipe = """
 test_stage:
@@ -34,22 +24,32 @@ test_stage:
       start: 0
 """
 
-data_collator = DefaultDataCollator()
+
+def formatting_prompts_func(example):
+    output_texts = []
+    for i in range(len(example['question'])):
+        text = f"Question: {example['question'][i]}\n Answer: {example['answer'][i]}"
+        output_texts.append(text)
+    return output_texts
+
+response_template = "Answer:"
+collator = DataCollatorForCompletionOnlyLM(response_template, tokenizer=tokenizer)
 training_args = TrainingArguments(
     output_dir=output_dir, 
     num_train_epochs=0.6, 
     logging_steps=50, 
     gradient_checkpointing=True
 )
+
 trainer = SFTTrainer(
     model=model,
     tokenizer=tokenizer,
     recipe=recipe,
-    train_dataset=train_dataset,
-    data_collator=data_collator,
+    train_dataset=dataset,
+    formatting_func=formatting_prompts_func,
+    data_collator=collator,
     args=training_args,
-    max_seq_length=data_args.max_seq_length,
-    packing=True
+    max_seq_length=512
 )
 trainer.train()
 trainer.save_model(output_dir=trainer.args.output_dir)

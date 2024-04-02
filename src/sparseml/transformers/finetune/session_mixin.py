@@ -28,10 +28,7 @@ from transformers.trainer_utils import get_last_checkpoint
 import sparseml.core.session as session_manager
 from sparseml.core.framework import Framework
 from sparseml.core.session import callbacks
-from sparseml.pytorch.model_load.helpers import (
-    RECIPE_FILE_NAME,
-    get_session_model
-)
+from sparseml.pytorch.model_load.helpers import RECIPE_FILE_NAME, get_session_model
 from sparseml.pytorch.utils import LoggerManager, ModuleSparsificationInfo
 from sparseml.transformers.finetune.callbacks import (
     DisableHalfPrecisionCallback,
@@ -169,9 +166,6 @@ class SessionManagerMixIn:
         session = session_manager.active_session()
         if session.lifecycle.initialized_:
             return False
-        
-        if isinstance(self.model, str):
-            self.model_path_or_stub = self.model
 
         session_manager.pre_initialize_structure(
             model=self.model,
@@ -490,7 +484,7 @@ class SessionManagerMixIn:
         sparsification_info = ModuleSparsificationInfo(self.model)
 
         _LOGGER.info(
-            f"Sparsification info for {str(type(self.model))}: "
+            f"Sparsification info for {type(self.model).__name__}: "
             f"{sparsification_info.params_total} total params. "
             f"Of those there are {sparsification_info.params_prunable_total} prunable "
             f"params which have {sparsification_info.params_prunable_sparse_percent} "
