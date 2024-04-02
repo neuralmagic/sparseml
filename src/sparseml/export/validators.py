@@ -17,7 +17,7 @@ import logging
 import os.path
 from collections import OrderedDict
 from pathlib import Path
-from typing import Callable, List, Optional, Union
+from typing import Callable, List, Optional
 from typing import OrderedDict as OrderedDictType
 
 import numpy
