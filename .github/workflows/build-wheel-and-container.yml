@@ -77,7 +77,7 @@ jobs:
         dst: dist_s3
     - name: Install Wheel
       run: |
-          echo "FILENAME=$(echo dist_s3/*.whl)" >> $GITHUB_ENB
+          echo "FILENAME=$(echo dist_s3/*.whl)" >> $GITHUB_ENV
           pip install $FILENAME[dev]
     - name: Checkout code
       uses: actions/checkout@v3
