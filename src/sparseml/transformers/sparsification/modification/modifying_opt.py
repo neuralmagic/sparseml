@@ -170,7 +170,7 @@ class OPTAttentionWithQuantizableMatmuls(OPTAttention):
 
         if attn_weights.size() != (bsz * self.num_heads, tgt_len, src_len):
             raise ValueError(
-                f"Attention weights should be of size {(bsz * self.num_heads, tgt_len, src_len)}, but is"
+                f"Attention weights should be of size {(bsz * self.num_heads, tgt_len, src_len)}, but is"  # noqa
                 f" {attn_weights.size()}"
             )
 
