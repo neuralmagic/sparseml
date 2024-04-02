@@ -25,40 +25,4 @@ __all__ = ["Trainer"]
 
 
 class Trainer(SessionManagerMixIn, HFTransformersTrainer):
-    """
-    Training implementation for running sparsification recipes with HF Trainer.
-
-    :param model: the model to use with the trainer and apply sparsification to
-    :param recipe: the recipe, if any, to apply to the modle and training
-        process
-    :param recipe_args: A json string, csv key=value string, or dictionary containing
-        arguments to override the root arguments within the recipe such as
-        learning rate or num epochs
-    :param teacher: teacher model for distillation. Set to 'self' to distill
-        from the loaded model or 'disable' to turn of distillation
-    :param kwargs: key word arguments passed to the parent class
-    """
-
-    def __init__(
-        self,
-        model: Optional[Module] = None,
-        model_init: Optional[Callable] = None,
-        recipe: Optional[str] = None,
-        recipe_args: Optional[Union[Dict[str, Any], str]] = None,
-        teacher: Optional[Union[Module, str]] = None,
-        **kwargs,
-    ):
-        super().__init__(
-            model=model,
-            model_init=model_init,
-            recipe=recipe,
-            recipe_args=recipe_args,
-            teacher=teacher,
-            **kwargs,
-        )
-
-    def _dummy_lr_scheduler(self):
-        return torch.optim.lr_scheduler.MultiplicativeLR(
-            self.optimizer,
-            lambda _: 1.0,
-        )
+    pass
