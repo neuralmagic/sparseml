@@ -82,13 +82,12 @@ jobs:
     - name: Install 
       run: |
           pip install $FILENAME[dev]
+          pip list
     - name: Checkout code
       uses: actions/checkout@v3
     - name: Remove non-test files and run tests
       run: |
-            rm -rf src/*
-            pip list
-            ls
+            rm -rf src
             make test
   build-container-and-push:
     needs: pull-wheel-and-test
