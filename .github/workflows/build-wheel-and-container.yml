@@ -62,8 +62,6 @@ jobs:
     needs: build-wheel-and-push
     runs-on: ubuntu-20.04
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
     - name: Login to s3
       uses: aws-actions/configure-aws-credentials@v2
       with:
@@ -79,7 +77,8 @@ jobs:
         dst: dist_s3
     - name: Install Wheel
       run: |
-          pip install dist_s3/${{ needs.build-wheel-and-push.outputs.wheel }}[dev]
+          export wheel=$(ls dist_s3/*.whl)
+          pip install (echo $wheel)[dev]
     - name: Checkout code
       uses: actions/checkout@v3
       with:
