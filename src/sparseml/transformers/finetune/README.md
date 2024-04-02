@@ -132,7 +132,7 @@ A recipe can be run stage-by-stage by setting `run_stages` to `True` or calling 
 a `run_type` attribute set to either `oneshot` or `train` when running in sequential 
 mode.
 
-See [example_alternating_recipe.yaml](example_alternating_recipe.yaml) for an example 
+See [example_alternating_recipe.yaml](examples/example_alternating_recipe.yaml) for an example 
 of a staged recipe for Llama. 
 
 ### Python Example
@@ -147,7 +147,7 @@ dataset_name = "open_platypus"
 concatenate_data = False
 run_stages=True
 output_dir = "./output_finetune_multi"
-recipe = "example_alternating_recipe.yaml"
+recipe = "examples/example_alternating_recipe.yaml"
 num_train_epochs=1
 overwrite_output_dir = True
 splits = {
