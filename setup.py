@@ -80,7 +80,7 @@ _pytorch_vision_deps = _pytorch_deps + [
 ]
 _transformers_deps = _pytorch_deps + [
     "transformers<4.40",
-    "datasets<=2.14.6",
+    "datasets<2.19",
     "dvc",
     "scikit-learn",
     "seqeval",
