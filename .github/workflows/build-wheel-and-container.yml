@@ -79,15 +79,15 @@ jobs:
         dst: dist_s3
     - name: Install Wheel
       run: |
-          pip install dist_s3/*.whl
+          pip install dist_s3/*.whl[dev]
     - name: Checkout code
       uses: actions/checkout@v3
-    - name: Install test dependencies
+      with:
+          sparse-checkout: 'tests'
+          sparse-checkout-cone-mode: false
+    - name: Remove non-test files and run tests
       run: |
-            pip install -e ./[dev]
-            rm -rf src/
-    - name: Test Wheel on Base Tests
-      run: | 
+            ls
             make test
   build-container-and-push:
     needs: pull-wheel-and-test
