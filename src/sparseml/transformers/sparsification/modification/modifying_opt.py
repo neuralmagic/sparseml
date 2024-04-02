@@ -45,8 +45,8 @@ def modify(model: nn.Module) -> nn.Module:
     1. Replaces the OPTAttention modules with
         OPTAttentionWithQuantizableMatmuls modules
 
-    :param model: the original LLaMa model
-    :return: the modified LLaMa model
+    :param model: the original OPT model
+    :return: the modified OPT model
     """
     for name, submodule in model.named_modules():
         if isinstance(submodule, OPTAttention):
