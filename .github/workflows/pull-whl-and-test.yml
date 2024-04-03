@@ -30,6 +30,16 @@ jobs:
         filename: ${{ inputs.whl }}
         dst: dist_s3
 
+    - name: Set Env
+      run: |
+        pwd
+        sudo apt-get -y install python3-pip
+        pip3 --version
+        sudo pip3 install virtualenv
+        virtualenv venv
+        source venv/bin/activate
+        pip3 install --upgrade pip && pip3 install --upgrade setuptools
+  
     - name: Fetch name of whl
       run: |
           echo "FILENAME=$(echo dist_s3/*.whl)" >> $GITHUB_ENV
@@ -39,7 +49,6 @@ jobs:
     - name: Push to internal pypi
       uses: neuralmagic/nm-actions/actions/nm-upload-whl@upload-pypi
       with:
-        python: 3.8
         server: ${{ secrets.NM_PRIVATE_PYPI_LOCATION }}
         username: ${{ secrets.NM_PRIVATE_PYPI_USER }}
         password: ${{ secrets.NM_PRIVATE_PYPI_AUTH }}
