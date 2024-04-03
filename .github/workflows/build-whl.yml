@@ -27,7 +27,6 @@ jobs:
     outputs:
       wheel: ${{ steps.push-wheel.outputs.wheel }}
     steps:
-
       - name: Checkout code
         uses: actions/checkout@v3
 
