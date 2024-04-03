@@ -36,6 +36,10 @@ jobs:
           ls
           pwd
 
+    - name: Install whl
+      run: |
+          pip install $FILENAME[dev]
+
     - name: Push to internal pypi
       uses: neuralmagic/nm-actions/actions/nm-upload-whl@upload-pypi
       with:
@@ -45,10 +49,6 @@ jobs:
         password: ${{ secrets.NM_PRIVATE_PYPI_AUTH }}
         whl: ./$FILENAME
         port: '8080'
-
-    - name: Install whl
-      run: |
-          pip install $FILENAME[dev]
 
     - name: Checkout code
       uses: actions/checkout@v3
