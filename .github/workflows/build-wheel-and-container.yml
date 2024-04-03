@@ -37,10 +37,10 @@ jobs:
     uses: ./.github/workflows/build-whl.yml
     with:
       build-label: ubuntu-20.04
-      dev: $DEV
-      release: $RELEASE
-      name: $NAME
-      internal: $INTERNAL
+      dev: ${{ env.DEV }}
+      release: ${{ env.RELEASE }}
+      name: ${{ env.NAME }}
+      internal: ${{ env.INTERNAL }}
       filename: dist/*.whl
 
 
