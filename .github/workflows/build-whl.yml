@@ -21,7 +21,7 @@ on:
         required: true
 
 jobs:
-  build:
+  build-wheel-and-push:
     runs-on: ${{ inputs.build-label }}
     outputs:
       wheel: ${{ steps.push-wheel.outputs.wheel }}
