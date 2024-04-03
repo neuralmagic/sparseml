@@ -57,6 +57,8 @@ jobs:
       name: ${{ github.event.number }} 
       internal: ${{ needs.set-outputs.outputs.internal  }}
       filename: dist/*.whl
+    secrets: inherit
+    
 
 
   pull-wheel-and-test:
