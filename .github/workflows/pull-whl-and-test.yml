@@ -31,22 +31,19 @@ jobs:
         dst: dist_s3
 
     - name: Fetch name of whl
-      working-directory: dist_s3
       run: |
-          echo "FILENAME=$(echo *.whl)" >> $GITHUB_ENV
+          echo "FILENAME=$(echo dist_s3/*.whl)" >> $GITHUB_ENV
           ls
           pwd
-          pip install requests
-          python -V
 
     - name: Push to internal pypi
       uses: neuralmagic/nm-actions/actions/nm-upload-whl@upload-pypi
       with:
-        python: 3.8
+        python: '3.8'
         server: ${{ secrets.NM_PRIVATE_PYPI_LOCATION }}
         username: ${{ secrets.NM_PRIVATE_PYPI_USER }}
         password: ${{ secrets.NM_PRIVATE_PYPI_AUTH }}
-        whl: $FILENAME
+        whl: ./$FILENAME
         port: '8080'
 
     - name: Install whl
