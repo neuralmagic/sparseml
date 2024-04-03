@@ -17,6 +17,7 @@ Modification to the original Bert model required in the
 context of SparseML
 """
 
+
 import logging
 import math
 from typing import Optional, Tuple
@@ -122,22 +123,16 @@ class BertSelfAttentionWithQuantizableMatmuls(BertSelfAttention):
 
         use_cache = past_key_value is not None
         if self.is_decoder:
-            # if cross_attention save Tuple(torch.Tensor, torch.Tensor)
-            # of all cross attention key/value_states.
-            # Further calls to cross_attention
-            # layer can then reuse all cross-attention
+            # if cross_attention save Tuple(torch.Tensor, torch.Tensor) of all cross attention key/value_states. # noqa
+            # Further calls to cross_attention layer can then reuse all cross-attention
             # key/value_states (first "if" case)
-            # if uni-directional self-attention
-            # (decoder) save Tuple(torch.Tensor, torch.Tensor) of
-            # all previous decoder key/value_states.
-            # Further calls to uni-directional self-attention
-            # can concat previous decoder key/value_states to
-            # current projected key/value_states (third "elif" case)
+            # if uni-directional self-attention (decoder) save Tuple(torch.Tensor, torch.Tensor) of # noqa
+            # all previous decoder key/value_states. Further calls to uni-directional self-attention # noqa
+            # can concat previous decoder key/value_states to current projected key/value_states (third "elif" case) # noqa
             # if encoder bi-directional self-attention `past_key_value` is always `None`
             past_key_value = (key_layer, value_layer)
 
-        # Take the dot product between "query" and "key"
-        # to get the raw attention scores.
+        # Take the dot product between "query" and "key" to get the raw attention scores. # noqa
         # ==== SparseML MODIFICATION ====
         attention_scores = self.attention_scores_matmul(
             query_layer, key_layer.transpose(-1, -2)
@@ -189,8 +184,7 @@ class BertSelfAttentionWithQuantizableMatmuls(BertSelfAttention):
 
         attention_scores = attention_scores / math.sqrt(self.attention_head_size)
         if attention_mask is not None:
-            # Apply the attention mask is
-            # (precomputed for all layers in BertModel forward() function)
+            # Apply the attention mask is (precomputed for all layers in BertModel forward() function) # noqa
             attention_scores = attention_scores + attention_mask
 
         # Normalize the attention scores to probabilities.
