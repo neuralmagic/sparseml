@@ -1,0 +1,54 @@
+name: build-whl
+on:
+  workflow_call:
+    inputs:
+      build_label:
+        description: "requested runner label"
+        type: string
+        required: true
+      dev:
+        type: bool
+        required: true 
+      release:
+        type: bool
+        required: true
+      name:
+        type: string
+      internal:
+        type: bool
+      filename:
+        type: string
+        required: true
+      
+
+jobs:
+  build:
+    runs-on: ${{ inputs.build_label }}
+    outputs:
+      wheel: ${{ steps.push-wheel.outputs.wheel }}
+    steps:
+
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Login to s3
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ secrets.AWS_WEBIDENTITY_FOR_GITHUB_ACTIONS }}
+          aws-region: us-east-1 
+
+      - name: Build PyPi Wheel
+        id: build-wheel
+        uses: neuralmagic/nm-actions/actions/pypi_build@main
+        with:
+          dev: ${{ inputs.dev }}
+          release: ${{ inputs.release }}
+          name: ${{ inputs.name }}
+      
+       - name: Push to s3 bucket
+        id: push-wheel
+        uses: neuralmagic/nm-actions/actions/s3_push@main
+        with:
+          filename: ${{ inputs.filename }}
+          internal: ${{ inputs.internal }}
+      
