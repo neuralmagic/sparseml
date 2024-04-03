@@ -7,15 +7,15 @@ on:
         type: string
         required: true
       dev:
-        type: bool
+        type: string
         required: true 
       release:
-        type: bool
+        type: string
         required: true
       name:
         type: string
       internal:
-        type: bool
+        type: string
       filename:
         type: string
         required: true
