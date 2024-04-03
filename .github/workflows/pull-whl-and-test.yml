@@ -9,6 +9,8 @@ on:
       whl:
         type: string
         required: true
+      python:
+        type: string
 
 jobs:
   pull-wheel-and-test:
@@ -16,7 +18,7 @@ jobs:
     steps:
     - uses: actions/setup-python@v4
       with:
-        python-version: '3.8'
+        python-version: ${{ inputs.python }}
 
     - name: Login to s3
       uses: aws-actions/configure-aws-credentials@v2
@@ -46,7 +48,6 @@ jobs:
           ls
           pwd
           
-
     - name: Push to internal pypi
       uses: neuralmagic/nm-actions/actions/nm-upload-whl@upload-pypi
       with:
@@ -58,7 +59,7 @@ jobs:
 
     - name: Install whl
       run: |
-          pip install $FILENAME[dev]
+          pip3 install $FILENAME[dev]
 
     - name: Checkout code
       uses: actions/checkout@v3
