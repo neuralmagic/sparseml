@@ -46,7 +46,7 @@ jobs:
     
     - name: Push to s3 bucket
       id: push-wheel
-      uses: neuralmagic/nm-actions/actions/s3_push@main
+      uses: neuralmagic/nm-actions/actions/s3_push@update_bucket
       with:
         filename: ${{ inputs.filename }}
     
