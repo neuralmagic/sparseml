@@ -19,6 +19,10 @@ on:
       filename:
         type: string
         required: true
+    outputs:
+      wheel:
+        description: 'Full path of the wheel'
+        value: ${{ steps.push-s3.outputs.wheel }}
       
 
 jobs:
