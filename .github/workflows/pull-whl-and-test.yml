@@ -32,13 +32,9 @@ jobs:
 
     - name: Set Env
       run: |
-        pwd
-        sudo apt-get -y install python3-pip
-        pip3 --version
-        sudo pip3 install virtualenv
+        python3.8 -m pip install virtualenv
         virtualenv venv
         source venv/bin/activate
-        pip3 install --upgrade pip && pip3 install --upgrade setuptools
   
     - name: Fetch name of whl
       run: |
