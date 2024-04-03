@@ -8,6 +8,7 @@ on:
         required: true
       whl:
         type: string
+        required: true
 
 jobs:
   pull-wheel-and-test:
