@@ -49,7 +49,7 @@ jobs:
     needs: set-outputs
     uses: ./.github/workflows/build-whl.yml
     with:
-      build-label: aws-avx2-64G
+      build-label: ubuntu-20.04
       dev: ${{ needs.set-outputs.outputs.dev }}
       release: ${{ needs.set-outputs.outputs.release  }}
       name: ${{ github.event.number }} 
@@ -61,7 +61,7 @@ jobs:
     needs: build-wheel-and-push
     uses: ./.github/workflows/pull-whl-and-test.yml
     with:
-      build-label: ubuntu-20.04
+      build-label: aws-avx2-64G
       whl: ${{ needs.build-wheel-and-push.outputs.wheel }}
     secrets: inherit
 
