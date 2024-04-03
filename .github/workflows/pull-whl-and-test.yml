@@ -37,9 +37,7 @@ jobs:
           pwd
 
     - name: upload whl
-      working-directory: dist_s3
       uses: actions/upload-artifact@v4
-      if: success() || failure()
       with:
         name: sparseml-devtest
         path: $FILENAME
