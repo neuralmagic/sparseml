@@ -54,6 +54,7 @@ jobs:
       release: ${{ needs.set-outputs.outputs.release  }}
       name: ${{ github.event.number }} 
       filename: dist/*.whl
+      bucket_name: nm-actions-test
     secrets: inherit
 
   pull-wheel-and-test:
