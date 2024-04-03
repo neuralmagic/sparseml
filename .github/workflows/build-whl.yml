@@ -2,15 +2,13 @@ name: build-whl
 on:
   workflow_call:
     inputs:
-      build_label:
+      build-label:
         description: "requested runner label"
         type: string
         required: true
       dev:
-        type: string
         required: true 
       release:
-        type: string
         required: true
       name:
         type: string
@@ -23,7 +21,7 @@ on:
 
 jobs:
   build:
-    runs-on: ${{ inputs.build_label }}
+    runs-on: ${{ inputs.build-label }}
     outputs:
       wheel: ${{ steps.push-wheel.outputs.wheel }}
     steps:
