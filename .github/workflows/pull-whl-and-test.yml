@@ -36,13 +36,6 @@ jobs:
           ls
           pwd
 
-    - name: upload whl
-      uses: actions/upload-artifact@v4
-      with:
-        name: sparseml-devtest
-        path: './dist_s3/sparseml_dev-1.8.0.dev2205-py3-none-any.whl'
-
-
     - name: Push to internal pypi
       uses: neuralmagic/nm-actions/actions/nm-upload-whl@upload-pypi
       with:
@@ -50,7 +43,7 @@ jobs:
         server: ${{ secrets.NM_PRIVATE_PYPI_LOCATION }}
         username: ${{ secrets.NM_PRIVATE_PYPI_USER }}
         password: ${{ secrets.NM_PRIVATE_PYPI_AUTH }}
-        whl: $FILENAME
+        whl: './dist_s3/sparseml_dev-1.8.0.dev2205-py3-none-any.whl'
         port: '8080'
 
     - name: Install whl
