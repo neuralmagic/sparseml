@@ -52,8 +52,4 @@ jobs:
       with:
         filename: ${{ inputs.filename }}
         internal: ${{ inputs.internal }}
-
-    - name: Print name
-      run: | 
-        echo ${{ steps.push-wheel.outputs.wheel }}
     

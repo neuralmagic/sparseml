@@ -30,20 +30,18 @@ jobs:
         filename: ${{ inputs.whl }}
         dst: dist_s3
 
-    - name: Install Wheel
+    - name: Fetch name of whl
       run: |
           echo "FILENAME=$(echo dist_s3/*.whl)" >> $GITHUB_ENV
-          echo $FILENAME
 
-    - name: Install 
+    - name: Install whl
       run: |
           pip install $FILENAME[dev]
-          pip list
 
     - name: Checkout code
       uses: actions/checkout@v3
 
-    - name: Remove non-test files and run tests
+    - name: Remove src files and run tests
       run: |
             rm -rf src
             make test

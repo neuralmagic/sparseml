@@ -49,7 +49,7 @@ jobs:
 
   build-wheel-and-push:
     needs: set-outputs
-    uses: ./.github/workflows/build-whl.yml
+    uses: ./.github/workflows/build_steps/build-whl.yml
     with:
       build-label: ubuntu-20.04
       dev: ${{ needs.set-outputs.outputs.dev }}
@@ -61,11 +61,22 @@ jobs:
 
   pull-wheel-and-test:
     needs: build-wheel-and-push
-    uses: ./.github/workflows/pull-whl-and-test.yml
+    uses: ./.github/workflows/build_steps/pull-whl-and-test.yml
     with:
       build-label: ubuntu-20.04
       whl: ${{ needs.build-wheel-and-push.outputs.wheel }}
     secrets: inherit
+
+  push-to-internal-pypi:
+    needs: pull-wheel-and-test
+    if: ${{ env.INTERNAL == 'true' }}
+    uses: neuralmagic/nm-actions/actions/nm-upload-whl@upload-pypi
+    with:
+      python: '3.10'
+      server: ${{ secrets.NM_PRIVATE_PYPI_LOCATION }}
+      username: ${{ secrets.NM_PRIVATE_PYPI_USER }}
+      password: ${{ secrets.NM_PRIVATE_PYPI_AUTH }}
+
 
   build-container-and-push:
     needs: pull-wheel-and-test
