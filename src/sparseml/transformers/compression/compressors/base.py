@@ -74,7 +74,7 @@ class ModelCompressor(RegistryMixin):
         """
         Overwrites the weights in model with weights decompressed from model_path
 
-        :param pretrained_model_path: path to compressed weights
+        :param model_path: path to compressed weights
         :param model: pytorch model to load decompressed weights into
         """
         dense_gen = self.decompress(model_path)
