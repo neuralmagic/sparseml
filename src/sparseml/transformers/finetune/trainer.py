@@ -12,10 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Callable, Dict, Optional, Union
-
-import torch
-from torch.nn import Module
 from transformers import Trainer as HFTransformersTrainer
 
 from sparseml.transformers.finetune.session_mixin import SessionManagerMixIn
