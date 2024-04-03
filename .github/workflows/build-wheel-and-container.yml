@@ -62,6 +62,7 @@ jobs:
   
   print:
     needs: build-wheel-and-push
+    if: success()
     runs-on: ubuntu-latest
     steps:
     - name: something
@@ -70,6 +71,7 @@ jobs:
     
   pull-wheel-and-test:
     needs: build-wheel-and-push
+    if: success()
     runs-on: ubuntu-20.04
     steps:
     - name: Login to s3
