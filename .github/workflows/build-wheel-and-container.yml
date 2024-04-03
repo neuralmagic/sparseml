@@ -60,8 +60,7 @@ jobs:
     secrets: inherit
 
   pull-wheel-and-test:
-    needs: [build-wheel-and-push]
-    if: success()
+    needs: build-wheel-and-push
     uses: ./.github/workflows/pull-whl-and-test.yml
     with:
       build-label: ubuntu-20.04
