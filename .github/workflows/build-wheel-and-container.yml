@@ -34,7 +34,7 @@ env:
 
 jobs:
   build-wheel-and-push:
-    uses: ./.github/actions/build-wheel/action.yml
+    uses: ./.github/workflows/build-whl.yml
     with:
       build-label: ubuntu-20.04
       dev: $DEV
