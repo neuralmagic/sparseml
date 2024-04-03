@@ -487,8 +487,11 @@ def _validate_set_module_schemes(
                 name_to_compare = fix_fsdp_module_name(name_to_compare)
                 if name_to_compare.startswith("module."):
                     name_to_compare = name_to_compare[7:]
-                if name_to_compare.startswith(type_or_name) or (
-                    submodule.__class__.__name__ == type_or_name
+                if (
+                    name_to_compare.startswith(type_or_name)
+                    or (submodule.__class__.__name__ == type_or_name)
+                    or type_or_name
+                    in LAYER_NAME_ALIASES.get(submodule.__class__.__name__, [])
                 ):
                     matched = True
                     break
