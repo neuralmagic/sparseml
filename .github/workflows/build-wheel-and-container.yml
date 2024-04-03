@@ -65,7 +65,6 @@ jobs:
     with:
       build-label: ubuntu-20.04
       whl: ${{ needs.build-wheel-and-push.outputs.wheel }}
-      internal: ${{ needs.set-outputs.outputs.internal  }}
     secrets: inherit
 
   build-container-and-push:

@@ -9,9 +9,6 @@ on:
       whl:
         type: string
         required: true
-      internal:
-        type: string
-        
 
 jobs:
   pull-wheel-and-test:
@@ -50,7 +47,6 @@ jobs:
             make test
 
     - name: Push to internal pypi
-      if: ${{ inputs.internal == 'true' }}
       uses: neuralmagic/nm-actions/actions/nm-upload-whl@upload-pypi
       with:
         python: '3.10'
