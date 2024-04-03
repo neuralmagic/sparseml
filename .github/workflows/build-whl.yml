@@ -44,7 +44,7 @@ jobs:
         release: ${{ inputs.release }}
         name: ${{ inputs.name }}
     
-      - name: Push to s3 bucket
+    - name: Push to s3 bucket
       id: push-wheel
       uses: neuralmagic/nm-actions/actions/s3_push@main
       with:
