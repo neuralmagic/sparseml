@@ -48,7 +48,7 @@ jobs:
         server: ${{ secrets.NM_PRIVATE_PYPI_LOCATION }}
         username: ${{ secrets.NM_PRIVATE_PYPI_USER }}
         password: ${{ secrets.NM_PRIVATE_PYPI_AUTH }}
-        whl: '*.whl'
+        whl: 'sparseml_dev-1.8.0.dev2205-py3-none-any.whl'
         port: '8080'
 
     - name: Install whl
