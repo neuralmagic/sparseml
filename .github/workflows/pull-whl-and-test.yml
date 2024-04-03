@@ -31,9 +31,8 @@ jobs:
         dst: dist_s3
 
     - name: Fetch name of whl
-      working-directory: dist_3
       run: |
-          echo "FILENAME=$(echo *.whl)" >> $GITHUB_ENV
+          echo "FILENAME=$(echo dist_s3/*.whl)" >> $GITHUB_ENV
           ls
           pwd
 
