@@ -45,7 +45,7 @@ jobs:
       run: |
             rm -rf src
             make test
-            
+
     - name: Push to internal pypi
       uses: neuralmagic/nm-actions/actions/nm-upload-whl@upload-pypi
       with:
@@ -53,4 +53,6 @@ jobs:
         server: ${{ secrets.NM_PRIVATE_PYPI_LOCATION }}
         username: ${{ secrets.NM_PRIVATE_PYPI_USER }}
         password: ${{ secrets.NM_PRIVATE_PYPI_AUTH }}
+        whl: $FILENAME
+        port: '8080'
 
