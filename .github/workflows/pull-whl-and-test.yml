@@ -14,6 +14,10 @@ jobs:
   pull-wheel-and-test:
     runs-on: ${{ inputs.build-label }}
     steps:
+    - uses: actions/setup-python@v4
+      with:
+        python-version: '3.8'
+
     - name: Login to s3
       uses: aws-actions/configure-aws-credentials@v2
       with:
@@ -32,11 +36,9 @@ jobs:
 
     - name: Set Env
       run: |
-        sudo apt-get -y install python3-pip
-        sudo pip3 install virtualenv
+        pip3 install virtualenv
         virtualenv venv
         source venv/bin/activate
-        pip3 install twine
   
     - name: Fetch name of whl
       run: |
