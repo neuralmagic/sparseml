@@ -49,7 +49,7 @@ jobs:
 
   build-wheel-and-push:
     needs: set-outputs
-    uses: ./.github/workflows/build_steps/build-whl.yml
+    uses: ./.github/workflows/build-whl.yml
     with:
       build-label: ubuntu-20.04
       dev: ${{ needs.set-outputs.outputs.dev }}
@@ -61,7 +61,7 @@ jobs:
 
   pull-wheel-and-test:
     needs: build-wheel-and-push
-    uses: ./.github/workflows/build_steps/pull-whl-and-test.yml
+    uses: ./.github/workflows/pull-whl-and-test.yml
     with:
       build-label: ubuntu-20.04
       whl: ${{ needs.build-wheel-and-push.outputs.wheel }}
