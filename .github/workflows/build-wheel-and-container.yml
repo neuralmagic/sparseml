@@ -27,7 +27,7 @@ concurrency:
 # everything is pushed to internal unless created through a nightly scheduled cron job which creates the build or 
 # missing release tag workflow/needs to be added in
 env:
-  INTERNAL: ${{ github.event_name != 'schedule' && github.event_name != 'release'}}
+  PRODUCTION: ${{ github.event_name == 'schedule' || github.event_name == 'release'}}
   RELEASE: ${{ github.event_name =='release' || startsWith(github.base_ref, 'release/') }}
   DEV: ${{ github.base_ref == 'main' && github.event_name == 'pull_request'}}
   NAME: ${{ github.event.number }} 
@@ -38,14 +38,12 @@ jobs:
     outputs:
       dev: ${{ steps.set-outputs.outputs.dev }}
       release: ${{ steps.set-outputs.outputs.release }}
-      internal: ${{ steps.set-outputs.outputs.internal }}
     steps:
       - name: Set variables for workflows
         id: set-outputs
         run: |
           echo "dev=$DEV" >> $GITHUB_OUTPUT
           echo "release=$RELEASE" >> $GITHUB_OUTPUT
-          echo "internal=$INTERNAL" >> $GITHUB_OUTPUT
 
   build-wheel-and-push:
     needs: set-outputs
@@ -55,7 +53,6 @@ jobs:
       dev: ${{ needs.set-outputs.outputs.dev }}
       release: ${{ needs.set-outputs.outputs.release  }}
       name: ${{ github.event.number }} 
-      internal: ${{ needs.set-outputs.outputs.internal  }}
       filename: dist/*.whl
     secrets: inherit
 

@@ -14,8 +14,6 @@ on:
         required: true
       name:
         type: string
-      internal:
-        type: string
       filename:
         type: string
         required: true
@@ -51,5 +49,4 @@ jobs:
       uses: neuralmagic/nm-actions/actions/s3_push@main
       with:
         filename: ${{ inputs.filename }}
-        internal: ${{ inputs.internal }}
     
