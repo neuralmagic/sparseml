@@ -58,9 +58,13 @@ jobs:
       internal: ${{ needs.set-outputs.outputs.internal  }}
       filename: dist/*.whl
     secrets: inherit
+
+  
+  print:
+    needs: build-wheel-and-push
+    runs:
+      echo ${{ needs.build-wheel-and-push.outputs.wheel }}
     
-
-
   pull-wheel-and-test:
     needs: build-wheel-and-push
     runs-on: ubuntu-20.04
