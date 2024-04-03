@@ -19,6 +19,9 @@ on:
       filename:
         type: string
         required: true
+    outputs:
+      wheel:
+        value: ${{ jobs.build-wheel-and-push.outputs.wheel }}
 
 jobs:
   build-wheel-and-push:
