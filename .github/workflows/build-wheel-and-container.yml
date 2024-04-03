@@ -33,7 +33,7 @@ env:
   NAME: ${{ github.event.number }} 
 
 jobs:
-  set_outputs:
+  set-outputs:
     runs-on: ubuntu-latest
     outputs:
       dev: ${{ steps.set-outputs.outputs.dev }}
@@ -48,13 +48,14 @@ jobs:
           echo "internal=$INTERNAL" >> $GITHUB_OUTPUT
 
   build-wheel-and-push:
+    needs: set-outputs
     uses: ./.github/workflows/build-whl.yml
     with:
       build-label: ubuntu-20.04
-      dev: ${{ needs.set_outputs.outputs.dev }}
-      release: ${{ needs.set_outputs.outputs.release  }}
+      dev: ${{ needs.set-outputs.outputs.dev }}
+      release: ${{ needs.set-outputs.outputs.release  }}
       name: ${{ github.event.number }} 
-      internal: ${{ needs.set_outputs.outputs.internal  }}
+      internal: ${{ needs.set-outputs.outputs.internal  }}
       filename: dist/*.whl
 
 
