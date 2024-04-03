@@ -45,6 +45,13 @@ __all__ = [
 
 _LOGGER = logging.getLogger(__name__)
 TRAINER_STATE_NAME = "trainer_state.json"
+METADATA_ARGS = [
+    "per_device_train_batch_size",
+    "per_device_eval_batch_size",
+    "max_seq_length",
+    "save_safetensors",
+    "fp16",
+]
 
 
 class SessionManagerMixIn:
@@ -54,7 +61,6 @@ class SessionManagerMixIn:
 
     :param recipe: path to recipe file to apply during training
     :param recipe_args: additional kwargs to use for evaluating recipe
-    :param metadata_args: additional kwargs for configuring training
     :param data_args: kwargs for configuring dataset loading
     :param teacher: optional teacher model to use for distillation
     """
@@ -63,7 +69,6 @@ class SessionManagerMixIn:
         self,
         recipe: Optional[str] = None,
         recipe_args: Optional[Union[Dict[str, Any], str]] = None,
-        metadata_args: Optional[List[str]] = None,
         data_args: Optional["DataTrainingArguments"] = None,  # noqa: F821
         teacher: Optional[Union[Module, str]] = None,
         **kwargs,
@@ -76,11 +81,11 @@ class SessionManagerMixIn:
         training_args = kwargs.get("args")
         self.metadata = (
             self._extract_metadata(
-                metadata_args=metadata_args,
+                metadata_args=METADATA_ARGS,
                 training_args_dict=training_args.to_dict(),
                 data_args_dict=asdict(data_args) if data_args else {},
             )
-            if training_args and metadata_args
+            if training_args and METADATA_ARGS
             else None
         )
 
@@ -90,6 +95,7 @@ class SessionManagerMixIn:
 
         # call Trainer initialization
         super().__init__(**kwargs)
+        self.accelerator.wait_for_everyone()
 
         # setup callbacks and loss
         self.optim_callbacks = TrainingLoopCallbacks(self)
@@ -99,13 +105,16 @@ class SessionManagerMixIn:
         self.criterion = torch.nn.CrossEntropyLoss()
 
         model_signature = inspect.signature(self.model.forward)
-        self._model_signature_columns = list(model_signature.parameters.keys())
+        self._signature_columns = list(model_signature.parameters.keys())
 
         if self.teacher is not None and teacher not in ("disable", "self"):
             teacher_signature = inspect.signature(self.teacher.forward)
             self._teacher_signature_columns = list(teacher_signature.parameters.keys())
         else:
             self._teacher_signature_columns = None
+
+        if self.is_fsdp_enabled:
+            self._prepare_model_for_fsdp()
 
     def initialize_session(
         self,
@@ -145,7 +154,7 @@ class SessionManagerMixIn:
             )
         self.accelerator.wait_for_everyone()
         model = get_session_model()
-        self.model = model
+        self.model_wrapped = self.model = model
 
         if self.recipe is None:
             _LOGGER.warning(
@@ -279,7 +288,7 @@ class SessionManagerMixIn:
         self._check_super_defined("compute_loss")
 
         # TODO: do we need these model signature columns?
-        inputs = {k: inputs[k] for k in inputs if k in self._model_signature_columns}
+        inputs = {k: inputs[k] for k in inputs if k in self._signature_columns}
         loss = super().compute_loss(model, inputs, return_outputs=return_outputs)
 
         # take the mean across multiple GPUs

@@ -36,8 +36,8 @@ recipe = """
 test_stage:
   pruning_modifiers:
     ConstantPruningModifier:
-      targets: ['re:.*q_proj.weight', 're:.*k_proj.weight', 're:.*v_proj.weight', 
-      're:.*o_proj.weight','re:.*gate_proj.weight', 're:.*up_proj.weight', 
+      targets: ['re:.*q_proj.weight', 're:.*k_proj.weight', 're:.*v_proj.weight',
+      're:.*o_proj.weight','re:.*gate_proj.weight', 're:.*up_proj.weight',
       're:.*down_proj.weight']
       start: 0
 """

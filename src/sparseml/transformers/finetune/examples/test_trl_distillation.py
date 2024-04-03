@@ -25,11 +25,16 @@ from sparseml.transformers import (
 
 
 model_path = "neuralmagic/Llama-2-7b-pruned50-retrained"
+teacher_path = "zoo:llama2-7b-gsm8k_llama2_pretrain-base"
 output_dir = "./output_trl_sft_test_7b_gsm8k"
 
 model = SparseAutoModelForCausalLM.from_pretrained(
     model_path, torch_dtype="auto", device_map="auto"
 )
+teacher = SparseAutoModelForCausalLM.from_pretrained(
+    teacher_path, torch_dtype="auto", device_map="auto"
+)
+
 tokenizer = SparseAutoTokenizer.from_pretrained(model_path)
 
 # Load gsm8k using SparseML dataset tools
@@ -50,10 +55,16 @@ recipe = """
 test_stage:
   pruning_modifiers:
     ConstantPruningModifier:
-      targets: ['re:.*q_proj.weight', 're:.*k_proj.weight', 're:.*v_proj.weight', 
-      're:.*o_proj.weight','re:.*gate_proj.weight', 're:.*up_proj.weight', 
+      targets: ['re:.*q_proj.weight', 're:.*k_proj.weight', 're:.*v_proj.weight',
+      're:.*o_proj.weight', 're:.*gate_proj.weight', 're:.*up_proj.weight',
       're:.*down_proj.weight']
       start: 0
+    OutputDistillationModifier:
+      targets: ['re:model.layers.\\d+$']
+      comparison: "square_head"
+      start: 0
+      orig_scale: 1.0
+      distill_scale: 1.0
 """
 
 data_collator = DefaultDataCollator()
@@ -62,14 +73,17 @@ training_args = TrainingArguments(
     num_train_epochs=0.6,
     logging_steps=50,
     gradient_checkpointing=True,
+    bf16=True,
 )
 trainer = SFTTrainer(
     model=model,
+    teacher=teacher,
     tokenizer=tokenizer,
     recipe=recipe,
     train_dataset=train_dataset,
     data_collator=data_collator,
     args=training_args,
+    data_args=data_args,
     max_seq_length=data_args.max_seq_length,
     packing=True,
 )

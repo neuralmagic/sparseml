@@ -49,14 +49,6 @@ from sparseml.transformers.utils.helpers import detect_last_checkpoint
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
-metadata_args = [
-    "per_device_train_batch_size",
-    "per_device_eval_batch_size",
-    "max_seq_length",
-    "save_safetensors",
-    "fp16",
-]
-
 
 def train(**kwargs):
     """
@@ -133,10 +125,6 @@ def parse_args(**kwargs):
                 key, value = recipe_arg.split("=")
                 arg_dict[key] = value
             training_args.recipe_args = arg_dict
-
-    # when set to true in FSDP mode this causes issues, the model arguments show up
-    # as *args and **kwargs so all columns get removed
-    training_args.remove_unused_columns = False
 
     return model_args, data_args, training_args
 
@@ -335,7 +323,6 @@ def main(
         model_init=get_session_model,
         teacher=teacher,
         recipe=training_args.recipe,
-        metadata_args=metadata_args,
         recipe_args=training_args.recipe_args,
         args=training_args,
         data_args=data_args,
@@ -344,8 +331,6 @@ def main(
         tokenizer=tokenizer,
         data_collator=data_collator,
     )
-    if trainer.is_fsdp_enabled:
-        trainer._prepare_model_for_fsdp()
     stage_runner.trainer = trainer
 
     # alternating Training/One-shot
