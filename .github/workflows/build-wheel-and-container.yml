@@ -68,11 +68,11 @@ jobs:
     secrets: inherit
 
   push-to-internal-pypi:
+    if: $INTERNAL
     needs: pull-wheel-and-test
     runs-on: ubuntu-latest
     steps:
     - name: Push to internal pypi
-      if: ${{ env.INTERNAL == 'true' }}
       uses: neuralmagic/nm-actions/actions/nm-upload-whl@upload-pypi
       with:
         python: '3.10'
