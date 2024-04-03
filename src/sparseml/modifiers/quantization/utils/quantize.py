@@ -46,6 +46,7 @@ except Exception:
 
 
 __all__ = [
+    "LAYER_NAME_ALIASES",
     "convert_module_qat_from_schemes",
     "is_qat_helper_module",
     "is_quantizable_module",
@@ -57,6 +58,9 @@ __all__ = [
     "raise_if_already_quantized",
     "is_module_quantized",
 ]
+
+
+LAYER_NAME_ALIASES: Dict[str, List[str]] = {"SiLU": ["SiLUActivation"]}
 
 
 def is_qat_helper_module(module: Module) -> bool:
@@ -172,7 +176,10 @@ def set_quantization_schemes(
         submodule_scheme = (
             scheme if override_key is None else scheme_overrides[override_key]
         )
-        is_module_type_override = override_key == submodule.__class__.__name__
+        is_module_type_override = (
+            override_key == submodule.__class__.__name__
+            or submodule.__class__.__name__ in LAYER_NAME_ALIASES.get(override_key, [])
+        )
 
         if getattr(submodule, "wrap_qat", False):
             # wrap_qat overrides default scheme behavior
@@ -404,13 +411,19 @@ def _match_submodule_name_or_type(
     #   1. match module type name
     #   2. match the submodule prefix (longest first)
     submodule_match = ""
+    submodule_type = submodule.__class__.__name__
     for name_or_type in names_or_types:
         name_to_compare = submodule_name[:]
         name_to_compare = fix_fsdp_module_name(name_to_compare)
         if name_to_compare.startswith("module."):
             name_to_compare = name_to_compare[7:]
-        if name_or_type == submodule.__class__.__name__:
+        if name_or_type == submodule_type:
             # type match, return type name
+            return name_or_type
+        if submodule_type in LAYER_NAME_ALIASES.get(name_or_type, []):
+            # submodule type is aliased to a target type in the recipe
+            # return type in recipe so it can be matched to its target
+            # scheme
             return name_or_type
         if name_to_compare.startswith(name_or_type) and (
             len(name_or_type) > len(submodule_match)
