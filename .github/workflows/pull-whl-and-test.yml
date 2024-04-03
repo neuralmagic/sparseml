@@ -34,6 +34,12 @@ jobs:
       run: |
           echo "FILENAME=$(echo dist_s3/*.whl)" >> $GITHUB_ENV
 
+    - name: Get path
+      run: |
+        ls
+        echo ${{ github.workspace }}
+        pwd
+
     - name: Push to internal pypi
       uses: neuralmagic/nm-actions/actions/nm-upload-whl@upload-pypi
       with:
@@ -55,6 +61,8 @@ jobs:
       run: |
             rm -rf src
             make test
+    
+
 
 
 

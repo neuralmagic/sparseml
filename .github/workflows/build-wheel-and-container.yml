@@ -61,7 +61,7 @@ jobs:
     needs: build-wheel-and-push
     uses: ./.github/workflows/pull-whl-and-test.yml
     with:
-      build-label: aws-avx2-64G
+      build-label: ubuntu-20.04
       whl: ${{ needs.build-wheel-and-push.outputs.wheel }}
     secrets: inherit
 
