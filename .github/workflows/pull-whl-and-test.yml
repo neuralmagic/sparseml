@@ -32,7 +32,8 @@ jobs:
 
     - name: Set Env
       run: |
-        pip3 install virtualenv
+        sudo apt-get -y install python3-pip
+        sudo pip3 install virtualenv
         virtualenv venv
         source venv/bin/activate
         pip3 install twine
