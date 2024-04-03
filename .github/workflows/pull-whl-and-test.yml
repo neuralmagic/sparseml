@@ -32,8 +32,8 @@ jobs:
 
     - name: Set Env
       run: |
-        python3.8 -m pip install virtualenv
-        virtualenv venv
+        python3 -m pip install virtualenv
+        python3 -m virutalenv venv
         source venv/bin/activate
   
     - name: Fetch name of whl
