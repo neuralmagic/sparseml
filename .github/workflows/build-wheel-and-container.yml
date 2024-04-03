@@ -62,8 +62,10 @@ jobs:
   
   print:
     needs: build-wheel-and-push
-    runs:
-      echo ${{ needs.build-wheel-and-push.outputs.wheel }}
+    steps:
+    - name: something
+      runs: |
+        echo ${{ needs.build-wheel-and-push.outputs.wheel }}
     
   pull-wheel-and-test:
     needs: build-wheel-and-push
