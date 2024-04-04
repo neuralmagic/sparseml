@@ -1,0 +1,68 @@
+name: Test Wheel and Push to Internal PyPi
+on:
+  workflow_call:
+    inputs:
+      build-label:
+        description: "requested runner label"
+        type: string
+        required: true
+      whl:
+        type: string
+        required: true
+      python:
+        type: string
+
+jobs:
+  test-wheel-and-push-internal:
+    runs-on: ${{ inputs.build-label }}
+    steps:
+    - uses: actions/setup-python@v4
+      with:
+        python-version: ${{ inputs.python }}
+
+    - name: Login to s3
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        role-to-assume: ${{ secrets.AWS_WEBIDENTITY_FOR_GITHUB_ACTIONS }}
+        aws-region: us-east-1 
+
+    - name: Make directory for wheel
+      run: |
+          mkdir dist_s3
+          
+    - name: Pull from s3
+      uses: neuralmagic/nm-actions/actions/s3_pull@main
+      with:
+        filename: ${{ inputs.whl }}
+        dst: dist_s3
+
+    - name: Set Env
+      run: |
+        pip3 install virtualenv
+        virtualenv venv
+        source venv/bin/activate
+  
+    - name: Fetch name of whl
+      run: |
+          echo "FILENAME=$(echo dist_s3/*.whl)" >> $GITHUB_ENV
+          
+    - name: Push to internal pypi
+      uses: neuralmagic/nm-actions/actions/nm-upload-whl@upload-pypi
+      with:
+        server: ${{ secrets.NM_PRIVATE_PYPI_LOCATION }}
+        username: ${{ secrets.NM_PRIVATE_PYPI_USER }}
+        password: ${{ secrets.NM_PRIVATE_PYPI_AUTH }}
+        whl: ./$FILENAME
+        port: 8080
+
+    - name: Install whl
+      run: |
+          pip3 install $FILENAME[dev]
+
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Remove src files and run tests
+      run: |
+            rm -rf src
+            make test

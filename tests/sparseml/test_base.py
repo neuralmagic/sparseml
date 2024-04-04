@@ -70,7 +70,9 @@ def test_execute_in_sparseml_framework():
 
 def test_get_version():
     version = get_version(
-        "sparseml", raise_on_error=True, alternate_package_names=["sparseml-nightly"]
+        "sparseml",
+        raise_on_error=True,
+        alternate_package_names=["sparseml-nightly", "sparseml-dev"],
     )
     assert version == __version__
 
@@ -81,32 +83,34 @@ def test_get_version():
 
 
 def test_check_version():
-    assert check_version("sparseml", alternate_package_names=["sparseml-nightly"])
+    assert check_version(
+        "sparseml", alternate_package_names=["sparseml-nightly", "sparseml-dev"]
+    )
 
     assert not check_version(
         "sparseml",
         min_version="10.0.0",
         raise_on_error=False,
-        alternate_package_names=["sparseml-nightly"],
+        alternate_package_names=["sparseml-nightly", "sparseml-dev"],
     )
     with pytest.raises(ImportError):
         check_version(
             "sparseml",
             min_version="10.0.0",
-            alternate_package_names=["sparseml-nightly"],
+            alternate_package_names=["sparseml-nightly", "sparseml-dev"],
         )
 
     assert not check_version(
         "sparseml",
         max_version="0.0.1",
         raise_on_error=False,
-        alternate_package_names=["sparseml-nightly"],
+        alternate_package_names=["sparseml-nightly", "sparseml-dev"],
     )
     with pytest.raises(ImportError):
         check_version(
             "sparseml",
             max_version="0.0.1",
-            alternate_package_names=["sparseml-nightly"],
+            alternate_package_names=["sparseml-nightly", "sparseml-dev"],
         )
 
     assert not check_version("unknown", raise_on_error=False)
