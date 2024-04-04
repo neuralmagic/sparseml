@@ -37,6 +37,16 @@ class Observer(RegistryMixin, Module):
         self._scale = None
         self._zero_point = None
 
+    def forward(self, observed: Tensor) -> Tuple[FloatTensor, IntTensor]:
+        """
+        maps directly to get_qparams
+
+        :param observed: optional observed tensor to calculate quantization parameters
+            from
+        :return: tuple of scale and zero point based on last observed value
+        """
+        return self.get_qparams(observed=observed)
+
     def calculate_qparams(self, observed: Tensor) -> Tuple[FloatTensor, IntTensor]:
         """
         :param observed: observed tensor to calculate quantization parameters for
