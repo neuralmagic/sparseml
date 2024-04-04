@@ -45,8 +45,6 @@ jobs:
     - name: Fetch name of whl
       run: |
           echo "FILENAME=$(echo dist_s3/*.whl)" >> $GITHUB_ENV
-          ls
-          pwd
           
     - name: Push to internal pypi
       uses: neuralmagic/nm-actions/actions/nm-upload-whl@upload-pypi
