@@ -41,6 +41,15 @@ jobs:
         run: |
           echo "dev=$DEV" >> $GITHUB_OUTPUT
           echo "release=$RELEASE" >> $GITHUB_OUTPUT
+  
+  print_outputs:
+    needs: set-outputs
+    runs-on: ubuntu-latest
+    steps:
+      - name: run
+        run: |
+          echo ${{ needs.set-outputs.outputs.dev }}
+          echo ${{ needs.set-outputs.outputs.release }}
 
   build-wheel-and-push:
     needs: set-outputs
@@ -71,8 +80,8 @@ jobs:
     steps:
       - name: run
         run: |
-          echo ${{ needs.set-outputs.outputs.dev }}
-          echo ${{ needs.set-outputs.outputs.release }}
+          echo ${{ steps.set-outputs.outputs.dev }}
+          echo ${{ steps.set-outputs.outputs.release }}
 
 
   # TODO: add nightly and release container build steps once wheel builds push
@@ -82,7 +91,7 @@ jobs:
     uses: ./.github/workflows/build-container.yml
     with:
       build-label: aws-avx2-64G
-      dev: ${{ needs.set-outputs.outputs.dev }}
-      release: ${{ needs.set-outputs.outputs.release  }}
+      dev: ${{ steps.set-outputs.outputs.dev }}
+      release: ${{ steps.set-outputs.outputs.release  }}
       name: ${{ github.event.number }}
     secrets: inherit
