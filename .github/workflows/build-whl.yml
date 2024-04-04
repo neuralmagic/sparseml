@@ -1,4 +1,4 @@
-name: build-whl
+name: Build Wheel
 on:
   workflow_call:
     inputs:

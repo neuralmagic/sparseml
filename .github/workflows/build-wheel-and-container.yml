@@ -55,16 +55,16 @@ jobs:
       name: ${{ github.event.number }} 
       filename: dist/*.whl
       bucket_name: nm-actions-test
-      python: 3.10
+      python: '3.10'
     secrets: inherit
 
-  pull-wheel-and-test:
+  test-wheel-and-push-internal:
     needs: build-wheel-and-push
-    uses: ./.github/workflows/pull-whl-and-test.yml
+    uses: ./.github/workflows/test-whl-push-to-internal.yml
     with:
       build-label: aws-avx2-64G
       whl: ${{ needs.build-wheel-and-push.outputs.wheel }}
-      python: 3.10
+      python: '3.10'
     secrets: inherit
 
   build-container-and-push:

@@ -1,4 +1,4 @@
-name: test-whl
+name: Test Wheel and Push to Internal PyPi
 on:
   workflow_call:
     inputs:
@@ -13,7 +13,7 @@ on:
         type: string
 
 jobs:
-  pull-wheel-and-test:
+  test-wheel-and-push-internal:
     runs-on: ${{ inputs.build-label }}
     steps:
     - uses: actions/setup-python@v4
