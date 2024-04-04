@@ -64,25 +64,14 @@ jobs:
       python: '3.10'
     secrets: inherit
 
-  
-  outputs:
-    needs: test-wheel-and-push-internal
-    runs-on: ubuntu-latest
-    steps:
-      - name: run
-        run: |
-          echo ${{ stageDependencies.set-outputs.outputs.dev }}
-          echo ${{ stageDependencies.set-outputs.outputs.release }}
-
-
   # TODO: add nightly and release container build steps once wheel builds push
   # to production are automated. Removed until then.
   build-container-and-push:
-    needs: test-wheel-and-push-internal
+    needs: [set-outputs, test-wheel-and-push-internal]
     uses: ./.github/workflows/build-container.yml
     with:
       build-label: aws-avx2-64G
-      dev: ${{ stageDependencies.set-outputs.outputs.dev }}
-      release: ${{ stageDependencies.set-outputs.outputs.release  }}
+      dev: ${{ needs.set-outputs.outputs.dev }}
+      release: ${{ needs.set-outputs.outputs.release  }}
       name: ${{ github.event.number }}
     secrets: inherit
