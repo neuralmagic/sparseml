@@ -72,7 +72,10 @@ def _maybe_calibrate_or_quantize(
     module: Module, value: Module, base_name: str, args: "QuantizationArgs"
 ) -> torch.Tensor:
     # only run quantized for the included stages
-    if module.quantization_status not in {QuantizationStatus.CALIBRATION}:
+    if module.quantization_status not in {
+        QuantizationStatus.CALIBRATION,
+        QuantizationStatus.FROZEN,
+    }:
         return value
 
     scale = getattr(module, f"{base_name}_scale")
