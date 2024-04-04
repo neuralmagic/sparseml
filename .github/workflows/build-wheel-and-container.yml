@@ -74,7 +74,7 @@ jobs:
     secrets: inherit
 
   
-  print_outputs:
+  outputs:
     needs: test-wheel-and-push-internal
     runs-on: ubuntu-latest
     steps:
