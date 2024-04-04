@@ -64,6 +64,16 @@ jobs:
       python: '3.10'
     secrets: inherit
 
+  
+  print_outputs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: run
+        run: |
+          echo ${{ needs.set-outputs.outputs.dev }}
+          echo ${{ needs.set-outputs.outputs.release }}
+
+
   # TODO: add nightly and release container build steps once wheel builds push
   # to production are automated. Removed until then.
   build-container-and-push:
