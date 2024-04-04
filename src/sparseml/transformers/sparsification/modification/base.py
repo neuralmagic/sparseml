@@ -23,8 +23,8 @@ _LOGGER = logging.getLogger(__name__)
 
 __all__ = ["check_transformers_version"]
 
-_TRANSFORMERS_MIN_VERSION = "4.34.1"
-_TRANSFORMERS_MAX_VERSION = "4.35.0"
+_TRANSFORMERS_MIN_VERSION = "4.39.0"
+_TRANSFORMERS_MAX_VERSION = "4.39.2"
 
 
 def check_transformers_version(

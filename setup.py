@@ -78,8 +78,8 @@ _pytorch_vision_deps = _pytorch_deps + [
     "opencv-python<=4.6.0.66",
 ]
 _transformers_deps = _pytorch_deps + [
-    "transformers<4.35.0",
-    "datasets<=2.14.6",
+    "transformers<4.40",
+    "datasets<2.19",
     "dvc",
     "scikit-learn",
     "seqeval",
