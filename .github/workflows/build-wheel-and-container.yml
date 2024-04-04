@@ -66,6 +66,7 @@ jobs:
 
   
   print_outputs:
+    needs: test-wheel-and-push-internal
     runs-on: ubuntu-latest
     steps:
       - name: run
