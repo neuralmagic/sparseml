@@ -4,7 +4,7 @@ test_stage:
       ignore:
         - MistralRotaryEmbedding
         - MistralRMSNorm
-        - SiLUActivation
+        - SiLU
         - model.layers.1.mlp.down_proj
         - model.layers.31.mlp.down_proj
         - model.layers.30.mlp.down_proj

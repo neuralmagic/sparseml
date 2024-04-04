@@ -97,7 +97,7 @@ def test_fail_on_repeated_quant(tmp_path):
                 ignore:
                     - LlamaRotaryEmbedding
                     - LlamaRMSNorm
-                    - SiLUActivation
+                    - SiLU
                 scheme_overrides:
                     Embedding:
                         input_activations: null
@@ -110,7 +110,7 @@ def test_fail_on_repeated_quant(tmp_path):
                 ignore:
                     - LlamaRotaryEmbedding
                     - LlamaRMSNorm
-                    - SiLUActivation
+                    - SiLU
                     - Embedding
     """
 
@@ -152,7 +152,7 @@ def test_separate_quants_allowed(tmp_path):
                 ignore:
                     - LlamaRotaryEmbedding
                     - LlamaRMSNorm
-                    - SiLUActivation
+                    - SiLU
                     - Linear
                 scheme_overrides:
                     Embedding:
@@ -166,7 +166,7 @@ def test_separate_quants_allowed(tmp_path):
                 ignore:
                     - LlamaRotaryEmbedding
                     - LlamaRMSNorm
-                    - SiLUActivation
+                    - SiLU
                     - Embedding
                     - MatMulLeftInput_QK
                     - MatMulRightInput_QK
