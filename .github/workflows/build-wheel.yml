@@ -1,4 +1,4 @@
-name: Build Wheel
+name: Build Wheel and Push to s3
 on:
   workflow_call:
     inputs:
