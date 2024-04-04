@@ -91,6 +91,7 @@ class SparseGPTModifierPyTorch(WandaPruningModifierPyTorch, SparseGPTModifier):
             "prunem": self.prunem_,
             "blocksize": self.block_size,
             "percdamp": self.dampening_frac,
+            "preserve_sparsity_mask": self.preserve_sparsity_mask,
         }
 
     def _compression_class(self):

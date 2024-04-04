@@ -84,6 +84,7 @@ class SparseGptWrapper(ModuleCompressionWrapper):
         prunem: int = 0,
         blocksize: int = 128,
         percdamp: float = 0.01,
+        preserve_sparsity_mask: bool = False,
     ):
         """
         Run pruning and quantization(if applicable) on the layer up to the target
@@ -94,6 +95,7 @@ class SparseGptWrapper(ModuleCompressionWrapper):
         :param prunem: M for N:M pruning
         :param blocksize: Number of columns to compress in one pass
         :param percdamp: Amount of dampening to apply to H, as a fraction of the
+        :param preserve_sparsity_mask: extend or ignore the base sparsity mask
         diagonal norm
         """
         final_shape = self.layer.weight.shape
@@ -123,6 +125,13 @@ class SparseGptWrapper(ModuleCompressionWrapper):
         Hinv = self.H
 
         mask = None
+        if preserve_sparsity_mask:
+            # compute existing sparsity mask
+            mask = torch.where(
+                W == 0,
+                torch.tensor(1, dtype=torch.bool),
+                torch.tensor(0, dtype=torch.bool),
+            )
 
         # See section 3.4 of https://arxiv.org/abs/2203.07259
         for i1 in range(0, self.columns, blocksize):
@@ -138,12 +147,32 @@ class SparseGptWrapper(ModuleCompressionWrapper):
             if prunen == 0:
                 if mask is not None:
                     mask1 = mask[:, i1:i2]
+                    if int(W1.numel() * sparsity) > mask1.sum():
+                        # target sparsity is higher than base sparsity, extend mask1
+                        tmp = (
+                            (~mask[:, i1:i2])
+                            * W1**2
+                            / (torch.diag(Hinv1).reshape((1, -1))) ** 2
+                        )
+                        thresh = torch.sort(tmp.flatten())[0][
+                            int(tmp.numel() * sparsity)
+                        ]
+                        mask1 = tmp <= thresh
+                    else:
+                        raise ValueError(
+                            "The target sparsity is lower than the sparsity "
+                            "of the base model. Please retry "
+                            "after turning preserve_sparsity_mask=False"
+                        )
                 else:
                     tmp = W1**2 / (torch.diag(Hinv1).reshape((1, -1))) ** 2
                     thresh = torch.sort(tmp.flatten())[0][int(tmp.numel() * sparsity)]
                     mask1 = tmp <= thresh
             else:
-                mask1 = torch.zeros_like(W1) == 1
+                if mask is not None:
+                    mask1 = mask[:, i1:i2]
+                else:
+                    mask1 = torch.zeros_like(W1) == 1
 
             for i in range(count):
                 w = W1[:, i]
@@ -151,7 +180,8 @@ class SparseGptWrapper(ModuleCompressionWrapper):
 
                 if prunen != 0 and i % prunem == 0:
                     tmp = (
-                        W1[:, i : (i + prunem)] ** 2
+                        (~mask[:, i : (i + prunem)])
+                        * W1[:, i : (i + prunem)] ** 2
                         / (torch.diag(Hinv1)[i : (i + prunem)].reshape((1, -1))) ** 2
                     )
                     mask1.scatter_(
@@ -182,7 +212,12 @@ class SparseGptWrapper(ModuleCompressionWrapper):
             W[:, i1:i2] = Q1
             Losses += torch.sum(Losses1, 1) / 2
 
-            W[:, i2:] -= Err1.matmul(Hinv[i1:i2, i2:])
+            if preserve_sparsity_mask:
+                # respect the sparsity of other groups
+                # really not needed, but kept for explicitness
+                W[:, i2:] -= (~mask[:, i2:]) * Err1.matmul(Hinv[i1:i2, i2:])
+            else:
+                W[:, i2:] -= Err1.matmul(Hinv[i1:i2, i2:])
 
         _LOGGER.info("time %.2f" % (time.time() - tick))
         _LOGGER.info("error %.2f" % torch.sum(Losses).item())
