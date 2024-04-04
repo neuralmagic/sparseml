@@ -1,0 +1,24 @@
+name: Test Wheel and Push to Internal PyPi
+on:
+  workflow_call:
+    inputs:
+      build-label:
+        description: "requested runner label"
+        type: string
+
+jobs:
+  build-container:
+    runs-on: ${{ inputs.build-label }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v2
+        with:
+          buildkitd-flags: --debug
+      - name: Get current date
+        id: date
+        run: echo "::set-output name=date::$(date +'%Y%m%d')"
