@@ -23,9 +23,67 @@ from sparseml.modifiers.quantization.lifecycle.status import QuantizationStatus
 __all__ = ["wrap_module_forward_quantized"]
 
 
-def fake_quantize(*args, **kwargs):
-    # TODO: integrate actual fake quantize function
-    pass
+def quantize(
+    x: torch.Tensor,
+    scale: torch.Tensor,
+    zero_point: torch.Tensor,
+    q_max: torch.Tensor,
+) -> torch.Tensor:
+    return torch.clamp(
+        round(
+            x / scale + zero_point,
+            0,
+            q_max,
+        )
+    )
+
+
+def dequantize(
+    x_q: torch.Tensor,
+    scale: torch.Tensor,
+    zero_point: torch.Tensor,
+) -> torch.Tensor:
+    return (x_q - zero_point) * scale
+
+
+def fake_quantize(
+    x: torch.Tensor,
+    scale: torch.Tensor,
+    zero_point: torch.Tensor,
+    args: QuantizationArgs,
+) -> torch.Tensor:
+    max_q = torch.tensor(2**args.n_bits - 1)
+    columns = x.shape[1]
+    Q = torch.zeros_like(x)
+    for i1 in range(0, columns, args.block_size):
+        i2 = min(i1 + args.block_size, columns)
+        count = i2 - i1
+
+        W1 = x[:, i1:i2].clone()
+        Q1 = torch.zeros_like(W1)
+
+        for i in range(count):
+            w = W1[:, i]
+
+            if args.group_size != -1:
+                if (i1 + i) % args.group_size == 0:
+                    xmin, xmax = get_qparams(
+                        x[:, (i1 + i) : (i1 + i + args.group_size)], args.symmetric
+                    )
+                    scale, zero = get_scale_zero_point(
+                        x[:, (i1 + i) : (i1 + i + args.group_size)],
+                        max_q,
+                        xmax,
+                        xmin,
+                        args.symmetric,
+                        args.group_size,
+                    )
+
+            q = quantize(w.unsqueeze(1), scale, zero, max_q).flatten()
+        Q1[:, i] = q
+        Q[:, i1:i2] = Q1
+
+    return dequantize(Q, scale, zero_point)
 
 
 def wrap_module_forward_quantized(module: Module):
