@@ -559,7 +559,7 @@ def fetch_recipe_path(target: str):
     return recipe_path
 
 
-def generate_mask(string: str, response: str, prompt: Optional[str] = None) -> str:
+def generate_mask(string: str, response: str, prompt: str = "") -> str:
     """
     Generate a mask based on provided prompt and response strings to obscure
     characters in the input string. Prompt will be masked and string in response
@@ -576,18 +576,16 @@ def generate_mask(string: str, response: str, prompt: Optional[str] = None) -> s
         characters and '0' indicates obscured characters.
 
     """
-    if prompt is None:
-        prompt = ""
 
     mask = ["1"] * len(string)
-    is_prompt = True
+    is_prompt = False if string.startswith(response) else True
     counter = 0
     for i, char in enumerate(string):
         if is_prompt:
             mask[i] = "0"
 
         if counter > 0:
-            if not is_prompt and char == prompt[counter]:
+            if not is_prompt and len(prompt) > 1 and char == prompt[counter]:
                 counter += 1
             elif is_prompt and char == response[counter]:
                 counter += 1

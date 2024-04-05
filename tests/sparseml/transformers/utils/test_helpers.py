@@ -206,7 +206,16 @@ def test_save_zoo_directory(tmp_path, stub):
             None,
             ("0000000" "1111111111"),
         ),
+        (
+            ("[bar]world" "[foo]hello\n\n" "[bar]world"),
+            "[bar]",
+            "[foo]",
+            ("1111111111" "000000000000" "1111111111"),
+        ),
     ],
 )
 def test_generate_mask(string, response, prompt, expected_mask):
-    assert generate_mask(string, response, prompt) == expected_mask
+    if prompt is not None:
+        assert generate_mask(string, response, prompt) == expected_mask
+    else:
+        assert generate_mask(string, response) == expected_mask

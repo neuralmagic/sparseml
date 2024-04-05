@@ -32,6 +32,7 @@ from sparseml.transformers import (
     oneshot,
     train,
 )
+from sparseml.transformers.utils.helpers import generate_mask
 
 
 def test_oneshot_and_finetune(tmp_path: Path):
@@ -318,4 +319,36 @@ def test_oneshot_with_modifier_object(tmp_path: Path):
         concatenate_data=concatenate_data,
         splits=splits,
         oneshot_device=device,
+    )
+
+
+def test_finetune_wout_recipe_with_mask(tmp_path: Path):
+    recipe_str = None
+    model = "Xenova/llama2.c-stories15M"
+    device = "cuda:0"
+    if not torch.cuda.is_available():
+        device = "cpu"
+    dataset = "open_platypus"
+    concatenate_data = False
+    output_dir = tmp_path
+    max_steps = 50
+    splits = "train"
+
+    def preprocessing_func(example):
+        example["text"] = "[foo]" + example["text"] + "[bar] mask this"
+        example["mask"] = generate_mask(
+            example["text"], response="[bar]", prompt="[foo]"
+        )
+        return example
+
+    train(
+        model=model,
+        dataset=dataset,
+        output_dir=output_dir,
+        recipe=recipe_str,
+        max_steps=max_steps,
+        concatenate_data=concatenate_data,
+        splits=splits,
+        oneshot_device=device,
+        preprocessing_func=preprocessing_func,
     )
