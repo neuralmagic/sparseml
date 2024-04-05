@@ -90,7 +90,7 @@ def export(
     source_path: Union[Path, str] = None,
     target_path: Union[Path, str, None] = None,
     model: Optional["torch.nn.Module"] = None,  # noqa F401
-    tokenizer: Optional["PreTrainedTokenizer"] = None, # noqa F401
+    tokenizer: Optional["PreTrainedTokenizer"] = None,  # noqa F401
     onnx_model_name: str = ONNX_MODEL_NAME,
     deployment_target: str = "deepsparse",
     opset: Optional[int] = None,
@@ -135,11 +135,9 @@ def export(
         will default to source_path
     :param model: The PyTorch model to export. If provided, the source_path
         should be set to None to avoid potential confusion and entaglement
-        of sources. This means that, the full
-        export logic will not be enforced (e.g. the final deployment directory
-        will not be complete, it will not be possible to run validate_structure
-        method or apply some optimizations that require complete deployment
-        directory structure)
+        of sources
+    :param tokenizer: An optional tokenizer to export if passing in a source through
+    the model argument. This argument takes no effect if a source_path is provided
     :param onnx_model_name: The name of the exported model.
         Defaults to ONNX_MODEL_NAME.
     :param deployment_target: The deployment target to export
@@ -185,6 +183,7 @@ def export(
     from sparseml.export.validators import validate_structure as validate_structure_
     from sparseml.integration_helper_functions import (
         IntegrationHelperFunctions,
+        remove_past_key_value_support_from_config,
         resolve_integration,
     )
     from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
@@ -207,8 +206,23 @@ def export(
         source_path = process_source_path(source_path)
         if target_path is None:
             target_path = source_path
+        if tokenizer is not None:
+            _LOGGER.warning(
+                "Passed a tokenizer is not supported when exporting from ",
+                "a source path. The tokenizer will be ignored. ",
+            )
 
-    integration = resolve_integration(source_path, integration)
+    if model is not None:
+        model.config = remove_past_key_value_support_from_config(model.config)
+        if tokenizer is None and validate_correctness:
+            raise ValueError(
+                "When exporting an instantiated model a tokenizer is required "
+                "to validate correctness."
+            )
+
+    integration = resolve_integration(
+        source_path=source_path, source_model=model, integration=integration
+    )
     _LOGGER.info(f"Starting export for {integration} model...")
 
     if target_path is None:
@@ -324,7 +338,7 @@ def export(
 
     deployment_folder_dir = create_deployment_folder(
         source_path=source_path,
-        source_model=model,
+        source_config=model.config,
         source_tokenizer=tokenizer,
         target_path=target_path,
         deployment_directory_name=deployment_directory_name,

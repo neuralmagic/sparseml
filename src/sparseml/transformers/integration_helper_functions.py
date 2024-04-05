@@ -24,6 +24,7 @@ from sparseml.export.helpers import apply_optimizations as apply_optimizations_o
 from sparseml.integration_helper_functions import (
     IntegrationHelperFunctions,
     Integrations,
+    remove_past_key_value_support_from_config,
 )
 from sparseml.transformers.finetune.data.data_helpers import format_calibration_data
 from sparseml.transformers.utils.helpers import (
@@ -34,7 +35,6 @@ from sparseml.transformers.utils.helpers import (
     OPTIONAL_DEPLOYMENT_FILES,
     TaskNames,
     create_fake_dataloader,
-    remove_past_key_value_support_from_config,
     resolve_sequence_length,
 )
 from sparseml.transformers.utils.initializers import (
