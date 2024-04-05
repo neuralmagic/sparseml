@@ -30,6 +30,7 @@ from transformers import (
 )
 from transformers.file_utils import WEIGHTS_NAME
 
+from sparseml.core.utils import session_context_manager
 from sparseml.pytorch.model_load.helpers import (
     apply_recipe_structure_to_model,
     log_model_load,
@@ -131,11 +132,13 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
 
         recipe = resolve_recipe(recipe=recipe, model_path=pretrained_model_name_or_path)
         if recipe:
-            apply_recipe_structure_to_model(
-                model=model,
-                model_path=pretrained_model_name_or_path,
-                recipe_path=recipe,
-            )
+            with session_context_manager():
+
+                apply_recipe_structure_to_model(
+                    model=model,
+                    model_path=pretrained_model_name_or_path,
+                    recipe_path=recipe,
+                )
         return model
 
 
