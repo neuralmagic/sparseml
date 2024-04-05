@@ -212,13 +212,8 @@ def export(
                 "a source path. The tokenizer will be ignored. ",
             )
 
-    if model is not None:
+    if model is not None and hasattr(model, "config"):
         model.config = remove_past_key_value_support_from_config(model.config)
-        if tokenizer is None and validate_correctness:
-            raise ValueError(
-                "When exporting an instantiated model a tokenizer is required "
-                "to validate correctness."
-            )
 
     integration = resolve_integration(
         source_path=source_path, source_model=model, integration=integration
@@ -340,7 +335,7 @@ def export(
 
     deployment_folder_dir = create_deployment_folder(
         source_path=source_path,
-        source_config=model.config,
+        source_config=getattr(model, "config", None),
         source_tokenizer=tokenizer,
         target_path=target_path,
         deployment_directory_name=deployment_directory_name,
