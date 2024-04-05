@@ -48,8 +48,8 @@ def modify(model: nn.Module) -> nn.Module:
     Note: This function will not alter any of the alternatives
     to the OPTAttention module such as OptFlashAttention2
 
-    :param model: the original LLaMa model
-    :return: the modified LLaMa model
+    :param model: the original OPT model
+    :return: the modified OPT model
     """
     for name, submodule in model.named_modules():
         if isinstance(submodule, OPTAttention):
