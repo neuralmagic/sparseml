@@ -362,11 +362,8 @@ def recipe_from_huggingface_model_id(
         f"{HUGGINGFACE_CO_URL_HOME}"
     )
     try:
-        _LOGGER.info(
-            f"Found recipe: {recipe_name} for model id: "
-            f"{model_path}. Downloading..."
-        )
         recipe = hf_hub_download(repo_id=model_path, filename=recipe_name)
+        _LOGGER.info(f"Found recipe: {recipe_name} for model id: {model_path}.")
     except Exception as e:
         _LOGGER.info(
             f"Unable to to find recipe {recipe_name} "
