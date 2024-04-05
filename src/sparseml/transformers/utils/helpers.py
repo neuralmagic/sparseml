@@ -34,8 +34,10 @@ from transformers import AutoConfig
 from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils import PaddingStrategy
 
-from huggingface_hub import HUGGINGFACE_CO_URL_HOME, hf_hub_download
+from huggingface_hub import HUGGINGFACE_CO_URL_HOME, hf_hub_download, snapshot_download
 from sparseml.export.helpers import ONNX_MODEL_NAME
+from sparseml.utils import download_zoo_training_dir
+from sparseml.utils.fsdp.context import main_process_first_context
 from sparsezoo import Model, setup_model
 
 
@@ -52,6 +54,8 @@ __all__ = [
     "ALL_TASK_NAMES",
     "create_fake_dataloader",
     "POSSIBLE_TOKENIZER_FILES",
+    "download_repo_from_huggingface_hub",
+    "download_model_directory",
 ]
 
 
@@ -553,3 +557,58 @@ def fetch_recipe_path(target: str):
         recipe_path = hf_hub_download(repo_id=target, filename=DEFAULT_RECIPE_NAME)
 
     return recipe_path
+
+
+def download_repo_from_huggingface_hub(repo_id, **kwargs):
+    """
+    Download a model repo from the Hugging Face Hub
+    using the huggingface_hub.snapshot_download function
+
+    :param repo_id: the repo id to download
+    :param kwargs: additional keyword arguments to pass to snapshot_download
+    """
+    hub_kwargs_names = [
+        "cache_dir",
+        "force_download",
+        "local_files_only",
+        "proxies",
+        "resume_download",
+        "revision",
+        "subfolder",
+        "use_auth_token",
+        "token",
+    ]
+    hub_kwargs = {name: kwargs[name] for name in hub_kwargs_names if name in kwargs}
+    return snapshot_download(repo_id, **hub_kwargs)
+
+
+def download_model_directory(pretrained_model_name_or_path: str, **kwargs):
+    """
+    Download the model directory from the HF hub or SparseZoo if the model
+    is not found locally
+
+    :param pretrained_model_name_or_path: the name of or path to the model to load
+        can be a SparseZoo/HuggingFace model stub
+    :param kwargs: additional keyword arguments to pass to the download function
+    :return: the path to the downloaded model directory
+    """
+    pretrained_model_path: Path = Path(pretrained_model_name_or_path)
+
+    if pretrained_model_path.exists():
+        _LOGGER.debug(
+            "Model directory already exists locally.",
+        )
+        return pretrained_model_name_or_path
+
+    with main_process_first_context():
+        if pretrained_model_name_or_path.startswith("zoo:"):
+            _LOGGER.debug(
+                "Passed zoo stub to SparseAutoModelForCausalLM object. "
+                "Loading model from SparseZoo training files..."
+            )
+            return download_zoo_training_dir(zoo_stub=pretrained_model_name_or_path)
+
+        _LOGGER.debug("Downloading model from HuggingFace Hub.")
+        return download_repo_from_huggingface_hub(
+            repo_id=pretrained_model_name_or_path, **kwargs
+        )
