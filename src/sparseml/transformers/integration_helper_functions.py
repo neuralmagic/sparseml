@@ -115,7 +115,7 @@ def create_data_loader(
     data_args: Optional[Dict[str, Any]] = None,
     config: Optional["AutoConfig"] = None,  # noqa F821
     source_path: Optional[str] = None,
-    sequence_length: Optional[int] = None,
+    sequence_length: int = 384,
     tokenizer: Optional["AutoTokenizer"] = None,  # noqa F821
     dataset_with_labels: bool = False,
     **kwargs,

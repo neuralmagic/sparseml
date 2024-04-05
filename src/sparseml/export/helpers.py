@@ -175,16 +175,11 @@ def create_deployment_folder(
         return deployment_folder_dir
 
     # exporting from a source path, copy the relevant files to deployment directory
-    # TODO: if an instantiated model is passed in, get these from the model directly rather than the source path (which will be none)
-    # ['special_tokens_map.json', 'config.json', 'tokenizer_config.json']
-    # save model.config to get config.json, tokenizer.save_pretrained()
-    # need to pass in a tokenizer
     for file_name in deployment_directory_files_mandatory:
         copy_mandatory_deployment_files(
             file_name, source_path, target_path, onnx_model_name, deployment_folder_dir
         )
 
-    # ['model-orig.onnx', 'tokenizer.json', 'merges.txt', 'tokenizer.model', 'vocab.json']
     for file_name in deployment_directory_files_optional:
         copy_optional_deployment_files(file_name, source_path, deployment_folder_dir)
 

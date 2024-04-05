@@ -277,6 +277,8 @@ def export(
     session_manager.active_session().reset()
 
     _LOGGER.info("Creating data loader for the export...")
+    if tokenizer is not None:
+        loaded_model_kwargs["tokenizer"] = tokenizer
     data_loader, loaded_data_loader_kwargs = helper_functions.create_data_loader(
         model=model,
         task=task,
