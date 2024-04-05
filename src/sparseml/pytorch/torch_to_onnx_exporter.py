@@ -129,7 +129,8 @@ class TorchToONNX(BaseExporter):
             torch_onnx_export_transform, _TorchOnnxExport
         ), "Expected the first transform from self.transform to be _TorchOnnxExport"
         for file in torch_onnx_export_transform.leftover_files:
-            os.remove(file)
+            if os.path.exists(file):
+                os.remove(file)
 
 
 class _TorchOnnxExport(BaseTransform):

@@ -115,6 +115,8 @@ def create_deployment_folder(
     target_path: Union[Path, str],
     deployment_directory_files_mandatory: List[str],
     source_path: Union[Path, str, None] = None,
+    source_model: Optional["PreTrainedModel"] = None, # noqa F401
+    source_tokenizer: Optional["PreTrainedTokenizer"] = None, # noqa F401
     deployment_directory_files_optional: Optional[List[str]] = None,
     deployment_directory_name: str = "deployment",
     onnx_model_name: Optional[str] = None,
@@ -161,15 +163,24 @@ def create_deployment_folder(
         deployment_folder_dir=deployment_folder_dir,
         onnx_model_name=onnx_model_name,
     )
+
     if source_path is None:
+        # exporting an instantiated model
+        source_model.config.save_pretrained(deployment_folder_dir)
+        source_tokenizer.save_pretrained(deployment_folder_dir)
         return deployment_folder_dir
 
-    # copy the relevant files from source_path
+    # exporting from a source path, copy the relevant files to deployment directory
+    # TODO: if an instantiated model is passed in, get these from the model directly rather than the source path (which will be none)
+    # ['special_tokens_map.json', 'config.json', 'tokenizer_config.json']
+    # save model.config to get config.json, tokenizer.save_pretrained()
+    # need to pass in a tokenizer
     for file_name in deployment_directory_files_mandatory:
         copy_mandatory_deployment_files(
             file_name, source_path, target_path, onnx_model_name, deployment_folder_dir
         )
 
+    # ['model-orig.onnx', 'tokenizer.json', 'merges.txt', 'tokenizer.model', 'vocab.json']
     for file_name in deployment_directory_files_optional:
         copy_optional_deployment_files(file_name, source_path, deployment_folder_dir)
 

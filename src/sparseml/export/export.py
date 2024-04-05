@@ -90,6 +90,7 @@ def export(
     source_path: Union[Path, str] = None,
     target_path: Union[Path, str, None] = None,
     model: Optional["torch.nn.Module"] = None,  # noqa F401
+    tokenizer: Optional["PreTrainedTokenizer"] = None, # noqa F401
     onnx_model_name: str = ONNX_MODEL_NAME,
     deployment_target: str = "deepsparse",
     opset: Optional[int] = None,
@@ -323,6 +324,8 @@ def export(
 
     deployment_folder_dir = create_deployment_folder(
         source_path=source_path,
+        source_model=model,
+        source_tokenizer=tokenizer,
         target_path=target_path,
         deployment_directory_name=deployment_directory_name,
         deployment_directory_files_mandatory=helper_functions.deployment_directory_files_mandatory,  # noqa: E501
