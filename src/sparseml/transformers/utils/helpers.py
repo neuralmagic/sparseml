@@ -96,7 +96,7 @@ POSSIBLE_TOKENIZER_FILES = {
     "special_tokens_map.json",
     "tokenizer_config.json",
 }
-RELEVANT_HF_SUFFIXES = ["json", "md", "bin", "safetensors", "yaml", "yml"]
+RELEVANT_HF_SUFFIXES = ["json", "md", "bin", "safetensors", "yaml", "yml", "py"]
 
 
 def remove_past_key_value_support_from_config(config: AutoConfig) -> AutoConfig:
