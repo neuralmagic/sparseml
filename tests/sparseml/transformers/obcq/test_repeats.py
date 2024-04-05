@@ -143,7 +143,7 @@ def test_fail_on_repeated_quant(tmp_path):
             model=tmp_path / "test",
             dataset="open_platypus",
             num_calibration_samples=4,
-            oneshotdevice=device,
+            oneshot_device=device,
             recipe=second_recipe_str,
         )
 
