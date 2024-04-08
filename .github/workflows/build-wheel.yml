@@ -53,7 +53,7 @@ jobs:
 
     - name: Build PyPi Wheel
       id: build-wheel
-      uses: neuralmagic/nm-actions/actions/pypi_build@update_bucket
+      uses: neuralmagic/nm-actions/actions/pypi_build@main
       with:
         dev: ${{ inputs.dev }}
         release: ${{ inputs.release }}
@@ -61,7 +61,7 @@ jobs:
     
     - name: Push to s3 bucket
       id: push-wheel
-      uses: neuralmagic/nm-actions/actions/s3_push@update_bucket
+      uses: neuralmagic/nm-actions/actions/s3_push@main
       with:
         filename: ${{ inputs.filename }}
         bucket_name: ${{ inputs.bucket_name }}
