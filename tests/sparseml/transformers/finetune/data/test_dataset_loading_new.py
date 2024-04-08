@@ -47,14 +47,16 @@ class TestConcentrationTokenization(unittest.TestCase):
             tokenizer=self.tiny_llama_tokenizer,
         )
         raw_dataset = wiki_manager.get_raw_dataset()
-        assert len(raw_dataset) > 0
-        assert raw_dataset.split == "train[:5%]"
-        assert raw_dataset.info.config_name == "wikitext-2-raw-v1"
+        self.assertGreater(len(raw_dataset), 0)
+        self.assertEqual(raw_dataset.split, "train[:5%]")
+        self.assertEqual(raw_dataset.info.config_name, "wikitext-2-raw-v1")
         tokenized_dataset = wiki_manager.tokenize_and_process(raw_dataset)
         assert "input_ids" in tokenized_dataset.features
         assert "labels" in tokenized_dataset.features
         for i in range(len(tokenized_dataset)):
-            assert len(tokenized_dataset[i]["input_ids"]) == wiki_manager.max_seq_length
+            self.assertEqual(
+                len(tokenized_dataset[i]["input_ids"]), wiki_manager.max_seq_length
+            )
 
 
 @pytest.mark.unit
@@ -77,18 +79,20 @@ class TestNoPaddingTokenization(unittest.TestCase):
             tokenizer=self.tiny_llama_tokenizer,
         )
         raw_dataset = op_manager.get_raw_dataset()
-        assert len(raw_dataset) > 0
+        self.assertGreater(len(raw_dataset), 0)
         ex_item = raw_dataset[0]["text"]
         assert "Below is an instruction that describes a task" in ex_item
 
-        assert raw_dataset.split == "train[5%:10%]"
+        self.assertEqual(raw_dataset.split, "train[5%:10%]")
         tokenized_dataset = op_manager.tokenize_and_process(raw_dataset)
         assert "input_ids" in tokenized_dataset.features
         assert "labels" in tokenized_dataset.features
         print(tokenized_dataset[0]["input_ids"])
 
         for i in range(len(tokenized_dataset)):
-            assert len(tokenized_dataset[i]["input_ids"]) <= op_manager.max_seq_length
+            self.assertLessEqual(
+                len(tokenized_dataset[i]["input_ids"]), op_manager.max_seq_length
+            )
 
 
 @pytest.mark.unit
