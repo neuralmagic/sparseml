@@ -33,6 +33,7 @@ from transformers.file_utils import WEIGHTS_NAME
 from sparseml.pytorch.model_load.helpers import (
     apply_recipe_structure_to_model,
     log_model_load,
+    reload_model_state,
 )
 from sparseml.transformers.compression.utils import (
     get_safetensors_folder,
@@ -40,6 +41,7 @@ from sparseml.transformers.compression.utils import (
     modify_save_pretrained,
 )
 from sparseml.transformers.sparsification.modification import modify_model
+from sparseml.transformers.sparsification.sparse_config import SparseAutoConfig
 from sparseml.transformers.utils.helpers import download_model_directory, resolve_recipe
 
 
@@ -111,9 +113,12 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
         logger = logging.getLogger("transformers.modeling_utils")
         restore_log_level = logger.getEffectiveLevel()
         logger.setLevel(level=logging.ERROR)
-        model = super(AutoModelForCausalLM, cls).from_pretrained(
-            pretrained_model_name_or_path, *model_args, **kwargs
-        )
+
+        config = SparseAutoConfig.from_pretrained(pretrained_model_name_or_path)
+
+        # instantiate model without loading weights
+        model = super(AutoModelForCausalLM, cls).from_config(config)
+
         logger.setLevel(level=restore_log_level)
         model = modify_model(model)
         # override the PreTrainedModel instance with compression save function
@@ -130,12 +135,27 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
             compressor.overwrite_weights(model_path=model_path, model=model)
 
         recipe = resolve_recipe(recipe=recipe, model_path=pretrained_model_name_or_path)
+
+        # this must be done before recipe is applied
+        original_state_dict = model.state_dict()
+
         if recipe:
             apply_recipe_structure_to_model(
                 model=model,
                 model_path=pretrained_model_name_or_path,
                 recipe_path=recipe,
+                reload_weights=False,
             )
+
+        # Load the model weights
+        if reload_model_state(
+            model, pretrained_model_name_or_path, original_state_dict, force_reload=True
+        ):
+            _LOGGER.info(
+                "Loaded model state after SparseML recipe structure modifications "
+                f"from {pretrained_model_name_or_path}"
+            )
+
         return model
 
 

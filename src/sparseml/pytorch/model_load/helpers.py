@@ -89,7 +89,9 @@ def log_model_load(
     )
 
 
-def apply_recipe_structure_to_model(model: Module, recipe_path: str, model_path: str):
+def apply_recipe_structure_to_model(
+    model: Module, recipe_path: str, model_path: str, reload_weights=True
+):
     """
     Takes a loaded Pytorch model and applies any structural changes such as quantization
     to the model, then reloads the model.
@@ -97,6 +99,8 @@ def apply_recipe_structure_to_model(model: Module, recipe_path: str, model_path:
     :param model: PyTorch model to apply structure to
     :param recipe_path: path to recipe to apply to the model
     :param model_path: path to model, used for reloading the state dict
+    :param reload_weights: flag to reload the weights after applying the recipe.
+        Dafault is True.
     """
     orig_state_dict = model.state_dict()
 
@@ -121,7 +125,7 @@ def apply_recipe_structure_to_model(model: Module, recipe_path: str, model_path:
     _LOGGER.info(f"Applied {msg} to the model at {model_path}")
 
     # reload the state dict for the model now that architecture matches expected
-    if reload_model_state(model, model_path, orig_state_dict):
+    if reload_weights and reload_model_state(model, model_path, orig_state_dict):
         _LOGGER.info(
             "Reloaded model state after SparseML recipe structure modifications "
             f"from {model_path}"
@@ -129,7 +133,7 @@ def apply_recipe_structure_to_model(model: Module, recipe_path: str, model_path:
 
 
 def reload_model_state(
-    model: Module, load_path: str, orig_state_dict: Dict[str, Any]
+    model: Module, load_path: str, orig_state_dict: Dict[str, Any], force_reload=False
 ) -> bool:
     """
     Reload the weights after model architecture changes due to recipe application.
@@ -137,6 +141,7 @@ def reload_model_state(
     :param model: PyTorch model to reload
     :param load_path: path to model
     :param orig_state_dict: state dict of model
+    :param force_reload: flag to force reload the weights. Default is False.
     :return: True if weights are successfully reloaded; False otherwise.
     """
     invalid_load_path = not load_path or not os.path.isdir(load_path)
@@ -163,7 +168,7 @@ def reload_model_state(
 
     current_state_dict = model.state_dict()
 
-    if set(orig_state_dict.keys()) == set(current_state_dict):
+    if not force_reload and set(orig_state_dict.keys()) == set(current_state_dict):
         # no change in keys, ignore reload
         return False
 
