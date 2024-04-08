@@ -14,14 +14,14 @@
 
 from typing import Optional
 
-from sparseml.transformers.compression.config import CompressionConfig
+from sparseml.transformers.compression.config import SparseMLCompressionConfig
 
 
-__all__ = ["DenseSparsityConfig"]
+__all__ = ["SparseMLDenseSparsityConfig"]
 
 
-@CompressionConfig.register(name="dense_sparsity")
-class DenseSparsityConfig(CompressionConfig):
+@SparseMLCompressionConfig.register(name="dense_sparsity")
+class SparseMLDenseSparsityConfig(SparseMLCompressionConfig):
     """
     Identity configuration for storing a sparse model in
     an uncompressed dense format

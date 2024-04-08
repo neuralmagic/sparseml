@@ -14,14 +14,14 @@
 
 from typing import Optional
 
-from sparseml.transformers.compression.config import CompressionConfig
+from sparseml.transformers.compression.config import SparseMLCompressionConfig
 
 
-__all__ = ["BitmaskConfig"]
+__all__ = ["SparseMLBitmaskConfig"]
 
 
-@CompressionConfig.register(name="sparse_bitmask")
-class BitmaskConfig(CompressionConfig):
+@SparseMLCompressionConfig.register(name="sparse_bitmask")
+class SparseMLBitmaskConfig(SparseMLCompressionConfig):
     """
     Configuration for storing a sparse model using
     bitmask compression

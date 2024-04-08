@@ -14,18 +14,17 @@
 
 from typing import Optional
 
-from pydantic import BaseModel
 from torch.nn import Module
 
 import sparseml.core.session as session_manager
 from sparseml.pytorch.utils import ModuleSparsificationInfo
-from sparsezoo.utils.registry import RegistryMixin
+from sparsetensors import CompressionConfig
 
 
-__all__ = ["CompressionConfig"]
+__all__ = ["SparseMLCompressionConfig"]
 
 
-class CompressionConfig(RegistryMixin, BaseModel):
+class SparseMLCompressionConfig(CompressionConfig):
     """
     Base data class for storing compression parameters
 
@@ -85,18 +84,18 @@ class CompressionConfig(RegistryMixin, BaseModel):
         :return: compression config inferred from the model
         """
 
-        global_sparsity = CompressionConfig.infer_global_sparsity(model)
+        global_sparsity = SparseMLCompressionConfig.infer_global_sparsity(model)
 
         if global_sparsity < 0.05:
             return None
 
-        sparsity_structure = CompressionConfig.infer_sparsity_structure()
+        sparsity_structure = SparseMLCompressionConfig.infer_sparsity_structure()
         if compress:
             format = "sparse_bitmask"
         else:
             format = "dense_sparsity"
 
-        return CompressionConfig.load_from_registry(
+        return SparseMLCompressionConfig.load_from_registry(
             format,
             global_sparsity=global_sparsity,
             sparsity_structure=sparsity_structure,
@@ -108,5 +107,5 @@ class CompressionConfig(RegistryMixin, BaseModel):
 
         :param model: pytorch model to infer config parameters from
         """
-        self.global_sparsity = CompressionConfig.infer_global_sparsity(model)
-        self.sparsity_structure = CompressionConfig.infer_sparsity_structure()
+        self.global_sparsity = SparseMLCompressionConfig.infer_global_sparsity(model)
+        self.sparsity_structure = SparseMLCompressionConfig.infer_sparsity_structure()

@@ -22,9 +22,9 @@ from transformers import AutoConfig
 import sparseml.core.session as session_manager
 from sparseml.transformers import SparseAutoModelForCausalLM, oneshot
 from sparseml.transformers.compression import (
-    BitmaskConfig,
-    CompressionConfig,
-    DenseSparsityConfig,
+    SparseMLBitmaskConfig,
+    SparseMLCompressionConfig,
+    SparseMLDenseSparsityConfig,
 )
 from sparseml.transformers.utils.helpers import SPARSITY_CONFIG_NAME
 
@@ -33,9 +33,9 @@ from sparseml.transformers.utils.helpers import SPARSITY_CONFIG_NAME
     "compressed,config,dtype",
     [
         [True, None, torch.float32],
-        [False, DenseSparsityConfig(), torch.float16],
-        [True, BitmaskConfig(), torch.bfloat16],
-        [False, BitmaskConfig(), torch.float32],
+        [False, SparseMLDenseSparsityConfig(), torch.float16],
+        [True, SparseMLBitmaskConfig(), torch.bfloat16],
+        [False, SparseMLBitmaskConfig(), torch.float32],
         [False, None, torch.float16],
     ],
 )
@@ -68,9 +68,9 @@ def test_sparse_model_reload(compressed, config, dtype, tmp_path):
         tmp_path / "oneshot_out", torch_dtype=dtype
     )
 
-    inferred_global_sparsity = CompressionConfig.infer_global_sparsity(model)
+    inferred_global_sparsity = SparseMLCompressionConfig.infer_global_sparsity(model)
     assert math.isclose(inferred_global_sparsity, 19.6562, rel_tol=1e-3)
-    inferred_structure = CompressionConfig.infer_sparsity_structure()
+    inferred_structure = SparseMLCompressionConfig.infer_sparsity_structure()
     assert inferred_structure == "0:0"
 
     model.save_pretrained(
@@ -115,9 +115,9 @@ def test_dense_model_save(tmp_path, skip_compression_stats, save_compressed):
     model_path = "Xenova/llama2.c-stories15M"
     model = SparseAutoModelForCausalLM.from_pretrained(model_path)
 
-    inferred_global_sparsity = CompressionConfig.infer_global_sparsity(model)
+    inferred_global_sparsity = SparseMLCompressionConfig.infer_global_sparsity(model)
     assert math.isclose(inferred_global_sparsity, 0.0, rel_tol=1e-3)
-    inferred_structure = CompressionConfig.infer_sparsity_structure()
+    inferred_structure = SparseMLCompressionConfig.infer_sparsity_structure()
     assert inferred_structure == "unstructured"
 
     model.save_pretrained(

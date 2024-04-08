@@ -14,6 +14,6 @@
 
 # flake8: noqa
 
-from .base import CompressionConfig
-from .dense import DenseSparsityConfig
-from .sparse_bitmask import BitmaskConfig
+from .base import SparseMLCompressionConfig
+from .dense import SparseMLDenseSparsityConfig
+from .sparse_bitmask import SparseMLBitmaskConfig

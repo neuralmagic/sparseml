@@ -13,6 +13,4 @@
 # limitations under the License.
 
 # flake8: noqa
-
-from .compressors import *
 from .config import *

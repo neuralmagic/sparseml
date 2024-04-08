@@ -17,9 +17,8 @@ from typing import Optional
 
 from transformers import AutoConfig
 
-from sparseml.transformers.compression.compressors import ModelCompressor
-from sparseml.transformers.compression.config import CompressionConfig
-from sparseml.transformers.utils.helpers import SPARSITY_CONFIG_NAME
+from sparseml.transformers.compression.config import SparseMLCompressionConfig
+from sparsetensors import SPARSITY_CONFIG_NAME, ModelCompressor
 
 
 __all__ = ["infer_compressor_from_model_config"]
@@ -41,6 +40,8 @@ def infer_compressor_from_model_config(
         return None
 
     format = sparsity_config.get("format")
-    sparsity_config = CompressionConfig.load_from_registry(format, **sparsity_config)
+    sparsity_config = SparseMLCompressionConfig.load_from_registry(
+        format, **sparsity_config
+    )
     compressor = ModelCompressor.load_from_registry(format, config=sparsity_config)
     return compressor
