@@ -55,6 +55,7 @@ _deps = [
     "GPUtil>=1.4.0",
     "protobuf>=3.12.2,<=3.20.3",
     "click>=7.1.2,!=8.0.0",  # latest version < 8.0 + blocked version with reported bug
+    # "sparsetensors" for now installed from source until pypi release is available
 ]
 _nm_deps = [f"{'sparsezoo' if is_release else 'sparsezoo-nightly'}~={version_nm_deps}"]
 _deepsparse_deps = [
