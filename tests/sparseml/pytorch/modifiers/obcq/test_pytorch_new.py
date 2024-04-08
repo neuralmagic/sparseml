@@ -17,21 +17,21 @@ import unittest
 import pytest
 
 from parameterized import parameterized
-from tests.sparseml.pytorch.helpers import LinearNet
-from tests.testing_utils import requires_torch
-
 from sparseml.core.framework import Framework
 from sparseml.core.model import ModifiableModel
 from sparseml.modifiers.obcq.pytorch import SparseGPTModifierPyTorch
 from sparseml.modifiers.quantization import QuantizationModifier
 from sparseml.modifiers.quantization.pytorch import QuantizationModifierPyTorch
 from tests.sparseml.modifiers.conf import LifecyleTestingHarness, setup_modifier_factory
+from tests.sparseml.pytorch.helpers import LinearNet
+from tests.testing_utils import requires_torch
 
 
-# TODO: unit tests are by default sanity tests/maybe regression if multiple use 
+# TODO: unit tests are by default sanity tests/maybe regression if multiple use
 # cases/inputs
 # Are we covering sufficient input cases?
 # Are we ok with each test running on a per commit basis?
+
 
 @pytest.mark.unit
 @requires_torch
@@ -43,7 +43,7 @@ class TestInvalidLayerwiseRecipesRaiseExceptions(unittest.TestCase):
         [
             [[0.5, 0.2], "__ALL__"],
             [[0.2, 0.1, 0.3], ["seq.fc1", "seq.fc2"]],
-            [[0.3, 0.4], ["re:.*fc1", "re:.*fc2"]]
+            [[0.3, 0.4], ["re:.*fc1", "re:.*fc2"]],
         ]
     )
     def test_invalid_layerwise_recipes_raise_exceptions(self, sparsity, targets):
