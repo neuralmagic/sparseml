@@ -1,0 +1,5 @@
+cadence: "commit"
+test_type: "smoke"
+model: "TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T"
+dataset: open_platypus
+recipe: "tests/sparseml/pytorch/oneshot/oneshot_configs/recipes/recipe.yaml"
