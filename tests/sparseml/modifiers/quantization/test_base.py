@@ -62,8 +62,8 @@ class TestEndEpochs(unittest.TestCase):
             freeze_bn_stats_epoch=freeze_bn_epoch,
         )
 
-        assert obj_modifier.calculate_disable_observer_epoch() == -1
-        assert obj_modifier.calculate_freeze_bn_stats_epoch() == -1
+        self.assertEqual(obj_modifier.calculate_disable_observer_epoch(), -1)
+        self.assertEqual(obj_modifier.calculate_freeze_bn_stats_epoch(), -1)
 
         for epoch in range(3):
             event = Event(steps_per_epoch=1, global_step=epoch)
