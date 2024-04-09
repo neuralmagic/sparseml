@@ -128,28 +128,28 @@ class SharedHelperFunctions:
             module
             for module in original_model.modules()
             if func_to_validate_replacement(module)
-            and isinstance(module, module_to_replace)
+            and module.__class__.__name__ is module_to_replace.__name__
         ]
 
         modified_modules_modified_model = [
             module
             for module in modified_model.modules()
             if func_to_validate_replacement(module)
-            and isinstance(module, module_to_replace)
+            and module.__class__.__name__ is module_to_replace.__name__
         ]
 
         original_modules_original_model = [
             module
             for module in original_model.modules()
             if not func_to_validate_replacement(module)
-            and isinstance(module, module_to_replace)
+            and module.__class__.__name__ is module_to_replace.__name__
         ]
 
         original_modules_modified_model = [
             module
             for module in modified_model.modules()
             if not func_to_validate_replacement(module)
-            and isinstance(module, module_to_replace)
+            and module.__class__.__name__ is module_to_replace.__name__
         ]
 
         # make sure that the original model has no modified modules
