@@ -62,9 +62,12 @@ def modify(model: nn.Module) -> nn.Module:
     :return: the modified LLaMa model
     """
     for name, submodule in model.named_modules():
-        if isinstance(submodule, LlamaAttention):
+        if type(submodule) is LlamaAttention:
             swap_modules(model, name, LlamaAttentionWithQuantizableMatmuls(submodule))
-        elif isinstance(submodule, (LlamaSdpaAttention, LlamaFlashAttention2)):
+        elif (
+            type(submodule) is LlamaSdpaAttention
+            or type(submodule) is LlamaFlashAttention2
+        ):
             _LOGGER.debug(
                 f"The model contains {submodule.__class__.__name__} "
                 "module, which will not be modified"

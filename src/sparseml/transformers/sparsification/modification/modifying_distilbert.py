@@ -55,11 +55,11 @@ def modify(model: nn.Module) -> nn.Module:
     :return: the modified DistilBert model
     """
     for name, submodule in model.named_modules():
-        if isinstance(submodule, MultiHeadSelfAttention):
+        if type(submodule) is MultiHeadSelfAttention:
             swap_modules(
                 model, name, MultiHeadSelfAttentionWithQuantizableMatmuls(submodule)
             )
-        if isinstance(submodule, DistilBertFlashAttention2):
+        if type(submodule) is DistilBertFlashAttention2:
             _LOGGER.debug(
                 f"The model contains {submodule.__class__.__name__} "
                 "module, which will not be modified"

@@ -27,7 +27,11 @@ def mistral_zoo_model():
     stub = "zoo:mistral-7b-evolcodealpaca_mistral_pretrain-pruned50_quantized"
     config = SparseAutoConfig.from_pretrained(stub)
     with init_empty_weights():
-        model = SparseAutoModelForCausalLM.from_config(config)
+        # attn_implementation="eager" needed so that the model uses the
+        # appropriate attention type (MistralAttention)
+        model = SparseAutoModelForCausalLM.from_config(
+            config, attn_implementation="eager"
+        )
     return model
 
 
@@ -45,7 +49,11 @@ def llama_zoo_model():
     stub = "zoo:llama2-7b-llama2_chat_llama2_pretrain-base_quantized"
     config = SparseAutoConfig.from_pretrained(stub)
     with init_empty_weights():
-        model = SparseAutoModelForCausalLM.from_config(config)
+        # attn_implementation="eager" needed so that the model uses the
+        # appropriate attention type (LlamaAttention)
+        model = SparseAutoModelForCausalLM.from_config(
+            config, attn_implementation="eager"
+        )
     return model
 
 
@@ -69,7 +77,9 @@ def distilbert_model():
 def mistral_model():
     config = AutoConfig.from_pretrained("mistralai/Mistral-7B-v0.1")
     with init_empty_weights():
-        model = AutoModel.from_config(config)
+        # attn_implementation="eager" needed so that the model uses the
+        # appropriate attention type (MistralAttention)
+        model = AutoModel.from_config(config, attn_implementation="eager")
     return model
 
 
@@ -85,7 +95,9 @@ def mobilebert_model():
 def llama_model():
     config = AutoConfig.from_pretrained("TinyLlama/TinyLlama-1.1B-Chat-v1.0")
     with init_empty_weights():
-        model = AutoModel.from_config(config)
+        # attn_implementation="eager" needed so that the model uses the
+        # appropriate attention type (LlamaAttention)
+        model = AutoModel.from_config(config, attn_implementation="eager")
     return model
 
 

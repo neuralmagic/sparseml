@@ -61,9 +61,12 @@ def modify(model: torch.nn.Module) -> torch.nn.Module:
     :return: the modified Mistral model
     """
     for name, submodule in model.named_modules():
-        if isinstance(submodule, MistralAttention):
+        if type(submodule) is MistralAttention:
             swap_modules(model, name, MistralAttentionWithQuantizableMatmuls(submodule))
-        if isinstance(submodule, (MistralSdpaAttention, MistralFlashAttention2)):
+        if (
+            type(submodule) is MistralSdpaAttention
+            or type(submodule) is MistralFlashAttention2
+        ):
             _LOGGER.debug(
                 f"The model contains {submodule.__class__.__name__} "
                 "module, which will not be modified"

@@ -53,11 +53,11 @@ def modify(model: nn.Module) -> nn.Module:
     :return: the modified Bert model
     """
     for name, submodule in model.named_modules():
-        if isinstance(submodule, BertSelfAttention):
+        if type(submodule) is BertSelfAttention:
             swap_modules(
                 model, name, BertSelfAttentionWithQuantizableMatmuls(submodule)
             )
-        elif isinstance(submodule, BertAttention):
+        elif type(submodule) is BertAttention:
             _LOGGER.debug(
                 f"The model contains {submodule.__class__.__name__} "
                 "module, which will not be modified"

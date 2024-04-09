@@ -46,7 +46,7 @@ def modify(model: nn.Module) -> nn.Module:
     :return: the modified MobileBert model
     """
     for name, submodule in model.named_modules():
-        if isinstance(submodule, MobileBertEmbeddings):
+        if type(submodule) is MobileBertEmbeddings:
             swap_modules(
                 model, name, MobileBertEmbeddingsWithQuantizableLinear(submodule)
             )
