@@ -35,13 +35,12 @@ from sparseml.pytorch.model_load.helpers import (
     log_model_load,
 )
 from sparseml.transformers.compression.utils import (
+    get_safetensors_folder,
     infer_compressor_from_model_config,
     modify_save_pretrained,
 )
 from sparseml.transformers.sparsification.modification import modify_model
-from sparseml.transformers.utils.helpers import resolve_recipe
-from sparseml.utils import download_zoo_training_dir
-from sparseml.utils.fsdp.context import main_process_first_context
+from sparseml.transformers.utils.helpers import download_model_directory, resolve_recipe
 
 
 __all__ = ["SparseAutoModel", "SparseAutoModelForCausalLM", "get_shared_tokenizer_src"]
@@ -100,15 +99,9 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
             else pretrained_model_name_or_path
         )
 
-        if pretrained_model_name_or_path.startswith("zoo:"):
-            _LOGGER.debug(
-                "Passed zoo stub to SparseAutoModelForCausalLM object. "
-                "Loading model from SparseZoo training files..."
-            )
-            with main_process_first_context():
-                pretrained_model_name_or_path = download_zoo_training_dir(
-                    zoo_stub=pretrained_model_name_or_path
-                )
+        pretrained_model_name_or_path = download_model_directory(
+            pretrained_model_name_or_path, **kwargs
+        )
 
         # determine compression format, if any, from the model config
         compressor = infer_compressor_from_model_config(pretrained_model_name_or_path)
@@ -128,9 +121,14 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
 
         # If model is compressed on disk, decompress and load the weights
         if compressor is not None:
-            compressor.overwrite_weights(
-                pretrained_model_name_or_path=pretrained_model_name_or_path, model=model
+            # if we loaded from a HF stub, find the cached model
+            model_path = get_safetensors_folder(
+                pretrained_model_name_or_path, cache_dir=kwargs.get("cache_dir", None)
             )
+
+            # decompress weights
+            compressor.overwrite_weights(model_path=model_path, model=model)
+
         recipe = resolve_recipe(recipe=recipe, model_path=pretrained_model_name_or_path)
         if recipe:
             apply_recipe_structure_to_model(

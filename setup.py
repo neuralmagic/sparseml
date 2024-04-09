@@ -37,7 +37,6 @@ else:
     _PACKAGE_NAME = "sparseml-nightly"
 
 _deps = [
-    "setuptools<=59.5.0",
     "pyyaml>=5.0.0",
     "numpy>=1.17.0",
     "matplotlib>=3.0.0",
@@ -56,6 +55,7 @@ _deps = [
     "GPUtil>=1.4.0",
     "protobuf>=3.12.2,<=3.20.3",
     "click>=7.1.2,!=8.0.0",  # latest version < 8.0 + blocked version with reported bug
+    "clearml==1.14.4",
 ]
 _nm_deps = [f"{'sparsezoo' if is_release else 'sparsezoo-nightly'}~={version_nm_deps}"]
 _deepsparse_deps = [
