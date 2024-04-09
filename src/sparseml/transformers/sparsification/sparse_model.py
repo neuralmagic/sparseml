@@ -40,9 +40,7 @@ from sparseml.transformers.compression.utils import (
     modify_save_pretrained,
 )
 from sparseml.transformers.sparsification.modification import modify_model
-from sparseml.transformers.utils.helpers import resolve_recipe
-from sparseml.utils import download_zoo_training_dir
-from sparseml.utils.fsdp.context import main_process_first_context
+from sparseml.transformers.utils.helpers import download_model_directory, resolve_recipe
 
 
 __all__ = ["SparseAutoModel", "SparseAutoModelForCausalLM", "get_shared_tokenizer_src"]
@@ -101,15 +99,9 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
             else pretrained_model_name_or_path
         )
 
-        if pretrained_model_name_or_path.startswith("zoo:"):
-            _LOGGER.debug(
-                "Passed zoo stub to SparseAutoModelForCausalLM object. "
-                "Loading model from SparseZoo training files..."
-            )
-            with main_process_first_context():
-                pretrained_model_name_or_path = download_zoo_training_dir(
-                    zoo_stub=pretrained_model_name_or_path
-                )
+        pretrained_model_name_or_path = download_model_directory(
+            pretrained_model_name_or_path, **kwargs
+        )
 
         # determine compression format, if any, from the model config
         compressor = infer_compressor_from_model_config(pretrained_model_name_or_path)
