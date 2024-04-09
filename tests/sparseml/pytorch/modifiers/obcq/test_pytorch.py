@@ -174,7 +174,7 @@ class TestSetQuantInSparseGPT(unittest.TestCase):
         testing_harness = LifecyleTestingHarness(model=LinearNet())
         modifier.on_initialize_structure(testing_harness.get_state())
         assert modifier.quantize
-        assert isinstance(modifier.quantization_modifier_, QuantizationModifier)
+        self.assertIsInstance(modifier.quantization_modifier_, QuantizationModifier)
 
         dict_scheme = dict(modifier.quantization_modifier_.scheme)
         self.assertEqual(
