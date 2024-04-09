@@ -27,12 +27,6 @@ from tests.sparseml.pytorch.helpers import LinearNet
 from tests.testing_utils import requires_torch
 
 
-# TODO: unit tests are by default sanity tests/maybe regression if multiple use
-# cases/inputs
-# Are we covering sufficient input cases?
-# Are we ok with each test running on a per commit basis?
-
-
 @pytest.mark.unit
 @requires_torch
 class TestInvalidLayerwiseRecipesRaiseExceptions(unittest.TestCase):
