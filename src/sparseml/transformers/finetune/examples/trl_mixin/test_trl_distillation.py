@@ -12,24 +12,43 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from datasets import load_dataset
+from transformers import DefaultDataCollator
 
 from sparseml.transformers import (
+    DataTrainingArguments,
     SFTTrainer,
     SparseAutoModelForCausalLM,
     SparseAutoTokenizer,
+    TextGenerationDataset,
     TrainingArguments,
 )
-from trl import DataCollatorForCompletionOnlyLM
 
 
 model_path = "neuralmagic/Llama-2-7b-pruned50-retrained"
-output_dir = "./output_trl_sft_test_7b_gsm8k_sft_data"
+teacher_path = "zoo:llama2-7b-gsm8k_llama2_pretrain-base"
+output_dir = "./output_trl_sft_test_7b_gsm8k"
+
 model = SparseAutoModelForCausalLM.from_pretrained(
     model_path, torch_dtype="auto", device_map="auto"
 )
+teacher = SparseAutoModelForCausalLM.from_pretrained(
+    teacher_path, torch_dtype="auto", device_map="auto"
+)
+
 tokenizer = SparseAutoTokenizer.from_pretrained(model_path)
-tokenizer.pad_token = tokenizer.eos_token
+
+# Load gsm8k using SparseML dataset tools
+data_args = DataTrainingArguments(
+    dataset="gsm8k", dataset_config_name="main", max_seq_length=512
+)
+dataset_manager = TextGenerationDataset.load_from_registry(
+    data_args.dataset,
+    data_args=data_args,
+    split="train",
+    tokenizer=tokenizer,
+)
+train_dataset = dataset_manager.tokenize_and_process()
+print(f"--> Training Set Length = {len(train_dataset)}")
 
 # recipe for maintaining model sparsity during finetuning
 recipe = """
@@ -37,42 +56,36 @@ test_stage:
   pruning_modifiers:
     ConstantPruningModifier:
       targets: ['re:.*q_proj.weight', 're:.*k_proj.weight', 're:.*v_proj.weight',
-      're:.*o_proj.weight','re:.*gate_proj.weight', 're:.*up_proj.weight',
+      're:.*o_proj.weight', 're:.*gate_proj.weight', 're:.*up_proj.weight',
       're:.*down_proj.weight']
       start: 0
+    OutputDistillationModifier:
+      targets: ['re:model.layers.\\d+$']
+      comparison: "square_head"
+      start: 0
+      orig_scale: 1.0
+      distill_scale: 1.0
 """
 
-# Load gsm8k using TRL dataset tools
-dataset = load_dataset("gsm8k", "main", split="train")
-
-
-def formatting_prompts_func(example):
-    output_texts = []
-    for i in range(len(example["question"])):
-        text = f"Question: {example['question'][i]}\n Answer: {example['answer'][i]}"
-        output_texts.append(text)
-    return output_texts
-
-
-response_template = "Answer:"
-collator = DataCollatorForCompletionOnlyLM(response_template, tokenizer=tokenizer)
-
+data_collator = DefaultDataCollator()
 training_args = TrainingArguments(
     output_dir=output_dir,
     num_train_epochs=0.6,
     logging_steps=50,
     gradient_checkpointing=True,
+    bf16=True,
 )
-
 trainer = SFTTrainer(
     model=model,
+    teacher=teacher,
     tokenizer=tokenizer,
     recipe=recipe,
-    train_dataset=dataset,
-    formatting_func=formatting_prompts_func,
-    data_collator=collator,
+    train_dataset=train_dataset,
+    data_collator=data_collator,
     args=training_args,
-    max_seq_length=512,
+    data_args=data_args,
+    max_seq_length=data_args.max_seq_length,
+    packing=True,
 )
 trainer.train()
-trainer.save_model(output_dir=trainer.args.output_dir)
+trainer.save_model()
