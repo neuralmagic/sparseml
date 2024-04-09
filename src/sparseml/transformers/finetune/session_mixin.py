@@ -363,7 +363,6 @@ class SessionManagerMixIn:
         """
         checkpoint, epoch = self._calculate_checkpoint_info(kwargs)
         self.initialize_session(epoch=epoch, checkpoint=checkpoint, stage=stage)
-        self.callback_disable_fp16.check_disable(epoch, force=True)
         self.accelerator.wait_for_everyone()
         output = super().train(*args, **kwargs)
         self.accelerator.wait_for_everyone()
@@ -389,13 +388,7 @@ class SessionManagerMixIn:
         """
         self.initialize_structure()
 
-        # Always evaluate w/ fp32 to be closer to DeepSparse
-        use_cuda_amp = self.use_cuda_amp
-        if not self.args.fp16_full_eval and not self.args.bf16_full_eval:
-            self.use_cuda_amp = False
-
         output = super().evaluate(*args, **kwargs)
-        self.use_cuda_amp = use_cuda_amp
         self.finalize_session()
 
         return output
