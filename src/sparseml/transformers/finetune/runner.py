@@ -119,9 +119,10 @@ class StageRunner:
                 tokenizer=tokenizer,
             )
 
-            if "input_ids" in self._data_args.dataset.column_names:
+            dataset = self._data_args.dataset
+            if hasattr(dataset, "column_names") and "input_ids" in dataset.column_names:
                 # dataset is already tokenized
-                tokenized_datasets[split_name] = self._data_args.dataset
+                tokenized_datasets[split_name] = dataset
             else:
                 # dataset needs to be tokenized
                 raw_dataset = dataset_manager.get_raw_dataset()
