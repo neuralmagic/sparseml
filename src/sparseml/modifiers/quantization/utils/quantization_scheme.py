@@ -32,6 +32,8 @@ except Exception:
 
 from sparseml.modifiers.quantization.utils.fake_quant_wrapper import FakeQuantizeWrapper
 
+from sparseml.modifiers.quantization.observers.base import Observer
+
 
 __all__ = [
     "DictQuantizationArgs",
@@ -86,7 +88,22 @@ class QuantizationArgs(BaseModel):
             "scope of the quantization to be applied. can be 'tensor' or 'channel'"
         ),
     )
-    kwargs: Dict[str, Any] = Field(
+    observer: str = Field(
+        default="minmax",
+        description=(
+            "The class to use to compute the quantization params - scale and zero-point'"
+        ),
+        
+    )
+
+    # kwargs: Dict[str, Any] = Field(
+    #     default_factory=dict,
+    #     description=(
+    #         "optional dict of kwargs to be passed directly to torch quantization "
+    #         "Observers constructor excluding quantization range or symmetry"
+    #     ),
+    # )
+    observer_kwargs: Dict[str, Any] = Field(
         default_factory=dict,
         description=(
             "optional dict of kwargs to be passed directly to torch quantization "
@@ -112,15 +129,8 @@ class QuantizationArgs(BaseModel):
         """
         :return: torch quantization FakeQuantize built based on these QuantizationArgs
         """
-        return get_observer(
-            symmetric=self.symmetric,
-            strategy=self.strategy,
-            dtype=torch.qint8,
-            bits=self.num_bits,
-            reduce_range=self.kwargs.get("reduce_range", False),
-            qconfig_kwargs=self.kwargs,
-        )
-
+        return Observer.load_from_registry(self.observer)
+    
     @validator("strategy")
     def validate_strategy(cls, value):
         valid_scopes = ["tensor", "channel"]
@@ -290,81 +300,81 @@ def compute_range(dtype: torch.dtype, bits: int):
     return quant_min, quant_max, is_custom
 
 
-def get_observer(
-    symmetric: bool,
-    strategy: str,
-    dtype: torch.dtype,
-    bits: int,
-    reduce_range: bool,
-    qconfig_kwargs: Dict[str, Any],
-):
-    quant_min, quant_max, is_custom_qrange = compute_range(dtype, bits)
+# def get_observer(
+#     symmetric: bool,
+#     strategy: str,
+#     dtype: torch.dtype,
+#     bits: int,
+#     reduce_range: bool,
+#     qconfig_kwargs: Dict[str, Any],
+# ):
+#     quant_min, quant_max, is_custom_qrange = compute_range(dtype, bits)
 
-    if strategy == "channel":
-        qscheme = torch.per_channel_symmetric if symmetric else torch.per_channel_affine
-        observer_cls = torch_quantization.MovingAveragePerChannelMinMaxObserver
-        observer_kwargs = dict(
-            ch_axis=0,
-            dtype=dtype,
-            qscheme=qscheme,
-            reduce_range=reduce_range,
-        )
-    else:  # default to tensor strategy
-        qscheme = torch.per_tensor_symmetric if symmetric else torch.per_tensor_affine
-        observer_cls = torch_quantization.MovingAverageMinMaxObserver
-        observer_kwargs = dict(
-            dtype=dtype,
-            qscheme=qscheme,
-            reduce_range=reduce_range,
-        )
-    """
-    in torch 1.9.1, quant_min and quant_max are not passed to observer:
-    https://github.com/pytorch/pytorch/blob/v1.9.1/torch/quantization/fake_quantize.py#L109
-    however in 1.12.0, this is fixed so both are passed to observer:
-    https://github.com/pytorch/pytorch/blob/v1.12.1/torch/ao/quantization/fake_quantize.py#L132
+#     if strategy == "channel":
+#         qscheme = torch.per_channel_symmetric if symmetric else torch.per_channel_affine
+#         observer_cls = torch_quantization.MovingAveragePerChannelMinMaxObserver
+#         observer_kwargs = dict(
+#             ch_axis=0,
+#             dtype=dtype,
+#             qscheme=qscheme,
+#             reduce_range=reduce_range,
+#         )
+#     else:  # default to tensor strategy
+#         qscheme = torch.per_tensor_symmetric if symmetric else torch.per_tensor_affine
+#         observer_cls = torch_quantization.MovingAverageMinMaxObserver
+#         observer_kwargs = dict(
+#             dtype=dtype,
+#             qscheme=qscheme,
+#             reduce_range=reduce_range,
+#         )
+#     """
+#     in torch 1.9.1, quant_min and quant_max are not passed to observer:
+#     https://github.com/pytorch/pytorch/blob/v1.9.1/torch/quantization/fake_quantize.py#L109
+#     however in 1.12.0, this is fixed so both are passed to observer:
+#     https://github.com/pytorch/pytorch/blob/v1.12.1/torch/ao/quantization/fake_quantize.py#L132
 
-    Passing quant_min/quant_max to observer means the observer will have
-    `self.has_customized_qrange == True` in both 1.9.1 and 1.12.0.
+#     Passing quant_min/quant_max to observer means the observer will have
+#     `self.has_customized_qrange == True` in both 1.9.1 and 1.12.0.
 
-    For whatever reason, both versions calculate zero point for
-    quint8 differently **if there is a customized_qrange**
-    1. customized qrange has zero point of 127
-    2. non-customized has zero point of 128.
-    source:
-    https://github.com/pytorch/pytorch/blob/v1.12.1/torch/ao/quantization/observer.py#L293
+#     For whatever reason, both versions calculate zero point for
+#     quint8 differently **if there is a customized_qrange**
+#     1. customized qrange has zero point of 127
+#     2. non-customized has zero point of 128.
+#     source:
+#     https://github.com/pytorch/pytorch/blob/v1.12.1/torch/ao/quantization/observer.py#L293
 
-    **we want to ensure that the zero point is 128**
-    see https://github.com/neuralmagic/sparseml/pull/604
-    """
-    if is_custom_qrange:
-        # for both versions we need to include the custom min/max values in kwargs
-        observer_kwargs["quant_min"] = quant_min
-        observer_kwargs["quant_max"] = quant_max
-        if _TORCH_PRE_112:
-            # pre 1.12, the observer doesn't get passed the quant_min/quant_max values,
-            # so we patch them in to the constructor of the observer
-            observer_cls = partial(
-                observer_cls, quant_min=quant_min, quant_max=quant_max
-            )
-    else:
-        # if using a non custom qrange, we can rely on default values used by
-        # the observers
-        if _TORCH_PRE_112:
-            # pre 1.12, the observer doesn't get passed the quant_min/quant_max values,
-            # so we are safe to pass these to FakeQuantize
-            observer_kwargs["quant_min"] = quant_min
-            observer_kwargs["quant_max"] = quant_max
-        else:
-            # post 1.12 we cannot pass them to the observer since that will set
-            # has_customized_qrange. instead we rely on the default values
-            # being equal to the `quant_min` and `quant_max` here.
-            pass
+#     **we want to ensure that the zero point is 128**
+#     see https://github.com/neuralmagic/sparseml/pull/604
+#     """
+#     if is_custom_qrange:
+#         # for both versions we need to include the custom min/max values in kwargs
+#         observer_kwargs["quant_min"] = quant_min
+#         observer_kwargs["quant_max"] = quant_max
+#         if _TORCH_PRE_112:
+#             # pre 1.12, the observer doesn't get passed the quant_min/quant_max values,
+#             # so we patch them in to the constructor of the observer
+#             observer_cls = partial(
+#                 observer_cls, quant_min=quant_min, quant_max=quant_max
+#             )
+#     else:
+#         # if using a non custom qrange, we can rely on default values used by
+#         # the observers
+#         if _TORCH_PRE_112:
+#             # pre 1.12, the observer doesn't get passed the quant_min/quant_max values,
+#             # so we are safe to pass these to FakeQuantize
+#             observer_kwargs["quant_min"] = quant_min
+#             observer_kwargs["quant_max"] = quant_max
+#         else:
+#             # post 1.12 we cannot pass them to the observer since that will set
+#             # has_customized_qrange. instead we rely on the default values
+#             # being equal to the `quant_min` and `quant_max` here.
+#             pass
 
-    observer_kwargs["observer"] = observer_cls
-    observer_kwargs.update(qconfig_kwargs or {})
-    observer = FakeQuantizeWrapper.with_args(**observer_kwargs)
+#     observer_kwargs["observer"] = observer_cls
+#     observer_kwargs.update(qconfig_kwargs or {})
+#     observer = FakeQuantizeWrapper.with_args(**observer_kwargs)
 
-    return observer
+#     return observer
 
 
 def _get_qconfig(
