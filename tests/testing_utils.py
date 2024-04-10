@@ -37,7 +37,13 @@ def is_torch_available():
 
 
 def is_gpu_available():
-    return False
+    """
+    Check for GPU and warn if not found
+    """
+    is_torch_available()
+    import torch
+
+    return torch.cuda.is_available()
 
 
 def requires_torch(test_case):

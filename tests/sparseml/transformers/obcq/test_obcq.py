@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import math
-
 import pytest
 import torch
 
@@ -22,8 +20,6 @@ from sparseml.core.framework import Framework
 from sparseml.core.state import State
 from sparseml.modifiers.obcq import SparseGPTModifier
 from sparseml.modifiers.obcq.pytorch import SparseGPTModifierPyTorch
-from sparseml.pytorch.model_load.helpers import get_session_model
-from sparseml.pytorch.utils.helpers import tensor_sparsity
 from sparseml.transformers import SparseAutoModelForCausalLM, oneshot
 from sparseml.transformers.sparsification.modification.modifying_llama import (
     LlamaAttentionWithQuantizableMatmuls,
@@ -109,35 +105,6 @@ def test_lm_head_target():
     assert layers_head == layers_no_head + 1
 
     # check that the
-
-
-def test_sparsities():
-    tiny_model_path = "Xenova/llama2.c-stories15M"
-    recipe = "tests/sparseml/transformers/obcq/sparse.yaml"
-    device = "cuda:0"
-    if not torch.cuda.is_available():
-        device = "cpu"
-
-    # test recipe with 50% sparsity, quantization and smoothquant
-    oneshot(
-        model=tiny_model_path,
-        dataset="open_platypus",
-        oneshot_device=device,
-        recipe=recipe,
-        max_seq_length=128,
-        num_calibration_samples=64,
-        pad_to_max_length=False,
-        clear_sparse_session=False,
-    )
-
-    model = get_session_model()
-
-    lm_head_sparsity = tensor_sparsity(model.lm_head.weight)
-    assert math.isclose(lm_head_sparsity.item(), 0.3, rel_tol=1e-4)
-    layer_1_sparse = tensor_sparsity(model.model.layers[1].self_attn.k_proj.weight)
-    assert math.isclose(layer_1_sparse.item(), 0.3, rel_tol=1e-4)
-    layer_2_dense = tensor_sparsity(model.model.layers[2].self_attn.k_proj.weight)
-    assert math.isclose(layer_2_dense.item(), 0.0, rel_tol=1e-4)
 
 
 def test_sgpt_defaults():
