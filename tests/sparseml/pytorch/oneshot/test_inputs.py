@@ -23,7 +23,11 @@ from tests.testing_utils import parse_params, requires_torch
 
 CONFIGS_DIRECTORY = "tests/sparseml/pytorch/oneshot/oneshot_configs"
 
+# TODO: update once this lands: https://github.com/neuralmagic/sparseml/pull/2202
 
+
+# TODO: Seems better to mark test type (smoke, sanity, regression) as a marker as
+# opposed to using a field in the config file?
 @pytest.mark.smoke
 @pytest.mark.integration
 @requires_torch
@@ -32,6 +36,7 @@ class TestOneShotInputs(unittest.TestCase):
     model = None
     dataset = None
     recipe = None
+    dataset_config_name = None
 
     def setUp(self):
         from sparseml.transformers import (
@@ -43,6 +48,7 @@ class TestOneShotInputs(unittest.TestCase):
         self.model = SparseAutoModelForCausalLM.from_pretrained(self.model)
 
         self.output = "./oneshot_output"
+        self.kwargs = {"dataset_config_name": self.dataset_config_name}
 
     def test_one_shot_inputs(self):
         from sparseml.transformers import oneshot
@@ -54,6 +60,8 @@ class TestOneShotInputs(unittest.TestCase):
             recipe=self.recipe,
             output_dir=self.output,
             num_calibration_samples=10,
+            pad_to_max_length=False,
+            **self.kwargs,
         )
 
     def tearDown(self):

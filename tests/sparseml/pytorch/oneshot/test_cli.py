@@ -14,15 +14,17 @@
 
 import shutil
 import unittest
-from subprocess import PIPE, STDOUT, run
 
 import pytest
 
 from parameterized import parameterized_class
-from tests.testing_utils import parse_params, requires_torch
+from tests.testing_utils import parse_params, requires_torch, run_cli_command
 
 
 CONFIGS_DIRECTORY = "tests/sparseml/pytorch/oneshot/oneshot_configs"
+
+# TODO: update once this lands: https://github.com/neuralmagic/sparseml/pull/2202
+# this will enable testing of other data input types (e.g tokenized data)
 
 
 @pytest.mark.smoke
@@ -33,9 +35,14 @@ class TestOneShotCli(unittest.TestCase):
     model = None
     dataset = None
     recipe = None
+    dataset_config_name = None
 
     def setUp(self):
         self.output = "./oneshot_output"
+        self.additional_args = []
+        if self.dataset_config_name:
+            self.additional_args.append("--dataset_config_name")
+            self.additional_args.append(self.dataset_config_name)
 
     def test_one_shot_cli(self):
         cmd = [
@@ -50,9 +57,13 @@ class TestOneShotCli(unittest.TestCase):
             self.recipe,
             "--num_calibration_samples",
             "10",
+            "--pad_to_max_length",
+            "False",
         ]
 
-        res = run(cmd, stdout=PIPE, stderr=STDOUT, check=False, encoding="utf-8")
+        if len(self.additional_args) > 0:
+            cmd.extend(self.additional_args)
+        res = run_cli_command(cmd)
         self.assertEqual(res.returncode, 0)
         print(res.stdout)
 
