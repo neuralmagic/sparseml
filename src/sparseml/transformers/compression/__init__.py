@@ -13,4 +13,6 @@
 # limitations under the License.
 
 # flake8: noqa
-from .config import *
+
+from .compress_save import *
+from .sparsity_config import *

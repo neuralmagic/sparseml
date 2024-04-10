@@ -21,23 +21,7 @@ from sparseml.pytorch.utils import ModuleSparsificationInfo
 from sparsetensors import CompressionConfig
 
 
-__all__ = ["SparseMLCompressionConfig"]
-
-
-class SparseMLCompressionConfig(CompressionConfig):
-    """
-    Base data class for storing compression parameters
-
-    :param format: name of compression format
-    :param global_sparsity: average sparsity of the entire model
-    :param sparsity_structure: structure of the sparsity, such as
-    "unstructured", "2:4", "8:16" etc
-    """
-
-    format: str
-    global_sparsity: Optional[float] = 0.0
-    sparsity_structure: Optional[str] = "unstructured"
-
+class SparsityConfigFiller:
     @staticmethod
     def infer_global_sparsity(model: Module) -> float:
         """
@@ -84,28 +68,30 @@ class SparseMLCompressionConfig(CompressionConfig):
         :return: compression config inferred from the model
         """
 
-        global_sparsity = SparseMLCompressionConfig.infer_global_sparsity(model)
+        global_sparsity = SparsityConfigFiller.infer_global_sparsity(model)
 
         if global_sparsity < 0.05:
             return None
 
-        sparsity_structure = SparseMLCompressionConfig.infer_sparsity_structure()
+        sparsity_structure = SparsityConfigFiller.infer_sparsity_structure()
         if compress:
             format = "sparse_bitmask"
         else:
             format = "dense_sparsity"
 
-        return SparseMLCompressionConfig.load_from_registry(
+        return CompressionConfig.load_from_registry(
             format,
             global_sparsity=global_sparsity,
             sparsity_structure=sparsity_structure,
         )
 
-    def fill_config_details(self, model: Module):
+    @staticmethod
+    def fill_config_details(config: CompressionConfig, model: Module):
         """
         Fills in informational sparsity parameters from a given model
 
+        :param config: sparsity config to fill in
         :param model: pytorch model to infer config parameters from
         """
-        self.global_sparsity = SparseMLCompressionConfig.infer_global_sparsity(model)
-        self.sparsity_structure = SparseMLCompressionConfig.infer_sparsity_structure()
+        config.global_sparsity = SparsityConfigFiller.infer_global_sparsity(model)
+        config.sparsity_structure = SparsityConfigFiller.infer_sparsity_structure()
