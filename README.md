@@ -22,7 +22,7 @@ limitations under the License.
     <a href="https://docs.neuralmagic.com/sparseml/">
         <img alt="Documentation" src="https://img.shields.io/badge/documentation-darkred?&style=for-the-badge&logo=read-the-docs" height=25>
     </a>
-    <a href="https://join.slack.com/t/discuss-neuralmagic/shared_invite/zt-q1a1cnvo-YBoICSIw3L1dmQpjBeDurQ/">
+    <a href="https://neuralmagic.com/community/">
         <img src="https://img.shields.io/badge/slack-purple?style=for-the-badge&logo=slack" height=25>
     </a>
     <a href="https://github.com/neuralmagic/sparseml/issues">
@@ -226,7 +226,7 @@ We appreciate contributions to the code, examples, integrations, and documentati
 
 ### Join
 
-For user help or questions about SparseML, sign up or log in to our [**Neural Magic Community Slack**](https://join.slack.com/t/discuss-neuralmagic/shared_invite/zt-q1a1cnvo-YBoICSIw3L1dmQpjBeDurQ). We are growing the community member by member and happy to see you there. Bugs, feature requests, or additional questions can also be posted to our [GitHub Issue Queue.](https://github.com/neuralmagic/sparseml/issues)
+For user help or questions about SparseML, sign up or log in to our [**Neural Magic Community Slack**](https://neuralmagic.com/community/). We are growing the community member by member and happy to see you there. Bugs, feature requests, or additional questions can also be posted to our [GitHub Issue Queue.](https://github.com/neuralmagic/sparseml/issues)
 
 You can get the latest news, webinar and event invites, research papers, and other ML Performance tidbits by [subscribing](https://neuralmagic.com/subscribe/) to the Neural Magic community.
 

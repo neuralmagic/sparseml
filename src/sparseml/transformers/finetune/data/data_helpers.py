@@ -18,7 +18,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 import torch
 from datasets import Dataset, load_dataset
-from torch.utils.data import DataLoader, RandomSampler
+from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 from transformers.data import default_data_collator
 
 
@@ -36,6 +36,7 @@ __all__ = [
 def format_calibration_data(
     tokenized_dataset: Dataset,
     num_calibration_samples: Optional[int] = None,
+    do_shuffle: bool = True,
     collate_fn: Callable = default_data_collator,
     accelerator: Optional[Any] = None,
 ) -> List[torch.Tensor]:
@@ -45,6 +46,8 @@ def format_calibration_data(
 
     :param tokenized_dataset: dataset to convert to dataloader
     :param num_calibration_samples: number of data samples to convert
+    :param do_shuffle: whether to shuffle the dataset before selecting calibration
+    samples, true by default
     :param collate_fn: optional custom collate function, or use default
     :param accelerator: optional accelerator for if preparing in FSDP mode
     :return: list of trimmed calibration data tensors
@@ -58,17 +61,20 @@ def format_calibration_data(
                 f"the provided dataset only has {safe_calibration_samples}. "
             )
 
-    shuffled_calibration = tokenized_dataset.shuffle()
-    shuffled_calibration = shuffled_calibration.select(range(safe_calibration_samples))
+    if do_shuffle:
+        tokenized_dataset = tokenized_dataset.shuffle()
+    tokenized_calibration = tokenized_dataset.select(range(safe_calibration_samples))
 
     dataloader_params = {
         "batch_size": 1,
-        "sampler": RandomSampler(shuffled_calibration),
+        "sampler": RandomSampler(tokenized_calibration)
+        if do_shuffle
+        else SequentialSampler(tokenized_calibration),
         "collate_fn": collate_fn,
         "pin_memory": True,
     }
 
-    calib_dataloader = DataLoader(shuffled_calibration, **dataloader_params)
+    calib_dataloader = DataLoader(tokenized_calibration, **dataloader_params)
     if accelerator:
         calib_dataloader = accelerator.prepare(calib_dataloader)
 

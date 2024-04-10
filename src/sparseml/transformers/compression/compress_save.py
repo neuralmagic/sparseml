@@ -73,6 +73,8 @@ def modify_save_pretrained(model: PreTrainedModel):
             :param kwargs: additional kwargs to pass on to model.save_pretrained
             """
             model = model_ref()
+            # state_dict gets passed in as a kwarg for FSDP models
+            state_dict = kwargs.get("state_dict", None)
 
             if qat_active(model):
                 _LOGGER.info(
@@ -85,7 +87,9 @@ def modify_save_pretrained(model: PreTrainedModel):
                 )
 
             if sparsity_config is not None:
-                SparsityConfigFiller.fill_config_details(sparsity_config, model)
+                SparsityConfigFiller.fill_config_details(
+                    sparsity_config, model, state_dict=state_dict
+                )
             elif not skip_compression_stats:
                 # try to infer a sparsity config from the model if none is provided
                 _LOGGER.info(
@@ -95,7 +99,7 @@ def modify_save_pretrained(model: PreTrainedModel):
                     "skip_compression_stats=True"
                 )
                 sparsity_config = SparsityConfigFiller.infer_config_from_model(
-                    model, compress=save_compressed
+                    model, state_dict=state_dict, compress=save_compressed
                 )
 
             if sparsity_config is None:
@@ -110,8 +114,6 @@ def modify_save_pretrained(model: PreTrainedModel):
                 sparsity_config.format, config=sparsity_config
             )
 
-            # state_dict gets passed in as a kwarg for FSDP models
-            state_dict = kwargs.get("state_dict", None)
             if state_dict is None:
                 state_dict = model.state_dict()
 
