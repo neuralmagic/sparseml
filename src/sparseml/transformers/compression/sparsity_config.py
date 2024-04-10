@@ -22,7 +22,12 @@ from sparseml.pytorch.utils import ModuleSparsificationInfo
 from sparsetensors import CompressionConfig
 
 
-class SparsityConfigFiller:
+class SparsityConfigMetadata:
+    """
+    Class of helper functions for filling out a CompressionConfig with readable
+    metadata from the model
+    """
+
     @staticmethod
     def infer_global_sparsity(
         model: Module, state_dict: Optional[Dict[str, Tensor]] = None
@@ -78,14 +83,14 @@ class SparsityConfigFiller:
         :return: compression config inferred from the model
         """
 
-        global_sparsity = SparsityConfigFiller.infer_global_sparsity(
+        global_sparsity = SparsityConfigMetadata.infer_global_sparsity(
             model, state_dict=state_dict
         )
 
         if global_sparsity < 0.05:
             return None
 
-        sparsity_structure = SparsityConfigFiller.infer_sparsity_structure()
+        sparsity_structure = SparsityConfigMetadata.infer_sparsity_structure()
         if compress:
             format = "sparse_bitmask"
         else:
@@ -111,7 +116,7 @@ class SparsityConfigFiller:
         :param state_dict: optional state_dict to replace that in model, used for
         gathering global FSDP model info
         """
-        config.global_sparsity = SparsityConfigFiller.infer_global_sparsity(
+        config.global_sparsity = SparsityConfigMetadata.infer_global_sparsity(
             model, state_dict=state_dict
         )
-        config.sparsity_structure = SparsityConfigFiller.infer_sparsity_structure()
+        config.sparsity_structure = SparsityConfigMetadata.infer_sparsity_structure()

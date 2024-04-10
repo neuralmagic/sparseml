@@ -22,7 +22,7 @@ from typing import Optional
 from transformers import PreTrainedModel
 from transformers.file_utils import CONFIG_NAME
 
-from sparseml.transformers.compression.sparsity_config import SparsityConfigFiller
+from sparseml.transformers.compression.sparsity_config import SparsityConfigMetadata
 from sparseml.utils.pytorch import qat_active
 from sparsetensors import SPARSITY_CONFIG_NAME, CompressionConfig, ModelCompressor
 
@@ -87,7 +87,7 @@ def modify_save_pretrained(model: PreTrainedModel):
                 )
 
             if sparsity_config is not None:
-                SparsityConfigFiller.fill_config_details(
+                SparsityConfigMetadata.fill_config_details(
                     sparsity_config, model, state_dict=state_dict
                 )
             elif not skip_compression_stats:
@@ -98,7 +98,7 @@ def modify_save_pretrained(model: PreTrainedModel):
                     "calculation of compression statistics set "
                     "skip_compression_stats=True"
                 )
-                sparsity_config = SparsityConfigFiller.infer_config_from_model(
+                sparsity_config = SparsityConfigMetadata.infer_config_from_model(
                     model, state_dict=state_dict, compress=save_compressed
                 )
 
