@@ -14,10 +14,12 @@
 # limitations under the License.
 
 import pytest
-from datasets import IterableDataset
+import torch
+from datasets import IterableDataset, load_dataset
 
 from sparseml.transformers.finetune.data import TextGenerationDataset
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
+from sparseml.transformers.finetune.data.data_helpers import format_calibration_data
 from sparseml.transformers.finetune.model_args import ModelArguments
 from sparseml.transformers.finetune.runner import StageRunner
 from sparseml.transformers.finetune.training_args import TrainingArguments
@@ -229,13 +231,54 @@ def test_split_loading(split_def, tiny_llama_tokenizer):
     training_args = TrainingArguments(do_train=True, output_dir="dummy")
     model_args = ModelArguments(model=None)
     stage_runner = StageRunner(
-        model_args=model_args,
-        data_args=data_args,
-        training_args=training_args,
-        model=None,
+        model_args=model_args, data_args=data_args, training_args=training_args
     )
     stage_runner.populate_datasets(tokenizer=tiny_llama_tokenizer)
 
     train_dataset = stage_runner.get_dataset_split("train")
     assert train_dataset is not None
     assert isinstance(train_dataset[0], dict)
+
+
+def test_load_tokenized_data(tiny_llama_tokenizer):
+    dataset = load_dataset("garage-bAInd/Open-Platypus")["train"]
+    NUM_CALIB_SAMPS = 256
+    MAX_SEQ_LEN = 512
+    dataset = dataset.shuffle(seed=42).select(range(NUM_CALIB_SAMPS))
+
+    def preprocess(sample):
+        concat_text = "INPUT: " + sample.get("input", "")
+        concat_text += "INSTRUCTIONS: " + sample.get("instruction", "")
+        concat_text += "OUTPUT: " + sample.get("output", "")
+
+        return tiny_llama_tokenizer(
+            concat_text, padding=False, max_length=MAX_SEQ_LEN, truncation=True
+        )
+
+    tokenized_dataset = dataset.map(
+        preprocess, remove_columns=["input", "output", "instruction", "data_source"]
+    )
+    stage_runner = StageRunner(
+        model_args=None,
+        data_args=DataTrainingArguments(
+            dataset=tokenized_dataset, shuffle_calibration_samples=False
+        ),
+        training_args=TrainingArguments(do_oneshot=True),
+    )
+    stage_runner.populate_datasets(tokenizer=None)
+    calib_dataset = stage_runner.get_dataset_split("calibration")
+    assert len(calib_dataset) == NUM_CALIB_SAMPS
+    data_cols = calib_dataset.column_names
+    assert len(data_cols) == 2
+    assert "input_ids" in data_cols and "attention_mask" in data_cols
+
+    # confirm turning shuffle off works
+    calib_dataloader = format_calibration_data(
+        tokenized_dataset=calib_dataset,
+        num_calibration_samples=NUM_CALIB_SAMPS,
+        do_shuffle=stage_runner._data_args.shuffle_calibration_samples,
+    )
+    assert len(calib_dataloader) == NUM_CALIB_SAMPS
+    dataloader_sample = next(iter(calib_dataloader))["input_ids"]
+    diff = dataloader_sample - torch.Tensor(calib_dataset[0]["input_ids"])
+    assert torch.sum(diff) == 0

@@ -17,7 +17,6 @@ test_stage:
         - model.layers.3.mlp.down_proj
         - model.layers.4.mlp.down_proj
         - model.layers.5.mlp.down_proj
-      post_oneshot_calibration: True
       scheme_overrides:
         Embedding:
           input_activations: null
@@ -25,13 +24,12 @@ test_stage:
             num_bits: 8
             symmetric: False
     SparseGPTModifier:
-      sparsity: 0.5
+      sparsity: 0.0
       block_size: 128
       sequential_update: False
       quantize: True
       percdamp: 0.01
-      prunen: 0
-      prunem: 0
+      mask_structure: "0:0"
       targets: [
         "model.layers.0",
         "model.layers.1",
