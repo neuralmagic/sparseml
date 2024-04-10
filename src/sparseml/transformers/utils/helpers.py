@@ -99,22 +99,6 @@ POSSIBLE_TOKENIZER_FILES = {
 RELEVANT_HF_SUFFIXES = ["json", "md", "bin", "safetensors", "yaml", "yml", "py"]
 
 
-def remove_past_key_value_support_from_config(config: AutoConfig) -> AutoConfig:
-    """
-    Modify config of the causal language model so that it turns off the
-    past key value support. This means that the model initialized from
-    this config will not take past key values as input and will not output
-    past key values.
-    """
-    # not take past_key_values as input
-    config.is_decoder = True
-    # whether to use past key values an input
-    config.use_past = False
-    # whether to output past key values
-    config.use_cache = False
-    return config
-
-
 def is_transformer_model(source_path: Union[Path, str]) -> bool:
     """
     :param source_path: The path to the model
