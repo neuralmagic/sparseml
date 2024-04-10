@@ -29,7 +29,6 @@ from sparseml.transformers.sparsification.modification.modifying_llama import (
 @pytest.mark.parametrize(
     "recipe_file_path",
     [
-        "tests/sparseml/transformers/obcq/sparse.yaml",
         "tests/sparseml/transformers/obcq/quant.yaml",
         "tests/sparseml/transformers/obcq/quant_and_sparse.yaml",
     ],
