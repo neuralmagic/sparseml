@@ -30,7 +30,7 @@ class TestLMHead(unittest.TestCase):
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
         self.model = SparseAutoModelForCausalLM.from_pretrained(
-            "Xenova/llama2.c-stories15M"
+            "Xenova/llama2.c-stories15M", device_map=self.device
         )
         self.kwargs = {
             "sparsity": 0.5,
