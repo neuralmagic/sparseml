@@ -19,6 +19,7 @@ from torch.nn import Module
 
 from sparseml.modifiers.quantization.lifecycle.status import QuantizationStatus
 
+from sparseml.modifiers.quantization.utils.quantization_scheme import QuantizationScheme, QuantizationArgs
 
 __all__ = ["wrap_module_forward_quantized"]
 
@@ -30,11 +31,11 @@ def quantize(
     q_max: torch.Tensor,
 ) -> torch.Tensor:
     return torch.clamp(
-        round(
+        torch.round(
             x / scale + zero_point,
-            0,
+        ),
+          0,
             q_max,
-        )
     )
 
 
@@ -52,41 +53,41 @@ def fake_quantize(
     zero_point: torch.Tensor,
     args: QuantizationArgs,
 ) -> torch.Tensor:
-    max_q = torch.tensor(2**args.n_bits - 1)
+    max_q = torch.tensor(2**args.num_bits - 1)
     columns = x.shape[1]
     Q = torch.zeros_like(x)
-    for i1 in range(0, columns, args.block_size):
-        i2 = min(i1 + args.block_size, columns)
-        count = i2 - i1
+    # for i1 in range(0, columns, args.block_size):
+    #     i2 = min(i1 + args.block_size, columns)
+    #     count = i2 - i1
 
-        W1 = x[:, i1:i2].clone()
-        Q1 = torch.zeros_like(W1)
+    #     W1 = x[:, i1:i2].clone()
+    #     Q1 = torch.zeros_like(W1)
 
-        for i in range(count):
-            w = W1[:, i]
+    #     for i in range(count):
+    #         w = W1[:, i]
+    #         breakpoint()
+    #         if args.group_size != -1:
+    #             if (i1 + i) % args.group_size == 0:
+    #                 xmin, xmax = get_qparams(
+    #                     x[:, (i1 + i) : (i1 + i + args.group_size)], args.symmetric
+    #                 )
+    #                 scale, zero = get_scale_zero_point(
+    #                     x[:, (i1 + i) : (i1 + i + args.group_size)],
+    #                     max_q,
+    #                     xmax,
+    #                     xmin,
+    #                     args.symmetric,
+    #                     args.group_size,
+    #                 )
 
-            if args.group_size != -1:
-                if (i1 + i) % args.group_size == 0:
-                    xmin, xmax = get_qparams(
-                        x[:, (i1 + i) : (i1 + i + args.group_size)], args.symmetric
-                    )
-                    scale, zero = get_scale_zero_point(
-                        x[:, (i1 + i) : (i1 + i + args.group_size)],
-                        max_q,
-                        xmax,
-                        xmin,
-                        args.symmetric,
-                        args.group_size,
-                    )
-
-            q = quantize(w.unsqueeze(1), scale, zero, max_q).flatten()
-        Q1[:, i] = q
-        Q[:, i1:i2] = Q1
-
+    #         q = quantize(w.unsqueeze(1), scale, zero, max_q).flatten()
+    #     Q1[:, i] = q
+    #     Q[:, i1:i2] = Q1
+    Q =  quantize(x, scale, zero_point, max_q)
     return dequantize(Q, scale, zero_point)
 
 
-def wrap_module_forward_quantized(module: Module):
+def wrap_module_forward_quantized(module: Module, scheme: QuantizationScheme):
     # expects a module already initialized and injected with the parameters in
     # initialize_module_for_quantization
     forward_func_orig = module.forward.__func__
@@ -123,7 +124,7 @@ def wrap_module_forward_quantized(module: Module):
     # bind wrapped forward to module class so reference to `self` is correct
     bound_wrapped_forward = wrapped_forward.__get__(module, module.__class__)
     # set forward to wrapped forward
-    setattr(f, "forward", bound_wrapped_forward)
+    setattr(module, "forward", bound_wrapped_forward)
 
 
 def _maybe_calibrate_or_quantize(
@@ -137,7 +138,10 @@ def _maybe_calibrate_or_quantize(
         return value
 
     scale = getattr(module, f"{base_name}_scale")
-    zero_point = getattr(module, f"{base_name}").data = zero_point
+    # zero_point = getattr(module, f"{base_name}_zero_point").data 
+    zero_point = getattr(module, f"{base_name}_zero_point")
+    
+    print(scale, zero_point)
 
     if module.quantization_status == QuantizationStatus.CALIBRATION:
         # get observer and get new quant params from observation
@@ -148,4 +152,4 @@ def _maybe_calibrate_or_quantize(
         scale.data = updated_scale
         zero_point.data = updated_zero_point
 
-    return fake_quantize(value, scale, zero_point)
+    return fake_quantize(value, scale, zero_point, args)

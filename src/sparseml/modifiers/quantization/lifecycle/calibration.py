@@ -41,4 +41,4 @@ def set_module_for_calibration(module: Module):
             "to re-calibrate a frozen module"
         )
 
-    module.status = QuantizationStatus.CALIBRATION
+    module.quantization_status = QuantizationStatus.CALIBRATION

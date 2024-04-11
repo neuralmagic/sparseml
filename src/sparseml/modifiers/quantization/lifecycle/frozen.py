@@ -19,7 +19,7 @@ from sparseml.modifiers.quantization.lifecycle.status import QuantizationStatus
 
 
 __all__ = [
-    "set_module_for_calibration",
+    "freeze_module_quantization",
 ]
 
 
@@ -34,4 +34,4 @@ def freeze_module_quantization(module: Module):
             # delete any observers that belong directly to this module
             delattr(module, submodule_name)
 
-    module.status = QuantizationStatus.FROZEN
+    module.quantization_status = QuantizationStatus.FROZEN

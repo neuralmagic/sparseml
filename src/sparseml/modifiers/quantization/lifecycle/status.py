@@ -22,3 +22,5 @@ __all__ = [
 
 class QuantizationStatus(Enum):
     INITIALIZED = "INITIALIZED"
+    CALIBRATION = "CALIBRATION"
+    FROZEN = "FROZEN"

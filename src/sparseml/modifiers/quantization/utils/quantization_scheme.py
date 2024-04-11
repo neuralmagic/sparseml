@@ -32,8 +32,6 @@ except Exception:
 
 from sparseml.modifiers.quantization.utils.fake_quant_wrapper import FakeQuantizeWrapper
 
-from sparseml.modifiers.quantization.observers.base import Observer
-
 
 __all__ = [
     "DictQuantizationArgs",
@@ -129,7 +127,8 @@ class QuantizationArgs(BaseModel):
         """
         :return: torch quantization FakeQuantize built based on these QuantizationArgs
         """
-        return Observer.load_from_registry(self.observer)
+        from sparseml.modifiers.quantization.observers.base import Observer
+        return Observer.load_from_registry(self.observer, quantization_args=self)
     
     @validator("strategy")
     def validate_strategy(cls, value):

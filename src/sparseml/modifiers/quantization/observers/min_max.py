@@ -18,7 +18,7 @@ import torch
 from torch import FloatTensor, IntTensor, Tensor
 
 from sparseml.modifiers.quantization.observers.base import Observer
-# from sparseml.modifiers.quantization.utils.quantization_scheme import QuantizationArgs
+from sparseml.modifiers.quantization.utils.quantization_scheme import QuantizationArgs
 
 
 __all__ = ["MinMaxObserver"]
@@ -31,8 +31,12 @@ class MinMaxObserver(Observer):
     zero point based on the latest observed value
     """
 
-    min_val = 0
-    min_val = 0
+    def __init__(self, quantization_args: QuantizationArgs):
+        super().__init__(quantization_args=quantization_args)
+
+        self.min_val = float("inf")
+        self.max_val = -float("inf")
+        self.counter = 0
 
     def calculate_qparams(self, observed: Tensor) -> Tuple[FloatTensor, IntTensor]:
         """
@@ -42,13 +46,23 @@ class MinMaxObserver(Observer):
         # TODO: Add support for full range of quantization Args, only supports 8bit
         #       per tensor
         bit_range = 255
-        min_val = observed.min()
-        max_val = observed.max()
+        min_val = torch.tensor([observed.min()])
+        max_val = torch.tensor([observed.max()])
 
-        # ensure zero is in the range
-        self.min_val = torch.min(min_val, torch.zeros_like(min_val), self.min_val)
-        self.max_val = torch.max(max_val, torch.zeros_like(max_val), self.max_val)
-
+        # running average
+        if self.counter > 0:
+            self.min_val = (self.min_val * self.counter + min_val) / (self.counter + 1)
+            self.max_val = (self.max_val * self.counter + max_val) / (self.counter + 1)
+        else:
+            self.min_val = min_val
+            self.max_val = max_val
+        
+        # ensure that the zeros are in the range
+        self.min_val = torch.min(self.min_val, torch.zeros_like(self.min_val))
+        self.max_val = torch.max(self.max_val, torch.zeros_like(self.max_val))
+    
+        self.counter += 1
+        
         if self.quantization_args.symmetric:
             symmetric_range = 2 * max(self.min_val.abs(), self.max_val.abs())
             scale = symmetric_range / bit_range

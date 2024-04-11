@@ -18,12 +18,9 @@ import logging
 import torch
 from torch.nn import Module, Parameter
 
-<<<<<<< HEAD
 from sparseml.modifiers.quantization.lifecycle.forward import (
     wrap_module_forward_quantized,
 )
-=======
->>>>>>> origin/quant-refactor-initialize-module
 from sparseml.modifiers.quantization.lifecycle.status import QuantizationStatus
 from sparseml.modifiers.quantization.utils.quantization_scheme import (
     QuantizationArgs,
@@ -61,7 +58,7 @@ def initialize_module_for_quantization(module: Module, scheme: QuantizationSchem
     module.quantization_status = QuantizationStatus.INITIALIZED
 
     # wrap forward call of module to perform quantized actions based on calltime status
-    wrap_module_forward_quantized(module)
+    wrap_module_forward_quantized(module, scheme)
 
 
 
