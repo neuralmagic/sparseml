@@ -21,15 +21,18 @@ from sparseml.modifiers.quantization.observers.base import Observer
 # from sparseml.modifiers.quantization.utils.quantization_scheme import QuantizationArgs
 
 
-__all__ = ["MemorylessObserver"]
+__all__ = ["MinMaxObserver"]
 
 
-@Observer.register("memoryless")
-class MemorylessObserver(Observer):
+@Observer.register("minmax")
+class MinMaxObserver(Observer):
     """
     Implements a dynamic quantization observer that sets the scale and
     zero point based on the latest observed value
     """
+
+    min_val = 0
+    min_val = 0
 
     def calculate_qparams(self, observed: Tensor) -> Tuple[FloatTensor, IntTensor]:
         """
@@ -43,21 +46,21 @@ class MemorylessObserver(Observer):
         max_val = observed.max()
 
         # ensure zero is in the range
-        min_val = torch.min(min_val, torch.zeros_like(min_val))
-        max_val = torch.max(max_val, torch.zeros_like(max_val))
+        self.min_val = torch.min(min_val, torch.zeros_like(min_val), self.min_val)
+        self.max_val = torch.max(max_val, torch.zeros_like(max_val), self.max_val)
 
         if self.quantization_args.symmetric:
-            symmetric_range = 2 * max(min_val.abs(), max_val.abs())
+            symmetric_range = 2 * max(self.min_val.abs(), self.max_val.abs())
             scale = symmetric_range / bit_range
             zero_point = torch.tensor(0).to(torch.int8)
         else:
             # non-symmetric
-            observed_range = max_val - min_val
+            observed_range = self.max_val - self.min_val
             scale = observed_range / bit_range
 
             # scales from a 0 range should be set to 1
             scale[observed_range == 0] = 1
 
-            zero_point = (0 - min_val) / scale
+            zero_point = (0 - self.min_val) / scale
 
         return scale, zero_point
