@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import math
 import shutil
 import unittest
 
@@ -22,25 +21,31 @@ from parameterized import parameterized_class
 from tests.testing_utils import parse_params, requires_gpu, requires_torch
 
 
-CONFIGS_DIRECTORY = "tests/sparseml/transformers/obcq/sparsity_configs"
-GPU_CONFIGS_DIRECTORY = "tests/sparseml/transformers/obcq/sparsity_configs/gpu"
+CONFIGS_DIRECTORY = "tests/sparseml/transformers/obcq/obcq_configs/completion"
+GPU_CONFIGS_DIRECTORY = "tests/sparseml/transformers/obcq/obcq_configs/completion/gpu"
 
 
 @requires_torch
+@pytest.mark.integration
 @parameterized_class(parse_params(CONFIGS_DIRECTORY))
-class TestSparsities(unittest.TestCase):
+class TestOBCQCompletion(unittest.TestCase):
+    """
+    Test for oneshot for quantization and quantization + sparsity. Sparsity-only tests
+    can be found under `test_obcq_sparsity.py`
+    """
+
     model = None
     dataset = None
     recipe = None
     sparsity = None
 
     def setUp(self):
-        self.device = "cpu"
+        import torch
+
+        self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
         self.output = "./oneshot_output"
 
-    def test_sparsities(self):
-        from sparseml.pytorch.model_load.helpers import get_session_model
-        from sparseml.pytorch.utils.helpers import tensor_sparsity
+    def test_oneshot_completion(self):
         from sparseml.transformers import oneshot
 
         oneshot(
@@ -49,30 +54,25 @@ class TestSparsities(unittest.TestCase):
             oneshot_device=self.device,
             recipe=self.recipe,
             max_seq_length=128,
-            num_calibration_samples=64,
+            num_calibration_samples=32,
             pad_to_max_length=False,
-            clear_sparse_session=False,
             output_dir=self.output,
         )
-
-        model = get_session_model()
-
-        lm_head_sparsity = tensor_sparsity(model.lm_head.weight)
-        assert math.isclose(lm_head_sparsity.item(), self.sparsity, rel_tol=1e-4)
-        layer_1_sparse = tensor_sparsity(model.model.layers[1].self_attn.k_proj.weight)
-        assert math.isclose(layer_1_sparse.item(), self.sparsity, rel_tol=1e-4)
-        layer_2_dense = tensor_sparsity(model.model.layers[2].self_attn.k_proj.weight)
-        assert math.isclose(layer_2_dense.item(), 0.0, rel_tol=1e-4)
 
     def tearDown(self):
         shutil.rmtree(self.output)
 
 
-@requires_gpu
 @requires_torch
+@requires_gpu
 @pytest.mark.integration
 @parameterized_class(parse_params(GPU_CONFIGS_DIRECTORY))
-class TestSparsitiesGPU(unittest.TestCase):
+class TestOBCQCompletionGPU(unittest.TestCase):
+    """
+    Test for oneshot for quantization and quantization + sparsity. Sparsity-only tests
+    can be found under `test_obcq_sparsity.py`
+    """
+
     model = None
     dataset = None
     recipe = None
@@ -85,11 +85,11 @@ class TestSparsitiesGPU(unittest.TestCase):
         self.output = "./oneshot_output"
 
         if "zoo:" in self.model:
-            self.model = SparseAutoModelForCausalLM.from_pretrained(self.model)
+            self.model = SparseAutoModelForCausalLM.from_pretrained(
+                self.model, device_map=self.device
+            )
 
-    def test_sparsities_gpu(self):
-        from sparseml.pytorch.model_load.helpers import get_session_model
-        from sparseml.pytorch.utils.helpers import tensor_sparsity
+    def test_oneshot_completion(self):
         from sparseml.transformers import oneshot
 
         oneshot(
@@ -98,23 +98,10 @@ class TestSparsitiesGPU(unittest.TestCase):
             oneshot_device=self.device,
             recipe=self.recipe,
             max_seq_length=128,
-            num_calibration_samples=64,
+            num_calibration_samples=32,
             pad_to_max_length=False,
-            clear_sparse_session=False,
             output_dir=self.output,
         )
 
-        model = get_session_model()
-
-        lm_head_sparsity = tensor_sparsity(model.lm_head.weight)
-        assert math.isclose(lm_head_sparsity.item(), self.sparsity, rel_tol=1e-4)
-        layer_1_sparse = tensor_sparsity(model.model.layers[1].self_attn.k_proj.weight)
-        assert math.isclose(layer_1_sparse.item(), self.sparsity, rel_tol=1e-4)
-        layer_2_dense = tensor_sparsity(model.model.layers[2].self_attn.k_proj.weight)
-        assert math.isclose(layer_2_dense.item(), 0.0, rel_tol=1e-4)
-
     def tearDown(self):
-        import torch
-
         shutil.rmtree(self.output)
-        torch.cuda.empty_cache()
