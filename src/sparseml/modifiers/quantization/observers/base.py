@@ -24,7 +24,7 @@ from sparsezoo.utils.registry import RegistryMixin
 __all__ = ["Observer"]
 
 
-class Observer(RegistryMixin, Module):
+class Observer(Module, RegistryMixin):
     """
     Base Observer class to be subclassed for specific implementation.
 
@@ -36,6 +36,7 @@ class Observer(RegistryMixin, Module):
         # quantization_args: QuantizationArgs
     ):
         # self.quantization_args: QuantizationArgs = quantization_args
+        super().__init__()
         self._scale = None
         self._zero_point = None
 
