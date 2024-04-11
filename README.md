@@ -14,7 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-<h1><img alt="tool icon" src="https://raw.githubusercontent.com/neuralmagic/sparseml/main/docs/source/icon-sparseml.png" />&nbsp;&nbsp;SparseML</h1>
+<h1 style="display: flex; align-items: center;" >
+     <img width="100" height="100" alt="tool icon" src="https://neuralmagic.com/wp-content/uploads/2024/03/icon_SparseML-002.svg" />
+      <span>&nbsp;&nbsp;SparseML</span>
+  </h1>
 
 <h3>Libraries for applying sparsification recipes to neural networks with a few lines of code, enabling faster and smaller models</h3>
 
