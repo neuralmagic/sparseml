@@ -33,12 +33,12 @@ class TestLogarithmicEqualizationIsRegistered(unittest.TestCase):
     def setUp(self):
         self.kwargs = dict(
             smoothing_strength=0.3,
-            mappings=[["layer1", "layer2"], ["layer3"]],
+            mappings=[(["layer1", "layer2"], "layer3")],
         )
         setup_modifier_factory()
 
     def test_log_equalization_is_registered(self):
-        type_ = ModifierFactory.create(
+        modifier = ModifierFactory.create(
             type_="LogarithmicEqualizationModifier",
             framework=Framework.general,
             allow_experimental=False,
@@ -47,9 +47,11 @@ class TestLogarithmicEqualizationIsRegistered(unittest.TestCase):
         )
 
         self.assertIsInstance(
-            type_,
+            modifier,
             LogarithmicEqualizationModifier,
             "PyTorch LogarithmicEqualizationModifier not registered",
         )
 
-        self.assertIsInstance(type_, SmoothQuantModifier)
+        self.assertIsInstance(modifier, SmoothQuantModifier)
+        self.assertEqual(modifier.smoothing_strength, self.kwargs["smoothing_strength"])
+        self.assertEqual(modifier.mappings, self.kwargs["mappings"])

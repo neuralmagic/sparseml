@@ -30,12 +30,12 @@ class TestSmoothQuantIsRegistered(unittest.TestCase):
     def setUp(self):
         self.kwargs = dict(
             smoothing_strength=0.3,
-            mappings=[["layer1", "layer2"], ["layer3"]],
+            mappings=[(["layer1", "layer2"], "layer3")],
         )
         setup_modifier_factory()
 
     def test_smooth_quant_is_registered(self):
-        type_ = ModifierFactory.create(
+        modifier = ModifierFactory.create(
             type_="SmoothQuantModifier",
             framework=Framework.general,
             allow_experimental=False,
@@ -44,7 +44,10 @@ class TestSmoothQuantIsRegistered(unittest.TestCase):
         )
 
         self.assertIsInstance(
-            type_,
+            modifier,
             SmoothQuantModifier,
             "PyTorch SmoothQuant not registered",
         )
+
+        self.assertEqual(modifier.smoothing_strength, self.kwargs["smoothing_strength"])
+        self.assertEqual(modifier.mappings, self.kwargs["mappings"])
