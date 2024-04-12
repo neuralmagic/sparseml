@@ -19,24 +19,27 @@ import pytest
 
 from sparseml.core.factory import ModifierFactory
 from sparseml.core.framework import Framework
-from sparseml.modifiers.pruning.wanda.base import WandaPruningModifier
+from sparseml.modifiers.logarithmic_equalization.base import (
+    LogarithmicEqualizationModifier,
+)
+from sparseml.modifiers.smoothquant.base import SmoothQuantModifier
 from tests.sparseml.modifiers.conf import setup_modifier_factory
 from tests.testing_utils import requires_torch
 
 
 @pytest.mark.unit
 @requires_torch
-class TestWandaIsRegistered(unittest.TestCase):
+class TestLogarithmicEqualizationIsRegistered(unittest.TestCase):
     def setUp(self):
         self.kwargs = dict(
-            sparsity=0.5,
-            targets="__ALL_PRUNABLE__",
+            smoothing_strength=0.3,
+            mappings=[["layer1", "layer2"], ["layer3"]],
         )
         setup_modifier_factory()
 
-    def test_wanda_is_registered(self):
+    def test_log_equalization_is_registered(self):
         type_ = ModifierFactory.create(
-            type_="WandaPruningModifier",
+            type_="LogarithmicEqualizationModifier",
             framework=Framework.general,
             allow_experimental=False,
             allow_registered=True,
@@ -45,6 +48,8 @@ class TestWandaIsRegistered(unittest.TestCase):
 
         self.assertIsInstance(
             type_,
-            WandaPruningModifier,
-            "PyTorch WandaPruningModifier not registered",
+            LogarithmicEqualizationModifier,
+            "PyTorch LogarithmicEqualizationModifier not registered",
         )
+
+        self.assertIsInstance(type_, SmoothQuantModifier)
