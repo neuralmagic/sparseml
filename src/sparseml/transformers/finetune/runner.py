@@ -19,7 +19,6 @@ import re
 from typing import List, Optional
 
 import torch
-from torch.nn import Module
 from torch.utils.data import Dataset
 from transformers import AutoTokenizer
 
@@ -72,7 +71,6 @@ class StageRunner:
         data_args: "DataTrainingArguments",
         model_args: "ModelArguments",
         training_args: "TrainingArguments",
-        model: Module,
     ):
         self._data_args = data_args
         self._model_args = model_args
@@ -121,9 +119,15 @@ class StageRunner:
                 tokenizer=tokenizer,
             )
 
-            raw_dataset = dataset_manager.get_raw_dataset(self._model_args.cache_dir)
-            tokenized_dataset = dataset_manager.tokenize_and_process(raw_dataset)
-            tokenized_datasets[split_name] = tokenized_dataset
+            dataset = self._data_args.dataset
+            if hasattr(dataset, "column_names") and "input_ids" in dataset.column_names:
+                # dataset is already tokenized
+                tokenized_datasets[split_name] = dataset
+            else:
+                # dataset needs to be tokenized
+                raw_dataset = dataset_manager.get_raw_dataset()
+                tokenized_dataset = dataset_manager.tokenize_and_process(raw_dataset)
+                tokenized_datasets[split_name] = tokenized_dataset
 
         self.datasets = make_dataset_splits(
             tokenized_datasets,
@@ -154,6 +158,7 @@ class StageRunner:
         calib_data = format_calibration_data(
             tokenized_dataset=self.get_dataset_split("calibration"),
             num_calibration_samples=self._data_args.num_calibration_samples,
+            do_shuffle=self._data_args.shuffle_calibration_samples,
             accelerator=self.trainer.accelerator,
         )
 

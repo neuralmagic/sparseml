@@ -11,7 +11,7 @@ quantization_modifiers:
     ignore:
       - LlamaRotaryEmbedding
       - LlamaRMSNorm
-      - SiLUActivation
+      - SiLU
       - model.layers.0.mlp.down_proj
       - model.layers.1.mlp.down_proj
       - model.layers.2.mlp.down_proj

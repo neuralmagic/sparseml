@@ -109,38 +109,12 @@ class DisableHalfPrecisionCallback(TrainerCallback):
         self.on_begin_called = False
         self.quant_start_epoch = math.inf
 
-    def check_disable(self, epoch: float, force: bool = False):
-        """
-        If needed due to active quantization, disable FP16 training
-        """
-        if (
-            force or hasattr(self.trainer, "scaler") and self.trainer.scaler._enabled
-        ) and self.qat_active():
-            self.disable_amp(epoch)
-
     def qat_active(self) -> bool:
         """
         :return: True if a quantization modifier is active in the current session
         """
         session = session_manager.active_session()
         return session.state.model.qat_active()
-
-    def disable_amp(self, epoch: float):
-        """
-        Disable FP16 training
-
-        :param epoch: epoch to disable from
-        """
-        if not self.on_begin_called:
-            # disable if training loops haven't started so we don't load
-            # the empty scaler state dict and instead disable it from the start
-            self.trainer.use_cuda_amp = False
-
-        if hasattr(self.trainer, "scaler"):
-            self.trainer.scaler._enabled = False
-
-        self.quant_start_epoch = epoch
-        _LOGGER.info(f"entering QAT phase at epoch {epoch}, disabling FP16 training")
 
     def on_epoch_begin(
         self,
@@ -150,8 +124,7 @@ class DisableHalfPrecisionCallback(TrainerCallback):
         **kwargs,
     ):
         """
-        Event called at the beginning of an epoch. Disables FP16 training.
+        Event called at the beginning of an epoch.
         """
         super().on_epoch_begin(args, state, control, **kwargs)
         self.on_begin_called = True
-        self.check_disable(state.epoch)

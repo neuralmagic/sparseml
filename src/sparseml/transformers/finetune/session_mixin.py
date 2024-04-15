@@ -363,7 +363,6 @@ class SessionManagerMixIn:
         """
         checkpoint, epoch = self._calculate_checkpoint_info(kwargs)
         self.initialize_session(epoch=epoch, checkpoint=checkpoint, stage=stage)
-        self.callback_disable_fp16.check_disable(epoch, force=True)
         self.accelerator.wait_for_everyone()
         output = super().train(*args, **kwargs)
         self.accelerator.wait_for_everyone()
@@ -372,11 +371,7 @@ class SessionManagerMixIn:
         self.accelerator.wait_for_everyone()
 
         # log model sparsity
-        with summon_full_params_context(self.model, offload_to_cpu=True):
-            if self.accelerator.is_main_process:
-                if not qat_active(self.model):
-                    self.log_model_sparsification()
-
+        self.maybe_log_model_sparsification()
         self.accelerator.wait_for_everyone()
 
         return output
@@ -393,13 +388,7 @@ class SessionManagerMixIn:
         """
         self.initialize_structure()
 
-        # Always evaluate w/ fp32 to be closer to DeepSparse
-        use_cuda_amp = self.use_cuda_amp
-        if not self.args.fp16_full_eval and not self.args.bf16_full_eval:
-            self.use_cuda_amp = False
-
         output = super().evaluate(*args, **kwargs)
-        self.use_cuda_amp = use_cuda_amp
         self.finalize_session()
 
         return output
@@ -440,11 +429,7 @@ class SessionManagerMixIn:
         )
 
         # log model sparsity
-        with summon_full_params_context(self.model, offload_to_cpu=True):
-            if self.accelerator.is_main_process:
-                if not qat_active(self.model):
-                    self.log_model_sparsification()
-
+        self.maybe_log_model_sparsification()
         self.accelerator.wait_for_everyone()
 
     def save_model(
@@ -486,16 +471,35 @@ class SessionManagerMixIn:
         if not self.recipe:
             return
 
-        # save recipe, will contain modifiers from the model's original recipe as well
-        # as those added from self.recipe
-        recipe_path = os.path.join(output_dir, RECIPE_FILE_NAME)
-        session = session_manager.active_session()
-        recipe_yaml_str = session.get_serialized_recipe()
-        with open(recipe_path, "w") as fp:
-            fp.write(recipe_yaml_str)
+        if self.accelerator.is_main_process:
+            # save recipe, will contain modifiers from the model's original recipe as
+            # well as those added from self.recipe
+            recipe_path = os.path.join(output_dir, RECIPE_FILE_NAME)
+            session = session_manager.active_session()
+            recipe_yaml_str = session.get_serialized_recipe()
+            with open(recipe_path, "w") as fp:
+                fp.write(recipe_yaml_str)
 
-        _LOGGER.info(f"Saved SparseML recipe with model state to {recipe_path}")
+            _LOGGER.info(f"Saved SparseML recipe with model state to {recipe_path}")
+
         self.accelerator.wait_for_everyone()
+
+    def maybe_log_model_sparsification(self):
+        """
+        Log info on model sparsity and quantization if possible. Only print logs on the
+        main process, and avoid logging for quantized FSDP models
+        """
+        with summon_full_params_context(self.model, offload_to_cpu=True):
+            # offload to avoid OOM errors
+            if not self.accelerator.is_main_process:
+                # only calculate stats rank0 GPU
+                return
+            if self.is_fsdp_enabled and qat_active(self.model):
+                # due to state dict changes we can't log sparsity info with quantized
+                # models in FSDP
+                return
+
+            self.log_model_sparsification()
 
     def log_model_sparsification(self):
         """
@@ -506,18 +510,16 @@ class SessionManagerMixIn:
         _LOGGER.info(
             f"Sparsification info for {self.model_state_path}: "
             f"{sparsification_info.params_total} total params. "
-            f"Of those there are {sparsification_info.params_prunable_total} prunable "
+        )
+        _LOGGER.info(
+            f"There are {sparsification_info.params_prunable_total} prunable "
             f"params which have {sparsification_info.params_prunable_sparse_percent} "
             "avg sparsity."
         )
-        model_type = (
-            "sparse"
-            if sparsification_info.params_prunable_sparse_percent > 5
-            else "dense"
-        )
         _LOGGER.info(
-            f"{model_type} model detected, "
-            f"all sparsification info: {sparsification_info}"
+            f"There are {sparsification_info.params_quantizable} quantizable "
+            f"params, with a quantization percentage of "
+            f"{sparsification_info.params_quantized_percent}."
         )
 
     def _prepare_model_for_fsdp(self):

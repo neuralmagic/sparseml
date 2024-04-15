@@ -118,6 +118,12 @@ class DataTrainingArguments(CustomDataTrainingArguments):
         default=512,
         metadata={"help": "Number of samples to use for one-shot calibration"},
     )
+    shuffle_calibration_samples: Optional[bool] = field(
+        default=True,
+        metadata={
+            "help": "whether to shuffle the dataset before selecting calibration data"
+        },
+    )
     streaming: Optional[bool] = field(
         default=False,
         metadata={"help": "True to stream data from a cloud dataset"},

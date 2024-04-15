@@ -23,8 +23,8 @@ _LOGGER = logging.getLogger(__name__)
 
 __all__ = ["check_transformers_version"]
 
-_TRANSFORMERS_MIN_VERSION = "4.34.1"
-_TRANSFORMERS_MAX_VERSION = "4.35.0"
+_TRANSFORMERS_MIN_VERSION = "4.39.0"
+_TRANSFORMERS_MAX_VERSION = "4.39.3"
 
 
 def check_transformers_version(
@@ -56,7 +56,7 @@ def check_transformers_version(
         _LOGGER.warning(
             "Attempting to modify the transformers model to support "
             "the SparseML-specific functionalities. However, the detected "
-            f"transformers version ({current_version}) does not fall within the"
+            f"transformers version ({current_version}) does not fall within the "
             f"supported version range ({min_version} - {max_version}). "
             "This may lead to unexpected behavior. Please ensure that the "
             "correct transformers version is installed."

@@ -19,8 +19,9 @@ import torch
 import yaml
 
 import sparseml.core.session as session_manager
+from sparseml.pytorch.model_load.helpers import get_session_model
 from sparseml.pytorch.utils.helpers import tensor_sparsity
-from sparseml.transformers.sparsification.obcq.obcq import one_shot
+from sparseml.transformers import oneshot
 from sparseml.utils.pytorch import qat_active
 
 
@@ -32,22 +33,23 @@ except Exception:
 
 def test_consecutive_runs(tmp_path):
     tiny_model_path = "Xenova/llama2.c-stories15M"
-    first_recipe = "tests/sparseml/transformers/obcq/test_tiny.yaml"
-    second_recipe = "tests/sparseml/transformers/obcq/test_additional_sparsity.yaml"
+    first_recipe = "tests/sparseml/transformers/obcq/quant_and_sparse.yaml"
+    second_recipe = "tests/sparseml/transformers/obcq/additional_sparsity.yaml"
     device = "cuda:0"
     if not torch.cuda.is_available():
         device = "cpu"
 
     # test recipe with 50% sparsity, quantization and smoothquant
-    first_tiny_model = one_shot(
-        model_path=tiny_model_path,
+    oneshot(
+        model=tiny_model_path,
         dataset="open_platypus",
-        num_samples=16,
-        device=device,
-        recipe_file=first_recipe,
-        deploy_dir=tmp_path / "test1",
-        do_save=True,
+        num_calibration_samples=16,
+        recipe=first_recipe,
+        output_dir=tmp_path / "test1",
+        oneshot_device=device,
+        clear_sparse_session=False,
     )
+    first_tiny_model = get_session_model()
     layer_0_sparse = tensor_sparsity(
         first_tiny_model.model.layers[0].self_attn.k_proj.module.weight
     )
@@ -61,15 +63,17 @@ def test_consecutive_runs(tmp_path):
     session.reset()
 
     # reload saved model and up sparsity to 0.7
-    second_tiny_model = one_shot(
-        model_path=tmp_path / "test1" / "obcq_deployment",
+    oneshot(
+        model=tmp_path / "test1",
         dataset="open_platypus",
-        num_samples=16,
-        device=device,
-        recipe_file=second_recipe,
-        deploy_dir=tmp_path / "test2",
-        do_save=True,
+        num_calibration_samples=16,
+        recipe=second_recipe,
+        output_dir=tmp_path / "test2",
+        oneshot_device=device,
+        clear_sparse_session=False,
     )
+
+    second_tiny_model = get_session_model()
     layer_0_sparse = tensor_sparsity(
         second_tiny_model.model.layers[0].self_attn.k_proj.module.weight
     )
@@ -81,7 +85,7 @@ def test_consecutive_runs(tmp_path):
     stages = [stage.group for stage in session_recipe.stages]
     assert len(stages) == 2
 
-    recipe_path = tmp_path / "test2" / "obcq_deployment" / "recipe.yaml"
+    recipe_path = tmp_path / "test2" / "recipe.yaml"
     recipe_data = yaml.safe_load(recipe_path.read_text())
     stage_keys = recipe_data.keys()
     assert len(stage_keys) == 2
@@ -97,7 +101,7 @@ def test_fail_on_repeated_quant(tmp_path):
                 ignore:
                     - LlamaRotaryEmbedding
                     - LlamaRMSNorm
-                    - SiLUActivation
+                    - SiLU
                 scheme_overrides:
                     Embedding:
                         input_activations: null
@@ -110,7 +114,7 @@ def test_fail_on_repeated_quant(tmp_path):
                 ignore:
                     - LlamaRotaryEmbedding
                     - LlamaRMSNorm
-                    - SiLUActivation
+                    - SiLU
                     - Embedding
     """
 
@@ -119,14 +123,14 @@ def test_fail_on_repeated_quant(tmp_path):
     if not torch.cuda.is_available():
         device = "cpu"
 
-    one_shot(
-        model_path=tiny_model_path,
+    oneshot(
+        model=tiny_model_path,
         dataset="open_platypus",
-        num_samples=4,
-        device=device,
-        recipe_file=first_recipe_str,
-        deploy_dir=tmp_path,
-        do_save=True,
+        num_calibration_samples=4,
+        oneshot_device=device,
+        recipe=first_recipe_str,
+        output_dir=tmp_path / "test",
+        clear_sparse_session=False,
     )
 
     session = session_manager.active_session()
@@ -135,12 +139,12 @@ def test_fail_on_repeated_quant(tmp_path):
     # When trying to re-quantize with the second recipe, we should error out
     # to avoid nested quantizations
     with pytest.raises(RuntimeError):
-        one_shot(
-            model_path=tmp_path / "obcq_deployment",
+        oneshot(
+            model=tmp_path / "test",
             dataset="open_platypus",
-            num_samples=4,
-            device=device,
-            recipe_file=second_recipe_str,
+            num_calibration_samples=4,
+            oneshot_device=device,
+            recipe=second_recipe_str,
         )
 
 
@@ -152,7 +156,7 @@ def test_separate_quants_allowed(tmp_path):
                 ignore:
                     - LlamaRotaryEmbedding
                     - LlamaRMSNorm
-                    - SiLUActivation
+                    - SiLU
                     - Linear
                 scheme_overrides:
                     Embedding:
@@ -166,7 +170,7 @@ def test_separate_quants_allowed(tmp_path):
                 ignore:
                     - LlamaRotaryEmbedding
                     - LlamaRMSNorm
-                    - SiLUActivation
+                    - SiLU
                     - Embedding
                     - MatMulLeftInput_QK
                     - MatMulRightInput_QK
@@ -182,17 +186,17 @@ def test_separate_quants_allowed(tmp_path):
     if not torch.cuda.is_available():
         device = "cpu"
 
-    first_model = one_shot(
-        model_path=tiny_model_path,
+    oneshot(
+        model=tiny_model_path,
         dataset="open_platypus",
-        num_samples=4,
-        device=device,
-        recipe_file=first_recipe_str,
-        deploy_dir=tmp_path,
-        do_save=True,
+        num_calibration_samples=16,
+        recipe=first_recipe_str,
+        output_dir=tmp_path / "test1",
+        oneshot_device=device,
+        clear_sparse_session=False,
     )
-
     # only embedding quantized after first recipe
+    first_model = get_session_model()
     assert not isinstance(
         first_model.model.layers[0].mlp.down_proj, torch_quantization.QuantWrapper
     )
@@ -202,14 +206,17 @@ def test_separate_quants_allowed(tmp_path):
 
     # When trying to re-quantize with the second recipe, we should error out
     # to avoid nested quantizations
-    second_model = one_shot(
-        model_path=tmp_path / "obcq_deployment",
+    oneshot(
+        model=tmp_path / "test1",
         dataset="open_platypus",
-        num_samples=4,
-        device=device,
-        recipe_file=second_recipe_str,
+        num_calibration_samples=16,
+        recipe=second_recipe_str,
+        output_dir=tmp_path / "test2",
+        oneshot_device=device,
+        clear_sparse_session=False,
     )
 
+    second_model = get_session_model()
     # linear and embeddings should be quantized now
     assert isinstance(
         second_model.model.layers[0].mlp.down_proj, torch_quantization.QuantWrapper
