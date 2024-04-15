@@ -319,10 +319,7 @@ def main(
 
     # Load datasets
     stage_runner = StageRunner(
-        model_args=model_args,
-        data_args=data_args,
-        training_args=training_args,
-        model=model,
+        model_args=model_args, data_args=data_args, training_args=training_args
     )
     stage_runner.populate_datasets(tokenizer=tokenizer)
     train_dataset = stage_runner.get_dataset_split("train")
