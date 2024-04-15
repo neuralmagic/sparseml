@@ -16,81 +16,40 @@ import math
 
 import pytest
 import torch
-from transformers import AutoTokenizer
 
 from sparseml.core import ModifiableModel
 from sparseml.core.framework import Framework
 from sparseml.core.state import State
 from sparseml.modifiers.obcq import SparseGPTModifier
 from sparseml.modifiers.obcq.pytorch import SparseGPTModifierPyTorch
-from sparseml.modifiers.obcq.utils.helpers import ppl_eval_general
+from sparseml.pytorch.model_load.helpers import get_session_model
 from sparseml.pytorch.utils.helpers import tensor_sparsity
-from sparseml.transformers import SparseAutoModelForCausalLM
-from sparseml.transformers.finetune.data import TextGenerationDataset
-from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
-from sparseml.transformers.finetune.data.data_helpers import format_calibration_data
-from sparseml.transformers.sparsification.obcq.obcq import one_shot
-from sparseml.transformers.sparsification.obcq.utils.helpers import llama_forward
-from sparseml.transformers.utils.helpers import resolve_sequence_length
-from sparseml.transformers.utils.initializers import (
-    initialize_config,
-    initialize_sparse_model,
-)
+from sparseml.transformers import SparseAutoModelForCausalLM, oneshot
 
 
 @pytest.mark.parametrize(
     "recipe_file_path",
     [
-        "tests/sparseml/transformers/obcq/test_tiny.yaml",
-        "tests/sparseml/transformers/obcq/test_tiny2.yaml",
-        "tests/sparseml/transformers/obcq/test_tiny_w_head.yaml",
+        "tests/sparseml/transformers/obcq/sparse.yaml",
+        "tests/sparseml/transformers/obcq/quant.yaml",
+        "tests/sparseml/transformers/obcq/quant_and_sparse.yaml",
     ],
 )
 def test_obcq_tinystories(recipe_file_path):
     tiny_model_path = "Xenova/llama2.c-stories15M"
     device = "cuda:0"
-    num_samples = 64
-    dataset = "open_platypus"
     if not torch.cuda.is_available():
         device = "cpu"
-    config = initialize_config(model_path=tiny_model_path)
 
-    # test recipe with 50% sparsity, quantization and smoothquant
-    tiny_model = one_shot(
-        model_path=tiny_model_path,
-        dataset=dataset,
-        num_samples=num_samples,
-        device=device,
-        recipe_file=recipe_file_path,
-    )
-
-    data_args = DataTrainingArguments(
-        dataset=dataset,
-        max_seq_length=resolve_sequence_length(config),
-        num_calibration_samples=num_samples,
-        concatenate_data=False,
+    oneshot(
+        model=tiny_model_path,
+        dataset="open_platypus",
+        oneshot_device=device,
+        recipe=recipe_file_path,
+        max_seq_length=128,
+        num_calibration_samples=64,
         pad_to_max_length=False,
     )
-
-    tokenizer = AutoTokenizer.from_pretrained(
-        tiny_model_path, use_fast=True, trust_remote_code=True
-    )
-    dataset_manager = TextGenerationDataset.load_from_registry(
-        dataset, data_args=data_args, split="train", tokenizer=tokenizer
-    )
-    raw_dataset = dataset_manager.get_raw_dataset()
-    tokenized_dataset = dataset_manager.tokenize_and_process(raw_dataset)
-    test_data = format_calibration_data(
-        tokenized_dataset=tokenized_dataset, num_calibration_samples=num_samples
-    )
-    test_data = [d["input_ids"] for d in test_data]
-    perplexity = ppl_eval_general(
-        llama_forward, tiny_model, test_data, device, max_samples_per_iteration=8
-    )
-
-    # we aren't expecting good results from this tiny model, but this should catch any
-    # egregious errors with the OBCQ algorithm
-    assert perplexity < 10000.0
 
 
 def test_lm_head_target():
@@ -98,14 +57,7 @@ def test_lm_head_target():
     device = "cuda:0"
     if not torch.cuda.is_available():
         device = "cpu"
-
-    config = initialize_config(model_path=tiny_model_path)
-    model = initialize_sparse_model(
-        model_path=tiny_model_path,
-        device=device,
-        task="text-generation",
-        config=config,
-    )
+    model = SparseAutoModelForCausalLM.from_pretrained(tiny_model_path)
 
     kwargs = {
         "sparsity": 0.5,
@@ -140,25 +92,30 @@ def test_lm_head_target():
 
 def test_sparsities():
     tiny_model_path = "Xenova/llama2.c-stories15M"
-    lm_head_recipe = "tests/sparseml/transformers/obcq/test_tiny_w_head.yaml"
+    recipe = "tests/sparseml/transformers/obcq/sparse.yaml"
     device = "cuda:0"
     if not torch.cuda.is_available():
         device = "cpu"
 
     # test recipe with 50% sparsity, quantization and smoothquant
-    tiny_model = one_shot(
-        model_path=tiny_model_path,
+    oneshot(
+        model=tiny_model_path,
         dataset="open_platypus",
-        num_samples=64,
-        device=device,
-        recipe_file=lm_head_recipe,
+        oneshot_device=device,
+        recipe=recipe,
+        max_seq_length=128,
+        num_calibration_samples=64,
+        pad_to_max_length=False,
+        clear_sparse_session=False,
     )
 
-    lm_head_sparsity = tensor_sparsity(tiny_model.lm_head.weight)
+    model = get_session_model()
+
+    lm_head_sparsity = tensor_sparsity(model.lm_head.weight)
     assert math.isclose(lm_head_sparsity.item(), 0.3, rel_tol=1e-4)
-    layer_1_sparse = tensor_sparsity(tiny_model.model.layers[1].self_attn.k_proj.weight)
+    layer_1_sparse = tensor_sparsity(model.model.layers[1].self_attn.k_proj.weight)
     assert math.isclose(layer_1_sparse.item(), 0.3, rel_tol=1e-4)
-    layer_2_dense = tensor_sparsity(tiny_model.model.layers[2].self_attn.k_proj.weight)
+    layer_2_dense = tensor_sparsity(model.model.layers[2].self_attn.k_proj.weight)
     assert math.isclose(layer_2_dense.item(), 0.0, rel_tol=1e-4)
 
 

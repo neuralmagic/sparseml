@@ -115,6 +115,8 @@ def create_deployment_folder(
     target_path: Union[Path, str],
     deployment_directory_files_mandatory: List[str],
     source_path: Union[Path, str, None] = None,
+    source_config: Optional["PreTrainedConfig"] = None,  # noqa F401
+    source_tokenizer: Optional["PreTrainedTokenizer"] = None,  # noqa F401
     deployment_directory_files_optional: Optional[List[str]] = None,
     deployment_directory_name: str = "deployment",
     onnx_model_name: Optional[str] = None,
@@ -135,6 +137,8 @@ def create_deployment_folder(
         The files will be copied to target_path/deployment_directory_name.
     :param source_path: The path to the source folder (where the original model
         files are stored)
+    :param source_config: Optional Hugging Face config to copy to deployment dir
+    :param source_tokenizer: Optional Hugging Face tokenizer to copy to deployment dir
     :param deployment_directory_files_mandatory: The mandatory list of files
         to copy to the deployment directory. If the file is an ONNX model
         (or ONNX data file), the file will be copied from target_path.
@@ -161,10 +165,16 @@ def create_deployment_folder(
         deployment_folder_dir=deployment_folder_dir,
         onnx_model_name=onnx_model_name,
     )
+
     if source_path is None:
+        # exporting an instantiated model
+        if source_config is not None:
+            source_config.save_pretrained(deployment_folder_dir)
+        if source_tokenizer is not None:
+            source_tokenizer.save_pretrained(deployment_folder_dir)
         return deployment_folder_dir
 
-    # copy the relevant files from source_path
+    # exporting from a source path, copy the relevant files to deployment directory
     for file_name in deployment_directory_files_mandatory:
         copy_mandatory_deployment_files(
             file_name, source_path, target_path, onnx_model_name, deployment_folder_dir
