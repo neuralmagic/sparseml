@@ -30,7 +30,13 @@ class SparseAutoTokenizer(AutoTokenizer):
     """
 
     @classmethod
-    def from_pretrained(cls, pretrained_model_name_or_path, *inputs, **kwargs):
+    def from_pretrained(
+        cls,
+        pretrained_model_name_or_path,
+        pad_with_eos_token: bool = False,
+        *inputs,
+        **kwargs,
+    ):
         """
         A wrapper around the AutoTokenizer.from_pretrained method that
         enables the loading of tokenizer from SparseZoo stubs
@@ -40,6 +46,8 @@ class SparseAutoTokenizer(AutoTokenizer):
         files is passed to the AutoTokenizer.from_pretrained method
 
         :param pretrained_model_name_or_path: the name of or path to the model to load
+        :param pad_with_eos_token: if True, set the pad token to be the eos token (
+            required for many causal language models)
         :return tokenizer: the loaded tokenizer from pretrained
         """
         if str(pretrained_model_name_or_path).startswith("zoo:"):
@@ -53,4 +61,9 @@ class SparseAutoTokenizer(AutoTokenizer):
                         tokenizer_file = file
                         tokenizer_file.download()
                 pretrained_model_name_or_path = os.path.dirname(tokenizer_file.path)
-        return super().from_pretrained(pretrained_model_name_or_path, *inputs, **kwargs)
+        tokenizer = super().from_pretrained(
+            pretrained_model_name_or_path, *inputs, **kwargs
+        )
+        if pad_with_eos_token:
+            tokenizer.pad_token = tokenizer.eos_token
+        return tokenizer

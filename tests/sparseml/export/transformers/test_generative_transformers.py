@@ -21,9 +21,32 @@ import onnx
 import pytest
 import torch
 
+from deepsparse import TextGeneration
 from huggingface_hub import snapshot_download
 from sparseml import export
+from sparseml.exporters.kv_cache_injector import KeyValueCacheInjector
 from sparseml.transformers import SparseAutoModelForCausalLM, SparseAutoTokenizer
+
+
+@pytest.mark.parametrize("model", ["Xenova/llama2.c-stories15M"])
+def test_kv_cache_injection(tmp_path, model):
+    export(
+        model=SparseAutoModelForCausalLM.from_pretrained(model),
+        tokenizer=SparseAutoTokenizer.from_pretrained(model, pad_with_eos_token=True),
+        target_path=tmp_path,
+        graph_optimizations="none",
+    )
+    model_path = os.path.join(tmp_path, "deployment")
+    onnx_file_path = os.path.join(model_path, "model.onnx")
+
+    onnx_model = onnx.load(onnx_file_path, load_external_data=False)
+    injector = KeyValueCacheInjector(model_path=model_path)
+    injector.export(onnx_model, onnx_file_path)
+
+    llama_pipeline = TextGeneration(model_path=model_path, engine_type="onnxruntime")
+
+    inference = llama_pipeline("Who is the president of the United States?")
+    shutil.rmtree(tmp_path)
 
 
 @pytest.mark.parametrize(
