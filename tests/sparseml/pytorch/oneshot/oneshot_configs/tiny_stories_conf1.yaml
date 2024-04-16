@@ -1,5 +1,6 @@
 cadence: "commit"
 test_type: "smoke"
+tokenize: False
 model: "TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T"
 dataset: open_platypus
 recipe: |

@@ -18,16 +18,16 @@ import unittest
 import pytest
 
 from parameterized import parameterized_class
+from tests.sparseml.pytorch.oneshot.dataset_processing import get_data_utils
 from tests.testing_utils import parse_params, requires_torch
 
 
 CONFIGS_DIRECTORY = "tests/sparseml/pytorch/oneshot/oneshot_configs"
 
-# TODO: update once this lands: https://github.com/neuralmagic/sparseml/pull/2202
-
-
 # TODO: Seems better to mark test type (smoke, sanity, regression) as a marker as
 # opposed to using a field in the config file?
+
+
 @pytest.mark.smoke
 @pytest.mark.integration
 @requires_torch
@@ -37,6 +37,7 @@ class TestOneShotInputs(unittest.TestCase):
     dataset = None
     recipe = None
     dataset_config_name = None
+    tokenize = None
 
     def setUp(self):
         from sparseml.transformers import (
@@ -46,9 +47,27 @@ class TestOneShotInputs(unittest.TestCase):
 
         self.tokenizer = SparseAutoTokenizer.from_pretrained(self.model)
         self.model = SparseAutoModelForCausalLM.from_pretrained(self.model)
-
         self.output = "./oneshot_output"
         self.kwargs = {"dataset_config_name": self.dataset_config_name}
+
+        data_utils = get_data_utils(self.dataset)
+
+        def wrapped_preprocess_func(sample):
+            preprocess_func = data_utils.get("preprocess")
+            return self.tokenizer(
+                preprocess_func(sample), padding=False, max_length=512, truncation=True
+            )
+
+        # If `tokenize` is set to True, use the appropriate preprocessing function
+        # and set self.tokenizer = None. Updates the self.dataset field from the string
+        # to the loaded dataset.
+        if self.tokenize:
+            loaded_dataset = data_utils.get("dataload")()
+            self.dataset = loaded_dataset.map(
+                wrapped_preprocess_func,
+                remove_columns=data_utils.get("remove_columns"),
+            )
+            self.tokenizer = None
 
     def test_one_shot_inputs(self):
         from sparseml.transformers import oneshot

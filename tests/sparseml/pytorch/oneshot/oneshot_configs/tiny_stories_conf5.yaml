@@ -1,7 +1,6 @@
 cadence: "commit"
 test_type: "smoke"
-tokenize: False
+tokenize: True
 model: "TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T"
-dataset: "gsm8k"
-dataset_config_name: "main"
+dataset: open_platypus
 recipe: "tests/sparseml/pytorch/oneshot/oneshot_configs/recipes/recipe.yaml"
