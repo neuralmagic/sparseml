@@ -29,19 +29,19 @@ ALPACA_TEMPLATE = {
 GSM_TEMPLATE = "Question: {question}.\nAnswer: "
 
 
-def fetch_open_platypus_dataset():
+def _fetch_open_platypus_dataset():
     dataset = load_dataset("garage-bAInd/Open-Platypus")["train"]
     dataset = dataset.shuffle(seed=42).select(range(256))
     return dataset
 
 
-def fetch_gsm8k_data():
+def _fetch_gsm8k_data():
     dataset = load_dataset("gsm8k", "main")["train"]
     dataset = dataset.shuffle(seed=42).select(range(256))
     return dataset
 
 
-def preprocess_alpaca(sample):
+def _preprocess_alpaca(sample):
     if "input" in sample:
         concat_text = ALPACA_TEMPLATE["prompt_input"].format(
             instruction=sample["instruction"], input=sample["input"]
@@ -56,7 +56,7 @@ def preprocess_alpaca(sample):
     return concat_text
 
 
-def preprocess_gsm(sample):
+def _preprocess_gsm(sample):
     concat_text = GSM_TEMPLATE.format(question=sample["question"])
     concat_text += sample["answer"]
     return concat_text
@@ -77,13 +77,13 @@ def get_data_utils(dataset_name: str) -> Dict:
     """
     data_mapping = {
         "open_platypus": {
-            "preprocess": preprocess_alpaca,
-            "dataload": fetch_open_platypus_dataset,
+            "preprocess": _preprocess_alpaca,
+            "dataload": _fetch_open_platypus_dataset,
             "remove_columns": ["input", "output", "instruction", "data_source"],
         },
         "gsm8k": {
-            "preprocess": preprocess_gsm,
-            "dataload": fetch_gsm8k_data,
+            "preprocess": _preprocess_gsm,
+            "dataload": _fetch_gsm8k_data,
             "remove_columns": ["question", "answer"],
         },
     }

@@ -23,9 +23,6 @@ from tests.testing_utils import parse_params, requires_torch, run_cli_command
 
 CONFIGS_DIRECTORY = "tests/sparseml/pytorch/oneshot/oneshot_configs"
 
-# TODO: update once this lands: https://github.com/neuralmagic/sparseml/pull/2202
-# this will enable testing of other data input types (e.g tokenized data)
-
 
 @pytest.mark.smoke
 @pytest.mark.integration
@@ -36,8 +33,12 @@ class TestOneShotCli(unittest.TestCase):
     dataset = None
     recipe = None
     dataset_config_name = None
+    tokenize = None
 
     def setUp(self):
+        if self.tokenize:
+            pytest.skip("Tokenized data input not supported for oneshot cli")
+
         self.output = "./oneshot_output"
         self.additional_args = []
         if self.dataset_config_name:
