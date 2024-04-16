@@ -14,10 +14,8 @@
 
 """
 Modification to the original MobileBert model required in the
-context of SparseML
+context of SparseML quantization
 """
-
-import logging
 
 from torch import nn
 from transformers.models.mobilebert.modeling_mobilebert import MobileBertEmbeddings
@@ -27,22 +25,22 @@ from sparseml.modifiers.quantization.modification.registry import ModificationRe
 from sparseml.pytorch.utils.helpers import swap_modules
 
 
-_LOGGER = logging.getLogger(__name__)
-
-
 @ModificationRegistry.register(name="MobileBertModel")
 def modify(model: nn.Module) -> nn.Module:
     """
     Modify the MobileBert model to be compatible with SparseML
+    quantization
 
-    1. Replaces the MobileBertEmbeddings modules with
-        MobileBertEmbeddingsWithQuantizableMatmuls modules
+    Replaces the MobileBertEmbeddings modules with
+    MobileBertEmbeddingsWithQuantizableMatmuls modules
 
     :param model: the original MobileBert model
     :return: the modified MobileBert model
     """
     for name, submodule in model.named_modules():
-        if type(submodule) is MobileBertEmbeddings:
+        if isinstance(submodule, MobileBertEmbeddings) and not isinstance(
+            submodule, MobileBertEmbeddingsWithQuantizableLinear
+        ):
             swap_modules(
                 model, name, MobileBertEmbeddingsWithQuantizableLinear(submodule)
             )

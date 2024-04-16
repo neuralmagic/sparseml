@@ -14,7 +14,7 @@
 
 """
 Modification to the original Mistral model required in the
-context of SparseML
+context of SparseML quantization
 """
 
 import math
@@ -55,7 +55,7 @@ def modify(model: torch.nn.Module) -> torch.nn.Module:
     for name, submodule in model.named_modules():
         if isinstance(
             submodule, (MistralAttention, MistralFlashAttention2, MistralSdpaAttention)
-        ):
+        ) and not isinstance(submodule, MistralAttentionWithQuantizableMatmuls):
             swap_modules(model, name, MistralAttentionWithQuantizableMatmuls(submodule))
     return model
 

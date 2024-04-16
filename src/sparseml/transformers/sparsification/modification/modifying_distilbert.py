@@ -14,7 +14,7 @@
 
 """
 Modification to the original DistilBert model required in the
-context of SparseML
+context of SparseML quantization
 """
 
 import logging
@@ -49,7 +49,9 @@ def modify(model: nn.Module) -> nn.Module:
     :return: the modified DistilBert model
     """
     for name, submodule in model.named_modules():
-        if isinstance(submodule, (MultiHeadSelfAttention, DistilBertFlashAttention2)):
+        if isinstance(
+            submodule, (MultiHeadSelfAttention, DistilBertFlashAttention2)
+        ) and not isinstance(submodule, MultiHeadSelfAttentionWithQuantizableMatmuls):
             swap_modules(
                 model, name, MultiHeadSelfAttentionWithQuantizableMatmuls(submodule)
             )

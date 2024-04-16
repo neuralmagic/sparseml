@@ -96,6 +96,9 @@ class SharedHelperFunctions:
             recipe_path=recipe,
         )
 
+        # make sure that the original model has 0 modified modules
+        # and that the modified model has N modified modules
+        # where N is the number of transformer's attention blocks
         assert (
             sum(
                 [

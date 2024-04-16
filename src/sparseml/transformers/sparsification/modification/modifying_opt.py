@@ -14,7 +14,7 @@
 
 """
 Modification to the original OPT model required in the
-context of SparseML
+context of SparseML quantization
 """
 
 import logging
@@ -48,7 +48,9 @@ def modify(model: nn.Module) -> nn.Module:
     :return: the modified OPT model
     """
     for name, submodule in model.named_modules():
-        if isinstance(submodule, (OPTAttention, OptFlashAttention2)):
+        if isinstance(submodule, (OPTAttention, OptFlashAttention2)) and not isinstance(
+            submodule, OPTAttentionWithQuantizableMatmuls
+        ):
             swap_modules(model, name, OPTAttentionWithQuantizableMatmuls(submodule))
     return model
 

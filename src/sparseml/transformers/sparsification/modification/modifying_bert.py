@@ -14,7 +14,7 @@
 
 """
 Modification to the original Bert model required in the
-context of SparseML
+context of SparseML quantization
 """
 
 
@@ -42,7 +42,9 @@ def modify(model: nn.Module) -> nn.Module:
     :return: the modified Bert model
     """
     for name, submodule in model.named_modules():
-        if isinstance(submodule, BertSelfAttention):
+        if isinstance(submodule, BertSelfAttention) and not isinstance(
+            submodule, BertSelfAttentionWithQuantizableMatmuls
+        ):
             swap_modules(
                 model, name, BertSelfAttentionWithQuantizableMatmuls(submodule)
             )

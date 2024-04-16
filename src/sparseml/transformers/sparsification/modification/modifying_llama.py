@@ -14,7 +14,7 @@
 
 """
 Modification to the original LLaMa model required in the
-context of SparseML
+context of SparseML quantization
 """
 
 import math
@@ -55,7 +55,7 @@ def modify(model: nn.Module) -> nn.Module:
     for name, submodule in model.named_modules():
         if isinstance(
             submodule, (LlamaAttention, LlamaFlashAttention2, LlamaSdpaAttention)
-        ):
+        ) and not isinstance(submodule, LlamaAttentionWithQuantizableMatmuls):
             swap_modules(model, name, LlamaAttentionWithQuantizableMatmuls(submodule))
     return model
 

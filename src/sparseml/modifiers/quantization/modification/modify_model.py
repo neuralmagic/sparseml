@@ -14,15 +14,13 @@
 
 import logging
 
-import torch
-
 from sparseml.modifiers.quantization.modification.registry import ModificationRegistry
 
 
 _LOGGER = logging.getLogger(__name__)
 
 
-def modify_model(model: torch.nn.Module) -> torch.nn.Module:
+def modify_model(model: "torch.nn.Module") -> "torch.nn.Module":  # noqa: F821
     """
     Modify the original model so that it is
     compatible with the quantization format required by the
