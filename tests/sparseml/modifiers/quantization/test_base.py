@@ -21,10 +21,8 @@ from sparseml.core.factory import ModifierFactory
 from sparseml.core.framework import Framework
 from sparseml.modifiers.quantization import QuantizationModifier
 from tests.sparseml.modifiers.conf import setup_modifier_factory
-from tests.testing_utils import requires_torch
 
 
-@requires_torch
 @pytest.mark.unit
 class TestQuantizationRegistered(unittest.TestCase):
     def setUp(self):
@@ -43,7 +41,6 @@ class TestQuantizationRegistered(unittest.TestCase):
         self.assertIsInstance(quant_obj, QuantizationModifier)
 
 
-@requires_torch
 @pytest.mark.unit
 class TestEndEpochs(unittest.TestCase):
     def setUp(self):

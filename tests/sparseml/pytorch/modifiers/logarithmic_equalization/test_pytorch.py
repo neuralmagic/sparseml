@@ -24,11 +24,9 @@ from sparseml.modifiers.logarithmic_equalization.pytorch import (
     LogarithmicEqualizationModifierPyTorch,
 )
 from tests.sparseml.pytorch.helpers import LinearNet
-from tests.testing_utils import requires_torch
 
 
 @pytest.mark.unit
-@requires_torch
 class TestLogEqualizationMapping(unittest.TestCase):
     def setUp(self):
         self.model = ModifiableModel(framework=Framework.pytorch, model=LinearNet())

@@ -24,11 +24,9 @@ from sparseml.modifiers.logarithmic_equalization.base import (
 )
 from sparseml.modifiers.smoothquant.base import SmoothQuantModifier
 from tests.sparseml.modifiers.conf import setup_modifier_factory
-from tests.testing_utils import requires_torch
 
 
 @pytest.mark.unit
-@requires_torch
 class TestLogarithmicEqualizationIsRegistered(unittest.TestCase):
     def setUp(self):
         self.kwargs = dict(

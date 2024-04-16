@@ -21,11 +21,9 @@ from sparseml.core.factory import ModifierFactory
 from sparseml.core.framework import Framework
 from sparseml.modifiers.smoothquant.base import SmoothQuantModifier
 from tests.sparseml.modifiers.conf import setup_modifier_factory
-from tests.testing_utils import requires_torch
 
 
 @pytest.mark.unit
-@requires_torch
 class TestSmoothQuantIsRegistered(unittest.TestCase):
     def setUp(self):
         self.kwargs = dict(
