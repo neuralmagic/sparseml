@@ -18,20 +18,18 @@ context of SparseML
 """
 
 import logging
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 
 import torch
 from torch import nn
 from transformers.models.opt.modeling_opt import OPTAttention, OptFlashAttention2
 
-from sparseml.pytorch.utils.helpers import swap_modules
-from sparseml.transformers.sparsification.modification.modification_objects import (
+from sparseml.modifiers.quantization.modification.modification_objects import (
     QuantizableBatchMatmul,
     QuantizableIdentity,
 )
-from sparseml.transformers.sparsification.modification.registry import (
-    ModificationRegistry,
-)
+from sparseml.modifiers.quantization.modification.registry import ModificationRegistry
+from sparseml.pytorch.utils.helpers import swap_modules
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -41,24 +39,17 @@ _LOGGER = logging.getLogger(__name__)
 def modify(model: nn.Module) -> nn.Module:
     """
     Modify the OPT model to be compatible with SparseML
+    quantization
 
-    1. Replaces the OPTAttention modules with
-        OPTAttentionWithQuantizableMatmuls modules
-
-    Note: This function will not alter any of the alternatives
-    to the OPTAttention module such as OptFlashAttention2
+    Replaces the OPT attention modules with
+    OPTAttentionWithQuantizableMatmuls modules
 
     :param model: the original OPT model
     :return: the modified OPT model
     """
     for name, submodule in model.named_modules():
-        if type(submodule) is OPTAttention:
+        if isinstance(submodule, (OPTAttention, OptFlashAttention2)):
             swap_modules(model, name, OPTAttentionWithQuantizableMatmuls(submodule))
-        elif type(submodule) is OptFlashAttention2:
-            _LOGGER.debug(
-                f"The model contains {submodule.__class__.__name__} "
-                "module, which will not be modified"
-            )
     return model
 
 
@@ -88,15 +79,16 @@ class BMMOutput_PV(QuantizableIdentity):
 
 class OPTAttentionWithQuantizableMatmuls(OPTAttention):
     """
-    Wrapper around the original OPTAttention module to replace the
-    matmul operations with quantizable matmul operations
+    Wrapper around the original attention module to introduce
+    OPTAttention with quantizable matmul operations
 
-    :param opt_attention: the original OPTAttention module
+    :param opt_attention: the original attention module to be
+        wrapped and modified
     """
 
-    def __init__(self, opt_attention: OPTAttention):
+    def __init__(self, opt_attention: Union[OptFlashAttention2, OPTAttention]):
         self.__class__ = type(
-            opt_attention.__class__.__name__,
+            self.__class__.__name__,
             (self.__class__, opt_attention.__class__),
             {},
         )

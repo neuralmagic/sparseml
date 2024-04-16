@@ -20,6 +20,7 @@ from torch.nn import Module
 
 from sparseml.core import Event, EventType, State
 from sparseml.modifiers.quantization.base import QuantizationModifier
+from sparseml.modifiers.quantization.modification import modify_model
 from sparseml.modifiers.quantization.utils.helpers import (
     configure_module_bn_wrappers,
     freeze_bn_stats,
@@ -73,6 +74,9 @@ class QuantizationModifierPyTorch(QuantizationModifier):
 
     def on_initialize_structure(self, state: State, **kwargs):
         module = state.model.model
+        # before the structure is modified to support quantization,
+        # we need to potentially modify the model architecture
+        module = modify_model(module)
         self._enable_module_qat(module)
         state.model.model.apply(torch.quantization.disable_observer)
 

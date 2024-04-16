@@ -11,11 +11,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 # flake8: noqa
-from .modify_model import modify_model
-from .modifying_bert import *
-from .modifying_distilbert import *
-from .modifying_llama import *
-from .modifying_mistral import *
-from .modifying_mobilebert import *
-from .modifying_opt import *
+# isort:skip_file
+
+from .base import check_transformers_version
+
+check_transformers_version()
+
+from .modifying_bert import modify
+from .modifying_llama import modify
+from .modifying_mistral import modify
+from .modifying_distilbert import modify
+from .modifying_mobilebert import modify
+from .modifying_opt import modify

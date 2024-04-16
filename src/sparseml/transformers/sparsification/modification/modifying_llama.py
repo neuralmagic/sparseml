@@ -17,9 +17,8 @@ Modification to the original LLaMa model required in the
 context of SparseML
 """
 
-import logging
 import math
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 
 import torch
 import torch.nn.functional as F
@@ -33,45 +32,31 @@ from transformers.models.llama.modeling_llama import (
     repeat_kv,
 )
 
-from sparseml.pytorch.utils.helpers import swap_modules
-from sparseml.transformers.sparsification.modification.modification_objects import (
+from sparseml.modifiers.quantization.modification.modification_objects import (
     QuantizableIdentity,
     QuantizableMatMul,
 )
-from sparseml.transformers.sparsification.modification.registry import (
-    ModificationRegistry,
-)
-
-
-_LOGGER = logging.getLogger(__name__)
+from sparseml.modifiers.quantization.modification.registry import ModificationRegistry
+from sparseml.pytorch.utils.helpers import swap_modules
 
 
 @ModificationRegistry.register(name="LlamaModel", alias=["LlamaForCausalLM"])
 def modify(model: nn.Module) -> nn.Module:
     """
     Modify the LLaMa model to be compatible with SparseML
+    quantization
 
-    1. Replaces the LlamaAttention modules with
-        LlamaAttentionWithQuantizableMatmuls modules
-
-    Note: This function will not alter any of the alternatives
-    to the LlamaAttention module such as LlamaFlashAttention2
-    or LlamaSdpaAttention
+    Replaces the attention modules with
+    LlamaAttentionWithQuantizableMatmuls modules
 
     :param model: the original LLaMa model
     :return: the modified LLaMa model
     """
     for name, submodule in model.named_modules():
-        if type(submodule) is LlamaAttention:
-            swap_modules(model, name, LlamaAttentionWithQuantizableMatmuls(submodule))
-        elif (
-            type(submodule) is LlamaSdpaAttention
-            or type(submodule) is LlamaFlashAttention2
+        if isinstance(
+            submodule, (LlamaAttention, LlamaFlashAttention2, LlamaSdpaAttention)
         ):
-            _LOGGER.debug(
-                f"The model contains {submodule.__class__.__name__} "
-                "module, which will not be modified"
-            )
+            swap_modules(model, name, LlamaAttentionWithQuantizableMatmuls(submodule))
     return model
 
 
@@ -101,15 +86,21 @@ class MatMulOutput_PV(QuantizableIdentity):
 
 class LlamaAttentionWithQuantizableMatmuls(LlamaAttention):
     """
-    Wrapper around the original LlamaAttention module to replace the
-    matmul operations with quantizable matmul operations
+    Wrapper around the original attention module to introduce
+    LlamaAttention with quantizable matmul operations
 
-    :param llama_attention: the original LlamaAttention module
+    :param llama_attention: the original attention module to be
+        wrapped and modified
     """
 
-    def __init__(self, llama_attention: LlamaAttention):
+    def __init__(
+        self,
+        llama_attention: Union[
+            LlamaAttention, LlamaFlashAttention2, LlamaSdpaAttention
+        ],
+    ):
         self.__class__ = type(
-            llama_attention.__class__.__name__,
+            self.__class__.__name__,
             (self.__class__, llama_attention.__class__),
             {},
         )

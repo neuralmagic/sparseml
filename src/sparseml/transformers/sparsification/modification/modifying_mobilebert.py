@@ -22,13 +22,9 @@ import logging
 from torch import nn
 from transformers.models.mobilebert.modeling_mobilebert import MobileBertEmbeddings
 
+from sparseml.modifiers.quantization.modification.modification_objects import QATLinear
+from sparseml.modifiers.quantization.modification.registry import ModificationRegistry
 from sparseml.pytorch.utils.helpers import swap_modules
-from sparseml.transformers.sparsification.modification.modification_objects import (
-    QATLinear,
-)
-from sparseml.transformers.sparsification.modification.registry import (
-    ModificationRegistry,
-)
 
 
 _LOGGER = logging.getLogger(__name__)

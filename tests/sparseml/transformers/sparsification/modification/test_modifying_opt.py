@@ -14,10 +14,10 @@
 
 
 import pytest
-from transformers.models.opt.modeling_opt import OPTAttention
 
-from sparseml.pytorch.model_load.helpers import apply_recipe_structure_to_model
-from sparseml.transformers.sparsification.modification import modify_model
+from sparseml.transformers.sparsification.modification.modifying_opt import (
+    OPTAttentionWithQuantizableMatmuls,
+)
 
 
 @pytest.fixture
@@ -40,32 +40,21 @@ def opt_recipe():
             symmetric: False"""
 
 
-def test_modifying_opt(opt_model, shared_helper_functions):
-
+def test_modify_with_quantization_recipe(
+    opt_model, opt_recipe, shared_helper_functions
+):
     shared_helper_functions.check_model_modified(
         opt_model,
-        module_to_replace=OPTAttention,
-        func_to_validate_replacement=_is_opt_attention_modified,
+        recipe=opt_recipe,
+        modified_module=OPTAttentionWithQuantizableMatmuls,
     )
 
 
-def test_apply_recipe_fail(opt_recipe, opt_zoo_model):
-
-    with pytest.raises(Exception):
-        apply_recipe_structure_to_model(
-            model=opt_zoo_model, model_path=None, recipe_path=opt_recipe
-        )
-
-
-def test_apply_recipe(opt_recipe, opt_zoo_model):
-
-    apply_recipe_structure_to_model(
-        model=modify_model(opt_zoo_model), model_path=None, recipe_path=opt_recipe
+def test_modify_with_quantization_recipe_sparsezoo(
+    opt_zoo_model, opt_recipe, shared_helper_functions
+):
+    shared_helper_functions.check_model_modified(
+        opt_zoo_model,
+        recipe=opt_recipe,
+        modified_module=OPTAttentionWithQuantizableMatmuls,
     )
-    assert True
-
-
-def _is_opt_attention_modified(module):
-    # only the modified "OPTAttention"
-    # modules have the "attn_output_bmm" attribute
-    return hasattr(module, "attn_output_bmm")

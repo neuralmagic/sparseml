@@ -13,10 +13,10 @@
 # limitations under the License.
 
 import pytest
-from transformers.models.mistral.modeling_mistral import MistralAttention
 
-from sparseml.pytorch.model_load.helpers import apply_recipe_structure_to_model
-from sparseml.transformers.sparsification.modification import modify_model
+from sparseml.transformers.sparsification.modification.modifying_mistral import (
+    MistralAttentionWithQuantizableMatmuls,
+)
 
 
 @pytest.fixture
@@ -37,32 +37,21 @@ def mistral_recipe():
             symmetric: False"""
 
 
-def test_modifying_mistral(mistral_model, shared_helper_functions):
+def test_modify_with_quantization_recipe(
+    mistral_model, mistral_recipe, shared_helper_functions
+):
     shared_helper_functions.check_model_modified(
         mistral_model,
-        module_to_replace=MistralAttention,
-        func_to_validate_replacement=_is_mistral_attention_modified,
+        recipe=mistral_recipe,
+        modified_module=MistralAttentionWithQuantizableMatmuls,
     )
 
 
-def test_apply_recipe_fail(mistral_recipe, mistral_zoo_model):
-    with pytest.raises(Exception):
-        apply_recipe_structure_to_model(
-            model=mistral_zoo_model, model_path=None, recipe_path=mistral_recipe
-        )
-
-
-def test_apply_recipe(mistral_recipe, mistral_zoo_model):
-
-    apply_recipe_structure_to_model(
-        model=modify_model(mistral_zoo_model),
-        model_path=None,
-        recipe_path=mistral_recipe,
+def test_modify_with_quantization_recipe_sparsezoo(
+    mistral_zoo_model, mistral_recipe, shared_helper_functions
+):
+    shared_helper_functions.check_model_modified(
+        mistral_zoo_model,
+        recipe=mistral_recipe,
+        modified_module=MistralAttentionWithQuantizableMatmuls,
     )
-    assert True
-
-
-def _is_mistral_attention_modified(module):
-    # only the modified "MistralAttention"
-    # modules have the "attn_output_matmul" attribute
-    return hasattr(module, "attn_output_matmul")
