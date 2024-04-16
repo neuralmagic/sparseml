@@ -97,8 +97,8 @@ class TestOBCQCompletionGPU(unittest.TestCase):
             dataset=self.dataset,
             oneshot_device=self.device,
             recipe=self.recipe,
-            max_seq_length=128,
-            num_calibration_samples=32,
+            max_seq_length=512,
+            num_calibration_samples=512,
             pad_to_max_length=False,
             output_dir=self.output,
         )
