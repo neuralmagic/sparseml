@@ -18,8 +18,33 @@ import pytest
 from transformers import AutoConfig, AutoModel
 
 from accelerate import init_empty_weights
+from sparseml.modifiers.quantization.modification import modify_model
 from sparseml.pytorch.model_load.helpers import apply_recipe_structure_to_model
 from sparseml.transformers import SparseAutoConfig, SparseAutoModelForCausalLM
+
+
+@pytest.fixture
+def bert_model():
+    config = AutoConfig.from_pretrained("bert-base-uncased")
+    with init_empty_weights():
+        model = AutoModel.from_config(config)
+    return model
+
+
+@pytest.fixture
+def distilbert_model():
+    config = AutoConfig.from_pretrained("distilbert/distilbert-base-uncased")
+    with init_empty_weights():
+        model = AutoModel.from_config(config)
+    return model
+
+
+@pytest.fixture
+def mobilebert_model():
+    config = AutoConfig.from_pretrained("google/mobilebert-uncased")
+    with init_empty_weights():
+        model = AutoModel.from_config(config)
+    return model
 
 
 @pytest.fixture
@@ -80,7 +105,39 @@ def shared_helper_functions():
 
 class SharedHelperFunctions:
     @staticmethod
-    def check_model_modified(
+    def check_model_modified_non_causal(
+        original_model_, modified_module, num_modified_modules=None
+    ):
+
+        num_attn_blocks = original_model_.config.num_hidden_layers
+        num_modified_modules = num_modified_modules or num_attn_blocks
+        original_model = deepcopy(original_model_)
+        modified_model = modify_model(original_model_)
+
+        # make sure that the original model has 0 modified modules
+        # and that the modified model has N modified modules
+        # where N is the number of transformer's attention blocks
+        assert (
+            sum(
+                [
+                    module.__class__.__name__ == modified_module.__name__
+                    for module in modified_model.modules()
+                ]
+            )
+            == num_modified_modules
+        )
+        assert (
+            sum(
+                [
+                    module.__class__.__name__ == modified_module.__name__
+                    for module in original_model.modules()
+                ]
+            )
+            == 0
+        )
+
+    @staticmethod
+    def check_model_modified_causal(
         original_model_,
         modified_module,
         recipe,

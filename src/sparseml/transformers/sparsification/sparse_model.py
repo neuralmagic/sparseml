@@ -30,6 +30,7 @@ from transformers import (
 )
 from transformers.file_utils import WEIGHTS_NAME
 
+from sparseml.modifiers.quantization.modification import modify_model
 from sparseml.pytorch.model_load.helpers import (
     apply_recipe_structure_to_model,
     log_model_load,
@@ -140,6 +141,8 @@ class SparseAutoModel:
     Factory class for creating sparse models using transformers AutoModel classes
     """
 
+    from sparseml.modifiers.quantization.modification import modify_model
+
     @staticmethod
     def masked_language_modeling_from_pretrained(
         model_name_or_path: str,
@@ -171,6 +174,7 @@ class SparseAutoModel:
                 model_name_or_path,
                 **kwargs,
             )
+        model = modify_model(model)
         log_model_load(model, model_name_or_path, model_type, delayed)
 
         return model
@@ -235,6 +239,7 @@ class SparseAutoModel:
             model_name_or_path,
             **kwargs,
         )
+        model = modify_model(model)
         log_model_load(model, model_name_or_path, model_type, delayed)
 
         return model
@@ -297,6 +302,7 @@ class SparseAutoModel:
             model_name_or_path,
             **kwargs,
         )
+        model = modify_model(model)
         log_model_load(model, model_name_or_path, model_type, delayed)
 
         return model
@@ -394,6 +400,7 @@ class SparseAutoModel:
             model_name_or_path,
             **kwargs,
         )
+        model = modify_model(model)
         log_model_load(model, model_name_or_path, model_type, delayed)
 
         return model

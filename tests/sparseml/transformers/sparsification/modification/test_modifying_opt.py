@@ -43,7 +43,7 @@ def opt_recipe():
 def test_modify_with_quantization_recipe(
     opt_model, opt_recipe, shared_helper_functions
 ):
-    shared_helper_functions.check_model_modified(
+    shared_helper_functions.check_model_modified_causal(
         opt_model,
         recipe=opt_recipe,
         modified_module=OPTAttentionWithQuantizableMatmuls,
@@ -53,7 +53,7 @@ def test_modify_with_quantization_recipe(
 def test_modify_with_quantization_recipe_sparsezoo(
     opt_zoo_model, opt_recipe, shared_helper_functions
 ):
-    shared_helper_functions.check_model_modified(
+    shared_helper_functions.check_model_modified_causal(
         opt_zoo_model,
         recipe=opt_recipe,
         modified_module=OPTAttentionWithQuantizableMatmuls,

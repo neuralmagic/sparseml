@@ -18,11 +18,6 @@
 # the modification module that adds modifications
 # for transformers models to enable quantization
 
-# check if the transformers version is correct
-from .base import check_transformers_version
-
-check_transformers_version()
-
 # import all the modification functions for the different models
 from .modifying_bert import modify
 from .modifying_llama import modify

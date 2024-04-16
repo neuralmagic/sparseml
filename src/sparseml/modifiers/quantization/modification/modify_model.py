@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import logging
+import os
 
 from sparseml.modifiers.quantization.modification.registry import ModificationRegistry
 
@@ -20,7 +21,9 @@ from sparseml.modifiers.quantization.modification.registry import ModificationRe
 _LOGGER = logging.getLogger(__name__)
 
 
-def modify_model(model: "torch.nn.Module") -> "torch.nn.Module":  # noqa: F821
+def modify_model(
+    model: "torch.nn.Module", disable: bool = False  # noqa: F821
+) -> "torch.nn.Module":  # noqa: F821
     """
     Modify the original model so that it is
     compatible with the quantization format required by the
@@ -31,10 +34,14 @@ def modify_model(model: "torch.nn.Module") -> "torch.nn.Module":  # noqa: F821
     Otherwise, the original model will be returned.
 
     :param model: The original model to be modified
+    :param disable: If True, the modification will be disabled
     :return: The potentially modified model to support
         SparseML quantization
     """
     model_name = model.__class__.__name__
+    NM_DISABLE_QUANTIZATION_MODIFICATION = os.environ.get(
+        "NM_DISABLE_QUANTIZATION_MODIFICATION", "False"
+    ).lower() in ["true", "1"]
 
     try:
         modification_func = ModificationRegistry.get_value_from_registry(model_name)
@@ -43,6 +50,20 @@ def modify_model(model: "torch.nn.Module") -> "torch.nn.Module":  # noqa: F821
             f"No modification function found for the model {model_name}. "
             "Returning the original model. Available modification functions"
             f"are available for models: {ModificationRegistry.registered_names()}"
+        )
+        return model
+
+    if NM_DISABLE_QUANTIZATION_MODIFICATION:
+        _LOGGER.debug(
+            "Application of the modification function to model "
+            "disabled through the environment variable."
+        )
+        return model
+
+    if disable:
+        _LOGGER.debug(
+            "Application of the modification function for to model "
+            "disabled through the `disable` argument."
         )
         return model
 

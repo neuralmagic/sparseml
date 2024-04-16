@@ -17,7 +17,6 @@ Modification to the original DistilBert model required in the
 context of SparseML quantization
 """
 
-import logging
 import math
 from typing import Optional, Tuple
 
@@ -31,9 +30,9 @@ from transformers.models.distilbert.modeling_distilbert import (
 from sparseml.modifiers.quantization.modification.modification_objects import QATMatMul
 from sparseml.modifiers.quantization.modification.registry import ModificationRegistry
 from sparseml.pytorch.utils.helpers import swap_modules
-
-
-_LOGGER = logging.getLogger(__name__)
+from sparseml.transformers.sparsification.modification.base import (
+    check_transformers_version,
+)
 
 
 @ModificationRegistry.register(name="DistilBertModel")
@@ -48,6 +47,7 @@ def modify(model: nn.Module) -> nn.Module:
     :param model: the original DistilBert model
     :return: the modified DistilBert model
     """
+    check_transformers_version()
     for name, submodule in model.named_modules():
         if isinstance(
             submodule, (MultiHeadSelfAttention, DistilBertFlashAttention2)

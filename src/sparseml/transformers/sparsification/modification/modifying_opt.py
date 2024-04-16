@@ -17,7 +17,6 @@ Modification to the original OPT model required in the
 context of SparseML quantization
 """
 
-import logging
 from typing import Optional, Tuple, Union
 
 import torch
@@ -30,9 +29,9 @@ from sparseml.modifiers.quantization.modification.modification_objects import (
 )
 from sparseml.modifiers.quantization.modification.registry import ModificationRegistry
 from sparseml.pytorch.utils.helpers import swap_modules
-
-
-_LOGGER = logging.getLogger(__name__)
+from sparseml.transformers.sparsification.modification.base import (
+    check_transformers_version,
+)
 
 
 @ModificationRegistry.register(name="OPTModel", alias=["OPTForCausalLM"])
@@ -47,6 +46,7 @@ def modify(model: nn.Module) -> nn.Module:
     :param model: the original OPT model
     :return: the modified OPT model
     """
+    check_transformers_version()
     for name, submodule in model.named_modules():
         if isinstance(submodule, (OPTAttention, OptFlashAttention2)) and not isinstance(
             submodule, OPTAttentionWithQuantizableMatmuls

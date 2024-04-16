@@ -42,7 +42,7 @@ def llama_recipe():
 def test_modify_with_quantization_recipe(
     llama_model, llama_recipe, shared_helper_functions
 ):
-    shared_helper_functions.check_model_modified(
+    shared_helper_functions.check_model_modified_causal(
         llama_model,
         recipe=llama_recipe,
         modified_module=LlamaAttentionWithQuantizableMatmuls,
@@ -53,7 +53,7 @@ def test_modify_with_quantization_recipe_sparsezoo(
     llama_zoo_model, llama_recipe, shared_helper_functions
 ):
     # TODO: Improve that
-    shared_helper_functions.check_model_modified(
+    shared_helper_functions.check_model_modified_causal(
         llama_zoo_model,
         recipe=llama_recipe,
         modified_module=LlamaAttentionWithQuantizableMatmuls,

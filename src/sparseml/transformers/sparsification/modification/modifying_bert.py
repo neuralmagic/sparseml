@@ -28,6 +28,9 @@ from transformers.models.bert.modeling_bert import BertSelfAttention
 from sparseml.modifiers.quantization.modification.modification_objects import QATMatMul
 from sparseml.modifiers.quantization.modification.registry import ModificationRegistry
 from sparseml.pytorch.utils.helpers import swap_modules
+from sparseml.transformers.sparsification.modification.base import (
+    check_transformers_version,
+)
 
 
 @ModificationRegistry.register(name="BertModel", alias=["BertForQuestionAnswering"])
@@ -41,6 +44,7 @@ def modify(model: nn.Module) -> nn.Module:
     :param model: the original Bert model
     :return: the modified Bert model
     """
+    check_transformers_version()
     for name, submodule in model.named_modules():
         if isinstance(submodule, BertSelfAttention) and not isinstance(
             submodule, BertSelfAttentionWithQuantizableMatmuls

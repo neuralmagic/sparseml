@@ -40,7 +40,7 @@ def mistral_recipe():
 def test_modify_with_quantization_recipe(
     mistral_model, mistral_recipe, shared_helper_functions
 ):
-    shared_helper_functions.check_model_modified(
+    shared_helper_functions.check_model_modified_causal(
         mistral_model,
         recipe=mistral_recipe,
         modified_module=MistralAttentionWithQuantizableMatmuls,
@@ -50,7 +50,7 @@ def test_modify_with_quantization_recipe(
 def test_modify_with_quantization_recipe_sparsezoo(
     mistral_zoo_model, mistral_recipe, shared_helper_functions
 ):
-    shared_helper_functions.check_model_modified(
+    shared_helper_functions.check_model_modified_causal(
         mistral_zoo_model,
         recipe=mistral_recipe,
         modified_module=MistralAttentionWithQuantizableMatmuls,

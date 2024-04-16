@@ -38,6 +38,9 @@ from sparseml.modifiers.quantization.modification.modification_objects import (
 )
 from sparseml.modifiers.quantization.modification.registry import ModificationRegistry
 from sparseml.pytorch.utils.helpers import swap_modules
+from sparseml.transformers.sparsification.modification.base import (
+    check_transformers_version,
+)
 
 
 @ModificationRegistry.register(name="LlamaModel", alias=["LlamaForCausalLM"])
@@ -52,6 +55,7 @@ def modify(model: nn.Module) -> nn.Module:
     :param model: the original LLaMa model
     :return: the modified LLaMa model
     """
+    check_transformers_version()
     for name, submodule in model.named_modules():
         if isinstance(
             submodule, (LlamaAttention, LlamaFlashAttention2, LlamaSdpaAttention)

@@ -66,3 +66,27 @@ def test_modify_model(model, test_registry):
     is_modified = copy(model.modified)
     model = modify_model(model)
     assert model.modified != is_modified
+
+
+def test_disable_modify_model_through_argument(model, test_registry):
+    @test_registry.register(name="DummyModel")
+    def dummy_modification(model):
+        model.modified = True
+        return model
+
+    is_modified = copy(model.modified)
+    model = modify_model(model, disable=True)
+    assert model.modified == is_modified == False  # noqa E712
+
+
+def test_disable_modify_model_through_env_var(monkeypatch, model, test_registry):
+    @test_registry.register(name="DummyModel")
+    def dummy_modification(model):
+        model.modified = True
+        return model
+
+    is_modified = copy(model.modified)
+    monkeypatch.setenv("NM_DISABLE_QUANTIZATION_MODIFICATION", "1")
+    model = modify_model(model)
+    assert model.modified == is_modified == False  # noqa E712
+    monkeypatch.undo()
