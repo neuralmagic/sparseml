@@ -31,7 +31,7 @@ def test_oneshot_and_finetune(tmp_path: Path):
 
     # clearML will automatically log default capturing entries without
     # explicitly calling logger. Logs accessible in https://app.clear.ml/
-    Task.init(project_name="test", task_name="test_oneshot_and_finetune")
+    # Task.init(project_name="test", task_name="test_oneshot_and_finetune")
 
     apply(
         model=model,
