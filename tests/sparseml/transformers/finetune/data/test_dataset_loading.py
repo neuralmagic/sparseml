@@ -311,9 +311,7 @@ class TestSplitLoading(unittest.TestCase):
         training_args = TrainingArguments(do_train=True, output_dir="dummy")
         model_args = ModelArguments(model=None)
         stage_runner = StageRunner(
-            model_args=model_args,
-            data_args=data_args,
-            training_args=training_args
+            model_args=model_args, data_args=data_args, training_args=training_args
         )
         stage_runner.populate_datasets(tokenizer=self.tiny_llama_tokenizer)
 
