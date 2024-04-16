@@ -15,16 +15,15 @@
 import logging
 from typing import Any
 
-import torch
 from torch.nn import Module
 
 from sparseml.core import Event, EventType, State
 from sparseml.modifiers.quantization_vllm.base import vLLMQuantizationModifier
 from sparseml.modifiers.utils.pytorch_helpers import run_calibration_forward
 from sparsetensors.quantization import (
-    QuantizationStatus,
     apply_quantization_config,
-    apply_quantization_status,
+    freeze_module_quantization,
+    set_module_for_calibration,
 )
 
 
@@ -52,7 +51,7 @@ class vLLMQuantizationModifierPyTorch(vLLMQuantizationModifier):
     def on_initialize_structure(self, state: State, **kwargs):
         module = state.model.model
         self._apply_modifier_to_model(module)
-        apply_quantization_status(module, QuantizationStatus.FROZEN)
+        module.apply(freeze_module_quantization)
 
     def on_initialize(self, state: State, **kwargs) -> bool:
         if self.end and self.end != -1:
@@ -68,32 +67,33 @@ class vLLMQuantizationModifierPyTorch(vLLMQuantizationModifier):
         self._apply_modifier_to_model(module)
 
         if self.calculate_start() == -1:  # one-shot
-            apply_quantization_status(module, QuantizationStatus.CALIBRATION)
+            module.apply(set_module_for_calibration)
             self._calibrate_if_possible(module)
-            apply_quantization_status(module, QuantizationStatus.FROZEN)
+            module.apply(freeze_module_quantization)
 
         return True
 
     def on_finalize(self, state: State, **kwargs) -> bool:
+        module = state.model.model
         if self.post_oneshot_calibration:
-            state.model.model.apply(torch.quantization.enable_observer)
-            self._calibrate_if_possible(state.model.model)
-        self._disable_quantization_observer(state.model.model)
+            module.apply(set_module_for_calibration)
+            self._calibrate_if_possible(module)
+        module.apply(freeze_module_quantization)
         return True
 
     def on_start(self, state: State, event: Event, **kwargs):
         module = state.model.model
-        apply_quantization_status(module, QuantizationStatus.CALIBRATION)
+        module.apply(set_module_for_calibration)
 
     def on_update(self, state: State, event: Event, **kwargs):
         if event.type_ == EventType.BATCH_START:
             if self.check_should_disable_observer(event):
                 module = state.model.model
-                apply_quantization_status(module, QuantizationStatus.FROZEN)
+                module.apply(freeze_module_quantization)
 
     def on_end(self, state: State, event: Event, **kwargs):
         module = state.model.model
-        apply_quantization_status(module, QuantizationStatus.FROZEN)
+        module.apply(freeze_module_quantization)
 
     def on_event(self, state: State, event: Event, **kwargs):
         pass
