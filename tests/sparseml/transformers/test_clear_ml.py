@@ -14,6 +14,8 @@
 
 from pathlib import Path
 
+import torch
+
 from clearml import Task
 from sparseml.transformers import apply
 
@@ -21,6 +23,9 @@ from sparseml.transformers import apply
 def test_oneshot_and_finetune(tmp_path: Path):
     recipe_str = "tests/sparseml/transformers/finetune/test_alternate_recipe.yaml"
     model = "Xenova/llama2.c-stories15M"
+    device = "cuda:0"
+    if not torch.cuda.is_available():
+        device = "cpu"
     dataset = "wikitext"
     dataset_config_name = "wikitext-2-raw-v1"
     concatenate_data = True
@@ -31,7 +36,7 @@ def test_oneshot_and_finetune(tmp_path: Path):
 
     # clearML will automatically log default capturing entries without
     # explicitly calling logger. Logs accessible in https://app.clear.ml/
-    # Task.init(project_name="test", task_name="test_oneshot_and_finetune")
+    Task.init(project_name="test", task_name="test_oneshot_and_finetune")
 
     apply(
         model=model,
@@ -43,4 +48,5 @@ def test_oneshot_and_finetune(tmp_path: Path):
         max_steps=max_steps,
         concatenate_data=concatenate_data,
         splits=splits,
+        oneshot_device=device,
     )
