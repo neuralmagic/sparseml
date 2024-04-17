@@ -14,6 +14,7 @@ def old_quant_linear():
         quant_modifiers:
             QuantizationModifier:
                 ignore:
+                    - model.layers.0.mlp.down_proj
                     - LlamaRotaryEmbedding
                     - LlamaRMSNorm
                     - SiLU
@@ -23,9 +24,18 @@ def old_quant_linear():
                     - MatMulLeftInput_PV
                     - MatMulRightInput_PV
                     - MatMulOutput_PV
-                    - Embedding
                 scheme_overrides:
                     Linear:
+                        weights:
+                            num_bits: 8
+                            symmetric: true
+                            strategy: "tensor"
+                        input_activations:
+                            num_bits: 8
+                            symmetric: false
+                            strategy: "tensor"
+                        output_activations: null
+                    Embedding:
                         weights:
                             num_bits: 8
                             symmetric: true
@@ -39,7 +49,7 @@ def new_quant_linear():
     test_stage:
         quant_modifiers:
             vLLMQuantizationModifier:
-                ignore: []
+                ignore: ["model.layers.0.mlp.down_proj"]
                 config_groups:
                     group_0:
                         weights:
@@ -47,9 +57,22 @@ def new_quant_linear():
                             type: "int"
                             symmetric: true
                             strategy: "tensor"
-                        input_activations: null
+                        input_activations:
+                            num_bits: 8
+                            type: "int"
+                            symmetric: false
+                            strategy: "tensor"
                         output_activations: null
                         targets: ["Linear"]
+                    group_1:
+                        weights:
+                            num_bits: 8
+                            type: "int"
+                            symmetric: true
+                            strategy: "tensor"
+                        input_activations: null
+                        output_activations: null
+                        targets: ["Embedding"]
     """
 
 def labeled_dataloader(dataset_name, model_name):
@@ -75,7 +98,7 @@ def labeled_dataloader(dataset_name, model_name):
     return data_loader
 
 def run_oneshot(model, recipe, dataset):
-    num_calibration_samples = 8
+    num_calibration_samples = 512
     max_seq_length = 512
     pad_to_max_length = False
 
@@ -115,10 +138,12 @@ def test_quantization_eval():
 
     assert old_quant_count == new_quant_count
     for name, (o_scale, o_zp) in old_info.items():
+        if name.endswith(".module"):
+            name = name[:-7]
         n_scale, n_zp = new_info[name]
-        if not math.isclose(o_scale, n_scale, abs_tol=1e-4, rel_tol=1e-4):
+        if not math.isclose(o_scale, n_scale, abs_tol=1e-3, rel_tol=1e-3):
             print(f"mismatch {name} {o_scale} {n_scale}")
-        if not math.isclose(o_zp, n_zp, rel_tol=1e-3):
+        if not o_zp == n_zp:
             print(f"mismatch {name} {o_zp} {n_zp}")
 
     dataloader = labeled_dataloader(dataset, model_stub)
@@ -126,7 +151,7 @@ def test_quantization_eval():
     total_new_ppl = 0.0
     for idx, sample in enumerate(dataloader):
         if idx >= num_comparisons:
-            return
+            break
         old_output = model_old(**(tensors_to_device(sample, "cuda:0")))
         new_output = model_new(**(tensors_to_device(sample, "cuda:1")))
         old_ppl = torch.exp(old_output.loss)
@@ -134,10 +159,6 @@ def test_quantization_eval():
         print(f"Perplexity: new {new_ppl} old {old_ppl}")
         total_old_ppl += old_ppl
         total_new_ppl += new_ppl
-        del old_output
-        del new_output
-        torch.cuda.empty_cache()
-
 
     avg_new_ppl = total_new_ppl / num_comparisons
     avg_old_ppl = total_old_ppl / num_comparisons
