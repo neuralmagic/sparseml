@@ -21,9 +21,9 @@ from transformers import AutoConfig
 
 import sparseml.core.session as session_manager
 from sparseml.transformers import SparseAutoModelForCausalLM, oneshot
-from sparseml.transformers.compression import SparsityConfigMetadata
-from sparseml.transformers.utils.helpers import SPARSITY_CONFIG_NAME
-from sparsetensors.config import BitmaskConfig, DenseSparsityConfig
+
+
+# TODO: additional dependencies on compressed-tensors
 
 
 @pytest.mark.parametrize(

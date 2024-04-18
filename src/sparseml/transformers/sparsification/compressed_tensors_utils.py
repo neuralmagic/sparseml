@@ -20,11 +20,8 @@ from functools import wraps
 from typing import Optional
 
 from transformers import PreTrainedModel
-from transformers.file_utils import CONFIG_NAME
-
-from sparseml.transformers.compression.sparsity_config import SparsityConfigMetadata
 from sparseml.utils.pytorch import qat_active
-from sparsetensors import SPARSITY_CONFIG_NAME, CompressionConfig, ModelCompressor
+# TODO: additional dependencies on compressed-tensors
 
 
 _LOGGER = logging.getLogger(__name__)

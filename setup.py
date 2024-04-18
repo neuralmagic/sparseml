@@ -55,10 +55,12 @@ _deps = [
     "GPUtil>=1.4.0",
     "protobuf>=3.12.2,<=3.20.3",
     "click>=7.1.2,!=8.0.0",  # latest version < 8.0 + blocked version with reported bug
-    "sparsetensors @ git+ssh://git@github.com/neuralmagic/sparsetensors.git",
     "clearml==1.14.4",
 ]
-_nm_deps = [f"{'sparsezoo' if is_release else 'sparsezoo-nightly'}~={version_nm_deps}"]
+_nm_deps = [
+    f"{'sparsezoo' if is_release else 'sparsezoo-nightly'}~={version_nm_deps}",
+    f"{'compressed-tensors' if is_release else 'compress-tensors-nightly'}~={version_nm_deps}",
+]
 _deepsparse_deps = [
     f"{'deepsparse' if is_release else 'deepsparse-nightly'}~={version_nm_deps}"
 ]

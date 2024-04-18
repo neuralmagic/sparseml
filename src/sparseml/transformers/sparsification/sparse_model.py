@@ -34,11 +34,14 @@ from sparseml.pytorch.model_load.helpers import (
     apply_recipe_structure_to_model,
     log_model_load,
 )
-from sparseml.transformers.compression import modify_save_pretrained
+from sparseml.transformers.sparsification.compressed_tensors_utils import (
+    modify_save_pretrained,
+)
 from sparseml.transformers.sparsification.modification import modify_model
 from sparseml.transformers.utils.helpers import download_model_directory, resolve_recipe
-from sparsetensors import get_safetensors_folder
-from sparsetensors.utils import infer_compressor_from_model_config
+
+
+# TODO: additional dependencies on compressed-tensors
 
 
 __all__ = ["SparseAutoModel", "SparseAutoModelForCausalLM", "get_shared_tokenizer_src"]
