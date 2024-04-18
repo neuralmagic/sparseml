@@ -141,7 +141,7 @@ def test_oneshot_then_finetune(tmp_path: Path):
     )
 
 
-def test_finetune_wout_recipe(tmp_path: Path):
+def test_finetune_without_recipe(tmp_path: Path):
     recipe_str = None
     model = "Xenova/llama2.c-stories15M"
     device = "cuda:0"
