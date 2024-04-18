@@ -18,8 +18,8 @@ from torch import Tensor
 from torch.nn import Module
 
 import sparseml.core.session as session_manager
+from compressed_tensors import CompressionConfig
 from sparseml.pytorch.utils import ModuleSparsificationInfo
-from sparsetensors import CompressionConfig
 
 
 class SparsityConfigMetadata:

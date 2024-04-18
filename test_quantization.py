@@ -5,7 +5,7 @@ from sparseml.transformers.finetune.data import TextGenerationDataset
 from torch.utils.data import DataLoader
 from transformers import DefaultDataCollator, AutoModelForCausalLM
 from sparseml.pytorch.utils import tensors_to_device
-from sparsetensors.quantization.utils import is_module_quantized
+from compressed_tensors.quantization.utils import is_module_quantized
 import math 
 
 def old_quant_linear():

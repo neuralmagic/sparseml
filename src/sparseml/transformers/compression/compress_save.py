@@ -22,15 +22,15 @@ from typing import Optional
 from transformers import PreTrainedModel
 from transformers.file_utils import CONFIG_NAME
 
-from sparseml.transformers.compression.sparsity_config import SparsityConfigMetadata
-from sparseml.utils.pytorch import qat_active
-from sparsetensors import (
+from compressed_tensors import (
     SPARSITY_CONFIG_NAME,
     CompressionConfig,
     ModelCompressor,
     QuantizationConfig,
 )
-from sparsetensors.quantization.utils import is_model_quantized
+from compressed_tensors.quantization.utils import is_model_quantized
+from sparseml.transformers.compression.sparsity_config import SparsityConfigMetadata
+from sparseml.utils.pytorch import qat_active
 
 
 _LOGGER = logging.getLogger(__name__)

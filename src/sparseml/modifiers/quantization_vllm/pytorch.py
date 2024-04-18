@@ -17,14 +17,14 @@ from typing import Any
 
 from torch.nn import Module
 
-from sparseml.core import Event, EventType, State
-from sparseml.modifiers.quantization_vllm.base import vLLMQuantizationModifier
-from sparseml.modifiers.utils.pytorch_helpers import run_calibration_forward
-from sparsetensors.quantization import (
+from compressed_tensors.quantization import (
     apply_quantization_config,
     freeze_module_quantization,
     set_module_for_calibration,
 )
+from sparseml.core import Event, EventType, State
+from sparseml.modifiers.quantization_vllm.base import vLLMQuantizationModifier
+from sparseml.modifiers.utils.pytorch_helpers import run_calibration_forward
 
 
 _LOGGER = logging.getLogger(__name__)

@@ -16,12 +16,12 @@ from typing import Dict, List, Optional
 
 from pydantic import Field
 
-from sparseml.core import Event, Modifier
-from sparsetensors.quantization import (
+from compressed_tensors.quantization import (
     QuantizationConfig,
     QuantizationScheme,
     QuantizationStatus,
 )
+from sparseml.core import Event, Modifier
 
 
 __all__ = ["vLLMQuantizationModifier"]
