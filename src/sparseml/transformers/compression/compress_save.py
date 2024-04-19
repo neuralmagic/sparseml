@@ -23,6 +23,7 @@ from transformers import PreTrainedModel
 from transformers.file_utils import CONFIG_NAME
 
 from compressed_tensors import (
+    QUANTIZATION_CONFIG_NAME,
     SPARSITY_CONFIG_NAME,
     CompressionConfig,
     ModelCompressor,
@@ -101,7 +102,7 @@ def modify_save_pretrained(model: PreTrainedModel):
                     # add the sparsity config to the model's config file
                     with open(config_file_path, "r") as config_file:
                         config_data = json.load(config_file)
-                    config_data["quantization_config"] = quant_config_data
+                    config_data[QUANTIZATION_CONFIG_NAME] = quant_config_data
                     with open(config_file_path, "w") as config_file:
                         json.dump(config_data, config_file, indent=2, sort_keys=True)
 
