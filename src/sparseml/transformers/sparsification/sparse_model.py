@@ -30,8 +30,12 @@ from transformers import (
 )
 from transformers.file_utils import WEIGHTS_NAME
 
-from compressed_tensors import get_safetensors_folder
-from compressed_tensors.utils import infer_compressor_from_model_config
+from compressed_tensors.compressors import infer_compressor_from_model_config
+from compressed_tensors.quantization import (
+    QuantizationConfig,
+    apply_quantization_config,
+    apply_state_dict,
+)
 from sparseml.pytorch.model_load.helpers import (
     apply_recipe_structure_to_model,
     log_model_load,
@@ -103,6 +107,9 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
 
         # determine compression format, if any, from the model config
         compressor = infer_compressor_from_model_config(pretrained_model_name_or_path)
+        quantization_config = QuantizationConfig.from_model_config(
+            pretrained_model_name_or_path
+        )
 
         # temporarily set the log level to error, to ignore printing out long missing
         # and unexpected key error messages (these are EXPECTED for quantized models)
@@ -119,21 +126,26 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
 
         # If model is compressed on disk, decompress and load the weights
         if compressor is not None:
-            # if we loaded from a HF stub, find the cached model
-            model_path = get_safetensors_folder(
-                pretrained_model_name_or_path, cache_dir=kwargs.get("cache_dir", None)
-            )
-
             # decompress weights
-            compressor.overwrite_weights(model_path=model_path, model=model)
-
-        recipe = resolve_recipe(recipe=recipe, model_path=pretrained_model_name_or_path)
-        if recipe:
-            apply_recipe_structure_to_model(
-                model=model,
-                model_path=pretrained_model_name_or_path,
-                recipe_path=recipe,
+            compressor.overwrite_weights(
+                model_path=pretrained_model_name_or_path, model=model
             )
+
+        if quantization_config is not None:
+            # if we loaded from a HF stub, find the cached model
+            apply_quantization_config(model, quantization_config)
+            apply_state_dict(model, pretrained_model_name_or_path)
+        else:
+            recipe = resolve_recipe(
+                recipe=recipe, model_path=pretrained_model_name_or_path
+            )
+            if recipe:
+                apply_recipe_structure_to_model(
+                    model=model,
+                    model_path=pretrained_model_name_or_path,
+                    recipe_path=recipe,
+                )
+
         return model
 
 
