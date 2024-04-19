@@ -15,7 +15,7 @@
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from pydantic import Field, root_validator
+from pydantic import model_validator, Field
 
 from sparseml.core.framework import Framework
 from sparseml.core.modifier import StageModifiers
@@ -139,7 +139,8 @@ class RecipeStage(RecipeBase):
 
         return stage_modifiers
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def remap_modifiers(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         modifiers = RecipeStage.extract_dict_modifiers(values)
         values["modifiers"] = modifiers

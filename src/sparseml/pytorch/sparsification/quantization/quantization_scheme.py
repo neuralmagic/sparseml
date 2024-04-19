@@ -21,7 +21,7 @@ from typing import Any, Dict, Optional, Union
 
 import torch
 from packaging import version
-from pydantic import BaseModel, Field, validator
+from pydantic import field_validator, BaseModel, Field
 from torch.nn import Identity
 
 
@@ -119,7 +119,8 @@ class QuantizationArgs(BaseModel):
             qconfig_kwargs=self.kwargs,
         )
 
-    @validator("strategy")
+    @field_validator("strategy")
+    @classmethod
     def validate_strategy(cls, value):
         valid_scopes = ["tensor", "channel"]
         if value not in valid_scopes:

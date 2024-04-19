@@ -14,7 +14,7 @@
 
 from typing import Any, Dict, Optional
 
-from pydantic import root_validator
+from pydantic import model_validator
 
 from sparseml.core.factory import ModifierFactory
 from sparseml.core.framework import Framework
@@ -99,7 +99,8 @@ class RecipeModifier(RecipeBase):
             **self.args_evaluated,
         )
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def extract_modifier_type(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         modifier = {"group": values.pop("group")}
         assert len(values) == 1, "multiple key pairs found for modifier"

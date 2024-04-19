@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
 
 import yaml
-from pydantic import Field, root_validator
+from pydantic import model_validator, Field
 
 from sparseml.core.framework import Framework
 from sparseml.core.modifier import StageModifiers
@@ -391,7 +391,8 @@ class Recipe(RecipeBase):
 
         return modifiers
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def remap_stages(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         stages = []
 
